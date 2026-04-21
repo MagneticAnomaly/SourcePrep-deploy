@@ -1,4 +1,4 @@
-# CoDRAG Troubleshooting Guide
+# Prep Troubleshooting Guide
 
 Quick solutions for common issues.
 
@@ -24,7 +24,7 @@ curl http://localhost:11434/api/tags
 
 # If using non-default URL
 export OLLAMA_HOST="http://localhost:11434"
-codrag serve
+prep serve
 ```
 
 ### Daemon Not Running
@@ -37,7 +37,7 @@ Connection refused
 **Solutions:**
 ```bash
 # Start the daemon
-codrag serve
+prep serve
 
 # Check health
 curl http://127.0.0.1:8400/health
@@ -56,7 +56,7 @@ Error: INDEX_NOT_BUILT
 
 **Solution:**
 ```bash
-codrag build
+prep build
 ```
 
 ### Build Failed
@@ -67,7 +67,7 @@ Error: BUILD_FAILED
 
 **Check logs for details:**
 ```bash
-codrag status --verbose
+prep status --verbose
 ```
 
 **Common causes:**
@@ -78,10 +78,10 @@ codrag status --verbose
 **Solutions:**
 ```bash
 # Check what files would be indexed
-codrag coverage
+prep coverage
 
 # Verify include patterns
-codrag config get include_globs
+prep config get include_globs
 
 # Pull missing model
 ollama pull nomic-embed-text
@@ -92,17 +92,17 @@ ollama pull nomic-embed-text
 **Solutions:**
 1. Exclude large/generated files:
    ```bash
-   codrag config set exclude_globs '["**/node_modules/**", "**/dist/**", "**/*.min.js"]'
+   prep config set exclude_globs '["**/node_modules/**", "**/dist/**", "**/*.min.js"]'
    ```
 
 2. Reduce max file size:
    ```bash
-   codrag config set max_file_bytes 200000
+   prep config set max_file_bytes 200000
    ```
 
 3. Use selective roots:
    ```bash
-   codrag build --roots src,lib
+   prep build --roots src,lib
    ```
 
 ### Index Corruption
@@ -111,7 +111,7 @@ ollama pull nomic-embed-text
 
 **Solution:** Force full rebuild:
 ```bash
-codrag build --full
+prep build --full
 ```
 
 ## Search Issues
@@ -126,13 +126,13 @@ codrag build --full
 **Solutions:**
 ```bash
 # Lower threshold
-codrag search "query" --min-score 0.0
+prep search "query" --min-score 0.0
 
 # Check what's indexed
-codrag status
+prep status
 
 # Verify file is included
-codrag coverage --file src/myfile.py
+prep coverage --file src/myfile.py
 ```
 
 ### Poor Results
@@ -150,7 +150,7 @@ Error: INDEX_NOT_BUILT
 
 **Solution:** Build the index first:
 ```bash
-codrag build
+prep build
 ```
 
 ## Project Issues
@@ -164,13 +164,13 @@ Error: PROJECT_NOT_FOUND
 **Solutions:**
 ```bash
 # List registered projects
-codrag list
+prep list
 
 # Add project
-codrag add /path/to/repo
+prep add /path/to/repo
 
 # Check project ID
-codrag list --verbose
+prep list --verbose
 ```
 
 ### Project Already Exists
@@ -182,10 +182,10 @@ Error: PROJECT_ALREADY_EXISTS
 **Solutions:**
 ```bash
 # Remove existing
-codrag remove <project_id>
+prep remove <project_id>
 
 # Or update instead
-codrag update <project_id> --name "New Name"
+prep update <project_id> --name "New Name"
 ```
 
 ### Project Path Missing
@@ -199,10 +199,10 @@ The project's directory no longer exists.
 **Solutions:**
 ```bash
 # Remove stale project
-codrag remove <project_id>
+prep remove <project_id>
 
 # Or update path
-codrag update <project_id> --path /new/path
+prep update <project_id> --path /new/path
 ```
 
 ## MCP Issues
@@ -211,13 +211,13 @@ codrag update <project_id> --path /new/path
 
 **Check:**
 1. Config file path is correct
-2. `codrag` is in PATH
+2. `prep` is in PATH
 3. Daemon is running
 
 **Debug:**
 ```bash
 # Test MCP server directly
-codrag mcp --help
+prep mcp --help
 
 # Check daemon
 curl http://127.0.0.1:8400/health
@@ -232,14 +232,14 @@ Error: PROJECT_SELECTION_AMBIGUOUS
 **Solutions:**
 1. Set project explicitly:
    ```bash
-   export CODRAG_PROJECT_ID="proj_abc123"
+   export PREP_PROJECT_ID="proj_abc123"
    ```
 
 2. Or in MCP config:
    ```json
    {
      "env": {
-       "CODRAG_PROJECT_ID": "proj_abc123"
+       "PREP_PROJECT_ID": "proj_abc123"
      }
    }
    ```
@@ -272,8 +272,8 @@ Error: FILE_NOT_INCLUDED
 
 **Solution:** Update include patterns:
 ```bash
-codrag config set include_globs '["**/*.py", "**/*.your_ext"]'
-codrag build
+prep config set include_globs '["**/*.py", "**/*.your_ext"]'
+prep build
 ```
 
 ### File Excluded
@@ -284,10 +284,10 @@ Error: FILE_EXCLUDED
 
 **Solution:** Check exclude patterns:
 ```bash
-codrag config get exclude_globs
+prep config get exclude_globs
 
 # Remove pattern or add exception
-codrag config set exclude_globs '["**/node_modules/**"]'
+prep config set exclude_globs '["**/node_modules/**"]'
 ```
 
 ### File Too Large
@@ -299,12 +299,12 @@ Error: FILE_TOO_LARGE
 **Solutions:**
 1. Increase limit:
    ```bash
-   codrag config set max_file_bytes 500000
+   prep config set max_file_bytes 500000
    ```
 
 2. Or exclude the file:
    ```bash
-   codrag config set exclude_globs '["**/large_file.json"]'
+   prep config set exclude_globs '["**/large_file.json"]'
    ```
 
 ## Getting More Help
@@ -312,22 +312,22 @@ Error: FILE_TOO_LARGE
 ### Enable Debug Logging
 
 ```bash
-CODRAG_LOG_LEVEL=debug codrag serve
+PREP_LOG_LEVEL=debug prep serve
 ```
 
 ### Check Version
 
 ```bash
-codrag --version
+prep --version
 ```
 
 ### Report Issues
 
 Include in bug reports:
-- CoDRAG version
+- Prep version
 - Python version
 - Ollama version and model
 - Error message and stack trace
 - Minimal reproduction steps
 
-**GitHub Issues:** https://github.com/MagneticAnomaly/CoDRAG-MCP/issues
+**GitHub Issues:** https://github.com/MagneticAnomaly/Prep-MCP/issues

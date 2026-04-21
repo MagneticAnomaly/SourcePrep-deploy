@@ -1,4 +1,4 @@
-# CoDRAG Workflow Research (Cross-Phase)
+# Prep Workflow Research (Cross-Phase)
 
 This document defines:
 
@@ -73,7 +73,7 @@ It is intended to keep Phase01–Phase13 planning aligned around real user workf
 ### A0) Prospective adopter (evaluation + installation)
 
 - **Environment**: public docs/website, GitHub, word-of-mouth.
-- **Primary goal**: understand what CoDRAG does, trust the local-first posture, and successfully try it.
+- **Primary goal**: understand what Prep does, trust the local-first posture, and successfully try it.
 - **Primary risk**: unclear onboarding, unclear security posture, unclear “what is local vs remote”.
 
 ### A1) Solo developer (local-first)
@@ -128,12 +128,12 @@ This table is the “planning spine” for Phase01–Phase10. A phase is conside
 | Phase12 | A0-J1/J2 | Public docs, onboarding, positioning |
 | Phase13 | All journeys | UI consistency via design system + Storybook |
 
-### A0 Journey 1 — Evaluate CoDRAG and decide to try it (Phase12)
+### A0 Journey 1 — Evaluate Prep and decide to try it (Phase12)
 
 Steps:
 
 1. User lands on the website or docs.
-2. User understands what CoDRAG does (search/context/trace/MCP).
+2. User understands what Prep does (search/context/trace/MCP).
 3. User confirms local-first posture (what is stored locally, what is never uploaded).
 4. User follows a “Getting started” flow.
 5. User successfully reaches the first trust loop (A1-J1).
@@ -298,8 +298,8 @@ Acceptance criteria:
 
 Steps:
 
-1. Agent calls `codrag_status`.
-2. Agent calls `codrag_search` or `codrag`.
+1. Agent calls `prep_status`.
+2. Agent calls `prep_search` or `prep`.
 3. Agent consumes the returned context.
 
 Acceptance criteria:
@@ -315,10 +315,10 @@ Acceptance criteria:
 
 Steps:
 
-1. Agent calls `codrag_status`.
-2. If the project index is missing/stale, agent calls `codrag_build`.
-3. Agent polls `codrag_status` until `building=false` (or receives `BUILD_ALREADY_RUNNING`).
-4. Agent calls `codrag` with bounded defaults.
+1. Agent calls `prep_status`.
+2. If the project index is missing/stale, agent calls `prep_build`.
+3. Agent polls `prep_status` until `building=false` (or receives `BUILD_ALREADY_RUNNING`).
+4. Agent calls `prep` with bounded defaults.
 
 Acceptance criteria:
 
@@ -333,7 +333,7 @@ Acceptance criteria:
 
 Steps:
 
-1. User installs/runs CoDRAG.
+1. User installs/runs Prep.
 2. User verifies it binds to loopback.
 3. User verifies no auth is required locally.
 
@@ -348,10 +348,10 @@ Acceptance criteria:
 
 Steps:
 
-1. User installs CoDRAG (desktop).
+1. User installs Prep (desktop).
 2. User launches the app.
 3. App starts (or attaches to) the daemon automatically.
-4. User can add a project and run the core loop without running `codrag serve` manually.
+4. User can add a project and run the core loop without running `prep serve` manually.
 
 Acceptance criteria:
 
@@ -400,7 +400,7 @@ Actors:
 
 Narrative:
 
-1. Admin deploys CoDRAG daemon on a team machine.
+1. Admin deploys Prep daemon on a team machine.
 2. Admin enables network bind and configures API keys.
 3. Developer opens the dashboard and authenticates.
 4. Developer uses projects already registered on the server.

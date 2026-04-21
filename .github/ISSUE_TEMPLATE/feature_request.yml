@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an improvement to CoDRAG
+description: Suggest an improvement to Prep
 title: "[Feature]: "
 labels:
   - enhancement
@@ -11,7 +11,7 @@ body:
 
         Please search existing issues to see if this has already been requested.
         If your idea is still rough or you just want to discuss it first, consider opening a Discussion instead:
-        https://github.com/MagneticAnomaly/CoDRAG-MCP/discussions
+        https://github.com/MagneticAnomaly/Prep/discussions
 
   - type: textarea
     id: problem

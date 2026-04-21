@@ -1,14 +1,14 @@
 # MCP Onboarding Guide
 
-This guide explains how to integrate CoDRAG with AI coding assistants using the Model Context Protocol (MCP).
+This guide explains how to integrate Prep with AI coding assistants using the Model Context Protocol (MCP).
 
 ## What is MCP?
 
-The Model Context Protocol (MCP) is a standard that allows AI assistants to access external tools and data sources. CoDRAG provides an MCP server that gives your AI assistant semantic code search and context assembly capabilities.
+The Model Context Protocol (MCP) is a standard that allows AI assistants to access external tools and data sources. Prep provides an MCP server that gives your AI assistant semantic code search and context assembly capabilities.
 
 ## Supported Clients
 
-CoDRAG's MCP server works with:
+Prep's MCP server works with:
 
 - **Claude Code** (Anthropic CLI)
 - **Claude Desktop** (Anthropic)
@@ -21,17 +21,17 @@ CoDRAG's MCP server works with:
 
 ## Quick Setup
 
-### 1. Start CoDRAG Daemon
+### 1. Start Prep Daemon
 
-First, ensure CoDRAG is running:
+First, ensure Prep is running:
 
 ```bash
-codrag serve
+prep serve
 ```
 
 ### 2. Configure Your AI Assistant
 
-Pick your tool below. All configs assume `codrag` is on your PATH — if not, use the absolute path to the binary (e.g. `/path/to/.venv/bin/codrag`).
+Pick your tool below. All configs assume `prep` is on your PATH — if not, use the absolute path to the binary (e.g. `/path/to/.venv/bin/prep`).
 
 > **Server mode (default)** connects to the running daemon at :8400 with full multi-project support. **Direct mode** (`--mode direct`) runs in-process without a daemon but only supports a single project and a reduced tool set.
 
@@ -42,8 +42,8 @@ Pick your tool below. All configs assume `codrag` is on your PATH — if not, us
 ```json
 {
   "servers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"]
     }
   }
@@ -55,20 +55,20 @@ Pick your tool below. All configs assume `codrag` is on your PATH — if not, us
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"]
     }
   },
   "permissions": {
-    "allow": ["mcp__codrag"]
+    "allow": ["mcp__prep"]
   }
 }
 ```
 
-The `permissions.allow` line auto-approves all CoDRAG tools (they are read-only and safe). You can also add via CLI: `claude mcp add codrag -- codrag mcp`
+The `permissions.allow` line auto-approves all Prep tools (they are read-only and safe). You can also add via CLI: `claude mcp add prep -- prep mcp`
 
-CoDRAG also generates a `CLAUDE.md` file for your project that tells Claude Code about the available MCP tools, how to call them, and when to prefer them over grep/file reads.
+Prep also generates a `CLAUDE.md` file for your project that tells Claude Code about the available MCP tools, how to call them, and when to prefer them over grep/file reads.
 
 #### Claude Desktop
 
@@ -77,8 +77,8 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"]
     }
   }
@@ -92,8 +92,8 @@ Add `.cursor/mcp.json` to your project root:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"]
     }
   }
@@ -107,8 +107,8 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"],
       "disabled": false
     }
@@ -123,8 +123,8 @@ Add `.vscode/mcp.json` to your project root (**note: `servers`, not `mcpServers`
 ```json
 {
   "servers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"]
     }
   }
@@ -138,8 +138,8 @@ Add to `~/.gemini/settings.json`:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"],
       "trust": true
     }
@@ -149,7 +149,7 @@ Add to `~/.gemini/settings.json`:
 
 #### Other Tools
 
-CoDRAG works with any MCP-compatible client. Run `codrag mcp-config --ide all` to generate configs for all supported tools, or see the [full config reference](./Phase50_MCP-interfacing/MCP_CONFIGS.md).
+Prep works with any MCP-compatible client. Run `prep mcp-config --ide all` to generate configs for all supported tools, or see the [full config reference](./Phase50_MCP-interfacing/MCP_CONFIGS.md).
 
 ### 3. Restart Your AI Assistant
 
@@ -157,21 +157,21 @@ After updating the configuration, restart your AI assistant to load the MCP serv
 
 ## Available Tools
 
-CoDRAG exposes these tools to your AI assistant:
+Prep exposes these tools to your AI assistant:
 
-### `codrag`
+### `prep`
 
 Get structural codebase context — modules, hub files, focus areas. **Call this first at the start of every task.** No arguments required.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `project_id` | string | auto-detected | CoDRAG project ID |
+| `project_id` | string | auto-detected | Prep project ID |
 | `role` | string | none | Role filter (e.g. `"security"`, `"design engineer"`, `"ceo"`) |
 | `max_chars` | integer | auto | Max context size (auto-sized per client) |
 
 Returns: Module summaries, hub files, cross-cutting concerns, focus areas, and optionally a role-filtered atlas view.
 
-### `codrag_search`
+### `prep_search`
 
 Semantic code search — find code by intent, not just keywords.
 
@@ -184,7 +184,7 @@ Semantic code search — find code by intent, not just keywords.
 
 Returns: Matching code chunks with file paths, scores, and previews.
 
-### `codrag_impact`
+### `prep_impact`
 
 Dependency impact analysis — understand blast radius before making changes.
 
@@ -197,7 +197,7 @@ Dependency impact analysis — understand blast radius before making changes.
 
 Returns: Dependency tree showing what depends on and what is depended on by the target.
 
-### `codrag_audit`
+### `prep_audit`
 
 Codebase health and tech debt analysis.
 
@@ -209,7 +209,7 @@ Codebase health and tech debt analysis.
 
 Returns: Health findings, tech debt items, and actionable recommendations.
 
-### `codrag_observe`
+### `prep_observe`
 
 Cross-session memory — save and retrieve notes about the codebase.
 
@@ -225,7 +225,7 @@ Returns: Saved confirmation or matching observations.
 
 ## Example Prompts
 
-Once MCP is configured, your AI assistant can use CoDRAG automatically. Try prompts like:
+Once MCP is configured, your AI assistant can use Prep automatically. Try prompts like:
 
 ### Code Search
 > "Search for how authentication is implemented in this project"
@@ -240,7 +240,7 @@ Once MCP is configured, your AI assistant can use CoDRAG automatically. Try prom
 
 ### Automatic Detection
 
-CoDRAG attempts to detect the current project based on your working directory. If you're inside a registered project's directory, it will be selected automatically.
+Prep attempts to detect the current project based on your working directory. If you're inside a registered project's directory, it will be selected automatically.
 
 ### Manual Selection
 
@@ -248,10 +248,10 @@ If automatic detection fails or you want a different project:
 
 ```bash
 # List projects
-codrag list
+prep list
 
 # Set default project
-export CODRAG_PROJECT_ID="proj_abc123"
+export PREP_PROJECT_ID="proj_abc123"
 ```
 
 Or configure in your MCP server env:
@@ -259,21 +259,21 @@ Or configure in your MCP server env:
 ```json
 {
   "env": {
-    "CODRAG_API_URL": "http://127.0.0.1:8400",
-    "CODRAG_PROJECT_ID": "proj_abc123"
+    "PREP_API_URL": "http://127.0.0.1:8400",
+    "PREP_PROJECT_ID": "proj_abc123"
   }
 }
 ```
 
 ## Direct MCP Mode
 
-For single-repository use without the daemon, CoDRAG supports direct MCP mode:
+For single-repository use without the daemon, Prep supports direct MCP mode:
 
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp", "--direct", "--repo", "/path/to/repo"],
       "env": {}
     }
@@ -287,7 +287,7 @@ This embeds the index directly in the MCP server process—simpler but doesn't s
 
 ### "DAEMON_UNAVAILABLE"
 
-The CoDRAG daemon is not running or not reachable.
+The Prep daemon is not running or not reachable.
 
 **Solution:**
 ```bash
@@ -295,7 +295,7 @@ The CoDRAG daemon is not running or not reachable.
 curl http://127.0.0.1:8400/health
 
 # Start if needed
-codrag serve
+prep serve
 ```
 
 ### "PROJECT_NOT_FOUND"
@@ -305,10 +305,10 @@ No project is selected or the project ID is invalid.
 **Solution:**
 ```bash
 # List available projects
-codrag list
+prep list
 
 # Add a project if needed
-codrag add /path/to/repo
+prep add /path/to/repo
 ```
 
 ### "PROJECT_SELECTION_AMBIGUOUS"
@@ -316,7 +316,7 @@ codrag add /path/to/repo
 Multiple projects match the current directory.
 
 **Solution:**
-- Set `CODRAG_PROJECT_ID` explicitly
+- Set `PREP_PROJECT_ID` explicitly
 - Or navigate to a more specific directory
 
 ### "INDEX_NOT_BUILT"
@@ -325,17 +325,17 @@ The project's index hasn't been built yet.
 
 **Solution:**
 ```bash
-codrag build
+prep build
 ```
 
-Or ask your AI assistant: "Build the CoDRAG index for this project"
+Or ask your AI assistant: "Build the Prep index for this project"
 
 ### Tools Not Appearing
 
-If CoDRAG tools don't appear in your AI assistant:
+If Prep tools don't appear in your AI assistant:
 
 1. Check the MCP configuration path is correct
-2. Verify the `codrag` command is in your PATH
+2. Verify the `prep` command is in your PATH
 3. Check assistant logs for MCP errors
 4. Restart the assistant after config changes
 
@@ -346,7 +346,7 @@ If CoDRAG tools don't appear in your AI assistant:
 Enable auto-rebuild to keep your index up-to-date:
 
 ```bash
-codrag watch start
+prep watch start
 ```
 
 ### 2. Add a Primer File
@@ -372,10 +372,10 @@ For large codebases, adjust search parameters:
 
 ```bash
 # Increase result count for comprehensive searches
-codrag config set default_k 10
+prep config set default_k 10
 
 # Lower threshold for broader matches
-codrag config set default_min_score 0.1
+prep config set default_min_score 0.1
 ```
 
 ### 4. Exclude Irrelevant Files
@@ -383,7 +383,7 @@ codrag config set default_min_score 0.1
 Keep the index focused:
 
 ```bash
-codrag config set exclude_globs '["**/node_modules/**", "**/dist/**", "**/*.min.js"]'
+prep config set exclude_globs '["**/node_modules/**", "**/dist/**", "**/*.min.js"]'
 ```
 
 ### 5. Use Role-Aware Context with Agents
@@ -391,9 +391,9 @@ codrag config set exclude_globs '["**/node_modules/**", "**/dist/**", "**/*.min.
 If you're running multiple AI agents (e.g., via Paperclip, CrewAI, or LangGraph), give each agent a focused context view:
 
 ```
-codrag(role="security")          → auth, data access, infra
-codrag(role="ux designer")       → components, design tokens, layouts
-codrag(role="ceo")               → module summaries, health metrics
+prep(role="security")          → auth, data access, infra
+prep(role="ux designer")       → components, design tokens, layouts
+prep(role="ceo")               → module summaries, health metrics
 ```
 
 See the [Agentic Integration Guide](./AGENTIC_INTEGRATION_GUIDE.md) for framework-specific setup.
@@ -402,7 +402,7 @@ See the [Agentic Integration Guide](./AGENTIC_INTEGRATION_GUIDE.md) for framewor
 
 ### Local-First
 
-CoDRAG runs entirely locally. Your code never leaves your machine:
+Prep runs entirely locally. Your code never leaves your machine:
 
 - Index is stored in `~/.prep/` or `.prep/` in your repo
 - MCP communication happens over localhost
@@ -410,7 +410,7 @@ CoDRAG runs entirely locally. Your code never leaves your machine:
 
 ### Network Mode
 
-If running CoDRAG in network mode (not default):
+If running Prep in network mode (not default):
 
 - Use HTTPS
 - Set strong API keys
@@ -420,7 +420,7 @@ If running CoDRAG in network mode (not default):
 
 - [Getting Started](./GETTING_STARTED.md) — Basic installation and usage
 - [API Reference](./API.md) — HTTP API documentation
-- [Role-Aware Context](./ROLE_AWARE_CONTEXT.md) — How CoDRAG shapes context per role
-- [Agentic Integration Guide](./AGENTIC_INTEGRATION_GUIDE.md) — Using CoDRAG with Paperclip, CrewAI, and multi-agent frameworks
+- [Role-Aware Context](./ROLE_AWARE_CONTEXT.md) — How Prep shapes context per role
+- [Agentic Integration Guide](./AGENTIC_INTEGRATION_GUIDE.md) — Using Prep with Paperclip, CrewAI, and multi-agent frameworks
 - [Error Codes](./ERROR_CODES.md) — Error handling reference
 - [Budgets Policy](./BUDGETS_POLICY.md) — Understanding limits

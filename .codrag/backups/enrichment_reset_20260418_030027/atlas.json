@@ -1,0 +1,24 @@
+{
+  "char_count": 2341,
+  "content": "IDENTITY: Codrag is a code intelligence platform with a VSCode extension, web dashboard, documentation site, marketing site, and supporting services for AI-assisted code analysis and visualization.\n\nSTACK: TypeScript, React, Python, Rust. React ecosystem via ext:react (182 edges). Python standard library via ext:typing (237 edges), ext:__future__ (236 edges), ext:logging (162 edges), ext:pathlib (148 edges). Build tooling implied by package structure across packages/ and websites/apps/ directories.\n\nWORKSPACE MAP:\nRoot (_root, 1306 files): monorepo root and shared configuration\nUi (packages/ui, 332 files): shared React component library with trace visualization, patterns, project views, and AtlasLensPanel\nMarketing (websites/apps/marketing, 66 files): public marketing website\nDocs (websites/apps/docs, 54 files): documentation site with CLOUD_SINGLE, sampleIndexStats, EMBEDDING_MODELS symbols\nDashboard (src/codrag/dashboard, 47 files): main application dashboard interface\nSupport (websites/apps/support, 29 files): customer support application\nVscode (packages/vscode, 20 files): VSCode extension host\nPayments (websites/apps/payments, 17 files): billing and subscription management\nWebview Ui (packages/vscode/webview-ui, 14 files): VSCode extension webview UI components\nPaperclip Plugin Codrag (packages/paperclip-plugin-codrag, 12 files): Paperclip design tool integration\n\nCROSS-CUTTING: Active development zones cluster in packages/ui/src/ (381 .tsx files, entry points for trace/AtlasLensPanel, patterns, project, viz), src/codrag/core/, src/codrag/dashboard/, and src/codrag/services/. Engine layer in Rust (codrag-chunking/src/lib.rs entry point) handles Python parsing and chunking with test_inferred_boost_on_structural_match, parse_python, test_assign_lod_mid_score symbols. UI components import chain through AtlasLensPanel -> RoleLens -> BudgetSlider with 4-cycle import dependency. Python services layer contains UseRoleOverridesReturn, _normalize_path_weights, RoleOverride.to_dict. Shared infrastructure includes ArchStats, SwarmBuild, ErrorPermissionDenied in packages; main, handler, trigger_sync in public; test_daemon_thread_count, generate_license, should_skip in scripts. Test coverage spans specs/ (8 files), tests-old/ (7 files), __tests__/ (4 files). 4 import cycles detected across 10134 graph edges.",
+  "file_count": 1897,
+  "fingerprint": "f736406acae776abdb8e77bd",
+  "generated_at": "2026-04-18T06:39:40.110480+00:00",
+  "hub_file_hashes": {},
+  "mode": "llm",
+  "model": "kimi-k2.5:cloud",
+  "module_count": 0,
+  "segment_ids": [
+    "_root",
+    "packages-ui",
+    "websites-apps-marketing",
+    "websites-apps-docs",
+    "src-codrag-dashboard",
+    "websites-apps-support",
+    "packages-vscode",
+    "websites-apps-payments",
+    "packages-vscode-webview-ui",
+    "packages-paperclip-plugin-codrag"
+  ],
+  "version": 1
+}

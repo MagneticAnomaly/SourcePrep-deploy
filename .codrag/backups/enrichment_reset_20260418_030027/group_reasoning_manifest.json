@@ -1,0 +1,9 @@
+{
+  "format_version": "2.0",
+  "stage_id": "group_reasoning",
+  "run_id": "run-ae0c62da2707",
+  "project_id": "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b",
+  "codrag_version": "0.1.0",
+  "engine_backend": "python",
+  "started_at": "2026-04-18T06:37:18.394546+00:00"
+}

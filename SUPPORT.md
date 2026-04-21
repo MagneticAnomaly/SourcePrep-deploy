@@ -1,28 +1,28 @@
 # Support
 
-CoDRAG is built by a small team. For the fastest help, start with docs and community. For private issues, use email.
+Prep is built by a small team. For the fastest help, start with docs and community. For private issues, use email.
 
 ## Get help
 
-- Docs: https://docs.codrag.io
-- Troubleshooting: https://docs.codrag.io/troubleshooting
-- Support hub: https://codrag.io/support
+- Docs: https://docs.runprep.io
+- Troubleshooting: https://docs.runprep.io/troubleshooting
+- Support hub: https://runprep.io/support
 
 ## Questions and how-to
 
 Please use GitHub Discussions for questions about setup, usage, workflows, and best practices:
 
-- https://github.com/EricBintner/CoDRAG/discussions
+- https://github.com/MagneticAnomaly/Prep/discussions
 
 ## Bug reports
 
 If you’ve found a reproducible bug, please open a GitHub Issue:
 
-- https://github.com/EricBintner/CoDRAG/issues/new/choose
+- https://github.com/MagneticAnomaly/Prep/issues/new/choose
 
 Before filing, it helps a lot if you include:
 
-- CoDRAG version (`codrag --version`)
+- Prep version (`prep --version`)
 - OS + architecture
 - Installation method (pip, uv, etc.)
 - Minimal repro steps
@@ -30,18 +30,18 @@ Before filing, it helps a lot if you include:
 
 ## Billing and licenses
 
-- Payments & licensing: https://payments.codrag.io
-- Email: support@codrag.io
+- Payments & licensing: https://payments.runprep.io
+- Email: support@runprep.io
 
 ## Private inquiries
 
 For sensitive matters (billing, licensing, enterprise, or anything you don’t want public):
 
-- support@codrag.io
+- support@runprep.io
 
 ## Security issues
 
 If you believe you’ve found a security issue, please follow responsible disclosure:
 
-- https://codrag.io/security
-- security@codrag.io
+- https://runprep.io/security
+- security@runprep.io

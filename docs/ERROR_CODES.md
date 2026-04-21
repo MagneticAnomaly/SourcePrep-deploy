@@ -1,6 +1,6 @@
-# CoDRAG Error Code Taxonomy
+# Prep Error Code Taxonomy
 
-This document defines the standardized error codes used across CoDRAG's HTTP API, MCP server, and CLI.
+This document defines the standardized error codes used across Prep's HTTP API, MCP server, and CLI.
 
 ## Error Envelope Format
 
@@ -69,7 +69,7 @@ All API responses use a consistent envelope format:
 | `IO_ERROR` | General I/O operation failed | Check disk space and permissions |
 | `INSUFFICIENT_SPACE` | Not enough disk space to perform build | Free up disk space |
 | `DOWNLOAD_FAILED` | Failed to download external resource | Check internet connection |
-| `NATIVE_DEPS_MISSING` | Required native dependencies not found | Install missing dependencies (e.g. pip install codrag[native]) |
+| `NATIVE_DEPS_MISSING` | Required native dependencies not found | Install missing dependencies (e.g. pip install prep[native]) |
 | `NOT_IMPLEMENTED` | Feature not yet implemented | Wait for future update |
 
 ### Project Path Errors (400)
@@ -148,7 +148,7 @@ raise ApiException(
 
 Error codes should be consistent across:
 - **HTTP API** (`/api/*`, `/projects/*`)
-- **MCP Server** (`codrag_*` tools)
-- **CLI** (`codrag` commands)
+- **MCP Server** (`prep_*` tools)
+- **CLI** (`prep` commands)
 
 When the same error can occur in multiple layers, use the same code.

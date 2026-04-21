@@ -33,12 +33,12 @@ jobs:
       - name: Audit root
         run: npm audit --omit=dev --audit-level=critical
 
-      - name: Audit @codrag/ui
+      - name: Audit @prep/ui
         working-directory: packages/ui
         run: npm audit --omit=dev --audit-level=high || true
 
-      - name: Audit codrag-mcp
-        working-directory: public/codrag-mcp
+      - name: Audit prep-mcp
+        working-directory: public/prep-mcp
         run: npm audit --omit=dev --audit-level=high || true
 
   cargo-audit:

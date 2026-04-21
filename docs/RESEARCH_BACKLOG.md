@@ -1,4 +1,4 @@
-# CoDRAG Research Backlog (Phase Readiness)
+# Prep Research Backlog (Phase Readiness)
 
 This document tracks what remains before each phase can be considered **research complete**.
 

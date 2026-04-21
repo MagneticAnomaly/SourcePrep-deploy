@@ -1,17 +1,17 @@
 # Primer Detection & Precedence
 
-This document defines how CoDRAG detects and handles primer files (project context documents like `AGENTS.md`).
+This document defines how Prep detects and handles primer files (project context documents like `AGENTS.md`).
 
 ## Overview
 
-Primer files provide high-level project context that should be prioritized in search results. CoDRAG automatically detects these files and applies score boosts to ensure they surface when relevant.
+Primer files provide high-level project context that should be prioritized in search results. Prep automatically detects these files and applies score boosts to ensure they surface when relevant.
 
 ## Default Primer Filenames
 
 **Precedence order (first match wins):**
 
 1. `AGENTS.md` — Primary (Anthropic/Windsurf convention)
-2. `CODRAG_PRIMER.md` — CoDRAG-specific
+2. `PREP_PRIMER.md` — Prep-specific
 3. `PROJECT_PRIMER.md` — Generic fallback
 
 All three are checked; any match is treated as a primer.
@@ -49,7 +49,7 @@ Primer behavior is configured in `repo_policy.json`:
 {
   "primer": {
     "enabled": true,
-    "filenames": ["AGENTS.md", "CODRAG_PRIMER.md", "PROJECT_PRIMER.md"],
+    "filenames": ["AGENTS.md", "PREP_PRIMER.md", "PROJECT_PRIMER.md"],
     "score_boost": 0.25,
     "always_include": false,
     "max_primer_chars": 2000
@@ -62,7 +62,7 @@ Primer behavior is configured in `repo_policy.json`:
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `enabled` | `true` | Enable primer detection |
-| `filenames` | `["AGENTS.md", "CODRAG_PRIMER.md", "PROJECT_PRIMER.md"]` | Files to treat as primers |
+| `filenames` | `["AGENTS.md", "PREP_PRIMER.md", "PROJECT_PRIMER.md"]` | Files to treat as primers |
 | `score_boost` | `0.25` | Score added to primer chunks |
 | `always_include` | `false` | Always include primers in context |
 | `max_primer_chars` | `2000` | Max chars when `always_include=true` |
@@ -143,7 +143,7 @@ Edit `repo_policy.json`:
 ### Get Primer Chunks
 
 ```python
-from codrag.core import CodeIndex
+from prep.core import CodeIndex
 
 index = CodeIndex(index_dir=...)
 primer_chunks = index.get_primer_chunks()
@@ -193,9 +193,9 @@ def is_primer(source_path: str, config: dict) -> bool:
 - Error handling via `ApiException`
 
 ## Key Modules
-- `codrag.core.index` — Embedding index
-- `codrag.core.trace` — Code graph
-- `codrag.server` — HTTP API
+- `prep.core.index` — Embedding index
+- `prep.core.trace` — Code graph
+- `prep.server` — HTTP API
 ```
 
 ## Limitations

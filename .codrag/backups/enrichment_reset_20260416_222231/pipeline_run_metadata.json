@@ -1,0 +1,36 @@
+{
+  "format_version": "1.0",
+  "run_id": "run-3c7af48cb2c0",
+  "project_id": "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b",
+  "group": "deep_enrichment",
+  "status": "running",
+  "codrag_version": "0.1.0",
+  "engine_backend": "python",
+  "started_at": "2026-04-16T19:30:37.594021+00:00",
+  "heartbeat_at": "2026-04-16T19:49:37.733091+00:00",
+  "stages": [
+    {
+      "stage_id": "enrichment",
+      "status": "pending"
+    },
+    {
+      "stage_id": "group_reasoning",
+      "status": "pending"
+    },
+    {
+      "stage_id": "clustering",
+      "status": "pending"
+    },
+    {
+      "stage_id": "deepening",
+      "status": "pending"
+    },
+    {
+      "stage_id": "deep_knowledge",
+      "status": "pending"
+    }
+  ],
+  "config_snapshot": {
+    "assignment_mode": "structured"
+  }
+}

@@ -1,6 +1,6 @@
-# CoDRAG API Specification
+# Prep API Specification
 
-This document is the **authoritative** HTTP API contract for the CoDRAG daemon.
+This document is the **authoritative** HTTP API contract for the Prep daemon.
 
 ## Conventions
 
@@ -138,7 +138,7 @@ Response:
 
 ```json
 {
-  "name": "CoDRAG",
+  "name": "Prep",
   "version": "0.1.0",
   "description": "Code Documentation and RAG",
   "docs": "/docs",
@@ -279,7 +279,7 @@ Purpose:
 
 Fails with `409 PIPELINE_RUNNING` if any pipeline stage is active.
 
-CLI equivalent: `codrag reset-graph`
+CLI equivalent: `prep reset-graph`
 
 Response `data`:
 
@@ -299,7 +299,7 @@ Purpose:
 
 Fails with `409 PIPELINE_RUNNING` if any pipeline stage or index build is active.
 
-CLI equivalent: `codrag reset`
+CLI equivalent: `prep reset`
 
 Response `data`:
 
@@ -390,7 +390,7 @@ Response `data`:
   "results": [
     {
       "chunk_id": "chunk_...",
-      "source_path": "src/codrag/server.py",
+      "source_path": "src/prep/server.py",
       "span": {"start_line": 142, "end_line": 175},
       "preview": "Trigger project index build...",
       "score": 0.83
@@ -491,7 +491,7 @@ Response `data`:
       "id": "node-...",
       "kind": "symbol",
       "name": "build_project",
-      "file_path": "src/codrag/server.py",
+      "file_path": "src/prep/server.py",
       "span": {"start_line": 142, "end_line": 175},
       "language": "python",
       "preview": "Trigger project index build..."
@@ -594,35 +594,35 @@ Response `data`:
 
 ### MCP Tools
 
-The CoDRAG MCP server exposes the following tools via the Model Context Protocol:
+The Prep MCP server exposes the following tools via the Model Context Protocol:
 
 | Tool | Required Params | Description |
 |------|----------------|-------------|
-| `codrag_status` | — | Index status and daemon health |
-| `codrag_build` | — | Trigger async index build |
-| `codrag_search` | `query` | Semantic search, returns ranked chunks |
-| `codrag` | `query` | Assembled context for LLM prompt injection |
-| `codrag_trace_search` | `query` | Search code graph for symbols |
-| `codrag_trace_neighbors` | `node_id` | Get neighbors in code graph |
-| `codrag_trace_coverage` | — | Trace coverage statistics |
-| `hi_codrag` | — | Project overview, health check, and suggested prompts |
+| `prep_status` | — | Index status and daemon health |
+| `prep_build` | — | Trigger async index build |
+| `prep_search` | `query` | Semantic search, returns ranked chunks |
+| `prep` | `query` | Assembled context for LLM prompt injection |
+| `prep_trace_search` | `query` | Search code graph for symbols |
+| `prep_trace_neighbors` | `node_id` | Get neighbors in code graph |
+| `prep_trace_coverage` | — | Trace coverage statistics |
+| `hi_prep` | — | Project overview, health check, and suggested prompts |
 
 All tools accept an optional `project_id` parameter. If omitted, the project is auto-detected from workspace roots or CWD.
 
-#### `hi_codrag` — Project Overview Tool
+#### `hi_prep` — Project Overview Tool
 
 Purpose:
-- First-contact tool for new users: "What can CoDRAG help me with?"
+- First-contact tool for new users: "What can Prep help me with?"
 - Developer diagnostic: quick sanity check of project state after changes.
 - Returns a markdown summary + structured diagnostics JSON.
 
 Parameters:
-- `project_id` (optional): CoDRAG project ID to target.
+- `project_id` (optional): Prep project ID to target.
 
 Response:
 ```json
 {
-  "summary": "# CoDRAG — my-app\n\n**Status:** Index loaded (847 chunks)...\n**Suggested prompts:**\n1. \"How is my-app structured?\"...",
+  "summary": "# Prep — my-app\n\n**Status:** Index loaded (847 chunks)...\n**Suggested prompts:**\n1. \"How is my-app structured?\"...",
   "diagnostics": {
     "project_id": "proj_abc",
     "project_name": "my-app",
@@ -665,7 +665,7 @@ Response `data` (single IDE):
   "daemon_url": "http://127.0.0.1:8400",
   "file": ".cursor/mcp.json",
   "path_hint": "Project root or ~/.cursor/",
-  "config": {"mcpServers": {"codrag": {"command": "codrag", "args": ["mcp", "--auto", "--daemon", "http://127.0.0.1:8400"]}}}
+  "config": {"mcpServers": {"prep": {"command": "prep", "args": ["mcp", "--auto", "--daemon", "http://127.0.0.1:8400"]}}}
 }
 ```
 

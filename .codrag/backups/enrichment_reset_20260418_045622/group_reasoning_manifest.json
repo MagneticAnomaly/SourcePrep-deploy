@@ -1,0 +1,7 @@
+{
+  "format_version": "2.0",
+  "stage_id": "group_reasoning",
+  "recovered": true,
+  "recovery_note": "Manifest missing but downstream stage deepening completed — stage must have finished to produce its input",
+  "finished_at": "2026-04-18T08:39:51.392744+00:00"
+}

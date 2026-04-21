@@ -1,0 +1,27 @@
+{
+  "format_version": "2.0",
+  "stage_id": "deepening",
+  "run_id": "run-ae0c62da2707",
+  "project_id": "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b",
+  "codrag_version": "0.1.0",
+  "engine_backend": "python",
+  "started_at": "2026-04-18T06:37:18.451590+00:00",
+  "quality": {
+    "total_items": 120,
+    "processed": 120,
+    "skipped": 0,
+    "failed": 0,
+    "success_rate": 1.0,
+    "avg_confidence": 0.912,
+    "min_confidence": 0.75,
+    "max_confidence": 0.95,
+    "parse_errors": 0
+  },
+  "output_files": {
+    "trace_epistemic.jsonl": {
+      "size_bytes": 127461,
+      "hash": "sha256:95321076776f0edb",
+      "item_count": 120
+    }
+  }
+}

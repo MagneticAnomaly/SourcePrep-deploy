@@ -12,7 +12,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ericbintner/codrag-headless
+  IMAGE_NAME: ericbintner/prep-headless
 
 jobs:
   build-cpu:
@@ -46,7 +46,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: public/codrag-deploy/Dockerfile.cpu
+          file: public/prep-deploy/Dockerfile.cpu
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cpu
@@ -83,7 +83,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: public/codrag-deploy/Dockerfile.gpu
+          file: public/prep-deploy/Dockerfile.gpu
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:gpu

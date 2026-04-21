@@ -1,16 +1,16 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions and Discussions
-    url: https://github.com/MagneticAnomaly/CoDRAG-MCP/discussions
-    about: Ask questions, share ideas, and discuss CoDRAG with the community.
+    url: https://github.com/MagneticAnomaly/Prep/discussions
+    about: Ask questions, share ideas, and discuss Prep with the community.
   - name: Troubleshooting docs
-    url: https://docs.codrag.io/troubleshooting
+    url: https://docs.runprep.io/troubleshooting
     about: Common issues and fixes.
   - name: Support hub
-    url: https://codrag.io/support
+    url: https://runprep.io/support
   - name: Billing & licensing (private)
-    url: mailto:support@codrag.io
+    url: mailto:support@runprep.io
     about: Billing, licensing, enterprise, and other sensitive matters.
   - name: Security report (private)
-    url: mailto:security@codrag.io
+    url: mailto:security@runprep.io
     about: Responsible disclosure of vulnerabilities.

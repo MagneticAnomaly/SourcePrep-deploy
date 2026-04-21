@@ -1,0 +1,16 @@
+{
+  "format_version": "2.0",
+  "stage_id": "group_reasoning",
+  "run_id": "run-03c7909ff445",
+  "project_id": "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b",
+  "codrag_version": "0.1.0",
+  "engine_backend": "python",
+  "model": {
+    "provider": "ollama",
+    "model_name": "kimi-k2.5:cloud",
+    "task_id": "group_reasoning"
+  },
+  "started_at": "2026-04-15T09:26:11.034802+00:00",
+  "finished_at": "2026-04-15T09:28:04.451253+00:00",
+  "elapsed_seconds": 113.41
+}

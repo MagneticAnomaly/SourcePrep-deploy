@@ -1,8 +1,8 @@
-# CoDRAG Development Roadmap
+# Prep Development Roadmap
 
 ## Overview
 
-This document outlines the phased development plan for CoDRAG, from initial foundation through MVP release with Tauri native app.
+This document outlines the phased development plan for Prep, from initial foundation through MVP release with Tauri native app.
 
 **Target:** Local-first, enterprise-friendly semantic search platform for codebases.
 
@@ -52,7 +52,7 @@ Workflow backbone:
 #### Week 1: Core Engine
 
 - [ ] **Project structure**
-  - `src/codrag/` Python package
+  - `src/prep/` Python package
   - `pyproject.toml` with dependencies
   - Basic test structure
 
@@ -75,7 +75,7 @@ Workflow backbone:
 
 #### Week 2: CLI & API
 
-- [ ] **CLI (`codrag` command)**
+- [ ] **CLI (`prep` command)**
   - `serve` — start/stop daemon
   - `add` / `list` / `remove` — project management
   - `build` / `status` — indexing
@@ -95,10 +95,10 @@ Workflow backbone:
 ### Success Criteria
 ```bash
 # These commands work:
-codrag add /path/to/project --name "Test"
-codrag build test
-codrag search test "how does X work?"
-codrag context test "how does X work?" --max-chars 4000
+prep add /path/to/project --name "Test"
+prep build test
+prep search test "how does X work?"
+prep context test "how does X work?" --max-chars 4000
 
 # API responds:
 curl http://localhost:8400/projects
@@ -260,7 +260,7 @@ curl -X POST http://localhost:8400/projects/test/search \
 ### Success Criteria
 ```bash
 # CLI works:
-codrag trace test "generate_image"
+prep trace test "generate_image"
 # Returns: node details, callers, callees
 
 # API works:
@@ -282,18 +282,18 @@ curl http://localhost:8400/projects/test/trace/search \
 ### Deliverables
 
 - [ ] **MCP server mode**
-  - `codrag mcp --project <id>` — serve specific project
-  - `codrag mcp --auto` — detect from cwd
+  - `prep mcp --project <id>` — serve specific project
+  - `prep mcp --auto` — detect from cwd
 
 - [ ] **MCP tools**
-  - `codrag_status` — index status
-  - `codrag_build` — trigger build
-  - `codrag_search` — semantic search
-  - [x] `codrag` tool (smart context assembly)
-  - `codrag_trace` — symbol lookup
+  - `prep_status` — index status
+  - `prep_build` — trigger build
+  - `prep_search` — semantic search
+  - [x] `prep` tool (smart context assembly)
+  - `prep_trace` — symbol lookup
 
 - [ ] **Config generator**
-  - `codrag mcp-config` — output JSON for mcp_config.json
+  - `prep mcp-config` — output JSON for mcp_config.json
   - Dashboard button: "Copy MCP config"
 
 - [ ] **Documentation**
@@ -306,14 +306,14 @@ curl http://localhost:8400/projects/test/trace/search \
 // ~/.codeium/windsurf/mcp_config.json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp", "--auto"]
     }
   }
 }
 ```
-- Windsurf can call `codrag_search` tool
+- Windsurf can call `prep_search` tool
 - Results appear in Cascade context
 
 ---
@@ -333,7 +333,7 @@ curl http://localhost:8400/projects/test/trace/search \
  #### Embedded Mode
  
  - [ ] **Embedded index location**
-  - `codrag add <path> --embedded`
+  - `prep add <path> --embedded`
   - Index stored in `<project>/.prep/`
   - Detect existing `.prep/` on add
 
@@ -343,25 +343,25 @@ curl http://localhost:8400/projects/test/trace/search \
   - Handle merge conflicts (rebuild on conflict)
 
 - [ ] **Team Shared Configs (Team Tier)**
-  - `codrag config export` -> `.prep/team_config.json`
+  - `prep config export` -> `.prep/team_config.json`
   - Standardized `include/exclude` patterns
   - Pre-defined LLM/Embedding endpoints
   - Enforced policy checks (e.g. "No secrets")
 
 - [ ] **Team onboarding**
-  - Clone repo → `codrag add . --embedded`
+  - Clone repo → `prep add . --embedded`
   - Instant search (no rebuild needed)
   - Dashboard shows "Using committed index"
 
  #### Network Mode
  
  - [ ] **Server binding**
-  - `codrag serve --host 0.0.0.0`
+  - `prep serve --host 0.0.0.0`
   - API key authentication
   - TLS support (optional)
 
 - [ ] **Client mode**
-  - `codrag config set server.remote_url http://team:8400`
+  - `prep config set server.remote_url http://team:8400`
   - All requests proxy to remote server
   - Local CLI still works
 
@@ -372,7 +372,7 @@ curl http://localhost:8400/projects/test/trace/search \
 
 ### Success Criteria
 - Team member clones repo with `.prep/`
-- Runs `codrag add . --embedded`
+- Runs `prep add . --embedded`
 - Instant search without rebuild
 - OR: Connects to team server, searches remote index
 
@@ -520,7 +520,7 @@ curl http://localhost:8400/projects/test/trace/search \
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2026-01-30 | Name: CoDRAG | "Code Documentation and RAG" — clear, memorable |
+| 2026-01-30 | Name: Prep | "Code Documentation and RAG" — clear, memorable |
 | 2026-01-30 | Web UI first, Tauri for MVP | Faster iteration, proven approach |
 | 2026-01-31 | Enterprise features post-MVP | Enforce MVP boundaries; keep enterprise UX case studies |
 | 2026-01-30 | Repo at HumanAI root | Sibling to LinuxBrain for testing |

@@ -1,6 +1,6 @@
 # Role-Aware Context Delivery
 
-CoDRAG shapes each context delivery around the role of the agent (or person) asking — so every worker gets a focused, high-signal view without wading through irrelevant code.
+Prep shapes each context delivery around the role of the agent (or person) asking — so every worker gets a focused, high-signal view without wading through irrelevant code.
 
 A security reviewer sees authentication and data boundaries. A UI agent sees components and design tokens. A CEO sees module summaries and strategic health. Same codebase index — no extra setup required.
 
@@ -13,10 +13,10 @@ A security reviewer sees authentication and data boundaries. A UI agent sees com
 Any MCP-connected agent can pass the `role` parameter:
 
 ```
-codrag(role="security")
-codrag(role="design engineer")
-codrag(role="ceo")
-codrag(role="QADevOpsLead")
+prep(role="security")
+prep(role="design engineer")
+prep(role="ceo")
+prep(role="QADevOpsLead")
 ```
 
 The agent receives the standard codebase atlas, filtered and weighted for that role's perspective.
@@ -25,9 +25,9 @@ The agent receives the standard codebase atlas, filtered and weighted for that r
 
 ```bash
 # Get context filtered for a specific role
-codrag context --role "frontend engineer"
-codrag context --role "cto"
-codrag context --role "intern"
+prep context --role "frontend engineer"
+prep context --role "cto"
+prep context --role "intern"
 ```
 
 ### Via API
@@ -43,7 +43,7 @@ Returns the standard atlas response with an additional `role_atlas` field contai
 
 ## How It Works
 
-CoDRAG's epistemic enrichment pipeline already classifies every file along multiple dimensions:
+Prep's epistemic enrichment pipeline already classifies every file along multiple dimensions:
 
 | Dimension | Source | Example Values |
 |-----------|--------|---------------|
@@ -52,7 +52,7 @@ CoDRAG's epistemic enrichment pipeline already classifies every file along multi
 | Graph Centrality | Trace Edges | In-degree count (hub files score higher) |
 | Epistemic Confidence | 6-component score | 0.0–1.0 understanding score |
 
-**A role is a weight vector across these dimensions.** Instead of building separate indexes per role, CoDRAG applies a lens over the existing index:
+**A role is a weight vector across these dimensions.** Instead of building separate indexes per role, Prep applies a lens over the existing index:
 
 ```
 "Security Engineer" → emphasize infrastructure, configuration, data layers
@@ -72,7 +72,7 @@ CoDRAG's epistemic enrichment pipeline already classifies every file along multi
 
 ## Supported Roles
 
-CoDRAG resolves any free-form role string. Here is how it maps titles across departments:
+Prep resolves any free-form role string. Here is how it maps titles across departments:
 
 ### Executive & Leadership
 
@@ -177,7 +177,7 @@ CoDRAG resolves any free-form role string. Here is how it maps titles across dep
 
 ## Compound Roles
 
-CoDRAG decomposes compound role names automatically via keyword blending:
+Prep decomposes compound role names automatically via keyword blending:
 
 ```
 "Design Engineer"       → blend(design=50%, engineering=50%)
@@ -230,7 +230,7 @@ Novel or compound roles (e.g., `"design engineer"`) are computed live in ~200ms 
 
 ## Related Documentation
 
-- [MCP Onboarding](./MCP_ONBOARDING.md) — Setting up CoDRAG with AI editors
-- [Agentic Integration Guide](./AGENTIC_INTEGRATION_GUIDE.md) — Using CoDRAG with Paperclip, CrewAI, and multi-agent frameworks
+- [MCP Onboarding](./MCP_ONBOARDING.md) — Setting up Prep with AI editors
+- [Agentic Integration Guide](./AGENTIC_INTEGRATION_GUIDE.md) — Using Prep with Paperclip, CrewAI, and multi-agent frameworks
 - [CLI Reference](./CLI.md) — Full CLI documentation
 - [API Reference](./API.md) — HTTP API documentation

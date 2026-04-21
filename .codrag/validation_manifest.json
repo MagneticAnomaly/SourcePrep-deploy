@@ -1,0 +1,7 @@
+{
+  "format_version": "2.0",
+  "stage_id": "validation",
+  "recovered": true,
+  "recovery_note": "Manifest missing but downstream stage knowledge completed — stage must have finished to produce its input",
+  "finished_at": "2026-04-18T07:54:43.612335+00:00"
+}

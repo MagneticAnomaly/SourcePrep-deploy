@@ -1,6 +1,6 @@
-# CoDRAG Phases (Docs Index)
+# Prep Phases (Docs Index)
 
-This folder is the **authoritative** planning and execution roadmap for CoDRAG.
+This folder is the **authoritative** planning and execution roadmap for Prep.
 
 ## How to use this folder
 - Each phase folder contains a `README.md` with goals, deliverables, and links to reference material.

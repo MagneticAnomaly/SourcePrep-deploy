@@ -1,0 +1,16 @@
+{
+  "format_version": "2.0",
+  "stage_id": "clustering",
+  "run_id": "run-f77cddd43f17",
+  "project_id": "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b",
+  "codrag_version": "0.1.0",
+  "engine_backend": "python",
+  "model": {
+    "provider": "ollama",
+    "model_name": "kimi-k2.5:cloud",
+    "task_id": "clustering"
+  },
+  "started_at": "2026-04-18T15:46:33.932713+00:00",
+  "finished_at": "2026-04-18T18:36:00.488282+00:00",
+  "elapsed_seconds": 10166.55
+}

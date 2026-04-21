@@ -1,4 +1,4 @@
-# CoDRAG Architecture
+# Prep Architecture
 
 ## Design Principles
 
@@ -37,7 +37,7 @@
 │                           User Interfaces                                   │
 ├─────────────┬─────────────┬─────────────┬─────────────┬─────────────────────┤
 │    CLI      │  Dashboard  │   MCP       │  HTTP API   │  Future: VSCode     │
-│  (codrag)   │  (React)    │  (stdio)    │  (REST)     │  Extension          │
+│  (prep)   │  (React)    │  (stdio)    │  (REST)     │  Extension          │
 └──────┬──────┴──────┬──────┴──────┬──────┴──────┬──────┴─────────────────────┘
        │             │             │             │
        └─────────────┴─────────────┴─────────────┘
@@ -62,7 +62,7 @@
 │  (SQLite)        │  (per-project)   │  (per-project)   │  (shared)          │
 ├──────────────────┼──────────────────┼──────────────────┼────────────────────┤
 │  - projects      │  - DocumentStore │  - GraphBuilder  │  - NativeEmbedder  │
-│  - configs       │  - Chunker       │  - codrag_engine │  - OllamaEmbedder  │
+│  - configs       │  - Chunker       │  - prep_engine │  - OllamaEmbedder  │
 │  - build_history │  - Embeddings    │  - GraphQuery    │  - LODExtractor    │
 │  - settings      │  - PathWeights   │  - Neighbors     │  - FeatureGate     │
 ├──────────────────┴──────────────────┴──────────────────┴────────────────────┤
@@ -100,7 +100,7 @@
 ├──────────────────────────────┼──────────────────────────────────────────────┤
 │  Native ONNX (built-in)      │  License (~/.prep/license.json)            │
 │  ├── nomic-embed-text-v1.5   │  ├── Ed25519 signed offline token            │
-│  └── No external deps needed │  └── CODRAG_TIER env override (dev)          │
+│  └── No external deps needed │  └── PREP_TIER env override (dev)          │
 └──────────────────────────────┴──────────────────────────────────────────────┘
 ```
 
@@ -336,7 +336,7 @@ class FileWatcher:
 ### Build Flow
 
 ```
-User: codrag build <project-id>
+User: prep build <project-id>
          │
          ▼
 ┌─────────────────────────────────────┐
@@ -383,7 +383,7 @@ User: codrag build <project-id>
 ### Search Flow
 
 ```
-User: codrag search <project-id> "how does auth work?"
+User: prep search <project-id> "how does auth work?"
          │
          ▼
 ┌─────────────────────────────────────┐
@@ -415,7 +415,7 @@ User: codrag search <project-id> "how does auth work?"
 ### Context Assembly Flow
 
 ```
-User: codrag context <project-id> "how does auth work?" --max-chars 8000
+User: prep context <project-id> "how does auth work?" --max-chars 8000
          │
          ▼
 ┌─────────────────────────────────────┐

@@ -1,13 +1,13 @@
-# Getting Started with CoDRAG
+# Getting Started with Prep
 
-CoDRAG is a local-first semantic code search and context assembly tool that helps AI coding assistants understand your codebase.
+Prep is a local-first semantic code search and context assembly tool that helps AI coding assistants understand your codebase.
 
 ## Prerequisites
 
 - **Python 3.11+**
 - **Ollama** (optional) — only needed if you want GPU-accelerated or code-specialized embeddings, or small/large LLM models for analysis
 
-CoDRAG ships with a **built-in embedding model** (nomic-embed-text-v1.5, ~132 MB quantized ONNX) that downloads automatically and **runs entirely on CPU** — no GPU, no Ollama, no configuration required.
+Prep ships with a **built-in embedding model** (nomic-embed-text-v1.5, ~132 MB quantized ONNX) that downloads automatically and **runs entirely on CPU** — no GPU, no Ollama, no configuration required.
 
 ### Embedding model tiers
 
@@ -21,17 +21,17 @@ See the [Embedding Models guide](./docs/Phase28_ContextWindowResearch/EMBEDDING_
 
 ## Installation
 
-### 1. Install CoDRAG
+### 1. Install Prep
 
 ```bash
-pip install codrag
+pip install prep
 ```
 
 Or install from source:
 
 ```bash
-git clone https://github.com/MagneticAnomaly/CoDRAG-MCP.git
-cd CoDRAG
+git clone https://github.com/MagneticAnomaly/Prep-MCP.git
+cd Prep
 pip install -e ".[dev]"
 ```
 
@@ -40,7 +40,7 @@ pip install -e ".[dev]"
 The built-in ONNX model downloads automatically on first build (~132 MB, CPU-only). To pre-download:
 
 ```bash
-codrag models
+prep models
 ```
 
 Model is cached at `~/.cache/huggingface/` and never re-downloaded.
@@ -72,21 +72,21 @@ Then in the dashboard go to **Settings → AI Models → Embedding → Use Endpo
 ### Start the Daemon
 
 ```bash
-codrag serve
+prep serve
 ```
 
-This starts the CoDRAG daemon at `http://127.0.0.1:8400`.
+This starts the Prep daemon at `http://127.0.0.1:8400`.
 
 ### Add Your First Project
 
 ```bash
-codrag add /path/to/your/repo --name "My Project"
+prep add /path/to/your/repo --name "My Project"
 ```
 
 ### Build the Index
 
 ```bash
-codrag build
+prep build
 ```
 
 This scans your repository, chunks the code, and creates semantic embeddings.
@@ -94,23 +94,23 @@ This scans your repository, chunks the code, and creates semantic embeddings.
 ### Search Your Code
 
 ```bash
-codrag search "how does authentication work?"
+prep search "how does authentication work?"
 ```
 
 ### Get Context for an LLM
 
 ```bash
-codrag context "implement a new API endpoint" --max-chars 8000
+prep context "implement a new API endpoint" --max-chars 8000
 ```
 
 ## Using with AI Assistants
 
 ### MCP Integration (Recommended)
 
-CoDRAG provides an MCP server that integrates with compatible AI assistants:
+Prep provides an MCP server that integrates with compatible AI assistants:
 
 ```bash
-codrag mcp
+prep mcp
 ```
 
 See [MCP_ONBOARDING.md](./MCP_ONBOARDING.md) for detailed setup instructions.
@@ -121,7 +121,7 @@ For assistants without MCP support, use the CLI to get context:
 
 ```bash
 # Get context and copy to clipboard (macOS)
-codrag context "your question here" --raw | pbcopy
+prep context "your question here" --raw | pbcopy
 ```
 
 ## Project Configuration
@@ -132,10 +132,10 @@ Control which files are indexed:
 
 ```bash
 # Include patterns (default: common code extensions)
-codrag config set include_globs '["**/*.py", "**/*.ts", "**/*.md"]'
+prep config set include_globs '["**/*.py", "**/*.ts", "**/*.md"]'
 
 # Exclude patterns (default: .git, node_modules, etc.)
-codrag config set exclude_globs '["**/node_modules/**", "**/.venv/**"]'
+prep config set exclude_globs '["**/node_modules/**", "**/.venv/**"]'
 ```
 
 ### Primer Files
@@ -158,27 +158,27 @@ Create an `AGENTS.md` file in your repository root to provide project context th
 
 | Command | Description |
 |---------|-------------|
-| `codrag serve` | Start the daemon |
-| `codrag add <path>` | Register a project |
-| `codrag build` | Build/rebuild the index |
-| `codrag search <query>` | Search for code |
-| `codrag context <query>` | Get assembled context |
-| `codrag status` | Check project status |
-| `codrag watch start` | Enable auto-rebuild on file changes |
+| `prep serve` | Start the daemon |
+| `prep add <path>` | Register a project |
+| `prep build` | Build/rebuild the index |
+| `prep search <query>` | Search for code |
+| `prep context <query>` | Get assembled context |
+| `prep status` | Check project status |
+| `prep watch start` | Enable auto-rebuild on file changes |
 
 ## Dashboard (Optional)
 
-CoDRAG includes a web dashboard for visual project management:
+Prep includes a web dashboard for visual project management:
 
 ```bash
-codrag serve --dashboard
+prep serve --dashboard
 ```
 
 Open `http://127.0.0.1:8400` in your browser.
 
 ## AI Models Configuration
 
-CoDRAG uses up to 4 model slots, all configurable from the dashboard **Settings → AI Models** page:
+Prep uses up to 4 model slots, all configurable from the dashboard **Settings → AI Models** page:
 
 | Slot | Purpose | Default |
 |------|---------|--------|
@@ -210,7 +210,7 @@ Error: INDEX_NOT_BUILT
 
 **Solution:** Build the index first:
 ```bash
-codrag build
+prep build
 ```
 
 ### Large Repository Performance
@@ -219,17 +219,17 @@ For repositories with many files:
 
 1. Increase `max_file_bytes` if needed:
    ```bash
-   codrag config set max_file_bytes 500000
+   prep config set max_file_bytes 500000
    ```
 
 2. Exclude large directories:
    ```bash
-   codrag config set exclude_globs '["**/vendor/**", "**/dist/**"]'
+   prep config set exclude_globs '["**/vendor/**", "**/dist/**"]'
    ```
 
 3. Use selective roots:
    ```bash
-   codrag build --roots src,lib
+   prep build --roots src,lib
    ```
 
 ## Next Steps
@@ -241,5 +241,5 @@ For repositories with many files:
 
 ## Getting Help
 
-- **Issues:** [GitHub Issues](https://github.com/MagneticAnomaly/CoDRAG-MCP/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/MagneticAnomaly/CoDRAG-MCP/discussions)
+- **Issues:** [GitHub Issues](https://github.com/MagneticAnomaly/Prep-MCP/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/MagneticAnomaly/Prep-MCP/discussions)

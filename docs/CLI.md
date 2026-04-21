@@ -1,6 +1,6 @@
-# CoDRAG CLI Reference
+# Prep CLI Reference
 
-The CoDRAG command-line interface provides complete control over project management, indexing, semantic search, and IDE integration.
+The Prep command-line interface provides complete control over project management, indexing, semantic search, and IDE integration.
 
 ## Installation
 
@@ -9,10 +9,10 @@ The CoDRAG command-line interface provides complete control over project managem
 pip install -e .
 
 # Or install from PyPI (when published)
-pip install codrag
+pip install prep
 ```
 
-After installation, the `codrag` command is available globally.
+After installation, the `prep` command is available globally.
 
 ---
 
@@ -20,19 +20,19 @@ After installation, the `codrag` command is available globally.
 
 ```bash
 # 1. Start the daemon
-codrag serve
+prep serve
 
 # 2. Add a project (in another terminal)
-codrag add /path/to/your/repo
+prep add /path/to/your/repo
 
 # 3. Build the index
-codrag build
+prep build
 
 # 4. Search your codebase
-codrag search "authentication middleware"
+prep search "authentication middleware"
 
 # 5. Get context for LLM prompts
-codrag context "how does the login flow work"
+prep context "how does the login flow work"
 ```
 
 ---
@@ -50,12 +50,12 @@ All commands that interact with the daemon accept these options:
 
 ## Commands
 
-### `codrag serve`
+### `prep serve`
 
-Start the CoDRAG daemon server.
+Start the Prep daemon server.
 
 ```bash
-codrag serve [OPTIONS]
+prep serve [OPTIONS]
 ```
 
 **Options:**
@@ -70,23 +70,23 @@ codrag serve [OPTIONS]
 
 ```bash
 # Start on default port
-codrag serve
+prep serve
 
 # Start on custom port
-codrag serve --port 9000
+prep serve --port 9000
 
 # Development mode with auto-reload
-codrag serve --reload
+prep serve --reload
 ```
 
 ---
 
-### `codrag add`
+### `prep add`
 
 Register a new project with the daemon.
 
 ```bash
-codrag add PATH [OPTIONS]
+prep add PATH [OPTIONS]
 ```
 
 **Arguments:**
@@ -100,34 +100,34 @@ codrag add PATH [OPTIONS]
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
 | `--name` | `-n` | folder name | Custom project name |
-| `--mode` | `-m` | `standalone` | Index mode: `standalone` (global data dir) or `embedded` (.codrag in repo) |
+| `--mode` | `-m` | `standalone` | Index mode: `standalone` (global data dir) or `embedded` (.prep in repo) |
 
 **Examples:**
 
 ```bash
 # Add project with auto-detected name
-codrag add /path/to/myproject
+prep add /path/to/myproject
 
 # Add with custom name
-codrag add /path/to/myproject --name "My Awesome Project"
+prep add /path/to/myproject --name "My Awesome Project"
 
 # Use embedded mode (stores index in .prep/ within repo)
-codrag add /path/to/myproject --mode embedded
+prep add /path/to/myproject --mode embedded
 ```
 
 **Notes:**
 - Adding a project does NOT automatically build the index
-- Run `codrag build` after adding to create the index
+- Run `prep build` after adding to create the index
 - Embedded mode is useful for sharing index config via version control
 
 ---
 
-### `codrag list`
+### `prep list`
 
 List all registered projects.
 
 ```bash
-codrag list [OPTIONS]
+prep list [OPTIONS]
 ```
 
 **Output columns:**
@@ -141,7 +141,7 @@ codrag list [OPTIONS]
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         CoDRAG Projects                             │
+│                         Prep Projects                             │
 ├──────────┬─────────────┬────────────────────────┬────────┬──────────┤
 │ ID       │ Name        │ Path                   │ Mode   │ Created  │
 ├──────────┼─────────────┼────────────────────────┼────────┼──────────┤
@@ -152,12 +152,12 @@ codrag list [OPTIONS]
 
 ---
 
-### `codrag remove`
+### `prep remove`
 
 Unregister a project from the daemon.
 
 ```bash
-codrag remove PROJECT_ID [OPTIONS]
+prep remove PROJECT_ID [OPTIONS]
 ```
 
 **Arguments:**
@@ -176,20 +176,20 @@ codrag remove PROJECT_ID [OPTIONS]
 
 ```bash
 # Unregister project (keeps index files)
-codrag remove abc123
+prep remove abc123
 
 # Unregister and delete all index data
-codrag remove abc123 --purge
+prep remove abc123 --purge
 ```
 
 ---
 
-### `codrag status`
+### `prep status`
 
 Show index status for a project.
 
 ```bash
-codrag status [PROJECT_ID] [OPTIONS]
+prep status [PROJECT_ID] [OPTIONS]
 ```
 
 **Arguments:**
@@ -221,12 +221,12 @@ codrag status [PROJECT_ID] [OPTIONS]
 
 ---
 
-### `codrag build`
+### `prep build`
 
 Trigger an index build for a project.
 
 ```bash
-codrag build [PROJECT_ID] [OPTIONS]
+prep build [PROJECT_ID] [OPTIONS]
 ```
 
 **Arguments:**
@@ -245,28 +245,28 @@ codrag build [PROJECT_ID] [OPTIONS]
 
 ```bash
 # Incremental build (only changed files)
-codrag build
+prep build
 
 # Full rebuild from scratch
-codrag build --full
+prep build --full
 
 # Build specific project
-codrag build abc123
+prep build abc123
 ```
 
 **Notes:**
 - Builds run asynchronously in the background
-- Use `codrag status` to monitor progress
+- Use `prep status` to monitor progress
 - Incremental builds are much faster for large codebases
 
 ---
 
-### `codrag search`
+### `prep search`
 
 Semantic search across the codebase.
 
 ```bash
-codrag search QUERY [OPTIONS]
+prep search QUERY [OPTIONS]
 ```
 
 **Arguments:**
@@ -287,16 +287,16 @@ codrag search QUERY [OPTIONS]
 
 ```bash
 # Basic search
-codrag search "authentication middleware"
+prep search "authentication middleware"
 
 # Get more results
-codrag search "error handling" --limit 20
+prep search "error handling" --limit 20
 
 # Higher precision (fewer but more relevant results)
-codrag search "database connection" --min-score 0.5
+prep search "database connection" --min-score 0.5
 
 # Search specific project
-codrag search "API routes" --project abc123
+prep search "API routes" --project abc123
 ```
 
 **Example output:**
@@ -316,12 +316,12 @@ Found 5 results for 'authentication middleware':
 
 ---
 
-### `codrag context`
+### `prep context`
 
 Assemble context for LLM prompts.
 
 ```bash
-codrag context QUERY [OPTIONS]
+prep context QUERY [OPTIONS]
 ```
 
 **Arguments:**
@@ -343,13 +343,13 @@ codrag context QUERY [OPTIONS]
 
 ```bash
 # Get formatted context with stats
-codrag context "how does the login flow work"
+prep context "how does the login flow work"
 
 # Raw output for piping to LLM
-codrag context "explain the database schema" --raw
+prep context "explain the database schema" --raw
 
 # Larger context window
-codrag context "summarize the API" --max-chars 16000 --limit 10
+prep context "summarize the API" --max-chars 16000 --limit 10
 ```
 
 **Example output:**
@@ -374,7 +374,7 @@ class User(BaseModel):
 
 ```bash
 # Use with OpenAI CLI
-codrag context "explain authentication" --raw | \
+prep context "explain authentication" --raw | \
   openai api chat.completions.create \
     -m gpt-4 \
     -g user "Based on this code context, explain the authentication flow"
@@ -382,12 +382,12 @@ codrag context "explain authentication" --raw | \
 
 ---
 
-### `codrag ui`
+### `prep ui`
 
-Open the CoDRAG web dashboard in your browser.
+Open the Prep web dashboard in your browser.
 
 ```bash
-codrag ui [OPTIONS]
+prep ui [OPTIONS]
 ```
 
 **Options:**
@@ -398,12 +398,12 @@ codrag ui [OPTIONS]
 
 ---
 
-### `codrag mcp`
+### `prep mcp`
 
 Run the Model Context Protocol (MCP) server for IDE integration.
 
 ```bash
-codrag mcp [OPTIONS]
+prep mcp [OPTIONS]
 ```
 
 **Options:**
@@ -413,40 +413,40 @@ codrag mcp [OPTIONS]
 | `--project` | `-p` | none | Pinned project ID |
 | `--auto` | `-a` | `false` | Auto-detect project from CWD |
 | `--mode` | `-m` | `server` | Mode: `server` or `direct` |
-| `--daemon` | `-d` | `http://127.0.0.1:8400` | CoDRAG daemon URL |
+| `--daemon` | `-d` | `http://127.0.0.1:8400` | Prep daemon URL |
 | `--repo-root` | `-r` | CWD | Repository root (direct mode) |
 | `--debug` |  | `false` | Enable debug logging (stderr) |
 | `--log-file` |  | none | Write MCP debug logs to a file (rotating) |
 
 **Modes:**
 
-- **server** (default): Connects to running CoDRAG daemon
-- **direct**: Runs CoDRAG engine in-process (no daemon required)
+- **server** (default): Connects to running Prep daemon
+- **direct**: Runs Prep engine in-process (no daemon required)
 
 **Examples:**
 
 ```bash
 # Server mode (requires daemon running)
-codrag mcp
+prep mcp
 
 # Auto-detect project based on working directory
-codrag mcp --auto
+prep mcp --auto
 
 # Pin to specific project
-codrag mcp --project abc123
+prep mcp --project abc123
 
 # Direct mode (standalone, no daemon)
-codrag mcp --mode direct --repo-root /path/to/repo
+prep mcp --mode direct --repo-root /path/to/repo
 ```
 
 ---
 
-### `codrag mcp-config`
+### `prep mcp-config`
 
 Generate MCP configuration for IDE integration.
 
 ```bash
-codrag mcp-config [OPTIONS]
+prep mcp-config [OPTIONS]
 ```
 
 **Options:**
@@ -455,23 +455,23 @@ codrag mcp-config [OPTIONS]
 |--------|-------|---------|-------------|
 | `--ide` | `-i` | `all` | Target IDE: `claude`, `cursor`, `windsurf`, `vscode`, `jetbrains`, `all` |
 | `--mode` | `-m` | `auto` | Mode: `auto`, `project`, `direct` |
-| `--daemon` | `-d` | `http://127.0.0.1:8400` | CoDRAG daemon URL |
+| `--daemon` | `-d` | `http://127.0.0.1:8400` | Prep daemon URL |
 | `--project` | `-p` | none | Project ID (required when `--mode project`) |
 
 **Examples:**
 
 ```bash
 # Generate config for all IDEs
-codrag mcp-config
+prep mcp-config
 
 # Generate for specific IDE
-codrag mcp-config --ide cursor
+prep mcp-config --ide cursor
 
 # Direct mode (no daemon)
-codrag mcp-config --mode direct --ide cursor
+prep mcp-config --mode direct --ide cursor
 
 # Pin to specific project
-codrag mcp-config --mode project --project abc123 --ide cursor
+prep mcp-config --mode project --project abc123 --ide cursor
 ```
 
 **Example output (Claude Desktop):**
@@ -479,8 +479,8 @@ codrag mcp-config --mode project --project abc123 --ide cursor
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp", "--auto", "--daemon", "http://127.0.0.1:8400"]
     }
   }
@@ -489,22 +489,22 @@ codrag mcp-config --mode project --project abc123 --ide cursor
 
 ---
 
-### `codrag version`
+### `prep version`
 
 Show version information.
 
 ```bash
-codrag version
+prep version
 ```
 
 ---
 
-### `codrag activity`
+### `prep activity`
 
 Show index activity heatmap (GitHub-style contribution graph).
 
 ```bash
-codrag activity [OPTIONS]
+prep activity [OPTIONS]
 ```
 
 **Options:**
@@ -518,24 +518,24 @@ codrag activity [OPTIONS]
 
 ---
 
-### `codrag coverage`
+### `prep coverage`
 
 Show file tree coverage visualization.
 
 ```bash
-codrag coverage [OPTIONS]
+prep coverage [OPTIONS]
 ```
 
 Shows which files are indexed vs excluded with a visual tree representation.
 
 ---
 
-### `codrag overview`
+### `prep overview`
 
 Show comprehensive dashboard overview in terminal.
 
 ```bash
-codrag overview [OPTIONS]
+prep overview [OPTIONS]
 ```
 
 **Options:**
@@ -548,12 +548,12 @@ Combines health stats, activity heatmap, and trace statistics.
 
 ---
 
-### `codrag drift`
+### `prep drift`
 
 Show index drift report (stale files, freshness metrics).
 
 ```bash
-codrag drift [OPTIONS]
+prep drift [OPTIONS]
 ```
 
 **Options:**
@@ -566,12 +566,12 @@ Shows which files have drifted since the last index build.
 
 ---
 
-### `codrag flow`
+### `prep flow`
 
 Show RAG flow visualization (query → retrieval → context).
 
 ```bash
-codrag flow [OPTIONS]
+prep flow [OPTIONS]
 ```
 
 **Options:**
@@ -584,12 +584,12 @@ Visualizes the RAG pipeline: embedding, search, context assembly.
 
 ---
 
-### `codrag config`
+### `prep config`
 
-View or modify CoDRAG configuration.
+View or modify Prep configuration.
 
 ```bash
-codrag config [KEY] [VALUE] [OPTIONS]
+prep config [KEY] [VALUE] [OPTIONS]
 ```
 
 **Arguments:**
@@ -603,20 +603,20 @@ codrag config [KEY] [VALUE] [OPTIONS]
 
 ```bash
 # Show full config
-codrag config
+prep config
 
 # Get specific key
-codrag config llm_config.embedding.source
+prep config llm_config.embedding.source
 
 # Set specific key
-codrag config llm_config.embedding.source huggingface
+prep config llm_config.embedding.source huggingface
 ```
 
 ---
 
 ## Project Resolution
 
-Many commands accept an optional `PROJECT_ID` argument. When omitted, CoDRAG resolves the project automatically:
+Many commands accept an optional `PROJECT_ID` argument. When omitted, Prep resolves the project automatically:
 
 1. **CWD matching**: If you're inside a registered project directory, that project is used
 2. **Single project**: If only one project is registered, it's used automatically
@@ -627,11 +627,11 @@ Many commands accept an optional `PROJECT_ID` argument. When omitted, CoDRAG res
 ```bash
 # Inside /Users/dev/my-app (registered project)
 cd /Users/dev/my-app
-codrag build        # Builds my-app automatically
+prep build        # Builds my-app automatically
 
 # Outside any project
 cd /tmp
-codrag build abc123 # Must specify project ID
+prep build abc123 # Must specify project ID
 ```
 
 ---
@@ -640,24 +640,24 @@ codrag build abc123 # Must specify project ID
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CODRAG_HOST` | `127.0.0.1` | Default server host |
-| `CODRAG_PORT` | `8400` | Default server port |
-| `CODRAG_DATA_DIR` | `~/.local/share/prep` | Data directory for standalone indexes |
-| `CODRAG_ENGINE` | `auto` | Indexing engine: `auto`, `rust`, or `python` |
-| `CODRAG_TIER` | (from license) | Override license tier: `free`, `starter`, `pro`, `team`, `enterprise` |
+| `PREP_HOST` | `127.0.0.1` | Default server host |
+| `PREP_PORT` | `8400` | Default server port |
+| `PREP_DATA_DIR` | `~/.local/share/prep` | Data directory for standalone indexes |
+| `PREP_ENGINE` | `auto` | Indexing engine: `auto`, `rust`, or `python` |
+| `PREP_TIER` | (from license) | Override license tier: `free`, `starter`, `pro`, `team`, `enterprise` |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL (standard Ollama env var) |
 
 **Examples:**
 
 ```bash
 # Use Python engine for debugging
-CODRAG_ENGINE=python codrag serve
+PREP_ENGINE=python prep serve
 
 # Test Pro features locally
-CODRAG_TIER=pro codrag serve
+PREP_TIER=pro prep serve
 
 # Use custom Ollama server
-OLLAMA_HOST=http://192.168.1.100:11434 codrag serve
+OLLAMA_HOST=http://192.168.1.100:11434 prep serve
 ```
 
 ---
@@ -677,35 +677,35 @@ OLLAMA_HOST=http://192.168.1.100:11434 codrag serve
 
 ```bash
 # Start daemon in background
-codrag serve &
+prep serve &
 
 # Add your projects
-codrag add ~/projects/frontend --name "Frontend App"
-codrag add ~/projects/backend --name "Backend API"
+prep add ~/projects/frontend --name "Frontend App"
+prep add ~/projects/backend --name "Backend API"
 
 # Build indexes
-codrag build --project frontend
-codrag build --project backend
+prep build --project frontend
+prep build --project backend
 ```
 
 ### Daily Development
 
 ```bash
 # Quick search
-codrag search "payment processing"
+prep search "payment processing"
 
 # Get context for code review
-codrag context "explain the order validation logic" --raw > context.txt
+prep context "explain the order validation logic" --raw > context.txt
 
 # Check index freshness
-codrag status
+prep status
 ```
 
 ### IDE Integration
 
 ```bash
 # Generate config and add to your IDE
-codrag mcp-config --ide cursor
+prep mcp-config --ide cursor
 
 # Copy the JSON to your IDE's MCP configuration file
 ```
@@ -714,12 +714,12 @@ codrag mcp-config --ide cursor
 
 ## Troubleshooting
 
-### "Cannot connect to CoDRAG daemon"
+### "Cannot connect to Prep daemon"
 
 The daemon isn't running. Start it with:
 
 ```bash
-codrag serve
+prep serve
 ```
 
 ### "No projects found"
@@ -727,7 +727,7 @@ codrag serve
 Register a project first:
 
 ```bash
-codrag add /path/to/your/project
+prep add /path/to/your/project
 ```
 
 ### "Multiple projects available"
@@ -736,11 +736,11 @@ Specify the project explicitly or run the command from within the project direct
 
 ```bash
 # Option 1: Specify project
-codrag search "query" --project abc123
+prep search "query" --project abc123
 
 # Option 2: Run from project directory
 cd /path/to/project
-codrag search "query"
+prep search "query"
 ```
 
 ### "Index not ready"
@@ -748,10 +748,10 @@ codrag search "query"
 Build the index first:
 
 ```bash
-codrag build
+prep build
 ```
 
-Wait for the build to complete (check with `codrag status`).
+Wait for the build to complete (check with `prep status`).
 
 ---
 

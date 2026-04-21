@@ -1,4 +1,4 @@
-# CoDRAG Master Roadmap
+# Prep Master Roadmap
 
 **Last updated:** 2026-04-08
 **Scope:** Phases 83-87 and all deferred future work items
@@ -9,7 +9,7 @@
 
 | Phase | Name | Status | Dependencies | Key Deliverable |
 |-------|------|--------|-------------|-----------------|
-| **83** | Audit Redesign | Design finalized | None | Dual-mode `codrag_audit`: structural-only + enrichment. Global experimental toggle. P0 quick fixes. |
+| **83** | Audit Redesign | Design finalized | None | Dual-mode `prep_audit`: structural-only + enrichment. Global experimental toggle. P0 quick fixes. |
 | **84** | Concepts Formalization | Design finalized | Phase 83 | Structured concept model with assertions, anchors, doc links, conflict resolution, observation promotion. |
 | **85** | SARIF Enrichment | Design finalized | Phase 83 | SARIF 2.0/2.1.0 ingestion for enrichment mode. Valid SARIF in → enriched SARIF out. Tool-specific adapters. |
 | **86** | Intent Classification | Design finalized | Phase 84 | 7-intent taxonomy with rule-based classifier. Per-intent retrieval pipelines. Query rewriting. |
@@ -36,7 +36,7 @@ These apply across all phases:
 | Decision | Detail |
 |----------|--------|
 | **Experimental toggle** | Single project-level `experimental: true/false` setting controls all experimental features: LLM recommendations, audit dashboard pane, future experimental capabilities. |
-| **Stale data message** | When un-indexed files are encountered: "Looks like you have stale data, CoDRAG recommends running enrichment again." Used across audit enrichment and SARIF. |
+| **Stale data message** | When un-indexed files are encountered: "Looks like you have stale data, Prep recommends running enrichment again." Used across audit enrichment and SARIF. |
 | **Risk score formula** | `0.40 * hub + 0.30 * concept + 0.20 * observation + 0.10 * churn`. Weights in config, tunable after dogfooding. |
 | **Recommendations** | Templates default, LLM experimental. Both shown when experimental is on. |
 | **Anchor granularity** | File/module/directory/glob for MVP. Symbol-level deferred. |
@@ -65,7 +65,7 @@ Items deferred from Phases 83-87, prioritized. These are all explicitly noted in
 |------|--------|-------------|
 | **Symbol-level anchoring** | Phase 84 | Anchor concepts to specific functions/classes, not just files. Enables finer-grained violation detection. |
 | **ML intent classifier** | Phase 86 | Replace/augment rule-based classifier with trained model. Higher accuracy for ambiguous queries. |
-| **SARIF export from structural mode** | Phase 85 | `codrag_audit()` exports its own structural findings as SARIF. Makes CoDRAG a SARIF producer. |
+| **SARIF export from structural mode** | Phase 85 | `prep_audit()` exports its own structural findings as SARIF. Makes Prep a SARIF producer. |
 | **Cross-file antibody triggers** | Phase 87 | Evaluate violations across batches of related file changes, not just individual files. |
 | **Antibody auto-learning** | Phase 87 | Auto-disable antibodies with >50% dismiss rate. Promote testing→active based on catch rate. |
 | **Intent override auto-tuning** | Phase 86 | When agents use `intent` override, log as misclassification signal. Periodic rule tuning reports. |
@@ -75,7 +75,7 @@ Items deferred from Phases 83-87, prioritized. These are all explicitly noted in
 
 | Item | Origin | Description |
 |------|--------|-------------|
-| **GitHub App integration** | Phase 85 | CoDRAG runs as GitHub App, auto-enriches Code Scanning SARIF on push. |
+| **GitHub App integration** | Phase 85 | Prep runs as GitHub App, auto-enriches Code Scanning SARIF on push. |
 | **Streaming enrichment** | Phase 85 | Stream results for SARIF files with 1000+ findings instead of batch. |
 | **Concept evolution chains** | Phase 84 | Visualize how concepts supersede each other over time. Architectural decision history. |
 | **Immune system CI integration** | Phase 87 | Beyond opt-in git hooks — full CI step that runs antibody evaluation and posts results to PR. |

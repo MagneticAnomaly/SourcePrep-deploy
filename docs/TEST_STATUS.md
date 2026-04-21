@@ -1,4 +1,4 @@
-# CoDRAG Test Suite Status & TODO
+# Prep Test Suite Status & TODO
 *Last updated: March 8, 2026 (Session 2)*
 
 ## Current Results
@@ -136,10 +136,10 @@ These files hang the test runner indefinitely due to background threads that nev
 
 ### Not Yet Tested (Requires LLM / Manual)
 10. [ ] **End-to-end pipeline run** — needs Ollama running with a model loaded
-11. [ ] **Docker image build** — `docker build -f public/codrag-deploy/Dockerfile.cpu .`
+11. [ ] **Docker image build** — `docker build -f public/prep-deploy/Dockerfile.cpu .`
 12. [ ] **Team Sync full flow** — headless → S3 → client download
 13. [ ] **Compute node CRUD via API** — manual test with running daemon
 14. [ ] **Endpoint → node assignment UI** — visual verification in dashboard
 15. [ ] **QUEUED state trigger** — set concurrency=1, run 2 projects simultaneously
-16. [ ] **Dashboard TypeScript build** — `cd src/codrag/dashboard && npx tsc --noEmit` ✅ (verified clean)
+16. [ ] **Dashboard TypeScript build** — `cd src/prep/dashboard && npx tsc --noEmit` ✅ (verified clean)
 17. [ ] **UI package TypeScript build** — `cd packages/ui && npx tsc --noEmit` ✅ (verified clean)

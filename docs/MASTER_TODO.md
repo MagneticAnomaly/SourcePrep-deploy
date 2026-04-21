@@ -1,4 +1,4 @@
-# CoDRAG Master TODO (Cross-Phase Orchestrator)
+# Prep Master TODO (Cross-Phase Orchestrator)
 
 ## Purpose
 This file orchestrates work across phases by:
@@ -92,7 +92,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - Analyzer: Rust engine with 8 language parsers
 - [x] S-00.5 Close Phase05 research blockers (tool schemas, selection rules, budgets) 
 - [x] S-00.5 Close Phase05 research blockers (tool schemas, selection rules, budgets) ✅
-  - 4 tools: codrag_status, codrag_build, codrag_search, codrag_context
+  - 4 tools: prep_status, prep_build, prep_search, prep_context
   - Budgets: k/max_chars/min_score caps in server.py
 
 ### Sprint S-01: Core trust loop (engine + contracts) 
@@ -129,7 +129,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 **Goal:** structural grounding that stays small, inspectable, and safe.
 
 - [x] S-04.1 Graph schema + stable IDs + build integration (Phase04/01) ✅
-  - Rust engine: `codrag-walker`, `codrag-parser`, `codrag-graph`, `codrag-engine` (41 tests)
+  - Rust engine: `prep-walker`, `prep-parser`, `prep-graph`, `prep-engine` (41 tests)
   - Python: `TraceBuilder.build()` + `TraceIndex` load/search/neighbors/status
   - 8 language parsers: Python, TS, JS, Go, Rust, Java, C, C++
   - Server: `/projects/{id}/trace/*` endpoints (status, build, search, nodes, neighbors)
@@ -142,7 +142,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [x] S-04.3 Graph-aware context expansion budgets (Phase04/01/02/05) 
   - `get_context_with_trace_expansion()` in `index.py` — follows graph edges to include related code
   - Server: `trace_expand` + `trace_max_chars` params on `POST /projects/{id}/context`
-  - MCP: `trace_expand` param on `codrag` tool
+  - MCP: `trace_expand` param on `prep` tool
   - Graceful fallback: returns normal context if trace not available
 
 ### Sprint S-05: IDE workflows (MCP) 
@@ -151,7 +151,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [x] S-05.1 MCP stdio server (HTTP proxy) + daemon health behavior (Phase05/01) 
 - [x] S-05.2 Tool schemas aligned with `API.md` and dashboard expectations (Phase05/02) 
 - [x] S-05.3 Token-efficient output modes (lean-by-default) (Phase05) 
-- [x] Implement `codrag` tool (formerly `codrag_context`)
+- [x] Implement `prep` tool (formerly `prep_context`)
 
 ### Sprint S-06: Reliability baseline + evaluation harness
 **Goal:** prevent regressions; make failures actionable; define perf envelope.
@@ -163,14 +163,14 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 ### Sprint S-07: Desktop packaging + deployment readiness
 **Goal:** Tauri app + sidecar lifecycle + signed distribution path.
 
-- [x] S-07.1 Tauri wrapper + sidecar startup/shutdown + port strategy (Phase08) ✅ **DONE: `CoDRAG.app` builds with PyInstaller sidecar**
+- [x] S-07.1 Tauri wrapper + sidecar startup/shutdown + port strategy (Phase08) ✅ **DONE: `Prep.app` builds with PyInstaller sidecar**
 - [ ] S-07.2 Python Sidecar Build (SID-1..6)
   - [x] SID-1 Recreate dev venv with native ARM Python
-  - [x] SID-2 PyInstaller spec file (`codrag-daemon.spec`)
+  - [x] SID-2 PyInstaller spec file (`prep-daemon.spec`)
   - [ ] SID-3 Test sidecar binary on macOS
   - [ ] SID-4 Test sidecar binary on Windows
   - [ ] SID-5 Sidecar binary includes native embedder deps
-  - [ ] SID-6 Sidecar binary naming convention (`codrag-daemon-{target-triple}`)
+  - [ ] SID-6 Sidecar binary naming convention (`prep-daemon-{target-triple}`)
 - [ ] S-07.3 Rust Engine Wheels (ENG-1..7)
   - [x] ENG-1 GitHub Actions workflow (`engine-wheels.yml`)
   - [x] ENG-2 macOS ARM64 wheel builds
@@ -196,7 +196,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - `docs/GETTING_STARTED.md`, `docs/MCP_ONBOARDING.md`, `docs/TROUBLESHOOTING.md`
   - `/guides/*` pages on docs site (embeddings, clara, path weights)
 - [x] S-08.2 Visual direction prototypes + token strategy + Storybook baseline (Phase13/02/12)
-  - All "Radical" visual directions (Neo-Brutalist, Retro, Glass, etc.) ported to `@codrag/ui`
+  - All "Radical" visual directions (Neo-Brutalist, Retro, Glass, etc.) ported to `@prep/ui`
   - Storybook reorganized (`Dashboard/Widgets`, `Dashboard/Layouts`, `Foundations`)
   - Shared `Button` and `Select` primitives standardized across app + site
 
@@ -216,7 +216,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [x] S-14.4 Performance benchmarks & optimization
 
 ### Sprint S-17: VS Code Extension MVP (Phase 17)
-**Goal:** Native VS Code experience powered by the CoDRAG daemon.
+**Goal:** Native VS Code experience powered by the Prep daemon.
 
 - [x] S-17.1 Daemon management & connectivity (auto-start, polling, health checks)
 - [x] S-17.2 WebViews Integration (React + Vite + Tailwind pipeline)
@@ -243,7 +243,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 ### Sprint S-29: Enterprise & Alternative Distribution (Phase 11)
 **Goal:** Air-gapped deployment, enterprise controls, and other app stores.
 
-- [ ] ENT-1 Air-gapped build variant (`CODRAG_DISABLE_UPDATES` + `CODRAG_OFFLINE`)
+- [ ] ENT-1 Air-gapped build variant (`PREP_DISABLE_UPDATES` + `PREP_OFFLINE`)
 - [ ] ENT-2 MDM-friendly license deployment
 - [ ] ENT-3 Audit logging (local file or syslog)
 - [ ] ENT-4 Shared team configuration export/import
@@ -270,7 +270,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 ### Sprint S-15: Monetization & Distribution Plumbing (Phase 11)
 **Goal:** End-to-end licensing flow, payments recovery, and secure update channels.
 
-- [x] S-15.1 License Activation Exchange (api.codrag.io relay + Ed25519 verification)
+- [x] S-15.1 License Activation Exchange (api.runprep.io relay + Ed25519 verification)
 - [x] S-15.2 Payments Recovery (Lemon Squeezy order lookup integration)
 - [ ] S-15.3 Auto-Update System (UPD-1..10)
   - [x] UPD-1 Embed updater public key in `tauri.conf.json`
@@ -282,7 +282,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - [ ] UPD-7 E2E test in-app update
   - [ ] UPD-8 "What's New" modal after update
   - [ ] UPD-9 Settings toggle: "Check for updates automatically"
-  - [ ] UPD-10 Enterprise config: `CODRAG_DISABLE_UPDATES`
+  - [ ] UPD-10 Enterprise config: `PREP_DISABLE_UPDATES`
 - [ ] S-15.4 Licensing & Feature Gating (LIC-1..8)
   - [ ] LIC-1 Ed25519 license signature verification
   - [x] LIC-2 License file loading
@@ -291,15 +291,15 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - [ ] LIC-5 Frontend "Upgrade to Pro" prompts
   - [ ] LIC-6 License status view in Settings
   - [ ] LIC-7 `updates_until` enforcement
-  - [ ] LIC-8 Define "what CoDRAG contacts" statement
+  - [ ] LIC-8 Define "what Prep contacts" statement
 
 ### Sprint S-16: MCP Maturity & Ecosystem (Phase 05)
 **Goal:** Complete the MCP story for remote/team usage and registry publication.
 
 - [x] S-16.1 Streamable HTTP Transport (P05-R5) - for remote/enterprise usage
-  - Implemented in `src/codrag/mcp_server.py` (`run_http`, `/sse`, `/message`)
+  - Implemented in `src/prep/mcp_server.py` (`run_http`, `/sse`, `/message`)
 - [x] S-16.2 Async Tasks for long-running builds (P05-R7)
-  - Implemented as async Tool (`codrag_build` returns immediate "started") + Polling (`codrag_status`)
+  - Implemented as async Tool (`prep_build` returns immediate "started") + Polling (`prep_status`)
 - [x] S-16.3 PyPI Package Verification for MCP Registry (P05-I19)
 - [x] S-16.4 Tool Icons & Metadata Polish (P05-R9)
 
@@ -338,10 +338,10 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 
 - [x] S-11.1 Fix watcher crash: `trigger_build` called `_start_project_build` with wrong args 
 - [x] S-11.2 Wire auto-trace into watcher: file changes now trigger both index + trace rebuilds 
-- [x] S-11.3 Feature gating framework (`src/codrag/core/feature_gate.py`) 
+- [x] S-11.3 Feature gating framework (`src/prep/core/feature_gate.py`) 
   - 5 tiers: FREE, STARTER, PRO, TEAM, ENTERPRISE
   - 11 gated features + project count limits
-  - License from `~/.prep/license.json` or `CODRAG_TIER` env var
+  - License from `~/.prep/license.json` or `PREP_TIER` env var
   - `FeatureGateError` → 403 with upgrade hint
 - [x] S-11.4 Gate enforcement in server 
   - `POST /projects` → project count limit (1 free, 3 starter, unlimited pro)
@@ -356,7 +356,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - `_detect_language`: handles Java, C, C++ extensions
 - [x] S-11.6 API client + types for license endpoint 
   - `LicenseStatus`, `FeatureAvailability` types in `types.ts`
-  - `getLicense()` on `ApiClient` interface + `CodragApiClient` + `MockApiClient`
+  - `getLicense()` on `ApiClient` interface + `PrepApiClient` + `MockApiClient`
 - [x] S-11.7 Tests: 32 feature gate tests + 167 total passed, 0 failed 
 
 ### Sprint S-22: Trace Epistemology (Phase 22)
@@ -364,7 +364,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 
 - [x] S-22.1 Rust Markdown Extraction (Pass 0) — `markdown.rs` 11 tests, section/ref/link/status analysis
 - [x] S-22.2 Strategic Snippet Selection (Pass 1) — `_get_strategic_excerpt()`, DOC_ROLE prompts
-- [x] S-22.3 Pass 0.5 LLM-Guided Re-Trace — `incorporate_inferred_edges()` in codrag-graph, 7 tests
+- [x] S-22.3 Pass 0.5 LLM-Guided Re-Trace — `incorporate_inferred_edges()` in prep-graph, 7 tests
 - [x] S-22.4 Pass 2 Epistemic Enrichment — `epistemic_score.py` + `epistemic_enrichment.py`, topological sort, 14b prompts
 - [x] S-22.5 Pass 3 Cluster Synthesis — `cluster.py`, tag grouping + connected components, `trace_modules.jsonl`
 - [x] S-22.6 Pass 4+ Continuous Deepening Loop — `deepening.py`, EnrichmentQueue + DriftDetector + ConvergenceTracker
@@ -373,7 +373,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 ### Sprint S-23: Cleanup & Refactor (Phase 23)
 **Goal:** Extract god-object App.tsx into domain hooks; split server.py into routers.
 
-- [x] S-23.1 Backend: server.py 4,352 → 313 lines; routers in `src/codrag/api/routers/` (system, license, trace, knowledge, llm, projects)
+- [x] S-23.1 Backend: server.py 4,352 → 313 lines; routers in `src/prep/api/routers/` (system, license, trace, knowledge, llm, projects)
 - [x] S-23.2 Frontend Phase A: `enrichmentReducer.ts` + `useEnrichment.ts` extracted from useTraceSystem
 - [x] S-23.3 Frontend Phase B: `useSearchContext.ts` extracted (13 useState + 3 useCallback)
 - [x] S-23.4 Frontend Phase C: `useFileSystem.ts` extracted (fileTree, pathWeights, includedPaths, pinnedPaths)
@@ -427,11 +427,11 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 **Goal:** native embeddings (no Ollama required), user-defined path weighting, CLaRa context compression.
 
 - [x] S-10.1 Native `nomic-embed-text` embedder via ONNX Runtime (Phase16) 
-  - `NativeEmbedder` class in `src/codrag/core/embedder.py`
+  - `NativeEmbedder` class in `src/prep/core/embedder.py`
   - New deps: `onnxruntime`, `tokenizers`, `huggingface-hub`
   - Auto-download model on first use to `~/.cache/huggingface/`
   - Default embedder; Ollama becomes optional power-user config
-  - CLI: `codrag models` pre-downloads for air-gapped setups
+  - CLI: `prep models` pre-downloads for air-gapped setups
   - Tests: `tests/test_native_embedder.py` (12 tests)
 - [x] S-10.2 User-defined path weights for context weighting (Phase16) 
   - `path_weights: Dict[str, float]` in `repo_policy.json`
@@ -441,10 +441,10 @@ These sprints are intentionally cross-phase. Each sprint should end with:
   - Hot-update: weights apply immediately to searches without rebuild
   - Tests: `tests/test_path_weights.py` (15 tests)
 - [x] S-10.3 CLaRa context compression via `CLaRa-Remembers-It-All` subtree (Phase16) 
-  - `ContextCompressor` ABC + `ClaraCompressor` + `NoopCompressor` in `src/codrag/core/compressor.py`
+  - `ContextCompressor` ABC + `ClaraCompressor` + `NoopCompressor` in `src/prep/core/compressor.py`
   - Sidecar HTTP client calling CLaRa server at configurable URL (default `:8765`)
   - API: `compression="clara"` param on `/projects/{id}/context` + `GET /clara/status`
-  - MCP: `codrag` tool accepts compression params
+  - MCP: `prep` tool accepts compression params
   - Graceful fallback: returns uncompressed on timeout/error
   - Tests: `tests/test_compressor.py` (19 tests)
 - [x] S-10.4 Update marketing copy to reflect embeddings as built-in core feature (Phase12/16) 
@@ -458,14 +458,14 @@ This section tracks shared decisions/strategies that must remain consistent acro
 
 ### STR-01: API response envelope and error model
 - **Status:** ✅ Implemented
-- **Source of truth:** `docs/API.md` + `src/codrag/server.py` (`ApiException`, `ok()` helper)
+- **Source of truth:** `docs/API.md` + `src/prep/server.py` (`ApiException`, `ok()` helper)
 - **Implementation:** `{ok: true, data: ...}` / `{ok: false, error: {code, message, hint}}` envelope.
   `ApiException` with status_code/code/message/hint. Parity across HTTP + MCP.
 - **Remaining:** formal error code taxonomy documentation
 
 ### STR-02: Stable IDs (chunks, files, trace nodes)
 - **Status:** ✅ Implemented
-- **Implementation:** `src/codrag/core/ids.py` — sha256-based derivations:
+- **Implementation:** `src/prep/core/ids.py` — sha256-based derivations:
   - `stable_file_hash(content)` → 16-char hex
   - `stable_markdown_chunk_id(path, section, idx)`, `stable_code_chunk_id(path, idx)`
   - `stable_file_node_id(path)`, `stable_symbol_node_id(qualname, path, line)`
@@ -474,7 +474,7 @@ This section tracks shared decisions/strategies that must remain consistent acro
 
 ### STR-03: Manifest schema + format versioning
 - **Status:** ✅ Implemented
-- **Implementation:** `src/codrag/core/manifest.py` — `MANIFEST_VERSION = "1.0"`
+- **Implementation:** `src/prep/core/manifest.py` — `MANIFEST_VERSION = "1.0"`
   Fields: version, built_at, model, roots, count, embedding_dim, build (stats), config, file_hashes
 - **Remaining:** formal `format_version` bump policy for breaking changes
 
@@ -494,15 +494,15 @@ This section tracks shared decisions/strategies that must remain consistent acro
 
 ### STR-06: Watcher strategy (OS events vs polling fallback)
 - **Status:** ✅ Implemented
-- **Implementation:** chokidar via Node.js subprocess (`src/codrag/watcher.py`).
+- **Implementation:** chokidar via Node.js subprocess (`src/prep/watcher.py`).
   Debounce 5s default, throttle, state machine (disabled/idle/debouncing/building/throttled).
   Falls back gracefully if Node.js unavailable.
 
 ### STR-07: Trace analyzer strategy
 - **Status:** ✅ Implemented
 - **Implementation:** Rust engine with tree-sitter parsers for 8 languages.
-  Python fallback via AST module. PyO3 bridge (`codrag_engine`).
-  `CODRAG_ENGINE=rust|python|auto` env var for selection.
+  Python fallback via AST module. PyO3 bridge (`prep_engine`).
+  `PREP_ENGINE=rust|python|auto` env var for selection.
 
 ### STR-08: Packaging strategy (Python sidecar)
 - **Status:** Proposed
@@ -512,12 +512,12 @@ This section tracks shared decisions/strategies that must remain consistent acro
 ### STR-09: Licensing + feature gating strategy
 - **Status:** ✅ Decided + Enforcement Implemented
 - **Implementation:** Lemon Squeezy as MoR. "Activation Exchange" flow:
-  LS issues key → user enters in app → exchange via api.codrag.io → signed Ed25519 offline license.
+  LS issues key → user enters in app → exchange via api.runprep.io → signed Ed25519 offline license.
   Documented in ADR-013 + `docs/DISTRIBUTION_AND_REVENUE_PLAN.md` (authoritative).
-- **Enforcement:** `src/codrag/core/feature_gate.py` — runtime tier checks.
+- **Enforcement:** `src/prep/core/feature_gate.py` — runtime tier checks.
   Server gates: project count, watcher, CLaRa.
   `GET /license` endpoint for frontend tier awareness.
-  Dev override: `CODRAG_TIER=pro` env var.
+  Dev override: `PREP_TIER=pro` env var.
 - **Remaining:** Ed25519 signature verification in license loader, Tauri UI for license entry
 
 ### STR-10: Auto-rebuild ↔ auto-trace co-triggering
@@ -544,17 +544,17 @@ Add brief notes here after completing a sprint:
 - what changed (decisions, scope)
 - new blockers
 
-### 2026-02-21: Phase 32 - `hi_codrag` MVP Capabilities
+### 2026-02-21: Phase 32 - `hi_prep` MVP Capabilities
 
 **What was done:**
-- **Doc Content Previews (O-1):** `hi_codrag` now fetches the first heading + paragraph for `.md` files to provide content-aware summaries.
+- **Doc Content Previews (O-1):** `hi_prep` now fetches the first heading + paragraph for `.md` files to provide content-aware summaries.
 - **Hub File Identification (O-2):** Trace graph identifies highly-connected files in the user's selection (`GET /trace/hub_files`).
 - **Filename-Based Topic Detection (O-3):** Groups selected files into project-specific topics (e.g., "authentication", "UI components") based on keyword clustering.
 - **Smart Prompt Ordering (O-4):** Suggested prompts are sorted by relevance to the dominant file category selected.
-- **Ambient Context Chain (O-5):** `_ai_note` updated to guide AI agents to use the `codrag` tool for deeper content retrieval after `hi_codrag`.
+- **Ambient Context Chain (O-5):** `_ai_note` updated to guide AI agents to use the `prep` tool for deeper content retrieval after `hi_prep`.
 - **Change Detection (O-7):** Surfaces `stale` files from the trace coverage endpoint to warn users if their context is outdated.
-- **Cross-File Relationships (O-8):** For small selections, `hi_codrag` queries trace edges (`GET /trace/file_edges`) to show how selected files connect.
-- **Docs updated:** `hi_codrag` capabilities are documented in Quick Start, MCP Overview, and Windsurf integration pages.
+- **Cross-File Relationships (O-8):** For small selections, `hi_prep` queries trace edges (`GET /trace/file_edges`) to show how selected files connect.
+- **Docs updated:** `hi_prep` capabilities are documented in Quick Start, MCP Overview, and Windsurf integration pages.
 
 ### 2026-02-15: MASTER_TODO Reconciliation + Trace Graph + Bug Fixes
 
@@ -579,9 +579,9 @@ Add brief notes here after completing a sprint:
 - **JS/TS import extraction for Python fallback (P2):** New `JSAnalyzer` class in `trace.py` — regex-based extraction of ES imports, CommonJS require, dynamic imports, re-exports, and symbols (functions, classes, interfaces, types, enums, exported constants). Relative imports resolve to file nodes. Wired into `TraceBuilder.build()` for `javascript`/`typescript` languages. 17 tests in `tests/test_js_analyzer.py`.
 
 **Files changed:**
-- `src/codrag/api/routers/projects.py` — watch/start + watch/stop response shape
-- `src/codrag/core/trace.py` — JSAnalyzer class + degraded detection in status()
-- `src/codrag/core/embedder.py` — FakeEmbedder deterministic hash
+- `src/prep/api/routers/projects.py` — watch/start + watch/stop response shape
+- `src/prep/core/trace.py` — JSAnalyzer class + degraded detection in status()
+- `src/prep/core/embedder.py` — FakeEmbedder deterministic hash
 - `packages/ui/src/types.ts` — TraceStatus degraded fields
 - `tests/test_js_analyzer.py` — NEW (17 tests)
 - `tests/test_incremental_rebuild.py` — fixed flaky test
@@ -608,29 +608,29 @@ Add brief notes here after completing a sprint:
   - `/projects/*` endpoints
   - `/llm/status` and `/llm/test`
 - Shared helpers:
-  - `src/codrag/api/envelope.py` (envelope + exception handlers)
-  - `src/codrag/core/ids.py` (stable IDs + file hashes)
-  - `src/codrag/core/manifest.py` (manifest read/write + builder)
+  - `src/prep/api/envelope.py` (envelope + exception handlers)
+  - `src/prep/core/ids.py` (stable IDs + file hashes)
+  - `src/prep/core/manifest.py` (manifest read/write + builder)
 - Minimal tests added for envelope + manifest/ID roundtrips.
 
 **Known followups:**
-- `src/codrag/api/responses.py` duplicates envelope helpers (see `docs/QA.md`).
+- `src/prep/api/responses.py` duplicates envelope helpers (see `docs/QA.md`).
 - Phase03 incremental rebuild spec requires richer per-file manifest fields (see `docs/QA.md`).
 
 ### 2026-02-01: Sprint S-05 (MCP Integration) Complete
 
 **What was built:**
-- `src/codrag/mcp_server.py` — Full MCP server implementation (stdio transport)
-  - Tools: `codrag_status`, `codrag_build`, `codrag_search`, `codrag_context`
+- `src/prep/mcp_server.py` — Full MCP server implementation (stdio transport)
+  - Tools: `prep_status`, `prep_build`, `prep_search`, `prep_context`
   - JSON-RPC protocol handling per spec 2025-11-25
   - Token-efficient lean outputs
   - Proper error codes (DAEMON_UNAVAILABLE, etc.)
-- `codrag mcp` CLI command — Runs MCP server with `--project` or `--auto` modes
-- `codrag mcp-config` CLI command — Generates configs for 5 IDEs:
+- `prep mcp` CLI command — Runs MCP server with `--project` or `--auto` modes
+- `prep mcp-config` CLI command — Generates configs for 5 IDEs:
   - Claude Desktop, Cursor, VS Code, JetBrains, Windsurf
 - `tests/test_mcp_server.py` — Comprehensive test suite
 - `mcp-server.json` — MCP Registry metadata file
-- `src/codrag/api/responses.py` — Standardized API response envelope
+- `src/prep/api/responses.py` — Standardized API response envelope
 - Updated CLI: `status`, `search`, `context`, `build` now connect to daemon
 
 **Research completed:**
@@ -653,7 +653,7 @@ Add brief notes here after completing a sprint:
 ### 2026-02-02: Documentation alignment + CLI/MCP gaps identified
 
 **What was done:**
-- Aligned `docs/Phase12.../MCP-Shim-strategy-and-examples.md` with canonical domain (`codrag.io`), repo name (`codrag-mcp`), and attribution policy (optional/user-controlled).
+- Aligned `docs/Phase12.../MCP-Shim-strategy-and-examples.md` with canonical domain (`runprep.io`), repo name (`prep-mcp`), and attribution policy (optional/user-controlled).
 - Updated `docs/Phase14_MCP-CLI/PUBLIC_GITHUB_STRATEGY.md` with current implementation status.
 
 **Known gaps to resolve (CLI/daemon):**
@@ -680,17 +680,17 @@ Add brief notes here after completing a sprint:
 
 **Remaining work (next):**
 - Implement `usePinnedFiles` (localStorage + fetch content) and wire `FolderTreePanel` + `PinnedTextFilesPanel` into:
-  - `src/codrag/dashboard/src/App.tsx`
+  - `src/prep/dashboard/src/App.tsx`
   - Storybook `FullDashboard` demo
 - Add missing scrollbar utilities + update UI package exports for new panels.
-- [ ] MCP direct mode (`codrag mcp --mode direct`) needs verification/smoke test.
+- [ ] MCP direct mode (`prep mcp --mode direct`) needs verification/smoke test.
 
 ### 2026-02-03: Progress capture + next TODOs
 
  **Progress captured/verified:**
  - Websites monorepo scaffold exists under `websites/apps/*`:
    - `websites/apps/marketing`, `websites/apps/docs`, `websites/apps/support`, `websites/apps/payments`
-   - Each is a Next.js app using `@codrag/ui` and the shared Tailwind preset.
+   - Each is a Next.js app using `@prep/ui` and the shared Tailwind preset.
  - Dev-only website UI controls implemented:
    - `DevToolbar` added (dev-only gated) to all 4 app layouts to switch `theme`, `dark`, and marketing `hero` variant via URL query params.
    - Marketing homepage wired to render a hero variant dynamically in dev (via `DevMarketingHero`).
@@ -719,7 +719,7 @@ Add brief notes here after completing a sprint:
    - Project status endpoint exposes `stale` + `stale_since` at top level
    - 9 tests in `tests/test_watcher_staleness.py`
  - [x] MCP: add Streamable HTTP transport support (Phase05 P05-R5/P05-R7) ✅ **DONE**
-   - Added `codrag mcp --transport http --port 8401`
+   - Added `prep mcp --transport http --port 8401`
    - Implemented SSE endpoint (`/sse`) and message endpoint (`/message`) using FastAPI/Uvicorn
 
 ### 2026-02-09: VS Code daemon wiring audit — license + MCP config endpoints
@@ -762,29 +762,29 @@ Add brief notes here after completing a sprint:
 
  **What changed:**
  - **Workflow Shift**: Switched from running 4x Next.js dev servers (fragile, slow) to Storybook-first development (fast, isolated).
- - **Universal UI**: All marketing/docs components (`MarketingHero`, `FeatureBlocks`, `IndexStats`, `TraceGraph`) are now canonical in `@codrag/ui`.
+ - **Universal UI**: All marketing/docs components (`MarketingHero`, `FeatureBlocks`, `IndexStats`, `TraceGraph`) are now canonical in `@prep/ui`.
  - **Themes Ported**: All "Radical" visual directions (Neo-Brutalist, Retro, Glass, etc.) + required fonts are fully integrated into the shared package.
 
  ### 2026-02-05: Frontend-Backend Integration (S-02)
 
  **What was built:**
- - **Typed API Client** (`packages/ui/src/api/client.ts`): Extended `CodragApiClient` with 9 new methods:
+ - **Typed API Client** (`packages/ui/src/api/client.ts`): Extended `PrepApiClient` with 9 new methods:
    - Project CRUD: `createProject`, `getProject`, `updateProject`, `deleteProject`
    - Build: `buildProject` (with polling)
    - Roots: `getProjectRoots`
    - Watch: `startWatch`, `stopWatch`, `getWatchStatus`
    - Health: `getHealth`
  - **New API types** (`packages/ui/src/api/types.ts`): `CreateProjectRequest/Response`, `UpdateProjectRequest/Response`, `DeleteProjectResponse`, `BuildProjectResponse`, `WatchActionResponse`
- - **App.tsx full rewrite** (`src/codrag/dashboard/src/App.tsx`): 1009→573 lines, exclusively Storybook components:
+ - **App.tsx full rewrite** (`src/prep/dashboard/src/App.tsx`): 1009→573 lines, exclusively Storybook components:
    - `AppShell` + `Sidebar` + `ProjectList` for multi-project navigation
    - `AddProjectModal` for project creation via `POST /projects`
    - `LoadingState` / `ErrorState` pattern components
-   - `Button` atomic primitive (newly exported from `@codrag/ui`)
+   - `Button` atomic primitive (newly exported from `@prep/ui`)
    - `FolderTreePanel` wired to `/projects/{id}/roots`
    - All API calls via `useApiClient()` → canonical `/projects/{id}/*` routes
    - Removed: legacy `/api/code-index` routes, hand-rolled fetch, inline tree logic, raw HTML buttons
- - **main.tsx**: Wrapped with `ApiClientProvider` using `CodragApiClient`
- - **New exports from `@codrag/ui`**: `Button`, `AddProjectModal`, `AddProjectModalProps`
+ - **main.tsx**: Wrapped with `ApiClientProvider` using `PrepApiClient`
+ - **New exports from `@prep/ui`**: `Button`, `AddProjectModal`, `AddProjectModalProps`
 
  **Additional work (same session):**
  - **Select primitive** (`packages/ui/src/components/primitives/Select.tsx`): New Storybook component with variants (default, ghost) and sizes
@@ -801,7 +801,7 @@ Add brief notes here after completing a sprint:
  - Dashboard uses `window.location.origin` as API base (works when served by daemon)
  - Build polling at 2s intervals until `status.building === false`
  - Project config loaded from `GET /projects/{id}` on project selection
- - Pinned file paths persisted in `localStorage` under key `codrag_pinned_files`
+ - Pinned file paths persisted in `localStorage` under key `prep_pinned_files`
 
  ### 2026-02-05: HTTP API Integration Tests (S-06.1)
 
@@ -828,7 +828,7 @@ Add brief notes here after completing a sprint:
  - [x] STR-03: manifest schema/versioning decision (per-file manifest fields vs format bump strategy). ✅ **DONE: `docs/MANIFEST_SCHEMA.md`**
  - [x] STR-04: atomic build + recovery contract (what gets swapped, how to detect partial builds). ✅ **DONE: `docs/ATOMIC_BUILD.md`**
  - [x] STR-05: budgets policy (server-enforced max caps) and alignment across UI + MCP + docs. ✅ **DONE: `docs/BUDGETS_POLICY.md`**
- - [x] Decide primer detection precedence (e.g. `AGENTS.md` vs `CODRAG_PRIMER.md`, root-only vs glob). ✅ **DONE: `docs/PRIMER_DETECTION.md`**
+ - [x] Decide primer detection precedence (e.g. `AGENTS.md` vs `PREP_PRIMER.md`, root-only vs glob). ✅ **DONE: `docs/PRIMER_DETECTION.md`**
 
  #### Planning / coordination
  - [x] Sprint S-01: choose the next “trust loop hardening” bundle: ✅ **DONE**
@@ -847,14 +847,14 @@ Add brief notes here after completing a sprint:
  - **No auto-trace:** Watcher only rebuilt CodeIndex (embeddings), never the trace graph. Files could change and trace would go silently stale. Now both are co-triggered.
 
  **Feature gating framework built:**
- - `src/codrag/core/feature_gate.py` — Tier model (FREE→STARTER→PRO→TEAM→ENTERPRISE)
+ - `src/prep/core/feature_gate.py` — Tier model (FREE→STARTER→PRO→TEAM→ENTERPRISE)
  - 11 feature gates + project count limits per tier
  - `FeatureGateError` → HTTP 403 with `FEATURE_GATED` code + upgrade URL
- - License from `~/.prep/license.json` or `CODRAG_TIER` env var (dev override)
+ - License from `~/.prep/license.json` or `PREP_TIER` env var (dev override)
  - `GET /license` endpoint returns tier + full feature availability map
  - Server enforces: project count limit on `POST /projects`, watcher on `POST /watch/start`
  - Tests: `tests/test_feature_gate.py` (32 tests)
- - `conftest.py`: auto-use fixture sets `CODRAG_TIER=pro` so existing tests aren't blocked
+ - `conftest.py`: auto-use fixture sets `PREP_TIER=pro` so existing tests aren't blocked
 
  **Frontend-Rust engine integration:**
  - Backend: `TraceIndex.status()` now returns `engine` ("rust"/"python") and `supported_languages` (8 langs)
@@ -864,7 +864,7 @@ Add brief notes here after completing a sprint:
  - Frontend `TraceStatusCard`: renamed "Trace Index" → "Code Graph", shows Rust Engine badge (⚡ orange) + 8 language chips
  - Frontend `TraceCoveragePanel`: added Java, C, C++ to `LANG_LABELS`
  - Frontend `TraceExplorer`: added `struct`, `enum`, `trait`, `interface`, `namespace`, `async_function`, `async_method` to `SymbolTypeTag` color map
- - Frontend API client: `getLicense()` method on `ApiClient`, `CodragApiClient`, `MockApiClient`
+ - Frontend API client: `getLicense()` method on `ApiClient`, `PrepApiClient`, `MockApiClient`
  - Frontend types: `LicenseStatus`, `FeatureAvailability` interfaces
 
  **Test results:** 167 passed, 36 skipped, 0 failed (ENGINE=rust)
@@ -1032,8 +1032,8 @@ Add brief notes here after completing a sprint:
 
  **What was built:**
  - **Extension Host (`packages/vscode/src/`)**: Daemon-backed architecture.
-   - `DaemonManager`: Auto-starts `codrag serve`, polls health, manages connection state.
-   - `CodragDaemonClient`: Typed HTTP client for all daemon endpoints.
+   - `DaemonManager`: Auto-starts `prep serve`, polls health, manages connection state.
+   - `PrepDaemonClient`: Typed HTTP client for all daemon endpoints.
    - `StatusBarManager`: Persistent status item with tier/connection info.
    - **Commands**: 18 commands covering Project CRUD, Search, Context, Build, Trace, Licensing.
  - **WebViews (`packages/vscode/webview-ui/`)**: React + Vite + Tailwind pipeline.
@@ -1054,7 +1054,7 @@ Add brief notes here after completing a sprint:
 
  #### Critical: CLI Bugs (5 runtime crashes)
 
- `src/codrag/cli.py` — three commands reference `project_id` which is **not a function parameter**,
+ `src/prep/cli.py` — three commands reference `project_id` which is **not a function parameter**,
  causing `NameError` at runtime when the server is reachable:
  - [x] **BUG** `activity` command: `_resolve_project(base, project_id)` — `project_id` undefined. **Fixed:** added `--project/-p` param.
  - [x] **BUG** `coverage` command: `_resolve_project(base, project_id)` — `project_id` undefined. **Fixed:** added `--project/-p` param.
@@ -1085,10 +1085,10 @@ Add brief notes here after completing a sprint:
 - [x] **`api/responses.py`** (227 lines) — deleted ✅
 
  #### MCP Server: ~~Missing~~ Trace Tools ✅ DONE
-`mcp_tools.py` now defines **7 tools**: `codrag_status`, `codrag_build`, `codrag_search`, `codrag_context`, plus the three trace tools below.
-- [x] Add `codrag_trace_search` MCP tool — search trace graph nodes by name/kind ✅
-- [x] Add `codrag_trace_neighbors` MCP tool — get neighbors for a node ID ✅
-- [x] Add `codrag_trace_coverage` MCP tool — get trace coverage summary ✅
+`mcp_tools.py` now defines **7 tools**: `prep_status`, `prep_build`, `prep_search`, `prep_context`, plus the three trace tools below.
+- [x] Add `prep_trace_search` MCP tool — search trace graph nodes by name/kind ✅
+- [x] Add `prep_trace_neighbors` MCP tool — get neighbors for a node ID ✅
+- [x] Add `prep_trace_coverage` MCP tool — get trace coverage summary ✅
 All three trace tools now proxy to the project-scoped HTTP endpoints in `mcp_server.py`.
 
  #### Test Coverage Gaps
@@ -1111,11 +1111,11 @@ All three trace tools now proxy to the project-scoped HTTP endpoints in `mcp_ser
 
  #### pyproject.toml Issues ✅ FIXED
 - [x] `requires-python = ">=3.11"` — kept as-is (3.11 is intended minimum per classifiers)
-- [x] `project.urls` → updated to `github.com/MagneticAnomaly/CoDRAG-MCP` ✅
+- [x] `project.urls` → updated to `github.com/MagneticAnomaly/Prep-MCP` ✅
 - [x] `addopts` → removed `--cov` flags that crash pytest without pytest-cov ✅
 
- #### Wrong Org URL — ~~`anthropics/CoDRAG`~~ ✅ FIXED
-All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
+ #### Wrong Org URL — ~~`anthropics/Prep`~~ ✅ FIXED
+All URLs updated to `github.com/MagneticAnomaly/Prep-MCP`:
 - [x] `pyproject.toml` lines 71-74 — `project.urls` ✅
 - [x] `packages/ui/package.json` line 83 — `repository.url` ✅
 - [x] `mcp-server.json` lines 5-6 — `homepage` + `repository` ✅
@@ -1123,8 +1123,8 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
 
  #### Environment Variables — Undocumented
  Two env vars are used in code but not documented in README or any user-facing docs:
- - [ ] `CODRAG_ENGINE` — selects engine: `auto` (default), `rust`, `python` (`core/__init__.py`) WE ALWAYS USE RUST,  I don't know why we still have the python engine
- - [ ] `CODRAG_TIER` — overrides license tier for development/testing (`core/feature_gate.py`)
+ - [ ] `PREP_ENGINE` — selects engine: `auto` (default), `rust`, `python` (`core/__init__.py`) WE ALWAYS USE RUST,  I don't know why we still have the python engine
+ - [ ] `PREP_TIER` — overrides license tier for development/testing (`core/feature_gate.py`)
  Document these in README.md or a configuration reference.
 
  #### Security Posture (local-first, acceptable for now)
@@ -1145,7 +1145,7 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
 
  **Phase 05 (MCP) — ~~4 open items remaining~~ All complete (S-16):**
  - [x] P05-R5: Streamable HTTP transport ✅ Done in S-16.1
- - [x] P05-R7: Async Tasks for `codrag_build` ✅ Done in S-16.2
+ - [x] P05-R7: Async Tasks for `prep_build` ✅ Done in S-16.2
  - [x] P05-R9: Tool icons (`_meta.icons`) ✅ Done in S-16.4
  - [x] P05-I19: PyPI package verification for MCP Registry ✅ Done in S-16.3
 
@@ -1158,11 +1158,11 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  - [ ] P06-T1-T3: All tests open
 
  **Phase 08 (Tauri MVP) — Mostly complete:**
-- [x] P08-I1/I2/I3: Sidecar lifecycle — `CoDRAG.app` builds with PyInstaller sidecar ✅
+- [x] P08-I1/I2/I3: Sidecar lifecycle — `Prep.app` builds with PyInstaller sidecar ✅
 - [x] P08-I4/I6: Port 8400 check + health check attach-or-launch ✅
 - [x] P08-I7/I8: StartupScreen with 30s health poll + error/retry/quit ✅
 - [x] P08-T1: Basic sidecar launch test ✅
-- [ ] P08-I5: Dynamic port fallback if 8400 occupied by non-CoDRAG process
+- [ ] P08-I5: Dynamic port fallback if 8400 occupied by non-Prep process
 - [ ] P08-T2/T3: Port conflict and crash recovery integration tests
 
  **Phase 11 (Deployment) — All open:**
@@ -1206,7 +1206,7 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  - `mcp_config.py` (93 lines) — 5 IDE config generators
 
  #### Dashboard Vite Proxy — ~~Missing Routes~~ ✅ FIXED
- `src/codrag/dashboard/vite.config.ts` now proxies **all 7 prefixes** to the daemon at `127.0.0.1:8400`:
+ `src/prep/dashboard/vite.config.ts` now proxies **all 7 prefixes** to the daemon at `127.0.0.1:8400`:
  `/api`, `/projects`, `/health`, `/llm`, `/license`, `/embedding`, `/compression`.
  - [x] `/embedding/*` — ✅ proxy added
  - [x] `/compression/*` — ✅ proxy added (replaced `/clara/*`)
@@ -1223,7 +1223,7 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  - [x] Tests migrated to `/mcp/config`
 
  #### Dead Code: `api/responses.py` (227 lines)
- `src/codrag/api/responses.py` defines `APIException`, `ErrorCode`, typed error subclasses
+ `src/prep/api/responses.py` defines `APIException`, `ErrorCode`, typed error subclasses
  (`ProjectNotFoundError`, `BuildAlreadyRunningError`, `OllamaUnavailableError`, etc.) and
  `register_exception_handlers()` — but is **never imported** by any module. The server uses
  `api/envelope.py` exclusively (which defines `ApiException`, `ok()`, `fail()`).
@@ -1247,11 +1247,11 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  | ~~**P2**~~ | ~~Endpoint cleanup~~ | ~~3~~ | ✅ **OK** | ~~Duplicate trace endpoints~~ → intentional aliases |
  | ~~**P2**~~ | ~~UX renames~~ | ~~9~~ | ✅ **DONE** | Panel registry updated: Knowledge Base Status, AI Gateway, Knowledge Query, Context Assembler, Retrieved Context, Prompt Buffer, Live Sync, Knowledge Sources, Code Graph Explorer |
  | ~~**P2**~~ | ~~Frontend client gaps~~ | ~~2~~ | ✅ **FIXED** | ~~`/llm/test`~~ → `testLLMConnectivity()` added |
- | ~~**P2**~~ | ~~Env var docs~~ | ~~2~~ |  **FIXED** | ~~`CODRAG_ENGINE`, `CODRAG_TIER`~~ → documented in README |
- | ~~**P2**~~ | ~~Settings primitives~~ | ~~7~~ | ✅ **DONE** | SettingsSection, SettingsRow, TagListEditor, BudgetPill, BudgetPreview — all exported from @codrag/ui |
+ | ~~**P2**~~ | ~~Env var docs~~ | ~~2~~ |  **FIXED** | ~~`PREP_ENGINE`, `PREP_TIER`~~ → documented in README |
+ | ~~**P2**~~ | ~~Settings primitives~~ | ~~7~~ | ✅ **DONE** | SettingsSection, SettingsRow, TagListEditor, BudgetPill, BudgetPreview — all exported from @prep/ui |
  | **P3** | Phase 06/08/11 | ~30 | Open | Team, Tauri, Deployment (post-MVP) |
  | **P3** | Phase 17 | ~45 | Open | VS Code extension (future) |
- | ~~**P3**~~ | ~~Website builds~~ | ~~1~~ | ✅ **OK** | `turbo.json` `^build` dependency ensures @codrag/ui builds first |
+ | ~~**P3**~~ | ~~Website builds~~ | ~~1~~ | ✅ **OK** | `turbo.json` `^build` dependency ensures @prep/ui builds first |
 
  ### 2026-02-12: Master TODO Audit & Expansion
 
@@ -1282,7 +1282,7 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  #### Items Closed (verified as fixed)
 
  **Vite Proxy — all 3 missing routes now proxied ✅**
- `src/codrag/dashboard/vite.config.ts` lines 90-104 now include `/license`, `/embedding/*`,
+ `src/prep/dashboard/vite.config.ts` lines 90-104 now include `/license`, `/embedding/*`,
  `/clara/*` proxy rules. All 7 endpoint prefixes reach the daemon in dev mode.
 
  **Frontend API client — `getClaraHealth()` exists ✅**
@@ -1299,10 +1299,10 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  - Direct JSON license payload
  - Tier name string (`free`/`starter`/`pro`/`team`/`enterprise`)
  - Base64url-encoded JSON token
- The planned flow (user enters LS key → exchange via `api.codrag.io` → signed Ed25519 offline
+ The planned flow (user enters LS key → exchange via `api.runprep.io` → signed Ed25519 offline
  license) is **not implemented**. This blocks the full licensing story.
  - [ ] Implement Lemon Squeezy activation exchange in `POST /license/activate`
- - [ ] Wire `api.codrag.io` relay service for key → license exchange
+ - [ ] Wire `api.runprep.io` relay service for key → license exchange
  - [ ] Ed25519 signature verification in license loader (already tracked)
 
  #### NEW: Payments Recovery Route — Mock Stub
@@ -1316,16 +1316,16 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  - [ ] Integrate `POST /api/recover` with Lemon Squeezy order lookup API
 
  #### ~~NEW: Dashboard Error Toast — Unwired~~ ✅ ALREADY WIRED
- `src/codrag/dashboard/src/App.tsx`:
+ `src/prep/dashboard/src/App.tsx`:
  - `ErrorToast` component defined (lines 163-178) with auto-dismiss after 5s
  - `_error` state set in 10+ catch blocks throughout the file
  - Rendered at bottom of JSX: `{_error && <ErrorToast message={_error} onDismiss={() => setError(null)} />}`
  - [x] Error toast is fully wired and functional ✅
 
  #### ~~NEW: viz Module — Not Exported / Not Wired~~ ✅ FIXED
- ~~`src/codrag/viz/__init__.py` exports 7 functions but **2 viz modules are orphaned**:~~
- - [x] `render_drift_report` (`viz/drift.py`) — exported from `__init__.py` ✅, CLI `codrag drift` added ✅
- - [x] `render_rag_flow` (`viz/flow.py`) — exported from `__init__.py` ✅, CLI `codrag flow` added ✅
+ ~~`src/prep/viz/__init__.py` exports 7 functions but **2 viz modules are orphaned**:~~
+ - [x] `render_drift_report` (`viz/drift.py`) — exported from `__init__.py` ✅, CLI `prep drift` added ✅
+ - [x] `render_rag_flow` (`viz/flow.py`) — exported from `__init__.py` ✅, CLI `prep flow` added ✅
  All viz modules now exported and wired to CLI commands.
 
  #### ~~NEW: MockApiClient — 38 Stub Methods~~ ✅ FIXED
@@ -1360,9 +1360,9 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
 
  **Phase 17 (`Phase17_VSC-plugin/TODO.md`) — ✅ dependencies table updated:**
  All daemon endpoints now marked ✅ Exists. Remaining ❌ items are genuine gaps:
- - `api.codrag.io` activation exchange endpoint (P1 License activation)
+ - `api.runprep.io` activation exchange endpoint (P1 License activation)
  - Lemon Squeezy product + activation limits (P2 Payments recovery)
- - Signed CoDRAG binaries on PATH (dev-only, not blocking)
+ - Signed Prep binaries on PATH (dev-only, not blocking)
  - [x] **ACTION:** Update Phase 17 TODO.md dependencies table ✅ DONE
 
  #### NEW: Phase 15 — Open Items
@@ -1378,7 +1378,7 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  # TODO: Implement MLX loading when CLaRa MLX weights are available
  ```
  This is in the vendored CLaRa subtree. Low priority — only relevant for Apple Silicon
- native inference. Not blocking any CoDRAG functionality.
+ native inference. Not blocking any Prep functionality.
  - [ ] Implement MLX model loading in CLaRa when weights become available (vendor subtree)
 
  #### Reconciliation: Items Already Tracked (no change needed)
@@ -1405,14 +1405,14 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
 | **P1** | Phase 07 (Testing) | 14 | Open | Entire phase unstarted — MVP quality bar |
 | **P1** | Test coverage | 2 | **Partial** | CLI (900 lines), viz (8 files) untested; +24 new tests: `test_pipeline_budget.py` (15), `test_embedder_factory.py` (9) |
 | ~~**P1**~~ | ~~pyproject.toml~~ | ~~3~~ |  **FIXED** | ~~Python version, pytest-cov crash, wrong org URL~~ |
-| ~~**P1**~~ | ~~Wrong org URL~~ | ~~3~~ |  **FIXED** | ~~`anthropics/CoDRAG`~~ → `EricBintner/CoDRAG` |
+| ~~**P1**~~ | ~~Wrong org URL~~ | ~~3~~ |  **FIXED** | ~~`anthropics/Prep`~~ → `EricBintner/Prep` |
 | ~~**P1**~~ | ~~Legacy endpoints~~ | ~~3~~ |  **DEPRECATED** | ~~`/api/code-index/*`~~ → deprecation warnings added |
  | ~~**P1**~~ | ~~Dashboard error UX~~ | ~~1~~ |  **FIXED** | ~~`_error` state~~ → ErrorToast component wired |
  | ~~**P2**~~ | ~~Dead code~~ | ~~2~~ |  **DELETED** | ~~`server_old.py` + `api/responses.py`~~ |
 | **P2** | Endpoint cleanup | 3 | **OK** | Duplicate trace endpoints → intentional aliases |
 | ~~**P2**~~ | ~~UX renames~~ | ~~9~~ | ✅ **DONE** | All panel titles updated in `panelRegistry.ts` |
 | ~~**P2**~~ | ~~Frontend client gaps~~ | ~~2~~ | ✅ **FIXED** | ~~`/llm/test`~~ → `testLLMConnectivity()` added |
-| ~~**P2**~~ | ~~Env var docs~~ | ~~2~~ | ✅ **FIXED** | ~~`CODRAG_ENGINE`, `CODRAG_TIER`~~ → documented in README |
+| ~~**P2**~~ | ~~Env var docs~~ | ~~2~~ | ✅ **FIXED** | ~~`PREP_ENGINE`, `PREP_TIER`~~ → documented in README |
  | **P2** | Settings primitives | 7 | Open | Missing form/budget/diagnostics components |
  | ~~**P2**~~ | ~~MockApiClient~~ | ~~1~~ | ✅ **FIXED** | ~~38 stub methods~~ → all methods now return mock data |
  | ~~**P2**~~ | ~~viz module gaps~~ | ~~2~~ | ✅ **FIXED** | ~~`drift` + `flow`~~ → exported + CLI commands added |
@@ -1428,7 +1428,7 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  | ~~**P2**~~ | ~~Phase 23 backend~~ | ~~1~~ | ✅ **DONE** | server.py 4,352→313 lines (−93%), all routers + services extracted |
  | **P3** | Phase 06/08/11 | ~32 | Open | Team, Tauri, Deployment (post-MVP); Phase 08 mostly done (P08-I5/T2/T3 remain) |
  | **P3** | Phase 17 | ~45 | Open | VS Code extension (future) |
- | ~~**P3**~~ | ~~Website builds~~ | ~~1~~ | ✅ **OK** | `turbo.json` `^build` dependency ensures @codrag/ui builds first |
+ | ~~**P3**~~ | ~~Website builds~~ | ~~1~~ | ✅ **OK** | `turbo.json` `^build` dependency ensures @prep/ui builds first |
 
  ### 2026-02-12: Cross-Reference Graph — Empty Graph Bug + UX Clarity
 
@@ -1436,11 +1436,11 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
  project. Selecting any node shows `← 0 in → 0 out`. The graph is technically "working" but
  provides zero useful information — every node is an island with no connections.
 
- **Root cause (data bug):** The Python trace fallback (`src/codrag/core/trace.py` line 498)
+ **Root cause (data bug):** The Python trace fallback (`src/prep/core/trace.py` line 498)
  only runs `PythonAnalyzer` for `.py` files. For all other languages (TypeScript, JavaScript,
  Go, Rust, Java, C, C++) the `else` branch at line 526 just increments `files_parsed` without
  extracting any symbols or edges. Result: file nodes are created (670 of them) but zero
- `contains`, `imports`, or `calls` edges exist. The Rust engine (`codrag_engine` via PyO3)
+ `contains`, `imports`, or `calls` edges exist. The Rust engine (`prep_engine` via PyO3)
  handles all 8 languages correctly, but if it's not installed the Python fallback silently
  produces a degenerate graph.
 
@@ -1497,7 +1497,7 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
 
 #### ~~Dashboard Error Toast appears to be unwired~~ ✅ ALREADY FIXED
 
-`ErrorToast` component exists at `src/codrag/dashboard/src/components/ErrorToast.tsx`. It is imported and rendered in `App.tsx` line ~847: `<ErrorToast message={error} onClose={() => setError(null)} />`. Auto-dismisses after 5s with fade animation.
+`ErrorToast` component exists at `src/prep/dashboard/src/components/ErrorToast.tsx`. It is imported and rendered in `App.tsx` line ~847: `<ErrorToast message={error} onClose={() => setError(null)} />`. Auto-dismisses after 5s with fade animation.
 
 - [x] Error Toast is fully wired and functional. ✅
 
@@ -1510,10 +1510,10 @@ All URLs updated to `github.com/MagneticAnomaly/CoDRAG-MCP`:
 #### ~~NEW: Analytics TODO placeholders in all website app layouts~~ ✅ DONE
 
 All four Next.js sites now use Plausible via `<Script strategy="afterInteractive" />`:
-- [x] `websites/apps/marketing/src/app/layout.tsx` — `data-domain="codrag.io"` ✅
-- [x] `websites/apps/docs/src/app/layout.tsx` — `data-domain="docs.codrag.io"` ✅
-- [x] `websites/apps/support/src/app/layout.tsx` — `data-domain="support.codrag.io"` ✅
-- [x] `websites/apps/payments/src/app/layout.tsx` — `data-domain="payments.codrag.io"` ✅
+- [x] `websites/apps/marketing/src/app/layout.tsx` — `data-domain="runprep.io"` ✅
+- [x] `websites/apps/docs/src/app/layout.tsx` — `data-domain="docs.runprep.io"` ✅
+- [x] `websites/apps/support/src/app/layout.tsx` — `data-domain="support.runprep.io"` ✅
+- [x] `websites/apps/payments/src/app/layout.tsx` — `data-domain="payments.runprep.io"` ✅
 
 **Note:** Plausible account + site setup still required. Script loads but won't report until sites are registered at plausible.io.
 
@@ -1547,7 +1547,7 @@ All four Next.js sites now use Plausible via `<Script strategy="afterInteractive
 **Files changed:**
 - `packages/ui/src/components/project/FolderTree.tsx` — selection logic
 - `packages/ui/src/components/dashboard/IndexStatusCard.tsx` — graph stats + hideChart prop
-- `src/codrag/dashboard/src/App.tsx` — toggle handler + transient state logic
+- `src/prep/dashboard/src/App.tsx` — toggle handler + transient state logic
 
 ### 2026-02-15: Dashboard UI Refinements — Progress Bars, Coverage Panel, Trace Robustness
 
@@ -1580,11 +1580,11 @@ All four Next.js sites now use Plausible via `<Script strategy="afterInteractive
 - `packages/ui/tailwind.config.js` — indeterminate animation keyframe
 - `packages/ui/src/components/trace/TraceCoveragePanel.tsx` — embedding status, label changes, spinner removal
 - `packages/ui/src/types.ts` — `pending_embedding` field
-- `src/codrag/core/trace.py` — sanitization + `compute_trace_coverage` embedded_paths
-- `src/codrag/core/index.py` — `get_indexed_file_paths()`
-- `src/codrag/api/routers/trace.py` — pass embedded_paths to coverage
-- `src/codrag/services/pipeline_orchestrator.py` — sets `trace.enabled` on build
-- `src/codrag/dashboard/src/hooks/useTraceSystem.ts` — completion handler fix
+- `src/prep/core/trace.py` — sanitization + `compute_trace_coverage` embedded_paths
+- `src/prep/core/index.py` — `get_indexed_file_paths()`
+- `src/prep/api/routers/trace.py` — pass embedded_paths to coverage
+- `src/prep/services/pipeline_orchestrator.py` — sets `trace.enabled` on build
+- `src/prep/dashboard/src/hooks/useTraceSystem.ts` — completion handler fix
 
 ---
 
@@ -1593,7 +1593,7 @@ All four Next.js sites now use Plausible via `<Script strategy="afterInteractive
 ### Product / Codebase
 - [x] **Embedding model upgrade**: `v2-moe` evaluated in Phase 33 and rejected. `nomic-embed-text-v1.5` ONNX remains the default.
 - [x] **Academic terminology audit**: ✅ Completed. User-facing labels renamed: "Epistemic Enrichment" → "Deep Reasoning", "Cluster Synthesis" → "Module Synthesis", "Epistemic Score" → "Understanding Score", "Confidence" → "Understanding" in IndexHealthPanel. Academic terms preserved in italicized descriptions, tooltips, and docs explanations. No API/code field names changed. Full epistemological foundation written in `/concepts/graph-enrichment` docs page. All docs updated to 9-stage pipeline.
-- [ ] **Debug log export guide**: Implement a safe "Export Debug Bundle" feature or document a manual process for users to collect logs without leaking source code. Add to FAQ + Troubleshooting. (`src/codrag/api/`, docs site)
+- [ ] **Debug log export guide**: Implement a safe "Export Debug Bundle" feature or document a manual process for users to collect logs without leaking source code. Add to FAQ + Troubleshooting. (`src/prep/api/`, docs site)
 - [-] **CLI/Dashboard docs toggle**: Design a toggle in the docs site that lets users switch between "Dashboard" and "CLI" instructions for the same task (default: Dashboard). This is a large scope item — create implementation strategy before building. (`websites/apps/docs/`)
 - [ ] **`<Badge>Pro</Badge>` component for docs**: Implement a visual badge to tag Pro-only features (CLaRa, auto-rebuild, scheduled enrichment, mcp_trace_expand) in the docs. Clarify the correct free-tier definition in all docs: Free = 1 project + manual only + no CLaRa. (`websites/apps/docs/`, `packages/ui/`)
 - [ ] **Atlas FAQ entry**: Verify whether Atlas routing actually reduces token usage (pre-retrieval scoping ≠ fewer tokens sent). If confirmed, add FAQ: "What is Codebase Atlas and how does it save tokens?" (`websites/apps/marketing/src/app/faq/`)
@@ -1629,15 +1629,15 @@ All four Next.js sites now use Plausible via `<Script strategy="afterInteractive
 - Updated legacy endpoints section to reflect deletion
 
 **Files changed:**
-- `src/codrag/api/routers/system.py` — deleted deprecated config aliases, moved MCP config to `/mcp/config`
-- `src/codrag/api/routers/projects.py` — deleted `/api/code-index/context` + `/api/code-index/chunk`
-- `src/codrag/cli.py` — config command uses `/global/config`
+- `src/prep/api/routers/system.py` — deleted deprecated config aliases, moved MCP config to `/mcp/config`
+- `src/prep/api/routers/projects.py` — deleted `/api/code-index/context` + `/api/code-index/chunk`
+- `src/prep/cli.py` — config command uses `/global/config`
 - `packages/vscode/src/client.ts` — uses `/mcp/config`
 - `tests/test_mcp_config_endpoint.py` — uses `/mcp/config`
-- `src/codrag/dashboard/vite.config.ts` — added `/mcp` proxy
+- `src/prep/dashboard/vite.config.ts` — added `/mcp` proxy
 - `packages/ui/src/config/panelRegistry.ts` — added `Flame` import (already had entry)
 - `packages/ui/src/api/client.ts` — fixed `getProjectActivity` return type
 - `packages/ui/src/api/mock.ts` — fixed mock return shape
-- `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx` — wired `ActivityHeatmap` panel
-- `src/codrag/dashboard/src/App.tsx` — added activity data state + fetching
+- `src/prep/dashboard/src/hooks/useDashboardPanels.tsx` — wired `ActivityHeatmap` panel
+- `src/prep/dashboard/src/App.tsx` — added activity data state + fetching
 - `packages/ui/src/stories/dashboard/FullDashboard.stories.tsx` — added heatmap panel content

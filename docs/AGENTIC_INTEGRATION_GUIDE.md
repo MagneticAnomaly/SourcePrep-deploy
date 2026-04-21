@@ -1,6 +1,6 @@
 # Agentic Integration Guide
 
-How to connect CoDRAG to multi-agent frameworks — Paperclip, CrewAI, AutoGen, LangGraph, or any system that runs multiple AI workers against a codebase.
+How to connect Prep to multi-agent frameworks — Paperclip, CrewAI, AutoGen, LangGraph, or any system that runs multiple AI workers against a codebase.
 
 ---
 
@@ -10,13 +10,13 @@ When you run multiple AI agents in parallel — a security reviewer, a UI genera
 
 ## The Solution
 
-CoDRAG's `role` parameter gives each agent a context view shaped for its job. Same index, no extra setup:
+Prep's `role` parameter gives each agent a context view shaped for its job. Same index, no extra setup:
 
 ```
-codrag(role="security")          → auth, data access, infra, config
-codrag(role="ux designer")       → components, design tokens, layouts
-codrag(role="backend engineer")  → business logic, data models, API surface
-codrag(role="ceo")               → module summaries, health metrics, strategy
+prep(role="security")          → auth, data access, infra, config
+prep(role="ux designer")       → components, design tokens, layouts
+prep(role="backend engineer")  → business logic, data models, API surface
+prep(role="ceo")               → module summaries, health metrics, strategy
 ```
 
 ---
@@ -29,10 +29,10 @@ Each Paperclip agent has an `AGENTS.md` file. Add one line to each agent's instr
 
 ```markdown
 ## Context
-At the start of every task, call `codrag(role="<agent name>")` for codebase context.
+At the start of every task, call `prep(role="<agent name>")` for codebase context.
 ```
 
-That's it. CoDRAG resolves the agent name automatically — `"SecurityReviewer"`, `"UXDesigner"`, `"QADevOpsLead"`, `"ContentStrategist"` all resolve correctly thanks to built-in CamelCase splitting and keyword decomposition.
+That's it. Prep resolves the agent name automatically — `"SecurityReviewer"`, `"UXDesigner"`, `"QADevOpsLead"`, `"ContentStrategist"` all resolve correctly thanks to built-in CamelCase splitting and keyword decomposition.
 
 #### Example: CTO Agent
 
@@ -43,7 +43,7 @@ That's it. CoDRAG resolves the agent name automatically — `"SecurityReviewer"`
 You are the CTO. You make technical architecture decisions and evaluate engineering trade-offs.
 
 ## Context
-At the start of every task, call `codrag(role="cto")` for codebase context.
+At the start of every task, call `prep(role="cto")` for codebase context.
 This gives you architecture-level module summaries, hub files, cross-cutting concerns,
 and technical debt signals — without implementation-level noise.
 ```
@@ -57,7 +57,7 @@ and technical debt signals — without implementation-level noise.
 You review code changes for security vulnerabilities, auth issues, and data exposure risks.
 
 ## Context
-At the start of every task, call `codrag(role="security")` for codebase context.
+At the start of every task, call `prep(role="security")` for codebase context.
 This gives you authentication code, data access patterns, infrastructure configuration,
 and compliance-relevant files — filtered for your security focus.
 ```
@@ -71,7 +71,7 @@ and compliance-relevant files — filtered for your security focus.
 You review and propose UI/UX improvements based on design system principles.
 
 ## Context
-At the start of every task, call `codrag(role="ux designer")` for codebase context.
+At the start of every task, call `prep(role="ux designer")` for codebase context.
 This gives you components, design tokens, layout patterns, and Storybook documentation —
 without backend infrastructure noise.
 ```
@@ -89,13 +89,13 @@ security_agent = Agent(
     role="Security Reviewer",
     goal="Review code for vulnerabilities",
     backstory="You are a senior security engineer...",
-    tools=[codrag_tool],  # MCP tool
+    tools=[prep_tool],  # MCP tool
 )
 
 # In the agent's task, the tool call uses role=
 security_task = Task(
     description="""
-    First, call codrag(role="security reviewer") to get security-focused 
+    First, call prep(role="security reviewer") to get security-focused 
     codebase context. Then review the recent changes for vulnerabilities.
     """,
     agent=security_agent,
@@ -111,12 +111,12 @@ Pass the role in the system prompt or tool invocation:
 security_config = {
     "name": "SecurityReviewer",
     "system_message": """You are a security reviewer.
-    At the start of each task, call codrag(role="security") for context.""",
+    At the start of each task, call prep(role="security") for context.""",
 }
 
 # LangGraph node
 def security_node(state):
-    context = codrag_tool.invoke({"role": "security"})
+    context = prep_tool.invoke({"role": "security"})
     return {"context": context, **state}
 ```
 
@@ -125,8 +125,8 @@ def security_node(state):
 The pattern is always the same:
 
 1. **Name your agent** with a descriptive role title
-2. **Add one instruction** to call `codrag(role="<role name>")` at task start
-3. **CoDRAG resolves** the role name automatically — no mapping file needed
+2. **Add one instruction** to call `prep(role="<role name>")` at task start
+3. **Prep resolves** the role name automatically — no mapping file needed
 
 ---
 
@@ -159,7 +159,7 @@ The pattern is always the same:
 
 ## How Resolution Works
 
-CoDRAG decomposes any role string into recognizable keywords:
+Prep decomposes any role string into recognizable keywords:
 
 ```
 Input: "QADevOpsLead"
@@ -226,17 +226,17 @@ Role projection adds negligible overhead to MCP tool calls.
 
 ## FAQ
 
-### Does each agent need CoDRAG installed separately?
-No. All agents connect to the **same CoDRAG daemon** (one instance, one index). The `role` parameter is just a filter applied at read time.
+### Does each agent need Prep installed separately?
+No. All agents connect to the **same Prep daemon** (one instance, one index). The `role` parameter is just a filter applied at read time.
 
 ### Can agents share context across roles?
-Yes — an orchestrator agent can call `codrag()` without a role to get the full atlas, then delegate to specialized agents who each call `codrag(role="...")` for their focused view.
+Yes — an orchestrator agent can call `prep()` without a role to get the full atlas, then delegate to specialized agents who each call `prep(role="...")` for their focused view.
 
 ### What if my agent framework doesn't support MCP?
 Use the HTTP API directly: `GET /projects/{project_id}/atlas?role=security`. Any framework that can make HTTP requests works.
 
 ### Can I use this without an agentic framework?
-Absolutely. The `role` parameter works in any MCP client (Cursor, Windsurf, Claude Desktop, Antigravity). Just say `"codrag role=security"` in your prompt and the AI will pass the parameter.
+Absolutely. The `role` parameter works in any MCP client (Cursor, Windsurf, Claude Desktop, Antigravity). Just say `"prep role=security"` in your prompt and the AI will pass the parameter.
 
 ### Does role context replace the normal atlas?
 No — role context is **appended** to the standard atlas response. The agent gets both the structural overview and the role-filtered deep dive.
@@ -246,6 +246,6 @@ No — role context is **appended** to the standard atlas response. The agent ge
 ## Related Documentation
 
 - [Role-Aware Context Reference](./ROLE_AWARE_CONTEXT.md) — Full role resolution reference with every supported title
-- [MCP Onboarding](./MCP_ONBOARDING.md) — Setting up CoDRAG with AI editors
-- [CLI Reference](./CLI.md) — `codrag context --role` usage
+- [MCP Onboarding](./MCP_ONBOARDING.md) — Setting up Prep with AI editors
+- [CLI Reference](./CLI.md) — `prep context --role` usage
 - [API Reference](./API.md) — HTTP API documentation

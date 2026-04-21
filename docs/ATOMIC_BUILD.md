@@ -1,10 +1,10 @@
 # Atomic Build & Recovery Contract
 
-This document defines the atomic build mechanism used by CoDRAG to ensure index integrity during builds.
+This document defines the atomic build mechanism used by Prep to ensure index integrity during builds.
 
 ## Overview
 
-CoDRAG uses an **atomic swap strategy** to ensure that index builds either complete fully or leave the previous index intact. This prevents corrupted or partial indexes from being served.
+Prep uses an **atomic swap strategy** to ensure that index builds either complete fully or leave the previous index intact. This prevents corrupted or partial indexes from being served.
 
 ## Build Artifacts
 
@@ -214,4 +214,4 @@ Unlike databases, there's no write-ahead log. Recovery relies on:
 1. **Checksum validation**: Store SHA-256 hashes in manifest
 2. **Incremental backup**: Keep N previous indexes
 3. **Lock file**: Prevent concurrent builds
-4. **Recovery CLI**: `codrag index repair` command
+4. **Recovery CLI**: `prep index repair` command

@@ -1,10 +1,10 @@
-# CoDRAG Manifest Schema
+# Prep Manifest Schema
 
-This document defines the schema for manifest files used by CoDRAG indexes.
+This document defines the schema for manifest files used by Prep indexes.
 
 ## Overview
 
-CoDRAG uses JSON manifest files to track metadata about index builds. There are two types:
+Prep uses JSON manifest files to track metadata about index builds. There are two types:
 
 | File | Purpose |
 |------|---------|
@@ -46,7 +46,7 @@ CoDRAG uses JSON manifest files to track metadata about index builds. There are 
     },
     "primer": {
       "enabled": true,
-      "filenames": ["AGENTS.md", "CODRAG_PRIMER.md"],
+      "filenames": ["AGENTS.md", "PREP_PRIMER.md"],
       "score_boost": 0.25,
       "always_include": false,
       "max_primer_chars": 2000
@@ -191,7 +191,7 @@ def check_integrity(index_dir: Path) -> bool:
 ### Reading Manifests
 
 ```python
-from codrag.core.manifest import read_manifest
+from prep.core.manifest import read_manifest
 
 manifest = read_manifest(index_dir / "manifest.json")
 model = manifest.get("model", "unknown")
@@ -201,7 +201,7 @@ built_at = manifest.get("built_at")
 ### Writing Manifests
 
 ```python
-from codrag.core.manifest import build_manifest, write_manifest, ManifestBuildStats
+from prep.core.manifest import build_manifest, write_manifest, ManifestBuildStats
 
 manifest = build_manifest(
     model="nomic-embed-text",

@@ -1,6 +1,6 @@
-# CoDRAG Budgets Policy
+# Prep Budgets Policy
 
-This document defines the budget limits and defaults for output size, file handling, and query parameters across CoDRAG's HTTP API, MCP server, and CLI.
+This document defines the budget limits and defaults for output size, file handling, and query parameters across Prep's HTTP API, MCP server, and CLI.
 
 ## Overview
 
@@ -104,7 +104,7 @@ All interfaces (HTTP API, MCP, CLI) should:
 
 ```json
 {
-  "name": "codrag",
+  "name": "prep",
   "inputSchema": {
     "properties": {
       "k": {
@@ -126,7 +126,7 @@ All interfaces (HTTP API, MCP, CLI) should:
 
 ### Server-Side (Authoritative)
 
-Edit constants in `src/codrag/mcp_server.py`:
+Edit constants in `src/prep/mcp_server.py`:
 
 ```python
 MAX_SEARCH_K = 50
@@ -137,15 +137,15 @@ MAX_CONTEXT_CHARS = 20_000
 ### Client-Side (Defaults)
 
 Update defaults in:
-- `src/codrag/cli.py` / `cli_new.py` — CLI defaults
-- `src/codrag/mcp_tools.py` — MCP tool schema defaults
-- `src/codrag/dashboard/src/App.tsx` — Dashboard UI defaults
+- `src/prep/cli.py` / `cli_new.py` — CLI defaults
+- `src/prep/mcp_tools.py` — MCP tool schema defaults
+- `src/prep/dashboard/src/App.tsx` — Dashboard UI defaults
 
 ### Documentation
 
 When changing budgets, update:
 1. This document (`docs/BUDGETS_POLICY.md`)
-2. MCP tool descriptions (`src/codrag/mcp_tools.py`)
+2. MCP tool descriptions (`src/prep/mcp_tools.py`)
 3. CLI help text (`--help` output)
 4. API documentation (`docs/API.md`)
 

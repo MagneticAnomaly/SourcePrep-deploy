@@ -1,0 +1,24 @@
+{
+  "char_count": 2137,
+  "content": "IDENTITY: CoDRAG\nSTACK: .md 34%, .tsx 16%, .ts 16%, .py 13%, .js 12%, .json 5%, .css 2%, .html 1%\nSTRUCTURE: 2349 files, 8873 nodes, 10886 edges\nEDGE TYPES: contains: 5827, imports: 5059\nCIRCULAR DEPS (3): src/codrag/core/audit/synthesizer.py <-> src/codrag/core/audit/__init__.py; src/codrag/api/routers/projects/__init__.py <-> src/codrag/api/routers/projects/__init__.py; src/codrag/api/routers/trace_routes/__init__.py <-> src/codrag/api/routers/trace_routes/__init__.py\nENTRY POINTS: packages/ui/src/components/marketing/heroes/index.ts, src/codrag/__main__.py, docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts, packages/ui/src/components/viz/index.ts, packages/ui/src/components/team/index.ts\nSUBSYSTEMS:\n  _root/ (1266 files)\n  packages/ui/ (825 files)\n  websites/apps/marketing/ (66 files)\n  websites/apps/docs/ (54 files)\n  src/codrag/dashboard/ (46 files)\n  websites/apps/support/ (29 files)\n  packages/vscode/ (20 files)\n  websites/apps/payments/ (17 files)\n  packages/vscode/webview-ui/ (14 files)\n  packages/paperclip-plugin-codrag/ (12 files)\nTESTS: tests-old/ (7 files), specs/ (7 files), test_scheduler.py/ (1 files)\nLAYERS: presentation: 15, documentation: 2, configuration: 1, infrastructure: 1, business_logic: 1\nHUB FILES: ext:typing (232 edges), ext:__future__ (229 edges), ext:react (198 edges), ext:logging (160 edges), ext:lucide-react (144 edges)\nCALL CHAINS:\n  packages/ui/src/components/marketing/heroes/index.ts -> packages/ui/src/components/marketing/heroes/split.tsx -> packages/ui/src/components/marketing/heroes/studio.tsx -> sym:StudioHero@packages/ui/src/components/marketing/heroes/studio.tsx:15\n  src/codrag/__main__.py -> src/codrag/server.py -> ext:codrag.api.routers.agents\n  docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/index.ts -> docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/MarketingHero.tsx -> sym:FocusHero@docs/Phase13_Storybook/theme-examples/tremor-preview/src/components/MarketingHero.tsx:557\nCONFIDENCE: 0.91 avg across 20 files\nDOMAINS: ui, dashboard, layout-management, configuration, cli, mcp, indexing, layout",
+  "file_count": 2349,
+  "fingerprint": "caf15b964c535e2874989efc",
+  "generated_at": "2026-04-15T05:47:24.330712+00:00",
+  "hub_file_hashes": {},
+  "mode": "structural",
+  "model": "structural",
+  "module_count": 0,
+  "segment_ids": [
+    "_root",
+    "packages-ui",
+    "websites-apps-marketing",
+    "websites-apps-docs",
+    "src-codrag-dashboard",
+    "websites-apps-support",
+    "packages-vscode",
+    "websites-apps-payments",
+    "packages-vscode-webview-ui",
+    "packages-paperclip-plugin-codrag"
+  ],
+  "version": 1
+}

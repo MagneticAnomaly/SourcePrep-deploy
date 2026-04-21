@@ -74,13 +74,14 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# CoDRAG data (don't commit local indexes)
-.codrag/
+# Prep data (don't commit local indexes)
+.prep/
+.codrag/  # legacy (migration-era pointer directories — keep ignored)
 # Phase 113: legacy ./codrag_data/ path. Daemon state moved to
-# $CODRAG_DATA_DIR (default ~/.local/share/codrag/). Anything
+# $PREP_DATA_DIR (default ~/.local/share/prep/). Anything
 # remaining here is either a pre-migration install or stale
 # leftovers — never committed.
-codrag_data/
+codrag_data/  # legacy migration path — keep ignored
 
 # OS
 .DS_Store
@@ -107,7 +108,7 @@ TEST3/
 .env.*
 
 # Tauri signing keys (NEVER commit private key)
-src/codrag/dashboard/src-tauri/.tauri/
+src/prep/dashboard/src-tauri/.tauri/
 
 # Local reference files (not for repo)
 plausible-tags.txt

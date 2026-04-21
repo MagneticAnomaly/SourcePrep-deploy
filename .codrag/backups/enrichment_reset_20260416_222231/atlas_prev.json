@@ -1,0 +1,24 @@
+{
+  "char_count": 1814,
+  "content": "IDENTITY: CoDRAG\nSTACK: .md 35%, .tsx 16%, .ts 16%, .py 13%, .js 12%, .json 5%, .css 2%, .html 1%\nSTRUCTURE: 2361 files, 8900 nodes, 10915 edges\nEDGE TYPES: contains: 5842, imports: 5073\nCIRCULAR DEPS (4): packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx <-> packages/ui/src/components/trace/pipelineRollup.ts; src/codrag/core/audit/synthesizer.py <-> src/codrag/core/audit/__init__.py; src/codrag/api/routers/projects/__init__.py <-> src/codrag/api/routers/projects/__init__.py\nENTRY POINTS: src/codrag/mcp/server.py, packages/ui/src/index.ts, packages/ui/src/components/project/index.ts, packages/ui/src/components/audit/index.ts, engine/crates/codrag-selfheal/src/main.rs\nSUBSYSTEMS:\n  _root/ (1276 files)\n  packages/ui/ (827 files)\n  websites/apps/marketing/ (66 files)\n  websites/apps/docs/ (54 files)\n  src/codrag/dashboard/ (46 files)\n  websites/apps/support/ (29 files)\n  packages/vscode/ (20 files)\n  websites/apps/payments/ (17 files)\n  packages/vscode/webview-ui/ (14 files)\n  packages/paperclip-plugin-codrag/ (12 files)\nTESTS: tests-old/ (7 files), specs/ (7 files), tests/ (1 files)\nHUB FILES: ext:typing (232 edges), ext:__future__ (229 edges), ext:react (198 edges), ext:logging (160 edges), ext:lucide-react (145 edges)\nActive zones: `packages/ui/src/`, `src/codrag/core/`, `src/codrag/dashboard/`, `src/codrag/services/`, `tests/`\nCALL CHAINS:\n  packages/ui/src/index.ts -> packages/ui/src/types.ts -> packages/ui/src/types/layout.ts -> sym:toGridLayout@packages/ui/src/types/layout.ts:237\n  src/codrag/mcp/server.py -> src/codrag/mcp/errors.py -> sym:ProjectNotFoundError.__init__@src/codrag/mcp/errors.py:45\n  packages/ui/src/components/project/index.ts -> packages/ui/src/components/project/CodeViewer.tsx -> sym:CodeViewerProps@packages/ui/src/components/project/CodeViewer.tsx:71",
+  "file_count": 2361,
+  "fingerprint": "9aea2b63f78c0a80fc6bca1a",
+  "generated_at": "2026-04-16T04:50:05.552899+00:00",
+  "hub_file_hashes": {},
+  "mode": "structural",
+  "model": "structural",
+  "module_count": 0,
+  "segment_ids": [
+    "_root",
+    "packages-ui",
+    "websites-apps-marketing",
+    "websites-apps-docs",
+    "src-codrag-dashboard",
+    "websites-apps-support",
+    "packages-vscode",
+    "websites-apps-payments",
+    "packages-vscode-webview-ui",
+    "packages-paperclip-plugin-codrag"
+  ],
+  "version": 1
+}

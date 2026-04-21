@@ -13,30 +13,30 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - Manual tasks (accounts, DNS, payments): `FOR_ERIC_TODO.md`
 
 ## Canonical decisions (locked unless explicitly changed)
-- Canonical domain: `codrag.io`
+- Canonical domain: `runprep.io`
 - Subdomains (v0):
-  - `docs.codrag.io`
-  - `support.codrag.io`
-  - `payments.codrag.io`
+  - `docs.runprep.io`
+  - `support.runprep.io`
+  - `payments.runprep.io`
 
 ## Implementation plan (milestones)
 - **MKT-M1: Local dev + build reliability** ✅
   - [x] Resolve the Next.js dev static asset 404 issue (ports 3000–3003). (Fixed via `scripts/run_websites.sh` and robust Vite proxying)
   - [x] Ensure `turbo dev` and `turbo build` succeed for all 4 apps.
 
-- **MKT-M2: Marketing v0 pages ship (codrag.io)** ✅
+- **MKT-M2: Marketing v0 pages ship (runprep.io)** ✅
   - [x] Home, Download, Pricing, Security/Privacy, Contact.
   - [x] Implemented "Radical Design Directions" (Swiss, Neo-Brutalist, Studio, etc.) for subpages.
   - [x] Copy aligned with `COPY_DECK.md` and "No LLM Required" messaging.
 
-- **MKT-M3: Docs v0 scaffold ship (docs.codrag.io)** ✅
+- **MKT-M3: Docs v0 scaffold ship (docs.runprep.io)** ✅
   - [x] Getting Started “10-minute trust loop”.
   - [x] Concepts + Guides + Troubleshooting scaffold.
   - [x] MCP setup guide (Cursor/Windsurf specific).
 
 - **MKT-M4: Support + Payments v0 ship (support/payments subdomains)** ✅
   - [x] Support hub page (Github Issues/Discussions links).
-  - [x] Payments hub + recovery flow (wired to `NEXT_PUBLIC_CODRAG_CHECKOUT_URL`).
+  - [x] Payments hub + recovery flow (wired to `NEXT_PUBLIC_PREP_CHECKOUT_URL`).
 
 - **MKT-M5: Deploy + DNS + launch checklist** (In Progress)
   - [x] Provider choice (Netlify — free tier, commercial OK).
@@ -51,16 +51,16 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] Fix Next.js dev static asset 404s (`/_next/static/*`) across ports 3000–3003.
 
 ### MKT-W1: Shared UI + drift control
-- [x] Keep “universal” marketing/docs components canonical in `@codrag/ui`.
+- [x] Keep “universal” marketing/docs components canonical in `@prep/ui`.
 - [x] Keep website apps thin: pages + routing + content wiring only.
-- [x] Prefer Storybook-first UI iteration (`npm run storybook -w @codrag/ui`).
+- [x] Prefer Storybook-first UI iteration (`npm run storybook -w @prep/ui`).
 - [x] Theme contract:
-  - [x] Visual direction via `data-codrag-theme="<id>"`.
+  - [x] Visual direction via `data-prep-theme="<id>"`.
   - [x] Reference: `packages/ui/.storybook/preview.tsx`.
-- [x] Decide default `data-codrag-theme`: **Theme K (Inclusive Focus)** selected as default.
+- [x] Decide default `data-prep-theme`: **Theme K (Inclusive Focus)** selected as default.
 - [x] Implemented Atomic Design `Button` primitive across all sites.
 
-### MKT-W2: Marketing site (`websites/apps/marketing`) codrag.io
+### MKT-W2: Marketing site (`websites/apps/marketing`) runprep.io
 - [x] `/` home: hero + loop + local-first trust block + integrations links.
 - [x] `/download`: Platform cards + quick start + feature grid.
 - [x] `/pricing`: Free/Starter/Pro/Team tiers + “no token markup” messaging.
@@ -71,7 +71,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] `/blog`: Studio Collage layout (Direction I).
 - [x] `/privacy`, `/terms`: Enterprise Console layout (Direction L).
 
-### MKT-W3: Docs site (`websites/apps/docs`) docs.codrag.io
+### MKT-W3: Docs site (`websites/apps/docs`) docs.runprep.io
 - [x] `/getting-started`: “10-minute trust loop” (Install -> Serve -> Add -> Connect -> Verify).
 - [x] `/mcp`: Cursor/Windsurf guides + manual vs auto configuration.
 - [x] `/troubleshooting`: Connection issues + Native vs Ollama embeddings + Build debugging.
@@ -81,13 +81,13 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] `/faq`: Common questions (Privacy, GPU, Editors).
 - [x] `/search`: Client-side search implementation.
 
-### MKT-W4: Support site (`websites/apps/support`) support.codrag.io (`support@codrag.io`)
+### MKT-W4: Support site (`websites/apps/support`) support.runprep.io (`support@runprep.io`)
 - [x] Support Hub: Troubleshooting, Bug Report, Q&A, Billing, Email, Security cards.
-- [x] Wired to `support.codrag.io` in Vercel config.
+- [x] Wired to `support.runprep.io` in Vercel config.
 - [x] "Headless GitHub" integration for Discussions/Issues.
 
-### MKT-W5: Payments site (`websites/apps/payments`) payments.codrag.io
-- [x] Wire `NEXT_PUBLIC_CODRAG_CHECKOUT_URL` and document local `.env` usage.
+### MKT-W5: Payments site (`websites/apps/payments`) payments.runprep.io
+- [x] Wire `NEXT_PUBLIC_PREP_CHECKOUT_URL` and document local `.env` usage.
 - [x] Recovery path: `/recover` route implemented.
 - [x] Success page: `/success` route implemented with next steps.
 
@@ -110,7 +110,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] **Socials**: Update SiteFooter with real Twitter/X and GitHub URLs.
 - [x] **Careers**: Add "Not actively hiring" disclaimer (optional).
 - [ ] **Legal**: External legal review of Privacy/Terms.
-- [ ] **Email**: Configure `support@codrag.io` and `hello@codrag.io` catch-alls.
+- [ ] **Email**: Configure `support@runprep.io` and `hello@runprep.io` catch-alls.
 
 ### MKT-W10: Phase 29 UX Audit — Copy & Messaging Corrections (Feb 2026)
 
@@ -123,7 +123,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] Fix FeatureBlocks: Structural Code Graph badge from "Pro" → "Built-in" (trace_index is FREE per feature_gate.py). (`packages/ui/src/components/marketing/FeatureBlocks.tsx`)
 - [x] Fix FeatureBlocks: Graph Enrichment "multi-pass" → "9-stage pipeline" (verified from pipeline_orchestrator.py). (`packages/ui/src/components/marketing/FeatureBlocks.tsx`)
 - [x] Fix FeatureBlocks: "epistemic scoring" → "confidence scoring" in feature description. (`packages/ui/src/components/marketing/FeatureBlocks.tsx`)
-- [x] Fix Dashboard App.tsx: remove incorrect Starter 3-project hardcode (Starter = Pro). (`src/codrag/dashboard/src/App.tsx`)
+- [x] Fix Dashboard App.tsx: remove incorrect Starter 3-project hardcode (Starter = Pro). (`src/prep/dashboard/src/App.tsx`)
 
 **Remaining:**
 - [ ] **Support portal scope**: Define private/priority support for Pro/Team/Enterprise (email flow? SLA?). May not be MVP.
@@ -149,7 +149,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 **Manual tasks (Eric):** See `FOR_ERIC_TODO.md` §2 (Lemon Squeezy), §3 (Netlify env vars + DNS), §4 (Verification).
 
 **License infrastructure (AI-implementable):**
-- [ ] **LIC-01**: Deploy `api.codrag.io` serverless function for Ed25519 license signing.
+- [ ] **LIC-01**: Deploy `api.runprep.io` serverless function for Ed25519 license signing.
 - [ ] **LIC-04**: Implement license recovery API (replace mock in `payments/api/recover/route.ts`).
 
 ### MKT-W8: Later (post-v0 / 2.0)

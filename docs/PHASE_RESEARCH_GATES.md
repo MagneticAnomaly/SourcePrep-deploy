@@ -1,6 +1,6 @@
-# CoDRAG Phase Research Gates
+# Prep Phase Research Gates
 
-This document defines what it means for a CoDRAG phase to be **"research complete"**.
+This document defines what it means for a Prep phase to be **"research complete"**.
 
 It is meant to prevent the roadmap from being treated as a list of implementation tasks without sufficient clarity. The goal is to make sure each phase has enough definition that implementation can proceed with minimal surprises.
 

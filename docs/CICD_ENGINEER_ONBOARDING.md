@@ -1,4 +1,4 @@
-# CoDRAG — CI/CD Engineer Onboarding Guide
+# Prep — CI/CD Engineer Onboarding Guide
 
 *Created: March 8, 2026*
 *Role: CI/CD Engineer — Team & Enterprise Infrastructure*
@@ -7,7 +7,7 @@
 
 ## Your Role
 
-You are the first engineer joining the CoDRAG team beyond the founder. Your primary responsibility is to **own the CI/CD infrastructure that powers the Team and Enterprise product tiers**. This means:
+You are the first engineer joining the Prep team beyond the founder. Your primary responsibility is to **own the CI/CD infrastructure that powers the Team and Enterprise product tiers**. This means:
 
 1. Getting the Docker images building and publishing reliably
 2. Ensuring the headless indexing pipeline works end-to-end in CI environments
@@ -18,9 +18,9 @@ You are NOT responsible for the desktop app code, the LLM pipeline logic, or the
 
 ---
 
-## What CoDRAG Does (60-Second Version)
+## What Prep Does (60-Second Version)
 
-CoDRAG is a desktop developer tool (like a smarter Cursor/Copilot context engine). It:
+Prep is a desktop developer tool (like a smarter Cursor/Copilot context engine). It:
 
 1. **Parses a codebase** into a structural graph (Rust AST parser)
 2. **Enriches it with LLMs** — inferred edges, semantic cataloguing, epistemic analysis, etc. (8 LLM-powered stages)
@@ -55,7 +55,7 @@ This is the killer feature that justifies the Team pricing.
 ┌─────────────────────────────────────────────────────────┐
 │                    CUSTOMER'S REPO                      │
 │                                                         │
-│  .github/workflows/codrag-sync.yml  ← copied from us    │
+│  .github/workflows/prep-sync.yml  ← copied from us    │
 │  .prep/team_config.json           ← S3 bucket config  │
 │  .prep/.secrets                   ← gitignored creds  │
 └──────────────┬──────────────────────────────────────────┘
@@ -65,7 +65,7 @@ This is the killer feature that justifies the Team pricing.
 │              GITHUB ACTIONS (or GitLab, etc.)           │
 │                                                         │
 │  ┌──────────────────────────────────┐                   │
-│  │  codrag/headless:cpu  (our image)│                   │
+│  │  prep/headless:cpu  (our image)│                   │
 │  │  - Clones repo                   │                   │
 │  │  - Runs 11-stage pipeline        │                   │
 │  │  - Uses OpenAI/Anthropic API     │                   │
@@ -74,7 +74,7 @@ This is the killer feature that justifies the Team pricing.
 │                      OR                                 │
 │  ┌──────────────────────────────────┐                   │
 │  │  Webhook → RunPod/Modal (GPU)    │                   │
-│  │  codrag/headless:gpu             │                   │
+│  │  prep/headless:gpu             │                   │
 │  │  - Has Ollama + Qwen3:4b baked   │                   │
 │  │  - Self-contained, no API keys   │                   │
 │  └──────────────────────────────────┘                   │
@@ -92,7 +92,7 @@ This is the killer feature that justifies the Team pricing.
                │ download on startup / poll every 30min
                ▼
 ┌─────────────────────────────────────────────────────────┐
-│            DEVELOPER'S DESKTOP (CoDRAG Pro+Team)        │
+│            DEVELOPER'S DESKTOP (Prep Pro+Team)        │
 │                                                         │
 │  RemoteSyncService polls S3 for new manifest            │
 │  Downloads zip → extracts to .prep/index/remote/      │
@@ -106,7 +106,7 @@ This is the killer feature that justifies the Team pricing.
 ## Repository Layout (What You'll Work With)
 
 ```
-CoDRAG/
+Prep/
 ├── .github/workflows/              ← OUR CI/CD (builds our product)
 │   ├── docker-headless.yml         ← Builds + pushes headless Docker images
 │   ├── engine-wheels.yml           ← Builds Rust engine wheels (macOS/Windows/Linux)
@@ -114,12 +114,12 @@ CoDRAG/
 │   ├── security-audit.yml          ← Weekly npm/cargo/pip security audit + test suite
 │   └── websites-ci.yml             ← Docs/marketing site builds
 │
-├── public/codrag-deploy/           ← CUSTOMER-FACING deployment templates
+├── public/prep-deploy/           ← CUSTOMER-FACING deployment templates
 │   ├── Dockerfile.cpu              ← Slim headless image (~2-3 GB, BYOK)
 │   ├── Dockerfile.gpu              ← Fat headless image (~8-10 GB, baked Ollama)
 │   ├── entrypoint.sh               ← GPU image Ollama startup
 │   ├── github-actions/             ← Workflow template customers copy
-│   │   └── codrag-sync.yml
+│   │   └── prep-sync.yml
 │   ├── modal/                      ← Modal.com serverless GPU adapter
 │   │   └── modal_adapter.py
 │   ├── runpod/                     ← RunPod Serverless adapter
@@ -128,8 +128,8 @@ CoDRAG/
 │   └── aws/                        ← AWS ECS/Fargate reference
 │       └── ecs-task-definition.json
 │
-├── src/codrag/
-│   ├── cli.py                      ← `codrag sync-headless` command
+├── src/prep/
+│   ├── cli.py                      ← `prep sync-headless` command
 │   ├── services/
 │   │   ├── headless_runner.py      ← Headless pipeline runner (no daemon)
 │   │   ├── s3_storage.py           ← S3 upload/download/manifest
@@ -152,12 +152,12 @@ CoDRAG/
 
 | Component | Status | Notes |
 |---|---|---|
-| `codrag sync-headless` CLI | ✅ Code complete, 24 tests | Runs full 11-stage pipeline headlessly |
+| `prep sync-headless` CLI | ✅ Code complete, 24 tests | Runs full 11-stage pipeline headlessly |
 | `S3StorageProvider` | ✅ Code complete, 14 tests | Upload, download, atomic swap, manifest |
 | `Dockerfile.cpu` | ✅ Written | Needs first real build+push test |
 | `Dockerfile.gpu` | ✅ Written | Needs first real build+push test |
 | `docker-headless.yml` (our CI) | ✅ Written | Triggers on `app-v*` tags, pushes to `ghcr.io` |
-| `codrag-sync.yml` (customer template) | ✅ Written | CPU+BYOK and GPU webhook modes |
+| `prep-sync.yml` (customer template) | ✅ Written | CPU+BYOK and GPU webhook modes |
 | Modal adapter | ✅ Written | Python script for Modal.com |
 | RunPod adapter | ✅ Written | Dockerfile + handler |
 | AWS ECS reference | ✅ Written | Task definition JSON |
@@ -171,7 +171,7 @@ CoDRAG/
 | Component | What needs to happen |
 |---|---|
 | **Docker images** | Build locally, push to `ghcr.io`, verify they actually work |
-| **GitHub Actions workflow** | Run `codrag-sync.yml` against a real test repo |
+| **GitHub Actions workflow** | Run `prep-sync.yml` against a real test repo |
 | **Full end-to-end flow** | Push → headless build → S3 upload → client download → search works |
 | **RunPod adapter** | Deploy to RunPod, trigger via webhook, verify index uploaded |
 | **Modal adapter** | Deploy to Modal, trigger via webhook, verify index uploaded |
@@ -183,7 +183,7 @@ CoDRAG/
 |---|---|---|
 | **Enterprise Admin panel** | ✅ Built | `EnterpriseAdminPanel.tsx` — compute fleet, sync fleet, usage KPIs. Gated by tier (team/enterprise) + role (admin). |
 | **Admin role override** | ✅ Built | Developer settings → Role Override (User / IT Admin). Persists to localStorage. |
-| **License verification in headless** | ✅ Built (soft gate) | Checks `CODRAG_LICENSE_KEY` env var for `codrag_team_` / `codrag_ent_` prefix. Warns but doesn't block (harden before launch). |
+| **License verification in headless** | ✅ Built (soft gate) | Checks `PREP_LICENSE_KEY` env var for `prep_team_` / `prep_ent_` prefix. Warns but doesn't block (harden before launch). |
 | **Panel registry entry** | ✅ Built | `enterprise-admin` in panel picker (Shield icon, status category). |
 
 ### ❌ Not Built Yet
@@ -195,7 +195,7 @@ CoDRAG/
 | **Usage/billing telemetry** | Medium | Need to track indexing minutes per team in headless runner, store in S3 manifest |
 | **License hard gate** | Medium | Headless runner currently soft-gates (warns). Needs to block before public Team launch. |
 | **Health monitoring** | Low | Alert if headless builds fail repeatedly |
-| **CoDRAG Manager** (Enterprise) | Future | Was planned as separate web service — now an in-app Enterprise Admin panel instead. May still need a lightweight coordinator for multi-user slot reservation. |
+| **Prep Manager** (Enterprise) | Future | Was planned as separate web service — now an in-app Enterprise Admin panel instead. May still need a lightweight coordinator for multi-user slot reservation. |
 
 ---
 
@@ -204,16 +204,16 @@ CoDRAG/
 ### Day 1: Verify Docker images build
 
 ```bash
-# From the CoDRAG repo root:
+# From the Prep repo root:
 
 # Build CPU image locally
-docker build -f public/codrag-deploy/Dockerfile.cpu -t codrag/headless:cpu .
+docker build -f public/prep-deploy/Dockerfile.cpu -t prep/headless:cpu .
 
 # Build GPU image locally (needs ~10GB disk)
-docker build -f public/codrag-deploy/Dockerfile.gpu -t codrag/headless:gpu .
+docker build -f public/prep-deploy/Dockerfile.gpu -t prep/headless:gpu .
 
 # Quick smoke test: does the CLI work?
-docker run --rm codrag/headless:cpu codrag sync-headless --help
+docker run --rm prep/headless:cpu prep sync-headless --help
 ```
 
 **Expected issues:**
@@ -228,8 +228,8 @@ docker run --rm codrag/headless:cpu codrag sync-headless --help
 # 2. Run headless against a small open-source repo:
 docker run --rm \
   -e OPENAI_API_KEY=sk-... \
-  codrag/headless:cpu \
-  codrag sync-headless \
+  prep/headless:cpu \
+  prep sync-headless \
     --repo-url https://github.com/some-small-public-repo \
     --branch main \
     --s3-bucket your-test-bucket \
@@ -261,14 +261,14 @@ git push origin app-v0.1.0-beta
 ### Day 4: Test the customer workflow
 
 1. Fork a test repo
-2. Copy `public/codrag-deploy/github-actions/codrag-sync.yml` to `.github/workflows/`
-3. Add secrets: `CODRAG_S3_ENDPOINT`, `CODRAG_S3_BUCKET`, etc.
+2. Copy `public/prep-deploy/github-actions/prep-sync.yml` to `.github/workflows/`
+3. Add secrets: `PREP_S3_ENDPOINT`, `PREP_S3_BUCKET`, etc.
 4. Push a commit and watch the workflow run
 5. Verify the index appears in S3
 
 ### Day 5: Test client-side download
 
-1. On a developer machine with CoDRAG installed:
+1. On a developer machine with Prep installed:
 2. Create `.prep/team_config.json` in the test repo:
    ```json
    {
@@ -280,15 +280,15 @@ git push origin app-v0.1.0-beta
      }
    }
    ```
-3. Set credentials: `export CODRAG_S3_ACCESS_KEY=... CODRAG_S3_SECRET_KEY=...`
-4. Start the CoDRAG daemon — it should download the remote index
+3. Set credentials: `export PREP_S3_ACCESS_KEY=... PREP_S3_SECRET_KEY=...`
+4. Start the Prep daemon — it should download the remote index
 5. Run a search query — it should return results from the remote index
 
 ---
 
-## Our CI Workflows (for CoDRAG itself)
+## Our CI Workflows (for Prep itself)
 
-These are the workflows that build and test CoDRAG as a product. You'll maintain these.
+These are the workflows that build and test Prep as a product. You'll maintain these.
 
 | Workflow | Trigger | What it does | Status |
 |---|---|---|---|
@@ -314,16 +314,16 @@ These decisions are documented in the codebase and should not be revisited witho
 1. **Docker, not Lambda** — headless indexing runs in Docker containers, not serverless functions (too much state, too long-running)
 2. **S3-compatible storage** — all cloud storage goes through the S3 API (boto3). This covers AWS S3, Cloudflare R2, MinIO, Backblaze B2.
 3. **Customer-managed infrastructure** — we provide templates, customers run them in their own CI. We don't host anything for Team tier.
-4. **No CoDRAG-hosted compute for Team** — customers bring their own OpenAI keys or GPU infrastructure. We don't proxy API calls.
-5. **License check is now in headless (soft gate)** — the headless runner checks `CODRAG_LICENSE_KEY` env var and warns if missing. Needs hardening to a hard gate before public Team launch.
+4. **No Prep-hosted compute for Team** — customers bring their own OpenAI keys or GPU infrastructure. We don't proxy API calls.
+5. **License check is now in headless (soft gate)** — the headless runner checks `PREP_LICENSE_KEY` env var and warns if missing. Needs hardening to a hard gate before public Team launch.
 6. **Incremental rebuild is automatic** — when a previous index exists in S3, the pipeline downloads it first and only re-processes changed files. No special configuration needed.
 
 ---
 
 ## Communication & Access
 
-- **Repository:** `github.com/EricBintner/CoDRAG` (private)
-- **Docker registry:** `ghcr.io/ericbintner/codrag-headless` (`:cpu`, `:gpu`)
+- **Repository:** `github.com/EricBintner/Prep` (private)
+- **Docker registry:** `ghcr.io/ericbintner/prep-headless` (`:cpu`, `:gpu`)
 - **Test S3:** TBD — set up a Cloudflare R2 bucket for CI testing
 - **Secrets needed:** GitHub repo secrets for GHCR push, S3 test credentials, OpenAI API key for integration tests
 - **Key files to start with:**
@@ -331,7 +331,7 @@ These decisions are documented in the codebase and should not be revisited witho
   - `docs/TEST_STATUS.md` — current test suite status and known failures
   - `docs/Phase06_Team_And_Enterprise/PROGRESS.md` — what's been built
   - `docs/Phase06_Team_And_Enterprise/TODO.md` — full backlog
-  - `public/codrag-deploy/README.md` — customer-facing deployment overview
+  - `public/prep-deploy/README.md` — customer-facing deployment overview
 
 ---
 
@@ -344,7 +344,7 @@ A: No. The headless runner is a black box — it takes a repo path and outputs i
 A: Docker, GitHub Actions (YAML), basic Python (for debugging), bash. The Rust engine and React UI are not your concern.
 
 **Q: What's the difference between "our CI" and "customer CI"?**
-A: Our CI (`/.github/workflows/`) builds and tests the CoDRAG product itself. Customer CI uses our templates (`/public/codrag-deploy/`) to run headless indexing on their codebases. You maintain both.
+A: Our CI (`/.github/workflows/`) builds and tests the Prep product itself. Customer CI uses our templates (`/public/prep-deploy/`) to run headless indexing on their codebases. You maintain both.
 
 **Q: Why are there two Docker images?**
 A: Cost and privacy trade-off:
@@ -372,7 +372,7 @@ These are the **blocking items** before Team tier can be sold:
 | 1 | Build Docker images locally (CPU + GPU) | CI/CD | 1 day | See "Day 1" above. Fix any build failures. |
 | 2 | Push images to `ghcr.io` via `docker-headless.yml` | CI/CD | 0.5 day | Trigger manually or with a test tag. |
 | 3 | End-to-end test: headless → S3 → client download | CI/CD | 1 day | Use Cloudflare R2 (free tier). Must verify search works after download. |
-| 4 | Test the GitHub Actions customer template | CI/CD | 0.5 day | Fork a test repo, add `codrag-sync.yml`, push, verify. |
+| 4 | Test the GitHub Actions customer template | CI/CD | 0.5 day | Fork a test repo, add `prep-sync.yml`, push, verify. |
 | 5 | Fix CI test hanging (`pytest-timeout`) | CI/CD | 0.5 day | Add `pytest-timeout` to dev deps, add `--timeout=60` to `security-audit.yml`. Ignore hanging files. |
 
 ### Sprint 2: Harden for Launch (CI/CD + Product — Week 2-3)

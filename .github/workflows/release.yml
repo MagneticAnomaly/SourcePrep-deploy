@@ -73,8 +73,8 @@ jobs:
       - name: Install engine wheel
         shell: bash
         run: |
-          pip install engine/target/wheels/codrag_engine*.whl --force-reinstall
-          python -c "import codrag_engine; print(f'Engine version: {codrag_engine.version()}')"
+          pip install engine/target/wheels/prep_engine*.whl --force-reinstall
+          python -c "import prep_engine; print(f'Engine version: {prep_engine.version()}')"
 
       - name: Build sidecar binary
         shell: bash
@@ -96,7 +96,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: 'src/codrag/dashboard/src-tauri -> target'
+          workspaces: 'src/prep/dashboard/src-tauri -> target'
 
       # ── Linux dependencies ────────────────────────────────────
       - name: Install Linux system dependencies
@@ -123,22 +123,22 @@ jobs:
           TAURI_BUNDLE_WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
           TAURI_BUNDLE_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
         with:
-          projectPath: src/codrag/dashboard
+          projectPath: src/prep/dashboard
           tagName: app-v__VERSION__
-          releaseName: 'CoDRAG v__VERSION__'
+          releaseName: 'Prep v__VERSION__'
           releaseBody: |
             ## What's Changed
 
-            **Full Changelog**: https://github.com/MagneticAnomaly/CoDRAG-MCP/compare/${{ needs.get-version.outputs.previous_tag }}...${{ github.ref_name }}
+            **Full Changelog**: https://github.com/MagneticAnomaly/Prep/compare/${{ needs.get-version.outputs.previous_tag }}...${{ github.ref_name }}
 
-            See the full changelog at https://github.com/MagneticAnomaly/CoDRAG-MCP/blob/main/CHANGELOG.md
+            See the full changelog at https://github.com/MagneticAnomaly/Prep/blob/main/CHANGELOG.md
 
             ## Downloads
 
             | Platform | File |
             |----------|------|
-            | macOS (Apple Silicon) | `CoDRAG_*_aarch64.dmg` |
-            | Windows | `CoDRAG_*_x64-setup.exe` |
+            | macOS (Apple Silicon) | `Prep_*_aarch64.dmg` |
+            | Windows | `Prep_*_x64-setup.exe` |
 
             ---
             *This release was automatically built and signed.*
@@ -154,11 +154,11 @@ jobs:
         shell: bash
         run: |
           echo "Testing macOS app bundle..."
-          APP_PATH="src/codrag/dashboard/src-tauri/target/release/bundle/macos/CoDRAG.app"
+          APP_PATH="src/prep/dashboard/src-tauri/target/release/bundle/macos/Prep.app"
           if [ -d "$APP_PATH" ]; then
             echo "✓ App bundle exists"
             # Check that the sidecar is bundled
-            SIDCAR_PATH="$APP_PATH/Contents/MacOS/codrag-daemon"
+            SIDCAR_PATH="$APP_PATH/Contents/MacOS/prep-daemon"
             if [ -f "$SIDCAR_PATH" ]; then
               echo "✓ Sidecar binary bundled"
               file "$SIDCAR_PATH"
@@ -166,7 +166,7 @@ jobs:
               echo "⚠ Sidecar not found at expected location"
             fi
             # Test that the binary is executable
-            if [ -x "$APP_PATH/Contents/MacOS/CoDRAG" ]; then
+            if [ -x "$APP_PATH/Contents/MacOS/Prep" ]; then
               echo "✓ Main binary is executable"
             fi
           else
@@ -179,8 +179,8 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Testing Windows installer..."
-          $exePath = "src/codrag/dashboard/src-tauri/target/release/bundle/nsis/CoDRAG_*_x64-setup.exe"
-          $msiPath = "src/codrag/dashboard/src-tauri/target/release/release/bundle/msi/CoDRAG_*.msi"
+          $exePath = "src/prep/dashboard/src-tauri/target/release/bundle/nsis/Prep_*_x64-setup.exe"
+          $msiPath = "src/prep/dashboard/src-tauri/target/release/release/bundle/msi/Prep_*.msi"
           if (Test-Path $exePath) {
             Write-Host "✓ NSIS installer exists"
           } elseif (Test-Path $msiPath) {
@@ -189,7 +189,7 @@ jobs:
             Write-Host "⚠ No installer found (check build logs)"
           }
           # Check for sidecar
-          $sidecarPath = "src/codrag/dashboard/src-tauri/target/release/codrag-daemon.exe"
+          $sidecarPath = "src/prep/dashboard/src-tauri/target/release/prep-daemon.exe"
           if (Test-Path $sidecarPath) {
             Write-Host "✓ Sidecar binary exists"
           }

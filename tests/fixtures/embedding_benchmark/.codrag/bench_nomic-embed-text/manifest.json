@@ -1,0 +1,91 @@
+{
+  "version": "1.0",
+  "built_at": "2026-02-19T16:07:26.960001+00:00",
+  "model": "nomic-embed-text",
+  "roots": [],
+  "count": 18,
+  "embedding_dim": 768,
+  "build": {
+    "mode": "full",
+    "files_total": 11,
+    "files_reused": 0,
+    "files_embedded": 11,
+    "files_deleted": 0,
+    "chunks_total": 18,
+    "chunks_reused": 0,
+    "chunks_embedded": 18,
+    "lines_scanned": 787,
+    "lines_indexed": 787,
+    "files_docs": 1,
+    "files_code": 10,
+    "chunks_code": 17,
+    "chunks_docs": 1,
+    "lines_docs": 7,
+    "lines_code": 780
+  },
+  "config": {
+    "include_globs": [
+      "**/*.markdown",
+      "**/*.md",
+      "**/*.py"
+    ],
+    "exclude_globs": [
+      "**/*.lock",
+      "**/*.log",
+      "**/.*",
+      "**/.DS_Store",
+      "**/.cache/**",
+      "**/.codrag/**",
+      "**/.coverage/**",
+      "**/.env/**",
+      "**/.git/**",
+      "**/.mypy_cache/**",
+      "**/.next/**",
+      "**/.pytest_cache/**",
+      "**/.ruff_cache/**",
+      "**/.tox/**",
+      "**/.venv/**",
+      "**/__pycache__/**",
+      "**/build/**",
+      "**/dist/**",
+      "**/env/**",
+      "**/fresh_venv/**",
+      "**/htmlcov/**",
+      "**/node_modules/**",
+      "**/target/**",
+      "**/venv/**"
+    ],
+    "max_file_bytes": 500000,
+    "role_weights": {
+      "code": 1.0,
+      "docs": 0.95,
+      "tests": 0.98,
+      "other": 0.9
+    },
+    "path_weights": {},
+    "primer": {
+      "enabled": true,
+      "filenames": [
+        "AGENTS.md",
+        "CODRAG_PRIMER.md",
+        "PROJECT_PRIMER.md"
+      ],
+      "score_boost": 0.25,
+      "always_include": false,
+      "max_primer_chars": 2000
+    }
+  },
+  "file_hashes": {
+    "README.md": "0a5076fda91502f3",
+    "config.py": "e791918bd49b5fbe",
+    "src/__init__.py": "e3b0c44298fc1c14",
+    "src/api.py": "345fd99fc2660032",
+    "src/auth.py": "af323ad6e8585ad5",
+    "src/cache.py": "1603128e3f06d15d",
+    "src/database.py": "47cb56e95131f3c4",
+    "src/models.py": "0936548faacd612b",
+    "src/utils.py": "9b3b54b9426d7fa6",
+    "tests/test_api.py": "b60ec283dba02319",
+    "tests/test_auth.py": "0be58334f4b9be0a"
+  }
+}

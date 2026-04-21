@@ -1,0 +1,188 @@
+{
+  "version": "1.0",
+  "created_at": "2026-04-11T20:38:28.362177+00:00",
+  "repo_root": "/Volumes/4TB-BAD/HumanAI/CoDRAG",
+  "include_globs": [
+    "**/*.bash",
+    "**/*.c",
+    "**/*.cc",
+    "**/*.cpp",
+    "**/*.go",
+    "**/*.h",
+    "**/*.hpp",
+    "**/*.kt",
+    "**/*.kts",
+    "**/*.markdown",
+    "**/*.md",
+    "**/*.py",
+    "**/*.rs",
+    "**/*.rst",
+    "**/*.sh",
+    "**/*.swift",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.zsh"
+  ],
+  "exclude_globs": [
+    "**/*.d.ts",
+    "**/*.lock",
+    "**/*.log",
+    "**/*.map",
+    "**/*.min.css",
+    "**/*.min.js",
+    "**/.*",
+    "**/.DS_Store",
+    "**/.aider/**",
+    "**/.astro/**",
+    "**/.bundle/**",
+    "**/.cache/**",
+    "**/.claude/**",
+    "**/.clinerules",
+    "**/.codrag/**",
+    "**/.cody/**",
+    "**/.continue/**",
+    "**/.coverage/**",
+    "**/.cursor/**",
+    "**/.cursor/rules/*.mdc",
+    "**/.cursorrules",
+    "**/.env/**",
+    "**/.git/**",
+    "**/.github/copilot-instructions.md",
+    "**/.gradle/**",
+    "**/.mypy_cache/**",
+    "**/.next/**",
+    "**/.nuxt/**",
+    "**/.parcel-cache/**",
+    "**/.pytest_cache/**",
+    "**/.qwencoderules",
+    "**/.roorules",
+    "**/.ruff_cache/**",
+    "**/.svelte-kit/**",
+    "**/.tox/**",
+    "**/.turbo/**",
+    "**/.venv/**",
+    "**/.vercel/**",
+    "**/.windsurf/**",
+    "**/.windsurf/rules/*.md",
+    "**/.windsurfrules",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
+    "**/Carthage/**",
+    "**/DerivedData/**",
+    "**/GEMINI.md",
+    "**/Pods/**",
+    "**/__pycache__/**",
+    "**/bower_components/**",
+    "**/build/**",
+    "**/bundle/**",
+    "**/codrag_data/**",
+    "**/coverage/**",
+    "**/dist/**",
+    "**/env/**",
+    "**/fresh_venv/**",
+    "**/htmlcov/**",
+    "**/node_modules/**",
+    "**/out/**",
+    "**/storybook-static/**",
+    "**/target/**",
+    "**/vendor/**",
+    "**/venv/**"
+  ],
+  "role_weights": {
+    "code": 1.0,
+    "docs": 0.85,
+    "tests": 0.95,
+    "other": 0.8
+  },
+  "path_weights": {
+    "websites": 1.0,
+    "docs/Phase00_Initial-Concept/MCP.md": 0.1
+  },
+  "primer": {
+    "enabled": true,
+    "filenames": [
+      "AGENTS.md",
+      "CODRAG_PRIMER.md",
+      "PROJECT_PRIMER.md"
+    ],
+    "score_boost": 0.25,
+    "always_include": false,
+    "max_primer_chars": 2000
+  },
+  "path_roles": [
+    {
+      "path": "codrag_data/**",
+      "role": "other",
+      "confidence": 0.5
+    },
+    {
+      "path": "docs/**",
+      "role": "docs",
+      "confidence": 0.9
+    },
+    {
+      "path": "engine/**",
+      "role": "other",
+      "confidence": 0.5
+    },
+    {
+      "path": "logs/**",
+      "role": "other",
+      "confidence": 0.5
+    },
+    {
+      "path": "overnight_results/**",
+      "role": "other",
+      "confidence": 0.5
+    },
+    {
+      "path": "packages/**",
+      "role": "code",
+      "confidence": 0.9
+    },
+    {
+      "path": "public/**",
+      "role": "other",
+      "confidence": 0.5
+    },
+    {
+      "path": "results/**",
+      "role": "other",
+      "confidence": 0.5
+    },
+    {
+      "path": "scripts/**",
+      "role": "other",
+      "confidence": 0.5
+    },
+    {
+      "path": "src/**",
+      "role": "code",
+      "confidence": 0.9
+    },
+    {
+      "path": "tests/**",
+      "role": "tests",
+      "confidence": 0.9
+    },
+    {
+      "path": "websites/**",
+      "role": "other",
+      "confidence": 0.5
+    }
+  ],
+  "detected_languages": [
+    "c",
+    "go",
+    "kotlin",
+    "python",
+    "rust",
+    "shell",
+    "swift",
+    "typescript"
+  ],
+  "marker_files": [
+    "pyproject.toml",
+    "package.json"
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "stage": "atlas_swarm_synthesis",
+  "model": "kimi-k2.5:cloud",
+  "segments_analyzed": 10,
+  "timestamp": "2026-04-14T21:38:50.917976+00:00",
+  "synthesis": {
+    "cross_segment_data_flows": [
+      "packages/ui \u2192 websites/apps/*: Shared design system components flow to marketing, docs, support, and payments via @codrag/ui internal package transpilation",
+      "packages/ui \u2192 src/codrag/dashboard: API client infrastructure (client.ts, types.ts, react.tsx) consumed by Tauri desktop application",
+      "packages/vscode \u2190\u2192 packages/vscode/webview-ui: Extension host communicates bidirectionally with React webview presentation layer via state machine",
+      "packages/paperclip-plugin-codrag \u2192 packages/ui: Bridges Paperclip plugin architecture with CoDRAG design system components",
+      "websites/apps/marketing \u2192 websites/apps/payments: PPP-aware pricing flows redirect to Lemon Squeezy checkout integration",
+      "src/codrag/dashboard \u2194 _root: Desktop app consumes roadmap, architectural decisions, and agent instructions from central documentation",
+      "packages/vscode \u2194 src/codrag/dashboard: Both consume similar backend APIs for project lifecycle, search, and indexing operations",
+      "websites/apps/docs \u2192 packages/ui: Embedded Storybook demonstrations via StoryEmbed.tsx component"
+    ],
+    "shared_dependencies": [
+      "@codrag/ui: Centralized design system spanning 4 web properties and plugin ecosystem",
+      "Next.js 14 App Router: Marketing, docs, support, payments all on unified framework",
+      "React 18: Core UI layer across web apps, Tauri dashboard, VS Code webview, and Paperclip plugin",
+      "TypeScript API client (packages/ui/src/api/*): Shared contracts across dashboard and web interfaces",
+      "Lemon Squeezy: Payment processing shared between marketing pricing and payments app",
+      "Tauri: Desktop runtime for dashboard with Rust sidecar",
+      "MCP protocol: Integration showcase in marketing, configuration docs in documentation portal",
+      "AGENTS.md/CLAUDE.md: Machine-readable instructions consumed by AI assistants across segments"
+    ],
+    "architectural_coherence": "high",
+    "key_insight": "The codebase exhibits a deliberate 'write once, deploy everywhere' strategy with packages/ui serving as the gravitational center\u2014809 files of shared React infrastructure that powers marketing sites, documentation, enterprise dashboards, VS Code extensions, and third-party plugin ecosystems. This creates strong coherence but reveals tension in the Tauri desktop app (src/codrag/dashboard) which maintains parallel hook implementations rather than consuming packages/ui directly, and the VS Code webview which suppresses type safety with explicit 'any' annotations. The four-site Next.js monorepo (marketing/docs/support/payments) demonstrates mature shared infrastructure, while the Paperclip plugin shows strategic ecosystem expansion. Most critical gap: license management exhibits 'dual-source-of-truth pattern' per src/codrag/dashboard analysis, suggesting synchronization risks between desktop app and web payment flows."
+  },
+  "stats": {
+    "workers_succeeded": 10,
+    "workers_failed": 0,
+    "wall_clock_seconds": 104.4
+  }
+}

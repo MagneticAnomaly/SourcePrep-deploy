@@ -1,12 +1,12 @@
-# CoDRAG — Product and Business Overview
+# Prep — Product and Business Overview
 
 ## Purpose
-This document is a thorough, end-to-end overview of CoDRAG as:
+This document is a thorough, end-to-end overview of Prep as:
 - a product memo for stakeholders evaluating the opportunity
 - a clear, developer-facing explanation for prospective users
 
 It covers:
-- what CoDRAG is and why it exists
+- what Prep is and why it exists
 - how it works (conceptual + architectural)
 - key differentiators and design constraints
 - pricing approach (not finalized)
@@ -14,12 +14,12 @@ It covers:
 - go-to-market and roadmap
 
 ## One-line summary
-CoDRAG is a **local-first context engine for codebases**: it indexes your repos, provides **fast and verifiable retrieval**, and exposes that context to IDE agents (Cursor/Windsurf/Copilot workflows) via **MCP**, without requiring your code to be uploaded to a vendor cloud.
+Prep is a **local-first context engine for codebases**: it indexes your repos, provides **fast and verifiable retrieval**, and exposes that context to IDE agents (Cursor/Windsurf/Copilot workflows) via **MCP**, without requiring your code to be uploaded to a vendor cloud.
 
 ## The problem
 Modern AI coding workflows have a predictable failure mode:
 
-- **Context Assembly**: `codrag` tool automatically pulls relevant code/docs into the LLM context window.
+- **Context Assembly**: `prep` tool automatically pulls relevant code/docs into the LLM context window.
 - **Manual context assembly does not scale**: developers paste files, guess what’s relevant, and fight hallucinations.
 - **Cloud-first code indexing is not always acceptable**:
   - security and IP constraints
@@ -35,7 +35,7 @@ Modern AI coding workflows have a predictable failure mode:
 The result is a workflow tax: AI assistants are powerful, but often unreliable and opaque in real production codebases.
 
 ## The product thesis
-CoDRAG is built around a single thesis:
+Prep is built around a single thesis:
 
 > The next generation of developer productivity is not “a better LLM,” but a better **context system**.
 
@@ -46,18 +46,18 @@ AI tooling succeeds when it can:
 - cite sources so users can verify
 - integrate into existing IDE agent loops
 
-CoDRAG is designed to be **a context layer** that complements (rather than replaces) Cursor/Windsurf/Copilot.
+Prep is designed to be **a context layer** that complements (rather than replaces) Cursor/Windsurf/Copilot.
 
-## What CoDRAG is
+## What Prep is
 
 ### Core concept
-CoDRAG maintains one or more local indexes of codebases (projects). For a given question or task, it:
+Prep maintains one or more local indexes of codebases (projects). For a given question or task, it:
 1. searches for relevant chunks/snippets
 2. assembles a bounded context bundle
 3. returns prompt-ready context with citations
 4. optionally expands context using lightweight structural traces
 
-### What CoDRAG is not
+### What Prep is not
 - not a replacement IDE
 - not a hosted “upload your repo” SaaS requirement
 - not a generic “agent platform” competing with IDE vendors
@@ -75,7 +75,7 @@ CoDRAG maintains one or more local indexes of codebases (projects). For a given 
 - **Enterprise admins** who require governance (SSO/SCIM/audit) and controlled rollout
 
 ## The core user loop
-CoDRAG’s “core loop” is designed to be learnable in minutes:
+Prep’s “core loop” is designed to be learnable in minutes:
 
 1. **Add a project** (a repo / folder)
 2. **Build an index** (full or incremental)
@@ -88,7 +88,7 @@ This loop is intentionally separated from any particular LLM vendor.
 ## Key features (today and planned)
 
 ### 1) Multi-codebase registry
-CoDRAG is designed to manage many projects:
+Prep is designed to manage many projects:
 - a personal “registry” of repos
 - per-project settings (include/exclude rules, modes)
 - clear visibility into freshness and build history
@@ -104,15 +104,15 @@ This is a deliberate difference from “one-off RAG scripts.”
 The product goal is simple: you should always know whether your index is correct and current.
 
 ### 3) Search (inspectable retrieval)
-CoDRAG emphasizes retrieval that is:
+Prep emphasizes retrieval that is:
 - inspectable
 - bounded
 - debuggable
 
-Instead of returning only an answer, CoDRAG returns ranked results with file/line references and previews.
+Instead of returning only an answer, Prep returns ranked results with file/line references and previews.
 
 ### 4) Context assembly (prompt-ready)
-CoDRAG can return a single assembled context bundle:
+Prep can return a single assembled context bundle:
 - bounded by `max_chars`
 - optionally includes sources and/or relevance scores
 - designed to be pasted into prompts or sent by an IDE agent
@@ -120,7 +120,7 @@ CoDRAG can return a single assembled context bundle:
 This is the product’s “atomic unit” for agent workflows.
 
 ### 5) Trace index (structural signals; optional)
-CoDRAG can supplement embeddings with lightweight structural understanding:
+Prep can supplement embeddings with lightweight structural understanding:
 - symbols (functions/classes)
 - import edges
 - bounded neighborhood expansion
@@ -133,22 +133,22 @@ This is meant to answer questions like:
 It is intentionally bounded (to preserve tool reliability).
 
 ### 6) MCP integration (primary integration surface)
-CoDRAG integrates via MCP so it can be invoked by IDE agents:
+Prep integrates via MCP so it can be invoked by IDE agents:
 - Cursor
 - Windsurf
 - other MCP-compatible tooling
 
-The design intent is for CoDRAG to be callable as tools such as:
-- `codrag_status`
-- `codrag_build`
-- `codrag_search`
-- `codrag_context`
-- `codrag_trace`
+The design intent is for Prep to be callable as tools such as:
+- `prep_status`
+- `prep_build`
+- `prep_search`
+- `prep_context`
+- `prep_trace`
 
-MCP is the integration surface so CoDRAG avoids writing and maintaining many IDE plugins.
+MCP is the integration surface so Prep avoids writing and maintaining many IDE plugins.
 
 ### 7) Local-first embeddings + BYOK augmentation
-CoDRAG is designed to be useful at multiple “power levels”:
+Prep is designed to be useful at multiple “power levels”:
 - works without LLMs (e.g., keyword search modes)
 - improves retrieval via embeddings (e.g., `nomic-embed-text`)
 - optionally augments summaries/explanations using a BYOK LLM provider
@@ -158,7 +158,7 @@ Practical implication:
 - if you choose BYOK augmentation, only the retrieved context is sent to your chosen provider
 
 ### 8) Desktop companion app (distribution)
-CoDRAG is intended to ship as:
+Prep is intended to ship as:
 - a desktop app (macOS/Windows) using Tauri
 - a bundled sidecar backend (Python/FastAPI)
 
@@ -170,7 +170,7 @@ This choice is meant to reduce “dev tool friction”:
 ## Architecture (high level)
 
 ### System components
-CoDRAG is structured around:
+Prep is structured around:
 - **Core engine** (project registry + index managers)
 - **Local daemon** (FastAPI server)
 - **Dashboard** (React UI)
@@ -178,7 +178,7 @@ CoDRAG is structured around:
 - **Desktop wrapper** (Tauri managing sidecar)
 
 ### Storage modes
-CoDRAG supports multiple indexing postures:
+Prep supports multiple indexing postures:
 
 - **Standalone mode**: index stored in an application data directory
 - **Embedded mode**: index stored in a repo-local folder (e.g. `.prep/`), enabling git workflows (roadmap)
@@ -193,9 +193,9 @@ Tool reliability is a core product requirement:
 - trace expansion respects node/edge caps
 - errors are stable and actionable
 
-This makes CoDRAG a better fit for agentic workflows where runaway outputs cause failure.
+This makes Prep a better fit for agentic workflows where runaway outputs cause failure.
 
-## Competitive landscape (where CoDRAG sits)
+## Competitive landscape (where Prep sits)
 
 ### The closest “big” competitors
 - **Augment Code**: cloud-first indexing with strong context modeling
@@ -203,8 +203,8 @@ This makes CoDRAG a better fit for agentic workflows where runaway outputs cause
 
 Both are powerful, but structurally cloud-first.
 
-### CoDRAG differentiation
-CoDRAG’s differentiation is not “we are smarter.” It’s:
+### Prep differentiation
+Prep’s differentiation is not “we are smarter.” It’s:
 - **local-first by default**
 - **fast and predictable** (local query latency)
 - **works offline** (or with restricted network)
@@ -219,12 +219,12 @@ Local-first is not just branding; it affects outcomes:
 - autonomy: tool remains usable without vendor uptime dependency
 - enterprise feasibility: supports restricted network environments
 
-CoDRAG treats these as product requirements.
+Prep treats these as product requirements.
 
 ## Business model overview
 
 ### Market category
-CoDRAG is positioned as a **developer productivity tool** and **context engine**.
+Prep is positioned as a **developer productivity tool** and **context engine**.
 It complements AI IDEs rather than competing head-on as a full IDE.
 
 ### Distribution strategy
@@ -232,7 +232,7 @@ It complements AI IDEs rather than competing head-on as a full IDE.
 - App stores are an eventual option, not required for early viability
 
 ### Pricing (Finalized Strategy)
-CoDRAG uses a **"Software License"** model for individuals and a **"Seat-Based Subscription"** for teams.
+Prep uses a **"Software License"** model for individuals and a **"Seat-Based Subscription"** for teams.
 
 **Philosophy:**
 - **Local-First Trust:** Users own the software, not rent it.
@@ -339,14 +339,14 @@ Concrete success signals:
 - low support burden due to predictable diagnostics
 
 ## Next steps
-If you’re evaluating CoDRAG as a user:
+If you’re evaluating Prep as a user:
 1. install
 2. add a repo
 3. build
 4. connect via MCP
 5. ask your IDE agent questions that require multi-file context
 
-If you’re evaluating CoDRAG as a stakeholder:
+If you’re evaluating Prep as a stakeholder:
 - confirm the product/market fit around local-first + context reliability
 - validate willingness to pay for a perpetual license + updates model
 - validate enterprise demand for governance without mandatory cloud

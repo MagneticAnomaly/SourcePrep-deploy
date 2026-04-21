@@ -1,0 +1,27 @@
+{
+  "format_version": "2.0",
+  "stage_id": "deep_knowledge",
+  "run_id": "run-f77cddd43f17",
+  "project_id": "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b",
+  "codrag_version": "0.1.0",
+  "engine_backend": "python",
+  "embedding_model": {
+    "provider": "native",
+    "model_name": "nomic-embed-text-v1.5",
+    "task_id": "knowledge_embedding"
+  },
+  "started_at": "2026-04-18T18:42:05.799519+00:00",
+  "finished_at": "2026-04-18T18:52:55.489289+00:00",
+  "elapsed_seconds": 649.69,
+  "quality": {
+    "total_items": 8351,
+    "processed": 8351,
+    "skipped": 0,
+    "failed": 0,
+    "success_rate": 1.0
+  },
+  "throughput": {
+    "items_per_second": 12.85
+  },
+  "incremental_baseline": 6563
+}

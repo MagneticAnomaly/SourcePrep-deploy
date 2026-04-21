@@ -1,7 +1,7 @@
 # Reactive Loop Strategy (Continuous Graph Enrichment)
 
 ## Executive Summary
-CoDRAG implements "Continuous Loop" functionality not as an always-on background process (which wastes resources), but as a **Reactive Loop**.
+Prep implements "Continuous Loop" functionality not as an always-on background process (which wastes resources), but as a **Reactive Loop**.
 
 1.  **Trigger:** Developer saves a file.
 2.  **Fast Sync:** Watcher immediately updates the structural graph and basic metadata (Stages 1–4).
@@ -66,7 +66,7 @@ graph TD
 
 ## The Deepening Loop (Stage 7)
 
-The core "brain" of the continuous loop is the **Deepening Loop** (`codrag.core.deepening.DeepeningLoop`). It does not re-process the whole repo.
+The core "brain" of the continuous loop is the **Deepening Loop** (`prep.core.deepening.DeepeningLoop`). It does not re-process the whole repo.
 
 1.  **Drift Detection:**
     -   Loads `trace_augmented.jsonl` (from Fast Sync).

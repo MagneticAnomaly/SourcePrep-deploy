@@ -1,10 +1,10 @@
-# CoDRAG Decision Records
+# Prep Decision Records
 
-This document captures key architectural and strategic decisions for CoDRAG.
+This document captures key architectural and strategic decisions for Prep.
 
 ---
 
-## ADR-001: Project Name — CoDRAG
+## ADR-001: Project Name — Prep
 
 **Date:** 2026-01-30  
 **Status:** Accepted
@@ -13,13 +13,13 @@ This document captures key architectural and strategic decisions for CoDRAG.
 Need a memorable, descriptive name for the standalone multi-project RAG application.
 
 ### Decision
-**CoDRAG** — Code Documentation and RAG
+**Prep** — Code Documentation and RAG
 
 ### Rationale
 - Clear meaning: combines "Code", "Documentation", and "RAG"
 - Memorable and pronounceable
 - Available as a unique identifier
-- Works as CLI command: `codrag`
+- Works as CLI command: `prep`
 
 ### Alternatives Considered
 - `codebase-rag` — Too long for CLI
@@ -74,8 +74,8 @@ Support **two modes**:
 
 ### Implementation
 ```bash
-codrag add /path/to/project                # standalone (default)
-codrag add /path/to/project --embedded     # embedded mode
+prep add /path/to/project                # standalone (default)
+prep add /path/to/project --embedded     # embedded mode
 ```
 
 ---
@@ -142,23 +142,23 @@ Design for **team/enterprise use cases** in MVP:
 **Status:** Accepted
 
 ### Context
-Where should the CoDRAG source code live?
+Where should the Prep source code live?
 
 ### Decision
-Create new repo at `CoDRAG/`, sibling to:
+Create new repo at `Prep/`, sibling to:
 - `CLaRa-Remembers-It-All/`
 - `LinuxBrain/`
 - `Halley.Chat/`
 
 ### Rationale
-- CoDRAG is a standalone product, not part of LinuxBrain
-- Sibling repos allow testing CoDRAG with LinuxBrain as target
+- Prep is a standalone product, not part of LinuxBrain
+- Sibling repos allow testing Prep with LinuxBrain as target
 - Clear separation of concerns
 - Easier to open-source independently
 
 ### Migration
-- Move relevant code from `LinuxBrain/code_index/` to `CoDRAG/src/`
-- Update `LinuxBrain/Docs_Halley/Phase69_CodeRAG/` to reference CoDRAG
+- Move relevant code from `LinuxBrain/code_index/` to `Prep/src/`
+- Update `LinuxBrain/Docs_Halley/Phase69_CodeRAG/` to reference Prep
 
 ---
 
@@ -230,10 +230,10 @@ Need to store and search embedding vectors.
 ### Future Enhancement
 ```python
 # Current (MVP)
-from codrag.core.embedding import NumpyVectorStore
+from prep.core.embedding import NumpyVectorStore
 
 # Future (post-MVP)
-from codrag.core.embedding import FaissVectorStore
+from prep.core.embedding import FaissVectorStore
 ```
 
 ---
@@ -253,14 +253,14 @@ Need to integrate with IDEs (Windsurf, Cursor, VS Code).
 - Windsurf and Cursor support MCP natively
 - Standard protocol, not vendor-specific
 - Simple stdio interface
-- Tools map directly to CoDRAG operations
+- Tools map directly to Prep operations
 
 ### MCP Tools
-- `codrag_status`
-- `codrag_build`
-- `codrag_search`
-- `codrag` (context)
-- `codrag_trace`
+- `prep_status`
+- `prep_build`
+- `prep_search`
+- `prep` (context)
+- `prep_trace`
 
 ### Future
 - VS Code extension (wraps MCP or direct API)
@@ -303,7 +303,7 @@ trace_edges.jsonl: {"id": "...", "kind": "imports", "source": "...", "target": "
 **Status:** Accepted
 
 ### Context
-CoDRAG should be enterprise-friendly, but the MVP must prioritize a reliable, local-first trust loop.
+Prep should be enterprise-friendly, but the MVP must prioritize a reliable, local-first trust loop.
 
 Shipping network mode, authentication, and administrative surfaces in MVP increases security risk and scope, and can destabilize the core experience.
 
