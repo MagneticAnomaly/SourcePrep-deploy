@@ -1,13 +1,13 @@
 {
-  "name": "codrag",
-  "display_name": "CoDRAG",
+  "name": "prep",
+  "display_name": "Prep",
   "description": "Code Documentation and RAG - Multi-project semantic search for codebases. Provides semantic code search, context assembly for LLM prompts, and index management.",
-  "homepage": "https://github.com/EricBintner/CoDRAG",
-  "repository": "https://github.com/EricBintner/CoDRAG",
+  "homepage": "https://github.com/MagneticAnomaly/Prep",
+  "repository": "https://github.com/MagneticAnomaly/Prep",
   "license": "MIT",
   "authors": [
     {
-      "name": "CoDRAG Team"
+      "name": "Prep Team"
     }
   ],
   "version": "0.1.0",
@@ -23,32 +23,32 @@
   ],
   "installations": {
     "pip": {
-      "package": "codrag",
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/codrag-mcp-wrapper.sh",
+      "package": "prep",
+      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/prep-mcp-wrapper.sh",
       "args": ["mcp", "--mode", "direct"]
     }
   },
   "verification": {
     "pypi": {
-      "package": "codrag",
+      "package": "prep",
       "owner": "EricBintner"
     }
   },
   "tools": [
     {
-      "name": "codrag_status",
-      "description": "Get CoDRAG index status and daemon health"
+      "name": "prep_status",
+      "description": "Get Prep index status and daemon health"
     },
     {
-      "name": "codrag_build",
+      "name": "prep_build",
       "description": "Trigger an index build (async)"
     },
     {
-      "name": "codrag_search",
+      "name": "prep_search",
       "description": "Search the index with semantic query"
     },
     {
-      "name": "codrag",
+      "name": "prep",
       "description": "Get ambient codebase context for LLM prompt injection (primary tool)"
     }
   ],
@@ -61,7 +61,7 @@
   },
   "requirements": {
     "daemon": {
-      "description": "Optional. Required only for server mode (codrag mcp --mode server)",
+      "description": "Optional. Required only for server mode (prep mcp --mode server)",
       "default_url": "http://127.0.0.1:8400"
     },
     "ollama": {

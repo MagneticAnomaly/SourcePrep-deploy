@@ -1,15 +1,15 @@
 ---
-description: CoDRAG structural codebase intelligence
+description: Prep structural codebase intelligence
 alwaysApply: true
 ---
 
-# --- CoDRAG-managed (auto-generated, do not edit above USER ADDITIONS) ---
+# --- Prep-managed (auto-generated, do not edit above USER ADDITIONS) ---
 
 Last updated: 2026-04-18T06:41:12Z
 
 codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 
-**ROUTING: When calling ANY CoDRAG tool, ALWAYS include `project_id: "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b"` in the arguments.**
+**ROUTING: When calling ANY Prep tool, ALWAYS include `project_id: "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b"` in the arguments.**
 
 ## Tools
 | Tool | When to Use |
@@ -29,7 +29,7 @@ Enrich external lint/analysis findings with structural context:
 ```
 codrag_audit(findings=[{file, line, message, severity, tool}])
 ```
-CoDRAG adds: dependent count, hub status, concepts, risk score, recommendation.
+Prep adds: dependent count, hub status, concepts, risk score, recommendation.
 Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
 
 ### Search Intent
@@ -37,7 +37,7 @@ Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
 "why X" → concepts, "who imports X" → trace graph. Override with `intent` param if needed.
 
 For specific code lookups, use `codrag_search` with a natural language query.
-CoDRAG understands structural relationships — use it instead of
+Prep understands structural relationships — use it instead of
 grep when you need to understand how files connect.
 
 <!-- codrag-atlas-hash:f0799a4d1cae -->
