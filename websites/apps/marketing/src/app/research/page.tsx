@@ -63,7 +63,7 @@ export default function ResearchPage() {
         corrections &mdash; if we&rsquo;ve cited your work badly, or missed work we
         should know about, open an issue on{' '}
         <a
-          href="https://github.com/MagneticAnomaly/Prep-MCP/issues"
+          href="https://github.com/MagneticAnomaly/RunPrep-MCP/issues"
           className="text-primary hover:underline"
           target="_blank"
           rel="noopener noreferrer"

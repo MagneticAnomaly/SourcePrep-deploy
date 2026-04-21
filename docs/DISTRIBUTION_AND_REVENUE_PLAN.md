@@ -51,7 +51,7 @@ The primary distribution channel. Highest margin, full control, fastest time to 
 - **Artifacts:**
   - macOS: `.dmg` (Universal — Apple Silicon + Intel), code-signed + notarized
   - Windows: `.msi` installer (x64), code-signed (EV certificate recommended)
-- **Hosting:** GitHub Releases (`github.com/MagneticAnomaly/Prep-MCP/releases`)
+- **Hosting:** GitHub Releases (`github.com/MagneticAnomaly/RunPrep-MCP/releases`)
   - Download buttons on runprep.io/download link to the latest GitHub Release assets
   - SHA-256 checksums published alongside each release
 - **Auto-update:** Tauri built-in updater checks for new releases on launch

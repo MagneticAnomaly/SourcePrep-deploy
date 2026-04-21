@@ -266,7 +266,7 @@ export default function Page() {
           <AnchorHeading id="source" level="h2">Source Code</AnchorHeading>
           <p className="mt-2">
             The plugin source is at{' '}
-            <a href="https://github.com/EricBintner/Prep/tree/main/packages/paperclip-plugin" className="text-primary hover:underline">
+            <a href="https://github.com/MagneticAnomaly/RunPrep/tree/main/packages/paperclip-plugin" className="text-primary hover:underline">
               packages/paperclip-plugin
             </a>{' '}
             in the Prep repository. It&apos;s MIT-licensed.

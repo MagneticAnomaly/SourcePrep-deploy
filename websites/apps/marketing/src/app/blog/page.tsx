@@ -85,7 +85,7 @@ export default function Page() {
                   <a href="https://x.com/Prep_io" className="text-text-subtle hover:text-text transition-colors">
                     <XIcon className="w-5 h-5" />
                   </a>
-                  <a href="https://github.com/MagneticAnomaly/Prep-MCP" className="text-text-subtle hover:text-text transition-colors">
+                  <a href="https://github.com/MagneticAnomaly/RunPrep-MCP" className="text-text-subtle hover:text-text transition-colors">
                     <Github className="w-5 h-5" />
                   </a>
                 </div>

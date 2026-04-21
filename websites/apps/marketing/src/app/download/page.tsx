@@ -5,7 +5,7 @@ import { Button } from '@prep/ui';
 
 const RELEASES_URL =
   process.env.NEXT_PUBLIC_PREP_RELEASES_URL ??
-  'https://github.com/MagneticAnomaly/Prep-MCP/releases';
+  'https://github.com/MagneticAnomaly/RunPrep-MCP/releases';
 
 const MCP_CONFIGS = [
   {

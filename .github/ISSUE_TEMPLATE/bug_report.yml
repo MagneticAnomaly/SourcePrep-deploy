@@ -9,7 +9,7 @@ body:
       value: |
         Please search existing issues to see if this has already been reported. 
         For questions or how-to help, please use GitHub Discussions instead:
-        - Questions and how-to: https://github.com/MagneticAnomaly/Prep/discussions
+        - Questions and how-to: https://github.com/MagneticAnomaly/RunPrep/discussions
         - Troubleshooting: https://docs.runprep.io/troubleshooting
         - Private support: support@runprep.io
 

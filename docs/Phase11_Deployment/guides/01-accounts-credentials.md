@@ -65,7 +65,7 @@ signature before installing any update — this prevents tampered updates from b
 stores it encrypted, accessible only to your workflows.
 
 **Steps:**
-1. Go to [github.com/MagneticAnomaly/Prep-MCP](https://github.com/MagneticAnomaly/Prep-MCP)
+1. Go to [github.com/MagneticAnomaly/RunPrep-MCP](https://github.com/MagneticAnomaly/RunPrep-MCP)
 2. Click **Settings** → **Secrets and variables** → **Actions**
 3. Click **New repository secret** and add:
 
@@ -228,7 +228,7 @@ independently (VS Code extension, advanced users).
 3. Copy the token
 
 ### 3. Add to GitHub Secrets
-1. Go to [github.com/MagneticAnomaly/Prep-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/Prep-MCP/settings/secrets/actions)
+1. Go to [github.com/MagneticAnomaly/RunPrep-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/RunPrep-MCP/settings/secrets/actions)
 2. **New repository secret**:
    - Name: `PYPI_TOKEN`
    - Value: the token you copied

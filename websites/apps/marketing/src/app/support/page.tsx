@@ -50,7 +50,7 @@ export default function Page() {
               Join our GitHub Discussions to ask questions, share tips, and request features.
             </p>
             <Button variant="outline" className="w-full" asChild>
-              <a href="https://github.com/MagneticAnomaly/Prep-MCP/discussions">Go to GitHub</a>
+              <a href="https://github.com/MagneticAnomaly/RunPrep-MCP/discussions">Go to GitHub</a>
             </Button>
           </div>
 

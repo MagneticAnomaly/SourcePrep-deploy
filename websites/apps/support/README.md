@@ -16,7 +16,7 @@ It uses a **Headless GitHub** architecture:
 
 2. Generate a GitHub Personal Access Token (Fine-grained):
    - **Permissions**: Read-only access to "Discussions" and "Metadata" for the repo.
-   - **Repository**: `EricBintner/Prep` (or your target repo).
+   - **Repository**: `MagneticAnomaly/RunPrep` (or your target repo).
 
 3. Add the token to `.env.local`:
    ```bash

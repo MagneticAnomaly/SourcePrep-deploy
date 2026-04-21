@@ -88,7 +88,7 @@ Detailed step-by-step instructions for these tasks can be found in the guides di
 
 ### Netlify Setup
 - [ ] WEB-1 Create Netlify account (Starter plan, Magnetic Anomaly LLC)
-- [ ] WEB-2 Connect GitHub: authorize OAuth and connect `EricBintner/Prep`
+- [ ] WEB-2 Connect GitHub: authorize OAuth and connect `MagneticAnomaly/RunPrep`
 - [ ] WEB-3 Create 4 separate Netlify sites (marketing, docs, support, payments)
 - [ ] WEB-4 Enable Deploy Previews
 - [x] WEB-5 Remove `vercel.json` from each app

@@ -19,7 +19,7 @@ export default function Page() {
         <div className="space-y-3">
           <a href="mailto:support@runprep.io" className="block text-primary hover:underline font-mono">support@runprep.io</a>
           <a href="mailto:security@runprep.io" className="block text-primary hover:underline font-mono">security@runprep.io</a>
-          <a href="https://github.com/MagneticAnomaly/Prep-MCP/discussions" className="block text-primary hover:underline">GitHub Discussions →</a>
+          <a href="https://github.com/MagneticAnomaly/RunPrep-MCP/discussions" className="block text-primary hover:underline">GitHub Discussions →</a>
         </div>
         <div className="mt-8">
           <a href="/" className="text-sm text-text-muted hover:text-text transition-colors">← Return Home</a>

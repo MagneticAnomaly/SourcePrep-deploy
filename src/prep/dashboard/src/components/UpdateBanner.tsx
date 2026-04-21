@@ -182,7 +182,7 @@ export function UpdateBanner({ checkIntervalMs = 30 * 60 * 1000 }: UpdateBannerP
           href={
             manifest?.body?.includes('http')
               ? manifest.body.match(/https?:\/\/[^\s]+/)?.[0] || '#'
-              : `https://github.com/MagneticAnomaly/Prep-MCP/releases/tag/app-v${manifest.version}`
+              : `https://github.com/MagneticAnomaly/RunPrep-MCP/releases/tag/app-v${manifest.version}`
           }
           target="_blank"
         >

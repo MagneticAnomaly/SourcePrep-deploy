@@ -4,7 +4,7 @@ import { Button } from '@prep/ui';
 
 const GITHUB_URL =
   process.env.NEXT_PUBLIC_PREP_GITHUB_URL ??
-  'https://github.com/MagneticAnomaly/Prep-MCP';
+  'https://github.com/MagneticAnomaly/RunPrep-MCP';
 
 export default function Page() {
   return (

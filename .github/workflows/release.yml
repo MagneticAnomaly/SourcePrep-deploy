@@ -129,9 +129,9 @@ jobs:
           releaseBody: |
             ## What's Changed
 
-            **Full Changelog**: https://github.com/MagneticAnomaly/Prep/compare/${{ needs.get-version.outputs.previous_tag }}...${{ github.ref_name }}
+            **Full Changelog**: https://github.com/MagneticAnomaly/RunPrep/compare/${{ needs.get-version.outputs.previous_tag }}...${{ github.ref_name }}
 
-            See the full changelog at https://github.com/MagneticAnomaly/Prep/blob/main/CHANGELOG.md
+            See the full changelog at https://github.com/MagneticAnomaly/RunPrep/blob/main/CHANGELOG.md
 
             ## Downloads
 

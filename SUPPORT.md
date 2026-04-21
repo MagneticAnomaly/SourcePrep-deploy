@@ -12,13 +12,13 @@ Prep is built by a small team. For the fastest help, start with docs and communi
 
 Please use GitHub Discussions for questions about setup, usage, workflows, and best practices:
 
-- https://github.com/MagneticAnomaly/Prep/discussions
+- https://github.com/MagneticAnomaly/RunPrep/discussions
 
 ## Bug reports
 
 If you’ve found a reproducible bug, please open a GitHub Issue:
 
-- https://github.com/MagneticAnomaly/Prep/issues/new/choose
+- https://github.com/MagneticAnomaly/RunPrep/issues/new/choose
 
 Before filing, it helps a lot if you include:
 

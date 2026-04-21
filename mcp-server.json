@@ -2,8 +2,8 @@
   "name": "prep",
   "display_name": "Prep",
   "description": "Code Documentation and RAG - Multi-project semantic search for codebases. Provides semantic code search, context assembly for LLM prompts, and index management.",
-  "homepage": "https://github.com/MagneticAnomaly/Prep",
-  "repository": "https://github.com/MagneticAnomaly/Prep",
+  "homepage": "https://github.com/MagneticAnomaly/RunPrep",
+  "repository": "https://github.com/MagneticAnomaly/RunPrep",
   "license": "MIT",
   "authors": [
     {

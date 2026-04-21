@@ -120,17 +120,17 @@ In Cloudflare for `runprep.io` → **DNS → Records → Add record**:
 1. Go to [netlify.com](https://netlify.com) → **Start for free**
 2. Sign up with your Magnetic Anomaly LLC email
 3. During onboarding, choose **"Connect to GitHub"** — authorize the OAuth app
-4. Select `EricBintner/Prep` repository access
+4. Select `MagneticAnomaly/RunPrep` repository access
 
 ### WEB-2 — Connect GitHub repo
 
 If not done during signup:
 1. **Team Settings → Integrations → Git providers**
-2. Connect GitHub and authorize access to `EricBintner/Prep`
+2. Connect GitHub and authorize access to `MagneticAnomaly/RunPrep`
 
 ### WEB-3 — Create the 4 sites
 
-For each site: **Sites → Add new site → Import an existing project → GitHub → EricBintner/Prep**
+For each site: **Sites → Add new site → Import an existing project → GitHub → MagneticAnomaly/RunPrep**
 
 Configure each site as follows:
 
@@ -199,7 +199,7 @@ Configure each site as follows:
 1. Go to [github.com/settings/tokens](https://github.com/settings/tokens) → **Fine-grained tokens → Generate new token**
 2. Name: `prep-support-discussions-read`
 3. Expiration: 1 year (set a reminder to renew)
-4. Repository access: **Only selected repositories → EricBintner/Prep**
+4. Repository access: **Only selected repositories → MagneticAnomaly/RunPrep**
 5. Permissions: **Repository permissions → Discussions → Read-only**
 6. Generate and copy the token → paste as `GITHUB_TOKEN` in Netlify
 

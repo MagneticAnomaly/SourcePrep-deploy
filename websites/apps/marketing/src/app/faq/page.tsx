@@ -420,7 +420,7 @@ export default function FAQPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
-              href="https://github.com/MagneticAnomaly/Prep-MCP/discussions"
+              href="https://github.com/MagneticAnomaly/RunPrep-MCP/discussions"
               className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-5 py-2.5 text-sm font-medium text-text hover:bg-surface transition-colors"
             >
               Ask the Community

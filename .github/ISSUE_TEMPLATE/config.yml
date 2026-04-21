@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions and Discussions
-    url: https://github.com/MagneticAnomaly/Prep/discussions
+    url: https://github.com/MagneticAnomaly/RunPrep/discussions
     about: Ask questions, share ideas, and discuss Prep with the community.
   - name: Troubleshooting docs
     url: https://docs.runprep.io/troubleshooting

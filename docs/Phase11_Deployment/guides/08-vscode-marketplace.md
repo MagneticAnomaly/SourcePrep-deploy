@@ -93,7 +93,7 @@ vsce publish
 
 To publish automatically from CI on a `vscode-v*` tag:
 
-1. Go to [github.com/MagneticAnomaly/Prep-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/Prep-MCP/settings/secrets/actions)
+1. Go to [github.com/MagneticAnomaly/RunPrep-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/RunPrep-MCP/settings/secrets/actions)
 2. Add:
 
    | Secret Name | Value |
@@ -113,7 +113,7 @@ After publishing, complete the marketplace listing:
    - **Screenshots:** At least 2–3 showing the extension in action
    - **Categories:** `Other` or `Programming Languages`
    - **Tags:** `AI`, `code search`, `context`, `RAG`
-   - **Repository:** `https://github.com/MagneticAnomaly/Prep-MCP`
+   - **Repository:** `https://github.com/MagneticAnomaly/RunPrep-MCP`
    - **Bugs URL:** `https://support.runprep.io`
 
 ---

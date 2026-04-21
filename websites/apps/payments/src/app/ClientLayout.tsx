@@ -30,7 +30,7 @@ export function ClientLayout({ children }: { children: ReactNode }) {
         productName="Prep"
         socials={{
           twitter: 'https://x.com/Prep_io',
-          github: 'https://github.com/MagneticAnomaly/Prep-MCP',
+          github: 'https://github.com/MagneticAnomaly/RunPrep-MCP',
           email: 'support@runprep.io'
         }}
       />
