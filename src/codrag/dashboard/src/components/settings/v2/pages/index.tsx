@@ -69,6 +69,12 @@ export interface PageHostProps {
   // Shared state: this same object will power Pipeline Defaults (Task 20).
   globalAdvanced: AdvancedConfig;
   onGlobalAdvancedChange: (patch: Partial<AdvancedConfig>) => void;
+
+  // ── Global-scope: Pipeline Defaults page (Task 20) ────────────────
+  // Autosave — shares globalAdvanced/onGlobalAdvancedChange with Chunking &
+  // Embeddings (Task 19). maxActiveProjects persists via handleMaxActiveProjectsChange.
+  maxActiveProjects: number | 'infinite';
+  onMaxActiveProjectsChange: (value: number | 'infinite') => void;
 }
 
 export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
@@ -150,7 +156,15 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
           onChange={host.onGlobalAdvancedChange}
         />
       );
-    case 'pipeline-defaults':     return <PipelineDefaultsPage {...host as any} />;
+    case 'pipeline-defaults':
+      return (
+        <PipelineDefaultsPage
+          maxActiveProjects={host.maxActiveProjects}
+          onMaxActiveProjectsChange={host.onMaxActiveProjectsChange}
+          config={host.globalAdvanced}
+          onChange={host.onGlobalAdvancedChange}
+        />
+      );
     case 'license':               return <LicensePage {...host as any} />;
     case 'integrations':          return <IntegrationsPage {...host as any} />;
     case 'developer-debug':       return <DevTogglesPage {...host as any} />;

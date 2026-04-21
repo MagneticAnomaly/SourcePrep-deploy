@@ -1099,6 +1099,8 @@ function App() {
             onBgImageChange: setBgImage,
             globalAdvanced,
             onGlobalAdvancedChange: handleGlobalAdvancedChange,
+            maxActiveProjects,
+            onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
           })}
           projectName={selectedProject?.name ?? null}
           confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}
