@@ -104,7 +104,7 @@ Kimi is the most **actionable** — mentions business purpose (user acquisition,
 
 ## 4. Earlier Findings: HomeColab + TEST (Kimi vs qwen3.5:35b-a3b)
 
-From `.codrag/backups/` A/B comparison on HomeColab (665 files) and TEST (44 files).
+From `.prep/backups/` A/B comparison on HomeColab (665 files) and TEST (44 files).
 
 ### HomeColab Epistemic (599 files)
 

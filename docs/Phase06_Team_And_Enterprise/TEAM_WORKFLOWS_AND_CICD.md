@@ -34,7 +34,7 @@ CoDRAG's 8-stage pipeline naturally splits between CI/CD and Local Developer env
 In a Team or Enterprise setting, configuration cannot be an anarchic free-for-all.
 
 ### The Team Lead (Admin)
-The Team Lead configures the `.codrag/team_config.json` file, which is committed to the repository. This file dictates:
+The Team Lead configures the `.prep/team_config.json` file, which is committed to the repository. This file dictates:
 - The S3 bucket for downloading the shared index.
 - **CI/CD Model Mandates:** Which model is used for the heavy CI build (e.g., `claude-3-5-sonnet-20241022`).
 - **Prompt Standards:** Custom instructions or specific context rules for the team's codebase.

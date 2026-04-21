@@ -30,7 +30,7 @@ CoDRAG's Team/Enterprise layer has a unique attack surface because it:
 **File:** `src/codrag/core/feature_gate.py` lines 126-150
 **CVSS Estimate:** 8.0 (High — Revenue Impact)
 **Attack:** Any user can bypass all paid features by:
-  1. Creating `~/.codrag/license.json` with `{"tier": "enterprise"}`, OR
+  1. Creating `~/.prep/license.json` with `{"tier": "enterprise"}`, OR
   2. Setting `CODRAG_TIER=enterprise` in their environment
 
 **Current State:** The docstring says "offline Ed25519 signed token" but the code does zero signature verification. It reads the JSON, trusts the `tier` field, and caches it. There is no public key, no signature check, no expiry validation, no server-side validation.
@@ -46,7 +46,7 @@ CoDRAG's Team/Enterprise layer has a unique attack surface because it:
 ### CRIT-2: S3 Endpoint URL is Attacker-Controlled (SSRF via team_config.json)
 **File:** `src/codrag/services/remote_sync.py` lines 211-214
 **CVSS Estimate:** 7.5 (High — SSRF)
-**Attack:** The `s3_endpoint` field in `.codrag/team_config.json` is committed to Git. A malicious contributor can submit a PR that changes `s3_endpoint` to an internal network address (e.g., `http://169.254.169.254/latest/meta-data/` on AWS, or `http://internal-service.corp:8080/`). When any team member's CoDRAG daemon starts polling, it makes HTTP requests to the attacker-controlled endpoint using the developer's network context, potentially:
+**Attack:** The `s3_endpoint` field in `.prep/team_config.json` is committed to Git. A malicious contributor can submit a PR that changes `s3_endpoint` to an internal network address (e.g., `http://169.254.169.254/latest/meta-data/` on AWS, or `http://internal-service.corp:8080/`). When any team member's CoDRAG daemon starts polling, it makes HTTP requests to the attacker-controlled endpoint using the developer's network context, potentially:
   - Exfiltrating AWS IAM credentials from the instance metadata service
   - Scanning internal network services
   - Triggering actions on internal APIs
@@ -75,7 +75,7 @@ cmd = ["git", "clone", "--depth", "1", "--branch", branch, "--single-branch", "-
 
 ### HIGH-2: Secrets File Has No Permission Check
 **File:** `src/codrag/services/remote_sync.py` lines 102-113
-**Attack:** `.codrag/.secrets` contains S3 credentials in plaintext JSON. If the file permissions are too open (e.g., 644 instead of 600), any local user on a shared machine can read the credentials.
+**Attack:** `.prep/.secrets` contains S3 credentials in plaintext JSON. If the file permissions are too open (e.g., 644 instead of 600), any local user on a shared machine can read the credentials.
 
 **Recommendation:**
   - Check file permissions on load. Warn or refuse to read if permissions are wider than 600 (owner-only).

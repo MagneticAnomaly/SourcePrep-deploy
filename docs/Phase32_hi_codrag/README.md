@@ -79,7 +79,7 @@ Backend:
 
 **Better approach:** Return rich, well-formatted markdown text in the MCP response. The AI in the IDE will display it natively. If a user explicitly wants to save the output, they can ask the AI to do that.
 
-**Exception:** For the developer diagnostic use case, an optional `save` param could write to `.codrag/diagnostics/hi_<timestamp>.md` — but that's a Phase 2 enhancement, not MVP.
+**Exception:** For the developer diagnostic use case, an optional `save` param could write to `.prep/diagnostics/hi_<timestamp>.md` — but that's a Phase 2 enhancement, not MVP.
 
 ### Verdict: **Fully feasible — prerequisite COMPLETE**
 
@@ -297,7 +297,7 @@ hi_codrag called
 ### Phase D: Diagnostic Mode
 - **Optional `mode` param:** `"user"` (default, friendly) vs `"dev"` (full diagnostic dump)
 - **Dev mode includes:** raw index stats, embedding model, config dump, atlas status, pipeline stage, enrichment scores
-- **Optional `save` param:** Writes `.codrag/diagnostics/hi_<timestamp>.md`
+- **Optional `save` param:** Writes `.prep/diagnostics/hi_<timestamp>.md`
 - **Diff mode:** Compare current state to last saved diagnostic
 - **Gate:** Useful for development debugging and support tickets
 

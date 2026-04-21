@@ -259,7 +259,7 @@ Not tested via API (requires MCP protocol), but the tool definition and handler 
 
 ## 10. Recommended Test Harness
 
-A new `scripts/repo_health_check.py` should be created that runs against any repo's `.codrag/` directory and produces a structured report with pass/fail assertions:
+A new `scripts/repo_health_check.py` should be created that runs against any repo's `.prep/` directory and produces a structured report with pass/fail assertions:
 
 1. **Pipeline completeness**: all expected artifacts exist
 2. **Trace graph health**: edge connectivity ratio, dangling edge %, files with 0 neighbors

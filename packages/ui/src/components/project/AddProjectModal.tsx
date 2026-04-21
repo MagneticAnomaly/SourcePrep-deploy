@@ -23,7 +23,7 @@ export interface AddProjectModalProps {
 const INDEX_LOCATION_INFO: Record<ProjectMode, { best: string; detail: string }> = {
   standalone: {
     best: 'Best for portability',
-    detail: 'Index lives in the app data directory (~/.codrag/). Move or delete the repo without losing your index. Ideal if the repo is on network or external storage.',
+    detail: 'Index lives in the app data directory (~/.prep/). Move or delete the repo without losing your index. Ideal if the repo is on network or external storage.',
   },
   embedded: {
     best: 'Best when boot disk is faster',

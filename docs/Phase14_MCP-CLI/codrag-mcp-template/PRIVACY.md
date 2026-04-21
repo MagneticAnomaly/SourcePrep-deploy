@@ -9,7 +9,7 @@ CoDRAG is designed to be **local-first**.
 
 ## Data stored on disk
 
-CoDRAG stores rebuildable index artifacts locally (for example under `.codrag/index` within a repository in direct mode).
+CoDRAG stores rebuildable index artifacts locally (for example under `.prep/index` within a repository in direct mode).
 
 ## Network access
 

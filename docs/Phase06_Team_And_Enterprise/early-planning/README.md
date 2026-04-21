@@ -12,7 +12,7 @@ Support team workflows as first-class: shared configurations, embedded indexes, 
 
 ## Scope
 ### In scope
-- Embedded mode (`.codrag/` directory inside a repo)
+- Embedded mode (`.prep/` directory inside a repo)
 - Network mode (daemon accessible to other machines)
 - Basic authentication (API keys)
 - Team onboarding flow (clone repo → add project → search)
@@ -27,7 +27,7 @@ Support team workflows as first-class: shared configurations, embedded indexes, 
  
 ## Deliverables
 - **Shared Configuration** (Team Tier feature: export/import policies)
-- Embedded mode (`.codrag/` in repo)
+- Embedded mode (`.prep/` in repo)
 - Network mode (remote server)
 - API key authentication
 - Team onboarding workflow
@@ -42,7 +42,7 @@ Support team workflows as first-class: shared configurations, embedded indexes, 
 ### Shared Configuration (Team Tier)
 This feature allows teams to enforce consistent indexing rules across all developer machines.
 
-- **Artifact:** `.codrag/team_config.json`
+- **Artifact:** `.prep/team_config.json`
 - **Scope:**
   - `include/exclude` patterns (e.g. "Always ignore /secrets")
   - `trace_enabled` defaults
@@ -51,7 +51,7 @@ This feature allows teams to enforce consistent indexing rules across all develo
   - Admin runs `codrag config export` to generate the file.
   - Developers' clients detect the file and apply settings (with override warnings).
 
-### Embedded mode (`.codrag/`)
+### Embedded mode (`.prep/`)
 
 Embedded mode exists to make a project’s index **portable** and **repeatable** for teams.
 
@@ -59,11 +59,11 @@ Embedded mode exists to make a project’s index **portable** and **repeatable**
 
 In embedded mode, the project’s index lives at:
 
-- `{project_root}/.codrag/`
+- `{project_root}/.prep/`
 
 Recommended structure:
 
-- `.codrag/`
+- `.prep/`
   - `project.json` (or equivalent) — minimal metadata about the embedded index
   - `index/`
     - `manifest.json`
@@ -86,21 +86,21 @@ The embedded index should be treated as **rebuildable**. Any file not strictly r
 
 CoDRAG should support both workflows:
 
-- **Committed index** (fast onboarding): `.codrag/index/**` is committed to git.
-- **Uncommitted index** (avoid repo bloat): `.codrag/` exists locally but is gitignored.
+- **Committed index** (fast onboarding): `.prep/index/**` is committed to git.
+- **Uncommitted index** (avoid repo bloat): `.prep/` exists locally but is gitignored.
 
 Default recommendation for MVP:
 - Do not auto-commit.
 - Provide explicit guidance in the dashboard/CLI on the trade-offs (size vs onboarding speed).
 
-If `.codrag/index/**` is committed:
+If `.prep/index/**` is committed:
 - Expect merges/conflicts; treat the index as a build artifact.
 - The “source of truth” remains the repo; the index can always be rebuilt.
 
 #### Merge conflicts and corruption handling
 
 Rules:
-- If git merge leaves conflict markers anywhere inside `.codrag/index/**`, the index is considered invalid.
+- If git merge leaves conflict markers anywhere inside `.prep/index/**`, the index is considered invalid.
 - CoDRAG should surface a clear status:
   - “Embedded index has merge conflicts; rebuild required.”
 - Preferred remediation:
@@ -108,8 +108,8 @@ Rules:
 
 #### Watch-loop avoidance
 
-- In embedded mode, watchers must ignore `.codrag/**` (Phase 03).
-- Builds must not touch any files inside the watched source tree other than `.codrag/**`.
+- In embedded mode, watchers must ignore `.prep/**` (Phase 03).
+- Builds must not touch any files inside the watched source tree other than `.prep/**`.
 
 ### Network mode (team server)
 
@@ -176,11 +176,11 @@ Constraints:
 1. Team lead:
    - enables embedded mode for the repo
    - builds the index
-   - (optionally) commits `.codrag/index/**`
+   - (optionally) commits `.prep/index/**`
 2. Teammate:
    - clones the repo
    - runs `codrag add . --embedded`
-   - CoDRAG detects existing `.codrag/` and immediately enables search
+   - CoDRAG detects existing `.prep/` and immediately enables search
 3. If the embedded index is missing or incompatible:
    - CoDRAG marks project as “needs rebuild” and offers one-click rebuild
 
@@ -215,8 +215,8 @@ These extend the Phase 02 dashboard contract.
 - Phase 02 (dashboard onboarding UX)
 
 ## Open questions
-- Should `.codrag/` be committed by default or treated as optional/explicit
-- How merge conflicts in `.codrag/` are detected and resolved (rebuild vs merge)
+- Should `.prep/` be committed by default or treated as optional/explicit
+- How merge conflicts in `.prep/` are detected and resolved (rebuild vs merge)
 - Whether network mode must support TLS in MVP or can defer to reverse proxy
 
 ## Risks
@@ -224,7 +224,7 @@ These extend the Phase 02 dashboard contract.
 - Git merge conflicts and index corruption in embedded mode
 
 ## Testing / evaluation plan
-- Embedded mode test: create `.codrag/`, commit, clone elsewhere, verify instant search
+- Embedded mode test: create `.prep/`, commit, clone elsewhere, verify instant search
 - Network mode test: remote client can query with API key; cannot query without it
 
 ## Research completion criteria

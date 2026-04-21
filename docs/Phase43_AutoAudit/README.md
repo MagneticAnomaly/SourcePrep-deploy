@@ -180,7 +180,7 @@ Group B — Deep Enrichment:
 A standalone command and API endpoint, separate from the pipeline:
 
 ```bash
-codrag audit                        # Full audit → writes reports to .codrag/audit/
+codrag audit                        # Full audit → writes reports to .prep/audit/
 codrag audit --category architecture  # Architecture-only
 codrag audit --format json            # Machine-readable output
 ```
@@ -316,7 +316,7 @@ $ codrag audit
   ✓ TECH_DEBT_REPORT.md       (2.9 KB)
   ✓ TEST_COVERAGE_MAP.md      (1.6 KB)
 
-Reports saved to: ~/.local/share/codrag/projects/{id}/audit/
+Reports saved to: ~/.local/share/prep/projects/{id}/audit/
 ```
 
 ### MCP
@@ -382,7 +382,7 @@ AI: Can you show me the architecture analysis?
 2. **Should users be able to define custom analyzers?** E.g., "flag any file importing from `legacy/`" — this would be a repo_policy extension.
 >>> maybe, we can consider this later. this could also be a setting
 
-3. **Should audit reports be git-tracked?** If the project is in embedded mode (`.codrag/` in the repo), audit reports would appear in git diff. This could be useful for code review but noisy for CI.
+3. **Should audit reports be git-tracked?** If the project is in embedded mode (`.prep/` in the repo), audit reports would appear in git diff. This could be useful for code review but noisy for CI.
 >>> I think this should be a user setting (maybe per project) personally I would want it to be git-tracked but I don't represent all devs -- I would researdh this and we can arrive at a default setting based on assumptions about how most devs might prefer.
 
 4. **What's the right LLM slot?** Synthesis quality benefits from the large model (14b+), but the small model (3b) would be faster and cheaper. Could use small for summaries, large for architecture analysis.

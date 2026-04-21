@@ -297,7 +297,7 @@ Core shipped; below are the remaining polish items.
 
 ## Tier 4 — DEFERRED (recorded so they're not lost)
 
-- **Phase 113 folder-reorganize** — full `.codrag/` folder restructure (~2 weeks). XDG migration shipped (phase113-xdg_state) and handled the primary goal; folder-reorganize can land post-MVP.
+- **Phase 113 folder-reorganize** — full `.prep/` folder restructure (~2 weeks). XDG migration shipped (phase113-xdg_state) and handled the primary goal; folder-reorganize can land post-MVP.
 - **Phase 115 — Watcher L3 plumbing** — Watcher has no Project handle, so `trace.ignore_patterns` can't be read at watcher startup. L1+L2 complete; pipeline runs honour L3. Needs architecture change (Project lookup from `index_dir`). Park for Phase 116+.
 - **Phase 115 — maturin rebuild** — Rust walker + selfheal updates are ready; Python bindings need rebuild before daemon picks them up. Trivial; bundle with next daemon-restart-requiring release.
 - **Phase 115 — Pre-existing analyzer failures** — 4 tests fail (Swift/Ruby/Kotlin/C# analyzers). Unrelated to Phase 115 (confirmed via stash). Triage separately.

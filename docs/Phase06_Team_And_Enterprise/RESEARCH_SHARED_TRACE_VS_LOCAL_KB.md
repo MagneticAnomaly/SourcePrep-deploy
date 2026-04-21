@@ -31,19 +31,19 @@ All merging and scoping happen **locally on the user's computer.**
 - The headless CI/CD server runs on push to `main`.
 - It builds the complete Trace Graph and Atlas Routing for `main`.
 - It uploads `trace_manifest.json`, `documents.json`, and `embeddings.npy` to the team's S3 bucket.
-- **The developer's local CoDRAG daemon downloads this zip and places it in `.codrag/index/remote/`.**
+- **The developer's local CoDRAG daemon downloads this zip and places it in `.prep/index/remote/`.**
 
 ### Layer 2: The Local Watcher (The Delta)
 - The developer opens their IDE and starts editing `src/auth.ts`.
 - The local CoDRAG file watcher detects the change.
 - It compares the file against the remote `trace_manifest.json`.
 - The local CoDRAG daemon uses the developer's *local* LLM (or BYOK API key) to run the enrichment pipeline **only on `src/auth.ts`**.
-- It saves this delta to `.codrag/index/local_deltas/`.
+- It saves this delta to `.prep/index/local_deltas/`.
 - *Compute cost: ~2 seconds of local GPU/API time, rather than 2 hours.*
 
 ### Layer 3: The Knowledge Base (The Personal Scope) *(Future Enhancement — not part of Phase 06 MVP)*
 - The user selects "Add URL" in their CoDRAG tree and adds a Jira ticket.
-- This is processed 100% locally and saved to `.codrag/index/knowledge/`.
+- This is processed 100% locally and saved to `.prep/index/knowledge/`.
 - The headless server is completely unaware of this.
 
 > **Note:** Layer 3 is a future roadmap feature. Phase 06 MVP ships with Layers 1 and 2 only. The Knowledge Base layer is documented here for architectural completeness.

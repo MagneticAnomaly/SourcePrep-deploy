@@ -28,7 +28,7 @@ A standalone Rust binary that cross-references the filesystem against pipeline c
 
 ### Execution Flow
 
-1. **Policy Loading**: Reads `.codrag/repo_policy.json` for include/exclude globs.
+1. **Policy Loading**: Reads `.prep/repo_policy.json` for include/exclude globs.
 2. **Filesystem Walk**: Uses `codrag-walker` for sub-100ms scanning.
 3. **Pipeline Data Loading**: Parses file paths from JSONL checkpoints.
 4. **Diff Analysis**: `filesystem_files - pipeline_files` per checkpoint.
@@ -86,7 +86,7 @@ Piggybacks on the existing 5-minute coverage check timer. Every coverage check c
 
 ## Diagnostic Logging
 
-Phase 61B introduces `selfheal` events in the pipeline file logger (`pipeline_logger.py`). These are structured JSON events written to `.codrag/logs/pipeline_*.log`:
+Phase 61B introduces `selfheal` events in the pipeline file logger (`pipeline_logger.py`). These are structured JSON events written to `.prep/logs/pipeline_*.log`:
 
 ```json
 {"ts": "...", "event": "selfheal", "data": {"action": "stale_detected", "detail": "zombie metadata found", ...}}
@@ -155,7 +155,7 @@ Phase 61D addresses the root cause of the "silent rebuild" issue — the pipelin
 
 - [ ] **Dashboard health indicator**: Expose `/api/pipeline/health` with per-stage freshness
 - [ ] **Integrate Rust selfheal CLI**: Call from Python after fast_sync completion
-- [ ] **Auto-prune old logs**: Rotate `.codrag/logs/` after N days or N MB
+- [ ] **Auto-prune old logs**: Rotate `.prep/logs/` after N days or N MB
 - [ ] **Sub-atlas freshness check**: Verify segment/role atlases are complete
 - [ ] **Coverage gap autofix**: When codrag-selfheal finds gaps, trigger specific stages
 - [ ] **Inferred edges manifest separation**: Split orchestrator stage manifest from InferredEdgesAnalyzer hash manifest to enable true incremental edge discovery

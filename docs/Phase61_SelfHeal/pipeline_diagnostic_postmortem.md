@@ -3,7 +3,7 @@
 ## The Symptoms
 1. **Frontend "Wonkiness" and Stalls**: The UI (specifically React) became completely unresponsive while the pipeline was running. Toggles would hang, page navigation stalled, and the user's browser was heavily taxed.
 2. **Backend API Timeouts**: Intermittent `404` or timeout exceptions on `/projects/{project_id}/pipeline/status`.
-3. **Ghost Inferred Edges**: Excluded files (like `javalin-rendering/commonmark/test.md`) appearing in `.codrag/trace_inferred_edges.jsonl` despite `.gitignore` rules and UI exclude toggles definitively removing them from the structural trace.
+3. **Ghost Inferred Edges**: Excluded files (like `javalin-rendering/commonmark/test.md`) appearing in `.prep/trace_inferred_edges.jsonl` despite `.gitignore` rules and UI exclude toggles definitively removing them from the structural trace.
 
 ---
 
@@ -53,14 +53,14 @@ for hyp in hypotheses {
     }
 ```
 
-I used `grep` to hunt for `test.md` inside your `.codrag/trace_nodes.jsonl` (the active structural graph). 
+I used `grep` to hunt for `test.md` inside your `.prep/trace_nodes.jsonl` (the active structural graph). 
 **It was not there.** 
 The exclude list *is definitely working*. Rust was successfully filtering it out of the fast-sync pass. If the Rust engine couldn't find the source node, it actively rejects the inferred edge and won't write it.
 
 **So how on earth did it get into `trace_inferred_edges.jsonl`?**
 
 ### The Answer: Stale State Ghosting
-I checked the file system metadata: `stat -f "%Sm" .codrag/trace_inferred_edges.jsonl`
+I checked the file system metadata: `stat -f "%Sm" .prep/trace_inferred_edges.jsonl`
 It returned: **16 hours ago** (timestamp 01:40).
 
 The current time is roughly 16 hours later, and your last catalogue run occurred 11 hours ago.

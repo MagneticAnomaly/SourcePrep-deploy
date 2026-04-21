@@ -108,5 +108,5 @@ They simply pull `codrag/headless:latest`, inject their IAM roles or environment
 - Add `deploy/aws/ecs-task-definition.json`.
 
 **Step 4: The Local Client Sync**
-- Update the local CoDRAG daemon to check `.codrag/team_config.json` for an S3 endpoint.
-- If present, on startup, hit S3. If a newer index exists, download, unzip, and replace `.codrag/index/`.
+- Update the local CoDRAG daemon to check `.prep/team_config.json` for an S3 endpoint.
+- If present, on startup, hit S3. If a newer index exists, download, unzip, and replace `.prep/index/`.

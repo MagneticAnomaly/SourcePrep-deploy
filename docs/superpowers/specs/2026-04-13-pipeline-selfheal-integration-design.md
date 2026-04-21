@@ -48,11 +48,11 @@ For each stage in the group:
 
 1. Check if manifest exists and is non-stub → skip (stage already complete)
 2. If manifest missing, attempt resurrection in priority order:
-   a. **Golden checkpoint** (`.codrag/.checkpoints/_golden/`) — known-good state from last successful deep enrichment
-   b. **Run checkpoints** (`.codrag/.checkpoints/<run_id>/`) — most recent with data for this stage's output file
-   c. **Branch snapshot** (`.codrag/.branch_snapshots/<current_branch>/`) — current branch data
+   a. **Golden checkpoint** (`.prep/.checkpoints/_golden/`) — known-good state from last successful deep enrichment
+   b. **Run checkpoints** (`.prep/.checkpoints/<run_id>/`) — most recent with data for this stage's output file
+   c. **Branch snapshot** (`.prep/.branch_snapshots/<current_branch>/`) — current branch data
 3. For each source: check if the stage's output file exists in the backup AND is >1KB (not empty/stub)
-4. If found: copy output file to `.codrag/`, write stub manifest:
+4. If found: copy output file to `.prep/`, write stub manifest:
    ```json
    {
      "restored": true,
@@ -129,9 +129,9 @@ Fast Sync triggers (file change or Run click)
 
 | Priority | Source | Location | Rationale |
 |----------|--------|----------|-----------|
-| 1 | Golden checkpoint | `.codrag/.checkpoints/_golden/` | Known-good from last successful deep enrichment |
-| 2 | Run checkpoints | `.codrag/.checkpoints/<run_id>/` | Recent, but may be mid-stage |
-| 3 | Branch snapshot | `.codrag/.branch_snapshots/<branch>/` | Current branch, may be from different code state |
+| 1 | Golden checkpoint | `.prep/.checkpoints/_golden/` | Known-good from last successful deep enrichment |
+| 2 | Run checkpoints | `.prep/.checkpoints/<run_id>/` | Recent, but may be mid-stage |
+| 3 | Branch snapshot | `.prep/.branch_snapshots/<branch>/` | Current branch, may be from different code state |
 
 ### What selfheal does NOT do
 

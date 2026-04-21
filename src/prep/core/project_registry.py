@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import sqlite3
 import uuid
@@ -8,6 +9,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectRegistryError(Exception):
@@ -491,7 +494,7 @@ def read_codrag_pointer(directory: str | Path) -> Optional[Dict[str, str]]:
         from prep.core.paths import _migrate_embedded_dir
         _migrate_embedded_dir(Path(directory).expanduser().resolve())
     except Exception:
-        pass  # migration failure must never break project resolution
+        logger.debug("embedded .codrag -> .prep migration failed; continuing", exc_info=True)
     try:
         pointer_path = Path(directory).expanduser().resolve() / ".prep" / _POINTER_FILENAME
         if not pointer_path.is_file():

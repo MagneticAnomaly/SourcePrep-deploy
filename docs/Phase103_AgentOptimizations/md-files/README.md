@@ -119,7 +119,7 @@ After stress-testing the plan against recent research (see `05_RESEARCH_SURVEY.m
 - **F1 messaging revision:** scope + tools + antibody routing is the value. De-emphasize persona theater — research shows persona prompting has mixed empirical results.
 - **F5 expanded** to include total-cross-artifact budget (8 KB cold-start ceiling), not just per-artifact.
 - **Position-aware template standard:** critical content at start+end, derivable content in middle. Matches 85–95% recall zones from context-rot research.
-- **New F0.5 — Per-project index override file** (`.codrag/index_overrides.yaml`). Makes F0 exclusion policy non-punishing for teams who treat CLAUDE.md as living documentation.
+- **New F0.5 — Per-project index override file** (`.prep/index_overrides.yaml`). Makes F0 exclusion policy non-punishing for teams who treat CLAUDE.md as living documentation.
 - **role.yaml schema versioning** + per-target writer versioning + public compatibility matrix.
 
 ## Success criteria

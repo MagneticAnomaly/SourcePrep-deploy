@@ -404,7 +404,7 @@ See the [Agentic Integration Guide](./AGENTIC_INTEGRATION_GUIDE.md) for framewor
 
 CoDRAG runs entirely locally. Your code never leaves your machine:
 
-- Index is stored in `~/.codrag/` or `.codrag/` in your repo
+- Index is stored in `~/.prep/` or `.prep/` in your repo
 - MCP communication happens over localhost
 - No external API calls (except to local Ollama)
 

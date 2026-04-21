@@ -70,7 +70,7 @@ codrag(project_id="<uuid>")
 codrag_search(query="...", project_id="<uuid>")
 ```
 
-The project ID is shown in the CoDRAG dashboard or in the project's `.codrag/project.json` file.
+The project ID is shown in the CoDRAG dashboard or in the project's `.prep/project.json` file.
 
 ## What CoDRAG Knows
 

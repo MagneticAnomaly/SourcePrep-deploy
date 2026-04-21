@@ -6,7 +6,7 @@ Each step has a concrete exit test; none is "refactor and hope."
 ## Step 1 — `codrag.core.paths` module
 
 - Create `src/codrag/core/paths.py` with `data_dir()`.
-- Resolution: `$CODRAG_DATA_DIR` (must be absolute) → `~/.local/share/codrag/`.
+- Resolution: `$CODRAG_DATA_DIR` (must be absolute) → `~/.local/share/prep/`.
 - `mkdir(parents=True, exist_ok=True)` before return.
 - Unit tests: env precedence, absolute-path enforcement, default resolution.
 - **Exit:** `tests/test_paths.py` green; no callers yet.
@@ -100,7 +100,7 @@ Each store picks its own filename under `data_dir()`. No more
   writes land in XDG.
 - Add a short note to `CLAUDE.md` §Key Ports-ish section:
   "Daemon state lives at `$CODRAG_DATA_DIR` (default
-  `~/.local/share/codrag/`). Legacy `./codrag_data/` is
+  `~/.local/share/prep/`). Legacy `./codrag_data/` is
   auto-migrated on first run."
 - **Exit:** PROGRESS.md closeout + final PR.
 
@@ -120,7 +120,7 @@ Each store picks its own filename under `data_dir()`. No more
 
 - Not adding a user-facing "change my data dir" UI.
 - Not encrypting stores.
-- Not touching embedded `.codrag/` layouts.
+- Not touching embedded `.prep/` layouts.
 - Not removing the `--index-dir` CLI flag.
 - Not renaming DB files (`codrag_antibodies.db` stays
   `codrag_antibodies.db`, not `antibodies.db`) — out of scope churn.

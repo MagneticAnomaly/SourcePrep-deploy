@@ -36,7 +36,7 @@ The smoke-test import triggered a real migration against this dev
 machine's actual state because a CoDRAG daemon has been running since
 last night (PID 84234). Outcome:
 
-- Sentinel: `~/.local/share/codrag/.migrated_from_cwd` written
+- Sentinel: `~/.local/share/prep/.migrated_from_cwd` written
 - 8 files moved: `codrag_{antibodies,concepts,observations,pipeline_journal,pipeline_history,settings,token_telemetry}.db`, `ui_config.json`
 - 1 conflict resolved: `codrag_settings.db` — 40 KB legacy won the
   row-count tiebreaker over the 180 KB WAL-bloated XDG copy, loser
@@ -73,7 +73,7 @@ for this phase.
   match new reality
 
 Smoke test: `configure()` with no args produces
-`_config["index_dir"] == "/Users/ericbintner/.local/share/codrag"`.
+`_config["index_dir"] == "/Users/ericbintner/.local/share/prep"`.
 
 **Step 6: stores self-locate via `index_dir`.** The existing
 `server.py` init block builds every store path off
@@ -84,18 +84,18 @@ observation, history, settings — automatically land in XDG.
 
 Smoke test (ran live in this session):
 ```
-concept_store            -> /Users/ericbintner/.local/share/codrag/codrag_concepts.db
-antibody_store           -> /Users/ericbintner/.local/share/codrag/codrag_antibodies.db
-telemetry                -> /Users/ericbintner/.local/share/codrag/codrag_token_telemetry.db
-journal                  -> /Users/ericbintner/.local/share/codrag/codrag_pipeline_journal.db
-observation_store        -> /Users/ericbintner/.local/share/codrag/codrag_observations.db
-history                  -> /Users/ericbintner/.local/share/codrag/codrag_pipeline_history.db
-settings                 -> /Users/ericbintner/.local/share/codrag/codrag_settings.db
+concept_store            -> /Users/ericbintner/.local/share/prep/codrag_concepts.db
+antibody_store           -> /Users/ericbintner/.local/share/prep/codrag_antibodies.db
+telemetry                -> /Users/ericbintner/.local/share/prep/codrag_token_telemetry.db
+journal                  -> /Users/ericbintner/.local/share/prep/codrag_pipeline_journal.db
+observation_store        -> /Users/ericbintner/.local/share/prep/codrag_observations.db
+history                  -> /Users/ericbintner/.local/share/prep/codrag_pipeline_history.db
+settings                 -> /Users/ericbintner/.local/share/prep/codrag_settings.db
 ```
 
 **Step 7: `ui_config.json` moved to XDG + gitignore.**
 - `.gitignore` gained a `codrag_data/` entry (in addition to the
-  existing `.codrag/`).
+  existing `.prep/`).
 - `git rm --cached` on the 14 tracked files under `codrag_data/`
   (7 DBs + 2 corrupt backups + 3 projects.db* + registry.db +
   ui_config.json). On-disk files preserved — git just stops
@@ -157,7 +157,7 @@ Modified:
 ### Post-merge hardening (2026-04-17, session 2)
 
 Scrutinized the committed work against a restarted daemon. Daemon
-lsof confirms all 8 stores open against `~/.local/share/codrag/`;
+lsof confirms all 8 stores open against `~/.local/share/prep/`;
 no open fds against legacy `./codrag_data/`. Live config `index_dir`
 is None (resolved to data_dir()). Migration sentinel present.
 Zero runtime regressions.
@@ -197,11 +197,11 @@ With the restarted daemon indexing
 `tests/eval/sample_repos/generated/rust_repo` (embedded mode):
 
 Daemon open fds snapshot:
-- 13 daemon-wide store fds — all in `~/.local/share/codrag/`
-- 1 per-project log fd — in `rust_repo/.codrag/logs/pipeline_*.log`
+- 13 daemon-wide store fds — all in `~/.local/share/prep/`
+- 1 per-project log fd — in `rust_repo/.prep/logs/pipeline_*.log`
 - 0 fds in `./codrag_data/`
 
-`rust_repo/.codrag/` shows live pipeline activity at 14:50–14:53
+`rust_repo/.prep/` shows live pipeline activity at 14:50–14:53
 (reset barrier, checkpoints, audit, pipeline_state.json,
 pipeline_run_metadata.json, trace_epistemic.jsonl updating).
 Legacy `./codrag_data/` has not been re-written — it now contains
@@ -210,7 +210,7 @@ only a stale 0-byte `settings.db` from before Phase 113.
 This validates the two-layer contract end-to-end:
 - Daemon-wide state (registry, journal, stores, ui_config, audit log)
   lives in XDG regardless of CWD or which project is active.
-- Per-project state (`<repo>/.codrag/` in embedded mode, or
+- Per-project state (`<repo>/.prep/` in embedded mode, or
   `<data_dir>/projects/<id>/` in standalone) is unchanged.
 
 Phase 113 is done.

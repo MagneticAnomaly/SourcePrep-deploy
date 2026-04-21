@@ -673,7 +673,7 @@ False
 True   # ✓
 ```
 
-This silently broke `.claude/`, `.git/`, `.codrag/`, `.venv/`, `node_modules/`, and **every other directory exclude in every project's policy**. Files inside those dirs were being reported as relevant, triggering repeat builds. The build_manager DID filter correctly when called directly (CodeIndex.build uses pathspec internally), but the watcher's pre-filter let bad paths through, and the delta-build path took those paths as `roots` and re-indexed them.
+This silently broke `.claude/`, `.git/`, `.prep/`, `.venv/`, `node_modules/`, and **every other directory exclude in every project's policy**. Files inside those dirs were being reported as relevant, triggering repeat builds. The build_manager DID filter correctly when called directly (CodeIndex.build uses pathspec internally), but the watcher's pre-filter let bad paths through, and the delta-build path took those paths as `roots` and re-indexed them.
 
 **Fix:** Replace `Path.match()` with `pathspec.PathSpec.from_lines("gitignore", ...)`. The rest of the codebase already uses pathspec for exactly this — the watcher was an outlier. Switched from the deprecated `gitwildmatch` dialect to `gitignore` to silence the deprecation warning.
 
@@ -774,7 +774,7 @@ Option A is least invasive. Option C is the cleanest long-term fix.
 
 **Status:** ✅ FIXED
 
-**Symptom:** Eric reported "I see issues with the codrag data after I ran scripts/dev.sh — it says initialize but I know it's been built in .codrag". The dashboard was showing CoDRAG with the "Initialize Trace Graph" panel and Knowledge Base Status reading 0 Code / 0 Docs / 0 Graph / 0 Total / "No project loaded", even though `.codrag/trace_nodes.jsonl` (8.6 MB, 21,531 lines) and `trace_edges.jsonl` (31,459 lines) had been written that morning.
+**Symptom:** Eric reported "I see issues with the codrag data after I ran scripts/dev.sh — it says initialize but I know it's been built in .codrag". The dashboard was showing CoDRAG with the "Initialize Trace Graph" panel and Knowledge Base Status reading 0 Code / 0 Docs / 0 Graph / 0 Total / "No project loaded", even though `.prep/trace_nodes.jsonl` (8.6 MB, 21,531 lines) and `trace_edges.jsonl` (31,459 lines) had been written that morning.
 
 **Root cause:** `services/project_helpers.py::project_trace_status()` checked `project.config.trace.enabled` and short-circuited to an empty stub if the flag was False — without ever consulting `TraceIndex.status()` or the on-disk files. The CoDRAG project's config is `{"active": true}` with no `trace` key, so `enabled` came out False, and the daemon advertised the project as having no graph.
 
@@ -937,7 +937,7 @@ WRITE GUARD BLOCKED stage structural for ...
 **Why this bites Phase 96 testing:** rust_repo is a synthetic test fixture. We use it for fast smoke tests, but we can't trigger a clean rebuild because the existing data is "more" than what a fresh parse produces.
 
 **Fix options:**
-1. Regenerate rust_repo's `.codrag/` from a clean state so existing data matches what the Rust parser produces today.
+1. Regenerate rust_repo's `.prep/` from a clean state so existing data matches what the Rust parser produces today.
 2. Add a `force=True` flag to `/pipeline/rebuild` that bypasses the write guard for explicit user-triggered rebuilds.
 3. Investigate why the parser produces fewer nodes today (parser version drift).
 

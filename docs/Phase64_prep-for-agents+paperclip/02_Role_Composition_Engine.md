@@ -709,7 +709,7 @@ The 15-20 built-in `RoleVector` definitions live in Python as constants. No disk
 When Strategy B (keyword decomposition) or C (LLM resolution) produces a vector, cache it:
 
 ```
-.codrag/role_cache.json
+.prep/role_cache.json
 {
     "design_engineer": { "layer_weights": {...}, ... },
     "devsecops": { "layer_weights": {...}, ... },

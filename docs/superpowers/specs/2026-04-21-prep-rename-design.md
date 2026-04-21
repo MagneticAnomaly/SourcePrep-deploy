@@ -63,7 +63,7 @@ Exhaustive scan of the repo surfaces the following:
 |---|---|
 | Files referencing `codrag` in any case | 400+ Python, 200+ TypeScript, 300+ docs/content |
 | `codrag.io` URL references | 115 files |
-| `CODRAG_DATA_DIR` / `.codrag/` / `~/.local/share/codrag` | 176 files |
+| `CODRAG_DATA_DIR` / `.prep/` / `~/.local/share/prep` | 176 files |
 | `@codrag/*` npm imports | 292 occurrences / 157 files |
 | `codrag.ai` references | 5 files — **delete**, domain never existed |
 | CLaRa references | ~115 files (most in historical phase docs) |
@@ -113,7 +113,7 @@ Renames where a miss produces no compile error but wrong runtime behavior. The v
 6. **Tauri `externalBin: ["codrag-daemon"]`** — desktop app launches but has no backend.
 7. **Paperclip manifest tool IDs** — use `:` (`codrag:context`) not `_`; different convention from MCP-native tools.
 8. **VS Code config schema keys** (`codrag.daemonPort`) — if renamed but reads still look up `codrag.*`, users get defaults.
-9. **Data path literal** `~/.local/share/codrag/` in `paths.py` — wrong path = empty data dir, app looks "freshly installed".
+9. **Data path literal** `~/.local/share/prep/` in `paths.py` — wrong path = empty data dir, app looks "freshly installed".
 10. **Rules generator templates** — the AGENTS.md/CLAUDE.md that Prep writes into *client projects* still say "codrag" unless `rules_generator.py` strings are updated.
 
 ---
@@ -309,10 +309,10 @@ No settings migration for users (alpha, no users).
 
 | Variable | Old | New |
 |---|---|---|
-| XDG data path | `~/.local/share/codrag/` | `~/.local/share/prep/` |
-| Legacy path | `~/.codrag/` | `~/.prep/` |
+| XDG data path | `~/.local/share/prep/` | `~/.local/share/prep/` |
+| Legacy path | `~/.prep/` | `~/.prep/` |
 | CWD-relative legacy | `./codrag_data/` | `./prep_data/` |
-| Embedded per-project | `.codrag/` | `.prep/` |
+| Embedded per-project | `.prep/` | `.prep/` |
 | Env override | `CODRAG_DATA_DIR` | `PREP_DATA_DIR` |
 
 **Core files:** `src/prep/core/paths.py` (path construction), `src/prep/core/data_dir_migration.py` (Phase 113 migration logic extended).
@@ -329,11 +329,11 @@ No settings migration for users (alpha, no users).
 
 **Auto-migration (decision D4, recommended):** extend `data_dir_migration.py` with a one-shot `codrag → prep` migration on first `prep serve`. Sentinel-file gated (`<data_dir>/.migrated_from_codrag`), same pattern as Phase 113's `.migrated_from_cwd`. Protects against losing your own dogfood data.
 
-**Embedded `.codrag/` migration (decision D5):** on project open, if `.codrag/` exists and `.prep/` does not, rename atomically. Otherwise ignore.
+**Embedded `.prep/` migration (decision D5):** on project open, if `.prep/` exists and `.prep/` does not, rename atomically. Otherwise ignore.
 
 **Test coverage:** extend `tests/test_data_dir_migration.py`, update `tests/test_paths.py`, `tests/conftest.py`.
 
-**Verification:** first `prep serve` with pre-existing `~/.local/share/codrag/` → migrates to `~/.local/share/prep/`, sentinel written; second run → no re-migration.
+**Verification:** first `prep serve` with pre-existing `~/.local/share/prep/` → migrates to `~/.local/share/prep/`, sentinel written; second run → no re-migration.
 
 ### Section 11 — Websites & domains
 
@@ -388,7 +388,7 @@ No settings migration for users (alpha, no users).
 - `SettingsDrawer.tsx` section headers / tooltips
 - `UsageGuidePanel.tsx` help text
 - `components/site/SiteHeader.tsx`, `SiteFooter.tsx` brand
-- `components/team/EmbeddedModeIndicator.tsx` (`.codrag/` → `.prep/`)
+- `components/team/EmbeddedModeIndicator.tsx` (`.prep/` → `.prep/`)
 - `components/project/AddProjectModal.tsx` copy
 
 **Error messages with URLs**: `raise RuntimeError("See codrag.io/...")`, JSON envelopes with `docs_url: "https://codrag.io/..."`.
@@ -410,7 +410,7 @@ No settings migration for users (alpha, no users).
 | `docs/MASTER_TODO.md`, `docs/MARKETING_MASTER_TODO.md`, `docs/PRODUCT_AND_BUSINESS_OVERVIEW.md` | Find/replace |
 | `docs/superpowers/plans/*.md`, `docs/superpowers/specs/*.md` | Find/replace (historical) |
 
-**`.gitignore`**: `.codrag/` → `.prep/`, `codrag_data/` → `prep_data/`.
+**`.gitignore`**: `.prep/` → `.prep/`, `codrag_data/` → `prep_data/`.
 
 **`.github/` surfaces:**
 - `ISSUE_TEMPLATE/*.yml`
@@ -563,7 +563,7 @@ Must return 0 lines. Allowlist entries (Section 15).
 | D2 | CLaRa historical docs | **Delete** — no archive, no allowlist |
 | D3 | `websites/MagneticAnomaly/` | **Keep in place**; "CoDRAG" refs inside get same find/replace as other content |
 | D4 | Data-dir auto-migration | Implement — one-shot migration in `data_dir_migration.py`, sentinel-gated |
-| D5 | Embedded `.codrag/` migration in client repos | Auto-detect and rename to `.prep/` on project open |
+| D5 | Embedded `.prep/` migration in client repos | Auto-detect and rename to `.prep/` on project open |
 | D6 | OG / Twitter / favicon images | Rename filenames only; visual content preserved (no redesign) |
 | D7 | PyPI / crates.io / npm publishing | Not today, soon. Separate task: check `prep` name availability on PyPI, npm, crates.io before first publish (see Prerequisites for follow-ups) |
 | D8 | VS Code publisher ID `magnetic-anomaly` | Keep |

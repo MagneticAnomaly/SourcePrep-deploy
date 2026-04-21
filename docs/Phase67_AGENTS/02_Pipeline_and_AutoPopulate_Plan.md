@@ -35,7 +35,7 @@ Because the coverage engine ignores `.gitignore`, it counts standard cache folde
 ### 2.1 The Problem
 When `run_deep_enrichment` fails mid-flight, the orchestrator tries to pick up where it left off.
 `_detect_resume_point` iterates the 11 pipeline stages. When it checks `StageId.ATLAS`, it checks if `atlas_manifest.json` exists. If it does, it assumes the entire stage finished perfectly.
-However, Phase 64 introduced synchronous processing inside the Atlas Worker that generates `.codrag/atlas_role_*.md` files and `atlas_segments_manifest.json`. If the pipeline halts *between* the main atlas and the segment/role atlases, the resume logic completely abandons the Sub-Atlases.
+However, Phase 64 introduced synchronous processing inside the Atlas Worker that generates `.prep/atlas_role_*.md` files and `atlas_segments_manifest.json`. If the pipeline halts *between* the main atlas and the segment/role atlases, the resume logic completely abandons the Sub-Atlases.
 
 ### 2.2 Implementation: Enforce Dependent Manifests
 **File to Modify:** `src/codrag/services/pipeline/orchestrator.py`
@@ -68,7 +68,7 @@ The Agent UI allows you to scope context, preventing Agent Hallucination. Manual
 **New Endpoint:** `POST /projects/{project_id}/scope/agents/{agent_role}/auto-populate`
 
 **Workflow Steps:**
-1. **Determine Role Profile:** Read `AGENTS.md` or `.codrag/project.json` to get the defined instructions and overarching goal of the `{agent_role}` (e.g. `Backend Architect`).
+1. **Determine Role Profile:** Read `AGENTS.md` or `.prep/project.json` to get the defined instructions and overarching goal of the `{agent_role}` (e.g. `Backend Architect`).
 2. **Broad Topological Net:** 
    * Option A (Semantic Index): Vector query `embedding_store` using the Role's directives string to pull the Top ~100 structural files.
    * Option B (Structural Filter): Alternatively, apply logic to read all Python/Rust files if the role dictates Backend.

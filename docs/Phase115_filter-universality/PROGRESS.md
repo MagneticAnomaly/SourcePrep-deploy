@@ -11,7 +11,7 @@ Phase docs drafted: `00_PROBLEM.md`, `01_TARGET_DESIGN.md`, `IMPLEMENTATION_PLAN
 Decision log:
 - Let `run-3639f940ba9f` finish before restarting. Fix requires daemon restart regardless; interrupting mid-swarm risks P3/P5 pause bugs per pipeline-testing runbook.
 - Phase 115 lands before Phase 113 on the filter side; path renames in 113 are orthogonal.
-- `codrag_data/` to `~/.local/share/codrag/` tracked as separate work (Track C).
+- `codrag_data/` to `~/.local/share/prep/` tracked as separate work (Track C).
 
 ## Step 0 — Add `CODRAG_OUTPUT_*` registry
 
@@ -55,7 +55,7 @@ Changes:
 - `src/codrag/core/repo_policy.py`: imported `DEFAULT_EXCLUDE_FILE_GLOBS`. Auto-merge in `ensure_repo_policy()` now unions dir globs + file globs + `**/.*` into `exclude_globs` and rewrites the file on disk if any default is missing.
 - `src/codrag/core/repo_profile.py::profile_repo()`: fresh-policy generation also includes `DEFAULT_EXCLUDE_FILE_GLOBS`, so new projects get them on first profile.
 
-Verified against the dogfood `.codrag/repo_policy.json`:
+Verified against the dogfood `.prep/repo_policy.json`:
 - 25 new entries will auto-merge on next daemon start.
 - All four leak culprits in the add list: `**/storybook-static/**`, `**/codrag_data/**`, `**/*.d.ts`, `**/*.map`.
 - User-specific entries preserved: `**/*.lock`, `**/*.log`, `**/.DS_Store`.
@@ -122,7 +122,7 @@ Smoke test: confirmed `effective_excludes` appears in `AutoRebuildWatcher._load_
 
 New test file `tests/test_walker_parity.py` with three tests:
 - `test_rust_walker_mirrors_python_l1_excludes` — parses `exclude_globs: vec![...]` out of `engine/crates/codrag-walker/src/lib.rs` and asserts every Python L1 entry appears in Rust.
-- `test_rust_walker_covers_codrag_output_dirs` — hard invariant: `**/.codrag/**` and `**/codrag_data/**` must be in Rust.
+- `test_rust_walker_covers_codrag_output_dirs` — hard invariant: `**/.prep/**` and `**/codrag_data/**` must be in Rust.
 - `test_rust_walker_covers_leak_culprits` — the four leaks that motivated Phase 115.
 
 First run caught real drift: Rust was missing `**/.cursor/rules/*.mdc` and `**/.windsurf/rules/*.md`. Added both to `WalkConfig::default()` and rebuilt Rust crate. Tests now pass (3/3).
@@ -134,7 +134,7 @@ First run caught real drift: Rust was missing `**/.cursor/rules/*.mdc` and `**/.
 New test file `tests/test_user_exclude_respected.py` with four tests proving the ADD-not-REPLACE contract:
 - `test_effective_excludes_unions_all_three_layers` — L1, L2, L3, and `explicit_excludes` all appear in the resolved set.
 - `test_user_excludes_added_to_existing_policy_survive_auto_migration` — writes a stub sparse policy with user customisations + one old default. `ensure_repo_policy()` back-fills every new default and preserves `**/*.lock` / `**/.DS_Store`. Persists to disk.
-- `test_user_cannot_silently_remove_codrag_output_guard` — even if the user deletes `**/.codrag/**` from `repo_policy.json`, the next load puts it back. Self-ingestion is a hard invariant.
+- `test_user_cannot_silently_remove_codrag_output_guard` — even if the user deletes `**/.prep/**` from `repo_policy.json`, the next load puts it back. Self-ingestion is a hard invariant.
 - `test_codrag_output_file_globs_all_in_defaults` — every entry in the registry is in `DEFAULT_EXCLUDE_FILE_GLOBS`.
 
 All 4 pass.
@@ -143,7 +143,7 @@ All 4 pass.
 
 **Status:** complete
 
-New test file `tests/test_no_self_ingestion.py`. Scaffolds a tmpdir repo containing 16 leak-culprit paths (exact fixtures from `00_PROBLEM.md §E1`: storybook-static/*, .codrag/*, codrag_data/*, .d.ts, .map, .min.js, AGENTS.md, CLAUDE.md, .cursor/rules/*.mdc, .windsurf/rules/*.md, .github/copilot-instructions.md) plus 4 legit control files.
+New test file `tests/test_no_self_ingestion.py`. Scaffolds a tmpdir repo containing 16 leak-culprit paths (exact fixtures from `00_PROBLEM.md §E1`: storybook-static/*, .prep/*, codrag_data/*, .d.ts, .map, .min.js, AGENTS.md, CLAUDE.md, .cursor/rules/*.mdc, .windsurf/rules/*.md, .github/copilot-instructions.md) plus 4 legit control files.
 
 Three tests prove no path survives the filter:
 - `test_effective_excludes_blocks_every_leak_culprit` — `pathspec.match_file()` against the resolved exclude set returns True for all 16.
@@ -204,6 +204,6 @@ Layer contract now universal:
 - L2 (per-project policy) — `repo_policy.json`, auto-migrates on load (Step 3).
 - L3 (runtime ignores) — `project.config.trace.ignore_patterns`, plumbed through workers.py (pipeline), and auto-resolved in loaders + watcher via pointer lookup.
 
-Every path that walks the filesystem or reads `trace_nodes.jsonl` now goes through `effective_excludes()`. Self-ingestion guard (`**/.codrag/**`, `**/codrag_data/**`) is a hard invariant enforced by `ensure_repo_policy()` — even a direct edit to `repo_policy.json` gets corrected on the next load.
+Every path that walks the filesystem or reads `trace_nodes.jsonl` now goes through `effective_excludes()`. Self-ingestion guard (`**/.prep/**`, `**/codrag_data/**`) is a hard invariant enforced by `ensure_repo_policy()` — even a direct edit to `repo_policy.json` gets corrected on the next load.
 
 Total: 18 tests green for Phase 115 (13 Phase 115 + 5 L3 plumbing), 4 unrelated pre-existing failures documented as not caused by this phase.

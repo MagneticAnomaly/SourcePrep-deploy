@@ -40,7 +40,7 @@ Aider doesn't have native MCP client support. To use CoDRAG with Aider:
 # .aider.conf.yml
 read:
   - AGENTS.md          # CoDRAG atlas + instructions
-  - .codrag/context.md # Static context snapshot (optional)
+  - .prep/context.md # Static context snapshot (optional)
 ```
 
 ---
@@ -51,7 +51,7 @@ Since Aider can't call MCP tools dynamically, CoDRAG should support a **static c
 
 ```bash
 # CoDRAG CLI generates a static context file
-codrag export --format markdown --output .codrag/context.md
+codrag export --format markdown --output .prep/context.md
 ```
 
 This file contains:
@@ -63,7 +63,7 @@ This file contains:
 Aider reads this at session start via `.aider.conf.yml`:
 ```yaml
 read:
-  - .codrag/context.md
+  - .prep/context.md
 ```
 
 ### Regeneration

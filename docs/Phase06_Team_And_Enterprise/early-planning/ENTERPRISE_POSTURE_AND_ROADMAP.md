@@ -67,8 +67,8 @@ CoDRAG posture:
 
 | Capability | Team | Enterprise | Notes |
 | :--- | :--- | :--- | :--- |
-| Shared config (`.codrag/team_config.json`) | Yes | Yes | Team: drift detection; Enterprise: strict enforcement |
-| Embedded mode (`.codrag/` index) | Yes | Yes | Optional commit of index artifacts |
+| Shared config (`.prep/team_config.json`) | Yes | Yes | Team: drift detection; Enterprise: strict enforcement |
+| Embedded mode (`.prep/` index) | Yes | Yes | Optional commit of index artifacts |
 | Network mode (shared server) | Roadmap | Roadmap | Post-MVP implementation |
 | Auth baseline | Roadmap | Roadmap | API keys first |
 | Audit logging | Roadmap | Roadmap | Start with local log export |
@@ -80,7 +80,7 @@ CoDRAG posture:
 ### Pattern A: Managed laptops (no server)
 - CoDRAG installed via MDM.
 - License key deployed as a file.
-- Team policy distributed via repo (`.codrag/team_config.json`).
+- Team policy distributed via repo (`.prep/team_config.json`).
 
 Pros:
 - Maximum "local-first" posture.

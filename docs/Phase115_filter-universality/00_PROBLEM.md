@@ -52,13 +52,13 @@ These are a storybook build-output artifact — minified bundled JS chunks and b
 
 ### E2 — The current repo_policy excludes list, verbatim
 
-`/Volumes/4TB-BAD/HumanAI/CoDRAG/.codrag/repo_policy.json` (created 2026-04-11):
+`/Volumes/4TB-BAD/HumanAI/CoDRAG/.prep/repo_policy.json` (created 2026-04-11):
 
 ```json
 "exclude_globs": [
   "**/*.lock", "**/*.log", "**/.*", "**/.DS_Store",
   "**/.aider/**", "**/.bundle/**", "**/.cache/**",
-  "**/.claude/**", "**/.codrag/**", "**/.cody/**",
+  "**/.claude/**", "**/.prep/**", "**/.cody/**",
   "**/.continue/**", "**/.coverage/**", "**/.cursor/**",
   "**/.env/**", "**/.git/**", "**/.gradle/**",
   "**/.mypy_cache/**", "**/.next/**", "**/.pytest_cache/**",
@@ -186,7 +186,7 @@ CoDRAG writes files. Many of them. Top-level outputs today:
 
 | Path | Writer | Currently excluded? |
 |------|--------|---------------------|
-| `.codrag/**` | Per-project index | Yes (`**/.codrag/**`) |
+| `.prep/**` | Per-project index | Yes (`**/.prep/**`) |
 | `codrag_data/*.db` | Daemon SQLite stores | **No** |
 | `codrag_data/*.json` (roster, telemetry, etc.) | Daemon state | Partially (`ui_config.json` only) |
 | `codrag_data/logs/*.log` | Daemon logs | Via `**/*.log` glob, but not dir |
@@ -209,8 +209,8 @@ Three compounding reasons:
 ## Out of scope for this phase
 
 - Changing the *content* of include/exclude lists per-language-preset (presets are fine).
-- Reorganizing `.codrag/` internals (that is Phase 113).
-- Moving `codrag_data/` to `~/.local/share/codrag/` (tracked separately; strengthens tier enforcement but independent of filter correctness).
+- Reorganizing `.prep/` internals (that is Phase 113).
+- Moving `codrag_data/` to `~/.local/share/prep/` (tracked separately; strengthens tier enforcement but independent of filter correctness).
 - UI changes to the Knowledge Scope / FolderTree.
 
 ## Acceptance gates for Phase 115

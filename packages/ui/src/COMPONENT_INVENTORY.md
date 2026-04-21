@@ -173,7 +173,7 @@ This document catalogs all UI components needed for CoDRAG across all tiers and 
 ### 7.4 Embedded Mode
 | Component | Status | Purpose |
 |-----------|--------|---------|
-| `EmbeddedModeIndicator` | ✅ | .codrag/ directory indicator |
+| `EmbeddedModeIndicator` | ✅ | .prep/ directory indicator |
 | `EmbeddedIndexStatus` | 🔲 | Embedded index health |
 | `MergeConflictWarning` | 🔲 | Git merge conflict detection |
 | `CommitPolicySelector` | 🔲 | Committed vs gitignored choice |

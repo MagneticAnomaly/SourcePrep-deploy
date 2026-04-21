@@ -22,7 +22,7 @@ Nothing here is a reason to stop shipping. Every item is a guard-rail, a risk fl
 - UI override path is required, not optional — we flagged this in 03. Reinforce it.
 - We should ship F0 with a default-strict classifier *and* a per-project override file so teams can opt files back in when they treat them as living docs.
 
-**Revision:** make the override path table-stakes, not v3. At least a YAML file `.codrag/index_overrides.yaml` in v1.
+**Revision:** make the override path table-stakes, not v3. At least a YAML file `.prep/index_overrides.yaml` in v1.
 
 ### Premise 2: "Role-projected subagents improve agent output"
 

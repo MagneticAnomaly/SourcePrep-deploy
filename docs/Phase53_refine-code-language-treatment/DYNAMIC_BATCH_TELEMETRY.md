@@ -114,7 +114,7 @@ def _process_with_exploratory_fallback(self, items: List[Dict], prompt_builder_f
 
 ### 4. Telemetry Output & Extensibility
 
-All retry events (`RetryTelemetry`) will be flushed to an `exploratory_retries.jsonl` file in the `.codrag/logs` folder at the end of the pipeline run.
+All retry events (`RetryTelemetry`) will be flushed to an `exploratory_retries.jsonl` file in the `.prep/logs` folder at the end of the pipeline run.
 
 Later, we can run analytics scripts over this data to answer questions like:
 - "Does `kimi-k2.5:cloud` consistently fail parsing at batch size 5, but succeed 99% of the time at batch size 3?"

@@ -111,7 +111,7 @@ codrag add /path/to/myproject
 # Add with custom name
 codrag add /path/to/myproject --name "My Awesome Project"
 
-# Use embedded mode (stores index in .codrag/ within repo)
+# Use embedded mode (stores index in .prep/ within repo)
 codrag add /path/to/myproject --mode embedded
 ```
 
@@ -642,7 +642,7 @@ codrag build abc123 # Must specify project ID
 |----------|---------|-------------|
 | `CODRAG_HOST` | `127.0.0.1` | Default server host |
 | `CODRAG_PORT` | `8400` | Default server port |
-| `CODRAG_DATA_DIR` | `~/.local/share/codrag` | Data directory for standalone indexes |
+| `CODRAG_DATA_DIR` | `~/.local/share/prep` | Data directory for standalone indexes |
 | `CODRAG_ENGINE` | `auto` | Indexing engine: `auto`, `rust`, or `python` |
 | `CODRAG_TIER` | (from license) | Override license tier: `free`, `starter`, `pro`, `team`, `enterprise` |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL (standard Ollama env var) |

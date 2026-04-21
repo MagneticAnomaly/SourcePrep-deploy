@@ -189,7 +189,7 @@ The keyword map covers **160+ keywords** across every business department:
 For teams with highly specialized roles not covered by keyword decomposition, you can define custom role vectors in the project configuration:
 
 ```json
-// .codrag/config.json
+// .prep/config.json
 {
   "custom_roles": {
     "regulatory_affairs": {

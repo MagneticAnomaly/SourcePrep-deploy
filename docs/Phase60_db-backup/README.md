@@ -4,7 +4,7 @@
 
 ## Problem Statement
 
-The CoDRAG pipeline processes codebases through 11 sequential stages, each writing output files (JSONL, JSON, NPY) to the project's `.codrag/` directory. Several failure modes can silently destroy hours of LLM processing work:
+The CoDRAG pipeline processes codebases through 11 sequential stages, each writing output files (JSONL, JSON, NPY) to the project's `.prep/` directory. Several failure modes can silently destroy hours of LLM processing work:
 
 1. **Full rebuild when incremental was intended** — Stage 1 runs fresh, cascade-invalidates all downstream stage manifests, workers start over
 2. **Crash mid-write** — Process dies while writing `trace_augmented.jsonl`, leaving a truncated file
@@ -73,7 +73,7 @@ Every pipeline decision is now logged as a structured `decision` event:
 | `resume_point` | WHERE to start: per-stage audit showing `COMPLETE`, `STALE_MTIME`, `MISSING_MANIFEST`, `CRASH_RECOVERY` |
 | `coverage_gap` | WHY a rebuild was triggered: stale count, untraced count, coverage percentage |
 
-#### Example log output (what you'll see in `.codrag/logs/pipeline_*.log`):
+#### Example log output (what you'll see in `.prep/logs/pipeline_*.log`):
 
 ```json
 {"ts":"...","event":"decision","data":{"decision_type":"trigger_source","choice":"watcher_file_change","changed_paths_count":2}}
@@ -102,7 +102,7 @@ Every pipeline decision is now logged as a structured `decision` event:
 **Design**: Most recent backup is kept **uncompressed** for fast assessment and diffing. Older backups (if retained) are gzip-compressed to save space.
 
 ```
-.codrag/
+.prep/
 ├── trace_augmented.jsonl              ← live data (22 MB)
 ├── .snapshots/
 │   ├── trace_augmented.jsonl.bak      ← most recent backup (uncompressed, 22 MB)

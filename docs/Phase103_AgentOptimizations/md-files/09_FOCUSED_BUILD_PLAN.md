@@ -94,7 +94,7 @@ Builds the registered-agent tier and finishes the UI file-tree scope tuner.
 - **File-tree scope tuner:** in-scope/out-of-scope/boosted toggle per path; per-role overlays; persist to agent record.
 - **Sub-atlas override:** when a registered agent calls `codrag()`, server applies the agent's user-tuned overrides on top of default role vectors.
 - **F0 exclusion policy (walker + classifier + manifest column).** Prevents the registration-emission feedback loop that would otherwise pollute indexes.
-- **F0.5 per-project override file** (`.codrag/index_overrides.yaml`).
+- **F0.5 per-project override file** (`.prep/index_overrides.yaml`).
 - **F5 atlas budget + auto-split** to keep any managed block ≤ 4 KB.
 
 **Ships:** a usable "register your agents, tune their scope, they work better" product surface.

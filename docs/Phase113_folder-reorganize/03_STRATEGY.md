@@ -14,7 +14,7 @@ We are taking Strategy 2.
 
 ### 1. The risk surface is the literal sites, not the layout
 
-There are 70-ish places where a `.codrag/` path string is constructed. The risk in any reorganization isn't "did we pick the right layout" — that's a design call we can make confidently. The risk is "did we miss one of the 70 sites." Strategy 1 doesn't reduce that risk; it just bundles it with the layout change. Strategy 2 isolates it: the centralization PR's only job is to prove every site has been routed through one place. After that lands, the layout change has zero remaining literal-site risk.
+There are 70-ish places where a `.prep/` path string is constructed. The risk in any reorganization isn't "did we pick the right layout" — that's a design call we can make confidently. The risk is "did we miss one of the 70 sites." Strategy 1 doesn't reduce that risk; it just bundles it with the layout change. Strategy 2 isolates it: the centralization PR's only job is to prove every site has been routed through one place. After that lands, the layout change has zero remaining literal-site risk.
 
 ### 2. The accessor module is independently valuable
 
@@ -66,7 +66,7 @@ We don't need a runtime that can read v1 layout. The migrator runs early in star
 
 ### Not symlinking old paths to new paths
 
-Tempting for compatibility ("the old `.codrag/trace_nodes.jsonl` becomes a symlink to `.codrag/trace/nodes.jsonl`"). Rejected because (a) symlinks complicate backups, (b) they hide the migration from anyone inspecting the directory, (c) the `git_evidence` accessor would need to know about and skip them, (d) Windows compatibility — though we're not officially Windows-supported, this is a deliberate choice not to add OS-specific quirks.
+Tempting for compatibility ("the old `.prep/trace_nodes.jsonl` becomes a symlink to `.prep/trace/nodes.jsonl`"). Rejected because (a) symlinks complicate backups, (b) they hide the migration from anyone inspecting the directory, (c) the `git_evidence` accessor would need to know about and skip them, (d) Windows compatibility — though we're not officially Windows-supported, this is a deliberate choice not to add OS-specific quirks.
 
 ### Not changing the SQLite stores under `codrag_data/`
 
@@ -101,7 +101,7 @@ Each PR is independently shippable and reversible. Centralization without the mo
 Centralization is "done" when:
 
 ```
-$ rg --type=python -e "\\.codrag/" src/codrag/
+$ rg --type=python -e "\\.prep/" src/codrag/
 $ rg --type=python -e "Path\\([^)]+\\) / \"trace_" src/codrag/
 $ rg --type=python -e "INDEX_FILES|TRACE_FILES|ALL_DATA_FILES" src/codrag/
 ```

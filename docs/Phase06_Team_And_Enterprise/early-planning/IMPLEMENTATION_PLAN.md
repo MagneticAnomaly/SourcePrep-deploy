@@ -20,18 +20,18 @@ Test plan:
 ## Implementation prerequisites (must already exist)
 - Stable on-disk index formats (Phase01)
 - Stable API response envelope + error code taxonomy (STR-01)
-- Stable watcher behavior that always excludes `.codrag/**` (STR-06)
+- Stable watcher behavior that always excludes `.prep/**` (STR-06)
 
 ---
 
 ## Shared configuration (Team Tier)
 
-### P06-I1 Define `.codrag/team_config.json` schema (secret-free)
+### P06-I1 Define `.prep/team_config.json` schema (secret-free)
 Source of truth:
 - `TEAM_TIER_TECHNICAL_SPEC.md` (schema v1 + semantics)
 
 Implementation notes:
-- Treat `.codrag/team_config.json` as **repo-owned** configuration.
+- Treat `.prep/team_config.json` as **repo-owned** configuration.
 - Must remain **secret-free**; no API keys or tokens.
 - Must be hashable with a stable canonicalization strategy.
 
@@ -54,12 +54,12 @@ Precedence order (authoritative):
 Definitions:
 - **defaults**: hard-coded safe defaults shipped with CoDRAG
 - **global**: user/machine-wide preferences (local file or registry settings)
-- **team**: `.codrag/team_config.json`
+- **team**: `.prep/team_config.json`
 - **project overrides**: explicit per-project settings stored in the registry
 
 Non-overridable safety baseline:
 - `.git/**` must always be excluded
-- `.codrag/**` must always be excluded
+- `.prep/**` must always be excluded
 
 Proposed merge behavior (initial):
 - `include_globs`:
@@ -111,11 +111,11 @@ Source of truth:
 
 Implementation contract:
 - `mode=embedded` means the index root is:
-  - `{project_root}/.codrag/index/`
+  - `{project_root}/.prep/index/`
 
 Notes:
-- `.codrag/team_config.json` is adjacent to the index dir (repo-owned).
-- `.codrag/index/**` may or may not be committed.
+- `.prep/team_config.json` is adjacent to the index dir (repo-owned).
+- `.prep/index/**` may or may not be committed.
 
 ### P06-I5 Incompatible index detection and remediation UX
 States:
@@ -126,8 +126,8 @@ States:
 - `corrupted`
 
 Detection algorithm (minimum):
-- If `.codrag/index/` missing → `missing`
-- If conflict markers found in `.codrag/index/**` → `conflicted`
+- If `.prep/index/` missing → `missing`
+- If conflict markers found in `.prep/index/**` → `conflicted`
 - Else attempt to load required artifacts → if failure → `corrupted`
 - Else if manifest `format_version` unsupported → `incompatible`
 - Else → `ok`
@@ -137,10 +137,10 @@ Remediation:
 
 ### P06-I6 Watch-loop avoidance requirements
 Hard rule:
-- Watchers must always ignore `.codrag/**`.
+- Watchers must always ignore `.prep/**`.
 
 Implementation note:
-- Ensure `.codrag/**` ignore exists even when:
+- Ensure `.prep/**` ignore exists even when:
   - no team config exists
   - repo policy is missing
   - embedded mode is disabled

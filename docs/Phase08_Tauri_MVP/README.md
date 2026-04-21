@@ -106,7 +106,7 @@ Rules:
 Recommended defaults:
 - macOS: `~/Library/Application Support/CoDRAG/`
 - Windows: `%APPDATA%\\CoDRAG\\`
-- Linux: `~/.local/share/codrag/`
+- Linux: `~/.local/share/prep/`
 
 ### Packaging strategy
 

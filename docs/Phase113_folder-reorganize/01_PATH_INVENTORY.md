@@ -4,13 +4,13 @@ This is the canonical inventory of every artifact written to the project index d
 
 For each entry: **path**, **canonical source** (where the path string is defined), **writers**, **readers** (count + representatives), **target bucket** (the new home in [02_TARGET_LAYOUT.md](02_TARGET_LAYOUT.md)), and **migration risk**.
 
-## Resolver: `.codrag/` root
+## Resolver: `.prep/` root
 
 | Field | Value |
 |---|---|
 | Function | `project_index_dir(project: Project) -> Path` |
 | Source | `src/codrag/core/project_registry.py:44` |
-| Returns | embedded mode: `<project_root>/.codrag` &nbsp;·&nbsp; standalone mode: `~/.local/share/codrag/projects/<id>` &nbsp;·&nbsp; custom mode: `project.config["index_path"]` |
+| Returns | embedded mode: `<project_root>/.codrag` &nbsp;·&nbsp; standalone mode: `~/.local/share/prep/projects/<id>` &nbsp;·&nbsp; custom mode: `project.config["index_path"]` |
 | Status | **Already centralized.** Do not change. |
 | Risk | n/a |
 

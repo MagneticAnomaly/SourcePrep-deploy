@@ -1,11 +1,11 @@
 # 00 — The Problem
 
-## Current state of `.codrag/`
+## Current state of `.prep/`
 
 A snapshot of the codrag index right now (sizes shown for context):
 
 ```
-.codrag/
+.prep/
 ├── .branch_snapshots/                    # 1 file inside
 ├── .checkpoints/                         # _golden + run-<id>/
 ├── .pipeline_clean_shutdown              # 18 B marker
@@ -46,7 +46,7 @@ This is what's on disk *today*. `TRACE_FILES` in code (see [01_PATH_INVENTORY.md
 
 ### S1 — Root-level clutter
 
-~30 entries at the top level of `.codrag/`, mixing:
+~30 entries at the top level of `.prep/`, mixing:
 
 - Identity (`project.json`)
 - Configuration (`repo_policy.json`)
@@ -63,7 +63,7 @@ A future contributor can't tell from a top-level `ls` what these things are or h
 
 ### S2 — Duplicates
 
-- `repo_policy.json` lives both at `.codrag/repo_policy.json` (canonical, written by `repo_policy.write_repo_policy()`) and `.codrag/index/repo_policy.json` (referenced in `INDEX_FILES`). Only one is the source of truth.
+- `repo_policy.json` lives both at `.prep/repo_policy.json` (canonical, written by `repo_policy.write_repo_policy()`) and `.prep/index/repo_policy.json` (referenced in `INDEX_FILES`). Only one is the source of truth.
 - `codrag_settings.db` and `settings.db` — two empty SQLite files at root, both 0 bytes, both stubs. No active writers. Likely leftovers from a refactor.
 
 ### S3 — Ad-hoc marker files
@@ -74,7 +74,7 @@ A future contributor can't tell from a top-level `ls` what these things are or h
 
 Path mapping found:
 
-- **`.codrag/` root resolution is centralized** via `project_index_dir(project)` in `core/project_registry.py:44`. Good.
+- **`.prep/` root resolution is centralized** via `project_index_dir(project)` in `core/project_registry.py:44`. Good.
 - **Individual file paths are NOT.** Some have per-domain constants (`GOALPOSTS_FILENAME`, `ROADMAP_FILENAME`, `_ROSTER_FILENAME`, `_CLEAN_SHUTDOWN_FILENAME`, `_RESET_BARRIER_FILENAME`, `_POINTER_FILENAME`). Others are scattered string literals — `pipeline_state.json` appears as a literal at `pipeline/orchestrator.py:173,194` with no constant.
 - **Trace files are the worst case.** ~40 call sites construct `idx_dir / "trace_nodes.jsonl"` and similar by hand. The only centralization is `TRACE_FILES`, a flat list of basenames used by the destroy/finalize routines — not by the writers themselves.
 - **Subdir names are uncentralized.** `.checkpoints`, `.branch_snapshots`, `backups`, `logs`, `audit`, `git_evidence`, `architecture` are hardcoded everywhere they're used and again hardcoded in the destroy function.
@@ -97,11 +97,11 @@ INDEX_FILES = [
 ]
 ```
 
-But on disk, `documents.json`/`embeddings.npy`/`manifest.json`/`fts.sqlite3` live at `.codrag/index/documents.json` etc., not at `.codrag/documents.json`. The destroy function does `fp = idx_dir / fname` (i.e., `.codrag/documents.json`) and would silently no-op on these.
+But on disk, `documents.json`/`embeddings.npy`/`manifest.json`/`fts.sqlite3` live at `.prep/index/documents.json` etc., not at `.prep/documents.json`. The destroy function does `fp = idx_dir / fname` (i.e., `.prep/documents.json`) and would silently no-op on these.
 
 Either:
-- (a) `CodeIndex.index_dir` actually points at `.codrag/index/`, and `INDEX_FILES` is correctly basename-only and is meant to be used relative to a subdir that the destroy function isn't applying — i.e., the destroy function is broken;
-- (b) `CodeIndex.index_dir` points at `.codrag/` and `INDEX_FILES` is correct, and the disk presence of `.codrag/index/` is from a different code path (older builder writing to a subdir that's now ignored?);
+- (a) `CodeIndex.index_dir` actually points at `.prep/index/`, and `INDEX_FILES` is correctly basename-only and is meant to be used relative to a subdir that the destroy function isn't applying — i.e., the destroy function is broken;
+- (b) `CodeIndex.index_dir` points at `.prep/` and `INDEX_FILES` is correct, and the disk presence of `.prep/index/` is from a different code path (older builder writing to a subdir that's now ignored?);
 - (c) Both code paths exist and are racing.
 
 This must be confirmed in code before we design the migration. Whichever way it resolves, the centralization step kills the ambiguity.
@@ -131,13 +131,13 @@ When everything sits at the root, prefixes are the only grouping mechanism — b
 
 ### S8 — No schema version
 
-There's no marker file that says "this `.codrag/` was written by daemon version X with layout version Y." Adding one now (a `version` file containing an integer) costs nothing and makes every future migration possible. Without it, future migrations must heuristically detect the layout — fragile.
+There's no marker file that says "this `.prep/` was written by daemon version X with layout version Y." Adding one now (a `version` file containing an integer) costs nothing and makes every future migration possible. Without it, future migrations must heuristically detect the layout — fragile.
 
 ## What is NOT a problem
 
-- **`project_index_dir()` itself.** The single resolver for the `.codrag/` root is correct and centralized. We do not change it.
+- **`project_index_dir()` itself.** The single resolver for the `.prep/` root is correct and centralized. We do not change it.
 - **Embedded vs. standalone mode.** Both modes share the same internal layout. Whatever we do here applies to both transparently.
-- **Gitignore.** `.codrag/` is fully ignored (`/.gitignore:78`). Nothing we do changes git status.
+- **Gitignore.** `.prep/` is fully ignored (`/.gitignore:78`). Nothing we do changes git status.
 - **Subdir contents that are already well-organized.** `audit/`, `architecture/`, `git_evidence/`, `logs/`, `backups/`, `index/` are fine internally; they just need siblings.
 
 ## Why now

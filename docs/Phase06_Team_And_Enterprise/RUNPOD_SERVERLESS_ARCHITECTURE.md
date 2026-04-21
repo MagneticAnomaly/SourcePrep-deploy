@@ -23,7 +23,7 @@ Here is how a Team would actually use this in practice:
 - The team lead creates a RunPod account and an S3 bucket (e.g., Cloudflare R2, which has zero egress fees).
 - They deploy the **CoDRAG RunPod Template** (one click).
 - They add a GitHub Action to their repo.
-- They commit the S3 endpoint/bucket/prefix to `.codrag/team_config.json` (credentials are distributed via env vars or a gitignored `.codrag/.secrets` file — **never committed to Git**).
+- They commit the S3 endpoint/bucket/prefix to `.prep/team_config.json` (credentials are distributed via env vars or a gitignored `.prep/.secrets` file — **never committed to Git**).
 
 ### 2. The Trigger (CI/CD)
 - A developer merges a PR into the `main` branch.
@@ -39,7 +39,7 @@ Here is how a Team would actually use this in practice:
 
 ### 4. The Sync (Local Developers)
 - The next morning, a developer opens VS Code.
-- Their local CoDRAG app sees the `.codrag/team_config.json` and checks the S3 bucket.
+- Their local CoDRAG app sees the `.prep/team_config.json` and checks the S3 bucket.
 - It downloads the fresh index zip, extracting it in milliseconds.
 - **Result:** The developer has a fully enriched trace graph of the entire repository without their laptop ever spinning up a fan.
 

@@ -107,7 +107,7 @@ The CoDRAG desktop app (Tauri/Rust) and daemon (Python) will both contain the **
 -   `MCP`: Full access.
 
 ### Team Tier
--   **Shared Configs:** Import/Export `.codrag/team_config.json` enabled.
+-   **Shared Configs:** Import/Export `.prep/team_config.json` enabled.
 -   **UI:** Show Organization Name (if present in license).
 
 ## Offline & Air-Gapped Support

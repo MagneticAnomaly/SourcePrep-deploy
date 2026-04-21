@@ -21,8 +21,8 @@
     - [x] Update `mcp-config` to generate configs that use direct mode (no `--daemon` arg, just `codrag mcp`).
 
 ## 4. "Zero Config" Experience
-- [x] **Default Settings**: Defaults are generated via `repo_policy.json` (repo profiling) and now exclude `.codrag/` by default.
-- [x] **Auto-Discovery**: Direct mode uses CWD as `repo_root` and defaults index storage to `<repo_root>/.codrag/index`.
+- [x] **Default Settings**: Defaults are generated via `repo_policy.json` (repo profiling) and now exclude `.prep/` by default.
+- [x] **Auto-Discovery**: Direct mode uses CWD as `repo_root` and defaults index storage to `<repo_root>/.prep/index`.
 
 ## 5. Testing
 - [x] **Integration Test**: Created `tests/test_mcp_direct_e2e.py` to verify full flow.

@@ -23,7 +23,7 @@ A new implementation of the MCP Protocol that imports `codrag.core` directly ins
 
 ### 2. Auto-Indexing (Zero Config)
 When running in Direct Mode:
-*   Default index directory is: `<repo_root>/.codrag/index`.
+*   Default index directory is: `<repo_root>/.prep/index`.
 *   The server lazily loads any existing index artifacts from disk.
 *   Builds are triggered explicitly via `codrag_build` (runs in background).
 
@@ -31,7 +31,7 @@ When running in Direct Mode:
 Direct Mode assumes the current working directory (CWD) is the Repository Root.
 *   No `project_id` complexity.
 *   No database of projects.
-*   Just `index_dir = ./.codrag/index`.
+*   Just `index_dir = ./.prep/index`.
 
 ## Implementation Steps
 

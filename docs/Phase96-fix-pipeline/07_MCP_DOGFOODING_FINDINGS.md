@@ -39,7 +39,7 @@ codrag_audit(action="antibodies")
 
 **Possible causes:**
 1. F-37 fix was for the pipeline worker (saves succeed now — confirmed by the metadata), but the MCP server initialization path was not updated. The MCP server needs to call `antibody_store.init(db_path)` during project resolution, which may not be happening for embedded-mode projects.
-2. The antibody store DB path for embedded projects (`.codrag/antibodies.db` or similar) may not be resolved correctly by the MCP server's project resolver.
+2. The antibody store DB path for embedded projects (`.prep/antibodies.db` or similar) may not be resolved correctly by the MCP server's project resolver.
 3. The fix in F-37 may have been for the daemon's own antibody store instance, but the MCP server runs in a separate process (stdio mode) and needs its own initialization.
 
 **Research tasks:**

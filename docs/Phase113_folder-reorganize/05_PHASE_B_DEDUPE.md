@@ -84,7 +84,7 @@ These are tracked separately because they're bigger than file reorganization:
 
 - **SQLite store reorganization.** `codrag_data/*.db` files are their own design problem.
 - **Cross-version migration framework.** Each future schema change can be a one-shot migrator following the Phase A.1 pattern. A general framework is YAGNI until we have 3+ migrations.
-- **Standalone-mode global file restructuring.** `~/.local/share/codrag/{registry.db, active_project.json, ...}` is its own layout question.
+- **Standalone-mode global file restructuring.** `~/.local/share/prep/{registry.db, active_project.json, ...}` is its own layout question.
 - **Splitting embedded vs. standalone layouts.** They share a layout today; we keep them shared.
 
 ## Phase B trigger

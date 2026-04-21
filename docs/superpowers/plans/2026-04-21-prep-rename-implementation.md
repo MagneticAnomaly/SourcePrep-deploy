@@ -341,7 +341,7 @@ Expected: 0 matches.
 
 ```bash
 # XDG data path (highest frequency):
-rg -l '\.local/share/codrag' | xargs sed -i '' 's|\.local/share/codrag|.local/share/prep|g'
+rg -l '\.local/share/prep' | xargs sed -i '' 's|\.local/share/prep|.local/share/prep|g'
 
 # Home-tilde legacy paths:
 rg -l '~/\.codrag' | xargs sed -i '' 's|~/\.codrag|~/.prep|g'
@@ -353,7 +353,7 @@ rg -l '\bcodrag_data\b' -t py -t yaml -t toml | xargs sed -i '' 's/\bcodrag_data
 # Embedded per-project dir:
 rg -l '"\.codrag"' -t py | xargs sed -i '' 's/"\.codrag"/".prep"/g'
 rg -l "'\.codrag'" -t py | xargs sed -i '' "s/'\.codrag'/'.prep'/g"
-rg -l '\.codrag/' -t py -t md | xargs sed -i '' 's|\.codrag/|.prep/|g'
+rg -l '\.prep/' -t py -t md | xargs sed -i '' 's|\.prep/|.prep/|g'
 ```
 
 Verify:
@@ -451,7 +451,7 @@ git commit -m "rename(phase-3): python strings — env vars, paths, SQLite, MCP 
 
 ## Task 3B: Data-dir auto-migration extension (TDD)
 
-**Goal:** Extend `src/prep/core/data_dir_migration.py` so the first run of `prep serve` detects a legacy `~/.local/share/codrag/` and migrates it to `~/.local/share/prep/` atomically, sentinel-gated. Per decisions D4 and D5.
+**Goal:** Extend `src/prep/core/data_dir_migration.py` so the first run of `prep serve` detects a legacy `~/.local/share/prep/` and migrates it to `~/.local/share/prep/` atomically, sentinel-gated. Per decisions D4 and D5.
 
 **Why a separate task:** this is new behavior, not an identifier rename. It needs its own tests. Phase 113's migration machinery already handles CWD→XDG; we extend the same sentinel-file pattern for codrag→prep.
 
@@ -474,7 +474,7 @@ Add to `tests/test_data_dir_migration.py`:
 
 ```python
 def test_migrate_from_legacy_codrag_dir(tmp_path, monkeypatch):
-    """First prep-serve run migrates ~/.local/share/codrag to ~/.local/share/prep."""
+    """First prep-serve run migrates ~/.local/share/prep to ~/.local/share/prep."""
     fake_home = tmp_path / "home"
     legacy = fake_home / ".local" / "share" / "codrag"
     target = fake_home / ".local" / "share" / "prep"
@@ -531,7 +531,7 @@ def test_migrate_from_legacy_codrag_conflict_preserves_both(tmp_path, monkeypatc
 
     assert result is True
     assert (target / "prep_settings.db").read_bytes() == b"newer_data"
-    conflicts = list(fake_home.glob(".local/share/codrag.migration-conflict.*"))
+    conflicts = list(fake_home.glob(".local/share/prep.migration-conflict.*"))
     assert len(conflicts) == 1
     assert (conflicts[0] / "prep_settings.db").read_bytes() == b"legacy_data"
 ```
@@ -550,7 +550,7 @@ Study the existing `migrate_from_cwd` function and mirror its structure. Add:
 
 ```python
 def migrate_from_legacy_codrag() -> bool:
-    """Migrate ~/.local/share/codrag/ -> ~/.local/share/prep/ once.
+    """Migrate ~/.local/share/prep/ -> ~/.local/share/prep/ once.
 
     Sentinel-gated: writes <target>/.migrated_from_codrag on completion.
     On conflict (both sides non-empty), target wins; legacy is renamed to
@@ -656,15 +656,15 @@ Run the test; confirm green.
 
 Create a fake legacy dir and verify the daemon migrates it:
 ```bash
-mkdir -p ~/.local/share/codrag-TEST
-# Only use if you do NOT have a real ~/.local/share/codrag on the machine:
-#  mkdir -p ~/.local/share/codrag && touch ~/.local/share/codrag/prep_settings.db
+mkdir -p ~/.local/share/prep-TEST
+# Only use if you do NOT have a real ~/.local/share/prep on the machine:
+#  mkdir -p ~/.local/share/prep && touch ~/.local/share/prep/prep_settings.db
 .venv/bin/prep serve --port 8400 &
 DAEMON_PID=$!
 sleep 3
 ls -la ~/.local/share/prep/.migrated_from_codrag 2>/dev/null && echo "MIGRATION OK"
 kill $DAEMON_PID
-rm -rf ~/.local/share/codrag-TEST
+rm -rf ~/.local/share/prep-TEST
 ```
 
 Expected: `MIGRATION OK` printed; daemon starts without error.
@@ -1807,7 +1807,7 @@ cat > /tmp/changelog_prelude.md <<'EOF'
 - **BREAKING:** Project renamed from CoDRAG to Prep.
   - CLI command: `codrag` → `prep`
   - Python package: `codrag` → `prep`
-  - Data dir: `~/.local/share/codrag/` → `~/.local/share/prep/` (auto-migrated on first run)
+  - Data dir: `~/.local/share/prep/` → `~/.local/share/prep/` (auto-migrated on first run)
   - Env vars: `CODRAG_*` → `PREP_*`
   - MCP tools: `codrag`, `codrag_search`, … → `prep`, `prep_search`, …
   - Tauri bundle: `io.codrag.app` → `io.runprep.app` (existing installs will not auto-update; fresh install required)
@@ -1824,7 +1824,7 @@ mv CHANGELOG.md.tmp CHANGELOG.md
 - [ ] **Step 5: .gitignore**
 
 ```bash
-sed -i '' 's|^\.codrag/|.prep/|g; s|^codrag_data/|prep_data/|g' .gitignore
+sed -i '' 's|^\.prep/|.prep/|g; s|^codrag_data/|prep_data/|g' .gitignore
 ```
 
 Verify:

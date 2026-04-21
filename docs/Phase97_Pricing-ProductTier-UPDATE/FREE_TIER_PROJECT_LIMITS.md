@@ -19,12 +19,12 @@ When a Free user hits the 3-project limit and clicks "Remove" on a project, they
 
 ### Option 2: Delete & Purge (The Friction Path)
 *   **Mechanic**: The project is removed from the database entirely, freeing up a slot.
-*   **Data Destruction**: We strictly enforce `purge=True` on the backend. The project's UUID folder in `~/.local/share/codrag/projects/<uuid>` is permanently wiped from the disk.
+*   **Data Destruction**: We strictly enforce `purge=True` on the backend. The project's UUID folder in `~/.local/share/prep/projects/<uuid>` is permanently wiped from the disk.
 *   **Friction**: If the user ever wants to work on this project again, they must re-add it as a brand new project. It will start at 0% context. They must wait for the file walker, the AST parser, the trace graph builder, and crucially, they must pay the time and API token cost (if using BYOK cloud models) to re-embed the entire codebase from scratch.
 *   **Psychology**: "Musical chairs" becomes computationally and temporally expensive. Normal users will gladly pay $79 to avoid rebuilding large repositories repeatedly.
 
 ## Why this is difficult to hack (UUID Protection)
-When a project is added, it is assigned a unique UUID (e.g., `Project-A`). All its data is stored under `~/.local/share/codrag/projects/Project-A`. 
+When a project is added, it is assigned a unique UUID (e.g., `Project-A`). All its data is stored under `~/.local/share/prep/projects/Project-A`. 
 If a user deletes the project (triggering the purge), that folder is wiped.
 If they try to be clever by copying the `Project-A` folder to their desktop before deleting, and then pasting it back later, it won't work out-of-the-box. When they re-add the repository, the system generates a completely new UUID (`Project-B`). The user would have to manually hack the SQLite `projects.db` to remap the UUIDs, rename the folders, and update internal JSON pointers. This is a level of friction that 99.9% of users will not bother with to save $79.
 

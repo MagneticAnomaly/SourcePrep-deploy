@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-14
 **Branch / worktree:** `phase103-poc`
-**Index source:** live CoDRAG self-project at `/Volumes/4TB-BAD/HumanAI/CoDRAG/.codrag/` (embedded mode; 26,435 nodes / 39,476 edges; built 2h prior)
+**Index source:** live CoDRAG self-project at `/Volumes/4TB-BAD/HumanAI/CoDRAG/.prep/` (embedded mode; 26,435 nodes / 39,476 edges; built 2h prior)
 **Harness:** `tests/eval/eval_runner.py --mode atlas --condition {A,B} --role {none,engineering,security,architect}`
 **Gold queries:** 10 (existing `gold_queries.json`, originally designed for search-quality eval)
 **Trials:** 1 (deterministic atlas assembly)

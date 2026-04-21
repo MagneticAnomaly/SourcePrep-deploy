@@ -186,7 +186,7 @@ def test_excluded_paths_includes_lockfiles_and_media():
     assert _is_excluded_path("docs/diagram.svg") is True
     assert _is_excluded_path("AGENTS.md") is True
     assert _is_excluded_path("CLAUDE.md") is True
-    assert _is_excluded_path(".codrag/state.json") is True
+    assert _is_excluded_path(".prep/state.json") is True
     assert _is_excluded_path(".cursor/rules.mdc") is True
 
 
@@ -1244,10 +1244,10 @@ def _is_git_repo(root: Path) -> bool:
 def _cache_dir_for(repo_root: Path) -> Path:
     """Resolve the evidence cache dir.
 
-    Prefers the embedded `.codrag/` dir if present (tracks with the repo);
+    Prefers the embedded `.prep/` dir if present (tracks with the repo);
     otherwise falls back to a standalone dir under the user's data path.
     Standalone resolution is delegated to project_registry.project_index_dir
-    when available; otherwise uses a `.codrag/git_evidence/` under repo_root.
+    when available; otherwise uses a `.prep/git_evidence/` under repo_root.
     """
     embedded = repo_root / ".codrag"
     if embedded.exists():
@@ -1312,7 +1312,7 @@ git commit -m "feat(phase105): per-project GitEvidence singleton with settings g
 - Modify: whichever file contains `index_destroy_project` (search during this task)
 - Test: smoke test via manual full-reset on the dogfood repo (see Task 13)
 
-This addresses memory-flagged F-78 (full-reset gaps). Evidence cache under `.codrag/git_evidence/` should be removed when a project is destroyed.
+This addresses memory-flagged F-78 (full-reset gaps). Evidence cache under `.prep/git_evidence/` should be removed when a project is destroyed.
 
 - [ ] **Step 1: Locate the destroy logic**
 

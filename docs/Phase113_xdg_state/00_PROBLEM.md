@@ -11,7 +11,7 @@ neither the code nor the user chose consciously:
    (which is how most dev sessions start). On a user's machine, it
    resolves to wherever they happened to `cd` before running
    `codrag serve`.
-2. `~/.local/share/codrag/` — the proper XDG-style per-user data dir
+2. `~/.local/share/prep/` — the proper XDG-style per-user data dir
    (`project_registry.codrag_data_dir()` returns this).
 
 Both exist on disk today. Both have active, non-stale data. Neither is
@@ -21,7 +21,7 @@ code path keeping them in sync.
 
 ### Observed fragmentation (dev machine, 2026-04-17)
 
-| Store | `./codrag_data/` | `~/.local/share/codrag/` | Authoritative |
+| Store | `./codrag_data/` | `~/.local/share/prep/` | Authoritative |
 |---|---|---|---|
 | `registry.db` (project registry) | 0 B stale | 280 KB | **XDG** |
 | `active_project.json` | — | present | **XDG** |
@@ -80,9 +80,9 @@ project's index."
 
 ### What's NOT in scope
 
-- **Embedded mode `.codrag/`** — per-project, co-located with the
+- **Embedded mode `.prep/`** — per-project, co-located with the
   user's source tree, intentionally git-trackable. Stays put.
-- **Standalone mode project index dirs** (`~/.local/share/codrag/projects/<id>/`)
+- **Standalone mode project index dirs** (`~/.local/share/prep/projects/<id>/`)
   — already XDG, already correct.
 - **The Rust engine's on-disk cache format** — untouched.
 - **A user-facing settings UI for relocating the data dir** — future
@@ -93,7 +93,7 @@ project's index."
 
 1. A fresh `codrag serve` (any CWD) writes all daemon-wide state to
    exactly one location: `$CODRAG_DATA_DIR` if set, else
-   `~/.local/share/codrag/`.
+   `~/.local/share/prep/`.
 2. No code path references `./codrag_data` as a default.
 3. Existing users with data in `./codrag_data/` get a one-time
    migration on daemon startup with a clear log line and no data loss.

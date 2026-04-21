@@ -1,6 +1,6 @@
 # 06 — Adjacent Opportunities (Bundled Into Phase 113)
 
-Phase 113's core work is the `.codrag/` reorganization. While doing it we are touching every writer, every path-constructing site, and the startup/shutdown lifecycle. That surface overlaps naturally with a small set of foundation/plumbing improvements that share the property **"the marginal cost of doing this now is materially less than the marginal cost of doing it later"**. This document catalogs the improvements we are bundling, their designs, and where they slot into the implementation plan.
+Phase 113's core work is the `.prep/` reorganization. While doing it we are touching every writer, every path-constructing site, and the startup/shutdown lifecycle. That surface overlaps naturally with a small set of foundation/plumbing improvements that share the property **"the marginal cost of doing this now is materially less than the marginal cost of doing it later"**. This document catalogs the improvements we are bundling, their designs, and where they slot into the implementation plan.
 
 Items that were considered and rejected as out-of-scope are listed at the end for traceability.
 
@@ -10,7 +10,7 @@ Items that were considered and rejected as out-of-scope are listed at the end fo
 |---|---|---|
 | 1 | Atomic-write helper (`core/atomic_io.py`) | New Step 0c; adopted in Steps 1, 2 |
 | 2 | Log rotation + retention | New Step 4b |
-| 3 | `.codrag/README.md` auto-generation | Step 4 (migrator writes it) |
+| 3 | `.prep/README.md` auto-generation | Step 4 (migrator writes it) |
 | 4 | `version` → `version.json` with daemon metadata | Step 4 (migrator writes it) |
 | 5 | `codrag doctor` CLI | New Step 5a |
 | 6 | Real daemon lockfile (`core/project_lock.py`) | New Step 0d; wired in new Step 2b |
@@ -128,11 +128,11 @@ Q10 (new): does anyone consume `pipeline_*.log` files post-hoc (audit, dashboard
 
 ---
 
-## 3. `.codrag/README.md` auto-generation
+## 3. `.prep/README.md` auto-generation
 
 ### What
 
-A generated README inside the project index directory that explains what each bucket is for. Zero runtime cost; read by any contributor who opens `.codrag/` wondering what they're looking at.
+A generated README inside the project index directory that explains what each bucket is for. Zero runtime cost; read by any contributor who opens `.prep/` wondering what they're looking at.
 
 ### Design
 
@@ -524,7 +524,7 @@ These were considered during the planning pass and deliberately excluded from Ph
 | Manifest JSON schema standardization | Large design effort | Unassigned |
 | File-watcher event coalescing | Watcher behavior, orthogonal | Unassigned |
 | shanraisshan-style `.claude/` patterns | Different surface (agent harness) | Phase 103_AgentOptimizations |
-| Dashboard view of `.codrag/` contents | UI feature, not plumbing | Unassigned |
+| Dashboard view of `.prep/` contents | UI feature, not plumbing | Unassigned |
 | Splitting embedded vs. standalone layouts | Both share layout by design; splitting them removes a valuable property | Not planned |
 | Layout-version compatibility shim (dual-path readers) | Migrator is one-shot; shim adds long-lived complexity | Rejected in [03_STRATEGY.md](03_STRATEGY.md) |
 | Cross-filesystem atomic moves | EXDEV fallback via `shutil.move` is sufficient | Already covered in [04_RISKS.md](04_RISKS.md) R3 |
@@ -537,7 +537,7 @@ These were considered during the planning pass and deliberately excluded from Ph
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 1. atomic_io | Q12 | | ✓ new | | adopt | adopt | | | | | | |
 | 2. log rotation/retention | Q10 | | | | | | | | | ✓ new | | |
-| 3. `.codrag/README.md` | | ✓ stub | | | | | | | ✓ write | | keep-synced | |
+| 3. `.prep/README.md` | | ✓ stub | | | | | | | ✓ write | | keep-synced | |
 | 4. `version.json` | | ✓ | | | | | | | ✓ write | | | |
 | 5. `codrag doctor` | | | | | | | | | | | | ✓ new |
 | 6. daemon lockfile | Q11 | accessor | | ✓ new | | | ✓ wire | | body→v2 | | | |

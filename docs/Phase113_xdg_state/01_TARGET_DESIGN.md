@@ -6,7 +6,7 @@
 $CODRAG_DATA_DIR  (if set)
         │
         ▼
-~/.local/share/codrag/                        ← default (Linux/macOS)
+~/.local/share/prep/                        ← default (Linux/macOS)
 %LOCALAPPDATA%\codrag\                        ← default (Windows, future)
 ```
 
@@ -23,7 +23,7 @@ def data_dir() -> Path:
     Precedence:
       1. $CODRAG_DATA_DIR env var (absolute path, used for test
          isolation and user overrides)
-      2. Platform XDG default (~/.local/share/codrag on *nix)
+      2. Platform XDG default (~/.local/share/prep on *nix)
 
     The returned path is guaranteed to exist (mkdir parents=True).
     """
@@ -158,7 +158,7 @@ Plan:
 - Windows support (`%LOCALAPPDATA%`). Helper is shaped to allow it,
   but this phase only tests the *nix path.
 - Encrypted-at-rest stores. Out of scope.
-- Multi-user / multi-install isolation (e.g. `~/.local/share/codrag-dev`
+- Multi-user / multi-install isolation (e.g. `~/.local/share/prep-dev`
   vs `-prod`). The env var covers it for now.
 
 ## Test strategy

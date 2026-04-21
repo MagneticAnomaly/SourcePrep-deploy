@@ -17,7 +17,7 @@ export default function Page() {
           
           <AnchorHeading id="global-config" level="h2">Global Config</AnchorHeading>
           <p>
-            Stored in <code>~/.codrag/config.json</code> (Mac/Linux) or <code>%APPDATA%\codrag\config.json</code> (Windows).
+            Stored in <code>~/.prep/config.json</code> (Mac/Linux) or <code>%APPDATA%\codrag\config.json</code> (Windows).
           </p>
           <p className="text-sm text-text-muted">
             Contains daemon settings, global model preferences, and license information. You typically edit this via the Dashboard settings, but it can be modified manually.

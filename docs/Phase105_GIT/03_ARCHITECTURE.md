@@ -170,7 +170,7 @@ with defaults: ~500 commits × ~5 files avg = 2500 rows. Sub-second parse.
 Paths excluded from the churn map:
 
 - `DEFAULT_EXCLUDE_DIR_NAMES` from `repo_profile.py` (shared source).
-- CoDRAG-managed files: `AGENTS.md`, `CLAUDE.md`, `.codrag/**`,
+- CoDRAG-managed files: `AGENTS.md`, `CLAUDE.md`, `.prep/**`,
   `.cursor/**` (per memory — auto-regenerated noise).
 - Lockfiles: `package-lock.json`, `yarn.lock`, `poetry.lock`,
   `Cargo.lock`, `*.lock`.
@@ -243,7 +243,7 @@ Module-level in `tests/core/test_git_evidence.py`:
 
 1. Fixture-repo smoke: commit files at different dates, assert
    `recent_churn_by_file` reports correct counts and timestamps.
-2. Exclusion list: AGENTS.md / `.codrag/` committed but absent from
+2. Exclusion list: AGENTS.md / `.prep/` committed but absent from
    churn map.
 3. Per-commit file cap: single 60-file commit does not inflate counts.
 4. Window boundary: file last touched 200d ago with 180d window →

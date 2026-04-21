@@ -17,8 +17,8 @@ References:
 - Two machines or two clean environments are available (A and B).
 - Git is available.
 - A repo is available with:
-  - `.codrag/team_config.json` committed
-  - optional `.codrag/index/**` committed (for T1)
+  - `.prep/team_config.json` committed
+  - optional `.prep/index/**` committed (for T1)
 
 ---
 
@@ -29,7 +29,7 @@ A teammate can clone a repo and search immediately without rebuilding (when the 
 
 ### Setup
 On machine A:
-- Ensure embedded mode index exists at `{project_root}/.codrag/index/`.
+- Ensure embedded mode index exists at `{project_root}/.prep/index/`.
 - Ensure required artifacts exist:
   - `manifest.json`
   - `documents.json`
@@ -38,7 +38,7 @@ On machine A:
 ### Steps
 1. On machine A:
   - build the embedded index
-  - commit `.codrag/index/**`
+  - commit `.prep/index/**`
 2. On machine B:
   - clone the repo
   - add project in embedded mode
@@ -48,17 +48,17 @@ On machine A:
 ### Acceptance criteria
 - Index is detected as `ok`.
 - First search returns results without triggering a build.
-- No `.codrag/**` watcher loops occur during project open.
+- No `.prep/**` watcher loops occur during project open.
 
 ---
 
 ## P06-T2: Merge conflict handling
 
 ### Goal
-If conflict markers exist inside `.codrag/index/**`, the index is invalid and rebuild is required.
+If conflict markers exist inside `.prep/index/**`, the index is invalid and rebuild is required.
 
 ### Steps
-1. Create a merge conflict inside `.codrag/index/**` (synthetic is fine):
+1. Create a merge conflict inside `.prep/index/**` (synthetic is fine):
   - insert conflict markers in any index file.
 2. Start CoDRAG on the repo and load the project.
 

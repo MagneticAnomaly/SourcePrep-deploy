@@ -396,7 +396,7 @@ class Antibody:
 Antibodies live alongside concepts and observations in CoDRAG's project data:
 
 ```
-.codrag/
+.prep/
 ├── concepts/
 ├── observations/
 ├── antibodies/           ← NEW

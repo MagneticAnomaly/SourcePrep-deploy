@@ -1,6 +1,6 @@
 # 02 — Target Layout
 
-The target layout for the project index directory after Phase A. Applies identically in embedded mode (`<project_root>/.codrag/`), standalone mode (`~/.local/share/codrag/projects/<id>/`), and custom mode (`project.config["index_path"]`).
+The target layout for the project index directory after Phase A. Applies identically in embedded mode (`<project_root>/.prep/`), standalone mode (`~/.local/share/prep/projects/<id>/`), and custom mode (`project.config["index_path"]`).
 
 ## The tree
 
@@ -190,7 +190,7 @@ These are the conventions the new layout follows. Future additions should follow
 To keep the blast radius small, these aspects are unchanged:
 
 - The `project_index_dir(project)` resolver function and its three modes.
-- `.gitignore` rule (`/.codrag/`) — still covers the whole tree.
+- `.gitignore` rule (`/.prep/`) — still covers the whole tree.
 - Internal file formats — no schema changes, no JSONL → JSON conversions.
 - Permissions — `hr_roster.json` keeps 0600.
 - Subdir contents inside `index/`, `audit/`, `git_evidence/`, `logs/`, `backups/`, `architecture/`.

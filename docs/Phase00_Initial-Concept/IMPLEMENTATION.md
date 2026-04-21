@@ -76,7 +76,7 @@ Keep the on-disk artifacts simple and documented so other languages can consume 
 ### B) Optional embedded-mode adapter
 A thin layer that:
 
-- Stores index data in a repo-local directory (e.g. `.codrag/`)
+- Stores index data in a repo-local directory (e.g. `.prep/`)
 - Exposes the same HTTP contract
 
 ### C) Standalone server

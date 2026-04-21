@@ -1024,4 +1024,4 @@ The architecture state is stored as JSON files in the project's index directory,
 - **Zero configuration** — no database setup needed
 - **Portable** — the entire CoDRAG project directory can be copied/backed up as files
 - **Version-controllable** — architecture state can be committed to git alongside code
-- **Embedded mode compatible** — works with `.codrag/` directories inside project repos
+- **Embedded mode compatible** — works with `.prep/` directories inside project repos

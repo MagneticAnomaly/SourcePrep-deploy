@@ -60,7 +60,7 @@ Enterprise friction:
 - Harder to roll out / manage at scale (updates, licensing, policy).
 
 ### Mode B: Embedded index (team portability)
-- `.codrag/` inside the repo.
+- `.prep/` inside the repo.
 - Optional commit of index artifacts.
 
 Enterprise benefit:

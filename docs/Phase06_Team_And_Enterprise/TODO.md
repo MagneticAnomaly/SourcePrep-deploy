@@ -27,15 +27,15 @@
 **Note:** post-MVP implementation. These items can be executed later, but should remain coherent with earlier phase constraints.
 
 ### Shared configuration (Team Tier)
-- [ ] P06-I1 Define `.codrag/team_config.json` schema (secret-free) (See: `IMPLEMENTATION_PLAN.md` — P06-I1)
+- [ ] P06-I1 Define `.prep/team_config.json` schema (secret-free) (See: `IMPLEMENTATION_PLAN.md` — P06-I1)
 - [ ] P06-I2 Config merge precedence rules (See: `IMPLEMENTATION_PLAN.md` — P06-I2):
   - defaults → global → team → project overrides
 - [ ] P06-I3 Config provenance reporting plan (UI/diagnostics) (See: `IMPLEMENTATION_PLAN.md` — P06-I3)
 
 ### Embedded mode
-- [ ] P06-I4 Embedded index directory layout (`.codrag/index/**`) aligned with Phase01 formats (See: `IMPLEMENTATION_PLAN.md` — P06-I4)
+- [ ] P06-I4 Embedded index directory layout (`.prep/index/**`) aligned with Phase01 formats (See: `IMPLEMENTATION_PLAN.md` — P06-I4)
 - [ ] P06-I5 Incompatible index detection and remediation UX (“Full rebuild required”) (See: `IMPLEMENTATION_PLAN.md` — P06-I5)
-- [ ] P06-I6 Watch-loop avoidance requirements (Phase03): `.codrag/**` excluded always (See: `IMPLEMENTATION_PLAN.md` — P06-I6)
+- [ ] P06-I6 Watch-loop avoidance requirements (Phase03): `.prep/**` excluded always (See: `IMPLEMENTATION_PLAN.md` — P06-I6)
 
 ### Network mode
 - [ ] P06-I7 Remote bind requires auth; refuse unsafe startup unless explicit override (See: `IMPLEMENTATION_PLAN.md` — P06-I7)
@@ -47,11 +47,11 @@
 ## Testing & validation (P06-T*)
 - [ ] P06-T1 Embedded committed index flow (See: `TEST_PLAN.md` — P06-T1):
   - build on machine A
-  - commit `.codrag/index/**`
+  - commit `.prep/index/**`
   - clone on machine B
   - instant search without rebuild
 - [ ] P06-T2 Merge conflict handling (See: `TEST_PLAN.md` — P06-T2):
-  - conflict markers inside `.codrag/index/**` → index invalid → rebuild required
+  - conflict markers inside `.prep/index/**` → index invalid → rebuild required
 - [ ] P06-T3 Network mode safety (See: `TEST_PLAN.md` — P06-T3):
   - remote bind without auth is rejected
   - remote bind with auth works
@@ -63,7 +63,7 @@ Relevant entries in `../MASTER_TODO.md`:
 - [ ] STR-09 Licensing + feature gating (tier mapping to features)
 
 ## Notes / blockers
-- [ ] Decide default guidance for committing `.codrag/index/**` (explicit opt-in vs recommended) (See: `RESEARCH_AND_DECISIONS.md` — D06-01)
+- [ ] Decide default guidance for committing `.prep/index/**` (explicit opt-in vs recommended) (See: `RESEARCH_AND_DECISIONS.md` — D06-01)
 - [ ] Decide TLS posture for network mode (reverse proxy acceptable vs built-in) (See: `RESEARCH_AND_DECISIONS.md` — D06-02)
 
 ---
@@ -176,16 +176,16 @@ Thin wrappers that make the Docker images work on specific serverless providers.
 The desktop CoDRAG daemon must know how to download and use remote indexes.
 
 - [x] **P06-S13** Define `team_config.json` sync schema
-  - Committed to repo at `.codrag/team_config.json` (secret-free)
+  - Committed to repo at `.prep/team_config.json` (secret-free)
   - Schema: `{ sync: { enabled: bool, s3_endpoint: str, s3_bucket: str, s3_prefix: str, poll_interval_minutes: int (default 30) } }`
-  - Credentials: read from env vars `CODRAG_S3_ACCESS_KEY` / `CODRAG_S3_SECRET_KEY`, or from gitignored `.codrag/.secrets` file, or from OS keychain
+  - Credentials: read from env vars `CODRAG_S3_ACCESS_KEY` / `CODRAG_S3_SECRET_KEY`, or from gitignored `.prep/.secrets` file, or from OS keychain
   - File: extends `P06-I1` schema definition
 
 - [x] **P06-S14** Implement client-side S3 download logic
   - On daemon startup: if `team_config.json` has `sync.enabled: true`, check S3 for `manifest.json`
-  - Compare remote `manifest.json` version/timestamp against local `.codrag/index/remote/manifest.json`
-  - If remote is newer: download zip, extract to `.codrag/index/remote/`, update local manifest
-  - Atomic extraction: extract to `.codrag/index/remote.tmp/`, then rename
+  - Compare remote `manifest.json` version/timestamp against local `.prep/index/remote/manifest.json`
+  - If remote is newer: download zip, extract to `.prep/index/remote/`, update local manifest
+  - Atomic extraction: extract to `.prep/index/remote.tmp/`, then rename
   - Also triggered on manual "Sync" button press in Dashboard and on configurable poll interval
   - File: `src/codrag/services/remote_sync.py`
 
@@ -200,7 +200,7 @@ The search engine must merge remote + local indexes at query time.
 
 - [x] **P06-S16** Refactor `index.py` to support layered document loading
   - Currently: `get_context()` loads a single `documents.json` + `embeddings.npy`
-  - New: load from multiple directories: `.codrag/index/remote/`, `.codrag/index/local_deltas/`
+  - New: load from multiple directories: `.prep/index/remote/`, `.prep/index/local_deltas/`
   - Concatenate document lists and embedding matrices (numpy `vstack`)
   - Apply tombstone mask: if a document path exists in both remote and delta, exclude the remote version
   - File: `src/codrag/core/index.py`
@@ -208,7 +208,7 @@ The search engine must merge remote + local indexes at query time.
 - [x] **P06-S17** Implement local delta detection and indexing
   - When the file watcher detects a change to a file that exists in the remote `trace_manifest.json`:
     - Run the enrichment pipeline on only that file (using local LLM or BYOK)
-    - Save the result to `.codrag/index/local_deltas/`
+    - Save the result to `.prep/index/local_deltas/`
   - When a remote sync downloads a new index:
     - Compare each local delta's `content_hash` against the new remote manifest
     - If remote now has the same or newer hash: discard the local delta (it was merged)

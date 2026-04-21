@@ -75,7 +75,7 @@ Defaults chosen:
    scanner's. Both should read from
    `repo_profile.DEFAULT_EXCLUDE_DIR_NAMES`.
 5. **CoDRAG-managed files.** Exclude `AGENTS.md`, `CLAUDE.md`,
-   `.codrag/**`, `.cursor/**` from churn evaluation. If a TODO lives in
+   `.prep/**`, `.cursor/**` from churn evaluation. If a TODO lives in
    one of those files, skip gating for it (per-memory: auto-regenerated
    files pollute signals).
 

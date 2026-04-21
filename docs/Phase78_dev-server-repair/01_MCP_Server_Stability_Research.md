@@ -186,7 +186,7 @@ Multiple MCP servers competing for resources or conflicting over state files. Co
 1. **Add `--log-file` to MCP wrapper**
    ```bash
    # In codrag-mcp-wrapper.sh
-   exec "$SCRIPT_DIR/.venv/bin/codrag" mcp --log-file ~/.codrag/logs/mcp-$(date +%s).log "$@"
+   exec "$SCRIPT_DIR/.venv/bin/codrag" mcp --log-file ~/.prep/logs/mcp-$(date +%s).log "$@"
    ```
 
 2. **Document "Known Issue" in AGENTS.md**

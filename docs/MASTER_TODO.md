@@ -341,7 +341,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 - [x] S-11.3 Feature gating framework (`src/codrag/core/feature_gate.py`) 
   - 5 tiers: FREE, STARTER, PRO, TEAM, ENTERPRISE
   - 11 gated features + project count limits
-  - License from `~/.codrag/license.json` or `CODRAG_TIER` env var
+  - License from `~/.prep/license.json` or `CODRAG_TIER` env var
   - `FeatureGateError` → 403 with upgrade hint
 - [x] S-11.4 Gate enforcement in server 
   - `POST /projects` → project count limit (1 free, 3 starter, unlimited pro)
@@ -850,7 +850,7 @@ Add brief notes here after completing a sprint:
  - `src/codrag/core/feature_gate.py` — Tier model (FREE→STARTER→PRO→TEAM→ENTERPRISE)
  - 11 feature gates + project count limits per tier
  - `FeatureGateError` → HTTP 403 with `FEATURE_GATED` code + upgrade URL
- - License from `~/.codrag/license.json` or `CODRAG_TIER` env var (dev override)
+ - License from `~/.prep/license.json` or `CODRAG_TIER` env var (dev override)
  - `GET /license` endpoint returns tier + full feature availability map
  - Server enforces: project count limit on `POST /projects`, watcher on `POST /watch/start`
  - Tests: `tests/test_feature_gate.py` (32 tests)

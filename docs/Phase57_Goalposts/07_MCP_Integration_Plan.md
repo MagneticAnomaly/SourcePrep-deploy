@@ -69,7 +69,7 @@ Goalposts is NOT a project management tool. It's a **planning context provider**
 | **MCP tool** | AI agent calls `codrag_goalposts` → gets approved milestones as context | Agent plans work aligned with goalposts |
 | **Dashboard** | GoalpostsPanel shows proposals, questions, intent editor | Review, approve, dismiss, answer questions |
 | **CLI** | `codrag goalposts` prints summary | Quick terminal overview |
-| **AI agent rules** | `.codrag/AGENTS.md` mentions goalposts availability | Agent knows to check goalposts before planning |
+| **AI agent rules** | `.prep/AGENTS.md` mentions goalposts availability | Agent knows to check goalposts before planning |
 
 ### Why MCP is the Primary Integration Surface
 
@@ -221,7 +221,7 @@ Create a simple `GoalpostsPanel.tsx` and wire into `useDashboardPanels.tsx`.
 
 ### Step 3: AGENTS.md Update
 
-Update the CoDRAG-managed `.codrag/AGENTS.md` to mention `codrag_goalposts`.
+Update the CoDRAG-managed `.prep/AGENTS.md` to mention `codrag_goalposts`.
 
 ---
 

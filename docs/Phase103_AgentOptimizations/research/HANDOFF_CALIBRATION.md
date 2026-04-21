@@ -40,7 +40,7 @@ We are currently in **calibrated Pattern 4-ish territory**: one strong per-query
 **Isolation model:**
 - `.venv/` → symlink to main-tree `/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv`.
 - `codrag_data_poc/` → isolated runtime data dir (use `CODRAG_DATA_DIR=$(pwd)/codrag_data_poc` when invoking anything that writes).
-- Index source: the **main tree's** live `.codrag/` at `/Volumes/4TB-BAD/HumanAI/CoDRAG/.codrag/` (read-only from our side). The daemon keeps it fresh. 26,435 nodes / 39,476 edges, embedded mode.
+- Index source: the **main tree's** live `.prep/` at `/Volumes/4TB-BAD/HumanAI/CoDRAG/.prep/` (read-only from our side). The daemon keeps it fresh. 26,435 nodes / 39,476 edges, embedded mode.
 - `eval_runner` is read-only against the index. No runs mutate main-tree data.
 
 **All commands assume CWD = the worktree path above.**
@@ -281,7 +281,7 @@ PYTHONPATH=src .venv/bin/python -c "
 import json
 from collections import Counter
 c = Counter()
-with open('/Volumes/4TB-BAD/HumanAI/CoDRAG/.codrag/trace_epistemic.jsonl') as f:
+with open('/Volumes/4TB-BAD/HumanAI/CoDRAG/.prep/trace_epistemic.jsonl') as f:
     for line in f:
         try:
             for t in json.loads(line).get('domain_tags',[]): c[t]+=1
@@ -307,7 +307,7 @@ tests/eval/
   eval_runner.py        harness — atlas mode, conditions, loose scorer, JSON output
   gold_queries.json     v1.1 — 10 search queries + 8 atlas queries with roles
 
-/Volumes/4TB-BAD/HumanAI/CoDRAG/.codrag/          (live CoDRAG self-index, read-only)
+/Volumes/4TB-BAD/HumanAI/CoDRAG/.prep/          (live CoDRAG self-index, read-only)
   atlas.json             identity + stack + module map
   trace_modules.jsonl    module summaries (what project_atlas_for_role consumes)
   trace_epistemic.jsonl  per-file tags, layers, epistemic confidence
@@ -381,7 +381,7 @@ In priority order, any of these constitutes a success you can hand back:
 
 ## 13. Known quirks
 
-- `.codrag/atlas_roles/*.txt` exists as precomputed projections — **NOT currently read** by role_projection.py. Ignored. Don't worry about invalidating them.
+- `.prep/atlas_roles/*.txt` exists as precomputed projections — **NOT currently read** by role_projection.py. Ignored. Don't worry about invalidating them.
 - The `_stem` function strips many suffixes but is intentionally lightweight. Don't swap in Porter without measuring first.
 - `codrag()` MCP tool has a `role` parameter already. Don't change its schema; the atlas harness exists to measure what the tool's scoped path returns.
 - Main-tree `tests/eval/` is gitignored at the directory level, but `eval_runner.py` is a tracked file — so `git add tests/eval/eval_runner.py` works, `git add tests/eval/new_helper.py` does not. If you need new test helpers, put them in `tests/` directly.

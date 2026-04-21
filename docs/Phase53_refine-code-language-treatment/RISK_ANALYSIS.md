@@ -166,7 +166,7 @@ def classify_content(sections, refs):
 2. **Manual Override UI:**
    - Dashboard shows classification for each file
    - User can override: "This is actually StructuredDocs"
-   - Store override in `.codrag/config.yaml`
+   - Store override in `.prep/config.yaml`
 
 3. **Validation Dataset:**
    - Create 100-file labeled dataset before implementation
@@ -555,7 +555,7 @@ class ContentClass:
 - Use last-known class if not ready
 
 **Option B:** Caching
-- Cache classification results in `.codrag/content_cache.json`
+- Cache classification results in `.prep/content_cache.json`
 - Reuse across builds
 
 ---

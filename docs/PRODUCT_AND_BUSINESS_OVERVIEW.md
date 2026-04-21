@@ -181,7 +181,7 @@ CoDRAG is structured around:
 CoDRAG supports multiple indexing postures:
 
 - **Standalone mode**: index stored in an application data directory
-- **Embedded mode**: index stored in a repo-local folder (e.g. `.codrag/`), enabling git workflows (roadmap)
+- **Embedded mode**: index stored in a repo-local folder (e.g. `.prep/`), enabling git workflows (roadmap)
 
 The goal is to support both:
 - personal workflows across many repos

@@ -109,7 +109,7 @@ npm workspaces managed by Turbo:
 ### Data Flow
 
 1. **Indexing:** Rust engine parses files (tree-sitter) into a structural graph → Python enriches with embeddings (ONNX native or Ollama) and optional LLM augmentation (multi-pass pipeline)
-2. **Storage:** SQLite for project registry, JSON files + numpy arrays for indexes. Standalone mode in `~/.local/share/codrag/projects/`, embedded mode in `.codrag/` (git-trackable)
+2. **Storage:** SQLite for project registry, JSON files + numpy arrays for indexes. Standalone mode in `~/.local/share/prep/projects/`, embedded mode in `.prep/` (git-trackable)
 3. **Serving:** FastAPI daemon exposes search/context/trace APIs. MCP server wraps these for IDE consumption. Dashboard talks to the same HTTP API.
 
 ## Code Style
@@ -132,12 +132,12 @@ npm workspaces managed by Turbo:
 Phase 113 consolidated daemon-wide state (SQLite stores, ui_config,
 registry, audit log) into a single canonical location. Pre-Phase-113
 installs had state split between `./codrag_data/` (CWD-relative) and
-`~/.local/share/codrag/` (XDG).
+`~/.local/share/prep/` (XDG).
 
 | Env state | Location |
 |---|---|
 | `$CODRAG_DATA_DIR` set (must be absolute) | `$CODRAG_DATA_DIR` |
-| Default | `~/.local/share/codrag/` |
+| Default | `~/.local/share/prep/` |
 
 Legacy `./codrag_data/` is auto-migrated on first daemon startup
 (see `src/codrag/core/data_dir_migration.py`). Sentinel file
@@ -146,7 +146,7 @@ re-runs. Conflicts (both sides non-empty) are resolved with
 row-count / size heuristics; losers preserved as
 `<name>.migration-conflict.<ISO8601>`.
 
-Per-project indexes (embedded mode's `.codrag/`, standalone mode's
+Per-project indexes (embedded mode's `.prep/`, standalone mode's
 `<data_dir>/projects/<id>/`) are unchanged.
 
 ## CoDRAG MCP Tools (Use These)

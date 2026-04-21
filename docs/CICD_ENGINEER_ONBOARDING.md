@@ -56,8 +56,8 @@ This is the killer feature that justifies the Team pricing.
 │                    CUSTOMER'S REPO                      │
 │                                                         │
 │  .github/workflows/codrag-sync.yml  ← copied from us    │
-│  .codrag/team_config.json           ← S3 bucket config  │
-│  .codrag/.secrets                   ← gitignored creds  │
+│  .prep/team_config.json           ← S3 bucket config  │
+│  .prep/.secrets                   ← gitignored creds  │
 └──────────────┬──────────────────────────────────────────┘
                │ push to main
                ▼
@@ -95,7 +95,7 @@ This is the killer feature that justifies the Team pricing.
 │            DEVELOPER'S DESKTOP (CoDRAG Pro+Team)        │
 │                                                         │
 │  RemoteSyncService polls S3 for new manifest            │
-│  Downloads zip → extracts to .codrag/index/remote/      │
+│  Downloads zip → extracts to .prep/index/remote/      │
 │  LayeredCodeIndex merges remote + local deltas          │
 │  Developer gets instant search from day 1               │
 └─────────────────────────────────────────────────────────┘
@@ -269,7 +269,7 @@ git push origin app-v0.1.0-beta
 ### Day 5: Test client-side download
 
 1. On a developer machine with CoDRAG installed:
-2. Create `.codrag/team_config.json` in the test repo:
+2. Create `.prep/team_config.json` in the test repo:
    ```json
    {
      "sync": {

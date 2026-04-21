@@ -189,13 +189,13 @@ This is the load-bearing test for Principle 4. If a future writer adds a new out
 - No change to per-language presets in `STACK_PRESETS`.
 - No change to the Knowledge Scope UI or `/trace/ignore` endpoint contract.
 - No reorganization of on-disk layout (that is Phase 113).
-- No migration of `codrag_data/` to `~/.local/share/codrag/` (tracked separately).
+- No migration of `codrag_data/` to `~/.local/share/prep/` (tracked separately).
 
 ## Interaction with Phase 113
 
-Phase 113 will rename many paths inside `.codrag/` (`trace/nodes.jsonl` instead of `trace_nodes.jsonl`, etc.). That changes the *shape* of `CODRAG_OUTPUT_DIRS` for `.codrag/` internals but not the set membership — `.codrag/` stays in the registry regardless. Phase 113 migration should:
+Phase 113 will rename many paths inside `.prep/` (`trace/nodes.jsonl` instead of `trace_nodes.jsonl`, etc.). That changes the *shape* of `CODRAG_OUTPUT_DIRS` for `.prep/` internals but not the set membership — `.prep/` stays in the registry regardless. Phase 113 migration should:
 
 - Keep `.codrag` in `CODRAG_OUTPUT_DIRS` as-is (it's a dir, not a path into it).
-- Not introduce new top-level paths outside `.codrag/`.
+- Not introduce new top-level paths outside `.prep/`.
 
 No merge conflict expected. Phase 115 lands first.

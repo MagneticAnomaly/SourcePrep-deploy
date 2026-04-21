@@ -103,7 +103,7 @@ Perform exact case-sensitive replacements across the entire `src/`, `packages/`,
 
 ### Phase 4: Local Storage & DB Migration
 Update the paths where the daemon reads/writes data locally on the user's machine.
-- Update `~/.codrag/` string references in the Rust daemon and Python backend to `~/.prep/`.
+- Update `~/.prep/` string references in the Rust daemon and Python backend to `~/.prep/`.
 - Ensure SQLite connection strings point to `prep_*.db` instead of `codrag_*.db`.
 
 ---

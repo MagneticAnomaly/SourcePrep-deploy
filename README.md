@@ -143,8 +143,8 @@ CoDRAG is an **epistemic, team-ready** application that provides:
 - Cross-project search (enterprise tier only)
 
 ### Hybrid Index Mode
-- **Standalone mode** (default): Index stored in `~/.local/share/codrag/projects/`
-- **Embedded mode** (team): Index stored in project `.codrag/` directory
+- **Standalone mode** (default): Index stored in `~/.local/share/prep/projects/`
+- **Embedded mode** (team): Index stored in project `.prep/` directory
 - Teams can commit embedded indexes to git to skip initial indexing time
 
 ### Code Graph
@@ -314,7 +314,7 @@ ollama:
   
 # Index Settings
 index:
-  data_dir: ~/.local/share/codrag
+  data_dir: ~/.local/share/prep
   max_size_gb: 10
 
 # Auto-Rebuild
@@ -428,9 +428,9 @@ POST /llm/test                    Test connections
 # Team lead sets up project with embedded index
 codrag add /path/to/team-project --embedded
 
-# Index lives in /path/to/team-project/.codrag/
+# Index lives in /path/to/team-project/.prep/
 # Commit to git:
-git add .codrag/
+git add .prep/
 git commit -m "Add CoDRAG index"
 
 # Team members clone and use existing index

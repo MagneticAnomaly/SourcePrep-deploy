@@ -334,16 +334,16 @@ curl http://localhost:8400/projects/test/trace/search \
  
  - [ ] **Embedded index location**
   - `codrag add <path> --embedded`
-  - Index stored in `<project>/.codrag/`
-  - Detect existing `.codrag/` on add
+  - Index stored in `<project>/.prep/`
+  - Detect existing `.prep/` on add
 
 - [ ] **Git integration**
-  - Auto-add `.codrag/` to `.gitignore` patterns file
+  - Auto-add `.prep/` to `.gitignore` patterns file
   - Or: explicit "commit index" workflow
   - Handle merge conflicts (rebuild on conflict)
 
 - [ ] **Team Shared Configs (Team Tier)**
-  - `codrag config export` -> `.codrag/team_config.json`
+  - `codrag config export` -> `.prep/team_config.json`
   - Standardized `include/exclude` patterns
   - Pre-defined LLM/Embedding endpoints
   - Enforced policy checks (e.g. "No secrets")
@@ -371,7 +371,7 @@ curl http://localhost:8400/projects/test/trace/search \
   - Audit log (who searched what)
 
 ### Success Criteria
-- Team member clones repo with `.codrag/`
+- Team member clones repo with `.prep/`
 - Runs `codrag add . --embedded`
 - Instant search without rebuild
 - OR: Connects to team server, searches remote index

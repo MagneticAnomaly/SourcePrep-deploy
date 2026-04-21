@@ -389,7 +389,7 @@ Add a manual smoke item to the pipeline-testing skill runbook:
 > 1. Run a full pipeline against
 >    `/Volumes/4TB-BAD/HumanAI/CoDRAG/tests/eval/sample_repos/generated/swift_repo`
 >    until atlas completes (golden snapshot is now written).
-> 2. Manually corrupt `atlas_manifest.json` in the `.codrag/` index
+> 2. Manually corrupt `atlas_manifest.json` in the `.prep/` index
 >    dir (or set `provenance: "selfheal_stub"`).
 > 3. Refresh the dashboard. Atlas row should show stub indicator.
 > 4. Open Atlas's Danger Zone → Recover → pick "Golden snapshot" →

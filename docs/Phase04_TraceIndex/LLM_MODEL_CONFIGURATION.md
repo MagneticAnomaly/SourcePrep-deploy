@@ -374,7 +374,7 @@ Returns: { "progress": 0.45, "status": "downloading", "bytes_downloaded": "1.2GB
     │
     ▼
 When complete:
-{ "progress": 1.0, "status": "complete", "model_path": "~/.local/share/codrag/models/nomic-embed-text" }
+{ "progress": 1.0, "status": "complete", "model_path": "~/.local/share/prep/models/nomic-embed-text" }
 ```
 
 ---

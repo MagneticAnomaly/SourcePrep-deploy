@@ -6,18 +6,18 @@ These are factual unknowns the planning pass uncovered. Each must be answered wi
 
 ### Q1 — Does `CodeIndex.index_dir` already include `index/`?
 
-**Why it matters:** `INDEX_FILES` lists `"documents.json"` etc. as basenames with no `index/` prefix, but the disk layout shows `.codrag/index/documents.json`. Either:
+**Why it matters:** `INDEX_FILES` lists `"documents.json"` etc. as basenames with no `index/` prefix, but the disk layout shows `.prep/index/documents.json`. Either:
 
-- (a) `CodeIndex.index_dir` is `<idx_dir>/index`, in which case `INDEX_FILES` is correctly basename-only and it's the *destroy function* that's bugged (it does `idx_dir / fname` — i.e., `.codrag/documents.json` — and silently no-ops); or
-- (b) `CodeIndex.index_dir` is `<idx_dir>` and the writers are putting these files at the root, in which case the disk presence of `.codrag/index/documents.json` is from a *different* writer (maybe the Rust engine?) and the Python `INDEX_FILES` is correct.
+- (a) `CodeIndex.index_dir` is `<idx_dir>/index`, in which case `INDEX_FILES` is correctly basename-only and it's the *destroy function* that's bugged (it does `idx_dir / fname` — i.e., `.prep/documents.json` — and silently no-ops); or
+- (b) `CodeIndex.index_dir` is `<idx_dir>` and the writers are putting these files at the root, in which case the disk presence of `.prep/index/documents.json` is from a *different* writer (maybe the Rust engine?) and the Python `INDEX_FILES` is correct.
 
 **How to answer:** Read `core/index.py:130-150` and confirm the value of `self.index_dir`. Trace one writer (e.g., `write_documents()`) end-to-end. Cross-check what the Rust engine writes (`engine/crates/codrag-engine/`) if it touches index files.
 
-**Impact on plan:** If (a), the destroy function is broken and we silently knew it — the centralization step fixes this for free by giving the destroy function the same accessor the writer uses. If (b), the existing `.codrag/index/` files on dogfood disk are stale orphans from an earlier version and should be cleaned during migration. Either outcome is recoverable, but the migrator must know which.
+**Impact on plan:** If (a), the destroy function is broken and we silently knew it — the centralization step fixes this for free by giving the destroy function the same accessor the writer uses. If (b), the existing `.prep/index/` files on dogfood disk are stale orphans from an earlier version and should be cleaned during migration. Either outcome is recoverable, but the migrator must know which.
 
 ### Q2 — Are the empty `.db` stubs truly dead, or merely empty-on-this-disk?
 
-**Why it matters:** `codrag_settings.db` and `settings.db` are 0-byte files at `.codrag/` root. The path-mapping pass found references in `server.py:687,758` but no active writers. Possible explanations:
+**Why it matters:** `codrag_settings.db` and `settings.db` are 0-byte files at `.prep/` root. The path-mapping pass found references in `server.py:687,758` but no active writers. Possible explanations:
 
 - They were used in a prior version, code was removed, files survive as zombies → safe to delete in Phase B.
 - They're written by some seldom-run codepath (settings export, project clone, etc.) → must NOT delete.
@@ -57,9 +57,9 @@ rg --type=python -e 'index_dir / "trace_' src/ | wc -l
 
 **Impact:** Watcher may need its own accessor list. Worth knowing before the move.
 
-### Q6 — Is anything outside the daemon reading `.codrag/` paths?
+### Q6 — Is anything outside the daemon reading `.prep/` paths?
 
-**Why it matters:** Strategy 2 assumes only the Python daemon constructs these paths. If the dashboard, VSCode extension, or external tooling reads `.codrag/trace_nodes.jsonl` directly, the move silently breaks them.
+**Why it matters:** Strategy 2 assumes only the Python daemon constructs these paths. If the dashboard, VSCode extension, or external tooling reads `.prep/trace_nodes.jsonl` directly, the move silently breaks them.
 
 **How to answer:**
 
@@ -153,14 +153,14 @@ rg -e 'trace_nodes|trace_edges|knowledge_documents' packages/ src/codrag/dashboa
 
 **Mitigation:**
 
-- Migrator runs each rename as `os.rename` (atomic on the same filesystem; `.codrag/` lives entirely on one volume, so this is safe).
+- Migrator runs each rename as `os.rename` (atomic on the same filesystem; `.prep/` lives entirely on one volume, so this is safe).
 - Migrator writes to a temp file `.migration_in_progress` at start and removes it at end. If on next start that temp file exists, refuse to serve and report which step failed.
 - Migrator is idempotent: if it sees a file already at the new path and the old path doesn't exist, it skips.
 - Daemon refuses to serve a project whose `version` file is unreadable or whose migration failed; user sees a clear error rather than silent broken state.
 
 ### R3 — Migrator runs against a foreign-filesystem index
 
-**Probability:** Low for embedded mode (everything's on the same volume); higher for standalone mode if `~/.local/share/codrag/projects/` happens to be on a different mount than the user's `$HOME`.
+**Probability:** Low for embedded mode (everything's on the same volume); higher for standalone mode if `~/.local/share/prep/projects/` happens to be on a different mount than the user's `$HOME`.
 **Severity:** Medium. `os.rename` fails with `EXDEV` across filesystems.
 
 **Mitigation:** Use `shutil.move()` which falls back to copy+delete on `EXDEV`. Document that during the cross-filesystem case, the migration is no longer atomic.
@@ -190,7 +190,7 @@ This ordering must be enforced explicitly in startup code. Each new step inserts
 **Mitigation:**
 
 - Use `project_paths` accessors in tests too, so they auto-update with the layout.
-- Test fixtures that create fake `.codrag/` trees use the accessors to know where to write.
+- Test fixtures that create fake `.prep/` trees use the accessors to know where to write.
 - Keep one explicit migrator test that hand-builds a v1 layout, runs the migrator, asserts v2 layout — this test must NOT use the accessors for the "before" side.
 
 ### R6 — Backward-incompatible for older daemons
@@ -279,7 +279,7 @@ These are new risks specific to the Phase 113 bundle (not the core reorg). Each 
 
 **Mitigation:** Readers MUST only rely on `layout_version` being present. All other fields are optional diagnostics. Document this as an invariant in the `version.json` reader code.
 
-### R17 — `.codrag/README.md` overwrites user edits
+### R17 — `.prep/README.md` overwrites user edits
 
 **Probability:** Low (we're explicit that the file is managed).
 **Severity:** Low (README content is trivially regeneratable).

@@ -267,7 +267,7 @@ F5 is the keystone — ship first.
 
 | Risk | Mitigation |
 |---|---|
-| Too many generated files overwhelm client repos | All features write under `.claude/` or `.codrag/`; visible but contained |
+| Too many generated files overwhelm client repos | All features write under `.claude/` or `.prep/`; visible but contained |
 | Hooks break user workflows | Advisory-default, blocking opt-in; every hook has a disable flag |
 | Stale artifacts drift from atlas | Hash stamping + freshness warnings + `codrag refresh` |
 | User customizations lost on regeneration | Splice markers on every managed file; test for user content preservation |

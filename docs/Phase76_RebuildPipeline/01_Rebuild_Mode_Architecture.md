@@ -31,7 +31,7 @@ This component will be the authoritative subsystem for managing shadow environme
 
 #### Key Behaviors:
 - `create_shadow_context(live_idx_dir)`: 
-  - Provisions a `.codrag/index/.rebuild-shadow` directory.
+  - Provisions a `.prep/index/.rebuild-shadow` directory.
   - Because downstream pipeline stages require upstream inputs (e.g., `TraceAugmenter` needs to read `trace_nodes.jsonl`), this function manages creating hardlinks or read-only symlinks to existing live files within the shadow directory *for any stages that haven't been rebuilt yet*.
 - `commit_stage(stage_output_filename)`:
   - Takes a successfully generated file from the shadow index (e.g., `trace_augmented.jsonl`).

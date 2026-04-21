@@ -7,7 +7,7 @@
 When a user switches Git branches in an active CoDRAG project, the filesystem
 changes trigger the pipeline's self-healing layer (Phase 61) to detect a massive
 coverage gap. The pipeline treats this as "stale" data and overwrites the entire
-`.codrag/` pipeline state to align with the new branch. If the user later returns
+`.prep/` pipeline state to align with the new branch. If the user later returns
 to their original branch, **hours of expensive LLM reasoning are permanently lost**.
 
 ## Solution: Automatic Branch-Aware Snapshots
@@ -25,7 +25,7 @@ All of this happens transparently — no user action required.
 ### Storage Layout
 
 ```
-.codrag/
+.prep/
 ├── trace_nodes.jsonl                   ← live data
 ├── trace_augmented.jsonl               ← live data
 ├── ...

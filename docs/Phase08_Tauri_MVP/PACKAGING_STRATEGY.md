@@ -50,7 +50,7 @@
 |---|---|---|
 | **macOS** | `~/Library/Application Support/CoDRAG/` | Standard macOS app data location. |
 | **Windows** | `%APPDATA%\CoDRAG\` | Standard Roaming profile location. |
-| **Linux** | `~/.local/share/codrag/` | XDG Base Directory specification. |
+| **Linux** | `~/.local/share/prep/` | XDG Base Directory specification. |
 
 **Subdirectories:**
 - `logs/`: Daemon logs (`daemon.log`).
@@ -58,10 +58,10 @@
 - `config/`: Global `config.json`, `license.json`.
 
 **Migration:**
-- Currently, CoDRAG uses `~/.codrag` (hardcoded).
+- Currently, CoDRAG uses `~/.prep` (hardcoded).
 - **Action:** Update `codrag.core.config` to use `platformdirs.user_data_dir("CoDRAG", "HumanAI")`.
-- **Backward Compatibility:** On startup, check if `~/.codrag` exists. If yes, migrate it to the new location or continue using it with a warning (MVP: continue using it or symlink?).
-- **MVP Decision:** Switch to standard paths for fresh installs. Legacy dev environments can keep `~/.codrag` via env var `CODRAG_DATA_DIR`.
+- **Backward Compatibility:** On startup, check if `~/.prep` exists. If yes, migrate it to the new location or continue using it with a warning (MVP: continue using it or symlink?).
+- **MVP Decision:** Switch to standard paths for fresh installs. Legacy dev environments can keep `~/.prep` via env var `CODRAG_DATA_DIR`.
 
 **Signing & Notarization (macOS):**
 - Binary must be signed with "Developer ID Application".

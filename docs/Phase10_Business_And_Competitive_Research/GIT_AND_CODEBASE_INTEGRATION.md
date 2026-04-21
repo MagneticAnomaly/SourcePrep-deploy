@@ -14,7 +14,7 @@ This is not an implementation spec for Git features; it is a **workflow + constr
 ## Two index strategies (per ADR-003)
 CoDRAG supports:
 - **Standalone mode (default)**: index stored in a central CoDRAG data directory
-- **Embedded mode**: index stored in `{project_root}/.codrag/`
+- **Embedded mode**: index stored in `{project_root}/.prep/`
 
 Reference:
 - `docs/DECISIONS.md` (ADR-003)
@@ -36,21 +36,21 @@ Defaults should avoid indexing noise:
 - `.git/`
 - dependency/vendor folders (e.g. `node_modules/`)
 - build outputs
-- `.codrag/` (always excluded from indexing and file watchers)
+- `.prep/` (always excluded from indexing and file watchers)
 
-**Team Tier Note:** Enforcing shared ignore patterns across a team (via `.codrag/team_config.json`) is a paid feature.
+**Team Tier Note:** Enforcing shared ignore patterns across a team (via `.prep/team_config.json`) is a paid feature.
 
 Watch-loop avoidance requirement:
-- Phase 06 explicitly requires watchers ignore `.codrag/**`.
+- Phase 06 explicitly requires watchers ignore `.prep/**`.
 - `docs/Phase06_Team_And_Enterprise/README.md`
 
 ### 3) Embedded mode onboarding workflow
-Target “clone → instant search” (when `.codrag/index/**` is committed).
+Target “clone → instant search” (when `.prep/index/**` is committed).
 
 Flow:
 1. Teammate clones repo.
 2. Teammate runs `codrag add . --embedded`.
-3. CoDRAG detects existing `.codrag/`.
+3. CoDRAG detects existing `.prep/`.
 4. If compatible, search is immediately available.
 
 Reference:
@@ -72,7 +72,7 @@ Reference:
 If committed indexes are used, merges/conflicts are inevitable.
 
 Rules (per Phase 06):
-- If conflict markers exist anywhere inside `.codrag/index/**`, the index is invalid.
+- If conflict markers exist anywhere inside `.prep/index/**`, the index is invalid.
 - Preferred remedy is a full rebuild.
 
 Reference:
@@ -131,5 +131,5 @@ Reference:
 
 ## Open questions
 - Should CoDRAG read `.gitignore` by default as an index exclude hint?
-- Should embedded mode generate a `.codrag/` scaffold (`project.json`) via an explicit init command?
+- Should embedded mode generate a `.prep/` scaffold (`project.json`) via an explicit init command?
 - Should CI build committed indexes (or should teams prefer network mode)?

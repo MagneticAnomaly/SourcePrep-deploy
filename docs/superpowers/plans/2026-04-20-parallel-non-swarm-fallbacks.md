@@ -1004,13 +1004,13 @@ The unit tests prove the code fans out against a fake LLM. The real question is 
 
 Run:
 ```bash
-sqlite3 ~/.local/share/codrag/codrag_settings.db \
+sqlite3 ~/.local/share/prep/codrag_settings.db \
   "UPDATE settings SET value='false' WHERE key='swarm_enabled';"
 ```
 
 Confirm:
 ```bash
-sqlite3 ~/.local/share/codrag/codrag_settings.db \
+sqlite3 ~/.local/share/prep/codrag_settings.db \
   "SELECT value FROM settings WHERE key='swarm_enabled';"
 ```
 Expected: `false`
@@ -1024,7 +1024,7 @@ Run (in a separate terminal or as a background task):
 .venv/bin/python /tmp/watch_aimd.py
 ```
 
-(The watcher from the prior session. `LOG_GLOB` should point at the test project's `.codrag/logs/pipeline_*.log`.)
+(The watcher from the prior session. `LOG_GLOB` should point at the test project's `.prep/logs/pipeline_*.log`.)
 
 - [ ] **Step 3: Run the playwright smoke rebuild**
 
@@ -1064,7 +1064,7 @@ Screenshot this for the record (the playwright harness does this automatically i
 If you want to return to the "swarm path when available" default:
 
 ```bash
-sqlite3 ~/.local/share/codrag/codrag_settings.db \
+sqlite3 ~/.local/share/prep/codrag_settings.db \
   "UPDATE settings SET value='true' WHERE key='swarm_enabled';"
 ```
 

@@ -13,7 +13,7 @@ When the pipeline produces incorrect or questionable state, the user has three b
 2. **Stoppable rebuild as a unit.** Users can cancel a *group*, but while a rebuild is running across three groups there's no single "Stop Rebuild" action, and queued/running items give no visual signal that they belong to a rebuild.
 3. **Rebuild decisions are made blind.** "Incomplete" stages conflate three different states: data missing, manifest self-healed (data intact), and data produced by an older/different model than the user's current config. The user cannot tell whether rebuilding is necessary, cosmetic, or quality-relevant.
 
-The observed cost of #3 is concrete: in the current `.codrag/` state, stages 2 and 3 show as "incomplete" (self-heal stubs) but the on-disk outputs are valid and were consumed cleanly by a successful ~10-hour deep enrichment run (`run-f77cddd43f17`, `kimi-k2.5:cloud`, 1788/1788 items). A naive rebuild would re-spend ~6 hours re-enriching for no quality gain.
+The observed cost of #3 is concrete: in the current `.prep/` state, stages 2 and 3 show as "incomplete" (self-heal stubs) but the on-disk outputs are valid and were consumed cleanly by a successful ~10-hour deep enrichment run (`run-f77cddd43f17`, `kimi-k2.5:cloud`, 1788/1788 items). A naive rebuild would re-spend ~6 hours re-enriching for no quality gain.
 
 ## Goal
 
@@ -98,7 +98,7 @@ When `/pipeline/rebuild/stop` fires:
 1. Orchestrator cancels the active group's currently-running stage.
 2. Temp files for that stage never swap into the live index (existing atomic-swap guarantee). Pre-rebuild data for that stage remains in place.
 3. Barrier is cleared.
-4. Stages already completed within this rebuild remain as they are. Their pre-rebuild backups live in `.codrag/backups/enrichment_reset_*/` (existing behavior). If the user wants to roll those back, they use the existing per-stage recover UI — Phase 117 does not auto-rollback.
+4. Stages already completed within this rebuild remain as they are. Their pre-rebuild backups live in `.prep/backups/enrichment_reset_*/` (existing behavior). If the user wants to roll those back, they use the existing per-stage recover UI — Phase 117 does not auto-rollback.
 5. UI drops rebuild coloring (stages return to normal state classification).
 
 #### A6. Confirmation modal
@@ -109,7 +109,7 @@ Reuse existing modal primitives. Copy:
 - **Rebuild Sync**: "This will re-run stages 1–5. Downstream stages 6–15 will incrementally re-derive against the new graph. Last full rebuild took ~10h. Continue?"
 - **Rebuild Enrichment**: no modal — single-click.
 
-Estimated duration is best-effort. First preference: the most recent `pipeline_run_metadata.json` across `.codrag/` and `.codrag/backups/enrichment_reset_*/` whose `group` matches the scope and `status == "completed"`. Fallback when no such record exists: "may take several hours." If the estimate is stale or unavailable, the modal omits the duration rather than guessing.
+Estimated duration is best-effort. First preference: the most recent `pipeline_run_metadata.json` across `.prep/` and `.prep/backups/enrichment_reset_*/` whose `group` matches the scope and `status == "completed"`. Fallback when no such record exists: "may take several hours." If the estimate is stale or unavailable, the modal omits the duration rather than guessing.
 
 ### Scope B: Provenance
 
@@ -170,7 +170,7 @@ The helper caches per-project with a short TTL (reuse the existing `_status_cach
 - **Manifest model**: read from per-stage manifest's `model` field for stages that have one. Stages without an LLM (1, 2, 4, 5 proper, 10's embedding side) return `None` and are never "drift".
 - **Current config model**: resolved via existing LLM task-assignment lookup (`src/codrag/services/llm_coordinator` or equivalent). If no assignment exists for the task_id, fall back to project default.
 - **Recovered flag**: manifest contains `"restored": true`.
-- **Golden checkpoint**: `.codrag/.checkpoints/_golden/_meta.json` plus the specific stage file's presence in the golden dir. Used only to soften the stub chip — never to upgrade a match/drift decision.
+- **Golden checkpoint**: `.prep/.checkpoints/_golden/_meta.json` plus the specific stage file's presence in the golden dir. Used only to soften the stub chip — never to upgrade a match/drift decision.
 
 ## Implementation map
 

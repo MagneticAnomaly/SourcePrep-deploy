@@ -194,8 +194,8 @@ Here's how it actually works:
 │    → Prunes stale local deltas covered by new remote index      │
 │                                                                  │
 │  LayeredCodeIndex (the merge layer)                             │
-│    → Remote layer: .codrag/index/remote/ (the team's index)     │
-│    → Delta layer:  .codrag/index/local_deltas/ (dev's edits)    │
+│    → Remote layer: .prep/index/remote/ (the team's index)     │
+│    → Delta layer:  .prep/index/local_deltas/ (dev's edits)    │
 │    → Search merges both: delta results override remote           │
 │    → Tombstone masking: if file X is in delta, remote X hidden  │
 │                                                                  │
@@ -253,8 +253,8 @@ All configuration is already implemented:
 
 | Setting | Where | Status |
 |---|---|---|
-| S3 bucket/endpoint | `.codrag/team_config.json` (committed to repo) | ✅ Exists |
-| S3 credentials | Env vars or `.codrag/.secrets` (gitignored) | ✅ Exists |
+| S3 bucket/endpoint | `.prep/team_config.json` (committed to repo) | ✅ Exists |
+| S3 credentials | Env vars or `.prep/.secrets` (gitignored) | ✅ Exists |
 | CI pipeline template | GitHub Actions / Docker | ✅ Exists in `public/codrag-deploy/` |
 | Poll interval | `team_config.json` → `poll_interval_minutes` | ✅ Exists (default 30) |
 | LLM for CI builds | Headless config `--model-provider` + `--api-key` | ✅ Exists (OpenAI/Anthropic/Google) |

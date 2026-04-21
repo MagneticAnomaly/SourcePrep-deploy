@@ -535,7 +535,7 @@ class PipelineOrchestrator:
 ### SM-7: License & Feature Gate (Backend — Medium Priority)
 
 **Location:** `src/codrag/core/feature_gate.py` (184 lines)
-**Current pattern:** Stateless `check_feature()` / `require_feature()` functions that read a cached `License` dataclass. License is loaded once from `~/.codrag/license.json` or `CODRAG_TIER` env var.
+**Current pattern:** Stateless `check_feature()` / `require_feature()` functions that read a cached `License` dataclass. License is loaded once from `~/.prep/license.json` or `CODRAG_TIER` env var.
 
 **Problem:**
 - **No lifecycle** — the license is loaded once and cached forever. If the user activates a license, `clear_license_cache()` must be called manually, and any in-flight requests still see the old tier.

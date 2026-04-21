@@ -42,8 +42,8 @@
 
 ### Client-side Remote Sync — P06-S14 (completed)
 - [x] `src/codrag/services/remote_sync.py` — `RemoteSyncService` class
-  - Reads `.codrag/team_config.json` (committed, secret-free)
-  - Resolves S3 credentials from env vars or `.codrag/.secrets` (gitignored)
+  - Reads `.prep/team_config.json` (committed, secret-free)
+  - Resolves S3 credentials from env vars or `.prep/.secrets` (gitignored)
   - `check_and_sync()`: compares remote manifest hash → downloads if newer
   - `start_polling()` / `stop_polling()`: background thread with configurable interval
   - `SyncStatus` dataclass with `to_dict()` for Dashboard API

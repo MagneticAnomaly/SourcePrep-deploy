@@ -321,9 +321,9 @@ cd /Volumes/4TB-BAD/HumanAI/CoDRAG
 ### Verify MCP is working
 Enable logging to see what the MCP server receives:
 ```json
-"args": ["mcp", "--log-file", "~/.codrag/mcp.log", "--debug"]
+"args": ["mcp", "--log-file", "~/.prep/mcp.log", "--debug"]
 ```
-Then check: `tail -f ~/.codrag/mcp.log`
+Then check: `tail -f ~/.prep/mcp.log`
 
 ### Multiple projects
 CoDRAG auto-detects which project you're working on from the workspace root.

@@ -188,7 +188,7 @@ class OpportunityManager:
         """Return aggregate stats: total, by priority, by category, last refresh."""
 ```
 
-**Storage:** Opportunities are persisted per-project in `{project_dir}/.codrag/opportunities.json`. A simple JSON file — no database needed.
+**Storage:** Opportunities are persisted per-project in `{project_dir}/.prep/opportunities.json`. A simple JSON file — no database needed.
 
 ---
 

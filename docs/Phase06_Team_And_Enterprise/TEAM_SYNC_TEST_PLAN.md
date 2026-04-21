@@ -88,7 +88,7 @@ codrag sync-headless \
 ```bash
 # In the test repository, create team_config.json
 mkdir -p .codrag
-cat > .codrag/team_config.json << 'EOF'
+cat > .prep/team_config.json << 'EOF'
 {
   "sync": {
     "enabled": true,
@@ -100,8 +100,8 @@ cat > .codrag/team_config.json << 'EOF'
 }
 EOF
 
-# Create .codrag/.secrets (gitignored)
-cat > .codrag/.secrets << 'EOF'
+# Create .prep/.secrets (gitignored)
+cat > .prep/.secrets << 'EOF'
 {
   "s3_access_key": "YOUR_READ_ONLY_KEY",
   "s3_secret_key": "YOUR_READ_ONLY_SECRET"
@@ -115,7 +115,7 @@ codrag serve --port 8400
 
 **Verify:**
 - [ ] Daemon logs show "Team sync polling started for project ..."
-- [ ] Remote index downloaded to `.codrag/index/remote/`
+- [ ] Remote index downloaded to `.prep/index/remote/`
 - [ ] `documents.json` exists in remote dir
 - [ ] `GET /projects/{id}/status` includes sync status with `enabled: true`
 

@@ -1,6 +1,6 @@
 # Implementation Plan
 
-This is the step-by-step plan for executing Phase 113. It covers the core `.codrag/` reorganization plus the nine adjacent improvements bundled into scope (see [06_ADJACENT_OPPORTUNITIES.md](06_ADJACENT_OPPORTUNITIES.md)).
+This is the step-by-step plan for executing Phase 113. It covers the core `.prep/` reorganization plus the nine adjacent improvements bundled into scope (see [06_ADJACENT_OPPORTUNITIES.md](06_ADJACENT_OPPORTUNITIES.md)).
 
 Steps are independently shippable, reviewable, and revertable. Each step has an acceptance checklist, verification commands, and an explicit PR boundary. Before starting a step, the open questions in [04_RISKS.md](04_RISKS.md) assigned to it must be resolved.
 
@@ -245,9 +245,9 @@ rg --type=python -e 'idx_dir / "' src/ | rg -v 'project_paths\\.py|migrator|test
 rg --type=python -e 'INDEX_FILES|TRACE_FILES|ALL_DATA_FILES' src/
 # ↑ should only match project_paths-derived helpers
 # manual:
-ls .codrag/architecture/  # present before reset
+ls .prep/architecture/  # present before reset
 curl -X DELETE ...destroy  # trigger reset
-ls .codrag/architecture/ 2>&1  # expect "No such file"
+ls .prep/architecture/ 2>&1  # expect "No such file"
 ```
 
 **PR:** "Phase 113 Step 2 — route remaining paths; derive destroy from project_paths; atomic_write adoption".
@@ -322,7 +322,7 @@ kill %1
 
 ## Step 4 — The move (layout v2) + migrator + adjacent writes
 
-**Goal:** Change accessor bodies to v2 layout. Migrator moves existing indexes. `version.json` and `.codrag/README.md` written. Checkpoints renamed with timestamp prefix.
+**Goal:** Change accessor bodies to v2 layout. Migrator moves existing indexes. `version.json` and `.prep/README.md` written. Checkpoints renamed with timestamp prefix.
 
 **Tasks:**
 
@@ -396,15 +396,15 @@ kill %1
    - `test_migrate_sets_created_at_only_once` (carries over if already present).
 
 10. **Manual dogfood validation:**
-    - `tar -czf /tmp/codrag-dogfood-pre-migration.tgz .codrag/`
+    - `tar -czf /tmp/codrag-dogfood-pre-migration.tgz .prep/`
     - Start daemon. Inspect migration log.
-    - Verify `.codrag/` tree matches [02_TARGET_LAYOUT.md](02_TARGET_LAYOUT.md).
+    - Verify `.prep/` tree matches [02_TARGET_LAYOUT.md](02_TARGET_LAYOUT.md).
     - Verify `version.json` and `README.md` contents.
     - Verify checkpoint dirs renamed.
     - Trigger full pipeline run; confirm completion.
     - Trigger full reset; confirm true blank state.
 
-11. **Rollback plan:** if anything goes wrong on dogfood, `rm -rf .codrag/ && tar -xzf /tmp/codrag-dogfood-pre-migration.tgz`. Do not merge.
+11. **Rollback plan:** if anything goes wrong on dogfood, `rm -rf .prep/ && tar -xzf /tmp/codrag-dogfood-pre-migration.tgz`. Do not merge.
 
 **Acceptance:**
 
@@ -412,7 +412,7 @@ kill %1
 - Dogfood index migrated successfully.
 - Fresh build produces documented layout exactly.
 - Full reset wipes everything.
-- `version.json` and `.codrag/README.md` present.
+- `version.json` and `.prep/README.md` present.
 
 **PR:** "Phase 113 Step 4 — migrate to layout v2 (paths, version.json, README.md, checkpoint renames)".
 
@@ -464,7 +464,7 @@ kill %1
 ```bash
 .venv/bin/pytest tests/test_log_retention.py tests/test_pipeline_logger.py -v
 .venv/bin/codrag serve  # trigger a run
-head -n 3 .codrag/logs/pipeline_*.jsonl | jq .  # valid JSON per line
+head -n 3 .prep/logs/pipeline_*.jsonl | jq .  # valid JSON per line
 ```
 
 **PR:** "Phase 113 Step 4b — structured pipeline logs + rotation + retention".
@@ -477,7 +477,7 @@ head -n 3 .codrag/logs/pipeline_*.jsonl | jq .  # valid JSON per line
 
 **Tasks:**
 
-1. Update `CLAUDE.md` and `AGENTS.md` sections that reference `.codrag/` paths if any. Add a short "Project paths must flow through `project_paths`" note to the project-internals doc.
+1. Update `CLAUDE.md` and `AGENTS.md` sections that reference `.prep/` paths if any. Add a short "Project paths must flow through `project_paths`" note to the project-internals doc.
 
 2. Add `docs/architecture/project_paths.md` (or similar) documenting `project_paths` as the canonical resolver and how to add a new artifact (accessor + metadata + update `all_files`/`all_dirs`).
 
@@ -489,7 +489,7 @@ head -n 3 .codrag/logs/pipeline_*.jsonl | jq .  # valid JSON per line
      ```
    - Fails the build on non-empty output.
 
-4. **Keep-README-synced hook (item 3):** daemon startup, after lock + migration, compares current `render_readme()` output to the on-disk `.codrag/README.md` content hash; rewrites if mismatched. Small helper invoked once per startup.
+4. **Keep-README-synced hook (item 3):** daemon startup, after lock + migration, compares current `render_readme()` output to the on-disk `.prep/README.md` content hash; rewrites if mismatched. Small helper invoked once per startup.
 
 5. Update [README.md](README.md) Phase 113 status to "Phase A complete".
 

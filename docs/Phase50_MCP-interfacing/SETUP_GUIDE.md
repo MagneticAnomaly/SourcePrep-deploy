@@ -66,7 +66,7 @@ correct project from your IDE's workspace context.
 6. **Single-project shortcut** — if only one project exists, it's used automatically
 7. **Most-recently-active** — falls back to the project with the most recent build/update
 
-**`.codrag` auto-registration:** If your workspace root or CWD contains a `.codrag/`
+**`.codrag` auto-registration:** If your workspace root or CWD contains a `.prep/`
 folder (created by `codrag init`), the MCP server will automatically register it
 as an embedded project — no manual `codrag add` needed.
 
