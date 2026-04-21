@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, ReactElement, cloneElement, isValidElement } from 'react';
 import { cn } from '../../lib/utils';
 
 export interface SettingRowProps {
@@ -23,6 +23,14 @@ export function SettingRow({
   className,
   id,
 }: SettingRowProps) {
+  // Inject the `id` into the control element so the `<label htmlFor>` wires
+  // up automatically. Callers can still override by passing an explicit `id`
+  // on the control element directly.
+  const controlWithId =
+    id && isValidElement(control) && !(control.props as { id?: string })?.id
+      ? cloneElement(control as ReactElement<{ id?: string }>, { id })
+      : control;
+
   return (
     <div
       className={cn(
@@ -44,7 +52,7 @@ export function SettingRow({
         )}
       </div>
       <div className="flex-shrink-0 w-[260px] flex justify-end">
-        {control}
+        {controlWithId}
       </div>
     </div>
   );

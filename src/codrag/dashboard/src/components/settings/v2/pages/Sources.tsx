@@ -448,6 +448,7 @@ export function SourcesPage({
 
       <Section title="Exclude Patterns">
         <SettingRow
+          id="sources-use-gitignore"
           label="Use .gitignore"
           description="Exclude .gitignore files"
           control={
