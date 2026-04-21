@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { CodragDaemonClient } from '../client';
+import { PrepDaemonClient } from '../client';
 import { DaemonManager } from '../daemon';
 import type { ProjectListItem } from '../types';
 
@@ -25,12 +25,12 @@ export class OfflineTreeItem extends vscode.TreeItem {
     super('Daemon offline', vscode.TreeItemCollapsibleState.None);
     this.description = 'Click to start';
     this.iconPath = new vscode.ThemeIcon('warning');
-    this.command = { command: 'codrag.startDaemon', title: 'Start Daemon' };
+    this.command = { command: 'prep.startDaemon', title: 'Start Daemon' };
   }
 }
 
 export class ProjectsTreeDataProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
-  private _client: CodragDaemonClient;
+  private _client: PrepDaemonClient;
   private readonly _daemon: DaemonManager;
   private _projects: ProjectListItem[] = [];
   private _selectedProjectId: string | undefined;
@@ -41,7 +41,7 @@ export class ProjectsTreeDataProvider implements vscode.TreeDataProvider<vscode.
   private readonly _onDidSelectProject = new vscode.EventEmitter<ProjectListItem>();
   readonly onDidSelectProject = this._onDidSelectProject.event;
 
-  constructor(client: CodragDaemonClient, daemon: DaemonManager) {
+  constructor(client: PrepDaemonClient, daemon: DaemonManager) {
     this._client = client;
     this._daemon = daemon;
 
@@ -51,7 +51,7 @@ export class ProjectsTreeDataProvider implements vscode.TreeDataProvider<vscode.
   get selectedProjectId(): string | undefined { return this._selectedProjectId; }
   get projects(): ProjectListItem[] { return this._projects; }
 
-  updateClient(client: CodragDaemonClient): void {
+  updateClient(client: PrepDaemonClient): void {
     this._client = client;
     this.refresh();
   }
@@ -141,7 +141,7 @@ export class ProjectsTreeDataProvider implements vscode.TreeDataProvider<vscode.
 
     if (this._projects.length === 0) {
       const item = new vscode.TreeItem('No projects registered');
-      item.description = 'Use "CoDRAG: Add Project"';
+      item.description = 'Use "Prep: Add Project"';
       item.iconPath = new vscode.ThemeIcon('info');
       return [item];
     }

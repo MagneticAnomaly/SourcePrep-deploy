@@ -9,23 +9,23 @@ import type {
   WatchStatus,
 } from './types';
 
-export class CodragClientError extends Error {
+export class PrepClientError extends Error {
   readonly status?: number;
   readonly code?: string;
 
   constructor(message: string, opts?: { status?: number; code?: string }) {
     super(message);
-    this.name = 'CodragClientError';
+    this.name = 'PrepClientError';
     this.status = opts?.status;
     this.code = opts?.code;
   }
 }
 
 /**
- * Lightweight HTTP client for the CoDRAG daemon.
+ * Lightweight HTTP client for the Prep daemon.
  * No React or browser dependencies — pure Node.js fetch.
  */
-export class CodragDaemonClient {
+export class PrepDaemonClient {
   public readonly baseUrl: string;
 
   constructor(baseUrl: string) {
@@ -37,7 +37,7 @@ export class CodragDaemonClient {
   async getHealth(): Promise<HealthResponse> {
     const res = await this.rawFetch('/health');
     if (!res.ok) {
-      throw new CodragClientError(`Health check failed: HTTP ${res.status}`, { status: res.status });
+      throw new PrepClientError(`Health check failed: HTTP ${res.status}`, { status: res.status });
     }
     return res.json() as Promise<HealthResponse>;
   }
@@ -220,8 +220,8 @@ export class CodragDaemonClient {
         signal: controller.signal,
       });
     } catch (err) {
-      throw new CodragClientError(
-        `Network error contacting CoDRAG daemon at ${this.baseUrl}: ${err instanceof Error ? err.message : String(err)}`,
+      throw new PrepClientError(
+        `Network error contacting Prep daemon at ${this.baseUrl}: ${err instanceof Error ? err.message : String(err)}`,
       );
     } finally {
       clearTimeout(timeout);
@@ -231,21 +231,21 @@ export class CodragDaemonClient {
     try {
       json = await res.json();
     } catch {
-      throw new CodragClientError(`Invalid JSON from daemon (HTTP ${res.status})`, { status: res.status });
+      throw new PrepClientError(`Invalid JSON from daemon (HTTP ${res.status})`, { status: res.status });
     }
 
     const envelope = json as ApiEnvelope<T>;
     if (typeof envelope !== 'object' || envelope === null || typeof envelope.success !== 'boolean') {
-      throw new CodragClientError('Unexpected response shape from daemon', { status: res.status });
+      throw new PrepClientError('Unexpected response shape from daemon', { status: res.status });
     }
 
     if (!envelope.success) {
       const msg = envelope.error?.message ?? `Request failed (HTTP ${res.status})`;
-      throw new CodragClientError(msg, { status: res.status, code: envelope.error?.code });
+      throw new PrepClientError(msg, { status: res.status, code: envelope.error?.code });
     }
 
     if (envelope.data === null || envelope.data === undefined) {
-      throw new CodragClientError('Envelope success=true but data was null', { status: res.status });
+      throw new PrepClientError('Envelope success=true but data was null', { status: res.status });
     }
 
     return envelope.data;

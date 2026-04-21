@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { CodragDaemonClient } from './client';
+import { PrepDaemonClient } from './client';
 import { DaemonManager } from './daemon';
 import { ProjectsTreeDataProvider } from './views/projectsTree';
 import { FileTreeDataProvider } from './views/fileTree';
@@ -12,9 +12,9 @@ let daemonManager: DaemonManager | undefined;
 let statusBarManager: StatusBarManager | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
-  const outputChannel = vscode.window.createOutputChannel('CoDRAG');
+  const outputChannel = vscode.window.createOutputChannel('Prep');
   context.subscriptions.push(outputChannel);
-  outputChannel.appendLine('CoDRAG extension activating...');
+  outputChannel.appendLine('Prep extension activating...');
 
   // Build the daemon client from settings
   const client = createClientFromConfig();
@@ -29,9 +29,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const indexStatus = new IndexStatusTreeDataProvider(client, daemonManager);
 
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider('codrag.projects', projectsTree),
-    vscode.window.registerTreeDataProvider('codrag.fileTree', fileTree),
-    vscode.window.registerTreeDataProvider('codrag.indexStatus', indexStatus),
+    vscode.window.registerTreeDataProvider('prep.projects', projectsTree),
+    vscode.window.registerTreeDataProvider('prep.fileTree', fileTree),
+    vscode.window.registerTreeDataProvider('prep.indexStatus', indexStatus),
   );
 
   // Status bar
@@ -64,7 +64,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // React to config changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('codrag.daemon')) {
+      if (e.affectsConfiguration('prep.daemon')) {
         const newClient = createClientFromConfig();
         daemonManager?.updateClient(newClient);
         projectsTree.updateClient(newClient);
@@ -80,12 +80,12 @@ export function activate(context: vscode.ExtensionContext): void {
   daemonManager.startPolling();
 
   // Auto-start daemon if configured
-  const autoStart = vscode.workspace.getConfiguration('codrag.daemon').get<boolean>('autoStart', false);
+  const autoStart = vscode.workspace.getConfiguration('prep.daemon').get<boolean>('autoStart', false);
   if (autoStart) {
     daemonManager.startDaemon();
   }
 
-  outputChannel.appendLine('CoDRAG extension activated.');
+  outputChannel.appendLine('Prep extension activated.');
 }
 
 export function deactivate(): void {
@@ -93,9 +93,9 @@ export function deactivate(): void {
   statusBarManager?.dispose();
 }
 
-function createClientFromConfig(): CodragDaemonClient {
-  const config = vscode.workspace.getConfiguration('codrag.daemon');
-  const host = config.get<string>('host') || process.env.CODRAG_HOST || '127.0.0.1';
-  const port = config.get<number>('port') || (process.env.CODRAG_PORT ? parseInt(process.env.CODRAG_PORT, 10) : 8400);
-  return new CodragDaemonClient(`http://${host}:${port}`);
+function createClientFromConfig(): PrepDaemonClient {
+  const config = vscode.workspace.getConfiguration('prep.daemon');
+  const host = config.get<string>('host') || process.env.PREP_HOST || '127.0.0.1';
+  const port = config.get<number>('port') || (process.env.PREP_PORT ? parseInt(process.env.PREP_PORT, 10) : 8400);
+  return new PrepDaemonClient(`http://${host}:${port}`);
 }

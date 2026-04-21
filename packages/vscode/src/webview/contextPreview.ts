@@ -49,8 +49,8 @@ export class ContextPreviewPanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      'codragContext',
-      `CoDRAG Context: ${query}`,
+      'prepContext',
+      `Prep Context: ${query}`,
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -68,7 +68,7 @@ export class ContextPreviewPanel {
   }
 
   public update(query: string, response: ContextResponse): void {
-    this._panel.title = `CoDRAG Context: ${query}`;
+    this._panel.title = `Prep Context: ${query}`;
     this._pendingQuery = query;
     this._pendingResponse = response;
     this.postMessage(query, response);

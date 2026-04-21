@@ -6,7 +6,7 @@ import { IndexStatusTreeDataProvider } from './views/indexStatus';
 import { SearchResultsPanel } from './webview/searchResults';
 import { ContextPreviewPanel } from './webview/contextPreview';
 import { TracePanel } from './webview/tracePanel';
-import { CodragDaemonClient } from './client';
+import { PrepDaemonClient } from './client';
 
 export function registerCommands(
   context: vscode.ExtensionContext,
@@ -22,15 +22,15 @@ export function registerCommands(
 
   // ── Daemon ──────────────────────────────────────────────────
 
-  reg('codrag.startDaemon', () => daemon.startDaemon());
-  reg('codrag.stopDaemon', () => daemon.stopDaemon());
+  reg('prep.startDaemon', () => daemon.startDaemon());
+  reg('prep.stopDaemon', () => daemon.stopDaemon());
 
   // ── Projects ────────────────────────────────────────────────
 
-  reg('codrag.refreshProjects', () => projectsTree.refresh());
-  reg('codrag.refreshFileTree', () => fileTree.refresh());
+  reg('prep.refreshProjects', () => projectsTree.refresh());
+  reg('prep.refreshFileTree', () => fileTree.refresh());
 
-  reg('codrag.selectProject', async (item: unknown) => {
+  reg('prep.selectProject', async (item: unknown) => {
     if (item instanceof ProjectTreeItem) {
       projectsTree.selectProject(item.project.id);
       fileTree.setProject(item.project.id, item.project.path);
@@ -38,7 +38,7 @@ export function registerCommands(
     }
   });
 
-  reg('codrag.addProject', async () => {
+  reg('prep.addProject', async () => {
     if (!(await daemon.requireConnected())) { return; }
 
     const uris = await vscode.window.showOpenDialog({
@@ -65,7 +65,7 @@ export function registerCommands(
     }
   });
 
-  reg('codrag.removeProject', async (item: unknown) => {
+  reg('prep.removeProject', async (item: unknown) => {
     if (!(item instanceof ProjectTreeItem)) { return; }
     if (!(await daemon.requireConnected())) { return; }
 
@@ -89,7 +89,7 @@ export function registerCommands(
 
   // ── Build ───────────────────────────────────────────────────
 
-  reg('codrag.buildIndex', async () => {
+  reg('prep.buildIndex', async () => {
     if (!(await daemon.requireConnected())) { return; }
     const projectId = getSelectedProjectId(projectsTree);
     if (!projectId) { return; }
@@ -108,7 +108,7 @@ export function registerCommands(
     }
   });
 
-  reg('codrag.rebuildProject', async (item: unknown) => {
+  reg('prep.rebuildProject', async (item: unknown) => {
     if (!(item instanceof ProjectTreeItem)) { return; }
     if (!(await daemon.requireConnected())) { return; }
 
@@ -123,7 +123,7 @@ export function registerCommands(
 
   // ── Search ──────────────────────────────────────────────────
 
-  reg('codrag.search', async () => {
+  reg('prep.search', async () => {
     if (!(await daemon.requireConnected())) { return; }
     const projectId = getSelectedProjectId(projectsTree);
     if (!projectId) { return; }
@@ -145,7 +145,7 @@ export function registerCommands(
 
   // ── Context Assembly ────────────────────────────────────────
 
-  reg('codrag.assembleContext', async () => {
+  reg('prep.assembleContext', async () => {
     if (!(await daemon.requireConnected())) { return; }
     const projectId = getSelectedProjectId(projectsTree);
     if (!projectId) { return; }
@@ -167,13 +167,13 @@ export function registerCommands(
 
   // ── MCP Config ──────────────────────────────────────────────
 
-  reg('codrag.copyMCPConfig', async (item?: unknown) => {
+  reg('prep.copyMCPConfig', async (item?: unknown) => {
     const projectId = item instanceof ProjectTreeItem ? item.project.id : getSelectedProjectId(projectsTree);
 
     const config = {
       mcpServers: {
-        codrag: {
-          command: 'codrag',
+        prep: {
+          command: 'prep',
           args: projectId
             ? ['mcp', '--project', projectId, '--daemon', daemon.client.baseUrl]
             : ['mcp', '--auto', '--daemon', daemon.client.baseUrl],
@@ -187,18 +187,18 @@ export function registerCommands(
 
   // ── Dashboard ───────────────────────────────────────────────
 
-  reg('codrag.openDashboard', () => {
+  reg('prep.openDashboard', () => {
     vscode.env.openExternal(vscode.Uri.parse(daemon.client.baseUrl));
   });
 
   // ── License ─────────────────────────────────────────────────
 
-  reg('codrag.enterLicenseKey', async () => {
+  reg('prep.enterLicenseKey', async () => {
     if (!(await daemon.requireConnected())) { return; }
 
     const key = await vscode.window.showInputBox({
-      prompt: 'Enter your CoDRAG license key',
-      placeHolder: 'CODRAG-XXXX-XXXX-XXXX',
+      prompt: 'Enter your Prep license key',
+      placeHolder: 'PREP-XXXX-XXXX-XXXX',
       password: true,
     });
 
@@ -220,7 +220,7 @@ export function registerCommands(
           'Manage Licenses'
         );
         if (action === 'Manage Licenses') {
-          vscode.env.openExternal(vscode.Uri.parse('https://codrag.io/account'));
+          vscode.env.openExternal(vscode.Uri.parse('https://getprep.io/account'));
         }
       } else {
         vscode.window.showErrorMessage(`Activation failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -228,7 +228,7 @@ export function registerCommands(
     }
   });
 
-  reg('codrag.deactivateLicense', async () => {
+  reg('prep.deactivateLicense', async () => {
     if (!(await daemon.requireConnected())) { return; }
 
     const confirm = await vscode.window.showWarningMessage(
@@ -250,7 +250,7 @@ export function registerCommands(
 
   // ── Watcher (Pro) ───────────────────────────────────────────
 
-  reg('codrag.startWatcher', async () => {
+  reg('prep.startWatcher', async () => {
     if (!(await daemon.requireFeature('auto_rebuild', 'Real-time Watcher'))) { return; }
     const projectId = getSelectedProjectId(projectsTree);
     if (!projectId) { return; }
@@ -264,7 +264,7 @@ export function registerCommands(
     }
   });
 
-  reg('codrag.stopWatcher', async () => {
+  reg('prep.stopWatcher', async () => {
     if (!(await daemon.requireConnected())) { return; }
     const projectId = getSelectedProjectId(projectsTree);
     if (!projectId) { return; }
@@ -280,7 +280,7 @@ export function registerCommands(
 
   // ── Trace (Pro) ─────────────────────────────────────────────
 
-  reg('codrag.traceLookup', async () => {
+  reg('prep.traceLookup', async () => {
     const projectId = getSelectedProjectId(projectsTree);
     if (!projectId) { return; }
 
@@ -307,17 +307,17 @@ export function registerCommands(
 
   // ── Refresh ─────────────────────────────────────────────────
 
-  reg('codrag.refreshIndexStatus', () => indexStatus.refresh());
+  reg('prep.refreshIndexStatus', () => indexStatus.refresh());
 
   // ── Pin / Unpin ─────────────────────────────────────────────
 
-  reg('codrag.pinFile', async (item: unknown) => {
+  reg('prep.pinFile', async (item: unknown) => {
     if (item instanceof FileTreeItem) {
       await fileTree.pinFile(item);
     }
   });
 
-  reg('codrag.unpinFile', async (item: unknown) => {
+  reg('prep.unpinFile', async (item: unknown) => {
     if (item instanceof FileTreeItem) {
       await fileTree.unpinFile(item);
     }
@@ -328,14 +328,14 @@ export function registerCommands(
 
 function getSelectedProjectId(tree: ProjectsTreeDataProvider): string | undefined {
   if (!tree.selectedProjectId) {
-    vscode.window.showWarningMessage('No project selected. Select one in the CoDRAG sidebar.');
+    vscode.window.showWarningMessage('No project selected. Select one in the Prep sidebar.');
     return undefined;
   }
   return tree.selectedProjectId;
 }
 
 async function pollBuildStatus(
-  client: CodragDaemonClient,
+  client: PrepDaemonClient,
   projectId: string,
   indexStatus: IndexStatusTreeDataProvider,
   output: vscode.OutputChannel,

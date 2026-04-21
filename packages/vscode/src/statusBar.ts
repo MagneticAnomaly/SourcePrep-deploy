@@ -10,7 +10,7 @@ export class StatusBarManager implements vscode.Disposable {
 
   constructor(private readonly _daemon: DaemonManager) {
     this._item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
-    this._item.command = 'codrag.startDaemon';
+    this._item.command = 'prep.startDaemon';
     this._item.show();
 
     this._disposables.push(
@@ -32,24 +32,24 @@ export class StatusBarManager implements vscode.Disposable {
     switch (state) {
       case 'connected': {
         const ver = this._daemon.version ? ` v${this._daemon.version}` : '';
-        this._item.text = `$(check) CoDRAG${ver}`;
-        this._item.tooltip = `CoDRAG daemon connected (${tier})`;
+        this._item.text = `$(check) Prep${ver}`;
+        this._item.tooltip = `Prep daemon connected (${tier})`;
         this._item.backgroundColor = undefined;
-        this._item.command = 'codrag.openDashboard';
+        this._item.command = 'prep.openDashboard';
         break;
       }
       case 'starting':
-        this._item.text = '$(sync~spin) CoDRAG';
-        this._item.tooltip = 'Starting CoDRAG daemon...';
+        this._item.text = '$(sync~spin) Prep';
+        this._item.tooltip = 'Starting Prep daemon...';
         this._item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
         this._item.command = undefined;
         break;
       case 'disconnected':
       default:
-        this._item.text = '$(error) CoDRAG';
-        this._item.tooltip = 'CoDRAG daemon is not running. Click to start.';
+        this._item.text = '$(error) Prep';
+        this._item.tooltip = 'Prep daemon is not running. Click to start.';
         this._item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
-        this._item.command = 'codrag.startDaemon';
+        this._item.command = 'prep.startDaemon';
         break;
     }
   }

@@ -1,5 +1,5 @@
 /**
- * Base CSS styles for all CoDRAG WebView panels.
+ * Base CSS styles for all Prep WebView panels.
  * Uses VS Code CSS variables for native theme integration.
  */
 export function getWebviewBaseStyles(): string {

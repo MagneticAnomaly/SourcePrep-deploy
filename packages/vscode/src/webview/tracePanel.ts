@@ -19,7 +19,7 @@ export class TracePanel {
             this.postMessage(this._pendingData);
           }
         } else if (message.command === 'openPricing') {
-          vscode.env.openExternal(vscode.Uri.parse('https://codrag.io/pricing'));
+          vscode.env.openExternal(vscode.Uri.parse('https://getprep.io/pricing'));
         }
       },
       null,
@@ -42,8 +42,8 @@ export class TracePanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      'codragTrace',
-      'CoDRAG Trace',
+      'prepTrace',
+      'Prep Trace',
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,

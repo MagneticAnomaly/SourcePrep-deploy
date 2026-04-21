@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { CodragDaemonClient } from './client';
+import { PrepDaemonClient } from './client';
 
-export function registerChatParticipant(context: vscode.ExtensionContext, client: CodragDaemonClient) {
+export function registerChatParticipant(context: vscode.ExtensionContext, client: PrepDaemonClient) {
   const handler: vscode.ChatRequestHandler = async (request, context, stream, token) => {
     stream.progress('Searching codebase...');
     
@@ -32,7 +32,7 @@ export function registerChatParticipant(context: vscode.ExtensionContext, client
     }
   };
 
-  const participant = vscode.chat.createChatParticipant('codrag.chat', handler);
-  participant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'codrag-icon.png');
+  const participant = vscode.chat.createChatParticipant('prep.chat', handler);
+  participant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'prep-icon.png');
   context.subscriptions.push(participant);
 }

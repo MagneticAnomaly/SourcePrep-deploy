@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { CodragDaemonClient } from '../client';
+import { PrepDaemonClient } from '../client';
 import { DaemonManager } from '../daemon';
 import type { FileTreeNode } from '../types';
 
@@ -45,7 +45,7 @@ export class FileTreeItem extends vscode.TreeItem {
 }
 
 export class FileTreeDataProvider implements vscode.TreeDataProvider<FileTreeItem> {
-  private _client: CodragDaemonClient;
+  private _client: PrepDaemonClient;
   private readonly _daemon: DaemonManager;
   private readonly _context: vscode.ExtensionContext;
   private _projectId: string | undefined;
@@ -55,7 +55,7 @@ export class FileTreeDataProvider implements vscode.TreeDataProvider<FileTreeIte
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<FileTreeItem | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(client: CodragDaemonClient, daemon: DaemonManager, context: vscode.ExtensionContext) {
+  constructor(client: PrepDaemonClient, daemon: DaemonManager, context: vscode.ExtensionContext) {
     this._client = client;
     this._daemon = daemon;
     this._context = context;
@@ -68,7 +68,7 @@ export class FileTreeDataProvider implements vscode.TreeDataProvider<FileTreeIte
     });
   }
 
-  updateClient(client: CodragDaemonClient): void {
+  updateClient(client: PrepDaemonClient): void {
     this._client = client;
     this.refresh();
   }
@@ -169,7 +169,7 @@ export class FileTreeDataProvider implements vscode.TreeDataProvider<FileTreeIte
   // ── Pinning Logic ─────────────────────────────────────────────
 
   private get storageKey(): string {
-    return `codrag.pinnedFiles.${this._projectId}`;
+    return `prep.pinnedFiles.${this._projectId}`;
   }
 
   isPinned(path: string): boolean {

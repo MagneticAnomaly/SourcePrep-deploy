@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
-import { CodragDaemonClient } from '../client';
+import { PrepDaemonClient } from '../client';
 import { DaemonManager } from '../daemon';
 import type { ProjectStatus } from '../types';
 
 type StatusItem = vscode.TreeItem;
 
 export class IndexStatusTreeDataProvider implements vscode.TreeDataProvider<StatusItem> {
-  private _client: CodragDaemonClient;
+  private _client: PrepDaemonClient;
   private readonly _daemon: DaemonManager;
   private _projectId: string | undefined;
   private _status: ProjectStatus | undefined;
@@ -14,7 +14,7 @@ export class IndexStatusTreeDataProvider implements vscode.TreeDataProvider<Stat
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<StatusItem | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(client: CodragDaemonClient, daemon: DaemonManager) {
+  constructor(client: PrepDaemonClient, daemon: DaemonManager) {
     this._client = client;
     this._daemon = daemon;
 
@@ -26,7 +26,7 @@ export class IndexStatusTreeDataProvider implements vscode.TreeDataProvider<Stat
     });
   }
 
-  updateClient(client: CodragDaemonClient): void {
+  updateClient(client: PrepDaemonClient): void {
     this._client = client;
     this.refresh();
   }
@@ -108,7 +108,7 @@ export class IndexStatusTreeDataProvider implements vscode.TreeDataProvider<Stat
     if (s.stale) {
       const staleItem = new vscode.TreeItem('Index is stale — rebuild recommended');
       staleItem.iconPath = new vscode.ThemeIcon('warning');
-      staleItem.command = { command: 'codrag.buildIndex', title: 'Build Index' };
+      staleItem.command = { command: 'prep.buildIndex', title: 'Build Index' };
       staleItem.contextValue = 'stale';
       items.push(staleItem);
     }

@@ -49,8 +49,8 @@ export class SearchResultsPanel {
     }
 
     const panel = vscode.window.createWebviewPanel(
-      'codragSearch',
-      `CoDRAG Search: ${query}`,
+      'prepSearch',
+      `Prep Search: ${query}`,
       column || vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -68,7 +68,7 @@ export class SearchResultsPanel {
   }
 
   public update(query: string, results: SearchResult[]): void {
-    this._panel.title = `CoDRAG Search: ${query}`;
+    this._panel.title = `Prep Search: ${query}`;
     this._pendingQuery = query;
     this._pendingResults = results;
     this.postMessage(query, results);

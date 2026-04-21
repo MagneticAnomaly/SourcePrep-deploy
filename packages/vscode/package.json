@@ -7,12 +7,12 @@
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/magnetic-anomaly/codrag"
+    "url": "https://github.com/magnetic-anomaly/prep"
   },
   "bugs": {
-    "url": "https://github.com/magnetic-anomaly/codrag/issues"
+    "url": "https://github.com/magnetic-anomaly/prep/issues"
   },
-  "homepage": "https://codrag.io",
+  "homepage": "https://getprep.io",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -32,133 +32,133 @@
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
-  "icon": "media/codrag-icon.png",
+  "icon": "media/prep-icon.png",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "codrag",
-          "title": "CoDRAG",
-          "icon": "media/codrag-sidebar.svg"
+          "id": "prep",
+          "title": "Prep",
+          "icon": "media/prep-sidebar.svg"
         }
       ]
     },
     "views": {
-      "codrag": [
+      "prep": [
         {
-          "id": "codrag.projects",
+          "id": "prep.projects",
           "name": "Projects",
-          "icon": "media/codrag-sidebar.svg"
+          "icon": "media/prep-sidebar.svg"
         },
         {
-          "id": "codrag.fileTree",
+          "id": "prep.fileTree",
           "name": "File Tree",
-          "icon": "media/codrag-sidebar.svg"
+          "icon": "media/prep-sidebar.svg"
         },
         {
-          "id": "codrag.indexStatus",
+          "id": "prep.indexStatus",
           "name": "Index Status",
-          "icon": "media/codrag-sidebar.svg"
+          "icon": "media/prep-sidebar.svg"
         }
       ]
     },
     "commands": [
       {
-        "command": "codrag.search",
-        "title": "CoDRAG: Search",
+        "command": "prep.search",
+        "title": "Prep: Search",
         "icon": "$(search)"
       },
       {
-        "command": "codrag.assembleContext",
-        "title": "CoDRAG: Assemble Context",
+        "command": "prep.assembleContext",
+        "title": "Prep: Assemble Context",
         "icon": "$(file-code)"
       },
       {
-        "command": "codrag.buildIndex",
-        "title": "CoDRAG: Build Index",
+        "command": "prep.buildIndex",
+        "title": "Prep: Build Index",
         "icon": "$(database)"
       },
       {
-        "command": "codrag.addProject",
-        "title": "CoDRAG: Add Project",
+        "command": "prep.addProject",
+        "title": "Prep: Add Project",
         "icon": "$(add)"
       },
       {
-        "command": "codrag.removeProject",
-        "title": "CoDRAG: Remove Project",
+        "command": "prep.removeProject",
+        "title": "Prep: Remove Project",
         "icon": "$(trash)"
       },
       {
-        "command": "codrag.copyMCPConfig",
-        "title": "CoDRAG: Copy MCP Config",
+        "command": "prep.copyMCPConfig",
+        "title": "Prep: Copy MCP Config",
         "icon": "$(clippy)"
       },
       {
-        "command": "codrag.openDashboard",
-        "title": "CoDRAG: Open Dashboard",
+        "command": "prep.openDashboard",
+        "title": "Prep: Open Dashboard",
         "icon": "$(dashboard)"
       },
       {
-        "command": "codrag.startDaemon",
-        "title": "CoDRAG: Start Daemon",
+        "command": "prep.startDaemon",
+        "title": "Prep: Start Daemon",
         "icon": "$(play)"
       },
       {
-        "command": "codrag.stopDaemon",
-        "title": "CoDRAG: Stop Daemon",
+        "command": "prep.stopDaemon",
+        "title": "Prep: Stop Daemon",
         "icon": "$(debug-stop)"
       },
       {
-        "command": "codrag.enterLicenseKey",
-        "title": "CoDRAG: Enter License Key",
+        "command": "prep.enterLicenseKey",
+        "title": "Prep: Enter License Key",
         "icon": "$(key)"
       },
       {
-        "command": "codrag.deactivateLicense",
-        "title": "CoDRAG: Deactivate License",
+        "command": "prep.deactivateLicense",
+        "title": "Prep: Deactivate License",
         "icon": "$(key)"
       },
       {
-        "command": "codrag.startWatcher",
-        "title": "CoDRAG: Start Watcher",
+        "command": "prep.startWatcher",
+        "title": "Prep: Start Watcher",
         "icon": "$(eye)"
       },
       {
-        "command": "codrag.stopWatcher",
-        "title": "CoDRAG: Stop Watcher",
+        "command": "prep.stopWatcher",
+        "title": "Prep: Stop Watcher",
         "icon": "$(eye-closed)"
       },
       {
-        "command": "codrag.traceLookup",
-        "title": "CoDRAG: Trace Lookup",
+        "command": "prep.traceLookup",
+        "title": "Prep: Trace Lookup",
         "icon": "$(type-hierarchy)"
       },
       {
-        "command": "codrag.refreshProjects",
+        "command": "prep.refreshProjects",
         "title": "Refresh",
         "icon": "$(refresh)"
       },
       {
-        "command": "codrag.refreshFileTree",
+        "command": "prep.refreshFileTree",
         "title": "Refresh",
         "icon": "$(refresh)"
       },
       {
-        "command": "codrag.selectProject",
+        "command": "prep.selectProject",
         "title": "Select Project"
       },
       {
-        "command": "codrag.rebuildProject",
+        "command": "prep.rebuildProject",
         "title": "Rebuild Index",
         "icon": "$(sync)"
       },
       {
-        "command": "codrag.pinFile",
+        "command": "prep.pinFile",
         "title": "Pin File",
         "icon": "$(pin)"
       },
       {
-        "command": "codrag.unpinFile",
+        "command": "prep.unpinFile",
         "title": "Unpin File",
         "icon": "$(pinned)"
       }
@@ -166,146 +166,146 @@
     "menus": {
       "view/title": [
         {
-          "command": "codrag.refreshProjects",
-          "when": "view == codrag.projects",
+          "command": "prep.refreshProjects",
+          "when": "view == prep.projects",
           "group": "navigation"
         },
         {
-          "command": "codrag.addProject",
-          "when": "view == codrag.projects",
+          "command": "prep.addProject",
+          "when": "view == prep.projects",
           "group": "navigation"
         },
         {
-          "command": "codrag.refreshFileTree",
-          "when": "view == codrag.fileTree",
+          "command": "prep.refreshFileTree",
+          "when": "view == prep.fileTree",
           "group": "navigation"
         },
         {
-          "command": "codrag.refreshIndexStatus",
-          "when": "view == codrag.indexStatus",
+          "command": "prep.refreshIndexStatus",
+          "when": "view == prep.indexStatus",
           "group": "navigation"
         },
         {
-          "command": "codrag.startWatcher",
-          "when": "view == codrag.indexStatus",
+          "command": "prep.startWatcher",
+          "when": "view == prep.indexStatus",
           "group": "inline"
         },
         {
-          "command": "codrag.stopWatcher",
-          "when": "view == codrag.indexStatus",
+          "command": "prep.stopWatcher",
+          "when": "view == prep.indexStatus",
           "group": "inline"
         },
         {
-          "command": "codrag.openDashboard",
-          "when": "view == codrag.indexStatus",
+          "command": "prep.openDashboard",
+          "when": "view == prep.indexStatus",
           "group": "inline"
         }
       ],
       "view/item/context": [
         {
-          "command": "codrag.selectProject",
-          "when": "view == codrag.projects && viewItem == project",
+          "command": "prep.selectProject",
+          "when": "view == prep.projects && viewItem == project",
           "group": "inline"
         },
         {
-          "command": "codrag.rebuildProject",
-          "when": "view == codrag.projects && viewItem == project",
+          "command": "prep.rebuildProject",
+          "when": "view == prep.projects && viewItem == project",
           "group": "1_actions"
         },
         {
-          "command": "codrag.removeProject",
-          "when": "view == codrag.projects && viewItem == project",
+          "command": "prep.removeProject",
+          "when": "view == prep.projects && viewItem == project",
           "group": "2_destructive"
         },
         {
-          "command": "codrag.copyMCPConfig",
-          "when": "view == codrag.projects && viewItem == project",
+          "command": "prep.copyMCPConfig",
+          "when": "view == prep.projects && viewItem == project",
           "group": "1_actions"
         },
         {
-          "command": "codrag.pinFile",
-          "when": "view == codrag.fileTree && viewItem == file",
+          "command": "prep.pinFile",
+          "when": "view == prep.fileTree && viewItem == file",
           "group": "inline"
         },
         {
-          "command": "codrag.unpinFile",
-          "when": "view == codrag.fileTree && viewItem == pinnedFile",
+          "command": "prep.unpinFile",
+          "when": "view == prep.fileTree && viewItem == pinnedFile",
           "group": "inline"
         },
         {
-          "command": "codrag.startWatcher",
-          "when": "view == codrag.indexStatus && viewItem == watcher_disabled",
+          "command": "prep.startWatcher",
+          "when": "view == prep.indexStatus && viewItem == watcher_disabled",
           "group": "inline"
         },
         {
-          "command": "codrag.stopWatcher",
-          "when": "view == codrag.indexStatus && viewItem == watcher_enabled",
+          "command": "prep.stopWatcher",
+          "when": "view == prep.indexStatus && viewItem == watcher_enabled",
           "group": "inline"
         },
         {
-          "command": "codrag.traceLookup",
-          "when": "view == codrag.indexStatus && viewItem == trace",
+          "command": "prep.traceLookup",
+          "when": "view == prep.indexStatus && viewItem == trace",
           "group": "inline"
         },
         {
-          "command": "codrag.buildIndex",
-          "when": "view == codrag.indexStatus && viewItem == stale",
+          "command": "prep.buildIndex",
+          "when": "view == prep.indexStatus && viewItem == stale",
           "group": "inline"
         }
       ]
     },
     "keybindings": [
       {
-        "command": "codrag.search",
+        "command": "prep.search",
         "key": "ctrl+alt+s",
         "mac": "cmd+opt+s",
         "when": "editorTextFocus"
       },
       {
-        "command": "codrag.assembleContext",
+        "command": "prep.assembleContext",
         "key": "ctrl+alt+c",
         "mac": "cmd+opt+c"
       },
       {
-        "command": "codrag.buildIndex",
+        "command": "prep.buildIndex",
         "key": "ctrl+alt+b",
         "mac": "cmd+opt+b"
       },
       {
-        "command": "codrag.traceLookup",
+        "command": "prep.traceLookup",
         "key": "ctrl+alt+t",
         "mac": "cmd+opt+t"
       }
     ],
     "configuration": {
-      "title": "CoDRAG",
+      "title": "Prep",
       "properties": {
-        "codrag.daemon.host": {
+        "prep.daemon.host": {
           "type": "string",
           "default": "127.0.0.1",
-          "description": "CoDRAG daemon host address"
+          "description": "Prep daemon host address"
         },
-        "codrag.daemon.port": {
+        "prep.daemon.port": {
           "type": "number",
           "default": 8400,
-          "description": "CoDRAG daemon port"
+          "description": "Prep daemon port"
         },
-        "codrag.daemon.executable": {
+        "prep.daemon.executable": {
           "type": "string",
-          "default": "codrag",
-          "description": "Path to the CoDRAG executable (or command name if on PATH)"
+          "default": "prep",
+          "description": "Path to the Prep executable (or command name if on PATH)"
         },
-        "codrag.daemon.autoStart": {
+        "prep.daemon.autoStart": {
           "type": "boolean",
           "default": false,
-          "description": "Automatically start the CoDRAG daemon when the extension activates"
+          "description": "Automatically start the Prep daemon when the extension activates"
         },
-        "codrag.statusBar.enabled": {
+        "prep.statusBar.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show CoDRAG status in the status bar"
+          "description": "Show Prep status in the status bar"
         },
-        "codrag.pollingInterval": {
+        "prep.pollingInterval": {
           "type": "number",
           "default": 10000,
           "description": "Health check polling interval in milliseconds",
@@ -316,10 +316,10 @@
     },
     "chatParticipants": [
       {
-        "id": "codrag.chat",
-        "name": "codrag",
-        "fullName": "CoDRAG",
-        "description": "Ask questions about your codebase using CoDRAG's semantic index.",
+        "id": "prep.chat",
+        "name": "prep",
+        "fullName": "Prep",
+        "description": "Ask questions about your codebase using Prep's semantic index.",
         "isSticky": true
       }
     ]

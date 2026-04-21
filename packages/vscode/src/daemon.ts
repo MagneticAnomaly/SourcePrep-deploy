@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { CodragDaemonClient } from './client';
+import { PrepDaemonClient } from './client';
 import type { LicenseStatus, LicenseTier } from './types';
 
 export type DaemonState = 'connected' | 'disconnected' | 'starting';
@@ -9,7 +9,7 @@ export type DaemonState = 'connected' | 'disconnected' | 'starting';
  * Emits events so other components can react.
  */
 export class DaemonManager implements vscode.Disposable {
-  private _client: CodragDaemonClient;
+  private _client: PrepDaemonClient;
   private readonly _output: vscode.OutputChannel;
 
   private _state: DaemonState = 'disconnected';
@@ -25,7 +25,7 @@ export class DaemonManager implements vscode.Disposable {
   private readonly _onLicenseChange = new vscode.EventEmitter<LicenseStatus>();
   readonly onLicenseChange = this._onLicenseChange.event;
 
-  constructor(client: CodragDaemonClient, output: vscode.OutputChannel) {
+  constructor(client: PrepDaemonClient, output: vscode.OutputChannel) {
     this._client = client;
     this._output = output;
   }
@@ -34,9 +34,9 @@ export class DaemonManager implements vscode.Disposable {
   get version(): string { return this._version; }
   get tier(): LicenseTier { return this._tier; }
   get license(): LicenseStatus | undefined { return this._license; }
-  get client(): CodragDaemonClient { return this._client; }
+  get client(): PrepDaemonClient { return this._client; }
 
-  updateClient(client: CodragDaemonClient): void {
+  updateClient(client: PrepDaemonClient): void {
     this._client = client;
     this.poll();
   }
@@ -45,7 +45,7 @@ export class DaemonManager implements vscode.Disposable {
 
   startPolling(): void {
     this.poll();
-    const interval = vscode.workspace.getConfiguration('codrag').get<number>('pollingInterval', 10_000);
+    const interval = vscode.workspace.getConfiguration('prep').get<number>('pollingInterval', 10_000);
     this._pollTimer = setInterval(() => this.poll(), interval);
   }
 
@@ -83,19 +83,19 @@ export class DaemonManager implements vscode.Disposable {
 
   async startDaemon(): Promise<void> {
     if (this._state === 'connected') {
-      vscode.window.showInformationMessage('CoDRAG daemon is already running.');
+      vscode.window.showInformationMessage('Prep daemon is already running.');
       return;
     }
 
     this.setState('starting');
-    this._output.appendLine('Starting CoDRAG daemon...');
+    this._output.appendLine('Starting Prep daemon...');
 
     try {
       const cp = await import('child_process');
-      const config = vscode.workspace.getConfiguration('codrag.daemon');
+      const config = vscode.workspace.getConfiguration('prep.daemon');
       const host = config.get<string>('host', '127.0.0.1');
       const port = config.get<number>('port', 8400);
-      const executable = config.get<string>('executable', 'codrag');
+      const executable = config.get<string>('executable', 'prep');
 
       this._daemonProcess = cp.spawn(executable, ['serve', '--host', host, '--port', String(port)], {
         detached: true,
@@ -106,7 +106,7 @@ export class DaemonManager implements vscode.Disposable {
       this._daemonProcess.on('error', (err) => {
         this._output.appendLine(`Failed to start daemon: ${err.message}`);
         vscode.window.showErrorMessage(
-          `Could not start CoDRAG daemon. Is 'codrag' on your PATH?\n${err.message}`,
+          `Could not start Prep daemon. Is 'prep' on your PATH?\n${err.message}`,
         );
         this.setState('disconnected');
       });
@@ -157,16 +157,16 @@ export class DaemonManager implements vscode.Disposable {
 
   async requireFeature(feature: keyof LicenseStatus['features'], label: string): Promise<boolean> {
     if (this._state !== 'connected') {
-      vscode.window.showWarningMessage('CoDRAG daemon is not running. Start it first.');
+      vscode.window.showWarningMessage('Prep daemon is not running. Start it first.');
       return false;
     }
     if (!this.isFeatureAvailable(feature)) {
       const action = await vscode.window.showWarningMessage(
-        `"${label}" requires a Pro license. Upgrade at codrag.io/pricing`,
+        `"${label}" requires a Pro license. Upgrade at getprep.io/pricing`,
         'Open Pricing',
       );
       if (action === 'Open Pricing') {
-        vscode.env.openExternal(vscode.Uri.parse('https://codrag.io/pricing'));
+        vscode.env.openExternal(vscode.Uri.parse('https://getprep.io/pricing'));
       }
       return false;
     }
@@ -176,7 +176,7 @@ export class DaemonManager implements vscode.Disposable {
   async requireConnected(): Promise<boolean> {
     if (this._state !== 'connected') {
       const action = await vscode.window.showWarningMessage(
-        'CoDRAG daemon is not running.',
+        'Prep daemon is not running.',
         'Start Daemon',
       );
       if (action === 'Start Daemon') {
