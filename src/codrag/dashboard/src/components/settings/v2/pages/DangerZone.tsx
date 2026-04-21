@@ -57,8 +57,9 @@ export interface DangerZonePageProps {
  * the same `confirmAction` state machine the drawer uses.
  *
  * Absorbs the drawer's "Reset All" (index wipe) — the per-numeric "Reset
- * All" from AdvancedSettingsPanel is obsoleted by T15's per-field reset
- * affordances on Trace Limits and is intentionally NOT re-added here.
+ * All" from the legacy advanced settings panel (removed in T24) is obsoleted
+ * by T15's per-field reset affordances on Trace Limits and is intentionally
+ * NOT re-added here.
  *
  * Developer-tier resets (Atlas / Group Reasoning / Deep Enrichment) live on
  * the Developer → Selective Reset page (T23), not here.

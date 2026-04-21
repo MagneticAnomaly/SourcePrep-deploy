@@ -6,9 +6,8 @@ import {
 } from '@codrag/ui';
 import { SettingsPage } from '../SettingsPage';
 
-// Mirrors AdvancedSettingsPanel GLOBAL_DEFAULTS (src/codrag/dashboard/src/
-// components/settings/AdvancedSettingsPanel.tsx:98-105). Kept in lock-step so
-// the v2 page and legacy panel agree on "default" for the reset affordance.
+// Defaults lifted verbatim from the legacy advanced settings panel (removed
+// in T24). These power the per-field reset affordance.
 const DEFAULTS = {
   chunk_max_chars: 2000,
   chunk_overlap_chars: 200,

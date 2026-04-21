@@ -28,9 +28,9 @@ import {
 } from '@codrag/ui'
 import { StartupScreen } from './components/StartupScreen'
 import { UpdateBanner } from './components/UpdateBanner'
-import { SettingsDrawer } from './components/settings/SettingsDrawer'
 import { SettingsOverlay } from './components/settings/v2/SettingsOverlay'
 import { renderSettingsPage } from './components/settings/v2/pages'
+import type { SettingsPageId } from './components/settings/v2/routeParser'
 import { Toast, makeToast } from './components/Toast'
 import type { ToastMessage, ToastVariant } from './components/Toast'
 import { useLicenseSystem } from './hooks/useLicenseSystem'
@@ -59,16 +59,8 @@ import 'react-resizable/css/styles.css'
 function App() {
   const api = useApiClient()
 
-  // ── Feature flag: Settings overlay v2 ──────────────────────
-  // Opt-in via devtools: localStorage.setItem('codrag_settings_overlay_v2', '1')
-  // DEV is intentionally NOT defaulted on — the gear button and 4 other settings
-  // entry points still call setSettingsOpen() until T14+ rewires them, so forcing
-  // the flag on makes those clicks dead.
-  const settingsV2Enabled = localStorage.getItem('codrag_settings_overlay_v2') === '1'
-
   // ⌘, (Ctrl+, on non-Mac) toggles the settings overlay via URL state.
   useEffect(() => {
-    if (!settingsV2Enabled) return
     const onKey = (e: KeyboardEvent) => {
       const mod = navigator.platform.includes('Mac') ? e.metaKey : e.ctrlKey
       if (mod && e.key === ',') {
@@ -86,7 +78,7 @@ function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [settingsV2Enabled])
+  }, [])
 
   // ── Connection state ───────────────────────────────────────
   const [isConnected, setIsConnected] = useState(false)
@@ -161,9 +153,15 @@ function App() {
   const [uiTheme, setUiTheme] = useState<string>(() =>
     localStorage.getItem('codrag_ui_theme') ?? 'none'
   )
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsOpenToTab, setSettingsOpenToTab] = useState<'project' | 'global' | 'advanced' | 'developer' | undefined>(undefined)
-  const [scrollToDeepAnalysis, setScrollToDeepAnalysis] = useState(false)
+  // Opens the V2 settings overlay at a specific page by pushing
+  // `?settings=<page>` into the URL and firing a popstate so the
+  // overlay's useSettingsRoute hook picks it up.
+  const openSettingsAt = useCallback((page: SettingsPageId) => {
+    const next = new URL(window.location.href)
+    next.searchParams.set('settings', page)
+    window.history.pushState(window.history.state, '', next.toString())
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, [])
   const [bgImage, setBgImage] = useState<string | null>(() =>
     localStorage.getItem('codrag_bg_image') ?? null
   )
@@ -917,8 +915,8 @@ function App() {
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
-    onOpenDeepSettings: () => { setSettingsOpenToTab('project'); setScrollToDeepAnalysis(true); setSettingsOpen(true) },
-    onOpenSettings: () => { setSettingsOpenToTab('global'); setSettingsOpen(true) },
+    onOpenDeepSettings: () => { openSettingsAt('deep-analysis') },
+    onOpenSettings: () => { openSettingsAt('appearance') },
     onOpenDetails: (panelId: string) => layoutApiRef.current?.openDetails(panelId),
     showDevPanels: globalConfig.developer_show_dev_panels ?? false,
     tracePipelinePanelVisible,
@@ -1059,7 +1057,7 @@ function App() {
             You have {project.projects.length} projects but your {effectiveTier === 'free' ? 'Free' : effectiveTier.charAt(0).toUpperCase() + effectiveTier.slice(1)} plan supports {projectLimit === Infinity ? 'unlimited' : projectLimit}. Project updates and syncing are paused.
           </span>
           <button
-            onClick={() => { setSettingsOpenToTab('global'); setSettingsOpen(true) }}
+            onClick={() => openSettingsAt('license')}
             className="ml-2 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded font-semibold transition-colors"
           >
             Upgrade to Pro
@@ -1079,120 +1077,67 @@ function App() {
           Connection to CoDRAG daemon lost. Attempting to reconnect...
         </div>
       )}
-      {settingsV2Enabled ? (
-        <SettingsOverlay
-          renderPage={(page) => renderSettingsPage(page, {
-            projectConfig,
-            globalConfig,
-            activeProjectId: selectedProjectId,
-            projectName: selectedProject?.name ?? null,
-            projectConfigTyped: selectedProjectId ? projectConfig : null,
-            projectDirty: configDirty,
-            projectSaving,
-            onProjectChange: handleProjectConfigChange,
-            onProjectSave: handleProjectSave,
-            onProjectDiscard: handleProjectDiscard,
-            onDetectStack: selectedProjectId ? handleDetectStack : undefined,
-            deepAnalysisSchedule,
-            onDeepAnalysisScheduleChange: handleSyncedDeepAnalysisScheduleChange,
-            largeModelConfigured: !!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model),
-            fastModelConfigured: !!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model),
-            pipelineRunning: settingsPipelineRunning,
-            onRebuildPipeline: handleRebuildPipeline,
-            onDestroyIndex: handleDestroyIndex,
-            onDestroyEnrichmentFull: handleDestroyEnrichmentFull,
-            onDestroyFinalizeFull: handleDestroyFinalizeFull,
-            uiMode,
-            onModeChange: setUiMode,
-            uiTheme,
-            onThemeChange: setUiTheme,
-            bgImage,
-            onBgImageChange: setBgImage,
-            globalAdvanced,
-            onGlobalAdvancedChange: handleGlobalAdvancedChange,
-            maxActiveProjects,
-            onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
-            licenseStatus,
-            licenseKeyInput,
-            onLicenseKeyInputChange: setLicenseKeyInput,
-            onActivateLicense: handleActivateLicense,
-            onDeactivateLicense: handleDeactivateLicense,
-            licenseLoading,
-            licenseError,
-            devTierOverride,
-            onOpenAiGateway: handleOpenAiGateway,
-            onGlobalConfigChange: handleGlobalConfigChange,
-            onDevTierOverrideChange: handleDevTierOverrideChange,
-            devRoleOverride,
-            onDevRoleOverrideChange: handleDevRoleOverrideChange,
-            onDestroyAtlas: handleDestroyAtlas,
-            onDestroyGroupReasoning: handleDestroyGroupReasoning,
-            onDestroyDeepEnrichment: handleDestroyDeepEnrichment,
-          })}
-          projectName={selectedProject?.name ?? null}
-          confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}
-        />
-      ) : (
-        <SettingsDrawer
-          open={settingsOpen}
-          onClose={() => { setSettingsOpen(false); setScrollToDeepAnalysis(false) }}
-          openToTab={settingsOpenToTab}
-          scrollToDeepAnalysis={scrollToDeepAnalysis}
-          projectConfig={projectConfig}
-          onProjectConfigChange={handleProjectConfigChange}
-          onSaveConfig={() => void handleSaveConfig()}
-          configDirty={configDirty}
-          hasProject={!!selectedProjectId}
-          onDetectStack={selectedProjectId ? handleDetectStack : undefined}
-          deepAnalysisSchedule={deepAnalysisSchedule}
-          onDeepAnalysisScheduleChange={handleSyncedDeepAnalysisScheduleChange}
-          largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
-          fastModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
-          maxActiveProjects={maxActiveProjects}
-          onMaxActiveProjectsChange={handleMaxActiveProjectsChange}
-          uiMode={uiMode}
-          onModeChange={setUiMode}
-          uiTheme={uiTheme}
-          onThemeChange={setUiTheme}
-          bgImage={bgImage}
-          onBgImageChange={setBgImage}
-          licenseStatus={licenseStatus}
-          licenseKeyInput={licenseKeyInput}
-          onLicenseKeyInputChange={setLicenseKeyInput}
-          onActivateLicense={handleActivateLicense}
-          onDeactivateLicense={handleDeactivateLicense}
-          licenseLoading={licenseLoading}
-          licenseError={licenseError}
-          projectName={selectedProject?.name}
-          projectId={selectedProjectId}
-          pipelineRunning={settingsPipelineRunning}
-          onDestroyIndex={handleDestroyIndex}
-          onDestroyEnrichmentFull={handleDestroyEnrichmentFull}
-          onDestroyFinalizeFull={handleDestroyFinalizeFull}
-          onRebuildPipeline={handleRebuildPipeline}
-          onDestroyAtlas={handleDestroyAtlas}
-          onDestroyGroupReasoning={handleDestroyGroupReasoning}
-          onDestroyDeepEnrichment={handleDestroyDeepEnrichment}
-          globalConfig={globalConfig}
-          onGlobalConfigChange={handleGlobalConfigChange}
-          devTierOverride={devTierOverride}
-          onDevTierOverrideChange={handleDevTierOverrideChange}
-          devRoleOverride={devRoleOverride}
-          onDevRoleOverrideChange={handleDevRoleOverrideChange}
-        />
-      )}
-      {/* Floating Settings trigger — always visible */}
-      {!settingsOpen && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => { setSettingsOpenToTab(undefined); setSettingsOpen(true) }}
-          title="Settings"
-          className="fixed bottom-4 right-4 z-40 shadow-lg bg-surface hover:bg-surface-raised"
-        >
-          <Settings className="w-5 h-5" />
-        </Button>
-      )}
+      <SettingsOverlay
+        renderPage={(page) => renderSettingsPage(page, {
+          globalConfig,
+          activeProjectId: selectedProjectId,
+          projectName: selectedProject?.name ?? null,
+          projectConfigTyped: selectedProjectId ? projectConfig : null,
+          projectDirty: configDirty,
+          projectSaving,
+          onProjectChange: handleProjectConfigChange,
+          onProjectSave: handleProjectSave,
+          onProjectDiscard: handleProjectDiscard,
+          onDetectStack: selectedProjectId ? handleDetectStack : undefined,
+          deepAnalysisSchedule,
+          onDeepAnalysisScheduleChange: handleSyncedDeepAnalysisScheduleChange,
+          largeModelConfigured: !!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model),
+          fastModelConfigured: !!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model),
+          pipelineRunning: settingsPipelineRunning,
+          onRebuildPipeline: handleRebuildPipeline,
+          onDestroyIndex: handleDestroyIndex,
+          onDestroyEnrichmentFull: handleDestroyEnrichmentFull,
+          onDestroyFinalizeFull: handleDestroyFinalizeFull,
+          uiMode,
+          onModeChange: setUiMode,
+          uiTheme,
+          onThemeChange: setUiTheme,
+          bgImage,
+          onBgImageChange: setBgImage,
+          globalAdvanced,
+          onGlobalAdvancedChange: handleGlobalAdvancedChange,
+          maxActiveProjects,
+          onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
+          licenseStatus,
+          licenseKeyInput,
+          onLicenseKeyInputChange: setLicenseKeyInput,
+          onActivateLicense: handleActivateLicense,
+          onDeactivateLicense: handleDeactivateLicense,
+          licenseLoading,
+          licenseError,
+          devTierOverride,
+          onOpenAiGateway: handleOpenAiGateway,
+          onGlobalConfigChange: handleGlobalConfigChange,
+          onDevTierOverrideChange: handleDevTierOverrideChange,
+          devRoleOverride,
+          onDevRoleOverrideChange: handleDevRoleOverrideChange,
+          onDestroyAtlas: handleDestroyAtlas,
+          onDestroyGroupReasoning: handleDestroyGroupReasoning,
+          onDestroyDeepEnrichment: handleDestroyDeepEnrichment,
+        })}
+        projectName={selectedProject?.name ?? null}
+        confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}
+      />
+      {/* Floating Settings trigger — always visible; overlay (z-50) masks it when open. */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => openSettingsAt('sources')}
+        title="Settings"
+        className="fixed bottom-4 right-4 z-40 shadow-lg bg-surface hover:bg-surface-raised"
+      >
+        <Settings className="w-5 h-5" />
+      </Button>
       {/* Background image overlay */}
       {bgImage && (
         <div
@@ -1317,7 +1262,7 @@ function App() {
         limitReached={isAtProjectLimit}
         currentTierLabel={effectiveTier === 'free' ? 'Free' : effectiveTier === 'starter' ? 'Starter' : undefined}
         currentLimit={projectLimit === Infinity ? undefined : projectLimit}
-        onUpgrade={() => { setAddModalOpen(false); setSettingsOpenToTab('global'); setSettingsOpen(true) }}
+        onUpgrade={() => { setAddModalOpen(false); openSettingsAt('license') }}
       />
     </>
   )

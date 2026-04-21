@@ -7,9 +7,9 @@ import {
 } from '@codrag/ui';
 import { SettingsPage } from '../SettingsPage';
 
-// Mirrors AdvancedSettingsPanel GLOBAL_DEFAULTS for checkpoint_interval and
-// min_edge_confidence. Kept in lock-step so the v2 page and legacy panel agree
-// on "default" for the reset affordance.
+// Defaults lifted verbatim from the legacy advanced settings panel (removed
+// in T24) for checkpoint_interval and min_edge_confidence. These power the
+// per-field reset affordance.
 const DEFAULTS = {
   checkpoint_interval: 500,
   min_edge_confidence: 0.5,

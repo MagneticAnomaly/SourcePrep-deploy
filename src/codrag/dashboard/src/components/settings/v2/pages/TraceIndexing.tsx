@@ -8,9 +8,8 @@ import {
 import { RotateCcw, Save } from 'lucide-react';
 import { SettingsPage } from '../SettingsPage';
 
-// Mirrors AdvancedSettingsPanel PROJECT_DEFAULTS (src/codrag/dashboard/src/
-// components/settings/AdvancedSettingsPanel.tsx:92-96). Kept in lock-step so
-// the v2 page and legacy panel agree on "default" for the reset affordance.
+// Defaults lifted verbatim from the legacy advanced settings panel (removed
+// in T24). These power the per-field reset affordance.
 const TRACE_LIMIT_DEFAULTS = {
   max_files: 50_000,
   max_nodes: 100_000,

@@ -15,9 +15,6 @@ import { DiagnosticsPage } from './Diagnostics';
 import { SelectiveResetPage } from './SelectiveReset';
 
 export interface PageHostProps {
-  // Legacy/unknown-typed fields preserved so the other 11 pages continue to
-  // compile under `{...host as any}` until their own lift tasks land.
-  projectConfig: unknown;
   activeProjectId: string | null;
 
   // ── Project-scope: Sources page (Task 14) ─────────────────────────
