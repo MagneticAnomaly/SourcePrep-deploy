@@ -76,12 +76,14 @@ pnpm-debug.log*
 
 # Prep data (don't commit local indexes)
 .prep/
-.codrag/  # legacy (migration-era pointer directories — keep ignored)
+# legacy (migration-era pointer directories — keep ignored)
+.codrag/
 # Phase 113: legacy ./codrag_data/ path. Daemon state moved to
 # $PREP_DATA_DIR (default ~/.local/share/prep/). Anything
 # remaining here is either a pre-migration install or stale
 # leftovers — never committed.
-codrag_data/  # legacy migration path — keep ignored
+# legacy migration path — keep ignored
+codrag_data/
 
 # OS
 .DS_Store
