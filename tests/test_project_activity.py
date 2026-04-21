@@ -6,8 +6,8 @@ Free tier: 1 active + 2 frozen + rest locked, auto-determined by updated_at
 
 import pytest
 from unittest.mock import patch, MagicMock
-from codrag.core.project_registry import Project
-from codrag.services.project_helpers import (
+from prep.core.project_registry import Project
+from prep.services.project_helpers import (
     is_project_active,
     get_free_tier_slots,
     get_project_activity_status,
@@ -143,15 +143,15 @@ class TestFreeTierSlots:
 
 
 class TestProjectActivityStatus:
-    @patch("codrag.core.feature_gate.get_license")
+    @patch("prep.core.feature_gate.get_license")
     def test_pro_tier_active(self, mock_lic):
-        from codrag.core.feature_gate import Tier, License
+        from prep.core.feature_gate import Tier, License
         mock_lic.return_value = License(tier=Tier.PERPETUAL)
         proj = _make_project("p1", config={"active": True})
 
-        with patch.object(get_project_activity_status, "__module__", "codrag.services.project_helpers"):
+        with patch.object(get_project_activity_status, "__module__", "prep.services.project_helpers"):
             pass  # just need the import path
-        from codrag.services import project_helpers as ph
+        from prep.services import project_helpers as ph
         orig_get_reg = ph.get_registry
         mock_reg = MagicMock()
         mock_reg.get_project.return_value = proj
@@ -162,13 +162,13 @@ class TestProjectActivityStatus:
         finally:
             ph.get_registry = orig_get_reg
 
-    @patch("codrag.core.feature_gate.get_license")
+    @patch("prep.core.feature_gate.get_license")
     def test_pro_tier_inactive(self, mock_lic):
-        from codrag.core.feature_gate import Tier, License
+        from prep.core.feature_gate import Tier, License
         mock_lic.return_value = License(tier=Tier.PERPETUAL)
         proj = _make_project("p1", config={"active": False})
 
-        from codrag.services import project_helpers as ph
+        from prep.services import project_helpers as ph
         orig = ph.get_registry
         mock_reg = MagicMock()
         mock_reg.get_project.return_value = proj
@@ -178,13 +178,13 @@ class TestProjectActivityStatus:
         finally:
             ph.get_registry = orig
 
-    @patch("codrag.core.feature_gate.get_license")
+    @patch("prep.core.feature_gate.get_license")
     def test_pro_tier_default_active(self, mock_lic):
-        from codrag.core.feature_gate import Tier, License
+        from prep.core.feature_gate import Tier, License
         mock_lic.return_value = License(tier=Tier.MONTHLY)
         proj = _make_project("p1", config={})
 
-        from codrag.services import project_helpers as ph
+        from prep.services import project_helpers as ph
         orig = ph.get_registry
         mock_reg = MagicMock()
         mock_reg.get_project.return_value = proj
@@ -194,9 +194,9 @@ class TestProjectActivityStatus:
         finally:
             ph.get_registry = orig
 
-    @patch("codrag.core.feature_gate.get_license")
+    @patch("prep.core.feature_gate.get_license")
     def test_free_tier_slots(self, mock_lic):
-        from codrag.core.feature_gate import Tier, License
+        from prep.core.feature_gate import Tier, License
         mock_lic.return_value = License(tier=Tier.FREE)
         projects = [
             _make_project("newest", updated_at="2026-02-28T23:00:00"),
@@ -205,7 +205,7 @@ class TestProjectActivityStatus:
             _make_project("ancient", updated_at="2026-01-01T00:00:00"),
         ]
 
-        from codrag.services import project_helpers as ph
+        from prep.services import project_helpers as ph
         orig = ph.get_registry
         mock_reg = MagicMock()
         mock_reg.list_projects.return_value = projects
@@ -219,12 +219,12 @@ class TestProjectActivityStatus:
         finally:
             ph.get_registry = orig
 
-    @patch("codrag.core.feature_gate.get_license")
+    @patch("prep.core.feature_gate.get_license")
     def test_free_tier_unknown_project(self, mock_lic):
-        from codrag.core.feature_gate import Tier, License
+        from prep.core.feature_gate import Tier, License
         mock_lic.return_value = License(tier=Tier.FREE)
 
-        from codrag.services import project_helpers as ph
+        from prep.services import project_helpers as ph
         orig = ph.get_registry
         mock_reg = MagicMock()
         mock_reg.list_projects.return_value = []
@@ -234,13 +234,13 @@ class TestProjectActivityStatus:
         finally:
             ph.get_registry = orig
 
-    @patch("codrag.core.feature_gate.get_license")
+    @patch("prep.core.feature_gate.get_license")
     def test_team_tier_uses_config_active(self, mock_lic):
-        from codrag.core.feature_gate import Tier, License
+        from prep.core.feature_gate import Tier, License
         mock_lic.return_value = License(tier=Tier.TEAM)
         proj = _make_project("p1", config={"active": True})
 
-        from codrag.services import project_helpers as ph
+        from prep.services import project_helpers as ph
         orig = ph.get_registry
         mock_reg = MagicMock()
         mock_reg.get_project.return_value = proj

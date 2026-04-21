@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from codrag.core.sg_filter import savitzky_golay_derivative, find_boundaries
+from prep.core.sg_filter import savitzky_golay_derivative, find_boundaries
 
 
 class TestSavitzkyGolayDerivative:

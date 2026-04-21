@@ -2,7 +2,7 @@
 
 import pytest
 
-from codrag.core.query import preprocess_query as _preprocess_query, _MAX_QUERY_CHARS
+from prep.core.query import preprocess_query as _preprocess_query, _MAX_QUERY_CHARS
 
 
 class TestPreprocessQuery:

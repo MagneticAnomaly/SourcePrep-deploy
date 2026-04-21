@@ -4,7 +4,7 @@ import json
 import logging
 from unittest.mock import MagicMock
 
-from codrag.core.swarm_orchestrator import (
+from prep.core.swarm_orchestrator import (
     CoordinatorPlan,
     SwarmOrchestrator,
     SwarmResult,
@@ -353,7 +353,7 @@ def test_inherit_fallback_when_coordinator_none() -> None:
 def test_coordinator_none_fallback_routes_planning_through_worker() -> None:
     """Phase 112 fix 5: when coordinator_llm=None falls back to worker_llm,
     the Planning phase must route through the worker client (not crash)."""
-    from codrag.core.swarm_orchestrator import WorkItem
+    from prep.core.swarm_orchestrator import WorkItem
     worker = MagicMock(name="worker_llm")
     worker.generate.return_value = ('{"assignments":[]}', 42)
     orch = SwarmOrchestrator(
@@ -382,7 +382,7 @@ def test_legacy_single_llm_constructor_still_works() -> None:
 
 
 def test_coordinator_calls_use_coordinator_llm_only():
-    from codrag.core.swarm_orchestrator import SwarmOrchestrator, WorkItem
+    from prep.core.swarm_orchestrator import SwarmOrchestrator, WorkItem
     coord = MagicMock(name="coord")
     coord.generate.return_value = ('{"assignments":[]}', 100)
     worker = MagicMock(name="worker")
@@ -421,7 +421,7 @@ def test_swarm_emits_metrics_log_line(caplog) -> None:
 
     orch = SwarmOrchestrator(llm=llm, concurrency=2)
 
-    with caplog.at_level(logging.INFO, logger="codrag.core.swarm_orchestrator"):
+    with caplog.at_level(logging.INFO, logger="prep.core.swarm_orchestrator"):
         result = orch.execute(
             items=items,
             coordinator_prompt="Coordinate:\n{group_summaries}",
@@ -455,7 +455,7 @@ def test_swarm_metrics_contains_all_five_fields(caplog) -> None:
 
     orch = SwarmOrchestrator(llm=llm, concurrency=3)
 
-    with caplog.at_level(logging.INFO, logger="codrag.core.swarm_orchestrator"):
+    with caplog.at_level(logging.INFO, logger="prep.core.swarm_orchestrator"):
         result = orch.execute(
             items=items,
             coordinator_prompt="Coordinate:\n{group_summaries}",

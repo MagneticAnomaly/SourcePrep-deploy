@@ -18,9 +18,9 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core import CodeIndex, FakeEmbedder
-from codrag.core.index import CodeIndex as _CI
-from codrag.core.repo_policy import (
+from prep.core import CodeIndex, FakeEmbedder
+from prep.core.index import CodeIndex as _CI
+from prep.core.repo_policy import (
     _normalize_path_weights,
     ensure_repo_policy,
     load_repo_policy,

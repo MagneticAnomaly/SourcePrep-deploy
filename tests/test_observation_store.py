@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.observation_store import (
+from prep.services.observation_store import (
     Observation,
     ObservationStore,
     MAX_OBSERVATIONS_PER_PROJECT,
@@ -308,7 +308,7 @@ class TestContextInjection:
 
     def test_inject_observations_no_store(self):
         """Injection is a no-op when the store hasn't been initialized."""
-        from codrag.api.routers.projects import _inject_observations
+        from prep.api.routers.projects import _inject_observations
         ctx, meta = _inject_observations("existing context", "proj-1", "test query")
         assert ctx == "existing context"
         assert meta is None
@@ -316,7 +316,7 @@ class TestContextInjection:
     def test_inject_observations_with_data(self, store):
         """When observations exist, they are appended as session-memory."""
         store.save("proj-1", "Auth uses JWT tokens for session management")
-        from codrag.api.routers.projects import _inject_observations
+        from prep.api.routers.projects import _inject_observations
         ctx, meta = _inject_observations("base context", "proj-1", "JWT authentication")
         if meta is not None:
             assert "[session-memory]" in ctx
@@ -327,7 +327,7 @@ class TestContextInjection:
         """Stale observations get [STALE] prefix."""
         store.save("proj-1", "Auth uses JWT", file_path="src/auth.py")
         store.mark_stale_batch("proj-1", ["src/auth.py"], "modified")
-        from codrag.api.routers.projects import _inject_observations
+        from prep.api.routers.projects import _inject_observations
         ctx, meta = _inject_observations("base context", "proj-1", "JWT")
         if meta is not None:
             assert "[STALE]" in ctx

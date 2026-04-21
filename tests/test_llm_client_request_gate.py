@@ -10,13 +10,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.core.llm_client import LLMClient
-from codrag.services.pipeline.scheduler import PipelineScheduler
+from prep.core.llm_client import LLMClient
+from prep.services.pipeline.scheduler import PipelineScheduler
 
 
 def _seed_scheduler(limit: int = 2) -> tuple[PipelineScheduler, str]:
     """Seed the shared scheduler with a cloud slot at the given limit."""
-    from codrag.services.pipeline import scheduler as sched_mod
+    from prep.services.pipeline import scheduler as sched_mod
     sched = sched_mod.pipeline_scheduler
     node_id = "cloud:gate-test"
     sched.configure_node(node_id, max_concurrent=limit)
@@ -31,7 +31,7 @@ def _seed_scheduler(limit: int = 2) -> tuple[PipelineScheduler, str]:
 @pytest.fixture(autouse=True)
 def _reset_scheduler():
     """Clear scheduler state between tests to avoid cross-test leakage."""
-    from codrag.services.pipeline import scheduler as sched_mod
+    from prep.services.pipeline import scheduler as sched_mod
     sched_mod.pipeline_scheduler._slots.clear()
     sched_mod.pipeline_scheduler._queues.clear()
     sched_mod.pipeline_scheduler._init_embedding_slot()
@@ -143,7 +143,7 @@ def test_gate_timeout_falls_back_to_raw_call() -> None:
     client = LLMClient(endpoint_url="http://localhost:11434", provider="ollama", model="kimi-k2.5:cloud")
     with patch.object(client._session, "post", return_value=_mock_ollama_response()):
         with patch(
-            "codrag.core.llm_client._REQUEST_GATE_TIMEOUT_S", 0.3
+            "prep.core.llm_client._REQUEST_GATE_TIMEOUT_S", 0.3
         ):
             t_start = time.monotonic()
             text, tokens = client.generate(
@@ -162,9 +162,9 @@ def test_get_llm_concurrency_honors_explicit_cap_when_above_default(monkeypatch)
     when AIMD has discovered a larger budget. Explicit settings above the
     default of 1 are treated as an upper bound (VRAM protection use case).
     """
-    from codrag.core.llm_client import _get_llm_concurrency
-    from codrag.services.settings_store import settings
-    from codrag.services.pipeline import scheduler as sched_mod
+    from prep.core.llm_client import _get_llm_concurrency
+    from prep.services.settings_store import settings
+    from prep.services.pipeline import scheduler as sched_mod
 
     def _fake_get(k, default=None):
         if k == "pipeline_config":
@@ -181,10 +181,10 @@ def test_get_llm_concurrency_honors_explicit_cap_when_above_default(monkeypatch)
 
 def test_get_llm_concurrency_clamps_to_pool_ceiling(monkeypatch) -> None:
     """A value > pool max_workers (shared LLM pool's ceiling) is still clamped."""
-    from codrag.core.llm_client import _get_llm_concurrency
-    from codrag.services.settings_store import settings
-    from codrag.services.pipeline import scheduler as sched_mod
-    from codrag.services.pipeline.thread_pool import llm_pool
+    from prep.core.llm_client import _get_llm_concurrency
+    from prep.services.settings_store import settings
+    from prep.services.pipeline import scheduler as sched_mod
+    from prep.services.pipeline.thread_pool import llm_pool
 
     def _fake_get(k, default=None):
         if k == "pipeline_config":
@@ -206,9 +206,9 @@ def test_get_llm_concurrency_scales_with_aimd_when_setting_stale(monkeypatch) ->
     mechanism get_batch_concurrency uses; all LLM fan-out paths converge on
     the scheduler-driven budget.
     """
-    from codrag.core.llm_client import _get_llm_concurrency
-    from codrag.services.settings_store import settings
-    from codrag.services.pipeline import scheduler as sched_mod
+    from prep.core.llm_client import _get_llm_concurrency
+    from prep.services.settings_store import settings
+    from prep.services.pipeline import scheduler as sched_mod
 
     def _fake_get(k, default=None):
         if k == "pipeline_config":
@@ -230,10 +230,10 @@ def test_get_llm_concurrency_clamps_aimd_to_pool_ceiling(monkeypatch) -> None:
     """If AIMD discovers dynamic_capacity > shared-pool max_workers, clamp to
     the pool ceiling — submitting beyond pool size has no parallelism benefit.
     """
-    from codrag.core.llm_client import _get_llm_concurrency
-    from codrag.services.settings_store import settings
-    from codrag.services.pipeline import scheduler as sched_mod
-    from codrag.services.pipeline.thread_pool import llm_pool
+    from prep.core.llm_client import _get_llm_concurrency
+    from prep.services.settings_store import settings
+    from prep.services.pipeline import scheduler as sched_mod
+    from prep.services.pipeline.thread_pool import llm_pool
 
     def _fake_get(k, default=None):
         if k == "pipeline_config":
@@ -254,9 +254,9 @@ def test_get_llm_concurrency_ignores_embedding_slot(monkeypatch) -> None:
     """Embedding slot has dynamic_capacity=2 (memory-detected); it must NOT
     drive LLM fan-out concurrency. Only non-embedding scheduler slots matter.
     """
-    from codrag.core.llm_client import _get_llm_concurrency
-    from codrag.services.settings_store import settings
-    from codrag.services.pipeline import scheduler as sched_mod
+    from prep.core.llm_client import _get_llm_concurrency
+    from prep.services.settings_store import settings
+    from prep.services.pipeline import scheduler as sched_mod
 
     def _fake_get(k, default=None):
         if k == "pipeline_config":
@@ -283,7 +283,7 @@ def test_max_llm_budget_excludes_embedding_slot(monkeypatch) -> None:
     if its dynamic_capacity is higher — embedding budget is memory-driven,
     not AIMD-driven, and must not leak into LLM fan-out sizing.
     """
-    from codrag.services.pipeline import scheduler as sched_mod
+    from prep.services.pipeline import scheduler as sched_mod
     sched = sched_mod.pipeline_scheduler
     embed_slot = sched._slots["__embedding__"]
     embed_slot.current_limit = 16  # pretend embedding has a huge budget
@@ -307,7 +307,7 @@ def test_max_llm_budget_thread_safe_vs_configure_node() -> None:
     iteration``.
     """
     import threading
-    from codrag.services.pipeline import scheduler as sched_mod
+    from prep.services.pipeline import scheduler as sched_mod
     sched = sched_mod.pipeline_scheduler
 
     stop = threading.Event()
@@ -337,7 +337,7 @@ def test_max_llm_budget_thread_safe_vs_configure_node() -> None:
 def test_gate_timeout_survives_slot_removal() -> None:
     """If the slot is removed between gate-timeout and the warning log,
     generate() must still proceed uncapped rather than raise KeyError."""
-    from codrag.services.pipeline import scheduler as sched_mod
+    from prep.services.pipeline import scheduler as sched_mod
     sched, node_id = _seed_scheduler(limit=1)
     pre_token = sched.acquire_request(node_id, timeout=0.5)
     assert pre_token is not None
@@ -359,7 +359,7 @@ def test_gate_timeout_survives_slot_removal() -> None:
 
     with patch.object(sched_mod.pipeline_scheduler, "acquire_request_ctx", _acquire_ctx_then_remove):
         with patch.object(client._session, "post", return_value=_mock_ollama_response()):
-            with patch("codrag.core.llm_client._REQUEST_GATE_TIMEOUT_S", 0.2):
+            with patch("prep.core.llm_client._REQUEST_GATE_TIMEOUT_S", 0.2):
                 text, tokens = client.generate(
                     prompt="hi", json_mode=False, num_predict=8,
                 )

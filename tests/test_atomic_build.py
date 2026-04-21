@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import numpy as np
 
-from codrag.core import CodeIndex, FakeEmbedder
+from prep.core import CodeIndex, FakeEmbedder
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def test_atomic_build_failure_cleanup(index_setup):
     
     # Force a failure during manifest build (which happens after writing docs/embeddings)
     # This ensures we test the cleanup logic
-    with patch('codrag.core.index.build_manifest', side_effect=Exception("Boom")):
+    with patch('prep.core.index.build_manifest', side_effect=Exception("Boom")):
         with pytest.raises(Exception, match="Boom"):
             idx.build(repo_root=repo)
             

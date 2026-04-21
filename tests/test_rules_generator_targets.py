@@ -1,7 +1,7 @@
 """Tests for client-aware content delivery in rules generator."""
 import hashlib
 
-from codrag.core.rules_generator import _build_managed_content
+from prep.core.rules_generator import _build_managed_content
 
 
 # -- Shared fixture args --
@@ -98,7 +98,7 @@ def test_no_project_id_still_works():
 
 from pathlib import Path
 
-from codrag.core.rules_generator import write_rules_file
+from prep.core.rules_generator import write_rules_file
 
 
 def test_write_rules_passes_claude_target(tmp_path):

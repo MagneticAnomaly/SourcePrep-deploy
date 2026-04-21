@@ -12,20 +12,20 @@ from datetime import date, timedelta
 import pytest
 from rich.console import Console
 
-from codrag.viz.activity_heatmap import (
+from prep.viz.activity_heatmap import (
     ActivityDay,
     ActivityHeatmapData,
     generate_sample_data,
     get_cell_char,
     render_activity_heatmap,
 )
-from codrag.viz.context import render_relevance_spectrum, render_token_budget
-from codrag.viz.coverage import render_file_coverage
-from codrag.viz.drift import render_drift_report
-from codrag.viz.flow import render_rag_flow
-from codrag.viz.health import render_index_health
-from codrag.viz.overview import render_dashboard
-from codrag.viz.trace import render_trace_stats
+from prep.viz.context import render_relevance_spectrum, render_token_budget
+from prep.viz.coverage import render_file_coverage
+from prep.viz.drift import render_drift_report
+from prep.viz.flow import render_rag_flow
+from prep.viz.health import render_index_health
+from prep.viz.overview import render_dashboard
+from prep.viz.trace import render_trace_stats
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -454,7 +454,7 @@ class TestRenderDashboard:
 
 class TestVizExports:
     def test_all_exports_importable(self):
-        from codrag.viz import (
+        from prep.viz import (
             render_activity_heatmap,
             ActivityDay,
             ActivityHeatmapData,

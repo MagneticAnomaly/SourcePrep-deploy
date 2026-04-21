@@ -1,6 +1,6 @@
 """Tests for MCP response budget caps (_truncate_section)."""
 
-from codrag.mcp.server import MCPServer
+from prep.mcp.server import MCPServer
 
 
 class TestTruncateSection:

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from codrag.core.watcher import AutoRebuildWatcher
+from prep.core.watcher import AutoRebuildWatcher
 
 
 class TestIsRelevantPathspec:

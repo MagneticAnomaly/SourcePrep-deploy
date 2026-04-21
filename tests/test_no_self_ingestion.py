@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pathspec
 
-from codrag.core.repo_policy import effective_excludes, ensure_repo_policy
-from codrag.core.trace.builder import TraceBuilder
+from prep.core.repo_policy import effective_excludes, ensure_repo_policy
+from prep.core.trace.builder import TraceBuilder
 
 
 # Exact paths from the overnight Deep Reasoning leak report

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from codrag.core.context_tier import ContextTier, tier_from_budget
+from prep.core.context_tier import ContextTier, tier_from_budget
 
 
 class TestEnumValues:

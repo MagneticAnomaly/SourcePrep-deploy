@@ -1,8 +1,8 @@
 import pytest
-from codrag.core.immune_watcher import evaluate_changes
-from codrag.core.alert_queue import alert_queue
-from codrag.services.antibody_store import AntibodyStore
-from codrag.core.antibodies import Antibody, Trigger, TriggerType, Response, ResponseType, Severity
+from prep.core.immune_watcher import evaluate_changes
+from prep.core.alert_queue import alert_queue
+from prep.services.antibody_store import AntibodyStore
+from prep.core.antibodies import Antibody, Trigger, TriggerType, Response, ResponseType, Severity
 
 
 @pytest.fixture

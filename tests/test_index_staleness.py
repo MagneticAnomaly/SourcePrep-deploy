@@ -60,7 +60,7 @@ def repo_dir(tmp_path: Path) -> Path:
 
 def test_no_build_yet_is_not_stale(repo_dir: Path):
     """If the index has never been built, staleness should be False."""
-    from codrag.services.project_helpers import check_index_staleness, invalidate_stale_cache
+    from prep.services.project_helpers import check_index_staleness, invalidate_stale_cache
 
     proj = _FakeProject("test1", str(repo_dir), {"include_globs": ["**/*.py", "**/*.md"]})
     idx = _FakeCodeIndex(built_at=None, loaded=False)
@@ -75,7 +75,7 @@ def test_no_build_yet_is_not_stale(repo_dir: Path):
 
 def test_fresh_after_build(repo_dir: Path):
     """Files that existed before built_at should NOT be stale."""
-    from codrag.services.project_helpers import check_index_staleness, invalidate_stale_cache
+    from prep.services.project_helpers import check_index_staleness, invalidate_stale_cache
 
     # Set file mtimes to the past
     past = time.time() - 60
@@ -99,7 +99,7 @@ def test_fresh_after_build(repo_dir: Path):
 
 def test_stale_after_file_edit(repo_dir: Path):
     """Editing a file after built_at should make the index stale."""
-    from codrag.services.project_helpers import check_index_staleness, invalidate_stale_cache
+    from prep.services.project_helpers import check_index_staleness, invalidate_stale_cache
 
     # Set files to the past
     past = time.time() - 60
@@ -133,7 +133,7 @@ def test_stale_after_file_edit(repo_dir: Path):
 
 def test_excluded_files_not_counted(repo_dir: Path):
     """Files matching exclude_globs should not trigger staleness."""
-    from codrag.services.project_helpers import check_index_staleness, invalidate_stale_cache
+    from prep.services.project_helpers import check_index_staleness, invalidate_stale_cache
 
     # Set files to the past
     past = time.time() - 60
@@ -163,7 +163,7 @@ def test_excluded_files_not_counted(repo_dir: Path):
 
 def test_dotfiles_not_counted(repo_dir: Path):
     """Dotfiles and dot-directories should be ignored."""
-    from codrag.services.project_helpers import check_index_staleness, invalidate_stale_cache
+    from prep.services.project_helpers import check_index_staleness, invalidate_stale_cache
 
     # Set files to the past
     past = time.time() - 60
@@ -193,7 +193,7 @@ def test_dotfiles_not_counted(repo_dir: Path):
 
 def test_cache_returns_same_result(repo_dir: Path):
     """Subsequent calls within TTL should return cached result."""
-    from codrag.services.project_helpers import check_index_staleness, invalidate_stale_cache
+    from prep.services.project_helpers import check_index_staleness, invalidate_stale_cache
 
     past = time.time() - 60
     for f in repo_dir.rglob("*"):

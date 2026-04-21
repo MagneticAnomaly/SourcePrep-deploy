@@ -1,9 +1,9 @@
 import pytest
-from codrag.core.antibodies import (
+from prep.core.antibodies import (
     Antibody, Trigger, TriggerType, Response, ResponseType, Severity,
     evaluate_trigger, _path_matches,
 )
-from codrag.core.antibody_derivation import (
+from prep.core.antibody_derivation import (
     suggest_antibody, _extract_import_pattern, derive_antibodies_for_project,
 )
 

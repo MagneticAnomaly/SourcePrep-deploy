@@ -1,5 +1,5 @@
 import pytest
-from codrag.services.settings_store import SettingsStore
+from prep.services.settings_store import SettingsStore
 from pathlib import Path
 
 

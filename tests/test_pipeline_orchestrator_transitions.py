@@ -10,8 +10,8 @@ slot. Tests reflect this design.
 """
 import pytest
 
-from codrag.services.pipeline.scheduler import PipelineScheduler
-from codrag.services.pipeline.stages import StageId
+from prep.services.pipeline.scheduler import PipelineScheduler
+from prep.services.pipeline.stages import StageId
 
 
 class TestSchedulerLockLifecycle:

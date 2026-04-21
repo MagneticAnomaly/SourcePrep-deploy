@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from codrag.core import batch_profiles
+from prep.core import batch_profiles
 
 
 def test_cloud_dispatch_does_not_return_plan_tier_constant() -> None:
@@ -15,7 +15,7 @@ def test_cloud_dispatch_does_not_return_plan_tier_constant() -> None:
     After fix: it routes through the scheduler and returns the discovered
     dynamic capacity.
     """
-    from codrag.services.pipeline.scheduler import pipeline_scheduler
+    from prep.services.pipeline.scheduler import pipeline_scheduler
 
     pipeline_scheduler.configure_node("cloud:ep-test-unbounded", max_concurrent=1)
     slot = pipeline_scheduler._slots["cloud:ep-test-unbounded"]
@@ -45,7 +45,7 @@ def test_plan_tier_helpers_are_removed() -> None:
 
 def test_server_settings_no_longer_include_plan_tier() -> None:
     """The advanced-LLM settings API no longer exposes plan-tier fields."""
-    from codrag.server import get_advanced_llm_settings
+    from prep.server import get_advanced_llm_settings
 
     settings = get_advanced_llm_settings()
     assert "ollama_plan_tier" not in settings

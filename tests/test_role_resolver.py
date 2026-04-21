@@ -1,8 +1,8 @@
 """Tests for CoDRAG Role Resolver (Phase 64A)."""
 import pytest
 
-from codrag.core.atlas.role_resolver import resolve_role, KEYWORD_TO_BASE
-from codrag.core.atlas.role_vectors import BUILT_IN_ROLES, RoleVector
+from prep.core.atlas.role_resolver import resolve_role, KEYWORD_TO_BASE
+from prep.core.atlas.role_vectors import BUILT_IN_ROLES, RoleVector
 
 
 class TestExactMatch:

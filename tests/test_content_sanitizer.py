@@ -10,7 +10,7 @@ Covers:
 
 import pytest
 
-from codrag.core.content_sanitizer import (
+from prep.core.content_sanitizer import (
     sanitize_code_fence_content,
     strip_invisible_unicode,
     detect_invisible_unicode,

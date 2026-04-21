@@ -12,10 +12,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-import codrag.services.project_helpers as ph
-from codrag.core.project_registry import ProjectRegistry
-from codrag.server import app
+import prep.server as server
+import prep.services.project_helpers as ph
+from prep.core.project_registry import ProjectRegistry
+from prep.server import app
 
 
 @pytest.fixture()
@@ -44,8 +44,8 @@ def _add_embedded_project(client: TestClient, repo_root: Path) -> str:
 
 
 def _idx_dir(client: TestClient, pid: str) -> Path:
-    from codrag.core.project_registry import project_index_dir
-    from codrag.services.project_helpers import require_project
+    from prep.core.project_registry import project_index_dir
+    from prep.services.project_helpers import require_project
     return Path(project_index_dir(require_project(pid)))
 
 
@@ -199,8 +199,8 @@ def test_scoped_reset_clears_antibody_and_concept_stores(client, tmp_path, monke
 
     # Spy on the store methods — we don't need real data, just proof the
     # scoped reset invokes clear_project with the right project_id.
-    from codrag.services import antibody_store as ab_mod
-    from codrag.services import concept_store as cc_mod
+    from prep.services import antibody_store as ab_mod
+    from prep.services import concept_store as cc_mod
 
     ab_calls: list[str] = []
     cc_calls: list[str] = []
@@ -233,7 +233,7 @@ def test_antibody_store_clear_project_deletes_rows(tmp_path):
     guard against the hasattr() silent no-op we just fixed. Inserts
     rows via raw SQL to sidestep the Antibody dataclass so this test
     stays stable across antibody schema changes."""
-    from codrag.services.antibody_store import AntibodyStore
+    from prep.services.antibody_store import AntibodyStore
 
     store = AntibodyStore()
     store.init(tmp_path / "ab.db")
@@ -283,7 +283,7 @@ def test_branch_snapshot_restore_blocked_by_barrier(tmp_path):
     Without the barrier check, switching branches could silently restore
     that stale data over the clean post-reset state.
     """
-    from codrag.services.branch_backup_manager import (
+    from prep.services.branch_backup_manager import (
         SNAPSHOT_PATTERNS,
         restore_project,
         snapshot_project,

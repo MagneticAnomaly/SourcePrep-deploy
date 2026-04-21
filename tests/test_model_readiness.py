@@ -16,10 +16,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Import the module directly to avoid heavy codrag.core.__init__.py chain
-_mod_path = Path(__file__).resolve().parent.parent / "src" / "codrag" / "core" / "model_readiness.py"
-_spec = importlib.util.spec_from_file_location("codrag.core.model_readiness", _mod_path)
+_mod_path = Path(__file__).resolve().parent.parent / "src" / "prep" / "core" / "model_readiness.py"
+_spec = importlib.util.spec_from_file_location("prep.core.model_readiness", _mod_path)
 _mr = importlib.util.module_from_spec(_spec)
-sys.modules["codrag.core.model_readiness"] = _mr
+sys.modules["prep.core.model_readiness"] = _mr
 _spec.loader.exec_module(_mr)
 
 # Shorthand aliases
@@ -51,7 +51,7 @@ lmstudio_get_status = _mr.lmstudio_get_status
 lmstudio_ensure_ready = _mr.lmstudio_ensure_ready
 
 # Module-level patch target (avoids string-based patching through codrag.* path)
-_MR = "codrag.core.model_readiness"
+_MR = "prep.core.model_readiness"
 
 
 # ---------------------------------------------------------------------------

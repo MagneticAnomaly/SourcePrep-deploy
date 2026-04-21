@@ -17,10 +17,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-import codrag.services.project_helpers as ph
-from codrag.core.project_registry import ProjectRegistry
-from codrag.server import app
+import prep.server as server
+import prep.services.project_helpers as ph
+from prep.core.project_registry import ProjectRegistry
+from prep.server import app
 
 
 @pytest.fixture()
@@ -49,8 +49,8 @@ def _add_embedded_project(client: TestClient, repo_root: Path) -> str:
 
 
 def _idx_dir(client: TestClient, pid: str) -> Path:
-    from codrag.core.project_registry import project_index_dir
-    from codrag.services.project_helpers import require_project
+    from prep.core.project_registry import project_index_dir
+    from prep.services.project_helpers import require_project
     return Path(project_index_dir(require_project(pid)))
 
 

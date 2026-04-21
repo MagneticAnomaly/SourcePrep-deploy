@@ -1,7 +1,7 @@
 """Tests for MCP collaboration resource content generators."""
 import pytest
 
-from codrag.mcp.collaboration_handlers import (
+from prep.mcp.collaboration_handlers import (
     get_collaboration_resources,
     format_activity_resource,
     format_memory_resource,

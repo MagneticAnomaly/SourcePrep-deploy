@@ -5,8 +5,8 @@ import time
 import pytest
 from pathlib import Path
 
-from codrag.services.pipeline.manifest_store import ManifestStore
-from codrag.services.pipeline.stages import StageId
+from prep.services.pipeline.manifest_store import ManifestStore
+from prep.services.pipeline.stages import StageId
 
 
 @pytest.fixture

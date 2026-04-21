@@ -1,14 +1,14 @@
 """Tests for continuous deepening loop (Pass 4+)."""
 import pytest
 
-from codrag.core.deepening import (
+from prep.core.deepening import (
     ConvergenceTracker,
     DriftDetector,
     DriftReport,
     EnrichmentQueue,
     DeepeningResult,
 )
-from codrag.core.epistemic_score import EpistemicEntry, EpistemicScore
+from prep.core.epistemic_score import EpistemicEntry, EpistemicScore
 
 
 # ── EnrichmentQueue ──────────────────────────────────────────────────

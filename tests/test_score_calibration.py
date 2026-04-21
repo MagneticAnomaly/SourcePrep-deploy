@@ -17,7 +17,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from codrag.core import CodeIndex
+from prep.core import CodeIndex
 
 
 class TestScoreCalibration:

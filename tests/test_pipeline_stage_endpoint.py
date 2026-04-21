@@ -5,10 +5,10 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-import codrag.services.project_helpers as ph
-from codrag.core.project_registry import ProjectRegistry
-from codrag.server import app
+import prep.server as server
+import prep.services.project_helpers as ph
+from prep.core.project_registry import ProjectRegistry
+from prep.server import app
 
 
 @pytest.fixture()
@@ -54,7 +54,7 @@ def test_post_stage_run_sync_stage_returns_400(client, tmp_path):
 def test_post_stage_run_atlas_returns_200(client, tmp_path):
     pid = _add_embedded_project(client, tmp_path)
     with patch(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
         return_value=True,
     ):
         res = client.post(f"/projects/{pid}/pipeline/stages/atlas/run")
@@ -68,7 +68,7 @@ def test_post_stage_run_atlas_returns_200(client, tmp_path):
 def test_post_stage_run_orchestrator_rejects_returns_409(client, tmp_path):
     pid = _add_embedded_project(client, tmp_path)
     with patch(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
         return_value=False,
     ):
         res = client.post(f"/projects/{pid}/pipeline/stages/atlas/run")
@@ -79,7 +79,7 @@ def test_post_stage_run_orchestrator_rejects_returns_409(client, tmp_path):
 def test_post_stage_run_accepts_force_query_param(client, tmp_path):
     pid = _add_embedded_project(client, tmp_path)
     with patch(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
         return_value=True,
     ) as mock_run:
         res = client.post(f"/projects/{pid}/pipeline/stages/atlas/run?force=true")
@@ -96,7 +96,7 @@ def test_post_stage_run_defaults_to_force_true(client, tmp_path):
     """
     pid = _add_embedded_project(client, tmp_path)
     with patch(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
         return_value=True,
     ) as mock_run:
         res = client.post(f"/projects/{pid}/pipeline/stages/atlas/run")
@@ -109,7 +109,7 @@ def test_post_stage_run_explicit_force_false_is_honoured(client, tmp_path):
     """Caller can still opt out of force via explicit ?force=false."""
     pid = _add_embedded_project(client, tmp_path)
     with patch(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator.run_single_stage",
         return_value=True,
     ) as mock_run:
         res = client.post(f"/projects/{pid}/pipeline/stages/atlas/run?force=false")
@@ -122,7 +122,7 @@ def test_cancel_accepts_solo_finalize_group(client, tmp_path):
     """A solo atlas run must be cancelable via POST /pipeline/cancel?group=atlas."""
     pid = _add_embedded_project(client, tmp_path)
     with patch(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator._cancel_group",
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator._cancel_group",
         return_value=True,
     ) as mock_cancel:
         res = client.post(f"/projects/{pid}/pipeline/cancel", json={"group": "atlas"})
@@ -137,7 +137,7 @@ def test_pause_accepts_solo_finalize_group(client, tmp_path):
     """A solo atlas run must be pausable via POST /pipeline/pause?group=atlas."""
     pid = _add_embedded_project(client, tmp_path)
     with patch(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator._pause_group",
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator._pause_group",
         return_value=True,
     ) as mock_pause:
         res = client.post(f"/projects/{pid}/pipeline/pause", json={"group": "atlas"})

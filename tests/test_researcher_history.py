@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from codrag.agents.researcher.history import ResearchHistory
-from codrag.agents.shared.models import ResearchPlan, ResearchTopic
+from prep.agents.researcher.history import ResearchHistory
+from prep.agents.shared.models import ResearchPlan, ResearchTopic
 
 
 @pytest.fixture

@@ -3,8 +3,8 @@ import json
 import pytest
 from pathlib import Path
 
-from codrag.core.atlas.role_resolver import resolve_role
-from codrag.core.atlas.role_projection import (
+from prep.core.atlas.role_resolver import resolve_role
+from prep.core.atlas.role_projection import (
     _compute_in_degrees,
     _assemble_executive,
     _assemble_manager,
@@ -17,7 +17,7 @@ from codrag.core.atlas.role_projection import (
     compute_role_relevance,
     project_atlas_for_role,
 )
-from codrag.core.atlas.role_vectors import BUILT_IN_ROLES, RoleVector
+from prep.core.atlas.role_vectors import BUILT_IN_ROLES, RoleVector
 
 
 @pytest.fixture
@@ -486,7 +486,7 @@ class TestCacheRoundtrip:
     @pytest.fixture
     def atlas_with_data(self, mock_index_dir):
         """Create a CodebaseAtlas instance with test data and a structural atlas."""
-        from codrag.core.atlas import CodebaseAtlas
+        from prep.core.atlas import CodebaseAtlas
 
         atlas = CodebaseAtlas(mock_index_dir, llm=None, project_root=Path("/fake/project"))
         # Write a minimal atlas.json so load() works

@@ -18,7 +18,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from codrag.services.git_evidence_service import (
+from prep.services.git_evidence_service import (
     get_git_evidence,
     reset_cache,
 )

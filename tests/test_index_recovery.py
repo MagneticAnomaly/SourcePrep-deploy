@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from codrag.core import CodeIndex, FakeEmbedder
+from prep.core import CodeIndex, FakeEmbedder
 
 
 class TestCorruptionDetection:

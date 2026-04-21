@@ -21,7 +21,7 @@ class TestPipelineJournal:
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
         """Create a fresh journal for each test."""
-        from codrag.services.pipeline_journal import PipelineJournal
+        from prep.services.pipeline_journal import PipelineJournal
         self.db_path = tmp_path / "test_settings.db"
         self.journal = PipelineJournal()
         self.journal.init(self.db_path)
@@ -216,7 +216,7 @@ class TestPipelineCheckpoint:
         )
 
     def test_create_checkpoint_for_destructive_stage(self):
-        from codrag.services.pipeline_checkpoint import create_checkpoint
+        from prep.services.pipeline_checkpoint import create_checkpoint
 
         cp_path = create_checkpoint(self.index_dir, "run-abc", "deepening")
         assert cp_path is not None
@@ -227,20 +227,20 @@ class TestPipelineCheckpoint:
         assert (cp / "trace_manifest.json").exists()
 
     def test_no_checkpoint_for_safe_stage(self):
-        from codrag.services.pipeline_checkpoint import create_checkpoint
+        from prep.services.pipeline_checkpoint import create_checkpoint
 
         cp_path = create_checkpoint(self.index_dir, "run-abc", "structural")
         assert cp_path is None
 
     def test_verify_valid_files(self):
-        from codrag.services.pipeline_checkpoint import verify_trace_files
+        from prep.services.pipeline_checkpoint import verify_trace_files
 
         valid, corrupt = verify_trace_files(self.index_dir)
         assert valid is True
         assert corrupt == []
 
     def test_verify_corrupt_jsonl(self):
-        from codrag.services.pipeline_checkpoint import verify_trace_files
+        from prep.services.pipeline_checkpoint import verify_trace_files
 
         # Write corrupt JSONL
         (self.index_dir / "trace_nodes.jsonl").write_text(
@@ -252,7 +252,7 @@ class TestPipelineCheckpoint:
         assert "trace_nodes.jsonl" in corrupt
 
     def test_verify_corrupt_json(self):
-        from codrag.services.pipeline_checkpoint import verify_trace_files
+        from prep.services.pipeline_checkpoint import verify_trace_files
 
         (self.index_dir / "trace_manifest.json").write_text("NOT JSON {{{")
         valid, corrupt = verify_trace_files(self.index_dir)
@@ -260,7 +260,7 @@ class TestPipelineCheckpoint:
         assert "trace_manifest.json" in corrupt
 
     def test_restore_checkpoint(self):
-        from codrag.services.pipeline_checkpoint import create_checkpoint, restore_checkpoint
+        from prep.services.pipeline_checkpoint import create_checkpoint, restore_checkpoint
 
         cp_path = create_checkpoint(self.index_dir, "run-abc", "deepening")
         # Corrupt the live file
@@ -273,7 +273,7 @@ class TestPipelineCheckpoint:
         assert '"confidence": 0.8' in content
 
     def test_auto_heal(self):
-        from codrag.services.pipeline_checkpoint import create_checkpoint, auto_heal
+        from prep.services.pipeline_checkpoint import create_checkpoint, auto_heal
 
         cp_path = create_checkpoint(self.index_dir, "run-abc", "enrichment")
         # Corrupt a file
@@ -282,14 +282,14 @@ class TestPipelineCheckpoint:
         assert results.get("trace_epistemic.jsonl") == "healed"
 
     def test_auto_heal_no_backup(self):
-        from codrag.services.pipeline_checkpoint import auto_heal
+        from prep.services.pipeline_checkpoint import auto_heal
 
         (self.index_dir / "trace_epistemic.jsonl").write_text("CORRUPT!")
         results = auto_heal(self.index_dir, None)
         assert results.get("trace_epistemic.jsonl") == "no_backup"
 
     def test_cleanup_checkpoint(self):
-        from codrag.services.pipeline_checkpoint import create_checkpoint, cleanup_checkpoint
+        from prep.services.pipeline_checkpoint import create_checkpoint, cleanup_checkpoint
 
         cp_path = create_checkpoint(self.index_dir, "run-abc", "deepening")
         assert Path(cp_path).is_dir()
@@ -297,7 +297,7 @@ class TestPipelineCheckpoint:
         assert not Path(cp_path).exists()
 
     def test_cleanup_all_checkpoints(self):
-        from codrag.services.pipeline_checkpoint import create_checkpoint, cleanup_all_checkpoints
+        from prep.services.pipeline_checkpoint import create_checkpoint, cleanup_all_checkpoints
 
         create_checkpoint(self.index_dir, "run-1", "deepening")
         create_checkpoint(self.index_dir, "run-2", "enrichment")
@@ -313,14 +313,14 @@ class TestOrchestratorJournalIntegration:
 
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
-        from codrag.services.pipeline_journal import PipelineJournal
+        from prep.services.pipeline_journal import PipelineJournal
         self.db_path = tmp_path / "test_settings.db"
         self.journal = PipelineJournal()
         self.journal.init(self.db_path)
 
         # Patch the module-level journal singleton
         self._journal_patch = patch(
-            "codrag.services.pipeline_journal.journal", self.journal
+            "prep.services.pipeline_journal.journal", self.journal
         )
         self._journal_patch.start()
         yield
@@ -328,8 +328,8 @@ class TestOrchestratorJournalIntegration:
         self.journal.close()
 
     def test_start_group_writes_journal(self):
-        from codrag.services.build_orchestrator import BuildOrchestrator
-        from codrag.services.pipeline_orchestrator import (
+        from prep.services.build_orchestrator import BuildOrchestrator
+        from prep.services.pipeline_orchestrator import (
             PipelineOrchestrator, FAST_SYNC_STAGES,
         )
 
@@ -337,7 +337,7 @@ class TestOrchestratorJournalIntegration:
         pipeline = PipelineOrchestrator(orchestrator=orch)
 
         # Mock the worker to not actually run
-        with patch("codrag.services.pipeline_orchestrator.WorkerFactory.create_worker") as mock_worker:
+        with patch("prep.services.pipeline_orchestrator.WorkerFactory.create_worker") as mock_worker:
             mock_fn = MagicMock(return_value={"stage": "structural"})
             mock_worker.return_value = mock_fn
             pipeline.run_fast_sync("proj-1")
@@ -349,13 +349,13 @@ class TestOrchestratorJournalIntegration:
         assert runs[0].status == "running"
 
     def test_cancel_writes_journal(self):
-        from codrag.services.build_orchestrator import BuildOrchestrator
-        from codrag.services.pipeline_orchestrator import PipelineOrchestrator
+        from prep.services.build_orchestrator import BuildOrchestrator
+        from prep.services.pipeline_orchestrator import PipelineOrchestrator
 
         orch = BuildOrchestrator()
         pipeline = PipelineOrchestrator(orchestrator=orch)
 
-        with patch("codrag.services.pipeline_orchestrator.WorkerFactory.create_worker") as mock_worker:
+        with patch("prep.services.pipeline_orchestrator.WorkerFactory.create_worker") as mock_worker:
             mock_fn = MagicMock(return_value={"stage": "structural"})
             mock_worker.return_value = mock_fn
             pipeline.run_fast_sync("proj-1")
@@ -368,8 +368,8 @@ class TestOrchestratorJournalIntegration:
 
     def test_resume_crashed_run(self):
         """Simulate a crash and verify resume creates a new run."""
-        from codrag.services.build_orchestrator import BuildOrchestrator
-        from codrag.services.pipeline_orchestrator import PipelineOrchestrator
+        from prep.services.build_orchestrator import BuildOrchestrator
+        from prep.services.pipeline_orchestrator import PipelineOrchestrator
 
         orch = BuildOrchestrator()
         pipeline = PipelineOrchestrator(orchestrator=orch)
@@ -391,7 +391,7 @@ class TestOrchestratorJournalIntegration:
         self.journal._stop_heartbeat(run_id)
 
         # Resume
-        with patch("codrag.services.pipeline_orchestrator.WorkerFactory.create_worker") as mock_worker:
+        with patch("prep.services.pipeline_orchestrator.WorkerFactory.create_worker") as mock_worker:
             mock_fn = MagicMock(return_value={"stage": "catalogue"})
             mock_worker.return_value = mock_fn
             result = pipeline.resume_crashed_run(run_id)
@@ -410,8 +410,8 @@ class TestOrchestratorJournalIntegration:
         assert new_run.current_stage_index == 1  # resumed from catalogue
 
     def test_discard_crashed_run(self):
-        from codrag.services.build_orchestrator import BuildOrchestrator
-        from codrag.services.pipeline_orchestrator import PipelineOrchestrator
+        from prep.services.build_orchestrator import BuildOrchestrator
+        from prep.services.pipeline_orchestrator import PipelineOrchestrator
 
         orch = BuildOrchestrator()
         pipeline = PipelineOrchestrator(orchestrator=orch)
@@ -431,8 +431,8 @@ class TestOrchestratorJournalIntegration:
         assert entry.status == "discarded"
 
     def test_startup_recovery(self):
-        from codrag.services.build_orchestrator import BuildOrchestrator
-        from codrag.services.pipeline_orchestrator import PipelineOrchestrator
+        from prep.services.build_orchestrator import BuildOrchestrator
+        from prep.services.pipeline_orchestrator import PipelineOrchestrator
 
         orch = BuildOrchestrator()
         pipeline = PipelineOrchestrator(orchestrator=orch)
@@ -448,10 +448,10 @@ class TestOrchestratorJournalIntegration:
         self.journal._stop_heartbeat(run_id)
 
         # Patch out the auto-heal calls that need project registry
-        with patch("codrag.services.pipeline_orchestrator.PipelineOrchestrator._create_checkpoint_if_needed"):
-            with patch("codrag.services.pipeline_checkpoint.verify_trace_files", return_value=(True, [])):
-                with patch("codrag.services.project_helpers.require_project"):
-                    with patch("codrag.core.project_registry.project_index_dir", return_value=Path("/tmp")):
+        with patch("prep.services.pipeline_orchestrator.PipelineOrchestrator._create_checkpoint_if_needed"):
+            with patch("prep.services.pipeline_checkpoint.verify_trace_files", return_value=(True, [])):
+                with patch("prep.services.project_helpers.require_project"):
+                    with patch("prep.core.project_registry.project_index_dir", return_value=Path("/tmp")):
                         crashed = pipeline.startup_recovery()
 
         assert len(crashed) == 1

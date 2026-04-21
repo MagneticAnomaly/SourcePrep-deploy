@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import pytest
-from codrag.agents.shared.models import (
+from prep.agents.shared.models import (
     AgentConfig,
     CleanupCandidate,
     CleanupPlan,

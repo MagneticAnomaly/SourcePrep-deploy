@@ -4,10 +4,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-import codrag.services.project_helpers as ph
-from codrag.core.project_registry import ProjectRegistry
-from codrag.server import app
+import prep.server as server
+import prep.services.project_helpers as ph
+from prep.core.project_registry import ProjectRegistry
+from prep.server import app
 
 
 @pytest.fixture()
@@ -33,8 +33,8 @@ def _seed_golden(idx_dir: Path, stage_manifest: str, content: str):
 
 def test_restore_golden_replaces_active_manifest(client, tmp_path):
     pid = _add_embedded(client, tmp_path)
-    from codrag.core.project_registry import project_index_dir
-    from codrag.services.project_helpers import require_project
+    from prep.core.project_registry import project_index_dir
+    from prep.services.project_helpers import require_project
     idx_dir = project_index_dir(require_project(pid))
 
     # Active manifest = stub; golden = good
@@ -79,8 +79,8 @@ def test_restore_rejects_missing_snapshot(client, tmp_path):
 def test_restore_copies_output_jsonl_for_stage_with_output(client, tmp_path):
     """Stages with a non-None STAGE_OUTPUT_FILE must restore both files."""
     pid = _add_embedded(client, tmp_path)
-    from codrag.core.project_registry import project_index_dir
-    from codrag.services.project_helpers import require_project
+    from prep.core.project_registry import project_index_dir
+    from prep.services.project_helpers import require_project
     idx_dir = project_index_dir(require_project(pid))
     idx_dir.mkdir(parents=True, exist_ok=True)
 
@@ -107,8 +107,8 @@ def test_restore_copies_output_jsonl_for_stage_with_output(client, tmp_path):
 def test_restore_does_not_touch_other_stages(client, tmp_path):
     """Restoring atlas must NOT modify validation's manifest."""
     pid = _add_embedded(client, tmp_path)
-    from codrag.core.project_registry import project_index_dir
-    from codrag.services.project_helpers import require_project
+    from prep.core.project_registry import project_index_dir
+    from prep.services.project_helpers import require_project
     idx_dir = project_index_dir(require_project(pid))
     idx_dir.mkdir(parents=True, exist_ok=True)
 
@@ -136,8 +136,8 @@ def test_restore_does_not_touch_other_stages(client, tmp_path):
 def test_restore_rejects_path_traversal_in_snapshot_id(client, tmp_path):
     """snapshot_id with '..' must be blocked even if a directory exists at the resolved path."""
     pid = _add_embedded(client, tmp_path)
-    from codrag.core.project_registry import project_index_dir
-    from codrag.services.project_helpers import require_project
+    from prep.core.project_registry import project_index_dir
+    from prep.services.project_helpers import require_project
     idx_dir = project_index_dir(require_project(pid))
     idx_dir.mkdir(parents=True, exist_ok=True)
     # Seed a real golden so the traversal target physically exists

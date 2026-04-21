@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from codrag.services.build_orchestrator import (
+from prep.services.build_orchestrator import (
     BuildOrchestrator,
     BuildPhase,
     BuildSlot,

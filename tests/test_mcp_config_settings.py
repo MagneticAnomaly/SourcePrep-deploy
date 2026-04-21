@@ -1,7 +1,7 @@
 """Tests for .claude/settings.json auto-approve generation."""
 import json
 
-from codrag.mcp_config import install_mcp_to_workspace
+from prep.mcp_config import install_mcp_to_workspace
 
 
 def test_claude_settings_json_created(tmp_path):

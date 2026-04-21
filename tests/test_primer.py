@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core import FakeEmbedder, CodeIndex
-from codrag.core.repo_policy import (
+from prep.core import FakeEmbedder, CodeIndex
+from prep.core.repo_policy import (
     DEFAULT_PRIMER_CONFIG,
     _normalize_primer_config,
     ensure_repo_policy,

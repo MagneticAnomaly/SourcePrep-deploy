@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.agents.shared.git_client import GitClient
+from prep.agents.shared.git_client import GitClient
 
 
 # ---------------------------------------------------------------------------

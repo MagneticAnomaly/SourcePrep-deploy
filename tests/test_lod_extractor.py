@@ -19,8 +19,8 @@ from unittest.mock import patch
 
 import pytest
 
-from codrag.core.context_tier import ContextTier
-from codrag.core.lod_extractor import LODExtractor, LODResult, assign_lod
+from prep.core.context_tier import ContextTier
+from prep.core.lod_extractor import LODExtractor, LODResult, assign_lod
 
 
 # ---------------------------------------------------------------------------

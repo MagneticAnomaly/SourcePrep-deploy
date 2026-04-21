@@ -6,7 +6,7 @@ from typing import Dict, List
 
 import pytest
 
-from codrag.core.sarif import (
+from prep.core.sarif import (
     SarifInput,
     SarifRun,
     enriched_to_sarif,
@@ -14,7 +14,7 @@ from codrag.core.sarif import (
     parse_sarif,
     sarif_to_simple,
 )
-from codrag.core.enrichment import EnrichedFinding, EnrichmentResult
+from prep.core.enrichment import EnrichedFinding, EnrichmentResult
 
 
 SAMPLE_SARIF: Dict = {

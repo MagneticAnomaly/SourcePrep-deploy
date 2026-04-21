@@ -5,7 +5,7 @@ import json
 import pytest
 from pathlib import Path
 
-from codrag.core.architecture_state import ArchitectureState
+from prep.core.architecture_state import ArchitectureState
 
 
 @pytest.fixture

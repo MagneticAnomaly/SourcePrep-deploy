@@ -1,7 +1,7 @@
 """Tests for Phase 73 search result deduplication."""
 from __future__ import annotations
 
-from codrag.core.index import SearchResult
+from prep.core.index import SearchResult
 
 
 class TestDeduplicateByFile:

@@ -2,7 +2,7 @@
 import pytest
 import time
 from pathlib import Path
-from codrag.services.pipeline_integrity import IntegrityGuard
+from prep.services.pipeline_integrity import IntegrityGuard
 
 
 def test_skip_when_outputs_newer_than_inputs(tmp_path):

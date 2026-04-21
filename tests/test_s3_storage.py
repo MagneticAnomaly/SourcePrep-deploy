@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from codrag.services.s3_storage import (
+from prep.services.s3_storage import (
     INDEX_ARTIFACTS,
     S3Config,
     S3StorageProvider,

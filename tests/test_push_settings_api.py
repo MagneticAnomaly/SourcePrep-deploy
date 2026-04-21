@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 @pytest.fixture
 def app():
     from fastapi import FastAPI
-    from codrag.api.routers.collaboration import router
+    from prep.api.routers.collaboration import router
     app = FastAPI()
     app.include_router(router)
     return app
@@ -33,7 +33,7 @@ def test_consensus_endpoint_returns_scores(client):
     ]
 
     with patch(
-        "codrag.api.routers.collaboration._get_obs_store",
+        "prep.api.routers.collaboration._get_obs_store",
         return_value=mock_store,
     ):
         resp = client.get("/projects/proj-1/collaboration/consensus")
@@ -49,7 +49,7 @@ def test_consensus_endpoint_empty(client):
     mock_store.get_consensus_scores.return_value = []
 
     with patch(
-        "codrag.api.routers.collaboration._get_obs_store",
+        "prep.api.routers.collaboration._get_obs_store",
         return_value=mock_store,
     ):
         resp = client.get("/projects/proj-1/collaboration/consensus")

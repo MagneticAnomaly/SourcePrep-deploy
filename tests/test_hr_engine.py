@@ -7,10 +7,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from codrag.agents.hr.engine import StaffingEngine
-from codrag.agents.hr.readiness import ReadinessReport
-from codrag.agents.hr.roster import Roster
-from codrag.agents.shared.models import RoleSpec
+from prep.agents.hr.engine import StaffingEngine
+from prep.agents.hr.readiness import ReadinessReport
+from prep.agents.hr.roster import Roster
+from prep.agents.shared.models import RoleSpec
 
 
 def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:

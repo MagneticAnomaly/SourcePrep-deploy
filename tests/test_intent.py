@@ -1,5 +1,5 @@
 import pytest
-from codrag.core.intent import classify_intent, rewrite_query, SearchIntent
+from prep.core.intent import classify_intent, rewrite_query, SearchIntent
 
 
 # --- Classification tests ---

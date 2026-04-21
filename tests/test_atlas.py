@@ -21,7 +21,7 @@ import pytest
 
 # Import directly to avoid heavy __init__.py chain
 import importlib
-_atlas = importlib.import_module("codrag.core.atlas")
+_atlas = importlib.import_module("prep.core.atlas")
 CodebaseAtlas = _atlas.CodebaseAtlas
 AtlasDocument = _atlas.AtlasDocument
 Segment = _atlas.Segment
@@ -1067,27 +1067,27 @@ class TestAdaptiveRootBudget:
 
     def test_small_project(self):
         # 50 files → full budget 1200, root = max(1200, 1200*0.55=660) = 1200
-        from codrag.core.atlas import compute_root_atlas_budget
+        from prep.core.atlas import compute_root_atlas_budget
         assert compute_root_atlas_budget(50) == 1200
 
     def test_medium_project(self):
         # 500 files → full budget 2550, root = max(1200, 2550*0.55=1402) = 1402
-        from codrag.core.atlas import compute_root_atlas_budget
+        from prep.core.atlas import compute_root_atlas_budget
         assert compute_root_atlas_budget(500) == 1402
 
     def test_large_project(self):
         # 2028 files → full budget min(4000, 3300+(2028-1000)*0.35) = min(4000,3659) = 3659
         # root = max(1200, min(2500, 3659*0.55=2012)) = 2012
-        from codrag.core.atlas import compute_root_atlas_budget
+        from prep.core.atlas import compute_root_atlas_budget
         assert compute_root_atlas_budget(2028) == 2012
 
     def test_very_large_project(self):
         # 5000 files → full budget 4000, root = max(1200, min(2500, 4000*0.55=2200)) = 2200
-        from codrag.core.atlas import compute_root_atlas_budget
+        from prep.core.atlas import compute_root_atlas_budget
         assert compute_root_atlas_budget(5000) == 2200
 
     def test_tiny_project_no_budget(self):
-        from codrag.core.atlas import compute_root_atlas_budget
+        from prep.core.atlas import compute_root_atlas_budget
         assert compute_root_atlas_budget(1) == 0
 
 

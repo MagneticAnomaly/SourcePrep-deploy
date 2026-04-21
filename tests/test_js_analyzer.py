@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core.trace import JSAnalyzer
+from prep.core.trace import JSAnalyzer
 
 
 @pytest.fixture

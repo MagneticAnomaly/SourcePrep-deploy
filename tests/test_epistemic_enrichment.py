@@ -1,7 +1,7 @@
 """Tests for epistemic enrichment engine (topological sort, enricher)."""
 import pytest
 
-from codrag.core.epistemic_enrichment import topological_sort_files
+from prep.core.epistemic_enrichment import topological_sort_files
 
 
 class TestTopologicalSort:

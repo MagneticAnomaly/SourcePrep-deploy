@@ -1,7 +1,7 @@
 """Tests for epistemic scoring system."""
 import pytest
 
-from codrag.core.epistemic_score import (
+from prep.core.epistemic_score import (
     EpistemicEntry,
     EpistemicScore,
     apply_decay,

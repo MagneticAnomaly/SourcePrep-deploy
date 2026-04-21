@@ -1,7 +1,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from codrag.server import app
+from prep.server import app
 
 
 @pytest.fixture()

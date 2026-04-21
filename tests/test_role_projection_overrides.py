@@ -17,12 +17,12 @@ import pytest
 
 @pytest.fixture
 def projection_mod():
-    return importlib.import_module("codrag.core.atlas.role_projection")
+    return importlib.import_module("prep.core.atlas.role_projection")
 
 
 @pytest.fixture
 def role_vectors_mod():
-    return importlib.import_module("codrag.core.atlas.role_vectors")
+    return importlib.import_module("prep.core.atlas.role_vectors")
 
 
 # ── _format_pinned_block ────────────────────────────────────────────

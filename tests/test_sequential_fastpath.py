@@ -29,7 +29,7 @@ class TestThreadPoolInfra:
 
     def test_pool_is_lazy(self) -> None:
         """The pool should not be created until first submit."""
-        from codrag.services.pipeline import thread_pool as tp
+        from prep.services.pipeline import thread_pool as tp
 
         # Force reset (test isolation — normally the pool is process-wide)
         with tp._pool_lock:
@@ -49,7 +49,7 @@ class TestThreadPoolInfra:
 
     def test_max_workers_does_not_use_private_attr(self) -> None:
         """The proxy should use the cached _pool_size, not ThreadPoolExecutor._max_workers."""
-        from codrag.services.pipeline import thread_pool as tp
+        from prep.services.pipeline import thread_pool as tp
         import inspect
         src = inspect.getsource(tp._LLMPoolProxy)
         assert "_max_workers" not in src, (
@@ -64,7 +64,7 @@ class TestThreadPoolInfra:
         30+ per-node concurrency. The gate — not the pool — is the
         sole throttle.
         """
-        from codrag.services.pipeline import thread_pool as tp
+        from prep.services.pipeline import thread_pool as tp
         assert tp._DEFAULT_POOL_SIZE >= 32, (
             f"Default pool size {tp._DEFAULT_POOL_SIZE} is below AIMD cloud ceiling; "
             "pool would be the bottleneck instead of the scheduler gate."
@@ -72,7 +72,7 @@ class TestThreadPoolInfra:
 
     def test_env_override_accepts_values_up_to_cap(self, monkeypatch) -> None:
         """CODRAG_LLM_POOL_SIZE should accept values up to the new cap (64)."""
-        from codrag.services.pipeline import thread_pool as tp
+        from prep.services.pipeline import thread_pool as tp
 
         monkeypatch.setenv("CODRAG_LLM_POOL_SIZE", "48")
         assert tp._get_pool_size() == 48
@@ -82,18 +82,18 @@ class TestThreadPoolInfra:
 
     def test_env_override_rejects_values_above_cap(self, monkeypatch, caplog) -> None:
         """Above-cap values should warn and fall back to default."""
-        from codrag.services.pipeline import thread_pool as tp
+        from prep.services.pipeline import thread_pool as tp
         import logging
 
         monkeypatch.setenv("CODRAG_LLM_POOL_SIZE", "100")
-        with caplog.at_level(logging.WARNING, logger="codrag.services.pipeline.thread_pool"):
+        with caplog.at_level(logging.WARNING, logger="prep.services.pipeline.thread_pool"):
             size = tp._get_pool_size()
         assert size == tp._DEFAULT_POOL_SIZE
         assert any("out of range" in rec.message for rec in caplog.records)
 
     def test_run_parallel_sequential_when_concurrency_1(self) -> None:
         """concurrency=1 should skip the pool entirely."""
-        from codrag.services.pipeline.thread_pool import run_parallel
+        from prep.services.pipeline.thread_pool import run_parallel
 
         threads_used = set()
 
@@ -109,14 +109,14 @@ class TestThreadPoolInfra:
 
     def test_run_parallel_empty_items(self) -> None:
         """Empty item list returns empty results without errors."""
-        from codrag.services.pipeline.thread_pool import run_parallel
+        from prep.services.pipeline.thread_pool import run_parallel
 
         results = run_parallel(lambda x: x, [], concurrency=3)
         assert results == []
 
     def test_run_parallel_concurrent_uses_pool(self) -> None:
         """concurrency>1 uses the shared pool (different threads)."""
-        from codrag.services.pipeline.thread_pool import run_parallel
+        from prep.services.pipeline.thread_pool import run_parallel
         import time
 
         threads_used = set()
@@ -133,7 +133,7 @@ class TestThreadPoolInfra:
 
     def test_run_parallel_handles_exceptions(self) -> None:
         """Items that raise are logged and skipped — no re-raise."""
-        from codrag.services.pipeline.thread_pool import run_parallel
+        from prep.services.pipeline.thread_pool import run_parallel
 
         def failing(x):
             if x == 3:
@@ -212,7 +212,7 @@ class TestAugmenterSequentialPath:
         Previously the consumer loop called pool.shutdown() even on the
         sequential path, raising NameError.
         """
-        from codrag.services.pipeline.thread_pool import llm_pool  # noqa
+        from prep.services.pipeline.thread_pool import llm_pool  # noqa
 
         class FakeCancelToken:
             def __init__(self):

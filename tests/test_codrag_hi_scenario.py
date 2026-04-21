@@ -15,7 +15,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock
 
-from codrag.mcp_server import MCPServer
+from prep.mcp_server import MCPServer
 
 
 # -- Fixtures matching the TEST repo screenshot --------------------------------

@@ -1,5 +1,5 @@
 import pytest
-from codrag.core.audit.recommendations import generate_recommendation, compute_risk_score
+from prep.core.audit.recommendations import generate_recommendation, compute_risk_score
 
 
 def test_critical_hub_with_concept():

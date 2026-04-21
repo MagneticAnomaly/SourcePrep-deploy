@@ -1,8 +1,8 @@
 """Tests for structural compression: symbol registry and compressor."""
 import pytest
 
-from codrag.core.compression.symbol_registry import SymbolRegistry
-from codrag.core.compressor import StructuralCompressor
+from prep.core.compression.symbol_registry import SymbolRegistry
+from prep.core.compressor import StructuralCompressor
 
 
 def test_registry_generates_short_codes() -> None:

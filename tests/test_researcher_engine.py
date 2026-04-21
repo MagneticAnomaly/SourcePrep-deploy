@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from codrag.agents.researcher.engine import ResearcherEngine
-from codrag.agents.shared.models import ResearchPlan, ResearchTopic
+from prep.agents.researcher.engine import ResearcherEngine
+from prep.agents.shared.models import ResearchPlan, ResearchTopic
 
 
 def _make_findings_jsonl(tmp_path: Path) -> None:
@@ -182,7 +182,7 @@ class TestFullPipeline:
         assert len(engine.history.list_runs()) == 2
 
 
-from codrag.adapters.pm_models import PMProject, PMGoal, PMIssue
+from prep.adapters.pm_models import PMProject, PMGoal, PMIssue
 
 
 class TestPushPackaging:

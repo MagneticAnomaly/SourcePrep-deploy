@@ -1,5 +1,5 @@
 """Tests for client-aware MCP server instructions."""
-from codrag.mcp.server import MCPServer
+from prep.mcp.server import MCPServer
 
 
 def _make_server(client_name="unknown"):

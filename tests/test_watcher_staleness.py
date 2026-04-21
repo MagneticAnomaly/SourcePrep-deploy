@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from codrag.core.watcher import AutoRebuildWatcher
+from prep.core.watcher import AutoRebuildWatcher
 
 
 @pytest.fixture

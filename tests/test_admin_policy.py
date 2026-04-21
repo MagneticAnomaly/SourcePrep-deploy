@@ -2,7 +2,7 @@
 
 import pytest
 
-from codrag.core.team_config import (
+from prep.core.team_config import (
     AdminPolicy,
     BudgetPolicy,
     DataPolicy,

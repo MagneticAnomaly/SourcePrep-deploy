@@ -65,7 +65,7 @@ def group_reasoning_index(tmp_path: Path) -> Path:
 
 def test_group_reasoning_preserves_max_plan_concurrency(group_reasoning_index):
     """GroupReasoningEngine must not cap a scheduler-reported 10 down to 3."""
-    from codrag.core.group_reasoning import GroupReasoningEngine
+    from prep.core.group_reasoning import GroupReasoningEngine
 
     llm = MagicMock()
     llm.provider = "ollama"
@@ -82,18 +82,18 @@ def test_group_reasoning_preserves_max_plan_concurrency(group_reasoning_index):
             return MagicMock(worker_results={}, success=True, coordinator_tokens=0,
                              worker_tokens=0, synthesis_tokens=0)
 
-    with patch("codrag.core.group_reasoning.SwarmOrchestrator", _StubOrchestrator), \
-         patch("codrag.core.llm_client._is_cloud_endpoint", return_value=True), \
+    with patch("prep.core.group_reasoning.SwarmOrchestrator", _StubOrchestrator), \
+         patch("prep.core.llm_client._is_cloud_endpoint", return_value=True), \
          patch(
-             "codrag.services.pipeline.scheduler.pipeline_scheduler.full_budget_for_swarm",
+             "prep.services.pipeline.scheduler.pipeline_scheduler.full_budget_for_swarm",
              return_value=10,
          ), \
          patch(
-             "codrag.core.group_reasoning.WorkerFactory._get_coordinator_llm_client",
+             "prep.core.group_reasoning.WorkerFactory._get_coordinator_llm_client",
              return_value=MagicMock(),
          ):
         # Build minimal epistemic/edges dict for the 3 groups.
-        from codrag.core.group_reasoning import EpistemicEntry
+        from prep.core.group_reasoning import EpistemicEntry
 
         epistemic: dict = {}
         for gid in ("g1", "g2", "g3"):
@@ -133,7 +133,7 @@ def test_group_reasoning_preserves_max_plan_concurrency(group_reasoning_index):
 
 def test_concept_seeder_preserves_max_plan_concurrency(tmp_path):
     """seed_concepts_swarm must not cap scheduler-reported 10 down to 3."""
-    from codrag.core import concept_seeder as cs
+    from prep.core import concept_seeder as cs
 
     llm = MagicMock()
     llm.provider = "ollama"
@@ -158,28 +158,28 @@ def test_concept_seeder_preserves_max_plan_concurrency(tmp_path):
 
     # concept_seeder imports SwarmOrchestrator *inside* seed_concepts_swarm,
     # so patch at its source module — the local `from` will pick up the stub.
-    with patch("codrag.core.swarm_orchestrator.SwarmOrchestrator", _StubOrchestrator), \
+    with patch("prep.core.swarm_orchestrator.SwarmOrchestrator", _StubOrchestrator), \
          patch.object(cs, "_load_modules_for_swarm", return_value=modules), \
-         patch("codrag.core.llm_client._is_cloud_endpoint", return_value=True), \
+         patch("prep.core.llm_client._is_cloud_endpoint", return_value=True), \
          patch.object(cs, "_get_seeder_llm", return_value=llm), \
          patch(
-             "codrag.services.pipeline.scheduler.pipeline_scheduler.full_budget_for_swarm",
+             "prep.services.pipeline.scheduler.pipeline_scheduler.full_budget_for_swarm",
              return_value=10,
          ), \
          patch(
-             "codrag.services.pipeline.scheduler.is_swarm_active_for_stage",
+             "prep.services.pipeline.scheduler.is_swarm_active_for_stage",
              return_value=True,
          ), \
          patch(
-             "codrag.services.pipeline.workers.WorkerFactory._get_coordinator_llm_client",
+             "prep.services.pipeline.workers.WorkerFactory._get_coordinator_llm_client",
              return_value=MagicMock(),
          ), \
          patch(
-             "codrag.services.project_helpers.require_project",
+             "prep.services.project_helpers.require_project",
              return_value=MagicMock(id="proj-1"),
          ), \
          patch(
-             "codrag.core.project_registry.project_index_dir",
+             "prep.core.project_registry.project_index_dir",
              return_value=tmp_path,
          ):
         try:
@@ -206,7 +206,7 @@ def test_atlas_generator_preserves_max_plan_concurrency():
     Focused unit: we don't need to run a full atlas build — we only want to
     prove that concurrency=10 reaches the SwarmOrchestrator constructor.
     """
-    from codrag.core.atlas.generator import CodebaseAtlas
+    from prep.core.atlas.generator import CodebaseAtlas
 
     llm = MagicMock()
     llm.provider = "ollama"
@@ -231,14 +231,14 @@ def test_atlas_generator_preserves_max_plan_concurrency():
 
     segments: list = [MagicMock(id=f"s{i}", name=f"seg{i}") for i in range(3)]
 
-    with patch("codrag.core.atlas.generator.SwarmOrchestrator", _StubOrchestrator), \
-         patch("codrag.core.atlas.generator._is_cloud_endpoint", return_value=True), \
+    with patch("prep.core.atlas.generator.SwarmOrchestrator", _StubOrchestrator), \
+         patch("prep.core.atlas.generator._is_cloud_endpoint", return_value=True), \
          patch(
-             "codrag.services.pipeline.scheduler.pipeline_scheduler.full_budget_for_swarm",
+             "prep.services.pipeline.scheduler.pipeline_scheduler.full_budget_for_swarm",
              return_value=10,
          ), \
          patch(
-             "codrag.core.atlas.generator.WorkerFactory._get_coordinator_llm_client",
+             "prep.core.atlas.generator.WorkerFactory._get_coordinator_llm_client",
              return_value=MagicMock(),
          ):
         try:

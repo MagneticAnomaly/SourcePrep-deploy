@@ -1,7 +1,7 @@
 """Tests for CoDRAG Role Vectors (Phase 64A)."""
 import pytest
 
-from codrag.core.atlas.role_vectors import (
+from prep.core.atlas.role_vectors import (
     BUILT_IN_ROLES,
     RoleVector,
     SYNONYM_CLUSTERS,

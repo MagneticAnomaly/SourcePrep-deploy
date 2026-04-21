@@ -11,7 +11,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from codrag.mcp_server import (
+from prep.mcp_server import (
     MCPServer,
     TOOLS,
     MCP_PROTOCOL_VERSION,
@@ -215,7 +215,7 @@ class TestToolStatus:
         """Test status without project selection raises PROJECT_SELECTION_AMBIGUOUS."""
         srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id=None, auto_detect=False)
         with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get, \
-             patch("codrag.mcp_server.Path") as mock_path:
+             patch("prep.mcp_server.Path") as mock_path:
             # CWD must not match any project path
             mock_path.cwd.return_value.resolve.return_value = MagicMock(__str__=lambda s: "/nowhere")
             mock_path.cwd.return_value.__str__ = lambda s: "/nowhere"
@@ -496,7 +496,7 @@ class TestToolsCall:
     async def test_call_status_project_selection_ambiguous_returns_tool_error(self):
         srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id=None, auto_detect=False)
         with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get, \
-             patch("codrag.mcp_server.Path") as mock_path:
+             patch("prep.mcp_server.Path") as mock_path:
             mock_path.cwd.return_value.resolve.return_value = MagicMock(__str__=lambda s: "/nowhere")
             mock_path.cwd.return_value.__str__ = lambda s: "/nowhere"
             mock_get.return_value = {
@@ -610,8 +610,8 @@ class TestToolSchemas:
 @pytest.fixture(autouse=True)
 def mock_pointer_and_signal():
     """Mock the pointer and signal checks by default to not interfere with any routing tests."""
-    with patch("codrag.core.project_registry.read_codrag_pointer", return_value=None), \
-         patch("codrag.core.project_registry.read_active_project_signal", return_value=None):
+    with patch("prep.core.project_registry.read_codrag_pointer", return_value=None), \
+         patch("prep.core.project_registry.read_active_project_signal", return_value=None):
         yield
 
 class TestProjectRouting:
@@ -717,7 +717,7 @@ class TestProjectRouting:
         srv._initialize_roots = ["/Users/alice/frontend"]
 
         with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get, \
-             patch("codrag.mcp_server.Path") as mock_path:
+             patch("prep.mcp_server.Path") as mock_path:
             # CWD is somewhere unrelated
             mock_path.cwd.return_value.resolve.return_value = MagicMock(__str__=lambda s: "/nowhere")
             mock_path.cwd.return_value.__str__ = lambda s: "/nowhere"
@@ -752,7 +752,7 @@ class TestProjectRouting:
         srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id=None, auto_detect=False)
 
         with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get, \
-             patch("codrag.mcp.server.Path") as mock_path:
+             patch("prep.mcp.server.Path") as mock_path:
             mock_cwd = MagicMock()
             mock_cwd.resolve.return_value = "/Users/alice/frontend/src"
             mock_path.cwd.return_value = mock_cwd
@@ -773,7 +773,7 @@ class TestProjectRouting:
         srv = MCPServer(daemon_url="http://127.0.0.1:8400", project_id=None)
 
         with patch.object(srv, "_api_get", new_callable=AsyncMock) as mock_get, \
-             patch("codrag.mcp_server.Path") as mock_path:
+             patch("prep.mcp_server.Path") as mock_path:
             mock_path.cwd.return_value.resolve.return_value = MagicMock(__str__=lambda s: "/nowhere")
             mock_path.cwd.return_value.__str__ = lambda s: "/nowhere"
             mock_get.return_value = {
@@ -788,7 +788,7 @@ class TestProjectRouting:
 # Tool Annotation Tests
 # =============================================================================
 
-from codrag.mcp_tools import TOOLS as MCP_TOOLS
+from prep.mcp_tools import TOOLS as MCP_TOOLS
 
 
 def test_all_tools_have_title():

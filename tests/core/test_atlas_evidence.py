@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from codrag.core.atlas.generator import (
+from prep.core.atlas.generator import (
     _build_hot_zones_line,
     _format_hubs_with_labels,
 )
@@ -61,12 +61,12 @@ def test_hub_str_with_evidence_returns_baseline_when_flag_off(monkeypatch):
     """
     # Patch where the symbol is imported INTO the method — inside git_evidence module.
     monkeypatch.setattr(
-        "codrag.core.git_evidence.atlas_decoration_enabled",
+        "prep.core.git_evidence.atlas_decoration_enabled",
         lambda: False,
         raising=False,
     )
 
-    from codrag.core.atlas.generator import CodebaseAtlas
+    from prep.core.atlas.generator import CodebaseAtlas
 
     # Build a minimal instance that exposes just the method we need.
     atlas = MagicMock(spec=CodebaseAtlas)

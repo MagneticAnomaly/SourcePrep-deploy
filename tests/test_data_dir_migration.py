@@ -17,7 +17,7 @@ import sqlite3
 import tempfile
 from pathlib import Path
 
-from codrag.core.data_dir_migration import (
+from prep.core.data_dir_migration import (
     _SENTINEL_NAME,
     MigrationResult,
     migrate_legacy_data_dir,

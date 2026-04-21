@@ -8,7 +8,7 @@ from pathlib import Path
 # Ensure src is in path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from codrag.mcp_direct import DirectMCPServer
+from prep.mcp_direct import DirectMCPServer
 
 async def test_end_to_end():
     repo_root = Path(__file__).parent / "fixtures" / "mini_repo"

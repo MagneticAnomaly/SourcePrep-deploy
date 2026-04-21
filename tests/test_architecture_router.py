@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 def app():
     """Create a minimal FastAPI app with the architecture router."""
     from fastapi import FastAPI
-    from codrag.api.routers.architecture import router
+    from prep.api.routers.architecture import router
     app = FastAPI()
     app.include_router(router)
     return app
@@ -82,8 +82,8 @@ def mock_project(tmp_path):
 class TestGetArchitectureGraph:
     def test_returns_modules_and_edges(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.get(f"/projects/{proj.id}/architecture/graph")
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -105,8 +105,8 @@ class TestGetArchitectureGraph:
     def test_returns_empty_when_no_modules(self, client, mock_project):
         proj, idx_dir = mock_project
         (idx_dir / "trace_modules.jsonl").unlink()
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.get(f"/projects/{proj.id}/architecture/graph")
         data = resp.json()["data"]
         assert data["exists"] is False
@@ -114,8 +114,8 @@ class TestGetArchitectureGraph:
 
     def test_drill_into_module(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.get(f"/projects/{proj.id}/architecture/graph?layer_path=mod_auth")
         data = resp.json()["data"]
         assert data["exists"] is True
@@ -129,8 +129,8 @@ class TestGetArchitectureGraph:
 class TestArchitectureSummary:
     def test_returns_summary(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.get(f"/projects/{proj.id}/architecture/summary")
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -142,8 +142,8 @@ class TestArchitectureSummary:
 class TestNotesEndpoints:
     def test_create_and_list_notes(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.post(
                 f"/projects/{proj.id}/architecture/notes",
                 json={"node_id": "mod_auth", "content": "Migrating to OAuth2", "note_type": "adr", "author": "user"},
@@ -157,8 +157,8 @@ class TestNotesEndpoints:
 
     def test_update_note(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.post(
                 f"/projects/{proj.id}/architecture/notes",
                 json={"node_id": "mod_auth", "content": "Draft", "note_type": "comment", "author": "user"},
@@ -173,8 +173,8 @@ class TestNotesEndpoints:
 
     def test_delete_note(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.post(
                 f"/projects/{proj.id}/architecture/notes",
                 json={"node_id": "mod_auth", "content": "Temp", "note_type": "comment", "author": "user"},
@@ -201,8 +201,8 @@ class TestStatePersistence:
             },
             "module_overrides": {},
         }
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.put(f"/projects/{proj.id}/architecture/state", json=state)
             assert resp.status_code == 200
 
@@ -215,8 +215,8 @@ class TestArchitectureContext:
     def test_returns_mcp_context(self, client, mock_project):
         proj, idx_dir = mock_project
         # Add a note first
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             client.post(
                 f"/projects/{proj.id}/architecture/notes",
                 json={"node_id": "mod_auth", "content": "Migrating to OAuth2", "note_type": "adr", "author": "user"},

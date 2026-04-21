@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.services.build_orchestrator import BuildOrchestrator
-from codrag.services.pipeline_orchestrator import (
+from prep.services.build_orchestrator import BuildOrchestrator
+from prep.services.pipeline_orchestrator import (
     PipelineOrchestrator,
     StageId,
 )
@@ -37,7 +37,7 @@ def test_run_single_stage_calls_start_group_with_single_element(pipeline):
 
 def test_run_single_stage_refuses_when_enrich_active(pipeline):
     """Must not launch a solo finalize while enrich is active/paused."""
-    from codrag.services.pipeline_orchestrator import PipelineRun
+    from prep.services.pipeline_orchestrator import PipelineRun
     enrich_run = MagicMock(spec=PipelineRun)
     enrich_run.is_active = True
     enrich_run.is_paused = False
@@ -54,7 +54,7 @@ def test_run_single_stage_refuses_when_fast_sync_active(pipeline):
     Solo finalize stages expect a quiescent pipeline — stricter than
     run_finalize's enrich-only guard because solo runs are opportunistic.
     """
-    from codrag.services.pipeline_orchestrator import PipelineRun
+    from prep.services.pipeline_orchestrator import PipelineRun
     fast_run = MagicMock(spec=PipelineRun)
     fast_run.is_active = True
     fast_run.is_paused = False
@@ -71,7 +71,7 @@ def test_run_single_stage_refuses_when_fast_sync_paused(pipeline):
     The guard is `is_active or is_paused` — exercising the paused-only
     branch ensures a paused pipeline still protects downstream state.
     """
-    from codrag.services.pipeline_orchestrator import PipelineRun
+    from prep.services.pipeline_orchestrator import PipelineRun
     fast_run = MagicMock(spec=PipelineRun)
     fast_run.is_active = False
     fast_run.is_paused = True
@@ -151,7 +151,7 @@ def test_status_reflects_active_solo_run(pipeline):
     Note: _runs stores PipelineGroupStateMachine instances (not PipelineRun
     worker objects), so the mock is spec'd against PipelineGroupStateMachine.
     """
-    from codrag.services.pipeline.state_machine import PipelineGroupStateMachine
+    from prep.services.pipeline.state_machine import PipelineGroupStateMachine
     solo_run = MagicMock(spec=PipelineGroupStateMachine)
     solo_run.is_active = True
     solo_run.is_paused = False

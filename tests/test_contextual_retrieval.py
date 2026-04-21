@@ -6,8 +6,8 @@ import json
 import tempfile
 from pathlib import Path
 
-from codrag.core.chunking import Chunk
-from codrag.core.index import CodeIndex
+from prep.core.chunking import Chunk
+from prep.core.index import CodeIndex
 
 
 class TestTier1SynopsisPrefix:
@@ -76,8 +76,8 @@ class TestTier2EpistemicContext:
 
     def test_epistemic_context_in_document_content(self):
         """Epistemic docs should include synthesized context prefix."""
-        from codrag.core.knowledge import KnowledgeIndex
-        from codrag.core.embedder import FakeEmbedder
+        from prep.core.knowledge import KnowledgeIndex
+        from prep.core.embedder import FakeEmbedder
 
         with tempfile.TemporaryDirectory() as tmpdir:
             idx_dir = Path(tmpdir)
@@ -108,8 +108,8 @@ class TestTier2EpistemicContext:
 
     def test_missing_fields_graceful(self):
         """Epistemic entry with missing optional fields should still work."""
-        from codrag.core.knowledge import KnowledgeIndex
-        from codrag.core.embedder import FakeEmbedder
+        from prep.core.knowledge import KnowledgeIndex
+        from prep.core.embedder import FakeEmbedder
 
         with tempfile.TemporaryDirectory() as tmpdir:
             idx_dir = Path(tmpdir)

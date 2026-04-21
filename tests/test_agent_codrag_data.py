@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.agents.shared.codrag_data import CoDRAGDataAccess
+from prep.agents.shared.codrag_data import CoDRAGDataAccess
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -72,19 +72,19 @@ def _build_data_access(
 
     with (
         patch(
-            "codrag.core.audit.opportunity_manager.OpportunityManager",
+            "prep.core.audit.opportunity_manager.OpportunityManager",
             return_value=mock_opp_manager,
         ),
         patch(
-            "codrag.core.atlas.generator.CodebaseAtlas",
+            "prep.core.atlas.generator.CodebaseAtlas",
             return_value=mock_atlas,
         ),
         patch(
-            "codrag.core.trace.index.TraceIndex",
+            "prep.core.trace.index.TraceIndex",
             return_value=mock_trace_index,
         ),
         patch(
-            "codrag.services.observation_store.observation_store",
+            "prep.services.observation_store.observation_store",
             mock_obs_store,
         ),
     ):
@@ -215,19 +215,19 @@ class TestGetImpactRadius:
 
         with (
             patch(
-                "codrag.core.audit.opportunity_manager.OpportunityManager",
+                "prep.core.audit.opportunity_manager.OpportunityManager",
                 return_value=mock_opp_manager,
             ),
             patch(
-                "codrag.core.atlas.generator.CodebaseAtlas",
+                "prep.core.atlas.generator.CodebaseAtlas",
                 return_value=mock_atlas,
             ),
             patch(
-                "codrag.core.trace.index.TraceIndex",
+                "prep.core.trace.index.TraceIndex",
                 return_value=no_trace,
             ),
             patch(
-                "codrag.services.observation_store.observation_store",
+                "prep.services.observation_store.observation_store",
                 mock_obs_store,
             ),
         ):

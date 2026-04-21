@@ -1,5 +1,5 @@
 """Tests for Researcher prompt template rendering."""
-from codrag.agents.researcher.prompts import (
+from prep.agents.researcher.prompts import (
     render_topic_selection_prompt,
     render_research_prompt,
     render_plan_formulation_prompt,

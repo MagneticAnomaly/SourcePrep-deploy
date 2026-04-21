@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock
 
-from codrag.core.chunking import extract_file_synopsis
+from prep.core.chunking import extract_file_synopsis
 
 SAMPLE_PYTHON = '''"""
 Pipeline orchestrator for multi-stage builds.
@@ -139,7 +139,7 @@ class TestMetaChunkInBuild:
 
     def test_meta_synopsis_injected_for_multi_chunk_files(self, tmp_path: object) -> None:
         from pathlib import Path
-        from codrag.core.index import CodeIndex
+        from prep.core.index import CodeIndex
 
         tmp = Path(str(tmp_path))
         project_dir = tmp / "project"

@@ -8,7 +8,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from codrag.services.pipeline_budget import BudgetThrottle, ScheduleEvaluator
+from prep.services.pipeline_budget import BudgetThrottle, ScheduleEvaluator
 
 
 # ── BudgetThrottle Tests ─────────────────────────────────────────
@@ -161,7 +161,7 @@ class TestScheduleEvaluator:
         mock_project = MagicMock()
         mock_project.id = "proj-1"
 
-        import codrag.server
+        import prep.server
         with patch.object(ScheduleEvaluator, '_get_schedule_config', return_value={
             "mode": "scheduled", "interval_minutes": 1, "threshold_percent": 0,
         }), patch.object(codrag.server, '_registry') as mock_reg:
@@ -180,7 +180,7 @@ class TestScheduleEvaluator:
         mock_project = MagicMock()
         mock_project.id = "proj-1"
 
-        import codrag.server
+        import prep.server
         with patch.object(ScheduleEvaluator, '_get_schedule_config', return_value={
             "mode": "scheduled", "interval_minutes": 60, "threshold_percent": 0,
         }), patch.object(codrag.server, '_registry') as mock_reg:
@@ -198,7 +198,7 @@ class TestScheduleEvaluator:
         mock_project = MagicMock()
         mock_project.id = "proj-1"
 
-        import codrag.server
+        import prep.server
         with patch.object(ScheduleEvaluator, '_get_schedule_config', return_value={
             "mode": "scheduled", "interval_minutes": 0, "threshold_percent": 10,
         }), patch.object(ScheduleEvaluator, '_get_stale_percent', return_value=25.0), \

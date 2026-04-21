@@ -1,6 +1,6 @@
 """Tests for the structural-only audit scanner."""
 import pytest
-from codrag.core.audit.structural import run_structural_audit, StructuralFinding
+from prep.core.audit.structural import run_structural_audit, StructuralFinding
 
 
 def _make_mock_context():

@@ -10,7 +10,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 from typer.testing import CliRunner
 
-from codrag.cli import app
+from prep.cli import app
 
 runner = CliRunner()
 
@@ -56,7 +56,7 @@ def test_serve_help():
 
 # ── add ──────────────────────────────────────────────────────────
 
-@patch("codrag.cli.requests.post")
+@patch("prep.cli.requests.post")
 def test_add_project(mock_post):
     mock_post.return_value = _mock_response(data={
         "project": {"id": "proj_123", "name": "myapp", "path": "/tmp/myapp", "mode": "standalone"}
@@ -67,7 +67,7 @@ def test_add_project(mock_post):
     assert "proj_123" in result.output
 
 
-@patch("codrag.cli.requests.post")
+@patch("prep.cli.requests.post")
 def test_add_custom_mode_requires_index_path(mock_post):
     result = runner.invoke(app, ["add", "/tmp/myapp", "--mode", "custom"])
     assert result.exit_code == 1
@@ -76,7 +76,7 @@ def test_add_custom_mode_requires_index_path(mock_post):
 
 # ── list ─────────────────────────────────────────────────────────
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_list_projects(mock_get):
     mock_get.return_value = {
         "projects": [
@@ -90,7 +90,7 @@ def test_list_projects(mock_get):
     assert "Beta" in result.output
 
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_list_empty(mock_get):
     mock_get.return_value = {"projects": []}
     result = runner.invoke(app, ["list"])
@@ -100,7 +100,7 @@ def test_list_empty(mock_get):
 
 # ── remove / delete ──────────────────────────────────────────────
 
-@patch("codrag.cli.requests.delete")
+@patch("prep.cli.requests.delete")
 def test_remove_project(mock_delete):
     mock_delete.return_value = _mock_response(json_data={"success": True, "purged": False})
     result = runner.invoke(app, ["remove", "proj_123"])
@@ -108,7 +108,7 @@ def test_remove_project(mock_delete):
     assert "removed" in result.output
 
 
-@patch("codrag.cli.requests.delete")
+@patch("prep.cli.requests.delete")
 def test_delete_is_alias_for_remove(mock_delete):
     mock_delete.return_value = _mock_response(json_data={"success": True, "purged": True})
     result = runner.invoke(app, ["delete", "proj_123", "--purge"])
@@ -119,7 +119,7 @@ def test_delete_is_alias_for_remove(mock_delete):
 
 # ── status ───────────────────────────────────────────────────────
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_status_with_index(mock_get):
     # _resolve_project returns early when project_id is given, so only /status call
     mock_get.return_value = {
@@ -132,7 +132,7 @@ def test_status_with_index(mock_get):
     assert "Ready" in result.output
 
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_status_no_index(mock_get):
     mock_get.return_value = {
         "index": {"exists": False},
@@ -146,7 +146,7 @@ def test_status_no_index(mock_get):
 
 # ── build ────────────────────────────────────────────────────────
 
-@patch("codrag.cli._post_json")
+@patch("prep.cli._post_json")
 def test_build_started(mock_post):
     mock_post.return_value = {"started": True}
     result = runner.invoke(app, ["build", "p1"])
@@ -156,7 +156,7 @@ def test_build_started(mock_post):
 
 # ── search ───────────────────────────────────────────────────────
 
-@patch("codrag.cli._post_json")
+@patch("prep.cli._post_json")
 def test_search_results(mock_post):
     mock_post.return_value = {
         "results": [
@@ -169,7 +169,7 @@ def test_search_results(mock_post):
     assert "0.850" in result.output
 
 
-@patch("codrag.cli._post_json")
+@patch("prep.cli._post_json")
 def test_search_no_results(mock_post):
     mock_post.return_value = {"results": []}
     result = runner.invoke(app, ["search", "nonexistent", "--project", "p1"])
@@ -179,7 +179,7 @@ def test_search_no_results(mock_post):
 
 # ── context ──────────────────────────────────────────────────────
 
-@patch("codrag.cli._post_json")
+@patch("prep.cli._post_json")
 def test_context_assembly(mock_post):
     mock_post.return_value = {
         "context": "# Source: src/main.py\ndef main(): pass",
@@ -192,7 +192,7 @@ def test_context_assembly(mock_post):
     assert "Context Assembly Stats" in result.output
 
 
-@patch("codrag.cli._post_json")
+@patch("prep.cli._post_json")
 def test_context_raw_mode(mock_post):
     mock_post.return_value = {"context": "raw context output", "chunks": [], "total_chars": 18, "estimated_tokens": 5}
     result = runner.invoke(app, ["context", "query", "--project", "p1", "--raw"])
@@ -204,7 +204,7 @@ def test_context_raw_mode(mock_post):
 
 # ── config ───────────────────────────────────────────────────────
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_config_show_all(mock_get):
     mock_get.return_value = {"llm_config": {"embedding": {"source": "native"}}}
     result = runner.invoke(app, ["config"])
@@ -213,7 +213,7 @@ def test_config_show_all(mock_get):
     assert "native" in result.output
 
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_config_get_key(mock_get):
     mock_get.return_value = {"llm_config": {"embedding": {"source": "native"}}}
     result = runner.invoke(app, ["config", "llm_config.embedding.source"])
@@ -221,7 +221,7 @@ def test_config_get_key(mock_get):
     assert "native" in result.output
 
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_config_get_missing_key(mock_get):
     mock_get.return_value = {"llm_config": {}}
     result = runner.invoke(app, ["config", "nonexistent.key"])
@@ -229,8 +229,8 @@ def test_config_get_missing_key(mock_get):
     assert "not found" in result.output
 
 
-@patch("codrag.cli.requests.put")
-@patch("codrag.cli._get_json")
+@patch("prep.cli.requests.put")
+@patch("prep.cli._get_json")
 def test_config_set_key(mock_get, mock_put):
     mock_put.return_value = _mock_response(data={})
     result = runner.invoke(app, ["config", "llm_config.embedding.source", "ollama"])
@@ -244,7 +244,7 @@ def test_config_set_key(mock_get, mock_put):
 
 # ── mcp-config ───────────────────────────────────────────────────
 
-@patch("codrag.mcp_config.generate_mcp_configs")
+@patch("prep.mcp_config.generate_mcp_configs")
 def test_mcp_config_single_ide(mock_gen):
     mock_gen.return_value = {
         "cursor": {
@@ -257,7 +257,7 @@ def test_mcp_config_single_ide(mock_gen):
     assert "codrag" in result.output
 
 
-@patch("codrag.mcp_config.generate_mcp_configs")
+@patch("prep.mcp_config.generate_mcp_configs")
 def test_mcp_config_all_ides(mock_gen):
     mock_gen.return_value = {
         "cursor": {"file": ".cursor/mcp.json", "config": {"mcpServers": {}}},
@@ -281,38 +281,38 @@ def test_ui_opens_browser(mock_open):
 # ── _unwrap_envelope ─────────────────────────────────────────────
 
 def test_unwrap_envelope_success():
-    from codrag.cli import _unwrap_envelope
+    from prep.cli import _unwrap_envelope
     result = _unwrap_envelope({"success": True, "data": {"key": "value"}})
     assert result == {"key": "value"}
 
 
 def test_unwrap_envelope_passthrough():
-    from codrag.cli import _unwrap_envelope
+    from prep.cli import _unwrap_envelope
     result = _unwrap_envelope({"some": "dict"})
     assert result == {"some": "dict"}
 
 
 # ── _resolve_project ─────────────────────────────────────────────
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_resolve_project_explicit_id(mock_get):
-    from codrag.cli import _resolve_project
+    from prep.cli import _resolve_project
     result = _resolve_project("http://localhost:8400", project_id="proj_123")
     assert result == "proj_123"
     mock_get.assert_not_called()
 
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_resolve_project_single_project(mock_get):
-    from codrag.cli import _resolve_project
+    from prep.cli import _resolve_project
     mock_get.return_value = {"projects": [{"id": "only_one", "path": "/somewhere"}]}
     result = _resolve_project("http://localhost:8400")
     assert result == "only_one"
 
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_resolve_project_no_projects(mock_get):
-    from codrag.cli import _resolve_project
+    from prep.cli import _resolve_project
     from click.exceptions import Exit
     mock_get.return_value = {"projects": []}
     with pytest.raises(Exit):
@@ -322,14 +322,14 @@ def test_resolve_project_no_projects(mock_get):
 # ── _base_url ────────────────────────────────────────────────────
 
 def test_base_url():
-    from codrag.cli import _base_url
+    from prep.cli import _base_url
     assert _base_url("127.0.0.1", 8400) == "http://127.0.0.1:8400"
     assert _base_url("0.0.0.0", 9000) == "http://0.0.0.0:9000"
 
 
 # ── connection error handling ────────────────────────────────────
 
-@patch("codrag.cli._get_json")
+@patch("prep.cli._get_json")
 def test_list_connection_error(mock_get):
     from requests.exceptions import ConnectionError
     mock_get.side_effect = ConnectionError("refused")
@@ -339,8 +339,8 @@ def test_list_connection_error(mock_get):
 
 # ── reset ────────────────────────────────────────────────────────
 
-@patch("codrag.cli._delete_json")
-@patch("codrag.cli._get_json")
+@patch("prep.cli._delete_json")
+@patch("prep.cli._get_json")
 def test_full_reset_with_confirmation(mock_get, mock_delete):
     mock_get.return_value = {"projects": [{"id": "p1", "name": "X", "path": "/x"}]}
     mock_delete.return_value = {"deleted": ["documents.json", "embeddings.npy"], "errors": []}

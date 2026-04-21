@@ -13,12 +13,12 @@ from typing import Any, Dict, List
 
 import pytest
 
-from codrag.core.compressor import (
+from prep.core.compressor import (
     CompressResult,
     ContextCompressor,
     NoopCompressor,
 )
-from codrag.core.lod_extractor import LODExtractor, LODResult, assign_lod
+from prep.core.lod_extractor import LODExtractor, LODResult, assign_lod
 
 
 # ═══════════════════════════════════════════════════════════════════

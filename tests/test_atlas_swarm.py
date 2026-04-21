@@ -4,10 +4,10 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from codrag.core.atlas.generator import CodebaseAtlas
-from codrag.core.atlas.models import Segment, AtlasDocument, SegmentDocument
-from codrag.core.swarm_orchestrator import SwarmResult, SwarmStats
-from codrag.core.swarm_registry import SwarmTier
+from prep.core.atlas.generator import CodebaseAtlas
+from prep.core.atlas.models import Segment, AtlasDocument, SegmentDocument
+from prep.core.swarm_orchestrator import SwarmResult, SwarmStats
+from prep.core.swarm_registry import SwarmTier
 
 
 def _make_segments(n: int) -> list[Segment]:
@@ -52,8 +52,8 @@ def _make_root_doc():
 
 
 class TestAtlasSwarmDecision:
-    @patch("codrag.core.atlas.generator.get_swarm_tier")
-    @patch("codrag.core.atlas.generator.compute_segments")
+    @patch("prep.core.atlas.generator.get_swarm_tier")
+    @patch("prep.core.atlas.generator.compute_segments")
     def test_swarm_activated_when_eligible(self, mock_segments, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         segments = _make_segments(4)
@@ -85,8 +85,8 @@ class TestAtlasSwarmDecision:
                                     mock_swarm.assert_called_once()
                                     assert len(seg_docs) == 4  # swarm docs returned
 
-    @patch("codrag.core.atlas.generator.get_swarm_tier")
-    @patch("codrag.core.atlas.generator.compute_segments")
+    @patch("prep.core.atlas.generator.get_swarm_tier")
+    @patch("prep.core.atlas.generator.compute_segments")
     def test_swarm_skipped_when_model_unsuitable(self, mock_segments, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.UNSUITABLE
         segments = _make_segments(4)
@@ -112,8 +112,8 @@ class TestAtlasSwarmDecision:
                                         atlas.generate_segmented()
                                         mock_swarm.assert_not_called()
 
-    @patch("codrag.core.atlas.generator.get_swarm_tier")
-    @patch("codrag.core.atlas.generator.compute_segments")
+    @patch("prep.core.atlas.generator.get_swarm_tier")
+    @patch("prep.core.atlas.generator.compute_segments")
     def test_swarm_skipped_when_disabled(self, mock_segments, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         segments = _make_segments(4)
@@ -139,8 +139,8 @@ class TestAtlasSwarmDecision:
                                         atlas.generate_segmented()
                                         mock_swarm.assert_not_called()
 
-    @patch("codrag.core.atlas.generator.get_swarm_tier")
-    @patch("codrag.core.atlas.generator.compute_segments")
+    @patch("prep.core.atlas.generator.get_swarm_tier")
+    @patch("prep.core.atlas.generator.compute_segments")
     def test_swarm_skipped_below_threshold(self, mock_segments, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         segments = _make_segments(2)  # Below threshold of 3

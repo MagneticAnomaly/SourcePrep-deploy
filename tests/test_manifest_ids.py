@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import hashlib
 
-from codrag.core.ids import (
+from prep.core.ids import (
     stable_code_chunk_id,
     stable_file_hash,
     stable_markdown_chunk_id,
     stable_sha256,
 )
-from codrag.core.manifest import ManifestBuildStats, build_manifest, read_manifest, write_manifest
+from prep.core.manifest import ManifestBuildStats, build_manifest, read_manifest, write_manifest
 
 
 def test_stable_sha256_default_length() -> None:

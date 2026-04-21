@@ -4,9 +4,9 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from codrag.api.routers.collaboration import router
-from codrag.services.collaboration import CollaborationHub
-from codrag.services.observation_store import ObservationStore
+from prep.api.routers.collaboration import router
+from prep.services.collaboration import CollaborationHub
+from prep.services.observation_store import ObservationStore
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def app_and_client(tmp_path, monkeypatch):
     obs.init(tmp_path / "test.db")
 
     # Patch the helper functions to return our test instances
-    import codrag.api.routers.collaboration as mod
+    import prep.api.routers.collaboration as mod
     monkeypatch.setattr(mod, "_get_hub", lambda: hub)
     monkeypatch.setattr(mod, "_get_obs_store", lambda: obs)
 

@@ -1,8 +1,8 @@
 """Tests for atlas content hash embedding and extraction."""
 import hashlib
 
-from codrag.core.rules_generator import _build_managed_content
-from codrag.mcp.server import MCPServer
+from prep.core.rules_generator import _build_managed_content
+from prep.mcp.server import MCPServer
 
 
 def test_managed_content_includes_atlas_hash():

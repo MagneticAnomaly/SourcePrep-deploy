@@ -3,10 +3,10 @@ import time
 
 import pytest
 
-from codrag.services.collaboration.conflicts import (
+from prep.services.collaboration.conflicts import (
     AgentConflict, ConflictDetector, ConflictStore,
 )
-from codrag.services.observation_store import Observation
+from prep.services.observation_store import Observation
 
 
 @pytest.fixture

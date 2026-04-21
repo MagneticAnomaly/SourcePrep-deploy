@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from codrag.api.routers.projects import atlas_endpoints as atlas_endpoints_module
-from codrag.api.routers.projects.atlas_endpoints import (
+from prep.api.routers.projects import atlas_endpoints as atlas_endpoints_module
+from prep.api.routers.projects.atlas_endpoints import (
     _build_atlas_response,
     _serialize_segments,
 )
@@ -247,7 +247,7 @@ def test_get_atlas_route_when_no_atlas_returns_exists_false_with_empty_segments(
 
     # The function imports CodebaseAtlas lazily inside the handler — patch the
     # symbol that the import resolves to.
-    import codrag.core.atlas as atlas_pkg
+    import prep.core.atlas as atlas_pkg
     monkeypatch.setattr(atlas_pkg, "CodebaseAtlas", _NullAtlas)
 
     body = atlas_endpoints_module.get_atlas("proj-id", role=None)
@@ -287,7 +287,7 @@ def test_get_atlas_route_when_atlas_exists_returns_full_payload(monkeypatch):
     monkeypatch.setattr(atlas_endpoints_module, "_srv", lambda: _FakeSrv())
     monkeypatch.setattr(atlas_endpoints_module, "project_index_dir", lambda _p: "/tmp/idx")
 
-    import codrag.core.atlas as atlas_pkg
+    import prep.core.atlas as atlas_pkg
     monkeypatch.setattr(atlas_pkg, "CodebaseAtlas", _AtlasFactory)
 
     body = atlas_endpoints_module.get_atlas("proj-id", role=None)

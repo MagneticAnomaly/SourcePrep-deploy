@@ -4,10 +4,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-import codrag.services.project_helpers as ph
-from codrag.core.project_registry import ProjectRegistry, project_index_dir
-from codrag.server import app
+import prep.server as server
+import prep.services.project_helpers as ph
+from prep.core.project_registry import ProjectRegistry, project_index_dir
+from prep.server import app
 
 
 @pytest.fixture()

@@ -10,9 +10,9 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core.augmenter import TraceAugmenter
-from codrag.core import LLMClient
-from codrag.core.batch_profiles import PROFILE_COMPACT
+from prep.core.augmenter import TraceAugmenter
+from prep.core import LLMClient
+from prep.core.batch_profiles import PROFILE_COMPACT
 
 
 class MockLLMClient:

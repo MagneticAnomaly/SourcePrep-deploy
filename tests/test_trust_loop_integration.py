@@ -14,17 +14,17 @@ from typing import Any, Dict
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-from codrag.core import FakeEmbedder
-from codrag.core.project_registry import ProjectRegistry
-from codrag.server import app
+import prep.server as server
+from prep.core import FakeEmbedder
+from prep.core.project_registry import ProjectRegistry
+from prep.server import app
 
 
 @pytest.fixture()
 def client(tmp_path: Path) -> TestClient:
     """Create a test client with fresh state."""
-    import codrag.services.project_helpers as ph
-    from codrag.services.build_manager import build_manager as bm
+    import prep.services.project_helpers as ph
+    from prep.services.build_manager import build_manager as bm
 
     reg = ProjectRegistry(db_path=tmp_path / "registry.db")
     # Reset both the server-level and service-level registry singletons

@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.adapters.pm_models import PMGoal, PMIssue, PMProject, PMPushConfig, PushResult
-from codrag.agents.core import AgentCore
-from codrag.agents.shared.models import AgentConfig
-from codrag.core.audit.action_item import ActionItem
+from prep.adapters.pm_models import PMGoal, PMIssue, PMProject, PMPushConfig, PushResult
+from prep.agents.core import AgentCore
+from prep.agents.shared.models import AgentConfig
+from prep.core.audit.action_item import ActionItem
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -44,9 +44,9 @@ def mock_git():
 
 @pytest.fixture
 def core(mock_data_access, mock_paperclip, mock_git):
-    with patch("codrag.agents.core.CoDRAGDataAccess", return_value=mock_data_access), \
-         patch("codrag.agents.core.PaperclipClient", return_value=mock_paperclip), \
-         patch("codrag.agents.core.GitClient", return_value=mock_git):
+    with patch("prep.agents.core.CoDRAGDataAccess", return_value=mock_data_access), \
+         patch("prep.agents.core.PaperclipClient", return_value=mock_paperclip), \
+         patch("prep.agents.core.GitClient", return_value=mock_git):
         c = AgentCore(
             project_id="test-proj",
             index_dir=Path("/tmp/index"),
@@ -162,8 +162,8 @@ class TestPaperclipWriteAccess:
 
     def test_push_project_raises_when_paperclip_not_configured(self):
         """AgentCore without pm_config raises RuntimeError on Paperclip calls."""
-        with patch("codrag.agents.core.CoDRAGDataAccess"), \
-             patch("codrag.agents.core.GitClient"):
+        with patch("prep.agents.core.CoDRAGDataAccess"), \
+             patch("prep.agents.core.GitClient"):
             c = AgentCore(
                 project_id="no-pm",
                 index_dir=Path("/tmp/index"),
@@ -174,8 +174,8 @@ class TestPaperclipWriteAccess:
             c.push_project(PMProject(name="X"))
 
     def test_push_goal_raises_when_paperclip_not_configured(self):
-        with patch("codrag.agents.core.CoDRAGDataAccess"), \
-             patch("codrag.agents.core.GitClient"):
+        with patch("prep.agents.core.CoDRAGDataAccess"), \
+             patch("prep.agents.core.GitClient"):
             c = AgentCore(
                 project_id="no-pm",
                 index_dir=Path("/tmp/index"),
@@ -187,8 +187,8 @@ class TestPaperclipWriteAccess:
 
     def test_push_raises_when_pm_config_disabled(self):
         """pm_config.enabled=False → Paperclip not created → raises."""
-        with patch("codrag.agents.core.CoDRAGDataAccess"), \
-             patch("codrag.agents.core.GitClient"):
+        with patch("prep.agents.core.CoDRAGDataAccess"), \
+             patch("prep.agents.core.GitClient"):
             c = AgentCore(
                 project_id="disabled-pm",
                 index_dir=Path("/tmp/index"),
@@ -206,7 +206,7 @@ class TestPaperclipWriteAccess:
 class TestAgentConfig:
     def test_get_config_returns_defaults_when_not_set(self, core):
         """When no config is stored, returns an AgentConfig with defaults."""
-        with patch("codrag.agents.core.settings") as mock_settings:
+        with patch("prep.agents.core.settings") as mock_settings:
             mock_settings.project_get.return_value = None
             cfg = core.get_agent_config("researcher")
 
@@ -219,7 +219,7 @@ class TestAgentConfig:
         """Stored dict is converted to AgentConfig."""
         stored = {"enabled": True, "dry_run": False, "max_topics_per_run": 5}
 
-        with patch("codrag.agents.core.settings") as mock_settings:
+        with patch("prep.agents.core.settings") as mock_settings:
             mock_settings.project_get.return_value = stored
             cfg = core.get_agent_config("staffing")
 
@@ -231,7 +231,7 @@ class TestAgentConfig:
         """save_agent_config calls project_set with the serialized dict."""
         config = AgentConfig(enabled=True, dry_run=False, max_topics_per_run=7)
 
-        with patch("codrag.agents.core.settings") as mock_settings:
+        with patch("prep.agents.core.settings") as mock_settings:
             core.save_agent_config("custodian", config)
 
         mock_settings.project_set.assert_called_once_with(
@@ -250,7 +250,7 @@ class TestAgentConfig:
         def fake_get(project_id, key, default=None):
             return saved_dict.get("value")
 
-        with patch("codrag.agents.core.settings") as mock_settings:
+        with patch("prep.agents.core.settings") as mock_settings:
             mock_settings.project_set.side_effect = fake_set
             mock_settings.project_get.side_effect = fake_get
 
@@ -272,7 +272,7 @@ class TestGitAccess:
 
     def test_git_is_none_without_project_root(self):
         """When no project_root is given, git property returns None."""
-        with patch("codrag.agents.core.CoDRAGDataAccess"):
+        with patch("prep.agents.core.CoDRAGDataAccess"):
             c = AgentCore(
                 project_id="no-git",
                 index_dir=Path("/tmp/index"),
@@ -314,14 +314,14 @@ class TestNewCoDRAGMethods:
 
 class TestLLMAccess:
     def test_get_llm_client_returns_none_when_no_config(self, core):
-        with patch("codrag.agents.core.settings") as mock_settings:
+        with patch("prep.agents.core.settings") as mock_settings:
             mock_settings.get.return_value = None
             result = core.get_llm_client()
             assert result is None
 
     def test_get_llm_client_returns_client_when_configured(self, core):
-        with patch("codrag.agents.core.settings") as mock_settings, \
-             patch("codrag.core.llm_client.LLMClient") as MockLLM:
+        with patch("prep.agents.core.settings") as mock_settings, \
+             patch("prep.core.llm_client.LLMClient") as MockLLM:
             mock_settings.get.return_value = {
                 "model_thinking": "deepseek-r1:32b",
                 "llm_provider": "ollama",
@@ -336,7 +336,7 @@ class TestLLMAccess:
 
 class TestConcurrencyGate:
     def test_acquire_gate_delegates(self, core):
-        with patch("codrag.services.agent_gate.get_agent_gate") as mock_gate_fn:
+        with patch("prep.services.agent_gate.get_agent_gate") as mock_gate_fn:
             mock_gate = MagicMock()
             mock_gate.can_run.return_value = True
             mock_gate_fn.return_value = mock_gate
@@ -344,7 +344,7 @@ class TestConcurrencyGate:
             mock_gate.can_run.assert_called_once_with("test-proj", "researcher")
 
     def test_release_gate_delegates(self, core):
-        with patch("codrag.services.agent_gate.get_agent_gate") as mock_gate_fn:
+        with patch("prep.services.agent_gate.get_agent_gate") as mock_gate_fn:
             mock_gate = MagicMock()
             mock_gate_fn.return_value = mock_gate
             core.release_gate()

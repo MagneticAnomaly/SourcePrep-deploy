@@ -1,7 +1,7 @@
 """Phase 82 completion: cloud AIMD is unbounded; local remains VRAM-capped."""
 from __future__ import annotations
 
-from codrag.services.pipeline.scheduler import (
+from prep.services.pipeline.scheduler import (
     ComputeSlot,
     PipelineScheduler,
 )
@@ -143,9 +143,9 @@ def test_reconfigure_cloud_slot_preserves_discovered_limit() -> None:
 
 def test_new_cloud_slot_hydrates_from_store(monkeypatch, tmp_path) -> None:
     """configure_node reads the persisted ceiling and uses it as current_limit."""
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
     monkeypatch.setattr(mod, "_store", None)
 
     # Persist a ceiling BEFORE creating the slot.
@@ -167,9 +167,9 @@ def test_new_cloud_slot_hydrates_from_store(monkeypatch, tmp_path) -> None:
 
 
 def test_aimd_backoff_writes_new_ceiling(monkeypatch, tmp_path) -> None:
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
     monkeypatch.setattr(mod, "_store", None)
 
     sched = PipelineScheduler()
@@ -189,9 +189,9 @@ def test_aimd_backoff_writes_new_ceiling(monkeypatch, tmp_path) -> None:
 
 
 def test_aimd_doubling_writes_new_ceiling(monkeypatch, tmp_path) -> None:
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
     monkeypatch.setattr(mod, "_store", None)
 
     sched = PipelineScheduler()
@@ -211,9 +211,9 @@ def test_aimd_doubling_writes_new_ceiling(monkeypatch, tmp_path) -> None:
 def test_rate_limit_header_clamp_persists(monkeypatch, tmp_path) -> None:
     """Rate-limit header clamp is an authoritative ceiling signal from the
     provider — must persist across restart (most important persist site)."""
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
     monkeypatch.setattr(mod, "_store", None)
 
     sched = PipelineScheduler()
@@ -235,9 +235,9 @@ def test_rate_limit_header_clamp_persists(monkeypatch, tmp_path) -> None:
 
 def test_local_slot_does_not_persist(monkeypatch, tmp_path) -> None:
     """Local slots have a known hardware ceiling — no discovery, no persist."""
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
     monkeypatch.setattr(mod, "_store", None)
 
     sched = PipelineScheduler()

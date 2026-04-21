@@ -12,7 +12,7 @@ Covers:
 import os
 import pytest
 
-from codrag.core.feature_gate import (
+from prep.core.feature_gate import (
     Tier,
     License,
     check_feature,
@@ -187,7 +187,7 @@ class TestLicenseEndpoint:
 
     def test_license_endpoint_returns_features(self):
         os.environ["CODRAG_TIER"] = "free"
-        from codrag.server import app
+        from prep.server import app
         from starlette.testclient import TestClient
 
         client = TestClient(app)
@@ -201,7 +201,7 @@ class TestLicenseEndpoint:
 
     def test_license_endpoint_perpetual(self):
         os.environ["CODRAG_TIER"] = "perpetual"
-        from codrag.server import app
+        from prep.server import app
         from starlette.testclient import TestClient
 
         client = TestClient(app)

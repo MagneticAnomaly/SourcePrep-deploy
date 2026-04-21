@@ -18,7 +18,7 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-from codrag.core.project_registry import (
+from prep.core.project_registry import (
     Project,
     _POINTER_FILENAME,
     trace_ignore_patterns_for_index,
@@ -45,7 +45,7 @@ def test_trace_ignore_patterns_resolved_via_pointer() -> None:
         proj = _stub_project(idx_dir, "proj-abc", ["**/*.secret.ts", "**/private/**"])
 
         with patch(
-            "codrag.core.project_registry.ProjectRegistry.get_project",
+            "prep.core.project_registry.ProjectRegistry.get_project",
             return_value=proj,
         ):
             patterns = trace_ignore_patterns_for_index(idx_dir)
@@ -68,7 +68,7 @@ def test_trace_ignore_patterns_empty_when_project_not_in_registry() -> None:
         (idx_dir / _POINTER_FILENAME).write_text(json.dumps({"id": "missing-id"}))
 
         with patch(
-            "codrag.core.project_registry.ProjectRegistry.get_project",
+            "prep.core.project_registry.ProjectRegistry.get_project",
             return_value=None,
         ):
             assert trace_ignore_patterns_for_index(idx_dir) == []
@@ -76,8 +76,8 @@ def test_trace_ignore_patterns_empty_when_project_not_in_registry() -> None:
 
 def test_loader_auto_resolves_l3() -> None:
     """load_filtered_trace_nodes filters a leaked path that is only in L3."""
-    from codrag.core.repo_policy import ensure_repo_policy
-    from codrag.core.trace.loaders import load_filtered_trace_nodes
+    from prep.core.repo_policy import ensure_repo_policy
+    from prep.core.trace.loaders import load_filtered_trace_nodes
 
     with tempfile.TemporaryDirectory() as td:
         repo_root = Path(td).resolve()
@@ -97,7 +97,7 @@ def test_loader_auto_resolves_l3() -> None:
         proj = _stub_project(idx_dir, "proj-xyz", ["**/*.data"])
 
         with patch(
-            "codrag.core.project_registry.ProjectRegistry.get_project",
+            "prep.core.project_registry.ProjectRegistry.get_project",
             return_value=proj,
         ):
             nodes = load_filtered_trace_nodes(
@@ -113,8 +113,8 @@ def test_loader_auto_resolves_l3() -> None:
 
 def test_loader_explicit_empty_opt_out() -> None:
     """Passing an empty list (not None) skips the registry lookup."""
-    from codrag.core.repo_policy import ensure_repo_policy
-    from codrag.core.trace.loaders import load_filtered_trace_nodes
+    from prep.core.repo_policy import ensure_repo_policy
+    from prep.core.trace.loaders import load_filtered_trace_nodes
 
     with tempfile.TemporaryDirectory() as td:
         repo_root = Path(td).resolve()
@@ -130,7 +130,7 @@ def test_loader_explicit_empty_opt_out() -> None:
         # ProjectRegistry.get_project should NOT be called when caller
         # passes trace_ignore_patterns=[] explicitly.
         with patch(
-            "codrag.core.project_registry.ProjectRegistry.get_project"
+            "prep.core.project_registry.ProjectRegistry.get_project"
         ) as mock_get:
             nodes = load_filtered_trace_nodes(
                 index_dir=idx_dir,

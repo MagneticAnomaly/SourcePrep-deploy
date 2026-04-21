@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core import FakeEmbedder
-from codrag.mcp_direct import DirectMCPServer
+from prep.core import FakeEmbedder
+from prep.mcp_direct import DirectMCPServer
 
 
 @pytest.fixture

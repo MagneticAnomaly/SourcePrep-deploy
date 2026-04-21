@@ -7,9 +7,9 @@ from typing import Tuple
 
 import pytest
 
-from codrag.agents.hr.engine import StaffingEngine, DriftReport, RoleFitness
-from codrag.agents.hr.roster import Roster
-from codrag.agents.shared.models import RoleSpec
+from prep.agents.hr.engine import StaffingEngine, DriftReport, RoleFitness
+from prep.agents.hr.roster import Roster
+from prep.agents.shared.models import RoleSpec
 
 
 @pytest.fixture

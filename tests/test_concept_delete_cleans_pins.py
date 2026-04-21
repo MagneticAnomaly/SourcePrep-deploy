@@ -11,9 +11,9 @@ from typing import Any
 
 import pytest
 
-from codrag.services import role_overrides_store as ros_module
-from codrag.services.concept_store import ConceptStore
-from codrag.services.role_overrides_store import RoleOverridesStore
+from prep.services import role_overrides_store as ros_module
+from prep.services.concept_store import ConceptStore
+from prep.services.role_overrides_store import RoleOverridesStore
 
 
 class _FakeSettings:

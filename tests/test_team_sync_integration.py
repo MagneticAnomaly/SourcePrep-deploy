@@ -22,8 +22,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from codrag.core.index import CodeIndex, SearchResult
-from codrag.core.layered_index import LayeredCodeIndex, prune_stale_deltas
+from prep.core.index import CodeIndex, SearchResult
+from prep.core.layered_index import LayeredCodeIndex, prune_stale_deltas
 
 
 # ── Helpers ───────────────────────────────────────────────────
@@ -53,7 +53,7 @@ def _make_index_dir(
 
 def _mock_embedder(dim: int = 32):
     """Create a mock embedder returning deterministic vectors."""
-    from codrag.core.embedder import EmbeddingResult
+    from prep.core.embedder import EmbeddingResult
 
     rng = np.random.default_rng(99)
     embedder = MagicMock()
@@ -72,7 +72,7 @@ def _mock_embedder(dim: int = 32):
 
 def _make_project(tmp_path: Path, project_id: str = "test-proj"):
     """Create a Project dataclass for testing."""
-    from codrag.core.project_registry import Project
+    from prep.core.project_registry import Project
     return Project(
         id=project_id, name="TestProject", path=str(tmp_path),
         mode="embedded", config={}, created_at="", updated_at="",
@@ -94,7 +94,7 @@ class TestArtifactConsistency:
         (the code index itself) which are NOT in _PRESERVE_FILES because
         _PRESERVE_FILES only covers pipeline-produced trace/knowledge files.
         """
-        from codrag.services.s3_storage import INDEX_ARTIFACTS
+        from prep.services.s3_storage import INDEX_ARTIFACTS
 
         # _PRESERVE_FILES is defined inline in CodeIndex.build(), extract it
         preserve_files = [
@@ -132,13 +132,13 @@ class TestArtifactConsistency:
 
     def test_index_artifacts_includes_core_files(self):
         """INDEX_ARTIFACTS must include the core code index files."""
-        from codrag.services.s3_storage import INDEX_ARTIFACTS
+        from prep.services.s3_storage import INDEX_ARTIFACTS
         assert "documents.json" in INDEX_ARTIFACTS
         assert "embeddings.npy" in INDEX_ARTIFACTS
 
     def test_index_artifacts_no_duplicates(self):
         """No duplicate entries in INDEX_ARTIFACTS."""
-        from codrag.services.s3_storage import INDEX_ARTIFACTS
+        from prep.services.s3_storage import INDEX_ARTIFACTS
         assert len(INDEX_ARTIFACTS) == len(set(INDEX_ARTIFACTS))
 
 
@@ -151,40 +151,40 @@ class TestLicenseGating:
     """Verify team_config feature gating across tiers."""
 
     def setup_method(self):
-        from codrag.core.feature_gate import clear_license_cache
+        from prep.core.feature_gate import clear_license_cache
         clear_license_cache()
 
     def teardown_method(self):
-        from codrag.core.feature_gate import clear_license_cache
+        from prep.core.feature_gate import clear_license_cache
         clear_license_cache()
 
     def test_free_tier_cannot_access_team_config(self):
-        from codrag.core.feature_gate import check_feature
+        from prep.core.feature_gate import check_feature
         with patch.dict(os.environ, {"CODRAG_TIER": "free"}, clear=False):
-            from codrag.core.feature_gate import clear_license_cache
+            from prep.core.feature_gate import clear_license_cache
             clear_license_cache()
             assert check_feature("team_config") is False
 
     def test_team_tier_can_access_team_config(self):
-        from codrag.core.feature_gate import check_feature, clear_license_cache
+        from prep.core.feature_gate import check_feature, clear_license_cache
         with patch.dict(os.environ, {"CODRAG_TIER": "team"}, clear=False):
             clear_license_cache()
             assert check_feature("team_config") is True
 
     def test_enterprise_tier_can_access_team_config(self):
-        from codrag.core.feature_gate import check_feature, clear_license_cache
+        from prep.core.feature_gate import check_feature, clear_license_cache
         with patch.dict(os.environ, {"CODRAG_TIER": "enterprise"}, clear=False):
             clear_license_cache()
             assert check_feature("team_config") is True
 
     def test_pro_tier_cannot_access_team_config(self):
-        from codrag.core.feature_gate import check_feature, clear_license_cache
+        from prep.core.feature_gate import check_feature, clear_license_cache
         with patch.dict(os.environ, {"CODRAG_TIER": "pro"}, clear=False):
             clear_license_cache()
             assert check_feature("team_config") is False
 
     def test_require_team_config_raises_for_free(self):
-        from codrag.core.feature_gate import require_feature, FeatureGateError, clear_license_cache
+        from prep.core.feature_gate import require_feature, FeatureGateError, clear_license_cache
         with patch.dict(os.environ, {"CODRAG_TIER": "free"}, clear=False):
             clear_license_cache()
             with pytest.raises(FeatureGateError, match="team_config"):
@@ -222,7 +222,7 @@ class TestLayeredSearchMerge:
         # Make the embedder return the first stored embedding vector as query result
         # so we get guaranteed cosine similarity hits
         stored_emb = np.load(tmp_path / "remote" / "embeddings.npy")
-        from codrag.core.embedder import EmbeddingResult
+        from prep.core.embedder import EmbeddingResult
         layered.remote.embedder.embed.return_value = EmbeddingResult(
             vector=stored_emb[0].tolist(), model="test"
         )
@@ -296,7 +296,7 @@ class TestLayeredGetContext:
         # Make query vector match the stored embedding so search returns results.
         # Must clear side_effect first — it takes priority over return_value.
         stored_emb = np.load(remote_dir / "embeddings.npy")
-        from codrag.core.embedder import EmbeddingResult
+        from prep.core.embedder import EmbeddingResult
         fixed_result = EmbeddingResult(vector=stored_emb[0].tolist(), model="test")
         embedder.embed.side_effect = None
         embedder.embed.return_value = fixed_result
@@ -342,7 +342,7 @@ class TestWatcherDeltaRouting:
 
     def test_routes_to_delta_build_when_remote_exists(self, tmp_path):
         """When _has_remote_index returns True, trigger should call delta build."""
-        from codrag.services.build_manager import BuildManager
+        from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "delta-route")
 
         bm = BuildManager()
@@ -372,7 +372,7 @@ class TestWatcherDeltaRouting:
 
     def test_routes_to_full_build_when_no_remote(self, tmp_path):
         """When no remote index, trigger should call full build."""
-        from codrag.services.build_manager import BuildManager
+        from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "full-route")
 
         bm = BuildManager()
@@ -403,8 +403,8 @@ class TestSyncAndPruneEndToEnd:
 
     def test_check_and_sync_triggers_prune(self, tmp_path):
         """After a successful sync, stale deltas should be pruned."""
-        from codrag.services.remote_sync import RemoteSyncService
-        from codrag.services.s3_storage import SyncManifest
+        from prep.services.remote_sync import RemoteSyncService
+        from prep.services.s3_storage import SyncManifest
 
         # Set up project with enabled sync config
         codrag_dir = tmp_path / ".codrag"
@@ -471,8 +471,8 @@ class TestSyncAndPruneEndToEnd:
 
     def test_sync_no_prune_when_no_deltas(self, tmp_path):
         """Sync should succeed even when no deltas exist."""
-        from codrag.services.remote_sync import RemoteSyncService
-        from codrag.services.s3_storage import SyncManifest
+        from prep.services.remote_sync import RemoteSyncService
+        from prep.services.s3_storage import SyncManifest
 
         codrag_dir = tmp_path / ".codrag"
         codrag_dir.mkdir(parents=True, exist_ok=True)
@@ -521,7 +521,7 @@ class TestFullSyncLifecycle:
         5. Prune removes the stale delta
         6. Search sees the fresh remote version
         """
-        from codrag.services.build_manager import BuildManager
+        from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "lifecycle")
 
         codrag_dir = tmp_path / ".codrag"
@@ -611,8 +611,8 @@ class TestAPIIntegration:
     @pytest.fixture
     def configured_app(self, tmp_path):
         """Configure the server and register a project with a remote index."""
-        from codrag.server import app, configure, _get_registry
-        from codrag.core.project_registry import ProjectRegistry
+        from prep.server import app, configure, _get_registry
+        from prep.core.project_registry import ProjectRegistry
 
         # Configure server with temp dir
         index_dir = tmp_path / "codrag_data"
@@ -704,7 +704,7 @@ class TestCacheCoherence:
     """Verify cache behaves correctly across build/sync/search cycles."""
 
     def test_cache_survives_multiple_reads(self, tmp_path):
-        from codrag.services.build_manager import BuildManager
+        from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "cache-reads")
 
         remote_dir = tmp_path / ".codrag" / "remote"
@@ -723,7 +723,7 @@ class TestCacheCoherence:
         assert idx2 is idx3
 
     def test_invalidation_forces_refresh(self, tmp_path):
-        from codrag.services.build_manager import BuildManager
+        from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "cache-refresh")
 
         remote_dir = tmp_path / ".codrag" / "remote"
@@ -753,7 +753,7 @@ class TestCacheCoherence:
         assert idx3._documents[0]["content"] == "version2"
 
     def test_invalidation_is_project_scoped(self, tmp_path):
-        from codrag.services.build_manager import BuildManager
+        from prep.services.build_manager import BuildManager
 
         proj_a = _make_project(tmp_path / "a", "proj-a")
         proj_b = _make_project(tmp_path / "b", "proj-b")
@@ -789,19 +789,19 @@ class TestHeadlessStagesCompleteness:
     """Verify headless pipeline stage configuration."""
 
     def test_all_stages_have_label(self):
-        from codrag.services.headless_runner import HEADLESS_STAGES
+        from prep.services.headless_runner import HEADLESS_STAGES
         for stage_id, stage_label in HEADLESS_STAGES:
             assert isinstance(stage_label, str), f"Stage {stage_id} label is not a string"
             assert len(stage_label) > 0, f"Stage {stage_id} has empty label"
 
     def test_stage_ids_are_strings(self):
-        from codrag.services.headless_runner import HEADLESS_STAGES
+        from prep.services.headless_runner import HEADLESS_STAGES
         for stage_id, _ in HEADLESS_STAGES:
             assert isinstance(stage_id, str)
             assert len(stage_id) > 0
 
     def test_headless_runner_instantiates(self, tmp_path):
-        from codrag.services.headless_runner import HeadlessRunner, HeadlessConfig
+        from prep.services.headless_runner import HeadlessRunner, HeadlessConfig
         repo = tmp_path / "repo"
         repo.mkdir()
         cfg = HeadlessConfig(repo_path=str(repo))
@@ -869,14 +869,14 @@ class TestEdgeCases:
 
     def test_sync_service_handles_missing_codrag_dir(self, tmp_path):
         """RemoteSyncService works even if .codrag doesn't exist initially."""
-        from codrag.services.remote_sync import RemoteSyncService
+        from prep.services.remote_sync import RemoteSyncService
         svc = RemoteSyncService(tmp_path)
         assert svc.status.enabled is False
         svc._prune_stale_deltas()  # Should not raise
 
     def test_build_manager_layered_with_corrupt_remote_docs(self, tmp_path):
         """BuildManager handles corrupt remote documents.json."""
-        from codrag.services.build_manager import BuildManager
+        from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "corrupt-remote")
 
         remote_dir = tmp_path / ".codrag" / "remote"

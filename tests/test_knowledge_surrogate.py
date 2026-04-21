@@ -8,7 +8,7 @@ invalid in UTF-8.
 Fix: _sanitize_text() strips surrogates before hashing/embedding/serialization.
 """
 
-from codrag.core.knowledge import KnowledgeIndex
+from prep.core.knowledge import KnowledgeIndex
 
 
 class TestSurrogateHandling:

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.pipeline.concurrency_store import ConcurrencyStore
+from prep.services.pipeline.concurrency_store import ConcurrencyStore
 
 
 @pytest.fixture
@@ -99,9 +99,9 @@ def test_uses_delete_journal_mode(tmp_path: Path) -> None:
 
 def test_default_store_uses_data_dir(monkeypatch, tmp_path: Path) -> None:
     """The module-level singleton reads from `data_dir() / concurrency_store.db`."""
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
 
     # Force re-init by calling the accessor
     mod._store = None  # type: ignore[attr-defined]

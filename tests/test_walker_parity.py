@@ -21,7 +21,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from codrag.core.repo_profile import (
+from prep.core.repo_profile import (
     DEFAULT_EXCLUDE_DIR_NAMES,
     DEFAULT_EXCLUDE_FILE_GLOBS,
 )

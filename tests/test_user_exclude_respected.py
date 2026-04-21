@@ -15,13 +15,13 @@ import json
 import tempfile
 from pathlib import Path
 
-from codrag.core.repo_policy import (
+from prep.core.repo_policy import (
     effective_excludes,
     ensure_repo_policy,
     policy_path_for_index,
     write_repo_policy,
 )
-from codrag.core.repo_profile import (
+from prep.core.repo_profile import (
     CODRAG_OUTPUT_FILE_GLOBS,
     DEFAULT_EXCLUDE_DIR_NAMES,
     DEFAULT_EXCLUDE_FILE_GLOBS,

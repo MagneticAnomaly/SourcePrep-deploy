@@ -23,7 +23,7 @@ def test_purge_ghost_locks_cleans_orphaned_lock():
 
     mock_event_bus = MagicMock()
 
-    from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+    from prep.services.pipeline.ghost_guard import purge_ghost_locks
 
     count = purge_ghost_locks(
         scheduler=mock_scheduler,
@@ -59,7 +59,7 @@ def test_purge_ghost_locks_no_op_when_threads_alive():
 
     mock_event_bus = MagicMock()
 
-    from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+    from prep.services.pipeline.ghost_guard import purge_ghost_locks
 
     count = purge_ghost_locks(
         scheduler=mock_scheduler,
@@ -98,7 +98,7 @@ def test_purge_ghost_locks_multiple_nodes():
 
     mock_event_bus = MagicMock()
 
-    from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+    from prep.services.pipeline.ghost_guard import purge_ghost_locks
 
     count = purge_ghost_locks(
         scheduler=mock_scheduler,
@@ -121,7 +121,7 @@ def test_purge_ghost_locks_empty_scheduler():
     mock_build_orch = MagicMock()
     mock_event_bus = MagicMock()
 
-    from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+    from prep.services.pipeline.ghost_guard import purge_ghost_locks
 
     count = purge_ghost_locks(
         scheduler=mock_scheduler,

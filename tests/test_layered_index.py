@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from codrag.core.index import CodeIndex, SearchResult
-from codrag.core.layered_index import (
+from prep.core.index import CodeIndex, SearchResult
+from prep.core.layered_index import (
     LayeredCodeIndex,
     prune_stale_deltas,
 )
@@ -37,7 +37,7 @@ def _make_index(tmp: Path, name: str, docs: List[Dict[str, Any]], dim: int = 4) 
 
 def _mock_embedder():
     """Create a mock embedder that returns random vectors."""
-    from codrag.core.embedder import EmbeddingResult
+    from prep.core.embedder import EmbeddingResult
 
     embedder = MagicMock()
     embedder.embed.return_value = EmbeddingResult(
@@ -222,8 +222,8 @@ class TestBuildManagerLayeredIndex:
 
     def test_fallback_to_plain_index(self, tmp_path):
         """When no remote index exists, returns plain CodeIndex."""
-        from codrag.services.build_manager import BuildManager
-        from codrag.core.project_registry import Project
+        from prep.services.build_manager import BuildManager
+        from prep.core.project_registry import Project
 
         bm = BuildManager()
         proj = Project(
@@ -242,8 +242,8 @@ class TestBuildManagerLayeredIndex:
 
     def test_returns_layered_when_remote_exists(self, tmp_path):
         """When remote/documents.json exists, returns LayeredCodeIndex."""
-        from codrag.services.build_manager import BuildManager
-        from codrag.core.project_registry import Project
+        from prep.services.build_manager import BuildManager
+        from prep.core.project_registry import Project
 
         bm = BuildManager()
         proj = Project(
@@ -268,8 +268,8 @@ class TestBuildManagerLayeredIndex:
 
     def test_layered_with_delta(self, tmp_path):
         """When both remote and local_deltas exist, creates full layered index."""
-        from codrag.services.build_manager import BuildManager
-        from codrag.core.project_registry import Project
+        from prep.services.build_manager import BuildManager
+        from prep.core.project_registry import Project
 
         bm = BuildManager()
         proj = Project(
@@ -311,8 +311,8 @@ class TestRemoteSyncStartup:
 
     def test_sync_status_lazy_creates(self, tmp_path):
         """get_project_sync_status creates a syncer for the project."""
-        from codrag.services.project_helpers import get_project_sync_status
-        from codrag.core.project_registry import Project
+        from prep.services.project_helpers import get_project_sync_status
+        from prep.core.project_registry import Project
 
         proj = Project(
             id="sync-test", name="SyncTest", path=str(tmp_path),
@@ -326,8 +326,8 @@ class TestRemoteSyncStartup:
 
     def test_sync_status_detects_enabled_config(self, tmp_path):
         """When team_config.json has sync.enabled=true, status reports enabled."""
-        from codrag.services.project_helpers import get_project_sync_status
-        from codrag.core.project_registry import Project
+        from prep.services.project_helpers import get_project_sync_status
+        from prep.core.project_registry import Project
 
         proj = Project(
             id="sync-enabled", name="SyncEnabled", path=str(tmp_path),
@@ -352,8 +352,8 @@ class TestRemoteSyncStartup:
 
     def test_sync_status_disabled_by_default(self, tmp_path):
         """When team_config.json has sync.enabled=false, status is disabled."""
-        from codrag.services.project_helpers import get_project_sync_status
-        from codrag.core.project_registry import Project
+        from prep.services.project_helpers import get_project_sync_status
+        from prep.core.project_registry import Project
 
         proj = Project(
             id="sync-disabled", name="SyncDisabled", path=str(tmp_path),
@@ -376,8 +376,8 @@ class TestBuildManagerDeltaBuild:
 
     def test_has_remote_index_false(self, tmp_path):
         """has_remote_index returns False when no remote dir."""
-        from codrag.services.build_manager import BuildManager
-        from codrag.core.project_registry import Project
+        from prep.services.build_manager import BuildManager
+        from prep.core.project_registry import Project
 
         bm = BuildManager()
         proj = Project(
@@ -391,8 +391,8 @@ class TestBuildManagerDeltaBuild:
 
     def test_has_remote_index_true(self, tmp_path):
         """has_remote_index returns True when remote/documents.json exists."""
-        from codrag.services.build_manager import BuildManager
-        from codrag.core.project_registry import Project
+        from prep.services.build_manager import BuildManager
+        from prep.core.project_registry import Project
 
         bm = BuildManager()
         proj = Project(
@@ -407,8 +407,8 @@ class TestBuildManagerDeltaBuild:
 
     def test_layered_cache_invalidation(self, tmp_path):
         """invalidate_layered_cache clears the cached LayeredCodeIndex."""
-        from codrag.services.build_manager import BuildManager
-        from codrag.core.project_registry import Project
+        from prep.services.build_manager import BuildManager
+        from prep.core.project_registry import Project
 
         bm = BuildManager()
         proj = Project(
@@ -444,8 +444,8 @@ class TestBuildManagerDeltaBuild:
 
     def test_cache_cleared_when_remote_disappears(self, tmp_path):
         """Cache is cleared when remote index is deleted."""
-        from codrag.services.build_manager import BuildManager
-        from codrag.core.project_registry import Project
+        from prep.services.build_manager import BuildManager
+        from prep.core.project_registry import Project
 
         bm = BuildManager()
         proj = Project(
@@ -481,7 +481,7 @@ class TestRemoteSyncDeltaPruning:
 
     def test_prune_called_after_sync(self, tmp_path):
         """_prune_stale_deltas is called and works correctly."""
-        from codrag.services.remote_sync import RemoteSyncService
+        from prep.services.remote_sync import RemoteSyncService
 
         svc = RemoteSyncService(tmp_path)
 
@@ -511,7 +511,7 @@ class TestRemoteSyncDeltaPruning:
 
     def test_prune_noop_when_no_deltas(self, tmp_path):
         """No error when delta dir doesn't exist."""
-        from codrag.services.remote_sync import RemoteSyncService
+        from prep.services.remote_sync import RemoteSyncService
 
         svc = RemoteSyncService(tmp_path)
         # No delta dir at all — should not raise

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from codrag.core.query_analyzer import QueryAnalyzer, QuerySignals
+from prep.core.query_analyzer import QueryAnalyzer, QuerySignals
 
 
 class TestFileNameExtraction:
@@ -107,8 +107,8 @@ class TestCoverage:
 
 class TestGraphInjection:
     def test_file_path_signal_boosts_matching_docs(self) -> None:
-        from codrag.core.query_analyzer import QueryAnalyzer
-        from codrag.core.index import _structural_boosts
+        from prep.core.query_analyzer import QueryAnalyzer
+        from prep.core.index import _structural_boosts
         signals = QueryAnalyzer.extract_signals("look at src/codrag/mcp/server.py")
         docs = [
             {"source_path": "src/codrag/mcp/server.py", "id": "1"},
@@ -119,8 +119,8 @@ class TestGraphInjection:
         assert boosts[1] == 0.0
 
     def test_file_name_signal_boosts_basename_match(self) -> None:
-        from codrag.core.query_analyzer import QueryAnalyzer
-        from codrag.core.index import _structural_boosts
+        from prep.core.query_analyzer import QueryAnalyzer
+        from prep.core.index import _structural_boosts
         signals = QueryAnalyzer.extract_signals("explain orchestrator.py")
         docs = [
             {"source_path": "src/codrag/services/pipeline/orchestrator.py", "id": "1"},
@@ -130,8 +130,8 @@ class TestGraphInjection:
         assert boosts[0] > 0.0
 
     def test_symbol_signal_boosts_content_match(self) -> None:
-        from codrag.core.query_analyzer import QueryAnalyzer
-        from codrag.core.index import _structural_boosts
+        from prep.core.query_analyzer import QueryAnalyzer
+        from prep.core.index import _structural_boosts
         signals = QueryAnalyzer.extract_signals("what does PipelineOrchestrator do")
         docs = [
             {"source_path": "orchestrator.py", "id": "1", "content": "class PipelineOrchestrator:"},
@@ -142,8 +142,8 @@ class TestGraphInjection:
         assert boosts[1] == 0.0
 
     def test_no_signals_no_boosts(self) -> None:
-        from codrag.core.query_analyzer import QueryAnalyzer
-        from codrag.core.index import _structural_boosts
+        from prep.core.query_analyzer import QueryAnalyzer
+        from prep.core.index import _structural_boosts
         signals = QueryAnalyzer.extract_signals("how does auth work")
         docs = [{"source_path": "auth.py", "id": "1"}]
         boosts = _structural_boosts(signals, docs)

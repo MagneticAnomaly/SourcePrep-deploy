@@ -5,8 +5,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
 
-from codrag.core.repo_profile import scan_for_presets as _scan_for_presets, STACK_PRESETS as _STACK_PRESETS
-from codrag.api.routers.projects import add_project, AddProjectRequest
+from prep.core.repo_profile import scan_for_presets as _scan_for_presets, STACK_PRESETS as _STACK_PRESETS
+from prep.api.routers.projects import add_project, AddProjectRequest
 
 def test_scan_for_presets():
     """Verify that _scan_for_presets detects the correct stacks."""
@@ -49,9 +49,9 @@ def test_add_project_populates_globs():
     mock_server._project_to_dict.side_effect = lambda p: {"id": p.id, "config": p.config}
     
     # Patch the lazy import in projects.py
-    with patch("codrag.api.routers.projects._srv", return_value=mock_server), \
-         patch("codrag.core.feature_gate.get_license") as mock_license, \
-         patch("codrag.core.feature_gate.get_feature_limit", return_value=10):
+    with patch("prep.api.routers.projects._srv", return_value=mock_server), \
+         patch("prep.core.feature_gate.get_license") as mock_license, \
+         patch("prep.core.feature_gate.get_feature_limit", return_value=10):
         
         mock_license.return_value.tier = 1 # Monthly
         

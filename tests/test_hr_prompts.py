@@ -1,5 +1,5 @@
 """Tests for HR prompt template rendering."""
-from codrag.agents.hr.prompts import (
+from prep.agents.hr.prompts import (
     render_agents_md_prompt,
     render_soul_md_prompt,
     render_knowledge_md,

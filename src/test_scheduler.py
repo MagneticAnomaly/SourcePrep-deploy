@@ -1,6 +1,6 @@
-from codrag.services.pipeline.scheduler import pipeline_scheduler
-from codrag.services.token_telemetry import set_telemetry_context
-from codrag.core.batch_profiles import get_batch_concurrency
+from prep.services.pipeline.scheduler import pipeline_scheduler
+from prep.services.token_telemetry import set_telemetry_context
+from prep.core.batch_profiles import get_batch_concurrency
 
 pipeline_scheduler.configure_node("cloud:ep1", 3)
 pipeline_scheduler.set_priority("test_project_1", "exclusive")

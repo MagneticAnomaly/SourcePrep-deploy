@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.concept_store import ConceptStore
-from codrag.services.observation_store import ObservationStore
+from prep.services.concept_store import ConceptStore
+from prep.services.observation_store import ObservationStore
 
 
 # ── Observation Store Fixtures ───────────────────────────────────

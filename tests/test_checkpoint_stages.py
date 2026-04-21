@@ -1,4 +1,4 @@
-from codrag.services.pipeline_checkpoint import CHECKPOINT_STAGES, _GOLDEN_FILES, STAGE_OUTPUTS
+from prep.services.pipeline_checkpoint import CHECKPOINT_STAGES, _GOLDEN_FILES, STAGE_OUTPUTS
 
 
 def test_checkpoint_stages_covers_all_15_pipeline_stages():

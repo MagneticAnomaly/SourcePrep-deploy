@@ -3,13 +3,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.services.pipeline.recovery import RecoveryManager, _CLEAN_SHUTDOWN_FILENAME
-from codrag.services.pipeline.stages import (
+from prep.services.pipeline.recovery import RecoveryManager, _CLEAN_SHUTDOWN_FILENAME
+from prep.services.pipeline.stages import (
     DEEP_ENRICHMENT_STAGES,
     FAST_SYNC_STAGES,
     StageId,
 )
-from codrag.services.pipeline.state_machine import (
+from prep.services.pipeline.state_machine import (
     PipelineState,
 )
 
@@ -32,8 +32,8 @@ class TestHydratePausedRuns:
         guard = MagicMock()
         guard.check.return_value = None
 
-        with patch("codrag.services.project_helpers.get_registry") as mock_reg, \
-             patch("codrag.services.settings_store.settings") as mock_settings:
+        with patch("prep.services.project_helpers.get_registry") as mock_reg, \
+             patch("prep.services.settings_store.settings") as mock_settings:
             mock_reg.return_value.list_projects.return_value = [mock_project]
             mock_settings.get.return_value = {}
 
@@ -60,8 +60,8 @@ class TestHydratePausedRuns:
         mock_project = MagicMock()
         mock_project.id = "proj-1"
 
-        with patch("codrag.services.project_helpers.get_registry") as mock_reg, \
-             patch("codrag.services.settings_store.settings") as mock_settings:
+        with patch("prep.services.project_helpers.get_registry") as mock_reg, \
+             patch("prep.services.settings_store.settings") as mock_settings:
             mock_reg.return_value.list_projects.return_value = [mock_project]
             mock_settings.get.return_value = {
                 "fast_sync": {"auto": True},
@@ -84,8 +84,8 @@ class TestHydratePausedRuns:
         mock_project = MagicMock()
         mock_project.id = "proj-1"
 
-        with patch("codrag.services.project_helpers.get_registry") as mock_reg, \
-             patch("codrag.services.settings_store.settings") as mock_settings:
+        with patch("prep.services.project_helpers.get_registry") as mock_reg, \
+             patch("prep.services.settings_store.settings") as mock_settings:
             mock_reg.return_value.list_projects.return_value = [mock_project]
             mock_settings.get.return_value = {}
 
@@ -105,8 +105,8 @@ class TestHydratePausedRuns:
         mock_project = MagicMock()
         mock_project.id = "proj-1"
 
-        with patch("codrag.services.project_helpers.get_registry") as mock_reg, \
-             patch("codrag.services.settings_store.settings") as mock_settings:
+        with patch("prep.services.project_helpers.get_registry") as mock_reg, \
+             patch("prep.services.settings_store.settings") as mock_settings:
             mock_reg.return_value.list_projects.return_value = [mock_project]
             mock_settings.get.return_value = {}
 
@@ -125,7 +125,7 @@ class TestStartupRecovery:
         """startup_recovery should call hydrate, then auto_recover."""
         call_order = []
 
-        with patch("codrag.services.pipeline_journal.journal") as mock_journal:
+        with patch("prep.services.pipeline_journal.journal") as mock_journal:
             mock_journal.recover_crashed_runs.return_value = []
 
             RecoveryManager.startup_recovery(
@@ -143,7 +143,7 @@ class TestStartupRecovery:
         """
         call_order = []
 
-        with patch("codrag.services.pipeline_journal.journal") as mock_journal:
+        with patch("prep.services.pipeline_journal.journal") as mock_journal:
             mock_journal.recover_crashed_runs.return_value = []
 
             RecoveryManager.startup_recovery(
@@ -162,7 +162,7 @@ class TestStartupRecovery:
         def bad_hydrate():
             raise RuntimeError("hydrate boom")
 
-        with patch("codrag.services.pipeline_journal.journal") as mock_journal:
+        with patch("prep.services.pipeline_journal.journal") as mock_journal:
             mock_journal.recover_crashed_runs.return_value = []
 
             RecoveryManager.startup_recovery(
@@ -176,14 +176,14 @@ class TestStartupRecovery:
 
 class TestCrashedRunManagement:
     def test_discard_crashed_run_delegates_to_journal(self):
-        with patch("codrag.services.pipeline_journal.journal") as mock_journal:
+        with patch("prep.services.pipeline_journal.journal") as mock_journal:
             mock_journal.resolve_crashed_run.return_value = True
             assert RecoveryManager.discard_crashed_run("run-123") is True
             mock_journal.resolve_crashed_run.assert_called_once_with("run-123", "discarded")
 
     def test_get_crashed_runs_handles_import_failure(self):
         """Should return empty list if journal is unavailable."""
-        with patch.dict("sys.modules", {"codrag.services.pipeline_journal": None}):
+        with patch.dict("sys.modules", {"prep.services.pipeline_journal": None}):
             result = RecoveryManager.get_crashed_runs()
             assert result == []
 
@@ -196,7 +196,7 @@ class TestCleanShutdownMarker:
         idx_dir = tmp_path / "idx"
         idx_dir.mkdir()
 
-        with patch("codrag.services.pipeline.recovery._resolve_idx_dir", return_value=idx_dir):
+        with patch("prep.services.pipeline.recovery._resolve_idx_dir", return_value=idx_dir):
             assert RecoveryManager.write_clean_shutdown_marker("proj-1")
             assert (idx_dir / _CLEAN_SHUTDOWN_FILENAME).exists()
 
@@ -208,17 +208,17 @@ class TestCleanShutdownMarker:
         idx_dir = tmp_path / "idx"
         idx_dir.mkdir()
 
-        with patch("codrag.services.pipeline.recovery._resolve_idx_dir", return_value=idx_dir):
+        with patch("prep.services.pipeline.recovery._resolve_idx_dir", return_value=idx_dir):
             assert RecoveryManager.read_and_clear_clean_shutdown_marker("proj-1") is False
 
     def test_read_returns_false_when_idx_dir_missing(self):
         """read_and_clear returns False when project idx_dir can't be resolved."""
-        with patch("codrag.services.pipeline.recovery._resolve_idx_dir", return_value=None):
+        with patch("prep.services.pipeline.recovery._resolve_idx_dir", return_value=None):
             assert RecoveryManager.read_and_clear_clean_shutdown_marker("proj-1") is False
 
     def test_write_returns_false_when_idx_dir_missing(self):
         """write returns False when project idx_dir can't be resolved."""
-        with patch("codrag.services.pipeline.recovery._resolve_idx_dir", return_value=None):
+        with patch("prep.services.pipeline.recovery._resolve_idx_dir", return_value=None):
             assert RecoveryManager.write_clean_shutdown_marker("proj-1") is False
 
     def test_concurrent_reads_are_safe(self, tmp_path):
@@ -226,7 +226,7 @@ class TestCleanShutdownMarker:
         idx_dir = tmp_path / "idx"
         idx_dir.mkdir()
 
-        with patch("codrag.services.pipeline.recovery._resolve_idx_dir", return_value=idx_dir):
+        with patch("prep.services.pipeline.recovery._resolve_idx_dir", return_value=idx_dir):
             RecoveryManager.write_clean_shutdown_marker("proj-1")
             assert RecoveryManager.read_and_clear_clean_shutdown_marker("proj-1") is True
             assert RecoveryManager.read_and_clear_clean_shutdown_marker("proj-1") is False
@@ -236,7 +236,7 @@ class TestCleanShutdownMarker:
         idx_dir = tmp_path / "idx"
         idx_dir.mkdir()
 
-        with patch("codrag.services.pipeline.recovery._resolve_idx_dir", return_value=idx_dir):
+        with patch("prep.services.pipeline.recovery._resolve_idx_dir", return_value=idx_dir):
             RecoveryManager.write_clean_shutdown_marker("proj-1")
             assert RecoveryManager.check_clean_shutdown_marker("proj-1") is True
             # File should still exist after read-only check
@@ -250,8 +250,8 @@ class TestCleanShutdownMarker:
 
         run_deep_called = []
 
-        with patch("codrag.services.project_helpers.get_registry") as mock_reg, \
-             patch("codrag.services.pipeline.recovery._resolve_idx_dir") as mock_resolve, \
+        with patch("prep.services.project_helpers.get_registry") as mock_reg, \
+             patch("prep.services.pipeline.recovery._resolve_idx_dir") as mock_resolve, \
              patch.object(RecoveryManager, "check_clean_shutdown_marker", return_value=True):
             mock_reg.return_value.list_projects.return_value = [mock_project]
             mock_resolve.return_value = MagicMock()  # non-None idx_dir
@@ -277,8 +277,8 @@ class TestCleanShutdownMarker:
 
         run_deep_called = []
 
-        with patch("codrag.services.project_helpers.get_registry") as mock_reg, \
-             patch("codrag.services.pipeline.recovery._resolve_idx_dir", return_value=idx_dir), \
+        with patch("prep.services.project_helpers.get_registry") as mock_reg, \
+             patch("prep.services.pipeline.recovery._resolve_idx_dir", return_value=idx_dir), \
              patch.object(RecoveryManager, "check_clean_shutdown_marker", return_value=False):
             mock_reg.return_value.list_projects.return_value = [mock_project]
 

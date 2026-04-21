@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from codrag.services.collaboration.claims import ClaimStore
+from prep.services.collaboration.claims import ClaimStore
 
 
 @pytest.fixture

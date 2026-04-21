@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 import pytest
 
-from codrag.core.paths import data_dir, legacy_cwd_data_dir
+from prep.core.paths import data_dir, legacy_cwd_data_dir
 
 
 def test_env_var_overrides_default() -> None:

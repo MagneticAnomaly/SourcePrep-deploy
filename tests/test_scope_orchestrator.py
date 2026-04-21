@@ -6,7 +6,7 @@ from typing import Set
 
 import pytest
 
-from codrag.services.scope_orchestrator import (
+from prep.services.scope_orchestrator import (
     ScopeOrchestrator,
     ScopeState,
 )

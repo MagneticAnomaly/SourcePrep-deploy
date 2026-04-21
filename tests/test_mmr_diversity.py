@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from codrag.core.index import CodeIndex, SearchResult
+from prep.core.index import CodeIndex, SearchResult
 
 
 def _make_results(scores: list[float]) -> list[SearchResult]:
@@ -134,7 +134,7 @@ class TestSearchIntegration:
 
     def test_search_with_defaults_returns_results(self, mini_repo, fake_embedder, tmp_path):
         """Search with default params (including new adaptive_k and mmr) should work."""
-        from codrag.core import CodeIndex
+        from prep.core import CodeIndex
 
         index_dir = tmp_path / "idx"
         idx = CodeIndex(index_dir=index_dir, embedder=fake_embedder)
@@ -146,7 +146,7 @@ class TestSearchIntegration:
 
     def test_search_mmr_disabled(self, mini_repo, fake_embedder, tmp_path):
         """search() with mmr_lambda=1.0 should behave like pure relevance."""
-        from codrag.core import CodeIndex
+        from prep.core import CodeIndex
 
         index_dir = tmp_path / "idx"
         idx = CodeIndex(index_dir=index_dir, embedder=fake_embedder)
@@ -160,7 +160,7 @@ class TestSearchIntegration:
 
     def test_search_adaptive_k_disabled(self, mini_repo, fake_embedder, tmp_path):
         """search() with score_drop_ratio=0.0 should return up to k results."""
-        from codrag.core import CodeIndex
+        from prep.core import CodeIndex
 
         index_dir = tmp_path / "idx"
         idx = CodeIndex(index_dir=index_dir, embedder=fake_embedder)

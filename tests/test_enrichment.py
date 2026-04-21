@@ -1,5 +1,5 @@
 import pytest
-from codrag.core.enrichment import enrich_findings, EnrichedFinding, EnrichmentResult
+from prep.core.enrichment import enrich_findings, EnrichedFinding, EnrichmentResult
 
 
 def _make_finding(file="src/server.py", line=42, message="Too complex", severity="warning", tool="ruff"):
@@ -93,7 +93,7 @@ def test_enrich_summary_has_key_insight():
 
 
 def test_enrich_sarif_round_trip():
-    from codrag.core.enrichment import enrich_sarif
+    from prep.core.enrichment import enrich_sarif
     sarif_input = {
         "version": "2.1.0",
         "runs": [{

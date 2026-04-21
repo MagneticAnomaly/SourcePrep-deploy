@@ -11,9 +11,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.services.pipeline.manifest_store import ManifestStore
-from codrag.services.pipeline.resume import ResumeStrategy
-from codrag.services.pipeline.stages import (
+from prep.services.pipeline.manifest_store import ManifestStore
+from prep.services.pipeline.resume import ResumeStrategy
+from prep.services.pipeline.stages import (
     DEEP_ENRICHMENT_STAGES,
     FAST_SYNC_STAGES,
     STAGE_MANIFEST_FILE,
@@ -46,10 +46,10 @@ def _patch_project(idx_dir):
     """Context manager that patches require_project and project_index_dir at their source."""
     project = _mock_project(idx_dir)
     return patch.multiple(
-        "codrag.services.project_helpers",
+        "prep.services.project_helpers",
         require_project=MagicMock(return_value=project),
     ), patch(
-        "codrag.core.project_registry.project_index_dir",
+        "prep.core.project_registry.project_index_dir",
         return_value=str(idx_dir),
     )
 
@@ -62,8 +62,8 @@ class _PatchProject:
         self._patches = []
 
     def __enter__(self):
-        p1 = patch("codrag.services.project_helpers.require_project", return_value=self.project)
-        p2 = patch("codrag.core.project_registry.project_index_dir", return_value=str(self.idx_dir))
+        p1 = patch("prep.services.project_helpers.require_project", return_value=self.project)
+        p2 = patch("prep.core.project_registry.project_index_dir", return_value=str(self.idx_dir))
         self._patches = [p1, p2]
         for p in self._patches:
             p.start()
@@ -195,7 +195,7 @@ class TestDetectResumePoint:
 
     def test_returns_0_when_project_resolution_fails(self):
         """If project can't be resolved, return 0 (start from scratch)."""
-        with patch("codrag.services.project_helpers.require_project", side_effect=Exception("not found")):
+        with patch("prep.services.project_helpers.require_project", side_effect=Exception("not found")):
             result = ResumeStrategy.detect_resume_point("bad-proj", FAST_SYNC_STAGES)
         assert result == 0
 
@@ -328,7 +328,7 @@ class TestShouldSkipStageFreshness:
 class TestCheckCoverageGap:
     def test_returns_needs_rebuild_true_on_failure(self):
         """If coverage check fails, default to needs_rebuild=True (safe direction)."""
-        with patch("codrag.services.project_helpers.require_project", side_effect=Exception("fail")):
+        with patch("prep.services.project_helpers.require_project", side_effect=Exception("fail")):
             result = ResumeStrategy.check_coverage_gap("bad-proj")
         assert result["needs_rebuild"] is True
         assert result["total"] == 0

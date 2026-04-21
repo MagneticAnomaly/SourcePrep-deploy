@@ -3,7 +3,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from codrag.core.trace import TraceBuilder
+from prep.core.trace import TraceBuilder
 
 def test_trace_builder_includes_all_languages():
     """Verify that TraceBuilder includes all supported language extensions by default."""
@@ -53,13 +53,13 @@ def test_trace_builder_includes_all_languages():
 
 def test_trace_builder_swift_analysis_smoke():
     """Smoke test for Swift analyzer integration (Python engine)."""
-    import codrag.core as _core
+    import prep.core as _core
     original_engine = _core.ENGINE
 
     try:
         # Force Python engine since Rust engine doesn't have a Swift parser yet
         _core.ENGINE = "python"
-        import codrag.core.trace as _trace_mod
+        import prep.core.trace as _trace_mod
         _trace_mod._ENGINE = "python"
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -140,11 +140,11 @@ def test_trace_builder_includes_new_languages():
 
 def test_generic_regex_analyzer_kotlin():
     """Test GenericRegexAnalyzer extracts Kotlin symbols and imports."""
-    import codrag.core as _core
+    import prep.core as _core
     original_engine = _core.ENGINE
     try:
         _core.ENGINE = "python"
-        import codrag.core.trace as _trace_mod
+        import prep.core.trace as _trace_mod
         _trace_mod._ENGINE = "python"
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -186,11 +186,11 @@ object AppConfig {
 
 def test_generic_regex_analyzer_csharp():
     """Test GenericRegexAnalyzer extracts C# symbols and imports."""
-    import codrag.core as _core
+    import prep.core as _core
     original_engine = _core.ENGINE
     try:
         _core.ENGINE = "python"
-        import codrag.core.trace as _trace_mod
+        import prep.core.trace as _trace_mod
         _trace_mod._ENGINE = "python"
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -234,11 +234,11 @@ namespace MyApp
 
 def test_generic_regex_analyzer_ruby():
     """Test GenericRegexAnalyzer extracts Ruby symbols and imports."""
-    import codrag.core as _core
+    import prep.core as _core
     original_engine = _core.ENGINE
     try:
         _core.ENGINE = "python"
-        import codrag.core.trace as _trace_mod
+        import prep.core.trace as _trace_mod
         _trace_mod._ENGINE = "python"
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -283,7 +283,7 @@ end
 
 def test_detect_language_new_extensions():
     """Test _detect_language for all newly supported extensions."""
-    from codrag.core.trace import _detect_language
+    from prep.core.trace import _detect_language
 
     cases = {
         "Main.kt": "kotlin",

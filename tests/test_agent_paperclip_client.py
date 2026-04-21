@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.adapters.pm_models import PMGoal, PMIssue, PMProject, PMPushConfig, PushResult
-from codrag.agents.shared.paperclip_client import PaperclipClient
-from codrag.core.audit.action_item import ActionItem
+from prep.adapters.pm_models import PMGoal, PMIssue, PMProject, PMPushConfig, PushResult
+from prep.agents.shared.paperclip_client import PaperclipClient
+from prep.core.audit.action_item import ActionItem
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────
@@ -33,10 +33,10 @@ def mock_push_engine():
 @pytest.fixture
 def client(mock_adapter, mock_push_engine):
     with patch(
-        "codrag.agents.shared.paperclip_client.PaperclipAdapter",
+        "prep.agents.shared.paperclip_client.PaperclipAdapter",
         return_value=mock_adapter,
     ), patch(
-        "codrag.agents.shared.paperclip_client.create_push_engine",
+        "prep.agents.shared.paperclip_client.create_push_engine",
         return_value=mock_push_engine,
     ):
         c = PaperclipClient(

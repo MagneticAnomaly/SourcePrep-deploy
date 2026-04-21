@@ -16,10 +16,10 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from codrag.agents.hr.engine import DriftReport, RoleFitness, StaffingEngine
-from codrag.agents.hr.prompts import render_auto_roles_prompt, render_knowledge_md
-from codrag.agents.hr.roster import Roster
-from codrag.agents.shared.models import RoleSpec
+from prep.agents.hr.engine import DriftReport, RoleFitness, StaffingEngine
+from prep.agents.hr.prompts import render_auto_roles_prompt, render_knowledge_md
+from prep.agents.hr.roster import Roster
+from prep.agents.shared.models import RoleSpec
 
 
 # ── Fixtures ──────────────────────────────────────────────────

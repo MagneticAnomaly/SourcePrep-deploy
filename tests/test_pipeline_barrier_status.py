@@ -4,10 +4,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-import codrag.services.project_helpers as ph
-from codrag.core.project_registry import ProjectRegistry
-from codrag.server import app
+import prep.server as server
+import prep.services.project_helpers as ph
+from prep.core.project_registry import ProjectRegistry
+from prep.server import app
 
 
 @pytest.fixture()
@@ -40,12 +40,12 @@ def test_pipeline_status_reports_barrier_inactive_by_default(client, tmp_path):
 
 
 def test_pipeline_status_reports_barrier_active_after_rebuild(client, tmp_path):
-    from codrag.services.pipeline.recovery import write_reset_barrier
+    from prep.services.pipeline.recovery import write_reset_barrier
     pid = _add_embedded_project(client, tmp_path)
     assert write_reset_barrier(pid, "manual_test")
 
     # Bust the /pipeline/status cache so the next call re-reads disk.
-    from codrag.api.routers.pipeline import _status_cache, _status_cache_lock
+    from prep.api.routers.pipeline import _status_cache, _status_cache_lock
     with _status_cache_lock:
         _status_cache.pop(pid, None)
 

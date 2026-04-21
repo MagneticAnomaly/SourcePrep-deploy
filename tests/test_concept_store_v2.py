@@ -1,5 +1,5 @@
 import pytest
-from codrag.services.concept_store import ConceptStore, Concept
+from prep.services.concept_store import ConceptStore, Concept
 import json
 
 

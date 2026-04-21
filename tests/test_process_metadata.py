@@ -23,7 +23,7 @@ import pytest
 
 class TestStageManifest:
     def test_roundtrip(self):
-        from codrag.core.stage_manifest import StageManifest
+        from prep.core.stage_manifest import StageManifest
         m = StageManifest(
             stage_id="catalogue",
             run_id="run-abc",
@@ -48,7 +48,7 @@ class TestStageManifest:
         assert m2.model["model_name"] == "qwen3:14b"
 
     def test_save_load(self, tmp_path):
-        from codrag.core.stage_manifest import (
+        from prep.core.stage_manifest import (
             StageManifest, save_stage_manifest, load_stage_manifest,
         )
         m = StageManifest(stage_id="enrichment", codrag_version="0.9.0")
@@ -61,12 +61,12 @@ class TestStageManifest:
         assert loaded.stage_id == "enrichment"
 
     def test_load_missing(self, tmp_path):
-        from codrag.core.stage_manifest import load_stage_manifest
+        from prep.core.stage_manifest import load_stage_manifest
         result = load_stage_manifest(tmp_path / "nonexistent.json")
         assert result is None
 
     def test_create_stage_manifest(self):
-        from codrag.core.stage_manifest import create_stage_manifest
+        from prep.core.stage_manifest import create_stage_manifest
         m = create_stage_manifest("catalogue", run_id="run-1", project_id="proj-1")
         assert m.stage_id == "catalogue"
         assert m.run_id == "run-1"
@@ -74,7 +74,7 @@ class TestStageManifest:
         assert m.codrag_version != ""
 
     def test_minimal_manifest(self):
-        from codrag.core.stage_manifest import StageManifest
+        from prep.core.stage_manifest import StageManifest
         m = StageManifest()
         d = m.to_dict()
         assert d["format_version"] == "2.0"
@@ -83,7 +83,7 @@ class TestStageManifest:
         assert "quality" not in d
 
     def test_optional_fields_excluded_when_none(self):
-        from codrag.core.stage_manifest import StageManifest
+        from prep.core.stage_manifest import StageManifest
         m = StageManifest(stage_id="test")
         d = m.to_dict()
         assert "run_id" not in d
@@ -96,17 +96,17 @@ class TestStageManifest:
 
 class TestProvenance:
     def test_get_codrag_version(self):
-        from codrag.core.provenance import get_codrag_version
+        from prep.core.provenance import get_codrag_version
         v = get_codrag_version()
         assert isinstance(v, str)
 
     def test_get_engine_backend(self):
-        from codrag.core.provenance import get_engine_backend
+        from prep.core.provenance import get_engine_backend
         backend = get_engine_backend()
         assert backend in ("rust", "python")
 
     def test_compute_file_hash(self, tmp_path):
-        from codrag.core.provenance import compute_file_hash
+        from prep.core.provenance import compute_file_hash
         f = tmp_path / "test.txt"
         f.write_text("hello world")
         h = compute_file_hash(f)
@@ -114,12 +114,12 @@ class TestProvenance:
         assert ":" in h  # format is "algorithm:hexdigest"
 
     def test_compute_file_hash_missing(self, tmp_path):
-        from codrag.core.provenance import compute_file_hash
+        from prep.core.provenance import compute_file_hash
         h = compute_file_hash(tmp_path / "nonexistent.txt")
         assert h == ""
 
     def test_get_file_metadata(self, tmp_path):
-        from codrag.core.provenance import get_file_metadata
+        from prep.core.provenance import get_file_metadata
         f = tmp_path / "test.jsonl"
         f.write_text('{"a":1}\n{"b":2}\n{"c":3}\n')
         meta = get_file_metadata(f)
@@ -128,12 +128,12 @@ class TestProvenance:
         assert "hash" in meta
 
     def test_get_file_metadata_missing(self, tmp_path):
-        from codrag.core.provenance import get_file_metadata
+        from prep.core.provenance import get_file_metadata
         meta = get_file_metadata(tmp_path / "nonexistent.jsonl")
         assert meta == {}
 
     def test_aggregate_quality_metrics(self, tmp_path):
-        from codrag.core.provenance import aggregate_quality_metrics
+        from prep.core.provenance import aggregate_quality_metrics
         f = tmp_path / "test.jsonl"
         entries = [
             {"confidence": 0.9},
@@ -150,7 +150,7 @@ class TestProvenance:
         assert q["success_rate"] == 1.0
 
     def test_aggregate_quality_with_missing_field(self, tmp_path):
-        from codrag.core.provenance import aggregate_quality_metrics
+        from prep.core.provenance import aggregate_quality_metrics
         f = tmp_path / "test.jsonl"
         entries = [
             {"confidence": 0.9},
@@ -164,24 +164,24 @@ class TestProvenance:
         assert q["failed"] == 1
 
     def test_compute_throughput(self):
-        from codrag.core.provenance import compute_throughput
+        from prep.core.provenance import compute_throughput
         t = compute_throughput(100, 10.0)
         assert t["items_per_second"] == 10.0
         assert "bytes_per_second" not in t
 
     def test_compute_throughput_with_bytes(self):
-        from codrag.core.provenance import compute_throughput
+        from prep.core.provenance import compute_throughput
         t = compute_throughput(100, 10.0, total_bytes=50000)
         assert t["items_per_second"] == 10.0
         assert t["bytes_per_second"] == 5000.0
 
     def test_compute_throughput_zero_elapsed(self):
-        from codrag.core.provenance import compute_throughput
+        from prep.core.provenance import compute_throughput
         t = compute_throughput(100, 0)
         assert t == {}
 
     def test_extract_model_info(self):
-        from codrag.core.provenance import extract_model_info_from_llm_client
+        from prep.core.provenance import extract_model_info_from_llm_client
 
         class FakeLLM:
             provider = "ollama"
@@ -194,11 +194,11 @@ class TestProvenance:
         assert info["model_name"] == "qwen3:14b"
 
     def test_extract_model_info_none(self):
-        from codrag.core.provenance import extract_model_info_from_llm_client
+        from prep.core.provenance import extract_model_info_from_llm_client
         assert extract_model_info_from_llm_client(None) == {}
 
     def test_model_breakdown_single_model(self, tmp_path):
-        from codrag.core.provenance import aggregate_model_breakdown
+        from prep.core.provenance import aggregate_model_breakdown
         f = tmp_path / "test.jsonl"
         entries = [
             {"model": "qwen3:14b", "confidence": 0.9},
@@ -211,7 +211,7 @@ class TestProvenance:
         assert result is None
 
     def test_model_breakdown_two_models(self, tmp_path):
-        from codrag.core.provenance import aggregate_model_breakdown
+        from prep.core.provenance import aggregate_model_breakdown
         f = tmp_path / "test.jsonl"
         entries = [
             {"model": "qwen3:8b", "confidence": 0.8},
@@ -234,7 +234,7 @@ class TestProvenance:
         assert result[1]["percentage"] == 40.0
 
     def test_model_breakdown_three_models(self, tmp_path):
-        from codrag.core.provenance import aggregate_model_breakdown
+        from prep.core.provenance import aggregate_model_breakdown
         f = tmp_path / "test.jsonl"
         entries = [
             {"model": "a", "confidence": 0.9},
@@ -249,19 +249,19 @@ class TestProvenance:
         assert result[0]["model"] == "b"  # 2 entries, most common
 
     def test_model_breakdown_missing_file(self, tmp_path):
-        from codrag.core.provenance import aggregate_model_breakdown
+        from prep.core.provenance import aggregate_model_breakdown
         result = aggregate_model_breakdown(tmp_path / "nonexistent.jsonl")
         assert result is None
 
     def test_model_breakdown_empty_file(self, tmp_path):
-        from codrag.core.provenance import aggregate_model_breakdown
+        from prep.core.provenance import aggregate_model_breakdown
         f = tmp_path / "empty.jsonl"
         f.write_text("")
         result = aggregate_model_breakdown(f)
         assert result is None
 
     def test_model_breakdown_no_model_field(self, tmp_path):
-        from codrag.core.provenance import aggregate_model_breakdown
+        from prep.core.provenance import aggregate_model_breakdown
         f = tmp_path / "test.jsonl"
         entries = [
             {"confidence": 0.9},
@@ -273,7 +273,7 @@ class TestProvenance:
         assert result is None
 
     def test_model_breakdown_epistemic_confidence(self, tmp_path):
-        from codrag.core.provenance import aggregate_model_breakdown
+        from prep.core.provenance import aggregate_model_breakdown
         f = tmp_path / "test.jsonl"
         entries = [
             {"model": "qwen3.5-27b", "epistemic_confidence": 0.92},
@@ -292,7 +292,7 @@ class TestProvenance:
 
 class TestPipelineRunMetadata:
     def test_create_run_metadata(self):
-        from codrag.services.pipeline_metadata import create_run_metadata
+        from prep.services.pipeline_metadata import create_run_metadata
         meta = create_run_metadata(
             run_id="run-1",
             project_id="proj-1",
@@ -309,7 +309,7 @@ class TestPipelineRunMetadata:
         assert meta.codrag_version != ""
 
     def test_mark_stage_completed(self):
-        from codrag.services.pipeline_metadata import (
+        from prep.services.pipeline_metadata import (
             create_run_metadata, mark_stage_completed,
         )
         meta = create_run_metadata("run-1", "proj-1", "fast_sync", ["structural", "catalogue"])
@@ -331,7 +331,7 @@ class TestPipelineRunMetadata:
         assert s.worker_result["nodes"] == 247
 
     def test_mark_stage_failed(self):
-        from codrag.services.pipeline_metadata import (
+        from prep.services.pipeline_metadata import (
             create_run_metadata, mark_stage_failed,
         )
         meta = create_run_metadata("run-1", "proj-1", "fast_sync", ["structural"])
@@ -340,7 +340,7 @@ class TestPipelineRunMetadata:
         assert meta.stages[0].worker_result["error"] == "Build crashed"
 
     def test_finalize_run_metadata(self):
-        from codrag.services.pipeline_metadata import (
+        from prep.services.pipeline_metadata import (
             create_run_metadata, mark_stage_completed,
             finalize_run_metadata,
         )
@@ -352,7 +352,7 @@ class TestPipelineRunMetadata:
         assert meta.elapsed_seconds is not None
 
     def test_save_load_roundtrip(self, tmp_path):
-        from codrag.services.pipeline_metadata import (
+        from prep.services.pipeline_metadata import (
             create_run_metadata, save_run_metadata, load_run_metadata,
         )
         meta = create_run_metadata("run-1", "proj-1", "fast_sync", ["structural"])
@@ -365,7 +365,7 @@ class TestPipelineRunMetadata:
         assert len(loaded.stages) == 1
 
     def test_to_dict_includes_format_version(self):
-        from codrag.services.pipeline_metadata import create_run_metadata
+        from prep.services.pipeline_metadata import create_run_metadata
         meta = create_run_metadata("run-1", "proj-1", "fast_sync", ["structural"])
         d = meta.to_dict()
         assert d["format_version"] == "1.0"
@@ -376,7 +376,7 @@ class TestPipelineRunMetadata:
 class TestPipelineRunHistory:
     @pytest.fixture
     def history_db(self, tmp_path):
-        from codrag.services.pipeline_history import PipelineRunHistory
+        from prep.services.pipeline_history import PipelineRunHistory
         h = PipelineRunHistory()
         db_path = tmp_path / "test.db"
         h.init(db_path)
@@ -384,7 +384,7 @@ class TestPipelineRunHistory:
         h.close()
 
     def test_record_and_get(self, history_db):
-        from codrag.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
+        from prep.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
         meta = create_run_metadata("run-1", "proj-1", "fast_sync", ["structural", "catalogue"])
         finalize_run_metadata(meta, status="completed")
 
@@ -398,7 +398,7 @@ class TestPipelineRunHistory:
         assert entry.metadata_file == "/path/to/metadata.json"
 
     def test_get_project_runs(self, history_db):
-        from codrag.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
+        from prep.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
 
         for i in range(5):
             meta = create_run_metadata(f"run-{i}", "proj-1", "fast_sync", ["structural"])
@@ -409,7 +409,7 @@ class TestPipelineRunHistory:
         assert len(runs) == 3
 
     def test_get_project_runs_filter_group(self, history_db):
-        from codrag.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
+        from prep.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
 
         meta1 = create_run_metadata("run-fast", "proj-1", "fast_sync", ["structural"])
         finalize_run_metadata(meta1, status="completed")
@@ -424,7 +424,7 @@ class TestPipelineRunHistory:
         assert runs[0].group == "fast_sync"
 
     def test_get_latest_run(self, history_db):
-        from codrag.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
+        from prep.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
 
         meta = create_run_metadata("run-latest", "proj-1", "fast_sync", ["structural"])
         finalize_run_metadata(meta, status="completed")
@@ -435,7 +435,7 @@ class TestPipelineRunHistory:
         assert latest.run_id == "run-latest"
 
     def test_count_runs(self, history_db):
-        from codrag.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
+        from prep.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
 
         for i in range(3):
             meta = create_run_metadata(f"run-{i}", "proj-1", "fast_sync", ["structural"])
@@ -447,7 +447,7 @@ class TestPipelineRunHistory:
         assert history_db.count_runs() == 3
 
     def test_clear_project(self, history_db):
-        from codrag.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
+        from prep.services.pipeline_metadata import create_run_metadata, finalize_run_metadata
 
         meta = create_run_metadata("run-1", "proj-1", "fast_sync", ["structural"])
         finalize_run_metadata(meta, status="completed")
@@ -463,7 +463,7 @@ class TestPipelineRunHistory:
         assert entry is None
 
     def test_models_used_stored(self, history_db):
-        from codrag.services.pipeline_metadata import (
+        from prep.services.pipeline_metadata import (
             create_run_metadata, mark_stage_completed, finalize_run_metadata,
         )
         meta = create_run_metadata("run-model", "proj-1", "fast_sync", ["catalogue"])
@@ -485,16 +485,16 @@ class TestPipelineRunHistory:
 
 class TestStagesMappings:
     def test_all_stages_have_manifest_file(self):
-        from codrag.services.pipeline.stages import StageId, STAGE_MANIFEST_FILE
+        from prep.services.pipeline.stages import StageId, STAGE_MANIFEST_FILE
         for stage in StageId:
             assert stage in STAGE_MANIFEST_FILE, f"Missing manifest file for {stage.value}"
 
     def test_all_stages_have_output_file_mapping(self):
-        from codrag.services.pipeline.stages import StageId, STAGE_OUTPUT_FILE
+        from prep.services.pipeline.stages import StageId, STAGE_OUTPUT_FILE
         for stage in StageId:
             assert stage in STAGE_OUTPUT_FILE, f"Missing output file mapping for {stage.value}"
 
     def test_all_stages_have_confidence_field_mapping(self):
-        from codrag.services.pipeline.stages import StageId, STAGE_CONFIDENCE_FIELD
+        from prep.services.pipeline.stages import StageId, STAGE_CONFIDENCE_FIELD
         for stage in StageId:
             assert stage in STAGE_CONFIDENCE_FIELD, f"Missing confidence field for {stage.value}"

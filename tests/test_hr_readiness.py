@@ -1,5 +1,5 @@
 """Tests for HR readiness scoring."""
-from codrag.agents.hr.readiness import compute_readiness, ReadinessReport
+from prep.agents.hr.readiness import compute_readiness, ReadinessReport
 
 
 class TestComputeReadiness:

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core.audit_log import AuditLog, AuditEntry
+from prep.core.audit_log import AuditLog, AuditEntry
 
 
 @pytest.fixture

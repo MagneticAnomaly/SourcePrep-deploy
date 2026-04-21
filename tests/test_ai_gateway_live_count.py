@@ -16,7 +16,7 @@ import pytest
 def test_running_tasks_use_live_telemetry_count(monkeypatch) -> None:
     """When 3 LLM requests are in-flight for a project + task_id,
     the running_tasks list should report concurrent_workers=3."""
-    from codrag.services import token_telemetry
+    from prep.services import token_telemetry
 
     fake_requests = [
         {"project_id": "proj-A", "task_id": "inferred_edges", "model": "qwen3-coder",
@@ -30,24 +30,24 @@ def test_running_tasks_use_live_telemetry_count(monkeypatch) -> None:
         token_telemetry.telemetry, "get_active_requests", lambda: list(fake_requests),
     )
 
-    from codrag.api.routers.llm import _count_live_workers
+    from prep.api.routers.llm import _count_live_workers
 
     count = _count_live_workers(project_id="proj-A", task_id="inferred_edges")
     assert count == 3
 
 
 def test_running_tasks_live_count_zero_when_nothing_inflight(monkeypatch) -> None:
-    from codrag.services import token_telemetry
+    from prep.services import token_telemetry
     monkeypatch.setattr(
         token_telemetry.telemetry, "get_active_requests", lambda: [],
     )
-    from codrag.api.routers.llm import _count_live_workers
+    from prep.api.routers.llm import _count_live_workers
     assert _count_live_workers(project_id="proj-A", task_id="inferred_edges") == 0
 
 
 def test_agent_task_workers_reflect_live_count(monkeypatch) -> None:
     """Previously hardcoded to 1; now from telemetry count."""
-    from codrag.services import token_telemetry
+    from prep.services import token_telemetry
     monkeypatch.setattr(
         token_telemetry.telemetry, "get_active_requests",
         lambda: [
@@ -57,14 +57,14 @@ def test_agent_task_workers_reflect_live_count(monkeypatch) -> None:
              "provider": "gemini", "model_slot": None, "duration_seconds": 0.2},
         ],
     )
-    from codrag.api.routers.llm import _count_live_workers
+    from prep.api.routers.llm import _count_live_workers
     assert _count_live_workers(project_id="proj-A", task_id="agent_call") == 2
 
 
 def test_count_ignores_model_slot_value(monkeypatch) -> None:
     """Filter matches on (project_id, task_id) only. Model_slot may be
     anything (None, empty, mismatched label) and the count still works."""
-    from codrag.services import token_telemetry
+    from prep.services import token_telemetry
     monkeypatch.setattr(
         token_telemetry.telemetry, "get_active_requests",
         lambda: [
@@ -79,12 +79,12 @@ def test_count_ignores_model_slot_value(monkeypatch) -> None:
              "duration_seconds": 0.1},
         ],
     )
-    from codrag.api.routers.llm import _count_live_workers
+    from prep.api.routers.llm import _count_live_workers
     assert _count_live_workers(project_id="proj-A", task_id="concepts") == 3
 
 
 def test_count_filters_by_project(monkeypatch) -> None:
-    from codrag.services import token_telemetry
+    from prep.services import token_telemetry
     monkeypatch.setattr(
         token_telemetry.telemetry, "get_active_requests",
         lambda: [
@@ -94,14 +94,14 @@ def test_count_filters_by_project(monkeypatch) -> None:
              "provider": "p", "model_slot": None, "duration_seconds": 0.1},
         ],
     )
-    from codrag.api.routers.llm import _count_live_workers
+    from prep.api.routers.llm import _count_live_workers
     assert _count_live_workers(project_id="proj-A", task_id="t1") == 1
 
 
 def test_count_empty_task_id_matches_all_in_project(monkeypatch) -> None:
     """When task_id='' the filter is optional — all requests for the
     project count."""
-    from codrag.services import token_telemetry
+    from prep.services import token_telemetry
     monkeypatch.setattr(
         token_telemetry.telemetry, "get_active_requests",
         lambda: [
@@ -111,7 +111,7 @@ def test_count_empty_task_id_matches_all_in_project(monkeypatch) -> None:
              "provider": "p", "model_slot": None, "duration_seconds": 0.1},
         ],
     )
-    from codrag.api.routers.llm import _count_live_workers
+    from prep.api.routers.llm import _count_live_workers
     assert _count_live_workers(project_id="proj-A", task_id="") == 2
 
 
@@ -128,10 +128,10 @@ def test_real_llmclient_registers_in_telemetry_for_live_count() -> None:
     on itself. With the filter relaxed to (project_id, task_id), this
     test passes.
     """
-    from codrag.core.llm_client import LLMClient
-    from codrag.services import token_telemetry
-    from codrag.services.token_telemetry import set_telemetry_context
-    from codrag.api.routers.llm import _count_live_workers
+    from prep.core.llm_client import LLMClient
+    from prep.services import token_telemetry
+    from prep.services.token_telemetry import set_telemetry_context
+    from prep.api.routers.llm import _count_live_workers
 
     # Reset telemetry so the test is hermetic.
     token_telemetry._active_requests.clear()

@@ -8,8 +8,8 @@ from typing import Any, Dict, List
 
 import pytest
 
-from codrag.core.audit.models import AuditContext
-from codrag.core.audit.spaghetti_scorer import (
+from prep.core.audit.models import AuditContext
+from prep.core.audit.spaghetti_scorer import (
     FileScore,
     SpaghettiResult,
     _find_circular_files,

@@ -6,12 +6,12 @@ and TreatmentRegistry.
 
 import pytest
 
-from codrag.core.content_class import (
+from prep.core.content_class import (
     ContentClass,
     classify_node,
     classify_nodes,
 )
-from codrag.core.treatment_registry import TreatmentConfig, TreatmentRegistry
+from prep.core.treatment_registry import TreatmentConfig, TreatmentRegistry
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────

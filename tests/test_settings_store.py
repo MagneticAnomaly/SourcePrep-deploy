@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.settings_store import SettingsStore
+from prep.services.settings_store import SettingsStore
 
 
 @pytest.fixture

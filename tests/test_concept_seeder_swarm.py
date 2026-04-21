@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.core.concept_seeder import (
+from prep.core.concept_seeder import (
     MIN_MODULES_FOR_SWARM,
     _build_module_context,
     _build_module_summary,
@@ -47,10 +47,10 @@ class TestSeedConceptsRouting:
         """prefer_swarm=False should call sequential directly without
         attempting swarm at all."""
         with patch(
-            "codrag.core.concept_seeder._seed_concepts_sequential",
+            "prep.core.concept_seeder._seed_concepts_sequential",
             return_value={"status": "success", "mode": "sequential"},
         ) as seq_mock, patch(
-            "codrag.core.concept_seeder.seed_concepts_swarm",
+            "prep.core.concept_seeder.seed_concepts_swarm",
         ) as swarm_mock:
             result = seed_concepts("proj-1", prefer_swarm=False)
 
@@ -61,10 +61,10 @@ class TestSeedConceptsRouting:
     def test_swarm_fallback_routes_to_sequential(self):
         """When swarm raises _SwarmFallback, sequential should be called."""
         with patch(
-            "codrag.core.concept_seeder.seed_concepts_swarm",
+            "prep.core.concept_seeder.seed_concepts_swarm",
             side_effect=_SwarmFallback("test: no model"),
         ), patch(
-            "codrag.core.concept_seeder._seed_concepts_sequential",
+            "prep.core.concept_seeder._seed_concepts_sequential",
             return_value={"status": "success", "mode": "sequential"},
         ) as seq_mock:
             result = seed_concepts("proj-1")
@@ -76,10 +76,10 @@ class TestSeedConceptsRouting:
         """An unexpected exception in swarm should still trigger fallback,
         not propagate to the caller."""
         with patch(
-            "codrag.core.concept_seeder.seed_concepts_swarm",
+            "prep.core.concept_seeder.seed_concepts_swarm",
             side_effect=RuntimeError("unexpected"),
         ), patch(
-            "codrag.core.concept_seeder._seed_concepts_sequential",
+            "prep.core.concept_seeder._seed_concepts_sequential",
             return_value={"status": "success", "mode": "sequential"},
         ) as seq_mock:
             result = seed_concepts("proj-1")
@@ -90,10 +90,10 @@ class TestSeedConceptsRouting:
     def test_swarm_success_skips_sequential(self):
         """When swarm succeeds, sequential should not be called."""
         with patch(
-            "codrag.core.concept_seeder.seed_concepts_swarm",
+            "prep.core.concept_seeder.seed_concepts_swarm",
             return_value={"status": "success", "mode": "swarm", "concepts_created": 12},
         ), patch(
-            "codrag.core.concept_seeder._seed_concepts_sequential",
+            "prep.core.concept_seeder._seed_concepts_sequential",
         ) as seq_mock:
             result = seed_concepts("proj-1")
 
@@ -122,13 +122,13 @@ class TestSeedConceptsSwarmFallback:
 
     def test_no_llm_raises_fallback(self):
         with patch(
-            "codrag.services.project_helpers.require_project",
+            "prep.services.project_helpers.require_project",
             return_value=MagicMock(name="TestProj", path="/tmp"),
         ), patch(
-            "codrag.core.project_registry.project_index_dir",
+            "prep.core.project_registry.project_index_dir",
             return_value=Path("/tmp"),
         ), patch(
-            "codrag.core.concept_seeder._get_seeder_llm",
+            "prep.core.concept_seeder._get_seeder_llm",
             return_value=None,
         ):
             with pytest.raises(_SwarmFallback, match="no LLM"):
@@ -137,16 +137,16 @@ class TestSeedConceptsSwarmFallback:
     def test_model_not_swarm_capable_raises_fallback(self):
         llm, project, _ = self._setup_swarm_path()
         with patch(
-            "codrag.services.project_helpers.require_project",
+            "prep.services.project_helpers.require_project",
             return_value=project,
         ), patch(
-            "codrag.core.project_registry.project_index_dir",
+            "prep.core.project_registry.project_index_dir",
             return_value=Path("/tmp"),
         ), patch(
-            "codrag.core.concept_seeder._get_seeder_llm",
+            "prep.core.concept_seeder._get_seeder_llm",
             return_value=llm,
         ), patch(
-            "codrag.services.pipeline.scheduler.is_swarm_active_for_stage",
+            "prep.services.pipeline.scheduler.is_swarm_active_for_stage",
             return_value=False,
         ):
             with pytest.raises(_SwarmFallback, match="not swarm-capable"):
@@ -155,19 +155,19 @@ class TestSeedConceptsSwarmFallback:
     def test_scheduler_returns_no_budget_raises_fallback(self):
         llm, project, _ = self._setup_swarm_path()
         with patch(
-            "codrag.services.project_helpers.require_project",
+            "prep.services.project_helpers.require_project",
             return_value=project,
         ), patch(
-            "codrag.core.project_registry.project_index_dir",
+            "prep.core.project_registry.project_index_dir",
             return_value=Path("/tmp"),
         ), patch(
-            "codrag.core.concept_seeder._get_seeder_llm",
+            "prep.core.concept_seeder._get_seeder_llm",
             return_value=llm,
         ), patch(
-            "codrag.services.pipeline.scheduler.is_swarm_active_for_stage",
+            "prep.services.pipeline.scheduler.is_swarm_active_for_stage",
             return_value=True,
         ), patch(
-            "codrag.services.pipeline.scheduler.pipeline_scheduler.full_budget_for_swarm",
+            "prep.services.pipeline.scheduler.pipeline_scheduler.full_budget_for_swarm",
             return_value=None,
         ):
             with pytest.raises(_SwarmFallback, match="below min_workers"):
@@ -184,19 +184,19 @@ class TestSeedConceptsSwarmFallback:
 
         llm, project, _ = self._setup_swarm_path()
         with patch(
-            "codrag.services.project_helpers.require_project",
+            "prep.services.project_helpers.require_project",
             return_value=project,
         ), patch(
-            "codrag.core.project_registry.project_index_dir",
+            "prep.core.project_registry.project_index_dir",
             return_value=tmp_path,
         ), patch(
-            "codrag.core.concept_seeder._get_seeder_llm",
+            "prep.core.concept_seeder._get_seeder_llm",
             return_value=llm,
         ), patch(
-            "codrag.services.pipeline.scheduler.is_swarm_active_for_stage",
+            "prep.services.pipeline.scheduler.is_swarm_active_for_stage",
             return_value=True,
         ), patch(
-            "codrag.services.pipeline.scheduler.pipeline_scheduler.full_budget_for_swarm",
+            "prep.services.pipeline.scheduler.pipeline_scheduler.full_budget_for_swarm",
             return_value=10,
         ):
             with pytest.raises(_SwarmFallback, match="only 2 modules"):

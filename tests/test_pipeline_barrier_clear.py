@@ -4,10 +4,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-import codrag.services.project_helpers as ph
-from codrag.core.project_registry import ProjectRegistry
-from codrag.server import app
+import prep.server as server
+import prep.services.project_helpers as ph
+from prep.core.project_registry import ProjectRegistry
+from prep.server import app
 
 
 @pytest.fixture()
@@ -27,7 +27,7 @@ def _add_embedded(client: TestClient, repo: Path) -> str:
 
 
 def test_delete_reset_barrier_when_active(client, tmp_path):
-    from codrag.services.pipeline.recovery import write_reset_barrier, reset_barrier_active
+    from prep.services.pipeline.recovery import write_reset_barrier, reset_barrier_active
     pid = _add_embedded(client, tmp_path)
     assert write_reset_barrier(pid, "stale_from_aborted_rebuild")
     assert reset_barrier_active(pid)
@@ -60,7 +60,7 @@ def test_barrier_lifecycle_end_to_end(client, tmp_path):
     that `GET /pipeline/health` and `GET /pipeline/status` actually reflect the
     cleared state afterwards. This test locks the contract across endpoints.
     """
-    from codrag.services.pipeline.recovery import write_reset_barrier, reset_barrier_active
+    from prep.services.pipeline.recovery import write_reset_barrier, reset_barrier_active
     pid = _add_embedded(client, tmp_path)
 
     # 1. Write barrier directly (simulates a Reset/Rebuild)

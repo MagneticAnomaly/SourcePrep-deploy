@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from codrag.core.index import CodeIndex, SearchResult
+from prep.core.index import CodeIndex, SearchResult
 
 
 def _make_results(scores: list[float]) -> list[SearchResult]:

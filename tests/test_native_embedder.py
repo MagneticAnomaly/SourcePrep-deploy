@@ -15,7 +15,7 @@ Run with: pytest tests/test_native_embedder.py -v
 import numpy as np
 import pytest
 
-from codrag.core.embedder import NativeEmbedder, EmbeddingResult
+from prep.core.embedder import NativeEmbedder, EmbeddingResult
 
 
 # ---------------------------------------------------------------------------
@@ -144,8 +144,8 @@ class TestCodeIndexIntegration:
     def test_build_and_search_with_native(self, tmp_path):
         """Build an index with NativeEmbedder and verify search works."""
         from pathlib import Path
-        from codrag.core import CodeIndex
-        from codrag.core.repo_policy import ensure_repo_policy
+        from prep.core import CodeIndex
+        from prep.core.repo_policy import ensure_repo_policy
 
         repo = tmp_path / "repo"
         repo.mkdir()

@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 from pathlib import Path
 
-from codrag.agents import AgentCore
-from codrag.agents.shared.models import (
+from prep.agents import AgentCore
+from prep.agents.shared.models import (
     AgentConfig,
     RoleSpec,
     ResearchTopic,
@@ -18,7 +18,7 @@ from codrag.agents.shared.models import (
     CleanupCandidate,
     CleanupPlan,
 )
-from codrag.adapters.pm_models import PMPushConfig
+from prep.adapters.pm_models import PMPushConfig
 
 
 class TestAgentCoreConstruction:
@@ -66,7 +66,7 @@ class TestAgentCoreConstruction:
         index_dir = tmp_path / "index"
         index_dir.mkdir()
         core = AgentCore(project_id="test", index_dir=index_dir)
-        from codrag.adapters.pm_models import PMProject
+        from prep.adapters.pm_models import PMProject
         with pytest.raises(RuntimeError, match="[Pp]aperclip"):
             core.push_project(PMProject(name="X"))
 

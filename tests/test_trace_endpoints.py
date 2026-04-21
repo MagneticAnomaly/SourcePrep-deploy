@@ -6,12 +6,12 @@ from urllib.parse import quote
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-import codrag.services.project_helpers as ph
-from codrag.core.ids import stable_file_node_id
-from codrag.core.project_registry import ProjectRegistry
-from codrag.core.trace import TraceBuilder
-from codrag.server import app
+import prep.server as server
+import prep.services.project_helpers as ph
+from prep.core.ids import stable_file_node_id
+from prep.core.project_registry import ProjectRegistry
+from prep.core.trace import TraceBuilder
+from prep.server import app
 
 
 @pytest.fixture()

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.concept_store import ConceptStore
+from prep.services.concept_store import ConceptStore
 
 
 @pytest.fixture

@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from codrag.api.envelope import ApiException, install_api_exception_handlers
+from prep.api.envelope import ApiException, install_api_exception_handlers
 
 
 def test_api_exception_enveloped() -> None:

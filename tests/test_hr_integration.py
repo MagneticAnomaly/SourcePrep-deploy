@@ -7,7 +7,7 @@ from typing import Tuple
 
 import pytest
 
-from codrag.agents.hr import StaffingEngine, ReadinessReport, Roster
+from prep.agents.hr import StaffingEngine, ReadinessReport, Roster
 
 
 def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:

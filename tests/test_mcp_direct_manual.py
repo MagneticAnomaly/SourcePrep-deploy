@@ -8,7 +8,7 @@ from typing import Optional
 # Ensure src is in path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from codrag.mcp_direct import DirectMCPServer
+from prep.mcp_direct import DirectMCPServer
 
 async def test_direct_mcp():
     print("Initializing DirectMCPServer...")

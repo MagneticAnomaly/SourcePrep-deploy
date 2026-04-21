@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from codrag.core.atomic_io import atomic_write_bytes, atomic_write_text
+from prep.core.atomic_io import atomic_write_bytes, atomic_write_text
 
 
 def test_atomic_write_text_creates_file(tmp_path: Path) -> None:
@@ -39,7 +39,7 @@ def test_atomic_write_text_cleans_up_tmp_on_failure(tmp_path: Path) -> None:
     def boom(src: str, dst: str) -> None:
         raise OSError("rename failed")
 
-    with patch("codrag.core.atomic_io.os.replace", side_effect=boom):
+    with patch("prep.core.atomic_io.os.replace", side_effect=boom):
         with pytest.raises(OSError):
             atomic_write_text(target, "never lands")
 

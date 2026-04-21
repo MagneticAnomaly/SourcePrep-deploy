@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core.todo_scanner import scan_todos
-from codrag.services.git_evidence_service import reset_cache
+from prep.core.todo_scanner import scan_todos
+from prep.services.git_evidence_service import reset_cache
 
 
 def _init_repo(path: Path) -> None:

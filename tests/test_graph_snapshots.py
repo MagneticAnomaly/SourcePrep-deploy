@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from codrag.services.collaboration.snapshots import GraphSnapshotStore
+from prep.services.collaboration.snapshots import GraphSnapshotStore
 
 
 HUBS_V1 = [

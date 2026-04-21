@@ -1,5 +1,5 @@
 import pytest
-from codrag.core.sarif_adapters import get_adapter, get_tool_context, ToolAdapter
+from prep.core.sarif_adapters import get_adapter, get_tool_context, ToolAdapter
 
 
 def test_get_adapter_known_tool():

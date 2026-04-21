@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from codrag.services.collaboration.activity import ActivityStore
+from prep.services.collaboration.activity import ActivityStore
 
 
 @pytest.fixture

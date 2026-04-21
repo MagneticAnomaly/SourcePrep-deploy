@@ -10,7 +10,7 @@ import pytest
 import threading
 import time
 
-from codrag.services.pipeline.state_machine import (
+from prep.services.pipeline.state_machine import (
     PipelineState,
     PipelineGroupStateMachine,
     Event,

@@ -1,7 +1,7 @@
 """Tests for significance classification helpers."""
 import pytest
 
-from codrag.adapters.pm_models import classify_significance
+from prep.adapters.pm_models import classify_significance
 
 
 def test_security_finding_is_mandatory():

@@ -1,14 +1,14 @@
 """Tests for cluster synthesis (Pass 3)."""
 import pytest
 
-from codrag.core.cluster import (
+from prep.core.cluster import (
     Cluster,
     ModuleEntry,
     build_clusters,
     _connected_components,
     _merge_small_clusters,
 )
-from codrag.core.epistemic_score import EpistemicEntry
+from prep.core.epistemic_score import EpistemicEntry
 
 
 def make_entry(node_id: str, tags: list, subsystem: str = None) -> EpistemicEntry:

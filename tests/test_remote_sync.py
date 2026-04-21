@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.services.remote_sync import (
+from prep.services.remote_sync import (
     SECRETS_FILENAME,
     TEAM_CONFIG_FILENAME,
     RemoteSyncService,

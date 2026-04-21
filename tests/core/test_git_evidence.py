@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core.git_evidence import (
+from prep.core.git_evidence import (
     HUB_EVOLVING_MAX_COMMITS,
     HUB_FRAGILE_MIN_AUTHORS,
     HUB_STABLE_MAX_COMMITS,

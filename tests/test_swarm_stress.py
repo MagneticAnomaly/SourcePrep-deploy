@@ -23,7 +23,7 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
-from codrag.core.swarm_orchestrator import (
+from prep.core.swarm_orchestrator import (
     CoordinatorPlan,
     SwarmOrchestrator,
     SwarmResult,
@@ -264,7 +264,7 @@ class TestZombieSessionCleanup:
 
     def test_zombie_session_captured_on_timeout(self) -> None:
         """When coordinator times out, the zombie's Session should be closed."""
-        from codrag.core.llm_client import LLMClient
+        from prep.core.llm_client import LLMClient
         import requests as _requests
 
         # Use a REAL LLMClient (not a mock) so _session / _thread_local work.
@@ -403,7 +403,7 @@ class TestLiveCloud:
     """Live tests against Ollama cloud — real HTTP requests, real timeouts."""
 
     def _make_live_llm(self, timeout: float = 120.0):
-        from codrag.core.llm_client import LLMClient
+        from prep.core.llm_client import LLMClient
         return LLMClient(
             endpoint_url=OLLAMA_URL,
             model=CLOUD_MODEL,

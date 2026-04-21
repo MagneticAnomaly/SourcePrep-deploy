@@ -57,7 +57,7 @@ class _FakeResponse:
 
 
 def _make_client():
-    from codrag.core.llm_client import LLMClient
+    from prep.core.llm_client import LLMClient
     return LLMClient(
         endpoint_url="http://localhost:11434",
         model="kimi-k2.5:cloud",
@@ -86,7 +86,7 @@ def test_queue_time_uses_server_total_duration_not_wall_time():
         captured["queue_time_ms"] = queue_time_ms
 
     with patch.object(client._session, "post", return_value=_FakeResponse(body)), \
-         patch("codrag.core.llm_client.LLMClient._record_throughput", new=fake_record), \
+         patch("prep.core.llm_client.LLMClient._record_throughput", new=fake_record), \
          patch("time.monotonic", side_effect=[0.0, 10.0]):  # 10s wall clock
         client._generate_internal(prompt="hi", json_mode=False)
 
@@ -119,7 +119,7 @@ def test_queue_time_reflects_real_server_queue():
         captured["queue_time_ms"] = queue_time_ms
 
     with patch.object(client._session, "post", return_value=_FakeResponse(body)), \
-         patch("codrag.core.llm_client.LLMClient._record_throughput", new=fake_record), \
+         patch("prep.core.llm_client.LLMClient._record_throughput", new=fake_record), \
          patch("time.monotonic", side_effect=[0.0, 10.0]):
         client._generate_internal(prompt="hi", json_mode=False)
 
@@ -149,7 +149,7 @@ def test_queue_time_falls_back_to_wall_time_when_total_duration_missing():
         captured["queue_time_ms"] = queue_time_ms
 
     with patch.object(client._session, "post", return_value=_FakeResponse(body)), \
-         patch("codrag.core.llm_client.LLMClient._record_throughput", new=fake_record), \
+         patch("prep.core.llm_client.LLMClient._record_throughput", new=fake_record), \
          patch("time.monotonic", side_effect=[0.0, 10.0]):
         client._generate_internal(prompt="hi", json_mode=False)
 

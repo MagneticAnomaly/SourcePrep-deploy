@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from codrag.core.chunking import chunk_markdown, _split_long_text
-from codrag.core.embedder import FakeEmbedder
+from prep.core.chunking import chunk_markdown, _split_long_text
+from prep.core.embedder import FakeEmbedder
 
 
 class TestSemanticSplitBackwardCompat:

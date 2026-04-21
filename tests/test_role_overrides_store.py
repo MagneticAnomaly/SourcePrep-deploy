@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from codrag.services.role_overrides_store import RoleOverride, RoleOverridesStore
+from prep.services.role_overrides_store import RoleOverride, RoleOverridesStore
 
 # ── Fake settings store ─────────────────────────────────────────────
 
@@ -168,7 +168,7 @@ def test_pin_concept_is_idempotent_but_updates_timestamp(
     store: RoleOverridesStore,
     monkeypatch,
 ):
-    import codrag.services.role_overrides_store as mod
+    import prep.services.role_overrides_store as mod
 
     monkeypatch.setattr(mod.time, "time", lambda: 100.0)
     store.pin_concept("proj-1", "engineering", "c1")

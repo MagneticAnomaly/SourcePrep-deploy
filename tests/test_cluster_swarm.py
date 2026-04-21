@@ -4,8 +4,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from codrag.core.cluster import ClusterSynthesizer, Cluster, ModuleEntry
-from codrag.core.swarm_registry import SwarmTier
+from prep.core.cluster import ClusterSynthesizer, Cluster, ModuleEntry
+from prep.core.swarm_registry import SwarmTier
 
 
 def _make_clusters(n: int) -> list[Cluster]:
@@ -25,7 +25,7 @@ def _make_clusters(n: int) -> list[Cluster]:
 
 def _make_epistemic(clusters: list[Cluster]) -> dict:
     """Build minimal epistemic entries for all cluster members."""
-    from codrag.core.epistemic_score import EpistemicEntry
+    from prep.core.epistemic_score import EpistemicEntry
     entries = {}
     for cluster in clusters:
         for nid in cluster.member_node_ids:
@@ -62,7 +62,7 @@ def _make_mock_llm():
 
 
 class TestClusterSwarmDecision:
-    @patch("codrag.core.cluster.get_swarm_tier")
+    @patch("prep.core.cluster.get_swarm_tier")
     def test_swarm_activated_when_eligible(self, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         mock_llm = _make_mock_llm()
@@ -75,11 +75,11 @@ class TestClusterSwarmDecision:
             with patch.object(synth, "_get_swarm_enabled", return_value=True):
                 with patch.object(synth, "load_epistemic", return_value=epistemic):
                     with patch.object(synth, "load_edges", return_value=[]):
-                        with patch("codrag.core.cluster.build_clusters", return_value=clusters):
+                        with patch("prep.core.cluster.build_clusters", return_value=clusters):
                             synth.run()
                             mock_swarm.assert_called_once()
 
-    @patch("codrag.core.cluster.get_swarm_tier")
+    @patch("prep.core.cluster.get_swarm_tier")
     def test_swarm_skipped_when_model_unsuitable(self, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.UNSUITABLE
         mock_llm = _make_mock_llm()
@@ -92,11 +92,11 @@ class TestClusterSwarmDecision:
             with patch.object(synth, "_get_swarm_enabled", return_value=True):
                 with patch.object(synth, "load_epistemic", return_value=epistemic):
                     with patch.object(synth, "load_edges", return_value=[]):
-                        with patch("codrag.core.cluster.build_clusters", return_value=clusters):
+                        with patch("prep.core.cluster.build_clusters", return_value=clusters):
                             synth.run()
                             mock_swarm.assert_not_called()
 
-    @patch("codrag.core.cluster.get_swarm_tier")
+    @patch("prep.core.cluster.get_swarm_tier")
     def test_swarm_skipped_when_disabled(self, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         mock_llm = _make_mock_llm()
@@ -109,11 +109,11 @@ class TestClusterSwarmDecision:
             with patch.object(synth, "_get_swarm_enabled", return_value=False):
                 with patch.object(synth, "load_epistemic", return_value=epistemic):
                     with patch.object(synth, "load_edges", return_value=[]):
-                        with patch("codrag.core.cluster.build_clusters", return_value=clusters):
+                        with patch("prep.core.cluster.build_clusters", return_value=clusters):
                             synth.run()
                             mock_swarm.assert_not_called()
 
-    @patch("codrag.core.cluster.get_swarm_tier")
+    @patch("prep.core.cluster.get_swarm_tier")
     def test_swarm_skipped_below_threshold(self, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         mock_llm = _make_mock_llm()
@@ -126,7 +126,7 @@ class TestClusterSwarmDecision:
             with patch.object(synth, "_get_swarm_enabled", return_value=True):
                 with patch.object(synth, "load_epistemic", return_value=epistemic):
                     with patch.object(synth, "load_edges", return_value=[]):
-                        with patch("codrag.core.cluster.build_clusters", return_value=clusters):
+                        with patch("prep.core.cluster.build_clusters", return_value=clusters):
                             synth.run()
                             mock_swarm.assert_not_called()
 

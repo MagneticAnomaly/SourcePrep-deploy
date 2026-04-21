@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch, call
 
 import pytest
 
-from codrag.services.headless_runner import (
+from prep.services.headless_runner import (
     HEADLESS_STAGES,
     PROVIDER_ENDPOINTS,
     HeadlessConfig,
@@ -98,7 +98,7 @@ class TestHeadlessCreateLlmClient:
 class TestHeadlessCreateEmbedder:
     def test_native_when_available(self):
         cfg = HeadlessConfig(embedder="native")
-        with patch("codrag.core.NativeEmbedder") as mock_cls:
+        with patch("prep.core.NativeEmbedder") as mock_cls:
             mock_instance = MagicMock()
             mock_instance.is_available.return_value = True
             mock_cls.return_value = mock_instance
@@ -107,8 +107,8 @@ class TestHeadlessCreateEmbedder:
 
     def test_fallback_to_ollama_when_native_unavailable(self):
         cfg = HeadlessConfig(embedder="native")
-        with patch("codrag.core.NativeEmbedder") as mock_native, \
-             patch("codrag.core.OllamaEmbedder") as mock_ollama:
+        with patch("prep.core.NativeEmbedder") as mock_native, \
+             patch("prep.core.OllamaEmbedder") as mock_ollama:
             mock_native.return_value.is_available.return_value = False
             mock_ollama_instance = MagicMock()
             mock_ollama.return_value = mock_ollama_instance
@@ -117,7 +117,7 @@ class TestHeadlessCreateEmbedder:
 
     def test_explicit_ollama(self):
         cfg = HeadlessConfig(embedder="ollama")
-        with patch("codrag.core.OllamaEmbedder") as mock_ollama:
+        with patch("prep.core.OllamaEmbedder") as mock_ollama:
             mock_ollama_instance = MagicMock()
             mock_ollama.return_value = mock_ollama_instance
             embedder = headless_create_embedder(cfg)
@@ -193,7 +193,7 @@ class TestHeadlessStages:
 
 class TestResolveRepo:
     def test_repo_path_exists(self, tmp_path):
-        from codrag.services.headless_runner import HeadlessRunner
+        from prep.services.headless_runner import HeadlessRunner
         repo = tmp_path / "repo"
         repo.mkdir()
         cfg = HeadlessConfig(repo_path=str(repo))
@@ -202,14 +202,14 @@ class TestResolveRepo:
         assert resolved == repo.resolve()
 
     def test_repo_path_missing_raises(self, tmp_path):
-        from codrag.services.headless_runner import HeadlessRunner
+        from prep.services.headless_runner import HeadlessRunner
         cfg = HeadlessConfig(repo_path=str(tmp_path / "nonexistent"))
         runner = HeadlessRunner(cfg)
         with pytest.raises(FileNotFoundError):
             runner._resolve_repo()
 
     def test_no_repo_at_all_raises(self):
-        from codrag.services.headless_runner import HeadlessRunner
+        from prep.services.headless_runner import HeadlessRunner
         cfg = HeadlessConfig()  # no repo_url or repo_path
         runner = HeadlessRunner(cfg)
         with pytest.raises(ValueError, match="repo-url or --repo-path"):
@@ -222,7 +222,7 @@ class TestResolveRepo:
 class TestGetCommitSha:
     def test_in_git_repo(self, tmp_path):
         """If tmp_path happens to be inside a git repo, we get a non-empty sha."""
-        from codrag.services.headless_runner import HeadlessRunner
+        from prep.services.headless_runner import HeadlessRunner
         cfg = HeadlessConfig()
         runner = HeadlessRunner(cfg)
         # Use the CoDRAG repo itself (which is a git repo)
@@ -233,7 +233,7 @@ class TestGetCommitSha:
             assert len(sha) == 40  # full SHA
 
     def test_not_a_git_repo(self, tmp_path):
-        from codrag.services.headless_runner import HeadlessRunner
+        from prep.services.headless_runner import HeadlessRunner
         cfg = HeadlessConfig()
         runner = HeadlessRunner(cfg)
         sha = runner._get_commit_sha(tmp_path)
@@ -246,7 +246,7 @@ class TestGetCommitSha:
 class TestProgressCallbackFactory:
     def test_closure_captures_correct_stage_id(self):
         """Verify the factory function pattern avoids the closure-in-loop bug."""
-        from codrag.services.headless_runner import HeadlessRunner
+        from prep.services.headless_runner import HeadlessRunner
         import logging
 
         # Create multiple progress callbacks as the pipeline loop would

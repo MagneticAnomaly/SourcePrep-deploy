@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from codrag.agents.hr.roster import Roster
-from codrag.agents.shared.models import RoleSpec
+from prep.agents.hr.roster import Roster
+from prep.agents.shared.models import RoleSpec
 
 
 @pytest.fixture

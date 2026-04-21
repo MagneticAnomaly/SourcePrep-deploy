@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from codrag.adapters.push_engine import PushEngine
-from codrag.services.collaboration.snapshots import StructuralDelta
+from prep.adapters.push_engine import PushEngine
+from prep.services.collaboration.snapshots import StructuralDelta
 
 
 def test_empty_delta_pushes_nothing():

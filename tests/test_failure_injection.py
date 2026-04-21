@@ -11,10 +11,10 @@ from unittest.mock import patch, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-from codrag.core import CodeIndex, FakeEmbedder
-from codrag.server import app
-from codrag.api.envelope import ApiException
+import prep.server as server
+from prep.core import CodeIndex, FakeEmbedder
+from prep.server import app
+from prep.api.envelope import ApiException
 
 @pytest.fixture
 def client(tmp_path: Path) -> TestClient:
@@ -48,7 +48,7 @@ class TestDiskPressure:
         mock_usage = MagicMock()
         mock_usage.free = 100 * 1024 * 1024  # 100 MB
         
-        with patch("codrag.core.index.shutil.disk_usage", return_value=mock_usage):
+        with patch("prep.core.index.shutil.disk_usage", return_value=mock_usage):
             with pytest.raises(ApiException) as excinfo:
                 idx.build(repo_root=mini_repo)
             
@@ -66,7 +66,7 @@ class TestDiskPressure:
         mock_usage = MagicMock()
         mock_usage.free = 1024 * 1024 * 1024  # 1 GB
         
-        with patch("codrag.core.index.shutil.disk_usage", return_value=mock_usage):
+        with patch("prep.core.index.shutil.disk_usage", return_value=mock_usage):
             # Should not raise
             idx.build(repo_root=mini_repo)
             assert idx.is_loaded()

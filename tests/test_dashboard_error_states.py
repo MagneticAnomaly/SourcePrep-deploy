@@ -16,10 +16,10 @@ import pytest
 from fastapi.testclient import TestClient
 from pathlib import Path
 
-import codrag.server as server
-import codrag.services.project_helpers as ph
-from codrag.core.project_registry import ProjectRegistry
-from codrag.server import app
+import prep.server as server
+import prep.services.project_helpers as ph
+from prep.core.project_registry import ProjectRegistry
+from prep.server import app
 
 @pytest.fixture()
 def client(tmp_path: Path) -> TestClient:

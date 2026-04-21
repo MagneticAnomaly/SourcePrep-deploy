@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 import pytest
-from codrag.agents.custodian.manifest import ArchiveManifest, ManifestEntry
+from prep.agents.custodian.manifest import ArchiveManifest, ManifestEntry
 
 @pytest.fixture
 def manifest(tmp_path: Path) -> ArchiveManifest:

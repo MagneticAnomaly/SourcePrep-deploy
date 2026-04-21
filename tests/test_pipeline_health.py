@@ -4,10 +4,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-import codrag.server as server
-import codrag.services.project_helpers as ph
-from codrag.core.project_registry import ProjectRegistry, project_index_dir
-from codrag.server import app
+import prep.server as server
+import prep.services.project_helpers as ph
+from prep.core.project_registry import ProjectRegistry, project_index_dir
+from prep.server import app
 
 
 @pytest.fixture()
@@ -65,7 +65,7 @@ def test_pipeline_health_reports_manifest_exists_for_canonical_filenames(client,
     """Verify the health module uses the canonical STAGE_MANIFEST_FILE map,
     not a synthesized {stage_id}_manifest.json name.
     """
-    from codrag.services.pipeline.stages import STAGE_MANIFEST_FILE, StageId
+    from prep.services.pipeline.stages import STAGE_MANIFEST_FILE, StageId
 
     pid = _add_embedded(client, tmp_path)
     project_obj = server._registry.get_project(pid)

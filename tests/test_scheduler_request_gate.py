@@ -11,7 +11,7 @@ import time
 
 import pytest
 
-from codrag.services.pipeline.scheduler import (
+from prep.services.pipeline.scheduler import (
     ComputeSlot,
     PipelineScheduler,
 )

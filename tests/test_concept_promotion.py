@@ -1,5 +1,5 @@
 import pytest
-from codrag.core.concept_promotion import suggest_promotion, PromotionSuggestion, build_concept_from_observation
+from prep.core.concept_promotion import suggest_promotion, PromotionSuggestion, build_concept_from_observation
 
 
 def _make_observation(content, category="decision", file_path="src/server.py"):

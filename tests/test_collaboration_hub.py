@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from codrag.services.collaboration import CollaborationHub
+from prep.services.collaboration import CollaborationHub
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def test_snapshot_then_delta_workflow(hub):
 
 def test_conflict_save_and_retrieve(hub):
     """Save a conflict, retrieve active ones."""
-    from codrag.services.collaboration.conflicts import AgentConflict
+    from prep.services.collaboration.conflicts import AgentConflict
 
     conflict = AgentConflict(
         id="c1", project_id="proj-1", file_path="src/auth.py",

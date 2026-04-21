@@ -1,7 +1,7 @@
 """Tests for observation attribution (created_by + visibility)."""
 import pytest
 
-from codrag.services.observation_store import ObservationStore
+from prep.services.observation_store import ObservationStore
 
 
 @pytest.fixture

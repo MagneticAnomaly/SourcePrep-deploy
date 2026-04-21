@@ -1,6 +1,6 @@
 import pytest
-from codrag.services.antibody_store import AntibodyStore
-from codrag.core.antibodies import Antibody, Trigger, TriggerType, Response, ResponseType, Severity
+from prep.services.antibody_store import AntibodyStore
+from prep.core.antibodies import Antibody, Trigger, TriggerType, Response, ResponseType, Severity
 
 
 @pytest.fixture

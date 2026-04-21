@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from codrag.core.swarm_orchestrator import (
+from prep.core.swarm_orchestrator import (
     SwarmOrchestrator,
     WorkItem,
     WorkerAssignment,
@@ -240,7 +240,7 @@ class TestSwarmThinkFalse:
         )
 
         # Build a fake worker_results list with one successful entry
-        from codrag.core.swarm_orchestrator import WorkerResult
+        from prep.core.swarm_orchestrator import WorkerResult
         results = [
             WorkerResult(
                 item_id="item-0",

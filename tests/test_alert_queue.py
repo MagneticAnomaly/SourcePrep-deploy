@@ -1,5 +1,5 @@
 import pytest
-from codrag.core.alert_queue import Alert, AlertQueue
+from prep.core.alert_queue import Alert, AlertQueue
 
 
 def test_push_and_drain():

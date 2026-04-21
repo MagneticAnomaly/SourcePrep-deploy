@@ -7,7 +7,7 @@ from pathlib import Path
 
 # Load batch modules directly from file to avoid codrag.core.__init__'s
 # heavy dependency chain (fastapi, etc.)
-_CORE = Path(__file__).resolve().parent.parent / "src" / "codrag" / "core"
+_CORE = Path(__file__).resolve().parent.parent / "src" / "prep" / "core"
 
 def _load_module(name: str, filepath: Path):
     spec = importlib.util.spec_from_file_location(name, filepath)
@@ -16,8 +16,8 @@ def _load_module(name: str, filepath: Path):
     spec.loader.exec_module(mod)
     return mod
 
-_bp = _load_module("codrag.core.batch_profiles", _CORE / "batch_profiles.py")
-_bs = _load_module("codrag.core.batch_strategy", _CORE / "batch_strategy.py")
+_bp = _load_module("prep.core.batch_profiles", _CORE / "batch_profiles.py")
+_bs = _load_module("prep.core.batch_strategy", _CORE / "batch_strategy.py")
 
 BatchProfile = _bp.BatchProfile
 BatchProfileName = _bp.BatchProfileName
@@ -270,7 +270,7 @@ class TestBatchedResponseParser:
 
 
 def test_local_model_still_returns_one():
-    from codrag.core.batch_profiles import get_batch_concurrency
+    from prep.core.batch_profiles import get_batch_concurrency
     result = get_batch_concurrency("ollama", model="gemma3:12b")
     assert result == 1
 
@@ -285,9 +285,9 @@ def test_local_model_still_returns_one():
 
 
 def test_cloud_safety_off_promotes_gemini_to_large(monkeypatch):
-    from codrag.core.batch_profiles import resolve_profile, PROFILE_LARGE
+    from prep.core.batch_profiles import resolve_profile, PROFILE_LARGE
     monkeypatch.setattr(
-        "codrag.server.get_advanced_llm_settings",
+        "prep.server.get_advanced_llm_settings",
         lambda: {"enforce_cloud_token_safety": False},
     )
     profile = resolve_profile("ollama", "gemini-3-flash-preview:cloud")
@@ -296,9 +296,9 @@ def test_cloud_safety_off_promotes_gemini_to_large(monkeypatch):
 
 def test_cloud_safety_off_keeps_kimi_on_cloud_small(monkeypatch):
     """Kimi's thinking preamble eats output budget regardless of the 16K cap."""
-    from codrag.core.batch_profiles import resolve_profile, PROFILE_CLOUD_SMALL
+    from prep.core.batch_profiles import resolve_profile, PROFILE_CLOUD_SMALL
     monkeypatch.setattr(
-        "codrag.server.get_advanced_llm_settings",
+        "prep.server.get_advanced_llm_settings",
         lambda: {"enforce_cloud_token_safety": False},
     )
     profile = resolve_profile("ollama", "kimi-k2.5:cloud")
@@ -307,9 +307,9 @@ def test_cloud_safety_off_keeps_kimi_on_cloud_small(monkeypatch):
 
 def test_cloud_safety_on_keeps_default_cloud_small(monkeypatch):
     """Default behavior preserved when safety toggle is ON."""
-    from codrag.core.batch_profiles import resolve_profile, PROFILE_CLOUD_SMALL
+    from prep.core.batch_profiles import resolve_profile, PROFILE_CLOUD_SMALL
     monkeypatch.setattr(
-        "codrag.server.get_advanced_llm_settings",
+        "prep.server.get_advanced_llm_settings",
         lambda: {"enforce_cloud_token_safety": True},
     )
     profile = resolve_profile("ollama", "gemini-3-flash-preview:cloud")

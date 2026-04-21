@@ -15,7 +15,7 @@ import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from codrag.mcp_server import MCPServer
+from prep.mcp_server import MCPServer
 
 
 # =============================================================================

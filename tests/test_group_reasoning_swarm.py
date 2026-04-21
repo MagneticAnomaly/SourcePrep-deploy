@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.core.group_reasoning import GroupReasoningEngine, GroupReasoningEntry
-from codrag.core.swarm_registry import SwarmTier
+from prep.core.group_reasoning import GroupReasoningEngine, GroupReasoningEntry
+from prep.core.swarm_registry import SwarmTier
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ def _build_engine(index_dir: Path) -> GroupReasoningEngine:
 class TestGroupReasoningSwarmDecision:
     """Verify the swarm vs. standard-path decision branch in run()."""
 
-    @patch("codrag.core.group_reasoning.get_swarm_tier")
+    @patch("prep.core.group_reasoning.get_swarm_tier")
     def test_swarm_activated_when_eligible(
         self, mock_tier, tmp_index_dir,
     ):
@@ -101,7 +101,7 @@ class TestGroupReasoningSwarmDecision:
         mock_run.assert_called_once()
         assert result.get("swarm") is True
 
-    @patch("codrag.core.group_reasoning.get_swarm_tier")
+    @patch("prep.core.group_reasoning.get_swarm_tier")
     def test_swarm_skipped_when_model_unsuitable(
         self, mock_tier, tmp_index_dir,
     ):
@@ -112,12 +112,12 @@ class TestGroupReasoningSwarmDecision:
         # Mock the standard analyze_group to avoid real LLM calls
         with patch.object(engine, "_run_swarm") as mock_run:
             with patch.object(engine, "analyze_group", return_value=None):
-                with patch("codrag.core.batch_profiles.get_batch_concurrency", return_value=1):
+                with patch("prep.core.batch_profiles.get_batch_concurrency", return_value=1):
                     engine.run()
 
         mock_run.assert_not_called()
 
-    @patch("codrag.core.group_reasoning.get_swarm_tier")
+    @patch("prep.core.group_reasoning.get_swarm_tier")
     def test_swarm_skipped_when_disabled_by_user(
         self, mock_tier, tmp_index_dir,
     ):
@@ -128,12 +128,12 @@ class TestGroupReasoningSwarmDecision:
         with patch.object(engine, "_run_swarm") as mock_run:
             with patch.object(engine, "_get_swarm_enabled", return_value=False):
                 with patch.object(engine, "analyze_group", return_value=None):
-                    with patch("codrag.core.batch_profiles.get_batch_concurrency", return_value=1):
+                    with patch("prep.core.batch_profiles.get_batch_concurrency", return_value=1):
                         engine.run()
 
         mock_run.assert_not_called()
 
-    @patch("codrag.core.group_reasoning.get_swarm_tier")
+    @patch("prep.core.group_reasoning.get_swarm_tier")
     def test_swarm_skipped_below_threshold(
         self, mock_tier, tmp_path,
     ):
@@ -162,9 +162,9 @@ class TestGroupReasoningSwarmDecision:
         with patch.object(engine, "_run_swarm") as mock_run:
             with patch.object(engine, "_get_swarm_enabled", return_value=True):
                 # Threshold is 3, we have 2 groups to analyze
-                with patch("codrag.core.group_reasoning.get_min_groups_threshold", return_value=3):
+                with patch("prep.core.group_reasoning.get_min_groups_threshold", return_value=3):
                     with patch.object(engine, "analyze_group", return_value=None):
-                        with patch("codrag.core.batch_profiles.get_batch_concurrency", return_value=1):
+                        with patch("prep.core.batch_profiles.get_batch_concurrency", return_value=1):
                             engine.run()
 
         mock_run.assert_not_called()
@@ -181,6 +181,6 @@ class TestSwarmSetting:
         """When settings store isn't initialised, default is True."""
         engine = _build_engine(tmp_path)
         # Patch the import inside the method to raise, simulating uninitialised store
-        with patch.dict("sys.modules", {"codrag.services.settings_store": None}):
+        with patch.dict("sys.modules", {"prep.services.settings_store": None}):
             result = engine._get_swarm_enabled()
         assert result is True

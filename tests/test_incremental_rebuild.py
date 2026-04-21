@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core import CodeIndex, FakeEmbedder
-from codrag.core.manifest import read_manifest
+from prep.core import CodeIndex, FakeEmbedder
+from prep.core.manifest import read_manifest
 
 
 @pytest.fixture

@@ -7,8 +7,8 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from codrag.agents.custodian.engine import CustodianEngine
-from codrag.agents.shared.models import CleanupCandidate, CleanupPlan
+from prep.agents.custodian.engine import CustodianEngine
+from prep.agents.shared.models import CleanupCandidate, CleanupPlan
 
 
 def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:

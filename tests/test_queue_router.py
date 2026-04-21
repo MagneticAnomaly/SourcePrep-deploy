@@ -52,14 +52,14 @@ def _mock_scheduler_status(active: dict | None = None, queued: list | None = Non
 # ---------------------------------------------------------------------------
 
 
-@patch("codrag.api.routers.queue._resolve_project_name", return_value="DebateHaus")
-@patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
-@patch("codrag.api.routers.queue.pipeline_scheduler")
-@patch("codrag.api.routers.queue.pipeline_orchestrator")
+@patch("prep.api.routers.queue._resolve_project_name", return_value="DebateHaus")
+@patch("prep.api.routers.queue.purge_ghost_locks", return_value=0)
+@patch("prep.api.routers.queue.pipeline_scheduler")
+@patch("prep.api.routers.queue.pipeline_orchestrator")
 async def test_running_pipeline_in_queue(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
-    from codrag.api.routers.queue import get_queue
+    from prep.api.routers.queue import get_queue
 
     pid = "uuid-1234"
     sm = _mock_state_machine(pid, "fast_sync", "running", "catalogue")
@@ -98,14 +98,14 @@ async def test_running_pipeline_in_queue(
 # ---------------------------------------------------------------------------
 
 
-@patch("codrag.api.routers.queue._resolve_project_name", return_value="TestProject")
-@patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
-@patch("codrag.api.routers.queue.pipeline_scheduler")
-@patch("codrag.api.routers.queue.pipeline_orchestrator")
+@patch("prep.api.routers.queue._resolve_project_name", return_value="TestProject")
+@patch("prep.api.routers.queue.purge_ghost_locks", return_value=0)
+@patch("prep.api.routers.queue.pipeline_scheduler")
+@patch("prep.api.routers.queue.pipeline_orchestrator")
 async def test_queued_entries_included(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
-    from codrag.api.routers.queue import get_queue
+    from prep.api.routers.queue import get_queue
 
     pid = "uuid-queued"
     mock_orch._runs = {}  # no active state machines
@@ -139,14 +139,14 @@ async def test_queued_entries_included(
 # ---------------------------------------------------------------------------
 
 
-@patch("codrag.api.routers.queue._resolve_project_name", return_value="X")
-@patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
-@patch("codrag.api.routers.queue.pipeline_scheduler")
-@patch("codrag.api.routers.queue.pipeline_orchestrator")
+@patch("prep.api.routers.queue._resolve_project_name", return_value="X")
+@patch("prep.api.routers.queue.purge_ghost_locks", return_value=0)
+@patch("prep.api.routers.queue.pipeline_scheduler")
+@patch("prep.api.routers.queue.pipeline_orchestrator")
 async def test_empty_state_empty_queue(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
-    from codrag.api.routers.queue import get_queue
+    from prep.api.routers.queue import get_queue
 
     mock_orch._runs = {}
     mock_sched.status.return_value = _mock_scheduler_status()
@@ -162,10 +162,10 @@ async def test_empty_state_empty_queue(
 # ---------------------------------------------------------------------------
 
 
-@patch("codrag.api.routers.queue.get_event_bus")
-@patch("codrag.api.routers.queue.pipeline_scheduler")
+@patch("prep.api.routers.queue.get_event_bus")
+@patch("prep.api.routers.queue.pipeline_scheduler")
 def test_set_priority_delegates(mock_sched, mock_bus):
-    from codrag.api.routers.queue import PriorityRequest, set_priority
+    from prep.api.routers.queue import PriorityRequest, set_priority
 
     req = PriorityRequest(project_id="uuid-1234", level="boost")
     result = set_priority(req)
@@ -180,14 +180,14 @@ def test_set_priority_delegates(mock_sched, mock_bus):
 # ---------------------------------------------------------------------------
 
 
-@patch("codrag.api.routers.queue._resolve_project_name", return_value="P")
-@patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
-@patch("codrag.api.routers.queue.pipeline_scheduler")
-@patch("codrag.api.routers.queue.pipeline_orchestrator")
+@patch("prep.api.routers.queue._resolve_project_name", return_value="P")
+@patch("prep.api.routers.queue.purge_ghost_locks", return_value=0)
+@patch("prep.api.routers.queue.pipeline_scheduler")
+@patch("prep.api.routers.queue.pipeline_orchestrator")
 async def test_running_included_failed_excluded(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
-    from codrag.api.routers.queue import get_queue
+    from prep.api.routers.queue import get_queue
 
     sm_running = _mock_state_machine("p1", "fast_sync", "running", "catalogue")
     sm_failed = _mock_state_machine("p2", "fast_sync", "failed", None)
@@ -212,14 +212,14 @@ async def test_running_included_failed_excluded(
 # ---------------------------------------------------------------------------
 
 
-@patch("codrag.api.routers.queue._resolve_project_name", return_value="P")
-@patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
-@patch("codrag.api.routers.queue.pipeline_scheduler")
-@patch("codrag.api.routers.queue.pipeline_orchestrator")
+@patch("prep.api.routers.queue._resolve_project_name", return_value="P")
+@patch("prep.api.routers.queue.purge_ghost_locks", return_value=0)
+@patch("prep.api.routers.queue.pipeline_scheduler")
+@patch("prep.api.routers.queue.pipeline_orchestrator")
 async def test_completed_excluded(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
-    from codrag.api.routers.queue import get_queue
+    from prep.api.routers.queue import get_queue
 
     sm_done = _mock_state_machine("p1", "fast_sync", "completed", None)
     sm_idle = _mock_state_machine("p2", "deep_enrichment", "idle", None)
@@ -239,14 +239,14 @@ async def test_completed_excluded(
 # ---------------------------------------------------------------------------
 
 
-@patch("codrag.api.routers.queue._resolve_project_name", return_value="X")
-@patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
-@patch("codrag.api.routers.queue.pipeline_scheduler")
-@patch("codrag.api.routers.queue.pipeline_orchestrator")
+@patch("prep.api.routers.queue._resolve_project_name", return_value="X")
+@patch("prep.api.routers.queue.purge_ghost_locks", return_value=0)
+@patch("prep.api.routers.queue.pipeline_scheduler")
+@patch("prep.api.routers.queue.pipeline_orchestrator")
 async def test_in_flight_and_current_limit_in_node_summary(
     mock_orch, mock_sched, mock_purge, mock_name,
 ):
-    from codrag.api.routers.queue import get_queue
+    from prep.api.routers.queue import get_queue
 
     mock_orch._runs = {}
     status = _mock_scheduler_status()

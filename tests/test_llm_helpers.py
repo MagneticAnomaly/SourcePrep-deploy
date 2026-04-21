@@ -6,19 +6,19 @@ from unittest.mock import patch, MagicMock
 class TestResolveModelForStage:
 
     def test_non_llm_stage_returns_none(self):
-        from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+        from prep.services.pipeline._model_resolution import resolve_model_for_stage
         assert resolve_model_for_stage("proj-1", "structural") is None
 
     def test_knowledge_stage_returns_none(self):
-        from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+        from prep.services.pipeline._model_resolution import resolve_model_for_stage
         assert resolve_model_for_stage("proj-1", "knowledge") is None
 
     def test_invalid_stage_returns_none(self):
-        from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+        from prep.services.pipeline._model_resolution import resolve_model_for_stage
         assert resolve_model_for_stage("proj-1", "bogus_stage") is None
 
     def test_resolves_large_slot_model(self):
-        from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+        from prep.services.pipeline._model_resolution import resolve_model_for_stage
         mock_config = {
             "large_model": {
                 "endpoint_id": "ep-1",
@@ -28,13 +28,13 @@ class TestResolveModelForStage:
                 {"id": "ep-1", "provider": "ollama"},
             ],
         }
-        with patch("codrag.services.pipeline._model_resolution.settings") as mock_settings:
+        with patch("prep.services.pipeline._model_resolution.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             result = resolve_model_for_stage("proj-1", "group_reasoning")
             assert result == ("ollama", "kimi-k2.5:cloud")
 
     def test_resolves_small_slot_model(self):
-        from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+        from prep.services.pipeline._model_resolution import resolve_model_for_stage
         mock_config = {
             "small_model": {
                 "endpoint_id": "ep-2",
@@ -44,33 +44,33 @@ class TestResolveModelForStage:
                 {"id": "ep-2", "provider": "openai"},
             ],
         }
-        with patch("codrag.services.pipeline._model_resolution.settings") as mock_settings:
+        with patch("prep.services.pipeline._model_resolution.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             result = resolve_model_for_stage("proj-1", "catalogue")
             assert result == ("openai", "gpt-5.1-mini")
 
     def test_missing_endpoint_id_returns_none(self):
-        from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+        from prep.services.pipeline._model_resolution import resolve_model_for_stage
         mock_config = {
             "large_model": {"model": "kimi-k2.5:cloud"},
             "saved_endpoints": [],
         }
-        with patch("codrag.services.pipeline._model_resolution.settings") as mock_settings:
+        with patch("prep.services.pipeline._model_resolution.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             assert resolve_model_for_stage("proj-1", "group_reasoning") is None
 
     def test_missing_model_returns_none(self):
-        from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+        from prep.services.pipeline._model_resolution import resolve_model_for_stage
         mock_config = {
             "large_model": {"endpoint_id": "ep-1"},
             "saved_endpoints": [{"id": "ep-1", "provider": "ollama"}],
         }
-        with patch("codrag.services.pipeline._model_resolution.settings") as mock_settings:
+        with patch("prep.services.pipeline._model_resolution.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             assert resolve_model_for_stage("proj-1", "group_reasoning") is None
 
     def test_defaults_provider_to_ollama(self):
-        from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+        from prep.services.pipeline._model_resolution import resolve_model_for_stage
         mock_config = {
             "large_model": {
                 "endpoint_id": "ep-1",
@@ -80,7 +80,7 @@ class TestResolveModelForStage:
                 {"id": "ep-1"},  # no provider field
             ],
         }
-        with patch("codrag.services.pipeline._model_resolution.settings") as mock_settings:
+        with patch("prep.services.pipeline._model_resolution.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             result = resolve_model_for_stage("proj-1", "group_reasoning")
             assert result == ("ollama", "kimi-k2.5:cloud")
@@ -107,7 +107,7 @@ def test_max_thinking_budget_override(monkeypatch):
                 = min(98304, 65536)
                 = 65536
     """
-    import codrag.server as _server_mod
+    import prep.server as _server_mod
     monkeypatch.setattr(
         _server_mod,
         "get_advanced_llm_settings",
@@ -125,7 +125,7 @@ def test_max_thinking_budget_override(monkeypatch):
 
 def test_max_thinking_budget_default_caps_at_24576(monkeypatch):
     """Default cap (24576) is preserved when no Advanced Settings override is present."""
-    import codrag.server as _server_mod
+    import prep.server as _server_mod
     monkeypatch.setattr(
         _server_mod,
         "get_advanced_llm_settings",

@@ -42,8 +42,8 @@ class _FakeLLM:
 
 def _make_synthesizer_with_batch_profile(fake_llm):
     """Build a ClusterSynthesizer instance with a batching-on profile."""
-    from codrag.core.cluster import ClusterSynthesizer
-    from codrag.core.batch_profiles import BatchProfile
+    from prep.core.cluster import ClusterSynthesizer
+    from prep.core.batch_profiles import BatchProfile
 
     synth = ClusterSynthesizer.__new__(ClusterSynthesizer)
     synth.llm = fake_llm
@@ -108,7 +108,7 @@ def test_batched_synthesis_fans_out_concurrently():
 
 
 def test_batched_synthesis_respects_cancel_token():
-    from codrag.services.cancellation import CancellationToken, PipelineCancelledError
+    from prep.services.cancellation import CancellationToken, PipelineCancelledError
 
     fake_llm = _FakeLLM(latency=0.2)
     synth = _make_synthesizer_with_batch_profile(fake_llm)

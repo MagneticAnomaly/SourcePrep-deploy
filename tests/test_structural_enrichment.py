@@ -1,7 +1,7 @@
 """Tests for StructuralContext and complexity tier computation."""
 import pytest
 
-from codrag.adapters.pm_models import StructuralContext, compute_complexity_tier
+from prep.adapters.pm_models import StructuralContext, compute_complexity_tier
 
 
 def test_empty_context_is_lightweight():
@@ -56,8 +56,8 @@ def test_low_dependents_no_hubs_is_lightweight():
 
 
 from unittest.mock import MagicMock
-from codrag.adapters.push_engine import PushEngine
-from codrag.services.collaboration.snapshots import GraphSnapshot
+from prep.adapters.push_engine import PushEngine
+from prep.services.collaboration.snapshots import GraphSnapshot
 
 
 def _make_snapshot(hubs, modules):

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core.architecture_acr import ArchitectureACRManager
+from prep.core.architecture_acr import ArchitectureACRManager
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
-from codrag.services.git_evidence_service import (
+from prep.services.git_evidence_service import (
     get_git_evidence,
     reset_cache,
 )
@@ -42,7 +42,7 @@ def test_returns_none_when_disabled(tmp_path):
     reset_cache()
     _init_repo(tmp_path)
     # Patch in the service namespace, not the origin module
-    with patch("codrag.services.git_evidence_service.is_enabled", return_value=False):
+    with patch("prep.services.git_evidence_service.is_enabled", return_value=False):
         assert get_git_evidence(tmp_path) is None
 
 

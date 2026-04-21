@@ -22,8 +22,8 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from codrag.core import CodeIndex, NativeEmbedder
-from codrag.core.embedder import FakeEmbedder
+from prep.core import CodeIndex, NativeEmbedder
+from prep.core.embedder import FakeEmbedder
 
 FIXTURE_DIR = PROJECT_ROOT / "tests" / "fixtures" / "embedding_benchmark"
 

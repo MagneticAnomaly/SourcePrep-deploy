@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core.index import CodeIndex, SearchResult
+from prep.core.index import CodeIndex, SearchResult
 
 
 # ---------------------------------------------------------------------------

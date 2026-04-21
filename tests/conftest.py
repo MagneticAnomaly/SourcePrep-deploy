@@ -26,7 +26,7 @@ def _unlock_all_features(monkeypatch):
     """Set CODRAG_TIER=pro for all tests so feature gates don't block integration tests."""
     monkeypatch.setenv("CODRAG_TIER", "pro")
     monkeypatch.setenv("CODRAG_DEV_MODE", "1")
-    from codrag.core.feature_gate import clear_license_cache
+    from prep.core.feature_gate import clear_license_cache
     clear_license_cache()
     yield
     clear_license_cache()
@@ -34,8 +34,8 @@ def _unlock_all_features(monkeypatch):
 @pytest.fixture(autouse=True)
 def _init_global_stores(tmp_path: Path):
     """Automatically initialize required background SQLite stores for all tests."""
-    from codrag.services.settings_store import settings
-    from codrag.services.token_telemetry import telemetry
+    from prep.services.settings_store import settings
+    from prep.services.token_telemetry import telemetry
 
     db_path = tmp_path / "global_test_db.sqlite"
     settings.init(db_path)
@@ -56,8 +56,8 @@ def _isolate_concurrency_store(tmp_path_factory, monkeypatch):
     ceilings at ~/.local/share/codrag/concurrency_store.db, polluting
     scheduler tests that expect fresh cloud-slot seeds (current_limit=5).
     """
-    from codrag.services.pipeline import concurrency_store as _cs_mod
-    from codrag.core import paths as _paths_mod
+    from prep.services.pipeline import concurrency_store as _cs_mod
+    from prep.core import paths as _paths_mod
 
     test_data_dir = tmp_path_factory.mktemp("codrag_test_data")
     monkeypatch.setattr(_paths_mod, "data_dir", lambda: test_data_dir)
@@ -136,7 +136,7 @@ def fake_embedder():
         def test_something(fake_embedder):
             idx = CodeIndex(index_dir=..., embedder=fake_embedder)
     """
-    from codrag.core import FakeEmbedder
+    from prep.core import FakeEmbedder
     return FakeEmbedder(model="test-embed", dim=384)
 
 

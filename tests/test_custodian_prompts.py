@@ -1,5 +1,5 @@
 """Tests for Custodian prompt template rendering."""
-from codrag.agents.custodian.prompts import render_safety_verification_prompt, render_archive_readme
+from prep.agents.custodian.prompts import render_safety_verification_prompt, render_archive_readme
 
 class TestSafetyVerificationPrompt:
     def test_includes_file_path(self) -> None:

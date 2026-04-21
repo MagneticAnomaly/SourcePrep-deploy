@@ -11,10 +11,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from codrag.core.audit.models import (
+from prep.core.audit.models import (
     AuditContext, AuditDocument, AuditResult, Finding,
 )
-from codrag.core.audit.synthesizer import AuditSynthesizer
+from prep.core.audit.synthesizer import AuditSynthesizer
 
 
 # ── Helpers ──────────────────────────────────────────────────────
@@ -215,7 +215,7 @@ class TestParallelSynthesis:
             generated_at="t", finding_count=0, char_count=1,
         )
 
-        import codrag.core.audit.synthesizer as syn_module
+        import prep.core.audit.synthesizer as syn_module
         # Patch ThreadPoolExecutor in the function-local import scope
         from unittest.mock import patch
         with patch("concurrent.futures.ThreadPoolExecutor", TrackingPool):

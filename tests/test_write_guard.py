@@ -1,7 +1,7 @@
 """Tests for the pipeline write guard (Phase 70B)."""
 import pytest
 from pathlib import Path
-from codrag.services.pipeline_integrity import IntegrityGuard, FileSnapshot, StageSnapshot
+from prep.services.pipeline_integrity import IntegrityGuard, FileSnapshot, StageSnapshot
 
 
 def test_block_when_records_shrank():

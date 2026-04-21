@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from codrag.services.pipeline_checkpoint import (
+from prep.services.pipeline_checkpoint import (
     prune_old_checkpoints,
     prune_checkpoints_all_projects,
 )
@@ -78,9 +78,9 @@ def test_prune_checkpoints_all_projects_swallows_registry_failures(
         def list_projects(self):
             _boom()
 
-    import codrag.services.pipeline_checkpoint as mod
+    import prep.services.pipeline_checkpoint as mod
     monkeypatch.setattr(
-        "codrag.services.project_helpers.get_registry",
+        "prep.services.project_helpers.get_registry",
         lambda: _FakeReg(),
     )
 
@@ -113,11 +113,11 @@ def test_prune_checkpoints_all_projects_per_project_errors_isolated(
             return projects
 
     monkeypatch.setattr(
-        "codrag.services.project_helpers.get_registry",
+        "prep.services.project_helpers.get_registry",
         lambda: _FakeReg(),
     )
     monkeypatch.setattr(
-        "codrag.core.project_registry.project_index_dir",
+        "prep.core.project_registry.project_index_dir",
         lambda p: str(p._idx),
     )
 

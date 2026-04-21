@@ -1,5 +1,5 @@
 import pytest
-from codrag.core.concept_conflicts import detect_conflicts, ConceptConflict
+from prep.core.concept_conflicts import detect_conflicts, ConceptConflict
 
 
 def _make_concept(id, title, anchors, category="architecture", status="active", created_at=1000.0):

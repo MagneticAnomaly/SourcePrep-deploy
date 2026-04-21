@@ -11,8 +11,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from codrag.api.routers.projects import role_overrides_endpoints as ep
-from codrag.services.role_overrides_store import RoleOverridesStore
+from prep.api.routers.projects import role_overrides_endpoints as ep
+from prep.services.role_overrides_store import RoleOverridesStore
 
 
 class _FakeSettings:

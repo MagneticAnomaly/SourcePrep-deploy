@@ -12,13 +12,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.services.build_orchestrator import (
+from prep.services.build_orchestrator import (
     BuildOrchestrator,
     BuildPhase,
     BuildSlot,
     BuildType,
 )
-from codrag.services.pipeline_orchestrator import (
+from prep.services.pipeline_orchestrator import (
     DEEP_ENRICHMENT_STAGES,
     ENRICH_STAGES,
     FAST_SYNC_STAGES,
@@ -40,7 +40,7 @@ def orchestrator():
 def pipeline(orchestrator):
     """PipelineOrchestrator wired to a real BuildOrchestrator."""
     # Reset the singleton scheduler to avoid state leaking between tests
-    from codrag.services.pipeline.scheduler import pipeline_scheduler
+    from prep.services.pipeline.scheduler import pipeline_scheduler
     pipeline_scheduler._slots.clear()
     pipeline_scheduler._queues.clear()
     pipeline_scheduler._priority_projects.clear()
@@ -50,7 +50,7 @@ def pipeline(orchestrator):
     pipeline_scheduler._last_broadcast_times.clear()
     pipeline_scheduler._init_embedding_slot()
 
-    with patch("codrag.services.project_helpers.get_project_activity_status", return_value="active"):
+    with patch("prep.services.project_helpers.get_project_activity_status", return_value="active"):
         po = PipelineOrchestrator(orchestrator=orchestrator)
         yield po
         # Teardown: clean up any running state machines so they don't
@@ -105,7 +105,7 @@ def test_all_15_stages_have_build_type_mapping():
 
 
 def test_backward_compat_aliases():
-    from codrag.services.pipeline.stages import DEEP_ENRICHMENT_STAGES, ENRICH_STAGES
+    from prep.services.pipeline.stages import DEEP_ENRICHMENT_STAGES, ENRICH_STAGES
     assert DEEP_ENRICHMENT_STAGES is ENRICH_STAGES
 
 
@@ -123,11 +123,11 @@ class TestFastSync:
     def test_run_fast_sync_starts(self, pipeline):
         # Patch WorkerFactory to return instant workers
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
-            import codrag.services.project_helpers
-            with patch("codrag.services.project_helpers.get_project_activity_status", return_value="active"):
+            import prep.services.project_helpers
+            with patch("prep.services.project_helpers.get_project_activity_status", return_value="active"):
                 started = pipeline.run_fast_sync("proj-1")
             if not started:
                 import logging
@@ -137,7 +137,7 @@ class TestFastSync:
     def test_run_fast_sync_rejects_duplicate(self, pipeline):
         barrier = threading.Event()
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_slow_worker(barrier),
         ):
             pipeline.run_fast_sync("proj-1")
@@ -148,7 +148,7 @@ class TestFastSync:
     def test_fast_sync_sequences_all_5_stages(self, pipeline):
         """Verify all 5 stages run in sequence and pipeline completes."""
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             pipeline.run_fast_sync("proj-1")
@@ -175,7 +175,7 @@ class TestFastSync:
     def test_fast_sync_status_while_running(self, pipeline, orchestrator):
         barrier = threading.Event()
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_slow_worker(barrier),
         ):
             pipeline.run_fast_sync("proj-1")
@@ -195,7 +195,7 @@ class TestDeepEnrichment:
 
     def test_run_deep_enrichment_starts(self, pipeline):
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             started = pipeline.run_deep_enrichment("proj-1")
@@ -203,7 +203,7 @@ class TestDeepEnrichment:
 
     def test_deep_enrichment_sequences_all_stages(self, pipeline):
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             pipeline.run_deep_enrichment("proj-1")
@@ -234,7 +234,7 @@ class TestFinalize:
 
     def test_run_finalize_starts(self, pipeline):
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             started = pipeline.run_finalize("proj-fin")
@@ -253,10 +253,10 @@ class TestFinalize:
             return worker
 
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             side_effect=worker_factory,
         ), patch(
-            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            "prep.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
             return_value=(False, ""),
         ):
             pipeline.run_finalize("proj-fin")
@@ -299,10 +299,10 @@ class TestFinalize:
             return (True, "test") if stage.value == skip_stage else (False, "")
 
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             side_effect=worker_factory,
         ), patch(
-            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            "prep.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
             side_effect=skip_if,
         ):
             pipeline.run_finalize("proj-fin-skip")
@@ -327,7 +327,7 @@ class TestRunAll:
 
     def test_run_all_chains_deep_after_fast(self, pipeline):
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             started = pipeline.run_all("proj-1")
@@ -355,10 +355,10 @@ class TestRunAll:
             return worker
 
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             side_effect=worker_factory,
         ), patch(
-            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            "prep.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
             return_value=(False, ""),
         ):
             started = pipeline.run_all("proj-all-three")
@@ -409,18 +409,18 @@ class TestAutoChainDeepEnrichment:
         }
 
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ), patch(
-            "codrag.services.pipeline.orchestrator.settings",
+            "prep.services.pipeline.orchestrator.settings",
             mock_settings,
             create=True,
         ), patch.object(
             PipelineOrchestrator, "_is_deep_enrichment_auto",
             staticmethod(lambda pid: True),
         ):
-            import codrag.services.project_helpers
-            with patch("codrag.services.project_helpers.get_project_activity_status", return_value="active"):
+            import prep.services.project_helpers
+            with patch("prep.services.project_helpers.get_project_activity_status", return_value="active"):
                 started = pipeline.run_fast_sync("proj-1")
             if not started:
                 import logging
@@ -441,12 +441,12 @@ class TestAutoChainDeepEnrichment:
         """When pipeline_config.deep_enrichment.mode == 'manual', deep enrichment
         should NOT auto-start after fast sync."""
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             # Default: _is_deep_enrichment_auto returns False (settings not configured)
-            import codrag.services.project_helpers
-            with patch("codrag.services.project_helpers.get_project_activity_status", return_value="active"):
+            import prep.services.project_helpers
+            with patch("prep.services.project_helpers.get_project_activity_status", return_value="active"):
                 started = pipeline.run_fast_sync("proj-1")
             if not started:
                 import logging
@@ -480,63 +480,63 @@ class TestAutoModeIndependence:
 
     def test_deep_auto_false_when_only_fast_is_auto(self):
         """fastSync=auto, deepEnrichment=manual → deep should NOT auto-chain."""
-        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
         fake_proj = MagicMock()
         fake_proj.config = {
             "auto_config": {"fastSync": True, "deepEnrichment": "manual", "finalize": "manual"},
         }
         with patch(
-            "codrag.services.project_helpers.require_project",
+            "prep.services.project_helpers.require_project",
             return_value=fake_proj,
         ):
             assert PipelineOrchestrator._is_deep_enrichment_auto("proj-1") is False
 
     def test_deep_auto_true_when_deep_explicitly_auto(self):
-        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
         fake_proj = MagicMock()
         fake_proj.config = {
             "auto_config": {"fastSync": False, "deepEnrichment": "auto", "finalize": "manual"},
         }
         with patch(
-            "codrag.services.project_helpers.require_project",
+            "prep.services.project_helpers.require_project",
             return_value=fake_proj,
         ):
             assert PipelineOrchestrator._is_deep_enrichment_auto("proj-1") is True
 
     def test_deep_auto_false_for_scheduled_mode(self):
         """'scheduled' is not auto-chain — scheduled runs fire on their own cadence."""
-        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
         fake_proj = MagicMock()
         fake_proj.config = {
             "auto_config": {"deepEnrichment": "scheduled"},
         }
         with patch(
-            "codrag.services.project_helpers.require_project",
+            "prep.services.project_helpers.require_project",
             return_value=fake_proj,
         ):
             assert PipelineOrchestrator._is_deep_enrichment_auto("proj-1") is False
 
     def test_finalize_auto_false_when_only_deep_is_auto(self):
         """deepEnrichment=auto, finalize=manual → finalize should NOT auto-chain."""
-        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
         fake_proj = MagicMock()
         fake_proj.config = {
             "auto_config": {"deepEnrichment": "auto", "finalize": "manual"},
         }
         with patch(
-            "codrag.services.project_helpers.require_project",
+            "prep.services.project_helpers.require_project",
             return_value=fake_proj,
         ):
             assert PipelineOrchestrator._is_finalize_auto("proj-1") is False
 
     def test_finalize_auto_true_when_finalize_explicitly_auto(self):
-        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
         fake_proj = MagicMock()
         fake_proj.config = {
             "auto_config": {"deepEnrichment": "manual", "finalize": "auto"},
         }
         with patch(
-            "codrag.services.project_helpers.require_project",
+            "prep.services.project_helpers.require_project",
             return_value=fake_proj,
         ):
             assert PipelineOrchestrator._is_finalize_auto("proj-1") is True
@@ -559,7 +559,7 @@ class TestFailureHandling:
             return {"ok": True}
 
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=failing_worker,
         ):
             pipeline.run_fast_sync("proj-1")
@@ -580,7 +580,7 @@ class TestCancellation:
     def test_cancel_fast_sync(self, pipeline):
         barrier = threading.Event()
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_slow_worker(barrier),
         ):
             pipeline.run_fast_sync("proj-1")
@@ -616,7 +616,7 @@ class TestStatus:
     def test_any_running_flag(self, pipeline):
         barrier = threading.Event()
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_slow_worker(barrier),
         ):
             pipeline.run_fast_sync("proj-1")
@@ -641,7 +641,7 @@ class TestClearProject:
 
     def test_clear_project(self, pipeline):
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             pipeline.run_fast_sync("proj-1")
@@ -661,7 +661,7 @@ class TestMultiProject:
 
     def test_independent_projects(self, pipeline):
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ):
             pipeline.run_fast_sync("proj-1")
@@ -702,10 +702,10 @@ class TestPipelineModes:
             return worker
 
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             side_effect=counting_worker_factory,
         ), patch(
-            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            "prep.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
             return_value=(False, ""),
         ):
             pipeline.run_fast_sync("proj-initial")
@@ -749,10 +749,10 @@ class TestPipelineModes:
             return (False, "")
 
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             side_effect=counting_worker_factory,
         ), patch(
-            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            "prep.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
             side_effect=skip_if_fresh,
         ):
             pipeline.run_fast_sync("proj-incremental")
@@ -798,10 +798,10 @@ class TestPipelineModes:
             return worker
 
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             side_effect=counting_worker_factory,
         ), patch(
-            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            "prep.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
             return_value=(False, ""),
         ):
             pipeline.run_fast_sync("proj-rebuild", force_from_start=True)
@@ -840,10 +840,10 @@ class TestFreshnessSkipReleasesSlot:
         skip_stage = "inferred_edges"  # stage 2
 
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ), patch(
-            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            "prep.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
             side_effect=lambda pid, stage, inc, pfl=None: (
                 (True, "test: outputs current") if stage.value == skip_stage
                 else (False, "")
@@ -874,10 +874,10 @@ class TestFreshnessSkipReleasesSlot:
         """A freshness-skipped stage must not hold a scheduler slot that
         blocks other projects from running."""
         with patch(
-            "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
             return_value=_instant_worker,
         ), patch(
-            "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+            "prep.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
             side_effect=lambda pid, stage, inc, pfl=None: (
                 (True, "test: skip all") if pid == "proj-1"
                 else (False, "")
@@ -927,7 +927,7 @@ def test_hot_scope_reload_constructs_buildslot_with_required_args(pipeline):
     well-constructed BuildSlot — the crash used to fire before the
     worker was even called.
     """
-    from codrag.services.build_orchestrator import BuildSlot, BuildType
+    from prep.services.build_orchestrator import BuildSlot, BuildType
 
     captured: Dict[str, Any] = {}
 
@@ -937,7 +937,7 @@ def test_hot_scope_reload_constructs_buildslot_with_required_args(pipeline):
 
     # Simulate an active deep_enrichment run so hot_scope_reload
     # actually reaches the trace-rebuild branch.
-    from codrag.services.pipeline.state_machine import (
+    from prep.services.pipeline.state_machine import (
         Event,
         PipelineGroupStateMachine,
     )
@@ -955,7 +955,7 @@ def test_hot_scope_reload_constructs_buildslot_with_required_args(pipeline):
     with patch.object(pipeline, "_pause_group", return_value=True), \
          patch.object(pipeline, "resume_paused", return_value=True), \
          patch(
-             "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+             "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
              return_value=fake_worker,
          ):
         result = pipeline.hot_scope_reload("proj-1")

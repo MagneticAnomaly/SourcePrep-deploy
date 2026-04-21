@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.services.pipeline.manifest_store import ManifestStore
-from codrag.services.pipeline.recovery import (
+from prep.services.pipeline.manifest_store import ManifestStore
+from prep.services.pipeline.recovery import (
     RecoveryManager,
     _RESET_BARRIER_FILENAME,
     _write_selfheal_stub,
@@ -17,7 +17,7 @@ from codrag.services.pipeline.recovery import (
     reset_barrier_active,
     write_reset_barrier,
 )
-from codrag.services.pipeline.stages import (
+from prep.services.pipeline.stages import (
     DEEP_ENRICHMENT_STAGES,
     FAST_SYNC_STAGES,
     FINALIZE_STAGES,
@@ -49,7 +49,7 @@ def golden_dir(idx_dir: Path) -> Path:
 def _patch_resolve(idx_dir: Path):
     """Patch _resolve_idx_dir to return our tmp_path-based idx_dir."""
     with patch(
-        "codrag.services.pipeline.recovery._resolve_idx_dir",
+        "prep.services.pipeline.recovery._resolve_idx_dir",
         return_value=idx_dir,
     ):
         yield
@@ -275,7 +275,7 @@ class TestSwissCheeseRecovery:
         (golden_dir / deepening_output).write_bytes(b"x" * 2048)
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
         ):
             # Selfheal fast sync
@@ -303,7 +303,7 @@ class TestSwissCheeseRecovery:
             _write_manifest(idx_dir, stage)
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
         ):
             for stages in [FAST_SYNC_STAGES, DEEP_ENRICHMENT_STAGES, FINALIZE_STAGES]:

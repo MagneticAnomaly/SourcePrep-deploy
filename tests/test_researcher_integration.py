@@ -8,8 +8,8 @@ from typing import Tuple
 
 import pytest
 
-from codrag.agents.researcher import ResearcherEngine, ResearchHistory
-from codrag.agents.shared.models import ResearchPlan
+from prep.agents.researcher import ResearcherEngine, ResearchHistory
+from prep.agents.shared.models import ResearchPlan
 
 
 def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:

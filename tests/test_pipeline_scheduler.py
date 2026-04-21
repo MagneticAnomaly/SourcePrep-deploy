@@ -9,12 +9,12 @@ of the actual pipeline orchestrator. No LLM or server required.
 import pytest
 import time
 
-from codrag.services.pipeline.scheduler import (
+from prep.services.pipeline.scheduler import (
     PipelineScheduler,
     ComputeSlot,
     QueueEntry,
 )
-from codrag.services.pipeline.stages import StageId, QueueType
+from prep.services.pipeline.stages import StageId, QueueType
 
 
 # ── ComputeSlot unit tests ──────────────────────────────────────
@@ -210,7 +210,7 @@ class TestSchedulerStatus:
 
 # ── Phase 56: Endpoint-aware node resolution ─────────────────────
 
-from codrag.services.pipeline.scheduler import CLOUD_PROVIDERS
+from prep.services.pipeline.scheduler import CLOUD_PROVIDERS
 
 
 class TestResolveNodeForModel:
@@ -855,7 +855,7 @@ class TestFullBudgetForSwarm:
 
 # ── Phase 82: Shared swarm constant + helper ─────────────────────
 
-from codrag.services.pipeline.scheduler import (
+from prep.services.pipeline.scheduler import (
     SWARM_CAPABLE_STAGES,
     is_swarm_active_for_stage,
 )
@@ -904,7 +904,7 @@ class TestIsSwarmActiveForStage:
 
     def test_swarm_disabled_setting(self, monkeypatch):
         """When swarm_enabled=False in settings, always returns False."""
-        from codrag.services import settings_store
+        from prep.services import settings_store
         original_get = settings_store.settings.get
 
         def mock_get(key, default=None):
@@ -939,7 +939,7 @@ class TestConcurrentWorkersSwarmAware:
             "large_model": {"endpoint_id": "ep-1", "model": "kimi-k2.5:cloud"},
             "saved_endpoints": [{"id": "ep-1", "provider": "ollama"}],
         }
-        with patch("codrag.services.pipeline._model_resolution.settings") as mock_settings:
+        with patch("prep.services.pipeline._model_resolution.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             workers, node_id = sched.concurrent_workers_for_project(
                 "proj-a", stage="group_reasoning",
@@ -979,7 +979,7 @@ class TestConcurrentWorkersSwarmAware:
             "large_model": {"endpoint_id": "ep-1", "model": "llama3.3:70b"},
             "saved_endpoints": [{"id": "ep-1", "provider": "ollama"}],
         }
-        with patch("codrag.services.pipeline._model_resolution.settings") as mock_settings:
+        with patch("prep.services.pipeline._model_resolution.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             workers, _ = sched.concurrent_workers_for_project(
                 "proj-a", stage="group_reasoning",
@@ -1232,7 +1232,7 @@ class TestLowResourceGuardrails:
         Phase 82: cloud slots seed at 5 so low-capacity is only reachable
         via local slots (VRAM ceiling is authoritative).
         """
-        from codrag.services.pipeline.scheduler import (
+        from prep.services.pipeline.scheduler import (
             is_swarm_active_for_stage,
             pipeline_scheduler as singleton,
         )

@@ -13,8 +13,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from codrag.core.index import CodeIndex, SearchResult
-from codrag.core.embedder import FakeEmbedder
+from prep.core.index import CodeIndex, SearchResult
+from prep.core.embedder import FakeEmbedder
 
 
 # ---------------------------------------------------------------------------

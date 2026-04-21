@@ -18,8 +18,8 @@ from typing import Dict, List, Optional, Set
 
 import pytest
 
-from codrag.core import CodeIndex, FakeEmbedder
-from codrag.core.project_registry import ProjectRegistry
+from prep.core import CodeIndex, FakeEmbedder
+from prep.core.project_registry import ProjectRegistry
 
 
 # ---------------------------------------------------------------------------
@@ -433,7 +433,7 @@ class TestCombinedWeightsAndScope:
         idx_dir = tmp_path / "index"
         idx_dir.mkdir()
 
-        from codrag.core.repo_policy import ensure_repo_policy, policy_path_for_index, write_repo_policy
+        from prep.core.repo_policy import ensure_repo_policy, policy_path_for_index, write_repo_policy
 
         # Set up path weights in policy
         policy = ensure_repo_policy(idx_dir, scoped_repo, force=True)

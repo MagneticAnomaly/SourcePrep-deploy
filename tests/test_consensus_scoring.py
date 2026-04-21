@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.observation_store import ObservationStore
+from prep.services.observation_store import ObservationStore
 
 
 @pytest.fixture

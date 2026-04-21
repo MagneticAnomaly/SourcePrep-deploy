@@ -7,7 +7,7 @@ shape, non-empty, sorted, matches RoleVector.to_dict().
 """
 from __future__ import annotations
 
-from codrag.api.routers.roles_endpoints import list_builtin_roles
+from prep.api.routers.roles_endpoints import list_builtin_roles
 
 
 def _data(envelope):

@@ -1,6 +1,6 @@
 """Tests for swarm model registry."""
 import pytest
-from codrag.core.swarm_registry import SwarmTier, get_swarm_tier, get_min_groups_threshold
+from prep.core.swarm_registry import SwarmTier, get_swarm_tier, get_min_groups_threshold
 
 
 class TestSwarmTier:
