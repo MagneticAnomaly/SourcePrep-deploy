@@ -1,4 +1,4 @@
-import type { AdvancedConfig, DeepAnalysisSchedule, LicenseStatus, ProjectConfig } from '@codrag/ui';
+import type { AdvancedConfig, DeepAnalysisSchedule, LicenseStatus, LicenseTier, ProjectConfig, UserRole } from '@codrag/ui';
 import type { SettingsPageId } from '../routeParser';
 import { SettingsPage } from '../SettingsPage';
 import { SourcesPage } from './Sources';
@@ -18,7 +18,6 @@ export interface PageHostProps {
   // Legacy/unknown-typed fields preserved so the other 11 pages continue to
   // compile under `{...host as any}` until their own lift tasks land.
   projectConfig: unknown;
-  globalConfig: unknown;
   activeProjectId: string | null;
 
   // ── Project-scope: Sources page (Task 14) ─────────────────────────
@@ -87,13 +86,33 @@ export interface PageHostProps {
   onDeactivateLicense: () => void | Promise<void>;
   licenseLoading: boolean;
   licenseError: string | null;
-  devTierOverride: string | null;
+  devTierOverride: LicenseTier | null;
 
   // ── Global-scope: Integrations page (Task 22) ─────────────────────
   // onOpenAiGateway closes the overlay (drops ?settings= from URL) and
   // dispatches 'codrag:open-ai-gateway' which App.tsx routes to the
   // AI Gateway details panel. The AI Gateway itself is not moved.
   onOpenAiGateway: () => void;
+
+  // ── Developer-scope: Debug Toggles / Diagnostics / Selective Reset (Task 23)
+  // Dev-gated via devGate.filterPagesForBuild — the nav hides these in
+  // production builds, and the overlay redirects away defensively.
+  globalConfig: {
+    developer_debug_mode?: boolean;
+    exploratory_testing_mode?: boolean;
+    developer_show_dev_panels?: boolean;
+  };
+  onGlobalConfigChange: (patch: Partial<{
+    developer_debug_mode?: boolean;
+    exploratory_testing_mode?: boolean;
+    developer_show_dev_panels?: boolean;
+  }>) => void;
+  onDevTierOverrideChange: (tier: LicenseTier | null) => void;
+  devRoleOverride: UserRole | null;
+  onDevRoleOverrideChange: (role: UserRole | null) => void;
+  onDestroyAtlas: () => void;
+  onDestroyGroupReasoning: () => void;
+  onDestroyDeepEnrichment: () => void;
 }
 
 export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
@@ -199,8 +218,33 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
       );
     case 'integrations':
       return <IntegrationsPage onOpenAiGateway={host.onOpenAiGateway} />;
-    case 'developer-debug':       return <DevTogglesPage {...host as any} />;
-    case 'developer-diagnostics': return <DiagnosticsPage {...host as any} />;
-    case 'developer-reset':       return <SelectiveResetPage {...host as any} />;
+    case 'developer-debug':
+      return (
+        <DevTogglesPage
+          globalConfig={host.globalConfig}
+          onGlobalConfigChange={host.onGlobalConfigChange}
+          devTierOverride={host.devTierOverride}
+          onDevTierOverrideChange={host.onDevTierOverrideChange}
+          devRoleOverride={host.devRoleOverride}
+          onDevRoleOverrideChange={host.onDevRoleOverrideChange}
+        />
+      );
+    case 'developer-diagnostics':
+      return (
+        <DiagnosticsPage
+          licenseStatus={host.licenseStatus}
+          devTierOverride={host.devTierOverride}
+        />
+      );
+    case 'developer-reset':
+      return (
+        <SelectiveResetPage
+          projectName={host.projectName}
+          projectId={host.activeProjectId}
+          onDestroyAtlas={host.onDestroyAtlas}
+          onDestroyGroupReasoning={host.onDestroyGroupReasoning}
+          onDestroyDeepEnrichment={host.onDestroyDeepEnrichment}
+        />
+      );
   }
 }

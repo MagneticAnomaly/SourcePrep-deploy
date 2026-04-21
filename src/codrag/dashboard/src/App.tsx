@@ -187,7 +187,11 @@ function App() {
     const stored = localStorage.getItem('codrag_dev_role_override')
     return stored ? stored as UserRole : null
   })
-  const [globalConfig, setGlobalConfig] = useState<{ developer_debug_mode?: boolean; developer_show_dev_panels?: boolean }>({})
+  const [globalConfig, setGlobalConfig] = useState<{
+    developer_debug_mode?: boolean;
+    exploratory_testing_mode?: boolean;
+    developer_show_dev_panels?: boolean;
+  }>({})
 
   const [adminPolicy, setAdminPolicy] = useState<any>(null)
   const [seatStatus, setSeatStatus] = useState<any>(null)
@@ -1117,6 +1121,13 @@ function App() {
             licenseError,
             devTierOverride,
             onOpenAiGateway: handleOpenAiGateway,
+            onGlobalConfigChange: handleGlobalConfigChange,
+            onDevTierOverrideChange: handleDevTierOverrideChange,
+            devRoleOverride,
+            onDevRoleOverrideChange: handleDevRoleOverrideChange,
+            onDestroyAtlas: handleDestroyAtlas,
+            onDestroyGroupReasoning: handleDestroyGroupReasoning,
+            onDestroyDeepEnrichment: handleDestroyDeepEnrichment,
           })}
           projectName={selectedProject?.name ?? null}
           confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}

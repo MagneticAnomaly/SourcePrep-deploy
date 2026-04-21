@@ -6,6 +6,8 @@ import { cn } from '@codrag/ui';
 import { SettingsNav } from './SettingsNav';
 import { useSettingsRoute } from './useSettingsRoute';
 import type { SettingsPageId } from './routeParser';
+import { DEVELOPER_PAGES } from './routeParser';
+import { isDevBuild } from './devGate';
 
 export interface SettingsOverlayProps {
   /** page body renderer — host wires this to the page registry */
@@ -36,6 +38,14 @@ export function SettingsOverlay({
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [page, close, confirmCloseIfDirty]);
+
+  // Developer pages are dev-build only. Defence-in-depth: if someone lands
+  // on one via URL in a production build, redirect to the first global page.
+  useEffect(() => {
+    if (page === null) return;
+    const isDeveloperPage = (DEVELOPER_PAGES as readonly string[]).includes(page);
+    if (isDeveloperPage && !isDevBuild()) setPage('appearance');
+  }, [page, setPage]);
 
   if (page === null) return null;
 
