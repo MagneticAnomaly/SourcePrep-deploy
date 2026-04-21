@@ -11,7 +11,7 @@ interface IssueEntity {
   description: string;
 }
 
-function parseCodragMetadata(description: string) {
+function parsePrepMetadata(description: string) {
   const addressMatch = description.match(/<!-- prep-address:(.*?) -->/);
   return {
     address: addressMatch?.[1] ?? null,
@@ -48,7 +48,7 @@ export function IssueContextTab({ issue, onEnrich }: IssueContextTabProps) {
     return <div className="p-4 text-sm text-gray-500">No issue selected</div>;
   }
 
-  const meta = parseCodragMetadata(issue.description);
+  const meta = parsePrepMetadata(issue.description);
   const structural = parseStructuralContext(issue.description);
 
   if (meta.address && structural) {

@@ -64,7 +64,7 @@ class ModelSlot:
     endpoint_url: str
     state: ModelState
     persistent: bool = False          # always_on flag
-    task_id: Optional[str] = None     # current CodragTaskId if ACTIVE
+    task_id: Optional[str] = None     # current PrepTaskId if ACTIVE
     last_used: float = field(default_factory=time.monotonic)
     eviction_warning: bool = False    # True if was evicted (for UI indicator)
     api_key: Optional[str] = None

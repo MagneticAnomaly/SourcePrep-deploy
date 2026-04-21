@@ -526,7 +526,7 @@ def get_advanced_llm_settings() -> Dict[str, Any]:
 
 # ── Phase 44: Unified Task-Based LLM Resolver ─────────────────────
 
-# Maps CodragTaskId → structured slot name.  Used when assignment_mode == "structured".
+# Maps PrepTaskId → structured slot name.  Used when assignment_mode == "structured".
 TASK_TO_SLOT: Dict[str, str] = {
     "catalogue":       "small",
     "inferred_edges":  "code",

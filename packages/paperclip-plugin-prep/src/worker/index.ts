@@ -16,13 +16,13 @@ import {
 
 // ── Prep Daemon Client ──────────────────────────────────────
 
-interface CodragConfig {
+interface PrepConfig {
   daemon_url: string;
   project_id: string;
   auto_context: boolean;
 }
 
-class CodragDaemonClient {
+class PrepDaemonClient {
   constructor(private baseUrl: string) {}
 
   async request(path: string, opts?: { method?: string; body?: unknown }): Promise<unknown> {
@@ -54,7 +54,7 @@ class CodragDaemonClient {
     return this.request('/health') as Promise<{ status: string; version: string }>;
   }
 
-  async resolveProjectId(config: CodragConfig): Promise<string> {
+  async resolveProjectId(config: PrepConfig): Promise<string> {
     if (config.project_id) return config.project_id;
 
     // Auto-detect: use the first (or only) project
@@ -81,13 +81,13 @@ let activeDaemonUrl = 'http://127.0.0.1:8400';
 const plugin = definePlugin({
   async setup(ctx: PluginContext) {
     const rawConfig = await ctx.config.get();
-    const config: CodragConfig = {
+    const config: PrepConfig = {
       daemon_url: (rawConfig as Record<string, unknown>).daemon_url as string ?? 'http://127.0.0.1:8400',
       project_id: (rawConfig as Record<string, unknown>).project_id as string ?? '',
       auto_context: (rawConfig as Record<string, unknown>).auto_context as boolean ?? true,
     };
     activeDaemonUrl = config.daemon_url;
-    const client = new CodragDaemonClient(config.daemon_url);
+    const client = new PrepDaemonClient(config.daemon_url);
 
     ctx.logger.info('Prep plugin initializing', { daemon: config.daemon_url });
 
