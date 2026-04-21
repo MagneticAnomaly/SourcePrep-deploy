@@ -1,5 +1,5 @@
 import { useReducer, useCallback, useEffect, useRef } from 'react'
-import { useApiClient, type PipelineStatus, type KnowledgeEmbeddingStatus } from '@codrag/ui'
+import { useApiClient, type PipelineStatus, type KnowledgeEmbeddingStatus } from '@prep/ui'
 import {
   enrichmentReducer,
   initialEnrichmentState,

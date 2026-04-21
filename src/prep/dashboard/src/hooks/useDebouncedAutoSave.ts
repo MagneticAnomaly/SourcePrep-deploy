@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { createDebouncedSaver, type DebouncedSaver } from '@codrag/ui/lib/debouncedSaver'
+import { createDebouncedSaver, type DebouncedSaver } from '@prep/ui/lib/debouncedSaver'
 
 export interface UseDebouncedAutoSaveOptions<T> {
   value: T

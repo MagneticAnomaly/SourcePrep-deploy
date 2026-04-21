@@ -4,7 +4,7 @@ import {
   SettingRow,
   Select,
   type AdvancedConfig,
-} from '@codrag/ui';
+} from '@prep/ui';
 import { SettingsPage } from '../SettingsPage';
 
 // Defaults lifted verbatim from the legacy advanced settings panel (removed

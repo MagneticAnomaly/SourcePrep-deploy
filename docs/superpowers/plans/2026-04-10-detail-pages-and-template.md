@@ -238,7 +238,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 // websites/apps/marketing/src/app/paperclip/page.tsx
 "use client";
 
-import { DetailPageLayout } from '@codrag/ui';
+import { DetailPageLayout } from '@prep/ui';
 import { GitBranch, Zap, Link2, RefreshCw, ArrowRight } from 'lucide-react';
 
 const SECTIONS = [

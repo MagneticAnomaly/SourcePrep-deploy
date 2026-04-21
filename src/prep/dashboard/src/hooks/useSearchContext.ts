@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { useApiClient, type SearchResult, type ContextMeta } from '@codrag/ui'
+import { useApiClient, type SearchResult, type ContextMeta } from '@prep/ui'
 
 // ── Dependencies ──────────────────────────────────────────────
 

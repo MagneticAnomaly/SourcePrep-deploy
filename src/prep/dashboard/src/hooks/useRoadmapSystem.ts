@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useApiClient } from '@codrag/ui'
-import type { RoadmapResponse, RoadmapTier, VelocityResponse, SprintSuggestion } from '@codrag/ui'
+import { useApiClient } from '@prep/ui'
+import type { RoadmapResponse, RoadmapTier, VelocityResponse, SprintSuggestion } from '@prep/ui'
 
 export interface UseRoadmapSystemReturn {
   state: RoadmapResponse | null

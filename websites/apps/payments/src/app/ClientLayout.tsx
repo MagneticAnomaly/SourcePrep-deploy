@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import { SiteHeader, SiteFooter } from '@codrag/ui';
+import { SiteHeader, SiteFooter } from '@prep/ui';
 
 const isDev = process.env.NODE_ENV !== 'production';
 

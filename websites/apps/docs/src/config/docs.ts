@@ -1,4 +1,4 @@
-import { type DocNode } from '@codrag/ui';
+import { type DocNode } from '@prep/ui';
 
 const isDev = process.env.NODE_ENV !== 'production';
 const MARKETING_URL = isDev ? 'http://localhost:3000' : 'https://codrag.io';

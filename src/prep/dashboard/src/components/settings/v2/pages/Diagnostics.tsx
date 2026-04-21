@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Button, Section, useApiClient } from '@codrag/ui';
-import type { LicenseStatus, LicenseTier } from '@codrag/ui';
+import { Button, Section, useApiClient } from '@prep/ui';
+import type { LicenseStatus, LicenseTier } from '@prep/ui';
 import { SettingsPage } from '../SettingsPage';
 
 export interface DiagnosticsPageProps {

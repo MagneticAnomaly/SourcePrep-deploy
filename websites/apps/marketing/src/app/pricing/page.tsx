@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from '@codrag/ui';
+import { Button } from '@prep/ui';
 import {
   type PPPBand,
   getBand,

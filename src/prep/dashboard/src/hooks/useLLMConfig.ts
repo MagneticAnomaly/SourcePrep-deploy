@@ -7,9 +7,9 @@ import {
   type LLMSlotsStatus,
   type AssignmentMode,
   type LLMAssignmentBlock,
-} from '@codrag/ui'
+} from '@prep/ui'
 import { useDebouncedAutoSave } from './useDebouncedAutoSave'
-import { stripModeFields } from '@codrag/ui/components/llm/llmConfigHelpers'
+import { stripModeFields } from '@prep/ui/components/llm/llmConfigHelpers'
 
 interface UseLLMConfigOptions {
   onDirty?: () => void

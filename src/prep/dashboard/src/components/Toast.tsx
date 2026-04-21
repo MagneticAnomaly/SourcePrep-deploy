@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, AlertCircle, AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
-import { cn } from '@codrag/ui';
+import { cn } from '@prep/ui';
 
 export type ToastVariant = 'error' | 'warning' | 'info' | 'success';
 

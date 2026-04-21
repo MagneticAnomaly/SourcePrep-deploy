@@ -1,4 +1,4 @@
-import type { AdvancedConfig, DeepAnalysisSchedule, LicenseStatus, LicenseTier, ProjectConfig, UserRole } from '@codrag/ui';
+import type { AdvancedConfig, DeepAnalysisSchedule, LicenseStatus, LicenseTier, ProjectConfig, UserRole } from '@prep/ui';
 import type { SettingsPageId } from '../routeParser';
 import { SettingsPage } from '../SettingsPage';
 import { SourcesPage } from './Sources';

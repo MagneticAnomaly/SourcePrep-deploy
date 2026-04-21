@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react'
-import { useApiClient, type WatchStatus } from '@codrag/ui'
+import { useApiClient, type WatchStatus } from '@prep/ui'
 
 interface UseWatchSystemOptions {
   onError?: (msg: string, variant?: 'error' | 'warning' | 'info' | 'success') => void

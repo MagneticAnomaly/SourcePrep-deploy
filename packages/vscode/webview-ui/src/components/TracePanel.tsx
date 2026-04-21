@@ -1,7 +1,7 @@
 import React from "react";
 import { VsCodeApi } from "../global";
 import { Network, Lock } from "lucide-react";
-import { Button } from "@codrag/ui";
+import { Button } from "@prep/ui";
 
 interface TracePanelProps {
   data: any;

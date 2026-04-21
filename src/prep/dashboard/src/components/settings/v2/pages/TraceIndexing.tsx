@@ -4,7 +4,7 @@ import {
   SettingRow,
   Toggle,
   type ProjectConfig,
-} from '@codrag/ui';
+} from '@prep/ui';
 import { RotateCcw, Save } from 'lucide-react';
 import { SettingsPage } from '../SettingsPage';
 

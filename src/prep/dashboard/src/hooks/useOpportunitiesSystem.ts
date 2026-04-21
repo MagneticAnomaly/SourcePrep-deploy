@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useApiClient } from '@codrag/ui'
-import type { AgentStatus as AgentStatusType } from '@codrag/ui'
+import { useApiClient } from '@prep/ui'
+import type { AgentStatus as AgentStatusType } from '@prep/ui'
 
 // ── Types ─────────────────────────────────────────────────────
 

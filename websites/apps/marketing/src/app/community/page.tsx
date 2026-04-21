@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from '@codrag/ui';
+import { Button } from '@prep/ui';
 
 const GITHUB_URL =
   process.env.NEXT_PUBLIC_CODRAG_GITHUB_URL ??

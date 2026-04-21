@@ -1,6 +1,6 @@
 "use client";
 
-import { DetailPageLayout } from '@codrag/ui';
+import { DetailPageLayout } from '@prep/ui';
 import { Shield, BookOpen, AlertTriangle, CheckCircle, ArrowRight, RefreshCw } from 'lucide-react';
 
 const SECTIONS = [

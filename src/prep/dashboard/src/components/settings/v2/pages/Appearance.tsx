@@ -1,4 +1,4 @@
-import { Button, Section, SettingRow, Select } from '@codrag/ui';
+import { Button, Section, SettingRow, Select } from '@prep/ui';
 import { Image as ImageIcon } from 'lucide-react';
 import { SettingsPage } from '../SettingsPage';
 

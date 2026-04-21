@@ -1,5 +1,5 @@
 // ── Types for the VS Code extension ──
-// Lightweight subset of @codrag/ui types, avoiding React dependency.
+// Lightweight subset of @prep/ui types, avoiding React dependency.
 
 export type LicenseTier = 'free' | 'starter' | 'pro' | 'team' | 'enterprise';
 

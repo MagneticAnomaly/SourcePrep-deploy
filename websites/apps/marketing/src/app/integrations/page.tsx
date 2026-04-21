@@ -1,6 +1,6 @@
 "use client";
 
-import { DetailPageLayout } from '@codrag/ui';
+import { DetailPageLayout } from '@prep/ui';
 import { Terminal, Code, Plug, Monitor, Cpu, ArrowRight } from 'lucide-react';
 
 const SECTIONS = [

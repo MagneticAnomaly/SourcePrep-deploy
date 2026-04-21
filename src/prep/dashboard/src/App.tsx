@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { FileText, Settings, AlertCircle, AlertTriangle, X, GitBranch } from 'lucide-react'
-import type { AdvancedConfig, AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance, AssignmentMode, LLMConfig } from '@codrag/ui'
+import type { AdvancedConfig, AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance, AssignmentMode, LLMConfig } from '@prep/ui'
 import {
   // API
   useApiClient,
@@ -25,7 +25,7 @@ import {
   // Layout
   PanelPicker,
   useEventStream,
-} from '@codrag/ui'
+} from '@prep/ui'
 import { StartupScreen } from './components/StartupScreen'
 import { UpdateBanner } from './components/UpdateBanner'
 import { SettingsOverlay } from './components/settings/v2/SettingsOverlay'

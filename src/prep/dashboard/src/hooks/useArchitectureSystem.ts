@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useApiClient } from '@codrag/ui';
+import { useApiClient } from '@prep/ui';
 import type {
   ArchGraphResponse, ArchSummaryResponse, ArchNote,
   ArchState, ArchNoteCreate, ArchNodePosition,
   ACR, ACRCreate, LinkedIssue, LinkIssueRequest,
-} from '@codrag/ui';
+} from '@prep/ui';
 import type { Viewport } from '@xyflow/react';
 
 export interface UseArchitectureSystemReturn {

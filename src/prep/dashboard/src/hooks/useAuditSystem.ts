@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useApiClient } from '@codrag/ui'
-import type { AuditFinding, AuditStatus, AuditReport } from '@codrag/ui'
+import { useApiClient } from '@prep/ui'
+import type { AuditFinding, AuditStatus, AuditReport } from '@prep/ui'
 import { useStageRegenerate } from './useStageRegenerate'
 
 export interface UseAuditSystemReturn {

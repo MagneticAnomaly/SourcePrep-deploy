@@ -1,6 +1,6 @@
 "use client";
 
-import { FeatureBlocks } from '@codrag/ui';
+import { FeatureBlocks } from '@prep/ui';
 import { HelpCircle, Bug, CreditCard, Mail, Shield } from 'lucide-react';
 
 const GITHUB_REPO_URL = 'https://github.com/MagneticAnomaly/CoDRAG-MCP';

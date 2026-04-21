@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import Script from 'next/script';
 import { Inter, JetBrains_Mono, IBM_Plex_Serif, Playfair_Display, Space_Mono, IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 
-import '@codrag/ui/styles';
+import '@prep/ui/styles';
 import './globals.css';
 
 import { ClientLayout } from './ClientLayout';

@@ -1534,7 +1534,7 @@ In `src/codrag/dashboard/src/components/settings/SettingsDrawer.tsx`, locate the
 Add the imports at the top:
 
 ```tsx
-import { RecoverStagePanel } from '@codrag/ui/components/pipeline/RecoverStagePanel';
+import { RecoverStagePanel } from '@prep/ui/components/pipeline/RecoverStagePanel';
 ```
 
 *Before editing:* confirm the `api` prop is available in scope — if not, thread it from `useDashboardPanels` the same way other Danger Zone actions are wired.

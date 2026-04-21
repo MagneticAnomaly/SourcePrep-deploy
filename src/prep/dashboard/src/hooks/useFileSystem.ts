@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useApiClient, type TreeNode, type PinnedTextFile, type DashboardLayoutApi } from '@codrag/ui'
+import { useApiClient, type TreeNode, type PinnedTextFile, type DashboardLayoutApi } from '@prep/ui'
 
 // ── Constants ─────────────────────────────────────────────────
 

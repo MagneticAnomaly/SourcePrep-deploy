@@ -2267,11 +2267,11 @@ This is the main dashboard hook that manages state, API calls, and persistence f
 ```typescript
 // src/codrag/dashboard/src/hooks/useArchitectureSystem.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useApiClient } from '@codrag/ui';
+import { useApiClient } from '@prep/ui';
 import type {
   ArchGraphResponse, ArchSummaryResponse, ArchNote,
   ArchState, ArchNoteCreate, ArchNodePosition,
-} from '@codrag/ui';
+} from '@prep/ui';
 import type { Viewport } from '@xyflow/react';
 
 export interface UseArchitectureSystemReturn {
@@ -2558,7 +2558,7 @@ architecture: (
 
 Also import the panel component:
 ```typescript
-import { ArchitectureDiagramPanel, ArchitectureDiagramDetail } from '@codrag/ui';
+import { ArchitectureDiagramPanel, ArchitectureDiagramDetail } from '@prep/ui';
 ```
 
 - [ ] **Step 4: Add panelDetails entry**

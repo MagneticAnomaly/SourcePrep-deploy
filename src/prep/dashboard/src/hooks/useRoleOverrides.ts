@@ -8,7 +8,7 @@
  * response.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { RoleOverride } from '@codrag/ui';
+import type { RoleOverride } from '@prep/ui';
 
 export interface UseRoleOverridesReturn {
   overrides: Record<string, RoleOverride>;

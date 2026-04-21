@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useApiClient } from '@codrag/ui'
-import type { GoalpostsResponse } from '@codrag/ui'
+import { useApiClient } from '@prep/ui'
+import type { GoalpostsResponse } from '@prep/ui'
 
 export interface UseGoalpostsSystemReturn {
   state: GoalpostsResponse | null

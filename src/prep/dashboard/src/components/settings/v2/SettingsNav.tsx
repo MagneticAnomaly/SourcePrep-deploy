@@ -1,4 +1,4 @@
-import { cn } from '@codrag/ui';
+import { cn } from '@prep/ui';
 import type { SettingsPageId } from './routeParser';
 import { filterPagesForBuild, isDevBuild } from './devGate';
 

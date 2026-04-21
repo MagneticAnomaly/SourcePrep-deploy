@@ -1618,7 +1618,7 @@ import type {
   ArchGraphResponse, ArchSummaryResponse, ArchNote,
   ArchState, ArchNoteCreate, ArchNodePosition,
   ACR, ACRCreate, LinkedIssue, LinkIssueRequest,
-} from '@codrag/ui';
+} from '@prep/ui';
 ```
 
 Add to the `UseArchitectureSystemReturn` interface:

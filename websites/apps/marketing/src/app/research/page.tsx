@@ -6,7 +6,7 @@ import {
   ResearchSection,
   RESEARCH_SOURCES,
   type ProblemArea,
-} from '@codrag/ui';
+} from '@prep/ui';
 
 const SECTIONS = [
   { id: 'retrieval',   label: 'Retrieval & Long Context' },

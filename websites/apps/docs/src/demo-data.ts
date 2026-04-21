@@ -1,4 +1,4 @@
-import type { CliScript } from '@codrag/ui';
+import type { CliScript } from '@prep/ui';
 
 // 1. Setup / Init Demo
 export const docsInitDemo: CliScript = {

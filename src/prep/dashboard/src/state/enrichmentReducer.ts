@@ -10,7 +10,7 @@ import type {
   ConceptsStatus,
   AuditPipelineStatus,
   AntibodiesStatus,
-} from '@codrag/ui'
+} from '@prep/ui'
 
 // ── State ─────────────────────────────────────────────────────
 

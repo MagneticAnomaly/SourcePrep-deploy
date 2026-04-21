@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X, AlertCircle } from 'lucide-react';
-import { cn } from '@codrag/ui';
+import { cn } from '@prep/ui';
 
 export interface ErrorToastProps {
   message: string | null;

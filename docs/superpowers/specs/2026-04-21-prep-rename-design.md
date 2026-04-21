@@ -222,7 +222,7 @@ packages = ["prep"]
 
 The implementation plan will confirm each package's current `name` field from its `package.json` during Phase 6 inventory before renaming. The rename outcome is determined by the grep: whatever `@codrag/*` currently reads, becomes `@prep/*`.
 
-**Import rewrite** (~292 occurrences in 157 files): `from "@codrag/ui"` → `from "@prep/ui"`.
+**Import rewrite** (~292 occurrences in 157 files): `from "@prep/ui"` → `from "@prep/ui"`.
 
 **VS Code extension** (user-visible surface):
 

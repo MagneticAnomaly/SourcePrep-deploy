@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { useApiClient, type LicenseStatus, type LicenseTier } from '@codrag/ui'
+import { useApiClient, type LicenseStatus, type LicenseTier } from '@prep/ui'
 
 /**
  * Derives the dev tier override from the backend license response.

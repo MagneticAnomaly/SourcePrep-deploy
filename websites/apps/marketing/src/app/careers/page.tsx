@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from '@codrag/ui';
+import { Button } from '@prep/ui';
 
 interface JobListing {
   id: string;

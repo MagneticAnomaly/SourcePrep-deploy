@@ -518,7 +518,7 @@ Create `src/codrag/dashboard/src/hooks/useDebouncedAutoSave.ts`:
 
 ```ts
 import { useEffect, useMemo, useRef } from 'react'
-import { createDebouncedSaver, type DebouncedSaver } from '@codrag/ui/lib/debouncedSaver'
+import { createDebouncedSaver, type DebouncedSaver } from '@prep/ui/lib/debouncedSaver'
 
 export interface UseDebouncedAutoSaveOptions<T> {
   value: T
@@ -601,7 +601,7 @@ export { createDebouncedSaver, type DebouncedSaver, type DebouncedSaverOptions }
 And change the hook import to:
 
 ```ts
-import { createDebouncedSaver, type DebouncedSaver } from '@codrag/ui'
+import { createDebouncedSaver, type DebouncedSaver } from '@prep/ui'
 ```
 
 - [ ] **Step 4: Commit**
@@ -669,7 +669,7 @@ Import at the top:
 
 ```ts
 import { useDebouncedAutoSave } from './useDebouncedAutoSave'
-import { stripModeFields } from '@codrag/ui/components/llm/llmConfigHelpers'
+import { stripModeFields } from '@prep/ui/components/llm/llmConfigHelpers'
 ```
 
 (If subpath imports aren't exported, re-export `stripModeFields` from `packages/ui/src/index.ts` the same way as Task 5 Step 3, and import from `'@codrag/ui'` instead.)

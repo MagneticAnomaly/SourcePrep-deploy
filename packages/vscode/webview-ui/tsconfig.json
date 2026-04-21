@@ -18,7 +18,7 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@codrag/ui": ["../../ui/dist/index.d.ts"]
+      "@prep/ui": ["../../ui/dist/index.d.ts"]
     }
   },
   "include": ["src"],

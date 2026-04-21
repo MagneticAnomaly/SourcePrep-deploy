@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { ConceptItem, ConceptQuestionItem, ConceptStats } from '@codrag/ui';
+import type { ConceptItem, ConceptQuestionItem, ConceptStats } from '@prep/ui';
 import { useStageRegenerate } from './useStageRegenerate';
 
 export interface UseConceptSystemReturn {

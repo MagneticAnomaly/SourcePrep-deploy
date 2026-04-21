@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, RefreshCw, Power } from 'lucide-react'
-import { Button } from '@codrag/ui'
+import { Button } from '@prep/ui'
 
 type StartupStage = 'connecting' | 'initializing' | 'ready'
 

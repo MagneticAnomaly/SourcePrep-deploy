@@ -68,12 +68,12 @@ Extract from `src/codrag/dashboard/src/App.tsx`:
 
 ### Option A: Consume packages/ui in dashboard (Recommended)
 1. Add `@codrag/ui` as dependency in `src/codrag/dashboard/package.json`
-2. Import components: `import { StatusCard, SearchInput } from '@codrag/ui'`
+2. Import components: `import { StatusCard, SearchInput } from '@prep/ui'`
 3. Replace inline JSX with component usage
 4. Theme controlled via `data-codrag-theme` attribute on root
 
 ### Option B: Shared styles only
-1. Import only styles: `import '@codrag/ui/styles'`
+1. Import only styles: `import '@prep/ui/styles'`
 2. Keep dashboard components inline but use CSS variables
 3. Gradually migrate to shared components
 

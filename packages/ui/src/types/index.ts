@@ -2,7 +2,7 @@
  * CoDRAG UI Type Definitions — barrel re-export.
  *
  * The types directory exists so consumers can import from
- * ``@codrag/ui/types`` or ``../types``.  All types are currently
+ * ``@prep/ui/types`` or ``../types``.  All types are currently
  * defined in the parent ``types.ts`` and re-exported here.
  *
  * Future: split into domain files (common, project, trace, llm, system)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { Button } from '@codrag/ui';
+import { Button } from '@prep/ui';
 
 const RELEASES_URL =
   process.env.NEXT_PUBLIC_CODRAG_RELEASES_URL ??

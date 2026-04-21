@@ -907,19 +907,19 @@ git commit -m "rename(phase-6): npm workspace package names @codrag/* -> @prep/*
 
 ```bash
 # ES import statements:
-rg -l 'from "@codrag/' | xargs sed -i '' 's|from "@codrag/|from "@prep/|g'
-rg -l "from '@codrag/" | xargs sed -i '' "s|from '@codrag/|from '@prep/|g"
+rg -l 'from "@prep/' | xargs sed -i '' 's|from "@prep/|from "@prep/|g'
+rg -l "from '@prep/" | xargs sed -i '' "s|from '@prep/|from '@prep/|g"
 
 # Bare import-side-effect form:
-rg -l 'import "@codrag/' | xargs sed -i '' 's|import "@codrag/|import "@prep/|g'
-rg -l "import '@codrag/" | xargs sed -i '' "s|import '@codrag/|import '@prep/|g"
+rg -l 'import "@prep/' | xargs sed -i '' 's|import "@prep/|import "@prep/|g'
+rg -l "import '@prep/" | xargs sed -i '' "s|import '@prep/|import '@prep/|g"
 
 # Dynamic imports:
-rg -l 'import\("@codrag/' | xargs sed -i '' 's|import("@codrag/|import("@prep/|g'
+rg -l 'import\("@codrag/' | xargs sed -i '' 's|import("@prep/|import("@prep/|g'
 rg -l "import\('@codrag/" | xargs sed -i '' "s|import('@codrag/|import('@prep/|g"
 
 # Require (legacy):
-rg -l 'require\("@codrag/' | xargs sed -i '' 's|require("@codrag/|require("@prep/|g'
+rg -l 'require\("@codrag/' | xargs sed -i '' 's|require("@prep/|require("@prep/|g'
 rg -l "require\('@codrag/" | xargs sed -i '' "s|require('@codrag/|require('@prep/|g"
 ```
 

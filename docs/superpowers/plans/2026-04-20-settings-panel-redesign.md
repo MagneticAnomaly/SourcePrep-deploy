@@ -74,7 +74,7 @@ Several tasks "lift" pre-existing JSX out of `SettingsDrawer.tsx` or `AdvancedSe
 
 ```tsx
 // src/codrag/dashboard/src/components/settings/v2/pages/<Name>.tsx
-import { SettingsPage, SettingRow, Section } from '@codrag/ui';
+import { SettingsPage, SettingRow, Section } from '@prep/ui';
 import type { ProjectConfig, GlobalConfig } from '...types';
 
 interface <Name>PageProps {
@@ -818,7 +818,7 @@ git commit -m "feat(settings-v2): add useSettingsRoute hook"
 ```tsx
 // src/codrag/dashboard/src/components/settings/v2/SettingsPage.tsx
 import { ReactNode } from 'react';
-import { scopeChipLabel, scopeAriaLabel, type SettingsScope } from '@codrag/ui';
+import { scopeChipLabel, scopeAriaLabel, type SettingsScope } from '@prep/ui';
 
 export interface SettingsPageProps {
   title: string;
@@ -892,7 +892,7 @@ git commit -m "feat(settings-v2): add SettingsPage wrapper with scope chip"
 
 ```tsx
 // src/codrag/dashboard/src/components/settings/v2/SettingsNav.tsx
-import { cn } from '@codrag/ui';
+import { cn } from '@prep/ui';
 import type { SettingsPageId } from './routeParser';
 import { filterPagesForBuild, isDevBuild } from './devGate';
 
@@ -1005,7 +1005,7 @@ git commit -m "feat(settings-v2): add SettingsNav with scope-split groups"
 import { createPortal } from 'react-dom';
 import { useEffect, useRef } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
-import { cn } from '@codrag/ui';
+import { cn } from '@prep/ui';
 import { SettingsNav } from './SettingsNav';
 import { useSettingsRoute } from './useSettingsRoute';
 import type { SettingsPageId } from './routeParser';
@@ -1345,7 +1345,7 @@ Deep Analysis controls (mode, budget, schedule) stay behind for Task 16. Danger 
 ```tsx
 // src/codrag/dashboard/src/components/settings/v2/pages/Sources.tsx
 import { SettingsPage } from '../SettingsPage';
-import { SettingRow, Section } from '@codrag/ui';
+import { SettingRow, Section } from '@prep/ui';
 import type { ProjectConfig } from '../../../../types';
 
 export interface SourcesPageProps {
@@ -1573,7 +1573,7 @@ Global scope. Single section. AI Gateway panel is **not moved** — only linked 
 ```tsx
 // src/codrag/dashboard/src/components/settings/v2/pages/Integrations.tsx
 import { SettingsPage } from '../SettingsPage';
-import { SettingRow, Section } from '@codrag/ui';
+import { SettingRow, Section } from '@prep/ui';
 
 export interface IntegrationsPageProps {
   onOpenAiGateway: () => void;

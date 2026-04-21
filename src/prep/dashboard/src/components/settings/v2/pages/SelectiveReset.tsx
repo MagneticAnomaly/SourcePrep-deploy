@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Button, ConfirmDialog, Section } from '@codrag/ui';
+import { Button, ConfirmDialog, Section } from '@prep/ui';
 import { SettingsPage } from '../SettingsPage';
 
 type ConfirmAction = 'atlas' | 'group_reasoning' | 'deep_enrichment' | null;

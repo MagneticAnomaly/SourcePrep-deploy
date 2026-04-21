@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useApiClient } from '@codrag/ui'
-import type { AgentOpsData, PushSettingsData } from '@codrag/ui'
+import { useApiClient } from '@prep/ui'
+import type { AgentOpsData, PushSettingsData } from '@prep/ui'
 
 export interface UseAgentOpsReturn {
   agentStatus: AgentOpsData | null

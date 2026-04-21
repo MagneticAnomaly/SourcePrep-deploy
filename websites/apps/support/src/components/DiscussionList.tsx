@@ -4,7 +4,7 @@ import { MessageSquare, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Image from "next/image";
 import type { Discussion } from "../lib/github";
-import { Button } from "@codrag/ui";
+import { Button } from "@prep/ui";
 
 interface DiscussionListProps {
   discussions: Discussion[];

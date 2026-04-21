@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, AnimatedCLI, AnimatedIDE, codragOverviewDemo, codragSearchDemo, codragImpactDemo, codragAuditDemo, codragObserveDemo, codragConceptsDemo, ideDemoScript } from '@codrag/ui';
+import { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, AnimatedCLI, AnimatedIDE, codragOverviewDemo, codragSearchDemo, codragImpactDemo, codragAuditDemo, codragObserveDemo, codragConceptsDemo, ideDemoScript } from '@prep/ui';
 import { ArrowRight, Play } from 'lucide-react';
 import Link from 'next/link';
 import { DevMarketingHero } from './DevMarketingHero';

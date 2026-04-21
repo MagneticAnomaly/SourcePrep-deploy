@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Check, X } from 'lucide-react';
-import { AnimatedCLI, codragSearchDemo } from '@codrag/ui';
+import { AnimatedCLI, codragSearchDemo } from '@prep/ui';
 
 export default function CompareGreptilePage() {
   return (

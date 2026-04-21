@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { ApiClientProvider, CodragApiClient } from '@codrag/ui'
+import { ApiClientProvider, CodragApiClient } from '@prep/ui'
 import { invoke } from '@tauri-apps/api/tauri'
 import App from './App'
 import './index.css'

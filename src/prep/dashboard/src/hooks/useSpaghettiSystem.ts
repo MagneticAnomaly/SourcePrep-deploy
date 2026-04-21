@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useApiClient } from '@codrag/ui'
-import type { SpaghettiFileScore } from '@codrag/ui'
+import { useApiClient } from '@prep/ui'
+import type { SpaghettiFileScore } from '@prep/ui'
 
 export interface UseSpaghettiSystemReturn {
   spaghettiFiles: SpaghettiFileScore[]

@@ -2,11 +2,11 @@
  * Dashboard-scoped wrapper that hooks AtlasLensPanel up to the Phase 104
  * fetchers and mutators.
  *
- * Keeps the hook wiring + project-specific lookups here so @codrag/ui
+ * Keeps the hook wiring + project-specific lookups here so @prep/ui
  * stays free of dashboard dependencies.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AtlasLensPanel, type RoleVectorPayload } from '@codrag/ui';
+import { AtlasLensPanel, type RoleVectorPayload } from '@prep/ui';
 import { useAtlasLens } from '../hooks/useAtlasLens';
 import { useRoleOverrides } from '../hooks/useRoleOverrides';
 

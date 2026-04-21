@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from '@codrag/ui';
+import { Button } from '@prep/ui';
 import { RefreshCw, Mail, HelpCircle, Zap, Users } from 'lucide-react';
 
 const CHECKOUT_PRO  = process.env.NEXT_PUBLIC_LS_CHECKOUT_PERPETUAL ?? '';

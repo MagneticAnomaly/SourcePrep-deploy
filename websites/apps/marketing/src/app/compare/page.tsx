@@ -1,6 +1,6 @@
 "use client";
 
-import { CompetitorMatrix } from '@codrag/ui';
+import { CompetitorMatrix } from '@prep/ui';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 

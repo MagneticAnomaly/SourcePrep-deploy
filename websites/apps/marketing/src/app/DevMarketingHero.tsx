@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { MarketingHero, type MarketingHeroProps } from '@codrag/ui';
+import { MarketingHero, type MarketingHeroProps } from '@prep/ui';
 
 type ThemeId = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm' | 'n';
 

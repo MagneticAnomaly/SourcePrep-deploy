@@ -9,7 +9,7 @@ import {
   SettingRow,
   useApiClient,
   type EnrichmentStageId,
-} from '@codrag/ui';
+} from '@prep/ui';
 import { SettingsPage } from '../SettingsPage';
 
 // Stage labels for the Recover picker.

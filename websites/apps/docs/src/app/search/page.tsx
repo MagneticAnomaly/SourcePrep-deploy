@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useMemo, useState } from 'react';
-import { Button } from '@codrag/ui';
+import { Button } from '@prep/ui';
 import { docsSidebar } from '../../config/docs';
 import { FileText, ArrowRight } from 'lucide-react';
 import { AnchorHeading } from '../../components/AnchorHeading';

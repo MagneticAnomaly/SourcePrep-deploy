@@ -1,5 +1,5 @@
-@import '@codrag/ui/tokens/index.css';
-@import '@codrag/ui/styles/themes/index.css';
+@import '@prep/ui/tokens/index.css';
+@import '@prep/ui/styles/themes/index.css';
 @import 'keyboard-css/dist/css/main.min.css';
 
 @tailwind base;

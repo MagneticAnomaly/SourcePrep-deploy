@@ -8,7 +8,7 @@ import {
   type StatusState,
   type ProjectMode,
   type PriorityLevel,
-} from '@codrag/ui'
+} from '@prep/ui'
 
 // ── Helpers ──────────────────────────────────────────────────
 

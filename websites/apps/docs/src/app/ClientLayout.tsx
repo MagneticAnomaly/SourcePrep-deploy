@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import { DocsLayout } from '@codrag/ui';
+import { DocsLayout } from '@prep/ui';
 import { docsSidebar } from '../config/docs';
 
 const isDev = process.env.NODE_ENV !== 'production';

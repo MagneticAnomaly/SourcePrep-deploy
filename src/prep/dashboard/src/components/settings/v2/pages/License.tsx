@@ -1,5 +1,5 @@
 import { Shield } from 'lucide-react';
-import { Button, Section, type LicenseStatus } from '@codrag/ui';
+import { Button, Section, type LicenseStatus } from '@prep/ui';
 import { SettingsPage } from '../SettingsPage';
 
 export interface LicensePageProps {

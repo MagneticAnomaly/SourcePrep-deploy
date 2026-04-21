@@ -5,9 +5,9 @@ import {
   type EnrichmentAutoConfig,
   type PipelineStatus,
   type CrashedPipelineRun,
-} from '@codrag/ui'
+} from '@prep/ui'
 
-// ── Inline types (not exported from @codrag/ui as named types) ──
+// ── Inline types (not exported from @prep/ui as named types) ──
 
 export interface TraceStatus {
   enabled: boolean

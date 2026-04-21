@@ -1,4 +1,4 @@
-import { DeepAnalysisSettings, type DeepAnalysisSchedule } from '@codrag/ui';
+import { DeepAnalysisSettings, type DeepAnalysisSchedule } from '@prep/ui';
 import { SettingsPage } from '../SettingsPage';
 
 export interface DeepAnalysisPageProps {

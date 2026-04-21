@@ -6,7 +6,7 @@ import {
   SettingRow,
   Toggle,
   type ProjectConfig,
-} from '@codrag/ui';
+} from '@prep/ui';
 import {
   Check,
   ChevronDown,

@@ -1,6 +1,6 @@
 "use client";
 
-import { DetailPageLayout } from '@codrag/ui';
+import { DetailPageLayout } from '@prep/ui';
 import { ArrowRight, Bot, Brain, FileText, History, Search, Shield, Zap } from 'lucide-react';
 
 const SECTIONS = [

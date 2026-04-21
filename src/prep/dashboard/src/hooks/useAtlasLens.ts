@@ -11,7 +11,7 @@
  * existing hydration-controller hooks.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { AtlasStatus } from '@codrag/ui';
+import type { AtlasStatus } from '@prep/ui';
 import { useStageRegenerate } from './useStageRegenerate';
 
 const ROLE_DEBOUNCE_MS = 200;

@@ -1707,7 +1707,7 @@ import {
   ResearchHero,
   ResearchSection,
   RESEARCH_SOURCES,
-} from '@codrag/ui';
+} from '@prep/ui';
 
 const SECTIONS = [
   { id: 'retrieval',   label: 'Retrieval & Long Context' },

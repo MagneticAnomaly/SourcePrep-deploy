@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { VsCodeApi } from "../global";
 import { Copy, Check, FileCode } from "lucide-react";
-import { Button } from "@codrag/ui";
+import { Button } from "@prep/ui";
 
 interface ContextChunk {
   content?: string;

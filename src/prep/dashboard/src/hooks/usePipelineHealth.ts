@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useApiClient, type PipelineHealth } from '@codrag/ui'
+import { useApiClient, type PipelineHealth } from '@prep/ui'
 
 const POLL_MS = 10_000 // 10s — health is a slow-moving aggregate
 

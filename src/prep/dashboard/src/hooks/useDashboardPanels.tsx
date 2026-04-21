@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
-import { useApiClient } from '@codrag/ui'
+import { useApiClient } from '@prep/ui'
 import { usePipelineHealth } from './usePipelineHealth'
 import type { UseGoalpostsSystemReturn } from './useGoalpostsSystem'
 import type { UseRoadmapSystemReturn } from './useRoadmapSystem'
@@ -72,7 +72,7 @@ import {
   ConceptsPanel,
   ConceptsDetail,
   PanelLoading,
-} from '@codrag/ui'
+} from '@prep/ui'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
 import type { UseSpaghettiSystemReturn } from './useSpaghettiSystem'
@@ -168,7 +168,7 @@ export interface PanelTraceProps {
 }
 
 export interface PanelEnrichmentProps {
-  pipelineProvenance: import('@codrag/ui').PipelineProvenance | null
+  pipelineProvenance: import('@prep/ui').PipelineProvenance | null
   inferredEdgesStatus: InferredEdgesStatus
   inferredEdgesRunning: boolean
   augmentationStatus: AugmentationStatus
@@ -244,12 +244,12 @@ export interface PanelLLMProps {
   onMaxActiveProjectsChange?: (val: number | 'infinite') => void
   schedulerStatus?: { nodes: Record<string, { max_concurrent: number; current_load: number; active: Record<string, string>; queued: Array<{ project_id: string; stage: string; waiting_seconds: number }> }> } | null
   // Compute node CRUD (Phase 45D)
-  computeNodes?: import('@codrag/ui').ComputeNode[]
-  onComputeNodeAdd?: (node: Omit<import('@codrag/ui').ComputeNode, 'id'>) => void
-  onComputeNodeUpdate?: (nodeId: string, updates: Partial<import('@codrag/ui').ComputeNode>) => void
+  computeNodes?: import('@prep/ui').ComputeNode[]
+  onComputeNodeAdd?: (node: Omit<import('@prep/ui').ComputeNode, 'id'>) => void
+  onComputeNodeUpdate?: (nodeId: string, updates: Partial<import('@prep/ui').ComputeNode>) => void
   onComputeNodeDelete?: (nodeId: string) => void
   onEndpointNodeChange?: (endpointId: string, nodeId: string | null) => void
-  handleModeApply?: (mode: import('@codrag/ui').AssignmentMode, blocks?: import('@codrag/ui').LLMConfig['assignment_blocks']) => Promise<void>
+  handleModeApply?: (mode: import('@prep/ui').AssignmentMode, blocks?: import('@prep/ui').LLMConfig['assignment_blocks']) => Promise<void>
 }
 
 export interface PanelDeepAnalysisProps {
@@ -312,11 +312,11 @@ export interface DashboardPanelsProps {
   concepts: UseConceptSystemReturn
   activityData: ActivityHeatmapData | null
   // Enterprise
-  adminPolicy?: import('@codrag/ui').AdminPolicy | null
+  adminPolicy?: import('@prep/ui').AdminPolicy | null
   seatStatus?: any | null
   onProvisionSeat?: (email: string) => Promise<{ provisioned: boolean; message: string }>
   // Admin Security (EA-I)
-  securityHealth?: import('@codrag/ui').SecurityHealthResult | null
+  securityHealth?: import('@prep/ui').SecurityHealthResult | null
   securityEvents?: Array<{ timestamp: number; event_type: string; severity: string; message: string }>
   onExportSecurityReport?: () => void
   onExportAuditLog?: () => void

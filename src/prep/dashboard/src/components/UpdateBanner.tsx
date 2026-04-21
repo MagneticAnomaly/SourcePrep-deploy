@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Download, RefreshCw, X, ExternalLink } from 'lucide-react'
-import { Button } from '@codrag/ui'
+import { Button } from '@prep/ui'
 
 type UpdateStatus = 'idle' | 'available' | 'downloading' | 'ready' | 'error'
 

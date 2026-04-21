@@ -1,4 +1,4 @@
-import { SettingRow, Section } from '@codrag/ui';
+import { SettingRow, Section } from '@prep/ui';
 import { SettingsPage } from '../SettingsPage';
 
 export interface IntegrationsPageProps {

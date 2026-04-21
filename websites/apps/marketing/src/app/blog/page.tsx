@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, XIcon } from '@codrag/ui';
+import { Button, XIcon } from '@prep/ui';
 import { Github } from 'lucide-react';
 import { BLOG_POSTS } from '../../config/blog';
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from '@codrag/ui';
+import { Button } from '@prep/ui';
 import { Mail, Book, MessageSquare, AlertTriangle } from 'lucide-react';
 
 export default function Page() {

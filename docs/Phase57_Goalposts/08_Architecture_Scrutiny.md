@@ -230,7 +230,7 @@ The `@codrag/ui` package index explicitly lists every exported type on lines 10-
 
 The hook `useGoalpostsSystem.ts` line 3 does:
 ```typescript
-import type { GoalpostsResponse, GoalpostProposal, GoalpostQuestion } from '@codrag/ui'
+import type { GoalpostsResponse, GoalpostProposal, GoalpostQuestion } from '@prep/ui'
 ```
 
 This import **will fail at build time** because these types are not re-exported from the package index. They exist in `types.ts` but aren't in the explicit export list.

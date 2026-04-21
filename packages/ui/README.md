@@ -20,7 +20,7 @@ This package is consumed by:
 For public-facing docs pages, import the UI stylesheet:
 
 ```ts
-import '@codrag/ui/styles';
+import '@prep/ui/styles';
 ```
 
 This currently includes:

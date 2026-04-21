@@ -4,7 +4,7 @@ import {
   type DeepAnalysisSchedule,
   type DeepAnalysisRunStatus,
   type TokenBudgetData,
-} from '@codrag/ui'
+} from '@prep/ui'
 
 interface UseDeepAnalysisOptions {
   onError?: (msg: string, variant?: 'error' | 'warning' | 'info' | 'success') => void

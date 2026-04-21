@@ -8,10 +8,10 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
-      // Bare import '@codrag/ui' -> index.ts
-      { find: /^@codrag\/ui$/, replacement: `${uiSrcPath}/index.ts` },
-      // Sub-path imports '@codrag/ui/foo' -> src/foo
-      { find: /^@codrag\/ui\/(.*)$/, replacement: `${uiSrcPath}/$1` },
+      // Bare import '@prep/ui' -> index.ts
+      { find: /^@prep\/ui$/, replacement: `${uiSrcPath}/index.ts` },
+      // Sub-path imports '@prep/ui/foo' -> src/foo
+      { find: /^@prep\/ui\/(.*)$/, replacement: `${uiSrcPath}/$1` },
     ],
     extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
   },

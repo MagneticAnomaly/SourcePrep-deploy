@@ -17,8 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@codrag/ui": ["../../../packages/ui/src/index.ts"],
-      "@codrag/ui/*": ["../../../packages/ui/src/*"]
+      "@prep/ui": ["../../../packages/ui/src/index.ts"],
+      "@prep/ui/*": ["../../../packages/ui/src/*"]
     }
   },
   "include": ["src"],

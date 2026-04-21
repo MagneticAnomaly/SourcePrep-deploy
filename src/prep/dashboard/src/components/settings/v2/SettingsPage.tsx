@@ -1,6 +1,6 @@
 // src/codrag/dashboard/src/components/settings/v2/SettingsPage.tsx
 import { ReactNode } from 'react';
-import { scopeChipLabel, scopeAriaLabel, type SettingsScope } from '@codrag/ui';
+import { scopeChipLabel, scopeAriaLabel, type SettingsScope } from '@prep/ui';
 
 export interface SettingsPageProps {
   title: string;

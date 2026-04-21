@@ -2,7 +2,7 @@
 import { createPortal } from 'react-dom';
 import { useEffect, useRef } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
-import { cn } from '@codrag/ui';
+import { cn } from '@prep/ui';
 import { SettingsNav } from './SettingsNav';
 import { useSettingsRoute } from './useSettingsRoute';
 import type { SettingsPageId } from './routeParser';

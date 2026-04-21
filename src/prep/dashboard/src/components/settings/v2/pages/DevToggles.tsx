@@ -1,5 +1,5 @@
-import { Section, SettingRow, Toggle, Select } from '@codrag/ui';
-import type { LicenseTier, UserRole } from '@codrag/ui';
+import { Section, SettingRow, Toggle, Select } from '@prep/ui';
+import type { LicenseTier, UserRole } from '@prep/ui';
 import { SettingsPage } from '../SettingsPage';
 
 // Lifted verbatim from SettingsDrawer.tsx:65-71
