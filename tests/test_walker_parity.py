@@ -27,7 +27,7 @@ from prep.core.repo_profile import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-RUST_WALKER_SRC = REPO_ROOT / "engine" / "crates" / "codrag-walker" / "src" / "lib.rs"
+RUST_WALKER_SRC = REPO_ROOT / "engine" / "crates" / "prep-walker" / "src" / "lib.rs"
 
 
 def _parse_rust_exclude_globs(text: str) -> set[str]:

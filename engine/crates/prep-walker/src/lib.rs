@@ -94,6 +94,7 @@ impl Default for WalkConfig {
                 // Prep outputs (self-ingestion guard)
                 "**/.prep/**".into(),
                 "**/prep_data/**".into(),
+                "**/codrag_data/**".into(),  // legacy name kept for parity with Python L1
                 // VCS
                 "**/.git/**".into(),
                 // Python dep/build
