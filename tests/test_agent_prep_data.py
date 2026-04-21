@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from prep.agents.shared.codrag_data import PrepDataAccess
+from prep.agents.shared.prep_data import PrepDataAccess
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────

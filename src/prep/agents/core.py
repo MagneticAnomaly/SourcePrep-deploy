@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from prep.adapters.pm_models import PMGoal, PMIssue, PMProject, PMPushConfig, PushResult
-from prep.agents.shared.codrag_data import PrepDataAccess
+from prep.agents.shared.prep_data import PrepDataAccess
 from prep.agents.shared.git_client import GitClient
 from prep.agents.shared.models import AgentConfig
 from prep.agents.shared.paperclip_client import PaperclipClient
