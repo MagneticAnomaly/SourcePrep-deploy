@@ -122,7 +122,7 @@ RUN ollama serve & sleep 3 && ollama pull qwen3:8b && kill %1 || true`}
         <p className="mt-4 text-text-muted">
           Run the headless indexer as an ECS task with GPU support.
           A reference task definition is provided in the{' '}
-          <a href="https://github.com/MagneticAnomaly/prep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/MagneticAnomaly/RunPrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
             prep-deploy
           </a>{' '}
           repository under <code>aws/</code>.
@@ -168,7 +168,7 @@ RUN ollama serve & sleep 3 && ollama pull qwen3:8b && kill %1 || true`}
         </ol>
         <p className="mt-2 text-xs text-text-subtle">
           Adapter source:{' '}
-          <a href="https://github.com/MagneticAnomaly/prep-deploy/tree/main/modal" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/MagneticAnomaly/RunPrep-deploy/tree/main/modal" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
             prep-deploy/modal/
           </a>
         </p>
@@ -187,7 +187,7 @@ docker push my-org/prep-runpod`}
         </ol>
         <p className="mt-2 text-xs text-text-subtle">
           Handler source:{' '}
-          <a href="https://github.com/MagneticAnomaly/prep-deploy/tree/main/runpod" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/MagneticAnomaly/RunPrep-deploy/tree/main/runpod" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
             prep-deploy/runpod/
           </a>
         </p>
@@ -443,7 +443,7 @@ docker push my-org/prep-runpod`}
             — Standard CI/CD setup with GitHub Actions
           </li>
           <li>
-            <a href="https://github.com/MagneticAnomaly/prep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+            <a href="https://github.com/MagneticAnomaly/RunPrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
               prep-deploy repository
             </a>{' '}
             — Dockerfiles, platform adapters, and reference configurations

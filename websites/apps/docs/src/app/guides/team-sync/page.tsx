@@ -190,7 +190,7 @@ jobs:
         </ol>
         <p className="mt-2 text-xs text-text-subtle">
           The adapter source is in the{' '}
-          <a href="https://github.com/MagneticAnomaly/prep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/MagneticAnomaly/RunPrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
             prep-deploy
           </a>{' '}
           repository under <code>modal/</code>.
@@ -277,7 +277,7 @@ docker run --gpus all \\
         </ul>
         <p className="mt-2 text-xs text-text-subtle">
           A reference AWS ECS task definition is provided in the{' '}
-          <a href="https://github.com/MagneticAnomaly/prep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/MagneticAnomaly/RunPrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
             prep-deploy
           </a>{' '}
           repository under <code>aws/</code>.
@@ -384,7 +384,7 @@ docker run --gpus all \\
             <p className="mt-1 text-text-muted">
               All Dockerfiles, platform adapters (Modal, RunPod), GitHub Actions workflows, and
               AWS ECS references are in the public{' '}
-              <a href="https://github.com/MagneticAnomaly/prep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+              <a href="https://github.com/MagneticAnomaly/RunPrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
                 prep-deploy
               </a>{' '}
               repository.

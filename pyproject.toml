@@ -99,10 +99,10 @@ headless = [
 prep = "prep.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/MagneticAnomaly/prep"
-Documentation = "https://github.com/MagneticAnomaly/prep#readme"
-Repository = "https://github.com/MagneticAnomaly/prep"
-Issues = "https://github.com/MagneticAnomaly/prep/issues"
+Homepage = "https://github.com/MagneticAnomaly/RunPrep"
+Documentation = "https://github.com/MagneticAnomaly/RunPrep#readme"
+Repository = "https://github.com/MagneticAnomaly/RunPrep"
+Issues = "https://github.com/MagneticAnomaly/RunPrep/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/prep"]

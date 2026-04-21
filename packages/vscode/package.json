@@ -7,10 +7,10 @@
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/magnetic-anomaly/prep"
+    "url": "https://github.com/MagneticAnomaly/RunPrep"
   },
   "bugs": {
-    "url": "https://github.com/magnetic-anomaly/prep/issues"
+    "url": "https://github.com/MagneticAnomaly/RunPrep/issues"
   },
   "homepage": "https://runprep.io",
   "engines": {

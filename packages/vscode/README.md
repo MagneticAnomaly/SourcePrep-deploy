@@ -64,5 +64,5 @@ Understand code structure with graph-based analysis.
 ## Feedback & Support
 
 - [Documentation](https://docs.runprep.io)
-- [Issue Tracker](https://github.com/magnetic-anomaly/prep/issues)
+- [Issue Tracker](https://github.com/MagneticAnomaly/RunPrep/issues)
 - [Discord Community](https://discord.gg/prep)
