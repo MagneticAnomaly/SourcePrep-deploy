@@ -117,3 +117,7 @@ plausible-tags.txt
 
 # Archived one-off scripts (patches, debug, benchmarks, research)
 archive/
+
+# Prep rename inventory snapshots (Phase 0/19, gitignored)
+.rename-inventory-before.txt
+.rename-inventory-after.txt
