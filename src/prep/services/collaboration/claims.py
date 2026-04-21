@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SoftClaim:
-    """An agent's deprep-compresstion of active interest in a file or directory."""
+    """An agent's declaration of active interest in a file or directory."""
 
     id: str
     project_id: str

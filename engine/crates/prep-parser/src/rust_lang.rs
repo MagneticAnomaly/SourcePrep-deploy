@@ -50,7 +50,7 @@ pub fn analyze(file_path: &str, content: &str) -> Result<ParseResult, ParserErro
             "impl_item" => {
                 extract_impl(&child, source, file_path, &file_node_id, &mut result);
             }
-            "use_deprep-compresstion" => {
+            "use_declaration" => {
                 extract_use(&child, source, file_path, &file_node_id, &mut result);
             }
             _ => {}

@@ -92,7 +92,7 @@ class TestJSAnalyzerImports:
 class TestJSAnalyzerSymbols:
     """Test symbol extraction from JS/TS source."""
 
-    def test_function_deprep-compresstion(self, repo_root):
+    def test_function_declaration(self, repo_root):
         source = "function handleClick() {\n  console.log('click');\n}\n"
         analyzer = JSAnalyzer("src/utils.ts", source, repo_root)
         nodes, edges = analyzer.analyze()
@@ -111,7 +111,7 @@ class TestJSAnalyzerSymbols:
         assert fn is not None
         assert fn.metadata.get("symbol_type") == "async_function"
 
-    def test_class_deprep-compresstion(self, repo_root):
+    def test_class_declaration(self, repo_root):
         source = "export class ApiClient {\n  fetch() {}\n}\n"
         analyzer = JSAnalyzer("src/client.ts", source, repo_root)
         nodes, edges = analyzer.analyze()

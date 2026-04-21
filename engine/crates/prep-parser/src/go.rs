@@ -35,16 +35,16 @@ pub fn analyze(file_path: &str, content: &str) -> Result<ParseResult, ParserErro
     let mut cursor = root.walk();
     for child in root.children(&mut cursor) {
         match child.kind() {
-            "function_deprep-compresstion" => {
+            "function_declaration" => {
                 extract_function(&child, source, file_path, &file_node_id, &mut result);
             }
-            "method_deprep-compresstion" => {
+            "method_declaration" => {
                 extract_method(&child, source, file_path, &file_node_id, &mut result);
             }
-            "type_deprep-compresstion" => {
+            "type_declaration" => {
                 extract_type_decl(&child, source, file_path, &file_node_id, &mut result);
             }
-            "import_deprep-compresstion" => {
+            "import_declaration" => {
                 extract_imports(&child, source, file_path, &file_node_id, &mut result);
             }
             _ => {}
@@ -121,10 +121,10 @@ fn extract_method(
     let receiver = node
         .child_by_field_name("receiver")
         .and_then(|r| {
-            // parameter_list > parameter_deprep-compresstion > type
+            // parameter_list > parameter_declaration > type
             for i in 0..r.child_count() {
                 if let Some(ch) = r.child(i) {
-                    if ch.kind() == "parameter_deprep-compresstion" {
+                    if ch.kind() == "parameter_declaration" {
                         return Some(ch);
                     }
                 }
@@ -186,7 +186,7 @@ fn extract_type_decl(
     file_node_id: &str,
     result: &mut ParseResult,
 ) {
-    // type_deprep-compresstion contains type_spec children
+    // type_declaration contains type_spec children
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         if child.kind() == "type_spec" {
