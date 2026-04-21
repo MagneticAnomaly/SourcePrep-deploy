@@ -3,10 +3,10 @@ from PyInstaller.utils.hooks import collect_all
 
 datas = []
 binaries = []
-hiddenimports = ['codrag.core.embedder', 'codrag.core.compressor', 'codrag_engine']
-tmp_ret = collect_all('codrag')
+hiddenimports = ['prep.core.embedder', 'prep.core.compressor', 'prep_engine']
+tmp_ret = collect_all('prep')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('codrag_engine')
+tmp_ret = collect_all('prep_engine')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('uvicorn')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
@@ -19,7 +19,7 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
-    ['src/codrag/server.py'],
+    ['src/prep/server.py'],
     pathex=[],
     binaries=binaries,
     datas=datas,
@@ -39,7 +39,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='codrag-daemon',
+    name='prep-daemon',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

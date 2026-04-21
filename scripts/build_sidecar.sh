@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# CoDRAG Sidecar Builder (Phase 08 MVP)
+# Prep Sidecar Builder (Phase 08 MVP)
 # Builds the Python daemon into a single-file executable using PyInstaller.
 # Integrates the correct platform-specific Rust engine wheel.
 
@@ -29,7 +29,7 @@ case "${OS}" in
     *) PLATFORM="unknown";;
 esac
 
-echo "Building CoDRAG daemon sidecar..."
+echo "Building Prep daemon sidecar..."
 echo "Platform: ${OS} (${PLATFORM})"
 echo "Architecture: ${ARCH} (${WHEEL_ARCH})"
 echo "Python Version: ${PYTHON_VERSION}"
@@ -45,7 +45,7 @@ rm -rf build/ dist/
 
 # ENG-6: Integrate correct platform wheel
 WHEEL_DIR="${REPO_ROOT}/engine/target/wheels"
-WHEEL_PATTERN="codrag_engine-*-cp${PYTHON_VERSION}-*.whl"
+WHEEL_PATTERN="prep_engine-*-cp${PYTHON_VERSION}-*.whl"
 
 # Find the best matching wheel
 WHEEL_FILE=""
@@ -73,7 +73,7 @@ if [ -d "$WHEEL_DIR" ]; then
     # Fallback: any matching Python version wheel
     if [ -z "$WHEEL_FILE" ]; then
         echo "No exact platform match, trying any compatible wheel..."
-        WHEEL_FILE=$(find "$WHEEL_DIR" -name "codrag_engine-*-cp${PYTHON_VERSION}-*.whl" 2>/dev/null | head -1)
+        WHEEL_FILE=$(find "$WHEEL_DIR" -name "prep_engine-*-cp${PYTHON_VERSION}-*.whl" 2>/dev/null | head -1)
     fi
 fi
 
@@ -98,19 +98,19 @@ fi
 # Note: we might need more specific collects for onnxruntime/tokenizers depending on the platform.
 
 pyinstaller \
-    --name codrag-daemon \
+    --name prep-daemon \
     --onefile \
     --clean \
-    --hidden-import="codrag.core.embedder" \
-    --hidden-import="codrag.core.compressor" \
-    --hidden-import="codrag_engine" \
-    --collect-all="codrag" \
-    --collect-all="codrag_engine" \
+    --hidden-import="prep.core.embedder" \
+    --hidden-import="prep.core.compressor" \
+    --hidden-import="prep_engine" \
+    --collect-all="prep" \
+    --collect-all="prep_engine" \
     --collect-all="uvicorn" \
     --collect-all="fastapi" \
     --collect-all="onnxruntime" \
     --collect-all="tokenizers" \
-    src/codrag/server.py
+    src/prep/server.py
 
 echo "Build complete."
 
@@ -138,12 +138,12 @@ fi
 echo "Detected target triple: $TARGET_TRIPLE"
 
 # Target directory for Tauri binaries
-TAURI_BIN_DIR="src/codrag/dashboard/src-tauri/binaries"
+TAURI_BIN_DIR="src/prep/dashboard/src-tauri/binaries"
 mkdir -p "$TAURI_BIN_DIR"
 
 # Move and rename binary
-SRC_BIN="dist/codrag-daemon"
-DEST_BIN="$TAURI_BIN_DIR/codrag-daemon-$TARGET_TRIPLE"
+SRC_BIN="dist/prep-daemon"
+DEST_BIN="$TAURI_BIN_DIR/prep-daemon-$TARGET_TRIPLE"
 
 if [[ "$OS" == "MINGW"* ]]; then
     SRC_BIN="${SRC_BIN}.exe"

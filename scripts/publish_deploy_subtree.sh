@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Publish the codrag-deploy subtree to a standalone public repo.
+# Publish the prep-deploy subtree to a standalone public repo.
 # Same pattern as publish_clara_subtree.sh.
 #
 # Usage:
 #   scripts/publish_deploy_subtree.sh                  # push to dev remote
 #   scripts/publish_deploy_subtree.sh --promote        # also push to public remote
 
+# TODO(Task 11): flip prefix to public/prep-deploy after subtree git mv
 prefix="public/codrag-deploy"
 dev_remote="deploy-dev"
 public_remote="origin"
@@ -67,6 +68,7 @@ fi
 
 if ! git -C "$repo_root" remote get-url "$dev_remote" >/dev/null 2>&1; then
   echo "Missing git remote: $dev_remote" >&2
+  # TODO(Task 22): flip to prep-deploy.git after GitHub rename
   echo "Add it with: git remote add $dev_remote git@github.com:EricBintner/codrag-deploy.git"
   exit 1
 fi

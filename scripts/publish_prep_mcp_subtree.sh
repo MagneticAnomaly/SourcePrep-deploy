@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# TODO(Task 11): flip prefix to public/prep-mcp after subtree git mv
+# TODO(Task 22): flip dev_remote / public_remote after GitHub rename
 prefix="public/codrag-mcp"
 dev_remote="codrag-mcp-dev"
 public_remote="codrag-mcp"
@@ -30,7 +32,7 @@ while [[ $# -gt 0 ]]; do
       shift 1
       ;;
     -h|--help)
-      echo "Usage: scripts/publish_codrag_mcp_subtree.sh [--prefix PATH] [--dev-remote NAME] [--public-remote NAME] [--branch NAME] [--promote]"
+      echo "Usage: scripts/publish_prep_mcp_subtree.sh [--prefix PATH] [--dev-remote NAME] [--public-remote NAME] [--branch NAME] [--promote]"
       echo "  Exports subtree at PATH and pushes to dev remote; with --promote also pushes to public remote."
       exit 0
       ;;
