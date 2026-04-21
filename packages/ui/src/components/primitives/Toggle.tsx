@@ -6,6 +6,8 @@ export interface ToggleProps {
   disabled?: boolean;
   size?: 'sm' | 'md';
   className?: string;
+  /** Optional id on the underlying button so a `<label htmlFor>` can wire up. */
+  id?: string;
 }
 
 /**
@@ -19,6 +21,7 @@ export function Toggle({
   disabled = false,
   size = 'md',
   className,
+  id,
 }: ToggleProps) {
   const sizes = {
     sm: {
@@ -38,6 +41,7 @@ export function Toggle({
   return (
     <button
       type="button"
+      id={id}
       role="switch"
       aria-checked={checked}
       disabled={disabled}

@@ -227,7 +227,7 @@ export function SettingRow({ label, description, control, last, className }: Set
       )}
     >
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium text-text-primary">{label}</div>
+        <div className="text-sm font-medium text-text">{label}</div>
         {description && (
           <div className="mt-1 text-sm text-text-muted">{description}</div>
         )}
@@ -330,13 +330,13 @@ export interface SectionProps {
 
 export function Section({ title, children, className }: SectionProps) {
   return (
-    <section className={cn('space-y-0', className)}>
+    <section className={cn(className)}>
       {title && (
         <h3 className="text-xs uppercase tracking-wide text-text-muted mb-2">
           {title}
         </h3>
       )}
-      <div className="border border-border-subtle rounded-lg px-6 bg-surface-subtle/30">
+      <div className="border border-border-subtle rounded-lg px-6 bg-surface-raised/30">
         {children}
       </div>
     </section>
@@ -837,14 +837,14 @@ export function SettingsPage({
   return (
     <div className="max-w-3xl mx-auto px-8 py-8">
       <header
-        className="sticky top-0 bg-surface-canvas z-10 pb-4 border-b border-border-subtle mb-6"
+        className="sticky top-0 bg-surface z-10 pb-4 border-b border-border-subtle mb-6"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold text-text-primary">{title}</h1>
+              <h1 className="text-xl font-semibold text-text">{title}</h1>
               <span
-                className="bg-surface-subtle text-text-muted text-xs rounded-full px-2 py-0.5"
+                className="bg-surface-raised text-text-muted text-xs rounded-full px-2 py-0.5"
                 aria-label={scopeAriaLabel(scope)}
               >
                 {scopeChipLabel(scope)}
@@ -857,7 +857,7 @@ export function SettingsPage({
           {actions && <div className="flex-shrink-0">{actions}</div>}
         </div>
         {dirty && (
-          <div className="mt-3 rounded-md bg-warning-subtle text-warning-strong text-sm px-3 py-2">
+          <div className="mt-3 rounded-md bg-warning-muted text-warning text-sm px-3 py-2">
             Unsaved changes
           </div>
         )}
@@ -932,9 +932,9 @@ export function SettingsNav({ activePage, onNavigate, projectName }: SettingsNav
       className={cn(
         'w-full text-left text-sm rounded-md mx-0 px-3 py-1.5',
         disabled
-          ? 'text-text-disabled cursor-not-allowed'
-          : 'text-text-secondary hover:bg-surface-subtle cursor-pointer',
-        activePage === id && !disabled && 'bg-surface-subtle text-text-primary font-medium',
+          ? 'text-text-subtle cursor-not-allowed'
+          : 'text-text-muted hover:bg-surface-raised cursor-pointer',
+        activePage === id && !disabled && 'bg-surface-raised text-text font-medium',
       )}
     >
       {LABELS[id]}
@@ -1047,7 +1047,7 @@ export function SettingsOverlay({
   return createPortal(
     <div
       className={cn(
-        'fixed inset-0 z-50 bg-surface-canvas',
+        'fixed inset-0 z-50 bg-surface',
         'flex flex-col',
         'animate-settings-overlay-in',
       )}
@@ -1063,20 +1063,20 @@ export function SettingsOverlay({
             if (!confirmCloseIfDirty || confirmCloseIfDirty()) close();
           }}
           aria-label="Close settings"
-          className="p-1 rounded-md hover:bg-surface-subtle text-text-secondary"
+          className="p-1 rounded-md hover:bg-surface-raised text-text-muted"
         >
           <ArrowLeft className="w-4 h-4" />
         </button>
-        <h2 className="text-base font-medium text-text-primary">Settings</h2>
+        <h2 className="text-base font-medium text-text">Settings</h2>
         <div className="ml-auto flex items-center gap-2">
-          <kbd className="text-xs text-text-muted bg-surface-subtle rounded px-1.5 py-0.5">⌘,</kbd>
+          <kbd className="text-xs text-text-muted bg-surface-raised rounded px-1.5 py-0.5">⌘,</kbd>
           <button
             type="button"
             onClick={() => {
               if (!confirmCloseIfDirty || confirmCloseIfDirty()) close();
             }}
             aria-label="Close settings"
-            className="p-1 rounded-md hover:bg-surface-subtle text-text-secondary"
+            className="p-1 rounded-md hover:bg-surface-raised text-text-muted"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1374,7 +1374,7 @@ export function SourcesPage({
               type="button"
               onClick={onDiscard}
               disabled={saving}
-              className="text-sm text-text-secondary hover:text-text-primary px-3 py-1.5 rounded-md"
+              className="text-sm text-text-muted hover:text-text px-3 py-1.5 rounded-md"
             >Discard</button>
           )}
           <button
@@ -1594,7 +1594,7 @@ export function IntegrationsPage({ onOpenAiGateway }: IntegrationsPageProps) {
             <button
               type="button"
               onClick={onOpenAiGateway}
-              className="text-sm border border-border-subtle hover:bg-surface-subtle rounded-md px-3 py-1.5 text-text-primary"
+              className="text-sm border border-border-subtle hover:bg-surface-raised rounded-md px-3 py-1.5 text-text"
             >Open AI Gateway →</button>
           }
           last

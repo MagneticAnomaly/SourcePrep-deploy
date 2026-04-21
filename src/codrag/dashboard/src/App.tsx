@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { FileText, Settings, AlertCircle, AlertTriangle, X, GitBranch } from 'lucide-react'
-import type { AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance, AssignmentMode, LLMConfig } from '@codrag/ui'
+import type { AdvancedConfig, AtlasStatus, ActivityHeatmapData, UserRole, PipelineProvenance, AssignmentMode, LLMConfig } from '@codrag/ui'
 import {
   // API
   useApiClient,
@@ -28,7 +28,9 @@ import {
 } from '@codrag/ui'
 import { StartupScreen } from './components/StartupScreen'
 import { UpdateBanner } from './components/UpdateBanner'
-import { SettingsDrawer } from './components/settings/SettingsDrawer'
+import { SettingsOverlay } from './components/settings/v2/SettingsOverlay'
+import { renderSettingsPage } from './components/settings/v2/pages'
+import type { SettingsPageId } from './components/settings/v2/routeParser'
 import { Toast, makeToast } from './components/Toast'
 import type { ToastMessage, ToastVariant } from './components/Toast'
 import { useLicenseSystem } from './hooks/useLicenseSystem'
@@ -130,9 +132,15 @@ function App() {
   const [uiTheme, setUiTheme] = useState<string>(() =>
     localStorage.getItem('codrag_ui_theme') ?? 'none'
   )
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsOpenToTab, setSettingsOpenToTab] = useState<'project' | 'global' | 'advanced' | 'developer' | undefined>(undefined)
-  const [scrollToDeepAnalysis, setScrollToDeepAnalysis] = useState(false)
+  // Opens the V2 settings overlay at a specific page by pushing
+  // `?settings=<page>` into the URL and firing a popstate so the
+  // overlay's useSettingsRoute hook picks it up.
+  const openSettingsAt = useCallback((page: SettingsPageId) => {
+    const next = new URL(window.location.href)
+    next.searchParams.set('settings', page)
+    window.history.pushState(window.history.state, '', next.toString())
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, [])
   const [bgImage, setBgImage] = useState<string | null>(() =>
     localStorage.getItem('codrag_bg_image') ?? null
   )
@@ -140,6 +148,14 @@ function App() {
   const [deepCollapsed, setDeepCollapsed] = useState<boolean>(true);
   const [finalizeCollapsed, setFinalizeCollapsed] = useState<boolean>(true);
   const [maxActiveProjects, setMaxActiveProjects] = useState<number | 'infinite'>('infinite')
+  const [globalAdvanced, setGlobalAdvanced] = useState<AdvancedConfig>({
+    checkpoint_interval: 500,
+    min_edge_confidence: 0.5,
+    chunk_max_chars: 2000,
+    chunk_overlap_chars: 200,
+    md_chunk_max_chars: 1800,
+    md_chunk_min_chars: 350,
+  })
   const [schedulerStatus, setSchedulerStatus] = useState<any>(null)
   const [computeNodes, setComputeNodes] = useState<any[]>([])
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
@@ -148,7 +164,11 @@ function App() {
     const stored = localStorage.getItem('codrag_dev_role_override')
     return stored ? stored as UserRole : null
   })
-  const [globalConfig, setGlobalConfig] = useState<{ developer_debug_mode?: boolean; developer_show_dev_panels?: boolean }>({})
+  const [globalConfig, setGlobalConfig] = useState<{
+    developer_debug_mode?: boolean;
+    exploratory_testing_mode?: boolean;
+    developer_show_dev_panels?: boolean;
+  }>({})
 
   const [adminPolicy, setAdminPolicy] = useState<any>(null)
   const [seatStatus, setSeatStatus] = useState<any>(null)
@@ -220,6 +240,25 @@ function App() {
     handleToggleActive, handleToggleStar, handleCyclePriority,
     setProjectConfig, setConfigDirty,
   } = project
+
+  // ⌘, (Ctrl+, on non-Mac) opens the settings overlay at the default page.
+  // Close is owned by SettingsOverlay itself so the dirty guard fires there.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = navigator.platform.includes('Mac') ? e.metaKey : e.ctrlKey
+      if (!mod || e.key !== ',') return
+      // If overlay is already open, SettingsOverlay's own handler closes it.
+      const current = new URLSearchParams(window.location.search).get('settings')
+      if (current) return
+      e.preventDefault()
+      const next = new URL(window.location.href)
+      next.searchParams.set('settings', selectedProjectId ? 'sources' : 'appearance')
+      window.history.pushState(window.history.state, '', next.toString())
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectedProjectId])
 
   // ── Hydration controller (Phase 70) ────────────────────────
   // Coordinates project-switch: debounces ID, manages AbortController,
@@ -468,6 +507,46 @@ function App() {
     }
   }, [setDeepAnalysisSchedule, enrichmentAutoConfig, handleEnrichmentAutoConfigChange])
 
+  // ── Settings v2: Project save/discard wiring (T14) ──────────
+  const [projectSaving, setProjectSaving] = useState(false)
+  const handleProjectSave = useCallback(async () => {
+    setProjectSaving(true)
+    try {
+      await handleSaveConfig()
+    } finally {
+      setProjectSaving(false)
+    }
+  }, [handleSaveConfig])
+  // Discard: re-fetch the canonical config from the daemon and clear dirty.
+  // If the fetch fails (e.g. daemon unreachable), we still clear the dirty
+  // flag so the user can escape — the next project-switch will re-hydrate.
+  const handleProjectDiscard = useCallback(() => {
+    if (!selectedProjectId) {
+      setConfigDirty(false)
+      return
+    }
+    void api.getProject(selectedProjectId)
+      .then((data) => {
+        const cfg = data.project?.config
+        if (cfg) {
+          setProjectConfig((prev) => ({
+            ...prev,
+            include_globs: cfg.include_globs ?? prev.include_globs,
+            exclude_globs: cfg.exclude_globs ?? prev.exclude_globs,
+            max_file_bytes: cfg.max_file_bytes ?? prev.max_file_bytes,
+            hard_limit_bytes: cfg.hard_limit_bytes ?? prev.hard_limit_bytes,
+            use_gitignore: cfg.use_gitignore ?? prev.use_gitignore,
+            trace: cfg.trace ?? prev.trace,
+            auto_rebuild: cfg.auto_rebuild ?? prev.auto_rebuild,
+            auto_config: cfg.auto_config,
+            deep_analysis_schedule: cfg.deep_analysis_schedule,
+          }))
+        }
+      })
+      .catch(() => { /* fall through: still clear dirty */ })
+      .finally(() => setConfigDirty(false))
+  }, [api, selectedProjectId, setProjectConfig, setConfigDirty])
+
   // ── LLM config (hook) ───────────────────────────────────────
   const {
     llmConfig, setLLMConfig,
@@ -531,6 +610,18 @@ function App() {
   const handleGlobalConfigChange = useCallback((patch: Record<string, any>) => {
     setGlobalConfig(prev => ({ ...prev, ...patch }))
     api.updateGlobalConfig(patch as any).catch(() => { })
+  }, [api])
+
+  const handleOpenAiGateway = useCallback(() => {
+    const next = new URL(window.location.href)
+    next.searchParams.delete('settings')
+    window.history.replaceState(window.history.state, '', next.toString())
+    window.dispatchEvent(new CustomEvent('codrag:open-ai-gateway'))
+  }, [])
+
+  const handleGlobalAdvancedChange = useCallback((patch: Partial<AdvancedConfig>) => {
+    setGlobalAdvanced(prev => ({ ...prev, ...patch }))
+    api.updateAdvancedConfig(patch).catch(() => { })
   }, [api])
 
   const handleToggleGroupCollapsed = useCallback((group: 'fast' | 'deep' | 'finalize') => {
@@ -718,6 +809,12 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshProjects, isConnected])
 
+  // ── Init: load advanced config (chunking/pipeline defaults) ─────────
+  useEffect(() => {
+    if (!isConnected) return
+    api.getAdvancedConfig().then(setGlobalAdvanced).catch(() => { })
+  }, [api, isConnected])
+
   // ── Auto-save dashboard layout to backend ───────────────────
   const layoutInitialMount = useRef(true)
   const dashboardLayoutRef = useRef(dashboardLayout)
@@ -825,8 +922,8 @@ function App() {
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
-    onOpenDeepSettings: () => { setSettingsOpenToTab('project'); setScrollToDeepAnalysis(true); setSettingsOpen(true) },
-    onOpenSettings: () => { setSettingsOpenToTab('global'); setSettingsOpen(true) },
+    onOpenDeepSettings: () => { openSettingsAt('deep-analysis') },
+    onOpenSettings: () => { openSettingsAt(selectedProjectId ? 'sources' : 'appearance') },
     onOpenDetails: (panelId: string) => layoutApiRef.current?.openDetails(panelId),
     showDevPanels: globalConfig.developer_show_dev_panels ?? false,
     tracePipelinePanelVisible,
@@ -934,6 +1031,14 @@ function App() {
     },
   })
 
+  // Pipeline-running signal used by the Settings Danger Zone (legacy drawer
+  // and v2 overlay both consume this to disable Recover-from-Snapshot
+  // during active runs). Extracted so both code paths see the same value.
+  const settingsPipelineRunning =
+    inferredEdgesRunning || augmenting || validating || epistemicRunning ||
+    groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning ||
+    fastKnowledgeBuilding || deepKnowledgeBuilding
+
   // ── Loading state ──────────────────────────────────────────
   // Consolidated: show StartupScreen throughout both the daemon‐connection
   // phase AND the subsequent init/hydration phase. The stage text updates
@@ -961,7 +1066,7 @@ function App() {
             You have {project.projects.length} projects but your {effectiveTier === 'free' ? 'Free' : effectiveTier.charAt(0).toUpperCase() + effectiveTier.slice(1)} plan supports {projectLimit === Infinity ? 'unlimited' : projectLimit}. Project updates and syncing are paused.
           </span>
           <button
-            onClick={() => { setSettingsOpenToTab('global'); setSettingsOpen(true) }}
+            onClick={() => openSettingsAt('license')}
             className="ml-2 px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded font-semibold transition-colors"
           >
             Upgrade to Pro
@@ -981,69 +1086,67 @@ function App() {
           Connection to CoDRAG daemon lost. Attempting to reconnect...
         </div>
       )}
-      <SettingsDrawer
-        open={settingsOpen}
-        onClose={() => { setSettingsOpen(false); setScrollToDeepAnalysis(false) }}
-        openToTab={settingsOpenToTab}
-        scrollToDeepAnalysis={scrollToDeepAnalysis}
-        projectConfig={projectConfig}
-        onProjectConfigChange={handleProjectConfigChange}
-        onSaveConfig={() => void handleSaveConfig()}
-        configDirty={configDirty}
-        hasProject={!!selectedProjectId}
-        onDetectStack={selectedProjectId ? handleDetectStack : undefined}
-        deepAnalysisSchedule={deepAnalysisSchedule}
-        onDeepAnalysisScheduleChange={handleSyncedDeepAnalysisScheduleChange}
-        largeModelConfigured={!!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model)}
-        fastModelConfigured={!!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model)}
-        maxActiveProjects={maxActiveProjects}
-        onMaxActiveProjectsChange={handleMaxActiveProjectsChange}
-        uiMode={uiMode}
-        onModeChange={setUiMode}
-        uiTheme={uiTheme}
-        onThemeChange={setUiTheme}
-        bgImage={bgImage}
-        onBgImageChange={setBgImage}
-        licenseStatus={licenseStatus}
-        licenseKeyInput={licenseKeyInput}
-        onLicenseKeyInputChange={setLicenseKeyInput}
-        onActivateLicense={handleActivateLicense}
-        onDeactivateLicense={handleDeactivateLicense}
-        licenseLoading={licenseLoading}
-        licenseError={licenseError}
-        projectName={selectedProject?.name}
-        projectId={selectedProjectId}
-        pipelineRunning={
-          inferredEdgesRunning || augmenting || validating || epistemicRunning ||
-          groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning ||
-          fastKnowledgeBuilding || deepKnowledgeBuilding
-        }
-        onDestroyIndex={handleDestroyIndex}
-        onDestroyEnrichmentFull={handleDestroyEnrichmentFull}
-        onDestroyFinalizeFull={handleDestroyFinalizeFull}
-        onRebuildPipeline={handleRebuildPipeline}
-        onDestroyAtlas={handleDestroyAtlas}
-        onDestroyGroupReasoning={handleDestroyGroupReasoning}
-        onDestroyDeepEnrichment={handleDestroyDeepEnrichment}
-        globalConfig={globalConfig}
-        onGlobalConfigChange={handleGlobalConfigChange}
-        devTierOverride={devTierOverride}
-        onDevTierOverrideChange={handleDevTierOverrideChange}
-        devRoleOverride={devRoleOverride}
-        onDevRoleOverrideChange={handleDevRoleOverrideChange}
+      <SettingsOverlay
+        renderPage={(page) => renderSettingsPage(page, {
+          globalConfig,
+          activeProjectId: selectedProjectId,
+          projectName: selectedProject?.name ?? null,
+          projectConfigTyped: selectedProjectId ? projectConfig : null,
+          projectDirty: configDirty,
+          projectSaving,
+          onProjectChange: handleProjectConfigChange,
+          onProjectSave: handleProjectSave,
+          onProjectDiscard: handleProjectDiscard,
+          onDetectStack: selectedProjectId ? handleDetectStack : undefined,
+          deepAnalysisSchedule,
+          onDeepAnalysisScheduleChange: handleSyncedDeepAnalysisScheduleChange,
+          largeModelConfigured: !!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model),
+          fastModelConfigured: !!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model),
+          pipelineRunning: settingsPipelineRunning,
+          onRebuildPipeline: handleRebuildPipeline,
+          onDestroyIndex: handleDestroyIndex,
+          onDestroyEnrichmentFull: handleDestroyEnrichmentFull,
+          onDestroyFinalizeFull: handleDestroyFinalizeFull,
+          uiMode,
+          onModeChange: setUiMode,
+          uiTheme,
+          onThemeChange: setUiTheme,
+          bgImage,
+          onBgImageChange: setBgImage,
+          globalAdvanced,
+          onGlobalAdvancedChange: handleGlobalAdvancedChange,
+          maxActiveProjects,
+          onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
+          licenseStatus,
+          licenseKeyInput,
+          onLicenseKeyInputChange: setLicenseKeyInput,
+          onActivateLicense: handleActivateLicense,
+          onDeactivateLicense: handleDeactivateLicense,
+          licenseLoading,
+          licenseError,
+          devTierOverride,
+          onOpenAiGateway: handleOpenAiGateway,
+          onGlobalConfigChange: handleGlobalConfigChange,
+          onDevTierOverrideChange: handleDevTierOverrideChange,
+          devRoleOverride,
+          onDevRoleOverrideChange: handleDevRoleOverrideChange,
+          onDestroyAtlas: handleDestroyAtlas,
+          onDestroyGroupReasoning: handleDestroyGroupReasoning,
+          onDestroyDeepEnrichment: handleDestroyDeepEnrichment,
+        })}
+        projectName={selectedProject?.name ?? null}
+        confirmCloseIfDirty={() => !configDirty || window.confirm('Discard unsaved changes?')}
       />
-      {/* Floating Settings trigger — always visible */}
-      {!settingsOpen && (
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={() => { setSettingsOpenToTab(undefined); setSettingsOpen(true) }}
-          title="Settings"
-          className="fixed bottom-4 right-4 z-40 shadow-lg bg-surface hover:bg-surface-raised"
-        >
-          <Settings className="w-5 h-5" />
-        </Button>
-      )}
+      {/* Floating Settings trigger — always visible; overlay (z-[110]) masks it when open. */}
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={() => openSettingsAt(selectedProjectId ? 'sources' : 'appearance')}
+        title="Settings"
+        className="fixed bottom-4 right-4 z-40 shadow-lg bg-surface hover:bg-surface-raised"
+      >
+        <Settings className="w-5 h-5" />
+      </Button>
       {/* Background image overlay */}
       {bgImage && (
         <div
@@ -1168,7 +1271,7 @@ function App() {
         limitReached={isAtProjectLimit}
         currentTierLabel={effectiveTier === 'free' ? 'Free' : effectiveTier === 'starter' ? 'Starter' : undefined}
         currentLimit={projectLimit === Infinity ? undefined : projectLimit}
-        onUpgrade={() => { setAddModalOpen(false); setSettingsOpenToTab('global'); setSettingsOpen(true) }}
+        onUpgrade={() => { setAddModalOpen(false); openSettingsAt('license') }}
       />
     </>
   )
