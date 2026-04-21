@@ -229,7 +229,7 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
 /**
  * Storage key for localStorage
  */
-export const LAYOUT_STORAGE_KEY = 'codrag_dashboard_layout';
+export const LAYOUT_STORAGE_KEY = 'prep_dashboard_layout';
 
 /**
  * Convert DashboardLayout to react-grid-layout format

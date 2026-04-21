@@ -78,7 +78,7 @@ export function DetailPageLayout({
                   {docsLabel}
                 </a>
                 <a
-                  href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request"
+                  href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request"
                   className="flex items-center gap-2 text-sm font-medium text-text-muted hover:text-text transition-colors"
                 >
                   Request Beta Access <ArrowRight className="w-3 h-3" />

@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/success', '/recover'], // Don't index transactional pages
     },
-    sitemap: 'https://payments.codrag.io/sitemap.xml',
+    sitemap: 'https://payments.runprep.io/sitemap.xml',
   };
 }

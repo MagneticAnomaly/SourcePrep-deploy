@@ -13,7 +13,7 @@ export default function Page() {
           MCP Integrations
         </h1>
         <p className="mt-4 text-xl text-text-muted">
-          Connect CoDRAG to your favorite AI editors using the Model Context Protocol.
+          Connect Prep to your favorite AI editors using the Model Context Protocol.
         </p>
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2">
@@ -33,7 +33,7 @@ export default function Page() {
               <span className="text-text-muted">→</span>
             </div>
             <p className="text-text-muted">
-              Connect command-line workflows like Claude Code and Gemini CLI directly to your local CoDRAG index.
+              Connect command-line workflows like Claude Code and Gemini CLI directly to your local Prep index.
             </p>
           </a>
 
@@ -54,16 +54,16 @@ export default function Page() {
             The <a href="https://modelcontextprotocol.io" target="_blank" className="text-primary hover:underline">Model Context Protocol (MCP)</a> is an open standard that enables AI models to interact with external data and tools.
           </p>
           <p>
-            CoDRAG runs a local MCP server that exposes your indexed codebase as a set of tools. 
+            Prep runs a local MCP server that exposes your indexed codebase as a set of tools. 
             It supports both <span className="font-semibold text-text">Stdio</span> (recommended for local editors) and <span className="font-semibold text-text">SSE</span> (for remote/containerized setups).
             When you connect an editor like Cursor or Windsurf, their internal AI agents gain the ability to:
           </p>
           <ul className="list-disc pl-6 space-y-2">
-            <li><span className="font-semibold text-text">Get Oriented:</span> Call <code>codrag</code> with no arguments to get ambient context — module structures, hub files, and your selected focus areas formatted perfectly for internal understanding.</li>
-            <li><span className="font-semibold text-text">Search Semantically:</span> Use <code>codrag_search</code> to find code by meaning ("auth logic") rather than just keywords, expanding structurally to provide required imports automatically.</li>
-            <li><span className="font-semibold text-text">Code Graph:</span> Follow import paths and function calls (Rust-powered graph) defensively. Use <code>codrag_impact</code> to see exact blast radiuses before modifying a file.</li>
-            <li><span className="font-semibold text-text">Persistent Memory:</span> Use <code>codrag_observe</code> to write cross-session notes that get automatically flagged as `[STALE]` when the underlying files are modified.</li>
-            <li><span className="font-semibold text-text">Audit Codebase:</span> Use <code>codrag_audit</code> to get a health report with architecture findings, tech debt, dead code, and test coverage gaps. <a href="/guides/codebase-audit" className="text-primary hover:underline">Learn more →</a></li>
+            <li><span className="font-semibold text-text">Get Oriented:</span> Call <code>prep</code> with no arguments to get ambient context — module structures, hub files, and your selected focus areas formatted perfectly for internal understanding.</li>
+            <li><span className="font-semibold text-text">Search Semantically:</span> Use <code>prep_search</code> to find code by meaning ("auth logic") rather than just keywords, expanding structurally to provide required imports automatically.</li>
+            <li><span className="font-semibold text-text">Code Graph:</span> Follow import paths and function calls (Rust-powered graph) defensively. Use <code>prep_impact</code> to see exact blast radiuses before modifying a file.</li>
+            <li><span className="font-semibold text-text">Persistent Memory:</span> Use <code>prep_observe</code> to write cross-session notes that get automatically flagged as `[STALE]` when the underlying files are modified.</li>
+            <li><span className="font-semibold text-text">Audit Codebase:</span> Use <code>prep_audit</code> to get a health report with architecture findings, tech debt, dead code, and test coverage gaps. <a href="/guides/codebase-audit" className="text-primary hover:underline">Learn more →</a></li>
           </ul>
 
           <AnchorHeading id="tools-reference" level="h2">Tools Reference</AnchorHeading>
@@ -78,23 +78,23 @@ export default function Page() {
               </thead>
               <tbody className="text-text-muted">
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep</td>
                   <td className="py-2 text-xs">Ambient context — hub files, module summaries, focus areas (no arguments needed)</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_search</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep_search</td>
                   <td className="py-2 text-xs">Semantic search with trace expansion, atlas routing, LOD compression</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_impact</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep_impact</td>
                   <td className="py-2 text-xs">Blast radius analysis — what depends on a file or symbol</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_observe</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep_observe</td>
                   <td className="py-2 text-xs">Save or retrieve cross-session notes about the codebase (with stale flags)</td>
                 </tr>
                 <tr>
-                  <td className="py-2 pr-4 font-mono text-xs">codrag_audit</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep_audit</td>
                   <td className="py-2 text-xs">Run or retrieve codebase health audits (action = scan, refactor, verify, report)</td>
                 </tr>
               </tbody>
@@ -103,7 +103,7 @@ export default function Page() {
 
           <AnchorHeading id="live-preview" level="h2">Live Dashboard Preview</AnchorHeading>
           <p className="mt-2 mb-4">
-            These are live, interactive previews of the CoDRAG dashboard panels your agents interact with.
+            These are live, interactive previews of the Prep dashboard panels your agents interact with.
           </p>
 
           <div className="grid gap-6 mt-6">

@@ -132,7 +132,7 @@ export function SidebarPipelineQueue({
   const [nodes, setNodes] = useState<QueueResponse['nodes']>({});
   const [collapsed, setCollapsed] = useState(() => {
     const saved = typeof window !== 'undefined'
-      ? localStorage.getItem('codrag_queue_collapsed')
+      ? localStorage.getItem('prep_queue_collapsed')
       : null;
     return saved === 'true';
   });
@@ -188,7 +188,7 @@ export function SidebarPipelineQueue({
   const toggleCollapsed = useCallback(() => {
     setCollapsed(prev => {
       const next = !prev;
-      localStorage.setItem('codrag_queue_collapsed', String(next));
+      localStorage.setItem('prep_queue_collapsed', String(next));
       return next;
     });
   }, []);

@@ -1,4 +1,4 @@
-[data-codrag-theme='n'] {
+[data-prep-theme='n'] {
   --background: 245 65% 9%;
   --foreground: 175 100% 88%;
 
@@ -36,7 +36,7 @@
   --font-mono: 'Share Tech Mono', monospace;
 }
 
-[data-codrag-theme='n'] .tremor-Card-root {
+[data-prep-theme='n'] .tremor-Card-root {
   border: 1px solid hsl(var(--border));
   box-shadow:
     0 0 10px rgba(120, 80, 255, 0.28),
@@ -47,7 +47,7 @@
     linear-gradient(180deg, hsl(var(--surface)) 0%, rgba(18, 10, 55, 0.92) 100%);
 }
 
-[data-codrag-theme='n'].dark {
+[data-prep-theme='n'].dark {
   --background: 245 70% 7%;
   --surface: 248 60% 11%;
 }

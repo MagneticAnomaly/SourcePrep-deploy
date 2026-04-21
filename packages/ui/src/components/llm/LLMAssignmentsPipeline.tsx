@@ -2,7 +2,7 @@ import { cn } from '../../lib/utils';
 import {
   Code2, Database, Brain, Layers, Map, Network, Search, ShieldCheck, Zap, AlertTriangle, Cloud, CloudOff
 } from 'lucide-react';
-import type { CodragTaskId, LLMAssignmentBlock } from '../../types';
+import type { PrepTaskId, LLMAssignmentBlock } from '../../types';
 import { TASK_LABELS, TASK_TAGS, TASK_CLOUD_PREF } from '../../types';
 import { getTaskTokenDescription, getTaskTokenVolume } from '../../lib/token-estimates';
 import type { TokenVolume } from '../../lib/token-estimates';
@@ -15,7 +15,7 @@ export interface LLMAssignmentsPipelineProps {
 }
 
 interface TaskInfo {
-  id: CodragTaskId;
+  id: PrepTaskId;
   icon: React.ComponentType<{ className?: string }>;
 }
 
@@ -74,7 +74,7 @@ export function LLMAssignmentsPipeline({ blocks, fileCount = 0, className }: LLM
     }
   }
 
-  const buildCloudTooltip = (taskId: CodragTaskId, pref: 'cloud-preferred' | 'local-preferred' | 'neutral') => {
+  const buildCloudTooltip = (taskId: PrepTaskId, pref: 'cloud-preferred' | 'local-preferred' | 'neutral') => {
     const volume = getTaskTokenVolume(taskId);
     const base = pref === 'cloud-preferred' ? 'Cloud model recommended' : pref === 'local-preferred' ? 'Local model recommended' : 'Cloud or Local model (neutral)';
     if (fileCount > 0) {

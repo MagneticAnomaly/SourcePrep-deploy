@@ -382,7 +382,7 @@ export class MockApiClient implements ApiClient {
         { name: 'Daemon Authentication', status: 'warn', issues: ['No auth token set (localhost only)'], details: {} },
         { name: 'CORS Configuration', status: 'pass', issues: [], details: {} },
         { name: 'License Verification', status: 'pass', issues: [], details: {} },
-        { name: 'Dev Mode Detection', status: 'warn', issues: ['CODRAG_DEV_MODE=1 active'], details: {} },
+        { name: 'Dev Mode Detection', status: 'warn', issues: ['PREP_DEV_MODE=1 active'], details: {} },
         { name: 'DLP Compliance', status: 'pass', issues: [], details: {} },
         { name: 'Content Sanitization', status: 'pass', issues: [], details: {} },
         { name: 'S3 Endpoint Security', status: 'pass', issues: [], details: {} },
@@ -526,10 +526,10 @@ export class MockApiClient implements ApiClient {
   async getPipelineProvenance(_projectId: string): Promise<import('../types').PipelineProvenance> {
     return {
       current_data: {
-        'trace_nodes.jsonl': { stage_id: 'structural', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 0.4, codrag_version: '0.9.0' },
-        'trace_augmented.jsonl': { stage_id: 'catalogue', model: 'qwen3:14b', provider: 'ollama', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 151, codrag_version: '0.9.0', quality: { avg_confidence: 0.87, success_rate: 0.992, total_items: 247 } },
-        'trace_epistemic.jsonl': { stage_id: 'enrichment', model: 'qwen3.5-27b', provider: 'ollama', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 248, codrag_version: '0.9.0', quality: { avg_confidence: 0.91, success_rate: 1.0, total_items: 247 } },
-        'trace_modules.jsonl': { stage_id: 'clustering', model: 'qwen3.5-27b', provider: 'ollama', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 45, codrag_version: '0.9.0' },
+        'trace_nodes.jsonl': { stage_id: 'structural', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 0.4, prep_version: '0.9.0' },
+        'trace_augmented.jsonl': { stage_id: 'catalogue', model: 'qwen3:14b', provider: 'ollama', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 151, prep_version: '0.9.0', quality: { avg_confidence: 0.87, success_rate: 0.992, total_items: 247 } },
+        'trace_epistemic.jsonl': { stage_id: 'enrichment', model: 'qwen3.5-27b', provider: 'ollama', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 248, prep_version: '0.9.0', quality: { avg_confidence: 0.91, success_rate: 1.0, total_items: 247 } },
+        'trace_modules.jsonl': { stage_id: 'clustering', model: 'qwen3.5-27b', provider: 'ollama', generated_at: new Date(Date.now() - 86400000 * 3).toISOString(), age_days: 3, elapsed_seconds: 45, prep_version: '0.9.0' },
       },
       oldest_data_age_days: 3,
       staleness_warning: false,
@@ -542,7 +542,7 @@ export class MockApiClient implements ApiClient {
     const now = new Date().toISOString();
     const base: import('../types').AtlasStatus = {
       exists: true,
-      content: 'Python/TypeScript monorepo. Core engine (src/codrag/core/) handles indexing, embedding, and search. API layer (src/codrag/api/) exposes FastAPI endpoints. Dashboard (packages/ui/) is a React + Tremor app. MCP server (src/codrag/mcp_server.py) bridges AI tools. Enrichment pipeline: trace → augment → validate → enrich → cluster → atlas → deepen → knowledge.',
+      content: 'Python/TypeScript monorepo. Core engine (src/prep/core/) handles indexing, embedding, and search. API layer (src/prep/api/) exposes FastAPI endpoints. Dashboard (packages/ui/) is a React + Tremor app. MCP server (src/prep/mcp_server.py) bridges AI tools. Enrichment pipeline: trace → augment → validate → enrich → cluster → atlas → deepen → knowledge.',
       mode: 'structural',
       model: 'structural',
       generated_at: now,
@@ -552,7 +552,7 @@ export class MockApiClient implements ApiClient {
       stale: false,
       segmented: true,
       segments: [
-        { segment_id: 'seg_src_codrag', segment_name: 'src/codrag', dir_path: 'src/codrag', file_count: 323, char_count: 2100, mode: 'structural', generated_at: now, stale: false },
+        { segment_id: 'seg_src_prep', segment_name: 'src/prep', dir_path: 'src/prep', file_count: 323, char_count: 2100, mode: 'structural', generated_at: now, stale: false },
         { segment_id: 'seg_packages_ui', segment_name: 'packages/ui', dir_path: 'packages/ui', file_count: 291, char_count: 1800, mode: 'structural', generated_at: now, stale: false },
         { segment_id: 'seg_websites', segment_name: 'websites', dir_path: 'websites', file_count: 73, char_count: 800, mode: 'structural', generated_at: now, stale: false },
       ],

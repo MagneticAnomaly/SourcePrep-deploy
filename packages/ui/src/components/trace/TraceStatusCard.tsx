@@ -43,7 +43,7 @@ export function TraceStatusCard({
   } as TaskProgress : undefined);
 
   return (
-    <Card className={cn('codrag-trace-status-card', className)}>
+    <Card className={cn('prep-trace-status-card', className)}>
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>

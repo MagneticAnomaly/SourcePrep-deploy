@@ -6,7 +6,7 @@ import type {
   LLMConfig,
   ModelSlotType,
   SavedEndpoint,
-  CodragTaskId,
+  PrepTaskId,
 } from '../../types';
 import { applyPreset } from '../../lib/llm-presets';
 
@@ -223,7 +223,7 @@ export const MappedMode: Story = {
             ...prev,
             assignment_blocks: [
               ...(prev.assignment_blocks || []),
-              { id: `block-${++blockCounter}`, endpoint_id: '', model: '', tasks: [] as CodragTaskId[] },
+              { id: `block-${++blockCounter}`, endpoint_id: '', model: '', tasks: [] as PrepTaskId[] },
             ],
           }));
         }}

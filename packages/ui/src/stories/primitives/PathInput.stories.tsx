@@ -54,7 +54,7 @@ export const CustomIndexPath: Story = {
   render: () => (
     <PathInputDemo
       label="Index Location"
-      placeholder="/fast-drive/codrag-indexes"
+      placeholder="/fast-drive/prep-indexes"
       hint="Path where the index database will be stored"
     />
   ),
@@ -107,7 +107,7 @@ export const NoPicker: Story = {
       </p>
       <PathInputDemo
         label="Index Storage Path"
-        placeholder="/fast-drive/codrag-indexes"
+        placeholder="/fast-drive/prep-indexes"
         hint="Manual text entry only — no file picker button"
         pickerMode="none"
       />

@@ -73,14 +73,14 @@ const makeFile = (path: string, lang: string): TraceCoverageFile => ({
 });
 
 const untracedFiles: TraceCoverageFile[] = [
-  makeFile('src/codrag/core/new_feature.py', 'python'),
-  makeFile('src/codrag/api/webhooks.py', 'python'),
+  makeFile('src/prep/core/new_feature.py', 'python'),
+  makeFile('src/prep/api/webhooks.py', 'python'),
   makeFile('packages/ui/src/components/new/Widget.tsx', 'typescript'),
 ];
 
 const staleFiles: TraceCoverageFile[] = [
-  makeFile('src/codrag/core/embeddings.py', 'python'),
-  makeFile('src/codrag/mcp/routes.py', 'python'),
+  makeFile('src/prep/core/embeddings.py', 'python'),
+  makeFile('src/prep/mcp/routes.py', 'python'),
 ];
 
 const excludedFiles: TraceCoverageFile[] = [

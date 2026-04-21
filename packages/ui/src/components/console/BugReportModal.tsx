@@ -6,9 +6,9 @@ import { cn } from '../../lib/utils';
 import type { LogEntry } from '../../types';
 
 /** Where reports are POSTed. Update when cloud endpoint is deployed. */
-const BUG_REPORT_ENDPOINT = 'https://support.codrag.io/api/bug-report';
+const BUG_REPORT_ENDPOINT = 'https://support.runprep.io/api/bug-report';
 const SUBMIT_TIMEOUT_MS = 10_000;
-const EMAIL_STORAGE_KEY = 'codrag_bug_report_email';
+const EMAIL_STORAGE_KEY = 'prep_bug_report_email';
 
 type Severity = 'critical' | 'major' | 'minor' | 'cosmetic';
 type SubmitState = 'idle' | 'submitting' | 'success' | 'failed';
@@ -101,7 +101,7 @@ export function BugReportModal({ open, onClose, logs, diagnosticData }: BugRepor
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `codrag-bug-report-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `prep-bug-report-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -284,7 +284,7 @@ export function BugReportModal({ open, onClose, logs, diagnosticData }: BugRepor
                   value={steps}
                   onChange={(e) => setSteps(e.target.value)}
                   rows={3}
-                  placeholder={"1. Opened project 'my-app'\n2. Clicked 'Rebuild Knowledge Base'\n3. Build reached 50% then froze\n4. Console showed ERROR from codrag.core.index"}
+                  placeholder={"1. Opened project 'my-app'\n2. Clicked 'Rebuild Knowledge Base'\n3. Build reached 50% then froze\n4. Console showed ERROR from prep.core.index"}
                   className="w-full bg-surface-raised border border-border rounded-md px-3 py-2 text-sm text-text placeholder:text-text-subtle focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-y"
                 />
               </div>
@@ -365,7 +365,7 @@ export function BugReportModal({ open, onClose, logs, diagnosticData }: BugRepor
                     <p>{submitError}</p>
                     <p className="text-text-muted">
                       The report was downloaded as a file. Please attach it to an email at{' '}
-                      <a href="mailto:support@codrag.io" className="underline">support@codrag.io</a>.
+                      <a href="mailto:support@runprep.io" className="underline">support@runprep.io</a>.
                     </p>
                   </div>
                 </div>

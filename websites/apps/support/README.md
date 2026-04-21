@@ -1,9 +1,9 @@
-# CoDRAG Support Portal (Headless GitHub)
+# Prep Support Portal (Headless GitHub)
 
-This is a Next.js application that serves as the specialized support portal for CoDRAG (`support.codrag.io`).
+This is a Next.js application that serves as the specialized support portal for Prep (`support.runprep.io`).
 
 It uses a **Headless GitHub** architecture:
-- **Frontend**: Custom Next.js UI using `@codrag/ui` components.
+- **Frontend**: Custom Next.js UI using `@prep/ui` components.
 - **Backend**: GitHub Discussions API (GraphQL) serves as the CMS.
 - **Interaction**: Read-only view of discussions; interactions (reply/post) redirect to GitHub.
 
@@ -16,7 +16,7 @@ It uses a **Headless GitHub** architecture:
 
 2. Generate a GitHub Personal Access Token (Fine-grained):
    - **Permissions**: Read-only access to "Discussions" and "Metadata" for the repo.
-   - **Repository**: `EricBintner/CoDRAG` (or your target repo).
+   - **Repository**: `EricBintner/Prep` (or your target repo).
 
 3. Add the token to `.env.local`:
    ```bash
@@ -25,7 +25,7 @@ It uses a **Headless GitHub** architecture:
 
 4. Run the development server:
    ```bash
-   turbo dev --filter=@codrag/support
+   turbo dev --filter=@prep/support
    ```
    (Runs on http://localhost:3002)
 

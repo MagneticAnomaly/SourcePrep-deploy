@@ -13,7 +13,7 @@ export default function Page() {
           BYOK Cloud Batch Processing
         </h1>
         <p className="mt-4 text-lg text-text-muted">
-          How CoDRAG optimizes API usage when you bring your own cloud model.
+          How Prep optimizes API usage when you bring your own cloud model.
         </p>
 
         <div className="mt-8 prose max-w-none">
@@ -23,10 +23,10 @@ export default function Page() {
               Privacy Notice
             </h4>
             <p className="mt-2 text-sm">
-              CoDRAG only sends data to external LLM providers when <span className="font-semibold text-text">you</span> configure
+              Prep only sends data to external LLM providers when <span className="font-semibold text-text">you</span> configure
               a BYOK (Bring Your Own Key) endpoint and explicitly trigger a build.
               By default, all processing is local. See our{' '}
-              <a href="https://github.com/nicobailey/CoDRAG/blob/main/public/codrag-mcp/PRIVACY.md" className="text-primary hover:underline">
+              <a href="https://github.com/nicobailey/Prep/blob/main/public/prep-mcp/PRIVACY.md" className="text-primary hover:underline">
                 Privacy Policy
               </a>{' '}
               for full details.
@@ -35,19 +35,19 @@ export default function Page() {
 
           <AnchorHeading id="what-is-batching" level="h2">What Is Batch Processing?</AnchorHeading>
           <p>
-            CoDRAG&apos;s pipeline analyzes your codebase in multiple stages &mdash; cataloguing files,
+            Prep&apos;s pipeline analyzes your codebase in multiple stages &mdash; cataloguing files,
             detecting cross-file relationships, enriching each file with deeper analysis, and
             grouping files into subsystem clusters. Each stage needs to process every relevant
             file in your project.
           </p>
           <p>
-            When using a <span className="font-semibold text-text">local model</span> (e.g., via Ollama), CoDRAG sends one file at
+            When using a <span className="font-semibold text-text">local model</span> (e.g., via Ollama), Prep sends one file at
             a time to the model. This is fast locally and costs nothing.
           </p>
           <p>
             When using a <span className="font-semibold text-text">cloud model</span> (BYOK), sending files one at a time would mean
             hundreds of individual API calls &mdash; each with network latency and repeated overhead.
-            Instead, CoDRAG <span className="font-semibold text-text">batches multiple files into a single API call</span>, getting
+            Instead, Prep <span className="font-semibold text-text">batches multiple files into a single API call</span>, getting
             results for many files at once.
           </p>
 
@@ -74,13 +74,13 @@ export default function Page() {
             </li>
           </ul>
           <p className="text-sm text-text-muted mt-4">
-            No data is sent to CoDRAG servers. All API calls go directly from your machine
+            No data is sent to Prep servers. All API calls go directly from your machine
             to the LLM provider you configured (e.g., OpenAI, Anthropic, Google).
           </p>
 
           <AnchorHeading id="how-batching-works" level="h2">How Batching Works</AnchorHeading>
           <p>
-            CoDRAG automatically selects a <span className="font-semibold text-text">batch profile</span> based on the model you
+            Prep automatically selects a <span className="font-semibold text-text">batch profile</span> based on the model you
             configure. The profile determines how many files are processed per API call at
             each pipeline stage.
           </p>
@@ -151,19 +151,19 @@ export default function Page() {
 
           <AnchorHeading id="structured-output" level="h2">Structured Output &amp; Reliability</AnchorHeading>
           <p>
-            When supported by the provider (OpenAI, Anthropic, Google), CoDRAG uses{' '}
+            When supported by the provider (OpenAI, Anthropic, Google), Prep uses{' '}
             <span className="font-semibold text-text">structured output mode</span> &mdash; a JSON schema that guarantees the model
             returns valid, correctly-formatted results. This eliminates parse errors and ensures
             every item in the batch produces a usable result.
           </p>
           <p>
-            For providers without structured output support, CoDRAG falls back to robust JSON
+            For providers without structured output support, Prep falls back to robust JSON
             extraction with automatic retry for any items that fail to parse.
           </p>
 
           <AnchorHeading id="error-handling" level="h2">Error Handling</AnchorHeading>
           <p>
-            If a batched call fails (timeout, rate limit, etc.), CoDRAG:
+            If a batched call fails (timeout, rate limit, etc.), Prep:
           </p>
           <ol className="list-decimal pl-6 space-y-2">
             <li>Retries the batch once.</li>

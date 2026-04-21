@@ -24,7 +24,7 @@ export default function Page() {
                <div>
                  <h3 className="font-bold text-text">The &quot;Trust Loop&quot;</h3>
                  <p className="text-sm text-text-muted mt-1">
-                   CoDRAG runs locally. You don&apos;t need to create an account or upload code to the cloud to see it work.
+                   Prep runs locally. You don&apos;t need to create an account or upload code to the cloud to see it work.
                  </p>
                </div>
              </div>
@@ -32,7 +32,7 @@ export default function Page() {
 
           <AnchorHeading id="install" level="h2">1. Install</AnchorHeading>
           <p>
-            Download CoDRAG from <a href="https://codrag.io/download" className="text-primary hover:underline">codrag.io/download</a> and install the desktop app. It&apos;s also available on the Mac App Store and Microsoft Store.
+            Download Prep from <a href="https://runprep.io/download" className="text-primary hover:underline">runprep.io/download</a> and install the desktop app. It&apos;s also available on the Mac App Store and Microsoft Store.
           </p>
           <p className="text-sm text-text-muted">
             See the full <a href="/getting-started/installation" className="text-primary hover:underline">Installation Guide</a> for step-by-step instructions.
@@ -40,26 +40,26 @@ export default function Page() {
 
           <AnchorHeading id="start-daemon" level="h2">2. Launch the App</AnchorHeading>
           <p>
-            Open CoDRAG from your Applications folder (macOS) or Start Menu (Windows). The app automatically starts the background daemon that manages the Rust indexer and MCP server.
+            Open Prep from your Applications folder (macOS) or Start Menu (Windows). The app automatically starts the background daemon that manages the Rust indexer and MCP server.
           </p>
           <div className="not-prose my-6">
             <StoryEmbed
               storyId="console-animatedcli--project-overview"
               height={350}
-              title="CoDRAG Dashboard Preview"
-              caption="Live preview: The CoDRAG daemon processing a project with structural trace and semantic indexing."
+              title="Prep Dashboard Preview"
+              caption="Live preview: The Prep daemon processing a project with structural trace and semantic indexing."
             />
           </div>
           <p className="text-sm text-text-muted">
-            <em>Alternatively, power users can run <code>codrag serve</code> from a terminal.</em>
+            <em>Alternatively, power users can run <code>prep serve</code> from a terminal.</em>
           </p>
 
           <AnchorHeading id="add-repo" level="h2">3. Add Your Repo</AnchorHeading>
           <p>
-            In the CoDRAG dashboard, click the <span className="font-semibold text-text">+</span> button in the sidebar and select your project folder. CoDRAG will immediately start indexing (semantics + structure).
+            In the Prep dashboard, click the <span className="font-semibold text-text">+</span> button in the sidebar and select your project folder. Prep will immediately start indexing (semantics + structure).
           </p>
           <p className="text-sm text-text-muted mt-2">
-            Or via CLI: <code>codrag add ~/my-project --name &quot;My Project&quot;</code>
+            Or via CLI: <code>prep add ~/my-project --name &quot;My Project&quot;</code>
           </p>
           <p>
             You&apos;ll see indexing progress in the dashboard. For a 50k file repo, the Rust trace index takes less than a second once semantic indexing wraps up.
@@ -67,7 +67,7 @@ export default function Page() {
 
           <AnchorHeading id="connect-editor" level="h2">4. Connect Your Editor</AnchorHeading>
           <p>
-            CoDRAG works best when connected to an AI code editor via MCP.
+            Prep works best when connected to an AI code editor via MCP.
           </p>
           
           <div className="grid sm:grid-cols-2 gap-4 not-prose my-6">
@@ -82,10 +82,10 @@ export default function Page() {
           </div>
 
           <p>
-            Both editors use <span className="font-semibold text-text">stdio</span> (recommended). The MCP config tells your editor to spawn <code>codrag mcp</code> as a subprocess &mdash; no URLs to configure.
+            Both editors use <span className="font-semibold text-text">stdio</span> (recommended). The MCP config tells your editor to spawn <code>prep mcp</code> as a subprocess &mdash; no URLs to configure.
           </p>
           <p className="text-sm text-text-muted mt-2">
-            <em>Advanced: For remote/containerized setups, CoDRAG also supports SSE at <code>http://localhost:8400/mcp/sse</code>. See the <a href="/mcp" className="text-primary hover:underline">MCP reference</a> for details.</em>
+            <em>Advanced: For remote/containerized setups, Prep also supports SSE at <code>http://localhost:8400/mcp/sse</code>. See the <a href="/mcp" className="text-primary hover:underline">MCP reference</a> for details.</em>
           </p>
 
           <AnchorHeading id="verify" level="h2">5. Verify</AnchorHeading>
@@ -93,10 +93,10 @@ export default function Page() {
             Open your editor&apos;s AI chat (e.g. Cursor Agent or Windsurf Cascade) and call:
           </p>
           <blockquote className="border-l-4 border-primary pl-4 italic text-text-muted my-4">
-            &quot;codrag&quot;
+            &quot;prep&quot;
           </blockquote>
           <p>
-            The <code>codrag</code> tool returns an ambient project baseline: index status, trace coverage, your selected focus areas, and hub files tailored to your codebase. It&apos;s the best first step after connecting.
+            The <code>prep</code> tool returns an ambient project baseline: index status, trace coverage, your selected focus areas, and hub files tailored to your codebase. It&apos;s the best first step after connecting.
           </p>
           <p className="text-sm text-text-muted mt-2">
             Then try a deeper explicit query:
@@ -105,7 +105,7 @@ export default function Page() {
             &quot;Graph the callers of [Function X] and find where it&apos;s used.&quot;
           </blockquote>
           <p>
-            You should see the agent call <code>codrag_search</code> with structural tracing and return an expanded graph analysis.
+            You should see the agent call <code>prep_search</code> with structural tracing and return an expanded graph analysis.
           </p>
           <p className="text-sm text-text-muted mt-2 bg-surface border border-border rounded-lg p-3">
             <span className="font-semibold text-text">Free tier note:</span> Graph expansion requires a trace build. On the Free tier, trigger this manually from the dashboard (Graph Status → Build) before trying the graph query above. Paid tiers build the trace automatically on file save.
@@ -119,10 +119,10 @@ export default function Page() {
             &quot;Audit my codebase&quot;
           </blockquote>
           <p>
-            The <code>codrag_audit</code> tool analyzes your trace graph for architectural issues, tech debt, test coverage gaps, and more &mdash; using 11 built-in analyzers. No LLM required. Results include severity-tagged findings like <code>ARCH-1</code>, <code>QUAL-3</code>, etc.
+            The <code>prep_audit</code> tool analyzes your trace graph for architectural issues, tech debt, test coverage gaps, and more &mdash; using 11 built-in analyzers. No LLM required. Results include severity-tagged findings like <code>ARCH-1</code>, <code>QUAL-3</code>, etc.
           </p>
           <p className="text-sm text-text-muted mt-2">
-            To fix a finding, just say <strong>&quot;fix ARCH-1&quot;</strong> &mdash; the AI will call <code>codrag_audit</code> with <code>action=&quot;refactor&quot;</code> to get trace context and an action plan for the affected files.
+            To fix a finding, just say <strong>&quot;fix ARCH-1&quot;</strong> &mdash; the AI will call <code>prep_audit</code> with <code>action=&quot;refactor&quot;</code> to get trace context and an action plan for the affected files.
           </p>
           <p className="text-sm text-text-muted mt-2">
             See the full <a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> for details on all analyzers and the refactor workflow.

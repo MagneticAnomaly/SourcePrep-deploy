@@ -1,4 +1,4 @@
-import type { CodragTaskId } from '../types';
+import type { PrepTaskId } from '../types';
 
 export type TokenVolume = 'Low' | 'Medium' | 'High' | 'Extreme';
 
@@ -10,7 +10,7 @@ export interface TaskTokenEstimate {
   description: (fileCount: number) => string;
 }
 
-const TASK_TOKEN_HEURISTICS: Record<CodragTaskId, TaskTokenEstimate> = {
+const TASK_TOKEN_HEURISTICS: Record<PrepTaskId, TaskTokenEstimate> = {
   catalogue: {
     volume: 'Extreme',
     tokensPerUnit: 800,
@@ -101,19 +101,19 @@ function fmt(n: number): string {
   return String(n);
 }
 
-export function getTaskTokenEstimate(taskId: CodragTaskId): TaskTokenEstimate {
+export function getTaskTokenEstimate(taskId: PrepTaskId): TaskTokenEstimate {
   return TASK_TOKEN_HEURISTICS[taskId];
 }
 
-export function estimateTaskTokens(taskId: CodragTaskId, fileCount: number): number {
+export function estimateTaskTokens(taskId: PrepTaskId, fileCount: number): number {
   const h = TASK_TOKEN_HEURISTICS[taskId];
   return h.tokensPerUnit * h.multiplier(fileCount);
 }
 
-export function getTaskTokenDescription(taskId: CodragTaskId, fileCount: number): string {
+export function getTaskTokenDescription(taskId: PrepTaskId, fileCount: number): string {
   return TASK_TOKEN_HEURISTICS[taskId].description(fileCount);
 }
 
-export function getTaskTokenVolume(taskId: CodragTaskId): TokenVolume {
+export function getTaskTokenVolume(taskId: PrepTaskId): TokenVolume {
   return TASK_TOKEN_HEURISTICS[taskId].volume;
 }

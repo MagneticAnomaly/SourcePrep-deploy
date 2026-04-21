@@ -37,14 +37,14 @@ export function PanelChrome({
   return (
     <div
       className={cn(
-        'codrag-panel group relative w-full bg-surface border border-border shadow-sm rounded-lg overflow-hidden flex flex-col',
+        'prep-panel group relative w-full bg-surface border border-border shadow-sm rounded-lg overflow-hidden flex flex-col',
         fillHeight && 'h-full',
         className
       )}
     >
       {/* Panel Header */}
       <div className={cn(
-        "codrag-panel-header flex items-center justify-between px-3 py-2 bg-surface border-b border-border min-h-[40px]",
+        "prep-panel-header flex items-center justify-between px-3 py-2 bg-surface border-b border-border min-h-[40px]",
         collapsed && "border-b-0"
       )}>
         <div className="flex items-center gap-2 overflow-hidden">
@@ -111,7 +111,7 @@ export function PanelChrome({
       {!collapsed && (
         <div
           className={cn(
-            'codrag-panel-content flex-1 min-h-0 bg-surface',
+            'prep-panel-content flex-1 min-h-0 bg-surface',
             fillHeight ? 'h-full overflow-hidden' : 'overflow-visible'
           )}
         >

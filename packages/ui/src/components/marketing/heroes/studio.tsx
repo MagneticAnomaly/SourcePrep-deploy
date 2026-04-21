@@ -36,7 +36,7 @@ export function StudioHero({ isBetaMode }: { isBetaMode: boolean }) {
           
           <div className="max-w-md bg-surface/80 backdrop-blur-sm p-6 border-l-4 border-primary mt-8">
             <p className="text-lg font-sans text-text leading-relaxed">
-              CoDRAG's Rust engine maps the semantics, symbols, and structure of your codebase
+              Prep's Rust engine maps the semantics, symbols, and structure of your codebase
               so every AI prompt gets the context it needs. Runs locally, or connects to your cloud.
             </p>
           </div>
@@ -48,7 +48,7 @@ export function StudioHero({ isBetaMode }: { isBetaMode: boolean }) {
                 icon={Download}
                 asChild
               >
-                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">[ JOIN_BETA ]</a>
+                <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request">[ JOIN_BETA ]</a>
               </Button>
             ) : (
               <Button 
@@ -56,7 +56,7 @@ export function StudioHero({ isBetaMode }: { isBetaMode: boolean }) {
                 icon={Download}
                 asChild
               >
-                <a href="/download">[ GET_CODRAG ]</a>
+                <a href="/download">[ GET_PREP ]</a>
               </Button>
             )}
             <Button 

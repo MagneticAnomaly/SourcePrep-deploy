@@ -27,12 +27,12 @@ export default function TerminalIntegrationsPage() {
 
         <div className="mt-8 prose max-w-none">
           <p>
-            Terminal-based AI agents operate headless, but still require structural intelligence when modifying your project. Connecting CoDRAG locally allows them to execute semantic searches and assess blast radiuses without leaving the command line.
+            Terminal-based AI agents operate headless, but still require structural intelligence when modifying your project. Connecting Prep locally allows them to execute semantic searches and assess blast radiuses without leaving the command line.
           </p>
 
           <AnchorHeading id="setup" level="h2">Integration Setup</AnchorHeading>
           <p>
-            Select your Terminal AI agent below. Update the respective configuration file with the provided JSON block to register CoDRAG as an MCP tool. Ensure the CoDRAG daemon is running (<code>codrag serve</code>) before starting a chat session in the terminal.
+            Select your Terminal AI agent below. Update the respective configuration file with the provided JSON block to register Prep as an MCP tool. Ensure the Prep daemon is running (<code>prep serve</code>) before starting a chat session in the terminal.
           </p>
         </div>
 

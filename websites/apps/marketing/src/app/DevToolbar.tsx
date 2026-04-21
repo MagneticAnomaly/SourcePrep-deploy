@@ -45,11 +45,11 @@ export function DevToolbar() {
 
     // Theme: URL param takes priority, then DOM attribute
     const urlTheme = params.get('theme');
-    const attrTheme = document.documentElement.getAttribute('data-codrag-theme');
+    const attrTheme = document.documentElement.getAttribute('data-prep-theme');
     const theme = (urlTheme && urlTheme in THEME_LABELS) ? urlTheme as ThemeId
       : (attrTheme && attrTheme in THEME_LABELS) ? attrTheme as ThemeId
       : 'm';
-    document.documentElement.setAttribute('data-codrag-theme', theme);
+    document.documentElement.setAttribute('data-prep-theme', theme);
     setCurrentTheme(theme);
 
     // Hero: from URL param
@@ -103,13 +103,13 @@ export function DevToolbar() {
   }, []);
 
   const applyTheme = useCallback((theme: ThemeId) => {
-    document.documentElement.setAttribute('data-codrag-theme', theme);
+    document.documentElement.setAttribute('data-prep-theme', theme);
     setCurrentTheme(theme);
 
     const params = new URLSearchParams(window.location.search);
     params.set('theme', theme);
     window.history.replaceState({}, '', `?${params.toString()}`);
-    window.dispatchEvent(new Event('codrag:dev-toolbar'));
+    window.dispatchEvent(new Event('prep:dev-toolbar'));
   }, []);
 
   const applyHero = useCallback((hero: string) => {
@@ -122,7 +122,7 @@ export function DevToolbar() {
       params.set('hero', hero);
     }
     window.history.replaceState({}, '', `?${params.toString()}`);
-    window.dispatchEvent(new Event('codrag:dev-toolbar'));
+    window.dispatchEvent(new Event('prep:dev-toolbar'));
   }, []);
 
   const toggleDarkMode = useCallback(() => {

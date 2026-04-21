@@ -161,14 +161,14 @@ export function EndpointManager({
   };
 
   return (
-    <div className={cn('codrag-card rounded-lg border border-border bg-surface p-6', className)}>
+    <div className={cn('prep-card rounded-lg border border-border bg-surface p-6', className)}>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-lg font-semibold text-text flex items-center gap-2">
             <Server className="w-5 h-5 text-primary" />
             <InfoTooltip 
               content="Learn about supported LLM providers." 
-              href="https://docs.codrag.io/guides/models" 
+              href="https://docs.runprep.io/guides/models" 
             />
             Saved Endpoints
           </h3>

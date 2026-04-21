@@ -333,9 +333,9 @@ export function HealthScannerPanel({
 
   // MCP command for checked findings
   const mcpCommand = useMemo(() => {
-    if (checkedFindings.length === 0) return 'codrag_audit';
+    if (checkedFindings.length === 0) return 'prep_audit';
     const ids = checkedFindings.map((f, i) => `"${getFindingId(f, i)}"`).join(', ');
-    return `codrag_audit action="refactor" finding_ids=[${ids}]`;
+    return `prep_audit action="refactor" finding_ids=[${ids}]`;
   }, [checkedFindings]);
 
   // Markdown for clipboard

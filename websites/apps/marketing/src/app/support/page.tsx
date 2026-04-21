@@ -21,7 +21,7 @@ export default function Page() {
             Support
           </h1>
           <p className="text-xl text-text-muted max-w-2xl leading-relaxed">
-            Need help with CoDRAG? Choose the support channel that best fits your needs.
+            Need help with Prep? Choose the support channel that best fits your needs.
           </p>
         </div>
 
@@ -37,7 +37,7 @@ export default function Page() {
               Check our comprehensive guides, API references, and troubleshooting steps.
             </p>
             <Button variant="outline" className="w-full" asChild>
-              <a href="https://docs.codrag.io">View Docs</a>
+              <a href="https://docs.runprep.io">View Docs</a>
             </Button>
           </div>
 
@@ -50,7 +50,7 @@ export default function Page() {
               Join our GitHub Discussions to ask questions, share tips, and request features.
             </p>
             <Button variant="outline" className="w-full" asChild>
-              <a href="https://github.com/MagneticAnomaly/CoDRAG-MCP/discussions">Go to GitHub</a>
+              <a href="https://github.com/MagneticAnomaly/Prep-MCP/discussions">Go to GitHub</a>
             </Button>
           </div>
 
@@ -63,7 +63,7 @@ export default function Page() {
               Priority email support is available for Pro, Team, and Enterprise license holders.
             </p>
             <Button className="w-full shadow-sm" asChild>
-              <a href="mailto:support@codrag.io">Email Support</a>
+              <a href="mailto:support@runprep.io">Email Support</a>
             </Button>
           </div>
 
@@ -77,10 +77,10 @@ export default function Page() {
             </p>
             <div className="flex gap-4">
               <Button variant="outline" className="flex-1" asChild>
-                <a href="mailto:security@codrag.io">Security</a>
+                <a href="mailto:security@runprep.io">Security</a>
               </Button>
               <Button variant="outline" className="flex-1" asChild>
-                <a href="mailto:billing@codrag.io">Billing</a>
+                <a href="mailto:billing@runprep.io">Billing</a>
               </Button>
             </div>
           </div>

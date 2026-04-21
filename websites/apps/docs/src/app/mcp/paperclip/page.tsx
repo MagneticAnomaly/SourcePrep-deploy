@@ -21,7 +21,7 @@ export default function Page() {
           <h3 className="text-lg font-semibold text-primary">Why this is different</h3>
           <p className="mt-2 text-text-muted">
             Most AI agents work blind — they grep files, guess at structure, and miss
-            architectural context. CoDRAG&apos;s Paperclip plugin gives agents a
+            architectural context. Prep&apos;s Paperclip plugin gives agents a
             structural brain: they understand which modules exist, how files connect,
             what the blast radius of a change is, and what the codebase health looks
             like — <span className="text-text font-medium">before writing a single line of code</span>.
@@ -29,7 +29,7 @@ export default function Page() {
           <p className="mt-2 text-text-muted">
             This is a novel workflow: <span className="text-text font-medium">epistemic-first agent orchestration</span>.
             Instead of agents discovering codebase structure through trial and error,
-            CoDRAG pre-computes it and serves it on demand. The result is agents that
+            Prep pre-computes it and serves it on demand. The result is agents that
             make better decisions, faster, with fewer hallucinations.
           </p>
         </div>
@@ -50,14 +50,14 @@ export default function Page() {
             </div>
             <div className="text-text-muted ml-4">{'     ↑ pulls knowledge from'}</div>
             <div>
-              <span className="text-primary">Layer 1: CoDRAG</span>
+              <span className="text-primary">Layer 1: Prep</span>
               <span className="text-text-muted"> — The brain. WHAT the agent knows about your code.</span>
             </div>
           </div>
 
           <p className="mt-4">
-            The CoDRAG plugin registers 5 tools that any Paperclip agent can call during
-            their runs. These tools proxy to your local CoDRAG daemon, which has already
+            The Prep plugin registers 5 tools that any Paperclip agent can call during
+            their runs. These tools proxy to your local Prep daemon, which has already
             indexed your codebase with embeddings, a structural graph, and epistemic analysis.
           </p>
 
@@ -66,13 +66,13 @@ export default function Page() {
           <h3 className="text-lg font-semibold mt-6">Prerequisites</h3>
           <ol className="list-decimal pl-6 space-y-2 mt-2">
             <li>
-              <span className="font-semibold text-text">CoDRAG Desktop App</span> — Download from{' '}
-              <a href="https://codrag.dev" className="text-primary hover:underline">codrag.dev</a>.
+              <span className="font-semibold text-text">Prep Desktop App</span> — Download from{' '}
+              <a href="https://prep.dev" className="text-primary hover:underline">prep.dev</a>.
               The daemon must be running at <code>localhost:8400</code>.
             </li>
             <li>
-              <span className="font-semibold text-text">A CoDRAG project</span> — Add your repo:{' '}
-              <code>codrag add /path/to/your/project</code>
+              <span className="font-semibold text-text">A Prep project</span> — Add your repo:{' '}
+              <code>prep add /path/to/your/project</code>
             </li>
             <li>
               <span className="font-semibold text-text">A Paperclip instance</span> — Running at{' '}
@@ -83,7 +83,7 @@ export default function Page() {
           <h3 className="text-lg font-semibold mt-6">Install the Plugin</h3>
           <div className="mt-2 rounded-lg bg-[#1a1a2e] p-4 font-mono text-sm">
             <span className="text-text-muted">$</span>{' '}
-            <span className="text-text">pnpm paperclipai plugin install @codrag/paperclip-plugin</span>
+            <span className="text-text">pnpm paperclipai plugin install @prep/paperclip-plugin</span>
           </div>
 
           <p className="mt-3 text-text-muted text-sm">
@@ -96,7 +96,7 @@ export default function Page() {
 
           <h3 className="text-lg font-semibold mt-6">Configure</h3>
           <p className="mt-2">
-            In Paperclip Settings → Plugins → CoDRAG:
+            In Paperclip Settings → Plugins → Prep:
           </p>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full text-sm">
@@ -111,17 +111,17 @@ export default function Page() {
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">daemon_url</td>
                   <td className="py-2 pr-4 text-xs">http://127.0.0.1:8400</td>
-                  <td className="py-2 text-xs">CoDRAG daemon URL</td>
+                  <td className="py-2 text-xs">Prep daemon URL</td>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">project_id</td>
                   <td className="py-2 pr-4 text-xs">(auto-detected)</td>
-                  <td className="py-2 text-xs">CoDRAG project ID. Auto-detects if you have one project.</td>
+                  <td className="py-2 text-xs">Prep project ID. Auto-detects if you have one project.</td>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">auto_context</td>
                   <td className="py-2 pr-4 text-xs">true</td>
-                  <td className="py-2 text-xs">Automatically attach CoDRAG context to new issues</td>
+                  <td className="py-2 text-xs">Automatically attach Prep context to new issues</td>
                 </tr>
               </tbody>
             </table>
@@ -130,7 +130,7 @@ export default function Page() {
           <AnchorHeading id="tools" level="h2">Tools Reference</AnchorHeading>
           <p className="mt-2">
             Once installed, all Paperclip agents can use these tools during their runs.
-            Tools are namespaced as <code>codrag:*</code> and appear in the agent&apos;s tool palette.
+            Tools are namespaced as <code>prep:*</code> and appear in the agent&apos;s tool palette.
           </p>
 
           <div className="mt-4 overflow-x-auto">
@@ -143,23 +143,23 @@ export default function Page() {
               </thead>
               <tbody className="text-text-muted">
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag:context</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep:context</td>
                   <td className="py-2 text-xs">Structural overview — modules, hub files, atlas. Call at the start of every task.</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag:search</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep:search</td>
                   <td className="py-2 text-xs">Semantic code search with structural trace expansion. Finds code by meaning, not just keywords.</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag:impact</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep:impact</td>
                   <td className="py-2 text-xs">Blast radius analysis — what depends on a file, what it depends on. Use before modifying code.</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag:audit</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep:audit</td>
                   <td className="py-2 text-xs">Codebase health findings — tech debt, architecture issues, dead code, naming inconsistencies.</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">codrag:observe</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep:observe</td>
                   <td className="py-2 text-xs">Save cross-session observations. Agents build persistent memory about the codebase.</td>
                 </tr>
               </tbody>
@@ -171,7 +171,7 @@ export default function Page() {
               storyId="agents-agentopspanel--active"
               height={400}
               title="Agent Operations Panel"
-              caption="Live preview: The three CoDRAG agents (HR, Researcher, Custodian) with managed employee badges."
+              caption="Live preview: The three Prep agents (HR, Researcher, Custodian) with managed employee badges."
             />
           </div>
 
@@ -186,11 +186,11 @@ export default function Page() {
             </li>
             <li>
               <span className="font-semibold text-text">Knowledge Scope Tab</span> — On each agent&apos;s
-              detail page, shows which files CoDRAG has assigned to that agent&apos;s role scope.
+              detail page, shows which files Prep has assigned to that agent&apos;s role scope.
             </li>
             <li>
               <span className="font-semibold text-text">Issue Context Tab</span> — On each issue&apos;s
-              detail page, shows CoDRAG structural context for issues created from audit findings.
+              detail page, shows Prep structural context for issues created from audit findings.
             </li>
             <li>
               <span className="font-semibold text-text">Settings Page</span> — Connection status,
@@ -200,35 +200,35 @@ export default function Page() {
 
           <AnchorHeading id="agent-workflow" level="h2">The Agent Workflow</AnchorHeading>
           <p className="mt-2">
-            Here&apos;s what happens when a Paperclip agent works on a task with CoDRAG installed:
+            Here&apos;s what happens when a Paperclip agent works on a task with Prep installed:
           </p>
 
           <div className="mt-4 space-y-4">
             <div className="flex gap-3">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">1</div>
               <div>
-                <div className="font-semibold text-text">Agent calls codrag:context</div>
+                <div className="font-semibold text-text">Agent calls prep:context</div>
                 <div className="text-text-muted text-sm">Gets module map, hub files, and architecture overview. Now it knows the codebase structure.</div>
               </div>
             </div>
             <div className="flex gap-3">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">2</div>
               <div>
-                <div className="font-semibold text-text">Agent calls codrag:search</div>
+                <div className="font-semibold text-text">Agent calls prep:search</div>
                 <div className="text-text-muted text-sm">Finds relevant code by semantic meaning, with structural trace expansion pulling in related imports.</div>
               </div>
             </div>
             <div className="flex gap-3">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">3</div>
               <div>
-                <div className="font-semibold text-text">Agent calls codrag:impact before changes</div>
+                <div className="font-semibold text-text">Agent calls prep:impact before changes</div>
                 <div className="text-text-muted text-sm">Checks blast radius — what will break if this file is modified? How many dependents?</div>
               </div>
             </div>
             <div className="flex gap-3">
               <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-sm">4</div>
               <div>
-                <div className="font-semibold text-text">Agent calls codrag:observe</div>
+                <div className="font-semibold text-text">Agent calls prep:observe</div>
                 <div className="text-text-muted text-sm">Saves observations for the next agent. Cross-session memory that persists across runs.</div>
               </div>
             </div>
@@ -238,7 +238,7 @@ export default function Page() {
           <p className="mt-2">
             Traditional AI agents approach codebases like a developer on their first day —
             grepping files, reading README.md, hoping they stumble onto the right architecture.
-            CoDRAG inverts this:
+            Prep inverts this:
           </p>
           <ul className="list-disc pl-6 space-y-2 mt-2">
             <li>
@@ -247,13 +247,13 @@ export default function Page() {
               they query it.
             </li>
             <li>
-              <span className="font-semibold text-text">Epistemic confidence</span> — CoDRAG knows
+              <span className="font-semibold text-text">Epistemic confidence</span> — Prep knows
               which parts of the codebase are well-understood (high enrichment) vs. opaque. Agents
               can be cautious where the index is thin.
             </li>
             <li>
               <span className="font-semibold text-text">Role-scoped context</span> — A backend agent
-              sees backend-relevant files. A frontend agent sees frontend files. CoDRAG&apos;s RoleVector
+              sees backend-relevant files. A frontend agent sees frontend files. Prep&apos;s RoleVector
               system projects the atlas differently per role.
             </li>
             <li>
@@ -266,10 +266,10 @@ export default function Page() {
           <AnchorHeading id="source" level="h2">Source Code</AnchorHeading>
           <p className="mt-2">
             The plugin source is at{' '}
-            <a href="https://github.com/EricBintner/CoDRAG/tree/main/packages/paperclip-plugin" className="text-primary hover:underline">
+            <a href="https://github.com/EricBintner/Prep/tree/main/packages/paperclip-plugin" className="text-primary hover:underline">
               packages/paperclip-plugin
             </a>{' '}
-            in the CoDRAG repository. It&apos;s MIT-licensed.
+            in the Prep repository. It&apos;s MIT-licensed.
           </p>
         </div>
       </div>

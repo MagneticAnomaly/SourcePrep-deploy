@@ -27,7 +27,7 @@ const INDEX_LOCATION_INFO: Record<ProjectMode, { best: string; detail: string }>
   },
   embedded: {
     best: 'Best when boot disk is faster',
-    detail: 'Index lives inside the repo at .codrag/. Co-located with your code for zero-config. Best when your boot SSD is faster than the repo\'s storage device.',
+    detail: 'Index lives inside the repo at .prep/. Co-located with your code for zero-config. Best when your boot SSD is faster than the repo\'s storage device.',
   },
   custom: {
     best: 'Best for performance',
@@ -90,7 +90,7 @@ export function AddProjectModal({
 
   const modes: { key: ProjectMode; label: string; icon: typeof Folder; desc: string }[] = [
     { key: 'standalone', label: 'Standalone', icon: Folder,    desc: 'App data directory' },
-    { key: 'embedded',   label: 'Embedded',   icon: Layout,    desc: '.codrag/ in repo' },
+    { key: 'embedded',   label: 'Embedded',   icon: Layout,    desc: '.prep/ in repo' },
     { key: 'custom',     label: 'Custom',     icon: HardDrive, desc: 'Choose a path' },
   ];
 
@@ -223,7 +223,7 @@ export function AddProjectModal({
                 <PathInput
                   value={customIndexPath}
                   onChange={setCustomIndexPath}
-                  placeholder="/fast-drive/codrag-indexes"
+                  placeholder="/fast-drive/prep-indexes"
                   hint="Path where the index database will be stored"
                   directory
                 />

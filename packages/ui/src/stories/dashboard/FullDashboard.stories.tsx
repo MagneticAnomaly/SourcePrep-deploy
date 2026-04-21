@@ -160,10 +160,10 @@ export const FullDashboard: StoryObj = {
 
     // RAG inclusion state (primary functionality)
     const [includedPaths, setIncludedPaths] = useState<Set<string>>(new Set([
-      'src', 'src/codrag', 'src/codrag/server.py', 'src/codrag/cli.py', 'src/codrag/__init__.py',
-      'src/codrag/core', 'src/codrag/core/registry.py', 'src/codrag/core/embedding.py',
-      'src/codrag/core/trace.py', 'src/codrag/core/watcher.py',
-      'src/codrag/api', 'src/codrag/api/routes.py', 'src/codrag/api/auth.py',
+      'src', 'src/prep', 'src/prep/server.py', 'src/prep/cli.py', 'src/prep/__init__.py',
+      'src/prep/core', 'src/prep/core/registry.py', 'src/prep/core/embedding.py',
+      'src/prep/core/trace.py', 'src/prep/core/watcher.py',
+      'src/prep/api', 'src/prep/api/routes.py', 'src/prep/api/auth.py',
       'docs', 'docs/ARCHITECTURE.md', 'docs/API.md', 'docs/ROADMAP.md',
       // Note: docs/CHANGELOG.md is NOT included — it has status 'indexed' so it will show "Removing"
     ]));
@@ -493,7 +493,7 @@ export const FullDashboard: StoryObj = {
           nodes={[]} 
           questions={[]} 
           northStar={null} 
-          appEthos="CoDRAG Ethos" 
+          appEthos="Prep Ethos" 
           generating={false} 
           scanning={false} 
           error={null} 

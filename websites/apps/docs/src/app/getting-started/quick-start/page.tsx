@@ -21,13 +21,13 @@ export default function Page() {
             <div>
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs">1</span>
-                Launch CoDRAG
+                Launch Prep
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                Open the CoDRAG desktop app. It automatically starts the background daemon that manages the index and serves requests.
+                Open the Prep desktop app. It automatically starts the background daemon that manages the index and serves requests.
               </p>
               <p className="text-xs text-text-muted ml-8">
-                Power users: you can also run <code>codrag serve</code> in a terminal.
+                Power users: you can also run <code>prep serve</code> in a terminal.
               </p>
             </div>
 
@@ -37,10 +37,10 @@ export default function Page() {
                 Index Your Repo
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                Click the <span className="font-semibold text-text">+</span> button in the sidebar, select your project folder, and CoDRAG will scan and build the Code Graph immediately.
+                Click the <span className="font-semibold text-text">+</span> button in the sidebar, select your project folder, and Prep will scan and build the Code Graph immediately.
               </p>
               <p className="text-xs text-text-muted ml-8">
-                Or via CLI: <code>codrag add ~/my-project</code>
+                Or via CLI: <code>prep add ~/my-project</code>
               </p>
             </div>
 
@@ -70,13 +70,13 @@ export default function Page() {
                 Select Files &amp; Get Ambient Context
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                In the CoDRAG dashboard, use the <span className="font-semibold text-text">Knowledge Sources</span> tree to select the files and folders you want to work with. Then in your editor&apos;s AI chat, simply call:
+                In the Prep dashboard, use the <span className="font-semibold text-text">Knowledge Sources</span> tree to select the files and folders you want to work with. Then in your editor&apos;s AI chat, simply call:
               </p>
               <blockquote className="ml-8 border-l-2 border-primary pl-4 py-1 italic text-text-muted">
-                &quot;codrag&quot;
+                &quot;prep&quot;
               </blockquote>
               <p className="text-sm text-text-muted mt-2 ml-8">
-                CoDRAG will feed the AI its ambient project baseline: your hub files, module structures, and focus areas. The AI immediately understands the architecture before you ask your first prompt.
+                Prep will feed the AI its ambient project baseline: your hub files, module structures, and focus areas. The AI immediately understands the architecture before you ask your first prompt.
               </p>
               <div className="ml-8 mt-3 bg-surface border border-border p-4 rounded-lg text-sm space-y-3">
                 <p className="text-text-muted">
@@ -102,7 +102,7 @@ export default function Page() {
                 &quot;Audit my codebase&quot;
               </blockquote>
               <p className="text-sm text-text-muted mt-2 ml-8">
-                The agent will call <code>codrag_audit</code>, executing 11 deterministic analyzers against the trace graph. You&apos;ll get severity-tagged findings like <code>ARCH-1</code> (circular dependency). To act on a finding, you can ask the agent to fix it, and it will use <code>action=&quot;refactor&quot;</code> to generate a plan. See the <a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> for details.
+                The agent will call <code>prep_audit</code>, executing 11 deterministic analyzers against the trace graph. You&apos;ll get severity-tagged findings like <code>ARCH-1</code> (circular dependency). To act on a finding, you can ask the agent to fix it, and it will use <code>action=&quot;refactor&quot;</code> to generate a plan. See the <a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> for details.
               </p>
             </div>
           </div>
@@ -112,13 +112,13 @@ export default function Page() {
           <AnchorHeading id="cli-tips" level="h2">Pro Tips</AnchorHeading>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li>
-              <span className="font-semibold text-text">Search via CLI:</span> You can test retrieval without an editor using <code>codrag search &quot;query&quot;</code>.
+              <span className="font-semibold text-text">Search via CLI:</span> You can test retrieval without an editor using <code>prep search &quot;query&quot;</code>.
             </li>
             <li>
-              <span className="font-semibold text-text">Force Rebuild:</span> If you switched branches massively, run <code>codrag build</code> to ensure the index is fresh (though the watcher handles this mostly).
+              <span className="font-semibold text-text">Force Rebuild:</span> If you switched branches massively, run <code>prep build</code> to ensure the index is fresh (though the watcher handles this mostly).
             </li>
             <li>
-              <span className="font-semibold text-text">Check Status:</span> Run <code>codrag status</code> to see index stats and coverage.
+              <span className="font-semibold text-text">Check Status:</span> Run <code>prep status</code> to see index stats and coverage.
             </li>
           </ul>
 

@@ -114,7 +114,7 @@ export default function AdminReportsPage() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">Bug Reports</h1>
-            <p className="text-sm text-gray-400">CoDRAG Support Admin</p>
+            <p className="text-sm text-gray-400">Prep Support Admin</p>
           </div>
           <Link href="/" className="text-sm text-gray-400 hover:text-white transition-colors">
             ← Back to Support

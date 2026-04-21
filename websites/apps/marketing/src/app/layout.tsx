@@ -20,7 +20,7 @@ const ibmPlexSerif = IBM_Plex_Serif({ weight: ['400', '500', '600'], subsets: ['
 const productSchema = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  "name": "CoDRAG",
+  "name": "Prep",
   "operatingSystem": "macOS, Windows, Linux",
   "applicationCategory": "DeveloperApplication",
   "description": "Epistemic codebase intelligence engine designed for autonomous agents and AI-assisted development. It creates a structural code graph using Rust to map imports, call chains, and symbol hierarchies for sophisticated context.",
@@ -31,23 +31,23 @@ const productSchema = {
   }
 };
 export const metadata: Metadata = {
-  metadataBase: new URL('https://codrag.io'),
+  metadataBase: new URL('https://runprep.io'),
   title: {
-    default: 'CoDRAG - Epistemic Code Context',
-    template: '%s | CoDRAG'
+    default: 'Prep - Epistemic Code Context',
+    template: '%s | Prep'
   },
   description: 'Deep structural codebase tracing and epistemic context for autonomous agents and intelligent workflows.',
   openGraph: {
-    title: 'CoDRAG - Epistemic Code Context',
+    title: 'Prep - Epistemic Code Context',
     description: 'Deep structural codebase tracing and epistemic context for autonomous agents and intelligent workflows.',
-    url: 'https://codrag.io',
-    siteName: 'CoDRAG',
+    url: 'https://runprep.io',
+    siteName: 'Prep',
     images: [
       {
         url: '/images/og-image.png',
         width: 1245,
         height: 779,
-        alt: 'CoDRAG Logo',
+        alt: 'Prep Logo',
       },
     ],
     locale: 'en_US',
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'CoDRAG - Epistemic Code Context',
+    title: 'Prep - Epistemic Code Context',
     description: 'Deep structural codebase tracing and epistemic context for autonomous agents and intelligent workflows.',
     images: ['/images/og-image.png'],
   },
@@ -76,7 +76,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-codrag-theme="m" className={`${inter.variable} ${jetbrainsMono.variable} ${playfair.variable} ${spaceMono.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable} ${ibmPlexSerif.variable}`}>
+    <html lang="en" data-prep-theme="m" className={`${inter.variable} ${jetbrainsMono.variable} ${playfair.variable} ${spaceMono.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable} ${ibmPlexSerif.variable}`}>
       <head>
         <script
           type="application/ld+json"

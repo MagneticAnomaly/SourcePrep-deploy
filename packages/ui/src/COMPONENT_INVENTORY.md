@@ -1,6 +1,6 @@
-# CoDRAG Component Inventory
+# Prep Component Inventory
 
-This document catalogs all UI components needed for CoDRAG across all tiers and phases.
+This document catalogs all UI components needed for Prep across all tiers and phases.
 
 ## Component Status Legend
 - ✅ Scaffolded (wireframe exists)

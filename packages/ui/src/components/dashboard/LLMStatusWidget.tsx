@@ -1,7 +1,7 @@
 import { cn } from '../../lib/utils';
 import { CheckCircle2, AlertCircle, CircleOff, HelpCircle, Loader2, Cloud } from 'lucide-react';
 import { InfoTooltip } from '../primitives/InfoTooltip';
-import type { CodragTaskId, LLMAssignmentBlock, SavedEndpoint } from '../../types';
+import type { PrepTaskId, LLMAssignmentBlock, SavedEndpoint } from '../../types';
 import { TASK_LABELS } from '../../types';
 import { getTaskTokenDescription, getTaskTokenVolume } from '../../lib/token-estimates';
 
@@ -19,7 +19,7 @@ export interface LLMStatusWidgetProps {
   assignedBlocks?: LLMAssignmentBlock[];
   assignedEndpoints?: SavedEndpoint[];
   assignmentMode?: 'structured' | 'mapped';
-  runningTaskId?: CodragTaskId | null;
+  runningTaskId?: PrepTaskId | null;
   fileCount?: number;
   tokenUsageData?: Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }>;
   className?: string;
@@ -111,7 +111,7 @@ function AssignedBlockCard({
 }: {
   block: LLMAssignmentBlock;
   endpoints: SavedEndpoint[];
-  runningTaskId?: CodragTaskId | null;
+  runningTaskId?: PrepTaskId | null;
   fileCount: number;
   tokenUsageData?: Record<string, { prompt_tokens: number; completion_tokens: number; total_tokens: number }>;
 }) {
@@ -240,7 +240,7 @@ export function LLMStatusWidget({
             <h3 className="font-semibold text-text">AI Gateway</h3>
             <InfoTooltip 
               content="Configure your LLM providers." 
-              href="https://docs.codrag.io/guides/models" 
+              href="https://docs.runprep.io/guides/models" 
             />
           </div>
         </div>

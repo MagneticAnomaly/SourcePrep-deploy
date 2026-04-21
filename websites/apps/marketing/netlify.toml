@@ -8,15 +8,15 @@
 
 # www → apex redirect
 [[redirects]]
-  from   = "https://www.codrag.io/*"
-  to     = "https://codrag.io/:splat"
+  from   = "https://www.runprep.io/*"
+  to     = "https://runprep.io/:splat"
   status = 301
   force  = true
 
-# codrag.ai legacy redirect (if this site owns that domain too)
+#  legacy redirect (if this site owns that domain too)
 [[redirects]]
-  from   = "https://codrag.ai/*"
-  to     = "https://codrag.io/:splat"
+  from   = ""
+  to     = "https://runprep.io/:splat"
   status = 301
   force  = true
 

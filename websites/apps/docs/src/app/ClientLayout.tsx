@@ -6,9 +6,9 @@ import { docsSidebar } from '../config/docs';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-const HOME_URL = isDev ? 'http://localhost:3000' : 'https://codrag.io';
-const DOWNLOAD_URL = isDev ? 'http://localhost:3000/download' : 'https://codrag.io/download';
-const SUPPORT_URL = isDev ? 'http://localhost:3002' : 'https://support.codrag.io';
+const HOME_URL = isDev ? 'http://localhost:3000' : 'https://runprep.io';
+const DOWNLOAD_URL = isDev ? 'http://localhost:3000/download' : 'https://runprep.io/download';
+const SUPPORT_URL = isDev ? 'http://localhost:3002' : 'https://support.runprep.io';
 
 const navLinks = [
   { label: 'Home', href: HOME_URL },
@@ -20,8 +20,8 @@ export function ClientLayout({ children }: { children: ReactNode }) {
   return (
     <DocsLayout
       headerProps={{
-        productName: 'CoDRAG Docs',
-        logo: <img src="/codrag-logo.png" alt="CoDRAG" style={{ width: '3rem', height: '3rem' }} className="rounded" />,
+        productName: 'Prep Docs',
+        logo: <img src="/prep-logo.png" alt="Prep" style={{ width: '3rem', height: '3rem' }} className="rounded" />,
         links: navLinks,
         searchPlaceholder: 'Search documentation...',
         onSearch: (query: string) => {
@@ -29,11 +29,11 @@ export function ClientLayout({ children }: { children: ReactNode }) {
         },
       }}
       footerProps={{
-        productName: 'CoDRAG',
+        productName: 'Prep',
         socials: {
-          twitter: 'https://x.com/CoDRAG_io',
-          github: 'https://github.com/MagneticAnomaly/CoDRAG-MCP',
-          email: 'docs@codrag.io',
+          twitter: 'https://x.com/Prep_io',
+          github: 'https://github.com/MagneticAnomaly/Prep-MCP',
+          email: 'docs@runprep.io',
         },
       }}
       sidebarItems={docsSidebar}

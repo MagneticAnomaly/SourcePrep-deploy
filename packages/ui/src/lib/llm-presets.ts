@@ -7,7 +7,7 @@
  * 3. Blank Slate — empty, all 9 tasks unassigned
  */
 
-import type { LLMAssignmentBlock, LLMConfig, CodragTaskId } from '../types';
+import type { LLMAssignmentBlock, LLMConfig, PrepTaskId } from '../types';
 
 let _blockCounter = 0;
 function nextBlockId(): string {
@@ -16,9 +16,9 @@ function nextBlockId(): string {
 
 // ── Task groups matching the Structured tier layout ────────────────
 
-const FAST_TASKS: CodragTaskId[] = ['catalogue', 'search_intent', 'augmentation'];
-const CODE_TASKS: CodragTaskId[] = ['inferred_edges'];
-const THINKING_TASKS: CodragTaskId[] = ['enrichment', 'group_reasoning', 'clustering', 'atlas', 'deepening', 'audit'];
+const FAST_TASKS: PrepTaskId[] = ['catalogue', 'search_intent', 'augmentation'];
+const CODE_TASKS: PrepTaskId[] = ['inferred_edges'];
+const THINKING_TASKS: PrepTaskId[] = ['enrichment', 'group_reasoning', 'clustering', 'atlas', 'deepening', 'audit'];
 
 // ── Preset 1: Local Standard ──────────────────────────────────────
 
@@ -36,7 +36,7 @@ export function presetLocalStandard(config: LLMConfig): LLMAssignmentBlock[] {
 
   // Fast block
   if (smallEnabled) {
-    const tasks: CodragTaskId[] = [...FAST_TASKS];
+    const tasks: PrepTaskId[] = [...FAST_TASKS];
     // If no code model, absorb code tasks
     if (!codeEnabled) tasks.push(...CODE_TASKS);
     // If no large model, absorb thinking tasks too
@@ -52,7 +52,7 @@ export function presetLocalStandard(config: LLMConfig): LLMAssignmentBlock[] {
 
   // Thinking block (only if large is separately configured)
   if (largeEnabled) {
-    const tasks: CodragTaskId[] = [...THINKING_TASKS];
+    const tasks: PrepTaskId[] = [...THINKING_TASKS];
     // If no small model, absorb fast tasks
     if (!smallEnabled) {
       tasks.push(...FAST_TASKS);

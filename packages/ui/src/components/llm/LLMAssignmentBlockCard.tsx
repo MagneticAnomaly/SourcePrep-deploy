@@ -3,14 +3,14 @@ import { Select } from '../primitives/Select';
 import { Button } from '../primitives/Button';
 import { InfoTooltip } from '../primitives/InfoTooltip';
 import { X, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
-import type { CodragTaskId, SavedEndpoint, EndpointTestResult } from '../../types';
+import type { PrepTaskId, SavedEndpoint, EndpointTestResult } from '../../types';
 import { ALL_TASK_IDS, TASK_LABELS, TASK_TAGS } from '../../types';
 
 export interface LLMAssignmentBlockCardProps {
   id: string;
   endpointId: string;
   model: string;
-  tasks: CodragTaskId[];
+  tasks: PrepTaskId[];
   enableReasoning?: boolean;
   alwaysOn?: boolean;
   concurrency?: number;
@@ -21,13 +21,13 @@ export interface LLMAssignmentBlockCardProps {
   availableModels: string[];
   loadingModels?: boolean;
   /** Task IDs that are already assigned globally across all blocks */
-  assignedTasks: CodragTaskId[];
+  assignedTasks: PrepTaskId[];
 
   onEndpointChange: (blockId: string, endpointId: string) => void;
   onModelChange: (blockId: string, model: string) => void;
   onRefreshModels: (endpointId: string) => void;
-  onAddTask: (blockId: string, taskId: CodragTaskId) => void;
-  onRemoveTask: (blockId: string, taskId: CodragTaskId) => void;
+  onAddTask: (blockId: string, taskId: PrepTaskId) => void;
+  onRemoveTask: (blockId: string, taskId: PrepTaskId) => void;
   onEnableReasoningChange?: (blockId: string, enabled: boolean) => void;
   onAlwaysOnChange?: (blockId: string, alwaysOn: boolean) => void;
   onConcurrencyChange?: (blockId: string, concurrency: number) => void;
@@ -73,7 +73,7 @@ export function LLMAssignmentBlockCard({
   return (
     <div
       className={cn(
-        'codrag-card rounded-lg border bg-surface p-5 transition-colors',
+        'prep-card rounded-lg border bg-surface p-5 transition-colors',
         isConfigured
           ? 'border-success/50 shadow-[0_0_12px_rgba(var(--success),0.08)]'
           : 'border-border',
@@ -126,7 +126,7 @@ export function LLMAssignmentBlockCard({
             value=""
             onChange={(e) => {
               if (e.target.value) {
-                onAddTask(id, e.target.value as CodragTaskId);
+                onAddTask(id, e.target.value as PrepTaskId);
               }
             }}
             placeholder="+ Add Task"

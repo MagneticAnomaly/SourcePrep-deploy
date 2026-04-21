@@ -1,4 +1,4 @@
-[data-codrag-theme='e'] {
+[data-prep-theme='e'] {
   /* Neo-Brutalist: Bold, Raw, High Contrast */
   
   /* Color Palette */
@@ -42,7 +42,7 @@
   --font-mono: 'Space Mono', 'Courier New', monospace;
 }
 
-[data-codrag-theme='e'].dark {
+[data-prep-theme='e'].dark {
   --background: 260 20% 10%;
   --foreground: 60 100% 90%;
   

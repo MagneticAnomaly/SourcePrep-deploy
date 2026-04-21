@@ -25,7 +25,7 @@ export function SymbolSearchInput({
   className,
 }: SymbolSearchInputProps) {
   return (
-    <div className={cn('codrag-symbol-search flex gap-3', className)}>
+    <div className={cn('prep-symbol-search flex gap-3', className)}>
       <div className="flex-1">
         <TextInput
           placeholder={placeholder}

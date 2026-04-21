@@ -11,7 +11,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Embedding Models</h1>
         <p className="mt-4 text-lg text-text-muted">
-          CoDRAG supports three embedding tiers — from a zero-dependency CPU fallback to a
+          Prep supports three embedding tiers — from a zero-dependency CPU fallback to a
           GPU-accelerated code-specialized model. Pick the one that fits your hardware.
         </p>
 
@@ -77,7 +77,7 @@ export default function Page() {
                 <span className="text-xs text-text-muted ml-auto">Built-in ONNX · ~132 MB</span>
               </div>
               <p className="text-sm text-text-muted leading-relaxed">
-                The same nomic-embed-text model, shipped as a quantized ONNX file that CoDRAG
+                The same nomic-embed-text model, shipped as a quantized ONNX file that Prep
                 downloads automatically from HuggingFace. <span className="font-semibold text-text">Runs entirely on CPU — no GPU,
                 no Ollama, no external service needed.</span> CPU inference is perfectly fine for
                 indexing and search; embedding speed is not a bottleneck in normal usage. This is the
@@ -94,7 +94,7 @@ export default function Page() {
               </div>
               <div className="mt-3 rounded bg-surface border border-border p-3 font-mono text-xs">
                 <span className="text-text-muted"># No setup — downloads automatically on first build</span>
-                <div className="mt-1">codrag build</div>
+                <div className="mt-1">prep build</div>
               </div>
             </div>
           </div>
@@ -191,12 +191,12 @@ export default function Page() {
 
           <h3 className="mt-6 text-base font-semibold">Tier 3: Built-in ONNX (default, no setup required)</h3>
           <p className="mt-3 text-sm text-text-muted">
-            Nothing to configure — this is the default. On first build CoDRAG downloads
+            Nothing to configure — this is the default. On first build Prep downloads
             the quantized ONNX model (~132 MB) from HuggingFace and caches it locally.
             To pre-download before your first build:
           </p>
           <div className="mt-2 rounded-lg bg-surface border border-border p-4 font-mono text-sm">
-            codrag models
+            prep models
           </div>
           <p className="mt-2 text-xs text-text-muted">
             Cached at <code>~/.cache/huggingface/hub/</code>. No re-download on subsequent runs.
@@ -210,7 +210,7 @@ export default function Page() {
             <span className="font-semibold text-yellow-600">Switching models requires a rebuild.</span>{' '}
             Embeddings from different models have different dimensions and are not compatible.
             After changing the embedding tier, trigger a full rebuild from the dashboard or
-            run <code>codrag build --full</code>.
+            run <code>prep build --full</code>.
           </div>
         </section>
 
@@ -223,7 +223,7 @@ export default function Page() {
 
           <h3 className="mt-4 text-base font-medium text-text">Via CLI</h3>
           <div className="mt-2 rounded-lg bg-surface border border-border p-4 font-mono text-sm">
-            codrag models
+            prep models
           </div>
 
           <h3 className="mt-4 text-base font-medium text-text">Via API</h3>

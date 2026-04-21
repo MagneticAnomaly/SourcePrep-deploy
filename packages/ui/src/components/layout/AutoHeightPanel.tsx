@@ -45,8 +45,8 @@ export function AutoHeightPanel({
     };
 
     const measureAndReport = () => {
-      const headerEl = el.querySelector('.codrag-panel-header') as HTMLElement | null;
-      const bodyEl = el.querySelector('.codrag-panel-body') as HTMLElement | null;
+      const headerEl = el.querySelector('.prep-panel-header') as HTMLElement | null;
+      const bodyEl = el.querySelector('.prep-panel-body') as HTMLElement | null;
       const contentHeight =
         headerEl && bodyEl
           ? headerEl.offsetHeight + bodyEl.scrollHeight

@@ -33,14 +33,14 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   {
     id: 'log-console',
     title: 'Process Logs',
-    description: 'Real-time logs from the CoDRAG daemon.',
+    description: 'Real-time logs from the Prep daemon.',
     icon: Terminal,
     minHeight: 3,
     defaultHeight: 5,
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#logs',
+    docsUrl: 'https://docs.runprep.io/dashboard#logs',
     noPadding: true,
   },
   {
@@ -53,7 +53,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: false,
-    docsUrl: 'https://docs.codrag.io',
+    docsUrl: 'https://docs.runprep.io',
   },
   {
     id: 'status',
@@ -64,7 +64,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 4,
     category: 'status',
     closeable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#status',
+    docsUrl: 'https://docs.runprep.io/dashboard#status',
   },
   {
     // Phase 74: Sunset — AI Gateway summary card used manually-constructed state
@@ -78,7 +78,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 8,
     category: 'status',
     closeable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#llm-status',
+    docsUrl: 'https://docs.runprep.io/dashboard#llm-status',
     devOnly: true,
   },
   {
@@ -90,7 +90,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 7,
     category: 'search',
     closeable: false, // Core functionality
-    docsUrl: 'https://docs.codrag.io/dashboard#search',
+    docsUrl: 'https://docs.runprep.io/dashboard#search',
   },
   {
     id: 'context-options',
@@ -101,7 +101,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 8,
     category: 'context',
     closeable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#context-options',
+    docsUrl: 'https://docs.runprep.io/dashboard#context-options',
   },
   {
     id: 'results',
@@ -112,7 +112,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 10,
     category: 'search',
     closeable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#results',
+    docsUrl: 'https://docs.runprep.io/dashboard#results',
   },
   {
     id: 'context-output',
@@ -123,19 +123,19 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 10,
     category: 'context',
     closeable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#context-output',
+    docsUrl: 'https://docs.runprep.io/dashboard#context-output',
   },
   {
     id: 'file-tree',
     title: 'Scope',
-    description: 'Manage which files CoDRAG indexes. Include files in the RAG knowledge base with optional per-path weights, or exclude files from the trace graph and knowledge entirely.',
+    description: 'Manage which files Prep indexes. Include files in the RAG knowledge base with optional per-path weights, or exclude files from the trace graph and knowledge entirely.',
     icon: FolderTree,
     minHeight: 6,
     defaultHeight: 10,
     category: 'search',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#knowledge-sources',
+    docsUrl: 'https://docs.runprep.io/dashboard#knowledge-sources',
   },
   {
     id: 'trace',
@@ -147,7 +147,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'search',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#trace',
+    docsUrl: 'https://docs.runprep.io/dashboard#trace',
   },
   // trace-coverage (Graph Status) removed — consolidated into graph-structure (Graph Scope)
   {
@@ -160,7 +160,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'config',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#deep-analysis',
+    docsUrl: 'https://docs.runprep.io/dashboard#deep-analysis',
   },
   {
     id: 'trace-pipeline',
@@ -172,7 +172,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#trace-pipeline',
+    docsUrl: 'https://docs.runprep.io/dashboard#trace-pipeline',
   },
   {
     id: 'graph-structure',
@@ -184,7 +184,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/concepts/graph-scope',
+    docsUrl: 'https://docs.runprep.io/concepts/graph-scope',
   },
   // graph-engine (Graph Engine) removed — consolidated into trace-pipeline (Graph Enrichment)
   {
@@ -197,7 +197,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#index-health',
+    docsUrl: 'https://docs.runprep.io/dashboard#index-health',
   },
   {
     id: 'atlas',
@@ -209,7 +209,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#atlas',
+    docsUrl: 'https://docs.runprep.io/dashboard#atlas',
   },
   {
     id: 'token-budget',
@@ -221,7 +221,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'config',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#token-budget',
+    docsUrl: 'https://docs.runprep.io/dashboard#token-budget',
   },
   {
     id: 'audit',
@@ -233,7 +233,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/guides/codebase-audit',
+    docsUrl: 'https://docs.runprep.io/guides/codebase-audit',
   },
   {
     // Phase 65: Sunset — functionality merged into Opportunities panel
@@ -246,7 +246,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/guides/spaghetti-finder',
+    docsUrl: 'https://docs.runprep.io/guides/spaghetti-finder',
     devOnly: true,
   },
   {
@@ -259,7 +259,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/dashboard#activity',
+    docsUrl: 'https://docs.runprep.io/dashboard#activity',
   },
   {
     // Phase 65: Sunset — future revisit with roadmap_layout_concept.png
@@ -272,7 +272,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/guides/goalposts',
+    docsUrl: 'https://docs.runprep.io/guides/goalposts',
     devOnly: true,
   },
   {
@@ -286,7 +286,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/guides/health-scanner',
+    docsUrl: 'https://docs.runprep.io/guides/health-scanner',
     devOnly: true,
   },
   {
@@ -300,7 +300,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/guides/advisor',
+    docsUrl: 'https://docs.runprep.io/guides/advisor',
     devOnly: true,
   },
   {
@@ -314,7 +314,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     fullWidth: true,
-    docsUrl: 'https://docs.codrag.io/guides/roadmap',
+    docsUrl: 'https://docs.runprep.io/guides/roadmap',
     devOnly: true,
   },
   {
@@ -327,7 +327,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.codrag.io/guides/opportunities',
+    docsUrl: 'https://docs.runprep.io/guides/opportunities',
     devOnly: true,
   },
   {
@@ -344,7 +344,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
   {
     id: 'agent-ops',
     title: 'Agent Operations',
-    description: 'Configure CoDRAG agent engines (HR, Researcher, Custodian), Paperclip connection, and push settings.',
+    description: 'Configure Prep agent engines (HR, Researcher, Custodian), Paperclip connection, and push settings.',
     icon: Bot,
     minHeight: 4,
     defaultHeight: 6,

@@ -19,9 +19,9 @@ const mockSearch = async (_query: string) => ({
   nodes: [
     { id: 'n1', name: 'useProjectManager', kind: 'symbol', file_path: 'src/hooks/useProjectManager.ts', metadata: { symbol_type: 'function', docstring: 'Main project state management hook.' }, span: { start_line: 45, end_line: 120 } },
     { id: 'n2', name: 'ProjectList', kind: 'symbol', file_path: 'src/components/ProjectList.tsx', metadata: { symbol_type: 'function' }, span: { start_line: 12, end_line: 89 } },
-    { id: 'n3', name: 'project_crud.py', kind: 'file', file_path: 'src/codrag/services/projects/crud.py', metadata: {}, span: null },
-    { id: 'n4', name: 'ProjectConfig', kind: 'symbol', file_path: 'src/codrag/core/config.py', metadata: { symbol_type: 'class' }, span: { start_line: 200, end_line: 280 } },
-    { id: 'n5', name: 'build_project', kind: 'symbol', file_path: 'src/codrag/services/pipeline.py', metadata: { symbol_type: 'async_function', docstring: 'Orchestrates the full pipeline build for a project.' }, span: { start_line: 88, end_line: 145 } },
+    { id: 'n3', name: 'project_crud.py', kind: 'file', file_path: 'src/prep/services/projects/crud.py', metadata: {}, span: null },
+    { id: 'n4', name: 'ProjectConfig', kind: 'symbol', file_path: 'src/prep/core/config.py', metadata: { symbol_type: 'class' }, span: { start_line: 200, end_line: 280 } },
+    { id: 'n5', name: 'build_project', kind: 'symbol', file_path: 'src/prep/services/pipeline.py', metadata: { symbol_type: 'async_function', docstring: 'Orchestrates the full pipeline build for a project.' }, span: { start_line: 88, end_line: 145 } },
   ],
 });
 

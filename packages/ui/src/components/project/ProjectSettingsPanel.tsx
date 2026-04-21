@@ -130,7 +130,7 @@ export function ProjectSettingsPanel({
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')) {
-        setDetectedMessage('Detection failed — is the CoDRAG daemon running?');
+        setDetectedMessage('Detection failed — is the Prep daemon running?');
       } else {
         setDetectedMessage(`Detection failed: ${msg}`);
       }
@@ -188,7 +188,7 @@ export function ProjectSettingsPanel({
   return (
     <div className={cn(
       'space-y-8',
-      !bare && 'codrag-card bg-surface p-6 rounded-lg border border-border',
+      !bare && 'prep-card bg-surface p-6 rounded-lg border border-border',
       className
     )}>
       {/* Include Globs */}
@@ -545,13 +545,13 @@ export function ProjectSettingsPanel({
             </p>
             <p className="text-text-muted text-xs leading-relaxed">
               {mode === 'embedded' 
-                ? 'Index is stored inside the project folder at .codrag/ (committed to git if not ignored).'
-                : 'Index is stored in the CoDRAG application data directory, separate from your source code.'}
+                ? 'Index is stored inside the project folder at .prep/ (committed to git if not ignored).'
+                : 'Index is stored in the Prep application data directory, separate from your source code.'}
             </p>
             {path && (
               <div className="flex items-center gap-1.5 mt-2 text-xs text-text-subtle font-mono bg-surface px-2 py-1 rounded border border-border/50 break-all">
                 <FolderOpen className="w-3 h-3 shrink-0" />
-                {mode === 'embedded' ? `${path}/.codrag` : 'Managed by CoDRAG'}
+                {mode === 'embedded' ? `${path}/.prep` : 'Managed by Prep'}
               </div>
             )}
           </div>

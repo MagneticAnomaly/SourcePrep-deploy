@@ -270,13 +270,13 @@ function formatProvenanceLine(p: StageProvenance): string {
       : 'restored from checkpoint';
     parts.push(label);
     if (p.restored_at) parts.push(formatRelativeDate(p.restored_at));
-    if (p.codrag_version) parts.push(`v${p.codrag_version}`);
+    if (p.prep_version) parts.push(`v${p.prep_version}`);
     return parts.join(' · ');
   }
   if (p.recovered) {
     parts.push('recovered (inferred)');
     if (p.generated_at) parts.push(formatRelativeDate(p.generated_at));
-    if (p.codrag_version) parts.push(`v${p.codrag_version}`);
+    if (p.prep_version) parts.push(`v${p.prep_version}`);
     return parts.join(' · ');
   }
 
@@ -325,7 +325,7 @@ function formatProvenanceLine(p: StageProvenance): string {
   }
   if (p.elapsed_seconds != null) parts.push(formatDuration(p.elapsed_seconds));
   if (p.generated_at) parts.push(formatRelativeDate(p.generated_at));
-  if (p.codrag_version) parts.push(`v${p.codrag_version}`);
+  if (p.prep_version) parts.push(`v${p.prep_version}`);
   return parts.join(' · ') || 'No run data';
 }
 
@@ -1018,13 +1018,13 @@ export function GraphEnrichmentPipeline({
 
   // ── Phase 49: Details toggle (persisted to localStorage) ──────
   const [showDetails, setShowDetails] = useState(() => {
-    try { return localStorage.getItem('codrag_pipeline_details') === 'true'; }
+    try { return localStorage.getItem('prep_pipeline_details') === 'true'; }
     catch { return false; }
   });
   const toggleDetails = () => {
     const next = !showDetails;
     setShowDetails(next);
-    try { localStorage.setItem('codrag_pipeline_details', String(next)); } catch { }
+    try { localStorage.setItem('prep_pipeline_details', String(next)); } catch { }
   };
 
   // ── Fade-in when transitioning from hero/building → pipeline ──

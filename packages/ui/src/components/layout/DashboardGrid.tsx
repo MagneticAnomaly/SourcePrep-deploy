@@ -90,7 +90,7 @@ export function DashboardGrid({
   return (
     <div
       ref={containerRef}
-      className={cn('codrag-dashboard-grid w-full overflow-x-hidden', className)}
+      className={cn('prep-dashboard-grid w-full overflow-x-hidden', className)}
     >
       <GridLayout
         className="layout"

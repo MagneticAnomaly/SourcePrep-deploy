@@ -739,7 +739,7 @@ function TreeItem({
   );
 }
 
-const EXPANDED_STORAGE_KEY = 'codrag_tree_expanded';
+const EXPANDED_STORAGE_KEY = 'prep_tree_expanded';
 
 export function FolderTree({
   data,
@@ -854,7 +854,7 @@ export const sampleFileTree: TreeNode[] = [
     type: 'folder',
     children: [
       {
-        name: 'codrag',
+        name: 'prep',
         type: 'folder',
         children: [
           { name: 'server.py', type: 'file', status: 'indexed', chunks: 24 },

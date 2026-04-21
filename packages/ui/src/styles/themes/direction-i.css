@@ -1,4 +1,4 @@
-[data-codrag-theme='i'] {
+[data-prep-theme='i'] {
   /* Studio Collage: Cranbrook/CalArts, Expressive, Layered */
   
   /* Color Palette - Earthy, Paper, bold splashes */
@@ -43,12 +43,12 @@
 }
 
 /* Specific component overrides for collage look */
-[data-codrag-theme='i'] .tremor-Card-root {
+[data-prep-theme='i'] .tremor-Card-root {
   border: 1px solid black;
   box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
 }
 
-[data-codrag-theme='i'].dark {
+[data-prep-theme='i'].dark {
   --background: 30 10% 10%;      /* Dark Warm Gray */
   --foreground: 40 20% 90%;
   --surface: 30 10% 15%;

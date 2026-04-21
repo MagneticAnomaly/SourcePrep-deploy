@@ -53,7 +53,7 @@ function resolveHeroVariantFromLocation(fallbackTheme: ThemeId): HeroVariant {
   const params = new URLSearchParams(window.location.search);
 
   const queryTheme = params.get('theme');
-  const attrTheme = document.documentElement.getAttribute('data-codrag-theme');
+  const attrTheme = document.documentElement.getAttribute('data-prep-theme');
 
   const theme = isThemeId(queryTheme) ? queryTheme : isThemeId(attrTheme) ? attrTheme : fallbackTheme;
 
@@ -84,11 +84,11 @@ export function DevMarketingHero({ fallbackTheme = 'm' }: DevMarketingHeroProps)
 
     updateVariant();
 
-    window.addEventListener('codrag:dev-toolbar', updateVariant);
+    window.addEventListener('prep:dev-toolbar', updateVariant);
     window.addEventListener('popstate', updateVariant);
 
     return () => {
-      window.removeEventListener('codrag:dev-toolbar', updateVariant);
+      window.removeEventListener('prep:dev-toolbar', updateVariant);
       window.removeEventListener('popstate', updateVariant);
     };
   }, [fallbackTheme, showDevToolbar]);

@@ -19,11 +19,11 @@ const INTROS: Record<ProblemArea, string> = {
   retrieval:
     'Why context engineering matters more than raw context size \u2014 and what changes when language models meet long, noisy windows.',
   compression:
-    'Why CoDRAG\u2019s context assembler ladders code from full source down to one-line signatures, and the research that makes signature-only context defensible.',
+    'Why Prep\u2019s context assembler ladders code from full source down to one-line signatures, and the research that makes signature-only context defensible.',
   chunking:
     'Why chunking on AST boundaries beats character splits for code, and how structural awareness changes retrieval quality.',
   concepts:
-    'Why CoDRAG treats concepts as first-class artifacts, where the protocol surface comes from, and the older work that grounds the system in something deeper than recent papers.',
+    'Why Prep treats concepts as first-class artifacts, where the protocol surface comes from, and the older work that grounds the system in something deeper than recent papers.',
 };
 
 const SECTION_TITLES: Record<ProblemArea, string> = {
@@ -41,9 +41,9 @@ export default function ResearchPage() {
     <DetailPageLayout
       title="Research"
       subtitle="Bibliography"
-      description="What CoDRAG was built on. Notes on the papers, repositories, essays, and standards that shaped the project."
+      description="What Prep was built on. Notes on the papers, repositories, essays, and standards that shaped the project."
       sections={SECTIONS}
-      docsUrl="https://docs.codrag.io"
+      docsUrl="https://docs.runprep.io"
       docsLabel="Read the docs"
     >
       <ResearchHero />
@@ -63,7 +63,7 @@ export default function ResearchPage() {
         corrections &mdash; if we&rsquo;ve cited your work badly, or missed work we
         should know about, open an issue on{' '}
         <a
-          href="https://github.com/MagneticAnomaly/CoDRAG-MCP/issues"
+          href="https://github.com/MagneticAnomaly/Prep-MCP/issues"
           className="text-primary hover:underline"
           target="_blank"
           rel="noopener noreferrer"

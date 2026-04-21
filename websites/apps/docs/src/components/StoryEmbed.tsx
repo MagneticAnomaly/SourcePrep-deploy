@@ -10,7 +10,7 @@ import './StoryEmbed.css';
  * - `sandbox="allow-scripts"` — no navigation, forms, popups, or top-frame access
  * - `referrerPolicy="no-referrer"` — no URL leakage from parent
  * - `allow=""` — no camera/mic/geolocation permissions
- * - Separate origin isolation when deployed to storybook.codrag.io
+ * - Separate origin isolation when deployed to storybook.runprep.io
  * - Stories use hardcoded mock data only — no real API calls
  */
 
@@ -48,7 +48,7 @@ export function StoryEmbed({
   }, []);
 
   // Locked to dark + Retro Aurora ("m") + docsMode for all docs embeds
-  const src = `${STORYBOOK_BASE_URL}/iframe.html?id=${encodeURIComponent(storyId)}&viewMode=story&globals=theme:dark;codragTheme:m;docsMode:true`;
+  const src = `${STORYBOOK_BASE_URL}/iframe.html?id=${encodeURIComponent(storyId)}&viewMode=story&globals=theme:dark;prepTheme:m;docsMode:true`;
 
   const heightValue = typeof height === 'number' ? `${height}px` : height;
 
@@ -86,7 +86,7 @@ export function StoryEmbed({
         <iframe
           ref={iframeRef}
           src={src}
-          title={title || `CoDRAG Dashboard — ${storyId.split('--')[0].replaceAll('-', ' ')}`}
+          title={title || `Prep Dashboard — ${storyId.split('--')[0].replaceAll('-', ' ')}`}
           className={`story-embed__iframe ${loaded ? 'story-embed__iframe--loaded' : ''}`}
           style={{ height: heightValue }}
           sandbox="allow-scripts allow-same-origin"

@@ -1,6 +1,6 @@
 # UI API Integration (Draft)
 
-This folder defines a **typed, Storybook-friendly** API client for the CoDRAG daemon.
+This folder defines a **typed, Storybook-friendly** API client for the Prep daemon.
 
 ## Design goals
 
@@ -13,7 +13,7 @@ This folder defines a **typed, Storybook-friendly** API client for the CoDRAG da
 
 Create a client:
 
-- `createCodragApiClient({ baseUrl, apiKey })`
+- `createPrepApiClient({ baseUrl, apiKey })`
 
 Call endpoints:
 

@@ -36,7 +36,7 @@ export function Sidebar({
   maxWidth = 480,
   onWidthChange,
 }: SidebarProps) {
-  const storageKey = 'codrag_sidebar_width';
+  const storageKey = 'prep_sidebar_width';
   const [width, setWidth] = useState(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
     return saved ? parseInt(saved, 10) : defaultWidth;
@@ -94,8 +94,8 @@ export function Sidebar({
         )}>
           {!collapsed && (
             <span className="font-semibold text-lg flex items-center text-text">
-              <img src="/codrag-logo.png" alt="CoDRAG" className="w-12 h-12 rounded" />
-              CoDRAG
+              <img src="/prep-logo.png" alt="Prep" className="w-12 h-12 rounded" />
+              Prep
             </span>
           )}
           {onCollapseToggle && (

@@ -26,14 +26,14 @@ const _isHttpLog = (log: LogEntry) =>
   log.message.includes('/knowledge/status');
 
 const _isPipelineLog = (log: LogEntry) =>
-  log.logger.startsWith('codrag.services.pipeline') ||
-  log.logger.startsWith('codrag.core.augmenter') ||
-  log.logger.startsWith('codrag.core.inferred_edges') ||
-  log.logger.startsWith('codrag.core.epistemic') ||
-  log.logger.startsWith('codrag.core.cluster') ||
-  log.logger.startsWith('codrag.core.atlas') ||
-  log.logger.startsWith('codrag.core.deepening') ||
-  log.logger.startsWith('codrag.core.group_reasoning');
+  log.logger.startsWith('prep.services.pipeline') ||
+  log.logger.startsWith('prep.core.augmenter') ||
+  log.logger.startsWith('prep.core.inferred_edges') ||
+  log.logger.startsWith('prep.core.epistemic') ||
+  log.logger.startsWith('prep.core.cluster') ||
+  log.logger.startsWith('prep.core.atlas') ||
+  log.logger.startsWith('prep.core.deepening') ||
+  log.logger.startsWith('prep.core.group_reasoning');
 
 export function LogConsole({
   logs,

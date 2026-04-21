@@ -37,11 +37,11 @@ export function LicenseStatusCard({
             License
             <InfoTooltip 
               content="View pricing and features." 
-              href="https://codrag.io/pricing" 
+              href="https://runprep.io/pricing" 
             />
           </h3>
           <p className="text-sm text-text-muted mt-1">
-            CoDRAG {label} License
+            Prep {label} License
           </p>
         </div>
         <div className="flex items-center gap-2">

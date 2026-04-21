@@ -31,7 +31,7 @@ export default function Page() {
             you want insights, not on every file change.
           </p>
           <p className="mt-4">
-            <strong>AutoAudit V2</strong> transforms CoDRAG from a "passive observer" into an "active taskmaster". Findings are categorized into flat tabs (Architecture, Quality, Coverage, Tech Debt), prioritized, and include concrete actionable items. You can select findings and click <strong>"Copy AI Command"</strong> to instantly hand off the context assembly to your AI via MCP.
+            <strong>AutoAudit V2</strong> transforms Prep from a "passive observer" into an "active taskmaster". Findings are categorized into flat tabs (Architecture, Quality, Coverage, Tech Debt), prioritized, and include concrete actionable items. You can select findings and click <strong>"Copy AI Command"</strong> to instantly hand off the context assembly to your AI via MCP.
           </p>
 
           <div className="not-prose my-8">
@@ -67,13 +67,13 @@ export default function Page() {
 
           <AnchorHeading id="cli" level="h3">CLI</AnchorHeading>
           <pre className="rounded-lg bg-surface-raised p-4"><code>{`# Run Tier 1 analyzers only (fast, no LLM)
-codrag audit
+prep audit
 
 # Run Tier 1 + Tier 2 synthesis (generates markdown reports)
-codrag audit --synthesize
+prep audit --synthesize
 
 # Filter to a specific category
-codrag audit --category architecture`}</code></pre>
+prep audit --category architecture`}</code></pre>
 
           <AnchorHeading id="mcp" level="h3">MCP Tools</AnchorHeading>
           <p>
@@ -81,23 +81,23 @@ codrag audit --category architecture`}</code></pre>
           </p>
           <ul className="list-disc pl-6 space-y-2">
             <li>
-              <code className="text-primary">codrag_audit</code> — Run or retrieve
+              <code className="text-primary">prep_audit</code> — Run or retrieve
               audit findings. Returns severity counts and top findings. Set{' '}
               <code>synthesize: true</code> to also generate full reports.
             </li>
             <li>
-              <code className="text-primary">codrag_audit_report</code> — Read a
+              <code className="text-primary">prep_audit_report</code> — Read a
               specific generated report by name. Available reports:{' '}
               <code>AUDIT_SUMMARY</code>, <code>ARCHITECTURE_ANALYSIS</code>,{' '}
               <code>GAP_ANALYSIS</code>, <code>COMPONENT_INVENTORY</code>,{' '}
               <code>TECH_DEBT_REPORT</code>.
             </li>
             <li>
-              <code className="text-primary">codrag_audit_refactor</code> — (V2) Context Assembly Handoff. 
+              <code className="text-primary">prep_audit_refactor</code> — (V2) Context Assembly Handoff. 
               Takes an array of <code>finding_ids</code> (e.g. <code>["ARCH-1", "QUAL-2"]</code>) and returns the full structural trace graph context for all affected files, priming the AI for an immediate refactor.
             </li>
             <li>
-              <code className="text-primary">codrag_audit_check</code> — (V2) Validation. 
+              <code className="text-primary">prep_audit_check</code> — (V2) Validation. 
               Takes an array of <code>analyzers</code> to re-run locally to verify that recent code changes actually resolved the finding.
             </li>
           </ul>
@@ -242,11 +242,11 @@ codrag audit --category architecture`}</code></pre>
   └── TECH_DEBT_REPORT.md
 
 # Embedded mode:
-/path/to/project/.codrag/audit/
+/path/to/project/.prep/audit/
   └── (same files)`}</code></pre>
           <p>
-            These files are also indexed by CoDRAG&apos;s search engine, so you can
-            query them via <code>codrag_search</code> (e.g., &quot;what tech debt
+            These files are also indexed by Prep&apos;s search engine, so you can
+            query them via <code>prep_search</code> (e.g., &quot;what tech debt
             exists in the auth module?&quot;).
           </p>
 
@@ -315,9 +315,9 @@ codrag audit --category architecture`}</code></pre>
           </p>
           <ol className="list-decimal pl-6 space-y-2">
             <li>The enrichment pipeline runs (stages 1–11) and produces trace_nodes, trace_augmented, trace_epistemic, trace_modules, and atlas.json.</li>
-            <li>You run <code>codrag audit</code> when you want insights. The audit reads all that data and produces findings + reports.</li>
+            <li>You run <code>prep audit</code> when you want insights. The audit reads all that data and produces findings + reports.</li>
             <li>If <code>auto_run_after_deep</code> is enabled, Tier 1 analyzers run automatically when deep enrichment completes.</li>
-            <li>Audit reports are indexed by CoDRAG&apos;s search engine and served via MCP, so your AI tools can access them.</li>
+            <li>Audit reports are indexed by Prep&apos;s search engine and served via MCP, so your AI tools can access them.</li>
           </ol>
         </div>
       </div>

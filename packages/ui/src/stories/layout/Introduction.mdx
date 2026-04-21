@@ -4,7 +4,7 @@ import { Meta } from '@storybook/blocks';
 
 # Modular Dashboard Layout System
 
-The CoDRAG Modular Dashboard is a flexible, grid-based layout system that allows users to customize their workspace. It is built on top of `react-grid-layout` and provides a set of opinionated wrappers and state management hooks to ensure a consistent, persistent user experience.
+The Prep Modular Dashboard is a flexible, grid-based layout system that allows users to customize their workspace. It is built on top of `react-grid-layout` and provides a set of opinionated wrappers and state management hooks to ensure a consistent, persistent user experience.
 
 ## Core Concepts
 
@@ -90,7 +90,7 @@ Every panel content component is wrapped in `PanelChrome`. This provides:
 
 ### 4. Persistence
 
-The `useLayoutPersistence` hook automatically syncs layout changes to `localStorage` (key: `codrag_dashboard_layout`). It includes:
+The `useLayoutPersistence` hook automatically syncs layout changes to `localStorage` (key: `prep_dashboard_layout`). It includes:
 - **Debounced saving** to prevent thrashing storage.
 - **Schema versioning** to allow future format changes.
 - **Reconciliation** to merge saved user layouts with new default panels shipped in updates.

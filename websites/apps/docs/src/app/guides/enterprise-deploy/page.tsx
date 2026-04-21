@@ -1,8 +1,8 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
 
 export const metadata = {
-  title: 'Enterprise Deployment Guide — CoDRAG Docs',
-  description: 'Deploy CoDRAG headless indexing inside your own infrastructure: air-gapped, VPC, serverless GPU.',
+  title: 'Enterprise Deployment Guide — Prep Docs',
+  description: 'Deploy Prep headless indexing inside your own infrastructure: air-gapped, VPC, serverless GPU.',
 };
 
 export default function Page() {
@@ -17,7 +17,7 @@ export default function Page() {
           Enterprise Deployment
         </h1>
         <p className="mt-4 text-lg text-text-muted">
-          Deploy CoDRAG&apos;s headless indexer inside your own cloud infrastructure.
+          Deploy Prep&apos;s headless indexer inside your own cloud infrastructure.
           No code leaves your network. GPU or CPU images run on any container orchestrator.
         </p>
         <p className="mt-2 text-sm text-text-subtle">
@@ -32,7 +32,7 @@ export default function Page() {
         <AnchorHeading id="overview" level="h2">Overview</AnchorHeading>
 
         <p className="mt-4 text-text-muted">
-          CoDRAG ships two Docker images for headless indexing. Both run the full
+          Prep ships two Docker images for headless indexing. Both run the full
           10-stage enrichment pipeline (structural AST parse → epistemic enrichment →
           cluster synthesis → atlas generation) and upload the resulting index to
           S3-compatible storage.
@@ -50,13 +50,13 @@ export default function Page() {
             </thead>
             <tbody className="text-text-muted">
               <tr>
-                <td className="px-4 py-2 font-mono text-xs border-b border-border">ghcr.io/ericbintner/codrag-headless:cpu</td>
+                <td className="px-4 py-2 font-mono text-xs border-b border-border">ghcr.io/ericbintner/prep-headless:cpu</td>
                 <td className="px-4 py-2 border-b border-border">~2-3 GB</td>
                 <td className="px-4 py-2 border-b border-border">No</td>
                 <td className="px-4 py-2 border-b border-border">CI runners + BYOK cloud LLM (OpenAI, Anthropic)</td>
               </tr>
               <tr>
-                <td className="px-4 py-2 font-mono text-xs">ghcr.io/ericbintner/codrag-headless:gpu</td>
+                <td className="px-4 py-2 font-mono text-xs">ghcr.io/ericbintner/prep-headless:gpu</td>
                 <td className="px-4 py-2">~8-10 GB</td>
                 <td className="px-4 py-2">Yes</td>
                 <td className="px-4 py-2">Air-gapped / VPC with local Ollama + Qwen3</td>
@@ -80,20 +80,20 @@ export default function Page() {
         <ol className="mt-2 list-decimal list-inside space-y-2 text-text-muted">
           <li>Pull the GPU image to your internal registry:
             <pre className="mt-1 mb-1 overflow-x-auto rounded bg-surface-raised px-3 py-2 text-xs font-mono">
-{`docker pull ghcr.io/ericbintner/codrag-headless:gpu
-docker tag ghcr.io/ericbintner/codrag-headless:gpu registry.internal/codrag:gpu
-docker push registry.internal/codrag:gpu`}
+{`docker pull ghcr.io/ericbintner/prep-headless:gpu
+docker tag ghcr.io/ericbintner/prep-headless:gpu registry.internal/prep:gpu
+docker push registry.internal/prep:gpu`}
             </pre>
           </li>
           <li>Run with GPU access:
             <pre className="mt-1 mb-1 overflow-x-auto rounded bg-surface-raised px-3 py-2 text-xs font-mono">
 {`docker run --gpus all \\
-  -e CODRAG_S3_ENDPOINT=https://minio.internal:9000 \\
-  -e CODRAG_S3_BUCKET=codrag-indexes \\
-  -e CODRAG_S3_ACCESS_KEY=\$ACCESS_KEY \\
-  -e CODRAG_S3_SECRET_KEY=\$SECRET_KEY \\
+  -e PREP_S3_ENDPOINT=https://minio.internal:9000 \\
+  -e PREP_S3_BUCKET=prep-indexes \\
+  -e PREP_S3_ACCESS_KEY=\$ACCESS_KEY \\
+  -e PREP_S3_SECRET_KEY=\$SECRET_KEY \\
   -v /mnt/repos/my-project:/workspace \\
-  registry.internal/codrag:gpu \\
+  registry.internal/prep:gpu \\
   sync-headless \\
     --repo-path /workspace \\
     --model-provider local \\
@@ -110,7 +110,7 @@ docker push registry.internal/codrag:gpu`}
           you can bake a larger model into a custom image:
         </p>
         <pre className="mt-3 overflow-x-auto rounded-lg bg-surface-raised p-4 text-xs font-mono text-text border border-border">
-{`FROM ghcr.io/ericbintner/codrag-headless:gpu
+{`FROM ghcr.io/ericbintner/prep-headless:gpu
 RUN ollama serve & sleep 3 && ollama pull qwen3:8b && kill %1 || true`}
         </pre>
 
@@ -122,8 +122,8 @@ RUN ollama serve & sleep 3 && ollama pull qwen3:8b && kill %1 || true`}
         <p className="mt-4 text-text-muted">
           Run the headless indexer as an ECS task with GPU support.
           A reference task definition is provided in the{' '}
-          <a href="https://github.com/MagneticAnomaly/codrag-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-            codrag-deploy
+          <a href="https://github.com/MagneticAnomaly/prep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+            prep-deploy
           </a>{' '}
           repository under <code>aws/</code>.
         </p>
@@ -144,7 +144,7 @@ RUN ollama serve & sleep 3 && ollama pull qwen3:8b && kill %1 || true`}
           Use Azure Container Apps with GPU profiles or Azure ML Processing Jobs.
         </p>
         <ul className="mt-4 list-disc list-inside space-y-1 text-text-muted">
-          <li>Storage: Azure Blob Storage (S3-compatible via <code>CODRAG_S3_ENDPOINT</code>).</li>
+          <li>Storage: Azure Blob Storage (S3-compatible via <code>PREP_S3_ENDPOINT</code>).</li>
           <li>Auth: Managed Identity or connection string in Key Vault.</li>
           <li>Trigger: Azure DevOps pipeline or GitHub Actions webhook.</li>
         </ul>
@@ -162,14 +162,14 @@ RUN ollama serve & sleep 3 && ollama pull qwen3:8b && kill %1 || true`}
         <AnchorHeading id="modal" level="h3">Modal</AnchorHeading>
         <ol className="mt-2 list-decimal list-inside space-y-1 text-text-muted">
           <li>Install the Modal CLI: <code>pip install modal &amp;&amp; modal setup</code></li>
-          <li>Save your S3 credentials as a Modal Secret named <code>codrag-s3-creds</code>.</li>
+          <li>Save your S3 credentials as a Modal Secret named <code>prep-s3-creds</code>.</li>
           <li>Deploy the adapter: <code>modal deploy modal/modal_adapter.py</code></li>
           <li>Copy the webhook URL into your GitHub Action.</li>
         </ol>
         <p className="mt-2 text-xs text-text-subtle">
           Adapter source:{' '}
-          <a href="https://github.com/MagneticAnomaly/codrag-deploy/tree/main/modal" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-            codrag-deploy/modal/
+          <a href="https://github.com/MagneticAnomaly/prep-deploy/tree/main/modal" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+            prep-deploy/modal/
           </a>
         </p>
 
@@ -177,8 +177,8 @@ RUN ollama serve & sleep 3 && ollama pull qwen3:8b && kill %1 || true`}
         <ol className="mt-2 list-decimal list-inside space-y-1 text-text-muted">
           <li>Build and push the RunPod image:
             <pre className="mt-1 mb-1 overflow-x-auto rounded bg-surface-raised px-3 py-2 text-xs font-mono">
-{`docker build -f runpod/Dockerfile.runpod -t my-org/codrag-runpod .
-docker push my-org/codrag-runpod`}
+{`docker build -f runpod/Dockerfile.runpod -t my-org/prep-runpod .
+docker push my-org/prep-runpod`}
             </pre>
           </li>
           <li>Create a Serverless Endpoint in the RunPod dashboard using your image.</li>
@@ -187,8 +187,8 @@ docker push my-org/codrag-runpod`}
         </ol>
         <p className="mt-2 text-xs text-text-subtle">
           Handler source:{' '}
-          <a href="https://github.com/MagneticAnomaly/codrag-deploy/tree/main/runpod" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-            codrag-deploy/runpod/
+          <a href="https://github.com/MagneticAnomaly/prep-deploy/tree/main/runpod" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+            prep-deploy/runpod/
           </a>
         </p>
 
@@ -245,10 +245,10 @@ docker push my-org/codrag-runpod`}
         <AnchorHeading id="security" level="h2">Security Posture</AnchorHeading>
 
         <ul className="mt-4 list-disc list-inside space-y-2 text-text-muted">
-          <li><strong>No telemetry.</strong> CoDRAG does not phone home, collect usage data, or send any information to external servers.</li>
+          <li><strong>No telemetry.</strong> Prep does not phone home, collect usage data, or send any information to external servers.</li>
           <li><strong>No cloud dependency.</strong> The GPU image includes everything needed to run completely offline.</li>
-          <li><strong>Secrets leakage detection.</strong> CoDRAG warns if credential-like keys appear in <code>team_config.json</code> (which is committed to Git).</li>
-          <li><strong>S3 credentials</strong> are resolved from environment variables or a gitignored <code>.codrag/.secrets</code> file — never from committed files.</li>
+          <li><strong>Secrets leakage detection.</strong> Prep warns if credential-like keys appear in <code>team_config.json</code> (which is committed to Git).</li>
+          <li><strong>S3 credentials</strong> are resolved from environment variables or a gitignored <code>.prep/.secrets</code> file — never from committed files.</li>
           <li><strong>Offline license activation.</strong> Enterprise licenses are Ed25519-signed and validated locally. No internet required after activation.</li>
         </ul>
 
@@ -307,7 +307,7 @@ docker push my-org/codrag-runpod`}
 
         <p className="mt-4 text-sm text-text-subtle">
           Roadmap features are actively in development. Contact{' '}
-          <a href="mailto:enterprise@codrag.io" className="text-primary hover:underline">enterprise@codrag.io</a>{' '}
+          <a href="mailto:enterprise@runprep.io" className="text-primary hover:underline">enterprise@runprep.io</a>{' '}
           to discuss your requirements and timeline.
         </p>
 
@@ -317,9 +317,9 @@ docker push my-org/codrag-runpod`}
         <AnchorHeading id="team-config" level="h2">team_config.json Reference</AnchorHeading>
 
         <p className="mt-4 text-text-muted">
-          The team configuration file is committed to your repository at <code>.codrag/team_config.json</code>.
+          The team configuration file is committed to your repository at <code>.prep/team_config.json</code>.
           It contains only non-secret settings — credentials are resolved from environment variables or
-          <code>.codrag/.secrets</code> (gitignored).
+          <code>.prep/.secrets</code> (gitignored).
         </p>
 
         <AnchorHeading id="sync-config" level="h3">Sync Configuration</AnchorHeading>
@@ -328,7 +328,7 @@ docker push my-org/codrag-runpod`}
   "sync": {
     "enabled": true,
     "s3_endpoint": "https://<account-id>.r2.cloudflarestorage.com",
-    "s3_bucket": "codrag-team-indexes",
+    "s3_bucket": "prep-team-indexes",
     "s3_prefix": "my-repo-name",
     "poll_interval_minutes": 30
   }
@@ -416,7 +416,7 @@ docker push my-org/codrag-runpod`}
         <AnchorHeading id="cli-reference" level="h2">CLI Reference</AnchorHeading>
 
         <pre className="mt-4 overflow-x-auto rounded-lg bg-surface-raised p-4 text-xs font-mono text-text border border-border">
-{`codrag sync-headless \\
+{`prep sync-headless \\
   --repo-path .                     # Path to a pre-cloned repository
   --repo-url https://...            # Or: clone from URL (uses $GIT_TOKEN for auth)
   --branch main                     # Branch to index (default: main)
@@ -425,11 +425,11 @@ docker push my-org/codrag-runpod`}
   --api-key sk-...                   # API key (or use env: OPENAI_API_KEY, etc.)
   --embedder native                 # native (ONNX, CPU) | ollama
   --full                            # Force full rebuild (skip incremental)
-  --s3-endpoint https://...         # S3 endpoint (or CODRAG_S3_ENDPOINT env)
-  --s3-bucket my-bucket             # S3 bucket (or CODRAG_S3_BUCKET env)
-  --s3-prefix my-repo               # S3 prefix (or CODRAG_S3_PREFIX env)
-  --s3-access-key AKIA...           # S3 access key (or CODRAG_S3_ACCESS_KEY env)
-  --s3-secret-key ...               # S3 secret key (or CODRAG_S3_SECRET_KEY env)`}
+  --s3-endpoint https://...         # S3 endpoint (or PREP_S3_ENDPOINT env)
+  --s3-bucket my-bucket             # S3 bucket (or PREP_S3_BUCKET env)
+  --s3-prefix my-repo               # S3 prefix (or PREP_S3_PREFIX env)
+  --s3-access-key AKIA...           # S3 access key (or PREP_S3_ACCESS_KEY env)
+  --s3-secret-key ...               # S3 secret key (or PREP_S3_SECRET_KEY env)`}
         </pre>
 
         <hr className="my-8 border-border" />
@@ -443,20 +443,20 @@ docker push my-org/codrag-runpod`}
             — Standard CI/CD setup with GitHub Actions
           </li>
           <li>
-            <a href="https://github.com/MagneticAnomaly/codrag-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
-              codrag-deploy repository
+            <a href="https://github.com/MagneticAnomaly/prep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+              prep-deploy repository
             </a>{' '}
             — Dockerfiles, platform adapters, and reference configurations
           </li>
           <li>
-            <a href="https://codrag.io/pricing" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+            <a href="https://runprep.io/pricing" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
               Pricing
             </a>{' '}
             — Team &amp; Enterprise plans
           </li>
           <li>
-            <a href="mailto:enterprise@codrag.io" className="text-primary hover:underline">
-              enterprise@codrag.io
+            <a href="mailto:enterprise@runprep.io" className="text-primary hover:underline">
+              enterprise@runprep.io
             </a>{' '}
             — Enterprise sales and custom deployments
           </li>

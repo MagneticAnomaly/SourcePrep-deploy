@@ -41,7 +41,7 @@ export interface SiteFooterProps {
 }
 
 export function SiteFooter({
-  productName = 'CoDRAG',
+  productName = 'Prep',
   logo = <Box className="w-5 h-5 text-primary" />,
   sections = defaultSections,
   socials,
@@ -114,8 +114,8 @@ export function SiteFooter({
             {copyright || `© ${currentYear} ${productName} Inc. All rights reserved.`}
           </p>
           <div className="flex gap-6">
-            <a href="https://codrag.io/privacy" className="text-xs text-text-subtle hover:text-text transition-colors">Privacy Policy</a>
-            <a href="https://codrag.io/terms" className="text-xs text-text-subtle hover:text-text transition-colors">Terms of Service</a>
+            <a href="https://runprep.io/privacy" className="text-xs text-text-subtle hover:text-text transition-colors">Privacy Policy</a>
+            <a href="https://runprep.io/terms" className="text-xs text-text-subtle hover:text-text transition-colors">Terms of Service</a>
           </div>
         </div>
       </div>
@@ -127,29 +127,29 @@ const defaultSections: FooterSection[] = [
   {
     title: 'Product',
     links: [
-      { label: 'Download', href: 'https://codrag.io/download' },
-      { label: 'Pricing', href: 'https://codrag.io/pricing' },
-      { label: 'Changelog', href: 'https://codrag.io/changelog' },
-      { label: 'Docs', href: 'https://docs.codrag.io' },
+      { label: 'Download', href: 'https://runprep.io/download' },
+      { label: 'Pricing', href: 'https://runprep.io/pricing' },
+      { label: 'Changelog', href: 'https://runprep.io/changelog' },
+      { label: 'Docs', href: 'https://docs.runprep.io' },
     ],
   },
   {
     title: 'Resources',
     links: [
-      { label: 'Blog', href: 'https://codrag.io/blog' },
-      { label: 'Community', href: 'https://codrag.io/community' },
-      { label: 'Help Center', href: 'https://codrag.io/support' },
+      { label: 'Blog', href: 'https://runprep.io/blog' },
+      { label: 'Community', href: 'https://runprep.io/community' },
+      { label: 'Help Center', href: 'https://runprep.io/support' },
     ],
   },
   {
     title: 'Company',
     links: [
-      { label: 'About', href: 'https://codrag.io/about' },
-      { label: 'Careers', href: 'https://codrag.io/careers' },
-      { label: 'Contact', href: 'https://codrag.io/contact' },
-      { label: 'Security', href: 'https://codrag.io/security' },
-      { label: 'CoDRAG vs Cursor', href: 'https://codrag.io/compare/codrag-vs-cursor-indexing' },
-      { label: 'CoDRAG vs Greptile', href: 'https://codrag.io/compare/codrag-vs-greptile' },
+      { label: 'About', href: 'https://runprep.io/about' },
+      { label: 'Careers', href: 'https://runprep.io/careers' },
+      { label: 'Contact', href: 'https://runprep.io/contact' },
+      { label: 'Security', href: 'https://runprep.io/security' },
+      { label: 'Prep vs Cursor', href: 'https://runprep.io/compare/prep-vs-cursor-indexing' },
+      { label: 'Prep vs Greptile', href: 'https://runprep.io/compare/prep-vs-greptile' },
     ],
   },
 ];

@@ -1,5 +1,5 @@
 /**
- * CoDRAG UI Type Definitions
+ * Prep UI Type Definitions
  */
 
 /**
@@ -17,7 +17,7 @@ export type StatusState =
   | 'disabled';  // Feature disabled
 
 /**
- * Search result from the CoDRAG API
+ * Search result from the Prep API
  */
 export interface SearchResult {
   chunk_id: string;
@@ -555,7 +555,7 @@ export interface StageProvenance {
   generated_at?: string;
   age_days?: number;
   elapsed_seconds?: number;
-  codrag_version?: string;
+  prep_version?: string;
   quality?: {
     avg_confidence?: number;
     success_rate?: number;
@@ -656,7 +656,7 @@ export interface LLMStatus {
  * Canonical task IDs for LLM assignment (Phase 44).
  * Each represents an atomic execution point that requires an LLM.
  */
-export type CodragTaskId =
+export type PrepTaskId =
   | 'catalogue'
   | 'inferred_edges'
   | 'enrichment'
@@ -668,12 +668,12 @@ export type CodragTaskId =
   | 'audit'
   | 'augmentation';
 
-export const ALL_TASK_IDS: CodragTaskId[] = [
+export const ALL_TASK_IDS: PrepTaskId[] = [
   'inferred_edges', 'catalogue', 'enrichment', 'group_reasoning', 'clustering',
   'atlas', 'deepening', 'search_intent', 'audit', 'augmentation',
 ];
 
-export const TASK_LABELS: Record<CodragTaskId, string> = {
+export const TASK_LABELS: Record<PrepTaskId, string> = {
   catalogue: 'Catalogue Summarization',
   inferred_edges: 'Inferred Edge Discovery',
   enrichment: 'Deep Reasoning',
@@ -686,7 +686,7 @@ export const TASK_LABELS: Record<CodragTaskId, string> = {
   augmentation: 'Trace Augmentation',
 };
 
-export const TASK_TAGS: Record<CodragTaskId, string> = {
+export const TASK_TAGS: Record<PrepTaskId, string> = {
   inferred_edges: 'Code',
   catalogue: 'Fast',
   search_intent: 'Fast',
@@ -701,7 +701,7 @@ export const TASK_TAGS: Record<CodragTaskId, string> = {
 
 export type CloudPreference = 'local-preferred' | 'cloud-preferred' | 'neutral';
 
-export const TASK_CLOUD_PREF: Record<CodragTaskId, CloudPreference> = {
+export const TASK_CLOUD_PREF: Record<PrepTaskId, CloudPreference> = {
   catalogue: 'local-preferred',
   search_intent: 'local-preferred',
   augmentation: 'local-preferred',
@@ -727,7 +727,7 @@ export interface LLMAssignmentBlock {
   id: string;
   endpoint_id: string;
   model: string;
-  tasks: CodragTaskId[];
+  tasks: PrepTaskId[];
   enable_reasoning?: boolean;
   always_on?: boolean;
   /** Per-model LLM concurrency (1 or 2). Default: 1. Only for local endpoints. */
@@ -1325,7 +1325,7 @@ export interface LLMBlockStatus {
   endpoint_url?: string;
   provider?: string;
   endpoint_name?: string;
-  tasks: CodragTaskId[];
+  tasks: PrepTaskId[];
   model_available?: boolean;
   error?: string;
 }
@@ -1334,7 +1334,7 @@ export interface LLMBlockStatus {
  * A currently-running pipeline task with project context
  */
 export interface RunningTask {
-  task_id: CodragTaskId;
+  task_id: PrepTaskId;
   project_id: string;
   project_name: string;
   group: string;
@@ -1353,7 +1353,7 @@ export interface RunningTask {
  */
 export interface LLMSlotsStatus {
   assignment_mode?: AssignmentMode;
-  running_task_id?: CodragTaskId | null;
+  running_task_id?: PrepTaskId | null;
   running_tasks?: RunningTask[];
   embedding: LLMSlotStatus;
   small_model: LLMSlotStatus;

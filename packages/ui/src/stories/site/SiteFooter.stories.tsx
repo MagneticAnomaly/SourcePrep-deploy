@@ -15,11 +15,11 @@ type Story = StoryObj<typeof SiteFooter>;
 
 export const Default: Story = {
   args: {
-    productName: 'CoDRAG',
+    productName: 'Prep',
     socials: {
-      twitter: 'https://x.com/CoDRAG_io',
-      github: 'https://github.com/MagneticAnomaly/CoDRAG-MCP',
-      email: 'hello@codrag.io',
+      twitter: 'https://x.com/Prep_io',
+      github: 'https://github.com/MagneticAnomaly/Prep-MCP',
+      email: 'hello@runprep.io',
     },
   },
 };

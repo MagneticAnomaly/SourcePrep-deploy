@@ -25,6 +25,6 @@ export const Bare: Story = {
 
 export const CustomDocsUrl: Story = {
   args: {
-    docsUrl: 'https://docs.codrag.io/guides',
+    docsUrl: 'https://docs.runprep.io/guides',
   },
 };

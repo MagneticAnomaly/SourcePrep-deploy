@@ -1,5 +1,5 @@
-// CoDRAG UI - Shared Component Library
-// This package provides the design system foundation for CoDRAG app and website
+// Prep UI - Shared Component Library
+// This package provides the design system foundation for Prep app and website
 
 // Utilities
 export { cn } from './lib/utils';
@@ -97,7 +97,7 @@ export { StatusBadge, StatusCard, BuildProgress, ProgressIndicator } from './com
 export type { StatusBadgeProps, StatusCardProps, BuildProgressProps, ProgressIndicatorProps } from './components/status';
 
 // Components - Console
-export { LogConsole, AnimatedCLI, TerminalFrame, AnimatedIDE, codragSearchDemo, codragImpactDemo, codragOverviewDemo, codragAuditDemo, codragObserveDemo, codragConceptsDemo, ideDemoScript } from './components/console';
+export { LogConsole, AnimatedCLI, TerminalFrame, AnimatedIDE, prepSearchDemo, prepImpactDemo, prepOverviewDemo, prepAuditDemo, prepObserveDemo, prepConceptsDemo, ideDemoScript } from './components/console';
 export type { LogConsoleProps, AnimatedCLIProps, TerminalFrameProps, AnimatedIDEProps, CliEvent, CliScript, TerminalTheme } from './components/console';
 
 // Components - Navigation
@@ -188,7 +188,7 @@ export { PanelChrome, DashboardGrid, PanelPicker, ModularDashboard, useLayoutPer
 export type { PanelChromeProps, DashboardGridProps, PanelPickerProps, ModularDashboardProps, PanelContentMap, DashboardLayoutApi } from './components/layout';
 
 // Components - Marketing & Site (Phase 12)
-export { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents, CompetitorMatrix, DetailPageLayout } from './components/marketing';
+export { MarketingHero, FeatureBlocks, prepFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents, CompetitorMatrix, DetailPageLayout } from './components/marketing';
 export type { MarketingHeroProps, FeatureBlocksProps, Feature, TierComparisonProps, TierFeature, TechStackMatrixProps, StackComponent, CompetitorMatrixProps, DetailPageLayoutProps, DetailPageSection } from './components/marketing';
 export { SiteHeader, SiteFooter, XIcon } from './components/site';
 export type { SiteHeaderProps, SiteFooterProps, NavLink, FooterSection, FooterLink } from './components/site';

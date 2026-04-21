@@ -3,14 +3,14 @@
 import { FeatureBlocks } from '@prep/ui';
 import { HelpCircle, Bug, CreditCard, Mail, Shield } from 'lucide-react';
 
-const GITHUB_REPO_URL = 'https://github.com/MagneticAnomaly/CoDRAG-MCP';
+const GITHUB_REPO_URL = 'https://github.com/MagneticAnomaly/Prep-MCP';
 
 const supportOptions = [
   {
     icon: <HelpCircle className="w-8 h-8" />,
     title: 'Troubleshooting',
     description: 'Common issues, fixes, and performance tips.',
-    href: 'https://docs.codrag.io/troubleshooting',
+    href: 'https://docs.runprep.io/troubleshooting',
     external: true,
   },
   {
@@ -24,21 +24,21 @@ const supportOptions = [
     icon: <CreditCard className="w-8 h-8" />,
     title: 'Billing & licenses',
     description: 'Purchase, license delivery, and recovery.',
-    href: 'https://payments.codrag.io',
+    href: 'https://payments.runprep.io',
     external: true,
   },
   {
     icon: <Mail className="w-8 h-8" />,
     title: 'Email support',
-    description: 'support@codrag.io',
-    href: 'mailto:support@codrag.io',
+    description: 'support@runprep.io',
+    href: 'mailto:support@runprep.io',
     external: true,
   },
   {
     icon: <Shield className="w-8 h-8" />,
     title: 'Security reporting',
-    description: 'security@codrag.io',
-    href: 'mailto:security@codrag.io',
+    description: 'security@runprep.io',
+    href: 'mailto:security@runprep.io',
     external: true,
   },
 ];

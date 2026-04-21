@@ -19,13 +19,13 @@ export default meta;
 type Story = StoryObj<typeof AppShell>;
 
 const mockProjects: ProjectSummary[] = [
-  { id: '1', name: 'codrag', path: '/Users/dev/codrag', mode: 'standalone', status: 'fresh', chunk_count: 1234 },
+  { id: '1', name: 'prep', path: '/Users/dev/prep', mode: 'standalone', status: 'fresh', chunk_count: 1234 },
   { id: '2', name: 'website', path: '/Users/dev/website', mode: 'standalone', status: 'stale' },
   { id: '3', name: 'api-server', path: '/Users/dev/api', mode: 'standalone', status: 'building' },
 ];
 
 const mockTabs = [
-  { id: '1', name: 'codrag', path: '/Users/dev/codrag' },
+  { id: '1', name: 'prep', path: '/Users/dev/prep' },
   { id: '2', name: 'website', path: '/Users/dev/website' },
 ];
 
@@ -74,7 +74,7 @@ export const EmptyProjects: Story = {
     >
       <EmptyState
         title="No projects yet"
-        description="Add your first project to get started with CoDRAG. Projects are indexed locally; nothing is uploaded."
+        description="Add your first project to get started with Prep. Projects are indexed locally; nothing is uploaded."
         action={{
           label: 'Add Project',
           onClick: () => {},

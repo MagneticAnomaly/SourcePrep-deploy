@@ -4,7 +4,7 @@ import { Meta } from '@storybook/blocks';
 
 # Visual Directions
 
-CoDRAG supports multiple visual themes to accommodate different developer preferences and environments. These themes are implemented as CSS variable sets that override the semantic design tokens.
+Prep supports multiple visual themes to accommodate different developer preferences and environments. These themes are implemented as CSS variable sets that override the semantic design tokens.
 
 You can switch between these themes using the **Visual Style** toolbar item above (paintbrush icon).
 
@@ -47,11 +47,11 @@ You can switch between these themes using the **Visual Style** toolbar item abov
 
 ## Implementation
 
-Themes are applied via `data-codrag-theme` attribute on the `<html>` or `<body>` element.
+Themes are applied via `data-prep-theme` attribute on the `<html>` or `<body>` element.
 
 ```css
 /* Example: applying theme 'h' */
-:root[data-codrag-theme='h'] {
+:root[data-prep-theme='h'] {
   --background: 260 20% 10%;
   --primary: 320 100% 50%;
   /* ... overrides ... */

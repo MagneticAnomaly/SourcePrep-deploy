@@ -68,7 +68,7 @@ export function ContextOptionsPanel({
             <Title className="text-text truncate">Context Assembler</Title>
             <InfoTooltip 
               content="Learn about context assembly." 
-              href="https://docs.codrag.io/concepts/context" 
+              href="https://docs.runprep.io/concepts/context" 
             />
           </div>
           <div className="flex items-center gap-2 shrink-0">

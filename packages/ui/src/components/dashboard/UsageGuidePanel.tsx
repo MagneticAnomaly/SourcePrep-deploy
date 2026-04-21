@@ -20,51 +20,51 @@ interface ToolDef {
 const MCP_TOOLS: ToolDef[] = [
   // ── Context & Search ────────────────────────────────
   {
-    name: 'codrag',
+    name: 'prep',
     description: 'Get assembled context from your selected files, code graph, and atlas routing — the primary tool your AI uses.',
-    example: '"Use codrag to understand this codebase"',
+    example: '"Use prep to understand this codebase"',
     primary: true,
     category: 'Context & Search',
   },
   {
-    name: 'hi_codrag',
-    description: 'See what CoDRAG knows about your selected files — design docs, code areas, connections, and suggested next steps. Best first step.',
-    example: '"hi_codrag" — select files in Knowledge Sources first, then ask your AI',
+    name: 'hi_prep',
+    description: 'See what Prep knows about your selected files — design docs, code areas, connections, and suggested next steps. Best first step.',
+    example: '"hi_prep" — select files in Knowledge Sources first, then ask your AI',
     primary: true,
   },
   {
-    name: 'codrag_search',
+    name: 'prep_search',
     description: 'Semantic search across your indexed code and docs.',
-    example: '"Use codrag_search to find authentication logic"',
+    example: '"Use prep_search to find authentication logic"',
   },
   // ── Index Management ────────────────────────────────
   {
-    name: 'codrag_status',
-    description: 'Check if CoDRAG is connected and the index is ready.',
-    example: '"Use codrag_status to check the index"',
+    name: 'prep_status',
+    description: 'Check if Prep is connected and the index is ready.',
+    example: '"Use prep_status to check the index"',
     category: 'Index Management',
   },
   {
-    name: 'codrag_build',
+    name: 'prep_build',
     description: 'Trigger an index rebuild when your code has changed.',
-    example: '"Use codrag_build to re-index the project"',
+    example: '"Use prep_build to re-index the project"',
   },
   // ── Code Graph ──────────────────────────────────────
   {
-    name: 'codrag_trace_search',
+    name: 'prep_trace_search',
     description: 'Search the structural code graph for symbols (functions, classes, modules).',
-    example: '"Use codrag_trace_search to find the UserService class"',
+    example: '"Use prep_trace_search to find the UserService class"',
     category: 'Code Graph',
   },
   {
-    name: 'codrag_trace_neighbors',
+    name: 'prep_trace_neighbors',
     description: 'Explore imports, callers, and callees of a symbol in the code graph.',
-    example: '"Use codrag_trace_neighbors to see what calls handleAuth"',
+    example: '"Use prep_trace_neighbors to see what calls handleAuth"',
   },
   {
-    name: 'codrag_trace_coverage',
+    name: 'prep_trace_coverage',
     description: 'Check which files are traced, stale, or missing from the code graph.',
-    example: '"Use codrag_trace_coverage to check graph completeness"',
+    example: '"Use prep_trace_coverage to check graph completeness"',
   },
 ];
 
@@ -94,7 +94,7 @@ function CopyBadge({ text }: { text: string }) {
   );
 }
 
-export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://docs.codrag.io' }: UsageGuidePanelProps) {
+export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://docs.runprep.io' }: UsageGuidePanelProps) {
   return (
     <div className={cn(
       !bare && 'border border-border bg-surface shadow-sm rounded-lg p-4',
@@ -105,8 +105,8 @@ export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://do
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-text">Quick Start</h3>
             <InfoTooltip 
-              content="Learn how to invoke CoDRAG tools." 
-              href="https://docs.codrag.io/getting-started/quick-start" 
+              content="Learn how to invoke Prep tools." 
+              href="https://docs.runprep.io/getting-started/quick-start" 
             />
           </div>
         </div>
@@ -115,7 +115,7 @@ export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://do
       <div className="space-y-4">
         {/* Intro */}
         <p className="text-xs text-text-muted leading-relaxed">
-          CoDRAG serves context to your AI tools via <span className="font-semibold text-text">MCP</span> (Model Context Protocol).
+          Prep serves context to your AI tools via <span className="font-semibold text-text">MCP</span> (Model Context Protocol).
           Just ask your AI assistant to use these tools by name.
         </p>
 
@@ -125,10 +125,10 @@ export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://do
             <div key={tool.name} className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1.5">
               <div className="flex items-center gap-2">
                 <CopyBadge text={tool.name} />
-                {tool.name === 'hi_codrag' && (
+                {tool.name === 'hi_prep' && (
                   <span className="text-[10px] font-medium uppercase tracking-wider text-primary">Start here</span>
                 )}
-                {tool.name === 'codrag' && (
+                {tool.name === 'prep' && (
                   <span className="text-[10px] font-medium uppercase tracking-wider text-primary">Most used</span>
                 )}
               </div>

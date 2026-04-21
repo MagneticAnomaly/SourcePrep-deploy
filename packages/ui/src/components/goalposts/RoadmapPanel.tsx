@@ -307,7 +307,7 @@ export function RoadmapPanel({
             </Button>
           </div>
           <p className="text-[10px] text-text-muted mt-1">
-            MCP: <code className="rounded bg-surface-raised px-1 py-0.5 text-primary">codrag_audit action='roadmap'</code>
+            MCP: <code className="rounded bg-surface-raised px-1 py-0.5 text-primary">prep_audit action='roadmap'</code>
           </p>
         </div>
       </div>
@@ -514,7 +514,7 @@ export function RoadmapPanel({
                 )}
                 
                 <div className="pt-4 flex items-center gap-2">
-                  <CopyBtn text="codrag_audit action='roadmap'" label="Copy MCP command" />
+                  <CopyBtn text="prep_audit action='roadmap'" label="Copy MCP command" />
                 </div>
              </div>
           )}

@@ -333,9 +333,9 @@ export function AuditPanel({
 
   // Build the MCP command for selected findings
   const mcpCommand = useMemo(() => {
-    if (checkedFindings.length === 0) return 'codrag_audit';
+    if (checkedFindings.length === 0) return 'prep_audit';
     const ids = checkedFindings.map((f, i) => `"${getFindingId(f, i)}"`).join(', ');
-    return `codrag_audit_refactor finding_ids=[${ids}]`;
+    return `prep_audit_refactor finding_ids=[${ids}]`;
   }, [checkedFindings]);
 
   // Markdown for clipboard copy
@@ -449,7 +449,7 @@ export function AuditPanel({
                 </Button>
               </div>
               <p className="text-[10px] text-text-muted mt-2">
-                MCP: <code className="rounded bg-surface-raised px-1 py-0.5 text-primary">codrag_audit</code>
+                MCP: <code className="rounded bg-surface-raised px-1 py-0.5 text-primary">prep_audit</code>
               </p>
             </>
           )}
@@ -490,7 +490,7 @@ export function AuditPanel({
 
             {/* Action Buttons */}
             <div className="flex items-center gap-1.5 px-3 py-1.5 shrink-0 ml-auto">
-              <CopyBtn text="codrag_audit" label="MCP" icon={Bot} />
+              <CopyBtn text="prep_audit" label="MCP" icon={Bot} />
               <Button variant="default" size="sm" onClick={() => onRunAudit(false)} disabled={running} className="gap-1 h-7 text-xs">
                 {running ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
                 {running ? 'Running…' : 'Audit'}

@@ -22,7 +22,7 @@ export function SplitHero({ isBetaMode }: { isBetaMode: boolean }) {
 
         <p className="mt-6 text-lg text-text-muted leading-relaxed">
           AI tools already index your code — but they grab files, not relationships.
-          CoDRAG's Rust engine adds the structural layer: semantics, symbols, and call graphs.
+          Prep's Rust engine adds the structural layer: semantics, symbols, and call graphs.
           The right context, delivered in under 100 ms.
         </p>
 
@@ -36,7 +36,7 @@ export function SplitHero({ isBetaMode }: { isBetaMode: boolean }) {
         <Flex className="mt-10 gap-4">
           {isBetaMode ? (
             <Button size="lg" className="font-semibold" asChild>
-              <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">Request Beta</a>
+              <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request">Request Beta</a>
             </Button>
           ) : (
             <Button size="lg" className="font-semibold" asChild>

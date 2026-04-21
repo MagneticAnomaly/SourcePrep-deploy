@@ -10,7 +10,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Graph Enrichment</h1>
         <p className="mt-4 text-xl text-text-muted">
-          How CoDRAG builds a self-refining understanding of your codebase — and why
+          How Prep builds a self-refining understanding of your codebase — and why
           treating a code graph as an epistemological system changes everything.
         </p>
 
@@ -19,7 +19,7 @@ export default function Page() {
           <AnchorHeading id="why-epistemology" level="h2">Why Epistemology?</AnchorHeading>
           <p>
             Most code intelligence tools answer a simple question: <em>&quot;Which files match this query?&quot;</em>
-            CoDRAG asks a fundamentally different one: <span className="font-semibold text-text">&quot;How well does the system understand
+            Prep asks a fundamentally different one: <span className="font-semibold text-text">&quot;How well does the system understand
             this code — and how justified is that understanding?&quot;</span>
           </p>
           <p>
@@ -218,7 +218,7 @@ export default function Page() {
 
           <AnchorHeading id="doc-mining" level="h2">Documentation Mining</AnchorHeading>
           <p>
-            Most indexing tools treat <code>.md</code> files as flat text blobs. CoDRAG&apos;s enrichment
+            Most indexing tools treat <code>.md</code> files as flat text blobs. Prep&apos;s enrichment
             pipeline extracts structure from documentation: section headers, code references,
             status markers, and cross-links. This enables:
           </p>

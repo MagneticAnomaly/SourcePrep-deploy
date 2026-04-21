@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const SITE_URL = 'https://codrag.io';
+const SITE_URL = 'https://runprep.io';
 
 const POSTS = [
   {
@@ -8,7 +8,7 @@ const POSTS = [
     title: 'Why Structural Context Matters for AI Coding Tools',
     excerpt: 'AI assistants already index your code — but they grab files, not relationships. Here\'s why the structural layer changes everything.',
     date: '2026-03-01',
-    author: 'CoDRAG Team',
+    author: 'Prep Team',
   },
   {
     slug: 'introducing-code-graph',
@@ -20,7 +20,7 @@ const POSTS = [
   {
     slug: 'mcp-the-universal-connector',
     title: 'MCP: The Universal Connector',
-    excerpt: 'How the Model Context Protocol lets CoDRAG integrate with Cursor, Windsurf, VS Code, and Claude Code.',
+    excerpt: 'How the Model Context Protocol lets Prep integrate with Cursor, Windsurf, VS Code, and Claude Code.',
     date: '2026-02-01',
     author: 'Integration',
   },
@@ -30,7 +30,7 @@ export async function GET() {
   const feed = `<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>CoDRAG Blog</title>
+    <title>Prep Blog</title>
     <link>${SITE_URL}/blog</link>
     <description>Notes on the intersection of human creativity and machine intelligence.</description>
     <language>en-us</language>

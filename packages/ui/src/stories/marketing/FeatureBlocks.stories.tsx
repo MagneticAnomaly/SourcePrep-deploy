@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { FeatureBlocks } from '../../components/marketing/FeatureBlocks';
-import { codragFeatures, marketingFeatures } from '../../components/marketing/FeatureBlocks';
+import { prepFeatures, marketingFeatures } from '../../components/marketing/FeatureBlocks';
 
 const meta: Meta<typeof FeatureBlocks> = {
   title: 'Website/Marketing/FeatureBlocks',
@@ -16,7 +16,7 @@ type Story = StoryObj<typeof FeatureBlocks>;
 
 export const Cards: Story = {
   args: {
-    features: codragFeatures,
+    features: prepFeatures,
     variant: 'cards',
   },
 };
@@ -30,7 +30,7 @@ export const List: Story = {
 
 export const Bento: Story = {
   args: {
-    features: codragFeatures.slice(0, 4), // Bento looks best with 4 items
+    features: prepFeatures.slice(0, 4), // Bento looks best with 4 items
     variant: 'bento',
   },
 };

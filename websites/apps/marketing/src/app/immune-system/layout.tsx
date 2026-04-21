@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'Immune System — Architectural Guardrails from Design Decisions',
-  description: 'CoDRAG derives runtime defenses from your design decisions. Concepts become testable assertions that catch architectural violations before they ship.',
+  description: 'Prep derives runtime defenses from your design decisions. Concepts become testable assertions that catch architectural violations before they ship.',
   path: '/immune-system',
 });
 

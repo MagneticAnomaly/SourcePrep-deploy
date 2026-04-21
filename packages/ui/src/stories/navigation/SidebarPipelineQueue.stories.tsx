@@ -63,7 +63,7 @@ const runningConcurrent: QueueItem = {
 
 const runningSwarming: QueueItem = {
   project_id: 'p2',
-  project_name: 'CoDRAG',
+  project_name: 'Prep',
   group: 'deep_enrichment',
   phase: 'running',
   current_stage: 'group_reasoning',

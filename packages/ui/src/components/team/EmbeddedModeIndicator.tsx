@@ -62,7 +62,7 @@ export function EmbeddedModeIndicator({
       </div>
       
       <p className="text-xs text-text-muted">
-        Index stored in <code className="bg-surface-raised px-1 py-0.5 rounded border border-border text-text font-mono">.codrag/</code> directory
+        Index stored in <code className="bg-surface-raised px-1 py-0.5 rounded border border-border text-text font-mono">.prep/</code> directory
       </p>
       
       {hasConflicts && (

@@ -9,8 +9,8 @@
 # Required environment variables (set in Netlify dashboard):
 #   GITHUB_TOKEN        — fine-grained PAT, read-only Discussions access
 #   RESEND_API_KEY      — for bug report email notifications
-#   BUG_REPORT_EMAIL    — destination address (default: bugs@codrag.io)
-#   NEXT_PUBLIC_SITE_URL — https://support.codrag.io
+#   BUG_REPORT_EMAIL    — destination address (default: bugs@runprep.io)
+#   NEXT_PUBLIC_SITE_URL — https://support.runprep.io
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

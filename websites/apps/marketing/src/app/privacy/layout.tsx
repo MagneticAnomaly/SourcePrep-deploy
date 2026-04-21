@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'Privacy Policy',
-  description: 'CoDRAG privacy policy. We believe your code is your business.',
+  description: 'Prep privacy policy. We believe your code is your business.',
   path: '/privacy',
 });
 

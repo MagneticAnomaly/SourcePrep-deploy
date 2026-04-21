@@ -9,7 +9,7 @@ export function EnterpriseHero({ isBetaMode }: { isBetaMode: boolean }) {
       {/* Top Bar */}
       <div className="bg-background border-b border-border px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <span className="font-mono font-bold text-lg tracking-tight flex items-center gap-2"><LayoutGrid className="w-5 h-5" /> CoDRAG</span>
+          <span className="font-mono font-bold text-lg tracking-tight flex items-center gap-2"><LayoutGrid className="w-5 h-5" /> Prep</span>
           <span className="px-2 py-0.5 bg-surface-raised border border-border text-xs text-text-subtle uppercase">Enterprise</span>
         </div>
         <div className="flex gap-4 text-sm font-medium text-text-muted">
@@ -29,7 +29,7 @@ export function EnterpriseHero({ isBetaMode }: { isBetaMode: boolean }) {
               Give every engineer AI that understands your codebase.
             </h1>
             <p className="text-text-muted text-lg leading-relaxed">
-              CoDRAG Enterprise standardizes Rust-powered semantic + structural indexing across your
+              Prep Enterprise standardizes Rust-powered semantic + structural indexing across your
               organization. Shared context layers accelerate onboarding, improve AI output
               quality, and keep all code on-premise.
             </p>
@@ -54,7 +54,7 @@ export function EnterpriseHero({ isBetaMode }: { isBetaMode: boolean }) {
           <div className="pt-8">
             {isBetaMode ? (
               <Button size="lg" className="w-fit shadow-sm" asChild>
-                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Enterprise">Contact Sales for Beta</a>
+                <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request%20-%20Enterprise">Contact Sales for Beta</a>
               </Button>
             ) : (
               <Button size="lg" className="w-fit shadow-sm" asChild>

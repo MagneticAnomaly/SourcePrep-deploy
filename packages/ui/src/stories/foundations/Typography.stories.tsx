@@ -35,7 +35,7 @@ export const Scale: Story = {
       <Sample
         label="Heading XL — --text-4xl"
         className="text-[length:var(--text-4xl)] leading-[var(--leading-tight)] font-bold"
-        text="CoDRAG Design System"
+        text="Prep Design System"
       />
       <Sample
         label="Heading — --text-2xl"
@@ -45,7 +45,7 @@ export const Scale: Story = {
       <Sample
         label="Body — --text-base"
         className="text-[length:var(--text-base)] leading-[var(--leading-normal)]"
-        text="CoDRAG helps you build, search, and assemble grounded context from your codebase."
+        text="Prep helps you build, search, and assemble grounded context from your codebase."
       />
       <Sample
         label="Small — --text-sm"

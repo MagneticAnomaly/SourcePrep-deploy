@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, AnimatedCLI, AnimatedIDE, codragOverviewDemo, codragSearchDemo, codragImpactDemo, codragAuditDemo, codragObserveDemo, codragConceptsDemo, ideDemoScript } from '@prep/ui';
+import { MarketingHero, FeatureBlocks, prepFeatures, marketingFeatures, AnimatedCLI, AnimatedIDE, prepOverviewDemo, prepSearchDemo, prepImpactDemo, prepAuditDemo, prepObserveDemo, prepConceptsDemo, ideDemoScript } from '@prep/ui';
 import { ArrowRight, Play } from 'lucide-react';
 import Link from 'next/link';
 import { DevMarketingHero } from './DevMarketingHero';
@@ -10,12 +10,12 @@ import { DevMarketingHero } from './DevMarketingHero';
 const IS_BETA_MODE = true;
 
 const DEMO_TABS = [
-  { key: 'overview', label: 'codrag', description: 'Instant orientation' },
-  { key: 'search', label: 'codrag_search', description: 'Semantic search' },
-  { key: 'impact', label: 'codrag_impact', description: 'Blast radius' },
-  { key: 'audit', label: 'codrag_audit', description: 'Audit enrichment' },
-  { key: 'observe', label: 'codrag_observe', description: 'Agent memory' },
-  { key: 'concepts', label: 'codrag_concepts', description: 'Design rationale' },
+  { key: 'overview', label: 'prep', description: 'Instant orientation' },
+  { key: 'search', label: 'prep_search', description: 'Semantic search' },
+  { key: 'impact', label: 'prep_impact', description: 'Blast radius' },
+  { key: 'audit', label: 'prep_audit', description: 'Audit enrichment' },
+  { key: 'observe', label: 'prep_observe', description: 'Agent memory' },
+  { key: 'concepts', label: 'prep_concepts', description: 'Design rationale' },
   { key: 'ide', label: 'IDE Agent', description: 'Autonomous editing' },
 ] as const;
 
@@ -33,23 +33,23 @@ export default function Page() {
 
         {/* SEO — screen-reader only, crawlers only */}
         <section className="sr-only">
-          <h2>What is CoDRAG?</h2>
+          <h2>What is Prep?</h2>
           <p>
-            CoDRAG is a structural codebase intelligence MCP server for AI coding agents.
+            Prep is a structural codebase intelligence MCP server for AI coding agents.
             It builds a code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies — then delivers that deep structural context directly to Claude Code, Antigravity, Cursor, VS Code, and any MCP-compatible tool.
             Connect your preferred LLM — Ollama Kimi2.5, local models, or frontier APIs.
           </p>
         </section>
 
-        {/* Why CoDRAG + Capabilities (merged) */}
+        {/* Why Prep + Capabilities (merged) */}
         <section>
           <div className="text-center mb-16">
             <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Why developers need this</p>
             <h2 className="text-3xl font-medium tracking-tight text-text sm:text-4xl">
-              If you use AI to write code, you need CoDRAG
+              If you use AI to write code, you need Prep
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              AI assistants are only as good as the context they receive. CoDRAG makes sure they get the right context, every time — delivering <strong className="text-text font-semibold">3–20× more signal per token</strong> than dumping whole files into the prompt.
+              AI assistants are only as good as the context they receive. Prep makes sure they get the right context, every time — delivering <strong className="text-text font-semibold">3–20× more signal per token</strong> than dumping whole files into the prompt.
             </p>
           </div>
           <FeatureBlocks features={marketingFeatures} variant="list" />
@@ -63,7 +63,7 @@ export default function Page() {
               </h2>
             </div>
 
-            <FeatureBlocks features={codragFeatures.filter((_: any, i: number) => [0, 1, 2, 3, 4, 7, 10, 11, 12].includes(i))} variant="cards" />
+            <FeatureBlocks features={prepFeatures.filter((_: any, i: number) => [0, 1, 2, 3, 4, 7, 10, 11, 12].includes(i))} variant="cards" />
 
             {/* Deep-dive pages */}
             <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -98,7 +98,7 @@ export default function Page() {
                 <iframe
                   className="w-full h-full"
                   src="https://www.youtube.com/embed/bjC6DFQ8Zmw?rel=0"
-                  title="CoDRAG Demo Video"
+                  title="Prep Demo Video"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerPolicy="strict-origin-when-cross-origin"
                   allowFullScreen
@@ -116,7 +116,7 @@ export default function Page() {
               Six MCP tools. Deep codebase intelligence.
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              Connect CoDRAG once to Claude Code, Antigravity, Cursor, or any MCP-compatible editor — and your AI gets structural awareness, semantic search, blast radius analysis, audit enrichment, persistent memory, and recorded design rationale.
+              Connect Prep once to Claude Code, Antigravity, Cursor, or any MCP-compatible editor — and your AI gets structural awareness, semantic search, blast radius analysis, audit enrichment, persistent memory, and recorded design rationale.
             </p>
           </div>
 
@@ -133,7 +133,7 @@ export default function Page() {
                 }`}
               >
                 <span className="hidden sm:inline">{tab.label}</span>
-                <span className="sm:hidden">{tab.label.replace('codrag_', '')}</span>
+                <span className="sm:hidden">{tab.label.replace('prep_', '')}</span>
                 <span className="hidden md:inline text-xs ml-2 opacity-70">— {tab.description}</span>
               </button>
             ))}
@@ -142,22 +142,22 @@ export default function Page() {
           {/* Demo display */}
           <div className="max-w-5xl mx-auto">
             {activeDemo === 'overview' && (
-              <AnimatedCLI script={codragOverviewDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepOverviewDemo} theme="dark" className="w-full" />
             )}
             {activeDemo === 'search' && (
-              <AnimatedCLI script={codragSearchDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepSearchDemo} theme="dark" className="w-full" />
             )}
             {activeDemo === 'impact' && (
-              <AnimatedCLI script={codragImpactDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepImpactDemo} theme="dark" className="w-full" />
             )}
             {activeDemo === 'audit' && (
-              <AnimatedCLI script={codragAuditDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepAuditDemo} theme="dark" className="w-full" />
             )}
             {activeDemo === 'observe' && (
-              <AnimatedCLI script={codragObserveDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepObserveDemo} theme="dark" className="w-full" />
             )}
             {activeDemo === 'concepts' && (
-              <AnimatedCLI script={codragConceptsDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepConceptsDemo} theme="dark" className="w-full" />
             )}
             {activeDemo === 'ide' && (
               <AnimatedIDE script={ideDemoScript} className="w-full" />
@@ -173,16 +173,16 @@ export default function Page() {
               </div>
               <div className="font-mono text-sm space-y-3">
                 <div className="bg-surface p-2 rounded border border-border-subtle text-success text-xs">
-                  $ codrag serve
+                  $ prep serve
                 </div>
                 <div className="bg-surface p-2 rounded border border-border-subtle text-text-subtle text-xs">
                   <span className="text-text-muted">{`// Add to your editor's MCP config:`}</span><br/>
-                  {`"codrag": { "command": "codrag", "args": ["mcp"] }`}
+                  {`"prep": { "command": "prep", "args": ["mcp"] }`}
                 </div>
               </div>
             </div>
             <div className="text-center mt-6">
-              <a href="https://docs.codrag.io/mcp" className="text-sm text-primary hover:underline">
+              <a href="https://docs.runprep.io/mcp" className="text-sm text-primary hover:underline">
                 View full integration guides for Claude Code, Antigravity, Cursor, and more →
               </a>
             </div>
@@ -215,7 +215,7 @@ export default function Page() {
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             {IS_BETA_MODE ? (
               <a
-                href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request"
+                href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request"
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-background shadow-lg shadow-primary/25 hover:bg-primary-hover transition-colors"
               >
                 Request Beta Access <ArrowRight className="w-4 h-4" />
@@ -225,7 +225,7 @@ export default function Page() {
                 href="/download"
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-background shadow-lg shadow-primary/25 hover:bg-primary-hover transition-colors"
               >
-                Get CoDRAG <ArrowRight className="w-4 h-4" />
+                Get Prep <ArrowRight className="w-4 h-4" />
               </a>
             )}
             <Link

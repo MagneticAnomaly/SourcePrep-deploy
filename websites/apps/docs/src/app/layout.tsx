@@ -14,9 +14,9 @@ const spaceMono = Space_Mono({ weight: ['400', '700'], subsets: ['latin'], varia
 const ibmPlexSerif = IBM_Plex_Serif({ weight: ['400', '600'], subsets: ['latin'], variable: '--font-heading' });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://docs.codrag.io'),
-  title: 'CoDRAG Documentation',
-  description: 'Documentation for CoDRAG CLI, dashboard, and integrations.',
+  metadataBase: new URL('https://docs.runprep.io'),
+  title: 'Prep Documentation',
+  description: 'Documentation for Prep CLI, dashboard, and integrations.',
   icons: {
     icon: [
       { url: '/favicon_io/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-codrag-theme="m" className={`${inter.variable} ${jetbrainsMono.variable} ${spaceMono.variable} ${ibmPlexSerif.variable}`}>
+    <html lang="en" data-prep-theme="m" className={`${inter.variable} ${jetbrainsMono.variable} ${spaceMono.variable} ${ibmPlexSerif.variable}`}>
       <body className="bg-background text-text selection:bg-primary/20 font-mono">
         <Script src="https://plausible.io/js/pa-3CWngGnNeUfIgUQ7wL2mV.js" strategy="afterInteractive" />
         <Script id="plausible-init" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};plausible.init()` }} />

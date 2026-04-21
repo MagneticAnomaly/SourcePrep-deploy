@@ -420,7 +420,7 @@ export function GoalpostsPanel({
           )}
 
           <p className="text-[10px] text-text-muted mt-1">
-            MCP: <code className="rounded bg-surface-raised px-1 py-0.5 text-primary">codrag_goalposts</code>
+            MCP: <code className="rounded bg-surface-raised px-1 py-0.5 text-primary">prep_goalposts</code>
           </p>
         </div>
       </div>

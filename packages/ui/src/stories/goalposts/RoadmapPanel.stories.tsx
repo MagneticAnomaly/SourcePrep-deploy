@@ -27,10 +27,10 @@ const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString();
 
 const mockNodes: RoadmapNode[] = [
   {
-    id: 'rm-1', title: 'Implement MCP streaming responses', description: 'Add Server-Sent Events streaming for codrag_search to reduce TTFB for large context assemblies.',
+    id: 'rm-1', title: 'Implement MCP streaming responses', description: 'Add Server-Sent Events streaming for prep_search to reduce TTFB for large context assemblies.',
     tier: 'active', position: 0, source: 'ai_proposed', source_ref: null, category: 'feature', priority: 'P0',
     tasks: [
-      { description: 'Add SSE endpoint to MCP server', file_paths: ['src/codrag/mcp/routes.py'], effort: 'medium' },
+      { description: 'Add SSE endpoint to MCP server', file_paths: ['src/prep/mcp/routes.py'], effort: 'medium' },
       { description: 'Update client to consume streaming', file_paths: ['packages/ui/src/api/client.ts'], effort: 'small' },
     ],
     state: 'active', parent_id: null, fork_label: null, created_at: weekAgo, decided_at: weekAgo, completed_at: null,
@@ -48,8 +48,8 @@ const mockNodes: RoadmapNode[] = [
   },
   {
     id: 'rm-3', title: 'Add retry logic for embedding failures', description: 'Missing exponential backoff in the embedding pipeline.',
-    tier: 'planned', position: 2, source: 'todo_scan', source_ref: 'src/codrag/core/embeddings.py:142', category: 'tech_debt', priority: 'P2',
-    tasks: [{ description: 'Add exponential backoff with max 3 attempts', file_paths: ['src/codrag/core/embeddings.py'], effort: 'small' }],
+    tier: 'planned', position: 2, source: 'todo_scan', source_ref: 'src/prep/core/embeddings.py:142', category: 'tech_debt', priority: 'P2',
+    tasks: [{ description: 'Add exponential backoff with max 3 attempts', file_paths: ['src/prep/core/embeddings.py'], effort: 'small' }],
     state: 'accepted', parent_id: null, fork_label: null, created_at: twoWeeksAgo, decided_at: null, completed_at: null,
     ethos_alignment: 'Reliability-first design', business_impact: 'Eliminates silent indexing failures for enterprise deployments',
   },
@@ -57,8 +57,8 @@ const mockNodes: RoadmapNode[] = [
     id: 'rm-4', title: 'Multi-project search federation', description: 'Allow searching across all active projects in a single MCP call.',
     tier: 'proposed', position: 3, source: 'ai_proposed', source_ref: null, category: 'feature', priority: 'P1',
     tasks: [
-      { description: 'Add federated search endpoint', file_paths: ['src/codrag/mcp/routes.py'], effort: 'large' },
-      { description: 'Merge and re-rank results across projects', file_paths: ['src/codrag/core/search.py'], effort: 'large' },
+      { description: 'Add federated search endpoint', file_paths: ['src/prep/mcp/routes.py'], effort: 'large' },
+      { description: 'Merge and re-rank results across projects', file_paths: ['src/prep/core/search.py'], effort: 'large' },
     ],
     state: 'proposed', parent_id: null, fork_label: null, created_at: now, decided_at: null, completed_at: null,
     ethos_alignment: 'Sovereign multi-repo architecture', business_impact: 'Unlocks Enterprise tier monorepo use case',
@@ -122,7 +122,7 @@ export const WithContent: Story = {
   args: {
     nodes: mockNodes, questions: mockQuestions,
     northStar: { id: 'rm-1', title: 'Implement MCP streaming responses', priority: 'P0' },
-    appEthos: 'CoDRAG is an epistemic intelligence engine for autonomous agents. We prioritize structural understanding over token volume, private-by-design architecture, and zero-configuration developer experience.',
+    appEthos: 'Prep is an epistemic intelligence engine for autonomous agents. We prioritize structural understanding over token volume, private-by-design architecture, and zero-configuration developer experience.',
     generating: false, scanning: false, error: null, ready: true,
     lastGeneratedAt: weekAgo, modelUsed: 'claude-sonnet-4-20250514',
     velocityData: mockVelocity, sprintSuggestion: mockSprint, loadingSprint: false,
@@ -150,7 +150,7 @@ export const Empty: Story = {
 export const Generating: Story = {
   args: {
     nodes: [], questions: [],
-    northStar: null, appEthos: 'CoDRAG is an epistemic intelligence engine.',
+    northStar: null, appEthos: 'Prep is an epistemic intelligence engine.',
     generating: true, scanning: false, error: null, ready: true,
     lastGeneratedAt: '', modelUsed: '',
     onGenerate: noop, onScanTodos: noop, onUpdateEthos: noop,

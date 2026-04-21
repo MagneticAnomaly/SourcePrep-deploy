@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'About',
-  description: 'The mission behind CoDRAG: bringing determinism and structural understanding back to AI coding tools.',
+  description: 'The mission behind Prep: bringing determinism and structural understanding back to AI coding tools.',
   path: '/about',
 });
 

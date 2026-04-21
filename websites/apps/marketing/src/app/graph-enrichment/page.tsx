@@ -146,14 +146,14 @@ export default function GraphEnrichmentPage() {
       description="A 15-stage pipeline in three groups of five transforms raw source files into a rich structural knowledge graph — from Rust parsing to deep LLM reasoning to architectural synthesis."
       badge="Pipeline"
       sections={SECTIONS}
-      docsUrl="https://docs.codrag.io/concepts/graph-enrichment"
+      docsUrl="https://docs.runprep.io/concepts/graph-enrichment"
       docsLabel="Learn more in the docs"
     >
       {/* The Journey */}
       <section id="journey">
         <h2 className="text-2xl font-semibold text-text mb-4">The Journey</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          When CoDRAG indexes your codebase, a 15-stage pipeline runs in three groups of five.
+          When Prep indexes your codebase, a 15-stage pipeline runs in three groups of five.
           The first five stages <strong className="text-text">sync</strong> instantly — Rust parsing, graph building, and first-pass annotation in seconds.
           The next five <strong className="text-text">enrich</strong> in the background — deep LLM reasoning that progressively deepens understanding.
           The final five <strong className="text-text">finalize</strong> — producing the atlas, rules files, concepts, audit findings, and immune system defenses that your tools actually consume.

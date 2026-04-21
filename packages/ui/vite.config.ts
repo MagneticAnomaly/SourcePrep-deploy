@@ -13,7 +13,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'CodragUI',
+      name: 'PrepUI',
       formats: ['es'],
       fileName: 'index',
     },

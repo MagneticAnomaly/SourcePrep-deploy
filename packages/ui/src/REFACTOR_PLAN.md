@@ -4,18 +4,18 @@
 
 This document outlines the plan to reconcile:
 1. **`packages/ui`** — Wireframe Storybook components (Tremor-based)
-2. **`src/codrag/dashboard`** — Actual running app with monolithic `App.tsx`
+2. **`src/prep/dashboard`** — Actual running app with monolithic `App.tsx`
 3. **`docs/Phase13_Storybook/theme-examples/tremor-preview`** — Visual prototypes
 
 ## Current State
 
 ### packages/ui (Storybook)
 - Wireframe components using Tremor UI
-- Theme system via CSS variables (`data-codrag-theme`)
+- Theme system via CSS variables (`data-prep-theme`)
 - 12 theme variations available in Storybook toolbar
 - Components exist but not integrated with actual app
 
-### src/codrag/dashboard
+### src/prep/dashboard
 - Monolithic `App.tsx` (~495 lines)
 - Hardcoded Tailwind classes (gray-800, blue-600, etc.)
 - Lucide icons
@@ -26,7 +26,7 @@ This document outlines the plan to reconcile:
 
 ### Phase 1: Core Dashboard Components
 
-Extract from `src/codrag/dashboard/src/App.tsx`:
+Extract from `src/prep/dashboard/src/App.tsx`:
 
 | Component | Source Lines | packages/ui Path | Notes |
 |-----------|--------------|------------------|-------|
@@ -67,10 +67,10 @@ Extract from `src/codrag/dashboard/src/App.tsx`:
 ## App Integration Strategy
 
 ### Option A: Consume packages/ui in dashboard (Recommended)
-1. Add `@codrag/ui` as dependency in `src/codrag/dashboard/package.json`
+1. Add `@prep/ui` as dependency in `src/prep/dashboard/package.json`
 2. Import components: `import { StatusCard, SearchInput } from '@prep/ui'`
 3. Replace inline JSX with component usage
-4. Theme controlled via `data-codrag-theme` attribute on root
+4. Theme controlled via `data-prep-theme` attribute on root
 
 ### Option B: Shared styles only
 1. Import only styles: `import '@prep/ui/styles'`
@@ -86,7 +86,7 @@ For runtime theme switching in the actual app:
 const [theme, setTheme] = useState<string>('a');
 
 useEffect(() => {
-  document.documentElement.setAttribute('data-codrag-theme', theme);
+  document.documentElement.setAttribute('data-prep-theme', theme);
 }, [theme]);
 
 // Theme selector UI
@@ -102,7 +102,7 @@ useEffect(() => {
 1. ✅ Theme system wired into Storybook (done)
 2. ✅ Extract `IndexStatusCard` and `BuildCard` (done)
 3. ✅ Extract `SearchPanel` and `ContextOptionsPanel` (done)
-4. 🔲 Wire dashboard to consume `@codrag/ui`
+4. 🔲 Wire dashboard to consume `@prep/ui`
 5. 🔲 Add theme selector to app settings
 
 ## File Structure Target

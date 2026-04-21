@@ -54,14 +54,14 @@ export default function Page() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
               </span>
-              CoDRAG is currently in closed beta. Prices below indicate our upcoming structure.
+              Prep is currently in closed beta. Prices below indicate our upcoming structure.
             </div>
           )}
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
             Simple, honest pricing
           </h1>
           <p className="mt-6 text-xl text-text-muted leading-relaxed">
-            Private by design. Sovereign context. CoDRAG ships with built-in ONNX embeddings —
+            Private by design. Sovereign context. Prep ships with built-in ONNX embeddings —
             semantic search works out of the box, no LLM required. Subscribe monthly or pay once and own it forever.
           </p>
         </div>
@@ -76,7 +76,7 @@ export default function Page() {
               <span className="text-text-muted ml-1">forever</span>
             </div>
             <p className="mt-3 text-sm text-text-muted">
-              Try CoDRAG on up to 3 projects. Experience the magic of real-time structural intelligence.
+              Try Prep on up to 3 projects. Experience the magic of real-time structural intelligence.
             </p>
             <ul className="mt-6 space-y-3 text-sm flex-1">
               <li className="flex items-start gap-2">
@@ -110,7 +110,7 @@ export default function Page() {
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
               {IS_BETA_MODE ? (
-                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Free%20Tier">Join Free Beta</a>
+                <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request%20-%20Free%20Tier">Join Free Beta</a>
               ) : (
                 <a href="/download">Download Free</a>
               )}
@@ -155,7 +155,7 @@ export default function Page() {
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
               {IS_BETA_MODE ? (
-                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Pro%20Monthly%20Tier">Request Beta Access</a>
+                <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request%20-%20Pro%20Monthly%20Tier">Request Beta Access</a>
               ) : (
                 <a href={getCheckoutUrl(LS_CHECKOUT_URLS.monthly, country)}>Start Monthly</a>
               )}
@@ -195,7 +195,7 @@ export default function Page() {
             </ul>
             <Button asChild className="mt-6 w-full">
               {IS_BETA_MODE ? (
-                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Pro%20Perpetual%20Tier">Request Beta Access</a>
+                <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request%20-%20Pro%20Perpetual%20Tier">Request Beta Access</a>
               ) : (
                 <a href={getCheckoutUrl(LS_CHECKOUT_URLS.perpetual, country)}>Get Pro — One-Time</a>
               )}
@@ -250,12 +250,12 @@ export default function Page() {
             <div className="mt-4 flex items-center gap-3">
               <Button asChild variant="outline">
                 {IS_BETA_MODE ? (
-                  <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Team%20Tier">Request Beta Access</a>
+                  <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request%20-%20Team%20Tier">Request Beta Access</a>
                 ) : (
                   <a href={getCheckoutUrl(LS_CHECKOUT_URLS.team, country)}>Start Team Trial</a>
                 )}
               </Button>
-              <a href="https://docs.codrag.io/guides/team-sync" className="text-xs text-primary hover:underline">
+              <a href="https://docs.runprep.io/guides/team-sync" className="text-xs text-primary hover:underline">
                 Setup guide &rarr;
               </a>
             </div>
@@ -303,12 +303,12 @@ export default function Page() {
             <div className="mt-4 flex items-center gap-3">
               <Button asChild variant="outline">
                 {IS_BETA_MODE ? (
-                  <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request%20-%20Enterprise%20Tier">Request Enterprise Beta</a>
+                  <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request%20-%20Enterprise%20Tier">Request Enterprise Beta</a>
                 ) : (
                   <a href="/contact">Contact Sales</a>
                 )}
               </Button>
-              <a href="https://docs.codrag.io/guides/enterprise-deploy" className="text-xs text-primary hover:underline">
+              <a href="https://docs.runprep.io/guides/enterprise-deploy" className="text-xs text-primary hover:underline">
                 Deployment guide &rarr;
               </a>
             </div>
@@ -342,7 +342,7 @@ export default function Page() {
               <div className="text-3xl">3</div>
               <p className="mt-2 font-semibold">Sync locally</p>
               <p className="mt-1 text-sm text-text-muted">
-                Each developer&apos;s CoDRAG downloads the latest index on startup.
+                Each developer&apos;s Prep downloads the latest index on startup.
                 Only uncommitted changes are re-enriched locally.
               </p>
             </div>

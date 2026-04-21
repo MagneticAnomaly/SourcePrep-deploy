@@ -347,7 +347,7 @@ export interface ApiClientConfig {
   fetchImpl?: typeof fetch;
 }
 
-export class CodragApiClient implements ApiClient {
+export class PrepApiClient implements ApiClient {
   public readonly baseUrl: string;
   private readonly apiKey?: string;
   private readonly fetchImpl: typeof fetch;
@@ -876,7 +876,7 @@ export class CodragApiClient implements ApiClient {
         message: err instanceof Error ? err.message : String(err),
         stack: err instanceof Error ? err.stack : undefined
       });
-      throw new ApiClientError('Network error contacting CoDRAG daemon', { url: url.toString() });
+      throw new ApiClientError('Network error contacting Prep daemon', { url: url.toString() });
     }
     clearTimeout(timeoutId)
 
@@ -885,7 +885,7 @@ export class CodragApiClient implements ApiClient {
       json = await res.json();
     } catch {
       console.error(`[ApiClient] Invalid JSON from ${url.toString()}:`, res.status);
-      throw new ApiClientError('Invalid JSON response from CoDRAG daemon', {
+      throw new ApiClientError('Invalid JSON response from Prep daemon', {
         status: res.status,
         url: url.toString(),
       });
@@ -895,7 +895,7 @@ export class CodragApiClient implements ApiClient {
 
     const envelope = json as ApiEnvelope<T>;
     if (typeof envelope !== 'object' || envelope === null || typeof envelope.success !== 'boolean') {
-      throw new ApiClientError(`Unexpected response shape from CoDRAG daemon: ${url.pathname} (HTTP ${res.status})`, {
+      throw new ApiClientError(`Unexpected response shape from Prep daemon: ${url.pathname} (HTTP ${res.status})`, {
         status: res.status,
         url: url.toString(),
       });
@@ -1753,6 +1753,6 @@ export class CodragApiClient implements ApiClient {
   }
 }
 
-export function createCodragApiClient(config?: ApiClientConfig): ApiClient {
-  return new CodragApiClient(config);
+export function createPrepApiClient(config?: ApiClientConfig): ApiClient {
+  return new PrepApiClient(config);
 }

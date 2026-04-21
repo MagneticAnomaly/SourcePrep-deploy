@@ -267,7 +267,7 @@ export function SidebarAIGateway({
   onOpenDetails,
   className,
 }: SidebarAIGatewayProps) {
-  const storageKey = 'codrag_sidebar_ai_gateway_open';
+  const storageKey = 'prep_sidebar_ai_gateway_open';
   const [sectionOpen, setSectionOpen] = useState(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
     return saved !== null ? saved === 'true' : true;

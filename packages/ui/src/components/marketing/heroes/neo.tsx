@@ -20,7 +20,7 @@ export function NeoBrutalistHero({ isBetaMode }: { isBetaMode: boolean }) {
           </h1>
           
           <p className="mt-6 text-xl text-text font-mono border-l-4 border-primary pl-4">
-            CoDRAG adds the structural layer your AI tools are missing.
+            Prep adds the structural layer your AI tools are missing.
             Imports, calls, symbol graphs — indexed in Rust, instantly served.
           </p>
 
@@ -32,7 +32,7 @@ export function NeoBrutalistHero({ isBetaMode }: { isBetaMode: boolean }) {
                 icon={Download}
                 asChild
               >
-                <a href="mailto:support@codrag.io?subject=CoDRAG%20Beta%20Access%20Request">JOIN_BETA</a>
+                <a href="mailto:support@runprep.io?subject=Prep%20Beta%20Access%20Request">JOIN_BETA</a>
               </Button>
             ) : (
               <Button 
@@ -41,7 +41,7 @@ export function NeoBrutalistHero({ isBetaMode }: { isBetaMode: boolean }) {
                 icon={Download}
                 asChild
               >
-                <a href="/download">GET_CODRAG</a>
+                <a href="/download">GET_PREP</a>
               </Button>
             )}
             <Button 
@@ -68,18 +68,18 @@ export function NeoBrutalistHero({ isBetaMode }: { isBetaMode: boolean }) {
             <div className="font-mono text-sm space-y-2 p-2">
               <div className="text-text-muted border-b border-border/50 pb-2 mb-2">
                 <span className="text-info"># ~/.codeium/windsurf/mcp_config.json</span><br/>
-                {`"codrag": { "url": "http://localhost:8400/mcp/sse", "transport": "sse" }`}
+                {`"prep": { "url": "http://localhost:8400/mcp/sse", "transport": "sse" }`}
               </div>
               
-              <div className="text-success">$ cascade_agent --connect codrag</div>
-              <div className="text-text-muted">[mcp] tools loaded: codrag (primary), codrag_search, codrag_trace</div>
+              <div className="text-success">$ cascade_agent --connect prep</div>
+              <div className="text-text-muted">[mcp] tools loaded: prep (primary), prep_search, prep_trace</div>
               
               <div className="mt-4">
                 <span className="text-primary font-bold">USER:</span> "Graph the auth flow and find where tokens expire"
               </div>
               
               <div className="bg-primary/10 p-2 border-l-2 border-primary mt-2">
-                <div className="text-xs text-text-subtle mb-1">TOOL CALL: codrag(trace_expand=true)</div>
+                <div className="text-xs text-text-subtle mb-1">TOOL CALL: prep(trace_expand=true)</div>
                 <span className="text-primary">&gt; Found 3 entry points in src/auth/*</span><br/>
                 <span className="text-primary">&gt; Traced 12 downstream calls (Rust Code Graph)</span>
               </div>

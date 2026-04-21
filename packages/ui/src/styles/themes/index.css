@@ -1,15 +1,15 @@
 /**
- * CoDRAG Theme Variants
+ * Prep Theme Variants
  * 
- * Each theme sets CSS custom properties via [data-codrag-theme='X'] selectors.
- * Toggle themes by setting the data-codrag-theme attribute on <html> or a container.
+ * Each theme sets CSS custom properties via [data-prep-theme='X'] selectors.
+ * Toggle themes by setting the data-prep-theme attribute on <html> or a container.
  * 
  * Available themes: a, b, d, f, g, h, j, k, l, m, n
  * Removed (styles only, Heroes kept): c (Signal Green), e (Neo-Brutalist), i (Studio Collage)
  * 
  * Usage:
- *   <html data-codrag-theme="a">  // Direction A: Slate Developer
- *   <html data-codrag-theme="k" class="dark">  // Direction K dark mode
+ *   <html data-prep-theme="a">  // Direction A: Slate Developer
+ *   <html data-prep-theme="k" class="dark">  // Direction K dark mode
  */
 
 @import './direction-a.css';

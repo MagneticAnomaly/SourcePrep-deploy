@@ -24,7 +24,7 @@ const docFeatures = [
   {
     icon: <Plug className="w-8 h-8" />,
     title: 'MCP Integration',
-    description: 'Use CoDRAG from Cursor/Windsurf via MCP.',
+    description: 'Use Prep from Cursor/Windsurf via MCP.',
     href: '/mcp',
   },
   {
@@ -43,7 +43,7 @@ const docFeatures = [
     icon: <LifeBuoy className="w-8 h-8" />,
     title: 'Support',
     description: 'Ticketing, bugs, questions, and security reporting.',
-    href: 'https://codrag.io/support',
+    href: 'https://runprep.io/support',
     external: true,
   },
 ];
@@ -52,7 +52,7 @@ export default function Page() {
   return (
     <div className="space-y-12 max-w-3xl mx-auto pt-6">
       <div>
-        <h1 className="text-4xl font-bold tracking-tight mb-4">CoDRAG Documentation</h1>
+        <h1 className="text-4xl font-bold tracking-tight mb-4">Prep Documentation</h1>
         <p className="text-xl text-text-muted">
           Everything you need to build your epistemic graph, connect your AI tools, and get better output from every prompt.
         </p>

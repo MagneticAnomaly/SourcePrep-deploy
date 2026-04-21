@@ -54,14 +54,14 @@ export const CustomPlaceholder: SearchInputStory = {
 const mockResults: SearchResult[] = [
   {
     chunk_id: 'chunk-001',
-    source_path: 'src/codrag/core/indexer.py',
+    source_path: 'src/prep/core/indexer.py',
     span: { start_line: 45, end_line: 78 },
     preview: 'def build_index(project_path: str, config: IndexConfig) -> Index: """Build a semantic index for the given project...',
     score: 0.92,
   },
   {
     chunk_id: 'chunk-002',
-    source_path: 'src/codrag/api/routes.py',
+    source_path: 'src/prep/api/routes.py',
     span: { start_line: 120, end_line: 145 },
     preview: '@app.post("/projects/{project_id}/search") async def search_project(project_id: str, request: SearchRequest)...',
     score: 0.85,
@@ -70,7 +70,7 @@ const mockResults: SearchResult[] = [
     chunk_id: 'chunk-003',
     source_path: 'docs/API.md',
     span: { start_line: 1, end_line: 30 },
-    preview: '# CoDRAG API Reference\n\nThis document describes the REST API endpoints for CoDRAG...',
+    preview: '# Prep API Reference\n\nThis document describes the REST API endpoints for Prep...',
     score: 0.78,
   },
 ];
@@ -110,7 +110,7 @@ export const SearchResultWithSelection: SearchInputStory = {
 // ChunkViewer Stories
 const mockChunk: CodeChunk = {
   id: 'chunk-001',
-  source_path: 'src/codrag/core/indexer.py',
+  source_path: 'src/prep/core/indexer.py',
   span: { start_line: 45, end_line: 58 },
   language: 'python',
   content: `def build_index(project_path: str, config: IndexConfig) -> Index:

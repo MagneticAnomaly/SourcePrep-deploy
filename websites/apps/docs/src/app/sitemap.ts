@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://docs.codrag.io';
+  const baseUrl = 'https://docs.runprep.io';
   
   const routes = [
     '',

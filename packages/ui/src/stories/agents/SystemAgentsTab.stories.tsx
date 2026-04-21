@@ -6,7 +6,7 @@ const meta: Meta<typeof SystemAgentsTab> = {
   component: SystemAgentsTab,
   parameters: {
     layout: 'padded',
-    docs: { description: { component: 'Per-agent configuration panel for the three built-in CoDRAG agents: HR (Staffing), Researcher, and Digital Custodian. Shows readiness scores, run stats, and action buttons.' } },
+    docs: { description: { component: 'Per-agent configuration panel for the three built-in Prep agents: HR (Staffing), Researcher, and Digital Custodian. Shows readiness scores, run stats, and action buttons.' } },
   },
   decorators: [(Story) => <div style={{ maxWidth: 600 }}><Story /></div>],
 };

@@ -17,14 +17,14 @@ type Story = StoryObj<typeof AtlasLensPanel>;
 const now = new Date('2026-04-14T15:00:00Z').toISOString();
 
 const segments = [
-  { segment_id: 'seg_src', segment_name: 'src/codrag', dir_path: 'src/codrag', file_count: 323, char_count: 2100, mode: 'structural' as const, generated_at: now, stale: false },
+  { segment_id: 'seg_src', segment_name: 'src/prep', dir_path: 'src/prep', file_count: 323, char_count: 2100, mode: 'structural' as const, generated_at: now, stale: false },
   { segment_id: 'seg_ui', segment_name: 'packages/ui', dir_path: 'packages/ui', file_count: 291, char_count: 1800, mode: 'structural' as const, generated_at: now, stale: false },
   { segment_id: 'seg_sites', segment_name: 'websites', dir_path: 'websites', file_count: 73, char_count: 800, mode: 'structural' as const, generated_at: now, stale: true },
 ];
 
 const baseAtlas: AtlasStatus = {
   exists: true,
-  content: 'IDENTITY: CoDRAG is a multi-segment AI coding assistant platform...\nSTACK: Python 323 files, TypeScript 334 files...',
+  content: 'IDENTITY: Prep is a multi-segment AI coding assistant platform...\nSTACK: Python 323 files, TypeScript 334 files...',
   mode: 'structural',
   model: 'structural',
   generated_at: now,
@@ -42,8 +42,8 @@ const roleAtlas: AtlasStatus = {
   role_atlas: `[Software Engineer View]
 
 Modules (scored for engineering relevance):
-- src/codrag/core/ — indexing + embedding pipeline
-- src/codrag/services/pipeline/ — orchestration + retry
+- src/prep/core/ — indexing + embedding pipeline
+- src/prep/services/pipeline/ — orchestration + retry
 - packages/ui/src/components/ — dashboard React components
 - Key files: server.py, indexer.py, pipeline/orchestrator.py
 `,

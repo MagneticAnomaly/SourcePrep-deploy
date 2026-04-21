@@ -1,8 +1,8 @@
 /**
  * MCPConnectionCard — Paperclip Skill integration status.
  *
- * Shows whether the CoDRAG skill is installed globally in
- * ~/.claude/skills/codrag so Paperclip agents can use it.
+ * Shows whether the Prep skill is installed globally in
+ * ~/.claude/skills/prep so Paperclip agents can use it.
  * Provides one-click install/uninstall and a manual snippet.
  */
 import { useState, useCallback } from 'react';
@@ -94,8 +94,8 @@ export function MCPConnectionCard({
   const snippet = JSON.stringify(
     {
       servers: {
-        codrag: {
-          command: 'codrag',
+        prep: {
+          command: 'prep',
           args: ['mcp', '--auto', '--daemon', status?.daemon_url ?? 'http://127.0.0.1:8400'],
         },
       },
@@ -142,10 +142,10 @@ export function MCPConnectionCard({
               <Check size={14} className="text-green-500 mt-0.5 shrink-0" />
               <div className="text-xs text-green-700 dark:text-green-400 space-y-1">
                 <p className="font-medium">
-                  CoDRAG skill is installed globally
+                  Prep skill is installed globally
                 </p>
                 <p>
-                  Enable the <code className="bg-green-500/10 px-1 rounded">codrag</code> skill
+                  Enable the <code className="bg-green-500/10 px-1 rounded">prep</code> skill
                   on any agent in Paperclip → Agent → Skills tab.
                 </p>
               </div>
@@ -176,10 +176,10 @@ export function MCPConnectionCard({
           /* ── Not installed state ── */
           <>
             <p className="text-xs text-muted-foreground">
-              Install the CoDRAG skill so Paperclip agents can use structural
-              codebase intelligence tools (<code className="bg-muted px-1 rounded">codrag</code>,{' '}
-              <code className="bg-muted px-1 rounded">codrag_search</code>,{' '}
-              <code className="bg-muted px-1 rounded">codrag_impact</code>).
+              Install the Prep skill so Paperclip agents can use structural
+              codebase intelligence tools (<code className="bg-muted px-1 rounded">prep</code>,{' '}
+              <code className="bg-muted px-1 rounded">prep_search</code>,{' '}
+              <code className="bg-muted px-1 rounded">prep_impact</code>).
             </p>
 
             <button

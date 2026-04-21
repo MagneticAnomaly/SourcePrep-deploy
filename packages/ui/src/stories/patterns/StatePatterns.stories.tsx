@@ -20,7 +20,7 @@ export const EmptyNoProjects: StateStory = {
   render: () => (
     <EmptyState
       title="No projects yet"
-      description="Add your first project to get started with CoDRAG. Projects are indexed locally; nothing is uploaded."
+      description="Add your first project to get started with Prep. Projects are indexed locally; nothing is uploaded."
       action={{
         label: 'Add Project',
         onClick: () => console.log('Add project'),

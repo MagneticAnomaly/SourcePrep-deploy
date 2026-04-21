@@ -69,7 +69,7 @@ async function sendNotification(reportId: string, report: BugReportPayload): Pro
     return false;
   }
 
-  const toAddress = process.env.BUG_REPORT_EMAIL ?? 'bugs@codrag.io';
+  const toAddress = process.env.BUG_REPORT_EMAIL ?? 'bugs@runprep.io';
   const sevEmoji: Record<string, string> = { critical: '🔴', major: '🟠', minor: '🟡', cosmetic: '⚪' };
   const emoji = sevEmoji[report.issue.severity] ?? '⚪';
   const logErrorCount = report.logs.filter(l => l.level === 'ERROR' || l.level === 'CRITICAL').length;
@@ -136,7 +136,7 @@ async function sendNotification(reportId: string, report: BugReportPayload): Pro
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'CoDRAG Bug Reports <bugs@codrag.io>',
+        from: 'Prep Bug Reports <bugs@runprep.io>',
         to: [toAddress],
         reply_to: report.reporter.email,
         subject,
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
       success: true,
       report_id: reportId,
       email_sent: emailSent,
-      message: 'Bug report received. Thank you for helping improve CoDRAG!',
+      message: 'Bug report received. Thank you for helping improve Prep!',
     },
     { status: 200, headers },
   );

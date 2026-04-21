@@ -23,7 +23,7 @@ export interface SiteHeaderProps {
 }
 
 export function SiteHeader({
-  productName = 'CoDRAG',
+  productName = 'Prep',
   productBadge,
   logo = <Box className="w-5 h-5" />,
   links,
@@ -50,7 +50,7 @@ export function SiteHeader({
       onSearch(query);
     } else {
       // Default behavior: Redirect to docs search
-      window.location.href = `https://docs.codrag.io?q=${encodeURIComponent(query)}`;
+      window.location.href = `https://docs.runprep.io?q=${encodeURIComponent(query)}`;
     }
   };
 

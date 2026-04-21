@@ -3,7 +3,7 @@
  *
  * Evolves from GoalpostsPanel with the addition of:
  *   - Unified action bar with "Copy for AI" pattern per proposal
- *   - Updated MCP reference (codrag_audit action='advise')
+ *   - Updated MCP reference (prep_audit action='advise')
  *   - User notes field for AI handoff context
  *
  * Wraps GoalpostsPanel's core UX (intent editor, proposal cards,
@@ -118,7 +118,7 @@ function ProposalCard({ proposal, onApprove, onDismiss }: {
   const isActioned = proposal.state === 'approved' || proposal.state === 'dismissed';
 
   // Generate MCP command for this proposal
-  const mcpCommand = `codrag_audit action="advise"`;
+  const mcpCommand = `prep_audit action="advise"`;
 
   return (
     <div className={cn('rounded-lg border px-4 py-3.5 transition-all', STATE_COLORS[proposal.state] || STATE_COLORS.proposed)}>
@@ -337,7 +337,7 @@ export function AdvisorPanel({
             </Button>
           )}
           <p className="text-[10px] text-text-muted mt-1">
-            MCP: <code className="rounded bg-surface-raised px-1 py-0.5 text-primary">codrag_audit action='advise'</code>
+            MCP: <code className="rounded bg-surface-raised px-1 py-0.5 text-primary">prep_audit action='advise'</code>
           </p>
         </div>
       </div>

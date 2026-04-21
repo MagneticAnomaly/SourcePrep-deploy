@@ -1,6 +1,6 @@
-# CoDRAG UI Component Architecture
+# Prep UI Component Architecture
 
-This document describes the foundational component architecture for the CoDRAG dashboard, derived from Phase 01 (Foundation) and Phase 02 (Dashboard) specifications.
+This document describes the foundational component architecture for the Prep dashboard, derived from Phase 01 (Foundation) and Phase 02 (Dashboard) specifications.
 
 ## Overview
 
@@ -72,11 +72,11 @@ Core types are defined in `src/types.ts`:
 ### 1. Tremor-First
 Components use Tremor primitives (Card, Badge, Table, Button, etc.) as the base. Custom components are only created when:
 - The pattern is not available in Tremor
-- It is core to CoDRAG (e.g., ChunkViewer, CitationBlock)
+- It is core to Prep (e.g., ChunkViewer, CitationBlock)
 
 ### 2. Wireframe-Ready
 Components are structural and functional. Final styling will be applied after visual direction is chosen (Phase 13). All components use:
-- CSS class hooks (`codrag-*` prefixes) for later styling
+- CSS class hooks (`prep-*` prefixes) for later styling
 - Design token CSS variables from `tokens/index.css`
 
 ### 3. State-Driven
@@ -115,7 +115,7 @@ stories/
 
 ## API Alignment
 
-Components are designed to consume the CoDRAG API response shapes defined in Phase 02:
+Components are designed to consume the Prep API response shapes defined in Phase 02:
 
 ```typescript
 // API response envelope
@@ -135,6 +135,6 @@ Components are designed to consume the CoDRAG API response shapes defined in Pha
 ## Next Steps
 
 1. **Styling Phase**: After visual direction is selected, apply design tokens
-2. **API Integration**: Connect components to actual CoDRAG daemon
+2. **API Integration**: Connect components to actual Prep daemon
 3. **Page Composition**: Build page-level components (StatusPage, SearchPage, etc.)
 4. **Accessibility**: Audit keyboard navigation and ARIA attributes

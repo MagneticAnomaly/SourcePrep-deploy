@@ -23,21 +23,21 @@ export default function IdeIntegrationsPage() {
 
         <div className="mt-8 prose max-w-none">
           <p>
-            When an editor supports the Model Context Protocol (MCP), it means the AI can defer complex codebase searches to a specialized indexer like CoDRAG. The AI agent explicitly calls CoDRAG's tools (like <code>codrag</code>, <code>codrag_search</code>, or <code>codrag_impact</code>) behind the scenes, reading the results before composing an answer for you.
+            When an editor supports the Model Context Protocol (MCP), it means the AI can defer complex codebase searches to a specialized indexer like Prep. The AI agent explicitly calls Prep's tools (like <code>prep</code>, <code>prep_search</code>, or <code>prep_impact</code>) behind the scenes, reading the results before composing an answer for you.
           </p>
 
           <div className="not-prose my-8">
             <StoryEmbed
               storyId="console-animatedide--default"
               height={500}
-              title="CoDRAG in an Agentic IDE"
-              caption="Live demo: An AI agent using CoDRAG MCP tools inside a split-pane IDE."
+              title="Prep in an Agentic IDE"
+              caption="Live demo: An AI agent using Prep MCP tools inside a split-pane IDE."
             />
           </div>
 
           <AnchorHeading id="setup" level="h2">Integration Setup</AnchorHeading>
           <p>
-            Choose your preferred editor below and copy-paste the configuration. Then restart the window. Ensure the CoDRAG backend is running locally (<code>codrag serve</code>) before making requests in the IDE.
+            Choose your preferred editor below and copy-paste the configuration. Then restart the window. Ensure the Prep backend is running locally (<code>prep serve</code>) before making requests in the IDE.
           </p>
         </div>
 

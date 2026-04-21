@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'Changelog',
-  description: 'Latest updates, features, and improvements to the CoDRAG engine and MCP server.',
+  description: 'Latest updates, features, and improvements to the Prep engine and MCP server.',
   path: '/changelog',
 });
 

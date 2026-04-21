@@ -4,9 +4,9 @@ import { DetailPageLayout } from '@prep/ui';
 import { GitBranch, Zap, RefreshCw, ArrowRight } from 'lucide-react';
 
 const SECTIONS = [
-  { id: 'why', label: 'Why Paperclip + CoDRAG' },
+  { id: 'why', label: 'Why Paperclip + Prep' },
   { id: 'hybrid', label: 'Hybrid Integration' },
-  { id: 'addresses', label: 'CoDRAG Addresses' },
+  { id: 'addresses', label: 'Prep Addresses' },
   { id: 'auto-push', label: 'Auto-Push Findings' },
   { id: 'agents', label: 'Agent Intelligence' },
 ];
@@ -16,19 +16,19 @@ export default function PaperclipPage() {
     <DetailPageLayout
       title="Paperclip Integration"
       subtitle="Agent Orchestration"
-      description="CoDRAG is the knowledge backbone for Paperclip's autonomous agent teams — providing structural codebase intelligence that agents use to understand, plan, and execute."
+      description="Prep is the knowledge backbone for Paperclip's autonomous agent teams — providing structural codebase intelligence that agents use to understand, plan, and execute."
       badge="Integration"
       sections={SECTIONS}
-      docsUrl="https://docs.codrag.io/integrations/paperclip"
+      docsUrl="https://docs.runprep.io/integrations/paperclip"
       docsLabel="Paperclip setup guide"
     >
       {/* Why */}
       <section id="why">
-        <h2 className="text-2xl font-semibold text-text mb-4">Why Paperclip + CoDRAG</h2>
+        <h2 className="text-2xl font-semibold text-text mb-4">Why Paperclip + Prep</h2>
         <p className="text-text-muted leading-relaxed mb-6">
           Paperclip orchestrates autonomous agent teams — hiring AI agents to work on goals, issues, and routines.
           But agents working without codebase knowledge make shallow changes and miss architectural context.
-          CoDRAG gives every Paperclip agent deep structural awareness of the codebase they're working in.
+          Prep gives every Paperclip agent deep structural awareness of the codebase they're working in.
         </p>
         <div className="grid sm:grid-cols-3 gap-4">
           {[
@@ -49,24 +49,24 @@ export default function PaperclipPage() {
       <section id="hybrid">
         <h2 className="text-2xl font-semibold text-text mb-4">Hybrid MCP + REST Architecture</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          CoDRAG connects to Paperclip through two complementary layers, giving agents both on-demand intelligence and proactive discovery.
+          Prep connects to Paperclip through two complementary layers, giving agents both on-demand intelligence and proactive discovery.
         </p>
         <div className="grid sm:grid-cols-2 gap-6">
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-6">
             <h3 className="font-mono font-bold text-sm text-primary mb-2">Pull: MCP Server</h3>
-            <p className="text-sm text-text-muted mb-3">Agents call CoDRAG tools on demand during their work.</p>
+            <p className="text-sm text-text-muted mb-3">Agents call Prep tools on demand during their work.</p>
             <ul className="text-xs text-text-muted space-y-1.5 font-mono">
-              <li>codrag — structural overview</li>
-              <li>codrag_search — semantic search</li>
-              <li>codrag_impact — blast radius</li>
-              <li>codrag_audit — enriched findings</li>
-              <li>codrag_observe — persistent memory</li>
-              <li>codrag_concepts — design rationale</li>
+              <li>prep — structural overview</li>
+              <li>prep_search — semantic search</li>
+              <li>prep_impact — blast radius</li>
+              <li>prep_audit — enriched findings</li>
+              <li>prep_observe — persistent memory</li>
+              <li>prep_concepts — design rationale</li>
             </ul>
           </div>
           <div className="rounded-lg border border-border bg-surface p-6">
             <h3 className="font-mono font-bold text-sm text-text mb-2">Push: REST API</h3>
-            <p className="text-sm text-text-muted mb-3">CoDRAG proactively pushes discoveries to Paperclip.</p>
+            <p className="text-sm text-text-muted mb-3">Prep proactively pushes discoveries to Paperclip.</p>
             <ul className="text-xs text-text-muted space-y-1.5">
               <li>Audit findings become Paperclip issues</li>
               <li>Coupling hotspots become refactoring goals</li>
@@ -77,15 +77,15 @@ export default function PaperclipPage() {
         </div>
       </section>
 
-      {/* CoDRAG Addresses */}
+      {/* Prep Addresses */}
       <section id="addresses">
-        <h2 className="text-2xl font-semibold text-text mb-4">CoDRAG Addresses</h2>
+        <h2 className="text-2xl font-semibold text-text mb-4">Prep Addresses</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          Every finding pushed to Paperclip carries a CoDRAG address — a stable URI that agents can use to verify freshness and fetch updated context at work-time.
+          Every finding pushed to Paperclip carries a Prep address — a stable URI that agents can use to verify freshness and fetch updated context at work-time.
         </p>
         <div className="rounded-lg border border-border bg-[#0d1117] p-4 font-mono text-sm">
           <div className="text-[#8b949e] mb-2">{"// Agent verifies a finding before acting on it:"}</div>
-          <div className="text-[#79c0ff]">codrag://project-id/<span className="text-[#3fb950]">HEALTH-a7b9</span></div>
+          <div className="text-[#79c0ff]">prep://project-id/<span className="text-[#3fb950]">HEALTH-a7b9</span></div>
           <div className="text-[#8b949e] mt-2">{"// Returns: current status, structural context, related concepts"}</div>
         </div>
         <p className="text-sm text-text-muted mt-4">
@@ -97,7 +97,7 @@ export default function PaperclipPage() {
       <section id="auto-push">
         <h2 className="text-2xl font-semibold text-text mb-4">Auto-Push Findings</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          CoDRAG's background intelligence engine (Pi Agent) continuously discovers structural issues and pushes them to Paperclip as actionable items — grouped by module or category.
+          Prep's background intelligence engine (Pi Agent) continuously discovers structural issues and pushes them to Paperclip as actionable items — grouped by module or category.
         </p>
         <div className="space-y-3">
           {[
@@ -117,15 +117,15 @@ export default function PaperclipPage() {
       <section id="agents">
         <h2 className="text-2xl font-semibold text-text mb-4">Every Agent Gets Smarter</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          When a Paperclip agent starts work on a goal, it calls <code className="text-primary font-mono text-sm">codrag</code> to instantly understand the codebase's structure, hub files, and module boundaries. No ramp-up time, no context window waste.
+          When a Paperclip agent starts work on a goal, it calls <code className="text-primary font-mono text-sm">prep</code> to instantly understand the codebase's structure, hub files, and module boundaries. No ramp-up time, no context window waste.
         </p>
         <a
-          href="https://docs.codrag.io/integrations/paperclip"
+          href="https://docs.runprep.io/integrations/paperclip"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-background hover:bg-primary-hover transition-colors"
         >
-          Set up Paperclip + CoDRAG <ArrowRight className="w-4 h-4" />
+          Set up Paperclip + Prep <ArrowRight className="w-4 h-4" />
         </a>
       </section>
     </DetailPageLayout>

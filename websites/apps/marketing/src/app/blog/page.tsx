@@ -82,10 +82,10 @@ export default function Page() {
                   <span className="font-mono text-xs uppercase text-primary">{post.author}</span>
                 </div>
                 <div className="flex gap-4 mb-4">
-                  <a href="https://x.com/CoDRAG_io" className="text-text-subtle hover:text-text transition-colors">
+                  <a href="https://x.com/Prep_io" className="text-text-subtle hover:text-text transition-colors">
                     <XIcon className="w-5 h-5" />
                   </a>
-                  <a href="https://github.com/MagneticAnomaly/CoDRAG-MCP" className="text-text-subtle hover:text-text transition-colors">
+                  <a href="https://github.com/MagneticAnomaly/Prep-MCP" className="text-text-subtle hover:text-text transition-colors">
                     <Github className="w-5 h-5" />
                   </a>
                 </div>
@@ -112,7 +112,7 @@ export default function Page() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
                <Button asChild>
-                 <a href="https://x.com/CoDRAG_io">Follow on X</a>
+                 <a href="https://x.com/Prep_io">Follow on X</a>
                </Button>
                <Button asChild variant="outline">
                  <a href="/rss">RSS Feed</a>

@@ -299,7 +299,7 @@ export function EnterpriseAdminPanel({
               <Cloud className="w-8 h-8 text-text-muted mx-auto mb-2" />
               <p className="text-xs text-text-muted">No projects with Team Sync enabled.</p>
               <p className="text-[10px] text-text-muted mt-1">
-                Add a <code className="text-primary">.codrag/team_config.json</code> to a project repo to enable sync.
+                Add a <code className="text-primary">.prep/team_config.json</code> to a project repo to enable sync.
               </p>
             </div>
           ) : (
@@ -457,7 +457,7 @@ export function EnterpriseAdminPanel({
               {seatStatus.seats_used >= seatStatus.seats_total && (
                 <div className="p-2 rounded border border-amber-500/30 bg-amber-500/5 text-xs text-amber-400">
                   All seats are in use. To activate on another machine, deactivate one first or purchase additional seats at{' '}
-                  <a href="https://codrag.io/pricing" target="_blank" rel="noreferrer" className="underline hover:text-amber-300">codrag.io/pricing</a>.
+                  <a href="https://runprep.io/pricing" target="_blank" rel="noreferrer" className="underline hover:text-amber-300">runprep.io/pricing</a>.
                 </div>
               )}
               {/* Provision Seat Form */}
@@ -817,7 +817,7 @@ export function EnterpriseAdminPanel({
               <Settings2 className="w-8 h-8 text-text-muted mx-auto mb-2" />
               <p className="text-sm text-text-muted">No admin policy configured.</p>
               <p className="text-[10px] text-text-muted mt-1">
-                Add an <code className="text-primary">admin_policy</code> section to your <code className="text-primary">.codrag/team_config.json</code> to set provider locks, model restrictions, and DLP rules.
+                Add an <code className="text-primary">admin_policy</code> section to your <code className="text-primary">.prep/team_config.json</code> to set provider locks, model restrictions, and DLP rules.
               </p>
             </div>
           )}

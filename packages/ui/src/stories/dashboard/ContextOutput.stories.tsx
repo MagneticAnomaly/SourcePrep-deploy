@@ -14,7 +14,7 @@ const meta: Meta<typeof ContextViewer> = {
 export default meta;
 type Story = StoryObj<typeof ContextViewer>;
 
-const mockContext = `--- Source: src/codrag/core/indexer.py:45-78 ---
+const mockContext = `--- Source: src/prep/core/indexer.py:45-78 ---
 def build_index(project_path: str, config: IndexConfig) -> Index:
     """Build a semantic index for the given project."""
     scanner = FileScanner(project_path, config)
@@ -23,7 +23,7 @@ def build_index(project_path: str, config: IndexConfig) -> Index:
     embeddings = embed_chunks(chunks, config.model)
     return Index(chunks, embeddings)
 
---- Source: src/codrag/api/routes.py:120-145 ---
+--- Source: src/prep/api/routes.py:120-145 ---
 @app.post("/projects/{project_id}/search")
 async def search_project(project_id: str, request: SearchRequest):
     """Semantic search in project."""
@@ -34,14 +34,14 @@ async def search_project(project_id: str, request: SearchRequest):
 const mockChunks: ContextChunk[] = [
   {
     chunk_id: 'chunk-001',
-    source_path: 'src/codrag/core/indexer.py',
+    source_path: 'src/prep/core/indexer.py',
     span: { start_line: 45, end_line: 78 },
     score: 0.92,
     truncated: false,
   },
   {
     chunk_id: 'chunk-002',
-    source_path: 'src/codrag/api/routes.py',
+    source_path: 'src/prep/api/routes.py',
     span: { start_line: 120, end_line: 145 },
     score: 0.85,
     truncated: false,
@@ -78,7 +78,7 @@ export const WithManySources: Story = {
         ...mockChunks,
         { chunk_id: 'chunk-003', source_path: 'docs/API.md', span: { start_line: 1, end_line: 30 }, score: 0.78 },
         { chunk_id: 'chunk-004', source_path: 'tests/test_indexer.py', span: { start_line: 50, end_line: 85 }, score: 0.72 },
-        { chunk_id: 'chunk-005', source_path: 'src/codrag/cli.py', span: { start_line: 10, end_line: 45 }, score: 0.68 },
+        { chunk_id: 'chunk-005', source_path: 'src/prep/cli.py', span: { start_line: 10, end_line: 45 }, score: 0.68 },
       ]}
       totalChars={4500}
       estimatedTokens={1125}

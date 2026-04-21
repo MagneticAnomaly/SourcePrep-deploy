@@ -19,7 +19,7 @@ export default function ComparePage() {
             Detailed Comparison
           </h1>
           <p className="text-lg text-text-muted max-w-2xl mx-auto">
-            A comprehensive breakdown of how CoDRAG's architecture compares to other AI coding tools and context engines.
+            A comprehensive breakdown of how Prep's architecture compares to other AI coding tools and context engines.
           </p>
         </div>
 

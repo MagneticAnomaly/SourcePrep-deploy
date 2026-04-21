@@ -41,7 +41,7 @@ export default function Page() {
                   <a href="/security">VIEW_SECURITY_&amp;_PRIVACY</a>
                 </Button>
                 <Button asChild variant="outline" className="w-full justify-start text-xs font-mono">
-                  <a href="mailto:legal@codrag.io">CONTACT_LEGAL</a>
+                  <a href="mailto:legal@runprep.io">CONTACT_LEGAL</a>
                 </Button>
               </div>
             </div>
@@ -68,8 +68,8 @@ export default function Page() {
                   </h2>
                   <div className="max-w-none">
                     <p className="text-lg leading-relaxed border-l-4 border-border pl-6 py-2 text-text-muted">
-                      These Terms of Service (&ldquo;Terms&rdquo;) govern your use of CoDRAG software
-                      and related services provided by CoDRAG Inc. By downloading, installing, or using CoDRAG, you agree to these Terms.
+                      These Terms of Service (&ldquo;Terms&rdquo;) govern your use of Prep software
+                      and related services provided by Prep Inc. By downloading, installing, or using Prep, you agree to these Terms.
                     </p>
                   </div>
                 </section>
@@ -90,7 +90,7 @@ export default function Page() {
                     <div className="border border-border p-6 rounded-sm bg-surface-raised">
                        <h3 className="font-bold text-text mb-2">Paid Licenses (Pro / Team)</h3>
                        <p className="text-sm text-text-muted mb-4">
-                         Grants non-exclusive, non-transferable right to use CoDRAG on specified number of machines.
+                         Grants non-exclusive, non-transferable right to use Prep on specified number of machines.
                        </p>
                        <ul className="space-y-2 text-xs font-mono text-text-subtle">
                          <li>- Pro (one-time): Perpetual license, does not expire.</li>
@@ -112,7 +112,7 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">03.</span> Data Sovereignty
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed">
-                    CoDRAG processes your source code entirely on your local machine. We do not
+                    Prep processes your source code entirely on your local machine. We do not
                     access, collect, or store your source code, index data, or AI-generated output.
                     See our <a href="/security#data-collection" className="text-primary underline">Privacy Policy</a> for details.
                   </p>
@@ -130,7 +130,7 @@ export default function Page() {
                       <span>USD</span>
 
                       <span className="font-bold text-text">Refunds</span>
-                      <span>14-day money-back guarantee (<a href="mailto:support@codrag.io" className="text-primary underline">support@codrag.io</a>)</span>
+                      <span>14-day money-back guarantee (<a href="mailto:support@runprep.io" className="text-primary underline">support@runprep.io</a>)</span>
                    </div>
                 </section>
 
@@ -152,7 +152,7 @@ export default function Page() {
                       </tr>
                       <tr>
                         <td className="px-4 py-3 border-r border-border font-medium text-text">Pro / Team</td>
-                        <td className="px-4 py-3 text-text-muted">Private Email (support@codrag.io)</td>
+                        <td className="px-4 py-3 text-text-muted">Private Email (support@runprep.io)</td>
                       </tr>
                       <tr>
                         <td className="px-4 py-3 border-r border-border font-medium text-text">Enterprise</td>
@@ -183,8 +183,8 @@ export default function Page() {
                   <p className="text-sm text-text-muted mb-4">
                     For inquiries regarding these terms:
                   </p>
-                  <a href="mailto:legal@codrag.io" className="font-mono text-primary hover:underline">
-                    legal@codrag.io
+                  <a href="mailto:legal@runprep.io" className="font-mono text-primary hover:underline">
+                    legal@runprep.io
                   </a>
                 </section>
 

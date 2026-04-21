@@ -217,7 +217,7 @@ export function ModularDashboard({
   const DetailsIcon = detailsDef?.icon;
 
   return (
-    <div className={cn('codrag-modular-dashboard', className)}>
+    <div className={cn('prep-modular-dashboard', className)}>
       {/* Header with Panel Picker — only rendered when there's content */}
       {(headerLeft || headerRight || !hidePanelPicker) && (
         <div className="flex items-center justify-between mb-4">
@@ -264,7 +264,7 @@ export function ModularDashboard({
           const contentNode = (
             <div
               className={cn(
-                'codrag-panel-body flex flex-col',
+                'prep-panel-body flex flex-col',
                 !def.noPadding && 'p-4',
                 isPanelResizable && 'h-full min-h-0 overflow-hidden'
               )}

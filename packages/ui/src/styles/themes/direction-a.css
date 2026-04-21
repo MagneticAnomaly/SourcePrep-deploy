@@ -1,4 +1,4 @@
-[data-codrag-theme='a'] {
+[data-prep-theme='a'] {
   --background: 210 20% 98%;
   --foreground: 222 47% 11%;
   --surface: 0 0% 100%;
@@ -21,7 +21,7 @@
   --info-muted: 199 89% 48% / 15%;
 }
 
-.dark[data-codrag-theme='a'] {
+.dark[data-prep-theme='a'] {
   --background: 222 47% 11%;
   --foreground: 210 40% 98%;
   --surface: 217 33% 17%;

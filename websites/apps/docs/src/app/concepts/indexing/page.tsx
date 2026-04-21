@@ -26,7 +26,7 @@ export default function Page() {
             <div>
               <span className="font-semibold text-text">1. Discovery</span>
               <p className="text-sm text-text-muted">
-                The <code>codrag-walker</code> crate (Rust) scans your directory, respecting 
+                The <code>prep-walker</code> crate (Rust) scans your directory, respecting 
                 <code>.gitignore</code> and user-defined exclusions. It computes BLAKE3 hashes for change detection.
               </p>
             </div>
@@ -55,7 +55,7 @@ export default function Page() {
 
           <AnchorHeading id="incremental" level="h2">Incremental Updates</AnchorHeading>
           <p>
-            CoDRAG includes a real-time file watcher (<code>watchdog</code>). When you save a file:
+            Prep includes a real-time file watcher (<code>watchdog</code>). When you save a file:
           </p>
           <ul className="list-disc pl-5">
             <li>The watcher detects the <code>modify</code> event.</li>
@@ -69,7 +69,7 @@ export default function Page() {
 
           <AnchorHeading id="exclusions" level="h2">Exclusions</AnchorHeading>
           <p>
-            You can control what gets indexed via the Dashboard or <code>.codrag/ignore</code>.
+            You can control what gets indexed via the Dashboard or <code>.prep/ignore</code>.
             Common patterns like <code>node_modules/</code>, <code>dist/</code>, and <code>.git/</code> 
             are ignored by default.
           </p>

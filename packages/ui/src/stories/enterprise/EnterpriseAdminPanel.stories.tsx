@@ -33,7 +33,7 @@ const mockScheduler: SchedulerStatus = {
 };
 
 const mockSyncFleet: SyncFleetEntry[] = [
-  { projectId: 'p1', projectName: 'codrag-core', lastSync: now - 300, lastCommit: 'a1b2c3d4e5f6', status: 'synced' },
+  { projectId: 'p1', projectName: 'prep-core', lastSync: now - 300, lastCommit: 'a1b2c3d4e5f6', status: 'synced' },
   { projectId: 'p2', projectName: 'frontend-app', lastSync: now - 3600, lastCommit: 'abc123def456', status: 'syncing' },
   { projectId: 'p3', projectName: 'ml-pipeline', lastSync: now - 86400, lastCommit: 'xyz789', status: 'stale' },
   { projectId: 'p4', projectName: 'infra-platform', lastSync: null, lastCommit: null, status: 'error', error: 'S3 access denied — check IAM role.' },

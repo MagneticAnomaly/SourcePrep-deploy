@@ -21,7 +21,7 @@ export const MCP_TOOLS: McpToolConfig[] = [
     notes: 'Enable auto-run in Settings > Features > MCP.',
     config: {
       mcpServers: {
-        codrag: { command: 'codrag', args: ['mcp'] },
+        prep: { command: 'prep', args: ['mcp'] },
       },
     },
   },
@@ -35,7 +35,7 @@ export const MCP_TOOLS: McpToolConfig[] = [
     notes: null,
     config: {
       mcpServers: {
-        codrag: { command: 'codrag', args: ['mcp'], disabled: false },
+        prep: { command: 'prep', args: ['mcp'], disabled: false },
       },
     },
   },
@@ -49,7 +49,7 @@ export const MCP_TOOLS: McpToolConfig[] = [
     notes: 'Note: Uses "servers" key, NOT "mcpServers".',
     config: {
       servers: {
-        codrag: { command: 'codrag', args: ['mcp'] },
+        prep: { command: 'prep', args: ['mcp'] },
       },
     },
   },
@@ -63,7 +63,7 @@ export const MCP_TOOLS: McpToolConfig[] = [
     notes: 'Zed uses "context_servers", not "mcpServers".',
     config: {
       context_servers: {
-        codrag: { command: 'codrag', args: ['mcp'] },
+        prep: { command: 'prep', args: ['mcp'] },
       },
     },
   },
@@ -77,7 +77,7 @@ export const MCP_TOOLS: McpToolConfig[] = [
     notes: null,
     config: {
       mcpServers: {
-        codrag: { command: 'codrag', args: ['mcp'] },
+        prep: { command: 'prep', args: ['mcp'] },
       },
     },
   },
@@ -90,10 +90,10 @@ export const MCP_TOOLS: McpToolConfig[] = [
     file: '.claude/mcp.json',
     fileHint: 'Project root (project-scoped) or ~/.claude/settings.json (global)',
     serverKey: 'servers',
-    notes: 'Add "permissions": { "allow": ["mcp__codrag"] } to settings.json to auto-approve all CoDRAG tools. Or run: claude mcp add codrag -- codrag mcp',
+    notes: 'Add "permissions": { "allow": ["mcp__prep"] } to settings.json to auto-approve all Prep tools. Or run: claude mcp add prep -- prep mcp',
     config: {
       servers: {
-        codrag: { command: 'codrag', args: ['mcp'] },
+        prep: { command: 'prep', args: ['mcp'] },
       },
     },
   },
@@ -104,10 +104,10 @@ export const MCP_TOOLS: McpToolConfig[] = [
     file: '~/.gemini/settings.json',
     fileHint: 'Global config',
     serverKey: 'mcpServers',
-    notes: '"trust": true auto-approves tool calls. Safe for CoDRAG (read-only tools).',
+    notes: '"trust": true auto-approves tool calls. Safe for Prep (read-only tools).',
     config: {
       mcpServers: {
-        codrag: { command: 'codrag', args: ['mcp'], trust: true },
+        prep: { command: 'prep', args: ['mcp'], trust: true },
       },
     },
   },
@@ -118,10 +118,10 @@ export const MCP_TOOLS: McpToolConfig[] = [
     file: 'MCP config or AGENTS.md',
     fileHint: 'Codex reads AGENTS.md natively',
     serverKey: 'mcpServers',
-    notes: 'Codex also reads AGENTS.md — CoDRAG can auto-generate this file.',
+    notes: 'Codex also reads AGENTS.md — Prep can auto-generate this file.',
     config: {
       mcpServers: {
-        codrag: { command: 'codrag', args: ['mcp'] },
+        prep: { command: 'prep', args: ['mcp'] },
       },
     },
   },

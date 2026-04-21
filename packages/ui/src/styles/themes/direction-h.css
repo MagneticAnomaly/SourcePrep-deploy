@@ -1,4 +1,4 @@
-[data-codrag-theme='h'] {
+[data-prep-theme='h'] {
   /* Retro-Futurism: Synthwave, Grids, Glows */
   
   /* Color Palette */
@@ -42,13 +42,13 @@
   --font-mono: 'Share Tech Mono', monospace;
 }
 
-[data-codrag-theme='h'] .tremor-Card-root {
+[data-prep-theme='h'] .tremor-Card-root {
   border: 1px solid hsl(var(--border));
   box-shadow: 0 0 10px hsla(var(--primary), 0.3), inset 0 0 20px hsla(var(--primary), 0.05);
   background: linear-gradient(180deg, hsl(var(--surface)) 0%, rgba(40, 20, 60, 0.9) 100%);
 }
 
-[data-codrag-theme='h'].dark {
+[data-prep-theme='h'].dark {
   /* It is inherently dark */
   --background: 260 60% 8%;
   --surface: 260 50% 12%;

@@ -1,10 +1,10 @@
 import type { CliScript } from './cli-types';
 
 /**
- * Demo: codrag — Ambient structural context (no query needed)
+ * Demo: prep — Ambient structural context (no query needed)
  * Shows the "instant orientation" value prop.
  */
-export const codragOverviewDemo: CliScript = {
+export const prepOverviewDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -17,7 +17,7 @@ export const codragOverviewDemo: CliScript = {
     { type: 'agent_thinking', durationMs: 600 },
     {
       type: 'tool_call',
-      tool: 'codrag',
+      tool: 'prep',
       args: '',
       durationMs: 900,
       statusText: 'Loading structural context…',
@@ -37,9 +37,9 @@ export const codragOverviewDemo: CliScript = {
 };
 
 /**
- * Demo: codrag_impact — Blast radius before you break things
+ * Demo: prep_impact — Blast radius before you break things
  */
-export const codragImpactDemo: CliScript = {
+export const prepImpactDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -52,7 +52,7 @@ export const codragImpactDemo: CliScript = {
     { type: 'agent_thinking', durationMs: 600 },
     {
       type: 'tool_call',
-      tool: 'codrag_impact',
+      tool: 'prep_impact',
       args: '"services/payment.py"',
       durationMs: 1000,
       statusText: 'Tracing dependents…',
@@ -72,9 +72,9 @@ export const codragImpactDemo: CliScript = {
 };
 
 /**
- * Demo: codrag_audit — Enriches linter/audit findings with structural context
+ * Demo: prep_audit — Enriches linter/audit findings with structural context
  */
-export const codragAuditDemo: CliScript = {
+export const prepAuditDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -87,7 +87,7 @@ export const codragAuditDemo: CliScript = {
     { type: 'agent_thinking', durationMs: 700 },
     {
       type: 'tool_call',
-      tool: 'codrag_audit',
+      tool: 'prep_audit',
       args: 'findings=[{file, line, message, severity}]',
       durationMs: 1200,
       statusText: 'Enriching 12 findings with graph context…',
@@ -107,9 +107,9 @@ export const codragAuditDemo: CliScript = {
 };
 
 /**
- * Demo: codrag_search — Semantic code search with structural expansion
+ * Demo: prep_search — Semantic code search with structural expansion
  */
-export const codragSearchDemo: CliScript = {
+export const prepSearchDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -122,7 +122,7 @@ export const codragSearchDemo: CliScript = {
     { type: 'agent_thinking', durationMs: 800, label: 'Thinking…' },
     {
       type: 'tool_call',
-      tool: 'codrag_search',
+      tool: 'prep_search',
       args: '"expired token middleware"',
       durationMs: 1200,
       statusText: 'Searching with structural expansion…',
@@ -142,9 +142,9 @@ export const codragSearchDemo: CliScript = {
 };
 
 /**
- * Demo: codrag_observe — Persistent cross-session memory
+ * Demo: prep_observe — Persistent cross-session memory
  */
-export const codragObserveDemo: CliScript = {
+export const prepObserveDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -157,7 +157,7 @@ export const codragObserveDemo: CliScript = {
     { type: 'agent_thinking', durationMs: 500 },
     {
       type: 'tool_call',
-      tool: 'codrag_observe',
+      tool: 'prep_observe',
       args: 'action="save", category="decision"',
       durationMs: 600,
       statusText: 'Saving observation…',
@@ -176,7 +176,7 @@ export const codragObserveDemo: CliScript = {
     { type: 'agent_thinking', durationMs: 400 },
     {
       type: 'tool_call',
-      tool: 'codrag_observe',
+      tool: 'prep_observe',
       args: 'action="get", query="auth"',
       durationMs: 500,
       statusText: 'Retrieving observations…',
@@ -196,9 +196,9 @@ export const codragObserveDemo: CliScript = {
 };
 
 /**
- * Demo: codrag_concepts — Business rationale and design decisions
+ * Demo: prep_concepts — Business rationale and design decisions
  */
-export const codragConceptsDemo: CliScript = {
+export const prepConceptsDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -211,7 +211,7 @@ export const codragConceptsDemo: CliScript = {
     { type: 'agent_thinking', durationMs: 600 },
     {
       type: 'tool_call',
-      tool: 'codrag_concepts',
+      tool: 'prep_concepts',
       args: 'action="get", query="payment saga"',
       durationMs: 800,
       statusText: 'Querying concept store…',
@@ -224,26 +224,26 @@ export const codragConceptsDemo: CliScript = {
     { type: 'pause', durationMs: 300 },
     {
       type: 'agent_output',
-      text: 'The payment module uses a saga pattern because:\n\n• **Cross-service coordination** — payments span billing, inventory, and notifications. A single DB transaction can\'t cover all three.\n• **Compensating actions** — if inventory reservation fails after charge, the saga auto-refunds.\n• **Constraint:** `payment/` must never import `db.transaction` directly — CoDRAG will flag violations via the immune system.\n\nThis concept was recorded by your team and linked to `saga_runner.py`.',
+      text: 'The payment module uses a saga pattern because:\n\n• **Cross-service coordination** — payments span billing, inventory, and notifications. A single DB transaction can\'t cover all three.\n• **Compensating actions** — if inventory reservation fails after charge, the saga auto-refunds.\n• **Constraint:** `payment/` must never import `db.transaction` directly — Prep will flag violations via the immune system.\n\nThis concept was recorded by your team and linked to `saga_runner.py`.',
       typewriterDelayMs: 12,
     },
   ],
 };
 
 /**
- * Demo: Agent IDE operations — shows CoDRAG powering an agentic edit
+ * Demo: Agent IDE operations — shows Prep powering an agentic edit
  */
 export const ideDemoScript: CliScript = {
-  title: 'codrag-ide-demo',
+  title: 'prep-ide-demo',
   loop: true,
   loopDelayMs: 5000,
   events: [
     { type: 'pause', durationMs: 800 },
     { type: 'user_input', text: 'Add real-time status updates to the pipeline dashboard', typingDelayMs: 28 },
     { type: 'agent_thinking', durationMs: 1200 },
-    { type: 'tool_call', tool: 'codrag', args: '', durationMs: 700 },
+    { type: 'tool_call', tool: 'prep', args: '', durationMs: 700 },
     { type: 'tool_result', text: '412 files · 3 modules · hub: PipelineService.ts', status: 'success' },
-    { type: 'tool_call', tool: 'codrag_search', args: '"pipeline dashboard component"', durationMs: 1000 },
+    { type: 'tool_call', tool: 'prep_search', args: '"pipeline dashboard component"', durationMs: 1000 },
     { type: 'tool_result', text: 'Found PipelineDashboard.tsx (4 dependents)', status: 'success' },
     { type: 'agent_output', text: 'Found `PipelineDashboard.tsx`. I\'ll add a WebSocket subscription for live status updates.', typewriterDelayMs: 18 },
     { type: 'file_open', filePath: 'src/components/PipelineDashboard.tsx', language: 'typescript', content: `import { useState } from 'react';

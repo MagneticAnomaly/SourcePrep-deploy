@@ -34,7 +34,7 @@ export function SymbolResultRow({
     <div
       onClick={onClick}
       className={cn(
-        'codrag-symbol-result-row cursor-pointer rounded border p-3 transition-colors',
+        'prep-symbol-result-row cursor-pointer rounded border p-3 transition-colors',
         selected
           ? 'border-primary bg-primary/5 shadow-md'
           : 'border-border-subtle bg-surface-raised hover:border-border hover:shadow-sm',

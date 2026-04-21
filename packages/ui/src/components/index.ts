@@ -1,7 +1,7 @@
 /**
- * CoDRAG UI Components
+ * Prep UI Components
  * 
- * Foundational wireframe components for the CoDRAG dashboard.
+ * Foundational wireframe components for the Prep dashboard.
  * These are structural components - styling will be applied after
  * visual direction is finalized (Phase 13).
  */
@@ -81,7 +81,7 @@ export { ActivityHeatmap, generateSampleActivityData } from './viz/ActivityHeatm
 export type { ActivityHeatmapProps, ActivityHeatmapData, ActivityDay } from './viz/ActivityHeatmap';
 
 // Animated CLI Components (Phase 69)
-export { AnimatedCLI, TerminalFrame, codragSearchDemo, codragImpactDemo, codragOverviewDemo, codragAuditDemo, codragObserveDemo, codragConceptsDemo } from './console';
+export { AnimatedCLI, TerminalFrame, prepSearchDemo, prepImpactDemo, prepOverviewDemo, prepAuditDemo, prepObserveDemo, prepConceptsDemo } from './console';
 export type { AnimatedCLIProps, TerminalFrameProps, CliEvent, CliScript, TerminalTheme } from './console';
 export { DetailPageLayout } from './marketing';
 export type { DetailPageLayoutProps, DetailPageSection } from './marketing';
