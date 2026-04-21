@@ -60,8 +60,11 @@ function App() {
   const api = useApiClient()
 
   // ── Feature flag: Settings overlay v2 ──────────────────────
+  // Opt-in via devtools: localStorage.setItem('codrag_settings_overlay_v2', '1')
+  // DEV is intentionally NOT defaulted on — the gear button and 4 other settings
+  // entry points still call setSettingsOpen() until T14+ rewires them, so forcing
+  // the flag on makes those clicks dead.
   const settingsV2Enabled = localStorage.getItem('codrag_settings_overlay_v2') === '1'
-    || import.meta.env.DEV  // dev builds default on
 
   // ⌘, (Ctrl+, on non-Mac) toggles the settings overlay via URL state.
   useEffect(() => {
