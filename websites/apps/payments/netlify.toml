@@ -1,6 +1,6 @@
 [build]
   base    = "websites/apps/payments"
-  command = "cd ../../.. && npx turbo run build --filter=@codrag/payments"
+  command = "cd ../../.. && npx turbo run build --filter=@prep/payments"
   publish = ".next"
 
 [build.environment]

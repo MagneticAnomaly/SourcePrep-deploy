@@ -1,6 +1,6 @@
 [build]
   base    = "websites/apps/docs"
-  command = "cd ../../.. && npx turbo run build --filter=@codrag/docs"
+  command = "cd ../../.. && npx turbo run build --filter=@prep/docs"
   publish = ".next"
 
 [build.environment]

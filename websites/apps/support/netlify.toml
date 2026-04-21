@@ -1,6 +1,6 @@
 [build]
   base    = "websites/apps/support"
-  command = "cd ../../.. && npx turbo run build --filter=@codrag/support"
+  command = "cd ../../.. && npx turbo run build --filter=@prep/support"
   publish = ".next"
 
 [build.environment]
