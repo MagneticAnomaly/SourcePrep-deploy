@@ -1,32 +1,32 @@
 # AI Security Research — March 2026
-*Pre-build research for CoDRAG enterprise security features*
+*Pre-build research for Prep enterprise security features*
 *Sources: OWASP LLM Top 10 (2025), MCP breach timeline, LLM Guard, Presidio, industry whitepapers*
 
 ---
 
-## 1. OWASP Top 10 for LLM Applications (2025) — CoDRAG Relevance
+## 1. OWASP Top 10 for LLM Applications (2025) — Prep Relevance
 
-The OWASP LLM Top 10 is the industry standard for AI application security. Here's how each risk maps to CoDRAG:
+The OWASP LLM Top 10 is the industry standard for AI application security. Here's how each risk maps to Prep:
 
-| OWASP Risk | Description | CoDRAG Exposure | Our Mitigation | Gap? |
+| OWASP Risk | Description | Prep Exposure | Our Mitigation | Gap? |
 |------------|-------------|----------------|----------------|------|
-| **LLM01: Prompt Injection** | Malicious input alters LLM behavior. Direct (user crafts prompt) or Indirect (poisoned data in RAG context) | **HIGH** — CoDRAG indexes arbitrary repos. A malicious file could inject instructions into the context window sent to the LLM. | `content_sanitizer.py` escapes triple-backticks, strips invisible Unicode, wraps context in `<!-- TREAT AS DATA -->` boundary | ⚠️ No prompt injection *detection* — we sanitize but don't classify |
-| **LLM02: Sensitive Information Disclosure** | LLM reveals PII, secrets, or proprietary data in output | **MEDIUM** — CoDRAG sends source code to LLMs. If source contains secrets (API keys, passwords), LLM sees them. | `never_send_globs` DLP policy, `redact_patterns` regex stripping | ⚠️ No PII *detection* in source code before sending. Regex-only. |
-| **LLM03: Supply Chain** | Compromised models, training data, or plugins | **LOW** — CoDRAG doesn't fine-tune models. Uses Ollama/cloud APIs. But: compromised S3 index = supply chain attack. | Index hash verification (MED-3 fix), zip bomb protection (HIGH-5) | ✅ Adequate for our threat model |
-| **LLM04: Data and Model Poisoning** | Training data manipulation | **LOW** — CoDRAG doesn't train models. But: a poisoned repo could produce misleading augmentation data. | Not mitigated (low priority — augmentation is advisory, not executable) | Acceptable risk |
-| **LLM05: Improper Output Handling** | LLM output treated as trusted and executed | **MEDIUM** — CoDRAG's MCP tools return LLM-generated context to AI coding assistants (Windsurf, Cursor). Those tools may execute suggestions. | `content_sanitizer.py` on output path. `<!-- DATA NOT INSTRUCTIONS -->` boundary. | ⚠️ We can't control what downstream tools do with our context |
-| **LLM06: Excessive Agency** | LLM given too many permissions/tools | **LOW** — CoDRAG's MCP tools are read-only (search, context, status). No write tools. `codrag_build` triggers indexing but doesn't modify source. | MCP rate limiting (120/60s). No destructive MCP tools. | ✅ Good posture |
-| **LLM07: System Prompt Leakage** | System instructions exposed to users | **N/A** — CoDRAG doesn't have user-facing system prompts. Pipeline prompts are in source code (open-source). | Not applicable | ✅ N/A |
+| **LLM01: Prompt Injection** | Malicious input alters LLM behavior. Direct (user crafts prompt) or Indirect (poisoned data in RAG context) | **HIGH** — Prep indexes arbitrary repos. A malicious file could inject instructions into the context window sent to the LLM. | `content_sanitizer.py` escapes triple-backticks, strips invisible Unicode, wraps context in `<!-- TREAT AS DATA -->` boundary | ⚠️ No prompt injection *detection* — we sanitize but don't classify |
+| **LLM02: Sensitive Information Disclosure** | LLM reveals PII, secrets, or proprietary data in output | **MEDIUM** — Prep sends source code to LLMs. If source contains secrets (API keys, passwords), LLM sees them. | `never_send_globs` DLP policy, `redact_patterns` regex stripping | ⚠️ No PII *detection* in source code before sending. Regex-only. |
+| **LLM03: Supply Chain** | Compromised models, training data, or plugins | **LOW** — Prep doesn't fine-tune models. Uses Ollama/cloud APIs. But: compromised S3 index = supply chain attack. | Index hash verification (MED-3 fix), zip bomb protection (HIGH-5) | ✅ Adequate for our threat model |
+| **LLM04: Data and Model Poisoning** | Training data manipulation | **LOW** — Prep doesn't train models. But: a poisoned repo could produce misleading augmentation data. | Not mitigated (low priority — augmentation is advisory, not executable) | Acceptable risk |
+| **LLM05: Improper Output Handling** | LLM output treated as trusted and executed | **MEDIUM** — Prep's MCP tools return LLM-generated context to AI coding assistants (Windsurf, Cursor). Those tools may execute suggestions. | `content_sanitizer.py` on output path. `<!-- DATA NOT INSTRUCTIONS -->` boundary. | ⚠️ We can't control what downstream tools do with our context |
+| **LLM06: Excessive Agency** | LLM given too many permissions/tools | **LOW** — Prep's MCP tools are read-only (search, context, status). No write tools. `prep_build` triggers indexing but doesn't modify source. | MCP rate limiting (120/60s). No destructive MCP tools. | ✅ Good posture |
+| **LLM07: System Prompt Leakage** | System instructions exposed to users | **N/A** — Prep doesn't have user-facing system prompts. Pipeline prompts are in source code (open-source). | Not applicable | ✅ N/A |
 | **LLM08: Vector and Embedding Weaknesses** | RAG retrieval manipulation, embedding poisoning | **MEDIUM** — A malicious file in a repo could be crafted to appear semantically similar to security-sensitive queries, causing it to be retrieved and injected into context. | No mitigation currently. Embedding integrity check exists (hash in manifest). | ⚠️ No adversarial embedding detection |
-| **LLM09: Misinformation** | LLM generates false information | **LOW** — CoDRAG's pipeline generates summaries and augmentations. Misinformation is possible but consequences are low (code understanding, not decision-making). | Epistemic confidence scores track quality. | ✅ Acceptable |
+| **LLM09: Misinformation** | LLM generates false information | **LOW** — Prep's pipeline generates summaries and augmentations. Misinformation is possible but consequences are low (code understanding, not decision-making). | Epistemic confidence scores track quality. | ✅ Acceptable |
 | **LLM10: Unbounded Consumption** | DoS via excessive token usage or API costs | **MEDIUM** — Cloud BYOK models charge per token. A large repo could generate massive bills. | `budget_enforcement.py` with monthly limits. `batch_profiles.py` controls items/call. | ⚠️ Budget enforcement not wired to UI alerts yet |
 
-### Key Takeaway for CoDRAG
+### Key Takeaway for Prep
 Our biggest OWASP exposures are **LLM01 (Prompt Injection)** and **LLM02 (Sensitive Info Disclosure)**. Both are partially mitigated but could be strengthened with better tooling.
 
 ---
 
-## 2. The "Lethal Trifecta" — Does CoDRAG Have It?
+## 2. The "Lethal Trifecta" — Does Prep Have It?
 
 Simon Willison's "Lethal Trifecta" (2025) defines the three conditions that make an AI system vulnerable to data exfiltration:
 
@@ -34,15 +34,15 @@ Simon Willison's "Lethal Trifecta" (2025) defines the three conditions that make
 2. **Exposure to untrusted tokens** — Does the agent process external/untrusted input?
 3. **Exfiltration vector** — Can the agent make external requests or generate links?
 
-**CoDRAG's exposure:**
+**Prep's exposure:**
 
-| Condition | CoDRAG Status | Details |
+| Condition | Prep Status | Details |
 |-----------|--------------|---------|
-| 1. Private data access | **YES** | CoDRAG indexes entire codebases including config files, internal docs, secrets |
+| 1. Private data access | **YES** | Prep indexes entire codebases including config files, internal docs, secrets |
 | 2. Untrusted tokens | **YES** | Repository content is untrusted (any contributor can add malicious files) |
-| 3. Exfiltration vector | **PARTIAL** | CoDRAG sends data to LLM APIs (cloud providers). MCP tools return data to AI assistants. But CoDRAG itself doesn't render images or generate clickable links. |
+| 3. Exfiltration vector | **PARTIAL** | Prep sends data to LLM APIs (cloud providers). MCP tools return data to AI assistants. But Prep itself doesn't render images or generate clickable links. |
 
-**Verdict: CoDRAG has 2.5 out of 3.** The exfiltration vector is indirect (via LLM API calls to cloud providers, not via image URLs or web requests). This means:
+**Verdict: Prep has 2.5 out of 3.** The exfiltration vector is indirect (via LLM API calls to cloud providers, not via image URLs or web requests). This means:
 - A malicious repo file could trick the LLM into including sensitive data from other files in its output
 - That output goes to the cloud LLM provider (if using cloud models)
 - But it does NOT go to an attacker-controlled server (unlike EchoLeak/GeminiJack)
@@ -51,18 +51,18 @@ Simon Willison's "Lethal Trifecta" (2025) defines the three conditions that make
 
 ---
 
-## 3. MCP Security Breaches — Lessons for CoDRAG
+## 3. MCP Security Breaches — Lessons for Prep
 
-The AuthZed timeline of MCP breaches (April-December 2025) reveals patterns directly relevant to CoDRAG's MCP server:
+The AuthZed timeline of MCP breaches (April-December 2025) reveals patterns directly relevant to Prep's MCP server:
 
-| Breach | Attack Vector | CoDRAG Relevance |
+| Breach | Attack Vector | Prep Relevance |
 |--------|--------------|-----------------|
 | **WhatsApp MCP** (Apr 2025) | Chat history exfiltrated via over-privileged MCP tool | Our MCP tools are read-only. ✅ |
-| **GitHub MCP** (May 2025) | Prompt injection in repo issues → data heist via MCP tool calls | **Directly relevant** — CoDRAG indexes repo content that could contain injections. Our `content_sanitizer.py` mitigates this. |
+| **GitHub MCP** (May 2025) | Prompt injection in repo issues → data heist via MCP tool calls | **Directly relevant** — Prep indexes repo content that could contain injections. Our `content_sanitizer.py` mitigates this. |
 | **Anthropic MCP Inspector RCE** (Jun 2025) | Localhost tools treated as safe → RCE via crafted MCP message | Our MCP server runs on localhost. IPC token when set. ✅ |
 | **mcp-remote Command Injection** (Jul 2025) | OS command injection in MCP tool arguments | Our MCP tools don't execute commands. ✅ |
-| **Malicious MCP Server** (Sep 2025) | "Tool poisoning" — malicious tool descriptions | Not applicable (CoDRAG is the MCP server, not a consumer of external MCP tools) |
-| **Smithery Supply Chain** (Oct 2025) | Hosted MCP registry compromise | Not applicable (CoDRAG isn't hosted on a registry) |
+| **Malicious MCP Server** (Sep 2025) | "Tool poisoning" — malicious tool descriptions | Not applicable (Prep is the MCP server, not a consumer of external MCP tools) |
+| **Smithery Supply Chain** (Oct 2025) | Hosted MCP registry compromise | Not applicable (Prep isn't hosted on a registry) |
 | **EchoLeak (CVE-2025-32711)** (Late 2025) | Zero-click prompt injection in Microsoft 365 Copilot using sophisticated character substitutions to bypass filters | ⚠️ `content_sanitizer.py` needs robust Unicode normalization, not just invisible char stripping. |
 | **OpenClaw Agent Crisis** (Early 2026) | Malicious marketplace exploits in viral AI agent exposed 21,000 corporate instances | ✅ We don't have a plugin marketplace, reducing supply chain attack surface. |
 
@@ -75,21 +75,21 @@ The AuthZed timeline of MCP breaches (April-December 2025) reveals patterns dire
 
 ---
 
-## 4. Shadow AI — The Enterprise Problem CoDRAG Solves
+## 4. Shadow AI — The Enterprise Problem Prep Solves
 
 Research from LayerX (2026) and ISACA (2025) shows:
 - **77% of employees** paste company information into AI/LLM services
 - **82% use personal accounts** rather than enterprise-managed tools
 - **47% use generative AI tools** with personal accounts at work (Netskope 2026)
 
-**Why this matters for CoDRAG's enterprise pitch:**
-CoDRAG with admin policy is the *antidote* to Shadow AI for code understanding:
+**Why this matters for Prep's enterprise pitch:**
+Prep with admin policy is the *antidote* to Shadow AI for code understanding:
 - IT locks providers to approved endpoints → no data leaks to unauthorized LLMs
 - DLP policy blocks sensitive files from reaching cloud → `never_send_globs`
 - Local model option (Ollama/LM Studio) means zero cloud exposure
 - Audit log tracks all LLM usage → IT can see what's being sent where
 
-**Marketing angle:** "CoDRAG replaces Shadow AI for code understanding. Your developers get AI-powered code navigation with IT-controlled guardrails."
+**Marketing angle:** "Prep replaces Shadow AI for code understanding. Your developers get AI-powered code navigation with IT-controlled guardrails."
 
 ---
 
@@ -100,7 +100,7 @@ CoDRAG with admin policy is the *antidote* to Shadow AI for code understanding:
 - **What it does:** Detects and redacts PII/PHI in text using NER models + regex
 - **Detects:** Email, phone, SSN, credit cards, IP addresses, AWS keys, GCP keys, passwords
 - **Python library:** `pip install presidio-analyzer presidio-anonymizer`
-- **CoDRAG integration opportunity:** Run Presidio on source code chunks BEFORE sending to LLM. Detect secrets that `redact_patterns` regex would miss.
+- **Prep integration opportunity:** Run Presidio on source code chunks BEFORE sending to LLM. Detect secrets that `redact_patterns` regex would miss.
 - **Size concern:** Presidio pulls in spaCy + a NER model (~200MB). May be too heavy for a desktop app.
 - **Verdict:** ⚠️ **Consider for Enterprise tier only** (optional dependency). Too heavy for Free/Pro.
 
@@ -113,15 +113,15 @@ CoDRAG with admin policy is the *antidote* to Shadow AI for code understanding:
 - **Key scanner: `InvisibleText`** — Detects invisible Unicode (we already do this in `content_sanitizer.py`)
 - **Key scanner: `Secrets`** — Detects secrets in prompts (API keys, passwords, tokens)
 - **Python library:** `pip install llm-guard`
-- **CoDRAG integration opportunity:** Use the `Secrets` and `PromptInjection` scanners as optional post-processing on context before LLM calls.
+- **Prep integration opportunity:** Use the `Secrets` and `PromptInjection` scanners as optional post-processing on context before LLM calls.
 - **Size concern:** Pulls in transformers + model weights. Very heavy (~500MB+).
 - **Verdict:** ⚠️ **Too heavy for bundling.** But we could adopt their regex patterns and heuristics without the ML models.
 
 ### Tool 3: NVIDIA NeMo Guardrails
 - **GitHub:** github.com/NVIDIA-NeMo/Guardrails (4.1k stars)
 - **What it does:** Programmable guardrails for LLM apps (Colang DSL)
-- **CoDRAG relevance:** Low — designed for chatbot flows, not RAG pipelines
-- **Verdict:** ❌ **Not a fit** for CoDRAG's architecture
+- **Prep relevance:** Low — designed for chatbot flows, not RAG pipelines
+- **Verdict:** ❌ **Not a fit** for Prep's architecture
 
 ### Tool 4: DataFog (Lightweight PII)
 - **GitHub:** github.com/DataFog/datafog-python
@@ -134,7 +134,7 @@ CoDRAG with admin policy is the *antidote* to Shadow AI for code understanding:
 Rather than adding heavy dependencies, we should:
 1. **Steal the regex patterns** from LLM Guard's `Secrets` scanner and Presidio's pattern recognizers
 2. **Add them to our existing `content_sanitizer.py`** `redact_patterns` defaults
-3. **For Enterprise tier:** Offer optional Presidio integration as a pip extra (`pip install codrag[enterprise-security]`)
+3. **For Enterprise tier:** Offer optional Presidio integration as a pip extra (`pip install prep[enterprise-security]`)
 
 ### Tool 5: Pytector (Prompt Injection)
 - **GitHub:** github.com/MaxMLang/pytector
@@ -145,7 +145,7 @@ Rather than adding heavy dependencies, we should:
 ### Tool 6: Rebuff (Prompt Injection & Canary Tokens)
 - **GitHub:** github.com/protectai/rebuff
 - **What it does:** Multi-layered defense including heuristics, LLM-based detection, and **canary tokens**.
-- **CoDRAG relevance:** The concept of canary tokens is highly relevant. We could inject synthetic canary tokens into our context chunks to detect if the context is being maliciously leaked.
+- **Prep relevance:** The concept of canary tokens is highly relevant. We could inject synthetic canary tokens into our context chunks to detect if the context is being maliciously leaked.
 - **Verdict:** ✅ **Steal the canary token concept** and heuristics, ignore the heavy dependencies.
 
 ### Tool 7: Vigil-LLM (Security Scanner)
@@ -163,7 +163,7 @@ LLM Guard, Presidio, and multiple research papers confirm invisible Unicode inje
 **Action:** Expand invisible Unicode detection to cover ALL content sent to LLMs, not just team_config.json. Apply it in the context assembly path.
 
 ### Finding B: Secrets in Source Code are the #1 Enterprise DLP Concern
-77% of employees paste company data into AI tools. For CoDRAG, the equivalent is: source code files containing hardcoded secrets (API keys, database passwords, JWT tokens) get sent to cloud LLMs during pipeline enrichment.
+77% of employees paste company data into AI tools. For Prep, the equivalent is: source code files containing hardcoded secrets (API keys, database passwords, JWT tokens) get sent to cloud LLMs during pipeline enrichment.
 
 **Action:** Enhance `redact_patterns` defaults with patterns from LLM Guard and Presidio:
 - AWS access keys: `AKIA[0-9A-Z]{16}`
@@ -176,10 +176,10 @@ LLM Guard, Presidio, and multiple research papers confirm invisible Unicode inje
 Every major MCP breach involved unbounded tool access. Our 120 calls/60s rate limit is good, but we should also:
 - Log rate limit hits to the audit log (for IT visibility)
 - Make the rate limit configurable via admin policy
-- Consider per-tool rate limits (e.g., `codrag_build` limited to 10/hour)
+- Consider per-tool rate limits (e.g., `prep_build` limited to 10/hour)
 
 ### Finding D: "Blast Radius Mapping" is an Enterprise Feature
-The 2026 framework recommends mapping: "What's the maximum damage if this system is compromised?" For CoDRAG, this means telling IT admins:
+The 2026 framework recommends mapping: "What's the maximum damage if this system is compromised?" For Prep, this means telling IT admins:
 - How many files are indexed
 - How many files contain detected secrets (before redaction)
 - Which providers have received source code
@@ -188,7 +188,7 @@ The 2026 framework recommends mapping: "What's the maximum damage if this system
 This is essentially our **batch estimate + usage tracking + DLP compliance** data — we should surface it as a "Blast Radius" or "Data Exposure" summary in the Security tab.
 
 ### Finding E: Content Security Policy for MCP Output
-The EchoLeak and GeminiJack attacks both exfiltrated data via image URLs in LLM output. CoDRAG's MCP output goes to AI coding assistants which may render markdown. We should:
+The EchoLeak and GeminiJack attacks both exfiltrated data via image URLs in LLM output. Prep's MCP output goes to AI coding assistants which may render markdown. We should:
 - Strip URLs from LLM-generated context output (in `content_sanitizer.py`)
 - Or at minimum, flag external URLs in output as suspicious
 
@@ -198,7 +198,7 @@ The EchoLeak vulnerability (CVE-2025-32711) demonstrated that attackers use soph
 
 ### Finding G: Canary Tokens for Exfiltration Detection
 Open source tools like Rebuff use canary tokens to detect prompt injection success.
-**Action:** CoDRAG could inject synthetic "canary" secrets into its context assembly. If an external system or LLM output attempts to use or return that canary token, we can trigger an immediate audit alert and halt the pipeline, as it indicates the model is being coerced to leak context.
+**Action:** Prep could inject synthetic "canary" secrets into its context assembly. If an external system or LLM output attempts to use or return that canary token, we can trigger an immediate audit alert and halt the pipeline, as it indicates the model is being coerced to leak context.
 
 ---
 

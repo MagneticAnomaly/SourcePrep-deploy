@@ -39,7 +39,7 @@ CI can't use your Keychain directly — you need to export the cert as a `.p12` 
    ```
    (This copies the base64 string to clipboard)
 
-2. Go to [github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions)
+2. Go to [github.com/MagneticAnomaly/Prep-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/Prep-MCP/settings/secrets/actions)
 3. Add these secrets:
 
    | Secret Name | Value |
@@ -58,7 +58,7 @@ Apple notarization requires your Apple ID credentials, but you should not use yo
 1. Go to [appleid.apple.com](https://appleid.apple.com)
 2. Sign in → **Sign-In and Security → App-Specific Passwords**
 3. Click **Generate an app-specific password**
-4. Name it `codrag-notarize`
+4. Name it `prep-notarize`
 5. Copy the generated password → add as `APPLE_ID_PASSWORD` in GitHub Secrets (step 3)
 
 ### Step 5 — (Optional) App Store Connect API key — more reliable for CI
@@ -101,7 +101,7 @@ This is the standard approach when your EV cert is stored in a cloud HSM.
 
 1. In the Azure Portal, create a **Key Vault** (free tier is fine):
    - Portal → Create a resource → Key Vault
-   - Name: `codrag-signing`
+   - Name: `prep-signing`
    - Region: choose nearest
 
 2. Your cert provider (DigiCert, Sectigo) will have given you instructions to import the cert
@@ -109,8 +109,8 @@ This is the standard approach when your EV cert is stored in a cloud HSM.
 
 3. Create a service principal for CI access:
    ```bash
-   az ad sp create-for-rbac --name codrag-ci-signing --role "Key Vault Certificate User" \
-     --scopes /subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/codrag-signing
+   az ad sp create-for-rbac --name prep-ci-signing --role "Key Vault Certificate User" \
+     --scopes /subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.KeyVault/vaults/prep-signing
    ```
    Note the `appId`, `password`, and `tenant` from the output
 
@@ -118,7 +118,7 @@ This is the standard approach when your EV cert is stored in a cloud HSM.
 
    | Secret Name | Value |
    |-------------|-------|
-   | `AZURE_KEY_VAULT_URI` | e.g., `https://codrag-signing.vault.azure.net/` |
+   | `AZURE_KEY_VAULT_URI` | e.g., `https://prep-signing.vault.azure.net/` |
    | `AZURE_CLIENT_ID` | `appId` from above |
    | `AZURE_CLIENT_SECRET` | `password` from above |
    | `AZURE_TENANT_ID` | `tenant` from above |

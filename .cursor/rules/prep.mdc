@@ -7,43 +7,43 @@ alwaysApply: true
 
 Last updated: 2026-04-18T06:41:12Z
 
-codrag_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
+prep_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
 
 **ROUTING: When calling ANY Prep tool, ALWAYS include `project_id: "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b"` in the arguments.**
 
 ## Tools
 | Tool | When to Use |
 |------|-------------|
-| `codrag` | START of every task — structural overview, modules, hub files, immune system alerts |
-| `codrag_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER). |
-| `codrag_impact` | BEFORE editing — check what depends on a file |
-| `codrag_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action="antibodies"` for immune system. |
-| `codrag_observe` | Save/retrieve cross-session notes |
-| `codrag_concepts` | Record/query business rationale and design decisions |
+| `prep` | START of every task — structural overview, modules, hub files, immune system alerts |
+| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER). |
+| `prep_impact` | BEFORE editing — check what depends on a file |
+| `prep_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action="antibodies"` for immune system. |
+| `prep_observe` | Save/retrieve cross-session notes |
+| `prep_concepts` | Record/query business rationale and design decisions |
 
-Call `codrag` first. Call `codrag_impact` before modifying hub files.
+Call `prep` first. Call `prep_impact` before modifying hub files.
 All read-only tools are safe to auto-approve.
 
 ### Audit Enrichment
 Enrich external lint/analysis findings with structural context:
 ```
-codrag_audit(findings=[{file, line, message, severity, tool}])
+prep_audit(findings=[{file, line, message, severity, tool}])
 ```
 Prep adds: dependent count, hub status, concepts, risk score, recommendation.
 Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
 
 ### Search Intent
-`codrag_search` auto-detects query intent: "where is X" → symbol lookup,
+`prep_search` auto-detects query intent: "where is X" → symbol lookup,
 "why X" → concepts, "who imports X" → trace graph. Override with `intent` param if needed.
 
-For specific code lookups, use `codrag_search` with a natural language query.
+For specific code lookups, use `prep_search` with a natural language query.
 Prep understands structural relationships — use it instead of
 grep when you need to understand how files connect.
 
-<!-- codrag-atlas-hash:f0799a4d1cae -->
+<!-- prep-atlas-hash:f0799a4d1cae -->
 ## Codebase Atlas
 
-IDENTITY: Codrag is a code intelligence platform with a VSCode extension, web dashboard, documentation site, marketing site, and supporting services for AI-assisted code analysis and visualization.
+IDENTITY: Prep is a code intelligence platform with a VSCode extension, web dashboard, documentation site, marketing site, and supporting services for AI-assisted code analysis and visualization.
 
 STACK: TypeScript, React, Python, Rust. React ecosystem via ext:react (182 edges). Python standard library via ext:typing (237 edges), ext:__future__ (236 edges), ext:logging (162 edges), ext:pathlib (148 edges). Build tooling implied by package structure across packages/ and websites/apps/ directories.
 
@@ -52,19 +52,19 @@ Root (_root, 1306 files): monorepo root and shared configuration
 Ui (packages/ui, 332 files): shared React component library with trace visualization, patterns, project views, and AtlasLensPanel
 Marketing (websites/apps/marketing, 66 files): public marketing website
 Docs (websites/apps/docs, 54 files): documentation site with CLOUD_SINGLE, sampleIndexStats, EMBEDDING_MODELS symbols
-Dashboard (src/codrag/dashboard, 47 files): main application dashboard interface
+Dashboard (src/prep/dashboard, 47 files): main application dashboard interface
 Support (websites/apps/support, 29 files): customer support application
 Vscode (packages/vscode, 20 files): VSCode extension host
 Payments (websites/apps/payments, 17 files): billing and subscription management
 Webview Ui (packages/vscode/webview-ui, 14 files): VSCode extension webview UI components
-Paperclip Plugin Codrag (packages/paperclip-plugin-codrag, 12 files): Paperclip design tool integration
+Paperclip Plugin Prep (packages/paperclip-plugin-prep, 12 files): Paperclip design tool integration
 
-CROSS-CUTTING: Active development zones cluster in packages/ui/src/ (381 .tsx files, entry points for trace/AtlasLensPanel, patterns, project, viz), src/codrag/core/, src/codrag/dashboard/, and src/codrag/services/. Engine layer in Rust (codrag-chunking/src/lib.rs entry point) handles Python parsing and chunking with test_inferred_boost_on_structural_match, parse_python, test_assign_lod_mid_score symbols. UI components import chain through AtlasLensPanel -> RoleLens -> BudgetSlider with 4-cycle import dependency. Python services layer contains UseRoleOverridesReturn, _normalize_path_weights, RoleOverride.to_dict. Shared infrastructure includes ArchStats, SwarmBuild, ErrorPermissionDenied in packages; main, handler, trigger_sync in public; test_daemon_thread_count, generate_license, should_skip in scripts. Test coverage spans specs/ (8 files), tests-old/ (7 files), __tests__/ (4 files). 4 import cycles detected across 10134 graph edges.
+CROSS-CUTTING: Active development zones cluster in packages/ui/src/ (381 .tsx files, entry points for trace/AtlasLensPanel, patterns, project, viz), src/prep/core/, src/prep/dashboard/, and src/prep/services/. Engine layer in Rust (prep-chunking/src/lib.rs entry point) handles Python parsing and chunking with test_inferred_boost_on_structural_match, parse_python, test_assign_lod_mid_score symbols. UI components import chain through AtlasLensPanel -> RoleLens -> BudgetSlider with 4-cycle import dependency. Python services layer contains UseRoleOverridesReturn, _normalize_path_weights, RoleOverride.to_dict. Shared infrastructure includes ArchStats, SwarmBuild, ErrorPermissionDenied in packages; main, handler, trigger_sync in public; test_daemon_thread_count, generate_license, should_skip in scripts. Test coverage spans specs/ (8 files), tests-old/ (7 files), __tests__/ (4 files). 4 import cycles detected across 10134 graph edges.
 
-If `codrag` returns 'setup in progress', the index hasn't been built yet.
+If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.
 
-For long tasks (5+ tool calls), call `codrag` again to refresh your
+For long tasks (5+ tool calls), call `prep` again to refresh your
 structural context.
 
 # --- USER ADDITIONS BELOW (preserved across updates) ---

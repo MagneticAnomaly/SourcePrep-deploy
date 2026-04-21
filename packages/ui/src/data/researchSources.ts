@@ -322,7 +322,6 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     problemArea: 'compression',
     spotlight: false,
   },
-  },
   // ─── Section 3: Code Structure & Chunking ─────────────────────────────
   {
     id: 'gbrain',

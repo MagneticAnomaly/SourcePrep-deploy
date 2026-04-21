@@ -12,13 +12,13 @@
 
 Full reverse-engineering audit of every changed component. All items verified correct.
 
-### V1: ISSUE-6 -- Adaptive codrag response
+### V1: ISSUE-6 -- Adaptive prep response
 
 **Files:** `mcp/server.py:154-219` (`_project_has_rules_file`, `_get_project_path_sync`), `mcp/server.py:656-667` (payload construction)
 
 **Logic flow:**
 1. `tool_context()` resolves project_id
-2. Calls `_project_has_rules_file(project_id)` -- checks disk for `.cursor/rules/codrag.mdc`, `.windsurf/rules/codrag.md`, `AGENTS.md` (with CoDRAG markers), `CLAUDE.md` (with CoDRAG markers)
+2. Calls `_project_has_rules_file(project_id)` -- checks disk for `.cursor/rules/prep.mdc`, `.windsurf/rules/prep.md`, `AGENTS.md` (with Prep markers), `CLAUDE.md` (with Prep markers)
 3. Result cached per project_id for session lifetime
 4. If found: `include_atlas=False` -- atlas is in system prompt, budget goes to code
 5. If not found: `include_atlas=True` -- atlas included in tool response
@@ -46,7 +46,7 @@ Full reverse-engineering audit of every changed component. All items verified co
 
 **File:** `rules_generator.py:380-385`
 
-**Content:** "You can call `codrag` and `codrag_search` in parallel on your first prompt -- structural overview + targeted code lookup in one round-trip."
+**Content:** "You can call `prep` and `prep_search` in parallel on your first prompt -- structural overview + targeted code lookup in one round-trip."
 
 **Verified correct:** Placed after the long-task refresh hint, before the return. Clean wording. No risk -- hosts that don't support parallel calls just serialize them.
 
@@ -67,11 +67,11 @@ Full reverse-engineering audit of every changed component. All items verified co
 **File:** `rules_generator.py:797-851`
 
 **Generates 3 files:**
-1. `.roo/rules/codrag.md` -- full managed content (all modes)
-2. `.roo/rules-architect/codrag.md` -- architecture focus (codrag + codrag_audit + codrag_search)
-3. `.roo/rules-code/codrag.md` -- change focus (codrag_impact + codrag_search + codrag_observe)
+1. `.roo/rules/prep.md` -- full managed content (all modes)
+2. `.roo/rules-architect/prep.md` -- architecture focus (prep + prep_audit + prep_search)
+3. `.roo/rules-code/prep.md` -- change focus (prep_impact + prep_search + prep_observe)
 
-**Verified correct:** Each directory created with `mkdir(parents=True, exist_ok=True)`. Mode-specific files are short and focused (3 lines each). Base file has full managed content. No marker management needed for mode-specific files since they're fully owned by CoDRAG.
+**Verified correct:** Each directory created with `mkdir(parents=True, exist_ok=True)`. Mode-specific files are short and focused (3 lines each). Base file has full managed content. No marker management needed for mode-specific files since they're fully owned by Prep.
 
 ### V6: README reconciliation
 
@@ -97,12 +97,12 @@ All verified to set `_to_markdown` on every return path. The dispatch in `handle
 ### V8: Annotations
 
 All 6 tool definitions verified:
-- `codrag`: `{"readOnlyHint": True, "openWorldHint": True}`
-- `codrag_search`: `{"readOnlyHint": True, "openWorldHint": True}`
-- `codrag_impact`: `{"readOnlyHint": True, "openWorldHint": True}`
-- `codrag_audit`: `{"readOnlyHint": True, "openWorldHint": True}`
-- `codrag_observe`: `{"readOnlyHint": False}` (write tool -- correct)
-- `codrag_context` (dev alias): `{"readOnlyHint": True, "openWorldHint": True}`
+- `prep`: `{"readOnlyHint": True, "openWorldHint": True}`
+- `prep_search`: `{"readOnlyHint": True, "openWorldHint": True}`
+- `prep_impact`: `{"readOnlyHint": True, "openWorldHint": True}`
+- `prep_audit`: `{"readOnlyHint": True, "openWorldHint": True}`
+- `prep_observe`: `{"readOnlyHint": False}` (write tool -- correct)
+- `prep_context` (dev alias): `{"readOnlyHint": True, "openWorldHint": True}`
 
 ---
 
@@ -114,12 +114,12 @@ All 6 tool definitions verified:
 
 **How it works:**
 
-1. **Orchestrator side** (`src/codrag/services/pipeline/orchestrator.py`):
+1. **Orchestrator side** (`src/prep/services/pipeline/orchestrator.py`):
    - `_write_atlas_signal(idx_dir)` -- static method, writes `atlas_updated.signal` with `time.time()` to the project's index directory
    - Called after `_generate_preliminary_atlas_and_rules()` (Stage 1 complete)
    - Called after `_regenerate_rules_with_full_atlas()` (Stage 9 complete)
 
-2. **MCP server side** (`src/codrag/mcp/server.py`):
+2. **MCP server side** (`src/prep/mcp/server.py`):
    - `_last_atlas_signal: Dict[str, float]` -- per-project mtime tracker (in `__init__`)
    - `_check_atlas_signal(project_id)` -- async method called at the top of `tool_context()`:
      - Resolves project path via `_get_project_path_sync()` (no HTTP call)
@@ -127,7 +127,7 @@ All 6 tool definitions verified:
      - If mtime > last recorded: invalidates `_rules_file_cache`, sends `notifications/resources/updated` for atlas + structure resources
    - Cost: one `stat()` per `tool_context()` call (~0.1ms)
 
-3. **Transport layer** (`src/codrag/mcp/transport.py`):
+3. **Transport layer** (`src/prep/mcp/transport.py`):
    - stdio: `_stdio_notify()` writes JSON-RPC notification to stdout
    - SSE: `_sse_notify()` pushes to the session's asyncio.Queue
    - Both wired to `server._notification_callback` at transport startup
@@ -140,17 +140,17 @@ All 6 tool definitions verified:
 
 **Status: COMPLETE.**
 
-**File:** `src/codrag/core/rules_generator.py` -- `_write_claude_skill()`
+**File:** `src/prep/core/rules_generator.py` -- `_write_claude_skill()`
 
-Creates `.claude/skills/codrag.md` with YAML frontmatter that registers a `/codrag` slash command in Claude Code:
+Creates `.claude/skills/prep.md` with YAML frontmatter that registers a `/prep` slash command in Claude Code:
 
 ```yaml
 ---
-description: Get structural codebase context from CoDRAG
+description: Get structural codebase context from Prep
 tools:
-  - mcp__codrag__codrag
-  - mcp__codrag__codrag_search
-  - mcp__codrag__codrag_impact
+  - mcp__prep__prep
+  - mcp__prep__prep_search
+  - mcp__prep__prep_impact
 ---
 ```
 
@@ -167,13 +167,13 @@ These tests require hands-on interaction with each IDE. They cannot be automated
 #### Test Environment Setup
 
 ```bash
-# 1. Start CoDRAG daemon with a test project
+# 1. Start Prep daemon with a test project
 cd /path/to/test-project
-codrag add .
-codrag serve --port 8400
+prep add .
+prep serve --port 8400
 
 # 2. Start MCP server with logging
-codrag mcp --log-file ~/.prep/mcp-test.log --debug
+prep mcp --log-file ~/.prep/mcp-test.log --debug
 
 # 3. Verify MCP server is receiving connections
 tail -f ~/.prep/mcp-test.log
@@ -208,11 +208,11 @@ tail -f ~/.prep/mcp-test.log
 **What we're testing:** Does the host append our `instructions` text from the initialize response to the AI's system prompt?
 
 **Workflow:**
-1. Configure CoDRAG MCP server in the host
+1. Configure Prep MCP server in the host
 2. Start a new session
 3. Ask the AI: "What MCP servers are you using? What instructions did they provide?"
-4. If the AI mentions CoDRAG's instructions text ("CoDRAG maps how your codebase is connected..."), the instructions field works
-5. If the AI doesn't mention it, try: "Do you have any special instructions about CoDRAG tools?"
+4. If the AI mentions Prep's instructions text ("Prep maps how your codebase is connected..."), the instructions field works
+5. If the AI doesn't mention it, try: "Do you have any special instructions about Prep tools?"
 
 | Host | Instructions visible? | Notes |
 |------|---------------------|-------|
@@ -221,40 +221,40 @@ tail -f ~/.prep/mcp-test.log
 | Cursor | Expected: UNKNOWN | May be ignored |
 | Windsurf | Expected: UNKNOWN | May be ignored |
 
-**Impact if ignored:** No problem. Rules files (.cursor/rules/codrag.mdc, .windsurf/rules/codrag.md) cover Cursor and Windsurf. The instructions field is belt-and-suspenders.
+**Impact if ignored:** No problem. Rules files (.cursor/rules/prep.mdc, .windsurf/rules/prep.md) cover Cursor and Windsurf. The instructions field is belt-and-suspenders.
 
 #### T6: AGENTS.md with markers
 
-**What we're testing:** Do AI tools correctly parse AGENTS.md that contains our `<!-- codrag-managed-start/end -->` HTML comment markers?
+**What we're testing:** Do AI tools correctly parse AGENTS.md that contains our `<!-- prep-managed-start/end -->` HTML comment markers?
 
 **Workflow:**
-1. Generate AGENTS.md for a test project: `codrag generate-rules --target agents_md`
+1. Generate AGENTS.md for a test project: `prep generate-rules --target agents_md`
 2. Open the project in Cursor, Windsurf, Claude Code
 3. Ask: "What does the AGENTS.md tell you about this project?"
-4. Verify the AI reads the CoDRAG section without being confused by the HTML markers
+4. Verify the AI reads the Prep section without being confused by the HTML markers
 
-**Pass criteria:** AI quotes or paraphrases the CoDRAG tool instructions from AGENTS.md. HTML markers are invisible (treated as comments).
+**Pass criteria:** AI quotes or paraphrases the Prep tool instructions from AGENTS.md. HTML markers are invisible (treated as comments).
 
 #### T7-T8: Rules file injection
 
 **T7 (Cursor):**
-1. Generate `.cursor/rules/codrag.mdc` for a test project
+1. Generate `.cursor/rules/prep.mdc` for a test project
 2. Open project in Cursor
-3. Ask: "What rules or instructions do you have about CoDRAG?"
+3. Ask: "What rules or instructions do you have about Prep?"
 4. Verify AI sees the `alwaysApply: true` content
-5. Ask any coding question -- verify AI calls `codrag` first
+5. Ask any coding question -- verify AI calls `prep` first
 
 **T8 (Windsurf):**
-1. Generate `.windsurf/rules/codrag.md` for a test project
+1. Generate `.windsurf/rules/prep.md` for a test project
 2. Open project in Windsurf
 3. Same verification as T7 but with `trigger: always_on` frontmatter
 
 #### T9: CLAUDE.md section append
 
 1. Create a `CLAUDE.md` with existing user content
-2. Run rules generation (which appends CoDRAG section with markers)
+2. Run rules generation (which appends Prep section with markers)
 3. Open project in Claude Code
-4. Verify both user content AND CoDRAG content are visible
+4. Verify both user content AND Prep content are visible
 5. Re-run rules generation -- verify user content below markers is preserved
 
 #### T10-T12: Auto-approve
@@ -262,18 +262,18 @@ tail -f ~/.prep/mcp-test.log
 **T10 (Claude Code):**
 ```json
 // .claude/settings.json
-{"permissions": {"allow": ["mcp__codrag"]}}
+{"permissions": {"allow": ["mcp__prep"]}}
 ```
-Verify: No confirmation prompts for any CoDRAG tool call.
+Verify: No confirmation prompts for any Prep tool call.
 
 **T11 (Cursor):**
-Settings > Features > MCP > enable auto-run for codrag server.
+Settings > Features > MCP > enable auto-run for prep server.
 Verify: No confirmation prompts.
 
 **T12 (Copilot with sandboxing):**
 ```json
 // .vscode/mcp.json
-{"servers": {"codrag": {"command": "codrag", "args": ["mcp"], "sandboxEnabled": true, "sandbox": {"filesystem": {"allowWrite": []}, "network": {"allowedDomains": ["localhost"]}}}}}
+{"servers": {"prep": {"command": "prep", "args": ["mcp"], "sandboxEnabled": true, "sandbox": {"filesystem": {"allowWrite": []}, "network": {"allowedDomains": ["localhost"]}}}}}
 ```
 Verify: Auto-approved on macOS/Linux. Manual approval on Windows.
 
@@ -283,25 +283,25 @@ Run these opportunistically when working in each tool:
 
 **T13 -- Cline keyword triggers:**
 ```
-1. Ensure .clinerules exists with CoDRAG keyword section
+1. Ensure .clinerules exists with Prep keyword section
 2. Open project in Cline (VS Code extension)
 3. Ask: "analyze the code structure of this project"
-4. PASS: Cline activates CoDRAG tools (you see codrag tool calls in the chat)
-5. FAIL: Cline uses only native tools (grep, read_file) without calling codrag
+4. PASS: Cline activates Prep tools (you see prep tool calls in the chat)
+5. FAIL: Cline uses only native tools (grep, read_file) without calling prep
 ```
 
 **T14 -- Roo Code Architect mode:**
 ```
-1. Ensure .roo/rules-architect/codrag.md exists (generated by rules_generator)
+1. Ensure .roo/rules-architect/prep.md exists (generated by rules_generator)
 2. Open project in Roo Code, switch to Architect mode
 3. Ask: "give me an architecture overview"
-4. PASS: AI references codrag_audit and codrag tools (from the architect rules)
-5. FAIL: AI doesn't mention CoDRAG or use structural tools
+4. PASS: AI references prep_audit and prep tools (from the architect rules)
+5. FAIL: AI doesn't mention Prep or use structural tools
 ```
 
 **T15 -- Roo Code AGENTS.md injection order:**
 ```
-1. Ensure both AGENTS.md AND .roo/rules/codrag.md exist
+1. Ensure both AGENTS.md AND .roo/rules/prep.md exist
 2. Add a unique marker to each: "MARKER_AGENTS" in AGENTS.md, "MARKER_ROO" in .roo/rules/
 3. Ask AI: "what instructions do you have? list them in order"
 4. PASS: MARKER_AGENTS appears BEFORE MARKER_ROO (matches Roo Code docs: AGENTS.md between mode-specific and general)
@@ -311,44 +311,44 @@ Run these opportunistically when working in each tool:
 **T16 -- Claude Code Tool Search deferral:**
 ```
 1. Configure 15+ MCP servers in Claude Code (can be dummy servers that fail)
-2. Ensure CLAUDE.md has "call codrag FIRST" instruction
+2. Ensure CLAUDE.md has "call prep FIRST" instruction
 3. Ask: "analyze the architecture of this codebase"
-4. PASS: Claude finds and calls codrag despite having 15+ servers (CLAUDE.md primes the search)
-5. FAIL: Claude can't find codrag tools (they were deferred and CLAUDE.md didn't help)
+4. PASS: Claude finds and calls prep despite having 15+ servers (CLAUDE.md primes the search)
+5. FAIL: Claude can't find prep tools (they were deferred and CLAUDE.md didn't help)
 6. DIAGNOSTIC: Check if Claude mentions "searching for tools" in its thinking
 ```
 
 **T17 -- MCP Resources in Gemini CLI:**
 ```
-1. Start CoDRAG MCP server connected to Gemini CLI
-2. Type: @codrag://[project_id]/atlas
+1. Start Prep MCP server connected to Gemini CLI
+2. Type: @prep://[project_id]/atlas
 3. PASS: Gemini shows the atlas content (module structure, hub files)
 4. FAIL: Gemini doesn't recognize the resource URI
 ```
 
 **T18 -- MCP Prompts in Gemini CLI:**
 ```
-1. Start CoDRAG MCP server connected to Gemini CLI
-2. Type: /codrag-analyze
-3. PASS: Gemini populates the prompt template and Claude calls codrag + codrag_search
+1. Start Prep MCP server connected to Gemini CLI
+2. Type: /prep-analyze
+3. PASS: Gemini populates the prompt template and Claude calls prep + prep_search
 4. FAIL: Slash command not recognized
 ```
 
 **T19 -- Local LLM tool calling via Cline:**
 ```
 1. Configure Cline with Ollama running Llama 3.3 70B (or qwen3:14b)
-2. Configure CoDRAG MCP server
+2. Configure Prep MCP server
 3. Ask: "what is the architecture of this project?"
-4. PASS: The local LLM successfully calls codrag tool (tool-calling works)
+4. PASS: The local LLM successfully calls prep tool (tool-calling works)
 5. FAIL: LLM doesn't attempt tool calls or fails to format them correctly
 6. NOTE: This tests whether small/medium local models can use MCP tools at all
 ```
 
 **T20 -- Copilot on Windows (no sandbox):**
 ```
-1. On a Windows machine, configure CoDRAG in .vscode/mcp.json (note: servers key, NOT mcpServers)
+1. On a Windows machine, configure Prep in .vscode/mcp.json (note: servers key, NOT mcpServers)
 2. Use Copilot agent mode, ask a coding question
-3. PASS: Copilot shows approval dialog for CoDRAG tool calls, user can approve
+3. PASS: Copilot shows approval dialog for Prep tool calls, user can approve
 4. FAIL: Tool calls don't appear or crash
 5. NOTE: sandboxEnabled auto-approve is NOT available on Windows
 ```
@@ -357,22 +357,22 @@ Run these opportunistically when working in each tool:
 
 ### D4: Windsurf Cascade Hooks for Analytics (DEFERRED -- Enterprise)
 
-**What:** Use `pre_mcp_tool_use` / `post_mcp_tool_use` hooks to log CoDRAG usage for product analytics.
+**What:** Use `pre_mcp_tool_use` / `post_mcp_tool_use` hooks to log Prep usage for product analytics.
 
-**Implementation:** The hook config goes in the user's Windsurf MCP config, not in CoDRAG's code. CoDRAG could provide a template:
+**Implementation:** The hook config goes in the user's Windsurf MCP config, not in Prep's code. Prep could provide a template:
 
 ```json
 {
   "hooks": {
     "post_mcp_tool_use": {
-      "command": "codrag",
+      "command": "prep",
       "args": ["log-mcp-call", "--tool", "${tool_name}"]
     }
   }
 }
 ```
 
-This requires a `codrag log-mcp-call` CLI subcommand that appends to the audit log.
+This requires a `prep log-mcp-call` CLI subcommand that appends to the audit log.
 
 **Effort:** ~1 hour. Defer until enterprise tier is actively used.
 

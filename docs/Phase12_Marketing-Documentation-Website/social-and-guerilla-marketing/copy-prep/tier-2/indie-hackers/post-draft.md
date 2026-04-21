@@ -10,7 +10,7 @@
 Everyone says "make it a subscription." But for a local-first tool where the user provides their own API keys (BYOK) and storage, a monthly fee felt wrong.
 
 ### The Product
-**CoDRAG** is a local context engine for coding. It runs on the user's machine. Zero cloud costs for me (except the update server).
+**Prep** is a local context engine for coding. It runs on the user's machine. Zero cloud costs for me (except the update server).
 
 ### The Model
 *   **Free Tier:** For hobbyists.

@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-CoDRAG advertises "dual-engine compression" (structural LOD for code, LLMLingua-2 for docs). LOD is **well-tested and actively used** in production. LLMLingua-2 is **built but never tested, never installed, and never runs**. The `auto` dual-channel mode that the UI and marketing reference has no backend implementation. This document catalogs what works, what doesn't, and what to test/fix.
+Prep advertises "dual-engine compression" (structural LOD for code, LLMLingua-2 for docs). LOD is **well-tested and actively used** in production. LLMLingua-2 is **built but never tested, never installed, and never runs**. The `auto` dual-channel mode that the UI and marketing reference has no backend implementation. This document catalogs what works, what doesn't, and what to test/fix.
 
 ---
 
@@ -18,7 +18,7 @@ CoDRAG advertises "dual-engine compression" (structural LOD for code, LLMLingua-
 |--------|--------|----------|
 | Unit tests | 46 tests, all pass | `tests/test_lod_extractor.py` |
 | Production use (search) | Active | `search.py:252-357` — score→LOD mapping applied to search results |
-| Production use (ambient) | Active | `search.py:589-658` — LOD 2 for neighbor files in `codrag` tool |
+| Production use (ambient) | Active | `search.py:589-658` — LOD 2 for neighbor files in `prep` tool |
 | Languages covered | Python, TS, Rust, Go, Java | Tests for Python + TS; regex patterns for 14 languages |
 | Real-file validation | Missing | All tests use synthetic 30-line fixtures |
 | Compression ratios validated | Partial | Tests check monotonicity and minimums but not documented 3-20x range |
@@ -65,7 +65,7 @@ The `_get_compressor()` function in `search.py:360-364` is a simple if/else that
 
 ### P1: LOD Real-File Validation
 
-**What**: Test LOD extraction on actual CoDRAG source files, not just synthetic fixtures:
+**What**: Test LOD extraction on actual Prep source files, not just synthetic fixtures:
 - Pick 5 real files of varying size: `orchestrator.py` (large), `compressor.py` (medium), `ids.py` (small), `types.ts` (TS hub), `server.py` (MCP)
 - Measure actual compression ratios at each LOD level
 - Validate the documented "3-20x" range from marketing
@@ -80,7 +80,7 @@ The `_get_compressor()` function in `search.py:360-364` is a simple if/else that
 ### P2: End-to-End Search Compression
 
 **What**: Integration test that exercises the full path:
-1. `codrag_search(query="...", compression="lod")` via MCP
+1. `prep_search(query="...", compression="lod")` via MCP
 2. Verify returned context has LOD metadata (lod level, compression_ratio per chunk)
 3. Verify higher-scored chunks get LOD 0, lower-scored get LOD 4-5
 4. Verify total output fits within `max_chars` budget
@@ -156,11 +156,11 @@ For LLMLingua-2:
 
 ## Recommended Test Script: `scripts/test_compression_real.py`
 
-A script to validate both engines against real CoDRAG files:
+A script to validate both engines against real Prep files:
 
 ```python
 #!/usr/bin/env python3
-"""Validate compression engines against real CoDRAG source files.
+"""Validate compression engines against real Prep source files.
 
 Runs LOD extraction on actual project files and reports:
 - Compression ratio per LOD level per file
@@ -171,7 +171,7 @@ Optionally runs LLMLingua-2 on documentation files if installed.
 """
 
 # Targets:
-# 1. Load trace_nodes.jsonl from the live CoDRAG index
+# 1. Load trace_nodes.jsonl from the live Prep index
 # 2. Pick 10 representative files (mix of sizes, languages)
 # 3. Extract at all LOD levels, measure ratios
 # 4. Validate name/signature retention

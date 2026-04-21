@@ -6,7 +6,7 @@
 
 ## Test Methodology
 
-Called `codrag` MCP tool at 6K, 12K, and 20K `max_chars` against the live CoDRAG index.
+Called `prep` MCP tool at 6K, 12K, and 20K `max_chars` against the live Prep index.
 Analyzed actual output structure, section breakdown, and content quality at each level.
 
 ## Finding 1: Budget Has No Effect — Output Is Identical at 6K, 12K, and 20K
@@ -48,7 +48,7 @@ Section breakdown of the actual output:
 ├─────────────────────┼────────┼───────┼──────────────────────────────┤
 │ Architecture dump   │  2,972 │ 34.8% │ ❌ NOISE — 3742 modules,    │
 │                     │        │       │    only 3/35 shown (9%)      │
-│                     │        │       │    relevant to CoDRAG.       │
+│                     │        │       │    relevant to Prep.       │
 │                     │        │       │    Includes: Javalin, OkHttp,│
 │                     │        │       │    Gson, JPMS, Slim Framework│
 ├─────────────────────┼────────┼───────┼──────────────────────────────┤
@@ -60,13 +60,13 @@ Section breakdown of the actual output:
 
 | Category | Count | % | Examples |
 |----------|-------|---|---------|
-| Relevant to CoDRAG | 3 | 9% | Pipeline Orchestration, CoDRAG Evaluation |
+| Relevant to Prep | 3 | 9% | Pipeline Orchestration, Prep Evaluation |
 | Generic/numbered names | 7 | 20% | "Ui Subsystem (Packages) #2", "#77", "#93" |
 | 3rd-party library noise | 9 | 26% | Javalin, OkHttp, Gson, Slim, Lucide |
 | Unrelated/unclear | 16 | 46% | "React Native Music Platform", "Enterprise Security" |
 
 ### Root cause
-The architecture context shows **all 3742 modules in the global index**, not just CoDRAG-relevant ones. This index includes UI library dependencies (OkHttp, Gson, Javalin) that happen to be in the monorepo. The cap (30 modules) just limits how many get shown — but the top 30 by file count are dominated by library code, not CoDRAG code.
+The architecture context shows **all 3742 modules in the global index**, not just Prep-relevant ones. This index includes UI library dependencies (OkHttp, Gson, Javalin) that happen to be in the monorepo. The cap (30 modules) just limits how many get shown — but the top 30 by file count are dominated by library code, not Prep code.
 
 ---
 
@@ -87,7 +87,7 @@ The hub section should be the **most valuable** part of the ambient context — 
 
 The header on the running daemon still shows the old format:
 ```
-## CoDRAG Context (2 chunks, 5426 chars)
+## Prep Context (2 chunks, 5426 chars)
 Hubs: 8 | Modules: 30 | Neighbors: 0
 ```
 

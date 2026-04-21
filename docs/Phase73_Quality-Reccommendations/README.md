@@ -1,6 +1,6 @@
 # Phase 73 — MCP Tool Quality Assessment
 
-> **Research Phase**: Epistemic Quality Audit of CoDRAG MCP Tool Outputs
+> **Research Phase**: Epistemic Quality Audit of Prep MCP Tool Outputs
 > **Date**: 2026-04-04
 > **Method**: Real-world tool invocations with critical analysis of what an AI agent actually receives and can use
 
@@ -8,9 +8,9 @@
 
 ## Purpose
 
-CoDRAG is an MCP server that provides epistemic knowledge and structural understanding of a codebase. This research phase asks a simple question: **when an AI agent calls these tools, does it actually get useful context?**
+Prep is an MCP server that provides epistemic knowledge and structural understanding of a codebase. This research phase asks a simple question: **when an AI agent calls these tools, does it actually get useful context?**
 
-This document is the result of calling every CoDRAG MCP tool in a real session and honestly evaluating what came back — what was genuinely helpful, what was mediocre, and what actively hurt.
+This document is the result of calling every Prep MCP tool in a real session and honestly evaluating what came back — what was genuinely helpful, what was mediocre, and what actively hurt.
 
 ---
 
@@ -18,17 +18,17 @@ This document is the result of calling every CoDRAG MCP tool in a real session a
 
 | Tool | What It Claims | Tested? |
 |------|---------------|---------|
-| `codrag` | Structural overview (modules, hubs, focus areas) | ✅ |
-| `codrag_search` | Semantic search with structural trace expansion | ✅ (3 queries) |
-| `codrag_impact` | Dependency/dependent analysis (blast radius) | ✅ |
-| `codrag_audit` | Codebase health findings | ✅ |
-| `codrag_observe` | Cross-session memory | ❌ (not tested this session) |
+| `prep` | Structural overview (modules, hubs, focus areas) | ✅ |
+| `prep_search` | Semantic search with structural trace expansion | ✅ (3 queries) |
+| `prep_impact` | Dependency/dependent analysis (blast radius) | ✅ |
+| `prep_audit` | Codebase health findings | ✅ |
+| `prep_observe` | Cross-session memory | ❌ (not tested this session) |
 
 ---
 
 ## Detailed Findings
 
-### 1. `codrag` — Structural Overview
+### 1. `prep` — Structural Overview
 
 **Verdict: 🟡 Mixed — Great concept, bad signal-to-noise ratio**
 
@@ -38,7 +38,7 @@ This document is the result of calling every CoDRAG MCP tool in a real session a
 - The **11-stage pipeline diagram** is immediately useful for understanding the system's execution model.
 
 #### What's Meh
-- The **hub file listing** could be more useful. I get told `02_CoDRAG_Epistemology.md` is a hub with `in-degree:0`, but the *same block of content from that file is included 3 times identically* (lines 12–95, 55–95, 98–137). This is pure waste — 3× duplication of the exact same table and pipeline diagram. This alone consumed ~40% of the "useful" context budget.
+- The **hub file listing** could be more useful. I get told `02_Prep_Epistemology.md` is a hub with `in-degree:0`, but the *same block of content from that file is included 3 times identically* (lines 12–95, 55–95, 98–137). This is pure waste — 3× duplication of the exact same table and pipeline diagram. This alone consumed ~40% of the "useful" context budget.
 
 #### What's Not Working
 - **The module list is overwhelming and noisy.** I received a list of **602 modules**, most of which are 1-2 file modules with names like "Ui Subsystem (Docs) #23" or "Storybook CSS Injection Utilities". An AI agent reading this list of 600+ modules gets *less* understanding of the architecture, not more. It's the equivalent of dumping `find . -type d` and calling it architecture.
@@ -51,12 +51,12 @@ This document is the result of calling every CoDRAG MCP tool in a real session a
 
 **Recommendations:**
 1. **Deduplicate hub content.** If the same chunk appears multiple times as a hub, include it once with a note about its connectivity.
-2. **Tier the module list.** Show the top 10-15 modules with real dependency information. Collapse the 500+ single-file modules into a count: "... and 487 smaller modules (1-2 files each)". An agent can `codrag_search` if it needs one of those.
+2. **Tier the module list.** Show the top 10-15 modules with real dependency information. Collapse the 500+ single-file modules into a count: "... and 487 smaller modules (1-2 files each)". An agent can `prep_search` if it needs one of those.
 3. **Budget-aware assembly.** The tool knows how much context it's returning. It should prioritize novel, high-connectivity information over exhaustive listings.
 
 ---
 
-### 2. `codrag_search` — Semantic Search
+### 2. `prep_search` — Semantic Search
 
 **Verdict: 🟡 Mixed — Retrieval quality varies wildly by query type**
 
@@ -70,13 +70,13 @@ This document is the result of calling every CoDRAG MCP tool in a real session a
 #### Test 2: "MCP tool handler request response"
 **Result:** Got `model_readiness.py` (full file, ~440 lines)
 
-- **The problem:** I asked about MCP tool handlers and got the Ollama model readiness module. This is not even in the MCP package. The actual MCP server (`src/codrag/mcp/server.py`) was not returned despite being a 2,427-line file explicitly about MCP tool handling.
+- **The problem:** I asked about MCP tool handlers and got the Ollama model readiness module. This is not even in the MCP package. The actual MCP server (`src/prep/mcp/server.py`) was not returned despite being a 2,427-line file explicitly about MCP tool handling.
 - **This is the most concerning finding.** A user asking about MCP tools should get MCP code. Period.
 
 #### Test 3: "how does the context assembly work for MCP tool responses"
 **Result:** Got `llm_client.py` (~280 lines)
 
-- **Partial hit.** The LLM client is related to context assembly in the pipeline sense, but the query was specifically about MCP tool response context assembly (i.e., how CoDRAG assembles the context chunks into a response for the AI). The actual context assembly logic (likely in the MCP server or a context module) was missed.
+- **Partial hit.** The LLM client is related to context assembly in the pipeline sense, but the query was specifically about MCP tool response context assembly (i.e., how Prep assembles the context chunks into a response for the AI). The actual context assembly logic (likely in the MCP server or a context module) was missed.
 - The code returned was high quality and well-documented — if it had been the right file, this would've been an A+.
 
 #### What's Great About Search
@@ -88,14 +88,14 @@ This document is the result of calling every CoDRAG MCP tool in a real session a
 - **No indication of confidence or alternatives.** When the tool returns `model_readiness.py` for a query about "MCP tool handlers", there's no signal that this might not be the best match. An agent trusts the result.
 
 **Recommendations:**
-1. **File-path awareness in retrieval.** If a query mentions "MCP", boost results from `src/codrag/mcp/`. If it mentions "orchestrator", boost `orchestrator.py`. This is a simple heuristic that would fix 2/3 of the test failures.
+1. **File-path awareness in retrieval.** If a query mentions "MCP", boost results from `src/prep/mcp/`. If it mentions "orchestrator", boost `orchestrator.py`. This is a simple heuristic that would fix 2/3 of the test failures.
 2. **Return multiple candidates with relevance scores.** Instead of one authoritative result, return 3-5 with scores. Let the agent decide.
 3. **Include a "did you mean?" signal** when the best match is weak. "No high-confidence matches found for MCP tool handlers. Closest results:..."
 4. **Test with architectural/navigational queries specifically.** The current retrieval may be optimized for "find code that does X" but fails at "explain how subsystem Y works".
 
 ---
 
-### 3. `codrag_impact` — Dependency Analysis
+### 3. `prep_impact` — Dependency Analysis
 
 **Verdict: 🟢 Genuinely Useful — Best tool in the suite**
 
@@ -119,7 +119,7 @@ This document is the result of calling every CoDRAG MCP tool in a real session a
 
 ---
 
-### 4. `codrag_audit` — Codebase Health
+### 4. `prep_audit` — Codebase Health
 
 **Verdict: 🟡 Mixed — Good findings, generic advice**
 
@@ -131,7 +131,7 @@ This document is the result of calling every CoDRAG MCP tool in a real session a
 #### What's Meh
 - The **advice is generic and sometimes wrong in context.** Every large file gets the same action: "Consider splitting into a subpackage with focused modules." This is reasonable for `orchestrator.py` but absurd for `package-lock.json` — you can't "split a lockfile into subpackages." The tool should know that auto-generated files are not actionable findings.
 - 11 critical findings, and 4 of them are `package-lock.json` files. That's noise.
-- No architectural findings (circular deps, coupling metrics, etc.) in the default scan. The structural analysis that CoDRAG is supposedly great at doesn't surface here.
+- No architectural findings (circular deps, coupling metrics, etc.) in the default scan. The structural analysis that Prep is supposedly great at doesn't surface here.
 
 **Recommendations:**
 1. **Filter auto-generated files** (`package-lock.json`, `*.lock`, `dist/`, `build/`) from audit results by default. These inflate severity counts and waste attention.
@@ -143,12 +143,12 @@ This document is the result of calling every CoDRAG MCP tool in a real session a
 ## Cross-Cutting Issues
 
 ### Issue 1: Context Budget Misallocation
-The biggest systemic problem is that CoDRAG spends tokens on low-value content while missing high-value content. The `codrag` overview spends 500 lines on an exhaustive module list but doesn't include the actual hub file code. The search tool returns full files (~400 lines each) even when only a few functions are relevant.
+The biggest systemic problem is that Prep spends tokens on low-value content while missing high-value content. The `prep` overview spends 500 lines on an exhaustive module list but doesn't include the actual hub file code. The search tool returns full files (~400 lines each) even when only a few functions are relevant.
 
 **Fix:** Implement aggressive LOD (Level of Detail) compression. Return signatures + docstrings for large files, full code only for small/focused files.
 
 ### Issue 2: Duplicate Content
-The same epistemology section was returned 3 times in a single `codrag` call. This is a 3× waste of tokens for zero additional information.
+The same epistemology section was returned 3 times in a single `prep` call. This is a 3× waste of tokens for zero additional information.
 
 **Fix:** Deduplicate at the chunk level before assembly. Hash chunks and skip duplicates.
 
@@ -168,24 +168,24 @@ When search returns a weakly-related result, there's no indication. The tool pre
 
 | Tool | Signal Quality | Noise Level | Actionability | Overall |
 |------|---------------|-------------|---------------|---------|
-| `codrag` | 🟢 High (top modules) | 🔴 Very High (600 modules) | 🟡 Medium | **C+** |
-| `codrag_search` | 🔴 Low (wrong files) | 🟡 Medium (full files) | 🔴 Low | **D+** |
-| `codrag_impact` | 🟢 High | 🟢 Low | 🟢 High | **A-** |
-| `codrag_audit` | 🟡 Medium | 🟡 Medium (lockfiles) | 🟡 Medium | **B-** |
+| `prep` | 🟢 High (top modules) | 🔴 Very High (600 modules) | 🟡 Medium | **C+** |
+| `prep_search` | 🔴 Low (wrong files) | 🟡 Medium (full files) | 🔴 Low | **D+** |
+| `prep_impact` | 🟢 High | 🟢 Low | 🟢 High | **A-** |
+| `prep_audit` | 🟡 Medium | 🟡 Medium (lockfiles) | 🟡 Medium | **B-** |
 
 ### Priority Actions (Highest Impact → Lowest)
 
 1. **Fix search retrieval quality** — this is the core value proposition and it's currently unreliable
-2. **Deduplicate and tier the `codrag` overview** — the 600-module dump is counterproductive
+2. **Deduplicate and tier the `prep` overview** — the 600-module dump is counterproductive
 3. **Filter noise from audit** — lockfiles, generated files shouldn't be "critical" findings
 4. **Add confidence/relevance scores to search results**
-5. **Preserve and protect `codrag_impact`** — it's already excellent, don't break it
+5. **Preserve and protect `prep_impact`** — it's already excellent, don't break it
 
 ---
 
 ## Methodology Notes
 
-All evaluations were done in a single session on 2026-04-04 against the CoDRAG codebase itself (self-referential analysis). The test queries were chosen to represent common AI agent usage patterns:
+All evaluations were done in a single session on 2026-04-04 against the Prep codebase itself (self-referential analysis). The test queries were chosen to represent common AI agent usage patterns:
 - "How does X work?" (architectural understanding)
 - "What calls Y?" (impact analysis)
 - "What's wrong?" (health assessment)

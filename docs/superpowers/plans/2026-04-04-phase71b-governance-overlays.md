@@ -15,7 +15,7 @@
 ### New Files
 | File | Purpose |
 |------|---------|
-| `src/codrag/core/architecture_acr.py` | ACR + issue-link lifecycle (CRUD, approve, reject, link/unlink) |
+| `src/prep/core/architecture_acr.py` | ACR + issue-link lifecycle (CRUD, approve, reject, link/unlink) |
 | `packages/ui/src/components/architecture/BreadcrumbNav.tsx` | Extracted breadcrumb navigation component |
 | `packages/ui/src/components/architecture/DiagramToolbar.tsx` | Extracted toolbar with layout/filter/stats controls |
 | `packages/ui/src/components/architecture/DiagramSidebar.tsx` | Extracted sidebar inspector with notes, issues, ACRs |
@@ -28,16 +28,16 @@
 ### Modified Files
 | File | Changes |
 |------|---------|
-| `src/codrag/core/architecture_state.py` | Add issue_links persistence (load/save/link/unlink) |
-| `src/codrag/api/routers/architecture.py` | Add 8 Phase B endpoints (ACRs, issues, create-task, briefing) |
+| `src/prep/core/architecture_state.py` | Add issue_links persistence (load/save/link/unlink) |
+| `src/prep/api/routers/architecture.py` | Add 8 Phase B endpoints (ACRs, issues, create-task, briefing) |
 | `packages/ui/src/types/architecture.ts` | Add ACR, LinkedIssue, EntryPointNodeData types |
 | `packages/ui/src/components/architecture/ArchitectureDiagramDetail.tsx` | Replace inline breadcrumb/toolbar/sidebar with extracted components |
 | `packages/ui/src/components/architecture/ModuleNode.tsx` | Add IssueBadge overlay |
 | `packages/ui/src/components/architecture/FileNode.tsx` | Add IssueBadge overlay |
 | `packages/ui/src/components/architecture/index.ts` | Export new components |
 | `packages/ui/src/api/client.ts` | Add Phase B API methods |
-| `src/codrag/dashboard/src/hooks/useArchitectureSystem.ts` | Add ACR + issue state/actions |
-| `src/codrag/mcp/server.py` | Expand codegen context to include ACRs |
+| `src/prep/dashboard/src/hooks/useArchitectureSystem.ts` | Add ACR + issue state/actions |
+| `src/prep/mcp/server.py` | Expand codegen context to include ACRs |
 
 ---
 
@@ -112,7 +112,7 @@ export interface EntryPointNodeData {
 
 - [ ] **Step 2: Verify types compile**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck`
 Expected: PASS (no errors in architecture.ts)
 
 - [ ] **Step 3: Commit**
@@ -127,8 +127,8 @@ git commit -m "feat(arch): add Phase B types — ACR, LinkedIssue, EntryPointNod
 ## Task 2: Build ACR Lifecycle Module (Backend)
 
 **Files:**
-- Create: `src/codrag/core/architecture_acr.py`
-- Modify: `src/codrag/core/architecture_state.py`
+- Create: `src/prep/core/architecture_acr.py`
+- Modify: `src/prep/core/architecture_state.py`
 - Test: `tests/test_architecture_acr.py`
 
 - [ ] **Step 1: Write failing tests for ACR lifecycle**
@@ -143,7 +143,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.core.architecture_acr import ArchitectureACRManager
+from prep.core.architecture_acr import ArchitectureACRManager
 
 
 @pytest.fixture
@@ -235,7 +235,7 @@ Expected: FAIL (ModuleNotFoundError: cannot import 'architecture_acr')
 
 - [ ] **Step 3: Implement ArchitectureACRManager**
 
-Create `src/codrag/core/architecture_acr.py`:
+Create `src/prep/core/architecture_acr.py`:
 
 ```python
 """
@@ -414,7 +414,7 @@ Expected: All 10 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/architecture_acr.py tests/test_architecture_acr.py
+git add src/prep/core/architecture_acr.py tests/test_architecture_acr.py
 git commit -m "feat(arch): add ACR + issue-link lifecycle module with tests"
 ```
 
@@ -423,7 +423,7 @@ git commit -m "feat(arch): add ACR + issue-link lifecycle module with tests"
 ## Task 3: Add Phase B Backend Endpoints
 
 **Files:**
-- Modify: `src/codrag/api/routers/architecture.py`
+- Modify: `src/prep/api/routers/architecture.py`
 - Test: `tests/test_architecture_api_phase_b.py`
 
 - [ ] **Step 1: Write failing tests for Phase B endpoints**
@@ -441,7 +441,7 @@ import pytest
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 
-from codrag.api.routers.architecture import router
+from prep.api.routers.architecture import router
 
 
 @pytest.fixture
@@ -475,8 +475,8 @@ def app(tmp_index: Path) -> FastAPI:
     mock_proj = MagicMock()
     mock_proj.project_id = "test-proj"
 
-    with patch("codrag.api.routers.architecture._require_project", return_value=mock_proj), \
-         patch("codrag.api.routers.architecture._project_index_dir", return_value=tmp_index):
+    with patch("prep.api.routers.architecture._require_project", return_value=mock_proj), \
+         patch("prep.api.routers.architecture._project_index_dir", return_value=tmp_index):
         yield test_app
 
 
@@ -559,7 +559,7 @@ Expected: FAIL (404 for missing endpoints)
 
 - [ ] **Step 3: Add Phase B request models and endpoints to architecture.py**
 
-Append to `src/codrag/api/routers/architecture.py` after the existing `NoteUpdate` model (around line 63):
+Append to `src/prep/api/routers/architecture.py` after the existing `NoteUpdate` model (around line 63):
 
 ```python
 class ACRCreate(BaseModel):
@@ -586,7 +586,7 @@ Add a helper to get the ACR manager (after the existing `_get_arch_state` helper
 
 ```python
 def _get_acr_mgr(idx_dir: Path):
-    from codrag.core.architecture_acr import ArchitectureACRManager
+    from prep.core.architecture_acr import ArchitectureACRManager
     return ArchitectureACRManager(idx_dir)
 ```
 
@@ -750,7 +750,7 @@ Expected: All tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/api/routers/architecture.py tests/test_architecture_api_phase_b.py
+git add src/prep/api/routers/architecture.py tests/test_architecture_api_phase_b.py
 git commit -m "feat(arch): add Phase B API endpoints — ACRs, issue linking, briefing"
 ```
 
@@ -833,7 +833,7 @@ import type {
 
 - [ ] **Step 2: Verify types compile**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
@@ -915,7 +915,7 @@ export type { BreadcrumbNavProps } from './BreadcrumbNav';
 
 - [ ] **Step 4: Verify types compile**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1008,7 +1008,7 @@ export type { DiagramToolbarProps } from './DiagramToolbar';
 
 - [ ] **Step 4: Verify types compile**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1318,7 +1318,7 @@ export type { DiagramSidebarProps } from './DiagramSidebar';
 
 - [ ] **Step 4: Verify types compile**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1426,7 +1426,7 @@ export { EntryPointNode } from './EntryPointNode';
 
 - [ ] **Step 4: Verify types compile**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1587,7 +1587,7 @@ export type { IssueBadgeProps } from './IssueBadge';
 
 - [ ] **Step 7: Verify types compile**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck`
 Expected: PASS
 
 - [ ] **Step 8: Commit**
@@ -1607,7 +1607,7 @@ git commit -m "feat(arch): add IssueBadge overlay to ModuleNode and FileNode"
 ## Task 10: Wire ACR + Issue State into useArchitectureSystem Hook
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/hooks/useArchitectureSystem.ts`
+- Modify: `src/prep/dashboard/src/hooks/useArchitectureSystem.ts`
 
 - [ ] **Step 1: Add ACR + issue state and actions**
 
@@ -1744,13 +1744,13 @@ setIssueLinks([]);
 
 - [ ] **Step 2: Verify types compile**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck`
 Expected: PASS
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/hooks/useArchitectureSystem.ts
+git add src/prep/dashboard/src/hooks/useArchitectureSystem.ts
 git commit -m "feat(arch): wire ACR + issue state into useArchitectureSystem hook"
 ```
 
@@ -1856,7 +1856,7 @@ Update all call sites of `buildFlowNodes` to pass `acrs` and `issueLinks`.
 
 - [ ] **Step 4: Verify types compile**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -1871,7 +1871,7 @@ git commit -m "feat(arch): wire live ACR + issue data into sidebar and node badg
 ## Task 12: Add listIssueLinks to Backend + Client
 
 **Files:**
-- Modify: `src/codrag/api/routers/architecture.py`
+- Modify: `src/prep/api/routers/architecture.py`
 - Modify: `packages/ui/src/api/client.ts`
 
 - [ ] **Step 1: Add GET endpoint for all issue links**
@@ -1925,16 +1925,16 @@ Promise.all([
 
 - [ ] **Step 4: Verify types compile and tests pass**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck`
 Run: `.venv/bin/pytest tests/test_architecture_acr.py tests/test_architecture_api_phase_b.py -v`
 Expected: All PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/api/routers/architecture.py \
+git add src/prep/api/routers/architecture.py \
        packages/ui/src/api/client.ts \
-       src/codrag/dashboard/src/hooks/useArchitectureSystem.ts
+       src/prep/dashboard/src/hooks/useArchitectureSystem.ts
 git commit -m "feat(arch): add listIssueLinks endpoint and wire hydration"
 ```
 
@@ -1943,7 +1943,7 @@ git commit -m "feat(arch): add listIssueLinks endpoint and wire hydration"
 ## Task 13: Expand MCP codegen Context with ACRs
 
 **Files:**
-- Modify: `src/codrag/api/routers/architecture.py`
+- Modify: `src/prep/api/routers/architecture.py`
 
 - [ ] **Step 1: Update get_architecture_context to include ACRs and issues**
 
@@ -1989,7 +1989,7 @@ Expected: All PASS
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/api/routers/architecture.py
+git add src/prep/api/routers/architecture.py
 git commit -m "feat(arch): expand MCP architecture context with ACRs and issues"
 ```
 

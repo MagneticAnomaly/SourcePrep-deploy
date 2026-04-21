@@ -2,7 +2,7 @@
 
 ## Overview
 
-CoDRAG uses a **Structured** LLM assignment system: 3 tiers (Fast, Code, Thinking) plus Embedding. This works great for ~80% of users — intuitive, low-friction, and prevents VRAM mistakes.
+Prep uses a **Structured** LLM assignment system: 3 tiers (Fast, Code, Thinking) plus Embedding. This works great for ~80% of users — intuitive, low-friction, and prevents VRAM mistakes.
 
 For power users who want full control, we introduce a second mode: **Mapped**. Instead of abstract tiers, users explicitly assign specific models to specific pipeline tasks.
 
@@ -208,7 +208,7 @@ Empty. No blocks. All 9 tasks unassigned. The banner shows the full list. For us
 
 ```typescript
 // -- Task IDs (canonical, used in backend + config) --
-export type CodragTaskId =
+export type PrepTaskId =
   | 'catalogue'
   | 'inferred_edges'
   | 'enrichment'
@@ -219,7 +219,7 @@ export type CodragTaskId =
   | 'audit'
   | 'augmentation';
 
-export const ALL_TASK_IDS: CodragTaskId[] = [
+export const ALL_TASK_IDS: PrepTaskId[] = [
   'catalogue', 'inferred_edges', 'enrichment', 'clustering',
   'atlas', 'deepening', 'search_intent', 'audit', 'augmentation',
 ];
@@ -229,7 +229,7 @@ export interface LLMAssignmentBlock {
   id: string;                  // UUID
   endpoint_id: string;         // References a SavedEndpoint
   model: string;               // Model name string
-  tasks: CodragTaskId[];       // 1+ tasks assigned to this block
+  tasks: PrepTaskId[];       // 1+ tasks assigned to this block
 }
 
 // -- Extended LLMConfig --
@@ -253,7 +253,7 @@ export interface LLMConfig {
 ```
 
 ### Validation Rules
-- Every `CodragTaskId` must appear in exactly one block (no duplicates, no orphans for pipeline to run).
+- Every `PrepTaskId` must appear in exactly one block (no duplicates, no orphans for pipeline to run).
 - A block must have ≥1 task.
 - `endpoint_id` must reference a valid `saved_endpoints` entry.
 - If a saved endpoint is deleted, blocks referencing it get an error state (red border, "Endpoint missing").
@@ -262,7 +262,7 @@ export interface LLMConfig {
 
 ## 8. Backend: Unified LLM Resolver
 
-### New Function: `_get_llm_client_for_task(task_id: CodragTaskId)`
+### New Function: `_get_llm_client_for_task(task_id: PrepTaskId)`
 
 Replaces all direct calls to `_get_llm_client_for_slot()`. Logic:
 
@@ -323,7 +323,7 @@ def _resolve_mapped_task(task_id: str, llm_cfg: dict) -> Optional[LLMClient]:
 ### Migration Path
 - `_get_llm_client_for_slot()` remains as an internal helper (used by the structured resolver).
 - All pipeline workers and routers switch to `_get_llm_client_for_task(task_id)`.
-- `STAGE_MODEL_SLOT` dict in `pipeline_orchestrator.py` is replaced by `STAGE_TASK_ID` mapping `StageId → CodragTaskId`.
+- `STAGE_MODEL_SLOT` dict in `pipeline_orchestrator.py` is replaced by `STAGE_TASK_ID` mapping `StageId → PrepTaskId`.
 
 ---
 
@@ -392,7 +392,7 @@ Existing `ui_config.json` files with no `assignment_mode` field default to `"str
 ## 12. Implementation Roadmap
 
 ### Sprint 1: Types & Config (Backend + Frontend)
-- Add `CodragTaskId` type, `LLMAssignmentBlock` interface, extend `LLMConfig` with `assignment_mode` and `assignment_blocks`.
+- Add `PrepTaskId` type, `LLMAssignmentBlock` interface, extend `LLMConfig` with `assignment_mode` and `assignment_blocks`.
 - Update `config_manager.py` defaults and deep-merge logic.
 - Add `TASK_TO_SLOT` mapping and `_get_llm_client_for_task()` resolver.
 - All existing callers of `_get_llm_client_for_slot()` migrated to `_get_llm_client_for_task()`.

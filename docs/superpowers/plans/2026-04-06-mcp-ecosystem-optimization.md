@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Align CoDRAG's MCP primitives with the MCP spec's three control models — tools for agent-initiated actions, resources for user-browsable data, prompts for structured workflows — so CoDRAG feels native in Claude Code and every other MCP client.
+**Goal:** Align Prep's MCP primitives with the MCP spec's three control models — tools for agent-initiated actions, resources for user-browsable data, prompts for structured workflows — so Prep feels native in Claude Code and every other MCP client.
 
-**Architecture:** Enhance the existing MCP server (`src/codrag/mcp/server.py`) which already has resource/prompt handler scaffolding. Add tool annotations to `mcp_tools.py`. Add atlas content hashing to `rules_generator.py`. Expand resource content generators and prompt templates. All changes are additive — no breaking changes to existing tool callers.
+**Architecture:** Enhance the existing MCP server (`src/prep/mcp/server.py`) which already has resource/prompt handler scaffolding. Add tool annotations to `mcp_tools.py`. Add atlas content hashing to `rules_generator.py`. Expand resource content generators and prompt templates. All changes are additive — no breaking changes to existing tool callers.
 
 **Tech Stack:** Python 3.11+, FastAPI, hashlib, existing MCP protocol handlers in `server.py`
 
@@ -16,9 +16,9 @@
 
 | File | Responsibility | Action |
 |---|---|---|
-| `src/codrag/mcp_tools.py` | Tool schema definitions + annotations | Modify: add `title`, `destructiveHint`, `idempotentHint` |
-| `src/codrag/mcp/server.py` | MCP protocol handlers (tools, resources, prompts) | Modify: expand resources, enhance prompts, atlas hash, listChanged |
-| `src/codrag/core/rules_generator.py` | CLAUDE.md / AGENTS.md generation | Modify: embed atlas hash, add permission hint |
+| `src/prep/mcp_tools.py` | Tool schema definitions + annotations | Modify: add `title`, `destructiveHint`, `idempotentHint` |
+| `src/prep/mcp/server.py` | MCP protocol handlers (tools, resources, prompts) | Modify: expand resources, enhance prompts, atlas hash, listChanged |
+| `src/prep/core/rules_generator.py` | CLAUDE.md / AGENTS.md generation | Modify: embed atlas hash, add permission hint |
 | `tests/test_mcp_server.py` | MCP server unit tests | Modify: add annotation, resource, prompt tests |
 | `tests/test_rules_generator.py` | Rules generator tests | Modify (or create): atlas hash tests |
 
@@ -27,14 +27,14 @@
 ## Task 1: Add Missing Tool Annotations
 
 **Files:**
-- Modify: `src/codrag/mcp_tools.py:25-318`
+- Modify: `src/prep/mcp_tools.py:25-318`
 - Test: `tests/test_mcp_server.py`
 
 - [ ] **Step 1: Write test for tool annotations**
 
 ```python
 # In tests/test_mcp_server.py (or tests/test_mcp_tools.py if it exists)
-from codrag.mcp_tools import TOOLS
+from prep.mcp_tools import TOOLS
 
 
 def test_all_tools_have_title():
@@ -71,57 +71,57 @@ Expected: FAIL — `title`, `destructiveHint`, `idempotentHint` not yet set
 
 - [ ] **Step 3: Add annotations to all tools in mcp_tools.py**
 
-In `src/codrag/mcp_tools.py`, update each tool's `annotations` dict:
+In `src/prep/mcp_tools.py`, update each tool's `annotations` dict:
 
 ```python
-# Tool 1: codrag (line 55)
+# Tool 1: prep (line 55)
 "annotations": {
-    "title": "CoDRAG: Codebase Context",
+    "title": "Prep: Codebase Context",
     "readOnlyHint": True,
     "destructiveHint": False,
     "idempotentHint": True,
     "openWorldHint": True,
 },
 
-# Tool 2: codrag_search (line 113)
+# Tool 2: prep_search (line 113)
 "annotations": {
-    "title": "CoDRAG: Code Search",
+    "title": "Prep: Code Search",
     "readOnlyHint": True,
     "destructiveHint": False,
     "idempotentHint": True,
     "openWorldHint": True,
 },
 
-# Tool 3: codrag_impact (line 152)
+# Tool 3: prep_impact (line 152)
 "annotations": {
-    "title": "CoDRAG: Impact Analysis",
+    "title": "Prep: Impact Analysis",
     "readOnlyHint": True,
     "destructiveHint": False,
     "idempotentHint": True,
     "openWorldHint": True,
 },
 
-# Tool 4: codrag_audit (line 208)
+# Tool 4: prep_audit (line 208)
 "annotations": {
-    "title": "CoDRAG: Codebase Audit",
+    "title": "Prep: Codebase Audit",
     "readOnlyHint": True,
     "destructiveHint": False,
     "idempotentHint": True,
     "openWorldHint": True,
 },
 
-# Tool 5: codrag_observe (line 264)
+# Tool 5: prep_observe (line 264)
 "annotations": {
-    "title": "CoDRAG: Observations",
+    "title": "Prep: Observations",
     "readOnlyHint": False,
     "destructiveHint": False,
     "idempotentHint": False,
     "openWorldHint": True,
 },
 
-# Tool 6: codrag_concepts (line 317)
+# Tool 6: prep_concepts (line 317)
 "annotations": {
-    "title": "CoDRAG: Concepts",
+    "title": "Prep: Concepts",
     "readOnlyHint": False,
     "destructiveHint": False,
     "idempotentHint": False,
@@ -129,10 +129,10 @@ In `src/codrag/mcp_tools.py`, update each tool's `annotations` dict:
 },
 ```
 
-Also update the dev alias `codrag_context` (line 341):
+Also update the dev alias `prep_context` (line 341):
 ```python
 "annotations": {
-    "title": "CoDRAG: Context (Dev)",
+    "title": "Prep: Context (Dev)",
     "readOnlyHint": True,
     "destructiveHint": False,
     "idempotentHint": True,
@@ -148,7 +148,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/mcp_tools.py tests/test_mcp_server.py
+git add src/prep/mcp_tools.py tests/test_mcp_server.py
 git commit -m "feat(mcp): add title, destructiveHint, idempotentHint annotations to all tools"
 ```
 
@@ -157,7 +157,7 @@ git commit -m "feat(mcp): add title, destructiveHint, idempotentHint annotations
 ## Task 2: Enable listChanged Notifications
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py:2048-2054`
+- Modify: `src/prep/mcp/server.py:2048-2054`
 - Test: `tests/test_mcp_server.py`
 
 - [ ] **Step 1: Write test for listChanged capability**
@@ -165,9 +165,9 @@ git commit -m "feat(mcp): add title, destructiveHint, idempotentHint annotations
 ```python
 def test_capabilities_declare_list_changed():
     """Server capabilities should declare listChanged=True for resources and prompts."""
-    from codrag.mcp.server import CodragMCPServer
+    from prep.mcp.server import PrepMCPServer
 
-    server = CodragMCPServer.__new__(CodragMCPServer)
+    server = PrepMCPServer.__new__(PrepMCPServer)
     server.__init__()
 
     # Simulate initialize to get capabilities
@@ -189,7 +189,7 @@ Expected: FAIL — currently `False`
 
 - [ ] **Step 3: Flip listChanged to True**
 
-In `src/codrag/mcp/server.py`, find the capabilities dict in `handle_initialize` (around line 2050):
+In `src/prep/mcp/server.py`, find the capabilities dict in `handle_initialize` (around line 2050):
 
 ```python
 # BEFORE:
@@ -215,7 +215,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py tests/test_mcp_server.py
+git add src/prep/mcp/server.py tests/test_mcp_server.py
 git commit -m "feat(mcp): enable listChanged notifications for tools, resources, and prompts"
 ```
 
@@ -224,8 +224,8 @@ git commit -m "feat(mcp): enable listChanged notifications for tools, resources,
 ## Task 3: Atlas Content Hash in CLAUDE.md
 
 **Files:**
-- Modify: `src/codrag/core/rules_generator.py:327-460` (`_build_managed_content`)
-- Modify: `src/codrag/mcp/server.py:207-260` (`_project_has_rules_file` area)
+- Modify: `src/prep/core/rules_generator.py:327-460` (`_build_managed_content`)
+- Modify: `src/prep/mcp/server.py:207-260` (`_project_has_rules_file` area)
 - Test: `tests/test_rules_generator.py` (create if needed)
 
 - [ ] **Step 1: Write test for atlas hash embedding**
@@ -234,7 +234,7 @@ git commit -m "feat(mcp): enable listChanged notifications for tools, resources,
 # tests/test_rules_generator_hash.py
 import hashlib
 
-from codrag.core.rules_generator import _build_managed_content, _CLAUDE_MARKER_START
+from prep.core.rules_generator import _build_managed_content, _CLAUDE_MARKER_START
 
 
 def test_managed_content_includes_atlas_hash():
@@ -249,7 +249,7 @@ def test_managed_content_includes_atlas_hash():
         project_id="test-id",
     )
     expected_hash = hashlib.sha256(atlas.strip().encode()).hexdigest()[:12]
-    assert f"codrag-atlas-hash:{expected_hash}" in content
+    assert f"prep-atlas-hash:{expected_hash}" in content
 
 
 def test_managed_content_no_hash_when_no_atlas():
@@ -262,7 +262,7 @@ def test_managed_content_no_hash_when_no_atlas():
         stats=None,
         project_id="test-id",
     )
-    assert "codrag-atlas-hash" not in content
+    assert "prep-atlas-hash" not in content
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -272,7 +272,7 @@ Expected: FAIL — no hash in output yet
 
 - [ ] **Step 3: Embed atlas hash in _build_managed_content**
 
-In `src/codrag/core/rules_generator.py`, at the top of `_build_managed_content` (after line 336), add the hash import and computation. Then embed the hash comment right after the `_CLAUDE_MARKER_START` in the `generate_claude_rules` function (or in `_build_managed_content` near the atlas section).
+In `src/prep/core/rules_generator.py`, at the top of `_build_managed_content` (after line 336), add the hash import and computation. Then embed the hash comment right after the `_CLAUDE_MARKER_START` in the `generate_claude_rules` function (or in `_build_managed_content` near the atlas section).
 
 The cleanest place: in `_build_managed_content`, right before the atlas section (around line 417):
 
@@ -286,7 +286,7 @@ import hashlib
         # Embed content hash for freshness detection by MCP server
         atlas_hash = hashlib.sha256(atlas_content.strip().encode()).hexdigest()[:12]
         parts.append("")
-        parts.append(f"<!-- codrag-atlas-hash:{atlas_hash} -->")
+        parts.append(f"<!-- prep-atlas-hash:{atlas_hash} -->")
         parts.append("## Codebase Atlas")
         parts.append("")
         parts.append(atlas_content.strip())
@@ -306,29 +306,29 @@ import hashlib
 
 def test_extract_atlas_hash_from_rules_content():
     """The MCP server should be able to extract the atlas hash from rules file content."""
-    from codrag.mcp.server import CodragMCPServer
+    from prep.mcp.server import PrepMCPServer
 
     atlas = "IDENTITY: Test\nSTACK: Python"
     expected_hash = hashlib.sha256(atlas.strip().encode()).hexdigest()[:12]
 
-    rules_content = f"<!-- codrag-atlas-hash:{expected_hash} -->\n## Codebase Atlas\n{atlas}"
+    rules_content = f"<!-- prep-atlas-hash:{expected_hash} -->\n## Codebase Atlas\n{atlas}"
 
     # Test the extraction helper
-    extracted = CodragMCPServer._extract_atlas_hash(rules_content)
+    extracted = PrepMCPServer._extract_atlas_hash(rules_content)
     assert extracted == expected_hash
 
 
 def test_extract_atlas_hash_missing():
     """Returns None when no hash comment is present."""
-    from codrag.mcp.server import CodragMCPServer
+    from prep.mcp.server import PrepMCPServer
 
-    extracted = CodragMCPServer._extract_atlas_hash("## Just some content")
+    extracted = PrepMCPServer._extract_atlas_hash("## Just some content")
     assert extracted is None
 ```
 
 - [ ] **Step 6: Implement hash extraction in MCP server**
 
-In `src/codrag/mcp/server.py`, add a static method to `CodragMCPServer`:
+In `src/prep/mcp/server.py`, add a static method to `PrepMCPServer`:
 
 ```python
 import re
@@ -337,10 +337,10 @@ import re
 def _extract_atlas_hash(content: str) -> str | None:
     """Extract the atlas content hash from a rules file.
 
-    Looks for <!-- codrag-atlas-hash:XXXX --> comment.
+    Looks for <!-- prep-atlas-hash:XXXX --> comment.
     Returns the hash string or None if not found.
     """
-    match = re.search(r"codrag-atlas-hash:([a-f0-9]{12})", content)
+    match = re.search(r"prep-atlas-hash:([a-f0-9]{12})", content)
     return match.group(1) if match else None
 ```
 
@@ -351,7 +351,7 @@ Expected: PASS
 
 - [ ] **Step 8: Wire hash comparison into tool_context**
 
-In `src/codrag/mcp/server.py`, in the `_project_has_rules_file` method (or a new `_get_rules_atlas_hash` method), when reading the rules file content to check for markers, also extract and cache the atlas hash. Then in `tool_context()`, after the existing `has_rules` check (around line 933-944), add:
+In `src/prep/mcp/server.py`, in the `_project_has_rules_file` method (or a new `_get_rules_atlas_hash` method), when reading the rules file content to check for markers, also extract and cache the atlas hash. Then in `tool_context()`, after the existing `has_rules` check (around line 933-944), add:
 
 ```python
 # In tool_context(), after has_rules check:
@@ -370,7 +370,7 @@ This extends the existing ISSUE-6 optimization with precise hash matching instea
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/codrag/core/rules_generator.py src/codrag/mcp/server.py tests/test_rules_generator_hash.py tests/test_mcp_atlas_hash.py
+git add src/prep/core/rules_generator.py src/prep/mcp/server.py tests/test_rules_generator_hash.py tests/test_mcp_atlas_hash.py
 git commit -m "feat(mcp): atlas content hash for precise freshness detection in CLAUDE.md"
 ```
 
@@ -379,7 +379,7 @@ git commit -m "feat(mcp): atlas content hash for precise freshness detection in 
 ## Task 4: Add Permission Hint to AGENTS.md
 
 **Files:**
-- Modify: `src/codrag/core/rules_generator.py:396-414`
+- Modify: `src/prep/core/rules_generator.py:396-414`
 - Test: `tests/test_rules_generator_hash.py` (add a test)
 
 - [ ] **Step 1: Write test**
@@ -395,7 +395,7 @@ def test_managed_content_includes_permission_hint():
         stats=None,
         project_id="test-id",
     )
-    assert '"allow": ["mcp__codrag"]' in content or "mcp__codrag" in content
+    assert '"allow": ["mcp__prep"]' in content or "mcp__prep" in content
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -405,15 +405,15 @@ Expected: FAIL
 
 - [ ] **Step 3: Add permission hint to managed content**
 
-In `src/codrag/core/rules_generator.py`, after the "All CoDRAG tools are read-only" line (around line 413), add:
+In `src/prep/core/rules_generator.py`, after the "All Prep tools are read-only" line (around line 413), add:
 
 ```python
     parts.append("")
     parts.append(
         "### Auto-Approve Configuration\n"
-        "To skip approval prompts for CoDRAG's read-only tools, add to your settings:\n"
+        "To skip approval prompts for Prep's read-only tools, add to your settings:\n"
         '```json\n'
-        '{ "permissions": { "allow": ["mcp__codrag"] } }\n'
+        '{ "permissions": { "allow": ["mcp__prep"] } }\n'
         '```\n'
         "In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings."
     )
@@ -427,7 +427,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/rules_generator.py tests/test_rules_generator_hash.py
+git add src/prep/core/rules_generator.py tests/test_rules_generator_hash.py
 git commit -m "feat(agents): add auto-approve permission hint to generated rules files"
 ```
 
@@ -436,7 +436,7 @@ git commit -m "feat(agents): add auto-approve permission hint to generated rules
 ## Task 5: Expand MCP Resources
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py:2092-2320` (resource handlers + generators)
+- Modify: `src/prep/mcp/server.py:2092-2320` (resource handlers + generators)
 - Test: `tests/test_mcp_server.py`
 
 - [ ] **Step 1: Write tests for expanded resource list**
@@ -448,11 +448,11 @@ import pytest
 
 @pytest.fixture
 def mock_server():
-    """Create a CodragMCPServer with mocked API calls."""
+    """Create a PrepMCPServer with mocked API calls."""
     from unittest.mock import AsyncMock, patch
-    from codrag.mcp.server import CodragMCPServer
+    from prep.mcp.server import PrepMCPServer
 
-    server = CodragMCPServer.__new__(CodragMCPServer)
+    server = PrepMCPServer.__new__(PrepMCPServer)
     server.__init__()
     server._client_name = "claude-code"
     server._resolve_project_id = AsyncMock(return_value="test-project")
@@ -494,7 +494,7 @@ Expected: FAIL — missing resources (modules, audit, concepts, focus) and no an
 
 - [ ] **Step 3: Expand handle_resources_list**
 
-In `src/codrag/mcp/server.py`, replace the `handle_resources_list` method (line 2092). Add the new resources and annotations:
+In `src/prep/mcp/server.py`, replace the `handle_resources_list` method (line 2092). Add the new resources and annotations:
 
 ```python
 async def handle_resources_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
@@ -511,49 +511,49 @@ async def handle_resources_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "resources": [
             {
-                "uri": f"codrag://{project_id}/atlas",
+                "uri": f"prep://{project_id}/atlas",
                 "name": "Codebase Atlas",
                 "description": "Architectural overview: identity, stack, workspace map, cross-cutting concerns.",
                 "mimeType": "text/markdown",
                 "annotations": {"audience": ["assistant"]},
             },
             {
-                "uri": f"codrag://{project_id}/structure",
+                "uri": f"prep://{project_id}/structure",
                 "name": "Codebase Structure",
                 "description": "Hub files with connection counts and structural roles.",
                 "mimeType": "text/markdown",
                 "annotations": {"audience": ["assistant"]},
             },
             {
-                "uri": f"codrag://{project_id}/modules",
+                "uri": f"prep://{project_id}/modules",
                 "name": "Module Map",
                 "description": "Module list with file counts, dependencies, and summaries.",
                 "mimeType": "text/markdown",
                 "annotations": {"audience": ["assistant"]},
             },
             {
-                "uri": f"codrag://{project_id}/audit",
+                "uri": f"prep://{project_id}/audit",
                 "name": "Audit Findings",
                 "description": "Latest codebase health findings: architecture, quality, tech debt.",
                 "mimeType": "text/markdown",
                 "annotations": {"audience": ["user", "assistant"]},
             },
             {
-                "uri": f"codrag://{project_id}/concepts",
+                "uri": f"prep://{project_id}/concepts",
                 "name": "Concepts",
                 "description": "High-level codebase concepts: business rationale, design decisions, domain knowledge.",
                 "mimeType": "text/markdown",
                 "annotations": {"audience": ["assistant"]},
             },
             {
-                "uri": f"codrag://{project_id}/focus",
+                "uri": f"prep://{project_id}/focus",
                 "name": "Focus Areas",
                 "description": "User-selected focus areas with content excerpts.",
                 "mimeType": "text/markdown",
                 "annotations": {"audience": ["assistant"]},
             },
             {
-                "uri": f"codrag://{project_id}/health",
+                "uri": f"prep://{project_id}/health",
                 "name": "Index Health",
                 "description": "Index freshness, coverage, and build status.",
                 "mimeType": "text/markdown",
@@ -570,7 +570,7 @@ Expected: PASS
 
 - [ ] **Step 5: Write new resource content generators**
 
-Add these methods to `CodragMCPServer` in `src/codrag/mcp/server.py`, after the existing `_resource_health` method (around line 2320):
+Add these methods to `PrepMCPServer` in `src/prep/mcp/server.py`, after the existing `_resource_health` method (around line 2320):
 
 ```python
 async def _resource_modules(self, project_id: str) -> str:
@@ -603,7 +603,7 @@ async def _resource_audit(self, project_id: str) -> str:
     try:
         data = await self._api_get(f"/projects/{project_id}/audit/findings")
         if not isinstance(data, dict):
-            return "(No audit data available -- run `codrag_audit` first)"
+            return "(No audit data available -- run `prep_audit` first)"
 
         findings = data.get("findings", [])
         if not findings:
@@ -631,7 +631,7 @@ async def _resource_concepts(self, project_id: str) -> str:
 
         concepts = data.get("concepts", [])
         if not concepts:
-            return "(No concepts saved yet -- use `codrag_concepts` to add them)"
+            return "(No concepts saved yet -- use `prep_concepts` to add them)"
 
         # Group by category
         by_cat: Dict[str, list] = {}
@@ -674,7 +674,7 @@ async def _resource_focus(self, project_id: str) -> str:
 
 - [ ] **Step 6: Wire new resources into handle_resources_read**
 
-In `src/codrag/mcp/server.py`, in the `handle_resources_read` method (around line 2161), add routing for the new resource types:
+In `src/prep/mcp/server.py`, in the `handle_resources_read` method (around line 2161), add routing for the new resource types:
 
 ```python
 # Add these elif branches after the existing ones:
@@ -701,7 +701,7 @@ def test_resource_read_routes_all_types(mock_server):
     resource_types = ["atlas", "structure", "modules", "audit", "concepts", "focus", "health"]
     for rtype in resource_types:
         result = asyncio.get_event_loop().run_until_complete(
-            mock_server.handle_resources_read({"uri": f"codrag://test-project/{rtype}"})
+            mock_server.handle_resources_read({"uri": f"prep://test-project/{rtype}"})
         )
         assert "contents" in result, f"Resource type '{rtype}' failed to return contents"
         assert len(result["contents"]) > 0
@@ -715,7 +715,7 @@ Expected: PASS
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py tests/test_mcp_server.py
+git add src/prep/mcp/server.py tests/test_mcp_server.py
 git commit -m "feat(mcp): expand resources to 7 types — atlas, structure, modules, audit, concepts, focus, health"
 ```
 
@@ -724,7 +724,7 @@ git commit -m "feat(mcp): expand resources to 7 types — atlas, structure, modu
 ## Task 6: Enhance MCP Prompts
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py:2322-2440` (prompts section)
+- Modify: `src/prep/mcp/server.py:2322-2440` (prompts section)
 - Test: `tests/test_mcp_server.py`
 
 - [ ] **Step 1: Write tests for enhanced prompts**
@@ -736,14 +736,14 @@ def test_prompts_list_has_all_prompts(mock_server):
         mock_server.handle_prompts_list({})
     )
     prompt_names = {p["name"] for p in result["prompts"]}
-    expected = {"codrag-onboard", "codrag-review", "codrag-plan", "codrag-investigate", "codrag-health"}
+    expected = {"prep-onboard", "prep-review", "prep-plan", "prep-investigate", "prep-health"}
     assert expected.issubset(prompt_names), f"Missing: {expected - prompt_names}"
 
 
 def test_prompt_onboard_returns_messages(mock_server):
     """The onboard prompt should return structured messages."""
     result = asyncio.get_event_loop().run_until_complete(
-        mock_server.handle_prompts_get({"name": "codrag-onboard", "arguments": {}})
+        mock_server.handle_prompts_get({"name": "prep-onboard", "arguments": {}})
     )
     assert "messages" in result
     assert len(result["messages"]) > 0
@@ -754,7 +754,7 @@ def test_prompt_investigate_requires_query(mock_server):
     """The investigate prompt should use the query argument."""
     result = asyncio.get_event_loop().run_until_complete(
         mock_server.handle_prompts_get({
-            "name": "codrag-investigate",
+            "name": "prep-investigate",
             "arguments": {"query": "authentication flow"},
         })
     )
@@ -764,21 +764,21 @@ def test_prompt_investigate_requires_query(mock_server):
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_mcp_server.py -v -k "test_prompt" --no-header`
-Expected: FAIL — missing `codrag-onboard`, `codrag-investigate`, `codrag-health`
+Expected: FAIL — missing `prep-onboard`, `prep-investigate`, `prep-health`
 
 - [ ] **Step 3: Update _PROMPTS list and handle_prompts_get**
 
-In `src/codrag/mcp/server.py`, replace the `_PROMPTS` class variable (line 2324):
+In `src/prep/mcp/server.py`, replace the `_PROMPTS` class variable (line 2324):
 
 ```python
 _PROMPTS = [
     {
-        "name": "codrag-onboard",
+        "name": "prep-onboard",
         "description": "Orient to this codebase — get structural overview, key modules, and hub files",
         "arguments": [],
     },
     {
-        "name": "codrag-review",
+        "name": "prep-review",
         "description": "Review a file with structural awareness — blast radius, dependencies, and related code",
         "arguments": [
             {
@@ -794,7 +794,7 @@ _PROMPTS = [
         ],
     },
     {
-        "name": "codrag-plan",
+        "name": "prep-plan",
         "description": "Plan a change with impact analysis — understand what files are affected before editing",
         "arguments": [
             {
@@ -805,7 +805,7 @@ _PROMPTS = [
         ],
     },
     {
-        "name": "codrag-investigate",
+        "name": "prep-investigate",
         "description": "Deep-dive into a topic — search, trace expansion, and module context",
         "arguments": [
             {
@@ -816,7 +816,7 @@ _PROMPTS = [
         ],
     },
     {
-        "name": "codrag-health",
+        "name": "prep-health",
         "description": "Check codebase health — audit findings, tech debt, and improvement recommendations",
         "arguments": [
             {
@@ -837,7 +837,7 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
     name = params.get("name", "")
     arguments = params.get("arguments", {})
 
-    if name == "codrag-onboard":
+    if name == "prep-onboard":
         return {
             "description": "Codebase orientation",
             "messages": [
@@ -846,8 +846,8 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
                     "content": {
                         "type": "text",
                         "text": (
-                            "Orient me to this codebase using CoDRAG.\n\n"
-                            "1. Call `codrag` to get the structural overview (modules, hub files, connections).\n"
+                            "Orient me to this codebase using Prep.\n\n"
+                            "1. Call `prep` to get the structural overview (modules, hub files, connections).\n"
                             "2. Summarize the architecture: what are the main components and how do they connect?\n"
                             "3. Identify the most important files (hub files) and explain their role.\n"
                             "4. List the key entry points and data flow patterns.\n"
@@ -858,7 +858,7 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
             ],
         }
 
-    elif name == "codrag-review":
+    elif name == "prep-review":
         file_path = arguments.get("file_path", "the current file")
         scope = arguments.get("scope", "file")
         return {
@@ -869,9 +869,9 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
                     "content": {
                         "type": "text",
                         "text": (
-                            f"Review `{file_path}` (scope: {scope}) using CoDRAG's structural understanding.\n\n"
-                            "1. Call `codrag_impact` on the file to understand its dependencies and dependents.\n"
-                            "2. Call `codrag_search` to find related code and patterns.\n"
+                            f"Review `{file_path}` (scope: {scope}) using Prep's structural understanding.\n\n"
+                            "1. Call `prep_impact` on the file to understand its dependencies and dependents.\n"
+                            "2. Call `prep_search` to find related code and patterns.\n"
                             "3. Check for bugs, style issues, missing error handling, and structural problems.\n"
                             "4. Consider how changes here would affect connected files.\n"
                             "5. Provide concrete improvement suggestions with file references."
@@ -881,7 +881,7 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
             ],
         }
 
-    elif name == "codrag-plan":
+    elif name == "prep-plan":
         change = arguments.get("change", "the proposed change")
         return {
             "description": "Change planning with impact analysis",
@@ -892,9 +892,9 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
                         "type": "text",
                         "text": (
                             f"Plan this change: {change}\n\n"
-                            "1. Call `codrag` for structural overview of the codebase.\n"
-                            "2. Call `codrag_impact` on files that will be modified to understand the blast radius.\n"
-                            "3. Call `codrag_search` to find related code that may need updates.\n"
+                            "1. Call `prep` for structural overview of the codebase.\n"
+                            "2. Call `prep_impact` on files that will be modified to understand the blast radius.\n"
+                            "3. Call `prep_search` to find related code that may need updates.\n"
                             "4. Create a step-by-step implementation plan that accounts for all dependencies.\n"
                             "5. List all files that need changes, in the order they should be modified."
                         ),
@@ -903,7 +903,7 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
             ],
         }
 
-    elif name == "codrag-investigate":
+    elif name == "prep-investigate":
         query = arguments.get("query", "this topic")
         return {
             "description": "Deep investigation with structural context",
@@ -914,9 +914,9 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
                         "type": "text",
                         "text": (
                             f"Help me understand: {query}\n\n"
-                            "1. Call `codrag_search` to find relevant code and documentation.\n"
-                            "2. Call `codrag` for module structure around the relevant area.\n"
-                            "3. Call `codrag_impact` on key files to trace the dependency graph.\n"
+                            "1. Call `prep_search` to find relevant code and documentation.\n"
+                            "2. Call `prep` for module structure around the relevant area.\n"
+                            "3. Call `prep_impact` on key files to trace the dependency graph.\n"
                             "4. Explain how the pieces connect — data flow, call chains, design patterns.\n"
                             "5. Summarize with a clear mental model I can use going forward."
                         ),
@@ -925,7 +925,7 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
             ],
         }
 
-    elif name == "codrag-health":
+    elif name == "prep-health":
         focus = arguments.get("focus", "")
         focus_text = f" Focus on: {focus}." if focus else ""
         return {
@@ -936,9 +936,9 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
                     "content": {
                         "type": "text",
                         "text": (
-                            f"Check the health of this codebase using CoDRAG.{focus_text}\n\n"
-                            "1. Call `codrag_audit` to get current findings.\n"
-                            "2. Call `codrag` for structural context — hub files and module dependencies.\n"
+                            f"Check the health of this codebase using Prep.{focus_text}\n\n"
+                            "1. Call `prep_audit` to get current findings.\n"
+                            "2. Call `prep` for structural context — hub files and module dependencies.\n"
                             "3. Prioritize findings by impact: what's most likely to cause problems?\n"
                             "4. For the top 3 findings, suggest concrete fixes with file references.\n"
                             "5. Summarize the overall health: what's good, what needs work."
@@ -949,9 +949,9 @@ async def handle_prompts_get(self, params: Dict[str, Any]) -> Dict[str, Any]:
         }
 
     # Backward compat: old prompt names
-    elif name == "codrag-analyze":
+    elif name == "prep-analyze":
         # Redirect to onboard
-        return await self.handle_prompts_get({"name": "codrag-onboard", "arguments": arguments})
+        return await self.handle_prompts_get({"name": "prep-onboard", "arguments": arguments})
 
     else:
         raise MethodNotFoundError(f"Unknown prompt: {name}")
@@ -965,7 +965,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py tests/test_mcp_server.py
+git add src/prep/mcp/server.py tests/test_mcp_server.py
 git commit -m "feat(mcp): enhance prompts — onboard, review, plan, investigate, health workflows"
 ```
 
@@ -974,7 +974,7 @@ git commit -m "feat(mcp): enhance prompts — onboard, review, plan, investigate
 ## Task 7: Update Generated Rules Files
 
 **Files:**
-- Modify: `src/codrag/core/rules_generator.py:396-460`
+- Modify: `src/prep/core/rules_generator.py:396-460`
 - Test: `tests/test_rules_generator_hash.py`
 
 - [ ] **Step 1: Write test for resource/prompt mentions in managed content**
@@ -990,7 +990,7 @@ def test_managed_content_mentions_resources():
         stats=None,
         project_id="test-id",
     )
-    assert "resource" in content.lower() or "@codrag" in content
+    assert "resource" in content.lower() or "@prep" in content
 
 
 def test_managed_content_mentions_prompts():
@@ -1003,7 +1003,7 @@ def test_managed_content_mentions_prompts():
         stats=None,
         project_id="test-id",
     )
-    assert "codrag-onboard" in content or "prompt" in content.lower()
+    assert "prep-onboard" in content or "prompt" in content.lower()
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -1013,23 +1013,23 @@ Expected: FAIL
 
 - [ ] **Step 3: Add resource and prompt hints to managed content**
 
-In `src/codrag/core/rules_generator.py`, after the tool calling rules section (around line 460), add:
+In `src/prep/core/rules_generator.py`, after the tool calling rules section (around line 460), add:
 
 ```python
     # MCP Resources and Prompts
     parts.append("")
     parts.append("### MCP Resources (browse with @)")
     parts.append(
-        "CoDRAG also exposes browsable resources via MCP. In supported clients,\n"
+        "Prep also exposes browsable resources via MCP. In supported clients,\n"
         "type `@` to see: atlas, structure, modules, audit findings, concepts, focus areas.\n"
         "Resources provide on-demand context without a tool call."
     )
     parts.append("")
     parts.append("### MCP Prompts (invoke with /)")
     parts.append(
-        "Available workflow prompts: `codrag-onboard` (orientation), `codrag-review` (file review),\n"
-        "`codrag-plan` (change planning), `codrag-investigate` (deep dive), `codrag-health` (audit).\n"
-        "In Claude Code: `/mcp__codrag__codrag-onboard`. In other clients: check prompt menu."
+        "Available workflow prompts: `prep-onboard` (orientation), `prep-review` (file review),\n"
+        "`prep-plan` (change planning), `prep-investigate` (deep dive), `prep-health` (audit).\n"
+        "In Claude Code: `/mcp__prep__prep-onboard`. In other clients: check prompt menu."
     )
 ```
 
@@ -1041,7 +1041,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/rules_generator.py tests/test_rules_generator_hash.py
+git add src/prep/core/rules_generator.py tests/test_rules_generator_hash.py
 git commit -m "feat(agents): add resource and prompt documentation to generated rules files"
 ```
 
@@ -1064,12 +1064,12 @@ Expected: All tests PASS
 
 - [ ] **Step 3: Run ruff lint check**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && .venv/bin/ruff check src/codrag/mcp_tools.py src/codrag/mcp/server.py src/codrag/core/rules_generator.py`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && .venv/bin/ruff check src/prep/mcp_tools.py src/prep/mcp/server.py src/prep/core/rules_generator.py`
 Expected: No errors (or fix any that appear)
 
 - [ ] **Step 4: Run mypy type check on modified files**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && .venv/bin/mypy src/codrag/mcp_tools.py src/codrag/mcp/server.py src/codrag/core/rules_generator.py --ignore-missing-imports`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && .venv/bin/mypy src/prep/mcp_tools.py src/prep/mcp/server.py src/prep/core/rules_generator.py --ignore-missing-imports`
 Expected: No errors
 
 - [ ] **Step 5: Commit any lint/type fixes**
@@ -1096,4 +1096,4 @@ git commit -m "fix: resolve lint and type errors from MCP ecosystem changes"
 
 **Total: 8 tasks, ~78 minutes of implementation**
 
-All changes are additive. No breaking changes to existing tool callers. Backward compat alias for `codrag-analyze` → `codrag-onboard` is included.
+All changes are additive. No breaking changes to existing tool callers. Backward compat alias for `prep-analyze` → `prep-onboard` is included.

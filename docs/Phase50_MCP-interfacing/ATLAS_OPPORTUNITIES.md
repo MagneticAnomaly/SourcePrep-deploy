@@ -1,9 +1,9 @@
 # Atlas Opportunities: Research-Backed Design for LLM Codebase Understanding
 
-> What do LLMs actually need when they encounter an unfamiliar codebase? How can CoDRAG's atlas be the most effective possible structural primer -- and what new opportunities does the trend toward larger context windows unlock?
+> What do LLMs actually need when they encounter an unfamiliar codebase? How can Prep's atlas be the most effective possible structural primer -- and what new opportunities does the trend toward larger context windows unlock?
 
 **Created:** 2026-03-14
-**Based on:** SWE-QA (arXiv:2509.14635), DependEval (arXiv:2503.06689), "On the Impacts of Contexts on Repository-Level Code Generation" (ACL 2025), CoDRAG Phase 34/50 architecture
+**Based on:** SWE-QA (arXiv:2509.14635), DependEval (arXiv:2503.06689), "On the Impacts of Contexts on Repository-Level Code Generation" (ACL 2025), Prep Phase 34/50 architecture
 
 ---
 
@@ -11,7 +11,7 @@
 
 ### SWE-QA Developer Question Taxonomy (127,415 real questions, 11 repos)
 
-| Question Type | % | What LLM Needs | CoDRAG Data Source |
+| Question Type | % | What LLM Needs | Prep Data Source |
 |--------------|---|----------------|-------------------|
 | **How** (implementation, data flow, algorithms) | 35.2% | Flow paths, entry points, call chains | trace_edges.jsonl, inferred_edges, module summaries |
 | **Where** (feature location, identifiers, data flows) | 28.4% | File-to-feature mapping, symbol locations | trace_nodes.jsonl, hub files, module-file assignments |
@@ -148,24 +148,24 @@ The enriched atlas is generated at Stage 9 using all data from Stages 1-8 + an L
 - Gemini 2.5: 1M tokens
 - Many models trending toward 500K-1M token windows by late 2026
 
-### What This Means for CoDRAG
+### What This Means for Prep
 
 Our current design is optimized for token scarcity (~300-600 token atlas, ~12K context response). With 200K+ windows, the constraint shifts from "fit in the window" to "don't overwhelm with noise." The opportunities:
 
 ### OPP-W1: Tiered Atlas (Compact + Extended)
 **What:** Generate two versions of the atlas:
 - **Compact** (~300 tokens): Current size. Used in rules files (always-on, every prompt).
-- **Extended** (~2,000-4,000 tokens): Richer version returned by the `codrag` tool call. Includes all the new sections (API surface, data models, module relationships, flow details).
+- **Extended** (~2,000-4,000 tokens): Richer version returned by the `prep` tool call. Includes all the new sections (API surface, data models, module relationships, flow details).
 
-**Why:** The rules file atlas is always in context (every single prompt), so it must stay compact. But when the AI explicitly calls `codrag`, it's asking for structural context -- we can be much more generous. With 200K windows, a 4K token atlas is 2% of the budget.
+**Why:** The rules file atlas is always in context (every single prompt), so it must stay compact. But when the AI explicitly calls `prep`, it's asking for structural context -- we can be much more generous. With 200K windows, a 4K token atlas is 2% of the budget.
 
 ### OPP-W2: Per-Subsystem Deep Dives
-**What:** When the AI calls `codrag_search` for files in a specific subsystem, include the segment atlas for that subsystem in the response. This is already supported by the segmented atlas (ROOT_ATLAS + SEGMENT_ATLAS in prompts.py) but not yet wired to the MCP tool responses.
+**What:** When the AI calls `prep_search` for files in a specific subsystem, include the segment atlas for that subsystem in the response. This is already supported by the segmented atlas (ROOT_ATLAS + SEGMENT_ATLAS in prompts.py) but not yet wired to the MCP tool responses.
 **Why:** With large windows, we can afford to send the full segment atlas (~500-1,000 tokens per segment) alongside search results. The AI gets both the answer and the architectural context for that area.
 
 ### OPP-W3: File Summary Injection
 **Data source:** trace_augmented.jsonl (Stage 3 -- LLM-generated 1-2 sentence summaries per file)
-**What:** When returning hub files in the `codrag` response, include each file's augmented summary alongside its LOD-compressed content. Currently hub files show compressed code; with larger windows we can prepend "This file handles X, imports Y, exports Z" from the augmentation data.
+**What:** When returning hub files in the `prep` response, include each file's augmented summary alongside its LOD-compressed content. Currently hub files show compressed code; with larger windows we can prepend "This file handles X, imports Y, exports Z" from the augmentation data.
 **Why:** This directly addresses the 28.4% "Where" question type. Instead of the AI having to read compressed code to understand what a file does, it gets a pre-computed summary.
 
 ### OPP-W4: Call Chain Visualization
@@ -180,7 +180,7 @@ Our current design is optimized for token scarcity (~300-600 token atlas, ~12K c
 - Cline with local LLM (8K-32K): Compact atlas only, aggressive LOD compression
 - Gemini CLI (1M): Send everything -- full segment atlases, all file summaries
 
-**Why:** One size doesn't fit all. A local Ollama model with 8K context needs a very different atlas than Gemini with 1M tokens. CoDRAG already captures clientInfo -- we can use it to tier the response.
+**Why:** One size doesn't fit all. A local Ollama model with 8K context needs a very different atlas than Gemini with 1M tokens. Prep already captures clientInfo -- we can use it to tier the response.
 
 ---
 
@@ -226,11 +226,11 @@ The research converges on a single insight: **an LLM encountering an unfamiliar 
 5. **What are the important files?** (HUB FILES) -- 5 minutes
 6. **Where do I find specific things?** (API surface, data models) -- ongoing
 
-The atlas should deliver layers 1-4 in the compact version (~300 tokens, always-on in rules file), and layers 1-6 in the extended version (~2,000-4,000 tokens, returned by `codrag` tool call).
+The atlas should deliver layers 1-4 in the compact version (~300 tokens, always-on in rules file), and layers 1-6 in the extended version (~2,000-4,000 tokens, returned by `prep` tool call).
 
 This layered approach means:
 - **Every prompt** gets the mental model (layers 1-4 via rules file)
-- **First tool call** gets the full picture (layers 1-6 via `codrag` response)
-- **Subsequent queries** get targeted context (per-subsystem deep dives via `codrag_search`)
+- **First tool call** gets the full picture (layers 1-6 via `prep` response)
+- **Subsequent queries** get targeted context (per-subsystem deep dives via `prep_search`)
 
-The larger context window trend makes layers 5-6 viable on every tool call, not just occasionally. When Gemini 2.5 with 1M tokens is the norm, we can send the entire extended atlas + all segment atlases + file summaries in a single `codrag` response and still use less than 1% of the context window.
+The larger context window trend makes layers 5-6 viable on every tool call, not just occasionally. When Gemini 2.5 with 1M tokens is the norm, we can send the entire extended atlas + all segment atlases + file summaries in a single `prep` response and still use less than 1% of the context window.

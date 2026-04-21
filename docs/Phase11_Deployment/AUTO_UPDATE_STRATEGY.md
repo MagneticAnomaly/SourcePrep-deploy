@@ -12,7 +12,7 @@
 
 ```
 ┌─────────────────────────────────┐
-│  CoDRAG Desktop App (running)   │
+│  Prep Desktop App (running)   │
 │                                 │
 │  1. Poll update endpoint        │──────► Update Server
 │  2. Compare versions (semver)   │◄────── (200 + JSON or 204 No Content)
@@ -29,11 +29,11 @@ The updater replaces the **entire app bundle**:
 
 | Platform | Update artifact | Contents |
 |----------|----------------|----------|
-| macOS | `CoDRAG.app.tar.gz` | Tauri shell + frontend assets + sidecar binary |
-| Windows | `CoDRAG-setup.exe` (NSIS) | Installer re-runs silently, replaces everything |
-| Linux | `CoDRAG.AppImage` | Single file replacement |
+| macOS | `Prep.app.tar.gz` | Tauri shell + frontend assets + sidecar binary |
+| Windows | `Prep-setup.exe` (NSIS) | Installer re-runs silently, replaces everything |
+| Linux | `Prep.AppImage` | Single file replacement |
 
-**Critical insight:** The Python sidecar (`codrag-daemon-<target-triple>`) lives inside the app bundle at `CoDRAG.app/Contents/Resources/binaries/`. When the updater replaces the `.app`, the sidecar is replaced too. **No separate sidecar update mechanism is needed.**
+**Critical insight:** The Python sidecar (`prep-daemon-<target-triple>`) lives inside the app bundle at `Prep.app/Contents/Resources/binaries/`. When the updater replaces the `.app`, the sidecar is replaced too. **No separate sidecar update mechanism is needed.**
 
 ### Signature Security
 
@@ -41,7 +41,7 @@ Tauri **mandates** Ed25519 signing for all updates. This cannot be disabled.
 
 - **Private key** → Signs build artifacts during CI. Must be kept secret (GitHub Secrets / vault).
 - **Public key** → Embedded in `tauri.conf.json`. App uses it to verify downloads before installing.
-- Generate keypair: `npx tauri signer generate -w ~/.tauri/codrag.key`
+- Generate keypair: `npx tauri signer generate -w ~/.tauri/prep.key`
 
 If the private key is lost, existing installs can never be updated via the updater — they'd need a fresh download. **Back up the private key securely.**
 
@@ -74,12 +74,12 @@ We are on **Tauri v1** (`tauri = "1"` in Cargo.toml). Tauri v1 has a built-in up
 
 ```
 GitHub Release "app-v0.2.0"
-├── CoDRAG_0.2.0_aarch64.app.tar.gz        (macOS ARM update bundle)
-├── CoDRAG_0.2.0_aarch64.app.tar.gz.sig    (signature)
-├── CoDRAG_0.2.0_x64-setup.nsis.zip        (Windows update bundle)
-├── CoDRAG_0.2.0_x64-setup.nsis.zip.sig    (signature)
-├── CoDRAG_0.2.0_amd64.AppImage.tar.gz     (Linux update bundle)
-├── CoDRAG_0.2.0_amd64.AppImage.tar.gz.sig (signature)
+├── Prep_0.2.0_aarch64.app.tar.gz        (macOS ARM update bundle)
+├── Prep_0.2.0_aarch64.app.tar.gz.sig    (signature)
+├── Prep_0.2.0_x64-setup.nsis.zip        (Windows update bundle)
+├── Prep_0.2.0_x64-setup.nsis.zip.sig    (signature)
+├── Prep_0.2.0_amd64.AppImage.tar.gz     (Linux update bundle)
+├── Prep_0.2.0_amd64.AppImage.tar.gz.sig (signature)
 └── latest.json                             (version manifest)
 ```
 
@@ -92,15 +92,15 @@ GitHub Release "app-v0.2.0"
   "platforms": {
     "darwin-aarch64": {
       "signature": "<base64 sig>",
-      "url": "https://github.com/MagneticAnomaly/CoDRAG-MCP/releases/download/app-v0.2.0/CoDRAG_0.2.0_aarch64.app.tar.gz"
+      "url": "https://github.com/MagneticAnomaly/Prep-MCP/releases/download/app-v0.2.0/Prep_0.2.0_aarch64.app.tar.gz"
     },
     "windows-x86_64": {
       "signature": "<base64 sig>",
-      "url": "https://github.com/MagneticAnomaly/CoDRAG-MCP/releases/download/app-v0.2.0/CoDRAG_0.2.0_x64-setup.nsis.zip"
+      "url": "https://github.com/MagneticAnomaly/Prep-MCP/releases/download/app-v0.2.0/Prep_0.2.0_x64-setup.nsis.zip"
     },
     "linux-x86_64": {
       "signature": "<base64 sig>",
-      "url": "https://github.com/MagneticAnomaly/CoDRAG-MCP/releases/download/app-v0.2.0/CoDRAG_0.2.0_amd64.AppImage.tar.gz"
+      "url": "https://github.com/MagneticAnomaly/Prep-MCP/releases/download/app-v0.2.0/Prep_0.2.0_amd64.AppImage.tar.gz"
     }
   }
 }
@@ -120,11 +120,11 @@ A simple API endpoint that returns the same JSON format but can:
 - Implement gradual rollouts (canary %)
 - Collect anonymous update telemetry (opt-in)
 
-Could be a Cloudflare Worker, Vercel Edge Function, or a route on `api.codrag.io`.
+Could be a Cloudflare Worker, Vercel Edge Function, or a route on `api.runprep.io`.
 
 **Endpoint contract:**
 ```
-GET https://releases.codrag.io/{{target}}/{{arch}}/{{current_version}}
+GET https://releases.runprep.io/{{target}}/{{arch}}/{{current_version}}
   → 200 + JSON (update available)
   → 204 (no update)
 ```
@@ -138,7 +138,7 @@ Managed update server with dashboard. Potentially useful for enterprise distribu
 | Phase | Server | Trigger |
 |-------|--------|---------|
 | MVP | GitHub Releases static JSON | Good enough for early adopters |
-| Post-launch | Dynamic server on `releases.codrag.io` | When we need channels or license-gated updates |
+| Post-launch | Dynamic server on `releases.runprep.io` | When we need channels or license-gated updates |
 | Enterprise | Self-hosted / CrabNebula | When enterprise customers need air-gapped update mirrors |
 
 ---
@@ -160,7 +160,7 @@ App running normally
    ┌─────────────────────────────────────────────────┐
    │  Subtle banner (top of window, dismissible):    │
    │                                                 │
-   │  🔄 CoDRAG v0.2.0 is available.                │
+   │  🔄 Prep v0.2.0 is available.                │
    │     [View Changes]  [Update & Restart]  [Later] │
    │                                                 │
    └─────────────────────────────────────────────────┘
@@ -198,7 +198,7 @@ App running normally
 ### Enterprise override
 
 Enterprise deployments may disable auto-update checks entirely:
-- Config flag: `updates.enabled: false` (or `CODRAG_DISABLE_UPDATES=1` env var)
+- Config flag: `updates.enabled: false` (or `PREP_DISABLE_UPDATES=1` env var)
 - IT manages updates via MDM / internal distribution
 - The "check for updates" menu item is hidden when disabled
 
@@ -209,16 +209,16 @@ Enterprise deployments may disable auto-update checks entirely:
 ### Why it "just works"
 
 The sidecar binary is at a fixed relative path inside the app bundle:
-- macOS: `CoDRAG.app/Contents/Resources/binaries/codrag-daemon-aarch64-apple-darwin`
-- Windows: `CoDRAG/binaries/codrag-daemon-x86_64-pc-windows-msvc.exe`
-- Linux: `CoDRAG/binaries/codrag-daemon-x86_64-unknown-linux-gnu`
+- macOS: `Prep.app/Contents/Resources/binaries/prep-daemon-aarch64-apple-darwin`
+- Windows: `Prep/binaries/prep-daemon-x86_64-pc-windows-msvc.exe`
+- Linux: `Prep/binaries/prep-daemon-x86_64-unknown-linux-gnu`
 
 When the updater replaces the app bundle, the sidecar binary inside it is replaced too.
 
 ### Data persistence across updates
 
 The updater replaces the **application binary**, not user data. These survive updates:
-- `codrag_data/` directory (registry, settings, indexes) — stored in OS data dir, not inside the app bundle
+- `prep_data/` directory (registry, settings, indexes) — stored in OS data dir, not inside the app bundle
 - Project configurations
 - License keys
 - User preferences
@@ -277,7 +277,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: 'src/codrag/dashboard/src-tauri -> target'
+          workspaces: 'src/prep/dashboard/src-tauri -> target'
 
       # Build Python sidecar
       - name: Setup Python
@@ -288,7 +288,7 @@ jobs:
       - name: Build sidecar
         run: bash scripts/build_sidecar.sh
         env:
-          PYINSTALLER_DIST: src/codrag/dashboard/src-tauri/binaries
+          PYINSTALLER_DIST: src/prep/dashboard/src-tauri/binaries
 
       # Install frontend deps
       - name: Install dependencies
@@ -309,11 +309,11 @@ jobs:
           # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: app-v__VERSION__
-          releaseName: 'CoDRAG v__VERSION__'
+          releaseName: 'Prep v__VERSION__'
           releaseBody: 'See the assets to download and install.'
           releaseDraft: true
           prerelease: false
-          projectPath: src/codrag/dashboard
+          projectPath: src/prep/dashboard
           args: ${{ matrix.args }}
 ```
 
@@ -323,7 +323,7 @@ jobs:
 2. `git tag app-v0.2.0 && git push --tags`
 3. CI builds all platforms, signs artifacts, creates draft GitHub Release with `latest.json`
 4. Review draft release, edit release notes, publish
-5. All running CoDRAG instances pick up the update on next check cycle
+5. All running Prep instances pick up the update on next check cycle
 
 ---
 
@@ -358,7 +358,7 @@ jobs:
 
 | ID | Task |
 |----|------|
-| AU-14 | Dynamic update server on `releases.codrag.io` |
+| AU-14 | Dynamic update server on `releases.runprep.io` |
 | AU-15 | Release channels (stable / beta) with user opt-in |
 | AU-16 | License-gated early access (Pro users get beta channel) |
 | AU-17 | Enterprise: disable update checks via config / env var |
@@ -376,9 +376,9 @@ jobs:
     "updater": {
       "active": true,
       "dialog": false,
-      "pubkey": "<CONTENTS OF codrag.key.pub>",
+      "pubkey": "<CONTENTS OF prep.key.pub>",
       "endpoints": [
-        "https://github.com/MagneticAnomaly/CoDRAG-MCP/releases/latest/download/latest.json"
+        "https://github.com/MagneticAnomaly/Prep-MCP/releases/latest/download/latest.json"
       ]
     }
   }
@@ -418,9 +418,9 @@ TAURI_SIGNING_PRIVATE_KEY_PASSWORD="<optional password>"
 - **Q1:** Should we use the Tauri v1 built-in updater dialog (quick win) or go straight to custom UI (better UX but more work)?
   - **Recommendation:** Custom UI from the start. The built-in dialog is bare-bones and doesn't show download progress.
 
-- **Q2:** Should the update endpoint point to the main CoDRAG repo or a separate releases repo?
-  - If CoDRAG repo is private, we need a public releases repo for the `latest.json` to be accessible.
-  - If CoDRAG repo is public, use it directly.
+- **Q2:** Should the update endpoint point to the main Prep repo or a separate releases repo?
+  - If Prep repo is private, we need a public releases repo for the `latest.json` to be accessible.
+  - If Prep repo is public, use it directly.
 
 - **Q3:** When should we invest in Apple notarization and Windows code signing?
   - **Recommendation:** Before any public release. Unsigned apps are a dealbreaker for adoption.

@@ -3,7 +3,7 @@
 ## Executive Summary
 We have shifted our integration strategy from building custom plugins to a **Context MVC (Model-View-Controller)** architecture.
 
-- **Model**: CoDRAG (The "Context Model"). Provides the structural graph and search via **MCP**.
+- **Model**: Prep (The "Context Model"). Provides the structural graph and search via **MCP**.
 - **View**: External Tools (The "Client"). Handles the UI and LLM interaction.
 
 **Strategic Decision**: We only officially support and verify tools that implement the **Model Context Protocol (MCP)** as a client. We do not build custom adapters for tools that lack MCP support.
@@ -20,13 +20,13 @@ We have shifted our integration strategy from building custom plugins to a **Con
 ## Implementation Roadmap
 
 ### Phase 1: Verification (Immediate)
-1.  **Gemini CLI Desktop**: Test CoDRAG as an MCP server configuration in `settings.json`.
+1.  **Gemini CLI Desktop**: Test Prep as an MCP server configuration in `settings.json`.
 2.  **Qwen Code**: Verify `mcpServers` configuration in Qwen Code's config (based on Qwen-Agent framework).
 
 ### Phase 2: Documentation (Marketing)
 1.  Create **"Verified Views"** section on the marketing website.
 2.  Publish setup guides for Gemini CLI Desktop and Qwen Code.
-3.  Position CoDRAG as the "Universal Context Backend" for local AI tools.
+3.  Position Prep as the "Universal Context Backend" for local AI tools.
 
 ## Research Findings
 

@@ -1,7 +1,7 @@
 # Swarm UI & Configuration Plan
 
 ## 1. The Problem: The "Thinking" Slot Overload
-Currently, CoDRAG's `Large` (Thinking) slot serves a dual purpose in the Deep Enrichment pipeline:
+Currently, Prep's `Large` (Thinking) slot serves a dual purpose in the Deep Enrichment pipeline:
 1.  **Individual File Reasoning (Worker):** Executing the epistemic analysis on single files and their direct structural neighbors.
 2.  **Swarm Orchestration (Coordinator & Synthesis):** Reading summaries of hundreds of files, deciding how to partition them, and then synthesizing the final outputs into cohesive Domain Modules.
 
@@ -15,9 +15,9 @@ However, right now, users cannot assign Gemini 3 Flash strictly as the Coordinat
 ## 2. Proposed Solution: Decoupled Swarm Slots
 We need to separate the single `Large` configuration into distinct Swarm roles, allowing users to leverage hybrid multi-model strategies. 
 
-### API / Config Changes (`codrag/types.ts` & `codrag/config_manager.py`)
+### API / Config Changes (`prep/types.ts` & `prep/config_manager.py`)
 Add a new dedicated configuration block for Swarm Coordination.
-If a user leaves the Coordinator unassigned, CoDRAG will gracefully fall back to using the `Large` (Thinking) model for both, preserving backward compatibility.
+If a user leaves the Coordinator unassigned, Prep will gracefully fall back to using the `Large` (Thinking) model for both, preserving backward compatibility.
 
 ```json
 "llm": {
@@ -28,7 +28,7 @@ If a user leaves the Coordinator unassigned, CoDRAG will gracefully fall back to
 }
 ```
 
-### Python Backend Changes (`src/codrag/core/swarm_orchestrator.py`)
+### Python Backend Changes (`src/prep/core/swarm_orchestrator.py`)
 The `SwarmOrchestrator` constructor currently accepts a single `llm: LLMClient`. It needs to be updated to accept:
 - `coordinator_llm: LLMClient` (Handles Phase 1: Planning and Phase 3: Synthesis)
 - `worker_llm: LLMClient` (Handles Phase 2: Fan-out execution)
@@ -70,28 +70,28 @@ We should introduce a new card in the AI Models Settings specifically for Swarm 
 ## 4. Benefits of this Architecture
 1. **Cost Efficiency:** Users can run cheap local reasoning models (like `qwen3:8b`) for the 500+ worker tasks, while leveraging a cheap, fast API like Gemini 3 Flash for the 2 massive synthesis tasks.
 2. **Eliminates Stalls:** By routing the JSON-heavy orchestration to Gemini and the reasoning-heavy file analysis to Kimi, we bypass the F-29 thinking bug without sacrificing deep analysis quality.
-3. **Extensibility:** Positions CoDRAG perfectly for future massive-context routing tasks as open-weight models begin to catch up to the 1M+ context tiers.
+3. **Extensibility:** Positions Prep perfectly for future massive-context routing tasks as open-weight models begin to catch up to the 1M+ context tiers.
 
 ## 5. Uncapped Cloud Optimization (The "Deep Pockets" Strategy)
 With the understanding that Ollama Cloud limits are based on dynamic GPU time rather than a hard server-side 16K token cap, and assuming the user has "deep pockets" (or the Max plan), we can vastly optimize our recommended stack:
 `kimi-k2.5:cloud` (Worker) + `gemini-3-flash-preview:cloud` (Coordinator) + `qwen3-coder-next:cloud` (Code)
 
-Instead of ripping out CoDRAG's built-in safety limits, we will preserve them but move them to a new **Advanced Settings** panel, defaulting to OFF (uncapped) for power users.
+Instead of ripping out Prep's built-in safety limits, we will preserve them but move them to a new **Advanced Settings** panel, defaulting to OFF (uncapped) for power users.
 
 ### 5.1. Make the `CLOUD_SMALL` (16K) Bottleneck Configurable
-**File:** `src/codrag/core/batch_profiles.py`
+**File:** `src/prep/core/batch_profiles.py`
 Currently, any model containing `:cloud` is forced into the `CLOUD_SMALL` profile (maximum 16K output, batch sizes 5-8). 
 - *Action:* We will add a toggle in Advanced Settings: "Enforce Cloud Token Safety Limits" (default: disabled).
 - *Impact:* When disabled, `gemini-3-flash-preview:cloud` promotes to the `LARGE` profile (64K output, batch size 100). `qwen3-coder-next:cloud` and `kimi-k2.5:cloud` promote to `STANDARD` (32K output, batch size 50).
 
 ### 5.2. Make Kimi's Thinking Budget Configurable
-**File:** `src/codrag/core/llm_client.py`
-Currently, when `think=True` is enabled, CoDRAG artificially caps `num_predict` at 24,576 to prevent runaway billing.
+**File:** `src/prep/core/llm_client.py`
+Currently, when `think=True` is enabled, Prep artificially caps `num_predict` at 24,576 to prevent runaway billing.
 - *Action:* Add this cap to the Advanced Settings panel alongside the existing "Budget Per Session" controls.
 - *Impact:* For `kimi-k2.5:cloud`, users can uncap this entirely. We *want* Kimi to think extensively about complex domain logic before synthesizing. If budget is not a concern, we should let the model utilize its full context for deep chain-of-thought.
 
 ### 5.3. Maximize Swarm Concurrency (Dynamic Throttling)
-**File:** `src/codrag/core/swarm_orchestrator.py` & `src/codrag/core/cluster.py`
+**File:** `src/prep/core/swarm_orchestrator.py` & `src/prep/core/cluster.py`
 Previously, Bug F-59 was thought to completely hang concurrent `requests.post()` calls. However, Swarm *does* run concurrently, dynamically clamping to 3, 5, or 10 concurrent threads (which perfectly mirrors the Ollama Cloud plan tiers: Free=1, Pro=3, Max=10).
 - *Action:* Expose Swarm Concurrency logic in Advanced Settings. Allow users to manually specify their Ollama Cloud plan tier (Free/Pro/Max) or enter a custom concurrency limit, ensuring the internal `ThreadPoolExecutor` correctly maximizes parallel execution without overwhelming their specific plan's queue.
 - *Impact:* This guarantees that a user on the Max plan can consistently push 10 concurrent Swarm Workers, maximizing throughput for Kimi's deep reasoning passes.
@@ -143,11 +143,11 @@ With the research complete, we are ready to move to implementation. The Minimum 
 
 ### Step 1: Core Optimizer Logic
 Create the dynamic sizing logic that determines `concurrency` and `batch_size` based on model intent (Worker vs Coordinator) and tier limits.
-- **Target:** `src/codrag/core/batch_profiles.py` (or a new `swarm_optimizer.py`).
+- **Target:** `src/prep/core/batch_profiles.py` (or a new `swarm_optimizer.py`).
 
 ### Step 2: Decoupled Swarm Initialization
 Update the Swarm Orchestrator to accept and utilize two distinct LLMs.
-- **Target:** `src/codrag/core/swarm_orchestrator.py` & `src/codrag/core/cluster.py`.
+- **Target:** `src/prep/core/swarm_orchestrator.py` & `src/prep/core/cluster.py`.
 - **Change:** Inject `coordinator_llm` (Gemini) and `worker_llm` (Kimi) and apply the optimizer's dynamic sizing to each phase.
 
 ### Step 3: UI & Advanced Settings Configuration
@@ -156,7 +156,7 @@ Expose the dual slots and the tier/budget controls to the user.
 - **Change:** Add the Swarm Coordinator slot and the "Advanced Settings" overrides (Ollama Tier selector, Max Thinking Budget, Safety Limits toggle) so Enterprise users can immediately leverage them.
 
 ## 9. Recommended Target Optimization Stacks
-With Swarm roles decoupled, we can define specific target optimizations. The architectural reality of CoDRAG is that **Worker tasks scale with codebase size `O(N)`** (high volume, small context, needs deep reasoning), while **Coordinator tasks are fixed `O(1)`** (low volume, massive context, needs perfect JSON and synthesis).
+With Swarm roles decoupled, we can define specific target optimizations. The architectural reality of Prep is that **Worker tasks scale with codebase size `O(N)`** (high volume, small context, needs deep reasoning), while **Coordinator tasks are fixed `O(1)`** (low volume, massive context, needs perfect JSON and synthesis).
 
 This cost/volume profile dictates our recommended stacks:
 

@@ -12,7 +12,7 @@ Current trace augmentation treats each file as an **isolated classification task
 
 **Epistemological augmentation** is the idea that the trace should build a **self-model** — a layered, cross-referenced understanding of what the codebase *is*, what it *intends*, what's *active* vs *shelved*, and how concepts link across code and documentation. This cannot happen in a single pass. It requires **iterative reasoning passes** where each pass deepens understanding by leveraging what previous passes discovered.
 
-The key insight: **if the reasoning passes use CoDRAG itself as context, they are never truly "done" — every augmented node becomes context for every other node.** The trace becomes a living knowledge base that refines itself.
+The key insight: **if the reasoning passes use Prep itself as context, they are never truly "done" — every augmented node becomes context for every other node.** The trace becomes a living knowledge base that refines itself.
 
 ---
 
@@ -314,7 +314,7 @@ On trace rebuild:           score *= 0.80  (structural change, re-validate)
 │       PASS 4+: CONTINUOUS DEEPENING (14b loop)       │
 │  Re-examine nodes where neighbors changed            │
 │  Convergence: stop when all scores >= 0.95           │
-│  Uses CoDRAG context endpoint for self-reference     │
+│  Uses Prep context endpoint for self-reference     │
 │  ◄──── loops back to re-enrich as needed ────►       │
 └─────────────────────────────────────────────────────┘
 ```
@@ -327,11 +327,11 @@ Each pass is more expensive than the last:
 - **Pass 3**: ~20 tokens/cluster (14b, heavy) — run nightly or on demand
 - **Pass 4+**: proportional to change — run continuously in background
 
-The system should respect the user's configured LLM budget (`codrag_data/ui_config.json`). If no 14b model is configured, Passes 2+ simply don't run — Pass 1 alone is still valuable.
+The system should respect the user's configured LLM budget (`prep_data/ui_config.json`). If no 14b model is configured, Passes 2+ simply don't run — Pass 1 alone is still valuable.
 
 ### Self-Referential Context (The Recursive Insight)
 
-In Pass 4+, when the 14b enriches a node, it can query **CoDRAG's own context endpoint** to gather relevant context. This means:
+In Pass 4+, when the 14b enriches a node, it can query **Prep's own context endpoint** to gather relevant context. This means:
 - The enrichment prompt includes `GET /context?query="ad framework architecture"` results
 - Which returns chunks from already-enriched nodes
 - Which means the trace is literally using its own understanding to deepen its understanding
@@ -363,7 +363,7 @@ This creates a positive feedback loop: better enrichment → better context → 
 ### Phase 22D: Pass 4+ — Continuous Loop
 - Epistemic score decay on neighbor changes
 - Background enrichment scheduler
-- CoDRAG self-referential context integration
+- Prep self-referential context integration
 - Convergence detection and reporting
 
 ### Phase 22E: Documentation Mining

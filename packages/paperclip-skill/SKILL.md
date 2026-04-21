@@ -1,39 +1,39 @@
 ---
-name: codrag
+name: prep
 description: >
-  Structural codebase intelligence via CoDRAG MCP tools. Use at the START of
+  Structural codebase intelligence via Prep MCP tools. Use at the START of
   every task to get module structure, hub files, and curated knowledge. Use
-  codrag_search for semantic code lookups with structural trace expansion. Use
-  codrag_impact before making changes to understand what breaks. Use codrag_audit
-  for codebase health and tech debt. Use codrag_observe for cross-session memory.
+  prep_search for semantic code lookups with structural trace expansion. Use
+  prep_impact before making changes to understand what breaks. Use prep_audit
+  for codebase health and tech debt. Use prep_observe for cross-session memory.
   All tools are read-only and safe to auto-approve.
 ---
 
-# CoDRAG — Structural Codebase Intelligence
+# Prep — Structural Codebase Intelligence
 
-CoDRAG maps how your codebase is connected: modules, dependencies, hub files, and architectural patterns. It provides five MCP tools that give you deep structural context before you read or edit files.
+Prep maps how your codebase is connected: modules, dependencies, hub files, and architectural patterns. It provides five MCP tools that give you deep structural context before you read or edit files.
 
 ## Mandatory First Step
 
-**ALWAYS call `codrag` (no arguments) at the START of every task.**
+**ALWAYS call `prep` (no arguments) at the START of every task.**
 
 This returns the module structure, hub files, focus areas, and knowledge base content. You need this structural overview before doing anything else.
 
 ```
-codrag()  →  structural overview (modules, hubs, focus areas)
+prep()  →  structural overview (modules, hubs, focus areas)
 ```
 
-If `codrag` returns "setup in progress", the index hasn't been built yet. Work normally with `read_file` / `grep_search` until the user builds the index.
+If `prep` returns "setup in progress", the index hasn't been built yet. Work normally with `read_file` / `grep_search` until the user builds the index.
 
 ## The Five Tools
 
 | Tool | When to Use | Example |
 |------|-------------|---------|
-| `codrag` | Start of every task | `codrag()` |
-| `codrag_search` | Find code by meaning | `codrag_search(query="authentication middleware")` |
-| `codrag_impact` | Before changing a file | `codrag_impact(file_path="src/auth/login.py")` |
-| `codrag_audit` | Codebase health scan | `codrag_audit(action="scan")` |
-| `codrag_observe` | Cross-session memory | `codrag_observe(action="save", content="...")` |
+| `prep` | Start of every task | `prep()` |
+| `prep_search` | Find code by meaning | `prep_search(query="authentication middleware")` |
+| `prep_impact` | Before changing a file | `prep_impact(file_path="src/auth/login.py")` |
+| `prep_audit` | Codebase health scan | `prep_audit(action="scan")` |
+| `prep_observe` | Cross-session memory | `prep_observe(action="save", content="...")` |
 
 For detailed tool signatures, parameters, and examples, see [references/mcp-tools.md](references/mcp-tools.md).
 
@@ -41,40 +41,40 @@ For detailed tool signatures, parameters, and examples, see [references/mcp-tool
 
 1. **Never announce** "I will now call..." — just call the tool
 2. **No permission needed** — simple keywords = immediate invocation
-3. **Single word triggers** — "codrag" alone is enough to call the tool
-4. **Context is cheap** — prefer calling `codrag` over grep for structural understanding
-5. **Parallel calls** — you can call `codrag` and `codrag_search` in parallel on your first prompt
+3. **Single word triggers** — "prep" alone is enough to call the tool
+4. **Context is cheap** — prefer calling `prep` over grep for structural understanding
+5. **Parallel calls** — you can call `prep` and `prep_search` in parallel on your first prompt
 
 ## Workflow Integration
 
 ### Before Writing Code
-1. Call `codrag()` for structural overview
-2. Call `codrag_search(query="what you're looking for")` for relevant code
-3. Call `codrag_impact(file_path="file/you/will/change.py")` to understand dependencies
+1. Call `prep()` for structural overview
+2. Call `prep_search(query="what you're looking for")` for relevant code
+3. Call `prep_impact(file_path="file/you/will/change.py")` to understand dependencies
 
 ### During Long Tasks
-For tasks with 5+ tool calls, call `codrag()` again to refresh your structural context.
+For tasks with 5+ tool calls, call `prep()` again to refresh your structural context.
 
 ### When Debugging
-Call `codrag_search` with the error message or symptom to find related code across the dependency graph.
+Call `prep_search` with the error message or symptom to find related code across the dependency graph.
 
 ### For Code Reviews
-Call `codrag_impact` on changed files to verify all dependents are accounted for.
+Call `prep_impact` on changed files to verify all dependents are accounted for.
 
 ## Project Routing
 
-When working in a multi-project environment, CoDRAG auto-detects the project from your workspace. If auto-detection fails, pass `project_id` explicitly:
+When working in a multi-project environment, Prep auto-detects the project from your workspace. If auto-detection fails, pass `project_id` explicitly:
 
 ```
-codrag(project_id="<uuid>")
-codrag_search(query="...", project_id="<uuid>")
+prep(project_id="<uuid>")
+prep_search(query="...", project_id="<uuid>")
 ```
 
-The project ID is shown in the CoDRAG dashboard or in the project's `.prep/project.json` file.
+The project ID is shown in the Prep dashboard or in the project's `.prep/project.json` file.
 
-## What CoDRAG Knows
+## What Prep Knows
 
-CoDRAG's structural graph captures:
+Prep's structural graph captures:
 
 - **Imports** — which files import which
 - **Calls** — which functions call which
@@ -84,4 +84,4 @@ CoDRAG's structural graph captures:
 - **Knowledge base** — curated focus areas selected by the user
 - **Observations** — cross-session notes and decisions
 
-This is NOT just text search. CoDRAG understands structural relationships between files — use it instead of grep when you need to understand how files connect to each other.
+This is NOT just text search. Prep understands structural relationships between files — use it instead of grep when you need to understand how files connect to each other.

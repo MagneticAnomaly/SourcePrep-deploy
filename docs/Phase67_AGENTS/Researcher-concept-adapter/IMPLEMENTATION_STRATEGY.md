@@ -11,7 +11,7 @@ Before building anything, here's what the architecture audit (04_Architecture_Au
 
 | Infrastructure | Status | Location | Notes |
 |---|---|---|---|
-| PaperclipAdapter (REST client) | **EXISTS** | `adapters/paperclip_adapter.py` | Full CRUD: companies, goals, projects, issues. Dedup via CoDRAG address. |
+| PaperclipAdapter (REST client) | **EXISTS** | `adapters/paperclip_adapter.py` | Full CRUD: companies, goals, projects, issues. Dedup via Prep address. |
 | PushEngine (orchestration) | **EXISTS** | `adapters/push_engine.py` | ActionItem → Filter → Consolidate → Push pipeline. Dry-run, history. |
 | PM data models | **EXISTS** | `adapters/pm_models.py` | `PMProject`, `PMGoal`, `PMIssue`, `PMPushConfig`, `PushResult` |
 | Pi Agent (7 scenarios) | **EXISTS** | `services/pi_agent.py` | 1170 lines. Watchdog, Doctor, Geologist, Dispatcher, Librarian, Architect, Scholar. |
@@ -33,7 +33,7 @@ Before building anything, here's what the architecture audit (04_Architecture_Au
 | Dashboard ModularDashboard | **EXISTS** | `packages/ui/.../layout/ModularDashboard.tsx` | Panel registry, detail overlay, grid layout. |
 | StatusBadge component | **EXISTS** | `packages/ui/.../status/StatusBadge.tsx` | fresh/stale/building/pending/error/disabled states. |
 | Panel detail overlay pattern | **EXISTS** | `ModularDashboard` | Full-screen modal with ESC close, backdrop blur. |
-| `src/codrag/agents/` directory | **DOES NOT EXIST** | — | Must be created from scratch. |
+| `src/prep/agents/` directory | **DOES NOT EXIST** | — | Must be created from scratch. |
 | LangGraph dependency | **DOES NOT EXIST** | — | Not in pyproject.toml optional-deps. |
 | CrewAI dependency | **DOES NOT EXIST** | — | Not in pyproject.toml optional-deps. |
 
@@ -92,14 +92,14 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 0.1 | Create `agents/` package structure | `src/codrag/agents/__init__.py` | ☑ |
+| 0.1 | Create `agents/` package structure | `src/prep/agents/__init__.py` | ☑ |
 | 0.2 | Create `agents/shared/` subpackage | `agents/shared/__init__.py` | ☑ |
 | 0.3 | Implement `AgentCore` class | `agents/core.py` | ☑ |
-| | — CoDRAG read: `get_audit_findings()`, `get_module_structure()`, `get_impact_radius()`, `get_atlas()`, `search_code()`, `get_role_vector()`, `save_observation()` | | |
+| | — Prep read: `get_audit_findings()`, `get_module_structure()`, `get_impact_radius()`, `get_atlas()`, `search_code()`, `get_role_vector()`, `save_observation()` | | |
 | | — Paperclip write: `push_project()`, `push_goal()`, `push_issue()`, `create_agent()`, `update_agent()` | | |
 | 0.4 | Create shared data models | `agents/shared/models.py` | ☑ |
 | | — `RoleSpec`, `ResearchTopic`, `ResearchPlan`, `CleanupPlan`, `CleanupCandidate` | | |
-| 0.5 | Create CoDRAG data access wrapper | `agents/shared/codrag_data.py` | ☑ |
+| 0.5 | Create Prep data access wrapper | `agents/shared/prep_data.py` | ☑ |
 | | — Clean interface over OpportunityManager, atlas, trace store, impact analysis | | |
 | 0.6 | Create Paperclip client wrapper | `agents/shared/paperclip_client.py` | ☑ |
 | | — Thin wrapper around existing `adapters/push_engine.py` + `adapters/paperclip_adapter.py` | | |
@@ -114,9 +114,9 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Gap | Resolution | Status |
 |---|-----|-----------|--------|
-| 0.9 | `get_module_structure()` missing | Added to CoDRAGDataAccess + AgentCore. Reads `trace_modules.jsonl`. | ☑ |
-| 0.10 | `search_code(query, role)` missing | Added to CoDRAGDataAccess + AgentCore. Wraps CodeIndex.search() with role-based filtering. | ☑ |
-| 0.11 | `get_role_vector(role_slug)` missing | Added to CoDRAGDataAccess + AgentCore. Wraps `resolve_role()`. | ☑ |
+| 0.9 | `get_module_structure()` missing | Added to PrepDataAccess + AgentCore. Reads `trace_modules.jsonl`. | ☑ |
+| 0.10 | `search_code(query, role)` missing | Added to PrepDataAccess + AgentCore. Wraps CodeIndex.search() with role-based filtering. | ☑ |
+| 0.11 | `get_role_vector(role_slug)` missing | Added to PrepDataAccess + AgentCore. Wraps `resolve_role()`. | ☑ |
 | 0.12 | `get_atlas()` lacked role param | Updated to `get_atlas(role=None)`. Uses `project_atlas_for_role()` when role is set. | ☑ |
 | 0.13 | `AgentConcurrencyGate` not accessible | Added `acquire_gate()` / `release_gate()` to AgentCore. Wraps `get_agent_gate()`. | ☑ |
 | 0.14 | `LLMClient` not accessible | Added `get_llm_client(task_id)` factory to AgentCore. Reads pipeline_config from settings. | ☑ |
@@ -142,7 +142,7 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | 1.4 | Implement AGENTS.md generation | `agents/hr/engine.py` + prompts | ☑ |
 | 1.5 | Implement SOUL.md generation | `agents/hr/engine.py` + prompts | ☑ |
 | 1.6 | Implement KNOWLEDGE.md generation | `agents/hr/engine.py` + prompts | ☑ |
-| | — Template from Doc 06: CoDRAG tools, atlas snapshot, key files, domain focus | | |
+| | — Template from Doc 06: Prep tools, atlas snapshot, key files, domain focus | | |
 | 1.7 | Implement drift detection / audit | `agents/hr/engine.py` | ☑ |
 | | — Role fitness scoring, domain drift detection, realignment proposals | | |
 | 1.8 | Implement org chart generation | `agents/hr/engine.py` | ☑ |
@@ -154,7 +154,7 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | 1.11 | Edge case handling (Doc 05) | `agents/hr/engine.py` | ☑ |
 | | — Dedup, empty list, special chars, re-generation idempotency | | |
 
-**Exit criteria:** `codrag hr generate --mode auto` produces AGENTS.md + SOUL.md + KNOWLEDGE.md per role.
+**Exit criteria:** `prep hr generate --mode auto` produces AGENTS.md + SOUL.md + KNOWLEDGE.md per role.
 
 ---
 
@@ -170,7 +170,7 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | 2.2 | Implement topic selection | `agents/researcher/engine.py` | ☑ |
 | | — LLM picks top N findings from audit, ranked by impact | | |
 | 2.3 | Implement research synthesis | `agents/researcher/engine.py` | ☑ |
-| | — LLM researches solutions per topic, with CoDRAG code search | | |
+| | — LLM researches solutions per topic, with Prep code search | | |
 | 2.4 | Implement plan formulation | `agents/researcher/engine.py` | ☑ |
 | | — Structures research into ResearchPlan (root cause, fix steps, effort, risk) | | |
 | 2.5 | Implement push packaging | `agents/researcher/engine.py` | ☑ |
@@ -184,7 +184,7 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | 2.9 | Add observation categories | observation_store extension | ☐ |
 | | — `agent_staffing`, `agent_custodian`, `agent_system` (alongside existing `agent_scan`, `agent_triage`) | | |
 
-**Exit criteria:** `codrag research run` produces 3 structured research plans and can push them to Paperclip.
+**Exit criteria:** `prep research run` produces 3 structured research plans and can push them to Paperclip.
 
 **Architecture decision (from Audit Opportunity 1):** Pi Agent IS the native Researcher adapter long-term. For Phase 2, we wire Researcher as a new Pi scenario. Future migration: `PiAgent` becomes a backward-compatible shim over `ResearcherEngine`.
 
@@ -218,7 +218,7 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | 3.10 | Extend AgentConcurrencyGate | `services/agent_gate.py` | ☐ |
 | | — Add `agent_name` parameter to `can_run()` and `status()` | | |
 
-**Exit criteria:** `codrag custodian run --dry-run` identifies dead code candidates and produces an archive plan without modifying git.
+**Exit criteria:** `prep custodian run --dry-run` identifies dead code candidates and produces an archive plan without modifying git.
 
 ---
 
@@ -229,11 +229,11 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 4.1 | `codrag hr-*` commands | `cli.py` | ☑ |
+| 4.1 | `prep hr-*` commands | `cli.py` | ☑ |
 | | — `hr-readiness`, `hr-generate`, `hr-roster`, `hr-audit` | | |
-| 4.2 | `codrag research-*` commands | `cli.py` | ☑ |
+| 4.2 | `prep research-*` commands | `cli.py` | ☑ |
 | | — `research-run`, `research-history` | | |
-| 4.3 | `codrag custodian-*` commands | `cli.py` | ☑ |
+| 4.3 | `prep custodian-*` commands | `cli.py` | ☑ |
 | | — `custodian-run`, `custodian-manifest` | | |
 | 4.4 | `--adapter` flag support | `cli.py` | ☐ |
 | | — Deferred to Phase 6-7 (LangGraph/CrewAI adapters) | | |
@@ -281,7 +281,7 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | 6.5 | Custodian LangGraph adapter | `agents/custodian/adapters/langgraph_adapter.py` | ☑ |
 | | — StateGraph: Scan → Verify → Plan | | |
 
-**Exit criteria:** Adapters import cleanly, delegate to engines. E2E requires `pip install codrag[langgraph]`.
+**Exit criteria:** Adapters import cleanly, delegate to engines. E2E requires `pip install prep[langgraph]`.
 
 ---
 
@@ -301,7 +301,7 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | 7.4 | Custodian CrewAI adapter | `agents/custodian/adapters/crewai_adapter.py` | ☑ |
 | | — 2-agent crew: Analyzer + Janitor | | |
 
-**Exit criteria:** Adapters import cleanly, delegate to engines. E2E requires `pip install codrag[crewai]`.
+**Exit criteria:** Adapters import cleanly, delegate to engines. E2E requires `pip install prep[crewai]`.
 
 ---
 
@@ -319,7 +319,7 @@ Phase 9: Dashboard — Agent Ops detail overlay (Level 2) + AI Gateway agent mod
 | | — Status badge, key metric, last run time | | |
 | 8.4 | Create EmployeeBadges component | `packages/ui/src/components/agents/EmployeeBadges.tsx` | ☑ |
 | | — Compact role badges with health indicators for Paperclip-managed employees | | |
-| 8.5 | Create useAgentOps hook | `src/codrag/dashboard/src/hooks/useAgentOps.ts` | ☑ |
+| 8.5 | Create useAgentOps hook | `src/prep/dashboard/src/hooks/useAgentOps.ts` | ☑ |
 | | — Fetches /agents/status + roster + readiness + history | | |
 
 **Exit criteria:** Dashboard shows Agent Operations panel with 3 compact cards + managed employee badges.
@@ -359,7 +359,7 @@ From the architecture audit (§6), with mitigations:
 | # | Risk | Severity | Mitigation | Phase |
 |---|------|----------|-----------|-------|
 | R1 | Pi Agent convergence breaks pipeline callback | HIGH | Wrap-then-migrate: add scenario first, refactor later. Both paths have tests. | 2 |
-| R2 | Adapter naming collision (`adapters/` vs `agents/*/adapters/`) | LOW | Module paths disambiguate. Clear naming: `codrag.adapters.paperclip_adapter` vs `codrag.agents.hr.adapters.paperclip` | 0 |
+| R2 | Adapter naming collision (`adapters/` vs `agents/*/adapters/`) | LOW | Module paths disambiguate. Clear naming: `prep.adapters.paperclip_adapter` vs `prep.agents.hr.adapters.paperclip` | 0 |
 | R3 | Orchestrator.py bloat (2643 lines) | MEDIUM | Agent integration uses existing `add_completion_callback()` only. Zero new code in orchestrator. | 2, 3 |
 | R4 | LangGraph/CrewAI version churn | LOW | Pin minimum versions, lazy imports, feature-detect at runtime. | 6, 7 |
 | R5 | Custodian accidentally deletes live code | HIGH | 5 guardrails: dry-run default, impact verification, LLM review, archive-first, never auto-merge. | 3 |
@@ -389,29 +389,29 @@ From the architecture audit (§6), with mitigations:
 ### Existing (reuse as-is)
 | What | Where |
 |------|-------|
-| PM push pipeline | `src/codrag/adapters/push_engine.py` |
-| Paperclip REST client | `src/codrag/adapters/paperclip_adapter.py` |
-| PM data models | `src/codrag/adapters/pm_models.py` |
-| Pi Agent (daemon) | `src/codrag/services/pi_agent.py` |
-| Concurrency gate | `src/codrag/services/agent_gate.py` |
-| Agent scope manager | `src/codrag/core/agent_scope_manager.py` |
-| Opportunity manager | `src/codrag/core/audit/opportunity_manager.py` |
-| ActionItem model | `src/codrag/core/audit/action_item.py` |
-| Settings store | `src/codrag/services/settings_store.py` |
-| Observation store | `src/codrag/services/observation_store.py` |
-| LLM client | `src/codrag/core/llm_client.py` |
-| Event bus | `src/codrag/core/events.py` |
+| PM push pipeline | `src/prep/adapters/push_engine.py` |
+| Paperclip REST client | `src/prep/adapters/paperclip_adapter.py` |
+| PM data models | `src/prep/adapters/pm_models.py` |
+| Pi Agent (daemon) | `src/prep/services/pi_agent.py` |
+| Concurrency gate | `src/prep/services/agent_gate.py` |
+| Agent scope manager | `src/prep/core/agent_scope_manager.py` |
+| Opportunity manager | `src/prep/core/audit/opportunity_manager.py` |
+| ActionItem model | `src/prep/core/audit/action_item.py` |
+| Settings store | `src/prep/services/settings_store.py` |
+| Observation store | `src/prep/services/observation_store.py` |
+| LLM client | `src/prep/core/llm_client.py` |
+| Event bus | `src/prep/core/events.py` |
 
 ### New (to be created)
 | What | Where |
 |------|-------|
-| AgentCore | `src/codrag/agents/core.py` |
-| Shared models | `src/codrag/agents/shared/models.py` |
-| CoDRAG data wrapper | `src/codrag/agents/shared/codrag_data.py` |
-| Paperclip client wrapper | `src/codrag/agents/shared/paperclip_client.py` |
-| Git client | `src/codrag/agents/shared/git_client.py` |
-| LLM bridge (LangChain) | `src/codrag/agents/shared/llm_bridge.py` |
-| Staffing engine | `src/codrag/agents/hr/engine.py` |
-| Researcher engine | `src/codrag/agents/researcher/engine.py` |
-| Custodian engine | `src/codrag/agents/custodian/engine.py` |
-| Custodian git ops | `src/codrag/agents/custodian/git_ops.py` |
+| AgentCore | `src/prep/agents/core.py` |
+| Shared models | `src/prep/agents/shared/models.py` |
+| Prep data wrapper | `src/prep/agents/shared/prep_data.py` |
+| Paperclip client wrapper | `src/prep/agents/shared/paperclip_client.py` |
+| Git client | `src/prep/agents/shared/git_client.py` |
+| LLM bridge (LangChain) | `src/prep/agents/shared/llm_bridge.py` |
+| Staffing engine | `src/prep/agents/hr/engine.py` |
+| Researcher engine | `src/prep/agents/researcher/engine.py` |
+| Custodian engine | `src/prep/agents/custodian/engine.py` |
+| Custodian git ops | `src/prep/agents/custodian/git_ops.py` |

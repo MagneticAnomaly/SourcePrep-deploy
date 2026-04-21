@@ -6,14 +6,14 @@
 
 **Architecture:** Portal-rendered full-screen overlay with a 240px left rail and three scope-labelled nav groups (`PROJECT · <name>`, `GLOBAL`, `DEVELOPER`). All pages use a shared `SettingsPage` wrapper with a scope chip. Global pages autosave; Project pages keep today's dirty-flag + explicit Save pattern. The overlay sits behind a `settings_overlay_v2` feature flag during rollout and replaces `SettingsDrawer.tsx` / `AdvancedSettingsPanel.tsx` at the end. No backend, AI Gateway, Pipeline Queue, or dashboard panels are touched.
 
-**Tech Stack:** React 18, TypeScript (strict), Vite 4, Tailwind with `@codrag/ui` design tokens, Vitest for pure-logic tests, Storybook for visual verification.
+**Tech Stack:** React 18, TypeScript (strict), Vite 4, Tailwind with `@prep/ui` design tokens, Vitest for pure-logic tests, Storybook for visual verification.
 
 **Testing approach:** The UI package has no DOM test infrastructure (no `@testing-library/react`). Per the existing `HealthBadge.test.tsx` pattern, tests are **pure-logic vitest** (no render) plus **Storybook stories** for visual verification. Component behavior is manually verified via `scripts/dev.sh`.
 
 **Reference documents:**
 - Spec: `docs/superpowers/specs/2026-04-20-settings-panel-redesign-design.md`
-- Today's drawer: `src/codrag/dashboard/src/components/settings/SettingsDrawer.tsx` (803 LoC)
-- Today's advanced panel: `src/codrag/dashboard/src/components/settings/AdvancedSettingsPanel.tsx` (380 LoC)
+- Today's drawer: `src/prep/dashboard/src/components/settings/SettingsDrawer.tsx` (803 LoC)
+- Today's advanced panel: `src/prep/dashboard/src/components/settings/AdvancedSettingsPanel.tsx` (380 LoC)
 - Pattern reference for pure-logic tests: `packages/ui/src/components/pipeline/__tests__/HealthBadge.test.tsx`
 
 **Commit convention:** `feat(settings-v2): ...`, `refactor(settings-v2): ...`, `test(settings-v2): ...`. No Co-Authored-By trailer.
@@ -33,7 +33,7 @@
 - `packages/ui/src/components/settings/__tests__/Section.stories.tsx` — Storybook.
 - `packages/ui/src/components/settings/index.ts` — barrel export.
 
-**Dashboard settings v2 (`src/codrag/dashboard/src/components/settings/v2`)**
+**Dashboard settings v2 (`src/prep/dashboard/src/components/settings/v2`)**
 - `SettingsOverlay.tsx` — top-level portal, top bar, routing, layout.
 - `SettingsNav.tsx` — left rail with three groups.
 - `SettingsPage.tsx` — page wrapper (header, scope chip, save area, body).
@@ -58,13 +58,13 @@
 - `__tests__/dirty.test.ts`
 
 ### Modified files
-- `src/codrag/dashboard/src/App.tsx` — replace drawer mount with overlay mount behind flag; wire `⌘,` shortcut; wire feature flag read.
+- `src/prep/dashboard/src/App.tsx` — replace drawer mount with overlay mount behind flag; wire `⌘,` shortcut; wire feature flag read.
 - `packages/ui/src/index.ts` — export new settings primitives.
 - `packages/ui/vite.config.ts` — add `settings` to the externalizable subpaths list only if needed (likely not — internal imports).
 
 ### Deleted files (at end of rollout)
-- `src/codrag/dashboard/src/components/settings/SettingsDrawer.tsx`
-- `src/codrag/dashboard/src/components/settings/AdvancedSettingsPanel.tsx`
+- `src/prep/dashboard/src/components/settings/SettingsDrawer.tsx`
+- `src/prep/dashboard/src/components/settings/AdvancedSettingsPanel.tsx`
 
 ---
 
@@ -73,7 +73,7 @@
 Several tasks "lift" pre-existing JSX out of `SettingsDrawer.tsx` or `AdvancedSettingsPanel.tsx` into a new page component. Every lift task follows this template:
 
 ```tsx
-// src/codrag/dashboard/src/components/settings/v2/pages/<Name>.tsx
+// src/prep/dashboard/src/components/settings/v2/pages/<Name>.tsx
 import { SettingsPage, SettingRow, Section } from '@prep/ui';
 import type { ProjectConfig, GlobalConfig } from '...types';
 
@@ -206,7 +206,7 @@ git commit -m "feat(settings-v2): add scope helper types and labels"
 ```tsx
 // packages/ui/src/components/settings/SettingRow.tsx
 import { ReactNode } from 'react';
-import { cn } from '../../lib/utils';  // existing @codrag/ui helper
+import { cn } from '../../lib/utils';  // existing @prep/ui helper
 
 export interface SettingRowProps {
   label: string;
@@ -424,7 +424,7 @@ Expected: no TypeScript errors; `dist/index.d.ts` includes `SettingRow`, `Sectio
 
 ```bash
 git add packages/ui/src/components/settings/index.ts packages/ui/src/index.ts
-git commit -m "feat(settings-v2): export settings primitives from @codrag/ui"
+git commit -m "feat(settings-v2): export settings primitives from @prep/ui"
 ```
 
 ---
@@ -432,15 +432,15 @@ git commit -m "feat(settings-v2): export settings primitives from @codrag/ui"
 ## Task 5: `routeParser` pure helper and test
 
 **Files:**
-- Create: `src/codrag/dashboard/src/components/settings/v2/routeParser.ts`
-- Test: `src/codrag/dashboard/src/components/settings/v2/__tests__/routeParser.test.ts`
+- Create: `src/prep/dashboard/src/components/settings/v2/routeParser.ts`
+- Test: `src/prep/dashboard/src/components/settings/v2/__tests__/routeParser.test.ts`
 
 This extracts the URL-param logic so it can be unit tested without DOM.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// src/codrag/dashboard/src/components/settings/v2/__tests__/routeParser.test.ts
+// src/prep/dashboard/src/components/settings/v2/__tests__/routeParser.test.ts
 import { describe, it, expect } from 'vitest';
 import {
   PROJECT_PAGES, GLOBAL_PAGES, DEVELOPER_PAGES,
@@ -493,13 +493,13 @@ describe('isKnownPage', () => {
 
 - [ ] **Step 2: Run test to confirm it fails**
 
-Run: `cd src/codrag/dashboard && npx vitest run src/components/settings/v2/__tests__/routeParser.test.ts`
+Run: `cd src/prep/dashboard && npx vitest run src/components/settings/v2/__tests__/routeParser.test.ts`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement `routeParser.ts`**
 
 ```ts
-// src/codrag/dashboard/src/components/settings/v2/routeParser.ts
+// src/prep/dashboard/src/components/settings/v2/routeParser.ts
 export const PROJECT_PAGES = [
   'sources', 'trace-indexing', 'deep-analysis', 'danger-zone',
 ] as const;
@@ -547,14 +547,14 @@ export function scopeForPage(id: SettingsPageId): 'project' | 'global' | 'develo
 
 - [ ] **Step 4: Run test to confirm it passes**
 
-Run: `cd src/codrag/dashboard && npx vitest run src/components/settings/v2/__tests__/routeParser.test.ts`
+Run: `cd src/prep/dashboard && npx vitest run src/components/settings/v2/__tests__/routeParser.test.ts`
 Expected: PASS (all tests).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/components/settings/v2/routeParser.ts \
-        src/codrag/dashboard/src/components/settings/v2/__tests__/routeParser.test.ts
+git add src/prep/dashboard/src/components/settings/v2/routeParser.ts \
+        src/prep/dashboard/src/components/settings/v2/__tests__/routeParser.test.ts
 git commit -m "feat(settings-v2): add pure URL-param route parser"
 ```
 
@@ -563,13 +563,13 @@ git commit -m "feat(settings-v2): add pure URL-param route parser"
 ## Task 6: `devGate` helper and test
 
 **Files:**
-- Create: `src/codrag/dashboard/src/components/settings/v2/devGate.ts`
-- Test: `src/codrag/dashboard/src/components/settings/v2/__tests__/devGate.test.ts`
+- Create: `src/prep/dashboard/src/components/settings/v2/devGate.ts`
+- Test: `src/prep/dashboard/src/components/settings/v2/__tests__/devGate.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// src/codrag/dashboard/src/components/settings/v2/__tests__/devGate.test.ts
+// src/prep/dashboard/src/components/settings/v2/__tests__/devGate.test.ts
 import { describe, it, expect } from 'vitest';
 import { filterPagesForBuild } from '../devGate';
 import { PROJECT_PAGES, GLOBAL_PAGES, DEVELOPER_PAGES } from '../routeParser';
@@ -592,13 +592,13 @@ describe('filterPagesForBuild', () => {
 
 - [ ] **Step 2: Run test to confirm it fails**
 
-Run: `cd src/codrag/dashboard && npx vitest run src/components/settings/v2/__tests__/devGate.test.ts`
+Run: `cd src/prep/dashboard && npx vitest run src/components/settings/v2/__tests__/devGate.test.ts`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement `devGate.ts`**
 
 ```ts
-// src/codrag/dashboard/src/components/settings/v2/devGate.ts
+// src/prep/dashboard/src/components/settings/v2/devGate.ts
 import { PROJECT_PAGES, GLOBAL_PAGES, DEVELOPER_PAGES } from './routeParser';
 import type { SettingsPageId } from './routeParser';
 
@@ -623,14 +623,14 @@ export function filterPagesForBuild(dev: boolean): PageSet {
 
 - [ ] **Step 4: Run test to confirm it passes**
 
-Run: `cd src/codrag/dashboard && npx vitest run src/components/settings/v2/__tests__/devGate.test.ts`
+Run: `cd src/prep/dashboard && npx vitest run src/components/settings/v2/__tests__/devGate.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/components/settings/v2/devGate.ts \
-        src/codrag/dashboard/src/components/settings/v2/__tests__/devGate.test.ts
+git add src/prep/dashboard/src/components/settings/v2/devGate.ts \
+        src/prep/dashboard/src/components/settings/v2/__tests__/devGate.test.ts
 git commit -m "feat(settings-v2): add build-time Developer-page gate"
 ```
 
@@ -639,15 +639,15 @@ git commit -m "feat(settings-v2): add build-time Developer-page gate"
 ## Task 7: Dirty-flag helper and test
 
 **Files:**
-- Create: `src/codrag/dashboard/src/components/settings/v2/useSettingsDirty.ts`
-- Test: `src/codrag/dashboard/src/components/settings/v2/__tests__/dirty.test.ts`
+- Create: `src/prep/dashboard/src/components/settings/v2/useSettingsDirty.ts`
+- Test: `src/prep/dashboard/src/components/settings/v2/__tests__/dirty.test.ts`
 
 The hook itself wraps `useState`/`useEffect`. Extract the pure reducer so we can test it without render.
 
 - [ ] **Step 1: Write the failing test**
 
 ```ts
-// src/codrag/dashboard/src/components/settings/v2/__tests__/dirty.test.ts
+// src/prep/dashboard/src/components/settings/v2/__tests__/dirty.test.ts
 import { describe, it, expect } from 'vitest';
 import { dirtyReducer, DirtyState } from '../useSettingsDirty';
 
@@ -678,13 +678,13 @@ describe('dirtyReducer', () => {
 
 - [ ] **Step 2: Run test to confirm it fails**
 
-Run: `cd src/codrag/dashboard && npx vitest run src/components/settings/v2/__tests__/dirty.test.ts`
+Run: `cd src/prep/dashboard && npx vitest run src/components/settings/v2/__tests__/dirty.test.ts`
 Expected: FAIL — module not found.
 
 - [ ] **Step 3: Implement the hook and reducer**
 
 ```ts
-// src/codrag/dashboard/src/components/settings/v2/useSettingsDirty.ts
+// src/prep/dashboard/src/components/settings/v2/useSettingsDirty.ts
 import { useReducer, useCallback } from 'react';
 
 export interface DirtyState {
@@ -722,14 +722,14 @@ export function useSettingsDirty() {
 
 - [ ] **Step 4: Run test to confirm it passes**
 
-Run: `cd src/codrag/dashboard && npx vitest run src/components/settings/v2/__tests__/dirty.test.ts`
+Run: `cd src/prep/dashboard && npx vitest run src/components/settings/v2/__tests__/dirty.test.ts`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/components/settings/v2/useSettingsDirty.ts \
-        src/codrag/dashboard/src/components/settings/v2/__tests__/dirty.test.ts
+git add src/prep/dashboard/src/components/settings/v2/useSettingsDirty.ts \
+        src/prep/dashboard/src/components/settings/v2/__tests__/dirty.test.ts
 git commit -m "feat(settings-v2): add useSettingsDirty hook with pure reducer"
 ```
 
@@ -738,14 +738,14 @@ git commit -m "feat(settings-v2): add useSettingsDirty hook with pure reducer"
 ## Task 8: `useSettingsRoute` hook
 
 **Files:**
-- Create: `src/codrag/dashboard/src/components/settings/v2/useSettingsRoute.ts`
+- Create: `src/prep/dashboard/src/components/settings/v2/useSettingsRoute.ts`
 
 No DOM test; logic is exercised by `routeParser` unit tests. Hook is a thin wrapper on top.
 
 - [ ] **Step 1: Implement the hook**
 
 ```ts
-// src/codrag/dashboard/src/components/settings/v2/useSettingsRoute.ts
+// src/prep/dashboard/src/components/settings/v2/useSettingsRoute.ts
 import { useCallback, useEffect, useState } from 'react';
 import {
   parseSettingsParam, buildSettingsParam, type SettingsPageId,
@@ -796,13 +796,13 @@ export function useSettingsRoute() {
 
 - [ ] **Step 2: Typecheck**
 
-Run: `cd src/codrag/dashboard && npx tsc --noEmit`
+Run: `cd src/prep/dashboard && npx tsc --noEmit`
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/components/settings/v2/useSettingsRoute.ts
+git add src/prep/dashboard/src/components/settings/v2/useSettingsRoute.ts
 git commit -m "feat(settings-v2): add useSettingsRoute hook"
 ```
 
@@ -811,12 +811,12 @@ git commit -m "feat(settings-v2): add useSettingsRoute hook"
 ## Task 9: `SettingsPage` wrapper
 
 **Files:**
-- Create: `src/codrag/dashboard/src/components/settings/v2/SettingsPage.tsx`
+- Create: `src/prep/dashboard/src/components/settings/v2/SettingsPage.tsx`
 
 - [ ] **Step 1: Implement**
 
 ```tsx
-// src/codrag/dashboard/src/components/settings/v2/SettingsPage.tsx
+// src/prep/dashboard/src/components/settings/v2/SettingsPage.tsx
 import { ReactNode } from 'react';
 import { scopeChipLabel, scopeAriaLabel, type SettingsScope } from '@prep/ui';
 
@@ -871,13 +871,13 @@ export function SettingsPage({
 
 - [ ] **Step 2: Typecheck**
 
-Run: `cd src/codrag/dashboard && npx tsc --noEmit`
+Run: `cd src/prep/dashboard && npx tsc --noEmit`
 Expected: no errors. If `bg-warning-subtle` / `text-warning-strong` tokens aren't in the current Tailwind config, substitute the equivalent tokens that exist — check `packages/ui/tailwind.config.*` and `packages/ui/src/tokens/` for the warning-color family. Do **not** use raw colors.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/components/settings/v2/SettingsPage.tsx
+git add src/prep/dashboard/src/components/settings/v2/SettingsPage.tsx
 git commit -m "feat(settings-v2): add SettingsPage wrapper with scope chip"
 ```
 
@@ -886,12 +886,12 @@ git commit -m "feat(settings-v2): add SettingsPage wrapper with scope chip"
 ## Task 10: `SettingsNav`
 
 **Files:**
-- Create: `src/codrag/dashboard/src/components/settings/v2/SettingsNav.tsx`
+- Create: `src/prep/dashboard/src/components/settings/v2/SettingsNav.tsx`
 
 - [ ] **Step 1: Implement**
 
 ```tsx
-// src/codrag/dashboard/src/components/settings/v2/SettingsNav.tsx
+// src/prep/dashboard/src/components/settings/v2/SettingsNav.tsx
 import { cn } from '@prep/ui';
 import type { SettingsPageId } from './routeParser';
 import { filterPagesForBuild, isDevBuild } from './devGate';
@@ -981,13 +981,13 @@ export function SettingsNav({ activePage, onNavigate, projectName }: SettingsNav
 
 - [ ] **Step 2: Typecheck**
 
-Run: `cd src/codrag/dashboard && npx tsc --noEmit`
+Run: `cd src/prep/dashboard && npx tsc --noEmit`
 Expected: no errors.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/components/settings/v2/SettingsNav.tsx
+git add src/prep/dashboard/src/components/settings/v2/SettingsNav.tsx
 git commit -m "feat(settings-v2): add SettingsNav with scope-split groups"
 ```
 
@@ -996,12 +996,12 @@ git commit -m "feat(settings-v2): add SettingsNav with scope-split groups"
 ## Task 11: `SettingsOverlay` container
 
 **Files:**
-- Create: `src/codrag/dashboard/src/components/settings/v2/SettingsOverlay.tsx`
+- Create: `src/prep/dashboard/src/components/settings/v2/SettingsOverlay.tsx`
 
 - [ ] **Step 1: Implement the shell**
 
 ```tsx
-// src/codrag/dashboard/src/components/settings/v2/SettingsOverlay.tsx
+// src/prep/dashboard/src/components/settings/v2/SettingsOverlay.tsx
 import { createPortal } from 'react-dom';
 import { useEffect, useRef } from 'react';
 import { ArrowLeft, X } from 'lucide-react';
@@ -1101,7 +1101,7 @@ export function SettingsOverlay({
 
 - [ ] **Step 2: Add the overlay animation**
 
-Add to the dashboard's global CSS (`src/codrag/dashboard/src/index.css` or wherever Tailwind `@layer utilities` already lives):
+Add to the dashboard's global CSS (`src/prep/dashboard/src/index.css` or wherever Tailwind `@layer utilities` already lives):
 
 ```css
 @keyframes settings-overlay-in {
@@ -1115,14 +1115,14 @@ Add to the dashboard's global CSS (`src/codrag/dashboard/src/index.css` or where
 
 - [ ] **Step 3: Typecheck**
 
-Run: `cd src/codrag/dashboard && npx tsc --noEmit`
+Run: `cd src/prep/dashboard && npx tsc --noEmit`
 Expected: no errors.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/components/settings/v2/SettingsOverlay.tsx \
-        src/codrag/dashboard/src/index.css
+git add src/prep/dashboard/src/components/settings/v2/SettingsOverlay.tsx \
+        src/prep/dashboard/src/index.css
 git commit -m "feat(settings-v2): add SettingsOverlay portal container"
 ```
 
@@ -1131,7 +1131,7 @@ git commit -m "feat(settings-v2): add SettingsOverlay portal container"
 ## Task 12: `⌘,` shortcut and flag wiring in `App.tsx`
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/App.tsx`
+- Modify: `src/prep/dashboard/src/App.tsx`
 
 **Reading tasks before editing:** open `App.tsx` and locate (a) where `SettingsDrawer` is currently mounted (search for `SettingsDrawer`), (b) where the floating Settings button handler lives, (c) where global keyboard shortcuts are registered (if at all). Keep existing drawer mount — the flag decides which renders.
 
@@ -1140,7 +1140,7 @@ git commit -m "feat(settings-v2): add SettingsOverlay portal container"
 Near the top of `App.tsx`, add:
 
 ```ts
-const settingsV2Enabled = localStorage.getItem('codrag_settings_overlay_v2') === '1'
+const settingsV2Enabled = localStorage.getItem('prep_settings_overlay_v2') === '1'
   || import.meta.env.DEV;  // dev builds default on
 ```
 
@@ -1202,14 +1202,14 @@ useEffect(() => {
 
 - [ ] **Step 5: Typecheck + manual verify**
 
-Run: `cd src/codrag/dashboard && npx tsc --noEmit` → expected no errors.
+Run: `cd src/prep/dashboard && npx tsc --noEmit` → expected no errors.
 Run: `scripts/dev.sh` → open dashboard at `:5174`, press `⌘,` → overlay should appear with nav rail and an empty main area (pages don't exist yet).
 Press `Esc` → overlay should close.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/App.tsx
+git add src/prep/dashboard/src/App.tsx
 git commit -m "feat(settings-v2): mount SettingsOverlay behind flag with ⌘, shortcut"
 ```
 
@@ -1218,7 +1218,7 @@ git commit -m "feat(settings-v2): mount SettingsOverlay behind flag with ⌘, sh
 ## Task 13: Page registry barrel + stub pages
 
 **Files:**
-- Create: `src/codrag/dashboard/src/components/settings/v2/pages/index.tsx`
+- Create: `src/prep/dashboard/src/components/settings/v2/pages/index.tsx`
 - Create: 12 stub pages (`Sources.tsx`, `TraceIndexing.tsx`, `DeepAnalysis.tsx`, `DangerZone.tsx`, `Appearance.tsx`, `ChunkingEmbeddings.tsx`, `PipelineDefaults.tsx`, `License.tsx`, `Integrations.tsx`, `DevToggles.tsx`, `Diagnostics.tsx`, `SelectiveReset.tsx`)
 
 Stubs render only the `SettingsPage` wrapper with the right title + scope. Subsequent tasks (14–22) fill them in.
@@ -1228,7 +1228,7 @@ Stubs render only the `SettingsPage` wrapper with the right title + scope. Subse
 Example for Sources. Repeat the pattern for the other 11 files, changing `title`, `scope`, `description`.
 
 ```tsx
-// src/codrag/dashboard/src/components/settings/v2/pages/Sources.tsx
+// src/prep/dashboard/src/components/settings/v2/pages/Sources.tsx
 import { SettingsPage } from '../SettingsPage';
 
 export interface SourcesPageProps {
@@ -1268,7 +1268,7 @@ export function SourcesPage(_props: SourcesPageProps) {
 - [ ] **Step 2: Page registry barrel**
 
 ```tsx
-// src/codrag/dashboard/src/components/settings/v2/pages/index.tsx
+// src/prep/dashboard/src/components/settings/v2/pages/index.tsx
 import type { SettingsPageId } from '../routeParser';
 import { SourcesPage } from './Sources';
 import { TraceIndexingPage } from './TraceIndexing';
@@ -1313,13 +1313,13 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
 
 - [ ] **Step 3: Typecheck + manual verify**
 
-Run: `cd src/codrag/dashboard && npx tsc --noEmit` → expected no errors.
+Run: `cd src/prep/dashboard && npx tsc --noEmit` → expected no errors.
 Run: `scripts/dev.sh` → press `⌘,`, click each nav item, confirm each stub page renders with correct title and scope chip.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/components/settings/v2/pages/
+git add src/prep/dashboard/src/components/settings/v2/pages/
 git commit -m "feat(settings-v2): scaffold 12 stub pages behind the overlay"
 ```
 
@@ -1330,7 +1330,7 @@ git commit -m "feat(settings-v2): scaffold 12 stub pages behind the overlay"
 **Source:** lines 286–392 of `SettingsDrawer.tsx` (the `activeTab === 'project' && hasProject` block).
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/components/settings/v2/pages/Sources.tsx`
+- Modify: `src/prep/dashboard/src/components/settings/v2/pages/Sources.tsx`
 
 Follow the **Lift Template** from the top of this plan.
 
@@ -1343,7 +1343,7 @@ Deep Analysis controls (mode, budget, schedule) stay behind for Task 16. Danger 
 - [ ] **Step 2: Define the page props**
 
 ```tsx
-// src/codrag/dashboard/src/components/settings/v2/pages/Sources.tsx
+// src/prep/dashboard/src/components/settings/v2/pages/Sources.tsx
 import { SettingsPage } from '../SettingsPage';
 import { SettingRow, Section } from '@prep/ui';
 import type { ProjectConfig } from '../../../../types';
@@ -1435,9 +1435,9 @@ Confirm every control from the old Project tab is present with the same label an
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/components/settings/v2/pages/Sources.tsx \
-        src/codrag/dashboard/src/components/settings/v2/pages/index.tsx \
-        src/codrag/dashboard/src/App.tsx
+git add src/prep/dashboard/src/components/settings/v2/pages/Sources.tsx \
+        src/prep/dashboard/src/components/settings/v2/pages/index.tsx \
+        src/prep/dashboard/src/App.tsx
 git commit -m "feat(settings-v2): lift Sources & Scope page from drawer"
 ```
 
@@ -1473,8 +1473,8 @@ Open `?settings=trace-indexing`. Confirm all trace controls and all three trace-
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -- src/codrag/dashboard/src/components/settings/v2/pages/TraceIndexing.tsx \
-           src/codrag/dashboard/src/components/settings/v2/pages/index.tsx
+git add -- src/prep/dashboard/src/components/settings/v2/pages/TraceIndexing.tsx \
+           src/prep/dashboard/src/components/settings/v2/pages/index.tsx
 git commit -m "feat(settings-v2): lift Trace & Indexing page, absorb per-project trace limits"
 ```
 
@@ -1571,7 +1571,7 @@ Global scope. Single section. AI Gateway panel is **not moved** — only linked 
 - [ ] **Step 1: Implement `Integrations.tsx`**
 
 ```tsx
-// src/codrag/dashboard/src/components/settings/v2/pages/Integrations.tsx
+// src/prep/dashboard/src/components/settings/v2/pages/Integrations.tsx
 import { SettingsPage } from '../SettingsPage';
 import { SettingRow, Section } from '@prep/ui';
 
@@ -1642,7 +1642,7 @@ All three are Developer scope → autosave for toggles, one-shot for buttons.
 
 - [ ] **Step 3: Verify dev-gate**
   - Dev build (`npm run dev`): all three pages are nav-accessible.
-  - Production build: run `cd src/codrag/dashboard && npm run build && npm run preview` and open `http://localhost:4173/?settings=developer-debug` → overlay opens, Developer group is not in the nav, URL silently resets to `?settings=sources` (or the first Global page if no project is active).
+  - Production build: run `cd src/prep/dashboard && npm run build && npm run preview` and open `http://localhost:4173/?settings=developer-debug` → overlay opens, Developer group is not in the nav, URL silently resets to `?settings=sources` (or the first Global page if no project is active).
 
 - [ ] **Step 4: Add a safety belt in the overlay**
 
@@ -1655,9 +1655,9 @@ Open `SettingsOverlay.tsx`. In a `useEffect`, if the current page is a Developer
 ## Task 24: Flag flip and drawer removal
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/App.tsx`
-- Delete: `src/codrag/dashboard/src/components/settings/SettingsDrawer.tsx`
-- Delete: `src/codrag/dashboard/src/components/settings/AdvancedSettingsPanel.tsx`
+- Modify: `src/prep/dashboard/src/App.tsx`
+- Delete: `src/prep/dashboard/src/components/settings/SettingsDrawer.tsx`
+- Delete: `src/prep/dashboard/src/components/settings/AdvancedSettingsPanel.tsx`
 
 Dogfooding period has passed; v2 is the default. The flag stays for one more release as an opt-out escape hatch, then goes away.
 
@@ -1666,14 +1666,14 @@ Dogfooding period has passed; v2 is the default. The flag stays for one more rel
 In `App.tsx`, change:
 
 ```ts
-const settingsV2Enabled = localStorage.getItem('codrag_settings_overlay_v2') === '1'
+const settingsV2Enabled = localStorage.getItem('prep_settings_overlay_v2') === '1'
   || import.meta.env.DEV;
 ```
 
 to:
 
 ```ts
-const settingsV2Enabled = localStorage.getItem('codrag_settings_overlay_v2') !== '0';
+const settingsV2Enabled = localStorage.getItem('prep_settings_overlay_v2') !== '0';
 ```
 
 Users who explicitly set `'0'` can still get the old drawer.
@@ -1693,13 +1693,13 @@ When you're satisfied:
 
 - [ ] **Step 4: Typecheck + build**
 
-Run: `cd src/codrag/dashboard && npx tsc --noEmit && npm run build`
+Run: `cd src/prep/dashboard && npx tsc --noEmit && npm run build`
 Expected: both succeed.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -A src/codrag/dashboard/src/
+git add -A src/prep/dashboard/src/
 git commit -m "refactor(settings-v2): make overlay default, delete drawer + advanced panel"
 ```
 
@@ -1722,11 +1722,11 @@ Run `scripts/dev.sh` and verify each item:
 - [ ] Global pages autosave; no Save button; no dirty banner.
 - [ ] Every destructive action in Danger Zone still requires typed-confirm (Phase 114 pattern).
 - [ ] Production build (`npm run build && npm run preview`) does not show the Developer group; `?settings=developer-debug` redirects to a Global page.
-- [ ] `@codrag/ui` Storybook renders `SettingRow` and `Section` stories.
+- [ ] `@prep/ui` Storybook renders `SettingRow` and `Section` stories.
 - [ ] AI Gateway panel, Pipeline Queue, left sidebar, and every dashboard panel are visually unchanged.
-- [ ] `npx tsc --noEmit` passes for both `packages/ui` and `src/codrag/dashboard`.
+- [ ] `npx tsc --noEmit` passes for both `packages/ui` and `src/prep/dashboard`.
 - [ ] `cd packages/ui && npx vitest run` passes all existing + new tests.
-- [ ] `cd src/codrag/dashboard && npx vitest run` passes all new tests.
+- [ ] `cd src/prep/dashboard && npx vitest run` passes all new tests.
 
 ---
 
@@ -1749,7 +1749,7 @@ Run `scripts/dev.sh` and verify each item:
 
 **Type consistency sweep:**
 - `SettingsPageId`, `ProjectPageId`, etc. — defined once in `routeParser.ts`, imported everywhere.
-- `SettingsScope` — defined in `@codrag/ui/components/settings/scope.ts`, imported by `SettingsPage` and every page.
+- `SettingsScope` — defined in `@prep/ui/components/settings/scope.ts`, imported by `SettingsPage` and every page.
 - `DirtyState`, `DirtyAction` — only used inside `useSettingsDirty.ts`; the hook exports state fields, not the raw types.
 - Page component names: `SourcesPage`, `TraceIndexingPage`, `DeepAnalysisPage`, `DangerZonePage`, `AppearancePage`, `ChunkingEmbeddingsPage`, `PipelineDefaultsPage`, `LicensePage`, `IntegrationsPage`, `DevTogglesPage`, `DiagnosticsPage`, `SelectiveResetPage` — stable across the stub in Task 13 and each lift in Tasks 14–23.
 

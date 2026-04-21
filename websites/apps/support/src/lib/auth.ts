@@ -12,7 +12,7 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
 
-const COOKIE_NAME = 'codrag_admin_token';
+const COOKIE_NAME = 'prep_admin_token';
 
 /** Check if a request has valid admin auth */
 export function isAuthorized(request: NextRequest): boolean {

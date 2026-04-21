@@ -11,14 +11,14 @@
 I love Cursor, but sometimes the `@codebase` indexing misses the mark on complex dependency chains, or I hit context limits when working in a massive monorepo.
 
 ### The Solution
-I built **CoDRAG**, a local desktop app that acts as an **MCP (Model Context Protocol) server** for Cursor.
+I built **Prep**, a local desktop app that acts as an **MCP (Model Context Protocol) server** for Cursor.
 
-Instead of relying solely on Cursor's cloud embeddings, CoDRAG builds a local dependency graph of your code. When you ask it for context, it "traces" the imports and definitions to give you exactly the code you need—and nothing you don't.
+Instead of relying solely on Cursor's cloud embeddings, Prep builds a local dependency graph of your code. When you ask it for context, it "traces" the imports and definitions to give you exactly the code you need—and nothing you don't.
 
 ### How to use it with Cursor
-1.  Run the CoDRAG app (indexes your repo locally).
+1.  Run the Prep app (indexes your repo locally).
 2.  Add the MCP server command to your Cursor config.
-3.  Type `@codrag search "auth flow"` in Chat or Composer.
+3.  Type `@prep search "auth flow"` in Chat or Composer.
 
 It injects the relevant files *plus* the structural context (interfaces, types) directly into the chat context.
 

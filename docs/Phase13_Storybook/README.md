@@ -1,7 +1,7 @@
 # Phase 13 — Design System + Storybook (App + Website)
 
 ## Problem statement
-CoDRAG needs a coherent UI/UX across:
+Prep needs a coherent UI/UX across:
 
 - the dashboard (app UI)
 - the marketing website
@@ -65,7 +65,7 @@ Rules:
 - Prefer Tremor primitives for tables, cards, charts, tabs, badges, layouts.
 - Introduce custom components only when:
   - the pattern is not available in Tremor
-  - or it is core to CoDRAG (e.g., code chunk viewer, citation blocks)
+  - or it is core to Prep (e.g., code chunk viewer, citation blocks)
 
 ### Visual prototyping: multiple directions (pre-design-system)
 

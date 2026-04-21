@@ -1,7 +1,7 @@
-# CoDRAG Refactoring Strategy (Phase 23)
+# Prep Refactoring Strategy (Phase 23)
 
 **Status:** Frontend extraction complete · Backend pending
-**Target:** `src/codrag/dashboard/src/App.tsx` and related architecture.
+**Target:** `src/prep/dashboard/src/App.tsx` and related architecture.
 
 ## 1. Problem Statement
 The `App.tsx` file has grown to ~2430 lines. It currently violates the Single Responsibility Principle by acting as a "God Object" that manages:
@@ -63,7 +63,7 @@ To avoid "Prop Drilling" (passing 35 props to SettingsDrawer), use React Context
 ## 3. Proposed File Structure
 
 ```
-src/codrag/dashboard/src/
+src/prep/dashboard/src/
 ├── App.tsx                  # <--- Reduced to < 200 lines (Providers + Shell)
 ├── context/
 │   ├── ConfigContext.tsx
@@ -104,7 +104,7 @@ src/codrag/dashboard/src/
 **App.tsx:** 2,461 → 946 lines (−62%)
 
 ## 5. Backend Refactoring Strategy
-**Target:** `src/codrag/server.py` (4,352 lines → 2,874 lines, −34%).
+**Target:** `src/prep/server.py` (4,352 lines → 2,874 lines, −34%).
 
 ### 5.1 Problem Statement
 `server.py` has become a monolith containing:
@@ -115,7 +115,7 @@ src/codrag/dashboard/src/
 *   **Utility Logic:** `_ui_config_path`, event generators.
 
 ### 5.2 Proposed Split (Router Pattern)
-Use `APIRouter` to split endpoints into modules under `src/codrag/api/routers/`.
+Use `APIRouter` to split endpoints into modules under `src/prep/api/routers/`.
 
 *   `routers/projects.py`: CRUD, status, config. *(pending — Sprint 15)*
 *   `routers/trace.py`: All `/projects/{id}/trace/*` + enrichment endpoints. ✅
@@ -127,14 +127,14 @@ Use `APIRouter` to split endpoints into modules under `src/codrag/api/routers/`.
 ### 5.3 Service Layer Extraction
 Move the heavy thread management and locking logic out of the HTTP layer.
 
-*   `src/codrag/services/build_manager.py`:
+*   `src/prep/services/build_manager.py`:
     *   Manage `_build_thread`, `_project_build_threads`.
     *   Handle locking and progress reporting.
-*   `src/codrag/services/project_manager.py`:
+*   `src/prep/services/project_manager.py`:
     *   Manage `ProjectRegistry` interaction and cache invalidation.
 
 ### 5.4 Execution Plan
-1.  ~~Create `src/codrag/api/routers/__init__.py`.~~ ✅
+1.  ~~Create `src/prep/api/routers/__init__.py`.~~ ✅
 2.  ~~Move Trace endpoints to `routers/trace.py`.~~ ✅
 3.  ~~Move Knowledge endpoints to `routers/knowledge.py`.~~ ✅
 4.  Extract `BuildManager` class to encapsulate the 10+ global variables managing threads. *(Sprint 14)*
@@ -174,9 +174,9 @@ endpoints/functions moved, shared state accessed, and Phase 24 state machine not
     *   **Strategy:** Extract specific tree manipulation logic (e.g. `useTreeTraversal`, `useDragAndDrop`) into hooks.
 
 ### 6.2 Backend (Core)
-*   `src/codrag/core/trace.py` (1,324 lines):
+*   `src/prep/core/trace.py` (1,324 lines):
     *   Contains `TraceBuilder`, `TraceIndex`, `PythonAnalyzer` (AST logic), and graph data structures.
-    *   **Strategy:** Move `PythonAnalyzer` and language-specific logic to `codrag/core/analyzers/`. Move `TraceIndex` graph operations to `codrag/core/graph/`.
-*   `src/codrag/core/index.py` (1,273 lines):
+    *   **Strategy:** Move `PythonAnalyzer` and language-specific logic to `prep/core/analyzers/`. Move `TraceIndex` graph operations to `prep/core/graph/`.
+*   `src/prep/core/index.py` (1,273 lines):
     *   Manages vector search, embedding, persistence.
     *   **Strategy:** Good candidate for splitting into `IndexBuilder` vs `IndexSearcher`.

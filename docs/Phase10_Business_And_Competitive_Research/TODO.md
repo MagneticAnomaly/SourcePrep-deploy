@@ -10,7 +10,7 @@
 ## Research cadence (P10-C*)
 - [ ] P10-C1 Establish monthly lightweight competitor scan process
 - [ ] P10-C2 Establish quarterly deep update process
-- [ ] P10-C3 Maintain “table stakes vs differentiators” matrix aligned to CoDRAG phases
+- [ ] P10-C3 Maintain “table stakes vs differentiators” matrix aligned to Prep phases
 
 ## Decision outputs (P10-D*)
 - [x] P10-D1 Confirm initial ICP for MVP (Solo Devs using Cursor/Windsurf)

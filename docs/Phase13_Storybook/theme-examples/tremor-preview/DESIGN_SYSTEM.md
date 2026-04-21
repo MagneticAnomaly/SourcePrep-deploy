@@ -1,8 +1,8 @@
-# CoDRAG Design System
+# Prep Design System
 
 ## Overview
 
-This design system defines the visual language for CoDRAG across marketing, documentation, and the application dashboard. It's built on **Tremor React** components with **TailwindCSS** and **CSS custom properties** for dynamic theming.
+This design system defines the visual language for Prep across marketing, documentation, and the application dashboard. It's built on **Tremor React** components with **TailwindCSS** and **CSS custom properties** for dynamic theming.
 
 ---
 
@@ -281,7 +281,7 @@ src/
 ### Theme Switching
 ```tsx
 // Set theme via data attribute
-document.documentElement.setAttribute('data-codrag-theme', 'c');
+document.documentElement.setAttribute('data-prep-theme', 'c');
 
 // Toggle dark mode via class
 document.documentElement.classList.toggle('dark', isDark);

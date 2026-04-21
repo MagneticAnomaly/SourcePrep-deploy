@@ -26,16 +26,16 @@
 
 ## First-Call Orientation Boost
 
-The first `codrag` call in a session gets **50% more context** automatically.
+The first `prep` call in a session gets **50% more context** automatically.
 
 ```
-Session start → Agent calls codrag (first time)
+Session start → Agent calls prep (first time)
   → Budget = base × 1.5    ← Agent building mental model, needs more
   → Hub files: top 8-12 instead of 5-8
   → Neighbors: LOD 1 (signatures + docstrings) instead of LOD 2 (just signatures)
   → Richer structural graph
 
-Subsequent codrag calls
+Subsequent prep calls
   → Budget = base            ← Agent has orientation, needs less
   → Standard hub/neighbor balance
 ```
@@ -46,13 +46,13 @@ This is the **cheapest form of adaptive delivery** because:
 - No extra API call overhead
 - The boost is exactly when it matters most (first orientation)
 
-### Why NOT a `codrag_verbose` tool
+### Why NOT a `prep_verbose` tool
 
 We considered and rejected adding a separate verbose tool:
 
 1. **Tool proliferation tax**: Every additional tool costs tokens for the AI to read its description. With 6 tools already, a 7th "same as #1 but bigger" adds confusion.
 2. **The AI won't know when to use it**: Without clear task-type detection, agents either always use verbose (wasting tokens on simple tasks) or never use it (falling back to habits).
-3. **`max_chars` already exists**: Users and agents can already call `codrag(max_chars=60000)` for more context. The parameter is there; it just wasn't well-publicized.
+3. **`max_chars` already exists**: Users and agents can already call `prep(max_chars=60000)` for more context. The parameter is there; it just wasn't well-publicized.
 4. **Auto-scaling is smarter**: The first-call boost delivers the right amount at the right time without asking the user to think about it.
 
 ---
@@ -97,7 +97,7 @@ At 50K steady, Tier 1 models receive:
 | Concept summaries | Stats only | Stats only | Content available |
 | Cross-module chains | — | — | Top 5 import paths |
 
-The extra hub and neighbor coverage at Tier 1 means Opus/Gemini agents can plan multi-file refactors in a single shot instead of needing 3-5 `codrag_search` follow-ups.
+The extra hub and neighbor coverage at Tier 1 means Opus/Gemini agents can plan multi-file refactors in a single shot instead of needing 3-5 `prep_search` follow-ups.
 
 ---
 
@@ -114,4 +114,4 @@ The current architecture scales naturally:
 
 - **Never dump raw source** without LOD compression. Even 10M tokens can't make up for irrelevant content hurting attention.
 - **Never include all modules at LOD 0**. A 1400-file codebase at full resolution is ~2M chars. At 1M context, that's 50% of the window with raw code, leaving no room for the agent's own reasoning.
-- **Keep curated > comprehensive**. The value of CoDRAG is that it SELECTS the right context, not that it provides ALL context. More budget should mean *richer* context for the same selection, not *broader* selection.
+- **Keep curated > comprehensive**. The value of Prep is that it SELECTS the right context, not that it provides ALL context. More budget should mean *richer* context for the same selection, not *broader* selection.

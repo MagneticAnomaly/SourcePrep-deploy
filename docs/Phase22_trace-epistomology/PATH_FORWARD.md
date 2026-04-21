@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-CoDRAG's trace currently produces a structural graph (nodes + edges via tree-sitter) and a flat LLM overlay (summary + role via 3b model). This plan defines the path to a **self-refining epistemic knowledge graph** — a system that iteratively deepens its understanding of a codebase through coordinated Rust and LLM passes, with special attention to documentation mining, cross-referencing, and convergence.
+Prep's trace currently produces a structural graph (nodes + edges via tree-sitter) and a flat LLM overlay (summary + role via 3b model). This plan defines the path to a **self-refining epistemic knowledge graph** — a system that iteratively deepens its understanding of a codebase through coordinated Rust and LLM passes, with special attention to documentation mining, cross-referencing, and convergence.
 
 The strategy is grounded in recent CS research on knowledge graph construction, GraphRAG, and iterative LLM-augmented systems. This document consolidates all Phase 22 sub-documents into a single actionable roadmap.
 
@@ -28,7 +28,7 @@ Our multi-pass epistemic architecture aligns with — and extends — several ac
 3. Bottom-up community summaries
 4. Query-time: fan out from entities through neighbors + community context
 
-**How CoDRAG extends this**: GraphRAG operates on unstructured text. CoDRAG starts with a *structurally parsed* graph (tree-sitter AST → nodes + edges), then enriches with LLM-derived semantic edges. This gives us a **hybrid factual-semantic graph** — stronger than either pure static analysis or pure LLM extraction alone.
+**How Prep extends this**: GraphRAG operates on unstructured text. Prep starts with a *structurally parsed* graph (tree-sitter AST → nodes + edges), then enriches with LLM-derived semantic edges. This gives us a **hybrid factual-semantic graph** — stronger than either pure static analysis or pure LLM extraction alone.
 
 **Reference**: Edge et al., "From Local to Global: A Graph RAG Approach to Query-Focused Summarization," Microsoft Research, 2024. https://microsoft.github.io/graphrag/
 
@@ -41,7 +41,7 @@ Our multi-pass epistemic architecture aligns with — and extends — several ac
 - Schema alignment agents catch entity type mismatches
 - Confidence scoring (composite of multiple verification signals) is critical for quality
 
-**How CoDRAG adapts this**: We replace KARMA's multi-agent approach with a **two-tier architecture**: a cheap 3b model as the "hypothesis generator" and Rust as the "validator." This is more efficient for our use case — we don't need 9 agents because our domain (code + docs) has strong structural priors. Rust can validate file existence, node type compatibility, and edge uniqueness deterministically, which KARMA does with additional LLM calls.
+**How Prep adapts this**: We replace KARMA's multi-agent approach with a **two-tier architecture**: a cheap 3b model as the "hypothesis generator" and Rust as the "validator." This is more efficient for our use case — we don't need 9 agents because our domain (code + docs) has strong structural priors. Rust can validate file existence, node type compatibility, and edge uniqueness deterministically, which KARMA does with additional LLM calls.
 
 **Reference**: Lu & Wang, "KARMA: Leveraging Multi-Agent LLMs for Automated Knowledge Graph Enrichment," arXiv:2502.06472, 2025.
 
@@ -51,7 +51,7 @@ Our multi-pass epistemic architecture aligns with — and extends — several ac
 
 **Research backing**: **Knowledge Graph Based Repository-Level Code Generation** (2025) builds code KGs from AST analysis with node types {File, Class, Method, Function, Attribute, LLM-Generated Description} and hybrid retrieval (full-text + vector indexes). Their key insight: storing LLM-generated descriptions as *additional nodes* in the KG (not just metadata) enables both structural and semantic search.
 
-**How CoDRAG compares**: Our current trace is structurally equivalent to their KG (tree-sitter AST → nodes + edges). Our planned enhancement adds LLM-generated semantic edges and doc-derived cross-references, which they don't address (their work is code-only). We go further by making the enrichment *iterative* rather than one-shot.
+**How Prep compares**: Our current trace is structurally equivalent to their KG (tree-sitter AST → nodes + edges). Our planned enhancement adds LLM-generated semantic edges and doc-derived cross-references, which they don't address (their work is code-only). We go further by making the enrichment *iterative* rather than one-shot.
 
 **Reference**: Knowledge Graph Based Repository-Level Code Generation, arXiv:2505.14394, 2025.
 
@@ -61,7 +61,7 @@ Our multi-pass epistemic architecture aligns with — and extends — several ac
 
 **Research backing**: **RepoAgent** (Luo et al., EMNLP 2024) generates repository-level documentation using a topological ordering strategy: build a DAG from code reference relationships, then generate docs bottom-to-top so each node's children and callees have docs before it does. This ensures *contextual completeness* — the LLM always has downstream context when generating upstream documentation.
 
-**How CoDRAG adapts this**: Our Pass 2 enrichment should process nodes in reverse-topological order of the trace graph. Leaf files (utilities, configs) get enriched first. Then files that import them get enriched with the benefit of already-enriched neighbor summaries. This is a direct application of RepoAgent's key insight to our epistemic pipeline.
+**How Prep adapts this**: Our Pass 2 enrichment should process nodes in reverse-topological order of the trace graph. Leaf files (utilities, configs) get enriched first. Then files that import them get enriched with the benefit of already-enriched neighbor summaries. This is a direct application of RepoAgent's key insight to our epistemic pipeline.
 
 **Reference**: Luo et al., "RepoAgent: An LLM-Powered Open-Source Framework for Repository-level Code Documentation Generation," EMNLP 2024. arXiv:2402.16667.
 
@@ -90,7 +90,7 @@ Our enrichment loop is structurally identical: each node's "belief" is its epist
 - Semantic similarity between doc descriptions and actual code behavior
 - Temporal analysis (when was the doc last updated vs. when was the code last changed?)
 
-**How CoDRAG implements this**: Our Rust markdown parser extracts backtick references and markdown links. The LLM enrichment pass compares these references against the current trace graph. If a doc references `InterstitialAdController.swift` but the graph only contains `InterstitialAdManager.swift`, that's detectable drift — both by Rust (fuzzy file match) and by the LLM (semantic understanding of the rename).
+**How Prep implements this**: Our Rust markdown parser extracts backtick references and markdown links. The LLM enrichment pass compares these references against the current trace graph. If a doc references `InterstitialAdController.swift` but the graph only contains `InterstitialAdManager.swift`, that's detectable drift — both by Rust (fuzzy file match) and by the LLM (semantic understanding of the rename).
 
 **Reference**: IEEE, "A Review on Detecting and Managing Documentation Drift in Software," IEEE Xplore, 2025.
 
@@ -100,7 +100,7 @@ Our enrichment loop is structurally identical: each node's "belief" is its epist
 
 **Research backing**: **Aider** (2023) uses tree-sitter to build a "repository map" — a compact representation of the codebase showing class/function signatures, optimized by graph-ranking to select the most-referenced identifiers. This map provides LLMs with structural context without sending full file contents.
 
-**How CoDRAG differs**: Aider builds a *transient* map per-query (optimized for the current edit task). CoDRAG builds a *persistent* enriched graph (optimized for holistic codebase understanding). Aider's map is read-only context; CoDRAG's graph is iteratively enriched. But the core insight is shared: tree-sitter AST → graph → ranked context selection.
+**How Prep differs**: Aider builds a *transient* map per-query (optimized for the current edit task). Prep builds a *persistent* enriched graph (optimized for holistic codebase understanding). Aider's map is read-only context; Prep's graph is iteratively enriched. But the core insight is shared: tree-sitter AST → graph → ranked context selection.
 
 **Reference**: Aider, "Building a better repository map with tree sitter," aider.chat, 2023.
 
@@ -110,7 +110,7 @@ Our enrichment loop is structurally identical: each node's "belief" is its epist
 
 **Research backing**: The survey "LLM-empowered Knowledge Graph Construction" (2025) identifies **Dynamic Knowledge Memory** as a key future direction: KGs as *living memory substrates* that evolve with agent interactions, rather than static stores. Frameworks like A-MEM (Xu et al., 2025) model memory as interconnected notes with contextual metadata, enabling continuous reorganization. Zep (Rasmussen et al., 2025) uses temporal knowledge graphs for fact validity tracking.
 
-**How CoDRAG aligns**: Our epistemic scoring system with decay mechanics is exactly this — a temporal knowledge graph where each node's "belief" has a timestamp, confidence, and staleness risk. The continuous enrichment loop is the "reorganization" mechanism. CoDRAG's trace is a dynamic knowledge memory for coding agents.
+**How Prep aligns**: Our epistemic scoring system with decay mechanics is exactly this — a temporal knowledge graph where each node's "belief" has a timestamp, confidence, and staleness risk. The continuous enrichment loop is the "reorganization" mechanism. Prep's trace is a dynamic knowledge memory for coding agents.
 
 **Reference**: Survey: "LLM-empowered Knowledge Graph Construction," arXiv:2510.20345, 2025.
 
@@ -213,7 +213,7 @@ Based on the research validation above, here is the refined pipeline:
 **Goal**: Give documentation files structural graph connections for the first time.
 
 **Deliverables**:
-1. **`engine/crates/codrag-parser/src/markdown.rs`** — new module
+1. **`engine/crates/prep-parser/src/markdown.rs`** — new module
    - Parse `#`/`##`/`###` headers → `section` nodes with `contains` edges
    - **Each section records `start_line`, `end_line`, `ref_count`, `depth`** for importance ranking
    - Extract backtick file references (`` `path/to/file.ext` ``) → `references` edges
@@ -225,11 +225,11 @@ Based on the research validation above, here is the refined pipeline:
 
    For **code files**, the existing tree-sitter parse already provides symbol spans + edge degree. The augmenter can rank symbols by inbound `calls`/`imports` edge count to identify the "hottest" code regions — same principle as for docs.
 
-2. **`engine/crates/codrag-graph/src/lib.rs`** — modify `build_trace()`
+2. **`engine/crates/prep-graph/src/lib.rs`** — modify `build_trace()`
    - Add `.md`/`.markdown` branch that reads content + calls `analyze_markdown()`
    - Wire section nodes + reference edges into the graph
 
-3. **`engine/crates/codrag-parser/src/lib.rs`** — extend `parse_file()` or add parallel entry point
+3. **`engine/crates/prep-parser/src/lib.rs`** — extend `parse_file()` or add parallel entry point
    - Export `analyze_markdown` alongside language-specific analyzers
 
 4. **Tests**:
@@ -247,7 +247,7 @@ Based on the research validation above, here is the refined pipeline:
 **Key insight**: The Rust pass (Sprint 1) produces a ranked section digest for every file. Instead of reading the first 100 lines and hoping the important content is there, the augmenter reads **the head + the highest-ranked sections** — targeting the "juiciest" parts of the file.
 
 **Deliverables**:
-1. **`src/codrag/core/augmenter.py`** — new `_get_strategic_excerpt()` replacing `_get_file_head()`
+1. **`src/prep/core/augmenter.py`** — new `_get_strategic_excerpt()` replacing `_get_file_head()`
    ```python
    def _get_strategic_excerpt(self, file_path, digest, 
                                head_lines=100, section_lines=30,
@@ -281,12 +281,12 @@ Based on the research validation above, here is the refined pipeline:
 
    **Budget**: ~300 lines total per file (head 100 + up to 6 sections × 30 lines). This gives the LLM a representative view of an 800-line file while staying within token budget.
 
-2. **`src/codrag/core/augmenter.py`** — separate prompt template for `.md` files
+2. **`src/prep/core/augmenter.py`** — separate prompt template for `.md` files
    - Ask for `doc_type` (research, design_spec, plan, guide, reference, changelog, stub)
    - Ask for `doc_status` (active, completed, shelved, superseded, draft)
    - Ask for `references_files` (code files mentioned in the doc)
 
-3. **`src/codrag/core/augmenter.py`** — add `related_files` field to output schema
+3. **`src/prep/core/augmenter.py`** — add `related_files` field to output schema
    - Both code and doc prompts ask: "List up to 5 files this file likely relates to"
    - This feeds Pass 0.5
 
@@ -309,23 +309,23 @@ Based on the research validation above, here is the refined pipeline:
 **Goal**: Validate LLM relationship hypotheses and enrich the graph with semantic edges.
 
 **Deliverables**:
-1. **`engine/crates/codrag-graph/src/lib.rs`** — new `incorporate_inferred_edges()` function
+1. **`engine/crates/prep-graph/src/lib.rs`** — new `incorporate_inferred_edges()` function
    - Accept a list of `(source_id, target_path, relationship, confidence)`
    - Validate both endpoints exist in graph
    - Confidence gate (>= 0.7)
    - Add edges with `kind: "inferred"`
    - Cross-validate against Rust-extracted doc references (boost confidence on mutual confirmation)
 
-2. **`engine/crates/codrag-engine/src/lib.rs`** — expose via PyO3
+2. **`engine/crates/prep-engine/src/lib.rs`** — expose via PyO3
    - New Python-callable function: `incorporate_inferred_edges(handle, edges_json)`
 
-3. **`src/codrag/core/augmenter.py`** — parse `related_files` from Pass 1 output
+3. **`src/prep/core/augmenter.py`** — parse `related_files` from Pass 1 output
    - After Pass 1 completes, extract all `related_files` entries
    - Format as input for `incorporate_inferred_edges`
    - Call Rust validation
    - Write `trace_inferred_edges.jsonl`
 
-4. **`src/codrag/core/trace.py`** — load inferred edges in `TraceIndex`
+4. **`src/prep/core/trace.py`** — load inferred edges in `TraceIndex`
    - `TraceIndex.load()` also loads `trace_inferred_edges.jsonl`
    - `get_neighbors()` includes inferred edges (with type filtering)
 
@@ -341,7 +341,7 @@ Based on the research validation above, here is the refined pipeline:
 **Goal**: Deep per-node enrichment using the 14b model with full graph context.
 
 **Deliverables**:
-1. **`src/codrag/core/augmenter.py`** — new `EpistemicAugmenter` class (or extend existing)
+1. **`src/prep/core/augmenter.py`** — new `EpistemicAugmenter` class (or extend existing)
    - Topological ordering of nodes for processing (reverse dependency order)
    - For each node: gather source + 3b summary + neighbor summaries (structural + inferred)
    - 14b prompt producing expanded `AugmentationEntry` with epistemic fields
@@ -352,7 +352,7 @@ Based on the research validation above, here is the refined pipeline:
    - Doc file prompt: doc_type, doc_status, decision_chains, cross_references, contradictions, currency assessment
    - Both: epistemic_confidence score (0.0-1.0) with required reasoning
 
-3. **`src/codrag/core/epistemic_score.py`** — new module
+3. **`src/prep/core/epistemic_score.py`** — new module
    - `EpistemicScore` dataclass with components: structural_completeness, semantic_richness, cross_reference_density, temporal_currency, neighbor_consistency
    - Composite score calculation
    - Decay mechanics (neighbor change → 0.95×, doc update → 0.90×, source change → reset, rebuild → 0.80×)
@@ -375,12 +375,12 @@ Based on the research validation above, here is the refined pipeline:
 **Goal**: Group enriched nodes into subsystem clusters and generate module-level understanding.
 
 **Deliverables**:
-1. **`src/codrag/core/cluster.py`** — new module
+1. **`src/prep/core/cluster.py`** — new module
    - Group nodes by `domain_tags` from Pass 2
    - Connected-component analysis on inferred edges within each domain
    - Output: clusters with member lists, inter-cluster edges
 
-2. **`src/codrag/core/augmenter.py`** — cluster synthesis prompt
+2. **`src/prep/core/augmenter.py`** — cluster synthesis prompt
    - Input: all enriched summaries in a cluster (not full source)
    - Output: module summary, data flow description, component status, architecture role
    - Create virtual `module:*` nodes in the graph
@@ -458,7 +458,7 @@ Based on the research validation above, here is the refined pipeline:
 - **Build time regression**: Pass 0 stays under 200ms (current: 72ms)
 
 ### Qualitative
-- **Context quality**: When CoDRAG is used as context for coding tasks, does the enriched trace provide more relevant and accurate context than the current flat augmentation?
+- **Context quality**: When Prep is used as context for coding tasks, does the enriched trace provide more relevant and accurate context than the current flat augmentation?
 - **Self-model accuracy**: Can the system correctly describe its own architecture, identify subsystems, and flag stale documentation?
 - **Developer trust**: Do epistemic scores correlate with developer assessment of augmentation quality?
 

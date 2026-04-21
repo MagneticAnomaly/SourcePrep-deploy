@@ -55,7 +55,7 @@
 3. **Persistence** matters — the diagram becomes useless if positions reset every reload
 4. **Annotations as first-class citizens** — the diagram is a communication tool, not just a visualization
 
-## CoDRAG Data Available
+## Prep Data Available
 
 ### Existing Backend Data (no new analysis needed)
 

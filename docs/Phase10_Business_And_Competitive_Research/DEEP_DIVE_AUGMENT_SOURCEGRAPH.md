@@ -1,12 +1,12 @@
-# Deep Dive: Augment Code & Sourcegraph Cody vs CoDRAG
+# Deep Dive: Augment Code & Sourcegraph Cody vs Prep
 
 ## Purpose
 
-This document provides a detailed technical and strategic comparison of CoDRAG against its two closest cloud-based competitors: **Augment Code** and **Sourcegraph Cody**. The goal is to solidify CoDRAG's market position by understanding exactly how these competitors work and where CoDRAG's local-first + BYOK architecture provides genuine advantages.
+This document provides a detailed technical and strategic comparison of Prep against its two closest cloud-based competitors: **Augment Code** and **Sourcegraph Cody**. The goal is to solidify Prep's market position by understanding exactly how these competitors work and where Prep's local-first + BYOK architecture provides genuine advantages.
 
 ## Executive Summary
 
-| Dimension | CoDRAG | Augment Code | Sourcegraph Cody |
+| Dimension | Prep | Augment Code | Sourcegraph Cody |
 |-----------|--------|--------------|------------------|
 | **Architecture** | Local-first, on-device | Cloud-hosted, code uploaded | Cloud-hosted, code indexed remotely |
 | **Code residency** | Stays on device | Uploaded to Augment cloud | Indexed on Sourcegraph instance |
@@ -17,7 +17,7 @@ This document provides a detailed technical and strategic comparison of CoDRAG a
 | **Privacy** | Complete (no upload) | Code uploaded, "proof of possession" | Code indexed remotely |
 | **Pricing** | **Free (1-repo) / Starter ($29/4mo) / Pro ($79 life)** | $20-$200/mo + Enterprise | $49/user/mo Enterprise only (Free/Pro discontinued) |
 
-**Key insight**: Both Augment and Sourcegraph are cloud-first by design. CoDRAG's local-first architecture is a genuine moat, not just a positioning choice.
+**Key insight**: Both Augment and Sourcegraph are cloud-first by design. Prep's local-first architecture is a genuine moat, not just a positioning choice.
 
 ---
 
@@ -80,7 +80,7 @@ Source: https://www.augmentcode.com/pricing
 3. **Enterprise-grade security** — SOC 2, ISO 42001, customer-managed encryption keys
 4. **Commit history indexing** — tracks codebase evolution, not just current state
 
-### Augment's weaknesses (from CoDRAG's perspective)
+### Augment's weaknesses (from Prep's perspective)
 
 1. **Requires code upload** — code leaves the developer's machine
 2. **Cloud-dependent** — no offline capability
@@ -155,7 +155,7 @@ Source: https://sourcegraph.com/blog/changes-to-cody-free-pro-and-enterprise-sta
 3. **Code Search integration** — leverages battle-tested search infrastructure
 4. **No embeddings to manage** — simplified architecture (for admins)
 
-### Sourcegraph's weaknesses (from CoDRAG's perspective)
+### Sourcegraph's weaknesses (from Prep's perspective)
 
 1. **No free/pro tier** — Enterprise-only for Cody
 2. **Keyword search limitations** — BM25 misses semantic similarity
@@ -185,7 +185,7 @@ Source: https://www.firecrawl.dev/blog/best-vector-databases-2025, community ben
 3. **Memory locality** — hot data stays in RAM/cache
 4. **No serialization overhead** — no JSON/HTTP encoding/decoding
 
-### CoDRAG's advantage
+### Prep's advantage
 
 With nomic-embed-text running locally + a local vector store:
 - **Embedding generation**: ~10-50ms on CPU, faster on GPU
@@ -251,16 +251,16 @@ Both Augment and Sourcegraph:
 - Maintain their own indexes in their infrastructure
 - Cannot work fully offline
 
-**This is CoDRAG's key differentiator: it operates directly on the local codebase without uploading anything.**
+**This is Prep's key differentiator: it operates directly on the local codebase without uploading anything.**
 
 ---
 
-## CoDRAG's Differentiated Position
+## Prep's Differentiated Position
 
 ### Architecture comparison
 
 ```
-CoDRAG (local-first):
+Prep (local-first):
 Local codebase → Local embeddings (nomic-embed-text) → Local vector DB
                            ↓
                     MCP tools → IDE/Agent
@@ -278,9 +278,9 @@ Git host → Sourcegraph instance → Code Search index
                              IDE extension → Cloud query → Response
 ```
 
-### CoDRAG's unique combination
+### Prep's unique combination
 
-| Feature | CoDRAG | Augment | Sourcegraph |
+| Feature | Prep | Augment | Sourcegraph |
 |---------|--------|---------|-------------|
 | Code never leaves device | ✅ | ❌ | ❌ |
 | Works offline | ✅ | ❌ | ❌ |
@@ -298,7 +298,7 @@ Be honest about where they're stronger:
 
 **Augment Code**:
 - More sophisticated context models (custom-trained vs. generic)
-- Real-time branch-aware indexing (CoDRAG doesn't track branches yet)
+- Real-time branch-aware indexing (Prep doesn't track branches yet)
 - Commit history integration
 - Enterprise security certifications (SOC 2, ISO 42001)
 
@@ -308,7 +308,7 @@ Be honest about where they're stronger:
 - Multi-repo context (up to 10 repos in one query)
 - Enterprise customer base and support
 
-### CoDRAG's strategic response
+### Prep's strategic response
 
 1. **Don't compete on cloud scale** — own the local-first niche
 2. **Emphasize latency** — local queries are 5-10x faster
@@ -323,9 +323,9 @@ Be honest about where they're stronger:
 
 ### Positioning statement
 
-> **CoDRAG is the local-first codebase context engine for developers who need fast, private, offline-capable RAG without uploading their code to the cloud.**
+> **Prep is the local-first codebase context engine for developers who need fast, private, offline-capable RAG without uploading their code to the cloud.**
 
-### Target segments (where CoDRAG wins)
+### Target segments (where Prep wins)
 
 1. **Privacy-conscious developers** — code never leaves machine
 2. **Air-gapped/regulated environments** — can run fully offline
@@ -341,7 +341,7 @@ Be honest about where they're stronger:
 
 ### Feature roadmap implications
 
-Based on this analysis, CoDRAG should prioritize:
+Based on this analysis, Prep should prioritize:
 
 1. **Local embedding quality** — consider fine-tuning nomic-embed-text for code
 2. **Branch awareness** — Augment's per-branch indexing is sophisticated
@@ -358,15 +358,15 @@ Based on this analysis, CoDRAG should prioritize:
 
 ## Conclusion
 
-CoDRAG occupies a **genuinely differentiated position** in the market:
+Prep occupies a **genuinely differentiated position** in the market:
 
 - **Augment Code** and **Sourcegraph Cody** are cloud-first by design
 - Neither can offer true local-first operation
-- CoDRAG's latency, privacy, and offline advantages are structural, not just marketing
+- Prep's latency, privacy, and offline advantages are structural, not just marketing
 
 The local vector DB is **faster** than cloud-based (5-10x lower latency). Cloud services must upload or clone code—they cannot operate directly on the local git repo.
 
-**CoDRAG should lean into this differentiation**, not try to match cloud competitors feature-for-feature. The goal is to be the **best local-first context engine**, not a worse cloud service.
+**Prep should lean into this differentiation**, not try to match cloud competitors feature-for-feature. The goal is to be the **best local-first context engine**, not a worse cloud service.
 
 ---
 

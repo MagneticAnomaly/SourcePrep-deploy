@@ -11,7 +11,7 @@
 After Phase 96A + 96B landed (commit `997c579d`), the backend pipeline is provably working:
 - 192/192 pipeline tests pass
 - Live rebuild on SMOKE: rust_repo completed all 6 deep enrichment stages in 781s with no stalls
-- Live run on CoDRAG ran structural + inferred_edges + catalogue cleanly (1609 nodes augmented in 13 minutes) before user cancelled mid-way
+- Live run on Prep ran structural + inferred_edges + catalogue cleanly (1609 nodes augmented in 13 minutes) before user cancelled mid-way
 
 But the dashboard gives the user the impression that nothing is fixed. This document catalogs the specific UI bugs that make a working pipeline look broken.
 
@@ -20,7 +20,7 @@ But the dashboard gives the user the impression that nothing is fixed. This docu
 ## Symptoms Reported by User
 
 1. "Only one active project, then I refreshed and suddenly had 2"
-2. "Toggled off CoDRAG and it's still running in the logs"
+2. "Toggled off Prep and it's still running in the logs"
 3. "Queue shows nothing at all"
 4. "The pipeline itself is just off"
 5. "Active state doesn't save"
@@ -35,17 +35,17 @@ But the dashboard gives the user the impression that nothing is fixed. This docu
 ```
 GET /projects → 10 projects
   SMOKE: rust_repo   activity=active    active_cfg=True
-  CoDRAG             activity=inactive  active_cfg=False  ← persisted correctly
+  Prep             activity=inactive  active_cfg=False  ← persisted correctly
   (8 others)         activity=inactive  active_cfg=False
 ```
 
-**What the user saw:** After toggling off CoDRAG, refresh showed CoDRAG as active again.
+**What the user saw:** After toggling off Prep, refresh showed Prep as active again.
 
 **Root cause hypothesis:** The dashboard computes "active" from TWO sources:
 - `config.active` flag (persisted)
 - Inferred from "has a running pipeline"
 
-When the user toggles off CoDRAG mid-pipeline:
+When the user toggles off Prep mid-pipeline:
 1. Backend persists `active=False` to project config
 2. Backend sends cancel signal to the running pipeline
 3. Cancel processes through the state machine — takes up to several seconds for stage teardown
@@ -58,17 +58,17 @@ When the user toggles off CoDRAG mid-pipeline:
 
 **Likely files to fix:**
 - `packages/ui/src/components/navigation/ProjectList.tsx` — project active indicator
-- `src/codrag/dashboard/src/hooks/useProjectManager.ts` — project active state hook
+- `src/prep/dashboard/src/hooks/useProjectManager.ts` — project active state hook
 
 ---
 
 ### Symptom 3 — "Queue shows nothing at all"
 
-**Backend says:** Queue API returns `CoDRAG — fast_sync/knowledge [cancelled]`.
+**Backend says:** Queue API returns `Prep — fast_sync/knowledge [cancelled]`.
 
 **What the user saw:** Queue panel appeared empty.
 
-**Screenshot analysis:** Actually the queue panel shows `CoDRAG — Pending — Fast Sync → knowledge` — labeled "Pending" not "Cancelled". So the API is returning the item and the UI IS rendering it, but:
+**Screenshot analysis:** Actually the queue panel shows `Prep — Pending — Fast Sync → knowledge` — labeled "Pending" not "Cancelled". So the API is returning the item and the UI IS rendering it, but:
 - **Wrong label:** `cancelled` is mapped to "Pending" visually (label bug)
 - **No terminal filter:** Cancelled entries should be ephemeral — either shown as completed for ~10s then removed, or filtered entirely
 
@@ -78,16 +78,16 @@ When the user toggles off CoDRAG mid-pipeline:
 3. Backend queue endpoint returns cancelled entries because they match the `_PHASE_ORDER` filter set in `queue.py:32`
 
 **Where the bug lives:**
-- Backend: `src/codrag/api/routers/queue.py:44` — `_EXCLUDED_STATES = {"completed", "idle"}` should include `cancelled` and `failed`
+- Backend: `src/prep/api/routers/queue.py:44` — `_EXCLUDED_STATES = {"completed", "idle"}` should include `cancelled` and `failed`
 - Frontend: queue panel component needs phase→label mapping for all states
 
 ---
 
-### Symptom 2 — "Toggled off CoDRAG and it's still running in the logs"
+### Symptom 2 — "Toggled off Prep and it's still running in the logs"
 
-**Backend says:** CoDRAG was cancelled at stage 4/knowledge, error="Cancelled by user". Last log write was at 11:41 AM, current time 8:00 AM (19 minutes idle).
+**Backend says:** Prep was cancelled at stage 4/knowledge, error="Cancelled by user". Last log write was at 11:41 AM, current time 8:00 AM (19 minutes idle).
 
-**What the user saw:** Logs appearing to show CoDRAG activity.
+**What the user saw:** Logs appearing to show Prep activity.
 
 **Root cause:** The dashboard's "activity indicator" or "ongoing operations" panel doesn't tell the difference between:
 1. Real-time log events streaming via SSE (live activity)
@@ -134,7 +134,7 @@ When the dashboard is open in a browser tab, the Vite dev proxy opens 50+ concur
 
 Recurring log error:
 ```
-ERROR:codrag.api.routers.settings:Security health check failed:
+ERROR:prep.api.routers.settings:Security health check failed:
   'SettingsStore' object has no attribute 'get_global'
 ```
 
@@ -153,7 +153,7 @@ This is **Phase 96D** — UI state synchronization. It's distinct from 96A/B/C (
 ### 96D.1 — Queue endpoint terminal-state filtering (backend, 1 line)
 
 ```python
-# src/codrag/api/routers/queue.py:44
+# src/prep/api/routers/queue.py:44
 _EXCLUDED_STATES = {"completed", "idle", "cancelled", "failed"}
 ```
 
@@ -207,11 +207,11 @@ Phase 96D will include a Python script (`tools/playwright_smoke.py` or similar) 
 
 | File | Change type | 96D phase |
 |---|---|---|
-| `src/codrag/api/routers/queue.py` | 1-line add to exclude set | 96D.1 |
-| `src/codrag/server.py` | anyio thread pool bump | 96D.2 |
+| `src/prep/api/routers/queue.py` | 1-line add to exclude set | 96D.1 |
+| `src/prep/server.py` | anyio thread pool bump | 96D.2 |
 | `packages/ui/src/components/navigation/ProjectList.tsx` | active indicator logic | 96D.3 |
 | `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` | stale-state badge | 96D.4 |
-| `src/codrag/dashboard/src/hooks/useProjectManager.ts` | active state source | 96D.3 |
+| `src/prep/dashboard/src/hooks/useProjectManager.ts` | active state source | 96D.3 |
 | `tools/playwright_smoke.py` (new) | UI driver for smoke tests | 96D.5 |
 
 ---

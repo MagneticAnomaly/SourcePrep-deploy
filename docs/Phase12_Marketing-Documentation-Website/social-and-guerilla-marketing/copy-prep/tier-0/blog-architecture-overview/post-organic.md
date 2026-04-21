@@ -1,7 +1,7 @@
 # Organic/Personal Post Draft for Blog
 
 ## Title Options
-1. **We were tired of "vibe-based" coding. Here's why we built CoDRAG.**
+1. **We were tired of "vibe-based" coding. Here's why we built Prep.**
 2. **Local-First, Graph-Based, and No Subscriptions: Why we built the dev tool we wanted.**
 
 ## Body Structure

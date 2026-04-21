@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a public `/research` page on the CoDRAG marketing site that lists ~56 external research sources (papers, repos, essays, standards) the project draws on, with editorial spotlights for ~12 key works and a filterable appendix per problem area.
+**Goal:** Build a public `/research` page on the Prep marketing site that lists ~56 external research sources (papers, repos, essays, standards) the project draws on, with editorial spotlights for ~12 key works and a filterable appendix per problem area.
 
-**Architecture:** Six new React components live in `@codrag/ui` under `components/marketing/research/`. A single `data/researchSources.ts` module is the source of truth for the source list and is consumed by both the marketing page and the Storybook stories. The marketing page reuses the existing `DetailPageLayout` shell (sticky sidebar TOC + 3+9 grid) and composes the new components inside.
+**Architecture:** Six new React components live in `@prep/ui` under `components/marketing/research/`. A single `data/researchSources.ts` module is the source of truth for the source list and is consumed by both the marketing page and the Storybook stories. The marketing page reuses the existing `DetailPageLayout` shell (sticky sidebar TOC + 3+9 grid) and composes the new components inside.
 
-**Tech Stack:** TypeScript, React, Next.js (app router) for the marketing app, Tailwind CSS, Storybook 7.6, lucide-react icons, `@codrag/ui` shared component library. No new dependencies. No unit-test framework is configured in `packages/ui` — gates are TypeScript typecheck, a runtime data-validator, Storybook visual smoke, and `next build`.
+**Tech Stack:** TypeScript, React, Next.js (app router) for the marketing app, Tailwind CSS, Storybook 7.6, lucide-react icons, `@prep/ui` shared component library. No new dependencies. No unit-test framework is configured in `packages/ui` — gates are TypeScript typecheck, a runtime data-validator, Storybook visual smoke, and `next build`.
 
 **Spec:** [`docs/superpowers/specs/2026-04-10-research-page-design.md`](../specs/2026-04-10-research-page-design.md)
 
@@ -167,8 +167,8 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     year: 2024,
     url: 'https://arxiv.org/abs/2307.03172',
     arxivId: '2307.03172',
-    usage: 'Drives CoDRAG\u2019s conservative context-budget defaults and the rule that the most relevant chunks land at the edges of the window.',
-    spotlightProse: 'Liu et al. show that language models attend to the start and end of a long context far more than the middle. The finding sets the ceiling for any retrieval system that pads its context na\u00efvely. CoDRAG ranks results by relevance and assembles them so the highest-scoring chunks bracket the prompt, never bury it.',
+    usage: 'Drives Prep\u2019s conservative context-budget defaults and the rule that the most relevant chunks land at the edges of the window.',
+    spotlightProse: 'Liu et al. show that language models attend to the start and end of a long context far more than the middle. The finding sets the ceiling for any retrieval system that pads its context na\u00efvely. Prep ranks results by relevance and assembles them so the highest-scoring chunks bracket the prompt, never bury it.',
     problemArea: 'retrieval',
     spotlight: true,
   },
@@ -182,7 +182,7 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     url: 'https://arxiv.org/abs/2502.11371',
     arxivId: '2502.11371',
     usage: 'Validates trace-graph expansion as the right answer for multi-hop queries.',
-    spotlightProse: 'Han et al. compare flat-vector RAG against graph-augmented RAG across reasoning-heavy benchmarks and find that local community search wins on multi-hop questions. CoDRAG\u2019s `codrag_search` follows the same logic: vector hits seed the query, then a trace-graph hop expands the neighborhood before the final assembly.',
+    spotlightProse: 'Han et al. compare flat-vector RAG against graph-augmented RAG across reasoning-heavy benchmarks and find that local community search wins on multi-hop questions. Prep\u2019s `prep_search` follows the same logic: vector hits seed the query, then a trace-graph hop expands the neighborhood before the final assembly.',
     problemArea: 'retrieval',
     spotlight: true,
   },
@@ -195,7 +195,7 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     year: 2024,
     url: 'https://www.anthropic.com/news/contextual-retrieval',
     usage: 'Adopted directly: prepend file-level context to each chunk before embedding.',
-    spotlightProse: 'Anthropic\u2019s post argued that prepending a few lines of file-level context to each chunk before embedding reduced retrieval failures by 49% in their tests. CoDRAG\u2019s semantic chunker now does exactly this \u2014 every chunk carries a synopsis prefix derived from its enclosing module so the embedding sees the same neighborhood the model will reason over.',
+    spotlightProse: 'Anthropic\u2019s post argued that prepending a few lines of file-level context to each chunk before embedding reduced retrieval failures by 49% in their tests. Prep\u2019s semantic chunker now does exactly this \u2014 every chunk carries a synopsis prefix derived from its enclosing module so the embedding sees the same neighborhood the model will reason over.',
     problemArea: 'retrieval',
     spotlight: true,
   },
@@ -232,7 +232,7 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     venue: 'databricks.com',
     year: 2024,
     url: 'https://www.databricks.com/blog/long-context-rag-performance-llms',
-    usage: 'Identifies the 4K\u201332K token RAG saturation point that justifies CoDRAG\u2019s 6K\u20138K conservative defaults.',
+    usage: 'Identifies the 4K\u201332K token RAG saturation point that justifies Prep\u2019s 6K\u20138K conservative defaults.',
     problemArea: 'retrieval',
     spotlight: false,
   },
@@ -244,7 +244,7 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     year: 2025,
     url: 'https://arxiv.org/abs/2601.11564',
     arxivId: '2601.11564',
-    usage: 'Documents latency cliffs past ~15K words \u2014 informs CoDRAG\u2019s per-client char-budget caps.',
+    usage: 'Documents latency cliffs past ~15K words \u2014 informs Prep\u2019s per-client char-budget caps.',
     problemArea: 'retrieval',
     spotlight: false,
   },
@@ -256,7 +256,7 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     year: 2024,
     url: 'https://arxiv.org/abs/2510.04905',
     arxivId: '2510.04905',
-    usage: 'Comprehensive map of code-RAG techniques. Used to position CoDRAG inside the repository-level RAG quadrant.',
+    usage: 'Comprehensive map of code-RAG techniques. Used to position Prep inside the repository-level RAG quadrant.',
     problemArea: 'retrieval',
     spotlight: false,
   },
@@ -278,7 +278,7 @@ export const RESEARCH_SOURCES: ResearchSource[] = [
     title: 'zilliztech/claude-context',
     venue: 'GitHub',
     url: 'https://github.com/zilliztech/claude-context',
-    usage: 'MCP server reporting ~40% token reduction via vector search \u2014 external corroboration of CoDRAG\u2019s retrieval-first approach.',
+    usage: 'MCP server reporting ~40% token reduction via vector search \u2014 external corroboration of Prep\u2019s retrieval-first approach.',
     problemArea: 'retrieval',
     spotlight: false,
   },
@@ -318,8 +318,8 @@ Insert this block:
     year: 2026,
     url: 'https://arxiv.org/abs/2601.19929',
     arxivId: '2601.19929',
-    usage: 'Primary inspiration for CoDRAG\u2019s LOD 0\u20135 extraction ladder.',
-    spotlightProse: 'Stingy Context demonstrates that hierarchical level-of-detail extraction can compress code by 18:1 with negligible quality loss for auto-coding tasks. CoDRAG\u2019s context assembler implements the same ladder: full source for the focal file, compressed forms for callees, and one-line signatures for everything else.',
+    usage: 'Primary inspiration for Prep\u2019s LOD 0\u20135 extraction ladder.',
+    spotlightProse: 'Stingy Context demonstrates that hierarchical level-of-detail extraction can compress code by 18:1 with negligible quality loss for auto-coding tasks. Prep\u2019s context assembler implements the same ladder: full source for the focal file, compressed forms for callees, and one-line signatures for everything else.',
     problemArea: 'compression',
     spotlight: true,
   },
@@ -332,7 +332,7 @@ Insert this block:
     url: 'https://arxiv.org/abs/2406.18294',
     arxivId: '2406.18294',
     usage: 'Empirically validates that signatures-only context preserves ~90% of downstream quality.',
-    spotlightProse: 'HCP measures, three pruning levels deep, the cost of dropping function bodies in favor of signatures only. The result \u2014 ~90% retention of completion quality \u2014 is the empirical backbone for CoDRAG\u2019s LOD 2 default. We promote bodies to LOD 0 only where the search score crosses a threshold.',
+    spotlightProse: 'HCP measures, three pruning levels deep, the cost of dropping function bodies in favor of signatures only. The result \u2014 ~90% retention of completion quality \u2014 is the empirical backbone for Prep\u2019s LOD 2 default. We promote bodies to LOD 0 only where the search score crosses a threshold.',
     problemArea: 'compression',
     spotlight: true,
   },
@@ -343,7 +343,7 @@ Insert this block:
     venue: 'GitHub',
     url: 'https://github.com/Aider-AI/aider',
     usage: 'Production proof for repo-map-style LOD 4 at scale \u2014 thousands of users in the wild.',
-    spotlightProse: 'Aider\u2019s repo-map prunes a project into one-line signatures and ranks the visible set per turn. It is the public proof that LOD 4 works in production at scale, used by thousands of developers daily. CoDRAG\u2019s context assembler implements a similar selection step on top of the trace graph rather than a flat AST extract.',
+    spotlightProse: 'Aider\u2019s repo-map prunes a project into one-line signatures and ranks the visible set per turn. It is the public proof that LOD 4 works in production at scale, used by thousands of developers daily. Prep\u2019s context assembler implements a similar selection step on top of the trace graph rather than a flat AST extract.',
     problemArea: 'compression',
     spotlight: true,
   },
@@ -353,8 +353,8 @@ Insert this block:
     title: 'microsoft/LLMLingua',
     venue: 'GitHub',
     url: 'https://github.com/microsoft/LLMLingua',
-    usage: 'Adopted as the language/docs compressor half of CoDRAG\u2019s dual-compressor design.',
-    spotlightProse: 'LLMLingua uses a small classifier to drop the lowest-information tokens from a prompt without losing meaning. CoDRAG runs LLMLingua-2 over Markdown and docstrings while letting code chunks flow through the structural LOD ladder \u2014 two compressors, one assembly.',
+    usage: 'Adopted as the language/docs compressor half of Prep\u2019s dual-compressor design.',
+    spotlightProse: 'LLMLingua uses a small classifier to drop the lowest-information tokens from a prompt without losing meaning. Prep runs LLMLingua-2 over Markdown and docstrings while letting code chunks flow through the structural LOD ladder \u2014 two compressors, one assembly.',
     problemArea: 'compression',
     spotlight: true,
   },
@@ -391,7 +391,7 @@ Insert this block:
     year: 2024,
     url: 'https://arxiv.org/abs/2403.06095',
     arxivId: '2403.06095',
-    usage: 'The Search\u2192Expand\u2192Refine pipeline maps 1:1 onto CoDRAG\u2019s search \u2192 trace expansion \u2192 LOD assembly.',
+    usage: 'The Search\u2192Expand\u2192Refine pipeline maps 1:1 onto Prep\u2019s search \u2192 trace expansion \u2192 LOD assembly.',
     problemArea: 'compression',
     spotlight: false,
   },
@@ -403,7 +403,7 @@ Insert this block:
     year: 2024,
     url: 'https://arxiv.org/abs/2406.10018',
     arxivId: '2406.10018',
-    usage: 'Static-analysis-at-prompting pattern; mirrors CoDRAG\u2019s use of trace-graph import edges to drive dependency-aware retrieval.',
+    usage: 'Static-analysis-at-prompting pattern; mirrors Prep\u2019s use of trace-graph import edges to drive dependency-aware retrieval.',
     problemArea: 'compression',
     spotlight: false,
   },
@@ -428,7 +428,7 @@ Insert this block:
     year: 2024,
     url: 'https://arxiv.org/abs/2401.03462',
     arxivId: '2401.03462',
-    usage: 'Model-internal KV compression \u2014 explicitly complementary to CoDRAG\u2019s pre-prompt compression layer.',
+    usage: 'Model-internal KV compression \u2014 explicitly complementary to Prep\u2019s pre-prompt compression layer.',
     problemArea: 'compression',
     spotlight: false,
   },
@@ -496,7 +496,7 @@ Insert this block:
     year: 2025,
     url: 'https://arxiv.org/abs/2511.18659',
     arxivId: '2511.18659',
-    usage: 'Evaluated as a baseline; code/language retention measured at 20\u201329%, motivating CoDRAG\u2019s dual-compressor design.',
+    usage: 'Evaluated as a baseline; code/language retention measured at 20\u201329%, motivating Prep\u2019s dual-compressor design.',
     problemArea: 'compression',
     spotlight: false,
   },
@@ -533,8 +533,8 @@ Insert this block, immediately before the closing `];`:
     title: 'garrytan/gbrain',
     venue: 'GitHub',
     url: 'https://github.com/garrytan/gbrain',
-    usage: 'Catalyst for Phase 93 chunking work \u2014 informed CoDRAG\u2019s semantic chunker and multi-query retrieval.',
-    spotlightProse: 'Garry Tan\u2019s gbrain pairs Savitzky\u2013Golay smoothing for semantic boundary detection with reciprocal-rank-fusion across multiple query expansions. Reading it kicked off Phase 93 and shaped CoDRAG\u2019s current chunker: smooth the similarity curve, cut on local minima, fuse vector and keyword hits with RRF.',
+    usage: 'Catalyst for Phase 93 chunking work \u2014 informed Prep\u2019s semantic chunker and multi-query retrieval.',
+    spotlightProse: 'Garry Tan\u2019s gbrain pairs Savitzky\u2013Golay smoothing for semantic boundary detection with reciprocal-rank-fusion across multiple query expansions. Reading it kicked off Phase 93 and shaped Prep\u2019s current chunker: smooth the similarity curve, cut on local minima, fuse vector and keyword hits with RRF.',
     problemArea: 'chunking',
     spotlight: true,
   },
@@ -547,7 +547,7 @@ Insert this block, immediately before the closing `];`:
     url: 'https://arxiv.org/abs/2506.15655',
     arxivId: '2506.15655',
     usage: 'Confirms AST-boundary-respecting chunks beat naive splits.',
-    spotlightProse: 'cAST shows that chunking on AST boundaries produces meaningfully better embeddings than fixed-window splits, particularly for languages with strong nesting structure. CoDRAG\u2019s tree-sitter chunker is grounded in this finding \u2014 we never split mid-function and the chunk header carries the full enclosing path.',
+    spotlightProse: 'cAST shows that chunking on AST boundaries produces meaningfully better embeddings than fixed-window splits, particularly for languages with strong nesting structure. Prep\u2019s tree-sitter chunker is grounded in this finding \u2014 we never split mid-function and the chunk header carries the full enclosing path.',
     problemArea: 'chunking',
     spotlight: true,
   },
@@ -561,7 +561,7 @@ Insert this block, immediately before the closing `];`:
     url: 'https://arxiv.org/abs/2404.16130',
     arxivId: '2404.16130',
     usage: 'Inspired the atlas + module-summary layer: multi-stage community summaries rolled into project-level context.',
-    spotlightProse: 'Edge et al. layer entity extraction, community detection, and per-community summarization to make a knowledge graph queryable as a hierarchy. CoDRAG\u2019s atlas does the same trick on code: directories and modules become communities, each with a generated synopsis that the assembler can hand to the model in place of the underlying files.',
+    spotlightProse: 'Edge et al. layer entity extraction, community detection, and per-community summarization to make a knowledge graph queryable as a hierarchy. Prep\u2019s atlas does the same trick on code: directories and modules become communities, each with a generated synopsis that the assembler can hand to the model in place of the underlying files.',
     problemArea: 'chunking',
     spotlight: true,
   },
@@ -598,7 +598,7 @@ Insert this block, immediately before the closing `];`:
     venue: 'SIGIR 2009',
     year: 2009,
     url: 'https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf',
-    usage: 'RRF (k=60) is the hybrid-fusion strategy CoDRAG uses to combine semantic and keyword search.',
+    usage: 'RRF (k=60) is the hybrid-fusion strategy Prep uses to combine semantic and keyword search.',
     problemArea: 'chunking',
     spotlight: false,
   },
@@ -635,7 +635,7 @@ Insert this block, immediately before the closing `];`:
     year: 2023,
     url: 'https://arxiv.org/abs/2308.09687',
     arxivId: '2308.09687',
-    usage: 'Early validation of graph-centric code understanding \u2014 shaped CoDRAG\u2019s TraceIndex node/edge model.',
+    usage: 'Early validation of graph-centric code understanding \u2014 shaped Prep\u2019s TraceIndex node/edge model.',
     problemArea: 'chunking',
     spotlight: false,
   },
@@ -647,7 +647,7 @@ Insert this block, immediately before the closing `];`:
     year: 2024,
     url: 'https://arxiv.org/abs/2402.16667',
     arxivId: '2402.16667',
-    usage: 'Multi-pass LLM augmentation pattern that informs CoDRAG\u2019s per-node enrichment pipeline.',
+    usage: 'Multi-pass LLM augmentation pattern that informs Prep\u2019s per-node enrichment pipeline.',
     problemArea: 'chunking',
     spotlight: false,
   },
@@ -688,7 +688,7 @@ Insert this block, immediately before the closing `];`:
     url: 'https://arxiv.org/abs/2009.08366',
     arxivId: '2009.08366',
     usage: 'Justifies why data-flow information improves code understanding \u2014 the rationale behind PDG-style edges in the trace graph.',
-    spotlightProse: 'Guo et al. show that pre-training code models on data-flow graphs (not just token streams) measurably improves downstream code understanding. CoDRAG\u2019s trace index encodes the same intuition by carrying control- and data-flow edges alongside symbol references, so retrievers can hop on dependency, not just on text similarity.',
+    spotlightProse: 'Guo et al. show that pre-training code models on data-flow graphs (not just token streams) measurably improves downstream code understanding. Prep\u2019s trace index encodes the same intuition by carrying control- and data-flow edges alongside symbol references, so retrievers can hop on dependency, not just on text similarity.',
     problemArea: 'concepts',
     spotlight: true,
   },
@@ -701,7 +701,7 @@ Insert this block, immediately before the closing `];`:
     year: 1995,
     url: 'https://global.oup.com/academic/product/the-knowledge-creating-company-9780195092691',
     usage: 'Epistemological frame for the concepts system: tacit \u2192 explicit knowledge transfer.',
-    spotlightProse: 'Nonaka & Takeuchi\u2019s SECI model frames organizational knowledge as a four-step cycle: socialize, externalize, combine, internalize. CoDRAG\u2019s concepts feature is a literal externalization tool \u2014 the tacit "we don\u2019t do it that way" assumptions in a team\u2019s head become typed, anchored, testable artifacts that downstream agents can read.',
+    spotlightProse: 'Nonaka & Takeuchi\u2019s SECI model frames organizational knowledge as a four-step cycle: socialize, externalize, combine, internalize. Prep\u2019s concepts feature is a literal externalization tool \u2014 the tacit "we don\u2019t do it that way" assumptions in a team\u2019s head become typed, anchored, testable artifacts that downstream agents can read.',
     problemArea: 'concepts',
     spotlight: true,
   },
@@ -713,8 +713,8 @@ Insert this block, immediately before the closing `];`:
     venue: 'modelcontextprotocol.io',
     year: 2024,
     url: 'https://modelcontextprotocol.io',
-    usage: 'The protocol CoDRAG ships its primary interface on.',
-    spotlightProse: 'MCP is the protocol surface CoDRAG ships its primary interface on. Every `codrag_*` tool, the resources system, and the per-client context budgets are MCP-shaped from the ground up. Without this spec there is no CoDRAG MCP server, and the page CoDRAG advertises to any agent in any IDE would not exist.',
+    usage: 'The protocol Prep ships its primary interface on.',
+    spotlightProse: 'MCP is the protocol surface Prep ships its primary interface on. Every `prep_*` tool, the resources system, and the per-client context budgets are MCP-shaped from the ground up. Without this spec there is no Prep MCP server, and the page Prep advertises to any agent in any IDE would not exist.',
     problemArea: 'concepts',
     spotlight: true,
   },
@@ -726,7 +726,7 @@ Insert this block, immediately before the closing `];`:
     venue: 'ACM TOPLAS',
     year: 1987,
     url: 'https://dl.acm.org/doi/10.1145/24039.24041',
-    usage: 'Classical PDG reference; grounds CoDRAG\u2019s combined control-flow + data-flow trace graph.',
+    usage: 'Classical PDG reference; grounds Prep\u2019s combined control-flow + data-flow trace graph.',
     problemArea: 'concepts',
     spotlight: false,
   },
@@ -774,7 +774,7 @@ Insert this block, immediately before the closing `];`:
     venue: 'Cognitive Psychology',
     year: 1987,
     url: 'https://www.sciencedirect.com/science/article/abs/pii/0010028587900076',
-    usage: 'Bottom-up comprehension counterpart to Brooks; CoDRAG\u2019s structural trace index supports this mode.',
+    usage: 'Bottom-up comprehension counterpart to Brooks; Prep\u2019s structural trace index supports this mode.',
     problemArea: 'concepts',
     spotlight: false,
   },
@@ -798,7 +798,7 @@ Insert this block, immediately before the closing `];`:
     venue: 'cognitect.com',
     year: 2011,
     url: 'https://www.cognitect.com/blog/2011/11/15/documenting-architecture-decisions',
-    usage: 'ADR template convention; CoDRAG concepts extend ADRs beyond per-node decisions.',
+    usage: 'ADR template convention; Prep concepts extend ADRs beyond per-node decisions.',
     problemArea: 'concepts',
     spotlight: false,
   },
@@ -810,7 +810,7 @@ Insert this block, immediately before the closing `];`:
     year: 2025,
     url: 'https://arxiv.org/abs/2410.04085',
     arxivId: '2410.04085',
-    usage: 'Multi-agent KG enrichment that parallels CoDRAG\u2019s multi-pass enrichment pipeline.',
+    usage: 'Multi-agent KG enrichment that parallels Prep\u2019s multi-pass enrichment pipeline.',
     problemArea: 'concepts',
     spotlight: false,
   },
@@ -821,7 +821,7 @@ Insert this block, immediately before the closing `];`:
     venue: 'ISWC',
     year: 2024,
     url: 'https://sites.google.com/view/llms4ol',
-    usage: 'Establishes SOTA for automated concept extraction; informed CoDRAG\u2019s hybrid embedding+LLM concept-discovery pipeline.',
+    usage: 'Establishes SOTA for automated concept extraction; informed Prep\u2019s hybrid embedding+LLM concept-discovery pipeline.',
     problemArea: 'concepts',
     spotlight: false,
   },
@@ -833,7 +833,7 @@ Insert this block, immediately before the closing `];`:
     year: 2021,
     url: 'https://arxiv.org/abs/2102.04411',
     arxivId: '2102.04411',
-    usage: 'Researched for requirements\u2194code linking; rejected as too heavy for the CoDRAG architecture but kept as a baseline.',
+    usage: 'Researched for requirements\u2194code linking; rejected as too heavy for the Prep architecture but kept as a baseline.',
     problemArea: 'concepts',
     spotlight: false,
   },
@@ -843,7 +843,7 @@ Insert this block, immediately before the closing `];`:
     title: 'NASA SWE-072: Bidirectional Traceability',
     venue: 'NASA SWE Handbook',
     url: 'https://swehb.nasa.gov/display/SWEHBVB/SWE-072+-+Bidirectional+Traceability',
-    usage: 'Grounds CoDRAG\u2019s curated traceability framework in an established engineering standard.',
+    usage: 'Grounds Prep\u2019s curated traceability framework in an established engineering standard.',
     problemArea: 'concepts',
     spotlight: false,
   },
@@ -853,7 +853,7 @@ Insert this block, immediately before the closing `];`:
     title: 'Agent Client Protocol (ACP)',
     venue: 'agentclientprotocol.com',
     url: 'https://agentclientprotocol.com',
-    usage: 'Zed-backed standard \u2014 CoDRAG\u2019s multi-editor integration target.',
+    usage: 'Zed-backed standard \u2014 Prep\u2019s multi-editor integration target.',
     problemArea: 'concepts',
     spotlight: false,
   },
@@ -876,7 +876,7 @@ Insert this block, immediately before the closing `];`:
     venue: 'OASIS',
     year: 2020,
     url: 'https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html',
-    usage: 'SARIF-in / SARIF-out enrichment is a shipped `codrag_audit` capability.',
+    usage: 'SARIF-in / SARIF-out enrichment is a shipped `prep_audit` capability.',
     problemArea: 'concepts',
     spotlight: false,
   },
@@ -896,7 +896,7 @@ Insert this block, immediately before the closing `];`:
     title: 'agents.md',
     venue: 'agents.md',
     url: 'https://agents.md/',
-    usage: 'Emerging convention for agent-facing context files \u2014 CoDRAG auto-generates AGENTS.md via `rules_generator.py`.',
+    usage: 'Emerging convention for agent-facing context files \u2014 Prep auto-generates AGENTS.md via `rules_generator.py`.',
     problemArea: 'concepts',
     spotlight: false,
   },
@@ -1176,10 +1176,10 @@ export function ResearchHero({ className }: ResearchHeroProps) {
         Bibliography
       </p>
       <h2 className="text-4xl sm:text-5xl font-semibold text-text leading-tight tracking-tight mb-6">
-        What CoDRAG was built on.
+        What Prep was built on.
       </h2>
       <p className="text-lg text-text-muted leading-relaxed">
-        A working list of the papers, repositories, essays, and standards CoDRAG draws on. Each entry includes a one-line note on how it shaped the project &mdash; and what we changed when we needed better suit our goals.
+        A working list of the papers, repositories, essays, and standards Prep draws on. Each entry includes a one-line note on how it shaped the project &mdash; and what we changed when we needed better suit our goals.
       </p>
     </header>
   );
@@ -1568,13 +1568,13 @@ export type {
 Open `packages/ui/src/index.ts`. Find line 168:
 
 ```ts
-export { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents, CompetitorMatrix, DetailPageLayout } from './components/marketing';
+export { MarketingHero, FeatureBlocks, prepFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents, CompetitorMatrix, DetailPageLayout } from './components/marketing';
 ```
 
 Replace with:
 
 ```ts
-export { MarketingHero, FeatureBlocks, codragFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents, CompetitorMatrix, DetailPageLayout, SourceCard, SourceSpotlight, ResearchHero, SourceFilterChips, ResearchAppendix, ResearchSection } from './components/marketing';
+export { MarketingHero, FeatureBlocks, prepFeatures, marketingFeatures, TierComparison, tierComparisonFeatures, TechStackMatrix, techStackComponents, CompetitorMatrix, DetailPageLayout, SourceCard, SourceSpotlight, ResearchHero, SourceFilterChips, ResearchAppendix, ResearchSection } from './components/marketing';
 ```
 
 Then find line 169 (the type re-export immediately below) and replace with:
@@ -1623,7 +1623,7 @@ export const Compression: Story = {
     id: 'compression',
     title: 'Compression & Levels of Detail',
     intro:
-      'Why CoDRAG\u2019s context assembler ladders code from full source down to one-line signatures.',
+      'Why Prep\u2019s context assembler ladders code from full source down to one-line signatures.',
     sources: RESEARCH_SOURCES.filter((s) => s.problemArea === 'compression'),
   },
 };
@@ -1633,7 +1633,7 @@ export const Concepts: Story = {
     id: 'concepts',
     title: 'Concepts, Knowledge & Standards',
     intro:
-      'Why CoDRAG treats concepts as first-class artifacts and where the protocol surface comes from.',
+      'Why Prep treats concepts as first-class artifacts and where the protocol surface comes from.',
     sources: RESEARCH_SOURCES.filter((s) => s.problemArea === 'concepts'),
   },
 };
@@ -1680,13 +1680,13 @@ git commit -m "feat(research): add ResearchSection and wire research barrel expo
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Research \u2014 CoDRAG',
+  title: 'Research \u2014 Prep',
   description:
-    'A bibliography of the papers, repositories, essays, and standards CoDRAG was built on, with notes on how each one was used.',
+    'A bibliography of the papers, repositories, essays, and standards Prep was built on, with notes on how each one was used.',
   openGraph: {
-    title: 'Research \u2014 CoDRAG',
+    title: 'Research \u2014 Prep',
     description:
-      'A bibliography of the papers, repositories, essays, and standards CoDRAG was built on.',
+      'A bibliography of the papers, repositories, essays, and standards Prep was built on.',
     type: 'website',
   },
 };
@@ -1720,11 +1720,11 @@ const INTROS = {
   retrieval:
     'Why context engineering matters more than raw context size \u2014 and what changes when language models meet long, noisy windows.',
   compression:
-    'Why CoDRAG\u2019s context assembler ladders code from full source down to one-line signatures, and the research that makes signature-only context defensible.',
+    'Why Prep\u2019s context assembler ladders code from full source down to one-line signatures, and the research that makes signature-only context defensible.',
   chunking:
     'Why chunking on AST boundaries beats character splits for code, and how structural awareness changes retrieval quality.',
   concepts:
-    'Why CoDRAG treats concepts as first-class artifacts, where the protocol surface comes from, and the older work that grounds the system in something deeper than recent papers.',
+    'Why Prep treats concepts as first-class artifacts, where the protocol surface comes from, and the older work that grounds the system in something deeper than recent papers.',
 };
 
 export default function ResearchPage() {
@@ -1735,9 +1735,9 @@ export default function ResearchPage() {
     <DetailPageLayout
       title="Research"
       subtitle="Bibliography"
-      description="What CoDRAG was built on. Notes on the papers, repositories, essays, and standards that shaped the project."
+      description="What Prep was built on. Notes on the papers, repositories, essays, and standards that shaped the project."
       sections={SECTIONS}
-      docsUrl="https://docs.codrag.io"
+      docsUrl="https://docs.runprep.io"
       docsLabel="Read the docs"
     >
       <ResearchHero />
@@ -1772,7 +1772,7 @@ export default function ResearchPage() {
         corrections &mdash; if we&rsquo;ve cited your work badly, or missed work we
         should know about, open an issue on{' '}
         <a
-          href="https://github.com/MagneticAnomaly/CoDRAG-MCP/issues"
+          href="https://github.com/MagneticAnomaly/Prep-MCP/issues"
           className="text-primary hover:underline"
           target="_blank"
           rel="noopener noreferrer"
@@ -1920,13 +1920,13 @@ Immediately AFTER that closing `</section>`, insert:
                 Bibliography
               </p>
               <p className="text-text-muted leading-relaxed mb-3">
-                CoDRAG draws on a long list of papers, repositories, and standards. We keep the working list public.
+                Prep draws on a long list of papers, repositories, and standards. We keep the working list public.
               </p>
               <a
                 href="/research"
                 className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
               >
-                Read the research CoDRAG was built on \u2192
+                Read the research Prep was built on \u2192
               </a>
             </aside>
 ```

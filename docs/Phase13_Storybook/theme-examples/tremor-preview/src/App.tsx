@@ -31,7 +31,7 @@ import {
   sampleTraceNodes,
   MarketingHero,
   FeatureBlocks,
-  codragFeatures,
+  prepFeatures,
   marketingFeatures,
 } from './components';
 import { 
@@ -126,7 +126,7 @@ export default function App() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.setAttribute('data-codrag-theme', theme);
+    root.setAttribute('data-prep-theme', theme);
     root.classList.toggle('dark', darkMode);
 
     // Auto-switch hero variant based on theme for better demo
@@ -146,7 +146,7 @@ export default function App() {
   const searchResults = useMemo(
     () => [
       {
-        path: 'src/codrag/api/auth.py',
+        path: 'src/prep/api/auth.py',
         lines: '42-67',
         score: 0.87,
         status: 'fresh' as const,
@@ -154,7 +154,7 @@ export default function App() {
           'def validate_token(token: str) -> Claims:\n    claims = jwt.decode(token, ...)\n    if claims.exp < now():\n        raise AuthError("expired")',
       },
       {
-        path: 'src/codrag/server.py',
+        path: 'src/prep/server.py',
         lines: '142-175',
         score: 0.81,
         status: 'building' as const,
@@ -162,7 +162,7 @@ export default function App() {
           '@app.middleware("http")\nasync def add_request_id(request, call_next):\n    request_id = ...\n    response = await call_next(request)',
       },
       {
-        path: 'src/codrag/core/security.py',
+        path: 'src/prep/core/security.py',
         lines: '10-28',
         score: 0.72,
         status: 'stale' as const,
@@ -182,7 +182,7 @@ export default function App() {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🧠</span>
-                <Title className="text-text">CoDRAG</Title>
+                <Title className="text-text">Prep</Title>
               </div>
               <Badge color="blue" size="sm">Design Preview</Badge>
             </div>
@@ -290,7 +290,7 @@ export default function App() {
                 <div>
                   <Flex justifyContent="between" alignItems="center" className="mb-6">
                     <div>
-                      <Title className="text-text text-2xl">Why CoDRAG?</Title>
+                      <Title className="text-text text-2xl">Why Prep?</Title>
                       <Text className="text-text-muted mt-1">Built for developers who value their code and time</Text>
                     </div>
                     <Flex className="gap-2">
@@ -320,7 +320,7 @@ export default function App() {
                       </Button>
                     </Flex>
                   </Flex>
-                  <FeatureBlocks features={codragFeatures} variant={featureVariant} />
+                  <FeatureBlocks features={prepFeatures} variant={featureVariant} />
                 </div>
 
                 {/* Problem-Solution Section */}
@@ -527,7 +527,7 @@ export default function App() {
                     <div className="rounded-lg border border-border-subtle bg-surface-raised p-4">
                       <Flex justifyContent="between" alignItems="center">
                         <div>
-                          <div className="font-mono text-sm text-text">src/codrag/server.py</div>
+                          <div className="font-mono text-sm text-text">src/prep/server.py</div>
                           <div className="text-xs text-text-subtle">Lines 142–175 • 847 chars</div>
                         </div>
                         <Flex className="gap-2">
@@ -660,7 +660,7 @@ export default function App() {
                       <Text className="text-text-subtle">Text (subtle): Tertiary content</Text>
                     </div>
                     <div>
-                      <Text className="font-mono text-text">Monospace: src/codrag/server.py</Text>
+                      <Text className="font-mono text-text">Monospace: src/prep/server.py</Text>
                     </div>
                   </div>
                 </Card>

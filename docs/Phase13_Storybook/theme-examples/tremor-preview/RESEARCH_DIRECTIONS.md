@@ -1,6 +1,6 @@
 # Research-Backed Design Directions (Phase 13 Expansion)
 
-These four additional visual directions are grounded in specific design research, historical precedents, and enterprise best practices. They explore how CoDRAG can position itself through distinct "postures" — from an expressive creative tool to a disciplined enterprise infrastructure.
+These four additional visual directions are grounded in specific design research, historical precedents, and enterprise best practices. They explore how Prep can position itself through distinct "postures" — from an expressive creative tool to a disciplined enterprise infrastructure.
 
 ## Direction I: Studio Collage (The "Cranbrook" Posture)
 **Inspiration:** Cranbrook Academy of Art (late 80s/90s), CalArts, "Authorial" Design
@@ -10,7 +10,7 @@ These four additional visual directions are grounded in specific design research
 - **Color:** Earthy, paper-like tones (`#fefce8`) with bold, burnt orange (`#c2410c`) and denim blue accents.
 - **Shapes:** Mixed border radii (some sharp, some pill), layered elements, overlapping cards.
 - **Layout:** "Deconstructed" grid. Elements are placed to create tension and rhythm rather than strict alignment.
-- **Why it fits:** Positions coding as a *creative act*. CoDRAG isn't just a utility; it's a studio tool for the "code artisan."
+- **Why it fits:** Positions coding as a *creative act*. Prep isn't just a utility; it's a studio tool for the "code artisan."
 
 ## Direction J: Yale Grid (The "Academic" Posture)
 **Inspiration:** Yale School of Art (Dan Michaelson, Sheila Levrant de Bretteville), brutalist academic websites, typographic discipline.
@@ -30,7 +30,7 @@ These four additional visual directions are grounded in specific design research
 - **Color:** Certified high-contrast pairs. Strong Blue (`#2563eb`) on White/Black. Clear distinction between interactive and static elements.
 - **Shapes:** Large, friendly touch targets (44px+). Thick, clear focus rings (`3px solid black/white`).
 - **Layout:** Single-column or distinct 2-column. Reduced noise. "Zen mode" by default.
-- **Why it fits:** Cognitive load management. AI coding is overwhelming; CoDRAG should be the calm center of the storm.
+- **Why it fits:** Cognitive load management. AI coding is overwhelming; Prep should be the calm center of the storm.
 
 ## Direction L: Enterprise Console (The "Systems" Posture)
 **Inspiration:** IBM Carbon, Atlassian Design System, Bloomberg Terminal.

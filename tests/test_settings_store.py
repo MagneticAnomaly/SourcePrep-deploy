@@ -287,7 +287,7 @@ def test_uninitialized_store_raises():
 #
 # F-15 closure: settings_store now uses journal_mode=DELETE (per the
 # project's USB-drive WAL-corruption memory note — DELETE works
-# reliably on the 4TB-BAD volume where codrag_data lives, WAL does
+# reliably on the 4TB-BAD volume where prep_data lives, WAL does
 # not). The two WAL-mode tests below are skipped on DELETE-mode
 # stores; they assert WAL-specific behavior (the .db-wal file) that
 # does not exist in DELETE mode and cannot be made to pass without

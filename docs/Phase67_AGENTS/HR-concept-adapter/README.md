@@ -1,15 +1,15 @@
 # HR Agent Adapter — README
 
-> **Phase 67: Agent Role Manager** | CoDRAG Subsystem
+> **Phase 67: Agent Role Manager** | Prep Subsystem
 > Date: 2026-04-01
 
 ---
 
 ## What Is This?
 
-The **HR Agent Adapter** is a CoDRAG subsystem that generates, manages, and evolves AI agent role definitions using CoDRAG's epistemic knowledge graph. It acts as an automated "HR department" for Paperclip agent workforces (with a universal adapter pattern for future orchestrators).
+The **HR Agent Adapter** is a Prep subsystem that generates, manages, and evolves AI agent role definitions using Prep's epistemic knowledge graph. It acts as an automated "HR department" for Paperclip agent workforces (with a universal adapter pattern for future orchestrators).
 
-**The core insight:** CoDRAG already understands the codebase at an epistemic level — architecture layers, domain tags, module clusters, file importance scores. The HR Adapter uses this knowledge to reason about *what agent roles a project needs* and *keep those roles aligned as the codebase evolves*.
+**The core insight:** Prep already understands the codebase at an epistemic level — architecture layers, domain tags, module clusters, file importance scores. The HR Adapter uses this knowledge to reason about *what agent roles a project needs* and *keep those roles aligned as the codebase evolves*.
 
 ---
 
@@ -23,9 +23,9 @@ The **HR Agent Adapter** is a CoDRAG subsystem that generates, manages, and evol
 |----------|---------|-----|
 | AGENTS.md generators | Smithery agents-md-generator | One-shot, no epistemic awareness, no lifecycle management |
 | Agent orchestrators | Paperclip, CrewAI, AutoGen | Runtime orchestration, no codebase intelligence |
-| Code intelligence | CoDRAG, Copilot | Knowledge delivery, no role generation/management |
+| Code intelligence | Prep, Copilot | Knowledge delivery, no role generation/management |
 
-**CoDRAG uniquely has:** Per-file epistemic metadata + RoleVector scoring + module clustering + graph centrality. No other system has this combination. See [01_Landscape_Research.md](01_Landscape_Research.md).
+**Prep uniquely has:** Per-file epistemic metadata + RoleVector scoring + module clustering + graph centrality. No other system has this combination. See [01_Landscape_Research.md](01_Landscape_Research.md).
 
 ---
 
@@ -35,10 +35,10 @@ The **HR Agent Adapter** is a CoDRAG subsystem that generates, manages, and evol
 |---|----------|---------|
 | 01 | [Landscape Research](01_Landscape_Research.md) | Market analysis confirming no existing tool does what we need |
 | 02 | [HR Agent Architecture](02_HR_Agent_Architecture.md) | System architecture, capabilities, execution modes, output format |
-| 03 | [Integration Reference](03_Integration_Reference.md) | How it connects to CoDRAG internals and Paperclip's API |
+| 03 | [Integration Reference](03_Integration_Reference.md) | How it connects to Prep internals and Paperclip's API |
 | 04 | [Orchestrator Adapters](04_Orchestrator_Adapters.md) | Universal adapter pattern: Paperclip (primary), CrewAI, AutoGen (future) |
 | 05 | [Edge Cases & Generation Modes](05_Edge_Cases_and_Modes.md) | The three generation modes, insufficient data handling, first-run UX, dashboard design |
-| 06 | [Context Pipeline & KNOWLEDGE.md](06_Context_Pipeline_and_Knowledge.md) | How all CoDRAG tools + embeddings + scopes + KNOWLEDGE.md work together — the complete context delivery pipeline |
+| 06 | [Context Pipeline & KNOWLEDGE.md](06_Context_Pipeline_and_Knowledge.md) | How all Prep tools + embeddings + scopes + KNOWLEDGE.md work together — the complete context delivery pipeline |
 | 07 | [Primary vs. Agent Alignment](07_Primary_vs_Agent_Alignment.md) | Architecture audit ensuring HR work doesn't compromise the primary MCP use case, plus feature opportunities that benefit both |
 
 ---
@@ -49,7 +49,7 @@ The **HR Agent Adapter** is a CoDRAG subsystem that generates, manages, and evol
    - `list`: User provides exact role titles → generates exactly those
    - `auto`: System analyzes codebase → generates best-guess workforce
    - `auto+list`: Auto analysis → includes user-specified roles
-2. **Adopt** — Import existing Paperclip agents and enhance with CoDRAG intelligence
+2. **Adopt** — Import existing Paperclip agents and enhance with Prep intelligence
 3. **Audit** — Detect role drift when the codebase evolves; propose realignments, eliminations, or new hires
 4. **Sync** — Push role definitions to Paperclip via REST API
 
@@ -58,7 +58,7 @@ The **HR Agent Adapter** is a CoDRAG subsystem that generates, manages, and evol
 ## Architecture
 
 ```
-CoDRAG (epistemic knowledge) → HR Adapter (role reasoning) → Paperclip (runtime orchestration)
+Prep (epistemic knowledge) → HR Adapter (role reasoning) → Paperclip (runtime orchestration)
                                       │
                               ┌───────┼──────────┐
                               │       │           │
@@ -66,7 +66,7 @@ CoDRAG (epistemic knowledge) → HR Adapter (role reasoning) → Paperclip (runt
                         (primary) (future)  (future)
 ```
 
-CoDRAG provides the **knowledge**. The HR Adapter performs the **reasoning** via a platform-neutral `RoleSpec`. Orchestrator-specific **adapters** emit the correct output format. Paperclip performs the **execution**.
+Prep provides the **knowledge**. The HR Adapter performs the **reasoning** via a platform-neutral `RoleSpec`. Orchestrator-specific **adapters** emit the correct output format. Paperclip performs the **execution**.
 
 ---
 
@@ -102,4 +102,4 @@ The DebateHaus project (`Phase05_agent-workers`) demonstrates the manual version
 - `sync-instructions.sh` — Copies instruction files to Paperclip directories
 - Detailed org chart with collaboration axes and conflict resolution protocols
 
-The HR Adapter automates and enhances this entire workflow using CoDRAG's epistemic intelligence.
+The HR Adapter automates and enhances this entire workflow using Prep's epistemic intelligence.

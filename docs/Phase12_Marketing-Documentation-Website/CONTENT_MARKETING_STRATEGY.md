@@ -10,8 +10,8 @@ Reference:
 - `../WORKFLOW_RESEARCH.md` (A0-J1, A0-J2)
 
 ## Positioning backbone (from Phase 10)
-- CoDRAG is not “another IDE”.
-- CoDRAG is a local-first context/index engine that plugs into existing AI IDE workflows via MCP.
+- Prep is not “another IDE”.
+- Prep is a local-first context/index engine that plugs into existing AI IDE workflows via MCP.
 
 References:
 - `../Phase10_Business_And_Competitive_Research/COMPETITOR_LANDSCAPE.md`
@@ -38,16 +38,16 @@ Goal:
 - show fast, verifiable outcomes
 
 Artifacts:
-- “First 10 minutes with CoDRAG”
+- “First 10 minutes with Prep”
 - “From search results to bounded context with citations”
 
 ### Pillar 3: IDE companion workflows (Cursor/Windsurf/Copilot)
 Goal:
-- demonstrate that CoDRAG complements existing tools
+- demonstrate that Prep complements existing tools
 
 Artifacts:
-- “Using CoDRAG with Cursor via MCP”
-- “Using CoDRAG with Windsurf via MCP”
+- “Using Prep with Cursor via MCP”
+- “Using Prep with Windsurf via MCP”
 
 ### Pillar 4: Git and real codebase onboarding
 Goal:
@@ -109,13 +109,13 @@ Activation content:
   - docs scaffold
   - download placeholder
 - Publish 2 anchor pieces:
-  - “What is CoDRAG?” (positioning)
+  - “What is Prep?” (positioning)
   - “Local-first by default” (trust)
 
 ### First public alpha
 - Publish:
-  - “First 10 minutes with CoDRAG”
-  - “Using CoDRAG with Cursor/Windsurf via MCP” (even if partial)
+  - “First 10 minutes with Prep”
+  - “Using Prep with Cursor/Windsurf via MCP” (even if partial)
 - Add:
   - downloads + checksums + upgrade instructions
   - **Founder's Edition** license purchase flow (limited availability messaging)

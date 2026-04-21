@@ -54,12 +54,12 @@ The extension's `package.json` (at `packages/vscode/package.json`) must have:
 ```json
 {
   "publisher": "magnetic-anomaly",
-  "name": "codrag",
+  "name": "prep",
   ...
 }
 ```
 
-The full extension ID will be `magnetic-anomaly.codrag`. I can update this — just ask.
+The full extension ID will be `magnetic-anomaly.prep`. I can update this — just ask.
 
 ---
 
@@ -93,7 +93,7 @@ vsce publish
 
 To publish automatically from CI on a `vscode-v*` tag:
 
-1. Go to [github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions)
+1. Go to [github.com/MagneticAnomaly/Prep-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/Prep-MCP/settings/secrets/actions)
 2. Add:
 
    | Secret Name | Value |
@@ -107,14 +107,14 @@ To publish automatically from CI on a `vscode-v*` tag:
 After publishing, complete the marketplace listing:
 
 1. Go to [marketplace.visualstudio.com/manage](https://marketplace.visualstudio.com/manage)
-2. Click on **CoDRAG** → **Edit**
+2. Click on **Prep** → **Edit**
 3. Add:
    - **Icon:** 128×128 PNG logo
    - **Screenshots:** At least 2–3 showing the extension in action
    - **Categories:** `Other` or `Programming Languages`
    - **Tags:** `AI`, `code search`, `context`, `RAG`
-   - **Repository:** `https://github.com/MagneticAnomaly/CoDRAG-MCP`
-   - **Bugs URL:** `https://support.codrag.io`
+   - **Repository:** `https://github.com/MagneticAnomaly/Prep-MCP`
+   - **Bugs URL:** `https://support.runprep.io`
 
 ---
 

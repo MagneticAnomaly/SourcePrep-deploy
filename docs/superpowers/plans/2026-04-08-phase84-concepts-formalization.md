@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Evolve `codrag_concepts` from free-text notes into structured assertions with doc links, conflict detection, and observation-promotion — making concepts load-bearing for Phase 83's audit violations and Phase 87's immune system.
+**Goal:** Evolve `prep_concepts` from free-text notes into structured assertions with doc links, conflict detection, and observation-promotion — making concepts load-bearing for Phase 83's audit violations and Phase 87's immune system.
 
 **Architecture:** Extend the existing `Concept` dataclass and SQLite schema with three new fields (`assertion`, `doc_links`, `superseded_by`). Add conflict detection logic that flags contradictory active concepts. Add an observation-promotion flow that suggests converting durable observations into structured concepts. Keep all changes backward-compatible — existing concepts continue to work, new fields are optional for migration.
 
@@ -14,11 +14,11 @@
 
 | File | Action | Responsibility |
 |------|--------|---------------|
-| `src/codrag/services/concept_store.py` | **Modify** | Add `assertion`, `doc_links`, `superseded_by` fields to Concept model + SQLite schema migration |
-| `src/codrag/core/concept_conflicts.py` | **Create** | Conflict detection: find contradictory active concepts by shared anchors |
-| `src/codrag/core/concept_promotion.py` | **Create** | Observation → concept promotion: suggest, preview, confirm |
-| `src/codrag/mcp_tools.py` | **Modify** | Add assertion, doc_links, superseded_by params to codrag_concepts schema |
-| `src/codrag/mcp/server.py` | **Modify** | Wire new params through to concept_store, add conflict detection to audit |
+| `src/prep/services/concept_store.py` | **Modify** | Add `assertion`, `doc_links`, `superseded_by` fields to Concept model + SQLite schema migration |
+| `src/prep/core/concept_conflicts.py` | **Create** | Conflict detection: find contradictory active concepts by shared anchors |
+| `src/prep/core/concept_promotion.py` | **Create** | Observation → concept promotion: suggest, preview, confirm |
+| `src/prep/mcp_tools.py` | **Modify** | Add assertion, doc_links, superseded_by params to prep_concepts schema |
+| `src/prep/mcp/server.py` | **Modify** | Wire new params through to concept_store, add conflict detection to audit |
 | `tests/test_concept_store_v2.py` | **Create** | Tests for new concept fields and migration |
 | `tests/test_concept_conflicts.py` | **Create** | Tests for conflict detection |
 | `tests/test_concept_promotion.py` | **Create** | Tests for observation promotion |
@@ -28,7 +28,7 @@
 ### Task 1: Schema Migration — Add New Fields to Concept Model
 
 **Files:**
-- Modify: `src/codrag/services/concept_store.py`
+- Modify: `src/prep/services/concept_store.py`
 - Create: `tests/test_concept_store_v2.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -36,7 +36,7 @@
 ```python
 # tests/test_concept_store_v2.py
 import pytest
-from codrag.services.concept_store import ConceptStore, Concept
+from prep.services.concept_store import ConceptStore, Concept
 from pathlib import Path
 import tempfile
 
@@ -148,7 +148,7 @@ Expected: FAIL — `Concept` doesn't have `assertion`, `doc_links`, `superseded_
 
 - [ ] **Step 3: Add new fields to the Concept dataclass**
 
-In `src/codrag/services/concept_store.py`, find the `Concept` class (around line 70) and add these fields after the existing ones:
+In `src/prep/services/concept_store.py`, find the `Concept` class (around line 70) and add these fields after the existing ones:
 
 ```python
     assertion: str = ""                    # Testable statement (Phase 84)
@@ -206,7 +206,7 @@ Expected: All 7 tests PASS
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/codrag/services/concept_store.py tests/test_concept_store_v2.py
+git add src/prep/services/concept_store.py tests/test_concept_store_v2.py
 git commit -m "feat(concepts): add assertion, doc_links, superseded_by fields with schema migration"
 ```
 
@@ -215,7 +215,7 @@ git commit -m "feat(concepts): add assertion, doc_links, superseded_by fields wi
 ### Task 2: Conflict Detection
 
 **Files:**
-- Create: `src/codrag/core/concept_conflicts.py`
+- Create: `src/prep/core/concept_conflicts.py`
 - Create: `tests/test_concept_conflicts.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -223,7 +223,7 @@ git commit -m "feat(concepts): add assertion, doc_links, superseded_by fields wi
 ```python
 # tests/test_concept_conflicts.py
 import pytest
-from codrag.core.concept_conflicts import detect_conflicts, ConceptConflict
+from prep.core.concept_conflicts import detect_conflicts, ConceptConflict
 
 
 def _make_concept(id, title, anchors, category="architecture", status="active", created_at=1000.0):
@@ -295,8 +295,8 @@ Expected: FAIL — module doesn't exist
 - [ ] **Step 3: Implement conflict detection**
 
 ```python
-# src/codrag/core/concept_conflicts.py
-"""Concept conflict detection for CoDRAG.
+# src/prep/core/concept_conflicts.py
+"""Concept conflict detection for Prep.
 
 Detects contradictory active concepts that share anchors.
 Only constraint and architecture concepts can conflict.
@@ -386,7 +386,7 @@ Expected: 6 PASSED
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/concept_conflicts.py tests/test_concept_conflicts.py
+git add src/prep/core/concept_conflicts.py tests/test_concept_conflicts.py
 git commit -m "feat(concepts): add conflict detection for contradictory concepts"
 ```
 
@@ -395,7 +395,7 @@ git commit -m "feat(concepts): add conflict detection for contradictory concepts
 ### Task 3: Observation → Concept Promotion
 
 **Files:**
-- Create: `src/codrag/core/concept_promotion.py`
+- Create: `src/prep/core/concept_promotion.py`
 - Create: `tests/test_concept_promotion.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -403,7 +403,7 @@ git commit -m "feat(concepts): add conflict detection for contradictory concepts
 ```python
 # tests/test_concept_promotion.py
 import pytest
-from codrag.core.concept_promotion import (
+from prep.core.concept_promotion import (
     suggest_promotion,
     PromotionSuggestion,
     build_concept_from_observation,
@@ -442,12 +442,12 @@ def test_build_concept_from_observation():
     obs = _make_observation(
         "We decided to use SQLite for portability",
         category="decision",
-        file_path="src/codrag/core/project_registry.py",
+        file_path="src/prep/core/project_registry.py",
     )
     concept = build_concept_from_observation(obs)
     assert concept["title"] != ""
     assert concept["content"] == obs["content"]
-    assert "src/codrag/core/project_registry.py" in concept["anchors"]
+    assert "src/prep/core/project_registry.py" in concept["anchors"]
     assert concept["category"] in ("architecture", "domain", "constraint", "pattern", "convention")
     assert concept["status"] == "proposed"
     assert concept["assertion"] == ""  # Human fills this in
@@ -467,8 +467,8 @@ Expected: FAIL — module doesn't exist
 - [ ] **Step 3: Implement promotion logic**
 
 ```python
-# src/codrag/core/concept_promotion.py
-"""Observation → Concept promotion for CoDRAG.
+# src/prep/core/concept_promotion.py
+"""Observation → Concept promotion for Prep.
 
 Suggests promoting durable observations (decisions, patterns, assumptions)
 into structured concepts. The human confirms and fills in the assertion.
@@ -577,24 +577,24 @@ Expected: 5 PASSED
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/concept_promotion.py tests/test_concept_promotion.py
+git add src/prep/core/concept_promotion.py tests/test_concept_promotion.py
 git commit -m "feat(concepts): add observation-to-concept promotion logic"
 ```
 
 ---
 
-### Task 4: Update MCP Tool Schema for codrag_concepts
+### Task 4: Update MCP Tool Schema for prep_concepts
 
 **Files:**
-- Modify: `src/codrag/mcp_tools.py` (codrag_concepts tool definition)
+- Modify: `src/prep/mcp_tools.py` (prep_concepts tool definition)
 
 - [ ] **Step 1: Read the current schema**
 
-The codrag_concepts tool is at lines ~323-382 in mcp_tools.py. Read it to understand current params.
+The prep_concepts tool is at lines ~323-382 in mcp_tools.py. Read it to understand current params.
 
 - [ ] **Step 2: Add new parameters**
 
-Add these to the `codrag_concepts` inputSchema properties:
+Add these to the `prep_concepts` inputSchema properties:
 
 ```python
 "assertion": {
@@ -624,13 +624,13 @@ Also add `"proposed"` to the status enum (currently only seed|active|archived).
 
 - [ ] **Step 3: Verify schema loads**
 
-Run: `.venv/bin/python -c "from codrag.mcp_tools import TOOLS; t = [t for t in TOOLS if t['name'] == 'codrag_concepts'][0]; print('assertion' in t['inputSchema']['properties'])"`
+Run: `.venv/bin/python -c "from prep.mcp_tools import TOOLS; t = [t for t in TOOLS if t['name'] == 'prep_concepts'][0]; print('assertion' in t['inputSchema']['properties'])"`
 Expected: `True`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/mcp_tools.py
+git add src/prep/mcp_tools.py
 git commit -m "feat(concepts): add assertion, doc_links, supersede to MCP schema"
 ```
 
@@ -639,11 +639,11 @@ git commit -m "feat(concepts): add assertion, doc_links, supersede to MCP schema
 ### Task 5: Wire MCP Server for New Concept Fields
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py`
+- Modify: `src/prep/mcp/server.py`
 
 - [ ] **Step 1: Find the concepts handler**
 
-Look for the `tool_concepts` method or the codrag_concepts dispatch block.
+Look for the `tool_concepts` method or the prep_concepts dispatch block.
 
 - [ ] **Step 2: Update the save path**
 
@@ -658,13 +658,13 @@ Ensure `assertion`, `doc_links`, and `superseded_by` fields are included in the 
 
 - [ ] **Step 4: Verify module loads**
 
-Run: `.venv/bin/python -c "from codrag.mcp.server import MCPServer; print('OK')"`
+Run: `.venv/bin/python -c "from prep.mcp.server import MCPServer; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py
+git add src/prep/mcp/server.py
 git commit -m "feat(concepts): wire assertion, doc_links, supersede through MCP handlers"
 ```
 
@@ -673,8 +673,8 @@ git commit -m "feat(concepts): wire assertion, doc_links, supersede through MCP 
 ### Task 6: Integrate Conflict Detection with Audit
 
 **Files:**
-- Modify: `src/codrag/core/audit/structural.py`
-- Modify: `src/codrag/mcp/server.py` (tool_audit_structural)
+- Modify: `src/prep/core/audit/structural.py`
+- Modify: `src/prep/mcp/server.py` (tool_audit_structural)
 
 - [ ] **Step 1: Add concept_violation finding type to structural scanner**
 
@@ -685,7 +685,7 @@ def _detect_concept_conflicts(
     concepts: List[Dict[str, Any]],
 ) -> List[StructuralFinding]:
     """Detect conflicting active concepts and surface as audit findings."""
-    from codrag.core.concept_conflicts import detect_conflicts
+    from prep.core.concept_conflicts import detect_conflicts
 
     conflicts = detect_conflicts(concepts)
     findings = []
@@ -744,7 +744,7 @@ Expected: All pass
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/audit/structural.py tests/test_structural_audit.py
+git add src/prep/core/audit/structural.py tests/test_structural_audit.py
 git commit -m "feat(audit): surface concept conflicts as structural audit findings"
 ```
 
@@ -764,11 +764,11 @@ All should pass.
 
 ```bash
 .venv/bin/python -c "
-from codrag.services.concept_store import ConceptStore, Concept
-from codrag.core.concept_conflicts import detect_conflicts, ConceptConflict
-from codrag.core.concept_promotion import suggest_promotion, build_concept_from_observation
-from codrag.core.audit.structural import run_structural_audit
-from codrag.mcp.server import MCPServer
+from prep.services.concept_store import ConceptStore, Concept
+from prep.core.concept_conflicts import detect_conflicts, ConceptConflict
+from prep.core.concept_promotion import suggest_promotion, build_concept_from_observation
+from prep.core.audit.structural import run_structural_audit
+from prep.mcp.server import MCPServer
 print('All Phase 84 imports OK')
 "
 ```

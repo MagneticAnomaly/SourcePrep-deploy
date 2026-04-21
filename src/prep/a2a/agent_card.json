@@ -1,11 +1,11 @@
 {
-  "name": "CoDRAG",
+  "name": "Prep",
   "description": "Codebase intelligence engine. Discovers structural patterns, architectural issues, and improvement opportunities via graph-based code analysis. Provides context-aware code search, impact analysis, and actionable findings.",
   "url": "http://localhost:8400",
   "version": "2026.1",
   "provider": {
-    "organization": "CoDRAG",
-    "url": "https://codrag.dev"
+    "organization": "Prep",
+    "url": "https://runprep.io"
   },
   "capabilities": {
     "streaming": true,

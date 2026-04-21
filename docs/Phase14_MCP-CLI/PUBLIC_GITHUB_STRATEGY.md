@@ -1,13 +1,13 @@
-# codrag-mcp: Public GitHub Strategy (MCP Trust + Closed-Source Engine)
+# prep-mcp: Public GitHub Strategy (MCP Trust + Closed-Source Engine)
 
 ## Decision
-We will ship CoDRAG as a **closed-source commercial engine** with **strong attestations**.
+We will ship Prep as a **closed-source commercial engine** with **strong attestations**.
 
-The public-facing GitHub repository for MCP directories/lists will be named: **`codrag-mcp`**.
+The public-facing GitHub repository for MCP directories/lists will be named: **`prep-mcp`**.
 
 We will use the **thin open shim + closed engine** model:
-- `codrag-mcp` (public): MIT-licensed wrapper + docs + security posture
-- CoDRAG engine (commercial): signed binaries + licensing
+- `prep-mcp` (public): MIT-licensed wrapper + docs + security posture
+- Prep engine (commercial): signed binaries + licensing
 
 To earn trust in MCP directories/communities without exposing IP, we will maintain a **public-facing GitHub repository** that contains:
 - **(Optionally open-source)** MCP integration “plumbing” (schemas, tool surface, config generator) that is *not* the core indexing/trace engine.
@@ -48,8 +48,8 @@ The public GitHub repo should be “complete enough” that a security-conscious
   - **What runs where**: everything local; list any outbound connections (e.g. Ollama at `http://localhost:11434`).
   - **What data is stored**: location of index (e.g. `<repo_root>/.prep/index`).
   - **What never leaves the machine**: file contents, paths (state this precisely).
-  - **Quickstart**: install + `codrag mcp --mode direct` + IDE config examples.
-  - **Tool surface**: list MCP tools (`codrag_status`, `codrag_build`, `codrag_search`, `codrag` (context), etc) with inputs/outputs.
+  - **Quickstart**: install + `prep mcp --mode direct` + IDE config examples.
+  - **Tool surface**: list MCP tools (`prep_status`, `prep_build`, `prep_search`, `prep` (context), etc) with inputs/outputs.
   - **Compatibility**: MCP protocol version (currently `2025-11-25`) and supported clients.
 
 ### 2) Security posture
@@ -140,7 +140,7 @@ If a file answers “how we get good results” rather than “how we talk MCP,�
 
 ## Messaging: how we talk about “closed source” without losing trust
 - **Be explicit**:
-  - “CoDRAG is proprietary software. It runs locally. It does not upload your code.”
+  - “Prep is proprietary software. It runs locally. It does not upload your code.”
 - **Make verification easy**:
   - “Verify downloads via signatures and checksums.”
   - “Review our threat model + privacy policy.”
@@ -151,7 +151,7 @@ If a file answers “how we get good results” rather than “how we talk MCP,�
 ---
 
 ## Next steps
-- **Stand up `codrag-mcp`** as a standalone public GitHub repo (copy from the template folder).
+- **Stand up `prep-mcp`** as a standalone public GitHub repo (copy from the template folder).
 - **Keep it thin**: wrapper + docs; no engine internals.
 - **Implement release pipeline** (engine + wrapper): signed artifacts + checksums + SBOM.
 - **Publish + submit**: first tagged release + directory submissions.
@@ -160,7 +160,7 @@ If a file answers “how we get good results” rather than “how we talk MCP,�
 
 ## Directory/listing targets (distribution)
 
-The goal is to make `codrag-mcp` discoverable anywhere developers browse MCP servers.
+The goal is to make `prep-mcp` discoverable anywhere developers browse MCP servers.
 
 - **Official-ish / high-signal**
   - `modelcontextprotocol/servers` (GitHub)
@@ -177,9 +177,9 @@ Notes:
 
 ---
 
-## codrag-mcp repo skeleton (concrete)
+## prep-mcp repo skeleton (concrete)
 
-This is the minimum structure we should implement in the public `codrag-mcp` repo.
+This is the minimum structure we should implement in the public `prep-mcp` repo.
 
 ### Option 1: docs-only + signed binary releases (max IP protection)
 
@@ -190,7 +190,7 @@ This is the minimum structure we should implement in the public `codrag-mcp` rep
 - `CHANGELOG.md`
 - `LICENSE` (commercial EULA or proprietary license text)
 - GitHub Releases:
-  - `codrag` (macOS/Windows/Linux)
+  - `prep` (macOS/Windows/Linux)
   - `checksums.txt`
   - `checksums.txt.sig`
   - `sbom.spdx.json` (or CycloneDX)
@@ -205,9 +205,9 @@ This is the minimum structure we should implement in the public `codrag-mcp` rep
   - `.github/workflows/release.yml`
 
 Wrapper responsibilities:
-- Download/install the signed CoDRAG engine binary (or direct users to install via `brew`/`winget`).
-- Launch `codrag mcp --mode direct` (or server mode when explicitly requested).
-- Provide a stable command name for IDE configs (e.g. `npx codrag-mcp`).
+- Download/install the signed Prep engine binary (or direct users to install via `brew`/`winget`).
+- Launch `prep mcp --mode direct` (or server mode when explicitly requested).
+- Provide a stable command name for IDE configs (e.g. `npx prep-mcp`).
 
 ---
 
@@ -216,7 +216,7 @@ Wrapper responsibilities:
 - **Shareable artifacts**
   - Exportable “trace map” images from the GUI (opt-in sharing, watermark optional).
 - **Copy/paste onboarding**
-  - Make `codrag mcp-config --mode direct --ide cursor` the default path in docs.
+  - Make `prep mcp-config --mode direct --ide cursor` the default path in docs.
 - **OSS goodwill without open-sourcing the engine**
   - Offer free licenses to maintainers (policy-driven, not manual favors).
 
@@ -227,17 +227,17 @@ Avoid:
 
 ## Work started (in this repo)
 
-- `codrag mcp-config` supports `--mode auto|project|direct` and the expanded IDE list (`claude`, `cursor`, `windsurf`, `vscode`, `jetbrains`, `all`).
-- `codrag mcp` supports:
+- `prep mcp-config` supports `--mode auto|project|direct` and the expanded IDE list (`claude`, `cursor`, `windsurf`, `vscode`, `jetbrains`, `all`).
+- `prep mcp` supports:
   - server mode (connects to daemon; supports pinned project via `--project` and auto-detect via `--auto`)
   - direct mode (`--mode direct`, no daemon)
-- MCP protocol version is `2025-11-25` (implemented in `src/codrag/mcp_server.py` and `src/codrag/mcp_direct.py`).
+- MCP protocol version is `2025-11-25` (implemented in `src/prep/mcp_server.py` and `src/prep/mcp_direct.py`).
 - The MCP server (server mode) proxies to canonical `/projects/{project_id}/status|build|search|context` and correctly unwraps the daemon's `ApiEnvelope`.
 
 Known gaps to resolve before calling this “done”:
-- CLI daemon-backed commands in `src/codrag/cli.py` call `/projects/*` but do not consistently unwrap `ApiEnvelope` yet.
+- CLI daemon-backed commands in `src/prep/cli.py` call `/projects/*` but do not consistently unwrap `ApiEnvelope` yet.
 - Some CLI “extras” (`activity`, `coverage`, `overview`) currently call legacy root endpoints (e.g. `/status`, `/activity`, `/coverage`, `/trace/stats`) that are not implemented on the daemon; these should be migrated to project-scoped endpoints or implemented as compatibility aliases.
 
 Starter template for the public repo:
-- `public/codrag-mcp/`
+- `public/prep-mcp/`
 

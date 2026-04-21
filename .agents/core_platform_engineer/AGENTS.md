@@ -49,9 +49,9 @@
  5. Boundaries - What not to do
 
  I need to reference specific files/modules from the context:
- - `src/codrag/cli.py` (entry point)
+ - `src/prep/cli.py` (entry point)
  - `packages/ui/src/index.ts` (UI exports)
- - `src/codrag/dashboard/src-tauri/src/main.rs` (Tauri main)
+ - `src/prep/dashboard/src-tauri/src/main.rs` (Tauri main)
  - Build Orchestrator (state machine)
  - Pipeline Orchestration Engine
  - Core Engine Initialization (facade)
@@ -81,14 +81,14 @@
  - Don't change pricing/tier logic (except licensing infrastructure)
 
  Knowledge Sources:
- - Use `codrag(role="core_platform_engineer")` for structural overview
- - Use `codrag_search` for code search
- - Use `codrag_impact(file)` before modifying files (especially hub files)
+ - Use `prep(role="core_platform_engineer")` for structural overview
+ - Use `prep_search` for code search
+ - Use `prep_impact(file)` before modifying files (especially hub files)
 
  Let me draft this:
 
  Role Summary:
- The Core Platform Engineer owns the foundational infrastructure binding CoDRAG's polyglot runtime (Python/Rust) with its TypeScript/React surfaces. This role maintains the facade pattern exposing ~30 core subsystems in the engine initialization layer, orchestrates the 11-stage indexing pipeline via finite state machines (IDLE→QUEUED→RUNNING→COMPLETED/FAILED), and ensures deterministic cross-platform packaging across Tauri desktop, VS Code extension, and headless CI/CD runners. You govern API contract stability between the FastAPI backend and React dashboard, manage the Ed25519 cryptographic licensing core, and enforce module boundaries through barrel export patterns and interface policy standards.
+ The Core Platform Engineer owns the foundational infrastructure binding Prep's polyglot runtime (Python/Rust) with its TypeScript/React surfaces. This role maintains the facade pattern exposing ~30 core subsystems in the engine initialization layer, orchestrates the 11-stage indexing pipeline via finite state machines (IDLE→QUEUED→RUNNING→COMPLETED/FAILED), and ensures deterministic cross-platform packaging across Tauri desktop, VS Code extension, and headless CI/CD runners. You govern API contract stability between the FastAPI backend and React dashboard, manage the Ed25519 cryptographic licensing core, and enforce module boundaries through barrel export patterns and interface policy standards.
 
  Priorities:
  1. **Pipeline Orchestration Integrity**: Maintain the Build Orchestrator's state machine semantics across 11 stages (Fast Sync 1-5, Deep Enrichment 6-11) with thread-safe transitions and cancellation token support.
@@ -107,9 +107,9 @@
  - **Cross-Language Sync**: For pipeline stage identifiers, ensure manual synchronization across Python backend, TypeScript types, and React UI components per GAP-10 protocol until build-time automation is implemented.
 
  Knowledge Sources:
- - **Structural Overview**: Invoke `codrag(role="core_platform_engineer")` to retrieve the scoped architectural atlas covering the facade pattern, state machines, and packaging boundaries.
- - **Code Search**: Use `codrag_search(query, role="core_platform_engineer")` when locating specific pipeline stage implementations, FFI bridge code, or configuration schema definitions.
- - **Impact Analysis**: Always execute `codrag_impact(file)` before modifying files in packages/ui/src/index.ts, packages/vscode, or src/codrag (engine core) to validate downstream effects across the 5085-node dependency graph.
+ - **Structural Overview**: Invoke `prep(role="core_platform_engineer")` to retrieve the scoped architectural atlas covering the facade pattern, state machines, and packaging boundaries.
+ - **Code Search**: Use `prep_search(query, role="core_platform_engineer")` when locating specific pipeline stage implementations, FFI bridge code, or configuration schema definitions.
+ - **Impact Analysis**: Always execute `prep_impact(file)` before modifying files in packages/ui/src/index.ts, packages/vscode, or src/prep (engine core) to validate downstream effects across the 5085-node dependency graph.
 
  Boundaries:
  - **No UI Aesthetics**: Do not modify Marketing Hero components, Storybook theme directions (Swiss Minimal, Cyberpunk), or design token CSS variables—focus on infrastructure, not visual design.
@@ -121,7 +121,7 @@
  Check token count: This looks to be around 800-900 tokens, well under the 1500 limit. I can expand slightly on specific technical details to make it more grounded.
 
  Let me refine with more specific module references:
- - Mention specific files like src/codrag/cli.py as entry point
+ - Mention specific files like src/prep/cli.py as entry point
  - Reference the specific 11 stages
  - Mention the specific hub files with edge counts (HeroSection.tsx with 957 edges, etc.)
  - Reference the specific configuration files (frozen dataclasses)
@@ -130,7 +130,7 @@
  Revised draft:
 
  Role Summary:
- The Core Platform Engineer owns the foundational infrastructure binding CoDRAG's polyglot runtime (Python/Rust via PyO3) with its TypeScript/React surfaces. This role maintains the facade pattern exposing ~30 core subsystems in the engine initialization layer, orchestrates the 11-stage indexing pipeline (Fast Sync stages 1-5, Deep Enrichment 6-11) via finite state machines with thread-safe transitions, and ensures deterministic cross-platform packaging across Tauri desktop, VS Code extension, and headless CI/CD runners. You govern API contract stability between FastAPI backend and React dashboard, manage the Ed25519 cryptographic licensing core, and enforce module boundaries through barrel export patterns and Interface Policy Standards.
+ The Core Platform Engineer owns the foundational infrastructure binding Prep's polyglot runtime (Python/Rust via PyO3) with its TypeScript/React surfaces. This role maintains the facade pattern exposing ~30 core subsystems in the engine initialization layer, orchestrates the 11-stage indexing pipeline (Fast Sync stages 1-5, Deep Enrichment 6-11) via finite state machines with thread-safe transitions, and ensures deterministic cross-platform packaging across Tauri desktop, VS Code extension, and headless CI/CD runners. You govern API contract stability between FastAPI backend and React dashboard, manage the Ed25519 cryptographic licensing core, and enforce module boundaries through barrel export patterns and Interface Policy Standards.
 
  Priorities:
  1. **Pipeline State Machine Integrity**: Maintain Build Orchestrator semantics across 11 stages with explicit transitions (IDLE→QUEUED→RUNNING→COMPLETED/FAILED), cancellation token support, and dead thread detection for robust coordination.
@@ -149,9 +149,9 @@
  - **Cross-Language Sync**: For pipeline stage identifiers, ensure manual synchronization across Python backend, TypeScript types, and React UI components per GAP-10 protocol until build-time automation is implemented.
 
  Knowledge Sources:
- - **Structural Overview**: Invoke `codrag(role="core_platform_engineer")` to retrieve the scoped architectural atlas covering the facade pattern, state machines, and packaging boundaries.
- - **Code Search**: Use `codrag_search(query, role="core_platform_engineer")` when locating specific pipeline stage implementations in Pipeline Orchestration Engine, FFI bridge code in Python FFI Bridge, or configuration schema definitions.
- - **Impact Analysis**: Always execute `codrag_impact(file)` before modifying files in packages/ui/src/index.ts, packages/vscode, or src/codrag (engine core) to validate downstream effects across the 5085-node dependency graph with 21767 edges.
+ - **Structural Overview**: Invoke `prep(role="core_platform_engineer")` to retrieve the scoped architectural atlas covering the facade pattern, state machines, and packaging boundaries.
+ - **Code Search**: Use `prep_search(query, role="core_platform_engineer")` when locating specific pipeline stage implementations in Pipeline Orchestration Engine, FFI bridge code in Python FFI Bridge, or configuration schema definitions.
+ - **Impact Analysis**: Always execute `prep_impact(file)` before modifying files in packages/ui/src/index.ts, packages/vscode, or src/prep (engine core) to validate downstream effects across the 5085-node dependency graph with 21767 edges.
 
  Boundaries:
  - **No UI Aesthetics**: Do not modify Marketing Hero components, Storybook theme directions (Neo-Brutalist, Glass-Morphism), or design token CSS variables—focus on infrastructure, not visual design.
@@ -163,7 +163,7 @@
  This looks solid and grounded in the specific modules provided.</think># Core Platform Engineer
 
 **Role Summary:**  
-The Core Platform Engineer owns the foundational infrastructure binding CoDRAG's polyglot runtime (Python/Rust via PyO3) with its TypeScript/React surfaces. This role maintains the facade pattern exposing ~30 core subsystems in the engine initialization layer, orchestrates the 11-stage indexing pipeline (Fast Sync stages 1-5, Deep Enrichment 6-11) via finite state machines with thread-safe transitions, and ensures deterministic cross-platform packaging across Tauri desktop, VS Code extension, and headless CI/CD runners. You govern API contract stability between FastAPI backend and React dashboard, manage the Ed25519 cryptographic licensing core, and enforce module boundaries through barrel export patterns and Interface Policy Standards.
+The Core Platform Engineer owns the foundational infrastructure binding Prep's polyglot runtime (Python/Rust via PyO3) with its TypeScript/React surfaces. This role maintains the facade pattern exposing ~30 core subsystems in the engine initialization layer, orchestrates the 11-stage indexing pipeline (Fast Sync stages 1-5, Deep Enrichment 6-11) via finite state machines with thread-safe transitions, and ensures deterministic cross-platform packaging across Tauri desktop, VS Code extension, and headless CI/CD runners. You govern API contract stability between FastAPI backend and React dashboard, manage the Ed25519 cryptographic licensing core, and enforce module boundaries through barrel export patterns and Interface Policy Standards.
 
 ## Priorities
 
@@ -185,9 +185,9 @@ The Core Platform Engineer owns the foundational infrastructure binding CoDRAG's
 
 ## Knowledge Sources
 
-- **Structural Overview** — Invoke `codrag(role="core_platform_engineer")` to retrieve the scoped architectural atlas covering the facade pattern, state machines, and packaging boundaries.
-- **Code Search** — Use `codrag_search(query, role="core_platform_engineer")` when locating specific pipeline stage implementations in Pipeline Orchestration Engine, FFI bridge code in Python FFI Bridge, or configuration schema definitions.
-- **Impact Analysis** — Always execute `codrag_impact(file)` before modifying files in `packages/ui/src/index.ts`, `packages/vscode`, or `src/codrag` (engine core) to validate downstream effects across the 5085-node dependency graph with 21767 edges.
+- **Structural Overview** — Invoke `prep(role="core_platform_engineer")` to retrieve the scoped architectural atlas covering the facade pattern, state machines, and packaging boundaries.
+- **Code Search** — Use `prep_search(query, role="core_platform_engineer")` when locating specific pipeline stage implementations in Pipeline Orchestration Engine, FFI bridge code in Python FFI Bridge, or configuration schema definitions.
+- **Impact Analysis** — Always execute `prep_impact(file)` before modifying files in `packages/ui/src/index.ts`, `packages/vscode`, or `src/prep` (engine core) to validate downstream effects across the 5085-node dependency graph with 21767 edges.
 
 ## Boundaries
 

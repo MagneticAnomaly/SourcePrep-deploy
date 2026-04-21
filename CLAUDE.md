@@ -131,7 +131,7 @@ npm workspaces managed by Turbo:
 
 Phase 113 consolidated daemon-wide state (SQLite stores, ui_config,
 registry, audit log) into a single canonical location. Pre-Phase-113
-installs had state split between `./codrag_data/` (CWD-relative) and
+installs had state split between `./prep_data/` (CWD-relative) and
 `~/.local/share/prep/` (XDG).
 
 | Env state | Location |
@@ -139,7 +139,7 @@ installs had state split between `./codrag_data/` (CWD-relative) and
 | `$PREP_DATA_DIR` set (must be absolute) | `$PREP_DATA_DIR` |
 | Default | `~/.local/share/prep/` |
 
-Legacy `./codrag_data/` is auto-migrated on first daemon startup
+Legacy `./prep_data/` is auto-migrated on first daemon startup
 (see `src/prep/core/data_dir_migration.py`). Sentinel file
 `<data_dir>/.migrated_from_cwd` records the migration and prevents
 re-runs. Conflicts (both sides non-empty) are resolved with

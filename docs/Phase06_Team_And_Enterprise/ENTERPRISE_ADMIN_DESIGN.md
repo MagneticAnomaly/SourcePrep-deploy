@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-Enterprise IT administrators need centralized control over how CoDRAG connects to LLM providers, what models developers can use, and visibility into fleet utilization and costs. This document designs the **Enterprise Admin experience** across three panel areas:
+Enterprise IT administrators need centralized control over how Prep connects to LLM providers, what models developers can use, and visibility into fleet utilization and costs. This document designs the **Enterprise Admin experience** across three panel areas:
 
 1. **AI Gateway Policy** — Provider allowlists, locked endpoints, model restrictions
 2. **Fleet & Compute Management** — Compute nodes, sync fleet, scheduling
@@ -137,7 +137,7 @@ The AI Gateway must remain **user-accessible in all scenarios**. Enterprise poli
         "name": "Corporate Vertex AI",
         "provider": "google",
         "url": "https://us-central1-aiplatform.googleapis.com",
-        "api_key_env": "CODRAG_GOOGLE_API_KEY",
+        "api_key_env": "PREP_GOOGLE_API_KEY",
         "locked": true,
         "required_for_tasks": ["deep_enrichment", "group_reasoning", "atlas"]
       },
@@ -145,7 +145,7 @@ The AI Gateway must remain **user-accessible in all scenarios**. Enterprise poli
         "name": "Corporate Bedrock (Claude)",
         "provider": "openai-compatible",
         "url": "https://bedrock-runtime.us-east-1.amazonaws.com",
-        "api_key_env": "CODRAG_AWS_API_KEY",
+        "api_key_env": "PREP_AWS_API_KEY",
         "locked": true
       }
     ],
@@ -241,7 +241,7 @@ const visibleProviders = useMemo(() => {
 | **API format** | Custom REST API (`/model/{modelId}/converse`). NOT OpenAI-compatible |
 | **Endpoint URL** | `https://bedrock-runtime.{region}.amazonaws.com` |
 | **Implementation** | New provider type: `'aws-bedrock'`. Requires `boto3` or manual SigV4 signing. Moderate effort |
-| **Enterprise context** | Many large customers already have Bedrock set up. They will ask "can CoDRAG use our Bedrock Claude?" on day one |
+| **Enterprise context** | Many large customers already have Bedrock set up. They will ask "can Prep use our Bedrock Claude?" on day one |
 
 #### Azure OpenAI — HIGH priority for enterprise
 
@@ -281,7 +281,7 @@ Phase 3 (Enterprise): + AWS Bedrock (SigV4 auth, boto3)
 
 ## 6. Standard IT Tooling — Enterprise Feature Matrix
 
-Beyond LLM provider controls, enterprise buyers expect a standard set of IT governance features. This section inventories all standard enterprise tooling and maps it to CoDRAG's architecture.
+Beyond LLM provider controls, enterprise buyers expect a standard set of IT governance features. This section inventories all standard enterprise tooling and maps it to Prep's architecture.
 
 ### 6.1 Identity & Access Control
 
@@ -325,7 +325,7 @@ Beyond LLM provider controls, enterprise buyers expect a standard set of IT gove
 | **Offline Licensing** | Ed25519 signed keys, no phone-home | HIGH | ✅ Designed (`LICENSING_IMPLEMENTATION.md`) |
 | **Internal Mirror** | Host installers on internal artifact repo | LOW | Just a download URL |
 | **Docker Images** | CPU + GPU headless images | HIGH | ✅ Built (`Dockerfile.cpu`, `Dockerfile.gpu`) |
-| **Helm Chart** | K8s deployment for CoDRAG Manager | LOW | Future — follows Docker |
+| **Helm Chart** | K8s deployment for Prep Manager | LOW | Future — follows Docker |
 
 ### 6.5 Fleet Operations
 
@@ -538,7 +538,7 @@ For locked endpoint API keys, the key is stored server-side (env var or secrets 
 
 ## 12. Licensing & User Controls
 
-This is a critical enterprise concern and one of the most complex areas due to CoDRAG's offline-first architecture, the LemonSqueezy Merchant of Record relationship, and the need for both individual and organizational license management.
+This is a critical enterprise concern and one of the most complex areas due to Prep's offline-first architecture, the LemonSqueezy Merchant of Record relationship, and the need for both individual and organizational license management.
 
 ### 12.1 Current Licensing Architecture
 
@@ -546,15 +546,15 @@ This is a critical enterprise concern and one of the most complex areas due to C
 
 | Component | Status | File |
 |---|---|---|
-| `Tier` enum (FREE → ENTERPRISE) | ✅ Built | `src/codrag/core/feature_gate.py` |
-| `License` dataclass (tier, email, expires_at, seats) | ✅ Built | `src/codrag/core/feature_gate.py` |
-| `FEATURE_TIERS` mapping | ✅ Built | `src/codrag/core/feature_gate.py` |
-| `check_feature()` / `require_feature()` / `get_feature_limit()` | ✅ Built | `src/codrag/core/feature_gate.py` |
-| Ed25519 signature verification | ✅ Built | `src/codrag/core/licensing.py` |
-| License file at `~/.prep/license.json` | ✅ Built | `src/codrag/core/feature_gate.py` |
-| `CODRAG_TIER` env var override (dev) | ✅ Built | `src/codrag/core/feature_gate.py` |
+| `Tier` enum (FREE → ENTERPRISE) | ✅ Built | `src/prep/core/feature_gate.py` |
+| `License` dataclass (tier, email, expires_at, seats) | ✅ Built | `src/prep/core/feature_gate.py` |
+| `FEATURE_TIERS` mapping | ✅ Built | `src/prep/core/feature_gate.py` |
+| `check_feature()` / `require_feature()` / `get_feature_limit()` | ✅ Built | `src/prep/core/feature_gate.py` |
+| Ed25519 signature verification | ✅ Built | `src/prep/core/licensing.py` |
+| License file at `~/.prep/license.json` | ✅ Built | `src/prep/core/feature_gate.py` |
+| `PREP_TIER` env var override (dev) | ✅ Built | `src/prep/core/feature_gate.py` |
 | `POST /license/activate` (LS exchange) | ❌ Stub only | `DISTRIBUTION_AND_REVENUE_PLAN.md` §10 |
-| `api.codrag.io` relay service | ❌ Not implemented | — |
+| `api.runprep.io` relay service | ❌ Not implemented | — |
 | LemonSqueezy product setup (5 tiers) | ❌ Not done | — |
 | LemonSqueezy webhook integration | ❌ Not done | — |
 | License recovery endpoint | ❌ Mock stub | — |
@@ -563,9 +563,9 @@ This is a critical enterprise concern and one of the most complex areas due to C
 
 ### 12.2 Tier ↔ LemonSqueezy Product Mapping
 
-Each CoDRAG tier maps to a LemonSqueezy product. This mapping is important because LS handles all payment processing, tax compliance, and subscription management.
+Each Prep tier maps to a LemonSqueezy product. This mapping is important because LS handles all payment processing, tax compliance, and subscription management.
 
-| CoDRAG Tier | LS Product Type | Price | LS Billing | License `expires_at` | License `updates_until` |
+| Prep Tier | LS Product Type | Price | LS Billing | License `expires_at` | License `updates_until` |
 |---|---|---|---|---|---|
 | **Free** | N/A | $0 | None | N/A | N/A |
 | **Monthly** | Subscription | $7/mo | Recurring | End of billing period + grace | Rolling |
@@ -573,16 +573,16 @@ Each CoDRAG tier maps to a LemonSqueezy product. This mapping is important becau
 | **Team** | Subscription | $15/seat/mo | Recurring per-seat | End of billing period + grace | Rolling |
 | **Enterprise** | Custom/Invoice | Custom | Manual invoice / PO | Contract term | Contract term |
 
-### 12.3 Activation Flow (Desktop App ↔ LemonSqueezy ↔ api.codrag.io)
+### 12.3 Activation Flow (Desktop App ↔ LemonSqueezy ↔ api.runprep.io)
 
 ```
-User buys on codrag.io/pricing
+User buys on runprep.io/pricing
   → LemonSqueezy processes payment + tax
-  → LS fires `order_completed` webhook to api.codrag.io
-  → api.codrag.io generates Ed25519-signed license
+  → LS fires `order_completed` webhook to api.runprep.io
+  → api.runprep.io generates Ed25519-signed license
   → User receives license key via email
-  → User pastes key into CoDRAG → Settings → License
-  → App calls POST api.codrag.io/activate with LS order key
+  → User pastes key into Prep → Settings → License
+  → App calls POST api.runprep.io/activate with LS order key
   → Server returns signed Ed25519 license payload
   → App saves to ~/.prep/license.json
   → ✅ FULLY OFFLINE FROM HERE — no phone-home, no subscription heartbeat
@@ -590,7 +590,7 @@ User buys on codrag.io/pricing
 
 ### 12.4 Seat Management for Team/Enterprise
 
-This is where it gets interesting. CoDRAG is local-first, but Team/Enterprise licenses have seat counts.
+This is where it gets interesting. Prep is local-first, but Team/Enterprise licenses have seat counts.
 
 #### The Problem
 
@@ -604,23 +604,23 @@ This is where it gets interesting. CoDRAG is local-first, but Team/Enterprise li
 
 1. **Purchase:** Admin buys N seats on LS → gets a single team license key
 2. **Distribution:** Admin distributes the key to developers (via MDM, email, or `team_config.json` secret)
-3. **Activation:** Each developer activates → `api.codrag.io/activate` tracks `machine_id` (hash of hostname + MAC)
+3. **Activation:** Each developer activates → `api.runprep.io/activate` tracks `machine_id` (hash of hostname + MAC)
 4. **Enforcement:**
-   - `api.codrag.io` counts unique `machine_id`s per license
+   - `api.runprep.io` counts unique `machine_id`s per license
    - If count > `seats`, new activation is **warned** but not blocked (soft enforcement)
    - Monthly reconciliation email to admin: "You have 17 active machines on a 15-seat license"
-5. **Deactivation:** Admin can deactivate machines via `api.codrag.io/deactivate` or LS dashboard
-6. **Offline grace:** If a machine can't reach `api.codrag.io`, it continues working with the cached license. Enforcement is eventual, not real-time.
+5. **Deactivation:** Admin can deactivate machines via `api.runprep.io/deactivate` or LS dashboard
+6. **Offline grace:** If a machine can't reach `api.runprep.io`, it continues working with the cached license. Enforcement is eventual, not real-time.
 
-**For Enterprise tier (managed via CoDRAG Manager or manual):**
+**For Enterprise tier (managed via Prep Manager or manual):**
 
 - Option A: Same as Team but with invoice billing and manual key distribution
-- Option B: Self-hosted CoDRAG Manager acts as the license server (machine activation/deactivation happens against the internal server, not `api.codrag.io`)
+- Option B: Self-hosted Prep Manager acts as the license server (machine activation/deactivation happens against the internal server, not `api.runprep.io`)
 - Option C: Pure offline — signed license file with `seats: N` is delivered via MDM. Enforcement is legal/contractual only (GitKraken model).
 
 #### LemonSqueezy Integration Points
 
-| LS Event | CoDRAG Action |
+| LS Event | Prep Action |
 |---|---|
 | `order_completed` | Generate Ed25519 license, store in DB, email to customer |
 | `subscription_payment_success` | Extend `expires_at` by billing period |
@@ -641,7 +641,7 @@ The Enterprise Admin panel gains a **Licensing** tab:
 │                                                         │
 │  Plan: Team · 15 seats                                  │
 │  Status: Active · Renews Apr 9, 2026                    │
-│  License ID: CODRAG-TEAM-a7f3b2...                      │
+│  License ID: PREP-TEAM-a7f3b2...                      │
 │                                                         │
 │  Active Machines (14/15):                               │
 │  ┌───────────────┬──────────────┬─────────┬───────────┐ │
@@ -706,11 +706,11 @@ Parallel states:
 
 3. **LemonSqueezy built-in license keys vs. our own Ed25519?**
    - LS has a license key system, but it requires online validation
-   - We use LS keys as the *activation input* but generate our own Ed25519 *offline license* via `api.codrag.io`
+   - We use LS keys as the *activation input* but generate our own Ed25519 *offline license* via `api.runprep.io`
    - This gives us offline-first validation after one-time activation
 
 4. **How to handle mid-cycle seat changes?**
-   - Admin adds 5 seats on LS → webhook fires → `api.codrag.io` updates license `seats` field
+   - Admin adds 5 seats on LS → webhook fires → `api.runprep.io` updates license `seats` field
    - Existing machines are unaffected until they next phone home (periodic soft check)
    - New activations immediately see updated seat count
 
@@ -718,20 +718,20 @@ Parallel states:
 
 ## 13. Deep Enterprise IT Tooling — Comprehensive Inventory
 
-This section catalogs every standard enterprise IT control that applies to a developer tool like CoDRAG. Items are categorized by urgency and mapped to our architecture.
+This section catalogs every standard enterprise IT control that applies to a developer tool like Prep. Items are categorized by urgency and mapped to our architecture.
 
 ### 13.1 Corporate Proxy & Certificate Support
 
 **Priority: 🔴 HIGH — Most common enterprise deployment blocker**
 
-Many enterprises route all traffic through corporate HTTP proxies with custom CA certificates (for TLS inspection / MITM). If CoDRAG can't connect through a proxy, it's dead on arrival for regulated industries.
+Many enterprises route all traffic through corporate HTTP proxies with custom CA certificates (for TLS inspection / MITM). If Prep can't connect through a proxy, it's dead on arrival for regulated industries.
 
 | Requirement | Implementation | Status |
 |---|---|---|
 | **HTTP proxy support** (`HTTPS_PROXY`, `HTTP_PROXY`, `NO_PROXY` env vars) | Python `requests`/`httpx` respect these by default. Verify Rust engine + Ollama respect them too | ⚠️ Needs verification |
 | **Custom CA certificate bundle** | Support `REQUESTS_CA_BUNDLE` / `SSL_CERT_FILE` env vars. Add `proxy.ca_bundle_path` to `team_config.json` | ❌ Not implemented |
 | **NTLM/Kerberos proxy auth** | Typically handled by OS-level proxy config (CNTLM, PX). Document workaround | 📝 Documentation only |
-| **Certificate pinning bypass** | Some security tools inject certs. CoDRAG must not hard-pin certs | ✅ Not pinned (uses system trust store) |
+| **Certificate pinning bypass** | Some security tools inject certs. Prep must not hard-pin certs | ✅ Not pinned (uses system trust store) |
 
 **Config:**
 ```json
@@ -750,7 +750,7 @@ Many enterprises route all traffic through corporate HTTP proxies with custom CA
 
 **Priority: 🔴 HIGH — Enterprises sending source code to LLM APIs need governance**
 
-When CoDRAG sends code to an LLM for enrichment, that code is leaving the machine. Enterprises need controls over where code goes.
+When Prep sends code to an LLM for enrichment, that code is leaving the machine. Enterprises need controls over where code goes.
 
 | Control | Description | Implementation |
 |---|---|---|
@@ -786,7 +786,7 @@ When CoDRAG sends code to an LLM for enrichment, that code is leaving the machin
 | **Admin telemetry override** | Admin can force-disable telemetry for all team members | `admin_policy.telemetry.force_disabled: true` |
 | **Telemetry audit** | Document exactly what is collected (required for SOC2) | Public telemetry disclosure page |
 
-**CoDRAG's posture: Telemetry is OFF by default.** This is a competitive advantage — many enterprises reject tools that phone home. We can truthfully say "CoDRAG never sends data without explicit opt-in."
+**Prep's posture: Telemetry is OFF by default.** This is a competitive advantage — many enterprises reject tools that phone home. We can truthfully say "Prep never sends data without explicit opt-in."
 
 ### 13.4 Update Management
 
@@ -796,17 +796,17 @@ When CoDRAG sends code to an LLM for enrichment, that code is leaving the machin
 |---|---|---|
 | **Disable auto-update** | Prevent app from checking for updates | `updates.auto_check: false` in settings or MDM/GPO config |
 | **Update channel** | Stable / Beta / Canary | `updates.channel: "stable"` |
-| **Internal update server** | Point updater at internal artifact mirror | `updates.feed_url: "https://artifacts.corp.internal/codrag/"` |
+| **Internal update server** | Point updater at internal artifact mirror | `updates.feed_url: "https://artifacts.corp.internal/prep/"` |
 | **Version pinning** | Admin specifies maximum allowed version | `admin_policy.updates.max_version: "1.5.*"` |
 | **Rollback** | Ability to downgrade to previous version | Tauri updater supports this if previous installers are available |
 | **Release notes gate** | Show changelog before update is applied | Tauri updater can surface this |
 
 **MDM/GPO deployment pattern:**
 ```
-macOS: defaults write com.codrag.app UpdateChannel -string "stable"
-       defaults write com.codrag.app AutoUpdate -bool NO
-Windows: HKLM\SOFTWARE\CoDRAG\UpdateChannel = "stable"
-         HKLM\SOFTWARE\CoDRAG\AutoUpdate = 0
+macOS: defaults write com.prep.app UpdateChannel -string "stable"
+       defaults write com.prep.app AutoUpdate -bool NO
+Windows: HKLM\SOFTWARE\Prep\UpdateChannel = "stable"
+         HKLM\SOFTWARE\Prep\AutoUpdate = 0
 ```
 
 ### 13.5 Configuration Deployment (MDM/GPO)
@@ -815,15 +815,15 @@ Windows: HKLM\SOFTWARE\CoDRAG\UpdateChannel = "stable"
 
 | Method | Platform | Details |
 |---|---|---|
-| **macOS plist** | macOS | `com.codrag.app.plist` pushed via Jamf/Intune/Mosyle |
-| **Windows Registry** | Windows | `HKLM\SOFTWARE\CoDRAG\` pushed via GPO or Intune |
-| **Config file drop** | Cross-platform | Place `codrag_managed.json` in a well-known path (e.g., `/etc/codrag/` or `%ProgramData%\CoDRAG\`) |
-| **Environment variables** | CI/Docker | `CODRAG_TIER`, `CODRAG_LICENSE_KEY`, `CODRAG_PROXY`, etc. |
+| **macOS plist** | macOS | `com.prep.app.plist` pushed via Jamf/Intune/Mosyle |
+| **Windows Registry** | Windows | `HKLM\SOFTWARE\Prep\` pushed via GPO or Intune |
+| **Config file drop** | Cross-platform | Place `prep_managed.json` in a well-known path (e.g., `/etc/prep/` or `%ProgramData%\Prep\`) |
+| **Environment variables** | CI/Docker | `PREP_TIER`, `PREP_LICENSE_KEY`, `PREP_PROXY`, etc. |
 
 **Precedence (highest wins):**
 ```
-1. Environment variables (CODRAG_*)
-2. MDM/GPO managed config (codrag_managed.json / plist / registry)
+1. Environment variables (PREP_*)
+2. MDM/GPO managed config (prep_managed.json / plist / registry)
 3. team_config.json (from repo)
 4. User local settings (~/.prep/settings)
 5. Built-in defaults
@@ -859,7 +859,7 @@ This precedence is critical: IT-pushed config overrides team config which overri
 | **Data deletion** | "Delete All Data" button per project — removes all index artifacts, embeddings, audit logs |
 | **Right to erasure** | API endpoint: `DELETE /projects/{id}/data` — complete wipe |
 | **Data export** | API endpoint: `GET /projects/{id}/export` — zip of all stored data |
-| **No PII in indexes** | CoDRAG indexes code, not personal data. But audit logs may contain usernames/emails |
+| **No PII in indexes** | Prep indexes code, not personal data. But audit logs may contain usernames/emails |
 | **Audit log retention** | Configurable: `retention.audit_log_days: 365` |
 | **S3 lifecycle policies** | For Team Sync: set S3 lifecycle rules to auto-delete old index zips |
 
@@ -869,12 +869,12 @@ This precedence is critical: IT-pushed config overrides team config which overri
 
 Enterprises need a clear list of domains/IPs to allowlist in their firewalls. This is documentation, not code.
 
-**Domains CoDRAG may contact:**
+**Domains Prep may contact:**
 
 | Domain | When | Purpose | Can be blocked? |
 |---|---|---|---|
-| `api.codrag.io` | License activation (one-time) | Exchange LS key for Ed25519 license | Yes, after initial activation |
-| `api.lemonsqueezy.com` | Never (backend only) | Webhook delivery to api.codrag.io | N/A (server-to-server) |
+| `api.runprep.io` | License activation (one-time) | Exchange LS key for Ed25519 license | Yes, after initial activation |
+| `api.lemonsqueezy.com` | Never (backend only) | Webhook delivery to api.runprep.io | N/A (server-to-server) |
 | `github.com` | Auto-update check | Check for new releases | Yes (disable auto-update) |
 | `objects.githubusercontent.com` | Auto-update download | Download new installer | Yes (disable auto-update) |
 | User-configured LLM endpoints | During pipeline runs | API calls to LLM providers | Depends on admin policy |
@@ -891,7 +891,7 @@ Enterprise machines run EDR agents (CrowdStrike Falcon, SentinelOne, Carbon Blac
 | Concern | Risk | Mitigation |
 |---|---|---|
 | **Process injection detection** | Tauri launching Python sidecar may trigger alerts | Document expected process tree for IT whitelisting |
-| **File system scanning** | EDR scanning every file CoDRAG indexes could slow builds | Document index directories for exclusion rules |
+| **File system scanning** | EDR scanning every file Prep indexes could slow builds | Document index directories for exclusion rules |
 | **Network monitoring** | EDR may flag LLM API calls as data exfiltration | Document expected network behavior |
 | **Binary signature** | Unsigned binaries flagged as suspicious | Code signing (already planned) |
 
@@ -907,12 +907,12 @@ Enterprise machines run EDR agents (CrowdStrike Falcon, SentinelOne, Carbon Blac
 
 | Concept | Description | When Needed |
 |---|---|---|
-| **Org-scoped projects** | Projects belong to an org, not a user | CoDRAG Manager (web service) |
-| **Department budgets** | Separate token budgets per department | CoDRAG Manager |
-| **Cross-org isolation** | Org A cannot access Org B's indexes | CoDRAG Manager |
+| **Org-scoped projects** | Projects belong to an org, not a user | Prep Manager (web service) |
+| **Department budgets** | Separate token budgets per department | Prep Manager |
+| **Cross-org isolation** | Org A cannot access Org B's indexes | Prep Manager |
 | **Shared model catalog** | Central list of approved models for the org | Admin policy (Section 4) |
 
-This is a CoDRAG Manager (web service) concern, not desktop app. Desktop app handles one user's projects.
+This is a Prep Manager (web service) concern, not desktop app. Desktop app handles one user's projects.
 
 ### 13.11 Export & Clipboard Controls
 
@@ -981,9 +981,9 @@ These are the individual health checks that compose the security score. Each map
 |---|---|---|
 | **Signature valid** | Ed25519 signature on license.json matches embedded public key | `licensing.py` |
 | **Not expired** | `expires_at` is null or in the future | `feature_gate.py` |
-| **Seats within limit** | Active machines ≤ license `seats` | `api.codrag.io` (periodic check) |
+| **Seats within limit** | Active machines ≤ license `seats` | `api.runprep.io` (periodic check) |
 | **Updates valid** | `updates_until` is in the future (or irrelevant for subscription) | `feature_gate.py` |
-| **Not revoked** | License ID not on revocation list (optional online check) | `api.codrag.io` |
+| **Not revoked** | License ID not on revocation list (optional online check) | `api.runprep.io` |
 
 **UI:** Green shield if all pass. Yellow if updates expired. Red if signature invalid or license expired.
 
@@ -1186,7 +1186,7 @@ Every enterprise control in one table, sorted by implementation priority:
 | 24 | SCIM provisioning | Identity | 🟢 LOW | Enterprise | Roadmap |
 | 25 | Network allowlist documentation | IT Docs | 🟢 LOW | All | Designed (§13.8) |
 | 26 | EDR compatibility guide | IT Docs | 🟢 LOW | All | Designed (§13.9) |
-| 27 | Org isolation / multi-tenancy | Architecture | 🟢 LOW | Enterprise | CoDRAG Manager (§13.10) |
+| 27 | Org isolation / multi-tenancy | Architecture | 🟢 LOW | Enterprise | Prep Manager (§13.10) |
 | 28 | Clipboard/export controls | DLP | 🟢 LOW | Enterprise | Designed (§13.11) |
 | 29 | Security health score + checks panel | Security | 🔴 HIGH | Enterprise | Designed (§13A) |
 | 30 | Security event log | Security | 🟡 MEDIUM | Enterprise | Designed (§13A.4) |
@@ -1205,7 +1205,7 @@ Supersedes Section 10. Now includes licensing and enterprise IT controls.
 
 ### Phase A: Licensing MVP (Pre-launch, blocking)
 
-1. Deploy `api.codrag.io` serverless function (Cloudflare Workers or Netlify Functions)
+1. Deploy `api.runprep.io` serverless function (Cloudflare Workers or Netlify Functions)
 2. Implement LemonSqueezy webhook handler (`order_completed` → generate Ed25519 license)
 3. Implement `POST /activate` endpoint (LS key → signed license exchange)
 4. Implement `POST /recover` endpoint (email → re-send license)
@@ -1268,7 +1268,7 @@ Supersedes Section 10. Now includes licensing and enterprise IT controls.
 ### Phase H: IT Deployment Docs + MDM Config (Enterprise)
 
 1. Write IT Deployment Guide (PDF/web): process tree, EDR exclusions, network destinations
-2. Implement `codrag_managed.json` config file support with highest-priority precedence
+2. Implement `prep_managed.json` config file support with highest-priority precedence
 3. macOS plist schema for MDM
 4. Windows registry schema for GPO
 5. Network allowlist documentation
@@ -1288,7 +1288,7 @@ Supersedes Section 10. Now includes licensing and enterprise IT controls.
 
 1. SAML SSO integration (Okta, Azure AD, OneLogin)
 2. SCIM user provisioning
-3. Role mapping from IdP groups → CoDRAG admin/user roles
+3. Role mapping from IdP groups → Prep admin/user roles
 4. This is post-launch and only built if real enterprise pilots demand it
 
 ---
@@ -1318,8 +1318,8 @@ Supersedes Section 10. Now includes licensing and enterprise IT controls.
 7. **LemonSqueezy built-in license keys vs. our own Ed25519?**
    - Use LS keys as activation INPUT → exchange for our Ed25519 offline license. Best of both worlds.
 
-8. **How to handle `api.codrag.io` downtime during activation?**
-   - Activation requires one-time internet. If api.codrag.io is down, show retry + manual key entry fallback.
+8. **How to handle `api.runprep.io` downtime during activation?**
+   - Activation requires one-time internet. If api.runprep.io is down, show retry + manual key entry fallback.
    - After activation, app is fully offline. Downtime doesn't affect existing users.
 
 9. **Should DLP `never_send_globs` be enforced at the file level or content level?**
@@ -1346,13 +1346,13 @@ Not all security features require admin management. Most are core app protection
 
 #### Tier 1: Core App Security (All tiers, including Free — No admin needed)
 
-These are baked into the product. They run automatically. No configuration, no admin panel, no team_config.json. Every CoDRAG user gets them.
+These are baked into the product. They run automatically. No configuration, no admin panel, no team_config.json. Every Prep user gets them.
 
 | Feature | Why it's core | TODO ref |
 |---|---|---|
 | Ed25519 license signature verification | Protects revenue for ALL tiers | EA-A6 |
 | `expires_at` validation | Prevents expired license abuse | EA-A7 |
-| Dev mode restriction on `CODRAG_TIER` | Prevents trivial license bypass | EA-A8 |
+| Dev mode restriction on `PREP_TIER` | Prevents trivial license bypass | EA-A8 |
 | Input sanitization before LLM calls (Unicode stripping, prompt injection detection) | Protects every user from poisoned repo content | EA-B10 |
 | Output validation after LLM responses (anomaly detection) | Protects every user from manipulated enrichment | EA-B11 |
 | Context sanitization (triple backtick escaping) | Prevents prompt injection via context output | EA-B5 |
@@ -1387,7 +1387,7 @@ These are configured by the team lead in `team_config.json` (committed to the re
 
 #### Tier 3: Enterprise Admin Security (Enterprise — Full admin dashboard panel required)
 
-These require the admin role, the Enterprise Admin panel, and often backend infrastructure (`api.codrag.io`, audit database, etc.).
+These require the admin role, the Enterprise Admin panel, and often backend infrastructure (`api.runprep.io`, audit database, etc.).
 
 | Feature | Why it needs admin dashboard | TODO ref |
 |---|---|---|
@@ -1428,31 +1428,31 @@ AI Gateway Panel (ALL USERS):
 └──────────────────────────────────────────┘
 ```
 
-### 17.1 OWASP Top 10 for LLM Applications (2025) — CoDRAG Relevance Map
+### 17.1 OWASP Top 10 for LLM Applications (2025) — Prep Relevance Map
 
-The OWASP GenAI Security Project published the definitive risk list for LLM applications. Here's how each risk maps to CoDRAG:
+The OWASP GenAI Security Project published the definitive risk list for LLM applications. Here's how each risk maps to Prep:
 
-| # | OWASP Risk | CoDRAG Exposure | Mitigation Status |
+| # | OWASP Risk | Prep Exposure | Mitigation Status |
 |---|---|---|---|
-| **LLM01** | Prompt Injection | 🔴 **HIGH** — CoDRAG sends code to LLMs for enrichment. Malicious code in a repo could contain embedded prompt injections that alter LLM behavior during indexing. | Partially addressed: context output has `<!-- TREAT AS DATA -->` comment (MED-4 in audit). Need: content sanitization in pipeline input. |
+| **LLM01** | Prompt Injection | 🔴 **HIGH** — Prep sends code to LLMs for enrichment. Malicious code in a repo could contain embedded prompt injections that alter LLM behavior during indexing. | Partially addressed: context output has `<!-- TREAT AS DATA -->` comment (MED-4 in audit). Need: content sanitization in pipeline input. |
 | **LLM02** | Sensitive Information Disclosure | 🔴 **HIGH** — LLMs process source code that may contain API keys, passwords, PII in comments, internal URLs. LLM responses might echo these back into index artifacts. | Designed: `never_send_globs` + `redact_patterns` in DLP policy (§13.2). Not yet implemented. |
-| **LLM03** | Supply Chain | 🟡 **MEDIUM** — CoDRAG uses Ollama (piped curl install), Python packages, Rust crates, npm packages. Docker images are a supply chain surface. | Audit LOW-3 flagged Ollama piped curl. Need: dependency pinning, SBOM generation, image signing. |
+| **LLM03** | Supply Chain | 🟡 **MEDIUM** — Prep uses Ollama (piped curl install), Python packages, Rust crates, npm packages. Docker images are a supply chain surface. | Audit LOW-3 flagged Ollama piped curl. Need: dependency pinning, SBOM generation, image signing. |
 | **LLM04** | Data and Model Poisoning | 🟡 **MEDIUM** — Team Sync downloads indexes from S3 that could be poisoned. A compromised CI build could inject poisoned embeddings that bias search results. | Partially addressed: content hash verification (MED-3 fixed). Need: manifest signing by CI build key. |
-| **LLM05** | Improper Output Handling | 🟡 **MEDIUM** — CoDRAG renders LLM output (atlas, audit reports) in the dashboard. XSS risk if output contains `<script>` tags or markdown injection. | Need: sanitize all LLM output before rendering in dashboard HTML. |
-| **LLM06** | Excessive Agency | 🟢 **LOW** — CoDRAG's LLM usage is read-only (enrichment, not agentic code execution). MCP tools are read-only search/context. | Low risk by design. MCP tools don't modify files or execute code. |
-| **LLM07** | System Prompt Leakage | 🟢 **LOW** — CoDRAG's system prompts contain pipeline instructions, not secrets. Leaking them is an IP concern but not a security breach. | Accept risk. System prompts don't contain credentials or PII. |
-| **LLM08** | Vector and Embedding Weaknesses | 🔴 **HIGH** — CoDRAG is fundamentally a RAG system. Its vector store (embeddings.npy) and trace graph are the core product. Embedding poisoning, cross-tenant leakage in Team Sync, and inversion attacks are real risks. | Need: access-partitioned vector stores for Team Sync, embedding integrity checks, anomaly detection on search results. See §17.3. |
-| **LLM09** | Misinformation | 🟡 **MEDIUM** — Atlas and audit reports may contain hallucinated architecture descriptions. Users trust CoDRAG's analysis. | Existing: quality gates in atlas generation. Need: confidence indicators on LLM-generated content. |
+| **LLM05** | Improper Output Handling | 🟡 **MEDIUM** — Prep renders LLM output (atlas, audit reports) in the dashboard. XSS risk if output contains `<script>` tags or markdown injection. | Need: sanitize all LLM output before rendering in dashboard HTML. |
+| **LLM06** | Excessive Agency | 🟢 **LOW** — Prep's LLM usage is read-only (enrichment, not agentic code execution). MCP tools are read-only search/context. | Low risk by design. MCP tools don't modify files or execute code. |
+| **LLM07** | System Prompt Leakage | 🟢 **LOW** — Prep's system prompts contain pipeline instructions, not secrets. Leaking them is an IP concern but not a security breach. | Accept risk. System prompts don't contain credentials or PII. |
+| **LLM08** | Vector and Embedding Weaknesses | 🔴 **HIGH** — Prep is fundamentally a RAG system. Its vector store (embeddings.npy) and trace graph are the core product. Embedding poisoning, cross-tenant leakage in Team Sync, and inversion attacks are real risks. | Need: access-partitioned vector stores for Team Sync, embedding integrity checks, anomaly detection on search results. See §17.3. |
+| **LLM09** | Misinformation | 🟡 **MEDIUM** — Atlas and audit reports may contain hallucinated architecture descriptions. Users trust Prep's analysis. | Existing: quality gates in atlas generation. Need: confidence indicators on LLM-generated content. |
 | **LLM10** | Unbounded Consumption | 🟡 **MEDIUM** — Without budget controls, a single user could consume unlimited tokens on cloud APIs. Malicious repos could contain files designed to maximize token consumption. | Designed: budget controls (§13.6). Not yet implemented. |
 
-### 17.2 AI Coding Tool CVEs (Dec 2025) — Lessons for CoDRAG
+### 17.2 AI Coding Tool CVEs (Dec 2025) — Lessons for Prep
 
 In December 2025, security researcher Omer Marzouk published findings on **30+ vulnerabilities** across Cursor (CVE-2025-49150), Roo Code (CVE-2025-53097), JetBrains Junie (CVE-2025-58335), GitHub Copilot, and Claude Code. Key attack patterns:
 
 #### Attack Pattern 1: Rules File Backdoor (Pillar Security, Mar 2025)
 **What:** Malicious instructions hidden in AI configuration files (`.cursor/rules`, `.github/copilot-instructions.md`) using invisible Unicode characters (zero-width joiners, bidirectional text markers). The AI reads these instructions but human reviewers can't see them.
 
-**CoDRAG relevance:** CoDRAG has `.prep/team_config.json` and `.windsurf/workflows/*.md` — both are config files read by AI tools. A malicious contributor could inject hidden Unicode instructions.
+**Prep relevance:** Prep has `.prep/team_config.json` and `.windsurf/workflows/*.md` — both are config files read by AI tools. A malicious contributor could inject hidden Unicode instructions.
 
 **Mitigation needed:**
 - Strip/flag invisible Unicode characters in `team_config.json` on load
@@ -1462,20 +1462,20 @@ In December 2025, security researcher Omer Marzouk published findings on **30+ v
 #### Attack Pattern 2: MCP Tool Poisoning
 **What:** A malicious MCP server includes hidden instructions in tool descriptions that manipulate the AI agent to exfiltrate data using other MCP tools in the same session.
 
-**CoDRAG relevance:** CoDRAG publishes an MCP server (`codrag-mcp`). If a user connects CoDRAG's MCP alongside a malicious MCP server, the malicious server could influence the AI to misuse CoDRAG's tools. CoDRAG's MCP tools are read-only, limiting damage, but search results could still be exfiltrated.
+**Prep relevance:** Prep publishes an MCP server (`prep-mcp`). If a user connects Prep's MCP alongside a malicious MCP server, the malicious server could influence the AI to misuse Prep's tools. Prep's MCP tools are read-only, limiting damage, but search results could still be exfiltrated.
 
 **Mitigation needed:**
-- CoDRAG MCP tools should have explicit scope declarations
+- Prep MCP tools should have explicit scope deprep-compresstions
 - Consider rate-limiting MCP tool calls
 - Document MCP security best practices for users
 
 #### Attack Pattern 3: Prompt Injection via Repository Content
 **What:** Malicious content embedded in source code files, README.md, issue descriptions, or comments can inject prompts into any AI tool that reads repository content.
 
-**CoDRAG relevance:** 🔴 **This is CoDRAG's most critical attack surface.** CoDRAG reads EVERY file in a repository, sends code to LLMs for enrichment, and stores the results. A poisoned file could:
+**Prep relevance:** 🔴 **This is Prep's most critical attack surface.** Prep reads EVERY file in a repository, sends code to LLMs for enrichment, and stores the results. A poisoned file could:
 1. Inject instructions into the LLM during augmentation → produce misleading index entries
 2. Contain invisible text that biases search results → developers get wrong context
-3. Include prompt injection in code comments → CoDRAG's atlas/audit reports get manipulated
+3. Include prompt injection in code comments → Prep's atlas/audit reports get manipulated
 
 **Mitigation needed:**
 - Input sanitization before sending to LLM: strip invisible Unicode, flag suspicious patterns
@@ -1483,9 +1483,9 @@ In December 2025, security researcher Omer Marzouk published findings on **30+ v
 - Separate "trusted" (admin-verified) vs "untrusted" (user-submitted) content in the index
 - Monitor for prompt injection indicators in LLM responses
 
-### 17.3 OWASP LLM08 — Vector & Embedding Weaknesses (Direct CoDRAG Impact)
+### 17.3 OWASP LLM08 — Vector & Embedding Weaknesses (Direct Prep Impact)
 
-This OWASP category was created for products exactly like CoDRAG. Key risks:
+This OWASP category was created for products exactly like Prep. Key risks:
 
 #### Risk 1: Cross-Tenant Data Leakage in Team Sync
 If multiple teams share an S3 bucket (different prefixes), a misconfigured prefix could expose one team's embeddings to another. Embedding inversion attacks could reconstruct original source code from the vector representations.
@@ -1528,9 +1528,9 @@ A documented timeline of MCP-related security incidents shows systemic patterns:
 
 **Patterns:** Over-privileged tokens, untrusted content in LLM context, no isolation between MCP tools, localhost services treated as trusted.
 
-**CoDRAG MCP mitigations:**
-- CoDRAG MCP tools are read-only (no file writes, no code execution) ✅
-- CoDRAG MCP doesn't accept user-provided file paths for write ✅
+**Prep MCP mitigations:**
+- Prep MCP tools are read-only (no file writes, no code execution) ✅
+- Prep MCP doesn't accept user-provided file paths for write ✅
 - Need: Validate that MCP search queries don't contain injection payloads
 - Need: Rate limiting on MCP tool calls to prevent bulk exfiltration
 - Need: MCP tool audit logging (who called what, when)
@@ -1539,27 +1539,27 @@ A documented timeline of MCP-related security incidents shows systemic patterns:
 
 #### For Build & CI Security
 
-| Tool | What It Does | How CoDRAG Uses It | Priority |
+| Tool | What It Does | How Prep Uses It | Priority |
 |---|---|---|---|
-| **[Semgrep](https://semgrep.dev)** | SAST — static analysis with custom rules. Free for open source. | Run in CI to catch security patterns (SQL injection, path traversal, command injection) in CoDRAG Python/TS code | 🟡 MEDIUM |
-| **[Trivy](https://github.com/aquasecurity/trivy)** | Container + dependency vulnerability scanner | Scan Docker images (`codrag-headless:cpu/gpu`) for CVEs, scan Python deps, generate SBOM | 🔴 HIGH |
+| **[Semgrep](https://semgrep.dev)** | SAST — static analysis with custom rules. Free for open source. | Run in CI to catch security patterns (SQL injection, path traversal, command injection) in Prep Python/TS code | 🟡 MEDIUM |
+| **[Trivy](https://github.com/aquasecurity/trivy)** | Container + dependency vulnerability scanner | Scan Docker images (`prep-headless:cpu/gpu`) for CVEs, scan Python deps, generate SBOM | 🔴 HIGH |
 | **[Gitleaks](https://github.com/gitleaks/gitleaks)** | Secrets detection in git history | Run in pre-commit hook + CI to prevent accidental secret commits | 🔴 HIGH |
 | **[Cosign](https://github.com/sigstore/cosign)** | Container image signing (Sigstore) | Sign Docker images so enterprise customers can verify authenticity | 🟡 MEDIUM |
 | **[Syft](https://github.com/anchore/syft)** | SBOM generation | Generate Software Bill of Materials for compliance (SOC2, FedRAMP) | 🟡 MEDIUM |
 
 #### For LLM/AI-Specific Security
 
-| Tool | What It Does | How CoDRAG Uses It | Priority |
+| Tool | What It Does | How Prep Uses It | Priority |
 |---|---|---|---|
 | **[LLM Guard](https://github.com/protectai/llm-guard)** | Input/output scanning for LLM interactions. Detects PII, prompt injection, secrets in prompts. Python library. | Integrate as pre-send filter before LLM API calls. Scans code content for secrets/PII before sending to cloud APIs. Replaces our custom `redact_patterns` regex with a battle-tested library. | 🔴 HIGH |
 | **[NeMo Guardrails](https://github.com/NVIDIA-NeMo/Guardrails)** | LLM input/output moderation, fact-checking, jailbreak detection. | Too heavy for our use case (designed for conversational AI). But `topical rails` concept could inform our output validation. | 🟢 LOW |
-| **[Pytector](https://github.com/MaxMLang/pytector)** | Lightweight prompt injection detection using DeBERTa/DistilBERT. | Could scan repo content for embedded prompt injections before indexing. Lightweight ONNX model fits CoDRAG's architecture. | 🟡 MEDIUM |
+| **[Pytector](https://github.com/MaxMLang/pytector)** | Lightweight prompt injection detection using DeBERTa/DistilBERT. | Could scan repo content for embedded prompt injections before indexing. Lightweight ONNX model fits Prep's architecture. | 🟡 MEDIUM |
 
 #### For the Security Panel
 
-| Tool | What It Does | How CoDRAG Uses It | Priority |
+| Tool | What It Does | How Prep Uses It | Priority |
 |---|---|---|---|
-| **[OSSF Scorecard](https://github.com/ossf/scorecard)** | Security health score for open source projects | Inspiration for our Security Health Score design. Same concept (aggregate checks → score) but applied to CoDRAG deployment health instead of repo health. | Design reference |
+| **[OSSF Scorecard](https://github.com/ossf/scorecard)** | Security health score for open source projects | Inspiration for our Security Health Score design. Same concept (aggregate checks → score) but applied to Prep deployment health instead of repo health. | Design reference |
 
 ### 17.6 Actionable Additions to Existing Plans
 
@@ -1581,11 +1581,11 @@ Based on this research, the following items should be **added to the TODO**:
 
 ### 17.7 Key Takeaways
 
-1. **CoDRAG's biggest unique risk is prompt injection via repository content (OWASP LLM01).** Every file in the repo is potential attack surface. This is different from chatbot prompt injection because the "user input" is the entire codebase, not a single message.
+1. **Prep's biggest unique risk is prompt injection via repository content (OWASP LLM01).** Every file in the repo is potential attack surface. This is different from chatbot prompt injection because the "user input" is the entire codebase, not a single message.
 
-2. **Embedding/vector security (OWASP LLM08) is a new category created for products like CoDRAG.** We need to treat `embeddings.npy` as sensitive data and protect Team Sync's shared indexes against poisoning and inversion.
+2. **Embedding/vector security (OWASP LLM08) is a new category created for products like Prep.** We need to treat `embeddings.npy` as sensitive data and protect Team Sync's shared indexes against poisoning and inversion.
 
-3. **MCP breaches in 2025 show that read-only tools are safer** — CoDRAG's MCP design (no write tools) is already a strong position. But we need audit logging and rate limiting.
+3. **MCP breaches in 2025 show that read-only tools are safer** — Prep's MCP design (no write tools) is already a strong position. But we need audit logging and rate limiting.
 
 4. **LLM Guard by ProtectAI is the most promising tool** for our use case — it provides PII detection, prompt injection scanning, and secrets detection as a Python library. This could replace our custom `redact_patterns` regex and add battle-tested protection.
 

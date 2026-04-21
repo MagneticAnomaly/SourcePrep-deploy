@@ -10,11 +10,11 @@
 
 **Tech Stack:** Python 3.11 (FastAPI + Pydantic), React/TypeScript (Vite), Tailwind + Radix UI. Tests: pytest (`asyncio_mode = "auto"`), Vitest for frontend.
 
-**Primary success metric:** synthesis JSON validity rate ≥ 99% (up from ~85% baseline). Secondary: concept coverage +20%, Swarm wall-clock ≤ 30 min on CoDRAG deep enrichment (Max plan).
+**Primary success metric:** synthesis JSON validity rate ≥ 99% (up from ~85% baseline). Secondary: concept coverage +20%, Swarm wall-clock ≤ 30 min on Prep deep enrichment (Max plan).
 
 **Important pre-existing state (verified 2026-04-16):**
 - `ModelSlotType` already includes `'coordinator'` (`packages/ui/src/types.ts:824`)
-- `coordinator_model` block already exists in config defaults (`src/codrag/services/config_manager.py:348`)
+- `coordinator_model` block already exists in config defaults (`src/prep/services/config_manager.py:348`)
 - Coordinator card already renders with inherit toggle (`packages/ui/src/components/llm/AIModelsSettings.tsx:900–935`)
 - F-59 root cause is resolved (see `docs/Phase79_Swarm/07_Rework/SWARM_HANG_INVESTIGATION.md`) but the stale `return 1` workaround still lives in `batch_profiles.py:359`
 
@@ -23,20 +23,20 @@
 ## File Structure
 
 **Create:**
-- `src/codrag/core/swarm_optimizer.py` — constants + `get_optimal_swarm_config()`
+- `src/prep/core/swarm_optimizer.py` — constants + `get_optimal_swarm_config()`
 - `tests/test_swarm_optimizer.py` — unit tests for optimizer
 - `packages/ui/src/components/llm/AdvancedLLMSettings.tsx` — new Advanced Settings panel
 - `packages/ui/src/components/llm/AdvancedLLMSettings.stories.tsx` — Storybook
 
 **Modify:**
-- `src/codrag/core/swarm_orchestrator.py` — dual-LLM constructor, inherit fallback
-- `src/codrag/core/batch_profiles.py` — remove F-59 hardcap, add plan-tier-aware concurrency, add "enforce safety limits" gate
-- `src/codrag/core/llm_client.py` — gate the 24K `num_predict` cap on a configurable `max_thinking_budget`
-- `src/codrag/core/cluster.py:1307` — pass coordinator_llm + worker_llm
-- `src/codrag/core/group_reasoning.py:467` — same
-- `src/codrag/core/concept_seeder.py:309` — same
-- `src/codrag/core/atlas/generator.py:939` — same
-- `src/codrag/services/config_manager.py` — add `get_llm_client_for_slot("coordinator")` with inherit-from-large resolution; add `advanced_llm_settings` block
+- `src/prep/core/swarm_orchestrator.py` — dual-LLM constructor, inherit fallback
+- `src/prep/core/batch_profiles.py` — remove F-59 hardcap, add plan-tier-aware concurrency, add "enforce safety limits" gate
+- `src/prep/core/llm_client.py` — gate the 24K `num_predict` cap on a configurable `max_thinking_budget`
+- `src/prep/core/cluster.py:1307` — pass coordinator_llm + worker_llm
+- `src/prep/core/group_reasoning.py:467` — same
+- `src/prep/core/concept_seeder.py:309` — same
+- `src/prep/core/atlas/generator.py:939` — same
+- `src/prep/services/config_manager.py` — add `get_llm_client_for_slot("coordinator")` with inherit-from-large resolution; add `advanced_llm_settings` block
 - `packages/ui/src/types.ts` — add `AdvancedLLMSettings` interface, extend `LLMConfig`
 - `packages/ui/src/components/llm/AIModelsSettings.tsx:85–90` — update `RECOMMENDED_MODELS` (remove qwen3:{4b,8b,14b,30b})
 - `packages/ui/src/hooks/useDashboardPanels.tsx` — wire Advanced Settings panel
@@ -53,13 +53,13 @@
 
 **Files:**
 - Create: `tests/test_swarm_optimizer.py`
-- Create: `src/codrag/core/swarm_optimizer.py`
+- Create: `src/prep/core/swarm_optimizer.py`
 
 - [ ] **Step 1: Write failing test for constants**
 
 ```python
 # tests/test_swarm_optimizer.py
-from codrag.core.swarm_optimizer import (
+from prep.core.swarm_optimizer import (
     KIMI_MAX_BATCH,
     GEMINI_MAX_BATCH_ITEMS,
     GEMINI_ATTENTION_QUALITY_CEILING_TOKENS,
@@ -79,12 +79,12 @@ def test_constants_match_spec():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_swarm_optimizer.py -v`
-Expected: `ModuleNotFoundError: No module named 'codrag.core.swarm_optimizer'`
+Expected: `ModuleNotFoundError: No module named 'prep.core.swarm_optimizer'`
 
 - [ ] **Step 3: Create swarm_optimizer.py with constants**
 
 ```python
-# src/codrag/core/swarm_optimizer.py
+# src/prep/core/swarm_optimizer.py
 """Dynamic Swarm batching & concurrency optimizer.
 
 Centralizes quality/throughput constants for the three Swarm phases:
@@ -136,7 +136,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/swarm_optimizer.py tests/test_swarm_optimizer.py
+git add src/prep/core/swarm_optimizer.py tests/test_swarm_optimizer.py
 git commit -m "feat(swarm): add optimizer constants per SWARM_UI_PLAN_v2 §7"
 ```
 
@@ -146,14 +146,14 @@ git commit -m "feat(swarm): add optimizer constants per SWARM_UI_PLAN_v2 §7"
 
 **Files:**
 - Modify: `tests/test_swarm_optimizer.py`
-- Modify: `src/codrag/core/swarm_optimizer.py`
+- Modify: `src/prep/core/swarm_optimizer.py`
 
 - [ ] **Step 1: Write failing tests for optimizer**
 
 Append to `tests/test_swarm_optimizer.py`:
 
 ```python
-from codrag.core.swarm_optimizer import (
+from prep.core.swarm_optimizer import (
     SwarmConfig,
     get_optimal_swarm_config,
 )
@@ -236,7 +236,7 @@ Expected: FAIL — `ImportError: cannot import name 'SwarmConfig'`
 
 - [ ] **Step 3: Implement optimizer**
 
-Append to `src/codrag/core/swarm_optimizer.py`:
+Append to `src/prep/core/swarm_optimizer.py`:
 
 ```python
 from math import ceil
@@ -326,7 +326,7 @@ Expected: all 8 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/swarm_optimizer.py tests/test_swarm_optimizer.py
+git add src/prep/core/swarm_optimizer.py tests/test_swarm_optimizer.py
 git commit -m "feat(swarm): add get_optimal_swarm_config() with quality-first sizing"
 ```
 
@@ -335,7 +335,7 @@ git commit -m "feat(swarm): add get_optimal_swarm_config() with quality-first si
 ## Task 3: Remove stale F-59 hardcap; add plan-tier-aware concurrency
 
 **Files:**
-- Modify: `src/codrag/core/batch_profiles.py:349–419` (in `get_batch_concurrency`)
+- Modify: `src/prep/core/batch_profiles.py:349–419` (in `get_batch_concurrency`)
 - Modify: `tests/test_batch_profiles.py` (add new cases)
 
 - [ ] **Step 1: Write failing test for plan-tier concurrency**
@@ -348,28 +348,28 @@ from unittest.mock import patch
 
 def test_cloud_concurrency_uses_plan_tier_max():
     """F-59 is resolved — cloud models must no longer be hardcapped at 1."""
-    from codrag.core.batch_profiles import get_batch_concurrency
-    with patch("codrag.core.batch_profiles._get_plan_tier", return_value="max"):
+    from prep.core.batch_profiles import get_batch_concurrency
+    with patch("prep.core.batch_profiles._get_plan_tier", return_value="max"):
         result = get_batch_concurrency("ollama", model="kimi-k2.5:cloud")
         assert result == 10
 
 
 def test_cloud_concurrency_uses_plan_tier_pro():
-    from codrag.core.batch_profiles import get_batch_concurrency
-    with patch("codrag.core.batch_profiles._get_plan_tier", return_value="pro"):
+    from prep.core.batch_profiles import get_batch_concurrency
+    with patch("prep.core.batch_profiles._get_plan_tier", return_value="pro"):
         result = get_batch_concurrency("ollama", model="kimi-k2.5:cloud")
         assert result == 3
 
 
 def test_cloud_concurrency_defaults_to_free_when_unset():
-    from codrag.core.batch_profiles import get_batch_concurrency
-    with patch("codrag.core.batch_profiles._get_plan_tier", return_value="free"):
+    from prep.core.batch_profiles import get_batch_concurrency
+    with patch("prep.core.batch_profiles._get_plan_tier", return_value="free"):
         result = get_batch_concurrency("ollama", model="kimi-k2.5:cloud")
         assert result == 1
 
 
 def test_local_model_still_returns_one():
-    from codrag.core.batch_profiles import get_batch_concurrency
+    from prep.core.batch_profiles import get_batch_concurrency
     result = get_batch_concurrency("ollama", model="gemma3:12b")
     assert result == 1
 ```
@@ -381,10 +381,10 @@ Expected: FAIL — current code hardcaps cloud at 1.
 
 - [ ] **Step 3: Replace F-59 hardcap**
 
-In `src/codrag/core/batch_profiles.py`, add near the top (after imports):
+In `src/prep/core/batch_profiles.py`, add near the top (after imports):
 
 ```python
-from codrag.core.swarm_optimizer import PLAN_TIER_CONCURRENCY
+from prep.core.swarm_optimizer import PLAN_TIER_CONCURRENCY
 
 
 def _get_plan_tier() -> str:
@@ -394,7 +394,7 @@ def _get_plan_tier() -> str:
     patch.
     """
     try:
-        from codrag.services.config_manager import get_advanced_llm_settings
+        from prep.services.config_manager import get_advanced_llm_settings
         settings = get_advanced_llm_settings()
         return settings.get("ollama_plan_tier", "free")
     except Exception:
@@ -430,7 +430,7 @@ Expected: all new tests PASS; existing tests still PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/batch_profiles.py tests/test_batch_profiles.py
+git add src/prep/core/batch_profiles.py tests/test_batch_profiles.py
 git commit -m "fix(swarm): remove stale F-59 hardcap, route cloud concurrency via plan tier"
 ```
 
@@ -440,7 +440,7 @@ git commit -m "fix(swarm): remove stale F-59 hardcap, route cloud concurrency vi
 
 **Files:**
 - Modify: `tests/test_swarm_orchestrator.py`
-- Modify: `src/codrag/core/swarm_orchestrator.py:131–162`
+- Modify: `src/prep/core/swarm_orchestrator.py:131–162`
 
 - [ ] **Step 1: Write failing test**
 
@@ -448,7 +448,7 @@ Append to `tests/test_swarm_orchestrator.py`:
 
 ```python
 from unittest.mock import MagicMock
-from codrag.core.swarm_orchestrator import SwarmOrchestrator
+from prep.core.swarm_orchestrator import SwarmOrchestrator
 
 
 def test_decoupled_constructor_uses_distinct_clients():
@@ -480,7 +480,7 @@ Expected: FAIL — current constructor only accepts `llm=`.
 
 - [ ] **Step 3: Update `SwarmOrchestrator.__init__`**
 
-Replace the `__init__` signature + body in `src/codrag/core/swarm_orchestrator.py:131–162` with:
+Replace the `__init__` signature + body in `src/prep/core/swarm_orchestrator.py:131–162` with:
 
 ```python
     def __init__(
@@ -547,7 +547,7 @@ Expected: new tests PASS; existing tests still PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/swarm_orchestrator.py tests/test_swarm_orchestrator.py
+git add src/prep/core/swarm_orchestrator.py tests/test_swarm_orchestrator.py
 git commit -m "feat(swarm): add dual-LLM constructor with inherit-from-worker fallback"
 ```
 
@@ -556,8 +556,8 @@ git commit -m "feat(swarm): add dual-LLM constructor with inherit-from-worker fa
 ## Task 5: Route `_coordinate` and `_synthesize` through `coordinator_llm`
 
 **Files:**
-- Modify: `src/codrag/core/swarm_orchestrator.py:164–247` (`_llm_call_with_timeout`)
-- Modify: `src/codrag/core/swarm_orchestrator.py` (Phase 2 `_fan_out` — uses `worker_llm`)
+- Modify: `src/prep/core/swarm_orchestrator.py:164–247` (`_llm_call_with_timeout`)
+- Modify: `src/prep/core/swarm_orchestrator.py` (Phase 2 `_fan_out` — uses `worker_llm`)
 - Modify: `tests/test_swarm_orchestrator.py`
 
 - [ ] **Step 1: Write failing test asserting per-phase routing**
@@ -566,7 +566,7 @@ Append to `tests/test_swarm_orchestrator.py`:
 
 ```python
 def test_coordinator_calls_use_coordinator_llm_only():
-    from codrag.core.swarm_orchestrator import SwarmOrchestrator, WorkItem
+    from prep.core.swarm_orchestrator import SwarmOrchestrator, WorkItem
     coord = MagicMock(name="coord")
     coord.generate.return_value = ('{"assignments":[]}', 100)
     worker = MagicMock(name="worker")
@@ -639,7 +639,7 @@ Expected: all tests PASS (including the new routing test).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/swarm_orchestrator.py tests/test_swarm_orchestrator.py
+git add src/prep/core/swarm_orchestrator.py tests/test_swarm_orchestrator.py
 git commit -m "feat(swarm): route coordinator+synthesis to coordinator_llm, workers to worker_llm"
 ```
 
@@ -648,7 +648,7 @@ git commit -m "feat(swarm): route coordinator+synthesis to coordinator_llm, work
 ## Task 6: Add `get_coordinator_llm()` to config_manager (TDD)
 
 **Files:**
-- Modify: `src/codrag/services/config_manager.py`
+- Modify: `src/prep/services/config_manager.py`
 - Modify: `tests/test_config_manager.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -657,7 +657,7 @@ Append to `tests/test_config_manager.py`:
 
 ```python
 def test_coordinator_inherits_when_unconfigured(tmp_path, monkeypatch):
-    from codrag.services.config_manager import get_coordinator_llm_client
+    from prep.services.config_manager import get_coordinator_llm_client
     # Set up minimal settings where coordinator_model.inherit_from_large = True
     # and large_model points at a valid endpoint.
     # (Wire this via the test fixture that already creates a config; reuse
@@ -668,7 +668,7 @@ def test_coordinator_inherits_when_unconfigured(tmp_path, monkeypatch):
 
 
 def test_coordinator_uses_own_model_when_configured(tmp_path, monkeypatch):
-    from codrag.services.config_manager import get_coordinator_llm_client
+    from prep.services.config_manager import get_coordinator_llm_client
     # Set coordinator_model.enabled = True, inherit_from_large = False,
     # model = "gemini-3-flash-preview:cloud"
     coord_client = get_coordinator_llm_client()
@@ -725,7 +725,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/config_manager.py tests/test_config_manager.py
+git add src/prep/services/config_manager.py tests/test_config_manager.py
 git commit -m "feat(config): add get_coordinator_llm_client() with inherit fallback"
 ```
 
@@ -734,7 +734,7 @@ git commit -m "feat(config): add get_coordinator_llm_client() with inherit fallb
 ## Task 7: Wire `atlas/generator.py` call site
 
 **Files:**
-- Modify: `src/codrag/core/atlas/generator.py:939`
+- Modify: `src/prep/core/atlas/generator.py:939`
 - Modify: `tests/test_atlas_swarm.py` (extend mock to assert both LLMs flow through)
 
 - [ ] **Step 1: Update the SwarmOrchestrator construction**
@@ -744,7 +744,7 @@ Replace `atlas/generator.py:939–946`:
 ```python
         # F-59 rework: per-worker + wall-time caps prevent apparent hangs
         # on sequential cloud endpoints.  Phase 112: decoupled coord/worker.
-        from codrag.services.config_manager import get_coordinator_llm_client
+        from prep.services.config_manager import get_coordinator_llm_client
         orch = SwarmOrchestrator(
             coordinator_llm=get_coordinator_llm_client(),
             worker_llm=self.llm,
@@ -765,10 +765,10 @@ def test_atlas_swarm_passes_distinct_coordinator(monkeypatch):
     from unittest.mock import MagicMock, patch
     coord_mock = MagicMock(name="coord")
     with patch(
-        "codrag.core.atlas.generator.get_coordinator_llm_client",
+        "prep.core.atlas.generator.get_coordinator_llm_client",
         return_value=coord_mock,
     ), patch(
-        "codrag.core.atlas.generator.SwarmOrchestrator"
+        "prep.core.atlas.generator.SwarmOrchestrator"
     ) as OrchCls:
         # ... invoke atlas swarm entry point (match existing test harness) ...
         _, kwargs = OrchCls.call_args
@@ -784,7 +784,7 @@ Expected: PASS.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/core/atlas/generator.py tests/test_atlas_swarm.py
+git add src/prep/core/atlas/generator.py tests/test_atlas_swarm.py
 git commit -m "feat(atlas): route swarm coordinator through coordinator_llm slot"
 ```
 
@@ -793,7 +793,7 @@ git commit -m "feat(atlas): route swarm coordinator through coordinator_llm slot
 ## Task 8: Wire `concept_seeder.py` call site
 
 **Files:**
-- Modify: `src/codrag/core/concept_seeder.py:309`
+- Modify: `src/prep/core/concept_seeder.py:309`
 - Modify: `tests/test_concept_seeder_swarm.py`
 
 - [ ] **Step 1: Update construction**
@@ -801,7 +801,7 @@ git commit -m "feat(atlas): route swarm coordinator through coordinator_llm slot
 Replace `concept_seeder.py:309–315`:
 
 ```python
-    from codrag.services.config_manager import get_coordinator_llm_client
+    from prep.services.config_manager import get_coordinator_llm_client
     orch = SwarmOrchestrator(
         coordinator_llm=get_coordinator_llm_client(),
         worker_llm=llm,
@@ -825,7 +825,7 @@ Expected: PASS.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/core/concept_seeder.py tests/test_concept_seeder_swarm.py
+git add src/prep/core/concept_seeder.py tests/test_concept_seeder_swarm.py
 git commit -m "feat(concept-seeder): route swarm coordinator through coordinator_llm slot"
 ```
 
@@ -834,7 +834,7 @@ git commit -m "feat(concept-seeder): route swarm coordinator through coordinator
 ## Task 9: Wire `group_reasoning.py` call site
 
 **Files:**
-- Modify: `src/codrag/core/group_reasoning.py:467`
+- Modify: `src/prep/core/group_reasoning.py:467`
 - Modify: relevant test file (locate via `rg SwarmOrchestrator tests/`)
 
 - [ ] **Step 1: Update construction**
@@ -842,7 +842,7 @@ git commit -m "feat(concept-seeder): route swarm coordinator through coordinator
 Replace `group_reasoning.py:467–474`:
 
 ```python
-        from codrag.services.config_manager import get_coordinator_llm_client
+        from prep.services.config_manager import get_coordinator_llm_client
         orch = SwarmOrchestrator(
             coordinator_llm=get_coordinator_llm_client(),
             worker_llm=self.llm,
@@ -866,7 +866,7 @@ Expected: PASS.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/core/group_reasoning.py tests/
+git add src/prep/core/group_reasoning.py tests/
 git commit -m "feat(group-reasoning): route swarm coordinator through coordinator_llm slot"
 ```
 
@@ -875,7 +875,7 @@ git commit -m "feat(group-reasoning): route swarm coordinator through coordinato
 ## Task 10: Wire `cluster.py` call site (removes Phase79 TODO)
 
 **Files:**
-- Modify: `src/codrag/core/cluster.py:1304–1307`
+- Modify: `src/prep/core/cluster.py:1304–1307`
 - Modify: `tests/test_cluster_swarm.py`
 
 - [ ] **Step 1: Update construction**
@@ -886,7 +886,7 @@ Replace `cluster.py:1304–1307`:
         # Phase 112: coord and worker now decoupled — coord uses the
         # coordinator_llm slot (defaults to Gemini 3 Flash), worker uses
         # self.llm (Kimi).  Resolves the Phase79-DualModel TODO.
-        from codrag.services.config_manager import get_coordinator_llm_client
+        from prep.services.config_manager import get_coordinator_llm_client
         orch = SwarmOrchestrator(
             coordinator_llm=get_coordinator_llm_client(),
             worker_llm=self.llm,
@@ -906,7 +906,7 @@ Expected: PASS.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/core/cluster.py tests/test_cluster_swarm.py
+git add src/prep/core/cluster.py tests/test_cluster_swarm.py
 git commit -m "feat(cluster): route swarm coordinator through coordinator_llm slot (closes Phase79-DualModel TODO)"
 ```
 
@@ -921,13 +921,13 @@ Expected: PASS (baseline + new tests).
 
 - [ ] **Step 2: Lint + typecheck**
 
-Run: `.venv/bin/ruff check src/ && .venv/bin/mypy src/codrag/core/swarm_orchestrator.py src/codrag/core/swarm_optimizer.py src/codrag/core/batch_profiles.py src/codrag/services/config_manager.py`
+Run: `.venv/bin/ruff check src/ && .venv/bin/mypy src/prep/core/swarm_orchestrator.py src/prep/core/swarm_optimizer.py src/prep/core/batch_profiles.py src/prep/services/config_manager.py`
 Expected: no new errors.
 
 - [ ] **Step 3: In-daemon smoke (mini-redis-rust, Free plan)**
 
 ```bash
-.venv/bin/python -m codrag.cli serve --port 8400 &
+.venv/bin/python -m prep.cli serve --port 8400 &
 # In another shell: trigger finalize → concept seeding on mini-redis-rust.
 # Watch logs for "Batch concurrency: N (plan tier=free, ...)".
 ```
@@ -939,7 +939,7 @@ Expected: swarm completes; all 19 modules synthesized; no hang; logs show `coord
 If the smoke run surfaces issues, file them as follow-up tasks. Otherwise commit any config updates made during validation:
 
 ```bash
-git add codrag_data/ui_config.json  # if touched during smoke
+git add prep_data/ui_config.json  # if touched during smoke
 git commit -m "chore(config): smoke-test config for Phase 112 swarm decoupling" || true
 ```
 
@@ -1302,8 +1302,8 @@ git commit -m "feat(ui): mount AdvancedLLMSettings in AIModelsSettings"
 ## Task 16: Wire Cloud-Token-Safety toggle to `batch_profiles.py`
 
 **Files:**
-- Modify: `src/codrag/services/config_manager.py` (add `get_advanced_llm_settings()`)
-- Modify: `src/codrag/core/batch_profiles.py:248–279` (`is_cloud_model_via_ollama` — consult toggle)
+- Modify: `src/prep/services/config_manager.py` (add `get_advanced_llm_settings()`)
+- Modify: `src/prep/core/batch_profiles.py:248–279` (`is_cloud_model_via_ollama` — consult toggle)
 - Modify: `tests/test_batch_profiles.py`
 
 - [ ] **Step 1: Add config accessor**
@@ -1347,7 +1347,7 @@ def resolve_profile(
     #   - qwen3-coder-next, other cloud non-thinking → STANDARD (32K output)
     #   - Kimi → still CLOUD_SMALL (thinking-preamble constraint, not the
     #     16K cap, is the binding constraint for Kimi).  See §6.1.
-    from codrag.services.config_manager import get_advanced_llm_settings
+    from prep.services.config_manager import get_advanced_llm_settings
     enforce_safety = get_advanced_llm_settings().get(
         "enforce_cloud_token_safety", True,
     )
@@ -1378,9 +1378,9 @@ Append to `tests/test_batch_profiles.py`:
 
 ```python
 def test_cloud_safety_off_promotes_gemini_to_large(monkeypatch):
-    from codrag.core.batch_profiles import resolve_profile, PROFILE_LARGE
+    from prep.core.batch_profiles import resolve_profile, PROFILE_LARGE
     monkeypatch.setattr(
-        "codrag.services.config_manager.get_advanced_llm_settings",
+        "prep.services.config_manager.get_advanced_llm_settings",
         lambda: {"enforce_cloud_token_safety": False},
     )
     profile = resolve_profile("ollama", "gemini-3-flash-preview:cloud")
@@ -1388,9 +1388,9 @@ def test_cloud_safety_off_promotes_gemini_to_large(monkeypatch):
 
 
 def test_cloud_safety_off_keeps_kimi_on_cloud_small(monkeypatch):
-    from codrag.core.batch_profiles import resolve_profile, PROFILE_CLOUD_SMALL
+    from prep.core.batch_profiles import resolve_profile, PROFILE_CLOUD_SMALL
     monkeypatch.setattr(
-        "codrag.services.config_manager.get_advanced_llm_settings",
+        "prep.services.config_manager.get_advanced_llm_settings",
         lambda: {"enforce_cloud_token_safety": False},
     )
     profile = resolve_profile("ollama", "kimi-k2.5:cloud")
@@ -1405,7 +1405,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/config_manager.py src/codrag/core/batch_profiles.py tests/test_batch_profiles.py
+git add src/prep/services/config_manager.py src/prep/core/batch_profiles.py tests/test_batch_profiles.py
 git commit -m "feat(swarm): gate cloud batch profile promotion on safety toggle"
 ```
 
@@ -1414,7 +1414,7 @@ git commit -m "feat(swarm): gate cloud batch profile promotion on safety toggle"
 ## Task 17: Wire Max-Thinking-Budget to `llm_client.py`
 
 **Files:**
-- Modify: `src/codrag/core/llm_client.py:620–626`
+- Modify: `src/prep/core/llm_client.py:620–626`
 - Modify: `tests/test_llm_client.py` (or nearest existing test file)
 
 - [ ] **Step 1: Replace hardcap**
@@ -1429,7 +1429,7 @@ Current (`llm_client.py:620–626`):
 
 Replace with:
 ```python
-                from codrag.services.config_manager import get_advanced_llm_settings
+                from prep.services.config_manager import get_advanced_llm_settings
                 max_budget = get_advanced_llm_settings().get("max_thinking_budget", 24576)
                 effective_num_predict = min(
                     max(num_predict * 3, num_predict + 8192),
@@ -1443,9 +1443,9 @@ Create/extend test asserting that the advanced setting overrides the cap:
 
 ```python
 def test_max_thinking_budget_override(monkeypatch):
-    from codrag.core.llm_client import LLMClient
+    from prep.core.llm_client import LLMClient
     monkeypatch.setattr(
-        "codrag.services.config_manager.get_advanced_llm_settings",
+        "prep.services.config_manager.get_advanced_llm_settings",
         lambda: {"max_thinking_budget": 65536},
     )
     # Use the existing test fixture / helper that exposes effective_num_predict,
@@ -1461,7 +1461,7 @@ Expected: PASS.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/core/llm_client.py tests/
+git add src/prep/core/llm_client.py tests/
 git commit -m "feat(llm-client): override thinking-budget cap via Advanced Settings"
 ```
 
@@ -1470,12 +1470,12 @@ git commit -m "feat(llm-client): override thinking-budget cap via Advanced Setti
 ## Task 18: Surface Swarm metrics in telemetry
 
 **Files:**
-- Modify: `src/codrag/core/swarm_orchestrator.py` (emit metrics)
-- Modify: `src/codrag/services/token_telemetry.py` (or equivalent — locate the existing token logger)
+- Modify: `src/prep/core/swarm_orchestrator.py` (emit metrics)
+- Modify: `src/prep/services/token_telemetry.py` (or equivalent — locate the existing token logger)
 
 - [ ] **Step 1: Identify telemetry sink**
 
-Run: `rg -n "token_telemetry|_telemetry_ctx" src/codrag/services/ | head -20` to locate the telemetry entrypoint used by existing swarm code.
+Run: `rg -n "token_telemetry|_telemetry_ctx" src/prep/services/ | head -20` to locate the telemetry entrypoint used by existing swarm code.
 
 - [ ] **Step 2: Emit three new metrics per swarm run**
 
@@ -1483,7 +1483,7 @@ In `swarm_orchestrator.py` at the end of the main `run()` method (find it — it
 
 ```python
         try:
-            from codrag.services.token_telemetry import record_swarm_metrics
+            from prep.services.token_telemetry import record_swarm_metrics
             record_swarm_metrics(
                 phase="swarm_run",
                 coordinator_json_valid=(result.coordinator_plan is not None),
@@ -1526,7 +1526,7 @@ Expected: PASS.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/core/swarm_orchestrator.py src/codrag/services/token_telemetry.py
+git add src/prep/core/swarm_orchestrator.py src/prep/services/token_telemetry.py
 git commit -m "feat(telemetry): record swarm quality + throughput metrics"
 ```
 
@@ -1538,9 +1538,9 @@ git commit -m "feat(telemetry): record swarm quality + throughput metrics"
 
 Via UI: set `coordinator_model` = `gemini-3-flash-preview:cloud`, `large_model` = `kimi-k2.5:cloud`, Advanced Settings → Plan Tier = `max`, Enforce Cloud Token Safety = OFF.
 
-- [ ] **Step 2: Trigger CoDRAG deep enrichment**
+- [ ] **Step 2: Trigger Prep deep enrichment**
 
-Via dashboard or API: trigger group-reasoning swarm on the CoDRAG project (155 groups).
+Via dashboard or API: trigger group-reasoning swarm on the Prep project (155 groups).
 
 - [ ] **Step 3: Verify logs**
 

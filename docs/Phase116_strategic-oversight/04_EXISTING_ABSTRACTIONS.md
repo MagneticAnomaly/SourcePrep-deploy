@@ -7,7 +7,7 @@ reduces risk.
 ## Reusable surfaces
 
 ### `TransitionGuard` — stage gating
-**File:** `src/codrag/services/pipeline/state_machine.py:218-240`
+**File:** `src/prep/services/pipeline/state_machine.py:218-240`
 
 Pluggable guard that can veto state transitions. Already used:
 `ActiveProjectGuard` blocks `START` when project is inactive.
@@ -21,7 +21,7 @@ Per-checkpoint gating (e.g., "check after concept promotion but before
 antibody derivation") needs a finer-grained hook.
 
 ### `ManifestStore` — provenance trail
-**File:** `src/codrag/services/pipeline/manifest_store.py`
+**File:** `src/prep/services/pipeline/manifest_store.py`
 
 Tracks per-stage provenance: model used, tokens, timing, quality. Not a
 gate — audit trail only.
@@ -32,7 +32,7 @@ gate, this gives us dogfooding data collection "for free" as soon as we
 start invoking the overseer on any stage.
 
 ### `PipelineCheckpoint` — pause/resume
-**File:** `src/codrag/services/pipeline_checkpoint.py`
+**File:** `src/prep/services/pipeline_checkpoint.py`
 
 Saves/restores pipeline state for pause/resume. Not a quality gate.
 
@@ -40,7 +40,7 @@ Saves/restores pipeline state for pause/resume. Not a quality gate.
 `paused_for_capacity`. Gives future HITL workflows a place to land.
 
 ### `SwarmOrchestrator` — worker aggregation
-**File:** `src/codrag/core/swarm_orchestrator.py:102-250`
+**File:** `src/prep/core/swarm_orchestrator.py:102-250`
 
 Coordinator + workers + synthesis. `SwarmResult.worker_results` already
 exposes all N worker outputs.
@@ -52,7 +52,7 @@ what's already computed. This becomes the overseer's primary gate signal
 for Stage 7.
 
 ### `AuditSynthesizer` parallel-report generation
-**File:** `src/codrag/core/audit/synthesizer.py:96-154`
+**File:** `src/prep/core/audit/synthesizer.py:96-154`
 
 5 report generators in a `ThreadPoolExecutor` with partial-failure
 tolerance.

@@ -10,7 +10,7 @@
 
 | ID | Title | Severity | Category | Status |
 |----|-------|----------|----------|--------|
-| MCP-01 | AntibodyStore not initialized — `codrag_audit(action="antibodies")` returns error | HIGH | MCP Wiring | Related to F-37, may be regression or incomplete fix |
+| MCP-01 | AntibodyStore not initialized — `prep_audit(action="antibodies")` returns error | HIGH | MCP Wiring | Related to F-37, may be regression or incomplete fix |
 | MCP-02 | Structural audit missing import cycles — reads legacy audit findings instead of trace graph | HIGH | MCP Retrieval | NEW |
 | MCP-03 | Impact graph empty for Swift files — Python engine doesn't resolve Swift imports | HIGH | Pipeline/Parser | NEW |
 | MCP-04 | Hub-files API field name mismatch (`path` vs `file_path`) may cause empty hub list on some projects | HIGH | MCP Wiring | NEW — needs verification |
@@ -29,7 +29,7 @@
 **Category:** MCP Wiring
 **Symptom:**
 ```
-codrag_audit(action="antibodies")
+prep_audit(action="antibodies")
 → Error: AntibodyStore not initialized. Call antibody_store.init(db_path) first.
 ```
 
@@ -43,7 +43,7 @@ codrag_audit(action="antibodies")
 3. The fix in F-37 may have been for the daemon's own antibody store instance, but the MCP server runs in a separate process (stdio mode) and needs its own initialization.
 
 **Research tasks:**
-- [ ] Grep for `antibody_store.init` in `src/codrag/mcp/server.py` — is it called during `_resolve_project_id()`?
+- [ ] Grep for `antibody_store.init` in `src/prep/mcp/server.py` — is it called during `_resolve_project_id()`?
 - [ ] Check what DB path the pipeline uses vs what the MCP server would use for embedded-mode projects
 - [ ] Verify F-37 fix scope: did it cover the MCP server path or only the pipeline worker path?
 
@@ -55,9 +55,9 @@ codrag_audit(action="antibodies")
 
 **Severity:** HIGH
 **Category:** MCP Retrieval
-**Symptom:** `codrag_audit(action="scan")` returns coupling hotspots but zero import cycle findings, despite the atlas identifying 71 cycles (Haley) or the pipeline processing import data.
+**Symptom:** `prep_audit(action="scan")` returns coupling hotspots but zero import cycle findings, despite the atlas identifying 71 cycles (Haley) or the pipeline processing import data.
 
-**Root cause:** The structural scanner in `src/codrag/core/audit/structural.py` receives cycles from its `ctx` dict. The MCP handler `tool_audit_structural()` in `server.py:1928-1944` populates cycles by calling:
+**Root cause:** The structural scanner in `src/prep/core/audit/structural.py` receives cycles from its `ctx` dict. The MCP handler `tool_audit_structural()` in `server.py:1928-1944` populates cycles by calling:
 
 ```python
 GET /projects/{project_id}/audit/findings?limit=500
@@ -70,7 +70,7 @@ Meanwhile, the atlas structural analysis detects cycles directly from the trace 
 
 **Evidence from PowerMateReborn:** The pipeline ran an audit stage that produced 62 findings. But the structural scanner's cycle query reads from `GET /audit/findings` looking for `analyzer == "circular_deps"`. If the finalize-stage audit didn't produce findings with that exact analyzer name, the cycle list is empty.
 
-**Evidence from Haley:** The atlas reported 71 import cycles. `codrag_audit(action="scan")` returned 0 cycle findings. Same pattern.
+**Evidence from Haley:** The atlas reported 71 import cycles. `prep_audit(action="scan")` returned 0 cycle findings. Same pattern.
 
 **Research tasks:**
 - [ ] What analyzer names does the finalize-stage audit produce? Are any of them `"circular_deps"`?
@@ -89,11 +89,11 @@ Meanwhile, the atlas structural analysis detects cycles directly from the trace 
 
 **Severity:** HIGH
 **Category:** Pipeline/Parser
-**Symptom:** `codrag_impact(file_path="Sources/PowerMateManager.swift", direction="all")` returns 1 node, 0 edges. PowerMateManager is the central orchestrator that imports from both transport files, the gesture engine, and is used by AppDelegate.
+**Symptom:** `prep_impact(file_path="Sources/PowerMateManager.swift", direction="all")` returns 1 node, 0 edges. PowerMateManager is the central orchestrator that imports from both transport files, the gesture engine, and is used by AppDelegate.
 
-**Meanwhile**, `codrag_impact(file_path="Sources/AppDelegate.swift", direction="dependents")` correctly returns 3 dependents. And the structural audit found AppDelegate has 52 incoming dependencies.
+**Meanwhile**, `prep_impact(file_path="Sources/AppDelegate.swift", direction="dependents")` correctly returns 3 dependents. And the structural audit found AppDelegate has 52 incoming dependencies.
 
-**Root cause:** The pipeline ran with `"engine_backend": "python"`. CoDRAG's Rust parser (`codrag-parser`) has tree-sitter grammars for Python and TypeScript. For Swift files, the Python-fallback parser is used, which does text-based import inference (regex matching `import X` statements) rather than AST-based extraction.
+**Root cause:** The pipeline ran with `"engine_backend": "python"`. Prep's Rust parser (`prep-parser`) has tree-sitter grammars for Python and TypeScript. For Swift files, the Python-fallback parser is used, which does text-based import inference (regex matching `import X` statements) rather than AST-based extraction.
 
 Swift uses `import Foundation`, `import IOKit`, `import CoreBluetooth` — all framework imports, not file-to-file imports. The internal file-to-file dependencies (PowerMateManager uses PowerMateUSBTransport, PowerMateGestureEngine, etc.) are established through **type references** (e.g., `class PowerMateManager` has a property of type `PowerMateUSBTransport`), not through `import` statements. Swift files in the same module don't need to import each other.
 
@@ -124,7 +124,7 @@ AppDelegate has edges because it's referenced by name in many places (text-match
 **Category:** MCP Wiring
 **Symptom:** Structural audit may receive an empty hub file list due to API response key mismatch.
 
-**Evidence:** The trace hub-files API at `src/codrag/api/routers/trace_routes/query.py:624` returns:
+**Evidence:** The trace hub-files API at `src/prep/api/routers/trace_routes/query.py:624` returns:
 ```python
 {"hub_files": [{"path": p, "in_degree": d} for p, d in hubs]}
 ```
@@ -153,7 +153,7 @@ The API returns `"path"`, the handler reads `"file_path"`. If this mismatch is r
 
 **Severity:** MEDIUM
 **Category:** Pipeline/Parser
-**Symptom:** `codrag_search(query="PowerMateTransport", type="symbol")` returns:
+**Symptom:** `prep_search(query="PowerMateTransport", type="symbol")` returns:
 ```
 - `PowerMateTransport` (symbol) @ `Sources/PowerMateManager.swift`:27
 - `PowerMateTransportDelegate` (symbol) @ `Sources/PowerMateManager.swift`:19
@@ -169,7 +169,7 @@ For comparison, Haley's Python symbols now include docstring excerpts:
     combined = 0.35*relevance + 0.25*epistemic + ...
 ```
 
-**Root cause:** The Phase 83 symbol formatter reads `n.get("signature")` and `n.get("docstring")` from trace node metadata. For Python, the parser (or enrichment stage) populates these fields from the AST. For Swift, the parser is text-based and doesn't extract protocol declarations, method signatures, or documentation comments.
+**Root cause:** The Phase 83 symbol formatter reads `n.get("signature")` and `n.get("docstring")` from trace node metadata. For Python, the parser (or enrichment stage) populates these fields from the AST. For Swift, the parser is text-based and doesn't extract protocol deprep-compresstions, method signatures, or documentation comments.
 
 **This is the same language limitation as MCP-03.** The Rust parser handles Python/TypeScript; other languages get text-based fallback that doesn't extract structured metadata.
 
@@ -192,7 +192,7 @@ For comparison, Haley's Python symbols now include docstring excerpts:
 
 Arguments that C is too harsh:
 - A 1,253-line AppDelegate is normal for a macOS menu-bar app — it's the NSApplicationDelegate which inherently centralizes lifecycle and menu management. Calling it a "god class" applies web-app patterns to a desktop app where a single coordinator is the expected architecture.
-- "11 files potentially orphaned" is 11 of 24 files — but these ARE the core source files (BrightnessController, DDCController, MIDIController, etc.). They're not orphaned; they're used via Swift's implicit module system which CoDRAG can't parse. This is a false finding from the parser limitation.
+- "11 files potentially orphaned" is 11 of 24 files — but these ARE the core source files (BrightnessController, DDCController, MIDIController, etc.). They're not orphaned; they're used via Swift's implicit module system which Prep can't parse. This is a false finding from the parser limitation.
 - "Reliance on undocumented private APIs" is a correct observation but it's inherent to the project's purpose — you can't control external monitor brightness on macOS without private APIs. It's a conscious design choice, not technical debt.
 
 Arguments that C is fair:
@@ -205,7 +205,7 @@ Arguments that C is fair:
 **Research tasks:**
 - [ ] Read the Tier 2 audit synthesis prompts — do they receive language/platform context?
 - [ ] Consider: should the audit grade be calibrated by project size? (A 24-file project with 1 large coordinator is fundamentally different from a 1000-file project with 10 large files)
-- [ ] Consider: should the "potentially orphaned" finding be suppressed or downgraded for languages where CoDRAG can't resolve imports?
+- [ ] Consider: should the "potentially orphaned" finding be suppressed or downgraded for languages where Prep can't resolve imports?
 - [ ] The 11 "orphaned" files account for nearly half the total findings. If these are false positives (parser limitation), the grade would likely be B or B+ without them
 
 ---
@@ -214,12 +214,12 @@ Arguments that C is fair:
 
 **Severity:** LOW
 **Category:** UX/Product
-**Symptom:** 133 concepts were created, all with status "seed". The `codrag` ambient response shows:
+**Symptom:** 133 concepts were created, all with status "seed". The `prep` ambient response shows:
 ```
-[Concepts: 0 active, 133 seeds — architecture: 25, constraint: 22, decision: 22, product: 18, +6 more. Use codrag_concepts to explore.]
+[Concepts: 0 active, 133 seeds — architecture: 25, constraint: 22, decision: 22, product: 18, +6 more. Use prep_concepts to explore.]
 ```
 
-The concepts are accessible via `codrag_concepts(action="get")` and appear in search results as cross-references. But the ambient context says "0 active" which suggests concepts need to be promoted from "seed" to "active" before they fully participate in all tool responses.
+The concepts are accessible via `prep_concepts(action="get")` and appear in search results as cross-references. But the ambient context says "0 active" which suggests concepts need to be promoted from "seed" to "active" before they fully participate in all tool responses.
 
 **Question:** Is the seed → active promotion workflow documented? Is it manual (human reviews and promotes) or automatic (seeds become active after N days or N citations)?
 
@@ -254,7 +254,7 @@ These are ALL core application files. They're flagged because the trace graph ha
 **Research tasks:**
 - [ ] Can the orphan detection be suppressed for languages where import resolution is known to be incomplete?
 - [ ] Should the finding severity be downgraded from INFO to NOTE for non-Python/TS projects?
-- [ ] Consider: check if the file is referenced in the atlas/module descriptions — if CoDRAG describes it as part of the architecture, it's clearly not orphaned
+- [ ] Consider: check if the file is referenced in the atlas/module descriptions — if Prep describes it as part of the architecture, it's clearly not orphaned
 
 ---
 
@@ -274,7 +274,7 @@ Not observed on PowerMateReborn (fresh pipeline, no older data to carry forward)
 
 **Severity:** LOW
 **Category:** UX Confusion
-**Symptom:** The structural audit says "AppDelegate.swift has 52 incoming dependencies" but `codrag_impact(direction="dependents")` returns only 3.
+**Symptom:** The structural audit says "AppDelegate.swift has 52 incoming dependencies" but `prep_impact(direction="dependents")` returns only 3.
 
 **Explanation:** The 52 comes from the trace graph's total in-degree for the node, which includes ALL edge types: imports, references, calls, inferred, contains. The impact tool's dependents mode may only count `[calls]` and `[imports]` edges, filtering out reference and inferred edges.
 

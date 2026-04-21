@@ -90,7 +90,7 @@ In practice this means Finalize has 3 "waves":
 
 ## What Changes (and What Doesn't)
 
-### Backend: `src/codrag/services/pipeline/stages.py`
+### Backend: `src/prep/services/pipeline/stages.py`
 
 **StageId enum** — Add 4 new members:
 ```python
@@ -146,7 +146,7 @@ STAGE_PARALLEL_GROUP: Dict[StageId, int] = {
 }
 ```
 
-### Backend: `src/codrag/services/pipeline/orchestrator.py`
+### Backend: `src/prep/services/pipeline/orchestrator.py`
 
 **State machine** — Add a third group. Currently tracks `fast_sync` and `deep_enrichment` as two independent state machines. Add `finalize` as a third with the same state transitions (PENDING → RUNNING → COMPLETED/FAILED/PAUSED).
 
@@ -161,7 +161,7 @@ STAGE_PARALLEL_GROUP: Dict[StageId, int] = {
 
 **Group chaining** — Currently fast_sync can auto-chain to deep_enrichment. Add: deep_enrichment (now "enrich") can auto-chain to finalize. Same budget-aware throttle logic.
 
-### Backend: `src/codrag/services/pipeline/workers.py`
+### Backend: `src/prep/services/pipeline/workers.py`
 
 **Existing Atlas worker** — No changes needed, it's already a proper worker. Just moves to the Finalize dispatch.
 
@@ -173,7 +173,7 @@ STAGE_PARALLEL_GROUP: Dict[StageId, int] = {
 
 Each worker follows the existing pattern: accepts a `BuildSlot`, reports progress, writes to manifest, returns completion status.
 
-### Backend: `src/codrag/api/routers/pipeline.py`
+### Backend: `src/prep/api/routers/pipeline.py`
 
 **Endpoints** — Add Finalize group operations:
 - `POST /projects/{id}/pipeline/finalize` — Run Finalize stages (11-15)

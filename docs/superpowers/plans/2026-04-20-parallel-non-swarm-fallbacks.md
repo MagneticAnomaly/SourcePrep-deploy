@@ -4,7 +4,7 @@
 
 **Goal:** Restore parallel fan-out for the non-swarm fallback paths in `cluster.py` and `concept_seeder.py` so Phase 82's AIMD per-request gate is fully exercised regardless of whether `swarm_enabled` is on.
 
-**Architecture:** Both stages currently serialize work on their non-swarm paths: `cluster.py` runs a plain `for batch_start in range(...)` loop over batched cluster groups; `_seed_concepts_sequential` makes a single global-context LLM call. Rewrite both to submit work to the shared bounded `llm_pool` (`src/codrag/services/pipeline/thread_pool.py`) using the pattern established by `deepening.py` (lines 439-509): `pool.submit(...)` fan-out, `as_completed(futures, timeout=...)` collection, `FutureTimeoutError` branch, and an unconditional `finally` block that cancels any orphaned futures. The AIMD gate inside `LLMClient.generate` is the real throttle — submitting the full fan-out is fine because surplus submits block at the gate.
+**Architecture:** Both stages currently serialize work on their non-swarm paths: `cluster.py` runs a plain `for batch_start in range(...)` loop over batched cluster groups; `_seed_concepts_sequential` makes a single global-context LLM call. Rewrite both to submit work to the shared bounded `llm_pool` (`src/prep/services/pipeline/thread_pool.py`) using the pattern established by `deepening.py` (lines 439-509): `pool.submit(...)` fan-out, `as_completed(futures, timeout=...)` collection, `FutureTimeoutError` branch, and an unconditional `finally` block that cancels any orphaned futures. The AIMD gate inside `LLMClient.generate` is the real throttle — submitting the full fan-out is fine because surplus submits block at the gate.
 
 **Tech Stack:** Python 3.11, `concurrent.futures.ThreadPoolExecutor` (via shared `llm_pool`), pytest.
 
@@ -25,24 +25,24 @@
 ## File Structure
 
 **Will be modified:**
-- `src/codrag/core/cluster.py` — Rewrite the batched-BYOK block at lines 1607-1700 to submit per-batch work to `llm_pool`.
-- `src/codrag/core/concept_seeder.py` — Rewrite `_seed_concepts_sequential` (lines 95-192) to a per-module fan-out that reuses the swarm-path helpers (`_load_modules_for_swarm`, `_build_module_summary`, `_build_module_context`) without the coordinator/synthesizer overhead.
+- `src/prep/core/cluster.py` — Rewrite the batched-BYOK block at lines 1607-1700 to submit per-batch work to `llm_pool`.
+- `src/prep/core/concept_seeder.py` — Rewrite `_seed_concepts_sequential` (lines 95-192) to a per-module fan-out that reuses the swarm-path helpers (`_load_modules_for_swarm`, `_build_module_summary`, `_build_module_context`) without the coordinator/synthesizer overhead.
 
 **Will be created:**
 - `tests/test_cluster_parallel_batched.py` — exercises the rewritten batched path with a fake `LLMClient`.
 - `tests/test_concept_seeder_parallel.py` — exercises the rewritten sequential/per-module path with `prefer_swarm=False`.
 
 **Will NOT be touched (already parallel on non-swarm paths):**
-- `src/codrag/core/atlas/` — already uses `ThreadPoolExecutor`
-- `src/codrag/services/pipeline/workers.py` (group_reasoning / audit workers) — already uses pool submits
-- `src/codrag/core/augmenter.py`, `epistemic_enrichment.py` — already parallel
+- `src/prep/core/atlas/` — already uses `ThreadPoolExecutor`
+- `src/prep/services/pipeline/workers.py` (group_reasoning / audit workers) — already uses pool submits
+- `src/prep/core/augmenter.py`, `epistemic_enrichment.py` — already parallel
 
 ---
 
 ## Task 1: Parallelize `cluster.py` batched-BYOK loop
 
 **Files:**
-- Modify: `src/codrag/core/cluster.py:1607-1700` (the `if use_batching:` block)
+- Modify: `src/prep/core/cluster.py:1607-1700` (the `if use_batching:` block)
 - Test: `tests/test_cluster_parallel_batched.py` (create)
 
 **Context for the implementer (scene-setting):**
@@ -101,8 +101,8 @@ class _FakeLLM:
 
 def _make_synthesizer_with_batch_profile(fake_llm, monkeypatch):
     """Build a ClusterSynthesizer instance with a batching-on profile."""
-    from codrag.core.cluster import ClusterSynthesizer
-    from codrag.core.batch_profiles import BatchProfile, ProfileName, BatchStage
+    from prep.core.cluster import ClusterSynthesizer
+    from prep.core.batch_profiles import BatchProfile, ProfileName, BatchStage
 
     synth = ClusterSynthesizer.__new__(ClusterSynthesizer)
     synth.llm = fake_llm
@@ -136,7 +136,7 @@ class _FakeCluster:
 def test_batched_synthesis_fans_out_concurrently():
     """With 10 clusters and batch_size=2, we expect 5 batches running
     concurrently in llm_pool, so peak in-flight should exceed 1."""
-    from codrag.core.cluster import ClusterSynthesizer  # noqa: F401
+    from prep.core.cluster import ClusterSynthesizer  # noqa: F401
     import types
 
     fake_llm = _FakeLLM(latency=0.25)
@@ -258,7 +258,7 @@ def _synthesize_batched(
     from concurrent.futures import TimeoutError as FutureTimeoutError
     from datetime import datetime, timezone
 
-    from codrag.services.pipeline.thread_pool import llm_pool
+    from prep.services.pipeline.thread_pool import llm_pool
 
     from .batch_profiles import BatchStage
     from .batch_prompts import (
@@ -326,7 +326,7 @@ def _synthesize_batched(
     done_count = 0
 
     batch_timeout_sec = float(
-        os.environ.get("CODRAG_CLUSTER_BATCH_TIMEOUT", "900")
+        os.environ.get("PREP_CLUSTER_BATCH_TIMEOUT", "900")
     )
 
     pool = llm_pool
@@ -441,7 +441,7 @@ Expected: PASS — `fake_llm.calls == 5` and `fake_llm._peak >= 2`.
 def test_batched_synthesis_respects_cancel_token():
     """When cancel_token fires mid-run, remaining futures are cancelled
     and _write_modules is called to flush partial progress."""
-    from codrag.services.pipeline.cancellation import CancelToken
+    from prep.services.pipeline.cancellation import CancelToken
 
     fake_llm = _FakeLLM(latency=0.2)
     synth = _make_synthesizer_with_batch_profile(fake_llm, None)
@@ -478,7 +478,7 @@ Expected: All existing cluster tests still pass.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/core/cluster.py tests/test_cluster_parallel_batched.py
+git add src/prep/core/cluster.py tests/test_cluster_parallel_batched.py
 git commit -m "feat(cluster): parallelize batched-BYOK cluster synthesis via llm_pool"
 ```
 
@@ -487,7 +487,7 @@ git commit -m "feat(cluster): parallelize batched-BYOK cluster synthesis via llm
 ## Task 2: Parallelize `concept_seeder.py` non-swarm path
 
 **Files:**
-- Modify: `src/codrag/core/concept_seeder.py:95-192` (rewrite `_seed_concepts_sequential` + add per-module helper)
+- Modify: `src/prep/core/concept_seeder.py:95-192` (rewrite `_seed_concepts_sequential` + add per-module helper)
 - Test: `tests/test_concept_seeder_parallel.py` (create)
 
 **Context for the implementer (scene-setting):**
@@ -568,7 +568,7 @@ def _fake_modules(n: int) -> list[dict]:
 def test_concept_seeding_parallel_fans_out_per_module(tmp_path, monkeypatch):
     """With 6 modules and prefer_swarm=False, the non-swarm path should
     submit 6 per-module LLM calls concurrently via llm_pool."""
-    from codrag.core import concept_seeder
+    from prep.core import concept_seeder
 
     fake_llm = _FakeConceptLLM(latency=0.25)
 
@@ -607,7 +607,7 @@ Expected: FAIL — either attribute errors from missing imports, or `calls == 1`
 
 - [ ] **Step 3: Rewrite `_seed_concepts_sequential` as a per-module fan-out**
 
-Replace the body of `_seed_concepts_sequential` in `src/codrag/core/concept_seeder.py`. Keep the function name (it is the named fallback target in `seed_concepts`) but change `"mode"` to `"parallel"` in the success path, and to `"single_call"` in the ≤1-module safety-net path.
+Replace the body of `_seed_concepts_sequential` in `src/prep/core/concept_seeder.py`. Keep the function name (it is the named fallback target in `seed_concepts`) but change `"mode"` to `"parallel"` in the success path, and to `"single_call"` in the ≤1-module safety-net path.
 
 ```python
 def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
@@ -628,10 +628,10 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
     from concurrent.futures import as_completed
     from concurrent.futures import TimeoutError as FutureTimeoutError
 
-    from codrag.core.project_registry import project_index_dir
-    from codrag.services.concept_store import concept_store
-    from codrag.services.pipeline.thread_pool import llm_pool
-    from codrag.services.project_helpers import require_project
+    from prep.core.project_registry import project_index_dir
+    from prep.services.concept_store import concept_store
+    from prep.services.pipeline.thread_pool import llm_pool
+    from prep.services.project_helpers import require_project
 
     project = require_project(project_id)
     index_dir = project_index_dir(project)
@@ -700,7 +700,7 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
     raw_responses: list[tuple[str, str | None]] = []
 
     batch_timeout_sec = float(
-        os.environ.get("CODRAG_CONCEPTS_BATCH_TIMEOUT", "900")
+        os.environ.get("PREP_CONCEPTS_BATCH_TIMEOUT", "900")
     )
 
     pool = llm_pool
@@ -795,7 +795,7 @@ def _seed_concepts_single_call(project_id: str, *, llm, project, index_dir) -> d
     Retained as a safety-net for projects with <2 modules meeting the
     module-files threshold, where per-module fan-out is not useful.
     """
-    from codrag.services.concept_store import concept_store
+    from prep.services.concept_store import concept_store
 
     context_text = _assemble_seeding_context(index_dir, project.path)
     if not context_text or len(context_text) < 100:
@@ -871,7 +871,7 @@ Expected: PASS — `fake_llm.calls == 6`, `peak >= 2`, `mode == "parallel"`.
 ```python
 def test_concept_seeding_falls_back_to_single_call_for_tiny_project(tmp_path):
     """Projects with <2 modules should still work via the single-call path."""
-    from codrag.core import concept_seeder
+    from prep.core import concept_seeder
     from unittest.mock import patch, MagicMock
 
     fake_llm = _FakeConceptLLM(latency=0.05)
@@ -909,7 +909,7 @@ Expected: All existing concept-related tests still pass (including `test_concept
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/core/concept_seeder.py tests/test_concept_seeder_parallel.py
+git add src/prep/core/concept_seeder.py tests/test_concept_seeder_parallel.py
 git commit -m "feat(concepts): parallelize non-swarm concept seeding via per-module fan-out"
 ```
 
@@ -918,8 +918,8 @@ git commit -m "feat(concepts): parallelize non-swarm concept seeding via per-mod
 ## Task 3: Scrutiny / regression review pass
 
 **Files:** (review-only, fixups as needed)
-- `src/codrag/core/cluster.py`
-- `src/codrag/core/concept_seeder.py`
+- `src/prep/core/cluster.py`
+- `src/prep/core/concept_seeder.py`
 - `tests/test_cluster_parallel_batched.py`
 - `tests/test_concept_seeder_parallel.py`
 
@@ -942,17 +942,17 @@ If any mutation is unlocked and could race, fix it and note the change in the co
 
 - [ ] **Step 2: Verify `llm_pool` is NOT shut down anywhere**
 
-Run: `.venv/bin/python -c "import ast, pathlib; [print(p) for p in pathlib.Path('src/codrag/core').rglob('*.py') if 'llm_pool.shutdown' in p.read_text() or 'pool.shutdown' in p.read_text()]"`
+Run: `.venv/bin/python -c "import ast, pathlib; [print(p) for p in pathlib.Path('src/prep/core').rglob('*.py') if 'llm_pool.shutdown' in p.read_text() or 'pool.shutdown' in p.read_text()]"`
 
 Or simpler:
 
-Run: Grep tool with pattern `llm_pool\.shutdown|pool\.shutdown` across `src/codrag/core/` and `src/codrag/services/pipeline/`.
+Run: Grep tool with pattern `llm_pool\.shutdown|pool\.shutdown` across `src/prep/core/` and `src/prep/services/pipeline/`.
 
 Expected: No results OR the only results are in `thread_pool.py` itself (the proxy's own lifecycle).
 
 - [ ] **Step 3: Verify `finally`-block cancel is present on both new paths**
 
-Run: Grep tool for `for f in futures:` in `src/codrag/core/cluster.py` and `src/codrag/core/concept_seeder.py`.
+Run: Grep tool for `for f in futures:` in `src/prep/core/cluster.py` and `src/prep/core/concept_seeder.py`.
 
 Expected: Each parallel block has a `finally:` clause that iterates futures and calls `.cancel()` on incomplete ones. If missing, add it — it's the guardrail that prevents orphaned slot-holding on unexpected exceptions.
 
@@ -995,7 +995,7 @@ If no fixes, skip this step.
 The unit tests prove the code fans out against a fake LLM. The real question is whether a live rebuild on a real cloud provider (e.g. ollama cloud) shows `in_flight_requests` actually bursting beyond 1 during the clustering stage. This task executes a real rebuild and asserts the signal.
 
 **Preconditions:**
-- CoDRAG daemon running on :8400 (`curl -s localhost:8400/health`)
+- Prep daemon running on :8400 (`curl -s localhost:8400/health`)
 - Dashboard running on :5174 (`curl -sI localhost:5174`)
 - A test project with ≥10 clusters and ≥6 modules (PowerMateReborn has both)
 - `swarm_enabled` can be either on or off; the test explicitly disables it to exercise the non-swarm paths
@@ -1004,13 +1004,13 @@ The unit tests prove the code fans out against a fake LLM. The real question is 
 
 Run:
 ```bash
-sqlite3 ~/.local/share/prep/codrag_settings.db \
+sqlite3 ~/.local/share/prep/prep_settings.db \
   "UPDATE settings SET value='false' WHERE key='swarm_enabled';"
 ```
 
 Confirm:
 ```bash
-sqlite3 ~/.local/share/prep/codrag_settings.db \
+sqlite3 ~/.local/share/prep/prep_settings.db \
   "SELECT value FROM settings WHERE key='swarm_enabled';"
 ```
 Expected: `false`
@@ -1064,7 +1064,7 @@ Screenshot this for the record (the playwright harness does this automatically i
 If you want to return to the "swarm path when available" default:
 
 ```bash
-sqlite3 ~/.local/share/prep/codrag_settings.db \
+sqlite3 ~/.local/share/prep/prep_settings.db \
   "UPDATE settings SET value='true' WHERE key='swarm_enabled';"
 ```
 
@@ -1095,7 +1095,7 @@ Before dispatching implementation:
 - [ ] **Type consistency:** `_synthesize_batched` signature, `_seed_concepts_sequential` return dict keys, `_seed_concepts_single_call` return dict keys all aligned.
 - [ ] **Reference pattern:** `deepening.py:439-509` pattern reproduced in both new paths (shared pool, `as_completed(timeout)`, `FutureTimeoutError` branch, `finally:` cancel).
 - [ ] **Non-goals explicit:** atlas, group_reasoning, audit, augmenter, epistemic_enrichment are out of scope (already parallel).
-- [ ] **`llm_pool` path correct:** `src/codrag/services/pipeline/thread_pool.py` (not `llm_pool.py`).
+- [ ] **`llm_pool` path correct:** `src/prep/services/pipeline/thread_pool.py` (not `llm_pool.py`).
 - [ ] **Test convention honored:** Each task has ≥1 test that doesn't mock `as_completed`/`llm_pool` — the real pool is used, only `llm.generate` is faked.
 - [ ] **Commit style:** Short conventional prefix, no `Co-Authored-By`.
 

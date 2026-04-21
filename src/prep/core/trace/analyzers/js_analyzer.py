@@ -99,12 +99,12 @@ class JSAnalyzer:
                 self._add_import(module, lineno)
 
         # --- Symbol extraction ---
-        # function declarations: function name(  /  async function name(
+        # function deprep-compresstions: function name(  /  async function name(
         func_pattern = re.compile(
             r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)",
             re.MULTILINE,
         )
-        # class declarations: class Name
+        # class deprep-compresstions: class Name
         class_pattern = re.compile(
             r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)",
             re.MULTILINE,

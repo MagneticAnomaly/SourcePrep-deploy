@@ -26,11 +26,11 @@
 
 ## 2. Support & Payments Sites
 
-### Support Portal (`support.codrag.io`) — TODOs Added
+### Support Portal (`support.runprep.io`) — TODOs Added
 - Current: Headless GitHub integration (Discussions/Issues). Read-only.
 - TODO: Define private/SLA support for paid tiers. Scope unknown, may not be MVP. Added to `MARKETING_MASTER_TODO.md`.
 
-### Payments Portal (`payments.codrag.io`) — TODO Added
+### Payments Portal (`payments.runprep.io`) — TODO Added
 - Current: Lemon Squeezy checkout, recovery, success.
 - TODO: Investigate Lemon Squeezy post-purchase flow. Determine if custom offline license delivery copy needed. Added to `MARKETING_MASTER_TODO.md`.
 

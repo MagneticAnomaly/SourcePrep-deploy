@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-04-13
 
-The CoDRAG pipeline has three execution modes. Each mode determines how the 15 stages process data and what the UI should display.
+The Prep pipeline has three execution modes. Each mode determines how the 15 stages process data and what the UI should display.
 
 ## The 15 Stages
 

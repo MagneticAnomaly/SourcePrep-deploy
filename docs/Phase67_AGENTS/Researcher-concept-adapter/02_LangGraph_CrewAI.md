@@ -1,7 +1,7 @@
 # LangGraph & CrewAI Integration Blueprint
 
 > **Phase 67 — Adapter Architecture** | Date: 2026-04-01
-> This document provides the detailed technical specification for building CoDRAG agent adapters on LangGraph and CrewAI, including the competitive positioning analysis, the LLM provider bridge strategy, and complete code blueprints for each adapter.
+> This document provides the detailed technical specification for building Prep agent adapters on LangGraph and CrewAI, including the competitive positioning analysis, the LLM provider bridge strategy, and complete code blueprints for each adapter.
 
 ---
 
@@ -9,7 +9,7 @@
 
 ### 1.1 The Three-Layer Agent Stack
 
-CoDRAG, Paperclip, LangGraph, and CrewAI are **not competitors**. They occupy three complementary layers:
+Prep, Paperclip, LangGraph, and CrewAI are **not competitors**. They occupy three complementary layers:
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
@@ -40,34 +40,34 @@ CoDRAG, Paperclip, LangGraph, and CrewAI are **not competitors**. They occupy th
 │ Layer 1: Codebase Intelligence / Epistemic Engine             │
 │                                                               │
 │ ┌────────┐                                                    │
-│ │ CoDRAG │ — Module clusters, domain tags, architecture       │
+│ │ Prep │ — Module clusters, domain tags, architecture       │
 │ └────────┘   layers, impact graphs, audit findings            │
 │              The "knowledge" — WHAT the agent knows about     │
 └───────────────────────────────────────────────────────────────┘
 ```
 
-**CoDRAG** is Layer 1 (knowledge). **LangGraph/CrewAI** are Layer 2 (orchestration). **Paperclip** is Layer 3 (workplace management). Each layer is substitutable and complementary — CoDRAG can power any Layer 2 orchestrator, and any orchestrator can push results to any Layer 3 PM tool.
+**Prep** is Layer 1 (knowledge). **LangGraph/CrewAI** are Layer 2 (orchestration). **Paperclip** is Layer 3 (workplace management). Each layer is substitutable and complementary — Prep can power any Layer 2 orchestrator, and any orchestrator can push results to any Layer 3 PM tool.
 
 ### 1.2 Competitive vs. Complementary
 
 | Relationship | Verdict | Reasoning |
 |-------------|---------|-----------|
-| CoDRAG vs. LangGraph | **Complementary** | CoDRAG provides codebase knowledge; LangGraph provides the reasoning loop. Neither does the other's job. |
-| CoDRAG vs. CrewAI | **Complementary** | Same as above. CrewAI's `role`/`goal`/`backstory` paradigm maps perfectly to CoDRAG-generated `RoleSpec` objects. |
-| CoDRAG vs. Paperclip | **Complementary** | CoDRAG provides intelligence; Paperclip provides project management. They don't overlap at all. |
+| Prep vs. LangGraph | **Complementary** | Prep provides codebase knowledge; LangGraph provides the reasoning loop. Neither does the other's job. |
+| Prep vs. CrewAI | **Complementary** | Same as above. CrewAI's `role`/`goal`/`backstory` paradigm maps perfectly to Prep-generated `RoleSpec` objects. |
+| Prep vs. Paperclip | **Complementary** | Prep provides intelligence; Paperclip provides project management. They don't overlap at all. |
 | LangGraph vs. CrewAI | **Competitors** | Both are Layer 2 orchestrators. Users choose one or the other (or both). |
 | LangGraph vs. Paperclip | **Complementary** | LangGraph runs the agent logic; Paperclip manages the results. |
 | CrewAI vs. Paperclip | **Complementary** | Same relationship — CrewAI also has internal task management, but Paperclip operates at a higher level (org charts, budgets, heartbeats). |
 
 ### 1.3 The Marketing Opportunity
 
-Each framework's community is incentivized to amplify projects that showcase their tools doing impressive things. CoDRAG solves the exact problem all three communities struggle with: **how do you give an autonomous agent real, structural codebase knowledge?**
+Each framework's community is incentivized to amplify projects that showcase their tools doing impressive things. Prep solves the exact problem all three communities struggle with: **how do you give an autonomous agent real, structural codebase knowledge?**
 
 | Platform | Blog Post Title | Target Audience | Community Size |
 |----------|----------------|-----------------|---------------|
-| **Paperclip** | "How CoDRAG's Staffing Agent Auto-Generates Your Agent Workforce" | Paperclip users wanting smarter agent provisioning | Growing |
-| **LangGraph** | "Building an Autonomous Tech Lead with CoDRAG + LangGraph" | LangChain ecosystem | ~500K devs |
-| **CrewAI** | "A Self-Healing Codebase: CrewAI Crews Powered by CoDRAG Intelligence" | CrewAI community | ~200K installs |
+| **Paperclip** | "How Prep's Staffing Agent Auto-Generates Your Agent Workforce" | Paperclip users wanting smarter agent provisioning | Growing |
+| **LangGraph** | "Building an Autonomous Tech Lead with Prep + LangGraph" | LangChain ecosystem | ~500K devs |
+| **CrewAI** | "A Self-Healing Codebase: CrewAI Crews Powered by Prep Intelligence" | CrewAI community | ~200K installs |
 
 ---
 
@@ -82,7 +82,7 @@ Both LangGraph and CrewAI are **multi-provider** — they are NOT Anthropic-only
 | **LangGraph** | Anthropic, OpenAI, Google, Ollama, Azure, any LangChain-compatible | `ChatAnthropic`, `ChatOpenAI`, `ChatOllama`, etc. |
 | **CrewAI** | Anthropic, OpenAI, Google, Ollama, Azure, LiteLLM proxy | `llm` param accepts any LiteLLM-compatible string |
 
-Both can use **local models via Ollama** — the same Ollama endpoint CoDRAG's own `LLMClient` already talks to. This means users running CoDRAG with local models (no cloud API keys) can use LangGraph/CrewAI adapters with those same local models.
+Both can use **local models via Ollama** — the same Ollama endpoint Prep's own `LLMClient` already talks to. This means users running Prep with local models (no cloud API keys) can use LangGraph/CrewAI adapters with those same local models.
 
 ### 2.2 The AI Gateway Bridge
 
@@ -106,12 +106,12 @@ All agent model assignments are configured in the **AI Gateway Details → Assig
 This is the central translation layer. It reads the AI Gateway config and constructs the correct LLM client object for whichever framework is being used:
 
 ```python
-# src/codrag/agents/shared/llm_bridge.py
+# src/prep/agents/shared/llm_bridge.py
 
-from codrag.services.settings_store import settings
+from prep.services.settings_store import settings
 
 def build_llm_for_langchain(agent_name: str):
-    """Construct a LangChain-compatible LLM from CoDRAG's AI Gateway config.
+    """Construct a LangChain-compatible LLM from Prep's AI Gateway config.
     
     Used by both LangGraph and CrewAI adapters, since CrewAI supports
     LangChain chat model objects natively.
@@ -186,7 +186,7 @@ def _detect_provider(model: str, config: dict) -> str:
         return config.get("llm_provider", "ollama")
 ```
 
-**Key design decision:** The native Paperclip adapter does NOT use this bridge — it uses CoDRAG's `LLMClient` directly (which already reads from the same AI Gateway config). The bridge is only needed for LangGraph and CrewAI, which require LangChain-compatible chat model objects.
+**Key design decision:** The native Paperclip adapter does NOT use this bridge — it uses Prep's `LLMClient` directly (which already reads from the same AI Gateway config). The bridge is only needed for LangGraph and CrewAI, which require LangChain-compatible chat model objects.
 
 ---
 
@@ -196,12 +196,12 @@ def _detect_provider(model: str, config: dict) -> str:
 
 LangGraph (by LangChain) is a framework for building stateful, cyclical agent workflows as directed graphs. Each node is a function that transforms state. Edges define the flow (including conditional branching). The key advantage over vanilla LangChain is **explicit state management** — you can inspect, replay, and checkpoint any point in the agent's reasoning.
 
-### 3.2 Why LangGraph Fits CoDRAG
+### 3.2 Why LangGraph Fits Prep
 
-LangGraph's explicit state-machine semantics map perfectly to CoDRAG's research workflow:
+LangGraph's explicit state-machine semantics map perfectly to Prep's research workflow:
 
 ```
-Ingest CoDRAG data → Select topics → Research each → Formulate plans → Push to Paperclip
+Ingest Prep data → Select topics → Research each → Formulate plans → Push to Paperclip
 ```
 
 Each step is a discrete node. The state (`ResearchState`) travels through the graph, accumulating data. If a step fails, you can resume from the last checkpoint. If you want to add web search, you add a conditional edge after the Research node.
@@ -209,16 +209,16 @@ Each step is a discrete node. The state (`ResearchState`) travels through the gr
 ### 3.3 Researcher Agent — LangGraph StateGraph
 
 ```python
-# src/codrag/agents/researcher/adapters/langgraph_adapter.py
+# src/prep/agents/researcher/adapters/langgraph_adapter.py
 
 from langgraph.graph import StateGraph, END
 from typing import TypedDict, List, Optional
-from codrag.agents.core import AgentCore
-from codrag.agents.shared.llm_bridge import build_llm_for_langchain
+from prep.agents.core import AgentCore
+from prep.agents.shared.llm_bridge import build_llm_for_langchain
 
 class ResearchState(TypedDict):
     """State that flows through the LangGraph researcher."""
-    findings: list           # Raw CoDRAG audit findings
+    findings: list           # Raw Prep audit findings
     selected_topics: list    # Top N findings worth researching
     research_results: list   # LLM-synthesized research per topic
     paperclip_projects: list # Formatted Paperclip project payloads
@@ -230,7 +230,7 @@ def build_researcher_graph(core: AgentCore) -> StateGraph:
     """Build a LangGraph StateGraph for the Researcher Agent.
     
     Nodes:
-        ingest       — Pull audit findings from CoDRAG
+        ingest       — Pull audit findings from Prep
         select       — LLM selects top 3 most impactful topics
         research     — LLM researches solutions per topic
         formulate    — Structure research into Paperclip project schemas
@@ -243,7 +243,7 @@ def build_researcher_graph(core: AgentCore) -> StateGraph:
     llm = build_llm_for_langchain("researcher")
     graph = StateGraph(ResearchState)
     
-    # ── Node: Ingest findings from CoDRAG ──
+    # ── Node: Ingest findings from Prep ──
     def ingest(state: ResearchState) -> ResearchState:
         findings = core.get_audit_findings()
         # Enrich top findings with impact radius
@@ -276,7 +276,7 @@ def build_researcher_graph(core: AgentCore) -> StateGraph:
     def research(state: ResearchState) -> ResearchState:
         results = []
         for topic in state["selected_topics"]:
-            # Pull deep CoDRAG context for this specific topic
+            # Pull deep Prep context for this specific topic
             context = core.search_code(topic.title)
             impact = core.get_impact_radius(topic.affected_files[0]) if topic.affected_files else None
             
@@ -304,14 +304,14 @@ def build_researcher_graph(core: AgentCore) -> StateGraph:
     
     # ── Node: Formulate Paperclip projects ──
     def formulate(state: ResearchState) -> ResearchState:
-        from codrag.agents.shared.models import PMProject
+        from prep.agents.shared.models import PMProject
         projects = []
         for r in state["research_results"]:
             project = PMProject(
                 name=f"Research: {r['topic'].title}",
                 description=r["plan"],
                 source="researcher_agent",
-                codrag_address=f"codrag://{core.project_id}/{r['topic'].id}",
+                prep_address=f"prep://{core.project_id}/{r['topic'].id}",
                 priority=r["topic"].priority,
             )
             projects.append(project)
@@ -350,10 +350,10 @@ def build_researcher_graph(core: AgentCore) -> StateGraph:
 ### 3.4 Staffing Agent — LangGraph StateGraph
 
 ```python
-# src/codrag/agents/hr/adapters/langgraph_adapter.py
+# src/prep/agents/hr/adapters/langgraph_adapter.py
 
 class StaffingState(TypedDict):
-    modules: list          # CoDRAG module structure
+    modules: list          # Prep module structure
     atlas: str             # Codebase atlas overview
     findings: list         # Audit findings for domain tagging
     generated_roles: list  # RoleSpec objects
@@ -363,7 +363,7 @@ class StaffingState(TypedDict):
 def build_staffing_graph(core: AgentCore, mode: str = "auto") -> StateGraph:
     """
     Nodes:
-        analyze    — Read codebase structure from CoDRAG
+        analyze    — Read codebase structure from Prep
         generate   — LLM generates RoleSpec objects
         write      — Generate AGENTS.md, SOUL.md, KNOWLEDGE.md per role
         push       — Create agents in Paperclip
@@ -374,7 +374,7 @@ def build_staffing_graph(core: AgentCore, mode: str = "auto") -> StateGraph:
 ### 3.5 Custodian — LangGraph StateGraph
 
 ```python
-# src/codrag/agents/custodian/adapters/langgraph_adapter.py
+# src/prep/agents/custodian/adapters/langgraph_adapter.py
 
 class CleanupState(TypedDict):
     candidates: list       # Files flagged as dead/orphaned
@@ -403,33 +403,33 @@ def build_custodian_graph(core: AgentCore) -> StateGraph:
 
 CrewAI is a framework for building multi-agent teams where each agent has a `role`, `goal`, `backstory`, and a set of `tools`. Agents collaborate by passing task results to each other. CrewAI provides a higher-level abstraction than LangGraph — you describe *what* each agent should do, and CrewAI manages the orchestration.
 
-### 4.2 Why CrewAI Fits CoDRAG
+### 4.2 Why CrewAI Fits Prep
 
-CoDRAG's HR-generated `RoleSpec` objects map perfectly to CrewAI's `Agent` constructor:
+Prep's HR-generated `RoleSpec` objects map perfectly to CrewAI's `Agent` constructor:
 
-| CoDRAG RoleSpec Field | CrewAI Agent Field | Example |
+| Prep RoleSpec Field | CrewAI Agent Field | Example |
 |----------------------|-------------------|---------|
 | `title` | `role` | "Codebase Health Analyst" |
 | `description` | `goal` | "Identify the top 3 most impactful codebase issues" |
 | `soul_md` → identity | `backstory` | "You have deep knowledge of this codebase's architecture..." |
-| `knowledge_scope` | `tools` | CoDRAG MCP tools filtered by role |
+| `knowledge_scope` | `tools` | Prep MCP tools filtered by role |
 
-This means CoDRAG can auto-generate CrewAI agent definitions from its knowledge graph — a powerful selling point.
+This means Prep can auto-generate CrewAI agent definitions from its knowledge graph — a powerful selling point.
 
 ### 4.3 Researcher Agent — CrewAI Crew
 
 ```python
-# src/codrag/agents/researcher/adapters/crewai_adapter.py
+# src/prep/agents/researcher/adapters/crewai_adapter.py
 
 from crewai import Agent, Task, Crew, Process
-from codrag.agents.core import AgentCore
-from codrag.agents.shared.llm_bridge import build_llm_for_langchain
+from prep.agents.core import AgentCore
+from prep.agents.shared.llm_bridge import build_llm_for_langchain
 
 def build_researcher_crew(core: AgentCore) -> Crew:
     """Build a CrewAI Crew for the Researcher Agent.
     
     Agents:
-        analyst    — Equipped with CoDRAG MCP tools. Finds issues.
+        analyst    — Equipped with Prep MCP tools. Finds issues.
         architect  — Reads analyst's findings, designs solutions.
         pm         — Formats plans and pushes to Paperclip.
     """
@@ -442,11 +442,11 @@ def build_researcher_crew(core: AgentCore) -> Crew:
         goal="Identify the top 3 most impactful codebase issues worth fixing",
         backstory=f"""You have deep knowledge of this codebase's architecture. 
         The codebase has {len(core.get_module_structure())} modules. 
-        You use CoDRAG's epistemic analysis to find issues that matter.
+        You use Prep's epistemic analysis to find issues that matter.
         
         Architecture overview:
         {atlas[:2000]}""",
-        tools=[codrag_search_tool, codrag_audit_tool, codrag_impact_tool],
+        tools=[prep_search_tool, prep_audit_tool, prep_impact_tool],
         llm=llm,
         verbose=True,
     )
@@ -465,7 +465,7 @@ def build_researcher_crew(core: AgentCore) -> Crew:
         3. Effort estimate (small/medium/large)
         4. Risk assessment
         5. Testing strategy""",
-        tools=[codrag_search_tool],
+        tools=[prep_search_tool],
         llm=llm,
         verbose=True,
     )
@@ -483,7 +483,7 @@ def build_researcher_crew(core: AgentCore) -> Crew:
         - Priority (P0-P3)
         - Effort estimate
         - Affected files
-        - CoDRAG address for traceability""",
+        - Prep address for traceability""",
         tools=[paperclip_push_tool],
         llm=llm,
         verbose=True,
@@ -491,7 +491,7 @@ def build_researcher_crew(core: AgentCore) -> Crew:
     
     # ── Tasks ──
     analyze_task = Task(
-        description="Pull the latest CoDRAG audit findings and select the top 3 most impactful issues.",
+        description="Pull the latest Prep audit findings and select the top 3 most impactful issues.",
         expected_output="A JSON list of 3 findings with ID, title, affected files, and impact summary.",
         agent=analyst,
     )
@@ -518,30 +518,30 @@ def build_researcher_crew(core: AgentCore) -> Crew:
     )
 ```
 
-### 4.4 CrewAI Tools from CoDRAG MCP
+### 4.4 CrewAI Tools from Prep MCP
 
-CrewAI agents need `Tool` objects. We wrap CoDRAG's internal APIs:
+CrewAI agents need `Tool` objects. We wrap Prep's internal APIs:
 
 ```python
 from crewai_tools import BaseTool
 
-class CoDRAGSearchTool(BaseTool):
-    name: str = "CoDRAG Code Search"
+class PrepSearchTool(BaseTool):
+    name: str = "Prep Code Search"
     description: str = "Search the codebase using natural language. Returns relevant code with structural context."
     
     def _run(self, query: str) -> str:
         return core.search_code(query)
 
-class CoDRAGAuditTool(BaseTool):
-    name: str = "CoDRAG Audit"
+class PrepAuditTool(BaseTool):
+    name: str = "Prep Audit"
     description: str = "Get the latest codebase health audit findings."
     
     def _run(self) -> str:
         findings = core.get_audit_findings()
         return json.dumps([f.to_export_json() for f in findings[:20]])
 
-class CoDRAGImpactTool(BaseTool):
-    name: str = "CoDRAG Impact Analysis"
+class PrepImpactTool(BaseTool):
+    name: str = "Prep Impact Analysis"
     description: str = "Analyze what depends on a file. Returns dependents and blast radius."
     
     def _run(self, file_path: str) -> str:
@@ -562,7 +562,7 @@ class PaperclipPushTool(BaseTool):
 
 ## 5. Dependency Management
 
-LangGraph and CrewAI are **optional dependencies**. The native Paperclip adapter works with zero external packages beyond CoDRAG's existing `LLMClient` and `httpx`.
+LangGraph and CrewAI are **optional dependencies**. The native Paperclip adapter works with zero external packages beyond Prep's existing `LLMClient` and `httpx`.
 
 ```toml
 # pyproject.toml
@@ -577,16 +577,16 @@ crewai = [
     "crewai>=0.80.0",
     "crewai-tools>=0.14.0",
 ]
-agents = ["codrag[langgraph,crewai]"]  # Install both
+agents = ["prep[langgraph,crewai]"]  # Install both
 ```
 
 **Install scenarios:**
-- `pip install codrag` → No agent framework dependencies. Native adapter only.
-- `pip install codrag[langgraph]` → LangGraph + LangChain provider packages installed.
-- `pip install codrag[crewai]` → CrewAI + tools installed.
-- `pip install codrag[agents]` → Everything installed.
+- `pip install prep` → No agent framework dependencies. Native adapter only.
+- `pip install prep[langgraph]` → LangGraph + LangChain provider packages installed.
+- `pip install prep[crewai]` → CrewAI + tools installed.
+- `pip install prep[agents]` → Everything installed.
 
-The adapters use lazy imports — if you run `codrag research run --adapter langgraph` without `langgraph` installed, you get a clear error message telling you to run `pip install codrag[langgraph]`.
+The adapters use lazy imports — if you run `prep research run --adapter langgraph` without `langgraph` installed, you get a clear error message telling you to run `pip install prep[langgraph]`.
 
 ---
 
@@ -595,30 +595,30 @@ The adapters use lazy imports — if you run `codrag research run --adapter lang
 ### 6.1 CLI
 
 ```bash
-# Native adapter (default) — runs inside CoDRAG daemon
-codrag research run --project <id>
+# Native adapter (default) — runs inside Prep daemon
+prep research run --project <id>
 
 # LangGraph adapter — runs as external process
-codrag research run --project <id> --adapter langgraph
+prep research run --project <id> --adapter langgraph
 
 # CrewAI adapter — runs as external process
-codrag research run --project <id> --adapter crewai
+prep research run --project <id> --adapter crewai
 
 # Dry-run mode (any adapter)
-codrag research run --project <id> --dry-run
+prep research run --project <id> --dry-run
 
 # Same pattern for HR/Staffing
-codrag hr generate --project <id> --adapter langgraph
+prep hr generate --project <id> --adapter langgraph
 
 # Same pattern for Custodian
-codrag custodian run --project <id> --adapter crewai
+prep custodian run --project <id> --adapter crewai
 ```
 
 ### 6.2 Programmatic Usage
 
 ```python
-from codrag.agents.core import AgentCore
-from codrag.agents.researcher.adapters.langgraph_adapter import build_researcher_graph
+from prep.agents.core import AgentCore
+from prep.agents.researcher.adapters.langgraph_adapter import build_researcher_graph
 
 core = AgentCore(project_id="1d6f0b35-...")
 graph = build_researcher_graph(core)
@@ -635,6 +635,6 @@ print(f"Pushed {len(result['push_results'])} projects to Paperclip")
 |-----------|------|-----|
 | **Unit tests** | LLM bridge provider detection | Mock `settings`, verify correct LangChain class returned |
 | **Unit tests** | State graph node functions | Mock `AgentCore`, verify state transformations |
-| **Integration test** | LangGraph dry-run | Real CoDRAG data, mock Paperclip push, verify 3 projects generated |
-| **Integration test** | CrewAI dry-run | Real CoDRAG data, mock Paperclip push, verify crew completes |
-| **E2E test** | Full push | Run adapter against live CoDRAG + Paperclip, verify projects appear in UI |
+| **Integration test** | LangGraph dry-run | Real Prep data, mock Paperclip push, verify 3 projects generated |
+| **Integration test** | CrewAI dry-run | Real Prep data, mock Paperclip push, verify crew completes |
+| **E2E test** | Full push | Run adapter against live Prep + Paperclip, verify projects appear in UI |

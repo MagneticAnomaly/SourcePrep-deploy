@@ -1,11 +1,11 @@
 # Curated Traceability Framework (Optional Layer)
 
-This document describes an **optional curated traceability layer** that complements CoDRAG’s automated **Trace Index** (code graph).
+This document describes an **optional curated traceability layer** that complements Prep’s automated **Trace Index** (code graph).
 
 - The **Trace Index** (Phase04) is built automatically from code (AST parsing, imports, symbol spans).
 - The **Curated Traceability Framework** captures the higher-level “why”: plans, decisions, research, and explicit links to the implementing code.
 
-This layer is **not required** for CoDRAG’s baseline value. It exists to support teams who want stronger traceability and governance.
+This layer is **not required** for Prep’s baseline value. It exists to support teams who want stronger traceability and governance.
 
 ## Why this exists
 
@@ -22,7 +22,7 @@ A curated layer is a lightweight way to preserve that intent in a queryable, too
 
 ### Bidirectional traceability (RTM-style)
 
-Key guidance (NASA SWE-072) that maps directly to CoDRAG’s goals:
+Key guidance (NASA SWE-072) that maps directly to Prep’s goals:
 
 - Unique identifiers for traced elements (requirements/design/code/tests)
 - Maintain traceability throughout the lifecycle
@@ -83,7 +83,7 @@ This mirrors how real projects evolve: some links are authoritative, others are 
 The curated layer can integrate with the trace index without requiring new infrastructure:
 
 - Curated `code` entries can reference `file_path` and (optionally) symbol `qualname`.
-- CoDRAG can offer a query-time expansion mode that uses:
+- Prep can offer a query-time expansion mode that uses:
   - automated trace neighbors (imports/contains)
   - curated neighbors (implements/documents/decision links)
 

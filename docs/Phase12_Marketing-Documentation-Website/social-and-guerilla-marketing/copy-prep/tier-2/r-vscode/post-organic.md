@@ -10,10 +10,10 @@
 I use VS Code with Cline (the AI agent extension). It's great, but it often gets confused about where types are defined in my monorepo. It hallucinates method signatures because it can't see the file 3 folders up.
 
 ### The Fix
-I built a local helper app called **CoDRAG**.
+I built a local helper app called **Prep**.
 It's a "Context Engine" that runs in the background.
 
-When I ask Cline a question, CoDRAG intercepts the query, walks the dependency graph (using Tree-sitter), and hands Cline the *exact* definitions it needs.
+When I ask Cline a question, Prep intercepts the query, walks the dependency graph (using Tree-sitter), and hands Cline the *exact* definitions it needs.
 
 ### Result
 My "Apply Fix" success rate went up massively because the AI actually sees the code it's calling.

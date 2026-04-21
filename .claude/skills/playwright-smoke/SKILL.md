@@ -48,7 +48,7 @@ If you don't have both servers, run `scripts/dev.sh` from the repo root — it b
 | Mode | What it does | When to use |
 |---|---|---|
 | `initial` | `DELETE /index/destroy` then `POST /pipeline/all` | Full cold start; exercises hydrate-from-empty, all 15 stages, every group transition |
-| `incremental` | Writes `codrag_smoke_tick.py` to the repo, waits, then `POST /pipeline/all` | Watcher path; only affected stages should re-run; baseline must come from manifest (F-66) |
+| `incremental` | Writes `prep_smoke_tick.py` to the repo, waits, then `POST /pipeline/all` | Watcher path; only affected stages should re-run; baseline must come from manifest (F-66) |
 | `rebuild` | `POST /pipeline/rebuild` (Danger Zone equivalent) | Full reset+run via the UI button path; exercises `.reset_barrier` lifecycle |
 
 Default is all three sequentially. They can take 30+ minutes per project if Deep Enrichment is enabled, so on a small project this is fine; on `swift_repo` consider running one mode at a time.

@@ -13,7 +13,7 @@ def test_claude_settings_json_created(tmp_path):
     settings_path = tmp_path / ".claude" / "settings.json"
     assert settings_path.exists()
     data = json.loads(settings_path.read_text())
-    assert "mcp__codrag" in data.get("permissions", {}).get("allow", [])
+    assert "mcp__prep" in data.get("permissions", {}).get("allow", [])
 
 
 def test_claude_settings_json_merges_existing(tmp_path):
@@ -35,18 +35,18 @@ def test_claude_settings_json_merges_existing(tmp_path):
     assert "Bash" in data["permissions"]["allow"]
     assert "rm -rf" in data["permissions"]["deny"]
     assert "opus" == data["model"]
-    assert "mcp__codrag" in data["permissions"]["allow"]
+    assert "mcp__prep" in data["permissions"]["allow"]
 
 
 def test_claude_settings_json_no_duplicate(tmp_path):
-    """Should not add mcp__codrag if it already exists."""
+    """Should not add mcp__prep if it already exists."""
     settings_dir = tmp_path / ".claude"
     settings_dir.mkdir()
-    existing = {"permissions": {"allow": ["mcp__codrag", "Bash"]}}
+    existing = {"permissions": {"allow": ["mcp__prep", "Bash"]}}
     (settings_dir / "settings.json").write_text(json.dumps(existing))
 
     install_mcp_to_workspace(tmp_path, runtimes=["claude-code"])
 
     data = json.loads((settings_dir / "settings.json").read_text())
-    count = data["permissions"]["allow"].count("mcp__codrag")
+    count = data["permissions"]["allow"].count("mcp__prep")
     assert count == 1

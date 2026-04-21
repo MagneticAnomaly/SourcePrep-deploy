@@ -1,7 +1,7 @@
 # Phase 10 — Business Plan & Competitive Research
  
  ## Problem statement
- CoDRAG is being built as a **local-first companion app** to modern AI-assisted coding workflows (Cursor/Windsurf/Copilot), with an eventual **enterprise tier** (per-seat licensing).
+ Prep is being built as a **local-first companion app** to modern AI-assisted coding workflows (Cursor/Windsurf/Copilot), with an eventual **enterprise tier** (per-seat licensing).
  
  Without an explicit business plan (ICP, packaging, pricing, distribution, and competitive positioning), we risk building the wrong product and making decisions that later constrain deployment, security, and enterprise adoption.
  
@@ -19,14 +19,14 @@
  - “Local-first” definition in enterprise ecosystems (security, compliance, IT ownership boundaries)
  - Git/codebase integration strategy (embedded vs standalone indexes; team onboarding)
  - Cloud option decision framework (when to add it, what it should be)
- - Acquisition/partnership positioning (what makes CoDRAG valuable to Cursor/Windsurf/Copilot ecosystems)
+ - Acquisition/partnership positioning (what makes Prep valuable to Cursor/Windsurf/Copilot ecosystems)
  
  ### Out of scope
  - Implementing features (tracked in other phases)
  - Detailed financial projections beyond lightweight pricing sanity checks
  
  ## Design constraints
- - CoDRAG remains **local-first by default**.
+ - Prep remains **local-first by default**.
  - Business decisions must not require:
    - mandatory cloud services
    - telemetry as a prerequisite for operation
@@ -118,7 +118,7 @@ Minimum fields:
 
 Maintain a lightweight competitor system:
 - “Table stakes” list vs “differentiators” list
-- Competitor matrix (capabilities vs CoDRAG phases)
+- Competitor matrix (capabilities vs Prep phases)
 - “Watch list” (what could invalidate our roadmap bets)
 
 Cadence:

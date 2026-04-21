@@ -1,10 +1,10 @@
 # Native Engine Build Strategy
 
 ## Purpose
-Define how `codrag_engine` (the Rust/PyO3 native extension) is built, tested, and distributed across all supported platforms. This is a **gating dependency** — without the native engine, users fall back to the Python-only analyzer which only supports `.py` files and produces zero edges for all other languages.
+Define how `prep_engine` (the Rust/PyO3 native extension) is built, tested, and distributed across all supported platforms. This is a **gating dependency** — without the native engine, users fall back to the Python-only analyzer which only supports `.py` files and produces zero edges for all other languages.
 
 ## Decision: No Mac Intel release
-CoDRAG will **not** ship a macOS x86_64 (Intel) build. All Mac users must be on Apple Silicon (M1+). Rationale:
+Prep will **not** ship a macOS x86_64 (Intel) build. All Mac users must be on Apple Silicon (M1+). Rationale:
 - Apple stopped selling Intel Macs in 2022; the installed base is shrinking rapidly.
 - Tree-sitter + PyO3 + Rust compile cleanly for `aarch64-apple-darwin`.
 - Eliminates one build target and halves macOS CI time.
@@ -132,11 +132,11 @@ jobs:
 
 ## Distribution channels
 
-### 1. PyPI (`pip install codrag-engine`)
-Primary distribution for the native wheel. Users who install CoDRAG via `pip install codrag` can pull the engine as an optional dependency:
+### 1. PyPI (`pip install prep-engine`)
+Primary distribution for the native wheel. Users who install Prep via `pip install prep` can pull the engine as an optional dependency:
 ```toml
 [project.optional-dependencies]
-engine = ["codrag-engine>=0.1.0"]
+engine = ["prep-engine>=0.1.0"]
 ```
 
 ### 2. Bundled in Tauri app
@@ -146,8 +146,8 @@ The Tauri desktop app bundles a frozen Python environment (via PyInstaller or si
 The VS Code extension sidecar bundles the same frozen Python env. Platform detection uses VS Code's `process.platform` + `process.arch`.
 
 ## Fallback behavior
-When `codrag_engine` is not installed:
-- `src/codrag/core/__init__.py` detects absence and sets `_ENGINE = "python"`.
+When `prep_engine` is not installed:
+- `src/prep/core/__init__.py` detects absence and sets `_ENGINE = "python"`.
 - `TraceBuilder` uses `PythonAnalyzer` (Python-only, no edges for non-Python files).
 - The dashboard shows **"Python (limited)"** badge and a degraded-graph warning.
 - This is acceptable for pure-Python projects but not for the general case.
@@ -174,19 +174,19 @@ After this, `file .venv/bin/python` should report `Mach-O 64-bit executable arm6
 ## Wheel naming conventions
 Maturin produces standard PEP 427 wheel filenames:
 ```
-codrag_engine-{version}-cp{pyver}-cp{pyver}-{platform}.whl
+prep_engine-{version}-cp{pyver}-cp{pyver}-{platform}.whl
 ```
 
 Examples:
-- `codrag_engine-0.1.0-cp311-cp311-macosx_11_0_arm64.whl`
-- `codrag_engine-0.1.0-cp312-cp312-win_amd64.whl`
-- `codrag_engine-0.1.0-cp311-cp311-manylinux_2_17_x86_64.whl`
-- `codrag_engine-0.1.0-cp311-cp311-manylinux_2_17_aarch64.whl`
+- `prep_engine-0.1.0-cp311-cp311-macosx_11_0_arm64.whl`
+- `prep_engine-0.1.0-cp312-cp312-win_amd64.whl`
+- `prep_engine-0.1.0-cp311-cp311-manylinux_2_17_x86_64.whl`
+- `prep_engine-0.1.0-cp311-cp311-manylinux_2_17_aarch64.whl`
 
 ## Testing strategy
 - CI runs `cargo test --workspace` (41 Rust tests) on each platform before wheel build.
 - CI runs `pytest tests/` with the built wheel installed on each platform.
-- A smoke test imports `codrag_engine` and calls `version()`, `build_trace()`, `load_trace()`.
+- A smoke test imports `prep_engine` and calls `version()`, `build_trace()`, `load_trace()`.
 
 ## Cost and timing
 - GitHub Actions M1 runners: ~$0.16/min (3x Linux cost). Budget ~2min per wheel build.

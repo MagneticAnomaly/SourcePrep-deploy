@@ -13,14 +13,14 @@
 ## Context for the Implementer
 
 **What's already been done (don't redo):**
-- Phase 82 AIMD is implemented in `src/codrag/services/pipeline/scheduler.py`. `ComputeSlot.current_limit` grows via jumpstart doubling + additive increase, shrinks via multiplicative decrease on explicit rejection signals only (429/5xx/timeout).
+- Phase 82 AIMD is implemented in `src/prep/services/pipeline/scheduler.py`. `ComputeSlot.current_limit` grows via jumpstart doubling + additive increase, shrinks via multiplicative decrease on explicit rejection signals only (429/5xx/timeout).
 - Commit `f0b15afc` fixed the broken wall-clock backoff formula. `_record_throughput_for_slot` at `scheduler.py:482-574` now does rejection-primary AIMD.
 - `LLMClient._record_throughput` at `llm_client.py:461-473` is already called from every provider path on success and failure (429/5xx/timeout).
-- A shared bounded LLM thread pool exists at `src/codrag/services/pipeline/thread_pool.py` (default size 6, max 32 via `CODRAG_LLM_POOL_SIZE`). Some stages use it; deepening creates its own pool.
+- A shared bounded LLM thread pool exists at `src/prep/services/pipeline/thread_pool.py` (default size 6, max 32 via `PREP_LLM_POOL_SIZE`). Some stages use it; deepening creates its own pool.
 
 **The bug:**
-- `src/codrag/core/deepening.py:456` creates `ThreadPoolExecutor(max_workers=concurrency)` where `concurrency = _get_llm_concurrency("deep")`.
-- `_get_llm_concurrency` at `src/codrag/core/llm_client.py:225` returns `max(1, min(8, int(value)))` — hard cap of 8.
+- `src/prep/core/deepening.py:456` creates `ThreadPoolExecutor(max_workers=concurrency)` where `concurrency = _get_llm_concurrency("deep")`.
+- `_get_llm_concurrency` at `src/prep/core/llm_client.py:225` returns `max(1, min(8, int(value)))` — hard cap of 8.
 - If AIMD discovers a ceiling of 40, deepening still only submits 8 concurrent calls. The ceiling is a phantom — nothing consults it at request time.
 - User observed: "deep reasoning go from 4 then 3 then 2, it should be moving up since there's availability." That's each stage sizing its pool once at start and never growing.
 
@@ -44,12 +44,12 @@
 
 | File | Responsibility | Change Type |
 |------|----------------|-------------|
-| `src/codrag/services/pipeline/scheduler.py` | `ComputeSlot` gets `in_flight_requests` + `_cond`. `PipelineScheduler` gets `acquire_request` / `release_request` / `acquire_request_ctx`. | Modify |
+| `src/prep/services/pipeline/scheduler.py` | `ComputeSlot` gets `in_flight_requests` + `_cond`. `PipelineScheduler` gets `acquire_request` / `release_request` / `acquire_request_ctx`. | Modify |
 | `tests/test_scheduler_request_gate.py` | Unit tests for the new scheduler API. | Create |
-| `src/codrag/core/llm_client.py` | `_generate_internal` wraps HTTP calls in `acquire_request_ctx`. Remove `min(8, ...)` clamp in `_get_llm_concurrency`. | Modify |
+| `src/prep/core/llm_client.py` | `_generate_internal` wraps HTTP calls in `acquire_request_ctx`. Remove `min(8, ...)` clamp in `_get_llm_concurrency`. | Modify |
 | `tests/test_llm_client_request_gate.py` | Integration-style tests that run `LLMClient._generate_internal` through a mocked HTTP session and verify concurrency is bounded by the scheduler's `current_limit`. | Create |
-| `src/codrag/core/deepening.py` | Remove the static ThreadPool cap — use shared `llm_pool` or bump to scheduler-visible size. | Modify |
-| `src/codrag/api/routers/pipeline.py` (or wherever scheduler status is exposed) | Surface `in_flight_requests` per slot. | Modify |
+| `src/prep/core/deepening.py` | Remove the static ThreadPool cap — use shared `llm_pool` or bump to scheduler-visible size. | Modify |
+| `src/prep/api/routers/pipeline.py` (or wherever scheduler status is exposed) | Surface `in_flight_requests` per slot. | Modify |
 | `packages/ui/src/components/navigation/SidebarPipelineQueue.tsx` | Display `in_flight / current_limit` per slot. | Modify |
 
 ---
@@ -57,7 +57,7 @@
 ## Task 1: Scheduler per-request gate (new API, no callers)
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/scheduler.py`
+- Modify: `src/prep/services/pipeline/scheduler.py`
 - Create: `tests/test_scheduler_request_gate.py`
 
 **What this task accomplishes:** Adds `acquire_request` / `release_request` / `acquire_request_ctx` to `PipelineScheduler` without wiring any callers. Ships safely because it's unused.
@@ -80,7 +80,7 @@ import time
 
 import pytest
 
-from codrag.services.pipeline.scheduler import (
+from prep.services.pipeline.scheduler import (
     ComputeSlot,
     PipelineScheduler,
 )
@@ -244,7 +244,7 @@ Expected: Collection errors or all FAIL — `PipelineScheduler` has no `acquire_
 
 - [ ] **Step 1.3: Add `in_flight_requests` and `_cond` to `ComputeSlot`**
 
-In `src/codrag/services/pipeline/scheduler.py`, modify the `ComputeSlot` dataclass (around lines 90-133). Add two fields:
+In `src/prep/services/pipeline/scheduler.py`, modify the `ComputeSlot` dataclass (around lines 90-133). Add two fields:
 
 ```python
 @dataclass
@@ -289,7 +289,7 @@ Expected: PASS — the dataclass field addition must not regress any existing be
 
 - [ ] **Step 1.5: Add `acquire_request`, `release_request`, `acquire_request_ctx` to `PipelineScheduler`**
 
-In `src/codrag/services/pipeline/scheduler.py`, add three methods to the `PipelineScheduler` class. Insert them in the "Slot management" section, after `_maybe_idle_recover` (around line 695).
+In `src/prep/services/pipeline/scheduler.py`, add three methods to the `PipelineScheduler` class. Insert them in the "Slot management" section, after `_maybe_idle_recover` (around line 695).
 
 ```python
     # ── Per-request gate (Phase 82 follow-up) ─────────────────────
@@ -398,7 +398,7 @@ Expected: PASS (same result as before this task).
 - [ ] **Step 1.8: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/scheduler.py tests/test_scheduler_request_gate.py
+git add src/prep/services/pipeline/scheduler.py tests/test_scheduler_request_gate.py
 git commit -m "feat(scheduler): add per-request AIMD gate (acquire_request/release_request)"
 ```
 
@@ -407,7 +407,7 @@ git commit -m "feat(scheduler): add per-request AIMD gate (acquire_request/relea
 ## Task 2: Wire the gate into `LLMClient._generate_internal`
 
 **Files:**
-- Modify: `src/codrag/core/llm_client.py`
+- Modify: `src/prep/core/llm_client.py`
 - Create: `tests/test_llm_client_request_gate.py`
 
 **What this task accomplishes:** Every LLM call now goes through `acquire_request_ctx` before `session.post(...)`. If the scheduler says "full", the caller blocks until a slot frees up. Stages still have their old low concurrency caps, so user-visible throughput doesn't change — but the gate is installed and exercised.
@@ -429,13 +429,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from codrag.core.llm_client import LLMClient
-from codrag.services.pipeline.scheduler import PipelineScheduler
+from prep.core.llm_client import LLMClient
+from prep.services.pipeline.scheduler import PipelineScheduler
 
 
 def _seed_scheduler(limit: int = 2) -> tuple[PipelineScheduler, str]:
     """Seed a shared scheduler with a cloud slot at the given limit."""
-    from codrag.services.pipeline import scheduler as sched_mod
+    from prep.services.pipeline import scheduler as sched_mod
     sched = sched_mod.pipeline_scheduler
     node_id = "cloud:gate-test"
     sched.configure_node(node_id, max_concurrent=limit)
@@ -450,7 +450,7 @@ def _seed_scheduler(limit: int = 2) -> tuple[PipelineScheduler, str]:
 @pytest.fixture(autouse=True)
 def _reset_scheduler():
     """Clear scheduler state between tests to avoid cross-test leakage."""
-    from codrag.services.pipeline import scheduler as sched_mod
+    from prep.services.pipeline import scheduler as sched_mod
     sched_mod.pipeline_scheduler._slots.clear()
     sched_mod.pipeline_scheduler._queues.clear()
     sched_mod.pipeline_scheduler._init_embedding_slot()
@@ -569,7 +569,7 @@ def test_gate_timeout_falls_back_to_raw_call() -> None:
     # Patch the scheduler's timeout to something short for the test.
     with patch.object(client._session, "post", return_value=_mock_ollama_response()):
         with patch(
-            "codrag.core.llm_client._REQUEST_GATE_TIMEOUT_S", 0.3
+            "prep.core.llm_client._REQUEST_GATE_TIMEOUT_S", 0.3
         ):
             t_start = time.monotonic()
             text, tokens = client.generate(
@@ -592,7 +592,7 @@ Expected: All 4 tests FAIL — `LLMClient._generate_internal` doesn't call the g
 
 - [ ] **Step 2.3: Add the gate wiring to `LLMClient`**
 
-In `src/codrag/core/llm_client.py`:
+In `src/prep/core/llm_client.py`:
 
 1. Add a module-level constant near the top of the file (after the existing constants):
 
@@ -615,7 +615,7 @@ _REQUEST_GATE_TIMEOUT_S = 120.0
         Returns None if no matching slot exists (gate is skipped).
         """
         try:
-            from codrag.services.pipeline.scheduler import (
+            from prep.services.pipeline.scheduler import (
                 CLOUD_PROVIDERS,
                 pipeline_scheduler,
             )
@@ -625,7 +625,7 @@ _REQUEST_GATE_TIMEOUT_S = 120.0
         is_cloud = self.provider in CLOUD_PROVIDERS
         if not is_cloud and self.model:
             try:
-                from codrag.core.batch_profiles import is_cloud_model_via_ollama
+                from prep.core.batch_profiles import is_cloud_model_via_ollama
                 if is_cloud_model_via_ollama(self.provider, self.model):
                     is_cloud = True
             except ImportError:
@@ -675,7 +675,7 @@ _REQUEST_GATE_TIMEOUT_S = 120.0
                     max_chars=max_chars, num_ctx=num_ctx,
                 )
 
-            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            from prep.services.pipeline.scheduler import pipeline_scheduler
             with pipeline_scheduler.acquire_request_ctx(
                 node_id, timeout=_REQUEST_GATE_TIMEOUT_S,
             ) as token:
@@ -712,7 +712,7 @@ Expected: PASS. Known pre-existing failures in `test_llm_task_resolver.py` are u
 - [ ] **Step 2.6: Commit**
 
 ```bash
-git add src/codrag/core/llm_client.py tests/test_llm_client_request_gate.py
+git add src/prep/core/llm_client.py tests/test_llm_client_request_gate.py
 git commit -m "feat(llm_client): gate every LLM call via PipelineScheduler per-request API"
 ```
 
@@ -721,8 +721,8 @@ git commit -m "feat(llm_client): gate every LLM call via PipelineScheduler per-r
 ## Task 3: Remove static concurrency caps — let AIMD be the only gate
 
 **Files:**
-- Modify: `src/codrag/core/llm_client.py` (`_get_llm_concurrency`)
-- Modify: `src/codrag/core/deepening.py` (remove per-stage ThreadPool sizing)
+- Modify: `src/prep/core/llm_client.py` (`_get_llm_concurrency`)
+- Modify: `src/prep/core/deepening.py` (remove per-stage ThreadPool sizing)
 - Modify: `tests/test_llm_client.py` or wherever `_get_llm_concurrency` is tested
 
 **What this task accomplishes:** Stages submit as many concurrent calls as their pool can run. AIMD's `current_limit` becomes the only effective throttle. This is the step that delivers the user-visible throughput improvement.
@@ -743,8 +743,8 @@ def test_get_llm_concurrency_no_hard_cap_at_8(monkeypatch) -> None:
     returns the raw configured value (clamped only to [1, 32]) and relies
     on the request gate to enforce the dynamic ceiling.
     """
-    from codrag.core.llm_client import _get_llm_concurrency
-    from codrag.services.settings_store import settings
+    from prep.core.llm_client import _get_llm_concurrency
+    from prep.services.settings_store import settings
 
     original = settings.get("pipeline_config") or {}
     monkeypatch.setattr(
@@ -760,8 +760,8 @@ def test_get_llm_concurrency_clamps_to_pool_max(monkeypatch) -> None:
     """A value > 32 (the shared pool's max_workers) is still clamped,
     because nothing downstream can run more than that many concurrent
     HTTP calls regardless of AIMD."""
-    from codrag.core.llm_client import _get_llm_concurrency
-    from codrag.services.settings_store import settings
+    from prep.core.llm_client import _get_llm_concurrency
+    from prep.services.settings_store import settings
 
     monkeypatch.setattr(
         settings, "get",
@@ -800,7 +800,7 @@ Expected: PASS.
 
 - [ ] **Step 3.6: Update `deepening.py` to use the shared pool**
 
-In `src/codrag/core/deepening.py`, replace the per-stage pool creation at line 456:
+In `src/prep/core/deepening.py`, replace the per-stage pool creation at line 456:
 
 ```python
                 pool = ThreadPoolExecutor(max_workers=concurrency)
@@ -808,7 +808,7 @@ In `src/codrag/core/deepening.py`, replace the per-stage pool creation at line 4
 
 With:
 ```python
-                from codrag.services.pipeline.thread_pool import llm_pool
+                from prep.services.pipeline.thread_pool import llm_pool
                 # Phase 82 follow-up: use the shared bounded pool. AIMD's
                 # request gate enforces the dynamic ceiling at submit-time.
                 # The per-stage ``concurrency`` value is no longer a hard
@@ -832,7 +832,7 @@ Expected: PASS.
 - [ ] **Step 3.8: Commit**
 
 ```bash
-git add src/codrag/core/llm_client.py src/codrag/core/deepening.py tests/test_llm_client.py
+git add src/prep/core/llm_client.py src/prep/core/deepening.py tests/test_llm_client.py
 git commit -m "feat(pipeline): remove static concurrency caps; AIMD gate is the only throttle"
 ```
 
@@ -841,7 +841,7 @@ git commit -m "feat(pipeline): remove static concurrency caps; AIMD gate is the 
 ## Task 4: Observability — expose in-flight and current_limit to the dashboard
 
 **Files:**
-- Modify: `src/codrag/api/routers/pipeline.py` (or `scheduler` — find whichever router exposes slot status)
+- Modify: `src/prep/api/routers/pipeline.py` (or `scheduler` — find whichever router exposes slot status)
 - Modify: `packages/ui/src/components/navigation/SidebarPipelineQueue.tsx`
 - Create/modify: tests for the API endpoint
 
@@ -849,7 +849,7 @@ git commit -m "feat(pipeline): remove static concurrency caps; AIMD gate is the 
 
 - [ ] **Step 4.1: Find where slot status is currently exposed to the UI**
 
-Run: `grep -rn "current_limit\|dynamic_capacity\|active_stages" src/codrag/api/routers/ | head -20`
+Run: `grep -rn "current_limit\|dynamic_capacity\|active_stages" src/prep/api/routers/ | head -20`
 
 Expected: at least one router (likely `pipeline.py` or `queue.py`) serializes slot state. Read that file end-to-end before modifying.
 
@@ -861,7 +861,7 @@ Add to the appropriate router test file (e.g. `tests/test_api_pipeline.py` or si
 def test_scheduler_status_exposes_in_flight_requests(client) -> None:
     """Phase 82 follow-up: per-slot in_flight_requests must be visible
     to the dashboard so the request gate's effect is observable."""
-    from codrag.services.pipeline.scheduler import pipeline_scheduler
+    from prep.services.pipeline.scheduler import pipeline_scheduler
     pipeline_scheduler.configure_node("cloud:obs-test", max_concurrent=4)
     slot = pipeline_scheduler._slots["cloud:obs-test"]
     slot.current_limit = 8
@@ -916,7 +916,7 @@ Also update the TypeScript type that describes slots — look for the type defin
 
 - [ ] **Step 4.7: Verify the UI renders without TypeScript errors**
 
-Run: `npm run typecheck --workspace=@codrag/ui`
+Run: `npm run typecheck --workspace=@prep/ui`
 Expected: no errors.
 
 - [ ] **Step 4.8: Manual smoke test**
@@ -931,7 +931,7 @@ Open the dashboard at http://localhost:5174, trigger a pipeline rebuild, and wat
 - [ ] **Step 4.9: Commit**
 
 ```bash
-git add src/codrag/api/routers/ packages/ui/src/ tests/
+git add src/prep/api/routers/ packages/ui/src/ tests/
 git commit -m "feat(dashboard): expose per-slot in_flight_requests to show AIMD gate state"
 ```
 

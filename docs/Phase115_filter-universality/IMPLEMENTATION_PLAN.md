@@ -11,26 +11,26 @@ Ordered steps. Each is an independent commit. Checkpoints marked `[gate]` are wh
 
 ## The 12 steps
 
-### Step 0 — Add `CODRAG_OUTPUT_*` registry
+### Step 0 — Add `PREP_OUTPUT_*` registry
 
-**File:** `src/codrag/core/repo_profile.py`
+**File:** `src/prep/core/repo_profile.py`
 
 Add at top of file:
 
 ```python
-CODRAG_OUTPUT_DIRS: Set[str] = {".codrag", "codrag_data"}
-CODRAG_OUTPUT_FILE_GLOBS: Sequence[str] = (... existing AI-tool globs ...)
+PREP_OUTPUT_DIRS: Set[str] = {".prep", "prep_data"}
+PREP_OUTPUT_FILE_GLOBS: Sequence[str] = (... existing AI-tool globs ...)
 ```
 
-Re-derive `DEFAULT_EXCLUDE_DIR_NAMES` to include `CODRAG_OUTPUT_DIRS` as a superset base. Leave `DEFAULT_EXCLUDE_FILE_GLOBS` including `*CODRAG_OUTPUT_FILE_GLOBS`. No behaviour change yet — the old set already included the AI-tool globs; this just renames the source.
+Re-derive `DEFAULT_EXCLUDE_DIR_NAMES` to include `PREP_OUTPUT_DIRS` as a superset base. Leave `DEFAULT_EXCLUDE_FILE_GLOBS` including `*PREP_OUTPUT_FILE_GLOBS`. No behaviour change yet — the old set already included the AI-tool globs; this just renames the source.
 
-**[gate]** `pytest tests/` must still be green. Unit test that `CODRAG_OUTPUT_DIRS <= DEFAULT_EXCLUDE_DIR_NAMES`.
+**[gate]** `pytest tests/` must still be green. Unit test that `PREP_OUTPUT_DIRS <= DEFAULT_EXCLUDE_DIR_NAMES`.
 
 ---
 
 ### Step 1 — Add generated dirs to `DEFAULT_EXCLUDE_DIR_NAMES`
 
-**File:** `src/codrag/core/repo_profile.py`
+**File:** `src/prep/core/repo_profile.py`
 
 Add to the set:
 
@@ -47,18 +47,18 @@ storybook-static, coverage, out, .turbo, .vercel, .parcel-cache,
 
 ### Step 2 — Add build-artifact file globs to `DEFAULT_EXCLUDE_FILE_GLOBS`
 
-**File:** `src/codrag/core/repo_profile.py`
+**File:** `src/prep/core/repo_profile.py`
 
 Add:
 
 ```python
-"**/*.d.ts",      # TypeScript declaration files — generated
+"**/*.d.ts",      # TypeScript deprep-compresstion files — generated
 "**/*.min.js",
 "**/*.min.css",
 "**/*.map",       # source maps
 ```
 
-Remove the narrow `**/codrag_data/ui_config.json` — `codrag_data` is now a dir-level exclude via step 0, so the specific file glob is redundant.
+Remove the narrow `**/prep_data/ui_config.json` — `prep_data` is now a dir-level exclude via step 0, so the specific file glob is redundant.
 
 **[gate]** Unit test: `DEFAULT_EXCLUDE_FILE_GLOBS` contains all four new entries.
 
@@ -66,7 +66,7 @@ Remove the narrow `**/codrag_data/ui_config.json` — `codrag_data` is now a dir
 
 ### Step 3 — Extend `ensure_repo_policy` auto-merge to file globs
 
-**File:** `src/codrag/core/repo_policy.py`
+**File:** `src/prep/core/repo_policy.py`
 
 At `repo_policy.py:151-163`, after the dir-glob union, also union `DEFAULT_EXCLUDE_FILE_GLOBS`:
 
@@ -85,14 +85,14 @@ if not default_file_globs.issubset(current_excludes):
 
 ### Step 4 — Sync Rust walker defaults
 
-**File:** `engine/crates/codrag-walker/src/lib.rs`
+**File:** `engine/crates/prep-walker/src/lib.rs`
 
-Update `WalkConfig::default().exclude_globs` to mirror the Python `DEFAULT_EXCLUDE_DIR_NAMES`-derived list. Rust defaults are a safety net; the caller (Python daemon) passes the resolved filter. Selfheal (`codrag-selfheal`) reads its filter from `repo_policy.json` + `project.config.trace.ignore_patterns` separately (Step 7).
+Update `WalkConfig::default().exclude_globs` to mirror the Python `DEFAULT_EXCLUDE_DIR_NAMES`-derived list. Rust defaults are a safety net; the caller (Python daemon) passes the resolved filter. Selfheal (`prep-selfheal`) reads its filter from `repo_policy.json` + `project.config.trace.ignore_patterns` separately (Step 7).
 
 ```rust
 exclude_globs: vec![
     "**/.prep/**".into(),
-    "**/codrag_data/**".into(),
+    "**/prep_data/**".into(),
     "**/node_modules/**".into(),
     "**/.git/**".into(),
     "**/__pycache__/**".into(),
@@ -143,12 +143,12 @@ exclude_globs: vec![
 
 ### Step 5 — Delete `TraceBuilder` hardcoded include/exclude
 
-**File:** `src/codrag/core/trace/builder.py` (lines 66-100)
+**File:** `src/prep/core/trace/builder.py` (lines 66-100)
 
 Remove the hardcoded `include_globs` and `exclude_globs` default branches. Replace with a call to a new helper that reads from `repo_policy.json`:
 
 ```python
-from codrag.core.repo_policy import ensure_repo_policy
+from prep.core.repo_policy import ensure_repo_policy
 
 def __init__(self, ..., include_globs=None, exclude_globs=None, ...):
     ...
@@ -162,18 +162,18 @@ def __init__(self, ..., include_globs=None, exclude_globs=None, ...):
     self.exclude_globs = exclude_globs
 ```
 
-**[gate]** Rebuild dogfood index. Confirm no path starting with `packages/ui/storybook-static/`, `codrag_data/`, `coverage/`, `out/` appears in `trace_nodes.jsonl`. `.d.ts` files absent. This is the primary correctness gate for the phase.
+**[gate]** Rebuild dogfood index. Confirm no path starting with `packages/ui/storybook-static/`, `prep_data/`, `coverage/`, `out/` appears in `trace_nodes.jsonl`. `.d.ts` files absent. This is the primary correctness gate for the phase.
 
 ---
 
 ### Step 6 — Fix `epistemic_enrichment.load_trace_nodes` filter
 
-**File:** `src/codrag/core/epistemic_enrichment.py` (around line 290-300)
+**File:** `src/prep/core/epistemic_enrichment.py` (around line 290-300)
 
 Apply the three-layer filter when reading `trace_nodes.jsonl`. Even if the file on disk has stale entries (pre-fix), enrichment should not process them.
 
 ```python
-from codrag.core.repo_policy import effective_excludes  # new helper from 01_TARGET_DESIGN
+from prep.core.repo_policy import effective_excludes  # new helper from 01_TARGET_DESIGN
 
 def load_trace_nodes(index_dir, repo_root, trace_ignore_patterns=None):
     excludes = effective_excludes(
@@ -198,7 +198,7 @@ Callers already pass `index_dir`; `repo_root` and `trace_ignore_patterns` need t
 
 ### Step 7 — Fix Rust selfheal L3 gap
 
-**File:** `engine/crates/codrag-selfheal/src/main.rs` (around lines 93-103)
+**File:** `engine/crates/prep-selfheal/src/main.rs` (around lines 93-103)
 
 Selfheal currently reads `repo_policy.json.exclude_globs` and unions with walker defaults. Must also read `project.config.trace.ignore_patterns` (location: per-project config, typically `.prep/project.config.json` or the project registry row).
 
@@ -210,7 +210,7 @@ Implementation note: if the config isn't easily reachable from Rust, expose a re
 
 ### Step 8 — Audit watcher filter merge
 
-**File:** `src/codrag/services/watcher.py` (verify)
+**File:** `src/prep/services/watcher.py` (verify)
 
 Confirm the watcher uses `effective_excludes()` when deciding whether a change event should trigger reindexing. If it doesn't read L3, fix it.
 
@@ -231,7 +231,7 @@ Two ways to implement:
 
 Prefer (b) — it tests behaviour, not set equality.
 
-**[gate]** Test passes on CI. Fixture includes at least: `node_modules/`, `storybook-static/`, `codrag_data/`, `.next/`, `dist/`, `coverage/`, one `.d.ts` file, one `.min.js` file, and a valid `.py` + `.ts` pair that should be kept.
+**[gate]** Test passes on CI. Fixture includes at least: `node_modules/`, `storybook-static/`, `prep_data/`, `.next/`, `dist/`, `coverage/`, one `.d.ts` file, one `.min.js` file, and a valid `.py` + `.ts` pair that should be kept.
 
 ---
 
@@ -252,19 +252,19 @@ Run twice: once with `foo/` in a directory covered by include globs (should stil
 **File:** `tests/test_no_self_ingestion.py` (new)
 
 ```python
-def test_no_codrag_outputs_in_trace_nodes(dogfood_index):
+def test_no_prep_outputs_in_trace_nodes(dogfood_index):
     nodes = [json.loads(line) for line in open(index/"trace_nodes.jsonl")]
     offenders = [
         n["path"] for n in nodes
         if any(
             n["path"].startswith(d + "/") or f"/{d}/" in n["path"]
-            for d in CODRAG_OUTPUT_DIRS
+            for d in PREP_OUTPUT_DIRS
         )
     ]
     assert offenders == [], f"Self-ingestion leaked: {offenders}"
 ```
 
-This is the load-bearing invariant. Every future writer must update `CODRAG_OUTPUT_DIRS` or `CODRAG_OUTPUT_FILE_GLOBS`; this test will catch any that doesn't.
+This is the load-bearing invariant. Every future writer must update `PREP_OUTPUT_DIRS` or `PREP_OUTPUT_FILE_GLOBS`; this test will catch any that doesn't.
 
 **[gate]** Test passes. Add to CI.
 

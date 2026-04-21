@@ -1,7 +1,7 @@
 # Dashboard UX Revamp: From "Debug Tool" to "Product"
 
 ## 1. Problem Statement
-The current CoDRAG dashboard exposes the raw underlying API parameters (`k`, `min_score`, `max_chars`, `chunks`) directly to the user. While functional for an engineer debugging the system, it is "abstract and hard to understand" for a user trying to *accomplish a task*. The UI lacks a cohesive narrative; it feels like a collection of disjointed tools rather than a unified workspace.
+The current Prep dashboard exposes the raw underlying API parameters (`k`, `min_score`, `max_chars`, `chunks`) directly to the user. While functional for an engineer debugging the system, it is "abstract and hard to understand" for a user trying to *accomplish a task*. The UI lacks a cohesive narrative; it feels like a collection of disjointed tools rather than a unified workspace.
 
 ## 2. Theoretical Re-imagining
 We need to shift from **"Parameter-First"** to **"Intent-First"**.

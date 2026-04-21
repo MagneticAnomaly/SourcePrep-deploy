@@ -6,7 +6,7 @@
 > [`DISTRIBUTION_AND_REVENUE_PLAN.md`](../../DISTRIBUTION_AND_REVENUE_PLAN.md) §7.
 
 ## Executive Summary
-CoDRAG adopts a **"Software License"** model (Perpetual License) for individuals and a **"Seat-Based Subscription"** for teams. This aligns with our local-first, BYOK architecture where COGS is low (no hosted inference costs).
+Prep adopts a **"Software License"** model (Perpetual License) for individuals and a **"Seat-Based Subscription"** for teams. This aligns with our local-first, BYOK architecture where COGS is low (no hosted inference costs).
 
 **Core Philosophy:**
 - **Local-First Trust:** Users own the software, not rent it.
@@ -51,7 +51,7 @@ Target: Engineering teams (5–50) needing "Indexed Harmony."
 ### Team Tier
 - **Price:** **$12–$15** per seat / month (Billed annually).
 - **Value Proposition:**
-  - **Shared Index Config:** Export/import `.codrag` configs (standardized ignore rules, scoping).
+  - **Shared Index Config:** Export/import `.prep` configs (standardized ignore rules, scoping).
   - **Centralized Policy:** Admin-defined rules (e.g., "Never index /secrets").
   - **License Management:** Seat assignment/revocation.
   - **Support:** Priority email support.
@@ -78,7 +78,7 @@ Target: Regulated industries (Banking, Defense) requiring air-gapped/governed us
 | **Support** | Community | Community | Email | Priority | SLA |
 
 ## Marketing Positioning
-- **"No Token Markup":** Explicitly market against cloud AI tools that mark up inference costs. CoDRAG is a "BYOK engine" that runs at cost.
+- **"No Token Markup":** Explicitly market against cloud AI tools that mark up inference costs. Prep is a "BYOK engine" that runs at cost.
 - **"Your Code Stays Local":** The perpetual license reinforces the privacy narrative.
 
 ## Roadmap Implications

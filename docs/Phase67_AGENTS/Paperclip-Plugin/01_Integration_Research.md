@@ -4,23 +4,23 @@
 > **This document is historical reference only.** The definitive architecture specification is [02_Hybrid_MCP_Architecture.md](./02_Hybrid_MCP_Architecture.md). Refer to that document for the current integration strategy, what's built, and the forward roadmap.
 
 > **Phase 67 — Paperclip Hybrid Integration (MCP + Lightweight Plugin)** | Date: 2026-04-04
-> This document outlines the original CoDRAG-Paperclip integration research. It has been superseded by the Hybrid MCP Architecture document above.
+> This document outlines the original Prep-Paperclip integration research. It has been superseded by the Hybrid MCP Architecture document above.
 
 ---
 
 ## 1. Integration Layers
 
-CoDRAG integrates with Paperclip through a **Hybrid Architecture** prioritizing MCP for agent capabilities, supported by a lightweight plugin for proactive workflows:
+Prep integrates with Paperclip through a **Hybrid Architecture** prioritizing MCP for agent capabilities, supported by a lightweight plugin for proactive workflows:
 
 | Layer | What | How | Priority |
 |-------|------|-----|----------|
-| **L1: MCP Server** | Expose CoDRAG's 5 core tools native to agents | MCP Protocol (`codrag_mcp`) | Primary |
+| **L1: MCP Server** | Expose Prep's 5 core tools native to agents | MCP Protocol (`prep_mcp`) | Primary |
 | **L2: Workflow Plugin** | Lifecycle events, task pushing, agent CRUD | Plugin SDK (`@paperclipai/plugin-sdk`) | Secondary (Lightweight) |
 
 ### Why this hybrid model matters
 
 - **L1 (MCP Server)** is the core integration: Every Paperclip agent gets codebase intelligence natively without needing custom plugin tooling proxies.
-- **L2 (Lightweight Plugin)** solves the orchestration gap: It allows CoDRAG to push health findings as issues, populate agent knowledge scopes automatically, and handle Agent CRUD without bloating into a massive UI application.
+- **L2 (Lightweight Plugin)** solves the orchestration gap: It allows Prep to push health findings as issues, populate agent knowledge scopes automatically, and handle Agent CRUD without bloating into a massive UI application.
 
 ---
 
@@ -70,7 +70,7 @@ Agent {
 
 ### RoleSpec → Agent Mapping
 
-| CoDRAG RoleSpec | Paperclip Agent | Notes |
+| Prep RoleSpec | Paperclip Agent | Notes |
 |-----------------|-----------------|-------|
 | `display_name` | `name` | Direct |
 | `slug` | `role` | Lowercase identifier |
@@ -104,9 +104,9 @@ Agent {
 
 ### Plugin Lifecycle Hooks
 
-| Hook | When | CoDRAG Use |
+| Hook | When | Prep Use |
 |------|------|-----------|
-| `initialize(input)` | Worker startup | Connect to CoDRAG daemon, validate project |
+| `initialize(input)` | Worker startup | Connect to Prep daemon, validate project |
 | `health()` | Status check | Report daemon connectivity |
 | `shutdown()` | Graceful stop | Cleanup connections |
 | `validateConfig(input)` | Config change | Verify daemon URL, project ID |
@@ -116,7 +116,7 @@ Agent {
 | `handleWebhook(input)` | Inbound webhook | Git push → rebuild trigger |
 | `getData(input)` | UI data request | Serve atlas, module map, search results |
 | `performAction(input)` | UI button click | Trigger research run, custodian scan |
-| `executeTool(input)` | Agent tool call | `codrag:search`, `codrag:impact`, etc. |
+| `executeTool(input)` | Agent tool call | `prep:search`, `prep:impact`, etc. |
 
 ### Worker SDK (`ctx.*`)
 
@@ -149,22 +149,22 @@ ctx.logger.*                        — structured logging
 
 ### Agent Tool Integration
 
-Tools are the most relevant surface for CoDRAG:
+Tools are the most relevant surface for Prep:
 
-- **Declaration:** Manifest declares tools with `name`, `displayName`, `description`, `parametersSchema` (JSON Schema)
-- **Namespacing:** Auto-prefixed as `<pluginId>:<toolName>` (e.g., `codrag:search`)
+- **Deprep-compresstion:** Manifest declares tools with `name`, `displayName`, `description`, `parametersSchema` (JSON Schema)
+- **Namespacing:** Auto-prefixed as `<pluginId>:<toolName>` (e.g., `prep:search`)
 - **Execution:** Host routes `executeTool` RPC to plugin worker with run context (`agentId`, `runId`, `companyId`, `projectId`)
 - **Results:** String content, structured data, or error; included in run logs
 - **Availability:** All agents by default; operator can restrict per-agent or per-project
 - **Capability gate:** Requires `agent.tools.register`
 
-**This is NOT MCP** — it's Paperclip-native. CoDRAG would expose its capabilities as Paperclip tools, not MCP tools. The worker would proxy tool calls to the CoDRAG daemon.
+**This is NOT MCP** — it's Paperclip-native. Prep would expose its capabilities as Paperclip tools, not MCP tools. The worker would proxy tool calls to the Prep daemon.
 
 ### Packaging
 
 - npm packages with `paperclipPlugin` key in `package.json`
-- Scaffold: `npx @paperclipai/create-paperclip-plugin codrag`
-- Install: `pnpm paperclipai plugin install @codrag/paperclip-plugin`
+- Scaffold: `npx @paperclipai/create-paperclip-plugin prep`
+- Install: `pnpm paperclipai plugin install @prep/paperclip-plugin`
 - Templates: `default`, `connector`, `workspace`
 - SDK: `@paperclipai/plugin-sdk` (worker), `@paperclipai/plugin-sdk/ui` (frontend)
 
@@ -180,62 +180,62 @@ Tools are the most relevant surface for CoDRAG:
 
 ---
 
-## 4. CoDRAG Hybrid Plugin Design
+## 4. Prep Hybrid Plugin Design
 
 ### 4.1 Plugin Identity
 
 ```
-Package: @codrag/paperclip-plugin
-Plugin ID: codrag
-Display Name: CoDRAG Codebase Intelligence
+Package: @prep/paperclip-plugin
+Plugin ID: prep
+Display Name: Prep Codebase Intelligence
 ```
 
 ### 4.2 Capabilities Required
 
 ```
-agent.tools.register       — Register codrag:search, codrag:impact, etc.
+agent.tools.register       — Register prep:search, prep:impact, etc.
 projects.read              — Read project context for tool routing
 issues.read                — Read issues to provide context
 agents.read                — Read agent roles for context scoping
 (Note: Native UI extensions like DashboardWidgets and DetailTabs have been dropped to keep the plugin lightweight and focused on orchestration.)
 events.subscribe            — React to project/issue events
 jobs.schedule               — Scheduled re-indexing
-http.outbound               — Call CoDRAG daemon API
+http.outbound               — Call Prep daemon API
 plugin.state.read/write     — Cache project-index mappings
 ```
 
 ### 4.3 Tools (Handled via MCP)
 
-The plugin **does not** register custom tools. Tools are instead provided directly to Paperclip via CoDRAG's standard **MCP Server**. This eliminates the need for an `executeTool` RPC proxy. Paperclip handles MCP natively.
+The plugin **does not** register custom tools. Tools are instead provided directly to Paperclip via Prep's standard **MCP Server**. This eliminates the need for an `executeTool` RPC proxy. Paperclip handles MCP natively.
 
 ### 4.4 UI Extensions
 
-*Removed. CoDRAG acts as a headless intelligence engine; Paperclip uses the API and MCP tooling for data interaction.*
+*Removed. Prep acts as a headless intelligence engine; Paperclip uses the API and MCP tooling for data interaction.*
 
 ### 4.5 Events
 
 | Event | Reaction |
 |-------|----------|
 | `agent.created` | Auto-populate Knowledge Scope for new agent based on role |
-| `issue.created` | If issue has `codrag_address`, attach context snapshot as document |
-| `project.created` | Prompt user to map to CoDRAG project |
-| `run.completed` | Log observation via `codrag_observe` |
+| `issue.created` | If issue has `prep_address`, attach context snapshot as document |
+| `project.created` | Prompt user to map to Prep project |
+| `run.completed` | Log observation via `prep_observe` |
 
 ### 4.6 Jobs
 
 | Job | Schedule | What |
 |-----|----------|------|
-| `reindex-check` | Every 6 hours | Check if CoDRAG index is stale, trigger rebuild |
+| `reindex-check` | Every 6 hours | Check if Prep index is stale, trigger rebuild |
 | `drift-scan` | Weekly | Run HR drift detection, report to activity log |
 
 ### 4.7 State Scoping
 
 | Scope | Key | Data |
 |-------|-----|------|
-| `instance` | `daemon_url` | CoDRAG daemon base URL |
-| `company` | `default_project` | Default CoDRAG project ID |
-| `project` | `codrag_project_id` | Mapping: Paperclip project → CoDRAG project |
-| `agent` | `role_slug` | Mapping: Paperclip agent → CoDRAG role slug |
+| `instance` | `daemon_url` | Prep daemon base URL |
+| `company` | `default_project` | Default Prep project ID |
+| `project` | `prep_project_id` | Mapping: Paperclip project → Prep project |
+| `agent` | `role_slug` | Mapping: Paperclip agent → Prep role slug |
 | `agent` | `knowledge_scope` | Cached file list for this agent's scope |
 
 ---
@@ -249,15 +249,15 @@ Wire into `AgentCore` to replace `NotImplementedError` stubs.
 Wire into `StaffingEngine` for optional push-to-Paperclip after role generation.
 
 **Files:**
-- Modify: `src/codrag/adapters/paperclip_adapter.py` — add agent CRUD methods
-- Modify: `src/codrag/agents/core.py` — replace stubs with real calls
-- Modify: `src/codrag/agents/hr/engine.py` — add `push_to_paperclip()` method
-- Add: CLI command `codrag hr-sync` for roster ↔ Paperclip sync
+- Modify: `src/prep/adapters/paperclip_adapter.py` — add agent CRUD methods
+- Modify: `src/prep/agents/core.py` — replace stubs with real calls
+- Modify: `src/prep/agents/hr/engine.py` — add `push_to_paperclip()` method
+- Add: CLI command `prep hr-sync` for roster ↔ Paperclip sync
 
 ### Phase B: Paperclip Plugin Package (Lightweight Workflow)
 
-Build an npm package `@codrag/paperclip-plugin` that focuses purely on workflow orchestration:
-1. Orchestrates the PushEngine to inject CoDRAG health findings as Paperclip issues.
+Build an npm package `@prep/paperclip-plugin` that focuses purely on workflow orchestration:
+1. Orchestrates the PushEngine to inject Prep health findings as Paperclip issues.
 2. Syncs RoleSpecs to Agent profiles.
 3. Reacts to agent/issue events for automatic context enrichment.
 
@@ -267,54 +267,54 @@ Build an npm package `@codrag/paperclip-plugin` that focuses purely on workflow 
 
 ### Phase C: Bidirectional Sync (Future)
 
-- Pull agent status from Paperclip to update CoDRAG roster health
-- Pull issue completion signals to mark CoDRAG findings as resolved
-- Use Paperclip's activity log to track which CoDRAG-originated issues were acted on
+- Pull agent status from Paperclip to update Prep roster health
+- Pull issue completion signals to mark Prep findings as resolved
+- Use Paperclip's activity log to track which Prep-originated issues were acted on
 
 ---
 
 ## 6. Opportunities
 
-### 6.1 Every Paperclip Agent Gets CoDRAG Intelligence
+### 6.1 Every Paperclip Agent Gets Prep Intelligence
 
-With the plugin's tool registration, **every** agent in a Paperclip company can call `codrag:search`, `codrag:impact`, etc. during their runs. This is the "CoDRAG is the brain" value prop from the original design docs — realized through Paperclip's tool system rather than per-agent instruction injection.
+With the plugin's tool registration, **every** agent in a Paperclip company can call `prep:search`, `prep:impact`, etc. during their runs. This is the "Prep is the brain" value prop from the original design docs — realized through Paperclip's tool system rather than per-agent instruction injection.
 
 ### 6.2 Context-Aware Issue Assignment
 
-When Paperclip creates issues from CoDRAG audit findings (Phase 65 push), the plugin can:
-- Auto-attach a `codrag-context` document to each issue with the full impact analysis
+When Paperclip creates issues from Prep audit findings (Phase 65 push), the plugin can:
+- Auto-attach a `prep-context` document to each issue with the full impact analysis
 - Score which agent is best suited to handle the issue (via RoleVector matching)
 - Suggest assignment via comments
 
 ### 6.3 Budget-Aware Context Budgeting
 
-Paperclip tracks `budgetMonthlyCents` / `spentMonthlyCents` per agent. The plugin could read this and adjust CoDRAG context window sizes — agents near their budget limit get more concise summaries to minimize token consumption.
+Paperclip tracks `budgetMonthlyCents` / `spentMonthlyCents` per agent. The plugin could read this and adjust Prep context window sizes — agents near their budget limit get more concise summaries to minimize token consumption.
 
 ### 6.4 Org-Aware Atlas Projection
 
-Paperclip's org chart (`/api/companies/{id}/org`) maps directly to CoDRAG's role-aware atlas projection. The plugin can read an agent's Paperclip role and auto-filter codebase context accordingly — engineers get implementation details, managers get architectural summaries.
+Paperclip's org chart (`/api/companies/{id}/org`) maps directly to Prep's role-aware atlas projection. The plugin can read an agent's Paperclip role and auto-filter codebase context accordingly — engineers get implementation details, managers get architectural summaries.
 
 ### 6.5 Run-Triggered Observations
 
-When a Paperclip agent completes a run, the plugin can log the run summary as a CoDRAG observation via `codrag:observe`. This builds cross-session memory — the next agent working on related code sees what was done before.
+When a Paperclip agent completes a run, the plugin can log the run summary as a Prep observation via `prep:observe`. This builds cross-session memory — the next agent working on related code sees what was done before.
 
 ### 6.6 Marketing Trifecta (from original design docs)
 
 The plugin itself is a marketing vehicle:
 - Listed in Paperclip's Plugin Manager (visible in the screenshot)
-- Installable via `pnpm paperclipai plugin install @codrag/paperclip-plugin`
-- Every Paperclip user sees CoDRAG as an available enhancement
+- Installable via `pnpm paperclipai plugin install @prep/paperclip-plugin`
+- Every Paperclip user sees Prep as an available enhancement
 
 ---
 
 ## 7. Open Questions
 
 1. **Plugin API stability** — The spec says "alpha, expect breaking changes." How much should we invest now vs. wait for beta? 
-2. **Project mapping** — How does a Paperclip project map to a CoDRAG project? Manual config? Auto-detect from git remote? 
->>> I wasn't envisioning accepting project maps, the plugin woule be mostly to use codrag mcp and send paperclip oricects to be accepted there.
-3. **Multi-project** — Paperclip companies can have many projects. CoDRAG can index many projects. How do we map N:M? 
+2. **Project mapping** — How does a Paperclip project map to a Prep project? Manual config? Auto-detect from git remote? 
+>>> I wasn't envisioning accepting project maps, the plugin woule be mostly to use prep mcp and send paperclip oricects to be accepted there.
+3. **Multi-project** — Paperclip companies can have many projects. Prep can index many projects. How do we map N:M? 
 >>> I don't know exacly -- I think we can somehow wxpose the list and enable (disabled by default, projects and we find some way to assicoae them th the other app) research more
-4. **Daemon dependency** — The plugin worker needs the CoDRAG daemon running. What's the UX when it's not available? 
+4. **Daemon dependency** — The plugin worker needs the Prep daemon running. What's the UX when it's not available? 
 >>> Um I dunno figure that out later.
-5. **Tool latency** — CoDRAG search/impact calls can take 1-5 seconds. Is that acceptable for agent tool calls in Paperclip's execution loop?
+5. **Tool latency** — Prep search/impact calls can take 1-5 seconds. Is that acceptable for agent tool calls in Paperclip's execution loop?
 >>> not ideal but it's fine

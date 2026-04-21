@@ -34,7 +34,7 @@ These are defaults to implement unless later superseded.
 - Preserve local-first invariants while allowing an optional “committed index” workflow.
 
 ### Directory layout (authoritative)
-In embedded mode, all repo-local CoDRAG artifacts live under:
+In embedded mode, all repo-local Prep artifacts live under:
 - `{project_root}/.prep/`
 
 Recommended layout:
@@ -62,7 +62,7 @@ Notes:
   - `.prep/index/**`
 
 Decision constraints:
-- CoDRAG must never auto-commit index artifacts.
+- Prep must never auto-commit index artifacts.
 - UI/CLI should provide explicit trade-off guidance (repo size/merge conflict pain vs onboarding speed).
 
 ### Compatibility and versioning behavior
@@ -71,7 +71,7 @@ Embedded mode must detect when a committed index is unusable.
 Minimum metadata requirements:
 - `manifest.json` MUST include:
   - `format_version` (integer)
-  - `codrag_version` (string)
+  - `prep_version` (string)
   - `embedding_model` (string)
 
 Compatibility rules:
@@ -170,14 +170,14 @@ Primary risks to mitigate:
 2. Teammate:
   - clone repo
   - add project in embedded mode
-  - CoDRAG detects existing embedded index
+  - Prep detects existing embedded index
   - if compatible + not conflicted: search is immediately available
   - otherwise: show status + offer full rebuild
 
 ### Flow B: Embedded mode without committed index (policy-only)
 1. Team lead commits only `.prep/team_config.json`
 2. Teammate clones repo and adds project
-3. CoDRAG applies team policy baseline
+3. Prep applies team policy baseline
 4. Build is required (but consistent across teammates)
 
 ### Flow C: Network mode (shared server) (post-MVP implementation)
@@ -192,9 +192,9 @@ Dashboard:
 - “Rebuild” action for incompatible/conflicted/corrupted
 
 CLI:
-- `codrag add <path> --embedded`
-- `codrag config export --team`
-- `codrag config validate --team-config <path>`
+- `prep add <path> --embedded`
+- `prep config export --team`
+- `prep config validate --team-config <path>`
 
 ---
 

@@ -19,7 +19,7 @@ A **Dual-Model Swarm** mixed strategy allocates cheaper models to the high-volum
 To support dual-model swarms, the pipeline needs to decouple the unified `STAGE_MODEL_SLOT` concept during swarm execution. 
 
 ### Current State
-`src/codrag/services/pipeline/stages.py` defines:
+`src/prep/services/pipeline/stages.py` defines:
 ```python
 STAGE_MODEL_SLOT: Dict[StageId, Optional[str]] = {
     StageId.GROUP_REASONING: "large",
@@ -38,7 +38,7 @@ The `SwarmOrchestrator` needs access to two distinct models.
 
 Users need control over this optimization, as mixing models might not be desired in all environments (e.g., local Ollama deployments where loading a second model into VRAM causes swapping).
 
-**New Pipeline Settings (`codrag_settings.db`)**:
+**New Pipeline Settings (`prep_settings.db`)**:
 - `swarm_enabled` (bool, default `true`): The existing master toggle.
 - `swarm_dual_model` (bool, default `true`): Enable mixed-model routing. If false, uses the stage's primary model for both roles.
 
@@ -61,7 +61,7 @@ Modify `swarm_models.json` and `swarm_registry.py` to understand explicit pairin
 ```
 
 ### Step 2: Orchestrator Factory Modification
-Update `src/codrag/core/swarm_orchestrator.py` to accept `coordinator_llm` and `worker_llm` separately.
+Update `src/prep/core/swarm_orchestrator.py` to accept `coordinator_llm` and `worker_llm` separately.
 
 ```python
 class SwarmOrchestrator:

@@ -2,7 +2,7 @@
 
 ## The shape of the idea
 
-Today, the CoDRAG enrichment pipeline is a tiered LLM system:
+Today, the Prep enrichment pipeline is a tiered LLM system:
 
 - **Workers** — small fast models doing narrow tasks in parallel
   (Kimi reasoning on code snippets, embedding models running locally).
@@ -40,7 +40,7 @@ A successful Phase 116 deployment, post-launch, looks like:
    ~20% — otherwise users stop trusting the signal.
 3. **Stays in budget.** Opus cost per run remains a single-digit % of
    pipeline cost. Sparse means sparse.
-4. **Ships as a story.** "CoDRAG escalates to a smarter model when its own
+4. **Ships as a story.** "Prep escalates to a smarter model when its own
    reasoning is shaky" is a differentiator worth demoing — only competitors
    doing anything similar in public are Aider (architect mode) and some
    gated-escalation startups. Most agents still run flat.
@@ -82,7 +82,7 @@ Council, Reviewer, Arbiter, Inspector. Each carries connotations:
 - **Sage / Council** — advisory, softer, less authoritarian
 - **Admin / Overlord** — authoritative but too top-down for a *sparse*
   reviewer
-- **Auditor** — collides with existing `codrag_audit` tool; avoid.
+- **Auditor** — collides with existing `prep_audit` tool; avoid.
 
 Decision deferred. `strategic-oversight` is the current *phase* name, not the
 *feature* name.

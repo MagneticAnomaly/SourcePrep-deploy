@@ -17,12 +17,12 @@
 ### Backend — Modified
 | File | Responsibility |
 |------|---------------|
-| `src/codrag/services/pipeline/stages.py` | Stage enum, group constants, all mapping dicts |
-| `src/codrag/services/pipeline/workers.py` | Worker factory + worker functions (add 4 new workers) |
-| `src/codrag/services/build_orchestrator.py` | BuildType enum (add 4 new types) |
-| `src/codrag/services/pipeline/orchestrator.py` | 3-group state machine, wave-based Finalize dispatch, chaining |
-| `src/codrag/services/pipeline/post_flight.py` | Remove logic now handled by Finalize stages |
-| `src/codrag/api/routers/pipeline.py` | API endpoints for 3-group model, status response |
+| `src/prep/services/pipeline/stages.py` | Stage enum, group constants, all mapping dicts |
+| `src/prep/services/pipeline/workers.py` | Worker factory + worker functions (add 4 new workers) |
+| `src/prep/services/build_orchestrator.py` | BuildType enum (add 4 new types) |
+| `src/prep/services/pipeline/orchestrator.py` | 3-group state machine, wave-based Finalize dispatch, chaining |
+| `src/prep/services/pipeline/post_flight.py` | Remove logic now handled by Finalize stages |
+| `src/prep/api/routers/pipeline.py` | API endpoints for 3-group model, status response |
 
 ### Frontend — Modified
 | File | Responsibility |
@@ -41,8 +41,8 @@
 ## Task 1: Update Stage Definitions and Group Constants
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/stages.py:12-57` (StageId enum, group lists)
-- Modify: `src/codrag/services/build_orchestrator.py:59-71` (BuildType enum)
+- Modify: `src/prep/services/pipeline/stages.py:12-57` (StageId enum, group lists)
+- Modify: `src/prep/services/build_orchestrator.py:59-71` (BuildType enum)
 - Test: `tests/test_pipeline_orchestrator.py:60-74`
 
 - [ ] **Step 1: Write failing tests for the new 3-group model**
@@ -73,7 +73,7 @@ def test_all_15_stages_have_build_type_mapping():
 Also update the imports at line 22-28 — replace `DEEP_ENRICHMENT_STAGES` with `ENRICH_STAGES` and add `FINALIZE_STAGES`:
 
 ```python
-from codrag.services.pipeline_orchestrator import (
+from prep.services.pipeline_orchestrator import (
     ENRICH_STAGES,
     FAST_SYNC_STAGES,
     FINALIZE_STAGES,
@@ -92,7 +92,7 @@ Expected: ImportError — `ENRICH_STAGES` and `FINALIZE_STAGES` don't exist yet.
 
 - [ ] **Step 3: Add new BuildType variants**
 
-In `src/codrag/services/build_orchestrator.py`, add 4 new members to the `BuildType` enum (after line 71):
+In `src/prep/services/build_orchestrator.py`, add 4 new members to the `BuildType` enum (after line 71):
 
 ```python
 class BuildType(str, enum.Enum):
@@ -117,7 +117,7 @@ class BuildType(str, enum.Enum):
 
 - [ ] **Step 4: Update StageId enum and group constants**
 
-In `src/codrag/services/pipeline/stages.py`, update the `StageId` enum (lines 12-24). Keep all existing members, add 4 new ones, and reorder so Atlas is in the Finalize group:
+In `src/prep/services/pipeline/stages.py`, update the `StageId` enum (lines 12-24). Keep all existing members, add 4 new ones, and reorder so Atlas is in the Finalize group:
 
 ```python
 class StageId(str, enum.Enum):
@@ -275,7 +275,7 @@ Expected: PASS
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/stages.py src/codrag/services/build_orchestrator.py tests/test_pipeline_orchestrator.py
+git add src/prep/services/pipeline/stages.py src/prep/services/build_orchestrator.py tests/test_pipeline_orchestrator.py
 git commit -m "feat(P96): add 3x5 stage definitions — Sync, Enrich, Finalize
 
 Move Atlas from Enrich to Finalize group. Add RULES, CONCEPTS,
@@ -288,11 +288,11 @@ Add FINALIZE_WAVES for parallel dispatch within Finalize group."
 ## Task 2: Create Finalize Workers
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/workers.py:106-147` (factory dispatch), append new worker methods
-- Reference (read-only): `src/codrag/services/pipeline/post_flight.py:126-178, 300-344`
-- Reference (read-only): `src/codrag/core/concept_seeder.py:34`
-- Reference (read-only): `src/codrag/core/audit/runner.py:80`
-- Reference (read-only): `src/codrag/core/antibody_derivation.py:115`
+- Modify: `src/prep/services/pipeline/workers.py:106-147` (factory dispatch), append new worker methods
+- Reference (read-only): `src/prep/services/pipeline/post_flight.py:126-178, 300-344`
+- Reference (read-only): `src/prep/core/concept_seeder.py:34`
+- Reference (read-only): `src/prep/core/audit/runner.py:80`
+- Reference (read-only): `src/prep/core/antibody_derivation.py:115`
 
 - [ ] **Step 1: Add Rules worker**
 
@@ -303,11 +303,11 @@ Append to `workers.py` after the `_deepening_worker` method (after line ~792):
     def _rules_worker(project_id: str):
         """Generate/update IDE rules files (AGENTS.md, .cursor/, etc.)."""
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
-            from codrag.core.atlas import CodebaseAtlas
-            from codrag.core.project_registry import project_index_dir
-            from codrag.core.rules_generator import write_rules_file
-            from codrag.services.project_helpers import require_project
-            from codrag.services.manifest_store import ManifestStore
+            from prep.core.atlas import CodebaseAtlas
+            from prep.core.project_registry import project_index_dir
+            from prep.core.rules_generator import write_rules_file
+            from prep.services.project_helpers import require_project
+            from prep.services.manifest_store import ManifestStore
             from pathlib import Path
 
             project = require_project(project_id)
@@ -355,7 +355,7 @@ Append to `workers.py` after the `_deepening_worker` method (after line ~792):
             )
 
             log_cb("Writing atlas signal", 2, 3)
-            from codrag.services.pipeline.post_flight import PostFlightActions
+            from prep.services.pipeline.post_flight import PostFlightActions
             PostFlightActions.write_atlas_signal(idx_dir)
 
             log_cb("Done", 3, 3)
@@ -376,8 +376,8 @@ Append to `workers.py` after the `_deepening_worker` method (after line ~792):
     def _concepts_worker(project_id: str):
         """Seed concepts from atlas + modules + audit data."""
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
-            from codrag.core.concept_seeder import seed_concepts
-            from codrag.services.concept_store import concept_store
+            from prep.core.concept_seeder import seed_concepts
+            from prep.services.concept_store import concept_store
 
             log_cb = WorkerFactory._logged_progress("Concepts", progress_cb, "")
             _t0 = time.time()
@@ -424,9 +424,9 @@ Append to `workers.py` after the `_deepening_worker` method (after line ~792):
     def _audit_worker(project_id: str):
         """Run structural audit analyzers + LLM synthesis."""
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
-            from codrag.core.audit.runner import run_audit
-            from codrag.core.project_registry import project_index_dir
-            from codrag.services.project_helpers import require_project
+            from prep.core.audit.runner import run_audit
+            from prep.core.project_registry import project_index_dir
+            from prep.services.project_helpers import require_project
             from pathlib import Path
 
             project = require_project(project_id)
@@ -449,7 +449,7 @@ Append to `workers.py` after the `_deepening_worker` method (after line ~792):
             # Tier 2: LLM synthesis (built in by default per user decision)
             tier2_ok = False
             try:
-                from codrag.core.audit.synthesizer import AuditSynthesizer
+                from prep.core.audit.synthesizer import AuditSynthesizer
                 llm_client = WorkerFactory._get_llm_client_for_task("audit")
                 synth = AuditSynthesizer(llm_client)
                 log_cb("Running LLM synthesis", 1, 2)
@@ -477,9 +477,9 @@ Append to `workers.py` after the `_deepening_worker` method (after line ~792):
     def _antibodies_worker(project_id: str):
         """Derive immune system antibodies from concepts."""
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
-            from codrag.core.antibody_derivation import derive_antibodies_for_project
-            from codrag.services.antibody_store import antibody_store
-            from codrag.services.concept_store import concept_store
+            from prep.core.antibody_derivation import derive_antibodies_for_project
+            from prep.services.antibody_store import antibody_store
+            from prep.services.concept_store import concept_store
 
             log_cb = WorkerFactory._logged_progress("Antibodies", progress_cb, "")
             _t0 = time.time()
@@ -542,7 +542,7 @@ Expected: Existing tests pass (new stages don't break old ones).
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/workers.py
+git add src/prep/services/pipeline/workers.py
 git commit -m "feat(P96): add Finalize workers — Rules, Concepts, Audit, Antibodies
 
 Each worker wraps existing logic (rules_generator, concept_seeder,
@@ -555,8 +555,8 @@ Audit includes Tier 2 LLM synthesis by default."
 ## Task 3: Update Orchestrator for 3-Group Model
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/orchestrator.py` (multiple locations)
-- Modify: `src/codrag/services/pipeline/post_flight.py:126-178, 300-344`
+- Modify: `src/prep/services/pipeline/orchestrator.py` (multiple locations)
+- Modify: `src/prep/services/pipeline/post_flight.py:126-178, 300-344`
 - Test: `tests/test_pipeline_orchestrator.py`
 
 This is the largest task. It touches the orchestrator's group management, chaining logic, and post-flight cleanup.
@@ -572,9 +572,9 @@ class TestFinalize:
     def test_run_finalize_starts_atlas(self, pipeline, orchestrator):
         """Finalize group should start with Atlas stage."""
         with patch.multiple(
-            "codrag.services.pipeline.orchestrator",
+            "prep.services.pipeline.orchestrator",
             WorkerFactory=MagicMock(create_worker=MagicMock(return_value=_instant_worker)),
-        ), patch("codrag.services.pipeline.orchestrator.PipelineOrchestrator._detect_resume_point", return_value=0):
+        ), patch("prep.services.pipeline.orchestrator.PipelineOrchestrator._detect_resume_point", return_value=0):
             started = pipeline.run_finalize("test-proj")
             assert started
 
@@ -693,7 +693,7 @@ Add the auto-check method (alongside `_is_deep_enrichment_auto`, near line 1193)
     def _is_finalize_auto(project_id: str) -> bool:
         """Check if finalize should auto-chain after enrich."""
         try:
-            from codrag.services.settings_store import settings
+            from prep.services.settings_store import settings
             config = settings.get("pipeline_config") or {}
             fin_mode = (config.get("finalize") or {}).get("mode", "manual")
             # Also auto-chain if enrich is auto (user expects full pipeline)
@@ -757,7 +757,7 @@ Expected: All tests pass including new TestFinalize.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/orchestrator.py src/codrag/services/pipeline/post_flight.py tests/test_pipeline_orchestrator.py
+git add src/prep/services/pipeline/orchestrator.py src/prep/services/pipeline/post_flight.py tests/test_pipeline_orchestrator.py
 git commit -m "feat(P96): wire Finalize group into orchestrator
 
 Add run_finalize() with enrich→finalize chaining. Remove post-flight
@@ -770,7 +770,7 @@ Keep CodeIndex rebuild and deepening retrigger as post-Enrich actions."
 ## Task 4: Update Pipeline API for 3-Group Model
 
 **Files:**
-- Modify: `src/codrag/api/routers/pipeline.py:46-70` (request models), status endpoint
+- Modify: `src/prep/api/routers/pipeline.py:46-70` (request models), status endpoint
 - Test: manual API test (curl)
 
 - [ ] **Step 1: Update request models to accept "finalize"**
@@ -799,7 +799,7 @@ After the existing `/pipeline/deep` endpoint, add:
 @router.post("/projects/{project_id}/pipeline/finalize")
 async def run_finalize(project_id: str):
     """Run Finalize group (stages 11-15): Atlas, Rules, Concepts, Audit, Antibodies."""
-    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    from prep.services.pipeline_orchestrator import pipeline_orchestrator
     started = pipeline_orchestrator.run_finalize(project_id)
     return ok({"started": started})
 ```
@@ -830,7 +830,7 @@ rules_status = {
 
 # Concepts status
 try:
-    from codrag.services.concept_store import concept_store
+    from prep.services.concept_store import concept_store
     concept_stats = concept_store.get_stats(project_id)
     concepts_status = {"seeded": concept_stats["total"] > 0, "count": concept_stats["total"]}
 except Exception:
@@ -848,7 +848,7 @@ if audit_path.exists():
 
 # Antibodies status
 try:
-    from codrag.services.antibody_store import antibody_store
+    from prep.services.antibody_store import antibody_store
     ab_list = antibody_store.list_antibodies(project_id)
     antibodies_status = {"count": len(ab_list)}
 except Exception:
@@ -862,7 +862,7 @@ The `/pipeline/all` endpoint should already chain through via orchestrator's `ru
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/api/routers/pipeline.py
+git add src/prep/api/routers/pipeline.py
 git commit -m "feat(P96): extend pipeline API for 3-group model
 
 Add /pipeline/finalize endpoint. Update status response with finalize
@@ -1157,7 +1157,7 @@ In `tests/test_pipeline_orchestrator.py`, verify the backward-compat alias works
 ```python
 def test_backward_compat_aliases():
     """DEEP_ENRICHMENT_STAGES alias still works."""
-    from codrag.services.pipeline.stages import DEEP_ENRICHMENT_STAGES, ENRICH_STAGES
+    from prep.services.pipeline.stages import DEEP_ENRICHMENT_STAGES, ENRICH_STAGES
     assert DEEP_ENRICHMENT_STAGES is ENRICH_STAGES
 ```
 
@@ -1188,7 +1188,7 @@ DEEP_ENRICHMENT_STAGES alias still works."
 ## Task 8: Wire Dashboard to Finalize API
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/App.tsx` or wherever the dashboard calls pipeline APIs and passes status to the GraphEnrichmentPipeline component
+- Modify: `src/prep/dashboard/src/App.tsx` or wherever the dashboard calls pipeline APIs and passes status to the GraphEnrichmentPipeline component
 
 This task connects the plumbing: the dashboard fetches the finalize group status from the API and passes it as props to the pipeline component.
 
@@ -1236,7 +1236,7 @@ const antibodiesStatus = status?.stages?.antibodies;
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/dashboard/
+git add src/prep/dashboard/
 git commit -m "feat(P96): wire dashboard to Finalize pipeline API
 
 Pass finalize status and controls to GraphEnrichmentPipeline component."

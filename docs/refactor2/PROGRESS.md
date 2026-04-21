@@ -6,7 +6,7 @@
 | Item | Status | Notes |
 |------|--------|-------|
 | GAP-1: LLMClient → llm_client.py | ✅ DONE | 461 lines, re-exports in augmenter.py |
-| GAP-3: query preprocessing → core/query.py | ✅ DONE | projects.py imports from codrag.core.query |
+| GAP-3: query preprocessing → core/query.py | ✅ DONE | projects.py imports from prep.core.query |
 | GAP-9: _get_project_globs() utility | ✅ DONE | Already exists in projects.py |
 
 ## Phase 0: Quick Wins (Gaps)

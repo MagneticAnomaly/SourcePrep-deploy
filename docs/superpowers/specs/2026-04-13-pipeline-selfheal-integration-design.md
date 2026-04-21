@@ -40,7 +40,7 @@ Meanwhile, the backup system (golden checkpoints, run checkpoints, branch snapsh
 
 **Location:** Core logic in `recovery.py` as `RecoveryManager.selfheal_group()`, called from orchestrator wrapper `_selfheal_group()`.
 
-**Dev flag:** `CODRAG_SELFHEAL=0` environment variable disables selfheal. Checked at the top of `_selfheal_group()` — if set, log that selfheal is disabled and return immediately. Default is enabled.
+**Dev flag:** `PREP_SELFHEAL=0` environment variable disables selfheal. Checked at the top of `_selfheal_group()` — if set, log that selfheal is disabled and return immediately. Default is enabled.
 
 **Algorithm:**
 
@@ -145,16 +145,16 @@ Fast Sync triggers (file change or Run click)
 
 | File | Change |
 |------|--------|
-| `src/codrag/services/pipeline/orchestrator.py` | Add `_selfheal_group()` wrapper method. Remove priority inversion guard (lines 483-498). Call selfheal pre-flight in `run_fast_sync()`, `run_deep_enrichment()`, `run_finalize()`. Call selfheal in `startup_recovery()` for all active projects. |
-| `src/codrag/services/pipeline/recovery.py` | Add `selfheal_group()` static method with resurrection logic: manifest scan, backup lookup (golden → run checkpoints → branch snapshots), file copy, stub manifest write. |
-| `src/codrag/services/pipeline/resume.py` | No changes expected — `detect_resume_point()` already handles stub manifests correctly. |
-| `src/codrag/services/pipeline/stages.py` | No changes — `STAGE_OUTPUT_FILE` and `STAGE_MANIFEST_FILE` mappings already exist. |
+| `src/prep/services/pipeline/orchestrator.py` | Add `_selfheal_group()` wrapper method. Remove priority inversion guard (lines 483-498). Call selfheal pre-flight in `run_fast_sync()`, `run_deep_enrichment()`, `run_finalize()`. Call selfheal in `startup_recovery()` for all active projects. |
+| `src/prep/services/pipeline/recovery.py` | Add `selfheal_group()` static method with resurrection logic: manifest scan, backup lookup (golden → run checkpoints → branch snapshots), file copy, stub manifest write. |
+| `src/prep/services/pipeline/resume.py` | No changes expected — `detect_resume_point()` already handles stub manifests correctly. |
+| `src/prep/services/pipeline/stages.py` | No changes — `STAGE_OUTPUT_FILE` and `STAGE_MANIFEST_FILE` mappings already exist. |
 
 ## Testing
 
 - **Unit test:** `selfheal_group()` with mocked checkpoint directories — verify resurrection priority, safety rules, stub manifest format
-- **Unit test:** Verify selfheal skipped when `CODRAG_SELFHEAL=0`
+- **Unit test:** Verify selfheal skipped when `PREP_SELFHEAL=0`
 - **Unit test:** Verify selfheal skipped when `force_from_start=True`
 - **Integration test:** Swiss cheese state (stages 5, 9, 10, 12-15 missing) with golden checkpoint containing data for some stages — verify partial resurrection + correct resume point
 - **Integration test:** Priority inversion guard removed — verify chain-forward works through incomplete deep enrichment
-- **Dev testing:** Run pipeline with `CODRAG_SELFHEAL=0`, pause mid-build, restart daemon, verify raw resume behavior without backup resurrection
+- **Dev testing:** Run pipeline with `PREP_SELFHEAL=0`, pause mid-build, restart daemon, verify raw resume behavior without backup resurrection

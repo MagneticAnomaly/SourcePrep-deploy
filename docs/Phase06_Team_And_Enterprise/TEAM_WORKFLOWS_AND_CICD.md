@@ -1,18 +1,18 @@
 # Team Workflows, CI/CD, and Local Constraints
 
 *Status: Architecture & Workflow Design*
-*Focus: How CoDRAG fits into a multi-developer team environment.*
+*Focus: How Prep fits into a multi-developer team environment.*
 
 ## 1. The "Heavy Cloud, Light Local" Workflow
 
-The fundamental problem CoDRAG Teams solves is the compute burden. A high-quality trace graph requires deep epistemic enrichment (Stage 5) and group reasoning (Stage 6), which demand large models (35B+ parameters or Claude-tier reasoning). 
+The fundamental problem Prep Teams solves is the compute burden. A high-quality trace graph requires deep epistemic enrichment (Stage 5) and group reasoning (Stage 6), which demand large models (35B+ parameters or Claude-tier reasoning). 
 **Most developers do not have 32GB+ RAM laptops.**
 
 Therefore, the team workflow must shift the heavy lifting to the cloud/CI, leaving only lightweight tasks for the local machine.
 
 ### The Pipeline Split
 
-CoDRAG's 8-stage pipeline naturally splits between CI/CD and Local Developer environments:
+Prep's 8-stage pipeline naturally splits between CI/CD and Local Developer environments:
 
 **Executed in CI/CD (The "Heavy" Sync):**
 1. **Structural Graph:** Parsed from AST.
@@ -26,7 +26,7 @@ CoDRAG's 8-stage pipeline naturally splits between CI/CD and Local Developer env
 
 **Executed Locally (The "Light" Delta):**
 - **Download:** The developer's desktop app downloads the pre-built artifacts (SQLite, JSONL, embeddings) from S3/R2 on startup.
-- **Delta Watcher:** As the developer edits files, the local CoDRAG daemon only processes the *changed* files.
+- **Delta Watcher:** As the developer edits files, the local Prep daemon only processes the *changed* files.
 - **Local Model Usage:** Because it's only processing 1-5 files at a time, the local machine can use a small, fast model (e.g., `qwen3.5:9b`, or `qwen-coder-next`) or simply route to a cloud API for those few files. The heavy batch processing of 1,000+ files was already done in CI.
 
 ## 2. Who Picks the Model? (Configuration Governance)
@@ -40,7 +40,7 @@ The Team Lead configures the `.prep/team_config.json` file, which is committed t
 - **Prompt Standards:** Custom instructions or specific context rules for the team's codebase.
 
 ### The Local Developer (User)
-The developer's local CoDRAG app respects the team configuration but retains flexibility for their local environment:
+The developer's local Prep app respects the team configuration but retains flexibility for their local environment:
 - **Local API Key / Local Hardware:** The developer configures their own local `ComputeNode`. If they have a Mac Studio, they might map their local delta processing to a local 35B model. If they have a basic MacBook Air, they might map it to an Anthropic API key provided by the company.
 - **Restriction:** They cannot change the architecture of the shared remote index; they only control how their local app calculates deltas and handles search queries.
 
@@ -55,10 +55,10 @@ How does a startup or mid-market software company actually implement this?
 - **Storage:** Cloudflare R2 (S3 compatible, zero egress fees).
 - **Workflow:** 
   1. PR merged to `main`.
-  2. GitHub Action runs `ghcr.io/ericbintner/codrag-headless:cpu`.
+  2. GitHub Action runs `ghcr.io/ericbintner/prep-headless:cpu`.
   3. Action passes `ANTHROPIC_API_KEY` via GitHub Secrets.
-  4. CoDRAG processes the diff, updates the graph using Claude, and pushes to R2.
-  5. Devs pull from R2 automatically via the CoDRAG desktop app.
+  4. Prep processes the diff, updates the graph using Claude, and pushes to R2.
+  5. Devs pull from R2 automatically via the Prep desktop app.
 
 ### Scenario B: The Regulated Enterprise (On-Prem / VPC)
 - **Code Host:** GitLab Self-Managed.
@@ -67,7 +67,7 @@ How does a startup or mid-market software company actually implement this?
 - **Storage:** Internal AWS S3 Bucket.
 - **Workflow:** 
   1. Merge to `develop`.
-  2. GitLab CI triggers an ECS task running `codrag-headless:gpu`.
+  2. GitLab CI triggers an ECS task running `prep-headless:gpu`.
   3. Task runs local Ollama or calls Bedrock entirely within the VPC.
   4. Pushes artifacts to S3.
   5. Developers' laptops (on corporate VPN) pull the index from S3.
@@ -83,5 +83,5 @@ How does a startup or mid-market software company actually implement this?
 
 To properly support B2B teams:
 1. **Promote the CPU + API Workflow:** Update deployment documentation to feature the GitHub Actions + Claude/OpenAI workflow as the "Golden Path" for Teams.
-2. **De-emphasize local 35B requirements:** Explicitly market that CoDRAG Team Sync means developers can use CoDRAG on 16GB laptops because the CI server does the 35B/Claude heavy lifting.
-3. **API Key Management:** Ensure the AI Gateway in the CoDRAG UI easily allows Team users to input a corporate API key just for their local delta computations, bypassing local VRAM limits entirely.
+2. **De-emphasize local 35B requirements:** Explicitly market that Prep Team Sync means developers can use Prep on 16GB laptops because the CI server does the 35B/Claude heavy lifting.
+3. **API Key Management:** Ensure the AI Gateway in the Prep UI easily allows Team users to input a corporate API key just for their local delta computations, bypassing local VRAM limits entirely.

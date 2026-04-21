@@ -2,7 +2,7 @@
 
 ## Purpose
 This document turns Phase 10/11 research into a concrete v0 website + docs wireframe that supports:
-- A0-J1 (Evaluate CoDRAG and decide to try it)
+- A0-J1 (Evaluate Prep and decide to try it)
 - A0-J2 (Download, upgrade, and recover)
 
 Reference journeys and boundaries:
@@ -22,7 +22,7 @@ The site should have 2 primary paths:
 Secondary CTAs:
 - “How it works”
 - “Security & Privacy”
-- “Using CoDRAG with Cursor/Windsurf via MCP”
+- “Using Prep with Cursor/Windsurf via MCP”
 
 ## Website IA (v0 placeholder)
 
@@ -93,15 +93,15 @@ Sections:
 - `/enterprise` (roadmap + posture + “talk to us”)
 
 ## Support IA (v0)
-Hosted at `codrag.io/contact` (formerly `support.codrag.io`).
+Hosted at `runprep.io/contact` (formerly `support.runprep.io`).
 
 Primary entry options:
 - Community Support (GitHub Discussions)
-- Private Inquiries (Email support@codrag.io)
+- Private Inquiries (Email support@runprep.io)
 - Self-service links (Docs, Pricing, Privacy)
 
 ## Payments IA (v0)
-Hosted at `payments.codrag.io`.
+Hosted at `payments.runprep.io`.
 
 V0 payments surfaces:
 - Purchase / checkout entry (redirect to hosted checkout)
@@ -109,10 +109,10 @@ V0 payments surfaces:
 - License recovery (resend key / receipt lookup)
 
 ## Docs IA (v0 scaffold)
-Hosted at `docs.codrag.io`.
+Hosted at `docs.runprep.io`.
 
 ### Getting Started
-- What is CoDRAG?
+- What is Prep?
 - Installation
   - macOS
   - Windows
@@ -131,7 +131,7 @@ Hosted at `docs.codrag.io`.
 
 ### Guides
 - Indexing a repo (include/exclude)
-- Using CoDRAG with Cursor/Windsurf via MCP (Phase05 scaffold)
+- Using Prep with Cursor/Windsurf via MCP (Phase05 scaffold)
 - “Why is it wrong?” (debugging stale/wrong results)
 
 ### Reference

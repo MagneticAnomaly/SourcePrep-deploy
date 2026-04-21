@@ -1,7 +1,7 @@
 # Phase 03 — Auto-Rebuild
 
 ## Problem statement
-Manual rebuilds don’t scale: indexes become stale quickly, and users lose trust when search results don’t reflect recent changes. CoDRAG needs a predictable, low-noise way to keep indexes fresh with bounded compute.
+Manual rebuilds don’t scale: indexes become stale quickly, and users lose trust when search results don’t reflect recent changes. Prep needs a predictable, low-noise way to keep indexes fresh with bounded compute.
 
 ## Goal
 Make indexing maintain itself via file watching + incremental rebuild.
@@ -72,14 +72,14 @@ Defaults:
 
 Behavior:
 - The debounce timer resets whenever a new relevant change is observed.
-- When the timer elapses, CoDRAG triggers an incremental build.
+- When the timer elapses, Prep triggers an incremental build.
 - If a build is already running:
   - Do not start a second build.
   - Mark the project as “pending rebuild” and trigger a follow-up build after the current build completes (subject to debounce).
 
 Batching semantics:
 - The rebuild request should include the set of changed paths observed during the debounce window.
-- CoDRAG should treat the changed set as advisory; the incremental builder remains authoritative (hash-based).
+- Prep should treat the changed set as advisory; the incremental builder remains authoritative (hash-based).
 
 Storm protection:
 - Impose a minimum gap between rebuilds (e.g., 2–5s) even if changes are continuous.
@@ -136,12 +136,12 @@ Rules:
 
 On daemon startup:
 - Watchers start for projects that have auto-rebuild enabled.
-- CoDRAG performs a lightweight scan (or relies on manifest) to detect staleness.
+- Prep performs a lightweight scan (or relies on manifest) to detect staleness.
 
 Persisted “pending changes”:
 - If the daemon restarts while changes are pending:
   - The project should be marked stale.
-  - CoDRAG may trigger a rebuild on startup if configured.
+  - Prep may trigger a rebuild on startup if configured.
 
 ### UX signals (Dashboard)
 
@@ -202,7 +202,7 @@ Allowed `state` values:
 
 ## Open questions
 - Watch implementation: polling vs OS events (cross-platform behavior)
-- How to persist “pending changes” state when CoDRAG restarts
+- How to persist “pending changes” state when Prep restarts
 - How to avoid rebuild loops when build outputs are inside watched paths (embedded mode)
 
 ## Risks

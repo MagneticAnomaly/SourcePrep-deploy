@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ═══════════════════════════════════════════════════════════════════
-# CoDRAG Overnight Build & Test Suite
+# Prep Overnight Build & Test Suite
 # ═══════════════════════════════════════════════════════════════════
 # Run this unattended overnight. Logs everything to overnight_results/
 #
@@ -62,7 +62,7 @@ done
 mkdir -p "$RESULTS_DIR"
 SUMMARY="$RESULTS_DIR/SUMMARY.txt"
 
-echo "CoDRAG Overnight Build — $(date)" | tee "$SUMMARY"
+echo "Prep Overnight Build — $(date)" | tee "$SUMMARY"
 echo "======================================" | tee -a "$SUMMARY"
 echo "" | tee -a "$SUMMARY"
 
@@ -112,7 +112,7 @@ skip_stage() {
 run_stage "python-tests" "$PYTHON" -m pytest "$REPO_ROOT/tests" -v --tb=short -q
 
 # ── Stage 2: TypeScript Type Check ───────────────────────────────
-run_stage "ts-typecheck" "$REPO_ROOT/node_modules/.bin/tsc" -p "$REPO_ROOT/src/codrag/dashboard/tsconfig.json" --noEmit
+run_stage "ts-typecheck" "$REPO_ROOT/node_modules/.bin/tsc" -p "$REPO_ROOT/src/prep/dashboard/tsconfig.json" --noEmit
 
 # ── Stage 3: Rust Engine Wheel ───────────────────────────────────
 run_stage "engine-wheel" bash -c "cd '$REPO_ROOT/engine' && \"$MATURIN\" build --release"
@@ -140,14 +140,14 @@ run_stage "sidecar-build" bash "$REPO_ROOT/scripts/build_sidecar.sh"
 # Run on each package that has a package-lock.json
 run_stage "npm-audit-root" bash -c "cd '$REPO_ROOT' && npm audit --omit=dev 2>&1 || true"
 run_stage "npm-audit-ui" bash -c "cd '$REPO_ROOT/packages/ui' && npm audit --omit=dev 2>&1 || true"
-run_stage "npm-audit-mcp" bash -c "cd '$REPO_ROOT/public/codrag-mcp' && npm audit --omit=dev 2>&1 || true"
+run_stage "npm-audit-mcp" bash -c "cd '$REPO_ROOT/public/prep-mcp' && npm audit --omit=dev 2>&1 || true"
 
 # ── Stage 8: Tauri App Build ────────────────────────────────────
 if [ "$SKIP_TAURI" = true ]; then
   skip_stage "tauri-build"
 else
   # Tauri build exits 0 even with signing warnings - check for actual build artifacts
-  run_stage "tauri-build" bash -c "cd '$REPO_ROOT/src/codrag/dashboard' && npx tauri build 2>&1 && ls -la src-tauri/target/release/bundle/macos/CoDRAG.app 2>/dev/null || ls -la src-tauri/target/release/bundle/dmg/*.dmg 2>/dev/null"
+  run_stage "tauri-build" bash -c "cd '$REPO_ROOT/src/prep/dashboard' && npx tauri build 2>&1 && ls -la src-tauri/target/release/bundle/macos/Prep.app 2>/dev/null || ls -la src-tauri/target/release/bundle/dmg/*.dmg 2>/dev/null"
 fi
 
 # ── Summary ─────────────────────────────────────────────────────

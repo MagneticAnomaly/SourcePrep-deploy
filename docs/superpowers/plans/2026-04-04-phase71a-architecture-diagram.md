@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build an interactive, layered architecture diagram for the CoDRAG dashboard that visualizes module structure, file dependencies, and user annotations using React Flow.
+**Goal:** Build an interactive, layered architecture diagram for the Prep dashboard that visualizes module structure, file dependencies, and user annotations using React Flow.
 
 **Architecture:** Backend composes a read-only architecture graph from existing trace graph + module synthesis data, served via a new `/architecture` router. Frontend renders it as an interactive React Flow canvas inside the standard panel/detail-overlay pattern. Layout positions and user notes persist to the project's index directory via the API.
 
@@ -22,8 +22,8 @@ This plan covers **Phase A only** — the core diagram with layered drill-down, 
 
 | File | Responsibility |
 |------|---------------|
-| `src/codrag/api/routers/architecture.py` | REST endpoints: graph composition, notes CRUD, layout persistence, summary |
-| `src/codrag/core/architecture_state.py` | Read/write architecture state (layouts, notes) from project index dir |
+| `src/prep/api/routers/architecture.py` | REST endpoints: graph composition, notes CRUD, layout persistence, summary |
+| `src/prep/core/architecture_state.py` | Read/write architecture state (layouts, notes) from project index dir |
 | `tests/test_architecture_router.py` | Backend endpoint tests |
 | `tests/test_architecture_state.py` | Architecture state persistence tests |
 
@@ -40,7 +40,7 @@ This plan covers **Phase A only** — the core diagram with layered drill-down, 
 | `packages/ui/src/components/architecture/ArchitectureDiagramPanel.tsx` | Overview card for dashboard grid |
 | `packages/ui/src/components/architecture/ArchitectureDiagramDetail.tsx` | Fullscreen overlay with React Flow canvas, toolbar, sidebar, breadcrumb |
 | `packages/ui/src/components/architecture/index.ts` | Barrel exports |
-| `src/codrag/dashboard/src/hooks/useArchitectureSystem.ts` | Dashboard hook: fetch, state, layout save, notes CRUD |
+| `src/prep/dashboard/src/hooks/useArchitectureSystem.ts` | Dashboard hook: fetch, state, layout save, notes CRUD |
 
 ### Modified Files (5 files)
 
@@ -50,14 +50,14 @@ This plan covers **Phase A only** — the core diagram with layered drill-down, 
 | `packages/ui/src/config/panelRegistry.ts` | Add `architecture` panel definition |
 | `packages/ui/src/index.ts` | Export architecture components and types |
 | `packages/ui/src/api/client.ts` | Add architecture API methods |
-| `src/codrag/server.py` | Register architecture router |
+| `src/prep/server.py` | Register architecture router |
 
 ### Files NOT modified (wiring deferred)
 
 | File | Why deferred |
 |------|-------------|
-| `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx` | This 1100+ line file wires all panels. Adding architecture wiring here is a mechanical step that depends on all components being built first. It's the final integration task. |
-| `src/codrag/mcp/server.py` | MCP context injection is Phase A's last deliverable and depends on the backend being complete. |
+| `src/prep/dashboard/src/hooks/useDashboardPanels.tsx` | This 1100+ line file wires all panels. Adding architecture wiring here is a mechanical step that depends on all components being built first. It's the final integration task. |
+| `src/prep/mcp/server.py` | MCP context injection is Phase A's last deliverable and depends on the backend being complete. |
 
 ---
 
@@ -69,14 +69,14 @@ This plan covers **Phase A only** — the core diagram with layered drill-down, 
 - [ ] **Step 1: Install React Flow and ELK.js**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui
+cd /Volumes/4TB-BAD/HumanAI/Prep/packages/ui
 npm install @xyflow/react@^12 elkjs@^0.9
 ```
 
 - [ ] **Step 2: Verify installation**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui
+cd /Volumes/4TB-BAD/HumanAI/Prep/packages/ui
 node -e "require('@xyflow/react'); console.log('react-flow OK')"
 node -e "require('elkjs'); console.log('elkjs OK')"
 ```
@@ -296,7 +296,7 @@ export type {
 - [ ] **Step 3: Verify types compile**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui
+cd /Volumes/4TB-BAD/HumanAI/Prep/packages/ui
 npx tsc --noEmit --pretty 2>&1 | head -20
 ```
 
@@ -314,7 +314,7 @@ git commit -m "feat(ui): add architecture diagram TypeScript types"
 ## Task 3: Backend — Architecture State Persistence
 
 **Files:**
-- Create: `src/codrag/core/architecture_state.py`
+- Create: `src/prep/core/architecture_state.py`
 - Create: `tests/test_architecture_state.py`
 
 - [ ] **Step 1: Write tests for architecture state**
@@ -328,7 +328,7 @@ import json
 import pytest
 from pathlib import Path
 
-from codrag.core.architecture_state import ArchitectureState
+from prep.core.architecture_state import ArchitectureState
 
 
 @pytest.fixture
@@ -421,16 +421,16 @@ class TestNotes:
 - [ ] **Step 2: Run tests — verify they fail**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 .venv/bin/pytest tests/test_architecture_state.py -v 2>&1 | tail -20
 ```
 
-Expected: ImportError — `codrag.core.architecture_state` does not exist.
+Expected: ImportError — `prep.core.architecture_state` does not exist.
 
 - [ ] **Step 3: Implement ArchitectureState**
 
 ```python
-# src/codrag/core/architecture_state.py
+# src/prep/core/architecture_state.py
 """
 Architecture state persistence — Phase 71A
 
@@ -557,7 +557,7 @@ class ArchitectureState:
 - [ ] **Step 4: Run tests — verify they pass**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 .venv/bin/pytest tests/test_architecture_state.py -v
 ```
 
@@ -566,7 +566,7 @@ Expected: All 9 tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/architecture_state.py tests/test_architecture_state.py
+git add src/prep/core/architecture_state.py tests/test_architecture_state.py
 git commit -m "feat(core): add architecture state persistence for layouts and notes"
 ```
 
@@ -575,8 +575,8 @@ git commit -m "feat(core): add architecture state persistence for layouts and no
 ## Task 4: Backend — Architecture Router
 
 **Files:**
-- Create: `src/codrag/api/routers/architecture.py`
-- Modify: `src/codrag/server.py`
+- Create: `src/prep/api/routers/architecture.py`
+- Modify: `src/prep/server.py`
 - Create: `tests/test_architecture_router.py`
 
 - [ ] **Step 1: Write router tests**
@@ -598,7 +598,7 @@ from fastapi.testclient import TestClient
 def app():
     """Create a minimal FastAPI app with the architecture router."""
     from fastapi import FastAPI
-    from codrag.api.routers.architecture import router
+    from prep.api.routers.architecture import router
     app = FastAPI()
     app.include_router(router)
     return app
@@ -681,8 +681,8 @@ def mock_project(tmp_path):
 class TestGetArchitectureGraph:
     def test_returns_modules_and_edges(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.get(f"/projects/{proj.id}/architecture/graph")
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -693,8 +693,8 @@ class TestGetArchitectureGraph:
     def test_returns_empty_when_no_modules(self, client, mock_project):
         proj, idx_dir = mock_project
         (idx_dir / "trace_modules.jsonl").unlink()
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.get(f"/projects/{proj.id}/architecture/graph")
         data = resp.json()["data"]
         assert data["exists"] is False
@@ -704,8 +704,8 @@ class TestGetArchitectureGraph:
 class TestArchitectureSummary:
     def test_returns_summary(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.get(f"/projects/{proj.id}/architecture/summary")
         assert resp.status_code == 200
         data = resp.json()["data"]
@@ -715,8 +715,8 @@ class TestArchitectureSummary:
 class TestNotesEndpoints:
     def test_create_and_list_notes(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             # Create
             resp = client.post(
                 f"/projects/{proj.id}/architecture/notes",
@@ -732,8 +732,8 @@ class TestNotesEndpoints:
 
     def test_update_note(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.post(
                 f"/projects/{proj.id}/architecture/notes",
                 json={"node_id": "mod_auth", "content": "Draft", "note_type": "comment", "author": "user"},
@@ -748,8 +748,8 @@ class TestNotesEndpoints:
 
     def test_delete_note(self, client, mock_project):
         proj, idx_dir = mock_project
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.post(
                 f"/projects/{proj.id}/architecture/notes",
                 json={"node_id": "mod_auth", "content": "Temp", "note_type": "comment", "author": "user"},
@@ -776,8 +776,8 @@ class TestStatePersistence:
             },
             "module_overrides": {},
         }
-        with patch("codrag.api.routers.architecture._require_project", return_value=proj), \
-             patch("codrag.api.routers.architecture._project_index_dir", return_value=idx_dir):
+        with patch("prep.api.routers.architecture._require_project", return_value=proj), \
+             patch("prep.api.routers.architecture._project_index_dir", return_value=idx_dir):
             resp = client.put(f"/projects/{proj.id}/architecture/state", json=state)
             assert resp.status_code == 200
 
@@ -789,18 +789,18 @@ class TestStatePersistence:
 - [ ] **Step 2: Run tests — verify they fail**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 .venv/bin/pytest tests/test_architecture_router.py -v 2>&1 | tail -10
 ```
 
-Expected: ImportError — `codrag.api.routers.architecture` does not exist.
+Expected: ImportError — `prep.api.routers.architecture` does not exist.
 
 - [ ] **Step 3: Implement the architecture router**
 
 ```python
-# src/codrag/api/routers/architecture.py
+# src/prep/api/routers/architecture.py
 """
-CoDRAG Architecture Router — Phase 71A
+Prep Architecture Router — Phase 71A
 =======================================
 
 REST endpoints for the interactive architecture diagram.
@@ -826,7 +826,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from codrag.api.envelope import ApiException, ok
+from prep.api.envelope import ApiException, ok
 
 logger = logging.getLogger(__name__)
 
@@ -834,17 +834,17 @@ router = APIRouter(tags=["architecture"])
 
 
 def _require_project(project_id: str):
-    from codrag.server import _require_project as rp
+    from prep.server import _require_project as rp
     return rp(project_id)
 
 
 def _project_index_dir(proj) -> Path:
-    from codrag.core.project_registry import project_index_dir
+    from prep.core.project_registry import project_index_dir
     return project_index_dir(proj)
 
 
 def _get_arch_state(idx_dir: Path):
-    from codrag.core.architecture_state import ArchitectureState
+    from prep.core.architecture_state import ArchitectureState
     return ArchitectureState(idx_dir)
 
 
@@ -1162,10 +1162,10 @@ def delete_note(project_id: str, note_id: str) -> Dict[str, Any]:
 
 - [ ] **Step 4: Register the router in server.py**
 
-Add after line 565 in `src/codrag/server.py`:
+Add after line 565 in `src/prep/server.py`:
 
 ```python
-from codrag.api.routers.architecture import router as architecture_router
+from prep.api.routers.architecture import router as architecture_router
 ```
 
 Add after line 583:
@@ -1177,7 +1177,7 @@ app.include_router(architecture_router)
 - [ ] **Step 5: Run tests — verify they pass**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 .venv/bin/pytest tests/test_architecture_router.py -v
 ```
 
@@ -1186,7 +1186,7 @@ Expected: All tests pass.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/api/routers/architecture.py src/codrag/server.py tests/test_architecture_router.py
+git add src/prep/api/routers/architecture.py src/prep/server.py tests/test_architecture_router.py
 git commit -m "feat(api): add architecture graph, notes, and state endpoints"
 ```
 
@@ -1197,9 +1197,9 @@ git commit -m "feat(api): add architecture graph, notes, and state endpoints"
 **Files:**
 - Modify: `packages/ui/src/api/client.ts`
 
-- [ ] **Step 1: Add architecture methods to CodragApiClient**
+- [ ] **Step 1: Add architecture methods to PrepApiClient**
 
-Add these methods to the `CodragApiClient` class (after the existing endpoint methods, around line 600):
+Add these methods to the `PrepApiClient` class (after the existing endpoint methods, around line 600):
 
 ```typescript
 // ── Architecture (Phase 71) ────────────────────────────────────────
@@ -1272,7 +1272,7 @@ import type {
 - [ ] **Step 2: Verify types compile**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui
+cd /Volumes/4TB-BAD/HumanAI/Prep/packages/ui
 npx tsc --noEmit --pretty 2>&1 | head -20
 ```
 
@@ -1565,7 +1565,7 @@ export const DependencyEdge = memo(DependencyEdgeInner);
 - [ ] **Step 6: Verify types compile**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui
+cd /Volumes/4TB-BAD/HumanAI/Prep/packages/ui
 npx tsc --noEmit --pretty 2>&1 | head -30
 ```
 
@@ -2165,7 +2165,7 @@ export function ArchitectureDiagramDetail(props: ArchitectureDiagramDetailProps)
 - [ ] **Step 2: Verify types compile**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui
+cd /Volumes/4TB-BAD/HumanAI/Prep/packages/ui
 npx tsc --noEmit --pretty 2>&1 | head -30
 ```
 
@@ -2238,7 +2238,7 @@ export type { ArchitectureDiagramPanelProps, ArchitectureDiagramDetailProps } fr
 - [ ] **Step 4: Verify everything compiles**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui
+cd /Volumes/4TB-BAD/HumanAI/Prep/packages/ui
 npx tsc --noEmit --pretty 2>&1 | head -20
 ```
 
@@ -2258,14 +2258,14 @@ git commit -m "feat(ui): register architecture panel and export components"
 ## Task 10: useArchitectureSystem Hook
 
 **Files:**
-- Create: `src/codrag/dashboard/src/hooks/useArchitectureSystem.ts`
+- Create: `src/prep/dashboard/src/hooks/useArchitectureSystem.ts`
 
 This is the main dashboard hook that manages state, API calls, and persistence for the architecture diagram.
 
 - [ ] **Step 1: Create the hook**
 
 ```typescript
-// src/codrag/dashboard/src/hooks/useArchitectureSystem.ts
+// src/prep/dashboard/src/hooks/useArchitectureSystem.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApiClient } from '@prep/ui';
 import type {
@@ -2495,20 +2495,20 @@ export function useArchitectureSystem(
 - [ ] **Step 2: Verify types compile**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
-npx tsc --noEmit --project src/codrag/dashboard/tsconfig.json 2>&1 | head -20
+cd /Volumes/4TB-BAD/HumanAI/Prep
+npx tsc --noEmit --project src/prep/dashboard/tsconfig.json 2>&1 | head -20
 ```
 
 If the dashboard doesn't have its own tsconfig, try:
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 npm run typecheck 2>&1 | head -40
 ```
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/hooks/useArchitectureSystem.ts
+git add src/prep/dashboard/src/hooks/useArchitectureSystem.ts
 git commit -m "feat(dashboard): add useArchitectureSystem hook for architecture diagram state"
 ```
 
@@ -2517,7 +2517,7 @@ git commit -m "feat(dashboard): add useArchitectureSystem hook for architecture 
 ## Task 11: Wire into useDashboardPanels
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx`
+- Modify: `src/prep/dashboard/src/hooks/useDashboardPanels.tsx`
 
 This task wires the architecture panel into the dashboard's panel content and detail maps. This requires reading the current file to find exact insertion points.
 
@@ -2589,14 +2589,14 @@ architecture: (
 - [ ] **Step 5: Verify compilation**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 npm run typecheck 2>&1 | head -40
 ```
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/hooks/useDashboardPanels.tsx
+git add src/prep/dashboard/src/hooks/useDashboardPanels.tsx
 git commit -m "feat(dashboard): wire architecture diagram into panel system"
 ```
 
@@ -2605,14 +2605,14 @@ git commit -m "feat(dashboard): wire architecture diagram into panel system"
 ## Task 12: Add React Flow CSS and Smoke Test
 
 **Files:**
-- Possibly modify: `src/codrag/dashboard/src/App.tsx` or main CSS file
+- Possibly modify: `src/prep/dashboard/src/App.tsx` or main CSS file
 
 - [ ] **Step 1: Verify React Flow CSS is loaded**
 
 React Flow's CSS is imported inside `ArchitectureDiagramDetail.tsx` via `import '@xyflow/react/dist/style.css'`. Check that Vite bundles it correctly:
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 npm run build 2>&1 | tail -20
 ```
 
@@ -2621,7 +2621,7 @@ If the import fails, add it to the dashboard's main CSS imports instead.
 - [ ] **Step 2: Start dev server and smoke test**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 npm run dev
 ```
 
@@ -2641,7 +2641,7 @@ Manual verification:
 - [ ] **Step 3: Run all tests**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 .venv/bin/pytest tests/test_architecture_state.py tests/test_architecture_router.py -v
 npm run typecheck
 ```
@@ -2660,17 +2660,17 @@ git commit -m "fix(dashboard): resolve architecture diagram integration issues"
 ## Task 13: MCP Context Integration
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py`
+- Modify: `src/prep/mcp/server.py`
 
-This adds user-curated architecture context to the `codrag` MCP tool response so that AI agents see module structure and annotations.
+This adds user-curated architecture context to the `prep` MCP tool response so that AI agents see module structure and annotations.
 
 - [ ] **Step 1: Read the MCP server's tool_context method**
 
-Read `src/codrag/mcp/server.py` around the `tool_context` method (lines 827-938) to find exactly where to add architecture context.
+Read `src/prep/mcp/server.py` around the `tool_context` method (lines 827-938) to find exactly where to add architecture context.
 
 - [ ] **Step 2: Add architecture context assembly**
 
-Create a helper that formats architecture data as markdown for MCP responses. Add this to `src/codrag/api/routers/architecture.py`:
+Create a helper that formats architecture data as markdown for MCP responses. Add this to `src/prep/api/routers/architecture.py`:
 
 ```python
 @router.get("/projects/{project_id}/architecture/context")
@@ -2726,7 +2726,7 @@ def get_architecture_context(project_id: str) -> Dict[str, Any]:
 
 - [ ] **Step 3: Inject architecture context into MCP tool_context**
 
-In `src/codrag/mcp/server.py`, in the `tool_context` method, after the main context is assembled and before `result["_to_markdown"]` is built, add:
+In `src/prep/mcp/server.py`, in the `tool_context` method, after the main context is assembled and before `result["_to_markdown"]` is built, add:
 
 ```python
 # Phase 71: Architecture context (user-curated)
@@ -2744,15 +2744,15 @@ except Exception as e:
 - [ ] **Step 4: Run backend tests**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 .venv/bin/pytest tests/test_architecture_router.py tests/test_architecture_state.py -v
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/api/routers/architecture.py src/codrag/mcp/server.py
-git commit -m "feat(mcp): inject user-curated architecture context into codrag tool response"
+git add src/prep/api/routers/architecture.py src/prep/mcp/server.py
+git commit -m "feat(mcp): inject user-curated architecture context into prep tool response"
 ```
 
 ---

@@ -47,7 +47,7 @@ Three bundled changes to `AIModelsSettings` and `useLLMConfig`:
 
 ### New hook: `useDebouncedAutoSave`
 
-File: `src/codrag/dashboard/src/hooks/useDebouncedAutoSave.ts`
+File: `src/prep/dashboard/src/hooks/useDebouncedAutoSave.ts`
 
 Interface:
 
@@ -73,7 +73,7 @@ Behaviour:
 
 ### Refactor: `useLLMConfig`
 
-File: `src/codrag/dashboard/src/hooks/useLLMConfig.ts`
+File: `src/prep/dashboard/src/hooks/useLLMConfig.ts`
 
 **Remove:**
 
@@ -97,7 +97,7 @@ File: `src/codrag/dashboard/src/hooks/useLLMConfig.ts`
 
 ### Refactor: `App.tsx`
 
-File: `src/codrag/dashboard/src/App.tsx`
+File: `src/prep/dashboard/src/App.tsx`
 
 - Remove the `saveLLMConfig` wrapper (currently at lines ~482–487) that chained `handleSwapModel` after `_rawSaveLLMConfig`. The swap now fires from inside `useDebouncedAutoSave`'s `onPersist`.
 - Pass `handleSwapModel` into `useLLMConfig` via a new option (`onSwapModel`).
@@ -215,7 +215,7 @@ Click "Apply …"   →  onModeApply()
 
 ## Testing
 
-All tests are pure-logic vitest-style (no DOM runner currently wired in `@codrag/ui`; `tsc --noEmit` compiles, and hook tests use React Testing Library + fake timers in the dashboard workspace where vitest is configured).
+All tests are pure-logic vitest-style (no DOM runner currently wired in `@prep/ui`; `tsc --noEmit` compiles, and hook tests use React Testing Library + fake timers in the dashboard workspace where vitest is configured).
 
 ### `packages/ui/src/components/llm/__tests__/provider-utils.test.ts` (new)
 
@@ -231,7 +231,7 @@ All tests are pure-logic vitest-style (no DOM runner currently wired in `@codrag
 - `shouldShowAlwaysOn({ onAlwaysOnChange: fn })` (no `showAlwaysOn`) → `true` (backward compat).
 - `shouldShowAlwaysOn({ showAlwaysOn: true })` (no handler) → `false`.
 
-### `src/codrag/dashboard/src/hooks/__tests__/useDebouncedAutoSave.test.ts` (new)
+### `src/prep/dashboard/src/hooks/__tests__/useDebouncedAutoSave.test.ts` (new)
 
 Uses vitest fake timers.
 
@@ -242,7 +242,7 @@ Uses vitest fake timers.
 - Unmount with a pending save flushes synchronously (`onSave` called during cleanup).
 - `enabled=false` suppresses scheduling; toggling to `true` re-baselines the current value without firing.
 
-### `src/codrag/dashboard/src/hooks/__tests__/useLLMConfig.test.ts` (new)
+### `src/prep/dashboard/src/hooks/__tests__/useLLMConfig.test.ts` (new)
 
 Uses React Testing Library + fake timers + mocked API client.
 

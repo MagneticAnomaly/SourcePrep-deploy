@@ -1,6 +1,6 @@
 # Amp (Sourcegraph) Integration Research
 
-> How Amp consumes MCP, its Librarian sub-agent architecture, and CoDRAG optimization.
+> How Amp consumes MCP, its Librarian sub-agent architecture, and Prep optimization.
 
 **Status:** PRELIMINARY
 **Last updated:** 2026-03-14
@@ -29,14 +29,14 @@ Amp's distinguishing feature is the **Librarian** -- a specialized sub-agent tha
 - Provides cross-repo code understanding
 - Can be explicitly invoked by the main agent
 
-### CoDRAG Implications
-- The Librarian overlaps with `codrag_search` for code discovery
-- However, CoDRAG provides *structural* relationships (trace graph, module dependencies) that the Librarian cannot
-- CoDRAG's `codrag_impact` (blast radius) is entirely unique -- no Librarian equivalent
-- **Positioning**: CoDRAG complements the Librarian by adding structural intelligence to its content search
+### Prep Implications
+- The Librarian overlaps with `prep_search` for code discovery
+- However, Prep provides *structural* relationships (trace graph, module dependencies) that the Librarian cannot
+- Prep's `prep_impact` (blast radius) is entirely unique -- no Librarian equivalent
+- **Positioning**: Prep complements the Librarian by adding structural intelligence to its content search
 
 ### Sub-Agent Context
-Amp's sub-agents have isolated context windows. CoDRAG's compact 250-token ambient response is ideal for injection into sub-agent contexts.
+Amp's sub-agents have isolated context windows. Prep's compact 250-token ambient response is ideal for injection into sub-agent contexts.
 
 ---
 
@@ -46,34 +46,34 @@ Amp's sub-agents have isolated context windows. CoDRAG's compact 250-token ambie
 Amp supports MCP tools alongside its built-in tools and Librarian. Configuration follows standard MCP patterns.
 
 ### AGENTS.md
-Amp reads AGENTS.md as its primary instruction file. The CoDRAG section in AGENTS.md is the primary integration path.
+Amp reads AGENTS.md as its primary instruction file. The Prep section in AGENTS.md is the primary integration path.
 
 ---
 
-## 4. CoDRAG Strategy for Amp
+## 4. Prep Strategy for Amp
 
 ### Differentiation from Librarian
-The AGENTS.md instructions should highlight what CoDRAG adds beyond Amp's built-in search:
+The AGENTS.md instructions should highlight what Prep adds beyond Amp's built-in search:
 
 ```markdown
-## CoDRAG Integration
+## Prep Integration
 
-CoDRAG provides *structural* code intelligence that complements Amp's Librarian:
-- `codrag` -- module-level architecture map showing how file groups connect
-- `codrag_search` -- search with trace expansion (shows structural neighbors, not just text matches)
-- `codrag_impact` -- blast radius analysis before changes (what depends on what)
+Prep provides *structural* code intelligence that complements Amp's Librarian:
+- `prep` -- module-level architecture map showing how file groups connect
+- `prep_search` -- search with trace expansion (shows structural neighbors, not just text matches)
+- `prep_impact` -- blast radius analysis before changes (what depends on what)
 
-Call `codrag` first for structural overview. Use `codrag_search` when you need
+Call `prep` first for structural overview. Use `prep_search` when you need
 to understand relationships between files, not just find content.
 ```
 
 ---
 
-## 5. CoDRAG Optimization Checklist
+## 5. Prep Optimization Checklist
 
-- [ ] Test CoDRAG MCP integration in Amp
+- [ ] Test Prep MCP integration in Amp
 - [ ] Verify AGENTS.md reading behavior
-- [ ] Test CoDRAG alongside Amp's Librarian (complementary, not conflicting)
+- [ ] Test Prep alongside Amp's Librarian (complementary, not conflicting)
 - [ ] Test in both CLI and VS Code extension modes
 
 ---
@@ -82,6 +82,6 @@ to understand relationships between files, not just find content.
 
 | Risk | Severity | Notes |
 |------|----------|-------|
-| Librarian overlaps with codrag_search | MEDIUM | CoDRAG adds structure. Position as complementary. |
+| Librarian overlaps with prep_search | MEDIUM | Prep adds structure. Position as complementary. |
 | Amp's sub-agent can't access MCP tools | MEDIUM | Needs empirical test. |
-| Sourcegraph's code intelligence may make CoDRAG seem redundant | LOW | CoDRAG is local-first, project-scoped, structural. Different value prop. |
+| Sourcegraph's code intelligence may make Prep seem redundant | LOW | Prep is local-first, project-scoped, structural. Different value prop. |

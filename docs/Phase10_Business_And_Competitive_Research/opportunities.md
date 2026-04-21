@@ -4,7 +4,7 @@
 Track competitive opportunities that should influence roadmap bets.
 
 ## Opportunities
-- **Treat “local-first + MCP” as table stakes**: ChunkHound exists and is OSS. CoDRAG must win on trust UX, freshness, and product polish.
+- **Treat “local-first + MCP” as table stakes**: ChunkHound exists and is OSS. Prep must win on trust UX, freshness, and product polish.
 - **Differentiation to emphasize**:
   - inspectable retrieval UI (status + citations + errors)
   - freshness-first trust loop (stale signals + recovery)
@@ -23,7 +23,7 @@ Track competitive opportunities that should influence roadmap bets.
   - team policy + config provenance gated behind Team
   - "1-repo limit" friction in Free tier driving the "Starter" upgrade
 - **Viral Growth Mechanics**:
-  - **"Team Discovery"**: In-app prompt "Is your whole team using CoDRAG?" to drive multi-seat adoption.
+  - **"Team Discovery"**: In-app prompt "Is your whole team using Prep?" to drive multi-seat adoption.
   - **"Limited Time" Discount**: Capability to trigger 48h "Founder's Edition" offers during viral spikes.
   - **MCP-first onboarding**: Ensure "1-click connect" for Cursor/Windsurf users to capture viral traffic.
 

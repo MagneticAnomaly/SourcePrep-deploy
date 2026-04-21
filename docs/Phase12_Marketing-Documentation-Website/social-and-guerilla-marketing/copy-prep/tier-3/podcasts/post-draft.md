@@ -2,12 +2,12 @@
 
 ## Target: The Changelog / Software Engineering Daily / Syntax
 
-**Subject:** Guest Pitch: Why we ditched vector search for a local graph (CoDRAG)
+**Subject:** Guest Pitch: Why we ditched vector search for a local graph (Prep)
 
 **Body:**
 Hi [Host Name],
 
-I'm the founder of **CoDRAG**, a local-first dev tool that challenges the current "Vector RAG" orthodoxy in AI coding.
+I'm the founder of **Prep**, a local-first dev tool that challenges the current "Vector RAG" orthodoxy in AI coding.
 
 I think your listeners would be interested in a conversation about:
 1.  **The limits of embeddings:** Why vector search fails on large monorepos and why we built a Rust-based dependency graph instead.

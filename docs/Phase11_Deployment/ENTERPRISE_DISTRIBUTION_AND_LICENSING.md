@@ -1,7 +1,7 @@
 # Enterprise Distribution and Licensing
 
 ## Purpose
-Plan early for an enterprise tier (per-seat licensing) without forcing CoDRAG into a cloud dependency.
+Plan early for an enterprise tier (per-seat licensing) without forcing Prep into a cloud dependency.
 
 This doc is intentionally scoped to:
 - distribution patterns enterprise IT expects
@@ -14,21 +14,21 @@ Common enterprise expectation:
 - signed installers
 - IT-controlled rollout mechanisms
 
-CoDRAG implications:
+Prep implications:
 - signing is non-negotiable
 - stable data directory and upgrade behavior are required
 
 ### 2) Private/internal app catalog
 Some orgs prefer distributing apps via an internal catalog rather than public app stores.
 
-CoDRAG implications:
+Prep implications:
 - release artifacts must be easily mirrorable
 - updates must be controllable (disable auto-update, or point to internal feed)
 
 ### 3) Central server mode (team server)
 For enterprise, “local-first” does not preclude a self-hosted internal server.
 
-CoDRAG constraints:
+Prep constraints:
 - network mode must be safe-by-default and require auth when binding to non-loopback.
 
 Reference:
@@ -59,7 +59,7 @@ Competitor signals:
 ## License management shapes (roadmap)
 
 ### Primary Strategy: Offline License Keys (Option A)
-This is the default for CoDRAG Enterprise.
+This is the default for Prep Enterprise.
 - **Format:** Signed JSON payload (Ed25519).
 - **Delivery:** File-based (`license.key`) distributed via MDM or manual entry.
 - **Validation:** Completely local/offline. No "phone home".

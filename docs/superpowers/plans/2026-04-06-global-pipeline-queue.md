@@ -15,7 +15,7 @@
 ### Task 1: Ghost Guard Module
 
 **Files:**
-- Create: `src/codrag/services/pipeline/ghost_guard.py`
+- Create: `src/prep/services/pipeline/ghost_guard.py`
 - Test: `tests/test_ghost_guard.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -47,7 +47,7 @@ def test_purge_ghost_locks_cleans_orphaned_lock():
 
     mock_event_bus = MagicMock()
 
-    from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+    from prep.services.pipeline.ghost_guard import purge_ghost_locks
 
     count = purge_ghost_locks(
         scheduler=mock_scheduler,
@@ -83,7 +83,7 @@ def test_purge_ghost_locks_no_op_when_threads_alive():
 
     mock_event_bus = MagicMock()
 
-    from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+    from prep.services.pipeline.ghost_guard import purge_ghost_locks
 
     count = purge_ghost_locks(
         scheduler=mock_scheduler,
@@ -123,7 +123,7 @@ def test_purge_ghost_locks_multiple_nodes():
 
     mock_event_bus = MagicMock()
 
-    from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+    from prep.services.pipeline.ghost_guard import purge_ghost_locks
 
     count = purge_ghost_locks(
         scheduler=mock_scheduler,
@@ -146,7 +146,7 @@ def test_purge_ghost_locks_empty_scheduler():
     mock_build_orch = MagicMock()
     mock_event_bus = MagicMock()
 
-    from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+    from prep.services.pipeline.ghost_guard import purge_ghost_locks
 
     count = purge_ghost_locks(
         scheduler=mock_scheduler,
@@ -160,12 +160,12 @@ def test_purge_ghost_locks_empty_scheduler():
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_ghost_guard.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'codrag.services.pipeline.ghost_guard'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'prep.services.pipeline.ghost_guard'`
 
 - [ ] **Step 3: Write the implementation**
 
 ```python
-# src/codrag/services/pipeline/ghost_guard.py
+# src/prep/services/pipeline/ghost_guard.py
 """
 Ghost Guard — Phase 75
 ======================
@@ -206,13 +206,13 @@ def purge_ghost_locks(
         Number of ghost locks purged.
     """
     if scheduler is None:
-        from codrag.services.pipeline.scheduler import pipeline_scheduler
+        from prep.services.pipeline.scheduler import pipeline_scheduler
         scheduler = pipeline_scheduler
     if build_orchestrator is None:
-        from codrag.services.build_orchestrator import build_orchestrator as _bo
+        from prep.services.build_orchestrator import build_orchestrator as _bo
         build_orchestrator = _bo
     if event_bus is None:
-        from codrag.core.events import get_event_bus
+        from prep.core.events import get_event_bus
         event_bus = get_event_bus()
 
     status = scheduler.status()
@@ -256,7 +256,7 @@ Expected: All 4 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/ghost_guard.py tests/test_ghost_guard.py
+git add src/prep/services/pipeline/ghost_guard.py tests/test_ghost_guard.py
 git commit -m "feat(queue): add ghost guard module for scheduler lock cross-check"
 ```
 
@@ -265,8 +265,8 @@ git commit -m "feat(queue): add ghost guard module for scheduler lock cross-chec
 ### Task 2: Queue API Router
 
 **Files:**
-- Create: `src/codrag/api/routers/queue.py`
-- Modify: `src/codrag/server.py:569-592` (add router import + registration)
+- Create: `src/prep/api/routers/queue.py`
+- Modify: `src/prep/server.py:569-592` (add router import + registration)
 - Test: `tests/test_queue_router.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -290,10 +290,10 @@ def _make_state_machine(group, state_value, current_stage_value, started_at):
     return sm
 
 
-@patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
-@patch("codrag.api.routers.queue.pipeline_orchestrator")
-@patch("codrag.api.routers.queue.pipeline_scheduler")
-@patch("codrag.api.routers.queue._resolve_project_name", return_value="TestProject")
+@patch("prep.api.routers.queue.purge_ghost_locks", return_value=0)
+@patch("prep.api.routers.queue.pipeline_orchestrator")
+@patch("prep.api.routers.queue.pipeline_scheduler")
+@patch("prep.api.routers.queue._resolve_project_name", return_value="TestProject")
 def test_get_pipeline_queue_running(mock_name, mock_sched, mock_orch, mock_purge):
     """GET /system/pipeline-queue returns running pipelines."""
     mock_sched.status.return_value = {
@@ -313,7 +313,7 @@ def test_get_pipeline_queue_running(mock_name, mock_sched, mock_orch, mock_purge
     sm = _make_state_machine("fast_sync", "running", "catalogue", 1712431440.0)
     mock_orch._runs = {("proj-1", "fast_sync"): sm}
 
-    from codrag.api.routers.queue import get_pipeline_queue
+    from prep.api.routers.queue import get_pipeline_queue
 
     result = get_pipeline_queue()
     data = result["data"]
@@ -330,10 +330,10 @@ def test_get_pipeline_queue_running(mock_name, mock_sched, mock_orch, mock_purge
     assert data["ghost_locks_purged"] == 0
 
 
-@patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
-@patch("codrag.api.routers.queue.pipeline_orchestrator")
-@patch("codrag.api.routers.queue.pipeline_scheduler")
-@patch("codrag.api.routers.queue._resolve_project_name", return_value="TestProject")
+@patch("prep.api.routers.queue.purge_ghost_locks", return_value=0)
+@patch("prep.api.routers.queue.pipeline_orchestrator")
+@patch("prep.api.routers.queue.pipeline_scheduler")
+@patch("prep.api.routers.queue._resolve_project_name", return_value="TestProject")
 def test_get_pipeline_queue_includes_queued(mock_name, mock_sched, mock_orch, mock_purge):
     """GET /system/pipeline-queue includes queued entries from scheduler."""
     mock_sched.status.return_value = {
@@ -355,7 +355,7 @@ def test_get_pipeline_queue_includes_queued(mock_name, mock_sched, mock_orch, mo
     sm = _make_state_machine("fast_sync", "running", "catalogue", 1712431440.0)
     mock_orch._runs = {("proj-1", "fast_sync"): sm}
 
-    from codrag.api.routers.queue import get_pipeline_queue
+    from prep.api.routers.queue import get_pipeline_queue
 
     result = get_pipeline_queue()
     queue = result["data"]["queue"]
@@ -369,9 +369,9 @@ def test_get_pipeline_queue_includes_queued(mock_name, mock_sched, mock_orch, mo
     assert queue[1]["wait_seconds"] == 45.2
 
 
-@patch("codrag.api.routers.queue.purge_ghost_locks", return_value=0)
-@patch("codrag.api.routers.queue.pipeline_orchestrator")
-@patch("codrag.api.routers.queue.pipeline_scheduler")
+@patch("prep.api.routers.queue.purge_ghost_locks", return_value=0)
+@patch("prep.api.routers.queue.pipeline_orchestrator")
+@patch("prep.api.routers.queue.pipeline_scheduler")
 def test_get_pipeline_queue_empty(mock_sched, mock_orch, mock_purge):
     """GET /system/pipeline-queue returns empty when nothing is running."""
     mock_sched.status.return_value = {
@@ -380,7 +380,7 @@ def test_get_pipeline_queue_empty(mock_sched, mock_orch, mock_purge):
     }
     mock_orch._runs = {}
 
-    from codrag.api.routers.queue import get_pipeline_queue
+    from prep.api.routers.queue import get_pipeline_queue
 
     result = get_pipeline_queue()
     assert result["data"]["queue"] == []
@@ -388,11 +388,11 @@ def test_get_pipeline_queue_empty(mock_sched, mock_orch, mock_purge):
 
 def test_set_priority_delegates_to_scheduler():
     """POST /system/pipeline-queue/priority delegates to scheduler."""
-    with patch("codrag.api.routers.queue.pipeline_scheduler") as mock_sched, \
-         patch("codrag.api.routers.queue._persist_priority") as mock_persist:
+    with patch("prep.api.routers.queue.pipeline_scheduler") as mock_sched, \
+         patch("prep.api.routers.queue._persist_priority") as mock_persist:
         mock_sched.get_priority.return_value = "boost"
 
-        from codrag.api.routers.queue import set_queue_priority, PriorityRequest
+        from prep.api.routers.queue import set_queue_priority, PriorityRequest
 
         req = PriorityRequest(project_id="proj-1", level="boost")
         result = set_queue_priority(req)
@@ -410,9 +410,9 @@ Expected: FAIL with `ModuleNotFoundError`
 - [ ] **Step 3: Write the implementation**
 
 ```python
-# src/codrag/api/routers/queue.py
+# src/prep/api/routers/queue.py
 """
-CoDRAG Global Pipeline Queue Router — Phase 75
+Prep Global Pipeline Queue Router — Phase 75
 ================================================
 
 System-level endpoints for cross-project pipeline queue visibility,
@@ -432,9 +432,9 @@ from typing import Any, Dict, List, Literal, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from codrag.api.envelope import ok
-from codrag.services.pipeline.ghost_guard import purge_ghost_locks
-from codrag.services.pipeline.scheduler import pipeline_scheduler
+from prep.api.envelope import ok
+from prep.services.pipeline.ghost_guard import purge_ghost_locks
+from prep.services.pipeline.scheduler import pipeline_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -467,7 +467,7 @@ class QueueItem(BaseModel):
 def _resolve_project_name(project_id: str) -> str:
     """Look up project display name from registry."""
     try:
-        from codrag.core.project_registry import ProjectRegistry
+        from prep.core.project_registry import ProjectRegistry
         registry = ProjectRegistry()
         project = registry.get_project(project_id)
         if project:
@@ -480,7 +480,7 @@ def _resolve_project_name(project_id: str) -> str:
 def _persist_priority(project_id: str, level: str) -> None:
     """Persist priority level to project config for restore on restart."""
     try:
-        from codrag.core.project_registry import ProjectRegistry
+        from prep.core.project_registry import ProjectRegistry
         registry = ProjectRegistry()
         project = registry.get_project(project_id)
         if project:
@@ -510,7 +510,7 @@ def get_pipeline_queue() -> Dict[str, Any]:
 
     # Get orchestrator runs
     try:
-        from codrag.services.pipeline.orchestrator import pipeline_orchestrator
+        from prep.services.pipeline.orchestrator import pipeline_orchestrator
         runs = dict(pipeline_orchestrator._runs)
     except Exception:
         runs = {}
@@ -609,7 +609,7 @@ def set_queue_priority(req: PriorityRequest) -> Dict[str, Any]:
 
     # Emit SSE event
     try:
-        from codrag.core.events import get_event_bus
+        from prep.core.events import get_event_bus
         get_event_bus().emit("queue_changed", {
             "reason": "priority_changed",
             "project_id": req.project_id,
@@ -638,10 +638,10 @@ Expected: All 4 tests PASS
 
 - [ ] **Step 5: Register the router in server.py**
 
-In `src/codrag/server.py`, add after line 570 (the collaboration import):
+In `src/prep/server.py`, add after line 570 (the collaboration import):
 
 ```python
-from codrag.api.routers.queue import router as queue_router
+from prep.api.routers.queue import router as queue_router
 ```
 
 And add after line 592 (the collaboration include):
@@ -653,7 +653,7 @@ app.include_router(queue_router)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/api/routers/queue.py tests/test_queue_router.py src/codrag/server.py
+git add src/prep/api/routers/queue.py tests/test_queue_router.py src/prep/server.py
 git commit -m "feat(queue): add global pipeline queue API router with ghost guard integration"
 ```
 
@@ -662,7 +662,7 @@ git commit -m "feat(queue): add global pipeline queue API router with ghost guar
 ### Task 3: SSE Event Emission from Orchestrator
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/orchestrator.py:1555-1670`
+- Modify: `src/prep/services/pipeline/orchestrator.py:1555-1670`
 
 - [ ] **Step 1: Add queue_changed emission after stage completion (line ~1632)**
 
@@ -671,7 +671,7 @@ After line 1632 (`self._resume_queued_pipeline(...)`) in the COMPLETED branch, a
 ```python
             # Phase 75: notify queue UI of state change
             try:
-                from codrag.core.events import get_event_bus
+                from prep.core.events import get_event_bus
                 get_event_bus().emit("queue_changed", {
                     "reason": "pipeline_stage_completed",
                     "project_id": project_id,
@@ -689,12 +689,12 @@ After line 1670 (`self._resume_queued_pipeline(...)`) in the FAILED branch, add:
 ```python
             # Phase 75: ghost guard + queue notification on failure
             try:
-                from codrag.services.pipeline.ghost_guard import purge_ghost_locks
+                from prep.services.pipeline.ghost_guard import purge_ghost_locks
                 purge_ghost_locks()
             except Exception:
                 logger.debug("Ghost guard failed during FAILED transition", exc_info=True)
             try:
-                from codrag.core.events import get_event_bus
+                from prep.core.events import get_event_bus
                 get_event_bus().emit("queue_changed", {
                     "reason": "pipeline_stage_failed",
                     "project_id": project_id,
@@ -713,7 +713,7 @@ Expected: All existing pipeline tests pass (no regressions)
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/orchestrator.py
+git add src/prep/services/pipeline/orchestrator.py
 git commit -m "feat(queue): emit queue_changed SSE events on pipeline transitions"
 ```
 
@@ -830,7 +830,7 @@ export function SidebarPipelineQueue({
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [collapsed, setCollapsed] = useState(() => {
     const saved = typeof window !== 'undefined'
-      ? localStorage.getItem('codrag_queue_collapsed')
+      ? localStorage.getItem('prep_queue_collapsed')
       : null;
     return saved === 'true';
   });
@@ -892,7 +892,7 @@ export function SidebarPipelineQueue({
   const toggleCollapsed = useCallback(() => {
     setCollapsed(prev => {
       const next = !prev;
-      localStorage.setItem('codrag_queue_collapsed', String(next));
+      localStorage.setItem('prep_queue_collapsed', String(next));
       return next;
     });
   }, []);
@@ -1132,11 +1132,11 @@ git commit -m "feat(queue): add SidebarPipelineQueue component"
 ### Task 5: Wire Queue Widget into Dashboard
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/App.tsx:893-939`
+- Modify: `src/prep/dashboard/src/App.tsx:893-939`
 
 - [ ] **Step 1: Add import**
 
-At the top of `src/codrag/dashboard/src/App.tsx`, in the import block from `@codrag/ui` (line 4), add `SidebarPipelineQueue` to the navigation imports:
+At the top of `src/prep/dashboard/src/App.tsx`, in the import block from `@prep/ui` (line 4), add `SidebarPipelineQueue` to the navigation imports:
 
 Find:
 ```typescript
@@ -1187,13 +1187,13 @@ Replace with:
 
 - [ ] **Step 3: Verify build**
 
-Run: `cd src/codrag/dashboard && npm run typecheck`
+Run: `cd src/prep/dashboard && npm run typecheck`
 Expected: No type errors
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/App.tsx
+git add src/prep/dashboard/src/App.tsx
 git commit -m "feat(queue): wire SidebarPipelineQueue into dashboard sidebar"
 ```
 
@@ -1241,7 +1241,7 @@ export interface UseEventStreamResult {
 
 - [ ] **Step 2: Add state and handler inside the hook**
 
-After the `scopeEvents` state declaration (line ~19), add:
+After the `scopeEvents` state deprep-compresstion (line ~19), add:
 
 ```typescript
 const [queueVersion, setQueueVersion] = useState(0);
@@ -1285,17 +1285,17 @@ Expected: All tests pass
 
 - [ ] **Step 2: Run TypeScript typecheck**
 
-Run: `cd packages/ui && npm run typecheck && cd ../../src/codrag/dashboard && npm run typecheck`
+Run: `cd packages/ui && npm run typecheck && cd ../../src/prep/dashboard && npm run typecheck`
 Expected: No type errors in either package
 
 - [ ] **Step 3: Run Python linter**
 
-Run: `.venv/bin/ruff check src/codrag/services/pipeline/ghost_guard.py src/codrag/api/routers/queue.py`
+Run: `.venv/bin/ruff check src/prep/services/pipeline/ghost_guard.py src/prep/api/routers/queue.py`
 Expected: No lint errors
 
 - [ ] **Step 4: Verify server starts with new router**
 
-Run: `.venv/bin/python -c "from codrag.api.routers.queue import router; print('Router loaded:', len(router.routes), 'routes')"`
+Run: `.venv/bin/python -c "from prep.api.routers.queue import router; print('Router loaded:', len(router.routes), 'routes')"`
 Expected: `Router loaded: 3 routes`
 
 - [ ] **Step 5: Final commit (if any fixups needed)**

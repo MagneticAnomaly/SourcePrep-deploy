@@ -6,8 +6,8 @@ This document outlines the step-by-step implementation plan for the **Trace Inde
 
 The following core components are **already implemented** (Sprint S-04):
 - **Storage:** `trace_nodes.jsonl`, `trace_edges.jsonl`, `trace_manifest.json` persistence.
-- **IDs:** Deterministic, stable IDs for files, symbols, and edges (`src/codrag/core/ids.py`).
-- **Analyzer:** Python AST analyzer extracting functions, classes, and imports (`src/codrag/core/trace.py`).
+- **IDs:** Deterministic, stable IDs for files, symbols, and edges (`src/prep/core/ids.py`).
+- **Analyzer:** Python AST analyzer extracting functions, classes, and imports (`src/prep/core/trace.py`).
 - **API:**
   - `GET /projects/{id}/trace/status`
   - `GET /projects/{id}/trace/search`
@@ -59,8 +59,8 @@ The following core components are **already implemented** (Sprint S-04):
 **Goal:** Expand beyond Python.
 
 - [ ] **Integration:**
-  - The Rust `codrag-engine` already supports TS, JS, Go, etc. via Tree-sitter.
-  - Ensure `TraceBuilder` correctly delegates to the Rust engine when `CODRAG_ENGINE=rust` or `auto`.
+  - The Rust `prep-engine` already supports TS, JS, Go, etc. via Tree-sitter.
+  - Ensure `TraceBuilder` correctly delegates to the Rust engine when `PREP_ENGINE=rust` or `auto`.
   - Validate that `node.kind` and `edge.kind` taxonomy aligns across languages (e.g., `class` vs `struct`, `function` vs `method`).
 
 ## 3. Testing Plan

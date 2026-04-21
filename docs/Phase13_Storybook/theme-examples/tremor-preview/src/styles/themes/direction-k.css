@@ -1,4 +1,4 @@
-[data-codrag-theme='k'] {
+[data-prep-theme='k'] {
   /* Inclusive Focus: Accessibility, Clarity, Calm */
   
   /* Color Palette - High Contrast Certified */
@@ -48,18 +48,18 @@
 }
 
 /* Enforce focus indicators */
-[data-codrag-theme='k'] *:focus-visible {
+[data-prep-theme='k'] *:focus-visible {
   outline: var(--focus-ring-width) solid var(--focus-ring-color) !important;
   outline-offset: var(--focus-ring-offset) !important;
   box-shadow: 0 0 0 4px white;
 }
 
 /* Component overrides for clarity */
-[data-codrag-theme='k'] .tremor-Card-root {
+[data-prep-theme='k'] .tremor-Card-root {
   border: 2px solid var(--border); /* Thicker borders */
 }
 
-[data-codrag-theme='k'].dark {
+[data-prep-theme='k'].dark {
   --background: 0 0% 5%;
   --foreground: 0 0% 100%;
   --surface: 0 0% 10%;

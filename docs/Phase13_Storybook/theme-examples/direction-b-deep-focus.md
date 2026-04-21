@@ -179,7 +179,7 @@ Badges are **outline-style** with subtle glow on hover — feels more "terminal"
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  src/codrag/core/index.py                             ▓▓▓▓▓░░  │
+│  src/prep/core/index.py                             ▓▓▓▓▓░░  │
 │  Lines 42-67                                            87%    │
 ├─────────────────────────────────────────────────────────────────┤
 │  142 │ def build_index(project: Project) -> IndexResult:       │
@@ -201,7 +201,7 @@ Badges are **outline-style** with subtle glow on hover — feels more "terminal"
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  src/codrag/server.py                                          │
+│  src/prep/server.py                                          │
 │  Lines 142-175                              [Raw] [Copy] [Open] │
 ├─────────────────────────────────────────────────────────────────┤
 │  142 │ @app.post("/projects/{project_id}/build")               │

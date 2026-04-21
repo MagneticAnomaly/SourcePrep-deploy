@@ -1,15 +1,15 @@
 # The Digital Custodian — Codebase Maintenance Agent
 
 > **Phase 67 — Agent Concept** | Date: 2026-04-01
-> This document defines the Digital Custodian — the third CoDRAG-native autonomous agent. While the Staffing Agent manages *people* and the Researcher manages *plans*, the Custodian manages the **physical state of the codebase** itself.
+> This document defines the Digital Custodian — the third Prep-native autonomous agent. While the Staffing Agent manages *people* and the Researcher manages *plans*, the Custodian manages the **physical state of the codebase** itself.
 
 ---
 
 ## 1. Concept: The Codebase Janitor
 
-Every codebase accumulates cruft: dead code, orphaned test fixtures, stale TODO comments, deprecated modules that nobody dares delete because "it might break something." The Digital Custodian leverages CoDRAG's trace graph and audit engine to **prove** that code is truly dead, then cleans it up safely.
+Every codebase accumulates cruft: dead code, orphaned test fixtures, stale TODO comments, deprecated modules that nobody dares delete because "it might break something." The Digital Custodian leverages Prep's trace graph and audit engine to **prove** that code is truly dead, then cleans it up safely.
 
-**Key differentiator from the other agents:** The Digital Custodian is the only CoDRAG agent that **writes to the codebase**. The Staffing Agent writes to Paperclip (agent definitions). The Researcher writes to Paperclip (project plans). The Custodian writes to *git* — creating branches, archiving files, and committing deletions.
+**Key differentiator from the other agents:** The Digital Custodian is the only Prep agent that **writes to the codebase**. The Staffing Agent writes to Paperclip (agent definitions). The Researcher writes to Paperclip (project plans). The Custodian writes to *git* — creating branches, archiving files, and committing deletions.
 
 **In Paperclip:** The Custodian appears as the "Maintenance Lead" employee. It authors "Cleanup Report" projects with per-file issues tracking what was deleted, what was archived, and what was flagged for human review.
 
@@ -17,11 +17,11 @@ Every codebase accumulates cruft: dead code, orphaned test fixtures, stale TODO 
 
 ## 2. Core Capabilities
 
-| Capability | CoDRAG Data Source | What It Does | Example |
+| Capability | Prep Data Source | What It Does | Example |
 |-----------|-------------------|-------------|---------|
-| **Dead code detection** | `codrag_audit` — unused exports, orphan modules | Identifies files and functions with zero dependents in the trace graph | `src/legacy/old_parser.py` has 0 imports anywhere |
+| **Dead code detection** | `prep_audit` — unused exports, orphan modules | Identifies files and functions with zero dependents in the trace graph | `src/legacy/old_parser.py` has 0 imports anywhere |
 | **Orphan file cleanup** | Trace graph — nodes with `in_degree=0` AND `out_degree=0` | Flags files that nothing imports AND that import nothing — true isolates | Test fixtures for deleted features |
-| **Stale TODO removal** | TODO Scanner + `codrag_observe` staleness flags | Identifies TODO/FIXME comments that reference resolved issues or point to deleted code | `# TODO: migrate to v2 API` when v2 is already deployed |
+| **Stale TODO removal** | TODO Scanner + `prep_observe` staleness flags | Identifies TODO/FIXME comments that reference resolved issues or point to deleted code | `# TODO: migrate to v2 API` when v2 is already deployed |
 | **Deprecated module archival** | Module clusters + drift detection + tag analysis | Moves entire modules tagged "deprecated" or "legacy" to the archive branch with full manifests | The `auth_v1/` directory after `auth_v2/` is fully deployed |
 | **Consistent formatting** | Audit findings — naming conventions, style | Bulk renames for consistency, import reordering, whitespace normalization | Renaming `getUserData` to `get_user_data` across a Python module |
 
@@ -32,7 +32,7 @@ The Custodian is a **janitor**, not a **refactoring engine**. It does not:
 - **Rewrite code** — It deletes dead code, but it doesn't rewrite live code to be better. That's the Researcher's job (to identify refactoring needs and push them as projects).
 - **Fix bugs** — It removes stale TODOs, but it doesn't fix the underlying issues. Those are pushed to Paperclip as tasks.
 - **Make architectural decisions** — It moves deprecated modules to the archive, but the decision to deprecate was made by a human or the Researcher.
-- **Touch code in active use** — If `codrag_impact` shows even one dependent, the Custodian flags it for review instead of deleting.
+- **Touch code in active use** — If `prep_impact` shows even one dependent, the Custodian flags it for review instead of deleting.
 
 ---
 
@@ -47,11 +47,11 @@ main (protected)
   │
   ├── custodian/cleanup-2026-04-01    ← Working branch (short-lived)
   │     ├── commit: "Remove 3 orphaned test fixtures"
-  │     │     └── codrag-finding: ARCH-17, ARCH-22, ARCH-23
+  │     │     └── prep-finding: ARCH-17, ARCH-22, ARCH-23
   │     ├── commit: "Archive deprecated auth_v1 module"
-  │     │     └── codrag-finding: QUAL-5
+  │     │     └── prep-finding: QUAL-5
   │     └── commit: "Clean up 8 resolved TODOs"
-  │           └── codrag-finding: TODO-3, TODO-7, ...
+  │           └── prep-finding: TODO-3, TODO-7, ...
   │
   └── custodian/archive               ← Archive branch (long-lived)
         ├── archived/auth_v1/          ← Full copy of deleted module
@@ -89,8 +89,8 @@ The archive branch is a simple, flat structure:
         "src/legacy/auth_v1/token_manager.py"
       ],
       "archive_path": "archived/auth_v1/",
-      "reason": "Module replaced by auth_v2. Zero dependents confirmed via codrag_impact.",
-      "codrag_finding_id": "QUAL-5",
+      "reason": "Module replaced by auth_v2. Zero dependents confirmed via prep_impact.",
+      "prep_finding_id": "QUAL-5",
       "audit_state_hash": "a1b2c3d4",
       "cleanup_branch": "custodian/cleanup-2026-04-01",
       "cleanup_commit": "abc123f",
@@ -103,7 +103,7 @@ The archive branch is a simple, flat structure:
       "original_paths": ["tests/fixtures/deprecated_auth_test.py"],
       "archive_path": "archived/deprecated_auth_test/",
       "reason": "Test fixture for archived auth_v1 module. No longer referenced.",
-      "codrag_finding_id": "ARCH-17",
+      "prep_finding_id": "ARCH-17",
       "audit_state_hash": "a1b2c3d4",
       "cleanup_branch": "custodian/cleanup-2026-04-01",
       "cleanup_commit": "abc123f",
@@ -129,14 +129,14 @@ Pipeline completes
   └── Digital Custodian wakes up
         │
         ├── Step 1: DISCOVER
-        │     ├── Query codrag_audit for findings tagged:
+        │     ├── Query prep_audit for findings tagged:
         │     │     "dead_code", "orphan", "deprecated", "unused_export"
         │     ├── Query trace graph for nodes with 0 dependents
         │     └── Produce candidate list (max 50)
         │
         ├── Step 2: VERIFY
         │     For each candidate:
-        │     ├── Run codrag_impact(file) → confirm 0 dependents
+        │     ├── Run prep_impact(file) → confirm 0 dependents
         │     ├── Check if file is in exclusion list → skip if yes
         │     ├── LLM review: "Is this truly dead, or could it be:"
         │     │     ├── Dynamically imported (importlib, __import__)
@@ -165,7 +165,7 @@ Pipeline completes
         │     │     └── Commit with message:
         │     │           "custodian: Remove {n} {module} files
         │     │            
-        │     │            CoDRAG findings: ARCH-17, ARCH-22
+        │     │            Prep findings: ARCH-17, ARCH-22
         │     │            Archive: custodian/archive/auth_v1/
         │     │            Dependents at deletion: 0"
         │     └── (Optional) Create a pull request
@@ -175,7 +175,7 @@ Pipeline completes
               │     ├── Project: "Code Cleanup: {date}"
               │     ├── Goal: Summary of what was cleaned
               │     └── Issues: One per deleted file/module
-              └── Save observation via codrag_observe:
+              └── Save observation via prep_observe:
                     "Custodian archived {n} files on {date}"
 ```
 
@@ -185,13 +185,13 @@ When `dry_run: true` (the default), the Custodian executes Steps 1-3 but skips S
 
 1. Shown in the dashboard (Agent Operations → Custodian card → "Last Cleanup Preview")
 2. Pushed to Paperclip as a "Cleanup Preview" project (so the team can review before enabling live mode)
-3. Logged via `codrag_observe` for cross-session reference
+3. Logged via `prep_observe` for cross-session reference
 
 ### 4.3 Live Mode
 
 To enable live deletions, the user must explicitly:
 1. Set `dry_run: false` in the agent config
-2. Confirm via CLI (`codrag custodian run --project <id>`) or dashboard button
+2. Confirm via CLI (`prep custodian run --project <id>`) or dashboard button
 
 Even in live mode, the Custodian creates a branch and (optionally) a PR. It **never pushes to main directly**.
 
@@ -204,13 +204,13 @@ The Custodian is the highest-risk agent because it modifies code. Every design d
 | Guardrail | Why | How |
 |-----------|-----|-----|
 | **Never auto-merge** | Prevents accidental data loss | Custodian creates branches and PRs; a human merges |
-| **Impact verification** | Prevents deleting code that's still used | Every candidate is verified via `codrag_impact` before deletion |
+| **Impact verification** | Prevents deleting code that's still used | Every candidate is verified via `prep_impact` before deletion |
 | **LLM safety review** | Catches dynamic imports and reflection usage | LLM reviews each candidate for non-static usage patterns |
 | **Archive-first** | Provides easy recovery | Nothing is deleted without first being committed to the archive branch |
 | **Dry-run default** | Prevents surprising deletions on first use | `dry_run: true` by default; must be explicitly enabled |
 | **Exclusion list** | Protects important paths | Config allows paths to be excluded (docs, scripts, CI, etc.) |
 | **Size cap** | Keeps PRs reviewable | Maximum files per cleanup run (default: 20) |
-| **Audit trail** | Full accountability | Every deletion includes the CoDRAG finding ID, dependent count, and archive location in the commit message |
+| **Audit trail** | Full accountability | Every deletion includes the Prep finding ID, dependent count, and archive location in the commit message |
 | **Manifest** | Recovery roadmap | `.custodian_manifest.json` tracks every archived item with restore instructions |
 
 ### 5.1 The Safety Verification Prompt
@@ -224,7 +224,7 @@ File: {file_path}
 File contents (first 200 lines):
 {file_contents[:200]}
 
-CoDRAG analysis:
+Prep analysis:
 - Dependents (static imports): {dependent_count} (should be 0)
 - This file imports: {import_list}
 - Module membership: {module_name}
@@ -295,25 +295,25 @@ Return JSON: {"classification": "SAFE_TO_DELETE" | "NEEDS_REVIEW" | "KEEP", "rea
 
 ```bash
 # Run a cleanup cycle (respects dry_run config)
-codrag custodian run --project <id>
+prep custodian run --project <id>
 
 # Force dry-run regardless of config
-codrag custodian run --project <id> --dry-run
+prep custodian run --project <id> --dry-run
 
 # Force live mode (overrides config, still creates branch)
-codrag custodian run --project <id> --live
+prep custodian run --project <id> --live
 
 # Use a specific adapter
-codrag custodian run --project <id> --adapter langgraph
+prep custodian run --project <id> --adapter langgraph
 
 # View the archive manifest
-codrag custodian archive --project <id>
+prep custodian archive --project <id>
 
 # Restore a specific file from archive
-codrag custodian restore --project <id> --file src/legacy/old_parser.py
+prep custodian restore --project <id> --file src/legacy/old_parser.py
 
 # Restore by archive entry ID
-codrag custodian restore --project <id> --entry archive-001
+prep custodian restore --project <id> --entry archive-001
 ```
 
 ---
@@ -403,6 +403,6 @@ This creates a visible audit trail in Paperclip. The team can review the Custodi
 |-------------|-------------|-----------|
 | **Auto-merge confidence threshold** | If the Custodian's classification confidence is > 0.95 for ALL files in a PR, auto-merge | Trust + real-world validation |
 | **Import graph visualization** | Dashboard shows a visual graph of what the Custodian is about to delete and why | Graph rendering in dashboard |
-| **Cross-project archival** | Archive code from one CoDRAG project into another's archive branch | Multi-project support |
+| **Cross-project archival** | Archive code from one Prep project into another's archive branch | Multi-project support |
 | **Scheduled runs** | Cron-like scheduling for the Custodian (e.g., weekly cleanup) | Agent scheduler infrastructure |
 | **Undo button** | One-click restore from the dashboard | Git integration in dashboard |

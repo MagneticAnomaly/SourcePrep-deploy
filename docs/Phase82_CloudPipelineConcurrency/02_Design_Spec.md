@@ -64,7 +64,7 @@ Remove the local `_SWARM_STAGES` definitions in `llm.py:602` and `queue.py:89`.
 
 #### 1.2 Shared helper: `is_swarm_active_for_stage()`
 
-Location: `src/codrag/services/pipeline/scheduler.py`
+Location: `src/prep/services/pipeline/scheduler.py`
 
 ```python
 def is_swarm_active_for_stage(stage: str, provider: str, model: str) -> bool:
@@ -76,8 +76,8 @@ def is_swarm_active_for_stage(stage: str, provider: str, model: str) -> bool:
     if stage not in SWARM_CAPABLE_STAGES:
         return False
     try:
-        from codrag.core.swarm_registry import get_swarm_tier
-        from codrag.services.settings_store import settings
+        from prep.core.swarm_registry import get_swarm_tier
+        from prep.services.settings_store import settings
         tier = get_swarm_tier(provider, model)
         return tier.can_coordinate and bool(settings.get("swarm_enabled", True))
     except Exception:
@@ -95,7 +95,7 @@ def _resolve_model_for_stage(project_id: str, stage: str) -> tuple[str, str] | N
     Walks: stage → model_slot → llm_config["{slot}_model"] → endpoint → provider.
     Returns None if resolution fails (no config, non-LLM stage, etc).
     """
-    from codrag.services.pipeline.stages import STAGE_MODEL_SLOT, StageId
+    from prep.services.pipeline.stages import STAGE_MODEL_SLOT, StageId
     try:
         stage_id = StageId(stage)
     except ValueError:
@@ -104,7 +104,7 @@ def _resolve_model_for_stage(project_id: str, stage: str) -> tuple[str, str] | N
     if not slot_name:
         return None
     try:
-        from codrag.services.settings_store import settings
+        from prep.services.settings_store import settings
         llm_config = settings.get("llm_config") or {}
     except Exception:
         return None
@@ -121,7 +121,7 @@ def _resolve_model_for_stage(project_id: str, stage: str) -> tuple[str, str] | N
     return provider, model
 ```
 
-Location: `src/codrag/api/routers/_llm_helpers.py` (new small module) or inline in the scheduler. Since both `llm.py` and `queue.py` need it, a shared location is cleaner.
+Location: `src/prep/api/routers/_llm_helpers.py` (new small module) or inline in the scheduler. Since both `llm.py` and `queue.py` need it, a shared location is cleaner.
 
 #### 1.4 `concurrent_workers_for_project()` — swarm-aware
 
@@ -152,7 +152,7 @@ def concurrent_workers_for_project(
 **`llm.py:599-612`** — Pass stage, use model-aware swarm check:
 
 ```python
-from codrag.services.pipeline.scheduler import (
+from prep.services.pipeline.scheduler import (
     pipeline_scheduler, SWARM_CAPABLE_STAGES, is_swarm_active_for_stage,
 )
 for rt in running_tasks:
@@ -186,10 +186,10 @@ if current_stage and current_stage in SWARM_CAPABLE_STAGES:
 
 | File | Change |
 |------|--------|
-| `src/codrag/services/pipeline/scheduler.py` | Add `SWARM_CAPABLE_STAGES`, `is_swarm_active_for_stage()`, update `concurrent_workers_for_project()` |
-| `src/codrag/api/routers/llm.py` | Import shared constant, pass stage, model-aware `is_swarm`, fix telemetry tasks |
-| `src/codrag/api/routers/queue.py` | Import shared constant, model-aware `is_swarm` |
-| `src/codrag/api/routers/_llm_helpers.py` | New: `_resolve_model_for_stage()` helper |
+| `src/prep/services/pipeline/scheduler.py` | Add `SWARM_CAPABLE_STAGES`, `is_swarm_active_for_stage()`, update `concurrent_workers_for_project()` |
+| `src/prep/api/routers/llm.py` | Import shared constant, pass stage, model-aware `is_swarm`, fix telemetry tasks |
+| `src/prep/api/routers/queue.py` | Import shared constant, model-aware `is_swarm` |
+| `src/prep/api/routers/_llm_helpers.py` | New: `_resolve_model_for_stage()` helper |
 
 No UI changes needed — the existing purple/blue badge logic is correct, it just needs accurate data from the API.
 
@@ -265,7 +265,7 @@ Note: Google Gemini API doesn't expose `x-ratelimit-remaining` headers in the sa
 
 | File | Change |
 |------|--------|
-| `src/codrag/core/llm_client.py` | Add timing + `_record_throughput()` to Azure OpenAI and Google Gemini providers |
+| `src/prep/core/llm_client.py` | Add timing + `_record_throughput()` to Azure OpenAI and Google Gemini providers |
 
 ---
 
@@ -296,7 +296,7 @@ nodes[nid] = {
 
 | File | Change |
 |------|--------|
-| `src/codrag/services/pipeline/scheduler.py` | Add AIMD fields to `status()` dict |
+| `src/prep/services/pipeline/scheduler.py` | Add AIMD fields to `status()` dict |
 
 ---
 

@@ -106,7 +106,7 @@ A domain hook should:
 ### File structure
 
 ```
-src/codrag/dashboard/src/
+src/prep/dashboard/src/
 ├── state/
 │   ├── tracePipelineReducer.ts      ← trace build + coverage
 │   ├── enrichmentReducer.ts         ← 6 enrichment stages
@@ -377,7 +377,7 @@ disconnected → starting → connected → unhealthy → reconnecting → conne
 
 ### SM-4: Build Orchestrator (Backend — High Priority)
 
-**Location:** `src/codrag/server.py` lines 196–214, 1096–1170 (global dicts + thread management)
+**Location:** `src/prep/server.py` lines 196–214, 1096–1170 (global dicts + thread management)
 **Current pattern:** 3 parallel build systems (code index, trace, knowledge), each managed by:
 - A global `threading.Lock` (`_project_build_lock`, `_project_trace_build_lock`, `_project_knowledge_build_lock`)
 - A global `Dict[str, threading.Thread]` (`_project_build_threads`, etc.)
@@ -430,7 +430,7 @@ class BuildOrchestrator:
 
 ### SM-5: AutoRebuildWatcher (Backend — Medium Priority)
 
-**Location:** `src/codrag/core/watcher.py` (352 lines)
+**Location:** `src/prep/core/watcher.py` (352 lines)
 **Current pattern:** `_state: str` field manually set to `"disabled"`, `"idle"`, `"debouncing"`, `"building"`, `"throttled"` across 6 different code paths with `self._lock` guards.
 
 **Current state diagram (implicit):**
@@ -477,7 +477,7 @@ VALID_TRANSITIONS = {
 
 ### SM-6: Graph Enrichment Pipeline — Backend Orchestrator (Backend — High Priority)
 
-**Location:** `src/codrag/server.py` lines 3256–3564 (3 global state dicts + per-stage run endpoints)
+**Location:** `src/prep/server.py` lines 3256–3564 (3 global state dicts + per-stage run endpoints)
 **Current pattern:** Three `Dict[str, Dict[str, Any]]` globals (`_epistemic_state`, `_cluster_state`, `_deepening_state`) each holding a `{"thread": Thread, "current": int, "total": int}` dict. Each stage has its own `/run` and `/status` endpoints that independently check `thread.is_alive()`.
 
 **Problem:**
@@ -527,15 +527,15 @@ class PipelineOrchestrator:
 
 **Tier gating integration:** The orchestrator checks `require_feature()` before transitioning certain stages:
 - `auto_rebuild` gate → blocks auto-pilot for FREE tier
-- `clara_compression` gate → blocks compression stage for non-PRO
+- `prep-compress_compression` gate → blocks compression stage for non-PRO
 - `mcp_trace_expand` gate → blocks trace-aware context expansion
 
 ---
 
 ### SM-7: License & Feature Gate (Backend — Medium Priority)
 
-**Location:** `src/codrag/core/feature_gate.py` (184 lines)
-**Current pattern:** Stateless `check_feature()` / `require_feature()` functions that read a cached `License` dataclass. License is loaded once from `~/.prep/license.json` or `CODRAG_TIER` env var.
+**Location:** `src/prep/core/feature_gate.py` (184 lines)
+**Current pattern:** Stateless `check_feature()` / `require_feature()` functions that read a cached `License` dataclass. License is loaded once from `~/.prep/license.json` or `PREP_TIER` env var.
 
 **Problem:**
 - **No lifecycle** — the license is loaded once and cached forever. If the user activates a license, `clear_license_cache()` must be called manually, and any in-flight requests still see the old tier.
@@ -569,7 +569,7 @@ IDLE → VALIDATING_KEY → EXCHANGING_TOKEN → WRITING_FILE → ACTIVATED
 
 ### SM-8: Daemon Lifecycle (Inter-Process — Lower Priority)
 
-**Location:** `src/codrag/dashboard/src-tauri/src/main.rs` (116 lines), `src/codrag/dashboard/src/components/StartupScreen.tsx`
+**Location:** `src/prep/dashboard/src-tauri/src/main.rs` (116 lines), `src/prep/dashboard/src/components/StartupScreen.tsx`
 **Current pattern:** Tauri setup hook checks port → checks health → conditionally spawns sidecar → `thread::sleep(1s)`. Frontend `StartupScreen` polls `/health` every 1s with 30s timeout.
 
 **Problem:**
@@ -616,7 +616,7 @@ The licensing tier system interacts with multiple state machines. Here's how fea
 | `auto_trace` | STARTER+ | SM-5 Watcher | `trigger_build` skips trace rebuild |
 | `trace_index` | FREE | SM-4 BuildOrchestrator | Manual trace build allowed for all tiers |
 | `mcp_trace_expand` | PRO+ | SM-6 Pipeline | Context expansion stage gated |
-| `clara_compression` | PRO+ | SM-6 Pipeline | Compression stage blocked |
+| `prep-compress_compression` | PRO+ | SM-6 Pipeline | Compression stage blocked |
 | `multi_repo_agent` | PRO+ | SM-4 BuildOrchestrator | Multi-project builds blocked |
 | `team_config` | TEAM+ | — | Shared config sync blocked |
 | `audit_log` | ENTERPRISE | — | Audit event emission blocked |
@@ -740,7 +740,7 @@ The difference: Phase 23 moves code; Phase 24 changes how state is structured wi
 
 ## 12. Research Findings & Advanced Patterns
 
-Recent research into "StateFlow" (LLM-driven FSMs) and Hierarchical Multi-Agent Systems suggests two critical architectural refinements for CoDRAG.
+Recent research into "StateFlow" (LLM-driven FSMs) and Hierarchical Multi-Agent Systems suggests two critical architectural refinements for Prep.
 
 ### 12.1 Hierarchical State Machines (HSM)
 
@@ -760,7 +760,7 @@ Simple FSMs explode in complexity when handling nested lifecycles. We should ado
 
 Papers like *StateFlow: Enhancing LLM Task-Solving through State-Driven Workflows* (2024) define a pattern where the FSM *is* the prompt engineering strategy.
 
-**Application to CoDRAG (SM-6):**
+**Application to Prep (SM-6):**
 Instead of just "running" a stage, the state machine defines the **context window** for that stage.
 -   **State:** `EnrichingNode`
 -   **Context:** `PreviousState` (Catalogue Role) + `Transition` (User Request)

@@ -16,7 +16,7 @@ Build the collaboration infrastructure described in `docs/Phase73_Quality-Reccom
 - Structural delta (what changed in the graph since timestamp X)
 - Conflict detection (catch when agents disagree about the same file)
 - Soft claims (agents declare active interest in files)
-- 3 new MCP prompts: `codrag-handoff`, `codrag-scope`, `codrag-triage`
+- 3 new MCP prompts: `prep-handoff`, `prep-scope`, `prep-triage`
 - 5 new MCP resources: `memory/{role}`, `agents/{role}/findings`, `activity`, `delta`, `conflicts`
 
 **What we're NOT building (Layer 3 roadmap):**
@@ -27,9 +27,9 @@ Build the collaboration infrastructure described in `docs/Phase73_Quality-Reccom
 - Adaptive role scoping
 
 **What already exists and is not touched:**
-- The 5 MCP prompts from doc 14 (`codrag-onboard`, `codrag-review`, `codrag-plan`, `codrag-investigate`, `codrag-health`) — already shipped in `server.py`
+- The 5 MCP prompts from doc 14 (`prep-onboard`, `prep-review`, `prep-plan`, `prep-investigate`, `prep-health`) — already shipped in `server.py`
 - The 4 existing MCP resources (`structure`, `atlas`, `files`, `health`) — untouched
-- The 5 MCP tools (`codrag`, `codrag_search`, `codrag_impact`, `codrag_observe`, `codrag_audit`) — untouched except `codrag_observe` gains optional `created_by` param
+- The 5 MCP tools (`prep`, `prep_search`, `prep_impact`, `prep_observe`, `prep_audit`) — untouched except `prep_observe` gains optional `created_by` param
 
 ---
 
@@ -38,14 +38,14 @@ Build the collaboration infrastructure described in `docs/Phase73_Quality-Reccom
 ### Package Structure
 
 ```
-src/codrag/services/collaboration/
+src/prep/services/collaboration/
     __init__.py              # CollaborationHub facade + public API
     activity.py              # ActivityStore — append-only agent action log
     snapshots.py             # GraphSnapshotStore — persist + diff graph state
     conflicts.py             # ConflictStore + ConflictDetector
     claims.py                # ClaimStore — soft file claims with auto-expiry
 
-src/codrag/mcp/
+src/prep/mcp/
     collaboration_handlers.py  # Resource content generators + prompt handlers
                                # (keeps logic OUT of server.py)
 ```
@@ -75,7 +75,7 @@ class CollaborationHub:
 
 `server.py` gains exactly 4 small changes:
 
-1. **Init:** Create `CollaborationHub` instance during server init (alongside existing stores). Uses the same `codrag_settings.db` path from `settings_store`.
+1. **Init:** Create `CollaborationHub` instance during server init (alongside existing stores). Uses the same `prep_settings.db` path from `settings_store`.
 2. **Resources:** In `handle_resources_list`, extend the list with `get_collaboration_resources(project_id)`
 3. **Resource read:** In `handle_resources_read`, try `handle_collaboration_resource(uri, hub, project_id)` first — if it returns content, use it; otherwise fall through to existing handlers
 4. **Prompts:** Same pattern for `handle_prompts_list` and `handle_prompts_get`
@@ -355,9 +355,9 @@ Expired claims cleaned up lazily on `claim()` and `get_active()`. `is_claimed()`
 
 ## MCP Resources (5 new)
 
-All resource content generation lives in `src/codrag/mcp/collaboration_handlers.py`.
+All resource content generation lives in `src/prep/mcp/collaboration_handlers.py`.
 
-### codrag://{pid}/memory/{role}
+### prep://{pid}/memory/{role}
 
 **Content:** Observations filtered by `created_by={role}`, excluding stale, ordered by recency.
 
@@ -377,13 +377,13 @@ All resource content generation lives in `src/codrag/mcp/collaboration_handlers.
 
 **Data source:** `observation_store.get_by_agent(project_id, role)`
 
-### codrag://{pid}/agents/{role}/findings
+### prep://{pid}/agents/{role}/findings
 
 **Content:** Same query as memory, but `visibility != "private"`. For cross-agent browsing.
 
 **Data source:** `observation_store.get_by_agent(project_id, role, visibility_filter="shared")`
 
-### codrag://{pid}/activity
+### prep://{pid}/activity
 
 **Content:** Last 50 activity entries as markdown table.
 
@@ -399,7 +399,7 @@ All resource content generation lives in `src/codrag/mcp/collaboration_handlers.
 
 **Data source:** `hub.activity.get_recent(project_id, limit=50)`
 
-### codrag://{pid}/delta
+### prep://{pid}/delta
 
 **Content:** Structural delta since default lookback (7 days), or since `?since=` query param if the client supports it (parsed from URI query string).
 
@@ -428,7 +428,7 @@ All resource content generation lives in `src/codrag/mcp/collaboration_handlers.
 
 Returns "No structural changes detected" if delta is empty. Returns "No snapshots available yet — structural delta requires at least one completed index rebuild" if no snapshots exist.
 
-### codrag://{pid}/conflicts
+### prep://{pid}/conflicts
 
 **Content:** Active (unresolved) conflicts.
 
@@ -454,7 +454,7 @@ Returns "No active conflicts" if empty.
 
 ## MCP Prompts (3 new)
 
-### codrag-handoff
+### prep-handoff
 
 **Arguments:** `from_role` (required), `to_role` (required), `task` (optional)
 
@@ -465,14 +465,14 @@ You are taking over a task from the {from_role} agent.
 
 {if task: "Task context: {task}"}
 
-1. Review what {from_role} found — check @codrag://memory/{from_role} for their observations and @codrag://agents/{from_role}/findings for their findings.
-2. Check @codrag://activity for recent agent actions to understand the timeline.
-3. Check @codrag://conflicts for any disagreements that need resolution.
-4. Call `codrag_search` to deepen your understanding of the relevant code areas.
+1. Review what {from_role} found — check @prep://memory/{from_role} for their observations and @prep://agents/{from_role}/findings for their findings.
+2. Check @prep://activity for recent agent actions to understand the timeline.
+3. Check @prep://conflicts for any disagreements that need resolution.
+4. Call `prep_search` to deepen your understanding of the relevant code areas.
 5. Continue the work: summarize what you're picking up and what your next steps are.
 ```
 
-### codrag-scope
+### prep-scope
 
 **Arguments:** `role` (required)
 
@@ -481,14 +481,14 @@ You are taking over a task from the {from_role} agent.
 ```
 Show me what the {role} agent owns and what's happening in their domain.
 
-1. Call `codrag` for the structural overview, focusing on modules relevant to {role}.
-2. Check @codrag://memory/{role} for the agent's recent observations.
-3. Check @codrag://delta for structural changes that affect {role}'s scope.
-4. Check @codrag://conflicts for any disputes involving {role}.
+1. Call `prep` for the structural overview, focusing on modules relevant to {role}.
+2. Check @prep://memory/{role} for the agent's recent observations.
+3. Check @prep://delta for structural changes that affect {role}'s scope.
+4. Check @prep://conflicts for any disputes involving {role}.
 5. Summarize: what modules does {role} own, what changed recently, what needs attention.
 ```
 
-### codrag-triage
+### prep-triage
 
 **Arguments:** `focus` (optional)
 
@@ -497,9 +497,9 @@ Show me what the {role} agent owns and what's happening in their domain.
 ```
 Triage the current agent findings and route them to the right agents.{if focus: " Focus on: {focus}."}
 
-1. Call `codrag_audit` to get current findings.
-2. Check @codrag://activity for what agents have already worked on.
-3. Check @codrag://conflicts for unresolved disagreements.
+1. Call `prep_audit` to get current findings.
+2. Check @prep://activity for what agents have already worked on.
+3. Check @prep://conflicts for unresolved disagreements.
 4. Cluster findings by root cause — group related issues that share affected files or dependency chains.
 5. For each cluster: recommend which agent role should handle it, flag any conflicts, and note if multiple agents have independently flagged the same area (consensus signal).
 ```
@@ -564,7 +564,7 @@ self._capture_snapshot()
 def _capture_snapshot(self) -> None:
     """Capture current graph state for structural delta computation."""
     # Read hub files, modules, cycles from existing index data
-    # (same data the codrag tool already serves)
+    # (same data the prep tool already serves)
     hub.snapshots.capture(self.project_id, hubs=..., modules=..., cycles=..., cross_cutting=...)
 ```
 
@@ -645,7 +645,7 @@ def push(self, items: List[ActionItem], ...) -> PushResult:
     # NEW: Detect conflicts before pushing
     if self._conflict_detector:
         conflicts = self._conflict_detector.detect_from_push(
-            codrag_project_id, groups
+            prep_project_id, groups
         )
         result.conflicts = conflicts  # NEW field on PushResult
         for c in conflicts:
@@ -663,11 +663,11 @@ class PushResult:
     conflicts: List[AgentConflict] = field(default_factory=list)  # NEW
 ```
 
-### MCP `codrag_observe` Tool
+### MCP `prep_observe` Tool
 
-Extend the `codrag_observe` / `codrag_save_observation` tool handler in `server.py` to accept optional `created_by` parameter and pass it through to `observation_store.save()`. This requires:
+Extend the `prep_observe` / `prep_save_observation` tool handler in `server.py` to accept optional `created_by` parameter and pass it through to `observation_store.save()`. This requires:
 
-1. Add `created_by` to the `codrag_save_observation` tool schema in `mcp_tools.py`:
+1. Add `created_by` to the `prep_save_observation` tool schema in `mcp_tools.py`:
    ```python
    {"name": "created_by", "description": "Agent role identifier (e.g. 'researcher', 'pi/watchdog')", "type": "string", "required": False}
    ```
@@ -675,9 +675,9 @@ Extend the `codrag_observe` / `codrag_save_observation` tool handler in `server.
 
 ---
 
-## Shared DB: `codrag_settings.db`
+## Shared DB: `prep_settings.db`
 
-All new tables live in the existing `codrag_settings.db` file (same as observations). Each store in the collaboration package opens its own connection to this file using the same `WAL` + `DEFERRED` settings as `ObservationStore`. Table creation uses `IF NOT EXISTS` — safe to run multiple times, no migration framework needed.
+All new tables live in the existing `prep_settings.db` file (same as observations). Each store in the collaboration package opens its own connection to this file using the same `WAL` + `DEFERRED` settings as `ObservationStore`. Table creation uses `IF NOT EXISTS` — safe to run multiple times, no migration framework needed.
 
 ---
 
@@ -739,13 +739,13 @@ These features build on Layers 1+2 and should be considered after real usage dat
 
 **Why wait:** Needs decision history to calibrate routing heuristics. Without outcome data, routing thresholds are guesses.
 
-**Integration:** Fold into `codrag_impact` tool as optional `include_routing: true` parameter. Paperclip reads the routing recommendation from CoDRAG before assigning tasks.
+**Integration:** Fold into `prep_impact` tool as optional `include_routing: true` parameter. Paperclip reads the routing recommendation from Prep before assigning tasks.
 
 **Estimated effort:** 3-4 days (model + heuristic + impact tool extension + Paperclip plugin update).
 
 ### Capability Attestation
 
-**What:** Agents query CoDRAG to assess whether they can handle a specific task before accepting it. Returns context budget estimate, required tools, risk factors.
+**What:** Agents query Prep to assess whether they can handle a specific task before accepting it. Returns context budget estimate, required tools, risk factors.
 
 **Why wait:** Needs task routing and real agent workload data to define meaningful capability thresholds. Also depends on Phase 73.3b tier system being stable.
 

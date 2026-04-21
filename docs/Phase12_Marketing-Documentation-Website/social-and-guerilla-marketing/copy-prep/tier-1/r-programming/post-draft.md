@@ -37,7 +37,7 @@ Academic, thoughtful, experienced. NOT "I built a tool, download it here." Focus
 
 ## Links to Include
 *   **None in the body** (strictly discussion).
-*   **First comment:** "If you're interested in playing with this approach, I'm building a local tool called CoDRAG that implements this graph-based retrieval: [Link to GitHub/Docs]"
+*   **First comment:** "If you're interested in playing with this approach, I'm building a local tool called Prep that implements this graph-based retrieval: [Link to GitHub/Docs]"
 
 ## Timing
 Weekday morning (EU/US overlap). Monitor closely for technical debate.

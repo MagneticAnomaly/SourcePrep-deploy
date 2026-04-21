@@ -1,7 +1,7 @@
 # Post Draft for r/MachineLearning
 
 ## Title Options
-1. **[P] CoDRAG: A local structural trace engine for code retrieval (Graph > Vectors?)**
+1. **[P] Prep: A local structural trace engine for code retrieval (Graph > Vectors?)**
 2. **[P] Replacing vector search with structural graph traversal for code RAG**
 3. **[P] Trace-Assisted Grasping: A deterministic approach to context retrieval for LLMs**
 
@@ -10,7 +10,7 @@
 ### The Abstract (Hook)
 Most RAG systems for code rely on chunking and cosine similarity. We found this introduces high noise for large repositories (retrieving semantically similar but structurally irrelevant code).
 
-We built **CoDRAG**, an open-source(ish) local engine that uses **Tree-sitter** to build a deterministic dependency graph of the codebase.
+We built **Prep**, an open-source(ish) local engine that uses **Tree-sitter** to build a deterministic dependency graph of the codebase.
 
 ### The Methodology
 Instead of `query -> embedding -> k-NN`, the pipeline is:

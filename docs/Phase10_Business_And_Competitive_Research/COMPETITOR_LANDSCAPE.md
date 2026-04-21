@@ -1,7 +1,7 @@
 # Competitor Landscape
 
 ## Purpose
-This document captures a **business-focused** competitor landscape for CoDRAG (pricing, packaging, distribution, enterprise posture). It is meant to complement the more **technical** landscape:
+This document captures a **business-focused** competitor landscape for Prep (pricing, packaging, distribution, enterprise posture). It is meant to complement the more **technical** landscape:
 - `../Phase00_Initial-Concept/COMPETITORS_AND_CUTTING_EDGE.md`
 
 ## How to use
@@ -174,7 +174,7 @@ Why it matters here:
 Source:
 - https://www.gitkraken.com/git-client/on-premise-pricing
 
-## Key patterns that impact CoDRAG
+## Key patterns that impact Prep
 - Most AI dev tools are priced per-user, per-month with a clear enterprise ladder.
 - Enterprise tier differentiation commonly includes:
   - SSO (SAML/OIDC)
@@ -187,11 +187,11 @@ Source:
   - team collaboration
   - enterprise deployment and support
 
-## Direct competitors: Is anyone doing exactly what CoDRAG does?
+## Direct competitors: Is anyone doing exactly what Prep does?
 
 ### Answer: No exact match exists
 
-CoDRAG's combination of features is unique:
+Prep's combination of features is unique:
 - **Local-first** (indexes + queries stay on-device by default)
 - **Multi-codebase** (registry of projects, not single-repo)
 - **Granular scoping** (include/exclude patterns, embedded vs standalone modes)
@@ -211,7 +211,7 @@ Source:
 - https://github.com/Neverdecel/CodeRAG
 
  #### ChunkHound
- ChunkHound is the closest OSS-style tool to CoDRAG's core loop because it combines:
+ ChunkHound is the closest OSS-style tool to Prep's core loop because it combines:
  - local indexing (`chunkhound index`)
  - incremental re-indexing (re-running only processes changed files)
  - `.gitignore` awareness
@@ -225,13 +225,13 @@ Source:
  - Multiple embedding backends (VoyageAI / OpenAI / Ollama).
  - Optional "code research" workflows (`chunkhound research ...`) to generate higher-level reports.
  
- Differences vs CoDRAG (our differentiation to keep sharpening):
- - **UI + inspectability:** CoDRAG is dashboard-first, designed to make retrieval inspectable (citations, status, errors), not just "a CLI that works".
- - **Curated retrieval controls:** CoDRAG's UI/CLI direction includes user-driven control over what data is retrieved and how it is assembled into bounded context.
- - **Freshness mechanisms:** CoDRAG explicitly treats freshness/staleness as a first-class invariant (auto-rebuild loops, stale indicators, rebuild affordances). ChunkHound emphasizes incremental re-indexing, but not (from quickstart) a full freshness UX model.
- - **Multi-project registry:** CoDRAG is built around multiple codebases and per-project configuration; ChunkHound's quickstart is oriented around a single project directory.
- - **Team posture:** CoDRAG is planning embedded/team config and later enterprise posture; ChunkHound is primarily a developer tool surface.
- - **Config safety posture:** ChunkHound's manual config examples include an `api_key` field in `.chunkhound.json` (easy to accidentally commit). CoDRAG should keep provider keys per-user/local and keep shared configs secret-free.
+ Differences vs Prep (our differentiation to keep sharpening):
+ - **UI + inspectability:** Prep is dashboard-first, designed to make retrieval inspectable (citations, status, errors), not just "a CLI that works".
+ - **Curated retrieval controls:** Prep's UI/CLI direction includes user-driven control over what data is retrieved and how it is assembled into bounded context.
+ - **Freshness mechanisms:** Prep explicitly treats freshness/staleness as a first-class invariant (auto-rebuild loops, stale indicators, rebuild affordances). ChunkHound emphasizes incremental re-indexing, but not (from quickstart) a full freshness UX model.
+ - **Multi-project registry:** Prep is built around multiple codebases and per-project configuration; ChunkHound's quickstart is oriented around a single project directory.
+ - **Team posture:** Prep is planning embedded/team config and later enterprise posture; ChunkHound is primarily a developer tool surface.
+ - **Config safety posture:** ChunkHound's manual config examples include an `api_key` field in `.chunkhound.json` (easy to accidentally commit). Prep should keep provider keys per-user/local and keep shared configs secret-free.
 
 #### Similar OSS patterns
 Many "local RAG for code" projects exist (LanceDB tutorials, txtai examples, etc.) but they share common limitations:
@@ -241,7 +241,7 @@ Many "local RAG for code" projects exist (LanceDB tutorials, txtai examples, etc
 - No MCP or IDE integration.
 - No embedded mode for team portability.
 
-**CoDRAG differentiation**:
+**Prep differentiation**:
 - Multi-codebase registry with per-project config.
 - Embedded mode for Git-trackable indexes.
 - MCP tools for IDE agent loops.
@@ -251,7 +251,7 @@ Many "local RAG for code" projects exist (LanceDB tutorials, txtai examples, etc
 ### Commercial local-first competitors
 
 #### Pieces for Developers
-Closest in spirit to CoDRAG's "local-first companion" positioning.
+Closest in spirit to Prep's "local-first companion" positioning.
 
 What they do:
 - Local-first storage and memory across your workflow.
@@ -262,16 +262,16 @@ What they do:
 Source:
 - https://pieces.app/features/long-term-memory/ai-memory-assistant
 
-Differences from CoDRAG:
+Differences from Prep:
 - Pieces focuses on **workflow memory** (browsing, notes, snippets) more than **codebase indexing**.
-- Pieces is broader (cross-app context); CoDRAG is narrower (code search/context/trace).
+- Pieces is broader (cross-app context); Prep is narrower (code search/context/trace).
 - Pieces does not emphasize MCP as a primary integration surface.
 
-**Implication**: Pieces is adjacent, not a direct competitor. CoDRAG's codebase-specific depth + MCP integration is a differentiation.
+**Implication**: Pieces is adjacent, not a direct competitor. Prep's codebase-specific depth + MCP integration is a differentiation.
 
 ## Cloud-based code context services
 
-These are doing something **similar** to CoDRAG but as **cloud services**, not local-first apps.
+These are doing something **similar** to Prep but as **cloud services**, not local-first apps.
 
 ### Greptile
 Cloud AI code review with full codebase context.
@@ -290,10 +290,10 @@ Pricing:
 Source:
 - https://www.greptile.com
 
-**CoDRAG differentiation**:
-- Greptile is cloud-first (even with self-host option); CoDRAG is local-first by default.
-- Greptile focuses on PR review; CoDRAG focuses on context assembly for AI assistants.
-- Greptile requires code to leave the device; CoDRAG does not.
+**Prep differentiation**:
+- Greptile is cloud-first (even with self-host option); Prep is local-first by default.
+- Greptile focuses on PR review; Prep focuses on context assembly for AI assistants.
+- Greptile requires code to leave the device; Prep does not.
 
 ### Augment Code (Context Engine)
 Enterprise AI coding platform with a proprietary "Context Engine".
@@ -307,10 +307,10 @@ What they do:
 Source:
 - https://www.augmentcode.com/context-engine
 
-**CoDRAG differentiation**:
-- Augment is enterprise SaaS; CoDRAG is local-first.
-- Augment bundles context into a full AI platform; CoDRAG is a companion/tool.
-- Augment's pricing is enterprise-focused; CoDRAG targets individual → team → enterprise ladder.
+**Prep differentiation**:
+- Augment is enterprise SaaS; Prep is local-first.
+- Augment bundles context into a full AI platform; Prep is a companion/tool.
+- Augment's pricing is enterprise-focused; Prep targets individual → team → enterprise ladder.
 
 ### Sourcegraph Cody
 Code intelligence + AI assistant with RAG-based context retrieval.
@@ -327,14 +327,14 @@ Pricing:
 - Enterprise: $49/user/month (Code Search).
 - Cody has separate tiers.
 
-**CoDRAG differentiation**:
-- Sourcegraph is a platform (search + Cody); CoDRAG is a focused companion.
-- Sourcegraph requires infrastructure; CoDRAG runs locally.
-- Sourcegraph's pricing is enterprise-first; CoDRAG starts free/low-cost.
+**Prep differentiation**:
+- Sourcegraph is a platform (search + Cody); Prep is a focused companion.
+- Sourcegraph requires infrastructure; Prep runs locally.
+- Sourcegraph's pricing is enterprise-first; Prep starts free/low-cost.
 
 ## Acquisition signals (Cursor, Windsurf, OpenAI)
 
-Understanding what these companies acquire helps set expectations for CoDRAG's positioning.
+Understanding what these companies acquire helps set expectations for Prep's positioning.
 
 ### Cursor (Anysphere) acquisitions
 
@@ -376,7 +376,7 @@ Source:
 
 **Pattern**: OpenAI acquiring to **own the IDE layer** and compete with Microsoft/GitHub Copilot.
 
-### What this means for CoDRAG
+### What this means for Prep
 
 Acquirers care about:
 1. **Filling workflow gaps** (Cursor buys what accelerates the dev loop).
@@ -384,15 +384,15 @@ Acquirers care about:
 3. **User base / traction** (Supermaven had 35k devs; Graphite had Shopify/Figma).
 4. **Technical moat** (Supermaven's low-latency model; Greptile's codebase graph).
 
-CoDRAG's acquisition attractiveness would come from:
+Prep's acquisition attractiveness would come from:
 - **Local-first context engine** as a differentiated moat (not easily replicated by cloud-first players).
 - **MCP integration** making it a natural complement to Cursor/Windsurf.
 - **Enterprise-friendly posture** (privacy, offline, governance hooks).
 
-## Implications for CoDRAG (updated)
+## Implications for Prep (updated)
 
 ### Positioning
-- CoDRAG should avoid competing head-on as "another IDE"; instead position as:
+- Prep should avoid competing head-on as "another IDE"; instead position as:
   - a local-first context engine that works with existing IDE assistants via MCP.
 - **Pricing Strategy: The "Context Drug" Ladder**:
   - **Free (The Hook):** 1-repo limit creates natural friction to upgrade once usage habits form.
@@ -401,7 +401,7 @@ CoDRAG's acquisition attractiveness would come from:
 - "Enterprise" in this market implies identity + policy + audit even if the core app is local.
 
 ### Differentiation summary
-| Dimension | CoDRAG | OSS pip-install tools | Pieces | Greptile/Augment/Sourcegraph |
+| Dimension | Prep | OSS pip-install tools | Pieces | Greptile/Augment/Sourcegraph |
 |-----------|--------|----------------------|--------|------------------------------|
 | Local-first | Yes (default) | Yes | Yes | No (cloud or self-host) |
 | Multi-codebase | Yes | No | Partial | Yes |
@@ -415,4 +415,4 @@ CoDRAG's acquisition attractiveness would come from:
 - **No direct competitor** is doing local-first + multi-codebase + MCP + desktop app.
 - **Pieces** is the closest in spirit but different in focus (memory vs codebase context).
 - **Cloud services** (Greptile, Augment, Sourcegraph) are potential competitive threats if they add local modes, but their DNA is cloud-first.
-- **Acquisition path**: CoDRAG's best angle is as a **local-first context engine** that complements Cursor/Windsurf (filling the "local graph" gap) without requiring them to build local infrastructure.
+- **Acquisition path**: Prep's best angle is as a **local-first context engine** that complements Cursor/Windsurf (filling the "local graph" gap) without requiring them to build local infrastructure.

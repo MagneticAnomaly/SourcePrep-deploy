@@ -1,6 +1,6 @@
 # Qwen Code Integration Research
 
-> How Qwen Code consumes MCP, its relationship to Gemini CLI, and how CoDRAG should optimize for it.
+> How Qwen Code consumes MCP, its relationship to Gemini CLI, and how Prep should optimize for it.
 
 **Status:** PRELIMINARY -- needs empirical validation
 **Last updated:** 2026-03-14
@@ -61,17 +61,17 @@ Qwen Code's MCP documentation is **structurally identical** to Gemini CLI's docs
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"],
-      "includeTools": ["codrag", "codrag_search", "codrag_impact"],
+      "includeTools": ["prep", "prep_search", "prep_impact"],
       "trust": true
     }
   }
 }
 ```
 
-This allows users to expose only specific CoDRAG tools, hiding administrative ones like `codrag_audit` or `codrag_observe` if not needed.
+This allows users to expose only specific Prep tools, hiding administrative ones like `prep_audit` or `prep_observe` if not needed.
 
 ---
 
@@ -80,7 +80,7 @@ This allows users to expose only specific CoDRAG tools, hiding administrative on
 ### Unknown but Likely
 Given the Gemini CLI architectural similarity, Qwen Code likely supports the `instructions` field in server capabilities. **Needs empirical verification.**
 
-If confirmed, CoDRAG's instructions field works here too -- zero-effort always-on context injection.
+If confirmed, Prep's instructions field works here too -- zero-effort always-on context injection.
 
 ---
 
@@ -88,7 +88,7 @@ If confirmed, CoDRAG's instructions field works here too -- zero-effort always-o
 
 Qwen Code reads `AGENTS.md` as its primary instruction file. No tool-specific alternative documented.
 
-### CoDRAG Strategy
+### Prep Strategy
 Generate `AGENTS.md` section (same as universal template). Since Qwen Code is AGENTS.md-first, this is all that's needed.
 
 ---
@@ -109,13 +109,13 @@ Qwen3-Coder has native API tool call interface support (via vLLM). This means to
 
 ---
 
-## 7. CoDRAG Optimization Checklist
+## 7. Prep Optimization Checklist
 
 - [ ] Empirically test: does Qwen Code support MCP server `instructions`?
 - [ ] Empirically test: what is `clientInfo.name` in Qwen Code's initialize request?
-- [ ] Verify CoDRAG tool names are <63 characters (they are -- longest is `codrag_observe`)
-- [ ] Test `trust: true` auto-approve with CoDRAG
-- [ ] Test `includeTools` filtering with CoDRAG tools
+- [ ] Verify Prep tool names are <63 characters (they are -- longest is `prep_observe`)
+- [ ] Test `trust: true` auto-approve with Prep
+- [ ] Test `includeTools` filtering with Prep tools
 - [ ] Confirm AGENTS.md reading behavior
 - [ ] Test schema compatibility after `$schema`/`additionalProperties` stripping
 
@@ -125,7 +125,7 @@ Qwen3-Coder has native API tool call interface support (via vLLM). This means to
 
 | Risk | Severity | Notes |
 |------|----------|-------|
-| Tool name truncation | NONE | CoDRAG's names are all <20 chars |
-| Schema stripping breaks CoDRAG | LOW | CoDRAG uses simple schemas |
+| Tool name truncation | NONE | Prep's names are all <20 chars |
+| Schema stripping breaks Prep | LOW | Prep uses simple schemas |
 | Qwen3-Coder's tool-call quality differs from Claude/GPT | MEDIUM | Tool descriptions may need tuning for Qwen models |
 | Qwen Code diverges from Gemini CLI in future | LOW | Monitor for architectural divergence |

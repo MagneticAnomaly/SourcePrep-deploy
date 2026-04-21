@@ -7,7 +7,7 @@
 ## Issue 1: Atlas Module Dump (Lines 73-110 in overview)
 
 ### The Symptom
-The `codrag` overview still shows ~35 module names in an "Architecture" section at the bottom of the output:
+The `prep` overview still shows ~35 module names in an "Architecture" section at the bottom of the output:
 ```
 ### Architecture (3742 modules, 239 shown)
 - **Lucide Icon Components** (47 files) → depends on: none
@@ -30,7 +30,7 @@ Two options:
 1. **Short term:** In `architecture.py:488`, add a hard cap: only show the top N significant modules (e.g., top 30 by file count). Add a collapsed count for the rest.
 2. **Medium term:** In `server.py:977`, add `_truncate_section` with a tighter budget (e.g., 1500 chars instead of 3000) for the architecture context section.
 
-**Location:** `src/codrag/api/routers/architecture.py:488-521`
+**Location:** `src/prep/api/routers/architecture.py:488-521`
 
 ---
 
@@ -56,7 +56,7 @@ if score_items:
     scores = [s.get("score", 0) for s in score_items if isinstance(s, dict) and s.get("score")]
 ```
 
-**Location:** `src/codrag/mcp/server.py:820-829`
+**Location:** `src/prep/mcp/server.py:820-829`
 
 ---
 

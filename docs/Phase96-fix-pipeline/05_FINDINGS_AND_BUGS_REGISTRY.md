@@ -61,7 +61,7 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-42 | `GraphEnrichmentPipeline` panel: every stage gated on `trace.enabled` (auto-build flag) instead of `trace.exists` — completed stages rendered as "Disabled" / "Waiting for X" | ✅ FIXED | (this commit) |
 | F-43 | Index build progress callback fires at file START, leaving bar "stuck" at previous % during slow file (e.g. 7s+ on a big markdown file) — UX shows no progression | 🟡 OPEN | — |
 | F-44 | 2-tone incremental progress bar wiring (initial audit was wrong) | ✅ FIXED + audit corrected | knowledge stage `73c33828`; live validation showed catalogue/inferred_edges already wired |
-| F-45 | `_start_project_knowledge_build` import fails — name doesn't exist in `codrag.server`, every `/knowledge/build` request returned 500 | ✅ FIXED | (this commit) |
+| F-45 | `_start_project_knowledge_build` import fails — name doesn't exist in `prep.server`, every `/knowledge/build` request returned 500 | ✅ FIXED | (this commit) |
 | F-46 | Structural worker tries to mutate frozen `Project` dataclass — `FrozenInstanceError`, blocks all `/pipeline/fast` runs | ✅ FIXED | (this commit) |
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | 🟡 OPEN | — |
 | F-48 | `/pipeline/rebuild` timed out >5s on rust_repo — endpoint may be doing synchronous work that should be backgrounded | ✅ FIXED via F-46/F-51/F-52 | — |
@@ -70,8 +70,8 @@ finding uncovered during Phase 96 work. Each entry has:
 | F-51 | Write guard blocks Danger Zone Rebuild — `force_from_start=True` not honored, shrinkage check fires anyway | ✅ FIXED | (this commit) |
 | F-52 | `force_from_start=True` silently undone by backup-restore-then-redetect path — Danger Zone Rebuild completed in 0.0s without doing any work | ✅ FIXED | (this commit) |
 | F-53 | Graph Scope Queue tab renders empty when no untraced/stale files — daemon returns `traced` array but dashboard never displays it; coverage fetch also gated on `trace.enabled` | ✅ FIXED | (this commit) |
-| F-54 | `/pipeline/finalize` hangs 30s on `journal.start_run()` — pipeline_journal still shared `codrag_settings.db` (same pattern F-36 fixed for concept_store and F-37 for antibody_store) | ✅ FIXED | (this commit) |
-| F-55 | Three more stores still shared `codrag_settings.db` (`pipeline_history`, `token_telemetry`, `observation_store`) → "database is locked" warning + intermittent settings save failures | ✅ FIXED | (this commit) |
+| F-54 | `/pipeline/finalize` hangs 30s on `journal.start_run()` — pipeline_journal still shared `prep_settings.db` (same pattern F-36 fixed for concept_store and F-37 for antibody_store) | ✅ FIXED | (this commit) |
+| F-55 | Three more stores still shared `prep_settings.db` (`pipeline_history`, `token_telemetry`, `observation_store`) → "database is locked" warning + intermittent settings save failures | ✅ FIXED | (this commit) |
 | F-56 | Manual/Auto/Schedule mode global instead of per-project — switching projects carried over the previous project's mode and triggered cross-project Phase 81 auto-pauses | ✅ FIXED | (this commit) |
 | F-47 | `/pipeline/fast` gate doesn't recognize `phase=cancelled` — cancelled deep_enrichment runs block all subsequent fast_sync attempts until daemon restart | ✅ FIXED | (this commit) |
 | F-43 | Index build progress callback fired with `(i+1)/total` at file START — bar appeared "stuck" at the previous % during slow files | ✅ FIXED | (this commit) |
@@ -102,7 +102,7 @@ Total: **69 findings**, **63 fixed**, **3 open** (F-15 test rot, F-66 two-tone p
 
 **Root cause:** `_should_skip_stage_freshness` in `orchestrator.py` acquires a scheduler slot, decides to skip the stage based on freshness check, increments `current_stage_index`, and recursively calls `_advance_pipeline()` — **but never releases the scheduler slot**. No worker is launched, so `_on_build_transition` never fires to release the slot. The slot stays held forever.
 
-**Live reproduction:** Captured on SMOKE: rust_repo on 2026-04-10. Atlas freshness-skipped, slot held, deepening queued at position 1, CoDRAG inferred_edges queued at position 2. Both pipelines stuck.
+**Live reproduction:** Captured on SMOKE: rust_repo on 2026-04-10. Atlas freshness-skipped, slot held, deepening queued at position 1, Prep inferred_edges queued at position 2. Both pipelines stuck.
 
 **Fix:** Added `pipeline_scheduler.release()` call before advancing in `_should_skip_stage_freshness`. Mirrors the release-before-advance pattern from the normal completion path (`_on_build_transition` line ~1967).
 
@@ -212,7 +212,7 @@ Worst offenders fixed in this commit:
 
 **Validation:** TypeScript compiles cleanly for all 6 modified files (only 3 pre-existing unrelated `EnrichmentAutoConfig` schema errors in `useTraceSystem.ts:114-139` remain).
 
-**Live validation (added later via Playwright):** Drove the dashboard with headless Chromium against the running `scripts/dev.sh` stack while sampling `lsof -nP -iTCP:8400 -sTCP:ESTABLISHED` once per second for 60s, including a click-into the CoDRAG project to start per-project polling. Results:
+**Live validation (added later via Playwright):** Drove the dashboard with headless Chromium against the running `scripts/dev.sh` stack while sampling `lsof -nP -iTCP:8400 -sTCP:ESTABLISHED` once per second for 60s, including a click-into the Prep project to start per-project polling. Results:
 
 ```
 samples:           57
@@ -255,11 +255,11 @@ The historical broken baseline observed during the F-35 misdiagnosis was 60+ EST
 
 **Symptom:** Recurring error in daemon logs:
 ```
-ERROR:codrag.api.routers.settings:Security health check failed:
+ERROR:prep.api.routers.settings:Security health check failed:
   'SettingsStore' object has no attribute 'get_global'
 ```
 
-**Root cause:** Two non-existent methods were being called on the `SettingsStore` singleton in 9 places across `src/codrag/api/routers/settings.py` and `src/codrag/core/llm_client.py`:
+**Root cause:** Two non-existent methods were being called on the `SettingsStore` singleton in 9 places across `src/prep/api/routers/settings.py` and `src/prep/core/llm_client.py`:
 - `store.get_global("active_project")` — should be `store.get("active_project")`. The store has a `.get()` method for global settings; there is no `.get_global()`.
 - `store.get_project(active_id, "root_path")` — should be `store.project_get(active_id, "root_path")`. The store uses `project_get`/`project_set`/`project_delete` for the per-project namespace; there is no `.get_project()` (that name belongs to `ProjectRegistry`, a different class).
 
@@ -291,7 +291,7 @@ Every call site was wrapped in `try/except Exception: logger.warning(...)`, so t
 
 **Root cause:** `audit/synthesizer.py` references `TASK_MAX_CHARS["audit"]` in 5 places but never imports the symbol. Latent bug masked by F-18 (the broken call site never reached this code).
 
-**Fix:** Added `from codrag.core.llm_client import TASK_MAX_CHARS` to imports.
+**Fix:** Added `from prep.core.llm_client import TASK_MAX_CHARS` to imports.
 
 ---
 
@@ -377,7 +377,7 @@ Scheduler: restored priority for 1 project(s): 7230f731...=exclusive
 
 **Status:** ✅ FIXED
 
-**Resolution:** Two changes in `src/codrag/services/pipeline/scheduler.py`:
+**Resolution:** Two changes in `src/prep/services/pipeline/scheduler.py`:
 
 1. **Per-node floor (`min_limit`)**: Cloud nodes (`cloud:*` prefix) get a `min_limit=3` (or `max_concurrent` if smaller). The multiplicative-decrease path now uses `max(slot.min_limit, ...)` instead of `max(1, ...)`. A single slow LLM call can no longer collapse the budget below the SwarmOrchestrator's min_workers threshold.
 
@@ -481,7 +481,7 @@ The five hypotheses listed in the original F-35 entry are now moot. None of them
 **Resolution:** Combined fix shipped in this commit:
 1. Added `concept_store.save_many(project_id, concepts)` that batches all saves in a single transaction with retry-on-locked wrapper (3 attempts, exponential backoff).
 2. Bumped `concept_store` connection `timeout` 10s → 30s and added `PRAGMA busy_timeout=30000`.
-3. **Decisive fix:** moved `concept_store` to its own dedicated `codrag_concepts.db` file with one-shot migration in `server.py`. The first attempt (batching + busy_timeout alone) still failed because 6 stores share `codrag_settings.db` on the slow USB drive in DELETE journal mode — cross-store contention took longer than 30s. Eliminating the shared writer lock removed the failure mode entirely.
+3. **Decisive fix:** moved `concept_store` to its own dedicated `prep_concepts.db` file with one-shot migration in `server.py`. The first attempt (batching + busy_timeout alone) still failed because 6 stores share `prep_settings.db` on the slow USB drive in DELETE journal mode — cross-store contention took longer than 30s. Eliminating the shared writer lock removed the failure mode entirely.
 4. Updated `concept_seeder` swarm path to call `save_many` with per-concept fallback.
 
 **Validation:** End-to-end finalize on rust_repo via `scripts/troubleshoot.sh` + `troubleshoot_f35_swarm_hang.py`:
@@ -501,7 +501,7 @@ The five hypotheses listed in the original F-35 entry are now moot. None of them
 
 **Resolution:**
 1. Added `antibody_store.init(_antibody_store_db_path)` to `server.py` startup.
-2. Used a dedicated `codrag_antibodies.db` file (same pattern as F-36 concepts) to avoid cross-store contention.
+2. Used a dedicated `prep_antibodies.db` file (same pattern as F-36 concepts) to avoid cross-store contention.
 3. Bumped antibody_store `timeout` 10s → 30s, added `PRAGMA busy_timeout=30000`.
 4. Added `antibody_store.save_many()` batch method (single executemany + commit).
 5. Updated `_antibodies_worker` to call `save_many` with per-item fallback and surfaced failures at WARNING level.
@@ -543,7 +543,7 @@ antibodies = derive_antibodies_for_project(concept_dicts)
 [10.96s] 100% Indexing src/service.rs     ← +0.4s
 ```
 
-So the daemon IS sending one event per file with correct percentages. But the callback fires at the *start* of each file's processing (`src/codrag/core/index.py:463`):
+So the daemon IS sending one event per file with correct percentages. But the callback fires at the *start* of each file's processing (`src/prep/core/index.py:463`):
 ```python
 for i, file_path in enumerate(filtered_files):
     rel_path = ...
@@ -608,7 +608,7 @@ These are nice-to-haves; the core 2-tone bar is now demonstrably working for inf
 
 **Status:** ✅ FIXED
 
-**Symptom:** Eric: "the pipeline shows a bunch of tasks that look to be incomplete before other complete stages. that's impossible, I believe these states are actually complete." For the CoDRAG project (21,531 trace nodes, 65,124 edges, 602 modules, atlas built, all on-disk artifacts present), the dashboard's Graph Enrichment panel rendered:
+**Symptom:** Eric: "the pipeline shows a bunch of tasks that look to be incomplete before other complete stages. that's impossible, I believe these states are actually complete." For the Prep project (21,531 trace nodes, 65,124 edges, 602 modules, atlas built, all on-disk artifacts present), the dashboard's Graph Enrichment panel rendered:
 
 - Structural Graph: **Disabled**
 - Edge Discovery: **Waiting for graph**
@@ -624,11 +624,11 @@ These are nice-to-haves; the core 2-tone bar is now demonstrably working for inf
 if (!trace.enabled) return 'disabled';
 ```
 
-`trace.enabled` is the **auto-build preference flag**, not "data exists". When a project has `config.trace.enabled=False` (the CoDRAG default — its config is just `{"active": true}`), every downstream stage short-circuited to `disabled` regardless of actual on-disk state. F-39 fixed the daemon side so `trace.exists=true` is reported correctly, but the dashboard was still gating on the wrong field.
+`trace.enabled` is the **auto-build preference flag**, not "data exists". When a project has `config.trace.enabled=False` (the Prep default — its config is just `{"active": true}`), every downstream stage short-circuited to `disabled` regardless of actual on-disk state. F-39 fixed the daemon side so `trace.exists=true` is reported correctly, but the dashboard was still gating on the wrong field.
 
 **Fix:** Replace `if (!trace.enabled) return 'disabled'` with `if (!trace.exists && !trace.enabled) return 'disabled'` in 4 functions, and simplify the two functions that already had `!trace.enabled || !trace.exists` to just `!trace.exists`. Six call sites total in `compute{Trace,InferredEdges,Augment,Validation,Epistemic,FastKnowledge}State`.
 
-**Validation (live, via Playwright):** Re-captured the dashboard for CoDRAG after rebuilding the dashboard. Every stage in Graph Enrichment now renders as ✓ complete:
+**Validation (live, via Playwright):** Re-captured the dashboard for Prep after rebuilding the dashboard. Every stage in Graph Enrichment now renders as ✓ complete:
 - Structural Graph ✓
 - Edge Discovery ✓
 - Fast Catalogue ✓
@@ -650,17 +650,17 @@ This was the surface expression of "the dashboard looks broken / never loads the
 
 **Status:** ✅ FIXED
 
-**Symptom:** During the CoDRAG self-swarm validation (task #17), the pipeline log filled up with:
+**Symptom:** During the Prep self-swarm validation (task #17), the pipeline log filled up with:
 ```
-[codrag.services.build_manager] Indexing .claude/worktrees/busy-swirles/AGENTS.md
-[codrag.services.build_manager] Indexing .claude/worktrees/busy-swirles/CLAUDE.md
-[codrag.services.build_manager] Indexing .claude/worktrees/busy-swirles/backend_config.py
+[prep.services.build_manager] Indexing .claude/worktrees/busy-swirles/AGENTS.md
+[prep.services.build_manager] Indexing .claude/worktrees/busy-swirles/CLAUDE.md
+[prep.services.build_manager] Indexing .claude/worktrees/busy-swirles/backend_config.py
 ...
 ```
 
-`.claude/worktrees/` is where Claude Code stages parallel-task git worktrees. Each worktree is a near-complete copy of the repo. The CoDRAG project's policy correctly listed `**/.claude/**` in `exclude_globs`, and `.claude` is also in `DEFAULT_EXCLUDE_DIR_NAMES` — but the watcher was reporting these files as "relevant" anyway and triggering delta builds that walked the duplicated repo.
+`.claude/worktrees/` is where Claude Code stages parallel-task git worktrees. Each worktree is a near-complete copy of the repo. The Prep project's policy correctly listed `**/.claude/**` in `exclude_globs`, and `.claude` is also in `DEFAULT_EXCLUDE_DIR_NAMES` — but the watcher was reporting these files as "relevant" anyway and triggering delta builds that walked the duplicated repo.
 
-**Root cause:** `AutoRebuildWatcher._is_relevant` (in `src/codrag/core/watcher.py`) used `pathlib.Path.match()` to check exclude patterns. **`Path.match()` does NOT support the recursive `**` wildcard the way fnmatch / gitignore-style globs do** — every directory-level exclude pattern silently failed to match.
+**Root cause:** `AutoRebuildWatcher._is_relevant` (in `src/prep/core/watcher.py`) used `pathlib.Path.match()` to check exclude patterns. **`Path.match()` does NOT support the recursive `**` wildcard the way fnmatch / gitignore-style globs do** — every directory-level exclude pattern silently failed to match.
 
 Verified empirically:
 ```python
@@ -692,7 +692,7 @@ if exclude_globs:
 
 **Tests:** New `tests/test_watcher_relevance.py` with 19 cases covering:
 - 4 `.claude/worktrees/...` paths (the original bug)
-- 7 other default-exclude directories (`.git`, `.codrag`, `.venv`, `node_modules`, including a nested `src/foo/node_modules/...`)
+- 7 other default-exclude directories (`.git`, `.prep`, `.venv`, `node_modules`, including a nested `src/foo/node_modules/...`)
 - 5 normal include paths (`.py`, `.md`, `.ts`, `.tsx`, plus a `.sh` that's excluded by include_globs)
 - Lock files, empty include_globs, empty both lists
 
@@ -774,9 +774,9 @@ Option A is least invasive. Option C is the cleanest long-term fix.
 
 **Status:** ✅ FIXED
 
-**Symptom:** Eric reported "I see issues with the codrag data after I ran scripts/dev.sh — it says initialize but I know it's been built in .codrag". The dashboard was showing CoDRAG with the "Initialize Trace Graph" panel and Knowledge Base Status reading 0 Code / 0 Docs / 0 Graph / 0 Total / "No project loaded", even though `.prep/trace_nodes.jsonl` (8.6 MB, 21,531 lines) and `trace_edges.jsonl` (31,459 lines) had been written that morning.
+**Symptom:** Eric reported "I see issues with the prep data after I ran scripts/dev.sh — it says initialize but I know it's been built in .prep". The dashboard was showing Prep with the "Initialize Trace Graph" panel and Knowledge Base Status reading 0 Code / 0 Docs / 0 Graph / 0 Total / "No project loaded", even though `.prep/trace_nodes.jsonl` (8.6 MB, 21,531 lines) and `trace_edges.jsonl` (31,459 lines) had been written that morning.
 
-**Root cause:** `services/project_helpers.py::project_trace_status()` checked `project.config.trace.enabled` and short-circuited to an empty stub if the flag was False — without ever consulting `TraceIndex.status()` or the on-disk files. The CoDRAG project's config is `{"active": true}` with no `trace` key, so `enabled` came out False, and the daemon advertised the project as having no graph.
+**Root cause:** `services/project_helpers.py::project_trace_status()` checked `project.config.trace.enabled` and short-circuited to an empty stub if the flag was False — without ever consulting `TraceIndex.status()` or the on-disk files. The Prep project's config is `{"active": true}` with no `trace` key, so `enabled` came out False, and the daemon advertised the project as having no graph.
 
 ```python
 # BEFORE
@@ -822,7 +822,7 @@ After (same project, post-restart):
 ```
 Dashboard: 68 Code, 593 Docs, 21.5k Graph, 661 Total. The Graph Enrichment panel shows the full enrichment pipeline with stage names, and Module Synthesis even reports "602 modules · 602 files".
 
-**Knowledge Sources panel:** Initially appeared empty in the first post-fix capture, but a longer Playwright wait (~8s) showed it populating correctly with `codrag_data`, `docs`, `engine`, `logs`, `overnight_results`, `packages`, etc. The empty render was just the pre-fetch state — the panel reads from `useFileSystem.fetchFileTree`, which fires asynchronously after `selectedProjectId` changes. Not a separate bug.
+**Knowledge Sources panel:** Initially appeared empty in the first post-fix capture, but a longer Playwright wait (~8s) showed it populating correctly with `prep_data`, `docs`, `engine`, `logs`, `overnight_results`, `packages`, etc. The empty render was just the pre-fetch state — the panel reads from `useFileSystem.fetchFileTree`, which fires asynchronously after `selectedProjectId` changes. Not a separate bug.
 
 ---
 
@@ -839,12 +839,12 @@ Dashboard: 68 Code, 593 Docs, 21.5k Graph, 661 Total. The Graph Enrichment panel
 
 Daemon log shows 26 individual save warnings:
 ```
-WARNING:codrag.core.concept_seeder:Failed to save concept 'Deactivation as soft-delete...': database is locked
-WARNING:codrag.core.concept_seeder:Failed to save concept 'Single-file domain model...': database is locked
+WARNING:prep.core.concept_seeder:Failed to save concept 'Deactivation as soft-delete...': database is locked
+WARNING:prep.core.concept_seeder:Failed to save concept 'Single-file domain model...': database is locked
 ... (20+ more)
 ```
 
-**Root cause hypothesis:** SQLite WAL mode + multiple concurrent writers. The concept_store uses the same SQLite database (`codrag_settings.db`) as several other components:
+**Root cause hypothesis:** SQLite WAL mode + multiple concurrent writers. The concept_store uses the same SQLite database (`prep_settings.db`) as several other components:
 - pipeline_journal (writes run start/end events)
 - pipeline_history (records completed runs)
 - pipeline_metadata (writes heartbeats every 60s)
@@ -968,7 +968,7 @@ Eric asked us to make sure `config.trace.enabled` is still functioning as design
 |---|---|---|
 | `api/routers/pipeline.py` | 253 | Returns `{"enabled": ..., "exists": ..., "stats": ...}` so clients can show both the preference and the data state. |
 | `api/routers/knowledge.py` | 120 | Same shape, /engine/status endpoint. |
-| `mcp/tool_hi.py` | 82 | MCP `codrag` tool extracts the flag for the orientation summary. |
+| `mcp/tool_hi.py` | 82 | MCP `prep` tool extracts the flag for the orientation summary. |
 | `cli.py` | 497 | CLI `status` command displays "Enabled but Not Built" / "Disabled" / "Ready" tri-state correctly using both `exists` and `enabled`. |
 | `core/team_config.py` | 74, 133 | `trace_enabled_default` — team-config feature flag for new projects. |
 

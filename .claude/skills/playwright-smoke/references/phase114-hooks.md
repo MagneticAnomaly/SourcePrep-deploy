@@ -7,7 +7,7 @@ corresponding code path changed. None of these are baked into
 ## H1. Barrier indicator + cache invalidation
 
 **Why:** `/pipeline/status` has a 3s `_STATUS_CACHE_TTL`. The DELETE
-handler at `src/codrag/api/routers/pipeline.py` invalidates the cache
+handler at `src/prep/api/routers/pipeline.py` invalidates the cache
 on success. If that invalidation regresses, the indicator appears stuck
 on for ~3s after the user clicks Clear.
 
@@ -58,7 +58,7 @@ client, even when the user has the panel closed.
 
 ```bash
 # Tail the daemon access log
-tail -f ~/.local/share/codrag/logs/daemon.log | grep -E '/pipeline/(status|health)'
+tail -f ~/.local/share/prep/logs/daemon.log | grep -E '/pipeline/(status|health)'
 
 # In dashboard: hide the trace-pipeline panel via the layout drawer.
 # Then trigger a run:
@@ -88,7 +88,7 @@ IDX=$(curl -s localhost:8400/projects/$PID | jq -r '.data.index_dir')
 ls "$IDX/.checkpoints/" | grep -c '^run-'    # note the number
 
 # Restart daemon
-pkill -TERM -f 'codrag serve' && sleep 2 && codrag serve &
+pkill -TERM -f 'prep serve' && sleep 2 && prep serve &
 
 # Wait for /health
 until curl -sf localhost:8400/health > /dev/null; do sleep 0.5; done

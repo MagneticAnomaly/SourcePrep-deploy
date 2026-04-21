@@ -2,4 +2,4 @@
 
 ## Unreleased
 
-- Initial public skeleton for `codrag-mcp`.
+- Initial public skeleton for `prep-mcp`.

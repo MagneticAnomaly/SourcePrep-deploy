@@ -4,7 +4,7 @@
 
 - IDE (Cursor/Windsurf/VS Code/etc)
 - MCP server process (stdio transport)
-- CoDRAG engine (local process)
+- Prep engine (local process)
 - Local filesystem (your repository)
 - Optional local LLM endpoints (e.g. Ollama)
 

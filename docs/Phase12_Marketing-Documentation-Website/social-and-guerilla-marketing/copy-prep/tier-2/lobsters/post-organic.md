@@ -1,7 +1,7 @@
 # Organic/Personal Post Draft for Lobsters
 
 ## Title Options
-1. **CoDRAG: Local-first code indexing using Tree-sitter and a custom dependency graph**
+1. **Prep: Local-first code indexing using Tree-sitter and a custom dependency graph**
 2. **Experience Report: Replacing Vector Search with Graph Traversal for Code RAG**
 
 ## Body (Comment)

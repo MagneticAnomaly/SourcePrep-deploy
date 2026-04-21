@@ -1,6 +1,6 @@
 # Global Pricing Strategy — Purchasing Power Parity (PPP)
 
-> **Status:** AUTHORITATIVE — This document defines CoDRAG's international pricing strategy.
+> **Status:** AUTHORITATIVE — This document defines Prep's international pricing strategy.
 > Complements [`DISTRIBUTION_AND_REVENUE_PLAN.md`](../../DISTRIBUTION_AND_REVENUE_PLAN.md) §7.
 >
 > **Last reviewed:** 2026-02-21
@@ -26,7 +26,7 @@
 
 ## 1. Why Global Pricing Matters
 
-CoDRAG is a desktop developer tool. Developers are everywhere. A $79 perpetual license
+Prep is a desktop developer tool. Developers are everywhere. A $79 perpetual license
 is affordable in the US ($79 ≈ 0.1% of median US dev salary) but represents a much
 larger fraction of income in India ($79 ≈ 1.5% of median Indian dev salary), Brazil,
 Eastern Europe, Southeast Asia, and Africa.
@@ -35,7 +35,7 @@ Eastern Europe, Southeast Asia, and Africa.
 - ~70% of the world's developers are outside the US/EU/UK tier-1 markets
 - Developer tools that offer PPP pricing (JetBrains, 1Password, Tailwind UI) see
   significantly higher international adoption
-- CoDRAG's COGS is effectively zero (local-first, BYOK) — marginal cost of a
+- Prep's COGS is effectively zero (local-first, BYOK) — marginal cost of a
   discounted license is near-zero, so any sale at any price is pure margin
 
 **The risk of NOT doing it:**
@@ -144,7 +144,7 @@ export const DEFAULT_PPP_BAND = 0;
 
 ## 4. Currency Display Strategy
 
-### On the Website (codrag.io/pricing)
+### On the Website (runprep.io/pricing)
 
 **Display in USD for all visitors.** Rationale:
 - Developer tools universally price in USD (JetBrains, GitHub, Cursor, Windsurf)
@@ -164,9 +164,9 @@ export const DEFAULT_PPP_BAND = 0;
 - LS converts the USD custom_price to local currency at real-time mid-market rates
 - Customer pays in their currency; we receive USD payout
 
-### In the App (CoDRAG Desktop)
+### In the App (Prep Desktop)
 
-- No pricing displayed in-app (upgrade prompts link to codrag.io/pricing)
+- No pricing displayed in-app (upgrade prompts link to runprep.io/pricing)
 - License tier is the same regardless of purchase price
 
 ---
@@ -176,7 +176,7 @@ export const DEFAULT_PPP_BAND = 0;
 ### Option A: ParityDeals (Fastest, Least Control)
 
 ```
-Visitor → codrag.io/pricing
+Visitor → runprep.io/pricing
   │
   ├─ ParityDeals <script> tag detects country via IP
   ├─ Shows banner: "It looks like you're in India. Get 60% off with code PPP60"
@@ -192,7 +192,7 @@ visible → can be shared. Third-party dependency.
 ### Option B: Edge-Function Geo-Pricing (Recommended)
 
 ```
-Visitor → codrag.io/pricing
+Visitor → runprep.io/pricing
   │
   ├─ Next.js middleware OR Netlify Edge Function reads country from:
   │   - Netlify: `context.geo.country` header (free, automatic)
@@ -212,7 +212,7 @@ Visitor → codrag.io/pricing
   └─ Customer sees local currency at checkout. Pays. Gets license.
 ```
 
-**Hosting note:** CoDRAG marketing site is on Netlify. Netlify Edge Functions provide
+**Hosting note:** Prep marketing site is on Netlify. Netlify Edge Functions provide
 `Deno.env.get("NETLIFY_COUNTRY")` or the `x-country` header automatically. No extra
 service needed.
 
@@ -271,13 +271,13 @@ with Netlify's static hosting.
 
 | Step | What Happens |
 |:-----|:-------------|
-| 1. Visit codrag.io/pricing | Netlify edge function detects country=IN |
+| 1. Visit runprep.io/pricing | Netlify edge function detects country=IN |
 | 2. Page renders | Shows "$29 one-time" (Band 3, 60% off). Badge: "Price adjusted for India" |
 | 3. Click "Buy Perpetual" | Redirects to LS checkout: `?discount=PPP60` |
 | 4. LS checkout loads | Shows ₹2,415 (INR equivalent of $29). Card/PayPal payment. |
 | 5. Payment processes | LS collects ₹2,415, converts to ~$29 USD. Remits GST to India. |
-| 6. Webhook fires | api.codrag.io generates Ed25519 license (tier=perpetual). Same license regardless of price paid. |
-| 7. Email with key | Customer activates in CoDRAG app. Fully offline from here. |
+| 6. Webhook fires | api.runprep.io generates Ed25519 license (tier=perpetual). Same license regardless of price paid. |
+| 7. Email with key | Customer activates in Prep app. Fully offline from here. |
 
 ### Key Principle: Same License, Different Price
 
@@ -293,7 +293,7 @@ This is a known problem for every company offering PPP pricing.
 
 ### Acceptable Abuse Rate
 
-**Target: <5% of discounted purchases are geo-spoofed.** At CoDRAG's price points
+**Target: <5% of discounted purchases are geo-spoofed.** At Prep's price points
 ($29–$79), the effort of setting up a VPN to save $20–50 is not worth it for most
 professional developers. The risk is low.
 
@@ -379,7 +379,7 @@ of data.
   - Monthly subscription product ($7/mo)
   - Perpetual license product ($79 one-time)
   - Team subscription product ($15/seat/mo)
-  - Each with webhook → api.codrag.io for license generation
+  - Each with webhook → api.runprep.io for license generation
 
 - [ ] **WEB-01: Add Netlify Edge Function for geo-detection**
   - Read `context.geo.country.code` on `/pricing` path
@@ -460,7 +460,7 @@ of data.
    globally. This would stack with PPP for student developers in Band 3 countries
    (Perpetual: $29 × 50% = $15). Is this worth the complexity?
 
-5. **Mac App Store pricing.** If/when CoDRAG is on the Mac App Store (paid-upfront
+5. **Mac App Store pricing.** If/when Prep is on the Mac App Store (paid-upfront
    model), Apple has its own regional pricing tiers. These don't need to match our
    PPP bands exactly — Apple handles it. But the price points should be in the same
    ballpark.
@@ -511,7 +511,7 @@ and rounded for clarity.*
 | **GitHub Copilot** | No PPP (verified student = free) | 100% students | Global |
 
 **Opportunity:** Most AI code tools (Cursor, Windsurf, Copilot) do NOT offer PPP.
-CoDRAG can differentiate by being developer-friendly AND globally accessible.
+Prep can differentiate by being developer-friendly AND globally accessible.
 
 ---
 

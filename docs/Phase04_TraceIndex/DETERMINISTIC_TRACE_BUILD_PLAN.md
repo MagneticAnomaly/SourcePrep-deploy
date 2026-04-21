@@ -1,6 +1,6 @@
 # Deterministic Trace Build Plan (Draft)
 
-This document is a **first draft** plan for building CoDRAG’s Trace Index in a way that is:
+This document is a **first draft** plan for building Prep’s Trace Index in a way that is:
 
 - Deterministic (repeatable given the same inputs)
 - Robust across diverse repository structures (no “Phase” assumptions)

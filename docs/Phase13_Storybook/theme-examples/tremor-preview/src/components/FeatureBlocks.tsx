@@ -118,7 +118,7 @@ function BentoGrid({ features }: { features: Feature[] }) {
   );
 }
 
-export const codragFeatures: Feature[] = [
+export const prepFeatures: Feature[] = [
   {
     icon: <Search className="w-8 h-8" />,
     title: 'Semantic Search',
@@ -166,12 +166,12 @@ export const marketingFeatures: Feature[] = [
   {
     icon: <Lightbulb className="w-8 h-8" />,
     title: 'Solution: Semantic indexing + smart context',
-    description: 'CoDRAG builds a semantic understanding of your code and delivers exactly the right context to your AI tools.',
+    description: 'Prep builds a semantic understanding of your code and delivers exactly the right context to your AI tools.',
   },
   {
     icon: <TrendingUp className="w-8 h-8" />,
     title: 'Result: 60%+ fewer AI mistakes',
-    description: 'Teams using CoDRAG report dramatically fewer hallucinations and faster iteration cycles.',
+    description: 'Teams using Prep report dramatically fewer hallucinations and faster iteration cycles.',
     badge: 'Measured',
   },
 ];

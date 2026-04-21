@@ -14,7 +14,7 @@ ChatGPT: "I don't see the definition for `BaseModel`."
 Me: *Sighs.*
 
 ### The Solution
-**CoDRAG** automates this. It builds a graph locally. You ask a question, it finds the chain of dependencies, and gives you a concise prompt to paste (or feeds it via MCP if you use a client).
+**Prep** automates this. It builds a graph locally. You ask a question, it finds the chain of dependencies, and gives you a concise prompt to paste (or feeds it via MCP if you use a client).
 
 It saves me so much copy-pasting time.
 

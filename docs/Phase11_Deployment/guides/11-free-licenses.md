@@ -1,13 +1,13 @@
 # Giving Away Free Licenses
 
-There are two primary ways to distribute free CoDRAG licenses, depending on whether you want the user to go through the standard checkout flow or bypass it entirely.
+There are two primary ways to distribute free Prep licenses, depending on whether you want the user to go through the standard checkout flow or bypass it entirely.
 
 ## Method A: 100% Discount Codes (Recommended)
 
 This method uses Lemon Squeezy to process the order for $0. It is the recommended approach because:
 1. The user goes through the standard checkout flow, ensuring they accept the terms of service.
 2. The order is recorded in Lemon Squeezy for tracking and analytics.
-3. The `api.codrag.io` relay service handles the webhook and automatically emails the signed license key to the user, just like a paid order.
+3. The `api.runprep.io` relay service handles the webhook and automatically emails the signed license key to the user, just like a paid order.
 
 ### Steps:
 1. Go to your Lemon Squeezy dashboard.
@@ -38,7 +38,7 @@ python scripts/generate_license.py \
 ```
 
 3. Open the generated `license.key` file.
-4. Email the contents of the file directly to the user with instructions to paste it into the **Settings → License** panel in CoDRAG.
+4. Email the contents of the file directly to the user with instructions to paste it into the **Settings → License** panel in Prep.
 
 ### Script Options:
 - `--email`: The email address associated with the license.
@@ -48,6 +48,6 @@ python scripts/generate_license.py \
 
 ## Ensuring Relay Service Handles Free Orders
 
-When using Method A (100% discount codes), the `api.codrag.io` relay service will receive a webhook from Lemon Squeezy for an order with a total of `$0.00`.
+When using Method A (100% discount codes), the `api.runprep.io` relay service will receive a webhook from Lemon Squeezy for an order with a total of `$0.00`.
 
 When implementing the relay service (Task LIC-01), ensure that the webhook handler does not reject orders based on a zero dollar amount. Lemon Squeezy's `order_created` event schema includes the `discount_total` and `total` fields. A valid order with a 100% discount will have `total: 0`. The relay service should process this order and issue the license key identically to a paid order.

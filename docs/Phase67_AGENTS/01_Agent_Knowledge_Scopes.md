@@ -1,10 +1,10 @@
 # Phase 67: Agent Knowledge Scopes
 
 ## Objective
-Replace static file hardcoding (`KNOWLEDGE.md`) with an interactive, per-agent **Knowledge Scope** UI in the CoDRAG Dashboard, backed by a robust filtering engine on the backend vector store.
+Replace static file hardcoding (`KNOWLEDGE.md`) with an interactive, per-agent **Knowledge Scope** UI in the Prep Dashboard, backed by a robust filtering engine on the backend vector store.
 
 ## The Problem
-Currently, the CoDRAG dashboard supports a single, global **Knowledge Sources** selection tree. This builds the semantic RAG index used by MCP agents and search tools. 
+Currently, the Prep dashboard supports a single, global **Knowledge Sources** selection tree. This builds the semantic RAG index used by MCP agents and search tools. 
 If a project includes backend specs, frontend stylesheets, and marketing docs into the global knowledge pool, an agent tasked strictly with UI design will be overwhelmed by irrelevant semantic search hits from the backend docs.
 
 The natural instinct is to give every agent a completely isolated vector index, but this creates significant compute redundancy. If 5 agents need `README.md`, embedding it 5 separate times is slow and expensive.
@@ -24,9 +24,9 @@ The `KnowledgeIndex` only embeds the deduplicated union of these files into a **
 
 ### 3. Execution Masking (The Magic)
 When a Paperclip agent executes an MCP tool to gather context:
-- The tool receives the `role` argument natively (e.g. `codrag_search("button styles", role="ux-designer")`).
+- The tool receives the `role` argument natively (e.g. `prep_search("button styles", role="ux-designer")`).
 - The Python API fetches the explicitly checked file paths for the `ux-designer` role.
-- CoDRAG securely **filters out** any semantic search hits that fall outside of that specific agent's tree, guaranteeing the agent never hallucinates off irrelevant context.
+- Prep securely **filters out** any semantic search hits that fall outside of that specific agent's tree, guaranteeing the agent never hallucinates off irrelevant context.
 
 ## Default Behavior
 If an agent executes a tool and they *do not* have a distinct Knowledge Scope configured in the dashboard, the system safely falls back to the legacy behavior: searching across the Global Knowledge tree.

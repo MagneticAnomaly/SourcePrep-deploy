@@ -1,14 +1,14 @@
 # Social + Guerrilla Marketing Research Framework (Reddit-First)
 
 ## Purpose of this doc
-This is a **research framework** for identifying **where** CoDRAG content can be posted/distributed (and how to evaluate those options).
+This is a **research framework** for identifying **where** Prep content can be posted/distributed (and how to evaluate those options).
 
 This pass explicitly does **not** write post copy.
 
 ## North-star objective
 Build a repeatable system to:
 - discover communities/publications/distribution surfaces
-- quickly determine whether CoDRAG can post there (and in what format)
+- quickly determine whether Prep can post there (and in what format)
 - prioritize the highest-ROI channels
 - maintain a “channel database” you can return to for each future content campaign
 
@@ -39,7 +39,7 @@ Build a repeatable system to:
 - dev.to
 - Hashnode
 - Substack
-- Personal blog (codrag.io/blog) with syndication
+- Personal blog (runprep.io/blog) with syndication
 
 ### Tier 3: Social feeds (amplifiers, not primary)
 - X
@@ -129,7 +129,7 @@ Suggested total score: /40.
 - Prefer **discussion posts** (S1/S3) over link drops.
 - Build credibility first:
   - spend 1–2 weeks commenting helpfully
-  - avoid posting only about CoDRAG
+  - avoid posting only about Prep
 - Always comply with subreddit rules; if unclear, message mods.
 - Respond fast to comments (first 2 hours matters).
 
@@ -200,7 +200,7 @@ For each publication, track:
 - dev.to (great for devtools)
 - Hashnode
 - Substack (for recurring “build in public”)
-- codrag.io/blog (for SEO + full control; syndicate outward)
+- runprep.io/blog (for SEO + full control; syndicate outward)
 
 ## “Blast every direction” distribution map (research targets)
 ### High-leverage posts (non-Reddit)

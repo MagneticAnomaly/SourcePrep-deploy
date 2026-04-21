@@ -11,10 +11,10 @@
 Windsurf's Cascade is great, but like all LLM tools, it's only as good as the context it gets. I wanted to feed it precise, structural data about my codebase without dumping everything into the context window.
 
 ### The Solution
-I built **CoDRAG**, a local desktop app that works as an **MCP server**. It uses a rust-based graph engine to map out your code's structure (definitions, references, imports).
+I built **Prep**, a local desktop app that works as an **MCP server**. It uses a rust-based graph engine to map out your code's structure (definitions, references, imports).
 
 ### Workflow
-You connect it to Windsurf (since Windsurf has native MCP support now!), and then you can ask Cascade to "use codrag to trace the AuthController."
+You connect it to Windsurf (since Windsurf has native MCP support now!), and then you can ask Cascade to "use prep to trace the AuthController."
 
 It returns the file content **plus** the relevant imported types and interfaces, so Cascade can write correct code on the first try without hallucinating method signatures.
 
@@ -28,7 +28,7 @@ It returns the file content **plus** the relevant imported types and interfaces,
 *   **Repo:** [Link]
 
 ## Tone
-Enthusiastic about Windsurf/Cascade. Position CoDRAG as a "power-up" for the IDE.
+Enthusiastic about Windsurf/Cascade. Position Prep as a "power-up" for the IDE.
 
 ## Timing
 Any weekday.

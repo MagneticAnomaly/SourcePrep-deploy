@@ -1,6 +1,6 @@
 # Gemini CLI Integration Research
 
-> How Gemini CLI consumes MCP, its unique features, and how CoDRAG should optimize for it.
+> How Gemini CLI consumes MCP, its unique features, and how Prep should optimize for it.
 
 **Status:** UPDATED with confirmed docs deep-dive
 **Last updated:** 2026-03-14 (deep dive update)
@@ -48,7 +48,7 @@ Responses split into two parts:
 - `llmContent`: raw response parts fed to the language model
 - `returnDisplay`: formatted output shown to user (often JSON in markdown code blocks)
 
-**Important**: The LLM sees `llmContent` directly. CoDRAG's markdown responses flow straight into the model's context without additional formatting.
+**Important**: The LLM sees `llmContent` directly. Prep's markdown responses flow straight into the model's context without additional formatting.
 
 ### Confirmation Model
 - Default: confirm each tool call
@@ -57,7 +57,7 @@ Responses split into two parts:
 - User choices: proceed once / always allow this tool / always allow this server / cancel
 
 ### Transport Support
-- **stdio**: spawns subprocess, communicates via stdin/stdout (CoDRAG's current method)
+- **stdio**: spawns subprocess, communicates via stdin/stdout (Prep's current method)
 - **SSE**: connects to Server-Sent Events endpoints
 - **Streamable HTTP**: HTTP streaming (newest transport)
 
@@ -72,12 +72,12 @@ Responses split into two parts:
 ## 3. System Prompt & Context Architecture
 
 ### MCP Server Instructions (KEY FEATURE)
-Gemini CLI appends the MCP server's `instructions` field to its system instructions. This means CoDRAG can inject guidance **without any rules file generation**:
+Gemini CLI appends the MCP server's `instructions` field to its system instructions. This means Prep can inject guidance **without any rules file generation**:
 
 ```json
 {
-  "serverInfo": { "name": "codrag", "version": "2.0.0" },
-  "instructions": "CoDRAG provides structural codebase context. ALWAYS call `codrag` at the start of every task for module structure, hub files, and focus areas. Use `codrag_search` for specific code queries. Use `codrag_impact` before making changes.",
+  "serverInfo": { "name": "prep", "version": "2.0.0" },
+  "instructions": "Prep provides structural codebase context. ALWAYS call `prep` at the start of every task for module structure, hub files, and focus areas. Use `prep_search` for specific code queries. Use `prep_impact` before making changes.",
   "capabilities": { "tools": {}, "resources": {} }
 }
 ```
@@ -91,7 +91,7 @@ Gemini CLI's built-in tools include file operations, web search, shell commands,
 Gemini 2.5 Pro: 1M tokens (enormous context)
 Gemini 2.5 Flash: 1M tokens
 - Context compaction is less of a concern with 1M tokens
-- However, attention degradation in long contexts means CoDRAG's compact format still matters
+- However, attention degradation in long contexts means Prep's compact format still matters
 
 ---
 
@@ -120,19 +120,19 @@ Confirmed by the AGENTS.md FAQ (agents.md site, stewarded by Agentic AI Foundati
 Gemini CLI is listed as a confirmed AGENTS.md reader on the agents.md site.
 AGENTS.md is used by 60,000+ open-source projects.
 
-### CoDRAG Template for GEMINI.md
+### Prep Template for GEMINI.md
 ```markdown
-## CoDRAG Integration
+## Prep Integration
 
-This project uses CoDRAG for structural code intelligence via MCP.
+This project uses Prep for structural code intelligence via MCP.
 
-ALWAYS call `codrag` at the start of every task for:
+ALWAYS call `prep` at the start of every task for:
 - Module structure and architectural overview
 - Hub files (most connected code with full content)
 - User's focus areas from the knowledge base
 
-Use `codrag_search` for natural language code queries.
-Use `codrag_impact` before making changes to understand blast radius.
+Use `prep_search` for natural language code queries.
+Use `prep_impact` before making changes to understand blast radius.
 
 ### Codebase Atlas
 [auto-generated]
@@ -142,7 +142,7 @@ Use `codrag_impact` before making changes to understand blast radius.
 ```
 
 ### Strategy
-Since Gemini CLI supports MCP server instructions, CoDRAG should:
+Since Gemini CLI supports MCP server instructions, Prep should:
 1. **Primary**: Use `instructions` field (automatic, zero user setup)
 2. **Secondary**: Generate AGENTS.md section (persists across sessions, contains atlas)
 3. **Optional**: Generate GEMINI.md if `.gemini/` directory detected
@@ -156,15 +156,15 @@ Since Gemini CLI supports MCP server instructions, CoDRAG should:
 - User references resources via `/mcp` command to list, then `@resource_name` in chat
 - Resources provide read-only data without tool call overhead
 
-### CoDRAG Resources for Gemini CLI
+### Prep Resources for Gemini CLI
 ```
-codrag://atlas          -- structural overview (atlas.json content)
-codrag://health         -- index freshness, coverage stats
-codrag://files          -- list of user-selected focus files
-codrag://modules        -- module breakdown
+prep://atlas          -- structural overview (atlas.json content)
+prep://health         -- index freshness, coverage stats
+prep://files          -- list of user-selected focus files
+prep://modules        -- module breakdown
 ```
 
-These are lightweight (100-500 tokens each) and let the AI pull metadata without a full `codrag` tool call.
+These are lightweight (100-500 tokens each) and let the AI pull metadata without a full `prep` tool call.
 
 ---
 
@@ -173,11 +173,11 @@ These are lightweight (100-500 tokens each) and let the AI pull metadata without
 ### How They Work
 MCP servers can define prompts that appear as `/slash_commands` in Gemini CLI.
 
-### CoDRAG Prompts
+### Prep Prompts
 ```
-/codrag-overview   -- "Give me a structural overview of this codebase"
-/codrag-review     -- "Review this code using structural context"
-/codrag-plan       -- "Plan this change using dependency analysis"
+/prep-overview   -- "Give me a structural overview of this codebase"
+/prep-review     -- "Review this code using structural context"
+/prep-plan       -- "Plan this change using dependency analysis"
 ```
 
 These are user-initiated, zero token cost until invoked.
@@ -194,17 +194,17 @@ Gemini CLI is open source. We can:
 - Test integration without black-box assumptions
 
 ### `/mcp` Command
-Users can type `/mcp` to see all connected MCP servers, their status, and available tools. This helps debugging CoDRAG connections.
+Users can type `/mcp` to see all connected MCP servers, their status, and available tools. This helps debugging Prep connections.
 
 ### Rich Content Return
-Gemini CLI supports returning text + images from MCP tools. CoDRAG could potentially return visual dependency graphs in the future (low priority).
+Gemini CLI supports returning text + images from MCP tools. Prep could potentially return visual dependency graphs in the future (low priority).
 
 ### Sandbox Compatibility
-Gemini CLI has sandboxing features. MCP servers must be accessible within the sandbox environment. CoDRAG runs as a local daemon, so this should work out of the box.
+Gemini CLI has sandboxing features. MCP servers must be accessible within the sandbox environment. Prep runs as a local daemon, so this should work out of the box.
 
 ---
 
-## 8. CoDRAG Optimization Checklist
+## 8. Prep Optimization Checklist
 
 - [x] MCP `instructions` field confirmed (appended to system instructions)
 - [x] AGENTS.md support confirmed (via `.gemini/settings.json` context config)
@@ -213,13 +213,13 @@ Gemini CLI has sandboxing features. MCP servers must be accessible within the sa
 - [x] MCP prompts confirmed (exposed as `/slash_commands`)
 - [x] Schema sanitization behavior confirmed (strips `$schema`, `additionalProperties`)
 - [x] Open source confirmed (can verify all behavior from source code)
-- [ ] Implement `instructions` field in CoDRAG MCP server's initialize response
+- [ ] Implement `instructions` field in Prep MCP server's initialize response
 - [ ] Empirically test: verify instructions appear in Gemini CLI system prompt
 - [ ] Empirically test: what is `clientInfo.name` in Gemini CLI's initialize request?
-- [ ] Implement MCP resources (codrag://atlas, codrag://health)
-- [ ] Implement MCP prompts (/codrag-overview, /codrag-review)
-- [ ] Test schema sanitization with CoDRAG's actual tool schemas
-- [ ] Verify `trust: true` behavior with CoDRAG daemon
+- [ ] Implement MCP resources (prep://atlas, prep://health)
+- [ ] Implement MCP prompts (/prep-overview, /prep-review)
+- [ ] Test schema sanitization with Prep's actual tool schemas
+- [ ] Verify `trust: true` behavior with Prep daemon
 
 ---
 
@@ -227,7 +227,7 @@ Gemini CLI has sandboxing features. MCP servers must be accessible within the sa
 
 | Risk | Severity | Notes |
 |------|----------|-------|
-| Gemini's 1M context makes CoDRAG seem less necessary | LOW | CoDRAG provides *structure*, not just *content*. Raw file dumps don't show architectural relationships. |
-| Schema sanitization breaks CoDRAG tool schemas | LOW | CoDRAG uses simple JSON Schema. `$schema` and `additionalProperties` are not critical. |
+| Gemini's 1M context makes Prep seem less necessary | LOW | Prep provides *structure*, not just *content*. Raw file dumps don't show architectural relationships. |
+| Schema sanitization breaks Prep tool schemas | LOW | Prep uses simple JSON Schema. `$schema` and `additionalProperties` are not critical. |
 | `instructions` field too short for atlas | MEDIUM | Keep instructions brief (~100 tokens). Atlas goes in AGENTS.md/GEMINI.md. |
-| Tool name conflict with other MCP servers | LOW | `codrag` is a unique name. Prefix fallback is `codrag__codrag`. |
+| Tool name conflict with other MCP servers | LOW | `prep` is a unique name. Prefix fallback is `prep__prep`. |

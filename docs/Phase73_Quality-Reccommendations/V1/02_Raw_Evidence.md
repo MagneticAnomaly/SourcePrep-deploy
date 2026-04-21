@@ -5,7 +5,7 @@
 
 ---
 
-## 1. `codrag` Overview — Output Statistics
+## 1. `prep` Overview — Output Statistics
 
 **Total output:** 745 lines, ~52KB
 
@@ -28,12 +28,12 @@
 The following identical block appeared 3 times (lines 12–51, 55–95, 98–137):
 
 ```
-CoDRAG is a **local-first, AI-powered codebase intelligence system**...
+Prep is a **local-first, AI-powered codebase intelligence system**...
 | Layer | Technology | Purpose |
 ...
 Stage 1:  File Discovery (scan repo)
 ...
-CoDRAG exposes **5 MCP tools**:
+Prep exposes **5 MCP tools**:
 ```
 
 Each repetition was identical, word for word. The hub system appears to be emitting the same source chunk multiple times because it's accessed through different structural paths.
@@ -57,15 +57,15 @@ These provide no architectural insight. An agent cannot reason about 602 modules
 
 ---
 
-## 2. `codrag_search` — Query/Response Analysis
+## 2. `prep_search` — Query/Response Analysis
 
 ### Query 1: "how does the pipeline orchestrator process files"
 
-**Expected:** Content from `src/codrag/services/pipeline/orchestrator.py` (2,643 lines, the actual orchestrator)
+**Expected:** Content from `src/prep/services/pipeline/orchestrator.py` (2,643 lines, the actual orchestrator)
 
 **Actually received:**
-- `src/codrag/core/scheduler.py` — a 51-line stub that delegates to `pipeline_scheduler`
-- `src/codrag/core/watcher.py` — the filesystem watcher (380 lines)
+- `src/prep/core/scheduler.py` — a 51-line stub that delegates to `pipeline_scheduler`
+- `src/prep/core/watcher.py` — the filesystem watcher (380 lines)
 
 **Analysis:** Neither file answers the question. `scheduler.py` is a thin delegation layer. `watcher.py` is about filesystem events, not file processing. The core orchestrator logic (state machine, stage execution, worker dispatch) was completely missed.
 
@@ -76,21 +76,21 @@ These provide no architectural insight. An agent cannot reason about 602 modules
 
 ### Query 2: "MCP tool handler request response"
 
-**Expected:** Content from `src/codrag/mcp/server.py` (2,427 lines, the MCP server)
+**Expected:** Content from `src/prep/mcp/server.py` (2,427 lines, the MCP server)
 
 **Actually received:**
-- `src/codrag/core/model_readiness.py` — Ollama model readiness detection (~440 lines)
+- `src/prep/core/model_readiness.py` — Ollama model readiness detection (~440 lines)
 
-**Analysis:** This is a near-total miss. model_readiness.py handles HTTP requests to Ollama, which may explain why "request response" matched. But no part of this file relates to MCP protocol handling. The MCP server file at `src/codrag/mcp/server.py` was indexed (it appears in the audit as a 2,427-line file) but was not retrieved.
+**Analysis:** This is a near-total miss. model_readiness.py handles HTTP requests to Ollama, which may explain why "request response" matched. But no part of this file relates to MCP protocol handling. The MCP server file at `src/prep/mcp/server.py` was indexed (it appears in the audit as a 2,427-line file) but was not retrieved.
 
 ### Query 3: "how does the context assembly work for MCP tool responses"
 
 **Expected:** The context assembly logic — likely in the MCP server or a dedicated context module
 
 **Actually received:**
-- `src/codrag/core/llm_client.py` — LLM client with response parsing (~280 lines)
+- `src/prep/core/llm_client.py` — LLM client with response parsing (~280 lines)
 
-**Analysis:** Partial relevance. The LLM client handles output parsing, but "context assembly" in the MCP sense (how CoDRAG assembles the chunks, modules, and hubs returned by `codrag` and `codrag_search`) is a different subsystem. The file was well-documented and the code quality was high — so when retrieval works, the content quality is good.
+**Analysis:** Partial relevance. The LLM client handles output parsing, but "context assembly" in the MCP sense (how Prep assembles the chunks, modules, and hubs returned by `prep` and `prep_search`) is a different subsystem. The file was well-documented and the code quality was high — so when retrieval works, the content quality is good.
 
 ### Pattern Observed
 
@@ -98,7 +98,7 @@ All three queries share a pattern: **large, important files are systematically m
 
 ---
 
-## 3. `codrag_impact` — Output Analysis
+## 3. `prep_impact` — Output Analysis
 
 ### Query: `llm_client.py` dependents
 
@@ -112,13 +112,13 @@ All three queries share a pattern: **large, important files are systematically m
 - ✅ The output is compact (~30 lines for 30 relationships)
 
 **Bytes per useful datum:** ~20 bytes per relationship (file + type)
-**Compare to `codrag` overview:** ~70 bytes per module entry, 80% of which are noise
+**Compare to `prep` overview:** ~70 bytes per module entry, 80% of which are noise
 
 This is what good MCP tool output looks like: dense, typed, hierarchical, and actionable.
 
 ---
 
-## 4. `codrag_audit` — Output Analysis
+## 4. `prep_audit` — Output Analysis
 
 ### Findings Breakdown
 
@@ -143,7 +143,7 @@ Only **3 of 11 "critical" findings** represent genuine code quality issues. The 
 
 ### What's Missing from Audit
 
-The audit currently only surfaces file-size findings. CoDRAG has the graph data to surface much more interesting architectural findings:
+The audit currently only surfaces file-size findings. Prep has the graph data to surface much more interesting architectural findings:
 - Circular dependency cycles (the overview mentions 162 import cycles)
 - High fan-in/fan-out modules (hub concentration)
 - Orphan modules (no incoming edges)
@@ -160,14 +160,14 @@ Across all tool calls in this session:
 
 | Tool Call | Tokens Received (est.) | Tokens Useful (est.) | Efficiency |
 |-----------|----------------------|---------------------|------------|
-| `codrag` overview | ~15,000 | ~2,500 | 17% |
-| `codrag_search` #1 | ~4,500 | ~500 | 11% |
-| `codrag_search` #2 | ~5,000 | ~200 | 4% |
-| `codrag_search` #3 | ~3,500 | ~2,000 | 57% |
-| `codrag_impact` | ~500 | ~450 | 90% |
-| `codrag_audit` | ~1,500 | ~600 | 40% |
+| `prep` overview | ~15,000 | ~2,500 | 17% |
+| `prep_search` #1 | ~4,500 | ~500 | 11% |
+| `prep_search` #2 | ~5,000 | ~200 | 4% |
+| `prep_search` #3 | ~3,500 | ~2,000 | 57% |
+| `prep_impact` | ~500 | ~450 | 90% |
+| `prep_audit` | ~1,500 | ~600 | 40% |
 | **Total** | **~30,000** | **~6,250** | **~21%** |
 
-**~79% of the context budget consumed by CoDRAG tools was noise or duplication.**
+**~79% of the context budget consumed by Prep tools was noise or duplication.**
 
-The standout is `codrag_impact` at 90% efficiency. The worst is `codrag_search` #2 at 4% (wrong file entirely for the query).
+The standout is `prep_impact` at 90% efficiency. The worst is `prep_search` #2 at 4% (wrong file entirely for the query).

@@ -7,7 +7,7 @@
 ## Body Structure
 
 ### The Architecture
-I wanted to share the stack for my new desktop app, **CoDRAG**.
+I wanted to share the stack for my new desktop app, **Prep**.
 It's a local code search engine.
 
 *   **Frontend:** Tauri (JS/React) - Keeps the bundle small.

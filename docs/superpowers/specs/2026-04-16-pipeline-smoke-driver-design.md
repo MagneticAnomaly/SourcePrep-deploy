@@ -32,7 +32,7 @@ python -m tools.playwright_smoke \
 | Mode | Precondition | Trigger | Done when |
 |---|---|---|---|
 | `initial` | any prior index is destroyed first | `POST /projects/{id}/pipeline/all` | `finalize.phase == "completed"` or all 15 `stages[*].exists == true` and no group is `running` |
-| `incremental` | project has a complete index | write `.codrag_smoke_tick.py` with timestamp into the repo; wait ≥5s debounce | pipeline returns to idle; delete tick file after |
+| `incremental` | project has a complete index | write `.prep_smoke_tick.py` with timestamp into the repo; wait ≥5s debounce | pipeline returns to idle; delete tick file after |
 | `rebuild` | project has a complete index | click Danger Zone → Rebuild in UI; fall back to `POST /pipeline/rebuild` if selector missing | pipeline returns to idle |
 
 ## Watch loop (every 2s while any mode is active)
@@ -67,7 +67,7 @@ Add `data-testid` + `data-stage-state` + `data-stage-progress` attrs to `StageRo
 ## Risks
 
 - **Stage-state label mapping.** API group phases (`running`/`paused`/`completed`/`cancelled`) vs DOM stage states (`running`/`rerunning`/`complete`/`queued`/`disabled`/`stale`/`warning`/`not_built`) aren't 1:1. Driver maps both to a canonical `{pending, running, complete, failed}` set before comparing; surfaces unmapped values as desyncs with a `reason` field rather than crashing.
-- **Incremental trigger noise.** Writing into the repo mutates user-visible files. Tick file is prefixed `.codrag_smoke_` and cleaned up in a `finally`; restore step logs its action.
+- **Incremental trigger noise.** Writing into the repo mutates user-visible files. Tick file is prefixed `.prep_smoke_` and cleaned up in a `finally`; restore step logs its action.
 - **Rebuild confirmation dialog.** If Danger Zone gates behind a text-match confirm, driver types the project name. If that fails, falls back to the API.
 - **Daemon restart mid-run.** Driver detects by comparing a run `started_at` to the previous poll; logs `daemon-restart` event and resumes polling.
 

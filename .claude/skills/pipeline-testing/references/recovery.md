@@ -2,13 +2,13 @@
 
 Entry point: `RecoveryManager.startup_recovery()` — called once on daemon start.
 
-Source: `src/codrag/services/pipeline/recovery.py:736`.
+Source: `src/prep/services/pipeline/recovery.py:736`.
 
 ## Startup phases
 
 ### Phase 1 — Journal crash detection
 
-`journal.recover_crashed_runs()` scans `codrag_pipeline_journal.db` for runs with status `running` that did not transition to `completed`/`failed`/`paused` before the previous shutdown.
+`journal.recover_crashed_runs()` scans `prep_pipeline_journal.db` for runs with status `running` that did not transition to `completed`/`failed`/`paused` before the previous shutdown.
 
 For each, `verify_trace_files()` checks whether expected output files exist:
 
@@ -63,4 +63,4 @@ When investigating recovery bugs, also check:
 
 - `.branch_snapshots/` — branch-switch snapshots (a separate persistence path, used by full-reset)
 - `.checkpoints/_golden/` — golden-state snapshots used during Finalize for selfheal resurrection (F-78 territory)
-- `codrag_pipeline_history.db` vs `codrag_pipeline_journal.db` — history is completed runs only; journal is live state
+- `prep_pipeline_history.db` vs `prep_pipeline_journal.db` — history is completed runs only; journal is live state

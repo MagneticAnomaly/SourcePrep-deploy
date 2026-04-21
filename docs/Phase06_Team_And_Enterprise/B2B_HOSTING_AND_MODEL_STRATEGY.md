@@ -1,4 +1,4 @@
-# B2B Hosting and Model Strategy for CoDRAG
+# B2B Hosting and Model Strategy for Prep
 
 *Status: Research & Strategy*
 *Target Audience: Teams, SMBs, and Enterprise Customers*
@@ -15,9 +15,9 @@ Most established businesses and enterprises have strict compliance requirements 
 
 ### RunPod & Modal (BYOC) vs. Managed APIs
 While **RunPod Serverless** and **Modal** are brilliant for developers and startups, they introduce friction for B2B sales:
-- **Procurement Friction:** A mid-market or enterprise company doesn't want to set up a new vendor relationship with RunPod just to run CoDRAG.
+- **Procurement Friction:** A mid-market or enterprise company doesn't want to set up a new vendor relationship with RunPod just to run Prep.
 - **Maintenance:** Even though Serverless scales to zero and requires no manual "turning on and off," it still requires managing a Docker container registry, handling cold starts, and monitoring a new billing dashboard.
-- **The Winner for B2B:** **CPU Runners + Managed APIs**. Most companies would strongly prefer to run a lightweight `codrag-headless:cpu` Docker image directly in their existing GitHub Actions or GitLab CI runners, and point it to their corporate Azure OpenAI or Anthropic API key. This requires **zero new infrastructure vendors**.
+- **The Winner for B2B:** **CPU Runners + Managed APIs**. Most companies would strongly prefer to run a lightweight `prep-headless:cpu` Docker image directly in their existing GitHub Actions or GitLab CI runners, and point it to their corporate Azure OpenAI or Anthropic API key. This requires **zero new infrastructure vendors**.
 
 ## 2. Ollama Cloud Viability for Teams
 
@@ -38,25 +38,25 @@ A 35B parameter model requires 24GB+ of VRAM.
 - Expecting a team of 50 developers to each run a 35B model locally for deep enrichment is unrealistic. Their laptops will freeze, battery life will tank, and productivity will drop.
 
 ### The Enterprise Standard: Claude 3.5 Sonnet & GPT-4o
-When a team runs CoDRAG in CI/CD, they are willing to pay API costs for accuracy and speed.
+When a team runs Prep in CI/CD, they are willing to pay API costs for accuracy and speed.
 - **Claude 3.5 Sonnet** (via Anthropic or AWS Bedrock) is widely considered the best model for coding and reasoning. It is the gold standard for enterprise dev tools (like Cursor, Windsurf, GitHub Copilot).
 - **GPT-4o-mini / GPT-4o** (via Azure OpenAI) is the default choice for Microsoft shops.
 - These models provide **better reasoning than Qwen 35B**, and because they are hosted on enterprise-grade infrastructure, they process thousands of files rapidly in CI/CD pipelines.
 
 ## 4. Proposed B2B Go-To-Market Strategy
 
-To successfully sell CoDRAG to Teams and Enterprises, we must offer a **"Bring Your Own API" (BYOA)** model alongside the "Bring Your Own Compute" (BYOC) model.
+To successfully sell Prep to Teams and Enterprises, we must offer a **"Bring Your Own API" (BYOA)** model alongside the "Bring Your Own Compute" (BYOC) model.
 
 1. **The Primary Team Pitch: "Zero-Infra CI/CD Sync"**
-   - The team drops the `codrag-headless:cpu` action into their GitHub Actions.
+   - The team drops the `prep-headless:cpu` action into their GitHub Actions.
    - They provide their corporate Anthropic / Azure OpenAI API key.
    - The CI runner executes the deep enrichment using the API.
    - The output is zipped and stored in their existing AWS S3 bucket.
-   - Local developers download the pre-built index and run CoDRAG locally using only a tiny, fast model (like `qwen3.5:9b`) just to handle local uncommitted deltas.
+   - Local developers download the pre-built index and run Prep locally using only a tiny, fast model (like `qwen3.5:9b`) just to handle local uncommitted deltas.
 
 2. **The Secondary Pitch: "Air-Gapped / VPC Serverless"**
    - For defense, healthcare, and finance companies that cannot use APIs.
-   - They use `codrag-headless:gpu` on AWS ECS/SageMaker or RunPod inside their VPC.
+   - They use `prep-headless:gpu` on AWS ECS/SageMaker or RunPod inside their VPC.
    - They run open-weight models (Qwen 35b) entirely within their network.
 
 ### Key Takeaways

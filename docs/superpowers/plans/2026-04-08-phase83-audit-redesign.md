@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Redesign `codrag_audit` into a dual-mode tool (structural-only findings + external finding enrichment) with a global experimental toggle and P0 quick fixes.
+**Goal:** Redesign `prep_audit` into a dual-mode tool (structural-only findings + external finding enrichment) with a global experimental toggle and P0 quick fixes.
 
-**Architecture:** The existing `codrag_audit` MCP tool gains a new `findings` parameter. When absent, a new structural-only scan runs (keeping only CoDRAG-unique analyzers: hub bottlenecks, circular deps, module boundary violations). When present, an enrichment engine annotates each external finding with trace graph context, concepts, and observations. A global `experimental` toggle gates LLM recommendations and the dashboard audit pane. Existing analyzer infrastructure (`BaseAnalyzer`, `AuditContext`, `Finding`) is reused.
+**Architecture:** The existing `prep_audit` MCP tool gains a new `findings` parameter. When absent, a new structural-only scan runs (keeping only Prep-unique analyzers: hub bottlenecks, circular deps, module boundary violations). When present, an enrichment engine annotates each external finding with trace graph context, concepts, and observations. A global `experimental` toggle gates LLM recommendations and the dashboard audit pane. Existing analyzer infrastructure (`BaseAnalyzer`, `AuditContext`, `Finding`) is reused.
 
 **Tech Stack:** Python 3.11, FastAPI, SQLite (settings_store), existing trace/concept/observation APIs.
 
@@ -14,13 +14,13 @@
 
 | File | Action | Responsibility |
 |------|--------|---------------|
-| `src/codrag/core/enrichment.py` | **Create** | Enrichment engine: takes external findings + trace/concept/observation context → annotated findings |
-| `src/codrag/core/audit/structural.py` | **Create** | Structural-only scan: runs only CoDRAG-unique analyzers, deduplicates, generates template recommendations |
-| `src/codrag/core/audit/recommendations.py` | **Create** | Template-based recommendation fragments + experimental LLM recommendation generator |
-| `src/codrag/mcp_tools.py` | **Modify** | Add `findings` param to `codrag_audit` schema |
-| `src/codrag/mcp/server.py` | **Modify** | Route `findings` → enrichment handler; route default scan → structural handler |
-| `src/codrag/services/settings_store.py` | **Modify** | Add `get_experimental()` helper |
-| `src/codrag/api/routers/audit.py` | **Modify** | Add `/structural` endpoint for new structural scan |
+| `src/prep/core/enrichment.py` | **Create** | Enrichment engine: takes external findings + trace/concept/observation context → annotated findings |
+| `src/prep/core/audit/structural.py` | **Create** | Structural-only scan: runs only Prep-unique analyzers, deduplicates, generates template recommendations |
+| `src/prep/core/audit/recommendations.py` | **Create** | Template-based recommendation fragments + experimental LLM recommendation generator |
+| `src/prep/mcp_tools.py` | **Modify** | Add `findings` param to `prep_audit` schema |
+| `src/prep/mcp/server.py` | **Modify** | Route `findings` → enrichment handler; route default scan → structural handler |
+| `src/prep/services/settings_store.py` | **Modify** | Add `get_experimental()` helper |
+| `src/prep/api/routers/audit.py` | **Modify** | Add `/structural` endpoint for new structural scan |
 | `tests/test_enrichment.py` | **Create** | Tests for enrichment engine |
 | `tests/test_structural_audit.py` | **Create** | Tests for structural-only scan |
 | `tests/test_recommendations.py` | **Create** | Tests for recommendation generator |
@@ -30,7 +30,7 @@
 ### Task 1: Global Experimental Toggle
 
 **Files:**
-- Modify: `src/codrag/services/settings_store.py`
+- Modify: `src/prep/services/settings_store.py`
 - Test: `tests/test_experimental_toggle.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -38,7 +38,7 @@
 ```python
 # tests/test_experimental_toggle.py
 import pytest
-from codrag.services.settings_store import SettingsStore
+from prep.services.settings_store import SettingsStore
 from pathlib import Path
 import tempfile
 
@@ -73,7 +73,7 @@ Expected: FAIL with `AttributeError: 'SettingsStore' object has no attribute 'ge
 
 - [ ] **Step 3: Add `get_experimental()` to SettingsStore**
 
-In `src/codrag/services/settings_store.py`, add this method to the `SettingsStore` class (after the existing `get` method):
+In `src/prep/services/settings_store.py`, add this method to the `SettingsStore` class (after the existing `get` method):
 
 ```python
 def get_experimental(self) -> bool:
@@ -90,7 +90,7 @@ Expected: 3 PASSED
 - [ ] **Step 5: Commit**
 
 ```bash
-git add tests/test_experimental_toggle.py src/codrag/services/settings_store.py
+git add tests/test_experimental_toggle.py src/prep/services/settings_store.py
 git commit -m "feat(settings): add global experimental toggle"
 ```
 
@@ -99,7 +99,7 @@ git commit -m "feat(settings): add global experimental toggle"
 ### Task 2: Template Recommendation Generator
 
 **Files:**
-- Create: `src/codrag/core/audit/recommendations.py`
+- Create: `src/prep/core/audit/recommendations.py`
 - Test: `tests/test_recommendations.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -107,7 +107,7 @@ git commit -m "feat(settings): add global experimental toggle"
 ```python
 # tests/test_recommendations.py
 import pytest
-from codrag.core.audit.recommendations import generate_recommendation
+from prep.core.audit.recommendations import generate_recommendation
 
 
 def test_critical_hub_with_concept():
@@ -155,12 +155,12 @@ def test_low_risk_file():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_recommendations.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'codrag.core.audit.recommendations'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'prep.core.audit.recommendations'`
 
 - [ ] **Step 3: Implement the recommendation generator**
 
 ```python
-# src/codrag/core/audit/recommendations.py
+# src/prep/core/audit/recommendations.py
 """Template-based recommendation generator for audit findings.
 
 Composes fragments based on structural signals (hub status, concepts, observations).
@@ -231,7 +231,7 @@ Expected: 4 PASSED
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/audit/recommendations.py tests/test_recommendations.py
+git add src/prep/core/audit/recommendations.py tests/test_recommendations.py
 git commit -m "feat(audit): add template-based recommendation generator"
 ```
 
@@ -240,7 +240,7 @@ git commit -m "feat(audit): add template-based recommendation generator"
 ### Task 3: Risk Score Calculator
 
 **Files:**
-- Modify: `src/codrag/core/audit/recommendations.py`
+- Modify: `src/prep/core/audit/recommendations.py`
 - Test: `tests/test_recommendations.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -248,7 +248,7 @@ git commit -m "feat(audit): add template-based recommendation generator"
 Append to `tests/test_recommendations.py`:
 
 ```python
-from codrag.core.audit.recommendations import compute_risk_score
+from prep.core.audit.recommendations import compute_risk_score
 
 
 def test_risk_score_critical_hub_with_concept():
@@ -292,7 +292,7 @@ Expected: FAIL with `ImportError: cannot import name 'compute_risk_score'`
 
 - [ ] **Step 3: Implement risk score calculator**
 
-Add to `src/codrag/core/audit/recommendations.py`:
+Add to `src/prep/core/audit/recommendations.py`:
 
 ```python
 # Default weights — configurable via settings
@@ -346,7 +346,7 @@ Expected: 7 PASSED
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/audit/recommendations.py tests/test_recommendations.py
+git add src/prep/core/audit/recommendations.py tests/test_recommendations.py
 git commit -m "feat(audit): add configurable risk score calculator"
 ```
 
@@ -355,7 +355,7 @@ git commit -m "feat(audit): add configurable risk score calculator"
 ### Task 4: Structural Audit Scanner
 
 **Files:**
-- Create: `src/codrag/core/audit/structural.py`
+- Create: `src/prep/core/audit/structural.py`
 - Test: `tests/test_structural_audit.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -363,7 +363,7 @@ git commit -m "feat(audit): add configurable risk score calculator"
 ```python
 # tests/test_structural_audit.py
 import pytest
-from codrag.core.audit.structural import run_structural_audit, StructuralFinding
+from prep.core.audit.structural import run_structural_audit, StructuralFinding
 
 
 def _make_mock_context():
@@ -438,15 +438,15 @@ def test_structural_under_20_findings():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_structural_audit.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'codrag.core.audit.structural'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'prep.core.audit.structural'`
 
 - [ ] **Step 3: Implement structural audit scanner**
 
 ```python
-# src/codrag/core/audit/structural.py
+# src/prep/core/audit/structural.py
 """Structural-only audit scanner.
 
-Returns ONLY findings that are unique to CoDRAG's structural knowledge:
+Returns ONLY findings that are unique to Prep's structural knowledge:
 coupling hotspots, import cycles, hub concentration risk, module boundary
 violations. Drops everything linters already catch.
 """
@@ -468,7 +468,7 @@ _GENERATED_FILE_SUFFIXES = {".d.ts", ".min.js", ".min.css", ".generated.ts", ".g
 
 @dataclass
 class StructuralFinding:
-    """A structural audit finding unique to CoDRAG."""
+    """A structural audit finding unique to Prep."""
     finding_type: str       # coupling_hotspot | hub_concentration | import_cycle | module_boundary
     file_path: str          # Primary file (or "" for cycle findings)
     severity: str           # critical | warning | info
@@ -648,7 +648,7 @@ Expected: 6 PASSED
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/audit/structural.py tests/test_structural_audit.py
+git add src/prep/core/audit/structural.py tests/test_structural_audit.py
 git commit -m "feat(audit): add structural-only audit scanner"
 ```
 
@@ -657,7 +657,7 @@ git commit -m "feat(audit): add structural-only audit scanner"
 ### Task 5: Enrichment Engine
 
 **Files:**
-- Create: `src/codrag/core/enrichment.py`
+- Create: `src/prep/core/enrichment.py`
 - Test: `tests/test_enrichment.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -665,7 +665,7 @@ git commit -m "feat(audit): add structural-only audit scanner"
 ```python
 # tests/test_enrichment.py
 import pytest
-from codrag.core.enrichment import enrich_findings, EnrichedFinding
+from prep.core.enrichment import enrich_findings, EnrichedFinding
 
 
 def _make_finding(file="src/server.py", line=42, message="Too complex", severity="warning", tool="ruff"):
@@ -698,10 +698,10 @@ def test_enrich_known_file():
     result = enrich_findings(findings, ctx)
     assert len(result.findings) == 1
     f = result.findings[0]
-    assert f.codrag is not None
-    assert f.codrag["dependents"] == 23
-    assert f.codrag["hub_status"] == "critical"
-    assert len(f.codrag["concepts"]) == 1
+    assert f.prep is not None
+    assert f.prep["dependents"] == 23
+    assert f.prep["hub_status"] == "critical"
+    assert len(f.prep["concepts"]) == 1
 
 
 def test_enrich_unknown_file_shows_stale_message():
@@ -715,7 +715,7 @@ def test_enrich_includes_risk_score():
     findings = [_make_finding()]
     ctx = _make_context()
     result = enrich_findings(findings, ctx)
-    assert 0.0 <= result.findings[0].codrag["risk_score"] <= 1.0
+    assert 0.0 <= result.findings[0].prep["risk_score"] <= 1.0
 
 
 def test_enrich_summary():
@@ -737,16 +737,16 @@ def test_enrich_respects_max_findings():
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_enrichment.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'codrag.core.enrichment'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'prep.core.enrichment'`
 
 - [ ] **Step 3: Implement enrichment engine**
 
 ```python
-# src/codrag/core/enrichment.py
-"""Finding enrichment engine for codrag_audit.
+# src/prep/core/enrichment.py
+"""Finding enrichment engine for prep_audit.
 
 Accepts external findings (V1 simple schema) and annotates each with
-CoDRAG structural context: dependent count, hub status, concepts,
+Prep structural context: dependent count, hub status, concepts,
 observations, risk score, and recommendation.
 """
 from __future__ import annotations
@@ -754,18 +754,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from codrag.core.audit.recommendations import compute_risk_score, generate_recommendation
+from prep.core.audit.recommendations import compute_risk_score, generate_recommendation
 
 
 @dataclass
 class EnrichedFinding:
-    """An external finding annotated with CoDRAG context."""
+    """An external finding annotated with Prep context."""
     file: str
     line: int
     message: str
     severity: str
     tool: str
-    codrag: Optional[Dict[str, Any]] = None
+    prep: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -775,8 +775,8 @@ class EnrichedFinding:
             "severity": self.severity,
             "tool": self.tool,
         }
-        if self.codrag is not None:
-            d["codrag"] = self.codrag
+        if self.prep is not None:
+            d["prep"] = self.prep
         return d
 
 
@@ -795,7 +795,7 @@ class EnrichmentResult:
         if self.stale_data_warning:
             d["message"] = (
                 "Looks like you have stale data, "
-                "CoDRAG recommends running enrichment again."
+                "Prep recommends running enrichment again."
             )
         return d
 
@@ -816,7 +816,7 @@ def enrich_findings(
     context: Dict[str, Dict[str, Any]],
     max_findings: int = 200,
 ) -> EnrichmentResult:
-    """Enrich external findings with CoDRAG structural context.
+    """Enrich external findings with Prep structural context.
 
     Args:
         findings: List of dicts with keys: file, line, message, severity, tool
@@ -869,7 +869,7 @@ def enrich_findings(
             observations=observations,
         )
 
-        ef.codrag = {
+        ef.prep = {
             "dependents": dependents,
             "hub_status": hub_status,
             "module": module,
@@ -907,7 +907,7 @@ Expected: 5 PASSED
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/enrichment.py tests/test_enrichment.py
+git add src/prep/core/enrichment.py tests/test_enrichment.py
 git commit -m "feat(audit): add finding enrichment engine"
 ```
 
@@ -916,25 +916,25 @@ git commit -m "feat(audit): add finding enrichment engine"
 ### Task 6: Update MCP Tool Schema
 
 **Files:**
-- Modify: `src/codrag/mcp_tools.py:170-225`
+- Modify: `src/prep/mcp_tools.py:170-225`
 
 - [ ] **Step 1: Read the current schema**
 
-Run: `.venv/bin/python -c "from codrag.mcp_tools import MCP_TOOLS; t = [t for t in MCP_TOOLS if t['name'] == 'codrag_audit'][0]; print(t['inputSchema']['properties'].keys())"`
+Run: `.venv/bin/python -c "from prep.mcp_tools import MCP_TOOLS; t = [t for t in MCP_TOOLS if t['name'] == 'prep_audit'][0]; print(t['inputSchema']['properties'].keys())"`
 
-- [ ] **Step 2: Update the codrag_audit schema**
+- [ ] **Step 2: Update the prep_audit schema**
 
-In `src/codrag/mcp_tools.py`, replace the `codrag_audit` tool definition (lines 170-225) with:
+In `src/prep/mcp_tools.py`, replace the `prep_audit` tool definition (lines 170-225) with:
 
 ```python
-    # ── 4. codrag_audit (codebase health) ───────────────────────────
+    # ── 4. prep_audit (codebase health) ───────────────────────────
     {
-        "name": "codrag_audit",
+        "name": "prep_audit",
         "description": (
             "Codebase structural intelligence and finding enrichment. "
-            "Two modes: (1) Call with no 'findings' param to get CoDRAG's own "
+            "Two modes: (1) Call with no 'findings' param to get Prep's own "
             "structural insights — coupling hotspots, import cycles, hub concentration, "
-            "concept violations. These are things only CoDRAG can see. "
+            "concept violations. These are things only Prep can see. "
             "(2) Call with 'findings' param to enrich external lint/analysis results "
             "with structural context — dependent counts, hub status, related concepts, "
             "risk scores. Pipe ruff/eslint/semgrep output through here to make findings "
@@ -967,9 +967,9 @@ In `src/codrag/mcp_tools.py`, replace the `codrag_audit` tool definition (lines 
                         "required": ["file", "message"],
                     },
                     "description": (
-                        "External findings to enrich. When provided, CoDRAG annotates each "
+                        "External findings to enrich. When provided, Prep annotates each "
                         "finding with structural context (dependents, hub status, concepts, "
-                        "risk score). Omit to get CoDRAG's own structural findings."
+                        "risk score). Omit to get Prep's own structural findings."
                     ),
                 },
                 "scope": {
@@ -1013,19 +1013,19 @@ In `src/codrag/mcp_tools.py`, replace the `codrag_audit` tool definition (lines 
             },
             "required": [],
         },
-        "annotations": {"title": "CoDRAG: Codebase Audit", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+        "annotations": {"title": "Prep: Codebase Audit", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
 ```
 
 - [ ] **Step 3: Verify schema loads**
 
-Run: `.venv/bin/python -c "from codrag.mcp_tools import MCP_TOOLS; t = [t for t in MCP_TOOLS if t['name'] == 'codrag_audit'][0]; print('findings' in t['inputSchema']['properties'])"`
+Run: `.venv/bin/python -c "from prep.mcp_tools import MCP_TOOLS; t = [t for t in MCP_TOOLS if t['name'] == 'prep_audit'][0]; print('findings' in t['inputSchema']['properties'])"`
 Expected: `True`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/mcp_tools.py
+git add src/prep/mcp_tools.py
 git commit -m "feat(audit): update MCP schema with findings param and structural categories"
 ```
 
@@ -1034,12 +1034,12 @@ git commit -m "feat(audit): update MCP schema with findings param and structural
 ### Task 7: Wire MCP Server Routing
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py:3248-3281` (audit dispatch)
-- Modify: `src/codrag/mcp/server.py` (add new handler methods)
+- Modify: `src/prep/mcp/server.py:3248-3281` (audit dispatch)
+- Modify: `src/prep/mcp/server.py` (add new handler methods)
 
 - [ ] **Step 1: Add the structural audit handler method**
 
-Add this method to the `CodragMcpServer` class in `server.py` (after the existing `tool_audit` method around line 1842):
+Add this method to the `PrepMcpServer` class in `server.py` (after the existing `tool_audit` method around line 1842):
 
 ```python
     async def tool_audit_structural(
@@ -1049,7 +1049,7 @@ Add this method to the `CodragMcpServer` class in `server.py` (after the existin
         max_findings: int = 20,
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Run structural-only audit — CoDRAG-unique findings only."""
+        """Run structural-only audit — Prep-unique findings only."""
         project_id = await self._resolve_project_id(override=project_override)
 
         # Get hub files from trace graph
@@ -1087,8 +1087,8 @@ Add this method to the `CodragMcpServer` class in `server.py` (after the existin
         concepts = []
         observations = []
         try:
-            from codrag.services.concept_store import ConceptStore
-            from codrag.services.observation_store import ObservationStore
+            from prep.services.concept_store import ConceptStore
+            from prep.services.observation_store import ObservationStore
             concept_store = ConceptStore()
             obs_store = ObservationStore()
             concepts = [c.__dict__ if hasattr(c, '__dict__') else c
@@ -1098,7 +1098,7 @@ Add this method to the `CodragMcpServer` class in `server.py` (after the existin
         except Exception:
             pass
 
-        from codrag.core.audit.structural import run_structural_audit
+        from prep.core.audit.structural import run_structural_audit
 
         ctx = {
             "hub_files": hub_files,
@@ -1139,7 +1139,7 @@ Add this method after the structural handler:
         max_findings: int = 200,
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Enrich external findings with CoDRAG structural context."""
+        """Enrich external findings with Prep structural context."""
         project_id = await self._resolve_project_id(override=project_override)
 
         # Collect unique file paths from findings
@@ -1181,7 +1181,7 @@ Add this method after the structural handler:
 
             # Get concepts for this file
             try:
-                from codrag.services.concept_store import ConceptStore
+                from prep.services.concept_store import ConceptStore
                 store = ConceptStore()
                 file_concepts = store.search(project_id, file_path, limit=5)
                 file_ctx["concepts"] = [c.title if hasattr(c, 'title') else str(c)
@@ -1191,7 +1191,7 @@ Add this method after the structural handler:
 
             # Get observations for this file
             try:
-                from codrag.services.observation_store import ObservationStore
+                from prep.services.observation_store import ObservationStore
                 store = ObservationStore()
                 file_obs = store.get_for_file(project_id, file_path)
                 file_ctx["observations"] = [o.content[:100] if hasattr(o, 'content') else str(o)[:100]
@@ -1210,7 +1210,7 @@ Add this method after the structural handler:
 
             context[file_path] = file_ctx
 
-        from codrag.core.enrichment import enrich_findings
+        from prep.core.enrichment import enrich_findings
 
         result = enrich_findings(findings, context, max_findings=max_findings)
         output = result.to_dict()
@@ -1222,11 +1222,11 @@ Add this method after the structural handler:
                        f"High risk: {result.summary['high_risk']} | "
                        f"Unenriched: {result.summary['unenriched']}\n")
         if result.stale_data_warning:
-            md_lines.append("> Looks like you have stale data, CoDRAG recommends running enrichment again.\n")
+            md_lines.append("> Looks like you have stale data, Prep recommends running enrichment again.\n")
         for ef in result.findings[:15]:
-            if ef.codrag:
-                md_lines.append(f"- **[{ef.codrag['hub_status']}] {ef.file}:{ef.line}** — {ef.message}")
-                md_lines.append(f"  {ef.codrag['recommendation']}")
+            if ef.prep:
+                md_lines.append(f"- **[{ef.prep['hub_status']}] {ef.file}:{ef.line}** — {ef.message}")
+                md_lines.append(f"  {ef.prep['recommendation']}")
             else:
                 md_lines.append(f"- {ef.file}:{ef.line} — {ef.message} (not enriched)")
         output["_to_markdown"] = "\n".join(md_lines)
@@ -1239,7 +1239,7 @@ Add this method after the structural handler:
 Replace the audit dispatch block at lines 3248-3281 with:
 
 ```python
-            elif name == "codrag_audit":
+            elif name == "prep_audit":
                 # Phase 83: Dual-mode audit — enrichment vs structural
                 ext_findings = args.get("findings")
                 if ext_findings is not None:
@@ -1288,13 +1288,13 @@ Replace the audit dispatch block at lines 3248-3281 with:
 
 - [ ] **Step 4: Verify the server module loads**
 
-Run: `.venv/bin/python -c "from codrag.mcp.server import CodragMcpServer; print('OK')"`
+Run: `.venv/bin/python -c "from prep.mcp.server import PrepMcpServer; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py
+git add src/prep/mcp/server.py
 git commit -m "feat(audit): wire structural + enrichment modes into MCP dispatch"
 ```
 
@@ -1303,7 +1303,7 @@ git commit -m "feat(audit): wire structural + enrichment modes into MCP dispatch
 ### Task 8: P0 Fix — Impact Markdown Formatting
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py` (tool_trace_neighbors, around line 1365)
+- Modify: `src/prep/mcp/server.py` (tool_trace_neighbors, around line 1365)
 
 - [ ] **Step 1: Read the current tool_trace_neighbors output**
 
@@ -1340,7 +1340,7 @@ After the return dict is built in `tool_trace_neighbors` (around line 1406-1413)
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py
+git add src/prep/mcp/server.py
 git commit -m "fix(impact): add markdown formatting to direction=all/dependencies"
 ```
 
@@ -1349,7 +1349,7 @@ git commit -m "fix(impact): add markdown formatting to direction=all/dependencie
 ### Task 9: P0 Fix — Filter Stdlib from Impact
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py` (tool_trace_neighbors and tool_impact)
+- Modify: `src/prep/mcp/server.py` (tool_trace_neighbors and tool_impact)
 
 - [ ] **Step 1: Add stdlib filtering to tool_trace_neighbors**
 
@@ -1380,7 +1380,7 @@ In `tool_impact` (around line 1480), after receiving `dependents`, filter:
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py
+git add src/prep/mcp/server.py
 git commit -m "fix(impact): filter stdlib/external nodes from impact results"
 ```
 
@@ -1389,11 +1389,11 @@ git commit -m "fix(impact): filter stdlib/external nodes from impact results"
 ### Task 10: P0 Fix — Search Symbol Context
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py` (find `tool_trace_search` or symbol search handler)
+- Modify: `src/prep/mcp/server.py` (find `tool_trace_search` or symbol search handler)
 
 - [ ] **Step 1: Find the symbol search handler**
 
-Run: `.venv/bin/grep -n "tool_trace_search\|symbol.*search" src/codrag/mcp/server.py | head -10`
+Run: `.venv/bin/grep -n "tool_trace_search\|symbol.*search" src/prep/mcp/server.py | head -10`
 
 - [ ] **Step 2: Add code context to symbol results**
 
@@ -1417,13 +1417,13 @@ Locate where symbol search results are formatted and ensure these fields pass th
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py
+git add src/prep/mcp/server.py
 git commit -m "fix(search): include qualified name, signature, line number in symbol results"
 ```
 
 ---
 
-### Task 11: Integration Test — Dogfood on CoDRAG
+### Task 11: Integration Test — Dogfood on Prep
 
 **Files:**
 - No new files — manual testing
@@ -1434,17 +1434,17 @@ Start the daemon and test:
 
 ```bash
 # Terminal 1: start daemon
-.venv/bin/codrag serve
+.venv/bin/prep serve
 
 # Terminal 2: test structural audit
 .venv/bin/python -c "
 import asyncio, json
-from codrag.mcp.server import CodragMcpServer
+from prep.mcp.server import PrepMcpServer
 async def main():
-    s = CodragMcpServer()
+    s = PrepMcpServer()
     await s.initialize()
     result = await s.handle_tools_call({
-        'name': 'codrag_audit',
+        'name': 'prep_audit',
         'arguments': {'project_id': '1d6f0b35-45cb-427b-ae9d-aac3c6371a4b'}
     })
     print(json.dumps(result, indent=2, default=str)[:3000])
@@ -1459,7 +1459,7 @@ Expected: <20 structural findings, no generated file findings, no duplicates.
 ```bash
 .venv/bin/python -c "
 import asyncio, json, subprocess
-from codrag.mcp.server import CodragMcpServer
+from prep.mcp.server import PrepMcpServer
 
 # Get ruff findings
 ruff_out = subprocess.run(
@@ -1476,10 +1476,10 @@ findings = [
 ]
 
 async def main():
-    s = CodragMcpServer()
+    s = PrepMcpServer()
     await s.initialize()
     result = await s.handle_tools_call({
-        'name': 'codrag_audit',
+        'name': 'prep_audit',
         'arguments': {
             'findings': findings,
             'project_id': '1d6f0b35-45cb-427b-ae9d-aac3c6371a4b',
@@ -1497,14 +1497,14 @@ Expected: Each finding enriched with dependents, hub_status, risk_score. Summary
 ```bash
 .venv/bin/python -c "
 import asyncio, json
-from codrag.mcp.server import CodragMcpServer
+from prep.mcp.server import PrepMcpServer
 async def main():
-    s = CodragMcpServer()
+    s = PrepMcpServer()
     await s.initialize()
     result = await s.handle_tools_call({
-        'name': 'codrag_impact',
+        'name': 'prep_impact',
         'arguments': {
-            'file_path': 'src/codrag/mcp/server.py',
+            'file_path': 'src/prep/mcp/server.py',
             'direction': 'all',
             'project_id': '1d6f0b35-45cb-427b-ae9d-aac3c6371a4b',
         }

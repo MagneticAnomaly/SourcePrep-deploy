@@ -1,14 +1,14 @@
-# CoDRAG Revenue Projections: MCP Market Analysis
+# Prep Revenue Projections: MCP Market Analysis
 
 **Date:** April 2026  
-**Purpose:** Comprehensive market sizing and revenue forecasting for CoDRAG as an MCP infrastructure tool  
+**Purpose:** Comprehensive market sizing and revenue forecasting for Prep as an MCP infrastructure tool  
 **Target Market:** Developers using MCP-enabled AI coding tools who need structural context intelligence
 
 ---
 
 ## Executive Summary
 
-CoDRAG is positioned not as an IDE replacement, but as **MCP infrastructure** — a universal context layer that enhances any AI coding assistant through the Model Context Protocol. This document analyzes the combined market of MCP-enabled tools and projects realistic revenue scenarios based on viral adoption from communities like Paperclip (50K GitHub stars).
+Prep is positioned not as an IDE replacement, but as **MCP infrastructure** — a universal context layer that enhances any AI coding assistant through the Model Context Protocol. This document analyzes the combined market of MCP-enabled tools and projects realistic revenue scenarios based on viral adoption from communities like Paperclip (50K GitHub stars).
 
 **Key Finding:** The serviceable addressable market is approximately **465,000 MCP-native power users** who already spend $50-300/month on AI tooling. A 1% capture rate yields **~$367K Year 1 revenue** with significant upside potential.
 
@@ -22,7 +22,7 @@ The Model Context Protocol (MCP) is an open standard introduced by Anthropic in 
 
 ### MCP-Enabled Tools: Market Sizing (2025)
 
-| Tool | MCP Support | Estimated User Base | Monthly Spend Profile | CoDRAG Relevance |
+| Tool | MCP Support | Estimated User Base | Monthly Spend Profile | Prep Relevance |
 |------|-------------|---------------------|----------------------|------------------|
 | **Claude Code** | Native | **115,000 developers** | $20-200/month (Pro/Max plans) | High — terminal-based power users need context |
 | **Cursor** | Full MCP | 1M+ DAUs, ~150K paid | $20/month (Pro) | High — structural RAG enhances Cursor's agentic features |
@@ -48,12 +48,12 @@ The protocol has achieved critical mass — not supporting MCP means being cut o
 
 ### The Spending Continuum
 
-CoDRAG's $79 perpetual license sits at a specific point in the AI tooling spend spectrum. Understanding where users fall on this spectrum is critical for conversion forecasting.
+Prep's $79 perpetual license sits at a specific point in the AI tooling spend spectrum. Understanding where users fall on this spectrum is critical for conversion forecasting.
 
-| Segment | Monthly AI/IDE Spend | Current Tools | CoDRAG Tier | Conversion Likelihood | Rationale |
+| Segment | Monthly AI/IDE Spend | Current Tools | Prep Tier | Conversion Likelihood | Rationale |
 |---------|-------------------|---------------|-------------|----------------------|-----------|
 | **Free Tier Casual** | $0-15 | VS Code, free Copilot, basic JetBrains | **Free** (3 projects) | Baseline | Archive pressure drives upgrades over time |
-| **Standard AI User** | $15-50 | Cursor Pro, Copilot Individual, basic API | **Free** or **$29-45 PPP** | Low-Medium | Views CoDRAG as "nice to have" — slow conversion |
+| **Standard AI User** | $15-50 | Cursor Pro, Copilot Individual, basic API | **Free** or **$29-45 PPP** | Low-Medium | Views Prep as "nice to have" — slow conversion |
 | **Professional Developer** | $50-150 | JetBrains All Products, Team licenses, moderate API | **$79 Perpetual** | Medium | Archive pressure + workflow fit drives purchase |
 | **Power User** | $200-300 | Claude Max ($200), Cursor Pro ($20), API tokens ($50-100), multiple tools | **$79 Impulse Buy** | **High** | Views $79 as "1-2 days of API budget" — immediate value recognition |
 | **Enterprise Team** | $1000+/seat | Team licenses, infrastructure, managed AI | **$15/seat/month** | High (different path) | CI/CD integration requirement drives adoption |
@@ -89,16 +89,16 @@ Paperclip (the task management system, not to be confused with Clipper) has achi
 - Developer-heavy audience (vs. general tech enthusiasts)
 - Tendency toward "indie hacker" and open-source tooling
 
-### Viral Mechanics: Paperclip → CoDRAG
+### Viral Mechanics: Paperclip → Prep
 
 **Stage 1: Initial Spark (Months 1-3)**
 
-Assuming CoDRAG is mentioned or integrated with Paperclip ecosystem:
+Assuming Prep is mentioned or integrated with Paperclip ecosystem:
 
 | Funnel Stage | Conversion Rate | Users | Notes |
 |--------------|----------------|-------|-------|
 | Paperclip stargazers | 100% | 50,000 | Baseline awareness pool |
-| See CoDRAG mention/content | 10% | 5,000 | Blog post, Discord mention, tool showcase |
+| See Prep mention/content | 10% | 5,000 | Blog post, Discord mention, tool showcase |
 | Visit marketing site | 50% | 2,500 | Curiosity-driven traffic |
 | Download/try Free tier | 50% | 1,250 | 3-project limit is the hook |
 | Hit project limit (friction) | 60% | 750 | Archive vs. Purge decision point |
@@ -133,7 +133,7 @@ With K-factor 0.3 and 60 initial paid users:
 
 **Stage 3: Organic Discovery (Year 2+)**
 
-As MCP adoption grows and CoDRAG establishes reputation:
+As MCP adoption grows and Prep establishes reputation:
 - IDE plugin marketplace listings
 - MCP server registry presence
 - Documentation/SEO traffic
@@ -145,7 +145,7 @@ As MCP adoption grows and CoDRAG establishes reputation:
 
 ### Developer Population by Region (2025 Estimates)
 
-| Region | Professional Developers | % of Global | PPP Band | Effective CoDRAG Price | Market Weight |
+| Region | Professional Developers | % of Global | PPP Band | Effective Prep Price | Market Weight |
 |--------|------------------------|-------------|----------|----------------------|---------------|
 | **North America** | 4.6M | 22% | 0 ($79) | $79 | High spending, high conversion |
 | **Western Europe** | 3.7M | 18% | 0-1 ($59-79) | $69 avg | High spending, price sensitive |
@@ -160,7 +160,7 @@ As MCP adoption grows and CoDRAG establishes reputation:
 
 **Total Professional Developers:** ~20.8 million (Evans Data / JetBrains 2025)
 
-### PPP Band Breakdown for CoDRAG
+### PPP Band Breakdown for Prep
 
 | PPP Band | Discount | Price (Perpetual) | Countries | % of Devs | Blended Revenue Impact |
 |----------|----------|-------------------|-----------|-----------|----------------------|
@@ -173,7 +173,7 @@ As MCP adoption grows and CoDRAG establishes reputation:
 
 ### Strategic Implications
 
-1. **India is Price-Critical:** At $29 perpetual, CoDRAG becomes accessible to the massive Indian developer market. Volume play.
+1. **India is Price-Critical:** At $29 perpetual, Prep becomes accessible to the massive Indian developer market. Volume play.
 
 2. **China is Different:** Complex API access restrictions may limit cloud features, but local embeddings work. Pricing $45 but different go-to-market needed.
 
@@ -226,7 +226,7 @@ Plus Team seats (avg 5 seats/team): ~50 seats × $15 × 6 months = $4,500
 **Assumptions:**
 - Paperclip provides 500-user initial cohort
 - Moderate viral spread (K=0.5)
-- CoDRAG becomes "recommended tool" in MCP communities
+- Prep becomes "recommended tool" in MCP communities
 - Team tier gains traction with small teams
 
 **Revenue Breakdown:**
@@ -250,7 +250,7 @@ Plus Team seats (avg 10 seats/team): ~200 seats × $15 × 6 months = $18K
 **Assumptions:**
 - Paperclip provides 1,000-user launch cohort
 - Strong viral spread (K=1.0+)
-- CoDRAG becomes "must-have" in AI coding stack
+- Prep becomes "must-have" in AI coding stack
 - Significant Team tier adoption
 - Possible seed funding or partnership accelerates growth
 
@@ -282,7 +282,7 @@ Plus Team: ~500 seats × $15 × 6 months = $45K
    - Claude Max: $200/mo
    - API tokens: $50-100/mo
    - Cursor Pro: $20/mo
-   - **CoDRAG Perpetual: $79 one-time**
+   - **Prep Perpetual: $79 one-time**
    
    The $79 is perceived not as "$79" but as "0.3% of annual AI spend"
 
@@ -294,12 +294,12 @@ Plus Team: ~500 seats × $15 × 6 months = $45K
 
 3. **Time Valuation:**
    - Senior developers bill $150-300/hour
-   - CoDRAG saves 1-2 hours/week minimum
+   - Prep saves 1-2 hours/week minimum
    - **ROI payback: 1-2 weeks of use**
 
 4. **Stack Completeness:**
    - Power users want "best-of-breed" for each layer
-   - CoDRAG = best structural context layer
+   - Prep = best structural context layer
    - Missing piece of their AI stack
 
 ### Evidence from Comparable Tools
@@ -311,7 +311,7 @@ Plus Team: ~500 seats × $15 × 6 months = $45K
 | **Aider** | Free | CLI users | Strong word-of-mouth, low friction |
 | **Supermaven** | $10/mo | Speed-focused | Converts Cursor users seeking speed |
 
-CoDRAG's $79 perpetual is **lower friction** than all of these for power users.
+Prep's $79 perpetual is **lower friction** than all of these for power users.
 
 ---
 
@@ -424,14 +424,14 @@ CoDRAG's $79 perpetual is **lower friction** than all of these for power users.
 
 ## Conclusion
 
-CoDRAG's market opportunity is substantial but specific: **~465,000 MCP-native power users** who spend heavily on AI tooling and need better context management. The $79 perpetual license is positioned correctly to capture high-value users while PPP pricing opens emerging markets.
+Prep's market opportunity is substantial but specific: **~465,000 MCP-native power users** who spend heavily on AI tooling and need better context management. The $79 perpetual license is positioned correctly to capture high-value users while PPP pricing opens emerging markets.
 
 **Recommended targets:**
 - **Conservative planning:** $150K Year 1
 - **Moderate target:** $400K Year 1
 - **Stretch goal:** $800K Year 1
 
-The Paperclip community (50K stars) provides the ideal viral spark — a concentrated population of AI-forward developers who will recognize CoDRAG's value immediately and evangelize within the broader MCP ecosystem.
+The Paperclip community (50K stars) provides the ideal viral spark — a concentrated population of AI-forward developers who will recognize Prep's value immediately and evangelize within the broader MCP ecosystem.
 
 Success depends on:
 1. Technical execution (embeddings, edge functions, license system)

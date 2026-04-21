@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-When a user configures CoDRAG as an MCP server, every tool call must resolve **which project** to query. This must work automatically — the user adds the MCP JSON and it just works.
+When a user configures Prep as an MCP server, every tool call must resolve **which project** to query. This must work automatically — the user adds the MCP JSON and it just works.
 
 **Goal:** Zero-config for >95% of users.
 
@@ -14,7 +14,7 @@ When a user configures CoDRAG as an MCP server, every tool call must resolve **w
 
 ```
 ┌──────────────┐           ┌──────────────┐           ┌──────────────┐
-│  AI Client   │  stdio/   │  MCP Server  │  HTTP/    │   CoDRAG     │
+│  AI Client   │  stdio/   │  MCP Server  │  HTTP/    │   Prep     │
 │  (Cursor,    │  JSON-RPC │  (server.py) │  REST     │   Daemon     │
 │  Claude,etc) ├──────────►│  per-session │──────────►│  (port 8400) │
 │              │           │              │           │              │
@@ -32,13 +32,13 @@ when the user switches workspaces.
 
 ```
 1. Tool-call override (project_id param)             ← explicit per-call
-2. CLI pinned (codrag mcp --project <id>)            ← session-level
+2. CLI pinned (prep mcp --project <id>)            ← session-level
 3. .prep/project.json pointer                      ← instant, no daemon needed
-   Checks: IDE workspace roots → CWD → CODRAG_WORKSPACE env var
+   Checks: IDE workspace roots → CWD → PREP_WORKSPACE env var
 4. Auto-register .prep/ folders not yet in daemon  ← zero-config setup
 5. Initialize roots (workspace URIs from client)     ← IDE handshake
 6. CWD (process working directory)                   ← runtime
-7. CODRAG_PROJECT env var                            ← pin by name or ID
+7. PREP_PROJECT env var                            ← pin by name or ID
 8. Single-project shortcut (only 1 project)          ← trivial case
 9. PROJECT_SELECTION_AMBIGUOUS error                 ← actionable failure
 ```
@@ -74,7 +74,7 @@ when the user switches workspaces.
 The most reliable routing mechanism for IDEs that don't send workspace roots
 (e.g., Antigravity). The `project_id` is embedded directly into each project's
 `AGENTS.md` with explicit instructions telling the LLM to pass it in every
-CoDRAG tool call.
+Prep tool call.
 
 **How it works:**
 
@@ -83,7 +83,7 @@ Pipeline runs → rules_generator.py writes AGENTS.md with project_id
      ↓
 LLM opens DebateHaus → reads AGENTS.md → sees project_id: "c728cf7c..."
      ↓
-LLM calls codrag(project_id="c728cf7c...")
+LLM calls prep(project_id="c728cf7c...")
      ↓
 MCP server: _resolve_project_id(override="c728cf7c...") → returns immediately
      ↓
@@ -92,9 +92,9 @@ Correct project data served, with [project: Debate.Haus App] label
 
 **What gets embedded:**
 ```markdown
-codrag_project_id: c728cf7c-1814-4b0a-97ef-8754ae0afc3e
+prep_project_id: c728cf7c-1814-4b0a-97ef-8754ae0afc3e
 
-**ROUTING: When calling ANY CoDRAG tool, ALWAYS include
+**ROUTING: When calling ANY Prep tool, ALWAYS include
 `project_id: "c728cf7c-1814-4b0a-97ef-8754ae0afc3e"` in the arguments.**
 ```
 
@@ -106,23 +106,23 @@ codrag_project_id: c728cf7c-1814-4b0a-97ef-8754ae0afc3e
 > project_id in their system prompt. Start a fresh conversation to pick up
 > the new AGENTS.md content.
 
-### `CODRAG_WORKSPACE` — Legacy Fallback
+### `PREP_WORKSPACE` — Legacy Fallback
 
-> **Note:** `CODRAG_WORKSPACE` is no longer recommended for multi-project setups
+> **Note:** `PREP_WORKSPACE` is no longer recommended for multi-project setups
 > because it's a **global** env var that can only point to one project. Use the
 > AGENTS.md-based routing instead (project-specific, zero-config).
 
-For single-project setups or as a last resort, set `CODRAG_WORKSPACE` in the
+For single-project setups or as a last resort, set `PREP_WORKSPACE` in the
 MCP config to point to a specific workspace:
 
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/path/to/codrag",
+    "prep": {
+      "command": "/path/to/prep",
       "args": ["mcp"],
       "env": {
-        "CODRAG_WORKSPACE": "/path/to/your/project"
+        "PREP_WORKSPACE": "/path/to/your/project"
       }
     }
   }
@@ -135,7 +135,7 @@ MCP config to point to a specific workspace:
 
 ### How It Works
 
-Every CoDRAG project gets a `.prep/project.json` pointer in its root:
+Every Prep project gets a `.prep/project.json` pointer in its root:
 
 ```json
 {
@@ -145,8 +145,8 @@ Every CoDRAG project gets a `.prep/project.json` pointer in its root:
 }
 ```
 
-**Created by:** `ProjectRegistry.add_project()` (via `ensure_codrag_pointer()`)
-**Read by:** MCP server step 3 in `_resolve_project_id()` (via `read_codrag_pointer()`)
+**Created by:** `ProjectRegistry.add_project()` (via `ensure_prep_pointer()`)
+**Read by:** MCP server step 3 in `_resolve_project_id()` (via `read_prep_pointer()`)
 
 ### What It Solves
 
@@ -160,7 +160,7 @@ Every CoDRAG project gets a `.prep/project.json` pointer in its root:
 
 - **Minimal:** Just `{id, mode, daemon}` — 3 fields
 - **Instant:** MCP server reads the pointer before querying the daemon
-- **Safe:** `ensure_codrag_pointer` is wrapped in try/except — non-fatal on read-only FS
+- **Safe:** `ensure_prep_pointer` is wrapped in try/except — non-fatal on read-only FS
 - **Idempotent:** Safe to call multiple times, overwrites with current values
 - **Git-friendly:** Can be committed to share project ID with team members
 
@@ -171,9 +171,9 @@ Every CoDRAG project gets a `.prep/project.json` pointer in its root:
 | Change | File | Description |
 |--------|------|-------------|
 | `.prep/project.json` pointer | `project_registry.py` | Created on `add_project()` for all modes |
-| `read_codrag_pointer()` | `project_registry.py` | Reads pointer from any directory |
+| `read_prep_pointer()` | `project_registry.py` | Reads pointer from any directory |
 | Pointer-first routing | `server.py` | Step 3: reads pointer before daemon query |
-| `CODRAG_WORKSPACE` env var | `server.py` | Fallback routing for IDEs with no roots |
+| `PREP_WORKSPACE` env var | `server.py` | Fallback routing for IDEs with no roots |
 | No caching | `server.py` | `_resolved_project_id` removed entirely |
 | No `active_project_signal` | `server.py` | Dashboard clicks no longer override routing |
 | No MRA heuristic | `server.py` | `most-recently-active` removed |
@@ -181,8 +181,8 @@ Every CoDRAG project gets a `.prep/project.json` pointer in its root:
 | `project_id` in AGENTS.md | `rules_generator.py` | LLM-readable routing key in managed content |
 | Path-only scoring | `server.py` | `_best_project_match` uses only filesystem paths |
 | Skip `cwd=/` | `server.py` | Root FS paths are skipped in scoring loop |
-| `CODRAG_PROJECT` env var | `server.py` | Pin project by name or ID |
-| `.codrag` auto-register | `server.py` | Workspace roots with `.prep/` auto-registered |
+| `PREP_PROJECT` env var | `server.py` | Pin project by name or ID |
+| `.prep` auto-register | `server.py` | Workspace roots with `.prep/` auto-registered |
 | Docs | `SETUP_GUIDE.md` | Multi-Project Routing section |
 
 ---

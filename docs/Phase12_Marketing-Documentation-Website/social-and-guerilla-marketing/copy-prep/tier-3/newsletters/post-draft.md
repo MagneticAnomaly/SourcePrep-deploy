@@ -2,12 +2,12 @@
 
 ## Target: Console.dev / TLDR / Changelog
 
-**Subject:** Tool Pitch: CoDRAG (Local-first code graph indexer for MCP)
+**Subject:** Tool Pitch: Prep (Local-first code graph indexer for MCP)
 
 **Body:**
 Hi [Editor Name],
 
-I wanted to share a new developer tool I just released: **CoDRAG**.
+I wanted to share a new developer tool I just released: **Prep**.
 
 It's a **local-first context engine** for AI coding assistants. Instead of using cloud embeddings, it runs locally on your machine (Mac/Windows), builds a structural dependency graph of your code using Rust/Tree-sitter, and feeds precise context to tools like Cursor or Windsurf via the Model Context Protocol (MCP).
 

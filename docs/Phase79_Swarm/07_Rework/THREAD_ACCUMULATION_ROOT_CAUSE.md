@@ -196,7 +196,7 @@ A `ThreadPoolExecutor(max_workers=8)` shared across all pipeline stages would:
 
 ### Implementation Plan
 
-1. Create a shared `LLMThreadPool` singleton in `src/codrag/services/pipeline/`
+1. Create a shared `LLMThreadPool` singleton in `src/prep/services/pipeline/`
 2. Replace `with ThreadPoolExecutor(...) as pool:` in all 12+ pipeline stages with
    `shared_pool.submit()`
 3. The shared pool should be bounded (max_workers=8) and named (for debugging)
@@ -226,19 +226,19 @@ and integrates naturally with uvicorn's event loop. httpx is already a dependenc
 
 | File | Role in thread accumulation |
 |------|----------------------------|
-| `src/codrag/core/augmenter.py` | 4 ThreadPoolExecutor usages |
-| `src/codrag/core/epistemic_enrichment.py` | 3 ThreadPoolExecutor usages |
-| `src/codrag/core/inferred_edges.py` | 2 ThreadPoolExecutor usages |
-| `src/codrag/core/deepening.py` | 1 ThreadPoolExecutor usage |
-| `src/codrag/core/group_reasoning.py` | 1 ThreadPoolExecutor usage (+ swarm) |
-| `src/codrag/core/cluster.py` | 1 ThreadPoolExecutor usage |
-| `src/codrag/core/atlas/generator.py` | 1 ThreadPoolExecutor usage (+ swarm) |
-| `src/codrag/core/audit/synthesizer.py` | 1 ThreadPoolExecutor usage |
-| `src/codrag/core/swarm_orchestrator.py` | 2 ThreadPoolExecutor usages (with lifecycle mgmt) |
-| `src/codrag/services/build_orchestrator.py` | Spawns 1 thread per build group |
-| `src/codrag/services/build_manager.py` | Spawns 4 thread types |
-| `src/codrag/api/routers/pipeline.py` | Status executor (4 threads, persistent) |
-| `src/codrag/api/routers/trace_routes/query.py` | Status executor (4 threads, persistent) |
+| `src/prep/core/augmenter.py` | 4 ThreadPoolExecutor usages |
+| `src/prep/core/epistemic_enrichment.py` | 3 ThreadPoolExecutor usages |
+| `src/prep/core/inferred_edges.py` | 2 ThreadPoolExecutor usages |
+| `src/prep/core/deepening.py` | 1 ThreadPoolExecutor usage |
+| `src/prep/core/group_reasoning.py` | 1 ThreadPoolExecutor usage (+ swarm) |
+| `src/prep/core/cluster.py` | 1 ThreadPoolExecutor usage |
+| `src/prep/core/atlas/generator.py` | 1 ThreadPoolExecutor usage (+ swarm) |
+| `src/prep/core/audit/synthesizer.py` | 1 ThreadPoolExecutor usage |
+| `src/prep/core/swarm_orchestrator.py` | 2 ThreadPoolExecutor usages (with lifecycle mgmt) |
+| `src/prep/services/build_orchestrator.py` | Spawns 1 thread per build group |
+| `src/prep/services/build_manager.py` | Spawns 4 thread types |
+| `src/prep/api/routers/pipeline.py` | Status executor (4 threads, persistent) |
+| `src/prep/api/routers/trace_routes/query.py` | Status executor (4 threads, persistent) |
 
 ## Post-Fix Verification — RESOLVED (2026-04-12 20:30)
 

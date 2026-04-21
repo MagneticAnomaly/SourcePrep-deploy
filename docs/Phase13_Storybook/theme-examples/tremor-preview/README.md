@@ -1,6 +1,6 @@
-# CoDRAG Theme Examples (Tremor Preview)
+# Prep Theme Examples (Tremor Preview)
 
-This is a runnable, browser-viewable set of **visual theme examples** for CoDRAG using:
+This is a runnable, browser-viewable set of **visual theme examples** for Prep using:
 - React
 - Tailwind
 - Tremor (`@tremor/react`)
@@ -27,7 +27,7 @@ Vite runs at:
 
 - Theme tokens are implemented as CSS custom properties.
 - Themes are applied via:
-  - `data-codrag-theme="a|b|c|d"`
+  - `data-prep-theme="a|b|c|d"`
   - `.dark` class for dark mode
 
 Theme CSS files live in:

@@ -2,7 +2,7 @@
 
 ## Overview
 
-CoDRAG generates rich data about codebases: embeddings, traces, build history, search patterns, and usage metrics. This phase explores **data visualization** opportunities across both **CLI** (terminal) and **GUI** (dashboard/Storybook) surfaces.
+Prep generates rich data about codebases: embeddings, traces, build history, search patterns, and usage metrics. This phase explores **data visualization** opportunities across both **CLI** (terminal) and **GUI** (dashboard/Storybook) surfaces.
 
 The goal: Make invisible index activity **visible** and **beautiful**.
 
@@ -204,17 +204,17 @@ Embedding Space (sampled 200 chunks)
 
 ## Implemented Visualizations (CLI)
 
-The following visualizations are now available in the `codrag` CLI. This section documents:
+The following visualizations are now available in the `prep` CLI. This section documents:
 - Where the command is implemented
 - Which renderer it uses
 - Which API endpoint it depends on (if any)
 - What is currently demo/stubbed vs real
 
-**Primary implementation file:** `src/codrag/cli.py`
+**Primary implementation file:** `src/prep/cli.py`
 
 ### 1. Activity Heatmap
-- **Command:** `codrag activity [--weeks 12] [--no-legend] [--no-labels] [--json]`
-- **Renderer:** `src/codrag/viz/activity_heatmap.py` (`render_activity_heatmap`)
+- **Command:** `prep activity [--weeks 12] [--no-legend] [--no-labels] [--json]`
+- **Renderer:** `src/prep/viz/activity_heatmap.py` (`render_activity_heatmap`)
 - **Data source:**
   - Attempts: `GET /api/code-index/activity?weeks=<N>`
   - Fallback: generated sample data if the endpoint is unavailable.
@@ -224,43 +224,43 @@ The following visualizations are now available in the `codrag` CLI. This section
   - **Green** = mixed activity
 
 ### 2. Index Health DNA
-- **Command:** `codrag health`
-- **Renderer:** `src/codrag/viz/health.py` (`render_index_health`)
+- **Command:** `prep health`
+- **Renderer:** `src/prep/viz/health.py` (`render_index_health`)
 - **Data source:**
   - Uses: `GET /api/code-index/status` (existing)
   - **Current limitation:** Trace and disk usage numbers are not available via `status` yet, so they are defaulted/stubbed.
 - **What it shows:** A compact “Index DNA” / coverage visualization + summary stats.
 
 ### 3. Relevance Spectrum (Search Viz)
-- **Command:** `codrag search <query> --viz`
-- **Renderer:** `src/codrag/viz/context.py` (`render_relevance_spectrum`)
+- **Command:** `prep search <query> --viz`
+- **Renderer:** `src/prep/viz/context.py` (`render_relevance_spectrum`)
 - **Data source:** `POST /api/code-index/search`
 - **What it shows:** A score spectrum + a top-results mini breakdown to help tune `--min-score`.
 
 ### 4. Token Budget Gauge (Context Viz)
-- **Command:** `codrag context <query> --viz`
-- **Renderer:** `src/codrag/viz/context.py` (`render_token_budget`)
+- **Command:** `prep context <query> --viz`
+- **Renderer:** `src/prep/viz/context.py` (`render_token_budget`)
 - **Data source:** `POST /api/code-index/context`
 - **Current limitation:** The “budget” is currently a fixed reference (defaults to `8192`) and the breakdown is simplistic.
 
 ### 5. Trace Structural Analysis
-- **Command:** `codrag trace`
-- **Renderer:** `src/codrag/viz/trace.py` (`render_trace_stats`)
+- **Command:** `prep trace`
+- **Renderer:** `src/prep/viz/trace.py` (`render_trace_stats`)
 - **Data source:**
   - Attempts: `GET /api/code-index/trace/stats`
   - Fallback: demo data if endpoint is unavailable.
 - **What it shows:** Overall graph metrics + a hub list (most-connected symbols).
 
 ### 6. File Tree Coverage
-- **Command:** `codrag coverage`
-- **Renderer:** `src/codrag/viz/coverage.py` (`render_file_coverage`)
+- **Command:** `prep coverage`
+- **Renderer:** `src/prep/viz/coverage.py` (`render_file_coverage`)
 - **Data source:**
   - **Current limitation:** demo-only (no endpoint wired yet).
   - Planned endpoint: `GET /api/code-index/coverage`
 
 ### 7. CLI Overview Dashboard
-- **Command:** `codrag overview [--weeks 12]`
-- **Renderer:** `src/codrag/viz/overview.py` (`render_dashboard`)
+- **Command:** `prep overview [--weeks 12]`
+- **Renderer:** `src/prep/viz/overview.py` (`render_dashboard`)
 - **Data source:**
   - Uses: `GET /api/code-index/status`
   - Attempts: `/activity`, `/trace/stats` when present; otherwise uses sample/demo.
@@ -270,22 +270,22 @@ The following visualizations are now available in the `codrag` CLI. This section
 These modules exist and are ready to be wired up to CLI commands + API endpoints:
 
 ### 1. Index Drift / Freshness
-- **Renderer:** `src/codrag/viz/drift.py` (`render_drift_report`)
-- **Planned command:** `codrag drift`
+- **Renderer:** `src/prep/viz/drift.py` (`render_drift_report`)
+- **Planned command:** `prep drift`
 - **Planned endpoint:** `GET /api/code-index/drift`
 - **Purpose:** Show “rotting” files that changed after last index build and quantify freshness.
 
 ### 2. RAG Pipeline Trace / Explain
-- **Renderer:** `src/codrag/viz/flow.py` (`render_rag_flow`)
-- **Planned command:** `codrag explain` (or `codrag rag-trace`)
+- **Renderer:** `src/prep/viz/flow.py` (`render_rag_flow`)
+- **Planned command:** `prep explain` (or `prep rag-trace`)
 - **Planned endpoint:** `GET /api/code-index/rag/trace` (or “last query trace”)
 - **Purpose:** Make retrieval → rerank → context → generation visible and debuggable.
 
 ## Unfinished + Planned Work
 
 - **Add missing commands:**
-  - **`codrag drift`** to expose `render_drift_report`.
-  - **`codrag explain`** to expose `render_rag_flow`.
+  - **`prep drift`** to expose `render_drift_report`.
+  - **`prep explain`** to expose `render_rag_flow`.
 - **Wire real endpoints:**
   - `/activity` (currently optional)
   - `/trace/stats` (currently optional)
@@ -305,19 +305,19 @@ These modules exist and are ready to be wired up to CLI commands + API endpoints
 
 ```bash
 # Activity heatmap
-codrag activity [--weeks 12] [--format ascii|json]
+prep activity [--weeks 12] [--format ascii|json]
 
 # Index health summary
-codrag health [--format compact|full|json]
+prep health [--format compact|full|json]
 
 # Build history sparkline
-codrag builds [--days 30] [--format sparkline|table|json]
+prep builds [--days 30] [--format sparkline|table|json]
 
 # Symbol graph stats
-codrag trace stats [--format mini|full|json]
+prep trace stats [--format mini|full|json]
 
 # Search latency histogram
-codrag metrics search [--last 100] [--format histogram|json]
+prep metrics search [--last 100] [--format histogram|json]
 ```
 
 ### New API Endpoints
@@ -392,8 +392,8 @@ const VIZ_PANELS: PanelDefinition[] = [
 
 1. **Data Collection**: Ensure build/search events are logged with timestamps
 2. **API Endpoints**: Implement `/activity`, `/health`, `/metrics/*`
-3. **CLI Commands**: Add `codrag activity`, `codrag health`
-4. **GUI Components**: Build `ActivityHeatmap`, `HealthBar`, `BuildSparkline` in `@codrag/ui`
+3. **CLI Commands**: Add `prep activity`, `prep health`
+4. **GUI Components**: Build `ActivityHeatmap`, `HealthBar`, `BuildSparkline` in `@prep/ui`
 5. **Storybook Stories**: Document each visualization with sample data
 
 ---

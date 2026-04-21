@@ -4,7 +4,7 @@ This task list covers the missing components from Phase 71, specifically focusin
 
 ## 🎨 Visual Design Recommendations
 
-Before diving into the checklist, here are some design recommendations for the new UI elements to match CoDRAG's premium, modern aesthetic: importanlty these should be on brand with CoDRAG's existing design system gnerally but these are a new set of components. 
+Before diving into the checklist, here are some design recommendations for the new UI elements to match Prep's premium, modern aesthetic: importanlty these should be on brand with Prep's existing design system gnerally but these are a new set of components. 
 
 **1. Semantic Issue Badges (Nodes):**
 > [!TIP]
@@ -23,7 +23,7 @@ Before diving into the checklist, here are some design recommendations for the n
 
 **4. EntryPoint Nodes (Diamond shape):**
 > [!TIP]
-> Diamonds can sometimes look blocky. Ensure the diamond shape uses a subtle `border-radius: 4px` on its vertices and an inner gradient fill to make it look like a cohesive, modern part of the CoDRAG design system rather than a legacy UML diagram.
+> Diamonds can sometimes look blocky. Ensure the diamond shape uses a subtle `border-radius: 4px` on its vertices and an inner gradient fill to make it look like a cohesive, modern part of the Prep design system rather than a legacy UML diagram.
 
 ---
 
@@ -36,7 +36,7 @@ Before diving into the checklist, here are some design recommendations for the n
 - `[ ]` Build `<EntryPointNode />` (Diamond shape) for API surfaces.
 
 ### 2. Backend Governance APIs (Phase B)
-- `[ ]` Build `src/codrag/core/architecture_acr.py` for ACR lifecycle (Create, Approve, Reject).
+- `[ ]` Build `src/prep/core/architecture_acr.py` for ACR lifecycle (Create, Approve, Reject).
 - `[ ]` Add `GET /projects/{id}/architecture/acrs` to `architecture.py`.
 - `[ ]` Add `POST /projects/{id}/architecture/acrs` to `architecture.py`.
 - `[ ]` Add `PUT /projects/{id}/architecture/acrs/{acr_id}/approve` to `architecture.py`.

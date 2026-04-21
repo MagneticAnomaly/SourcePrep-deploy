@@ -6,14 +6,14 @@
 > for the current source of truth.
 
 ## Purpose
-This document outlines the operational financial structure for **Magnetic Anomaly LLC**, the umbrella entity for CoDRAG and future applications.
+This document outlines the operational financial structure for **Magnetic Anomaly LLC**, the umbrella entity for Prep and future applications.
 
 ## 1. Corporate Structure
 - **Entity Name:** Magnetic Anomaly LLC
 - **Role:** Umbrella holding company.
 - **Function:** Holds IP, manages banking, and receives all revenue.
 - **Apps:**
-  - CoDRAG (Developer Tool)
+  - Prep (Developer Tool)
   - [Future Apps]
 
 ## 2. Banking Strategy
@@ -26,17 +26,17 @@ This document outlines the operational financial structure for **Magnetic Anomal
 ## 3. Revenue Channels & Implementation
 
 ### Channel A: Direct Sales (Web Licensing)
-*Primary channel for CoDRAG Starter Passes and Pro Licenses.*
+*Primary channel for Prep Starter Passes and Pro Licenses.*
 
 - **Platform:** **Stripe** (Direct Integration).
 - **Setup:**
   - **Account:** One Stripe account for "Magnetic Anomaly LLC".
-  - **Descriptors:** Use dynamic statement descriptors if possible (e.g., `MAGANOM* CODRAG`) or generic `MAGNETIC ANOMALY`.
-  - **Domain:** `payments.codrag.io` (or similar subdomain).
+  - **Descriptors:** Use dynamic statement descriptors if possible (e.g., `MAGANOM* PREP`) or generic `MAGNETIC ANOMALY`.
+  - **Domain:** `payments.runprep.io` (or similar subdomain).
 - **Checkout Flow:**
   1. User clicks "Buy Starter Pass" or "Buy Pro License" on landing page.
   2. Redirects to Stripe Checkout (hosted session).
-  3. **Webhook:** Stripe sends `checkout.session.completed` to CoDRAG License Server.
+  3. **Webhook:** Stripe sends `checkout.session.completed` to Prep License Server.
   4. **Fulfillment:** License Server generates `Ed25519` key (with expiration for Starter, perpetual for Pro) and emails it to user.
 - **Tax Compliance:** 
   - *Note:* Using Stripe directly requires configuring **Stripe Tax** to handle VAT/Sales Tax collection and remittance automatically.

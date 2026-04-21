@@ -11,7 +11,7 @@ I work in an environment where "uploading code to SaaS" is a firing offense.
 But we still wanted AI coding features.
 
 ### The Tool
-I built **CoDRAG**. It runs entirely on `localhost`.
+I built **Prep**. It runs entirely on `localhost`.
 It builds a structural index of the repo without any external API calls.
 We use it to feed context to our local LLMs (Ollama) securely.
 

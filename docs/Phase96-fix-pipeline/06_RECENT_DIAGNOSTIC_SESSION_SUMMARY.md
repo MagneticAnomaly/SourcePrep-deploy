@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-This document consolidates findings from a multi-day diagnostic session investigating CoDRAG pipeline reliability issues. The investigation revealed five interconnected problems spanning frontend performance, server stability, and pipeline orchestration logic. Four issues have been definitively resolved with targeted fixes; one (stuck enrichment nodes) requires additional investigation.
+This document consolidates findings from a multi-day diagnostic session investigating Prep pipeline reliability issues. The investigation revealed five interconnected problems spanning frontend performance, server stability, and pipeline orchestration logic. Four issues have been definitively resolved with targeted fixes; one (stuck enrichment nodes) requires additional investigation.
 
 ---
 
@@ -25,7 +25,7 @@ The `PipelineFileLogger` created new log files for every pipeline run without pr
 
 ### Solution Implemented
 
-**File:** `src/codrag/services/pipeline_logger.py`
+**File:** `src/prep/services/pipeline_logger.py`
 
 Added automatic log pruning to keep only the 50 most recent log files:
 
@@ -59,7 +59,7 @@ The `_prune_old_logs()` method is called at the start of every `start_run()` ope
 ## Issue 2: Server Crashes (Exit Code 137 / OOM Kill)
 
 ### Problem Statement
-The CoDRAG daemon (backend server on port 8400) was crashing with `Exit code 137`, indicating Out-of-Memory (OOM) termination by the operating system.
+The Prep daemon (backend server on port 8400) was crashing with `Exit code 137`, indicating Out-of-Memory (OOM) termination by the operating system.
 
 ### Root Cause
 The `_startup_auto_run` function was triggering multiple heavy pipeline runs concurrently during server startup:
@@ -86,17 +86,17 @@ Two independent bugs combined to create the loop:
 
 #### Bug A: `ui_config.json` Changes Triggering False Coverage Gaps
 
-**File:** `codrag_data/ui_config.json`
+**File:** `prep_data/ui_config.json`
 
 The UI configuration file was being modified frequently by dashboard interactions. Since it was not excluded from trace coverage, each modification appeared as a "changed file" in the coverage gap check, triggering a rebuild.
 
-**Fix:** Added `**/codrag_data/ui_config.json` to `DEFAULT_EXCLUDE_FILE_GLOBS` in `src/codrag/core/repo_profile.py`:
+**Fix:** Added `**/prep_data/ui_config.json` to `DEFAULT_EXCLUDE_FILE_GLOBS` in `src/prep/core/repo_profile.py`:
 
 ```python
 DEFAULT_EXCLUDE_FILE_GLOBS: Sequence[str] = (
-    # CoDRAG-generated
+    # Prep-generated
     "**/AGENTS.md",
-    "**/codrag_data/ui_config.json",  # Added to prevent loop
+    "**/prep_data/ui_config.json",  # Added to prevent loop
     # Claude Code
     ...
 )
@@ -104,7 +104,7 @@ DEFAULT_EXCLUDE_FILE_GLOBS: Sequence[str] = (
 
 #### Bug B: `user_exclude_globs` Not Applied in `refresh_manifest_hashes`
 
-**File:** `src/codrag/services/pipeline/resume.py`
+**File:** `src/prep/services/pipeline/resume.py`
 
 The `refresh_manifest_hashes()` function was not correctly applying user-defined exclusion patterns when updating the trace manifest. This caused:
 
@@ -166,7 +166,7 @@ The issue: if `run_deep_enrichment()` returned `False`, `run_finalize()` was nev
 
 ### Solution
 
-**File:** `src/codrag/services/pipeline/orchestrator.py`
+**File:** `src/prep/services/pipeline/orchestrator.py`
 
 Modified `run_all()` to explicitly chain to `run_finalize` when deep enrichment is up-to-date:
 
@@ -254,7 +254,7 @@ print(f"Missing IDs: {missing}")
 ## Architecture Improvements Made
 
 ### 1. Resume Strategy Refactoring
-Extracted resume point detection and coverage gap analysis from `orchestrator.py` into dedicated `ResumeStrategy` class in `src/codrag/services/pipeline/resume.py`.
+Extracted resume point detection and coverage gap analysis from `orchestrator.py` into dedicated `ResumeStrategy` class in `src/prep/services/pipeline/resume.py`.
 
 **Benefits:**
 - Cleaner separation of concerns
@@ -265,7 +265,7 @@ Extracted resume point detection and coverage gap analysis from `orchestrator.py
 Enhanced `check_coverage_gap()` to properly respect:
 - `include_globs` / `exclude_globs` from project config
 - `user_exclude_globs` from trace ignore patterns
-- `DEFAULT_EXCLUDE_FILE_GLOBS` for CoDRAG-generated files
+- `DEFAULT_EXCLUDE_FILE_GLOBS` for Prep-generated files
 
 ### 3. Manifest Hash Refresh Improvements
 Updated `refresh_manifest_hashes()` to:
@@ -280,10 +280,10 @@ Updated `refresh_manifest_hashes()` to:
 
 | File | Lines | Change Summary |
 |------|-------|----------------|
-| `src/codrag/services/pipeline_logger.py` | 81-105 | Added `_prune_old_logs()` for automatic log cleanup |
-| `src/codrag/core/repo_profile.py` | 66-79 | Added `codrag_data/ui_config.json` to exclusion globs |
-| `src/codrag/services/pipeline/resume.py` | 560-615 | Fixed `refresh_manifest_hashes()` to apply user exclusions |
-| `src/codrag/services/pipeline/orchestrator.py` | 947-959 | Added Finalize chaining when Deep Enrichment is up-to-date |
+| `src/prep/services/pipeline_logger.py` | 81-105 | Added `_prune_old_logs()` for automatic log cleanup |
+| `src/prep/core/repo_profile.py` | 66-79 | Added `prep_data/ui_config.json` to exclusion globs |
+| `src/prep/services/pipeline/resume.py` | 560-615 | Fixed `refresh_manifest_hashes()` to apply user exclusions |
+| `src/prep/services/pipeline/orchestrator.py` | 947-959 | Added Finalize chaining when Deep Enrichment is up-to-date |
 
 ---
 
@@ -321,7 +321,7 @@ What seems like a minor UX issue (frontend slowness) can indicate systemic resou
 - `01_RESOLUTION_REPORT.md` — Phase 96A/96B scheduler fixes
 - `03_15_STAGE_GAP_PLAN.md` — Stage sequencing architecture
 - `05_FINDINGS_AND_BUGS_REGISTRY.md` — Detailed bug registry
-- `src/codrag/services/pipeline/resume.py` — ResumeStrategy implementation (extracted during this work)
+- `src/prep/services/pipeline/resume.py` — ResumeStrategy implementation (extracted during this work)
 
 ---
 

@@ -27,7 +27,7 @@ Sequence of events captured from daemon log:
 2. Scheduler acquired slot: `acquired slot on cloud:default_ollama for atlas (1/1 dynamic cap)`
 3. Freshness check fired: `Stage atlas skipped for 0c50e42e: all outputs are newer than inputs — already current`
 4. Next stage deepening tried to acquire: `queued on cloud:default_ollama for deepening (position 1)`
-5. CoDRAG project completed structural, tried inferred_edges: `queued on cloud:default_ollama for inferred_edges (position 2)`
+5. Prep project completed structural, tried inferred_edges: `queued on cloud:default_ollama for inferred_edges (position 2)`
 6. **Both pipelines stuck forever** — nothing will release the held atlas slot
 
 **API confirmation** (`GET /system/pipeline-queue`):
@@ -63,10 +63,10 @@ Despite `max_concurrent: 10` configured for the cloud:default_ollama node, the s
 ### 0.3 Dashboard Screenshot
 
 Playwright screenshot captured showing:
-- Pipeline Queue: SMOKE: rust_repo (Pending, Deep Enrich → deepening), CoDRAG (Pending, Fast Sync → inferred_edges)
-- Scheduler panel: shows "deepening loop on SMOKE: rust_repo" and "Inferred Edge Discovery on CoDRAG" as active, but both are actually queued
+- Pipeline Queue: SMOKE: rust_repo (Pending, Deep Enrich → deepening), Prep (Pending, Fast Sync → inferred_edges)
+- Scheduler panel: shows "deepening loop on SMOKE: rust_repo" and "Inferred Edge Discovery on Prep" as active, but both are actually queued
 - All downstream stages show "Waiting for..." status
-- Screenshot saved: `/tmp/codrag_dashboard.png`
+- Screenshot saved: `/tmp/prep_dashboard.png`
 
 ### 0.4 Daemon Silent Death
 
@@ -79,13 +79,13 @@ The daemon exited cleanly (exit code 0) after ~10 minutes with no error or trace
 
 During dashboard load:
 ```
-ERROR:codrag.api.routers.settings:Security health check failed: 'SettingsStore' object has no attribute 'get_global'
+ERROR:prep.api.routers.settings:Security health check failed: 'SettingsStore' object has no attribute 'get_global'
 ```
 This indicates a missing method on SettingsStore — likely added to the API router but not implemented in the store.
 
 ### 0.6 MCP Server Disconnected
 
-During the diagnostic session, the CoDRAG MCP server disconnected from Claude Code (all 6 `mcp__codrag__*` tools became unavailable). This correlates with daemon instability — the MCP server proxies through the daemon, so daemon death kills MCP.
+During the diagnostic session, the Prep MCP server disconnected from Claude Code (all 6 `mcp__prep__*` tools became unavailable). This correlates with daemon instability — the MCP server proxies through the daemon, so daemon death kills MCP.
 
 ---
 
@@ -110,8 +110,8 @@ Pipeline stuck — no release will trigger dequeue
 ```
 
 **Files involved:**
-- `src/codrag/services/pipeline/orchestrator.py` — `_advance_pipeline()` (~line 1380), `_on_build_transition()` (~line 1706)
-- `src/codrag/services/build_orchestrator.py` — `_notify()` fires listeners outside lock (~line 366)
+- `src/prep/services/pipeline/orchestrator.py` — `_advance_pipeline()` (~line 1380), `_on_build_transition()` (~line 1706)
+- `src/prep/services/build_orchestrator.py` — `_notify()` fires listeners outside lock (~line 366)
 
 ### 1.2 Stage Skipping (Double Index Increment)
 
@@ -125,8 +125,8 @@ Pipeline stuck — no release will trigger dequeue
 When a freshness skip happens and is immediately followed by a `STAGE_COMPLETED` transition, the index gets incremented twice, causing the next stage to be skipped entirely.
 
 **Files involved:**
-- `src/codrag/services/pipeline/state_machine.py:355` — `STAGE_COMPLETED` handler
-- `src/codrag/services/pipeline/orchestrator.py:2546` — freshness skip manual increment
+- `src/prep/services/pipeline/state_machine.py:355` — `STAGE_COMPLETED` handler
+- `src/prep/services/pipeline/orchestrator.py:2546` — freshness skip manual increment
 
 ### 1.3 Two Stages Running Simultaneously
 
@@ -147,7 +147,7 @@ Stages N+1 and N+2 can overlap if N+1 hasn't finished its bookkeeping
 ```
 
 **Files involved:**
-- `src/codrag/services/pipeline/orchestrator.py` — recursive `_advance_pipeline()` calls at lines ~2547, ~2558
+- `src/prep/services/pipeline/orchestrator.py` — recursive `_advance_pipeline()` calls at lines ~2547, ~2558
 
 ### 1.4 Wrong Terminal States
 
@@ -279,29 +279,29 @@ One project has exclusive priority, which blocks all other projects from acquiri
 
 ### 4.1 Import Structure Changed
 
-The MCP server no longer exports `app` from `codrag.mcp.server`:
+The MCP server no longer exports `app` from `prep.mcp.server`:
 ```python
-ImportError: cannot import name 'app' from 'codrag.mcp.server'
+ImportError: cannot import name 'app' from 'prep.mcp.server'
 ```
 
 The module exports `MCPServer` class instead. This may affect:
-- The MCP wrapper script (`codrag-mcp-wrapper.sh`)
+- The MCP wrapper script (`prep-mcp-wrapper.sh`)
 - Any IDE configurations that import/launch the MCP server
-- Direct mode MCP (`codrag.mcp_direct`)
+- Direct mode MCP (`prep.mcp_direct`)
 
 ### 4.2 MCP Functionality Untested
 
-The MCP server's 6 tools (`codrag`, `codrag_search`, `codrag_impact`, `codrag_audit`, `codrag_observe`, `codrag_concepts`) proxy through the daemon at :8400. Since the daemon has pipeline scheduling issues, the MCP tools that query pipeline state (`codrag` ambient context) may return stale or incorrect data.
+The MCP server's 6 tools (`prep`, `prep_search`, `prep_impact`, `prep_audit`, `prep_observe`, `prep_concepts`) proxy through the daemon at :8400. Since the daemon has pipeline scheduling issues, the MCP tools that query pipeline state (`prep` ambient context) may return stale or incorrect data.
 
 **Testing needed:**
 - Can the MCP server start and complete the handshake?
 - Do tool calls return valid responses?
-- Does `codrag` (no-arg ambient context) return correct structural data?
-- Does `codrag_search` return results?
+- Does `prep` (no-arg ambient context) return correct structural data?
+- Does `prep_search` return results?
 
 ### 4.3 Direct Mode Drift
 
-Per CLAUDE.md: "Direct mode (`src/codrag/mcp_direct.py`) has drifted behind server mode. The `codrag` no-arg ambient context call is broken in direct mode." This is a known issue but compounds the testing challenge — if server mode is broken too, there's no working MCP path.
+Per CLAUDE.md: "Direct mode (`src/prep/mcp_direct.py`) has drifted behind server mode. The `prep` no-arg ambient context call is broken in direct mode." This is a known issue but compounds the testing challenge — if server mode is broken too, there's no working MCP path.
 
 ---
 
@@ -412,7 +412,7 @@ This coupling means queue bugs can cause pipeline bugs and vice versa.
 
 1. Verify MCP server starts and completes handshake
 2. Test all 6 tools return valid responses
-3. Verify `codrag` ambient context reflects pipeline state correctly
+3. Verify `prep` ambient context reflects pipeline state correctly
 
 ---
 
@@ -420,17 +420,17 @@ This coupling means queue bugs can cause pipeline bugs and vice versa.
 
 | File | Lines | Role |
 |------|-------|------|
-| `src/codrag/services/pipeline/orchestrator.py` | ~2000+ | Pipeline sequencing, stage advancement |
-| `src/codrag/services/pipeline/scheduler.py` | ~1100+ | Concurrency/slot management, AIMD, swarm |
-| `src/codrag/services/pipeline/state_machine.py` | ~500 | State machine transitions |
-| `src/codrag/services/pipeline/stages.py` | ~212 | Stage definitions, group constants, mappings |
-| `src/codrag/services/pipeline/workers.py` | ~900+ | Worker factory, stage-specific workers |
-| `src/codrag/services/build_orchestrator.py` | ~300 | BuildSlot lifecycle, worker threads |
-| `src/codrag/services/pipeline/recovery.py` | ~??? | Crash recovery, PAUSED hydration |
-| `src/codrag/services/pipeline/resume.py` | ~??? | Resume point detection |
-| `src/codrag/api/routers/queue.py` | ~235 | Queue status HTTP endpoint |
-| `src/codrag/api/routers/pipeline.py` | ~600+ | Pipeline control HTTP endpoints |
-| `src/codrag/mcp/server.py` | ~??? | MCP server (proxies to daemon) |
+| `src/prep/services/pipeline/orchestrator.py` | ~2000+ | Pipeline sequencing, stage advancement |
+| `src/prep/services/pipeline/scheduler.py` | ~1100+ | Concurrency/slot management, AIMD, swarm |
+| `src/prep/services/pipeline/state_machine.py` | ~500 | State machine transitions |
+| `src/prep/services/pipeline/stages.py` | ~212 | Stage definitions, group constants, mappings |
+| `src/prep/services/pipeline/workers.py` | ~900+ | Worker factory, stage-specific workers |
+| `src/prep/services/build_orchestrator.py` | ~300 | BuildSlot lifecycle, worker threads |
+| `src/prep/services/pipeline/recovery.py` | ~??? | Crash recovery, PAUSED hydration |
+| `src/prep/services/pipeline/resume.py` | ~??? | Resume point detection |
+| `src/prep/api/routers/queue.py` | ~235 | Queue status HTTP endpoint |
+| `src/prep/api/routers/pipeline.py` | ~600+ | Pipeline control HTTP endpoints |
+| `src/prep/mcp/server.py` | ~??? | MCP server (proxies to daemon) |
 | `tests/test_pipeline_orchestrator.py` | ~397 | Orchestrator integration tests |
 | `tests/test_pipeline_scheduler.py` | ~1200+ | Scheduler unit tests |
 | `tests/test_pipeline_state_machine.py` | ~659 | State machine unit tests |

@@ -1,6 +1,6 @@
-# CoDRAG Visual Design Directions
+# Prep Visual Design Directions
 
-This folder contains **distinct visual design directions** for CoDRAG's brand identity and UI system.
+This folder contains **distinct visual design directions** for Prep's brand identity and UI system.
 
 ## Purpose
 
@@ -11,9 +11,9 @@ Before locking in a design system, we prototype multiple directions to:
 3. Make an informed choice with explicit rationale
 4. Avoid premature standardization
 
-## CoDRAG Brand Context
+## Prep Brand Context
 
-CoDRAG is a **local-first developer tool** for semantic code search and understanding. The visual identity must communicate:
+Prep is a **local-first developer tool** for semantic code search and understanding. The visual identity must communicate:
 
 - **Trust** — local-first, no cloud dependency, your data stays yours
 - **Developer credibility** — this is a serious tool, not a toy
@@ -72,4 +72,4 @@ This package will be consumed by:
 
 ## Legacy Research Reference
 
-See `../previous-app-legacy-research/` for patterns from a different product (Halley). That product had a very different personality (intimate, personal AI). CoDRAG needs a distinct identity focused on developer trust and tooling credibility.
+See `../previous-app-legacy-research/` for patterns from a different product (Halley). That product had a very different personality (intimate, personal AI). Prep needs a distinct identity focused on developer trust and tooling credibility.

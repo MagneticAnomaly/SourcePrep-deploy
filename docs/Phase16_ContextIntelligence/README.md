@@ -1,6 +1,6 @@
 # Phase 16 — Context Intelligence
 
-Three features that transform CoDRAG from "semantic search tool" to "context intelligence layer."
+Three features that transform Prep from "semantic search tool" to "context intelligence layer."
 
 ## Feature 1: Native Embeddings (no Ollama required)
 
@@ -23,7 +23,7 @@ Ship a `NativeEmbedder` that runs `nomic-embed-text` via ONNX Runtime. No Ollama
 
 ### Implementation plan
 
-1. **New class**: `NativeEmbedder(Embedder)` in `src/codrag/core/embedder.py`
+1. **New class**: `NativeEmbedder(Embedder)` in `src/prep/core/embedder.py`
    - Uses `onnxruntime.InferenceSession` + `tokenizers.Tokenizer`
    - Auto-downloads model from HuggingFace Hub on first use to `~/.prep/models/nomic-embed-text/`
    - Implements `embed()` and `embed_batch()` (batch is actually efficient with ONNX)
@@ -41,13 +41,13 @@ Ship a `NativeEmbedder` that runs `nomic-embed-text` via ONNX Runtime. No Ollama
    - If user configures `ollama_url`: use `OllamaEmbedder` (backwards compatible)
    - Config key: `embedding_source: "native" | "ollama"` (default: `"native"`)
 
-4. **CLI**: `codrag models download` — pre-downloads the ONNX model (for air-gapped setups)
+4. **CLI**: `prep models download` — pre-downloads the ONNX model (for air-gapped setups)
 
 5. **Tests**: Verify `NativeEmbedder` produces same-dimension vectors as `OllamaEmbedder` with nomic-embed-text
 
 ### Marketing impact
 - Embeddings become a **built-in core feature**, not an optional add-on
-- "Install CoDRAG → semantic search works immediately. No Ollama, no API keys, no setup."
+- "Install Prep → semantic search works immediately. No Ollama, no API keys, no setup."
 - Ollama becomes a **power-user option** (use a different model, GPU acceleration, etc.)
 
 ---
@@ -55,7 +55,7 @@ Ship a `NativeEmbedder` that runs `nomic-embed-text` via ONNX Runtime. No Ollama
 ## Feature 2: User-Defined Path Weights (Folder/File Context Weighting)
 
 ### Problem
-A project like CoDRAG has 70k+ lines of planning docs alongside source code. When searching, you don't always want docs and code weighted equally. Sometimes `docs/Phase00_Initial-Concept/` is background context (0.5 weight) while `src/codrag/core/` is the focus (1.5 weight).
+A project like Prep has 70k+ lines of planning docs alongside source code. When searching, you don't always want docs and code weighted equally. Sometimes `docs/Phase00_Initial-Concept/` is background context (0.5 weight) while `src/prep/core/` is the focus (1.5 weight).
 
 ### Is this possible? YES — the infrastructure is 80% built.
 
@@ -81,7 +81,7 @@ Add `path_weights: Dict[str, float]` to the repo policy. Keys are path prefixes 
   "path_weights": {
     "docs/Phase00_Initial-Concept/**": 0.5,
     "docs/Phase16_ContextIntelligence/**": 1.2,
-    "src/codrag/core/**": 1.5,
+    "src/prep/core/**": 1.5,
     "tests/**": 0.8
   }
 }
@@ -109,11 +109,11 @@ Add `path_weights: Dict[str, float]` to the repo policy. Keys are path prefixes 
    - Visual indicator: dimmed folders (< 1.0), highlighted folders (> 1.0)
    - "Reset all weights" button
 
-5. **MCP**: Path weights can be set via `codrag_update_project` tool
+5. **MCP**: Path weights can be set via `prep_update_project` tool
 
 ### Why this matters
 - User selects `docs/` → sets weight to 0.5 → docs are in context but don't dominate
-- User selects `src/codrag/core/` → sets weight to 1.5 → core code surfaces first
+- User selects `src/prep/core/` → sets weight to 1.5 → core code surfaces first
 - Works at search time — no rebuild needed, weights apply instantly
 - Composable with existing role_weights and intent multipliers
 
@@ -135,7 +135,7 @@ Add `path_weights: Dict[str, float]` to the repo policy. Keys are path prefixes 
 ## Marketing copy changes needed
 
 Once native embeddings ship:
-- **TechStackMatrix**: Replace "CoDRAG Core vs CoDRAG + Ollama" with "CoDRAG (everything built in)" vs "Optional: Ollama (use a different model)"
+- **TechStackMatrix**: Replace "Prep Core vs Prep + Ollama" with "Prep (everything built in)" vs "Optional: Ollama (use a different model)"
 - **Hero/feature copy**: "Semantic search works out of the box" instead of "add Ollama for semantic search"
 - **BYOK framing**: shifts to LLM (user's own Claude/GPT key for generation), not embeddings
 - **Path weights**: new marketing angle — "Control what matters. Weight folders so AI focuses where you do."

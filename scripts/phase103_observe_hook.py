@@ -21,7 +21,7 @@ Two invocation modes:
 
 Exits 0 on success (even when nothing written — hooks must not block
 the agent). Prints a single-line status to stderr for observability.
-Observation store path defaults to ``codrag_data/prep_observations.db``
+Observation store path defaults to ``prep_data/prep_observations.db``
 relative to the repo root (auto-detected via PREP_DATA_DIR or
 fallback to the git toplevel).
 
@@ -72,18 +72,18 @@ def resolve_data_dir() -> Path:
     env = os.environ.get("PREP_DATA_DIR")
     if env:
         return Path(env)
-    # Try git toplevel / codrag_data
+    # Try git toplevel / prep_data
     try:
         top = subprocess.check_output(
             ["git", "rev-parse", "--show-toplevel"],
             text=True, stderr=subprocess.DEVNULL,
         ).strip()
-        candidate = Path(top) / "codrag_data"
+        candidate = Path(top) / "prep_data"
         if candidate.exists():
             return candidate
     except Exception:
         pass
-    return Path.cwd() / "codrag_data"
+    return Path.cwd() / "prep_data"
 
 
 def should_skip(file_path: str) -> Optional[str]:

@@ -9,10 +9,10 @@
 
 ## 1. Goal & audience
 
-A public page that establishes CoDRAG's intellectual lineage — the papers, repos, blogs, and standards the project was built on. Three jobs, in priority order:
+A public page that establishes Prep's intellectual lineage — the papers, repos, blogs, and standards the project was built on. Three jobs, in priority order:
 
-1. **Credibility signal for evaluators** *(primary)* — devs and teams evaluating CoDRAG can spend 30–60 seconds and walk away thinking "this team knows their space."
-2. **Honest attribution** *(secondary)* — the page reads as a sincere acknowledgment of the people whose work CoDRAG draws on, not a marketing flourish.
+1. **Credibility signal for evaluators** *(primary)* — devs and teams evaluating Prep can spend 30–60 seconds and walk away thinking "this team knows their space."
+2. **Honest attribution** *(secondary)* — the page reads as a sincere acknowledgment of the people whose work Prep draws on, not a marketing flourish.
 3. **Whitepaper-grade bibliography** *(tertiary)* — sortable, citation-style entries that can be linked from a deck, an essay, or the future whitepaper.
 
 **Non-goals:** SEO landing page, blog post, lead capture, comparison piece, or recruiting pitch.
@@ -24,7 +24,7 @@ A public page that establishes CoDRAG's intellectual lineage — the papers, rep
 - **Header nav:** **not** added to primary header nav (intentional — discovered, not pushed)
 - **Footer:** add link under the Resources column ("Research")
 - **Cross-links:**
-  - One-line callout from `/about` ("→ Read the research CoDRAG was built on")
+  - One-line callout from `/about` ("→ Read the research Prep was built on")
   - One-line callout from `/compare` ("We've actually read the papers behind every tool here. See our research →")
   - Future whitepaper / long-form blog posts deep-link to specific section anchors
 
@@ -34,10 +34,10 @@ A public page that establishes CoDRAG's intellectual lineage — the papers, rep
 
 | Layer | Component | Source |
 |---|---|---|
-| Page shell | `DetailPageLayout` | `@codrag/ui` (already used by `/security`, `/immune-system`, `/graph-enrichment`) |
+| Page shell | `DetailPageLayout` | `@prep/ui` (already used by `/security`, `/immune-system`, `/graph-enrichment`) |
 | Sidebar TOC | Built into `DetailPageLayout` `sections` prop | same |
-| Card grid (appendix) | `FeatureBlocks` `variant="cards"` | `@codrag/ui` |
-| List with icon (spotlights) | `FeatureBlocks` `variant="list"` (extended) | `@codrag/ui` |
+| Card grid (appendix) | `FeatureBlocks` `variant="cards"` | `@prep/ui` |
+| List with icon (spotlights) | `FeatureBlocks` `variant="list"` (extended) | `@prep/ui` |
 | Header/footer | `SiteHeader` / `SiteFooter` (auto-wrap via `ClientLayout`) | marketing app |
 | Typography | IBM Plex Serif (headings), Inter (body), JetBrains Mono (citation IDs) | already configured globally |
 | Color tokens | `text-text`, `text-text-muted`, `surface-raised`, `primary` | already configured |
@@ -63,7 +63,7 @@ A public page that establishes CoDRAG's intellectual lineage — the papers, rep
 ├─────────────────────────────────────────────────────────┤
 │  ResearchHero                                           │
 │    eyebrow: "Bibliography"                              │
-│    h1:      "What CoDRAG was built on."                 │
+│    h1:      "What Prep was built on."                 │
 │    subhead: 2-sentence editorial paragraph              │
 ├──────────────┬──────────────────────────────────────────┤
 │ Sticky TOC   │  Section 1: Retrieval & Long Context     │
@@ -103,9 +103,9 @@ Four sections, ~12 spotlights total, ~40 supporting sources in appendices.
 
 **Spotlights (3):**
 - **Liu et al. — *Lost in the Middle: How Language Models Use Long Contexts*** (TACL 2024, [arXiv 2307.03172](https://arxiv.org/abs/2307.03172))
-  Drives CoDRAG's conservative context-budget defaults and the "rank, then place at the edges" assembly rule.
+  Drives Prep's conservative context-budget defaults and the "rank, then place at the edges" assembly rule.
 - **Han et al. — *RAG vs. GraphRAG: A Systematic Evaluation*** ([arXiv 2502.11371](https://arxiv.org/abs/2502.11371))
-  Validates trace-graph expansion as the right answer for multi-hop queries — directly motivates `codrag_search`'s expansion hop.
+  Validates trace-graph expansion as the right answer for multi-hop queries — directly motivates `prep_search`'s expansion hop.
 - **Anthropic — *Contextual Retrieval*** ([Sept 2024](https://www.anthropic.com/news/contextual-retrieval))
   Adopted directly: prepend file-level context to each chunk before embedding. Reported 49% retrieval-failure reduction.
 
@@ -113,7 +113,7 @@ Four sections, ~12 spotlights total, ~40 supporting sources in appendices.
 
 ### Section 2 — Compression & Levels of Detail
 
-**Intro framing:** Why CoDRAG's context assembler ladders code from full source down to one-line signatures.
+**Intro framing:** Why Prep's context assembler ladders code from full source down to one-line signatures.
 
 **Spotlights (4):**
 - **Stingy Context: 18:1 Hierarchical Code Compression** ([arXiv 2601.19929](https://arxiv.org/abs/2601.19929))
@@ -123,7 +123,7 @@ Four sections, ~12 spotlights total, ~40 supporting sources in appendices.
 - **Aider** ([github.com/Aider-AI/aider](https://github.com/Aider-AI/aider))
   Production proof for repo-map-style LOD 4 at scale. The "this works in the wild" reference.
 - **microsoft/LLMLingua** ([github.com/microsoft/LLMLingua](https://github.com/microsoft/LLMLingua))
-  BERT-classifier token pruning. Adopted as the language/docs compressor half of CoDRAG's dual-compressor design.
+  BERT-classifier token pruning. Adopted as the language/docs compressor half of Prep's dual-compressor design.
 
 **Appendix:** Repoformer (ICML 2024), GraphCoder, RepoHyper, STALL+, *In Line with Context*, Activation Beacon, LLMLingua-2, *On the Impacts of Contexts*, Repomix, LongCodeZip, CodeRAG-Bigraph.
 
@@ -133,7 +133,7 @@ Four sections, ~12 spotlights total, ~40 supporting sources in appendices.
 
 **Spotlights (3):**
 - **garrytan/gbrain** ([github.com/garrytan/gbrain](https://github.com/garrytan/gbrain))
-  Catalyst for Phase 93. Savitzky-Golay semantic boundary detection and RRF hybrid search directly informed CoDRAG's semantic chunker and multi-query retrieval.
+  Catalyst for Phase 93. Savitzky-Golay semantic boundary detection and RRF hybrid search directly informed Prep's semantic chunker and multi-query retrieval.
 - **cAST: Enhancing Code RAG with Structural Awareness** ([arXiv 2506.15655](https://arxiv.org/abs/2506.15655))
   Confirms AST-boundary-respecting chunks beat naive splits — basis for the tree-sitter chunker.
 - **Edge et al. — *GraphRAG: From Local to Global*** ([arXiv 2404.16130](https://arxiv.org/abs/2404.16130))
@@ -143,15 +143,15 @@ Four sections, ~12 spotlights total, ~40 supporting sources in appendices.
 
 ### Section 4 — Concepts, Knowledge & Standards
 
-**Intro framing:** Why CoDRAG treats concepts as first-class artifacts and where the protocol surface comes from.
+**Intro framing:** Why Prep treats concepts as first-class artifacts and where the protocol surface comes from.
 
 **Spotlights (3):**
 - **Guo et al. — *GraphCodeBERT: Pre-training Code Representations with Data Flow*** (ICLR 2021)
   Justifies why data-flow information improves code understanding — the rationale behind PDG-style edges in the trace graph.
 - **Nonaka & Takeuchi — *The Knowledge-Creating Company* (SECI model)** (Oxford UP, 1995)
-  Epistemological frame for the concepts system: tacit→explicit knowledge transfer ("externalization") is exactly what CoDRAG's concepts capture.
+  Epistemological frame for the concepts system: tacit→explicit knowledge transfer ("externalization") is exactly what Prep's concepts capture.
 - **Anthropic — *Model Context Protocol*** ([modelcontextprotocol.io](https://modelcontextprotocol.io))
-  The protocol CoDRAG ships its primary interface on. Every `codrag_*` tool, the resources surface, and the per-client context budgets are MCP-shaped from the ground up — without this spec there is no CoDRAG MCP server.
+  The protocol Prep ships its primary interface on. Every `prep_*` tool, the resources surface, and the per-client context budgets are MCP-shaped from the ground up — without this spec there is no Prep MCP server.
 
 **Appendix:** Ferrante et al. *Program Dependence Graph* (1987), Traag et al. *Leiden Algorithm* (2019), Ganter & Wille *Formal Concept Analysis* (1999), Brooks *Top-Down Comprehension* (1983), Pennington (1987), Miller's Law (1956), Nygard ADRs, KARMA (NeurIPS 2025), LLMs4OL (ISWC), TraceBERT, NASA SWE-072, KIT fine-grained traceability papers, ACP, A2A, SARIF, OCSF, agents.md.
 
@@ -161,7 +161,7 @@ Four sections, ~12 spotlights total, ~40 supporting sources in appendices.
 |---|---|
 | Tremor, plotext, react-grid-layout | UI implementation deps — not research. |
 
-| MagneticAnomaly/CoDRAG-MCP and `codrag/codrag-mcp` | Self-references. |
+| MagneticAnomaly/Prep-MCP and `prep/prep-mcp` | Self-references. |
 | Trivy / Gitleaks / Cosign / Syft / Presidio / DataFog / NeMo Guardrails / Pytector / OSSF Scorecard / LLM Guard | Enterprise security tooling — meaningful for the security page, not for the bibliography. (Could revive on `/security` if it doesn't already cite them.) |
 | Greptile / Cursor / Continue / Augment / Sourcegraph / Ragie | Competitors — belong on `/compare`, not here. The page is about influences, not the field. |
 | Ollama, Nomic Embed, Voyage Code 3 | Model/runtime evaluations — implementation choices, not research influences. (Voyage and Nomic blog posts could be moved into Section 1 appendix if you want them; flagged.) |
@@ -175,13 +175,13 @@ Four sections, ~12 spotlights total, ~40 supporting sources in appendices.
 **Hero copy** (draft):
 
 > **Bibliography**
-> ## What CoDRAG was built on.
-> A working list of the papers, repositories, essays, and standards CoDRAG draws on. Each entry includes a one-line note on how it shaped the project — and what we changed when we disagreed.
+> ## What Prep was built on.
+> A working list of the papers, repositories, essays, and standards Prep draws on. Each entry includes a one-line note on how it shaped the project — and what we changed when we disagreed.
 
 **Spotlight blurb format:**
 - 2–3 sentences max
 - Lead with what the source argues or proves
-- Close with how CoDRAG implements (or rejects) it
+- Close with how Prep implements (or rejects) it
 - Verbs: *adopted*, *adapted*, *evaluated*, *rejected*, *informed*, *grounds*, *validates*
 - Avoid: *leveraged*, *utilized*, *industry-leading*, *game-changing*
 
@@ -192,7 +192,7 @@ Four sections, ~12 spotlights total, ~40 supporting sources in appendices.
 
 **Closing note** (~3 sentences):
 
-> This list is incomplete. We add to it as we read, and we welcome corrections — if we've cited your work badly, or missed work we should know about, open an issue on [the repo](https://github.com/MagneticAnomaly/CoDRAG-MCP/issues). We'll fix it.
+> This list is incomplete. We add to it as we read, and we welcome corrections — if we've cited your work badly, or missed work we should know about, open an issue on [the repo](https://github.com/MagneticAnomaly/Prep-MCP/issues). We'll fix it.
 
 ## 7. Interactivity
 
@@ -294,7 +294,7 @@ Inherited from `DetailPageLayout`.
 
 1. ~~**Section 4 spotlight count.**~~ Resolved 2026-04-10: promoted **MCP** to a third Section 4 spotlight so the section's "Standards" half has a flagship.
 2. **Voyage / Nomic embedding blogs.** Keep in Section 1 appendix, move to a "tools we evaluated" callout, or cut?
-3. **Closing note GitHub link.** Use `MagneticAnomaly/CoDRAG-MCP` (current canonical) or wait for the post-rebrand canonical URL?
+3. **Closing note GitHub link.** Use `MagneticAnomaly/Prep-MCP` (current canonical) or wait for the post-rebrand canonical URL?
 4. **Footer column.** Confirm "Resources" is the right column for the link (vs. "Company" or a new "Reference" column).
 5. **Spotlight prose length cap.** I've drafted 2–3 sentences. Want longer (paragraph) or shorter (1 line) for the spotlight tier?
 

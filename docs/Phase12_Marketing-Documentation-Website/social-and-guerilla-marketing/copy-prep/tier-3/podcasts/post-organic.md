@@ -8,7 +8,7 @@ Hi [Host],
 
 I've been listening to the show for years.
 
-I'm an engineer who just spent 6 months building a **graph-based** code retrieval engine called CoDRAG because standard vector search wasn't cutting it for our team.
+I'm an engineer who just spent 6 months building a **graph-based** code retrieval engine called Prep because standard vector search wasn't cutting it for our team.
 
 I think there's a good story for your audience about:
 1.  **The Engineering Reality:** Why "Embeddings" are often just "Vibes," and why code needs Structure.

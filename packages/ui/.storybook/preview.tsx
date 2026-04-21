@@ -32,9 +32,9 @@ const preview: Preview = {
         showName: true,
       },
     },
-    codragTheme: {
+    prepTheme: {
       name: 'Visual Style',
-      description: 'CoDRAG visual theme direction',
+      description: 'Prep visual theme direction',
       defaultValue: 'h', // Default to Retro-Futurism as requested
       toolbar: {
         icon: 'paintbrush',
@@ -74,24 +74,24 @@ const preview: Preview = {
   decorators: [
     (Story, context) => {
       const mode = context.globals.theme;
-      const codragTheme = context.globals.codragTheme;
+      const prepTheme = context.globals.prepTheme;
       const isDocsMode = context.globals.docsMode === 'true';
 
       const [bgImage, setBgImage] = React.useState<string | null>(null);
-      const bgKey = 'codrag_storybook_bg_image';
+      const bgKey = 'prep_storybook_bg_image';
       
       // Set light/dark mode
       React.useEffect(() => {
         document.documentElement.classList.toggle('dark', mode === 'dark');
         document.documentElement.setAttribute('data-theme', mode);
         
-        // Set CoDRAG visual theme (or remove if 'none')
-        if (codragTheme && codragTheme !== 'none') {
-          document.documentElement.setAttribute('data-codrag-theme', codragTheme);
+        // Set Prep visual theme (or remove if 'none')
+        if (prepTheme && prepTheme !== 'none') {
+          document.documentElement.setAttribute('data-prep-theme', prepTheme);
         } else {
-          document.documentElement.removeAttribute('data-codrag-theme');
+          document.documentElement.removeAttribute('data-prep-theme');
         }
-      }, [mode, codragTheme]);
+      }, [mode, prepTheme]);
 
       React.useEffect(() => {
         try {

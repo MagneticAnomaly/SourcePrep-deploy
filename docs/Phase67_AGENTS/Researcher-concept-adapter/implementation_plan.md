@@ -8,23 +8,23 @@
 
 ## 1. Vision: Three Agents, One Architecture
 
-Phase 67 delivers **three distinct autonomous agent concepts** that share a single underlying architecture within CoDRAG:
+Phase 67 delivers **three distinct autonomous agent concepts** that share a single underlying architecture within Prep:
 
 | Agent | Role | Metaphor | Primary Task |
 |-------|------|----------|-------------|
-| **HR Agent** | Role Architect | The HR Department | Generates, audits, and evolves Paperclip agent role definitions using CoDRAG's epistemic knowledge graph |
-| **Researcher Agent** | Proactive Technical PM | The Company Researcher | Mines CoDRAG audit findings, researches solutions, and pushes structured project plans into Paperclip |
+| **HR Agent** | Role Architect | The HR Department | Generates, audits, and evolves Paperclip agent role definitions using Prep's epistemic knowledge graph |
+| **Researcher Agent** | Proactive Technical PM | The Company Researcher | Mines Prep audit findings, researches solutions, and pushes structured project plans into Paperclip |
 | **Digital Custodian** | Codebase Janitor | The Building Maintenance Crew | Identifies dead code, orphaned files, and stale artifacts; executes cleanup in its own git branch with a full archive |
 
-All three agents are **co-owned** by CoDRAG and Paperclip:
-- **CoDRAG is the brain.** It provides the epistemic knowledge graph, audit findings, impact analysis, and module structure that power all agents' reasoning.
+All three agents are **co-owned** by Prep and Paperclip:
+- **Prep is the brain.** It provides the epistemic knowledge graph, audit findings, impact analysis, and module structure that power all agents' reasoning.
 - **Paperclip is the office.** All agents project their identity into Paperclip's UI. The HR Agent appears as the workforce manager. The Researcher appears as the technical PM. The Digital Custodian appears as the maintenance lead.
-- **The orchestration engine is pluggable.** All agents can be executed via a native CoDRAG daemon thread (like Pi), a LangGraph StateGraph, or a CrewAI Crew. This pluggability is the entire marketing strategy.
+- **The orchestration engine is pluggable.** All agents can be executed via a native Prep daemon thread (like Pi), a LangGraph StateGraph, or a CrewAI Crew. This pluggability is the entire marketing strategy.
 
 ### 1.1 Why This Is One Plan, Not Three
 
 All three agents share:
-1. **The same CoDRAG data sources** — epistemic entries, module clusters, audit findings, RoleVector scoring, observations
+1. **The same Prep data sources** — epistemic entries, module clusters, audit findings, RoleVector scoring, observations
 2. **The same Paperclip Push infrastructure** — Phase 65's `PushEngine`, `PMAdapter`, and `paperclip_adapter.py`
 3. **The same orchestrator adapter pattern** — Phase 67 HR's `OrchestratorAdapter` ABC (Doc 04) defines the universal interface all agents use
 4. **The same KNOWLEDGE.md delivery pipeline** — Doc 06's context injection system works identically for all
@@ -68,25 +68,25 @@ Building them separately would duplicate 60%+ of the infrastructure. Building th
 │ Layer 1: Codebase Intelligence / Epistemic Engine             │
 │                                                               │
 │ ┌────────┐                                                    │
-│ │ CoDRAG │ — Module clusters, domain tags, architecture       │
+│ │ Prep │ — Module clusters, domain tags, architecture       │
 │ └────────┘   layers, impact graphs, audit findings            │
 │              The "knowledge" — WHAT the agent knows about     │
 └───────────────────────────────────────────────────────────────┘
 ```
 
-**Key insight:** CoDRAG (Layer 1) and Paperclip (Layer 3) are not competitors to anything in Layer 2. LangGraph, CrewAI, and AutoGen are all potential **execution engines** that CoDRAG can power and Paperclip can manage. This makes all three layers complementary, not competitive.
+**Key insight:** Prep (Layer 1) and Paperclip (Layer 3) are not competitors to anything in Layer 2. LangGraph, CrewAI, and AutoGen are all potential **execution engines** that Prep can power and Paperclip can manage. This makes all three layers complementary, not competitive.
 
 ### 2.1 The Marketing Trifecta
 
 By building adapters for LangGraph and CrewAI alongside native Paperclip support, we get **three distinct marketing channels**:
 
-| Platform | Blog Post Title | Target Audience | CoDRAG Value Prop |
+| Platform | Blog Post Title | Target Audience | Prep Value Prop |
 |----------|----------------|-----------------|-------------------|
-| **Paperclip** | "How CoDRAG's HR Agent Auto-Generates Your Agent Workforce" | Paperclip users wanting smarter agent provisioning | CoDRAG = the brain that makes Paperclip agents useful |
-| **LangGraph** | "Building an Autonomous Tech Lead with CoDRAG + LangGraph" | LangChain ecosystem (~500K devs) | CoDRAG = the codebase memory LangGraph agents have been missing |
-| **CrewAI** | "A Self-Healing Codebase: CrewAI Crews Powered by CoDRAG Intelligence" | CrewAI community (~200K installs) | CoDRAG = the knowledge base that makes role/goal/backstory actually grounded |
+| **Paperclip** | "How Prep's HR Agent Auto-Generates Your Agent Workforce" | Paperclip users wanting smarter agent provisioning | Prep = the brain that makes Paperclip agents useful |
+| **LangGraph** | "Building an Autonomous Tech Lead with Prep + LangGraph" | LangChain ecosystem (~500K devs) | Prep = the codebase memory LangGraph agents have been missing |
+| **CrewAI** | "A Self-Healing Codebase: CrewAI Crews Powered by Prep Intelligence" | CrewAI community (~200K installs) | Prep = the knowledge base that makes role/goal/backstory actually grounded |
 
-Each framework's community is incentivized to amplify projects that showcase their tools doing impressive things. CoDRAG solves the exact problem all three communities struggle with: **how do you give an autonomous agent real, structural codebase knowledge?**
+Each framework's community is incentivized to amplify projects that showcase their tools doing impressive things. Prep solves the exact problem all three communities struggle with: **how do you give an autonomous agent real, structural codebase knowledge?**
 
 ---
 
@@ -94,12 +94,12 @@ Each framework's community is incentivized to amplify projects that showcase the
 
 ### 3.1 The Shared Core
 
-All three agents consume the same `AgentCore` — a shared Python module that wraps CoDRAG's internal APIs into a clean interface for any orchestration engine:
+All three agents consume the same `AgentCore` — a shared Python module that wraps Prep's internal APIs into a clean interface for any orchestration engine:
 
 ```
-src/codrag/agents/
+src/prep/agents/
 ├── __init__.py
-├── core.py                        # Shared AgentCore: CoDRAG data access + Paperclip push
+├── core.py                        # Shared AgentCore: Prep data access + Paperclip push
 ├── hr/
 │   ├── __init__.py
 │   ├── engine.py                  # HR-specific logic: role generation, drift detection, org charts
@@ -136,7 +136,7 @@ src/codrag/agents/
 │       └── archive_summary.txt
 └── shared/
     ├── paperclip_client.py        # Shared Paperclip REST client (reuses Phase 65 adapter)
-    ├── codrag_data.py             # Shared CoDRAG data access (audit, atlas, impact)
+    ├── prep_data.py             # Shared Prep data access (audit, atlas, impact)
     ├── git_client.py              # Shared git operations (branch, commit, diff)
     └── models.py                  # Shared data models (RoleSpec, ResearchTopic, CleanupPlan, etc.)
 ```
@@ -145,15 +145,15 @@ src/codrag/agents/
 
 ```python
 class AgentCore:
-    """Shared foundation for all CoDRAG-powered agents.
+    """Shared foundation for all Prep-powered agents.
     
-    Provides read-only access to CoDRAG's epistemic knowledge and
+    Provides read-only access to Prep's epistemic knowledge and
     write access to Paperclip's project management API.
     """
     
-    # ── CoDRAG Read Access (Brain) ──
+    # ── Prep Read Access (Brain) ──
     def get_audit_findings(self) -> List[ActionItem]:
-        """Pull the latest audit findings from CoDRAG's opportunity manager."""
+        """Pull the latest audit findings from Prep's opportunity manager."""
     
     def get_module_structure(self) -> List[ModuleEntry]:
         """Get the current module cluster map with domain tags and layers."""
@@ -196,16 +196,16 @@ This interface is what every adapter — Paperclip-native, LangGraph, or CrewAI 
 
 #### Native Paperclip Adapter (Daemon Thread)
 
-Runs inside the CoDRAG daemon as a daemon thread, just like Pi Agent. Uses CoDRAG's internal Python imports directly (no MCP overhead). Best for production use — lowest latency, no external dependencies.
+Runs inside the Prep daemon as a daemon thread, just like Pi Agent. Uses Prep's internal Python imports directly (no MCP overhead). Best for production use — lowest latency, no external dependencies.
 
 ```python
-# src/codrag/agents/hr/adapters/paperclip.py
+# src/prep/agents/hr/adapters/paperclip.py
 
 class HRPaperclipAdapter:
-    """Runs HR workflows as a daemon thread inside the CoDRAG server.
+    """Runs HR workflows as a daemon thread inside the Prep server.
     
     Triggered by:
-    - Manual CLI: `codrag hr generate`
+    - Manual CLI: `prep hr generate`
     - Dashboard button: "Generate Workforce"
     - Post-pipeline hook: drift detection after rebuild
     """
@@ -243,17 +243,17 @@ class HRPaperclipAdapter:
 
 #### LangGraph Adapter (External Script)
 
-Runs as a standalone Python process. Connects to CoDRAG via its MCP server (or REST API). Best for showcasing CoDRAG integration with the LangChain ecosystem, and for users who prefer LangGraph's explicit state-machine semantics.
+Runs as a standalone Python process. Connects to Prep via its MCP server (or REST API). Best for showcasing Prep integration with the LangChain ecosystem, and for users who prefer LangGraph's explicit state-machine semantics.
 
 ```python
-# src/codrag/agents/researcher/adapters/langgraph_adapter.py
+# src/prep/agents/researcher/adapters/langgraph_adapter.py
 
 from langgraph.graph import StateGraph, END
 from typing import TypedDict
 
 class ResearchState(TypedDict):
     """State that flows through the LangGraph researcher."""
-    findings: list           # Raw CoDRAG audit findings
+    findings: list           # Raw Prep audit findings
     selected_topics: list    # Top N findings worth researching
     research_results: list   # LLM-synthesized research per topic
     paperclip_projects: list # Formatted Paperclip project payloads
@@ -262,7 +262,7 @@ class ResearchState(TypedDict):
 def build_researcher_graph(core: AgentCore) -> StateGraph:
     """Build a LangGraph StateGraph for the Researcher Agent.
     
-    Node A (Ingest):     Pull audit findings from CoDRAG
+    Node A (Ingest):     Pull audit findings from Prep
     Node B (Select):     LLM selects top 3 most impactful topics
     Node C (Research):   LLM researches solutions, optionally using web search
     Node D (Formulate):  Structure research into Paperclip project schemas
@@ -271,7 +271,7 @@ def build_researcher_graph(core: AgentCore) -> StateGraph:
     
     graph = StateGraph(ResearchState)
     
-    # ── Node A: Ingest findings from CoDRAG ──
+    # ── Node A: Ingest findings from Prep ──
     def ingest(state: ResearchState) -> ResearchState:
         findings = core.get_audit_findings()
         modules = core.get_module_structure()
@@ -303,7 +303,7 @@ def build_researcher_graph(core: AgentCore) -> StateGraph:
     def research(state: ResearchState) -> ResearchState:
         results = []
         for topic in state["selected_topics"]:
-            # Get deep CoDRAG context for this topic
+            # Get deep Prep context for this topic
             context = core.search_code(topic.title)
             impact = core.get_impact_radius(topic.affected_files[0])
             
@@ -336,7 +336,7 @@ def build_researcher_graph(core: AgentCore) -> StateGraph:
                 name=f"Research: {r['topic'].title}",
                 description=r["plan"],
                 source="researcher_agent",
-                codrag_address=f"codrag://{core.project_id}/{r['topic'].id}",
+                prep_address=f"prep://{core.project_id}/{r['topic'].id}",
             )
             projects.append(project)
         state["paperclip_projects"] = projects
@@ -370,17 +370,17 @@ def build_researcher_graph(core: AgentCore) -> StateGraph:
 
 #### CrewAI Adapter (External Script)
 
-Runs as a standalone Python process. Uses CrewAI's role/goal/backstory paradigm — which maps perfectly to what CoDRAG generates. Best for showcasing how CoDRAG's HR-generated role definitions can bootstrap an entire CrewAI crew.
+Runs as a standalone Python process. Uses CrewAI's role/goal/backstory paradigm — which maps perfectly to what Prep generates. Best for showcasing how Prep's HR-generated role definitions can bootstrap an entire CrewAI crew.
 
 ```python
-# src/codrag/agents/researcher/adapters/crewai_adapter.py
+# src/prep/agents/researcher/adapters/crewai_adapter.py
 
 from crewai import Agent, Task, Crew, Process
 
 def build_researcher_crew(core: AgentCore) -> Crew:
     """Build a CrewAI Crew for the Researcher Agent.
     
-    Agent 1 (Codebase Analyst):   Reads CoDRAG audit data, selects topics
+    Agent 1 (Codebase Analyst):   Reads Prep audit data, selects topics
     Agent 2 (Solutions Architect): Researches solutions for selected topics
     Agent 3 (Technical PM):       Formats and pushes plans to Paperclip
     """
@@ -391,11 +391,11 @@ def build_researcher_crew(core: AgentCore) -> Crew:
         goal="Identify the top 3 most impactful codebase issues worth fixing",
         backstory=f"""You have deep knowledge of this codebase's architecture. 
         The codebase has {len(core.get_module_structure())} modules. 
-        You use CoDRAG's epistemic analysis to find issues that matter.
+        You use Prep's epistemic analysis to find issues that matter.
         
         Architecture overview:
         {core.get_atlas()[:2000]}""",
-        tools=[codrag_search_tool, codrag_audit_tool, codrag_impact_tool],
+        tools=[prep_search_tool, prep_audit_tool, prep_impact_tool],
         verbose=True,
     )
     
@@ -406,7 +406,7 @@ def build_researcher_crew(core: AgentCore) -> Crew:
         backstory="""You are an expert software architect. Given a codebase 
         issue identified by the Analyst, you research best practices, 
         design a step-by-step fix, and estimate effort and risk.""",
-        tools=[codrag_search_tool, web_search_tool],
+        tools=[prep_search_tool, web_search_tool],
         verbose=True,
     )
     
@@ -423,7 +423,7 @@ def build_researcher_crew(core: AgentCore) -> Crew:
     
     # ── Tasks ──
     analyze_task = Task(
-        description="Pull the latest CoDRAG audit findings and select the top 3 most impactful issues.",
+        description="Pull the latest Prep audit findings and select the top 3 most impactful issues.",
         expected_output="A JSON list of 3 findings with ID, title, affected files, and impact summary.",
         agent=analyst,
     )
@@ -461,7 +461,7 @@ The HR Agent's features are fully documented in the [HR-concept-adapter](../HR-c
 | Capability | Implementation File | Description |
 |-----------|-------------------|-------------|
 | **Generate** (3 modes: list, auto, auto+list) | `agents/hr/engine.py` | Analyzes codebase via epistemic data, infers roles, generates AGENTS.md + SOUL.md + KNOWLEDGE.md |
-| **Adopt** (import existing agents) | `agents/hr/engine.py` | Parses existing Paperclip agents, enriches with CoDRAG intelligence, normalizes format |
+| **Adopt** (import existing agents) | `agents/hr/engine.py` | Parses existing Paperclip agents, enriches with Prep intelligence, normalizes format |
 | **Audit** (drift detection) | `agents/hr/engine.py` | Computes role fitness scores, detects domain drift, proposes realignments |
 | **Sync** (push to Paperclip) | `agents/shared/paperclip_client.py` | Pushes AGENTS.md/SOUL.md/KNOWLEDGE.md to Paperclip via REST API or file copy |
 
@@ -477,7 +477,7 @@ All edge cases documented in [05_Edge_Cases_and_Modes.md](../HR-concept-adapter/
 ### 4.3 Context Pipeline (from Doc 06)
 
 KNOWLEDGE.md generation follows the template in [06_Context_Pipeline_and_Knowledge.md](../HR-concept-adapter/06_Context_Pipeline_and_Knowledge.md):
-- CoDRAG tool usage instructions (codrag, codrag_search, codrag_impact, codrag_observe)
+- Prep tool usage instructions (prep, prep_search, prep_impact, prep_observe)
 - Architecture snapshot (role-filtered atlas)
 - Key files list (from auto-populate, with relevance scores)
 - Domain focus areas
@@ -489,10 +489,10 @@ KNOWLEDGE.md generation follows the template in [06_Context_Pipeline_and_Knowled
 
 ### 5.1 Core Scenarios
 
-| Scenario | Trigger | CoDRAG Data Used | Paperclip Output |
+| Scenario | Trigger | Prep Data Used | Paperclip Output |
 |----------|---------|-----------------|-----------------|
-| **Tech Debt Prospector** | Pi Watchdog flags high-spaghetti module | `codrag_audit` findings, `codrag_impact` blast radius | "Tech Debt Cleanup" project with implementation plan |
-| **Security & Dependency Analyst** | Scheduled poll of dependency files | `codrag_search` for usage patterns, web search for changelogs | P1 Goal: "Migrate library X" with migration steps |
+| **Tech Debt Prospector** | Pi Watchdog flags high-spaghetti module | `prep_audit` findings, `prep_impact` blast radius | "Tech Debt Cleanup" project with implementation plan |
+| **Security & Dependency Analyst** | Scheduled poll of dependency files | `prep_search` for usage patterns, web search for changelogs | P1 Goal: "Migrate library X" with migration steps |
 | **Bug Bounty Hunter** | TODO Scanner produces 20+ items | TODO/FIXME `ActionItems`, module grouping | "Quick Win" issues in active sprint backlog |
 
 ### 5.2 The Research Loop
@@ -509,7 +509,7 @@ Pipeline completes
   │     ├── Step 1: Reads Watchdog delta + full findings list
   │     ├── Step 2: LLM selects top 3 topics worth researching
   │     ├── Step 3: For each topic:
-  │     │     ├── Pull deep CoDRAG context (impact, code search)
+  │     │     ├── Pull deep Prep context (impact, code search)
   │     │     ├── (Optional) Web search for best practices
   │     │     └── Synthesize into implementation plan
   │     ├── Step 4: Format as Paperclip Projects/Goals/Issues
@@ -545,20 +545,20 @@ Pipeline completes
 
 ```bash
 # ── HR Agent ──
-codrag hr generate --project <id> --mode auto          # Auto-generate workforce
-codrag hr generate --project <id> --mode list --roles "CTO,QA Lead"
-codrag hr generate --project <id> --mode auto+list --roles "Social Media"
-codrag hr adopt --paperclip-url http://localhost:3100 --company <id>
-codrag hr audit --project <id>                          # Drift detection
-codrag hr audit --project <id> --dry-run                # Report only
-codrag hr sync --paperclip-url http://localhost:3100 --company <id>
+prep hr generate --project <id> --mode auto          # Auto-generate workforce
+prep hr generate --project <id> --mode list --roles "CTO,QA Lead"
+prep hr generate --project <id> --mode auto+list --roles "Social Media"
+prep hr adopt --paperclip-url http://localhost:3100 --company <id>
+prep hr audit --project <id>                          # Drift detection
+prep hr audit --project <id> --dry-run                # Report only
+prep hr sync --paperclip-url http://localhost:3100 --company <id>
 
 # ── Researcher Agent ──
-codrag research run --project <id>                      # Run one research cycle
-codrag research run --project <id> --adapter langgraph  # Use LangGraph adapter
-codrag research run --project <id> --adapter crewai     # Use CrewAI adapter
-codrag research run --project <id> --dry-run            # Generate plans, don't push
-codrag research topics --project <id>                   # Show current top topics
+prep research run --project <id>                      # Run one research cycle
+prep research run --project <id> --adapter langgraph  # Use LangGraph adapter
+prep research run --project <id> --adapter crewai     # Use CrewAI adapter
+prep research run --project <id> --dry-run            # Generate plans, don't push
+prep research topics --project <id>                   # Show current top topics
 ```
 
 ### 6.2 REST API Endpoints
@@ -590,22 +590,22 @@ GET    /projects/{pid}/research/history # History of pushed research
 | **LangGraph** | Anthropic, OpenAI, Google, Ollama, Azure, any LangChain-compatible | `ChatAnthropic`, `ChatOpenAI`, `ChatOllama`, etc. |
 | **CrewAI** | Anthropic, OpenAI, Google, Ollama, Azure, LiteLLM proxy | `llm` param accepts any LiteLLM-compatible string |
 
-Both can use **local models via Ollama** — the same Ollama endpoint CoDRAG's own `LLMClient` already talks to.
+Both can use **local models via Ollama** — the same Ollama endpoint Prep's own `LLMClient` already talks to.
 
 ### 7.2 Can We Leverage the Existing AI Gateway Endpoint UI?
 
-**Yes — and we should.** CoDRAG already has the AI Gateway panel where users configure model endpoints (Ollama URL, API keys, model assignments per task). We should:
+**Yes — and we should.** Prep already has the AI Gateway panel where users configure model endpoints (Ollama URL, API keys, model assignments per task). We should:
 
 1. **Add agent-specific model slots** to the existing AI Gateway Assigned Tab (just like Pi Agent already has scenario-level model assignment).
-2. **The native Paperclip adapter** uses CoDRAG's `LLMClient` directly, which already reads from the AI Gateway configuration. Zero extra work.
+2. **The native Paperclip adapter** uses Prep's `LLMClient` directly, which already reads from the AI Gateway configuration. Zero extra work.
 3. **The LangGraph/CrewAI adapters** should read the same AI Gateway settings and construct their LLM client objects from those values:
 
 ```python
 # In the LangGraph adapter:
-from codrag.services.settings_store import settings
+from prep.services.settings_store import settings
 
 def _build_llm_from_gateway():
-    """Construct a LangChain-compatible LLM from CoDRAG's AI Gateway config."""
+    """Construct a LangChain-compatible LLM from Prep's AI Gateway config."""
     config = settings.get("pipeline_config") or {}
     provider = config.get("llm_provider", "ollama")
     model = config.get("agent_model", config.get("model_thinking", "claude-sonnet-4-20250514"))
@@ -629,17 +629,17 @@ This means users configure their models **once** in the AI Gateway, and all adap
 
 ### 8.1 Concept: The Codebase Janitor
 
-The Digital Custodian is the third CoDRAG-native agent. While the HR Agent manages *people* and the Researcher manages *plans*, the Custodian manages the **physical state of the codebase** — cleaning up dead code, deleting orphaned files, reformatting inconsistencies, and archiving deprecated modules.
+The Digital Custodian is the third Prep-native agent. While the HR Agent manages *people* and the Researcher manages *plans*, the Custodian manages the **physical state of the codebase** — cleaning up dead code, deleting orphaned files, reformatting inconsistencies, and archiving deprecated modules.
 
 **Key differentiator:** Unlike the other two agents, the Digital Custodian **writes to the codebase**. It operates in its own git branch and maintains a full archive of everything it deletes.
 
 ### 8.2 Core Capabilities
 
-| Capability | CoDRAG Data Source | Action |
+| Capability | Prep Data Source | Action |
 |-----------|-------------------|--------|
-| **Dead code detection** | `codrag_audit` (unused exports, orphan modules) | Identifies files/functions with zero dependents |
+| **Dead code detection** | `prep_audit` (unused exports, orphan modules) | Identifies files/functions with zero dependents |
 | **Orphan file cleanup** | Trace graph (nodes with in_degree=0 and out_degree=0) | Flags files that nothing imports and that import nothing |
-| **Stale TODO removal** | TODO Scanner + `codrag_observe` staleness flags | Cleans up TODOs that have been resolved but not removed from code |
+| **Stale TODO removal** | TODO Scanner + `prep_observe` staleness flags | Cleans up TODOs that have been resolved but not removed from code |
 | **Deprecated module archival** | Module clusters + drift detection | Moves entire deprecated modules to an archive branch |
 | **Consistent formatting** | Audit findings (naming conventions, style) | Bulk renames, import reordering, whitespace normalization |
 
@@ -663,7 +663,7 @@ main
 
 **The archive branch** is the Custodian's long-term memory. Every file it deletes is first committed to the archive with a manifest entry explaining:
 - What was deleted and why
-- The CoDRAG address of the finding that triggered deletion
+- The Prep address of the finding that triggered deletion
 - A timestamp and the audit state at the time of deletion
 - How to restore (cherry-pick hash)
 
@@ -680,14 +680,14 @@ Pipeline completes
         ├── Step 1: Pull audit findings tagged "dead_code", "orphan", "deprecated"
         │
         ├── Step 2: For each candidate:
-        │     ├── Run codrag_impact(file) → verify 0 dependents
+        │     ├── Run prep_impact(file) → verify 0 dependents
         │     ├── LLM reviews: "Is this truly dead, or is it used dynamically?"
         │     └── Classify: SAFE_TO_DELETE | NEEDS_REVIEW | KEEP
         │
         ├── Step 3: Create git branch custodian/cleanup-{date}
         │     ├── Archive SAFE_TO_DELETE files to archive branch first
         │     ├── Delete from working branch
-        │     └── Commit with CoDRAG address in message
+        │     └── Commit with Prep address in message
         │
         ├── Step 4: Push to Paperclip as a "Cleanup Report" project
         │     ├── Goal: "Code cleanup: {date}" with summary
@@ -702,7 +702,7 @@ Pipeline completes
 | Guardrail | Implementation |
 |-----------|---------------|
 | **Never auto-merge** | Custodian creates branches and PRs; a human merges |
-| **Impact verification** | Every candidate is verified via `codrag_impact` before deletion |
+| **Impact verification** | Every candidate is verified via `prep_impact` before deletion |
 | **Archive-first** | Nothing is deleted without first being archived |
 | **Dry-run default** | `dry_run: true` by default in config — must be explicitly enabled |
 | **Exclusion list** | Config allows paths to be excluded from custodian's scope |
@@ -730,11 +730,11 @@ Pipeline completes
 ### 8.7 CLI
 
 ```bash
-codrag custodian run --project <id>                    # Run one cleanup cycle
-codrag custodian run --project <id> --dry-run          # Preview only
-codrag custodian run --project <id> --adapter langgraph
-codrag custodian archive --project <id>                # View archive manifest
-codrag custodian restore --project <id> --file <path>  # Restore from archive
+prep custodian run --project <id>                    # Run one cleanup cycle
+prep custodian run --project <id> --dry-run          # Preview only
+prep custodian run --project <id> --adapter langgraph
+prep custodian archive --project <id>                # View archive manifest
+prep custodian restore --project <id> --file <path>  # Restore from archive
 ```
 
 ---
@@ -743,7 +743,7 @@ codrag custodian restore --project <id> --file <path>  # Restore from archive
 
 ### 9.1 Naming: Why Not "HR"?
 
-Since there are no humans in this system, calling it "HR" is misleading. The panel manages **autonomous agent operations** — CoDRAG-controlled agents (the three above) and Paperclip-managed employees (the workforce the Staffing Agent generates).
+Since there are no humans in this system, calling it "HR" is misleading. The panel manages **autonomous agent operations** — Prep-controlled agents (the three above) and Paperclip-managed employees (the workforce the Staffing Agent generates).
 
 **Proposed name: "Agent Operations"** (or "Agent Ops" in compact UI)
 
@@ -765,7 +765,7 @@ Rather than duplicating endpoint/LLM configuration inside the Agent Operations p
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    CoDRAG Dashboard                              │
+│                    Prep Dashboard                              │
 │                                                                  │
 │  ┌─────────────────┐  ┌──────────────────┐  ┌───────────────┐  │
 │  │  AI Gateway      │  │  Agent Operations │  │  Audit        │  │
@@ -846,7 +846,7 @@ The modular panel shows compact, high-level status. No LLM configuration here �
 ┌──────────────────────────────────────────────────────────────┐
 │  🤖 Agent Operations                                  [⚙️]   │
 │                                                              │
-│  ┌── CoDRAG Agents (System) ─────────────────────────────┐  │
+│  ┌── Prep Agents (System) ─────────────────────────────┐  │
 │  │                                                        │  │
 │  │  ┌─────────────┐  ┌─────────────┐  ┌───────────────┐  │  │
 │  │  │ 👔 Staffing │  │ 🔬 Research │  │ 🧹 Custodian  │  │  │
@@ -892,7 +892,7 @@ Two tabs only (no Endpoints tab — that lives in AI Gateway):
 │  │                                                       │   │
 │  │  ── Recent Activity ──                                │   │
 │  │  • 2h ago: Drift audit completed. 1 role drifted.     │   │
-│  │  • 6h ago: Generated 6 roles for project CoDRAG.      │   │
+│  │  • 6h ago: Generated 6 roles for project Prep.      │   │
 │  └───────────────────────────────────────────────────────┘   │
 │                                                              │
 │  ┌─── 🔬 Researcher Agent ──────────────────────────────┐   │
@@ -970,11 +970,11 @@ New components specific to Agent Operations:
 
 | # | Task | File(s) | Notes |
 |---|------|---------|-------|
-| A1 | Create `agents/` module structure | `src/codrag/agents/__init__.py` | Package scaffolding |
-| A2 | Implement `AgentCore` | `agents/core.py` | Wraps existing CoDRAG data access + Phase 65 push engine |
+| A1 | Create `agents/` module structure | `src/prep/agents/__init__.py` | Package scaffolding |
+| A2 | Implement `AgentCore` | `agents/core.py` | Wraps existing Prep data access + Phase 65 push engine |
 | A3 | Create shared models | `agents/shared/models.py` | `RoleSpec`, `ResearchTopic`, `ResearchPlan`, `CleanupPlan` |
 | A4 | Create Paperclip client wrapper | `agents/shared/paperclip_client.py` | Thin wrapper around Phase 65's `PaperclipAdapter` |
-| A5 | Create CoDRAG data access | `agents/shared/codrag_data.py` | Clean interface over `run_audit()`, atlas, trace store |
+| A5 | Create Prep data access | `agents/shared/prep_data.py` | Clean interface over `run_audit()`, atlas, trace store |
 | A6 | Create shared git client | `agents/shared/git_client.py` | Branch, commit, diff, archive ops for Custodian (and future agents) |
 
 **Exit criteria:** `AgentCore` can pull audit findings and push a dummy project to Paperclip.
@@ -994,7 +994,7 @@ New components specific to Agent Operations:
 | B7 | Implement org chart generation | `agents/hr/engine.py` | Reports-to, manages, collaborates-with |
 | B8 | Native Paperclip adapter | `agents/hr/adapters/paperclip.py` | Daemon thread, direct Python imports |
 
-**Exit criteria:** `codrag hr generate --mode auto` produces a complete `agents/` directory with AGENTS.md + SOUL.md + KNOWLEDGE.md per role.
+**Exit criteria:** `prep hr generate --mode auto` produces a complete `agents/` directory with AGENTS.md + SOUL.md + KNOWLEDGE.md per role.
 
 ---
 
@@ -1009,7 +1009,7 @@ New components specific to Agent Operations:
 | C5 | Native Paperclip adapter | `agents/researcher/adapters/paperclip.py` | Daemon thread, hooks into Pi Watchdog |
 | C6 | Wire to Pi agent loop | `services/pi_agent.py` | New scenario "I: Researcher" after Watchdog |
 
-**Exit criteria:** `codrag research run` produces 3 structured research plans and pushes them to Paperclip.
+**Exit criteria:** `prep research run` produces 3 structured research plans and pushes them to Paperclip.
 
 ---
 
@@ -1025,7 +1025,7 @@ New components specific to Agent Operations:
 | H6 | Native Paperclip adapter | `agents/custodian/adapters/paperclip.py` | Daemon thread, post-pipeline trigger |
 | H7 | Wire to Pi agent loop | `services/pi_agent.py` | New scenario "J: Custodian" after Researcher |
 
-**Exit criteria:** `codrag custodian run --dry-run` identifies dead code candidates and produces an archive plan without modifying git.
+**Exit criteria:** `prep custodian run --dry-run` identifies dead code candidates and produces an archive plan without modifying git.
 
 ---
 
@@ -1033,15 +1033,15 @@ New components specific to Agent Operations:
 
 | # | Task | File(s) | Notes |
 |---|------|---------|-------|
-| D1 | Install LangGraph dependency | `pyproject.toml` (optional extras) | `pip install codrag[langgraph]` |
+| D1 | Install LangGraph dependency | `pyproject.toml` (optional extras) | `pip install prep[langgraph]` |
 | D2 | Build Staffing LangGraph adapter | `agents/hr/adapters/langgraph_adapter.py` | StateGraph: Analyze → Generate → Push |
 | D3 | Build Researcher LangGraph adapter | `agents/researcher/adapters/langgraph_adapter.py` | StateGraph: Ingest → Select → Research → Push |
 | D4 | Build Custodian LangGraph adapter | `agents/custodian/adapters/langgraph_adapter.py` | StateGraph: Scan → Verify → Archive → Push |
 | D5 | LLM provider bridge | `agents/shared/llm_bridge.py` | Builds LangChain LLM from AI Gateway config |
 | D6 | CLI integration | `cli.py` | `--adapter langgraph` flag |
-| D7 | Write tutorial / blog draft | `docs/` | "CoDRAG + LangGraph: Building an Autonomous Tech Lead" |
+| D7 | Write tutorial / blog draft | `docs/` | "Prep + LangGraph: Building an Autonomous Tech Lead" |
 
-**Exit criteria:** `codrag research run --adapter langgraph` executes the full LangGraph pipeline end-to-end.
+**Exit criteria:** `prep research run --adapter langgraph` executes the full LangGraph pipeline end-to-end.
 
 ---
 
@@ -1049,14 +1049,14 @@ New components specific to Agent Operations:
 
 | # | Task | File(s) | Notes |
 |---|------|---------|-------|
-| E1 | Install CrewAI dependency | `pyproject.toml` (optional extras) | `pip install codrag[crewai]` |
+| E1 | Install CrewAI dependency | `pyproject.toml` (optional extras) | `pip install prep[crewai]` |
 | E2 | Build Staffing CrewAI adapter | `agents/hr/adapters/crewai_adapter.py` | 2-agent crew: Analyst + Generator |
 | E3 | Build Researcher CrewAI adapter | `agents/researcher/adapters/crewai_adapter.py` | 3-agent crew: Analyst + Architect + PM |
 | E4 | Build Custodian CrewAI adapter | `agents/custodian/adapters/crewai_adapter.py` | 2-agent crew: Analyzer + Janitor |
 | E5 | CLI integration | `cli.py` | `--adapter crewai` flag |
-| E6 | Write tutorial / blog draft | `docs/` | "CoDRAG + CrewAI: A Self-Healing Codebase" |
+| E6 | Write tutorial / blog draft | `docs/` | "Prep + CrewAI: A Self-Healing Codebase" |
 
-**Exit criteria:** `codrag research run --adapter crewai` executes the full CrewAI pipeline end-to-end.
+**Exit criteria:** `prep research run --adapter crewai` executes the full CrewAI pipeline end-to-end.
 
 ---
 
@@ -1094,9 +1094,9 @@ New components specific to Agent Operations:
 
 | # | Task | File(s) | Notes |
 |---|------|---------|-------|
-| G1 | `codrag hr` subcommand group | `cli.py` | generate, adopt, audit, sync |
-| G2 | `codrag research` subcommand group | `cli.py` | run, topics, history |
-| G3 | `codrag custodian` subcommand group | `cli.py` | run, archive, restore |
+| G1 | `prep hr` subcommand group | `cli.py` | generate, adopt, audit, sync |
+| G2 | `prep research` subcommand group | `cli.py` | run, topics, history |
+| G3 | `prep custodian` subcommand group | `cli.py` | run, archive, restore |
 
 ---
 
@@ -1109,10 +1109,10 @@ LangGraph and CrewAI are **optional dependencies**. They are NOT required to use
 [project.optional-dependencies]
 langgraph = ["langgraph>=0.2.0", "langchain-anthropic>=0.3.0", "langchain-ollama>=0.3.0"]
 crewai = ["crewai>=0.80.0", "crewai-tools>=0.14.0"]
-agents = ["codrag[langgraph,crewai]"]  # Install both
+agents = ["prep[langgraph,crewai]"]  # Install both
 ```
 
-The native adapter uses only CoDRAG's existing dependencies (`LLMClient`, `httpx`). Users who don't want LangGraph or CrewAI never install them.
+The native adapter uses only Prep's existing dependencies (`LLMClient`, `httpx`). Users who don't want LangGraph or CrewAI never install them.
 
 The `langchain-ollama` package is included in the LangGraph extras so that users running local models can use LangGraph without any cloud API keys.
 
@@ -1141,7 +1141,7 @@ The `langchain-ollama` package is included in the LangGraph extras so that users
 |----------|-------------|
 | [HR-concept-adapter/README.md](../HR-concept-adapter/README.md) | Staffing Agent vision and capability summary |
 | [HR 02: Architecture](../HR-concept-adapter/02_HR_Agent_Architecture.md) | Core capabilities, execution modes, output format |
-| [HR 03: Integration Reference](../HR-concept-adapter/03_Integration_Reference.md) | CoDRAG internal integration points, Paperclip API surface |
+| [HR 03: Integration Reference](../HR-concept-adapter/03_Integration_Reference.md) | Prep internal integration points, Paperclip API surface |
 | [HR 04: Orchestrator Adapters](../HR-concept-adapter/04_Orchestrator_Adapters.md) | Universal adapter pattern, RoleSpec dataclass, Paperclip/CrewAI/AutoGen mapping |
 | [HR 05: Edge Cases & Modes](../HR-concept-adapter/05_Edge_Cases_and_Modes.md) | 3 generation modes, insufficient data handling, dashboard wireframes |
 | [HR 06: Context Pipeline](../HR-concept-adapter/06_Context_Pipeline_and_Knowledge.md) | KNOWLEDGE.md design, complete context delivery pipeline, token budgets |

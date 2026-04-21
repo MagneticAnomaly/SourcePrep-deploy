@@ -4,11 +4,11 @@ Following the large files audit, we've identified several architectural patterns
 
 ## 1. Backend: Core Engine Decoupling
 
-The `src/codrag/core/` directory contains several "god-objects" and mixed concerns.
+The `src/prep/core/` directory contains several "god-objects" and mixed concerns.
 
 ### A. Trace Subsystem (`trace.py`)
 - **Current State:** A single 2,400+ line file containing data structures (`TraceNode`, `TraceEdge`), construction logic (`TraceBuilder`), querying logic (`TraceIndex`), and language-specific AST parsers (`PythonAnalyzer`, `SwiftAnalyzer`, etc.).
-- **Optimization:** Create a `codrag/core/trace/` subpackage.
+- **Optimization:** Create a `prep/core/trace/` subpackage.
   - `models.py` (Nodes, Edges, Enums)
   - `builder.py` (TraceBuilder)
   - `index.py` (TraceIndex, querying)
@@ -16,7 +16,7 @@ The `src/codrag/core/` directory contains several "god-objects" and mixed concer
 
 ### B. Atlas Subsystem (`atlas.py`)
 - **Current State:** Mixes Pydantic data models, hardcoded LLM prompt templates, parallel LLM execution, and file I/O into a 2,300+ line file.
-- **Optimization:** Create a `codrag/core/atlas/` subpackage.
+- **Optimization:** Create a `prep/core/atlas/` subpackage.
   - `models.py` (AtlasDocument, Segment, SegmentDescriptor)
   - `prompts.py` (System prompts and instructions)
   - `generator.py` (Core generation logic)
@@ -25,8 +25,8 @@ The `src/codrag/core/` directory contains several "god-objects" and mixed concer
 ### C. Indexing Subsystem (`index.py` & `augmenter.py`)
 - **Current State:** `index.py` handles both building the FAISS/Numpy index and performing search/retrieval queries. `augmenter.py` handles LLM interactions and file parsing.
 - **Optimization:** Separate the Write (Build) path from the Read (Search/Context) path (CQRS pattern). 
-  - `codrag/core/search/` (Query parsing, context assembly, trace expansion)
-  - `codrag/core/indexing/` (Vector ingestion, embeddings)
+  - `prep/core/search/` (Query parsing, context assembly, trace expansion)
+  - `prep/core/indexing/` (Vector ingestion, embeddings)
 
 ## 2. Backend: API Layer Refinement
 
@@ -66,4 +66,4 @@ The `src/codrag/core/` directory contains several "god-objects" and mixed concer
 
 ## 4. MCP Server Abstraction
 - **Current State:** `mcp_server.py` (1,700+ lines) mixes protocol handling, project resolution, and tool execution.
-- **Optimization:** Extract tool implementations into `codrag/mcp/tools/` and keep `mcp_server.py` strictly focused on the MCP protocol lifecycle and initialization.
+- **Optimization:** Extract tool implementations into `prep/mcp/tools/` and keep `mcp_server.py` strictly focused on the MCP protocol lifecycle and initialization.

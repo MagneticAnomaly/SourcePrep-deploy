@@ -11,7 +11,7 @@ own micro-phase and could be promoted out-of-band.
 
 ## S1. Stage-advancement regression (Phase 76 / 89 / 91 / 92)
 
-**File:** `src/codrag/services/pipeline/state_machine.py:25`
+**File:** `src/prep/services/pipeline/state_machine.py:25`
 
 State-machine code has a comment referencing lost stage advancement across
 multiple prior phases. Transitions are declared (RUNNING → RUNNING on
@@ -30,7 +30,7 @@ existing MEMORY entry about pipeline sequencing bugs.
 
 ## S2. Swarm worker timeouts are silent
 
-**File:** `src/codrag/core/swarm_orchestrator.py` (workers marked `failed`
+**File:** `src/prep/core/swarm_orchestrator.py` (workers marked `failed`
 at `DEFAULT_WORKER_TIMEOUT_S=180s`)
 
 When workers exceed timeout they're marked failed in `worker_results`, but
@@ -68,7 +68,7 @@ more than Phase 116 alone — it enables any future cross-stage reasoning.
 
 ## S4. Hub-file detection exists but is unused by enrichment
 
-**Files:** `codrag_impact` tool knows blast radius; `src/codrag/services/pipeline/workers.py:100-150`
+**Files:** `prep_impact` tool knows blast radius; `src/prep/services/pipeline/workers.py:100-150`
 (epistemic worker) treats hub files identically to leaves.
 
 **Impact:** We already *know* which files are hubs, but the enrichment
@@ -84,7 +84,7 @@ classification"). Independent of Phase 116. Easy win.
 
 ## S5. Audit reports have no cross-consistency check
 
-**File:** `src/codrag/core/audit/synthesizer.py:96-154`
+**File:** `src/prep/core/audit/synthesizer.py:96-154`
 
 5 reports (SUMMARY, ARCHITECTURE, GAP, INVENTORY, TECH_DEBT) generate in
 parallel with no check that they agree. ARCHITECTURE can say "monolithic"
@@ -102,7 +102,7 @@ project.
 
 ## S6. Concept promotion is grounding-free
 
-**File:** `src/codrag/core/concept_promotion.py:28-72`
+**File:** `src/prep/core/concept_promotion.py:28-72`
 
 `suggest_promotion()` promotes observations → concepts by category alone.
 No check that the observation is anchored to code that exists, no
@@ -136,7 +136,7 @@ definitions: `jsonl`, `embedding`, `status_only`. Trivial.
 
 ## S8. No approval / consensus abstraction in-tree
 
-**Noted in `04_`.** CoDRAG has excellent *recovery* abstractions
+**Noted in `04_`.** Prep has excellent *recovery* abstractions
 (`TransitionGuard`, `ManifestStore`, `PipelineCheckpoint`) but nothing
 representing "a decision that needs higher-tier validation" or "a group
 of workers that voted."

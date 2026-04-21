@@ -4,9 +4,9 @@
 
 ---
 
-## The CoDRAG Prompt Stack
+## The Prep Prompt Stack
 
-CoDRAG has **three layers** where prompts shape AI output quality:
+Prep has **three layers** where prompts shape AI output quality:
 
 ```
 Layer 1: Pipeline Prompts (build-time)
@@ -147,13 +147,13 @@ The golden atlas on disk (`atlas.json`) is only 1796 chars / 13 lines — this i
 
 ## Layer 3: MCP Response Assembly (Runtime Formatting)
 
-### 3A. `tool_context` (Ambient Context / `codrag` tool)
+### 3A. `tool_context` (Ambient Context / `prep` tool)
 
 **File**: `server.py:863-1019`
 
 **Current assembly**:
 ```
-1. Header: "## CoDRAG Context (N chunks, N chars)"
+1. Header: "## Prep Context (N chunks, N chars)"
 2. Stats line: "Hubs: N | Modules: N | Neighbors: N"  
 3. Context body from _assemble_ambient_context:
    - Module list (tiered — Fix 1)
@@ -166,16 +166,16 @@ The golden atlas on disk (`atlas.json`) is only 1796 chars / 13 lines — this i
 ```
 
 **Issues identified**:
-- **"## CoDRAG Context" header is wasted tokens.** The AI already knows it called `codrag`. Replace with `## Codebase Structure` or `## Project Context`.
+- **"## Prep Context" header is wasted tokens.** The AI already knows it called `prep`. Replace with `## Codebase Structure` or `## Project Context`.
 - **Stats line ("Hubs: N | Modules: N") is noise.** The AI doesn't need to know how many chunks were used. Delete this line.
 - **Architecture context at line 981 gets 3000 chars.** This is redundant with the module list already in section 3. **Reduce to 1500 chars.**
-- **Concepts stats line** ("Concepts: 5 active, 2 seeds — technical: 3, ...") is useful but cryptic. Consider: "[5 codebase concepts documented. Use codrag_concepts to explore.]"
+- **Concepts stats line** ("Concepts: 5 active, 2 seeds — technical: 3, ...") is useful but cryptic. Consider: "[5 codebase concepts documented. Use prep_concepts to explore.]"
 
 **Opportunities**:
 - Add a natural-language preamble explaining what the agent is seeing: "This is the structural context for [project name]. It includes the module hierarchy, hub files (most-connected code), and architecture annotations."
 - The module list should show summaries more prominently. Currently it's `**Name** (N files): summary → deps`. Change to `**Name** — summary (N files, depends on: X, Y)`. Lead with the human-readable description.
 
-### 3B. `tool_search` (Code Search / `codrag_search` tool)
+### 3B. `tool_search` (Code Search / `prep_search` tool)
 
 **File**: `server.py:745-857`
 
@@ -195,7 +195,7 @@ The golden atlas on disk (`atlas.json`) is only 1796 chars / 13 lines — this i
 **Opportunities**:
 - Fix the subsystem hint to read from `chunks` (same pattern as the score fix).
 - Add a brief header: "Results for: '{query}' — {N} files matched across {subsystem areas}."
-- After the results, add: "[Use codrag_impact to check dependencies before modifying these files.]" — this cross-promotes the impact tool which is underused.
+- After the results, add: "[Use prep_impact to check dependencies before modifying these files.]" — this cross-promotes the impact tool which is underused.
 
 ### 3C. Architecture Context (`architecture.py:424-525`)
 
@@ -235,7 +235,7 @@ This causes downstream inconsistencies when some modules were synthesized indivi
 
 The pipeline is: File Summary → Extended Summary → Module Name → Atlas → Agent Output.
 
-If `FILE_ROLE_PROMPT` generates "Python source file at src/codrag/core/orchestrator.py" (because it only saw 30 lines of imports), then:
+If `FILE_ROLE_PROMPT` generates "Python source file at src/prep/core/orchestrator.py" (because it only saw 30 lines of imports), then:
 - EPISTEMIC enrichment gets "Pass 1 summary: Python source file" → produces a mediocre extended_summary
 - MODULE_SYNTHESIS gets mediocre member summaries → produces "Pipeline Subsystem #3"
 - Atlas gets "Pipeline Subsystem #3" → wastes atlas budget on a meaningless name

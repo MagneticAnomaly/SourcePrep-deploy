@@ -1,6 +1,6 @@
 # Phase 73.3b — Compression × Distribution Tier Research
 
-> Date: 2026-04-05 | How CoDRAG's 14 context knobs map to 3 client tiers, validated by 2024-2025 research
+> Date: 2026-04-05 | How Prep's 14 context knobs map to 3 client tiers, validated by 2024-2025 research
 
 ---
 
@@ -66,7 +66,7 @@ Here are all 14 context control mechanisms, their current defaults, and where th
 | # | Mechanism | What It Controls | Current Default | File:Line | Configurable? |
 |---|-----------|-----------------|----------------|-----------|--------------|
 | 1 | **Client budget tiers** | Total max_chars per response | 20K/24K/30K/50K | `mcp/server.py:145-162` | Auto-detected |
-| 2 | **First-call boost** | 50% more on first `codrag` call | 1.5× multiplier | `mcp/server.py:184-186` | Hardcoded |
+| 2 | **First-call boost** | 50% more on first `prep` call | 1.5× multiplier | `mcp/server.py:184-186` | Hardcoded |
 | 3 | **LOD score thresholds** | Which compression level per chunk | ≥0.50→LOD0, 0.35→LOD2, 0.20→LOD4 | `lod_extractor.py:366-384` | Hardcoded |
 | 4 | **Hub file count** | How many hub files in ambient | k=8 | `search.py:468` | Hardcoded |
 | 5 | **Hub budget ratio** | Hub vs neighbor budget split | 70% hub / 30% neighbor | `search.py:544-546` | Hardcoded |
@@ -294,7 +294,7 @@ Rationale: Put the most *actionable* content (search results, focal code) near t
 - **Bad for**: Code, structured data, anything with syntactic significance
 - **Ratio**: ~1.6× on docs at "light" (60% keep), ~2.5× at "standard" (40% keep)
 
-### Where to use it in CoDRAG:
+### Where to use it in Prep:
 
 | Content Type | Compression | Rationale |
 |---|---|---|
@@ -351,7 +351,7 @@ This should be promoted from script to production code in `compressor.py` when w
 
 ## 9. Key Research References
 
-| Paper | Year | Key Finding for CoDRAG |
+| Paper | Year | Key Finding for Prep |
 |-------|------|----------------------|
 | LLMLingua-2 (Pan et al.) | 2024 | 2-5× on NL, but not designed for code |
 | LongCodeZip (Shi et al.) | 2025 | Token pruning corrupts code; extractive compression is correct |

@@ -6,26 +6,26 @@
 
 ## The Problem
 
-Swarm fan-out workers hang indefinitely inside the CoDRAG daemon process. The workers connect to the Ollama cloud endpoint (`kimi-k2.5:cloud`) but `requests.post()` never returns. This blocks ALL swarm-capable pipeline stages (Group Reasoning, Concept Seeding, Atlas Building) from completing on large projects like CoDRAG (1800+ files, 600+ modules, 150+ groups).
+Swarm fan-out workers hang indefinitely inside the Prep daemon process. The workers connect to the Ollama cloud endpoint (`kimi-k2.5:cloud`) but `requests.post()` never returns. This blocks ALL swarm-capable pipeline stages (Group Reasoning, Concept Seeding, Atlas Building) from completing on large projects like Prep (1800+ files, 600+ modules, 150+ groups).
 
 **Critical observation:** The exact same LLM calls work perfectly in standalone tests — even concurrent ones. 5 threads, all returning in 5-8 seconds. The hang is specific to calls made from within the running daemon process.
 
 ## What Has Been Tried (F-59 Parts 1-5)
 
 ### F-59 Part 1: Coordinator timeout zombie thread (FIXED, not the root cause)
-- **File:** `src/codrag/services/pipeline/swarm_orchestrator.py:183`
+- **File:** `src/prep/services/pipeline/swarm_orchestrator.py:183`
 - **Problem:** `SwarmOrchestrator._llm_call_with_timeout` used `with ThreadPoolExecutor() as pool:` — the `__exit__` called `pool.shutdown(wait=True)`, blocking until the coordinator LLM call returned (11+ minutes for cloud models). During this wait, the zombie thread held a urllib3 connection pool slot.
 - **Fix:** Explicit `pool = ThreadPoolExecutor(...)` + `pool.shutdown(wait=False)` on all exit paths.
 - **Commit:** `6462edfb`
 
 ### F-59 Part 2: Connection pool exhaustion (FIXED, not sufficient)
-- **File:** `src/codrag/core/llm_client.py` — Session creation
+- **File:** `src/prep/core/llm_client.py` — Session creation
 - **Problem:** Default `pool_maxsize=10` in urllib3. With 10 workers + 1 zombie coordinator = 11 concurrent connections, the 11th blocks waiting for a pool slot.
 - **Fix:** `requests.Session()` with `HTTPAdapter(pool_maxsize=20)`.
 - **Commit:** `4d31c01a`
 
 ### F-59 Part 3: Thread-local Sessions (FIXED, not sufficient)
-- **File:** `src/codrag/core/llm_client.py:386-396`
+- **File:** `src/prep/core/llm_client.py:386-396`
 - **Problem:** All threads shared one `requests.Session`, causing serialized access through urllib3's connection pool lock.
 - **Fix:** `threading.local()` gives each thread its own Session with its own connection pool.
 - **Commit:** `10d6ee62`
@@ -43,20 +43,20 @@ Swarm fan-out workers hang indefinitely inside the CoDRAG daemon process. The wo
   ```
 
 ### F-59 Part 4: `stream=False` in requests (FIXED, not sufficient)
-- **File:** `src/codrag/core/llm_client.py:678`
+- **File:** `src/prep/core/llm_client.py:678`
 - **Problem:** `resp.iter_lines()` hung after the cloud model's response was fully received because the chunked transfer decoder waited for more chunks that never arrived.
 - **Fix:** `self._session.post(url, json=payload, timeout=(30, self.timeout), stream=False)` — buffers the full response.
 - **Commit:** `91626438`
 
 ### F-59 Part 5: `stream: false` in Ollama API payload (FIXED, necessary but not sufficient)
-- **File:** `src/codrag/core/llm_client.py:625`
+- **File:** `src/prep/core/llm_client.py:625`
 - **Problem:** The Ollama payload still had `"stream": True`, telling Ollama to send NDJSON tokens. With `stream=False` on the requests side, each arriving token chunk reset the read timeout counter, so the 60s timeout never fired. Workers appeared hung for 20+ minutes.
 - **Fix:** Changed payload to `"stream": False` — Ollama returns a single JSON object.
 - **Commit:** `d8b04ae8`
 - **Also fixed LM Studio path at line 1061.**
 
 ### Cloud concurrency cap (FIXED, helps but doesn't solve hang)
-- **Files:** `src/codrag/core/concept_seeder.py:260-272`, `src/codrag/core/group_reasoning.py:458`
+- **Files:** `src/prep/core/concept_seeder.py:260-272`, `src/prep/core/group_reasoning.py:458`
 - **Problem:** Cloud endpoints (Ollama Cloud free tier) only process 1 request at a time. 10 concurrent workers = 9 queued requests, each waiting up to 10 minutes.
 - **Fix:** Cap concurrency at 3 for cloud-proxied models. Also set coordinator timeout to 10s for cloud (vs 90s local).
 - **Commits:** `0ee05575`, `e0086815`
@@ -64,8 +64,8 @@ Swarm fan-out workers hang indefinitely inside the CoDRAG daemon process. The wo
 ## The Remaining Hang — What We Know
 
 ### Reproduction
-1. Start daemon: `.venv/bin/python -m codrag.cli serve --port 8400`
-2. Trigger any swarm stage on CoDRAG project (Group Reasoning, Concept Seeding)
+1. Start daemon: `.venv/bin/python -m prep.cli serve --port 8400`
+2. Trigger any swarm stage on Prep project (Group Reasoning, Concept Seeding)
 3. Swarm coordinator times out at 10s (expected for cloud) → falls back to default assignments
 4. Fan-out starts 3 workers → workers call `llm.generate()` → `requests.post()` blocks indefinitely
 5. Workers never return — no "Worker done" log messages, no timeouts, no errors
@@ -73,7 +73,7 @@ Swarm fan-out workers hang indefinitely inside the CoDRAG daemon process. The wo
 ### What Works (standalone, outside daemon)
 ```python
 # This returns in 5-8 seconds, even with 5 concurrent threads
-from codrag.core.llm_client import LLMClient
+from prep.core.llm_client import LLMClient
 import threading
 
 def worker(i):
@@ -193,12 +193,12 @@ A diagnostic script simulating exact daemon threading conditions (asyncio event 
 
 | File | What | Why |
 |------|------|-----|
-| `src/codrag/core/llm_client.py` | Replace `requests` with `httpx` | Core LLM HTTP client — all API calls flow through here |
-| `src/codrag/core/swarm_orchestrator.py` | Review ThreadPoolExecutor usage | Fan-out mechanism that creates the nested thread pools |
-| `src/codrag/core/group_reasoning.py` | Cloud concurrency cap (already done) | Uses SwarmOrchestrator for group analysis |
-| `src/codrag/core/concept_seeder.py` | Cloud concurrency cap (already done) | Uses SwarmOrchestrator for concept extraction |
-| `src/codrag/core/cluster.py` | Check if swarm-capable | Module synthesis — may also hang |
-| `src/codrag/core/atlas/generator.py` | Check if swarm-capable | Atlas generation — may also hang |
+| `src/prep/core/llm_client.py` | Replace `requests` with `httpx` | Core LLM HTTP client — all API calls flow through here |
+| `src/prep/core/swarm_orchestrator.py` | Review ThreadPoolExecutor usage | Fan-out mechanism that creates the nested thread pools |
+| `src/prep/core/group_reasoning.py` | Cloud concurrency cap (already done) | Uses SwarmOrchestrator for group analysis |
+| `src/prep/core/concept_seeder.py` | Cloud concurrency cap (already done) | Uses SwarmOrchestrator for concept extraction |
+| `src/prep/core/cluster.py` | Check if swarm-capable | Module synthesis — may also hang |
+| `src/prep/core/atlas/generator.py` | Check if swarm-capable | Atlas generation — may also hang |
 | `pyproject.toml` | Add `httpx` dependency | If using Option A |
 
 ## LLM Client Architecture (Current)
@@ -237,13 +237,13 @@ class LLMClient:
 When verifying a fix, test ALL of these:
 1. `pytest tests/test_swarm_orchestrator.py -v` — unit tests
 2. Standalone concurrent test (5 threads, `llm.generate()` with think=True, num_predict=500)
-3. **In-daemon test on CoDRAG:** Trigger finalize → concept seeding swarm (602 modules, 3 workers)
-4. **In-daemon test on CoDRAG:** Trigger deep enrichment → group reasoning swarm (155 groups, 3 workers)
+3. **In-daemon test on Prep:** Trigger finalize → concept seeding swarm (602 modules, 3 workers)
+4. **In-daemon test on Prep:** Trigger deep enrichment → group reasoning swarm (155 groups, 3 workers)
 5. **In-daemon test on mini-redis-rust:** Trigger finalize → concept seeding swarm (19 modules, 3 workers) — this is the smaller project that previously succeeded
 
 ## Context From This Session
 
-- The daemon runs as `uvicorn codrag.server:app` with a single worker
+- The daemon runs as `uvicorn prep.server:app` with a single worker
 - The Thunderbolt3 drive (`/Volumes/4TB-BAD`) is NOT a USB drive — it runs at 3000MB/s
 - SQLite stores use DELETE journal mode (not WAL) due to filesystem characteristics
 - The cloud model `kimi-k2.5:cloud` is proxied through Ollama Cloud — responses go through Ollama's cloud relay infrastructure

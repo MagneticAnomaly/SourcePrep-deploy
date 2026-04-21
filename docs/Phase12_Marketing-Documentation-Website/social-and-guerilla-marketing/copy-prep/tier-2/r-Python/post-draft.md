@@ -3,7 +3,7 @@
 ## Title Options
 1. **I built a local AI context engine using Python + Rust (PyO3) + Tauri**
 2. **Using Python for the "Brains" and Rust for the "Brawn" in a local desktop app**
-3. **Showcase: CoDRAG - A Python-powered MCP server for local code search**
+3. **Showcase: Prep - A Python-powered MCP server for local code search**
 
 ## Body Structure
 
@@ -19,7 +19,7 @@ I wanted to build a desktop app that does complex code analysis (graph-based RAG
 Even with Rust being fast, Python is unbeatable for the "glue" logic and ML interoperability. We use `pydantic` heavily for schema validation and `FastAPI` for the local API layer — the Python side stays clean while the Rust extension handles the raw parsing.
 
 ### The Tool
-CoDRAG is the result—a local context engine you can plug into Cursor/Windsurf.
+Prep is the result—a local context engine you can plug into Cursor/Windsurf.
 
 ### Links
 *   **GitHub:** [Link]

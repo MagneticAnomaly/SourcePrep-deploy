@@ -7,7 +7,7 @@
 > and feature gating** sections below remain accurate.
 
 ## Purpose
-This document defines the technical implementation for CoDRAG's licensing system, ensuring it supports:
+This document defines the technical implementation for Prep's licensing system, ensuring it supports:
 -   **Offline-first validation** (no mandatory phone home).
 -   **Perpetual fallback** (app keeps working after updates expire).
 -   **Feature gating** (Free vs Pro vs Team).
@@ -45,7 +45,7 @@ We will use a **Signed JSON Payload** encoded in Base64 (similar to JWT but simp
 
 ## Validation Logic (Client-Side)
 
-The CoDRAG desktop app (Tauri/Rust) and daemon (Python) will both contain the **Public Key**.
+The Prep desktop app (Tauri/Rust) and daemon (Python) will both contain the **Public Key**.
 
 ### 1. Integrity Check
 -   Split string by `.`.
@@ -113,7 +113,7 @@ The CoDRAG desktop app (Tauri/Rust) and daemon (Python) will both contain the **
 ## Offline & Air-Gapped Support
 -   The license check **NEVER** requires internet access.
 -   Validation is purely mathematical (Signature verification).
--   Enterprise deployments receive a `license.key` file during rollout (e.g., via MDM to `%AppData%/CoDRAG/license.key`).
+-   Enterprise deployments receive a `license.key` file during rollout (e.g., via MDM to `%AppData%/Prep/license.key`).
 
 ## Security Considerations
 -   **Key Rotation:** If the private key is compromised, we must ship a new app version with a new public key. Old keys would become invalid (user friction). **Mitigation:** Use a highly secure, offline HSM for signing.
@@ -122,7 +122,7 @@ The CoDRAG desktop app (Tauri/Rust) and daemon (Python) will both contain the **
 
 ## Activation Flow (Direct Sales)
 1.  User buys on website (Stripe).
-2.  Stripe Webhook -> CoDRAG License Service (Cloud).
+2.  Stripe Webhook -> Prep License Service (Cloud).
 3.  Service generates signed Key.
 4.  Service emails Key to user.
 5.  User pastes Key into App -> App validates & saves to disk.

@@ -24,7 +24,7 @@ This is NOT just a swarm issue — it affects ALL LLM-calling pipeline stages:
 
 ### Hangs (in daemon):
 ```
-1. Start daemon: .venv/bin/python -m codrag.cli serve --port 8400
+1. Start daemon: .venv/bin/python -m prep.cli serve --port 8400
 2. Configure models to kimi-k2.5:cloud (default production config)
 3. Trigger any pipeline stage that makes LLM calls
 4. Worker thread calls llm.generate() → requests.post() → blocks forever
@@ -35,7 +35,7 @@ This is NOT just a swarm issue — it affects ALL LLM-calling pipeline stages:
 ### Works (standalone, same machine, same model):
 ```python
 # Returns in 5-8 seconds, even with 5 concurrent threads
-from codrag.core.llm_client import LLMClient
+from prep.core.llm_client import LLMClient
 import threading
 
 llm = LLMClient(endpoint_url='http://localhost:11434', model='kimi-k2.5:cloud', 
@@ -120,9 +120,9 @@ Replace `requests.post()` with Python's built-in `http.client.HTTPConnection` an
 
 | File | Lines | What |
 |------|-------|------|
-| `src/codrag/core/llm_client.py` | 356-760 | Replace `requests.Session.post()` with `httpx.Client.post()` |
-| `src/codrag/core/llm_client.py` | 386-396 | Replace thread-local `requests.Session` with thread-local `httpx.Client` |
-| `src/codrag/core/llm_client.py` | 1050-1120 | LM Studio path — same replacement |
+| `src/prep/core/llm_client.py` | 356-760 | Replace `requests.Session.post()` with `httpx.Client.post()` |
+| `src/prep/core/llm_client.py` | 386-396 | Replace thread-local `requests.Session` with thread-local `httpx.Client` |
+| `src/prep/core/llm_client.py` | 1050-1120 | LM Studio path — same replacement |
 | `pyproject.toml` | dependencies | Add `httpx>=0.27` |
 
 ## Testing Checklist
@@ -136,7 +136,7 @@ Replace `requests.post()` with Python's built-in `http.client.HTTPConnection` an
 4. **In-daemon test on mini-redis-rust (19 modules):**
    - Trigger finalize → concept seeding should complete
    - Swarm fan-out with 3 workers should all return
-5. **In-daemon test on CoDRAG (1800+ files):**
+5. **In-daemon test on Prep (1800+ files):**
    - Trigger deep enrichment → group reasoning should complete
    - 150+ groups processed sequentially or via swarm
 6. **Verify local models still work:** Switch to qwen3:8b, run same tests
@@ -158,4 +158,4 @@ Replace `requests.post()` with Python's built-in `http.client.HTTPConnection` an
 - The `get_batch_concurrency()` workaround (returning 1 for cloud models) does NOT fix the hang — it just reduces concurrency from N to 1, but the single call still hangs.
 - Ollama responds with `Transfer-Encoding: chunked` even when the payload has `"stream": false`.
 - The daemon has 70+ threads from various ThreadPoolExecutors and zombie coordinator threads.
-- CoDRAG project must be deactivated (`active=False`) while this bug exists, otherwise its cloud model calls block the entire daemon's scheduler slots.
+- Prep project must be deactivated (`active=False`) while this bug exists, otherwise its cloud model calls block the entire daemon's scheduler slots.

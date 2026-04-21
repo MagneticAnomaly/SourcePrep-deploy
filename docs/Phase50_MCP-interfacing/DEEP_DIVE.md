@@ -1,4 +1,4 @@
-# CoDRAG Integration Deep Dive: MVP Optimization & Edge Cases
+# Prep Integration Deep Dive: MVP Optimization & Edge Cases
 
 > Tool-by-tool deep dive into optimization strategies, edge cases, and pitfalls.
 > Focus: **universality first**, then tool-specific perfection for the majority of the market.
@@ -45,7 +45,7 @@ Several findings from this deep dive **invalidate assumptions** from the prelimi
 
 ### CORRECTION 1: Windsurf rules are NOT `.windsurfrules` anymore
 
-**Old assumption:** CoDRAG generates/appends to `.windsurfrules` in project root.
+**Old assumption:** Prep generates/appends to `.windsurfrules` in project root.
 
 **Reality (from current Windsurf docs):**
 - Rules now live in `.windsurf/rules/*.md` (one file per rule)
@@ -56,14 +56,14 @@ Several findings from this deep dive **invalidate assumptions** from the prelimi
 - Root-level `AGENTS.md` is treated as always-on automatically
 - `.windsurfrules` may still work as legacy but the new system is `.windsurf/rules/`
 
-**CoDRAG must generate:** `.windsurf/rules/codrag.md` with frontmatter:
+**Prep must generate:** `.windsurf/rules/prep.md` with frontmatter:
 ```markdown
 ---
 trigger: always_on
-description: CoDRAG structural codebase intelligence
+description: Prep structural codebase intelligence
 ---
 
-[CoDRAG content here]
+[Prep content here]
 ```
 
 ### CORRECTION 2: Windsurf has a 100-tool limit
@@ -72,13 +72,13 @@ description: CoDRAG structural codebase intelligence
 
 **Reality:** "Cascade has a limit of **100 total tools** that it has access to at any given time." Users can toggle individual tools on/off per MCP server.
 
-**Implication:** CoDRAG's 5 consolidated tools are well within budget. But users with many MCP servers may hit 100 tools and need to disable some. CoDRAG should keep tool count minimal.
+**Implication:** Prep's 5 consolidated tools are well within budget. But users with many MCP servers may hit 100 tools and need to disable some. Prep should keep tool count minimal.
 
 ### CORRECTION 3: Windsurf has Cascade Hooks (pre/post MCP tool use)
 
 **Discovery:** Windsurf supports `pre_mcp_tool_use` and `post_mcp_tool_use` hooks. These fire before/after any MCP tool call with full argument visibility.
 
-**Opportunity:** A `post_mcp_tool_use` hook could log CoDRAG usage for analytics. A `pre_mcp_tool_use` hook could inject context or validate arguments. Low priority but interesting for enterprise users.
+**Opportunity:** A `post_mcp_tool_use` hook could log Prep usage for analytics. A `pre_mcp_tool_use` hook could inject context or validate arguments. Low priority but interesting for enterprise users.
 
 ### CORRECTION 4: Cursor YOLO mode does NOT auto-approve MCP tools
 
@@ -86,7 +86,7 @@ description: CoDRAG structural codebase intelligence
 
 **Reality (from Cursor forum):** YOLO mode auto-runs terminal commands but does NOT auto-approve MCP tools. This is a known issue/feature request. Users must separately configure MCP auto-run per server.
 
-**Implication:** CoDRAG setup docs must explicitly tell Cursor users: "YOLO mode is not enough. Go to Settings > Features > MCP > enable auto-run for the codrag server."
+**Implication:** Prep setup docs must explicitly tell Cursor users: "YOLO mode is not enough. Go to Settings > Features > MCP > enable auto-run for the prep server."
 
 ### CORRECTION 5: Claude Code has MCP Tool Search (deferred loading)
 
@@ -99,37 +99,37 @@ description: CoDRAG structural codebase intelligence
 
 **Triggered when:** Total tools exceed a threshold (configurable via `ENABLE_TOOL_SEARCH=auto:<N>`)
 
-**Critical implication for CoDRAG:** If the user has many MCP servers, CoDRAG tools may be **deferred and invisible** until Claude searches for them. The `instructions` field and `CLAUDE.md` become even more important -- they tell Claude "CoDRAG exists, search for it."
+**Critical implication for Prep:** If the user has many MCP servers, Prep tools may be **deferred and invisible** until Claude searches for them. The `instructions` field and `CLAUDE.md` become even more important -- they tell Claude "Prep exists, search for it."
 
 **For MCP server authors:** "Include in your server description: What category of tasks your tools handle, when Claude should search for your tools, key capabilities your server provides."
 
-**CoDRAG action:** Our MCP server's `instructions` field should include search hints: "CoDRAG handles structural code intelligence, module architecture, dependency analysis, and codebase navigation."
+**Prep action:** Our MCP server's `instructions` field should include search hints: "Prep handles structural code intelligence, module architecture, dependency analysis, and codebase navigation."
 
 ### CORRECTION 6: Claude Code MCP output limit is 25,000 tokens
 
 **Discovery:** Claude Code has a **default MCP output limit of 25,000 tokens**. Warning at 10,000 tokens. Configurable via `MAX_MCP_OUTPUT_TOKENS`.
 
-**Implication:** CoDRAG's responses are well under this (~250-3000 tokens typically). But if a user requests a massive context dump or the project is huge, we should be aware. Our responses should stay compact by design.
+**Implication:** Prep's responses are well under this (~250-3000 tokens typically). But if a user requests a massive context dump or the project is huge, we should be aware. Our responses should stay compact by design.
 
 ### CORRECTION 7: Claude Code MCP permission syntax
 
 **Confirmed exact syntax:**
 ```
-mcp__codrag           -- matches ANY tool from the codrag server
-mcp__codrag__*        -- wildcard, same effect
-mcp__codrag__codrag   -- matches only the `codrag` tool
-mcp__codrag__codrag_search  -- matches only `codrag_search`
+mcp__prep           -- matches ANY tool from the prep server
+mcp__prep__*        -- wildcard, same effect
+mcp__prep__prep   -- matches only the `prep` tool
+mcp__prep__prep_search  -- matches only `prep_search`
 ```
 
-**CoDRAG setup instruction for Claude Code:**
+**Prep setup instruction for Claude Code:**
 ```json
 {
   "permissions": {
-    "allow": ["mcp__codrag"]
+    "allow": ["mcp__prep"]
   }
 }
 ```
-This auto-approves ALL CoDRAG tools with a single rule.
+This auto-approves ALL Prep tools with a single rule.
 
 ---
 
@@ -139,12 +139,12 @@ This auto-approves ALL CoDRAG tools with a single rule.
 
 **Market position:** #1 AI IDE. Must be flawless.
 
-#### Rules File: `.cursor/rules/codrag.mdc`
+#### Rules File: `.cursor/rules/prep.mdc`
 
 **Format confirmed:**
 ```yaml
 ---
-description: CoDRAG structural codebase intelligence
+description: Prep structural codebase intelligence
 alwaysApply: true
 ---
 
@@ -154,28 +154,28 @@ alwaysApply: true
 **Edge cases:**
 - `.mdc` extension required for YAML frontmatter support (`.md` works but no frontmatter)
 - `alwaysApply: true` is the critical flag -- without it, Cursor may not inject on every prompt
-- Team Rules > Project Rules > User Rules precedence -- CoDRAG's rules are project-level
-- If a team rule conflicts with CoDRAG's rule, the team rule wins
+- Team Rules > Project Rules > User Rules precedence -- Prep's rules are project-level
+- If a team rule conflicts with Prep's rule, the team rule wins
 
 **Auto-approve pitfall:**
 - YOLO mode does NOT auto-approve MCP tools (confirmed from forum)
 - Must use: Settings > Features > MCP > per-server auto-run toggle
-- CoDRAG setup docs must be explicit about this
+- Prep setup docs must be explicit about this
 
 **Tool competition strategy:**
 Cursor has powerful native tools: `codebase_search`, `read_file`, `grep_search`. The AI defaults to these.
 
-To make CoDRAG win:
-1. Rules file says "Call `codrag` FIRST before using codebase_search or grep_search"
+To make Prep win:
+1. Rules file says "Call `prep` FIRST before using codebase_search or grep_search"
 2. Tool description differentiates: "structural relationships and module architecture" vs. "text search"
 3. Response includes value the native tools can't provide: module map, hub connectivity, blast radius
 
 **AGENTS.md interaction:**
-Cursor reads AGENTS.md (confirmed on agents.md site). Both `.cursor/rules/codrag.mdc` and `AGENTS.md` can coexist. The `.mdc` file takes precedence (it's Cursor-native with `alwaysApply`). AGENTS.md provides fallback for when the `.mdc` isn't generated yet.
+Cursor reads AGENTS.md (confirmed on agents.md site). Both `.cursor/rules/prep.mdc` and `AGENTS.md` can coexist. The `.mdc` file takes precedence (it's Cursor-native with `alwaysApply`). AGENTS.md provides fallback for when the `.mdc` isn't generated yet.
 
 **Parallel tool calls:**
 Cursor's agent mode supports parallel tool calls. Rules file should encourage:
-"You can call `codrag` and `codrag_search` in parallel on your first prompt."
+"You can call `prep` and `prep_search` in parallel on your first prompt."
 
 **Unknown:**
 - Does Cursor support MCP server `instructions` field? (needs empirical test)
@@ -187,13 +187,13 @@ Cursor's agent mode supports parallel tool calls. Rules file should encourage:
 
 **Market position:** #2 AI IDE. Cognition acquisition makes this strategically important.
 
-#### Rules File: `.windsurf/rules/codrag.md` (CORRECTED)
+#### Rules File: `.windsurf/rules/prep.md` (CORRECTED)
 
 **Format (updated from deep dive):**
 ```markdown
 ---
 trigger: always_on
-description: CoDRAG structural codebase intelligence
+description: Prep structural codebase intelligence
 ---
 
 [content]
@@ -202,23 +202,23 @@ description: CoDRAG structural codebase intelligence
 **Key differences from Cursor:**
 - `trigger: always_on` instead of `alwaysApply: true`
 - File in `.windsurf/rules/` directory, not `.cursor/rules/`
-- 12,000 character limit per rule (generous -- CoDRAG's ~700 tokens = ~2,800 chars)
+- 12,000 character limit per rule (generous -- Prep's ~700 tokens = ~2,800 chars)
 - Windsurf also reads `AGENTS.md` natively (root = always-on, subdir = auto-glob)
 
 **AGENTS.md behavior (critical discovery):**
 Windsurf treats root-level `AGENTS.md` as **always-on** (same as `trigger: always_on`). This means:
-- If CoDRAG generates `AGENTS.md` with atlas in project root, Windsurf injects it on every message
-- This is IDENTICAL behavior to a `.windsurf/rules/codrag.md` with `trigger: always_on`
+- If Prep generates `AGENTS.md` with atlas in project root, Windsurf injects it on every message
+- This is IDENTICAL behavior to a `.windsurf/rules/prep.md` with `trigger: always_on`
 - **We might not need a Windsurf-specific file at all** -- AGENTS.md covers it
 
 **Strategy decision:** Generate both:
 1. `AGENTS.md` section (universal, also works in Windsurf natively)
-2. `.windsurf/rules/codrag.md` (Windsurf-specific, with proper frontmatter)
+2. `.windsurf/rules/prep.md` (Windsurf-specific, with proper frontmatter)
 
-The Windsurf-specific file ensures CoDRAG works even if the user doesn't have AGENTS.md. Belt and suspenders.
+The Windsurf-specific file ensures Prep works even if the user doesn't have AGENTS.md. Belt and suspenders.
 
 **100-tool limit:**
-Windsurf allows toggling individual tools per MCP server. If a user is near 100 tools, they can disable `codrag_audit` or `codrag_observe` and keep only the core 3 (`codrag`, `codrag_search`, `codrag_impact`).
+Windsurf allows toggling individual tools per MCP server. If a user is near 100 tools, they can disable `prep_audit` or `prep_observe` and keep only the core 3 (`prep`, `prep_search`, `prep_impact`).
 
 **Cascade Hooks opportunity:**
 ```json
@@ -226,12 +226,12 @@ Windsurf allows toggling individual tools per MCP server. If a user is near 100 
   "hooks": {
     "pre_mcp_tool_use": {
       "command": "echo",
-      "args": ["CoDRAG tool call detected"]
+      "args": ["Prep tool call detected"]
     }
   }
 }
 ```
-Future: CoDRAG could provide a hook script that logs usage analytics.
+Future: Prep could provide a hook script that logs usage analytics.
 
 **MCP config location:**
 `~/.codeium/windsurf/mcp_config.json` (NOT `~/.codeium/mcp_config.json` -- path changed)
@@ -246,15 +246,15 @@ Future: CoDRAG could provide a hook script that logs usage analytics.
 
 **Confirmed behavior:**
 - `CLAUDE.md` in project root is loaded at session start
-- First 200 lines of `MEMORY.md` also loaded (CoDRAG should NOT touch MEMORY.md)
+- First 200 lines of `MEMORY.md` also loaded (Prep should NOT touch MEMORY.md)
 - Hierarchy: `~/.claude/CLAUDE.md` (global) > `./CLAUDE.md` (project) > `./subdir/CLAUDE.md` (directory)
 
 **MCP Tool Search (critical edge case):**
-When many MCP servers are configured, Claude Code defers tools. CoDRAG's tools become invisible until Claude searches for them.
+When many MCP servers are configured, Claude Code defers tools. Prep's tools become invisible until Claude searches for them.
 
 **Mitigation strategy (layered):**
-1. `CLAUDE.md` says "Call `codrag` FIRST" -- always in context, even when tools are deferred
-2. MCP `instructions` field says "CoDRAG handles structural code intelligence" -- primes Claude to search
+1. `CLAUDE.md` says "Call `prep` FIRST" -- always in context, even when tools are deferred
+2. MCP `instructions` field says "Prep handles structural code intelligence" -- primes Claude to search
 3. Tool descriptions include category hints: "structural code intelligence, module architecture, dependency analysis"
 4. If user has few MCP servers (common case), tools load normally -- no issue
 
@@ -263,38 +263,38 @@ When many MCP servers are configured, Claude Code defers tools. CoDRAG's tools b
 // .claude/settings.json or project .claude/settings.json
 {
   "permissions": {
-    "allow": ["mcp__codrag"]
+    "allow": ["mcp__prep"]
   }
 }
 ```
 
-This is a single rule that auto-approves ALL CoDRAG tools. Much better than listing each tool individually.
+This is a single rule that auto-approves ALL Prep tools. Much better than listing each tool individually.
 
-**Alternative:** `--allowedTools "mcp__codrag"` on command line.
+**Alternative:** `--allowedTools "mcp__prep"` on command line.
 
 **MCP output limit:**
-Default 25,000 tokens, warning at 10,000. CoDRAG responses are typically 250-3,000 tokens. No issue. But if we implement a "dump all hub file content" mode in the future, we must respect this limit.
+Default 25,000 tokens, warning at 10,000. Prep responses are typically 250-3,000 tokens. No issue. But if we implement a "dump all hub file content" mode in the future, we must respect this limit.
 
 **Skills integration (future):**
-A CoDRAG skill at `.claude/skills/codrag.md`:
+A Prep skill at `.claude/skills/prep.md`:
 ```markdown
 ---
-description: Get structural codebase context from CoDRAG
-tools: ["mcp__codrag__codrag", "mcp__codrag__codrag_search"]
+description: Get structural codebase context from Prep
+tools: ["mcp__prep__prep", "mcp__prep__prep_search"]
 ---
-Call `codrag` to get the structural overview, then use that context to inform your approach.
+Call `prep` to get the structural overview, then use that context to inform your approach.
 ```
 
-This creates a `/codrag` slash command in Claude Code. Low priority but high polish.
+This creates a `/prep` slash command in Claude Code. Low priority but high polish.
 
 **Subagent access:**
-Claude Code subagents can be configured with `mcpServers` in their definition. CoDRAG tools CAN be made available to subagents explicitly. This is important for complex multi-agent workflows.
+Claude Code subagents can be configured with `mcpServers` in their definition. Prep tools CAN be made available to subagents explicitly. This is important for complex multi-agent workflows.
 
 **Context compaction:**
-`/compact` summarizes older messages. CoDRAG tool responses from turn 1 will be summarized. Mitigations:
+`/compact` summarizes older messages. Prep tool responses from turn 1 will be summarized. Mitigations:
 1. Atlas in CLAUDE.md survives compaction (reloaded each session)
 2. MCP `instructions` survives compaction (system prompt level)
-3. Response nudges remind AI to re-call `codrag` on long tasks
+3. Response nudges remind AI to re-call `prep` on long tasks
 
 ---
 
@@ -304,19 +304,19 @@ Claude Code subagents can be configured with `mcpServers` in their definition. C
 
 #### MCP Server Instructions (CONFIRMED)
 
-This is Gemini CLI's killer feature for CoDRAG:
+This is Gemini CLI's killer feature for Prep:
 ```
 "MCP server instructions will be appended to the system instructions."
 ```
 
-CoDRAG's `instructions` field in the initialize response is **automatically injected into every prompt**. No rules file needed for basic activation.
+Prep's `instructions` field in the initialize response is **automatically injected into every prompt**. No rules file needed for basic activation.
 
 **What to put in instructions (keep brief, ~60 tokens):**
 ```
-CoDRAG provides structural codebase context via trace graph analysis.
-ALWAYS call `codrag` at the start of every coding task for module structure,
-hub files, and focus areas. Use `codrag_search` for specific code queries
-with structural trace expansion. Use `codrag_impact` before making changes.
+Prep provides structural codebase context via trace graph analysis.
+ALWAYS call `prep` at the start of every coding task for module structure,
+hub files, and focus areas. Use `prep_search` for specific code queries
+with structural trace expansion. Use `prep_impact` before making changes.
 ```
 
 **What NOT to put in instructions:**
@@ -335,7 +335,7 @@ Gemini CLI reads a context file configured in `.gemini/settings.json`:
 }
 ```
 
-**Strategy:** CoDRAG generates AGENTS.md (universal). Users who want Gemini-specific can point to it. No need for a separate GEMINI.md unless the user has conflicting content.
+**Strategy:** Prep generates AGENTS.md (universal). Users who want Gemini-specific can point to it. No need for a separate GEMINI.md unless the user has conflicting content.
 
 #### Schema Sanitization (edge case)
 
@@ -344,18 +344,18 @@ Gemini CLI strips:
 - `additionalProperties` property
 - `anyOf` with `default` values
 
-CoDRAG's tool schemas should NOT use any of these. Current schemas are simple and safe.
+Prep's tool schemas should NOT use any of these. Current schemas are simple and safe.
 
 #### Tool Name Conflicts
 
-If another MCP server has a tool named `codrag` (unlikely but possible), Gemini CLI resolves via `serverName__toolName` prefix. CoDRAG's unique naming makes this a non-issue.
+If another MCP server has a tool named `prep` (unlikely but possible), Gemini CLI resolves via `serverName__toolName` prefix. Prep's unique naming makes this a non-issue.
 
 #### Trust Configuration
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"],
       "trust": true
     }
@@ -363,21 +363,21 @@ If another MCP server has a tool named `codrag` (unlikely but possible), Gemini 
 }
 ```
 
-**`trust: true`** bypasses all confirmation dialogs for CoDRAG. Safe because all tools are read-only.
+**`trust: true`** bypasses all confirmation dialogs for Prep. Safe because all tools are read-only.
 
 #### Resources
 
-Gemini CLI discovers resources automatically. User references via `@resource` in chat. CoDRAG should implement:
-- `codrag://atlas` -- structural overview
-- `codrag://health` -- index freshness
+Gemini CLI discovers resources automatically. User references via `@resource` in chat. Prep should implement:
+- `prep://atlas` -- structural overview
+- `prep://health` -- index freshness
 
 These give Gemini CLI users quick metadata checks without tool calls.
 
 #### Prompts as Slash Commands
 
-Gemini CLI exposes MCP prompts as `/slash_commands`. CoDRAG should implement:
-- `/codrag-overview` -- "Give me a structural overview"
-- `/codrag-review` -- "Review using structural context"
+Gemini CLI exposes MCP prompts as `/slash_commands`. Prep should implement:
+- `/prep-overview` -- "Give me a structural overview"
+- `/prep-review` -- "Review using structural context"
 
 ---
 
@@ -396,7 +396,7 @@ Gemini CLI exposes MCP prompts as `/slash_commands`. CoDRAG should implement:
 
 **Copilot Coding Agent (Cloud):**
 - Runs asynchronously in GitHub cloud
-- Cannot access local CoDRAG daemon
+- Cannot access local Prep daemon
 - Reads AGENTS.md from the repo
 - AGENTS.md atlas is the ONLY structural context source
 
@@ -410,8 +410,8 @@ Every other tool uses `mcpServers`. Copilot (VS Code) uses `servers`:
 ```json
 {
   "servers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"]
     }
   }
@@ -425,12 +425,12 @@ VS Code supports `"sandboxEnabled": true` for stdio MCP servers.
 Sandboxed servers restrict filesystem/network access to explicit allowlists.
 **When sandboxed, tool calls are auto-approved** -- no manual confirmation.
 
-CoDRAG sandboxed config:
+Prep sandboxed config:
 ```json
 {
   "servers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"],
       "sandboxEnabled": true,
       "sandbox": {
@@ -445,7 +445,7 @@ CoDRAG sandboxed config:
 **NOT available on Windows.** Windows users must approve each call.
 
 **Edge case: cloud agent and atlas quality**
-The Copilot coding agent running in GitHub's cloud has NO access to CoDRAG's daemon. It can only read files from the repo. This makes the atlas in AGENTS.md critical -- it must contain enough structural information for the AI to make good architectural decisions without any tool calls.
+The Copilot coding agent running in GitHub's cloud has NO access to Prep's daemon. It can only read files from the repo. This makes the atlas in AGENTS.md critical -- it must contain enough structural information for the AI to make good architectural decisions without any tool calls.
 
 Atlas content for cloud agents should include:
 - Module relationships (not just names, but "A depends on B")
@@ -474,10 +474,10 @@ From Cline docs: "When you have a lot of MCP servers enabled, it can be useful t
 when to use each server. Utilize a `.clinerules` file to support intelligent MCP server
 activation through keyword-based triggers."
 
-CoDRAG's `.clinerules` should include:
+Prep's `.clinerules` should include:
 ```markdown
 When asked about code structure, architecture, dependencies, modules,
-hub files, or blast radius, use the CoDRAG MCP tools.
+hub files, or blast radius, use the Prep MCP tools.
 ```
 
 #### CORRECTION 11: Roo Code system prompt injection order is documented
@@ -493,18 +493,18 @@ Roo Code's exact injection order (confirmed from docs):
 8. General rules: `.roo/rules/` (recursive, alphabetical)
 9. Fallback: `.roorules`
 
-AGENTS.md sits between mode-specific and general rules. CoDRAG rules in
-`.roo/rules/codrag.md` load AFTER AGENTS.md, so they can reinforce it.
+AGENTS.md sits between mode-specific and general rules. Prep rules in
+`.roo/rules/prep.md` load AFTER AGENTS.md, so they can reinforce it.
 
-#### CORRECTION 12: Roo Code supports mode-specific CoDRAG rules
+#### CORRECTION 12: Roo Code supports mode-specific Prep rules
 
 Mode-specific rules directories: `.roo/rules-{modeSlug}/`
-- `.roo/rules-architect/codrag.md` -- Architect mode specific
-- `.roo/rules-code/codrag.md` -- Code mode specific
+- `.roo/rules-architect/prep.md` -- Architect mode specific
+- `.roo/rules-code/prep.md` -- Code mode specific
 
-This enables CoDRAG to give different guidance per mode:
-- Architect: "call `codrag` first, use `codrag_audit`"
-- Code: "call `codrag_impact` before changes"
+This enables Prep to give different guidance per mode:
+- Architect: "call `prep` first, use `prep_audit`"
+- Code: "call `prep_impact` before changes"
 
 #### Local LLM Edge Case (CRITICAL)
 
@@ -517,21 +517,21 @@ Cline and Roo Code have a large user base running **local LLMs** (Ollama, LM Stu
 - Qwen3 14B: sometimes struggles with tool selection
 - Smaller models (7B): unreliable tool calling
 
-**CoDRAG mitigation:**
+**Prep mitigation:**
 - Rules file instructions must be **simple and direct** (no nuance, no conditional logic)
 - Tool descriptions must be **short and unambiguous**
-- The "call codrag FIRST" instruction should be bold and clear
+- The "call prep FIRST" instruction should be bold and clear
 - Avoid complex tool parameters -- keep schemas minimal
 
 **Problem 2: Small context windows**
 - Local LLMs often run with 4K-16K context
-- CoDRAG's 5 tool descriptions (~1,400 tokens) consume 10-35% of a 4K context
+- Prep's 5 tool descriptions (~1,400 tokens) consume 10-35% of a 4K context
 - Atlas in rules file (~500 tokens) adds more
 - Combined: potentially 50% of context on tooling alone
 
-**CoDRAG mitigation:**
+**Prep mitigation:**
 - Atlas Tier 1 (minimal, ~150 tokens) for small-context models
-- Host detection: if CoDRAG detects a local LLM host, use compact descriptions
+- Host detection: if Prep detects a local LLM host, use compact descriptions
 - Consider: offer a "lite" mode with only 2-3 tools exposed
 
 **Problem 3: JSON response parsing**
@@ -539,15 +539,15 @@ Smaller models struggle with JSON. Another reason to use clean markdown response
 
 #### Roo Code Modes (unique opportunity)
 
-Roo Code's **Architect Mode** is a natural fit for CoDRAG:
+Roo Code's **Architect Mode** is a natural fit for Prep:
 - Read-only mode focused on planning and design
 - Users in Architect Mode actively want structural understanding
-- CoDRAG's `codrag` ambient context is exactly what architects need
+- Prep's `prep` ambient context is exactly what architects need
 
 Mode-specific files are cleaner than embedding hints in one file:
-- `.roo/rules/codrag.md` -- general (all modes)
-- `.roo/rules-architect/codrag.md` -- architecture focus
-- `.roo/rules-code/codrag.md` -- change impact focus
+- `.roo/rules/prep.md` -- general (all modes)
+- `.roo/rules-architect/prep.md` -- architecture focus
+- `.roo/rules-code/prep.md` -- change impact focus
 
 ---
 
@@ -558,19 +558,19 @@ Mode-specific files are cleaner than embedding hints in one file:
 All rules files (regardless of format) share the same core. Here is the definitive template:
 
 ```markdown
-You have access to CoDRAG, a structural code intelligence system that
+You have access to Prep, a structural code intelligence system that
 understands this codebase through a trace graph of imports, calls, and
 structural relationships.
 
-ALWAYS call `codrag` (no arguments) at the START of every task. This gives you:
+ALWAYS call `prep` (no arguments) at the START of every task. This gives you:
 - Module structure (which groups of files work together and their dependencies)
 - Hub files (most connected/important files with full content)
 - User's selected focus areas from the knowledge base
 
-For specific code lookups, use `codrag_search` with a natural language query.
-Before making changes, use `codrag_impact` to understand blast radius.
+For specific code lookups, use `prep_search` with a natural language query.
+Before making changes, use `prep_impact` to understand blast radius.
 
-CoDRAG's tools are read-only and safe to auto-approve.
+Prep's tools are read-only and safe to auto-approve.
 
 ## Codebase Atlas
 [auto-generated from atlas.json -- IDENTITY, STACK, ARCHITECTURE, SUBSYSTEMS, FLOW]
@@ -589,21 +589,21 @@ The core content above is wrapped differently per tool:
 
 | Tool | Wrapper | File |
 |------|---------|------|
-| Cursor | YAML frontmatter: `alwaysApply: true` | `.cursor/rules/codrag.mdc` |
-| Windsurf | YAML frontmatter: `trigger: always_on` | `.windsurf/rules/codrag.md` |
+| Cursor | YAML frontmatter: `alwaysApply: true` | `.cursor/rules/prep.mdc` |
+| Windsurf | YAML frontmatter: `trigger: always_on` | `.windsurf/rules/prep.md` |
 | Claude Code | Plain markdown section | append to `CLAUDE.md` |
 | Copilot | Plain markdown | `.github/copilot-instructions.md` |
 | AGENTS.md | Plain markdown | `AGENTS.md` section |
 | Gemini CLI | Brief directive | MCP `instructions` field + AGENTS.md |
 | Cline | Plain markdown | `.clinerules` |
-| Roo Code | Plain markdown with mode hints | `.roo/rules/codrag.md` |
+| Roo Code | Plain markdown with mode hints | `.roo/rules/prep.md` |
 
 ### 3C. The Universal Tool Description
 
 Every MCP host sees tool descriptions. They must work across ALL models:
 
 ```
-codrag: Get structural codebase context -- module map, hub files (most
+prep: Get structural codebase context -- module map, hub files (most
 connected code with full content), and user-selected focus areas. Call this
 FIRST at the start of every coding task to understand how files connect to
 each other before reading or searching code. Returns compact architecture
@@ -622,21 +622,21 @@ Key elements that work universally:
 For hosts that support it (Gemini CLI confirmed, Claude Code likely):
 
 ```
-CoDRAG provides structural codebase context via trace graph analysis.
-Call `codrag` at the start of every coding task for module structure,
-hub files, and focus areas. Use `codrag_search` for code queries with
-structural expansion. Use `codrag_impact` before changes. All tools
+Prep provides structural codebase context via trace graph analysis.
+Call `prep` at the start of every coding task for module structure,
+hub files, and focus areas. Use `prep_search` for code queries with
+structural expansion. Use `prep_impact` before changes. All tools
 are read-only. Categories: code intelligence, architecture, dependencies.
 ```
 
-The "Categories:" line at the end is specifically for Claude Code's MCP Tool Search -- it helps Claude find CoDRAG tools when they're deferred.
+The "Categories:" line at the end is specifically for Claude Code's MCP Tool Search -- it helps Claude find Prep tools when they're deferred.
 
 ### 3E. Response Format (Universal Markdown)
 
-Every response from every CoDRAG tool must be clean markdown:
+Every response from every Prep tool must be clean markdown:
 
 ```markdown
-## CoDRAG: ProjectName (547 nodes, 656 edges)
+## Prep: ProjectName (547 nodes, 656 edges)
 
 ### Modules
 - **Core Engine** (89 files): indexing, search, trace graph -> API Layer
@@ -669,34 +669,34 @@ Index: fresh (12m ago) | Watch: active | Coverage: 92%
 
 ### 4A. User has AGENTS.md with existing content
 
-**Problem:** CoDRAG generates AGENTS.md section, but user already has AGENTS.md with their own instructions.
+**Problem:** Prep generates AGENTS.md section, but user already has AGENTS.md with their own instructions.
 
 **Solution:** Marker-based section management:
 ```markdown
-<!-- CODRAG:BEGIN (auto-generated, do not edit between markers) -->
-## CoDRAG Integration
+<!-- PREP:BEGIN (auto-generated, do not edit between markers) -->
+## Prep Integration
 [content]
-<!-- CODRAG:END -->
+<!-- PREP:END -->
 ```
 
-CoDRAG only touches content between markers. Everything else is preserved.
+Prep only touches content between markers. Everything else is preserved.
 
-### 4B. User has both .cursor/rules/codrag.mdc AND AGENTS.md
+### 4B. User has both .cursor/rules/prep.mdc AND AGENTS.md
 
-**Problem:** Duplicate CoDRAG instructions. AI sees the same content twice.
+**Problem:** Duplicate Prep instructions. AI sees the same content twice.
 
 **Not actually a problem:** Redundancy is cheap (~400 tokens) and beneficial. If one mechanism fails, the other catches it. The AI handles duplicate instructions gracefully -- it just reinforces the behavior.
 
-### 4C. CoDRAG index not built yet
+### 4C. Prep index not built yet
 
-**Problem:** Rules file says "call codrag FIRST" but index doesn't exist. First tool call fails.
+**Problem:** Rules file says "call prep FIRST" but index doesn't exist. First tool call fails.
 
 **Solution (from PLAN.md):** Return helpful markdown instead of error:
 ```markdown
-## CoDRAG: ProjectName (setup in progress)
+## Prep: ProjectName (setup in progress)
 
 The codebase index hasn't been built yet. To build:
-1. Open CoDRAG dashboard (http://localhost:8400)
+1. Open Prep dashboard (http://localhost:8400)
 2. Click "Rebuild Knowledge Base"
 
 For now, work with read_file and grep_search until the index is ready.
@@ -706,12 +706,12 @@ Critical: `isError: false` -- this is a successful response, not a failure.
 
 ### 4D. Multiple projects in workspace
 
-**Problem:** User has a monorepo or multiple projects. Which project does CoDRAG serve context for?
+**Problem:** User has a monorepo or multiple projects. Which project does Prep serve context for?
 
-**Solution:** CoDRAG's MCP server already has `_resolve_project_id()` logic. The rules file can include the project identifier:
+**Solution:** Prep's MCP server already has `_resolve_project_id()` logic. The rules file can include the project identifier:
 ```markdown
-CoDRAG project: MyProject (id: abc123)
-If working on a different project, specify: codrag_search(project="other_project", query="...")
+Prep project: MyProject (id: abc123)
+If working on a different project, specify: prep_search(project="other_project", query="...")
 ```
 
 ### 4E. Stale atlas in rules file
@@ -721,36 +721,36 @@ If working on a different project, specify: codrag_search(project="other_project
 **Solution:**
 1. Timestamp in rules file: `Last indexed: 2026-03-14T17:30Z`
 2. AI sees the timestamp and can assess staleness
-3. Rules file includes: "If the index seems stale, the `codrag` tool call returns fresh data."
+3. Rules file includes: "If the index seems stale, the `prep` tool call returns fresh data."
 4. Atlas is regenerated on every pipeline completion
 
 ### 4F. Tool response exceeds Claude Code's output limit
 
 **Problem:** Very large project, many hub files, response exceeds 25K tokens.
 
-**Solution:** CoDRAG already has LOD compression and budget management. The `_assemble_ambient_context()` function caps output. We should add an explicit token budget cap (~5K tokens for ambient context, ~10K for search results) that respects the lowest common denominator across hosts.
+**Solution:** Prep already has LOD compression and budget management. The `_assemble_ambient_context()` function caps output. We should add an explicit token budget cap (~5K tokens for ambient context, ~10K for search results) that respects the lowest common denominator across hosts.
 
-### 4G. Claude Code defers CoDRAG tools (Tool Search)
+### 4G. Claude Code defers Prep tools (Tool Search)
 
-**Problem:** User has 20+ MCP servers. Claude Code defers CoDRAG tools. AI doesn't know to search for them.
+**Problem:** User has 20+ MCP servers. Claude Code defers Prep tools. AI doesn't know to search for them.
 
 **Solution (layered):**
-1. `CLAUDE.md` says "Call `codrag` FIRST" -- always in context regardless of tool deferral
+1. `CLAUDE.md` says "Call `prep` FIRST" -- always in context regardless of tool deferral
 2. MCP `instructions` field includes category hints for Tool Search
 3. User can set `ENABLE_TOOL_SEARCH=false` to disable deferral (if they have few servers)
-4. CoDRAG is unlikely to be deferred in practice -- most users have <10 MCP servers
+4. Prep is unlikely to be deferred in practice -- most users have <10 MCP servers
 
 ### 4H. Local LLM doesn't support tool calling
 
 **Problem:** User runs a small local model via Cline that doesn't support function calling.
 
-**Solution:** This is outside CoDRAG's control. The rules file still works (it's in the system prompt), but the AI can't call tools. The atlas in the rules file provides structural context even without tool calls. This is the "graceful degradation" path.
+**Solution:** This is outside Prep's control. The rules file still works (it's in the system prompt), but the AI can't call tools. The atlas in the rules file provides structural context even without tool calls. This is the "graceful degradation" path.
 
 ### 4I. Conflicting instructions from multiple rules files
 
-**Problem:** User has AGENTS.md saying "call codrag first" AND `.cursor/rules/codrag.mdc` saying the same. Plus their own rules saying "never call external tools."
+**Problem:** User has AGENTS.md saying "call prep first" AND `.cursor/rules/prep.mdc` saying the same. Plus their own rules saying "never call external tools."
 
-**Solution:** CoDRAG can't control user rules. Our rules should be assertive but not aggressive. Use "ALWAYS" for the initial call, but don't repeat instructions excessively. If a user explicitly disables CoDRAG in their rules, that's their choice.
+**Solution:** Prep can't control user rules. Our rules should be assertive but not aggressive. Use "ALWAYS" for the initial call, but don't repeat instructions excessively. If a user explicitly disables Prep in their rules, that's their choice.
 
 ---
 
@@ -770,8 +770,8 @@ If working on a different project, specify: codrag_search(project="other_project
 
 | # | Action | Reaches |
 |---|--------|---------|
-| 6 | Generate `.cursor/rules/codrag.mdc` | Cursor |
-| 7 | Generate `.windsurf/rules/codrag.md` | Windsurf |
+| 6 | Generate `.cursor/rules/prep.mdc` | Cursor |
+| 7 | Generate `.windsurf/rules/prep.md` | Windsurf |
 | 8 | Append section to `CLAUDE.md` | Claude Code |
 | 9 | Marker-based section management (don't overwrite user content) | All file-based |
 
@@ -781,7 +781,7 @@ If working on a different project, specify: codrag_search(project="other_project
 |---|--------|---------|
 | 10 | Generate `.github/copilot-instructions.md` | Copilot |
 | 11 | Generate `.clinerules` section | Cline |
-| 12 | Generate `.roo/rules/codrag.md` with mode hints | Roo Code |
+| 12 | Generate `.roo/rules/prep.md` with mode hints | Roo Code |
 
 ### Phase 4: Polish (~2h)
 
@@ -803,9 +803,9 @@ If working on a different project, specify: codrag_search(project="other_project
 | Rules file injected on every prompt | `.mdc` | `.windsurf/rules/` | `CLAUDE.md` | `AGENTS.md` | `.github/` | `.clinerules` |
 | AGENTS.md read correctly | ? | YES | YES | YES | YES | ? |
 | MCP `instructions` appended to system prompt | ? | ? | likely | **YES** | ? | ? |
-| `codrag` called on first prompt | test | test | test | test | test | test |
-| Auto-approve works | per-server | per-server | `mcp__codrag` | `trust:true` | ? | per-tool |
-| Parallel `codrag` + `codrag_search` | test | test | test | test | ? | test |
+| `prep` called on first prompt | test | test | test | test | test | test |
+| Auto-approve works | per-server | per-server | `mcp__prep` | `trust:true` | ? | per-tool |
+| Parallel `prep` + `prep_search` | test | test | test | test | ? | test |
 | Markdown response renders correctly | test | test | test | test | test | test |
 | `clientInfo.name` value | capture | capture | capture | capture | capture | capture |
 | Tool Search deferral behavior | N/A | N/A | test | N/A | N/A | N/A |
@@ -826,39 +826,39 @@ Before implementation, these items MUST be validated hands-on. Organized by prio
 | T3 | MCP `instructions` field behavior | Cursor | Same test | Unknown -- may be ignored |
 | T4 | MCP `instructions` field behavior | Windsurf | Same test | Unknown -- may be ignored |
 | T5 | MCP `instructions` field behavior | Claude Code | Same test | Likely appended (full MCP spec) |
-| T6 | AGENTS.md with markers doesn't break tool reading | ALL | Create AGENTS.md with CODRAG:BEGIN/END markers, verify tools parse it | Clean load, no errors |
+| T6 | AGENTS.md with markers doesn't break tool reading | ALL | Create AGENTS.md with PREP:BEGIN/END markers, verify tools parse it | Clean load, no errors |
 
 ### Priority 2: Important (validate before Phase 2)
 
 | # | Test | Tool | Method | Expected |
 |---|------|------|--------|----------|
-| T7 | `.cursor/rules/codrag.mdc` with `alwaysApply: true` injected every prompt | Cursor | Create file, ask AI "what rules do you see?" | Content visible in system prompt |
-| T8 | `.windsurf/rules/codrag.md` with `trigger: always_on` injected | Windsurf | Same | Content visible every message |
-| T9 | CLAUDE.md section append doesn't break existing content | Claude Code | Create CLAUDE.md with user content + CoDRAG markers | Both sections present |
-| T10 | `mcp__codrag` permission auto-approves all tools | Claude Code | Set permission, call tools | No confirmation prompts |
-| T11 | Cursor MCP auto-run per server | Cursor | Enable for codrag, call tool | No confirmation |
+| T7 | `.cursor/rules/prep.mdc` with `alwaysApply: true` injected every prompt | Cursor | Create file, ask AI "what rules do you see?" | Content visible in system prompt |
+| T8 | `.windsurf/rules/prep.md` with `trigger: always_on` injected | Windsurf | Same | Content visible every message |
+| T9 | CLAUDE.md section append doesn't break existing content | Claude Code | Create CLAUDE.md with user content + Prep markers | Both sections present |
+| T10 | `mcp__prep` permission auto-approves all tools | Claude Code | Set permission, call tools | No confirmation prompts |
+| T11 | Cursor MCP auto-run per server | Cursor | Enable for prep, call tool | No confirmation |
 | T12 | Copilot sandboxing auto-approve | Copilot (macOS) | Config with `sandboxEnabled: true` | Auto-approved calls |
 
 ### Priority 3: Nice-to-have (validate before Phase 3)
 
 | # | Test | Tool | Method | Expected |
 |---|------|------|--------|----------|
-| T13 | `.clinerules` keyword triggers work | Cline | Add keyword content, test with structural query | CoDRAG tools called |
-| T14 | `.roo/rules-architect/codrag.md` loads in Architect mode | Roo Code | Create mode-specific file, switch to Architect | Content visible |
+| T13 | `.clinerules` keyword triggers work | Cline | Add keyword content, test with structural query | Prep tools called |
+| T14 | `.roo/rules-architect/prep.md` loads in Architect mode | Roo Code | Create mode-specific file, switch to Architect | Content visible |
 | T15 | Roo Code AGENTS.md loading order | Roo Code | Both AGENTS.md and .roo/rules/ present | Correct injection order |
-| T16 | Claude Code MCP Tool Search deferral | Claude Code | Configure 15+ MCP servers, check if codrag is deferred | Verify CLAUDE.md mitigates |
-| T17 | MCP Resources discoverable | Gemini CLI | Implement codrag://atlas, check `@codrag://atlas` | Resource content returned |
-| T18 | MCP Prompts as slash commands | Gemini CLI | Implement /codrag-overview, test in Gemini CLI | Slash command works |
-| T19 | Local LLM tool calling via Cline | Cline + Ollama | Connect Llama 3.3 70B, test codrag tool call | Tool selected and called |
+| T16 | Claude Code MCP Tool Search deferral | Claude Code | Configure 15+ MCP servers, check if prep is deferred | Verify CLAUDE.md mitigates |
+| T17 | MCP Resources discoverable | Gemini CLI | Implement prep://atlas, check `@prep://atlas` | Resource content returned |
+| T18 | MCP Prompts as slash commands | Gemini CLI | Implement /prep-overview, test in Gemini CLI | Slash command works |
+| T19 | Local LLM tool calling via Cline | Cline + Ollama | Connect Llama 3.3 70B, test prep tool call | Tool selected and called |
 | T20 | Copilot Windows (no sandbox) manual approve | Copilot (Windows) | Test without sandbox | Confirmation dialog works |
 
 ### Test Environment Setup
 
 ```bash
 # Add logging to MCP server for T1
-# In src/codrag/mcp/server.py, log clientInfo from initialize request
+# In src/prep/mcp/server.py, log clientInfo from initialize request
 import logging
-logger = logging.getLogger("codrag.mcp")
+logger = logging.getLogger("prep.mcp")
 # In initialize handler:
 # logger.info(f"Client: {request.client_info}")
 ```
@@ -884,17 +884,17 @@ logger = logging.getLogger("codrag.mcp")
 | # | Correction | Impact |
 |---|-----------|--------|
 | 1 | Windsurf rules are `.windsurf/rules/*.md` not `.windsurfrules` | Rules generation target changed |
-| 2 | Windsurf 100-tool limit | CoDRAG's 5 tools safe; users near limit need awareness |
+| 2 | Windsurf 100-tool limit | Prep's 5 tools safe; users near limit need awareness |
 | 3 | Windsurf Cascade Hooks (pre/post MCP tool use) | Future analytics opportunity |
 | 4 | Cursor YOLO mode does NOT auto-approve MCP | Setup docs must be explicit |
 | 5 | Claude Code MCP Tool Search defers tools | CLAUDE.md + instructions field mitigate |
-| 6 | Claude Code 25K token MCP output limit | CoDRAG responses are safe (250-3K) |
-| 7 | Claude Code `mcp__codrag` permission syntax | Single rule auto-approves all tools |
+| 6 | Claude Code 25K token MCP output limit | Prep responses are safe (250-3K) |
+| 7 | Claude Code `mcp__prep` permission syntax | Single rule auto-approves all tools |
 | 8 | Copilot config uses `servers` key, NOT `mcpServers` | Copy-paste trap for users |
 | 9 | Copilot sandboxing = auto-approve (macOS/Linux only) | Best auto-approve path for Copilot |
 | 10 | Cline keyword-based MCP activation via .clinerules | Include trigger keywords in rules |
 | 11 | Roo Code system prompt injection order documented | AGENTS.md before general rules |
-| 12 | Roo Code mode-specific rules directories | Architect/Code mode CoDRAG variants |
+| 12 | Roo Code mode-specific rules directories | Architect/Code mode Prep variants |
 
 ### Top 10 Takeaways
 
@@ -910,10 +910,10 @@ logger = logging.getLogger("codrag.mcp")
 
 6. **Copilot config key trap.** `.vscode/mcp.json` uses `servers` key, not `mcpServers`. Users copying from other tools' docs will fail silently.
 
-7. **Copilot sandboxing is the best auto-approve.** `sandboxEnabled: true` auto-approves safely. CoDRAG is read-only = perfect sandbox candidate. But Windows users are excluded.
+7. **Copilot sandboxing is the best auto-approve.** `sandboxEnabled: true` auto-approves safely. Prep is read-only = perfect sandbox candidate. But Windows users are excluded.
 
 8. **Local LLM users are a real segment.** Cline + Roo Code serve them. Compact atlas + simple descriptions critical. Keyword trigger phrases in `.clinerules` help weaker models.
 
-9. **Roo Code Architect Mode is a CoDRAG showcase.** Mode-specific rules (`.roo/rules-architect/codrag.md`) let us give architecture-focused guidance. This is a differentiation opportunity.
+9. **Roo Code Architect Mode is a Prep showcase.** Mode-specific rules (`.roo/rules-architect/prep.md`) let us give architecture-focused guidance. This is a differentiation opportunity.
 
 10. **Redundancy is a feature.** AGENTS.md + tool-specific file + instructions field + tool descriptions = 4 layers. Each catches tools the others miss. Cloud agents (Jules, Copilot coding agent, Devin) only get AGENTS.md, making atlas self-sufficiency critical.

@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give CoDRAG's agents (Pi, Researcher, Custodian, Staffing) awareness of each other's work and coordination primitives to avoid stepping on each other, exposed as MCP resources and prompts.
+**Goal:** Give Prep's agents (Pi, Researcher, Custodian, Staffing) awareness of each other's work and coordination primitives to avoid stepping on each other, exposed as MCP resources and prompts.
 
-**Architecture:** New `src/codrag/services/collaboration/` package with 5 modules behind a `CollaborationHub` facade. The hub lives in the daemon (FastAPI side) with direct SQLite access. New FastAPI routes expose collaboration data via REST. The MCP server accesses collaboration data via HTTP proxy (same pattern as all existing MCP resource handlers). Agent engines access the hub through `AgentCore.collab`.
+**Architecture:** New `src/prep/services/collaboration/` package with 5 modules behind a `CollaborationHub` facade. The hub lives in the daemon (FastAPI side) with direct SQLite access. New FastAPI routes expose collaboration data via REST. The MCP server accesses collaboration data via HTTP proxy (same pattern as all existing MCP resource handlers). Agent engines access the hub through `AgentCore.collab`.
 
-**Tech Stack:** Python 3.11, SQLite (WAL mode, shared `codrag_settings.db`), FastAPI, Pydantic, pytest (asyncio_mode="auto"), httpx (MCP server HTTP proxy).
+**Tech Stack:** Python 3.11, SQLite (WAL mode, shared `prep_settings.db`), FastAPI, Pydantic, pytest (asyncio_mode="auto"), httpx (MCP server HTTP proxy).
 
 **Spec:** `docs/superpowers/specs/2026-04-06-agent-collaboration-infrastructure-design.md`
 **Issues to fix from scrutiny:** `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/next_steps.md` (Section 2)
@@ -19,13 +19,13 @@
 
 | File | Responsibility |
 |---|---|
-| `src/codrag/services/collaboration/__init__.py` | `CollaborationHub` facade — composes all sub-stores, single init with db_path |
-| `src/codrag/services/collaboration/activity.py` | `ActivityStore` + `ActivityEntry` — append-only agent action log, time-range queries, auto-prune |
-| `src/codrag/services/collaboration/snapshots.py` | `GraphSnapshotStore` + `GraphSnapshot` + `StructuralDelta` — persist graph state, diff two snapshots (hubs + modules only, no cycles/cross-cutting per Issue 1+2) |
-| `src/codrag/services/collaboration/conflicts.py` | `ConflictStore` + `ConflictDetector` + `AgentConflict` — two detection strategies: observation-level (same file, different agents) and push-level (contradictory ActionItem categories) per Issue 8 |
-| `src/codrag/services/collaboration/claims.py` | `ClaimStore` + `SoftClaim` — soft file claims with TTL, prefix matching, lazy expiry cleanup |
-| `src/codrag/api/routers/collaboration.py` | FastAPI routes for collaboration data — activity, delta, conflicts, claims, observations-by-agent (per Issue 6: daemon owns all data) |
-| `src/codrag/mcp/collaboration_handlers.py` | MCP resource content generators + prompt handlers — calls daemon via `server._api_get()` (per Issue 6) |
+| `src/prep/services/collaboration/__init__.py` | `CollaborationHub` facade — composes all sub-stores, single init with db_path |
+| `src/prep/services/collaboration/activity.py` | `ActivityStore` + `ActivityEntry` — append-only agent action log, time-range queries, auto-prune |
+| `src/prep/services/collaboration/snapshots.py` | `GraphSnapshotStore` + `GraphSnapshot` + `StructuralDelta` — persist graph state, diff two snapshots (hubs + modules only, no cycles/cross-cutting per Issue 1+2) |
+| `src/prep/services/collaboration/conflicts.py` | `ConflictStore` + `ConflictDetector` + `AgentConflict` — two detection strategies: observation-level (same file, different agents) and push-level (contradictory ActionItem categories) per Issue 8 |
+| `src/prep/services/collaboration/claims.py` | `ClaimStore` + `SoftClaim` — soft file claims with TTL, prefix matching, lazy expiry cleanup |
+| `src/prep/api/routers/collaboration.py` | FastAPI routes for collaboration data — activity, delta, conflicts, claims, observations-by-agent (per Issue 6: daemon owns all data) |
+| `src/prep/mcp/collaboration_handlers.py` | MCP resource content generators + prompt handlers — calls daemon via `server._api_get()` (per Issue 6) |
 | `tests/test_activity_store.py` | Unit tests for ActivityStore |
 | `tests/test_graph_snapshots.py` | Unit tests for GraphSnapshotStore + delta computation |
 | `tests/test_conflict_store.py` | Unit tests for ConflictStore + ConflictDetector |
@@ -40,17 +40,17 @@
 
 | File | Changes |
 |---|---|
-| `src/codrag/services/observation_store.py` | Add `created_by` + `visibility` columns, extend `save()`, add `get_by_agent()`, schema migration |
-| `src/codrag/agents/shared/codrag_data.py:237-259` | Add `created_by` + `visibility` params to `save_observation()` (Issue 9) |
-| `src/codrag/agents/core.py:38-44,97-114` | Add `collab_hub` param to `__init__`, add `created_by` to `save_observation()` |
-| `src/codrag/services/pi_agent.py:60-68,1118-1145` | Add `collab_hub` param to `__init__`+`init_pi_agent()` (Issue 3), add `scenario` to `_save_observation()`, add activity logging |
-| `src/codrag/agents/researcher/engine.py:38-54` | Pass `created_by="researcher"` via `self._core`, add activity logging, add claim creation |
-| `src/codrag/agents/custodian/engine.py:28-47` | Pass `created_by="custodian"` via `self._core`, add activity logging, add claim checking |
-| `src/codrag/adapters/push_engine.py:35-51,280-295` | Add `conflict_detector`+`conflict_store` params (Issue 4), add detection in `push()` |
-| `src/codrag/adapters/pm_models.py:84-96` | Add `conflicts` field to `PushResult` |
-| `src/codrag/mcp_tools.py:698-736` | Add `created_by` to `codrag_save_observation` schema |
-| `src/codrag/mcp/server.py:2092-2184,2360-2400` | 4 thin integration points: extend resource list, delegate resource read, extend prompt list, delegate prompt get |
-| `src/codrag/server.py:549-590` | Import + register collaboration router, init CollaborationHub |
+| `src/prep/services/observation_store.py` | Add `created_by` + `visibility` columns, extend `save()`, add `get_by_agent()`, schema migration |
+| `src/prep/agents/shared/prep_data.py:237-259` | Add `created_by` + `visibility` params to `save_observation()` (Issue 9) |
+| `src/prep/agents/core.py:38-44,97-114` | Add `collab_hub` param to `__init__`, add `created_by` to `save_observation()` |
+| `src/prep/services/pi_agent.py:60-68,1118-1145` | Add `collab_hub` param to `__init__`+`init_pi_agent()` (Issue 3), add `scenario` to `_save_observation()`, add activity logging |
+| `src/prep/agents/researcher/engine.py:38-54` | Pass `created_by="researcher"` via `self._core`, add activity logging, add claim creation |
+| `src/prep/agents/custodian/engine.py:28-47` | Pass `created_by="custodian"` via `self._core`, add activity logging, add claim checking |
+| `src/prep/adapters/push_engine.py:35-51,280-295` | Add `conflict_detector`+`conflict_store` params (Issue 4), add detection in `push()` |
+| `src/prep/adapters/pm_models.py:84-96` | Add `conflicts` field to `PushResult` |
+| `src/prep/mcp_tools.py:698-736` | Add `created_by` to `prep_save_observation` schema |
+| `src/prep/mcp/server.py:2092-2184,2360-2400` | 4 thin integration points: extend resource list, delegate resource read, extend prompt list, delegate prompt get |
+| `src/prep/server.py:549-590` | Import + register collaboration router, init CollaborationHub |
 
 ---
 
@@ -59,7 +59,7 @@
 ### Task 1: Observation Store — Add `created_by` + `visibility` Columns
 
 **Files:**
-- Modify: `src/codrag/services/observation_store.py`
+- Modify: `src/prep/services/observation_store.py`
 - Test: `tests/test_observation_attribution.py`
 
 - [ ] **Step 1: Write the failing test for `save()` with `created_by`**
@@ -73,7 +73,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.observation_store import ObservationStore
+from prep.services.observation_store import ObservationStore
 
 
 @pytest.fixture
@@ -124,7 +124,7 @@ Expected: FAIL — `save()` doesn't accept `created_by` or `visibility` params, 
 
 - [ ] **Step 3: Add columns to Observation dataclass and schema**
 
-In `src/codrag/services/observation_store.py`, add to the `Observation` dataclass (after `stale_reason` field, around line 65):
+In `src/prep/services/observation_store.py`, add to the `Observation` dataclass (after `stale_reason` field, around line 65):
 
 ```python
     created_by: Optional[str] = None
@@ -208,7 +208,7 @@ Expected: All 4 tests PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/observation_store.py tests/test_observation_attribution.py
+git add src/prep/services/observation_store.py tests/test_observation_attribution.py
 git commit -m "feat(collab): add created_by + visibility columns to observation store"
 ```
 
@@ -217,7 +217,7 @@ git commit -m "feat(collab): add created_by + visibility columns to observation 
 ### Task 2: Observation Store — Add `get_by_agent()` Query Method
 
 **Files:**
-- Modify: `src/codrag/services/observation_store.py`
+- Modify: `src/prep/services/observation_store.py`
 - Test: `tests/test_observation_attribution.py`
 
 - [ ] **Step 1: Write failing tests for `get_by_agent()`**
@@ -326,23 +326,23 @@ Expected: All 9 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/observation_store.py tests/test_observation_attribution.py
+git add src/prep/services/observation_store.py tests/test_observation_attribution.py
 git commit -m "feat(collab): add get_by_agent() query method to observation store"
 ```
 
 ---
 
-### Task 3: Wire `created_by` Through CoDRAGDataAccess and AgentCore
+### Task 3: Wire `created_by` Through PrepDataAccess and AgentCore
 
 **Files:**
-- Modify: `src/codrag/agents/shared/codrag_data.py:237-259`
-- Modify: `src/codrag/agents/core.py:97-114`
+- Modify: `src/prep/agents/shared/prep_data.py:237-259`
+- Modify: `src/prep/agents/core.py:97-114`
 
 This task fixes Issue 9 — the intermediate layer that drops `created_by`.
 
-- [ ] **Step 1: Update `CoDRAGDataAccess.save_observation()`**
+- [ ] **Step 1: Update `PrepDataAccess.save_observation()`**
 
-In `src/codrag/agents/shared/codrag_data.py`, update the `save_observation` method (around line 237):
+In `src/prep/agents/shared/prep_data.py`, update the `save_observation` method (around line 237):
 
 ```python
     def save_observation(
@@ -378,7 +378,7 @@ In `src/codrag/agents/shared/codrag_data.py`, update the `save_observation` meth
 
 - [ ] **Step 2: Update `AgentCore.save_observation()`**
 
-In `src/codrag/agents/core.py`, update the `save_observation` method (around line 97):
+In `src/prep/agents/core.py`, update the `save_observation` method (around line 97):
 
 ```python
     def save_observation(
@@ -410,7 +410,7 @@ In `src/codrag/agents/core.py`, update the `save_observation` method (around lin
 
 - [ ] **Step 3: Add `collab` attribute to AgentCore**
 
-In `src/codrag/agents/core.py`, update `__init__` (around line 38):
+In `src/prep/agents/core.py`, update `__init__` (around line 38):
 
 ```python
     def __init__(
@@ -422,7 +422,7 @@ In `src/codrag/agents/core.py`, update `__init__` (around line 38):
         collab_hub: Optional[Any] = None,
     ) -> None:
         self.project_id = project_id
-        self._data = CoDRAGDataAccess(index_dir, project_root, project_id)
+        self._data = PrepDataAccess(index_dir, project_root, project_id)
         self._paperclip = PaperclipClient(pm_config) if pm_config and pm_config.enabled else None
         self._git = GitClient(project_root) if project_root else None
         self.collab = collab_hub
@@ -436,8 +436,8 @@ Expected: All existing observation tests still pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/shared/codrag_data.py src/codrag/agents/core.py
-git commit -m "feat(collab): wire created_by + visibility through CoDRAGDataAccess and AgentCore"
+git add src/prep/agents/shared/prep_data.py src/prep/agents/core.py
+git commit -m "feat(collab): wire created_by + visibility through PrepDataAccess and AgentCore"
 ```
 
 ---
@@ -445,18 +445,18 @@ git commit -m "feat(collab): wire created_by + visibility through CoDRAGDataAcce
 ### Task 4: ActivityStore
 
 **Files:**
-- Create: `src/codrag/services/collaboration/__init__.py`
-- Create: `src/codrag/services/collaboration/activity.py`
+- Create: `src/prep/services/collaboration/__init__.py`
+- Create: `src/prep/services/collaboration/activity.py`
 - Test: `tests/test_activity_store.py`
 
 - [ ] **Step 1: Create the package `__init__.py`**
 
 ```python
-# src/codrag/services/collaboration/__init__.py
+# src/prep/services/collaboration/__init__.py
 """Agent Collaboration Infrastructure — Phase 73.5.
 
 Provides cross-agent awareness, coordination, and conflict detection.
-All stores share the codrag_settings.db SQLite database.
+All stores share the prep_settings.db SQLite database.
 """
 from __future__ import annotations
 
@@ -472,7 +472,7 @@ class CollaborationHub:
     """
 
     def __init__(self, db_path: Path) -> None:
-        from codrag.services.collaboration.activity import ActivityStore
+        from prep.services.collaboration.activity import ActivityStore
 
         self.activity = ActivityStore(db_path)
 ```
@@ -486,7 +486,7 @@ import time
 
 import pytest
 
-from codrag.services.collaboration.activity import ActivityStore, ActivityEntry
+from prep.services.collaboration.activity import ActivityStore, ActivityEntry
 
 
 @pytest.fixture
@@ -572,12 +572,12 @@ def test_prune_removes_old_entries(store):
 - [ ] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_activity_store.py -v`
-Expected: FAIL — module `codrag.services.collaboration.activity` does not exist.
+Expected: FAIL — module `prep.services.collaboration.activity` does not exist.
 
 - [ ] **Step 4: Implement ActivityStore**
 
 ```python
-# src/codrag/services/collaboration/activity.py
+# src/prep/services/collaboration/activity.py
 """ActivityStore — append-only agent action log.
 
 Records what agents do and when. Queryable by time range.
@@ -757,7 +757,7 @@ Expected: All 8 tests PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/collaboration/__init__.py src/codrag/services/collaboration/activity.py tests/test_activity_store.py
+git add src/prep/services/collaboration/__init__.py src/prep/services/collaboration/activity.py tests/test_activity_store.py
 git commit -m "feat(collab): add ActivityStore — append-only agent action log"
 ```
 
@@ -766,7 +766,7 @@ git commit -m "feat(collab): add ActivityStore — append-only agent action log"
 ### Task 5: ClaimStore
 
 **Files:**
-- Create: `src/codrag/services/collaboration/claims.py`
+- Create: `src/prep/services/collaboration/claims.py`
 - Test: `tests/test_claim_store.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -778,7 +778,7 @@ import time
 
 import pytest
 
-from codrag.services.collaboration.claims import ClaimStore, SoftClaim
+from prep.services.collaboration.claims import ClaimStore, SoftClaim
 
 
 @pytest.fixture
@@ -866,7 +866,7 @@ Expected: FAIL — module does not exist.
 - [ ] **Step 3: Implement ClaimStore**
 
 ```python
-# src/codrag/services/collaboration/claims.py
+# src/prep/services/collaboration/claims.py
 """ClaimStore — soft file claims with auto-expiry.
 
 Agents declare active interest in files/directories. Other agents
@@ -889,7 +889,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class SoftClaim:
-    """An agent's declaration of active interest in a file or directory."""
+    """An agent's deprep-compresstion of active interest in a file or directory."""
 
     id: str
     project_id: str
@@ -1060,15 +1060,15 @@ class ClaimStore:
 
 - [ ] **Step 4: Update `CollaborationHub` to include ClaimStore**
 
-In `src/codrag/services/collaboration/__init__.py`, update:
+In `src/prep/services/collaboration/__init__.py`, update:
 
 ```python
 class CollaborationHub:
     """Single entry point for all collaboration infrastructure."""
 
     def __init__(self, db_path: Path) -> None:
-        from codrag.services.collaboration.activity import ActivityStore
-        from codrag.services.collaboration.claims import ClaimStore
+        from prep.services.collaboration.activity import ActivityStore
+        from prep.services.collaboration.claims import ClaimStore
 
         self.activity = ActivityStore(db_path)
         self.claims = ClaimStore(db_path)
@@ -1082,7 +1082,7 @@ Expected: All 10 tests PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/collaboration/claims.py src/codrag/services/collaboration/__init__.py tests/test_claim_store.py
+git add src/prep/services/collaboration/claims.py src/prep/services/collaboration/__init__.py tests/test_claim_store.py
 git commit -m "feat(collab): add ClaimStore — soft file claims with auto-expiry"
 ```
 
@@ -1091,7 +1091,7 @@ git commit -m "feat(collab): add ClaimStore — soft file claims with auto-expir
 ### Task 6: GraphSnapshotStore
 
 **Files:**
-- Create: `src/codrag/services/collaboration/snapshots.py`
+- Create: `src/prep/services/collaboration/snapshots.py`
 - Test: `tests/test_graph_snapshots.py`
 
 Note: Per Issues 1+2, this captures **hubs + modules only** — no cycles or cross-cutting data (no structured source exists).
@@ -1105,7 +1105,7 @@ import time
 
 import pytest
 
-from codrag.services.collaboration.snapshots import (
+from prep.services.collaboration.snapshots import (
     GraphSnapshotStore, GraphSnapshot, StructuralDelta,
 )
 
@@ -1226,7 +1226,7 @@ Expected: FAIL — module does not exist.
 - [ ] **Step 3: Implement GraphSnapshotStore**
 
 ```python
-# src/codrag/services/collaboration/snapshots.py
+# src/prep/services/collaboration/snapshots.py
 """GraphSnapshotStore — persist graph state and compute structural deltas.
 
 Captures hub files and module structure at index rebuild time.
@@ -1487,16 +1487,16 @@ class GraphSnapshotStore:
 
 - [ ] **Step 4: Update CollaborationHub**
 
-In `src/codrag/services/collaboration/__init__.py`:
+In `src/prep/services/collaboration/__init__.py`:
 
 ```python
 class CollaborationHub:
     """Single entry point for all collaboration infrastructure."""
 
     def __init__(self, db_path: Path) -> None:
-        from codrag.services.collaboration.activity import ActivityStore
-        from codrag.services.collaboration.claims import ClaimStore
-        from codrag.services.collaboration.snapshots import GraphSnapshotStore
+        from prep.services.collaboration.activity import ActivityStore
+        from prep.services.collaboration.claims import ClaimStore
+        from prep.services.collaboration.snapshots import GraphSnapshotStore
 
         self.activity = ActivityStore(db_path)
         self.claims = ClaimStore(db_path)
@@ -1511,7 +1511,7 @@ Expected: All 9 tests PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/collaboration/snapshots.py src/codrag/services/collaboration/__init__.py tests/test_graph_snapshots.py
+git add src/prep/services/collaboration/snapshots.py src/prep/services/collaboration/__init__.py tests/test_graph_snapshots.py
 git commit -m "feat(collab): add GraphSnapshotStore — persist graph state + compute structural deltas"
 ```
 
@@ -1520,7 +1520,7 @@ git commit -m "feat(collab): add GraphSnapshotStore — persist graph state + co
 ### Task 7: ConflictStore + ConflictDetector
 
 **Files:**
-- Create: `src/codrag/services/collaboration/conflicts.py`
+- Create: `src/prep/services/collaboration/conflicts.py`
 - Test: `tests/test_conflict_store.py`
 
 Per Issue 8: two detection strategies — observation-level (same file, different agents) and push-level (contradictory ActionItem categories).
@@ -1534,7 +1534,7 @@ import time
 
 import pytest
 
-from codrag.services.collaboration.conflicts import (
+from prep.services.collaboration.conflicts import (
     AgentConflict, ConflictDetector, ConflictStore,
 )
 
@@ -1594,7 +1594,7 @@ def test_get_active_excludes_resolved(store):
 # ── ConflictDetector tests ──────────────────────────────────────
 
 def test_detect_from_observations_same_file_different_agents():
-    from codrag.services.observation_store import Observation
+    from prep.services.observation_store import Observation
 
     obs_list = [
         Observation(id="o1", project_id="proj-1", content="Important pattern",
@@ -1614,7 +1614,7 @@ def test_detect_from_observations_same_file_different_agents():
 
 
 def test_detect_no_conflict_same_agent():
-    from codrag.services.observation_store import Observation
+    from prep.services.observation_store import Observation
 
     obs_list = [
         Observation(id="o1", project_id="proj-1", content="Note 1",
@@ -1629,7 +1629,7 @@ def test_detect_no_conflict_same_agent():
 
 
 def test_detect_no_conflict_no_file_path():
-    from codrag.services.observation_store import Observation
+    from prep.services.observation_store import Observation
 
     obs_list = [
         Observation(id="o1", project_id="proj-1", content="Note 1",
@@ -1651,7 +1651,7 @@ Expected: FAIL — module does not exist.
 - [ ] **Step 3: Implement ConflictStore + ConflictDetector**
 
 ```python
-# src/codrag/services/collaboration/conflicts.py
+# src/prep/services/collaboration/conflicts.py
 """ConflictStore + ConflictDetector — cross-agent disagreement detection.
 
 Two detection strategies:
@@ -1672,7 +1672,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from codrag.services.observation_store import Observation
+    from prep.services.observation_store import Observation
 
 logger = logging.getLogger(__name__)
 
@@ -1843,17 +1843,17 @@ class ConflictDetector:
 
 - [ ] **Step 4: Update CollaborationHub**
 
-In `src/codrag/services/collaboration/__init__.py`:
+In `src/prep/services/collaboration/__init__.py`:
 
 ```python
 class CollaborationHub:
     """Single entry point for all collaboration infrastructure."""
 
     def __init__(self, db_path: Path) -> None:
-        from codrag.services.collaboration.activity import ActivityStore
-        from codrag.services.collaboration.claims import ClaimStore
-        from codrag.services.collaboration.conflicts import ConflictStore
-        from codrag.services.collaboration.snapshots import GraphSnapshotStore
+        from prep.services.collaboration.activity import ActivityStore
+        from prep.services.collaboration.claims import ClaimStore
+        from prep.services.collaboration.conflicts import ConflictStore
+        from prep.services.collaboration.snapshots import GraphSnapshotStore
 
         self.activity = ActivityStore(db_path)
         self.claims = ClaimStore(db_path)
@@ -1869,7 +1869,7 @@ Expected: All 6 tests PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/collaboration/conflicts.py src/codrag/services/collaboration/__init__.py tests/test_conflict_store.py
+git add src/prep/services/collaboration/conflicts.py src/prep/services/collaboration/__init__.py tests/test_conflict_store.py
 git commit -m "feat(collab): add ConflictStore + ConflictDetector — cross-agent disagreement detection"
 ```
 
@@ -1889,7 +1889,7 @@ import time
 
 import pytest
 
-from codrag.services.collaboration import CollaborationHub
+from prep.services.collaboration import CollaborationHub
 
 
 @pytest.fixture
@@ -1962,7 +1962,7 @@ git commit -m "test(collab): add integration tests for CollaborationHub cross-st
 ### Task 9: FastAPI Collaboration Router
 
 **Files:**
-- Create: `src/codrag/api/routers/collaboration.py`
+- Create: `src/prep/api/routers/collaboration.py`
 - Test: `tests/test_collab_api.py`
 
 This is the daemon-side REST API (Issue 6 fix). The MCP server will call these endpoints.
@@ -1978,7 +1978,7 @@ from unittest.mock import MagicMock, patch
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 
-from codrag.api.routers.collaboration import router, _get_hub, _get_obs_store
+from prep.api.routers.collaboration import router, _get_hub, _get_obs_store
 
 
 @pytest.fixture
@@ -1990,8 +1990,8 @@ def app():
 
 @pytest.fixture
 def client(app, tmp_path):
-    from codrag.services.collaboration import CollaborationHub
-    from codrag.services.observation_store import ObservationStore
+    from prep.services.collaboration import CollaborationHub
+    from prep.services.observation_store import ObservationStore
 
     hub = CollaborationHub(tmp_path / "test.db")
     obs = ObservationStore()
@@ -2069,7 +2069,7 @@ Expected: FAIL — module does not exist.
 - [ ] **Step 3: Implement the router**
 
 ```python
-# src/codrag/api/routers/collaboration.py
+# src/prep/api/routers/collaboration.py
 """FastAPI routes for agent collaboration data.
 
 Exposes activity, delta, conflicts, claims, and agent-filtered observations.
@@ -2083,7 +2083,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from codrag.api.envelope import ok
+from prep.api.envelope import ok
 
 logger = logging.getLogger(__name__)
 
@@ -2092,17 +2092,17 @@ router = APIRouter(tags=["collaboration"])
 
 def _get_hub():
     """Dependency: get the CollaborationHub singleton."""
-    from codrag.services.collaboration import get_collaboration_hub
+    from prep.services.collaboration import get_collaboration_hub
     hub = get_collaboration_hub()
     if hub is None:
-        from codrag.api.envelope import ApiException
+        from prep.api.envelope import ApiException
         raise ApiException(503, "COLLAB_NOT_READY", "Collaboration hub not initialized")
     return hub
 
 
 def _get_obs_store():
     """Dependency: get the observation store singleton."""
-    from codrag.services.observation_store import observation_store
+    from prep.services.observation_store import observation_store
     return observation_store
 
 
@@ -2220,7 +2220,7 @@ async def release_claim(
 
 - [ ] **Step 4: Add hub singleton to collaboration `__init__.py`**
 
-Add to `src/codrag/services/collaboration/__init__.py`:
+Add to `src/prep/services/collaboration/__init__.py`:
 
 ```python
 # Module-level singleton (initialized by daemon startup)
@@ -2247,7 +2247,7 @@ Expected: All 6 tests PASS (may need adjusting the test fixture to match the dep
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/api/routers/collaboration.py src/codrag/services/collaboration/__init__.py tests/test_collab_api.py
+git add src/prep/api/routers/collaboration.py src/prep/services/collaboration/__init__.py tests/test_collab_api.py
 git commit -m "feat(collab): add FastAPI collaboration router — activity, delta, conflicts, claims endpoints"
 ```
 
@@ -2256,7 +2256,7 @@ git commit -m "feat(collab): add FastAPI collaboration router — activity, delt
 ### Task 10: MCP Collaboration Handlers (Resources)
 
 **Files:**
-- Create: `src/codrag/mcp/collaboration_handlers.py`
+- Create: `src/prep/mcp/collaboration_handlers.py`
 - Test: `tests/test_collab_resources.py`
 
 These handlers call the daemon HTTP API via `server._api_get()` — they do NOT access SQLite directly (Issue 6).
@@ -2268,7 +2268,7 @@ These handlers call the daemon HTTP API via `server._api_get()` — they do NOT 
 """Tests for MCP collaboration resource content generators."""
 import pytest
 
-from codrag.mcp.collaboration_handlers import (
+from prep.mcp.collaboration_handlers import (
     get_collaboration_resources,
     format_activity_resource,
     format_memory_resource,
@@ -2282,8 +2282,8 @@ def test_get_collaboration_resources_returns_5():
     resources = get_collaboration_resources("proj-1")
     assert len(resources) == 5
     uris = {r["uri"] for r in resources}
-    assert "codrag://proj-1/activity" in uris
-    assert "codrag://proj-1/conflicts" in uris
+    assert "prep://proj-1/activity" in uris
+    assert "prep://proj-1/conflicts" in uris
 
 
 def test_parse_uri_activity():
@@ -2345,7 +2345,7 @@ Expected: FAIL — module does not exist.
 - [ ] **Step 3: Implement collaboration_handlers.py**
 
 ```python
-# src/codrag/mcp/collaboration_handlers.py
+# src/prep/mcp/collaboration_handlers.py
 """MCP resource content generators + prompt handlers for collaboration.
 
 All data is fetched from the daemon HTTP API via server._api_get().
@@ -2367,31 +2367,31 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
     pid = project_id
     return [
         {
-            "uri": f"codrag://{pid}/memory/{{role}}",
+            "uri": f"prep://{pid}/memory/{{role}}",
             "name": "Agent Memory",
             "description": "An agent's own prior observations, filtered by role. Replace {role} with agent name (e.g. researcher, pi/watchdog).",
             "mimeType": "text/markdown",
         },
         {
-            "uri": f"codrag://{pid}/agents/{{role}}/findings",
+            "uri": f"prep://{pid}/agents/{{role}}/findings",
             "name": "Cross-Agent Findings",
             "description": "Another agent's recent findings. Replace {role} with agent name.",
             "mimeType": "text/markdown",
         },
         {
-            "uri": f"codrag://{pid}/activity",
+            "uri": f"prep://{pid}/activity",
             "name": "Agent Activity Feed",
             "description": "Chronological timeline of all agent actions across the team.",
             "mimeType": "text/markdown",
         },
         {
-            "uri": f"codrag://{pid}/delta",
+            "uri": f"prep://{pid}/delta",
             "name": "Structural Delta",
             "description": "What changed structurally in the codebase graph in the last 7 days.",
             "mimeType": "text/markdown",
         },
         {
-            "uri": f"codrag://{pid}/conflicts",
+            "uri": f"prep://{pid}/conflicts",
             "name": "Agent Conflicts",
             "description": "Active disagreements between agents about the same files.",
             "mimeType": "text/markdown",
@@ -2405,7 +2405,7 @@ def parse_collaboration_uri(resource_type: str) -> Optional[Tuple[str, Dict[str,
     """Parse a collaboration resource URI path into (name, params).
 
     Args:
-        resource_type: Everything after codrag://{pid}/ (e.g. "memory/researcher").
+        resource_type: Everything after prep://{pid}/ (e.g. "memory/researcher").
 
     Returns:
         (resource_name, params) or None if not a collaboration resource.
@@ -2535,7 +2535,7 @@ def get_collaboration_prompts() -> List[Dict[str, Any]]:
     """Return prompt descriptors for collaboration prompts."""
     return [
         {
-            "name": "codrag-handoff",
+            "name": "prep-handoff",
             "description": "Transfer context from one agent to another — packages prior work, findings, and structural data",
             "arguments": [
                 {"name": "from_role", "description": "Agent role handing off (e.g. 'researcher')", "required": True},
@@ -2544,14 +2544,14 @@ def get_collaboration_prompts() -> List[Dict[str, Any]]:
             ],
         },
         {
-            "name": "codrag-scope",
+            "name": "prep-scope",
             "description": "Show what an agent role owns — modules, recent changes, open findings",
             "arguments": [
                 {"name": "role", "description": "Agent role to scope (e.g. 'researcher')", "required": True},
             ],
         },
         {
-            "name": "codrag-triage",
+            "name": "prep-triage",
             "description": "Triage agent findings — cluster by root cause, flag conflicts, suggest assignments",
             "arguments": [
                 {"name": "focus", "description": "Optional area to focus triage on", "required": False},
@@ -2564,7 +2564,7 @@ def get_collaboration_prompt_messages(
     name: str, arguments: Dict[str, str],
 ) -> Optional[Dict[str, Any]]:
     """Return prompt messages for a collaboration prompt, or None if not a collab prompt."""
-    if name == "codrag-handoff":
+    if name == "prep-handoff":
         from_role = arguments.get("from_role", "previous agent")
         to_role = arguments.get("to_role", "you")
         task = arguments.get("task", "")
@@ -2577,18 +2577,18 @@ def get_collaboration_prompt_messages(
                     "type": "text",
                     "text": (
                         f"You are taking over a task from the {from_role} agent.{task_line}\n"
-                        f"1. Review what {from_role} found — check @codrag://memory/{from_role} "
-                        f"for their observations and @codrag://agents/{from_role}/findings for findings.\n"
-                        f"2. Check @codrag://activity for recent agent actions to understand the timeline.\n"
-                        f"3. Check @codrag://conflicts for any disagreements that need resolution.\n"
-                        f"4. Call `codrag_search` to deepen your understanding of the relevant code areas.\n"
+                        f"1. Review what {from_role} found — check @prep://memory/{from_role} "
+                        f"for their observations and @prep://agents/{from_role}/findings for findings.\n"
+                        f"2. Check @prep://activity for recent agent actions to understand the timeline.\n"
+                        f"3. Check @prep://conflicts for any disagreements that need resolution.\n"
+                        f"4. Call `prep_search` to deepen your understanding of the relevant code areas.\n"
                         f"5. Continue the work: summarize what you're picking up and your next steps."
                     ),
                 },
             }],
         }
 
-    elif name == "codrag-scope":
+    elif name == "prep-scope":
         role = arguments.get("role", "agent")
         return {
             "description": f"Scope overview for {role}",
@@ -2598,17 +2598,17 @@ def get_collaboration_prompt_messages(
                     "type": "text",
                     "text": (
                         f"Show me what the {role} agent owns and what's happening in their domain.\n\n"
-                        f"1. Call `codrag` for the structural overview, focusing on modules relevant to {role}.\n"
-                        f"2. Check @codrag://memory/{role} for the agent's recent observations.\n"
-                        f"3. Check @codrag://delta for structural changes that affect {role}'s scope.\n"
-                        f"4. Check @codrag://conflicts for any disputes involving {role}.\n"
+                        f"1. Call `prep` for the structural overview, focusing on modules relevant to {role}.\n"
+                        f"2. Check @prep://memory/{role} for the agent's recent observations.\n"
+                        f"3. Check @prep://delta for structural changes that affect {role}'s scope.\n"
+                        f"4. Check @prep://conflicts for any disputes involving {role}.\n"
                         f"5. Summarize: what modules does {role} own, what changed recently, what needs attention."
                     ),
                 },
             }],
         }
 
-    elif name == "codrag-triage":
+    elif name == "prep-triage":
         focus = arguments.get("focus", "")
         focus_text = f" Focus on: {focus}." if focus else ""
         return {
@@ -2619,9 +2619,9 @@ def get_collaboration_prompt_messages(
                     "type": "text",
                     "text": (
                         f"Triage the current agent findings and route them to the right agents.{focus_text}\n\n"
-                        "1. Call `codrag_audit` to get current findings.\n"
-                        "2. Check @codrag://activity for what agents have already worked on.\n"
-                        "3. Check @codrag://conflicts for unresolved disagreements.\n"
+                        "1. Call `prep_audit` to get current findings.\n"
+                        "2. Check @prep://activity for what agents have already worked on.\n"
+                        "3. Check @prep://conflicts for unresolved disagreements.\n"
                         "4. Cluster findings by root cause — group related issues that share affected files.\n"
                         "5. For each cluster: recommend which agent role should handle it, "
                         "flag any conflicts, and note if multiple agents independently flagged the same area."
@@ -2641,7 +2641,7 @@ Expected: All 10 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/mcp/collaboration_handlers.py tests/test_collab_resources.py
+git add src/prep/mcp/collaboration_handlers.py tests/test_collab_resources.py
 git commit -m "feat(collab): add MCP collaboration handlers — resource formatters + prompt templates"
 ```
 
@@ -2650,7 +2650,7 @@ git commit -m "feat(collab): add MCP collaboration handlers — resource formatt
 ### Task 11: Wire MCP Server to Collaboration Handlers
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py:2092-2184,2360-2400`
+- Modify: `src/prep/mcp/server.py:2092-2184,2360-2400`
 
 4 thin integration points — no new logic in server.py.
 
@@ -2671,7 +2671,7 @@ At the top of `handle_resources_list` (around line 2092), after the existing res
         ]
 
         # Phase 73.5: Collaboration resources
-        from codrag.mcp.collaboration_handlers import get_collaboration_resources
+        from prep.mcp.collaboration_handlers import get_collaboration_resources
         resources.extend(get_collaboration_resources(project_id))
 
         return {"resources": resources}
@@ -2683,7 +2683,7 @@ In `handle_resources_read` (around line 2159), before the existing if/elif chain
 
 ```python
         # Phase 73.5: Try collaboration resources first
-        from codrag.mcp.collaboration_handlers import parse_collaboration_uri
+        from prep.mcp.collaboration_handlers import parse_collaboration_uri
         collab_parsed = parse_collaboration_uri(resource_type)
         if collab_parsed is not None:
             content = await self._read_collaboration_resource(
@@ -2704,7 +2704,7 @@ Add the helper method to MCPServer:
         self, project_id: str, resource_name: str, params: Dict[str, str],
     ) -> str:
         """Fetch collaboration resource data from daemon and format as markdown."""
-        from codrag.mcp.collaboration_handlers import (
+        from prep.mcp.collaboration_handlers import (
             format_activity_resource,
             format_memory_resource,
             format_delta_resource,
@@ -2754,7 +2754,7 @@ In `_PROMPTS` class variable, after the existing prompts:
     # At module level or in __init__, merge collaboration prompts
     # In handle_prompts_list:
     async def handle_prompts_list(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        from codrag.mcp.collaboration_handlers import get_collaboration_prompts
+        from prep.mcp.collaboration_handlers import get_collaboration_prompts
         return {"prompts": self._PROMPTS + get_collaboration_prompts()}
 ```
 
@@ -2766,13 +2766,13 @@ In `handle_prompts_get`, add at the top before existing branches:
         arguments = params.get("arguments", {})
 
         # Phase 73.5: Try collaboration prompts first
-        from codrag.mcp.collaboration_handlers import get_collaboration_prompt_messages
+        from prep.mcp.collaboration_handlers import get_collaboration_prompt_messages
         collab_result = get_collaboration_prompt_messages(name, arguments)
         if collab_result is not None:
             return collab_result
 
         # Existing prompt handling below...
-        if name == "codrag-onboard":
+        if name == "prep-onboard":
 ```
 
 - [ ] **Step 4: Run existing MCP tests to check for regressions**
@@ -2783,7 +2783,7 @@ Expected: All existing tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py
+git add src/prep/mcp/server.py
 git commit -m "feat(collab): wire MCP server to collaboration handlers — resources + prompts"
 ```
 
@@ -2792,15 +2792,15 @@ git commit -m "feat(collab): wire MCP server to collaboration handlers — resou
 ### Task 12: Register Collaboration Router in Daemon + Add `created_by` to MCP Tool Schema
 
 **Files:**
-- Modify: `src/codrag/server.py:549-590`
-- Modify: `src/codrag/mcp_tools.py:698-736`
+- Modify: `src/prep/server.py:549-590`
+- Modify: `src/prep/mcp_tools.py:698-736`
 
 - [ ] **Step 1: Register router in daemon**
 
-In `src/codrag/server.py`, after the existing router imports (around line 568):
+In `src/prep/server.py`, after the existing router imports (around line 568):
 
 ```python
-from codrag.api.routers.collaboration import router as collaboration_router
+from prep.api.routers.collaboration import router as collaboration_router
 ```
 
 After the existing `app.include_router` calls (around line 590):
@@ -2814,9 +2814,9 @@ In the `lifespan` function (around line 38), after existing initialization, add 
 ```python
     # Phase 73.5: Initialize collaboration hub
     try:
-        from codrag.services.collaboration import init_collaboration
-        from codrag.services.settings_store import settings
-        db_path = settings.db_path if hasattr(settings, 'db_path') else Path("codrag_data/codrag_settings.db")
+        from prep.services.collaboration import init_collaboration
+        from prep.services.settings_store import settings
+        db_path = settings.db_path if hasattr(settings, 'db_path') else Path("prep_data/prep_settings.db")
         init_collaboration(db_path)
         logger.info("Collaboration hub initialized")
     except Exception:
@@ -2825,7 +2825,7 @@ In the `lifespan` function (around line 38), after existing initialization, add 
 
 - [ ] **Step 2: Add `created_by` to MCP tool schema**
 
-In `src/codrag/mcp_tools.py`, in the `codrag_save_observation` tool's `inputSchema.properties` (around line 720), add:
+In `src/prep/mcp_tools.py`, in the `prep_save_observation` tool's `inputSchema.properties` (around line 720), add:
 
 ```python
                 "created_by": {
@@ -2836,7 +2836,7 @@ In `src/codrag/mcp_tools.py`, in the `codrag_save_observation` tool's `inputSche
 
 - [ ] **Step 3: Pass `created_by` through in tool handler**
 
-In `src/codrag/mcp/server.py`, find `tool_save_observation` (around line 1328) and add the parameter:
+In `src/prep/mcp/server.py`, find `tool_save_observation` (around line 1328) and add the parameter:
 
 ```python
     async def tool_save_observation(
@@ -2862,7 +2862,7 @@ Then pass it through to the API call (find the existing POST to `/observations`)
             body["created_by"] = created_by
 ```
 
-Also update `SaveObservationRequest` in `src/codrag/api/routers/observations.py` to accept `created_by`:
+Also update `SaveObservationRequest` in `src/prep/api/routers/observations.py` to accept `created_by`:
 
 ```python
 class SaveObservationRequest(BaseModel):
@@ -2894,7 +2894,7 @@ Expected: All tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/server.py src/codrag/mcp_tools.py src/codrag/mcp/server.py src/codrag/api/routers/observations.py
+git add src/prep/server.py src/prep/mcp_tools.py src/prep/mcp/server.py src/prep/api/routers/observations.py
 git commit -m "feat(collab): register collaboration router in daemon + add created_by to MCP tool schema"
 ```
 
@@ -2905,7 +2905,7 @@ git commit -m "feat(collab): register collaboration router in daemon + add creat
 ### Task 13: Wire Pi Agent — Attribution + Activity + Snapshots
 
 **Files:**
-- Modify: `src/codrag/services/pi_agent.py:60-68,1118-1145`
+- Modify: `src/prep/services/pi_agent.py:60-68,1118-1145`
 
 - [ ] **Step 1: Add `collab_hub` to PiAgent init**
 
@@ -2953,7 +2953,7 @@ Update `_save_observation` (around line 1118):
         scenario: Optional[str] = None,
     ) -> None:
         try:
-            from codrag.services.observation_store import observation_store
+            from prep.services.observation_store import observation_store
             if query_tag:
                 tagged = f"[{query_tag}] {content}"
             else:
@@ -3012,7 +3012,7 @@ Expected: All existing tests PASS (new params are optional, backward compatible)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/pi_agent.py
+git add src/prep/services/pi_agent.py
 git commit -m "feat(collab): wire Pi agent — observation attribution + activity logging"
 ```
 
@@ -3021,14 +3021,14 @@ git commit -m "feat(collab): wire Pi agent — observation attribution + activit
 ### Task 14: Wire Researcher + Custodian — Attribution + Claims
 
 **Files:**
-- Modify: `src/codrag/agents/researcher/engine.py`
-- Modify: `src/codrag/agents/custodian/engine.py`
+- Modify: `src/prep/agents/researcher/engine.py`
+- Modify: `src/prep/agents/custodian/engine.py`
 
 Per Issue 5: engines access hub through `self._core.collab`, not a separate reference.
 
 - [ ] **Step 1: Update ResearcherEngine to use attribution + claims**
 
-In `src/codrag/agents/researcher/engine.py`, find `research_topic` method. At the start, add claim creation:
+In `src/prep/agents/researcher/engine.py`, find `research_topic` method. At the start, add claim creation:
 
 ```python
     def research_topic(self, topic, llm_fn, ...):
@@ -3060,7 +3060,7 @@ Where the researcher saves observations (if it does via AgentCore), pass `create
 
 - [ ] **Step 2: Update CustodianEngine to check claims**
 
-In `src/codrag/agents/custodian/engine.py`, in the discovery/verification phase where files are checked for deletion safety, add claim checking:
+In `src/prep/agents/custodian/engine.py`, in the discovery/verification phase where files are checked for deletion safety, add claim checking:
 
 ```python
     def _is_claimable_for_deletion(self, file_path: str) -> bool:
@@ -3089,7 +3089,7 @@ Expected: All existing tests PASS (hub access is guarded with `if self._core and
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/agents/researcher/engine.py src/codrag/agents/custodian/engine.py
+git add src/prep/agents/researcher/engine.py src/prep/agents/custodian/engine.py
 git commit -m "feat(collab): wire Researcher + Custodian — attribution, claims, activity logging"
 ```
 
@@ -3098,12 +3098,12 @@ git commit -m "feat(collab): wire Researcher + Custodian — attribution, claims
 ### Task 15: Wire PushEngine — Conflict Detection
 
 **Files:**
-- Modify: `src/codrag/adapters/push_engine.py`
-- Modify: `src/codrag/adapters/pm_models.py`
+- Modify: `src/prep/adapters/push_engine.py`
+- Modify: `src/prep/adapters/pm_models.py`
 
 - [ ] **Step 1: Add `conflicts` field to PushResult**
 
-In `src/codrag/adapters/pm_models.py`, add to `PushResult` (around line 95):
+In `src/prep/adapters/pm_models.py`, add to `PushResult` (around line 95):
 
 ```python
     conflicts: List[Any] = field(default_factory=list)
@@ -3121,7 +3121,7 @@ And in `to_dict()`:
 
 - [ ] **Step 2: Add conflict detection to PushEngine**
 
-In `src/codrag/adapters/push_engine.py`, update `__init__`:
+In `src/prep/adapters/push_engine.py`, update `__init__`:
 
 ```python
     def __init__(
@@ -3143,15 +3143,15 @@ In `push()`, after consolidation but before the push loop, add:
         # Phase 73.5: Detect conflicts between agent findings
         if self._conflict_detector and self._conflict_store:
             try:
-                from codrag.services.observation_store import observation_store
+                from prep.services.observation_store import observation_store
                 obs = observation_store.get_by_agent(
-                    codrag_project_id, created_by="",  # get all attributed
+                    prep_project_id, created_by="",  # get all attributed
                     include_stale=False, limit=200,
                 )
                 # Filter to only observations with created_by set
                 attributed = [o for o in obs if o.created_by]
                 conflicts = self._conflict_detector.detect_from_observations(
-                    codrag_project_id, attributed,
+                    prep_project_id, attributed,
                 )
                 for c in conflicts:
                     self._conflict_store.save(c)
@@ -3168,7 +3168,7 @@ Expected: All existing tests PASS (new params are optional).
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/adapters/push_engine.py src/codrag/adapters/pm_models.py
+git add src/prep/adapters/push_engine.py src/prep/adapters/pm_models.py
 git commit -m "feat(collab): wire PushEngine — conflict detection on push"
 ```
 
@@ -3177,15 +3177,15 @@ git commit -m "feat(collab): wire PushEngine — conflict detection on push"
 ### Task 16: Final Integration — Pass Hub Through Init Chain
 
 **Files:**
-- Modify: `src/codrag/server.py` (daemon startup)
-- Modify: `src/codrag/api/routers/agents.py` (AgentCore construction)
+- Modify: `src/prep/server.py` (daemon startup)
+- Modify: `src/prep/api/routers/agents.py` (AgentCore construction)
 
 - [ ] **Step 1: Pass hub to Pi agent during daemon init**
 
-Find where `init_pi_agent` is called in `src/codrag/server.py` and pass the hub:
+Find where `init_pi_agent` is called in `src/prep/server.py` and pass the hub:
 
 ```python
-    from codrag.services.collaboration import get_collaboration_hub
+    from prep.services.collaboration import get_collaboration_hub
     # ... existing pi init ...
     pi = init_pi_agent(project_id, index_dir, project_root,
                        collab_hub=get_collaboration_hub())
@@ -3193,10 +3193,10 @@ Find where `init_pi_agent` is called in `src/codrag/server.py` and pass the hub:
 
 - [ ] **Step 2: Pass hub to AgentCore in API routes**
 
-In `src/codrag/api/routers/agents.py`, where `AgentCore(...)` is constructed (multiple call sites), add:
+In `src/prep/api/routers/agents.py`, where `AgentCore(...)` is constructed (multiple call sites), add:
 
 ```python
-    from codrag.services.collaboration import get_collaboration_hub
+    from prep.services.collaboration import get_collaboration_hub
     core = AgentCore(
         project_id=pid, index_dir=idx_dir, project_root=project_root,
         collab_hub=get_collaboration_hub(),
@@ -3211,7 +3211,7 @@ Expected: All tests PASS.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/server.py src/codrag/api/routers/agents.py
+git add src/prep/server.py src/prep/api/routers/agents.py
 git commit -m "feat(collab): wire CollaborationHub through daemon init chain"
 ```
 

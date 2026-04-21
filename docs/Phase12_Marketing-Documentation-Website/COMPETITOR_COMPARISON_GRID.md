@@ -1,12 +1,12 @@
-# CoDRAG Competitor Comparison Grid (Draft)
+# Prep Competitor Comparison Grid (Draft)
 
-This document is a direct feature-by-feature comparison grid for use on the marketing website and in sales materials. It compares CoDRAG against the major categories of competing tools a prospective user is likely to evaluate.
+This document is a direct feature-by-feature comparison grid for use on the marketing website and in sales materials. It compares Prep against the major categories of competing tools a prospective user is likely to evaluate.
 
 **Competitor categories** (we avoid naming specific small/indie tools to prevent free advertising — instead we group by architecture):
 
 | Column | Represents |
 |--------|-----------|
-| **CoDRAG** | Us |
+| **Prep** | Us |
 | **IDE Built-in** | Cursor, Windsurf, Claude Code — the indexing built into AI IDEs |
 | **Cloud Indexers** | Augment Code, Sourcegraph Cody — cloud-first code search + context |
 | **AST Context Engines** | Local-first tools using tree-sitter + SQLite/FTS, distributed as IDE extensions |
@@ -19,7 +19,7 @@ This document is a direct feature-by-feature comparison grid for use on the mark
 
 ### Core Retrieval
 
-| Feature | CoDRAG | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
+| Feature | Prep | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
 |---------|--------|-------------|----------------|-------------|---------------|------------|
 | Vector semantic search | ✅ ONNX local | ✅ Cloud | ✅ Cloud | ❌ FTS/TF-IDF only | ❌ | ✅ Local |
 | Full-text keyword search (FTS5) | ✅ | Partial | ✅ | ✅ | ❌ | ❌ |
@@ -29,7 +29,7 @@ This document is a direct feature-by-feature comparison grid for use on the mark
 
 ### Context Quality
 
-| Feature | CoDRAG | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
+| Feature | Prep | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
 |---------|--------|-------------|----------------|-------------|---------------|------------|
 | Multi-level structural compression (LOD) | ✅ Full→Sig→Name | ❌ | ❌ | Partial (sig+doc only) | ❌ | ❌ |
 | Language-aware doc compression | ✅ LLMLingua-2 | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -40,7 +40,7 @@ This document is a direct feature-by-feature comparison grid for use on the mark
 
 ### Session Continuity & Freshness
 
-| Feature | CoDRAG | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
+| Feature | Prep | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
 |---------|--------|-------------|----------------|-------------|---------------|------------|
 | Persistent Agent Memory (cross-session observations) | ✅ File-linked | ❌ | ❌ | Partial (basic notes) | ❌ | ❌ |
 | Automatic staleness detection on observations | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -50,7 +50,7 @@ This document is a direct feature-by-feature comparison grid for use on the mark
 
 ### Transparency & Control
 
-| Feature | CoDRAG | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
+| Feature | Prep | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
 |---------|--------|-------------|----------------|-------------|---------------|------------|
 | See relevance scores per chunk | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
 | See exactly what was sent to the LLM | ✅ | ❌ | ❌ | ❌ | ❌ | Partial |
@@ -60,7 +60,7 @@ This document is a direct feature-by-feature comparison grid for use on the mark
 
 ### Architecture & Deployment
 
-| Feature | CoDRAG | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
+| Feature | Prep | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
 |---------|--------|-------------|----------------|-------------|---------------|------------|
 | 100% local (no cloud required) | ✅ | ❌ (cloud index) | ❌ | ✅ | ✅ | ✅ |
 | Ships own embedding model (ONNX) | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
@@ -72,7 +72,7 @@ This document is a direct feature-by-feature comparison grid for use on the mark
 
 ### Language & Parser Support
 
-| Feature | CoDRAG | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
+| Feature | Prep | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
 |---------|--------|-------------|----------------|-------------|---------------|------------|
 | Languages supported | 15+ via tree-sitter | Varies | Most | 5–15 via tree-sitter | Per-LSP | Any (text) |
 | AST-level parsing | ✅ | ❌ | ✅ | ✅ | ✅ (via LSP) | ❌ |
@@ -81,7 +81,7 @@ This document is a direct feature-by-feature comparison grid for use on the mark
 
 ### Pricing & Licensing
 
-| Feature | CoDRAG | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
+| Feature | Prep | IDE Built-in | Cloud Indexers | AST Engines | LSP MCP Tools | CLI Search |
 |---------|--------|-------------|----------------|-------------|---------------|------------|
 | Free tier | ✅ (2 projects) | ✅ (limited) | ❌ or limited | ✅ (varies) | ✅ (open source) | ✅ (open source) |
 | One-time perpetual license | ✅ $79 | ❌ | ❌ | ❌ | N/A | N/A |
@@ -91,9 +91,9 @@ This document is a direct feature-by-feature comparison grid for use on the mark
 
 ---
 
-## CoDRAG's Unique Differentiators (Summary)
+## Prep's Unique Differentiators (Summary)
 
-These are capabilities where CoDRAG has **no direct equivalent** in any competitor category:
+These are capabilities where Prep has **no direct equivalent** in any competitor category:
 
 1. **Persistent Agent Memory with Staleness Detection** — File-linked observations that persist across sessions and automatically flag `[STALE]` when source files change. No other tool tracks the AI's own learned knowledge against code changes.
 

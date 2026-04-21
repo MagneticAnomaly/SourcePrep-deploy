@@ -78,7 +78,7 @@ Canonical implementation: Packages/HomeColabShared/Sources/HomeColabShared/Share
 # Quoted file paths  
 "([A-Za-z0-9_/.-]+\.(swift|py|ts|tsx|js|json|md))"
 
-# TRACE markers (CoDRAG convention)
+# TRACE markers (Prep convention)
 TRACE:\s*([a-z0-9._]+)
 
 # See/Related markers

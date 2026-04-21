@@ -11,7 +11,7 @@ My K8s repo is a mess of overlays, charts, and values files.
 Asking an LLM "where is this port defined?" usually fails because the value is passed through 3 different files.
 
 ### The Fix
-I built **CoDRAG** to trace these dependencies.
+I built **Prep** to trace these dependencies.
 It builds a graph. It finds the links.
 It runs locally.
 

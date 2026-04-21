@@ -9,7 +9,7 @@
 
 ### 1.1 Concept Development
 
-We started from the MCP Ecosystem Optimization Design (doc 12) and asked: "Are the planned MCP prompts and resources enough for our agents, or should we think of something new?" This led to the discovery that CoDRAG's agents operate in complete isolation — they share a data store but have zero awareness of each other's work. We identified a new product concept: **Agent Collaboration Infrastructure** — turning CoDRAG from a code intelligence library into the coordination substrate for multi-agent development teams.
+We started from the MCP Ecosystem Optimization Design (doc 12) and asked: "Are the planned MCP prompts and resources enough for our agents, or should we think of something new?" This led to the discovery that Prep's agents operate in complete isolation — they share a data store but have zero awareness of each other's work. We identified a new product concept: **Agent Collaboration Infrastructure** — turning Prep from a code intelligence library into the coordination substrate for multi-agent development teams.
 
 ### 1.2 Three-Layer Architecture
 
@@ -29,8 +29,8 @@ Comprehensive design document covering:
 
 - Problem statement with 5 concrete failure scenarios from existing agents
 - Town square model diagram (library → shared awareness layer)
-- Full Layer 1 design: `Observation.created_by` + `visibility` fields, per-role memory resources (`codrag://{pid}/memory/{role}`), cross-agent findings resources (`codrag://{pid}/agents/{role}/findings`), activity feed resource (`codrag://{pid}/activity`)
-- Full Layer 2 design: structural delta resource (`codrag://{pid}/delta`), conflict detection (`AgentConflict` model + `ConflictDetector`), soft claims (`SoftClaim` model + `ClaimStore`), dependency declarations on plans, shared computation cache
+- Full Layer 1 design: `Observation.created_by` + `visibility` fields, per-role memory resources (`prep://{pid}/memory/{role}`), cross-agent findings resources (`prep://{pid}/agents/{role}/findings`), activity feed resource (`prep://{pid}/activity`)
+- Full Layer 2 design: structural delta resource (`prep://{pid}/delta`), conflict detection (`AgentConflict` model + `ConflictDetector`), soft claims (`SoftClaim` model + `ClaimStore`), dependency deprep-compresstions on plans, shared computation cache
 - Full Layer 3 design (roadmapped): decision history, consensus scoring, task complexity analysis, capability attestation, adaptive role scoping
 - Complete MCP primitive mapping: 6 new resources, 4 new prompts, 0 new tools
 - Full SQL schema for 4 new tables + 2 column additions
@@ -48,7 +48,7 @@ Simpler document aimed at Paperclip users explaining:
 - What agent collaboration infrastructure is (plain language)
 - Three capabilities: agent memory, structural change detection, conflict detection
 - Table of 6 MCP resources and 4 MCP prompts agents get
-- Architecture diagram showing CoDRAG intelligence + Paperclip orchestration
+- Architecture diagram showing Prep intelligence + Paperclip orchestration
 - 5 concrete integration points (task assignment, agent startup, handoff, conflict resolution, consensus prioritization)
 - What makes observation-mediated collaboration different from message-passing
 - Getting started section with zero-config adoption path
@@ -60,14 +60,14 @@ Simpler document aimed at Paperclip users explaining:
 Detailed implementation specification covering:
 
 - Explicit scope: what's built (Layers 1+2), what's not (Layer 3), what's untouched (existing prompts from doc 14, existing resources, existing tools)
-- Package structure: `src/codrag/services/collaboration/` with 5 modules + `src/codrag/mcp/collaboration_handlers.py`
+- Package structure: `src/prep/services/collaboration/` with 5 modules + `src/prep/mcp/collaboration_handlers.py`
 - `CollaborationHub` facade design
 - Full data models with Python dataclasses and SQL DDL for every table
 - Complete API signatures for every store (ActivityStore, GraphSnapshotStore, ConflictStore + ConflictDetector, ClaimStore)
 - All 5 MCP resource content formats with example markdown output
 - All 3 MCP prompt templates with argument specs
 - Agent engine integration details for Pi, Researcher, Custodian, AgentCore, PushEngine
-- MCP tool schema change for `codrag_observe`
+- MCP tool schema change for `prep_observe`
 - Testing strategy: 5 unit test files + 3 integration test files
 - Layer 3 roadmap with effort estimates and dependency chains
 
@@ -86,9 +86,9 @@ We reverse-engineered the spec against the actual codebase and found **9 issues*
 **Problem:** The spec defines `GraphSnapshot.cycles: List[List[str]]` to capture import cycles for delta detection. However, there is no API endpoint, method, or data structure anywhere in the codebase that returns import cycles as structured data. The "124 import cycles present" text in the atlas is LLM-generated prose, not queryable data.
 
 **Files investigated:**
-- Searched for `import_cycles`, `find_cycles`, `detect_cycles` across all of `src/codrag/` — zero matches
-- `src/codrag/core/atlas/generator.py:418-434` — cross-cutting section is free-text, not structured
-- `src/codrag/core/trace/` — no cycle detection methods found
+- Searched for `import_cycles`, `find_cycles`, `detect_cycles` across all of `src/prep/` — zero matches
+- `src/prep/core/atlas/generator.py:418-434` — cross-cutting section is free-text, not structured
+- `src/prep/core/trace/` — no cycle detection methods found
 
 **Resolution options:**
 - **A (recommended): Drop cycles from snapshot for now.** Snapshot captures hubs + modules only. Cycle detection becomes a Layer 3 or separate enhancement. This is honest — we don't have the data source.
@@ -103,7 +103,7 @@ We reverse-engineered the spec against the actual codebase and found **9 issues*
 **Problem:** Same issue as #1. The spec defines `cross_cutting: Dict[str, int]` (concern name → file count), but `cross_cutting` in the atlas generator (line 434) is a free-text string assembled from hub files and shared domain tags. There's no `{concern: file_count}` map.
 
 **Files investigated:**
-- `src/codrag/core/atlas/generator.py:418-434` — `cross_parts` is a list of strings like `"Hub files: config.py (168 edges)"` and `"Shared domains: ui, dashboard, typescript"`, concatenated into prose
+- `src/prep/core/atlas/generator.py:418-434` — `cross_parts` is a list of strings like `"Hub files: config.py (168 edges)"` and `"Shared domains: ui, dashboard, typescript"`, concatenated into prose
 - No structured cross-cutting data model exists
 
 **Resolution options:**
@@ -119,9 +119,9 @@ We reverse-engineered the spec against the actual codebase and found **9 issues*
 **Problem:** The spec shows Pi calling `self._collab_hub.activity.log(...)` and `self._collab_hub.snapshots.capture(...)`. But `PiAgent.__init__` accepts only `(project_id, index_dir, project_root)`. There's no way to get the hub into Pi.
 
 **Files investigated:**
-- `src/codrag/services/pi_agent.py:60-68` — init signature
-- `src/codrag/services/pi_agent.py:1157-1170` — `init_pi_agent()` factory function
-- `src/codrag/services/pipeline/orchestrator.py:1241-1247` — where Pi is triggered
+- `src/prep/services/pi_agent.py:60-68` — init signature
+- `src/prep/services/pi_agent.py:1157-1170` — `init_pi_agent()` factory function
+- `src/prep/services/pipeline/orchestrator.py:1241-1247` — where Pi is triggered
 
 **Resolution:** Add `collab_hub: Optional[CollaborationHub] = None` to both `PiAgent.__init__` and `init_pi_agent()`. The daemon's startup code creates the hub first, then passes it when initializing Pi. All hub access in Pi is guarded with `if self._collab_hub:` for backward compatibility.
 
@@ -136,8 +136,8 @@ We reverse-engineered the spec against the actual codebase and found **9 issues*
 **Problem:** The spec says `if self._conflict_detector:` in `PushEngine.push()`, but PushEngine is initialized with `(adapter, consolidator)` only. The factory function `create_push_engine(config)` at `push_engine.py:295` creates `PushEngine(adapter, Consolidator())` — no conflict detector.
 
 **Files investigated:**
-- `src/codrag/adapters/push_engine.py:44-50` — init signature
-- `src/codrag/adapters/push_engine.py:280-295` — factory function
+- `src/prep/adapters/push_engine.py:44-50` — init signature
+- `src/prep/adapters/push_engine.py:280-295` — factory function
 
 **Resolution:** Add optional `conflict_detector: Optional[ConflictDetector] = None` and `conflict_store: Optional[ConflictStore] = None` to `PushEngine.__init__`. The factory function should accept these from its caller. When running without collaboration infrastructure (e.g., standalone CLI), these are `None` and conflict detection is skipped.
 
@@ -171,9 +171,9 @@ This is correct because engines already have `self._core: AgentCore`. Adding a s
 But the spec designs `CollaborationHub` with direct SQLite access (`db_path: Path`) and has collaboration_handlers.py calling hub methods directly. This architecture doesn't match the existing pattern.
 
 **Files investigated:**
-- `src/codrag/mcp/server.py:100-122` — MCPServer.__init__: stores `daemon_url`, creates `httpx.AsyncClient`, zero SQLite imports
-- `src/codrag/mcp/server.py:2092-2184` — handle_resources_read: calls `self._api_get()` for data
-- `src/codrag/mcp/server.py:2189-2320` — resource content generators: all use `self._api_get()` to fetch data from daemon
+- `src/prep/mcp/server.py:100-122` — MCPServer.__init__: stores `daemon_url`, creates `httpx.AsyncClient`, zero SQLite imports
+- `src/prep/mcp/server.py:2092-2184` — handle_resources_read: calls `self._api_get()` for data
+- `src/prep/mcp/server.py:2189-2320` — resource content generators: all use `self._api_get()` to fetch data from daemon
 
 **The existing architecture:**
 ```
@@ -188,7 +188,7 @@ ObservationStore, TraceIndex, CodebaseAtlas, etc. — SQLite
 
 **Resolution:** The collaboration infrastructure must follow this same pattern:
 
-1. **CollaborationHub lives in the daemon**, not the MCP server. It's instantiated during daemon startup (`src/codrag/server.py`).
+1. **CollaborationHub lives in the daemon**, not the MCP server. It's instantiated during daemon startup (`src/prep/server.py`).
 
 2. **New FastAPI routes** expose collaboration data via REST:
    ```
@@ -204,22 +204,22 @@ ObservationStore, TraceIndex, CodebaseAtlas, etc. — SQLite
 
 3. **`collaboration_handlers.py`** calls these daemon endpoints via `server._api_get()` — same as every other resource handler.
 
-4. **New file needed:** `src/codrag/api/routers/collaboration.py` — FastAPI router for the collaboration endpoints. Registered in the daemon's app.
+4. **New file needed:** `src/prep/api/routers/collaboration.py` — FastAPI router for the collaboration endpoints. Registered in the daemon's app.
 
-**Impact if not fixed:** The implementation would fail at runtime. The MCP server process doesn't have a SQLite connection to `codrag_settings.db`. This is the fundamental architecture constraint of the system.
+**Impact if not fixed:** The implementation would fail at runtime. The MCP server process doesn't have a SQLite connection to `prep_settings.db`. This is the fundamental architecture constraint of the system.
 
 ### Issue 7: Resource URI Parsing for Nested Paths
 
 **Severity:** Low
 
-**Problem:** The existing `handle_resources_read` (server.py:2147) parses URIs by splitting `codrag://{project_id}/{resource_type}` with `split("/", 1)`. This means for `codrag://pid/memory/researcher`, `resource_type` would be `"memory/researcher"` — which works fine for routing but the spec doesn't document how the role is extracted.
+**Problem:** The existing `handle_resources_read` (server.py:2147) parses URIs by splitting `prep://{project_id}/{resource_type}` with `split("/", 1)`. This means for `prep://pid/memory/researcher`, `resource_type` would be `"memory/researcher"` — which works fine for routing but the spec doesn't document how the role is extracted.
 
-For `codrag://pid/agents/researcher/findings`, `resource_type` would be `"agents/researcher/findings"` — deeper nesting.
+For `prep://pid/agents/researcher/findings`, `resource_type` would be `"agents/researcher/findings"` — deeper nesting.
 
 **Files investigated:**
-- `src/codrag/mcp/server.py:2143-2151` — URI parsing code
+- `src/prep/mcp/server.py:2143-2151` — URI parsing code
 
-**Resolution:** Document explicitly in the spec that `collaboration_handlers.py` receives the full path after `codrag://{pid}/` and does its own parsing:
+**Resolution:** Document explicitly in the spec that `collaboration_handlers.py` receives the full path after `prep://{pid}/` and does its own parsing:
 
 ```python
 def _parse_collab_uri(resource_type: str) -> Optional[Tuple[str, Dict[str, str]]]:
@@ -251,8 +251,8 @@ def _parse_collab_uri(resource_type: str) -> Optional[Tuple[str, Dict[str, str]]
 The spec conflates these two systems. `"dead_code"` is an ActionItem category, not an observation category. An observation about dead code would have `category="note"` with content mentioning dead code.
 
 **Files investigated:**
-- `src/codrag/services/observation_store.py:47` — `VALID_CATEGORIES = {"note", "decision", "bug", "pattern", "assumption"}`
-- `src/codrag/core/audit/action_item.py` — ActionItem has its own category taxonomy
+- `src/prep/services/observation_store.py:47` — `VALID_CATEGORIES = {"note", "decision", "bug", "pattern", "assumption"}`
+- `src/prep/core/audit/action_item.py` — ActionItem has its own category taxonomy
 
 **Resolution:** Conflict detection needs two separate strategies:
 
@@ -264,7 +264,7 @@ The spec should define both strategies separately and make it clear that observa
 
 **Impact if not fixed:** The `CONTRADICTORY_PAIRS` would reference categories that don't exist in the observation system, causing the detector to never fire.
 
-### Issue 9: Missing `CoDRAGDataAccess.save_observation()` Passthrough
+### Issue 9: Missing `PrepDataAccess.save_observation()` Passthrough
 
 **Severity:** High
 
@@ -272,19 +272,19 @@ The spec should define both strategies separately and make it clear that observa
 
 ```
 AgentCore.save_observation(content, file_path, category, created_by)
-  → CoDRAGDataAccess.save_observation(content, file_path, category)  ← MISSING created_by
+  → PrepDataAccess.save_observation(content, file_path, category)  ← MISSING created_by
     → ObservationStore.save(project_id, content, file_path, category)
 ```
 
-The spec updates `AgentCore` and `ObservationStore` but forgets the intermediate layer `CoDRAGDataAccess` at `agents/shared/codrag_data.py:237-259`.
+The spec updates `AgentCore` and `ObservationStore` but forgets the intermediate layer `PrepDataAccess` at `agents/shared/prep_data.py:237-259`.
 
 **Files investigated:**
-- `src/codrag/agents/shared/codrag_data.py:237-259` — `save_observation()` method
-- `src/codrag/agents/core.py:97-114` — calls `self._data.save_observation()`
+- `src/prep/agents/shared/prep_data.py:237-259` — `save_observation()` method
+- `src/prep/agents/core.py:97-114` — calls `self._data.save_observation()`
 
-**Resolution:** Add `created_by: Optional[str] = None` and `visibility: str = "shared"` to `CoDRAGDataAccess.save_observation()` and pass them through to `self._observation_store.save()`.
+**Resolution:** Add `created_by: Optional[str] = None` and `visibility: str = "shared"` to `PrepDataAccess.save_observation()` and pass them through to `self._observation_store.save()`.
 
-**Impact if not fixed:** `created_by` would be silently dropped at the CoDRAGDataAccess layer. All observations saved via AgentCore would have `created_by=NULL` despite the caller passing a value.
+**Impact if not fixed:** `created_by` would be silently dropped at the PrepDataAccess layer. All observations saved via AgentCore would have `created_by=NULL` despite the caller passing a value.
 
 ---
 
@@ -296,7 +296,7 @@ The spec updates `AgentCore` and `ObservationStore` but forgets the intermediate
 
 All 9 issues identified in section 2 were fixed during implementation:
 
-1. **Issue 6 (critical):** Resolved — `src/codrag/api/routers/collaboration.py` created with 7 FastAPI routes. MCP `collaboration_handlers.py` fetches data via `server._api_get()`. CollaborationHub initialized daemon-side in `watch.py`.
+1. **Issue 6 (critical):** Resolved — `src/prep/api/routers/collaboration.py` created with 7 FastAPI routes. MCP `collaboration_handlers.py` fetches data via `server._api_get()`. CollaborationHub initialized daemon-side in `watch.py`.
 
 2. **Issues 1+2 (medium):** Resolved — `GraphSnapshot` captures hubs + modules only. Cycles and cross-cutting dropped (no structured data source exists).
 
@@ -306,7 +306,7 @@ All 9 issues identified in section 2 were fixed during implementation:
 
 5. **Issue 8 (medium):** Resolved — Observation-level conflict detection only (same file, different agents). Push-level detection deferred to Layer 3.
 
-6. **Issue 9 (high):** Resolved — `created_by` + `visibility` passthrough added to `CoDRAGDataAccess.save_observation()`.
+6. **Issue 9 (high):** Resolved — `created_by` + `visibility` passthrough added to `PrepDataAccess.save_observation()`.
 
 7. **Issue 7 (low):** Resolved — `parse_collaboration_uri()` documents the URI parsing strategy with clear routing.
 
@@ -320,7 +320,7 @@ All four implementation phases were completed:
 
 **Phase A: Foundation** — DONE
 - Observation store schema migration, `get_by_agent()`, `get_all_attributed()`
-- `CoDRAGDataAccess` and `AgentCore` passthrough
+- `PrepDataAccess` and `AgentCore` passthrough
 - `CollaborationHub` facade + singleton
 - `ActivityStore`
 
@@ -403,7 +403,7 @@ All four implementation phases were completed:
 | Drop cycles + cross-cutting from snapshots | No structured data source exists; hubs + modules are available and sufficient |
 | MCP server delegates via HTTP, not direct DB | MCPServer is an HTTP proxy; all data access goes through daemon FastAPI routes |
 | Engines access hub via `self._core.collab` | Single path through AgentCore; no separate hub injection into engines |
-| Paperclip-first direction | CoDRAG provides structural intelligence to enrich Paperclip, not a parallel PM system |
+| Paperclip-first direction | Prep provides structural intelligence to enrich Paperclip, not a parallel PM system |
 | Remove activity + conflicts MCP resources | Paperclip has richer versions; conflicts push to Paperclip as tagged issues instead |
-| Replace triage with enrich | CoDRAG provides structural enrichment; Paperclip does the actual triage |
+| Replace triage with enrich | Prep provides structural enrichment; Paperclip does the actual triage |
 | Observation-level conflict detection only | Same file, different agents = proximity signal; push-level (semantic) deferred to Layer 3 |

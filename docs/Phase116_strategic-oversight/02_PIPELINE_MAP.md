@@ -8,7 +8,7 @@ stages are documented here because several candidate checkpoints touch them.
 
 | # | Name | Ingests | Produces | LLMs | Entry point |
 |---|---|---|---|---|---|
-| 1 | STRUCTURAL | Source files | `trace_nodes.jsonl`, `trace_edges.jsonl` | None (Rust) | `src/codrag/services/pipeline/workers.py:117` |
+| 1 | STRUCTURAL | Source files | `trace_nodes.jsonl`, `trace_edges.jsonl` | None (Rust) | `src/prep/services/pipeline/workers.py:117` |
 | 2 | INFERRED_EDGES | Nodes + snippets | `trace_inferred_edges.jsonl` | Kimi | `workers.py:121` |
 | 3 | CATALOGUE | Augmented nodes | `trace_augmented.jsonl` | Gemini Flash | `workers.py:123` |
 | 4 | VALIDATION | Edges + inferred | Status (no file) | None (Rust) | `workers.py:125` |
@@ -31,7 +31,7 @@ stages are documented here because several candidate checkpoints touch them.
 
 ## Swarm architecture (Stage 7 detail)
 
-Stage 7 is the prototypical swarm stage. `src/codrag/core/swarm_orchestrator.py:70-250`
+Stage 7 is the prototypical swarm stage. `src/prep/core/swarm_orchestrator.py:70-250`
 runs the pattern:
 
 ```
@@ -69,7 +69,7 @@ to normalize across different semantics.
 Documented in code comments and in `PHASES.md`:
 
 - **Phase 76 / 89 / 91 / 92 state-machine regressions.** State machine
-  (`src/codrag/services/pipeline/state_machine.py:25`) comments reference
+  (`src/prep/services/pipeline/state_machine.py:25`) comments reference
   lost stage advancement. Transitions are defined (RUNNING → RUNNING on
   STAGE_COMPLETED) but incrementing `current_stage_index` is not obvious
   from a cold read. Audit before layering overseer gates on top.
@@ -79,7 +79,7 @@ Documented in code comments and in `PHASES.md`:
 - **Knowledge stages produce no artifact.** Stages 5 and 10 are
   embedding-only passes with `STAGE_OUTPUT_FILE=None`. Fine functionally
   but manifest doesn't distinguish "no-output stage" from "failed stage."
-- **Hub-file information is computed but unused downstream.** `codrag_impact`
+- **Hub-file information is computed but unused downstream.** `prep_impact`
   knows blast radius; stages 6–8 do not receive it as input. A hub file
   gets the same treatment as a leaf during enrichment and clustering.
 - **Audit reports are independent.** `AuditSynthesizer` parallelizes 5

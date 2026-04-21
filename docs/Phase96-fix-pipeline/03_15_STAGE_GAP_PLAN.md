@@ -370,7 +370,7 @@ Reasoning:
 ## Phase 96E Step-by-Step
 
 ### 96E.1 — Fix pipeline/all docstring (1 line)
-`src/codrag/api/routers/pipeline.py:170`:
+`src/prep/api/routers/pipeline.py:170`:
 ```python
 # Before:
 """Run all stages: Fast Sync (1-4) then Deep Enrichment (5-8)."""
@@ -395,10 +395,10 @@ def test_finalize_sequences_all_5_stages(self, pipeline):
         return worker
 
     with patch(
-        "codrag.services.pipeline.orchestrator.WorkerFactory.create_worker",
+        "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
         side_effect=worker_factory,
     ), patch(
-        "codrag.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
+        "prep.services.pipeline.orchestrator.ResumeStrategy.should_skip_stage_freshness",
         return_value=(False, ""),
     ):
         pipeline.run_finalize("proj-finalize")

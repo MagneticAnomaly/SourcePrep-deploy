@@ -260,7 +260,7 @@ def _build_lod23(
     placeholder_text = _PLACEHOLDER.get(language, _DEFAULT_PLACEHOLDER)
 
     # Phase 73.3: Expand single-line spans before sorting/processing.
-    # Some parsers (Rust tree-sitter for Swift/JS) store only the declaration
+    # Some parsers (Rust tree-sitter for Swift/JS) store only the deprep-compresstion
     # line. We infer the full body span so LOD 2/3 can compress the body.
     expanded_symbols = []
     for sym in symbols:

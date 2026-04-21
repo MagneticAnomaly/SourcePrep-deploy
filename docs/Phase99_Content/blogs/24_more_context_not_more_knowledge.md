@@ -71,7 +71,7 @@ The window size arms race will continue. The model providers have a commercial r
 - [ ] Confirm Chroma's "semantically similar distractors compound degradation" finding. The Chroma research page should have this.
 - [ ] The threshold claim ("lower than most developers assume") is vague by design. If you want to add a specific number (e.g., Databricks found saturation at 4K–32K tokens, or Chroma found cliffs beyond ~15K words), add it in section 2 or 3 with a citation.
 
-**CoDRAG mention:** One sentence in section 3, final paragraph. Framed as "the structural-context tool I built defaults to small per-client char budgets" — which is true per `mcp/server.py:123-138`. Replace with actual budget numbers if you want to make it more specific.
+**Prep mention:** One sentence in section 3, final paragraph. Framed as "the structural-context tool I built defaults to small per-client char budgets" — which is true per `mcp/server.py:123-138`. Replace with actual budget numbers if you want to make it more specific.
 
 **What's preserved from the Direction 1 plan:** The three-paper spine, the "long context degrades reasoning even with perfect retrieval" finding as the central claim, the practical prompt discipline section.
 
@@ -81,7 +81,7 @@ The window size arms race will continue. The model providers have a commercial r
 
 **Publishing checklist:**
 - [ ] Verify all three paper citations
-- [ ] Replace CoDRAG link placeholder (there isn't one in this article — CoDRAG mention is by name only, no URL. Add one if desired.)
+- [ ] Replace Prep link placeholder (there isn't one in this article — Prep mention is by name only, no URL. Add one if desired.)
 - [ ] Decide whether to add specific token-count thresholds with citations
 - [ ] Cross-link to Article A and Article C as prior pieces in the series
 - [ ] Cross-link to Direction 1 full synthesis essay once it exists

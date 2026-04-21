@@ -3,7 +3,7 @@
 ## Overview
 Phase 67 addresses two critical system integrity problems and introduces one landmark UX feature:
 1. **Pipeline Stabilization (Phantom Loops):** Correcting a severe divergence between `compute_trace_coverage` and `TraceBuilder` where `.gitignore`-excluded files trigger infinite rebuilding loops.
-2. **Sub-Atlas Continuity:** Ensuring role-specific knowledge generation (`Sub-Atlas` / `Phase 64`) correctly resumes if the CoDRAG server crashes or is restarted.
+2. **Sub-Atlas Continuity:** Ensuring role-specific knowledge generation (`Sub-Atlas` / `Phase 64`) correctly resumes if the Prep server crashes or is restarted.
 3. **Agent Scope Auto-Population:** A one-click intelligent action that leverages semantic deep search and our highest-tier Thinking LLM to perfectly map out the necessary file scope for any Paperclip/MCP agent role.
 
 ---
@@ -11,11 +11,11 @@ Phase 67 addresses two critical system integrity problems and introduces one lan
 ## 1. Pipeline Stabilization: Phantom Files Loop
 
 ### 1.1 The Problem
-When the background system goes idle, `codrag.core.trace.watcher` fires a health check via `compute_trace_coverage()`. This function parses the filesystem using basic string globs. However, `codrag.core.trace.builder.TraceBuilder` parses the filesystem using robust `pathspec` logic on `.gitignore`. 
+When the background system goes idle, `prep.core.trace.watcher` fires a health check via `compute_trace_coverage()`. This function parses the filesystem using basic string globs. However, `prep.core.trace.builder.TraceBuilder` parses the filesystem using robust `pathspec` logic on `.gitignore`. 
 Because the coverage engine ignores `.gitignore`, it counts standard cache folders (`.venv`, `node_modules`, `build/`) as valid, "untraced" Python/JS files. It demands an immediate orchestrator rebuild. The orchestrator triggers the builder, the builder correctly ignores the files, finishes, and the cycle repeats infinitely.
 
 ### 1.2 Implementation: Synchronize `pathspec` Engine
-**File to Modify:** `src/codrag/core/trace/coverage.py`
+**File to Modify:** `src/prep/core/trace/coverage.py`
 **Method:** `compute_trace_coverage(...)`
 
 **Code Steps:**
@@ -26,7 +26,7 @@ Because the coverage engine ignores `.gitignore`, it counts standard cache folde
 3. **Short-circuit Skip:**
    Execute `gitignore_spec.match_file(rel_path)`. If it matches, immediately `continue` loop execution.
    
-*Verification:* Starting CoDRAG with `codrag-daemon` inside a NextJS or deeply-virtual-enved Python project must result in `coverage_gap.untraced = 0`. Graph Scope UI must show "All files traced."
+*Verification:* Starting Prep with `prep-daemon` inside a NextJS or deeply-virtual-enved Python project must result in `coverage_gap.untraced = 0`. Graph Scope UI must show "All files traced."
 
 ---
 
@@ -38,7 +38,7 @@ When `run_deep_enrichment` fails mid-flight, the orchestrator tries to pick up w
 However, Phase 64 introduced synchronous processing inside the Atlas Worker that generates `.prep/atlas_role_*.md` files and `atlas_segments_manifest.json`. If the pipeline halts *between* the main atlas and the segment/role atlases, the resume logic completely abandons the Sub-Atlases.
 
 ### 2.2 Implementation: Enforce Dependent Manifests
-**File to Modify:** `src/codrag/services/pipeline/orchestrator.py`
+**File to Modify:** `src/prep/services/pipeline/orchestrator.py`
 **Method:** `_detect_resume_point(...)`
 
 **Code Steps:**
@@ -55,7 +55,7 @@ However, Phase 64 introduced synchronous processing inside the Atlas Worker that
            })
            return i
    ```
-3. Update `src/codrag/services/pipeline/workers.py` inside `_atlas_worker()` to emit `pfl.log("atlas", f"Role atlases cached...")` for transparent telemetric confirmation of rebuilds.
+3. Update `src/prep/services/pipeline/workers.py` inside `_atlas_worker()` to emit `pfl.log("atlas", f"Role atlases cached...")` for transparent telemetric confirmation of rebuilds.
 
 ---
 
@@ -64,7 +64,7 @@ However, Phase 64 introduced synchronous processing inside the Atlas Worker that
 The Agent UI allows you to scope context, preventing Agent Hallucination. Manually picking hundreds of files for a "Lead Security Auditor" agent is slow. We will automate this using our multi-stage LLM context pipeline.
 
 ### 3.1 Backend API Contract
-**Target Router:** `src/codrag/api/routers/scope.py`
+**Target Router:** `src/prep/api/routers/scope.py`
 **New Endpoint:** `POST /projects/{project_id}/scope/agents/{agent_role}/auto-populate`
 
 **Workflow Steps:**
@@ -100,4 +100,4 @@ The Agent UI allows you to scope context, preventing Agent Hallucination. Manual
    * Clear the previous `includedPaths` array state (or present a modal asking "Merge or Overwrite?").
    * Inject the `recommended_paths` tightly into the component state. The `FolderTree` component natively reacts by turning the checkboxes "blue".
 4. **Persistence (Save on Vetted):** 
-   Since the graph explicitly determined these, immediately call `CodragApi.updateScope(...)` to persist the tree so the user doesn't have to manually click "Save" after an auto-populate action (unless user-override conventions prefer manual saving).
+   Since the graph explicitly determined these, immediately call `PrepApi.updateScope(...)` to persist the tree so the user doesn't have to manually click "Save" after an auto-populate action (unless user-override conventions prefer manual saving).

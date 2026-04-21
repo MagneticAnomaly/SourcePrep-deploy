@@ -1,7 +1,7 @@
 # Phase 14: UI/UX Improvements
 
 ## Overview
-This phase focuses on refining the user interface and user experience of the CoDRAG dashboard components. The primary goal is to address visual inconsistencies, improve form layouts, and ensure a polished, enterprise-ready look and feel.
+This phase focuses on refining the user interface and user experience of the Prep dashboard components. The primary goal is to address visual inconsistencies, improve form layouts, and ensure a polished, enterprise-ready look and feel.
 
 ## Goals
 - Fix spacing issues in form components (BuildCard, SearchPanel, ContextOptionsPanel).

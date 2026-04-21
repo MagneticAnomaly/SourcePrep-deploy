@@ -1,7 +1,7 @@
 # Phase 07 — Polish & Testing
  
 ## Problem statement
-CoDRAG’s value is tightly coupled to reliability. Builds must fail gracefully, indexes must not corrupt easily, and performance must remain acceptable as projects scale. This phase formalizes the stability baseline required for MVP.
+Prep’s value is tightly coupled to reliability. Builds must fail gracefully, indexes must not corrupt easily, and performance must remain acceptable as projects scale. This phase formalizes the stability baseline required for MVP.
 
 ## Goal
 Stabilize: reliability, performance, testing, and documentation completeness.
@@ -29,7 +29,7 @@ Stabilize: reliability, performance, testing, and documentation completeness.
 
 ### Reliability baseline
 
-CoDRAG should be “boringly reliable” for the core loop:
+Prep should be “boringly reliable” for the core loop:
 
 - Add project → build → search → context
 
@@ -43,7 +43,7 @@ Reliability requirements:
 
 ### Error taxonomy and user-actionable messaging
 
-CoDRAG errors must be:
+Prep errors must be:
 - consistent (stable `error.code`)
 - actionable (a clear next step)
 - non-leaky (no sensitive paths in remote mode)
@@ -68,7 +68,7 @@ CLI expectations:
 ### Build recovery behaviors
 
 Interrupted builds:
-- If CoDRAG detects partial build output on startup or build completion:
+- If Prep detects partial build output on startup or build completion:
   - mark project status as “recovery needed”
   - next build forces a full rebuild (or performs deterministic repair)
 
@@ -84,7 +84,7 @@ Disk pressure:
 
 ### Observability and troubleshooting (local-first)
 
-CoDRAG should support debugging without requiring external telemetry.
+Prep should support debugging without requiring external telemetry.
 
 Logging requirements:
 - Per-project build logs (rotated).
@@ -97,7 +97,7 @@ Logging requirements:
 
 Troubleshooting artifacts:
 - A “Copy diagnostics” button in the dashboard that copies:
-  - CoDRAG version
+  - Prep version
   - OS and Python version
   - current project id/name/mode
   - last build status + last error code

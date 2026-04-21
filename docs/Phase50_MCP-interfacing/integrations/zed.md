@@ -1,6 +1,6 @@
 # Zed Integration Research
 
-> How Zed editor consumes MCP, its native AI agent panel, and CoDRAG optimization.
+> How Zed editor consumes MCP, its native AI agent panel, and Prep optimization.
 
 **Status:** PRELIMINARY
 **Last updated:** 2026-03-14
@@ -42,10 +42,10 @@ Permissions can be set to:
 - `always_confirm` -- always ask user
 
 ### Model Compatibility
-Not all models support all MCP tools. Zed's UI shows a warning icon near the model selector when incompatibility is detected. This is relevant for CoDRAG with local models that may not handle tool-calling well.
+Not all models support all MCP tools. Zed's UI shows a warning icon near the model selector when incompatibility is detected. This is relevant for Prep with local models that may not handle tool-calling well.
 
 ### Agent Client Protocol (ACP)
-Zed also supports ACP (Agent Client Protocol) for deeper integrations. Qwen Code integrates with Zed via ACP. CoDRAG currently uses MCP only, which works with Zed's Agent Panel.
+Zed also supports ACP (Agent Client Protocol) for deeper integrations. Qwen Code integrates with Zed via ACP. Prep currently uses MCP only, which works with Zed's Agent Panel.
 
 ---
 
@@ -57,9 +57,9 @@ Zed uses `.rules` files for AI instructions. These can be:
 - Directory-level (scoped to subdirectories)
 
 ### AGENTS.md Support
-Zed reads AGENTS.md. The CoDRAG section in AGENTS.md is the primary integration path.
+Zed reads AGENTS.md. The Prep section in AGENTS.md is the primary integration path.
 
-### CoDRAG Strategy
+### Prep Strategy
 1. **Primary**: AGENTS.md section (universally read)
 2. **Optional**: `.rules` file if Zed is detected
 
@@ -68,23 +68,23 @@ Zed reads AGENTS.md. The CoDRAG section in AGENTS.md is the primary integration 
 ## 4. Unique Zed Features
 
 ### Text Threads
-Zed's "Text Threads" present conversations as raw text rather than rich UI. This means CoDRAG's markdown responses are displayed as-is, making clean formatting even more important.
+Zed's "Text Threads" present conversations as raw text rather than rich UI. This means Prep's markdown responses are displayed as-is, making clean formatting even more important.
 
 ### Performance
-Zed is built in Rust and is very fast. MCP tool call latency is more noticeable in Zed's snappy UI. CoDRAG's daemon architecture (pre-built index, fast responses) is a good fit.
+Zed is built in Rust and is very fast. MCP tool call latency is more noticeable in Zed's snappy UI. Prep's daemon architecture (pre-built index, fast responses) is a good fit.
 
 ### Multi-Model
-Zed supports switching models mid-conversation. CoDRAG's tool descriptions must work across all supported models.
+Zed supports switching models mid-conversation. Prep's tool descriptions must work across all supported models.
 
 ---
 
-## 5. CoDRAG Optimization Checklist
+## 5. Prep Optimization Checklist
 
-- [ ] Test CoDRAG MCP integration in Zed's Agent Panel
+- [ ] Test Prep MCP integration in Zed's Agent Panel
 - [ ] Verify AGENTS.md reading behavior
-- [ ] Test tool permissions: configure `always_allow` for CoDRAG tools
+- [ ] Test tool permissions: configure `always_allow` for Prep tools
 - [ ] Test with Text Threads format (verify markdown rendering)
-- [ ] Check model compatibility warnings with CoDRAG tools
+- [ ] Check model compatibility warnings with Prep tools
 
 ---
 
@@ -92,6 +92,6 @@ Zed supports switching models mid-conversation. CoDRAG's tool descriptions must 
 
 | Risk | Severity | Notes |
 |------|----------|-------|
-| Partial resource support | LOW | CoDRAG works primarily via tools. Resources are supplementary. |
-| Model compatibility warnings scare users | LOW | CoDRAG tools use simple schemas. Most models handle them. |
-| Zed's smaller market share | LOW | Growing fast. Early CoDRAG support is strategic. |
+| Partial resource support | LOW | Prep works primarily via tools. Resources are supplementary. |
+| Model compatibility warnings scare users | LOW | Prep tools use simple schemas. Most models handle them. |
+| Zed's smaller market share | LOW | Growing fast. Early Prep support is strategic. |

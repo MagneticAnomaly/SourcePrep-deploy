@@ -40,7 +40,7 @@ If you're evaluating AI coding tools — for yourself, for your team, for your o
 
 The question has a concrete answer. A tool that understands code as a graph can tell you the transitive dependents of a function, can identify the most-connected files in your codebase, can walk import chains, and can expand a search result along structural edges to include related symbols. A tool that treats code as flat text can search for strings, can embed chunks and return nearest neighbors, and cannot do any of the above without reading its way through files sequentially and hoping it reads enough.
 
-Some tools currently understand code as a graph, to varying degrees. [Aider](https://aider.chat/docs/repomap.html) builds a repo map using personalized PageRank on a symbol graph extracted from tree-sitter tags — a serious, well-designed approach. [Sourcegraph](https://sourcegraph.com/) has been doing code intelligence via structural indexing for years. I built a structural-context MCP server called [CoDRAG](https://github.com/) that uses a trace graph with import edges and impact analysis, and I've tried to be honest about how it compares to Aider's approach in a [separate comparison piece](./04_aider_repomap_vs_codrag_atlas.md). Other projects are emerging from the research community.
+Some tools currently understand code as a graph, to varying degrees. [Aider](https://aider.chat/docs/repomap.html) builds a repo map using personalized PageRank on a symbol graph extracted from tree-sitter tags — a serious, well-designed approach. [Sourcegraph](https://sourcegraph.com/) has been doing code intelligence via structural indexing for years. I built a structural-context MCP server called [Prep](https://github.com/) that uses a trace graph with import edges and impact analysis, and I've tried to be honest about how it compares to Aider's approach in a [separate comparison piece](./04_aider_repomap_vs_prep_atlas.md). Other projects are emerging from the research community.
 
 Most of the major AI coding assistants — Claude Code, Cursor, Cline, Windsurf — do not currently do graph-based retrieval natively. They read files. They read them well, and their file-reading heuristics have gotten impressively good, but they are still reading files, not traversing a graph. The difference is invisible on small codebases and becomes load-bearing on large ones, which is exactly the trajectory the research predicts.
 
@@ -50,7 +50,7 @@ The convergence is still early. The research has established the direction; the 
 
 This article is not arguing that flat-text retrieval is broken or that embedding-based search should be abandoned. Han et al.'s evaluation found real cases where flat-text retrieval held its own, particularly on simpler queries. Embedding search is fast, cheap, and good enough for many tasks. The argument is that it is *not enough* for the structural, multi-hop queries that define real engineering work on large codebases — and that the research on this point is now consistent enough across enough independent groups to be taken as a working consensus rather than a preliminary finding.
 
-The argument is also not that any specific tool has this fully solved. All current implementations — Aider's PageRank, CoDRAG's trace graph, Sourcegraph's SCIP-based indexing — are early attempts with known limitations. The point is the direction, not the destination. The direction says: treat code as a graph, and retrieval gets measurably better on the queries that actually matter.
+The argument is also not that any specific tool has this fully solved. All current implementations — Aider's PageRank, Prep's trace graph, Sourcegraph's SCIP-based indexing — are early attempts with known limitations. The point is the direction, not the destination. The direction says: treat code as a graph, and retrieval gets measurably better on the queries that actually matter.
 
 ---
 
@@ -68,7 +68,7 @@ The argument is also not that any specific tool has this fully solved. All curre
 - Aider's repo map documentation and source (`aider/repomap.py`)
 - Sourcegraph (mentioned by name)
 
-**CoDRAG mention:** One paragraph in section 4 ("What this means for your tooling choices"), framed alongside Aider and Sourcegraph as one of several serious attempts. Currently uses placeholder URL; replace before publishing. The cross-link to the Aider comparison piece (essay #04) may not resolve yet — add when that piece exists.
+**Prep mention:** One paragraph in section 4 ("What this means for your tooling choices"), framed alongside Aider and Sourcegraph as one of several serious attempts. Currently uses placeholder URL; replace before publishing. The cross-link to the Aider comparison piece (essay #04) may not resolve yet — add when that piece exists.
 
 **What is preserved from the long-form essay #11:** The central thesis (code is a graph, retrieval should reflect its shape). The independent-convergence framing. The Ferrante 1987 callback. Han et al.'s honesty about where GraphRAG loses.
 
@@ -80,7 +80,7 @@ The argument is also not that any specific tool has this fully solved. All curre
 
 **Publishing checklist:**
 - [ ] Verify all three arXiv IDs
-- [ ] Replace CoDRAG placeholder URL
+- [ ] Replace Prep placeholder URL
 - [ ] Replace essay #04 cross-link when Aider comparison piece exists
 - [ ] Confirm Ferrante et al. ACM link resolves
 - [ ] Cross-link to Articles A, C, and E as prior pieces in the series

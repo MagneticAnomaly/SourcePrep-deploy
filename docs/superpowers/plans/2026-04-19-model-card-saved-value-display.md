@@ -6,7 +6,7 @@
 
 **Architecture:** Extract the option-building logic out of the JSX into a pure module-scope helper `buildModelOptions` inside `ModelCard.tsx` so it can be unit-tested the same way other `__tests__/` files in this package are (pure vitest, no DOM). The helper injects a synthetic option for the saved `model` when `availableModels` doesn't already contain it (with `:latest`-normalized matching), and suppresses the empty-value placeholder when a model is already saved so the native `<select>` cannot silently fall back to it.
 
-**Tech Stack:** TypeScript, React, vitest (typecheck-only per existing convention), `@codrag/ui` package at `packages/ui/`.
+**Tech Stack:** TypeScript, React, vitest (typecheck-only per existing convention), `@prep/ui` package at `packages/ui/`.
 
 ---
 
@@ -148,7 +148,7 @@ Leave the failing test uncommitted. Task 2 will add the implementation and then 
 
 - [ ] **Step 1: Add the `buildModelOptions` helper at module scope**
 
-Open `packages/ui/src/components/llm/ModelCard.tsx`. Directly above the existing `export function ModelCard({ ... })` declaration (currently starting at line 59), insert the following block:
+Open `packages/ui/src/components/llm/ModelCard.tsx`. Directly above the existing `export function ModelCard({ ... })` deprep-compresstion (currently starting at line 59), insert the following block:
 
 ```tsx
 /** Normalize a model name by stripping a trailing `:latest`. */
@@ -352,7 +352,7 @@ No commit for this task — it is verification only.
 
 1. `packages/ui/src/components/llm/__tests__/ModelCard.test.tsx` exists with the six `buildModelOptions` test cases and typechecks under `tsc --noEmit`.
 2. `ModelCard.tsx` exports `buildModelOptions` and uses it inside the Model `<Select>` options prop. No inline options array remains in the component body.
-3. `npm run build` succeeds for `@codrag/ui`.
+3. `npm run build` succeeds for `@prep/ui`.
 4. Manual check: saved model renders in the dropdown even when the endpoint list is empty.
 
 ## Out of scope (do NOT do in this plan)

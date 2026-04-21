@@ -23,11 +23,11 @@
 
 | File | Action | Responsibility |
 |------|--------|----------------|
-| `src/codrag/services/pipeline/scheduler.py` | Modify | Add `SWARM_CAPABLE_STAGES`, `is_swarm_active_for_stage()`, update `concurrent_workers_for_project()`, update `status()` |
-| `src/codrag/api/routers/_llm_helpers.py` | Create | `resolve_model_for_stage()` — shared provider/model resolution |
-| `src/codrag/api/routers/queue.py` | Modify | Model-aware `is_swarm` flag |
-| `src/codrag/api/routers/llm.py` | Modify | Model-aware `is_swarm` flag, pass `stage` to scheduler, fix telemetry tasks |
-| `src/codrag/core/llm_client.py` | Modify | Add `_record_throughput()` to Azure OpenAI and Google Gemini providers |
+| `src/prep/services/pipeline/scheduler.py` | Modify | Add `SWARM_CAPABLE_STAGES`, `is_swarm_active_for_stage()`, update `concurrent_workers_for_project()`, update `status()` |
+| `src/prep/api/routers/_llm_helpers.py` | Create | `resolve_model_for_stage()` — shared provider/model resolution |
+| `src/prep/api/routers/queue.py` | Modify | Model-aware `is_swarm` flag |
+| `src/prep/api/routers/llm.py` | Modify | Model-aware `is_swarm` flag, pass `stage` to scheduler, fix telemetry tasks |
+| `src/prep/core/llm_client.py` | Modify | Add `_record_throughput()` to Azure OpenAI and Google Gemini providers |
 | `tests/test_pipeline_scheduler.py` | Modify | Tests for `is_swarm_active_for_stage()` and swarm-aware `concurrent_workers_for_project()` |
 | `tests/test_llm_helpers.py` | Create | Tests for `resolve_model_for_stage()` |
 | `tests/test_llm_client_throughput.py` | Create | Tests for Azure/Gemini throughput recording |
@@ -37,8 +37,8 @@
 ### Task 1: Shared Constant + Swarm Helper in Scheduler
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/scheduler.py:44-48` (module-level, after imports)
-- Modify: `src/codrag/services/pipeline/scheduler.py:849-863` (concurrent_workers_for_project)
+- Modify: `src/prep/services/pipeline/scheduler.py:44-48` (module-level, after imports)
+- Modify: `src/prep/services/pipeline/scheduler.py:849-863` (concurrent_workers_for_project)
 - Test: `tests/test_pipeline_scheduler.py`
 
 - [ ] **Step 1: Write failing tests for `is_swarm_active_for_stage()`**
@@ -46,7 +46,7 @@
 Add to `tests/test_pipeline_scheduler.py`:
 
 ```python
-from codrag.services.pipeline.scheduler import (
+from prep.services.pipeline.scheduler import (
     SWARM_CAPABLE_STAGES,
     is_swarm_active_for_stage,
 )
@@ -95,7 +95,7 @@ class TestIsSwarmActiveForStage:
 
     def test_swarm_disabled_setting(self, monkeypatch):
         """When swarm_enabled=False in settings, always returns False."""
-        from codrag.services import settings_store
+        from prep.services import settings_store
         original_get = settings_store.settings.get
 
         def mock_get(key, default=None):
@@ -114,7 +114,7 @@ Expected: ImportError — `SWARM_CAPABLE_STAGES` and `is_swarm_active_for_stage`
 
 - [ ] **Step 3: Implement `SWARM_CAPABLE_STAGES` and `is_swarm_active_for_stage()`**
 
-In `src/codrag/services/pipeline/scheduler.py`, add after the existing imports (around line 44, after `logger = logging.getLogger(__name__)`):
+In `src/prep/services/pipeline/scheduler.py`, add after the existing imports (around line 44, after `logger = logging.getLogger(__name__)`):
 
 ```python
 # Stages that can use swarm orchestration (coordinator → fan-out → synthesis).
@@ -131,8 +131,8 @@ def is_swarm_active_for_stage(stage: str, provider: str, model: str) -> bool:
     if stage not in SWARM_CAPABLE_STAGES:
         return False
     try:
-        from codrag.core.swarm_registry import get_swarm_tier
-        from codrag.services.settings_store import settings
+        from prep.core.swarm_registry import get_swarm_tier
+        from prep.services.settings_store import settings
         tier = get_swarm_tier(provider, model)
         return tier.can_coordinate and bool(settings.get("swarm_enabled", True))
     except Exception:
@@ -147,7 +147,7 @@ Expected: All PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/scheduler.py tests/test_pipeline_scheduler.py
+git add src/prep/services/pipeline/scheduler.py tests/test_pipeline_scheduler.py
 git commit -m "feat(scheduler): add SWARM_CAPABLE_STAGES constant and is_swarm_active_for_stage() helper
 
 Phase 82: Shared swarm decision logic for API endpoints to check
@@ -160,7 +160,7 @@ stage names."
 ### Task 2: `resolve_model_for_stage()` Shared Helper
 
 **Files:**
-- Create: `src/codrag/api/routers/_llm_helpers.py`
+- Create: `src/prep/api/routers/_llm_helpers.py`
 - Create: `tests/test_llm_helpers.py`
 
 - [ ] **Step 1: Write failing test for `resolve_model_for_stage()`**
@@ -176,19 +176,19 @@ from unittest.mock import patch, MagicMock
 class TestResolveModelForStage:
 
     def test_non_llm_stage_returns_none(self):
-        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+        from prep.api.routers._llm_helpers import resolve_model_for_stage
         assert resolve_model_for_stage("proj-1", "structural") is None
 
     def test_knowledge_stage_returns_none(self):
-        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+        from prep.api.routers._llm_helpers import resolve_model_for_stage
         assert resolve_model_for_stage("proj-1", "knowledge") is None
 
     def test_invalid_stage_returns_none(self):
-        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+        from prep.api.routers._llm_helpers import resolve_model_for_stage
         assert resolve_model_for_stage("proj-1", "bogus_stage") is None
 
     def test_resolves_large_slot_model(self):
-        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+        from prep.api.routers._llm_helpers import resolve_model_for_stage
         mock_config = {
             "large_model": {
                 "endpoint_id": "ep-1",
@@ -198,13 +198,13 @@ class TestResolveModelForStage:
                 {"id": "ep-1", "provider": "ollama"},
             ],
         }
-        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+        with patch("prep.api.routers._llm_helpers.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             result = resolve_model_for_stage("proj-1", "group_reasoning")
             assert result == ("ollama", "kimi-k2.5:cloud")
 
     def test_resolves_small_slot_model(self):
-        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+        from prep.api.routers._llm_helpers import resolve_model_for_stage
         mock_config = {
             "small_model": {
                 "endpoint_id": "ep-2",
@@ -214,33 +214,33 @@ class TestResolveModelForStage:
                 {"id": "ep-2", "provider": "openai"},
             ],
         }
-        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+        with patch("prep.api.routers._llm_helpers.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             result = resolve_model_for_stage("proj-1", "catalogue")
             assert result == ("openai", "gpt-5.1-mini")
 
     def test_missing_endpoint_id_returns_none(self):
-        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+        from prep.api.routers._llm_helpers import resolve_model_for_stage
         mock_config = {
             "large_model": {"model": "kimi-k2.5:cloud"},
             "saved_endpoints": [],
         }
-        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+        with patch("prep.api.routers._llm_helpers.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             assert resolve_model_for_stage("proj-1", "group_reasoning") is None
 
     def test_missing_model_returns_none(self):
-        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+        from prep.api.routers._llm_helpers import resolve_model_for_stage
         mock_config = {
             "large_model": {"endpoint_id": "ep-1"},
             "saved_endpoints": [{"id": "ep-1", "provider": "ollama"}],
         }
-        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+        with patch("prep.api.routers._llm_helpers.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             assert resolve_model_for_stage("proj-1", "group_reasoning") is None
 
     def test_defaults_provider_to_ollama(self):
-        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+        from prep.api.routers._llm_helpers import resolve_model_for_stage
         mock_config = {
             "large_model": {
                 "endpoint_id": "ep-1",
@@ -250,7 +250,7 @@ class TestResolveModelForStage:
                 {"id": "ep-1"},  # no provider field
             ],
         }
-        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+        with patch("prep.api.routers._llm_helpers.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             result = resolve_model_for_stage("proj-1", "group_reasoning")
             assert result == ("ollama", "kimi-k2.5:cloud")
@@ -263,7 +263,7 @@ Expected: ImportError — module doesn't exist yet.
 
 - [ ] **Step 3: Implement `resolve_model_for_stage()`**
 
-Create `src/codrag/api/routers/_llm_helpers.py`:
+Create `src/prep/api/routers/_llm_helpers.py`:
 
 ```python
 """Shared helpers for LLM-related API routers.
@@ -286,14 +286,14 @@ _settings = None
 def _get_settings():
     global _settings
     if _settings is None:
-        from codrag.services.settings_store import settings as _s
+        from prep.services.settings_store import settings as _s
         _settings = _s
     return _settings
 
 
 # Make patchable for tests
 try:
-    from codrag.services.settings_store import settings
+    from prep.services.settings_store import settings
 except ImportError:
     settings = None  # type: ignore[assignment]
 
@@ -307,7 +307,7 @@ def resolve_model_for_stage(
     Walks: stage → model_slot → llm_config["{slot}_model"] → endpoint → provider.
     Returns None if resolution fails (no config, non-LLM stage, etc).
     """
-    from codrag.services.pipeline.stages import STAGE_MODEL_SLOT, StageId
+    from prep.services.pipeline.stages import STAGE_MODEL_SLOT, StageId
 
     try:
         stage_id = StageId(stage)
@@ -346,7 +346,7 @@ Expected: All PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/api/routers/_llm_helpers.py tests/test_llm_helpers.py
+git add src/prep/api/routers/_llm_helpers.py tests/test_llm_helpers.py
 git commit -m "feat(api): add resolve_model_for_stage() helper
 
 Phase 82: Shared helper for queue.py and llm.py routers to resolve
@@ -359,7 +359,7 @@ the resolution chain."
 ### Task 3: Swarm-Aware `concurrent_workers_for_project()`
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/scheduler.py:849-863`
+- Modify: `src/prep/services/pipeline/scheduler.py:849-863`
 - Test: `tests/test_pipeline_scheduler.py`
 
 - [ ] **Step 1: Write failing test**
@@ -383,7 +383,7 @@ class TestConcurrentWorkersSwarmAware:
             "large_model": {"endpoint_id": "ep-1", "model": "kimi-k2.5:cloud"},
             "saved_endpoints": [{"id": "ep-1", "provider": "ollama"}],
         }
-        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+        with patch("prep.api.routers._llm_helpers.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             workers, node_id = sched.concurrent_workers_for_project(
                 "proj-a", stage="group_reasoning",
@@ -425,7 +425,7 @@ class TestConcurrentWorkersSwarmAware:
             "large_model": {"endpoint_id": "ep-1", "model": "llama3.3:70b"},
             "saved_endpoints": [{"id": "ep-1", "provider": "ollama"}],
         }
-        with patch("codrag.api.routers._llm_helpers.settings") as mock_settings:
+        with patch("prep.api.routers._llm_helpers.settings") as mock_settings:
             mock_settings.get.return_value = mock_config
             workers, _ = sched.concurrent_workers_for_project(
                 "proj-a", stage="group_reasoning",
@@ -441,7 +441,7 @@ Expected: FAIL — `concurrent_workers_for_project` doesn't accept `stage` param
 
 - [ ] **Step 3: Update `concurrent_workers_for_project()`**
 
-In `src/codrag/services/pipeline/scheduler.py`, replace lines 849-863:
+In `src/prep/services/pipeline/scheduler.py`, replace lines 849-863:
 
 ```python
     def concurrent_workers_for_project(
@@ -464,7 +464,7 @@ In `src/codrag/services/pipeline/scheduler.py`, replace lines 849-863:
                 # Phase 82: Check if this is an active swarm stage
                 if stage and stage in SWARM_CAPABLE_STAGES:
                     try:
-                        from codrag.api.routers._llm_helpers import resolve_model_for_stage
+                        from prep.api.routers._llm_helpers import resolve_model_for_stage
                         resolved = resolve_model_for_stage(project_id, stage)
                         if resolved and is_swarm_active_for_stage(stage, *resolved):
                             budget = max(1, slot.dynamic_capacity - 1)
@@ -483,7 +483,7 @@ Expected: All PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/scheduler.py tests/test_pipeline_scheduler.py
+git add src/prep/services/pipeline/scheduler.py tests/test_pipeline_scheduler.py
 git commit -m "feat(scheduler): swarm-aware concurrent_workers_for_project()
 
 Phase 82: Returns full undivided budget for swarm-capable stages
@@ -496,11 +496,11 @@ weighted fair-share."
 ### Task 4: Fix `queue.py` — Model-Aware `is_swarm`
 
 **Files:**
-- Modify: `src/codrag/api/routers/queue.py:82-95`
+- Modify: `src/prep/api/routers/queue.py:82-95`
 
 - [ ] **Step 1: Update `_build_queue_item()` in queue.py**
 
-Replace lines 82-95 of `src/codrag/api/routers/queue.py`:
+Replace lines 82-95 of `src/prep/api/routers/queue.py`:
 
 ```python
     priority = pipeline_scheduler.get_priority(project_id)
@@ -513,8 +513,8 @@ Replace lines 82-95 of `src/codrag/api/routers/queue.py`:
     is_swarm = False
     if current_stage:
         try:
-            from codrag.services.pipeline.scheduler import SWARM_CAPABLE_STAGES, is_swarm_active_for_stage
-            from codrag.api.routers._llm_helpers import resolve_model_for_stage
+            from prep.services.pipeline.scheduler import SWARM_CAPABLE_STAGES, is_swarm_active_for_stage
+            from prep.api.routers._llm_helpers import resolve_model_for_stage
             if current_stage in SWARM_CAPABLE_STAGES:
                 resolved = resolve_model_for_stage(project_id, current_stage)
                 if resolved:
@@ -533,7 +533,7 @@ Expected: All existing tests still PASS.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/api/routers/queue.py
+git add src/prep/api/routers/queue.py
 git commit -m "fix(queue): model-aware is_swarm flag
 
 Phase 82: Queue API now checks the swarm registry for model
@@ -545,19 +545,19 @@ capability instead of assuming all swarm-capable stages are swarming."
 ### Task 5: Fix `llm.py` — Model-Aware `is_swarm` + Telemetry Fix
 
 **Files:**
-- Modify: `src/codrag/api/routers/llm.py:599-636`
+- Modify: `src/prep/api/routers/llm.py:599-636`
 
 - [ ] **Step 1: Update running_tasks enrichment in llm.py**
 
-Replace lines 599-636 of `src/codrag/api/routers/llm.py`:
+Replace lines 599-636 of `src/prep/api/routers/llm.py`:
 
 ```python
         # Enrich running tasks with concurrent worker count from scheduler
         try:
-            from codrag.services.pipeline.scheduler import (
+            from prep.services.pipeline.scheduler import (
                 pipeline_scheduler, SWARM_CAPABLE_STAGES, is_swarm_active_for_stage,
             )
-            from codrag.api.routers._llm_helpers import resolve_model_for_stage
+            from prep.api.routers._llm_helpers import resolve_model_for_stage
             for rt in running_tasks:
                 workers, node_id = pipeline_scheduler.concurrent_workers_for_project(
                     rt["project_id"], stage=rt.get("stage"),
@@ -575,7 +575,7 @@ Replace lines 599-636 of `src/codrag/api/routers/llm.py`:
             pass  # Scheduler not available — leave defaults
 
         # [Goal 3] Merge live telemetry active requests that bypass the orchestrator
-        from codrag.services.token_telemetry import telemetry
+        from prep.services.token_telemetry import telemetry
         for req in telemetry.get_active_requests():
             # Skip if already tracked by orchestrator logic
             if any(rt["project_id"] == req["project_id"] and rt.get("task_id") == req["task_id"] for rt in running_tasks):
@@ -614,7 +614,7 @@ Expected: All existing tests still PASS.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/api/routers/llm.py
+git add src/prep/api/routers/llm.py
 git commit -m "fix(llm): model-aware is_swarm flag + telemetry task fix
 
 Phase 82: LLM slots API now checks swarm registry for model capability.
@@ -626,7 +626,7 @@ Telemetry-tracked tasks now include is_swarm: false."
 ### Task 6: Scheduler `status()` — Expose AIMD State
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/scheduler.py:865-891`
+- Modify: `src/prep/services/pipeline/scheduler.py:865-891`
 - Test: `tests/test_pipeline_scheduler.py`
 
 - [ ] **Step 1: Write failing test**
@@ -656,7 +656,7 @@ Expected: FAIL — `aimd_mode` not in node dict.
 
 - [ ] **Step 3: Update `status()` method**
 
-In `src/codrag/services/pipeline/scheduler.py`, replace the node dict construction inside `status()` (lines 871-884):
+In `src/prep/services/pipeline/scheduler.py`, replace the node dict construction inside `status()` (lines 871-884):
 
 ```python
                 nodes[nid] = {
@@ -686,7 +686,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/scheduler.py tests/test_pipeline_scheduler.py
+git add src/prep/services/pipeline/scheduler.py tests/test_pipeline_scheduler.py
 git commit -m "feat(scheduler): expose AIMD state in status() API
 
 Phase 82: Status endpoint now includes aimd_mode, current_limit,
@@ -698,7 +698,7 @@ and last_queue_time_ms for each compute node."
 ### Task 7: Azure OpenAI — Throughput Recording
 
 **Files:**
-- Modify: `src/codrag/core/llm_client.py:884-932` (azure-openai provider block)
+- Modify: `src/prep/core/llm_client.py:884-932` (azure-openai provider block)
 - Test: `tests/test_llm_client_throughput.py`
 
 - [ ] **Step 1: Write failing test**
@@ -711,7 +711,7 @@ import pytest
 import time
 from unittest.mock import patch, MagicMock
 
-from codrag.core.llm_client import LLMClient
+from prep.core.llm_client import LLMClient
 
 
 class TestAzureOpenAIThroughput:
@@ -724,7 +724,7 @@ class TestAzureOpenAIThroughput:
             api_key="test-key",
         )
 
-    @patch("codrag.core.llm_client.requests.post")
+    @patch("prep.core.llm_client.requests.post")
     def test_records_throughput_on_success(self, mock_post):
         client = self._make_client()
         mock_resp = MagicMock()
@@ -744,7 +744,7 @@ class TestAzureOpenAIThroughput:
             assert "queue_time_ms" in call_kwargs.kwargs or len(call_kwargs.args) > 0
             assert call_kwargs.kwargs.get("rate_limit_remaining") == 42
 
-    @patch("codrag.core.llm_client.requests.post")
+    @patch("prep.core.llm_client.requests.post")
     def test_records_429_on_rate_limit(self, mock_post):
         client = self._make_client()
         mock_resp = MagicMock()
@@ -771,7 +771,7 @@ Expected: FAIL — `_record_throughput` never called (no timing code in azure bl
 
 - [ ] **Step 3: Add throughput recording to Azure OpenAI provider**
 
-In `src/codrag/core/llm_client.py`, replace lines 914-916 (the `requests.post` + `raise_for_status` + `json` block inside the azure-openai branch):
+In `src/prep/core/llm_client.py`, replace lines 914-916 (the `requests.post` + `raise_for_status` + `json` block inside the azure-openai branch):
 
 ```python
             t0 = time.monotonic()
@@ -812,7 +812,7 @@ Expected: All PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/llm_client.py tests/test_llm_client_throughput.py
+git add src/prep/core/llm_client.py tests/test_llm_client_throughput.py
 git commit -m "feat(llm): add throughput recording to Azure OpenAI provider
 
 Phase 82: Azure OpenAI now reports wall-time, rate-limit headers,
@@ -824,7 +824,7 @@ and 429/timeout events to the AIMD scheduler."
 ### Task 8: Google Gemini — Throughput Recording
 
 **Files:**
-- Modify: `src/codrag/core/llm_client.py:958-960` (google provider block)
+- Modify: `src/prep/core/llm_client.py:958-960` (google provider block)
 - Test: `tests/test_llm_client_throughput.py`
 
 - [ ] **Step 1: Write failing test**
@@ -842,7 +842,7 @@ class TestGoogleGeminiThroughput:
             api_key="test-key",
         )
 
-    @patch("codrag.core.llm_client.requests.post")
+    @patch("prep.core.llm_client.requests.post")
     def test_records_throughput_on_success(self, mock_post):
         client = self._make_client()
         mock_resp = MagicMock()
@@ -860,7 +860,7 @@ class TestGoogleGeminiThroughput:
             call_kwargs = mock_record.call_args
             assert "queue_time_ms" in call_kwargs.kwargs or len(call_kwargs.args) > 0
 
-    @patch("codrag.core.llm_client.requests.post")
+    @patch("prep.core.llm_client.requests.post")
     def test_records_429_on_rate_limit(self, mock_post):
         client = self._make_client()
         mock_resp = MagicMock()
@@ -885,7 +885,7 @@ Expected: FAIL — `_record_throughput` never called.
 
 - [ ] **Step 3: Add throughput recording to Google Gemini provider**
 
-In `src/codrag/core/llm_client.py`, replace lines 958-960 (the `requests.post` + `raise_for_status` + `json` block inside the google branch):
+In `src/prep/core/llm_client.py`, replace lines 958-960 (the `requests.post` + `raise_for_status` + `json` block inside the google branch):
 
 ```python
             t0 = time.monotonic()
@@ -915,7 +915,7 @@ Expected: All PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/llm_client.py tests/test_llm_client_throughput.py
+git add src/prep/core/llm_client.py tests/test_llm_client_throughput.py
 git commit -m "feat(llm): add throughput recording to Google Gemini provider
 
 Phase 82: Gemini now reports wall-time and 429/timeout events

@@ -5,6 +5,6 @@
   "license": "MIT",
   "private": true,
   "bin": {
-    "codrag-mcp": "bin/codrag-mcp.js"
+    "prep-mcp": "bin/prep-mcp.js"
   }
 }

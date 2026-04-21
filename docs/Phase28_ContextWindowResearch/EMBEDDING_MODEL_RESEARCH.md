@@ -1,12 +1,12 @@
-# Embedding Model Research for CoDRAG
+# Embedding Model Research for Prep
 
-> Deep comparison of code embedding models to determine the best recommendation for CoDRAG users. Current default: nomic-embed-text-v1.5 (general-purpose). Goal: find the best code-specialized model that runs locally.
+> Deep comparison of code embedding models to determine the best recommendation for Prep users. Current default: nomic-embed-text-v1.5 (general-purpose). Goal: find the best code-specialized model that runs locally.
 
 ---
 
 ## Current State
 
-CoDRAG uses **nomic-embed-text-v1.5** via ONNX (`NativeEmbedder`):
+Prep uses **nomic-embed-text-v1.5** via ONNX (`NativeEmbedder`):
 
 | Property | Value |
 |---|---|
@@ -28,7 +28,7 @@ This is a **general-purpose text** model. It was not trained specifically for co
 
 ### Tier 1: Local ONNX-Compatible (same inference path as current)
 
-These models are small enough to run via ONNX on CPU without GPU. They use BERT-like architectures compatible with CoDRAG's `NativeEmbedder` pattern.
+These models are small enough to run via ONNX on CPU without GPU. They use BERT-like architectures compatible with Prep's `NativeEmbedder` pattern.
 
 #### CodeRankEmbed (Nomic) — **TOP RECOMMENDATION**
 
@@ -101,9 +101,9 @@ These models are small enough to run via ONNX on CPU without GPU. They use BERT-
 - 9 language support.
 
 **Cons:**
-- **1,024 token context length** — CoDRAG chunks can be up to ~2,000 chars (~500 tokens), but longer files would be truncated. Our current model supports 8,192. This is a dealbreaker for many use cases.
+- **1,024 token context length** — Prep chunks can be up to ~2,000 chars (~500 tokens), but longer files would be truncated. Our current model supports 8,192. This is a dealbreaker for many use cases.
 - 1.3B params — 10x larger than current model. Much slower on CPU.
-- Different dimensions (2048 vs 768) — would require changes to CoDRAG's index format.
+- Different dimensions (2048 vs 768) — would require changes to Prep's index format.
 - Outperformed by Voyage Code 3 by 16.81% on average across 32 datasets.
 
 **Verdict:** Not recommended due to short context length and large size.
@@ -202,7 +202,7 @@ These models are small enough to run via ONNX on CPU without GPU. They use BERT-
 
 ---
 
-## CoDRAG Integration Analysis
+## Prep Integration Analysis
 
 ### What changes per model?
 
@@ -425,19 +425,19 @@ Evaluated on 3 real-world repos with human-written ground truth queries. These r
 ## Marketing Angles (revised per v4 benchmark + real-repo data)
 
 ### Primary messaging (built-in model is best default):
-- "CoDRAG's built-in embedding model finds the right code file on the first try **97% of the time** on synthetic benchmarks and **62-81%** on real-world repos — No GPU, no cloud, no setup."
-- "7ms per query. 132 MB download. Zero dependencies. CoDRAG's built-in embeddings run entirely on your CPU."
+- "Prep's built-in embedding model finds the right code file on the first try **97% of the time** on synthetic benchmarks and **62-81%** on real-world repos — No GPU, no cloud, no setup."
+- "7ms per query. 132 MB download. Zero dependencies. Prep's built-in embeddings run entirely on your CPU."
 - "We tested three embedding tiers across 39 synthetic queries and 46 real-world queries on 3 open-source repos. All three tiers hit 94-100% Recall@5."
 
 ### Code model messaging (upgrade path):
-- "Working on a docs-heavy repo? CoDRAG's code-specialized model (nomic-embed-code via Ollama) achieves **75% Recall@1** on the Click Python framework — 13 points better than the built-in model on repos with rich documentation."
-- "CoDRAG automatically applies Matryoshka dimension reduction to high-dimensional code models, ensuring optimal cosine discrimination regardless of model architecture."
+- "Working on a docs-heavy repo? Prep's code-specialized model (nomic-embed-code via Ollama) achieves **75% Recall@1** on the Click Python framework — 13 points better than the built-in model on repos with rich documentation."
+- "Prep automatically applies Matryoshka dimension reduction to high-dimensional code models, ensuring optimal cosine discrimination regardless of model architecture."
 
 ### Speed messaging:
 - "Built-in model: 7ms per query on CPU. Ollama text: 23ms. Ollama code: 179ms — all sub-second for interactive use."
 
 ### Comparison-safe claims (backed by v4 data):
-- "CoDRAG's default embedding model achieved 97.4% Recall@1 on a 39-query synthetic benchmark and 62-81% on 3 real-world repos spanning Rust, Python, and TypeScript."
+- "Prep's default embedding model achieved 97.4% Recall@1 on a 39-query synthetic benchmark and 62-81% on 3 real-world repos spanning Rust, Python, and TypeScript."
 - "The code-specialized tier (nomic-embed-code) outperforms on docs-heavy repos by up to 13 percentage points, while the built-in ONNX model leads on pure-code repos."
 
 ---

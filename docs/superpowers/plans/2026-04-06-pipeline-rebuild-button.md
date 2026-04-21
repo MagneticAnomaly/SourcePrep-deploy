@@ -13,7 +13,7 @@
 ### Task 1: Backend — Add rebuild endpoint
 
 **Files:**
-- Modify: `src/codrag/api/routers/pipeline.py:147-163` (add new endpoint after `pipeline_run_all`)
+- Modify: `src/prep/api/routers/pipeline.py:147-163` (add new endpoint after `pipeline_run_all`)
 
 - [ ] **Step 1: Add the rebuild endpoint**
 
@@ -31,10 +31,10 @@ def pipeline_rebuild(project_id: str) -> Dict[str, Any]:
     Phase 76: This is the non-destructive alternative to Reset Graph +
     re-run.  It does NOT delete anything first — it overwrites in place.
     """
-    from codrag.services.project_helpers import require_project_writable
+    from prep.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 
-    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    from prep.services.pipeline_orchestrator import pipeline_orchestrator
     started = pipeline_orchestrator.run_all(project_id, force_from_start=True)
 
     if not started:
@@ -53,7 +53,7 @@ Update the docstring at line 7 to include the new endpoint:
 
 ```python
 """
-CoDRAG Pipeline Router — Phase 24 (SM-6) + Phase 25 (Crash Protection) + Phase 76 (Rebuild)
+Prep Pipeline Router — Phase 24 (SM-6) + Phase 25 (Crash Protection) + Phase 76 (Rebuild)
 =======================================================================
 
 Exposes the 8-stage pipeline orchestrator via HTTP endpoints.
@@ -73,14 +73,14 @@ Exposes the 8-stage pipeline orchestrator via HTTP endpoints.
 
 - [ ] **Step 3: Verify the backend starts**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && .venv/bin/python -c "from codrag.api.routers.pipeline import router; print('OK:', [r.path for r in router.routes])"`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && .venv/bin/python -c "from prep.api.routers.pipeline import router; print('OK:', [r.path for r in router.routes])"`
 
 Expected: Output includes `/projects/{project_id}/pipeline/rebuild`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/api/routers/pipeline.py
+git add src/prep/api/routers/pipeline.py
 git commit -m "feat(pipeline): add POST /pipeline/rebuild endpoint (Phase 76)"
 ```
 
@@ -93,7 +93,7 @@ git commit -m "feat(pipeline): add POST /pipeline/rebuild endpoint (Phase 76)"
 - Modify: `packages/ui/src/api/client.ts:1040-1044` (add implementation)
 - Modify: `packages/ui/src/api/mock.ts:463-465` (add mock)
 
-- [ ] **Step 1: Add to the CodragApiClient interface**
+- [ ] **Step 1: Add to the PrepApiClient interface**
 
 In `packages/ui/src/api/client.ts`, after `runPipelineAll` (line 152), add:
 
@@ -103,7 +103,7 @@ In `packages/ui/src/api/client.ts`, after `runPipelineAll` (line 152), add:
 
 - [ ] **Step 2: Add the implementation**
 
-In the `CodragHttpClient` class, after the `runPipelineAll` implementation (after line 1044), add:
+In the `PrepHttpClient` class, after the `runPipelineAll` implementation (after line 1044), add:
 
 ```typescript
   async rebuildPipeline(projectId: string): Promise<{ started: boolean; group: string; mode: string }> {
@@ -125,7 +125,7 @@ In `packages/ui/src/api/mock.ts`, after `runPipelineAll` (after line 465), add:
 
 - [ ] **Step 4: Verify TypeScript compiles**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npx tsc --noEmit -p packages/ui/tsconfig.json 2>&1 | head -20`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npx tsc --noEmit -p packages/ui/tsconfig.json 2>&1 | head -20`
 
 Expected: No errors related to `rebuildPipeline`
 
@@ -141,7 +141,7 @@ git commit -m "feat(ui): add rebuildPipeline API client method"
 ### Task 3: Frontend — Add rebuild handler to useTraceSystem
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/hooks/useTraceSystem.ts:484-502` (add handler near destroy handlers)
+- Modify: `src/prep/dashboard/src/hooks/useTraceSystem.ts:484-502` (add handler near destroy handlers)
 
 - [ ] **Step 1: Add the handleRebuildPipeline callback**
 
@@ -169,7 +169,7 @@ Find the return object (around line 741) and add `handleRebuildPipeline` alongsi
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/hooks/useTraceSystem.ts
+git add src/prep/dashboard/src/hooks/useTraceSystem.ts
 git commit -m "feat(dashboard): add handleRebuildPipeline to useTraceSystem"
 ```
 
@@ -178,10 +178,10 @@ git commit -m "feat(dashboard): add handleRebuildPipeline to useTraceSystem"
 ### Task 4: Frontend — Wire rebuild button into SettingsDrawer
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/components/settings/SettingsDrawer.tsx:94-97` (add prop)
-- Modify: `src/codrag/dashboard/src/components/settings/SettingsDrawer.tsx:173` (add to confirm union)
-- Modify: `src/codrag/dashboard/src/components/settings/SettingsDrawer.tsx:260-289` (add card to danger zone)
-- Modify: `src/codrag/dashboard/src/components/settings/SettingsDrawer.tsx:646-675` (add to confirm dialog)
+- Modify: `src/prep/dashboard/src/components/settings/SettingsDrawer.tsx:94-97` (add prop)
+- Modify: `src/prep/dashboard/src/components/settings/SettingsDrawer.tsx:173` (add to confirm union)
+- Modify: `src/prep/dashboard/src/components/settings/SettingsDrawer.tsx:260-289` (add card to danger zone)
+- Modify: `src/prep/dashboard/src/components/settings/SettingsDrawer.tsx:646-675` (add to confirm dialog)
 
 - [ ] **Step 1: Add the prop to SettingsDrawerProps**
 
@@ -297,7 +297,7 @@ The confirmLabel:
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/components/settings/SettingsDrawer.tsx
+git add src/prep/dashboard/src/components/settings/SettingsDrawer.tsx
 git commit -m "feat(settings): add Rebuild Pipeline button to danger zone"
 ```
 
@@ -306,7 +306,7 @@ git commit -m "feat(settings): add Rebuild Pipeline button to danger zone"
 ### Task 5: Frontend — Wire the prop through App.tsx
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/App.tsx:866-867` (pass new prop to SettingsDrawer)
+- Modify: `src/prep/dashboard/src/App.tsx:866-867` (pass new prop to SettingsDrawer)
 
 - [ ] **Step 1: Destructure handleRebuildPipeline from useTraceSystem**
 
@@ -326,14 +326,14 @@ At line 866-867, after `onDestroyIndex`, add:
 
 - [ ] **Step 3: Verify TypeScript compiles**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npx tsc --noEmit -p src/codrag/dashboard/tsconfig.json 2>&1 | head -20`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npx tsc --noEmit -p src/prep/dashboard/tsconfig.json 2>&1 | head -20`
 
 Expected: No errors
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/App.tsx
+git add src/prep/dashboard/src/App.tsx
 git commit -m "feat(dashboard): wire rebuild pipeline prop through App"
 ```
 
@@ -343,13 +343,13 @@ git commit -m "feat(dashboard): wire rebuild pipeline prop through App"
 
 - [ ] **Step 1: Build the UI packages**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run build 2>&1 | tail -20`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run build 2>&1 | tail -20`
 
 Expected: Build succeeds
 
 - [ ] **Step 2: Verify the backend endpoint works**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && .venv/bin/python -c "from codrag.api.routers.pipeline import router; routes = [r.path for r in router.routes]; assert '/projects/{project_id}/pipeline/rebuild' in routes; print('Rebuild endpoint registered')"`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && .venv/bin/python -c "from prep.api.routers.pipeline import router; routes = [r.path for r in router.routes]; assert '/projects/{project_id}/pipeline/rebuild' in routes; print('Rebuild endpoint registered')"`
 
 Expected: `Rebuild endpoint registered`
 

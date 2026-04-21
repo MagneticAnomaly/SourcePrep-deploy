@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the Digital Custodian Engine that detects dead code via CoDRAG's trace graph, uses LLM for safety verification, plans cleanup operations with archive-first strategy, and produces a manifest + Paperclip cleanup report — all in dry-run mode by default.
+**Goal:** Build the Digital Custodian Engine that detects dead code via Prep's trace graph, uses LLM for safety verification, plans cleanup operations with archive-first strategy, and produces a manifest + Paperclip cleanup report — all in dry-run mode by default.
 
-**Architecture:** The engine lives at `src/codrag/agents/custodian/`. It consumes AgentCore for audit findings and impact analysis, uses the existing `GitClient` from `agents/shared/git_client.py` for branch/archive operations, and an injectable LLM for safety verification. The pipeline is: discover → verify → plan → (optionally execute) → report. The `CleanupCandidate` and `CleanupPlan` models from Phase 0's `shared/models.py` are used as-is.
+**Architecture:** The engine lives at `src/prep/agents/custodian/`. It consumes AgentCore for audit findings and impact analysis, uses the existing `GitClient` from `agents/shared/git_client.py` for branch/archive operations, and an injectable LLM for safety verification. The pipeline is: discover → verify → plan → (optionally execute) → report. The `CleanupCandidate` and `CleanupPlan` models from Phase 0's `shared/models.py` are used as-is.
 
-**Tech Stack:** Python 3.11+, AgentCore (Phase 0), GitClient (Phase 0), LLMClient, CoDRAG audit/impact APIs, JSON persistence.
+**Tech Stack:** Python 3.11+, AgentCore (Phase 0), GitClient (Phase 0), LLMClient, Prep audit/impact APIs, JSON persistence.
 
 **Build order:** Tasks 1-2 are independent (prompts + manifest). Tasks 3-5 build the engine sequentially. Task 6 adds push packaging. Tasks 7-8 finalize.
 
@@ -16,10 +16,10 @@
 
 | File | Responsibility |
 |------|---------------|
-| `src/codrag/agents/custodian/__init__.py` | Subpackage init, re-exports `CustodianEngine` |
-| `src/codrag/agents/custodian/prompts.py` | LLM prompt for safety verification |
-| `src/codrag/agents/custodian/manifest.py` | `ArchiveManifest` class: JSON persistence for archived items |
-| `src/codrag/agents/custodian/engine.py` | `CustodianEngine` class: orchestrates cleanup pipeline |
+| `src/prep/agents/custodian/__init__.py` | Subpackage init, re-exports `CustodianEngine` |
+| `src/prep/agents/custodian/prompts.py` | LLM prompt for safety verification |
+| `src/prep/agents/custodian/manifest.py` | `ArchiveManifest` class: JSON persistence for archived items |
+| `src/prep/agents/custodian/engine.py` | `CustodianEngine` class: orchestrates cleanup pipeline |
 | `tests/test_custodian_prompts.py` | Prompt template tests |
 | `tests/test_custodian_manifest.py` | Manifest persistence tests |
 | `tests/test_custodian_engine.py` | CustodianEngine tests |
@@ -30,14 +30,14 @@
 ### Task 1: Create custodian subpackage and prompt templates
 
 **Files:**
-- Create: `src/codrag/agents/custodian/__init__.py`
-- Create: `src/codrag/agents/custodian/prompts.py`
+- Create: `src/prep/agents/custodian/__init__.py`
+- Create: `src/prep/agents/custodian/prompts.py`
 - Create: `tests/test_custodian_prompts.py`
 
 - [ ] **Step 1: Create subpackage init**
 
 ```python
-# src/codrag/agents/custodian/__init__.py
+# src/prep/agents/custodian/__init__.py
 """Digital Custodian Engine — detects dead code, archives safely, cleans up codebases."""
 ```
 
@@ -46,7 +46,7 @@
 ```python
 # tests/test_custodian_prompts.py
 """Tests for Custodian prompt template rendering."""
-from codrag.agents.custodian.prompts import (
+from prep.agents.custodian.prompts import (
     render_safety_verification_prompt,
     render_archive_readme,
 )
@@ -125,7 +125,7 @@ class TestArchiveReadme:
 - [ ] **Step 3: Implement prompt templates**
 
 ```python
-# src/codrag/agents/custodian/prompts.py
+# src/prep/agents/custodian/prompts.py
 """LLM prompt templates for Digital Custodian safety verification."""
 from __future__ import annotations
 
@@ -155,7 +155,7 @@ File contents (first 200 lines):
 {truncated}
 ```
 
-CoDRAG analysis:
+Prep analysis:
 - Dependents (static imports): {dependent_count} (should be 0)
 - This file imports: {imports_str}
 - Module membership: {module_name}
@@ -193,7 +193,7 @@ def render_archive_readme(
     return f"""# Archived by Digital Custodian
 
 **Archived at:** {archived_at}
-**CoDRAG Finding:** {finding_id}
+**Prep Finding:** {finding_id}
 **Reason:** {reason}
 
 ## Original Locations
@@ -215,7 +215,7 @@ Expected: All 6 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/custodian/__init__.py src/codrag/agents/custodian/prompts.py tests/test_custodian_prompts.py
+git add src/prep/agents/custodian/__init__.py src/prep/agents/custodian/prompts.py tests/test_custodian_prompts.py
 git commit -m "feat(custodian): add subpackage and safety verification prompts"
 ```
 
@@ -224,7 +224,7 @@ git commit -m "feat(custodian): add subpackage and safety verification prompts"
 ### Task 2: Archive manifest persistence
 
 **Files:**
-- Create: `src/codrag/agents/custodian/manifest.py`
+- Create: `src/prep/agents/custodian/manifest.py`
 - Create: `tests/test_custodian_manifest.py`
 
 - [ ] **Step 1: Write tests for manifest**
@@ -237,7 +237,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.agents.custodian.manifest import ArchiveManifest, ManifestEntry
+from prep.agents.custodian.manifest import ArchiveManifest, ManifestEntry
 
 
 @pytest.fixture
@@ -309,7 +309,7 @@ class TestArchiveManifest:
 - [ ] **Step 2: Implement ArchiveManifest**
 
 ```python
-# src/codrag/agents/custodian/manifest.py
+# src/prep/agents/custodian/manifest.py
 """Archive manifest persistence for Digital Custodian.
 
 Stores the master index of all archived items to
@@ -431,7 +431,7 @@ Expected: All 6 tests PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/agents/custodian/manifest.py tests/test_custodian_manifest.py
+git add src/prep/agents/custodian/manifest.py tests/test_custodian_manifest.py
 git commit -m "feat(custodian): add ArchiveManifest for archive tracking"
 ```
 
@@ -440,7 +440,7 @@ git commit -m "feat(custodian): add ArchiveManifest for archive tracking"
 ### Task 3: CustodianEngine — discovery and safety verification
 
 **Files:**
-- Create: `src/codrag/agents/custodian/engine.py`
+- Create: `src/prep/agents/custodian/engine.py`
 - Create: `tests/test_custodian_engine.py`
 
 - [ ] **Step 1: Write tests**
@@ -456,8 +456,8 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from codrag.agents.custodian.engine import CustodianEngine
-from codrag.agents.shared.models import CleanupCandidate, CleanupPlan
+from prep.agents.custodian.engine import CustodianEngine
+from prep.agents.shared.models import CleanupCandidate, CleanupPlan
 
 
 def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:
@@ -588,7 +588,7 @@ class TestSafetyVerification:
 - [ ] **Step 2: Implement CustodianEngine**
 
 ```python
-# src/codrag/agents/custodian/engine.py
+# src/prep/agents/custodian/engine.py
 """Digital Custodian Engine — detects dead code, verifies safety, plans cleanup.
 
 Pipeline: discover → verify → plan → (optionally execute) → report.
@@ -601,13 +601,13 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from codrag.agents.custodian.manifest import ArchiveManifest, ManifestEntry
-from codrag.agents.custodian.prompts import (
+from prep.agents.custodian.manifest import ArchiveManifest, ManifestEntry
+from prep.agents.custodian.prompts import (
     SAFETY_VERIFICATION_SYSTEM,
     render_archive_readme,
     render_safety_verification_prompt,
 )
-from codrag.agents.shared.models import CleanupCandidate, CleanupPlan
+from prep.agents.shared.models import CleanupCandidate, CleanupPlan
 
 logger = logging.getLogger(__name__)
 
@@ -835,7 +835,7 @@ class CustodianEngine:
         Returns:
             Tuple of (PMProject, goals, issues).
         """
-        from codrag.adapters.pm_models import PMGoal, PMIssue, PMProject
+        from prep.adapters.pm_models import PMGoal, PMIssue, PMProject
 
         project = PMProject(
             name=f"Code Cleanup — {self._project_id}",
@@ -860,7 +860,7 @@ class CustodianEngine:
                 priority="P3",
                 category="cleanup",
                 effort="small",
-                codrag_address=f"codrag://{self._project_id}/custodian/{candidate.finding_id}",
+                prep_address=f"prep://{self._project_id}/custodian/{candidate.finding_id}",
             )
             issues.append(issue)
 
@@ -882,7 +882,7 @@ Expected: All 8 tests PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/agents/custodian/engine.py tests/test_custodian_engine.py
+git add src/prep/agents/custodian/engine.py tests/test_custodian_engine.py
 git commit -m "feat(custodian): add CustodianEngine with discovery and safety verification"
 ```
 
@@ -1017,16 +1017,16 @@ git commit -m "test(custodian): add cleanup plan, push packaging, and full pipel
 ### Task 5: Public API exports
 
 **Files:**
-- Modify: `src/codrag/agents/custodian/__init__.py`
+- Modify: `src/prep/agents/custodian/__init__.py`
 
 - [ ] **Step 1: Update init with re-exports**
 
 ```python
-# src/codrag/agents/custodian/__init__.py
+# src/prep/agents/custodian/__init__.py
 """Digital Custodian Engine — detects dead code, archives safely, cleans up codebases."""
 
-from codrag.agents.custodian.engine import CustodianEngine
-from codrag.agents.custodian.manifest import ArchiveManifest, ManifestEntry
+from prep.agents.custodian.engine import CustodianEngine
+from prep.agents.custodian.manifest import ArchiveManifest, ManifestEntry
 
 __all__ = [
     "CustodianEngine",
@@ -1043,7 +1043,7 @@ Expected: All tests PASS
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/agents/custodian/__init__.py
+git add src/prep/agents/custodian/__init__.py
 git commit -m "feat(custodian): export public API from custodian subpackage"
 ```
 
@@ -1068,8 +1068,8 @@ from typing import Tuple
 
 import pytest
 
-from codrag.agents.custodian import CustodianEngine, ArchiveManifest
-from codrag.agents.shared.models import CleanupPlan
+from prep.agents.custodian import CustodianEngine, ArchiveManifest
+from prep.agents.shared.models import CleanupPlan
 
 
 def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:

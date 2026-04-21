@@ -2,11 +2,11 @@
 
 **Status:** COMPLETE  
 **Updated:** 2026-02-21  
-**Scope:** Ollama (local) + BYOK (cloud) model recommendations for all CoDRAG pipeline slots
+**Scope:** Ollama (local) + BYOK (cloud) model recommendations for all Prep pipeline slots
 
 ---
 
-## CoDRAG Pipeline Slot Summary
+## Prep Pipeline Slot Summary
 
 Each slot has different requirements — understanding what each slot *does* determines what model properties matter.
 
@@ -93,7 +93,7 @@ Built-in ONNX model. No Ollama needed. 768-dim, works offline. This is settled (
 | **Power** (24GB GPU / Apple M2 Pro 32GB) | ~20GB usable | Small: qwen3:4b, Large: qwen3:14b, Code: qwen2.5-coder:7b |
 | **Enthusiast** (48GB+ / Apple M3 Max 64GB) | ~40GB+ usable | Small: qwen3:4b, Large: qwen3:30b, Code: qwen3-coder:30b |
 
-> **Note:** Ollama swaps models in/out of VRAM. Only one model runs at a time in CoDRAG's pipeline (VRAM lifecycle managed by pipeline orchestrator). The budget above is per-model, not cumulative.
+> **Note:** Ollama swaps models in/out of VRAM. Only one model runs at a time in Prep's pipeline (VRAM lifecycle managed by pipeline orchestrator). The budget above is per-model, not cumulative.
 
 ---
 
@@ -111,7 +111,7 @@ Built-in ONNX model. No Ollama needed. 768-dim, works offline. This is settled (
 | **Sonnet 4.5** | $3.00 | $15.00 | 64K | 200K | $1.50/$7.50 | Best coding, same price as Sonnet 4 |
 | Sonnet 4.6 | $3.00 | $15.00 | 64K | 200K | $1.50/$7.50 | Latest, matches Opus performance |
 | Opus 4.5 | $5.00 | $25.00 | 64K | 1M | $2.50/$12.50 | Maximum quality |
-| Opus 4.6 | $15.00 | $75.00 | 64K | 1M | $7.50/$37.50 | Overkill for CoDRAG |
+| Opus 4.6 | $15.00 | $75.00 | 64K | 1M | $7.50/$37.50 | Overkill for Prep |
 
 **Recommendation:** Use **Sonnet 4.5** (or 4.6) — same price as Sonnet 4 but much better coding ability. Haiku 3.5 is viable for budget users but output limit (8K) constrains batching.
 
@@ -139,11 +139,11 @@ Built-in ONNX model. No Ollama needed. 768-dim, works offline. This is settled (
 | 3 Pro (Preview) | $2.00 | $12.00 | ? | ? | Latest flagship |
 | 3.1 Pro (Preview) | $2.00 | $12.00 | ? | ? | Newest, may not be stable |
 
-**Recommendation:** **Gemini 2.5 Flash** at $0.15/$0.60 is the cheapest viable option with good JSON support. **Gemini 2.5 Pro** at $1.25/$10.00 for users wanting better quality. Note: Gemini models require `openai-compatible` provider type in CoDRAG.
+**Recommendation:** **Gemini 2.5 Flash** at $0.15/$0.60 is the cheapest viable option with good JSON support. **Gemini 2.5 Pro** at $1.25/$10.00 for users wanting better quality. Note: Gemini models require `openai-compatible` provider type in Prep.
 
 ### BYOK Cost-Optimized Recommendations by Slot
 
-For CoDRAG, the key insight is: **the older, cheaper generation is almost always the right pick.** CoDRAG's tasks (JSON extraction, file summarization, edge detection) don't need frontier reasoning — they need reliable structured output.
+For Prep, the key insight is: **the older, cheaper generation is almost always the right pick.** Prep's tasks (JSON extraction, file summarization, edge detection) don't need frontier reasoning — they need reliable structured output.
 
 #### Single-Model Setup (Simplest)
 
@@ -195,7 +195,7 @@ The model registry needs updates for:
 
 ### Context Window: Not a Selection Parameter
 
-Context window is **irrelevant** for model selection in CoDRAG's pipeline:
+Context window is **irrelevant** for model selection in Prep's pipeline:
 
 - **Fast/Small slot**: Catalogue sends ~300–1,000 tokens per file. Even 4K context is
   10× more than needed. 40K vs 128K vs 256K makes zero difference.
@@ -302,7 +302,7 @@ of sequential calls. Running this locally saves the most money. Epistemic
 │ Model Setup Advisor                                  │
 ├─────────────────────────────────────────────────────┤
 │                                                      │
-│  How do you want to run CoDRAG?                     │
+│  How do you want to run Prep?                     │
 │                                                      │
 │  ┌─────────┐  ┌──────────┐  ┌─────────┐            │
 │  │  Local   │  │  Hybrid  │  │  Cloud  │            │

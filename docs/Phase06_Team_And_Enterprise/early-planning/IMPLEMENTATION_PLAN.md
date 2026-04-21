@@ -52,7 +52,7 @@ Precedence order (authoritative):
 - defaults → global → team → project overrides
 
 Definitions:
-- **defaults**: hard-coded safe defaults shipped with CoDRAG
+- **defaults**: hard-coded safe defaults shipped with Prep
 - **global**: user/machine-wide preferences (local file or registry settings)
 - **team**: `.prep/team_config.json`
 - **project overrides**: explicit per-project settings stored in the registry

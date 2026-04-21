@@ -9,7 +9,7 @@
 
 ### Finding: Confirmed. Massively underutilized for docs.
 
-The current Rust trace build (`codrag-graph::build_trace`) handles files in two paths:
+The current Rust trace build (`prep-graph::build_trace`) handles files in two paths:
 
 **Code files** (`.py`, `.ts`, `.swift`, etc.):
 - `detect_language()` returns a language tag
@@ -150,10 +150,10 @@ For 200 `.md` files averaging 150 lines each:
 
 **Total: < 25ms.** The user's "20 sec instead of 4" is way conservative — this adds essentially nothing to build time. The entire Rust trace build is 72ms; markdown extraction would add maybe 25ms. Call it 100ms total.
 
-### Implementation: New `codrag-parser` module
+### Implementation: New `prep-parser` module
 
 ```
-engine/crates/codrag-parser/src/
+engine/crates/prep-parser/src/
   markdown.rs       ← NEW: markdown structure extraction
   python.rs
   typescript.rs
@@ -192,7 +192,7 @@ Then in `build_trace()`, change the `else` branch:
 ```rust
 } else if entry.path.ends_with(".md") || entry.path.ends_with(".markdown") {
     let content = std::fs::read_to_string(&entry.abs_path)?;
-    let md_result = codrag_parser::markdown::analyze_markdown(&entry.path, &content);
+    let md_result = prep_parser::markdown::analyze_markdown(&entry.path, &content);
     for node in md_result.nodes { graph.add_node(node); }
     for edge in md_result.edges { graph.add_edge(edge); }
     files_parsed += 1;
@@ -327,7 +327,7 @@ Enhanced Pass 1 output:
 
 The 3b model already sees the file path and imports. Asking it "what other files might this relate to?" is a very light addition. It won't always be right, but it doesn't need to be — Rust validates.
 
-**New function in `codrag-graph`**:
+**New function in `prep-graph`**:
 
 ```rust
 /// Incorporate LLM-inferred relationships into the graph.
@@ -474,7 +474,7 @@ Each cycle produces a strictly richer graph. Convergence happens when the LLM st
 
 | Item | Effort | Impact |
 |---|---|---|
-| `markdown.rs` in codrag-parser | Medium (2-3 days) | **Critical** — unlocks doc intelligence |
+| `markdown.rs` in prep-parser | Medium (2-3 days) | **Critical** — unlocks doc intelligence |
 | `build_trace` markdown branch | Small (1 day) | Wiring |
 | Pass 1 prompt: `related_files` field | Small (1 day) | Captures relationships cheaply |
 | `incorporate_inferred_edges` | Medium (2 days) | Validates LLM hypotheses |

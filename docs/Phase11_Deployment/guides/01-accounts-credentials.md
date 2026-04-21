@@ -45,14 +45,14 @@ signature before installing any update — this prevents tampered updates from b
 1. Open Terminal
 2. Run:
    ```bash
-   npx tauri signer generate -w ~/.tauri/codrag.key
+   npx tauri signer generate -w ~/.tauri/prep.key
    ```
 3. You'll be prompted for a password — choose something strong and save it in your password manager
 4. This creates two files:
-   - `~/.tauri/codrag.key` — **private key** (secret, never commit this)
-   - `~/.tauri/codrag.key.pub` — public key (safe to embed in the app)
+   - `~/.tauri/prep.key` — **private key** (secret, never commit this)
+   - `~/.tauri/prep.key.pub` — public key (safe to embed in the app)
 5. **Back up the private key immediately:**
-   - Copy `~/.tauri/codrag.key` to a secure location (encrypted drive, password manager attachment, or 1Password)
+   - Copy `~/.tauri/prep.key` to a secure location (encrypted drive, password manager attachment, or 1Password)
    - If you lose this key, you cannot ship updates that users can install — they'd need to reinstall manually
 
 6. Note the public key content (it looks like a base64 string) — you'll embed it in `tauri.conf.json` at step UPD-1
@@ -65,13 +65,13 @@ signature before installing any update — this prevents tampered updates from b
 stores it encrypted, accessible only to your workflows.
 
 **Steps:**
-1. Go to [github.com/MagneticAnomaly/CoDRAG-MCP](https://github.com/MagneticAnomaly/CoDRAG-MCP)
+1. Go to [github.com/MagneticAnomaly/Prep-MCP](https://github.com/MagneticAnomaly/Prep-MCP)
 2. Click **Settings** → **Secrets and variables** → **Actions**
 3. Click **New repository secret** and add:
 
    | Secret Name | Value |
    |-------------|-------|
-   | `TAURI_PRIVATE_KEY` | Contents of `~/.tauri/codrag.key` (the whole file, including headers) |
+   | `TAURI_PRIVATE_KEY` | Contents of `~/.tauri/prep.key` (the whole file, including headers) |
    | `TAURI_KEY_PASSWORD` | The password you chose in ACC-2 |
 
 4. Repeat for `TAURI_KEY_PASSWORD`
@@ -112,7 +112,7 @@ works but requires building reputation over time (users will see yellow warnings
 
 ## ACC-5 — Microsoft Partner Center Account
 
-**What:** Required to submit CoDRAG to the Microsoft Store.
+**What:** Required to submit Prep to the Microsoft Store.
 
 **Cost:** Free (individuals) or $19 one-time fee (companies)
 
@@ -145,7 +145,7 @@ and refunds globally. You configure your products (license tiers) here.
 For each paid tier (Starter, Pro, Team), create a product:
 1. **Dashboard → Products → Add Product**
 2. Set:
-   - **Name:** e.g., "CoDRAG Pro"
+   - **Name:** e.g., "Prep Pro"
    - **Price:** Per your `DISTRIBUTION_AND_REVENUE_PLAN.md` §3
    - **Type:** Single payment (perpetual license) or subscription
    - **Description:** Describe what's included
@@ -159,7 +159,7 @@ For each paid tier (Starter, Pro, Team), create a product:
 ### 4. Configure webhook (do this when the payments app is deployed — LIC-3)
 After the payments site is live:
 1. **Dashboard → Settings → Webhooks → Add Webhook**
-2. URL: `https://payments.codrag.io/api/webhook/lemonsqueezy`
+2. URL: `https://payments.runprep.io/api/webhook/lemonsqueezy`
 3. Events to subscribe: `order_created`, `subscription_created`
 4. Note the **signing secret** — add it as `LEMONSQUEEZY_WEBHOOK_SECRET` in Netlify
 
@@ -179,7 +179,7 @@ After the payments site is live:
 
 ### 2. Add and verify domain
 1. **Dashboard → Domains → Add Domain**
-2. Enter `codrag.io`
+2. Enter `runprep.io`
 3. Resend will show you DNS records to add — add these in Cloudflare:
    - A `TXT` record for SPF
    - A `CNAME` record for DKIM
@@ -188,7 +188,7 @@ After the payments site is live:
 
 ### 3. Create API key
 1. **Dashboard → API Keys → Create API Key**
-2. Name it `codrag-production`
+2. Name it `prep-production`
 3. Copy the key — you'll add it as:
    - `RESEND_API_KEY` in Netlify environment variables for the **support** app
    - Also as a GitHub Secret if used in CI
@@ -212,7 +212,7 @@ After the payments site is live:
 
 ## ACC-9 — PyPI Account & Token
 
-**What:** Publishes the `codrag-engine` native Rust/Python wheels so they can be `pip install`-ed
+**What:** Publishes the `prep-engine` native Rust/Python wheels so they can be `pip install`-ed
 independently (VS Code extension, advanced users).
 
 **Steps:**
@@ -224,11 +224,11 @@ independently (VS Code extension, advanced users).
 
 ### 2. Create API token
 1. **Account Settings → API tokens → Add API token**
-2. Scope: **Entire account** (or limit to `codrag-engine` project once created)
+2. Scope: **Entire account** (or limit to `prep-engine` project once created)
 3. Copy the token
 
 ### 3. Add to GitHub Secrets
-1. Go to [github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/CoDRAG-MCP/settings/secrets/actions)
+1. Go to [github.com/MagneticAnomaly/Prep-MCP/settings/secrets/actions](https://github.com/MagneticAnomaly/Prep-MCP/settings/secrets/actions)
 2. **New repository secret**:
    - Name: `PYPI_TOKEN`
    - Value: the token you copied

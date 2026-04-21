@@ -25,8 +25,8 @@ dogfooding plan (`06_`) is how we replace intuition with measured error rates.
 - **Gate signal:** stddev of worker confidence scores; count of workers
   whose claims contradict (same file, opposite coupling verdicts).
 - **Frequency if gated:** 5–15 per run (trigger: stddev > 0.3 across ≥3 workers).
-- **Source:** `src/codrag/core/swarm_orchestrator.py:186-250`;
-  `src/codrag/core/group_reasoning.py:200-350`.
+- **Source:** `src/prep/core/swarm_orchestrator.py:186-250`;
+  `src/prep/core/group_reasoning.py:200-350`.
 
 ### 2. Concept promotion grounding — **9/10**
 - **Name:** `concept-promotion-observation-to-durable-knowledge`
@@ -41,9 +41,9 @@ dogfooding plan (`06_`) is how we replace intuition with measured error rates.
 - **Gate signal:** observation confidence < 0.7; novelty (first time this
   pattern seen); evidence count (how many files corroborate).
 - **Frequency if gated:** 10–30 per run.
-- **Source:** `src/codrag/core/concept_promotion.py:28-72`;
-  `src/codrag/services/pipeline/workers.py:471-500`;
-  `src/codrag/core/audit/synthesizer.py:56-61`.
+- **Source:** `src/prep/core/concept_promotion.py:28-72`;
+  `src/prep/services/pipeline/workers.py:471-500`;
+  `src/prep/core/audit/synthesizer.py:56-61`.
 
 ### 3. Audit report synthesis consistency — **9/10**
 - **Name:** `audit-findings-risk-stratification-synthesis`
@@ -57,8 +57,8 @@ dogfooding plan (`06_`) is how we replace intuition with measured error rates.
   (hub file with zero findings = blind spot); pairwise contradiction
   detection across the 5 reports.
 - **Frequency if gated:** 3–8 per run (one meta-review per audit).
-- **Source:** `src/codrag/core/audit/synthesizer.py:96-250`;
-  `src/codrag/core/audit/recommendations.py`.
+- **Source:** `src/prep/core/audit/synthesizer.py:96-250`;
+  `src/prep/core/audit/recommendations.py`.
 
 ### 4. Hub-file classification mutations — **8/10**
 - **Name:** `hub-file-high-blast-radius-validation`
@@ -68,11 +68,11 @@ dogfooding plan (`06_`) is how we replace intuition with measured error rates.
   service" → "utility"), downstream module shape shifts. No gate today.
 - **Blast radius if wrong:** Module boundaries, atlas shape, concept
   anchors all derive from classifications.
-- **Gate signal:** `codrag_impact.dependents > hub_threshold` AND
+- **Gate signal:** `prep_impact.dependents > hub_threshold` AND
   (classification changed from prior run OR confidence < 0.75).
 - **Frequency if gated:** 2–8 per run.
-- **Source:** `src/codrag/services/pipeline/workers.py:100-150`;
-  `src/codrag/core/group_reasoning.py:48-93`.
+- **Source:** `src/prep/services/pipeline/workers.py:100-150`;
+  `src/prep/core/group_reasoning.py:48-93`.
 
 ### 5. Role atlas projection coverage — **8/10**
 - **Name:** `role-atlas-projection-semantic-consistency`
@@ -87,7 +87,7 @@ dogfooding plan (`06_`) is how we replace intuition with measured error rates.
   variance > threshold; cross-role contradictions (file X labeled "core"
   by role A, "peripheral" by role B).
 - **Frequency if gated:** 1–3 per run (per role).
-- **Source:** `src/codrag/core/atlas/role_projection.py:28-250`.
+- **Source:** `src/prep/core/atlas/role_projection.py:28-250`.
 
 ---
 
@@ -101,7 +101,7 @@ dogfooding plan (`06_`) is how we replace intuition with measured error rates.
 - **Gate signal:** per-file confidence < 0.6; connected-component average
   confidence < 0.6; high variance within a component.
 - **Frequency:** 15–40 per run (1000–3000 files; gate on anomalies).
-- **Source:** `src/codrag/core/epistemic_enrichment.py:237-500`.
+- **Source:** `src/prep/core/epistemic_enrichment.py:237-500`.
 
 ### 7. Inferred-edge threshold tuning — **7/10**
 - **Stage:** 2 INFERRED_EDGES
@@ -111,7 +111,7 @@ dogfooding plan (`06_`) is how we replace intuition with measured error rates.
 - **Gate signal:** edge-confidence distribution bimodal; file uses
   known-hard-to-infer patterns; edges to/from hub files (lower threshold).
 - **Frequency:** 5–20 per run.
-- **Source:** `src/codrag/core/inferred_edges.py:94-250`.
+- **Source:** `src/prep/core/inferred_edges.py:94-250`.
 
 ### 8. Cross-cutting concern validation — **7/10**
 - **Stage:** 6–8 + 14 AUDIT
@@ -141,7 +141,7 @@ dogfooding plan (`06_`) is how we replace intuition with measured error rates.
   actually match real files or that assertions are testable.
 - **Gate signal:** trigger-pattern file match count = 0; assertion
   ambiguity heuristic.
-- **Source:** `src/codrag/core/antibody_derivation.py:17-79`.
+- **Source:** `src/prep/core/antibody_derivation.py:17-79`.
 
 ### 11. Deepening-stage convergence check — **6/10**
 - **Stage:** 9 DEEPENING
@@ -156,8 +156,8 @@ dogfooding plan (`06_`) is how we replace intuition with measured error rates.
 - **Why:** Phase 115 territory. More linter than overseer, but Opus could
   validate filter coverage on edge cases.
 - **Gate signal:** `trace_nodes.jsonl` contains paths matching
-  `CODRAG_OUTPUT_DIRS`.
-- **Source:** `src/codrag/core/repo_policy.py:100-160`.
+  `PREP_OUTPUT_DIRS`.
+- **Source:** `src/prep/core/repo_policy.py:100-160`.
 
 ---
 
@@ -205,5 +205,5 @@ pattern on these three.
   yet. A 30-file swarm synthesis input may be 10k tokens; a concept
   promotion may be 2k. Cost modeling belongs in the dogfooding phase.
 - **User-observable error catalog.** We don't yet have a list of
-  "mistakes CoDRAG has made that users noticed." That's the gold standard
+  "mistakes Prep has made that users noticed." That's the gold standard
   for validating which checkpoints matter.

@@ -62,7 +62,7 @@ function CenteredHero() {
 
         {/* Subheadline */}
         <p className="mt-6 text-lg md:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed">
-          CoDRAG indexes your code locally, delivers trace-aware search results, 
+          Prep indexes your code locally, delivers trace-aware search results, 
           and assembles perfect context for Cursor, Windsurf, and Copilot—all without 
           sending your code to the cloud.
         </p>
@@ -103,7 +103,7 @@ function CenteredHero() {
               <span className="w-3 h-3 rounded-full bg-warning/60" />
               <span className="w-3 h-3 rounded-full bg-success/60" />
             </div>
-            <span className="text-xs text-text-subtle ml-2">CoDRAG — LinuxBrain</span>
+            <span className="text-xs text-text-subtle ml-2">Prep — LinuxBrain</span>
           </div>
           <div className="p-6 min-h-[200px] bg-gradient-to-b from-surface to-background">
             {/* Mock dashboard UI */}
@@ -144,7 +144,7 @@ function NeoBrutalistHero() {
           </h1>
           
           <p className="mt-6 text-xl text-text font-mono border-l-4 border-primary pl-4">
-            CoDRAG runs locally. Your code stays yours. 
+            Prep runs locally. Your code stays yours. 
             Semantic search that actually respects your privacy.
           </p>
 
@@ -168,10 +168,10 @@ function NeoBrutalistHero() {
               </div>
             </div>
             <div className="font-mono text-sm space-y-2 p-2">
-              <div className="text-success">$ codrag index --watch</div>
+              <div className="text-success">$ prep index --watch</div>
               <div className="text-text-muted">[info] watching 1,245 files</div>
               <div className="text-text-muted">[info] embedding model loaded (CPU)</div>
-              <div className="text-success">$ codrag search "auth flow"</div>
+              <div className="text-success">$ prep search "auth flow"</div>
               <div className="bg-primary/20 p-2 border-2 border-primary border-dashed text-primary-dark">
                 &gt; Found 3 matches in src/auth/
               </div>
@@ -207,7 +207,7 @@ function SwissHero() {
         <div className="col-span-12 md:col-span-4 bg-primary p-8 flex flex-col justify-between text-white">
           <div className="text-6xl font-bold"><LayoutGrid className="w-16 h-16" /></div>
           <div className="space-y-4">
-            <p className="text-2xl font-medium">CoDRAG v1.0</p>
+            <p className="text-2xl font-medium">Prep v1.0</p>
             <p className="opacity-80">International Typographic Style applied to developer tools.</p>
             <button className="mt-8 bg-white text-primary px-6 py-3 rounded-full font-bold w-full flex items-center justify-between group">
               Get Started <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -297,7 +297,7 @@ function RetroHero() {
       <div className="relative z-10 px-8 py-20 text-center">
         <h1 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-primary to-purple-800 drop-shadow-[0_0_10px_rgba(255,0,255,0.5)]"
             style={{ fontFamily: "'Share Tech Mono', monospace" }}>
-          CODRAG
+          PREP
         </h1>
         <p className="text-2xl text-primary font-bold tracking-[0.5em] mt-2 mb-12 uppercase drop-shadow-md">
           System Online
@@ -337,7 +337,7 @@ function SplitHero() {
         </h1>
 
         <p className="mt-6 text-lg text-text-muted leading-relaxed">
-          Stop wrestling with AI hallucinations. CoDRAG builds a semantic index 
+          Stop wrestling with AI hallucinations. Prep builds a semantic index 
           of your codebase and delivers precisely relevant context—locally and instantly.
         </p>
 
@@ -422,7 +422,7 @@ function StudioHero() {
           
           <div className="max-w-md bg-surface/80 backdrop-blur-sm p-6 border-l-4 border-primary mt-8">
             <p className="text-lg font-sans text-text leading-relaxed">
-              CoDRAG reclaims your codebase from the cloud. A local-first studio for 
+              Prep reclaims your codebase from the cloud. A local-first studio for 
               semantic indexing and intelligent retrieval.
             </p>
           </div>
@@ -487,7 +487,7 @@ function YaleHero() {
         <div className="grid grid-cols-12 gap-x-6 border-b border-border pb-12">
           <div className="col-span-12 md:col-span-3">
             <span className="font-sans font-bold text-sm tracking-wide uppercase text-text-muted flex items-center gap-2">
-              <Command className="w-4 h-4" /> CoDRAG Systems
+              <Command className="w-4 h-4" /> Prep Systems
             </span>
           </div>
           <div className="col-span-12 md:col-span-6">
@@ -505,7 +505,7 @@ function YaleHero() {
           {/* Column 1: Description */}
           <div className="col-span-12 md:col-span-3 md:col-start-4">
             <p className="font-sans text-base text-text leading-relaxed mb-6">
-              CoDRAG provides a unified interface for code retrieval and generation 
+              Prep provides a unified interface for code retrieval and generation 
               context, operating entirely within the local filesystem to ensure data sovereignty.
             </p>
             <a href="#" className="font-sans font-medium text-primary hover:underline underline-offset-4 decoration-2 flex items-center gap-1">
@@ -570,7 +570,7 @@ function FocusHero() {
         </h1>
 
         <p className="text-xl md:text-2xl text-text-muted max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
-          CoDRAG helps you focus by handling the complexity of code context automatically. 
+          Prep helps you focus by handling the complexity of code context automatically. 
           Local, fast, and designed for clarity.
         </p>
 
@@ -611,7 +611,7 @@ function EnterpriseHero() {
       {/* Top Bar */}
       <div className="bg-background border-b border-border px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <span className="font-mono font-bold text-lg tracking-tight flex items-center gap-2"><LayoutGrid className="w-5 h-5" /> CoDRAG</span>
+          <span className="font-mono font-bold text-lg tracking-tight flex items-center gap-2"><LayoutGrid className="w-5 h-5" /> Prep</span>
           <span className="px-2 py-0.5 bg-surface-raised border border-border text-xs text-text-subtle uppercase">Enterprise</span>
         </div>
         <div className="flex gap-4 text-sm font-medium text-text-muted">

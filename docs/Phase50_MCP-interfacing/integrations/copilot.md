@@ -1,6 +1,6 @@
 # GitHub Copilot Integration Research
 
-> How GitHub Copilot (agent mode + coding agent) consumes MCP, and how CoDRAG should optimize for it.
+> How GitHub Copilot (agent mode + coding agent) consumes MCP, and how Prep should optimize for it.
 
 **Status:** UPDATED with confirmed VS Code docs deep-dive
 **Last updated:** 2026-03-14 (deep dive update)
@@ -38,9 +38,9 @@
 - Reads `AGENTS.md` for project instructions
 - MCP support for external tool access
 
-### Key Distinction for CoDRAG
-- **Agent mode (local)**: CoDRAG works via stdio MCP connection. Tools available in real-time.
-- **Coding agent (cloud)**: CoDRAG would need to be accessible remotely (HTTP transport) or the agent needs local access. This is a **deployment consideration** -- CoDRAG currently runs as a local daemon.
+### Key Distinction for Prep
+- **Agent mode (local)**: Prep works via stdio MCP connection. Tools available in real-time.
+- **Coding agent (cloud)**: Prep would need to be accessible remotely (HTTP transport) or the agent needs local access. This is a **deployment consideration** -- Prep currently runs as a local daemon.
 
 ---
 
@@ -53,14 +53,14 @@
 ```json
 {
   "servers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"]
     }
   }
 }
 ```
-- Also installable via CLI: `code --add-mcp "{\"name\":\"codrag\",\"command\":\"codrag\",\"args\":[\"mcp\"]}"`
+- Also installable via CLI: `code --add-mcp "{\"name\":\"prep\",\"command\":\"prep\",\"args\":[\"mcp\"]}"`
 - MCP server gallery: `@mcp` search in Extensions view discovers servers
 - Supports MCP Apps (interactive UI views from tool responses)
 - Supports MCP Prompts as slash commands: `/<server>.<prompt>`
@@ -70,7 +70,7 @@
 ### Coding Agent (Cloud)
 - Reads `AGENTS.md` for project context
 - MCP support is newer and less documented
-- The agent runs in a cloud container -- CoDRAG daemon must be accessible
+- The agent runs in a cloud container -- Prep daemon must be accessible
 
 ### Confirmation Model
 - Agent mode: user approves tool calls in VS Code
@@ -78,12 +78,12 @@
 - **Sandboxing (macOS/Linux ONLY)**: `"sandboxEnabled": true` runs server in isolated environment
   - Restricts filesystem and network access to explicit allowlists
   - **When sandboxed, tool calls are auto-approved** (runs in controlled environment)
-  - CoDRAG config with sandboxing:
+  - Prep config with sandboxing:
 ```json
 {
   "servers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"],
       "sandboxEnabled": true,
       "sandbox": {
@@ -98,7 +98,7 @@
   }
 }
 ```
-  - CoDRAG is read-only, so empty `allowWrite` + localhost-only network is safe
+  - Prep is read-only, so empty `allowWrite` + localhost-only network is safe
   - **NOT available on Windows** -- Windows users still need manual approval
 - **Enterprise**: Centrally managed MCP access via GitHub policies
 
@@ -112,16 +112,16 @@ Plain markdown in `.github/` directory. VS Code reads this for Copilot context.
 ### AGENTS.md Support
 The coding agent reads `AGENTS.md`. This is the primary mechanism for the cloud agent.
 
-### CoDRAG Template
+### Prep Template
 ```markdown
-## CoDRAG Integration
+## Prep Integration
 
-This project is indexed by CoDRAG for structural code intelligence.
+This project is indexed by Prep for structural code intelligence.
 
 When using MCP tools:
-- Call `codrag` at the start of every task for module structure and hub files
-- Use `codrag_search` for natural language code queries
-- Use `codrag_impact` before making changes
+- Call `prep` at the start of every task for module structure and hub files
+- Use `prep_search` for natural language code queries
+- Use `prep_impact` before making changes
 
 ### Codebase Atlas
 [auto-generated]
@@ -136,30 +136,30 @@ Generate both:
 
 ## 5. Native Tools Competition
 
-| Copilot Native | CoDRAG Equivalent | Competition |
+| Copilot Native | Prep Equivalent | Competition |
 |---------------|-------------------|-------------|
-| `@workspace` search | `codrag_search` | HIGH |
-| File reading | `codrag` hub content | MEDIUM |
+| `@workspace` search | `prep_search` | HIGH |
+| File reading | `prep` hub content | MEDIUM |
 | Terminal commands | N/A | NONE |
 | Code generation | N/A | NONE |
 
-Copilot's `@workspace` is a powerful semantic search over the entire workspace. CoDRAG differentiates by providing *structural* context (trace graph, module relationships, blast radius) that `@workspace` cannot.
+Copilot's `@workspace` is a powerful semantic search over the entire workspace. Prep differentiates by providing *structural* context (trace graph, module relationships, blast radius) that `@workspace` cannot.
 
 ---
 
 ## 6. Cloud Agent Considerations
 
-### CoDRAG Deployment for Cloud Agents
-The Copilot coding agent runs in GitHub's cloud. For CoDRAG to work:
-- **Option A**: CoDRAG builds a static context snapshot that's committed to the repo (rules file with atlas)
-- **Option B**: CoDRAG runs as a remote MCP server (HTTP transport) accessible from GitHub's cloud
+### Prep Deployment for Cloud Agents
+The Copilot coding agent runs in GitHub's cloud. For Prep to work:
+- **Option A**: Prep builds a static context snapshot that's committed to the repo (rules file with atlas)
+- **Option B**: Prep runs as a remote MCP server (HTTP transport) accessible from GitHub's cloud
 - **Option C**: The coding agent uses only the `AGENTS.md` atlas (no live MCP)
 
-**Recommendation**: Option A + C for launch. The atlas in `AGENTS.md` gives the cloud agent structural awareness without requiring a live CoDRAG daemon. Live MCP is a future enhancement.
+**Recommendation**: Option A + C for launch. The atlas in `AGENTS.md` gives the cloud agent structural awareness without requiring a live Prep daemon. Live MCP is a future enhancement.
 
 ---
 
-## 7. CoDRAG Optimization Checklist
+## 7. Prep Optimization Checklist
 
 - [x] MCP config format confirmed (`.vscode/mcp.json` with `servers` key)
 - [x] Sandboxing confirmed (auto-approve for sandboxed servers, macOS/Linux)
@@ -168,9 +168,9 @@ The Copilot coding agent runs in GitHub's cloud. For CoDRAG to work:
 - [x] Enterprise management confirmed (GitHub policies)
 - [x] AGENTS.md confirmed (agents.md site lists GitHub Copilot coding agent)
 - [ ] Verify `.github/copilot-instructions.md` injection behavior empirically
-- [ ] Test sandboxing with CoDRAG (localhost network access)
+- [ ] Test sandboxing with Prep (localhost network access)
 - [ ] Determine: can coding agent access local MCP servers?
-- [ ] Test multi-model behavior (GPT-4o vs Claude vs Gemini with CoDRAG tools)
+- [ ] Test multi-model behavior (GPT-4o vs Claude vs Gemini with Prep tools)
 - [ ] Empirically test: what is `clientInfo.name` in Copilot's initialize request?
 
 ---
@@ -179,8 +179,8 @@ The Copilot coding agent runs in GitHub's cloud. For CoDRAG to work:
 
 | Risk | Severity | Notes |
 |------|----------|-------|
-| Cloud agent can't access local CoDRAG daemon | HIGH | Atlas in AGENTS.md provides offline structural context |
-| `@workspace` makes CoDRAG search seem redundant | MEDIUM | CoDRAG offers structural relationships, not just content search |
+| Cloud agent can't access local Prep daemon | HIGH | Atlas in AGENTS.md provides offline structural context |
+| `@workspace` makes Prep search seem redundant | MEDIUM | Prep offers structural relationships, not just content search |
 | Multi-model inconsistency in tool usage | MEDIUM | Tool descriptions must be model-agnostic |
 | Copilot evolves rapidly, breaking MCP integration | MEDIUM | Monitor GitHub Copilot changelog |
 | **Sandboxing not available on Windows** | MEDIUM | Windows users need manual approval -- setup docs must cover both paths |

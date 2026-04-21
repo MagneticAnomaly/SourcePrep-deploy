@@ -7,7 +7,7 @@
 
 ## The Core Idea
 
-CoDRAG's pipeline was designed for small local models (3b). Each stage loops
+Prep's pipeline was designed for small local models (3b). Each stage loops
 over items one at a time: one file per LLM call, one symbol per LLM call.
 That works fine when the model is local and free — latency per call is the
 only cost, and small models can't handle much context anyway.

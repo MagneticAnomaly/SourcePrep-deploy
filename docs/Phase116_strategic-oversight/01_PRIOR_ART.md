@@ -2,7 +2,7 @@
 
 Consolidated research brief. Sources cited throughout. Sections 1–7 catalog
 the literature and production case studies. Section 8 distills design
-implications for CoDRAG.
+implications for Prep.
 
 ## 1. Hierarchical / multi-tier LLM architectures
 
@@ -106,7 +106,7 @@ implications for CoDRAG.
   single-overseer review at similar cost.
 - **Tradeoff summary:** Peer consensus wins on *factual/reasoning* with
   discrete answers. Single strong authority wins on *subjective/rubric*
-  where majority has no signal. CoDRAG's outputs straddle both — concept
+  where majority has no signal. Prep's outputs straddle both — concept
   promotion is subjective; edge inference is discrete.
 
 ## 6. Failure modes
@@ -158,7 +158,7 @@ true "sparse frontier overseer" pattern.** Aider's architect mode is the
 nearest cousin but it fires every turn, not selectively. **Phase 116 has
 room to be genuinely novel in public.**
 
-## 8. Design implications for CoDRAG
+## 8. Design implications for Prep
 
 1. **Default to 1-in-10 to 1-in-20 invocation**, gated by confidence +
    disagreement. Aligned with FrugalGPT cascade ratios and Cobbe
@@ -180,7 +180,7 @@ room to be genuinely novel in public.**
 6. **Avoid same-family judge/generator pairs** (Panickssery 2024).
    Kimi (Moonshot) + Gemini Flash + Opus (Anthropic) is well-diversified.
    Gemini-overseer over Gemini-orchestrator would inherit family bias.
-7. **Async for leaves, blocking for hubs.** Use `codrag_impact`: touching
+7. **Async for leaves, blocking for hubs.** Use `prep_impact`: touching
    a hub file → block on overseer; touching a leaf → persist, attach
    findings as deferred antibodies. Maps naturally onto existing immune-
    system concept.

@@ -1,4 +1,4 @@
-[data-codrag-theme='l'] {
+[data-prep-theme='l'] {
   /* Enterprise Console: Carbon/Atlassian, Governance, Density */
   
   /* Color Palette - Systemic, Cool Grays, Blue Accents */
@@ -45,12 +45,12 @@
   --spacing-unit: 0.25rem;
 }
 
-[data-codrag-theme='l'] .tremor-Card-root {
+[data-prep-theme='l'] .tremor-Card-root {
   border-radius: 0; /* Boxier look */
   border-top: 2px solid var(--primary); /* Accent top border */
 }
 
-[data-codrag-theme='l'].dark {
+[data-prep-theme='l'].dark {
   --background: 210 10% 10%;     /* Dark Slate */
   --foreground: 210 10% 90%;
   --surface: 210 10% 14%;

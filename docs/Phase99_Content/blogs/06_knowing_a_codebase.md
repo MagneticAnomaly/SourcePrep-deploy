@@ -1,7 +1,7 @@
 # 06 — Knowing a Codebase (A Philosophical Essay)
 
 **Status:** ✅ Feasible. Philosophical frame is settled; technical examples still need to be gathered.
-**Depends on:** no CoDRAG features. The essay's ground material is 2–3 observed incidents from real use (yours or others'), plus three real philosophical sources that already exist in print.
+**Depends on:** no Prep features. The essay's ground material is 2–3 observed incidents from real use (yours or others'), plus three real philosophical sources that already exist in print.
 **Does not depend on:** concepts, antibodies, scale, or any live harness experiment.
 
 ## The premise
@@ -59,7 +59,7 @@ Dreyfus is an awkward citation because most of his predictions were falsified. H
 ### 5. Structural scaffolding as a partial answer (~1000 words)
 The constructive move. A tool cannot extract tacit knowledge from a codebase because tacit knowledge is not in the codebase — it is in the developers. But a tool can surface the **structural facts that tacit knowledge is usually about**: which files are load-bearing, which functions have wide blast radius, which modules have cyclic dependencies, which entry points define the architecture. These are still propositional facts (knowing-that), but they are the *right* propositional facts — the ones a senior developer would have internalized through exposure. They don't replace tacit knowledge. They give an AI tool a chance to behave as if it had any.
 
-Here the essay mentions CoDRAG, briefly, as the thing the author built because this argument bothered them enough to act on. No feature list. No pitch. One sentence and a link.
+Here the essay mentions Prep, briefly, as the thing the author built because this argument bothered them enough to act on. No feature list. No pitch. One sentence and a link.
 
 ### 6. What this implies and what it doesn't (~600 words)
 Closing. What this argument does *not* claim: it does not claim that any tool will ever fully substitute for tacit codebase knowledge, or that structural context will eliminate AI coding mistakes, or that the right tool makes humans unnecessary. What it does claim: the dissonance readers started the essay feeling has a real name in philosophy, and there is at least one honest way to narrow the gap. Leave the reader thinking about their own codebase and what its tacit knowledge looks like.
@@ -70,7 +70,7 @@ The essay stands or falls on three or four concrete incidents where the knowing-
 
 1. **Direct experience.** Moments where you (or someone you work with) watched an AI tool produce a factually correct but practically wrong answer about a codebase, and a human caught it because they "just knew" something the tool didn't. Write them down even if they feel obvious — the obvious ones are the best.
 2. **Public incidents.** Bug reports, blog posts, or GitHub issues where an AI coding tool suggested something that violated an unwritten rule. Simon Willison has written about several; so has Armin Ronacher. A sourced public example carries more weight in print than a personal anecdote.
-3. **Dogfooded examples from CoDRAG itself.** If running essays 01–05 surfaces any cases where Claude Code (or another harness) missed something structural that CoDRAG caught, those are gold. They are the essay's bridge from philosophy to product without the product pitch being the point.
+3. **Dogfooded examples from Prep itself.** If running essays 01–05 surfaces any cases where Claude Code (or another harness) missed something structural that Prep caught, those are gold. They are the essay's bridge from philosophy to product without the product pitch being the point.
 
 Ideally: one example per category. Drop them into `06_knowing_raw_material.md` before drafting.
 
@@ -78,14 +78,14 @@ Ideally: one example per category. Drop them into `06_knowing_raw_material.md` b
 
 This essay has to sell without selling. The model is Geoffrey Litt writing about personal software, or Maggie Appleton writing about annotation — you feel the author has built something, the something is implied by the argument, and by the end you want to try it. The explicit mention lives in one sentence in section 5:
 
-> *"I built a tool called CoDRAG because this gap bothered me enough to act on it — it doesn't solve the tacit knowledge problem, nothing does, but it does try to surface the structural facts that tacit knowledge usually attaches to."*
+> *"I built a tool called Prep because this gap bothered me enough to act on it — it doesn't solve the tacit knowledge problem, nothing does, but it does try to surface the structural facts that tacit knowledge usually attaches to."*
 
 And a footnote or closing link. That's the whole pitch. The rest of the essay has to earn enough attention that the one sentence feels like a payoff rather than an interruption.
 
 Anti-patterns for this particular essay:
 - No feature lists
-- No screenshots of CoDRAG output mid-essay (breaks the register)
-- No "CoDRAG solves this" language — the essay's argument explicitly rejects that kind of claim
+- No screenshots of Prep output mid-essay (breaks the register)
+- No "Prep solves this" language — the essay's argument explicitly rejects that kind of claim
 - No comparison tables
 - No MCP explainer
 
@@ -96,7 +96,7 @@ If the reader learns the philosophy and never clicks through, the essay still di
 - **The philosophical frame might feel pretentious.** Ryle and Polanyi in a dev blog is a register risk. The way out is concreteness: every philosophical move is immediately grounded in a coding example. If the prose drifts into abstract philosophizing for more than two paragraphs at a stretch, bring it back down.
 - **Dreyfus is a disputed figure.** Citing him risks attracting "Dreyfus was wrong about AI" comments. Preempt this by explicitly acknowledging what he got wrong in section 4 and isolating the narrow claim that survives.
 - **The tacit knowledge argument proves too much.** If taken to its logical end, it suggests no tool can help, which defeats the discreet pitch. The essay has to distinguish clearly between *replacing* tacit knowledge (impossible) and *providing the structural scaffolding tacit knowledge attaches to* (modest but tractable). That distinction is load-bearing; get it wrong and the essay collapses.
-- **The product pitch might drown the philosophy, or vice versa.** Keep the CoDRAG mention to one sentence plus a closing link. If the draft needs more pitch, the pitch belongs in a different essay.
+- **The product pitch might drown the philosophy, or vice versa.** Keep the Prep mention to one sentence plus a closing link. If the draft needs more pitch, the pitch belongs in a different essay.
 
 ## Limitations to acknowledge in the essay
 
@@ -116,7 +116,7 @@ Long-form essay, 4000–5000 words. Personal blog or Substack. Tonal references:
 - Optionally: Schön, *The Reflective Practitioner*
 - Hillel Wayne's "Are We Really Engineers?" as a tonal reference
 - Geoffrey Litt's "Code Like a Surgeon" as the closest recent model for this kind of piece
-- CoDRAG (once, at the discreet mention)
+- Prep (once, at the discreet mention)
 
 ## Next action
 
@@ -125,4 +125,4 @@ Two things, in this order:
 1. **Gather 3–4 real incidents** in `06_knowing_raw_material.md`. Not invented, not generic. Specific moments where the knowing-that / knowing-how gap was visible. Personal, public, and dogfooded if possible.
 2. **Only after that, draft section 1 (the opening anecdote)**. The rest of the essay follows from whether the opening has real weight. If the opening is vague, the philosophy will feel tacked on. If the opening is concrete, the philosophy will feel inevitable.
 
-This is the essay where voice matters most. Budget iteration on the draft. A single well-written version of this essay is worth more to CoDRAG than all five technical posts combined — because it is the only piece in the set that plausibly lives on a senior developer's "essays I liked this year" list, and that is the readership that actually evaluates dev tools on taste.
+This is the essay where voice matters most. Budget iteration on the draft. A single well-written version of this essay is worth more to Prep than all five technical posts combined — because it is the only piece in the set that plausibly lives on a senior developer's "essays I liked this year" list, and that is the readership that actually evaluates dev tools on taste.

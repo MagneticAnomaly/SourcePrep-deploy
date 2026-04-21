@@ -14,9 +14,9 @@
 
 | File | Action | Responsibility |
 |------|--------|---------------|
-| `src/codrag/services/pipeline/manifest_store.py` | **Create** | All manifest I/O: read/write provenance, read/write hashes, mtime queries, graph stats, age summaries, atomic writes |
-| `src/codrag/services/pipeline/orchestrator.py` | **Modify** | Replace inline manifest I/O with ManifestStore calls |
-| `src/codrag/services/pipeline/__init__.py` | **Modify** | Re-export ManifestStore |
+| `src/prep/services/pipeline/manifest_store.py` | **Create** | All manifest I/O: read/write provenance, read/write hashes, mtime queries, graph stats, age summaries, atomic writes |
+| `src/prep/services/pipeline/orchestrator.py` | **Modify** | Replace inline manifest I/O with ManifestStore calls |
+| `src/prep/services/pipeline/__init__.py` | **Modify** | Re-export ManifestStore |
 | `tests/test_manifest_store.py` | **Create** | Unit tests for ManifestStore |
 
 ## Key Design Decisions
@@ -31,7 +31,7 @@
 ### Task 1: Create ManifestStore with provenance read/write and atomic writes
 
 **Files:**
-- Create: `src/codrag/services/pipeline/manifest_store.py`
+- Create: `src/prep/services/pipeline/manifest_store.py`
 - Create: `tests/test_manifest_store.py`
 
 - [ ] **Step 1: Write failing tests for provenance read/write**
@@ -43,8 +43,8 @@ import os
 import pytest
 from pathlib import Path
 
-from codrag.services.pipeline.manifest_store import ManifestStore
-from codrag.services.pipeline.stages import StageId
+from prep.services.pipeline.manifest_store import ManifestStore
+from prep.services.pipeline.stages import StageId
 
 
 @pytest.fixture
@@ -107,7 +107,7 @@ class TestProvenanceManifest:
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_manifest_store.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'codrag.services.pipeline.manifest_store'`
+Expected: FAIL with `ModuleNotFoundError: No module named 'prep.services.pipeline.manifest_store'`
 
 - [ ] **Step 3: Write ManifestStore class with provenance methods**
 
@@ -231,7 +231,7 @@ Expected: All 9 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/manifest_store.py tests/test_manifest_store.py
+git add src/prep/services/pipeline/manifest_store.py tests/test_manifest_store.py
 git commit -m "feat(pipeline): add ManifestStore with provenance read/write and atomic writes"
 ```
 
@@ -240,7 +240,7 @@ git commit -m "feat(pipeline): add ManifestStore with provenance read/write and 
 ### Task 2: Add worker hash manifest methods to ManifestStore
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/manifest_store.py`
+- Modify: `src/prep/services/pipeline/manifest_store.py`
 - Modify: `tests/test_manifest_store.py`
 
 - [ ] **Step 1: Write failing tests for hash manifest methods**
@@ -376,7 +376,7 @@ Expected: All 16 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/manifest_store.py tests/test_manifest_store.py
+git add src/prep/services/pipeline/manifest_store.py tests/test_manifest_store.py
 git commit -m "feat(pipeline): add worker hash manifest methods to ManifestStore"
 ```
 
@@ -385,7 +385,7 @@ git commit -m "feat(pipeline): add worker hash manifest methods to ManifestStore
 ### Task 3: Add quality metrics, graph stats, and age summary methods
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/manifest_store.py`
+- Modify: `src/prep/services/pipeline/manifest_store.py`
 - Modify: `tests/test_manifest_store.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -540,7 +540,7 @@ Expected: All 24 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/manifest_store.py tests/test_manifest_store.py
+git add src/prep/services/pipeline/manifest_store.py tests/test_manifest_store.py
 git commit -m "feat(pipeline): add quality metrics, graph stats, age summary to ManifestStore"
 ```
 
@@ -549,8 +549,8 @@ git commit -m "feat(pipeline): add quality metrics, graph stats, age summary to 
 ### Task 4: Wire ManifestStore into orchestrator — replace manifest read methods
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/orchestrator.py`
-- Modify: `src/codrag/services/pipeline/__init__.py`
+- Modify: `src/prep/services/pipeline/orchestrator.py`
+- Modify: `src/prep/services/pipeline/__init__.py`
 
 This task replaces the orchestrator's internal manifest READ methods with ManifestStore delegation. Writes come in Task 5.
 
@@ -575,8 +575,8 @@ Add a helper method after `_get_file_logger`:
         """Get or create a ManifestStore for a project."""
         if project_id not in self._manifest_stores:
             try:
-                from codrag.services.project_helpers import require_project
-                from codrag.core.project_registry import project_index_dir
+                from prep.services.project_helpers import require_project
+                from prep.core.project_registry import project_index_dir
                 project = require_project(project_id)
                 idx_dir = Path(project_index_dir(project))
                 self._manifest_stores[project_id] = ManifestStore(idx_dir)
@@ -629,7 +629,7 @@ Replace the method body with ManifestStore delegation:
 
 - [ ] **Step 4: Update `__init__.py` to export ManifestStore**
 
-Add `ManifestStore` to the imports and `__all__` in `src/codrag/services/pipeline/__init__.py`.
+Add `ManifestStore` to the imports and `__all__` in `src/prep/services/pipeline/__init__.py`.
 
 - [ ] **Step 5: Run existing tests to verify nothing broke**
 
@@ -639,7 +639,7 @@ Expected: All tests PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/orchestrator.py src/codrag/services/pipeline/manifest_store.py src/codrag/services/pipeline/__init__.py
+git add src/prep/services/pipeline/orchestrator.py src/prep/services/pipeline/manifest_store.py src/prep/services/pipeline/__init__.py
 git commit -m "refactor(pipeline): wire ManifestStore into orchestrator for manifest reads"
 ```
 
@@ -648,7 +648,7 @@ git commit -m "refactor(pipeline): wire ManifestStore into orchestrator for mani
 ### Task 5: Wire ManifestStore into orchestrator — replace manifest write methods
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/orchestrator.py`
+- Modify: `src/prep/services/pipeline/orchestrator.py`
 
 This replaces the orchestrator's manifest WRITE operations. The key method is `_write_stage_manifest_and_update_run` and the mtime-sync helpers.
 
@@ -661,8 +661,8 @@ Replace the static method body with ManifestStore delegation:
     def _sync_downstream_manifest_mtimes(project_id: str, pfl: Any = None) -> None:
         """Touch all downstream manifest files to match structural mtime."""
         try:
-            from codrag.services.project_helpers import require_project
-            from codrag.core.project_registry import project_index_dir
+            from prep.services.project_helpers import require_project
+            from prep.core.project_registry import project_index_dir
 
             project = require_project(project_id)
             idx_dir = Path(project_index_dir(project))
@@ -705,8 +705,8 @@ Replace the static method body with ManifestStore delegation:
     def _touch_stale_deep_manifests(project_id: str) -> None:
         """Touch deep enrichment manifests so they match the catalogue mtime."""
         try:
-            from codrag.services.project_helpers import require_project
-            from codrag.core.project_registry import project_index_dir
+            from prep.services.project_helpers import require_project
+            from prep.core.project_registry import project_index_dir
 
             project = require_project(project_id)
             idx_dir = Path(project_index_dir(project))
@@ -758,7 +758,7 @@ Expected: All tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/orchestrator.py
+git add src/prep/services/pipeline/orchestrator.py
 git commit -m "refactor(pipeline): replace manifest writes with ManifestStore atomic writes"
 ```
 
@@ -767,7 +767,7 @@ git commit -m "refactor(pipeline): replace manifest writes with ManifestStore at
 ### Task 6: Replace manifest reads in `_detect_resume_point` and `_auto_recover_stale_pipelines`
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/orchestrator.py`
+- Modify: `src/prep/services/pipeline/orchestrator.py`
 
 These are the most critical manifest-reading methods — they determine whether stages need to re-run.
 
@@ -890,7 +890,7 @@ Expected: All tests PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/orchestrator.py
+git add src/prep/services/pipeline/orchestrator.py
 git commit -m "refactor(pipeline): replace raw manifest reads in resume/recovery with ManifestStore"
 ```
 
@@ -899,7 +899,7 @@ git commit -m "refactor(pipeline): replace raw manifest reads in resume/recovery
 ### Task 7: Final cleanup — remove dead imports, verify line count reduction, push
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/orchestrator.py`
+- Modify: `src/prep/services/pipeline/orchestrator.py`
 
 - [ ] **Step 1: Run full test suite**
 
@@ -908,17 +908,17 @@ Expected: All tests pass (some may skip if they need a running daemon)
 
 - [ ] **Step 2: Verify orchestrator line count decreased**
 
-Run: `wc -l src/codrag/services/pipeline/orchestrator.py`
+Run: `wc -l src/prep/services/pipeline/orchestrator.py`
 Expected: ~4,100 lines (down from 4,253 — modest reduction for Stage 1 since we're delegating but haven't deleted the old method bodies yet. Bigger reductions come in Stages 2-3.)
 
 - [ ] **Step 3: Verify ManifestStore line count**
 
-Run: `wc -l src/codrag/services/pipeline/manifest_store.py`
+Run: `wc -l src/prep/services/pipeline/manifest_store.py`
 Expected: ~200-250 lines
 
 - [ ] **Step 4: Run linting**
 
-Run: `ruff check src/codrag/services/pipeline/manifest_store.py src/codrag/services/pipeline/orchestrator.py`
+Run: `ruff check src/prep/services/pipeline/manifest_store.py src/prep/services/pipeline/orchestrator.py`
 Fix any issues.
 
 - [ ] **Step 5: Push to remote**

@@ -2,14 +2,14 @@
 
 **Status:** Proposed  
 **Created:** 2025-02-07  
-**Authors:** CoDRAG Team  
+**Authors:** Prep Team  
 **Related:** `../README.md` (Phase 04 Trace Index), `../DETERMINISTIC_TRACE_BUILD_PLAN.md`
 
 ---
 
 ## Executive Summary
 
-CoDRAG's indexing engine (trace index + embedding index) is currently implemented in pure Python. This document proposes migrating the performance-critical core — file walking, content hashing, AST parsing, trace graph storage, and vector search — to Rust, exposed to the existing Python daemon via PyO3. The goal is 10–50x speedups on hot paths while keeping the Python API/CLI/dashboard layer intact during migration.
+Prep's indexing engine (trace index + embedding index) is currently implemented in pure Python. This document proposes migrating the performance-critical core — file walking, content hashing, AST parsing, trace graph storage, and vector search — to Rust, exposed to the existing Python daemon via PyO3. The goal is 10–50x speedups on hot paths while keeping the Python API/CLI/dashboard layer intact during migration.
 
 This is not a rewrite-the-world proposal. It is a surgical upgrade of the engine internals, designed for a standalone desktop tool that must run efficiently on regular developer machines.
 
@@ -40,7 +40,7 @@ This is not a rewrite-the-world proposal. It is a surgical upgrade of the engine
 
 ### The Python ceiling is real
 
-The current Python implementation works for small-to-medium repos (< 5k files). But CoDRAG's value proposition — "structural context for AI tools" — demands that it handle **real production codebases** (10k–200k+ files) with:
+The current Python implementation works for small-to-medium repos (< 5k files). But Prep's value proposition — "structural context for AI tools" — demands that it handle **real production codebases** (10k–200k+ files) with:
 
 - **Sub-second rebuild** after a file save (incremental)
 - **< 100ms search** across the full trace graph
@@ -51,7 +51,7 @@ Python's GIL, startup overhead, and memory model make these targets unreachable 
 
 ### Multi-language parsing is the forcing function
 
-Today, CoDRAG only extracts symbols from Python files (via `ast.parse()`). TypeScript, Go, Rust, Java, and C/C++ files get **file-level nodes only** — no symbols, no import edges, no structural value. This is the single biggest gap in the product.
+Today, Prep only extracts symbols from Python files (via `ast.parse()`). TypeScript, Go, Rust, Java, and C/C++ files get **file-level nodes only** — no symbols, no import edges, no structural value. This is the single biggest gap in the product.
 
 Tree-sitter is the industry-standard solution for multi-language parsing. It's a C library with **first-class Rust bindings** (`tree-sitter` crate). The Python tree-sitter bindings exist but are:
 
@@ -63,7 +63,7 @@ Building the parser layer in Rust gives us tree-sitter for free, with the best p
 
 ### Standalone desktop tool constraint
 
-CoDRAG is a **local-first desktop tool**, not a cloud service. It runs on the developer's machine alongside their IDE, compiler, browser, Docker, etc. Every watt of CPU and megabyte of RAM we use is CPU and RAM the developer can't use for their actual work.
+Prep is a **local-first desktop tool**, not a cloud service. It runs on the developer's machine alongside their IDE, compiler, browser, Docker, etc. Every watt of CPU and megabyte of RAM we use is CPU and RAM the developer can't use for their actual work.
 
 Rust's zero-cost abstractions, lack of GC pauses, and predictable memory usage make it the right choice for a background tool that must be invisible when idle and fast when active.
 
@@ -72,7 +72,7 @@ Rust's zero-cost abstractions, lack of GC pauses, and predictable memory usage m
 ## 2. Current Architecture (Python)
 
 ```
-src/codrag/core/
+src/prep/core/
 ├── trace.py          # TraceBuilder, TraceIndex, PythonAnalyzer (~833 lines)
 ├── index.py          # CodeIndex: embedding build, search, context assembly (~1029 lines)
 ├── chunking.py       # Markdown + code chunking (~200 lines)
@@ -165,7 +165,7 @@ The current Python implementation loads the entire trace graph into Python dicts
 - **Python:** ~800MB (dict overhead, string interning misses, pointer chasing)
 - **Rust:** ~40MB (arena-allocated, compact string storage, cache-friendly layout)
 
-This matters because CoDRAG runs alongside the developer's IDE, compiler, and browser.
+This matters because Prep runs alongside the developer's IDE, compiler, and browser.
 
 ### 4.5 Predictable latency
 
@@ -190,7 +190,7 @@ No GC pauses. No GIL contention. Search queries return in microseconds, not mill
 
 ## 6. Target Environment: Developer Machines
 
-CoDRAG is a standalone desktop tool. It must run well on:
+Prep is a standalone desktop tool. It must run well on:
 
 ### Minimum viable hardware
 
@@ -203,7 +203,7 @@ CoDRAG is a standalone desktop tool. It must run well on:
 
 ### Resource budget
 
-CoDRAG should use **no more than:**
+Prep should use **no more than:**
 
 | Resource | Idle (watching) | Active (building) | Searching |
 |----------|----------------|-------------------|-----------|
@@ -238,10 +238,10 @@ CoDRAG should use **no more than:**
 ```
 Python (FastAPI + CLI)
   │
-  ├── codrag.core.index      (Python — orchestration, embedding calls)
-  ├── codrag.core.trace      (Python — thin wrapper)
+  ├── prep.core.index      (Python — orchestration, embedding calls)
+  ├── prep.core.trace      (Python — thin wrapper)
   │     │
-  │     └── codrag_engine     (Rust via PyO3)
+  │     └── prep_engine     (Rust via PyO3)
   │           ├── walk()           → List[FileEntry]
   │           ├── hash_files()     → Dict[str, str]
   │           ├── parse_file()     → ParseResult (nodes + edges)
@@ -252,9 +252,9 @@ Python (FastAPI + CLI)
   │           ├── chunk_file()     → List[Chunk]
   │           └── vector_search()  → List[SearchResult]
   │
-  ├── codrag.core.embedder   (Python — HTTP calls to Ollama, unchanged)
-  ├── codrag.api.*           (Python — FastAPI routes, unchanged)
-  └── codrag.cli             (Python — Typer CLI, unchanged)
+  ├── prep.core.embedder   (Python — HTTP calls to Ollama, unchanged)
+  ├── prep.api.*           (Python — FastAPI routes, unchanged)
+  └── prep.cli             (Python — Typer CLI, unchanged)
 ```
 
 ### Key principle: opaque handles
@@ -263,7 +263,7 @@ The Rust trace graph lives in Rust memory. Python gets an opaque `TraceHandle` t
 
 ```python
 # Python side
-from codrag_engine import build_trace, search_trace, get_neighbors
+from prep_engine import build_trace, search_trace, get_neighbors
 
 handle = build_trace(repo_root="/path/to/repo", config={...})
 results = search_trace(handle, query="build_project", kind="symbol", limit=20)
@@ -277,7 +277,7 @@ File watcher detects change (Python watchdog or Rust notify)
   │
   └── changed_paths: Set[str]
         │
-        └── codrag_engine.incremental_rebuild(handle, changed_paths)
+        └── prep_engine.incremental_rebuild(handle, changed_paths)
               │
               ├── Re-hash changed files (Rust, parallel)
               ├── Re-parse changed files (Rust, tree-sitter)
@@ -306,7 +306,7 @@ File watcher detects change (Python watchdog or Rust notify)
 | **Increased build complexity** | `maturin` integrates with `pip`. CI builds Rust + Python in one step. Document the dev setup clearly. |
 | **Rust learning curve** | Start with file walking + hashing (straightforward Rust). Parser layer is more complex but tree-sitter handles the hard parts. |
 | **Python ↔ Rust data conversion overhead** | Use opaque handles for the graph. Only serialize search results (small). Benchmark the FFI boundary early. |
-| **Keeping Python fallback working** | Maintain the pure-Python `PythonAnalyzer` as a fallback during migration. Feature flag: `CODRAG_ENGINE=rust|python`. |
+| **Keeping Python fallback working** | Maintain the pure-Python `PythonAnalyzer` as a fallback during migration. Feature flag: `PREP_ENGINE=rust|python`. |
 
 ### 8.3 High risk (mitigated)
 
@@ -368,11 +368,11 @@ Each phase is independently shippable and testable. The Python fallback remains 
 **Goal:** Rust crate structure, PyO3 skeleton, maturin build, CI integration.
 
 - Create `engine/` directory at repo root with Cargo workspace
-- `codrag-engine` crate with PyO3 module skeleton
+- `prep-engine` crate with PyO3 module skeleton
 - `maturin` config for building Python wheels
 - CI: build + test Rust crate, build wheel, run Python tests with Rust engine
-- Feature flag: `CODRAG_ENGINE=rust|python` (default: `python` during migration)
-- Smoke test: `from codrag_engine import hello; assert hello() == "codrag-engine 0.1.0"`
+- Feature flag: `PREP_ENGINE=rust|python` (default: `python` during migration)
+- Smoke test: `from prep_engine import hello; assert hello() == "prep-engine 0.1.0"`
 
 **Deliverable:** `pip install -e .` builds and imports the Rust extension.
 
@@ -474,11 +474,11 @@ This is a nice-to-have. NumPy brute-force is already fast for < 50k chunks.
 engine/
 ├── Cargo.toml                 # Workspace root
 ├── crates/
-│   ├── codrag-walker/         # File walking + hashing
+│   ├── prep-walker/         # File walking + hashing
 │   │   ├── src/lib.rs
 │   │   └── Cargo.toml         # deps: ignore, blake3, rayon
 │   │
-│   ├── codrag-parser/         # Tree-sitter multi-language parsing
+│   ├── prep-parser/         # Tree-sitter multi-language parsing
 │   │   ├── src/
 │   │   │   ├── lib.rs
 │   │   │   ├── python.rs
@@ -489,17 +489,17 @@ engine/
 │   │   │   └── cpp.rs
 │   │   └── Cargo.toml         # deps: tree-sitter, tree-sitter-{lang}
 │   │
-│   ├── codrag-graph/          # In-memory trace graph + queries
+│   ├── prep-graph/          # In-memory trace graph + queries
 │   │   ├── src/lib.rs
 │   │   └── Cargo.toml         # deps: petgraph or custom, serde
 │   │
-│   ├── codrag-index/          # Chunking, vector search
+│   ├── prep-index/          # Chunking, vector search
 │   │   ├── src/lib.rs
 │   │   └── Cargo.toml         # deps: serde, optional: usearch
 │   │
-│   └── codrag-engine/         # PyO3 wrapper (the Python extension module)
+│   └── prep-engine/         # PyO3 wrapper (the Python extension module)
 │       ├── src/lib.rs         # #[pymodule] exposing all public APIs
-│       └── Cargo.toml         # deps: pyo3, all codrag-* crates
+│       └── Cargo.toml         # deps: pyo3, all prep-* crates
 │
 ├── tests/                     # Rust integration tests
 │   ├── fixtures/              # Shared test repos
@@ -578,7 +578,7 @@ cd engine
 maturin develop --release
 
 # Now Python can import it
-python -c "from codrag_engine import hello; print(hello())"
+python -c "from prep_engine import hello; print(hello())"
 ```
 
 ### Release
@@ -596,17 +596,17 @@ maturin build --release --target x86_64-pc-windows-msvc
 
 ### Fallback for users without Rust
 
-If the Rust extension is not available (e.g., unsupported platform, build failure), CoDRAG falls back to the pure-Python implementation with a warning:
+If the Rust extension is not available (e.g., unsupported platform, build failure), Prep falls back to the pure-Python implementation with a warning:
 
 ```
-⚠ codrag-engine not available; using Python fallback (slower for large repos)
+⚠ prep-engine not available; using Python fallback (slower for large repos)
 ```
 
-This is controlled by `CODRAG_ENGINE=python` or automatic detection:
+This is controlled by `PREP_ENGINE=python` or automatic detection:
 
 ```python
 try:
-    import codrag_engine
+    import prep_engine
     ENGINE = "rust"
 except ImportError:
     ENGINE = "python"
@@ -636,7 +636,7 @@ except ImportError:
 ### Distribution
 
 - Pre-built wheels available for macOS (arm64 + x86_64), Linux (x86_64), Windows (x86_64)
-- `pip install codrag` "just works" on supported platforms
+- `pip install prep` "just works" on supported platforms
 - Pure-Python fallback works on all platforms
 
 ---
@@ -648,9 +648,9 @@ except ImportError:
 | RU-Q1 | Should the Rust engine also handle chunking, or keep that in Python? | **Leaning Rust** — chunking is simple but runs on every file; moving it to Rust avoids a Python roundtrip per file during build. |
 | RU-Q2 | Should we use `notify` (Rust) or keep `watchdog` (Python) for file watching? | **Defer to Phase 5.** Watchdog works. Evaluate after Phase 4. |
 | RU-Q3 | Should the JSONL trace format change, or must it be identical to current output? | **Identical for now.** Same format = backward compatible. We can add acceleration files (e.g., binary graph cache) alongside JSONL later. |
-| RU-Q4 | Where does the `engine/` directory live relative to the Python package? | **Repo root.** `engine/` is a Cargo workspace. `maturin` builds a wheel that installs as `codrag_engine` Python package. |
+| RU-Q4 | Where does the `engine/` directory live relative to the Python package? | **Repo root.** `engine/` is a Cargo workspace. `maturin` builds a wheel that installs as `prep_engine` Python package. |
 | RU-Q5 | How do we handle tree-sitter grammars that need updates (e.g., new TS syntax)? | Grammars are pinned versions in `Cargo.toml`. Update = bump version + rebuild. No runtime grammar fetching. |
-| RU-Q6 | Should the Rust engine expose a C API too (for future Tauri integration)? | **Yes, plan for it.** The `codrag-graph` and `codrag-parser` crates should be usable from both PyO3 and a future C/FFI layer. Keep PyO3-specific code in `codrag-engine` only. |
+| RU-Q6 | Should the Rust engine expose a C API too (for future Tauri integration)? | **Yes, plan for it.** The `prep-graph` and `prep-parser` crates should be usable from both PyO3 and a future C/FFI layer. Keep PyO3-specific code in `prep-engine` only. |
 | RU-Q7 | Thread pool size for parallel operations? | **Default: `num_cpus / 2`, min 2, max 8.** Configurable. Polite to other processes. |
 
 ---

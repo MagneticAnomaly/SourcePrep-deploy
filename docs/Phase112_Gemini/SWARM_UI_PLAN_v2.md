@@ -8,7 +8,7 @@
 
 ## 1. The Problem: The "Thinking" Slot Overload
 
-CoDRAG's `Large` (Thinking) slot currently serves a dual purpose in the Deep Enrichment pipeline:
+Prep's `Large` (Thinking) slot currently serves a dual purpose in the Deep Enrichment pipeline:
 
 1. **Individual file reasoning (Worker):** Per-file epistemic analysis on single files and their structural neighbors.
 2. **Swarm orchestration (Coordinator + Synthesis):** Reading hundreds of file summaries, partitioning them into clusters, and synthesizing the final Domain Modules.
@@ -24,9 +24,9 @@ Separate the single `Large` configuration into distinct Swarm roles so users can
 
 > **Important:** The new `coordinator` slot drives **both** Swarm Phase 1 (planning) and Phase 3 (synthesis). Both phases share the same model profile: large context window, JSON-reliable output, low reasoning depth. Phase 2 (fan-out) is the only role for the Worker (thinking) slot.
 
-If the Coordinator is unassigned, CoDRAG falls back to using `Large` for both phases (preserves backward compatibility).
+If the Coordinator is unassigned, Prep falls back to using `Large` for both phases (preserves backward compatibility).
 
-### Config schema (`packages/ui/src/types.ts` and `src/codrag/services/config_manager.py`)
+### Config schema (`packages/ui/src/types.ts` and `src/prep/services/config_manager.py`)
 
 ```json
 "llm": {
@@ -37,7 +37,7 @@ If the Coordinator is unassigned, CoDRAG falls back to using `Large` for both ph
 }
 ```
 
-### Backend changes (`src/codrag/core/swarm_orchestrator.py`)
+### Backend changes (`src/prep/core/swarm_orchestrator.py`)
 
 The `SwarmOrchestrator` constructor currently accepts a single `llm: LLMClient`. Update to:
 
@@ -113,7 +113,7 @@ const RECOMMENDED_MODELS: Record<string, string[]> = {
 
 1. **Quality:** Routes JSON-heavy orchestration to a model that doesn't think, and reasoning-heavy file analysis to a model that thinks well. Each slot runs a model whose strengths match its job — which lifts synthesis quality and eliminates F-29 thinking-bug stalls.
 2. **Cost efficiency:** Small + Coordinator share Gemini Flash (cheap, low GPU time). Worker spends GPU time only where it matters — deep per-file reasoning.
-3. **Extensibility:** Positions CoDRAG cleanly for future massive-context routing tasks as more 1M+ context models emerge.
+3. **Extensibility:** Positions Prep cleanly for future massive-context routing tasks as more 1M+ context models emerge.
 
 ## 6. Cloud Optimization (Advanced Settings)
 
@@ -121,7 +121,7 @@ The defaults above are calibrated for the Ollama Cloud Pro/Max plans. Power user
 
 ### 6.1 Make the `CLOUD_SMALL` (16K) bottleneck configurable
 
-**File:** `src/codrag/core/batch_profiles.py`
+**File:** `src/prep/core/batch_profiles.py`
 
 Currently, any model containing `:cloud` is forced into `CLOUD_SMALL` (16K output cap, batch sizes 3–8). The 16K cap reflects two compounding constraints:
 
@@ -137,9 +137,9 @@ Currently, any model containing `:cloud` is forced into `CLOUD_SMALL` (16K outpu
 
 ### 6.2 Make Kimi's thinking budget configurable
 
-**File:** `src/codrag/core/llm_client.py`
+**File:** `src/prep/core/llm_client.py`
 
-Currently, when `think=True`, CoDRAG caps `num_predict` at 24,576 to prevent runaway billing.
+Currently, when `think=True`, Prep caps `num_predict` at 24,576 to prevent runaway billing.
 
 **Action:** Surface this cap in Advanced Settings as **"Max Thinking Budget"** (default: 24,576).
 
@@ -147,7 +147,7 @@ Currently, when `think=True`, CoDRAG caps `num_predict` at 24,576 to prevent run
 
 ### 6.3 Maximize Swarm concurrency (dynamic throttling)
 
-**Files:** `src/codrag/core/swarm_orchestrator.py`, `src/codrag/core/cluster.py`, `src/codrag/core/batch_profiles.py`
+**Files:** `src/prep/core/swarm_orchestrator.py`, `src/prep/core/cluster.py`, `src/prep/core/batch_profiles.py`
 
 **F-59 status (verified 2026-04-12, see `docs/Phase79_Swarm/07_Rework/SWARM_HANG_INVESTIGATION.md`):** The daemon-hang root cause was identified as compounding timeout misconfiguration (600s HTTP timeout, no per-worker timeout, zombie coordinator connections). It was fixed via per-worker timeouts (120s cloud / 300s local), wall-time caps (600s cloud / 1800s local), and zombie-session cleanup. **The hang itself is resolved.** Concurrent cloud requests now work end-to-end inside the daemon.
 
@@ -172,7 +172,7 @@ Currently, when `think=True`, CoDRAG caps `num_predict` at 24,576 to prevent run
 
 ## 7. Dynamic Swarm Batching & Concurrency Optimizer
 
-Static batch profiles can't optimize across plan tiers and per-phase intent. We introduce a runtime calculator in `src/codrag/core/swarm_optimizer.py` (new file, exported from `batch_profiles.py` for backward compatibility).
+Static batch profiles can't optimize across plan tiers and per-phase intent. We introduce a runtime calculator in `src/prep/core/swarm_optimizer.py` (new file, exported from `batch_profiles.py` for backward compatibility).
 
 ### Constraints
 
@@ -189,7 +189,7 @@ Goal: deep reasoning per file. Maximize concurrency first, then size batches to 
 - **Formula:** `concurrency = plan_max_slots`, `batch_size = min(KIMI_MAX_BATCH, ceil(total_items / concurrency))`
 - **`KIMI_MAX_BATCH = 10`** (single source of truth — see §7.3)
 
-Worked example — CoDRAG deep enrichment (155 groups, ~16 Kimi prompts):
+Worked example — Prep deep enrichment (155 groups, ~16 Kimi prompts):
 
 | Plan | Concurrency | Waves | Approx Phase 2 wall-clock |
 |------|-------------|-------|---------------------------|
@@ -197,7 +197,7 @@ Worked example — CoDRAG deep enrichment (155 groups, ~16 Kimi prompts):
 | Pro  | 3  | 6 waves       | ~12–30 min |
 | Max  | 10 | 2 waves       | ~4–10 min  |
 
-Worked example — CoDRAG concept seeding (602 modules, ~61 Kimi prompts):
+Worked example — Prep concept seeding (602 modules, ~61 Kimi prompts):
 
 | Plan | Concurrency | Waves | Approx Phase 2 wall-clock |
 |------|-------------|-------|---------------------------|
@@ -222,7 +222,7 @@ Goal: massive-context synthesis with preserved cross-reference attention. Concur
   ```
 - **Why payload-driven:** A Kimi worker output might be 500 tokens or 2,500 tokens. A static item-count cap (v1's 500) could silently span 250K–1.25M tokens and blow past attention-quality limits.
 
-**All plans:** Feed Gemini as much context as attention quality allows. For the CoDRAG project (602 modules × ~1,000 tokens/output = 602K tokens), this yields **3 Gemini synthesis calls** (200 items each) — preserving cross-referencing quality while still collapsing 602 items into ~3 passes instead of 60+.
+**All plans:** Feed Gemini as much context as attention quality allows. For the Prep project (602 modules × ~1,000 tokens/output = 602K tokens), this yields **3 Gemini synthesis calls** (200 items each) — preserving cross-referencing quality while still collapsing 602 items into ~3 passes instead of 60+.
 
 ### 7.3 Light safeguards (single source of truth)
 
@@ -260,7 +260,7 @@ Quality first, throughput second. We'll measure both before and after enabling t
 | **Synthesis JSON validity rate** | % of Phase 1 + Phase 3 calls that produce valid parseable JSON | ≥ 99% (vs ~85% baseline with Kimi-as-coordinator due to F-29) |
 | **Concept coverage** | Concepts surfaced per 100 files vs hand-curated reference set | +20% over Kimi-only baseline |
 | **Group-reasoning depth** | Avg `<think>` tokens per worker (proxy for reasoning effort) | ≥ 4,000 tokens/worker on Max plan |
-| **Swarm wall-clock (CoDRAG project)** | End-to-end time for deep enrichment on 1,800-file index | ≤ 30 min on Max plan |
+| **Swarm wall-clock (Prep project)** | End-to-end time for deep enrichment on 1,800-file index | ≤ 30 min on Max plan |
 | **Per-worker failure rate** | % of fan-out workers that timeout or error | ≤ 2% |
 
 ## 10. Test Plan
@@ -278,8 +278,8 @@ Quality first, throughput second. We'll measure both before and after enabling t
 
 ### In-daemon smoke tests (manual, per release)
 
-1. CoDRAG project, finalize → concept seeding swarm, 602 modules, Pro plan (3 workers).
-2. CoDRAG project, deep enrichment → group reasoning swarm, 155 groups, Max plan (10 workers).
+1. Prep project, finalize → concept seeding swarm, 602 modules, Pro plan (3 workers).
+2. Prep project, deep enrichment → group reasoning swarm, 155 groups, Max plan (10 workers).
 3. mini-redis-rust project, finalize → concept seeding, 19 modules, Free plan (1 worker).
 
 ### UI tests
@@ -309,13 +309,13 @@ The Minimum Viable Configuration focuses on the dual-cloud Swarm flow.
 
 ### Step 1 — Core optimizer logic
 
-- **Target:** new `src/codrag/core/swarm_optimizer.py` (re-exported from `batch_profiles.py` for compatibility).
+- **Target:** new `src/prep/core/swarm_optimizer.py` (re-exported from `batch_profiles.py` for compatibility).
 - **Change:** implement `get_optimal_swarm_config(model_id, plan_tier, total_items, role)` per §7. Constants `KIMI_MAX_BATCH=10`, `GEMINI_MAX_BATCH=500`, `GEMINI_CONTEXT_BUFFER_PCT=0.80` defined here.
 - **Also:** remove the stale F-59 hardcap from `batch_profiles.py:get_batch_concurrency()`.
 
 ### Step 2 — Decoupled Swarm initialization
 
-- **Targets:** `src/codrag/core/swarm_orchestrator.py`, `src/codrag/core/cluster.py`, `src/codrag/core/group_reasoning.py`, `src/codrag/core/concept_seeder.py`, `src/codrag/core/atlas/generator.py`.
+- **Targets:** `src/prep/core/swarm_orchestrator.py`, `src/prep/core/cluster.py`, `src/prep/core/group_reasoning.py`, `src/prep/core/concept_seeder.py`, `src/prep/core/atlas/generator.py`.
 - **Change:** inject `coordinator_llm` (Gemini) and `worker_llm` (Kimi); apply the optimizer's per-phase sizing. Implement the inherit-from-Thinking fallback (§2).
 
 ### Step 3 — UI & Advanced Settings

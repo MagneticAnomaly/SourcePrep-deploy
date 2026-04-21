@@ -51,17 +51,17 @@ class RoleSpec:
     # Role Content
     role_description: str              # Full prose role description
     soul_description: str              # Identity, values, guardrails prose
-    knowledge_context: str             # CoDRAG-generated codebase context
+    knowledge_context: str             # Prep-generated codebase context
     
     # Organization
     reports_to: Optional[str]          # Slug of manager role (None for top-level)
     manages: List[str]                 # Slugs of direct reports
     collaborates_with: List[str]       # Slugs of peer collaborators
     
-    # CoDRAG Integration
+    # Prep Integration
     role_vector: RoleVector            # Phase 64 weighted scoring profile
     recommended_files: List[str]       # Auto-populated file paths
-    codrag_role_slug: str              # For codrag(role="<slug>") calls
+    prep_role_slug: str              # For prep(role="<slug>") calls
     fitness_score: float               # 0.0-1.0 alignment score
     
     # Orchestrator Hints
@@ -90,7 +90,7 @@ agents/
 ├── CEO/
 │   ├── AGENTS.md          # Behavioral instructions
 │   ├── SOUL.md            # Identity and values
-│   └── KNOWLEDGE.md       # CoDRAG context injection (optional)
+│   └── KNOWLEDGE.md       # Prep context injection (optional)
 ├── CTO/
 │   ├── AGENTS.md
 │   ├── SOUL.md
@@ -133,7 +133,7 @@ With KNOWLEDGE.md injected as an env var or appended to AGENTS.md if present.
     "model": "<user_selected_model>",
     "promptTemplate": "<AGENTS.md + SOUL.md>",
     "env": {
-      "CODRAG_PROJECT_ID": "<project_uuid>"
+      "PREP_PROJECT_ID": "<project_uuid>"
     }
   }
 }
@@ -141,7 +141,7 @@ With KNOWLEDGE.md injected as an env var or appended to AGENTS.md if present.
 
 ### 3.5 Paperclip Role Mapping
 
-| CoDRAG Role Category | Paperclip `role` field |
+| Prep Role Category | Paperclip `role` field |
 |---------------------|----------------------|
 | Executive (CEO, CTO, CMO) | `ceo`, `cto`, or `manager` |
 | Management (VP Product, VP Content) | `manager` |
@@ -189,18 +189,18 @@ cto:
     You are the CTO of {company_name}. You report to the CEO.
     {soul_description}
   tools:
-    - codrag_search
-    - codrag_impact
+    - prep_search
+    - prep_impact
   verbose: true
   allow_delegation: true
 ```
 
-### 4.3 CoDRAG Integration Injection
+### 4.3 Prep Integration Injection
 
-Instead of `codrag(role="cto")` in AGENTS.md, the CrewAI adapter:
-1. Adds `codrag_search` and `codrag_impact` as tools in the agent config
+Instead of `prep(role="cto")` in AGENTS.md, the CrewAI adapter:
+1. Adds `prep_search` and `prep_impact` as tools in the agent config
 2. Injects role context into the `backstory` field
-3. Uses CrewAI's Knowledge Base feature to point at CoDRAG-curated files
+3. Uses CrewAI's Knowledge Base feature to point at Prep-curated files
 
 ---
 
@@ -225,7 +225,7 @@ cto = AssistantAgent(
 
 ### 5.2 Team Pattern Mapping
 
-| CoDRAG Org Structure | AutoGen Pattern |
+| Prep Org Structure | AutoGen Pattern |
 |---------------------|----------------|
 | Hierarchical (CEO → CTO → QA) | `SelectorGroupChat` with CEO as selector |
 | Flat (all peer collaborators) | `RoundRobinGroupChat` |
@@ -255,8 +255,8 @@ class OrchestratorAdapter(ABC):
         ...
     
     @abstractmethod
-    def format_codrag_injection(self, role: RoleSpec) -> str:
-        """Generate platform-specific CoDRAG integration instructions."""
+    def format_prep_injection(self, role: RoleSpec) -> str:
+        """Generate platform-specific Prep integration instructions."""
         ...
     
     @property

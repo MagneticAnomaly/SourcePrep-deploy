@@ -34,7 +34,7 @@
 
 4. **RemoteSyncService.check_and_sync() with real S3** — The sync loop is tested for config/credential resolution but the actual download+compare flow is only tested against mocks.
 
-5. **CLI `codrag sync-headless` integration** — No test invokes the CLI command end-to-end.
+5. **CLI `prep sync-headless` integration** — No test invokes the CLI command end-to-end.
 
 6. **Dashboard wiring** — `TeamSyncIndicator.tsx` exists but is not wired into `App.tsx`. No API endpoint exposes `RemoteSyncService.status_dict()`.
 
@@ -122,7 +122,7 @@ These test real interactions between components but still use local mocks for S3
 These require real infrastructure or Docker. Not needed for MVP.
 
 #### T3-1: Docker image build verification
-- Build Dockerfile.cpu and verify `codrag sync-headless --help` runs
+- Build Dockerfile.cpu and verify `prep sync-headless --help` runs
 - Build Dockerfile.gpu and verify Ollama starts
 - Requires: Docker, CI runner
 - File: `.github/workflows/headless-images.yml`
@@ -134,7 +134,7 @@ These require real infrastructure or Docker. Not needed for MVP.
 - File: `tests/test_s3_e2e.py`
 
 #### T3-3: Full pipeline on a real repo
-- Run `codrag sync-headless` on `tests/fixtures/mini_repo/` with a real (or mocked) LLM
+- Run `prep sync-headless` on `tests/fixtures/mini_repo/` with a real (or mocked) LLM
 - Verify all 10 stages complete
 - Verify search returns relevant results from the built index
 - Requires: Ollama or OpenAI API key

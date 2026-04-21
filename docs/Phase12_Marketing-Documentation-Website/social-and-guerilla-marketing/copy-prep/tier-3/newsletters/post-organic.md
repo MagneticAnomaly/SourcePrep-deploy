@@ -8,7 +8,7 @@ Hi [Editor],
 
 Long-time reader.
 
-I wanted to share a project I've been working on called **CoDRAG**.
+I wanted to share a project I've been working on called **Prep**.
 It's a **local-first** context engine for AI coding.
 
 **The "Why":**

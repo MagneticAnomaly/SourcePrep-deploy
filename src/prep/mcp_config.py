@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
-def detect_codrag_command() -> str:
+def _detect_prep_command() -> str:
     return "prep"
 
 
@@ -29,7 +29,7 @@ def generate_mcp_configs(
         if project_id is None or not str(project_id).strip():
             raise ValueError("project_id is required when mode='project'")
 
-    prep_path = prep_command or detect_codrag_command()
+    prep_path = prep_command or _detect_prep_command()
 
     args = ["mcp"]
     if norm_mode == "direct":
@@ -237,7 +237,7 @@ def install_mcp_to_workspace(
 
 
 def _ensure_claude_settings(workspace_path: Path) -> Optional[str]:
-    """Ensure .claude/settings.json has mcp__codrag auto-approve.
+    """Ensure .claude/settings.json has mcp__prep auto-approve.
 
     Merges into existing file if present. Returns the file path if
     written, None if skipped (already configured).
@@ -255,10 +255,10 @@ def _ensure_claude_settings(workspace_path: Path) -> Optional[str]:
     perms = existing.setdefault("permissions", {})
     allow_list = perms.setdefault("allow", [])
 
-    if "mcp__codrag" in allow_list:
+    if "mcp__prep" in allow_list:
         return None  # Already configured
 
-    allow_list.append("mcp__codrag")
+    allow_list.append("mcp__prep")
 
     settings_dir.mkdir(parents=True, exist_ok=True)
     settings_file.write_text(

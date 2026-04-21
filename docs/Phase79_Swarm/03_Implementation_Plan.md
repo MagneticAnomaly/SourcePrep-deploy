@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add agent swarm orchestration to CoDRAG's Group Reasoning stage — a coordinator decomposes work, parallel workers execute with scoped roles, and a synthesis step finds cross-cutting patterns.
+**Goal:** Add agent swarm orchestration to Prep's Group Reasoning stage — a coordinator decomposes work, parallel workers execute with scoped roles, and a synthesis step finds cross-cutting patterns.
 
 **Architecture:** Stage-level wrapper pattern (Approach A). New `SwarmOrchestrator` class handles the three-phase flow generically. Group Reasoning opts in when the model is in a finite supported list and there are 3+ groups. All existing pipeline code paths remain untouched when swarm is inactive.
 
@@ -16,10 +16,10 @@
 
 | File | Action | Responsibility |
 |------|--------|----------------|
-| `src/codrag/data/swarm_models.json` | Create | Finite list of swarm-capable models |
-| `src/codrag/core/swarm_registry.py` | Create | Load JSON, expose `get_swarm_tier()` |
-| `src/codrag/core/swarm_orchestrator.py` | Create | Three-phase swarm executor (coordinator → fan-out → synthesis) |
-| `src/codrag/core/group_reasoning.py` | Modify | Add `_run_swarm()` method, decision branch in `run()` |
+| `src/prep/data/swarm_models.json` | Create | Finite list of swarm-capable models |
+| `src/prep/core/swarm_registry.py` | Create | Load JSON, expose `get_swarm_tier()` |
+| `src/prep/core/swarm_orchestrator.py` | Create | Three-phase swarm executor (coordinator → fan-out → synthesis) |
+| `src/prep/core/group_reasoning.py` | Modify | Add `_run_swarm()` method, decision branch in `run()` |
 | `tests/test_swarm_registry.py` | Create | Registry lookup tests |
 | `tests/test_swarm_orchestrator.py` | Create | Three-phase flow tests with mocked LLM |
 | `tests/test_group_reasoning_swarm.py` | Create | Integration test for swarm path in Group Reasoning |
@@ -29,17 +29,17 @@
 ### Task 1: Swarm Model Registry
 
 **Files:**
-- Create: `src/codrag/data/swarm_models.json`
-- Create: `src/codrag/core/swarm_registry.py`
+- Create: `src/prep/data/swarm_models.json`
+- Create: `src/prep/core/swarm_registry.py`
 - Create: `tests/test_swarm_registry.py`
 
 - [ ] **Step 1: Create the data directory and JSON registry**
 
 ```bash
-mkdir -p src/codrag/data
+mkdir -p src/prep/data
 ```
 
-Write `src/codrag/data/swarm_models.json`:
+Write `src/prep/data/swarm_models.json`:
 
 ```json
 {
@@ -101,7 +101,7 @@ Write `tests/test_swarm_registry.py`:
 ```python
 """Tests for swarm model registry."""
 import pytest
-from codrag.core.swarm_registry import SwarmTier, get_swarm_tier, get_min_groups_threshold
+from prep.core.swarm_registry import SwarmTier, get_swarm_tier, get_min_groups_threshold
 
 
 class TestSwarmTier:
@@ -164,11 +164,11 @@ class TestThreshold:
 .venv/bin/pytest tests/test_swarm_registry.py -v
 ```
 
-Expected: FAIL — `ModuleNotFoundError: No module named 'codrag.core.swarm_registry'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'prep.core.swarm_registry'`
 
 - [ ] **Step 4: Implement swarm_registry.py**
 
-Write `src/codrag/core/swarm_registry.py`:
+Write `src/prep/core/swarm_registry.py`:
 
 ```python
 """Swarm model registry — finite list of validated swarm-capable models.
@@ -264,7 +264,7 @@ Expected: All 13 tests PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/data/swarm_models.json src/codrag/core/swarm_registry.py tests/test_swarm_registry.py
+git add src/prep/data/swarm_models.json src/prep/core/swarm_registry.py tests/test_swarm_registry.py
 git commit -m "feat(swarm): add swarm model registry with finite supported model list
 
 Phase 79 — Agent Swarm Integration. Curated JSON registry of 6 validated
@@ -277,7 +277,7 @@ Gemini Pro, Grok). Simple contains-matching, first match wins."
 ### Task 2: Swarm Orchestrator — Data Model & Phase 1 (Coordinator)
 
 **Files:**
-- Create: `src/codrag/core/swarm_orchestrator.py`
+- Create: `src/prep/core/swarm_orchestrator.py`
 - Create: `tests/test_swarm_orchestrator.py`
 
 - [ ] **Step 1: Write failing tests for data model and coordinator phase**
@@ -289,7 +289,7 @@ Write `tests/test_swarm_orchestrator.py`:
 import json
 import pytest
 from unittest.mock import MagicMock, patch
-from codrag.core.swarm_orchestrator import (
+from prep.core.swarm_orchestrator import (
     SwarmOrchestrator,
     WorkItem,
     CoordinatorPlan,
@@ -395,11 +395,11 @@ class TestCoordinatorPhase:
 .venv/bin/pytest tests/test_swarm_orchestrator.py::TestCoordinatorPhase -v
 ```
 
-Expected: FAIL — `ModuleNotFoundError: No module named 'codrag.core.swarm_orchestrator'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'prep.core.swarm_orchestrator'`
 
 - [ ] **Step 3: Implement data model and coordinator phase**
 
-Write `src/codrag/core/swarm_orchestrator.py`:
+Write `src/prep/core/swarm_orchestrator.py`:
 
 ```python
 """Swarm Orchestrator — three-phase coordinator → fan-out → synthesis.
@@ -720,7 +720,7 @@ Expected: All 3 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/swarm_orchestrator.py tests/test_swarm_orchestrator.py
+git add src/prep/core/swarm_orchestrator.py tests/test_swarm_orchestrator.py
 git commit -m "feat(swarm): add SwarmOrchestrator with coordinator phase
 
 Three-phase swarm executor: coordinator → fan-out → synthesis.
@@ -965,7 +965,7 @@ reporting, synthesis skip on no results, coordinator failure fallback."
 ### Task 4: Group Reasoning Swarm Integration
 
 **Files:**
-- Modify: `src/codrag/core/group_reasoning.py:404-550` (the `run()` method)
+- Modify: `src/prep/core/group_reasoning.py:404-550` (the `run()` method)
 - Create: `tests/test_group_reasoning_swarm.py`
 
 - [ ] **Step 1: Write failing integration test**
@@ -979,8 +979,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from codrag.core.group_reasoning import GroupReasoningEngine, GroupReasoningEntry
-from codrag.core.swarm_registry import SwarmTier
+from prep.core.group_reasoning import GroupReasoningEngine, GroupReasoningEntry
+from prep.core.swarm_registry import SwarmTier
 
 
 @pytest.fixture
@@ -1045,7 +1045,7 @@ def _make_mock_llm(coordinator_response: str, synthesis_response: str):
 
 
 class TestGroupReasoningSwarmDecision:
-    @patch("codrag.core.group_reasoning.get_swarm_tier")
+    @patch("prep.core.group_reasoning.get_swarm_tier")
     def test_swarm_activated_when_eligible(self, mock_tier, tmp_index_dir):
         mock_tier.return_value = SwarmTier.BOTH
         mock_llm = _make_mock_llm("{}", "{}")
@@ -1057,7 +1057,7 @@ class TestGroupReasoningSwarmDecision:
                 engine.run()
                 mock_swarm.assert_called_once()
 
-    @patch("codrag.core.group_reasoning.get_swarm_tier")
+    @patch("prep.core.group_reasoning.get_swarm_tier")
     def test_swarm_skipped_when_model_unsuitable(self, mock_tier, tmp_index_dir):
         mock_tier.return_value = SwarmTier.UNSUITABLE
         mock_llm = _make_mock_llm("{}", "{}")
@@ -1069,7 +1069,7 @@ class TestGroupReasoningSwarmDecision:
                 engine.run()
                 mock_swarm.assert_not_called()
 
-    @patch("codrag.core.group_reasoning.get_swarm_tier")
+    @patch("prep.core.group_reasoning.get_swarm_tier")
     def test_swarm_skipped_when_disabled_by_user(self, mock_tier, tmp_index_dir):
         mock_tier.return_value = SwarmTier.BOTH
         mock_llm = _make_mock_llm("{}", "{}")
@@ -1081,7 +1081,7 @@ class TestGroupReasoningSwarmDecision:
                 engine.run()
                 mock_swarm.assert_not_called()
 
-    @patch("codrag.core.group_reasoning.get_swarm_tier")
+    @patch("prep.core.group_reasoning.get_swarm_tier")
     def test_swarm_skipped_below_threshold(self, mock_tier, tmp_path):
         """With only 2 groups (below threshold of 3), swarm should not activate."""
         mock_tier.return_value = SwarmTier.BOTH
@@ -1136,7 +1136,7 @@ Expected: FAIL — `AttributeError: 'GroupReasoningEngine' object has no attribu
 
 - [ ] **Step 3: Add swarm integration to GroupReasoningEngine**
 
-Modify `src/codrag/core/group_reasoning.py`. Add imports near the top (after existing imports):
+Modify `src/prep/core/group_reasoning.py`. Add imports near the top (after existing imports):
 
 ```python
 from .swarm_registry import SwarmTier, get_swarm_tier, get_min_groups_threshold
@@ -1149,7 +1149,7 @@ Add three new methods to `GroupReasoningEngine` (after `_build_internal_edges`, 
     def _get_swarm_enabled(self) -> bool:
         """Check if swarm is enabled in pipeline settings."""
         try:
-            from codrag.services.settings_store import settings
+            from prep.services.settings_store import settings
             return bool(settings.get("swarm_enabled", True))
         except Exception:
             return True  # Default to enabled
@@ -1168,7 +1168,7 @@ Add three new methods to `GroupReasoningEngine` (after `_build_internal_edges`, 
         Phase 2: Workers analyze groups with scoped prompts.
         Phase 3: Synthesis finds cross-group patterns.
         """
-        from codrag.core.batch_profiles import get_batch_concurrency
+        from prep.core.batch_profiles import get_batch_concurrency
 
         try:
             concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
@@ -1313,8 +1313,8 @@ Add three new methods to `GroupReasoningEngine` (after `_build_internal_edges`, 
         )
 
         import time as _time
-        from codrag.core.context_config import PipelineTask, compute_optimal_settings
-        from codrag.core.llm_client import TASK_MAX_CHARS
+        from prep.core.context_config import PipelineTask, compute_optimal_settings
+        from prep.core.llm_client import TASK_MAX_CHARS
 
         prompt_tokens = len(prompt) // 4
         num_predict, num_ctx, warnings = compute_optimal_settings(
@@ -1437,7 +1437,7 @@ Expected: All existing + new tests PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/core/group_reasoning.py tests/test_group_reasoning_swarm.py
+git add src/prep/core/group_reasoning.py tests/test_group_reasoning_swarm.py
 git commit -m "feat(swarm): integrate swarm orchestration into Group Reasoning
 
 Stage 7 now uses coordinator → fan-out → synthesis when:
@@ -1454,7 +1454,7 @@ Produces additive trace_swarm_synthesis.json with cross-group insights."
 ### Task 5: Settings Toggle
 
 **Files:**
-- Modify: `src/codrag/core/group_reasoning.py` (already has `_get_swarm_enabled`)
+- Modify: `src/prep/core/group_reasoning.py` (already has `_get_swarm_enabled`)
 - No new files — uses existing `SettingsStore.get()`/`set()`
 
 - [ ] **Step 1: Verify the setting works with existing SettingsStore**
@@ -1517,7 +1517,7 @@ Expected: All tests PASS.
 - [ ] **Step 2: Run linting**
 
 ```bash
-.venv/bin/ruff check src/codrag/core/swarm_registry.py src/codrag/core/swarm_orchestrator.py src/codrag/core/group_reasoning.py
+.venv/bin/ruff check src/prep/core/swarm_registry.py src/prep/core/swarm_orchestrator.py src/prep/core/group_reasoning.py
 ```
 
 Expected: No errors. Fix any issues.
@@ -1525,7 +1525,7 @@ Expected: No errors. Fix any issues.
 - [ ] **Step 3: Run type checking**
 
 ```bash
-.venv/bin/mypy src/codrag/core/swarm_registry.py src/codrag/core/swarm_orchestrator.py
+.venv/bin/mypy src/prep/core/swarm_registry.py src/prep/core/swarm_orchestrator.py
 ```
 
 Expected: No errors. Fix any issues.

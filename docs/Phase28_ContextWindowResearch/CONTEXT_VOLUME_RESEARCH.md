@@ -2,7 +2,7 @@
 
 > "How big does this get before it starts hurting performance? There's a sweet spot between too little context and too much."
 
-This document synthesizes academic research, practitioner findings, and CoDRAG's own architecture to answer: **how much context is too much, and what does CoDRAG do about it?**
+This document synthesizes academic research, practitioner findings, and Prep's own architecture to answer: **how much context is too much, and what does Prep do about it?**
 
 ---
 
@@ -11,10 +11,10 @@ This document synthesizes academic research, practitioner findings, and CoDRAG's
 1. [The Core Problem](#the-core-problem)
 2. [What The Research Says](#what-the-research-says)
 3. [What Practitioners Report](#what-practitioners-report)
-4. [How CoDRAG's Context Assembly Works](#how-codrags-context-assembly-works)
+4. [How Prep's Context Assembly Works](#how-preps-context-assembly-works)
 5. [Does Path Weight = Less Context?](#does-path-weight--less-context)
 6. [Can The Trace Graph Be Too Much?](#can-the-trace-graph-be-too-much)
-7. [CoDRAG's Position: Precision Over Volume](#codrags-position-precision-over-volume)
+7. [Prep's Position: Precision Over Volume](#preps-position-precision-over-volume)
 8. [Recommended Defaults & Guidance](#recommended-defaults--guidance)
 9. [FAQ for Beta Users](#faq-for-beta-users)
 10. [Sources](#sources)
@@ -33,7 +33,7 @@ The problem has three distinct failure modes:
 | **Context Rot** | Even on trivial retrieval tasks, performance degrades non-uniformly as input length grows — including with state-of-the-art models (2025) | Chroma Research, 2025 |
 | **Length-Induced Reasoning Decay** | Even with *perfect retrieval* (100% exact match), reasoning accuracy drops 13.9%–85% as context length increases | Chen et al., 2025 |
 
-The third finding is the most alarming for tools like CoDRAG: **it's not enough to retrieve the right code — if you bury it in too much other code, the LLM will still fail.**
+The third finding is the most alarming for tools like Prep: **it's not enough to retrieve the right code — if you bury it in too much other code, the LLM will still fail.**
 
 ---
 
@@ -52,7 +52,7 @@ The third finding is the most alarming for tools like CoDRAG: **it's not enough 
 - This happens even when irrelevant tokens are **whitespace** (minimal distraction).
 - This happens even when irrelevant tokens are **masked** (the model literally only attends to the evidence).
 - **Conclusion**: "The performance degradation may be attributed to the length of the input itself." The mere *distance* between evidence and the question degrades reasoning.
-- **Proposed fix**: "Retrieve then Solve" — extract evidence into a shorter prompt first. This is essentially what CoDRAG does.
+- **Proposed fix**: "Retrieve then Solve" — extract evidence into a shorter prompt first. This is essentially what Prep does.
 
 ### 2.3 "Context Rot" (Chroma Research, 2025)
 
@@ -79,8 +79,8 @@ The third finding is the most alarming for tools like CoDRAG: **it's not enough 
 ### 2.6 RAG vs. GraphRAG (Han et al., 2025 — arXiv 2502.11371)
 
 - Flat RAG excels at single-hop, detail-oriented queries.
-- **GraphRAG (local community search) excels at multi-hop queries** — exactly the kind CoDRAG's trace expansion targets ("what calls this function? what does this module depend on?").
-- Global GraphRAG (high-level summaries) tends to hallucinate on detail queries — this validates CoDRAG's approach of keeping trace context *local* (neighbors, not the whole graph).
+- **GraphRAG (local community search) excels at multi-hop queries** — exactly the kind Prep's trace expansion targets ("what calls this function? what does this module depend on?").
+- Global GraphRAG (high-level summaries) tends to hallucinate on detail queries — this validates Prep's approach of keeping trace context *local* (neighbors, not the whole graph).
 
 ---
 
@@ -103,7 +103,7 @@ The third finding is the most alarming for tools like CoDRAG: **it's not enough 
 - Context zones: Green (0–50%), Yellow (50–70%), Orange (70–90%), Red (90%+).
 - At 70%+ usage, users report: forgotten instructions, repeated work, contradictory outputs.
 - Best practice: "Use @file:startLine-endLine for targeted reads instead of full files."
-- The `zilliztech/claude-context` MCP server reports **~40% token reduction** at equivalent retrieval quality via vector search — essentially what CoDRAG does.
+- The `zilliztech/claude-context` MCP server reports **~40% token reduction** at equivalent retrieval quality via vector search — essentially what Prep does.
 
 ### 3.3 Windsurf / Cascade
 
@@ -119,13 +119,13 @@ The third finding is the most alarming for tools like CoDRAG: **it's not enough 
 | Cursor Cmd-K | ~10K tokens | Function-level snippets |
 | Claude Code | ~140K usable | Zone-based monitoring, auto-compact at 75% |
 | Windsurf Cascade | Variable | Summarize + selective retrieval |
-| CoDRAG (current) | 6K chars (~1.5K tokens) default | Top-K ranked chunks with hard char budget |
+| Prep (current) | 6K chars (~1.5K tokens) default | Top-K ranked chunks with hard char budget |
 
 **The industry norm for injected RAG context is 2K–20K tokens.** Beyond that, returns diminish rapidly.
 
 ---
 
-## 4. How CoDRAG's Context Assembly Works
+## 4. How Prep's Context Assembly Works
 
 ### 4.1 The Pipeline
 
@@ -168,13 +168,13 @@ OUTPUT → sent to LLM via MCP
 
 ### 4.3 What The Tool (Cursor/Windsurf/Claude Code) Does With It
 
-CoDRAG doesn't control the final context window. It provides context via MCP `codrag_context` tool call. The AI tool then:
+Prep doesn't control the final context window. It provides context via MCP `prep_context` tool call. The AI tool then:
 
-1. Takes CoDRAG's output (~1.5K–2K tokens)
+1. Takes Prep's output (~1.5K–2K tokens)
 2. Combines it with: system prompt, conversation history, other tool results, file contents the user @-referenced, the user's actual question
 3. Sends the total to the LLM
 
-CoDRAG's contribution is typically **5–15% of the total context window**. The rest is the tool's own overhead.
+Prep's contribution is typically **5–15% of the total context window**. The rest is the tool's own overhead.
 
 ---
 
@@ -231,7 +231,7 @@ Path weights *indirectly* affect volume in edge cases:
 
 ### 6.1 Scale of the Problem
 
-For CoDRAG's own codebase (~40 Python files):
+For Prep's own codebase (~40 Python files):
 - Trace graph: **547 nodes, 656 edges** (built in 72ms by Rust engine)
 - If each node's content is ~500 chars, the full graph = ~273K chars ≈ **68K tokens**
 - That would consume 34–48% of a 200K context window — with zero room for the actual question
@@ -240,9 +240,9 @@ For a larger project (500 files, typical enterprise monorepo):
 - Estimated: ~5,000+ nodes, ~10,000+ edges
 - Full graph content: **~600K+ tokens** — literally impossible to fit
 
-### 6.2 What CoDRAG Actually Does (And Why It's Right)
+### 6.2 What Prep Actually Does (And Why It's Right)
 
-CoDRAG **never** sends the whole trace graph. The `trace_expand` feature:
+Prep **never** sends the whole trace graph. The `trace_expand` feature:
 
 1. Takes the top-K semantic search results (already filtered to ~5 chunks)
 2. For each result, follows trace edges to find **structurally related** neighbors (imports, callers, callees)
@@ -256,13 +256,13 @@ This is the GraphRAG Local pattern — exactly what Han et al. (2025) found to b
 Think of the trace graph as a **map**, not a **document**:
 - You don't photocopy the entire city map and hand it to someone asking for directions
 - You look up their destination, trace the route, and give them **just the relevant turns**
-- CoDRAG uses the graph to *navigate* to the right code, then sends *just that code*
+- Prep uses the graph to *navigate* to the right code, then sends *just that code*
 
 ---
 
-## 7. CoDRAG's Position: Precision Over Volume
+## 7. Prep's Position: Precision Over Volume
 
-CoDRAG's value proposition is not "give the LLM more code." It's **"give the LLM the** ***right*** **code."**
+Prep's value proposition is not "give the LLM more code." It's **"give the LLM the** ***right*** **code."**
 
 ### 7.1 The Competitive Landscape
 
@@ -271,11 +271,11 @@ CoDRAG's value proposition is not "give the LLM more code." It's **"give the LLM
 | No context (raw LLM) | 0 | 0 | Hallucination from training data |
 | Cursor @file (whole file) | High | Low | Dilution, "lost in the middle" |
 | Cursor @codebase (indexed) | Medium | Medium | Broad retrieval, some noise |
-| CoDRAG semantic search | Low | High | Might miss relevant code not in top-K |
-| CoDRAG semantic + trace | Low-Medium | Very High | Sweet spot: relevant code + its structural context |
-| CoDRAG + compression | Very Low | Very High | Maximum signal density |
+| Prep semantic search | Low | High | Might miss relevant code not in top-K |
+| Prep semantic + trace | Low-Medium | Very High | Sweet spot: relevant code + its structural context |
+| Prep + compression | Very Low | Very High | Maximum signal density |
 
-### 7.2 Why CoDRAG's Defaults Are Conservative (And Should Stay That Way)
+### 7.2 Why Prep's Defaults Are Conservative (And Should Stay That Way)
 
 The current defaults (K=5, max_chars=6000, trace_max_chars=2000) produce ~2K tokens of context. This is:
 
@@ -284,9 +284,9 @@ The current defaults (K=5, max_chars=6000, trace_max_chars=2000) produce ~2K tok
 - **Consistent** with Cursor's default chat cap (~20K including overhead)
 - **Leaves room** for the AI tool's own system prompt, conversation history, and user-referenced files
 
-The research says: **send less, send better.** CoDRAG already does this.
+The research says: **send less, send better.** Prep already does this.
 
-### 7.3 CoDRAG's Layered Defense Against "Too Much Context"
+### 7.3 Prep's Layered Defense Against "Too Much Context"
 
 | Layer | Mechanism | Default |
 |---|---|---|
@@ -337,17 +337,17 @@ Each layer reduces noise. By the time context reaches the LLM, it's been through
 
 ## 9. FAQ for Beta Users
 
-### "How big does CoDRAG's context get?"
+### "How big does Prep's context get?"
 
 Default: ~1,500 tokens (6,000 chars). With trace expansion: ~2,000 tokens (8,000 chars). This is deliberately small — the research shows this is the sweet spot.
 
 ### "Doesn't my AI tool already have a huge context window?"
 
-Yes, but CoDRAG's context is only a fraction of it. Your AI tool's window also holds: the system prompt, conversation history, files you've @-referenced, and the response being generated. CoDRAG aims to use its slice efficiently, not fill the whole window.
+Yes, but Prep's context is only a fraction of it. Your AI tool's window also holds: the system prompt, conversation history, files you've @-referenced, and the response being generated. Prep aims to use its slice efficiently, not fill the whole window.
 
 ### "Will the trace graph overwhelm the context?"
 
-No. CoDRAG never sends the whole graph. It uses the graph to *find* relevant code, then sends only the relevant chunks under a separate 2,000-char budget. Think of it as using a map vs. photocopying the map.
+No. Prep never sends the whole graph. It uses the graph to *find* relevant code, then sends only the relevant chunks under a separate 2,000-char budget. Think of it as using a map vs. photocopying the map.
 
 ### "Does setting a path weight to 0.5 reduce how much context is sent?"
 
@@ -362,11 +362,11 @@ You can increase `k` (more chunks) and `max_chars` (higher ceiling). But be awar
 
 ### "Should I worry about 'lost in the middle'?"
 
-Less than you'd think. CoDRAG ranks chunks by relevance — the most relevant chunk is first. Research shows models attend most strongly to the beginning of context, which is exactly where CoDRAG puts the best match.
+Less than you'd think. Prep ranks chunks by relevance — the most relevant chunk is first. Research shows models attend most strongly to the beginning of context, which is exactly where Prep puts the best match.
 
 ### "What about for very large codebases?"
 
-CoDRAG scales well because it's *selective*. A 10,000-file monorepo still produces the same ~5 chunks of context per query. The index is larger, but the output is the same size. Use path weights to boost the directories you care about most.
+Prep scales well because it's *selective*. A 10,000-file monorepo still produces the same ~5 chunks of context per query. The index is larger, but the output is the same size. Use path weights to boost the directories you care about most.
 
 ---
 

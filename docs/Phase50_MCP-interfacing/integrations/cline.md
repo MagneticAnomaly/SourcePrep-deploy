@@ -1,6 +1,6 @@
 # Cline Integration Research
 
-> How Cline (VS Code extension) consumes MCP, its autonomous agent architecture, and CoDRAG optimization.
+> How Cline (VS Code extension) consumes MCP, its autonomous agent architecture, and Prep optimization.
 
 **Status:** UPDATED with confirmed docs deep-dive
 **Last updated:** 2026-03-14 (deep dive update)
@@ -38,7 +38,7 @@ Cline operates as an autonomous agent that:
 4. Verifies results
 5. Iterates until task complete
 
-This "plan, implement, verify, fix" loop means CoDRAG tools are most useful in the **planning phase** -- structural context informs the approach.
+This "plan, implement, verify, fix" loop means Prep tools are most useful in the **planning phase** -- structural context informs the approach.
 
 ### MCP Configuration
 - Config file: `cline_mcp_settings.json`
@@ -52,23 +52,23 @@ This "plan, implement, verify, fix" loop means CoDRAG tools are most useful in t
 - Default: user approves each action (human-in-the-loop GUI)
 - **Auto-approve available**: see [auto-approval docs](https://docs.cline.bot/features/auto-approve)
 - Cline shows what the AI wants to do before executing
-- CoDRAG recommendation: enable auto-approve for CoDRAG tools (read-only, safe)
+- Prep recommendation: enable auto-approve for Prep tools (read-only, safe)
 
 ### .clinerules for MCP Activation
 From Cline docs: "When you have a lot of MCP servers enabled, it can be useful to define
 when to use each server. Utilize a `.clinerules` file to support intelligent MCP server
 activation through keyword-based triggers."
 
-This means CoDRAG's `.clinerules` content should include trigger keywords:
+This means Prep's `.clinerules` content should include trigger keywords:
 ```markdown
 When asked about code structure, architecture, dependencies, modules,
-hub files, or blast radius, use the CoDRAG MCP tools.
+hub files, or blast radius, use the Prep MCP tools.
 ```
 
 ### Key Feature: Model Agnostic
 Cline works with ANY model provider. This means:
 - Tool descriptions must work across Claude, GPT, Gemini, Llama, Qwen, etc.
-- CoDRAG's tool descriptions need to be model-agnostic (no Claude-specific phrasing)
+- Prep's tool descriptions need to be model-agnostic (no Claude-specific phrasing)
 - Local LLM users (Ollama, LM Studio) are a significant Cline demographic
 
 ---
@@ -78,14 +78,14 @@ Cline works with ANY model provider. This means:
 ### Format
 Plain text/markdown in project root. Injected into system prompt.
 
-### CoDRAG Template
+### Prep Template
 ```markdown
-## CoDRAG Structural Context
+## Prep Structural Context
 
-This project uses CoDRAG for structural code intelligence via MCP.
-ALWAYS call `codrag` at the start of every task for module structure and hub files.
-Use `codrag_search` for code queries with structural trace expansion.
-Use `codrag_impact` before making changes to understand dependencies.
+This project uses Prep for structural code intelligence via MCP.
+ALWAYS call `prep` at the start of every task for module structure and hub files.
+Use `prep_search` for code queries with structural trace expansion.
+Use `prep_impact` before making changes to understand dependencies.
 
 ### Codebase Atlas
 [auto-generated]
@@ -99,9 +99,9 @@ Use `codrag_impact` before making changes to understand dependencies.
 ## 4. Special Considerations
 
 ### Local LLM Users
-Cline's user base includes many local LLM users. CoDRAG implications:
+Cline's user base includes many local LLM users. Prep implications:
 - Local models have smaller context windows (4K-32K typical)
-- CoDRAG's compact 250-token ambient response is critical
+- Prep's compact 250-token ambient response is critical
 - Tool descriptions must be concise -- local models are more sensitive to token budget
 - The atlas in `.clinerules` must be short for small-context models
 
@@ -112,22 +112,22 @@ Different models handle MCP tool calls with varying quality:
 - Llama 3.3: adequate but less reliable
 - Smaller models (7B-14B): may struggle with tool selection
 
-CoDRAG's rules file instructions must be clear and direct to work with weaker models.
+Prep's rules file instructions must be clear and direct to work with weaker models.
 
 ---
 
-## 5. CoDRAG Optimization Checklist
+## 5. Prep Optimization Checklist
 
 - [x] MCP config file confirmed (`cline_mcp_settings.json`)
 - [x] Auto-approve feature confirmed (per-tool)
 - [x] `.clinerules` keyword-based MCP activation confirmed
 - [x] Global MCP Mode confirmed
-- [ ] Test CoDRAG MCP integration in Cline
+- [ ] Test Prep MCP integration in Cline
 - [ ] Verify `.clinerules` injection behavior empirically
 - [ ] Test with local LLMs (Ollama, LM Studio) via Cline
-- [ ] Test auto-approve setup for CoDRAG tools
+- [ ] Test auto-approve setup for Prep tools
 - [ ] Confirm: does Cline read AGENTS.md? (likely not natively)
-- [ ] Test CoDRAG with Cline's plan-execute-verify loop
+- [ ] Test Prep with Cline's plan-execute-verify loop
 - [ ] Empirically test: what is `clientInfo.name` in Cline's initialize request?
 
 ---
@@ -136,7 +136,7 @@ CoDRAG's rules file instructions must be clear and direct to work with weaker mo
 
 | Risk | Severity | Notes |
 |------|----------|-------|
-| Local LLM tool-calling quality | HIGH | Smaller models may not reliably call CoDRAG. Rules file critical. |
-| Model-agnostic tool descriptions needed | MEDIUM | CoDRAG descriptions already model-agnostic. |
+| Local LLM tool-calling quality | HIGH | Smaller models may not reliably call Prep. Rules file critical. |
+| Model-agnostic tool descriptions needed | MEDIUM | Prep descriptions already model-agnostic. |
 | No native AGENTS.md support | LOW | `.clinerules` is the primary mechanism. AGENTS.md is a nice-to-have. |
-| Cline's autonomous loop calls CoDRAG too often | LOW | CoDRAG has rate limiting. Tools are read-only. |
+| Cline's autonomous loop calls Prep too often | LOW | Prep has rate limiting. Tools are read-only. |

@@ -9,7 +9,7 @@
 
 ## 1. Problem Statement
 
-CoDRAG's trace index currently performs **static analysis only** — AST parsing of Python files to extract symbols, imports, and containment edges. This completes in ~4 seconds for a 670-file project but produces a structurally accurate yet semantically shallow graph.
+Prep's trace index currently performs **static analysis only** — AST parsing of Python files to extract symbols, imports, and containment edges. This completes in ~4 seconds for a 670-file project but produces a structurally accurate yet semantically shallow graph.
 
 **What's missing:**
 
@@ -73,7 +73,7 @@ The trace graph is the **most fundamental knowledge layer** for the RAG — it i
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  Step 4: REASONING VALIDATION (Large/Reasoning Model)       ~hours*    │
 │  ├── Review lowest-confidence augmentations from Step 2                │
-│  ├── Cross-reference with CoDRAG's own retrieval (self-bootstrapping)  │
+│  ├── Cross-reference with Prep's own retrieval (self-bootstrapping)  │
 │  ├── Detect and flag outliers (legacy code, abandoned experiments)      │
 │  ├── Verify architectural pattern claims                               │
 │  ├── Resolve conflicting or ambiguous symbol purposes                  │
@@ -84,7 +84,7 @@ The trace graph is the **most fundamental knowledge layer** for the RAG — it i
                                     │
                                     ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  Step 5: ONTOLOGY SYNTHESIS (Large Model + CoDRAG tooling) ~hours*     │
+│  Step 5: ONTOLOGY SYNTHESIS (Large Model + Prep tooling) ~hours*     │
 │  ├── Build domain vocabulary (what concepts does this codebase use?)   │
 │  ├── Map architectural layers and boundaries                           │
 │  ├── Identify design patterns and their implementations                │
@@ -247,8 +247,8 @@ Augmentation data is stored as an overlay on the existing trace index:
 ├── trace_manifest.json        # Static trace (unchanged)
 ├── trace_augmented.jsonl      # NEW: augmentation overlay
 ├── trace_agent_md/            # NEW: generated agent.md files
-│   ├── src/codrag/core/agent.md
-│   ├── src/codrag/dashboard/agent.md
+│   ├── src/prep/core/agent.md
+│   ├── src/prep/dashboard/agent.md
 │   └── ...
 ├── trace_embeddings.npy       # NEW: embedded trace chunks
 ├── trace_documents.json       # NEW: trace chunk documents
@@ -276,9 +276,9 @@ Augmentation data is stored as an overlay on the existing trace index:
 
 | Source | Embedding Text | Priority |
 |:-------|:---------------|:---------|
-| Symbol summary + source snippet | `"[function:build_project] Triggers project index build. Located in src/codrag/server.py:497-520"` | High |
+| Symbol summary + source snippet | `"[function:build_project] Triggers project index build. Located in src/prep/server.py:497-520"` | High |
 | File summary | `"[file:server.py] FastAPI server: project management, search, build orchestration"` | High |
-| Module summary | `"[module:src/codrag/core] Core engine: indexing, embedding, trace building, chunking"` | High |
+| Module summary | `"[module:src/prep/core] Core engine: indexing, embedding, trace building, chunking"` | High |
 | agent.md content | Full agent.md text, chunked | High |
 | Edge annotations | `"server.py imports index.py for CodeIndex build orchestration"` | Medium |
 
@@ -293,7 +293,7 @@ Trace embeddings should be searchable alongside code/instruction chunks:
 
 ### 4.3 Search Fusion
 
-At query time, CoDRAG can blend results from three sources:
+At query time, Prep can blend results from three sources:
 
 ```
 Query: "how does the build process work?"
@@ -356,20 +356,20 @@ These flags prevent wasting expensive reasoning model tokens on code that doesn'
 
 ### 5.4 The Hallucination Bootstrap Problem
 
-**Critical risk:** If Phase 2 uses CoDRAG retrieval that includes Phase 1 LLM-augmented
+**Critical risk:** If Phase 2 uses Prep retrieval that includes Phase 1 LLM-augmented
 data, it creates a circular dependency that launders hallucinations into "evidence":
 
 ```
 Phase 1 (fast model) generates summary: "handles JWT authentication"  ← WRONG
     ↓
-Phase 2 queries CoDRAG: "what handles authentication?"
+Phase 2 queries Prep: "what handles authentication?"
     ↓
-CoDRAG returns the Phase 1 summary as a search hit  ← CONFIRMING ITS OWN HALLUCINATION
+Prep returns the Phase 1 summary as a search hit  ← CONFIRMING ITS OWN HALLUCINATION
     ↓
 Phase 2 reasoning model: "confirmed — this handles JWT auth" ← LAUNDERED HALLUCINATION
 ```
 
-This is not hypothetical — it is the default behavior if we naively use CoDRAG search
+This is not hypothetical — it is the default behavior if we naively use Prep search
 during validation. The reasoning model would treat LLM-generated text as ground truth
 because it appears in the retrieval results indistinguishably from real source code.
 
@@ -400,7 +400,7 @@ Phase 2 Validation Prompt (corrected):
     "Handles user authentication via JWT tokens"
   
   GROUND TRUTH EVIDENCE (source code + docs only, no AI summaries):
-    [CoDRAG Tier 0 search results for "authentication JWT"]
+    [Prep Tier 0 search results for "authentication JWT"]
     [Actual source code of the symbol being validated]
     [Static trace: import edges, callers, file path]
   
@@ -491,14 +491,14 @@ The ontology is a **high-level semantic map** of the codebase:
     {
       "name": "Index Engine",
       "description": "Core indexing pipeline: file scanning, chunking, embedding, and persistence",
-      "modules": ["src/codrag/core/index.py", "src/codrag/core/chunking.py", "src/codrag/core/embedder.py"],
+      "modules": ["src/prep/core/index.py", "src/prep/core/chunking.py", "src/prep/core/embedder.py"],
       "key_concepts": ["chunks", "embeddings", "manifest", "incremental build"],
       "entry_points": ["CodeIndex.build()"]
     },
     {
       "name": "Trace System",
       "description": "Structural code graph: symbol extraction, edge resolution, coverage analysis",
-      "modules": ["src/codrag/core/trace.py"],
+      "modules": ["src/prep/core/trace.py"],
       "key_concepts": ["nodes", "edges", "symbols", "imports", "coverage"],
       "entry_points": ["TraceBuilder.build()", "compute_trace_coverage()"]
     }
@@ -531,7 +531,7 @@ Beyond "what exists" (ontology), this step answers "what does the codebase know 
 
 | Artifact | Purpose | Consumer |
 |:---------|:--------|:---------|
-| `trace_ontology.json` | Machine-readable domain map | CoDRAG search ranking, MCP tools |
+| `trace_ontology.json` | Machine-readable domain map | Prep search ranking, MCP tools |
 | `CODEBASE_OVERVIEW.md` | Human-readable orientation | Developers, AI agents |
 | `agent.md` files | Per-directory AI orientation | IDE agents (Windsurf, Cursor) |
 | Vocabulary index | Concept definitions | Search query expansion |
@@ -543,7 +543,7 @@ Beyond "what exists" (ontology), this step answers "what does the codebase know 
 ### 7.1 Build Pipeline (Full)
 
 ```
-codrag build --project <id>
+prep build --project <id>
     │
     ├── [Parallel] Code Index Build (existing)
     │   ├── Scan → Chunk → Embed → Write
@@ -562,11 +562,11 @@ codrag build --project <id>
             ├── Reads: trace_augmented, agent.md files
             └── Output: trace_embeddings.npy, trace_documents.json
 
-codrag deep-analyze --project <id>  (separate command, on-demand)
+prep deep-analyze --project <id>  (separate command, on-demand)
     │
     ├── Step 4: Reasoning Validation
     │   ├── Reads: trace_augmented (low confidence items)
-    │   ├── Uses: CoDRAG search API (self-bootstrapping)
+    │   ├── Uses: Prep search API (self-bootstrapping)
     │   └── Output: updated trace_augmented.jsonl
     │
     └── Step 5: Ontology Synthesis
@@ -720,7 +720,7 @@ GET  /projects/{id}/trace/agent-md/{path}  Get agent.md for a directory
 1. **Should augmentation block the trace build or run as a follow-up job?**
    - **Resolved:** Follow-up async job. Static trace is always fast; augmentation is optional.
 
-2. **Should Phase 2 use CoDRAG retrieval? Won't it compound hallucinations?**
+2. **Should Phase 2 use Prep retrieval? Won't it compound hallucinations?**
    - **Resolved:** Yes it should, but ONLY via Evidence Tiers (§5.4-5.5). Phase 2 queries Tier 0 (ground truth: raw source code + docs, zero LLM content). LLM-augmented content is never presented as evidence — only as "model claims" to evaluate. See §5.5 for full architecture.
 
 3. **Should agent.md files be committed to the repo?**
@@ -764,7 +764,7 @@ GET  /projects/{id}/trace/agent-md/{path}  Get agent.md for a directory
 - **TraceBERT:** Pre-trained BERT for traceability link recovery  
   https://arxiv.org/abs/2102.04411
 
-- **Existing CoDRAG docs:**
+- **Existing Prep docs:**
   - `TRACEABILITY_AUTOMATION_STRATEGY.md` — Options 0-4 spectrum (this doc extends Option 3+4)
   - `LLM_MODEL_CONFIGURATION.md` — Model slots and tiered processing strategy
   - `CURATED_TRACEABILITY_FRAMEWORK.md` — Manual traceability layer (complementary)

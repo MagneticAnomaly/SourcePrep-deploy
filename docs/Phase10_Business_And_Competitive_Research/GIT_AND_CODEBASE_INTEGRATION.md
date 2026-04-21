@@ -1,19 +1,19 @@
 # Git and Codebase Integration
 
 ## Purpose
-This document defines how CoDRAG should integrate with real customer codebases and Git workflows, including team onboarding.
+This document defines how Prep should integrate with real customer codebases and Git workflows, including team onboarding.
 
 This is not an implementation spec for Git features; it is a **workflow + constraints** guide.
 
-## Core scenarios CoDRAG must support
+## Core scenarios Prep must support
 - Single repo (most common)
 - Large monorepo (many languages/tools)
 - Polyrepo workspace (multiple repos open at once)
 - Repos with submodules
 
 ## Two index strategies (per ADR-003)
-CoDRAG supports:
-- **Standalone mode (default)**: index stored in a central CoDRAG data directory
+Prep supports:
+- **Standalone mode (default)**: index stored in a central Prep data directory
 - **Embedded mode**: index stored in `{project_root}/.prep/`
 
 Reference:
@@ -28,7 +28,7 @@ Reference:
 
 ### 1) Repo identification
 When adding a project:
-- If the provided path is inside a Git repository, CoDRAG should treat the repo root as the “project root” (unless the user explicitly chooses a subdirectory).
+- If the provided path is inside a Git repository, Prep should treat the repo root as the “project root” (unless the user explicitly chooses a subdirectory).
 - Display the repo name and mode (standalone vs embedded) in the dashboard.
 
 ### 2) Ignore patterns and watch exclusions
@@ -49,15 +49,15 @@ Target “clone → instant search” (when `.prep/index/**` is committed).
 
 Flow:
 1. Teammate clones repo.
-2. Teammate runs `codrag add . --embedded`.
-3. CoDRAG detects existing `.prep/`.
+2. Teammate runs `prep add . --embedded`.
+3. Prep detects existing `.prep/`.
 4. If compatible, search is immediately available.
 
 Reference:
 - `docs/Phase06_Team_And_Enterprise/README.md`
 
 ### 4) Embedded mode commit policy
-CoDRAG should support both team choices:
+Prep should support both team choices:
 - **Committed index** (fast onboarding)
 - **Uncommitted index** (avoid repo bloat)
 
@@ -104,7 +104,7 @@ Common in real workflows:
 - front-end repo + API repo + infra repo
 
 Approach:
-- CoDRAG should make it cheap to register multiple projects.
+- Prep should make it cheap to register multiple projects.
 - MCP “auto” mode should detect the correct project by cwd.
 
 Reference:
@@ -130,6 +130,6 @@ Reference:
 - `docs/Phase06_Team_And_Enterprise/README.md`
 
 ## Open questions
-- Should CoDRAG read `.gitignore` by default as an index exclude hint?
+- Should Prep read `.gitignore` by default as an index exclude hint?
 - Should embedded mode generate a `.prep/` scaffold (`project.json`) via an explicit init command?
 - Should CI build committed indexes (or should teams prefer network mode)?

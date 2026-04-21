@@ -505,7 +505,7 @@ def run_initial(api: Api, page: Page, pid: str, ctx: RunContext) -> bool:
 
 def run_incremental(repo_path: Path, api: Api, page: Page, pid: str, ctx: RunContext) -> bool:
     ctx.summary.trigger_reason = "write tick + POST /pipeline/all (incremental path)"
-    tick = repo_path / "codrag_smoke_tick.py"
+    tick = repo_path / "prep_smoke_tick.py"
     tick.write_text(f"# prep smoke tick {datetime.now(timezone.utc).isoformat()}\nTICK = 1\n")
     ctx.log(Event(time.time(), "note", {"detail": "tick_written", "path": str(tick)}))
 

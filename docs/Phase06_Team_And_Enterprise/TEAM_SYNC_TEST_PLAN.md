@@ -34,7 +34,7 @@ Run with:
 | `TestAPIIntegration` | 4 | /status, /search, /context, empty query error |
 | `TestCacheCoherence` | 3 | Cache survives reads, invalidation refreshes, project-scoped |
 | `TestHeadlessStagesCompleteness` | 3 | Labels, IDs, runner instantiation |
-| `TestEdgeCases` | 5 | Empty remote/delta, corrupt manifest, missing .codrag, corrupt docs |
+| `TestEdgeCases` | 5 | Empty remote/delta, corrupt manifest, missing .prep, corrupt docs |
 | **Unit (test_headless_runner.py)** | | |
 | `TestHeadlessConfig` | 2 | Defaults, custom values |
 | `TestHeadlessCreateLlmClient` | 5 | All 4 providers + unknown |
@@ -52,7 +52,7 @@ Run with:
 
 ### Prerequisites
 
-- A CoDRAG Team or Enterprise license (or `CODRAG_TIER=team` env var for dev)
+- A Prep Team or Enterprise license (or `PREP_TIER=team` env var for dev)
 - An S3-compatible bucket (Cloudflare R2 recommended for zero egress fees)
 - A test repository with ≥10 source files
 - OpenAI API key (for CPU mode) OR local Ollama (for GPU mode)
@@ -61,20 +61,20 @@ Run with:
 
 ```bash
 # Set tier for dev testing
-export CODRAG_TIER=team
+export PREP_TIER=team
 
 # Run headless sync (CPU + BYOK mode)
-codrag sync-headless \
+prep sync-headless \
   --repo-path /path/to/test-repo \
   --branch main \
   --model-provider openai \
   --model-name gpt-4.1-mini \
   --embedder native \
   --s3-endpoint https://<account-id>.r2.cloudflarestorage.com \
-  --s3-bucket codrag-team-indexes \
+  --s3-bucket prep-team-indexes \
   --s3-prefix test-repo/main \
-  --s3-access-key $CODRAG_S3_ACCESS_KEY \
-  --s3-secret-key $CODRAG_S3_SECRET_KEY
+  --s3-access-key $PREP_S3_ACCESS_KEY \
+  --s3-secret-key $PREP_S3_SECRET_KEY
 ```
 
 **Verify:**
@@ -87,13 +87,13 @@ codrag sync-headless \
 
 ```bash
 # In the test repository, create team_config.json
-mkdir -p .codrag
+mkdir -p .prep
 cat > .prep/team_config.json << 'EOF'
 {
   "sync": {
     "enabled": true,
     "s3_endpoint": "https://<account-id>.r2.cloudflarestorage.com",
-    "s3_bucket": "codrag-team-indexes",
+    "s3_bucket": "prep-team-indexes",
     "s3_prefix": "test-repo/main",
     "poll_interval_minutes": 5
   }
@@ -109,8 +109,8 @@ cat > .prep/.secrets << 'EOF'
 EOF
 
 # Start the daemon
-export CODRAG_TIER=team
-codrag serve --port 8400
+export PREP_TIER=team
+prep serve --port 8400
 ```
 
 **Verify:**
@@ -159,8 +159,8 @@ curl -X POST http://localhost:8400/projects/{id}/search \
 
 ```bash
 # Test that free tier can't run sync-headless
-unset CODRAG_TIER
-codrag sync-headless --repo-path . --model-provider openai --model-name gpt-4.1-mini
+unset PREP_TIER
+prep sync-headless --repo-path . --model-provider openai --model-name gpt-4.1-mini
 ```
 
 **Verify:**
@@ -169,8 +169,8 @@ codrag sync-headless --repo-path . --model-provider openai --model-name gpt-4.1-
 
 ```bash
 # Test that team tier can
-export CODRAG_TIER=team
-codrag sync-headless --repo-path . --help
+export PREP_TIER=team
+prep sync-headless --repo-path . --help
 ```
 
 **Verify:**
@@ -183,28 +183,28 @@ codrag sync-headless --repo-path . --help
 ### CPU Image
 
 ```bash
-docker build -f public/codrag-deploy/Dockerfile.cpu -t codrag/headless:cpu .
+docker build -f public/prep-deploy/Dockerfile.cpu -t prep/headless:cpu .
 
-docker run --rm codrag/headless:cpu sync-headless --help
+docker run --rm prep/headless:cpu sync-headless --help
 ```
 
 **Verify:**
 - [ ] Image builds without errors
 - [ ] Help text displayed
-- [ ] `codrag` binary is on PATH inside the container
+- [ ] `prep` binary is on PATH inside the container
 
 ### GPU Image
 
 ```bash
-docker build -f public/codrag-deploy/Dockerfile.gpu -t codrag/headless:gpu .
+docker build -f public/prep-deploy/Dockerfile.gpu -t prep/headless:gpu .
 
-docker run --rm codrag/headless:gpu sync-headless --help
+docker run --rm prep/headless:gpu sync-headless --help
 ```
 
 **Verify:**
 - [ ] Image builds without errors (requires Docker with BuildKit)
-- [ ] Ollama is installed (`docker run --rm codrag/headless:gpu ollama --version`)
-- [ ] qwen3:4b model is pre-baked (`docker run --rm codrag/headless:gpu ollama list`)
+- [ ] Ollama is installed (`docker run --rm prep/headless:gpu ollama --version`)
+- [ ] qwen3:4b model is pre-baked (`docker run --rm prep/headless:gpu ollama list`)
 
 ---
 

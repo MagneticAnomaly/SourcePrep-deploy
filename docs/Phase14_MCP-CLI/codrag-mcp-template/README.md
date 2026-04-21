@@ -1,6 +1,6 @@
-# CoDRAG MCP (codrag-mcp)
+# Prep MCP (prep-mcp)
 
-CoDRAG provides a local-first MCP server for IDE integration.
+Prep provides a local-first MCP server for IDE integration.
 
 Supported IDEs:
 - Cursor
@@ -11,14 +11,14 @@ Supported IDEs:
 
 ## Installation
 
-Install CoDRAG (the engine) via your preferred method:
+Install Prep (the engine) via your preferred method:
 
 ```bash
 # macOS (Homebrew)
-brew install --cask codrag
+brew install --cask prep
 
 # Windows (winget)
-winget install MagneticAnomaly.CoDRAG
+winget install MagneticAnomaly.Prep
 ```
 
 ## Quickstart (Direct Mode)
@@ -27,14 +27,14 @@ Direct mode runs fully locally and does not require a daemon.
 
 ```bash
 # Run the MCP server (stdio)
-codrag mcp --mode direct
+prep mcp --mode direct
 ```
 
 Generate IDE config:
 
 ```bash
 # Cursor example
-codrag mcp-config --mode direct --ide cursor
+prep mcp-config --mode direct --ide cursor
 ```
 
 ## Security & Privacy
@@ -48,4 +48,4 @@ See:
 
 This repository is intended to be a public-facing MCP distribution surface.
 
-The CoDRAG engine and commercial features may be distributed as signed binaries under a separate commercial license.
+The Prep engine and commercial features may be distributed as signed binaries under a separate commercial license.

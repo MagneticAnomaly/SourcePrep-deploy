@@ -1,17 +1,17 @@
 # Phase 14: MCP-CLI (Pure CLI Mode)
 
 ## Overview
-This phase focuses on shipping a lightweight, standalone version of CoDRAG that functions purely as a **CLI tool** and **MCP Server**, without requiring a persistent background daemon or GUI.
+This phase focuses on shipping a lightweight, standalone version of Prep that functions purely as a **CLI tool** and **MCP Server**, without requiring a persistent background daemon or GUI.
 
 ## Goal
-To provide the "best plumbing" for IDEs (Windsurf, Cursor) by allowing developers to simply run `npx codrag` (or `pip install codrag`) and instantly get:
+To provide the "best plumbing" for IDEs (Windsurf, Cursor) by allowing developers to simply run `npx prep` (or `pip install prep`) and instantly get:
 1.  **Semantic Search** over their codebase.
 2.  **Context Assembly** for their LLM.
 3.  **Trace Analysis** (GraphRAG) for deep dependencies.
 
 ## What Ships (Phase 14)
-- **Direct MCP mode (no daemon):** `codrag mcp --mode direct`
-- **MCP config generator:** `codrag mcp-config --mode direct --ide cursor`
+- **Direct MCP mode (no daemon):** `prep mcp --mode direct`
+- **MCP config generator:** `prep mcp-config --mode direct --ide cursor`
 - **Default repo root:** current working directory (CWD)
 - **Default index dir:** `<repo_root>/.prep/index`
 - **Repo policy persistence:** `<index_dir>/repo_policy.json` (auto-generated via `ensure_repo_policy`)
@@ -24,7 +24,7 @@ The dashboard includes an **IDE Integration (MCP)** panel that:
 
 ## Requirements
 - **Ollama** is still required for embeddings (default `http://localhost:11434`, model `nomic-embed-text`).
-- Direct MCP does **not** require the CoDRAG daemon (`codrag serve`).
+- Direct MCP does **not** require the Prep daemon (`prep serve`).
 
 ## Key Constraints
 - **Single Repo Focus**: Optimized for "I am working on *this* project right now."
@@ -35,7 +35,7 @@ The dashboard includes an **IDE Integration (MCP)** panel that:
 
 ## Analytics / measurement posture
 
-- CoDRAG MUST work without analytics.
+- Prep MUST work without analytics.
 - If analytics are enabled (opt-in), Direct mode should emit only aggregated counters (no file contents, no raw queries, no absolute paths).
 - Distribution signals (pip/homebrew downloads) are directional only and should not be treated as user counts.
 

@@ -11,7 +11,7 @@ export interface FeatureAvailability {
   mcp_tools: boolean;
   mcp_trace_expand: boolean;
   path_weights: boolean;
-  clara_compression: boolean;
+  prep-compress_compression: boolean;
   multi_repo_agent: boolean;
   team_config: boolean;
   audit_log: boolean;

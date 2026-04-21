@@ -9,7 +9,7 @@
 
 ## Research completion checklist (P04-R*)
 - [x] P04-R1 Finalize node/edge schema + stable ID strategy
-  - Implemented in `src/codrag/core/trace.py` and `src/codrag/core/ids.py`
+  - Implemented in `src/prep/core/trace.py` and `src/prep/core/ids.py`
   - Stable IDs: `file:{path}`, `sym:{qualname}@{path}:{line}`, `ext:{module}`, `edge:{kind}:{src}:{tgt}:{disambiguator}`
 - [x] P04-R2 Define Python analyzer MVP scope (symbols/imports/spans) + failure behavior
   - Python AST analyzer extracts: functions, async functions, classes, methods
@@ -26,9 +26,9 @@
   - `trace_manifest.json`
   - `trace_nodes.jsonl`
   - `trace_edges.jsonl`
-  - Implemented in `src/codrag/core/trace.py` (`TraceBuilder`)
+  - Implemented in `src/prep/core/trace.py` (`TraceBuilder`)
 - [x] P04-I2 Deterministic IDs based on stable keys (file path, qualname, etc.)
-  - Implemented in `src/codrag/core/ids.py`
+  - Implemented in `src/prep/core/ids.py`
 - [x] P04-I3 Failure-tolerant build:
   - per-file parse failures do not fail whole build 
   - bounded per-file error list recorded (`max_failures=50`) 

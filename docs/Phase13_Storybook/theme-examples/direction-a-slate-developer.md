@@ -156,7 +156,7 @@ This direction prioritizes:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  src/codrag/core/index.py                          0.87 ●      │
+│  src/prep/core/index.py                          0.87 ●      │
 │  ──────────────────────────────────────────────────────────────│
 │  def build_index(project: Project) -> IndexResult:             │
 │      """Build the embedding index for a project."""            │
@@ -178,7 +178,7 @@ This direction prioritizes:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  📄 src/codrag/server.py:142-175                    [Copy]     │
+│  📄 src/prep/server.py:142-175                    [Copy]     │
 ├─────────────────────────────────────────────────────────────────┤
 │  142 │ @app.post("/projects/{project_id}/build")               │
 │  143 │ async def build_project(project_id: str):               │

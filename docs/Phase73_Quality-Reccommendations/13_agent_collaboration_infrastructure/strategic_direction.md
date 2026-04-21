@@ -7,17 +7,17 @@
 
 ## 1. The Reframe
 
-The initial implementation built collaboration infrastructure as a standalone system inside CoDRAG — its own activity feed, its own conflict resource, its own coordination primitives. After review, we identified a clearer product direction:
+The initial implementation built collaboration infrastructure as a standalone system inside Prep — its own activity feed, its own conflict resource, its own coordination primitives. After review, we identified a clearer product direction:
 
-**CoDRAG should provide structural intelligence that enriches Paperclip's existing coordination, not build a parallel PM system.**
+**Prep should provide structural intelligence that enriches Paperclip's existing coordination, not build a parallel PM system.**
 
-Paperclip already manages agents, tracks activity, routes tasks, and maintains an audit trail. CoDRAG should not duplicate these capabilities. Instead, CoDRAG should tell Paperclip things only CoDRAG can know — what changed in the dependency graph, which files are structurally connected, where agents are about to collide — and let Paperclip act on that intelligence through its own UI, workflows, and agent orchestration.
+Paperclip already manages agents, tracks activity, routes tasks, and maintains an audit trail. Prep should not duplicate these capabilities. Instead, Prep should tell Paperclip things only Prep can know — what changed in the dependency graph, which files are structurally connected, where agents are about to collide — and let Paperclip act on that intelligence through its own UI, workflows, and agent orchestration.
 
-**CoDRAG's role:** "I know things about the code graph that no PM tool can know. I'll push those signals to Paperclip."
+**Prep's role:** "I know things about the code graph that no PM tool can know. I'll push those signals to Paperclip."
 
-**Paperclip's role:** "I manage agents, tasks, and workflows. CoDRAG gives me signals I can't compute myself."
+**Paperclip's role:** "I manage agents, tasks, and workflows. Prep gives me signals I can't compute myself."
 
-For non-Paperclip MCP clients (Claude Code, Cursor, Gemini CLI), CoDRAG still serves collaboration data directly via MCP resources — but these are secondary to the Paperclip integration.
+For non-Paperclip MCP clients (Claude Code, Cursor, Gemini CLI), Prep still serves collaboration data directly via MCP resources — but these are secondary to the Paperclip integration.
 
 ---
 
@@ -28,7 +28,7 @@ The full implementation (19 commits, 76 tests) includes:
 **Foundation (keep as-is):**
 - `created_by` + `visibility` columns on observation store
 - `get_by_agent()` and `get_all_attributed()` query methods
-- `CoDRAGDataAccess` and `AgentCore` passthrough for `created_by`
+- `PrepDataAccess` and `AgentCore` passthrough for `created_by`
 - Pi agent attribution (`scenario=` on all 9 `_save_observation` calls)
 - CollaborationHub facade + singleton initialization
 
@@ -54,50 +54,50 @@ The full implementation (19 commits, 76 tests) includes:
 
 ## 3. What Changes
 
-### 3.1 Remove: `codrag://activity` MCP Resource
+### 3.1 Remove: `prep://activity` MCP Resource
 
 **Why:** Paperclip has a richer activity/audit trail. Our activity feed is a simpler, weaker version of what Paperclip already shows. Exposing it as an MCP resource invites comparison where we lose.
 
 **What stays:** `ActivityStore` itself stays as internal infrastructure. It's useful for diagnostics, for seeding Paperclip push payloads, and for the delta resource to reference. It just doesn't need to be an MCP resource.
 
-**Impact:** Remove from `get_collaboration_resources()`, remove from `parse_collaboration_uri()`, remove `format_activity_resource()` from MCP content generators. Remove from the MCP prompts that reference `@codrag://activity`. Keep the FastAPI endpoint for internal use and Paperclip plugin consumption.
+**Impact:** Remove from `get_collaboration_resources()`, remove from `parse_collaboration_uri()`, remove `format_activity_resource()` from MCP content generators. Remove from the MCP prompts that reference `@prep://activity`. Keep the FastAPI endpoint for internal use and Paperclip plugin consumption.
 
-### 3.2 Remove: `codrag://conflicts` MCP Resource
+### 3.2 Remove: `prep://conflicts` MCP Resource
 
-**Why:** Conflicts should flow to Paperclip as issues, not sit in a separate CoDRAG resource. When CoDRAG detects that the Researcher and Custodian disagree about `src/auth.py`, that should become a Paperclip issue tagged `codrag:conflict` with both assessments in the description — visible in the same issue tracker where all other work lives.
+**Why:** Conflicts should flow to Paperclip as issues, not sit in a separate Prep resource. When Prep detects that the Researcher and Custodian disagree about `src/auth.py`, that should become a Paperclip issue tagged `prep:conflict` with both assessments in the description — visible in the same issue tracker where all other work lives.
 
 **What stays:** `ConflictStore` stays (need persistent record). `ConflictDetector` stays. The change is in how detected conflicts are surfaced: pushed to Paperclip via `PaperclipAdapter`, not served as an MCP resource.
 
 **New behavior:** After `ConflictDetector.detect_from_observations()` finds conflicts, call `PaperclipAdapter` to create a conflict issue:
 ```
-Title: "CoDRAG Conflict: src/auth.py — Researcher vs Custodian"
+Title: "Prep Conflict: src/auth.py — Researcher vs Custodian"
 Description: |
   Two agents disagree about this file:
   
   **Researcher:** "Important JWT pattern — consolidate into shared validator"
   **Custodian:** "No imports found — safe to delete"
   
-  <!-- codrag-address:codrag://project_id/CONFLICT-abc123 -->
-  <!-- codrag-conflict:true -->
+  <!-- prep-address:prep://project_id/CONFLICT-abc123 -->
+  <!-- prep-conflict:true -->
 ```
 Paperclip users see this in their normal issue list. They can assign it, comment, resolve.
 
-**For non-Paperclip MCP clients:** Conflicts still appear as a note in the `codrag://memory/{role}` resource when an agent's observations overlap with another's. Not as a dedicated resource.
+**For non-Paperclip MCP clients:** Conflicts still appear as a note in the `prep://memory/{role}` resource when an agent's observations overlap with another's. Not as a dedicated resource.
 
-### 3.3 Rethink: `codrag-triage` Prompt → `codrag-enrich`
+### 3.3 Rethink: `prep-triage` Prompt → `prep-enrich`
 
-**Why:** Triage (clustering findings, assigning to agents) is Paperclip's job. CoDRAG shouldn't decide who works on what — it should provide the structural evidence that helps Paperclip make better decisions.
+**Why:** Triage (clustering findings, assigning to agents) is Paperclip's job. Prep shouldn't decide who works on what — it should provide the structural evidence that helps Paperclip make better decisions.
 
-**New prompt: `codrag-enrich`**
+**New prompt: `prep-enrich`**
 
 Arguments: `finding_ids` (optional), `scope` (optional)
 
 Returns a structural enrichment of findings rather than a triage:
 ```
-Enrich the current findings with structural intelligence from CoDRAG.
+Enrich the current findings with structural intelligence from Prep.
 
-1. Call `codrag_audit` to get current findings.
-2. For the top findings, call `codrag_impact` to assess blast radius.
+1. Call `prep_audit` to get current findings.
+2. For the top findings, call `prep_impact` to assess blast radius.
 3. Identify which findings touch hub files (high-impact) vs leaf files (low-impact).
 4. Note which findings span multiple modules (cross-cutting) vs are contained to one.
 5. Summarize: for each finding, report scope size, hub involvement, and
@@ -108,13 +108,13 @@ This gives Paperclip the *inputs* for triage (blast radius, hub involvement, cro
 
 ### 3.4 Extend: Push Collaboration Data to Paperclip
 
-Currently CoDRAG pushes audit findings to Paperclip via the PushEngine. The collaboration extension pushes three additional data types:
+Currently Prep pushes audit findings to Paperclip via the PushEngine. The collaboration extension pushes three additional data types:
 
 **A. Push Conflicts as Issues**
 
 When: After `ConflictDetector` finds new conflicts (during PushEngine.push() or on-demand).
 
-How: Use existing `PaperclipAdapter.create_issue()` with a conflict-tagged description. Deduplicate via `codrag-address` in description (existing pattern).
+How: Use existing `PaperclipAdapter.create_issue()` with a conflict-tagged description. Deduplicate via `prep-address` in description (existing pattern).
 
 **B. Push Structural Delta Summaries**
 
@@ -132,7 +132,7 @@ Description: |
   This file has become a central dependency. Changes to it will affect
   many other files. Consider reviewing the dependency chain.
   
-  <!-- codrag-address:codrag://project_id/DELTA-abc123 -->
+  <!-- prep-address:prep://project_id/DELTA-abc123 -->
 ```
 
 Only push "significant" deltas — new/removed hubs, new/removed modules, rank changes >2. Don't push noise.
@@ -146,14 +146,14 @@ How: Rather than creating issues, update the agent's metadata in Paperclip with 
 PATCH /api/agents/{agent_id}
 {
   "adapterConfig": {
-    "codrag_claims": [
+    "prep_claims": [
       {"path": "src/auth/login.py", "reason": "Researching: auth consolidation", "expires_at": ...}
     ]
   }
 }
 ```
 
-Paperclip's routing logic can read `codrag_claims` before assigning a task that touches the same files. This is a signal, not a hard block.
+Paperclip's routing logic can read `prep_claims` before assigning a task that touches the same files. This is a signal, not a hard block.
 
 ### 3.5 Extend: Paperclip Plugin Data Providers
 
@@ -171,19 +171,19 @@ Three MCP resources stay for Claude Code / Cursor / Windsurf / Gemini users who 
 
 | Resource | Why Keep |
 |---|---|
-| `codrag://memory/{role}` | Session continuity — agent starts with prior observations pre-loaded. No Paperclip equivalent for non-Paperclip agents. |
-| `codrag://agents/{role}/findings` | Cross-agent visibility for non-Paperclip sessions. A developer using Claude Code can see what CoDRAG's Researcher found. |
-| `codrag://delta` | Structural changes — only CoDRAG can provide this. Useful for any MCP client. |
+| `prep://memory/{role}` | Session continuity — agent starts with prior observations pre-loaded. No Paperclip equivalent for non-Paperclip agents. |
+| `prep://agents/{role}/findings` | Cross-agent visibility for non-Paperclip sessions. A developer using Claude Code can see what Prep's Researcher found. |
+| `prep://delta` | Structural changes — only Prep can provide this. Useful for any MCP client. |
 
 ### 3.7 Keep: MCP Prompts (Revised)
 
 | Prompt | Status | Reasoning |
 |---|---|---|
-| `codrag-handoff` | **Keep** | Packages structural context (memory + delta + findings) that Paperclip can't assemble. Works for both Paperclip handoffs and non-Paperclip agent transitions. |
-| `codrag-scope` | **Keep** | Structural scoping is CoDRAG-native — shows which modules an agent owns, what changed in those modules, what observations exist. |
-| `codrag-triage` | **Replace with `codrag-enrich`** | CoDRAG provides structural enrichment (blast radius, hub involvement, cross-module analysis), Paperclip does the actual triage. |
+| `prep-handoff` | **Keep** | Packages structural context (memory + delta + findings) that Paperclip can't assemble. Works for both Paperclip handoffs and non-Paperclip agent transitions. |
+| `prep-scope` | **Keep** | Structural scoping is Prep-native — shows which modules an agent owns, what changed in those modules, what observations exist. |
+| `prep-triage` | **Replace with `prep-enrich`** | Prep provides structural enrichment (blast radius, hub involvement, cross-module analysis), Paperclip does the actual triage. |
 
-Update prompts to remove `@codrag://activity` references (removed resource) and `@codrag://conflicts` references (pushed to Paperclip instead).
+Update prompts to remove `@prep://activity` references (removed resource) and `@prep://conflicts` references (pushed to Paperclip instead).
 
 ---
 
@@ -193,7 +193,7 @@ Update prompts to remove `@codrag://activity` references (removed resource) and 
 
 ### 4.1 Conflict Push to Paperclip — DONE
 
-Implemented in `PushEngine._push_conflict_to_pm()`. After `ConflictDetector` finds conflicts (Step 2b), each conflict is pushed to Paperclip as a tagged issue (Step 2c) with both agents' assessments. Dedup via `codrag-address` in the description.
+Implemented in `PushEngine._push_conflict_to_pm()`. After `ConflictDetector` finds conflicts (Step 2b), each conflict is pushed to Paperclip as a tagged issue (Step 2c) with both agents' assessments. Dedup via `prep-address` in the description.
 
 ### 4.2 Delta Push to Paperclip (New)
 
@@ -228,7 +228,7 @@ def _push_significant_delta(self, delta: StructuralDelta) -> None:
 
 **Solution:** The Paperclip plugin adds an `agent-claims` data provider that reads from the daemon's `/collaboration/claims` endpoint. Paperclip's UI shows claims on the agent detail tab. For routing, Paperclip's orchestrator can check claims before assigning tasks that touch the same files.
 
-**Integration point:** Paperclip plugin (`packages/paperclip-plugin-codrag/`). No CoDRAG daemon changes needed — the FastAPI endpoint already exists.
+**Integration point:** Paperclip plugin (`packages/paperclip-plugin-prep/`). No Prep daemon changes needed — the FastAPI endpoint already exists.
 
 **Plugin changes:**
 1. Add `agent-claims` data provider to manifest + worker
@@ -239,15 +239,15 @@ def _push_significant_delta(self, delta: StructuralDelta) -> None:
 
 ### 4.4 MCP Resource Cleanup — DONE
 
-Removed `activity` and `conflicts` from `get_collaboration_resources()` and `parse_collaboration_uri()`. Internal formatters kept. Prompts updated to remove `@codrag://activity` and `@codrag://conflicts` references.
+Removed `activity` and `conflicts` from `get_collaboration_resources()` and `parse_collaboration_uri()`. Internal formatters kept. Prompts updated to remove `@prep://activity` and `@prep://conflicts` references.
 
-### 4.5 `codrag-enrich` Prompt — DONE
+### 4.5 `prep-enrich` Prompt — DONE
 
-Replaced `codrag-triage` with `codrag-enrich` in `collaboration_handlers.py`. Provides structural enrichment (blast radius, hub involvement, cross-module analysis) instead of triage.
+Replaced `prep-triage` with `prep-enrich` in `collaboration_handlers.py`. Provides structural enrichment (blast radius, hub involvement, cross-module analysis) instead of triage.
 
 ### 4.6 Plugin Data Providers — DONE
 
-Added `structural-delta` and `agent-claims` data providers to `packages/paperclip-plugin-codrag/src/worker/index.ts`. Both call daemon collaboration API endpoints. Plugin init log updated to "4 data providers".
+Added `structural-delta` and `agent-claims` data providers to `packages/paperclip-plugin-prep/src/worker/index.ts`. Both call daemon collaboration API endpoints. Plugin init log updated to "4 data providers".
 
 ### 4.7 Observation Tool `created_by` in Plugin — DONE
 
@@ -260,7 +260,7 @@ Added `created_by: 'paperclip-agent'` to the observe tool POST body in the plugi
 | Priority | Item | Effort | Status |
 |---|---|---|---|
 | **P1** | 4.4 MCP resource cleanup | Small | **DONE** |
-| **P1** | 4.5 `codrag-enrich` prompt | Trivial | **DONE** |
+| **P1** | 4.5 `prep-enrich` prompt | Trivial | **DONE** |
 | **P1** | 4.7 Plugin `created_by` | Trivial | **DONE** |
 | **P2** | 4.6 Plugin data providers | Small | **DONE** |
 | **P2** | 4.1 Conflict push | Small | **DONE** |
@@ -275,26 +275,26 @@ All P1 and P2 items are implemented. P3 items are deferred for user feedback.
 
 For a developer using Claude Code directly (no Paperclip):
 
-- **`@codrag://memory/{role}`** — See what CoDRAG's internal agents found. "What did the Researcher discover about auth?"
-- **`@codrag://agents/{role}/findings`** — Cross-agent findings. "What did the Custodian flag for deletion?"
-- **`@codrag://delta`** — "What changed structurally in the last week?"
-- **`/codrag-handoff`** — "I'm picking up from where the Researcher left off"
-- **`/codrag-scope`** — "What does the backend_engineer role own?"
-- **`/codrag-enrich`** — "Enrich these audit findings with structural analysis"
-- **`codrag_observe` with `created_by`** — Save observations with attribution so future sessions can filter by role
+- **`@prep://memory/{role}`** — See what Prep's internal agents found. "What did the Researcher discover about auth?"
+- **`@prep://agents/{role}/findings`** — Cross-agent findings. "What did the Custodian flag for deletion?"
+- **`@prep://delta`** — "What changed structurally in the last week?"
+- **`/prep-handoff`** — "I'm picking up from where the Researcher left off"
+- **`/prep-scope`** — "What does the backend_engineer role own?"
+- **`/prep-enrich`** — "Enrich these audit findings with structural analysis"
+- **`prep_observe` with `created_by`** — Save observations with attribution so future sessions can filter by role
 
 These are useful standalone capabilities that don't require Paperclip. But they're secondary to the Paperclip integration — if you have Paperclip, you get richer coordination through its UI and orchestration.
 
 ---
 
-## 7. Summary: CoDRAG's Collaboration Value Proposition
+## 7. Summary: Prep's Collaboration Value Proposition
 
-CoDRAG provides three things Paperclip cannot compute:
+Prep provides three things Paperclip cannot compute:
 
 1. **Structural delta** — what changed in the dependency graph, not just what files changed
 2. **File-level claims with structural awareness** — coordination at the code level, not the task level
 3. **Pre-push conflict detection** — catch agent disagreements before they become separate Paperclip issues
 
-Everything else (activity tracking, task routing, agent management, audit trail) belongs in Paperclip. CoDRAG enriches Paperclip's coordination with structural intelligence. It doesn't replace it.
+Everything else (activity tracking, task routing, agent management, audit trail) belongs in Paperclip. Prep enriches Paperclip's coordination with structural intelligence. It doesn't replace it.
 
 The Paperclip plugin is the primary integration surface. MCP resources serve non-Paperclip clients as a secondary path. The collaboration stores (`ActivityStore`, `ClaimStore`, `GraphSnapshotStore`, `ConflictStore`) are internal infrastructure that feeds both paths.

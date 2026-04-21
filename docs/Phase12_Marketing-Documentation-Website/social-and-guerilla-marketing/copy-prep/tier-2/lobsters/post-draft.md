@@ -1,7 +1,7 @@
 # Post Draft for Lobsters
 
 ## Title Options (Link Post)
-1. **CoDRAG: A local-first, structural code indexer in Rust**
+1. **Prep: A local-first, structural code indexer in Rust**
 2. **Replacing vector search with graph traversal for code retrieval**
 3. **Trace-Assisted Grasping: Using Tree-sitter for deterministic RAG**
 

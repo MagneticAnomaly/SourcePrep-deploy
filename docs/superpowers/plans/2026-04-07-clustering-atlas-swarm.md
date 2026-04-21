@@ -4,9 +4,9 @@
 
 **Goal:** Add swarm orchestration (coordinator → fan-out → synthesis) to Stage 8 (Clustering) and Stage 9 (Atlas Generation), reusing the existing `SwarmOrchestrator`.
 
-**Architecture:** Each stage gets: (1) a `_get_swarm_enabled()` check, (2) a `_run_swarm()` method that constructs WorkItems from stage data, defines coordinator/synthesis prompts, and bridges the worker callback to the stage's existing analysis method, (3) a swarm decision branch in the main `run()`/`generate_segmented()` method. Pattern is identical to Group Reasoning (`src/codrag/core/group_reasoning.py:324-570`).
+**Architecture:** Each stage gets: (1) a `_get_swarm_enabled()` check, (2) a `_run_swarm()` method that constructs WorkItems from stage data, defines coordinator/synthesis prompts, and bridges the worker callback to the stage's existing analysis method, (3) a swarm decision branch in the main `run()`/`generate_segmented()` method. Pattern is identical to Group Reasoning (`src/prep/core/group_reasoning.py:324-570`).
 
-**Tech Stack:** Python 3.11+, `SwarmOrchestrator` from `src/codrag/core/swarm_orchestrator.py`, `SwarmRegistry` from `src/codrag/core/swarm_registry.py`, existing `ClusterSynthesizer` and `CodebaseAtlas` classes.
+**Tech Stack:** Python 3.11+, `SwarmOrchestrator` from `src/prep/core/swarm_orchestrator.py`, `SwarmRegistry` from `src/prep/core/swarm_registry.py`, existing `ClusterSynthesizer` and `CodebaseAtlas` classes.
 
 **Spec:** `docs/superpowers/specs/2026-04-07-clustering-atlas-swarm-design.md`
 
@@ -16,8 +16,8 @@
 
 | File | Action | Responsibility |
 |------|--------|----------------|
-| `src/codrag/core/cluster.py` | Modify | Add swarm integration to `ClusterSynthesizer` |
-| `src/codrag/core/atlas/generator.py` | Modify | Add swarm integration to `CodebaseAtlas.generate_segmented()` |
+| `src/prep/core/cluster.py` | Modify | Add swarm integration to `ClusterSynthesizer` |
+| `src/prep/core/atlas/generator.py` | Modify | Add swarm integration to `CodebaseAtlas.generate_segmented()` |
 | `tests/test_cluster_swarm.py` | Create | Swarm decision + integration tests for clustering |
 | `tests/test_atlas_swarm.py` | Create | Swarm decision + integration tests for atlas |
 
@@ -39,8 +39,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from codrag.core.cluster import ClusterSynthesizer, Cluster, ModuleEntry
-from codrag.core.swarm_registry import SwarmTier
+from prep.core.cluster import ClusterSynthesizer, Cluster, ModuleEntry
+from prep.core.swarm_registry import SwarmTier
 
 
 def _make_clusters(n: int) -> list[Cluster]:
@@ -60,7 +60,7 @@ def _make_clusters(n: int) -> list[Cluster]:
 
 def _make_epistemic(clusters: list[Cluster]) -> dict:
     """Build minimal epistemic entries for all cluster members."""
-    from codrag.core.epistemic_score import EpistemicEntry
+    from prep.core.epistemic_score import EpistemicEntry
     entries = {}
     for cluster in clusters:
         for nid in cluster.member_node_ids:
@@ -97,7 +97,7 @@ def _make_mock_llm():
 
 
 class TestClusterSwarmDecision:
-    @patch("codrag.core.cluster.get_swarm_tier")
+    @patch("prep.core.cluster.get_swarm_tier")
     def test_swarm_activated_when_eligible(self, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         mock_llm = _make_mock_llm()
@@ -110,11 +110,11 @@ class TestClusterSwarmDecision:
             with patch.object(synth, "_get_swarm_enabled", return_value=True):
                 with patch.object(synth, "load_epistemic", return_value=epistemic):
                     with patch.object(synth, "load_edges", return_value=[]):
-                        with patch("codrag.core.cluster.build_clusters", return_value=clusters):
+                        with patch("prep.core.cluster.build_clusters", return_value=clusters):
                             synth.run()
                             mock_swarm.assert_called_once()
 
-    @patch("codrag.core.cluster.get_swarm_tier")
+    @patch("prep.core.cluster.get_swarm_tier")
     def test_swarm_skipped_when_model_unsuitable(self, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.UNSUITABLE
         mock_llm = _make_mock_llm()
@@ -127,11 +127,11 @@ class TestClusterSwarmDecision:
             with patch.object(synth, "_get_swarm_enabled", return_value=True):
                 with patch.object(synth, "load_epistemic", return_value=epistemic):
                     with patch.object(synth, "load_edges", return_value=[]):
-                        with patch("codrag.core.cluster.build_clusters", return_value=clusters):
+                        with patch("prep.core.cluster.build_clusters", return_value=clusters):
                             synth.run()
                             mock_swarm.assert_not_called()
 
-    @patch("codrag.core.cluster.get_swarm_tier")
+    @patch("prep.core.cluster.get_swarm_tier")
     def test_swarm_skipped_when_disabled(self, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         mock_llm = _make_mock_llm()
@@ -144,11 +144,11 @@ class TestClusterSwarmDecision:
             with patch.object(synth, "_get_swarm_enabled", return_value=False):
                 with patch.object(synth, "load_epistemic", return_value=epistemic):
                     with patch.object(synth, "load_edges", return_value=[]):
-                        with patch("codrag.core.cluster.build_clusters", return_value=clusters):
+                        with patch("prep.core.cluster.build_clusters", return_value=clusters):
                             synth.run()
                             mock_swarm.assert_not_called()
 
-    @patch("codrag.core.cluster.get_swarm_tier")
+    @patch("prep.core.cluster.get_swarm_tier")
     def test_swarm_skipped_below_threshold(self, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         mock_llm = _make_mock_llm()
@@ -161,7 +161,7 @@ class TestClusterSwarmDecision:
             with patch.object(synth, "_get_swarm_enabled", return_value=True):
                 with patch.object(synth, "load_epistemic", return_value=epistemic):
                     with patch.object(synth, "load_edges", return_value=[]):
-                        with patch("codrag.core.cluster.build_clusters", return_value=clusters):
+                        with patch("prep.core.cluster.build_clusters", return_value=clusters):
                             synth.run()
                             mock_swarm.assert_not_called()
 
@@ -195,7 +195,7 @@ skips otherwise."
 ### Task 2: Clustering Swarm — Implementation
 
 **Files:**
-- Modify: `src/codrag/core/cluster.py`
+- Modify: `src/prep/core/cluster.py`
 
 - [ ] **Step 1: Add imports**
 
@@ -214,7 +214,7 @@ Add to `ClusterSynthesizer` class, after the `__init__` method (after line 949):
     def _get_swarm_enabled(self) -> bool:
         """Check if swarm is enabled in pipeline settings."""
         try:
-            from codrag.services.settings_store import settings
+            from prep.services.settings_store import settings
             return bool(settings.get("swarm_enabled", True))
         except Exception:
             return True
@@ -325,7 +325,7 @@ Add after `synthesize_cluster_with_angle`:
         # Get full swarm concurrency budget
         concurrency = 1
         try:
-            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            from prep.services.pipeline.scheduler import pipeline_scheduler
             full = pipeline_scheduler.full_budget_for_swarm(
                 self.llm.provider, self.llm.model,
             )
@@ -335,7 +335,7 @@ Add after `synthesize_cluster_with_angle`:
             logger.debug("Swarm full budget unavailable: %s", exc)
         if concurrency <= 1:
             try:
-                from codrag.core.batch_profiles import get_batch_concurrency
+                from prep.core.batch_profiles import get_batch_concurrency
                 concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
             except Exception:
                 concurrency = 1
@@ -545,7 +545,7 @@ Expected: All existing + new tests PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/core/cluster.py
+git add src/prep/core/cluster.py
 git commit -m "feat(swarm): integrate swarm orchestration into Clustering stage
 
 Stage 8 now uses coordinator → fan-out → synthesis when:
@@ -576,9 +576,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch, PropertyMock
 
-from codrag.core.atlas.generator import CodebaseAtlas
-from codrag.core.atlas.models import Segment, AtlasDocument, SegmentDocument
-from codrag.core.swarm_registry import SwarmTier
+from prep.core.atlas.generator import CodebaseAtlas
+from prep.core.atlas.models import Segment, AtlasDocument, SegmentDocument
+from prep.core.swarm_registry import SwarmTier
 
 
 def _make_segments(n: int) -> list[Segment]:
@@ -620,8 +620,8 @@ def _make_root_doc():
 
 
 class TestAtlasSwarmDecision:
-    @patch("codrag.core.atlas.generator.get_swarm_tier")
-    @patch("codrag.core.atlas.generator.compute_segments")
+    @patch("prep.core.atlas.generator.get_swarm_tier")
+    @patch("prep.core.atlas.generator.compute_segments")
     def test_swarm_activated_when_eligible(self, mock_segments, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         segments = _make_segments(4)
@@ -640,8 +640,8 @@ class TestAtlasSwarmDecision:
                                     atlas.generate_segmented()
                                     mock_swarm.assert_called_once()
 
-    @patch("codrag.core.atlas.generator.get_swarm_tier")
-    @patch("codrag.core.atlas.generator.compute_segments")
+    @patch("prep.core.atlas.generator.get_swarm_tier")
+    @patch("prep.core.atlas.generator.compute_segments")
     def test_swarm_skipped_when_model_unsuitable(self, mock_segments, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.UNSUITABLE
         segments = _make_segments(4)
@@ -666,8 +666,8 @@ class TestAtlasSwarmDecision:
                                         atlas.generate_segmented()
                                         mock_swarm.assert_not_called()
 
-    @patch("codrag.core.atlas.generator.get_swarm_tier")
-    @patch("codrag.core.atlas.generator.compute_segments")
+    @patch("prep.core.atlas.generator.get_swarm_tier")
+    @patch("prep.core.atlas.generator.compute_segments")
     def test_swarm_skipped_when_disabled(self, mock_segments, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         segments = _make_segments(4)
@@ -692,8 +692,8 @@ class TestAtlasSwarmDecision:
                                         atlas.generate_segmented()
                                         mock_swarm.assert_not_called()
 
-    @patch("codrag.core.atlas.generator.get_swarm_tier")
-    @patch("codrag.core.atlas.generator.compute_segments")
+    @patch("prep.core.atlas.generator.get_swarm_tier")
+    @patch("prep.core.atlas.generator.compute_segments")
     def test_swarm_skipped_below_threshold(self, mock_segments, mock_tier, tmp_path):
         mock_tier.return_value = SwarmTier.BOTH
         segments = _make_segments(2)  # Below threshold of 3
@@ -748,15 +748,15 @@ skips otherwise."
 ### Task 4: Atlas Swarm — Implementation
 
 **Files:**
-- Modify: `src/codrag/core/atlas/generator.py`
+- Modify: `src/prep/core/atlas/generator.py`
 
 - [ ] **Step 1: Add imports**
 
 Add after the existing imports near the top of `generator.py`:
 
 ```python
-from codrag.core.swarm_registry import get_swarm_tier, get_min_groups_threshold
-from codrag.core.swarm_orchestrator import SwarmOrchestrator, WorkItem, WorkerAssignment, SwarmResult
+from prep.core.swarm_registry import get_swarm_tier, get_min_groups_threshold
+from prep.core.swarm_orchestrator import SwarmOrchestrator, WorkItem, WorkerAssignment, SwarmResult
 ```
 
 - [ ] **Step 2: Add `_get_swarm_enabled` method**
@@ -767,7 +767,7 @@ Add to `CodebaseAtlas` class, after the `__init__` method:
     def _get_swarm_enabled(self) -> bool:
         """Check if swarm is enabled in pipeline settings."""
         try:
-            from codrag.services.settings_store import settings
+            from prep.services.settings_store import settings
             return bool(settings.get("swarm_enabled", True))
         except Exception:
             return True
@@ -921,7 +921,7 @@ Add after `_generate_segment_atlas_with_angle`:
         """
         concurrency = 1
         try:
-            from codrag.services.pipeline.scheduler import pipeline_scheduler
+            from prep.services.pipeline.scheduler import pipeline_scheduler
             full = pipeline_scheduler.full_budget_for_swarm(
                 self.llm.provider, self.llm.model,
             )
@@ -931,7 +931,7 @@ Add after `_generate_segment_atlas_with_angle`:
             logger.debug("Swarm full budget unavailable: %s", exc)
         if concurrency <= 1:
             try:
-                from codrag.core.batch_profiles import get_batch_concurrency
+                from prep.core.batch_profiles import get_batch_concurrency
                 concurrency = get_batch_concurrency(self.llm.provider, model=self.llm.model)
             except Exception:
                 concurrency = 1
@@ -1129,7 +1129,7 @@ Expected: All existing + new tests PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/core/atlas/generator.py
+git add src/prep/core/atlas/generator.py
 git commit -m "feat(swarm): integrate swarm orchestration into Atlas generation
 
 Stage 9 now uses coordinator → fan-out → synthesis when:
@@ -1160,7 +1160,7 @@ Expected: All tests PASS (33 existing + 10 new = 43 total).
 - [ ] **Step 2: Run linting**
 
 ```bash
-.venv/bin/ruff check src/codrag/core/cluster.py src/codrag/core/atlas/generator.py
+.venv/bin/ruff check src/prep/core/cluster.py src/prep/core/atlas/generator.py
 ```
 
 Expected: No errors. Fix any issues.
@@ -1192,9 +1192,9 @@ git commit -m "docs(swarm): mark Clustering and Atlas swarm as implemented in st
 | Task | What | Files | Tests |
 |------|------|-------|-------|
 | 1 | Clustering swarm decision tests | `tests/test_cluster_swarm.py` | 5 tests |
-| 2 | Clustering swarm implementation | `src/codrag/core/cluster.py` | — |
+| 2 | Clustering swarm implementation | `src/prep/core/cluster.py` | — |
 | 3 | Atlas swarm decision tests | `tests/test_atlas_swarm.py` | 5 tests |
-| 4 | Atlas swarm implementation | `src/codrag/core/atlas/generator.py` | — |
+| 4 | Atlas swarm implementation | `src/prep/core/atlas/generator.py` | — |
 | 5 | Full suite + lint + docs | All swarm files | 43 total |
 
 **Total: 10 new tests, 2 modified files, 2 new test files, 5 commits.**

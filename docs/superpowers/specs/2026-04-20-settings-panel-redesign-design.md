@@ -14,7 +14,7 @@ Today's Settings lives in a 500px right-edge drawer (`SettingsDrawer.tsx`, 736 L
 - **Hard-separate project-scope and global-scope** settings in the navigation and on every page.
 - Preserve today's four-tab content map in spirit, but redistribute "Advanced" so no single page mixes scopes.
 - Keep the **Developer** section dev-only via a **build-time gate**, so it is compiled out of production bundles.
-- Use `@codrag/ui` design tokens exclusively — no raw hex, no arbitrary px values except the nav rail and top bar dimensions that match existing shell tokens.
+- Use `@prep/ui` design tokens exclusively — no raw hex, no arbitrary px values except the nav rail and top bar dimensions that match existing shell tokens.
 
 ## Non-Goals
 
@@ -130,7 +130,7 @@ All pages use the same three-part structure to build muscle memory:
 </SettingsPage>
 ```
 
-**`SettingRow`** — new `@codrag/ui` primitive.
+**`SettingRow`** — new `@prep/ui` primitive.
 - Two-column layout: label + description on the left, control on the right.
 - Fixed right-column width so toggles and selects align vertically down the page (matches Claude Code's visual rhythm).
 - Row separator: `py-4 border-b border-border-subtle` (last row suppresses the border).
@@ -192,9 +192,9 @@ The `developer_show_dev_panels` field on `GlobalConfig` is **not removed** — i
 
 | Component | Location | Status |
 |-----------|----------|--------|
-| `SettingsOverlay` | `src/codrag/dashboard/src/components/settings/SettingsOverlay.tsx` | new — portal root, top bar, routing |
-| `SettingsNav` | `src/codrag/dashboard/src/components/settings/SettingsNav.tsx` | new — left rail, grouped |
-| `SettingsPage` | `src/codrag/dashboard/src/components/settings/SettingsPage.tsx` | new — page shell + scope chip + save area |
+| `SettingsOverlay` | `src/prep/dashboard/src/components/settings/SettingsOverlay.tsx` | new — portal root, top bar, routing |
+| `SettingsNav` | `src/prep/dashboard/src/components/settings/SettingsNav.tsx` | new — left rail, grouped |
+| `SettingsPage` | `src/prep/dashboard/src/components/settings/SettingsPage.tsx` | new — page shell + scope chip + save area |
 | `SettingRow` | `packages/ui/src/components/settings/SettingRow.tsx` | new — shared label/description/control row |
 | `Section` | `packages/ui/src/components/settings/Section.tsx` | new — optional-titled group within a page |
 | Page: `Sources` | `…/settings/pages/Sources.tsx` | new — lifted from `SettingsDrawer` Project tab |
@@ -248,7 +248,7 @@ No backend migration required.
 - `Esc` closes from any nested focus state.
 - Left rail is a `<nav>` with `aria-label="Settings"`, items are `<button>` with `aria-current="page"` when active.
 - Scope chip has `aria-label="Project-scoped setting"` / `"Global-scoped setting"` / `"Developer-only setting"`.
-- All colour pairings meet WCAG AA against `@codrag/ui` tokens (tokens already audited).
+- All colour pairings meet WCAG AA against `@prep/ui` tokens (tokens already audited).
 
 ## Open Questions
 

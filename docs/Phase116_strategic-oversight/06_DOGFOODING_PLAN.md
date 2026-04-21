@@ -18,7 +18,7 @@ generate ground truth.
 
 ## What to capture per build
 
-Create `~/codrag_research/phase116/runs/<iso_date>-<project_id>/` and save:
+Create `~/prep_research/phase116/runs/<iso_date>-<project_id>/` and save:
 
 1. **Full pipeline manifest** — all stage records with model, tokens,
    timing, confidence.
@@ -79,7 +79,7 @@ weekend of work, not months.
 
 ## Dogfooding the product while dogfooding the idea
 
-Every run we capture is also a real CoDRAG build. Treat the build itself as
+Every run we capture is also a real Prep build. Treat the build itself as
 product-feedback opportunity:
 
 - Does the pipeline run to completion?
@@ -95,7 +95,7 @@ Some of those may promote to their own micro-phase independent of 116.
 Exit criteria for moving Phase 116 from research → design:
 
 1. **≥ 20 real builds captured** across ≥ 3 distinct codebases (including
-   CoDRAG itself, Paperclip, and 1+ external project).
+   Prep itself, Paperclip, and 1+ external project).
 2. **≥ 50 manual overseer simulations** logged in `07_`.
 3. **Measured per-checkpoint catch rate** — an actual number
    (e.g. "swarm-synthesis checkpoint caught 7/15 real issues when fired").

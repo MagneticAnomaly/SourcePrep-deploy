@@ -1,9 +1,9 @@
 # Strategy: Direct MCP & CLI
 
 ## Current Architecture (Split Process)
-Currently, CoDRAG uses a Client-Server model:
-1.  **Daemon**: `codrag serve` (FastAPI, holds the Index in memory).
-2.  **CLI/MCP**: `codrag mcp` (Connects to Daemon via HTTP).
+Currently, Prep uses a Client-Server model:
+1.  **Daemon**: `prep serve` (FastAPI, holds the Index in memory).
+2.  **CLI/MCP**: `prep mcp` (Connects to Daemon via HTTP).
 
 **Pros:** Multi-project, persistent caching, dashboard support.
 **Cons:** User must start/manage the daemon. Complexity for simple usage.
@@ -12,7 +12,7 @@ Currently, CoDRAG uses a Client-Server model:
 We need a **Direct Mode** where the CLI/MCP process *owns* the Index directly.
 
 ### 1. `DirectMCPServer`
-A new implementation of the MCP Protocol that imports `codrag.core` directly instead of making HTTP calls.
+A new implementation of the MCP Protocol that imports `prep.core` directly instead of making HTTP calls.
 
 *   **State**: Holds `CodeIndex` and `TraceIndex` in memory (lazy loaded).
 *   **Concurrency**: Since `CodeIndex` methods (search, build) are blocking (SQLite, NumPy), we must run them in `asyncio.to_thread` to keep the MCP stdio transport responsive.
@@ -25,7 +25,7 @@ A new implementation of the MCP Protocol that imports `codrag.core` directly ins
 When running in Direct Mode:
 *   Default index directory is: `<repo_root>/.prep/index`.
 *   The server lazily loads any existing index artifacts from disk.
-*   Builds are triggered explicitly via `codrag_build` (runs in background).
+*   Builds are triggered explicitly via `prep_build` (runs in background).
 
 ### 3. The "One Repo" Assumption
 Direct Mode assumes the current working directory (CWD) is the Repository Root.
@@ -35,24 +35,24 @@ Direct Mode assumes the current working directory (CWD) is the Repository Root.
 
 ## Implementation Steps
 
-### A. Refactor `codrag.core`
-Ensure `codrag.core` is truly decoupled from `codrag.server`.
+### A. Refactor `prep.core`
+Ensure `prep.core` is truly decoupled from `prep.server`.
 *   *Status*: Looks good. `CodeIndex`, `TraceIndex`, `Embedder` are independent.
 
-### B. Create `codrag.mcp_direct`
+### B. Create `prep.mcp_direct`
 A new module implementing the MCP server interface but calling `core` directly.
 *   Duplicate the `tools` definitions from `mcp_server.py`.
 *   Implement `handle_tools_call` using `CodeIndex.search()`, etc.
 *   Wrap blocking calls in `await asyncio.to_thread(...)`.
 
 ### C. Update CLI Entry Point
-Modify `codrag mcp` command:
+Modify `prep mcp` command:
 ```bash
-codrag mcp --mode direct
+prep mcp --mode direct
 ```
 Server mode remains available:
 ```bash
-codrag mcp --mode server --auto --daemon http://127.0.0.1:8400
+prep mcp --mode server --auto --daemon http://127.0.0.1:8400
 ```
 
 ### D. Dashboard Integration

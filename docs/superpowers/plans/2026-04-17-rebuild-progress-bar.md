@@ -368,7 +368,7 @@ git commit -m "docs(ui): StageProgressBar stories for initialize/incremental/reb
 ## Task 4: Extend `StageState` union with `'rebuilding'`
 
 **Files:**
-- Modify: `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` (line 151 — the `StageState` union declaration)
+- Modify: `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` (line 151 — the `StageState` union deprep-compresstion)
 
 - [ ] **Step 1: Add `'rebuilding'` to the union**
 

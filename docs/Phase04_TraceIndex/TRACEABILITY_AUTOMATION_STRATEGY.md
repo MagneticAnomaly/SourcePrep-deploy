@@ -1,6 +1,6 @@
-# Traceability Automation Strategy (CoDRAG)
+# Traceability Automation Strategy (Prep)
 
-This document proposes how CoDRAG can support **requirements/plan ↔ code ↔ tests** traceability in a way that is:
+This document proposes how Prep can support **requirements/plan ↔ code ↔ tests** traceability in a way that is:
 
 - Local-first (can run without paid APIs)
 - Incremental (can run continuously via Phase 03 Auto-Rebuild)
@@ -13,7 +13,7 @@ This complements:
 
 ## Problem we are solving
 
-CoDRAG’s Trace Index (Phase04) answers structural questions:
+Prep’s Trace Index (Phase04) answers structural questions:
 - what imports what?
 - what symbols exist?
 
@@ -29,7 +29,7 @@ This is harder because:
 
 ## Minimum required (MVP)
 
-If CoDRAG only implements ONE thing for curated traceability, it should be:
+If Prep only implements ONE thing for curated traceability, it should be:
 
 1. **Stable identifiers** for “spec artifacts”
    - Examples: `REQ-123`, `ADR-0004`, `PLAN-05`, etc.
@@ -49,7 +49,7 @@ This yields immediate value with **zero LLM dependence**.
 ### Option 0: Manual curated traceability (no automation)
 
 - Users maintain curated files/links by hand.
-- CoDRAG only indexes/searches them.
+- Prep only indexes/searches them.
 
 Pros:
 - Simple
@@ -65,7 +65,7 @@ Mechanism:
   - requirement IDs in docs headings
   - requirement IDs in code comments / docstrings
   - ADR IDs in decision files
-- CoDRAG scans and generates edges:
+- Prep scans and generates edges:
   - `documents` / `documented_by`
   - `implements` / `implemented_by`
   - `tests` / `tested_by`
@@ -85,12 +85,12 @@ Cons:
 
 Mechanism:
 - Treat each requirement/plan as a query.
-- Use CoDRAG’s existing embeddings + BM25/FTS to retrieve top-k code chunks.
+- Use Prep’s existing embeddings + BM25/FTS to retrieve top-k code chunks.
 - Emit *candidate* links (not authoritative) with `medium/low` confidence.
 
 Pros:
 - Still local
-- Leverages CoDRAG’s core strengths
+- Leverages Prep’s core strengths
 
 Cons:
 - Can produce false positives
@@ -154,9 +154,9 @@ Implications:
 
 “Reasoning mode” / `<think>`:
 - Not required if we demand structured output.
-- If a model supports deeper reasoning, it can improve link selection, but CoDRAG should not depend on it.
+- If a model supports deeper reasoning, it can improve link selection, but Prep should not depend on it.
 
-## How this fits into CoDRAG (data + API)
+## How this fits into Prep (data + API)
 
 ### Storage
 
@@ -189,7 +189,7 @@ Add optional build phases under the existing project build flow:
 
 ### Query-time usage
 
-CoDRAG can merge both graphs during retrieval:
+Prep can merge both graphs during retrieval:
 
 - Structural expansion: imports/contains
 - Intent expansion: implements/documents/decision links
@@ -232,7 +232,7 @@ These are useful references for *patterns*, not code reuse:
   - Pattern: precompute similarity matrices + optional call-graph incorporation
   - Repo: https://github.com/tobhey/finegrained-traceability
 
-If CoDRAG wants commercial-friendly dependencies, prefer permissive licenses (MIT/BSD/Apache-2) and treat GPL projects as research references.
+If Prep wants commercial-friendly dependencies, prefer permissive licenses (MIT/BSD/Apache-2) and treat GPL projects as research references.
 
 ## Research references (starting set)
 
@@ -251,7 +251,7 @@ If CoDRAG wants commercial-friendly dependencies, prefer permissive licenses (MI
 - LiSSA (generic TLR via RAG; KITopen entry)
   - https://publikationen.bibliothek.kit.edu/1000178348
 
-## Recommended CoDRAG path (pragmatic)
+## Recommended Prep path (pragmatic)
 
 ### Phase A (minimum viable, local-first)
 

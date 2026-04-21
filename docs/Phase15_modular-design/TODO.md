@@ -12,7 +12,7 @@
   - `DashboardLayout` interface
   - `PanelConfig` interface  
   - `PanelDefinition` interface
-- [x] Export from `@codrag/ui` index
+- [x] Export from `@prep/ui` index
 
 ### 1.3 Create Panel Registry
 - [x] Create `src/config/panelRegistry.ts` (Implemented as `DASHBOARD_PANELS` in App.tsx and `samplePanelDefinitions` in Stories)
@@ -51,7 +51,7 @@
 
 ### 3.1 DashboardGrid Component
 - [x] Create `src/components/layout/DashboardGrid.tsx`
-- [x] Wrap `react-grid-layout` with CoDRAG defaults:
+- [x] Wrap `react-grid-layout` with Prep defaults:
   - 12 columns
   - 60px row height
   - Vertical compaction
@@ -73,7 +73,7 @@
 
 ### 4.1 useLayoutPersistence Hook
 - [x] Create `src/hooks/useLayoutPersistence.ts`
-- [x] Load from `localStorage` key `codrag_dashboard_layout`
+- [x] Load from `localStorage` key `prep_dashboard_layout`
 - [x] Save on layout change (debounced)
 - [x] Schema versioning for migrations
 - [x] Fallback to default layout
@@ -163,7 +163,7 @@
 - [x] All panels can be collapsed to header-only ✅
 - [x] All panels can be hidden (except required ones) ✅
 - [x] Hidden panels can be re-added via picker ✅
-- [x] Layout persists across page refreshes ✅ (`codrag_dashboard_layout` + backend sync)
+- [x] Layout persists across page refreshes ✅ (`prep_dashboard_layout` + backend sync)
 - [x] Layout can be reset to defaults ✅ (PanelPicker reset action)
 - [x] Works on all 12+ themes ✅
 - [x] Storybook stories exist for all new components ✅ (`Introduction.mdx`, `ModularDashboard.stories.tsx`, `PanelChrome.stories.tsx`, `PanelPicker.stories.tsx`)

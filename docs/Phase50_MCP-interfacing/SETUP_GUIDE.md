@@ -1,7 +1,7 @@
-# CoDRAG MCP Setup Guide: Per-Tool Configuration
+# Prep MCP Setup Guide: Per-Tool Configuration
 
 > Exact configuration, auto-approve setup, and rules file placement for every supported tool.
-> This document is the source of truth for CoDRAG's setup documentation.
+> This document is the source of truth for Prep's setup documentation.
 
 **Last updated:** 2026-03-14 (deep dive update)
 
@@ -9,32 +9,32 @@
 
 ## Universal Prerequisites
 
-1. CoDRAG daemon running (`codrag serve` or via Tauri app)
-2. CoDRAG index built for the project (`codrag build` or dashboard "Rebuild Knowledge Base")
-3. CoDRAG binary path known (see below)
+1. Prep daemon running (`prep serve` or via Tauri app)
+2. Prep index built for the project (`prep build` or dashboard "Rebuild Knowledge Base")
+3. Prep binary path known (see below)
 
 ### CRITICAL: Absolute Path Required
 
 MCP configs spawn a child process. The child process does **NOT** inherit your
 shell PATH, nvm, pyenv, or conda environment. You **must** use the absolute
-path to the `codrag` binary in all MCP configs.
+path to the `prep` binary in all MCP configs.
 
 **Find your path:**
 ```bash
-which codrag                          # if installed system-wide
-ls /path/to/CoDRAG/.venv/bin/codrag   # if using venv (dev setup)
+which prep                          # if installed system-wide
+ls /path/to/Prep/.venv/bin/prep   # if using venv (dev setup)
 ```
 
-**Dev setup example:** `/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag`
+**Dev setup example:** `/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep`
 
 For ready-to-copy configs with your absolute path pre-filled, see:
 **[MCP_CONFIGS.md](MCP_CONFIGS.md)** -- one JSON block per tool, copy-paste into the right file.
 
 ### Ollama Concurrency Requirement
 
-If you are using **Ollama** as your local provider and you want the CoDRAG pipeline to run models in parallel, you **must set the `OLLAMA_NUM_PARALLEL` environment variable** before starting the Ollama server.
+If you are using **Ollama** as your local provider and you want the Prep pipeline to run models in parallel, you **must set the `OLLAMA_NUM_PARALLEL` environment variable** before starting the Ollama server.
 
-By default, Ollama queues all requests sequentially (one at a time), which will bottleneck CoDRAG's concurrent pipeline execution even if Cloud Concurrency is set > 1 in the UI.
+By default, Ollama queues all requests sequentially (one at a time), which will bottleneck Prep's concurrent pipeline execution even if Cloud Concurrency is set > 1 in the UI.
 
 **macOS/Linux:**
 ```bash
@@ -52,34 +52,34 @@ Add `Environment="OLLAMA_NUM_PARALLEL=4"` to `/etc/systemd/system/ollama.service
 
 ### Multi-Project Routing
 
-CoDRAG automatically detects which project to target for each MCP tool call.
+Prep automatically detects which project to target for each MCP tool call.
 In most cases, **zero configuration is needed** -- the MCP server resolves the
 correct project from your IDE's workspace context.
 
 **How auto-detection works (priority order):**
 
 1. **`project_id` parameter** — explicitly passed per tool call (rarely needed)
-2. **CLI `--project` flag** — `codrag mcp --project <id>` pins a project for the session
-3. **Workspace roots** — your IDE sends workspace folder URIs during the MCP handshake; CoDRAG matches these against registered project paths
+2. **CLI `--project` flag** — `prep mcp --project <id>` pins a project for the session
+3. **Workspace roots** — your IDE sends workspace folder URIs during the MCP handshake; Prep matches these against registered project paths
 4. **CWD** — if launched from within a project directory, that project is used
-5. **`CODRAG_PROJECT` env var** — match by project name or ID
+5. **`PREP_PROJECT` env var** — match by project name or ID
 6. **Single-project shortcut** — if only one project exists, it's used automatically
 7. **Most-recently-active** — falls back to the project with the most recent build/update
 
-**`.codrag` auto-registration:** If your workspace root or CWD contains a `.prep/`
-folder (created by `codrag init`), the MCP server will automatically register it
-as an embedded project — no manual `codrag add` needed.
+**`.prep` auto-registration:** If your workspace root or CWD contains a `.prep/`
+folder (created by `prep init`), the MCP server will automatically register it
+as an embedded project — no manual `prep add` needed.
 
 **Pinning a specific project** (for users with multiple active projects):
 
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/path/to/.venv/bin/codrag",
+    "prep": {
+      "command": "/path/to/.venv/bin/prep",
       "args": ["mcp"],
       "env": {
-        "CODRAG_PROJECT": "MyProjectName"
+        "PREP_PROJECT": "MyProjectName"
       }
     }
   }
@@ -98,14 +98,14 @@ Location: `.cursor/mcp.json` (project root) or user settings
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/path/to/.venv/bin/codrag",
+    "prep": {
+      "command": "/path/to/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
 }
 ```
-Replace `/path/to/.venv/bin/codrag` with your absolute path (see Prerequisites).
+Replace `/path/to/.venv/bin/prep` with your absolute path (see Prerequisites).
 
 ### Auto-Approve
 **WARNING: YOLO mode does NOT auto-approve MCP tools.**
@@ -113,31 +113,31 @@ Replace `/path/to/.venv/bin/codrag` with your absolute path (see Prerequisites).
 Steps:
 1. Open Settings (Cmd+,)
 2. Search "MCP"
-3. Find the codrag server
-4. Enable "Auto-run" for the codrag server specifically
+3. Find the prep server
+4. Enable "Auto-run" for the prep server specifically
 
 ### Rules File
-**File:** `.cursor/rules/codrag.mdc`
+**File:** `.cursor/rules/prep.mdc`
 
 ```yaml
 ---
-description: CoDRAG structural codebase intelligence
+description: Prep structural codebase intelligence
 alwaysApply: true
 ---
 
-You have access to CoDRAG, a structural code intelligence system that
+You have access to Prep, a structural code intelligence system that
 understands this codebase through a trace graph of imports, calls, and
 structural relationships.
 
-ALWAYS call `codrag` (no arguments) at the START of every task. This gives you:
+ALWAYS call `prep` (no arguments) at the START of every task. This gives you:
 - Module structure (which groups of files work together and their dependencies)
 - Hub files (most connected/important files with full content)
 - User's selected focus areas from the knowledge base
 
-For specific code lookups, use `codrag_search` with a natural language query.
-Before making changes, use `codrag_impact` to understand blast radius.
+For specific code lookups, use `prep_search` with a natural language query.
+Before making changes, use `prep_impact` to understand blast radius.
 
-CoDRAG's tools are read-only and safe to auto-approve.
+Prep's tools are read-only and safe to auto-approve.
 
 ## Codebase Atlas
 [auto-generated from atlas.json]
@@ -161,43 +161,43 @@ Location: `~/.codeium/windsurf/mcp_config.json` (global, applies to all projects
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/path/to/.venv/bin/codrag",
+    "prep": {
+      "command": "/path/to/.venv/bin/prep",
       "args": ["mcp"],
       "disabled": false
     }
   }
 }
 ```
-Replace `/path/to/.venv/bin/codrag` with your absolute path.
+Replace `/path/to/.venv/bin/prep` with your absolute path.
 
 ### Auto-Approve
 1. Click MCPs icon in Cascade panel top-right
-2. Click on the codrag server
+2. Click on the prep server
 3. Enable auto-run / auto-approve
 
 ### Rules File
-**File:** `.windsurf/rules/codrag.md`
+**File:** `.windsurf/rules/prep.md`
 
 ```markdown
 ---
 trigger: always_on
-description: CoDRAG structural codebase intelligence
+description: Prep structural codebase intelligence
 ---
 
-You have access to CoDRAG, a structural code intelligence system that
+You have access to Prep, a structural code intelligence system that
 understands this codebase through a trace graph of imports, calls, and
 structural relationships.
 
-ALWAYS call `codrag` (no arguments) at the START of every task. This gives you:
+ALWAYS call `prep` (no arguments) at the START of every task. This gives you:
 - Module structure (which groups of files work together and their dependencies)
 - Hub files (most connected/important files with full content)
 - User's selected focus areas from the knowledge base
 
-For specific code lookups, use `codrag_search` with a natural language query.
-Before making changes, use `codrag_impact` to understand blast radius.
+For specific code lookups, use `prep_search` with a natural language query.
+Before making changes, use `prep_impact` to understand blast radius.
 
-CoDRAG's tools are read-only and safe to auto-approve.
+Prep's tools are read-only and safe to auto-approve.
 
 ## Codebase Atlas
 [auto-generated from atlas.json]
@@ -225,60 +225,60 @@ Location: `~/.claude/settings.json` (user) or `.claude/settings.json` (project)
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/path/to/.venv/bin/codrag",
+    "prep": {
+      "command": "/path/to/.venv/bin/prep",
       "args": ["mcp"]
     }
   },
   "permissions": {
-    "allow": ["mcp__codrag"]
+    "allow": ["mcp__prep"]
   }
 }
 ```
 
-The `permissions.allow` line auto-approves ALL CoDRAG tools.
+The `permissions.allow` line auto-approves ALL Prep tools.
 
-Or add via CLI: `claude mcp add codrag -- /path/to/.venv/bin/codrag mcp`
+Or add via CLI: `claude mcp add prep -- /path/to/.venv/bin/prep mcp`
 
 ### Auto-Approve
-**Single rule auto-approves ALL CoDRAG tools:**
+**Single rule auto-approves ALL Prep tools:**
 
 In `.claude/settings.json` (project-level) or `~/.claude/settings.json` (user-level):
 ```json
 {
   "permissions": {
-    "allow": ["mcp__codrag"]
+    "allow": ["mcp__prep"]
   }
 }
 ```
 
-Alternatively: `/permissions` command in Claude Code, then add `mcp__codrag` to allow list.
+Alternatively: `/permissions` command in Claude Code, then add `mcp__prep` to allow list.
 
 **Permission syntax reference:**
 ```
-mcp__codrag              -- ALL tools from codrag server
-mcp__codrag__*           -- wildcard, same effect
-mcp__codrag__codrag      -- only the codrag tool
-mcp__codrag__codrag_search  -- only codrag_search
+mcp__prep              -- ALL tools from prep server
+mcp__prep__*           -- wildcard, same effect
+mcp__prep__prep      -- only the prep tool
+mcp__prep__prep_search  -- only prep_search
 ```
 
 ### Rules File
-**File:** `CLAUDE.md` (append CoDRAG section)
+**File:** `CLAUDE.md` (append Prep section)
 
 ```markdown
-<!-- CODRAG:BEGIN (auto-generated, do not edit between markers) -->
-## CoDRAG Integration
+<!-- PREP:BEGIN (auto-generated, do not edit between markers) -->
+## Prep Integration
 
-This project is indexed by CoDRAG for structural code intelligence via MCP.
+This project is indexed by Prep for structural code intelligence via MCP.
 
-ALWAYS call `codrag` (MCP tool, no arguments) at the START of every task.
+ALWAYS call `prep` (MCP tool, no arguments) at the START of every task.
 This gives you:
 - Module structure (which groups of files work together)
 - Hub files (most connected/important files with content)
 - User's selected focus areas from the knowledge base
 
-For specific code searches, use `codrag_search` with a natural language query.
-Before making changes, use `codrag_impact` to understand blast radius.
+For specific code searches, use `prep_search` with a natural language query.
+Before making changes, use `prep_impact` to understand blast radius.
 
 ### Codebase Atlas
 [auto-generated from atlas.json]
@@ -287,28 +287,28 @@ Before making changes, use `codrag_impact` to understand blast radius.
 [auto-generated from included_paths]
 
 Last indexed: [timestamp] | [stats]
-<!-- CODRAG:END -->
+<!-- PREP:END -->
 ```
 
 ### Important: Append, Don't Overwrite
-CLAUDE.md is user-owned. CoDRAG only modifies content between `CODRAG:BEGIN` / `CODRAG:END` markers.
+CLAUDE.md is user-owned. Prep only modifies content between `PREP:BEGIN` / `PREP:END` markers.
 
-### Optional: CoDRAG Skill
-**File:** `.claude/skills/codrag-context.md`
+### Optional: Prep Skill
+**File:** `.claude/skills/prep-context.md`
 ```markdown
 ---
-description: Get structural codebase context from CoDRAG
-tools: ["mcp__codrag__codrag", "mcp__codrag__codrag_search"]
+description: Get structural codebase context from Prep
+tools: ["mcp__prep__prep", "mcp__prep__prep_search"]
 ---
-Call `codrag` to get the structural overview of this codebase,
+Call `prep` to get the structural overview of this codebase,
 then use that context to inform your approach to the current task.
 ```
-Creates `/codrag-context` slash command.
+Creates `/prep-context` slash command.
 
 ### Claude Code Gotchas
-- **MCP Tool Search**: If you have many MCP servers, Claude may defer CoDRAG tools.
+- **MCP Tool Search**: If you have many MCP servers, Claude may defer Prep tools.
   CLAUDE.md mitigates this. Or disable deferral: `ENABLE_TOOL_SEARCH=false claude`
-- **Output limit**: 25,000 tokens max per tool response (CoDRAG is 250-3K, no issue)
+- **Output limit**: 25,000 tokens max per tool response (Prep is 250-3K, no issue)
 - **Compaction**: `/compact` summarizes early tool responses. Atlas in CLAUDE.md survives.
 
 ---
@@ -323,8 +323,8 @@ Location: `.vscode/mcp.json` (workspace)
 ```json
 {
   "servers": {
-    "codrag": {
-      "command": "/path/to/.venv/bin/codrag",
+    "prep": {
+      "command": "/path/to/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
@@ -337,8 +337,8 @@ Location: `.vscode/mcp.json` (workspace)
 ```json
 {
   "servers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"],
       "sandboxEnabled": true,
       "sandbox": {
@@ -353,7 +353,7 @@ Location: `.vscode/mcp.json` (workspace)
   }
 }
 ```
-Sandboxed servers are auto-approved. CoDRAG is read-only, so empty write + localhost is safe.
+Sandboxed servers are auto-approved. Prep is read-only, so empty write + localhost is safe.
 
 **Option B: Trust Dialog (all platforms)**
 First use prompts trust dialog. Once trusted, tools still require per-call approval.
@@ -365,12 +365,12 @@ No documented way to auto-approve MCP tools without sandboxing.
 **File:** `.github/copilot-instructions.md`
 
 ```markdown
-<!-- CODRAG:BEGIN -->
-## CoDRAG Integration
+<!-- PREP:BEGIN -->
+## Prep Integration
 
-This project uses CoDRAG for structural code intelligence via MCP.
-ALWAYS call `codrag` at the start of every task for module structure and hub files.
-Use `codrag_search` for code queries. Use `codrag_impact` before changes.
+This project uses Prep for structural code intelligence via MCP.
+ALWAYS call `prep` at the start of every task for module structure and hub files.
+Use `prep_search` for code queries. Use `prep_impact` before changes.
 
 ### Codebase Atlas
 [auto-generated]
@@ -379,14 +379,14 @@ Use `codrag_search` for code queries. Use `codrag_impact` before changes.
 [auto-generated]
 
 Last indexed: [timestamp] | [stats]
-<!-- CODRAG:END -->
+<!-- PREP:END -->
 ```
 
 ### Also Generate
 - `AGENTS.md` section (Copilot coding agent reads this in cloud)
 
 ### Copilot Coding Agent (Cloud)
-The cloud agent reads `AGENTS.md` but **cannot access local CoDRAG daemon**.
+The cloud agent reads `AGENTS.md` but **cannot access local Prep daemon**.
 Atlas in AGENTS.md is the only structural context for cloud builds.
 
 ---
@@ -399,8 +399,8 @@ Location: `~/.gemini/settings.json`
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/path/to/.venv/bin/codrag",
+    "prep": {
+      "command": "/path/to/.venv/bin/prep",
       "args": ["mcp"],
       "trust": true
     }
@@ -408,19 +408,19 @@ Location: `~/.gemini/settings.json`
 }
 ```
 
-`trust: true` bypasses all confirmation dialogs. Safe for CoDRAG (read-only).
+`trust: true` bypasses all confirmation dialogs. Safe for Prep (read-only).
 
 ### Auto-Approve
 Setting `"trust": true` in config handles this. No separate step needed.
 
 ### MCP Server Instructions (AUTOMATIC)
 Gemini CLI appends MCP server `instructions` to the system prompt automatically.
-CoDRAG's instructions field (set in MCP initialize response) provides:
+Prep's instructions field (set in MCP initialize response) provides:
 ```
-CoDRAG provides structural codebase context via trace graph analysis.
-Call `codrag` at the start of every coding task for module structure,
-hub files, and focus areas. Use `codrag_search` for code queries with
-structural expansion. Use `codrag_impact` before changes. All tools
+Prep provides structural codebase context via trace graph analysis.
+Call `prep` at the start of every coding task for module structure,
+hub files, and focus areas. Use `prep_search` for code queries with
+structural expansion. Use `prep_impact` before changes. All tools
 are read-only. Categories: code intelligence, architecture, dependencies.
 ```
 
@@ -438,15 +438,15 @@ are read-only. Categories: code intelligence, architecture, dependencies.
 
 ### Resources
 Gemini CLI auto-discovers MCP resources. User accesses via `@resource` syntax.
-CoDRAG should implement:
-- `codrag://atlas` -- structural overview
-- `codrag://health` -- index freshness check
+Prep should implement:
+- `prep://atlas` -- structural overview
+- `prep://health` -- index freshness check
 
 ### Prompts
 Gemini CLI exposes MCP prompts as slash commands.
-CoDRAG should implement:
-- `/codrag-overview` -- full structural context
-- `/codrag-review` -- structural review prompt
+Prep should implement:
+- `/prep-overview` -- full structural context
+- `/prep-review` -- structural review prompt
 
 ---
 
@@ -461,8 +461,8 @@ CoDRAG should implement:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/path/to/.venv/bin/codrag",
+    "prep": {
+      "command": "/path/to/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
@@ -480,15 +480,15 @@ See: https://docs.cline.bot/features/auto-approve
 **File:** `.clinerules` (project root)
 
 ```markdown
-## CoDRAG Structural Context
+## Prep Structural Context
 
-This project uses CoDRAG for structural code intelligence via MCP.
-ALWAYS call `codrag` at the start of every task for module structure and hub files.
-Use `codrag_search` for code queries with structural trace expansion.
-Use `codrag_impact` before making changes to understand dependencies.
+This project uses Prep for structural code intelligence via MCP.
+ALWAYS call `prep` at the start of every task for module structure and hub files.
+Use `prep_search` for code queries with structural trace expansion.
+Use `prep_impact` before making changes to understand dependencies.
 
 When asked about code structure, architecture, dependencies, modules,
-hub files, or blast radius, use the CoDRAG MCP tools.
+hub files, or blast radius, use the Prep MCP tools.
 
 ### Codebase Atlas
 [auto-generated]
@@ -502,7 +502,7 @@ Last indexed: [timestamp] | [stats]
 ### Local LLM Note
 Cline is popular with Ollama/LM Studio users. For local models:
 - Keep rules content short and direct
-- CoDRAG's compact 250-token response is critical
+- Prep's compact 250-token response is critical
 - Tool descriptions must be simple and unambiguous
 
 ---
@@ -515,8 +515,8 @@ Via VS Code settings or `mcp_settings.json`:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/path/to/.venv/bin/codrag",
+    "prep": {
+      "command": "/path/to/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
@@ -528,17 +528,17 @@ Per-server auto-approve available in Roo Code settings.
 
 ### Rules Files (3 files for full mode support)
 
-**General (all modes):** `.roo/rules/codrag.md`
+**General (all modes):** `.roo/rules/prep.md`
 ```markdown
-# CoDRAG Structural Intelligence
+# Prep Structural Intelligence
 
-This project uses CoDRAG for structural code intelligence via MCP.
-ALWAYS call `codrag` at the start of every task for module structure and hub files.
-Use `codrag_search` for natural language code queries.
-Use `codrag_impact` before making changes to understand blast radius.
+This project uses Prep for structural code intelligence via MCP.
+ALWAYS call `prep` at the start of every task for module structure and hub files.
+Use `prep_search` for natural language code queries.
+Use `prep_impact` before making changes to understand blast radius.
 
 When asked about code structure, architecture, dependencies, modules,
-hub files, or blast radius, use the CoDRAG MCP tools.
+hub files, or blast radius, use the Prep MCP tools.
 
 ## Codebase Atlas
 [auto-generated]
@@ -547,27 +547,27 @@ hub files, or blast radius, use the CoDRAG MCP tools.
 [auto-generated]
 ```
 
-**Architect mode:** `.roo/rules-architect/codrag.md`
+**Architect mode:** `.roo/rules-architect/prep.md`
 ```markdown
-# CoDRAG for Architecture Analysis
+# Prep for Architecture Analysis
 
-In Architect mode, CoDRAG is your primary structural intelligence tool.
-ALWAYS call `codrag` first for comprehensive module overview.
-Use `codrag_audit` for codebase health assessment.
-Use `codrag_search` to explore specific module relationships.
+In Architect mode, Prep is your primary structural intelligence tool.
+ALWAYS call `prep` first for comprehensive module overview.
+Use `prep_audit` for codebase health assessment.
+Use `prep_search` to explore specific module relationships.
 ```
 
-**Code mode:** `.roo/rules-code/codrag.md`
+**Code mode:** `.roo/rules-code/prep.md`
 ```markdown
-# CoDRAG for Coding
+# Prep for Coding
 
-Before making changes, call `codrag_impact` to understand blast radius.
-Call `codrag` for module context when entering an unfamiliar area.
+Before making changes, call `prep_impact` to understand blast radius.
+Call `prep` for module context when entering an unfamiliar area.
 ```
 
 ### AGENTS.md
 Roo Code reads `AGENTS.md` by default (disableable via `roo-cline.useAgentRules: false`).
-CoDRAG's AGENTS.md section provides universal fallback.
+Prep's AGENTS.md section provides universal fallback.
 
 ---
 
@@ -579,8 +579,8 @@ Mirrors Gemini CLI format. In `~/.qwen/settings.json` (or equivalent):
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/path/to/.venv/bin/codrag",
+    "prep": {
+      "command": "/path/to/.venv/bin/prep",
       "args": ["mcp"],
       "trust": true
     }
@@ -603,14 +603,14 @@ Location: `~/.config/zed/settings.json` or project `.zed/settings.json`
 ```json
 {
   "context_servers": {
-    "codrag": {
-      "command": "/path/to/.venv/bin/codrag",
+    "prep": {
+      "command": "/path/to/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
 }
 ```
-Replace `/path/to/.venv/bin/codrag` with your absolute path. Zed uses flat `command`/`args` keys (not nested).
+Replace `/path/to/.venv/bin/prep` with your absolute path. Zed uses flat `command`/`args` keys (not nested).
 
 ### Rules File
 Zed reads AGENTS.md and `.rules` files automatically.
@@ -624,15 +624,15 @@ Zed reads AGENTS.md and `.rules` files automatically.
 ### File: `AGENTS.md` (project root, marker-based section)
 
 ```markdown
-<!-- CODRAG:BEGIN (auto-generated, do not edit between markers) -->
-## CoDRAG Integration
+<!-- PREP:BEGIN (auto-generated, do not edit between markers) -->
+## Prep Integration
 
-This project is indexed by CoDRAG for structural code intelligence.
+This project is indexed by Prep for structural code intelligence.
 
 ### Quick Start
-- Call `codrag` (MCP tool) at the start of every task
-- Use `codrag_search` for code queries with structural context
-- Use `codrag_impact` before making changes
+- Call `prep` (MCP tool) at the start of every task
+- Use `prep_search` for code queries with structural context
+- Use `prep_impact` before making changes
 
 ### Codebase Atlas
 [auto-generated from atlas.json -- IDENTITY, STACK, ARCHITECTURE, SUBSYSTEMS, FLOW]
@@ -641,7 +641,7 @@ This project is indexed by CoDRAG for structural code intelligence.
 [auto-generated from included_paths]
 
 Last indexed: [timestamp] | [node_count] nodes, [edge_count] edges | [coverage]% coverage
-<!-- CODRAG:END -->
+<!-- PREP:END -->
 ```
 
 ### Who reads AGENTS.md (confirmed)
@@ -673,7 +673,7 @@ Used by 60,000+ open-source projects. Case-insensitive (`AGENTS.md` or `agents.m
 |------|--------|---------------|
 | **Cursor** | Per-server MCP auto-run in Settings | YOLO mode does NOT cover MCP |
 | **Windsurf** | Per-server toggle in MCP panel | |
-| **Claude Code** | `"allow": ["mcp__codrag"]` in settings | Single rule covers all tools |
+| **Claude Code** | `"allow": ["mcp__prep"]` in settings | Single rule covers all tools |
 | **Copilot** | Sandboxing (`sandboxEnabled: true`) | macOS/Linux only |
 | **Gemini CLI** | `"trust": true` in server config | |
 | **Cline** | Per-tool auto-approve toggle | |
@@ -683,11 +683,11 @@ Used by 60,000+ open-source projects. Case-insensitive (`AGENTS.md` or `agents.m
 
 | Tool | Path | Format |
 |------|------|--------|
-| **Cursor** | `.cursor/rules/codrag.mdc` | YAML frontmatter (`alwaysApply: true`) |
-| **Windsurf** | `.windsurf/rules/codrag.md` | YAML frontmatter (`trigger: always_on`) |
+| **Cursor** | `.cursor/rules/prep.mdc` | YAML frontmatter (`alwaysApply: true`) |
+| **Windsurf** | `.windsurf/rules/prep.md` | YAML frontmatter (`trigger: always_on`) |
 | **Claude Code** | `CLAUDE.md` (append section) | Plain markdown with markers |
 | **Copilot** | `.github/copilot-instructions.md` | Plain markdown |
 | **Gemini CLI** | `AGENTS.md` (via context config) | Plain markdown |
 | **Cline** | `.clinerules` | Plain markdown with keyword triggers |
-| **Roo Code** | `.roo/rules/codrag.md` + mode dirs | Plain markdown |
+| **Roo Code** | `.roo/rules/prep.md` + mode dirs | Plain markdown |
 | **Universal** | `AGENTS.md` | Plain markdown with markers |

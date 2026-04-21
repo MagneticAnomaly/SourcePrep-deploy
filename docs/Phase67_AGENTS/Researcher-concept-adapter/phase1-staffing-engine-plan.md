@@ -4,9 +4,9 @@
 
 **Goal:** Build the Staffing Agent Engine that computes codebase readiness, accepts user-specified roles (`list` mode), generates AGENTS.md / SOUL.md / KNOWLEDGE.md per role, and persists a roster. Then extend to `auto` mode (LLM-inferred roles), `auto+list` hybrid, drift detection, and org chart.
 
-**Architecture:** The engine lives at `src/codrag/agents/hr/` as a self-contained subpackage. It consumes AgentCore (Phase 0) for CoDRAG data reads, LLM calls, and Paperclip push. Readiness scoring is a pure function over CoDRAG module/atlas data. Role file generation uses LLM prompts for AGENTS.md and SOUL.md, and templating for KNOWLEDGE.md. A JSON roster file in the index directory tracks generated roles.
+**Architecture:** The engine lives at `src/prep/agents/hr/` as a self-contained subpackage. It consumes AgentCore (Phase 0) for Prep data reads, LLM calls, and Paperclip push. Readiness scoring is a pure function over Prep module/atlas data. Role file generation uses LLM prompts for AGENTS.md and SOUL.md, and templating for KNOWLEDGE.md. A JSON roster file in the index directory tracks generated roles.
 
-**Tech Stack:** Python 3.11+, AgentCore (Phase 0), LLMClient, CoDRAG atlas/module/role APIs, JSON persistence.
+**Tech Stack:** Python 3.11+, AgentCore (Phase 0), LLMClient, Prep atlas/module/role APIs, JSON persistence.
 
 **Build order:** Tasks 1-7 deliver `list` mode end-to-end. Tasks 8-11 add `auto` mode, drift detection, and org chart.
 
@@ -16,11 +16,11 @@
 
 | File | Responsibility |
 |------|---------------|
-| `src/codrag/agents/hr/__init__.py` | Subpackage init, re-exports `StaffingEngine` |
-| `src/codrag/agents/hr/readiness.py` | Pure function: compute readiness score from CoDRAG data |
-| `src/codrag/agents/hr/engine.py` | `StaffingEngine` class: orchestrates generation pipeline |
-| `src/codrag/agents/hr/roster.py` | `Roster` class: JSON persistence for generated roles |
-| `src/codrag/agents/hr/prompts.py` | Prompt templates for LLM generation |
+| `src/prep/agents/hr/__init__.py` | Subpackage init, re-exports `StaffingEngine` |
+| `src/prep/agents/hr/readiness.py` | Pure function: compute readiness score from Prep data |
+| `src/prep/agents/hr/engine.py` | `StaffingEngine` class: orchestrates generation pipeline |
+| `src/prep/agents/hr/roster.py` | `Roster` class: JSON persistence for generated roles |
+| `src/prep/agents/hr/prompts.py` | Prompt templates for LLM generation |
 | `tests/test_hr_readiness.py` | Readiness scoring tests |
 | `tests/test_hr_roster.py` | Roster persistence tests |
 | `tests/test_hr_engine.py` | StaffingEngine integration tests |
@@ -31,8 +31,8 @@
 ### Task 1: Create HR subpackage and readiness scoring
 
 **Files:**
-- Create: `src/codrag/agents/hr/__init__.py`
-- Create: `src/codrag/agents/hr/readiness.py`
+- Create: `src/prep/agents/hr/__init__.py`
+- Create: `src/prep/agents/hr/readiness.py`
 - Create: `tests/test_hr_readiness.py`
 
 - [ ] **Step 1: Write failing tests for readiness scoring**
@@ -40,7 +40,7 @@
 ```python
 # tests/test_hr_readiness.py
 """Tests for HR readiness scoring."""
-from codrag.agents.hr.readiness import compute_readiness, ReadinessReport
+from prep.agents.hr.readiness import compute_readiness, ReadinessReport
 
 
 class TestComputeReadiness:
@@ -106,19 +106,19 @@ class TestComputeReadiness:
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_hr_readiness.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'codrag.agents.hr'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'prep.agents.hr'`
 
 - [ ] **Step 3: Create HR subpackage init**
 
 ```python
-# src/codrag/agents/hr/__init__.py
+# src/prep/agents/hr/__init__.py
 """Staffing Agent Engine — generates and manages AI agent role definitions."""
 ```
 
 - [ ] **Step 4: Implement readiness scoring**
 
 ```python
-# src/codrag/agents/hr/readiness.py
+# src/prep/agents/hr/readiness.py
 """Epistemic readiness scoring for Staffing Agent generation.
 
 Evaluates 7 dimensions of codebase knowledge to determine whether
@@ -166,7 +166,7 @@ def compute_readiness(
     has_hub_files: bool = False,
     has_docs: bool = False,
 ) -> ReadinessReport:
-    """Compute epistemic readiness score from CoDRAG data.
+    """Compute epistemic readiness score from Prep data.
 
     Args:
         modules: Module cluster dicts from ``get_module_structure()``.
@@ -184,7 +184,7 @@ def compute_readiness(
     # 1. Pipeline completion — atlas exists and has content
     dims["pipeline_completion"] = min(1.0, len(atlas_content) / 100) if atlas_content else 0.0
     if dims["pipeline_completion"] < 0.5:
-        missing.append("Run the CoDRAG pipeline to generate atlas data")
+        missing.append("Run the Prep pipeline to generate atlas data")
 
     # 2. File count — need ≥20 files for meaningful analysis
     dims["file_count"] = min(1.0, file_count / 20)
@@ -243,7 +243,7 @@ Expected: All 5 tests PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/agents/hr/__init__.py src/codrag/agents/hr/readiness.py tests/test_hr_readiness.py
+git add src/prep/agents/hr/__init__.py src/prep/agents/hr/readiness.py tests/test_hr_readiness.py
 git commit -m "feat(hr): add readiness scoring with 7-dimension evaluation"
 ```
 
@@ -252,7 +252,7 @@ git commit -m "feat(hr): add readiness scoring with 7-dimension evaluation"
 ### Task 2: Roster persistence
 
 **Files:**
-- Create: `src/codrag/agents/hr/roster.py`
+- Create: `src/prep/agents/hr/roster.py`
 - Create: `tests/test_hr_roster.py`
 
 - [ ] **Step 1: Write failing tests for roster**
@@ -265,8 +265,8 @@ from pathlib import Path
 
 import pytest
 
-from codrag.agents.hr.roster import Roster
-from codrag.agents.shared.models import RoleSpec
+from prep.agents.hr.roster import Roster
+from prep.agents.shared.models import RoleSpec
 
 
 @pytest.fixture
@@ -331,12 +331,12 @@ class TestRosterSaveLoad:
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_hr_roster.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'codrag.agents.hr.roster'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'prep.agents.hr.roster'`
 
 - [ ] **Step 3: Implement Roster class**
 
 ```python
-# src/codrag/agents/hr/roster.py
+# src/prep/agents/hr/roster.py
 """JSON-backed roster persistence for generated agent roles.
 
 Stores role specs to ``<index_dir>/hr_roster.json``.
@@ -350,7 +350,7 @@ import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from codrag.agents.shared.models import RoleSpec
+from prep.agents.shared.models import RoleSpec
 
 logger = logging.getLogger(__name__)
 
@@ -426,7 +426,7 @@ Expected: All 8 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/hr/roster.py tests/test_hr_roster.py
+git add src/prep/agents/hr/roster.py tests/test_hr_roster.py
 git commit -m "feat(hr): add Roster class for JSON-backed role persistence"
 ```
 
@@ -435,7 +435,7 @@ git commit -m "feat(hr): add Roster class for JSON-backed role persistence"
 ### Task 3: LLM prompt templates
 
 **Files:**
-- Create: `src/codrag/agents/hr/prompts.py`
+- Create: `src/prep/agents/hr/prompts.py`
 - Create: `tests/test_hr_prompts.py`
 
 - [ ] **Step 1: Write failing tests for prompt templates**
@@ -443,7 +443,7 @@ git commit -m "feat(hr): add Roster class for JSON-backed role persistence"
 ```python
 # tests/test_hr_prompts.py
 """Tests for HR prompt template rendering."""
-from codrag.agents.hr.prompts import (
+from prep.agents.hr.prompts import (
     render_agents_md_prompt,
     render_soul_md_prompt,
     render_knowledge_md,
@@ -512,7 +512,7 @@ class TestKnowledgeMd:
             domain_focus=["backend", "database"],
             project_id="proj_123",
         )
-        assert "codrag" in result  # tool instructions
+        assert "prep" in result  # tool instructions
         assert "backend_dev" in result  # role param
         assert "src/main.py" in result
         assert "0.95" in result or "95" in result
@@ -554,7 +554,7 @@ Expected: FAIL — `ModuleNotFoundError`
 - [ ] **Step 3: Implement prompt templates**
 
 ```python
-# src/codrag/agents/hr/prompts.py
+# src/prep/agents/hr/prompts.py
 """LLM prompt templates and KNOWLEDGE.md template for Staffing Agent.
 
 AGENTS.md and SOUL.md generation require LLM calls — these functions
@@ -598,10 +598,10 @@ Write a markdown document (~1500 tokens) that includes:
 1. **Role Summary** — One paragraph defining this role's primary responsibility
 2. **Priorities** — Numbered list of what this role focuses on, grounded in the codebase modules above
 3. **Behavioral Guidelines** — How this role should approach tasks (e.g., "always check impact radius before modifying hub files")
-4. **Knowledge Sources** — Which CoDRAG tools to use and when:
-   - `codrag(role="{role_slug}")` for scoped structural overview
-   - `codrag_search(query, role="{role_slug}")` for code search
-   - `codrag_impact(file)` before modifying files
+4. **Knowledge Sources** — Which Prep tools to use and when:
+   - `prep(role="{role_slug}")` for scoped structural overview
+   - `prep_search(query, role="{role_slug}")` for code search
+   - `prep_impact(file)` before modifying files
 5. **Boundaries** — What this role should NOT do (stay in lane)
 
 Ground every instruction in specific modules, files, or architectural patterns from the context above. Do not use generic advice."""
@@ -667,19 +667,19 @@ def render_knowledge_md(
 
     return f"""# Knowledge Base — {role_name}
 
-> Auto-generated by CoDRAG Staffing Agent. Do not edit manually.
+> Auto-generated by Prep Staffing Agent. Do not edit manually.
 
-## CoDRAG Tools
+## Prep Tools
 
 Use these tools to get live, role-scoped context:
 
 | Tool | Usage |
 |------|-------|
-| `codrag(role="{role_slug}")` | Structural overview filtered for your role |
-| `codrag_search(query, role="{role_slug}")` | Semantic code search scoped to your files |
-| `codrag_impact(file)` | Check blast radius before modifying files |
-| `codrag_audit()` | Review codebase health findings |
-| `codrag_observe(content)` | Save observations for cross-session memory |
+| `prep(role="{role_slug}")` | Structural overview filtered for your role |
+| `prep_search(query, role="{role_slug}")` | Semantic code search scoped to your files |
+| `prep_impact(file)` | Check blast radius before modifying files |
+| `prep_audit()` | Review codebase health findings |
+| `prep_observe(content)` | Save observations for cross-session memory |
 
 **Project ID:** `{project_id}`
 
@@ -697,8 +697,8 @@ Use these tools to get live, role-scoped context:
 
 ## Usage Notes
 
-- Call `codrag(role="{role_slug}")` at the start of every task for scoped context
-- Use `codrag_impact()` before modifying any file in the Key Files table
+- Call `prep(role="{role_slug}")` at the start of every task for scoped context
+- Use `prep_impact()` before modifying any file in the Key Files table
 - Files with relevance ≥0.8 are your primary responsibility
 - Files with relevance 0.4–0.8 are shared with other roles
 """
@@ -764,7 +764,7 @@ Expected: All 7 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/hr/prompts.py tests/test_hr_prompts.py
+git add src/prep/agents/hr/prompts.py tests/test_hr_prompts.py
 git commit -m "feat(hr): add LLM prompt templates and KNOWLEDGE.md template"
 ```
 
@@ -773,7 +773,7 @@ git commit -m "feat(hr): add LLM prompt templates and KNOWLEDGE.md template"
 ### Task 4: StaffingEngine — list mode (core pipeline)
 
 **Files:**
-- Create: `src/codrag/agents/hr/engine.py`
+- Create: `src/prep/agents/hr/engine.py`
 - Create: `tests/test_hr_engine.py`
 
 This is the main orchestrator. For testability, the LLM is injected as a callable so tests can use a mock.
@@ -791,10 +791,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from codrag.agents.hr.engine import StaffingEngine
-from codrag.agents.hr.readiness import ReadinessReport
-from codrag.agents.hr.roster import Roster
-from codrag.agents.shared.models import RoleSpec
+from prep.agents.hr.engine import StaffingEngine
+from prep.agents.hr.readiness import ReadinessReport
+from prep.agents.hr.roster import Roster
+from prep.agents.shared.models import RoleSpec
 
 
 def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:
@@ -878,7 +878,7 @@ class TestListMode:
             role_names=["Dev"],
             llm_fn=_fake_llm,
         )
-        assert "codrag" in roles[0].knowledge_md
+        assert "prep" in roles[0].knowledge_md
         assert "test_proj" in roles[0].knowledge_md
 
     def test_generate_roles_saves_to_roster(self, engine: StaffingEngine) -> None:
@@ -900,16 +900,16 @@ class TestListMode:
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_hr_engine.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'codrag.agents.hr.engine'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'prep.agents.hr.engine'`
 
 - [ ] **Step 3: Implement StaffingEngine**
 
 ```python
-# src/codrag/agents/hr/engine.py
+# src/prep/agents/hr/engine.py
 """Staffing Agent Engine — generates AI agent role definitions from codebase analysis.
 
 Orchestrates readiness scoring, role generation (list/auto/hybrid modes),
-and roster persistence. Uses AgentCore for CoDRAG data access and LLM calls.
+and roster persistence. Uses AgentCore for Prep data access and LLM calls.
 """
 from __future__ import annotations
 
@@ -918,16 +918,16 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from codrag.agents.hr.prompts import (
+from prep.agents.hr.prompts import (
     AGENTS_MD_SYSTEM,
     SOUL_MD_SYSTEM,
     render_agents_md_prompt,
     render_knowledge_md,
     render_soul_md_prompt,
 )
-from codrag.agents.hr.readiness import ReadinessReport, compute_readiness
-from codrag.agents.hr.roster import Roster
-from codrag.agents.shared.models import RoleSpec, _normalize_slug
+from prep.agents.hr.readiness import ReadinessReport, compute_readiness
+from prep.agents.hr.roster import Roster
+from prep.agents.shared.models import RoleSpec, _normalize_slug
 
 logger = logging.getLogger(__name__)
 
@@ -939,8 +939,8 @@ class StaffingEngine:
     """Generates and manages AI agent role definitions.
 
     Args:
-        index_dir: Path to the CoDRAG index directory.
-        project_id: CoDRAG project identifier.
+        index_dir: Path to the Prep index directory.
+        project_id: Prep project identifier.
         project_root: Optional path to the project source root.
     """
 
@@ -1135,7 +1135,7 @@ Expected: All 7 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/hr/engine.py tests/test_hr_engine.py
+git add src/prep/agents/hr/engine.py tests/test_hr_engine.py
 git commit -m "feat(hr): add StaffingEngine with list-mode role generation"
 ```
 
@@ -1144,17 +1144,17 @@ git commit -m "feat(hr): add StaffingEngine with list-mode role generation"
 ### Task 5: Update HR `__init__.py` with public API and run full test suite
 
 **Files:**
-- Modify: `src/codrag/agents/hr/__init__.py`
+- Modify: `src/prep/agents/hr/__init__.py`
 
 - [ ] **Step 1: Update init with re-exports**
 
 ```python
-# src/codrag/agents/hr/__init__.py
+# src/prep/agents/hr/__init__.py
 """Staffing Agent Engine — generates and manages AI agent role definitions."""
 
-from codrag.agents.hr.engine import StaffingEngine
-from codrag.agents.hr.readiness import ReadinessReport, compute_readiness
-from codrag.agents.hr.roster import Roster
+from prep.agents.hr.engine import StaffingEngine
+from prep.agents.hr.readiness import ReadinessReport, compute_readiness
+from prep.agents.hr.roster import Roster
 
 __all__ = [
     "StaffingEngine",
@@ -1177,7 +1177,7 @@ Expected: All 149 tests PASS (122 Phase 0 + 27 Phase 1)
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/agents/hr/__init__.py
+git add src/prep/agents/hr/__init__.py
 git commit -m "feat(hr): export public API from hr subpackage"
 ```
 
@@ -1211,7 +1211,7 @@ git commit -m "docs: update Phase 1 progress — list mode complete"
 ### Task 7: Auto mode — LLM-inferred role generation
 
 **Files:**
-- Modify: `src/codrag/agents/hr/engine.py`
+- Modify: `src/prep/agents/hr/engine.py`
 - Modify: `tests/test_hr_engine.py`
 
 - [ ] **Step 1: Write failing tests for auto mode**
@@ -1255,11 +1255,11 @@ Expected: FAIL — `AttributeError: 'StaffingEngine' object has no attribute 'au
 
 - [ ] **Step 3: Implement auto_generate_roles**
 
-Add to `src/codrag/agents/hr/engine.py`:
+Add to `src/prep/agents/hr/engine.py`:
 
 ```python
 # Add this import at the top
-from codrag.agents.hr.prompts import AUTO_ROLES_SYSTEM, render_auto_roles_prompt
+from prep.agents.hr.prompts import AUTO_ROLES_SYSTEM, render_auto_roles_prompt
 
 # Add these methods to StaffingEngine class:
 
@@ -1392,7 +1392,7 @@ Expected: All tests PASS (7 list-mode + 4 auto-mode = 11)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/hr/engine.py tests/test_hr_engine.py
+git add src/prep/agents/hr/engine.py tests/test_hr_engine.py
 git commit -m "feat(hr): add auto and hybrid role generation modes"
 ```
 
@@ -1401,7 +1401,7 @@ git commit -m "feat(hr): add auto and hybrid role generation modes"
 ### Task 8: Drift detection and audit
 
 **Files:**
-- Modify: `src/codrag/agents/hr/engine.py`
+- Modify: `src/prep/agents/hr/engine.py`
 - Create: `tests/test_hr_drift.py`
 
 - [ ] **Step 1: Write failing tests for drift detection**
@@ -1417,9 +1417,9 @@ from typing import Tuple
 
 import pytest
 
-from codrag.agents.hr.engine import StaffingEngine, DriftReport, RoleFitness
-from codrag.agents.hr.roster import Roster
-from codrag.agents.shared.models import RoleSpec
+from prep.agents.hr.engine import StaffingEngine, DriftReport, RoleFitness
+from prep.agents.hr.roster import Roster
+from prep.agents.shared.models import RoleSpec
 
 
 def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:
@@ -1505,7 +1505,7 @@ Expected: FAIL — `ImportError: cannot import name 'DriftReport'`
 
 - [ ] **Step 3: Implement drift detection**
 
-Add these dataclasses and methods to `src/codrag/agents/hr/engine.py`:
+Add these dataclasses and methods to `src/prep/agents/hr/engine.py`:
 
 ```python
 # Add to imports at top:
@@ -1631,7 +1631,7 @@ Expected: All 4 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/hr/engine.py tests/test_hr_drift.py
+git add src/prep/agents/hr/engine.py tests/test_hr_drift.py
 git commit -m "feat(hr): add drift detection and role fitness scoring"
 ```
 
@@ -1640,7 +1640,7 @@ git commit -m "feat(hr): add drift detection and role fitness scoring"
 ### Task 9: Org chart generation
 
 **Files:**
-- Modify: `src/codrag/agents/hr/engine.py`
+- Modify: `src/prep/agents/hr/engine.py`
 - Modify: `tests/test_hr_engine.py`
 
 - [ ] **Step 1: Write failing tests for org chart**
@@ -1680,7 +1680,7 @@ Expected: FAIL — `AttributeError: 'StaffingEngine' object has no attribute 'ge
 
 - [ ] **Step 3: Implement org chart generation**
 
-Add to `src/codrag/agents/hr/engine.py` `StaffingEngine` class:
+Add to `src/prep/agents/hr/engine.py` `StaffingEngine` class:
 
 ```python
     def generate_org_chart(self) -> Dict[str, Any]:
@@ -1766,7 +1766,7 @@ Expected: All tests PASS (11 existing + 4 org chart = 15)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/hr/engine.py tests/test_hr_engine.py
+git add src/prep/agents/hr/engine.py tests/test_hr_engine.py
 git commit -m "feat(hr): add org chart generation from roster"
 ```
 
@@ -1775,7 +1775,7 @@ git commit -m "feat(hr): add org chart generation from roster"
 ### Task 10: Edge case handling
 
 **Files:**
-- Modify: `src/codrag/agents/hr/engine.py`
+- Modify: `src/prep/agents/hr/engine.py`
 - Modify: `tests/test_hr_engine.py`
 
 - [ ] **Step 1: Write failing tests for edge cases**
@@ -1824,7 +1824,7 @@ Expected: Some tests FAIL (dedup not yet implemented)
 
 - [ ] **Step 3: Add deduplication to generate_roles**
 
-In `src/codrag/agents/hr/engine.py`, update the `generate_roles` method — replace the loop section:
+In `src/prep/agents/hr/engine.py`, update the `generate_roles` method — replace the loop section:
 
 ```python
     def generate_roles(
@@ -1900,7 +1900,7 @@ Expected: All tests PASS (15 + 4 = 19)
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/hr/engine.py tests/test_hr_engine.py
+git add src/prep/agents/hr/engine.py tests/test_hr_engine.py
 git commit -m "feat(hr): handle edge cases — dedup, empty list, special chars"
 ```
 
@@ -1925,7 +1925,7 @@ from typing import Tuple
 
 import pytest
 
-from codrag.agents.hr import StaffingEngine, ReadinessReport, Roster
+from prep.agents.hr import StaffingEngine, ReadinessReport, Roster
 
 
 def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:
@@ -1987,7 +1987,7 @@ class TestFullPipeline:
             assert len(role.agents_md) > 0
             assert len(role.soul_md) > 0
             assert len(role.knowledge_md) > 0
-            assert "codrag" in role.knowledge_md
+            assert "prep" in role.knowledge_md
 
         # 4. Verify roster persistence
         roster = Roster(rich_index)

@@ -1,14 +1,14 @@
-# CoDRAG MCP Configuration: Copy-Paste Reference
+# Prep MCP Configuration: Copy-Paste Reference
 
 > Ready-to-use MCP config JSON for every supported AI coding tool.
 > Each config is self-contained -- copy the entire block into the correct file.
 
-**Your CoDRAG binary:** `/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag`
+**Your Prep binary:** `/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep`
 
 **IMPORTANT:** MCP configs spawn a child process. The child process does NOT
 inherit your shell's PATH, nvm, pyenv, or conda. You MUST use the absolute
-path to the `codrag` binary. If you install CoDRAG system-wide later, you
-can simplify to just `"command": "codrag"`.
+path to the `prep` binary. If you install Prep system-wide later, you
+can simplify to just `"command": "prep"`.
 
 ---
 
@@ -20,8 +20,8 @@ Replace its contents with:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"],
       "disabled": false
     }
@@ -38,15 +38,15 @@ Replace its contents with:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
 }
 ```
 
-**Auto-approve:** Settings > Features > MCP > enable auto-run for codrag.
+**Auto-approve:** Settings > Features > MCP > enable auto-run for prep.
 (YOLO mode does NOT cover MCP tools.)
 
 ---
@@ -58,8 +58,8 @@ Replace its contents with:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"],
       "disabled": false
     }
@@ -67,7 +67,7 @@ Replace its contents with:
 }
 ```
 
-**Auto-approve:** Click MCPs icon in Cascade panel > click codrag > enable auto-run.
+**Auto-approve:** Click MCPs icon in Cascade panel > click prep > enable auto-run.
 
 ---
 
@@ -78,20 +78,20 @@ Replace its contents with:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"]
     }
   },
   "permissions": {
-    "allow": ["mcp__codrag"]
+    "allow": ["mcp__prep"]
   }
 }
 ```
 
-The `permissions.allow` line auto-approves ALL CoDRAG tools with a single rule.
+The `permissions.allow` line auto-approves ALL Prep tools with a single rule.
 
-**Alternative (CLI):** `claude mcp add codrag -- /Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag mcp`
+**Alternative (CLI):** `claude mcp add prep -- /Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep mcp`
 
 ---
 
@@ -104,8 +104,8 @@ The `permissions.allow` line auto-approves ALL CoDRAG tools with a single rule.
 ```json
 {
   "servers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
@@ -117,8 +117,8 @@ The `permissions.allow` line auto-approves ALL CoDRAG tools with a single rule.
 ```json
 {
   "servers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"],
       "sandboxEnabled": true,
       "sandbox": {
@@ -143,8 +143,8 @@ Gemini CLI and Antigravity use the same MCP format but **different config file p
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"],
       "trust": true
     }
@@ -157,16 +157,16 @@ Gemini CLI and Antigravity use the same MCP format but **different config file p
 **File:** `~/.gemini/antigravity/mcp_config.json`
 
 > **IMPORTANT:** Antigravity does not send workspace roots and launches with `cwd=/`.
-> You MUST set `CODRAG_WORKSPACE` to the project root for correct routing.
+> You MUST set `PREP_WORKSPACE` to the project root for correct routing.
 
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"],
       "env": {
-        "CODRAG_WORKSPACE": "/path/to/your/project"
+        "PREP_WORKSPACE": "/path/to/your/project"
       },
       "trust": true
     }
@@ -174,20 +174,20 @@ Gemini CLI and Antigravity use the same MCP format but **different config file p
 }
 ```
 
-`trust: true` auto-approves all tool calls. Safe for CoDRAG (read-only).
+`trust: true` auto-approves all tool calls. Safe for Prep (read-only).
 
-### Troubleshooting: "server name codrag not found"
+### Troubleshooting: "server name prep not found"
 
 This means the stdio process launched but the MCP handshake failed. Check:
-1. **CoDRAG daemon must be running** on port 8400: `curl http://127.0.0.1:8400/health`
+1. **Prep daemon must be running** on port 8400: `curl http://127.0.0.1:8400/health`
 2. **Test the MCP server directly:**
    ```bash
-   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","clientInfo":{"name":"test"}}}' | /Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag mcp
+   echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","clientInfo":{"name":"test"}}}' | /Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep mcp
    ```
-   You should see a JSON response with `"serverInfo":{"name":"codrag"}`. If you get a Python error or nothing, the binary isn't working.
+   You should see a JSON response with `"serverInfo":{"name":"prep"}`. If you get a Python error or nothing, the binary isn't working.
 3. **Check stderr output:** The MCP server prints startup info to stderr. Run manually to see errors:
    ```bash
-   /Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag mcp --debug 2>&1 | head -5
+   /Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep mcp --debug 2>&1 | head -5
    ```
 
 ---
@@ -199,8 +199,8 @@ This means the stdio process launched but the MCP handshake failed. Check:
 ```json
 {
   "context_servers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
@@ -218,8 +218,8 @@ Zed uses `context_servers` with flat `command`/`args` keys (not `mcpServers`, no
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
@@ -237,8 +237,8 @@ Zed uses `context_servers` with flat `command`/`args` keys (not `mcpServers`, no
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
@@ -254,8 +254,8 @@ Amp reads AGENTS.md. For explicit MCP config, use the standard format:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
@@ -271,8 +271,8 @@ Codex reads AGENTS.md natively. For explicit MCP:
 ```json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag",
+    "prep": {
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep",
       "args": ["mcp"]
     }
   }
@@ -300,22 +300,22 @@ Codex reads AGENTS.md natively. For explicit MCP:
 ## Troubleshooting
 
 ### "command not found" or server won't start
-The MCP host spawns `codrag` as a child process. It does NOT use your shell
-PATH. Use the absolute path: `/Volumes/4TB-BAD/HumanAI/CoDRAG/.venv/bin/codrag`
+The MCP host spawns `prep` as a child process. It does NOT use your shell
+PATH. Use the absolute path: `/Volumes/4TB-BAD/HumanAI/Prep/.venv/bin/prep`
 
 ### For system-wide install (future)
-Once CoDRAG is installed via pip/brew/binary, you can simplify all configs to:
+Once Prep is installed via pip/brew/binary, you can simplify all configs to:
 ```json
-"command": "codrag",
+"command": "prep",
 "args": ["mcp"]
 ```
 
-### CoDRAG daemon must be running
-The MCP server (stdio mode) connects to the CoDRAG daemon at `http://127.0.0.1:8400`.
+### Prep daemon must be running
+The MCP server (stdio mode) connects to the Prep daemon at `http://127.0.0.1:8400`.
 Start it first:
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
-.venv/bin/python -m codrag serve
+cd /Volumes/4TB-BAD/HumanAI/Prep
+.venv/bin/python -m prep serve
 ```
 
 ### Verify MCP is working
@@ -326,7 +326,7 @@ Enable logging to see what the MCP server receives:
 Then check: `tail -f ~/.prep/mcp.log`
 
 ### Multiple projects
-CoDRAG auto-detects which project you're working on from the workspace root.
+Prep auto-detects which project you're working on from the workspace root.
 If it can't determine the project, it returns an actionable error with the
 project list. You can pin a project with:
 ```json

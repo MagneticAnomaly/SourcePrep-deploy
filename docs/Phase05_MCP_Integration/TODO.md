@@ -14,23 +14,23 @@
 
 ## Implementation backlog (P05-I*)
 ### Server mode + transport
-- [x] P05-I1 MCP stdio server that proxies to daemon HTTP API (default `127.0.0.1:8400`) ✅ **DONE: `src/codrag/mcp_server.py`**
+- [x] P05-I1 MCP stdio server that proxies to daemon HTTP API (default `127.0.0.1:8400`) ✅ **DONE: `src/prep/mcp_server.py`**
 - [x] P05-I2 Health check behavior: ✅ **DONE**
   - on startup, `GET /health`
   - actionable `DAEMON_UNAVAILABLE` errors
 
 ### Tool surface
 - [x] P05-I3 Implement tools: ✅ **DONE**
-  - `codrag_status` ✅
-  - `codrag_build` ✅
-  - `codrag_search` ✅
-  - `codrag` (context) ✅
-  - `codrag_trace` (when trace available) — deferred
+  - `prep_status` ✅
+  - `prep_build` ✅
+  - `prep_search` ✅
+  - `prep` (context) ✅
+  - `prep_trace` (when trace available) — deferred
 - [x] P05-I4 Ensure tool outputs mirror `API.md` shapes (avoid schema drift) ✅ **DONE**
 
 ### Project selection
-- [x] P05-I5 Pinned project mode (`--project <id>`) ✅ **DONE: `codrag mcp --project`**
-- [x] P05-I6 Auto-detect mode (`--auto`): longest-prefix rule for `cwd` vs registered project paths ✅ **DONE: `codrag mcp --auto`**
+- [x] P05-I5 Pinned project mode (`--project <id>`) ✅ **DONE: `prep mcp --project`**
+- [x] P05-I6 Auto-detect mode (`--auto`): longest-prefix rule for `cwd` vs registered project paths ✅ **DONE: `prep mcp --auto`**
 - [x] P05-I7 Ambiguity handling (`PROJECT_SELECTION_AMBIGUOUS`) with debuggable output
 
 ### Token efficiency + robustness
@@ -40,7 +40,7 @@
 - [x] P05-I11 Debug mode writes logs to file (opt-in) for diagnosis
 
 ### Config generation
-- [x] P05-I12 `codrag mcp-config` prints ready-to-paste client config (pinned + auto) ✅ **DONE: Multi-IDE support**
+- [x] P05-I12 `prep mcp-config` prints ready-to-paste client config (pinned + auto) ✅ **DONE: Multi-IDE support**
 - [x] S-16.3 PyPI Package Verification for MCP Registry (P05-I19)
 - [x] S-16.4 Tool Icons & Metadata Polish (P05-R9) ✅ **DONE**
 
@@ -58,7 +58,7 @@ Relevant entries in `../MASTER_TODO.md`:
 - [ ] Decide how MCP should behave when index is missing (prompt to build vs hard error)
 - [ ] Decide whether MCP should support an “assemble context as markdown” output mode for LLMs
 - [ ] Verify MCP Server mode remains aligned with canonical `/projects/*` routes (avoid legacy `/api/code-index/*` drift)
-- [ ] Smoke test: `codrag mcp --mode direct` against `tests/fixtures/mini_repo` (and decide if Direct Mode stays supported)
+- [ ] Smoke test: `prep mcp --mode direct` against `tests/fixtures/mini_repo` (and decide if Direct Mode stays supported)
 - [ ] Track: CLI `ApiEnvelope` unwrap mismatch (master gap) impacts MCP only if MCP consumes CLI helpers
 
 ---
@@ -80,7 +80,7 @@ Relevant entries in `../MASTER_TODO.md`:
    - Single endpoint supporting POST/GET (e.g., `https://example.com/mcp`)
    - **Security**: MUST validate `Origin` header, bind to localhost when local, implement auth
 
-### Key 2025-11-25 Changes Relevant to CoDRAG
+### Key 2025-11-25 Changes Relevant to Prep
 - **Tasks** (SEP-1686): Async operations for long-running tasks (e.g., index builds)
 - **Elicitation** (SEP-1036): URL mode for secure out-of-band interactions
 - **Tool icons** (SEP-973): Metadata icons for tools/resources/prompts
@@ -88,7 +88,7 @@ Relevant entries in `../MASTER_TODO.md`:
 - **Tool name format** guidance (SEP-986)
 - **OAuth Client ID Metadata Documents** (SEP-991)
 
-### Official SDKs (use Python SDK for CoDRAG)
+### Official SDKs (use Python SDK for Prep)
 | Language   | Repository |
 |------------|------------|
 | **Python** | github.com/modelcontextprotocol/python-sdk |
@@ -119,14 +119,14 @@ Relevant entries in `../MASTER_TODO.md`:
 | **Emacs** | | — | stdio | Via emacs-mcp plugin |
 | **Neovim** | | — | stdio | Via Amp |
 
-### CoDRAG Compatibility Checklist
+### Prep Compatibility Checklist
 - [x] P05-R5 Support **both** stdio AND Streamable HTTP transports (stdio done, HTTP implemented via `/sse` + `/message`)
 - [x] P05-R6 Implement proper `Origin` validation for HTTP transport ✅ **DONE: `TrustedOriginMiddleware` in `mcp_server.py`**
-- [ ] P05-R7 Consider async **Tasks** for `codrag_build` (long-running)
+- [ ] P05-R7 Consider async **Tasks** for `prep_build` (long-running)
 - [x] P05-R9 Provide tool icons via `_meta.icons` field ✅ **DONE**
 
 ### Config Generation for Major IDEs
-`codrag mcp-config` should output ready-to-paste JSON for:
+`prep mcp-config` should output ready-to-paste JSON for:
 - [x] P05-I19 Add verification info for PyPI package ownership ✅ **DONE**
 - [x] P05-I13 Claude Desktop (`claude_desktop_config.json`) ✅ **DONE**
 - [x] P05-I14 Cursor (`.cursor/mcp.json`) ✅ **DONE**
@@ -140,9 +140,9 @@ Relevant entries in `../MASTER_TODO.md`:
 - [ ] P05-I19 Add verification info for PyPI package ownership
 
 ### Recommendations
-1. **Use Python SDK** — Official, well-maintained, matches CoDRAG stack
+1. **Use Python SDK** — Official, well-maintained, matches Prep stack
 2. **stdio first** — All major IDEs support it; simplest to implement
 3. **Add Streamable HTTP** — Enables remote/enterprise deployments
-4. **Implement Tasks** — `codrag_build` can take minutes; use async Tasks pattern
+4. **Implement Tasks** — `prep_build` can take minutes; use async Tasks pattern
 5. **Generate multi-IDE configs** — Single command to output all IDE configs
 6. **Publish to MCP Registry** — Increases discoverability once GA

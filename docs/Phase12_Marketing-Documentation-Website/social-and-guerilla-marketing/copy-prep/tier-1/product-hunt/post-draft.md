@@ -7,17 +7,17 @@
 
 ## Maker's Comment (The "First Comment")
 
-**Headline: Why I built CoDRAG**
+**Headline: Why I built Prep**
 
 Hey Product Hunt! 👋
 
-I'm [Name], the maker of **CoDRAG**.
+I'm [Name], the maker of **Prep**.
 
 I've been using AI coding tools (Cursor, Windsurf, Copilot) daily, but I kept hitting two walls:
 1.  **Context Limits:** Pasting files manually is tedious, and vector search often grabs irrelevant code.
 2.  **Trust:** I didn't want to upload my entire repo to a cloud service just to index it.
 
-**So I built CoDRAG.**
+**So I built Prep.**
 
 It's a desktop app that runs locally on your Mac or Windows machine.
 *   🔎 **Structural Indexing:** It builds a dependency graph of your code (definitions, references), not just text embeddings.
@@ -34,9 +34,9 @@ It's free to use locally. I'd love to hear your feedback on the retrieval qualit
 Happy coding! 🚀
 
 ## Gallery Assets Plan
-*   **Video:** 30s upbeat demo showing "Edit in Cursor" -> "Ask CoDRAG" -> "Get perfect context".
+*   **Video:** 30s upbeat demo showing "Edit in Cursor" -> "Ask Prep" -> "Get perfect context".
 *   **Image 1:** Dashboard view showing the "Trace Graph" visualization.
-*   **Image 2:** Side-by-side comparison: "Standard RAG" (wrong file) vs "CoDRAG" (correct file + dependencies).
+*   **Image 2:** Side-by-side comparison: "Standard RAG" (wrong file) vs "Prep" (correct file + dependencies).
 *   **Image 3:** "Local-First" badge/diagram showing data staying on device.
 
 ## Tone

@@ -2,13 +2,13 @@
 
 ## Title Options
 1. **I built a local-first code context engine that runs without an LLM (Rust + graph analysis)**
-2. **Projects: CoDRAG - A structural context engine for local AI coding (No Ollama required)**
+2. **Projects: Prep - A structural context engine for local AI coding (No Ollama required)**
 3. **Sharing my project: A local context graph for codebases that plugs into Cursor/MCP (0% cloud)**
 
 ## Body Structure
 
 ### Hook
-I’ve spent the last few months building **CoDRAG**, a local-first "context engine" for large codebases. The weird part? **It doesn't use an LLM for its core index.**
+I’ve spent the last few months building **Prep**, a local-first "context engine" for large codebases. The weird part? **It doesn't use an LLM for its core index.**
 
 Instead of just embedding chunks into a vector DB (which I found gets messy with large repos), it builds a structural "trace graph" of your code—definitions, references, imports—using Tree-sitter and a custom Rust graph engine.
 

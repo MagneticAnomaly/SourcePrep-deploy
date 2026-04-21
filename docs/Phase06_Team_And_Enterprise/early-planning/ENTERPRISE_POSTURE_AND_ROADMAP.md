@@ -1,7 +1,7 @@
 # Enterprise Tier — Posture and Roadmap
 
 ## Purpose
-Define what "Enterprise" means for CoDRAG in a way that is:
+Define what "Enterprise" means for Prep in a way that is:
 - implementable (clear technical anchors)
 - honest (no overpromising)
 - compatible with **ADR-012** (enterprise implementation is post-MVP)
@@ -26,7 +26,7 @@ Enterprise expectation:
 - predictable upgrade behavior
 - mirrorable artifacts for internal catalogs
 
-CoDRAG posture:
+Prep posture:
 - Direct installer rollout is the default.
 - App store builds (if any) are a separate channel and not the enterprise contract path.
 
@@ -38,7 +38,7 @@ References:
 Enterprise expectation:
 - works without outbound internet
 
-CoDRAG posture:
+Prep posture:
 - License validation is **offline** via signed keys (Ed25519).
 
 References:
@@ -50,7 +50,7 @@ Enterprise expectation:
 - policy enforcement
 - auditability
 
-CoDRAG posture:
+Prep posture:
 - Team Tier introduces shared policy baseline (`team_config.json`).
 - Enterprise adds stricter enforcement + audit surfaces.
 
@@ -59,7 +59,7 @@ Enterprise expectation:
 - SSO/SCIM
 - RBAC
 
-CoDRAG posture:
+Prep posture:
 - Post-MVP: start with API keys (Phase 06 network mode baseline).
 - Later: SSO/SCIM integration if demanded.
 
@@ -78,7 +78,7 @@ CoDRAG posture:
 ## Deployment patterns (enterprise-friendly)
 
 ### Pattern A: Managed laptops (no server)
-- CoDRAG installed via MDM.
+- Prep installed via MDM.
 - License key deployed as a file.
 - Team policy distributed via repo (`.prep/team_config.json`).
 
@@ -87,7 +87,7 @@ Pros:
 - No internal service to operate.
 
 ### Pattern B: Self-hosted team server (internal)
-- CoDRAG daemon binds to LAN interface.
+- Prep daemon binds to LAN interface.
 - Auth required.
 - Reverse proxy terminates TLS (recommended initial posture).
 

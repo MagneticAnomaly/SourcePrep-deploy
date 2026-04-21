@@ -1,5 +1,5 @@
 #!/bin/bash
-# CoDRAG Troubleshooting Harness
+# Prep Troubleshooting Harness
 # =================================
 # Strict daemon-only environment for isolating runtime bugs.
 # Unlike scripts/dev.sh, this:
@@ -28,8 +28,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 DAEMON_PORT=8400
-DAEMON_LOG="/tmp/codrag_troubleshoot.log"
-DAEMON_PID_FILE="/tmp/codrag_troubleshoot.pid"
+DAEMON_LOG="/tmp/prep_troubleshoot.log"
+DAEMON_PID_FILE="/tmp/prep_troubleshoot.pid"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -43,7 +43,7 @@ log_ok()   { echo -e "${GREEN}[OK]${NC} $1"; }
 log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
 log_err()  { echo -e "${RED}[ERROR]${NC} $1"; }
 
-# Kill anything on the daemon port + any codrag processes
+# Kill anything on the daemon port + any prep processes
 kill_daemon() {
     local pid
     pid=$(lsof -ti :$DAEMON_PORT 2>/dev/null || true)
@@ -53,23 +53,23 @@ kill_daemon() {
         sleep 0.5
     fi
     # Catch orphans not bound to the port
-    pkill -9 -f "codrag.cli serve" 2>/dev/null || true
-    pkill -9 -f "codrag serve"     2>/dev/null || true
-    pkill -9 -f "codrag mcp"       2>/dev/null || true
+    pkill -9 -f "prep.cli serve" 2>/dev/null || true
+    pkill -9 -f "prep serve"     2>/dev/null || true
+    pkill -9 -f "prep mcp"       2>/dev/null || true
     sleep 0.5
     rm -f "$DAEMON_PID_FILE"
     log_ok "Daemon killed"
 }
 
 start_daemon() {
-    log_info "Starting CoDRAG daemon (troubleshooting mode)..."
+    log_info "Starting Prep daemon (troubleshooting mode)..."
     log_info "  Port: $DAEMON_PORT"
     log_info "  Log:  $DAEMON_LOG"
     log_info "  Mode: daemon ONLY — no dashboard, no storybook, no websites"
     : > "$DAEMON_LOG"
 
     PYTHONPATH="$PROJECT_ROOT/src" \
-        "$PROJECT_ROOT/.venv/bin/python" -m codrag.cli serve --port $DAEMON_PORT \
+        "$PROJECT_ROOT/.venv/bin/python" -m prep.cli serve --port $DAEMON_PORT \
         > "$DAEMON_LOG" 2>&1 &
     local pid=$!
     echo "$pid" > "$DAEMON_PID_FILE"
@@ -171,7 +171,7 @@ case "${1:-}" in
         ;;
     *)
         cat <<EOF
-CoDRAG Troubleshooting Harness
+Prep Troubleshooting Harness
 
 Usage: $0 <command>
 

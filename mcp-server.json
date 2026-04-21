@@ -24,7 +24,7 @@
   "installations": {
     "pip": {
       "package": "prep",
-      "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/prep-mcp-wrapper.sh",
+      "command": "/Volumes/4TB-BAD/HumanAI/Prep/prep-mcp-wrapper.sh",
       "args": ["mcp", "--mode", "direct"]
     }
   },

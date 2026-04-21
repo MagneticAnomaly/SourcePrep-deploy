@@ -2,7 +2,7 @@
 
 ## Status: ✅ IMPLEMENTED (2026-02)
 
-Most items in this phase are now implemented. See `src/codrag/core/watcher.py` (11.6k lines).
+Most items in this phase are now implemented. See `src/prep/core/watcher.py` (11.6k lines).
 
 ## Links
 - Spec: `README.md`

@@ -1,10 +1,10 @@
 # Acquisition and Partnerships
 
 ## Purpose
-CoDRAG’s stated ambition is to become an essential companion to Cursor/Windsurf/Copilot workflows and potentially be acquired by one of these companies.
+Prep’s stated ambition is to become an essential companion to Cursor/Windsurf/Copilot workflows and potentially be acquired by one of these companies.
 
 This doc clarifies:
-- what “acquisition-ready” means for CoDRAG
+- what “acquisition-ready” means for Prep
 - what partnership surfaces exist today (MCP, plugins, distribution)
 - what product choices increase acquisition attractiveness without derailing MVP
 
@@ -15,12 +15,12 @@ Likely acquirers in this space want one or more of:
 - strategic positioning (local-first, enterprise-friendly)
 - integration surface that reduces friction to embed the product
 
-## CoDRAG positioning that is acquisition-friendly
+## Prep positioning that is acquisition-friendly
 
 ### 1) “Context engine” vs “another IDE”
 The most plausible positioning:
-- CoDRAG is not competing as a full IDE.
-- CoDRAG is a local-first context/index daemon that integrates into IDE assistants.
+- Prep is not competing as a full IDE.
+- Prep is a local-first context/index daemon that integrates into IDE assistants.
 
 This matches the architectural decision:
 - MCP as primary IDE integration
@@ -40,12 +40,12 @@ Competitor signals show enterprise buyers expect:
 Example (Cursor Enterprise lists audit logs + SCIM + granular admin/model controls):
 - https://cursor.com/pricing
 
-CoDRAG’s “local-first by default” stance can become a durable differentiation if paired with:
+Prep’s “local-first by default” stance can become a durable differentiation if paired with:
 - safe defaults
 - clear data-handling guarantees
 
 ### 3) Hybrid index mode increases compatibility
-Hybrid (standalone + embedded) lets CoDRAG serve:
+Hybrid (standalone + embedded) lets Prep serve:
 - solo devs (standalone, clean repos)
 - teams (embedded, repeatable onboarding)
 
@@ -53,7 +53,7 @@ Reference:
 - `docs/DECISIONS.md` (ADR-003)
 
 ### 4) Business Model as a Trust Asset
-CoDRAG's "Perpetual License" model builds deep trust with developers who are fatigued by subscriptions.
+Prep's "Perpetual License" model builds deep trust with developers who are fatigued by subscriptions.
 - This creates a loyal, high-intent user base.
 - An acquirer could easily transition this base to a subscription or keep the license model as a "Pro" wedge.
 
@@ -95,7 +95,7 @@ Acquisition value is driven by **Strategic Value** (Moat) rather than just reven
 
 ### Year 3: The "Enterprise Gateway" Exit ($150M–$400M+)
 - **Target:** Microsoft (GitHub), Google (Cloud/IDX), Apple.
-- **Driver:** Infrastructure Category dominance. CoDRAG as the "Security Layer" for AI in regulated industries.
+- **Driver:** Infrastructure Category dominance. Prep as the "Security Layer" for AI in regulated industries.
 - **Value:** Protecting the dominance of Copilot/Gemini in the enterprise.
 
 ## Valuation Multipliers
@@ -106,7 +106,7 @@ Acquisition value is driven by **Strategic Value** (Moat) rather than just reven
 
 ## Emerging Tech Moats (To Watch & Build)
 
-To maintain acquisition attractiveness, CoDRAG must lead in "Plumbing":
+To maintain acquisition attractiveness, Prep must lead in "Plumbing":
 
 1.  **Small Language Models (SLMs) for Local Re-ranking:** (e.g., Phi-4, Llama 3.2) Re-rank chunks locally to beat cloud RAG quality at zero cost.
 2.  **GraphRAG (Structural Trace):** Moving beyond chunks to understanding relationships (Functions, Classes, Imports) across multi-repo setups.

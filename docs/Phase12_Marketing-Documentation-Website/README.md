@@ -1,7 +1,7 @@
 # Phase 12 — Marketing Website + Public Documentation
 
 ## Problem statement
-CoDRAG needs a credible public-facing website and documentation surface so we can:
+Prep needs a credible public-facing website and documentation surface so we can:
 
 - explain the product and its “local-first” posture
 - onboard early adopters with a stable “getting started” path
@@ -13,7 +13,7 @@ Right now, most of the product is unfinished, so the docs must be **scaffolded**
 ## Goal
 Launch a placeholder public website and a user-facing documentation site that:
 
-- communicates CoDRAG’s core value and positioning
+- communicates Prep’s core value and positioning
 - provides a structured documentation IA that can be filled in as features land
 - is aligned with the dashboard’s UI stack and future design system work
 - includes a domain + subdomain plan that won’t cause churn later
@@ -21,7 +21,7 @@ Launch a placeholder public website and a user-facing documentation site that:
 ## Scope
 
 ### In scope
-- Domain choice decision (`codrag.ai` vs `codrag.io`) and redirect strategy
+- Domain choice decision (`runprep.io` vs `runprep.io`) and redirect strategy
 - Domain/subdomain infrastructure plan (DNS + hosting routing)
 - Public website information architecture (IA) + initial content scaffold
 - Public documentation IA + “loose” onboarding instructions
@@ -43,7 +43,7 @@ Launch a placeholder public website and a user-facing documentation site that:
 
 ## Functional specification
 
-### Domain decision: `codrag.ai` vs `codrag.io`
+### Domain decision: `runprep.io` vs `runprep.io`
 
 #### Decision criteria
 - Brand fit for an AI-native developer tool
@@ -53,16 +53,16 @@ Launch a placeholder public website and a user-facing documentation site that:
 - Operational simplicity (one canonical domain; no split-brain links)
 
 #### Recommendation
-- Primary domain: **`codrag.io`**
-- Defensive purchase (if available): **`codrag.ai`**
-- Redirect: **`codrag.ai` → `codrag.io`** (HTTP 301)
+- Primary domain: **`runprep.io`**
+- Defensive purchase (if available): **`runprep.io`**
+- Redirect: **`runprep.io` → `runprep.io`** (HTTP 301)
 
 Rationale:
 - `.io` is familiar and trusted for developer tools.
 - `.ai` remains useful as a defensive purchase and a redirect to prevent confusion and protect backlinks.
 
 Fallback (availability-driven):
-- If `codrag.io` is unavailable or prohibitively expensive, use `codrag.ai` as the primary and redirect the other.
+- If `runprep.io` is unavailable or prohibitively expensive, use `runprep.io` as the primary and redirect the other.
 
 ### Domain + subdomain infrastructure
 
@@ -73,24 +73,24 @@ Fallback (availability-driven):
 
 #### Proposed subdomain map
 
-- Root: `codrag.io`
+- Root: `runprep.io`
   - marketing site
   - primary CTA(s): download/waitlist, docs
-- `www.codrag.io`
+- `www.runprep.io`
   - optional; either canonicalize to root or to `www` (choose one)
-- `docs.codrag.io` (alias: `doc.codrag.io`)
+- `docs.runprep.io` (alias: `doc.runprep.io`)
   - documentation site (versionable)
-- `codrag.io/contact` (formerly `support.codrag.io`)
+- `runprep.io/contact` (formerly `support.runprep.io`)
   - support hub (GitHub issues/discussions + email)
-- `payments.codrag.io`
+- `payments.runprep.io`
   - purchase + license delivery/recovery
-- `get.codrag.io` (or `download.codrag.io`)
+- `get.runprep.io` (or `download.runprep.io`)
   - installers, release links, checksums
-- `status.codrag.io`
+- `status.runprep.io`
   - service status page (future; even if product is local-first, the site itself can have uptime)
-- `storybook.codrag.io`
+- `storybook.runprep.io`
   - UI component docs (may be private)
-- `api.codrag.io`
+- `api.runprep.io`
   - reserved (future; do not use unless we ship a hosted service)
 
 #### DNS + hosting approach (recommended)
@@ -98,7 +98,7 @@ Fallback (availability-driven):
 - Hosting for website/docs: Vercel or Netlify (static-first, easy previews)
 
 Routing note:
-- Prefer separate deploy targets for `codrag.io` and `docs.codrag.io` so docs can be versioned and deployed independently.
+- Prefer separate deploy targets for `runprep.io` and `docs.runprep.io` so docs can be versioned and deployed independently.
 
 ### Website information architecture
 
@@ -108,7 +108,7 @@ Routing note:
   - “Local-first” trust messaging: "No Token Markup. No Cloud Index."
   - “How it works” (high-level)
   - CTA(s): “Read docs”, “Get Founder’s Edition”
-- Docs (link to `docs.codrag.io`)
+- Docs (link to `docs.runprep.io`)
 - Download (`/download`)
   - placeholder: “Not yet available” + links to GitHub releases when ready
 - Pricing (`/pricing`)
@@ -133,7 +133,7 @@ Docs should be honest: it’s OK to scaffold pages with “TBD”, as long as th
 
 #### v0 docs scaffold
 - Getting Started
-  - What is CoDRAG?
+  - What is Prep?
   - Installation (placeholder + prerequisites)
   - Quickstart (add → build → search → context)
 - Concepts
@@ -142,7 +142,7 @@ Docs should be honest: it’s OK to scaffold pages with “TBD”, as long as th
   - Search vs Context vs Trace
 - Guides
   - Indexing a repo (include/exclude patterns)
-  - Using CoDRAG with Cursor/Windsurf via MCP (scaffold; fill as Phase05 lands)
+  - Using Prep with Cursor/Windsurf via MCP (scaffold; fill as Phase05 lands)
 - Reference
   - CLI reference (scaffold; align with `README.md`)
   - HTTP API reference (link to `docs/API.md` in repo)
@@ -152,8 +152,8 @@ Docs should be honest: it’s OK to scaffold pages with “TBD”, as long as th
   - Performance tips
 
 #### Docs versioning strategy
-- Default: `docs.codrag.io` shows “latest”.
-- Once releases exist, optionally version docs by major/minor: `docs.codrag.io/v0.1/`, `docs.codrag.io/v0.2/`.
+- Default: `docs.runprep.io` shows “latest”.
+- Once releases exist, optionally version docs by major/minor: `docs.runprep.io/v0.1/`, `docs.runprep.io/v0.2/`.
 
 ### Recommended implementation direction (for when we build the site)
 
@@ -173,7 +173,7 @@ Default recommendation:
 
 ### Current repo implementation status (scaffold)
 
-The repo currently contains an initial website monorepo scaffold to support `codrag.io` and future subdomains.
+The repo currently contains an initial website monorepo scaffold to support `runprep.io` and future subdomains.
 
 Implemented:
 - Root npm workspaces + Turborepo
@@ -185,23 +185,23 @@ Implemented:
   - `websites/tailwind.preset.cjs` is the shared Tailwind config used by website apps.
 - Website apps (Next.js App Router)
   - `websites/apps/marketing`
-    - `codrag.io`
+    - `runprep.io`
   - `websites/apps/docs`
-    - `docs.codrag.io`
+    - `docs.runprep.io`
   - `websites/apps/payments`
-    - `payments.codrag.io`
+    - `payments.runprep.io`
   - All apps:
-    - import shared styles from `@codrag/ui/styles`
+    - import shared styles from `@prep/ui/styles`
     - use shared Tailwind preset via `websites/tailwind.preset.cjs`
-    - transpile `@codrag/ui` via `transpilePackages`
+    - transpile `@prep/ui` via `transpilePackages`
 
 Local dev (from repo root):
 - `npm install`
 - Run all workspaces: `npm run dev`
 - Or run individually:
-  - marketing: `npm run dev -w @codrag/marketing` (port 3000)
-  - docs: `npm run dev -w @codrag/docs` (port 3001)
-  - payments: `npm run dev -w @codrag/payments` (port 3003)
+  - marketing: `npm run dev -w @prep/marketing` (port 3000)
+  - docs: `npm run dev -w @prep/docs` (port 3001)
+  - payments: `npm run dev -w @prep/payments` (port 3003)
 
 ### Placeholder launch checklist
 

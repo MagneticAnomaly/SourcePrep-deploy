@@ -15,8 +15,8 @@
 2. Sign in with Magnetic Anomaly LLC account
 3. Click **"Windows & Xbox"** → **"Overview"**
 4. Click **"Create a new app"**
-5. Enter the app name: **CoDRAG**
-6. Click **Reserve product name** — this reserves "CoDRAG" in the store
+5. Enter the app name: **Prep**
+6. Click **Reserve product name** — this reserves "Prep" in the store
 
 ---
 
@@ -57,7 +57,7 @@ but you must declare this in the submission.
 2. Fill in:
 
    **Description** (up to 10,000 characters):
-   > CoDRAG enriches your AI coding assistant with structural code context — imports,
+   > Prep enriches your AI coding assistant with structural code context — imports,
    > call graphs, symbol hierarchies, and dependency chains. Works with Cursor, Windsurf,
    > VS Code, Claude Desktop, and any MCP-compatible tool.
 
@@ -107,7 +107,7 @@ After submission is approved (usually 1–3 business days for new apps):
 
 ## Common rejection reasons
 
-- **Missing privacy policy URL** — add `https://codrag.io/privacy` to the listing
+- **Missing privacy policy URL** — add `https://runprep.io/privacy` to the listing
 - **App crashes on launch** — always test on a clean VM before submission
 - **External purchase not disclosed** — ensure the listing description mentions that licensing is handled externally
 - **Unsigned or incorrectly signed package** — double-check EV cert is applied
@@ -115,5 +115,5 @@ After submission is approved (usually 1–3 business days for new apps):
 ## Privacy policy requirement
 
 Microsoft requires a privacy policy URL. Add one to the listing:
-- URL: `https://codrag.io/privacy`
+- URL: `https://runprep.io/privacy`
 - The marketing site needs a `/privacy` page if it doesn't have one yet

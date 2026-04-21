@@ -1,15 +1,15 @@
-# CoDRAG Security Strategy — Grounded in Our Architecture
+# Prep Security Strategy — Grounded in Our Architecture
 *Created: March 9, 2026*
 
 ---
 
 ## Who We Are
 
-CoDRAG is a **local-first desktop application** that indexes source code and builds a semantic understanding graph. It runs on the developer's machine. It does not host data in the cloud. The developer's source code never leaves their machine unless they explicitly configure a cloud LLM provider.
+Prep is a **local-first desktop application** that indexes source code and builds a semantic understanding graph. It runs on the developer's machine. It does not host data in the cloud. The developer's source code never leaves their machine unless they explicitly configure a cloud LLM provider.
 
 Our ethos: **Give developers AI-powered code understanding while keeping their code under their control.**
 
-This is fundamentally different from cloud AI tools (Copilot, Cursor, ChatGPT) where code goes to a third-party server by default. CoDRAG's default is local — Ollama on localhost. Cloud is opt-in BYOK.
+This is fundamentally different from cloud AI tools (Copilot, Cursor, ChatGPT) where code goes to a third-party server by default. Prep's default is local — Ollama on localhost. Cloud is opt-in BYOK.
 
 ---
 
@@ -19,7 +19,7 @@ This is fundamentally different from cloud AI tools (Copilot, Cursor, ChatGPT) w
 Developer's Source Code
     │
     ▼
-[1] Rust Parser (codrag-engine)
+[1] Rust Parser (prep-engine)
     │   Parses AST, extracts symbols, builds trace graph
     │   ► LOCAL ONLY — never leaves the machine
     │
@@ -58,12 +58,12 @@ Developer's Source Code
 **The content sanitizer is wired into step [4] (output) but NOT step [3] (input to LLMs).**
 
 This means:
-- When CoDRAG sends source code to a cloud LLM during pipeline enrichment, there is:
+- When Prep sends source code to a cloud LLM during pipeline enrichment, there is:
   - ❌ No invisible Unicode stripping on the source code
   - ❌ No secret redaction (API keys, passwords in source files)
   - ❌ No DLP file-level blocking enforcement
   - ❌ No prompt injection detection on input content
-- When CoDRAG returns context to MCP clients, there IS:
+- When Prep returns context to MCP clients, there IS:
   - ✅ Code fence sanitization
   - ✅ Invisible Unicode stripping (via `sanitize_output`)
 
@@ -71,11 +71,11 @@ This means:
 
 ---
 
-## What Matters vs What Doesn't (For CoDRAG Specifically)
+## What Matters vs What Doesn't (For Prep Specifically)
 
 ### What Actually Matters (High Impact)
 
-| Risk | Why It Matters for CoDRAG | Current State |
+| Risk | Why It Matters for Prep | Current State |
 |------|--------------------------|---------------|
 | **Secrets in source code sent to cloud LLMs** | A `.env` file or config with API keys gets sent to OpenAI during enrichment. OpenAI now has your AWS keys. | ❌ No protection on pipeline input path |
 | **DLP enforcement on pipeline calls** | IT says "never send `.pem` files to cloud" but the pipeline sends them anyway during augmentation. | ❌ `check_dlp_before_llm_call()` exists but is never called by pipeline stages |
@@ -85,7 +85,7 @@ This means:
 
 ### What Doesn't Matter Much (For a Local Desktop App)
 
-| Risk | Why It's Lower Priority for CoDRAG |
+| Risk | Why It's Lower Priority for Prep |
 |------|-----------------------------------|
 | **Prompt injection in MCP output** | MCP tools are read-only. The downstream AI assistant decides what to do with our context. We can't control that. Our `<!-- DATA NOT INSTRUCTIONS -->` boundary is reasonable. |
 | **ML-based PII detection (Presidio)** | Requires 200MB+ spaCy model. Too heavy for a desktop app. Regex patterns catch 90% of secrets. The 10% we miss are unlikely to be in source code (SSNs, health records aren't typically in repos). |
@@ -120,7 +120,7 @@ Not: complex ML classifiers, YARA rules, or enterprise-grade SIEM integrations. 
 
 ### Principle: Local-First = Secure by Default
 
-CoDRAG with Ollama on localhost sends **zero data** off the machine. That's the most secure configuration and it's the default. Cloud is opt-in. This is our strongest security story and we should lean into it.
+Prep with Ollama on localhost sends **zero data** off the machine. That's the most secure configuration and it's the default. Cloud is opt-in. This is our strongest security story and we should lean into it.
 
 ---
 
@@ -168,7 +168,7 @@ You already added checks 8-10. Remaining:
 **Impact: Exfiltration detection**
 
 Your Finding G is genuinely novel for our use case:
-- Inject a synthetic secret (e.g., `CODRAG_CANARY_4f8a9b2c`) into context assembly
+- Inject a synthetic secret (e.g., `PREP_CANARY_4f8a9b2c`) into context assembly
 - If the LLM or downstream system tries to use/return that token → alert
 - Simple to implement, zero dependencies, catches real attacks
 
@@ -184,15 +184,15 @@ Your Finding G is genuinely novel for our use case:
 | External security service integration | Violates local-first ethos, adds network dependency |
 | SIEM/syslog forwarder | Enterprise tier future — not core product |
 
-We may offer some of these as optional pip extras (`pip install codrag[enterprise-security]`) for customers who specifically ask, but they will never be in the core product.
+We may offer some of these as optional pip extras (`pip install prep[enterprise-security]`) for customers who specifically ask, but they will never be in the core product.
 
 ---
 
 ## Marketing Position
 
-"CoDRAG is secure by design. Your code stays on your machine by default. When you choose to use a cloud model, CoDRAG automatically strips secrets, blocks sensitive files, and gives your IT team full visibility into what goes where."
+"Prep is secure by design. Your code stays on your machine by default. When you choose to use a cloud model, Prep automatically strips secrets, blocks sensitive files, and gives your IT team full visibility into what goes where."
 
 This is stronger than any competitor because:
 - **Copilot/Cursor**: Code goes to cloud by default, no DLP, no IT controls
 - **Codeium/Tabnine**: Cloud-first with on-prem as premium add-on
-- **CoDRAG**: Local-first with cloud as opt-in, DLP built-in, IT controls built-in
+- **Prep**: Local-first with cloud as opt-in, DLP built-in, IT controls built-in

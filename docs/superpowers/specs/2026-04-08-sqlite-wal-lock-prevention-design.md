@@ -18,7 +18,7 @@ All follow the same three-part pattern:
 
 ## Changes
 
-### 1. `src/codrag/services/settings_store.py`
+### 1. `src/prep/services/settings_store.py`
 
 **`init()` method (line 62):**
 
@@ -29,7 +29,7 @@ All follow the same three-part pattern:
 
 - Before calling `self._conn.close()`, execute `PRAGMA wal_checkpoint(TRUNCATE)` wrapped in a try/except (best-effort — if the process is being killed, the checkpoint may not complete, which is fine because the next startup's checkpoint will handle it).
 
-### 2. `src/codrag/server.py`
+### 2. `src/prep/server.py`
 
 **Lifespan teardown (line 74):**
 
@@ -40,7 +40,7 @@ All follow the same three-part pattern:
 
 **Before daemon startup (line 108):**
 
-- Add `pkill -f "codrag.cli serve" 2>/dev/null || true` to kill any orphaned daemon processes that aren't listening on a port (the current `kill_port` approach misses processes that failed to bind). This is dev-only belt-and-suspenders — the settings_store fixes are the real solution.
+- Add `pkill -f "prep.cli serve" 2>/dev/null || true` to kill any orphaned daemon processes that aren't listening on a port (the current `kill_port` approach misses processes that failed to bind). This is dev-only belt-and-suspenders — the settings_store fixes are the real solution.
 
 ### 4. No Tauri changes needed
 

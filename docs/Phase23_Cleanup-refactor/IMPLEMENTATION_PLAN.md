@@ -24,8 +24,8 @@ Every sprint ends with **all** of these gates passing:
 | **Python tests** | `pytest tests/ -x -q` | Backend logic unchanged (347 tests) |
 | **UI typecheck** | `cd packages/ui && npm run typecheck` | No type regressions in shared lib |
 | **UI build** | `cd packages/ui && npm run build` | Shared lib compiles clean |
-| **Dashboard typecheck** | `cd src/codrag/dashboard && npx tsc --noEmit` | App types clean |
-| **Dashboard build** | `cd src/codrag/dashboard && npx vite build` | App bundles without error |
+| **Dashboard typecheck** | `cd src/prep/dashboard && npx tsc --noEmit` | App types clean |
+| **Dashboard build** | `cd src/prep/dashboard && npx vite build` | App bundles without error |
 | **Storybook build** | `cd packages/ui && npx storybook build` | All stories render |
 | **Manual smoke** | Start daemon + dashboard, verify: project list, build, search, settings drawer, trace panel | No runtime regression |
 
@@ -39,9 +39,9 @@ Every sprint ends with **all** of these gates passing:
 
 ### Tasks
 
-- [ ] **S1.1** Create `src/codrag/dashboard/src/components/settings/SettingsDrawer.tsx`
+- [ ] **S1.1** Create `src/prep/dashboard/src/components/settings/SettingsDrawer.tsx`
   - Copy lines 143–539 from `App.tsx` (the `SettingsDrawerProps` interface, constants, and `SettingsDrawer` function).
-  - Add necessary imports (`useState`, `useApiClient`, lucide icons, `@codrag/ui` primitives).
+  - Add necessary imports (`useState`, `useApiClient`, lucide icons, `@prep/ui` primitives).
   - Export `SettingsDrawer` and `SettingsDrawerProps`.
 - [ ] **S1.2** Update `App.tsx`
   - Replace the inline `SettingsDrawer` with `import { SettingsDrawer } from './components/settings/SettingsDrawer'`.
@@ -55,7 +55,7 @@ Every sprint ends with **all** of these gates passing:
 ```
 # Gate: full verification matrix
 cd packages/ui && npm run typecheck && npm run build
-cd src/codrag/dashboard && npx tsc --noEmit && npx vite build
+cd src/prep/dashboard && npx tsc --noEmit && npx vite build
 # Manual: open Settings drawer → Project / Global / Developer tabs all render and function
 ```
 
@@ -69,7 +69,7 @@ cd src/codrag/dashboard && npx tsc --noEmit && npx vite build
 
 ### Tasks
 
-- [ ] **S2.1** Create `src/codrag/dashboard/src/hooks/useLicenseSystem.ts`
+- [ ] **S2.1** Create `src/prep/dashboard/src/hooks/useLicenseSystem.ts`
   - Move state: `licenseStatus`, `licenseKeyInput`, `licenseLoading`, `licenseError`, `devTierOverride`.
   - Move callbacks: `fetchLicense`, `handleActivateLicense`, `handleDeactivateLicense`, `handleDevTierOverrideChange`.
   - Hook takes `api` (from `useApiClient()`) as implicit dependency (call `useApiClient()` inside).
@@ -95,7 +95,7 @@ cd src/codrag/dashboard && npx tsc --noEmit && npx vite build
 
 ### Tasks
 
-- [ ] **S3.1** Create `src/codrag/dashboard/src/hooks/useLLMConfig.ts`
+- [ ] **S3.1** Create `src/prep/dashboard/src/hooks/useLLMConfig.ts`
   - Move state: `llmConfig`, `availableModels`, `loadingModels`, `testingSlot`, `testResults`.
   - Move callbacks: `handleLLMConfigChange`, `handleAddEndpoint`, `handleEditEndpoint`, `handleDeleteEndpoint`, `handleTestEndpoint`, `handleFetchModels`, `handleTestModel`.
   - Move the auto-save `useEffect` (lines 1728–1741, the `llmConfigSkipRef` pattern).
@@ -121,7 +121,7 @@ cd src/codrag/dashboard && npx tsc --noEmit && npx vite build
 
 ### Tasks
 
-- [ ] **S4.1** Create `src/codrag/dashboard/src/hooks/useDeepAnalysis.ts`
+- [ ] **S4.1** Create `src/prep/dashboard/src/hooks/useDeepAnalysis.ts`
   - Move state: `deepAnalysisSchedule`, `deepAnalysisStatus`, `deepAnalysisRunning`.
   - Move callbacks: `fetchDeepAnalysisStatus`, `handleRunDeepAnalysis`, `handleCancelDeepAnalysis`.
   - Move the auto-save schedule `useEffect` (lines 1787–1798, the `deepAnalysisSkipRef` pattern).
@@ -147,7 +147,7 @@ cd src/codrag/dashboard && npx tsc --noEmit && npx vite build
 
 ### Tasks
 
-- [ ] **S5.1** Create `src/codrag/dashboard/src/hooks/useWatchSystem.ts`
+- [ ] **S5.1** Create `src/prep/dashboard/src/hooks/useWatchSystem.ts`
   - Move state: `watchStatus`, `watchLoading`.
   - Move callbacks: `refreshWatchStatus`, `handleStartWatch`, `handleStopWatch`.
   - Hook takes `selectedProjectId`.
@@ -171,7 +171,7 @@ cd src/codrag/dashboard && npx tsc --noEmit && npx vite build
 
 ### Tasks
 
-- [ ] **S6.1** Create `src/codrag/dashboard/src/hooks/useTraceSystem.ts`
+- [ ] **S6.1** Create `src/prep/dashboard/src/hooks/useTraceSystem.ts`
   - Move state: `traceStatus`, `traceCoverage`, `augmentationStatus`, `augmenting`, `epistemicStatus`, `epistemicRunning`, `moduleStatus`, `clusterRunning`, `deepeningStatus`, `deepeningRunning`, `graphEngineStatus`, `llmSlotsStatus`.
   - Move callbacks: `handleBuildTrace`, `handleEnableTrace`, `handleTogglePause`, `fetchTraceCoverage`, `handleTraceAll`, `handleRetraceStale`, `handleAddExcludePattern`, `handleRemoveExcludePattern`, `handleSearchTrace`, `handleGetTraceNode`, `handleGetTraceNeighbors`, `fetchAugmentationStatus`, `handleRunAugmentation`, `fetchEpistemicStatus`, `handleRunEpistemic`, `fetchModuleStatus`, `handleRunModuleSynthesis`, `fetchDeepeningStatus`, `handleRunDeepening`, `fetchGraphEngineStatus`, `handleRunStage`, `handleRunAutoPilot`, `handleStopEngine`, `fetchLLMSlotsStatus`, `handleDestroyGraph`, `handleDestroyIndex`.
   - Move the SSE trace-build-completion `useEffect` (lines 1643–1659).
@@ -199,7 +199,7 @@ cd src/codrag/dashboard && npx tsc --noEmit && npx vite build
 
 ### Tasks
 
-- [ ] **S7.1** Create `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx`
+- [ ] **S7.1** Create `src/prep/dashboard/src/hooks/useDashboardPanels.tsx`
   - Move the `panelContent` useMemo (lines 1899–2207).
   - Move the `panelDetails` useMemo (lines 2230–2269).
   - Move the `dynamicPanelDefs` and `allPanelDefs` useMemo blocks.
@@ -247,8 +247,8 @@ cd src/codrag/dashboard && npx tsc --noEmit && npx vite build
 
 ### Tasks
 
-- [ ] **S9.1** Create `src/codrag/api/routers/__init__.py` (empty).
-- [ ] **S9.2** Create `src/codrag/api/routers/system.py`
+- [ ] **S9.1** Create `src/prep/api/routers/__init__.py` (empty).
+- [ ] **S9.2** Create `src/prep/api/routers/system.py`
   - Move: `GET /health`, `GET /events` (SSE), `GET /version`, `GET /mcp-config`.
   - Move: `GET /global-config`, `PUT /global-config`.
   - Import shared state (config dicts, event bus) from `server.py` — keep globals in `server.py` for now.
@@ -275,7 +275,7 @@ curl http://localhost:8400/events        # SSE stream opens
 
 ### Tasks
 
-- [ ] **S10.1** Create `src/codrag/api/routers/license.py`
+- [ ] **S10.1** Create `src/prep/api/routers/license.py`
   - Move: `GET /license`, `POST /license/activate`, `POST /license/deactivate`.
   - Use `APIRouter(prefix="/license", tags=["license"])`.
 - [ ] **S10.2** Update `server.py` — include router.
@@ -297,7 +297,7 @@ pytest tests/test_feature_gate.py -x -q  # 37 tests pass
 
 ### Tasks
 
-- [ ] **S11.1** Create `src/codrag/api/routers/trace.py`
+- [ ] **S11.1** Create `src/prep/api/routers/trace.py`
   - Move all `/projects/{id}/trace/*` endpoints:
     - `GET /status`, `POST /build`, `GET /coverage`, `POST /ignore`
     - `GET /nodes`, `GET /nodes/{id}`, `GET /nodes/{id}/neighbors`
@@ -327,7 +327,7 @@ pytest tests/ -x -q                          # Full suite passes
 
 ### Tasks
 
-- [ ] **S12.1** Create `src/codrag/api/routers/knowledge.py`
+- [ ] **S12.1** Create `src/prep/api/routers/knowledge.py`
   - Move: `GET /projects/{id}/knowledge/status`, `POST /projects/{id}/knowledge/build`.
   - Move: `GET /projects/{id}/engine/status` (aggregation endpoint).
 - [ ] **S12.2** Update `server.py` — include router.
@@ -349,7 +349,7 @@ pytest tests/ -x -q
 
 ### Tasks
 
-- [ ] **S13.1** Create `src/codrag/api/routers/llm.py`
+- [ ] **S13.1** Create `src/prep/api/routers/llm.py`
   - Move: `POST /llm/proxy/test`, `POST /llm/proxy/models`, `POST /llm/proxy/test-model`.
   - Move: `GET /llm/slots/status`.
   - Move: `GET /embedding/status`, `POST /embedding/download`.
@@ -372,8 +372,8 @@ pytest tests/ -x -q
 
 ### Tasks
 
-- [ ] **S14.1** Create `src/codrag/services/__init__.py` (empty).
-- [ ] **S14.2** Create `src/codrag/services/build_manager.py`
+- [ ] **S14.1** Create `src/prep/services/__init__.py` (empty).
+- [ ] **S14.2** Create `src/prep/services/build_manager.py`
   - Extract class `BuildManager` encapsulating:
     - `_project_indexes`, `_project_trace_indexes`, `_project_knowledge_indexes` caches.
     - `_project_build_lock`, `_project_build_threads` and related thread management.

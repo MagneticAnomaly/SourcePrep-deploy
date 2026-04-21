@@ -6,11 +6,11 @@
 - [x] **Async Wrappers**: `DirectMCPServer` wraps blocking calls in `asyncio.to_thread`.
 
 ## 2. Direct MCP Implementation
-- [x] **Create `src/codrag/mcp_direct.py`**:
+- [x] **Create `src/prep/mcp_direct.py`**:
     - [x] Implement `DirectMCPServer` class.
     - [x] Implement `tool_status`, `tool_build`, `tool_search`, `tool_context`.
     - [x] Add "Auto-detect root" logic (CWD).
-- [x] **Unified Tool Definitions**: Extract `TOOLS` list to a shared file (`src/codrag/mcp_tools.py`) to avoid duplication between `mcp_server.py` and `mcp_direct.py`.
+- [x] **Unified Tool Definitions**: Extract `TOOLS` list to a shared file (`src/prep/mcp_tools.py`) to avoid duplication between `mcp_server.py` and `mcp_direct.py`.
 
 ## 3. CLI Updates
 - [x] **Update `cli.py`**:
@@ -18,7 +18,7 @@
     - [x] Make `--daemon` optional.
     - [x] If direct mode, instantiate `DirectMCPServer` instead of `MCPServer`.
 - [x] **Config Generator**:
-    - [x] Update `mcp-config` to generate configs that use direct mode (no `--daemon` arg, just `codrag mcp`).
+    - [x] Update `mcp-config` to generate configs that use direct mode (no `--daemon` arg, just `prep mcp`).
 
 ## 4. "Zero Config" Experience
 - [x] **Default Settings**: Defaults are generated via `repo_policy.json` (repo profiling) and now exclude `.prep/` by default.
@@ -29,8 +29,8 @@
 - [x] **Manual Test**: Created `tests/test_mcp_direct_manual.py` for quick verification.
 
 ## 6. Distribution
-- [ ] **Pip Package**: Ensure `pip install codrag` installs all dependencies needed for Direct Mode (numpy, etc.).
-- [ ] **NPM Wrapper (Optional)**: Consider `npx codrag` wrapper if targeting JS devs.
+- [ ] **Pip Package**: Ensure `pip install prep` installs all dependencies needed for Direct Mode (numpy, etc.).
+- [ ] **NPM Wrapper (Optional)**: Consider `npx prep` wrapper if targeting JS devs.
 
 ## 7. Documentation
 - [x] **Update README**: "How to use with Cursor/Windsurf (No Server Required)".

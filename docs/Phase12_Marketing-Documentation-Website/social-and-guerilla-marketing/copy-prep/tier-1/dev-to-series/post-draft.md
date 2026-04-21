@@ -14,13 +14,13 @@
 
 ## Part 3: "Connecting to Cursor via MCP (Model Context Protocol)"
 *   **Hook:** Building your own "Copilot" features without building an IDE.
-*   **Content:** Tutorial on implementing an MCP server. How CoDRAG talks to Cursor.
-*   **CTA:** Download CoDRAG to try the MCP server yourself.
+*   **Content:** Tutorial on implementing an MCP server. How Prep talks to Cursor.
+*   **CTA:** Download Prep to try the MCP server yourself.
 
 ## Part 4: "The 'Context Budget': How to stuff an LLM without choking it"
 *   **Hook:** 128k tokens isn't infinite.
 *   **Content:** Algorithms for pruning the graph. Selecting the "best" context.
-*   **CTA:** Try the context visualizer in the CoDRAG dashboard.
+*   **CTA:** Try the context visualizer in the Prep dashboard.
 
 ## Tone
 Educational, "Build in Public," transparent. Code snippets are mandatory. Use plenty of emojis and screenshots.

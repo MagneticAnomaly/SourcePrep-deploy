@@ -92,7 +92,7 @@ def test_serialize_segments_returns_expected_fields():
     atlas = _FakeAtlas(
         segments=[
             _FakeSegment(
-                segment_id="seg_src_codrag",
+                segment_id="seg_src_prep",
                 segment_name="src/prep",
                 dir_path="src/prep",
                 file_count=47,
@@ -111,7 +111,7 @@ def test_serialize_segments_returns_expected_fields():
     out = _serialize_segments(atlas)
     assert len(out) == 2
     assert out[0] == {
-        "segment_id": "seg_src_codrag",
+        "segment_id": "seg_src_prep",
         "segment_name": "src/prep",
         "dir_path": "src/prep",
         "file_count": 47,

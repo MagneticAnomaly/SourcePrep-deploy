@@ -5,10 +5,10 @@ This document details the architectural changes required to resolve the issues o
 ## Issue 1: Context Budget Misallocation (The 258KB Payload Bug)
 
 **The Problem**: 
-The CoDRAG tool failed with a context overflow `result (258,887 characters) exceeds maximum allowed tokens. Output has been saved to txt.` This was caused by the newly introduced Architecture layer logic. In `src/codrag/api/routers/architecture.py`, the `get_architecture_context` endpoint loops through **all** modules found in trace data (regularly >600 modules in this repo) and returns their full dependency arrays. This payload is then unconditionally included by the MCP server `tool_context` without applying budget truncation, thereby causing complete protocol failure and clogging the agent context window with useless noise.
+The Prep tool failed with a context overflow `result (258,887 characters) exceeds maximum allowed tokens. Output has been saved to txt.` This was caused by the newly introduced Architecture layer logic. In `src/prep/api/routers/architecture.py`, the `get_architecture_context` endpoint loops through **all** modules found in trace data (regularly >600 modules in this repo) and returns their full dependency arrays. This payload is then unconditionally included by the MCP server `tool_context` without applying budget truncation, thereby causing complete protocol failure and clogging the agent context window with useless noise.
 
 **The Solution**: Tier the `architecture/context` response so the context is heavily compressed.
-1. **Target File**: `src/codrag/api/routers/architecture.py`
+1. **Target File**: `src/prep/api/routers/architecture.py`
 2. **Modifications to `get_architecture_context`**:
    - Instead of writing out every module from `modules`, we will categorize them based on significance criteria.
    - **Inclusion Criteria**: We will ONLY emit the full markdown string for a module if:
@@ -25,10 +25,10 @@ The CoDRAG tool failed with a context overflow `result (258,887 characters) exce
 ## Issue 2: Retrieval Misses on "Home Base" Queries
 
 **The Problem**: 
-As noted in the research, a `codrag_search` for queries like "how does the pipeline orchestrator process files" failed to retrieve `orchestrator.py`, returning tangentially related files instead because embedding spaces often favor conceptual similarities over explicit file names. Querying for "MCP tool handler request response" missed `server.py` entirely.
+As noted in the research, a `prep_search` for queries like "how does the pipeline orchestrator process files" failed to retrieve `orchestrator.py`, returning tangentially related files instead because embedding spaces often favor conceptual similarities over explicit file names. Querying for "MCP tool handler request response" missed `server.py` entirely.
 
 **The Solution**: Implement "Path-Keyword Boosting" within the core CodeIndex to blend semantic retrieval with structural filesystem priors.
-1. **Target File**: `src/codrag/core/index.py`
+1. **Target File**: `src/prep/core/index.py`
 2. **Modifications to `CodeIndex.search()`**:
    - We will introduce a path-matching heuristic algorithm just after the base tensor dot-product embeddings are calculated (`sims`).
    - Tokenize the user's `query` into clean alphanumeric keywords (excluding stop words or generic terms like 'how', 'does', 'the', if possible, or just all words `len > 3`).
@@ -38,13 +38,13 @@ As noted in the research, a `codrag_search` for queries like "how does the pipel
    - Apply these dynamic boosts directly to the similarity matrix (`sims = sims + path_boosts`) before MMR re-ranking.
 3. **Outcome**: When the user explicitly queries for an infrastructure term like "orchestrator" or "mcp server", chunks whose source file explicitly maps to those names will heavily float to the top of standard semantic overlaps.
 
-## Issue 3: Audit Noise (`codrag_audit`)
+## Issue 3: Audit Noise (`prep_audit`)
 
 **The Problem**:
-The `codrag_audit` codebase health scanner reports `package-lock.json` and generated compilation folders as "Critical" findings for large/over-coupled architectures. This pollutes the finding ratio.
+The `prep_audit` codebase health scanner reports `package-lock.json` and generated compilation folders as "Critical" findings for large/over-coupled architectures. This pollutes the finding ratio.
 
 **The Solution**: Pre-filter generated static files before the analyzer executes its findings.
-1. **Target File**: `src/codrag/core/audit/analyzers/large_files.py` (and potentially `base_analyzer.py` or the specific metric analyzers).
+1. **Target File**: `src/prep/core/audit/analyzers/large_files.py` (and potentially `base_analyzer.py` or the specific metric analyzers).
 2. **Modifications**:
    - The current `EXPECTED_LARGE_BASENAMES` checks for exact matches of specific root files, but it misses arbitrary `.lock` files or minified build files.
    - Update the filter to check for suffix exclusions: `basename.endswith(".lock")`, `.min.js`.
@@ -56,5 +56,5 @@ The `codrag_audit` codebase health scanner reports `package-lock.json` and gener
 ## Verification Plan
 
 1. **Architecture Endpoint**: Call `python3 -c "import requests; print(len(requests.get('http://127.0.0.1:8400/projects/.../architecture/context').json()['data']['text']))"` and confirm the size drops from ~248,000 characters to under 10,000.
-2. **Home Base Query Test**: Use the MCP `codrag_search` tool for "how does the pipeline orchestrator process files" and verify `src/codrag/services/pipeline/orchestrator.py` appears in the top chunks.
-3. **Audit Results**: Trigger `codrag_audit`, inspect the markdown output, and confirm `package-lock.json` has disappeared from the critical size warnings.
+2. **Home Base Query Test**: Use the MCP `prep_search` tool for "how does the pipeline orchestrator process files" and verify `src/prep/services/pipeline/orchestrator.py` appears in the top chunks.
+3. **Audit Results**: Trigger `prep_audit`, inspect the markdown output, and confirm `package-lock.json` has disappeared from the critical size warnings.

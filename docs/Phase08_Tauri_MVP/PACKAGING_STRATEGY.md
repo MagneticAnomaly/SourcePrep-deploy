@@ -12,8 +12,8 @@
 
 **Implementation Plan:**
 - Create `scripts/build_sidecar.sh` (Mac/Linux) and `scripts/build_sidecar.bat` (Windows).
-- Use `pyinstaller --name codrag-daemon --onefile src/codrag/server.py`.
-- Configure hidden imports for dynamic loading (e.g., `codrag.core.embedder`).
+- Use `pyinstaller --name prep-daemon --onefile src/prep/server.py`.
+- Configure hidden imports for dynamic loading (e.g., `prep.core.embedder`).
 - Sign the binary on macOS before bundling with Tauri.
 
 ---
@@ -23,12 +23,12 @@
 **Decision:**
 - **Default Port:** `8400`
 - **Host:** `127.0.0.1` (Strict loopback for security, unless overridden by config).
-- **Discovery:** Tauri app reads port from `codrag_config.json` or tries default.
+- **Discovery:** Tauri app reads port from `prep_config.json` or tries default.
 
 **Conflict Resolution Strategy:**
 1.  **Check 8400**: On startup, the Tauri app (Rust process) checks if port 8400 is in use.
 2.  **Health Check**: If in use, make a `GET http://127.0.0.1:8400/health`.
-    - If response is `{"status": "ok", "service": "codrag"}`, assume it is our daemon. **Action:** Connect to it. Do NOT start a new sidecar.
+    - If response is `{"status": "ok", "service": "prep"}`, assume it is our daemon. **Action:** Connect to it. Do NOT start a new sidecar.
     - If response is anything else or timeout (but port is open), assume conflict. **Action:** Pick a random free port (e.g., port 0 binding) for the sidecar.
 3.  **Communication**:
     - If sidecar is started on a random port, the Rust process captures the port from the sidecar's stdout (e.g. `[INFO] Listening on 127.0.0.1:56732`).
@@ -48,8 +48,8 @@
 
 | OS | Path | Rationale |
 |---|---|---|
-| **macOS** | `~/Library/Application Support/CoDRAG/` | Standard macOS app data location. |
-| **Windows** | `%APPDATA%\CoDRAG\` | Standard Roaming profile location. |
+| **macOS** | `~/Library/Application Support/Prep/` | Standard macOS app data location. |
+| **Windows** | `%APPDATA%\Prep\` | Standard Roaming profile location. |
 | **Linux** | `~/.local/share/prep/` | XDG Base Directory specification. |
 
 **Subdirectories:**
@@ -58,10 +58,10 @@
 - `config/`: Global `config.json`, `license.json`.
 
 **Migration:**
-- Currently, CoDRAG uses `~/.prep` (hardcoded).
-- **Action:** Update `codrag.core.config` to use `platformdirs.user_data_dir("CoDRAG", "HumanAI")`.
+- Currently, Prep uses `~/.prep` (hardcoded).
+- **Action:** Update `prep.core.config` to use `platformdirs.user_data_dir("Prep", "HumanAI")`.
 - **Backward Compatibility:** On startup, check if `~/.prep` exists. If yes, migrate it to the new location or continue using it with a warning (MVP: continue using it or symlink?).
-- **MVP Decision:** Switch to standard paths for fresh installs. Legacy dev environments can keep `~/.prep` via env var `CODRAG_DATA_DIR`.
+- **MVP Decision:** Switch to standard paths for fresh installs. Legacy dev environments can keep `~/.prep` via env var `PREP_DATA_DIR`.
 
 **Signing & Notarization (macOS):**
 - Binary must be signed with "Developer ID Application".

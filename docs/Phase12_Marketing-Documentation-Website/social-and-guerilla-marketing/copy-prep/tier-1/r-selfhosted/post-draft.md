@@ -2,7 +2,7 @@
 
 ## Title Options
 1. **I built a self-hosted "code context engine" so I don't have to upload my repo to the cloud**
-2. **CoDRAG: A local-first alternative to cloud-based AI code indexing**
+2. **Prep: A local-first alternative to cloud-based AI code indexing**
 3. **Run your own MCP server locally for code search (No telemetry, no cloud)**
 
 ## Body Structure
@@ -10,7 +10,7 @@
 ### Hook
 I wanted the "magic" of AI code search (like Cursor or Sourcegraph) but I **didn't** want to upload my proprietary code to a SaaS or pay a subscription just to search my own files.
 
-### The Project: CoDRAG
+### The Project: Prep
 It's a desktop app (Mac/Windows) that runs entirely on your machine.
 *   **No Cloud:** The index is stored as a SQLite DB and some flat files on your SSD.
 *   **No Telemetry:** It doesn't phone home with your code.

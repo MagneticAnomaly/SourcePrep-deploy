@@ -9,7 +9,7 @@
 - **Voice:** Direct. Slightly less first-person than the personal essays. No academic register. The reader is a peer.
 - **Structure:** Strong opening, thesis in the first 200 words, three or four sections, concrete takeaway in the last 200 words. One bold callout per article maximum.
 - **Citations:** Inline links, not footnotes. Cite where it matters; do not over-cite.
-- **CoDRAG mention:** One paragraph near the end, sometimes one line plus a footnote. Same discipline as essays #06 and #11–#12.
+- **Prep mention:** One paragraph near the end, sometimes one line plus a footnote. Same discipline as essays #06 and #11–#12.
 - **Tonal references:** Vicki Boykis on ML in production, Hamel Husain on evals, Eugene Yan on building search systems, Birgitta Böckeler on AI-assisted development at Thoughtworks. Engineering writers who treat working programmers as the audience and don't condescend in either direction.
 
 ## Why this set exists alongside the longer plans
@@ -46,7 +46,7 @@ Each article below is derived from an existing long-form plan but reorganized fo
 4. *Why this matters for how you use Claude Code* (~400 words). The practical move. The reader cannot give an AI tool tacit knowledge, but they can learn to recognize when they are about to ask the tool a question that requires it. Prompt-level discipline: describe the convention before asking for the change. Pair the AI with a senior reviewer for changes in load-bearing files. Ask for impact analysis explicitly rather than assuming the tool did one.
 5. *Closing* (~200 words). Return to the opening anecdote. The dissonance has a name now. Knowing the name does not solve the problem, but it changes how you work around it.
 
-**Discreet CoDRAG mention.** One sentence plus a footnote in section 4: *"Some tools — including a structural-context layer I built called CoDRAG — try to provide the propositional facts that tacit knowledge usually attaches to, but no tool replaces the knowledge itself."*
+**Discreet Prep mention.** One sentence plus a footnote in section 4: *"Some tools — including a structural-context layer I built called Prep — try to provide the propositional facts that tacit knowledge usually attaches to, but no tool replaces the knowledge itself."*
 
 **Why it works for Claude Code professionals.** It gives them vocabulary for a frustration they already have. Vocabulary travels — readers cite the article when explaining the failure mode to colleagues. Highest "shared on Twitter with 'this'" potential of the five.
 
@@ -73,7 +73,7 @@ Each article below is derived from an existing long-form plan but reorganized fo
 4. *What you can do today* (~300 words). The practical takeaway. Specific prompt patterns that force the tool to broaden its file-read pass before answering. When to escalate to a graph-aware tool. When to escalate to a human reviewer.
 5. *Closing* (~200 words). The hub file problem won't disappear by writing better prompts, but knowing it exists changes which suggestions you accept on autopilot.
 
-**Discreet CoDRAG mention.** One paragraph in section 3 — "I ran the impact query through CoDRAG, the structural-context tool I built" — with a footnote.
+**Discreet Prep mention.** One paragraph in section 3 — "I ran the impact query through Prep, the structural-context tool I built" — with a footnote.
 
 **Why it works for Claude Code professionals.** Practical, immediately applicable, ends with prompt patterns the reader can use today. Highest "I'll use this tomorrow" rating of the five.
 
@@ -100,12 +100,12 @@ Each article below is derived from an existing long-form plan but reorganized fo
 4. *What the 49% does and does not mean* (~400 words). The number is the full stack (Contextual Retrieval + BM25 + reranking). Contextual Retrieval alone is smaller. The evaluation is retrieval failure rate, not end-to-end task quality. Indexing cost is real and worth budgeting.
 5. *Closing — the technique that quietly changed things* (~300 words). Return to the headline. The 49% is not the important part. The technique's *composability* — it stacks cleanly with BM25 and reranking — is what makes it durable.
 
-**Discreet CoDRAG mention.** One sentence in section 2: *"I integrated this technique into a tool I work on; the indexing-time cost was real but the retrieval improvement was visible enough on dogfooded queries that I would not turn it off."*
+**Discreet Prep mention.** One sentence in section 2: *"I integrated this technique into a tool I work on; the indexing-time cost was real but the retrieval improvement was visible enough on dogfooded queries that I would not turn it off."*
 
 **Why it works for Claude Code professionals.** Many of them are building their own RAG systems on the side or evaluating MCP servers. Contextual Retrieval is one of the few cheap, practical primitives they can adopt this week. Highest "useful at work tomorrow" rating for engineers who build retrieval infra.
 
 **What is preserved.** The technique walkthrough, the three-mechanism hypothesis section, the honest scope qualifications.
-**What is cut.** The detailed worked example. The composition section's full reciprocal-rank-fusion explanation. The CoDRAG-Phase-93 integration paragraph. The longer essay covers all three.
+**What is cut.** The detailed worked example. The composition section's full reciprocal-rank-fusion explanation. The Prep-Phase-93 integration paragraph. The longer essay covers all three.
 
 ---
 
@@ -124,10 +124,10 @@ Each article below is derived from an existing long-form plan but reorganized fo
 1. *The folder assumption* (~400 words). The hidden premise behind every flat-text retrieval system. Show what it means in practice: a query for "where does authentication happen here?" returns the file with the most lexical matches for "auth," not the file the actual auth flow runs through.
 2. *What the research actually shows* (~700 words). Three papers, in chronological order, doing the heavy lifting that nine do in the long version: GraphCodeBERT (2021) for the seed insight, RepoHyper (2024) for the Search → Expand → Refine pattern, Han et al. (2025) for the systematic evaluation that measured the trade-offs honestly. Cite each carefully. Note where Han et al. found GraphRAG *losing* — that single move buys most of the article's credibility.
 3. *Why this is a conceptual rediscovery* (~400 words). The connection to Ferrante, Ottenstein, and Warren's 1987 program dependence graph paper. Static program analysis already knew code was a graph. The retrieval story is a rediscovery, not a discovery, and that is part of what makes it convincing.
-4. *What this means for your tooling choices* (~400 words). Practical: which AI coding tools currently understand code as a graph (Aider's repo map, CoDRAG, code-graph-rag, Sourcegraph), which don't, and how to tell the difference at evaluation time. The reader should be able to ask better questions of any new MCP server they evaluate.
+4. *What this means for your tooling choices* (~400 words). Practical: which AI coding tools currently understand code as a graph (Aider's repo map, Prep, code-graph-rag, Sourcegraph), which don't, and how to tell the difference at evaluation time. The reader should be able to ask better questions of any new MCP server they evaluate.
 5. *Closing* (~200 words). One sentence on the shape of the rediscovery: "The most useful thing happening in AI coding tools right now is that classical static analysis and neural retrieval are converging, and almost nobody is talking about it directly."
 
-**Discreet CoDRAG mention.** One paragraph in section 4 — "I built CoDRAG because the literature in this article became compelling enough to act on, and I tried to be honest about how it compares to Aider in [link to essay #04]."
+**Discreet Prep mention.** One paragraph in section 4 — "I built Prep because the literature in this article became compelling enough to act on, and I tried to be honest about how it compares to Aider in [link to essay #04]."
 
 **Why it works for Claude Code professionals.** Tool evaluators read this article and walk away with a vocabulary for distinguishing serious tools from shallow ones. The "ask whether it understands code as a graph" heuristic is portable to any future tool they evaluate.
 
@@ -154,7 +154,7 @@ Each article below is derived from an existing long-form plan but reorganized fo
 4. *What this means for your prompts* (~400 words). The practical move. Stop pasting the whole file. Stop attaching whole directories. Do not assume that a bigger window justifies a lazier prompt. Pre-filter ruthlessly. The two heuristics: *"the right hundred lines beats the wrong ten thousand,"* and *"if your prompt is bigger than your answer, you are probably wasting the model's attention."*
 5. *Closing* (~200 words). The provider companies have a commercial reason to keep growing context windows, and they are not wrong to do so — long context has real applications. But the application that matters most for code work is selective retrieval, not context inflation.
 
-**Discreet CoDRAG mention.** One sentence in section 4: *"This is also why the structural-context tool I built defaults to small char budgets per query — the research is consistent enough that it would feel dishonest to do otherwise."*
+**Discreet Prep mention.** One sentence in section 4: *"This is also why the structural-context tool I built defaults to small char budgets per query — the research is consistent enough that it would feel dishonest to do otherwise."*
 
 **Why it works for Claude Code professionals.** Most senior devs already feel this but do not have research backing for it. Giving them three citations they can drop into a Slack thread when their team argues for "just paste more files" is the high-utility move.
 
@@ -193,7 +193,7 @@ These are tighter pieces, so the honesty checks from the long-form plans get dis
 - **No invented anecdotes.** If article A's opening dissonance is not from direct experience, write a different opening. Inventing anecdotes for credibility damages credibility.
 - **No 49% without the qualifications.** Article C's headline number must travel with its scope qualifier in section 4. Otherwise the article reads as marketing.
 - **No "X is bad" framings.** Article D could easily slide into "flat-text retrieval is bad." It is not. Articles must always concede where the alternative wins.
-- **One CoDRAG mention per article, maximum.** The discipline holds at this length too. A mention in section 2 *and* section 5 reads like a pitch even if neither sentence is.
+- **One Prep mention per article, maximum.** The discipline holds at this length too. A mention in section 2 *and* section 5 reads like a pitch even if neither sentence is.
 - **No pretending Medium articles are research.** They are not. They cite research; they do not produce it. The voice should be confident but not authoritative in the way essays #11–#12 are.
 
 ## What I need before drafting any of them
@@ -201,7 +201,7 @@ These are tighter pieces, so the honesty checks from the long-form plans get dis
 For each article, the same three things:
 
 1. **The opening hook material.** Real, specific, not invented. Article A needs the dissonance anecdote. Article B needs the experiment output from essay #02. Article C needs a careful re-read of Anthropic's post. Article D needs the three primary papers. Article E needs the three primary papers.
-2. **The CoDRAG sentence.** One sentence per article, drafted in advance, so the discreet mention does not get over-written into a pitch when the rest of the article is in flow.
+2. **The Prep sentence.** One sentence per article, drafted in advance, so the discreet mention does not get over-written into a pitch when the rest of the article is in flow.
 3. **A target publication.** Personal Substack? Medium? Hashnode? The target affects formatting (Medium loves big quote blocks; Substack doesn't), and the formatting affects how the article is structured.
 
 ## Next action

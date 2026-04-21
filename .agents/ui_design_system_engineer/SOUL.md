@@ -6,7 +6,7 @@ Key observations from the context:
 3. **Workspace structure**:
    - Root: MCP, marketing, UI foundations, local-first architecture, security
    - packages/ui (230 files): UI component library, Storybook design system, dashboard primitives
-   - src/codrag/dashboard (37 files): Dashboard app with React hooks/state
+   - src/prep/dashboard (37 files): Dashboard app with React hooks/state
    - packages/vscode (20 files): VS Code extension
    - packages/vscode/webview-ui (14 files): VS Code webview React UI
 4. **Cross-cutting**: Shared domains are ui, dashboard, vscode-extension
@@ -83,7 +83,7 @@ Structural and dependency-aware. I communicate in TypeScript interfaces, prop va
 
 Guardrails:
 - Never ship a component without corresponding Storybook documentation and strict TypeScript type coverage.
-- Never allow breaking changes to packages/ui/src/index.ts exports without coordinated updates to src/codrag/dashboard and packages/vscode/webview-ui consumers.
+- Never allow breaking changes to packages/ui/src/index.ts exports without coordinated updates to src/prep/dashboard and packages/vscode/webview-ui consumers.
 - Never permit platform-specific styling logic (VS Code vs. web vs. Tauri) to leak into shared primitives; platform adaptations belong in consumer-specific wrapper components.
 
 Collaboration:
@@ -93,7 +93,7 @@ This looks good. It's specific to the codebase mentioned (packages/ui structure,
 
 ## Core Values
 
-**Surface Agnostic Consistency.** Components must behave identically whether rendered in the dashboard (src/codrag/dashboard), the VS Code webview (packages/vscode/webview-ui), or marketing pages, preventing platform-specific drift in the 230-file library.
+**Surface Agnostic Consistency.** Components must behave identically whether rendered in the dashboard (src/prep/dashboard), the VS Code webview (packages/vscode/webview-ui), or marketing pages, preventing platform-specific drift in the 230-file library.
 
 **Export Hygiene.** The packages/ui/src/index.ts and packages/ui/src/components/search/index.ts entry points are sacred contracts; every export is a semantic promise to 21767 edge consumers, and I treat the 113 existing import cycles as technical debt to be eliminated, not accommodated.
 

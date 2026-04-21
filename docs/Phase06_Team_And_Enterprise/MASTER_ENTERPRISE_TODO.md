@@ -15,9 +15,9 @@
 ## SPRINT 1: Security Health Panel Expansion
 *Expand security_health.py from 7 to 13 checks and group them in the IT panel.*
 
-- [x] **SEC-8** Add daemon auth posture check (is CODRAG_DAEMON_TOKEN set? binding address?) — P1 ✅
-- [x] **SEC-9** Add CORS configuration check (restricted vs CODRAG_CORS_ALLOW_ALL=1) — P1 ✅
-- [x] **SEC-10** Add dev mode detection check (CODRAG_DEV_MODE=1, CODRAG_TIER override) — P1 ✅
+- [x] **SEC-8** Add daemon auth posture check (is PREP_DAEMON_TOKEN set? binding address?) — P1 ✅
+- [x] **SEC-9** Add CORS configuration check (restricted vs PREP_CORS_ALLOW_ALL=1) — P1 ✅
+- [x] **SEC-10** Add dev mode detection check (PREP_DEV_MODE=1, PREP_TIER override) — P1 ✅
 - [x] **SEC-11** Add content sanitization active check (sanitize_output callable) — P1 ✅
 - [x] **SEC-12** Add API key hygiene check (Google URL-param auth warning) — P2 ✅
 - [x] **SEC-13** Add MCP rate limit health check (rate status, recent 429s) — P2 ✅
@@ -42,7 +42,7 @@
 - [x] **LS-3** 30-day offline grace period — ✅ Built (grace period logic in validate endpoint)
 - [x] **LS-4** License recovery flow — ✅ Built (`POST /license/recover` endpoint redirects to web flow)
 - [x] **LS-5** Deactivation endpoint (frees LS activation slot) — ✅ Built
-- [ ] **LS-6** `api.codrag.io` relay service (serverless: LS webhook → Ed25519 license) — P0 (**Eric: see FOR_ERIC_TODO.md**)
+- [ ] **LS-6** `api.runprep.io` relay service (serverless: LS webhook → Ed25519 license) — P0 (**Eric: see FOR_ERIC_TODO.md**)
 - [ ] **LS-7** Ed25519 keypair generation — P0 (**Eric: see FOR_ERIC_TODO.md LS-10**)
 - [ ] **LS-8** Activation limits per LS product — P0 (**Eric: see FOR_ERIC_TODO.md LS-02 to LS-04**)
 

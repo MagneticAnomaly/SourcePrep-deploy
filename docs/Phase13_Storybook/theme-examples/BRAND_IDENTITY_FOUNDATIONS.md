@@ -1,6 +1,6 @@
-# CoDRAG Brand Identity Foundations
+# Prep Brand Identity Foundations
 
-This document defines the **shared brand foundations** that apply across all visual directions. These are the constants—the elements that make CoDRAG recognizable regardless of which color palette or visual style is chosen.
+This document defines the **shared brand foundations** that apply across all visual directions. These are the constants—the elements that make Prep recognizable regardless of which color palette or visual style is chosen.
 
 ---
 
@@ -20,7 +20,7 @@ This document defines the **shared brand foundations** that apply across all vis
 | **Precise** | Accurate retrieval, clear citations | Tight spacing, aligned grids |
 
 ### Brand Voice
-- **Confident but not arrogant** — "CoDRAG indexes your code" not "CoDRAG is the best"
+- **Confident but not arrogant** — "Prep indexes your code" not "Prep is the best"
 - **Technical but accessible** — Explain concepts, don't assume knowledge
 - **Honest** — Clear about what it does and doesn't do
 - **Helpful** — Error messages guide users to solutions
@@ -29,7 +29,7 @@ This document defines the **shared brand foundations** that apply across all vis
 
 ## Logo Concept (Placeholder)
 
-The CoDRAG logo should incorporate:
+The Prep logo should incorporate:
 - **"Co"** — collaboration, code, connection
 - **"D"** — documentation, data, discovery
 - **"RAG"** — retrieval, the technical core
@@ -199,7 +199,7 @@ Regardless of visual direction, these meanings are constant:
 | `--icon-lg` | 24px | Section headers, emphasis |
 | `--icon-xl` | 32px | Empty states, features |
 
-### Key Icons (CoDRAG-Specific)
+### Key Icons (Prep-Specific)
 
 | Concept | Icon Name | Lucide |
 |---------|-----------|--------|
@@ -257,7 +257,7 @@ The radius values differ per direction, but the semantic scale is shared:
 | `--screen-xl` | 1280px | Desktop |
 | `--screen-2xl` | 1536px | Large desktop |
 
-**Note:** CoDRAG is primarily a desktop application, but the marketing site and docs must be mobile-friendly.
+**Note:** Prep is primarily a desktop application, but the marketing site and docs must be mobile-friendly.
 
 ---
 

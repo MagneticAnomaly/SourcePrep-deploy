@@ -1,5 +1,5 @@
 #!/bin/bash
-# CoDRAG Development Server Launcher
+# Prep Development Server Launcher
 # Launches all development services with automatic port cleanup
 
 set -e
@@ -14,7 +14,7 @@ cleanup_all() {
     # Disable the trap so we don't recurse
     trap - EXIT INT TERM HUP
     # Tell watchdog to stop gracefully (so it doesn't re-spawn daemon)
-    touch /tmp/codrag_daemon_stop 2>/dev/null || true
+    touch /tmp/prep_daemon_stop 2>/dev/null || true
     pkill -f "daemon_watchdog.sh" 2>/dev/null || true
     # Kill all our direct children (dashboard, storybook, websites)
     pkill -P $$ 2>/dev/null || true
@@ -90,7 +90,7 @@ trap cleanup SIGINT SIGTERM
 main() {
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║              CoDRAG Development Environment                  ║"
+    echo "║              Prep Development Environment                  ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo ""
 
@@ -118,18 +118,18 @@ main() {
     fi
     echo ""
 
-    # Start CoDRAG Daemon
-    log_info "Starting CoDRAG daemon on port $DAEMON_PORT..."
-    # Kill orphaned codrag processes that may not be listening on a port.
-    # MCP processes hold SQLite connections to codrag_settings.db — if they
+    # Start Prep Daemon
+    log_info "Starting Prep daemon on port $DAEMON_PORT..."
+    # Kill orphaned prep processes that may not be listening on a port.
+    # MCP processes hold SQLite connections to prep_settings.db — if they
     # have uncommitted transactions, the daemon can't write to the DB.
-    pkill -f "codrag.cli serve" 2>/dev/null || true
-    pkill -f "codrag serve" 2>/dev/null || true
-    pkill -f "codrag mcp" 2>/dev/null || true
+    pkill -f "prep.cli serve" 2>/dev/null || true
+    pkill -f "prep serve" 2>/dev/null || true
+    pkill -f "prep mcp" 2>/dev/null || true
     pkill -f "daemon_watchdog.sh" 2>/dev/null || true
     sleep 1
     # F-81: Launch under a watchdog so crash tracebacks are captured
-    # (/tmp/codrag_daemon_logs/daemon_<ts>.log) and the daemon respawns
+    # (/tmp/prep_daemon_logs/daemon_<ts>.log) and the daemon respawns
     # automatically. history.log records every spawn/exit with exit code
     # + last 40 lines of that run's log so you can see WHY it died.
     # Bails after 5 consecutive fast crashes (<30s uptime) to avoid thrash.
@@ -138,15 +138,15 @@ main() {
     DAEMON_PID=$!
     sleep 3
     if kill -0 $DAEMON_PID 2>/dev/null; then
-        log_success "CoDRAG daemon running under watchdog (PID: $DAEMON_PID, logs: /tmp/codrag_daemon_logs/)"
+        log_success "Prep daemon running under watchdog (PID: $DAEMON_PID, logs: /tmp/prep_daemon_logs/)"
     else
-        log_error "CoDRAG daemon watchdog failed to start"
+        log_error "Prep daemon watchdog failed to start"
     fi
     echo ""
 
     # Start Dashboard Frontend
     log_info "Starting Dashboard frontend on port $DASHBOARD_PORT..."
-    (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT/src/codrag/dashboard" && npm run dev -- --port $DASHBOARD_PORT --host) &
+    (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT/src/prep/dashboard" && npm run dev -- --port $DASHBOARD_PORT --host) &
     DASHBOARD_PID=$!
     echo ""
 
@@ -175,7 +175,7 @@ main() {
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                    Services Running                          ║"
     echo "╠══════════════════════════════════════════════════════════════╣"
-    echo "║  CoDRAG Daemon     │  http://localhost:$DAEMON_PORT              ║"
+    echo "║  Prep Daemon     │  http://localhost:$DAEMON_PORT              ║"
     echo "║  Dashboard UI      │  http://localhost:$DASHBOARD_PORT              ║"
     echo "║  Storybook         │  http://localhost:$STORYBOOK_PORT               ║"
     echo "║  Marketing Site    │  http://localhost:$MARKETING_PORT               ║"

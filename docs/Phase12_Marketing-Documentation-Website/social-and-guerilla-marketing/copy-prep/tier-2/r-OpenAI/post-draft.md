@@ -12,7 +12,7 @@ We've all done the "Copy entire folder -> Paste into ChatGPT" dance. It works...
 ### The Problem
 Models like o1 are smart, but they hallucinate APIs if they don't see the exact definition.
 
-### The Solution: CoDRAG
+### The Solution: Prep
 I built a local tool that creates a compressed, structural map of your code.
 You can use it to generate a "Context Prompt" that contains *only* the functions and types relevant to your bug, drastically reducing the noise you feed to the model.
 

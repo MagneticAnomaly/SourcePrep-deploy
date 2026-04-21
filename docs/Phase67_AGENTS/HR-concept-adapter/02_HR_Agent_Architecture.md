@@ -1,13 +1,13 @@
-# HR Agent Architecture — CoDRAG Agent Role Manager
+# HR Agent Architecture — Prep Agent Role Manager
 
 > **Phase 67 Research** | Date: 2026-04-01
-> The "HR Agent" concept — a subsystem that generates, manages, and evolves Paperclip agent roles using CoDRAG's epistemic knowledge graph.
+> The "HR Agent" concept — a subsystem that generates, manages, and evolves Paperclip agent roles using Prep's epistemic knowledge graph.
 
 ---
 
 ## 1. System Identity
 
-The **CoDRAG HR Adapter** is an epistemic role management engine. It operates as both:
+The **Prep HR Adapter** is an epistemic role management engine. It operates as both:
 - A **standalone tool** (CLI / API) that generates and maintains agent role files
 - A **Paperclip integration** that programmatically manages agent lifecycle via Paperclip's REST API
 
@@ -19,7 +19,7 @@ It is NOT a runtime orchestrator. It is a **role architect** — it reasons abou
 
 ### 2.1 Role Generation (From Scratch)
 
-**Input:** A CoDRAG project with a completed epistemic pipeline (at least through Stage 7 — Module Clustering)
+**Input:** A Prep project with a completed epistemic pipeline (at least through Stage 7 — Module Clustering)
 
 **Process:**
 1. **Analyze codebase structure**: Read module clusters, architecture layer distribution, domain tag frequency, hub files
@@ -31,7 +31,7 @@ It is NOT a runtime orchestrator. It is a **role architect** — it reasons abou
 3. **Generate role definitions**: For each recommended role, produce:
    - `AGENTS.md` — Behavioral instructions, priorities, knowledge sources
    - `SOUL.md` — Identity, values, communication style, guardrails
-   - `KNOWLEDGE.md` — CoDRAG-specific context injection (optional)
+   - `KNOWLEDGE.md` — Prep-specific context injection (optional)
 4. **Generate org chart**: Reporting lines, collaboration axes, decision authority
 
 **Output:** A complete `agents/` directory with per-role folders, ready for Paperclip or standalone use.
@@ -42,18 +42,18 @@ It is NOT a runtime orchestrator. It is a **role architect** — it reasons abou
 
 **Process:**
 1. **Parse existing role definitions**: Extract role name, responsibilities, relationships, tech stack references
-2. **Enrich with CoDRAG intelligence**:
-   - Add `codrag(role="<role>")` calls to each agent's instruction set
+2. **Enrich with Prep intelligence**:
+   - Add `prep(role="<role>")` calls to each agent's instruction set
    - Generate optimal Knowledge Scope file paths using Auto-Populate
-   - Add CoDRAG-specific behavioral guidance (e.g., "Use codrag_search before making changes")
+   - Add Prep-specific behavioral guidance (e.g., "Use prep_search before making changes")
 3. **Normalize format**: Ensure consistent structure across AGENTS.md + SOUL.md + KNOWLEDGE.md
 4. **Sync to Paperclip**: Push updated promptTemplates via Paperclip API
 
-**Output:** Enhanced agent definitions with CoDRAG integration, pushed to Paperclip.
+**Output:** Enhanced agent definitions with Prep integration, pushed to Paperclip.
 
 ### 2.3 Role Drift Detection (Periodic Analysis)
 
-**Input:** Existing role definitions + current CoDRAG epistemic state (post-pipeline-run)
+**Input:** Existing role definitions + current Prep epistemic state (post-pipeline-run)
 
 **Process:**
 1. **For each role**, compute a **role fitness score**:
@@ -81,7 +81,7 @@ It is NOT a runtime orchestrator. It is a **role architect** — it reasons abou
 
 ### 2.4 Role Evolution (Triggered by Code Changes)
 
-**Input:** CoDRAG pipeline rebuild event (via watcher or manual trigger)
+**Input:** Prep pipeline rebuild event (via watcher or manual trigger)
 
 **Process:**
 1. **Diff analysis**: Compare previous and current epistemic state:
@@ -103,7 +103,7 @@ It is NOT a runtime orchestrator. It is a **role architect** — it reasons abou
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    CoDRAG HR Adapter                             │
+│                    Prep HR Adapter                             │
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
 │  │  Role        │  │  Drift       │  │  Paperclip           │   │
@@ -116,7 +116,7 @@ It is NOT a runtime orchestrator. It is a **role architect** — it reasons abou
 │  └──────┬───────┘  └──────┬───────┘  └──────────┬───────────┘   │
 │         │                 │                      │               │
 │  ┌──────┴─────────────────┴──────────────────────┴───────────┐  │
-│  │                  CoDRAG Knowledge Layer                    │  │
+│  │                  Prep Knowledge Layer                    │  │
 │  │                                                            │  │
 │  │  - Epistemic entries (architecture_layer, domain_tags)     │  │
 │  │  - Module clusters (subsystem grouping)                    │  │
@@ -150,37 +150,37 @@ It is NOT a runtime orchestrator. It is a **role architect** — it reasons abou
 
 ## 4. Execution Modes
 
-### Mode 1: Generate (`codrag hr generate`)
+### Mode 1: Generate (`prep hr generate`)
 ```bash
 # Analyze the codebase and generate a fresh agent workforce
-codrag hr generate --project <id> --output ./agents/
+prep hr generate --project <id> --output ./agents/
 
 # Generate with business context (optional)
-codrag hr generate --project <id> --business-goal "E-commerce platform" --budget 1500
+prep hr generate --project <id> --business-goal "E-commerce platform" --budget 1500
 ```
 
-### Mode 2: Adopt (`codrag hr adopt`)
+### Mode 2: Adopt (`prep hr adopt`)
 ```bash
-# Import existing Paperclip agents and enhance them with CoDRAG
-codrag hr adopt --paperclip-url http://localhost:3100 --company <id>
+# Import existing Paperclip agents and enhance them with Prep
+prep hr adopt --paperclip-url http://localhost:3100 --company <id>
 
 # Import from existing agent files
-codrag hr adopt --from ./existing-agents/ --output ./agents/
+prep hr adopt --from ./existing-agents/ --output ./agents/
 ```
 
-### Mode 3: Audit (`codrag hr audit`)
+### Mode 3: Audit (`prep hr audit`)
 ```bash
 # Run drift detection against current codebase state
-codrag hr audit --project <id> --agents ./agents/
+prep hr audit --project <id> --agents ./agents/
 
 # Generate report without auto-applying
-codrag hr audit --project <id> --dry-run
+prep hr audit --project <id> --dry-run
 ```
 
-### Mode 4: Sync (`codrag hr sync`)
+### Mode 4: Sync (`prep hr sync`)
 ```bash
 # Push local agent files to Paperclip
-codrag hr sync --paperclip-url http://localhost:3100 --company <id> --agents ./agents/
+prep hr sync --paperclip-url http://localhost:3100 --company <id> --agents ./agents/
 ```
 
 ---
@@ -201,16 +201,16 @@ Each role gets three files in a directory:
 
 ## Role-Specific Behavior
 - <Behavioral guardrails derived from architecture analysis>
-- When using code intelligence, call `codrag(role="<role_slug>")` for scoped context
-- When making code changes, call `codrag_impact(file_path="...")` to check blast radius
+- When using code intelligence, call `prep(role="<role_slug>")` for scoped context
+- When making code changes, call `prep_impact(file_path="...")` to check blast radius
 - ...
 
 ## Knowledge Sources
 - `<top_relevant_files_from_auto_populate>` — <description>
 - ...
 
-## CoDRAG Integration
-This agent is managed by CoDRAG's HR Adapter.
+## Prep Integration
+This agent is managed by Prep's HR Adapter.
 - Role Vector: <serialized scoring profile>
 - Last Audit: <timestamp>
 - Fitness Score: <score>
@@ -240,10 +240,10 @@ This agent is managed by CoDRAG's HR Adapter.
 ```markdown
 # <RoleName> Knowledge
 
-## CoDRAG Context
+## Prep Context
 When working on this project, always start by calling:
 \`\`\`
-codrag(role="<role_slug>")
+prep(role="<role_slug>")
 \`\`\`
 
 ## Architecture Overview
@@ -274,8 +274,8 @@ codrag(role="<role_slug>")
 
 No other system can do this because:
 
-1. **Epistemic depth**: CoDRAG doesn't just list files — it understands architecture layers, domain tags, module clusters, and epistemic confidence per file
-2. **Role projection mathematics**: Phase 64's RoleVector scoring translates roles into weighted queries across CoDRAG's indexed dimensions
+1. **Epistemic depth**: Prep doesn't just list files — it understands architecture layers, domain tags, module clusters, and epistemic confidence per file
+2. **Role projection mathematics**: Phase 64's RoleVector scoring translates roles into weighted queries across Prep's indexed dimensions
 3. **Auto-Populate vetting**: The LLM-based file vetting pipeline ensures role scopes are precise, not just keyword-matched
 4. **Graph awareness**: Hub files, import chains, and dependency graphs inform which files are *structurally* important to a role
 5. **Continuous evolution**: Unlike one-shot generators, the drift detection loop keeps roles aligned with the living codebase

@@ -10,7 +10,7 @@
 
 ### The Two Pillars
 
-CoDRAG has **two separate indexing pipelines** that combine in the RAG:
+Prep has **two separate indexing pipelines** that combine in the RAG:
 
 **Pillar 1: Trace Graph Pipeline** (8 stages)
 - Processes **ALL** files in the codebase automatically.
@@ -102,7 +102,7 @@ I found several places where the **backend doesn't match** the current UI:
 
 ### Gap 1: Backend engine status returns 7 stages, UI shows 8
 
-`@/Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/api/routers/knowledge.py:80-161` returns:
+`@/Volumes/4TB-BAD/HumanAI/Prep/src/prep/api/routers/knowledge.py:80-161` returns:
 ```
 stages: { trace, vector, catalogue, validation, epistemic, clustering, knowledge }
 + deepening (cross-cutting)
@@ -229,7 +229,7 @@ Yes option 2 -- if we think option 3 is a good option we can consider it for pro
 ### Phase 1: Backend Alignment (SM-4 + SM-6 Foundation) ✅ DONE
 
 **SM-4: Build Orchestrator** ✅
-- [x] `src/codrag/services/build_orchestrator.py` — BuildSlot state machine
+- [x] `src/prep/services/build_orchestrator.py` — BuildSlot state machine
 - [x] `BuildPhase` enum: `IDLE → QUEUED → RUNNING → COMPLETED → FAILED`
 - [x] `BuildSlot` per project per build-type (8 build types)
 - [x] Thread monitoring: detect dead threads, transition to `FAILED`
@@ -237,7 +237,7 @@ Yes option 2 -- if we think option 3 is a good option we can consider it for pro
 - [ ] Refactor existing build endpoints to use orchestrator (incremental)
 
 **SM-6: Pipeline Orchestrator (8-Stage, Two-Group)** ✅
-- [x] `src/codrag/services/pipeline_orchestrator.py`
+- [x] `src/prep/services/pipeline_orchestrator.py`
 - [x] Two groups: `FastSync` (stages 1-4) and `DeepEnrichment` (stages 5-8)
 - [x] Group-level controls: `run_fast_sync()`, `run_deep_enrichment()`, `run_all()`
 - [x] Dependency: deep group chains after fast sync via listener
@@ -245,7 +245,7 @@ Yes option 2 -- if we think option 3 is a good option we can consider it for pro
 - [x] `PipelineRun` tracks per-group progress and per-stage results
 
 **Pipeline API Router** ✅
-- [x] `src/codrag/api/routers/pipeline.py` — registered in `server.py`
+- [x] `src/prep/api/routers/pipeline.py` — registered in `server.py`
 - [x] `POST /projects/{id}/pipeline/fast` — run stages 1-4
 - [x] `POST /projects/{id}/pipeline/deep` — run stages 5-8
 - [x] `POST /projects/{id}/pipeline/all` — run all, chaining deep after fast
@@ -254,7 +254,7 @@ Yes option 2 -- if we think option 3 is a good option we can consider it for pro
 
 **Frontend Wiring** ✅
 - [x] `PipelineStatus` + `PipelineGroupRun` types in `types.ts`
-- [x] 5 pipeline methods on `CodragApiClient` in `client.ts`
+- [x] 5 pipeline methods on `PrepApiClient` in `client.ts`
 - [x] `useTraceSystem.ts`: `handleRunFastSync` → `api.runPipelineFast()`
 - [x] `useTraceSystem.ts`: `handleRunDeepEnrichment` → `api.runPipelineDeep()`
 - [x] `useTraceSystem.ts`: `handleRunAutoPilot` → `api.runPipelineAll()`
@@ -274,7 +274,7 @@ Yes option 2 -- if we think option 3 is a good option we can consider it for pro
 
 ### Phase 2: Knowledge Scope Pipeline (SM-8: File Tree Orchestrator) ✅ DONE
 
-- [x] `src/codrag/services/scope_orchestrator.py` — ScopeOrchestrator singleton
+- [x] `src/prep/services/scope_orchestrator.py` — ScopeOrchestrator singleton
 - [x] Track `pending_adds`, `pending_removes`, `pending_changes` from FolderTree changes
 - [x] Debounce window (configurable, default 3s, min 500ms)
 - [x] Background build in daemon thread with atomic state transitions
@@ -285,17 +285,17 @@ Yes option 2 -- if we think option 3 is a good option we can consider it for pro
 
 ### Phase 3: Settings Persistence ✅ DONE
 
-- [x] `src/codrag/services/settings_store.py` — SQLite key-value store (`codrag_settings.db`)
+- [x] `src/prep/services/settings_store.py` — SQLite key-value store (`prep_settings.db`)
 - [x] Namespaced keys: `global/<key>`, `project/<id>/<key>`
 - [x] Auto-migrate from `ui_config.json` on first init (in `server.py configure()`)
 - [x] `config_manager.py` bridged: `load_ui_config` reads SQLite first (JSON fallback), `save_ui_config` does dual-write
-- [x] `src/codrag/api/routers/settings.py` — Settings REST API:
+- [x] `src/prep/api/routers/settings.py` — Settings REST API:
   - GET/PUT/DELETE `/settings/{key}` (global)
   - GET/PUT/DELETE `/projects/{id}/settings/{key}` (per-project)
   - POST `/settings/pipeline-config` (convenience merge endpoint)
 - [x] Listener system for change notifications
 - [x] `tests/test_settings_store.py` — 27 tests (CRUD, project, bulk, migration, listeners, concurrency)
-- [x] Frontend: `CodragApiClient` + `ApiClient` interface updated with 7 settings methods
+- [x] Frontend: `PrepApiClient` + `ApiClient` interface updated with 7 settings methods
 - [x] `useTraceSystem.ts`: enrichment auto-config loads from backend on init, saves via `updatePipelineConfig()`, keeps localStorage as fallback
 
 ### Phase 4: Tier Gating Integration ✅ DONE
@@ -313,9 +313,9 @@ Yes option 2 -- if we think option 3 is a good option we can consider it for pro
 - [x] Auto-config persistence wired to backend settings API (replaces localStorage as primary)
 - [x] `PipelineStatus` type aligned: flat shape (`fast_sync`/`deep_enrichment` top-level) matches both REST and SSE
 - [x] `ScopeStatus` type added to `types.ts`
-- [x] Settings API methods (7) + Scope API methods (4) added to `ApiClient` interface + `CodragApiClient` class
+- [x] Settings API methods (7) + Scope API methods (4) added to `ApiClient` interface + `PrepApiClient` class
 - [x] `handleToggleInclude` in `App.tsx` now calls `api.addScopeFiles()` / `api.removeScopeFiles()` → scope orchestrator notified
-- [x] `src/codrag/api/routers/scope.py` — Scope REST API: status, add, remove, rebuild. Registered in `server.py`.
+- [x] `src/prep/api/routers/scope.py` — Scope REST API: status, add, remove, rebuild. Registered in `server.py`.
 - [x] FolderTree stale indicator UI component: added to `FolderTreePanel` and `FileExplorerDetail` (Building/Stale/Pending badges)
 
 ### Phase 6: SM-1 Frontend Reducers (Dashboard Refactoring) — In Progress

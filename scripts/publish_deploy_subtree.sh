@@ -9,7 +9,7 @@ set -euo pipefail
 #   scripts/publish_deploy_subtree.sh --promote        # also push to public remote
 
 # TODO(Task 11): flip prefix to public/prep-deploy after subtree git mv
-prefix="public/codrag-deploy"
+prefix="public/prep-deploy"
 dev_remote="deploy-dev"
 public_remote="origin"
 branch="main"
@@ -69,7 +69,7 @@ fi
 if ! git -C "$repo_root" remote get-url "$dev_remote" >/dev/null 2>&1; then
   echo "Missing git remote: $dev_remote" >&2
   # TODO(Task 22): flip to prep-deploy.git after GitHub rename
-  echo "Add it with: git remote add $dev_remote git@github.com:EricBintner/codrag-deploy.git"
+  echo "Add it with: git remote add $dev_remote git@github.com:EricBintner/prep-deploy.git"
   exit 1
 fi
 

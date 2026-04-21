@@ -1,13 +1,13 @@
 # Pipeline HTTP Endpoints
 
-All defined in `src/codrag/api/routers/pipeline.py` except reset endpoints (which live in `src/codrag/api/routers/trace_routes/enrichment.py`).
+All defined in `src/prep/api/routers/pipeline.py` except reset endpoints (which live in `src/prep/api/routers/trace_routes/enrichment.py`).
 
 ## Read
 
 | Method | Path | Purpose | Notes |
 |---|---|---|---|
 | GET | `/projects/{id}/pipeline/status` | Live state per stage/group | Cached 2–3s per project; dedicated 4-thread pool (Phase 60D-3) |
-| GET | `/projects/{id}/pipeline/history` | Completed run journal | from `codrag_pipeline_history.db` |
+| GET | `/projects/{id}/pipeline/history` | Completed run journal | from `prep_pipeline_history.db` |
 
 ### Status response shape
 

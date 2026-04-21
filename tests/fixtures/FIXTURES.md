@@ -1,6 +1,6 @@
 # Test Fixtures Guide
 
-This document explains how test fixtures work in CoDRAG and how to use them effectively.
+This document explains how test fixtures work in Prep and how to use them effectively.
 
 ## Shared Pytest Fixtures (conftest.py)
 
@@ -20,11 +20,11 @@ def test_something(fake_embedder):
     idx = CodeIndex(index_dir=..., embedder=fake_embedder)
 ```
 
-### `clean_codrag_dir`
-Ensures `.codrag` directory is clean before and after test.
+### `clean_prep_dir`
+Ensures `.prep` directory is clean before and after test.
 ```python
-def test_something(clean_codrag_dir):
-    repo = clean_codrag_dir  # .codrag is guaranteed clean
+def test_something(clean_prep_dir):
+    repo = clean_prep_dir  # .prep is guaranteed clean
 ```
 
 ## What are Test Fixtures?
@@ -107,12 +107,12 @@ server = DirectMCPServer(repo_root=repo_root)
 
 ### Step 4: Clean Up Build State (Optional)
 
-If your test needs a clean slate, delete the `.codrag` directory:
+If your test needs a clean slate, delete the `.prep` directory:
 
 ```python
-codrag_dir = repo_root / ".codrag"
-if codrag_dir.exists():
-    shutil.rmtree(codrag_dir)
+prep_dir = repo_root / ".prep"
+if prep_dir.exists():
+    shutil.rmtree(prep_dir)
 ```
 
 ## Best Practices
@@ -163,9 +163,9 @@ repo_root = Path(__file__).parent / "fixtures" / "mini_repo"
 
 ### 5. Test Against Fixture, Not Your Real Code
 
-Fixtures let you test **CoDRAG's behavior** without needing a real project:
+Fixtures let you test **Prep's behavior** without needing a real project:
 
-- Test indexing: Does CoDRAG index files correctly?
+- Test indexing: Does Prep index files correctly?
 - Test search: Does search return expected results?
 - Test context: Does context assembly work?
 
@@ -217,9 +217,9 @@ Use for: Testing `max_file_bytes` enforcement.
 
 ## Fixture State Management
 
-### `.codrag` Directory
+### `.prep` Directory
 
-CoDRAG creates `.prep/` inside repos to store:
+Prep creates `.prep/` inside repos to store:
 - Index files
 - Manifests
 - Build state
@@ -227,21 +227,21 @@ CoDRAG creates `.prep/` inside repos to store:
 This directory is **safe to delete** in tests because it's inside the fixture repo:
 
 ```python
-codrag_dir = repo_root / ".codrag"
-if codrag_dir.exists():
-    shutil.rmtree(codrag_dir)
+prep_dir = repo_root / ".prep"
+if prep_dir.exists():
+    shutil.rmtree(prep_dir)
 ```
 
 ### Clean State for Each Test
 
-If a test needs a clean state, delete `.codrag` at the start:
+If a test needs a clean state, delete `.prep` at the start:
 
 ```python
 async def test_something():
     repo_root = Path(__file__).parent / "fixtures" / "mini_repo"
-    codrag_dir = repo_root / ".codrag"
-    if codrag_dir.exists():
-        shutil.rmtree(codrag_dir)
+    prep_dir = repo_root / ".prep"
+    if prep_dir.exists():
+        shutil.rmtree(prep_dir)
     
     server = DirectMCPServer(repo_root=repo_root)
     # ... rest of test

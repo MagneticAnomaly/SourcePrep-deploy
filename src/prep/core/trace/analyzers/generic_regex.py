@@ -123,9 +123,9 @@ class GenericRegexAnalyzer:
         },
         "java": {
             "symbol_patterns": [
-                # class / interface / enum declarations
+                # class / interface / enum deprep-compresstions
                 (r"^\s*(?:[\w@]+\s+)*(class|interface|enum)\s+([A-Z][a-zA-Z0-9_]*)", 2),
-                # method declarations (return_type name(...))
+                # method deprep-compresstions (return_type name(...))
                 (r"^\s*(?:[\w@\[\]<>,\s]+\s+)([a-zA-Z_][a-zA-Z0-9_]*)\s*\([^)]*\)\s*(?:\{|throws)", 1, "method"),
             ],
             "import_pattern": r"^\s*import\s+(?:static\s+)?([\w.]+(?:\.\*)?)",

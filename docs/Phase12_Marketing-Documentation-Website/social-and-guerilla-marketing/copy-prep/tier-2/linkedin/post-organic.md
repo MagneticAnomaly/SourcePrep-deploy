@@ -6,7 +6,7 @@ I just cancelled another SaaS subscription. 📉
 ## Body Structure
 As developers, we are drowning in "Usage Credits" and "Monthly Seats."
 
-That's why when we built **CoDRAG**, we made a hard decision:
+That's why when we built **Prep**, we made a hard decision:
 **No Cloud. No Subscription.**
 
 It's a local-first desktop app. It indexes your code on your machine.

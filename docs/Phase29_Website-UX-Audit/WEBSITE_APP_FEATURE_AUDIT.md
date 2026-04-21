@@ -4,18 +4,18 @@
 
 ## 1. Website Content Map
 
-### Marketing Site (`codrag.io`)
+### Marketing Site (`runprep.io`)
 - **Homepage (`/`)**: Hero, 2-step integration demo, feature grid, FAQ preview, trust strip.
 - **`/pricing`**: Free / Starter / Pro / Team / Enterprise tiers.
 - **`/security`**: Local-first, no telemetry, privacy policy (merged).
 - **`/about`**, **`/faq`**, **`/download`**, **`/careers`**, **`/changelog`**, **`/blog`**, **`/community`**, **`/contact`**, **`/privacy`**, **`/terms`**.
 
-### Docs Site (`docs.codrag.io`)
+### Docs Site (`docs.runprep.io`)
 - Getting Started, MCP, Guides (Embeddings, Path Weights, Models), Concepts, Dashboard, CLI, Troubleshooting, FAQ.
 
 ### Support & Payments
-- `support.codrag.io`: Headless GitHub (Discussions/Issues).
-- `payments.codrag.io`: Lemon Squeezy checkout, recovery, success.
+- `support.runprep.io`: Headless GitHub (Discussions/Issues).
+- `payments.runprep.io`: Lemon Squeezy checkout, recovery, success.
 
 ---
 
@@ -65,14 +65,14 @@
 | Code Graph badge "Pro" wrong | ✅ Changed to "Built-in" (trace_index is FREE) | `packages/ui/src/components/marketing/FeatureBlocks.tsx` |
 | Pipeline "multi-pass" → 9-stage | ✅ Updated to "9-stage pipeline" | `packages/ui/src/components/marketing/FeatureBlocks.tsx` |
 | "Epistemic scoring" in feature copy | ✅ Changed to "confidence scoring" | `packages/ui/src/components/marketing/FeatureBlocks.tsx` |
-| Dashboard Starter 3-project hardcode | ✅ Removed (Starter = Pro) | `src/codrag/dashboard/src/App.tsx` |
+| Dashboard Starter 3-project hardcode | ✅ Removed (Starter = Pro) | `src/prep/dashboard/src/App.tsx` |
 
 ---
 
 ## 4. Resolved Answers to Strategic Questions
 
 1. **Ollama messaging**: Keep Ollama prominent. It's essential for enrichment LLMs (3b + 14b). BYOK cloud is the alternative. Running without LLMs is possible but not recommended.
-2. **Dashboard vs IDE**: Lead with MCP/IDE. Users type "codrag" in their editor chat. The dashboard is a configuration backend, not the primary workflow.
+2. **Dashboard vs IDE**: Lead with MCP/IDE. Users type "prep" in their editor chat. The dashboard is a configuration backend, not the primary workflow.
 3. **Atlas Routing**: Use "Smarter Context" as the headline. Use "pre-retrieval routing" in technical details.
 4. **Academic terminology**: Needs its own research sprint (added to `MASTER_TODO.md`). Keep academic language but ensure it's not impenetrable.
 5. **Path Weights**: Headline feature — "makes the app look very sophisticated".

@@ -1,6 +1,6 @@
-# Repo Discovery & Retrieval Policy (CoDRAG)
+# Repo Discovery & Retrieval Policy (Prep)
 
-CoDRAG should work on unknown repositories without assuming any particular folder structure (e.g. “Phase docs”).
+Prep should work on unknown repositories without assuming any particular folder structure (e.g. “Phase docs”).
 
 This document defines a **deterministic repo discovery step** that:
 
@@ -36,7 +36,7 @@ A “generated script” is hard to trust because it is:
 - hard to audit (codegen can embed subtle mistakes)
 - hard to incrementally maintain (script changes become another artifact)
 
-Instead, CoDRAG should have a stable engine and generate a **policy/config** per repo:
+Instead, Prep should have a stable engine and generate a **policy/config** per repo:
 
 - reproducible
 - diffable

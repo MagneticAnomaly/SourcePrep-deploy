@@ -7,7 +7,7 @@
 
 ## Current State (v1 Pipeline)
 
-The existing `TraceAugmenter` in `src/codrag/core/augmenter.py` implements a **two-step single-pass** pipeline:
+The existing `TraceAugmenter` in `src/prep/core/augmenter.py` implements a **two-step single-pass** pipeline:
 
 1. **Symbol augmentation**: For each `kind=symbol` node, sends source snippet + imports to 3b → gets `{summary, role, confidence}`
 2. **File augmentation**: For each `kind=file` node, sends first 30 lines + symbol names + imports to 3b → gets `{summary, role, confidence, key_exports}`
@@ -342,11 +342,11 @@ Produce a JSON module synthesis:
 5. **Manual trigger**: User requests "deep analysis" → all nodes enter queue regardless of score
 
 **Self-referential context**:
-In Pass 4+, the enrichment prompt can include a **CoDRAG context query**:
+In Pass 4+, the enrichment prompt can include a **Prep context query**:
 
 ```python
 # Inside EpistemicEnricher.enrich_node_deep():
-context = codrag_context_api.get_context(
+context = prep_context_api.get_context(
     query=f"What is the purpose and architecture of {node.subsystem}?",
     k=10, max_chars=4000
 )

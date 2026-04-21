@@ -8,7 +8,7 @@ def _make_server(client_name="unknown"):
     s._client_name = client_name
     s._client_version = ""
     s._initialize_roots = []
-    s._codrag_called = False
+    s._prep_called = False
     s._rules_atlas_hash_cache = {}
     return s
 

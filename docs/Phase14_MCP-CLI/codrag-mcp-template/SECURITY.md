@@ -5,7 +5,7 @@
 Please do not file public GitHub issues for security vulnerabilities.
 
 Report security issues by email:
-- `security@codrag.io`
+- `security@runprep.io`
 
 Include:
 - a description of the issue

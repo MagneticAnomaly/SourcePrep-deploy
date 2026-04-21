@@ -11,12 +11,12 @@ Decisions needed before the marketing site can ship. Each section includes conte
 **Options:**
 | Option | Pros | Cons |
 |---|---|---|
-| **MDX in marketing site** (recommended) | Full SEO ownership at codrag.io/blog, zero extra cost, version-controlled posts, same design system | Need to add `@next/mdx` or `contentlayer` to the marketing app |
+| **MDX in marketing site** (recommended) | Full SEO ownership at runprep.io/blog, zero extra cost, version-controlled posts, same design system | Need to add `@next/mdx` or `contentlayer` to the marketing app |
 | **Medium** | Easy to start, built-in audience | Lose SEO, no custom domain (without paid partnership), looks less professional for dev tools |
 | **Ghost (hosted)** | Own your content, newsletters built in, custom domain | Monthly cost ($9–31/mo), separate system to maintain |
 | **Hashnode** | Custom domain, developer audience, free | Less control over design, another platform to manage |
 
-**Recommendation:** MDX in the marketing site + cross-post to **Dev.to** and **Hashnode** (both support canonical URLs back to codrag.io so you keep SEO value). This is what most successful dev tools do (Vercel, Supabase, Linear).
+**Recommendation:** MDX in the marketing site + cross-post to **Dev.to** and **Hashnode** (both support canonical URLs back to runprep.io so you keep SEO value). This is what most successful dev tools do (Vercel, Supabase, Linear).
 
 **Action needed:** Decide yes/no on MDX. If yes, add `@next/mdx` to the marketing app.
 
@@ -46,7 +46,7 @@ Decisions needed before the marketing site can ship. Each section includes conte
 | Platform | Priority | Notes |
 |---|---|---|
 | **GitHub** | Must-have | Already exists |
-| **Twitter/X** | Must-have | @codrag or @codrag_io — needed for developer credibility |
+| **Twitter/X** | Must-have | @prep or @prep_io — needed for developer credibility |
 | **LinkedIn** | Nice-to-have | Company page, useful for enterprise credibility |
 | **Dev.to** | Nice-to-have | Cross-post blog content |
 | **YouTube** | Later | Demo videos, tutorials — high effort, high reward |
@@ -59,7 +59,7 @@ Decisions needed before the marketing site can ship. Each section includes conte
 
 **Question:** Do the Privacy Policy and Terms of Service need legal review before launch?
 
-**Context:** The current drafts are reasonable templates based on standard SaaS/desktop software terms. They accurately reflect CoDRAG's local-first architecture and Lemon Squeezy payment processing.
+**Context:** The current drafts are reasonable templates based on standard SaaS/desktop software terms. They accurately reflect Prep's local-first architecture and Lemon Squeezy payment processing.
 
 **Recommendation:** Have a lawyer review both before public launch. Budget ~$500–1500 for a startup-focused tech lawyer to review and redline. Services like Clerky or a solo tech attorney can do this quickly.
 
@@ -69,9 +69,9 @@ Decisions needed before the marketing site can ship. Each section includes conte
 
 ## 5. Company Entity
 
-**Question:** Is "CoDRAG Inc." the correct legal entity name?
+**Question:** Is "Prep Inc." the correct legal entity name?
 
-**Context:** The Terms and Privacy Policy reference "CoDRAG Inc." — this should match whatever entity is (or will be) registered and used for Lemon Squeezy merchant of record setup.
+**Context:** The Terms and Privacy Policy reference "Prep Inc." — this should match whatever entity is (or will be) registered and used for Lemon Squeezy merchant of record setup.
 
 **Action needed:** Confirm entity name or update placeholder.
 
@@ -81,7 +81,7 @@ Decisions needed before the marketing site can ship. Each section includes conte
 
 **Question:** Should the careers page show real open positions or stay as aspirational placeholders?
 
-**Current state:** Three template positions (Rust Engineer, Full-Stack Engineer, Developer Advocate) with `careers@codrag.io` as the apply link.
+**Current state:** Three template positions (Rust Engineer, Full-Stack Engineer, Developer Advocate) with `careers@runprep.io` as the apply link.
 
 **Recommendation:** Keep as-is for launch — it signals ambition and professionalism. Remove or update if you start getting actual applicants you can't respond to. Consider adding "We're not actively hiring yet, but..." disclaimer if desired.
 
@@ -110,11 +110,11 @@ Decisions needed before the marketing site can ship. Each section includes conte
 
 | Domain | Purpose | Status |
 |---|---|---|
-| `codrag.io` | Marketing site | ? |
-| `docs.codrag.io` | Documentation | ? |
-| `payments.codrag.io` | Payment / licensing portal | ? |
-| `api.codrag.io` | License activation API | ? |
-| `blog.codrag.io` | Blog (only if not using /blog path) | Not needed if MDX |
+| `runprep.io` | Marketing site | ? |
+| `docs.runprep.io` | Documentation | ? |
+| `payments.runprep.io` | Payment / licensing portal | ? |
+| `api.runprep.io` | License activation API | ? |
+| `blog.runprep.io` | Blog (only if not using /blog path) | Not needed if MDX |
 
 **Action needed:** Verify DNS records exist for all required subdomains.
 
@@ -141,13 +141,13 @@ This is referenced in the Privacy Policy as "privacy-respecting analytics (no co
 
 | Address | Purpose |
 |---|---|
-| `hello@codrag.io` | General contact |
-| `support@codrag.io` | Support tickets |
-| `billing@codrag.io` | Payment/licensing questions |
-| `security@codrag.io` | Responsible disclosure |
-| `privacy@codrag.io` | Privacy/data requests |
-| `careers@codrag.io` | Job applications |
-| `legal@codrag.io` | Legal inquiries |
+| `hello@runprep.io` | General contact |
+| `support@runprep.io` | Support tickets |
+| `billing@runprep.io` | Payment/licensing questions |
+| `security@runprep.io` | Responsible disclosure |
+| `privacy@runprep.io` | Privacy/data requests |
+| `careers@runprep.io` | Job applications |
+| `legal@runprep.io` | Legal inquiries |
 
 **Recommendation:** Use a catch-all for now (all go to one inbox), then split as volume grows. Google Workspace ($6/user/mo) or Fastmail ($5/user/mo) both work.
 

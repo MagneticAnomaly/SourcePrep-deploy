@@ -1,10 +1,10 @@
 # Phase 19 — Alternative Development Workflows Research Framework
 
 ## Overview
-CoDRAG currently integrates with Cursor, Windsurf, VS Code, and Claude Desktop via MCP. This research explores expanding to additional development tools and workflows, focusing on local-first, AI-assisted coding environments.
+Prep currently integrates with Cursor, Windsurf, VS Code, and Claude Desktop via MCP. This research explores expanding to additional development tools and workflows, focusing on local-first, AI-assisted coding environments.
 
 ## Research Objectives
-1. **Integration Feasibility**: Can we build CoDRAG plugins/extensions for these tools?
+1. **Integration Feasibility**: Can we build Prep plugins/extensions for these tools?
 2. **Marketing Viability**: Can we offer verified integrations on the marketing website?
 3. **User Adoption**: What is the potential user base and adoption rate?
 4. **Development Effort**: How much work would each integration require?
@@ -14,13 +14,13 @@ CoDRAG currently integrates with Cursor, Windsurf, VS Code, and Claude Desktop v
 ### Technical Integration
 - **MCP Support**: Does the tool support MCP (Model Context Protocol)?
 - **Plugin Architecture**: What APIs/extensions does the tool provide?
-- **Local Compatibility**: Does it align with CoDRAG's local-first philosophy?
-- **Daemon Integration**: Can it connect to CoDRAG daemon via HTTP/MCP?
+- **Local Compatibility**: Does it align with Prep's local-first philosophy?
+- **Daemon Integration**: Can it connect to Prep daemon via HTTP/MCP?
 
 ### Product Fit
 - **User Base Size**: How many potential users?
 - **Feature Overlap**: How does it complement existing integrations?
-- **Value Proposition**: What unique benefits does CoDRAG add?
+- **Value Proposition**: What unique benefits does Prep add?
 - **Competition**: What other context tools work with this tool?
 
 ### Development Considerations
@@ -31,7 +31,7 @@ CoDRAG currently integrates with Cursor, Windsurf, VS Code, and Claude Desktop v
 
 ### Business/Marketing
 - **Pricing Impact**: Does this open new tiers or pricing strategies?
-- **Brand Alignment**: Fits CoDRAG's positioning (local-first, structural context)
+- **Brand Alignment**: Fits Prep's positioning (local-first, structural context)
 - **Marketing Copy**: How to describe this integration
 - **Competitive Advantage**: Does this differentiate from alternatives?
 

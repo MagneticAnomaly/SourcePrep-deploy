@@ -1,4 +1,4 @@
-# CoDRAG Component & Design Audit
+# Prep Component & Design Audit
 
 This document serves as a comprehensive design audit, mapping CLI capabilities to UI components and analyzing the UX requirements for each. The goal is to define a "canonical list of functional dashboard components" and ensure every UI element is purposeful, usable, and aesthetically sound.
 
@@ -20,7 +20,7 @@ For each component, we ask:
 ## 1. System & Connectivity
 
 ### 1.1 Daemon Status (Health Check)
-*   **CLI Equivalent**: `codrag serve` (health check part), `_is_server_available`
+*   **CLI Equivalent**: `prep serve` (health check part), `_is_server_available`
 *   **Current UI**: `IndexStatusCard` (partial), `App.tsx` connection logic.
 *   **Audit**:
     *   *UI*: Currently a subtle indicator or error screen.
@@ -36,7 +36,7 @@ For each component, we ask:
 ## 2. Project Management
 
 ### 2.1 Project List & Selection
-*   **CLI Equivalent**: `codrag list`, `codrag add`
+*   **CLI Equivalent**: `prep list`, `prep add`
 *   **Current UI**: `Sidebar` project list, `AddProjectModal`.
 *   **Audit**:
     *   *UI*: Sidebar list of items.
@@ -49,7 +49,7 @@ For each component, we ask:
     *   *Semantics*: "Path" is technical but necessary for local-first tools.
 
 ### 2.2 Project Status Overview
-*   **CLI Equivalent**: `codrag status`, `codrag overview`
+*   **CLI Equivalent**: `prep status`, `prep overview`
 *   **Current UI**: `IndexStatusCard`, `TraceStatusCard`.
 *   **Audit**:
     *   *UI*: Cards in a grid (Dashboard).
@@ -61,7 +61,7 @@ For each component, we ask:
     *   *Semantics*: "Embeddings Index" vs "Trace Index" is core jargon, keep but explain via tooltips.
 
 ### 2.3 File Tree & Coverage
-*   **CLI Equivalent**: `codrag coverage`
+*   **CLI Equivalent**: `prep coverage`
 *   **Current UI**: `FolderTree` in Roots panel.
 *   **Audit**:
     *   *UI*: Tree view with checkboxes/icons.
@@ -69,14 +69,14 @@ For each component, we ask:
     *   *UX*:
         *   **Resizable?**: Yes, vertical and horizontal.
         *   **Detail View**: Selecting a file should show its "Chunk" status or raw content?
-        *   **Semantics**: "Core Roots" vs "Working Roots" is a unique CoDRAG concept. Needs "Info" button explaining: "Core = Always indexed, Working = Temporary task context".
+        *   **Semantics**: "Core Roots" vs "Working Roots" is a unique Prep concept. Needs "Info" button explaining: "Core = Always indexed, Working = Temporary task context".
 
 ---
 
 ## 3. Core Operations (The Loop)
 
 ### 3.1 Build & Indexing
-*   **CLI Equivalent**: `codrag build`
+*   **CLI Equivalent**: `prep build`
 *   **Current UI**: `BuildCard`
 *   **Audit**:
     *   *UI*: Card with "Rebuild" button and progress.
@@ -87,7 +87,7 @@ For each component, we ask:
     *   *Semantics*: "Full Rebuild" vs "Incremental".
 
 ### 3.2 Semantic Search
-*   **CLI Equivalent**: `codrag search`
+*   **CLI Equivalent**: `prep search`
 *   **Current UI**: `SearchPanel`, `SearchResultsList`.
 *   **Audit**:
     *   *UI*: Input field + List of results.
@@ -100,7 +100,7 @@ For each component, we ask:
     *   *Semantics*: "Score 0.781" is meaningless to most. Translate to "High/Medium/Low" relevance visual cues?
 
 ### 3.3 Context Assembly
-*   **CLI Equivalent**: `codrag context`
+*   **CLI Equivalent**: `prep context`
 *   **Current UI**: `ContextOptionsPanel`, `ContextOutput`.
 *   **Audit**:
     *   *UI*: Configuration form + Large text area.
@@ -115,7 +115,7 @@ For each component, we ask:
 ## 4. Visualizations
 
 ### 4.1 Activity Heatmap
-*   **CLI Equivalent**: `codrag activity`
+*   **CLI Equivalent**: `prep activity`
 *   **Current UI**: `ActivityHeatmap` (implemented in viz lib).
 *   **Audit**:
     *   *UI*: GitHub-style commit graph.
@@ -127,7 +127,7 @@ For each component, we ask:
 ## 5. Configuration & Integrations
 
 ### 5.1 MCP Integration
-*   **CLI Equivalent**: `codrag mcp`, `codrag mcp-config`
+*   **CLI Equivalent**: `prep mcp`, `prep mcp-config`
 *   **Current UI**: `Settings` panel details.
 *   **Audit**:
     *   *UI*: Config generator / Status.
@@ -136,7 +136,7 @@ For each component, we ask:
     *   *Semantics*: "MCP" is an acronym. "IDE Connection" might be friendlier?
 
 ### 5.2 Settings (Globs & Models)
-*   **CLI Equivalent**: `codrag config`
+*   **CLI Equivalent**: `prep config`
 *   **Current UI**: `ProjectSettingsPanel`, `AIModelsSettings`.
 *   **Audit**:
     *   *UI*: Form fields.

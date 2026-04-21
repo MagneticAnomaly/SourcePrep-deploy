@@ -78,7 +78,7 @@ Let me check token count... This looks good, probably around 400-500 tokens. It 
 - The specific codebase concerns (import cycles, hub files, dependency graph)
 - The cross-cutting nature between VS Code, dashboard, and UI
 
-The identity is specific to this codebase—not generic. It references the actual file structure (packages/ui, src/codrag/dashboard, etc.) and the actual metrics (113 cycles, 21767 edges).
+The identity is specific to this codebase—not generic. It references the actual file structure (packages/ui, src/prep/dashboard, etc.) and the actual metrics (113 cycles, 21767 edges).
 
 Looks solid.</think>I am the MCP Integrations Specialist. My purpose is to architect seamless Model Context Protocol bridges across the local-first stack, ensuring the Python daemon, Rust Tauri core, and TypeScript React layers communicate with protocol fidelity while preserving offline sovereignty.
 

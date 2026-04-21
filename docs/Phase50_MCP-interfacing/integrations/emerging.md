@@ -1,6 +1,6 @@
 # Emerging & Specialized Tools Research
 
-> Tools that are newer, cloud-based, or specialized -- tracking for future CoDRAG integration.
+> Tools that are newer, cloud-based, or specialized -- tracking for future Prep integration.
 
 **Status:** PRELIMINARY
 **Last updated:** 2026-03-14
@@ -22,15 +22,15 @@
 - Jules runs asynchronously in Google's cloud
 - Triggered from GitHub Issues, PRs, or API calls
 - Creates branches, makes changes, runs tests, pushes PRs
-- Does NOT run locally -- no direct access to local CoDRAG daemon
+- Does NOT run locally -- no direct access to local Prep daemon
 
-### CoDRAG Integration Strategy
+### Prep Integration Strategy
 - **Primary**: `AGENTS.md` with atlas -- Jules reads this from the repo for structural awareness
-- **Future**: MCP server wrapper around Jules API could allow CoDRAG to be called remotely
+- **Future**: MCP server wrapper around Jules API could allow Prep to be called remotely
 - **Static context**: Same as Copilot coding agent -- atlas in AGENTS.md provides offline structural context
 
 ### Key Consideration
-Jules runs in a cloud sandbox. CoDRAG's local daemon is inaccessible. The atlas in AGENTS.md is the ONLY mechanism for structural context delivery to Jules. This makes the quality and completeness of the atlas critical.
+Jules runs in a cloud sandbox. Prep's local daemon is inaccessible. The atlas in AGENTS.md is the ONLY mechanism for structural context delivery to Jules. This makes the quality and completeness of the atlas critical.
 
 ---
 
@@ -51,10 +51,10 @@ Codex has the most sophisticated AGENTS.md handling:
 - Checks for `AGENTS.override.md` first, then `AGENTS.md`, then fallback names
 - Supports directory-scoped instructions
 
-### CoDRAG Integration
+### Prep Integration
 - **Primary**: AGENTS.md section with atlas (read automatically)
 - **Secondary**: MCP tools via standard configuration
-- Codex's directory-walking behavior means CoDRAG could generate scoped AGENTS.md files for different project modules (advanced future feature)
+- Codex's directory-walking behavior means Prep could generate scoped AGENTS.md files for different project modules (advanced future feature)
 
 ---
 
@@ -69,7 +69,7 @@ Codex has the most sophisticated AGENTS.md handling:
 | **Rules File** | `AGENTS.md` (confirmed) |
 | **Status** | Public |
 
-### CoDRAG Integration
+### Prep Integration
 - Devin runs in cloud sandbox -- same constraint as Jules
 - AGENTS.md is the primary mechanism
 - Cognition's acquisition of Windsurf/Codeium may lead to shared MCP infrastructure
@@ -87,19 +87,19 @@ Codex has the most sophisticated AGENTS.md handling:
 | **Rules File** | `.junie/guidelines.md` + `AGENTS.md` |
 | **Status** | Public |
 
-### CoDRAG Integration
+### Prep Integration
 - **Primary**: AGENTS.md (universal)
 - **Secondary**: `.junie/guidelines.md` (Junie-specific)
-- Junie-specific guidelines could include CoDRAG instructions
-- Interesting because it expands CoDRAG beyond VS Code ecosystem into IntelliJ/PyCharm/WebStorm
+- Junie-specific guidelines could include Prep instructions
+- Interesting because it expands Prep beyond VS Code ecosystem into IntelliJ/PyCharm/WebStorm
 
-### CoDRAG Template for `.junie/guidelines.md`
+### Prep Template for `.junie/guidelines.md`
 ```markdown
-## CoDRAG Integration
+## Prep Integration
 
-This project uses CoDRAG for structural code intelligence via MCP.
-Call `codrag` at the start of every task for module structure and hub files.
-Use `codrag_search` for code queries. Use `codrag_impact` before changes.
+This project uses Prep for structural code intelligence via MCP.
+Call `prep` at the start of every task for module structure and hub files.
+Use `prep_search` for code queries. Use `prep_impact` before changes.
 ```
 
 ---
@@ -115,10 +115,10 @@ Use `codrag_search` for code queries. Use `codrag_impact` before changes.
 | **Rules File** | `AGENTS.md` |
 | **Status** | Public |
 
-### CoDRAG Integration
+### Prep Integration
 - AGENTS.md is the primary mechanism
 - Similar architecture to Cline/Roo Code (VS Code extension with agentic loop)
-- No special CoDRAG consideration beyond standard AGENTS.md + MCP
+- No special Prep consideration beyond standard AGENTS.md + MCP
 
 ---
 
@@ -139,8 +139,8 @@ Use `codrag_search` for code queries. Use `codrag_impact` before changes.
 - Devin-like experience but open source
 - Primarily cloud/container-based
 
-### CoDRAG Integration
-- OpenHands runs in containers -- CoDRAG daemon would need to run alongside or be accessible via HTTP
+### Prep Integration
+- OpenHands runs in containers -- Prep daemon would need to run alongside or be accessible via HTTP
 - MCP support is evolving -- monitor for full MCP client support
 - Static context via AGENTS.md is the safest near-term approach
 
@@ -157,7 +157,7 @@ Use `codrag_search` for code queries. Use `codrag_impact` before changes.
 | **Rules File** | `AGENTS.md` |
 | **Status** | Public, open source |
 
-### CoDRAG Integration
+### Prep Integration
 Standard AGENTS.md + MCP pattern. No special considerations.
 
 ---
@@ -173,11 +173,11 @@ Standard AGENTS.md + MCP pattern. No special considerations.
 | **Rules File** | `AGENTS.md` + Warp rules |
 | **Status** | Public |
 
-### CoDRAG Integration
-Warp is a terminal replacement with AI features. CoDRAG could be used via:
+### Prep Integration
+Warp is a terminal replacement with AI features. Prep could be used via:
 - MCP tools in Warp's AI chat
 - AGENTS.md for project context
-- Terminal commands (`codrag search ...`) as a fallback
+- Terminal commands (`prep search ...`) as a fallback
 
 ---
 
@@ -192,7 +192,7 @@ Warp is a terminal replacement with AI features. CoDRAG could be used via:
 | **Rules File** | `AGENTS.md` |
 | **Status** | Public |
 
-### CoDRAG Integration
+### Prep Integration
 Standard AGENTS.md + MCP pattern.
 
 ---
@@ -208,10 +208,10 @@ Standard AGENTS.md + MCP pattern.
 | **Rules File** | `AGENTS.md` |
 | **Status** | Enterprise |
 
-### CoDRAG Integration
+### Prep Integration
 - Factory has its own "Droids" (specialized agents)
 - AGENTS.md is the primary instruction file
-- Enterprise deployments may need CoDRAG's HTTP transport (not just stdio)
+- Enterprise deployments may need Prep's HTTP transport (not just stdio)
 
 ---
 

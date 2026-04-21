@@ -1,13 +1,13 @@
 # HR Agent — Architecture Alignment Audit: Primary vs. Agent Use Cases
 
 > **Phase 67 Research** | Date: 2026-04-01
-> Ensuring the HR Agent subsystem strengthens — not compromises — CoDRAG's primary purpose as a universal MCP context server for AI IDEs and CLI assistants.
+> Ensuring the HR Agent subsystem strengthens — not compromises — Prep's primary purpose as a universal MCP context server for AI IDEs and CLI assistants.
 
 ---
 
-## 1. CoDRAG's Identity Hierarchy
+## 1. Prep's Identity Hierarchy
 
-CoDRAG serves two audiences in this priority order:
+Prep serves two audiences in this priority order:
 
 ```
 PRIORITY 1 (Primary):  AI IDE / CLI User
@@ -33,21 +33,21 @@ Everything we build for agents must **flow downhill to the primary use case**. I
 |-----------|-----------------|--------|---------|
 | `RoleSpec` dataclass | ❌ New module, no existing code modified | None | ✅ Safe |
 | Paperclip adapter | ❌ New module, no existing code modified | None | ✅ Safe |
-| `codrag hr` CLI commands | ❌ New subcommand group, existing CLI untouched | None | ✅ Safe |
+| `prep hr` CLI commands | ❌ New subcommand group, existing CLI untouched | None | ✅ Safe |
 | Dashboard HR panel | ❌ New panel, existing panels untouched | None | ✅ Safe |
 | Epistemic readiness scoring | ⚠️ Reads from `trace_epistemic.jsonl`, same files as MCP tools | **Read-only**. No writes, no locks. | ✅ Safe |
 | KNOWLEDGE.md generation | ❌ New file generation, no existing paths | None | ✅ Safe |
 | Auto-Populate | ⚠️ Uses the same embedding store + Thinking LLM | Read-only on embeddings. LLM call is a new scope. | ✅ Safe |
 | Role Atlas caching | ✅ **Already exists** from Phase 64 | We're just consuming it, not changing it | ✅ Existing |
-| `role` param on `codrag`/`codrag_search` | ✅ **Already exists** in Phase 67 | Already shipped. HR reads these results. | ✅ Existing |
+| `role` param on `prep`/`prep_search` | ✅ **Already exists** in Phase 67 | Already shipped. HR reads these results. | ✅ Existing |
 
-**Verdict: The HR Agent subsystem is architecturally isolated.** It lives in a new `src/codrag/services/hr_adapter/` module, new CLI subcommands, new API endpoints, and a new dashboard panel. It **reads** from existing CoDRAG data stores (embeddings, epistemic, atlas) but **never writes** to them.
+**Verdict: The HR Agent subsystem is architecturally isolated.** It lives in a new `src/prep/services/hr_adapter/` module, new CLI subcommands, new API endpoints, and a new dashboard panel. It **reads** from existing Prep data stores (embeddings, epistemic, atlas) but **never writes** to them.
 
 ### 2.2 No Shared Mutable State
 
 ```
 ┌──────────────────────────────────────────────┐
-│                  CoDRAG Core                  │
+│                  Prep Core                  │
 │                                               │
 │  Pipeline ──► trace_nodes.jsonl               │
 │           ──► trace_edges.jsonl               │    READ ONLY
@@ -77,7 +77,7 @@ Everything we build for agents must **flow downhill to the primary use case**. I
 └──────────────────────────────────────────────┘
 ```
 
-**The HR Adapter is a pure consumer of CoDRAG's knowledge.** It adds no load, no locks, no mutations to the primary pipeline.
+**The HR Adapter is a pure consumer of Prep's knowledge.** It adds no load, no locks, no mutations to the primary pipeline.
 
 ---
 
@@ -89,15 +89,15 @@ This is where it gets interesting. Several features we're building for agents ar
 
 **What we built for agents:**
 ```
-codrag(role="cto")           → CTO-weighted atlas
-codrag_search(role="cto")    → Search scoped to CTO's files
+prep(role="cto")           → CTO-weighted atlas
+prep_search(role="cto")    → Search scoped to CTO's files
 ```
 
 **What this gives IDE users FOR FREE:**
 ```
-codrag(role="security")      → Security-focused atlas for a security review
-codrag(role="intern")        → Simplified high-level view for onboarding
-codrag_search(role="design") → Only UI/component files when working on design
+prep(role="security")      → Security-focused atlas for a security review
+prep(role="intern")        → Simplified high-level view for onboarding
+prep_search(role="design") → Only UI/component files when working on design
 ```
 
 A developer working in Cursor can type `role="security"` even though they're not a Paperclip agent. The role parameter is already universal — it was designed this way in Phase 64.
@@ -118,7 +118,7 @@ def compute_hr_readiness(project_id) -> HRReadiness:
     }
 ```
 
-**What this gives IDE users:** A **"codebase intelligence readiness"** indicator on the dashboard. "CoDRAG is 85% ready to give you great context. Run the deep enrichment pipeline to improve." This helps everyday users understand whether CoDRAG has enough data to be useful, not just HR agents.
+**What this gives IDE users:** A **"codebase intelligence readiness"** indicator on the dashboard. "Prep is 85% ready to give you great context. Run the deep enrichment pipeline to improve." This helps everyday users understand whether Prep has enough data to be useful, not just HR agents.
 
 **Opportunity:** Surface the readiness score in the main dashboard panel, not just the HR panel.
 
@@ -127,7 +127,7 @@ def compute_hr_readiness(project_id) -> HRReadiness:
 **What we built for agents:**
 The Auto-Populate endpoint uses the Thinking LLM to select optimal files for a given role.
 
-**What this gives IDE users:** A **"Focus Scope"** feature. "I'm working on authentication. Show me the most relevant files for auth work." Instead of the user manually checking boxes in the knowledge tree, CoDRAG auto-selects based on a natural-language description.
+**What this gives IDE users:** A **"Focus Scope"** feature. "I'm working on authentication. Show me the most relevant files for auth work." Instead of the user manually checking boxes in the knowledge tree, Prep auto-selects based on a natural-language description.
 
 **Opportunity:** Abstract auto-populate into a general "scope suggestion" feature:
 ```
@@ -143,13 +143,13 @@ POST /projects/{pid}/scope/suggest?focus="frontend redesign"
 
 **What we built for agents:** Drift detection compares role fitness scores across pipeline builds. When fitness drops, the agent's instructions may be stale.
 
-**What this gives IDE users:** **"Your context may be stale"** warnings. If the user has been using `codrag(role="security")` for a week and the security module has changed significantly, CoDRAG can proactively show a notification: "The security module has changed since your last audit — consider re-running `codrag(role='security')` for updated context."
+**What this gives IDE users:** **"Your context may be stale"** warnings. If the user has been using `prep(role="security")` for a week and the security module has changed significantly, Prep can proactively show a notification: "The security module has changed since your last audit — consider re-running `prep(role='security')` for updated context."
 
 ### 3.5 KNOWLEDGE.md → MCP Instructions for Any AI
 
-**What we built for agents:** KNOWLEDGE.md teaches an agent how to call CoDRAG's MCP tools effectively.
+**What we built for agents:** KNOWLEDGE.md teaches an agent how to call Prep's MCP tools effectively.
 
-**What this gives IDE users:** The same best-practice instructions can be emitted as **`codrag.md` rules files** (already a feature). The CoDRAG rules file (.cursorrules or AGENTS.md equivalent) already injects MCP tool instructions into AI system prompts.
+**What this gives IDE users:** The same best-practice instructions can be emitted as **`prep.md` rules files** (already a feature). The Prep rules file (.cursorrules or AGENTS.md equivalent) already injects MCP tool instructions into AI system prompts.
 
 **Opportunity confirmation:** KNOWLEDGE.md's tool-usage instructions are a specialized version of what the rules file already does. They should share a common generation template.
 
@@ -159,7 +159,7 @@ POST /projects/{pid}/scope/suggest?focus="frontend redesign"
 
 ### 4.1 Do NOT Add Agent-Only Parameters to Core Tools
 
-❌ **Bad:** Adding `agent_id`, `org_chart`, or `workforce` parameters to `codrag` or `codrag_search`
+❌ **Bad:** Adding `agent_id`, `org_chart`, or `workforce` parameters to `prep` or `prep_search`
 ✅ **Good:** The `role` parameter is already universal and sufficient
 
 ### 4.2 Do NOT Gate Core Features Behind Paperclip
@@ -169,14 +169,14 @@ POST /projects/{pid}/scope/suggest?focus="frontend redesign"
 
 ### 4.3 Do NOT Pollute the MCP Tool List
 
-❌ **Bad:** Adding `codrag_hr_generate`, `codrag_hr_audit` as MCP tools available to every IDE user
-✅ **Good:** HR tools are CLI-only (`codrag hr generate`) and API-only (`POST /hr/generate`). The 5 core MCP tools stay clean for IDE users.
+❌ **Bad:** Adding `prep_hr_generate`, `prep_hr_audit` as MCP tools available to every IDE user
+✅ **Good:** HR tools are CLI-only (`prep hr generate`) and API-only (`POST /hr/generate`). The 5 core MCP tools stay clean for IDE users.
 
-**Exception:** Later, once the system is proven, we _may_ add a `codrag_hr` MCP tool for autonomous agents to self-manage their org chart. But that's a Phase 68+ feature, not Phase 67.
+**Exception:** Later, once the system is proven, we _may_ add a `prep_hr` MCP tool for autonomous agents to self-manage their org chart. But that's a Phase 68+ feature, not Phase 67.
 
 ### 4.4 Do NOT Increase MCP Response Latency
 
-❌ **Bad:** Adding HR-related processing to the `codrag()` or `codrag_search()` hot path
+❌ **Bad:** Adding HR-related processing to the `prep()` or `prep_search()` hot path
 ✅ **Good:** HR operations (generate, audit, sync) are background operations triggered by the user or on a schedule. They never touch the MCP tool response path.
 
 ---
@@ -185,7 +185,7 @@ POST /projects/{pid}/scope/suggest?focus="frontend redesign"
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     CoDRAG Platform                          │
+│                     Prep Platform                          │
 │                                                              │
 │  ┌─────────────────────┐   ┌──────────────────────────┐     │
 │  │   Pipeline Engine    │   │    Knowledge Stores       │     │
@@ -218,11 +218,11 @@ POST /projects/{pid}/scope/suggest?focus="frontend redesign"
       │ Any MCP IDE   │ │ │ KnowScope │ │  │ Adopt       │
       │               │ │ └────────────┘ │  │             │
       │ Uses:         │ │ ┌────────────┐ │  │ Uses:       │
-      │ codrag()      │ │ │  HR Panel  │ │  │ Same data   │
-      │ codrag_search │ │ │  (NEW)     │ │  │ as primary  │
-      │ codrag_impact │ │ │ Agent list │ │  │ + writes:   │
-      │ codrag_audit  │ │ │ Drift view │ │  │ AGENTS.md   │
-      │ codrag_observe│ │ │ Sync btn   │ │  │ SOUL.md     │
+      │ prep()      │ │ │  HR Panel  │ │  │ Same data   │
+      │ prep_search │ │ │  (NEW)     │ │  │ as primary  │
+      │ prep_impact │ │ │ Agent list │ │  │ + writes:   │
+      │ prep_audit  │ │ │ Drift view │ │  │ AGENTS.md   │
+      │ prep_observe│ │ │ Sync btn   │ │  │ SOUL.md     │
       │               │ │ └────────────┘ │  │ KNOWLEDGE.md│
       │ Optional:     │ │                │  │ roster.json │
       │ role="X"      │ │                │  │             │
@@ -233,13 +233,13 @@ POST /projects/{pid}/scope/suggest?focus="frontend redesign"
 
 | Capability | Primary IDE User | Agent Worker |
 |-----------|-----------------|--------------|
-| Structural overview | `codrag()` | `codrag(role="cto")` |
-| Code search | `codrag_search(query="auth")` | `codrag_search(query="auth", role="cto")` |
-| Impact analysis | `codrag_impact(file="...")` | `codrag_impact(file="...")` |
-| Session memory | `codrag_observe(save/get)` | `codrag_observe(save/get)` |
-| Health audit | `codrag_audit()` | `codrag_audit()` |
+| Structural overview | `prep()` | `prep(role="cto")` |
+| Code search | `prep_search(query="auth")` | `prep_search(query="auth", role="cto")` |
+| Impact analysis | `prep_impact(file="...")` | `prep_impact(file="...")` |
+| Session memory | `prep_observe(save/get)` | `prep_observe(save/get)` |
+| Health audit | `prep_audit()` | `prep_audit()` |
 | Context scoping | Optional. `role=` or focus areas in dashboard | KNOWLEDGE.md + Knowledge Scope tree |
-| Role atlas | Optional. Any user can call `codrag(role=X)` | System-generated per agent role |
+| Role atlas | Optional. Any user can call `prep(role=X)` | System-generated per agent role |
 | Orchestrator sync | N/A | Paperclip API / file sync |
 
 **The 5 MCP tools are identical for both users.** The only difference is that agents have pre-configured `role` parameters and pre-selected knowledge scopes. Everything the HR Adapter does is configuration management on top of the same core infrastructure.
@@ -264,8 +264,8 @@ POST /projects/{pid}/scope/suggest
 
 # Returns:
 {
-  "recommended_focus_areas": ["src/codrag/api/", "src/codrag/mcp/"],
-  "recommended_paths": ["src/codrag/api/routers/projects/atlas_endpoints.py", ...],
+  "recommended_focus_areas": ["src/prep/api/", "src/prep/mcp/"],
+  "recommended_paths": ["src/prep/api/routers/projects/atlas_endpoints.py", ...],
   "confidence": 0.88
 }
 ```
@@ -283,9 +283,9 @@ This gives IDE users the same "smart file selection" that agents get, without re
 │                                                   │
 │  Based on your codebase, try these scopes:        │
 │                                                   │
-│  codrag(role="security")   — 23 relevant files    │
-│  codrag(role="frontend")   — 47 relevant files    │
-│  codrag(role="devops")     — 12 relevant files    │
+│  prep(role="security")   — 23 relevant files    │
+│  prep(role="frontend")   — 47 relevant files    │
+│  prep(role="devops")     — 12 relevant files    │
 │                                                   │
 │  These filter your context to the most relevant    │
 │  files for each focus area.                       │
@@ -301,7 +301,7 @@ This gives IDE users the same "smart file selection" that agents get, without re
 ┌─────────────────────────────────────────────────┐
 │  📊 Context Quality                              │
 │                                                   │
-│  Last codrag() call: 4,200 chars (est. 1,050 tk) │
+│  Last prep() call: 4,200 chars (est. 1,050 tk) │
 │  Coverage: 12 modules, 8 hub files                │
 │  Epistemic confidence: 0.87 avg                   │
 │                                                   │
@@ -319,7 +319,7 @@ This gives IDE users the same "smart file selection" that agents get, without re
 | **P0** | Core engine (readiness + generate) | ⚠️ Readiness score is universal | ✅ |
 | **P0** | KNOWLEDGE.md generation | ⚠️ Template shares with rules files | ✅ |
 | **P1** | Focus Scope Suggestions API | ✅ **Big win for IDE users** | ✅ (powers auto-populate) |
-| **P1** | `codrag hr generate` CLI | ❌ Agent-only | ✅ |
+| **P1** | `prep hr generate` CLI | ❌ Agent-only | ✅ |
 | **P1** | Paperclip adapter | ❌ Agent-only | ✅ |
 | **P2** | Role suggestions in dashboard | ✅ Helps IDE users discover `role=` | ✅ |
 | **P2** | Dashboard HR panel | ❌ Agent-only | ✅ |
@@ -339,11 +339,11 @@ The current 5 production MCP tools are:
 
 | # | Tool | Primary? | Agent? | Changes Needed? |
 |---|------|----------|--------|-----------------|
-| 1 | `codrag` | ✅ | ✅ (with role=) | ❌ None |
-| 2 | `codrag_search` | ✅ | ✅ (with role=) | ❌ None |
-| 3 | `codrag_impact` | ✅ | ✅ | ❌ None |
-| 4 | `codrag_audit` | ✅ | ✅ | ❌ None |
-| 5 | `codrag_observe` | ✅ | ✅ | ❌ None |
+| 1 | `prep` | ✅ | ✅ (with role=) | ❌ None |
+| 2 | `prep_search` | ✅ | ✅ (with role=) | ❌ None |
+| 3 | `prep_impact` | ✅ | ✅ | ❌ None |
+| 4 | `prep_audit` | ✅ | ✅ | ❌ None |
+| 5 | `prep_observe` | ✅ | ✅ | ❌ None |
 
 **Zero changes to the MCP tool surface.** The HR Adapter is a CLI + API + Dashboard feature that sits outside the MCP tool path entirely.
 

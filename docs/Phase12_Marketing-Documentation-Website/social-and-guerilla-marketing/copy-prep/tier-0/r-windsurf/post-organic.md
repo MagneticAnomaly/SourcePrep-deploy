@@ -12,10 +12,10 @@ I switched to Windsurf recently and love the flow, but I noticed Cascade sometim
 I realized it needed a **structural map**, not just text search.
 
 ### What I built
-I built **CoDRAG**, a local desktop app that indexes your code using Tree-sitter. It knows that `class B` inherits from `class A`, even if they're in different folders.
+I built **Prep**, a local desktop app that indexes your code using Tree-sitter. It knows that `class B` inherits from `class A`, even if they're in different folders.
 
 ### The MCP Connection
-Since Windsurf supports MCP, I hooked CoDRAG up to it. Now I can just say "Refactor the Auth logic," and CoDRAG feeds Cascade the exact dependency tree.
+Since Windsurf supports MCP, I hooked Prep up to it. Now I can just say "Refactor the Auth logic," and Prep feeds Cascade the exact dependency tree.
 
 It feels like giving the AI X-Ray vision.
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Dramatically improve the signal-to-noise ratio of CoDRAG MCP tool responses so AI agents receive targeted, relevant, compressed context instead of noisy megabyte payloads that break the protocol.
+**Goal:** Dramatically improve the signal-to-noise ratio of Prep MCP tool responses so AI agents receive targeted, relevant, compressed context instead of noisy megabyte payloads that break the protocol.
 
 **Architecture:** Three layers of improvements: (A) inject file-level meta-chunks so search can find large architectural files, (B) cap unbounded response sections and improve hub selection heuristics in the context assembly layer, (C) decompose the 243-line `_assemble_ambient_context` god-function and add chunk-level deduplication in `get_context`.
 
@@ -15,8 +15,8 @@
 **Why:** Large files like `orchestrator.py` (2,643 lines) get split into 20+ chunks, none of which embed the file's overall identity. A query for "orchestrator" doesn't match any single chunk strongly. A synthetic "chunk 0" containing the file path, top-level docstring, class/function names, and section overview creates an anchor that the embedding model can match against structural queries.
 
 **Files:**
-- Modify: `src/codrag/core/index.py:555-579` (the normal file processing loop in `build()`)
-- Modify: `src/codrag/core/chunking.py` (add `extract_file_synopsis` helper)
+- Modify: `src/prep/core/index.py:555-579` (the normal file processing loop in `build()`)
+- Modify: `src/prep/core/chunking.py` (add `extract_file_synopsis` helper)
 - Test: `tests/test_meta_chunk.py` (new)
 
 - [ ] **Step 1: Write the failing test for synopsis extraction**
@@ -28,7 +28,7 @@ Create `tests/test_meta_chunk.py`:
 from __future__ import annotations
 
 import pytest
-from codrag.core.chunking import extract_file_synopsis
+from prep.core.chunking import extract_file_synopsis
 
 
 SAMPLE_PYTHON = '''"""Pipeline orchestrator for multi-stage builds."""
@@ -112,7 +112,7 @@ Expected: FAIL with `ImportError: cannot import name 'extract_file_synopsis'`
 
 - [ ] **Step 3: Implement `extract_file_synopsis` in chunking.py**
 
-Add to end of `src/codrag/core/chunking.py`:
+Add to end of `src/prep/core/chunking.py`:
 
 ```python
 import re as _re
@@ -202,7 +202,7 @@ Add to `tests/test_meta_chunk.py`:
 
 ```python
 from unittest.mock import MagicMock, patch
-from codrag.core.index import CodeIndex
+from prep.core.index import CodeIndex
 
 
 class TestMetaChunkInBuild:
@@ -242,7 +242,7 @@ Expected: FAIL (no META_SYNOPSIS chunks exist yet)
 
 - [ ] **Step 7: Inject meta-chunk into the build loop**
 
-Modify `src/codrag/core/index.py:555-579`. After the normal chunking loop, add meta-chunk generation for files that produce multiple chunks:
+Modify `src/prep/core/index.py:555-579`. After the normal chunking loop, add meta-chunk generation for files that produce multiple chunks:
 
 ```python
 # In build(), after line 559 (chunks = chunk_code(...)):
@@ -258,7 +258,7 @@ Modify `src/codrag/core/index.py:555-579`. After the normal chunking loop, add m
             # file's identity in embedding space so structural queries
             # like "orchestrator" can find orchestrator.py.
             if len(chunks) > 1:
-                from codrag.core.chunking import extract_file_synopsis
+                from prep.core.chunking import extract_file_synopsis
                 synopsis = extract_file_synopsis(raw, rel_path)
                 meta_chunk_id = stable_file_hash(rel_path + ":meta_synopsis")
                 meta_text = self._format_chunk_for_embedding(
@@ -298,7 +298,7 @@ Expected: All PASS
 - [ ] **Step 9: Commit**
 
 ```bash
-git add tests/test_meta_chunk.py src/codrag/core/chunking.py src/codrag/core/index.py
+git add tests/test_meta_chunk.py src/prep/core/chunking.py src/prep/core/index.py
 git commit -m "feat(search): inject meta-chunk synopsis for multi-chunk files
 
 Files producing >1 chunk now get a synthetic META_SYNOPSIS chunk containing
@@ -314,7 +314,7 @@ like 'orchestrator' reliably surface orchestrator.py."
 **Why:** The `tool_context` response in `server.py` appends architecture context, concepts summary, and role atlas projections with **no character limits**. The architecture section alone can grow to 248KB when it dumps all 600+ modules. Even after the tiering fix in `architecture.py`, these sections can still grow unboundedly for large projects. Hard caps prevent any single section from blowing out the total budget.
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py:969-1005` (architecture + concepts sections in `tool_context`)
+- Modify: `src/prep/mcp/server.py:969-1005` (architecture + concepts sections in `tool_context`)
 - Test: `tests/test_mcp_budget_caps.py` (new)
 
 - [ ] **Step 1: Write the failing test**
@@ -364,10 +364,10 @@ Expected: PASS (this tests the pure function we'll extract)
 
 - [ ] **Step 3: Add `_truncate_section` to server.py and apply caps**
 
-Modify `src/codrag/mcp/server.py`. Add the helper method to `CodragMcpServer` class and apply caps in `tool_context`:
+Modify `src/prep/mcp/server.py`. Add the helper method to `PrepMcpServer` class and apply caps in `tool_context`:
 
 ```python
-    # Add as a static method on CodragMcpServer:
+    # Add as a static method on PrepMcpServer:
     @staticmethod
     def _truncate_section(text: str, max_chars: int, label: str) -> str:
         """Truncate a response section to a hard character cap."""
@@ -429,7 +429,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py tests/test_mcp_budget_caps.py
+git add src/prep/mcp/server.py tests/test_mcp_budget_caps.py
 git commit -m "feat(mcp): add hard character caps to architecture and role atlas sections
 
 Prevents unbounded response growth from architecture context (cap: 3000),
@@ -444,7 +444,7 @@ a notice so the agent knows content was trimmed."
 **Why:** Hub files are currently selected by picking the "largest chunk" per file. This is a poor heuristic — the largest chunk is often a long function body, not the most representative overview. Instead, prefer chunks that are the file's META_SYNOPSIS (from Task 1), or failing that, the first chunk (which typically contains imports + module docstring).
 
 **Files:**
-- Modify: `src/codrag/api/routers/projects/search.py:537-542` (hub chunk selection)
+- Modify: `src/prep/api/routers/projects/search.py:537-542` (hub chunk selection)
 - Test: `tests/test_hub_selection.py` (new)
 
 - [ ] **Step 1: Write the failing test**
@@ -515,7 +515,7 @@ Expected: PASS
 
 - [ ] **Step 3: Apply the heuristic to search.py**
 
-Modify `src/codrag/api/routers/projects/search.py:537-542`. Replace the `max(file_docs, ...)` line:
+Modify `src/prep/api/routers/projects/search.py:537-542`. Replace the `max(file_docs, ...)` line:
 
 ```python
     hub_chars = 0
@@ -550,12 +550,12 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/api/routers/projects/search.py tests/test_hub_selection.py
+git add src/prep/api/routers/projects/search.py tests/test_hub_selection.py
 git commit -m "feat(context): select hub chunks by structural importance, not size
 
 Hub files now prefer META_SYNOPSIS chunks (file-level overview) over the
 largest chunk. Falls back to first chunk (imports/docstring) then largest.
-This ensures hub file sections in codrag output show the file's purpose,
+This ensures hub file sections in prep output show the file's purpose,
 not a random function body."
 ```
 
@@ -566,7 +566,7 @@ not a random function body."
 **Why:** `get_context()` in `index.py` can return multiple chunks from the same file without deduplication. If two chunks from `orchestrator.py` both rank in the top-k, the agent gets 4000 chars of the same file with no diversity signal. Dedup by file path, keeping only the highest-scoring chunk per file.
 
 **Files:**
-- Modify: `src/codrag/core/index.py:1192-1226` (`get_context` method)
+- Modify: `src/prep/core/index.py:1192-1226` (`get_context` method)
 - Test: `tests/test_context_dedup.py` (new)
 
 - [ ] **Step 1: Write the failing test**
@@ -577,7 +577,7 @@ Create `tests/test_context_dedup.py`:
 """Tests for Phase 73 search result deduplication."""
 from __future__ import annotations
 
-from codrag.core.index import SearchResult
+from prep.core.index import SearchResult
 
 
 def _deduplicate_by_file(results: list[SearchResult]) -> list[SearchResult]:
@@ -624,7 +624,7 @@ Expected: PASS
 
 - [ ] **Step 3: Apply deduplication in `get_context`**
 
-Modify `src/codrag/core/index.py:1184-1190`, adding dedup after the search call:
+Modify `src/prep/core/index.py:1184-1190`, adding dedup after the search call:
 
 ```python
     def get_context(
@@ -666,7 +666,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/index.py tests/test_context_dedup.py
+git add src/prep/core/index.py tests/test_context_dedup.py
 git commit -m "feat(search): deduplicate search results by file path in get_context
 
 When multiple chunks from the same file rank in top-k, only the highest-
@@ -681,7 +681,7 @@ prevents a single large file from consuming the entire context budget."
 **Why:** When LOD extraction fails for neighbor files, the current fallback truncates to 500 chars blindly — often cutting mid-function. Better: use the file's META_SYNOPSIS chunk (from Task 1) if available, or truncate at a newline boundary.
 
 **Files:**
-- Modify: `src/codrag/api/routers/projects/search.py:606-611` (neighbor fallback in `_assemble_ambient_context`)
+- Modify: `src/prep/api/routers/projects/search.py:606-611` (neighbor fallback in `_assemble_ambient_context`)
 
 - [ ] **Step 1: Modify the neighbor fallback in search.py**
 
@@ -722,7 +722,7 @@ Expected: PASS
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/api/routers/projects/search.py
+git add src/prep/api/routers/projects/search.py
 git commit -m "feat(context): improve neighbor LOD fallback with synopsis and newline-aware truncation
 
 Neighbor files that fail LOD extraction now prefer META_SYNOPSIS chunks
@@ -737,7 +737,7 @@ boundaries to avoid mid-line artifacts."
 **Why:** The function is 243 lines (401-643) doing 5 distinct jobs: module loading, hub extraction, neighbor expansion, LOD assembly, and budget management. This makes it hard to test, modify, or reason about individual stages. Extracting focused helpers improves maintainability and testability.
 
 **Files:**
-- Modify: `src/codrag/api/routers/projects/search.py:401-643`
+- Modify: `src/prep/api/routers/projects/search.py:401-643`
 - Test: existing tests should continue to pass
 
 - [ ] **Step 1: Extract `_load_scope_modules` helper**
@@ -855,7 +855,7 @@ Expected: PASS (no behavior changes, only structural extraction)
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/api/routers/projects/search.py
+git add src/prep/api/routers/projects/search.py
 git commit -m "refactor(context): decompose _assemble_ambient_context into focused helpers
 
 Extract _load_scope_modules, _format_module_tiers, _resolve_hub_files
@@ -870,12 +870,12 @@ delegating to testable, single-responsibility helpers."
 **Why:** The existing `_fts_boosts` uses Reciprocal Rank Fusion with `rrf_weight=0.08`, giving the #1 BM25 hit only ~0.08/61 ≈ 0.0013 boost. This is far too weak to matter. For identifier-heavy queries ("MCP server", "orchestrator"), BM25 should contribute meaningfully. Tuning the RRF weight and combining with the strengthened keyword boosts creates effective hybrid search without adding new infrastructure.
 
 **Files:**
-- Modify: `src/codrag/core/index.py` (`_fts_boosts` method)
+- Modify: `src/prep/core/index.py` (`_fts_boosts` method)
 - Test: `tests/test_fts_boost_tuning.py` (new)
 
 - [ ] **Step 1: Read the current `_fts_boosts` implementation**
 
-Read `src/codrag/core/index.py` at the `_fts_boosts` method to find current RRF parameters.
+Read `src/prep/core/index.py` at the `_fts_boosts` method to find current RRF parameters.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -933,7 +933,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/index.py tests/test_fts_boost_tuning.py
+git add src/prep/core/index.py tests/test_fts_boost_tuning.py
 git commit -m "feat(search): tune FTS5 RRF weight for stronger BM25 contribution
 
 Increase rrf_weight to 0.12 so BM25 keyword matches contribute
@@ -957,11 +957,11 @@ Expected: All PASS
 
 - [ ] **Step 2: Restart dev server**
 
-Run: `scripts/dev.sh` (or `codrag serve` on port 8400)
+Run: `scripts/dev.sh` (or `prep serve` on port 8400)
 
-- [ ] **Step 3: Verify `codrag` overview size**
+- [ ] **Step 3: Verify `prep` overview size**
 
-Call `codrag` MCP tool and verify:
+Call `prep` MCP tool and verify:
 - Total response is < 200 lines
 - No duplicated hub content
 - Module list shows only significant modules with collapse counts
@@ -969,17 +969,17 @@ Call `codrag` MCP tool and verify:
 
 - [ ] **Step 4: Verify search retrieval**
 
-Call `codrag_search query="how does the pipeline orchestrator process files"` and verify:
+Call `prep_search query="how does the pipeline orchestrator process files"` and verify:
 - `orchestrator.py` appears in results (META_SYNOPSIS anchoring)
 - Retrieval confidence indicator is present
 - No duplicate file paths in results
 
-Call `codrag_search query="MCP tool handler"` and verify:
+Call `prep_search query="MCP tool handler"` and verify:
 - `mcp/server.py` appears in results
 
 - [ ] **Step 5: Verify audit findings**
 
-Call `codrag_audit action="scan"` and verify:
+Call `prep_audit action="scan"` and verify:
 - `package-lock.json` does NOT appear as "critical"
 - Suggested actions are file-type-aware
 
@@ -996,7 +996,7 @@ git commit -m "fix: integration fixups from Phase 73 verification"
 
 | Metric | Before Phase 73 | After Phase 73 |
 |--------|-----------------|----------------|
-| `codrag` overview lines | 745 | < 200 |
+| `prep` overview lines | 745 | < 200 |
 | Signal-to-noise ratio | ~13% | ~60-70% |
 | Search recall for architectural queries | ~0/3 | ~3/3 |
 | Architecture context size | 248KB | < 3KB |

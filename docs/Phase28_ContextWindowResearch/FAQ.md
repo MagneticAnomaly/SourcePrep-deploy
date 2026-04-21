@@ -1,27 +1,27 @@
-# CoDRAG — Context Window FAQ
+# Prep — Context Window FAQ
 
-> These are the questions people will ask first. Written for developers evaluating CoDRAG, beta testers, and anyone who's been burned by "smart context" tools that silently eat their token budget.
+> These are the questions people will ask first. Written for developers evaluating Prep, beta testers, and anyone who's been burned by "smart context" tools that silently eat their token budget.
 
 ---
 
 ## Won't this just use up my whole context window?
 
-**No.** CoDRAG's default output is **~1,500 tokens** (6,000 characters). With trace expansion enabled, it's ~2,000 tokens.
+**No.** Prep's default output is **~1,500 tokens** (6,000 characters). With trace expansion enabled, it's ~2,000 tokens.
 
 For perspective:
 
 | What | Tokens |
 |---|---|
-| CoDRAG default context | ~1,500 |
-| CoDRAG + trace expansion | ~2,000 |
+| Prep default context | ~1,500 |
+| Prep + trace expansion | ~2,000 |
 | Cursor's default chat cap | ~20,000 |
 | Claude Code usable window | ~140,000 |
 | GPT-4o full window | 128,000 |
 | Claude 3.5 Sonnet full window | 200,000 |
 
-CoDRAG typically consumes **1–3% of your available context window.** The rest is used by your AI tool for its system prompt, conversation history, files you @-reference, and its own response.
+Prep typically consumes **1–3% of your available context window.** The rest is used by your AI tool for its system prompt, conversation history, files you @-reference, and its own response.
 
-CoDRAG is designed to be a *precision instrument*, not a firehose. It sends the 5 most relevant code chunks under a hard character ceiling — not your entire codebase.
+Prep is designed to be a *precision instrument*, not a firehose. It sends the 5 most relevant code chunks under a hard character ceiling — not your entire codebase.
 
 ---
 
@@ -40,13 +40,13 @@ Research consistently shows that **RAG context saturates between 4K and 16K toke
 
 The most surprising finding: **even when the model can perfectly retrieve the answer from the context, its reasoning accuracy still degrades as input length increases.** This was demonstrated with whitespace padding — literally adding blank lines degrades reasoning. The problem isn't distraction, it's distance.
 
-CoDRAG's defaults (1,500–2,000 tokens) sit well below every known saturation point.
+Prep's defaults (1,500–2,000 tokens) sit well below every known saturation point.
 
 ---
 
 ## Doesn't my AI tool (Cursor, Windsurf, Claude Code) already index my codebase?
 
-**Yes — and CoDRAG doesn't replace that.** Here's the breakdown:
+**Yes — and Prep doesn't replace that.** Here's the breakdown:
 
 ### What they already do
 
@@ -57,11 +57,11 @@ CoDRAG's defaults (1,500–2,000 tokens) sit well below every known saturation p
 | Sends relevant chunks to LLM | Yes | Yes | Yes (via file reads) |
 | Retrieval is scoped per command | Yes (@file, @folder) | Yes (@file, @folder) | Yes (@file, manual reads) |
 
-All three tools solve the basic problem of "find relevant code and inject it." CoDRAG uses the same foundational technique (embed → cosine similarity → top-K) for its core retrieval. **We are not reinventing that wheel.**
+All three tools solve the basic problem of "find relevant code and inject it." Prep uses the same foundational technique (embed → cosine similarity → top-K) for its core retrieval. **We are not reinventing that wheel.**
 
-### What CoDRAG adds
+### What Prep adds
 
-| Capability | Cursor | Windsurf | Claude Code | CoDRAG |
+| Capability | Cursor | Windsurf | Claude Code | Prep |
 |---|---|---|---|---|
 | **Trace graph** (imports, calls, inheritance) | No | No | No | Yes |
 | **Structural expansion** ("also show me what calls this") | No | No | No | Yes (`trace_expand`) |
@@ -75,7 +75,7 @@ All three tools solve the basic problem of "find relevant code and inject it." C
 
 ### Summary
 
-If you just need "find me the relevant function" — your tool probably already does that. CoDRAG's value is in the layers on top:
+If you just need "find me the relevant function" — your tool probably already does that. Prep's value is in the layers on top:
 
 1. **The trace graph** gives your AI tool structural understanding of your codebase — not just "this chunk is semantically similar" but "this function calls that one, which imports this module." No AI coding tool has this natively.
 
@@ -93,14 +93,14 @@ If you just need "find me the relevant function" — your tool probably already 
 
 The trace graph for even a small project (~40 Python files) is **547 nodes and 656 edges**. Dumping that raw would be ~68,000 tokens — research shows this would *catastrophically* degrade LLM performance.
 
-Instead, CoDRAG uses the trace graph as a **navigation structure**:
+Instead, Prep uses the trace graph as a **navigation structure**:
 
 1. Semantic search finds the 5 most relevant chunks (regular embedding search)
-2. If `trace_expand` is on, CoDRAG follows the graph edges from those 5 chunks to find structurally related code (imports, callers, callees)
+2. If `trace_expand` is on, Prep follows the graph edges from those 5 chunks to find structurally related code (imports, callers, callees)
 3. Those related chunks are added under a **separate 2,000-character budget**
 4. Total trace contribution: ~500 additional tokens
 
-Think of it as using Google Maps to find directions vs. printing out every road in the city. CoDRAG reads the map, gives you just the route.
+Think of it as using Google Maps to find directions vs. printing out every road in the city. Prep reads the map, gives you just the route.
 
 This approach is validated by research: Han et al. (2025) found that GraphRAG with *local* community search excels at multi-hop queries, while *global* graph retrieval (dumping everything) actively causes hallucination on detail-oriented tasks.
 
@@ -138,15 +138,15 @@ Path weights are a **relevance tool** — "I care more about `src/` than `docs/`
 
 "Lost in the middle" (Liu et al., 2023) is a well-documented phenomenon: LLMs pay the most attention to the **beginning and end** of their context window, and systematically under-utilize information in the middle.
 
-**Should you worry?** Less than you think, because CoDRAG already mitigates it:
+**Should you worry?** Less than you think, because Prep already mitigates it:
 
-1. **Most relevant first.** CoDRAG sorts chunks by descending relevance score. The highest-scoring chunk is at the top — exactly where models pay the most attention.
+1. **Most relevant first.** Prep sorts chunks by descending relevance score. The highest-scoring chunk is at the top — exactly where models pay the most attention.
 
-2. **Small context volume.** At 1,500–2,000 tokens, CoDRAG's output is short enough that there *isn't* a meaningful "middle" to get lost in. The problem primarily affects contexts >10K tokens.
+2. **Small context volume.** At 1,500–2,000 tokens, Prep's output is short enough that there *isn't* a meaningful "middle" to get lost in. The problem primarily affects contexts >10K tokens.
 
 3. **Trace chunks are appended last.** Structurally related (but potentially less directly relevant) trace chunks go at the end — the other position where models pay strong attention.
 
-Where "lost in the middle" *does* matter is in the overall context your AI tool assembles — system prompt + conversation + all tool results + your question. CoDRAG can't control that, but by keeping its contribution small and well-ordered, it avoids making the problem worse.
+Where "lost in the middle" *does* matter is in the overall context your AI tool assembles — system prompt + conversation + all tool results + your question. Prep can't control that, but by keeping its contribution small and well-ordered, it avoids making the problem worse.
 
 ---
 
@@ -162,11 +162,11 @@ The problem isn't the model's ability to *find* the code. It's that the sheer *d
 
 **Practical translation:** A 200K window can hold ~300 pages. But a human doesn't read better by having 300 irrelevant pages open on their desk. Neither does an LLM.
 
-CoDRAG's approach — find the 5 best chunks, optionally follow structural relationships, and deliver ~2K tokens of high-signal context — aligns with the research recommendation of "Retrieve then Solve": extract evidence into a shorter prompt, then reason over that.
+Prep's approach — find the 5 best chunks, optionally follow structural relationships, and deliver ~2K tokens of high-signal context — aligns with the research recommendation of "Retrieve then Solve": extract evidence into a shorter prompt, then reason over that.
 
 ---
 
-## What if CoDRAG's 5 chunks aren't enough?
+## What if Prep's 5 chunks aren't enough?
 
 This is a real concern. Here's how to address it:
 
@@ -190,17 +190,17 @@ This is a real concern. Here's how to address it:
 
 ## Is this just another RAG tool?
 
-CoDRAG's *foundation* is RAG — embed, search, retrieve. That's the same technique Cursor, Windsurf, and most modern tools use internally.
+Prep's *foundation* is RAG — embed, search, retrieve. That's the same technique Cursor, Windsurf, and most modern tools use internally.
 
-What makes CoDRAG different is what happens **on top of** basic retrieval:
+What makes Prep different is what happens **on top of** basic retrieval:
 
-1. **Graph-aware retrieval.** The trace graph (built by a Rust engine that parses your code's AST) captures imports, function calls, class inheritance, and module dependencies. When you ask "how does authentication work?", CoDRAG doesn't just find the `auth.py` file — it can follow the call chain to find the middleware, the token validator, and the user model. No other AI coding tool does this natively.
+1. **Graph-aware retrieval.** The trace graph (built by a Rust engine that parses your code's AST) captures imports, function calls, class inheritance, and module dependencies. When you ask "how does authentication work?", Prep doesn't just find the `auth.py` file — it can follow the call chain to find the middleware, the token validator, and the user model. No other AI coding tool does this natively.
 
-2. **Intent-aware weighting.** CoDRAG detects whether your query is about implementation ("how does X work?"), debugging ("why does X fail?"), or architecture ("what depends on X?") and adjusts which types of content (code, docs, tests) are prioritized. This is automated — not something you configure per query.
+2. **Intent-aware weighting.** Prep detects whether your query is about implementation ("how does X work?"), debugging ("why does X fail?"), or architecture ("what depends on X?") and adjusts which types of content (code, docs, tests) are prioritized. This is automated — not something you configure per query.
 
-3. **User transparency and control.** Every other tool is a black box. CoDRAG shows you the scores, lets you set weights, and tells you exactly what was sent and why. When something goes wrong, you can debug it.
+3. **User transparency and control.** Every other tool is a black box. Prep shows you the scores, lets you set weights, and tells you exactly what was sent and why. When something goes wrong, you can debug it.
 
-4. **Tool-agnostic via MCP.** CoDRAG works with any MCP-compatible tool. Your index, configuration, and codebase understanding aren't locked to one vendor. Switch from Cursor to Claude Code tomorrow — CoDRAG works the same.
+4. **Tool-agnostic via MCP.** Prep works with any MCP-compatible tool. Your index, configuration, and codebase understanding aren't locked to one vendor. Switch from Cursor to Claude Code tomorrow — Prep works the same.
 
 5. **Context compression.** The compression layer can distill context by 30–70%, sending the same semantic information in fewer tokens. This directly addresses the research finding that shorter context = better reasoning.
 
@@ -208,7 +208,7 @@ So: the base is RAG (same as everyone), the differentiation is in graph-awarenes
 
 ---
 
-## How does CoDRAG compare on token efficiency?
+## How does Prep compare on token efficiency?
 
 Here's a realistic comparison for a typical query like "how does the authentication middleware work?":
 
@@ -217,11 +217,11 @@ Here's a realistic comparison for a typical query like "how does the authenticat
 | Paste the whole file | 5,000–20,000 | The whole file, mostly irrelevant |
 | Cursor @codebase | ~2,000–5,000 | Black-box selection, no trace context |
 | Claude Code file read | ~3,000–8,000 | Whole file or manual line range |
-| CoDRAG default | ~1,500 | Top 5 ranked chunks, headers with paths |
-| CoDRAG + trace | ~2,000 | Same + structurally related code (callers, imports) |
-| CoDRAG + trace + compression | ~800–1,200 | Compressed: same info, 30–70% fewer tokens |
+| Prep default | ~1,500 | Top 5 ranked chunks, headers with paths |
+| Prep + trace | ~2,000 | Same + structurally related code (callers, imports) |
+| Prep + trace + compression | ~800–1,200 | Compressed: same info, 30–70% fewer tokens |
 
-The `zilliztech/claude-context` MCP server (vector search for Claude Code) reports ~40% token reduction at equivalent retrieval quality. CoDRAG achieves similar efficiency, with the added benefit of graph-aware expansion and user-configurable weights.
+The `zilliztech/claude-context` MCP server (vector search for Claude Code) reports ~40% token reduction at equivalent retrieval quality. Prep achieves similar efficiency, with the added benefit of graph-aware expansion and user-configurable weights.
 
 ---
 
@@ -229,11 +229,11 @@ The `zilliztech/claude-context` MCP server (vector search for Claude Code) repor
 
 1. **More context is not better context.** Research from 2023–2025 unanimously shows that LLM performance degrades with input length — even with perfect retrieval, even with the latest models, even with simple tasks.
 
-2. **CoDRAG is deliberately conservative.** 1,500–2,000 tokens of high-signal context, filtered through 8 stages of ranking and truncation. This is a feature, not a limitation.
+2. **Prep is deliberately conservative.** 1,500–2,000 tokens of high-signal context, filtered through 8 stages of ranking and truncation. This is a feature, not a limitation.
 
-3. **CoDRAG adds real value on top of what your AI tool already does.** The trace graph, user-configurable weights, cross-tool portability, and compression are meaningful differentiators — not reinvention of basic retrieval.
+3. **Prep adds real value on top of what your AI tool already does.** The trace graph, user-configurable weights, cross-tool portability, and compression are meaningful differentiators — not reinvention of basic retrieval.
 
-4. **The trace graph is a navigation tool, not a context dump.** It makes CoDRAG smarter about *which* code to send, without making the context bigger.
+4. **The trace graph is a navigation tool, not a context dump.** It makes Prep smarter about *which* code to send, without making the context bigger.
 
 5. **You can tune everything.** K, max_chars, min_score, path weights, role weights, trace expansion, compression. If the defaults aren't right for your project, every knob is exposed.
 

@@ -1,6 +1,6 @@
 # Claude Code Integration Research
 
-> How Claude Code (CLI) consumes MCP, its unique context architecture, and how CoDRAG should optimize for it.
+> How Claude Code (CLI) consumes MCP, its unique context architecture, and how Prep should optimize for it.
 
 **Status:** UPDATED with confirmed docs deep-dive
 **Last updated:** 2026-03-14 (deep dive update)
@@ -41,23 +41,23 @@
 - Configurable: `ENABLE_TOOL_SEARCH=auto:<N>` (e.g. `auto:5` = 5% threshold)
 - Can be disabled: `ENABLE_TOOL_SEARCH=false`
 
-**Critical implication:** If user has many MCP servers, CoDRAG tools may be **invisible**
+**Critical implication:** If user has many MCP servers, Prep tools may be **invisible**
 until Claude searches for them. CLAUDE.md and `instructions` field are the mitigations --
-they tell Claude "CoDRAG exists, search for it."
+they tell Claude "Prep exists, search for it."
 
 **For MCP server authors (from Claude Code docs):** Include in server description:
 "What category of tasks your tools handle, when Claude should search for your tools,
 key capabilities your server provides."
 
-**CoDRAG action:** MCP `instructions` field should include category hints:
-"CoDRAG handles structural code intelligence, module architecture, dependency analysis,
+**Prep action:** MCP `instructions` field should include category hints:
+"Prep handles structural code intelligence, module architecture, dependency analysis,
 and codebase navigation."
 
 ### MCP Output Limits
 - **Default max:** 25,000 tokens per MCP tool response
 - **Warning threshold:** 10,000 tokens
 - Configurable via `MAX_MCP_OUTPUT_TOKENS` env var
-- CoDRAG responses are typically 250-3,000 tokens -- well within limits
+- Prep responses are typically 250-3,000 tokens -- well within limits
 
 ### Confirmation Model (CONFIRMED EXACT SYNTAX)
 - Default: confirm each tool call
@@ -67,21 +67,21 @@ and codebase navigation."
 
 **Exact MCP permission syntax (confirmed from docs):**
 ```
-mcp__codrag           -- matches ANY tool from the codrag server
-mcp__codrag__*        -- wildcard, same effect
-mcp__codrag__codrag   -- matches only the `codrag` tool
-mcp__codrag__codrag_search  -- matches only `codrag_search`
+mcp__prep           -- matches ANY tool from the prep server
+mcp__prep__*        -- wildcard, same effect
+mcp__prep__prep   -- matches only the `prep` tool
+mcp__prep__prep_search  -- matches only `prep_search`
 ```
 
-**CoDRAG recommendation (simplest):**
+**Prep recommendation (simplest):**
 ```json
 {
   "permissions": {
-    "allow": ["mcp__codrag"]
+    "allow": ["mcp__prep"]
   }
 }
 ```
-This single rule auto-approves ALL CoDRAG tools. No need to list each one.
+This single rule auto-approves ALL Prep tools. No need to list each one.
 
 **Settings file locations:**
 - `~/.claude/settings.json` (user-level)
@@ -93,8 +93,8 @@ This single rule auto-approves ALL CoDRAG tools. No need to list each one.
 // ~/.claude/settings.json or project .claude/settings.json
 {
   "mcpServers": {
-    "codrag": {
-      "command": "codrag",
+    "prep": {
+      "command": "prep",
       "args": ["mcp"],
       "env": {}
     }
@@ -114,13 +114,13 @@ This single rule auto-approves ALL CoDRAG tools. No need to list each one.
 5. **Git state** -- current branch, uncommitted changes, recent history
 6. **File system** -- project files via built-in Read/Write/Edit tools
 
-### Native Tools That Compete With CoDRAG
-| Claude Code Native | CoDRAG Equivalent | Competition Level |
+### Native Tools That Compete With Prep
+| Claude Code Native | Prep Equivalent | Competition Level |
 |-------------------|-------------------|------------------|
-| `Read` (file read) | `codrag` (hub file content) | LOW -- different purpose |
-| `Grep` (ripgrep) | `codrag_search` | HIGH -- same intent, AI trusts native |
+| `Read` (file read) | `prep` (hub file content) | LOW -- different purpose |
+| `Grep` (ripgrep) | `prep_search` | HIGH -- same intent, AI trusts native |
 | `Bash` (any command) | N/A | LOW -- orthogonal |
-| `Edit` (file edit) | N/A | NONE -- CoDRAG is read-only |
+| `Edit` (file edit) | N/A | NONE -- Prep is read-only |
 | `WebSearch` | N/A | NONE |
 
 ### Key Insight: Skills and Subagents
@@ -128,7 +128,7 @@ Claude Code has two powerful extension mechanisms:
 - **Skills**: Prompt-based meta-tools that inject context and instructions at runtime
 - **Subagents**: Isolated agents with their own context windows, tools, and permissions
 
-CoDRAG's compact ambient response (~250 tokens) is ideal for sub-agent injection. A CoDRAG skill could be defined that automatically calls `codrag` and injects the result.
+Prep's compact ambient response (~250 tokens) is ideal for sub-agent injection. A Prep skill could be defined that automatically calls `prep` and injects the result.
 
 ### Context Window Management
 - Claude Code uses `/compact` to summarize conversation when context fills up
@@ -150,22 +150,22 @@ Plain markdown in project root. No frontmatter needed -- entire file is loaded a
 - `./src/CLAUDE.md` -- directory-level (loaded when working in that directory)
 
 ### Auto-Memory
-Claude Code also maintains `MEMORY.md` (auto-generated). First 200 lines loaded per session. CoDRAG should NOT write to MEMORY.md -- that's Claude Code's domain.
+Claude Code also maintains `MEMORY.md` (auto-generated). First 200 lines loaded per session. Prep should NOT write to MEMORY.md -- that's Claude Code's domain.
 
-### CoDRAG Template for CLAUDE.md
+### Prep Template for CLAUDE.md
 ```markdown
-## CoDRAG Integration
+## Prep Integration
 
-This project is indexed by CoDRAG for structural code intelligence via MCP.
+This project is indexed by Prep for structural code intelligence via MCP.
 
-ALWAYS call `codrag` (MCP tool, no arguments) at the START of every task.
+ALWAYS call `prep` (MCP tool, no arguments) at the START of every task.
 This gives you:
 - Module structure (which groups of files work together)
 - Hub files (most connected/important files with content)
 - User's selected focus areas from the knowledge base
 
-For specific code searches, use `codrag_search` with a natural language query.
-Before making changes, use `codrag_impact` to understand blast radius.
+For specific code searches, use `prep_search` with a natural language query.
+Before making changes, use `prep_impact` to understand blast radius.
 
 ### Codebase Atlas
 [auto-generated structural overview]
@@ -177,40 +177,40 @@ Last indexed: [timestamp] | [stats]
 ```
 
 ### Important: Don't Overwrite User Content
-CLAUDE.md typically contains user instructions. CoDRAG should:
+CLAUDE.md typically contains user instructions. Prep should:
 1. Check if CLAUDE.md exists
-2. If yes, check for `## CoDRAG Integration` section
+2. If yes, check for `## Prep Integration` section
 3. If section exists, update it (between markers)
 4. If section doesn't exist, append it
-5. Never touch content outside the CoDRAG section
+5. Never touch content outside the Prep section
 
 ---
 
-## 5. Unique Claude Code Features Relevant to CoDRAG
+## 5. Unique Claude Code Features Relevant to Prep
 
 ### Skills (Prompt-Based Meta-Tools)
-A CoDRAG skill could be created at `.claude/skills/codrag-context.md`:
+A Prep skill could be created at `.claude/skills/prep-context.md`:
 ```markdown
 ---
-description: Get structural codebase context from CoDRAG
-tools: ["mcp__codrag__codrag", "mcp__codrag__codrag_search"]
+description: Get structural codebase context from Prep
+tools: ["mcp__prep__prep", "mcp__prep__prep_search"]
 ---
-Call `codrag` to get the structural overview of this codebase,
+Call `prep` to get the structural overview of this codebase,
 then use that context to inform your approach to the current task.
 ```
 
-This would allow users to invoke `/codrag-context` as a skill.
+This would allow users to invoke `/prep-context` as a skill.
 
 ### Subagents
-Claude Code can spawn subagents with `--agents` flag. CoDRAG's compact response format is critical here -- subagents have isolated context windows, so every token counts.
+Claude Code can spawn subagents with `--agents` flag. Prep's compact response format is critical here -- subagents have isolated context windows, so every token counts.
 
 ### Hooks
-Claude Code supports lifecycle hooks (pre/post tool execution). A hook could automatically call `codrag` at session start:
+Claude Code supports lifecycle hooks (pre/post tool execution). A hook could automatically call `prep` at session start:
 ```json
 {
   "hooks": {
     "session_start": {
-      "command": "echo 'Call codrag for structural context'"
+      "command": "echo 'Call prep for structural context'"
     }
   }
 }
@@ -229,7 +229,7 @@ Claude Code supports lifecycle hooks (pre/post tool execution). A hook could aut
 
 ### Token Efficiency
 - Claude Sonnet 4 has 200K context -- generous but compaction still matters
-- CoDRAG's 250-token ambient response is <0.2% of context -- negligible
+- Prep's 250-token ambient response is <0.2% of context -- negligible
 - The atlas in CLAUDE.md (~500 tokens) is similarly cheap
 
 ### Multi-Turn Decay
@@ -240,16 +240,16 @@ Claude Code supports lifecycle hooks (pre/post tool execution). A hook could aut
 
 ---
 
-## 7. CoDRAG Optimization Checklist
+## 7. Prep Optimization Checklist
 
 - [ ] Empirically test: does Claude Code support MCP server `instructions` field?
 - [ ] Empirically test: what is `clientInfo.name` in Claude Code's initialize request?
 - [ ] Test: do Claude Code subagents inherit MCP server access?
-- [ ] Test: does `/compact` preserve or summarize `codrag` tool responses?
-- [ ] Create example `.claude/skills/codrag-context.md` skill
-- [ ] Test `allowedTools: ["mcp__codrag__*"]` wildcard for auto-approve
+- [ ] Test: does `/compact` preserve or summarize `prep` tool responses?
+- [ ] Create example `.claude/skills/prep-context.md` skill
+- [ ] Test `allowedTools: ["mcp__prep__*"]` wildcard for auto-approve
 - [ ] Verify CLAUDE.md section append logic doesn't break existing content
-- [ ] Test CoDRAG in Claude Code's VS Code and JetBrains extensions (same behavior?)
+- [ ] Test Prep in Claude Code's VS Code and JetBrains extensions (same behavior?)
 
 ---
 
@@ -257,10 +257,10 @@ Claude Code supports lifecycle hooks (pre/post tool execution). A hook could aut
 
 | Risk | Severity | Notes |
 |------|----------|-------|
-| **MCP Tool Search defers CoDRAG tools** | **HIGH** | Many MCP servers = deferred. CLAUDE.md + instructions field mitigate. |
-| AI prefers native `Grep` over `codrag_search` | HIGH | CLAUDE.md instructions mitigate. CoDRAG offers structural expansion that Grep cannot. |
-| Context compaction drops early `codrag` responses | MEDIUM | Atlas in CLAUDE.md persists. Response nudges remind AI to re-call. |
+| **MCP Tool Search defers Prep tools** | **HIGH** | Many MCP servers = deferred. CLAUDE.md + instructions field mitigate. |
+| AI prefers native `Grep` over `prep_search` | HIGH | CLAUDE.md instructions mitigate. Prep offers structural expansion that Grep cannot. |
+| Context compaction drops early `prep` responses | MEDIUM | Atlas in CLAUDE.md persists. Response nudges remind AI to re-call. |
 | CLAUDE.md section append breaks user content | LOW | Marker-based updates, section-scoped. |
-| Subagents can't access MCP tools | MEDIUM | Needs empirical test. If true, CoDRAG skill could bridge the gap. |
-| `/compact` summarizes CoDRAG's structural context poorly | MEDIUM | The compact focus parameter could help: `/compact preserve structural context from codrag` |
-| MCP output exceeds 25K limit | LOW | CoDRAG responses are 250-3K tokens. Only a concern for future massive context dumps. |
+| Subagents can't access MCP tools | MEDIUM | Needs empirical test. If true, Prep skill could bridge the gap. |
+| `/compact` summarizes Prep's structural context poorly | MEDIUM | The compact focus parameter could help: `/compact preserve structural context from prep` |
+| MCP output exceeds 25K limit | LOW | Prep responses are 250-3K tokens. Only a concern for future massive context dumps. |

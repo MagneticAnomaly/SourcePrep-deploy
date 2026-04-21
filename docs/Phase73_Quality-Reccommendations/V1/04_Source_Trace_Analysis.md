@@ -12,7 +12,7 @@ This document traces each quality issue identified in the README back to its sou
 ```
 Problem                          → Root Cause File                                    → Fix Type
 ───────────────────────────────────────────────────────────────────────────────────────────────────
-600-module dump in codrag         → search.py:448-464 (scope_modules loop)              → Code change
+600-module dump in prep         → search.py:448-464 (scope_modules loop)              → Code change
 Hub content 3× duplicated        → search.py:524-549 (hub content assembly)             → Code change + dedup
 Search misses large files         → search.py:876-904 (idx.get_context)                 → Embedding/retrieval fix
 Audit flags lockfiles as critical → AutoAudit (not in search.py)                        → Filter heuristic
@@ -26,7 +26,7 @@ No relevance scores in search    → server.py:798-821 (tool_search markdown)   
 
 ### Where it happens
 
-[search.py:448-464](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/api/routers/projects/search.py#L448-L464) — `_assemble_ambient_context`
+[search.py:448-464](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/api/routers/projects/search.py#L448-L464) — `_assemble_ambient_context`
 
 ```python
 if scope_modules:
@@ -37,7 +37,7 @@ if scope_modules:
 
 ### Why it produces 600 modules
 
-The `scope_modules` list is built by scanning `trace_modules.jsonl` (line 424-446) and checking if **any** member file falls under `included_paths`. Since the user's `included_paths` contains broad directories like `src/codrag/core/`, `docs/`, etc., **every module that has even one file under those paths is included**. There's no filter on module size or significance.
+The `scope_modules` list is built by scanning `trace_modules.jsonl` (line 424-446) and checking if **any** member file falls under `included_paths`. Since the user's `included_paths` contains broad directories like `src/prep/core/`, `docs/`, etc., **every module that has even one file under those paths is included**. There's no filter on module size or significance.
 
 ### The fix
 
@@ -60,9 +60,9 @@ if remaining_count > 0:
 **Option B (Better — add LOD to module display):**
 Apply the same LOD concept used for code to module listing. Top modules get full descriptions, smaller ones get names only, tiny ones get collapsed.
 
-**Fix location:** [search.py:448-464](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/api/routers/projects/search.py#L448-L464)
+**Fix location:** [search.py:448-464](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/api/routers/projects/search.py#L448-L464)
 **Difficulty:** Easy (10 lines changed)
-**Impact:** High (eliminates ~500 lines of noise from codrag output)
+**Impact:** High (eliminates ~500 lines of noise from prep output)
 
 ---
 
@@ -70,7 +70,7 @@ Apply the same LOD concept used for code to module listing. Top modules get full
 
 ### Where it happens
 
-[search.py:524-549](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/api/routers/projects/search.py#L524-L549) — hub content assembly loop
+[search.py:524-549](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/api/routers/projects/search.py#L524-L549) — hub content assembly loop
 
 ```python
 for fp, deg in hub_files:
@@ -83,7 +83,7 @@ for fp, deg in hub_files:
 
 ### Why it duplicates
 
-The same source document (`02_CoDRAG_Epistemology.md`) appears as a hub because it has high connectivity. The `doc_by_path` index maps file paths to chunks, and the same file may have multiple chunks with overlapping content. The system picks the "largest chunk" for each file, but the same **underlying content** (the epistemology table + pipeline stages) appears in multiple chunks because the file is chunked at section boundaries and several sections share the preamble content.
+The same source document (`02_Prep_Epistemology.md`) appears as a hub because it has high connectivity. The `doc_by_path` index maps file paths to chunks, and the same file may have multiple chunks with overlapping content. The system picks the "largest chunk" for each file, but the same **underlying content** (the epistemology table + pipeline stages) appears in multiple chunks because the file is chunked at section boundaries and several sections share the preamble content.
 
 Additionally, the `hub_files` list may contain the same file path multiple times if it appears through different scope paths.
 
@@ -119,7 +119,7 @@ for fp, deg in hub_files:
     # ... rest of assembly
 ```
 
-**Fix location:** [search.py:524-549](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/api/routers/projects/search.py#L524-L549)
+**Fix location:** [search.py:524-549](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/api/routers/projects/search.py#L524-L549)
 **Difficulty:** Easy (5 lines added)
 **Impact:** Medium (saves ~85 lines / ~11% of output in this case)
 
@@ -131,8 +131,8 @@ for fp, deg in hub_files:
 
 The search pipeline goes through multiple layers:
 
-1. **MCP server** [server.py:795](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/mcp/server.py#L795): `data = await self._api_post(f"/projects/{project_id}/context", payload)`
-2. **API router** [search.py:876-904](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/api/routers/projects/search.py#L876-L904): `ctx = idx.get_context(req.query, k=req.k, ...)`
+1. **MCP server** [server.py:795](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/mcp/server.py#L795): `data = await self._api_post(f"/projects/{project_id}/context", payload)`
+2. **API router** [search.py:876-904](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/api/routers/projects/search.py#L876-L904): `ctx = idx.get_context(req.query, k=req.k, ...)`
 3. **LayeredIndex.get_context()** — the actual embedding search (in a different file)
 
 ### Why large files are missed
@@ -149,7 +149,7 @@ The problem: **no chunk from orchestrator.py contains enough context to embed "o
 This is the hardest problem because it requires changes across the retrieval pipeline:
 
 **Fix 3A: File-name keyword boosting (moderate effort)**
-In [search.py:876-886](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/api/routers/projects/search.py#L876-L886), before calling `idx.get_context()`, parse the query for structural signals and boost matching files:
+In [search.py:876-886](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/api/routers/projects/search.py#L876-L886), before calling `idx.get_context()`, parse the query for structural signals and boost matching files:
 
 ```python
 # Extract potential file/module names from query
@@ -176,7 +176,7 @@ During Stage 4/5, generate a file-level "meta chunk" that includes the file path
 **Fix 3C: Hybrid BM25+embedding search (larger effort)**
 Add a BM25 index alongside the embedding index. For keyword-heavy queries ("orchestrator", "MCP", "server"), BM25 provides exact matches that embeddings miss. Blend scores: `final = 0.6 * embedding_score + 0.4 * bm25_score`.
 
-**Fix location:** [search.py:876-904](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/api/routers/projects/search.py#L876-L904)  
+**Fix location:** [search.py:876-904](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/api/routers/projects/search.py#L876-L904)  
 **Difficulty:** 3A = moderate, 3B = large, 3C = large  
 **Impact:** Critical (fixes the core retrieval quality problem)
 
@@ -186,7 +186,7 @@ Add a BM25 index alongside the embedding index. For keyword-heavy queries ("orch
 
 ### Where the names come from
 
-[cluster.py:113-135](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/core/cluster.py#L113-L135) — `MODULE_SYNTHESIS_PROMPT`
+[cluster.py:113-135](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/core/cluster.py#L113-L135) — `MODULE_SYNTHESIS_PROMPT`
 
 The LLM generates the `name` field from the prompt:
 
@@ -218,7 +218,7 @@ After synthesis, detect duplicate names and disambiguate using directory paths o
 **Option C: Raise min_cluster_size (easy but lossy)**
 Increasing `min_cluster_size` from 2 to 3 or 4 would reduce the number of tiny modules. But this loses granularity. Better to keep granularity in the data but collapse it in the *display*.
 
-**Fix location:** [cluster.py:113-135](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/core/cluster.py#L113-L135)
+**Fix location:** [cluster.py:113-135](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/core/cluster.py#L113-L135)
 **Difficulty:** Easy (prompt text change)
 **Impact:** Medium (better names improve agent comprehension of module list)
 
@@ -228,7 +228,7 @@ Increasing `min_cluster_size` from 2 to 3 or 4 would reduce the number of tiny m
 
 ### Where the score is lost
 
-[server.py:776-821](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/mcp/server.py#L776-L821) — `tool_search`
+[server.py:776-821](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/mcp/server.py#L776-L821) — `tool_search`
 
 ```python
 payload: Dict[str, Any] = {
@@ -252,7 +252,7 @@ Likely a deliberate choice to keep the response clean and avoid confusing AI age
 
 **Option A: Include scores in metadata (not in main text)**
 
-In [server.py:781](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/mcp/server.py#L781):
+In [server.py:781](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/mcp/server.py#L781):
 ```python
 "include_scores": True,
 ```
@@ -267,21 +267,21 @@ if context_str:
     result["_to_markdown"] = f"[relevance: {confidence}]\n" + context_str
 ```
 
-**Fix location:** [server.py:781](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/mcp/server.py#L781)
+**Fix location:** [server.py:781](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/mcp/server.py#L781)
 **Difficulty:** Easy (2 lines changed)
 **Impact:** Medium (agents can calibrate trust in results)
 
 ---
 
-## Trace 6: Atlas Content in `codrag` vs Rules File
+## Trace 6: Atlas Content in `prep` vs Rules File
 
 ### An interesting design decision
 
-[server.py:858-868](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/mcp/server.py#L858-L868):
+[server.py:858-868](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/mcp/server.py#L858-L868):
 
 ```python
 # ISSUE-6: Adaptive atlas inclusion.
-# If a CoDRAG rules file exists, the atlas is already in the AI's
+# If a Prep rules file exists, the atlas is already in the AI's
 # system prompt (via alwaysApply/always_on). Skipping the atlas
 # prepend saves ~500-2500 chars of budget
 has_rules = self._project_has_rules_file(project_id)
@@ -300,7 +300,7 @@ This is **actually well-designed** — it avoids redundancy by checking if the a
 
 ### OPP-W5 Adaptive Budget
 
-[server.py:845-846](file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/mcp/server.py#L845-L846):
+[server.py:845-846](file:///Volumes/4TB-BAD/HumanAI/Prep/src/prep/mcp/server.py#L845-L846):
 
 ```python
 if max_chars <= 0:

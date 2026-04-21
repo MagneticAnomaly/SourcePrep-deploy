@@ -2,7 +2,7 @@
 
 Pre-fix state: there was no single path helper. Several callers
 (server.py, config_manager.py, build_manager.py) defaulted to
-`./codrag_data` while project_registry.prep_data_dir() returned
+`./prep_data` while project_registry.prep_data_dir() returned
 `~/.local/share/prep/`. Post-fix, every caller routes through
 `paths.data_dir()`.
 """
@@ -67,7 +67,7 @@ def test_legacy_cwd_data_dir_is_relative_to_arg() -> None:
     """legacy_cwd_data_dir(cwd=...) uses the given CWD, not the process CWD."""
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td).resolve()
-        assert legacy_cwd_data_dir(td_path) == td_path / "codrag_data"
+        assert legacy_cwd_data_dir(td_path) == td_path / "prep_data"
 
 
 def test_empty_env_var_falls_through_to_default() -> None:

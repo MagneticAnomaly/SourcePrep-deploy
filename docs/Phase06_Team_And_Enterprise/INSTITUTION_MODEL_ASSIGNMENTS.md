@@ -103,7 +103,7 @@ For large teams looking for the best balance of speed, cost, and quality.
 *Typical Profile: Regulated industries that cannot send source code to external APIs. Must run entirely on VPC or internal hardware.*
 
 ### Premium Tier (Workstation / Server Rack)
-- **Hardware:** 4x RTX 6000 Ada (192GB VRAM total) or 2x H100 (160GB VRAM) running via serverless container (e.g. `codrag-headless:gpu`) or persistent K8s.
+- **Hardware:** 4x RTX 6000 Ada (192GB VRAM total) or 2x H100 (160GB VRAM) running via serverless container (e.g. `prep-headless:gpu`) or persistent K8s.
 - **Reasoning Stages:** `qwen3.5:122b-a10b` (Q8 Quantized)
   - *Why:* The highest quality open-weight model currently available. Requires massive VRAM, but produces results rivaling GPT-4o.
 - **Fast / Code Stages:** `qwen3.5:35b-a3b Q4` or `qwen3-coder-next`

@@ -1,6 +1,6 @@
 # Cursor Integration Research
 
-> How Cursor consumes MCP, what its system prompt looks like, and how CoDRAG should optimize for it.
+> How Cursor consumes MCP, what its system prompt looks like, and how Prep should optimize for it.
 
 **Status:** UPDATED with deep-dive findings
 **Last updated:** 2026-03-14 (deep dive update)
@@ -36,18 +36,18 @@
 ### Tool Discovery
 - All MCP tool definitions are injected into the system prompt on every turn
 - Each tool's `name`, `description`, and `inputSchema` consume system prompt tokens
-- CoDRAG's 5 consolidated tools (~1,400 tokens) fit well within the 40-tool budget
+- Prep's 5 consolidated tools (~1,400 tokens) fit well within the 40-tool budget
 
 ### Confirmation Model
 - Default: user must approve each MCP tool call
 - Can be set to auto-run per server in Settings > Features > MCP
-- CoDRAG recommendation: enable auto-run (all CoDRAG tools are read-only)
+- Prep recommendation: enable auto-run (all Prep tools are read-only)
 
 **PITFALL: YOLO Mode Does NOT Auto-Approve MCP Tools**
 Cursor's "YOLO mode" (auto-run terminal commands) does NOT auto-approve MCP tool calls.
 This is confirmed from the Cursor forum as a known limitation/feature request.
-Users will assume YOLO = everything auto-runs. CoDRAG setup docs MUST say:
-"YOLO mode is not enough. Go to Settings > Features > MCP > enable auto-run for the codrag server."
+Users will assume YOLO = everything auto-runs. Prep setup docs MUST say:
+"YOLO mode is not enough. Go to Settings > Features > MCP > enable auto-run for the prep server."
 
 ### Schema Processing
 - Cursor validates tool schemas against its internal requirements
@@ -55,7 +55,7 @@ Users will assume YOLO = everything auto-runs. CoDRAG setup docs MUST say:
 
 ### MCP Server Instructions
 - **UNKNOWN**: Cursor docs do not mention support for the `instructions` field in server capabilities
-- **Research needed**: Empirical test -- add instructions to CoDRAG's initialize response and check if Cursor appends them to the system prompt
+- **Research needed**: Empirical test -- add instructions to Prep's initialize response and check if Cursor appends them to the system prompt
 
 ---
 
@@ -67,23 +67,23 @@ Users will assume YOLO = everything auto-runs. CoDRAG setup docs MUST say:
 - Estimated built-in tool overhead: ~2,000 tokens
 - Agent mode has a more detailed system prompt than normal chat mode
 
-### Native Tools That Compete With CoDRAG
-| Cursor Native | CoDRAG Equivalent | Competition Level |
+### Native Tools That Compete With Prep
+| Cursor Native | Prep Equivalent | Competition Level |
 |--------------|-------------------|------------------|
-| `codebase_search` | `codrag_search` | HIGH -- similar purpose, AI prefers native |
-| `read_file` | `codrag` (hub file content) | MEDIUM -- different granularity |
-| `grep_search` | `codrag_search` | MEDIUM -- CoDRAG adds structure |
-| `list_dir` | `codrag` (module overview) | LOW -- different purpose |
+| `codebase_search` | `prep_search` | HIGH -- similar purpose, AI prefers native |
+| `read_file` | `prep` (hub file content) | MEDIUM -- different granularity |
+| `grep_search` | `prep_search` | MEDIUM -- Prep adds structure |
+| `list_dir` | `prep` (module overview) | LOW -- different purpose |
 
 ### Key Insight: AI Prefers Native Tools
 Cursor's AI has been trained/prompted to use its own tools. MCP tools are "additional" and will be called less frequently unless:
-1. The rules file explicitly instructs "call codrag FIRST"
+1. The rules file explicitly instructs "call prep FIRST"
 2. The tool description includes clear activation criteria
-3. The user mentions CoDRAG or structural context
+3. The user mentions Prep or structural context
 
 ---
 
-## 4. Rules File: `.cursor/rules/codrag.mdc`
+## 4. Rules File: `.cursor/rules/prep.mdc`
 
 ### Format
 ```yaml
@@ -96,7 +96,7 @@ alwaysApply: true      # inject on every prompt
 ```
 
 ### Rule Types
-- **Always Apply**: injected into every prompt (this is what CoDRAG needs)
+- **Always Apply**: injected into every prompt (this is what Prep needs)
 - **Apply Intelligently**: model decides based on context
 - **Apply to Specific Files**: only when matching files are referenced
 - **Apply Manually**: user must explicitly invoke
@@ -104,19 +104,19 @@ alwaysApply: true      # inject on every prompt
 ### Precedence
 Team Rules > Project Rules > User Rules
 
-### CoDRAG Template
+### Prep Template
 ```yaml
 ---
-description: CoDRAG structural codebase intelligence
+description: Prep structural codebase intelligence
 alwaysApply: true
 ---
 
-You have access to CoDRAG, a structural code intelligence system.
-ALWAYS call `codrag` (no arguments) at the START of every task.
+You have access to Prep, a structural code intelligence system.
+ALWAYS call `prep` (no arguments) at the START of every task.
 This gives you module structure, hub files, and focus areas.
 
-For specific code searches, use `codrag_search` with a natural language query.
-Before making changes, use `codrag_impact` to check dependencies.
+For specific code searches, use `prep_search` with a natural language query.
+Before making changes, use `prep_impact` to check dependencies.
 
 ## Codebase Atlas
 [auto-generated from atlas.json]
@@ -144,20 +144,20 @@ Last indexed: [timestamp] | [node_count] nodes, [edge_count] edges | [coverage]%
 
 ### Parallel Tool Calls
 - Cursor's agent mode supports parallel tool calls
-- CoDRAG's rules file should encourage: "Call `codrag` and `codrag_search` in parallel on first prompt"
+- Prep's rules file should encourage: "Call `prep` and `prep_search` in parallel on first prompt"
 
 ---
 
-## 6. CoDRAG Optimization Checklist
+## 6. Prep Optimization Checklist
 
 - [x] Phase 50 README covers Cursor basics
 - [ ] Empirically test: does Cursor support MCP server `instructions`?
 - [ ] Empirically test: does Cursor auto-inject MCP resources into context?
 - [ ] Empirically test: what is `clientInfo.name` in Cursor's initialize request?
-- [ ] Test auto-approve setup for CoDRAG server
-- [ ] Verify `.cursor/rules/codrag.mdc` injection with `alwaysApply: true`
-- [ ] Test parallel `codrag` + `codrag_search` calls
-- [ ] Measure token overhead of CoDRAG tools in Cursor's system prompt
+- [ ] Test auto-approve setup for Prep server
+- [ ] Verify `.cursor/rules/prep.mdc` injection with `alwaysApply: true`
+- [ ] Test parallel `prep` + `prep_search` calls
+- [ ] Measure token overhead of Prep tools in Cursor's system prompt
 
 ---
 
@@ -165,7 +165,7 @@ Last indexed: [timestamp] | [node_count] nodes, [edge_count] edges | [coverage]%
 
 | Risk | Severity | Notes |
 |------|----------|-------|
-| AI prefers native `codebase_search` over `codrag_search` | HIGH | Rules file mitigates. Tool description must differentiate. |
+| AI prefers native `codebase_search` over `prep_search` | HIGH | Rules file mitigates. Tool description must differentiate. |
 | **YOLO mode doesn't auto-approve MCP** | **HIGH** | Users will be confused. Explicit setup docs required. |
 | Tool approval fatigue | MEDIUM | Auto-approve setup in docs. |
 | Rules file overwritten by user | LOW | Marker-based split preserves user content. |

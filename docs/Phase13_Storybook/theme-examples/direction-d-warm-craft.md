@@ -185,7 +185,7 @@ Note: Uses **descriptive labels** ("Needs update" vs "Stale") for approachabilit
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│  📄  src/codrag/core/index.py                                   │
+│  📄  src/prep/core/index.py                                   │
 │      Lines 42-67  •  87% match                                  │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
@@ -210,7 +210,7 @@ Note: Uses **descriptive labels** ("Needs update" vs "Stale") for approachabilit
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                                                                 │
-│  📄  src/codrag/server.py                                       │
+│  📄  src/prep/server.py                                       │
 │      Lines 142-175                                              │
 │                                                       [Copy ✓]  │
 ├─────────────────────────────────────────────────────────────────┤

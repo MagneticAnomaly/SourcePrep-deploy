@@ -1,4 +1,4 @@
-[data-codrag-theme='g'] {
+[data-prep-theme='g'] {
   /* Glass-Morphic: Translucent, Blurred, Airy */
   
   /* Color Palette */
@@ -43,16 +43,16 @@
 }
 
 /* Glass effect overrides */
-[data-codrag-theme='g'] .tremor-Card-root,
-[data-codrag-theme='g'] .bg-surface,
-[data-codrag-theme='g'] .bg-surface-raised {
+[data-prep-theme='g'] .tremor-Card-root,
+[data-prep-theme='g'] .bg-surface,
+[data-prep-theme='g'] .bg-surface-raised {
   background: rgba(255, 255, 255, 0.25);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
-[data-codrag-theme='g'].dark {
+[data-prep-theme='g'].dark {
   --background: 240 20% 10%;
   --foreground: 240 10% 90%;
   --text: 240 10% 90%;
@@ -62,9 +62,9 @@
   --primary: 190 80% 60%;
 }
 
-[data-codrag-theme='g'].dark .tremor-Card-root,
-[data-codrag-theme='g'].dark .bg-surface,
-[data-codrag-theme='g'].dark .bg-surface-raised {
+[data-prep-theme='g'].dark .tremor-Card-root,
+[data-prep-theme='g'].dark .bg-surface,
+[data-prep-theme='g'].dark .bg-surface-raised {
   background: rgba(20, 20, 40, 0.4);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }

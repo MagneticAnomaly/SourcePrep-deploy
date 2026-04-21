@@ -18,14 +18,14 @@ Right now, anyone can create a file at `~/.prep/license.json` with the contents 
 
 ```
 Customer Journey:
-1. Customer visits codrag.io/pricing → clicks "Buy Pro" ($7/mo or $79 one-time)
+1. Customer visits runprep.io/pricing → clicks "Buy Pro" ($7/mo or $79 one-time)
 2. Lemon Squeezy checkout completes → LS generates a license key (UUID format)
 3. Customer receives email: "Your license key: 38b1460a-5104-4067-a91d-77b872934d51"
-4. Customer opens CoDRAG desktop app → Settings → "Enter License Key"
-5. CoDRAG app calls Lemon Squeezy API to ACTIVATE the key
+4. Customer opens Prep desktop app → Settings → "Enter License Key"
+5. Prep app calls Lemon Squeezy API to ACTIVATE the key
 6. LS responds with: tier (Pro/Team/Enterprise), expiry date, seat count
-7. CoDRAG saves the activation response to ~/.prep/license.json
-8. Periodically (every 7 days), CoDRAG re-validates the key with LS
+7. Prep saves the activation response to ~/.prep/license.json
+8. Periodically (every 7 days), Prep re-validates the key with LS
 ```
 
 ### What Eric Needs To Do (Your Manual Tasks)
@@ -41,7 +41,7 @@ These are already partially in your `FOR_ERIC_TODO.md`. Here's the exact sequenc
 - LS auto-generates a UUID license key for every purchase
 
 **Step 2: Configure the Webhook (LS-06)**
-- Point the LS webhook to `api.codrag.io/webhooks/lemonsqueezy`
+- Point the LS webhook to `api.runprep.io/webhooks/lemonsqueezy`
 - This webhook receives purchase events and can log them for your records
 - The license key itself lives in LS — we don't need to store it ourselves
 
@@ -51,7 +51,7 @@ These are already partially in your `FOR_ERIC_TODO.md`. Here's the exact sequenc
   - `PRODUCT_ID_MONTHLY` (the Monthly Pro product)
   - `PRODUCT_ID_PERPETUAL` (the Perpetual Pro product)
   - `PRODUCT_ID_TEAM` (the Team product)
-- These get hard-coded into the CoDRAG app source code (not secrets — they're public)
+- These get hard-coded into the Prep app source code (not secrets — they're public)
 
 ### What I Build in Code (feature_gate.py Rewrite)
 
@@ -98,25 +98,25 @@ I will rewrite `feature_gate.py` to work like this:
 
 Every major desktop app in our market (Raycast, CleanShot, Sketch, Sublime Text) uses online license validation. The 30-day offline grace period is extremely generous — most tools require online validation every 7 days.
 
-### The `CODRAG_TIER` Dev Override
+### The `PREP_TIER` Dev Override
 
 Keep the env var override but restrict it:
 ```python
-# Only works if CODRAG_DEV_MODE=1 is ALSO set
-if os.environ.get("CODRAG_DEV_MODE") == "1":
-    env_tier = os.environ.get("CODRAG_TIER", "")
+# Only works if PREP_DEV_MODE=1 is ALSO set
+if os.environ.get("PREP_DEV_MODE") == "1":
+    env_tier = os.environ.get("PREP_TIER", "")
     if env_tier:
-        logger.warning("⚠️ DEV MODE: Using CODRAG_TIER=%s override", env_tier)
+        logger.warning("⚠️ DEV MODE: Using PREP_TIER=%s override", env_tier)
 ```
 
-This prevents users from accidentally discovering `CODRAG_TIER=enterprise` in a Stack Overflow answer and using it in production.
+This prevents users from accidentally discovering `PREP_TIER=enterprise` in a Stack Overflow answer and using it in production.
 
 ---
 
 ## CRIT-2: S3 Endpoint SSRF — Admin Allowlist Setting
 
 ### The Problem
-The `s3_endpoint` field in `.prep/team_config.json` is committed to Git. A malicious PR could change it to an internal network address, and every developer who pulls would have their CoDRAG daemon make requests to the attacker's endpoint — with S3 credentials attached.
+The `s3_endpoint` field in `.prep/team_config.json` is committed to Git. A malicious PR could change it to an internal network address, and every developer who pulls would have their Prep daemon make requests to the attacker's endpoint — with S3 credentials attached.
 
 ### The Solution: Admin-Controlled Endpoint Allowlist
 
@@ -127,7 +127,7 @@ Add an `allowed_s3_endpoints` field to `team_config.json` that the Team admin co
   "sync": {
     "enabled": true,
     "s3_endpoint": "https://abc123.r2.cloudflarestorage.com",
-    "s3_bucket": "codrag-team-indexes",
+    "s3_bucket": "prep-team-indexes",
     "s3_prefix": "my-repo/main",
     "poll_interval_minutes": 30
   },
@@ -177,14 +177,14 @@ Should we check file permissions on `.prep/.secrets`? Would it ever leave the de
 ### The Answer: Three Layers of Protection
 
 **Layer 1: Always Gitignored (Already Done)**
-CoDRAG's `.prep/.secrets` lives inside `.prep/` which is typically gitignored. But we should also ensure `.secrets` is explicitly in our recommended `.gitignore` patterns. This file should **never** leave the developer's machine via Git.
+Prep's `.prep/.secrets` lives inside `.prep/` which is typically gitignored. But we should also ensure `.secrets` is explicitly in our recommended `.gitignore` patterns. This file should **never** leave the developer's machine via Git.
 
 **Layer 2: Always Excluded from Trace Graph (Should Implement)**
-The Rust parser (`codrag-parser`) should never index `.prep/.secrets`. Our default `exclude_globs` should include `.prep/.secrets` and `**/.secrets`. Even if someone explicitly includes `.prep/` in their trace scope, the secrets file must be excluded. This is a hard exclude — not configurable.
+The Rust parser (`prep-parser`) should never index `.prep/.secrets`. Our default `exclude_globs` should include `.prep/.secrets` and `**/.secrets`. Even if someone explicitly includes `.prep/` in their trace scope, the secrets file must be excluded. This is a hard exclude — not configurable.
 
 **Layer 3: Permission Check on Unix Only (Should Implement)**
 Follow the SSH model:
-- **On Unix/macOS:** When reading `.prep/.secrets`, check if permissions are wider than `0600`. If they are, log a `WARNING` but still read the file (unlike SSH which hard-refuses). This is gentler because CoDRAG is a dev tool, not a security-critical system.
+- **On Unix/macOS:** When reading `.prep/.secrets`, check if permissions are wider than `0600`. If they are, log a `WARNING` but still read the file (unlike SSH which hard-refuses). This is gentler because Prep is a dev tool, not a security-critical system.
 - **On Windows:** Skip the permission check. Windows ACLs work completely differently. The file is protected by the user's profile folder permissions by default.
 
 **Layer 4: On First Creation (Should Implement)**

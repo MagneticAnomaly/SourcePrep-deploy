@@ -1,11 +1,11 @@
 ---
 name: pipeline-testing
-description: Use when testing, debugging, or regression-checking the CoDRAG graph enrichment pipeline — especially pause/resume, daemon restart, or reset workflows. Encodes the 15-stage state machine, observation primitives, and known failure modes (F-66/67/69/75/76/78) so agents do not improvise.
+description: Use when testing, debugging, or regression-checking the Prep graph enrichment pipeline — especially pause/resume, daemon restart, or reset workflows. Encodes the 15-stage state machine, observation primitives, and known failure modes (F-66/67/69/75/76/78) so agents do not improvise.
 ---
 
 # Pipeline Testing Runbook
 
-The CoDRAG graph enrichment pipeline has 15 stages in 3 groups, a 10-state per-group state machine, two scoped reset endpoints, a swarm fan-out path for 5 of the stages, and a recovery manager that hydrates paused/crashed runs on daemon start. It is not a black box. Testing it by clicking "Rebuild" and watching the bars is not sufficient — the failure modes are in the transitions, not the happy path.
+The Prep graph enrichment pipeline has 15 stages in 3 groups, a 10-state per-group state machine, two scoped reset endpoints, a swarm fan-out path for 5 of the stages, and a recovery manager that hydrates paused/crashed runs on daemon start. It is not a black box. Testing it by clicking "Rebuild" and watching the bars is not sufficient — the failure modes are in the transitions, not the happy path.
 
 This skill is a **runbook**, not a harness. Follow it; do not automate it away.
 
@@ -26,11 +26,11 @@ Full table with queue types and swarm-capability: [references/stages.md](referen
 | Deep Enrichment (6–10) | `enrichment`, `group_reasoning`, `clustering`, `deepening`, `deep_knowledge` |
 | Finalize (11–15) | `atlas`, `rules`, `concepts`, `audit`, `antibodies` |
 
-**Swarm-capable** (5 of 15): `group_reasoning`, `clustering`, `atlas`, `concepts`, `audit` — see `src/codrag/services/pipeline/scheduler.py:53`.
+**Swarm-capable** (5 of 15): `group_reasoning`, `clustering`, `atlas`, `concepts`, `audit` — see `src/prep/services/pipeline/scheduler.py:53`.
 
 ## 2. State machine
 
-Full transition table: [references/state-machine.md](references/state-machine.md). Defined in `src/codrag/services/pipeline/state_machine.py:94-200`.
+Full transition table: [references/state-machine.md](references/state-machine.md). Defined in `src/prep/services/pipeline/state_machine.py:94-200`.
 
 Ten per-group states. Key ones to watch during testing:
 
@@ -76,7 +76,7 @@ ls .branch_snapshots/        # branch-switch snapshots (full-reset path)
 **Journal DB** (crash recovery source of truth):
 
 ```bash
-sqlite3 codrag_data/codrag_pipeline_journal.db \
+sqlite3 prep_data/prep_pipeline_journal.db \
   "SELECT run_id, project_id, group_name, stage_index, status FROM pipeline_runs ORDER BY started_at DESC LIMIT 5"
 ```
 
@@ -86,7 +86,7 @@ Run each scenario on a clean project. Reset between runs (`DELETE /enrichment/fu
 
 | # | Scenario | How to trigger | What to verify |
 |---|---|---|---|
-| W1 | Fresh index (empty `.codrag/`) | `POST /pipeline/rebuild` on a never-built project | Stages progress 1→15 in order; each group transitions `idle→queued→running→completed`; all 15 manifests written |
+| W1 | Fresh index (empty `.prep/`) | `POST /pipeline/rebuild` on a never-built project | Stages progress 1→15 in order; each group transitions `idle→queued→running→completed`; all 15 manifests written |
 | W2 | Incremental rebuild | Edit one source file, wait for watcher, observe | Only affected stages re-run; baseline progress counts come from manifest (F-66) not zero |
 | W3 | Scoped enrichment reset | `DELETE /enrichment/full-reset` on a fully built project, then `POST /rebuild` | Fast sync (1–5) files survive the DELETE; stages 6–15 wiped; `.reset_barrier` present; selfheal does not resurrect |
 | W4 | Scoped finalize reset | `DELETE /finalize/full-reset` | Stages 1–10 survive; 11–15 wiped; `.reset_barrier` = `finalize_reset` |
@@ -111,7 +111,7 @@ Pause is where bugs hide. Test at three boundaries.
 **What to check in the journal after each P#:**
 
 ```bash
-sqlite3 codrag_data/codrag_pipeline_journal.db \
+sqlite3 prep_data/prep_pipeline_journal.db \
   "SELECT stage_index, status, stage_state_json FROM pipeline_runs WHERE run_id='<run_id>'"
 ```
 
@@ -123,7 +123,7 @@ Full recovery flow documented in [references/recovery.md](references/recovery.md
 
 | # | Scenario | How to trigger | What to verify |
 |---|---|---|---|
-| S1 | Graceful daemon restart mid-pipeline | `codrag serve` → start run → SIGTERM → `codrag serve` | Journal has incomplete run; `RecoveryManager.startup_recovery()` picks it up; resumes at correct stage (F-66 baseline preserved) |
+| S1 | Graceful daemon restart mid-pipeline | `prep serve` → start run → SIGTERM → `prep serve` | Journal has incomplete run; `RecoveryManager.startup_recovery()` picks it up; resumes at correct stage (F-66 baseline preserved) |
 | S2 | Browser refresh while running | Refresh dashboard while stage 7 is running | UI reconciles from `/pipeline/status`, not stale disk read. (If status endpoint returns 500, dashboard falls back to disk and shows wrong state — this was the bug fixed in 7512669e.) |
 | S3 | Hard crash (kill -9) | `kill -9 <pid>` mid-stage | On restart: `auto_heal()` runs; selfheal resurrects orphan outputs as stub manifests marked incomplete (F-67); incomplete stage is re-run |
 | S4 | Shutdown during Finalize | Kill during stages 11–15 | Atlas/rules/concepts/audit/antibodies manifests either fully written or absent (no half-state); selfheal resurrects via `.checkpoints/_golden/` (F-78) |

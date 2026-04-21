@@ -46,7 +46,7 @@ The file MUST include a format version.
   "format_version": 1,
   "generated_at": "2026-01-31T00:00:00Z",
   "generated_by": {
-    "codrag_version": "0.1.0",
+    "prep_version": "0.1.0",
     "source": "dashboard" 
   },
   "enforcement": {
@@ -115,7 +115,7 @@ Default recommendation:
 ## Application behavior
 
 ### Detection
-When adding or opening a project, CoDRAG MUST detect `.prep/team_config.json` if present.
+When adding or opening a project, Prep MUST detect `.prep/team_config.json` if present.
 
 ### Apply rules
 1. Parse JSON.
@@ -144,10 +144,10 @@ The dashboard MUST show:
 
 ## CLI requirements (Team Tier)
 Minimum commands:
-- `codrag config export --team`:
+- `prep config export --team`:
   - Writes `.prep/team_config.json`.
   - Requires a Team/Enterprise license.
-- `codrag config validate --team-config <path>`:
+- `prep config validate --team-config <path>`:
   - Validates schema + prints warnings.
 
 ## Dashboard requirements (Team Tier)
@@ -168,7 +168,7 @@ Minimum UI surfaces:
 ### 2) Strict mode blocks weakening
 - Given `enforcement.mode = strict`,
 - When a user attempts to remove an excluded path,
-- Then CoDRAG blocks the change and explains why.
+- Then Prep blocks the change and explains why.
 
 ### 3) `.prep/**` is always excluded
 - Even if team config is missing or malformed,

@@ -35,16 +35,16 @@ pub fn analyze(file_path: &str, content: &str) -> Result<ParseResult, ParserErro
     let mut cursor = root.walk();
     for child in root.children(&mut cursor) {
         match child.kind() {
-            "class_declaration" => {
+            "class_deprep-compresstion" => {
                 extract_class(&child, source, file_path, &file_node_id, None, &mut result);
             }
-            "interface_declaration" => {
+            "interface_deprep-compresstion" => {
                 extract_interface(&child, source, file_path, &file_node_id, &mut result);
             }
-            "enum_declaration" => {
+            "enum_deprep-compresstion" => {
                 extract_simple_type(&child, source, file_path, &file_node_id, "enum", &mut result);
             }
-            "import_declaration" => {
+            "import_deprep-compresstion" => {
                 extract_import(&child, source, file_path, &file_node_id, &mut result);
             }
             _ => {}
@@ -132,10 +132,10 @@ fn extract_class(
         let mut cursor = body.walk();
         for child in body.children(&mut cursor) {
             match child.kind() {
-                "method_declaration" | "constructor_declaration" => {
+                "method_deprep-compresstion" | "constructor_deprep-compresstion" => {
                     extract_method(&child, source, file_path, file_node_id, &qualname, result);
                 }
-                "class_declaration" => {
+                "class_deprep-compresstion" => {
                     extract_class(&child, source, file_path, file_node_id, Some(&qualname), result);
                 }
                 _ => {}

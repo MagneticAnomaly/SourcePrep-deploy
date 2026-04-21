@@ -5,24 +5,24 @@ Based on the large files and architectural optimization audits, here is the step
 This refactoring focuses on structural improvements without changing the core business logic. All tests must pass after each phase.
 
 ## Phase 1: Core Subsystem Decoupling (Backend)
-**Target:** `src/codrag/core/`
+**Target:** `src/prep/core/`
 
 ### 1.1 The Trace Subsystem
-Extract components from `trace.py` (2,460 lines) into a `codrag/core/trace/` subpackage.
+Extract components from `trace.py` (2,460 lines) into a `prep/core/trace/` subpackage.
 - **Goal:** Create `models.py`, `builder.py`, `index.py`, and `analyzers/` directory.
 - **Steps:**
-  1. Create the `src/codrag/core/trace/` directory and an empty `__init__.py`.
+  1. Create the `src/prep/core/trace/` directory and an empty `__init__.py`.
   2. Move data structures (`TraceNode`, `TraceEdge`, `TraceBuildResult`, `FileError`) to `models.py`.
   3. Move language parsers (`PythonAnalyzer`, `SwiftAnalyzer`, `GenericRegexAnalyzer`, `JSAnalyzer`, etc.) to `analyzers.py` (or individual files in `analyzers/`).
   4. Move `TraceBuilder` to `builder.py`.
   5. Move `TraceIndex` and graph query logic to `index.py`.
-  6. Update imports across the codebase (`from codrag.core.trace import TraceIndex` should still work via `__init__.py` barrel exports).
+  6. Update imports across the codebase (`from prep.core.trace import TraceIndex` should still work via `__init__.py` barrel exports).
 
 ### 1.2 The Atlas Subsystem
-Extract components from `atlas.py` (2,315 lines) into a `codrag/core/atlas/` subpackage.
+Extract components from `atlas.py` (2,315 lines) into a `prep/core/atlas/` subpackage.
 - **Goal:** Separate models, prompts, generation, and routing.
 - **Steps:**
-  1. Create the `src/codrag/core/atlas/` directory.
+  1. Create the `src/prep/core/atlas/` directory.
   2. Move `AtlasDocument`, `Segment`, `SegmentDescriptor`, `SegmentDocument` to `models.py`.
   3. Move hardcoded prompts (`_ROOT_ATLAS_SYSTEM_PROMPT`, etc.) to `prompts.py`.
   4. Move the `CodebaseAtlas` generation and parallel execution logic to `generator.py`.
@@ -30,22 +30,22 @@ Extract components from `atlas.py` (2,315 lines) into a `codrag/core/atlas/` sub
   6. Update `__init__.py` to export `CodebaseAtlas` to preserve external APIs.
 
 ## Phase 2: API Layer Refinement (Backend)
-**Target:** `src/codrag/api/routers/`
+**Target:** `src/prep/api/routers/`
 
 ### 2.1 The Projects Router
 Split `projects.py` (2,228 lines) into smaller, domain-focused routers.
-- **Goal:** Create `src/codrag/api/routers/projects/` subpackage.
+- **Goal:** Create `src/prep/api/routers/projects/` subpackage.
 - **Steps:**
   1. Create the `projects/` directory.
   2. Create `crud.py` for project lifecycle (`POST /projects`, `GET /projects`, `DELETE /projects/{id}`).
   3. Create `search.py` for retrieval endpoints (`GET /projects/{id}/search`, `GET /projects/{id}/context`).
   4. Create `watch.py` for watcher control (`POST /projects/{id}/watch/start`, etc.).
   5. Create `files.py` for file tree and content (`GET /projects/{id}/files`, `GET /projects/{id}/file`).
-  6. In `src/codrag/api/routers/projects/__init__.py`, assemble a main `router` that includes all these sub-routers so `server.py` doesn't need to change its mounting logic.
+  6. In `src/prep/api/routers/projects/__init__.py`, assemble a main `router` that includes all these sub-routers so `server.py` doesn't need to change its mounting logic.
 
 ### 2.2 The Trace Router
 Split `trace.py` (1,600 lines) into smaller endpoints.
-- **Goal:** Create `src/codrag/api/routers/trace_routes/` (name to avoid conflict with core/trace).
+- **Goal:** Create `src/prep/api/routers/trace_routes/` (name to avoid conflict with core/trace).
 - **Steps:**
   1. Move standard graph queries (neighbors, path, search) to `query.py`.
   2. Move build endpoints (build, LSP edges) to `build.py`.

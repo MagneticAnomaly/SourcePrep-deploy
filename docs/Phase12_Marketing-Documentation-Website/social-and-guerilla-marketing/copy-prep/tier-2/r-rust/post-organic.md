@@ -7,14 +7,14 @@
 ## Body Structure
 
 ### The Prototype
-I started building **CoDRAG** in Python. It worked for small scripts.
+I started building **Prep** in Python. It worked for small scripts.
 But when I pointed it at a 50k LOC repo, the graph analysis (finding all downstream dependents) took 30 seconds. Unacceptable for a "real-time" tool.
 
 ### The Rewrite
 I ported the core indexer to Rust.
 *   `tree-sitter` for incremental parsing.
-*   A hand-rolled in-memory graph (`codrag-graph` crate) — we evaluated petgraph but rolled our own to keep query semantics simple.
-*   `PyO3` bindings (`codrag-engine` crate, compiled as a `cdylib`) so Python imports the Rust core directly.
+*   A hand-rolled in-memory graph (`prep-graph` crate) — we evaluated petgraph but rolled our own to keep query semantics simple.
+*   `PyO3` bindings (`prep-engine` crate, compiled as a `cdylib`) so Python imports the Rust core directly.
 
 ### The Result
 Indexing is now near-instant on repos that choked the Python prototype. The memory footprint dropped ~80%.

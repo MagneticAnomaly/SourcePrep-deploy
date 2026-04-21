@@ -2,7 +2,7 @@
 
 ## Overview
 
-The CoDRAG dashboard needs a modular, user-configurable layout system that allows components to be rearranged and resized. This enables users to customize their workspace based on their workflow preferences.
+The Prep dashboard needs a modular, user-configurable layout system that allows components to be rearranged and resized. This enables users to customize their workspace based on their workflow preferences.
 
 ## Core Constraints
 
@@ -75,7 +75,7 @@ interface PanelConfig {
 }
 ```
 
-Storage: `localStorage` key `codrag_dashboard_layout`
+Storage: `localStorage` key `prep_dashboard_layout`
 
 ### 4. Default Layout
 

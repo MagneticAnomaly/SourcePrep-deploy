@@ -13,10 +13,10 @@ Layer 3 ("Emergence") was originally roadmapped as 5 features requiring 15-24 da
 
 | Feature | Why it stays | What it leverages |
 |---|---|---|
-| Consensus Scoring | Paperclip sees individual issues. Only CoDRAG knows "3 agents independently flagged the same area." | `get_all_attributed()`, `created_by`, `file_path` |
-| Structural Complexity on Push | Paperclip assigns tasks but has zero structural awareness. "Is this a 3-file leaf fix or a 40-file hub refactor?" | `codrag_impact` logic, hub file detection, PushEngine |
-| Delta Push to Paperclip (P3) | Only CoDRAG knows structural shifts — new hubs, module splits, rank changes | `GraphSnapshotStore`, `StructuralDelta`, PushEngine |
-| Claims Push to Paperclip (P3) | Paperclip can't see file-level claims without CoDRAG telling it | `ClaimStore`, Paperclip plugin data provider |
+| Consensus Scoring | Paperclip sees individual issues. Only Prep knows "3 agents independently flagged the same area." | `get_all_attributed()`, `created_by`, `file_path` |
+| Structural Complexity on Push | Paperclip assigns tasks but has zero structural awareness. "Is this a 3-file leaf fix or a 40-file hub refactor?" | `prep_impact` logic, hub file detection, PushEngine |
+| Delta Push to Paperclip (P3) | Only Prep knows structural shifts — new hubs, module splits, rank changes | `GraphSnapshotStore`, `StructuralDelta`, PushEngine |
+| Claims Push to Paperclip (P3) | Paperclip can't see file-level claims without Prep telling it | `ClaimStore`, Paperclip plugin data provider |
 
 **What we dropped and why:**
 
@@ -32,7 +32,7 @@ Layer 3 ("Emergence") was originally roadmapped as 5 features requiring 15-24 da
 
 ### 2.1 The Gap
 
-Paperclip receives individual issues from CoDRAG. Each issue stands alone. But when 3 out of 4 agents independently flag the same file or directory, that's a much stronger signal than any single finding. Paperclip can't compute this because agent observations live in CoDRAG's observation store, not in Paperclip's issue tracker.
+Paperclip receives individual issues from Prep. Each issue stands alone. But when 3 out of 4 agents independently flag the same file or directory, that's a much stronger signal than any single finding. Paperclip can't compute this because agent observations live in Prep's observation store, not in Paperclip's issue tracker.
 
 ### 2.2 How It Works
 
@@ -113,7 +113,7 @@ WHERE project_id = ? AND created_by IS NOT NULL AND created_at > ?
 (pi/watchdog, researcher, custodian)
 ```
 
-**On MCP Resource:** The existing `codrag://delta` resource is extended with a "Consensus Hotspots" section when consensus data exists:
+**On MCP Resource:** The existing `prep://delta` resource is extended with a "Consensus Hotspots" section when consensus data exists:
 
 ```markdown
 ## Consensus Hotspots (files flagged by 2+ agents)
@@ -126,7 +126,7 @@ WHERE project_id = ? AND created_by IS NOT NULL AND created_at > ?
 
 This avoids creating a new MCP resource — consensus piggybacks on the delta resource since both answer "what should I pay attention to?"
 
-**On codrag-enrich prompt:** The `codrag-enrich` prompt already walks through findings and adds structural intelligence. We add one more step:
+**On prep-enrich prompt:** The `prep-enrich` prompt already walks through findings and adds structural intelligence. We add one more step:
 
 ```
 6. Check for consensus: which findings overlap with files that multiple
@@ -136,7 +136,7 @@ This avoids creating a new MCP resource — consensus piggybacks on the delta re
 
 ### 2.5 No New MCP Resource
 
-The original design included a `codrag://consensus` resource. We're not building it. Consensus data is simple enough to embed in the delta resource and the push payload. A separate resource would fragment the information and add surface area without proportional value.
+The original design included a `prep://consensus` resource. We're not building it. Consensus data is simple enough to embed in the delta resource and the push payload. A separate resource would fragment the information and add surface area without proportional value.
 
 ### 2.6 Data Flow
 
@@ -167,13 +167,13 @@ Two consumers:
 
 ### 3.1 The Gap
 
-When CoDRAG pushes a finding to Paperclip as an issue, the issue says "quality problem in src/gateway.py" with a priority (P0-P3) and effort estimate (small/medium/large). But it doesn't say:
+When Prep pushes a finding to Paperclip as an issue, the issue says "quality problem in src/gateway.py" with a priority (P0-P3) and effort estimate (small/medium/large). But it doesn't say:
 
 - "This file has 23 dependents — changes here affect 40% of the codebase"
 - "This spans 3 modules — it's a cross-cutting concern"
 - "This touches a hub file ranked #2 — high blast radius"
 
-Paperclip gets the *what* but not the *structural why*. It routes tasks based on category and priority, but it can't distinguish a leaf-file fix from a hub-file refactor. Only CoDRAG has the dependency graph to compute this.
+Paperclip gets the *what* but not the *structural why*. It routes tasks based on category and priority, but it can't distinguish a leaf-file fix from a hub-file refactor. Only Prep has the dependency graph to compute this.
 
 ### 3.2 How It Works
 
@@ -197,7 +197,7 @@ This data is already computed and cached — hub files are in `GraphSnapshotStor
 class StructuralContext:
     """Structural intelligence attached to a PM issue.
 
-    CoDRAG-only data that helps Paperclip route work.
+    Prep-only data that helps Paperclip route work.
     """
     hub_files_involved: List[str] = field(default_factory=list)
     hub_count: int = 0
@@ -249,7 +249,7 @@ When structural context is available, append to the issue description:
 
 ```markdown
 ---
-### Structural Context (CoDRAG)
+### Structural Context (Prep)
 - **Complexity:** heavyweight
 - **Hub files:** src/gateway.py (#2, 23 dependents), src/config.py (#3, 18 dependents)
 - **Modules spanned:** api_gateway, core_config, auth
@@ -322,7 +322,7 @@ def _enrich_with_structural_context(self, group, project_id):
     return ctx
 ```
 
-**Option B: Call codrag_impact per file**
+**Option B: Call prep_impact per file**
 
 Slower, makes HTTP calls, but uses the full live trace index. Overkill for push enrichment — snapshot data is sufficient.
 
@@ -343,7 +343,7 @@ Slower, makes HTTP calls, but uses the full live trace index. Overkill for push 
 
 ### 4.1 The Gap
 
-Structural deltas are captured in `GraphSnapshotStore` and served via the `codrag://delta` MCP resource. But Paperclip users who don't browse MCP resources never see them. When a new hub file emerges with 14 dependents, or a module splits into two, that's architecturally significant — and the right place for it to appear is as a Paperclip issue that can be assigned, discussed, and tracked.
+Structural deltas are captured in `GraphSnapshotStore` and served via the `prep://delta` MCP resource. But Paperclip users who don't browse MCP resources never see them. When a new hub file emerges with 14 dependents, or a module splits into two, that's architecturally significant — and the right place for it to appear is as a Paperclip issue that can be assigned, discussed, and tracked.
 
 ### 4.2 How It Works
 
@@ -390,8 +390,8 @@ Description: |
   - Monitoring for breaking changes
   - Assessing whether the dependency count is intentional
 
-  <!-- codrag-address:codrag://project_id/DELTA-abc123 -->
-  <!-- codrag-delta:true -->
+  <!-- prep-address:prep://project_id/DELTA-abc123 -->
+  <!-- prep-delta:true -->
 
 Priority: P3 (informational)
 Category: "architecture"
@@ -441,14 +441,14 @@ Alternatively (simpler): the collaboration FastAPI route for delta can have an o
 
 ### 4.5 Dedup
 
-Uses the existing `codrag-address` pattern. Each significant change gets a stable address derived from its content:
+Uses the existing `prep-address` pattern. Each significant change gets a stable address derived from its content:
 
 ```python
 # For a new hub:
-address = f"codrag://{project_id}/DELTA-hub-{file_path_hash}"
+address = f"prep://{project_id}/DELTA-hub-{file_path_hash}"
 
 # For a new module:
-address = f"codrag://{project_id}/DELTA-module-{module_name_hash}"
+address = f"prep://{project_id}/DELTA-module-{module_name_hash}"
 ```
 
 The same structural change won't create duplicate Paperclip issues across multiple pipeline rebuilds.
@@ -469,7 +469,7 @@ The same structural change won't create duplicate Paperclip issues across multip
 
 ### 5.1 The Gap
 
-When the Researcher claims `src/auth/` for investigation, the Custodian respects that claim within CoDRAG. But Paperclip doesn't know. If Paperclip assigns a task touching `src/auth/login.py` to another agent, there's no warning that the Researcher is actively working there.
+When the Researcher claims `src/auth/` for investigation, the Custodian respects that claim within Prep. But Paperclip doesn't know. If Paperclip assigns a task touching `src/auth/login.py` to another agent, there's no warning that the Researcher is actively working there.
 
 ### 5.2 How It Works
 
@@ -478,14 +478,14 @@ The Paperclip plugin already has an `agent-claims` data provider that calls `GET
 **Solution: The plugin data provider is sufficient.** We don't need to push claims as issues (they're ephemeral, 24h TTL — issues are persistent). Instead:
 
 1. The `agent-claims` data provider (already built) exposes claims to the Paperclip UI
-2. Add a **claim summary** to the `codrag-enrich` prompt output so agents see active claims when reviewing findings
-3. Add a **claim check** step to the `codrag-handoff` prompt so receiving agents know what's claimed
+2. Add a **claim summary** to the `prep-enrich` prompt output so agents see active claims when reviewing findings
+3. Add a **claim check** step to the `prep-handoff` prompt so receiving agents know what's claimed
 
 ### 5.3 What Gets Built
 
 **Minimal: extend two existing prompts.**
 
-In `collaboration_handlers.py`, update the `codrag-enrich` prompt to include:
+In `collaboration_handlers.py`, update the `prep-enrich` prompt to include:
 
 ```
 7. Check active file claims: which files are currently claimed by agents?
@@ -493,7 +493,7 @@ In `collaboration_handlers.py`, update the `codrag-enrich` prompt to include:
    may already be addressing the issue.
 ```
 
-In `collaboration_handlers.py`, update the `codrag-handoff` prompt to include:
+In `collaboration_handlers.py`, update the `prep-handoff` prompt to include:
 
 ```
 5. Check active claims: does the from-agent have any active file claims?
@@ -507,8 +507,8 @@ In `collaboration_handlers.py`, update the `codrag-handoff` prompt to include:
 
 2 tests (extend existing `test_collab_resources.py`):
 
-1. `codrag-enrich` prompt text includes "claims" reference
-2. `codrag-handoff` prompt text includes "claims" reference
+1. `prep-enrich` prompt text includes "claims" reference
+2. `prep-handoff` prompt text includes "claims" reference
 
 ---
 
@@ -518,23 +518,23 @@ In `collaboration_handlers.py`, update the `codrag-handoff` prompt to include:
 
 **Original idea:** Record what each agent recommends and track whether it was accepted, rejected, or fixed.
 
-**Why it's redundant:** Paperclip already tracks issue lifecycle — created → assigned → in_progress → done/rejected. When CoDRAG pushes a finding to Paperclip, Paperclip tracks the outcome. Building a parallel outcome tracker in CoDRAG means:
+**Why it's redundant:** Paperclip already tracks issue lifecycle — created → assigned → in_progress → done/rejected. When Prep pushes a finding to Paperclip, Paperclip tracks the outcome. Building a parallel outcome tracker in Prep means:
 - Two sources of truth for the same data
-- Sync problems when Paperclip and CoDRAG disagree about whether something was "accepted"
+- Sync problems when Paperclip and Prep disagree about whether something was "accepted"
 - Extra complexity for data that's already captured
 
 **If we need this later:** Poll Paperclip's issue status (via the plugin or API) to compute agent accuracy. Don't store outcomes separately — read them from where they naturally live.
 
 ### 6.2 Capability Attestation
 
-**Original idea:** Agents query CoDRAG to assess whether they can handle a task before accepting it.
+**Original idea:** Agents query Prep to assess whether they can handle a task before accepting it.
 
 **Why it's premature:**
 - No stable tier system exists (agents don't have formal capability profiles)
 - The `complexity_tier` from Feature 2 provides the routing signal without the self-assessment protocol
 - Attestation requires agents to understand their own capabilities — this is an AI alignment problem, not a database query
 
-**If we need this later:** Start with `complexity_tier` as the routing signal. If Paperclip's routing needs more nuance, build attestation as a Paperclip-side feature that queries CoDRAG's structural context.
+**If we need this later:** Start with `complexity_tier` as the routing signal. If Paperclip's routing needs more nuance, build attestation as a Paperclip-side feature that queries Prep's structural context.
 
 ### 6.3 Adaptive Role Scoping
 
@@ -599,7 +599,7 @@ Steps 1 and 4 can be done in parallel. Steps 2 and 3 are sequential.
 1. **Consensus is visible:** Paperclip issues for high-consensus areas include "N/M agents flagged this" in the description
 2. **Complexity tiers work:** PushResult includes lightweight/standard/heavyweight counts. Heavyweight issues have structural context in their description
 3. **Delta push fires:** When a new hub emerges after pipeline rebuild, a Paperclip issue is created (once, not on every rebuild)
-4. **Claims in prompts:** Running `/codrag-handoff` or `/codrag-enrich` mentions file claims as a consideration
+4. **Claims in prompts:** Running `/prep-handoff` or `/prep-enrich` mentions file claims as a consideration
 5. **No new stores:** All features built on existing ObservationStore, GraphSnapshotStore, and PushEngine
 6. **Test coverage:** 18+ tests covering all new paths
 
@@ -609,11 +609,11 @@ Steps 1 and 4 can be done in parallel. Steps 2 and 3 are sequential.
 
 Every feature in this design follows the Paperclip-first principle from `strategic_direction.md`:
 
-| Feature | CoDRAG computes | Paperclip consumes |
+| Feature | Prep computes | Paperclip consumes |
 |---|---|---|
 | Consensus Scoring | "3/5 agents flagged src/auth/" | Shows in issue description, informs priority |
 | Structural Complexity | "This is a heavyweight task: 2 hubs, 41 dependents, 3 modules" | Routes to appropriate agent class |
 | Delta Push | "src/gateway.py is a new hub with 14 dependents" | Creates trackable issue |
 | Claims in Prompts | "src/auth/ is claimed by researcher" | Agent sees claim before starting work |
 
-CoDRAG provides structural intelligence. Paperclip acts on it. No parallel systems.
+Prep provides structural intelligence. Paperclip acts on it. No parallel systems.

@@ -1,14 +1,14 @@
-# CoDRAG LLM & Model Configuration
+# Prep LLM & Model Configuration
 
 ## Overview
 
-CoDRAG requires multiple AI models for different tasks in a tiered processing pipeline. This document specifies the model configuration system, inspired by [Halley's AI Models settings](../../../LinuxBrain/halley_core/frontend/src/components/SettingsTabs.tsx).
+Prep requires multiple AI models for different tasks in a tiered processing pipeline. This document specifies the model configuration system, inspired by [Halley's AI Models settings](../../../LinuxBrain/halley_core/frontend/src/components/SettingsTabs.tsx).
 
 ---
 
 ## Model Slots
 
-CoDRAG uses **3 model slots** with distinct purposes:
+Prep uses **3 model slots** with distinct purposes:
 
 | Slot | Purpose | Default Source | Required |
 |------|---------|----------------|----------|
@@ -61,7 +61,7 @@ User Query
 2. **HuggingFace Direct Download** (runs in-app with Python)
    - Repo: `nomic-ai/nomic-embed-text-v1.5`
    - One-click download button
-   - Managed by CoDRAG (no external server needed)
+   - Managed by Prep (no external server needed)
 
 **UI Pattern:**
 ```
@@ -146,8 +146,8 @@ Changing source/endpoint/model invalidates cached indexes so the next build uses
 - `deepseek-coder-v2` (Ollama)
 
 **Rationale for Mistral/Ministral:**
-We recommend the **Ministral 3** family (3B, 8B) for CoDRAG's local pipeline.
-1. **Edge Optimization:** Designed specifically for low-latency local inference, matching CoDRAG's local-first philosophy.
+We recommend the **Ministral 3** family (3B, 8B) for Prep's local pipeline.
+1. **Edge Optimization:** Designed specifically for low-latency local inference, matching Prep's local-first philosophy.
 2. **Performance:** Ministral 3 outperforms previous 7B models in reasoning and coding tasks while being significantly faster.
 
 **UI Pattern:** Same as Small Model, different slot.
@@ -245,7 +245,7 @@ interface LLMConfig {
 ### Storage Location
 
 ```
-<index_dir>/                      # Default: ./codrag_data/
+<index_dir>/                      # Default: ./prep_data/
 ├── ui_config.json                # Global config including llm_config
 └── ...                           # Index data, manifests, etc.
 
@@ -410,4 +410,4 @@ interface ModelCardProps {
 
 - `README.md` — Phase 04 overview
 - `TRACEABILITY_AUTOMATION_STRATEGY.md` — How LLMs are used in trace augmentation
-- `../../ARCHITECTURE.md` — Overall CoDRAG architecture
+- `../../ARCHITECTURE.md` — Overall Prep architecture

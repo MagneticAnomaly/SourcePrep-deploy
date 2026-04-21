@@ -7,7 +7,7 @@ updating all three.
 ## Locations
 
 ### 1. Python Backend — Source of Truth
-**File:** `src/codrag/services/pipeline_orchestrator.py`
+**File:** `src/prep/services/pipeline_orchestrator.py`
 ```python
 class StageId(str, enum.Enum):
     STRUCTURAL = "structural"

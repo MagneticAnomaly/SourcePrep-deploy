@@ -117,7 +117,7 @@ class MCPServer:
         self._initialize_roots: List[str] = []
         self._client_name: str = "unknown"  # Phase 50: set by handle_initialize
         self._client_version: str = ""  # Phase 50: set by handle_initialize
-        self._codrag_called: bool = False  # Phase 50 Sprint 3: nudge tracker
+        self._prep_called: bool = False  # Phase 50 Sprint 3: nudge tracker
         self._notification_callback = None  # OPP-2: set by transport for resource notifications
         self._last_atlas_signal: Dict[str, float] = {}  # D1: per-project atlas signal mtime
 
@@ -190,7 +190,7 @@ class MCPServer:
         base = self._base_budget_for_client()
 
         # First-call orientation boost: give 50% more context
-        if not self._codrag_called:
+        if not self._prep_called:
             base = int(base * 1.5)
 
         # Clamp to hard cap so auto-computed budgets never fail validation
@@ -572,7 +572,7 @@ class MCPServer:
             return None
         return best_id
 
-    async def _auto_register_codrag_folders(
+    async def _auto_register_prep_folders(
         self, paths: List[str], existing_projects: List[Dict[str, Any]]
     ) -> Optional[str]:
         """Auto-register projects with .prep/ folders that aren't in the daemon yet.
@@ -712,7 +712,7 @@ class MCPServer:
         if cwd != "/" and cwd not in auto_paths:
             auto_paths.append(cwd)
         if auto_paths:
-            new_pid = await self._auto_register_codrag_folders(auto_paths, all_projects)
+            new_pid = await self._auto_register_prep_folders(auto_paths, all_projects)
             if new_pid:
                 return new_pid
 
@@ -3759,7 +3759,7 @@ class MCPServer:
                     result.setdefault("r4_meta", {}).update(inference_meta)
 
                 # Set AFTER tool_context so first-call orientation boost fires
-                self._codrag_called = True
+                self._prep_called = True
 
             elif name == "prep_search":
                 search_type = args.get("type", "context")
@@ -3868,7 +3868,7 @@ class MCPServer:
                         "clean_query": clean_query,
                     }
                 # Phase 50 Sprint 3: Nudge if prep hasn't been called yet
-                if not self._codrag_called and isinstance(result, dict):
+                if not self._prep_called and isinstance(result, dict):
                     md = result.get("_to_markdown", "")
                     if md:
                         result["_to_markdown"] = (
@@ -3913,7 +3913,7 @@ class MCPServer:
                         project_override=project_override,
                     )
                 # Phase 50: Nudge if prep hasn't been called yet
-                if not self._codrag_called and isinstance(result, dict):
+                if not self._prep_called and isinstance(result, dict):
                     md = result.get("_to_markdown", "")
                     if md:
                         result["_to_markdown"] = (
@@ -3986,7 +3986,7 @@ class MCPServer:
                             project_override=project_override,
                         )
                 # Phase 50: Nudge if prep hasn't been called yet
-                if not self._codrag_called and isinstance(result, dict):
+                if not self._prep_called and isinstance(result, dict):
                     md = result.get("_to_markdown", "")
                     if md:
                         result["_to_markdown"] = (

@@ -10,7 +10,7 @@
 
 ## 1. Baseline Assumptions
 
-Our reference workload is a medium-large codebase that CoDRAG's pipeline needs to analyze end-to-end. Not every file is sent raw — the pipeline stages work with epistemic summaries, edges, and group contexts — but understanding the raw scale helps frame the cost math.
+Our reference workload is a medium-large codebase that Prep's pipeline needs to analyze end-to-end. Not every file is sent raw — the pipeline stages work with epistemic summaries, edges, and group contexts — but understanding the raw scale helps frame the cost math.
 
 | Metric | Value | Source |
 |--------|-------|--------|
@@ -20,7 +20,7 @@ Our reference workload is a medium-large codebase that CoDRAG's pipeline needs t
 | Tokens per file (÷4 chars/token) | ~2,500–5,000 | ~3,750 midpoint |
 | **Total raw repo tokens** | **~3.75 M** | Conservative — many files are smaller |
 | Tokens per group context (pipeline) | ~2,000–5,000 | What we actually send per LLM call in Group Reasoning |
-| Typical group count in pipeline | 15–30 | CoDRAG clustering output for a 1K-file repo |
+| Typical group count in pipeline | 15–30 | Prep clustering output for a 1K-file repo |
 
 > **Important correction from earlier drafts**: Previous versions of this document used 11,250 tokens/file, which assumed 0.75 chars/token. The industry standard is ~4 characters per token for English code. The corrected midpoint is ~3,750 tokens/file. This dramatically changes batch sizing.
 
@@ -92,7 +92,7 @@ Providers do not publish standardized tok/s benchmarks. The following ranges are
 
 ### Scenario: 1,000-file repo, Group Reasoning stage
 
-In practice, CoDRAG's Group Reasoning stage doesn't send raw files — it sends pre-computed epistemic summaries and edge data for each **group** (cluster of related files). A 1,000-file repo typically produces 15–30 groups.
+In practice, Prep's Group Reasoning stage doesn't send raw files — it sends pre-computed epistemic summaries and edge data for each **group** (cluster of related files). A 1,000-file repo typically produces 15–30 groups.
 
 | Parameter | Batch Mode | Swarm Mode |
 |-----------|-----------|------------|
@@ -175,7 +175,7 @@ Assume 5 pipeline runs/day × 22 work days = 110 runs/month:
 | **Claude Haiku 4.5** | 8–10 | 200 RPM limit; 10 concurrent is fine |
 | **Claude Sonnet 4.6** | 5–8 | Higher per-call latency; more than 8 wastes slots waiting |
 | **Gemini 2.5 Flash** | 10 | High throughput, handles parallel well |
-| **Grok 4.20** | 10–15 | 1,800 RPM capacity could support more; CoDRAG caps at 10 |
+| **Grok 4.20** | 10–15 | 1,800 RPM capacity could support more; Prep caps at 10 |
 
 ### 5.2 Batch vs Swarm Decision Matrix (Updated)
 
@@ -228,13 +228,13 @@ files_per_batch = effective_batch_capacity / avg_tokens_per_group_context
 3. Disable swarm; use batch-only to minimize API calls.
 
 ### Surprising Finding: Grok 4.20 as a Dark Horse
-**Grok 4.20** ($2.00 in / $6.00 out) offers **better output pricing than Claude Sonnet ($15.00 out) or GPT-5.4 ($15.00 out)** at 60% less cost for output tokens. Its 2M context window means every CoDRAG group reasoning batch fits in a single call. The 1,800 RPM rate limit is the most generous of any provider. For users who want frontier-quality coordination without Anthropic/OpenAI pricing, Grok is the sleeper pick.
+**Grok 4.20** ($2.00 in / $6.00 out) offers **better output pricing than Claude Sonnet ($15.00 out) or GPT-5.4 ($15.00 out)** at 60% less cost for output tokens. Its 2M context window means every Prep group reasoning batch fits in a single call. The 1,800 RPM rate limit is the most generous of any provider. For users who want frontier-quality coordination without Anthropic/OpenAI pricing, Grok is the sleeper pick.
 
 ---
 
 ## 7. Next Steps
 
-1. **Benchmark on real repos**: Run Group Reasoning with swarm on/off for CoDRAG's own codebase (~320 files, ~12 groups) and a larger target (1K+ files).
+1. **Benchmark on real repos**: Run Group Reasoning with swarm on/off for Prep's own codebase (~320 files, ~12 groups) and a larger target (1K+ files).
 2. **Implement auto-mode**: Add heuristic in `batch_profiles.py` that selects `mode = "swarm"` when `group_count >= 15` and model tier is BOTH or COORDINATOR.
 3. **Mixed-model swarm**: Prototype using a cheaper worker model (Haiku/mini) with a more capable coordinator (Sonnet/GPT-5.4) to optimize cost.
 4. **Feed benchmarks into registry**: Add `recommended_batch_size` and `default_concurrency` fields to `swarm_models.json`.
@@ -297,7 +297,7 @@ Each group context is ~3K–5K tokens. Total batch input for all 30 groups ≈ *
 
 ### 8.4 Recommended Context Fill Caps (Per Model)
 
-Based on the research, we should implement **hard fill caps** in CoDRAG's batch sizing logic. The cap is expressed as a percentage of the model's advertised context window:
+Based on the research, we should implement **hard fill caps** in Prep's batch sizing logic. The cap is expressed as a percentage of the model's advertised context window:
 
 | Model | Advertised Window | **Recommended Fill Cap** | **Max tokens to use** | Notes |
 |-------|-----------------|--------------------------|----------------------|-------|
@@ -310,7 +310,7 @@ Based on the research, we should implement **hard fill caps** in CoDRAG's batch 
 | **Gemini 2.5 Pro** | 1M | **55%** | ~550K | Best synthesis quality at long context in our registry |
 | **Grok 4.20** | 2M | **50%** | ~1M | Strong architecture; 50% is conservative but safe |
 
-> **Why not 80%+?** The earlier draft used 80% as the headroom cap, leaving room for system prompt + response. But the context rot research makes a stronger argument for much lower caps on *synthesis quality* grounds. Even if the API accepts the full request, reasoning quality degrades. CoDRAG's goal is high-quality architectural analysis, not just "it returned something."
+> **Why not 80%+?** The earlier draft used 80% as the headroom cap, leaving room for system prompt + response. But the context rot research makes a stronger argument for much lower caps on *synthesis quality* grounds. Even if the API accepts the full request, reasoning quality degrades. Prep's goal is high-quality architectural analysis, not just "it returned something."
 
 ### 8.5 Revised Batch Size Table (With Quality-Aware Caps)
 
@@ -327,7 +327,7 @@ Based on the research, we should implement **hard fill caps** in CoDRAG's batch 
 
 For a 1,000-file repo with ~25–30 groups, **only Kimi K2.5** requires multiple batch passes (1.5–2 passes). All other models in the registry can handle the entire repo in a single Group Reasoning batch call.
 
-### 8.6 CoDRAG Implementation Guidance
+### 8.6 Prep Implementation Guidance
 
 The batch sizing logic in `batch_profiles.py` should be updated to use quality-aware caps rather than the naive "80% of context window" formula:
 
@@ -387,9 +387,9 @@ The swarm orchestrator partially bridges this gap for Kimi — by having the coo
 
 This is exactly the right question to ask before committing to any model recommendation, so let's ground this in the actual code.
 
-### 9.1 The 11 CoDRAG Pipeline Stages: What Each Actually Does
+### 9.1 The 11 Prep Pipeline Stages: What Each Actually Does
 
-From `src/codrag/services/pipeline/stages.py`, the 11 stages divide into two groups:
+From `src/prep/services/pipeline/stages.py`, the 11 stages divide into two groups:
 
 **Fast-Sync Stages (no LLM, or trivial LLM):**
 
@@ -477,7 +477,7 @@ Opus at **$130/run** vs. Haiku at **$26/run** — for a codebase that gets re-an
 - Gemini Flash: $238/mo
 - Kimi Ollama: $100/mo flat
 
-**And Opus doesn't produce 5× better output for CoDRAG's per-file tasks.** The CATALOGUE and ENRICHMENT stages need focused, structured JSON — not creative reasoning. Haiku and mini-tier models perform those tasks at near-Opus quality because the prompt is small and the task is well-defined. Opus's intelligence advantage pays off in **synthesis tasks** (ATLAS, GROUP_REASONING) where cross-cutting insight matters — but those are only ~60 of the 2,500 calls.
+**And Opus doesn't produce 5× better output for Prep's per-file tasks.** The CATALOGUE and ENRICHMENT stages need focused, structured JSON — not creative reasoning. Haiku and mini-tier models perform those tasks at near-Opus quality because the prompt is small and the task is well-defined. Opus's intelligence advantage pays off in **synthesis tasks** (ATLAS, GROUP_REASONING) where cross-cutting insight matters — but those are only ~60 of the 2,500 calls.
 
 ### 9.6 The Practical Architecture: Mixed-Model Strategy
 
@@ -511,4 +511,4 @@ The swarm overhead is truly negligible — the documents were correct about that
 
 ---
 
-*Source code verified as of 2026-04-07: `src/codrag/services/pipeline/stages.py`, `src/codrag/core/augmenter.py` (line 8), `src/codrag/core/epistemic_enrichment.py`, `src/codrag/core/cluster.py`. All pricing verified against official provider documentation.*
+*Source code verified as of 2026-04-07: `src/prep/services/pipeline/stages.py`, `src/prep/core/augmenter.py` (line 8), `src/prep/core/epistemic_enrichment.py`, `src/prep/core/cluster.py`. All pricing verified against official provider documentation.*

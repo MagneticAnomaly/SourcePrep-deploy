@@ -1,16 +1,16 @@
 # Cloud Model Batching Research: Quality, Thresholds, and Thinking Models
 
-> How do frontier cloud models behave when given multi-item batched prompts for structured JSON output? What quality degradation occurs? How should CoDRAG detect and handle Ollama-proxied cloud models vs true local models?
+> How do frontier cloud models behave when given multi-item batched prompts for structured JSON output? What quality degradation occurs? How should Prep detect and handle Ollama-proxied cloud models vs true local models?
 
 **Created:** 2026-03-15
-**Context:** CoDRAG pipeline stages 2-3 (Edge Discovery, Fast Catalogue) send one prompt per item. For cloud models, batching multiple items per API call could reduce 641 sequential calls to ~13-32 calls -- a 95% speed improvement. But does batching degrade quality?
+**Context:** Prep pipeline stages 2-3 (Edge Discovery, Fast Catalogue) send one prompt per item. For cloud models, batching multiple items per API call could reduce 641 sequential calls to ~13-32 calls -- a 95% speed improvement. But does batching degrade quality?
 
 ---
 
 ## 1. The Three Problems
 
 ### Problem A: Ollama-proxied cloud models aren't detected as cloud
-CoDRAG's `batch_profiles.py` classifies ALL Ollama models as local (`_LOCAL_PROVIDERS = {"ollama", "lm-studio"}`). But users run cloud models via Ollama (kimi-k2.5:cloud, deepseek-r1, qwen3.5) where batching would be beneficial and safe. The batch profile system sees `provider=ollama` and sets profile to OFF.
+Prep's `batch_profiles.py` classifies ALL Ollama models as local (`_LOCAL_PROVIDERS = {"ollama", "lm-studio"}`). But users run cloud models via Ollama (kimi-k2.5:cloud, deepseek-r1, qwen3.5) where batching would be beneficial and safe. The batch profile system sees `provider=ollama` and sets profile to OFF.
 
 ### Problem B: Symbol augmentation (Pass 1) is never batched
 The augmenter's `run()` method has two passes:
@@ -20,7 +20,7 @@ The augmenter's `run()` method has two passes:
 For a project with 641 symbols + 177 files, Pass 1 dominates runtime (78% of items) and is never batched.
 
 ### Problem C: Thinking models emit chain-of-thought before JSON
-Models like kimi-k2.5, DeepSeek-R1, Qwen3.5 (thinking variants) output their reasoning process before the structured JSON response. CoDRAG's JSON parser sees "The user wants me to analyze..." and fails to extract the JSON.
+Models like kimi-k2.5, DeepSeek-R1, Qwen3.5 (thinking variants) output their reasoning process before the structured JSON response. Prep's JSON parser sees "The user wants me to analyze..." and fails to extract the JSON.
 
 ---
 
@@ -57,7 +57,7 @@ Models like kimi-k2.5, DeepSeek-R1, Qwen3.5 (thinking variants) output their rea
 - DeepSeek-R1, Qwen3.5 (think=true)
 - Thinking is wrapped in `<think>` XML tags before the JSON
 - **Batching: safe IF we strip `<think>` blocks first**
-- CoDRAG already handles this in `llm_client.py` for some code paths
+- Prep already handles this in `llm_client.py` for some code paths
 
 **Category 3: Raw natural language thinking (no tags)**
 - Kimi-K2.5 (cloud variant), some Ollama-hosted thinking models
@@ -79,11 +79,11 @@ Key findings from incremental evaluation of 1-6 tasks per prompt:
 - **JSON formatting task**: Most resilient to batching -- JSON structure acts as natural separator
 - **Sentiment analysis**: Most sensitive to batching -- context from adjacent items "bleeds"
 
-**Implication for CoDRAG**: Our batched prompts ask the model to classify N items, each with the same schema. This is structurally similar to the "JSON formatting" task which showed the least degradation. The items are independent (no context bleed between a Python function summary and a TypeScript class summary).
+**Implication for Prep**: Our batched prompts ask the model to classify N items, each with the same schema. This is structurally similar to the "JSON formatting" task which showed the least degradation. The items are independent (no context bleed between a Python function summary and a TypeScript class summary).
 
 ### Finding 2: Batch size sweet spots vary by model class
 
-**Source**: Empirical data from CoDRAG Phase 35 BYOK benchmarks + practitioner reports
+**Source**: Empirical data from Prep Phase 35 BYOK benchmarks + practitioner reports
 
 | Model Class | Optimal Batch Size (symbols) | Optimal Batch Size (files) | Quality at Optimal | Quality at 2x Optimal |
 |-------------|------------------------------|---------------------------|-------------------|-----------------------|
@@ -98,7 +98,7 @@ Key findings from incremental evaluation of 1-6 tasks per prompt:
 
 Models with native JSON mode (GPT-4.1 `response_format`, Gemini `responseMimeType`) maintain higher quality during batching because the output schema constrains the response structure. The model can't "drift" into free-form text between items.
 
-**CoDRAG already uses `response_schema`** in the `generate()` call for Ollama models. For cloud models accessed via OpenAI-compatible API, we should also pass `response_format: {"type": "json_object"}` when the provider supports it.
+**Prep already uses `response_schema`** in the `generate()` call for Ollama models. For cloud models accessed via OpenAI-compatible API, we should also pass `response_format: {"type": "json_object"}` when the provider supports it.
 
 ---
 
@@ -174,7 +174,7 @@ These are ambiguous -- they have both local and cloud variants:
 
 ## 5. Thinking Model Output Stripping
 
-### Current State in CoDRAG
+### Current State in Prep
 
 `llm_client.py` already has some thinking-stripping logic:
 - `<think>` tag stripping for DeepSeek-R1 and Qwen3.5 (think=true)
@@ -386,7 +386,7 @@ Metrics per test:
 
 ### Test Fixture
 
-Use the CoDRAG `TEST` project (~200 files, ~500 symbols):
+Use the Prep `TEST` project (~200 files, ~500 symbols):
 - Small enough to run a full matrix in reasonable time
 - Large enough to expose batching quality issues
 - Already has ground-truth augmentations from previous runs for comparison

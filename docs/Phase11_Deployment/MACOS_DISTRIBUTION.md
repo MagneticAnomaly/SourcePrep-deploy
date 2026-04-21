@@ -75,7 +75,7 @@ Reference:
 
 ## App Store risks and open questions
 - App Sandbox context can restrict filesystem access.
-  - CoDRAG’s core workflow requires reading codebases; ensure the “add repo → build → search” workflow works in sandbox context.
+  - Prep’s core workflow requires reading codebases; ensure the “add repo → build → search” workflow works in sandbox context.
   - Tauri explicitly notes: “Make sure your app works when running in an App Sandbox context.”
     - https://v2.tauri.app/distribute/app-store/
 - Validate that bundling and executing a Python sidecar is acceptable under App Store review constraints.

@@ -2,38 +2,38 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the shared `agents/` package with `AgentCore`, data models, CoDRAG data wrapper, Paperclip client wrapper, git client, and agent config — the foundation all three agent engines depend on.
+**Goal:** Build the shared `agents/` package with `AgentCore`, data models, Prep data wrapper, Paperclip client wrapper, git client, and agent config — the foundation all three agent engines depend on.
 
-**Architecture:** `AgentCore` is a facade that wraps existing CoDRAG services (OpportunityManager, CodebaseAtlas, TraceIndex, CodeIndex, PushEngine, ObservationStore, SettingsStore) into a clean interface for agent engines. It uses direct Python imports — no MCP/HTTP overhead. The `agents/` package is purely additive: nothing in the existing codebase imports from it.
+**Architecture:** `AgentCore` is a facade that wraps existing Prep services (OpportunityManager, CodebaseAtlas, TraceIndex, CodeIndex, PushEngine, ObservationStore, SettingsStore) into a clean interface for agent engines. It uses direct Python imports — no MCP/HTTP overhead. The `agents/` package is purely additive: nothing in the existing codebase imports from it.
 
-**Tech Stack:** Python 3.11+, pytest with asyncio_mode="auto", existing CoDRAG services (no new dependencies)
+**Tech Stack:** Python 3.11+, pytest with asyncio_mode="auto", existing Prep services (no new dependencies)
 
 ---
 
 ## File Structure
 
 ```
-src/codrag/agents/
+src/prep/agents/
 ├── __init__.py                     # Package marker, exports AgentCore
 ├── core.py                         # AgentCore facade class
 └── shared/
     ├── __init__.py                 # Package marker
     ├── models.py                   # RoleSpec, ResearchTopic, ResearchPlan, CleanupCandidate, CleanupPlan, AgentConfig
-    ├── codrag_data.py              # CoDRAGDataAccess: wraps OpportunityManager, atlas, trace, search
+    ├── prep_data.py              # PrepDataAccess: wraps OpportunityManager, atlas, trace, search
     ├── paperclip_client.py         # PaperclipClient: wraps PushEngine + PaperclipAdapter
     └── git_client.py               # GitClient: branch, commit, archive operations
 
 tests/
 ├── test_agent_models.py            # Tests for shared data models
-├── test_agent_codrag_data.py       # Tests for CoDRAG data wrapper
+├── test_agent_prep_data.py       # Tests for Prep data wrapper
 ├── test_agent_paperclip_client.py  # Tests for Paperclip client wrapper
 ├── test_agent_git_client.py        # Tests for git client
 └── test_agent_core.py              # Tests for AgentCore facade
 ```
 
 **Responsibilities:**
-- `models.py` — Pure data classes. No imports from CoDRAG internals. Serializable to/from dict.
-- `codrag_data.py` — Read-only CoDRAG access. Wraps OpportunityManager, CodebaseAtlas, TraceIndex, CodeIndex. Takes `index_dir` and `project_root` in constructor.
+- `models.py` — Pure data classes. No imports from Prep internals. Serializable to/from dict.
+- `prep_data.py` — Read-only Prep access. Wraps OpportunityManager, CodebaseAtlas, TraceIndex, CodeIndex. Takes `index_dir` and `project_root` in constructor.
 - `paperclip_client.py` — Write access to Paperclip. Wraps `create_push_engine()` and `PaperclipAdapter`. Takes `PMPushConfig` in constructor.
 - `git_client.py` — Git operations for Custodian (and future agents). Wraps subprocess git calls. Takes `repo_root` in constructor.
 - `core.py` — Combines all of the above into a single `AgentCore` that agent engines consume.
@@ -43,14 +43,14 @@ tests/
 ### Task 1: Package Scaffolding
 
 **Files:**
-- Create: `src/codrag/agents/__init__.py`
-- Create: `src/codrag/agents/shared/__init__.py`
+- Create: `src/prep/agents/__init__.py`
+- Create: `src/prep/agents/shared/__init__.py`
 
 - [ ] **Step 1: Create the agents package**
 
 ```python
-# src/codrag/agents/__init__.py
-"""CoDRAG autonomous agent subsystem.
+# src/prep/agents/__init__.py
+"""Prep autonomous agent subsystem.
 
 Three agents share a common AgentCore:
 - Staffing Agent (hr/) — generates and audits Paperclip agent roles
@@ -62,19 +62,19 @@ Three agents share a common AgentCore:
 - [ ] **Step 2: Create the shared subpackage**
 
 ```python
-# src/codrag/agents/shared/__init__.py
-"""Shared infrastructure for all CoDRAG agents."""
+# src/prep/agents/shared/__init__.py
+"""Shared infrastructure for all Prep agents."""
 ```
 
 - [ ] **Step 3: Verify the packages import**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -c "import codrag.agents; import codrag.agents.shared; print('OK')"`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -c "import prep.agents; import prep.agents.shared; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/agents/__init__.py src/codrag/agents/shared/__init__.py
+git add src/prep/agents/__init__.py src/prep/agents/shared/__init__.py
 git commit -m "feat(agents): scaffold agents/ package structure"
 ```
 
@@ -83,10 +83,10 @@ git commit -m "feat(agents): scaffold agents/ package structure"
 ### Task 2: Shared Data Models
 
 **Files:**
-- Create: `src/codrag/agents/shared/models.py`
+- Create: `src/prep/agents/shared/models.py`
 - Create: `tests/test_agent_models.py`
 
-These are pure dataclasses with no CoDRAG imports. They define the data contracts between agent engines and the shared infrastructure.
+These are pure dataclasses with no Prep imports. They define the data contracts between agent engines and the shared infrastructure.
 
 - [ ] **Step 1: Write failing tests for RoleSpec**
 
@@ -94,7 +94,7 @@ These are pure dataclasses with no CoDRAG imports. They define the data contract
 # tests/test_agent_models.py
 """Tests for agent shared data models."""
 
-from codrag.agents.shared.models import (
+from prep.agents.shared.models import (
     RoleSpec,
     ResearchTopic,
     ResearchPlan,
@@ -120,14 +120,14 @@ class TestRoleSpec:
             slug="qa_lead",
             display_name="QA Lead",
             agents_md="# QA Lead\nTest everything.",
-            recommended_files=["tests/", "src/codrag/core/audit/"],
+            recommended_files=["tests/", "src/prep/core/audit/"],
         )
         d = spec.to_dict()
         restored = RoleSpec.from_dict(d)
         assert restored.slug == "qa_lead"
         assert restored.display_name == "QA Lead"
         assert restored.agents_md == "# QA Lead\nTest everything."
-        assert restored.recommended_files == ["tests/", "src/codrag/core/audit/"]
+        assert restored.recommended_files == ["tests/", "src/prep/core/audit/"]
 
     def test_slug_normalization(self):
         spec = RoleSpec(slug="VP of Engineering", display_name="VP of Engineering")
@@ -136,8 +136,8 @@ class TestRoleSpec:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_models.py::TestRoleSpec -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'codrag.agents.shared.models'`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_models.py::TestRoleSpec -v`
+Expected: FAIL — `ModuleNotFoundError: No module named 'prep.agents.shared.models'`
 
 - [ ] **Step 3: Write failing tests for ResearchTopic and ResearchPlan**
 
@@ -150,7 +150,7 @@ class TestResearchTopic:
             finding_id="HEALTH-a7b9",
             title="Circular dependency in core/",
             description="3 files form a cycle",
-            affected_files=["src/codrag/core/a.py", "src/codrag/core/b.py"],
+            affected_files=["src/prep/core/a.py", "src/prep/core/b.py"],
             priority="P1",
             impact_summary="14 transitive dependents",
         )
@@ -294,10 +294,10 @@ class TestAgentConfig:
 - [ ] **Step 5: Implement all models**
 
 ```python
-# src/codrag/agents/shared/models.py
-"""Shared data models for CoDRAG agents.
+# src/prep/agents/shared/models.py
+"""Shared data models for Prep agents.
 
-Pure dataclasses with no CoDRAG internal imports.
+Pure dataclasses with no Prep internal imports.
 All models support dict roundtripping via to_dict() / from_dict().
 """
 
@@ -530,31 +530,31 @@ class AgentConfig:
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_models.py -v`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_models.py -v`
 Expected: All 12 tests PASS
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/codrag/agents/shared/models.py tests/test_agent_models.py
+git add src/prep/agents/shared/models.py tests/test_agent_models.py
 git commit -m "feat(agents): add shared data models (RoleSpec, ResearchTopic, CleanupPlan, AgentConfig)"
 ```
 
 ---
 
-### Task 3: CoDRAG Data Access Wrapper
+### Task 3: Prep Data Access Wrapper
 
 **Files:**
-- Create: `src/codrag/agents/shared/codrag_data.py`
-- Create: `tests/test_agent_codrag_data.py`
+- Create: `src/prep/agents/shared/prep_data.py`
+- Create: `tests/test_agent_prep_data.py`
 
-This wraps CoDRAG's read-only data sources into a clean interface for agents.
+This wraps Prep's read-only data sources into a clean interface for agents.
 
 - [ ] **Step 1: Write failing tests**
 
 ```python
-# tests/test_agent_codrag_data.py
-"""Tests for CoDRAG data access wrapper."""
+# tests/test_agent_prep_data.py
+"""Tests for Prep data access wrapper."""
 
 from __future__ import annotations
 
@@ -562,7 +562,7 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from codrag.agents.shared.codrag_data import CoDRAGDataAccess
+from prep.agents.shared.prep_data import PrepDataAccess
 
 
 @pytest.fixture
@@ -576,17 +576,17 @@ def mock_opp_manager():
 
 @pytest.fixture
 def data_access(tmp_path, mock_opp_manager):
-    """Create a CoDRAGDataAccess with mocked internals."""
+    """Create a PrepDataAccess with mocked internals."""
     index_dir = tmp_path / "index"
     index_dir.mkdir()
     project_root = tmp_path / "project"
     project_root.mkdir()
 
     with patch(
-        "codrag.agents.shared.codrag_data.OpportunityManager",
+        "prep.agents.shared.prep_data.OpportunityManager",
         return_value=mock_opp_manager,
     ):
-        da = CoDRAGDataAccess(
+        da = PrepDataAccess(
             index_dir=index_dir,
             project_root=project_root,
         )
@@ -622,10 +622,10 @@ class TestGetAtlas:
         mock_atlas.load.return_value = mock_doc
 
         with patch(
-            "codrag.agents.shared.codrag_data.CodebaseAtlas",
+            "prep.agents.shared.prep_data.CodebaseAtlas",
             return_value=mock_atlas,
         ):
-            da = CoDRAGDataAccess(
+            da = PrepDataAccess(
                 index_dir=data_access._index_dir,
                 project_root=data_access._project_root,
             )
@@ -677,14 +677,14 @@ class TestSaveObservation:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_codrag_data.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'codrag.agents.shared.codrag_data'`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_prep_data.py -v`
+Expected: FAIL — `ModuleNotFoundError: No module named 'prep.agents.shared.prep_data'`
 
-- [ ] **Step 3: Implement CoDRAGDataAccess**
+- [ ] **Step 3: Implement PrepDataAccess**
 
 ```python
-# src/codrag/agents/shared/codrag_data.py
-"""Read-only access to CoDRAG's epistemic data for agent engines.
+# src/prep/agents/shared/prep_data.py
+"""Read-only access to Prep's epistemic data for agent engines.
 
 Wraps OpportunityManager, CodebaseAtlas, TraceIndex, and ObservationStore
 into a clean interface. All methods are synchronous (agents run in threads).
@@ -695,14 +695,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from codrag.core.audit.opportunity_manager import OpportunityManager
-from codrag.core.audit.action_item import ActionItem
-from codrag.core.atlas.generator import CodebaseAtlas
-from codrag.services.observation_store import observation_store
+from prep.core.audit.opportunity_manager import OpportunityManager
+from prep.core.audit.action_item import ActionItem
+from prep.core.atlas.generator import CodebaseAtlas
+from prep.services.observation_store import observation_store
 
 
-class CoDRAGDataAccess:
-    """Read-only facade over CoDRAG's data sources for agent engines."""
+class PrepDataAccess:
+    """Read-only facade over Prep's data sources for agent engines."""
 
     def __init__(
         self,
@@ -721,7 +721,7 @@ class CoDRAGDataAccess:
     def _load_trace_index(self) -> Any:
         """Try to load the TraceIndex. Returns None if unavailable."""
         try:
-            from codrag.core.trace.index import TraceIndex
+            from prep.core.trace.index import TraceIndex
 
             ti = TraceIndex(self._index_dir)
             if ti.node_count > 0:
@@ -807,14 +807,14 @@ class CoDRAGDataAccess:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_codrag_data.py -v`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_prep_data.py -v`
 Expected: All 7 tests PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/shared/codrag_data.py tests/test_agent_codrag_data.py
-git commit -m "feat(agents): add CoDRAG data access wrapper"
+git add src/prep/agents/shared/prep_data.py tests/test_agent_prep_data.py
+git commit -m "feat(agents): add Prep data access wrapper"
 ```
 
 ---
@@ -822,7 +822,7 @@ git commit -m "feat(agents): add CoDRAG data access wrapper"
 ### Task 4: Paperclip Client Wrapper
 
 **Files:**
-- Create: `src/codrag/agents/shared/paperclip_client.py`
+- Create: `src/prep/agents/shared/paperclip_client.py`
 - Create: `tests/test_agent_paperclip_client.py`
 
 Wraps the existing PushEngine and PaperclipAdapter for agent use.
@@ -838,8 +838,8 @@ from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock, patch
 
-from codrag.agents.shared.paperclip_client import PaperclipClient
-from codrag.adapters.pm_models import PMProject, PMGoal, PMIssue, PMPushConfig, PushResult
+from prep.agents.shared.paperclip_client import PaperclipClient
+from prep.adapters.pm_models import PMProject, PMGoal, PMIssue, PMPushConfig, PushResult
 
 
 @pytest.fixture
@@ -862,10 +862,10 @@ def mock_push_engine():
 @pytest.fixture
 def client(mock_adapter, mock_push_engine):
     with patch(
-        "codrag.agents.shared.paperclip_client.PaperclipAdapter",
+        "prep.agents.shared.paperclip_client.PaperclipAdapter",
         return_value=mock_adapter,
     ), patch(
-        "codrag.agents.shared.paperclip_client.create_push_engine",
+        "prep.agents.shared.paperclip_client.create_push_engine",
         return_value=mock_push_engine,
     ):
         c = PaperclipClient(
@@ -912,7 +912,7 @@ class TestPushIssue:
 class TestBulkPush:
     def test_pushes_action_items(self, client, mock_push_engine):
         items = [MagicMock(), MagicMock()]
-        result = client.bulk_push(items, codrag_project_id="proj-1")
+        result = client.bulk_push(items, prep_project_id="proj-1")
         assert result.pushed is True
         assert result.issues_created == 3
         mock_push_engine.push.assert_called_once()
@@ -930,13 +930,13 @@ class TestHealthCheck:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_paperclip_client.py -v`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_paperclip_client.py -v`
 Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement PaperclipClient**
 
 ```python
-# src/codrag/agents/shared/paperclip_client.py
+# src/prep/agents/shared/paperclip_client.py
 """Write access to Paperclip for agent engines.
 
 Thin wrapper around the existing PushEngine and PaperclipAdapter
@@ -948,16 +948,16 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from codrag.adapters.paperclip_adapter import PaperclipAdapter
-from codrag.adapters.push_engine import create_push_engine
-from codrag.adapters.pm_models import (
+from prep.adapters.paperclip_adapter import PaperclipAdapter
+from prep.adapters.push_engine import create_push_engine
+from prep.adapters.pm_models import (
     PMGoal,
     PMIssue,
     PMProject,
     PMPushConfig,
     PushResult,
 )
-from codrag.core.audit.action_item import ActionItem
+from prep.core.audit.action_item import ActionItem
 
 
 class PaperclipClient:
@@ -991,7 +991,7 @@ class PaperclipClient:
     def bulk_push(
         self,
         items: List[ActionItem],
-        codrag_project_id: str = "",
+        prep_project_id: str = "",
         strategy: str = "category",
         min_priority: str = "P2",
         dry_run: bool = False,
@@ -999,7 +999,7 @@ class PaperclipClient:
         """Push a batch of ActionItems through the PushEngine pipeline."""
         return self._push_engine.push(
             items,
-            codrag_project_id=codrag_project_id,
+            prep_project_id=prep_project_id,
             strategy=strategy,
             min_priority=min_priority,
             dry_run=dry_run,
@@ -1012,13 +1012,13 @@ class PaperclipClient:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_paperclip_client.py -v`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_paperclip_client.py -v`
 Expected: All 6 tests PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/shared/paperclip_client.py tests/test_agent_paperclip_client.py
+git add src/prep/agents/shared/paperclip_client.py tests/test_agent_paperclip_client.py
 git commit -m "feat(agents): add Paperclip client wrapper"
 ```
 
@@ -1027,7 +1027,7 @@ git commit -m "feat(agents): add Paperclip client wrapper"
 ### Task 5: Git Client
 
 **Files:**
-- Create: `src/codrag/agents/shared/git_client.py`
+- Create: `src/prep/agents/shared/git_client.py`
 - Create: `tests/test_agent_git_client.py`
 
 Git operations for the Digital Custodian (and future agents that need to write to the codebase).
@@ -1044,7 +1044,7 @@ import pytest
 import subprocess
 from pathlib import Path
 
-from codrag.agents.shared.git_client import GitClient
+from prep.agents.shared.git_client import GitClient
 
 
 @pytest.fixture
@@ -1128,14 +1128,14 @@ class TestDiff:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_git_client.py -v`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_git_client.py -v`
 Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement GitClient**
 
 ```python
-# src/codrag/agents/shared/git_client.py
-"""Git operations for CoDRAG agents.
+# src/prep/agents/shared/git_client.py
+"""Git operations for Prep agents.
 
 Wraps subprocess git calls for branch management, commits, and archive
 operations. Used primarily by the Digital Custodian but available to
@@ -1267,13 +1267,13 @@ class GitClient:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_git_client.py -v`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_git_client.py -v`
 Expected: All 7 tests PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/shared/git_client.py tests/test_agent_git_client.py
+git add src/prep/agents/shared/git_client.py tests/test_agent_git_client.py
 git commit -m "feat(agents): add git client for agent branch/commit operations"
 ```
 
@@ -1282,11 +1282,11 @@ git commit -m "feat(agents): add git client for agent branch/commit operations"
 ### Task 6: AgentCore Facade
 
 **Files:**
-- Create: `src/codrag/agents/core.py`
+- Create: `src/prep/agents/core.py`
 - Create: `tests/test_agent_core.py`
-- Modify: `src/codrag/agents/__init__.py`
+- Modify: `src/prep/agents/__init__.py`
 
-The main class that agent engines consume. Combines CoDRAGDataAccess + PaperclipClient + GitClient + SettingsStore config.
+The main class that agent engines consume. Combines PrepDataAccess + PaperclipClient + GitClient + SettingsStore config.
 
 - [ ] **Step 1: Write failing tests**
 
@@ -1300,9 +1300,9 @@ import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from codrag.agents.core import AgentCore
-from codrag.agents.shared.models import AgentConfig
-from codrag.adapters.pm_models import PMProject, PMGoal, PMIssue, PMPushConfig
+from prep.agents.core import AgentCore
+from prep.agents.shared.models import AgentConfig
+from prep.adapters.pm_models import PMProject, PMGoal, PMIssue, PMPushConfig
 
 
 @pytest.fixture
@@ -1333,9 +1333,9 @@ def mock_git():
 
 @pytest.fixture
 def core(mock_data_access, mock_paperclip, mock_git):
-    with patch("codrag.agents.core.CoDRAGDataAccess", return_value=mock_data_access), \
-         patch("codrag.agents.core.PaperclipClient", return_value=mock_paperclip), \
-         patch("codrag.agents.core.GitClient", return_value=mock_git):
+    with patch("prep.agents.core.PrepDataAccess", return_value=mock_data_access), \
+         patch("prep.agents.core.PaperclipClient", return_value=mock_paperclip), \
+         patch("prep.agents.core.GitClient", return_value=mock_git):
         c = AgentCore(
             project_id="test-proj",
             index_dir=Path("/tmp/index"),
@@ -1352,7 +1352,7 @@ def core(mock_data_access, mock_paperclip, mock_git):
     return c
 
 
-class TestCoDRAGReadAccess:
+class TestPrepReadAccess:
     def test_get_audit_findings(self, core, mock_data_access):
         core.get_audit_findings()
         mock_data_access.get_audit_findings.assert_called_once()
@@ -1389,14 +1389,14 @@ class TestPaperclipWriteAccess:
 
 class TestAgentConfig:
     def test_get_config_defaults(self, core):
-        with patch("codrag.agents.core.settings") as mock_settings:
+        with patch("prep.agents.core.settings") as mock_settings:
             mock_settings.project_get.return_value = None
             cfg = core.get_agent_config("researcher")
             assert cfg.enabled is False
             assert cfg.adapter == "native"
 
     def test_get_config_from_settings(self, core):
-        with patch("codrag.agents.core.settings") as mock_settings:
+        with patch("prep.agents.core.settings") as mock_settings:
             mock_settings.project_get.return_value = {
                 "enabled": True, "adapter": "langgraph",
             }
@@ -1405,7 +1405,7 @@ class TestAgentConfig:
             assert cfg.adapter == "langgraph"
 
     def test_save_config(self, core):
-        with patch("codrag.agents.core.settings") as mock_settings:
+        with patch("prep.agents.core.settings") as mock_settings:
             cfg = AgentConfig(enabled=True, adapter="crewai")
             core.save_agent_config("custodian", cfg)
             mock_settings.project_set.assert_called_once_with(
@@ -1420,16 +1420,16 @@ class TestGitAccess:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_core.py -v`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_core.py -v`
 Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement AgentCore**
 
 ```python
-# src/codrag/agents/core.py
-"""AgentCore — shared foundation for all CoDRAG-powered agents.
+# src/prep/agents/core.py
+"""AgentCore — shared foundation for all Prep-powered agents.
 
-Provides read-only access to CoDRAG's epistemic knowledge and
+Provides read-only access to Prep's epistemic knowledge and
 write access to Paperclip's project management API. This is the
 single interface that all agent engines (Staffing, Researcher,
 Custodian) and all orchestration adapters (native, LangGraph,
@@ -1441,25 +1441,25 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from codrag.adapters.pm_models import (
+from prep.adapters.pm_models import (
     PMGoal,
     PMIssue,
     PMProject,
     PMPushConfig,
     PushResult,
 )
-from codrag.agents.shared.codrag_data import CoDRAGDataAccess
-from codrag.agents.shared.git_client import GitClient
-from codrag.agents.shared.models import AgentConfig
-from codrag.agents.shared.paperclip_client import PaperclipClient
-from codrag.core.audit.action_item import ActionItem
-from codrag.services.settings_store import settings
+from prep.agents.shared.prep_data import PrepDataAccess
+from prep.agents.shared.git_client import GitClient
+from prep.agents.shared.models import AgentConfig
+from prep.agents.shared.paperclip_client import PaperclipClient
+from prep.core.audit.action_item import ActionItem
+from prep.services.settings_store import settings
 
 
 class AgentCore:
-    """Shared foundation for all CoDRAG-powered agents.
+    """Shared foundation for all Prep-powered agents.
 
-    Provides read-only access to CoDRAG's epistemic knowledge and
+    Provides read-only access to Prep's epistemic knowledge and
     write access to Paperclip's project management API.
     """
 
@@ -1474,8 +1474,8 @@ class AgentCore:
         self._index_dir = index_dir
         self._project_root = project_root
 
-        # CoDRAG read access (the brain)
-        self._data = CoDRAGDataAccess(
+        # Prep read access (the brain)
+        self._data = PrepDataAccess(
             index_dir=index_dir,
             project_root=project_root,
             project_id=project_id,
@@ -1491,14 +1491,14 @@ class AgentCore:
         if project_root:
             self._git = GitClient(repo_root=project_root)
 
-    # ── CoDRAG Read Access (Brain) ──
+    # ── Prep Read Access (Brain) ──
 
     def get_audit_findings(
         self,
         min_priority: Optional[str] = None,
         categories: Optional[List[str]] = None,
     ) -> List[ActionItem]:
-        """Pull the latest audit findings from CoDRAG's opportunity manager."""
+        """Pull the latest audit findings from Prep's opportunity manager."""
         return self._data.get_audit_findings(
             min_priority=min_priority, categories=categories,
         )
@@ -1569,7 +1569,7 @@ class AgentCore:
             raise RuntimeError("Paperclip not configured")
         return self._paperclip.bulk_push(
             items,
-            codrag_project_id=self.project_id,
+            prep_project_id=self.project_id,
             strategy=strategy,
             min_priority=min_priority,
             dry_run=dry_run,
@@ -1603,8 +1603,8 @@ class AgentCore:
 - [ ] **Step 4: Update `__init__.py` to export AgentCore**
 
 ```python
-# src/codrag/agents/__init__.py
-"""CoDRAG autonomous agent subsystem.
+# src/prep/agents/__init__.py
+"""Prep autonomous agent subsystem.
 
 Three agents share a common AgentCore:
 - Staffing Agent (hr/) — generates and audits Paperclip agent roles
@@ -1612,25 +1612,25 @@ Three agents share a common AgentCore:
 - Digital Custodian (custodian/) — identifies and cleans dead code
 """
 
-from codrag.agents.core import AgentCore
+from prep.agents.core import AgentCore
 
 __all__ = ["AgentCore"]
 ```
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_core.py -v`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_core.py -v`
 Expected: All 11 tests PASS
 
 - [ ] **Step 6: Run all agent tests together**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_*.py -v`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_*.py -v`
 Expected: All tests across all 4 test files PASS
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/codrag/agents/core.py src/codrag/agents/__init__.py tests/test_agent_core.py
+git add src/prep/agents/core.py src/prep/agents/__init__.py tests/test_agent_core.py
 git commit -m "feat(agents): add AgentCore facade combining data access, Paperclip, git, and config"
 ```
 
@@ -1641,7 +1641,7 @@ git commit -m "feat(agents): add AgentCore facade combining data access, Papercl
 **Files:**
 - Create: `tests/test_agent_integration.py`
 
-A lightweight integration test that verifies AgentCore can be constructed with real CoDRAG classes (mocking only external I/O).
+A lightweight integration test that verifies AgentCore can be constructed with real Prep classes (mocking only external I/O).
 
 - [ ] **Step 1: Write integration test**
 
@@ -1649,7 +1649,7 @@ A lightweight integration test that verifies AgentCore can be constructed with r
 # tests/test_agent_integration.py
 """Integration smoke test for the agents package.
 
-Verifies AgentCore can be constructed with real CoDRAG classes,
+Verifies AgentCore can be constructed with real Prep classes,
 mocking only external I/O (Paperclip HTTP, git subprocess, LLM).
 """
 
@@ -1659,8 +1659,8 @@ import pytest
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
-from codrag.agents import AgentCore
-from codrag.agents.shared.models import (
+from prep.agents import AgentCore
+from prep.agents.shared.models import (
     AgentConfig,
     RoleSpec,
     ResearchTopic,
@@ -1668,7 +1668,7 @@ from codrag.agents.shared.models import (
     CleanupCandidate,
     CleanupPlan,
 )
-from codrag.adapters.pm_models import PMPushConfig
+from prep.adapters.pm_models import PMPushConfig
 
 
 class TestAgentCoreConstruction:
@@ -1730,7 +1730,7 @@ class TestAgentCoreConstruction:
 
         core = AgentCore(project_id="test", index_dir=index_dir)
 
-        from codrag.adapters.pm_models import PMProject
+        from prep.adapters.pm_models import PMProject
         with pytest.raises(RuntimeError, match="Paperclip not configured"):
             core.push_project(PMProject(name="X"))
 
@@ -1763,12 +1763,12 @@ class TestModelsImportable:
 
 - [ ] **Step 2: Run integration test**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_integration.py -v`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_integration.py -v`
 Expected: All 7 tests PASS
 
 - [ ] **Step 3: Run the complete agent test suite**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && python -m pytest tests/test_agent_*.py -v --tb=short`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && python -m pytest tests/test_agent_*.py -v --tb=short`
 Expected: All tests across all 5 test files PASS (approximately 37 tests total)
 
 - [ ] **Step 4: Commit**
@@ -1792,11 +1792,11 @@ Check off Phase 0 tasks and update status.
 In `IMPLEMENTATION_STRATEGY.md`, change all Phase 0 task checkboxes from `☐` to `☑`:
 
 ```markdown
-| 0.1 | Create `agents/` package structure | `src/codrag/agents/__init__.py` | ☑ |
+| 0.1 | Create `agents/` package structure | `src/prep/agents/__init__.py` | ☑ |
 | 0.2 | Create `agents/shared/` subpackage | `agents/shared/__init__.py` | ☑ |
 | 0.3 | Implement `AgentCore` class | `agents/core.py` | ☑ |
 | 0.4 | Create shared data models | `agents/shared/models.py` | ☑ |
-| 0.5 | Create CoDRAG data access wrapper | `agents/shared/codrag_data.py` | ☑ |
+| 0.5 | Create Prep data access wrapper | `agents/shared/prep_data.py` | ☑ |
 | 0.6 | Create Paperclip client wrapper | `agents/shared/paperclip_client.py` | ☑ |
 | 0.7 | Create shared git client | `agents/shared/git_client.py` | ☑ |
 | 0.8 | Add agent config namespace to settings | (settings_store integration) | ☑ |
@@ -1817,7 +1817,7 @@ git commit -m "docs: mark Phase 0 (Agent Foundation) as complete"
 |------|------|-------|---------------|
 | 1 | Package scaffolding | 0 (import check) | 2 `__init__.py` |
 | 2 | Shared data models | 12 | `models.py` + `test_agent_models.py` |
-| 3 | CoDRAG data wrapper | 7 | `codrag_data.py` + `test_agent_codrag_data.py` |
+| 3 | Prep data wrapper | 7 | `prep_data.py` + `test_agent_prep_data.py` |
 | 4 | Paperclip client | 6 | `paperclip_client.py` + `test_agent_paperclip_client.py` |
 | 5 | Git client | 7 | `git_client.py` + `test_agent_git_client.py` |
 | 6 | AgentCore facade | 11 | `core.py` + `test_agent_core.py` |

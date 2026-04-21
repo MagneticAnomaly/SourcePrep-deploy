@@ -1,7 +1,7 @@
 # Frontend Integration: MCP-CLI (Phase 14)
 
 ## Goal
-Expose **copy/paste MCP configuration** inside the CoDRAG dashboard so users can connect CoDRAG to Cursor/Windsurf/etc. without reading docs.
+Expose **copy/paste MCP configuration** inside the Prep dashboard so users can connect Prep to Cursor/Windsurf/etc. without reading docs.
 
 ## Backend Contract
 The dashboard should call:
@@ -21,14 +21,14 @@ Response shape (for single IDE):
 
 Notes:
 - `mode=direct` generates an MCP config that runs:
-  - `codrag mcp --mode direct`
+  - `prep mcp --mode direct`
 - `mode=auto` and `mode=project` generate configs that assume a daemon:
-  - `codrag mcp --mode server --auto --daemon <url>`
-  - `codrag mcp --mode server --project <id> --daemon <url>`
+  - `prep mcp --mode server --auto --daemon <url>`
+  - `prep mcp --mode server --project <id> --daemon <url>`
 
 ## Dashboard Implementation
 Implementation lives in:
-- `src/codrag/dashboard/src/App.tsx`
+- `src/prep/dashboard/src/App.tsx`
 
 The dashboard adds an "IDE Integration (MCP)" panel that:
 - Lets the user pick IDE + MCP mode.

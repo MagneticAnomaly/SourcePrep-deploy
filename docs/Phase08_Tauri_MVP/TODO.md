@@ -27,7 +27,7 @@
 
 ### Port strategy
 - [x] P08-I4 Prefer `127.0.0.1:8400` ✅ **DONE: `src/main.rs`**
-- [ ] P08-I5 If port occupied, detect whether it’s CoDRAG; otherwise use fallback port
+- [ ] P08-I5 If port occupied, detect whether it’s Prep; otherwise use fallback port
 - [x] P08-I6 Expose chosen base URL to WebView reliably ✅ **DONE: `get_daemon_config` command**
 
 ### UX surfaces

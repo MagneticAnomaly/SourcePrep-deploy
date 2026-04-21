@@ -11,7 +11,7 @@
 I've been using Cursor daily for months. It's amazing. But on my larger project (a messy monorepo), the `@codebase` indexing just wasn't cutting it. It would constantly miss the file I *actually* needed, or I'd have to manually `@mention` 10 different files to get it to understand a change.
 
 ### The Fix
-I decided to solve it myself. I built **CoDRAG**, a local app that sits in the background and builds a **real dependency graph** of the code.
+I decided to solve it myself. I built **Prep**, a local app that sits in the background and builds a **real dependency graph** of the code.
 
 It runs as an **MCP Server**, which Cursor now supports natively.
 

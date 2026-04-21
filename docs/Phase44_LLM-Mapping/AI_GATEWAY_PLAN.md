@@ -35,7 +35,7 @@
   - **Itemized Cloud Indicator:** Next to each task name in the gateway card, if the block uses a cloud provider, a badge will indicate the dynamic token estimate for *that specific task* (e.g., `Deep Enrichment: ☁️ ~600k tokens`).
 
 ### Feature D: Block "Running" State
-- **Backend Mapping:** The backend orchestration currently tracks running states by slots (for Structured). For Assigned mode, the backend pipeline knows which `CodragTaskId` is currently running.
+- **Backend Mapping:** The backend orchestration currently tracks running states by slots (for Structured). For Assigned mode, the backend pipeline knows which `PrepTaskId` is currently running.
 - **Frontend Resolution:** The AI Gateway will look at the `currentRunningTask` (e.g., `inferred_edges`). It will scan the Assignment Blocks, find the block containing `inferred_edges`, and mark that specific Gateway card as `Running`.
 
 ---
@@ -56,6 +56,6 @@
 
 ### Phase 2: Backend (Actual Token Telemetry) — TODO
 - [ ] **SQLite Table:** Add `token_usage` table to the project database (`project_id, task_id, timestamp, prompt_tokens, completion_tokens, total_tokens, model, provider`).
-- [ ] **LLM Client Instrumentation:** Update the LLM client to intercept the `usage` field from OpenAI/Anthropic/Ollama responses and write to the `token_usage` table, keyed by `CodragTaskId`.
+- [ ] **LLM Client Instrumentation:** Update the LLM client to intercept the `usage` field from OpenAI/Anthropic/Ollama responses and write to the `token_usage` table, keyed by `PrepTaskId`.
 - [ ] **REST Endpoint:** `GET /api/projects/{id}/token-usage?since=...` to return aggregated token usage per task.
 - [ ] **UI Swap:** Replace the heuristic-based estimates in `LLMStatusWidget` with actual historical data when available, falling back to heuristics for tasks that haven't run yet.

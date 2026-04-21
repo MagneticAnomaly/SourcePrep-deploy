@@ -13,7 +13,7 @@
 ### Task 1: Add `selfheal_group()` to RecoveryManager
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/recovery.py:256` (after `try_restore_stage_from_backup`)
+- Modify: `src/prep/services/pipeline/recovery.py:256` (after `try_restore_stage_from_backup`)
 - Test: `tests/test_selfheal_group.py`
 
 - [ ] **Step 1: Write the failing test for basic selfheal — missing manifest gets resurrected from golden**
@@ -29,8 +29,8 @@ from unittest.mock import patch
 
 import pytest
 
-from codrag.services.pipeline.recovery import RecoveryManager
-from codrag.services.pipeline.stages import (
+from prep.services.pipeline.recovery import RecoveryManager
+from prep.services.pipeline.stages import (
     DEEP_ENRICHMENT_STAGES,
     FAST_SYNC_STAGES,
     FINALIZE_STAGES,
@@ -43,7 +43,7 @@ from codrag.services.pipeline.stages import (
 @pytest.fixture
 def idx_dir(tmp_path):
     """Create a minimal index directory with checkpoint infrastructure."""
-    idx = tmp_path / ".codrag"
+    idx = tmp_path / ".prep"
     idx.mkdir()
     return idx
 
@@ -84,7 +84,7 @@ class TestSelfhealGroup:
                 _write_manifest(idx_dir, stage)
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
         ):
             result = RecoveryManager.selfheal_group("test-project", DEEP_ENRICHMENT_STAGES)
@@ -107,7 +107,7 @@ class TestSelfhealGroup:
         _write_output(golden_dir, "trace_nodes.jsonl", records=50)
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
         ):
             result = RecoveryManager.selfheal_group("test-project", FAST_SYNC_STAGES)
@@ -123,7 +123,7 @@ class TestSelfhealGroup:
                 _write_manifest(idx_dir, stage)
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
         ):
             result = RecoveryManager.selfheal_group("test-project", FAST_SYNC_STAGES)
@@ -132,13 +132,13 @@ class TestSelfhealGroup:
         assert result["still_missing"] == 1
 
     def test_disabled_via_env_var(self, idx_dir, golden_dir):
-        """CODRAG_SELFHEAL=0 disables selfheal entirely."""
+        """PREP_SELFHEAL=0 disables selfheal entirely."""
         _write_output(golden_dir, "trace_epistemic.jsonl", records=20)
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
-        ), patch.dict(os.environ, {"CODRAG_SELFHEAL": "0"}):
+        ), patch.dict(os.environ, {"PREP_SELFHEAL": "0"}):
             result = RecoveryManager.selfheal_group("test-project", DEEP_ENRICHMENT_STAGES)
 
         assert result["disabled"] is True
@@ -149,7 +149,7 @@ class TestSelfhealGroup:
         _write_output(golden_dir, "trace_epistemic.jsonl", records=20)
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
         ):
             result = RecoveryManager.selfheal_group(
@@ -172,7 +172,7 @@ class TestSelfhealGroup:
                 _write_manifest(idx_dir, stage)
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
         ):
             result = RecoveryManager.selfheal_group("test-project", FAST_SYNC_STAGES)
@@ -190,7 +190,7 @@ class TestSelfhealGroup:
                 _write_manifest(idx_dir, stage)
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
         ):
             result = RecoveryManager.selfheal_group("test-project", DEEP_ENRICHMENT_STAGES)
@@ -242,8 +242,8 @@ Add this method to `RecoveryManager` after `try_restore_stage_from_backup` (arou
         }
 
         # Dev flag: disable selfheal for testing raw pipeline behavior
-        if os.environ.get("CODRAG_SELFHEAL", "1") == "0":
-            logger.info("Selfheal disabled via CODRAG_SELFHEAL=0 for %s", project_id)
+        if os.environ.get("PREP_SELFHEAL", "1") == "0":
+            logger.info("Selfheal disabled via PREP_SELFHEAL=0 for %s", project_id)
             result["disabled"] = True
             return result
 
@@ -274,7 +274,7 @@ Add this method to `RecoveryManager` after `try_restore_stage_from_backup` (arou
         # Branch snapshot for current branch
         branch_snapshot_dir: Path | None = None
         try:
-            from codrag.services.branch_backup_manager import get_current_branch_snapshot
+            from prep.services.branch_backup_manager import get_current_branch_snapshot
             branch_snapshot_dir = get_current_branch_snapshot(idx_dir)
         except Exception:
             pass  # No branch backup manager or no snapshot
@@ -446,7 +446,7 @@ Expected: All 7 tests PASS
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/recovery.py tests/test_selfheal_group.py
+git add src/prep/services/pipeline/recovery.py tests/test_selfheal_group.py
 git commit -m "feat: add selfheal_group() to RecoveryManager for backup resurrection"
 ```
 
@@ -455,7 +455,7 @@ git commit -m "feat: add selfheal_group() to RecoveryManager for backup resurrec
 ### Task 2: Remove priority inversion guard from orchestrator
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/orchestrator.py:483-498`
+- Modify: `src/prep/services/pipeline/orchestrator.py:483-498`
 - Test: `tests/test_selfheal_group.py` (add orchestrator integration test)
 
 - [ ] **Step 1: Write test that incremental proceeds when deep enrichment is incomplete**
@@ -478,7 +478,7 @@ class TestPriorityInversionRemoval:
             _write_manifest(idx_dir, stage)
 
         # Deep enrichment is INCOMPLETE (only 2 of 5 stages done)
-        from codrag.services.pipeline.stages import DEEP_ENRICHMENT_STAGES
+        from prep.services.pipeline.stages import DEEP_ENRICHMENT_STAGES
         for stage in DEEP_ENRICHMENT_STAGES[:2]:
             _write_manifest(idx_dir, stage)
 
@@ -487,7 +487,7 @@ class TestPriorityInversionRemoval:
         # The exact test requires mocking the orchestrator, so we verify
         # the guard code is gone by checking the source directly.
         import inspect
-        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
         source = inspect.getsource(PipelineOrchestrator.run_fast_sync)
         assert "Priority Inversion Check" not in source
         assert "skip_queue_pipeline_incomplete" not in source
@@ -500,14 +500,14 @@ Expected: FAIL — guard code still exists
 
 - [ ] **Step 3: Remove the priority inversion guard**
 
-In `src/codrag/services/pipeline/orchestrator.py`, delete lines 483-498 (the entire `if resume >= len(FAST_SYNC_STAGES):` block that checks deep enrichment and returns False).
+In `src/prep/services/pipeline/orchestrator.py`, delete lines 483-498 (the entire `if resume >= len(FAST_SYNC_STAGES):` block that checks deep enrichment and returns False).
 
 The code to **remove**:
 ```python
         if resume >= len(FAST_SYNC_STAGES):
             # [Goal 5] Priority Inversion Check: If deep enrichment is INCOMPLETE,
             # DO NOT trigger new/stale queue processing. We must finish the pipeline first.
-            from codrag.services.pipeline.stages import DEEP_ENRICHMENT_STAGES
+            from prep.services.pipeline.stages import DEEP_ENRICHMENT_STAGES
             deep_resume = self._detect_resume_point(project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True)
             if deep_resume < len(DEEP_ENRICHMENT_STAGES):
                 logger.info(
@@ -532,7 +532,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/orchestrator.py tests/test_selfheal_group.py
+git add src/prep/services/pipeline/orchestrator.py tests/test_selfheal_group.py
 git commit -m "fix: remove priority inversion guard blocking incremental through incomplete pipeline"
 ```
 
@@ -541,7 +541,7 @@ git commit -m "fix: remove priority inversion guard blocking incremental through
 ### Task 3: Wire selfheal pre-flight into orchestrator group runners
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/orchestrator.py` (run_fast_sync, run_deep_enrichment, run_finalize)
+- Modify: `src/prep/services/pipeline/orchestrator.py` (run_fast_sync, run_deep_enrichment, run_finalize)
 
 - [ ] **Step 1: Write test that selfheal runs as pre-flight before detect_resume_point**
 
@@ -557,7 +557,7 @@ class TestSelfhealPreFlight:
     def test_selfheal_called_in_run_fast_sync(self):
         """run_fast_sync calls _selfheal_group before _detect_resume_point."""
         import inspect
-        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
         source = inspect.getsource(PipelineOrchestrator.run_fast_sync)
         selfheal_pos = source.find("_selfheal_group")
         resume_pos = source.find("_detect_resume_point")
@@ -567,7 +567,7 @@ class TestSelfhealPreFlight:
     def test_selfheal_called_in_run_deep_enrichment(self):
         """run_deep_enrichment calls _selfheal_group before _detect_resume_point."""
         import inspect
-        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
         source = inspect.getsource(PipelineOrchestrator.run_deep_enrichment)
         selfheal_pos = source.find("_selfheal_group")
         resume_pos = source.find("_detect_resume_point")
@@ -577,7 +577,7 @@ class TestSelfhealPreFlight:
     def test_selfheal_called_in_run_finalize(self):
         """run_finalize calls _selfheal_group before _detect_resume_point."""
         import inspect
-        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
         source = inspect.getsource(PipelineOrchestrator.run_finalize)
         selfheal_pos = source.find("_selfheal_group")
         resume_pos = source.find("_detect_resume_point")
@@ -587,7 +587,7 @@ class TestSelfhealPreFlight:
     def test_selfheal_skipped_when_force_from_start(self):
         """force_from_start=True bypasses selfheal pre-flight."""
         import inspect
-        from codrag.services.pipeline.orchestrator import PipelineOrchestrator
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
         source = inspect.getsource(PipelineOrchestrator.run_fast_sync)
         # The selfheal call should be guarded by `not force_from_start`
         assert "not force_from_start" in source or "force_from_start" in source
@@ -656,7 +656,7 @@ Expected: All 4 tests PASS
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/orchestrator.py tests/test_selfheal_group.py
+git add src/prep/services/pipeline/orchestrator.py tests/test_selfheal_group.py
 git commit -m "feat: wire selfheal pre-flight into run_fast_sync, run_deep_enrichment, run_finalize"
 ```
 
@@ -665,8 +665,8 @@ git commit -m "feat: wire selfheal pre-flight into run_fast_sync, run_deep_enric
 ### Task 4: Wire selfheal into daemon startup for all active projects
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/recovery.py` (startup_recovery)
-- Modify: `src/codrag/services/pipeline/orchestrator.py` (startup_recovery wrapper)
+- Modify: `src/prep/services/pipeline/recovery.py` (startup_recovery)
+- Modify: `src/prep/services/pipeline/orchestrator.py` (startup_recovery wrapper)
 - Test: `tests/test_selfheal_group.py`
 
 - [ ] **Step 1: Write test that startup calls selfheal for all active projects**
@@ -680,14 +680,14 @@ class TestStartupSelfheal:
     def test_startup_recovery_calls_selfheal(self):
         """startup_recovery should include a selfheal phase."""
         import inspect
-        from codrag.services.pipeline.recovery import RecoveryManager
+        from prep.services.pipeline.recovery import RecoveryManager
         source = inspect.getsource(RecoveryManager.startup_recovery)
         assert "selfheal" in source.lower(), "startup_recovery should include selfheal phase"
 
     def test_startup_selfheal_skips_inactive_projects(self):
         """Inactive projects should not be selfhealed."""
         import inspect
-        from codrag.services.pipeline.recovery import RecoveryManager
+        from prep.services.pipeline.recovery import RecoveryManager
         # Check that the selfheal startup phase filters by activity status
         # (same pattern as hydrate_paused_runs_from_disk and auto_recover_stale_pipelines)
         source = inspect.getsource(RecoveryManager.startup_selfheal_all)
@@ -714,7 +714,7 @@ Add this static method to RecoveryManager (after `selfheal_group`):
         """
         results: dict[str, dict[str, Any]] = {}
         try:
-            from codrag.services.project_helpers import get_registry
+            from prep.services.project_helpers import get_registry
 
             registry = get_registry()
             projects = registry.list_projects()
@@ -735,7 +735,7 @@ Add this static method to RecoveryManager (after `selfheal_group`):
 
             # Skip inactive/frozen/locked projects
             try:
-                from codrag.services.project_helpers import get_project_activity_status
+                from prep.services.project_helpers import get_project_activity_status
                 activity = get_project_activity_status(pid)
                 if activity != "active":
                     continue
@@ -829,7 +829,7 @@ Expected: All tests PASS
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/recovery.py src/codrag/services/pipeline/orchestrator.py tests/test_selfheal_group.py
+git add src/prep/services/pipeline/recovery.py src/prep/services/pipeline/orchestrator.py tests/test_selfheal_group.py
 git commit -m "feat: wire selfheal into daemon startup for all active projects"
 ```
 
@@ -876,7 +876,7 @@ class TestSwissCheeseRecovery:
         _write_output(golden_dir, "trace_epistemic.jsonl", records=20)  # DEEPENING's output
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
         ):
             # Selfheal fast sync
@@ -906,7 +906,7 @@ class TestSwissCheeseRecovery:
             _write_manifest(idx_dir, stage)
 
         with patch(
-            "codrag.services.pipeline.recovery._resolve_idx_dir",
+            "prep.services.pipeline.recovery._resolve_idx_dir",
             return_value=idx_dir,
         ):
             for stages in [FAST_SYNC_STAGES, DEEP_ENRICHMENT_STAGES, FINALIZE_STAGES]:
@@ -953,12 +953,12 @@ Expected: No regressions
 
 - [ ] **Step 3: Run type checking**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && .venv/bin/mypy src/codrag/services/pipeline/recovery.py src/codrag/services/pipeline/orchestrator.py --ignore-missing-imports`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && .venv/bin/mypy src/prep/services/pipeline/recovery.py src/prep/services/pipeline/orchestrator.py --ignore-missing-imports`
 Expected: No new type errors
 
 - [ ] **Step 4: Run linting**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && .venv/bin/ruff check src/codrag/services/pipeline/recovery.py src/codrag/services/pipeline/orchestrator.py`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && .venv/bin/ruff check src/prep/services/pipeline/recovery.py src/prep/services/pipeline/orchestrator.py`
 Expected: No lint errors (fix any that appear)
 
 - [ ] **Step 5: Final commit with any cleanup**

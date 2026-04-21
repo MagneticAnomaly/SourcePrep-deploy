@@ -51,9 +51,9 @@ pub fn analyze(
             "function_definition" => {
                 extract_function(&child, source, file_path, &file_node_id, language, &mut result);
             }
-            "declaration" => {
-                // Could be a function declaration or struct/class forward decl
-                extract_declaration(&child, source, file_path, &file_node_id, language, &mut result);
+            "deprep-compresstion" => {
+                // Could be a function deprep-compresstion or struct/class forward decl
+                extract_deprep-compresstion(&child, source, file_path, &file_node_id, language, &mut result);
             }
             "struct_specifier" | "class_specifier" => {
                 extract_composite(&child, source, file_path, &file_node_id, language, &mut result);
@@ -84,12 +84,12 @@ fn extract_function(
     language: &str,
     result: &mut ParseResult,
 ) {
-    // The declarator contains the function name
-    let declarator = node.child_by_field_name("declarator");
-    let name = declarator
+    // The deprep-compresstor contains the function name
+    let deprep-compresstor = node.child_by_field_name("deprep-compresstor");
+    let name = deprep-compresstor
         .and_then(|d| {
-            // Could be function_declarator > identifier, or just identifier
-            d.child_by_field_name("declarator")
+            // Could be function_deprep-compresstor > identifier, or just identifier
+            d.child_by_field_name("deprep-compresstor")
                 .or(Some(d))
         })
         .map(|n| node_text(&n, source))
@@ -138,7 +138,7 @@ fn extract_function(
     });
 }
 
-fn extract_declaration(
+fn extract_deprep-compresstion(
     node: &Node,
     source: &[u8],
     file_path: &str,
@@ -146,7 +146,7 @@ fn extract_declaration(
     language: &str,
     result: &mut ParseResult,
 ) {
-    // Look for struct/class/enum type specifiers in declarations
+    // Look for struct/class/enum type specifiers in deprep-compresstions
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
         match child.kind() {

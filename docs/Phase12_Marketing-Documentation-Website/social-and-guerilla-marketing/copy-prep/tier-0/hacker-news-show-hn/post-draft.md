@@ -1,8 +1,8 @@
 # Post Draft for Hacker News (Show HN)
 
 ## Title Options
-1. **Show HN: CoDRAG – Local-first structural code context for AI assistants**
-2. **Show HN: CoDRAG – A desktop app for indexing codebases without the cloud**
+1. **Show HN: Prep – Local-first structural code context for AI assistants**
+2. **Show HN: Prep – A desktop app for indexing codebases without the cloud**
 3. **Show HN: Search and cite your local repo using Model Context Protocol**
 
 *Chosen Strategy: Option 1 is the strongest balance of "what it is" and "why it's interesting."*
@@ -14,11 +14,11 @@
 
 Hello HN,
 
-I built **CoDRAG**, a local-first context engine for large codebases.
+I built **Prep**, a local-first context engine for large codebases.
 
 Most AI coding tools rely on uploading your code to the cloud or using naive chunk-based embeddings. I wanted something that ran locally, respected privacy, and understood code structure (definitions, references) rather than just text similarity.
 
-CoDRAG is a desktop app (macOS/Windows) that:
+Prep is a desktop app (macOS/Windows) that:
 1.  **Indexes locally:** Uses Tree-sitter and a Rust-based graph engine to map your repo's structure.
 2.  **Stays fresh:** A file watcher updates the index instantly when you save.
 3.  **Connects via MCP:** It acts as a Model Context Protocol server, so you can pull this context into Cursor, Windsurf, or Claude Desktop.

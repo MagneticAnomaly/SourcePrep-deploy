@@ -20,7 +20,7 @@ When a query comes in, we identify "anchor" nodes (e.g., function names) and per
 *   **Latency:** Slower index time (parsing), but faster retrieval (graph lookup vs ANN).
 
 ### Open Source
-We packaged this into a desktop app called **CoDRAG**.
+We packaged this into a desktop app called **Prep**.
 We'd love feedback on the graph traversal algorithm (implemented in Rust).
 
 **Repo:** [Link]

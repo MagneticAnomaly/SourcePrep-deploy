@@ -60,7 +60,7 @@ If conflict markers exist inside `.prep/index/**`, the index is invalid and rebu
 ### Steps
 1. Create a merge conflict inside `.prep/index/**` (synthetic is fine):
   - insert conflict markers in any index file.
-2. Start CoDRAG on the repo and load the project.
+2. Start Prep on the repo and load the project.
 
 ### Acceptance criteria
 - Embedded index state is `conflicted`.

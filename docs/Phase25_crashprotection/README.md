@@ -6,7 +6,7 @@
 
 ## 1. Problem Statement
 
-CoDRAG pipelines (Fast Sync, Deep Enrichment) are multi-stage, long-running processes (minutes to hours). Currently, all pipeline state is tracked **in-memory** within `PipelineOrchestrator` and `BuildOrchestrator`.
+Prep pipelines (Fast Sync, Deep Enrichment) are multi-stage, long-running processes (minutes to hours). Currently, all pipeline state is tracked **in-memory** within `PipelineOrchestrator` and `BuildOrchestrator`.
 
 **The Risks:**
 1.  **App Crash / Quit:** If the user quits the app (or it crashes via OOM/bug) during Stage 5 (Enrichment), the entire progress is lost. Upon restart, the app forgets it was doing anything.
@@ -20,7 +20,7 @@ We need a persistent "Flight Recorder" or **Journal** that tracks the intent and
 
 ### 2.1. The Pipeline Journal
 
-A file-based store (likely `codrag_settings.db` or a dedicated `pipeline_journal.json`) that records:
+A file-based store (likely `prep_settings.db` or a dedicated `pipeline_journal.json`) that records:
 
 ```json
 {
@@ -61,7 +61,7 @@ To handle page refreshes:
 ## 3. Implementation Strategy
 
 ### Phase 1: The Journal (Persistence)
-*   Create `PipelineJournal` class backed by `codrag_settings.db` (Table: `pipeline_runs`).
+*   Create `PipelineJournal` class backed by `prep_settings.db` (Table: `pipeline_runs`).
 *   Update `PipelineOrchestrator` to write state transitions to the Journal.
     *   `run_start` -> INSERT
     *   `stage_start` -> UPDATE
@@ -81,7 +81,7 @@ To handle page refreshes:
     *   Re-initializes the in-memory `PipelineRun` object.
 
 ### Phase 4: Data Safety (Checkpoints)
-*   **Trace Graph:** Ensure `codrag-graph` flushes to disk between stages.
+*   **Trace Graph:** Ensure `prep-graph` flushes to disk between stages.
 *   **Backup:** Before starting a destructive stage (e.g., Deepening), copy `trace_nodes.jsonl` to `trace_nodes.bak`.
 *   **Restore:** On crash recovery, if data looks corrupt, restore from `.bak`.
 
@@ -102,7 +102,7 @@ To handle page refreshes:
     4.  Restore backup -> Resume stage.
 
 ### Scenario C: OOM Kill
-*   **Event:** OS kills CoDRAG process during "Clustering" (RAM spike).
+*   **Event:** OS kills Prep process during "Clustering" (RAM spike).
 *   **Impact:** Process vanishes. Journal says "Running".
 *   **Fix:**
     1.  App restarts.
@@ -118,23 +118,23 @@ All items completed. **31 tests passing.**
 ### Files Created
 | File | Purpose |
 |------|---------|
-| `src/codrag/services/pipeline_journal.py` | SQLite-backed journal: CRUD ops, heartbeat thread, crash recovery |
-| `src/codrag/services/pipeline_checkpoint.py` | Backup/restore/verify trace files, auto-heal corrupt data |
+| `src/prep/services/pipeline_journal.py` | SQLite-backed journal: CRUD ops, heartbeat thread, crash recovery |
+| `src/prep/services/pipeline_checkpoint.py` | Backup/restore/verify trace files, auto-heal corrupt data |
 | `tests/test_pipeline_journal.py` | 31 tests: journal CRUD, checkpoint, recovery, orchestrator integration |
 
 ### Files Modified
 | File | Changes |
 |------|---------|
-| `src/codrag/services/pipeline_orchestrator.py` | Journal writes on every state transition, checkpoint before destructive stages, `resume_crashed_run()`, `discard_crashed_run()`, `startup_recovery()` |
-| `src/codrag/api/routers/pipeline.py` | `GET /pipeline/crashed`, `POST /pipeline/resume`, `POST /pipeline/discard` endpoints; `crashed_runs` in status response |
-| `src/codrag/server.py` | Journal init + startup crash recovery in `configure()` |
+| `src/prep/services/pipeline_orchestrator.py` | Journal writes on every state transition, checkpoint before destructive stages, `resume_crashed_run()`, `discard_crashed_run()`, `startup_recovery()` |
+| `src/prep/api/routers/pipeline.py` | `GET /pipeline/crashed`, `POST /pipeline/resume`, `POST /pipeline/discard` endpoints; `crashed_runs` in status response |
+| `src/prep/server.py` | Journal init + startup crash recovery in `configure()` |
 | `packages/ui/src/types.ts` | `CrashedPipelineRun` type, `crashed_runs` field on `PipelineStatus` |
 | `packages/ui/src/api/client.ts` | `getCrashedRuns()`, `resumeCrashedRun()`, `discardCrashedRun()` API methods |
 | `packages/ui/src/index.ts` | Barrel export for `CrashedPipelineRun` |
-| `src/codrag/dashboard/src/hooks/useTraceSystem.ts` | `crashedRuns` state, `handleResumeCrashedRun()`, `handleDiscardCrashedRun()`, crash detection on hydration |
+| `src/prep/dashboard/src/hooks/useTraceSystem.ts` | `crashedRuns` state, `handleResumeCrashedRun()`, `handleDiscardCrashedRun()`, crash detection on hydration |
 
 ### Action Items (all done)
-1.  [x] **Schema Design:** `pipeline_runs` table in `codrag_settings.db`
+1.  [x] **Schema Design:** `pipeline_runs` table in `prep_settings.db`
 2.  [x] **Journal Class:** `PipelineJournal` with heartbeat thread + zombie detection
 3.  [x] **Checkpoint System:** Backup trace files before destructive stages, auto-heal on recovery
 4.  [x] **Orchestrator Integration:** Every transition writes to journal before work begins

@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the Researcher Agent Engine that ingests CoDRAG audit findings, uses an LLM to select high-impact topics, researches solutions, formulates structured implementation plans, and packages them for Paperclip push.
+**Goal:** Build the Researcher Agent Engine that ingests Prep audit findings, uses an LLM to select high-impact topics, researches solutions, formulates structured implementation plans, and packages them for Paperclip push.
 
-**Architecture:** The engine lives at `src/codrag/agents/researcher/` as a self-contained subpackage. It accepts an `AgentCore` (or raw `index_dir` for tests) and an injectable LLM function — same pattern as Phase 1's StaffingEngine. The pipeline is: ingest → select → research → formulate → (optionally) push. The shared `ResearchTopic` and `ResearchPlan` models from Phase 0 are used as-is.
+**Architecture:** The engine lives at `src/prep/agents/researcher/` as a self-contained subpackage. It accepts an `AgentCore` (or raw `index_dir` for tests) and an injectable LLM function — same pattern as Phase 1's StaffingEngine. The pipeline is: ingest → select → research → formulate → (optionally) push. The shared `ResearchTopic` and `ResearchPlan` models from Phase 0 are used as-is.
 
-**Tech Stack:** Python 3.11+, AgentCore (Phase 0), LLMClient, CoDRAG audit/search/impact APIs, PaperclipClient, JSON persistence.
+**Tech Stack:** Python 3.11+, AgentCore (Phase 0), LLMClient, Prep audit/search/impact APIs, PaperclipClient, JSON persistence.
 
 **Build order:** Tasks 1-5 deliver the core engine. Task 6 adds push packaging. Task 7 adds run history. Task 8 is integration test.
 
@@ -16,10 +16,10 @@
 
 | File | Responsibility |
 |------|---------------|
-| `src/codrag/agents/researcher/__init__.py` | Subpackage init, re-exports `ResearcherEngine` |
-| `src/codrag/agents/researcher/prompts.py` | LLM prompt templates for topic selection, research, plan formulation |
-| `src/codrag/agents/researcher/engine.py` | `ResearcherEngine` class: orchestrates the research pipeline |
-| `src/codrag/agents/researcher/history.py` | `ResearchHistory` class: JSON persistence for past research runs |
+| `src/prep/agents/researcher/__init__.py` | Subpackage init, re-exports `ResearcherEngine` |
+| `src/prep/agents/researcher/prompts.py` | LLM prompt templates for topic selection, research, plan formulation |
+| `src/prep/agents/researcher/engine.py` | `ResearcherEngine` class: orchestrates the research pipeline |
+| `src/prep/agents/researcher/history.py` | `ResearchHistory` class: JSON persistence for past research runs |
 | `tests/test_researcher_prompts.py` | Prompt template tests |
 | `tests/test_researcher_engine.py` | ResearcherEngine tests |
 | `tests/test_researcher_history.py` | History persistence tests |
@@ -30,14 +30,14 @@
 ### Task 1: Create researcher subpackage and prompt templates
 
 **Files:**
-- Create: `src/codrag/agents/researcher/__init__.py`
-- Create: `src/codrag/agents/researcher/prompts.py`
+- Create: `src/prep/agents/researcher/__init__.py`
+- Create: `src/prep/agents/researcher/prompts.py`
 - Create: `tests/test_researcher_prompts.py`
 
 - [ ] **Step 1: Create subpackage init**
 
 ```python
-# src/codrag/agents/researcher/__init__.py
+# src/prep/agents/researcher/__init__.py
 """Researcher Agent Engine — mines audit findings, researches solutions, formulates plans."""
 ```
 
@@ -46,7 +46,7 @@
 ```python
 # tests/test_researcher_prompts.py
 """Tests for Researcher prompt template rendering."""
-from codrag.agents.researcher.prompts import (
+from prep.agents.researcher.prompts import (
     render_topic_selection_prompt,
     render_research_prompt,
     render_plan_formulation_prompt,
@@ -130,7 +130,7 @@ class TestPlanFormulationPrompt:
 - [ ] **Step 3: Implement prompt templates**
 
 ```python
-# src/codrag/agents/researcher/prompts.py
+# src/prep/agents/researcher/prompts.py
 """LLM prompt templates for Researcher Agent.
 
 Three-stage pipeline: topic selection → research synthesis → plan formulation.
@@ -275,7 +275,7 @@ Expected: All 6 tests PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/agents/researcher/__init__.py src/codrag/agents/researcher/prompts.py tests/test_researcher_prompts.py
+git add src/prep/agents/researcher/__init__.py src/prep/agents/researcher/prompts.py tests/test_researcher_prompts.py
 git commit -m "feat(researcher): add subpackage and LLM prompt templates"
 ```
 
@@ -284,7 +284,7 @@ git commit -m "feat(researcher): add subpackage and LLM prompt templates"
 ### Task 2: Research history persistence
 
 **Files:**
-- Create: `src/codrag/agents/researcher/history.py`
+- Create: `src/prep/agents/researcher/history.py`
 - Create: `tests/test_researcher_history.py`
 
 - [ ] **Step 1: Write tests for history persistence**
@@ -297,8 +297,8 @@ from pathlib import Path
 
 import pytest
 
-from codrag.agents.researcher.history import ResearchHistory
-from codrag.agents.shared.models import ResearchPlan, ResearchTopic
+from prep.agents.researcher.history import ResearchHistory
+from prep.agents.shared.models import ResearchPlan, ResearchTopic
 
 
 @pytest.fixture
@@ -372,7 +372,7 @@ class TestResearchHistory:
 - [ ] **Step 2: Implement ResearchHistory**
 
 ```python
-# src/codrag/agents/researcher/history.py
+# src/prep/agents/researcher/history.py
 """JSON-backed persistence for research run history.
 
 Stores runs to ``<index_dir>/researcher_history.json``.
@@ -389,7 +389,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from codrag.agents.shared.models import ResearchPlan, ResearchTopic
+from prep.agents.shared.models import ResearchPlan, ResearchTopic
 
 logger = logging.getLogger(__name__)
 
@@ -473,7 +473,7 @@ Expected: All 6 tests PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/agents/researcher/history.py tests/test_researcher_history.py
+git add src/prep/agents/researcher/history.py tests/test_researcher_history.py
 git commit -m "feat(researcher): add ResearchHistory for run persistence"
 ```
 
@@ -482,7 +482,7 @@ git commit -m "feat(researcher): add ResearchHistory for run persistence"
 ### Task 3: ResearcherEngine — topic selection
 
 **Files:**
-- Create: `src/codrag/agents/researcher/engine.py`
+- Create: `src/prep/agents/researcher/engine.py`
 - Create: `tests/test_researcher_engine.py`
 
 - [ ] **Step 1: Write tests for topic selection**
@@ -498,8 +498,8 @@ from typing import Any, Dict, List, Tuple
 
 import pytest
 
-from codrag.agents.researcher.engine import ResearcherEngine
-from codrag.agents.shared.models import ResearchPlan, ResearchTopic
+from prep.agents.researcher.engine import ResearcherEngine
+from prep.agents.shared.models import ResearchPlan, ResearchTopic
 
 
 def _make_findings_jsonl(tmp_path: Path, count: int = 5) -> None:
@@ -631,11 +631,11 @@ class TestTopicSelection:
 - [ ] **Step 2: Implement ResearcherEngine with topic selection**
 
 ```python
-# src/codrag/agents/researcher/engine.py
+# src/prep/agents/researcher/engine.py
 """Researcher Agent Engine — mines audit findings and formulates implementation plans.
 
 Pipeline: ingest findings → select topics → research solutions → formulate plans.
-Uses AgentCore for CoDRAG data access when available.
+Uses AgentCore for Prep data access when available.
 """
 from __future__ import annotations
 
@@ -644,8 +644,8 @@ import logging
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from codrag.agents.researcher.history import ResearchHistory
-from codrag.agents.researcher.prompts import (
+from prep.agents.researcher.history import ResearchHistory
+from prep.agents.researcher.prompts import (
     PLAN_FORMULATION_SYSTEM,
     RESEARCH_SYSTEM,
     TOPIC_SELECTION_SYSTEM,
@@ -653,7 +653,7 @@ from codrag.agents.researcher.prompts import (
     render_research_prompt,
     render_topic_selection_prompt,
 )
-from codrag.agents.shared.models import ResearchPlan, ResearchTopic
+from prep.agents.shared.models import ResearchPlan, ResearchTopic
 
 logger = logging.getLogger(__name__)
 
@@ -662,15 +662,15 @@ LLMFn = Callable[..., Tuple[str, int]]
 
 
 class ResearcherEngine:
-    """Mines CoDRAG audit findings, researches solutions, formulates plans.
+    """Mines Prep audit findings, researches solutions, formulates plans.
 
     Accepts either an ``AgentCore`` instance (preferred) or raw ``index_dir``
     + ``project_id`` for lightweight / test usage.
 
     Args:
         core: AgentCore instance.
-        index_dir: Path to the CoDRAG index directory (fallback).
-        project_id: CoDRAG project identifier (fallback).
+        index_dir: Path to the Prep index directory (fallback).
+        project_id: Prep project identifier (fallback).
     """
 
     def __init__(
@@ -799,7 +799,7 @@ class ResearcherEngine:
         Returns:
             Raw research output string from the LLM.
         """
-        # Gather context from CoDRAG
+        # Gather context from Prep
         code_context = self._search_code(topic.title)
         impact_summary = ""
         if topic.affected_files:
@@ -913,7 +913,7 @@ Expected: All 5 tests PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/agents/researcher/engine.py tests/test_researcher_engine.py
+git add src/prep/agents/researcher/engine.py tests/test_researcher_engine.py
 git commit -m "feat(researcher): add ResearcherEngine with topic selection"
 ```
 
@@ -1086,7 +1086,7 @@ git commit -m "test(researcher): add full pipeline and history integration tests
 ### Task 6: Push packaging
 
 **Files:**
-- Modify: `src/codrag/agents/researcher/engine.py`
+- Modify: `src/prep/agents/researcher/engine.py`
 - Modify: `tests/test_researcher_engine.py`
 
 - [ ] **Step 1: Add tests for push packaging**
@@ -1094,7 +1094,7 @@ git commit -m "test(researcher): add full pipeline and history integration tests
 Append to `tests/test_researcher_engine.py`:
 
 ```python
-from codrag.adapters.pm_models import PMProject, PMGoal, PMIssue
+from prep.adapters.pm_models import PMProject, PMGoal, PMIssue
 
 
 class TestPushPackaging:
@@ -1150,7 +1150,7 @@ Add to `ResearcherEngine` class in `engine.py`, before the `history` property. A
 
 ```python
 # Add to imports at top of engine.py:
-from codrag.adapters.pm_models import PMGoal, PMIssue, PMProject
+from prep.adapters.pm_models import PMGoal, PMIssue, PMProject
 
 # Add method to ResearcherEngine:
 
@@ -1200,7 +1200,7 @@ from codrag.adapters.pm_models import PMGoal, PMIssue, PMProject
                 priority=self._finding_priority(plan),
                 category="research",
                 effort=plan.effort,
-                codrag_address=f"codrag://{self._project_id}/research/{plan.topic_id}",
+                prep_address=f"prep://{self._project_id}/research/{plan.topic_id}",
             )
             issues.append(issue)
 
@@ -1226,7 +1226,7 @@ Expected: All 19 tests PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/agents/researcher/engine.py tests/test_researcher_engine.py
+git add src/prep/agents/researcher/engine.py tests/test_researcher_engine.py
 git commit -m "feat(researcher): add push packaging for Paperclip integration"
 ```
 
@@ -1235,16 +1235,16 @@ git commit -m "feat(researcher): add push packaging for Paperclip integration"
 ### Task 7: Public API exports + update __init__.py
 
 **Files:**
-- Modify: `src/codrag/agents/researcher/__init__.py`
+- Modify: `src/prep/agents/researcher/__init__.py`
 
 - [ ] **Step 1: Update init with re-exports**
 
 ```python
-# src/codrag/agents/researcher/__init__.py
+# src/prep/agents/researcher/__init__.py
 """Researcher Agent Engine — mines audit findings, researches solutions, formulates plans."""
 
-from codrag.agents.researcher.engine import ResearcherEngine
-from codrag.agents.researcher.history import ResearchHistory
+from prep.agents.researcher.engine import ResearcherEngine
+from prep.agents.researcher.history import ResearchHistory
 
 __all__ = [
     "ResearcherEngine",
@@ -1260,7 +1260,7 @@ Expected: All tests PASS
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/agents/researcher/__init__.py
+git add src/prep/agents/researcher/__init__.py
 git commit -m "feat(researcher): export public API from researcher subpackage"
 ```
 
@@ -1285,8 +1285,8 @@ from typing import Tuple
 
 import pytest
 
-from codrag.agents.researcher import ResearcherEngine, ResearchHistory
-from codrag.agents.shared.models import ResearchPlan
+from prep.agents.researcher import ResearcherEngine, ResearchHistory
+from prep.agents.shared.models import ResearchPlan
 
 
 def _fake_llm(prompt: str, system: str | None = None, **kwargs) -> Tuple[str, int]:

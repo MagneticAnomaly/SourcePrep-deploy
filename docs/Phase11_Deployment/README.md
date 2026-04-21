@@ -1,7 +1,7 @@
 # Phase 11 — Deployment
 
 ## Problem statement
-CoDRAG is intended to ship as a **desktop companion app** (macOS + Windows), wrapping the dashboard in Tauri and bundling the Python daemon as a sidecar.
+Prep is intended to ship as a **desktop companion app** (macOS + Windows), wrapping the dashboard in Tauri and bundling the Python daemon as a sidecar.
 
 Deployment must support:
 - Individual developers installing quickly.

@@ -4,7 +4,7 @@
 
 **Goal:** Complete Phase 82 by removing the hardcoded Ollama-plan-tier concurrency cap reintroduced in Phase 112, uncapping AIMD discovery for cloud slots, persisting discovered ceilings across daemon restarts, and fixing the AI Gateway UI to show live in-flight API call counts instead of the configured maximum.
 
-**Architecture:** The latency-aware discovery scheduler already exists (`src/codrag/services/pipeline/scheduler.py`, `record_throughput` + AIMD). The Phase 82 mechanism currently fails on two counts: (1) `ComputeSlot.dynamic_capacity = min(max_concurrent, current_limit)` clips the discovered limit at whatever the user typed into `cloud_concurrency`, and (2) `batch_profiles.get_batch_concurrency()` early-returns a hardcoded plan-tier number for cloud models before the scheduler is ever consulted. We remove both clips, initialize cloud slots at the Phase 82 seed (`current_limit = 5`, `mode = "jumpstart"`), and add a small SQLite-backed `ConcurrencyStore` that persists the discovered ceiling per `(endpoint_id, model_family)` so daemon restarts don't replay the jumpstart from scratch. The AI Gateway is rewired to read the live in-flight count from `token_telemetry._active_requests` instead of the scheduler's `dynamic_capacity`.
+**Architecture:** The latency-aware discovery scheduler already exists (`src/prep/services/pipeline/scheduler.py`, `record_throughput` + AIMD). The Phase 82 mechanism currently fails on two counts: (1) `ComputeSlot.dynamic_capacity = min(max_concurrent, current_limit)` clips the discovered limit at whatever the user typed into `cloud_concurrency`, and (2) `batch_profiles.get_batch_concurrency()` early-returns a hardcoded plan-tier number for cloud models before the scheduler is ever consulted. We remove both clips, initialize cloud slots at the Phase 82 seed (`current_limit = 5`, `mode = "jumpstart"`), and add a small SQLite-backed `ConcurrencyStore` that persists the discovered ceiling per `(endpoint_id, model_family)` so daemon restarts don't replay the jumpstart from scratch. The AI Gateway is rewired to read the live in-flight count from `token_telemetry._active_requests` instead of the scheduler's `dynamic_capacity`.
 
 **Tech Stack:** Python 3.11 (asyncio, stdlib sqlite3), FastAPI, pytest-asyncio, React + TypeScript (frontend). SQLite DELETE mode (WAL unreliable on USB per project policy).
 
@@ -13,17 +13,17 @@
 ## File Structure
 
 **Create:**
-- `src/codrag/services/pipeline/concurrency_store.py` — SQLite-backed persistence for discovered per-(endpoint, model-family) ceilings. One responsibility: load/save ceiling integers, no business logic.
+- `src/prep/services/pipeline/concurrency_store.py` — SQLite-backed persistence for discovered per-(endpoint, model-family) ceilings. One responsibility: load/save ceiling integers, no business logic.
 - `tests/test_concurrency_store.py` — Unit tests for the store.
 - `tests/test_scheduler_unbounded_discovery.py` — Scheduler AIMD-past-max-concurrent + cloud seed + persistence integration tests.
 - `tests/test_batch_profiles_no_plan_tier.py` — Regression tests confirming cloud dispatch goes through scheduler, not the removed early-return.
 
 **Modify:**
-- `src/codrag/services/pipeline/scheduler.py` — Remove the cloud cap, change cloud `current_limit` seed, wire persistence load/save into AIMD.
-- `src/codrag/core/batch_profiles.py` — Delete the cloud early-return block and the two plan-tier helpers.
-- `src/codrag/core/swarm_optimizer.py` — Delete `PLAN_TIER_CONCURRENCY` dict and `PlanTier` literal.
-- `src/codrag/server.py` — Remove `ollama_plan_tier` and `custom_concurrency` from advanced-LLM-settings defaults.
-- `src/codrag/api/routers/llm.py` — Rewire `_build_llm_slots_sync()` to use live telemetry counts, not scheduler config maxima.
+- `src/prep/services/pipeline/scheduler.py` — Remove the cloud cap, change cloud `current_limit` seed, wire persistence load/save into AIMD.
+- `src/prep/core/batch_profiles.py` — Delete the cloud early-return block and the two plan-tier helpers.
+- `src/prep/core/swarm_optimizer.py` — Delete `PLAN_TIER_CONCURRENCY` dict and `PlanTier` literal.
+- `src/prep/server.py` — Remove `ollama_plan_tier` and `custom_concurrency` from advanced-LLM-settings defaults.
+- `src/prep/api/routers/llm.py` — Rewire `_build_llm_slots_sync()` to use live telemetry counts, not scheduler config maxima.
 - `packages/ui/src/components/settings/AdvancedLLMSettings.tsx` — Remove plan-tier dropdown and custom-concurrency slider.
 - `docs/Phase82_CloudPipelineConcurrency/03_Implementation_Plan.md` — Note Phase 82 completion delta at top.
 
@@ -45,7 +45,7 @@ Expected: `01_Latency_Aware_Discovery.md`, `02_Design_Spec.md`, `03_Implementati
 
 - [ ] **Step 3: Confirm current bug reproduction — single-LLM-call execution**
 
-Run: `.venv/bin/python -c "from codrag.core.batch_profiles import _get_plan_tier, _resolve_plan_tier_concurrency; print('tier:', _get_plan_tier()); print('concurrency:', _resolve_plan_tier_concurrency())"`
+Run: `.venv/bin/python -c "from prep.core.batch_profiles import _get_plan_tier, _resolve_plan_tier_concurrency; print('tier:', _get_plan_tier()); print('concurrency:', _resolve_plan_tier_concurrency())"`
 Expected: `tier: free` and `concurrency: 1`. This is the bug: cloud dispatch returns 1 regardless of what AIMD discovered.
 
 - [ ] **Step 4: No commit — this task is observational.**
@@ -55,7 +55,7 @@ Expected: `tier: free` and `concurrency: 1`. This is the bug: cloud dispatch ret
 ## Task 1: ConcurrencyStore — persisted ceiling per (endpoint, model-family)
 
 **Files:**
-- Create: `src/codrag/services/pipeline/concurrency_store.py`
+- Create: `src/prep/services/pipeline/concurrency_store.py`
 - Create: `tests/test_concurrency_store.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -77,7 +77,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.pipeline.concurrency_store import ConcurrencyStore
+from prep.services.pipeline.concurrency_store import ConcurrencyStore
 
 
 @pytest.fixture
@@ -145,11 +145,11 @@ def test_uses_delete_journal_mode(tmp_path: Path) -> None:
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_concurrency_store.py -v`
-Expected: FAIL with `ModuleNotFoundError: No module named 'codrag.services.pipeline.concurrency_store'`.
+Expected: FAIL with `ModuleNotFoundError: No module named 'prep.services.pipeline.concurrency_store'`.
 
 - [ ] **Step 3: Write the implementation**
 
-Create `src/codrag/services/pipeline/concurrency_store.py`:
+Create `src/prep/services/pipeline/concurrency_store.py`:
 
 ```python
 """Persistence for Phase 82 discovered concurrency ceilings.
@@ -246,7 +246,7 @@ Expected: all 8 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/concurrency_store.py tests/test_concurrency_store.py
+git add src/prep/services/pipeline/concurrency_store.py tests/test_concurrency_store.py
 git commit -m "feat(phase82): add ConcurrencyStore for persisted AIMD ceilings
 
 Per-(node_id, model_family) ceiling persistence so daemon restarts
@@ -259,7 +259,7 @@ policy (WAL unreliable on USB)."
 ## Task 2: Singleton ConcurrencyStore tied to daemon data dir
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/concurrency_store.py`
+- Modify: `src/prep/services/pipeline/concurrency_store.py`
 - Modify: `tests/test_concurrency_store.py`
 
 - [ ] **Step 1: Write the failing test for the module-level singleton**
@@ -269,9 +269,9 @@ Append to `tests/test_concurrency_store.py`:
 ```python
 def test_default_store_uses_data_dir(monkeypatch, tmp_path: Path) -> None:
     """The module-level singleton reads from `data_dir() / concurrency_store.db`."""
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
 
     # Force re-init by calling the accessor
     mod._store = None  # type: ignore[attr-defined]
@@ -288,7 +288,7 @@ Expected: FAIL with `AttributeError: module ... has no attribute 'concurrency_st
 
 - [ ] **Step 3: Add the accessor to `concurrency_store.py`**
 
-Append to `src/codrag/services/pipeline/concurrency_store.py`:
+Append to `src/prep/services/pipeline/concurrency_store.py`:
 
 ```python
 _store: Optional[ConcurrencyStore] = None
@@ -298,11 +298,11 @@ def concurrency_store() -> ConcurrencyStore:
     """Return the daemon-wide ConcurrencyStore singleton.
 
     Stored at ``<data_dir>/concurrency_store.db``. See
-    ``codrag.core.paths.data_dir`` for the resolution rules.
+    ``prep.core.paths.data_dir`` for the resolution rules.
     """
     global _store
     if _store is None:
-        from codrag.core.paths import data_dir
+        from prep.core.paths import data_dir
         _store = ConcurrencyStore(data_dir() / "concurrency_store.db")
     return _store
 ```
@@ -315,7 +315,7 @@ Expected: all 9 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/concurrency_store.py tests/test_concurrency_store.py
+git add src/prep/services/pipeline/concurrency_store.py tests/test_concurrency_store.py
 git commit -m "feat(phase82): add module-level ConcurrencyStore singleton
 
 Anchored at data_dir()/concurrency_store.db via lazy accessor so
@@ -327,7 +327,7 @@ tests can monkeypatch paths.data_dir to isolate state."
 ## Task 3: Scheduler — uncap cloud discovery (AIMD past `max_concurrent`)
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/scheduler.py:100-135` and `481-492`
+- Modify: `src/prep/services/pipeline/scheduler.py:100-135` and `481-492`
 - Create: `tests/test_scheduler_unbounded_discovery.py`
 
 - [ ] **Step 1: Write the failing tests**
@@ -340,7 +340,7 @@ from __future__ import annotations
 
 import pytest
 
-from codrag.services.pipeline.scheduler import (
+from prep.services.pipeline.scheduler import (
     ComputeSlot,
     PipelineScheduler,
 )
@@ -424,7 +424,7 @@ Expected: `test_cloud_dynamic_capacity_ignores_max_concurrent` and `test_cloud_a
 
 - [ ] **Step 3: Modify `ComputeSlot.dynamic_capacity` and AIMD increase**
 
-In `src/codrag/services/pipeline/scheduler.py`, find the `dynamic_capacity` property (around line 129–131):
+In `src/prep/services/pipeline/scheduler.py`, find the `dynamic_capacity` property (around line 129–131):
 
 ```python
     @property
@@ -515,7 +515,7 @@ Expected: no new failures relative to Task 0 baseline.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/scheduler.py tests/test_scheduler_unbounded_discovery.py
+git add src/prep/services/pipeline/scheduler.py tests/test_scheduler_unbounded_discovery.py
 git commit -m "fix(phase82): uncap cloud AIMD discovery past max_concurrent
 
 ComputeSlot.dynamic_capacity no longer clips cloud slots at the
@@ -529,7 +529,7 @@ max_concurrent for cloud nodes. Local slots keep the VRAM clamp."
 ## Task 4: Scheduler — cloud slots seed at jumpstart (current_limit=5, mode=jumpstart)
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/scheduler.py:95-123`
+- Modify: `src/prep/services/pipeline/scheduler.py:95-123`
 - Modify: `tests/test_scheduler_unbounded_discovery.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -579,7 +579,7 @@ Expected: FAIL. `slot.current_limit` is currently `max_concurrent` (1 or whateve
 
 - [ ] **Step 3: Modify `ComputeSlot.__post_init__` and `PipelineScheduler.configure_node`**
 
-In `src/codrag/services/pipeline/scheduler.py`, find `ComputeSlot.__post_init__` (around line 117):
+In `src/prep/services/pipeline/scheduler.py`, find `ComputeSlot.__post_init__` (around line 117):
 
 ```python
     def __post_init__(self):
@@ -661,7 +661,7 @@ Expected: no new failures relative to Task 0 baseline.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/scheduler.py tests/test_scheduler_unbounded_discovery.py
+git add src/prep/services/pipeline/scheduler.py tests/test_scheduler_unbounded_discovery.py
 git commit -m "feat(phase82): seed cloud slots at jumpstart=5, preserve discovered limit
 
 New cloud slots initialize with current_limit=5 and mode=jumpstart per
@@ -675,7 +675,7 @@ and mode. Local slots unchanged (VRAM is a real hardware ceiling)."
 ## Task 5: Scheduler — wire ConcurrencyStore into AIMD load/save
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/scheduler.py` (new import + hooks)
+- Modify: `src/prep/services/pipeline/scheduler.py` (new import + hooks)
 - Modify: `tests/test_scheduler_unbounded_discovery.py`
 
 - [ ] **Step 1: Write the failing tests**
@@ -685,9 +685,9 @@ Append to `tests/test_scheduler_unbounded_discovery.py`:
 ```python
 def test_new_cloud_slot_hydrates_from_store(monkeypatch, tmp_path) -> None:
     """configure_node reads the persisted ceiling and uses it as current_limit."""
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
     mod._store = None
 
     # Persist a ceiling BEFORE creating the slot.
@@ -707,9 +707,9 @@ def test_new_cloud_slot_hydrates_from_store(monkeypatch, tmp_path) -> None:
 
 
 def test_aimd_backoff_writes_new_ceiling(monkeypatch, tmp_path) -> None:
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
     mod._store = None
 
     sched = PipelineScheduler()
@@ -729,9 +729,9 @@ def test_aimd_backoff_writes_new_ceiling(monkeypatch, tmp_path) -> None:
 
 
 def test_aimd_doubling_writes_new_ceiling(monkeypatch, tmp_path) -> None:
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
     mod._store = None
 
     sched = PipelineScheduler()
@@ -750,9 +750,9 @@ def test_aimd_doubling_writes_new_ceiling(monkeypatch, tmp_path) -> None:
 
 def test_local_slot_does_not_persist(monkeypatch, tmp_path) -> None:
     """Local slots have a known hardware ceiling — no discovery, no persist."""
-    from codrag.core import paths as paths_mod
+    from prep.core import paths as paths_mod
     monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
-    from codrag.services.pipeline import concurrency_store as mod
+    from prep.services.pipeline import concurrency_store as mod
     mod._store = None
 
     sched = PipelineScheduler()
@@ -774,10 +774,10 @@ Expected: the 4 new tests FAIL (no persistence wired yet).
 
 - [ ] **Step 3: Wire persistence into scheduler**
 
-At the top of `src/codrag/services/pipeline/scheduler.py`, add to existing imports:
+At the top of `src/prep/services/pipeline/scheduler.py`, add to existing imports:
 
 ```python
-from codrag.services.pipeline.concurrency_store import concurrency_store
+from prep.services.pipeline.concurrency_store import concurrency_store
 ```
 
 Modify `configure_node` to hydrate from the store when creating a NEW cloud slot (in Task 4's replacement, inside the `existing is None` branch, before constructing `slot`):
@@ -855,7 +855,7 @@ Expected: all 11 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/scheduler.py tests/test_scheduler_unbounded_discovery.py
+git add src/prep/services/pipeline/scheduler.py tests/test_scheduler_unbounded_discovery.py
 git commit -m "feat(phase82): persist AIMD ceilings across daemon restart
 
 configure_node hydrates cloud slots from ConcurrencyStore. Backoff
@@ -869,7 +869,7 @@ not persisted — those are hot-loop state with no restart meaning."
 ## Task 6: Remove the cloud early-return in batch_profiles.get_batch_concurrency
 
 **Files:**
-- Modify: `src/codrag/core/batch_profiles.py:390-410`
+- Modify: `src/prep/core/batch_profiles.py:390-410`
 - Create: `tests/test_batch_profiles_no_plan_tier.py`
 
 - [ ] **Step 1: Write the failing regression test**
@@ -886,7 +886,7 @@ from unittest.mock import patch
 
 import pytest
 
-from codrag.core import batch_profiles
+from prep.core import batch_profiles
 
 
 def test_cloud_dispatch_does_not_return_plan_tier_constant() -> None:
@@ -894,7 +894,7 @@ def test_cloud_dispatch_does_not_return_plan_tier_constant() -> None:
     After fix: it routes through the scheduler and returns the discovered
     dynamic capacity.
     """
-    from codrag.services.pipeline.scheduler import pipeline_scheduler
+    from prep.services.pipeline.scheduler import pipeline_scheduler
 
     pipeline_scheduler.configure_node("cloud:ep-test-unbounded", max_concurrent=1)
     slot = pipeline_scheduler._slots["cloud:ep-test-unbounded"]
@@ -929,7 +929,7 @@ Expected: both FAIL — the early-return still clips to 1, and the helpers still
 
 - [ ] **Step 3: Delete the early-return and helpers in `batch_profiles.py`**
 
-In `src/codrag/core/batch_profiles.py`, delete lines 26–66 (`_get_plan_tier()` and `_resolve_plan_tier_concurrency()`).
+In `src/prep/core/batch_profiles.py`, delete lines 26–66 (`_get_plan_tier()` and `_resolve_plan_tier_concurrency()`).
 
 Then delete lines 393–408 (the cloud early-return block). It reads:
 
@@ -975,7 +975,7 @@ Expected: no new failures relative to Task 0 baseline. Tests that explicitly rel
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/core/batch_profiles.py tests/test_batch_profiles_no_plan_tier.py
+git add src/prep/core/batch_profiles.py tests/test_batch_profiles_no_plan_tier.py
 git commit -m "fix(phase82): remove plan-tier early-return from batch dispatch
 
 Cloud batch dispatch now goes through the scheduler (same path as
@@ -990,7 +990,7 @@ remain after this commit (verified in task 7)."
 ## Task 7: Delete PLAN_TIER_CONCURRENCY dict + PlanTier literal + all call sites
 
 **Files:**
-- Modify: `src/codrag/core/swarm_optimizer.py`
+- Modify: `src/prep/core/swarm_optimizer.py`
 - Modify: any other file grep finds referencing `PLAN_TIER_CONCURRENCY` or `PlanTier` or `_resolve_plan_tier_concurrency` or `_get_plan_tier`
 - Modify: tests referencing these
 
@@ -1009,7 +1009,7 @@ Run these in parallel:
 
 - [ ] **Step 2: Delete `PLAN_TIER_CONCURRENCY` and `PlanTier` from `swarm_optimizer.py`**
 
-In `src/codrag/core/swarm_optimizer.py`, find and delete:
+In `src/prep/core/swarm_optimizer.py`, find and delete:
 
 ```python
 PlanTier = Literal["free", "pro", "max"]
@@ -1057,16 +1057,16 @@ behavior directly. See the Phase 82 completion plan for rationale."
 ## Task 8: Remove `ollama_plan_tier` + `custom_concurrency` from server.py advanced settings defaults
 
 **Files:**
-- Modify: `src/codrag/server.py:502-518` (function `get_advanced_llm_settings`)
+- Modify: `src/prep/server.py:502-518` (function `get_advanced_llm_settings`)
 
 - [ ] **Step 1: Read current function**
 
-Run: `.venv/bin/python -c "from codrag.server import get_advanced_llm_settings; import json; print(json.dumps(get_advanced_llm_settings(), indent=2))"`
+Run: `.venv/bin/python -c "from prep.server import get_advanced_llm_settings; import json; print(json.dumps(get_advanced_llm_settings(), indent=2))"`
 Expected: dict includes `ollama_plan_tier` and `custom_concurrency` keys — those are what we're removing.
 
 - [ ] **Step 2: Locate and edit the function**
 
-In `src/codrag/server.py`, find `get_advanced_llm_settings()` (around line 502). Remove the two defaults from the returned dict:
+In `src/prep/server.py`, find `get_advanced_llm_settings()` (around line 502). Remove the two defaults from the returned dict:
 
 - Delete any line containing `"ollama_plan_tier"`.
 - Delete any line containing `"custom_concurrency"`.
@@ -1082,7 +1082,7 @@ Add to `tests/test_batch_profiles_no_plan_tier.py`:
 ```python
 def test_server_settings_no_longer_include_plan_tier() -> None:
     """The advanced-LLM settings API no longer exposes plan-tier fields."""
-    from codrag.server import get_advanced_llm_settings
+    from prep.server import get_advanced_llm_settings
 
     settings = get_advanced_llm_settings()
     assert "ollama_plan_tier" not in settings
@@ -1097,7 +1097,7 @@ Expected: all PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/server.py tests/test_batch_profiles_no_plan_tier.py
+git add src/prep/server.py tests/test_batch_profiles_no_plan_tier.py
 git commit -m "fix(phase82): remove ollama_plan_tier/custom_concurrency from settings
 
 These plan-tier UI knobs were coupled to the hardcoded concurrency
@@ -1110,7 +1110,7 @@ updated in task 11 to drop the corresponding controls."
 ## Task 9: AI Gateway — rewire `_build_llm_slots_sync` to show LIVE in-flight count
 
 **Files:**
-- Modify: `src/codrag/api/routers/llm.py:626-673`
+- Modify: `src/prep/api/routers/llm.py:626-673`
 - Create: `tests/test_ai_gateway_live_count.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -1132,7 +1132,7 @@ def test_running_tasks_use_live_telemetry_count(monkeypatch) -> None:
     """When 3 LLM requests are in-flight for a project + model_slot,
     the running_tasks list should report concurrent_workers=3, not
     the scheduler's max."""
-    from codrag.services import token_telemetry
+    from prep.services import token_telemetry
 
     fake_requests = [
         {
@@ -1164,7 +1164,7 @@ def test_running_tasks_use_live_telemetry_count(monkeypatch) -> None:
         token_telemetry.telemetry, "get_active_requests", lambda: list(fake_requests),
     )
 
-    from codrag.api.routers.llm import _count_live_workers
+    from prep.api.routers.llm import _count_live_workers
 
     count = _count_live_workers(
         project_id="proj-A", task_id="inferred_edges", model_slot="large_model",
@@ -1173,11 +1173,11 @@ def test_running_tasks_use_live_telemetry_count(monkeypatch) -> None:
 
 
 def test_running_tasks_live_count_zero_when_nothing_inflight(monkeypatch) -> None:
-    from codrag.services import token_telemetry
+    from prep.services import token_telemetry
     monkeypatch.setattr(
         token_telemetry.telemetry, "get_active_requests", lambda: [],
     )
-    from codrag.api.routers.llm import _count_live_workers
+    from prep.api.routers.llm import _count_live_workers
     assert _count_live_workers(
         project_id="proj-A", task_id="inferred_edges", model_slot="large_model",
     ) == 0
@@ -1185,7 +1185,7 @@ def test_running_tasks_live_count_zero_when_nothing_inflight(monkeypatch) -> Non
 
 def test_agent_task_workers_reflect_live_count(monkeypatch) -> None:
     """Previously hardcoded to 1; now from telemetry count."""
-    from codrag.services import token_telemetry
+    from prep.services import token_telemetry
     monkeypatch.setattr(
         token_telemetry.telemetry, "get_active_requests",
         lambda: [
@@ -1207,7 +1207,7 @@ def test_agent_task_workers_reflect_live_count(monkeypatch) -> None:
             },
         ],
     )
-    from codrag.api.routers.llm import _count_live_workers
+    from prep.api.routers.llm import _count_live_workers
     assert _count_live_workers(
         project_id="proj-A", task_id="agent_call", model_slot="large_model",
     ) == 2
@@ -1216,11 +1216,11 @@ def test_agent_task_workers_reflect_live_count(monkeypatch) -> None:
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_ai_gateway_live_count.py -v`
-Expected: FAIL with `ImportError: cannot import name '_count_live_workers' from codrag.api.routers.llm`.
+Expected: FAIL with `ImportError: cannot import name '_count_live_workers' from prep.api.routers.llm`.
 
 - [ ] **Step 3: Add the helper and rewire call sites in `llm.py`**
 
-Near the top of `src/codrag/api/routers/llm.py` (above `_build_llm_slots_sync`), add:
+Near the top of `src/prep/api/routers/llm.py` (above `_build_llm_slots_sync`), add:
 
 ```python
 def _count_live_workers(*, project_id: str, task_id: str, model_slot: str) -> int:
@@ -1232,7 +1232,7 @@ def _count_live_workers(*, project_id: str, task_id: str, model_slot: str) -> in
     cloud_concurrency, so a static read is misleading. Live telemetry is
     authoritative.
     """
-    from codrag.services.token_telemetry import telemetry
+    from prep.services.token_telemetry import telemetry
 
     count = 0
     for req in telemetry.get_active_requests():
@@ -1254,10 +1254,10 @@ Then modify lines 626–646 (pipeline running tasks enrichment):
 ```python
         # Enrich running tasks with concurrent worker count from scheduler
         try:
-            from codrag.services.pipeline.scheduler import (
+            from prep.services.pipeline.scheduler import (
                 pipeline_scheduler, SWARM_CAPABLE_STAGES, is_swarm_active_for_stage,
             )
-            from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+            from prep.services.pipeline._model_resolution import resolve_model_for_stage
             for rt in running_tasks:
                 workers, node_id = pipeline_scheduler.concurrent_workers_for_project(
                     rt["project_id"], stage=rt.get("stage"),
@@ -1271,10 +1271,10 @@ Replace the `rt["concurrent_workers"] = workers` line with live telemetry:
 
 ```python
         try:
-            from codrag.services.pipeline.scheduler import (
+            from prep.services.pipeline.scheduler import (
                 pipeline_scheduler, SWARM_CAPABLE_STAGES, is_swarm_active_for_stage,
             )
-            from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+            from prep.services.pipeline._model_resolution import resolve_model_for_stage
             for rt in running_tasks:
                 _scheduler_max, node_id = pipeline_scheduler.concurrent_workers_for_project(
                     rt["project_id"], stage=rt.get("stage"),
@@ -1331,7 +1331,7 @@ Expected: no new failures relative to Task 0 baseline.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/api/routers/llm.py tests/test_ai_gateway_live_count.py
+git add src/prep/api/routers/llm.py tests/test_ai_gateway_live_count.py
 git commit -m "fix(phase82): AI Gateway shows live in-flight count, not config max
 
 _build_llm_slots_sync no longer reports the scheduler's configured
@@ -1354,7 +1354,7 @@ is kept in a parallel field (scheduler_capacity) for debugging."
 
 Run (Grep tool): search `packages/ui/src/components/settings/` for `ollama_plan_tier` and `custom_concurrency`. Record every line number.
 
-Also Grep for any dashboard-side usage (`src/codrag/dashboard/`) to confirm no consumer still reads these fields.
+Also Grep for any dashboard-side usage (`src/prep/dashboard/`) to confirm no consumer still reads these fields.
 
 - [ ] **Step 2: Delete the controls**
 
@@ -1364,7 +1364,7 @@ In `AdvancedLLMSettings.tsx`:
 - Remove any associated labels, help text, and state (`useState` / context) for these fields.
 - Remove any payload fields on save handlers that serialize these keys.
 
-If there's a settings type (e.g. `AdvancedLLMSettings.types.ts`), delete the `ollama_plan_tier` and `custom_concurrency` field declarations.
+If there's a settings type (e.g. `AdvancedLLMSettings.types.ts`), delete the `ollama_plan_tier` and `custom_concurrency` field deprep-compresstions.
 
 - [ ] **Step 3: Verify no consumer crashes**
 
@@ -1409,7 +1409,7 @@ its slider because it's a real hardware ceiling."
 - [ ] **Step 1: Start the daemon fresh**
 
 ```bash
-.venv/bin/codrag serve &
+.venv/bin/prep serve &
 sleep 5
 ```
 
@@ -1443,9 +1443,9 @@ Open `http://localhost:5174`. Watch the AI Gateway sidebar. Confirm:
 - [ ] **Step 5: Restart daemon, confirm ceiling persists**
 
 ```bash
-pkill -f "codrag serve"
+pkill -f "prep serve"
 sleep 3
-.venv/bin/codrag serve &
+.venv/bin/prep serve &
 sleep 5
 curl -s http://localhost:8400/compute/scheduler | python -m json.tool | grep -A 5 cloud
 ```
@@ -1456,7 +1456,7 @@ Expected: `current_limit` is the ceiling discovered in Step 3, NOT 5 (unless Ste
 
 ```bash
 .venv/bin/python -c "
-from codrag.core.paths import data_dir
+from prep.core.paths import data_dir
 import sqlite3
 p = data_dir() / 'concurrency_store.db'
 print('DB path:', p, 'exists:', p.exists())

@@ -1,6 +1,6 @@
 # 10 — Academic Essay Directions
 
-**Status:** Directions document, not plans yet. Each direction below is a candidate for deep-dive planning in a subsequent file. Sources are drawn from [`../research/00_Research_Sources_Master_List.md`](../research/00_Research_Sources_Master_List.md); every citation is traceable back to a phase doc where CoDRAG actually used it.
+**Status:** Directions document, not plans yet. Each direction below is a candidate for deep-dive planning in a subsequent file. Sources are drawn from [`../research/00_Research_Sources_Master_List.md`](../research/00_Research_Sources_Master_List.md); every citation is traceable back to a phase doc where Prep actually used it.
 
 ## What this set is (and is not)
 
@@ -8,7 +8,7 @@ The 01–06 essays are personal and experiential. They earn attention with a sin
 
 This set is different. These are **academic-leaning synthesis essays** aimed at the readership that reads Adrian Colyer's *The Morning Paper*, Murat Demirbas, Arvind Narayanan's *AI Snake Oil*, Lilian Weng's technical posts, or Jay Alammar's illustrated research walkthroughs. Voice is less first-person, citations are load-bearing, and each essay is organized around an argument that multiple real papers can defend.
 
-These essays support CoDRAG's credibility in a different register than the personal blog posts. They are the material that would be cited in a whitepaper, linked from an investor deck, or read by a senior engineer who wants to know whether the tool's design is *informed* rather than improvised. The product pitch is incidental — the reader should feel that CoDRAG exists because the author read the literature, not the other way around.
+These essays support Prep's credibility in a different register than the personal blog posts. They are the material that would be cited in a whitepaper, linked from an investor deck, or read by a senior engineer who wants to know whether the tool's design is *informed* rather than improvised. The product pitch is incidental — the reader should feel that Prep exists because the author read the literature, not the other way around.
 
 ## Voice guide for academic mode
 
@@ -48,7 +48,7 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 **Format.** Synthesis review, ~4500 words. Model: Adrian Colyer summarizing three or four related papers over the course of a week. Open with the puzzle (why does perfect retrieval still degrade?), walk each paper in turn, synthesize.
 
-**CoDRAG angle (discreet).** One paragraph near the end: "The tools we build should treat the context window as scarce by default. This is the philosophy behind CoDRAG's per-client char budgets and score-gated retrieval." Link to source file. Move on.
+**Prep angle (discreet).** One paragraph near the end: "The tools we build should treat the context window as scarce by default. This is the philosophy behind Prep's per-client char budgets and score-gated retrieval." Link to source file. Move on.
 
 **Relationship to existing essays.** This is the academic spine under essay #02 (Hub File Problem) and essay #06 (Knowing a Codebase). It grounds their intuitions in published results.
 
@@ -64,7 +64,7 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 **Format.** The biggest synthesis piece in the set — ~6000 words. Literature-review structure: introduce the claim, trace its evolution from 2021 (GraphCodeBERT) through 2025 (Han et al.), identify the common findings and the disagreements, end with a typology of graph-retrieval strategies.
 
-**CoDRAG angle (discreet).** This is the essay that most directly defends CoDRAG's architectural thesis. Keep the pitch to two sentences in the conclusion — the argument does the selling.
+**Prep angle (discreet).** This is the essay that most directly defends Prep's architectural thesis. Keep the pitch to two sentences in the conclusion — the argument does the selling.
 
 **Relationship to existing essays.** Academic backbone for essays #01 (cycles), #02 (hub files), and #04 (Aider comparison). If you publish only one academic essay, it should probably be this one.
 
@@ -80,7 +80,7 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 **Format.** Synthesis, ~4000 words. Structured around three "surprising" findings (signatures beat files, pruning preserves quality, contextual retrieval halves failures) with one paper per finding and a synthesis section.
 
-**CoDRAG angle (discreet).** The LOD 0–5 ladder is the instance of this principle. One paragraph.
+**Prep angle (discreet).** The LOD 0–5 ladder is the instance of this principle. One paragraph.
 
 **Relationship to existing essays.** Complements Direction 1 (context rot) by showing the constructive side: *here is what you should do instead of stuffing the window*.
 
@@ -96,9 +96,9 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 **Format.** Focused technical piece, ~3000 words. This is the most "engineering" of the academic essays. Could include visualizations of the same code chunked three ways.
 
-**CoDRAG angle (discreet).** CoDRAG's tree-sitter semantic chunker is the instance of this research. One paragraph in the conclusion.
+**Prep angle (discreet).** Prep's tree-sitter semantic chunker is the instance of this research. One paragraph in the conclusion.
 
-**Relationship to existing essays.** Stands alone. Tangentially supports #01 (cycles) by showing that CoDRAG's structural primitives are rooted in retrieval research, not just software engineering.
+**Relationship to existing essays.** Stands alone. Tangentially supports #01 (cycles) by showing that Prep's structural primitives are rooted in retrieval research, not just software engineering.
 
 **Risk / effort.** Medium-low. All sources verified. Narrower argument, easier to write cleanly.
 
@@ -112,7 +112,7 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 **Format.** The most academic piece in the set. ~5500 words. Reads like a review essay in a CS education journal. Sections organized chronologically through the cognitive science literature, ending in a section on what modern tools could adopt.
 
-**CoDRAG angle (discreet).** CoDRAG's concepts system, atlas, and hub-detection are rough instantiations of some of this research — community detection for concepts, chunking limits for atlas summaries, ADR-style concept documentation. One paragraph near the end.
+**Prep angle (discreet).** Prep's concepts system, atlas, and hub-detection are rough instantiations of some of this research — community detection for concepts, chunking limits for atlas summaries, ADR-style concept documentation. One paragraph near the end.
 
 **Relationship to existing essays.** This is the **cognitive-science companion to essay #06 (Knowing a Codebase)**. Essay #06 draws from philosophy of mind (Ryle, Polanyi, Dreyfus); this essay draws from cognitive science (Brooks, Pennington, Miller). They argue the same thing from different traditions and strengthen each other if published together.
 
@@ -128,7 +128,7 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 **Format.** Historical-review essay, ~4000 words. Opens with the NASA era, walks through the academic tooling, arrives at the LLM present. Tone: *Stripe Press* historical-technical voice.
 
-**CoDRAG angle (discreet).** CoDRAG's trace graph and concept system extend this lineage. One paragraph.
+**Prep angle (discreet).** Prep's trace graph and concept system extend this lineage. One paragraph.
 
 **Relationship to existing essays.** Stands alone. Highly credible in a narrow audience (regulated industries, aerospace, medical devices, any enterprise with compliance pressure).
 
@@ -144,7 +144,7 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 **Format.** Security/policy essay, ~4000 words. Less literature review, more position paper. Model: Matt Braithwaite's security writing or Alex Gaynor's policy pieces.
 
-**CoDRAG angle (discreet).** CoDRAG's enterprise security posture is explicitly designed against this threat model. Acknowledge the commercial interest openly rather than pretending it isn't there — readers respect the honesty more than the pretense.
+**Prep angle (discreet).** Prep's enterprise security posture is explicitly designed against this threat model. Acknowledge the commercial interest openly rather than pretending it isn't there — readers respect the honesty more than the pretense.
 
 **Relationship to existing essays.** The only direction in this set that isn't about retrieval or epistemology. Distinct audience (security engineers, platform leads, enterprise buyers). Possibly the most HN-friendly of the ten.
 
@@ -160,7 +160,7 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 **Format.** Short historical-technical essay, ~3000 words. Most Morning-Paper-flavored of the synthesis pieces. Could be framed as "a 40-year-old paper is the best answer to a 2025 problem."
 
-**CoDRAG angle (discreet).** CoDRAG's structural layer (Rust engine, tree-sitter parsing, import graph) is the instance of this argument. One paragraph.
+**Prep angle (discreet).** Prep's structural layer (Rust engine, tree-sitter parsing, import graph) is the instance of this argument. One paragraph.
 
 **Relationship to existing essays.** Supports Direction 2 (graph retrieval) from a different angle — the classical CS angle rather than the GraphRAG angle.
 
@@ -176,7 +176,7 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 **Format.** Morning-Paper style, ~2500 words. Single primary source under the microscope, secondary sources for triangulation. The most imitable format in the set.
 
-**CoDRAG angle (discreet).** CoDRAG adopted the technique in `Phase93_ChunkingResearch`. One paragraph on how it was integrated.
+**Prep angle (discreet).** Prep adopted the technique in `Phase93_ChunkingResearch`. One paragraph on how it was integrated.
 
 **Relationship to existing essays.** Complements Direction 3 (compression/selection). Could be published as a standalone piece or as a lead-in to Direction 3.
 
@@ -192,7 +192,7 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 **Format.** Morning-Paper style, ~2500 words. Heavy use of the paper's own figures (with attribution).
 
-**CoDRAG angle (discreet).** CoDRAG's per-client char budgets were shaped directly by this paper. One paragraph at the end.
+**Prep angle (discreet).** Prep's per-client char budgets were shaped directly by this paper. One paragraph at the end.
 
 **Relationship to existing essays.** Natural lead-in to Direction 1. Could be Week One of a two-week sequence.
 
@@ -202,18 +202,18 @@ Ten candidate essays. Six are synthesis pieces (multi-paper arguments). Two are 
 
 ## Recommended order
 
-If you write one: **Direction 2 — Code is a graph**. It defends CoDRAG's architectural thesis with the strongest source base, and it stands alone as a literature review.
+If you write one: **Direction 2 — Code is a graph**. It defends Prep's architectural thesis with the strongest source base, and it stands alone as a literature review.
 
 If you write two: **Direction 2 + Direction 1**. The graph argument is the positive case; context rot is the negative case. Together they form a coherent "what the retrieval research actually says" pair.
 
 If you write a three-essay opening set: **Direction 10 → Direction 1 → Direction 2**. Morning-Paper deep dive on *Lost in the Middle* as the accessible entry point, synthesis essay on context rot as the broader argument, literature review on code graphs as the culmination. That sequence also lets you reuse reading and build momentum from short pieces to long.
 
-If you write across the whole set: **Directions 2, 5, 6, and 7** form a four-piece spine (graph retrieval, cognitive science, traceability history, MCP security) that covers four distinct audiences and gives CoDRAG a full academic footprint in the space.
+If you write across the whole set: **Directions 2, 5, 6, and 7** form a four-piece spine (graph retrieval, cognitive science, traceability history, MCP security) that covers four distinct audiences and gives Prep a full academic footprint in the space.
 
 ## What I want from you before deep-diving any of these
 
 1. **Pick 1–3 directions to develop into full essay plans** (matching the format of `01_cycles_as_diagnosis.md` etc.). The remaining directions stay in this file as a backlog.
 2. **Tell me whether to verify the suspicious arXiv IDs yourself** (by fetching them and checking the paper exists + matches the description), or whether you'll handle that. Essays cannot be planned responsibly if the primary sources are unconfirmed.
-3. **Tell me where these are intended to live** — personal Substack, CoDRAG's marketing site, a "Writings" section, or a literal whitepaper. The publishing target affects format and voice.
+3. **Tell me where these are intended to live** — personal Substack, Prep's marketing site, a "Writings" section, or a literal whitepaper. The publishing target affects format and voice.
 
 When you pick the directions, I'll create `11_<slug>.md`, `12_<slug>.md`, etc., each with the same structure as the 01–06 plans: status, depends-on, the argument, source-by-source outline, honesty checks, limitations, publishing target, next action.

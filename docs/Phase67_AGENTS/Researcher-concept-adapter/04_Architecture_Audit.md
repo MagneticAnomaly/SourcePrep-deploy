@@ -1,17 +1,17 @@
-# Phase 67 — Architecture Audit: CoDRAG Infrastructure Alignment
+# Phase 67 — Architecture Audit: Prep Infrastructure Alignment
 
 > **Phase 67 Research** | Date: 2026-04-01
-> Comprehensive audit of CoDRAG's existing codebase to identify reuse opportunities, dependency risks, and the optimal integration strategy for the agent subsystem.
+> Comprehensive audit of Prep's existing codebase to identify reuse opportunities, dependency risks, and the optimal integration strategy for the agent subsystem.
 
 ---
 
 ## 1. Methodology
 
-This audit was conducted using CoDRAG's own structural intelligence tools:
-- `codrag()` — Module structure, hub files, focus areas
-- `codrag_search()` — Semantic search for infrastructure patterns
-- `codrag_audit()` — Architecture category scan (100 findings)
-- `codrag_impact()` — Dependency analysis on key integration points
+This audit was conducted using Prep's own structural intelligence tools:
+- `prep()` — Module structure, hub files, focus areas
+- `prep_search()` — Semantic search for infrastructure patterns
+- `prep_audit()` — Architecture category scan (100 findings)
+- `prep_impact()` — Dependency analysis on key integration points
 - Direct file inspection of `adapters/`, `services/`, `a2a/`, `core/` packages
 
 ---
@@ -87,7 +87,7 @@ Already supports:
 - Priority filtering (`min_priority="P2"`)
 - Category exclusion
 - Dry-run mode
-- Deduplication (CoDRAG addresses embedded in descriptions)
+- Deduplication (Prep addresses embedded in descriptions)
 - Push history recording
 
 **Decision:** `AgentCore.push_to_pm()` calls `adapters.push_engine.create_push_engine(config)`. No new Paperclip client code is needed.
@@ -251,7 +251,7 @@ mcp/      → agents/
 
 **Risk:** `adapters/` = PM push, `agents/hr/adapters/` = orchestration. Different meanings.
 
-**Mitigation:** Names are clear in context. Module paths disambiguate: `codrag.adapters.paperclip_adapter` vs `codrag.agents.hr.adapters.native`.
+**Mitigation:** Names are clear in context. Module paths disambiguate: `prep.adapters.paperclip_adapter` vs `prep.agents.hr.adapters.native`.
 
 ### Risk 3: Orchestrator Growth
 
@@ -263,7 +263,7 @@ mcp/      → agents/
 
 ## 7. Summary
 
-The audit confirms that CoDRAG's existing infrastructure provides **80%+ of the infrastructure** the agent subsystem needs. Key reuse points:
+The audit confirms that Prep's existing infrastructure provides **80%+ of the infrastructure** the agent subsystem needs. Key reuse points:
 
 - PaperclipAdapter + PushEngine → zero new PM code
 - AgentConcurrencyGate → extend, don't rebuild

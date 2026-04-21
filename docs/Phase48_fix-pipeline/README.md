@@ -2,7 +2,7 @@
 
 ## Overview
 
-The CoDRAG enrichment pipeline has several interrelated bugs causing:
+The Prep enrichment pipeline has several interrelated bugs causing:
 1. **Atlas Building & Continuous Deepening stuck orange** even after multiple runs
 2. **Fast Sync reruns from scratch** instead of incrementally processing stale data
 3. **Progress bar colors wrong** — green instead of blue/orange during rerun
@@ -190,10 +190,10 @@ Both stages share the exact same `knowledge_status` object. The frontend's `comp
 
 **Symptom**: Every augmentation progress line appears twice in the Process Logs panel:
 ```
-INFO [codrag.core.augmenter] Augmentation progress: 2325/13153 (18%) — avg 28.2s/item
-INFO [codrag.core.augmenter] Augmentation progress: 2325/13153 (18%) — avg 28.2s/item
-INFO [codrag.services.pipeline.workers] [Haley/Fast Catalogue] augment_symbols (2325/13153 — 18%)
-INFO [codrag.services.pipeline.workers] [Haley/Fast Catalogue] augment_symbols (2325/13153 — 18%)
+INFO [prep.core.augmenter] Augmentation progress: 2325/13153 (18%) — avg 28.2s/item
+INFO [prep.core.augmenter] Augmentation progress: 2325/13153 (18%) — avg 28.2s/item
+INFO [prep.services.pipeline.workers] [Haley/Fast Catalogue] augment_symbols (2325/13153 — 18%)
+INFO [prep.services.pipeline.workers] [Haley/Fast Catalogue] augment_symbols (2325/13153 — 18%)
 ```
 
 **Root cause**: Two independent logging chains fire for the same event:
@@ -654,15 +654,15 @@ If Stage 3 is taking 28s/item (as reported), that's ~10x slower than expected. P
 
 Each stage should produce **exactly one log line per progress tick**, formatted as:
 ```
-INFO [codrag.services.pipeline.workers] [ProjectName/StageName] message (current/total — N%)
+INFO [prep.services.pipeline.workers] [ProjectName/StageName] message (current/total — N%)
 ```
 
 NOT:
 ```
-INFO [codrag.core.augmenter] Augmentation progress: 2325/13153 (18%) — avg 28.2s/item
-INFO [codrag.core.augmenter] Augmentation progress: 2325/13153 (18%) — avg 28.2s/item  ← DUPLICATE
-INFO [codrag.services.pipeline.workers] [Haley/Fast Catalogue] augment_symbols (2325/13153 — 18%)
-INFO [codrag.services.pipeline.workers] [Haley/Fast Catalogue] augment_symbols (2325/13153 — 18%)  ← DUPLICATE
+INFO [prep.core.augmenter] Augmentation progress: 2325/13153 (18%) — avg 28.2s/item
+INFO [prep.core.augmenter] Augmentation progress: 2325/13153 (18%) — avg 28.2s/item  ← DUPLICATE
+INFO [prep.services.pipeline.workers] [Haley/Fast Catalogue] augment_symbols (2325/13153 — 18%)
+INFO [prep.services.pipeline.workers] [Haley/Fast Catalogue] augment_symbols (2325/13153 — 18%)  ← DUPLICATE
 ```
 
 Health polling should produce one line per poll interval (2-5 seconds), not duplicate pairs:

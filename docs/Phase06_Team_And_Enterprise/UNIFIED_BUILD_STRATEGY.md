@@ -2,32 +2,32 @@
 
 *Status: Exploratory & Planned for Phase 06*
 
-To support RunPod, Modal, and custom Enterprise environments (AWS/Azure) without maintaining completely separate codebases, CoDRAG will use a **"Core + Adapter"** architecture. 
+To support RunPod, Modal, and custom Enterprise environments (AWS/Azure) without maintaining completely separate codebases, Prep will use a **"Core + Adapter"** architecture. 
 
 We will build **one single base Docker image**. The different deployment targets simply provide a tiny wrapper (an "adapter") that tells the provider how to trigger the image.
 
-## 1. The Single Base Build: `codrag/headless:latest`
+## 1. The Single Base Build: `prep/headless:latest`
 This is a standard, heavyweight Docker container that contains everything needed to index a repository offline.
 
 **Contents of the Base Image:**
 - Ubuntu 22.04 base (Alpine is incompatible with numpy/onnxruntime due to musl libc).
-- Python 3.11+ and the `codrag` Python package.
-- Compiled Rust binaries (`codrag-engine`, `codrag-parser`).
+- Python 3.11+ and the `prep` Python package.
+- Compiled Rust binaries (`prep-engine`, `prep-parser`).
 - Pre-downloaded ONNX embedding models (e.g., `nomic-embed-text-v1.5`).
 - S3 synchronization utilities (via `boto3` or `minio` Python SDK).
 - Git CLI (for cloning private repos via token or SSH key injection).
 
 **Image Size Tiers:**
 The base image will be large. Two tags are planned:
-- `codrag/headless:cpu` (~2–3 GB) — ONNX embeddings + BYOK LLM support only. No Ollama, no GPU libs. Runs on free CI/CD runners.
-- `codrag/headless:gpu` (~8–10 GB) — Everything in `cpu`, plus Ollama runtime + pre-baked Qwen3:4b model weights. For RunPod/Modal/SageMaker GPU deployments.
+- `prep/headless:cpu` (~2–3 GB) — ONNX embeddings + BYOK LLM support only. No Ollama, no GPU libs. Runs on free CI/CD runners.
+- `prep/headless:gpu` (~8–10 GB) — Everything in `cpu`, plus Ollama runtime + pre-baked Qwen3:4b model weights. For RunPod/Modal/SageMaker GPU deployments.
 
 Baking the model into the image avoids a 5GB download on every serverless cold start.
 
 **The Core CLI Command:**
 The container exposes a primary command designed for batch processing:
 ```bash
-codrag sync-headless \
+prep sync-headless \
   --repo-url "https://github.com/org/repo" \
   --branch "main" \
   --s3-bucket "s3://my-team-bucket" \
@@ -56,19 +56,19 @@ Modal can import custom Docker registries directly. We don't even need to publis
 import modal
 
 # 1. Use the unified base build
-image = modal.Image.from_registry("codrag/headless:latest")
-app = modal.App("codrag-team-sync")
+image = modal.Image.from_registry("prep/headless:latest")
+app = modal.App("prep-team-sync")
 
 # 2. Define the webhook trigger
-@app.function(image=image, gpu="A10G", secrets=[modal.Secret.from_name("codrag-s3-creds")])
+@app.function(image=image, gpu="A10G", secrets=[modal.Secret.from_name("prep-s3-creds")])
 @modal.web_endpoint(method="POST")
 def trigger_index(payload: dict):
     import subprocess
     # 3. Call the core CLI
     subprocess.run([
-        "codrag", "sync-headless", 
+        "prep", "sync-headless", 
         "--repo-url", payload["repo_url"],
-        "--s3-bucket", "codrag-indexes"
+        "--s3-bucket", "prep-indexes"
     ], check=True)
     return {"status": "success"}
 ```
@@ -78,35 +78,35 @@ RunPod requires the Docker container to run a specific Python handler that liste
 
 ```dockerfile
 # Dockerfile.runpod
-FROM codrag/headless:latest
+FROM prep/headless:latest
 RUN pip install runpod
 COPY runpod_handler.py /handler.py
 CMD ["python", "-u", "/handler.py"]
 ```
-The `runpod_handler.py` simply parses the job input and calls the same `subprocess.run(["codrag", "sync-headless", ...])` command.
+The `runpod_handler.py` simply parses the job input and calls the same `subprocess.run(["prep", "sync-headless", ...])` command.
 
 ### Adapter C: Enterprise (AWS / Azure)
 Enterprises don't need an adapter script. They have their own orchestration tools (AWS ECS, Kubernetes Jobs, GitLab CI runners).
-They simply pull `codrag/headless:latest`, inject their IAM roles or environment variables, and run the `codrag sync-headless` command directly as a batch job.
+They simply pull `prep/headless:latest`, inject their IAM roles or environment variables, and run the `prep sync-headless` command directly as a batch job.
 
 ---
 
 ## 3. The Implementation Plan (Phase 06)
 
 **Step 1: The Headless CLI**
-- Add the `sync-headless` command to `src/codrag/cli.py`.
+- Add the `sync-headless` command to `src/prep/cli.py`.
 - Implement `S3StorageProvider` for uploading/downloading zipped indexes.
 
 **Step 2: The Base Image CI/CD**
-- Add a GitHub Action to the CoDRAG repo that builds `codrag/headless:latest`.
+- Add a GitHub Action to the Prep repo that builds `prep/headless:latest`.
 - Push it to a public registry (Docker Hub or GitHub Container Registry).
 
 **Step 3: The Adapters & Templates**
-- Create a `deploy/` directory in the CoDRAG repository.
+- Create a `deploy/` directory in the Prep repository.
 - Add `deploy/modal/modal_adapter.py`.
 - Add `deploy/runpod/Dockerfile.runpod` and `runpod_handler.py`.
 - Add `deploy/aws/ecs-task-definition.json`.
 
 **Step 4: The Local Client Sync**
-- Update the local CoDRAG daemon to check `.prep/team_config.json` for an S3 endpoint.
+- Update the local Prep daemon to check `.prep/team_config.json` for an S3 endpoint.
 - If present, on startup, hit S3. If a newer index exists, download, unzip, and replace `.prep/index/`.

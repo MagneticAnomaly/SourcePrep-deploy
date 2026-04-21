@@ -58,7 +58,7 @@ Cascade behavior: force-from-start applies **only to the user-selected scope**. 
 
 #### A3. Barrier scope
 
-Extend the barrier schema in `codrag.services.pipeline.recovery`:
+Extend the barrier schema in `prep.services.pipeline.recovery`:
 
 ```json
 {
@@ -136,7 +136,7 @@ Lookup uses the stage's `task_id` to find the current config (that's how task as
 
 #### B3. Backend exposure
 
-New helper in `src/codrag/services/pipeline_provenance.py`:
+New helper in `src/prep/services/pipeline_provenance.py`:
 
 ```python
 def compute_stage_provenance(
@@ -168,7 +168,7 @@ The helper caches per-project with a short TTL (reuse the existing `_status_cach
 #### B4. Data sources
 
 - **Manifest model**: read from per-stage manifest's `model` field for stages that have one. Stages without an LLM (1, 2, 4, 5 proper, 10's embedding side) return `None` and are never "drift".
-- **Current config model**: resolved via existing LLM task-assignment lookup (`src/codrag/services/llm_coordinator` or equivalent). If no assignment exists for the task_id, fall back to project default.
+- **Current config model**: resolved via existing LLM task-assignment lookup (`src/prep/services/llm_coordinator` or equivalent). If no assignment exists for the task_id, fall back to project default.
 - **Recovered flag**: manifest contains `"restored": true`.
 - **Golden checkpoint**: `.prep/.checkpoints/_golden/_meta.json` plus the specific stage file's presence in the golden dir. Used only to soften the stub chip — never to upgrade a match/drift decision.
 
@@ -177,18 +177,18 @@ The helper caches per-project with a short TTL (reuse the existing `_status_cach
 ### Files touched (expected)
 
 **Backend:**
-- `src/codrag/api/routers/pipeline.py` — body param on `fast`/`deep`; new `rebuild/stop` endpoint; status response includes `provenance`.
-- `src/codrag/services/pipeline/recovery.py` — barrier schema adds `scope` + `scope_group_finished`; helper to flip/clear.
-- `src/codrag/services/pipeline_orchestrator.py` — `run_fast_sync`/`run_deep_enrichment` accept `force_from_start`; finalize-complete callback flips barrier.
-- `src/codrag/services/pipeline_provenance.py` — **new**, provenance helper.
-- LLM task-assignment resolver (exact module location to be confirmed during plan phase — candidates: `src/codrag/services/llm_coordinator.py`, `src/codrag/core/llm/*`). Must expose a function returning `{provider, model_name}` for a given `task_id`.
+- `src/prep/api/routers/pipeline.py` — body param on `fast`/`deep`; new `rebuild/stop` endpoint; status response includes `provenance`.
+- `src/prep/services/pipeline/recovery.py` — barrier schema adds `scope` + `scope_group_finished`; helper to flip/clear.
+- `src/prep/services/pipeline_orchestrator.py` — `run_fast_sync`/`run_deep_enrichment` accept `force_from_start`; finalize-complete callback flips barrier.
+- `src/prep/services/pipeline_provenance.py` — **new**, provenance helper.
+- LLM task-assignment resolver (exact module location to be confirmed during plan phase — candidates: `src/prep/services/llm_coordinator.py`, `src/prep/core/llm/*`). Must expose a function returning `{provider, model_name}` for a given `task_id`.
 
 **Frontend:**
 - `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` — split-button dropdown, sticky row, confirmation modal wiring, chip rendering on stage cards.
 - `packages/ui/src/components/trace/rebuildProgress.ts` — scope-aware progress computation.
 - `packages/ui/src/components/trace/ProvenanceChip.tsx` — **new**, small presentational component.
 - `packages/ui/src/types.ts` — extend stage type with `provenance` field; extend barrier type with `scope` + `scope_group_finished`.
-- `src/codrag/dashboard/src/hooks/useEnrichment.ts` — pass `force_from_start` / scope through API client calls; new hook wrapper for `rebuild/stop`.
+- `src/prep/dashboard/src/hooks/useEnrichment.ts` — pass `force_from_start` / scope through API client calls; new hook wrapper for `rebuild/stop`.
 
 **Storybook:**
 - `packages/ui/src/stories/trace/GraphEnrichmentPipeline.stories.tsx` — stories covering each chip state and each sticky-row phase.

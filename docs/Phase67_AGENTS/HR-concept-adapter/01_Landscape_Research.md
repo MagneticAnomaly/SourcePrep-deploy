@@ -7,7 +7,7 @@
 
 ## 1. Research Verdict
 
-**No existing tool does what we need.** There are three adjacent categories of tooling, but none combine codebase-aware epistemic knowledge with agent role lifecycle management. CoDRAG is uniquely positioned to fill this gap.
+**No existing tool does what we need.** There are three adjacent categories of tooling, but none combine codebase-aware epistemic knowledge with agent role lifecycle management. Prep is uniquely positioned to fill this gap.
 
 ---
 
@@ -39,14 +39,14 @@
 
 | Tool | What It Does | Gap |
 |------|-------------|-----|
-| **CoDRAG (us)** | Full epistemic knowledge graph with architecture layers, domain tags, module clustering, role projection vectors | **We have the knowledge but no HR layer.** We can score file relevance per role but don't generate/manage roles themselves. |
+| **Prep (us)** | Full epistemic knowledge graph with architecture layers, domain tags, module clustering, role projection vectors | **We have the knowledge but no HR layer.** We can score file relevance per role but don't generate/manage roles themselves. |
 | **GitHub Copilot / Cursor context** | IDE-level code intelligence | **No multi-agent awareness.** Single-agent context, no role differentiation, no lifecycle management. |
 
 ---
 
-## 3. What CoDRAG Already Has (Our Unfair Advantage)
+## 3. What Prep Already Has (Our Unfair Advantage)
 
-CoDRAG's existing infrastructure provides 80% of what an HR Agent needs:
+Prep's existing infrastructure provides 80% of what an HR Agent needs:
 
 ### 3.1 Per-File Epistemic Metadata
 - **Architecture layers** (9 values): `presentation`, `business_logic`, `data`, `infrastructure`, etc.
@@ -66,9 +66,9 @@ CoDRAG's existing infrastructure provides 80% of what an HR Agent needs:
 - **Dashboard UI**: `AgentKnowledgeTree.tsx` with per-role file checkboxes
 
 ### 3.4 MCP Tool Surface
-- `codrag(role="ceo")` — Role-filtered structural overview
-- `codrag_search(query, role="ceo")` — Role-scoped semantic search
-- `codrag_observe` — Cross-session memory per observation
+- `prep(role="ceo")` — Role-filtered structural overview
+- `prep_search(query, role="ceo")` — Role-scoped semantic search
+- `prep_observe` — Cross-session memory per observation
 
 ---
 
@@ -78,9 +78,9 @@ The missing piece is the **generative + management layer** — an "HR Agent" tha
 
 | Capability | Status |
 |-----------|--------|
-| **Analyze codebase** to determine what roles are needed | 🟡 CoDRAG has the data, needs the reasoning |
+| **Analyze codebase** to determine what roles are needed | 🟡 Prep has the data, needs the reasoning |
 | **Generate AGENTS.md + SOUL.md** for each role | 🔴 New |
-| **Inject CoDRAG tool usage** into role files (`codrag(role="ceo")`) | 🔴 New |
+| **Inject Prep tool usage** into role files (`prep(role="ceo")`) | 🔴 New |
 | **Score role-to-code alignment** and detect drift | 🟡 RoleVector scoring exists, threshold logic needed |
 | **Propose realignments** when code evolves | 🔴 New |
 | **Interface with Paperclip API** to create/update agents | 🔴 New (but bootstrap-agents.sh is precedent) |
@@ -91,8 +91,8 @@ The missing piece is the **generative + management layer** — an "HR Agent" tha
 
 ## 5. Conclusion: Build Adapter, Not Build-From-Scratch
 
-**CoDRAG should build an HR adapter that:**
-1. Uses CoDRAG's epistemic knowledge to *generate* and *maintain* agent role definitions
+**Prep should build an HR adapter that:**
+1. Uses Prep's epistemic knowledge to *generate* and *maintain* agent role definitions
 2. Interfaces with Paperclip's REST API for agent lifecycle (create, update, propose changes)
 3. Can also work as a standalone CLI tool for non-Paperclip users (generates AGENTS.md files)
 4. Runs as a periodic analysis pass (weekly or on-demand) to detect role drift
@@ -101,5 +101,5 @@ The missing piece is the **generative + management layer** — an "HR Agent" tha
 
 The relationship is:
 ```
-CoDRAG (epistemic knowledge) → HR Adapter (role reasoning) → Paperclip (runtime orchestration)
+Prep (epistemic knowledge) → HR Adapter (role reasoning) → Paperclip (runtime orchestration)
 ```

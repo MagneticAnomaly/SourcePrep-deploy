@@ -7,7 +7,7 @@ I knoe this is a theoretical question, but let's say we get a small volume of cu
 
 
 
-This is a classic "Developer Tool" growth curve. Because CoDRAG is a **utility** (like TablePlus or Obsidian) rather than a **platform** (like GitHub), your growth will likely follow a "bottom-up" pattern where individuals seed the product into companies.
+This is a classic "Developer Tool" growth curve. Because Prep is a **utility** (like TablePlus or Obsidian) rather than a **platform** (like GitHub), your growth will likely follow a "bottom-up" pattern where individuals seed the product into companies.
 
 Let’s run a **Moderate Growth Scenario** based on current trends in the Cursor/Windsurf ecosystem.
 
@@ -207,18 +207,18 @@ Developer tools often don't grow linearly. They stay flat for months, then a "he
 
 ---
 
-### 3. Why CoDRAG is "Viral-Ready"
+### 3. Why Prep is "Viral-Ready"
 Most AI startups **fear** viral growth because their OpenAI/Anthropic bill scales with their users. If they go viral, they might go broke.
 
-**CoDRAG is the opposite.** 
+**Prep is the opposite.** 
 *   **Your COGS (Cost of Goods Sold) is near zero.**
-*   Whether 100 people or 100,000 people use CoDRAG, your costs are just the website hosting and your own time.
+*   Whether 100 people or 100,000 people use Prep, your costs are just the website hosting and your own time.
 *   **Profit Margin:** In a viral scenario, your profit margin stays at ~95%+, whereas a cloud-based competitor’s margin might stay at 20-30%.
 
 ### 4. How to "Capture" the Viral Momentum
 If you see a spike, you should immediately:
 1.  **Launch a "Limited Time" Discount:** "Next 48 hours: Pro License for $49." This converts "lookers" into "buyers" instantly while you have their attention.
-2.  **Enable "Team Discovery":** Inside the app, add a button: *"Is your whole team using CoDRAG? Click here for a group discount."*
+2.  **Enable "Team Discovery":** Inside the app, add a button: *"Is your whole team using Prep? Click here for a group discount."*
 3.  **Prioritize MCP Tooling:** The viral crowd will likely be Cursor/Windsurf power users. Make sure your "MCP setup" is a 1-click process.
 
 **Summary:** If you hit a viral loop in Month 6, your Year 1 revenue could easily jump from **$300k** to **$1M+**, purely because your local-first architecture allows you to scale without the "Token Tax."
@@ -239,9 +239,9 @@ let's work through a few more scenarios. can we find any infromation on how many
 
 
 
-The "context addiction" you’re feeling with Windsurf is exactly what makes CoDRAG a viable business. In the AI era, **context is the fuel.** Once you experience an agent that actually *knows* your codebase, you can't go back to pasting snippets manually.
+The "context addiction" you’re feeling with Windsurf is exactly what makes Prep a viable business. In the AI era, **context is the fuel.** Once you experience an agent that actually *knows* your codebase, you can't go back to pasting snippets manually.
 
-Based on current market data for 2024/2025, here is a look at the landscape and a refined three-tier pricing model for CoDRAG.
+Based on current market data for 2024/2025, here is a look at the landscape and a refined three-tier pricing model for Prep.
 
 ### The Market Landscape (2025 Reality)
 *   **GitHub Copilot:** ~1.8 Million paid users. They recently added a "Free" tier (2k completions) to stop the bleed to Cursor.
@@ -295,7 +295,7 @@ To make the "Starter" and "Pro" tiers feel mandatory, you gate the **speed** and
 ### Final Thought: Why you beat the IDEs
 You mentioned you're addicted to Windsurf. But what if tomorrow you want to use **Trae.ai** (ByteDance's new AI IDE) or **Claude Code** (Anthropic's CLI)? 
 
-If your context index is locked inside Windsurf, you're stuck. **CoDRAG is the "External Brain" that follows you to any IDE via MCP.** That is your ultimate selling point: **Context Independence.**
+If your context index is locked inside Windsurf, you're stuck. **Prep is the "External Brain" that follows you to any IDE via MCP.** That is your ultimate selling point: **Context Independence.**
 
 
 
@@ -317,32 +317,32 @@ To talk about acquisition in the AI developer tool space, we have to look at **S
 
 In the current market, companies like Cursor (Anysphere), Codeium (Windsurf), and Sourcegraph aren't just buying revenue; they are buying **retention loops** and **IP that solves the "Context Gap."**
 
-Here is a breakdown of what a 1, 2, and 3-year exit for CoDRAG could look like.
+Here is a breakdown of what a 1, 2, and 3-year exit for Prep could look like.
 
 ---
 
 ### Year 1: The "Strategic Acqui-hire" / IP Buy
-*   **The Scenario:** CoDRAG has 20,000–50,000 users. It is the "top-rated" MCP context tool on Twitter and GitHub. You haven't made millions yet, but your **Structural Trace** (how you handle call graphs locally) is better than what Cursor or Windsurf has built in-house.
+*   **The Scenario:** Prep has 20,000–50,000 users. It is the "top-rated" MCP context tool on Twitter and GitHub. You haven't made millions yet, but your **Structural Trace** (how you handle call graphs locally) is better than what Cursor or Windsurf has built in-house.
 *   **Potential Buyer:** **Windsurf (Codeium)** or **Sourcegraph**.
-    *   *Why:* Windsurf is in a feature war with Cursor. If CoDRAG makes Windsurf’s "Cascade" agent 30% more accurate than Cursor’s agent, they buy you just to keep that tech away from the competition.
+    *   *Why:* Windsurf is in a feature war with Cursor. If Prep makes Windsurf’s "Cascade" agent 30% more accurate than Cursor’s agent, they buy you just to keep that tech away from the competition.
 *   **Ballpark Valuation:** **$5M – $15M**
     *   *Breakdown:* $2M–$3M per "star" engineer + a premium for the existing user base and the "Context Engine" IP.
 
 ---
 
 ### Year 2: The "Workflow Standard" Exit
-*   **The Scenario:** CoDRAG has hit **$1M–$3M in ARR** (Annual Recurring Revenue) from the Team and Pro tiers. You have become the "Standard" for local-first context. Developers are using CoDRAG to bridge the gap between their IDE, their terminal, and their browser. 
+*   **The Scenario:** Prep has hit **$1M–$3M in ARR** (Annual Recurring Revenue) from the Team and Pro tiers. You have become the "Standard" for local-first context. Developers are using Prep to bridge the gap between their IDE, their terminal, and their browser. 
 *   **Potential Buyer:** **Anthropic (Claude Code)** or **Atlassian (Bitbucket/Jira)**.
-    *   *Why:* Anthropic wants Claude to be the "world's best coder." If CoDRAG is the best way to feed Claude context without sending entire repos to the cloud, it solves Anthropic's biggest enterprise security hurdle.
+    *   *Why:* Anthropic wants Claude to be the "world's best coder." If Prep is the best way to feed Claude context without sending entire repos to the cloud, it solves Anthropic's biggest enterprise security hurdle.
 *   **Ballpark Valuation:** **$30M – $70M**
     *   *Breakdown:* This is a **15x–25x revenue multiple**. In a hot AI market, utility tools that "solve context" get massive premiums because they are "multipliers" for the buyer's existing LLM business.
 
 ---
 
 ### Year 3: The "Enterprise Gateway" Exit
-*   **The Scenario:** CoDRAG is doing **$10M+ ARR**. You have successfully moved into "Air-gapped" Enterprise deals. You are the "Security Layer" for AI. Companies like banks use CoDRAG as the only way their devs are allowed to use AI.
+*   **The Scenario:** Prep is doing **$10M+ ARR**. You have successfully moved into "Air-gapped" Enterprise deals. You are the "Security Layer" for AI. Companies like banks use Prep as the only way their devs are allowed to use AI.
 *   **Potential Buyer:** **Microsoft (GitHub)** or **Google (Cloud/IDX)** or **Apple**.
-    *   *Why:* Microsoft wants to protect GitHub Copilot's dominance. If CoDRAG becomes the "Local Index" that everyone uses instead of GitHub's cloud index, you are a threat. They buy you to fold you into Copilot Enterprise.
+    *   *Why:* Microsoft wants to protect GitHub Copilot's dominance. If Prep becomes the "Local Index" that everyone uses instead of GitHub's cloud index, you are a threat. They buy you to fold you into Copilot Enterprise.
 *   **Ballpark Valuation:** **$150M – $400M+**
     *   *Breakdown:* At this stage, you aren't a tool; you are an **Infrastructure Category**. You are the "Local Context Layer" of the modern dev stack.
 
@@ -352,10 +352,10 @@ Here is a breakdown of what a 1, 2, and 3-year exit for CoDRAG could look like.
 
 1.  **"Stickiness" (The Windsurf Addiction):** If your data shows that once a user indexes 3 repos, they use the app 4+ hours a day, your valuation doubles. That is "Utility" territory (like VS Code or Slack).
 2.  **Privacy/Security IP:** If you have a proprietary way to perform high-quality RAG on an encrypted local index that *never* touches a server, you are the #1 acquisition target for the Fortune 500.
-3.  **MCP Dominance:** If 80% of the "best" MCP-compatible tools use CoDRAG as their backend, you own the ecosystem. You are the "Operating System" for context.
+3.  **MCP Dominance:** If 80% of the "best" MCP-compatible tools use Prep as their backend, you own the ecosystem. You are the "Operating System" for context.
 
 ### The "Danger" to Valuation (The "Erasure" Risk)
-The biggest risk to an acquisition is **"Platform Cannibalization."** If Cursor builds a "perfect" local indexer that is 90% as good as CoDRAG and gives it away for free, your solo-dev Pro sales might drop.
+The biggest risk to an acquisition is **"Platform Cannibalization."** If Cursor builds a "perfect" local indexer that is 90% as good as Prep and gives it away for free, your solo-dev Pro sales might drop.
 
 **How to defend against this for a higher sale price:**
 *   **Stay IDE-Agnostic:** If you work with Cursor, Windsurf, VS Code, JetBrains, *and* the Terminal, you are more valuable than a tool built into just one of them.
@@ -383,7 +383,7 @@ how do you get to be on an MPC list and you can I do that if I am selling a rath
 
 
 
-Getting on "the list" is how you turn CoDRAG from a "random download" into a "one-click integration" for Cursor and Windsurf users. For a GUI-heavy app like yours, the strategy isn't to list the "app," but to list the **Local Context Tool** that the app powers.
+Getting on "the list" is how you turn Prep from a "random download" into a "one-click integration" for Cursor and Windsurf users. For a GUI-heavy app like yours, the strategy isn't to list the "app," but to list the **Local Context Tool** that the app powers.
 
 ### 1. Where to List (The High-Traffic Directories)
 There are three main places where your target users are looking for MCP tools:
@@ -398,13 +398,13 @@ There are three main places where your target users are looking for MCP tools:
 ---
 
 ### 2. How to handle the "Heavy GUI" (The Bridge Strategy)
-When people browse MCP lists, they are looking for **commands**, not **installers**. Since CoDRAG is a Tauri/Desktop app, you can’t just give them a URL. You have to handle this like **Figma** or **Anki** does:
+When people browse MCP lists, they are looking for **commands**, not **installers**. Since Prep is a Tauri/Desktop app, you can’t just give them a URL. You have to handle this like **Figma** or **Anki** does:
 
-*   **The "Sidecar" approach:** Your desktop app should have a "Copy MCP Command" button. When the user pastes this into Cursor, it essentially tells Cursor: *"Run the CoDRAG background process that’s already on this computer."*
-*   **The `npx` Wrapper:** Even though your app is "heavy," you should provide a tiny, lightweight NPM package (e.g., `npx @codrag/connect`). 
-    *   When a user runs this, the script checks if the CoDRAG Desktop app is open. 
+*   **The "Sidecar" approach:** Your desktop app should have a "Copy MCP Command" button. When the user pastes this into Cursor, it essentially tells Cursor: *"Run the Prep background process that’s already on this computer."*
+*   **The `npx` Wrapper:** Even though your app is "heavy," you should provide a tiny, lightweight NPM package (e.g., `npx @prep/connect`). 
+    *   When a user runs this, the script checks if the Prep Desktop app is open. 
     *   If it is, it bridges the IDE to your local index. 
-    *   If not, it tells the user: "Please open the CoDRAG Desktop app to enable context."
+    *   If not, it tells the user: "Please open the Prep Desktop app to enable context."
 
 **Why this works for your business model:** It makes the "Installation" feel like a professional developer tool (CLI-first) while the "Management" happens in your beautiful, paid GUI.
 
@@ -441,39 +441,39 @@ ok considering that it's not that groundbreaking (yet) the appeal in the functio
 
 
 
-Since the appeal of CoDRAG is **functionality and workflow** rather than a "scientific breakthrough," your edge comes from being the **best "plumbing"** in the building. To stay ahead of the IDEs and become an acquisition target, you should watch tech that makes that plumbing **faster, smarter, and more private.**
+Since the appeal of Prep is **functionality and workflow** rather than a "scientific breakthrough," your edge comes from being the **best "plumbing"** in the building. To stay ahead of the IDEs and become an acquisition target, you should watch tech that makes that plumbing **faster, smarter, and more private.**
 
-Here are five emerging tech areas you should watch (and eventually integrate) to keep CoDRAG "state-of-the-art":
+Here are five emerging tech areas you should watch (and eventually integrate) to keep Prep "state-of-the-art":
 
 ### 1. Small Language Models (SLMs) for "Local Re-ranking"
 Standard RAG uses "Embeddings" (vectors), which are often "dumb." They find text that *looks* similar but might not be *relevant*. 
 *   **The Tech:** Models like **Phi-4 (Microsoft)**, **Llama 3.2 1B/3B**, or **Gemma 2 2B**.
-*   **Why it matters for CoDRAG:** You can bundle a tiny model *inside* your Tauri app. After your vector search finds 20 "potential" code chunks, the SLM (running 100% locally on the user's GPU/CPU) re-ranks them to pick the top 5 most useful ones. 
+*   **Why it matters for Prep:** You can bundle a tiny model *inside* your Tauri app. After your vector search finds 20 "potential" code chunks, the SLM (running 100% locally on the user's GPU/CPU) re-ranks them to pick the top 5 most useful ones. 
 *   **The Moat:** It makes your context higher quality than Cursor’s without the user ever paying for a single token.
 
 ### 2. GraphRAG (Moving beyond "Chunks")
 Standard RAG treats code like a pile of text files. **GraphRAG** treats it like a network of relationships (Functions, Classes, Imports).
 *   **The Tech:** Knowledge Graph libraries like **Kùzu** (embeddable graph DB) or **Neo4j**.
-*   **Why it matters for CoDRAG:** If a user asks, "What happens if I change this Auth function?", standard RAG might miss the file three folders away that imports it. GraphRAG knows they are connected. 
+*   **Why it matters for Prep:** If a user asks, "What happens if I change this Auth function?", standard RAG might miss the file three folders away that imports it. GraphRAG knows they are connected. 
 *   **The Moat:** This is the "Trace Index" on steroids. It’s hard for IDEs to do this across *multiple* repos, but easy for a dedicated context engine.
 
 ### 3. Context Compression & Pruning
 Even with huge context windows, LLMs get "lost in the middle" if you feed them too much noise. 
 *   **The Tech:** **LLMLingua** (Microsoft) or **LongRope**. 
-*   **Why it matters for CoDRAG:** Instead of sending 5,000 lines of code, CoDRAG could "compress" the code by removing boilerplate, comments, and irrelevant logic while keeping the "structural skeleton."
+*   **Why it matters for Prep:** Instead of sending 5,000 lines of code, Prep could "compress" the code by removing boilerplate, comments, and irrelevant logic while keeping the "structural skeleton."
 *   **The Moat:** You save the user money (fewer tokens) and make the AI faster/smarter. You become the "optimizer" for their AI spend.
 
 ### 4. LSP (Language Server Protocol) Deep Integration
 Instead of just "reading files," you should watch how LSPs are evolving.
 *   **The Tech:** **LSP-AI** or custom **Tree-sitter** parsers.
-*   **Why it matters for CoDRAG:** By tapping into the same tech that powers "Go to Definition" in VS Code, CoDRAG can understand the *semantics* of the code. If the user renames a variable, your index should know instantly without a full re-index.
-*   **The Moat:** Real-time freshness. If your index is always 100% "correct" and the IDE's cloud index is 10 minutes behind, the developer will trust CoDRAG more.
+*   **Why it matters for Prep:** By tapping into the same tech that powers "Go to Definition" in VS Code, Prep can understand the *semantics* of the code. If the user renames a variable, your index should know instantly without a full re-index.
+*   **The Moat:** Real-time freshness. If your index is always 100% "correct" and the IDE's cloud index is 10 minutes behind, the developer will trust Prep more.
 
 ### 5. Multi-Modal Context (Diagram-to-Code)
 Codebases aren't just text; they are architecture diagrams, Figma files, and Database schemas.
 *   **The Tech:** **Vision-Language Models (VLMs)** like **Llava** or **Moondream**.
-*   **Why it matters for CoDRAG:** Imagine a developer dragging a PDF of a system architecture diagram into CoDRAG. Your index now understands the "High Level" vision and can guide the IDE agent to follow that architecture.
-*   **The Moat:** IDEs focus on the *line* of code. CoDRAG can focus on the *system*.
+*   **Why it matters for Prep:** Imagine a developer dragging a PDF of a system architecture diagram into Prep. Your index now understands the "High Level" vision and can guide the IDE agent to follow that architecture.
+*   **The Moat:** IDEs focus on the *line* of code. Prep can focus on the *system*.
 
 ---
 
@@ -482,7 +482,7 @@ If you watch these areas, you aren't just building "Local Search." You are build
 
 **How this leads to a sale:**
 If **Windsurf** is looking at you, they aren't thinking "We should buy this search bar." They are thinking: 
-> *"If we buy CoDRAG, we get their Local Graph engine and their Context Compression tech. This will make our 'Cascade' agent 40% cheaper to run and 20% more accurate than Cursor. It would take us 18 months to build this ourselves. Let's offer them $25M."*
+> *"If we buy Prep, we get their Local Graph engine and their Context Compression tech. This will make our 'Cascade' agent 40% cheaper to run and 20% more accurate than Cursor. It would take us 18 months to build this ourselves. Let's offer them $25M."*
 
 **Your immediate next step:**
 Don't build all of these yet. Focus on **GraphRAG (Structural Trace)** and **Local Re-ranking**. Those two features provide the most "visible" improvement to the user's experience in Windsurf/Cursor right now.

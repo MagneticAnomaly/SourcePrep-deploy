@@ -2,7 +2,7 @@
 
 > **Status**: Audit complete. Resolved items implemented. Remaining items tracked in `MASTER_TODO.md` and `MARKETING_MASTER_TODO.md`.
 
-## 1. Docs Content Map (`docs.codrag.io`)
+## 1. Docs Content Map (`docs.runprep.io`)
 
 ### Getting Started (`/getting-started`)
 - **The "Trust Loop"**: Install → Launch App → Add Repo → Connect Editor → Verify.

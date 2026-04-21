@@ -1,15 +1,15 @@
 # 12 — A Close Read of Anthropic's *Contextual Retrieval*
 
-**Status:** ✅ Feasible. Single primary source, freely available, directly used by CoDRAG.
+**Status:** ✅ Feasible. Single primary source, freely available, directly used by Prep.
 **Type:** Morning-Paper-style single-paper deep dive (Direction 9 from `10_academic_directions.md`).
 **Depends on:** Anthropic's September 2024 engineering post on Contextual Retrieval, plus a handful of secondary sources for triangulation.
-**Does not depend on:** Any unfinished CoDRAG feature. The technique is already integrated in Phase 93.
+**Does not depend on:** Any unfinished Prep feature. The technique is already integrated in Phase 93.
 
 ## Why this essay exists
 
 Anthropic published a short engineering post in September 2024 claiming that prepending a one- to two-sentence contextual prefix to each chunk before embedding reduced retrieval failure rates by **49%**. For a field that usually celebrates single-digit improvements, a 49% reduction is a startling number. And yet the result has been under-read — cited often, explained rarely.
 
-This essay is the close read. It walks through what the technique does, why it works, what it does not claim, and how it composes with other retrieval strategies. CoDRAG uses the technique in Phase 93's chunking pipeline, so the essay is also a short, honest record of how that integration was done.
+This essay is the close read. It walks through what the technique does, why it works, what it does not claim, and how it composes with other retrieval strategies. Prep uses the technique in Phase 93's chunking pipeline, so the essay is also a short, honest record of how that integration was done.
 
 This is the academic-voice warm-up piece. Shorter than Direction 2, faster to produce, and useful on its own terms. If Direction 2 is the flagship literature review, this is the focused technical note that lets the author calibrate the academic register before committing to 6000 words.
 
@@ -81,17 +81,17 @@ Walk through the composition:
 - **+ BM25 hybrid.** Larger improvement; BM25 catches exact-match cases the embedding missed.
 - **+ Reranking.** Further improvement; the reranker handles the nearest-neighbor ordering that embedding-only retrieval gets approximately right.
 
-The 49% headline is the full stack. Break down the contributions so the reader knows which parts of the win belong to which technique. Name reciprocal-rank fusion (Cormack et al. 2009) as the standard hybrid fusion strategy — this is how CoDRAG actually composes its BM25 and semantic search signals.
+The 49% headline is the full stack. Break down the contributions so the reader knows which parts of the win belong to which technique. Name reciprocal-rank fusion (Cormack et al. 2009) as the standard hybrid fusion strategy — this is how Prep actually composes its BM25 and semantic search signals.
 
 ### Section 6 — A short worked example (~300 words)
 
 Show Contextual Retrieval applied to a single chunk from a real codebase. Before: a 200-token code chunk in isolation. The prefix generation: the prompt, the generated sentence (real output, not invented). After: the chunk with its prefix prepended. A note on what the embedding presumably does differently now.
 
-If the essay is being written alongside a CoDRAG experiment, this example can come from CoDRAG's Phase 93 output directly. That grounds the essay in dogfooded evidence.
+If the essay is being written alongside a Prep experiment, this example can come from Prep's Phase 93 output directly. That grounds the essay in dogfooded evidence.
 
-### Section 7 — How CoDRAG uses this technique (~200 words)
+### Section 7 — How Prep uses this technique (~200 words)
 
-One paragraph, modest and specific. CoDRAG's Phase 93 chunking pipeline integrated Contextual Retrieval as its file-level context prefix step. Link to the relevant source file. Note any ways CoDRAG's integration differs from Anthropic's original (e.g., CoDRAG generates the prefix from the file's atlas entry rather than re-prompting per chunk, if that's how it works — verify before stating).
+One paragraph, modest and specific. Prep's Phase 93 chunking pipeline integrated Contextual Retrieval as its file-level context prefix step. Link to the relevant source file. Note any ways Prep's integration differs from Anthropic's original (e.g., Prep generates the prefix from the file's atlas entry rather than re-prompting per chunk, if that's how it works — verify before stating).
 
 This is the essay's discreet product mention. It should read as "this researcher built something and is being honest about how it was influenced by the literature," not as a feature showcase.
 
@@ -101,7 +101,7 @@ Return to the 49% number. After walking the technique, the mechanisms, the scope
 
 The honest answer: it means a specific thing — that the full Contextual Retrieval stack reduces failures by 49% on Anthropic's evaluation suite — and it does not mean a general thing about embedding quality overall. But the *reason* it is still interesting is that the technique represents a cheap, composable primitive that every production retrieval system can adopt with modest engineering cost. The 49% is not the important part. The composability is.
 
-End with a brief note that Contextual Retrieval is one of the small handful of research results from the last eighteen months that has actually changed how production retrieval systems should be designed, and the author's takeaway from integrating it into CoDRAG is that the technique lives up to its billing without living up to its headlines.
+End with a brief note that Contextual Retrieval is one of the small handful of research results from the last eighteen months that has actually changed how production retrieval systems should be designed, and the author's takeaway from integrating it into Prep is that the technique lives up to its billing without living up to its headlines.
 
 ## Honesty checks — what could go wrong
 
@@ -109,7 +109,7 @@ End with a brief note that Contextual Retrieval is one of the small handful of r
 - **Explaining mechanisms the paper doesn't actually claim.** Section 3's three explanations are *plausible hypotheses*, not findings from the post. Say so explicitly; do not present hypotheses as confirmed mechanism.
 - **Understating indexing cost.** The per-chunk LLM call is real. For a 50k-chunk corpus at even 500ms/call, that is nearly seven hours of indexing. Contextual Retrieval is not free; the essay should be concrete about the cost.
 - **Missing the Jina Late Chunking comparison.** Jina's Late Chunking (October 2024) is a competing approach that addresses a similar problem differently. Naming it briefly in section 5 is an intellectual honesty move; ignoring it reads as partisanship.
-- **Pretending CoDRAG's integration is perfect.** If CoDRAG's Phase 93 integration deviates from the published technique, or has known limitations, say so in section 7. Hiding the gap is the kind of thing the personal essays warn against.
+- **Pretending Prep's integration is perfect.** If Prep's Phase 93 integration deviates from the published technique, or has known limitations, say so in section 7. Hiding the gap is the kind of thing the personal essays warn against.
 
 ## Limitations to acknowledge in the essay
 
@@ -128,8 +128,8 @@ End with a brief note that Contextual Retrieval is one of the small handful of r
 
 1. **Read Anthropic's post at least twice.** Once for the technique, once for the evaluation methodology. Note the pagination or the timestamps; the post has been lightly edited since publication.
 2. **Re-read the secondary sources.** Lost in the Middle, cAST, the Jina Late Chunking post. Short passes, enough to cite them accurately.
-3. **Verify how CoDRAG's Phase 93 integration actually works.** Before drafting section 7, read `Phase93_ChunkingResearch/` or the corresponding source files to confirm the integration matches what the essay claims. If the integration deviates, note the deviation honestly.
-4. **Pick the worked example for section 6.** Either a real Anthropic-provided example, or — preferably — a chunk from a CoDRAG Phase 93 run with the prefix generation captured verbatim.
+3. **Verify how Prep's Phase 93 integration actually works.** Before drafting section 7, read `Phase93_ChunkingResearch/` or the corresponding source files to confirm the integration matches what the essay claims. If the integration deviates, note the deviation honestly.
+4. **Pick the worked example for section 6.** Either a real Anthropic-provided example, or — preferably — a chunk from a Prep Phase 93 run with the prefix generation captured verbatim.
 5. **Draft section 1 first.** 400 words. Once it reads cleanly, the rest of the essay follows its pace.
 
 ## What to link to
@@ -139,7 +139,7 @@ End with a brief note that Contextual Retrieval is one of the small handful of r
 - cAST on arXiv (secondary, short mention)
 - Jina AI's Late Chunking post (secondary, short mention)
 - Reciprocal Rank Fusion (Cormack et al. 2009) for the composition section
-- CoDRAG's Phase 93 source files for the integration reference
+- Prep's Phase 93 source files for the integration reference
 
 ## Estimated effort
 
@@ -155,7 +155,7 @@ This is a one- to two-week piece, not a one-to-four-week piece like Direction 2.
 Three things, in order:
 
 1. **Read Anthropic's post cover to cover today or tomorrow.** Take notes on the evaluation methodology specifically. Everything else in the plan is downstream of this.
-2. **Verify CoDRAG's Phase 93 integration** matches what section 7 will say. If it deviates, update the plan before drafting.
+2. **Verify Prep's Phase 93 integration** matches what section 7 will say. If it deviates, update the plan before drafting.
 3. **Draft section 1.** 400 words. Iterate on it before touching sections 2–8.
 
 If Direction 11 (Code Is a Graph) is also happening, publish this essay first. The academic voice gets calibrated on this shorter piece, and the voice calibration transfers to the harder essay.

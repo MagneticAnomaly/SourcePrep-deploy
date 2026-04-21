@@ -1,6 +1,6 @@
-# CoDRAG Integration: Actionable Guidance
+# Prep Integration: Actionable Guidance
 
-> Concrete implementation recommendations derived from the integration research across 20+ AI coding tools. This document answers: "What should CoDRAG do differently to serve all these tools well?"
+> Concrete implementation recommendations derived from the integration research across 20+ AI coding tools. This document answers: "What should Prep do differently to serve all these tools well?"
 
 **Last updated:** 2026-03-14 (deep dive update)
 
@@ -8,7 +8,7 @@
 
 ## 1. The Three Layers of Universal Context Delivery
 
-Research reveals three independent mechanisms CoDRAG should use simultaneously. Each reaches a different subset of tools:
+Research reveals three independent mechanisms Prep should use simultaneously. Each reaches a different subset of tools:
 
 ```
 LAYER 1: MCP Server Instructions (protocol-level)
@@ -36,7 +36,7 @@ These layers are **redundant by design**. A tool that ignores `instructions` sti
 
 ## 2. Context Format: Universal Markdown
 
-### Decision: All CoDRAG Tool Responses Must Be Markdown
+### Decision: All Prep Tool Responses Must Be Markdown
 
 Every tool in the ecosystem processes markdown natively. JSON wrapping adds overhead and no value.
 
@@ -52,7 +52,7 @@ Every tool in the ecosystem processes markdown natively. JSON wrapping adds over
 
 **Target (good):**
 ```markdown
-## CoDRAG: ProjectName (547 nodes, 656 edges)
+## Prep: ProjectName (547 nodes, 656 edges)
 
 ### Modules
 - **Core Engine** (89 files): indexing, search, trace graph -> API Layer, Dashboard
@@ -82,14 +82,14 @@ Index: fresh (12m) | Watch: active | Coverage: 92%
 | Priority | File | Why |
 |----------|------|-----|
 | **P0** | `AGENTS.md` section | Universal. 20+ tools read it. |
-| **P0** | `.cursor/rules/codrag.mdc` | Largest IDE user base. `alwaysApply: true` is critical. |
+| **P0** | `.cursor/rules/prep.mdc` | Largest IDE user base. `alwaysApply: true` is critical. |
 | **P1** | `CLAUDE.md` section | Claude Code is primary CLI tool. |
 | **P1** | MCP `instructions` field | Zero-effort. Protocol-level. Gemini CLI, Claude Code, Qwen Code. |
-| **P1** | `.windsurf/rules/codrag.md` | Second-largest IDE. `trigger: always_on` frontmatter. |
+| **P1** | `.windsurf/rules/prep.md` | Second-largest IDE. `trigger: always_on` frontmatter. |
 | **P2** | `GEMINI.md` section | Growing CLI user base (or just use AGENTS.md). |
 | **P2** | `.github/copilot-instructions.md` | Largest install base (Copilot). |
 | **P3** | `.clinerules` section | Popular open-source extension. |
-| **P3** | `.roo/rules/codrag.md` | Growing extension, mode-specific. |
+| **P3** | `.roo/rules/prep.md` | Growing extension, mode-specific. |
 | **P3** | `.junie/guidelines.md` section | JetBrains expansion. |
 
 ### Content Template (Universal Core)
@@ -97,19 +97,19 @@ Index: fresh (12m) | Watch: active | Coverage: 92%
 All files share the same core content, adapted to each format:
 
 ```markdown
-## CoDRAG Integration
+## Prep Integration
 
-This project is indexed by CoDRAG for structural code intelligence via MCP.
+This project is indexed by Prep for structural code intelligence via MCP.
 
-ALWAYS call `codrag` (no arguments) at the START of every task. This gives you:
+ALWAYS call `prep` (no arguments) at the START of every task. This gives you:
 - Module structure (which groups of files work together and their dependencies)
 - Hub files (most connected/important files with full content)
 - User's selected focus areas from the knowledge base
 
-For specific code lookups, use `codrag_search` with a natural language query.
-Before making changes, use `codrag_impact` to understand blast radius.
+For specific code lookups, use `prep_search` with a natural language query.
+Before making changes, use `prep_impact` to understand blast radius.
 
-CoDRAG's read-only tools are safe to auto-approve.
+Prep's read-only tools are safe to auto-approve.
 
 ### Codebase Atlas
 IDENTITY: [project identity]
@@ -129,11 +129,11 @@ Last indexed: [timestamp] | [node_count] nodes | [coverage]% coverage
 **Cursor (.mdc):** Add YAML frontmatter with `alwaysApply: true`
 **CLAUDE.md:** Plain markdown section, appended
 **AGENTS.md:** Plain markdown section, appended
-**Windsurf (.windsurf/rules/codrag.md):** YAML frontmatter with `trigger: always_on` (standalone file, NOT appended)
+**Windsurf (.windsurf/rules/prep.md):** YAML frontmatter with `trigger: always_on` (standalone file, NOT appended)
 **GEMINI.md:** Plain markdown section, standalone or appended
 **Copilot (.vscode/mcp.json):** Config uses `servers` key (NOT `mcpServers`). Rules in `.github/copilot-instructions.md`
 **Cline (.clinerules):** Include keyword trigger phrases for MCP activation
-**Roo Code (.roo/rules/):** General + mode-specific (`.roo/rules-architect/codrag.md`)
+**Roo Code (.roo/rules/):** General + mode-specific (`.roo/rules-architect/prep.md`)
 
 ---
 
@@ -141,21 +141,21 @@ Last indexed: [timestamp] | [node_count] nodes | [coverage]% coverage
 
 ### Implementation
 
-Add to CoDRAG's MCP server `initialize` response:
+Add to Prep's MCP server `initialize` response:
 
 ```python
 # In mcp/server.py, in the initialize handler:
 async def handle_initialize(self, params):
     return {
         "serverInfo": {
-            "name": "codrag",
+            "name": "prep",
             "version": "2.0.0",
         },
         "instructions": (
-            "CoDRAG provides structural codebase context via trace graph analysis. "
-            "ALWAYS call `codrag` at the start of every coding task for module structure, "
-            "hub files, and focus areas. Use `codrag_search` for specific code queries "
-            "with structural trace expansion. Use `codrag_impact` before making changes "
+            "Prep provides structural codebase context via trace graph analysis. "
+            "ALWAYS call `prep` at the start of every coding task for module structure, "
+            "hub files, and focus areas. Use `prep_search` for specific code queries "
+            "with structural trace expansion. Use `prep_impact` before making changes "
             "to understand blast radius and dependencies."
         ),
         "capabilities": {
@@ -223,12 +223,12 @@ HUBS: index.py(42d), trace.py(38d), server.py(35d)
 
 **Tier 2 (standard, ~400 tokens):** Default for most tools
 ```
-IDENTITY: CoDRAG -- code intelligence daemon for AI tools via MCP
+IDENTITY: Prep -- code intelligence daemon for AI tools via MCP
 STACK: Python 3.11, FastAPI, Rust (PyO3), React/TypeScript, ONNX
 ARCHITECTURE:
-  Core Engine (src/codrag/core/) -> API Layer (src/codrag/api/)
+  Core Engine (src/prep/core/) -> API Layer (src/prep/api/)
   API Layer -> Dashboard (packages/ui/)
-  Pipeline (src/codrag/services/) -> Core Engine
+  Pipeline (src/prep/services/) -> Core Engine
 SUBSYSTEMS: trace, atlas, search (index.py), pipeline
 FLOW: MCP -> mcp/server.py -> api/routers/ -> core/ -> response
 ```
@@ -237,7 +237,7 @@ FLOW: MCP -> mcp/server.py -> api/routers/ -> core/ -> response
 Full atlas with subsystem details, flow, and focus areas.
 
 ### Adaptive Atlas Selection
-CoDRAG should detect the host via `clientInfo.name` in MCP initialize and serve the appropriate tier. Unknown hosts get Tier 2.
+Prep should detect the host via `clientInfo.name` in MCP initialize and serve the appropriate tier. Unknown hosts get Tier 2.
 
 ---
 
@@ -246,24 +246,24 @@ CoDRAG should detect the host via `clientInfo.name` in MCP initialize and serve 
 ### Include in Rules File and Documentation
 
 ```markdown
-### Auto-Approve CoDRAG (all tools are read-only)
+### Auto-Approve Prep (all tools are read-only)
 
-**Cursor:** Settings > Features > MCP > enable auto-run for codrag server
+**Cursor:** Settings > Features > MCP > enable auto-run for prep server
   NOTE: YOLO mode does NOT auto-approve MCP tools. You must enable per-server.
-**Windsurf:** MCP panel > codrag server > enable auto-run
-**Claude Code:** Add `"allow": ["mcp__codrag"]` to permissions in .claude/settings.json
-  (Single rule covers ALL CoDRAG tools. No wildcards needed.)
+**Windsurf:** MCP panel > prep server > enable auto-run
+**Claude Code:** Add `"allow": ["mcp__prep"]` to permissions in .claude/settings.json
+  (Single rule covers ALL Prep tools. No wildcards needed.)
 **Copilot (macOS/Linux):** Add `"sandboxEnabled": true` to .vscode/mcp.json
   (Sandboxed = auto-approved. Windows users must approve manually.)
-**Gemini CLI:** Add `"trust": true` to codrag server in ~/.gemini/settings.json
-**Qwen Code:** Add `"trust": true` to codrag server config
+**Gemini CLI:** Add `"trust": true` to prep server in ~/.gemini/settings.json
+**Qwen Code:** Add `"trust": true` to prep server config
 **Cline:** Auto-approve toggle per tool (Settings > Advanced > Auto-Approve)
 **Roo Code:** Per-server auto-approve in settings
-**Zed:** Set mcp:codrag:* to always_allow in tool permissions
+**Zed:** Set mcp:prep:* to always_allow in tool permissions
 ```
 
 This should be in:
-1. CoDRAG setup documentation
+1. Prep setup documentation
 2. The generated rules file (as a comment)
 3. The dashboard MCP setup wizard (future)
 
@@ -282,7 +282,7 @@ async def handle_initialize(self, params):
     # Use for:
     # 1. Adaptive atlas tier selection
     # 2. Response format tailoring (if needed)
-    # 3. Analytics (which hosts use CoDRAG)
+    # 3. Analytics (which hosts use Prep)
     # 4. Conditional rules file regeneration
 ```
 
@@ -304,16 +304,16 @@ async def handle_initialize(self, params):
 ## 9. Cloud Agent Strategy (Jules, Copilot Agent, Devin, OpenHands)
 
 ### The Problem
-Cloud agents run in remote sandboxes. They cannot access CoDRAG's local daemon.
+Cloud agents run in remote sandboxes. They cannot access Prep's local daemon.
 
 ### The Solution: Static Context in AGENTS.md
 
-For cloud agents, the atlas in AGENTS.md IS the entire CoDRAG experience:
+For cloud agents, the atlas in AGENTS.md IS the entire Prep experience:
 
 ```
 AGENTS.md (committed to repo)
   |
-  +-- CoDRAG Atlas section
+  +-- Prep Atlas section
   |     - Module structure
   |     - Hub files (paths only, not content)
   |     - Architectural flow
@@ -324,8 +324,8 @@ AGENTS.md (committed to repo)
 
 The atlas must be **self-sufficient** -- it should give a cloud agent enough structural awareness to make good architectural decisions even without live MCP tool access.
 
-### Future: Remote CoDRAG Server
-CoDRAG could support HTTP/SSE transport for remote access. This would allow cloud agents to call CoDRAG tools from their sandboxes. This is a major deployment feature beyond Phase 50 scope.
+### Future: Remote Prep Server
+Prep could support HTTP/SSE transport for remote access. This would allow cloud agents to call Prep tools from their sandboxes. This is a major deployment feature beyond Phase 50 scope.
 
 ---
 
@@ -360,9 +360,9 @@ Based on this research, the following changes to Phase 50's sprint plan are reco
 
 | Metric | How to Measure |
 |--------|---------------|
-| Which hosts connect to CoDRAG | `clientInfo.name` from initialize |
-| How often `codrag` is called first | MCP call order tracking |
-| Which tools trigger `codrag_search` most | MCP call frequency per tool |
+| Which hosts connect to Prep | `clientInfo.name` from initialize |
+| How often `prep` is called first | MCP call order tracking |
+| Which tools trigger `prep_search` most | MCP call frequency per tool |
 | Rules file adoption rate | Check if auto-generated files exist |
 | Tool approval friction | Track user complaints / support requests |
 | Cloud agent atlas effectiveness | User feedback on Jules/Copilot coding agent |

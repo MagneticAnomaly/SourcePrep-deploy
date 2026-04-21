@@ -26,9 +26,9 @@ data-display issues need addressing.
 - Allow `index_dir` / project name to break across lines gracefully.
 
 ### Part 2 — Backend: Add `lines_docs` / `lines_code` stats
-- In `src/codrag/core/index.py`, track `lines_docs` and `lines_code` alongside
+- In `src/prep/core/index.py`, track `lines_docs` and `lines_code` alongside
   `files_docs` / `files_code` during the build loop.
-- In `src/codrag/core/manifest.py`, add `lines_docs` and `lines_code` to
+- In `src/prep/core/manifest.py`, add `lines_docs` and `lines_code` to
   `ManifestBuildStats` and the serialised manifest dict.
 
 ### Part 3 — Frontend Types

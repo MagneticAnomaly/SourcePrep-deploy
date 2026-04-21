@@ -99,7 +99,7 @@ export const sampleFileTree: TreeNode[] = [
     type: 'folder',
     children: [
       {
-        name: 'codrag',
+        name: 'prep',
         type: 'folder',
         children: [
           { name: 'server.py', type: 'file', status: 'indexed', chunks: 24 },

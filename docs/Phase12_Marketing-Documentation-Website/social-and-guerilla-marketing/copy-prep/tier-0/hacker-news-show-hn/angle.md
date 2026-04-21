@@ -1,7 +1,7 @@
 # Channel Copy Preparation Template
 
 ## Angle (from PRIORITY_CHANNELS.md)
-"Show HN: CoDRAG — local-first structural code context for AI coding tools (no LLM required)" — lead with the surprising technical claim, link to docs/GitHub
+"Show HN: Prep — local-first structural code context for AI coding tools (no LLM required)" — lead with the surprising technical claim, link to docs/GitHub
 
 ## Key Messaging Pillars
 - Pillar 1: M3 (AI sees files, not structure)

@@ -22,7 +22,7 @@ Output: Exactly 2 agents — CTO and UX Designer, scoped to this codebase
 3. HR Engine writes AGENTS.md + SOUL.md for each, using codebase context to ground the descriptions
 4. No analysis of "what the codebase needs" — user knows what they want
 
-**When to use:** User has an existing team structure or specific roles in mind. They want CoDRAG to generate high-quality role files but don't need organizational advice.
+**When to use:** User has an existing team structure or specific roles in mind. They want Prep to generate high-quality role files but don't need organizational advice.
 
 **Dashboard UX:**
 ```
@@ -64,7 +64,7 @@ Output: N agents, where N is determined by codebase complexity
 3. Uses the Thinking LLM to reason about the optimal team structure
 4. Generates all roles with full AGENTS.md + SOUL.md + org chart
 
-**When to use:** User wants CoDRAG to figure out the ideal team for their codebase. Greenfield setup.
+**When to use:** User wants Prep to figure out the ideal team for their codebase. Greenfield setup.
 
 **Dashboard UX:**
 ```
@@ -73,7 +73,7 @@ Output: N agents, where N is determined by codebase complexity
 │                                                       │
 │  Mode: ● Auto   ○ Auto + Roles   ○ Specific Roles    │
 │                                                       │
-│  CoDRAG will analyze your codebase and recommend      │
+│  Prep will analyze your codebase and recommend      │
 │  the optimal agent team structure.                    │
 │                                                       │
 │  Optional context:                                    │
@@ -114,7 +114,7 @@ Output: N agents (auto-determined), guaranteed to include Social Media Manager
 │                                                       │
 │  Mode: ○ Auto   ● Auto + Roles   ○ Specific Roles    │
 │                                                       │
-│  CoDRAG will analyze your codebase AND include        │
+│  Prep will analyze your codebase AND include        │
 │  the roles you specify.                               │
 │                                                       │
 │  Required roles:                                      │
@@ -184,7 +184,7 @@ def compute_hr_readiness(project_id: str) -> HRReadiness:
 ┌──────────────────────────────────────────────────────┐
 │  ⚠️  Insufficient Codebase Data                      │
 │                                                       │
-│  CoDRAG doesn't have enough information to            │
+│  Prep doesn't have enough information to            │
 │  recommend an agent team for this project.            │
 │                                                       │
 │  Missing:                                             │
@@ -195,12 +195,12 @@ def compute_hr_readiness(project_id: str) -> HRReadiness:
 │  ✕ No hub files detected                              │
 │                                                       │
 │  Recommendations:                                     │
-│  1. Run the CoDRAG pipeline first (Build → Fast Sync) │
+│  1. Run the Prep pipeline first (Build → Fast Sync) │
 │  2. Add documentation (README, architecture docs)     │
 │  3. Structure your code into directories/modules       │
 │                                                       │
 │  You can still manually specify roles (List mode),    │
-│  but CoDRAG cannot guarantee the generated             │
+│  but Prep cannot guarantee the generated             │
 │  instructions will be well-grounded.                  │
 │                                                       │
 │  [Run Pipeline First]  [Generate Anyway (List Mode)]  │
@@ -264,7 +264,7 @@ def compute_hr_readiness(project_id: str) -> HRReadiness:
 - In `auto+list` mode: If auto suggests "Platform Engineer" and user specified "Backend Dev":
   - Detect overlap via domain tag comparison
   - Merge into the user's title ("Backend Dev") but incorporate the broader scope the auto analysis detected
-  - Note in the role file: "This role was specified by the user. CoDRAG's analysis suggests this domain also covers platform infrastructure."
+  - Note in the role file: "This role was specified by the user. Prep's analysis suggests this domain also covers platform infrastructure."
 
 ---
 
@@ -328,7 +328,7 @@ HR generation is NOT automatic on first pipeline build. The user must explicitly
 
 **Rationale:**
 - Building agents is a significant decision (budget, org structure, permissions)
-- The user may not want agents at all — CoDRAG is useful without Paperclip
+- The user may not want agents at all — Prep is useful without Paperclip
 - Auto-generating agents without consent would be surprising and potentially expensive
 
 ### 3.2 First-Run Dashboard Flow
@@ -343,7 +343,7 @@ When a project has a completed pipeline but no HR workforce configured, the dash
 │  │                                                │   │
 │  │  No agents configured for this project.        │   │
 │  │                                                │   │
-│  │  CoDRAG can analyze your codebase and generate │   │
+│  │  Prep can analyze your codebase and generate │   │
 │  │  a complete AI agent team optimized for your   │   │
 │  │  project's architecture.                       │   │
 │  │                                                │   │
@@ -478,7 +478,7 @@ The HR panel is a new `ModularDashboard` panel type, registered via `useDashboar
 
 ### 5.3 Detail Drawer
 
-Clicking a role in the roster opens a detail drawer (same pattern as existing CoDRAG panels):
+Clicking a role in the roster opens a detail drawer (same pattern as existing Prep panels):
 
 ```
 ┌──────────────────────────────────────────────────────┐

@@ -62,7 +62,7 @@ Each model is evaluated on five dimensions:
 
 ### Ollama Cloud Models
 
-These are accessed through Ollama's cloud routing (`:cloud` suffix or known cloud patterns). CoDRAG already detects these via `is_cloud_model_via_ollama()` in `batch_profiles.py`.
+These are accessed through Ollama's cloud routing (`:cloud` suffix or known cloud patterns). Prep already detects these via `is_cloud_model_via_ollama()` in `batch_profiles.py`.
 
 | Model | Ollama Tag | JSON | Role Focus | Decomposition | Synthesis | Context | Swarm Tier | Notes |
 |-------|-----------|------|------------|---------------|-----------|---------|------------|-------|
@@ -152,7 +152,7 @@ We keep the configuration examples for reference, now aligned with the top‑6 l
 - **Workers:** Qwen3 32B
 - **Why:** Air‑gapped environments; limited utility.
 
-## CoDRAG Integration Points
+## Prep Integration Points
 
 ### Where Swarm Tier Lives
 

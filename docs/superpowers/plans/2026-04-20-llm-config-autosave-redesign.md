@@ -6,7 +6,7 @@
 
 **Architecture:** Three coordinated refactors. (1) A pure `createDebouncedSaver` factory in `packages/ui/src/lib/` is wrapped by a `useDebouncedAutoSave` hook in the dashboard; `useLLMConfig` uses it to persist `llm_config` after quiet periods and invoke `handleSwapModel` as a post-persist side effect. (2) `AIModelsSettings` loses its `configDirty`/`onSave` props, the combined Save button is relabelled to "Apply Structured/Assigned mode" and is tied exclusively to the mode draft; `App.tsx` provides an `onModeApply` that flushes any pending slot save before calling `handleModeSwitch`. (3) A shared `isLocalProvider` helper + a `showAlwaysOn` prop on `ModelCard` hide the VRAM-pinning checkbox on cloud slots.
 
-**Tech Stack:** TypeScript, React 18, Vite. `@codrag/ui` and dashboard workspaces both use vitest-syntax tests that are currently type-checked via `tsc --noEmit` (no runtime runner wired); pure-logic helpers are the testability lever. Existing precedent: `packages/ui/src/components/llm/__tests__/ModelCard.test.tsx` (covers `buildModelOptions`). Follow the same style for every new test.
+**Tech Stack:** TypeScript, React 18, Vite. `@prep/ui` and dashboard workspaces both use vitest-syntax tests that are currently type-checked via `tsc --noEmit` (no runtime runner wired); pure-logic helpers are the testability lever. Existing precedent: `packages/ui/src/components/llm/__tests__/ModelCard.test.tsx` (covers `buildModelOptions`). Follow the same style for every new test.
 
 ---
 
@@ -20,16 +20,16 @@
 - `packages/ui/src/components/llm/__tests__/provider-utils.test.ts` — predicate tests.
 - `packages/ui/src/components/llm/llmConfigHelpers.ts` — `stripModeFields(cfg)` helper used by the debounced-save change detector.
 - `packages/ui/src/components/llm/__tests__/llmConfigHelpers.test.ts` — helper tests.
-- `src/codrag/dashboard/src/hooks/useDebouncedAutoSave.ts` — thin React wrapper around `createDebouncedSaver`.
+- `src/prep/dashboard/src/hooks/useDebouncedAutoSave.ts` — thin React wrapper around `createDebouncedSaver`.
 
 **Modified files:**
 
 - `packages/ui/src/components/llm/ModelCard.tsx` — export pure helper `shouldShowAlwaysOn(...)`, add `showAlwaysOn?: boolean` prop, guard the "Always available" label with the helper.
 - `packages/ui/src/components/llm/__tests__/ModelCard.test.tsx` — extend with four `shouldShowAlwaysOn` cases.
 - `packages/ui/src/components/llm/AIModelsSettings.tsx` — drop `configDirty`/`onSave`, add `onModeApply`, relabel button, pass `showAlwaysOn` to the four slot cards.
-- `src/codrag/dashboard/src/hooks/useLLMConfig.ts` — remove `llmConfigDirty` + `lastSavedRef` tracking + `saveLLMConfig`; add debounced auto-save wiring with `onSwapModel` option and `flushPendingSave` return.
-- `src/codrag/dashboard/src/App.tsx` — remove `saveLLMConfig` wrapper, wire `onSwapModel` into `useLLMConfig`, add `handleModeApply` that flushes then calls `handleModeSwitch`.
-- `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx` — drop `configDirty`/`onSave` prop passthrough; add `onModeApply`.
+- `src/prep/dashboard/src/hooks/useLLMConfig.ts` — remove `llmConfigDirty` + `lastSavedRef` tracking + `saveLLMConfig`; add debounced auto-save wiring with `onSwapModel` option and `flushPendingSave` return.
+- `src/prep/dashboard/src/App.tsx` — remove `saveLLMConfig` wrapper, wire `onSwapModel` into `useLLMConfig`, add `handleModeApply` that flushes then calls `handleModeSwitch`.
+- `src/prep/dashboard/src/hooks/useDashboardPanels.tsx` — drop `configDirty`/`onSave` prop passthrough; add `onModeApply`.
 
 ---
 
@@ -111,7 +111,7 @@ Expected: PASS (exit 0, no output).
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 git add packages/ui/src/components/llm/provider-utils.ts packages/ui/src/components/llm/__tests__/provider-utils.test.ts
 git -c commit.gpgsign=false commit -m "feat(ui): add isLocalProvider helper"
 ```
@@ -214,7 +214,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 git add packages/ui/src/components/llm/ModelCard.tsx packages/ui/src/components/llm/__tests__/ModelCard.test.tsx
 git -c commit.gpgsign=false commit -m "feat(ui): ModelCard gains showAlwaysOn prop + shouldShowAlwaysOn helper"
 ```
@@ -306,7 +306,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 git add packages/ui/src/components/llm/llmConfigHelpers.ts packages/ui/src/components/llm/__tests__/llmConfigHelpers.test.ts
 git -c commit.gpgsign=false commit -m "feat(ui): add stripModeFields helper for auto-save change detection"
 ```
@@ -498,7 +498,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 git add packages/ui/src/lib/debouncedSaver.ts packages/ui/src/lib/__tests__/debouncedSaver.test.ts
 git -c commit.gpgsign=false commit -m "feat(ui): add createDebouncedSaver factory"
 ```
@@ -508,13 +508,13 @@ git -c commit.gpgsign=false commit -m "feat(ui): add createDebouncedSaver factor
 ## Task 5: `useDebouncedAutoSave` React hook
 
 **Files:**
-- Create: `src/codrag/dashboard/src/hooks/useDebouncedAutoSave.ts`
+- Create: `src/prep/dashboard/src/hooks/useDebouncedAutoSave.ts`
 
 No test (thin wrapper — the logic lives in `createDebouncedSaver` which is already covered). `tsc` validates the wiring.
 
 - [ ] **Step 1: Implement the hook**
 
-Create `src/codrag/dashboard/src/hooks/useDebouncedAutoSave.ts`:
+Create `src/prep/dashboard/src/hooks/useDebouncedAutoSave.ts`:
 
 ```ts
 import { useEffect, useMemo, useRef } from 'react'
@@ -584,13 +584,13 @@ export function useDebouncedAutoSave<T>(opts: UseDebouncedAutoSaveOptions<T>): U
 
 - [ ] **Step 2: Verify typecheck passes**
 
-Run: `cd src/codrag/dashboard && npx tsc --noEmit`
+Run: `cd src/prep/dashboard && npx tsc --noEmit`
 Expected: PASS.
 
-- [ ] **Step 3: Verify the `@codrag/ui/lib/debouncedSaver` import path resolves**
+- [ ] **Step 3: Verify the `@prep/ui/lib/debouncedSaver` import path resolves**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && grep -r "'@codrag/ui/" packages/ui/vite.config.ts src/codrag/dashboard/vite.config.ts | head -5`
-Expected: see the sub-path alias rule `{ find: /^@codrag\/ui\/(.*)$/, replacement: \`${uiSrcPath}/$1\` }` in `src/codrag/dashboard/vite.config.ts`. The import path `@codrag/ui/lib/debouncedSaver` will resolve to `packages/ui/src/lib/debouncedSaver.ts`.
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && grep -r "'@prep/ui/" packages/ui/vite.config.ts src/prep/dashboard/vite.config.ts | head -5`
+Expected: see the sub-path alias rule `{ find: /^@prep\/ui\/(.*)$/, replacement: \`${uiSrcPath}/$1\` }` in `src/prep/dashboard/vite.config.ts`. The import path `@prep/ui/lib/debouncedSaver` will resolve to `packages/ui/src/lib/debouncedSaver.ts`.
 
 If the subpath isn't exposed by `packages/ui/package.json` exports, add a re-export instead: append to `packages/ui/src/index.ts`:
 
@@ -607,8 +607,8 @@ import { createDebouncedSaver, type DebouncedSaver } from '@prep/ui'
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
-git add src/codrag/dashboard/src/hooks/useDebouncedAutoSave.ts
+cd /Volumes/4TB-BAD/HumanAI/Prep
+git add src/prep/dashboard/src/hooks/useDebouncedAutoSave.ts
 # Also the re-export if it was needed:
 git add packages/ui/src/index.ts 2>/dev/null || true
 git -c commit.gpgsign=false commit -m "feat(dashboard): add useDebouncedAutoSave hook"
@@ -619,9 +619,9 @@ git -c commit.gpgsign=false commit -m "feat(dashboard): add useDebouncedAutoSave
 ## Task 6: Rewire `useLLMConfig` to auto-save
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/hooks/useLLMConfig.ts`
+- Modify: `src/prep/dashboard/src/hooks/useLLMConfig.ts`
 
-This is the load-bearing change. Read the current file before editing (`src/codrag/dashboard/src/hooks/useLLMConfig.ts`) to match the surrounding style. No tests (no runtime runner); manual verification comes in Task 9.
+This is the load-bearing change. Read the current file before editing (`src/prep/dashboard/src/hooks/useLLMConfig.ts`) to match the surrounding style. No tests (no runtime runner); manual verification comes in Task 9.
 
 - [ ] **Step 1: Remove the explicit-save infrastructure**
 
@@ -672,7 +672,7 @@ import { useDebouncedAutoSave } from './useDebouncedAutoSave'
 import { stripModeFields } from '@prep/ui/components/llm/llmConfigHelpers'
 ```
 
-(If subpath imports aren't exported, re-export `stripModeFields` from `packages/ui/src/index.ts` the same way as Task 5 Step 3, and import from `'@codrag/ui'` instead.)
+(If subpath imports aren't exported, re-export `stripModeFields` from `packages/ui/src/index.ts` the same way as Task 5 Step 3, and import from `'@prep/ui'` instead.)
 
 Add an `enabled` gate and the auto-save hook. Place this block after the endpoint/model handlers and before the `markLLMConfigClean` definition:
 
@@ -769,15 +769,15 @@ return {
 
 - [ ] **Step 6: Verify typecheck passes**
 
-Run: `cd src/codrag/dashboard && npx tsc --noEmit`
+Run: `cd src/prep/dashboard && npx tsc --noEmit`
 Expected: PASS. The consumers in `App.tsx` / `useDashboardPanels.tsx` will error on the removed `llmConfigDirty` / `saveLLMConfig` properties — that's intentional; those are fixed in Tasks 7 and 8.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
-git add src/codrag/dashboard/src/hooks/useLLMConfig.ts
-# If stripModeFields needed a re-export from @codrag/ui/index.ts:
+cd /Volumes/4TB-BAD/HumanAI/Prep
+git add src/prep/dashboard/src/hooks/useLLMConfig.ts
+# If stripModeFields needed a re-export from @prep/ui/index.ts:
 git add packages/ui/src/index.ts 2>/dev/null || true
 git -c commit.gpgsign=false commit -m "feat(dashboard): useLLMConfig debounced auto-save"
 ```
@@ -789,11 +789,11 @@ Note: typecheck will still fail until Tasks 7 + 8 land. Commit here because this
 ## Task 7: Wire `onSwapModel` + `onModeApply` in `App.tsx`
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/App.tsx`
+- Modify: `src/prep/dashboard/src/App.tsx`
 
 - [ ] **Step 1: Remove the `saveLLMConfig` wrapper**
 
-Delete lines 481–487 in `src/codrag/dashboard/src/App.tsx` (the block that starts with `// Wrap saveLLMConfig to also trigger model swap for running pipelines` and includes `const saveLLMConfig = useCallback(async () => { … }, […])`).
+Delete lines 481–487 in `src/prep/dashboard/src/App.tsx` (the block that starts with `// Wrap saveLLMConfig to also trigger model swap for running pipelines` and includes `const saveLLMConfig = useCallback(async () => { … }, […])`).
 
 - [ ] **Step 2: Rename `_rawSaveLLMConfig` removal + pass `onSwapModel`**
 
@@ -838,29 +838,29 @@ const handleModeApply = useCallback(async (mode: AssignmentMode, blocks?: LLMCon
 }, [flushPendingSave, handleModeSwitch])
 ```
 
-If `AssignmentMode` and `LLMConfig` aren't already imported from `@codrag/ui`, add them. Check the existing imports at the top of `App.tsx`.
+If `AssignmentMode` and `LLMConfig` aren't already imported from `@prep/ui`, add them. Check the existing imports at the top of `App.tsx`.
 
 - [ ] **Step 4: Drop the `saveLLMConfig` from consumers**
 
-Search the rest of `App.tsx` for `saveLLMConfig`. Any remaining references must be removed or replaced (there shouldn't be any — it was only used via the panel prop). Also confirm no other file in `src/codrag/dashboard/src/` references the old name: 
+Search the rest of `App.tsx` for `saveLLMConfig`. Any remaining references must be removed or replaced (there shouldn't be any — it was only used via the panel prop). Also confirm no other file in `src/prep/dashboard/src/` references the old name: 
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
-grep -rn "saveLLMConfig" src/codrag/dashboard/src/ packages/ui/src/
+cd /Volumes/4TB-BAD/HumanAI/Prep
+grep -rn "saveLLMConfig" src/prep/dashboard/src/ packages/ui/src/
 ```
 
 Expected: only hits inside `useDashboardPanels.tsx` (which Task 8 fixes).
 
 - [ ] **Step 5: Verify typecheck** (expect one remaining error — `useDashboardPanels.tsx`)
 
-Run: `cd src/codrag/dashboard && npx tsc --noEmit`
+Run: `cd src/prep/dashboard && npx tsc --noEmit`
 Expected: single error in `useDashboardPanels.tsx` re: `p.saveLLMConfig` / `p.llmConfigDirty`. That's Task 8.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
-git add src/codrag/dashboard/src/App.tsx
+cd /Volumes/4TB-BAD/HumanAI/Prep
+git add src/prep/dashboard/src/App.tsx
 git -c commit.gpgsign=false commit -m "feat(dashboard): App wires onSwapModel + handleModeApply"
 ```
 
@@ -870,7 +870,7 @@ git -c commit.gpgsign=false commit -m "feat(dashboard): App wires onSwapModel + 
 
 **Files:**
 - Modify: `packages/ui/src/components/llm/AIModelsSettings.tsx`
-- Modify: `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx`
+- Modify: `src/prep/dashboard/src/hooks/useDashboardPanels.tsx`
 
 - [ ] **Step 1: Update `AIModelsSettings` props interface**
 
@@ -984,7 +984,7 @@ In each of the four `<ModelCard>` renders, add `showAlwaysOn={isLocalProvider(en
 
 - [ ] **Step 4: Update `useDashboardPanels.tsx` prop passthrough**
 
-In `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx`, lines 1259–1261:
+In `src/prep/dashboard/src/hooks/useDashboardPanels.tsx`, lines 1259–1261:
 
 Replace:
 ```tsx
@@ -1008,22 +1008,22 @@ Trace the panel props object (`p`) backward to where it's constructed (likely th
 Run both:
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG/packages/ui && npm run typecheck
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG/src/codrag/dashboard && npx tsc --noEmit
+cd /Volumes/4TB-BAD/HumanAI/Prep/packages/ui && npm run typecheck
+cd /Volumes/4TB-BAD/HumanAI/Prep/src/prep/dashboard && npx tsc --noEmit
 ```
 
 Expected: PASS for both.
 
 - [ ] **Step 6: Verify build**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run build --workspace=@codrag/ui`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run build --workspace=@prep/ui`
 Expected: build succeeds.
 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
-git add packages/ui/src/components/llm/AIModelsSettings.tsx src/codrag/dashboard/src/hooks/useDashboardPanels.tsx src/codrag/dashboard/src/App.tsx
+cd /Volumes/4TB-BAD/HumanAI/Prep
+git add packages/ui/src/components/llm/AIModelsSettings.tsx src/prep/dashboard/src/hooks/useDashboardPanels.tsx src/prep/dashboard/src/App.tsx
 git -c commit.gpgsign=false commit -m "feat(ui): AIModelsSettings auto-save; 'Apply mode' button; cloud hides always-available"
 ```
 
@@ -1038,7 +1038,7 @@ Auto-save is impossible to validate from `tsc` alone; this task exercises the go
 - [ ] **Step 1: Start the dev environment**
 
 ```bash
-cd /Volumes/4TB-BAD/HumanAI/CoDRAG
+cd /Volumes/4TB-BAD/HumanAI/Prep
 scripts/dev.sh
 ```
 
@@ -1100,7 +1100,7 @@ All of the following are true:
 
 - [x] Tasks 1–8 are committed.
 - [x] `cd packages/ui && npm run typecheck` exits 0.
-- [x] `cd src/codrag/dashboard && npx tsc --noEmit` exits 0.
-- [x] `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run build --workspace=@codrag/ui` succeeds.
+- [x] `cd src/prep/dashboard && npx tsc --noEmit` exits 0.
+- [x] `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run build --workspace=@prep/ui` succeeds.
 - [x] Task 9 manual verification steps 2–7 pass.
 - [x] No remaining references to `saveLLMConfig`, `llmConfigDirty`, `configDirty` (as a prop on `AIModelsSettings`), or "Set model scheme" string in the changed files.

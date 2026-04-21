@@ -1,4 +1,4 @@
-# CoDRAG Deployment & DNS Strategy
+# Prep Deployment & DNS Strategy
 
 > **Decision (2026-02-18):** All websites deploy on **Netlify** (free tier).
 > Vercel was rejected because its Hobby tier prohibits commercial use ($20/mo for Pro).
@@ -6,27 +6,27 @@
 
 ## Overview
 
-All four CoDRAG web applications (`marketing`, `docs`, `support`, `payments`) deploy on
+All four Prep web applications (`marketing`, `docs`, `support`, `payments`) deploy on
 **Netlify** free tier (100 GB bandwidth, 300 build min/mo, commercial use allowed).
 **Cloudflare** manages DNS and edge caching.
 
 ## Domain Structure
 
-- **Primary Domain**: `codrag.io` (Marketing site)
+- **Primary Domain**: `runprep.io` (Marketing site)
 - **Subdomains**:
-  - `docs.codrag.io` (Documentation)
-  - `support.codrag.io` (Support portal + bug report API)
-  - `payments.codrag.io` (Licensing & checkout)
-- **Legacy Redirect**: `codrag.ai` → `codrag.io` (Cloudflare Page Rules)
+  - `docs.runprep.io` (Documentation)
+  - `support.runprep.io` (Support portal + bug report API)
+  - `payments.runprep.io` (Licensing & checkout)
+- **Legacy Redirect**: `runprep.io` → `runprep.io` (Cloudflare Page Rules)
 
 ## Site Classification
 
 | Site | Domain | API Routes | Static exportable? |
 |------|--------|-----------|-------------------|
-| Marketing | `codrag.io` | `/rss` (hardcoded data, build-time OK) | Yes |
-| Docs | `docs.codrag.io` | None | Yes |
-| Support | `support.codrag.io` | `/api/bug-report` (POST → Resend) | Pages yes, API needs server |
-| Payments | `payments.codrag.io` | `/api/recover` (POST → Lemon Squeezy) | Pages yes, API needs server |
+| Marketing | `runprep.io` | `/rss` (hardcoded data, build-time OK) | Yes |
+| Docs | `docs.runprep.io` | None | Yes |
+| Support | `support.runprep.io` | `/api/bug-report` (POST → Resend) | Pages yes, API needs server |
+| Payments | `payments.runprep.io` | `/api/recover` (POST → Lemon Squeezy) | Pages yes, API needs server |
 
 Marketing and Docs could use `output: 'export'` for pure static builds, but Netlify handles
 Next.js SSR natively so this is optional.
@@ -39,12 +39,12 @@ Each app is a separate Netlify site connected to the same GitHub repo.
 
 | Site | Base Directory | Build Command | Publish Dir |
 |------|---------------|---------------|-------------|
-| Marketing | `websites/apps/marketing` | `cd ../../.. && npx turbo run build --filter=@codrag/marketing` | `.next` |
-| Docs | `websites/apps/docs` | `cd ../../.. && npx turbo run build --filter=@codrag/docs` | `.next` |
-| Support | `websites/apps/support` | `cd ../../.. && npx turbo run build --filter=@codrag/support` | `.next` |
-| Payments | `websites/apps/payments` | `cd ../../.. && npx turbo run build --filter=@codrag/payments` | `.next` |
+| Marketing | `websites/apps/marketing` | `cd ../../.. && npx turbo run build --filter=@prep/marketing` | `.next` |
+| Docs | `websites/apps/docs` | `cd ../../.. && npx turbo run build --filter=@prep/docs` | `.next` |
+| Support | `websites/apps/support` | `cd ../../.. && npx turbo run build --filter=@prep/support` | `.next` |
+| Payments | `websites/apps/payments` | `cd ../../.. && npx turbo run build --filter=@prep/payments` | `.next` |
 
-Alternatively, add a `netlify.toml` to each app for declarative config.
+Alternatively, add a `netlify.toml` to each app for deprep-compresstive config.
 
 ### Next.js on Netlify
 
@@ -75,8 +75,8 @@ but not required to launch. GoDaddy DNS pointing directly to Netlify works fine.
 
 ### Redirect Rules
 
-- `codrag.ai/*` → `https://codrag.io/$1` (301) — set in GoDaddy domain forwarding or Netlify redirects
-- `www.codrag.io/*` → `https://codrag.io/$1` (301) — set in Netlify `_redirects` file or `netlify.toml`
+- `runprep.io/*` → `https://runprep.io/$1` (301) — set in GoDaddy domain forwarding or Netlify redirects
+- `www.runprep.io/*` → `https://runprep.io/$1` (301) — set in Netlify `_redirects` file or `netlify.toml`
 
 ### Optional: Migrate DNS to Cloudflare (post-launch)
 
@@ -88,15 +88,15 @@ Not a launch blocker — GoDaddy works fine for MVP.
 Set these in the Netlify dashboard for each site:
 
 **Global (All Apps):**
-- `NEXT_PUBLIC_SITE_URL`: The production URL (e.g., `https://docs.codrag.io`)
+- `NEXT_PUBLIC_SITE_URL`: The production URL (e.g., `https://docs.runprep.io`)
 
 **Support App:**
 - `GITHUB_TOKEN`: Fine-grained PAT with read-only Discussions access
 - `RESEND_API_KEY`: For bug report email notifications
-- `BUG_REPORT_EMAIL`: Destination for bug report alerts (default: `bugs@codrag.io`)
+- `BUG_REPORT_EMAIL`: Destination for bug report alerts (default: `bugs@runprep.io`)
 
 **Payments App:**
-- `NEXT_PUBLIC_CODRAG_CHECKOUT_URL`: Lemon Squeezy checkout URL
+- `NEXT_PUBLIC_PREP_CHECKOUT_URL`: Lemon Squeezy checkout URL
 - `LEMONSQUEEZY_API_KEY`: (Secret) API key for license recovery
 - `LEMONSQUEEZY_STORE_ID`: Store ID
 
@@ -108,5 +108,5 @@ pull request, allowing visual review of `packages/ui` changes across all sites b
 ## Migration from Vercel config
 
 The existing `vercel.json` files in each app should be removed and replaced with
-`netlify.toml` if declarative config is needed. The `vercel.json` build/dev commands
+`netlify.toml` if deprep-compresstive config is needed. The `vercel.json` build/dev commands
 are Vercel-specific and won't apply on Netlify.

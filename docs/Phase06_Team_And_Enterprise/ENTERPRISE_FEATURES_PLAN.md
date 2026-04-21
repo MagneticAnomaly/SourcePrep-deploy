@@ -15,7 +15,7 @@ This document catalogs EVERY enterprise feature needed, what's built, what's mis
 | `feature_gate.py` — tier gating | ✅ Built | Reads `~/.prep/license.json`, maps tier → features |
 | Ed25519 signature verification | ✅ Built | `licensing.py` has `verify_license_key()` |
 | `expires_at` validation | ✅ Built | Downgrades to FREE when expired |
-| `CODRAG_DEV_MODE` gating | ✅ Built | Requires `=1` alongside `CODRAG_TIER` |
+| `PREP_DEV_MODE` gating | ✅ Built | Requires `=1` alongside `PREP_TIER` |
 | License UI in Settings | ✅ Built | Key input, activate/deactivate buttons |
 | Dev tier override in Settings | ✅ Built | Developer tab dropdown |
 | `signature_verified` field | ✅ Built | Displayed in license status |
@@ -29,9 +29,9 @@ These are the actual revenue-path items. Without these, we can't charge money.
 | **LS-INT-1** | `POST /license/activate` rewrite | Currently returns stubs. Must call LS API: `POST https://api.lemonsqueezy.com/v1/licenses/activate` with `license_key` + `instance_name`. Map `product_id` → tier. | Eric: LS-01 to LS-04 (create products) |
 | **LS-INT-2** | Periodic re-validation | Every 7 days: `POST .../licenses/validate`. If valid → update `last_validated`. If invalid → downgrade to FREE. If network error → grace period (30 days). | LS-INT-1 |
 | **LS-INT-3** | Offline grace period | If `last_validated` < 30 days old → trust cached tier. If > 30 days → FREE. App works fully offline for 30 days between checks. | LS-INT-2 |
-| **LS-INT-4** | License recovery flow | `payments.codrag.io/recover` — enter email → LS API looks up orders → re-sends key. Currently a mock stub. | Eric: LS-06 webhook |
+| **LS-INT-4** | License recovery flow | `payments.runprep.io/recover` — enter email → LS API looks up orders → re-sends key. Currently a mock stub. | Eric: LS-06 webhook |
 | **LS-INT-5** | Deactivation | `POST .../licenses/deactivate` — when user clicks "Deactivate" in Settings. Frees up an activation slot. | LS-INT-1 |
-| **LS-INT-6** | `api.codrag.io` relay service | Serverless function that: receives LS webhook → generates Ed25519 signed license → stores in DB. Handles `/activate` exchange (LS key → signed license file). | Eric: LS-06, Ed25519 keypair |
+| **LS-INT-6** | `api.runprep.io` relay service | Serverless function that: receives LS webhook → generates Ed25519 signed license → stores in DB. Handles `/activate` exchange (LS key → signed license file). | Eric: LS-06, Ed25519 keypair |
 | **LS-INT-7** | Ed25519 keypair generation | Generate signing keypair. Private key in HSM/secure vault. Public key shipped in app binary. | Eric: manual task |
 | **LS-INT-8** | Activation limits per product | Monthly: 3 machines. Perpetual: 5 machines. Team: 1 per seat. Configured in LS product settings. | Eric: LS product setup |
 
@@ -43,7 +43,7 @@ These are the actual revenue-path items. Without these, we can't charge money.
 | **SEAT-2** | Seat management UI | Admin panel: see which machines are activated, deactivate individual seats remotely. |
 | **SEAT-3** | Seat overflow handling | When all seats are used: show "Contact your admin" or "Purchase additional seats" message. |
 | **SEAT-4** | Admin seat provisioning | Team admin can generate per-user license keys from the admin dashboard (or via LS portal). |
-| **SEAT-5** | Onboarding flow | New team member: receives license key via email → enters in CoDRAG → activates against team's seat pool. |
+| **SEAT-5** | Onboarding flow | New team member: receives license key via email → enters in Prep → activates against team's seat pool. |
 | **SEAT-6** | Offboarding flow | When employee leaves: admin deactivates their seat in LS → next validation check downgrades them to FREE. |
 
 ### 1D. LemonSqueezy-Specific Considerations
@@ -160,7 +160,7 @@ This says: "Devs can use Google Gemini (IT-provided key) or any local model via 
 
 | ID | Feature | Status | Notes |
 |----|---------|--------|-------|
-| **AUTH-1** | SSO/SAML | ❌ Not built | Enterprise expectation. Needed for: single sign-on, automatic seat provisioning. Requires `api.codrag.io` integration. |
+| **AUTH-1** | SSO/SAML | ❌ Not built | Enterprise expectation. Needed for: single sign-on, automatic seat provisioning. Requires `api.runprep.io` integration. |
 | **AUTH-2** | SCIM provisioning | ❌ Not built | Auto-create/delete seats when employees join/leave in Okta/Azure AD. |
 | **AUTH-3** | Role-based access (RBAC) | ⚠️ Partial | Currently only `user` / `admin`. Enterprise needs: `viewer`, `developer`, `admin`, `super-admin`. |
 | **AUTH-4** | Multi-org support | ❌ Not built | Single license can manage multiple teams/departments. |
@@ -170,7 +170,7 @@ This says: "Devs can use Google Gemini (IT-provided key) or any local model via 
 | ID | Feature | Status | Notes |
 |----|---------|--------|-------|
 | **COMP-1** | SOC 2 Type II readiness | ❌ Not done | Enterprise procurement requirement. Mostly policy/process docs, but audit_log.py is the technical foundation. |
-| **COMP-2** | GDPR data export | ❌ Not built | "Download my data" endpoint for user PII. CoDRAG stores very little PII (email in license). |
+| **COMP-2** | GDPR data export | ❌ Not built | "Download my data" endpoint for user PII. Prep stores very little PII (email in license). |
 | **COMP-3** | Data residency controls | ❌ Not built | "Index data must stay in EU" — relevant for Team Sync S3 regions. |
 | **COMP-4** | Immutable audit log export | ✅ Built | `audit_log.py` with `export_csv()` and API endpoint. |
 | **COMP-5** | Security health dashboard | ✅ Built | 7-check security health + Security tab in admin panel. |
@@ -181,9 +181,9 @@ This says: "Devs can use Google Gemini (IT-provided key) or any local model via 
 | ID | Feature | Status | Notes |
 |----|---------|--------|-------|
 | **DEPLOY-1** | MDM distribution | ❌ Not done | Enterprise distributes via Jamf/Intune. Needs MSI/DMG with silent install flags. |
-| **DEPLOY-2** | Pre-configured install | ❌ Not built | Ship CoDRAG with `team_config.json` baked into the installer so devs don't need to configure anything. |
+| **DEPLOY-2** | Pre-configured install | ❌ Not built | Ship Prep with `team_config.json` baked into the installer so devs don't need to configure anything. |
 | **DEPLOY-3** | Centralized config push | ⚠️ Partial | team_config.json syncs via S3 (Team Sync). But no real-time push — poll-based. |
-| **DEPLOY-4** | Version pinning | ❌ Not built | IT can mandate a specific CoDRAG version. Block auto-update until IT approves the new version. |
+| **DEPLOY-4** | Version pinning | ❌ Not built | IT can mandate a specific Prep version. Block auto-update until IT approves the new version. |
 | **DEPLOY-5** | Telemetry opt-out/opt-in | ✅ Built | No telemetry by default. Verbose Telemetry is local-only (stdout). |
 
 ### 3D. Advanced AI Gateway Features
@@ -241,15 +241,15 @@ This says: "Devs can use Google Gemini (IT-provided key) or any local model via 
 
 **Approach A: LS-Only License Validation (Simpler)**
 - App calls LS API directly for activate/validate
-- No `api.codrag.io` needed
+- No `api.runprep.io` needed
 - LS is the source of truth
 - Downside: requires internet every 30 days, no custom fields in license
 
-**Approach B: LS + api.codrag.io Relay (More Control)**
-- LS webhook → api.codrag.io → generates Ed25519 signed license
-- App activates via api.codrag.io, then works offline forever
+**Approach B: LS + api.runprep.io Relay (More Control)**
+- LS webhook → api.runprep.io → generates Ed25519 signed license
+- App activates via api.runprep.io, then works offline forever
 - Custom fields in license (features list, seat assignments, admin role)
-- Downside: need to build and host api.codrag.io
+- Downside: need to build and host api.runprep.io
 
 **Current plan (from SECURITY_DESIGN_DECISIONS.md): Approach A for MVP, Approach B for enterprise.**
 
@@ -277,7 +277,7 @@ Phase 2 (Post-Launch, Pre-Enterprise):
   └── GW-2: IT API key injection
 
 Phase 3 (Enterprise):
-  ├── LS-INT-6: api.codrag.io relay (Ed25519 offline licenses)
+  ├── LS-INT-6: api.runprep.io relay (Ed25519 offline licenses)
   ├── LS-INT-7: Ed25519 keypair (Eric)
   ├── SEAT-3-6: Full seat lifecycle
   ├── AUTH-3: Expanded RBAC

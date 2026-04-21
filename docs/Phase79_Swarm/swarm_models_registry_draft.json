@@ -1,5 +1,5 @@
 {
-  "_comment": "CoDRAG Swarm Model Registry — Phase 79. Tight list of validated swarm-capable models. Kimi K2.5 is the primary supported model.",
+  "_comment": "Prep Swarm Model Registry — Phase 79. Tight list of validated swarm-capable models. Kimi K2.5 is the primary supported model.",
   "_tiers": {
     "coordinator": "Can plan, decompose, and synthesize. Used as swarm coordinator.",
     "both": "Can coordinate or work. Cost-effective all-rounder.",

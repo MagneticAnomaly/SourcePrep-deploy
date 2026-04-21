@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add query decomposition (extract structural signals and route to graph before semantic search) and query coverage indicators (show which query terms matched) to CoDRAG's search pipeline, completing Phase 73.5.
+**Goal:** Add query decomposition (extract structural signals and route to graph before semantic search) and query coverage indicators (show which query terms matched) to Prep's search pipeline, completing Phase 73.5.
 
 **Architecture:** Query decomposition adds a pre-search analysis step in `CodeIndex.search()` that extracts file names, symbol names, and module references from the query, looks them up via the trace graph, and injects them as priority results before semantic search runs. Query coverage adds a `matched_terms` dict to the search response so agents can see which terms drove the results. Both features are additive — no changes to existing search behavior when queries have no structural signals.
 
@@ -14,10 +14,10 @@
 
 | File | Action | Responsibility |
 |------|--------|---------------|
-| `src/codrag/core/query_analyzer.py` | **Create** | Extract structural signals from queries (file names, symbols, modules) |
-| `src/codrag/core/index.py` | **Modify** | Call query analyzer, inject graph hits, add coverage to response |
-| `src/codrag/api/routers/projects/search.py` | **Modify** | Forward coverage metadata in context response |
-| `src/codrag/mcp/server.py` | **Modify** | Include coverage in MCP search markdown output |
+| `src/prep/core/query_analyzer.py` | **Create** | Extract structural signals from queries (file names, symbols, modules) |
+| `src/prep/core/index.py` | **Modify** | Call query analyzer, inject graph hits, add coverage to response |
+| `src/prep/api/routers/projects/search.py` | **Modify** | Forward coverage metadata in context response |
+| `src/prep/mcp/server.py` | **Modify** | Include coverage in MCP search markdown output |
 | `tests/test_query_analyzer.py` | **Create** | Tests for query analysis + coverage |
 
 ---
@@ -25,7 +25,7 @@
 ### Task 1: Create QueryAnalyzer
 
 **Files:**
-- Create: `src/codrag/core/query_analyzer.py`
+- Create: `src/prep/core/query_analyzer.py`
 - Create: `tests/test_query_analyzer.py`
 
 - [ ] **Step 1: Write tests**
@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import pytest
 
-from codrag.core.query_analyzer import QueryAnalyzer, QuerySignals
+from prep.core.query_analyzer import QueryAnalyzer, QuerySignals
 
 
 class TestExtractSignals:
@@ -46,8 +46,8 @@ class TestExtractSignals:
         assert "orchestrator.py" in signals.file_names
 
     def test_file_path_extraction(self) -> None:
-        signals = QueryAnalyzer.extract_signals("look at src/codrag/mcp/server.py")
-        assert "src/codrag/mcp/server.py" in signals.file_paths
+        signals = QueryAnalyzer.extract_signals("look at src/prep/mcp/server.py")
+        assert "src/prep/mcp/server.py" in signals.file_paths
 
     def test_symbol_extraction_camelcase(self) -> None:
         signals = QueryAnalyzer.extract_signals("what does PipelineOrchestrator do")
@@ -69,9 +69,9 @@ class TestExtractSignals:
 
     def test_mixed_query(self) -> None:
         signals = QueryAnalyzer.extract_signals(
-            "how does CodeIndex.search in src/codrag/core/index.py handle scoring"
+            "how does CodeIndex.search in src/prep/core/index.py handle scoring"
         )
-        assert "src/codrag/core/index.py" in signals.file_paths
+        assert "src/prep/core/index.py" in signals.file_paths
         assert "CodeIndex" in signals.symbols
 
     def test_keywords_extracted(self) -> None:
@@ -129,7 +129,7 @@ Expected: FAIL — `ModuleNotFoundError`
 - [ ] **Step 3: Implement QueryAnalyzer**
 
 ```python
-# src/codrag/core/query_analyzer.py
+# src/prep/core/query_analyzer.py
 """Query structural signal extraction for search decomposition.
 
 Phase 73.5: Extracts file names, file paths, symbol names, and keywords
@@ -171,7 +171,7 @@ class QuerySignals:
     """Structural signals extracted from a search query."""
 
     file_names: List[str] = field(default_factory=list)   # e.g. ["server.py"]
-    file_paths: List[str] = field(default_factory=list)    # e.g. ["src/codrag/mcp/server.py"]
+    file_paths: List[str] = field(default_factory=list)    # e.g. ["src/prep/mcp/server.py"]
     symbols: List[str] = field(default_factory=list)       # e.g. ["PipelineOrchestrator"]
     keywords: List[str] = field(default_factory=list)      # e.g. ["pipeline", "orchestrator"]
 
@@ -207,8 +207,8 @@ class QueryAnalyzer:
             "how does orchestrator.py handle stages"
               → file_names=["orchestrator.py"], keywords=["orchestrator", "stages"]
 
-            "look at src/codrag/mcp/server.py"
-              → file_paths=["src/codrag/mcp/server.py"]
+            "look at src/prep/mcp/server.py"
+              → file_paths=["src/prep/mcp/server.py"]
 
             "what does PipelineOrchestrator do"
               → symbols=["PipelineOrchestrator"], keywords=["pipeline", "orchestrator"]
@@ -265,7 +265,7 @@ Expected: All PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/query_analyzer.py tests/test_query_analyzer.py
+git add src/prep/core/query_analyzer.py tests/test_query_analyzer.py
 git commit -m "feat(search): add QueryAnalyzer for structural signal extraction from queries"
 ```
 
@@ -274,7 +274,7 @@ git commit -m "feat(search): add QueryAnalyzer for structural signal extraction 
 ### Task 2: Integrate Query Decomposition into CodeIndex.search()
 
 **Files:**
-- Modify: `src/codrag/core/index.py:980-1102` (the `search` method)
+- Modify: `src/prep/core/index.py:980-1102` (the `search` method)
 - Modify: `tests/test_query_analyzer.py` (add integration-level tests)
 
 - [ ] **Step 1: Add integration tests**
@@ -286,14 +286,14 @@ class TestGraphInjection:
     """Test that structural signals produce graph-based score boosts."""
 
     def test_file_path_signal_boosts_matching_docs(self) -> None:
-        from codrag.core.query_analyzer import QueryAnalyzer
-        signals = QueryAnalyzer.extract_signals("look at src/codrag/mcp/server.py")
+        from prep.core.query_analyzer import QueryAnalyzer
+        signals = QueryAnalyzer.extract_signals("look at src/prep/mcp/server.py")
         # The injection function returns a boost array
-        from codrag.core.index import _structural_boosts
+        from prep.core.index import _structural_boosts
         docs = [
-            {"source_path": "src/codrag/mcp/server.py", "id": "1"},
-            {"source_path": "src/codrag/core/index.py", "id": "2"},
-            {"source_path": "src/codrag/api/routers/search.py", "id": "3"},
+            {"source_path": "src/prep/mcp/server.py", "id": "1"},
+            {"source_path": "src/prep/core/index.py", "id": "2"},
+            {"source_path": "src/prep/api/routers/search.py", "id": "3"},
         ]
         boosts = _structural_boosts(signals, docs)
         assert boosts[0] > 0.0   # server.py gets boost
@@ -301,20 +301,20 @@ class TestGraphInjection:
         assert boosts[2] == 0.0  # search.py does not
 
     def test_file_name_signal_boosts_basename_match(self) -> None:
-        from codrag.core.query_analyzer import QueryAnalyzer
+        from prep.core.query_analyzer import QueryAnalyzer
         signals = QueryAnalyzer.extract_signals("explain orchestrator.py")
-        from codrag.core.index import _structural_boosts
+        from prep.core.index import _structural_boosts
         docs = [
-            {"source_path": "src/codrag/services/pipeline/orchestrator.py", "id": "1"},
-            {"source_path": "src/codrag/core/index.py", "id": "2"},
+            {"source_path": "src/prep/services/pipeline/orchestrator.py", "id": "1"},
+            {"source_path": "src/prep/core/index.py", "id": "2"},
         ]
         boosts = _structural_boosts(signals, docs)
         assert boosts[0] > 0.0  # orchestrator.py matches
 
     def test_symbol_signal_boosts_content_match(self) -> None:
-        from codrag.core.query_analyzer import QueryAnalyzer
+        from prep.core.query_analyzer import QueryAnalyzer
         signals = QueryAnalyzer.extract_signals("what does PipelineOrchestrator do")
-        from codrag.core.index import _structural_boosts
+        from prep.core.index import _structural_boosts
         docs = [
             {"source_path": "orchestrator.py", "id": "1", "content": "class PipelineOrchestrator:"},
             {"source_path": "utils.py", "id": "2", "content": "def helper(): pass"},
@@ -323,9 +323,9 @@ class TestGraphInjection:
         assert boosts[0] > 0.0  # PipelineOrchestrator in content
 
     def test_no_signals_no_boosts(self) -> None:
-        from codrag.core.query_analyzer import QueryAnalyzer
+        from prep.core.query_analyzer import QueryAnalyzer
         signals = QueryAnalyzer.extract_signals("how does auth work")
-        from codrag.core.index import _structural_boosts
+        from prep.core.index import _structural_boosts
         docs = [{"source_path": "auth.py", "id": "1"}]
         boosts = _structural_boosts(signals, docs)
         assert boosts[0] == 0.0  # no structural signals
@@ -391,7 +391,7 @@ Make this a module-level function (not a method) so it's importable for testing.
 ```python
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from codrag.core.query_analyzer import QuerySignals
+    from prep.core.query_analyzer import QuerySignals
 ```
 
 - [ ] **Step 4: Wire into CodeIndex.search()**
@@ -407,7 +407,7 @@ Add structural boosts:
 
 ```python
         # Phase 73.5: Structural query decomposition — boost files/symbols named in query
-        from codrag.core.query_analyzer import QueryAnalyzer
+        from prep.core.query_analyzer import QueryAnalyzer
         _query_signals = QueryAnalyzer.extract_signals(query)
         sims = sims + _structural_boosts(_query_signals, docs)
 ```
@@ -426,7 +426,7 @@ Expected: All PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/core/index.py tests/test_query_analyzer.py
+git add src/prep/core/index.py tests/test_query_analyzer.py
 git commit -m "feat(search): structural query decomposition — boost files/symbols named in queries"
 ```
 
@@ -435,9 +435,9 @@ git commit -m "feat(search): structural query decomposition — boost files/symb
 ### Task 3: Add Query Coverage to Search Response
 
 **Files:**
-- Modify: `src/codrag/core/index.py:1274-1370` (`get_context_structured`)
-- Modify: `src/codrag/api/routers/projects/search.py` (forward coverage)
-- Modify: `src/codrag/mcp/server.py:915-928` (include in markdown)
+- Modify: `src/prep/core/index.py:1274-1370` (`get_context_structured`)
+- Modify: `src/prep/api/routers/projects/search.py` (forward coverage)
+- Modify: `src/prep/mcp/server.py:915-928` (include in markdown)
 
 - [ ] **Step 1: Add coverage computation to get_context_structured**
 
@@ -471,7 +471,7 @@ Add `query_coverage` to the returned dict. Find where the return dict is built a
 
 - [ ] **Step 2: Forward coverage in search.py context response**
 
-In `src/codrag/api/routers/projects/search.py`, in the `context_project` function, after the LOD compression result is built (around line 1022-1040), add:
+In `src/prep/api/routers/projects/search.py`, in the `context_project` function, after the LOD compression result is built (around line 1022-1040), add:
 
 ```python
         # Phase 73.5: Forward query coverage metadata
@@ -481,7 +481,7 @@ In `src/codrag/api/routers/projects/search.py`, in the `context_project` functio
 
 - [ ] **Step 3: Include coverage in MCP search markdown**
 
-In `src/codrag/mcp/server.py`, in `tool_search` (around line 915-928 where the confidence line is built), add coverage info after the confidence line:
+In `src/prep/mcp/server.py`, in `tool_search` (around line 915-928 where the confidence line is built), add coverage info after the confidence line:
 
 ```python
             # Phase 73.5: Query coverage indicator
@@ -509,7 +509,7 @@ Expected: All PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/index.py src/codrag/api/routers/projects/search.py src/codrag/mcp/server.py
+git add src/prep/core/index.py src/prep/api/routers/projects/search.py src/prep/mcp/server.py
 git commit -m "feat(search): add query coverage indicator — show which terms matched in results"
 ```
 
@@ -518,7 +518,7 @@ git commit -m "feat(search): add query coverage indicator — show which terms m
 ### Task 4: Export + Final Integration
 
 **Files:**
-- Modify: `src/codrag/core/__init__.py`
+- Modify: `src/prep/core/__init__.py`
 
 - [ ] **Step 1: Add exports**
 
@@ -541,7 +541,7 @@ Expected: All PASS
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/core/__init__.py
+git add src/prep/core/__init__.py
 git commit -m "feat(core): export QueryAnalyzer and QuerySignals"
 ```
 

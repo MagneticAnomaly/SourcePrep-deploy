@@ -17,14 +17,14 @@ This document identifies architectural gaps, misplaced concerns, duplicated logi
 - `inferred_edges.py`: `from .augmenter import LLMClient`
 - Any future LLM consumer must also depend on augmenter.py
 
-**Resolution:** Extract `LLMClient` and its helper functions into `src/codrag/core/llm_client.py`. Update all imports. This is the single highest-value extraction in the entire refactor.
+**Resolution:** Extract `LLMClient` and its helper functions into `src/prep/core/llm_client.py`. Update all imports. This is the single highest-value extraction in the entire refactor.
 
 ---
 
 ## GAP-2: Duplicate External Module Handling in TraceBuilder (MEDIUM)
 
 **Severity:** Medium — code duplication, maintenance burden
-**File affected:** `src/codrag/core/trace.py` lines 1148–1255
+**File affected:** `src/prep/core/trace.py` lines 1148–1255
 
 **Problem:** `TraceBuilder.build()` has **4 nearly identical code blocks** for handling external modules across the Python, Swift, JS, and Generic analyzer dispatch branches. Each block:
 1. Iterates `sym_edges` looking for `edge.metadata.get("external")`
@@ -48,20 +48,20 @@ if analyzer:
 ## GAP-3: Query Preprocessing Lives in the Wrong Layer (LOW)
 
 **Severity:** Low — functional but architecturally impure
-**File affected:** `src/codrag/api/routers/projects.py` lines 106–161
+**File affected:** `src/prep/api/routers/projects.py` lines 106–161
 
 **Problem:** `_preprocess_query()` (Phase 34e) performs filler stripping, truncation, and code entity preservation. It lives in the HTTP router layer (`projects.py`) but is a pure text transformation that could benefit MCP tool calls directly. Currently the MCP server sends raw queries to the daemon, and preprocessing only happens inside the `/context` endpoint.
 
 **Impact:** If query preprocessing were applied in the MCP layer before the HTTP call, the query sent to the daemon would already be clean. This would also allow standalone use (CLI search, scripts).
 
-**Resolution:** Move `_preprocess_query()`, `_FILLER_PREFIXES`, `_CODE_ENTITY`, `_MAX_QUERY_CHARS` to `src/codrag/core/query.py`. Import from both `projects.py` and optionally `mcp_server.py`.
+**Resolution:** Move `_preprocess_query()`, `_FILLER_PREFIXES`, `_CODE_ENTITY`, `_MAX_QUERY_CHARS` to `src/prep/core/query.py`. Import from both `projects.py` and optionally `mcp_server.py`.
 
 ---
 
 ## GAP-4: Context Assembly Logic Is Split Across Two Layers (MEDIUM)
 
 **Severity:** Medium — hard to reason about the full context pipeline
-**Files affected:** `src/codrag/core/index.py` and `src/codrag/api/routers/projects.py`
+**Files affected:** `src/prep/core/index.py` and `src/prep/api/routers/projects.py`
 
 **Problem:** The context assembly pipeline is split:
 - **index.py** owns: `get_context()`, `get_context_structured()`, `get_context_with_trace_expansion()` — these handle base search, scoring, primer chunks, chunk formatting.
@@ -71,7 +71,7 @@ The `/context` endpoint in `projects.py` has ~400 lines of orchestration that wr
 
 **Impact:** Adding a new context feature (e.g., a new compression mode or a new injection source) requires modifying both files and understanding their interaction boundary.
 
-**Resolution:** Consider creating `src/codrag/core/context_assembler.py` that encapsulates the full pipeline:
+**Resolution:** Consider creating `src/prep/core/context_assembler.py` that encapsulates the full pipeline:
 1. Ambient detection
 2. Query preprocessing
 3. Atlas routing
@@ -104,14 +104,14 @@ The `/context` endpoint would become a thin HTTP adapter calling `ContextAssembl
 
 **Impact:** When changing prompt style (e.g., adding structured output schemas globally), every file must be updated independently. No way to audit all prompts from one location.
 
-**Resolution:** Create `src/codrag/core/prompts/` with per-domain prompt files. Low priority — prompts are tightly coupled to their consumers' data structures, so co-location has real benefits.
+**Resolution:** Create `src/prep/core/prompts/` with per-domain prompt files. Low priority — prompts are tightly coupled to their consumers' data structures, so co-location has real benefits.
 
 ---
 
 ## GAP-6: MCP tool_hi() Contains 350+ Lines of Inline Data Processing (MEDIUM)
 
 **Severity:** Medium — bloats the MCP server, logic untestable in isolation
-**File affected:** `src/codrag/mcp_server.py` lines 764–1100+
+**File affected:** `src/prep/mcp_server.py` lines 764–1100+
 
 **Problem:** `tool_hi()` fetches data from 7 daemon endpoints in parallel, then performs extensive inline processing:
 - File categorization by extension (docs/code/tests/config)
@@ -132,7 +132,7 @@ This is all business logic that should live on the daemon side as a `/projects/{
 ## GAP-7: GenericRegexAnalyzer LANGUAGE_CONFIGS Is Data, Not Code (LOW)
 
 **Severity:** Low — functional but hard to maintain
-**File affected:** `src/codrag/core/trace.py` lines 552–675
+**File affected:** `src/prep/core/trace.py` lines 552–675
 
 **Problem:** The `LANGUAGE_CONFIGS` dict is 130 lines of regex pattern data for 14 languages. It's defined as a class-level dict on `GenericRegexAnalyzer`. Adding or modifying language support requires editing a deeply nested dict literal inside a class definition.
 
@@ -154,14 +154,14 @@ This is all business logic that should live on the daemon side as a `/projects/{
 
 The `fnmatch` approach and `pathspec` approach can behave differently for edge cases (e.g., patterns with `{}` braces, nested `**` patterns).
 
-**Resolution:** Centralize glob matching into a single utility in `src/codrag/core/glob_utils.py` that all three consumers use. Use `pathspec` consistently (it handles `.gitignore`-style patterns correctly).
+**Resolution:** Centralize glob matching into a single utility in `src/prep/core/glob_utils.py` that all three consumers use. Use `pathspec` consistently (it handles `.gitignore`-style patterns correctly).
 
 ---
 
 ## GAP-9: Missing Abstraction for "Project Context" in Routers (MEDIUM)
 
 **Severity:** Medium — repeated boilerplate across endpoints
-**File affected:** `src/codrag/api/routers/projects.py`
+**File affected:** `src/prep/api/routers/projects.py`
 
 **Problem:** Many endpoints repeat the same boilerplate:
 ```python

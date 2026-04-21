@@ -1,15 +1,15 @@
 # HR Agent — Integration Reference
 
 > **Phase 67 Research** | Date: 2026-04-01
-> How the HR Adapter connects to existing CoDRAG infrastructure and Paperclip's API.
+> How the HR Adapter connects to existing Prep infrastructure and Paperclip's API.
 
 ---
 
-## 1. CoDRAG Internal Integration Points
+## 1. Prep Internal Integration Points
 
 ### 1.1 Epistemic Data Access
 
-The HR Adapter reads from CoDRAG's indexed data. All data access is **read-only** — the HR Adapter never modifies the graph.
+The HR Adapter reads from Prep's indexed data. All data access is **read-only** — the HR Adapter never modifies the graph.
 
 | Data Source | How Accessed | What It Provides |
 |------------|-------------|-----------------|
@@ -22,11 +22,11 @@ The HR Adapter reads from CoDRAG's indexed data. All data access is **read-only*
 
 ### 1.2 Role Projection Engine (Phase 64)
 
-The HR Adapter uses the same scoring engine as `codrag_search(role=...)`:
+The HR Adapter uses the same scoring engine as `prep_search(role=...)`:
 
 ```python
-# From src/codrag/core/role_projection.py (or equivalent)
-from codrag.core.role_projection import compute_role_relevance, resolve_role_vector
+# From src/prep/core/role_projection.py (or equivalent)
+from prep.core.role_projection import compute_role_relevance, resolve_role_vector
 
 # Score all files for a given role
 role_vector = resolve_role_vector("cto", project_id)
@@ -43,7 +43,7 @@ For file scope recommendations:
 
 ```python
 # Reuse the auto-populate endpoint logic
-from codrag.api.routers.scope import auto_populate_scope
+from prep.api.routers.scope import auto_populate_scope
 
 recommended_paths = await auto_populate_scope(
     project_id=project_id,
@@ -56,7 +56,7 @@ recommended_paths = await auto_populate_scope(
 All LLM reasoning uses the existing `LLMClient`:
 
 ```python
-from codrag.core.llm_client import LLMClient, _parse_json_response
+from prep.core.llm_client import LLMClient, _parse_json_response
 
 # Uses the project's configured Thinking LLM for role inference
 # Uses the Instruct LLM for prose generation (AGENTS.md text)
@@ -95,7 +95,7 @@ From the DebateHaus bootstrap script, the agent creation payload structure is:
     "model": "claude-sonnet-4-20250514",
     "promptTemplate": "<AGENTS.md + SOUL.md concatenated>",
     "env": {
-      "CODRAG_PROJECT_ID": "<project_uuid>"
+      "PREP_PROJECT_ID": "<project_uuid>"
     }
   }
 }
@@ -117,9 +117,9 @@ The HR Adapter can sync either via:
 
 ---
 
-## 3. CoDRAG API Exposure (New Endpoints)
+## 3. Prep API Exposure (New Endpoints)
 
-The HR Adapter should be exposed via CoDRAG's FastAPI server:
+The HR Adapter should be exposed via Prep's FastAPI server:
 
 ### 3.1 Generate Workforce
 ```
@@ -214,7 +214,7 @@ Response: {
 
 ### 4.1 HR Panel (New Dashboard Section)
 
-A new section in the CoDRAG Dashboard for workforce management:
+A new section in the Prep Dashboard for workforce management:
 
 | UI Element | Purpose |
 |-----------|---------|
@@ -260,9 +260,9 @@ Given this is a low-frequency operation (weekly or manual), the implementation o
 
 | Phase | Capability | Complexity | Value |
 |-------|-----------|-----------|-------|
-| **1** | CLI `codrag hr audit` — drift detection for existing agents | Medium | High — validates the concept |
-| **2** | CLI `codrag hr generate` — role generation from codebase | High | High — the wow factor |
-| **3** | CLI `codrag hr adopt` — enhance existing Paperclip agents | Medium | Medium — bridges existing users |
-| **4** | CLI `codrag hr sync` — push to Paperclip API | Low | Medium — automation convenience |
+| **1** | CLI `prep hr audit` — drift detection for existing agents | Medium | High — validates the concept |
+| **2** | CLI `prep hr generate` — role generation from codebase | High | High — the wow factor |
+| **3** | CLI `prep hr adopt` — enhance existing Paperclip agents | Medium | Medium — bridges existing users |
+| **4** | CLI `prep hr sync` — push to Paperclip API | Low | Medium — automation convenience |
 | **5** | Dashboard UI — HR panel with visual management | High | High — enterprise feel |
 | **6** | Webhook/cron — automatic periodic audits | Low | Low — nice-to-have |

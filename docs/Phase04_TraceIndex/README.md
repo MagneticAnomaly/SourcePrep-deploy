@@ -89,12 +89,12 @@ The code graph is a lightweight graph:
    "id": "node-abc123",
    "kind": "symbol",
    "name": "generate_image",
-   "file_path": "src/codrag/server.py",
+   "file_path": "src/prep/server.py",
    "span": {"start_line": 142, "end_line": 175},
    "language": "python",
    "metadata": {
      "symbol_type": "function",
-     "qualname": "codrag.server.build_project",
+     "qualname": "prep.server.build_project",
      "docstring": "Trigger project index build.",
      "decorators": ["app.post"],
      "is_async": true
@@ -132,7 +132,7 @@ The code graph is a lightweight graph:
 
  ### Stable ID strategy
 
- CoDRAG should use deterministic IDs so references are stable across rebuilds when the entity identity is stable.
+ Prep should use deterministic IDs so references are stable across rebuilds when the entity identity is stable.
 
  Recommended keys:
  - File node stable key: `file:{file_path}`

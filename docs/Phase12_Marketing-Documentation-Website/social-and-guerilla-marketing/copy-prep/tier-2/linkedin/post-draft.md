@@ -12,8 +12,8 @@ The era of "upload your code to the cloud to search it" is ending. 🔒
 For years, AI coding tools required you to send your IP to a third-party vector database.
 But with the rise of **Local-First software** and powerful edge devices (M3 Max, etc.), we can now index massive codebases directly on the developer's laptop.
 
-### Introducing CoDRAG
-We built CoDRAG to prove this. It's a desktop context engine that:
+### Introducing Prep
+We built Prep to prove this. It's a desktop context engine that:
 1.  Indexes your code locally (Rust + Tree-sitter).
 2.  Builds a structural graph of dependencies.
 3.  Feeds context to AI agents via MCP.

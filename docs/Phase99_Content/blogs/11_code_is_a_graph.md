@@ -3,13 +3,13 @@
 **Status:** ✅ Feasible. All nine sources verified and accessible.
 **Type:** Academic synthesis / literature review (Direction 2 from `10_academic_directions.md`).
 **Depends on:** Reading nine papers closely enough to represent each fairly. One concrete code-retrieval example (ideally from running an experiment on a test repo) to anchor the opening.
-**Does not depend on:** Any half-built CoDRAG feature. The argument stands on published literature.
+**Does not depend on:** Any half-built Prep feature. The argument stands on published literature.
 
-## Why this is CoDRAG's flagship academic essay
+## Why this is Prep's flagship academic essay
 
-CoDRAG's load-bearing architectural bet is that code retrieval should operate on a graph rather than a flat text corpus. If CoDRAG is wrong about that one thing, most of its design is scaffolding around a wrong premise. Direction 2 is the essay that shows the bet is not improvised — it is the same bet multiple independent research groups have been converging on from 2021 through 2025. The convergence is itself part of the argument.
+Prep's load-bearing architectural bet is that code retrieval should operate on a graph rather than a flat text corpus. If Prep is wrong about that one thing, most of its design is scaffolding around a wrong premise. Direction 2 is the essay that shows the bet is not improvised — it is the same bet multiple independent research groups have been converging on from 2021 through 2025. The convergence is itself part of the argument.
 
-This essay is the piece that belongs in a CoDRAG whitepaper, in an investor deck, in an academic reading list, or at the top of a "why this tool exists" reference section. It is also the longest and most effortful essay in any of the plans so far. Budget accordingly.
+This essay is the piece that belongs in a Prep whitepaper, in an investor deck, in an academic reading list, or at the top of a "why this tool exists" reference section. It is also the longest and most effortful essay in any of the plans so far. Budget accordingly.
 
 ## The argument in one sentence
 
@@ -24,7 +24,7 @@ The essay defends this claim, traces its emergence through the literature, and i
 | 1 | Guo et al., **GraphCodeBERT** (ICLR 2021) | 2021 | The origin point. A pretraining paper that introduced data-flow signals into code representation learning. Not itself a retrieval paper, but the seed. |
 | 2 | **CodeGraph: Code-Centric Knowledge Graphs** (2023, `2308.09687`) | 2023 | First explicit formulation of code as a knowledge graph for LLM consumption. |
 | 3 | Wang et al., **GraphCoder: Code Completion via Graph-based Retrieval** (2024, `2406.07003`) | 2024 | Graph-structured retrieval specifically for code completion — the cleanest early demonstration that the approach improves on flat retrieval. |
-| 4 | Phan et al., **RepoHyper: Search-Expand-Refine on Semantic Graphs** (2024, `2403.06095`) | 2024 | The three-stage Search → Expand → Refine pipeline, which is almost exactly what `codrag_search` does today. |
+| 4 | Phan et al., **RepoHyper: Search-Expand-Refine on Semantic Graphs** (2024, `2403.06095`) | 2024 | The three-stage Search → Expand → Refine pipeline, which is almost exactly what `prep_search` does today. |
 | 5 | **STALL+: Boosting LLM-based Repository-level Code Completion with Static Analysis** (2024, `2406.10018`) | 2024 | Static-analysis-at-prompting. Shows that even non-neural graph structure helps. |
 | 6 | Edge et al., **GraphRAG: From Local to Global** (2024, `2404.16130`) | 2024 | The general-domain pivot. Not code-specific, but gave the pattern a name and validated it at scale. Bridges the code-retrieval narrative to the broader GraphRAG literature. |
 | 7 | Zhang et al., **cAST: Enhancing Code RAG with Structural Awareness** (2025, `2506.15655`) | 2025 | Extends the argument one layer lower: structural awareness matters at chunking time, not just at retrieval time. |
@@ -55,7 +55,7 @@ Four papers, one argument. Each subsection 300–400 words.
 
 **GraphCoder (2024).** Takes graph-structured retrieval and applies it to code completion specifically. Reports improvements over flat-text baselines. Cite the specific numbers — the essay needs measured improvements, not vibes.
 
-**RepoHyper (2024).** Introduces the Search → Expand → Refine pipeline. Explain it carefully; this is the pattern `codrag_search` instantiates almost exactly. Note the parallel plainly, without claiming CoDRAG *implements* RepoHyper.
+**RepoHyper (2024).** Introduces the Search → Expand → Refine pipeline. Explain it carefully; this is the pattern `prep_search` instantiates almost exactly. Note the parallel plainly, without claiming Prep *implements* RepoHyper.
 
 **STALL+ (2024).** The important counterpoint: graph structure helps *even when* the structure comes from classical static analysis rather than learned representations. This is evidence that the graph itself is doing the work, not a specific flavor of graph encoding.
 
@@ -65,7 +65,7 @@ The synthesis at the end of section 3: four papers from four different research 
 
 GraphRAG: From Local to Global is not a code paper. It applies the graph-augmented-retrieval idea to general-domain question answering, and — more importantly — it gave the pattern a name that stuck. "GraphRAG" entered the vocabulary after this paper.
 
-Walk through Edge et al.'s community-detection-based summarization strategy. Note that it is *not* a pure graph-retrieval paper — it blends graph structure with multi-level summarization — and that blend is part of why the paper landed. Connect this to the atlas layer in CoDRAG's architecture, which uses a similar multi-level summarization strategy over community-detected modules.
+Walk through Edge et al.'s community-detection-based summarization strategy. Note that it is *not* a pure graph-retrieval paper — it blends graph structure with multi-level summarization — and that blend is part of why the paper landed. Connect this to the atlas layer in Prep's architecture, which uses a similar multi-level summarization strategy over community-detected modules.
 
 ### Section 5 — The 2025 systematic evaluation: Han et al. (~900 words)
 
@@ -99,7 +99,7 @@ The honest section. What has the literature actually established?
 
 **Open questions.** How do hybrid systems (graph + flat + reranking) compose? Where is the latency and maintenance cost worth it? Which language families benefit most? The essay leaves these open rather than pretending to answer them.
 
-### Section 9 — Discreet CoDRAG mention (~200 words)
+### Section 9 — Discreet Prep mention (~200 words)
 
 One paragraph. The author has built one such tool because the literature in this essay became compelling enough to act on. It is not the only serious attempt — Aider's repo map is another, and the honest comparison between them lives in [essay #04 in these drafts]. Name, link, move on. No feature list.
 
@@ -109,11 +109,11 @@ One reflective paragraph. The interesting thing about this argument is not that 
 
 ## Honesty checks — what could go wrong
 
-- **Selection bias in the nine papers.** These nine are papers CoDRAG drew on for its own design. There are papers that argue the opposite — that flat-text retrieval with good chunking is sufficient — and those papers deserve a paragraph. If Han et al.'s evaluation cites a strong baseline that held its own against GraphRAG, that baseline should be named.
+- **Selection bias in the nine papers.** These nine are papers Prep drew on for its own design. There are papers that argue the opposite — that flat-text retrieval with good chunking is sufficient — and those papers deserve a paragraph. If Han et al.'s evaluation cites a strong baseline that held its own against GraphRAG, that baseline should be named.
 - **Author network correlation.** Some of these papers share authors or institutional affiliations. The "independent convergence" framing weakens if four of the nine come from two labs. Map the authors before writing the convergence section and adjust the framing if needed.
 - **GraphCodeBERT is a pretraining paper, not a retrieval paper.** Using it as the "starting point" of the graph-retrieval narrative is a slight stretch. Be precise in section 2 about what the paper actually claimed.
 - **Reporting other peoples' numbers requires care.** The essay should cite the specific metrics papers reported, the test sets they used, and the baselines they compared against. Vague claims ("GraphRAG performs better") are weaker than specific claims ("GraphRAG improved exact-match on benchmark X by N points against baseline Y"). Do the work to cite specifically.
-- **The discreet pitch can still feel like a pitch.** If the reader has been invested in the literature for 5000 words and then CoDRAG shows up in section 9, the transition has to feel earned. One way: frame the CoDRAG mention as "here is one attempt to act on what this essay has argued, and it is neither the only attempt nor obviously the best." Humility sells better than triumphalism.
+- **The discreet pitch can still feel like a pitch.** If the reader has been invested in the literature for 5000 words and then Prep shows up in section 9, the transition has to feel earned. One way: frame the Prep mention as "here is one attempt to act on what this essay has argued, and it is neither the only attempt nor obviously the best." Humility sells better than triumphalism.
 
 ## Limitations to acknowledge in the essay
 
@@ -124,7 +124,7 @@ One reflective paragraph. The interesting thing about this argument is not that 
 
 ## Publishing target
 
-- **Venue:** Personal site or Substack with a "Writings" or "Research" section. Not the CoDRAG marketing site (the academic register clashes with product copy). If a whitepaper is planned, this essay is the anchor piece of the whitepaper.
+- **Venue:** Personal site or Substack with a "Writings" or "Research" section. Not the Prep marketing site (the academic register clashes with product copy). If a whitepaper is planned, this essay is the anchor piece of the whitepaper.
 - **Length:** 6000 words ±500. Do not compress it to fit a shorter format — the argument needs room.
 - **Format:** Long-form prose with section headings. Footnotes for citations (or inline links; be consistent). Optional: one or two diagrams — a timeline of the nine papers, a simple illustration of flat-text vs graph retrieval. Do not use diagrams as decoration; only if they make the argument clearer.
 - **Tonal references:** Adrian Colyer (The Morning Paper) when he ran multi-paper series. Lilian Weng's technical survey posts. Jay Alammar's illustrated transformer essays (for the care he takes to bring the reader along). Gwern Branwen's long-form research essays for the intellectual rigor, minus the idiosyncratic formatting.
@@ -135,14 +135,14 @@ Before drafting, the following must be in place:
 
 1. **Read the nine papers.** At minimum: abstract, results section, limitations section, and conclusion of each. Take notes on what each paper claims, what it measured, what it concedes. Dispatch research agents to the papers if self-read is not feasible — but the author must *own* the synthesis, not subcontract it.
 2. **Map authors across the nine papers.** Identify any institutional or advisor clusters that weaken the "independent convergence" framing.
-3. **Run one concrete experiment** to produce the opening example in section 1. Candidate: a single query against one of the test repos, run through Aider's repo map and CoDRAG's atlas, with the outputs saved verbatim.
+3. **Run one concrete experiment** to produce the opening example in section 1. Candidate: a single query against one of the test repos, run through Aider's repo map and Prep's atlas, with the outputs saved verbatim.
 4. **Identify at least one paper that argues the other side.** Flat-text retrieval advocates exist. Find one strong paper or industry post and cite it in section 8. This single citation will do more for the essay's credibility than any other single move.
 5. **Write the section 1 opener first, and stop.** If the opener is vague or forced, the whole essay will be. Iterate the opener to specificity before writing sections 2–9.
 
 ## What to link to
 
 - All nine arXiv / venue pages for the primary sources
-- CoDRAG source files where the ideas are instantiated (trace graph, `codrag_search`, `codrag_impact`, atlas)
+- Prep source files where the ideas are instantiated (trace graph, `prep_search`, `prep_impact`, atlas)
 - Aider's `repomap.py` source file (for the cross-reference to the comparison essay #04)
 - Ferrante et al. 1987 PDG paper (for the closing paragraph's classical-CS callback)
 - The Morning Paper's archive as a tonal reference

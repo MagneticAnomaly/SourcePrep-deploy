@@ -1,5 +1,5 @@
-<!-- codrag-opportunities-start -->
-## CoDRAG Codebase Intelligence
+<!-- prep-opportunities-start -->
+## Prep Codebase Intelligence
 
 *Auto-generated at 2026-03-31T02:15:45Z — 15 active opportunity findings.*
 
@@ -25,7 +25,7 @@
   - Consider splitting into a subpackage with focused modules.
 - **SIZE-6209**: Large file: tests/eval/real_repos/ripgrep-rust/crates/core/flags/defs.rs (~5878 lines) (1 files) [large]
   - Consider splitting into a subpackage with focused modules.
-- **SIZE-fe0a**: Large file: results/codrag_large_ctx_20260306_223002/summary.json (~5835 lines) (1 files) [large]
+- **SIZE-fe0a**: Large file: results/prep_large_ctx_20260306_223002/summary.json (~5835 lines) (1 files) [large]
   - Consider splitting into a subpackage with focused modules.
 - **SIZE-5a16**: Large file: tests/eval/real_repos/ripgrep-rust/benchsuite/runs/2016-09-20-ubuntu1604-ec2/raw.csv (~5667 lines) (1 files) [large]
   - Consider splitting into a subpackage with focused modules.
@@ -36,6 +36,6 @@
 - **SIZE-9e69**: Large file: tests/eval/real_repos/alamofire-swift/docs/docsets/Alamofire.docset/Contents/Resources/Documents/Classes/DownloadRequest.html (~5342 lines) (1 files) [large]
   - Consider splitting into a subpackage with focused modules.
 
-*Address these with:* `codrag opportunities --format ai_prompt` *or use the MCP tool:* `codrag_audit`
+*Address these with:* `prep opportunities --format ai_prompt` *or use the MCP tool:* `prep_audit`
 
-<!-- codrag-opportunities-end -->
+<!-- prep-opportunities-end -->

@@ -1,6 +1,6 @@
 # Continue.dev Integration Research
 
-> How Continue consumes MCP, its open-source model-agnostic architecture, and CoDRAG optimization.
+> How Continue consumes MCP, its open-source model-agnostic architecture, and Prep optimization.
 
 **Status:** PRELIMINARY -- needs empirical validation
 **Last updated:** 2026-03-14
@@ -35,13 +35,13 @@ Continue uses `config.yaml` for all configuration, including MCP:
 ```yaml
 # .continue/config.yaml
 mcpServers:
-  - name: codrag
-    command: codrag
+  - name: prep
+    command: prep
     args: ["mcp"]
 ```
 
 ### Docker Integration
-Continue has partnered with Docker for containerized MCP servers. CoDRAG could potentially be distributed as a Docker MCP container for easier setup.
+Continue has partnered with Docker for containerized MCP servers. Prep could potentially be distributed as a Docker MCP container for easier setup.
 
 ### Context Providers
 Continue has a unique "context provider" abstraction that sits alongside MCP:
@@ -50,7 +50,7 @@ Continue has a unique "context provider" abstraction that sits alongside MCP:
 - `@docs` -- documentation
 - Custom context providers via plugins
 
-CoDRAG could also be implemented as a **Continue context provider** in addition to an MCP server. This would make CoDRAG's context available via `@codrag` in Continue's chat.
+Prep could also be implemented as a **Continue context provider** in addition to an MCP server. This would make Prep's context available via `@prep` in Continue's chat.
 
 ---
 
@@ -62,40 +62,40 @@ Continue uses YAML configuration with a `rules` section:
 ```yaml
 # .continue/config.yaml
 rules:
-  - name: CoDRAG Integration
+  - name: Prep Integration
     rule: |
-      This project uses CoDRAG for structural code intelligence via MCP.
-      ALWAYS call `codrag` at the start of every task.
-      Use `codrag_search` for code queries.
-      Use `codrag_impact` before changes.
+      This project uses Prep for structural code intelligence via MCP.
+      ALWAYS call `prep` at the start of every task.
+      Use `prep_search` for code queries.
+      Use `prep_impact` before changes.
 ```
 
-### CoDRAG Strategy
+### Prep Strategy
 1. **Primary**: Generate `AGENTS.md` section (if Continue adds support)
-2. **Secondary**: Document how to add CoDRAG rules to `config.yaml`
-3. **Future**: Build a Continue context provider for `@codrag`
+2. **Secondary**: Document how to add Prep rules to `config.yaml`
+3. **Future**: Build a Continue context provider for `@prep`
 
 ---
 
 ## 4. Special Considerations
 
 ### Continue Hub
-Continue Hub is a sharing platform for MCP configurations. Publishing CoDRAG's MCP config to Continue Hub would make it one-click installable for Continue users.
+Continue Hub is a sharing platform for MCP configurations. Publishing Prep's MCP config to Continue Hub would make it one-click installable for Continue users.
 
 ### Local LLM Focus
 Continue is popular among local LLM users (Ollama, LM Studio, llama.cpp). Same implications as Cline/Roo Code -- compact context, clear tool descriptions.
 
 ### JetBrains Support
-Continue works in JetBrains IDEs (IntelliJ, PyCharm, etc.), expanding CoDRAG's reach beyond VS Code.
+Continue works in JetBrains IDEs (IntelliJ, PyCharm, etc.), expanding Prep's reach beyond VS Code.
 
 ---
 
-## 5. CoDRAG Optimization Checklist
+## 5. Prep Optimization Checklist
 
-- [ ] Test CoDRAG MCP integration in Continue
-- [ ] Document config.yaml setup for CoDRAG
-- [ ] Explore Continue context provider API for `@codrag`
-- [ ] Publish CoDRAG config to Continue Hub
+- [ ] Test Prep MCP integration in Continue
+- [ ] Document config.yaml setup for Prep
+- [ ] Explore Continue context provider API for `@prep`
+- [ ] Publish Prep config to Continue Hub
 - [ ] Test with local LLMs via Continue
 - [ ] Verify JetBrains integration works with MCP
 

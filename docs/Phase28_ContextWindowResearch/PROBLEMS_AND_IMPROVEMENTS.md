@@ -1,4 +1,4 @@
-# CoDRAG — Problems & Improvement Opportunities
+# Prep — Problems & Improvement Opportunities
 
 > A critical self-assessment based on the context window research in this phase. What's working, what's weak, and what could be better.
 
@@ -124,7 +124,7 @@
 
 ## 6. Character Budget ≠ Token Budget
 
-**Problem:** CoDRAG budgets in characters (`max_chars=6000`), but LLMs consume tokens. The `estimated_tokens = total // 4` approximation is rough. Code has different token density than prose — a Python file with short variable names tokenizes differently than a documentation paragraph.
+**Problem:** Prep budgets in characters (`max_chars=6000`), but LLMs consume tokens. The `estimated_tokens = total // 4` approximation is rough. Code has different token density than prose — a Python file with short variable names tokenizes differently than a documentation paragraph.
 
 **What the research says:** The saturation points from Databricks are measured in tokens, not characters. A 6000-char code block could be 1,200 or 2,000 tokens depending on content.
 
@@ -132,7 +132,7 @@
 
 **Possible fix:**
 - **Add token counting.** Use `tiktoken` (for OpenAI models) or a generic tokenizer to count actual tokens. Expose both `max_chars` and `max_tokens` parameters.
-- **Or:** Accept that `// 4` is close enough for CoDRAG's small budgets. The error matters less when you're at 1,500 tokens than when you're at 50,000.
+- **Or:** Accept that `// 4` is close enough for Prep's small budgets. The error matters less when you're at 1,500 tokens than when you're at 50,000.
 
 **Effort:** Low (add tiktoken) to Medium (support dual budgets).
 
@@ -142,16 +142,16 @@
 
 ## 7. No Awareness of What the AI Tool Already Has ✅ DONE
 
-**Problem:** CoDRAG doesn't know what the AI tool already has in its context. If the user @-referenced `auth.py` and then CoDRAG also returns chunks from `auth.py`, that's redundant context — wasted tokens that research says degrade performance.
+**Problem:** Prep doesn't know what the AI tool already has in its context. If the user @-referenced `auth.py` and then Prep also returns chunks from `auth.py`, that's redundant context — wasted tokens that research says degrade performance.
 
 **What the research says:** Every redundant token is a distractor. The research doesn't distinguish between "irrelevant" and "already present" — both dilute the signal.
 
-**Where in code:** The MCP protocol doesn't provide a mechanism for the AI tool to tell CoDRAG "I already have these files in context." CoDRAG's `tool_context()` has no `exclude_paths` parameter.
+**Where in code:** The MCP protocol doesn't provide a mechanism for the AI tool to tell Prep "I already have these files in context." Prep's `tool_context()` has no `exclude_paths` parameter.
 
 **Possible fix:**
-- **Add `exclude_paths` parameter** to `codrag` tool: let the AI tool pass in files it already has. Simple, backwards-compatible.
+- **Add `exclude_paths` parameter** to `prep` tool: let the AI tool pass in files it already has. Simple, backwards-compatible.
 - **MCP context hints:** Future MCP spec versions might support this natively. For now, a tool parameter is sufficient.
-- **Conversation-aware caching:** Track which files CoDRAG has already served in this session. Diminish their scores on repeat queries. Heavier lift.
+- **Conversation-aware caching:** Track which files Prep has already served in this session. Diminish their scores on repeat queries. Heavier lift.
 
 **Effort:** Low (exclude_paths param). Medium (session awareness).
 
@@ -180,20 +180,20 @@
 
 ## 9. No Feedback Loop
 
-**Problem:** CoDRAG has no way to know if its context was actually useful. Did the LLM use the chunks? Did the user accept the generated code? There's no signal flowing back.
+**Problem:** Prep has no way to know if its context was actually useful. Did the LLM use the chunks? Did the user accept the generated code? There's no signal flowing back.
 
 **What the research says:** RAG systems improve dramatically with relevance feedback. Without it, you're optimizing in the dark.
 
 **Where in code:** Nowhere — this doesn't exist yet.
 
 **Possible fix:**
-- **Usage tracking via MCP:** When the AI tool calls `codrag` and then produces output, track whether the same files appear in the tool's edits. Crude but directional.
-- **Thumbs up/down on chunks:** Expose a `codrag_feedback` tool that the AI tool (or user) can call to mark chunks as helpful or not.
+- **Usage tracking via MCP:** When the AI tool calls `prep` and then produces output, track whether the same files appear in the tool's edits. Crude but directional.
+- **Thumbs up/down on chunks:** Expose a `prep_feedback` tool that the AI tool (or user) can call to mark chunks as helpful or not.
 - **Implicit signals:** If the same query is repeated with different K or max_chars, the first result probably wasn't sufficient.
 
 **Effort:** High. Requires new infrastructure.
 
-**Impact:** High long-term. This is how CoDRAG gets measurably better over time.
+**Impact:** High long-term. This is how Prep gets measurably better over time.
 
 ---
 
@@ -208,8 +208,8 @@
 **Where in code:** `embedder.py` `NativeEmbedder` — hardcoded to nomic-embed-text-v1.5.
 
 **Possible fix:**
-- **Benchmark:** Test nomic-embed-text against code-specialized models on CoDRAG's own test queries. Measure retrieval accuracy.
-- **Pluggable embedder:** CoDRAG already supports Ollama as an alternative. Could add Voyage Code or other specialized models as options.
+- **Benchmark:** Test nomic-embed-text against code-specialized models on Prep's own test queries. Measure retrieval accuracy.
+- **Pluggable embedder:** Prep already supports Ollama as an alternative. Could add Voyage Code or other specialized models as options.
 - **Hybrid:** Use code-specialized embeddings for code chunks and general embeddings for docs. Complex but theoretically optimal.
 
 **Effort:** Low (benchmark) to Medium (add model options).
@@ -252,7 +252,7 @@
 
 ## 13. No Position Optimization
 
-**Problem:** CoDRAG sorts chunks by descending score (best first). This is good for "lost in the middle" mitigation — the best chunk is at the start. But research shows the *end* of context also gets strong attention. Currently, the last chunk is the *lowest-scoring* semantic result (or the last trace chunk). The second-best chunk should arguably go last.
+**Problem:** Prep sorts chunks by descending score (best first). This is good for "lost in the middle" mitigation — the best chunk is at the start. But research shows the *end* of context also gets strong attention. Currently, the last chunk is the *lowest-scoring* semantic result (or the last trace chunk). The second-best chunk should arguably go last.
 
 **What the research says:** Liu et al. (2023) found U-shaped attention. Optimal placement: best at start, second-best at end, weakest in the middle.
 
@@ -270,20 +270,20 @@
 
 ## 14. Potential Redundancy With Native Tool Indexing
 
-**Problem:** Cursor and Windsurf already embed and search your codebase. When a user has CoDRAG installed, both systems may be retrieving similar chunks for the same query — CoDRAG via MCP and the tool natively. The AI tool then has two overlapping sets of context, wasting tokens.
+**Problem:** Cursor and Windsurf already embed and search your codebase. When a user has Prep installed, both systems may be retrieving similar chunks for the same query — Prep via MCP and the tool natively. The AI tool then has two overlapping sets of context, wasting tokens.
 
 **What the research says:** Every redundant token is a distractor.
 
 **Where in code:** N/A — this is an architectural concern, not a code bug.
 
 **Possible fix:**
-- **Documentation:** Make it clear that CoDRAG is most valuable when: (a) the tool's native indexing is weak (Claude Code), (b) the user needs trace expansion, (c) the user needs specific weight tuning. For basic retrieval in Cursor, CoDRAG may not add enough over @codebase to justify the extra tokens.
-- **Dedup hint header:** CoDRAG could include file paths in a structured header so the AI tool can skip those files in its own retrieval.
-- **"Replace native" mode:** Instruct users to disable their tool's native codebase indexing when using CoDRAG. This is a bold claim and only justified if CoDRAG's retrieval is demonstrably better.
+- **Documentation:** Make it clear that Prep is most valuable when: (a) the tool's native indexing is weak (Claude Code), (b) the user needs trace expansion, (c) the user needs specific weight tuning. For basic retrieval in Cursor, Prep may not add enough over @codebase to justify the extra tokens.
+- **Dedup hint header:** Prep could include file paths in a structured header so the AI tool can skip those files in its own retrieval.
+- **"Replace native" mode:** Instruct users to disable their tool's native codebase indexing when using Prep. This is a bold claim and only justified if Prep's retrieval is demonstrably better.
 
 **Effort:** Low (documentation). Medium (dedup headers). High (prove superiority).
 
-**Impact:** High for positioning. This is the "reinventing the wheel" question — being clear about when CoDRAG adds value vs. when it's redundant.
+**Impact:** High for positioning. This is the "reinventing the wheel" question — being clear about when Prep adds value vs. when it's redundant.
 
 ---
 

@@ -3,9 +3,9 @@ set -euo pipefail
 
 # TODO(Task 11): flip prefix to public/prep-mcp after subtree git mv
 # TODO(Task 22): flip dev_remote / public_remote after GitHub rename
-prefix="public/codrag-mcp"
-dev_remote="codrag-mcp-dev"
-public_remote="codrag-mcp"
+prefix="public/prep-mcp"
+dev_remote="prep-mcp-dev"
+public_remote="prep-mcp"
 branch="main"
 push_public="false"
 

@@ -1,18 +1,18 @@
 #!/bin/bash
-# daemon_watchdog.sh — respawn the CoDRAG daemon if it exits, logging every
+# daemon_watchdog.sh — respawn the Prep daemon if it exits, logging every
 # start/exit with timestamp + exit code. Captures stdout+stderr per-run so
 # the traceback that killed the previous run is available after the restart.
 #
 # Usage (from dev.sh or standalone):
-#   PROJECT_ROOT=/path/to/CoDRAG DAEMON_PORT=8400 scripts/daemon_watchdog.sh
+#   PROJECT_ROOT=/path/to/Prep DAEMON_PORT=8400 scripts/daemon_watchdog.sh
 #
-# Stops: Ctrl-C, SIGTERM, or touch /tmp/codrag_daemon_stop
+# Stops: Ctrl-C, SIGTERM, or touch /tmp/prep_daemon_stop
 
 set -u
-PROJECT_ROOT="${PROJECT_ROOT:-/Volumes/4TB-BAD/HumanAI/CoDRAG}"
+PROJECT_ROOT="${PROJECT_ROOT:-/Volumes/4TB-BAD/HumanAI/Prep}"
 DAEMON_PORT="${DAEMON_PORT:-8400}"
-LOG_DIR="${LOG_DIR:-/tmp/codrag_daemon_logs}"
-STOP_FILE="/tmp/codrag_daemon_stop"
+LOG_DIR="${LOG_DIR:-/tmp/prep_daemon_logs}"
+STOP_FILE="/tmp/prep_daemon_stop"
 HISTORY_LOG="$LOG_DIR/history.log"
 
 mkdir -p "$LOG_DIR"
@@ -58,7 +58,7 @@ while true; do
   # Tee to both the per-run log and our own stdout for live monitoring.
   (
     cd "$PROJECT_ROOT"
-    PYTHONPATH="$PROJECT_ROOT/src" exec python3.11 -m codrag.cli serve --port "$DAEMON_PORT" 2>&1
+    PYTHONPATH="$PROJECT_ROOT/src" exec python3.11 -m prep.cli serve --port "$DAEMON_PORT" 2>&1
   ) | tee "$run_log" &
   CHILD_PID=$!
 

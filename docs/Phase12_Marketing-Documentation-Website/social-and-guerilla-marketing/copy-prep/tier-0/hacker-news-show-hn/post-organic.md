@@ -2,7 +2,7 @@
 
 ## Title Options
 1. **Show HN: We built a local code indexer because we didn't want to upload our repo**
-2. **Show HN: CoDRAG – Fixing the "context window" problem with structural graph analysis**
+2. **Show HN: Prep – Fixing the "context window" problem with structural graph analysis**
 
 ## Body Structure
 
@@ -15,7 +15,7 @@ The "naive RAG" approach (chunking text + vector search) works great for documen
 
 We didn't want to upload our intellectual property to a cloud service just to get better indexing.
 
-### So we built CoDRAG.
+### So we built Prep.
 
 It's a local-first desktop application (Rust + Tauri + Python) that indexes your code *structurally*.
 

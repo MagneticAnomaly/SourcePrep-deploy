@@ -19,13 +19,13 @@ It felt like "vibe-based coding," not engineering.
 ### The "Aha" Moment
 We realized that code isn't just text. It has strict structure. If I'm looking at `login()`, I *need* to see `UserSession` (which is imported), not just a file that also has the word "login" in it.
 
-So we paused our main work and built **CoDRAG**.
+So we paused our main work and built **Prep**.
 
 ### What we built
 It's a desktop app (Mac/Windows) that acts as a "structural" context engine.
 *   It watches your folder.
 *   It uses **Tree-sitter** to parse every file into an AST.
-*   It builds a dependency graph using a custom Rust graph engine (`codrag-graph`).
+*   It builds a dependency graph using a custom Rust graph engine (`prep-graph`).
 *   When you query it, it "walks" the graph to find connected code, not just similar text.
 
 ### The Result

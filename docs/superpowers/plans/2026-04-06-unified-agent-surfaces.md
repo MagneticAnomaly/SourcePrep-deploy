@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give CoDRAG a clean frontend story: CoDRAG dashboard is config-only, Paperclip plugin is the rich agent surface, and a push enrichment pipeline connects engine findings to Paperclip issues with structural intelligence.
+**Goal:** Give Prep a clean frontend story: Prep dashboard is config-only, Paperclip plugin is the rich agent surface, and a push enrichment pipeline connects engine findings to Paperclip issues with structural intelligence.
 
-**Architecture:** Four phases. Phase 1 adds backend capabilities (consensus scoring, structural enrichment, significance classification, push settings). Phase 2 simplifies the CoDRAG dashboard to config-only. Phase 3 enhances the Paperclip plugin UI slots. Phase 4 wires engine runs to the push pipeline. Each phase produces independently testable, committable work.
+**Architecture:** Four phases. Phase 1 adds backend capabilities (consensus scoring, structural enrichment, significance classification, push settings). Phase 2 simplifies the Prep dashboard to config-only. Phase 3 enhances the Paperclip plugin UI slots. Phase 4 wires engine runs to the push pipeline. Each phase produces independently testable, committable work.
 
 **Tech Stack:** Python 3.11 (FastAPI, SQLite, Pydantic, pytest asyncio), TypeScript/React (Tailwind, Tremor, Lucide icons), Paperclip Plugin SDK (`@paperclipai/plugin-sdk`).
 
@@ -27,28 +27,28 @@
 | `tests/test_push_settings_api.py` | Tests for push settings + consensus REST endpoints |
 | `tests/test_delta_push.py` | Tests for `push_significant_delta()` on PushEngine |
 | `packages/ui/src/components/agents/PushSettings.tsx` | Push config form: auto-push toggle, significance threshold, Paperclip project |
-| `packages/paperclip-plugin-codrag/src/ui/CodebaseHealthWidget.tsx` | Enhanced dashboard widget: pipeline status, push summary, consensus, delta |
-| `packages/paperclip-plugin-codrag/src/ui/KnowledgeScopeTab.tsx` | Read-only scope display with claims overlay |
-| `packages/paperclip-plugin-codrag/src/ui/IssueContextTab.tsx` | Structural context for CoDRAG-pushed issues + on-demand enrichment |
-| `packages/paperclip-plugin-codrag/src/ui/SettingsPage.tsx` | Enhanced settings with health check + push settings link |
+| `packages/paperclip-plugin-prep/src/ui/CodebaseHealthWidget.tsx` | Enhanced dashboard widget: pipeline status, push summary, consensus, delta |
+| `packages/paperclip-plugin-prep/src/ui/KnowledgeScopeTab.tsx` | Read-only scope display with claims overlay |
+| `packages/paperclip-plugin-prep/src/ui/IssueContextTab.tsx` | Structural context for Prep-pushed issues + on-demand enrichment |
+| `packages/paperclip-plugin-prep/src/ui/SettingsPage.tsx` | Enhanced settings with health check + push settings link |
 
 **Modified files (13):**
 
 | File | Changes |
 |---|---|
-| `src/codrag/services/observation_store.py` | Add `get_consensus_scores()` method (~30 lines) |
-| `src/codrag/adapters/pm_models.py` | Add `StructuralContext` dataclass + `structural_context` on `PMIssue` + `significance` on `PMIssue` (~40 lines) |
-| `src/codrag/adapters/push_engine.py` | Add `snapshot_store` param, `_enrich_with_structural_context()`, `push_significant_delta()`, consensus enrichment in `_push_group()` (~100 lines) |
-| `src/codrag/api/routers/collaboration.py` | Add consensus endpoint + push summary endpoint + push settings endpoints (~60 lines) |
-| `src/codrag/api/routers/agents.py` | Add `push` query param to generate/run endpoints (~20 lines) |
-| `src/codrag/mcp/collaboration_handlers.py` | Add consensus hotspots to `format_delta_resource()`, claims steps to prompts (~20 lines) |
+| `src/prep/services/observation_store.py` | Add `get_consensus_scores()` method (~30 lines) |
+| `src/prep/adapters/pm_models.py` | Add `StructuralContext` dataclass + `structural_context` on `PMIssue` + `significance` on `PMIssue` (~40 lines) |
+| `src/prep/adapters/push_engine.py` | Add `snapshot_store` param, `_enrich_with_structural_context()`, `push_significant_delta()`, consensus enrichment in `_push_group()` (~100 lines) |
+| `src/prep/api/routers/collaboration.py` | Add consensus endpoint + push summary endpoint + push settings endpoints (~60 lines) |
+| `src/prep/api/routers/agents.py` | Add `push` query param to generate/run endpoints (~20 lines) |
+| `src/prep/mcp/collaboration_handlers.py` | Add consensus hotspots to `format_delta_resource()`, claims steps to prompts (~20 lines) |
 | `packages/ui/src/components/agents/AgentOpsPanel.tsx` | Redesign: engine control rows + PushSettings section (rewrite ~140 lines) |
 | `packages/ui/src/components/agents/index.ts` | Update exports — add PushSettings, remove dashboard-only re-exports |
 | `packages/ui/src/config/panelRegistry.ts` | Update `agent-ops` description |
-| `packages/paperclip-plugin-codrag/src/worker/index.ts` | Extend `codebase-health` provider, fix `agent-knowledge-scope`, add `consensus-hotspots` + `push-summary` providers, add `enrich-issue` action (~80 lines) |
-| `packages/paperclip-plugin-codrag/src/manifest.ts` | No structural changes (data providers/actions are registered dynamically in worker) |
-| `src/codrag/dashboard/src/hooks/useAgentOps.ts` | Update to match redesigned AgentOpsPanel props |
-| `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx` | Update agent-ops panel rendering |
+| `packages/paperclip-plugin-prep/src/worker/index.ts` | Extend `codebase-health` provider, fix `agent-knowledge-scope`, add `consensus-hotspots` + `push-summary` providers, add `enrich-issue` action (~80 lines) |
+| `packages/paperclip-plugin-prep/src/manifest.ts` | No structural changes (data providers/actions are registered dynamically in worker) |
+| `src/prep/dashboard/src/hooks/useAgentOps.ts` | Update to match redesigned AgentOpsPanel props |
+| `src/prep/dashboard/src/hooks/useDashboardPanels.tsx` | Update agent-ops panel rendering |
 
 ---
 
@@ -57,7 +57,7 @@
 ### Task 1: Consensus Scoring on ObservationStore
 
 **Files:**
-- Modify: `src/codrag/services/observation_store.py:480-496` (after `get_all_attributed`)
+- Modify: `src/prep/services/observation_store.py:480-496` (after `get_all_attributed`)
 - Test: `tests/test_consensus_scoring.py` (new)
 
 - [ ] **Step 1: Write the failing tests**
@@ -70,7 +70,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.observation_store import ObservationStore
+from prep.services.observation_store import ObservationStore
 
 
 @pytest.fixture
@@ -129,7 +129,7 @@ Expected: FAIL — `ObservationStore` has no `get_consensus_scores` method.
 
 - [ ] **Step 3: Implement `get_consensus_scores()`**
 
-In `src/codrag/services/observation_store.py`, after `get_all_attributed()` (around line 496), add:
+In `src/prep/services/observation_store.py`, after `get_all_attributed()` (around line 496), add:
 
 ```python
     def get_consensus_scores(
@@ -200,7 +200,7 @@ Expected: All 5 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/observation_store.py tests/test_consensus_scoring.py
+git add src/prep/services/observation_store.py tests/test_consensus_scoring.py
 git commit -m "feat(collab): add consensus scoring to ObservationStore"
 ```
 
@@ -209,7 +209,7 @@ git commit -m "feat(collab): add consensus scoring to ObservationStore"
 ### Task 2: StructuralContext Dataclass + Complexity Tiers
 
 **Files:**
-- Modify: `src/codrag/adapters/pm_models.py:56-57` (add field to PMIssue) and after `PMPushConfig` (add new dataclass)
+- Modify: `src/prep/adapters/pm_models.py:56-57` (add field to PMIssue) and after `PMPushConfig` (add new dataclass)
 - Test: `tests/test_structural_enrichment.py` (new)
 
 - [ ] **Step 1: Write the failing tests**
@@ -219,7 +219,7 @@ git commit -m "feat(collab): add consensus scoring to ObservationStore"
 """Tests for StructuralContext and complexity tier computation."""
 import pytest
 
-from codrag.adapters.pm_models import StructuralContext, compute_complexity_tier
+from prep.adapters.pm_models import StructuralContext, compute_complexity_tier
 
 
 def test_empty_context_is_lightweight():
@@ -280,7 +280,7 @@ Expected: FAIL — `StructuralContext` and `compute_complexity_tier` don't exist
 
 - [ ] **Step 3: Add StructuralContext and compute_complexity_tier to pm_models.py**
 
-In `src/codrag/adapters/pm_models.py`, after the `PMPushConfig` class (end of file), add:
+In `src/prep/adapters/pm_models.py`, after the `PMPushConfig` class (end of file), add:
 
 ```python
 # ── Structural Enrichment (Phase 73.5 Emergence) ───────────────────
@@ -290,7 +290,7 @@ In `src/codrag/adapters/pm_models.py`, after the `PMPushConfig` class (end of fi
 class StructuralContext:
     """Structural intelligence attached to a PM issue.
 
-    CoDRAG-only data that helps Paperclip route work.
+    Prep-only data that helps Paperclip route work.
     """
     hub_files_involved: List[str] = field(default_factory=list)
     hub_count: int = 0
@@ -319,7 +319,7 @@ def compute_complexity_tier(ctx: StructuralContext) -> str:
     return "lightweight"
 ```
 
-Also add `structural_context` and `significance` fields to `PMIssue` (after `codrag_item_ids`, around line 56):
+Also add `structural_context` and `significance` fields to `PMIssue` (after `prep_item_ids`, around line 56):
 
 ```python
     # Structural enrichment (Phase 73.5 Emergence)
@@ -335,7 +335,7 @@ Expected: All 6 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/adapters/pm_models.py tests/test_structural_enrichment.py
+git add src/prep/adapters/pm_models.py tests/test_structural_enrichment.py
 git commit -m "feat(push): add StructuralContext dataclass and complexity tiers"
 ```
 
@@ -344,7 +344,7 @@ git commit -m "feat(push): add StructuralContext dataclass and complexity tiers"
 ### Task 3: PushEngine Structural Enrichment
 
 **Files:**
-- Modify: `src/codrag/adapters/push_engine.py:44-50` (add `snapshot_store` param) and `175-260` (enrich in `_push_group`)
+- Modify: `src/prep/adapters/push_engine.py:44-50` (add `snapshot_store` param) and `175-260` (enrich in `_push_group`)
 - Test: extend `tests/test_structural_enrichment.py`
 
 - [ ] **Step 1: Write the failing test for enrichment**
@@ -353,8 +353,8 @@ Append to `tests/test_structural_enrichment.py`:
 
 ```python
 from unittest.mock import MagicMock
-from codrag.adapters.push_engine import PushEngine
-from codrag.services.collaboration.snapshots import GraphSnapshot
+from prep.adapters.push_engine import PushEngine
+from prep.services.collaboration.snapshots import GraphSnapshot
 
 
 def _make_snapshot(hubs, modules):
@@ -424,7 +424,7 @@ Expected: FAIL — `PushEngine` doesn't accept `snapshot_store` or have `_enrich
 
 - [ ] **Step 3: Add `snapshot_store` param and `_enrich_with_structural_context` to PushEngine**
 
-In `src/codrag/adapters/push_engine.py`, modify `__init__` (line 44):
+In `src/prep/adapters/push_engine.py`, modify `__init__` (line 44):
 
 ```python
     def __init__(
@@ -460,7 +460,7 @@ After `_push_conflict_to_pm` (around line 301), add:
         if not self._snapshot_store:
             return None
 
-        from codrag.adapters.pm_models import StructuralContext, compute_complexity_tier
+        from prep.adapters.pm_models import StructuralContext, compute_complexity_tier
 
         latest = self._snapshot_store.get_latest(project_id)
         if not latest:
@@ -508,7 +508,7 @@ Expected: All 9 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/adapters/push_engine.py tests/test_structural_enrichment.py
+git add src/prep/adapters/push_engine.py tests/test_structural_enrichment.py
 git commit -m "feat(push): add structural enrichment to PushEngine"
 ```
 
@@ -517,7 +517,7 @@ git commit -m "feat(push): add structural enrichment to PushEngine"
 ### Task 4: Delta Push to Paperclip
 
 **Files:**
-- Modify: `src/codrag/adapters/push_engine.py` (add `push_significant_delta` after `_enrich_with_structural_context`)
+- Modify: `src/prep/adapters/push_engine.py` (add `push_significant_delta` after `_enrich_with_structural_context`)
 - Test: `tests/test_delta_push.py` (new)
 
 - [ ] **Step 1: Write the failing tests**
@@ -529,8 +529,8 @@ from unittest.mock import MagicMock, call
 
 import pytest
 
-from codrag.adapters.push_engine import PushEngine
-from codrag.services.collaboration.snapshots import StructuralDelta
+from prep.adapters.push_engine import PushEngine
+from prep.services.collaboration.snapshots import StructuralDelta
 
 
 def test_empty_delta_pushes_nothing():
@@ -555,7 +555,7 @@ def test_rank_change_only_pushes_nothing():
 
 def test_new_hub_creates_issue():
     adapter = MagicMock()
-    adapter.find_issue_by_codrag_address.return_value = None
+    adapter.find_issue_by_prep_address.return_value = None
     engine = PushEngine(adapter)
     delta = StructuralDelta(
         since=0, until=1000,
@@ -571,7 +571,7 @@ def test_new_hub_creates_issue():
 
 def test_dedup_same_delta_twice():
     adapter = MagicMock()
-    adapter.find_issue_by_codrag_address.return_value = "existing-id"
+    adapter.find_issue_by_prep_address.return_value = "existing-id"
     engine = PushEngine(adapter)
     delta = StructuralDelta(
         since=0, until=1000,
@@ -584,7 +584,7 @@ def test_dedup_same_delta_twice():
 
 def test_mixed_delta_creates_multiple_issues():
     adapter = MagicMock()
-    adapter.find_issue_by_codrag_address.return_value = None
+    adapter.find_issue_by_prep_address.return_value = None
     engine = PushEngine(adapter)
     delta = StructuralDelta(
         since=0, until=1000,
@@ -603,7 +603,7 @@ Expected: FAIL — `PushEngine` has no `push_significant_delta` method.
 
 - [ ] **Step 3: Implement `push_significant_delta`**
 
-In `src/codrag/adapters/push_engine.py`, after `_enrich_with_structural_context`, add:
+In `src/prep/adapters/push_engine.py`, after `_enrich_with_structural_context`, add:
 
 ```python
     def push_significant_delta(
@@ -618,7 +618,7 @@ In `src/codrag/adapters/push_engine.py`, after `_enrich_with_structural_context`
 
         Returns the number of issues created.
         """
-        from codrag.adapters.pm_models import PMIssue
+        from prep.adapters.pm_models import PMIssue
 
         significant = []
         for h in delta.hub_changes:
@@ -638,7 +638,7 @@ In `src/codrag/adapters/push_engine.py`, after `_enrich_with_structural_context`
 
             if change_type == "hub":
                 path = change.get("path", "unknown")
-                address = f"codrag://{project_id}/DELTA-hub-{hash(path) & 0xFFFFFFFF:08x}"
+                address = f"prep://{project_id}/DELTA-hub-{hash(path) & 0xFFFFFFFF:08x}"
                 if change_action == "new":
                     deps = change.get("dependents_count", 0)
                     rank = change.get("rank", "?")
@@ -651,8 +651,8 @@ In `src/codrag/adapters/push_engine.py`, after `_enrich_with_structural_context`
                         f"Hub files are central dependencies — many other files import from them. "
                         f"Changes to hub files have high blast radius.\n\n"
                         f"---\n"
-                        f"<!-- codrag-address:{address} -->\n"
-                        f"<!-- codrag-delta:true -->"
+                        f"<!-- prep-address:{address} -->\n"
+                        f"<!-- prep-delta:true -->"
                     )
                 else:
                     title = f"Structural Change: {path} is no longer a hub"
@@ -661,12 +661,12 @@ In `src/codrag/adapters/push_engine.py`, after `_enrich_with_structural_context`
                         f"**File:** {path}\n\n"
                         f"This file no longer has enough dependents to be a hub.\n\n"
                         f"---\n"
-                        f"<!-- codrag-address:{address} -->\n"
-                        f"<!-- codrag-delta:true -->"
+                        f"<!-- prep-address:{address} -->\n"
+                        f"<!-- prep-delta:true -->"
                     )
             else:
                 name = change.get("name", "unknown")
-                address = f"codrag://{project_id}/DELTA-module-{hash(name) & 0xFFFFFFFF:08x}"
+                address = f"prep://{project_id}/DELTA-module-{hash(name) & 0xFFFFFFFF:08x}"
                 if change_action == "new":
                     file_count = change.get("file_count", 0)
                     title = f"Structural Change: new module '{name}' ({file_count} files)"
@@ -675,8 +675,8 @@ In `src/codrag/adapters/push_engine.py`, after `_enrich_with_structural_context`
                         f"**Module:** {name}\n"
                         f"**Files:** {file_count}\n\n"
                         f"---\n"
-                        f"<!-- codrag-address:{address} -->\n"
-                        f"<!-- codrag-delta:true -->"
+                        f"<!-- prep-address:{address} -->\n"
+                        f"<!-- prep-delta:true -->"
                     )
                 else:
                     title = f"Structural Change: module '{name}' removed"
@@ -684,12 +684,12 @@ In `src/codrag/adapters/push_engine.py`, after `_enrich_with_structural_context`
                         f"A module was removed after pipeline rebuild.\n\n"
                         f"**Module:** {name}\n\n"
                         f"---\n"
-                        f"<!-- codrag-address:{address} -->\n"
-                        f"<!-- codrag-delta:true -->"
+                        f"<!-- prep-address:{address} -->\n"
+                        f"<!-- prep-delta:true -->"
                     )
 
             # Dedup check
-            existing = self.adapter.find_issue_by_codrag_address(address)
+            existing = self.adapter.find_issue_by_prep_address(address)
             if existing:
                 continue
 
@@ -699,7 +699,7 @@ In `src/codrag/adapters/push_engine.py`, after `_enrich_with_structural_context`
                     description=desc,
                     priority="P3",
                     category="architecture",
-                    codrag_address=address,
+                    prep_address=address,
                 )
                 self.adapter.create_issue(issue)
                 created += 1
@@ -717,7 +717,7 @@ Expected: All 5 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/adapters/push_engine.py tests/test_delta_push.py
+git add src/prep/adapters/push_engine.py tests/test_delta_push.py
 git commit -m "feat(push): add delta push to Paperclip for significant structural changes"
 ```
 
@@ -726,11 +726,11 @@ git commit -m "feat(push): add delta push to Paperclip for significant structura
 ### Task 5: Consensus Hotspots in Delta Resource + Claims in Prompts
 
 **Files:**
-- Modify: `src/codrag/mcp/collaboration_handlers.py:145-198` (extend `format_delta_resource`) and `234-280` (extend prompts)
+- Modify: `src/prep/mcp/collaboration_handlers.py:145-198` (extend `format_delta_resource`) and `234-280` (extend prompts)
 
 - [ ] **Step 1: Add consensus hotspots to delta resource formatter**
 
-In `src/codrag/mcp/collaboration_handlers.py`, modify `format_delta_resource()` — after the module changes section (before the final `return`), add:
+In `src/prep/mcp/collaboration_handlers.py`, modify `format_delta_resource()` — after the module changes section (before the final `return`), add:
 
 ```python
     # Consensus hotspots (if provided)
@@ -752,7 +752,7 @@ In `src/codrag/mcp/collaboration_handlers.py`, modify `format_delta_resource()` 
 
 - [ ] **Step 2: Add claims steps to prompts**
 
-In the same file, modify the `codrag-enrich` prompt text (in `get_collaboration_prompts()` or `format_prompt_messages()`). Find the prompt message list for `codrag-enrich` and append:
+In the same file, modify the `prep-enrich` prompt text (in `get_collaboration_prompts()` or `format_prompt_messages()`). Find the prompt message list for `prep-enrich` and append:
 
 ```python
 # In the enrich prompt messages, add after existing steps:
@@ -761,7 +761,7 @@ In the same file, modify the `codrag-enrich` prompt text (in `get_collaboration_
 "may already be addressing the issue."
 ```
 
-And in the `codrag-handoff` prompt messages, add:
+And in the `prep-handoff` prompt messages, add:
 
 ```python
 "5. Check active claims: does the from-agent have any active file claims? "
@@ -777,7 +777,7 @@ Expected: PASS (existing tests should still pass; the new content is additive).
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/mcp/collaboration_handlers.py
+git add src/prep/mcp/collaboration_handlers.py
 git commit -m "feat(collab): add consensus hotspots to delta resource, claims to prompts"
 ```
 
@@ -786,7 +786,7 @@ git commit -m "feat(collab): add consensus hotspots to delta resource, claims to
 ### Task 6: Consensus + Push Summary REST Endpoints
 
 **Files:**
-- Modify: `src/codrag/api/routers/collaboration.py` (add 3 endpoints after existing claims endpoints)
+- Modify: `src/prep/api/routers/collaboration.py` (add 3 endpoints after existing claims endpoints)
 - Test: `tests/test_push_settings_api.py` (new)
 
 - [ ] **Step 1: Write the failing tests**
@@ -806,7 +806,7 @@ from fastapi.testclient import TestClient
 def app():
     """Create a test FastAPI app with collaboration router."""
     from fastapi import FastAPI
-    from codrag.api.routers.collaboration import router
+    from prep.api.routers.collaboration import router
 
     app = FastAPI()
     app.include_router(router)
@@ -832,7 +832,7 @@ def test_consensus_endpoint_returns_scores(client):
     ]
 
     with patch(
-        "codrag.api.routers.collaboration._get_obs_store",
+        "prep.api.routers.collaboration._get_obs_store",
         return_value=mock_store,
     ):
         resp = client.get("/projects/proj-1/collaboration/consensus")
@@ -848,7 +848,7 @@ def test_consensus_endpoint_empty(client):
     mock_store.get_consensus_scores.return_value = []
 
     with patch(
-        "codrag.api.routers.collaboration._get_obs_store",
+        "prep.api.routers.collaboration._get_obs_store",
         return_value=mock_store,
     ):
         resp = client.get("/projects/proj-1/collaboration/consensus")
@@ -864,7 +864,7 @@ Expected: FAIL — no `/collaboration/consensus` endpoint.
 
 - [ ] **Step 3: Add endpoints to collaboration router**
 
-In `src/codrag/api/routers/collaboration.py`, after the claims endpoints (end of file), add:
+In `src/prep/api/routers/collaboration.py`, after the claims endpoints (end of file), add:
 
 ```python
 # ── Consensus ──────────────────────────────────────────────────
@@ -910,13 +910,13 @@ Expected: All tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/api/routers/collaboration.py tests/test_push_settings_api.py
+git add src/prep/api/routers/collaboration.py tests/test_push_settings_api.py
 git commit -m "feat(api): add consensus scoring and push summary endpoints"
 ```
 
 ---
 
-## Phase 2: CoDRAG Dashboard Simplification
+## Phase 2: Prep Dashboard Simplification
 
 ### Task 7: Redesign AgentOpsPanel to Config-Only
 
@@ -1231,7 +1231,7 @@ export type { PushSettingsData, PushSettingsProps } from './PushSettings';
 
 - [ ] **Step 4: Verify build**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck --workspace=packages/ui`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck --workspace=packages/ui`
 Expected: No type errors.
 
 - [ ] **Step 5: Commit**
@@ -1248,7 +1248,7 @@ git commit -m "feat(ui): redesign AgentOpsPanel to config-only, add PushSettings
 ### Task 8: Update Dashboard Hook and Panel Registry
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/hooks/useAgentOps.ts` (update to match new props)
+- Modify: `src/prep/dashboard/src/hooks/useAgentOps.ts` (update to match new props)
 - Modify: `packages/ui/src/config/panelRegistry.ts:345-354` (update description)
 
 - [ ] **Step 1: Update panelRegistry description**
@@ -1259,7 +1259,7 @@ In `packages/ui/src/config/panelRegistry.ts`, change the `agent-ops` entry (line
   {
     id: 'agent-ops',
     title: 'Agent Operations',
-    description: 'Configure CoDRAG agent engines (HR, Researcher, Custodian), Paperclip connection, and push settings.',
+    description: 'Configure Prep agent engines (HR, Researcher, Custodian), Paperclip connection, and push settings.',
     icon: Bot,
     minHeight: 4,
     defaultHeight: 6,
@@ -1271,7 +1271,7 @@ In `packages/ui/src/config/panelRegistry.ts`, change the `agent-ops` entry (line
 
 - [ ] **Step 2: Update useAgentOps hook**
 
-In `src/codrag/dashboard/src/hooks/useAgentOps.ts`, update the data shape to match the new `AgentOpsData` interface (with `EngineStatus` containing `last_run` and `push_count` instead of the previous operational counts). The hook should fetch from the existing `/agents/status` endpoint and reshape the response:
+In `src/prep/dashboard/src/hooks/useAgentOps.ts`, update the data shape to match the new `AgentOpsData` interface (with `EngineStatus` containing `last_run` and `push_count` instead of the previous operational counts). The hook should fetch from the existing `/agents/status` endpoint and reshape the response:
 
 ```typescript
 // Map the API response to the config-only shape
@@ -1286,13 +1286,13 @@ const mapToEngineStatus = (
 
 - [ ] **Step 3: Verify typecheck**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG && npm run typecheck --workspace=@codrag/dashboard`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep && npm run typecheck --workspace=@prep/dashboard`
 Expected: No type errors.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/hooks/useAgentOps.ts \
+git add src/prep/dashboard/src/hooks/useAgentOps.ts \
        packages/ui/src/config/panelRegistry.ts
 git commit -m "feat(dashboard): update agent-ops hook and panel registry for config-only"
 ```
@@ -1304,12 +1304,12 @@ git commit -m "feat(dashboard): update agent-ops hook and panel registry for con
 ### Task 9: Enhanced Codebase Health Widget
 
 **Files:**
-- Create: `packages/paperclip-plugin-codrag/src/ui/CodebaseHealthWidget.tsx` (rewrite)
+- Create: `packages/paperclip-plugin-prep/src/ui/CodebaseHealthWidget.tsx` (rewrite)
 
 - [ ] **Step 1: Write the enhanced widget**
 
 ```tsx
-// packages/paperclip-plugin-codrag/src/ui/CodebaseHealthWidget.tsx
+// packages/paperclip-plugin-prep/src/ui/CodebaseHealthWidget.tsx
 /**
  * Codebase Health Widget — Paperclip dashboard widget.
  *
@@ -1348,13 +1348,13 @@ export function CodebaseHealthWidget() {
   const { data, loading } = usePluginData<HealthData>('codebase-health');
 
   if (loading) {
-    return <div className="p-4 text-sm text-gray-500">Loading CoDRAG status...</div>;
+    return <div className="p-4 text-sm text-gray-500">Loading Prep status...</div>;
   }
 
   if (data?.error) {
     return (
       <div className="p-4">
-        <div className="text-sm text-red-400">CoDRAG daemon unavailable</div>
+        <div className="text-sm text-red-400">Prep daemon unavailable</div>
         <div className="text-xs text-gray-500 mt-1">{data.error}</div>
       </div>
     );
@@ -1366,7 +1366,7 @@ export function CodebaseHealthWidget() {
 
   return (
     <div className="p-4 space-y-3">
-      <div className="text-sm font-medium">CoDRAG Codebase Health</div>
+      <div className="text-sm font-medium">Prep Codebase Health</div>
 
       {/* Pipeline status */}
       <div className="text-xs text-gray-400">
@@ -1433,7 +1433,7 @@ export function CodebaseHealthWidget() {
 - [ ] **Step 2: Commit**
 
 ```bash
-git add packages/paperclip-plugin-codrag/src/ui/CodebaseHealthWidget.tsx
+git add packages/paperclip-plugin-prep/src/ui/CodebaseHealthWidget.tsx
 git commit -m "feat(plugin): enhanced Codebase Health dashboard widget"
 ```
 
@@ -1442,17 +1442,17 @@ git commit -m "feat(plugin): enhanced Codebase Health dashboard widget"
 ### Task 10: Enhanced Knowledge Scope Tab
 
 **Files:**
-- Create: `packages/paperclip-plugin-codrag/src/ui/KnowledgeScopeTab.tsx` (rewrite)
+- Create: `packages/paperclip-plugin-prep/src/ui/KnowledgeScopeTab.tsx` (rewrite)
 
 - [ ] **Step 1: Write the enhanced tab**
 
 ```tsx
-// packages/paperclip-plugin-codrag/src/ui/KnowledgeScopeTab.tsx
+// packages/paperclip-plugin-prep/src/ui/KnowledgeScopeTab.tsx
 /**
  * Knowledge Scope Tab — read-only agent scope view in Paperclip.
  *
- * Shows the CoDRAG-configured file scope for this agent,
- * plus any active file claims. Editing happens in CoDRAG dashboard only.
+ * Shows the Prep-configured file scope for this agent,
+ * plus any active file claims. Editing happens in Prep dashboard only.
  */
 import { usePluginData, useEntityContext } from '@paperclipai/plugin-sdk/react';
 
@@ -1492,7 +1492,7 @@ export function KnowledgeScopeTab() {
       <div className="p-4">
         <div className="text-sm text-yellow-400">{scopeData.error}</div>
         <div className="text-xs text-gray-500 mt-2">
-          Configure agent scopes in the CoDRAG dashboard (Agent Knowledge Scopes panel).
+          Configure agent scopes in the Prep dashboard (Agent Knowledge Scopes panel).
         </div>
       </div>
     );
@@ -1527,7 +1527,7 @@ export function KnowledgeScopeTab() {
         </div>
       ) : (
         <div className="text-xs text-gray-500 italic">
-          No files in scope. Configure in CoDRAG dashboard.
+          No files in scope. Configure in Prep dashboard.
         </div>
       )}
 
@@ -1551,7 +1551,7 @@ export function KnowledgeScopeTab() {
       )}
 
       <div className="text-[10px] text-gray-600 border-t border-gray-800 pt-2">
-        Scope is read-only here. Edit in CoDRAG dashboard → Agent Knowledge Scopes.
+        Scope is read-only here. Edit in Prep dashboard → Agent Knowledge Scopes.
       </div>
     </div>
   );
@@ -1561,7 +1561,7 @@ export function KnowledgeScopeTab() {
 - [ ] **Step 2: Commit**
 
 ```bash
-git add packages/paperclip-plugin-codrag/src/ui/KnowledgeScopeTab.tsx
+git add packages/paperclip-plugin-prep/src/ui/KnowledgeScopeTab.tsx
 git commit -m "feat(plugin): enhanced Knowledge Scope tab with claims overlay"
 ```
 
@@ -1570,16 +1570,16 @@ git commit -m "feat(plugin): enhanced Knowledge Scope tab with claims overlay"
 ### Task 11: Enhanced Issue Context Tab
 
 **Files:**
-- Create: `packages/paperclip-plugin-codrag/src/ui/IssueContextTab.tsx` (rewrite)
+- Create: `packages/paperclip-plugin-prep/src/ui/IssueContextTab.tsx` (rewrite)
 
 - [ ] **Step 1: Write the enhanced tab**
 
 ```tsx
-// packages/paperclip-plugin-codrag/src/ui/IssueContextTab.tsx
+// packages/paperclip-plugin-prep/src/ui/IssueContextTab.tsx
 /**
- * Issue Context Tab — structural context for CoDRAG-pushed issues.
+ * Issue Context Tab — structural context for Prep-pushed issues.
  *
- * For issues pushed from CoDRAG (has codrag-address in description):
+ * For issues pushed from Prep (has prep-address in description):
  * shows structural complexity, hub involvement, consensus score.
  *
  * For other issues: offers on-demand enrichment.
@@ -1593,16 +1593,16 @@ interface IssueEntity {
   description: string;
 }
 
-function parseCodragMetadata(description: string): {
+function parsePrepMetadata(description: string): {
   address: string | null;
   isDelta: boolean;
   isConflict: boolean;
 } {
-  const addressMatch = description.match(/<!-- codrag-address:(.*?) -->/);
+  const addressMatch = description.match(/<!-- prep-address:(.*?) -->/);
   return {
     address: addressMatch?.[1] ?? null,
-    isDelta: description.includes('<!-- codrag-delta:true -->'),
-    isConflict: description.includes('<!-- codrag-conflict:true -->'),
+    isDelta: description.includes('<!-- prep-delta:true -->'),
+    isConflict: description.includes('<!-- prep-conflict:true -->'),
   };
 }
 
@@ -1636,10 +1636,10 @@ export function IssueContextTab() {
     return <div className="p-4 text-sm text-gray-500">No issue selected</div>;
   }
 
-  const meta = parseCodragMetadata(entity.description);
+  const meta = parsePrepMetadata(entity.description);
   const structural = parseStructuralContext(entity.description);
 
-  // CoDRAG-pushed issue with structural context
+  // Prep-pushed issue with structural context
   if (meta.address && structural) {
     const tierColor =
       structural.complexity === 'heavyweight' ? 'text-red-400' :
@@ -1648,7 +1648,7 @@ export function IssueContextTab() {
 
     return (
       <div className="p-4 space-y-3">
-        <div className="text-sm font-medium">CoDRAG Structural Context</div>
+        <div className="text-sm font-medium">Prep Structural Context</div>
 
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
@@ -1693,11 +1693,11 @@ export function IssueContextTab() {
     );
   }
 
-  // Non-CoDRAG issue — offer enrichment
+  // Non-Prep issue — offer enrichment
   return (
     <div className="p-4 space-y-3">
       <div className="text-sm text-gray-500">
-        No CoDRAG context for this issue.
+        No Prep context for this issue.
       </div>
       <button
         onClick={async () => {
@@ -1716,7 +1716,7 @@ export function IssueContextTab() {
         {enriching ? 'Enriching...' : 'Add Structural Analysis'}
       </button>
       <div className="text-[10px] text-gray-600">
-        Runs codrag:impact on files mentioned in the issue description.
+        Runs prep:impact on files mentioned in the issue description.
       </div>
     </div>
   );
@@ -1726,7 +1726,7 @@ export function IssueContextTab() {
 - [ ] **Step 2: Commit**
 
 ```bash
-git add packages/paperclip-plugin-codrag/src/ui/IssueContextTab.tsx
+git add packages/paperclip-plugin-prep/src/ui/IssueContextTab.tsx
 git commit -m "feat(plugin): enhanced Issue Context tab with structural analysis"
 ```
 
@@ -1735,7 +1735,7 @@ git commit -m "feat(plugin): enhanced Issue Context tab with structural analysis
 ### Task 12: Extend Plugin Worker — Data Providers + Actions
 
 **Files:**
-- Modify: `packages/paperclip-plugin-codrag/src/worker/index.ts:249-304` (extend data providers, add new ones, add action)
+- Modify: `packages/paperclip-plugin-prep/src/worker/index.ts:249-304` (extend data providers, add new ones, add action)
 
 - [ ] **Step 1: Extend `codebase-health` data provider**
 
@@ -1760,7 +1760,7 @@ In the worker's `setup()` function, replace the `codebase-health` data provider 
           delta,
         };
       } catch {
-        return { status: null, readiness: null, push_summary: null, consensus: [], delta: null, error: 'CoDRAG daemon unavailable' };
+        return { status: null, readiness: null, push_summary: null, consensus: [], delta: null, error: 'Prep daemon unavailable' };
       }
     });
 ```
@@ -1776,14 +1776,14 @@ Replace the existing `agent-knowledge-scope` registration (around line 264):
         const agentId = (input as Record<string, unknown>)?.entityId as string;
         if (!agentId) return { files: [], role: null, error: 'No agent selected' };
 
-        // Read role from agent's adapter config (set by CoDRAG push_to_paperclip)
+        // Read role from agent's adapter config (set by Prep push_to_paperclip)
         const agent = await ctx.agents.get(agentId).catch(() => null);
-        const roleSlug = (agent as any)?.adapterConfig?.codrag_role
+        const roleSlug = (agent as any)?.adapterConfig?.prep_role
           ?? await ctx.state.get({
                scopeKind: 'agent', scopeId: agentId, stateKey: 'role_slug',
              });
 
-        if (!roleSlug) return { files: [], role: null, error: 'No CoDRAG role mapped for this agent' };
+        if (!roleSlug) return { files: [], role: null, error: 'No Prep role mapped for this agent' };
 
         const data = await client.request(`/projects/${pid}/agent-scope/${roleSlug}`);
         return { ...(data as object), role: roleSlug };
@@ -1865,18 +1865,18 @@ After the existing `run-custodian` action (around line 324), add:
 Change the final log line (around line 356):
 
 ```typescript
-    ctx.logger.info('CoDRAG plugin initialized — 5 tools, 6 data providers, 3 actions, 1 job');
+    ctx.logger.info('Prep plugin initialized — 5 tools, 6 data providers, 3 actions, 1 job');
 ```
 
 - [ ] **Step 6: Verify build**
 
-Run: `cd /Volumes/4TB-BAD/HumanAI/CoDRAG/packages/paperclip-plugin-codrag && npm run build`
+Run: `cd /Volumes/4TB-BAD/HumanAI/Prep/packages/paperclip-plugin-prep && npm run build`
 Expected: Build succeeds (or at minimum `tsc --noEmit` passes if no build script).
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add packages/paperclip-plugin-codrag/src/worker/index.ts
+git add packages/paperclip-plugin-prep/src/worker/index.ts
 git commit -m "feat(plugin): extend worker with consensus, push-summary providers and enrich action"
 ```
 
@@ -1887,11 +1887,11 @@ git commit -m "feat(plugin): extend worker with consensus, push-summary provider
 ### Task 13: Add `push` Query Param to Agent Endpoints
 
 **Files:**
-- Modify: `src/codrag/api/routers/agents.py:102-139` (hr_generate), and researcher/custodian endpoints
+- Modify: `src/prep/api/routers/agents.py:102-139` (hr_generate), and researcher/custodian endpoints
 
 - [ ] **Step 1: Add push param to HR generate**
 
-In `src/codrag/api/routers/agents.py`, modify the `HRGenerateRequest` model (line 45):
+In `src/prep/api/routers/agents.py`, modify the `HRGenerateRequest` model (line 45):
 
 ```python
 class HRGenerateRequest(BaseModel):
@@ -1907,7 +1907,7 @@ At the end of `hr_generate()` (after the file collection loop), add:
     push_count = 0
     if req.push:
         try:
-            from codrag.agents.hr.engine import StaffingEngine
+            from prep.agents.hr.engine import StaffingEngine
             engine_fresh = StaffingEngine(core=core)
             engine_fresh.push_to_paperclip(llm_fn)
             push_count = len(roles)
@@ -1949,7 +1949,7 @@ class CustodianRunRequest(BaseModel):
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/api/routers/agents.py
+git add src/prep/api/routers/agents.py
 git commit -m "feat(api): add push query param to agent engine endpoints"
 ```
 
@@ -1967,7 +1967,7 @@ git commit -m "feat(api): add push query param to agent engine endpoints"
 """Tests for significance classification helpers."""
 import pytest
 
-from codrag.adapters.pm_models import classify_significance
+from prep.adapters.pm_models import classify_significance
 
 
 def test_security_finding_is_mandatory():
@@ -2008,7 +2008,7 @@ Expected: FAIL — `classify_significance` doesn't exist.
 
 - [ ] **Step 3: Implement `classify_significance` in pm_models.py**
 
-In `src/codrag/adapters/pm_models.py`, after `compute_complexity_tier`, add:
+In `src/prep/adapters/pm_models.py`, after `compute_complexity_tier`, add:
 
 ```python
 def classify_significance(
@@ -2040,7 +2040,7 @@ Expected: All 5 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/adapters/pm_models.py tests/test_significance.py
+git add src/prep/adapters/pm_models.py tests/test_significance.py
 git commit -m "feat(push): add significance classification for engine findings"
 ```
 
@@ -2049,23 +2049,23 @@ git commit -m "feat(push): add significance classification for engine findings"
 ### Task 15: Integrate Enrichment into PushEngine._push_group
 
 **Files:**
-- Modify: `src/codrag/adapters/push_engine.py:175-260` (enrich in `_push_group`)
+- Modify: `src/prep/adapters/push_engine.py:175-260` (enrich in `_push_group`)
 
 - [ ] **Step 1: Add enrichment call in `_push_group`**
 
-In `src/codrag/adapters/push_engine.py`, in `_push_group()` (after building the `pm_issue` at line 241, before the dedup check at line 244), add:
+In `src/prep/adapters/push_engine.py`, in `_push_group()` (after building the `pm_issue` at line 241, before the dedup check at line 244), add:
 
 ```python
         # Structural enrichment (Phase 73.5 Emergence)
         structural_ctx = self._enrich_with_structural_context(
             affected_files=group.affected_files[:20],
-            project_id=codrag_project_id,
+            project_id=prep_project_id,
         )
         if structural_ctx:
             pm_issue.structural_context = structural_ctx
             # Append structural context to description
             pm_issue.description += (
-                f"\n\n---\n### Structural Context (CoDRAG)\n"
+                f"\n\n---\n### Structural Context (Prep)\n"
                 f"- **Complexity:** {structural_ctx.complexity_tier}\n"
             )
             if structural_ctx.hub_files_involved:
@@ -2085,11 +2085,11 @@ After the structural enrichment block, add consensus enrichment:
 
 ```python
         # Consensus enrichment
-        if codrag_project_id:
+        if prep_project_id:
             try:
-                from codrag.services.observation_store import observation_store
+                from prep.services.observation_store import observation_store
                 consensus = observation_store.get_consensus_scores(
-                    codrag_project_id, min_agents=2, since_days=30,
+                    prep_project_id, min_agents=2, since_days=30,
                 )
                 # Check if any affected files are in consensus hotspots
                 affected_set = set(group.affected_files)
@@ -2117,7 +2117,7 @@ Expected: All PASS.
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/adapters/push_engine.py
+git add src/prep/adapters/push_engine.py
 git commit -m "feat(push): integrate structural + consensus enrichment into push pipeline"
 ```
 

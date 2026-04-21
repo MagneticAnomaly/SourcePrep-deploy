@@ -1,6 +1,6 @@
 # Security Marketing Page — Content Draft
 
-*Status: Draft for codrag.io/security*
+*Status: Draft for runprep.io/security*
 *Created: Mar 9, 2026*
 *Ref: ENTERPRISE_ADMIN_DESIGN.md §17, existing security page at `websites/apps/marketing/src/app/security/page.tsx`*
 
@@ -42,11 +42,11 @@ The existing `/security` page covers Local-First Architecture, Telemetry, Networ
 ```
 Section 04A. LLM Security
 
-"CoDRAG sends code to LLMs for semantic enrichment. Here's how we 
+"Prep sends code to LLMs for semantic enrichment. Here's how we 
 protect your source code during that process."
 
 ┌─────────────────────────────────────────────────────────┐
-│  DATA FLOW — What Happens When CoDRAG Talks to an LLM  │
+│  DATA FLOW — What Happens When Prep Talks to an LLM  │
 │                                                         │
 │  Your Code  ──→  [Input Sanitization]  ──→  LLM API    │
 │                   • Strip invisible Unicode             │
@@ -60,7 +60,7 @@ protect your source code during that process."
 │                   • Sanitize before storage              │
 └─────────────────────────────────────────────────────────┘
 
-Assertion: CoDRAG aligns with the OWASP Top 10 for LLM Applications 
+Assertion: Prep aligns with the OWASP Top 10 for LLM Applications 
 (2025). We specifically mitigate:
 
   LLM01 Prompt Injection    — Input sanitization + output validation
@@ -102,7 +102,7 @@ Our CI/CD pipeline runs automated security scanning on every build:
 │ SBOM         │ Software Bill of Materials for audit    │
 └──────────────┴────────────────────────────────────────┘
 
-Docker images for Team Sync (codrag-headless) are:
+Docker images for Team Sync (prep-headless) are:
   • Built in CI with reproducible builds
   • Scanned for vulnerabilities before publish
   • Signed with Sigstore/Cosign (Enterprise)
@@ -118,7 +118,7 @@ Docker images for Team Sync (codrag-headless) are:
 ```
 Section 06A. Enterprise Security
 
-For teams and enterprises, CoDRAG adds IT-managed security controls:
+For teams and enterprises, Prep adds IT-managed security controls:
 
 TEAM TIER:
   ✓ Provider allowlists — IT controls which LLM providers are available
@@ -155,7 +155,7 @@ A single card in the features section of the main marketing page (`/`).
 ```
 🔒 Security-First Architecture
 
-Your code stays on your machine. CoDRAG runs locally with 
+Your code stays on your machine. Prep runs locally with 
 zero telemetry, offline licensing, and no cloud dependencies.
 
 When you choose to use cloud LLMs, we protect your code with 

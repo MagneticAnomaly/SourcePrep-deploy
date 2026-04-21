@@ -3,7 +3,7 @@
 ## Title Options
 1. **Local-first "Context Engine" for air-gapped dev environments (No cloud dependency)**
 2. **I built a self-hosted alternative to GitHub Copilot's indexing layer**
-3. **Tool sharing: CoDRAG - A structural code indexer that runs locally (Rust + Tauri)**
+3. **Tool sharing: Prep - A structural code indexer that runs locally (Rust + Tauri)**
 
 ## Body Structure
 
@@ -11,7 +11,7 @@
 We're seeing more demand for "AI coding tools" in our org, but the security team shuts down anything that uploads code to a SaaS vector DB.
 
 ### The Project
-I built **CoDRAG**, a desktop daemon that indexes code locally. It's designed to run on the developer's laptop, building a dependency graph of the codebase without touching the network.
+I built **Prep**, a desktop daemon that indexes code locally. It's designed to run on the developer's laptop, building a dependency graph of the codebase without touching the network.
 
 ### Why for DevOps/Platform?
 *   **Security:** Index stays on localhost.

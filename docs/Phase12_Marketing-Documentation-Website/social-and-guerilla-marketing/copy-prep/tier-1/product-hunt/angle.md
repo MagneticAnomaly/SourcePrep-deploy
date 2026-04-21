@@ -1,7 +1,7 @@
 # Channel Copy Preparation Template
 
 ## Angle (from PRIORITY_CHANNELS.md)
-"CoDRAG — Local-first structural code context for AI coding tools"
+"Prep — Local-first structural code context for AI coding tools"
 
 ## Key Messaging Pillars
 - Pillar 1: M4 (MCP companion)

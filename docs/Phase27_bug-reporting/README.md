@@ -2,7 +2,7 @@
 
 ## Overview
 
-One-click bug reporting from the CoDRAG dashboard. Users click the bug icon in the
+One-click bug reporting from the Prep dashboard. Users click the bug icon in the
 Process Logs panel, fill out a short form (email + description), and the app
 auto-collects **comprehensive** diagnostics and submits everything to our ingestion
 service. Offline fallback: download the report as a JSON file and email it.
@@ -16,7 +16,7 @@ architecture are forward-compatible with a full ticket system.
 
 ```
 ┌──────────────────────┐        ┌─────────────────────────────┐
-│  CoDRAG Dashboard    │  POST  │  support.codrag.io          │
+│  Prep Dashboard    │  POST  │  support.runprep.io          │
 │  (Tauri / Browser)   │───────>│  /api/bug-report            │
 │                      │        │  (Next.js API route, Vercel)│
 │  BugReportModal      │        └──────┬──────────────────────┘
@@ -35,14 +35,14 @@ architecture are forward-compatible with a full ticket system.
                                        │
                                        ▼
                                 ┌──────────────────┐
-                                │  bugs@codrag.io   │
+                                │  bugs@runprep.io   │
                                 │  inbox            │
                                 └──────────────────┘
 ```
 
 ### MVP: Next.js API route in support app
 
-The `@codrag/support` app (deployed to `support.codrag.io` on Vercel) already
+The `@prep/support` app (deployed to `support.runprep.io` on Vercel) already
 exists. The bug report endpoint is a serverless API route at
 `/api/bug-report`. This avoids spinning up new infrastructure.
 
@@ -60,8 +60,8 @@ For the browser dashboard, CORS headers are set on the API route.
 ### Offline fallback
 
 If the endpoint is unreachable (offline, timeout, error), the modal
-auto-downloads the report as `codrag-bug-report-{date}.json` and shows
-instructions to email it to `support@codrag.io`.
+auto-downloads the report as `prep-bug-report-{date}.json` and shows
+instructions to email it to `support@runprep.io`.
 
 ---
 
@@ -154,7 +154,7 @@ Only endpoint URLs and provider names are included.
   "platform": { ... },
   "diagnostics": { ... },
   "logs": [
-    { "time": "2026-02-18T20:55:30.000Z", "level": "ERROR", "logger": "codrag.core.index", "message": "..." }
+    { "time": "2026-02-18T20:55:30.000Z", "level": "ERROR", "logger": "prep.core.index", "message": "..." }
   ]
 }
 ```
@@ -169,7 +169,7 @@ Only endpoint URLs and provider names are included.
 |-----------|----------|--------|
 | `BugReportModal` | `packages/ui/src/components/console/BugReportModal.tsx` | ✅ Done |
 | `LogConsole` (updated) | `packages/ui/src/components/console/LogConsole.tsx` | ✅ Done |
-| `diagnosticData` wiring | `src/codrag/dashboard/src/hooks/useDashboardPanels.tsx` | ✅ Done |
+| `diagnosticData` wiring | `src/prep/dashboard/src/hooks/useDashboardPanels.tsx` | ✅ Done |
 
 ### BugReportModal UX
 
@@ -184,7 +184,7 @@ Only endpoint URLs and provider names are included.
    summary of collected data (platform, project status, logs count, etc.).
    User can review before sending.
 4. **Submit button** — "Send Report"
-   - Tries POST to `support.codrag.io/api/bug-report` (10s timeout)
+   - Tries POST to `support.runprep.io/api/bug-report` (10s timeout)
    - On success: green confirmation, modal auto-closes after 3s
    - On failure: auto-downloads JSON + amber warning with email fallback
 5. **Download button** — always available for manual download
@@ -210,7 +210,7 @@ App.tsx
 #### Endpoint
 
 ```
-POST https://support.codrag.io/api/bug-report
+POST https://support.runprep.io/api/bug-report
 Content-Type: application/json
 ```
 
@@ -221,7 +221,7 @@ Content-Type: application/json
 3. Generate report ID: `br-{base36-timestamp}-{random}`
 4. Log to Vercel function logs (always available as backup)
 5. Send notification via Resend:
-   - To: `bugs@codrag.io` (configurable via `BUG_REPORT_EMAIL` env var)
+   - To: `bugs@runprep.io` (configurable via `BUG_REPORT_EMAIL` env var)
    - Reply-To: reporter's email
    - Subject: `{severity emoji} [Bug SEVERITY] first 80 chars of description`
    - Body: HTML summary table + description + steps + recent errors (last 20)
@@ -242,7 +242,7 @@ Content-Type: application/json
 | Var | Required | Default |
 |-----|----------|---------|
 | `RESEND_API_KEY` | For email | None (logs only if missing) |
-| `BUG_REPORT_EMAIL` | No | `bugs@codrag.io` |
+| `BUG_REPORT_EMAIL` | No | `bugs@runprep.io` |
 
 #### CORS
 
@@ -314,12 +314,12 @@ CREATE INDEX idx_reports_created ON reports(created_at DESC);
 
 ```typescript
 // Frontend (BugReportModal.tsx)
-const BUG_REPORT_ENDPOINT = 'https://support.codrag.io/api/bug-report';
+const BUG_REPORT_ENDPOINT = 'https://support.runprep.io/api/bug-report';
 const SUBMIT_TIMEOUT_MS = 10_000;
 ```
 
 ```bash
 # Backend (support app .env.local)
 RESEND_API_KEY=re_...
-BUG_REPORT_EMAIL=bugs@codrag.io
+BUG_REPORT_EMAIL=bugs@runprep.io
 ```

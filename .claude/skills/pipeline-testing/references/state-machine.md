@@ -1,6 +1,6 @@
 # Group State Machine
 
-Defined in `src/codrag/services/pipeline/state_machine.py:94-200` (`_TRANSITIONS` dict).
+Defined in `src/prep/services/pipeline/state_machine.py:94-200` (`_TRANSITIONS` dict).
 
 ## States (10)
 

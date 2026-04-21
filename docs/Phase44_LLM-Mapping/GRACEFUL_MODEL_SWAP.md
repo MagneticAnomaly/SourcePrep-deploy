@@ -167,7 +167,7 @@ Internally calls `orchestrator.swap_model(project_id, group)`.
 
 ## Why This Works
 
-The key architectural insight is that **CoDRAG's pipeline is already designed for interruption**:
+The key architectural insight is that **Prep's pipeline is already designed for interruption**:
 
 - Workers write results incrementally (JSONL append)
 - Cancel tokens enable cooperative stopping

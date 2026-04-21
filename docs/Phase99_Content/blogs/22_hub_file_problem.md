@@ -7,12 +7,12 @@ This article is planned in detail in [`20_medium_articles.md`](./20_medium_artic
 ## What needs to happen first
 
 1. Pick a real hub file in a medium test repo. Recommended starting point: `gin-go` from `tests/eval/real_repos/`, hub candidate `context.go`.
-2. In a clean Claude Code session *without* CoDRAG attached, ask Claude Code: *"I'm considering renaming `<function>` in `context.go` to `<new_name>`. What do I need to check before making this change?"* Log every file it reads and save the full answer.
-3. In a second Claude Code session *with* CoDRAG attached, ask the same question. Log tool calls and save the answer.
-4. Run `codrag_impact` directly on the function with `max_hops=3`. Save the output. Run a quick grep as a ground-truth sanity check.
+2. In a clean Claude Code session *without* Prep attached, ask Claude Code: *"I'm considering renaming `<function>` in `context.go` to `<new_name>`. What do I need to check before making this change?"* Log every file it reads and save the full answer.
+3. In a second Claude Code session *with* Prep attached, ask the same question. Log tool calls and save the answer.
+4. Run `prep_impact` directly on the function with `max_hops=3`. Save the output. Run a quick grep as a ground-truth sanity check.
 5. Drop everything into `02_hub_raw_output.md` in this folder.
 
-Once the raw outputs exist, the article draft is ~1–2 days of work. The delta between Claude Code's answer and CoDRAG's impact query is the story. If there is no delta, the article changes shape (it becomes "here is the case where the tools converged and here is why") rather than getting killed — but that determination has to come from the real data, not from a guess about it.
+Once the raw outputs exist, the article draft is ~1–2 days of work. The delta between Claude Code's answer and Prep's impact query is the story. If there is no delta, the article changes shape (it becomes "here is the case where the tools converged and here is why") rather than getting killed — but that determination has to come from the real data, not from a guess about it.
 
 ## Why this is blocked
 

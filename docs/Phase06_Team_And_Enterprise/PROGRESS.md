@@ -5,16 +5,16 @@
 ## Completed
 
 ### Scaffolding (Session 1)
-- [x] `public/codrag-deploy/` subtree with README, decision tree
+- [x] `public/prep-deploy/` subtree with README, decision tree
 - [x] `Dockerfile.cpu` (slim, ~2-3 GB, BYOK)
 - [x] `Dockerfile.gpu` (fat, ~8-10 GB, baked Ollama + Qwen3:4b)
 - [x] `entrypoint.sh` (GPU image: starts Ollama conditionally)
 - [x] Modal adapter (`modal/modal_adapter.py` + README)
 - [x] RunPod adapter (`runpod/Dockerfile.runpod` + `runpod_handler.py` + README)
-- [x] GitHub Actions template (`github-actions/codrag-sync.yml` + README) — dual mode: CPU+BYOK / GPU webhook
+- [x] GitHub Actions template (`github-actions/prep-sync.yml` + README) — dual mode: CPU+BYOK / GPU webhook
 - [x] AWS ECS reference (`aws/ecs-task-definition.json` + README)
 - [x] Publish script (`scripts/publish_deploy_subtree.sh`)
-- [x] `codrag sync-headless` CLI command with full arg schema
+- [x] `prep sync-headless` CLI command with full arg schema
 - [x] `S3StorageProvider` (upload, download, atomic swap, manifest versioning)
 
 ### Pipeline Wiring — P06-S05 (Session 2)
@@ -23,7 +23,7 @@
 - [x] **`headless_create_llm_client()`** — server-free LLM client factory with default endpoints
 - [x] **`headless_create_embedder()`** — server-free embedder factory (NativeEmbedder or OllamaEmbedder)
 - [x] **`HeadlessWorkerFactory`** — 10 stage worker methods that construct core classes directly
-  - No imports from `codrag.server` — fully decoupled from the daemon
+  - No imports from `prep.server` — fully decoupled from the daemon
   - Shares a single LLM client across stages (lazy-init)
   - Batch profile resolution via `resolve_profile()` (no UI config dependency)
 - [x] **Sequential stage runner in `HeadlessRunner._run_pipeline()`**
@@ -41,7 +41,7 @@
 - **Conclusion:** When headless downloads the previous index from S3 before running, incremental rebuild is 90% free. No new code needed.
 
 ### Client-side Remote Sync — P06-S14 (completed)
-- [x] `src/codrag/services/remote_sync.py` — `RemoteSyncService` class
+- [x] `src/prep/services/remote_sync.py` — `RemoteSyncService` class
   - Reads `.prep/team_config.json` (committed, secret-free)
   - Resolves S3 credentials from env vars or `.prep/.secrets` (gitignored)
   - `check_and_sync()`: compares remote manifest hash → downloads if newer
@@ -50,7 +50,7 @@
   - **Secrets leakage detection** — `_check_for_leaked_secrets()` scans config for credential-like keys
 
 ### Layered Index + Delta Detection — P06-S16/S17 (completed)
-- [x] `src/codrag/core/layered_index.py` — `LayeredCodeIndex` class
+- [x] `src/prep/core/layered_index.py` — `LayeredCodeIndex` class
   - Wraps remote `CodeIndex` + optional delta `CodeIndex`
   - Tombstone mask: delta file paths are excluded from remote search results
   - Merged `search()` and `get_context()` methods (delta wins on path conflicts)
@@ -65,7 +65,7 @@
 - [x] **Pitfall #3 — Gemini system prompt:** Fixed to use proper `systemInstruction` API field instead of injecting as a fake user message
 - [x] **Pitfall #4 — closure capture bug:** Replaced inline closure with `_make_progress_cb()` factory function that captures `stage_id` by value; added regression test
 - [x] **Pitfall #6 — secrets leakage:** Added `_check_for_leaked_secrets()` that recursively scans `team_config.json` for credential-like keys and logs a SECURITY warning; tested with 5 test cases
-- [x] **Pitfall #7 — Docker build context:** Fixed both Dockerfiles to show correct `docker build -f public/codrag-deploy/Dockerfile.* .` command from repo root
+- [x] **Pitfall #7 — Docker build context:** Fixed both Dockerfiles to show correct `docker build -f public/prep-deploy/Dockerfile.* .` command from repo root
 
 ### Tests — P06-S19/S20/S21/S22 (completed)
 - [x] `tests/test_s3_storage.py` — 14 tests (manifest, config, upload/download)
@@ -88,7 +88,7 @@ The `LLMClient` class only supported `ollama` and `openai`. Anthropic and Google
 **Bonus:** This also benefits the dashboard — users can now configure Anthropic/Google endpoints in the AI Models panel and they'll work for all pipeline stages, not just headless.
 
 ### 2. HeadlessWorkerFactory is a clean abstraction
-The daemon's `WorkerFactory` is tightly coupled to `codrag.server` singletons (`_load_ui_config`, `_get_llm_client_for_slot`). The headless factory proves these can be decoupled.
+The daemon's `WorkerFactory` is tightly coupled to `prep.server` singletons (`_load_ui_config`, `_get_llm_client_for_slot`). The headless factory proves these can be decoupled.
 **Future opportunity:** Refactor the daemon's WorkerFactory to also use explicit config injection. This would make the daemon pipeline testable in isolation (currently untestable without a running server).
 
 ### 3. Batch profiles auto-resolve
@@ -109,8 +109,8 @@ The `try/except ImportError` guard means any future code that accidentally impor
 
 ## Pitfalls Discovered & Mitigated
 
-### 1. `codrag.server` import pollution — ✅ MITIGATED
-**Problem:** `embedder_factory.create_embedder()` did `from codrag.server import` which would fail in headless Docker (no FastAPI).
+### 1. `prep.server` import pollution — ✅ MITIGATED
+**Problem:** `embedder_factory.create_embedder()` did `from prep.server import` which would fail in headless Docker (no FastAPI).
 **Fix:** (a) Added `[headless]` pip extra to `pyproject.toml` — excludes fastapi/uvicorn. (b) Wrapped the import in `try/except ImportError` — graceful degradation to step 4 (NativeEmbedder).
 
 ### 2. Anthropic API format — ✅ HANDLED
@@ -125,7 +125,7 @@ Anthropic uses `x-api-key` header, `/v1/messages` endpoint, and content blocks. 
 **Fix:** Replaced with `_make_progress_cb(sid)` factory function that captures by value. Added regression test `test_closure_captures_correct_stage_id`.
 
 ### 5. Index directory path assumption — ACCEPTABLE
-`HeadlessRunner` uses `repo_path / ".codrag" / "index"` (embedded mode). This is correct for CI/CD — the index lives inside the repo checkout and gets uploaded to S3. Documented.
+`HeadlessRunner` uses `repo_path / ".prep" / "index"` (embedded mode). This is correct for CI/CD — the index lives inside the repo checkout and gets uploaded to S3. Documented.
 
 ### 6. `team_config.json` secrets leakage — ✅ MITIGATED
 **Problem:** If a developer accidentally puts S3 keys in `team_config.json`, they'd be committed to Git.
@@ -133,4 +133,4 @@ Anthropic uses `x-api-key` header, `/v1/messages` endpoint, and content blocks. 
 
 ### 7. Docker build context path — ✅ FIXED
 **Problem:** Dockerfile comments showed `docker build -f Dockerfile.cpu .` which would fail because the build context needs to be the repo root.
-**Fix:** Both Dockerfiles now clearly show: `docker build -f public/codrag-deploy/Dockerfile.cpu -t codrag/headless:cpu .`
+**Fix:** Both Dockerfiles now clearly show: `docker build -f public/prep-deploy/Dockerfile.cpu -t prep/headless:cpu .`

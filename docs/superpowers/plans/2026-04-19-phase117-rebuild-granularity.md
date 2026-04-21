@@ -4,7 +4,7 @@
 
 **Goal:** Add scoped pipeline rebuilds (Sync / Enrichment / All), a single Stop-Rebuild control via a sticky queue row, and per-stage provenance chips (match / drift / self-healed) driven by comparing each stage's manifest model against current task-assignment config.
 
-**Architecture:** Backend extends `/pipeline/fast` and `/pipeline/deep` with a `force_from_start` body param (orchestrator already supports it), adds a new `/pipeline/rebuild/stop` endpoint, and extends the reset-barrier file format with a third line for `scope`. A new `compute_stage_provenance` helper joins each stage's manifest model with `resolve_model_for_stage` (existing at `src/codrag/services/pipeline/_model_resolution.py`) and exposes the result via `/pipeline/status`. Frontend replaces the pipeline panel's rebuild entrypoint with a split-button dropdown, adds a sticky `<RebuildingRow>` when the barrier is active, and renders a `<ProvenanceChip>` under each stage card.
+**Architecture:** Backend extends `/pipeline/fast` and `/pipeline/deep` with a `force_from_start` body param (orchestrator already supports it), adds a new `/pipeline/rebuild/stop` endpoint, and extends the reset-barrier file format with a third line for `scope`. A new `compute_stage_provenance` helper joins each stage's manifest model with `resolve_model_for_stage` (existing at `src/prep/services/pipeline/_model_resolution.py`) and exposes the result via `/pipeline/status`. Frontend replaces the pipeline panel's rebuild entrypoint with a split-button dropdown, adds a sticky `<RebuildingRow>` when the barrier is active, and renders a `<ProvenanceChip>` under each stage card.
 
 **Tech Stack:** Python 3.11 (FastAPI, Pydantic), TypeScript (React 18, Tailwind, vitest, Storybook), pytest.
 
@@ -12,16 +12,16 @@
 
 ## Reference paths
 
-- Barrier helpers: `src/codrag/services/pipeline/recovery.py` lines 60–150
-- Orchestrator: `src/codrag/services/pipeline/orchestrator.py` — `run_fast_sync(force_from_start=bool)` already exists at line 444, `run_deep_enrichment(force_from_start=bool)` at line 746
-- Model resolution: `src/codrag/services/pipeline/_model_resolution.py` — `resolve_model_for_stage(project_id, stage) -> Optional[Tuple[str, str]]`
-- Pipeline router: `src/codrag/api/routers/pipeline.py` — endpoints `fast`, `deep`, `rebuild`, `cancel` already wired; status cache at top of file
+- Barrier helpers: `src/prep/services/pipeline/recovery.py` lines 60–150
+- Orchestrator: `src/prep/services/pipeline/orchestrator.py` — `run_fast_sync(force_from_start=bool)` already exists at line 444, `run_deep_enrichment(force_from_start=bool)` at line 746
+- Model resolution: `src/prep/services/pipeline/_model_resolution.py` — `resolve_model_for_stage(project_id, stage) -> Optional[Tuple[str, str]]`
+- Pipeline router: `src/prep/api/routers/pipeline.py` — endpoints `fast`, `deep`, `rebuild`, `cancel` already wired; status cache at top of file
 - Pipeline status response: built in `_build_status()` inside the same router, starting around line 365
 - UI entry point: `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx`
 - Rebuild progress helpers: `packages/ui/src/components/trace/rebuildProgress.ts`
 - UI types: `packages/ui/src/types.ts`
-- Dashboard hook: `src/codrag/dashboard/src/hooks/useEnrichment.ts`
-- Stage constants (for scope→group→stages lookups): `src/codrag/services/pipeline/stages.py` — exports `FAST_SYNC_STAGES`, `DEEP_ENRICHMENT_STAGES`, `FINALIZE_STAGES`
+- Dashboard hook: `src/prep/dashboard/src/hooks/useEnrichment.ts`
+- Stage constants (for scope→group→stages lookups): `src/prep/services/pipeline/stages.py` — exports `FAST_SYNC_STAGES`, `DEEP_ENRICHMENT_STAGES`, `FINALIZE_STAGES`
 
 Run all Python tests through the project venv per project convention: `.venv/bin/pytest`.
 
@@ -30,7 +30,7 @@ Run all Python tests through the project venv per project convention: `.venv/bin
 ## Task 1: Extend barrier file format with `scope`
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/recovery.py:64-150`
+- Modify: `src/prep/services/pipeline/recovery.py:64-150`
 - Test: `tests/services/pipeline/test_reset_barrier_scope.py` (new)
 
 - [ ] **Step 1: Write the failing tests**
@@ -46,7 +46,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.pipeline.recovery import (
+from prep.services.pipeline.recovery import (
     _RESET_BARRIER_FILENAME,
     clear_reset_barrier,
     read_reset_barrier,
@@ -57,7 +57,7 @@ from codrag.services.pipeline.recovery import (
 @pytest.fixture
 def project_with_idx(tmp_path, monkeypatch):
     """Patch _resolve_idx_dir so recovery helpers write to tmp_path."""
-    from codrag.services.pipeline import recovery
+    from prep.services.pipeline import recovery
 
     monkeypatch.setattr(recovery, "_resolve_idx_dir", lambda _pid: tmp_path)
     return "proj-test", tmp_path
@@ -124,7 +124,7 @@ Expected: all 6 tests FAIL (the `scope` parameter and key don't exist yet).
 
 - [ ] **Step 3: Extend the barrier writer and reader**
 
-In `src/codrag/services/pipeline/recovery.py`, replace `write_reset_barrier`, `clear_reset_barrier`, and `read_reset_barrier` so the file gains an optional 3rd line holding the scope. Keep the 2-line legacy format readable.
+In `src/prep/services/pipeline/recovery.py`, replace `write_reset_barrier`, `clear_reset_barrier`, and `read_reset_barrier` so the file gains an optional 3rd line holding the scope. Keep the 2-line legacy format readable.
 
 Replace lines 64–150 with:
 
@@ -249,7 +249,7 @@ Expected: all tests PASS (legacy callers default to scope="all").
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/recovery.py tests/services/pipeline/test_reset_barrier_scope.py
+git add src/prep/services/pipeline/recovery.py tests/services/pipeline/test_reset_barrier_scope.py
 git commit -m "feat(pipeline): reset barrier gains optional scope (sync/enrichment/all)"
 ```
 
@@ -258,14 +258,14 @@ git commit -m "feat(pipeline): reset barrier gains optional scope (sync/enrichme
 ## Task 2: Scope-aware barrier auto-clear on group completion
 
 **Files:**
-- Modify: `src/codrag/services/pipeline/orchestrator.py` (existing `clear_reset_barrier` calls)
+- Modify: `src/prep/services/pipeline/orchestrator.py` (existing `clear_reset_barrier` calls)
 - Test: `tests/services/pipeline/test_barrier_scope_autoclear.py` (new)
 
 Background — today the orchestrator clears the barrier only on finalize completion. For `scope="sync"` we want it cleared when stage 5 finishes; for `scope="enrichment"` when stage 10 finishes.
 
 - [ ] **Step 1: Find the existing clear points**
 
-Run: `.venv/bin/grep -n "clear_reset_barrier" src/codrag/services/pipeline/orchestrator.py`
+Run: `.venv/bin/grep -n "clear_reset_barrier" src/prep/services/pipeline/orchestrator.py`
 
 Record each line number. There should be at least one call near the finalize-completion path.
 
@@ -279,7 +279,7 @@ from __future__ import annotations
 
 import pytest
 
-from codrag.services.pipeline.recovery import (
+from prep.services.pipeline.recovery import (
     read_reset_barrier,
     write_reset_barrier,
 )
@@ -287,13 +287,13 @@ from codrag.services.pipeline.recovery import (
 
 @pytest.fixture
 def project_with_idx(tmp_path, monkeypatch):
-    from codrag.services.pipeline import recovery
+    from prep.services.pipeline import recovery
     monkeypatch.setattr(recovery, "_resolve_idx_dir", lambda _pid: tmp_path)
     return "proj-test", tmp_path
 
 
 def test_maybe_clear_scoped_barrier_clears_on_sync_boundary(project_with_idx):
-    from codrag.services.pipeline.recovery import maybe_clear_scoped_barrier
+    from prep.services.pipeline.recovery import maybe_clear_scoped_barrier
     project_id, _ = project_with_idx
     write_reset_barrier(project_id, reason="rebuild", scope="sync")
 
@@ -303,7 +303,7 @@ def test_maybe_clear_scoped_barrier_clears_on_sync_boundary(project_with_idx):
 
 
 def test_maybe_clear_scoped_barrier_ignores_wrong_group(project_with_idx):
-    from codrag.services.pipeline.recovery import maybe_clear_scoped_barrier
+    from prep.services.pipeline.recovery import maybe_clear_scoped_barrier
     project_id, _ = project_with_idx
     write_reset_barrier(project_id, reason="rebuild", scope="sync")
 
@@ -313,7 +313,7 @@ def test_maybe_clear_scoped_barrier_ignores_wrong_group(project_with_idx):
 
 
 def test_enrichment_scope_clears_on_deep_boundary(project_with_idx):
-    from codrag.services.pipeline.recovery import maybe_clear_scoped_barrier
+    from prep.services.pipeline.recovery import maybe_clear_scoped_barrier
     project_id, _ = project_with_idx
     write_reset_barrier(project_id, reason="rebuild", scope="enrichment")
 
@@ -322,7 +322,7 @@ def test_enrichment_scope_clears_on_deep_boundary(project_with_idx):
 
 
 def test_all_scope_only_clears_on_finalize(project_with_idx):
-    from codrag.services.pipeline.recovery import maybe_clear_scoped_barrier
+    from prep.services.pipeline.recovery import maybe_clear_scoped_barrier
     project_id, _ = project_with_idx
     write_reset_barrier(project_id, reason="rebuild", scope="all")
 
@@ -339,7 +339,7 @@ Expected: FAIL with `ImportError: cannot import name 'maybe_clear_scoped_barrier
 
 - [ ] **Step 4: Implement `maybe_clear_scoped_barrier`**
 
-In `src/codrag/services/pipeline/recovery.py`, append after `read_reset_barrier`:
+In `src/prep/services/pipeline/recovery.py`, append after `read_reset_barrier`:
 
 ```python
 _SCOPE_BOUNDARY = {
@@ -366,12 +366,12 @@ def maybe_clear_scoped_barrier(project_id: str, completed_group: str) -> bool:
 
 - [ ] **Step 5: Wire it into the orchestrator**
 
-In `src/codrag/services/pipeline/orchestrator.py`, locate every existing `clear_reset_barrier(project_id)` call site and replace the direct clear with a call that also runs on the fast_sync and deep_enrichment completion paths. Search for the completion handlers (look for where `group == "fast_sync"` / `"deep_enrichment"` / `"finalize"` transitions to completed in the state machine callbacks).
+In `src/prep/services/pipeline/orchestrator.py`, locate every existing `clear_reset_barrier(project_id)` call site and replace the direct clear with a call that also runs on the fast_sync and deep_enrichment completion paths. Search for the completion handlers (look for where `group == "fast_sync"` / `"deep_enrichment"` / `"finalize"` transitions to completed in the state machine callbacks).
 
 For each of these three completion paths, ensure a call like this fires **after** the stage state machine flips to completed and **before** the next group's chain dispatch:
 
 ```python
-from codrag.services.pipeline.recovery import maybe_clear_scoped_barrier
+from prep.services.pipeline.recovery import maybe_clear_scoped_barrier
 maybe_clear_scoped_barrier(project_id, completed_group=group_name)
 ```
 
@@ -390,7 +390,7 @@ Expected: all tests PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/services/pipeline/recovery.py src/codrag/services/pipeline/orchestrator.py tests/services/pipeline/test_barrier_scope_autoclear.py
+git add src/prep/services/pipeline/recovery.py src/prep/services/pipeline/orchestrator.py tests/services/pipeline/test_barrier_scope_autoclear.py
 git commit -m "feat(pipeline): barrier auto-clears at scope-appropriate group boundary"
 ```
 
@@ -399,7 +399,7 @@ git commit -m "feat(pipeline): barrier auto-clears at scope-appropriate group bo
 ## Task 3: Add `force_from_start` body param to `/pipeline/fast` and `/pipeline/deep`
 
 **Files:**
-- Modify: `src/codrag/api/routers/pipeline.py` (endpoints for `fast`, `deep`)
+- Modify: `src/prep/api/routers/pipeline.py` (endpoints for `fast`, `deep`)
 - Test: `tests/api/routers/test_pipeline_scoped_rebuild.py` (new)
 
 - [ ] **Step 1: Write the failing tests**
@@ -415,7 +415,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from codrag.server import app
+from prep.server import app
 
 
 @pytest.fixture
@@ -428,7 +428,7 @@ def fake_project(monkeypatch):
     def _noop(_pid):
         return None
     monkeypatch.setattr(
-        "codrag.services.project_helpers.require_project_writable", _noop
+        "prep.services.project_helpers.require_project_writable", _noop
     )
     return "proj-test"
 
@@ -436,7 +436,7 @@ def fake_project(monkeypatch):
 def test_pipeline_fast_with_force_from_start_writes_sync_barrier(
     client, fake_project, monkeypatch
 ):
-    from codrag.services.pipeline import recovery
+    from prep.services.pipeline import recovery
 
     writes: list[tuple[str, str, str]] = []
 
@@ -450,7 +450,7 @@ def test_pipeline_fast_with_force_from_start_writes_sync_barrier(
     orch = MagicMock()
     orch.run_fast_sync = started
     monkeypatch.setattr(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator", orch
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator", orch
     )
 
     resp = client.post(
@@ -465,7 +465,7 @@ def test_pipeline_fast_with_force_from_start_writes_sync_barrier(
 def test_pipeline_deep_with_force_from_start_writes_enrichment_barrier(
     client, fake_project, monkeypatch
 ):
-    from codrag.services.pipeline import recovery
+    from prep.services.pipeline import recovery
     writes: list[tuple[str, str, str]] = []
 
     def fake_write(pid, reason, scope="all"):
@@ -477,7 +477,7 @@ def test_pipeline_deep_with_force_from_start_writes_enrichment_barrier(
     orch = MagicMock()
     orch.run_deep_enrichment = MagicMock(return_value=True)
     monkeypatch.setattr(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator", orch
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator", orch
     )
 
     resp = client.post(
@@ -492,7 +492,7 @@ def test_pipeline_deep_with_force_from_start_writes_enrichment_barrier(
 def test_pipeline_fast_without_force_from_start_does_not_write_barrier(
     client, fake_project, monkeypatch
 ):
-    from codrag.services.pipeline import recovery
+    from prep.services.pipeline import recovery
     writes: list[tuple[str, str, str]] = []
     monkeypatch.setattr(
         recovery, "write_reset_barrier",
@@ -502,7 +502,7 @@ def test_pipeline_fast_without_force_from_start_does_not_write_barrier(
     orch = MagicMock()
     orch.run_fast_sync = MagicMock(return_value=True)
     monkeypatch.setattr(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator", orch
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator", orch
     )
 
     resp = client.post(f"/projects/{fake_project}/pipeline/fast", json={})
@@ -518,7 +518,7 @@ Expected: all 3 tests FAIL (endpoint ignores body params).
 
 - [ ] **Step 3: Update `/pipeline/fast` to accept the body param**
 
-Locate the `pipeline_run_fast` (or similarly named) handler in `src/codrag/api/routers/pipeline.py`. Add a request model above it and update the handler signature. Replace the handler body's call to `run_fast_sync(project_id)` with the scoped version:
+Locate the `pipeline_run_fast` (or similarly named) handler in `src/prep/api/routers/pipeline.py`. Add a request model above it and update the handler signature. Replace the handler body's call to `run_fast_sync(project_id)` with the scoped version:
 
 ```python
 class FastRequest(BaseModel):
@@ -535,19 +535,19 @@ def pipeline_run_fast(
     Phase 117: when ``force_from_start`` is True, writes the rebuild barrier
     with ``scope="sync"`` before dispatch. Otherwise runs incremental resume.
     """
-    from codrag.services.project_helpers import require_project_writable
+    from prep.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 
     force = bool(req.force_from_start) if req else False
 
     if force:
         try:
-            from codrag.services.pipeline.recovery import write_reset_barrier
+            from prep.services.pipeline.recovery import write_reset_barrier
             write_reset_barrier(project_id, reason="rebuild", scope="sync")
         except Exception:
             pass
 
-    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    from prep.services.pipeline_orchestrator import pipeline_orchestrator
     started = pipeline_orchestrator.run_fast_sync(project_id, force_from_start=force)
 
     if not started:
@@ -573,19 +573,19 @@ def pipeline_run_deep(
     project_id: str,
     req: DeepRequest | None = None,
 ) -> dict[str, Any]:
-    from codrag.services.project_helpers import require_project_writable
+    from prep.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 
     force = bool(req.force_from_start) if req else False
 
     if force:
         try:
-            from codrag.services.pipeline.recovery import write_reset_barrier
+            from prep.services.pipeline.recovery import write_reset_barrier
             write_reset_barrier(project_id, reason="rebuild", scope="enrichment")
         except Exception:
             pass
 
-    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    from prep.services.pipeline_orchestrator import pipeline_orchestrator
     started = pipeline_orchestrator.run_deep_enrichment(project_id, force_from_start=force)
 
     if not started:
@@ -614,7 +614,7 @@ Expected: all tests PASS.
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/api/routers/pipeline.py tests/api/routers/test_pipeline_scoped_rebuild.py
+git add src/prep/api/routers/pipeline.py tests/api/routers/test_pipeline_scoped_rebuild.py
 git commit -m "feat(api): /pipeline/fast and /pipeline/deep accept force_from_start"
 ```
 
@@ -623,7 +623,7 @@ git commit -m "feat(api): /pipeline/fast and /pipeline/deep accept force_from_st
 ## Task 4: New `/pipeline/rebuild/stop` endpoint
 
 **Files:**
-- Modify: `src/codrag/api/routers/pipeline.py` (add endpoint near existing `pipeline_cancel`)
+- Modify: `src/prep/api/routers/pipeline.py` (add endpoint near existing `pipeline_cancel`)
 - Test: `tests/api/routers/test_pipeline_rebuild_stop.py` (new)
 
 - [ ] **Step 1: Write the failing tests**
@@ -639,7 +639,7 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from codrag.server import app
+from prep.server import app
 
 
 @pytest.fixture
@@ -650,14 +650,14 @@ def client():
 @pytest.fixture
 def fake_project(monkeypatch):
     monkeypatch.setattr(
-        "codrag.services.project_helpers.require_project_writable", lambda _pid: None
+        "prep.services.project_helpers.require_project_writable", lambda _pid: None
     )
     return "proj-test"
 
 
 def test_rebuild_stop_clears_barrier_when_idle(client, fake_project, monkeypatch):
     """If no rebuild is active, endpoint still returns success and no-ops."""
-    from codrag.services.pipeline import recovery
+    from prep.services.pipeline import recovery
 
     monkeypatch.setattr(recovery, "read_reset_barrier", lambda _pid: None)
     monkeypatch.setattr(recovery, "clear_reset_barrier", lambda _pid: False)
@@ -665,7 +665,7 @@ def test_rebuild_stop_clears_barrier_when_idle(client, fake_project, monkeypatch
     orch = MagicMock()
     orch._cancel_group = MagicMock(return_value=False)
     monkeypatch.setattr(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator", orch
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator", orch
     )
 
     resp = client.post(f"/projects/{fake_project}/pipeline/rebuild/stop")
@@ -678,7 +678,7 @@ def test_rebuild_stop_clears_barrier_when_idle(client, fake_project, monkeypatch
 def test_rebuild_stop_cancels_active_group_and_clears_barrier(
     client, fake_project, monkeypatch
 ):
-    from codrag.services.pipeline import recovery
+    from prep.services.pipeline import recovery
 
     monkeypatch.setattr(
         recovery, "read_reset_barrier",
@@ -695,7 +695,7 @@ def test_rebuild_stop_cancels_active_group_and_clears_barrier(
     orch.cancel_deep_enrichment = MagicMock(return_value=False)
     orch.cancel_finalize = MagicMock(return_value=False)
     monkeypatch.setattr(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator", orch
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator", orch
     )
 
     resp = client.post(f"/projects/{fake_project}/pipeline/rebuild/stop")
@@ -708,7 +708,7 @@ def test_rebuild_stop_cancels_active_group_and_clears_barrier(
 
 
 def test_rebuild_stop_enrichment_scope_cancels_deep(client, fake_project, monkeypatch):
-    from codrag.services.pipeline import recovery
+    from prep.services.pipeline import recovery
 
     monkeypatch.setattr(
         recovery, "read_reset_barrier",
@@ -719,7 +719,7 @@ def test_rebuild_stop_enrichment_scope_cancels_deep(client, fake_project, monkey
     orch = MagicMock()
     orch.cancel_deep_enrichment = MagicMock(return_value=True)
     monkeypatch.setattr(
-        "codrag.services.pipeline_orchestrator.pipeline_orchestrator", orch
+        "prep.services.pipeline_orchestrator.pipeline_orchestrator", orch
     )
 
     resp = client.post(f"/projects/{fake_project}/pipeline/rebuild/stop")
@@ -734,7 +734,7 @@ Expected: 3 tests FAIL (endpoint does not exist, 404 or similar).
 
 - [ ] **Step 3: Add the endpoint**
 
-In `src/codrag/api/routers/pipeline.py`, add near the existing `pipeline_cancel` handler:
+In `src/prep/api/routers/pipeline.py`, add near the existing `pipeline_cancel` handler:
 
 ```python
 @router.post("/projects/{project_id}/pipeline/rebuild/stop")
@@ -750,11 +750,11 @@ def pipeline_rebuild_stop(project_id: str) -> dict[str, Any]:
     - Clears the barrier.
     - Idempotent: succeeds even if no rebuild is active.
     """
-    from codrag.services.project_helpers import require_project_writable
+    from prep.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 
-    from codrag.services.pipeline import recovery
-    from codrag.services.pipeline_orchestrator import pipeline_orchestrator
+    from prep.services.pipeline import recovery
+    from prep.services.pipeline_orchestrator import pipeline_orchestrator
 
     info = recovery.read_reset_barrier(project_id)
     was_active = info is not None and info.get("reason") == "rebuild"
@@ -793,7 +793,7 @@ Expected: 3 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/api/routers/pipeline.py tests/api/routers/test_pipeline_rebuild_stop.py
+git add src/prep/api/routers/pipeline.py tests/api/routers/test_pipeline_rebuild_stop.py
 git commit -m "feat(api): /pipeline/rebuild/stop — atomic cancel + barrier clear"
 ```
 
@@ -802,7 +802,7 @@ git commit -m "feat(api): /pipeline/rebuild/stop — atomic cancel + barrier cle
 ## Task 5: `compute_stage_provenance` helper
 
 **Files:**
-- Create: `src/codrag/services/pipeline_provenance.py`
+- Create: `src/prep/services/pipeline_provenance.py`
 - Test: `tests/services/test_pipeline_provenance.py` (new)
 
 - [ ] **Step 1: Write the failing tests**
@@ -822,7 +822,7 @@ import pytest
 @pytest.fixture
 def idx_dir(tmp_path, monkeypatch):
     """Patch the helper so idx_dir resolution points at tmp_path."""
-    from codrag.services import pipeline_provenance
+    from prep.services import pipeline_provenance
 
     monkeypatch.setattr(pipeline_provenance, "_resolve_idx_dir", lambda _pid: tmp_path)
     return tmp_path
@@ -833,7 +833,7 @@ def _write_manifest(idx_dir: Path, filename: str, content: dict) -> None:
 
 
 def test_match_when_manifest_equals_current(idx_dir, monkeypatch):
-    from codrag.services import pipeline_provenance
+    from prep.services import pipeline_provenance
 
     _write_manifest(
         idx_dir,
@@ -853,7 +853,7 @@ def test_match_when_manifest_equals_current(idx_dir, monkeypatch):
 
 
 def test_drift_when_manifest_differs_from_current(idx_dir, monkeypatch):
-    from codrag.services import pipeline_provenance
+    from prep.services import pipeline_provenance
     _write_manifest(
         idx_dir,
         "trace_epistemic_manifest.json",
@@ -873,7 +873,7 @@ def test_drift_when_manifest_differs_from_current(idx_dir, monkeypatch):
 
 
 def test_stub_when_manifest_is_restored_selfheal(idx_dir, monkeypatch):
-    from codrag.services import pipeline_provenance
+    from prep.services import pipeline_provenance
     _write_manifest(
         idx_dir,
         "trace_augment_manifest.json",
@@ -892,7 +892,7 @@ def test_stub_when_manifest_is_restored_selfheal(idx_dir, monkeypatch):
 
 
 def test_stub_softened_when_golden_matches(idx_dir, monkeypatch):
-    from codrag.services import pipeline_provenance
+    from prep.services import pipeline_provenance
     _write_manifest(
         idx_dir,
         "trace_augment_manifest.json",
@@ -916,7 +916,7 @@ def test_stub_softened_when_golden_matches(idx_dir, monkeypatch):
 
 
 def test_missing_when_no_manifest_and_no_data(idx_dir, monkeypatch):
-    from codrag.services import pipeline_provenance
+    from prep.services import pipeline_provenance
     monkeypatch.setattr(
         pipeline_provenance,
         "resolve_model_for_stage",
@@ -927,7 +927,7 @@ def test_missing_when_no_manifest_and_no_data(idx_dir, monkeypatch):
 
 
 def test_non_llm_stage_has_no_chip(idx_dir, monkeypatch):
-    from codrag.services import pipeline_provenance
+    from prep.services import pipeline_provenance
     _write_manifest(idx_dir, "validation_manifest.json", {"format_version": "2.0"})
     monkeypatch.setattr(
         pipeline_provenance,
@@ -941,7 +941,7 @@ def test_non_llm_stage_has_no_chip(idx_dir, monkeypatch):
 
 
 def test_provider_case_insensitive_match(idx_dir, monkeypatch):
-    from codrag.services import pipeline_provenance
+    from prep.services import pipeline_provenance
     _write_manifest(
         idx_dir,
         "trace_epistemic_manifest.json",
@@ -963,7 +963,7 @@ Expected: all tests FAIL with `ModuleNotFoundError`.
 
 - [ ] **Step 3: Implement the helper**
 
-Create `src/codrag/services/pipeline_provenance.py`:
+Create `src/prep/services/pipeline_provenance.py`:
 
 ```python
 """Per-stage provenance — Phase 117 Scope B.
@@ -979,7 +979,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from codrag.services.pipeline._model_resolution import resolve_model_for_stage
+from prep.services.pipeline._model_resolution import resolve_model_for_stage
 
 logger = logging.getLogger(__name__)
 
@@ -1026,8 +1026,8 @@ _STAGE_TO_REBUILD_SCOPE = {
 
 def _resolve_idx_dir(project_id: str) -> Path | None:
     try:
-        from codrag.core.project_registry import project_index_dir
-        from codrag.services.project_helpers import require_project
+        from prep.core.project_registry import project_index_dir
+        from prep.services.project_helpers import require_project
         return Path(project_index_dir(require_project(project_id)))
     except Exception:
         logger.debug("could not resolve idx_dir for %s", project_id, exc_info=True)
@@ -1180,7 +1180,7 @@ Expected: all 7 tests PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/pipeline_provenance.py tests/services/test_pipeline_provenance.py
+git add src/prep/services/pipeline_provenance.py tests/services/test_pipeline_provenance.py
 git commit -m "feat(provenance): compute_stage_provenance — match/drift/stub/soft/missing"
 ```
 
@@ -1189,7 +1189,7 @@ git commit -m "feat(provenance): compute_stage_provenance — match/drift/stub/s
 ## Task 6: Wire provenance into `/pipeline/status`
 
 **Files:**
-- Modify: `src/codrag/api/routers/pipeline.py` — `_build_status()`
+- Modify: `src/prep/api/routers/pipeline.py` — `_build_status()`
 - Test: `tests/api/routers/test_pipeline_status_provenance.py` (new)
 
 - [ ] **Step 1: Write the failing test**
@@ -1203,7 +1203,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from codrag.server import app
+from prep.server import app
 
 
 @pytest.fixture
@@ -1224,7 +1224,7 @@ def test_pipeline_status_includes_provenance_per_stage(client, monkeypatch):
         }
 
     monkeypatch.setattr(
-        "codrag.services.pipeline_provenance.compute_stage_provenance", fake_prov
+        "prep.services.pipeline_provenance.compute_stage_provenance", fake_prov
     )
 
     # Minimal project setup — status endpoint reads from disk; we rely on the
@@ -1248,10 +1248,10 @@ Expected: FAIL — `provenance` key missing from stage payloads.
 
 - [ ] **Step 3: Wire provenance into `_build_status()`**
 
-Open `src/codrag/api/routers/pipeline.py`. In `_build_status()`, locate where the final response dict is assembled with a `stages` list. Add an import at the top of the file:
+Open `src/prep/api/routers/pipeline.py`. In `_build_status()`, locate where the final response dict is assembled with a `stages` list. Add an import at the top of the file:
 
 ```python
-from codrag.services.pipeline_provenance import compute_stage_provenance
+from prep.services.pipeline_provenance import compute_stage_provenance
 ```
 
 Immediately before the `stages` list is returned (or wherever each stage dict is constructed), attach provenance. The simplest place is at the end of `_build_status()` where the response dict is finalized — walk the `stages` list and decorate each element:
@@ -1286,7 +1286,7 @@ Expected: all tests PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/api/routers/pipeline.py tests/api/routers/test_pipeline_status_provenance.py
+git add src/prep/api/routers/pipeline.py tests/api/routers/test_pipeline_status_provenance.py
 git commit -m "feat(api): /pipeline/status includes per-stage provenance"
 ```
 
@@ -2042,12 +2042,12 @@ git commit -m "feat(ui): RebuildDropdown split-button — Sync/Enrichment/All"
 ## Task 11: Wire `useEnrichment` hook for scoped rebuild + stop
 
 **Files:**
-- Modify: `src/codrag/dashboard/src/hooks/useEnrichment.ts`
+- Modify: `src/prep/dashboard/src/hooks/useEnrichment.ts`
 - Test: find existing useEnrichment tests; if none, this is a behavior test via GraphEnrichmentPipeline integration
 
 - [ ] **Step 1: Locate the hook's existing rebuild trigger**
 
-Run: `.venv/bin/grep -n "rebuild\|fast\|deep" src/codrag/dashboard/src/hooks/useEnrichment.ts | head -40`
+Run: `.venv/bin/grep -n "rebuild\|fast\|deep" src/prep/dashboard/src/hooks/useEnrichment.ts | head -40`
 
 Note the existing API calls (likely `POST /projects/{id}/pipeline/rebuild`).
 
@@ -2093,7 +2093,7 @@ Return `triggerRebuild` and `stopRebuild` from the hook alongside its existing e
 
 - [ ] **Step 3: Update existing callers**
 
-Run: `.venv/bin/grep -rn "triggerRebuild\|onRebuildPipeline" src/codrag/dashboard/ packages/ui/src/`
+Run: `.venv/bin/grep -rn "triggerRebuild\|onRebuildPipeline" src/prep/dashboard/ packages/ui/src/`
 
 For each call site that passed no args (expecting the legacy all-rebuild behavior), update to pass `'all'` explicitly:
 
@@ -2104,13 +2104,13 @@ triggerRebuild('all');
 
 - [ ] **Step 4: Typecheck**
 
-Run: `cd src/codrag/dashboard && npm run typecheck` (or the monorepo equivalent — check `package.json`)
+Run: `cd src/prep/dashboard && npm run typecheck` (or the monorepo equivalent — check `package.json`)
 Expected: clean.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/dashboard/src/hooks/useEnrichment.ts
+git add src/prep/dashboard/src/hooks/useEnrichment.ts
 git commit -m "feat(dashboard): useEnrichment adds triggerRebuild(scope) + stopRebuild"
 ```
 
@@ -2230,11 +2230,11 @@ git commit -m "feat(ui): integrate RebuildDropdown + RebuildingRow + ProvenanceC
 
 **Files:**
 - Modify: `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` (or the nearest existing confirm-modal wrapper used elsewhere in the component)
-- Modify: `src/codrag/api/routers/pipeline.py` — expose last-completed duration per group
+- Modify: `src/prep/api/routers/pipeline.py` — expose last-completed duration per group
 
 - [ ] **Step 1: Add a backend endpoint for last-rebuild duration per scope**
 
-In `src/codrag/api/routers/pipeline.py`, add near the other status/history helpers:
+In `src/prep/api/routers/pipeline.py`, add near the other status/history helpers:
 
 ```python
 @router.get("/projects/{project_id}/pipeline/last-rebuild-duration")
@@ -2245,8 +2245,8 @@ def last_rebuild_duration(project_id: str) -> dict[str, Any]:
     Returns {"sync": <secs|null>, "enrichment": <secs|null>, "all": <secs|null>}.
     """
     import json as _json
-    from codrag.core.project_registry import project_index_dir
-    from codrag.services.project_helpers import require_project
+    from prep.core.project_registry import project_index_dir
+    from prep.services.project_helpers import require_project
 
     project = require_project(project_id)
     idx_dir = Path(project_index_dir(project))
@@ -2329,7 +2329,7 @@ cd packages/ui && npm run typecheck
 ```
 
 ```bash
-git add src/codrag/api/routers/pipeline.py packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx
+git add src/prep/api/routers/pipeline.py packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx
 git commit -m "feat(ui): confirm modal with last-rebuild duration estimate"
 ```
 
@@ -2366,8 +2366,8 @@ pytestmark = pytest.mark.integration
 @pytest.fixture
 def temp_project_id(tmp_path, monkeypatch):
     """Create a minimal project via the normal project API."""
-    os.environ["CODRAG_DATA_DIR"] = str(tmp_path)
-    from codrag.server import app
+    os.environ["PREP_DATA_DIR"] = str(tmp_path)
+    from prep.server import app
     client = TestClient(app)
     # Create a project rooted at a small tmp source tree
     src = tmp_path / "src"
@@ -2380,7 +2380,7 @@ def temp_project_id(tmp_path, monkeypatch):
 
 def test_rebuild_sync_sets_barrier_sync_and_clears_after_fast_sync(temp_project_id):
     pid, client = temp_project_id
-    from codrag.services.pipeline import recovery
+    from prep.services.pipeline import recovery
 
     # Fire rebuild-sync
     resp = client.post(f"/projects/{pid}/pipeline/fast", json={"force_from_start": True})

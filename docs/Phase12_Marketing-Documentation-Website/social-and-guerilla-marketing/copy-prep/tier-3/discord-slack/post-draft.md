@@ -7,7 +7,7 @@
 **Message:**
 "Hey everyone! 👋
 
-I built a free local MCP server called **CoDRAG** to help with context limits.
+I built a free local MCP server called **Prep** to help with context limits.
 It builds a dependency graph of your code so you can fetch *only* the relevant functions/types for a task, instead of dumping full files.
 
 It runs locally (Rust + Tauri).

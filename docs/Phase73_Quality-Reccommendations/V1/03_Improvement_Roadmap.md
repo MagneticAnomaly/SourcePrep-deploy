@@ -20,7 +20,7 @@ When a 2,600-line file is chunked into 20-30 segments, each chunk's embedding ca
 **Fix 1A: File-level boosting (quick win)**
 - Extract file-level metadata (path, module name, docstring, class names) as a separate embedding
 - When a query mentions a subsystem name that matches a file path, boost that file's chunks
-- Example: query contains "MCP" → boost all chunks from `src/codrag/mcp/*`
+- Example: query contains "MCP" → boost all chunks from `src/prep/mcp/*`
 
 **Fix 1B: Query decomposition**
 - Parse the query for structural signals: file names, module names, stage numbers
@@ -36,14 +36,14 @@ When a 2,600-line file is chunked into 20-30 segments, each chunk's embedding ca
 **Fix 1D: Return multiple candidates**
 - Instead of committing to one file, return top 3-5 with relevance indicators
 - Let the consuming agent decide which to explore further
-- Format: `[0.92] src/codrag/mcp/server.py`, `[0.71] src/codrag/core/llm_client.py`
+- Format: `[0.92] src/prep/mcp/server.py`, `[0.71] src/prep/core/llm_client.py`
 
 ### Validation
 Create a test suite of 20 queries with expected file results. Measure recall@1 and recall@5.
 
 ---
 
-## Priority 2: Deduplicate & Tier the `codrag` Overview (Impact: High)
+## Priority 2: Deduplicate & Tier the `prep` Overview (Impact: High)
 
 ### Problem
 The overview returns 745 lines, of which ~13% is useful. The 602-module exhaustive list is counterproductive, and hub content is duplicated 3×.
@@ -59,7 +59,7 @@ The overview returns 745 lines, of which ~13% is useful. The 602-module exhausti
 - Tier 1 (always show): Modules with >10 files OR >3 cross-module dependencies (~15-20 modules)
 - Tier 2 (show count): Modules with 3-10 files ("... and 83 modules of 3-10 files")
 - Tier 3 (collapse): Single-file modules ("... and 489 single-file modules")
-- Provide a hint: "Use `codrag_search` to explore smaller modules"
+- Provide a hint: "Use `prep_search` to explore smaller modules"
 
 **Fix 2C: Smart context budget**
 - Cap the overview at ~200 lines of genuinely novel content
@@ -109,7 +109,7 @@ All search results are presented with equal confidence. An agent can't tell a st
 
 **Fix 4A: Relevance score in output**
 - Include the cosine similarity or reranker score with each result
-- Format: `[relevance: 0.92] @src/codrag/mcp/server.py`
+- Format: `[relevance: 0.92] @src/prep/mcp/server.py`
 - An agent can interpret 0.92 vs 0.45 as "strong match" vs "best available but weak"
 
 **Fix 4B: Query coverage indicator**
@@ -122,7 +122,7 @@ All search results are presented with equal confidence. An agent can't tell a st
 
 ---
 
-## Priority 5: Protect and Extend `codrag_impact` (Impact: Maintenance)
+## Priority 5: Protect and Extend `prep_impact` (Impact: Maintenance)
 
 ### What's Already Good
 - Dense, actionable output

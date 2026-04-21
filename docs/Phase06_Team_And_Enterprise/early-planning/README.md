@@ -1,7 +1,7 @@
 # Phase 06 — Team & Enterprise
  
 ## Problem statement
-CoDRAG becomes dramatically more valuable when it supports team workflows: shared onboarding, repeatable indexing, and (optionally) a central server. Without a team story, adoption stalls at “personal tool” and breaks in real org environments.
+Prep becomes dramatically more valuable when it supports team workflows: shared onboarding, repeatable indexing, and (optionally) a central server. Without a team story, adoption stalls at “personal tool” and breaks in real org environments.
 
 From a business perspective, the **Team Tier ($15/seat/mo)** monetizes "Indexed Harmony"—ensuring every developer on the team has the exact same context configuration.
 
@@ -48,7 +48,7 @@ This feature allows teams to enforce consistent indexing rules across all develo
   - `trace_enabled` defaults
   - `embedding_model` standardization
 - **Workflow:**
-  - Admin runs `codrag config export` to generate the file.
+  - Admin runs `prep config export` to generate the file.
   - Developers' clients detect the file and apply settings (with override warnings).
 
 ### Embedded mode (`.prep/`)
@@ -77,14 +77,14 @@ The embedded index should be treated as **rebuildable**. Any file not strictly r
 
 #### Compatibility and versioning
 
-- Embedded indexes must include a `format_version` and should record the CoDRAG version used to build.
-- If CoDRAG detects an incompatible `format_version`, it must:
+- Embedded indexes must include a `format_version` and should record the Prep version used to build.
+- If Prep detects an incompatible `format_version`, it must:
   - mark the index as “incompatible” (not silently ignored)
   - offer a deterministic remedy: “Rebuild index” (full rebuild)
 
 #### Commit policy (team choice)
 
-CoDRAG should support both workflows:
+Prep should support both workflows:
 
 - **Committed index** (fast onboarding): `.prep/index/**` is committed to git.
 - **Uncommitted index** (avoid repo bloat): `.prep/` exists locally but is gitignored.
@@ -101,7 +101,7 @@ If `.prep/index/**` is committed:
 
 Rules:
 - If git merge leaves conflict markers anywhere inside `.prep/index/**`, the index is considered invalid.
-- CoDRAG should surface a clear status:
+- Prep should surface a clear status:
   - “Embedded index has merge conflicts; rebuild required.”
 - Preferred remediation:
   - delete the conflicted index files and run a full rebuild.
@@ -123,8 +123,8 @@ Defaults:
 To enable remote access, the operator must explicitly bind to a non-loopback interface.
 
 Safety requirements:
-- If binding to `0.0.0.0` (or any non-loopback interface), CoDRAG must require authentication.
-- CoDRAG should refuse to start in remote-bind mode without auth unless a clearly named explicit override is provided (not recommended).
+- If binding to `0.0.0.0` (or any non-loopback interface), Prep must require authentication.
+- Prep should refuse to start in remote-bind mode without auth unless a clearly named explicit override is provided (not recommended).
 
 Dashboard requirements:
 - If the server is in remote-bind mode, the UI must show a persistent “Remote mode” indicator.
@@ -161,7 +161,7 @@ Constraints:
 ### Analytics / telemetry posture (Team/Enterprise)
 
 - **No mandatory telemetry**: Enterprise deployments may be air-gapped; analytics must be optional.
-- **Customer-hosted server reality**: when customers self-host a team server, CoDRAG should assume limited visibility into usage.
+- **Customer-hosted server reality**: when customers self-host a team server, Prep should assume limited visibility into usage.
 - **Audit vs analytics**:
   - Analytics should be aggregated counters (build outcomes, error codes) and must not include code or raw queries by default.
   - Audit logging (roadmap) is a separate feature and must be explicit about what is recorded.
@@ -179,10 +179,10 @@ Constraints:
    - (optionally) commits `.prep/index/**`
 2. Teammate:
    - clones the repo
-   - runs `codrag add . --embedded`
-   - CoDRAG detects existing `.prep/` and immediately enables search
+   - runs `prep add . --embedded`
+   - Prep detects existing `.prep/` and immediately enables search
 3. If the embedded index is missing or incompatible:
-   - CoDRAG marks project as “needs rebuild” and offers one-click rebuild
+   - Prep marks project as “needs rebuild” and offers one-click rebuild
 
 #### Flow B: Shared server
 

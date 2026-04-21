@@ -1,7 +1,7 @@
 # HR Agent — Context Delivery Pipeline & KNOWLEDGE.md Design
 
 > **Phase 67 Research** | Date: 2026-04-01
-> How KNOWLEDGE.md, MCP tools, embeddings, role atlases, and knowledge scopes work together to deliver optimal context to agents. The complete context pipeline from CoDRAG's epistemic graph to an agent's working memory.
+> How KNOWLEDGE.md, MCP tools, embeddings, role atlases, and knowledge scopes work together to deliver optimal context to agents. The complete context pipeline from Prep's epistemic graph to an agent's working memory.
 
 ---
 
@@ -15,13 +15,13 @@ An agent running as a Paperclip worker needs **three layers of context** to do g
 | **Structural Orientation** | What does this codebase look like at a high level | Every heartbeat cycle | After pipeline rebuilds |
 | **Dynamic Working Context** | Specific files, symbols, and relationships relevant to my current task | Per-task, mid-execution | Every few seconds during work |
 
-The question is: **which CoDRAG mechanism delivers each layer?**
+The question is: **which Prep mechanism delivers each layer?**
 
 ---
 
 ## 2. Current Context Delivery Mechanisms (Inventory)
 
-CoDRAG already has multiple context delivery channels. They were built independently. The HR Adapter needs to orchestrate them into a coherent pipeline.
+Prep already has multiple context delivery channels. They were built independently. The HR Adapter needs to orchestrate them into a coherent pipeline.
 
 ### 2.1 AGENTS.md (Static, Injected at Startup)
 
@@ -34,12 +34,12 @@ You are the CTO of [Project]...
 1. ...
 
 ## Knowledge Sources
-- src/codrag/core/ — Core engine logic
+- src/prep/core/ — Core engine logic
 - ...
 ```
 
 **Delivered via:** Paperclip's `promptTemplate` field (concatenated into the system prompt).
-**Frequency:** Once per agent creation (refreshed on `codrag hr sync`).
+**Frequency:** Once per agent creation (refreshed on `prep hr sync`).
 **Content:** Behavioral instructions, priorities, relationships.
 **Cost:** ~1000-2000 tokens.
 
@@ -52,7 +52,7 @@ Identity, values, guardrails, communication style.
 ### 2.3 Role Atlas (Semi-Static, Cached)
 
 ```
-codrag(role="cto") → GET /projects/{id}/atlas?role=cto → atlas_roles/cto.txt
+prep(role="cto") → GET /projects/{id}/atlas?role=cto → atlas_roles/cto.txt
 ```
 
 **What it returns:** A role-filtered structural overview of the codebase. Module summaries, hub files, architecture layers — all weighted by the CTO's RoleVector.
@@ -65,7 +65,7 @@ codrag(role="cto") → GET /projects/{id}/atlas?role=cto → atlas_roles/cto.txt
 ### 2.4 Semantic Search (Dynamic, Per-Query)
 
 ```
-codrag_search(query="authentication flow", role="cto")
+prep_search(query="authentication flow", role="cto")
 ```
 
 **What it returns:** Relevant code chunks from embeddings, expanded via trace edges, filtered by the role's knowledge scope.
@@ -78,7 +78,7 @@ codrag_search(query="authentication flow", role="cto")
 ### 2.5 Impact Analysis (Dynamic, Per-File)
 
 ```
-codrag_impact(file_path="src/auth/login.py")
+prep_impact(file_path="src/auth/login.py")
 ```
 
 **What it returns:** Blast radius — what depends on this file, what breaks if it changes.
@@ -94,7 +94,7 @@ Dashboard UI: checkboxes on folders/files that define which files this role can 
 
 **What it does:** Filters the embedding search to only return results within the role's scope.
 **Delivered via:** Backend filter on the vector search query (not visible to the agent).
-**Frequency:** Read at every `codrag_search` call.
+**Frequency:** Read at every `prep_search` call.
 **Content:** Not sent to agent — it's a backend filter.
 **Effect:** Prevents a UX Designer from getting results about infrastructure code.
 
@@ -112,8 +112,8 @@ POST /projects/{pid}/scope/agents/{agent_role}/auto-populate
 ### 2.8 Observations (Persistent Cross-Session Memory)
 
 ```
-codrag_observe(action="save", content="The auth module uses JWT with RSA keys")
-codrag_observe(action="get", query="auth")
+prep_observe(action="save", content="The auth module uses JWT with RSA keys")
+prep_observe(action="get", query="auth")
 ```
 
 **What it does:** Stores/retrieves facts the agent discovered in previous sessions.
@@ -127,7 +127,7 @@ codrag_observe(action="get", query="auth")
 
 Right now, several mechanisms overlap:
 
-| Content | AGENTS.md | Role Atlas | codrag_search | Knowledge Scope |
+| Content | AGENTS.md | Role Atlas | prep_search | Knowledge Scope |
 |---------|-----------|------------|---------------|-----------------|
 | Module overview | ❌ | ✅ | ❌ | ❌ |
 | Key files list | ⚠️ (Knowledge Sources) | ✅ (hub files) | ❌ | ✅ (configuration) |
@@ -145,8 +145,8 @@ KNOWLEDGE.md needs to bridge this gap.
 
 ## 4. KNOWLEDGE.md — The Integration Layer
 
-**KNOWLEDGE.md is the CoDRAG-specific context injection document.** It tells the agent:
-1. **How to access CoDRAG** (which tools to call, with what parameters)
+**KNOWLEDGE.md is the Prep-specific context injection document.** It tells the agent:
+1. **How to access Prep** (which tools to call, with what parameters)
 2. **What the codebase looks like right now** (snapshot of role atlas at generation time)
 3. **Where to focus** (files auto-populated as high-relevance for this role)
 
@@ -155,32 +155,32 @@ It is NOT a replacement for AGENTS.md (identity) or SOUL.md (values). It is the 
 ### 4.1 KNOWLEDGE.md Structure
 
 ```markdown
-# CTO Knowledge — CoDRAG Context
+# CTO Knowledge — Prep Context
 
-## How to Use CoDRAG
+## How to Use Prep
 
-You have access to CoDRAG, an epistemic code intelligence system. 
+You have access to Prep, an epistemic code intelligence system. 
 Use these tools during every task:
 
 ### Before Starting Work
-Call `codrag(role="cto")` for a role-filtered codebase overview.
+Call `prep(role="cto")` for a role-filtered codebase overview.
 This gives you module structure, hub files, and architectural patterns
 weighted for your technical leadership role.
 
 ### When Searching for Code
-Call `codrag_search(query="<what you need>", role="cto")`.
+Call `prep_search(query="<what you need>", role="cto")`.
 Your searches are automatically scoped to files relevant to your role.
 {scope_count} files are in your knowledge scope.
 
 ### Before Making Changes
-Call `codrag_impact(file_path="<file>")` to understand what depends
+Call `prep_impact(file_path="<file>")` to understand what depends
 on the file you're changing. Never modify a hub file without checking
 impact first.
 
 ### Cross-Session Memory
-Call `codrag_observe(action="save", content="<fact>")` to remember 
+Call `prep_observe(action="save", content="<fact>")` to remember 
 important discoveries for future sessions.
-Call `codrag_observe(action="get")` at the start of each session to
+Call `prep_observe(action="get")` at the start of each session to
 recall previous findings.
 
 ---
@@ -194,17 +194,17 @@ recall previous findings.
 ## Key Files for Your Role
 
 The following files are most relevant to your responsibilities.
-They were selected by CoDRAG's epistemic analysis based on 
+They were selected by Prep's epistemic analysis based on 
 architecture layer weights, domain tag affinity, and graph centrality.
 
 ### High Relevance (score > 0.8)
-- `src/codrag/core/atlas/generator.py` — Atlas generation engine (0.95)
-- `src/codrag/mcp/server.py` — MCP server, primary API surface (0.92)
-- `src/codrag/services/pipeline/orchestrator.py` — Pipeline orchestration (0.91)
+- `src/prep/core/atlas/generator.py` — Atlas generation engine (0.95)
+- `src/prep/mcp/server.py` — MCP server, primary API surface (0.92)
+- `src/prep/services/pipeline/orchestrator.py` — Pipeline orchestration (0.91)
 
 ### Medium Relevance (score 0.6-0.8)
-- `src/codrag/api/routers/projects/` — REST API layer (0.74)
-- `src/codrag/core/llm_client.py` — LLM client infrastructure (0.72)
+- `src/prep/api/routers/projects/` — REST API layer (0.74)
+- `src/prep/core/llm_client.py` — LLM client infrastructure (0.72)
 
 ### Reference (score 0.4-0.6)
 - `docs/Phase64_prep-for-agents+paperclip/` — Architecture decisions (0.55)
@@ -222,7 +222,7 @@ Based on epistemic analysis, your primary domains are:
 
 ---
 
-## CoDRAG Project Configuration
+## Prep Project Configuration
 
 - **Project ID:** `{project_id}`
 - **Last Pipeline Build:** `{last_build_timestamp}`
@@ -234,7 +234,7 @@ Based on epistemic analysis, your primary domains are:
 
 | Excluded Content | Reason |
 |-----------------|--------|
-| Actual code | That's what `codrag_search` is for (dynamic, on-demand) |
+| Actual code | That's what `prep_search` is for (dynamic, on-demand) |
 | Full file contents | Token budget — KNOWLEDGE.md should be <3000 tokens |
 | Embeddings | Embeddings are backend-only; agents use semantic search |
 | Raw graph data | The role atlas is the pre-digested version |
@@ -252,31 +252,31 @@ AGENT STARTUP / HEARTBEAT CYCLE
 ├─ 1. STATIC INJECTION (Paperclip promptTemplate)
 │   ├── AGENTS.md (1000-2000 tokens) — Who am I, what do I do
 │   ├── SOUL.md (500-800 tokens) — How I think and communicate
-│   └── KNOWLEDGE.md (800-1500 tokens) — How to use CoDRAG + structural snapshot
+│   └── KNOWLEDGE.md (800-1500 tokens) — How to use Prep + structural snapshot
 │       Total static budget: ~2300-4300 tokens
 │
 ├─ 2. AMBIENT CONTEXT (Agent's first tool call)
-│   └── codrag(role="cto") → Role Atlas (800-1200 tokens)
+│   └── prep(role="cto") → Role Atlas (800-1200 tokens)
 │       ◄── Backed by: cached atlas_roles/cto.txt
 │       ◄── Scoring: RoleVector × epistemic metadata × graph centrality
 │       ◄── Freshness: Regenerated when pipeline rebuilds
 │
 ├─ 3. MEMORY RECALL (Agent's second tool call)
-│   └── codrag_observe(action="get") → Previous observations (200-800 tokens)
+│   └── prep_observe(action="get") → Previous observations (200-800 tokens)
 │       ◄── Backed by: observation store (JSON)
 │       ◄── Staleness: Flagged when linked files change
 │
 ├─ 4. TASK-SPECIFIC CONTEXT (During task execution)
-│   ├── codrag_search(query="...", role="cto") → Code chunks (3000-6000 tokens)
+│   ├── prep_search(query="...", role="cto") → Code chunks (3000-6000 tokens)
 │   │   ◄── Backed by: embedding store (vector search)
 │   │   ◄── Filtered by: Knowledge Scope (dashboard checkboxes)
 │   │   ◄── Expanded by: trace edges (structural neighbors)
 │   │   ◄── Role-scoped: Only files in this role's scope are returned
 │   │
-│   ├── codrag_impact(file_path="...") → Blast radius (500-1500 tokens)
+│   ├── prep_impact(file_path="...") → Blast radius (500-1500 tokens)
 │   │   ◄── Backed by: trace graph (edges + in-degree)
 │   │
-│   └── codrag_observe(action="save", ...) → Persist discoveries
+│   └── prep_observe(action="save", ...) → Persist discoveries
 │       ◄── Written to: observation store for future sessions
 │
 └─ 5. POST-TASK (Agent completes heartbeat)
@@ -288,10 +288,10 @@ AGENT STARTUP / HEARTBEAT CYCLE
 | Phase | Source | Tokens | When |
 |-------|--------|--------|------|
 | Startup | AGENTS.md + SOUL.md + KNOWLEDGE.md | ~3000 | Every cycle |
-| Ambient | Role Atlas (codrag) | ~1000 | First call |
+| Ambient | Role Atlas (prep) | ~1000 | First call |
 | Memory | Observations | ~500 | First call |
-| Search | Per codrag_search call | ~4500 | Per task |
-| Impact | Per codrag_impact call | ~1000 | Before changes |
+| Search | Per prep_search call | ~4500 | Per task |
+| Impact | Per prep_impact call | ~1000 | Before changes |
 | **Total per task** | | **~10,000** | Typical |
 
 This fits well within modern context windows (128K-1M) while delivering comprehensive, role-appropriate context.
@@ -305,14 +305,14 @@ This fits well within modern context windows (128K-1M) while delivering comprehe
 Here's why:
 
 ### What Embeddings Are (Backend Internals)
-- CoDRAG builds a vector index of code chunks using `sentence-transformers` (or similar)
+- Prep builds a vector index of code chunks using `sentence-transformers` (or similar)
 - Each chunk is embedded into a ~384-768 dimensional vector
-- `codrag_search` performs cosine similarity search on these vectors
+- `prep_search` performs cosine similarity search on these vectors
 - The results are returned as **text** (code content), not vectors
 
 ### What Agents See
 ```
-Agent calls: codrag_search(query="authentication flow", role="cto")
+Agent calls: prep_search(query="authentication flow", role="cto")
              ↓
 Backend:     1. Embed the query → vector
              2. Search vector index → top-k similar chunks
@@ -332,9 +332,9 @@ Agent gets:  Formatted code chunks with file paths and summaries
 4. Embedding model details are an implementation detail the agent shouldn't know about
 
 **What we DO expose through KNOWLEDGE.md:**
-- The fact that semantic search exists ("Call `codrag_search`")
+- The fact that semantic search exists ("Call `prep_search`")
 - The scope of search ("Your searches are automatically scoped to {N} files")
-- The quality signal ("CoDRAG has epistemic confidence of {X} across {Y} files")
+- The quality signal ("Prep has epistemic confidence of {X} across {Y} files")
 
 ---
 
@@ -370,7 +370,7 @@ These three features form a tight loop:
                                               │  - Role Atlas      │
                                               │  - Scope file list │
                                               │  - Domain analysis │
-                                              │  - CoDRAG tool     │
+                                              │  - Prep tool     │
                                               │    instructions    │
                                               └────────────────────┘
 ```
@@ -383,7 +383,7 @@ These three features form a tight loop:
 4. **KNOWLEDGE.md is generated** → includes:
    - The file list (human-readable, with relevance scores)
    - The role atlas snapshot (structural overview)
-   - CoDRAG tool usage instructions
+   - Prep tool usage instructions
    - Domain focus areas
 5. **All three files are bundled** → pushed to Paperclip
 
@@ -403,7 +403,7 @@ When the codebase changes:
 | Strategy | Implementation |
 |----------|---------------|
 | **Static context compression** | KNOWLEDGE.md uses bullet points, not prose. ~800 tokens for the structural snapshot. |
-| **Lazy ambient loading** | KNOWLEDGE.md tells the agent to call `codrag(role=X)` for live data, rather than packing everything statically. |
+| **Lazy ambient loading** | KNOWLEDGE.md tells the agent to call `prep(role=X)` for live data, rather than packing everything statically. |
 | **Scope-filtered search** | Knowledge Scope prevents wasting search budget on irrelevant files. |
 | **Role atlas caching** | Pre-generated at pipeline build time → instant response. |
 | **Observation dedup** | Stale observations are flagged, saving retrieval budget. |
@@ -412,32 +412,32 @@ When the codebase changes:
 
 | Context Source | Freshness | Cost | Strategy |
 |---------------|-----------|------|----------|
-| KNOWLEDGE.md | Stale until `codrag hr sync` | Free (pre-generated) | Regenerate on drift detection |
+| KNOWLEDGE.md | Stale until `prep hr sync` | Free (pre-generated) | Regenerate on drift detection |
 | Role Atlas | Stale until pipeline rebuild | Free (cached) | Auto-refreshed by pipeline |
-| codrag_search | Live | ~0.01-0.05 per call (LLM tokens) | Agent calls on-demand |
-| codrag_impact | Live | ~0.01 per call | Agent calls before changes |
+| prep_search | Live | ~0.01-0.05 per call (LLM tokens) | Agent calls on-demand |
+| prep_impact | Live | ~0.01 per call | Agent calls before changes |
 | Observations | Live writes, stale flags | Free (local JSON) | Always available |
 
 ### 8.3 Preventing Context Thrashing
 
-**Problem:** An agent might call `codrag(role=X)` + `codrag_search(role=X)` every heartbeat, wasting tokens on the same structural overview.
+**Problem:** An agent might call `prep(role=X)` + `prep_search(role=X)` every heartbeat, wasting tokens on the same structural overview.
 
 **Solution in KNOWLEDGE.md:**
 ```markdown
 ## Context Optimization Rules
-- Call `codrag(role="cto")` ONCE at the start of each session, not per task
-- Call `codrag_search` with specific queries, not generic ones
+- Call `prep(role="cto")` ONCE at the start of each session, not per task
+- Call `prep_search` with specific queries, not generic ones
 - The structural overview in the Architecture Snapshot below is current as of {timestamp}
-  — only call codrag() again if you suspect major changes
+  — only call prep() again if you suspect major changes
 ```
 
 ### 8.4 Cross-Agent Context Isolation
 
 Each agent's KNOWLEDGE.md uses their specific role slug. This ensures:
-- `codrag(role="cto")` returns CTO-weighted atlas (infrastructure heavy)
-- `codrag(role="ux_designer")` returns UX-weighted atlas (presentation heavy)
-- `codrag_search(role="cto")` searches only within CTO's knowledge scope
-- `codrag_search(role="ux_designer")` searches only within UX's knowledge scope
+- `prep(role="cto")` returns CTO-weighted atlas (infrastructure heavy)
+- `prep(role="ux_designer")` returns UX-weighted atlas (presentation heavy)
+- `prep_search(role="cto")` searches only within CTO's knowledge scope
+- `prep_search(role="ux_designer")` searches only within UX's knowledge scope
 
 Agents CANNOT see each other's knowledge scopes. The isolation is enforced at the backend, not by trust in the agent's instructions.
 
@@ -449,6 +449,6 @@ Agents CANNOT see each other's knowledge scopes. The isolation is enforced at th
 |------|---------|----------|-------------|------------|
 | **AGENTS.md** | Identity + Behavior | Role description, priorities, guardrails, org chart relationships | Role drifts or responsibilities change | ~1500 |
 | **SOUL.md** | Personality + Values | Who the agent "is", communication style, decision-making principles | Rarely (cultural/brand changes) | ~600 |
-| **KNOWLEDGE.md** | CoDRAG Integration | Tool instructions, architecture snapshot, key file list, domain focus, scope metadata | Pipeline rebuilds, scope changes, drift detection | ~1200 |
+| **KNOWLEDGE.md** | Prep Integration | Tool instructions, architecture snapshot, key file list, domain focus, scope metadata | Pipeline rebuilds, scope changes, drift detection | ~1200 |
 
 **Total static injection per agent: ~3300 tokens** — leaving 96%+ of context window for actual work.

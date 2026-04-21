@@ -37,7 +37,7 @@ The slot was held forever because no worker was launched, so `_on_build_transiti
 
 Added scheduler slot release before advancing when a stage is skipped. Both paths now mirror the release-before-advance pattern from the normal completion path:
 
-**`src/codrag/services/pipeline/orchestrator.py`** — `_should_skip_stage_freshness()`:
+**`src/prep/services/pipeline/orchestrator.py`** — `_should_skip_stage_freshness()`:
 ```python
 if should_skip:
     run.stage_results[stage.value] = "skipped"
@@ -105,7 +105,7 @@ When reconfiguring a node (e.g., `configure_embedding_concurrency(2)` after init
 
 ### The Fix
 
-**`src/codrag/services/pipeline/scheduler.py`:**
+**`src/prep/services/pipeline/scheduler.py`:**
 
 1. `ComputeSlot.__post_init__()` now initializes `current_limit` to `max_concurrent`:
 ```python
@@ -198,7 +198,7 @@ The Vite dev proxy + Chrome tab open ~60 TCP connections to the daemon within se
 
 ### 2. `SettingsStore.get_global` Missing Attribute
 
-`ERROR:codrag.api.routers.settings:Security health check failed: 'SettingsStore' object has no attribute 'get_global'`
+`ERROR:prep.api.routers.settings:Security health check failed: 'SettingsStore' object has no attribute 'get_global'`
 
 A router was added that calls a method which doesn't exist on the SettingsStore. Non-fatal (logged only, doesn't crash). Out of scope for 96.
 
@@ -221,8 +221,8 @@ Still to verify:
 
 | File | Change |
 |---|---|
-| `src/codrag/services/pipeline/orchestrator.py` | Release scheduler slot in freshness-skip and backup-restore paths (96A) |
-| `src/codrag/services/pipeline/scheduler.py` | ComputeSlot current_limit default, remove N-1 headroom, configure_node growth (96B) |
+| `src/prep/services/pipeline/orchestrator.py` | Release scheduler slot in freshness-skip and backup-restore paths (96A) |
+| `src/prep/services/pipeline/scheduler.py` | ComputeSlot current_limit default, remove N-1 headroom, configure_node growth (96B) |
 | `tests/test_pipeline_orchestrator.py` | Added TestFreshnessSkipReleasesSlot, fixed test isolation, updated stale expectations |
 | `tests/test_pipeline_scheduler.py` | Updated 3 test expectations to match new behavior |
 | `docs/Phase96-fix-pipeline/00_DIAGNOSTIC_REPORT.md` | Initial investigation writeup |

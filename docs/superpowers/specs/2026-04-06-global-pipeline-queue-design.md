@@ -6,7 +6,7 @@
 
 ## Problem
 
-CoDRAG users managing multiple projects have no cross-project visibility into pipeline scheduling. Ghost locks from crashed workers silently block the queue with no way to detect or clear them. The scheduler, orchestrator, and build orchestrator each hold partial state, but nothing aggregates it into a unified view. Users experience stalled pipelines with no feedback about what's running, what's waiting, or why.
+Prep users managing multiple projects have no cross-project visibility into pipeline scheduling. Ghost locks from crashed workers silently block the queue with no way to detect or clear them. The scheduler, orchestrator, and build orchestrator each hold partial state, but nothing aggregates it into a unified view. Users experience stalled pipelines with no feedback about what's running, what's waiting, or why.
 
 ## Solution
 
@@ -23,17 +23,17 @@ A **Global Pipeline Queue** that:
 
 | File | Purpose |
 |------|---------|
-| `src/codrag/services/pipeline/ghost_guard.py` | Ghost lock cross-check: validates scheduler locks against build orchestrator threads |
-| `src/codrag/api/routers/queue.py` | System-level queue API router (`/system/pipeline-queue`) |
+| `src/prep/services/pipeline/ghost_guard.py` | Ghost lock cross-check: validates scheduler locks against build orchestrator threads |
+| `src/prep/api/routers/queue.py` | System-level queue API router (`/system/pipeline-queue`) |
 | `packages/ui/src/components/navigation/SidebarPipelineQueue.tsx` | Sidebar queue widget UI component |
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `src/codrag/services/pipeline/orchestrator.py` | Emit `queue_changed` event in `_on_build_transition` COMPLETED and FAILED branches. Call `purge_ghost_locks()` in FAILED branch. ~25 lines added. |
-| `src/codrag/server.py` | Register new queue router (+2 lines) |
-| `src/codrag/dashboard/src/App.tsx` | Import `SidebarPipelineQueue`, render inside Sidebar, pass `queueVersion` from `useEventStream` |
+| `src/prep/services/pipeline/orchestrator.py` | Emit `queue_changed` event in `_on_build_transition` COMPLETED and FAILED branches. Call `purge_ghost_locks()` in FAILED branch. ~25 lines added. |
+| `src/prep/server.py` | Register new queue router (+2 lines) |
+| `src/prep/dashboard/src/App.tsx` | Import `SidebarPipelineQueue`, render inside Sidebar, pass `queueVersion` from `useEventStream` |
 | `packages/ui/src/hooks/useEventStream.ts` | Handle `queue_changed` SSE event, expose `queueVersion` counter |
 | `packages/ui/src/components/navigation/index.ts` | Export `SidebarPipelineQueue` |
 | `packages/ui/src/index.ts` | Export `SidebarPipelineQueue` from package |
@@ -42,9 +42,9 @@ A **Global Pipeline Queue** that:
 
 | File | Why |
 |------|-----|
-| `src/codrag/services/pipeline/scheduler.py` | `status()`, `clean_locks()`, `set_priority()` already sufficient |
-| `src/codrag/services/build_orchestrator.py` | `is_any_active()`, `_check_zombie()` already sufficient |
-| `src/codrag/api/routers/pipeline.py` | Existing pause/resume/cancel endpoints reused directly |
+| `src/prep/services/pipeline/scheduler.py` | `status()`, `clean_locks()`, `set_priority()` already sufficient |
+| `src/prep/services/build_orchestrator.py` | `is_any_active()`, `_check_zombie()` already sufficient |
+| `src/prep/api/routers/pipeline.py` | Existing pause/resume/cancel endpoints reused directly |
 
 ---
 
@@ -157,7 +157,7 @@ Manual ghost lock purge. Returns `{ "purged": N }`.
 
 ### SSE Event: `queue_changed`
 
-Emitted on the existing event bus (`codrag.core.events.get_event_bus()`) when:
+Emitted on the existing event bus (`prep.core.events.get_event_bus()`) when:
 - A pipeline starts, completes, fails, pauses, or resumes (from `_on_build_transition` in orchestrator)
 - Ghost locks are purged (from ghost_guard)
 - Priority changes (from queue router)

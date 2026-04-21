@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make CoDRAG's 14 context control mechanisms tier-aware so Tier 1 (50K), Tier 2 (30K), and Tier 2.5 (20K) clients each get optimally compressed context instead of one-size-fits-all.
+**Goal:** Make Prep's 14 context control mechanisms tier-aware so Tier 1 (50K), Tier 2 (30K), and Tier 2.5 (20K) clients each get optimally compressed context instead of one-size-fits-all.
 
 **Architecture:** Add a `ContextTier` enum (1, 2, 3) that flows from MCP client detection → API request → LOD assignment, hub selection, neighbor fidelity, and module formatting. Each mechanism adapts its behavior based on the tier. No new dependencies. Pure parameter tuning on existing infrastructure.
 
@@ -14,11 +14,11 @@
 
 | File | Action | Responsibility |
 |------|--------|---------------|
-| `src/codrag/core/context_tier.py` | **Create** | `ContextTier` enum + tier detection from budget |
-| `src/codrag/core/lod_extractor.py` | **Modify** | Tier-aware `assign_lod()` + new LOD 2.5 level |
-| `src/codrag/api/routers/projects/models.py` | **Modify** | Add `context_tier` field to `ContextRequest` |
-| `src/codrag/api/routers/projects/search.py` | **Modify** | Tier-aware hub/neighbor/module assembly |
-| `src/codrag/mcp/server.py` | **Modify** | Compute tier + pass to backend |
+| `src/prep/core/context_tier.py` | **Create** | `ContextTier` enum + tier detection from budget |
+| `src/prep/core/lod_extractor.py` | **Modify** | Tier-aware `assign_lod()` + new LOD 2.5 level |
+| `src/prep/api/routers/projects/models.py` | **Modify** | Add `context_tier` field to `ContextRequest` |
+| `src/prep/api/routers/projects/search.py` | **Modify** | Tier-aware hub/neighbor/module assembly |
+| `src/prep/mcp/server.py` | **Modify** | Compute tier + pass to backend |
 | `tests/test_context_tier.py` | **Create** | Tests for tier detection + integration |
 | `tests/test_lod_extractor.py` | **Modify** | Tests for tier-aware assign_lod + LOD 2.5 |
 | `tests/test_compressor.py` | **Modify** | Update real-file tests for LOD 2.5 |
@@ -28,7 +28,7 @@
 ### Task 1: Create ContextTier Enum
 
 **Files:**
-- Create: `src/codrag/core/context_tier.py`
+- Create: `src/prep/core/context_tier.py`
 - Create: `tests/test_context_tier.py`
 
 - [ ] **Step 1: Write the test file**
@@ -36,7 +36,7 @@
 ```python
 # tests/test_context_tier.py
 """Tests for ContextTier enum and tier detection."""
-from codrag.core.context_tier import ContextTier, tier_from_budget
+from prep.core.context_tier import ContextTier, tier_from_budget
 
 
 class TestContextTier:
@@ -97,12 +97,12 @@ class TestContextTier:
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_context_tier.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'codrag.core.context_tier'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'prep.core.context_tier'`
 
 - [ ] **Step 3: Implement ContextTier**
 
 ```python
-# src/codrag/core/context_tier.py
+# src/prep/core/context_tier.py
 """Context tier definitions for adaptive compression.
 
 Phase 73.3b: Maps MCP client budgets to tier-specific parameters
@@ -276,7 +276,7 @@ Expected: All PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/context_tier.py tests/test_context_tier.py
+git add src/prep/core/context_tier.py tests/test_context_tier.py
 git commit -m "feat(context): add ContextTier enum with per-tier compression parameters"
 ```
 
@@ -285,7 +285,7 @@ git commit -m "feat(context): add ContextTier enum with per-tier compression par
 ### Task 2: Tier-Aware assign_lod()
 
 **Files:**
-- Modify: `src/codrag/core/lod_extractor.py:366-384`
+- Modify: `src/prep/core/lod_extractor.py:366-384`
 - Modify: `tests/test_lod_extractor.py` (TestAssignLOD class)
 
 - [ ] **Step 1: Add tier-aware tests to test_lod_extractor.py**
@@ -298,20 +298,20 @@ class TestAssignLODTierAware:
 
     def test_tier1_more_generous(self) -> None:
         """Tier 1 gives LOD 0 at lower scores (0.40 vs 0.50)."""
-        from codrag.core.context_tier import ContextTier
+        from prep.core.context_tier import ContextTier
         # Score 0.45: Tier 1 → LOD 0, Tier 2 → LOD 2
         assert assign_lod(0.45, tier=ContextTier.TIER_1) == 0
         assert assign_lod(0.45, tier=ContextTier.TIER_2) == 2
 
     def test_tier2_5_more_aggressive(self) -> None:
         """Tier 2.5 requires higher scores for LOD 0."""
-        from codrag.core.context_tier import ContextTier
+        from prep.core.context_tier import ContextTier
         # Score 0.55: Tier 2 → LOD 0, Tier 2.5 → LOD 2
         assert assign_lod(0.55, tier=ContextTier.TIER_2) == 0
         assert assign_lod(0.55, tier=ContextTier.TIER_2_5) == 2
 
     def test_tier1_boundaries(self) -> None:
-        from codrag.core.context_tier import ContextTier
+        from prep.core.context_tier import ContextTier
         t = ContextTier.TIER_1
         assert assign_lod(0.40, tier=t) == 0
         assert assign_lod(0.39, tier=t) == 2
@@ -321,7 +321,7 @@ class TestAssignLODTierAware:
         assert assign_lod(0.14, tier=t) == 5
 
     def test_tier2_5_boundaries(self) -> None:
-        from codrag.core.context_tier import ContextTier
+        from prep.core.context_tier import ContextTier
         t = ContextTier.TIER_2_5
         assert assign_lod(0.60, tier=t) == 0
         assert assign_lod(0.59, tier=t) == 2
@@ -338,7 +338,7 @@ class TestAssignLODTierAware:
         assert assign_lod(0.34) == 4
 
     def test_trace_expanded_ignores_tier(self) -> None:
-        from codrag.core.context_tier import ContextTier
+        from prep.core.context_tier import ContextTier
         assert assign_lod(0.80, is_trace_expanded=True, tier=ContextTier.TIER_1) == 4
         assert assign_lod(0.80, is_trace_expanded=True, tier=ContextTier.TIER_2_5) == 4
 ```
@@ -397,7 +397,7 @@ Also add the import at the top of the file (after existing imports):
 ```python
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
-    from codrag.core.context_tier import ContextTier
+    from prep.core.context_tier import ContextTier
 ```
 
 And update the `LODExtractor.assign_lod` static method (line 515-533) to match:
@@ -422,7 +422,7 @@ Expected: All PASS (original tests use no tier arg → Tier 2 defaults → same 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/lod_extractor.py tests/test_lod_extractor.py
+git add src/prep/core/lod_extractor.py tests/test_lod_extractor.py
 git commit -m "feat(lod): tier-aware assign_lod with per-tier score thresholds"
 ```
 
@@ -431,7 +431,7 @@ git commit -m "feat(lod): tier-aware assign_lod with per-tier score thresholds"
 ### Task 3: Add context_tier to ContextRequest
 
 **Files:**
-- Modify: `src/codrag/api/routers/projects/models.py:44-62`
+- Modify: `src/prep/api/routers/projects/models.py:44-62`
 
 - [ ] **Step 1: Add the field to ContextRequest**
 
@@ -449,7 +449,7 @@ Expected: No import errors
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/api/routers/projects/models.py
+git add src/prep/api/routers/projects/models.py
 git commit -m "feat(api): add context_tier field to ContextRequest model"
 ```
 
@@ -458,8 +458,8 @@ git commit -m "feat(api): add context_tier field to ContextRequest model"
 ### Task 4: Tier-Aware Hub Selection + LOD
 
 **Files:**
-- Modify: `src/codrag/api/routers/projects/search.py:459-484` (`_resolve_hub_files`)
-- Modify: `src/codrag/api/routers/projects/search.py:487-577` (`_assemble_ambient_context`)
+- Modify: `src/prep/api/routers/projects/search.py:459-484` (`_resolve_hub_files`)
+- Modify: `src/prep/api/routers/projects/search.py:487-577` (`_assemble_ambient_context`)
 
 - [ ] **Step 1: Write integration test**
 
@@ -470,18 +470,18 @@ class TestTierAwareAmbient:
     """Verify tier parameters are respected in ambient context assembly."""
 
     def test_tier_from_budget_import(self) -> None:
-        from codrag.core.context_tier import ContextTier, tier_from_budget
+        from prep.core.context_tier import ContextTier, tier_from_budget
         assert tier_from_budget(50_000) == ContextTier.TIER_1
         assert tier_from_budget(30_000) == ContextTier.TIER_2
         assert tier_from_budget(20_000) == ContextTier.TIER_2_5
 
     def test_tier_hub_counts_are_ordered(self) -> None:
-        from codrag.core.context_tier import ContextTier
+        from prep.core.context_tier import ContextTier
         assert ContextTier.TIER_1.hub_count > ContextTier.TIER_2.hub_count
         assert ContextTier.TIER_2.hub_count > ContextTier.TIER_2_5.hub_count
 
     def test_tier_neighbor_lods_are_ordered(self) -> None:
-        from codrag.core.context_tier import ContextTier
+        from prep.core.context_tier import ContextTier
         # Higher tier number = more aggressive compression = higher LOD number
         assert ContextTier.TIER_2_5.neighbor_lod > ContextTier.TIER_2.neighbor_lod
         assert ContextTier.TIER_2.neighbor_lod > ContextTier.TIER_1.neighbor_lod
@@ -544,7 +544,7 @@ def _assemble_ambient_context(
 Add tier detection at the start of the function (after `idx_dir = ...`):
 
 ```python
-    from codrag.core.context_tier import ContextTier, tier_from_budget
+    from prep.core.context_tier import ContextTier, tier_from_budget
     tier = (
         ContextTier(context_tier) if context_tier is not None
         else tier_from_budget(max_chars)
@@ -575,7 +575,7 @@ In the hub content assembly loop (starting ~line 548), when `tier.hub_lod > 0`, 
     hub_lod_extractor = None
     if tier.hub_lod > 0:
         try:
-            from codrag.core.lod_extractor import LODExtractor
+            from prep.core.lod_extractor import LODExtractor
             hub_lod_extractor = LODExtractor(index_dir=idx_dir)
         except Exception:
             pass
@@ -659,7 +659,7 @@ Expected: All PASS
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/api/routers/projects/search.py tests/test_compressor.py
+git add src/prep/api/routers/projects/search.py tests/test_compressor.py
 git commit -m "feat(context): tier-aware hub count, hub LOD, neighbor LOD, and budget split"
 ```
 
@@ -668,7 +668,7 @@ git commit -m "feat(context): tier-aware hub count, hub LOD, neighbor LOD, and b
 ### Task 5: Tier-Aware Module Display
 
 **Files:**
-- Modify: `src/codrag/api/routers/projects/search.py:432-456` (`_format_module_tiers`)
+- Modify: `src/prep/api/routers/projects/search.py:432-456` (`_format_module_tiers`)
 
 - [ ] **Step 1: Update _format_module_tiers to accept tier**
 
@@ -682,7 +682,7 @@ def _format_module_tiers(
     Phase 73.3b: Tier 2.5 shows only significant modules.
     Tier 2 shows significant + small. Tier 1 shows all.
     """
-    from codrag.core.context_tier import ContextTier, tier_from_budget
+    from prep.core.context_tier import ContextTier, tier_from_budget
     tier = context_tier or ContextTier.TIER_2
 
     if not scope_modules:
@@ -732,7 +732,7 @@ Expected: All PASS
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/api/routers/projects/search.py
+git add src/prep/api/routers/projects/search.py
 git commit -m "feat(context): tier-aware module display — T2.5 shows significant only"
 ```
 
@@ -741,8 +741,8 @@ git commit -m "feat(context): tier-aware module display — T2.5 shows significa
 ### Task 6: Wire Tier Through MCP Server
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py:165-189` (`_get_context_budget`)
-- Modify: `src/codrag/mcp/server.py:902-967` (`tool_context`)
+- Modify: `src/prep/mcp/server.py:165-189` (`_get_context_budget`)
+- Modify: `src/prep/mcp/server.py:902-967` (`tool_context`)
 
 - [ ] **Step 1: Add _get_context_tier method**
 
@@ -755,7 +755,7 @@ Add after `_get_context_budget` (after line 189):
         Phase 73.3b: Flows the tier to the backend so LOD thresholds,
         hub selection, and module display adapt per client.
         """
-        from codrag.core.context_tier import tier_from_budget
+        from prep.core.context_tier import tier_from_budget
         # Use the base budget (without orientation boost) to determine tier
         client_lower = self._client_name.lower()
         base = self._DEFAULT_BUDGET
@@ -804,7 +804,7 @@ Expected: All PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py
+git add src/prep/mcp/server.py
 git commit -m "feat(mcp): compute and forward context_tier to backend API"
 ```
 
@@ -813,8 +813,8 @@ git commit -m "feat(mcp): compute and forward context_tier to backend API"
 ### Task 7: Wire Tier Into Search Compression Path
 
 **Files:**
-- Modify: `src/codrag/api/routers/projects/search.py:252-357` (`_apply_lod_compression`)
-- Modify: `src/codrag/api/routers/projects/search.py:1016-1040` (compression routing)
+- Modify: `src/prep/api/routers/projects/search.py:252-357` (`_apply_lod_compression`)
+- Modify: `src/prep/api/routers/projects/search.py:1016-1040` (compression routing)
 
 - [ ] **Step 1: Update _apply_lod_compression to accept tier**
 
@@ -833,7 +833,7 @@ def _apply_lod_compression(
 Add tier detection at the top of the function:
 
 ```python
-    from codrag.core.context_tier import ContextTier, tier_from_budget
+    from prep.core.context_tier import ContextTier, tier_from_budget
     tier = (
         ContextTier(context_tier) if context_tier is not None
         else tier_from_budget(max_chars)
@@ -875,7 +875,7 @@ Expected: All PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/api/routers/projects/search.py
+git add src/prep/api/routers/projects/search.py
 git commit -m "feat(search): wire context_tier through LOD compression and ambient assembly"
 ```
 
@@ -884,8 +884,8 @@ git commit -m "feat(search): wire context_tier through LOD compression and ambie
 ### Task 8: Add LOD 2.5 (Strip Module-Level Constants)
 
 **Files:**
-- Modify: `src/codrag/core/lod_extractor.py:186-289` (add `_build_lod25`)
-- Modify: `src/codrag/core/lod_extractor.py:458-480` (LODExtractor.extract)
+- Modify: `src/prep/core/lod_extractor.py:186-289` (add `_build_lod25`)
+- Modify: `src/prep/core/lod_extractor.py:458-480` (LODExtractor.extract)
 - Modify: `tests/test_lod_extractor.py` (new TestLOD25 class)
 - Modify: `tests/test_compressor.py` (real-file LOD 2.5 tests)
 
@@ -1098,7 +1098,7 @@ Expected: All PASS
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/codrag/core/lod_extractor.py tests/test_lod_extractor.py tests/test_compressor.py
+git add src/prep/core/lod_extractor.py tests/test_lod_extractor.py tests/test_compressor.py
 git commit -m "feat(lod): add LOD 2.5 — strip module-level constants for better compression"
 ```
 
@@ -1107,7 +1107,7 @@ git commit -m "feat(lod): add LOD 2.5 — strip module-level constants for bette
 ### Task 9: Final Integration + Export
 
 **Files:**
-- Modify: `src/codrag/core/__init__.py` (export ContextTier)
+- Modify: `src/prep/core/__init__.py` (export ContextTier)
 
 - [ ] **Step 1: Add exports to core __init__.py**
 
@@ -1137,7 +1137,7 @@ Expected: No unexpected failures
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/core/__init__.py
+git add src/prep/core/__init__.py
 git commit -m "feat(core): export ContextTier and tier_from_budget"
 ```
 

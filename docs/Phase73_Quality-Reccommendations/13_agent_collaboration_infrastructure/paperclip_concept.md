@@ -17,13 +17,13 @@ This creates real problems:
 
 **Agent Collaboration Infrastructure** is a set of capabilities that let your agents *see each other's work* and *avoid stepping on each other* — without requiring a central orchestrator to manage every interaction.
 
-**Built for Paperclip first.** CoDRAG provides structural intelligence that enriches Paperclip's existing coordination — it doesn't build a parallel PM system. Activity tracking, task routing, and conflict resolution live in Paperclip. CoDRAG pushes signals that only the code graph can provide.
+**Built for Paperclip first.** Prep provides structural intelligence that enriches Paperclip's existing coordination — it doesn't build a parallel PM system. Activity tracking, task routing, and conflict resolution live in Paperclip. Prep pushes signals that only the code graph can provide.
 
 ---
 
 ## How it works
 
-CoDRAG already sits at the center of your agents' data flow. Every agent calls CoDRAG for code search, impact analysis, and structural context. We're extending CoDRAG to also serve as the **shared awareness layer** between agents.
+Prep already sits at the center of your agents' data flow. Every agent calls Prep for code search, impact analysis, and structural context. We're extending Prep to also serve as the **shared awareness layer** between agents.
 
 ### Three capabilities, in plain terms
 
@@ -33,13 +33,13 @@ Each agent gets its own memory space. When a researcher starts a new session, it
 
 **Before:**
 ```
-Agent starts → calls codrag_search → calls codrag_observe(get) → 
+Agent starts → calls prep_search → calls prep_observe(get) → 
 re-discovers what it already knew → starts actual work
 ```
 
 **After:**
 ```
-Agent starts → @codrag://memory/researcher already in context → 
+Agent starts → @prep://memory/researcher already in context → 
 knows prior findings → starts actual work immediately
 ```
 
@@ -47,7 +47,7 @@ Agents can also browse *each other's* memory. Your dispatcher agent can see what
 
 ### 2. Structural Change Detection
 
-Git tells you what *files* changed. CoDRAG tells you what *structurally* shifted — new hub files that many other files depend on, modules that split or merged, dependency rankings that shifted.
+Git tells you what *files* changed. Prep tells you what *structurally* shifted — new hub files that many other files depend on, modules that split or merged, dependency rankings that shifted.
 
 When your agent starts a task, it can check: "Has the codebase architecture changed since my last session?" If a critical hub file emerged or a module restructured, the agent knows before it starts working.
 
@@ -55,10 +55,10 @@ This is especially valuable for long-running agent teams. A weekly researcher se
 
 ### 3. Conflict Detection → Paperclip Issues
 
-When two agents disagree about the same file — one says "important pattern, consolidate" and the other says "dead code, delete" — CoDRAG catches it and pushes it to Paperclip as an issue:
+When two agents disagree about the same file — one says "important pattern, consolidate" and the other says "dead code, delete" — Prep catches it and pushes it to Paperclip as an issue:
 
 ```
-CoDRAG Conflict: src/auth/legacy.py — researcher vs custodian
+Prep Conflict: src/auth/legacy.py — researcher vs custodian
 
   Two agents disagree about this file:
   
@@ -78,9 +78,9 @@ Three resources your agents can pull into their context on demand:
 
 | Resource | What it provides |
 |---|---|
-| `@codrag://memory/{role}` | An agent's own prior observations and findings |
-| `@codrag://agents/{role}/findings` | Another agent's recent work (cross-agent visibility) |
-| `@codrag://delta` | What changed structurally since the last snapshot |
+| `@prep://memory/{role}` | An agent's own prior observations and findings |
+| `@prep://agents/{role}/findings` | Another agent's recent work (cross-agent visibility) |
+| `@prep://delta` | What changed structurally since the last snapshot |
 
 ### Paperclip Data Providers
 
@@ -95,9 +95,9 @@ Two data providers available in the Paperclip plugin UI:
 
 | Prompt | What it does |
 |---|---|
-| `/codrag-handoff` | When one agent finishes and another picks up — packages context transfer with memory, findings, and structural delta |
-| `/codrag-scope` | Shows an agent what modules it owns, what changed in its scope, and what findings are open in its domain |
-| `/codrag-enrich` | Enriches findings with structural intelligence — blast radius, hub involvement, cross-module analysis |
+| `/prep-handoff` | When one agent finishes and another picks up — packages context transfer with memory, findings, and structural delta |
+| `/prep-scope` | Shows an agent what modules it owns, what changed in its scope, and what findings are open in its domain |
+| `/prep-enrich` | Enriches findings with structural intelligence — blast radius, hub involvement, cross-module analysis |
 
 ### Enhanced Observations
 
@@ -119,7 +119,7 @@ You can see which agent found what, filter by agent, and trace findings back to 
 
 ## How this fits with Paperclip
 
-CoDRAG doesn't replace Paperclip's orchestration. Paperclip decides *who* works on what and *when*. CoDRAG provides the structural intelligence that makes those decisions better.
+Prep doesn't replace Paperclip's orchestration. Paperclip decides *who* works on what and *when*. Prep provides the structural intelligence that makes those decisions better.
 
 ```
                 Paperclip (orchestration)
@@ -130,13 +130,13 @@ CoDRAG doesn't replace Paperclip's orchestration. Paperclip decides *who* works 
                 │ Routes conflicts    │
                 └────────┬────────────┘
                          │
-                         │ CoDRAG pushes:
+                         │ Prep pushes:
                          │ • Structural delta (what shifted in the graph)
                          │ • Conflict issues (agents disagree about a file)
                          │ • File claims (what agents are working on)
                          │
                 ┌────────▼────────────┐
-                │ CoDRAG (intelligence)│
+                │ Prep (intelligence)│
                 │ Agent memory        │
                 │ Structural delta    │
                 │ Conflict detection  │
@@ -144,21 +144,21 @@ CoDRAG doesn't replace Paperclip's orchestration. Paperclip decides *who* works 
                 └─────────────────────┘
 ```
 
-**CoDRAG provides three things Paperclip cannot compute:**
+**Prep provides three things Paperclip cannot compute:**
 
 1. **Structural delta** — what changed in the dependency graph, not just what files changed
 2. **File-level claims with structural awareness** — coordination at the code level, not the task level
 3. **Pre-push conflict detection** — catch agent disagreements before they become separate Paperclip issues
 
-Everything else (activity tracking, task routing, agent management, audit trail) belongs in Paperclip. CoDRAG enriches Paperclip's coordination with structural intelligence. It doesn't replace it.
+Everything else (activity tracking, task routing, agent management, audit trail) belongs in Paperclip. Prep enriches Paperclip's coordination with structural intelligence. It doesn't replace it.
 
 **Concrete integration points:**
 
-1. **Agent startup** — When a Paperclip agent starts a session, its system prompt can include `@codrag://memory/{role}` so it has its prior work context immediately.
+1. **Agent startup** — When a Paperclip agent starts a session, its system prompt can include `@prep://memory/{role}` so it has its prior work context immediately.
 
-2. **Handoff** — When Agent A finishes and Agent B picks up, the `codrag-handoff` prompt packages what A found, what B should focus on, and the structural context for the relevant code area.
+2. **Handoff** — When Agent A finishes and Agent B picks up, the `prep-handoff` prompt packages what A found, what B should focus on, and the structural context for the relevant code area.
 
-3. **Structural enrichment** — Before triaging findings, use `/codrag-enrich` to add blast radius, hub involvement, and cross-module analysis to each finding. Paperclip gets better signal for routing.
+3. **Structural enrichment** — Before triaging findings, use `/prep-enrich` to add blast radius, hub involvement, and cross-module analysis to each finding. Paperclip gets better signal for routing.
 
 4. **Conflict resolution** — Conflicts appear as Paperclip issues with both agents' assessments. Assign, comment, and resolve using your normal workflow.
 
@@ -170,23 +170,23 @@ Everything else (activity tracking, task routing, agent management, audit trail)
 
 Most multi-agent coordination tools focus on **message passing** — Agent A sends a message to Agent B, who responds. This requires agents to know about each other and creates tight coupling.
 
-CoDRAG's approach is **observation-mediated** — agents don't talk to each other directly. They leave traces of their work in a shared knowledge layer. Other agents (and humans) can browse those traces. Coordination emerges from shared awareness rather than explicit messaging.
+Prep's approach is **observation-mediated** — agents don't talk to each other directly. They leave traces of their work in a shared knowledge layer. Other agents (and humans) can browse those traces. Coordination emerges from shared awareness rather than explicit messaging.
 
 This is more resilient (agents don't need to be online simultaneously), more transparent (all traces are inspectable), and works across any MCP client (Claude Code, Cursor, Windsurf, Gemini, or Paperclip-managed agents).
 
-The other unique element is the **codebase graph as coordination medium**. CoDRAG knows the structural relationships between files — which files are hubs, which modules depend on each other. When agents coordinate through CoDRAG, they coordinate through *structural understanding*, not just file paths. This means conflict detection catches semantic conflicts ("these two agents are working on structurally connected code") not just name collisions.
+The other unique element is the **codebase graph as coordination medium**. Prep knows the structural relationships between files — which files are hubs, which modules depend on each other. When agents coordinate through Prep, they coordinate through *structural understanding*, not just file paths. This means conflict detection catches semantic conflicts ("these two agents are working on structurally connected code") not just name collisions.
 
 ---
 
 ## Getting started
 
-If you're already using the CoDRAG Paperclip plugin (`@codrag/paperclip-plugin`), collaboration infrastructure is available through the same connection your agents already use.
+If you're already using the Prep Paperclip plugin (`@prep/paperclip-plugin`), collaboration infrastructure is available through the same connection your agents already use.
 
-1. **Agent attribution** — The plugin automatically sets `created_by` when agents save observations via `codrag:observe`. Your agent's observations become browsable via `@codrag://memory/{role}`.
+1. **Agent attribution** — The plugin automatically sets `created_by` when agents save observations via `prep:observe`. Your agent's observations become browsable via `@prep://memory/{role}`.
 
-2. **Cross-agent visibility** — Have agents include `@codrag://agents/{role}/findings` in their startup context to see what other agents discovered.
+2. **Cross-agent visibility** — Have agents include `@prep://agents/{role}/findings` in their startup context to see what other agents discovered.
 
-3. **Structural delta** — Have long-running agents check `@codrag://delta` at session start to understand what changed since their last run. Or view the `structural-delta` data provider in the Paperclip dashboard.
+3. **Structural delta** — Have long-running agents check `@prep://delta` at session start to understand what changed since their last run. Or view the `structural-delta` data provider in the Paperclip dashboard.
 
 4. **Conflict alerts** — Conflicts automatically push to Paperclip as tagged issues. No polling or monitoring needed — they show up in your normal issue tracker.
 

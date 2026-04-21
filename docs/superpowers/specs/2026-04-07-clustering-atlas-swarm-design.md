@@ -66,7 +66,7 @@ Aggregates all worker outputs and looks for:
 
 | File | Change |
 |------|--------|
-| `src/codrag/core/cluster.py` | Add `_run_swarm()`, `synthesize_cluster_with_angle()`, `_get_swarm_enabled()`, `_write_cluster_synthesis()`, swarm decision branch in `run()` |
+| `src/prep/core/cluster.py` | Add `_run_swarm()`, `synthesize_cluster_with_angle()`, `_get_swarm_enabled()`, `_write_cluster_synthesis()`, swarm decision branch in `run()` |
 
 ---
 
@@ -118,7 +118,7 @@ Aggregates all segment atlases and produces:
 
 | File | Change |
 |------|--------|
-| `src/codrag/core/atlas/generator.py` | Add `_run_swarm()`, `_generate_segment_atlas_with_angle()`, `_get_swarm_enabled()`, `_write_atlas_synthesis()`, swarm decision branch in `generate_segmented()` |
+| `src/prep/core/atlas/generator.py` | Add `_run_swarm()`, `_generate_segment_atlas_with_angle()`, `_get_swarm_enabled()`, `_write_atlas_synthesis()`, swarm decision branch in `generate_segmented()` |
 
 ---
 

@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
-[data-codrag-theme='b'] {
+[data-prep-theme='b'] {
   --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Code', monospace;
 
@@ -30,7 +30,7 @@
   --ring: 210 100% 60%;
 }
 
-.dark[data-codrag-theme='b'] {
+.dark[data-prep-theme='b'] {
   --background: 220 13% 10%;
   --foreground: 220 10% 93%;
   --surface: 220 13% 13%;

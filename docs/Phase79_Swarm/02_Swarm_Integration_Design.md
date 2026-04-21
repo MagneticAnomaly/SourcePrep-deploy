@@ -7,7 +7,7 @@
 
 ## Summary
 
-When CoDRAG detects a swarm-capable model, it upgrades specific pipeline stages from "concurrent independent calls" to a three-phase swarm pattern: **coordinator → parallel fan-out → synthesis**. This produces higher-quality architectural analysis by giving each parallel worker a scoped role and adding a cross-cutting synthesis step that standard concurrent batching cannot provide.
+When Prep detects a swarm-capable model, it upgrades specific pipeline stages from "concurrent independent calls" to a three-phase swarm pattern: **coordinator → parallel fan-out → synthesis**. This produces higher-quality architectural analysis by giving each parallel worker a scoped role and adding a cross-cutting synthesis step that standard concurrent batching cannot provide.
 
 The swarm is invisible to users by default — it silently improves results. A settings toggle lets users disable it to save tokens.
 
@@ -24,15 +24,15 @@ The swarm is invisible to users by default — it silently improves results. A s
 
 | File | Purpose |
 |------|---------|
-| `src/codrag/core/swarm_registry.py` | Swarm tier lookup — finite list of supported models |
-| `src/codrag/core/swarm_orchestrator.py` | Three-phase swarm executor (coordinator → fan-out → synthesis) |
-| `src/codrag/data/swarm_models.json` | External model list for easy updates |
+| `src/prep/core/swarm_registry.py` | Swarm tier lookup — finite list of supported models |
+| `src/prep/core/swarm_orchestrator.py` | Three-phase swarm executor (coordinator → fan-out → synthesis) |
+| `src/prep/data/swarm_models.json` | External model list for easy updates |
 
 ### Modified Files
 
 | File | Change |
 |------|--------|
-| `src/codrag/core/group_reasoning.py` | Add `_run_swarm()` method; decision branch in `run()` |
+| `src/prep/core/group_reasoning.py` | Add `_run_swarm()` method; decision branch in `run()` |
 | Pipeline settings (DB/API) | Add `swarm_enabled` boolean |
 
 ### Unchanged Files
@@ -48,7 +48,7 @@ Everything else in the pipeline remains untouched:
 
 ## Component 1: Swarm Registry
 
-### `src/codrag/data/swarm_models.json`
+### `src/prep/data/swarm_models.json`
 
 A flat JSON file with the validated model list. No regex — just exact model family strings matched with simple `startswith`/`contains` checks.
 
@@ -99,7 +99,7 @@ A flat JSON file with the validated model list. No regex — just exact model fa
 }
 ```
 
-### `src/codrag/core/swarm_registry.py`
+### `src/prep/core/swarm_registry.py`
 
 ```python
 class SwarmTier(str, Enum):
@@ -133,7 +133,7 @@ No regex. Simple string matching. Easy to reason about, easy to update.
 
 ## Component 2: Swarm Orchestrator
 
-### `src/codrag/core/swarm_orchestrator.py`
+### `src/prep/core/swarm_orchestrator.py`
 
 Generic three-phase executor. Knows nothing about Group Reasoning or any specific stage.
 
@@ -396,7 +396,7 @@ Downstream stages (Clustering, Atlas) can optionally read this for richer contex
 
 ### Where It Lives
 
-Same settings storage as other pipeline config (`codrag_settings.db`). Exposed through the existing settings API. The dashboard can add a toggle to the pipeline settings panel.
+Same settings storage as other pipeline config (`prep_settings.db`). Exposed through the existing settings API. The dashboard can add a toggle to the pipeline settings panel.
 
 ### Decision Logic
 

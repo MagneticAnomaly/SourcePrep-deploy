@@ -1,6 +1,6 @@
-# @codrag/ui
+# @prep/ui
 
-Shared UI component library and design system for CoDRAG.
+Shared UI component library and design system for Prep.
 
 ## Overview
 
@@ -12,7 +12,7 @@ This package provides:
 ## Usage
 
 This package is consumed by:
-- `websites/` — CoDRAG marketing site and documentation
+- `websites/` — Prep marketing site and documentation
 - Dashboard app (when scaffolded)
 
 ### Styles

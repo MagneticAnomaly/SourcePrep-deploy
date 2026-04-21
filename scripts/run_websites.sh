@@ -84,8 +84,8 @@ if [[ $DO_CLEAN -eq 1 ]]; then
   rm -rf "$ROOT_DIR/websites/apps"/*/.turbo || true
   rm -rf "$ROOT_DIR/packages/ui/dist" || true
   rm -rf "$ROOT_DIR/packages/ui/storybook-static" || true
-  rm -rf "$ROOT_DIR/src/codrag/dashboard/dist" || true
-  rm -rf "$ROOT_DIR/src/codrag/dashboard/.vite" || true
+  rm -rf "$ROOT_DIR/src/prep/dashboard/dist" || true
+  rm -rf "$ROOT_DIR/src/prep/dashboard/.vite" || true
 fi
 
 if [[ $DO_INSTALL -eq 1 ]]; then

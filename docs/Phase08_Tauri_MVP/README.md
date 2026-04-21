@@ -35,10 +35,10 @@ The Tauri app is a wrapper around the existing web dashboard, plus a process man
 Components:
 - **WebView**: renders the React dashboard.
 - **Rust host**: owns window lifecycle and sidecar lifecycle.
-- **Python sidecar**: runs the CoDRAG daemon (FastAPI).
+- **Python sidecar**: runs the Prep daemon (FastAPI).
 
 Constraints:
-- The desktop app should be usable without the user manually running `codrag serve`.
+- The desktop app should be usable without the user manually running `prep serve`.
 - The daemon must bind to loopback by default.
 
 ### Sidecar lifecycle
@@ -72,8 +72,8 @@ Default:
 
 Conflict handling:
 - If 8400 is occupied:
-  - first determine whether the occupant is CoDRAG (health check)
-  - if it is CoDRAG, connect to it
+  - first determine whether the occupant is Prep (health check)
+  - if it is Prep, connect to it
   - otherwise select an ephemeral free port and start the sidecar there
 
 Port discovery:
@@ -97,15 +97,15 @@ Daemon behavior:
 
 ### Data directory locations
 
-The desktop app must store CoDRAG data in OS-appropriate locations.
+The desktop app must store Prep data in OS-appropriate locations.
 
 Rules:
 - Default to platform conventions.
-- Allow override via CoDRAG config (advanced).
+- Allow override via Prep config (advanced).
 
 Recommended defaults:
-- macOS: `~/Library/Application Support/CoDRAG/`
-- Windows: `%APPDATA%\\CoDRAG\\`
+- macOS: `~/Library/Application Support/Prep/`
+- Windows: `%APPDATA%\\Prep\\`
 - Linux: `~/.local/share/prep/`
 
 ### Packaging strategy
@@ -144,7 +144,7 @@ Minimum viable update behavior:
 - “Backend connected” indicator in a debug/about panel.
 
 ## Success criteria
-- A user can install and launch CoDRAG as a desktop app.
+- A user can install and launch Prep as a desktop app.
 - The dashboard is accessible and the backend is started automatically.
 - The app can be cleanly shut down without leaving stray processes.
 

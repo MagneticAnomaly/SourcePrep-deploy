@@ -5,8 +5,8 @@
 > seeded at a jumpstart of 5, and is **unbounded** on the upward path.
 > Discovered ceilings persist across daemon restarts via
 > `ConcurrencyStore` (SQLite, per node_id + model_family).
-> Implementation lives in `src/codrag/services/pipeline/scheduler.py`
-> and `src/codrag/core/concurrency_store.py`.
+> Implementation lives in `src/prep/services/pipeline/scheduler.py`
+> and `src/prep/core/concurrency_store.py`.
 >
 > Historical note: this doc is the *spec*. For the delta between the
 > earlier Phase 82 plan and what actually shipped, see
@@ -23,7 +23,7 @@ Earlier pipeline phases hardcoded LLM batch concurrency budgets (e.g. 100 for Cl
 This presents three critical issues:
 1. **Ollama Cloud / Pro Max Plans:** Some Ollama instances are hosted on large cloud clusters (e.g., maximum limits of 12 parallel requests and 512 queued requests). If we only dispatch 1 at a time, we waste capacity.
 2. **Silent Queuing:** If we dispatch 100 requests to an Ollama server that only supports 5 concurrently, Ollama does not return an HTTP 429 Rate Limit error. It silently accepts them and places them into an unbounded queue (e.g., 512 queue size). The requests then sit there until they time out from the client's perspective, or arbitrarily complete 5 minutes later, rendering typical naive 429-based rate limit discovery useless.
-3. **Starvation vs Pipeline Greed:** Setting the max parallelism to match the provider's max limits allows one monolithic pipeline or Swarm block to lock down the entire connection, starving sideband tasks (e.g., CoDRAG MCP background tasks or real-time UI contextual searches) from proceeding until the queue clears out.
+3. **Starvation vs Pipeline Greed:** Setting the max parallelism to match the provider's max limits allows one monolithic pipeline or Swarm block to lock down the entire connection, starving sideband tasks (e.g., Prep MCP background tasks or real-time UI contextual searches) from proceeding until the queue clears out.
 
 ## Solution Strategy: Latency-Aware Discovery
 

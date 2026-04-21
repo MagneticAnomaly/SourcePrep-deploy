@@ -2,7 +2,7 @@
 
 ## Title Options
 1. **Why we built a structural code indexer in Rust (and why embeddings aren't enough)**
-2. **Under the hood of CoDRAG: Local-first, graph-based code retrieval**
+2. **Under the hood of Prep: Local-first, graph-based code retrieval**
 3. **The case for "Trace-Assisted Grasping" in AI coding tools**
 
 ## Outline
@@ -33,7 +33,7 @@
 
 ### Component 3: The MCP Layer
 *   Why we chose MCP (Model Context Protocol).
-*   It decouples the *intelligence* (Cursor/Windsurf) from the *context* (CoDRAG).
+*   It decouples the *intelligence* (Cursor/Windsurf) from the *context* (Prep).
 *   Allows us to build a specialized tool that works with any editor.
 
 ### Conclusion

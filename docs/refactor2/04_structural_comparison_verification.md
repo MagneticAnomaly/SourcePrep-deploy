@@ -8,7 +8,7 @@ No business logic, algorithms, conditionals, or API signatures may change. The o
 
 ## Verification Methodology per Target
 
-### 1. `src/codrag/core/trace.py` (2,460 lines)
+### 1. `src/prep/core/trace.py` (2,460 lines)
 **Current Structure:**
 - 4 Data Classes (`TraceNode`, `TraceEdge`, `FileError`, `TraceBuildResult`)
 - 3 Helper Functions (`_detect_language`, `_to_posix`, `_is_relevant`)
@@ -22,7 +22,7 @@ No business logic, algorithms, conditionals, or API signatures may change. The o
 3. **Crucial:** Ensure the `TraceIndex` graph structure remains unchanged. All 76 Python tests in `tests/test_trace*.py` must pass.
 4. Ensure the `__init__.py` exposes exactly the same public interface as the original module.
 
-### 2. `src/codrag/api/routers/projects.py` (2,228 lines)
+### 2. `src/prep/api/routers/projects.py` (2,228 lines)
 **Current Structure:**
 - Project CRUD (`POST /projects`, `GET /projects`, `DELETE /projects/{id}`)
 - Build Endpoints (`POST /projects/{id}/build`)

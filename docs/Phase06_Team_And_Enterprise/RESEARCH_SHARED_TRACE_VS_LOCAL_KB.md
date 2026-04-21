@@ -5,17 +5,17 @@
 
 If a team uses a headless server to build the index centrally, we must cleanly separate what is "team-owned" (the shared repository state) from what is "user-owned" (local branches, personal notes, external URLs).
 
-This document outlines how the CoDRAG architecture handles the synchronization of shared remote state with highly specific local developer context.
+This document outlines how the Prep architecture handles the synchronization of shared remote state with highly specific local developer context.
 
 ---
 
 ## 1. The Core Problem: The Three Context Layers
 
-A developer working on a CoDRAG-enabled project actually relies on three distinct layers of context:
+A developer working on a Prep-enabled project actually relies on three distinct layers of context:
 
 1. **The Main Branch (Shared):** The massive, 10-stage enriched trace graph of the repository's `main` branch. This takes hours to build.
 2. **The Local Delta (Personal):** The uncommitted files or feature-branch changes the developer is actively editing.
-3. **The Knowledge Base (Personal):** External context the user has specifically selected in their CoDRAG dashboard tree (e.g., a Jira ticket URL, a PDF spec, a Slack thread, or a local `scratchpad.md` outside the repo).
+3. **The Knowledge Base (Personal):** External context the user has specifically selected in their Prep dashboard tree (e.g., a Jira ticket URL, a PDF spec, a Slack thread, or a local `scratchpad.md` outside the repo).
 
 If the headless server builds the index, how do we merge these layers without the server needing to manage multi-user states?
 
@@ -31,18 +31,18 @@ All merging and scoping happen **locally on the user's computer.**
 - The headless CI/CD server runs on push to `main`.
 - It builds the complete Trace Graph and Atlas Routing for `main`.
 - It uploads `trace_manifest.json`, `documents.json`, and `embeddings.npy` to the team's S3 bucket.
-- **The developer's local CoDRAG daemon downloads this zip and places it in `.prep/index/remote/`.**
+- **The developer's local Prep daemon downloads this zip and places it in `.prep/index/remote/`.**
 
 ### Layer 2: The Local Watcher (The Delta)
 - The developer opens their IDE and starts editing `src/auth.ts`.
-- The local CoDRAG file watcher detects the change.
+- The local Prep file watcher detects the change.
 - It compares the file against the remote `trace_manifest.json`.
-- The local CoDRAG daemon uses the developer's *local* LLM (or BYOK API key) to run the enrichment pipeline **only on `src/auth.ts`**.
+- The local Prep daemon uses the developer's *local* LLM (or BYOK API key) to run the enrichment pipeline **only on `src/auth.ts`**.
 - It saves this delta to `.prep/index/local_deltas/`.
 - *Compute cost: ~2 seconds of local GPU/API time, rather than 2 hours.*
 
 ### Layer 3: The Knowledge Base (The Personal Scope) *(Future Enhancement — not part of Phase 06 MVP)*
-- The user selects "Add URL" in their CoDRAG tree and adds a Jira ticket.
+- The user selects "Add URL" in their Prep tree and adds a Jira ticket.
 - This is processed 100% locally and saved to `.prep/index/knowledge/`.
 - The headless server is completely unaware of this.
 
@@ -54,8 +54,8 @@ All merging and scoping happen **locally on the user's computer.**
 
 When the user asks a question in Cursor/Windsurf (via MCP):
 
-1. The query hits the local CoDRAG search engine.
-2. **Knowledge Scope Filter:** CoDRAG checks which folders/URLs the user has currently checked/selected in the Dashboard UI.
+1. The query hits the local Prep search engine.
+2. **Knowledge Scope Filter:** Prep checks which folders/URLs the user has currently checked/selected in the Dashboard UI.
 3. **Vector Search:** It runs a parallel semantic search across:
    - The remote `main` embeddings (ignoring files that have local deltas).
    - The local delta embeddings.
@@ -70,7 +70,7 @@ When the remote index is updated (because the developer's PR was merged into `ma
 
 ### Sync Trigger Timing
 The local client checks for remote index updates:
-- **On daemon startup** (when the IDE opens or CoDRAG starts).
+- **On daemon startup** (when the IDE opens or Prep starts).
 - **On manual "Sync" button press** in the Dashboard.
 - **On a configurable polling interval** (default: every 30 minutes while the daemon is running).
 - **Not** on every MCP tool call (too frequent, would add latency).
@@ -90,7 +90,7 @@ The local client checks for remote index updates:
 To make this work, the Phase 06 implementation must add support for **layered index reading**.
 Currently, `get_context()` reads a single `documents.json` and `embeddings.npy`.
 
-We must update `src/codrag/core/index.py` to:
+We must update `src/prep/core/index.py` to:
 1. Load the Remote Trace Index.
 2. Load the Local Delta Index.
 3. Load the Local Knowledge Index.

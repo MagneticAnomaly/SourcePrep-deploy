@@ -15,7 +15,7 @@
 ### Task 1: Add WAL checkpoint and timeout to SettingsStore
 
 **Files:**
-- Modify: `src/codrag/services/settings_store.py:56-77`
+- Modify: `src/prep/services/settings_store.py:56-77`
 - Test: `tests/test_settings_store.py`
 
 - [ ] **Step 1: Write failing test — startup WAL checkpoint recovers after simulated crash**
@@ -99,7 +99,7 @@ Expected: `test_close_checkpoints_wal` will likely FAIL (WAL not truncated becau
 
 - [ ] **Step 5: Implement the changes to settings_store.py**
 
-In `src/codrag/services/settings_store.py`, modify the `init()` method — change the `sqlite3.connect()` call and add WAL checkpoint after the existing pragmas:
+In `src/prep/services/settings_store.py`, modify the `init()` method — change the `sqlite3.connect()` call and add WAL checkpoint after the existing pragmas:
 
 ```python
     def init(self, db_path: Path) -> None:
@@ -146,7 +146,7 @@ Expected: ALL PASS (including new tests and all existing tests)
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/codrag/services/settings_store.py tests/test_settings_store.py
+git add src/prep/services/settings_store.py tests/test_settings_store.py
 git commit -m "fix(settings): add WAL checkpoint on init/close to prevent stale locks
 
 sqlite3.connect timeout raised to 10s. Startup checkpoint recovers
@@ -159,11 +159,11 @@ exit. Follows Firefox/VS Code SQLite WAL pattern."
 ### Task 2: Wire settings store close into server lifespan
 
 **Files:**
-- Modify: `src/codrag/server.py:38-76`
+- Modify: `src/prep/server.py:38-76`
 
 - [ ] **Step 1: Modify the lifespan teardown**
 
-In `src/codrag/server.py`, replace the shutdown section of the `lifespan` function. Change:
+In `src/prep/server.py`, replace the shutdown section of the `lifespan` function. Change:
 
 ```python
     yield
@@ -175,21 +175,21 @@ To:
 ```python
     yield
     # Shutdown: checkpoint and close the settings store
-    from codrag.services.settings_store import settings as _settings_store
+    from prep.services.settings_store import settings as _settings_store
     _settings_store.close()
     logger.info("Settings store closed")
 ```
 
 - [ ] **Step 2: Verify the daemon starts and stops cleanly**
 
-Run: `PYTHONPATH="/Volumes/4TB-BAD/HumanAI/CoDRAG/src" .venv/bin/python -m codrag.cli serve --port 8400 & PID=$!; sleep 3; curl -s http://127.0.0.1:8400/health; kill $PID; sleep 2; echo "WAL size after graceful stop:"; stat -f%z codrag_data/codrag_settings.db-wal 2>/dev/null || echo "WAL file gone"`
+Run: `PYTHONPATH="/Volumes/4TB-BAD/HumanAI/Prep/src" .venv/bin/python -m prep.cli serve --port 8400 & PID=$!; sleep 3; curl -s http://127.0.0.1:8400/health; kill $PID; sleep 2; echo "WAL size after graceful stop:"; stat -f%z prep_data/prep_settings.db-wal 2>/dev/null || echo "WAL file gone"`
 
 Expected: Health check returns `{"status":"ok",...}`. After SIGTERM, WAL should be 0 bytes (truncated by checkpoint on close).
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/server.py
+git add src/prep/server.py
 git commit -m "fix(server): close settings store on lifespan shutdown
 
 Calls settings.close() in the FastAPI lifespan teardown so the SQLite
@@ -208,21 +208,21 @@ WAL is checkpointed on graceful shutdown (SIGTERM/SIGINT via uvicorn)."
 In `scripts/dev.sh`, insert a process cleanup line before the daemon startup. Change:
 
 ```bash
-    # Start CoDRAG Daemon
-    log_info "Starting CoDRAG daemon on port $DAEMON_PORT..."
-    PYTHONPATH="$PROJECT_ROOT/src" python3.11 -m codrag.cli serve --port $DAEMON_PORT &
+    # Start Prep Daemon
+    log_info "Starting Prep daemon on port $DAEMON_PORT..."
+    PYTHONPATH="$PROJECT_ROOT/src" python3.11 -m prep.cli serve --port $DAEMON_PORT &
 ```
 
 To:
 
 ```bash
-    # Start CoDRAG Daemon
-    log_info "Starting CoDRAG daemon on port $DAEMON_PORT..."
+    # Start Prep Daemon
+    log_info "Starting Prep daemon on port $DAEMON_PORT..."
     # Kill orphaned daemon processes that may not be listening on a port
-    pkill -f "codrag.cli serve" 2>/dev/null || true
-    pkill -f "codrag serve" 2>/dev/null || true
+    pkill -f "prep.cli serve" 2>/dev/null || true
+    pkill -f "prep serve" 2>/dev/null || true
     sleep 1
-    PYTHONPATH="$PROJECT_ROOT/src" python3.11 -m codrag.cli serve --port $DAEMON_PORT &
+    PYTHONPATH="$PROJECT_ROOT/src" python3.11 -m prep.cli serve --port $DAEMON_PORT &
 ```
 
 - [ ] **Step 2: Test dev.sh starts cleanly**
@@ -235,7 +235,7 @@ Expected: Health check succeeds. Kill cleans up all processes.
 
 ```bash
 git add scripts/dev.sh
-git commit -m "fix(dev): kill orphaned codrag processes by name before startup
+git commit -m "fix(dev): kill orphaned prep processes by name before startup
 
 kill_port misses daemon processes that failed to bind. pkill by
 process name catches stuck orphans that hold the SQLite lock."
@@ -249,7 +249,7 @@ process name catches stuck orphans that hold the SQLite lock."
 
 ```bash
 # Start daemon
-PYTHONPATH="/Volumes/4TB-BAD/HumanAI/CoDRAG/src" .venv/bin/python -m codrag.cli serve --port 8400 &
+PYTHONPATH="/Volumes/4TB-BAD/HumanAI/Prep/src" .venv/bin/python -m prep.cli serve --port 8400 &
 PID=$!
 sleep 3
 
@@ -261,10 +261,10 @@ kill -9 $PID
 sleep 1
 
 # Verify WAL/SHM files exist (unclean shutdown)
-ls -la codrag_data/codrag_settings.db-wal
+ls -la prep_data/prep_settings.db-wal
 
 # Restart — should succeed (WAL checkpoint on init recovers)
-PYTHONPATH="/Volumes/4TB-BAD/HumanAI/CoDRAG/src" .venv/bin/python -m codrag.cli serve --port 8400 &
+PYTHONPATH="/Volumes/4TB-BAD/HumanAI/Prep/src" .venv/bin/python -m prep.cli serve --port 8400 &
 PID2=$!
 sleep 3
 curl -s http://127.0.0.1:8400/health
@@ -276,7 +276,7 @@ Expected: Second startup succeeds. Health check returns ok.
 - [ ] **Step 2: Test graceful shutdown end-to-end**
 
 ```bash
-PYTHONPATH="/Volumes/4TB-BAD/HumanAI/CoDRAG/src" .venv/bin/python -m codrag.cli serve --port 8400 &
+PYTHONPATH="/Volumes/4TB-BAD/HumanAI/Prep/src" .venv/bin/python -m prep.cli serve --port 8400 &
 PID=$!
 sleep 3
 curl -s http://127.0.0.1:8400/health
@@ -286,7 +286,7 @@ kill $PID
 sleep 2
 
 # WAL should be truncated
-stat -f%z codrag_data/codrag_settings.db-wal 2>/dev/null || echo "WAL removed"
+stat -f%z prep_data/prep_settings.db-wal 2>/dev/null || echo "WAL removed"
 ```
 
 Expected: WAL file is 0 bytes or absent after graceful shutdown.

@@ -18,18 +18,18 @@ Single user manages their own compute resources:
 - Config stored locally in SQLite settings store
 - Pipeline scheduling for 1-N active projects on the user's hardware
 
-### CoDRAG Manager (Team/Enterprise, future)
+### Prep Manager (Team/Enterprise, future)
 
 Multi-user centralized compute management:
 - Deployed as a **web service** on the team's infrastructure
 - NOT part of the Tauri desktop app
 - Manages shared GPU pools across team members
 - Priority queuing, cost tracking, fleet health monitoring
-- Each team member's desktop app connects to CoDRAG Manager as a client
+- Each team member's desktop app connects to Prep Manager as a client
 
 ---
 
-## 2. Architecture Decision: CoDRAG Manager as Web Service
+## 2. Architecture Decision: Prep Manager as Web Service
 
 ### Why Not In-App?
 
@@ -41,7 +41,7 @@ Multi-user centralized compute management:
    queuing) is an ops concern, not a developer UX concern. It belongs
    in an admin dashboard.
 
-3. **Deployment flexibility** — teams may run CoDRAG Manager on:
+3. **Deployment flexibility** — teams may run Prep Manager on:
    - A shared server in the office
    - A cloud VM (AWS/GCP/Azure)
    - A Kubernetes cluster
@@ -50,7 +50,7 @@ Multi-user centralized compute management:
 ### How Desktop App Connects
 
 ```
-Desktop App (Pro)                CoDRAG Manager (Team)
+Desktop App (Pro)                Prep Manager (Team)
   |                                    |
   | --- compute/register-node -------> |  "I have a 4090 at 192.168.1.50"
   | <-- compute/ack ------------------- |  "Registered as node-xyz"
@@ -63,7 +63,7 @@ Desktop App (Pro)                CoDRAG Manager (Team)
 ```
 
 The desktop app's `PipelineScheduler` (Phase 45D) becomes a **client**
-that asks CoDRAG Manager for compute slots instead of managing them locally.
+that asks Prep Manager for compute slots instead of managing them locally.
 
 ---
 
@@ -81,10 +81,10 @@ class ComputeNode:
     endpoint_ids: List[str]
 ```
 
-### Team/Enterprise (CoDRAG Manager)
+### Team/Enterprise (Prep Manager)
 
 ```python
-# Stored in CoDRAG Manager's database
+# Stored in Prep Manager's database
 class ManagedComputeNode(ComputeNode):
     # Extends the Pro model with team features:
     owner_id: str              # Which team member registered this node
@@ -126,7 +126,7 @@ DEL  /compute/nodes/{id}         — Delete a node
 GET  /compute/nodes/{id}/status  — Node health + current load
 ```
 
-### Future API Surface (Team, CoDRAG Manager)
+### Future API Surface (Team, Prep Manager)
 
 ```
 POST /compute/register           — Desktop app registers a node
@@ -147,7 +147,7 @@ regardless of whether it is managing locally or delegating to Manager.
 
 When a Pro user's organization upgrades to Team:
 
-1. **CoDRAG Manager is deployed** (by IT/admin) on team infrastructure
+1. **Prep Manager is deployed** (by IT/admin) on team infrastructure
 2. **Desktop apps are configured** with the Manager URL (one-time setup)
 3. **Existing local nodes are registered** with the Manager:
    - User's Mac becomes a "personal" node (not shared by default)

@@ -1,10 +1,10 @@
 # Phase 05 — MCP Integration
 
 ## Problem statement
-CoDRAG must be usable inside IDE agent workflows. MCP is the fastest path to integrating with tools like Windsurf and Cursor without writing and maintaining multiple IDE plugins.
+Prep must be usable inside IDE agent workflows. MCP is the fastest path to integrating with tools like Windsurf and Cursor without writing and maintaining multiple IDE plugins.
 
 ## Goal
-Make CoDRAG callable as an IDE tool (Windsurf, Cursor, etc.) via MCP.
+Make Prep callable as an IDE tool (Windsurf, Cursor, etc.) via MCP.
 
 ## Scope
 ### In scope
@@ -37,7 +37,7 @@ Make CoDRAG callable as an IDE tool (Windsurf, Cursor, etc.) via MCP.
 
 ### Architecture
 
-Recommended MVP architecture: **MCP stdio server proxies to the CoDRAG daemon HTTP API**.
+Recommended MVP architecture: **MCP stdio server proxies to the Prep daemon HTTP API**.
 
 Rationale:
 - Single source of truth (daemon).
@@ -47,26 +47,26 @@ Rationale:
 Transport:
 - MCP server process communicates with the daemon via HTTP.
 - Default base URL: `http://127.0.0.1:8400`.
-- Optional override via env var: `CODRAG_API_BASE`.
+- Optional override via env var: `PREP_API_BASE`.
 
 Additional architecture (Phase 14): **Direct MCP mode**
-- Single-repo, zero-daemon mode: `codrag mcp --mode direct`
-- The MCP server imports `codrag.core` and runs indexing/search in-process.
+- Single-repo, zero-daemon mode: `prep mcp --mode direct`
+- The MCP server imports `prep.core` and runs indexing/search in-process.
 - This is the preferred path for the lowest-friction IDE onboarding.
 
 Daemon availability behavior:
 - On startup, MCP server should perform a health check (`GET /health`).
 - If unreachable:
-  - tools must return an actionable `DAEMON_UNAVAILABLE` error with hint to start `codrag serve` (or the desktop app in Phase 08).
+  - tools must return an actionable `DAEMON_UNAVAILABLE` error with hint to start `prep serve` (or the desktop app in Phase 08).
 
 ### Project selection
 
 The MCP server can be launched in one of two modes:
 
-- **Pinned project mode**: `codrag mcp --project <project_id>`
+- **Pinned project mode**: `prep mcp --project <project_id>`
   - All tools operate on that single project by default.
 
-- **Auto-detect mode**: `codrag mcp --auto`
+- **Auto-detect mode**: `prep mcp --auto`
   - Project is selected based on the MCP server process CWD.
   - Selection rule: choose the registered project whose `path` is the **longest prefix** of `cwd`.
   - If no match, return `PROJECT_NOT_FOUND` with hint: “Add the project or run MCP with --project.”
@@ -76,9 +76,9 @@ Ambiguity:
 
 ### Tool surface
 
-CoDRAG’s MCP server exposes a small set of tools. Tool naming should match ADR-010.
+Prep’s MCP server exposes a small set of tools. Tool naming should match ADR-010.
 
-#### `codrag_status`
+#### `prep_status`
 
 Purpose:
 - Determine daemon connectivity, selected project identity, and index state.
@@ -97,11 +97,11 @@ Outputs (recommended shape):
     "trace": {"enabled": false, "exists": false},
     "watch": {"enabled": false, "state": "disabled"}
   },
-  "llm": {"ollama_connected": true, "clara_connected": false}
+  "llm": {"ollama_connected": true, "prep-compress_connected": false}
 }
 ```
 
-#### `codrag_build`
+#### `prep_build`
 
 Purpose:
 - Trigger a rebuild (incremental by default).
@@ -120,7 +120,7 @@ Outputs:
 }
 ```
 
-#### `codrag_search`
+#### `prep_search`
 
 Purpose:
 - Return inspectable ranked results (for debugging/exploration).
@@ -138,7 +138,7 @@ Outputs:
   "results": [
     {
       "chunk_id": "...",
-      "source_path": "src/codrag/server.py",
+      "source_path": "src/prep/server.py",
       "span": {"start_line": 142, "end_line": 175},
       "preview": "Trigger project index build...",
       "score": 0.83
@@ -147,7 +147,7 @@ Outputs:
 }
 ```
 
-#### `codrag`
+#### `prep`
 
 Purpose:
 - Return an assembled prompt-ready context string (default), or a structured response when requested.
@@ -167,7 +167,7 @@ Outputs:
 - If `structured=false`: `{ "context": "..." }`
 - If `structured=true`: `{ "context": "...", "chunks": [...], "total_chars": N, "estimated_tokens": N }`
 
-#### `codrag_trace`
+#### `prep_trace`
 
 Purpose:
 - Provide symbol lookup and lightweight neighborhood expansion.
@@ -196,11 +196,11 @@ Outputs:
 
 By default, MCP tools call these HTTP endpoints:
 
-- `codrag_status` → `GET /projects/{id}/status` + `GET /llm/status`
-- `codrag_build` → `POST /projects/{id}/build?full=false`
-- `codrag_search` → `POST /projects/{id}/search`
-- `codrag` → `POST /projects/{id}/context`
-- `codrag_trace` → `POST /projects/{id}/trace/search` and optionally `GET /projects/{id}/trace/neighbors/{node_id}`
+- `prep_status` → `GET /projects/{id}/status` + `GET /llm/status`
+- `prep_build` → `POST /projects/{id}/build?full=false`
+- `prep_search` → `POST /projects/{id}/search`
+- `prep` → `POST /projects/{id}/context`
+- `prep_trace` → `POST /projects/{id}/trace/search` and optionally `GET /projects/{id}/trace/neighbors/{node_id}`
 
 ### Limits and backpressure policy
 
@@ -212,7 +212,7 @@ Server-enforced caps (recommended):
 
 Build concurrency:
 - Only one build per project at a time.
-- If a build is already running, `codrag_build` returns `BUILD_ALREADY_RUNNING`.
+- If a build is already running, `prep_build` returns `BUILD_ALREADY_RUNNING`.
 
 Rate limiting:
 - Optional in MVP; at minimum, reject pathological requests with clear errors.
@@ -237,7 +237,7 @@ License error UX requirements:
 
 ### Analytics / measurement posture (cross-distribution)
 
-CoDRAG is local-first and MUST NOT require telemetry.
+Prep is local-first and MUST NOT require telemetry.
 
 If analytics are enabled (opt-in), MCP-related measurement should be:
 - aggregated counters (e.g., tool call counts, build success/failure counts, error code counts)
@@ -247,7 +247,7 @@ If analytics are enabled (opt-in), MCP-related measurement should be:
 ### Config generation
 
 CLI:
-- `codrag mcp-config` prints a ready-to-paste MCP config.
+- `prep mcp-config` prints a ready-to-paste MCP config.
 
 Config characteristics:
 - Must support both:
@@ -255,7 +255,7 @@ Config characteristics:
   - auto-detect mode
 
 ## Success criteria
-- An MCP client can call `codrag_search` and get stable, well-shaped results.
+- An MCP client can call `prep_search` and get stable, well-shaped results.
 - Project auto-detection works for common repo layouts.
 - Errors are actionable (project not found, index missing, Ollama down).
 
@@ -266,7 +266,7 @@ Config characteristics:
 
 ## Dependencies
 - Phase 01 (core build/search/context)
-- CoDRAG server/daemon running locally (or a defined transport for remote mode)
+- Prep server/daemon running locally (or a defined transport for remote mode)
 
 ## Open questions
 - Should MCP talk to the daemon over HTTP or call engine directly in-process

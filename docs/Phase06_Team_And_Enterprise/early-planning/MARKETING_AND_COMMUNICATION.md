@@ -26,7 +26,7 @@ This is a Phase 06-specific pack; it feeds the Phase 12 website copy.
 
 ### What it is / what it isn’t
 - It is:
-  - a way to standardize how CoDRAG indexes your repos across people.
+  - a way to standardize how Prep indexes your repos across people.
 - It is not:
   - a hosted multi-tenant service
   - a requirement to upload code to a vendor cloud
@@ -50,16 +50,16 @@ This is a Phase 06-specific pack; it feeds the Phase 12 website copy.
 
 ## FAQ (Team/Enterprise)
 
-### Does CoDRAG upload our code?
-No. CoDRAG is local-first by default. Your indexes and code stay on your machine.
+### Does Prep upload our code?
+No. Prep is local-first by default. Your indexes and code stay on your machine.
 
 ### Do you charge for tokens?
-No. CoDRAG does not mark up inference costs. If you enable BYOK augmentation, you pay your provider directly.
+No. Prep does not mark up inference costs. If you enable BYOK augmentation, you pay your provider directly.
 
 ### Is there a team server?
 Network mode is planned as a post-MVP feature for teams that want centralized indexing.
 
-### Can we run CoDRAG air-gapped?
+### Can we run Prep air-gapped?
 Enterprise licensing is designed for offline validation using signed keys.
 
 ### Can we enforce “never index secrets”?

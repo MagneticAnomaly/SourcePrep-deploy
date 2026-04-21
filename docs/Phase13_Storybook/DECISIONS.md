@@ -3,7 +3,7 @@
 ## Default Theme & Mode
 **Decision:** Dark Mode + Theme 'H' (Retro-Futurism).
 **Rationale:**
-- "Retro-Futurism" (Theme H) provides a distinctive, high-contrast, developer-centric aesthetic that differentiates CoDRAG.
+- "Retro-Futurism" (Theme H) provides a distinctive, high-contrast, developer-centric aesthetic that differentiates Prep.
 - Dark mode is the preferred default for developer tools (VS Code, terminal).
 - This aligns with the "Deep Focus" and "Operator Console" directions explored.
 

@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Adapt three patterns from the MemPalace project to make CoDRAG a better product: module-scoped retrieval (L2 memory layer), temporal validity on concepts/observations, and structural compression for swarm communication. Also fix the `compression_level` bug discovered during research.
+**Goal:** Adapt three patterns from the MemPalace project to make Prep a better product: module-scoped retrieval (L2 memory layer), temporal validity on concepts/observations, and structural compression for swarm communication. Also fix the `compression_level` bug discovered during research.
 
 **Architecture:** Four independent tracks that can be implemented in any order. Track 0 is a bugfix. Tracks 1-3 each add a new capability by extending existing abstractions (`ObservationStore`, `ConceptStore`, `ContextCompressor`) without breaking current behavior. All changes are backward-compatible — existing databases auto-migrate via `ALTER TABLE ADD COLUMN`, and the `NoopCompressor` remains the default.
 
-**Tech Stack:** Python 3.11+, SQLite (WAL mode), FTS5, pytest (asyncio_mode=auto), existing CoDRAG singleton stores.
+**Tech Stack:** Python 3.11+, SQLite (WAL mode), FTS5, pytest (asyncio_mode=auto), existing Prep singleton stores.
 
 **Research:** See `docs/Phase80_mempalace/01_MemPalace_Integration_Research_Strategy.md` and `docs/Phase80_mempalace/02_MemPalace_Integration_Findings.md` for full analysis of the MemPalace repo and integration mapping.
 
@@ -16,35 +16,35 @@
 
 | Track | File | Action | Responsibility |
 |-------|------|--------|----------------|
-| 0 | `src/codrag/mcp/server.py` | Modify (~L889) | Fix undefined `compression_level` variable |
-| 1 | `src/codrag/services/observation_store.py` | Modify | Add `get_for_directory()` method |
-| 1 | `src/codrag/services/concept_store.py` | Modify | Add `get_for_anchors_directory()` method |
-| 1 | `src/codrag/mcp/server.py` | Modify | Wire L2 scoped retrieval into `tool_context()` |
-| 1 | `src/codrag/mcp_tools.py` | Modify | Add `working_dir` param to `codrag` and `codrag_search` tools |
+| 0 | `src/prep/mcp/server.py` | Modify (~L889) | Fix undefined `compression_level` variable |
+| 1 | `src/prep/services/observation_store.py` | Modify | Add `get_for_directory()` method |
+| 1 | `src/prep/services/concept_store.py` | Modify | Add `get_for_anchors_directory()` method |
+| 1 | `src/prep/mcp/server.py` | Modify | Wire L2 scoped retrieval into `tool_context()` |
+| 1 | `src/prep/mcp_tools.py` | Modify | Add `working_dir` param to `prep` and `prep_search` tools |
 | 1 | `tests/test_observation_store_directory.py` | Create | Tests for directory-scoped observation retrieval |
 | 1 | `tests/test_concept_store_directory.py` | Create | Tests for directory-scoped concept retrieval |
-| 2 | `src/codrag/services/concept_store.py` | Modify | Add `valid_from`/`valid_to` columns, `as_of` queries |
-| 2 | `src/codrag/services/observation_store.py` | Modify | Add `valid_from`/`valid_to` columns, `as_of` queries |
-| 2 | `src/codrag/mcp_tools.py` | Modify | Add `as_of` param to `codrag_observe` and `codrag_concepts` |
-| 2 | `src/codrag/mcp/server.py` | Modify | Pass `as_of` through to store queries |
+| 2 | `src/prep/services/concept_store.py` | Modify | Add `valid_from`/`valid_to` columns, `as_of` queries |
+| 2 | `src/prep/services/observation_store.py` | Modify | Add `valid_from`/`valid_to` columns, `as_of` queries |
+| 2 | `src/prep/mcp_tools.py` | Modify | Add `as_of` param to `prep_observe` and `prep_concepts` |
+| 2 | `src/prep/mcp/server.py` | Modify | Pass `as_of` through to store queries |
 | 2 | `tests/test_temporal_validity.py` | Create | Tests for temporal knowledge lifecycle |
-| 3 | `src/codrag/core/compression/symbol_registry.py` | Create | Short-code registry built from trace graph |
-| 3 | `src/codrag/core/compressor.py` | Modify | Add `StructuralCompressor` subclass |
+| 3 | `src/prep/core/compression/symbol_registry.py` | Create | Short-code registry built from trace graph |
+| 3 | `src/prep/core/compressor.py` | Modify | Add `StructuralCompressor` subclass |
 | 3 | `tests/test_structural_compressor.py` | Create | Tests for structural compression |
 
 ---
 
 ## Task 0: Fix `compression_level` Bug
 
-**Context:** `codrag_search` MCP tool is currently broken. In `src/codrag/mcp/server.py` at line ~889, the variable `compression_level` is referenced but never defined. The function signature has a `compression` parameter (valid values: `"none"`, `"lod"`), but a stale validation block references `compression_level` which doesn't exist, causing a `NameError` on every search call.
+**Context:** `prep_search` MCP tool is currently broken. In `src/prep/mcp/server.py` at line ~889, the variable `compression_level` is referenced but never defined. The function signature has a `compression` parameter (valid values: `"none"`, `"lod"`), but a stale validation block references `compression_level` which doesn't exist, causing a `NameError` on every search call.
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py:885-895`
-- Test: manual — call `codrag_search` via MCP and verify it no longer errors
+- Modify: `src/prep/mcp/server.py:885-895`
+- Test: manual — call `prep_search` via MCP and verify it no longer errors
 
 - [ ] **Step 1: Read the buggy code block**
 
-Open `src/codrag/mcp/server.py` and find the `tool_search` method (starts ~line 854). Locate the validation block around lines 885-895. You'll see:
+Open `src/prep/mcp/server.py` and find the `tool_search` method (starts ~line 854). Locate the validation block around lines 885-895. You'll see:
 
 ```python
 # Around line 885-892:
@@ -71,7 +71,7 @@ if compression not in ("none", "lod"):
 
 - [ ] **Step 3: Verify the fix**
 
-Start the CoDRAG daemon and call `codrag_search` via MCP with any query. Confirm it returns results instead of a `NameError`.
+Start the Prep daemon and call `prep_search` via MCP with any query. Confirm it returns results instead of a `NameError`.
 
 ```bash
 # Quick smoke test via the daemon API:
@@ -83,24 +83,24 @@ curl -s http://localhost:8400/projects/<project_id>/context \
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py
+git add src/prep/mcp/server.py
 git commit -m "fix(mcp): remove undefined compression_level variable from tool_search
 
 Stale validation block referenced compression_level which was never
 defined in the function signature, causing NameError on every
-codrag_search call."
+prep_search call."
 ```
 
 ---
 
 ## Task 1: L2 Module-Scoped Retrieval
 
-**Context:** CoDRAG has two context layers today: the atlas (always-loaded structural overview, analogous to MemPalace's L0+L1) and semantic search (L3). There's no middle layer for "give me the observations and concepts relevant to the directory I'm working in" — a metadata-filtered recall that's cheaper than embedding similarity. This task adds that L2 layer.
+**Context:** Prep has two context layers today: the atlas (always-loaded structural overview, analogous to MemPalace's L0+L1) and semantic search (L3). There's no middle layer for "give me the observations and concepts relevant to the directory I'm working in" — a metadata-filtered recall that's cheaper than embedding similarity. This task adds that L2 layer.
 
 ### Task 1a: Add `get_for_directory()` to ObservationStore
 
 **Files:**
-- Modify: `src/codrag/services/observation_store.py`
+- Modify: `src/prep/services/observation_store.py`
 - Create: `tests/test_observation_store_directory.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -114,7 +114,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.observation_store import ObservationStore
+from prep.services.observation_store import ObservationStore
 
 
 @pytest.fixture
@@ -192,7 +192,7 @@ Expected: `AttributeError: 'ObservationStore' object has no attribute 'get_for_d
 
 - [ ] **Step 3: Implement `get_for_directory()`**
 
-Add this method to the `ObservationStore` class in `src/codrag/services/observation_store.py`, after the `get_for_file()` method (after line ~364):
+Add this method to the `ObservationStore` class in `src/prep/services/observation_store.py`, after the `get_for_file()` method (after line ~364):
 
 ```python
 def get_for_directory(
@@ -234,7 +234,7 @@ Expected: All 6 tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/observation_store.py tests/test_observation_store_directory.py
+git add src/prep/services/observation_store.py tests/test_observation_store_directory.py
 git commit -m "feat(observations): add get_for_directory() for L2 scoped retrieval
 
 Enables retrieving observations by directory prefix instead of exact
@@ -247,7 +247,7 @@ semantic search for working-area context."
 ### Task 1b: Add `get_for_anchors_directory()` to ConceptStore
 
 **Files:**
-- Modify: `src/codrag/services/concept_store.py`
+- Modify: `src/prep/services/concept_store.py`
 - Create: `tests/test_concept_store_directory.py`
 
 - [ ] **Step 1: Write the failing test**
@@ -260,7 +260,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.concept_store import ConceptStore
+from prep.services.concept_store import ConceptStore
 
 
 @pytest.fixture
@@ -332,7 +332,7 @@ Expected: `AttributeError: 'ConceptStore' object has no attribute 'get_for_ancho
 
 - [ ] **Step 3: Implement `get_for_anchors_directory()`**
 
-Add this method to the `ConceptStore` class in `src/codrag/services/concept_store.py`, after the `search()` method (after line ~630):
+Add this method to the `ConceptStore` class in `src/prep/services/concept_store.py`, after the `search()` method (after line ~630):
 
 ```python
 def get_for_anchors_directory(
@@ -396,7 +396,7 @@ Expected: All 5 tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/services/concept_store.py tests/test_concept_store_directory.py
+git add src/prep/services/concept_store.py tests/test_concept_store_directory.py
 git commit -m "feat(concepts): add get_for_anchors_directory() for L2 scoped retrieval
 
 Retrieves concepts by directory prefix of their anchor file paths.
@@ -408,33 +408,33 @@ Post-filters JSON anchor arrays to prevent false matches."
 ### Task 1c: Add `working_dir` parameter to MCP tools
 
 **Files:**
-- Modify: `src/codrag/mcp_tools.py`
+- Modify: `src/prep/mcp_tools.py`
 
-- [ ] **Step 1: Add `working_dir` property to `codrag` tool schema**
+- [ ] **Step 1: Add `working_dir` property to `prep` tool schema**
 
-In `src/codrag/mcp_tools.py`, find the `codrag` tool definition (tool #1, starts around line 28). Add `working_dir` to its `properties` dict, after the `role` property:
+In `src/prep/mcp_tools.py`, find the `prep` tool definition (tool #1, starts around line 28). Add `working_dir` to its `properties` dict, after the `role` property:
 
 ```python
 "working_dir": {
     "type": "string",
     "description": (
-        "Directory you are currently working in (e.g. 'src/codrag/services'). "
-        "When set, CoDRAG includes L2 scoped context: observations and concepts "
+        "Directory you are currently working in (e.g. 'src/prep/services'). "
+        "When set, Prep includes L2 scoped context: observations and concepts "
         "anchored to files in this directory. Improves relevance without a search query."
     ),
 },
 ```
 
-- [ ] **Step 2: Add `working_dir` property to `codrag_search` tool schema**
+- [ ] **Step 2: Add `working_dir` property to `prep_search` tool schema**
 
-Find the `codrag_search` tool definition (tool #2, starts around line 58). Add the same `working_dir` property to its `properties` dict, after the `role` property:
+Find the `prep_search` tool definition (tool #2, starts around line 58). Add the same `working_dir` property to its `properties` dict, after the `role` property:
 
 ```python
 "working_dir": {
     "type": "string",
     "description": (
-        "Directory you are currently working in (e.g. 'src/codrag/services'). "
-        "When set, CoDRAG includes L2 scoped context: observations and concepts "
+        "Directory you are currently working in (e.g. 'src/prep/services'). "
+        "When set, Prep includes L2 scoped context: observations and concepts "
         "anchored to files in this directory."
     ),
 },
@@ -443,10 +443,10 @@ Find the `codrag_search` tool definition (tool #2, starts around line 58). Add t
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/codrag/mcp_tools.py
-git commit -m "feat(mcp): add working_dir parameter to codrag and codrag_search tools
+git add src/prep/mcp_tools.py
+git commit -m "feat(mcp): add working_dir parameter to prep and prep_search tools
 
-Enables agents to pass their current working directory so CoDRAG can
+Enables agents to pass their current working directory so Prep can
 include L2 module-scoped observations and concepts in responses."
 ```
 
@@ -455,11 +455,11 @@ include L2 module-scoped observations and concepts in responses."
 ### Task 1d: Wire L2 retrieval into MCP server context assembly
 
 **Files:**
-- Modify: `src/codrag/mcp/server.py`
+- Modify: `src/prep/mcp/server.py`
 
 - [ ] **Step 1: Read the `tool_context()` method**
 
-Open `src/codrag/mcp/server.py` and read the `tool_context()` method (starts ~line 1000). Identify where the concept augmentation block is (around lines 1176-1200). This is where L2 context will be injected.
+Open `src/prep/mcp/server.py` and read the `tool_context()` method (starts ~line 1000). Identify where the concept augmentation block is (around lines 1176-1200). This is where L2 context will be injected.
 
 - [ ] **Step 2: Accept `working_dir` in `tool_context()` and `tool_search()`**
 
@@ -509,8 +509,8 @@ def _assemble_l2_context(
     to files under the working directory. Returns empty string if
     nothing is found.
     """
-    from codrag.services.observation_store import observation_store
-    from codrag.services.concept_store import concept_store
+    from prep.services.observation_store import observation_store
+    from prep.services.concept_store import concept_store
 
     sections: list[str] = []
 
@@ -584,11 +584,11 @@ if working_dir:
 Find the `handle_tools_call()` dispatch method in `server.py`. Locate where `tool_context` and `tool_search` are dispatched. Ensure `working_dir` is extracted from the tool arguments and passed through:
 
 ```python
-# In the codrag dispatch block:
+# In the prep dispatch block:
 working_dir = args.get("working_dir")
 # ... pass to tool_context(working_dir=working_dir)
 
-# In the codrag_search dispatch block:
+# In the prep_search dispatch block:
 working_dir = args.get("working_dir")
 # ... pass to tool_search(working_dir=working_dir)
 ```
@@ -596,10 +596,10 @@ working_dir = args.get("working_dir")
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/codrag/mcp/server.py
+git add src/prep/mcp/server.py
 git commit -m "feat(mcp): wire L2 module-scoped context into tool_context and tool_search
 
-When working_dir is provided, CoDRAG appends a 'Working Area Context'
+When working_dir is provided, Prep appends a 'Working Area Context'
 section with observations and concepts anchored to that directory.
 This fills the gap between always-loaded atlas (L0/L1) and full
 semantic search (L3)."
@@ -609,12 +609,12 @@ semantic search (L3)."
 
 ## Task 2: Temporal Validity on Knowledge
 
-**Context:** CoDRAG currently uses a binary `stale` flag + `stale_reason` on observations and concepts. When things are marked stale, they can be pruned/evicted destructively. The MemPalace temporal pattern (`valid_from`/`valid_to`) preserves history — old knowledge is end-dated, never deleted. This enables "what was true 3 months ago?" queries and prevents irreversible knowledge loss.
+**Context:** Prep currently uses a binary `stale` flag + `stale_reason` on observations and concepts. When things are marked stale, they can be pruned/evicted destructively. The MemPalace temporal pattern (`valid_from`/`valid_to`) preserves history — old knowledge is end-dated, never deleted. This enables "what was true 3 months ago?" queries and prevents irreversible knowledge loss.
 
 ### Task 2a: Add temporal columns to ConceptStore
 
 **Files:**
-- Modify: `src/codrag/services/concept_store.py`
+- Modify: `src/prep/services/concept_store.py`
 - Create: `tests/test_temporal_validity.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -628,7 +628,7 @@ from pathlib import Path
 
 import pytest
 
-from codrag.services.concept_store import ConceptStore
+from prep.services.concept_store import ConceptStore
 
 
 @pytest.fixture
@@ -715,7 +715,7 @@ Expected: Failures on `valid_from` / `valid_to` attribute access.
 
 - [ ] **Step 3: Add `valid_from` and `valid_to` to the `Concept` dataclass**
 
-In `src/codrag/services/concept_store.py`, update the `Concept` dataclass (around line 71):
+In `src/prep/services/concept_store.py`, update the `Concept` dataclass (around line 71):
 
 ```python
 @dataclass
@@ -911,7 +911,7 @@ Expected: All 4 tests pass.
 - [ ] **Step 9: Commit**
 
 ```bash
-git add src/codrag/services/concept_store.py tests/test_temporal_validity.py
+git add src/prep/services/concept_store.py tests/test_temporal_validity.py
 git commit -m "feat(concepts): add temporal validity with valid_from/valid_to columns
 
 Concepts now track when they became valid and when they were
@@ -925,7 +925,7 @@ Existing rows are backfilled with valid_from = created_at."
 ### Task 2b: Add temporal columns to ObservationStore
 
 **Files:**
-- Modify: `src/codrag/services/observation_store.py`
+- Modify: `src/prep/services/observation_store.py`
 - Modify: `tests/test_temporal_validity.py`
 
 - [ ] **Step 1: Write failing tests**
@@ -933,7 +933,7 @@ Existing rows are backfilled with valid_from = created_at."
 Append to `tests/test_temporal_validity.py`:
 
 ```python
-from codrag.services.observation_store import ObservationStore
+from prep.services.observation_store import ObservationStore
 
 
 @pytest.fixture
@@ -979,7 +979,7 @@ Expected: `AttributeError: 'Observation' object has no attribute 'valid_from'`
 
 - [ ] **Step 3: Add `valid_from` and `valid_to` to the `Observation` dataclass**
 
-In `src/codrag/services/observation_store.py`, update the `Observation` dataclass:
+In `src/prep/services/observation_store.py`, update the `Observation` dataclass:
 
 ```python
 @dataclass
@@ -1085,7 +1085,7 @@ Expected: All 6 tests pass (4 concept + 2 observation).
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/services/observation_store.py tests/test_temporal_validity.py
+git add src/prep/services/observation_store.py tests/test_temporal_validity.py
 git commit -m "feat(observations): add temporal validity with valid_from/valid_to columns
 
 Mirrors the concept store temporal pattern. Observations now track
@@ -1098,12 +1098,12 @@ are backfilled with valid_from = created_at."
 ### Task 2c: Expose `as_of` in MCP tools
 
 **Files:**
-- Modify: `src/codrag/mcp_tools.py`
-- Modify: `src/codrag/mcp/server.py`
+- Modify: `src/prep/mcp_tools.py`
+- Modify: `src/prep/mcp/server.py`
 
-- [ ] **Step 1: Add `as_of` parameter to `codrag_observe` tool schema**
+- [ ] **Step 1: Add `as_of` parameter to `prep_observe` tool schema**
 
-In `src/codrag/mcp_tools.py`, find the `codrag_observe` tool (tool #5). Add to its properties:
+In `src/prep/mcp_tools.py`, find the `prep_observe` tool (tool #5). Add to its properties:
 
 ```python
 "as_of": {
@@ -1116,9 +1116,9 @@ In `src/codrag/mcp_tools.py`, find the `codrag_observe` tool (tool #5). Add to i
 },
 ```
 
-- [ ] **Step 2: Add `as_of` parameter to `codrag_concepts` tool schema**
+- [ ] **Step 2: Add `as_of` parameter to `prep_concepts` tool schema**
 
-Find the `codrag_concepts` tool (tool #6). Add to its properties:
+Find the `prep_concepts` tool (tool #6). Add to its properties:
 
 ```python
 "as_of": {
@@ -1133,9 +1133,9 @@ Find the `codrag_concepts` tool (tool #6). Add to its properties:
 
 - [ ] **Step 3: Wire `as_of` through the MCP server handlers**
 
-In `src/codrag/mcp/server.py`, find the handler methods for `codrag_observe` (action=get) and `codrag_concepts` (action=get). Extract `as_of` from the tool arguments and pass it to the store queries:
+In `src/prep/mcp/server.py`, find the handler methods for `prep_observe` (action=get) and `prep_concepts` (action=get). Extract `as_of` from the tool arguments and pass it to the store queries:
 
-For concepts (in the `codrag_concepts` get handler):
+For concepts (in the `prep_concepts` get handler):
 ```python
 as_of = args.get("as_of")
 # Pass to list_concepts or search
@@ -1147,8 +1147,8 @@ For observations, add `as_of` support to `get_for_query()` and `get_recent()` if
 - [ ] **Step 4: Commit**
 
 ```bash
-git add src/codrag/mcp_tools.py src/codrag/mcp/server.py
-git commit -m "feat(mcp): expose as_of temporal queries on codrag_observe and codrag_concepts
+git add src/prep/mcp_tools.py src/prep/mcp/server.py
+git commit -m "feat(mcp): expose as_of temporal queries on prep_observe and prep_concepts
 
 Agents can now pass as_of (epoch timestamp) to retrieve knowledge
 that was valid at a specific point in time."
@@ -1158,14 +1158,14 @@ that was valid at a specific point in time."
 
 ## Task 3: Structural Compression for Swarm Communication
 
-**Context:** The swarm orchestrator (`src/codrag/core/swarm_orchestrator.py`) passes `WorkItem` objects between coordinator and workers. The coordinator sees summaries (file paths joined by semicolons), and workers see full JSON context with `member_details` and `internal_edges`. File paths and fully-qualified names are highly repetitive across items. Adapting MemPalace's AAAK pattern — short deterministic codes for structural entities — can reduce token usage 30-50% in these payloads.
+**Context:** The swarm orchestrator (`src/prep/core/swarm_orchestrator.py`) passes `WorkItem` objects between coordinator and workers. The coordinator sees summaries (file paths joined by semicolons), and workers see full JSON context with `member_details` and `internal_edges`. File paths and fully-qualified names are highly repetitive across items. Adapting MemPalace's AAAK pattern — short deterministic codes for structural entities — can reduce token usage 30-50% in these payloads.
 
-The `ContextCompressor` ABC in `src/codrag/core/compressor.py` already exists with a `NoopCompressor` as the only implementation. This task fills that extension point.
+The `ContextCompressor` ABC in `src/prep/core/compressor.py` already exists with a `NoopCompressor` as the only implementation. This task fills that extension point.
 
 ### Task 3a: Build the Symbol Registry
 
 **Files:**
-- Create: `src/codrag/core/compression/symbol_registry.py`
+- Create: `src/prep/core/compression/symbol_registry.py`
 - Create: `tests/test_structural_compressor.py` (partial — registry tests)
 
 - [ ] **Step 1: Write failing tests for the registry**
@@ -1176,19 +1176,19 @@ Create `tests/test_structural_compressor.py`:
 """Tests for structural compression: symbol registry and compressor."""
 import pytest
 
-from codrag.core.compression.symbol_registry import SymbolRegistry
+from prep.core.compression.symbol_registry import SymbolRegistry
 
 
 def test_registry_generates_short_codes() -> None:
     """Paths get deterministic 3-4 char codes."""
     reg = SymbolRegistry()
     reg.register_paths([
-        "src/codrag/core/swarm_orchestrator.py",
-        "src/codrag/services/observation_store.py",
-        "src/codrag/mcp/server.py",
+        "src/prep/core/swarm_orchestrator.py",
+        "src/prep/services/observation_store.py",
+        "src/prep/mcp/server.py",
     ])
 
-    code = reg.get_code("src/codrag/core/swarm_orchestrator.py")
+    code = reg.get_code("src/prep/core/swarm_orchestrator.py")
     assert code is not None
     assert 2 <= len(code) <= 5
     assert code == code.upper()  # Codes are uppercase
@@ -1244,19 +1244,19 @@ def test_registry_compress_text_replaces_paths() -> None:
 .venv/bin/pytest tests/test_structural_compressor.py -v -k "registry"
 ```
 
-Expected: `ModuleNotFoundError: No module named 'codrag.core.compression.symbol_registry'`
+Expected: `ModuleNotFoundError: No module named 'prep.core.compression.symbol_registry'`
 
 - [ ] **Step 3: Ensure `__init__.py` exists for the compression package**
 
-Check if `src/codrag/core/compression/__init__.py` exists. If not, create it as an empty file:
+Check if `src/prep/core/compression/__init__.py` exists. If not, create it as an empty file:
 
 ```bash
-ls src/codrag/core/compression/__init__.py 2>/dev/null || touch src/codrag/core/compression/__init__.py
+ls src/prep/core/compression/__init__.py 2>/dev/null || touch src/prep/core/compression/__init__.py
 ```
 
 - [ ] **Step 4: Implement the SymbolRegistry**
 
-Create `src/codrag/core/compression/symbol_registry.py`:
+Create `src/prep/core/compression/symbol_registry.py`:
 
 ```python
 """
@@ -1267,7 +1267,7 @@ and FQNs with 3-5 character uppercase codes. No decoder needed — a
 legend block is prepended to the output so any LLM can read it.
 
 Codes are derived from the filename (not the full path) to be
-human-guessable: src/codrag/core/swarm_orchestrator.py → SWO.
+human-guessable: src/prep/core/swarm_orchestrator.py → SWO.
 Collisions are resolved by appending digits.
 """
 
@@ -1362,7 +1362,7 @@ Expected: All 5 registry tests pass.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/codrag/core/compression/symbol_registry.py src/codrag/core/compression/__init__.py tests/test_structural_compressor.py
+git add src/prep/core/compression/symbol_registry.py src/prep/core/compression/__init__.py tests/test_structural_compressor.py
 git commit -m "feat(compression): add SymbolRegistry for deterministic path short codes
 
 Maps file paths to 3-5 char uppercase codes (e.g. swarm_orchestrator.py
@@ -1375,7 +1375,7 @@ with codes. Collision-free via suffix digits."
 ### Task 3b: Implement StructuralCompressor
 
 **Files:**
-- Modify: `src/codrag/core/compressor.py`
+- Modify: `src/prep/core/compressor.py`
 - Modify: `tests/test_structural_compressor.py`
 
 - [ ] **Step 1: Write failing tests for the compressor**
@@ -1383,7 +1383,7 @@ with codes. Collision-free via suffix digits."
 Append to `tests/test_structural_compressor.py`:
 
 ```python
-from codrag.core.compressor import StructuralCompressor
+from prep.core.compressor import StructuralCompressor
 
 
 def test_structural_compressor_compresses_paths() -> None:
@@ -1435,17 +1435,17 @@ def test_structural_compressor_respects_budget() -> None:
 .venv/bin/pytest tests/test_structural_compressor.py -v -k "structural_compressor"
 ```
 
-Expected: `ImportError: cannot import name 'StructuralCompressor' from 'codrag.core.compressor'`
+Expected: `ImportError: cannot import name 'StructuralCompressor' from 'prep.core.compressor'`
 
 - [ ] **Step 3: Implement `StructuralCompressor`**
 
-Add to `src/codrag/core/compressor.py`, after the `NoopCompressor` class:
+Add to `src/prep/core/compressor.py`, after the `NoopCompressor` class:
 
 ```python
 import time as _time
 from typing import List
 
-from codrag.core.compression.symbol_registry import SymbolRegistry
+from prep.core.compression.symbol_registry import SymbolRegistry
 
 
 class StructuralCompressor(ContextCompressor):
@@ -1533,7 +1533,7 @@ Expected: All 9 tests pass (5 registry + 4 compressor).
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/codrag/core/compressor.py tests/test_structural_compressor.py
+git add src/prep/core/compressor.py tests/test_structural_compressor.py
 git commit -m "feat(compression): add StructuralCompressor using path short codes
 
 Fills the ContextCompressor extension point with a concrete
@@ -1556,9 +1556,9 @@ Then smoke-test the MCP tools:
 
 ```bash
 # Start daemon
-codrag serve &
+prep serve &
 
-# Test codrag_search no longer crashes
+# Test prep_search no longer crashes
 # (use your MCP client or curl to the daemon API)
 
 # Test L2 context by passing working_dir

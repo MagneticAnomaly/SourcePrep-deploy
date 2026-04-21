@@ -24,7 +24,7 @@ Larger effort. Requires benchmarking, potential model swap, and infrastructure w
 ### 1.1 — Adaptive K (score gap detection) ✅ DONE
 - **Problem:** Fixed K=5 sends low-relevance padding when only 2 chunks truly match.
 - **Status:** ✅ Implemented — `_adaptive_k_trim()` in `index.py`, 10 tests in `test_adaptive_k.py`
-- **File:** `src/codrag/core/index.py` → `search()` (~line 890)
+- **File:** `src/prep/core/index.py` → `search()` (~line 890)
 - **Approach:** After sorting by score, compute deltas between consecutive results. If delta > `score_drop_ratio * top_score`, stop. This is the "Adaptive-K" technique from EMNLP 2025 ("No Tuning, No Iteration, Just Adaptive-k").
 - **Algorithm:**
   ```
@@ -41,7 +41,7 @@ Larger effort. Requires benchmarking, potential model swap, and infrastructure w
 ### 1.2 — Raise min_score Default
 - **Problem:** `min_score=0.15` is very permissive. Cosine 0.15 with nomic-embed-text is barely related.
 - **Status:** 🔬 Test file written — run with NativeEmbedder to get real data
-- **File:** `src/codrag/core/index.py`, `src/codrag/mcp_tools.py`, `src/codrag/api/routers/projects.py`
+- **File:** `src/prep/core/index.py`, `src/prep/mcp_tools.py`, `src/prep/api/routers/projects.py`
 - **Approach:** Raise default from `0.15` to `0.25`. One-line change in each file.
 - **Research command:**
   ```bash
@@ -54,7 +54,7 @@ Larger effort. Requires benchmarking, potential model swap, and infrastructure w
 ### 1.3 — Result Diversity (MMR) ✅ DONE
 - **Problem:** No deduplication. Two chunks from the same function can both rank in top-K.
 - **Status:** ✅ Implemented — `_mmr_rerank()` in `index.py`, 10 tests in `test_mmr_diversity.py`
-- **File:** `src/codrag/core/index.py` → new `_mmr_rerank()` method, called from `search()`
+- **File:** `src/prep/core/index.py` → new `_mmr_rerank()` method, called from `search()`
 - **Approach:** Maximal Marginal Relevance. After computing scores, select results greedily:
   ```
   selected = [highest_scoring_doc]
@@ -75,7 +75,7 @@ Larger effort. Requires benchmarking, potential model swap, and infrastructure w
 ### 2.1 — Ranked Trace Expansion ✅ DONE
 - **Problem:** Trace neighbors are sorted alphabetically, not by query relevance. A utility file imported everywhere can beat a directly-relevant caller.
 - **Status:** ✅ Implemented — single-pass scoring in `get_context_with_trace_expansion()`, 4 tests in `test_trace_expansion_ranking.py`
-- **File:** `src/codrag/core/index.py` → `get_context_with_trace_expansion()` (~line 1143)
+- **File:** `src/prep/core/index.py` → `get_context_with_trace_expansion()` (~line 1143)
 - **Approach:** After collecting `related_paths`, score each neighbor's chunks against the query embedding and select the highest-scoring ones.
   ```
   # Current: for rp in sorted(related_paths)
@@ -91,7 +91,7 @@ Larger effort. Requires benchmarking, potential model swap, and infrastructure w
 - **Risk:** Low-Medium. Refactoring to pass query embedding is the main complexity.
 
 ### 2.2 — Smart Chunk Selection for Trace ✅ DONE
-- **Problem:** When a trace neighbor file is found, CoDRAG grabs the first chunk (often imports/boilerplate), not the best chunk.
+- **Problem:** When a trace neighbor file is found, Prep grabs the first chunk (often imports/boilerplate), not the best chunk.
 - **Status:** ✅ Implemented — `path_best` dict tracks (best_score, best_doc) per file, 3 tests in `test_trace_expansion_ranking.py`
 - **File:** Same as 2.1
 - **Approach:** Instead of `break` after first chunk per file, collect ALL chunks for each neighbor file, score them against the query, and pick the best one.
@@ -103,16 +103,16 @@ Larger effort. Requires benchmarking, potential model swap, and infrastructure w
 - **Risk:** Low. Just removes a premature `break`.
 
 ### 2.3 — `exclude_paths` MCP Parameter ✅ DONE
-- **Problem:** CoDRAG doesn't know what files the AI tool already has in context. Could send redundant chunks.
+- **Problem:** Prep doesn't know what files the AI tool already has in context. Could send redundant chunks.
 - **Status:** ✅ Implemented — `search()`, `SearchRequest`, `ContextRequest`, `mcp_tools.py`, `mcp_server.py` dispatch, 7 tests in `test_exclude_paths.py`
-- **Files:** `src/codrag/mcp_tools.py` (schema), `src/codrag/mcp_server.py` (handler), `src/codrag/api/routers/projects.py` (API), `src/codrag/core/index.py` (search filter)
-- **Approach:** Add `exclude_paths: string[]` param to the `codrag` and `codrag_search` tools. Before scoring, filter out documents whose `source_path` matches any excluded path.
+- **Files:** `src/prep/mcp_tools.py` (schema), `src/prep/mcp_server.py` (handler), `src/prep/api/routers/projects.py` (API), `src/prep/core/index.py` (search filter)
+- **Approach:** Add `exclude_paths: string[]` param to the `prep` and `prep_search` tools. Before scoring, filter out documents whose `source_path` matches any excluded path.
 - **Schema addition:**
   ```json
   "exclude_paths": {
       "type": "array",
       "items": {"type": "string"},
-      "description": "File paths already in your context. CoDRAG will exclude these from results to avoid redundancy.",
+      "description": "File paths already in your context. Prep will exclude these from results to avoid redundancy.",
       "default": []
   }
   ```
@@ -122,7 +122,7 @@ Larger effort. Requires benchmarking, potential model swap, and infrastructure w
 ### 2.4 — Hub-File Filtering for Trace
 - **Problem:** Files imported by everything (e.g., `__init__.py`, `utils.py`) aren't specifically relevant but appear as trace neighbors for every match.
 - **Status:** 🔬 Needs research — what's the right threshold?
-- **File:** `src/codrag/core/index.py` → `get_context_with_trace_expansion()`
+- **File:** `src/prep/core/index.py` → `get_context_with_trace_expansion()`
 - **Approach:** Count how many of the source_paths each neighbor appears as a neighbor of. If it's a neighbor of ALL source_paths (or >80%), it's a hub — skip it or deprioritize it.
 - **Research needed:** 🔬 Analyze trace graphs from real projects. What's the distribution of neighbor fanout? Is `__init__.py` always a hub? Are there legitimate high-connectivity files?
 - **Risk:** Medium. Overly aggressive filtering could remove genuinely important structural nodes.
@@ -149,7 +149,7 @@ Larger effort. Requires benchmarking, potential model swap, and infrastructure w
 
 ### 3.2 — Embedding Model Swap to CodeRankEmbed
 - **Status:** Unblocked — benchmark confirms CodeRankEmbed wins
-- **File:** `src/codrag/core/embedder.py` → `NativeEmbedder`
+- **File:** `src/prep/core/embedder.py` → `NativeEmbedder`
 - **Steps:**
   1. Export CodeRankEmbed to ONNX via `optimum` and quantize
   2. Update `NativeEmbedder.HF_REPO_ID` to `nomic-ai/CodeRankEmbed`
@@ -183,9 +183,9 @@ Larger effort. Requires benchmarking, potential model swap, and infrastructure w
 - **Problem:** No way to know if context was useful.
 - **Status:** Long-term infrastructure
 - **Approaches:**
-  - `codrag_feedback` MCP tool for explicit thumbs up/down
+  - `prep_feedback` MCP tool for explicit thumbs up/down
   - Implicit signal: if same query is repeated with higher K, first result was insufficient
-  - Track if files in CoDRAG results appear in the AI tool's subsequent edits
+  - Track if files in Prep results appear in the AI tool's subsequent edits
 - **Effort:** High.
 
 ---

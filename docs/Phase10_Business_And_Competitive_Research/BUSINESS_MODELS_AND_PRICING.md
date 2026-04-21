@@ -1,12 +1,12 @@
 # Business Models and Pricing
 
 ## Purpose
-This document summarizes business model patterns relevant to CoDRAG’s goals:
+This document summarizes business model patterns relevant to Prep’s goals:
 - Self-contained local-first companion app
 - App-store + direct-download distribution (macOS/Windows)
 - Enterprise tier roadmap with per-seat licensing
 
-It is intentionally **decision-oriented** (what should CoDRAG do next), not a generic market report.
+It is intentionally **decision-oriented** (what should Prep do next), not a generic market report.
 
 ## Comparable business model patterns
 

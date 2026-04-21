@@ -1,8 +1,8 @@
-# Phase 17: VS Code Extension — CoDRAG for VS Code
+# Phase 17: VS Code Extension — Prep for VS Code
 
 ## Overview
 
-The CoDRAG VS Code extension is a **mid-weight UI surface** that sits between the headless CLI/MCP and the full Tauri desktop GUI. It provides visual access to CoDRAG's core features directly inside VS Code, styled to match the user's active editor theme, with full Free/Pro feature gating.
+The Prep VS Code extension is a **mid-weight UI surface** that sits between the headless CLI/MCP and the full Tauri desktop GUI. It provides visual access to Prep's core features directly inside VS Code, styled to match the user's active editor theme, with full Free/Pro feature gating.
 
 ### Positioning in the Product Line
 
@@ -13,7 +13,7 @@ The CoDRAG VS Code extension is a **mid-weight UI surface** that sits between th
 | **VS Code Extension** | VS Code users | Sidebar + panels | Yes | Yes (within limits) |
 | **Tauri Desktop App** | Full GUI users | Native window | Bundled | Yes |
 
-The extension is the **primary free-tier funnel for VS Code users** — it lets them experience CoDRAG visually without installing the full desktop app, while showing Pro features as disabled upsells.
+The extension is the **primary free-tier funnel for VS Code users** — it lets them experience Prep visually without installing the full desktop app, while showing Pro features as disabled upsells.
 
 ---
 
@@ -26,7 +26,7 @@ The extension is the **primary free-tier funnel for VS Code users** — it lets 
 │  VS Code Extension (TypeScript)              │
 │  ┌──────────────┐  ┌──────────────────────┐  │
 │  │  Sidebar UI  │  │  WebView Panels      │  │
-│  │  (TreeView)  │  │  (React / @codrag/ui)│  │
+│  │  (TreeView)  │  │  (React / @prep/ui)│  │
 │  └──────┬───────┘  └──────────┬───────────┘  │
 │         │                     │               │
 │         └─────────┬───────────┘               │
@@ -38,20 +38,20 @@ The extension is the **primary free-tier funnel for VS Code users** — it lets 
 └───────────────────┼──────────────────────────┘
                     │ HTTP (localhost:8400)
          ┌──────────▼──────────┐
-         │  CoDRAG Daemon      │
+         │  Prep Daemon      │
          │  (FastAPI server)   │
          └─────────────────────┘
 ```
 
 ### Key Architectural Decisions
 
-1. **Daemon-required**: The extension talks to the CoDRAG daemon (`codrag serve`) over HTTP. It does NOT run the engine in-process (unlike Direct MCP mode). This avoids duplicating the full Python runtime inside the extension host.
+1. **Daemon-required**: The extension talks to the Prep daemon (`prep serve`) over HTTP. It does NOT run the engine in-process (unlike Direct MCP mode). This avoids duplicating the full Python runtime inside the extension host.
 
-2. **Daemon lifecycle management**: The extension can optionally auto-start the daemon (if `codrag` is on PATH) and offer a "Start Daemon" command when it detects the daemon is down.
+2. **Daemon lifecycle management**: The extension can optionally auto-start the daemon (if `prep` is on PATH) and offer a "Start Daemon" command when it detects the daemon is down.
 
-3. **Shared API client**: Reuse `CodragApiClient` from `@codrag/ui` (or a lightweight TypeScript port) to call `/projects/{id}/*` endpoints.
+3. **Shared API client**: Reuse `PrepApiClient` from `@prep/ui` (or a lightweight TypeScript port) to call `/projects/{id}/*` endpoints.
 
-4. **WebView for rich panels**: Use VS Code WebView API for panels that need rich rendering (search results, context preview, trace graph). These can import `@codrag/ui` components and respect VS Code CSS variables for theme matching.
+4. **WebView for rich panels**: Use VS Code WebView API for panels that need rich rendering (search results, context preview, trace graph). These can import `@prep/ui` components and respect VS Code CSS variables for theme matching.
 
 5. **Native TreeView for file tree**: The sidebar file tree uses VS Code's native `TreeDataProvider` API, which automatically inherits the editor theme. This is the primary navigation surface.
 
@@ -61,7 +61,7 @@ The extension is the **primary free-tier funnel for VS Code users** — it lets 
 
 ### Sidebar (Activity Bar Icon)
 
-A CoDRAG icon in the Activity Bar opens a sidebar with these tree views:
+A Prep icon in the Activity Bar opens a sidebar with these tree views:
 
 #### 1. Projects Tree
 - Lists all registered projects from the daemon
@@ -87,18 +87,18 @@ A CoDRAG icon in the Activity Bar opens a sidebar with these tree views:
 
 | Command | Free | Pro |
 |:---|:---|:---|
-| `CoDRAG: Search` | ✅ | ✅ |
-| `CoDRAG: Assemble Context` | ✅ | ✅ |
-| `CoDRAG: Build Index` | ✅ (manual only) | ✅ |
-| `CoDRAG: Start Watcher` | ❌ (shows upgrade) | ✅ |
-| `CoDRAG: Stop Watcher` | ❌ | ✅ |
-| `CoDRAG: Trace Lookup` | ❌ (shows upgrade) | ✅ |
-| `CoDRAG: Add Project` | ✅ (limited to 1) | ✅ |
-| `CoDRAG: Remove Project` | ✅ | ✅ |
-| `CoDRAG: Copy MCP Config` | ✅ | ✅ |
-| `CoDRAG: Open Dashboard` | ✅ (opens browser) | ✅ |
-| `CoDRAG: Enter License Key` | ✅ | ✅ |
-| `CoDRAG: Start Daemon` | ✅ | ✅ |
+| `Prep: Search` | ✅ | ✅ |
+| `Prep: Assemble Context` | ✅ | ✅ |
+| `Prep: Build Index` | ✅ (manual only) | ✅ |
+| `Prep: Start Watcher` | ❌ (shows upgrade) | ✅ |
+| `Prep: Stop Watcher` | ❌ | ✅ |
+| `Prep: Trace Lookup` | ❌ (shows upgrade) | ✅ |
+| `Prep: Add Project` | ✅ (limited to 1) | ✅ |
+| `Prep: Remove Project` | ✅ | ✅ |
+| `Prep: Copy MCP Config` | ✅ | ✅ |
+| `Prep: Open Dashboard` | ✅ (opens browser) | ✅ |
+| `Prep: Enter License Key` | ✅ | ✅ |
+| `Prep: Start Daemon` | ✅ | ✅ |
 
 ### WebView Panels
 
@@ -163,7 +163,7 @@ The extension enforces the **exact same tier limits** as the daemon/dashboard:
 2. Daemon returns the current tier + feature flags (from the signed license file).
 3. Extension caches the tier locally and uses it to show/hide/disable UI elements.
 4. **The extension never validates the license itself** — the daemon is authoritative.
-5. When a gated feature is invoked, the extension shows a non-blocking "Upgrade" prompt with a link to `codrag.io/pricing`.
+5. When a gated feature is invoked, the extension shows a non-blocking "Upgrade" prompt with a link to `runprep.io/pricing`.
 
 ### "Show but disable" pattern
 
@@ -198,7 +198,7 @@ The extension MUST look native to the user's VS Code theme.
      color: var(--vscode-button-foreground);
    }
    ```
-3. **@codrag/ui bridge**: Create a thin CSS layer that maps VS Code CSS variables to `@codrag/ui`'s CSS custom properties (the same token system used in the dashboard). This lets us reuse `@codrag/ui` components inside WebViews while respecting the VS Code theme.
+3. **@prep/ui bridge**: Create a thin CSS layer that maps VS Code CSS variables to `@prep/ui`'s CSS custom properties (the same token system used in the dashboard). This lets us reuse `@prep/ui` components inside WebViews while respecting the VS Code theme.
 4. **Theme change listener**: Listen for `vscode.window.onDidChangeActiveColorTheme` to re-inject variables when the user switches themes.
 
 ---
@@ -207,10 +207,10 @@ The extension MUST look native to the user's VS Code theme.
 
 ### License Activation Flow (same as desktop app)
 
-1. User purchases on `codrag.io` → Lemon Squeezy issues a license key.
-2. User runs `CoDRAG: Enter License Key` in VS Code.
+1. User purchases on `runprep.io` → Lemon Squeezy issues a license key.
+2. User runs `Prep: Enter License Key` in VS Code.
 3. Extension sends the key to the daemon's license endpoint.
-4. Daemon calls `api.codrag.io/activate` (the "Activation Exchange"):
+4. Daemon calls `api.runprep.io/activate` (the "Activation Exchange"):
    - Sends: `{ license_key, machine_id }` where `machine_id` is a hash of hostname + OS + hardware identifiers.
    - Receives: A signed Ed25519 offline license file (or an error if limits exceeded).
 5. Daemon saves the license file locally.
@@ -218,20 +218,20 @@ The extension MUST look native to the user's VS Code theme.
 
 ### "Installed Too Many Times" — Activation Limit Enforcement
 
-This is handled at the **Activation Exchange** layer (`api.codrag.io`), NOT in the extension itself.
+This is handled at the **Activation Exchange** layer (`api.runprep.io`), NOT in the extension itself.
 
 #### For Paid Tiers (Pro / Starter / Team)
 
 Lemon Squeezy natively supports **activation limits** per license key:
-- **Pro**: 3 machine activations per key (user can deactivate old machines via `codrag.io/account`).
+- **Pro**: 3 machine activations per key (user can deactivate old machines via `runprep.io/account`).
 - **Starter**: 2 machine activations.
 - **Team**: N activations (matches seat count).
 
 When the user tries to activate on a 4th machine (Pro example):
-1. `api.codrag.io/activate` calls Lemon Squeezy's activation API.
+1. `api.runprep.io/activate` calls Lemon Squeezy's activation API.
 2. Lemon Squeezy returns `ACTIVATION_LIMIT_REACHED`.
-3. `api.codrag.io` returns an error to the daemon.
-4. The extension shows: "License activation limit reached (3/3 machines). Deactivate a machine at codrag.io/account or upgrade your plan."
+3. `api.runprep.io` returns an error to the daemon.
+4. The extension shows: "License activation limit reached (3/3 machines). Deactivate a machine at runprep.io/account or upgrade your plan."
 
 #### For Free Tier (No License Key)
 
@@ -242,7 +242,7 @@ The free tier does NOT require a license key (default state). Abuse prevention f
 3. **No server call is required** for free tier — the daemon enforces limits locally (1 project, no trace, no watcher).
 4. **Sharing prevention**: Since the daemon runs locally and enforces the 1-project limit, there's no meaningful abuse vector. The "free tier" is inherently bounded by the machine it runs on.
 
-> **Key insight**: Unlike a SaaS where free accounts can be created infinitely, CoDRAG's free tier is limited by **local machine resources** (you must install the daemon, Ollama, etc.). The 1-project limit is enforced server-side (daemon). The VS Code extension is just a UI — it doesn't unlock anything the daemon wouldn't already allow.
+> **Key insight**: Unlike a SaaS where free accounts can be created infinitely, Prep's free tier is limited by **local machine resources** (you must install the daemon, Ollama, etc.). The 1-project limit is enforced server-side (daemon). The VS Code extension is just a UI — it doesn't unlock anything the daemon wouldn't already allow.
 
 #### VS Code Marketplace Considerations
 
@@ -253,7 +253,7 @@ The free tier does NOT require a license key (default state). Abuse prevention f
 
 ### Deactivation
 
-- `CoDRAG: Deactivate License` command sends a deactivation request to `api.codrag.io`.
+- `Prep: Deactivate License` command sends a deactivation request to `api.runprep.io`.
 - Frees up the machine slot for use elsewhere.
 - Daemon reverts to free tier behavior.
 
@@ -264,14 +264,14 @@ The free tier does NOT require a license key (default state). Abuse prevention f
 ### Discovery
 
 1. **Default**: `http://127.0.0.1:8400`
-2. **Settings**: User can configure `codrag.daemon.url` in VS Code settings.
-3. **Environment**: Respects `CODRAG_HOST` and `CODRAG_PORT` env vars.
+2. **Settings**: User can configure `prep.daemon.url` in VS Code settings.
+3. **Environment**: Respects `PREP_HOST` and `PREP_PORT` env vars.
 
 ### Auto-Start (Optional)
 
-If the daemon is not running and `codrag` is on PATH:
-1. Extension prompts: "CoDRAG daemon is not running. Start it?"
-2. If accepted, spawns `codrag serve` as a background process.
+If the daemon is not running and `prep` is on PATH:
+1. Extension prompts: "Prep daemon is not running. Start it?"
+2. If accepted, spawns `prep serve` as a background process.
 3. Monitors health via `GET /health` polling.
 4. Shows status in the status bar.
 
@@ -287,7 +287,7 @@ When the daemon is unreachable:
 ## Limitations & Constraints
 
 ### 1. No In-Process Engine
-Unlike Direct MCP mode, the extension cannot run the CoDRAG Python engine in-process. It requires the daemon. This is a deliberate trade-off:
+Unlike Direct MCP mode, the extension cannot run the Prep Python engine in-process. It requires the daemon. This is a deliberate trade-off:
 - **Pro**: No Python runtime bundling, smaller extension size, single source of truth for index state.
 - **Con**: User must have the daemon running (but auto-start mitigates this).
 
@@ -297,12 +297,12 @@ Unlike Direct MCP mode, the extension cannot run the CoDRAG Python engine in-pro
 - WebView state is lost when the tab is hidden (unless `retainContextWhenHidden` is set, which uses more memory).
 
 ### 3. Theme Mapping Is Approximate
-- `@codrag/ui` uses a specific design token system. Mapping VS Code CSS variables to these tokens will be ~95% accurate but may have edge cases with unusual themes.
+- `@prep/ui` uses a specific design token system. Mapping VS Code CSS variables to these tokens will be ~95% accurate but may have edge cases with unusual themes.
 - Mitigation: Test against the top 10 most popular VS Code themes (Dark+, Light+, Monokai, Dracula, One Dark, Solarized, GitHub, Nord, Catppuccin, Gruvbox).
 
 ### 4. Extension Size Limits
 - VS Code Marketplace has a **50MB** package size limit.
-- If we bundle `@codrag/ui` + React into WebViews, we must tree-shake aggressively.
+- If we bundle `@prep/ui` + React into WebViews, we must tree-shake aggressively.
 - Mitigation: Lazy-load WebView bundles only when panels are opened.
 
 ### 5. No Background Processing
@@ -317,12 +317,12 @@ Unlike Direct MCP mode, the extension cannot run the CoDRAG Python engine in-pro
 
 ### 7. Marketplace Review Requirements
 - Microsoft reviews extensions for: malware, telemetry disclosure, permission justification.
-- We must declare: network access (to `localhost:8400` and `api.codrag.io` for activation).
-- Privacy policy link required (use `codrag.io/privacy`).
+- We must declare: network access (to `localhost:8400` and `api.runprep.io` for activation).
+- Privacy policy link required (use `runprep.io/privacy`).
 
 ### 8. Competing Extensions
 - Other code-context tools may offer VS Code extensions (Augment, Cody, Continue.dev).
-- CoDRAG's differentiator: **local-first, no code upload, BYOK, structural trace**.
+- Prep's differentiator: **local-first, no code upload, BYOK, structural trace**.
 - The extension should emphasize this in the Marketplace listing.
 
 ---
@@ -335,16 +335,16 @@ The VS Code extension and the MCP server are **complementary, not competing**:
 |:---|:---|:---|
 | **User** | Human developer | AI agent (Copilot, etc.) |
 | **Interaction** | Visual (click, browse) | Programmatic (tool calls) |
-| **Discovery** | "What can CoDRAG do?" | "Give me context for this task" |
+| **Discovery** | "What can Prep do?" | "Give me context for this task" |
 | **Value** | Browsing, configuration, upsell | Agentic workflows |
 
 Both talk to the same daemon. The extension can also help configure MCP:
-- `CoDRAG: Copy MCP Config` generates the JSON for the user's IDE config.
+- `Prep: Copy MCP Config` generates the JSON for the user's IDE config.
 - Extension settings could auto-configure `settings.json` MCP entries (if the user opts in).
 
 ### Can the Extension Also Be an MCP Host?
 
-VS Code's Copilot Chat supports MCP tool providers. In the future, the extension could register CoDRAG tools directly with Copilot Chat (via the `lm` API). This would make CoDRAG tools available to Copilot without separate MCP config. **This is a post-MVP stretch goal.**
+VS Code's Copilot Chat supports MCP tool providers. In the future, the extension could register Prep tools directly with Copilot Chat (via the `lm` API). This would make Prep tools available to Copilot without separate MCP config. **This is a post-MVP stretch goal.**
 
 ---
 
@@ -354,8 +354,8 @@ VS Code's Copilot Chat supports MCP tool providers. In the future, the extension
 |:---|:---|:---|
 | Extension host | TypeScript + VS Code API | Required |
 | Sidebar trees | `TreeDataProvider` | Native theme, best perf |
-| WebView panels | React + `@codrag/ui` subset | Component reuse from dashboard |
-| WebView styling | VS Code CSS vars → `@codrag/ui` token bridge | Theme matching |
+| WebView panels | React + `@prep/ui` subset | Component reuse from dashboard |
+| WebView styling | VS Code CSS vars → `@prep/ui` token bridge | Theme matching |
 | HTTP client | Built-in `fetch` or `axios` | Talk to daemon |
 | Bundler | esbuild (extension) + Vite (WebView) | Fast builds |
 | Testing | VS Code Extension Test framework + Vitest (WebView) | Standard |
@@ -367,8 +367,8 @@ VS Code's Copilot Chat supports MCP tool providers. In the future, the extension
 
 ### Listing
 
-- **Name**: `CoDRAG — Local Code Context Engine`
-- **Publisher**: `magnetic-anomaly` (or `codrag`)
+- **Name**: `Prep — Local Code Context Engine`
+- **Publisher**: `magnetic-anomaly` (or `prep`)
 - **Category**: `Other` (or `Machine Learning` if accepted)
 - **Tags**: `code search`, `context`, `RAG`, `MCP`, `local-first`, `semantic search`
 - **Pricing**: Free (features gated by daemon license)
@@ -377,9 +377,9 @@ VS Code's Copilot Chat supports MCP tool providers. In the future, the extension
 
 - Hero: Screenshot of sidebar + search results
 - Value prop: "Local-first code context for AI workflows. No code upload. Works with Copilot, Cursor, Windsurf via MCP."
-- Quick start: Install extension → Install CoDRAG daemon → Add project → Search
+- Quick start: Install extension → Install Prep daemon → Add project → Search
 - Feature table: Free vs Pro
-- Link to `codrag.io` for full details
+- Link to `runprep.io` for full details
 
 ### Analytics
 
@@ -390,10 +390,10 @@ VS Code's Copilot Chat supports MCP tool providers. In the future, the extension
 
 ## Open Questions
 
-1. **Should the extension bundle a minimal "direct mode" fallback?** (e.g., spawn `codrag mcp --mode direct` for zero-config single-repo usage when the daemon isn't running) — This would lower friction but increase complexity.
+1. **Should the extension bundle a minimal "direct mode" fallback?** (e.g., spawn `prep mcp --mode direct` for zero-config single-repo usage when the daemon isn't running) — This would lower friction but increase complexity.
 
-2. **Should WebView panels use `@codrag/ui` directly or a lighter VS Code-native component set?** Using `@codrag/ui` maximizes reuse but adds bundle size. A VS Code-native approach (using `@vscode/webview-ui-toolkit`) would be lighter but means maintaining two component sets.
+2. **Should WebView panels use `@prep/ui` directly or a lighter VS Code-native component set?** Using `@prep/ui` maximizes reuse but adds bundle size. A VS Code-native approach (using `@vscode/webview-ui-toolkit`) would be lighter but means maintaining two component sets.
 
-3. **Should the extension auto-install the daemon?** (e.g., prompt to install via `brew install codrag` or `pip install codrag`) — Good for onboarding but risky (permissions, PATH issues).
+3. **Should the extension auto-install the daemon?** (e.g., prompt to install via `brew install prep` or `pip install prep`) — Good for onboarding but risky (permissions, PATH issues).
 
-4. **Copilot Chat tool provider**: When VS Code's MCP-in-extension API stabilizes, should we register CoDRAG tools natively? This could replace the separate `codrag mcp` process for VS Code users entirely.
+4. **Copilot Chat tool provider**: When VS Code's MCP-in-extension API stabilizes, should we register Prep tools natively? This could replace the separate `prep mcp` process for VS Code users entirely.

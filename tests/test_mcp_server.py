@@ -869,7 +869,7 @@ def test_prompts_list_has_all_prompts():
     server = MCPServer.__new__(MCPServer)
     server._client_name = "claude-code"
     server._client_version = ""
-    server._codrag_called = False
+    server._prep_called = False
     server._pinned_project = None
     server._initialize_roots = []
     server._notification_callback = None
@@ -891,7 +891,7 @@ def test_prompt_onboard_returns_messages_with_resources():
     server = MCPServer.__new__(MCPServer)
     server._client_name = "claude-code"
     server._client_version = ""
-    server._codrag_called = False
+    server._prep_called = False
     server._pinned_project = None
     server._initialize_roots = []
     server._notification_callback = None
@@ -919,7 +919,7 @@ def test_prompt_investigate_uses_query():
     server = MCPServer.__new__(MCPServer)
     server._client_name = "claude-code"
     server._client_version = ""
-    server._codrag_called = False
+    server._prep_called = False
     server._pinned_project = None
     server._initialize_roots = []
     server._notification_callback = None
@@ -942,7 +942,7 @@ def test_prompt_health_embeds_audit_resource():
     server = MCPServer.__new__(MCPServer)
     server._client_name = "claude-code"
     server._client_version = ""
-    server._codrag_called = False
+    server._prep_called = False
     server._pinned_project = None
     server._initialize_roots = []
     server._notification_callback = None

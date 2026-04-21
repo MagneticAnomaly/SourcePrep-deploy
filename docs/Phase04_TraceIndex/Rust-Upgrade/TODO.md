@@ -10,35 +10,35 @@
 ## Phase 0: Scaffolding (Sprint R0, ~1 week)
 
 - [ ] R0-01 Create `engine/` Cargo workspace at repo root
-- [ ] R0-02 Create `codrag-engine` crate with PyO3 `#[pymodule]` skeleton
+- [ ] R0-02 Create `prep-engine` crate with PyO3 `#[pymodule]` skeleton
 - [ ] R0-03 Add `maturin` config (`pyproject.toml` or `Cargo.toml` metadata)
-- [ ] R0-04 Smoke test: `from codrag_engine import version; assert version()`
-- [ ] R0-05 Add `CODRAG_ENGINE=rust|python` feature flag to `src/codrag/core/__init__.py`
+- [ ] R0-04 Smoke test: `from prep_engine import version; assert version()`
+- [ ] R0-05 Add `PREP_ENGINE=rust|python` feature flag to `src/prep/core/__init__.py`
 - [ ] R0-06 CI: GitHub Actions job that builds Rust wheel + runs Python test suite
 - [ ] R0-07 Document dev setup in `engine/README.md` (install Rust, maturin develop, etc.)
 - [ ] R0-08 Add `engine/` to root `.gitignore` for build artifacts (`target/`)
 
 ## Phase 1: File Walking + Content Hashing (Sprint R1, ~1–2 weeks)
 
-- [ ] R1-01 Create `codrag-walker` crate
+- [ ] R1-01 Create `prep-walker` crate
 - [ ] R1-02 Implement `walk_repo(root, include_globs, exclude_globs, max_file_bytes) → Vec<FileEntry>`
   - Use `ignore` crate for parallel traversal + `.gitignore` respect
   - FileEntry: `{ path: String, size: u64, modified_secs: f64 }`
 - [ ] R1-03 Implement `hash_files(paths) → HashMap<String, String>`
   - Use `blake3` for content hashing
   - Use `rayon` for parallelism (thread pool capped at `num_cpus / 2`)
-- [ ] R1-04 Expose `walk_repo` and `hash_files` via PyO3 in `codrag-engine`
+- [ ] R1-04 Expose `walk_repo` and `hash_files` via PyO3 in `prep-engine`
 - [ ] R1-05 Write Rust unit tests for walker (fixture repo with edge cases: symlinks, binary files, deep nesting)
 - [ ] R1-06 Write Rust benchmarks (`criterion`) for walk + hash on synthetic repos (1k, 10k, 50k files)
-- [ ] R1-07 Wire `TraceBuilder._enumerate_files()` to call Rust when `CODRAG_ENGINE=rust`
+- [ ] R1-07 Wire `TraceBuilder._enumerate_files()` to call Rust when `PREP_ENGINE=rust`
 - [ ] R1-08 Wire `CodeIndex.build()` file enumeration to call Rust when available
 - [ ] R1-09 Python parity test: assert Rust walker returns same file set as Python walker
-- [ ] R1-10 Benchmark comparison: Python vs Rust walker on the CoDRAG repo itself
+- [ ] R1-10 Benchmark comparison: Python vs Rust walker on the Prep repo itself
 
 ## Phase 2: Tree-sitter Multi-Language Parsing (Sprint R2, ~2–3 weeks)
 
 ### Core parser infrastructure
-- [ ] R2-01 Create `codrag-parser` crate
+- [ ] R2-01 Create `prep-parser` crate
 - [ ] R2-02 Define shared output types: `ParseResult { nodes: Vec<TraceNode>, edges: Vec<TraceEdge>, errors: Vec<ParseError> }`
 - [ ] R2-03 Implement tree-sitter initialization + grammar loading (compiled into binary)
 - [ ] R2-04 Implement `parse_file(path, content, language) → ParseResult` dispatcher
@@ -56,13 +56,13 @@
 
 ### Integration
 - [ ] R2-13 Expose `parse_file` via PyO3
-- [ ] R2-14 Wire `TraceBuilder.build()` to use Rust parser when `CODRAG_ENGINE=rust`
+- [ ] R2-14 Wire `TraceBuilder.build()` to use Rust parser when `PREP_ENGINE=rust`
 - [ ] R2-15 Golden file tests: parse fixture files, compare to expected JSON output
 - [ ] R2-16 Benchmark: parse 5,000 mixed-language files, compare to Python baseline
 
 ## Phase 3: In-Memory Trace Graph (Sprint R3, ~2 weeks)
 
-- [ ] R3-01 Create `codrag-graph` crate
+- [ ] R3-01 Create `prep-graph` crate
 - [ ] R3-02 Implement in-memory graph (arena-allocated nodes/edges, adjacency lists)
 - [ ] R3-03 Implement JSONL reader/writer (same format as current Python output)
 - [ ] R3-04 Implement `build_trace(root, config) → TraceHandle` (walk + parse + graph build, all in Rust)

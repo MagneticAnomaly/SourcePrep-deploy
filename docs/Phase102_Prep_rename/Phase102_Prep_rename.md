@@ -1,4 +1,6 @@
-# Phase 102: INSTRUCTIONS FOR AI AGENT - CoDRAG to Prep Migration
+> **SUPERSEDED** by `docs/superpowers/specs/2026-04-21-prep-rename-design.md`. Kept for historical context.
+
+# Phase 102: INSTRUCTIONS FOR AI AGENT - Prep to Prep Migration
 
 ## Target State
 - Application Name: **Prep**
@@ -7,7 +9,7 @@
 - MCP Tool Prefix: `prep_`
 
 ## Dear AI Agent:
-You are tasked with executing a zero-disruption, hard-cutover rename of the codebase from "CoDRAG" to "Prep". There are no active users, so backward compatibility is NOT required. 
+You are tasked with executing a zero-disruption, hard-cutover rename of the codebase from "Prep" to "Prep". There are no active users, so backward compatibility is NOT required. 
 **Follow these instructions EXACTLY in the order presented. DO NOT batch all changes into a single mega-commit without verifying steps. Run the verification commands after each phase.**
 
 ---
@@ -29,20 +31,20 @@ You are tasked with executing a zero-disruption, hard-cutover rename of the code
 Use `git mv` (or standard `mv` if untracked) to rename files and folders. Update imports only after files are moved.
 
 **Directories to rename:**
-1. `src/codrag/` ➔ `src/prep/`
-2. `packages/paperclip-plugin-codrag/` ➔ `packages/paperclip-plugin-prep/`
-3. `public/codrag-deploy/` ➔ `public/prep-deploy/`
-4. `public/codrag-mcp/` ➔ `public/prep-mcp/`
-5. `engine/crates/codrag-chunking/` ➔ `engine/crates/prep-chunking/`
-6. `engine/crates/codrag-engine/` ➔ `engine/crates/prep-engine/`
-7. `engine/crates/codrag-graph/` ➔ `engine/crates/prep-graph/`
-8. Untracked local data directories: `codrag_data/` ➔ `prep_data/`
+1. `src/prep/` ➔ `src/prep/`
+2. `packages/paperclip-plugin-prep/` ➔ `packages/paperclip-plugin-prep/`
+3. `public/prep-deploy/` ➔ `public/prep-deploy/`
+4. `public/prep-mcp/` ➔ `public/prep-mcp/`
+5. `engine/crates/prep-chunking/` ➔ `engine/crates/prep-chunking/`
+6. `engine/crates/prep-engine/` ➔ `engine/crates/prep-engine/`
+7. `engine/crates/prep-graph/` ➔ `engine/crates/prep-graph/`
+8. Untracked local data directories: `prep_data/` ➔ `prep_data/`
 
 **Files to rename:**
-1. `codrag-daemon.spec` ➔ `prep-daemon.spec`
-2. `scripts/codrag-mcp-wrapper.sh` ➔ `scripts/prep-mcp-wrapper.sh`
-3. `public/images/CoDRAG.png` ➔ `public/images/Prep.png`
-4. `codrag-logo.png` ➔ `prep-logo.png`
+1. `prep-daemon.spec` ➔ `prep-daemon.spec`
+2. `scripts/prep-mcp-wrapper.sh` ➔ `scripts/prep-mcp-wrapper.sh`
+3. `public/images/Prep.png` ➔ `public/images/Prep.png`
+4. `prep-logo.png` ➔ `prep-logo.png`
 
 **Verification 1:** Run `ls -la src/prep` to ensure the move succeeded.
 
@@ -52,10 +54,10 @@ Use `git mv` (or standard `mv` if untracked) to rename files and folders. Update
 Before executing global search/replace, surgically update the build systems.
 
 1. **Python (`pyproject.toml`):**
-   - Change `name = "codrag"` to `name = "prep"`
-   - Update entry points: `codrag = "codrag.cli:main"` ➔ `prep = "prep.cli:main"`
+   - Change `name = "prep"` to `name = "prep"`
+   - Update entry points: `prep = "prep.cli:main"` ➔ `prep = "prep.cli:main"`
 2. **Rust (`engine/Cargo.toml` and nested `Cargo.toml` files):**
-   - Rename crates from `codrag-*` to `prep-*`.
+   - Rename crates from `prep-*` to `prep-*`.
    - Update relative path dependencies inside the workspace.
 3. **Node/TypeScript (`package.json` files):**
    - Dashboard: Update name to `@prep/dashboard`
@@ -74,37 +76,37 @@ Perform exact case-sensitive replacements across the entire `src/`, `packages/`,
 
 **Replacements (Execute in this order to avoid collisions):**
 1. **Environment Variables:** 
-   - `CODRAG_DEV_MODE` ➔ `PREP_DEV_MODE`
-   - `CODRAG_API_KEY` ➔ `PREP_API_KEY`
-   - `CODRAG_TIER` ➔ `PREP_TIER`
-   - Any other `CODRAG_` ➔ `PREP_`
+   - `PREP_DEV_MODE` ➔ `PREP_DEV_MODE`
+   - `PREP_API_KEY` ➔ `PREP_API_KEY`
+   - `PREP_TIER` ➔ `PREP_TIER`
+   - Any other `PREP_` ➔ `PREP_`
 2. **MCP Tools & API Endpoints:** 
-   - `codrag_search` ➔ `prep_search`
-   - `codrag_impact` ➔ `prep_impact`
-   - `codrag_audit` ➔ `prep_audit`
-   - `codrag_observe` ➔ `prep_observe`
-   - `codrag_concepts` ➔ `prep_concepts`
+   - `prep_search` ➔ `prep_search`
+   - `prep_impact` ➔ `prep_impact`
+   - `prep_audit` ➔ `prep_audit`
+   - `prep_observe` ➔ `prep_observe`
+   - `prep_concepts` ➔ `prep_concepts`
 3. **Python & Rust Imports:** 
-   - `from codrag.` ➔ `from prep.`
-   - `import codrag` ➔ `import prep`
-   - `use codrag_` ➔ `use prep_`
+   - `from prep.` ➔ `from prep.`
+   - `import prep` ➔ `import prep`
+   - `use prep_` ➔ `use prep_`
 4. **URLs & Domains:** 
-   - `codrag.io` ➔ `runprep.io`
-   - `codrag.com` ➔ `runprep.io`
-   - `github.com/EricBintner/CoDRAG` ➔ `github.com/MagneticAnomaly/Prep`
-   - `github.com/EricBintner/codrag-mcp` ➔ `github.com/MagneticAnomaly/Prep-MCP`
-   - `github.com/EricBintner/codrag-deploy` ➔ `github.com/MagneticAnomaly/Prep-deploy`
+   - `runprep.io` ➔ `runprep.io`
+   - `prep.com` ➔ `runprep.io`
+   - `github.com/EricBintner/Prep` ➔ `github.com/MagneticAnomaly/Prep`
+   - `github.com/EricBintner/prep-mcp` ➔ `github.com/MagneticAnomaly/Prep-MCP`
+   - `github.com/EricBintner/prep-deploy` ➔ `github.com/MagneticAnomaly/Prep-deploy`
 5. **Text & UI Labels (Case Sensitive):** 
-   - `CoDRAG` ➔ `Prep`
-   - `codrag` ➔ `prep` (for remaining lowercase instances)
-   - `CODRAG` ➔ `PREP` (for remaining uppercase instances)
+   - `Prep` ➔ `Prep`
+   - `prep` ➔ `prep` (for remaining lowercase instances)
+   - `PREP` ➔ `PREP` (for remaining uppercase instances)
 
 ---
 
 ### Phase 4: Local Storage & DB Migration
 Update the paths where the daemon reads/writes data locally on the user's machine.
 - Update `~/.prep/` string references in the Rust daemon and Python backend to `~/.prep/`.
-- Ensure SQLite connection strings point to `prep_*.db` instead of `codrag_*.db`.
+- Ensure SQLite connection strings point to `prep_*.db` instead of `prep_*.db`.
 
 ---
 

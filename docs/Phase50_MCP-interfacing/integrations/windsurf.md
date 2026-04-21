@@ -1,6 +1,6 @@
 # Windsurf (Cascade) Integration Research
 
-> How Windsurf/Cascade consumes MCP, its unique context features, and how CoDRAG should optimize for it.
+> How Windsurf/Cascade consumes MCP, its unique context features, and how Prep should optimize for it.
 
 **Status:** UPDATED with confirmed docs deep-dive
 **Last updated:** 2026-03-14 (deep dive update)
@@ -33,7 +33,7 @@
 - **Instructions**: Not documented. Unknown if server instructions are appended.
 
 ### Tool Limit: 100 Tools
-"Cascade has a limit of 100 total tools that it has access to at any given time." Users can toggle individual tools on/off per MCP server settings page. CoDRAG's 5 tools are well within budget.
+"Cascade has a limit of 100 total tools that it has access to at any given time." Users can toggle individual tools on/off per MCP server settings page. Prep's 5 tools are well within budget.
 
 ### Cascade Hooks (pre/post MCP tool use)
 Windsurf supports lifecycle hooks that fire before and after MCP tool calls:
@@ -41,18 +41,18 @@ Windsurf supports lifecycle hooks that fire before and after MCP tool calls:
 - `post_mcp_tool_use`: fires after tool execution
 
 Hook input includes `mcp_server_name`, `mcp_tool_name`, `mcp_tool_arguments`.
-Future opportunity: CoDRAG could provide a hook script for usage analytics.
+Future opportunity: Prep could provide a hook script for usage analytics.
 
 ### Confirmation Model
 - Default: Cascade asks user to approve each MCP tool call
 - Settings > Cascade > MCP: can allow auto-run per server
-- CoDRAG recommendation: enable auto-run for codrag server
+- Prep recommendation: enable auto-run for prep server
 
 ### Key Difference from Cursor
 Windsurf's Cascade agent has a "Flows" architecture -- it plans multi-step operations and executes them with less back-and-forth than Cursor's agent mode. This means:
-- CoDRAG's `codrag` tool is more likely to be called at the start of a flow
+- Prep's `prep` tool is more likely to be called at the start of a flow
 - The AI plans its tool usage upfront, so clear tool descriptions matter more
-- Response nudges ("call codrag_search for deeper code") may trigger follow-up flow steps
+- Response nudges ("call prep_search for deeper code") may trigger follow-up flow steps
 
 ---
 
@@ -73,7 +73,7 @@ Rules now live in `.windsurf/rules/*.md` with YAML frontmatter:
 | **Glob** | `glob` | Applied when matching files touched | Conditional |
 | **Manual** | `manual` | Only when user types `@rule-name` | Zero until invoked |
 
-CoDRAG needs `trigger: always_on`.
+Prep needs `trigger: always_on`.
 
 ### Native Tools
 Windsurf's native tools are similar to Cursor's:
@@ -87,26 +87,26 @@ From our Phase 50 research, Windsurf's Cascade tends to be slightly more willing
 
 ---
 
-## 4. Rules File: `.windsurf/rules/codrag.md` (CORRECTED)
+## 4. Rules File: `.windsurf/rules/prep.md` (CORRECTED)
 
 ### Format
 Markdown with YAML frontmatter. One file = one rule.
 
-### CoDRAG Template
+### Prep Template
 ```markdown
 ---
 trigger: always_on
-description: CoDRAG structural codebase intelligence
+description: Prep structural codebase intelligence
 ---
 
-You have access to CoDRAG, a structural code intelligence system.
-ALWAYS call `codrag` (no arguments) at the START of every task.
+You have access to Prep, a structural code intelligence system.
+ALWAYS call `prep` (no arguments) at the START of every task.
 This gives you module structure, hub files, and focus areas.
 
-For specific code searches, use `codrag_search` with a natural language query.
-Before making changes, use `codrag_impact` to understand blast radius.
+For specific code searches, use `prep_search` with a natural language query.
+Before making changes, use `prep_impact` to understand blast radius.
 
-CoDRAG's tools are read-only and safe to auto-approve.
+Prep's tools are read-only and safe to auto-approve.
 
 ## Codebase Atlas
 [auto-generated structural overview]
@@ -118,12 +118,12 @@ Last indexed: [timestamp] | [stats]
 ```
 
 ### Generation Strategy
-This is a standalone file (not appended to user content). CoDRAG creates/overwrites
-`.windsurf/rules/codrag.md` entirely -- no marker-based merge needed since it's our file.
+This is a standalone file (not appended to user content). Prep creates/overwrites
+`.windsurf/rules/prep.md` entirely -- no marker-based merge needed since it's our file.
 
 ### AGENTS.md as Alternative
 Root-level `AGENTS.md` is treated as **always-on** by Windsurf (same as `trigger: always_on`).
-So generating AGENTS.md with CoDRAG content achieves the same effect. We generate BOTH
+So generating AGENTS.md with Prep content achieves the same effect. We generate BOTH
 for redundancy.
 
 ---
@@ -138,12 +138,12 @@ for redundancy.
 ### Multi-Turn Behavior
 - Context window depends on model
 - Windsurf has its own context management (memories system)
-- Atlas in `.windsurf/rules/codrag.md` persists across all turns (always_on)
+- Atlas in `.windsurf/rules/prep.md` persists across all turns (always_on)
 - Root-level AGENTS.md also persists (always-on by location)
 
 ---
 
-## 6. CoDRAG Optimization Checklist
+## 6. Prep Optimization Checklist
 
 - [x] AGENTS.md reading behavior confirmed (root = always-on, subdir = auto-glob)
 - [x] Rules file format confirmed (`.windsurf/rules/*.md` with frontmatter, 12K char limit)
@@ -154,7 +154,7 @@ for redundancy.
 - [ ] Empirically test: does Windsurf support MCP prompts as slash commands?
 - [ ] Empirically test: what is `clientInfo.name` in Windsurf's initialize request?
 - [ ] Test auto-approve setup in Windsurf settings
-- [ ] Test Cascade's flow behavior: does it call `codrag` at flow start?
+- [ ] Test Cascade's flow behavior: does it call `prep` at flow start?
 
 ---
 
@@ -164,5 +164,5 @@ for redundancy.
 |------|----------|-------|
 | Windsurf/Cognition acquisition changes MCP behavior | MEDIUM | Monitor updates. Cognition (Devin) may shift architecture. |
 | Rules format evolves again | LOW | `.windsurf/rules/` with frontmatter is the current standard. |
-| Cascade prefers native search over CoDRAG | MEDIUM | Rules file (`always_on`) mitigates. |
-| 100-tool limit pressure from many MCP servers | LOW | CoDRAG's 5 tools are minimal. Users can toggle. |
+| Cascade prefers native search over Prep | MEDIUM | Rules file (`always_on`) mitigates. |
+| 100-tool limit pressure from many MCP servers | LOW | Prep's 5 tools are minimal. Users can toggle. |

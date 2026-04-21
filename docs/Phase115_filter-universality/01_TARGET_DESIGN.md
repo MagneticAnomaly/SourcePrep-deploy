@@ -8,7 +8,7 @@
 1. **Single source of truth.** Every walker (Python trace builder, Rust walker, file watcher, self-heal, enrichment re-read) draws the same filter from one canonical place. No callsite may carry its own hardcoded list.
 2. **Universality.** Defaults are identical for every project. Per-project `repo_policy.json` can narrow or extend, but the defaults are a floor.
 3. **User extension, not replacement.** User-authored exclusions (Knowledge Scope / FolderTree, `trace.ignore_patterns`) **add to** the defaults; they never replace them.
-4. **No self-ingestion.** CoDRAG never indexes files CoDRAG wrote. The guarantee is a test-enforced invariant, not a style guideline.
+4. **No self-ingestion.** Prep never indexes files Prep wrote. The guarantee is a test-enforced invariant, not a style guideline.
 5. **Back-fill on load.** Adding a new default exclude in source must propagate to existing indexes without forcing users to re-profile. Auto-migration already exists for dir globs — extend it to cover file globs too.
 
 ## The three filter layers
@@ -17,7 +17,7 @@ Already present; this phase reinforces the contract, it doesn't introduce a new 
 
 | Layer | Source | Audience |
 |-------|--------|----------|
-| **L1 — Code defaults** | `DEFAULT_EXCLUDE_DIR_NAMES`, `DEFAULT_EXCLUDE_FILE_GLOBS`, `DEFAULT_EXCLUDE_FILE_NAMES` in `repo_profile.py` | All projects, baked by the CoDRAG build |
+| **L1 — Code defaults** | `DEFAULT_EXCLUDE_DIR_NAMES`, `DEFAULT_EXCLUDE_FILE_GLOBS`, `DEFAULT_EXCLUDE_FILE_NAMES` in `repo_profile.py` | All projects, baked by the Prep build |
 | **L2 — Per-project policy** | `repo_policy.json.exclude_globs` | One project, persisted on disk |
 | **L3 — User runtime exclusions** | `project.config.trace.ignore_patterns` (via FolderTree UI) | One project, user-editable at runtime |
 
@@ -32,23 +32,23 @@ effective_exclude = L1.dir_globs
                   | L3.ignore_patterns
 ```
 
-## The `CODRAG_OUTPUT_*` registry
+## The `PREP_OUTPUT_*` registry
 
 New concept. Lives in `repo_profile.py` adjacent to the existing default sets.
 
 ```python
-# Paths that CoDRAG writes. Indexing any of these creates a feedback loop
-# in which the LLM reasons about CoDRAG's own state. Every new writer must
+# Paths that Prep writes. Indexing any of these creates a feedback loop
+# in which the LLM reasons about Prep's own state. Every new writer must
 # add its path here; the default exclude sets below derive from this.
-CODRAG_OUTPUT_DIRS: Set[str] = {
-    ".codrag",          # per-project index (embedded mode)
-    "codrag_data",      # daemon-wide store (SQLite + telemetry + ui_config)
+PREP_OUTPUT_DIRS: Set[str] = {
+    ".prep",          # per-project index (embedded mode)
+    "prep_data",      # daemon-wide store (SQLite + telemetry + ui_config)
 }
 
-CODRAG_OUTPUT_FILE_GLOBS: Sequence[str] = (
+PREP_OUTPUT_FILE_GLOBS: Sequence[str] = (
     # AGENTS.md spliced by rules_generator._write_agents_md
     "**/AGENTS.md",
-    # CoDRAG-managed CLAUDE.md block; file may also contain user content,
+    # Prep-managed CLAUDE.md block; file may also contain user content,
     # but AI agents already have direct access
     "**/CLAUDE.md",
     "**/GEMINI.md",
@@ -70,7 +70,7 @@ CODRAG_OUTPUT_FILE_GLOBS: Sequence[str] = (
 
 ```python
 DEFAULT_EXCLUDE_DIR_NAMES: Set[str] = (
-    CODRAG_OUTPUT_DIRS
+    PREP_OUTPUT_DIRS
     | {
         # VCS
         ".git",
@@ -95,16 +95,16 @@ DEFAULT_EXCLUDE_DIR_NAMES: Set[str] = (
 )
 
 DEFAULT_EXCLUDE_FILE_GLOBS: Sequence[str] = (
-    *CODRAG_OUTPUT_FILE_GLOBS,
+    *PREP_OUTPUT_FILE_GLOBS,
     # Build artifacts that look like source (new in Phase 115)
-    "**/*.d.ts",        # TypeScript declaration files — generated
+    "**/*.d.ts",        # TypeScript deprep-compresstion files — generated
     "**/*.min.js",
     "**/*.min.css",
     "**/*.map",         # source maps
 )
 ```
 
-The two registries (`CODRAG_OUTPUT_DIRS`, `CODRAG_OUTPUT_FILE_GLOBS`) are **subsets** of the full default exclude lists. Other defaults (`node_modules`, `.git`, etc.) are not CoDRAG outputs — they're ecosystem standards — and stay in the main set.
+The two registries (`PREP_OUTPUT_DIRS`, `PREP_OUTPUT_FILE_GLOBS`) are **subsets** of the full default exclude lists. Other defaults (`node_modules`, `.git`, etc.) are not Prep outputs — they're ecosystem standards — and stay in the main set.
 
 ## Contract for every walker / reader
 
@@ -169,15 +169,15 @@ A project-level integration test that runs after rebuild:
 
 ```python
 # tests/test_no_self_ingestion.py
-def test_no_codrag_outputs_in_trace_nodes(dogfood_index):
+def test_no_prep_outputs_in_trace_nodes(dogfood_index):
     nodes = read_jsonl(dogfood_index / "trace_nodes.jsonl")
     offenders = [
         n["path"] for n in nodes
         if any(n["path"].startswith(d + "/") or f"/{d}/" in n["path"]
-               for d in CODRAG_OUTPUT_DIRS)
+               for d in PREP_OUTPUT_DIRS)
     ]
     assert offenders == [], (
-        f"CoDRAG output paths leaked into trace graph: {offenders}"
+        f"Prep output paths leaked into trace graph: {offenders}"
     )
 ```
 
@@ -189,13 +189,13 @@ This is the load-bearing test for Principle 4. If a future writer adds a new out
 - No change to per-language presets in `STACK_PRESETS`.
 - No change to the Knowledge Scope UI or `/trace/ignore` endpoint contract.
 - No reorganization of on-disk layout (that is Phase 113).
-- No migration of `codrag_data/` to `~/.local/share/prep/` (tracked separately).
+- No migration of `prep_data/` to `~/.local/share/prep/` (tracked separately).
 
 ## Interaction with Phase 113
 
-Phase 113 will rename many paths inside `.prep/` (`trace/nodes.jsonl` instead of `trace_nodes.jsonl`, etc.). That changes the *shape* of `CODRAG_OUTPUT_DIRS` for `.prep/` internals but not the set membership — `.prep/` stays in the registry regardless. Phase 113 migration should:
+Phase 113 will rename many paths inside `.prep/` (`trace/nodes.jsonl` instead of `trace_nodes.jsonl`, etc.). That changes the *shape* of `PREP_OUTPUT_DIRS` for `.prep/` internals but not the set membership — `.prep/` stays in the registry regardless. Phase 113 migration should:
 
-- Keep `.codrag` in `CODRAG_OUTPUT_DIRS` as-is (it's a dir, not a path into it).
+- Keep `.prep` in `PREP_OUTPUT_DIRS` as-is (it's a dir, not a path into it).
 - Not introduce new top-level paths outside `.prep/`.
 
 No merge conflict expected. Phase 115 lands first.

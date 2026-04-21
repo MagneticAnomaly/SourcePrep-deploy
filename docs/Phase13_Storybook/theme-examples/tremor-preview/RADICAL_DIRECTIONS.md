@@ -10,7 +10,7 @@ Following the research into "School + Enterprise" inspirations, we have develope
 - **Color:** Vivid Purple (`#8b5cf6`), Warning Yellow, High-contrast Black/White.
 - **Shapes:** Hard edges (0px radius), heavy borders (2px-4px), hard shadows (`box-shadow: 4px 4px 0px 0px black`).
 - **Layout:** Dense, information-heavy, intentionally "ugly" or "raw" to signal power and developer-centricity.
-- **Why it fits:** CoDRAG is a local-first, developer-focused tool. The raw aesthetic says "no hidden magic, just raw power."
+- **Why it fits:** Prep is a local-first, developer-focused tool. The raw aesthetic says "no hidden magic, just raw power."
 
 ## Direction F: Swiss Minimal (The "Grid" System)
 **Inspiration:** International Typographic Style (Josef Müller-Brockmann), Vignelli, Stripe
@@ -30,7 +30,7 @@ Following the research into "School + Enterprise" inspirations, we have develope
 - **Color:** Cyan/Teal gradients, heavily reliant on alpha channels and background blurs (`backdrop-filter: blur(12px)`).
 - **Shapes:** Deeply rounded corners (1.5rem+), soft colored shadows, white borders with opacity.
 - **Layout:** Floating cards, layered elements, depth (z-index) as a primary signifier of hierarchy.
-- **Why it fits:** Represents the "invisible layer" of intelligence CoDRAG adds to your workflow. It feels modern, native (macOS), and magical.
+- **Why it fits:** Represents the "invisible layer" of intelligence Prep adds to your workflow. It feels modern, native (macOS), and magical.
 
 ## Direction H: Retro-Futurism (The "Synth" Dream)
 **Inspiration:** Synthwave, Cyberpunk, 80s Sci-Fi interfaces, VS Code "SynthWave '84" theme
@@ -46,7 +46,7 @@ Following the research into "School + Enterprise" inspirations, we have develope
 
 ## Implementation Details
 
-All themes are implemented using CSS variables and scoped data attributes (`data-codrag-theme='e'`).
+All themes are implemented using CSS variables and scoped data attributes (`data-prep-theme='e'`).
 
 - **Fonts:** Added via Google Fonts in `index.html`.
 - **Components:** `MarketingHero.tsx` now switches entirely different layouts/DOM structures based on the selected variant, not just CSS styles.

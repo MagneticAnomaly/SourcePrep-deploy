@@ -6,7 +6,7 @@
 
 ## Overview
 
-CoDRAG's 11-stage pipeline has three execution modes:
+Prep's 11-stage pipeline has three execution modes:
 
 | Mode | Pattern | When |
 |------|---------|------|
@@ -192,7 +192,7 @@ The mode is chosen **per-stage, per-run** based on the model's capabilities and 
 
 **Nowhere in the pipeline.** Frontier models are cost-prohibitive for pipeline work. Even Group Reasoning with swarm benefits more from a good mid-tier model (Sonnet, GPT-5.2–5.4, Kimi K2.5) run with `think=True` than from an expensive frontier model without thinking.
 
-The one exception: **MCP tool calls** (not pipeline stages). When an AI agent calls `codrag_search` or `codrag_impact`, those are single interactive queries where response quality directly affects the developer's experience. But the pipeline is batch work — the quality floor is "good enough" and the cost ceiling matters.
+The one exception: **MCP tool calls** (not pipeline stages). When an AI agent calls `prep_search` or `prep_impact`, those are single interactive queries where response quality directly affects the developer's experience. But the pipeline is batch work — the quality floor is "good enough" and the cost ceiling matters.
 
 ### Mid-tier models (Claude Sonnet, GPT-5.2–5.4, Kimi K2.5) — the sweet spot
 

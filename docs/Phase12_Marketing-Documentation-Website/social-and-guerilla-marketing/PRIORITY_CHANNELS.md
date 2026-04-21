@@ -2,7 +2,7 @@
 
 ## How this doc relates to the others
 - **RESEARCH_FRAMEWORK.md** — the generic repeatable system (taxonomy, rubric, workflow)
-- **This doc** — the prioritized, business-aligned application of that framework to CoDRAG specifically
+- **This doc** — the prioritized, business-aligned application of that framework to Prep specifically
 - **Phase10 docs** — business goals, ICP, pricing, competitive positioning (source of truth)
 - **copy-prep/** — per-channel copy drafts (post-draft.md + post-organic.md in each channel folder)
 
@@ -28,7 +28,7 @@ From Phase 10 + Pricing Strategy:
 
 ---
 
-## CoDRAG's 5 messaging pillars
+## Prep's 5 messaging pillars
 
 These are the core claims. Every channel placement should use 1–2 of these as the "hook."
 
@@ -36,7 +36,7 @@ These are the core claims. Every channel placement should use 1–2 of these as 
 |----|--------|-----------|
 | M1 | **No LLM required** | The structural trace index works standalone — no Ollama, no cloud API needed for core value |
 | M2 | **Local-first trust** | Your code stays on your machine. No upload, no telemetry, no mandatory cloud |
-| M3 | **AI sees files, not structure** | CoDRAG is the mediation layer — it gives AI tools the *right* code, not just *more* code |
+| M3 | **AI sees files, not structure** | Prep is the mediation layer — it gives AI tools the *right* code, not just *more* code |
 | M4 | **MCP companion, not another IDE** | Works with Cursor, Windsurf, VS Code, Claude Desktop — plugs into your existing workflow |
 | M5 | **Pay once, own forever ($79)** | Perpetual license disrupts subscription fatigue. No token markup. BYOK at cost |
 
@@ -49,10 +49,10 @@ Based on recent launches of similar tools in the local context engine space, the
 | The Community Objection | Our Proactive Defense (Bake this into the copy) |
 |-------------------------|-------------------------------------------------|
 | *"Why isn't this free/open-source?"* | We address the elephant in the room: *"Most dev tools lock you into a $20/mo SaaS or sell your telemetry. We chose a $79 perpetual license so you own it forever. A sustainable business model means we don't have to monetize your data."* |
-| *"I already do this with a CLAUDE.md file."* | *"CLAUDE.md is great for human guidelines ('use Tailwind'), but it can't maintain thousands of dynamic dependency edges. CoDRAG automates the structural layer so your CLAUDE.md can focus on architecture."* |
-| *"Is this just semantic search?"* | *"Vector search is great for fuzzy matching, but terrible for structural precision (blast radius, callers). CoDRAG uses BOTH: native ONNX embeddings for concepts + an AST dependency graph for exact structure."* |
-| *"Does this only work in VS Code?"* | *"No. CoDRAG is a standalone daemon and an MCP server. It works in the terminal with Claude Code, in Cursor, Windsurf, or any MCP client."* |
-| *"Is it an LSP wrapper?"* | *"No. LSPs require an active runtime environment for every language. CoDRAG builds an offline, persistent trace graph using tree-sitter, making it much faster and allowing cross-repo queries without booting up 5 language servers."* |
+| *"I already do this with a CLAUDE.md file."* | *"CLAUDE.md is great for human guidelines ('use Tailwind'), but it can't maintain thousands of dynamic dependency edges. Prep automates the structural layer so your CLAUDE.md can focus on architecture."* |
+| *"Is this just semantic search?"* | *"Vector search is great for fuzzy matching, but terrible for structural precision (blast radius, callers). Prep uses BOTH: native ONNX embeddings for concepts + an AST dependency graph for exact structure."* |
+| *"Does this only work in VS Code?"* | *"No. Prep is a standalone daemon and an MCP server. It works in the terminal with Claude Code, in Cursor, Windsurf, or any MCP client."* |
+| *"Is it an LSP wrapper?"* | *"No. LSPs require an active runtime environment for every language. Prep builds an offline, persistent trace graph using tree-sitter, making it much faster and allowing cross-repo queries without booting up 5 language servers."* |
 | *"Will SQLite handle my massive repo?"* | *"Yes. We optimized our SQLite schema specifically for the 2-to-3 hop traversals needed for context assembly. It delivers sub-millisecond graph queries with zero infrastructure overhead."* |
 
 ---
@@ -78,7 +78,7 @@ These channels have the strongest overlap with our primary ICP and the highest l
 - **Size**: ~10M monthly uniques
 - **Self-promo tolerance**: Show HN is explicitly for this purpose
 - **Hook pillars**: M3 (AI sees files, not structure) + M4 (MCP companion) + M1 (no LLM required)
-- **Angle**: "Show HN: CoDRAG — local-first structural code context for AI coding tools (no LLM required)" — lead with the surprising technical claim, link to docs/GitHub
+- **Angle**: "Show HN: Prep — local-first structural code context for AI coding tools (no LLM required)" — lead with the surprising technical claim, link to docs/GitHub
 - **What works here**: Concise, honest, technically interesting. Respond to every comment in the first 3 hours. Show working demo or screenshots.
 - **What to avoid**: Hype, unsubstantiated claims, ignoring comments
 - **Business objective**: B1 (downloads) + B3 (positioning) + B5 (enterprise inbound)
@@ -97,14 +97,14 @@ These channels have the strongest overlap with our primary ICP and the highest l
 - **Format**: F1 (discussion) or F4 (guide)
 - **Trust ramp**: 1–2 weeks of helpful commenting on "Cursor tips" threads
 
-### 0D. codrag.io/blog → syndicated to dev.to + Medium
+### 0D. runprep.io/blog → syndicated to dev.to + Medium
 - **Why**: Canonical long-form content you fully control. SEO anchor. Syndication target for all discussion posts.
 - **Hook pillars**: All (M1–M5), varies per article
 - **Angle**: Technical deep-dives, architecture posts, "how we built X" series, comparison posts
 - **Business objective**: B6 (SEO) + B1 (downloads via organic) + B3 (positioning)
 - **Format**: F2 (technical deep dive) + F4 (guides)
 - **Trust ramp**: N/A (your own property)
-- **Syndication flow**: Publish on codrag.io/blog first (canonical URL) → cross-post to dev.to (supports canonical URL) → adapt for Medium
+- **Syndication flow**: Publish on runprep.io/blog first (canonical URL) → cross-post to dev.to (supports canonical URL) → adapt for Medium
 
 ---
 
@@ -148,7 +148,7 @@ These channels have the strongest overlap with our primary ICP and the highest l
 - **Why**: One-time launch event. High visibility if executed well. Drives press/newsletter coverage.
 - **Self-promo tolerance**: This IS the purpose
 - **Hook pillars**: M4 (MCP companion) + M5 (pay once $79) + M2 (local-first)
-- **Angle**: "CoDRAG — Local-first structural code context for AI coding tools"
+- **Angle**: "Prep — Local-first structural code context for AI coding tools"
 - **Business objective**: B1 (downloads) + B3 (positioning) + B5 (enterprise inbound)
 - **Format**: F3 (launch)
 - **Timing**: Coordinate with v1.0 release. Tuesday–Thursday launch. Have HN Show post same week.
@@ -209,7 +209,7 @@ These channels have the strongest overlap with our primary ICP and the highest l
 
 ### 3A. GitHub Awesome Lists (submit PRs)
 Targets to research and submit to:
-- `awesome-mcp-servers` — CoDRAG ships an MCP server
+- `awesome-mcp-servers` — Prep ships an MCP server
 - `awesome-rag` / `awesome-retrieval-augmented-generation`
 - `awesome-developer-tools`
 - `awesome-local-first`
@@ -281,16 +281,16 @@ This matrix maps which messaging pillar to lead with for each channel type.
 You should not post anywhere until these artifacts exist:
 
 ### Must-have (before any channel activation)
-1. **codrag.io landing page** — live, with download CTA (or waitlist)
+1. **runprep.io landing page** — live, with download CTA (or waitlist)
 2. **GitHub repo or public demo** — something to link to that proves the product is real
-3. **"Architecture overview" blog post** — the canonical "how CoDRAG works" article (syndicate everywhere)
+3. **"Architecture overview" blog post** — the canonical "how Prep works" article (syndicate everywhere)
 4. **30-second screen recording / GIF** — shows: add repo → build → search → context via MCP
 5. **README with clear "Getting Started"** — anyone who clicks through must be able to try it in <5 minutes
 
 ### Should-have (before Tier 0 activation)
 6. **"Why structural trace beats vector search for code" article** — the technical thought-leadership piece
 7. **"No LLM required" explainer** — addresses the surprising claim head-on
-8. **Benchmark or comparison** — CoDRAG trace context vs naive RAG context (before/after example)
+8. **Benchmark or comparison** — Prep trace context vs naive RAG context (before/after example)
 9. **Pricing page live** — so "pay once $79" pillar is verifiable
 
 ### Nice-to-have (before Tier 1 activation)
@@ -305,11 +305,11 @@ You should not post anywhere until these artifacts exist:
 ### Phase A: Foundation (weeks 1–2)
 - Prepare artifacts 1–5 above
 - Create accounts on: Reddit (if not existing), dev.to, Product Hunt, HN
-- Begin "trust ramp" commenting on r/LocalLLaMA, r/cursor, r/windsurf (helpful comments, no CoDRAG mentions yet)
+- Begin "trust ramp" commenting on r/LocalLLaMA, r/cursor, r/windsurf (helpful comments, no Prep mentions yet)
 - Research and document subreddit rules for all Tier 0 channels
 
 ### Phase B: Launch wave (weeks 3–4)
-- Publish "Architecture overview" on codrag.io/blog
+- Publish "Architecture overview" on runprep.io/blog
 - Cross-post to dev.to
 - Post Show HN
 - Post to r/LocalLLaMA (same day or next day, different angle)
@@ -325,7 +325,7 @@ You should not post anywhere until these artifacts exist:
 - Begin LinkedIn thought leadership posts
 
 ### Phase D: Sustained cadence (month 3+)
-- 1 blog post every 2 weeks (codrag.io → syndicate)
+- 1 blog post every 2 weeks (runprep.io → syndicate)
 - 1 Reddit post per week (rotate channels)
 - Activate Tier 2 channels as content library grows
 - Pitch podcasts

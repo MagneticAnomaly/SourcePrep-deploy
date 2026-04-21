@@ -1,6 +1,6 @@
 # Stage Reference
 
-Defined in `src/codrag/services/pipeline/stages.py:12-31`.
+Defined in `src/prep/services/pipeline/stages.py:12-31`.
 
 ## Stage list
 
@@ -32,7 +32,7 @@ Defined in `src/codrag/services/pipeline/stages.py:12-31`.
 
 ## Swarm capability
 
-`SWARM_CAPABLE_STAGES` frozenset in `src/codrag/services/pipeline/scheduler.py:53`:
+`SWARM_CAPABLE_STAGES` frozenset in `src/prep/services/pipeline/scheduler.py:53`:
 
 ```python
 SWARM_CAPABLE_STAGES = frozenset({

@@ -1,6 +1,6 @@
 # Roo Code Integration Research
 
-> How Roo Code consumes MCP, its custom modes architecture, and CoDRAG optimization.
+> How Roo Code consumes MCP, its custom modes architecture, and Prep optimization.
 
 **Status:** UPDATED with confirmed docs deep-dive
 **Last updated:** 2026-03-14 (deep dive update)
@@ -34,9 +34,9 @@ Roo Code's unique feature is **Custom Modes** -- specialized AI personas with di
 - **Debug Mode**: Debugging focused
 - **Custom**: User-defined roles
 
-### CoDRAG Implications
-- **Architect Mode** is a natural fit for CoDRAG -- structural context is exactly what an architect needs
-- CoDRAG rules can be mode-specific: "In Architect mode, call `codrag` for structural overview. In Code mode, call `codrag_impact` before changes."
+### Prep Implications
+- **Architect Mode** is a natural fit for Prep -- structural context is exactly what an architect needs
+- Prep rules can be mode-specific: "In Architect mode, call `prep` for structural overview. In Code mode, call `prep_impact` before changes."
 - `.roo/rules/` directory supports mode-specific rule files
 
 ---
@@ -56,7 +56,7 @@ Forked from Cline, so the MCP implementation is very similar:
 
 ### Auto-Approve
 - Per-server auto-approve available
-- CoDRAG recommendation: enable auto-approve for codrag server
+- Prep recommendation: enable auto-approve for prep server
 
 ---
 
@@ -85,17 +85,17 @@ Both global (`~/.roo/rules/`) and workspace (`.roo/rules/`) directories are aggr
 - Mode-specific rules complement general rules (not replace)
 - 12,000 char limit not documented but assumed similar to Cline
 
-### CoDRAG Template: `.roo/rules/codrag.md` (general, all modes)
+### Prep Template: `.roo/rules/prep.md` (general, all modes)
 ```markdown
-# CoDRAG Structural Intelligence
+# Prep Structural Intelligence
 
-This project uses CoDRAG for structural code intelligence via MCP.
-ALWAYS call `codrag` at the start of every task for module structure and hub files.
-Use `codrag_search` for natural language code queries.
-Use `codrag_impact` before making changes to understand blast radius.
+This project uses Prep for structural code intelligence via MCP.
+ALWAYS call `prep` at the start of every task for module structure and hub files.
+Use `prep_search` for natural language code queries.
+Use `prep_impact` before making changes to understand blast radius.
 
 When asked about code structure, architecture, dependencies, modules,
-hub files, or blast radius, use the CoDRAG MCP tools.
+hub files, or blast radius, use the Prep MCP tools.
 
 ## Codebase Atlas
 [auto-generated]
@@ -104,22 +104,22 @@ hub files, or blast radius, use the CoDRAG MCP tools.
 [auto-generated]
 ```
 
-### CoDRAG Template: `.roo/rules-architect/codrag.md` (Architect mode)
+### Prep Template: `.roo/rules-architect/prep.md` (Architect mode)
 ```markdown
-# CoDRAG for Architecture Analysis
+# Prep for Architecture Analysis
 
-In Architect mode, CoDRAG is your primary structural intelligence tool.
-ALWAYS call `codrag` first for comprehensive module overview.
-Use `codrag_audit` for codebase health assessment.
-Use `codrag_search` to explore specific module relationships.
+In Architect mode, Prep is your primary structural intelligence tool.
+ALWAYS call `prep` first for comprehensive module overview.
+Use `prep_audit` for codebase health assessment.
+Use `prep_search` to explore specific module relationships.
 ```
 
-### CoDRAG Template: `.roo/rules-code/codrag.md` (Code mode)
+### Prep Template: `.roo/rules-code/prep.md` (Code mode)
 ```markdown
-# CoDRAG for Coding
+# Prep for Coding
 
-Before making changes, call `codrag_impact` to understand blast radius.
-Call `codrag` for module context when entering an unfamiliar area.
+Before making changes, call `prep_impact` to understand blast radius.
+Call `prep` for module context when entering an unfamiliar area.
 ```
 
 ---
@@ -138,23 +138,23 @@ Roo Code loads AGENTS.md by default:
 - If both `AGENTS.md` and `AGENT.md` exist, `AGENTS.md` is preferred
 - Empty/whitespace-only AGENTS.md is ignored
 
-CoDRAG should generate both:
+Prep should generate both:
 1. `AGENTS.md` section (universal, read by many tools)
-2. `.roo/rules/codrag.md` (general, all modes)
-3. `.roo/rules-architect/codrag.md` (Architect mode specific)
+2. `.roo/rules/prep.md` (general, all modes)
+3. `.roo/rules-architect/prep.md` (Architect mode specific)
 
 ---
 
-## 6. CoDRAG Optimization Checklist
+## 6. Prep Optimization Checklist
 
 - [x] Rules loading order confirmed (exact system prompt injection sequence)
 - [x] AGENTS.md loading confirmed (default on, disableable, root-only)
 - [x] Mode-specific rules directories confirmed (`.roo/rules-{modeSlug}/`)
 - [x] Recursive directory reading confirmed (alphabetical, symlink-safe)
-- [ ] Test CoDRAG MCP integration in Roo Code
-- [ ] Test mode-specific behavior (Architect mode + CoDRAG)
-- [ ] Test auto-approve for CoDRAG tools
-- [ ] Verify `.roo/rules/codrag.md` + `.roo/rules-architect/codrag.md` injection
+- [ ] Test Prep MCP integration in Roo Code
+- [ ] Test mode-specific behavior (Architect mode + Prep)
+- [ ] Test auto-approve for Prep tools
+- [ ] Verify `.roo/rules/prep.md` + `.roo/rules-architect/prep.md` injection
 - [ ] Empirically test: what is `clientInfo.name` in Roo Code's initialize request?
 
 ---

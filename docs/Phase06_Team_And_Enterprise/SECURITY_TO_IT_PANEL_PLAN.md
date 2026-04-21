@@ -18,8 +18,8 @@ These 10 checks already run and surface in the Security tab of the Enterprise Ad
 | 6 | Config Drift | Invisible Unicode in team_config.json | MED-4 variant |
 | 7 | Network Security | Proxy config, CA bundle | General |
 | 8 | Daemon Authentication | Daemon running without IPC token | FULL-4 |
-| 9 | CORS Configuration | `CODRAG_CORS_ALLOW_ALL=1` active | FULL-1 |
-| 10| Dev Mode Detection | `CODRAG_DEV_MODE=1` active (security overrides) | CRIT-1 bypass |
+| 9 | CORS Configuration | `PREP_CORS_ALLOW_ALL=1` active | FULL-1 |
+| 10| Dev Mode Detection | `PREP_DEV_MODE=1` active (security overrides) | CRIT-1 bypass |
 
 ---
 
@@ -29,35 +29,35 @@ These security audit findings have been implemented as IT-visible health checks:
 
 ### Check 8: Daemon Authentication Posture
 **Source:** FULL-4 (rate limiting), general security
-**What IT cares about:** Is the CoDRAG daemon exposed to unauthenticated access?
+**What IT cares about:** Is the Prep daemon exposed to unauthenticated access?
 **Check logic:**
-- Is `CODRAG_DAEMON_TOKEN` set? → PASS
+- Is `PREP_DAEMON_TOKEN` set? → PASS
 - Not set + binding to localhost only? → WARN ("No auth, but localhost only")
 - Not set + binding to 0.0.0.0? → FAIL ("Daemon exposed without auth!")
-**Why:** If an enterprise deploys CoDRAG on a shared server or the daemon binds to a non-loopback address, unauthenticated access = data leakage.
+**Why:** If an enterprise deploys Prep on a shared server or the daemon binds to a non-loopback address, unauthenticated access = data leakage.
 
 ### Check 9: CORS Configuration
 **Source:** FULL-1
-**What IT cares about:** Can any website make requests to the CoDRAG daemon?
+**What IT cares about:** Can any website make requests to the Prep daemon?
 **Check logic:**
 - CORS restricted to localhost/tauri → PASS
-- `CODRAG_CORS_ALLOW_ALL=1` set → FAIL ("CORS wide open — any website can access CoDRAG")
+- `PREP_CORS_ALLOW_ALL=1` set → FAIL ("CORS wide open — any website can access Prep")
 **Why:** A malicious website visited by a developer could exfiltrate project data via CORS if unrestricted.
 
 ### Check 10: Dev Mode Detection
-**Source:** CRIT-1 (CODRAG_DEV_MODE bypass)
+**Source:** CRIT-1 (PREP_DEV_MODE bypass)
 **What IT cares about:** Is someone running with security overrides?
 **Check logic:**
-- `CODRAG_DEV_MODE=1` not set → PASS
-- `CODRAG_DEV_MODE=1` set → WARN ("CODRAG_DEV_MODE is active. Security bypasses may be enabled.")
+- `PREP_DEV_MODE=1` not set → PASS
+- `PREP_DEV_MODE=1` set → WARN ("PREP_DEV_MODE is active. Security bypasses may be enabled.")
 **Why:** Developers sometimes leave dev mode on, which bypasses license and other checks.
-- `CODRAG_DEV_MODE=1` is set → WARN ("Dev mode active — tier override enabled, reduced security")
-- `CODRAG_TIER` override active → FAIL ("License tier being overridden via environment variable")
+- `PREP_DEV_MODE=1` is set → WARN ("Dev mode active — tier override enabled, reduced security")
+- `PREP_TIER` override active → FAIL ("License tier being overridden via environment variable")
 **Why:** Dev mode disables license verification. IT needs to know if anyone on the team is running with overrides.
 
 ### Check 11: Content Sanitization Active
 **Source:** MED-4 (context injection)
-**What IT cares about:** Is CoDRAG protecting LLM output from injection attacks?
+**What IT cares about:** Is Prep protecting LLM output from injection attacks?
 **Check logic:**
 - `sanitize_output()` import succeeds and is callable → PASS
 - Import fails or content_sanitizer.py missing → WARN ("Content sanitization not available")
@@ -98,7 +98,7 @@ Security & Compliance Tab:
 │
 ├── 🟡 License & Compliance
 │   ├── ✅ License Verified (Ed25519 signature)
-│   ├── ⚠️ Dev Mode Active (CODRAG_DEV_MODE=1)
+│   ├── ⚠️ Dev Mode Active (PREP_DEV_MODE=1)
 │   └── ✅ DLP Policy Configured
 │
 ├── 🟢 Data Protection
@@ -113,7 +113,7 @@ Security & Compliance Tab:
 │   └── ✅ Config Drift (no injection detected)
 │
 ├── Recent Security Events (from audit_log)
-│   ├── 2026-03-09 14:32 — MCP tool call: codrag_search
+│   ├── 2026-03-09 14:32 — MCP tool call: prep_search
 │   ├── 2026-03-09 14:30 — Admin policy changed by admin
 │   └── ... (last 20 events)
 │
@@ -162,7 +162,7 @@ Some security information should be visible to ALL users, not just admins:
 | FULL-3 | Google key in URL | Can't fix (Google's API) | **NEW Check 12** | Medium |
 | FULL-4 | No rate limiting | ✅ MCP rate limit built | **NEW Check 13** | Medium |
 | — | Daemon auth | Exists (IPC token) | **NEW Check 8** | High |
-| — | Dev mode detection | Exists (CODRAG_DEV_MODE) | **NEW Check 10** | High |
+| — | Dev mode detection | Exists (PREP_DEV_MODE) | **NEW Check 10** | High |
 
 ---
 

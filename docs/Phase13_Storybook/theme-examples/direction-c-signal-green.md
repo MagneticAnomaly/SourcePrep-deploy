@@ -185,7 +185,7 @@ Note: Tighter radii for a more "technical/precise" aesthetic.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ ● src/codrag/core/index.py                    Score: 87%       │
+│ ● src/prep/core/index.py                    Score: 87%       │
 │   Lines 42-67                                                  │
 ├─────────────────────────────────────────────────────────────────┤
 │  def build_index(project: Project) -> IndexResult:             │
@@ -204,7 +204,7 @@ Note: Tighter radii for a more "technical/precise" aesthetic.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ ● src/codrag/server.py:142-175                         [Copy]  │
+│ ● src/prep/server.py:142-175                         [Copy]  │
 ├─────────────────────────────────────────────────────────────────┤
 │ 142 │ @app.post("/projects/{project_id}/build")                │
 │ 143 │ async def build_project(project_id: str):                │

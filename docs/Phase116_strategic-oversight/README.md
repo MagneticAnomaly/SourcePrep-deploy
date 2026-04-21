@@ -32,7 +32,7 @@ sparingly and well.
   data. Worse, we'd burn Opus budget on false positives.
 - **Post-MVP opportunity:** After launch, we'll have a steady stream of builds
   from real projects. That's the dataset we need. *First buzz feature* framing
-  means: once we have data, this becomes a visible differentiator — "CoDRAG
+  means: once we have data, this becomes a visible differentiator — "Prep
   notices when its own reasoning is shaky and escalates to a smarter model."
 
 ## What this folder contains

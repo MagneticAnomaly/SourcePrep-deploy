@@ -1,9 +1,9 @@
-# CoDRAG Marketing Strategy Update (April 2026)
+# Prep Marketing Strategy Update (April 2026)
 
 ## 1. Core Positioning Pivot
-We are transitioning away from leading with "Privacy", "Local-First", and "Zero-Configuration." While these remain functional benefits, they are not the primary reason high-end developers and autonomous agent platforms will adopt CoDRAG. We are assuming elegance and sophistication in our target demographic. 
+We are transitioning away from leading with "Privacy", "Local-First", and "Zero-Configuration." While these remain functional benefits, they are not the primary reason high-end developers and autonomous agent platforms will adopt Prep. We are assuming elegance and sophistication in our target demographic. 
 
-**The new core narrative:** CoDRAG is the engine that provides **epistemic codebase understanding**. It goes infinitely deeper than naive vector search by parsing the DB, mapping the structural graph (what, why, when, how), and giving agents the contextual self-awareness they lack.
+**The new core narrative:** Prep is the engine that provides **epistemic codebase understanding**. It goes infinitely deeper than naive vector search by parsing the DB, mapping the structural graph (what, why, when, how), and giving agents the contextual self-awareness they lack.
 
 ## 2. Hero Proposition
 **Headline:** Give your AI the epistemic context to actually understand your code.

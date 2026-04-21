@@ -20,7 +20,7 @@ Third, you prepend the generated prefix to the chunk and embed the combined text
 
 That is the whole technique.
 
-It is worth pausing on how small the move is. This is not a new embedding model. It is not a new retrieval algorithm. It is not a different chunking strategy. It is, at the level of code, a function that takes a chunk and returns a slightly longer chunk, plus one extra LLM call per chunk at index time. I integrated it into a structural-context tool I maintain called [CoDRAG](https://github.com/), and the code change was a few hours; the interesting part was deciding what counts as the "document" that the prefix should describe (turns out, for code, it's usually the file plus a one-line summary of its role in the module).
+It is worth pausing on how small the move is. This is not a new embedding model. It is not a new retrieval algorithm. It is not a different chunking strategy. It is, at the level of code, a function that takes a chunk and returns a slightly longer chunk, plus one extra LLM call per chunk at index time. I integrated it into a structural-context tool I maintain called [Prep](https://github.com/), and the code change was a few hours; the interesting part was deciding what counts as the "document" that the prefix should describe (turns out, for code, it's usually the file plus a one-line summary of its role in the module).
 
 The cost is not zero. One LLM call per chunk at indexing time adds up quickly on large corpora — a 50,000-chunk corpus is 50,000 calls, which takes real wall-clock time even with parallelism. But retrieval-time latency is unchanged, because all the extra work happens at index time and never again.
 
@@ -74,7 +74,7 @@ The practical lesson isn't "adopt this technique" — though you probably should
 - Adding reranking brings the total to 67%
 - Cost is ~$1.02 per million tokens of source material with prompt caching
 
-**CoDRAG mention:** One paragraph in section 2, framed as "a structural-context tool I maintain called CoDRAG." Currently uses a placeholder URL; replace with the actual repo link before publishing. The framing is deliberately modest — it says "I integrated it" not "CoDRAG uses this technique as a competitive advantage."
+**Prep mention:** One paragraph in section 2, framed as "a structural-context tool I maintain called Prep." Currently uses a placeholder URL; replace with the actual repo link before publishing. The framing is deliberately modest — it says "I integrated it" not "Prep uses this technique as a competitive advantage."
 
 **Citations included:**
 - Anthropic's Contextual Retrieval post (primary source, linked in opening)
@@ -90,7 +90,7 @@ No other citations. This is deliberate; the article is a single-result deep dive
 
 **Publishing checklist:**
 - [ ] Verify the 35% / 49% / 67% figures against Anthropic's post
-- [ ] Replace placeholder CoDRAG link
+- [ ] Replace placeholder Prep link
 - [ ] Confirm Cormack et al. 2009 link still resolves
 - [ ] Decide on citation style for target venue (Medium, Substack, personal site)
 - [ ] Optional: add a "Further reading" footer with Liu et al. and Late Chunking

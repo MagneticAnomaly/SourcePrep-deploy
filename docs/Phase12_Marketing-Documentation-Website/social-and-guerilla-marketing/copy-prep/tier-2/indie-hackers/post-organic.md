@@ -7,7 +7,7 @@
 ## Body Structure
 
 ### The Decision
-I'm launching **CoDRAG** (a local code context engine).
+I'm launching **Prep** (a local code context engine).
 Everyone told me to make it a subscription. "It's better for valuation." "MRR is king."
 
 ### The Reality

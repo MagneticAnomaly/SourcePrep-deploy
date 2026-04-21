@@ -46,7 +46,7 @@ The first is to describe the convention before asking for the change. If you're 
 
 The second is to ask for impact analysis explicitly. Don't assume the tool considered downstream effects just because it produced a confident-sounding answer. Ask: *"Before suggesting the change, list every file you would expect to need updating, and explain why each one is on the list."* This forces the tool to surface its blast-radius assumptions, which gives you a chance to catch the gap. It also tends to produce better suggestions, because the act of enumerating dependents pulls the relevant context closer to the answer.
 
-The third is to escalate to a human reviewer specifically when the change touches load-bearing files. The AI is excellent for help on isolated functions, on test cases, on contained refactors. It is unreliable for changes whose correctness depends on knowledge that lives in the team rather than the code. Knowing which kind of change you're making is itself a skill, and it's one of the more valuable skills a developer can develop right now. *Some tools — including a structural-context layer I built called [CoDRAG](https://github.com/your-link-here) — try to surface the propositional facts that tacit knowledge usually attaches to, like which files have wide blast radius or which modules have unusual coupling. None of them replace the tacit knowledge itself. They give you a better chance of noticing when the knowledge you need isn't in the system.*
+The third is to escalate to a human reviewer specifically when the change touches load-bearing files. The AI is excellent for help on isolated functions, on test cases, on contained refactors. It is unreliable for changes whose correctness depends on knowledge that lives in the team rather than the code. Knowing which kind of change you're making is itself a skill, and it's one of the more valuable skills a developer can develop right now. *Some tools — including a structural-context layer I built called [Prep](https://github.com/your-link-here) — try to surface the propositional facts that tacit knowledge usually attaches to, like which files have wide blast radius or which modules have unusual coupling. None of them replace the tacit knowledge itself. They give you a better chance of noticing when the knowledge you need isn't in the system.*
 
 These habits aren't a fix. They are a way of working with the asymmetry honestly instead of pretending it isn't there.
 
@@ -75,7 +75,7 @@ If your real anecdote has a different shape (e.g., you accepted the suggestion a
 
 **Citations included:** Ryle (1949) and Polanyi (1966) are both mentioned by name and date. No formal footnotes — Medium articles do better with inline links. Add a footnote or two if the publication target prefers it.
 
-**CoDRAG mention:** One paragraph in section 4. Currently linked to a placeholder URL — replace with the actual repo link before publishing. The mention is structured as "some tools, including one I built" so it doesn't read as a standalone pitch.
+**Prep mention:** One paragraph in section 4. Currently linked to a placeholder URL — replace with the actual repo link before publishing. The mention is structured as "some tools, including one I built" so it doesn't read as a standalone pitch.
 
 **One thing I deliberately did not do:** I didn't include a Dreyfus reference, didn't develop Polanyi beyond one sentence, and didn't try to define "tacit knowledge" formally. All of that work belongs in the longer essay (#06). This article points at the longer essay; it doesn't try to be it. If you want to include a one-line link to the longer essay at the very end ("If you want the longer version with more philosophical context, see [link]"), that's where it goes.
 
@@ -84,7 +84,7 @@ If your real anecdote has a different shape (e.g., you accepted the suggestion a
 **Publishing checklist:**
 - [ ] Replace placeholder anecdote in section 1
 - [ ] Replace placeholder anecdote callback in section 5
-- [ ] Replace CoDRAG link
+- [ ] Replace Prep link
 - [ ] Decide on citations style (inline links vs footnotes)
 - [ ] Pick title — current title and subtitle are the planned versions, but you may want to A/B test ("Why AI Coding Tools Read Your Code Without Understanding It" might be the stronger pure-Medium title without the subtitle)
 - [ ] Cross-link to essay #06 once that long-form version exists

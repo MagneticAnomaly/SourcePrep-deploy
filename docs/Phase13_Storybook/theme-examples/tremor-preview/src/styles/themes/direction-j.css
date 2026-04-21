@@ -1,4 +1,4 @@
-[data-codrag-theme='j'] {
+[data-prep-theme='j'] {
   /* Yale Grid: Typographic Discipline, Quiet, Semantic */
   
   /* Color Palette - Academic, Restrained */
@@ -46,14 +46,14 @@
 }
 
 /* Yale: Remove default card styling, keep it very flat/academic */
-[data-codrag-theme='j'] .tremor-Card-root {
+[data-prep-theme='j'] .tremor-Card-root {
   background-color: transparent;
   box-shadow: none;
   border: 1px solid hsl(var(--border));
   border-radius: 0;
 }
 
-[data-codrag-theme='j'].dark {
+[data-prep-theme='j'].dark {
   --background: 210 10% 10%;
   --foreground: 210 10% 90%;
   --surface: 210 10% 13%;

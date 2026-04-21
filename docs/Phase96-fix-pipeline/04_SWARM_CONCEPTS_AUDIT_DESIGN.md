@@ -41,7 +41,7 @@ Each worker receives a context dict:
   "domain_tags": ["pipeline", "orchestration"],
   "file_count": 12,
   "member_files": [
-    {"path": "src/codrag/services/pipeline/orchestrator.py", "summary": "Main orchestrator class"},
+    {"path": "src/prep/services/pipeline/orchestrator.py", "summary": "Main orchestrator class"},
     ...
   ],
   "internal_dependencies": ["scheduler", "state_machine"],
@@ -247,7 +247,7 @@ Falls back to current single-call Tier 2 synthesis when:
 ## Implementation plan
 
 ### 96F.1 — concept_seeder swarm refactor
-**File:** `src/codrag/core/concept_seeder.py`
+**File:** `src/prep/core/concept_seeder.py`
 **Changes:**
 1. Keep existing `seed_concepts()` as the sequential path (rename internally to `_seed_concepts_sequential()` if needed)
 2. Add `seed_concepts_swarm()` with the per-module decomposition above
@@ -264,7 +264,7 @@ Falls back to current single-call Tier 2 synthesis when:
 - Fallback test confirms sequential path runs when modules < 3
 
 ### 96F.2 — audit Tier 2 swarm refactor
-**File:** `src/codrag/core/audit/runner.py`
+**File:** `src/prep/core/audit/runner.py`
 **Changes:**
 1. Locate the existing Tier 2 LLM synthesis call
 2. Refactor into `_synthesize_tier2_swarm()` and `_synthesize_tier2_sequential()`
@@ -277,7 +277,7 @@ Falls back to current single-call Tier 2 synthesis when:
 - Integration test on real findings fixture
 
 ### 96F.3 — Register stages in SWARM_CAPABLE_STAGES
-**File:** `src/codrag/services/pipeline/scheduler.py`
+**File:** `src/prep/services/pipeline/scheduler.py`
 **Change:**
 ```python
 SWARM_CAPABLE_STAGES: Set[str] = {
@@ -290,7 +290,7 @@ SWARM_CAPABLE_STAGES: Set[str] = {
 - Verify the swarm window opens for concepts/audit during finalize runs
 
 ### 96F.4 — Workers wire-up
-**File:** `src/codrag/services/pipeline/workers.py`
+**File:** `src/prep/services/pipeline/workers.py`
 **Changes:**
 - `_concepts_worker`: call `seed_concepts(prefer_swarm=True)` (no-op change since the wrapper handles routing)
 - `_audit_worker`: pass `swarm=True` to `run_audit` for Tier 2

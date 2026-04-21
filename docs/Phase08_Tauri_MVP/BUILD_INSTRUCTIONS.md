@@ -27,47 +27,47 @@ The Python daemon must be built into a standalone executable before building the
 ```
 
 This script will:
-1.  Run `pyinstaller` on `src/codrag/server.py`.
+1.  Run `pyinstaller` on `src/prep/server.py`.
 2.  Detect your architecture (e.g., `x86_64-apple-darwin` or `aarch64-apple-darwin`).
-3.  Move the binary to `src/codrag/dashboard/src-tauri/binaries/`.
+3.  Move the binary to `src/prep/dashboard/src-tauri/binaries/`.
 
-**Verify:** Check that `src/codrag/dashboard/src-tauri/binaries/` contains `codrag-daemon-<target-triple>`.
+**Verify:** Check that `src/prep/dashboard/src-tauri/binaries/` contains `prep-daemon-<target-triple>`.
 
 ## 2. Build the Frontend
 
 Build the React/Vite dashboard.
 
 ```bash
-cd src/codrag/dashboard
+cd src/prep/dashboard
 npm install
 npm run build
 ```
 
-**Verify:** Check that `src/codrag/dashboard/dist/index.html` exists.
+**Verify:** Check that `src/prep/dashboard/dist/index.html` exists.
 
 ## 3. Build the Tauri App
 
 Build the native application bundle.
 
 ```bash
-cd src/codrag/dashboard
+cd src/prep/dashboard
 # Ensure cargo is in PATH
 export PATH="$HOME/.cargo/bin:$PATH"
 npx tauri build
 ```
 
 **Output:**
-- **macOS:** `src/codrag/dashboard/src-tauri/target/release/bundle/macos/CoDRAG.app`
-- **DMG:** `src/codrag/dashboard/src-tauri/target/release/bundle/dmg/CoDRAG_*.dmg` (may fail signing on dev machines)
+- **macOS:** `src/prep/dashboard/src-tauri/target/release/bundle/macos/Prep.app`
+- **DMG:** `src/prep/dashboard/src-tauri/target/release/bundle/dmg/Prep_*.dmg` (may fail signing on dev machines)
 
 ## Troubleshooting
 
 ### "Sidecar not found"
-Ensure the binary in `src/codrag/dashboard/src-tauri/binaries/` matches the target triple of the host.
+Ensure the binary in `src/prep/dashboard/src-tauri/binaries/` matches the target triple of the host.
 Run `rustc -vV` to see the expected `host` triple.
 
 ### "Icon error"
-Ensure `src/codrag/dashboard/src-tauri/icons/` is populated. If missing, run:
+Ensure `src/prep/dashboard/src-tauri/icons/` is populated. If missing, run:
 ```bash
 npx tauri icon path/to/icon.png
 ```

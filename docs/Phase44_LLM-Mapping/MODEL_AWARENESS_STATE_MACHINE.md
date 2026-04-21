@@ -98,7 +98,7 @@ class ModelSlot:
     endpoint_url: str
     state: ModelState                   # enum: IDLE, LOADING, READY, ACTIVE, UNLOADING, EVICTED, CLOUD
     persistent: bool                    # always_on flag
-    task_id: Optional[str]             # current CodragTaskId if ACTIVE
+    task_id: Optional[str]             # current PrepTaskId if ACTIVE
     last_used: float                   # monotonic timestamp
     eviction_warning: bool             # True if was evicted (for UI indicator)
 ```
@@ -239,7 +239,7 @@ The state machine handles LM Studio specially:
 
 ### Phase 1: Core State Machine + Pipeline-Safe Mode Switch ← NOW
 - [x] Plan document (this file)
-- [ ] `src/codrag/core/model_awareness.py` — ModelState enum, ModelSlot, ModelAwareness singleton
+- [ ] `src/prep/core/model_awareness.py` — ModelState enum, ModelSlot, ModelAwareness singleton
 - [ ] Wire `acquire()`/`release()` into `_advance_pipeline()` and `_on_build_transition()`
 - [ ] `POST /api/llm/mode-switch` endpoint with pause→write→verify→resume flow
 - [ ] Frontend: `handleModeSave()` calls the new endpoint instead of directly writing config
@@ -274,5 +274,5 @@ The state machine handles LM Studio specially:
 
 | File | Purpose |
 |------|---------|
-| `src/codrag/core/model_awareness.py` | State machine singleton |
+| `src/prep/core/model_awareness.py` | State machine singleton |
 | `docs/Phase44_LLM-Mapping/MODEL_AWARENESS_STATE_MACHINE.md` | This plan |
