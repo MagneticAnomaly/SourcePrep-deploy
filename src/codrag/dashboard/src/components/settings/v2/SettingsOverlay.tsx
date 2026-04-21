@@ -60,7 +60,7 @@ export function SettingsOverlay({
   return createPortal(
     <div
       className={cn(
-        'fixed inset-0 z-50 bg-surface',
+        'fixed inset-0 z-[110] bg-surface',
         'flex flex-col',
         'animate-settings-overlay-in',
       )}

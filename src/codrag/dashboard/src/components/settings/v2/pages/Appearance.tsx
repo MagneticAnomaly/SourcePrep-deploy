@@ -73,7 +73,7 @@ export function AppearancePage({
       scope="global"
       description="Theme, colour mode, and background."
     >
-      <Section title="Appearance">
+      <Section>
         <SettingRow
           id="appearance-color-mode"
           label="Color Mode"

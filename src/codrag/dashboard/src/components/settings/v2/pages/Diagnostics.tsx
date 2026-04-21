@@ -67,7 +67,6 @@ export function DiagnosticsPage({
           </div>
           <div className="grid grid-cols-[60px_1fr] gap-x-2 text-xs text-text-muted">
             <strong className="text-text">Origin:</strong> {window.location.origin}
-            {/* @ts-ignore */}
             <strong className="text-text">API:</strong> {api.baseUrl || '(hidden)'}
           </div>
         </div>

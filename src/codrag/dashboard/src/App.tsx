@@ -1126,7 +1126,7 @@ function App() {
         projectName={selectedProject?.name ?? null}
         confirmCloseIfDirty={() => !configDirty || window.confirm('Discard unsaved changes?')}
       />
-      {/* Floating Settings trigger — always visible; overlay (z-50) masks it when open. */}
+      {/* Floating Settings trigger — always visible; overlay (z-[110]) masks it when open. */}
       <Button
         variant="outline"
         size="icon"
