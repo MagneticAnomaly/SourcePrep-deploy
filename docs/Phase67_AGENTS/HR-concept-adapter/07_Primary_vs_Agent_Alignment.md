@@ -71,7 +71,7 @@ Everything we build for agents must **flow downhill to the primary use case**. I
 │  ──► agents/{role}/AGENTS.md                  │
 │  ──► agents/{role}/SOUL.md                    │
 │  ──► agents/{role}/KNOWLEDGE.md               │
-│  ──► .prep/hr_roster.json                   │
+│  ──► .runprep/hr_roster.json                   │
 │  ──► Paperclip API (external)                 │
 │                                               │
 └──────────────────────────────────────────────┘

@@ -56,8 +56,8 @@ This is the killer feature that justifies the Team pricing.
 │                    CUSTOMER'S REPO                      │
 │                                                         │
 │  .github/workflows/prep-sync.yml  ← copied from us    │
-│  .prep/team_config.json           ← S3 bucket config  │
-│  .prep/.secrets                   ← gitignored creds  │
+│  .runprep/team_config.json           ← S3 bucket config  │
+│  .runprep/.secrets                   ← gitignored creds  │
 └──────────────┬──────────────────────────────────────────┘
                │ push to main
                ▼
@@ -95,7 +95,7 @@ This is the killer feature that justifies the Team pricing.
 │            DEVELOPER'S DESKTOP (Prep Pro+Team)        │
 │                                                         │
 │  RemoteSyncService polls S3 for new manifest            │
-│  Downloads zip → extracts to .prep/index/remote/      │
+│  Downloads zip → extracts to .runprep/index/remote/      │
 │  LayeredCodeIndex merges remote + local deltas          │
 │  Developer gets instant search from day 1               │
 └─────────────────────────────────────────────────────────┘
@@ -269,7 +269,7 @@ git push origin app-v0.1.0-beta
 ### Day 5: Test client-side download
 
 1. On a developer machine with Prep installed:
-2. Create `.prep/team_config.json` in the test repo:
+2. Create `.runprep/team_config.json` in the test repo:
    ```json
    {
      "sync": {

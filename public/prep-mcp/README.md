@@ -319,8 +319,8 @@ graph TD
 - Cross-project search (enterprise tier only)
 
 ### Hybrid Index Mode
-- **Standalone mode** (default): Index stored in `~/.local/share/prep/projects/`
-- **Embedded mode** (team): Index stored in project `.prep/` directory
+- **Standalone mode** (default): Index stored in `~/.local/share/runprep/projects/`
+- **Embedded mode** (team): Index stored in project `.runprep/` directory
 - Teams can commit embedded indexes to git to skip initial indexing time
 
 ### Trace Index
@@ -442,7 +442,7 @@ ollama:
   
 # Index Settings
 index:
-  data_dir: ~/.local/share/prep
+  data_dir: ~/.local/share/runprep
   max_size_gb: 10
 
 # Auto-Rebuild
@@ -556,9 +556,9 @@ POST /llm/test                    Test connections
 # Team lead sets up project with embedded index
 prep add /path/to/team-project --embedded
 
-# Index lives in /path/to/team-project/.prep/
+# Index lives in /path/to/team-project/.runprep/
 # Commit to git:
-git add .prep/
+git add .runprep/
 git commit -m "Add Prep index"
 
 # Team members clone and use existing index

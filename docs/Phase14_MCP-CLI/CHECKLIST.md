@@ -21,8 +21,8 @@
     - [x] Update `mcp-config` to generate configs that use direct mode (no `--daemon` arg, just `prep mcp`).
 
 ## 4. "Zero Config" Experience
-- [x] **Default Settings**: Defaults are generated via `repo_policy.json` (repo profiling) and now exclude `.prep/` by default.
-- [x] **Auto-Discovery**: Direct mode uses CWD as `repo_root` and defaults index storage to `<repo_root>/.prep/index`.
+- [x] **Default Settings**: Defaults are generated via `repo_policy.json` (repo profiling) and now exclude `.runprep/` by default.
+- [x] **Auto-Discovery**: Direct mode uses CWD as `repo_root` and defaults index storage to `<repo_root>/.runprep/index`.
 
 ## 5. Testing
 - [x] **Integration Test**: Created `tests/test_mcp_direct_e2e.py` to verify full flow.

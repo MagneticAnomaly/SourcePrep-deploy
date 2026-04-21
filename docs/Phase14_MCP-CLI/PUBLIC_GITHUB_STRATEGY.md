@@ -46,7 +46,7 @@ The public GitHub repo should be “complete enough” that a security-conscious
   - **What it is**: “Local-first code search + MCP server.”
   - **What it does**: semantic search, context assembly, optional trace analysis.
   - **What runs where**: everything local; list any outbound connections (e.g. Ollama at `http://localhost:11434`).
-  - **What data is stored**: location of index (e.g. `<repo_root>/.prep/index`).
+  - **What data is stored**: location of index (e.g. `<repo_root>/.runprep/index`).
   - **What never leaves the machine**: file contents, paths (state this precisely).
   - **Quickstart**: install + `prep mcp --mode direct` + IDE config examples.
   - **Tool surface**: list MCP tools (`prep_status`, `prep_build`, `prep_search`, `prep` (context), etc) with inputs/outputs.

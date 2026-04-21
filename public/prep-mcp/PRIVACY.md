@@ -9,7 +9,7 @@ Prep is built on a **Local-First** philosophy. We believe your code is your inte
 **Prep does NOT upload your source code to any Prep-controlled servers.**
 
 - **Indexing**: All indexing (parsing, symbol extraction, vector embedding) happens locally on your machine.
-- **Storage**: Your code index and trace graph are stored locally on your disk (typically in `~/.local/share/prep` or inside your project's `.prep` folder).
+- **Storage**: Your code index and trace graph are stored locally on your disk (typically in `~/.local/share/runprep` or inside your project's `.prep` folder).
 - **Search**: All search queries are processed locally against your local index.
 
 ## 2. Network Activity

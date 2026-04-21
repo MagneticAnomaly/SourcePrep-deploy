@@ -143,7 +143,7 @@ jobs:
           Commit the sync configuration to your repository (credentials are <strong>never</strong> committed):
         </p>
         <pre className="mt-3 overflow-x-auto rounded-lg bg-surface-raised p-4 text-xs font-mono text-text border border-border">
-{`// .prep/team_config.json
+{`// .runprep/team_config.json
 {
   "sync": {
     "enabled": true,
@@ -159,7 +159,7 @@ jobs:
         </p>
         <ul className="mt-2 list-disc list-inside space-y-1 text-text-muted">
           <li>Environment variables: <code>PREP_S3_ACCESS_KEY</code> / <code>PREP_S3_SECRET_KEY</code></li>
-          <li>A gitignored file: <code>.prep/.secrets</code></li>
+          <li>A gitignored file: <code>.runprep/.secrets</code></li>
           <li>The OS keychain (prompted on first run)</li>
         </ul>
         <p className="mt-2 text-text-muted">
@@ -308,9 +308,9 @@ docker run --gpus all \\
 
         <ul className="mt-4 list-disc list-inside space-y-2 text-text-muted">
           <li><strong>Never commit S3 credentials to Git.</strong> Use GitHub Secrets, Modal Secrets, or environment variables.</li>
-          <li>The <code>.prep/team_config.json</code> file (committed to your repo) contains only the bucket endpoint, name, and prefix — no secrets.</li>
+          <li>The <code>.runprep/team_config.json</code> file (committed to your repo) contains only the bucket endpoint, name, and prefix — no secrets.</li>
           <li>Prep includes a built-in <strong>secrets leakage detector</strong> that warns if credential-like keys appear in <code>team_config.json</code>.</li>
-          <li>Each developer provides read credentials via env vars, a gitignored <code>.prep/.secrets</code> file, or OS keychain.</li>
+          <li>Each developer provides read credentials via env vars, a gitignored <code>.runprep/.secrets</code> file, or OS keychain.</li>
         </ul>
 
         <hr className="my-8 border-border" />

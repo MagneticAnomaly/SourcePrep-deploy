@@ -70,7 +70,7 @@ prep(project_id="<uuid>")
 prep_search(query="...", project_id="<uuid>")
 ```
 
-The project ID is shown in the Prep dashboard or in the project's `.prep/project.json` file.
+The project ID is shown in the Prep dashboard or in the project's `.runprep/project.json` file.
 
 ## What Prep Knows
 

@@ -11,7 +11,7 @@ Flow:
   1. User buys on prep.io/pricing → LS generates UUID license key
   2. User enters key in Prep → POST /license/activate
   3. We call LS /v1/licenses/activate → get tier, expiry, instance_id
-  4. Save to ~/.prep/license.json with last_validated timestamp
+  4. Save to ~/.runprep/license.json with last_validated timestamp
   5. Every 7 days: POST /v1/licenses/validate → refresh or downgrade
   6. If offline > 30 days: downgrade to FREE (grace period expired)
 """

@@ -120,7 +120,7 @@ src/prep/services/config_manager.py
 src/prep/services/pipeline_metadata.py
 tests/conftest.py
 tests/eval/
-tests/fixtures/mini_repo/.prep/
+tests/fixtures/mini_repo/.runprep/
 tests/test_codrag_hi.py
 tests/test_codrag_hi_scenario.py
 tests/test_data_dir_migration.py

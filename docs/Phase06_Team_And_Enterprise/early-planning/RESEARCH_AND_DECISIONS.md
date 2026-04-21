@@ -21,7 +21,7 @@ Cross-phase anchors:
 ## Decision ledger (draft)
 These are defaults to implement unless later superseded.
 
-- **D06-01 (Commit policy default):** `.prep/team_config.json` is safe to commit by default; `.prep/index/**` is **explicit opt-in**.
+- **D06-01 (Commit policy default):** `.runprep/team_config.json` is safe to commit by default; `.runprep/index/**` is **explicit opt-in**.
 - **D06-02 (TLS posture for network mode):** initial network-mode posture assumes **TLS termination via reverse proxy**; daemon does not ship built-in TLS initially.
 - **D06-03 (Remote bind safety):** binding to any non-loopback interface requires auth; daemon refuses unsafe startup unless explicit override.
 
@@ -35,10 +35,10 @@ These are defaults to implement unless later superseded.
 
 ### Directory layout (authoritative)
 In embedded mode, all repo-local Prep artifacts live under:
-- `{project_root}/.prep/`
+- `{project_root}/.runprep/`
 
 Recommended layout:
-- `.prep/`
+- `.runprep/`
   - `team_config.json` (team policy baseline; safe to commit)
   - `project.json` (optional; embedded-mode metadata)
   - `index/` (index artifacts; may be committed depending on team choice)
@@ -56,10 +56,10 @@ Notes:
 
 ### What can be committed
 - Safe to commit:
-  - `.prep/team_config.json`
-  - `.prep/project.json` (if introduced; must remain secret-free)
+  - `.runprep/team_config.json`
+  - `.runprep/project.json` (if introduced; must remain secret-free)
 - Optional to commit (team choice):
-  - `.prep/index/**`
+  - `.runprep/index/**`
 
 Decision constraints:
 - Prep must never auto-commit index artifacts.
@@ -97,7 +97,7 @@ These should be user-visible as stable states:
 
 ### Merge conflict detection
 Rule:
-- If git merge conflict markers exist anywhere inside `.prep/index/**`, treat the index as **invalid**.
+- If git merge conflict markers exist anywhere inside `.runprep/index/**`, treat the index as **invalid**.
 
 Markers:
 - `<<<<<<<`
@@ -164,9 +164,9 @@ Primary risks to mitigate:
 
 ### Flow A: Embedded index committed (fast onboarding)
 1. Team lead:
-  - create `.prep/team_config.json`
-  - build index into `.prep/index/`
-  - optionally commit `.prep/index/**`
+  - create `.runprep/team_config.json`
+  - build index into `.runprep/index/`
+  - optionally commit `.runprep/index/**`
 2. Teammate:
   - clone repo
   - add project in embedded mode
@@ -175,7 +175,7 @@ Primary risks to mitigate:
   - otherwise: show status + offer full rebuild
 
 ### Flow B: Embedded mode without committed index (policy-only)
-1. Team lead commits only `.prep/team_config.json`
+1. Team lead commits only `.runprep/team_config.json`
 2. Teammate clones repo and adds project
 3. Prep applies team policy baseline
 4. Build is required (but consistent across teammates)

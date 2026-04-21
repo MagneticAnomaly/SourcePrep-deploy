@@ -392,9 +392,9 @@ Even though the augmenter uses file hash comparison (not timestamps) for stalene
 - (c) Watcher's `trigger_build()` passes `force_from_start=True` (files changed → rebuild everything). Manual Run button uses auto-detect (skip completed stages).
 
 **How it works for the user's specific case**:
-- `.prep/trace_manifest.json` exists → stage 1 (structural) completed
-- `.prep/trace_inferred_manifest.json` exists AND newer than trace_manifest → stage 2 (edges) completed  
-- `.prep/trace_augment_manifest.json` exists BUT older than trace_manifest → stage 3 (catalogue) needs to re-run
+- `.runprep/trace_manifest.json` exists → stage 1 (structural) completed
+- `.runprep/trace_inferred_manifest.json` exists AND newer than trace_manifest → stage 2 (edges) completed  
+- `.runprep/trace_augment_manifest.json` exists BUT older than trace_manifest → stage 3 (catalogue) needs to re-run
 - Clicking Run starts from stage 3, augmenter loads existing `trace_augmented.jsonl` (18% checkpoint), skips already-done nodes
 
 ---

@@ -321,9 +321,9 @@ cd /Volumes/4TB-BAD/HumanAI/Prep
 ### Verify MCP is working
 Enable logging to see what the MCP server receives:
 ```json
-"args": ["mcp", "--log-file", "~/.prep/mcp.log", "--debug"]
+"args": ["mcp", "--log-file", "~/.runprep/mcp.log", "--debug"]
 ```
-Then check: `tail -f ~/.prep/mcp.log`
+Then check: `tail -f ~/.runprep/mcp.log`
 
 ### Multiple projects
 Prep auto-detects which project you're working on from the workspace root.

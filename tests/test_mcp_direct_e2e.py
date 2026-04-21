@@ -12,7 +12,7 @@ from prep.mcp_direct import DirectMCPServer
 
 async def test_end_to_end():
     repo_root = Path(__file__).parent / "fixtures" / "mini_repo"
-    prep_dir = repo_root / ".prep"
+    prep_dir = repo_root / ".runprep"
     
     # Clean up previous run
     if prep_dir.exists():

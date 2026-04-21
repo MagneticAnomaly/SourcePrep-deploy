@@ -3,7 +3,7 @@
 Pre-fix state: there was no single path helper. Several callers
 (server.py, config_manager.py, build_manager.py) defaulted to
 `./prep_data` while project_registry.prep_data_dir() returned
-`~/.local/share/prep/`. Post-fix, every caller routes through
+`~/.local/share/runprep/`. Post-fix, every caller routes through
 `paths.data_dir()`.
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from prep.core.paths import data_dir, legacy_cwd_data_dir
 
 
 def test_env_var_overrides_default() -> None:
-    """PREP_DATA_DIR (absolute) takes precedence over ~/.local/share/prep."""
+    """PREP_DATA_DIR (absolute) takes precedence over ~/.local/share/runprep."""
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td).resolve()
         with patch.dict(os.environ, {"PREP_DATA_DIR": str(td_path)}):
@@ -35,11 +35,11 @@ def test_env_var_must_be_absolute() -> None:
 
 
 def test_default_is_xdg() -> None:
-    """With no env var, default is ~/.local/share/prep."""
+    """With no env var, default is ~/.local/share/runprep."""
     with patch.dict(os.environ, {}, clear=False):
         os.environ.pop("PREP_DATA_DIR", None)
         resolved = data_dir()
-    assert resolved == Path.home() / ".local" / "share" / "prep"
+    assert resolved == Path.home() / ".local" / "share" / "runprep"
 
 
 def test_env_var_path_is_created() -> None:
@@ -67,11 +67,11 @@ def test_legacy_cwd_data_dir_is_relative_to_arg() -> None:
     """legacy_cwd_data_dir(cwd=...) uses the given CWD, not the process CWD."""
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td).resolve()
-        assert legacy_cwd_data_dir(td_path) == td_path / "prep_data"
+        assert legacy_cwd_data_dir(td_path) == td_path / "codrag_data"
 
 
 def test_empty_env_var_falls_through_to_default() -> None:
     """An empty PREP_DATA_DIR is treated as unset."""
     with patch.dict(os.environ, {"PREP_DATA_DIR": "  "}):
         resolved = data_dir()
-    assert resolved == Path.home() / ".local" / "share" / "prep"
+    assert resolved == Path.home() / ".local" / "share" / "runprep"

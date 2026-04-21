@@ -6,7 +6,7 @@ Main HTTP API for the Prep daemon.
 Usage:
     python -m prep.server --repo-root /path/to/repo --port 8400
 
-Daemon-wide state defaults to `$PREP_DATA_DIR` or `~/.local/share/prep/`.
+Daemon-wide state defaults to `$PREP_DATA_DIR` or `~/.local/share/runprep/`.
 Pass `--index-dir <path>` to override (deprecated).
 """
 
@@ -36,10 +36,12 @@ from prep import __version__
 # stores pick up their new XDG location from the first open.
 from prep.core.data_dir_migration import (
     migrate_from_legacy_codrag as _migrate_from_codrag,
+    migrate_from_legacy_prep as _migrate_from_prep,
     migrate_legacy_data_dir as _migrate_legacy,
 )
 
-_migrate_from_codrag()  # codrag -> prep XDG dirs (rename one-shot, D4)
+_migrate_from_codrag()  # codrag -> runprep XDG dirs (rename one-shot, D4)
+_migrate_from_prep()    # prep -> runprep XDG dirs (brand-split one-shot)
 _migrate_legacy()       # CWD codrag_data -> XDG (Phase 113 one-shot)
 
 from prep.api.envelope import install_api_exception_handlers
@@ -784,7 +786,7 @@ def configure(
     except Exception:
         logger.debug("Orphan pruning failed (non-fatal)", exc_info=True)
 
-    # Phase 55: Validate and heal .prep/project.json pointers
+    # Phase 55: Validate and heal .runprep/project.json pointers
     # Ensures every project has a pointer with the correct ID,
     # preventing MCP routing failures for pre-existing projects.
     try:
@@ -1130,7 +1132,7 @@ def main():
     parser.add_argument(
         "--index-dir",
         default=None,
-        help="Directory to store index (deprecated; default is $PREP_DATA_DIR or ~/.local/share/prep/)",
+        help="Directory to store index (deprecated; default is $PREP_DATA_DIR or ~/.local/share/runprep/)",
     )
     parser.add_argument("--ollama-url", default="http://localhost:11434", help="Ollama API URL")
     parser.add_argument("--model", default="nomic-embed-text", help="Embedding model name")

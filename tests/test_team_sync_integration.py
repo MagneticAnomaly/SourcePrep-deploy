@@ -348,7 +348,7 @@ class TestWatcherDeltaRouting:
         bm = BuildManager()
 
         # Set up remote index
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         remote_dir = prep_dir / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text("[]")
@@ -376,7 +376,7 @@ class TestWatcherDeltaRouting:
         proj = _make_project(tmp_path, "full-route")
 
         bm = BuildManager()
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         prep_dir.mkdir(parents=True, exist_ok=True)
 
         assert bm.has_remote_index(proj) is False
@@ -407,7 +407,7 @@ class TestSyncAndPruneEndToEnd:
         from prep.services.s3_storage import SyncManifest
 
         # Set up project with enabled sync config
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         prep_dir.mkdir(parents=True, exist_ok=True)
         (prep_dir / "team_config.json").write_text(json.dumps({
             "sync": {
@@ -474,7 +474,7 @@ class TestSyncAndPruneEndToEnd:
         from prep.services.remote_sync import RemoteSyncService
         from prep.services.s3_storage import SyncManifest
 
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         prep_dir.mkdir(parents=True, exist_ok=True)
         (prep_dir / "team_config.json").write_text(json.dumps({
             "sync": {
@@ -524,7 +524,7 @@ class TestFullSyncLifecycle:
         from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "lifecycle")
 
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         remote_dir = prep_dir / "remote"
         delta_dir = prep_dir / "local_deltas"
 
@@ -533,7 +533,7 @@ class TestFullSyncLifecycle:
             {"source_path": "src/auth.py", "content": "def login(): pass  # v1", "section": "login"},
             {"source_path": "src/utils.py", "content": "def helper(): return 42", "section": "helper"},
         ]
-        _make_index_dir(tmp_path / ".prep", "remote", remote_docs)
+        _make_index_dir(tmp_path / ".runprep", "remote", remote_docs)
 
         bm = BuildManager()
         idx = bm.get_project_layered_index(proj)
@@ -547,7 +547,7 @@ class TestFullSyncLifecycle:
         delta_docs = [
             {"source_path": "src/auth.py", "content": "def login(): validate_mfa()  # v2-local", "section": "login"},
         ]
-        _make_index_dir(tmp_path / ".prep", "local_deltas", delta_docs)
+        _make_index_dir(tmp_path / ".runprep", "local_deltas", delta_docs)
 
         # Invalidate cache to pick up new delta
         bm.invalidate_layered_cache("lifecycle")
@@ -570,7 +570,7 @@ class TestFullSyncLifecycle:
             {"source_path": "src/auth.py", "content": "def login(): validate_mfa()  # v2-merged", "section": "login"},
             {"source_path": "src/utils.py", "content": "def helper(): return 42", "section": "helper"},
         ]
-        _make_index_dir(tmp_path / ".prep", "remote", new_remote_docs)
+        _make_index_dir(tmp_path / ".runprep", "remote", new_remote_docs)
 
         # Write trace_manifest for pruning
         (remote_dir / "trace_manifest.json").write_text(json.dumps({
@@ -632,7 +632,7 @@ class TestAPIIntegration:
         )
 
         # Create a LOCAL index for this project (not remote — simpler for API tests)
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         prep_dir.mkdir(parents=True, exist_ok=True)
         docs = [
             {"source_path": "main.py", "content": "def main(): print('hello world')", "section": "main"},
@@ -707,7 +707,7 @@ class TestCacheCoherence:
         from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "cache-reads")
 
-        remote_dir = tmp_path / ".prep" / "remote"
+        remote_dir = tmp_path / ".runprep" / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text(json.dumps([
             {"source_path": "a.py", "content": "x", "section": ""},
@@ -726,7 +726,7 @@ class TestCacheCoherence:
         from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "cache-refresh")
 
-        remote_dir = tmp_path / ".prep" / "remote"
+        remote_dir = tmp_path / ".runprep" / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text(json.dumps([
             {"source_path": "a.py", "content": "version1", "section": ""},
@@ -759,7 +759,7 @@ class TestCacheCoherence:
         proj_b = _make_project(tmp_path / "b", "proj-b")
 
         for p in [tmp_path / "a", tmp_path / "b"]:
-            rdir = p / ".prep" / "remote"
+            rdir = p / ".runprep" / "remote"
             rdir.mkdir(parents=True, exist_ok=True)
             (rdir / "documents.json").write_text(json.dumps([
                 {"source_path": "x.py", "content": "x", "section": ""},
@@ -879,7 +879,7 @@ class TestEdgeCases:
         from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "corrupt-remote")
 
-        remote_dir = tmp_path / ".prep" / "remote"
+        remote_dir = tmp_path / ".runprep" / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text("corrupt json")
 

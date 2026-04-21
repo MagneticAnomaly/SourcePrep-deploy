@@ -50,7 +50,7 @@
 |---|---|---|
 | **macOS** | `~/Library/Application Support/Prep/` | Standard macOS app data location. |
 | **Windows** | `%APPDATA%\Prep\` | Standard Roaming profile location. |
-| **Linux** | `~/.local/share/prep/` | XDG Base Directory specification. |
+| **Linux** | `~/.local/share/runprep/` | XDG Base Directory specification. |
 
 **Subdirectories:**
 - `logs/`: Daemon logs (`daemon.log`).
@@ -58,10 +58,10 @@
 - `config/`: Global `config.json`, `license.json`.
 
 **Migration:**
-- Currently, Prep uses `~/.prep` (hardcoded).
+- Currently, Prep uses `~/.runprep` (hardcoded).
 - **Action:** Update `prep.core.config` to use `platformdirs.user_data_dir("Prep", "HumanAI")`.
-- **Backward Compatibility:** On startup, check if `~/.prep` exists. If yes, migrate it to the new location or continue using it with a warning (MVP: continue using it or symlink?).
-- **MVP Decision:** Switch to standard paths for fresh installs. Legacy dev environments can keep `~/.prep` via env var `PREP_DATA_DIR`.
+- **Backward Compatibility:** On startup, check if `~/.runprep` exists. If yes, migrate it to the new location or continue using it with a warning (MVP: continue using it or symlink?).
+- **MVP Decision:** Switch to standard paths for fresh installs. Legacy dev environments can keep `~/.runprep` via env var `PREP_DATA_DIR`.
 
 **Signing & Notarization (macOS):**
 - Binary must be signed with "Developer ID Application".

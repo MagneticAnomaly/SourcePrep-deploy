@@ -60,7 +60,7 @@ def project_index_dir(project: Project) -> Path:
 
     project_root = Path(project.path).expanduser().resolve()
     if project.mode == "embedded":
-        return project_root / ".prep"
+        return project_root / ".runprep"
 
     return prep_data_dir() / "projects" / project.id
 
@@ -247,7 +247,7 @@ class ProjectRegistry:
             updated_at=now,
         )
 
-        # Create .prep/project.json pointer in the project root.
+        # Create .runprep/project.json pointer in the project root.
         # This allows MCP servers to instantly identify the project
         # without querying the daemon.
         ensure_codrag_pointer(proj)
@@ -393,11 +393,11 @@ class ProjectRegistry:
         return removed
 
     def validate_and_heal_pointers(self) -> Dict[str, List[str]]:
-        """Validate and heal .prep/project.json pointers for all projects.
+        """Validate and heal .runprep/project.json pointers for all projects.
 
         Checks every registered project:
         1. Does the project path still exist?
-        2. Does .prep/project.json exist with the correct project ID?
+        2. Does .runprep/project.json exist with the correct project ID?
         3. Does the pointer ID match our registry?
 
         Returns a report dict:
@@ -421,7 +421,7 @@ class ProjectRegistry:
                 )
                 continue
 
-            # Check .prep/project.json
+            # Check .runprep/project.json
             pointer = read_codrag_pointer(project_root)
             if pointer and pointer.get("id") == proj.id:
                 report["ok"].append(label)
@@ -438,7 +438,7 @@ class ProjectRegistry:
 
 
 # =============================================================================
-# .prep/project.json pointer
+# .runprep/project.json pointer
 # =============================================================================
 
 _POINTER_FILENAME = "project.json"
@@ -448,7 +448,7 @@ def ensure_codrag_pointer(
     proj: Project,
     daemon_url: str = "http://127.0.0.1:8400",
 ) -> None:
-    """Create or update .prep/project.json in the project root.
+    """Create or update .runprep/project.json in the project root.
 
     This pointer file allows MCP servers and tooling to instantly identify
     which Prep project a workspace belongs to, without querying the daemon.
@@ -467,7 +467,7 @@ def ensure_codrag_pointer(
         if not project_root.is_dir():
             return  # Project root doesn't exist (yet); skip silently
 
-        prep_dir = project_root / ".prep"
+        prep_dir = project_root / ".runprep"
         prep_dir.mkdir(parents=False, exist_ok=True)
 
         pointer = {
@@ -485,7 +485,7 @@ def ensure_codrag_pointer(
 
 
 def read_codrag_pointer(directory: str | Path) -> Optional[Dict[str, str]]:
-    """Read .prep/project.json from a directory, if it exists.
+    """Read .runprep/project.json from a directory, if it exists.
 
     Returns a dict with 'id', 'mode', and 'daemon' keys, or None
     if the pointer doesn't exist or is malformed.
@@ -496,7 +496,7 @@ def read_codrag_pointer(directory: str | Path) -> Optional[Dict[str, str]]:
     except Exception:
         logger.debug("embedded .codrag -> .prep migration failed; continuing", exc_info=True)
     try:
-        pointer_path = Path(directory).expanduser().resolve() / ".prep" / _POINTER_FILENAME
+        pointer_path = Path(directory).expanduser().resolve() / ".runprep" / _POINTER_FILENAME
         if not pointer_path.is_file():
             return None
         data = json.loads(pointer_path.read_text())

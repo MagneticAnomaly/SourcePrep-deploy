@@ -86,7 +86,7 @@ Run each scenario on a clean project. Reset between runs (`DELETE /enrichment/fu
 
 | # | Scenario | How to trigger | What to verify |
 |---|---|---|---|
-| W1 | Fresh index (empty `.prep/`) | `POST /pipeline/rebuild` on a never-built project | Stages progress 1→15 in order; each group transitions `idle→queued→running→completed`; all 15 manifests written |
+| W1 | Fresh index (empty `.runprep/`) | `POST /pipeline/rebuild` on a never-built project | Stages progress 1→15 in order; each group transitions `idle→queued→running→completed`; all 15 manifests written |
 | W2 | Incremental rebuild | Edit one source file, wait for watcher, observe | Only affected stages re-run; baseline progress counts come from manifest (F-66) not zero |
 | W3 | Scoped enrichment reset | `DELETE /enrichment/full-reset` on a fully built project, then `POST /rebuild` | Fast sync (1–5) files survive the DELETE; stages 6–15 wiped; `.reset_barrier` present; selfheal does not resurrect |
 | W4 | Scoped finalize reset | `DELETE /finalize/full-reset` | Stages 1–10 survive; 11–15 wiped; `.reset_barrier` = `finalize_reset` |

@@ -51,7 +51,7 @@ def test_excluded_paths_includes_lockfiles_and_media():
     assert _is_excluded_path("docs/diagram.svg") is True
     assert _is_excluded_path("AGENTS.md") is True
     assert _is_excluded_path("CLAUDE.md") is True
-    assert _is_excluded_path(".prep/state.json") is True
+    assert _is_excluded_path(".runprep/state.json") is True
     assert _is_excluded_path(".cursor/rules.mdc") is True
 
     # Nested monorepo lockfiles (regression guard for fnmatch depth)

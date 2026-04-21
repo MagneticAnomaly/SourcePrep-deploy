@@ -6,7 +6,7 @@ Associates pipeline snapshots with Git branches so that expensive LLM
 reasoning (hours of deep enrichment) survives branch switches.
 
 When the pipeline detects a branch transition (e.g. ``main`` → ``feature-x``),
-the current ``.prep/`` trace state is snapshotted and tagged for the
+the current ``.runprep/`` trace state is snapshotted and tagged for the
 *previous* branch.  If the user later returns to that branch, the snapshot
 is restored instead of reprocessing from scratch.
 
@@ -25,7 +25,7 @@ Key design decisions:
 
 Storage layout::
 
-    .prep/
+    .runprep/
     ├── trace_nodes.jsonl          ← live data
     ├── ...
     └── .branch_snapshots/
@@ -223,7 +223,7 @@ def snapshot_project(
     """Snapshot the current pipeline state for a specific branch.
 
     Copies all JSONL trace files + manifests into
-    ``.prep/.branch_snapshots/<branch>/``.
+    ``.runprep/.branch_snapshots/<branch>/``.
 
     Returns a summary dict with ``files_copied`` and ``total_bytes``.
     """
@@ -271,8 +271,8 @@ def restore_project(
 ) -> Optional[Dict[str, Any]]:
     """Restore pipeline state from a branch snapshot.
 
-    Copies all files from ``.prep/.branch_snapshots/<branch>/`` back
-    into the live ``.prep/`` directory, overwriting current state.
+    Copies all files from ``.runprep/.branch_snapshots/<branch>/`` back
+    into the live ``.runprep/`` directory, overwriting current state.
 
     Returns the snapshot metadata dict on success, or ``None`` if no
     snapshot exists for that branch.
@@ -477,7 +477,7 @@ def check_stage_backup(
     restored instead of re-running expensive LLM processing.
 
     Args:
-        index_dir: The project's ``.prep/`` directory.
+        index_dir: The project's ``.runprep/`` directory.
         stage_manifest_file: e.g. ``"trace_epistemic_manifest.json"``
         stage_output_file: e.g. ``"trace_epistemic.jsonl"`` (or None)
 

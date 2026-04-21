@@ -13,7 +13,7 @@ To provide the "best plumbing" for IDEs (Windsurf, Cursor) by allowing developer
 - **Direct MCP mode (no daemon):** `prep mcp --mode direct`
 - **MCP config generator:** `prep mcp-config --mode direct --ide cursor`
 - **Default repo root:** current working directory (CWD)
-- **Default index dir:** `<repo_root>/.prep/index`
+- **Default index dir:** `<repo_root>/.runprep/index`
 - **Repo policy persistence:** `<index_dir>/repo_policy.json` (auto-generated via `ensure_repo_policy`)
 
 ## Dashboard Integration

@@ -173,7 +173,7 @@ This document catalogs all UI components needed for Prep across all tiers and ph
 ### 7.4 Embedded Mode
 | Component | Status | Purpose |
 |-----------|--------|---------|
-| `EmbeddedModeIndicator` | ✅ | .prep/ directory indicator |
+| `EmbeddedModeIndicator` | ✅ | .runprep/ directory indicator |
 | `EmbeddedIndexStatus` | 🔲 | Embedded index health |
 | `MergeConflictWarning` | 🔲 | Git merge conflict detection |
 | `CommitPolicySelector` | 🔲 | Committed vs gitignored choice |

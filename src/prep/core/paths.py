@@ -3,7 +3,7 @@
 Phase 113 — single source of truth for "where does the Prep
 installation on this machine keep its state". Before this module, the
 answer was split: `project_registry.prep_data_dir()` returned
-`~/.local/share/prep/` while `server.py`, `config_manager.py`, and
+`~/.local/share/runprep/` while `server.py`, `config_manager.py`, and
 `build_manager.py` hardcoded `./prep_data` (CWD-relative). The two
 worlds never got unified, leading to fragmented on-disk layout.
 
@@ -16,7 +16,7 @@ Resolution precedence for `data_dir()`:
   1. `$PREP_DATA_DIR` if set. Must be an absolute path — a relative
      value raises at startup, because a CWD-relative "canonical" data
      dir is exactly the bug this module exists to prevent.
-  2. `~/.local/share/prep/` (XDG-style default on Linux/macOS).
+  2. `~/.local/share/runprep/` (XDG-style default on Linux/macOS).
 
 The returned path is guaranteed to exist (parents are created).
 """
@@ -26,7 +26,7 @@ import os
 from pathlib import Path
 
 _ENV_VAR = "PREP_DATA_DIR"
-_XDG_DEFAULT = Path.home() / ".local" / "share" / "prep"
+_XDG_DEFAULT = Path.home() / ".local" / "share" / "runprep"
 
 
 def data_dir() -> Path:
@@ -54,15 +54,15 @@ def data_dir() -> Path:
 
 
 def _migrate_embedded_dir(project_root: Path) -> None:
-    """Rename a legacy ``.codrag/`` embedded index dir to ``.prep/``.
+    """Rename a legacy ``.codrag/`` embedded index dir to ``.runprep/``.
 
-    Called once per project open before any ``.prep/`` read. No-op when
-    ``.codrag/`` is absent or ``.prep/`` already exists.
+    Called once per project open before any ``.runprep/`` read. No-op when
+    ``.codrag/`` is absent or ``.runprep/`` already exists.
 
     Used only by the codrag->prep rename migration (D5). Not for new call sites.
     """
     legacy = project_root / ".codrag"
-    target = project_root / ".prep"
+    target = project_root / ".runprep"
     if legacy.exists() and not target.exists():
         legacy.rename(target)
 

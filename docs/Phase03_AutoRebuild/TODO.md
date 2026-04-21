@@ -15,8 +15,8 @@ Most items in this phase are now implemented. See `src/prep/core/watcher.py` (11
   - Uses `watchdog` library with OS events, configurable debounce (default 5000ms)
 - [x] P03-R2 Specify incremental indexing rules (changed detection, hash strategy, stable IDs) ✅
   - Hash-based detection via `manifest.json` file_hashes
-- [x] P03-R3 Specify loop avoidance in embedded mode (watch exclusions, `.prep/**`) ✅
-  - `.prep/**` excluded by default in watcher
+- [x] P03-R3 Specify loop avoidance in embedded mode (watch exclusions, `.runprep/**`) ✅
+  - `.runprep/**` excluded by default in watcher
 - [x] P03-R4 Specify restart behavior ✅
   - Staleness determined by comparing file hashes on startup
   - Pending changes not persisted across restarts
@@ -49,7 +49,7 @@ Most items in this phase are now implemented. See `src/prep/core/watcher.py` (11
   - `tests/test_incremental_rebuild.py` (7 tests)
 - [ ] P03-T3 Storm test: rapid-save patterns do not cause rebuild storms
   - Manual testing done, no automated test
-- [x] P03-T4 Loop-avoidance test: embedded mode ignores `.prep/**` reliably ✅
+- [x] P03-T4 Loop-avoidance test: embedded mode ignores `.runprep/**` reliably ✅
 
 ## Cross-phase strategy alignment
 Relevant entries in `../MASTER_TODO.md`:

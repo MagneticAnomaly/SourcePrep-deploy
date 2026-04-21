@@ -123,7 +123,7 @@ All 6 tool definitions verified:
    - `_last_atlas_signal: Dict[str, float]` -- per-project mtime tracker (in `__init__`)
    - `_check_atlas_signal(project_id)` -- async method called at the top of `tool_context()`:
      - Resolves project path via `_get_project_path_sync()` (no HTTP call)
-     - Checks `<project>/.prep/atlas_updated.signal` and `<project>/atlas_updated.signal`
+     - Checks `<project>/.runprep/atlas_updated.signal` and `<project>/atlas_updated.signal`
      - If mtime > last recorded: invalidates `_rules_file_cache`, sends `notifications/resources/updated` for atlas + structure resources
    - Cost: one `stat()` per `tool_context()` call (~0.1ms)
 
@@ -173,10 +173,10 @@ prep add .
 prep serve --port 8400
 
 # 2. Start MCP server with logging
-prep mcp --log-file ~/.prep/mcp-test.log --debug
+prep mcp --log-file ~/.runprep/mcp-test.log --debug
 
 # 3. Verify MCP server is receiving connections
-tail -f ~/.prep/mcp-test.log
+tail -f ~/.runprep/mcp-test.log
 # Look for: "MCP client detected: name=... version=..."
 ```
 
@@ -188,7 +188,7 @@ tail -f ~/.prep/mcp-test.log
 1. Configure MCP server in the host (see SETUP_GUIDE.md for per-tool config)
 2. Open a project in the host
 3. Send any message that triggers a tool call (e.g., "what is this codebase?")
-4. Check `~/.prep/mcp-test.log` for `MCP client detected: name=... version=...`
+4. Check `~/.runprep/mcp-test.log` for `MCP client detected: name=... version=...`
 5. Record the exact string in the table below
 
 | Host | Predicted `clientInfo.name` | Actual | Validated |

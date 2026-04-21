@@ -6,8 +6,8 @@ local deltas (from the developer's uncommitted changes), the search
 must merge results from both layers.
 
 **Architecture:**
-  - Remote layer: `.prep/index/remote/` — the shared team index
-  - Local delta layer: `.prep/index/local_deltas/` — per-file re-enrichments
+  - Remote layer: `.runprep/index/remote/` — the shared team index
+  - Local delta layer: `.runprep/index/local_deltas/` — per-file re-enrichments
   - Tombstone mask: if a file exists in the delta layer, its remote
     version is excluded from search results
 

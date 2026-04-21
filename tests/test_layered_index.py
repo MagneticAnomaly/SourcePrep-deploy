@@ -232,7 +232,7 @@ class TestBuildManagerLayeredIndex:
         )
 
         # Create the .prep dir (embedded mode)
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         prep_dir.mkdir(parents=True, exist_ok=True)
 
         idx = bm.get_project_layered_index(proj)
@@ -252,7 +252,7 @@ class TestBuildManagerLayeredIndex:
         )
 
         # Create .prep dir with remote subdirectory
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         prep_dir.mkdir(parents=True, exist_ok=True)
         remote_dir = prep_dir / "remote"
         remote_dir.mkdir()
@@ -277,7 +277,7 @@ class TestBuildManagerLayeredIndex:
             mode="embedded", config={}, created_at="", updated_at="",
         )
 
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         prep_dir.mkdir(parents=True, exist_ok=True)
 
         # Remote index
@@ -335,7 +335,7 @@ class TestRemoteSyncStartup:
         )
 
         # Write team_config.json
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         prep_dir.mkdir(parents=True, exist_ok=True)
         (prep_dir / "team_config.json").write_text(json.dumps({
             "sync": {
@@ -360,7 +360,7 @@ class TestRemoteSyncStartup:
             mode="embedded", config={}, created_at="", updated_at="",
         )
 
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         prep_dir.mkdir(parents=True, exist_ok=True)
         (prep_dir / "team_config.json").write_text(json.dumps({
             "sync": {"enabled": False}
@@ -384,7 +384,7 @@ class TestBuildManagerDeltaBuild:
             id="no-remote", name="Test", path=str(tmp_path),
             mode="embedded", config={}, created_at="", updated_at="",
         )
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         prep_dir.mkdir(parents=True, exist_ok=True)
 
         assert bm.has_remote_index(proj) is False
@@ -399,7 +399,7 @@ class TestBuildManagerDeltaBuild:
             id="has-remote", name="Test", path=str(tmp_path),
             mode="embedded", config={}, created_at="", updated_at="",
         )
-        remote_dir = tmp_path / ".prep" / "remote"
+        remote_dir = tmp_path / ".runprep" / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text("[]")
 
@@ -417,7 +417,7 @@ class TestBuildManagerDeltaBuild:
         )
 
         # Set up remote index
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         remote_dir = prep_dir / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text(json.dumps([
@@ -453,7 +453,7 @@ class TestBuildManagerDeltaBuild:
             mode="embedded", config={}, created_at="", updated_at="",
         )
 
-        prep_dir = tmp_path / ".prep"
+        prep_dir = tmp_path / ".runprep"
         remote_dir = prep_dir / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         docs_path = remote_dir / "documents.json"
@@ -486,14 +486,14 @@ class TestRemoteSyncDeltaPruning:
         svc = RemoteSyncService(tmp_path)
 
         # Set up remote index dir with manifest
-        remote_dir = tmp_path / ".prep" / "index" / "remote"
+        remote_dir = tmp_path / ".runprep" / "index" / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "trace_manifest.json").write_text(json.dumps({
             "file_hashes": {"src/a.py": "hash_a"},
         }))
 
         # Set up local deltas with a stale file
-        delta_dir = tmp_path / ".prep" / "index" / "local_deltas"
+        delta_dir = tmp_path / ".runprep" / "index" / "local_deltas"
         delta_dir.mkdir(parents=True, exist_ok=True)
         (delta_dir / "documents.json").write_text(json.dumps([
             {"source_path": "src/a.py", "content": "stale local"},

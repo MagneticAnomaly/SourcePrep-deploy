@@ -298,7 +298,7 @@ Beyond LLM provider controls, enterprise buyers expect a standard set of IT gove
 
 | Feature | Description | Priority | Status |
 |---|---|---|---|
-| **Team Config** | Shared `.prep/team_config.json` in repo | HIGH | ✅ Built (`team_config.py`) |
+| **Team Config** | Shared `.runprep/team_config.json` in repo | HIGH | ✅ Built (`team_config.py`) |
 | **Enforcement Modes** | `suggest` vs `enforce` for team config | HIGH | ✅ Schema defined |
 | **Config Provenance** | Show where each setting comes from (default/team/user) | MEDIUM | Planned (`P06-I3`) |
 | **Provider Locking** | Admin controls which LLM providers are available | HIGH | **Designed in this doc** |
@@ -434,7 +434,7 @@ The existing Settings drawer has tabs: General, Developer, (future: Appearance, 
 ## 9. Data Flow: team_config.json → Admin Policy → UI
 
 ```
-.prep/team_config.json (committed to repo, secret-free)
+.runprep/team_config.json (committed to repo, secret-free)
     │
     ▼
 Backend: parse_team_config() → TeamConfig
@@ -551,7 +551,7 @@ This is a critical enterprise concern and one of the most complex areas due to P
 | `FEATURE_TIERS` mapping | ✅ Built | `src/prep/core/feature_gate.py` |
 | `check_feature()` / `require_feature()` / `get_feature_limit()` | ✅ Built | `src/prep/core/feature_gate.py` |
 | Ed25519 signature verification | ✅ Built | `src/prep/core/licensing.py` |
-| License file at `~/.prep/license.json` | ✅ Built | `src/prep/core/feature_gate.py` |
+| License file at `~/.runprep/license.json` | ✅ Built | `src/prep/core/feature_gate.py` |
 | `PREP_TIER` env var override (dev) | ✅ Built | `src/prep/core/feature_gate.py` |
 | `POST /license/activate` (LS exchange) | ❌ Stub only | `DISTRIBUTION_AND_REVENUE_PLAN.md` §10 |
 | `api.runprep.io` relay service | ❌ Not implemented | — |
@@ -584,7 +584,7 @@ User buys on runprep.io/pricing
   → User pastes key into Prep → Settings → License
   → App calls POST api.runprep.io/activate with LS order key
   → Server returns signed Ed25519 license payload
-  → App saves to ~/.prep/license.json
+  → App saves to ~/.runprep/license.json
   → ✅ FULLY OFFLINE FROM HERE — no phone-home, no subscription heartbeat
 ```
 
@@ -825,7 +825,7 @@ Windows: HKLM\SOFTWARE\Prep\UpdateChannel = "stable"
 1. Environment variables (PREP_*)
 2. MDM/GPO managed config (prep_managed.json / plist / registry)
 3. team_config.json (from repo)
-4. User local settings (~/.prep/settings)
+4. User local settings (~/.runprep/settings)
 5. Built-in defaults
 ```
 
@@ -897,7 +897,7 @@ Enterprise machines run EDR agents (CrowdStrike Falcon, SentinelOne, Carbon Blac
 
 **Deliverable:** An "IT Deployment Guide" (PDF/webpage) that includes:
 - Expected process names and paths
-- Recommended EDR exclusion paths (`.prep/`, index directories)
+- Recommended EDR exclusion paths (`.runprep/`, index directories)
 - Expected network destinations
 - File hash verification instructions
 
@@ -1023,7 +1023,7 @@ These are the individual health checks that compose the security score. Each map
 
 | Check | What it verifies | Source |
 |---|---|---|
-| **Secrets file permissions** | `.prep/.secrets` is mode 600 (owner-only) on Unix | Local file check |
+| **Secrets file permissions** | `.runprep/.secrets` is mode 600 (owner-only) on Unix | Local file check |
 | **No secrets in team_config** | `team_config.json` doesn't contain credential-like keys | `remote_sync.py` (existing check) |
 | **API key freshness** | Cloud API keys are valid (periodic test call) | Endpoint test |
 | **API key rotation age** | Warn if key hasn't been rotated in >90 days (if admin sets policy) | `admin_policy.credentials.max_key_age_days` |
@@ -1452,7 +1452,7 @@ In December 2025, security researcher Omer Marzouk published findings on **30+ v
 #### Attack Pattern 1: Rules File Backdoor (Pillar Security, Mar 2025)
 **What:** Malicious instructions hidden in AI configuration files (`.cursor/rules`, `.github/copilot-instructions.md`) using invisible Unicode characters (zero-width joiners, bidirectional text markers). The AI reads these instructions but human reviewers can't see them.
 
-**Prep relevance:** Prep has `.prep/team_config.json` and `.windsurf/workflows/*.md` — both are config files read by AI tools. A malicious contributor could inject hidden Unicode instructions.
+**Prep relevance:** Prep has `.runprep/team_config.json` and `.windsurf/workflows/*.md` — both are config files read by AI tools. A malicious contributor could inject hidden Unicode instructions.
 
 **Mitigation needed:**
 - Strip/flag invisible Unicode characters in `team_config.json` on load
@@ -1575,7 +1575,7 @@ Based on this research, the following items should be **added to the TODO**:
 
 #### New: EA-I13 through EA-I15 (Security Panel)
 
-- **EA-I13**: Unicode sanitization check — flag `team_config.json` or `.prep/` files with invisible Unicode
+- **EA-I13**: Unicode sanitization check — flag `team_config.json` or `.runprep/` files with invisible Unicode
 - **EA-I14**: Embedding integrity check — verify `embeddings.npy` hasn't been tampered with (hash in manifest)
 - **EA-I15**: Supply chain health — display Trivy scan results (CVE count in dependencies) in Security panel
 

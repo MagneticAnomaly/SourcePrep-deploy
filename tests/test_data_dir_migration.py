@@ -1,7 +1,7 @@
 """Phase 113 Step 3 — one-time legacy-codrag_data migration.
 
 Pre-fix: the daemon's state was split between ./codrag_data/ (CWD) and
-~/.local/share/prep/ (XDG) with no migration path. Users who moved
+~/.local/share/runprep/ (XDG) with no migration path. Users who moved
 between versions, or who changed the directory they launched from,
 silently ended up with fragmented state.
 
@@ -290,10 +290,10 @@ def test_sidecar_conflict_preserved_with_db() -> None:
 # ---------------------------------------------------------------------------
 
 def test_migrate_from_legacy_codrag_dir(tmp_path, monkeypatch):
-    """First prep-serve run migrates ~/.local/share/codrag to ~/.local/share/prep."""
+    """First prep-serve run migrates ~/.local/share/codrag to ~/.local/share/runprep."""
     fake_home = tmp_path / "home"
     legacy = fake_home / ".local" / "share" / "codrag"
-    target = fake_home / ".local" / "share" / "prep"
+    target = fake_home / ".local" / "share" / "runprep"
     legacy.mkdir(parents=True)
     (legacy / "prep_settings.db").write_bytes(b"SQLITE payload")
     (legacy / "projects").mkdir()
@@ -315,7 +315,7 @@ def test_migrate_from_legacy_codrag_dir(tmp_path, monkeypatch):
 def test_migrate_from_legacy_codrag_is_idempotent(tmp_path, monkeypatch):
     """Sentinel file prevents re-migration."""
     fake_home = tmp_path / "home"
-    target = fake_home / ".local" / "share" / "prep"
+    target = fake_home / ".local" / "share" / "runprep"
     target.mkdir(parents=True)
     (target / ".migrated_from_codrag").write_text("2026-04-21T00:00:00Z\n")
     legacy = fake_home / ".local" / "share" / "codrag"
@@ -336,7 +336,7 @@ def test_migrate_from_legacy_codrag_conflict_preserves_both(tmp_path, monkeypatc
     """Both dirs non-empty: target wins; legacy saved as conflict suffix."""
     fake_home = tmp_path / "home"
     legacy = fake_home / ".local" / "share" / "codrag"
-    target = fake_home / ".local" / "share" / "prep"
+    target = fake_home / ".local" / "share" / "runprep"
     legacy.mkdir(parents=True)
     target.mkdir(parents=True)
     (legacy / "prep_settings.db").write_bytes(b"legacy_data")
@@ -359,7 +359,7 @@ def test_migrate_from_legacy_codrag_conflict_preserves_both(tmp_path, monkeypatc
 # ---------------------------------------------------------------------------
 
 def test_migrate_embedded_codrag_dir(tmp_path):
-    """Embedded .codrag/ in a project root is renamed to .prep/ on project open."""
+    """Embedded .codrag/ in a project root is renamed to .runprep/ on project open."""
     from prep.core.paths import _migrate_embedded_dir
     project = tmp_path / "myproj"
     (project / ".codrag").mkdir(parents=True)
@@ -367,6 +367,6 @@ def test_migrate_embedded_codrag_dir(tmp_path):
 
     _migrate_embedded_dir(project)
 
-    assert (project / ".prep").exists()
-    assert (project / ".prep" / "index.json").read_text() == "{}"
+    assert (project / ".runprep").exists()
+    assert (project / ".runprep" / "index.json").read_text() == "{}"
     assert not (project / ".codrag").exists()

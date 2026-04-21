@@ -107,7 +107,7 @@ The Prep desktop app (Tauri/Rust) and daemon (Python) will both contain the **Pu
 -   `MCP`: Full access.
 
 ### Team Tier
--   **Shared Configs:** Import/Export `.prep/team_config.json` enabled.
+-   **Shared Configs:** Import/Export `.runprep/team_config.json` enabled.
 -   **UI:** Show Organization Name (if present in license).
 
 ## Offline & Air-Gapped Support

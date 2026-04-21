@@ -129,7 +129,7 @@ Rules:
   - `**/__pycache__/**`
   - `**/.venv/**`
   - `**/node_modules/**`
-- In embedded mode, always exclude `.prep/**` from triggering rebuilds.
+- In embedded mode, always exclude `.runprep/**` from triggering rebuilds.
 - In standalone mode, ensure the index directory is outside the watched tree.
 
 ### Restart behavior

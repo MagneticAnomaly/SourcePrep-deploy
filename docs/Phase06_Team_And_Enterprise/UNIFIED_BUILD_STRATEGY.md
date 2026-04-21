@@ -108,5 +108,5 @@ They simply pull `prep/headless:latest`, inject their IAM roles or environment v
 - Add `deploy/aws/ecs-task-definition.json`.
 
 **Step 4: The Local Client Sync**
-- Update the local Prep daemon to check `.prep/team_config.json` for an S3 endpoint.
-- If present, on startup, hit S3. If a newer index exists, download, unzip, and replace `.prep/index/`.
+- Update the local Prep daemon to check `.runprep/team_config.json` for an S3 endpoint.
+- If present, on startup, hit S3. If a newer index exists, download, unzip, and replace `.runprep/index/`.

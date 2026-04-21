@@ -87,7 +87,7 @@ def write_rules_file(
     project_path = Path(project_path)
     results: Dict[str, bool] = {}
 
-    # Auto-detect project_id from .prep/project.json if not provided
+    # Auto-detect project_id from .runprep/project.json if not provided
     if not project_id:
         from prep.core.project_registry import read_codrag_pointer
         pointer = read_codrag_pointer(project_path)

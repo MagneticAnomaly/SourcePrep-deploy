@@ -181,7 +181,7 @@ an IAP variant on the Mac App Store.
        │                      │                        │─────────────────────►│
        │                      │                        │                      │
        │                      │                        │  8. Save to disk     │
-       │                      │                        │     (~/.prep/      │
+       │                      │                        │     (~/.runprep/      │
        │                      │                        │      license.key)    │
        │                      │                        │                      │
        │                      │                        │  ✅ FULLY OFFLINE    │
@@ -278,7 +278,7 @@ StoreKit receipt check. The real cost is App Sandbox compliance testing.
 | 7. **Buy** | Clicks link → runprep.io/pricing → Lemon Squeezy checkout | LS processes payment, handles tax. Webhook fires. |
 | 8. **Receive key** | Gets email with license key | api.runprep.io generates Ed25519 license upon webhook receipt |
 | 9. **Activate** | Pastes key into Prep → Settings → License | App calls `POST api.runprep.io/activate` with the LS key |
-| 10. **Activated** | Sees "Pro — Active" in dashboard | Signed license saved to `~/.prep/license.key`. Fully offline from here. |
+| 10. **Activated** | Sees "Pro — Active" in dashboard | Signed license saved to `~/.runprep/license.key`. Fully offline from here. |
 | 11. **Use (Pro)** | Unlimited projects, Trace Index, auto-rebuild, full MCP | Feature gates read tier from local license file |
 
 ### Recovery Path: Lost License Key

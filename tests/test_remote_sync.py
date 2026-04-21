@@ -195,8 +195,8 @@ class TestCheckForLeakedSecrets:
 
 class TestRemoteSyncService:
     def _make_project(self, tmp_path: Path, config: Dict[str, Any] = None) -> Path:
-        """Create a fake project root with .prep/ directory."""
-        prep = tmp_path / ".prep"
+        """Create a fake project root with .runprep/ directory."""
+        prep = tmp_path / ".runprep"
         prep.mkdir(parents=True)
         if config:
             (prep / TEAM_CONFIG_FILENAME).write_text(json.dumps(config))

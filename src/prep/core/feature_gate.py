@@ -8,7 +8,7 @@ Tiers:
   - team:       perpetual + shared config, centralized policy
   - enterprise: team + air-gapped, SSO, audit
 
-License is read from ~/.prep/license.json (offline Ed25519 signed token)
+License is read from ~/.runprep/license.json (offline Ed25519 signed token)
 or overridden via PREP_TIER env var for development.
 
 Note: MONTHLY and PERPETUAL are feature-identical. The only difference is
@@ -103,7 +103,7 @@ class License:
         }
 
 
-_LICENSE_PATH = Path.home() / ".prep" / "license.json"
+_LICENSE_PATH = Path.home() / ".runprep" / "license.json"
 _cached_license: Optional[License] = None
 
 

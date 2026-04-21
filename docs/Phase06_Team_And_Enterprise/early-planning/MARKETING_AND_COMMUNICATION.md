@@ -20,7 +20,7 @@ This is a Phase 06-specific pack; it feeds the Phase 12 website copy.
 **Give your whole team the same context.** Shared scoping and indexing policy so results are reproducible across developers.
 
 ### Key benefits (bullets)
-- Shared `.prep/team_config.json` so everyone indexes the same code.
+- Shared `.runprep/team_config.json` so everyone indexes the same code.
 - Centralized policy defaults (ignore rules, trace defaults, embedding baseline).
 - Drift detection: see when a developer’s local config diverges.
 

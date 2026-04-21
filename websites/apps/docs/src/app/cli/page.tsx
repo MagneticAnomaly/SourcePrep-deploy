@@ -31,7 +31,7 @@ export default function Page() {
           >
             <h2 className="text-xl font-semibold">Configuration</h2>
             <p className="mt-2 text-sm text-text-muted">
-              Global daemon settings and project-level overrides (<code>.prep/config.json</code>).
+              Global daemon settings and project-level overrides (<code>.runprep/config.json</code>).
             </p>
           </a>
         </div>

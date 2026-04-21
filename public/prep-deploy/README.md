@@ -62,8 +62,8 @@ prep-deploy/
 ## Security
 
 - **Never commit S3 credentials to Git.** Use GitHub Secrets, Modal Secrets, or RunPod environment variables.
-- The `.prep/team_config.json` file (committed to your repo) contains only the bucket endpoint, name, and prefix — no secrets.
-- Each developer provides read credentials via environment variables, a gitignored `.prep/.secrets` file, or OS keychain.
+- The `.runprep/team_config.json` file (committed to your repo) contains only the bucket endpoint, name, and prefix — no secrets.
+- Each developer provides read credentials via environment variables, a gitignored `.runprep/.secrets` file, or OS keychain.
 
 ## Links
 

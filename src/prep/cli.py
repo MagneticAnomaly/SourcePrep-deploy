@@ -229,8 +229,13 @@ def serve(
     # Phase 113: ensure legacy ./codrag_data/ is migrated before
     # `prep.server` imports the store modules. Safe no-op in the
     # common case (sentinel present → no-op).
-    from prep.core.data_dir_migration import migrate_from_legacy_codrag, migrate_legacy_data_dir
-    migrate_from_legacy_codrag()  # codrag -> prep XDG dirs (rename one-shot, D4)
+    from prep.core.data_dir_migration import (
+        migrate_from_legacy_codrag,
+        migrate_from_legacy_prep,
+        migrate_legacy_data_dir,
+    )
+    migrate_from_legacy_codrag()  # codrag -> runprep XDG dirs (rename one-shot, D4)
+    migrate_from_legacy_prep()    # prep -> runprep XDG dirs (brand-split one-shot)
     migrate_legacy_data_dir()     # CWD codrag_data -> XDG (Phase 113 one-shot)
 
     import uvicorn
@@ -249,7 +254,7 @@ def add(
     mode: str = typer.Option(
         "standalone", "--mode", "-m",
         help="Index location: standalone (app data dir, best for portability), "
-             "embedded (.prep/ in repo, best when boot disk is faster), "
+             "embedded (.runprep/ in repo, best when boot disk is faster), "
              "or custom (specify --index-path, best for fast scratch disks)",
     ),
     index_path: str = typer.Option(
@@ -394,7 +399,7 @@ def prune(
     mode = proj_data.get("mode", "standalone")
 
     if mode == "embedded":
-        idx_dir = Path(proj_path) / ".prep"
+        idx_dir = Path(proj_path) / ".runprep"
     else:
         from prep.core.project_registry import prep_data_dir
         idx_dir = prep_data_dir() / "projects" / pid

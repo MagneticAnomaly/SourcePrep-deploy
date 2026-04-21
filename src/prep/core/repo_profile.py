@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterator, List, Sequence, Set, Tuple
 # code. Every new writer must register here; DEFAULT_EXCLUDE_DIR_NAMES derives
 # from this set so the universal default exclude list updates automatically.
 PREP_OUTPUT_DIRS: Set[str] = {
-    ".prep",      # per-project index (embedded mode)
+    ".runprep",      # per-project index (embedded mode)
     "codrag_data",  # legacy daemon-wide store dir (pre-rename installs)
     "prep_data",   # daemon-wide store (SQLite + telemetry + ui_config)
 }

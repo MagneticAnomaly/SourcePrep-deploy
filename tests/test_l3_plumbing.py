@@ -41,7 +41,7 @@ def _stub_project(idx_dir: Path, project_id: str, patterns: list[str]) -> Projec
 
 def test_trace_ignore_patterns_resolved_via_pointer() -> None:
     with tempfile.TemporaryDirectory() as td:
-        idx_dir = Path(td) / ".prep"
+        idx_dir = Path(td) / ".runprep"
         proj = _stub_project(idx_dir, "proj-abc", ["**/*.secret.ts", "**/private/**"])
 
         with patch(
@@ -55,7 +55,7 @@ def test_trace_ignore_patterns_resolved_via_pointer() -> None:
 
 def test_trace_ignore_patterns_empty_when_pointer_missing() -> None:
     with tempfile.TemporaryDirectory() as td:
-        idx_dir = Path(td) / ".prep"
+        idx_dir = Path(td) / ".runprep"
         idx_dir.mkdir(parents=True)
         # No project.json written.
         assert trace_ignore_patterns_for_index(idx_dir) == []
@@ -63,7 +63,7 @@ def test_trace_ignore_patterns_empty_when_pointer_missing() -> None:
 
 def test_trace_ignore_patterns_empty_when_project_not_in_registry() -> None:
     with tempfile.TemporaryDirectory() as td:
-        idx_dir = Path(td) / ".prep"
+        idx_dir = Path(td) / ".runprep"
         idx_dir.mkdir(parents=True)
         (idx_dir / _POINTER_FILENAME).write_text(json.dumps({"id": "missing-id"}))
 
@@ -81,7 +81,7 @@ def test_loader_auto_resolves_l3() -> None:
 
     with tempfile.TemporaryDirectory() as td:
         repo_root = Path(td).resolve()
-        idx_dir = repo_root / ".prep"
+        idx_dir = repo_root / ".runprep"
         idx_dir.mkdir(parents=True)
 
         # Fresh policy so L1+L2 don't happen to cover the L3 pattern.
@@ -118,7 +118,7 @@ def test_loader_explicit_empty_opt_out() -> None:
 
     with tempfile.TemporaryDirectory() as td:
         repo_root = Path(td).resolve()
-        idx_dir = repo_root / ".prep"
+        idx_dir = repo_root / ".runprep"
         idx_dir.mkdir(parents=True)
         ensure_repo_policy(idx_dir, repo_root)
 

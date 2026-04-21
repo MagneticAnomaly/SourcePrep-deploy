@@ -84,7 +84,7 @@ ModelScheduler
 ## Graph Scope: Numbers Reconciliation (AI-2)
 
 **Owner:** AI-2 (**FIXED** 2026-04-11)
-**Reproduction project:** Prep itself (`.prep/` on `4TB-BAD`)
+**Reproduction project:** Prep itself (`.runprep/` on `4TB-BAD`)
 **Reported state:** Graph Scope panel shows `7017/21531 nodes enriched & embedded (33%)`
 while `1485/2206 files traced (67.3%)`. The 33% number is wrong by construction
 and the 7017 numerator is contaminated. Three independent bugs are stacked.
@@ -98,7 +98,7 @@ by `total_nodes` (all kinds, including markdown sections, symbols, and external
 modules that epistemic enrichment never touches). The ratio is structurally
 meaningless.
 
-**Evidence (from `.prep/` on this repo, 2026-04-11)**
+**Evidence (from `.runprep/` on this repo, 2026-04-11)**
 
 `trace_nodes.jsonl` has 21531 entries, broken down by `kind`:
 

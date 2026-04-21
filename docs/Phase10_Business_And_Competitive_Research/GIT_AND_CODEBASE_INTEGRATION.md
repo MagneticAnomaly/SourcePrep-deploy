@@ -14,7 +14,7 @@ This is not an implementation spec for Git features; it is a **workflow + constr
 ## Two index strategies (per ADR-003)
 Prep supports:
 - **Standalone mode (default)**: index stored in a central Prep data directory
-- **Embedded mode**: index stored in `{project_root}/.prep/`
+- **Embedded mode**: index stored in `{project_root}/.runprep/`
 
 Reference:
 - `docs/DECISIONS.md` (ADR-003)
@@ -36,21 +36,21 @@ Defaults should avoid indexing noise:
 - `.git/`
 - dependency/vendor folders (e.g. `node_modules/`)
 - build outputs
-- `.prep/` (always excluded from indexing and file watchers)
+- `.runprep/` (always excluded from indexing and file watchers)
 
-**Team Tier Note:** Enforcing shared ignore patterns across a team (via `.prep/team_config.json`) is a paid feature.
+**Team Tier Note:** Enforcing shared ignore patterns across a team (via `.runprep/team_config.json`) is a paid feature.
 
 Watch-loop avoidance requirement:
-- Phase 06 explicitly requires watchers ignore `.prep/**`.
+- Phase 06 explicitly requires watchers ignore `.runprep/**`.
 - `docs/Phase06_Team_And_Enterprise/README.md`
 
 ### 3) Embedded mode onboarding workflow
-Target “clone → instant search” (when `.prep/index/**` is committed).
+Target “clone → instant search” (when `.runprep/index/**` is committed).
 
 Flow:
 1. Teammate clones repo.
 2. Teammate runs `prep add . --embedded`.
-3. Prep detects existing `.prep/`.
+3. Prep detects existing `.runprep/`.
 4. If compatible, search is immediately available.
 
 Reference:
@@ -72,7 +72,7 @@ Reference:
 If committed indexes are used, merges/conflicts are inevitable.
 
 Rules (per Phase 06):
-- If conflict markers exist anywhere inside `.prep/index/**`, the index is invalid.
+- If conflict markers exist anywhere inside `.runprep/index/**`, the index is invalid.
 - Preferred remedy is a full rebuild.
 
 Reference:
@@ -131,5 +131,5 @@ Reference:
 
 ## Open questions
 - Should Prep read `.gitignore` by default as an index exclude hint?
-- Should embedded mode generate a `.prep/` scaffold (`project.json`) via an explicit init command?
+- Should embedded mode generate a `.runprep/` scaffold (`project.json`) via an explicit init command?
 - Should CI build committed indexes (or should teams prefer network mode)?

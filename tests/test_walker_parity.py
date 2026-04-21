@@ -64,7 +64,7 @@ def test_rust_walker_mirrors_python_l1_excludes() -> None:
 def test_rust_walker_covers_codrag_output_dirs() -> None:
     """Hard invariant: self-ingestion guard MUST be in Rust."""
     rust_excludes = _parse_rust_exclude_globs(RUST_WALKER_SRC.read_text())
-    for required in ("**/.prep/**", "**/codrag_data/**"):
+    for required in ("**/.runprep/**", "**/codrag_data/**"):
         assert required in rust_excludes, (
             f"Self-ingestion guard '{required}' missing from Rust walker defaults. "
             f"This is a phase-115 regression — Prep will ingest its own outputs."

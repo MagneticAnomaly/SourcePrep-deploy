@@ -64,8 +64,8 @@ Standalone mode stores indexes centrally, which doesn't work for teams wanting t
 
 ### Decision
 Support **two modes**:
-1. **Standalone** (default): Index at `~/.local/share/prep/projects/{id}/`
-2. **Embedded**: Index at `{project}/.prep/`
+1. **Standalone** (default): Index at `~/.local/share/runprep/projects/{id}/`
+2. **Embedded**: Index at `{project}/.runprep/`
 
 ### Rationale
 - Power users prefer standalone (simpler, no project clutter)
@@ -195,7 +195,7 @@ Need to choose backend technology for the daemon.
 Need persistent storage for project configurations, build history, settings.
 
 ### Decision
-**SQLite** with single file at `~/.local/share/prep/registry.db`
+**SQLite** with single file at `~/.local/share/runprep/registry.db`
 
 ### Rationale
 - Zero configuration (no separate database server)

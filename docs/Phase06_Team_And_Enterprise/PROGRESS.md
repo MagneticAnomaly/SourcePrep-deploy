@@ -42,8 +42,8 @@
 
 ### Client-side Remote Sync — P06-S14 (completed)
 - [x] `src/prep/services/remote_sync.py` — `RemoteSyncService` class
-  - Reads `.prep/team_config.json` (committed, secret-free)
-  - Resolves S3 credentials from env vars or `.prep/.secrets` (gitignored)
+  - Reads `.runprep/team_config.json` (committed, secret-free)
+  - Resolves S3 credentials from env vars or `.runprep/.secrets` (gitignored)
   - `check_and_sync()`: compares remote manifest hash → downloads if newer
   - `start_polling()` / `stop_polling()`: background thread with configurable interval
   - `SyncStatus` dataclass with `to_dict()` for Dashboard API
@@ -125,7 +125,7 @@ Anthropic uses `x-api-key` header, `/v1/messages` endpoint, and content blocks. 
 **Fix:** Replaced with `_make_progress_cb(sid)` factory function that captures by value. Added regression test `test_closure_captures_correct_stage_id`.
 
 ### 5. Index directory path assumption — ACCEPTABLE
-`HeadlessRunner` uses `repo_path / ".prep" / "index"` (embedded mode). This is correct for CI/CD — the index lives inside the repo checkout and gets uploaded to S3. Documented.
+`HeadlessRunner` uses `repo_path / ".runprep" / "index"` (embedded mode). This is correct for CI/CD — the index lives inside the repo checkout and gets uploaded to S3. Documented.
 
 ### 6. `team_config.json` secrets leakage — ✅ MITIGATED
 **Problem:** If a developer accidentally puts S3 keys in `team_config.json`, they'd be committed to Git.

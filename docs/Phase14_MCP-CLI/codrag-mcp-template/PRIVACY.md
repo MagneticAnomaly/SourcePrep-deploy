@@ -9,7 +9,7 @@ Prep is designed to be **local-first**.
 
 ## Data stored on disk
 
-Prep stores rebuildable index artifacts locally (for example under `.prep/index` within a repository in direct mode).
+Prep stores rebuildable index artifacts locally (for example under `.runprep/index` within a repository in direct mode).
 
 ## Network access
 

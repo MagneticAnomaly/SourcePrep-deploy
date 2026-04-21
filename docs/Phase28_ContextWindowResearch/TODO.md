@@ -285,8 +285,8 @@ pytest tests/test_intent_detection.py -v              # Intent: 1 xfail remainin
 
 ```bash
 # Analyze a project's trace graph for hub files
-python scripts/analyze_hub_files.py /path/to/project/.prep/trace
-python scripts/analyze_hub_files.py /path/to/project/.prep/trace --threshold 0.3 --json
+python scripts/analyze_hub_files.py /path/to/project/.runprep/trace
+python scripts/analyze_hub_files.py /path/to/project/.runprep/trace --threshold 0.3 --json
 ```
 
 Identifies files that connect to >30% of all files in the graph (e.g., `__init__.py`, `utils.py`).

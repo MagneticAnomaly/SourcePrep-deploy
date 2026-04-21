@@ -18,8 +18,8 @@ class PrepDataAccess:
     Instantiate once per agent run, passing the project's index directory.
 
     Args:
-        index_dir: Path to the Prep index directory (e.g. ``.prep/`` or
-            ``~/.local/share/prep/projects/<slug>/``).
+        index_dir: Path to the Prep index directory (e.g. ``.runprep/`` or
+            ``~/.local/share/runprep/projects/<slug>/``).
         project_root: Optional path to the project source root.  Used for
             audit refresh operations.
         project_id: Project ID used to scope observations.

@@ -4,14 +4,14 @@
 Define the **Team Tier** (“Indexed Harmony”) as an implementable, testable feature set.
 
 This spec turns the Phase 06 README into concrete requirements for:
-- **Shared configuration** (`.prep/team_config.json`)
+- **Shared configuration** (`.runprep/team_config.json`)
 - **Policy enforcement / drift detection**
 - **Team-safe onboarding behavior** (embedded index optional; config always safe to commit)
 
 ## Scope
 
 ### In scope (Team Tier)
-- `.prep/team_config.json` schema and semantics
+- `.runprep/team_config.json` schema and semantics
 - Import/apply behavior (CLI + dashboard)
 - Drift detection (local project settings vs team baseline)
 - Policy enforcement modes (warn vs strict)
@@ -26,10 +26,10 @@ The Team Tier exists to solve one problem:
 
 **Every developer on the team must build and query the same index, with the same scoping rules, so results are reproducible across people and machines.**
 
-## Key artifact: `.prep/team_config.json`
+## Key artifact: `.runprep/team_config.json`
 
 ### File location
-- Repo-relative path: `{project_root}/.prep/team_config.json`
+- Repo-relative path: `{project_root}/.runprep/team_config.json`
 
 Rationale:
 - Small, human-reviewable, and safe to commit.
@@ -56,7 +56,7 @@ The file MUST include a format version.
     "include_globs": [],
     "exclude_globs": [
       ".git/**",
-      ".prep/**",
+      ".runprep/**",
       "**/node_modules/**",
       "**/dist/**",
       "**/build/**",
@@ -99,7 +99,7 @@ Default recommendation:
 #### `policy.exclude_globs`
 - Unioned with hard-coded safety excludes:
   - `.git/**`
-  - `.prep/**`
+  - `.runprep/**`
 - In `strict` mode, the user MUST NOT be able to remove team-provided excludes.
 
 #### `features.trace_enabled_default`
@@ -115,7 +115,7 @@ Default recommendation:
 ## Application behavior
 
 ### Detection
-When adding or opening a project, Prep MUST detect `.prep/team_config.json` if present.
+When adding or opening a project, Prep MUST detect `.runprep/team_config.json` if present.
 
 ### Apply rules
 1. Parse JSON.
@@ -145,7 +145,7 @@ The dashboard MUST show:
 ## CLI requirements (Team Tier)
 Minimum commands:
 - `prep config export --team`:
-  - Writes `.prep/team_config.json`.
+  - Writes `.runprep/team_config.json`.
   - Requires a Team/Enterprise license.
 - `prep config validate --team-config <path>`:
   - Validates schema + prints warnings.
@@ -161,7 +161,7 @@ Minimum UI surfaces:
 ## Test plan / acceptance criteria
 
 ### 1) Reproducible onboarding
-- Given a repo with `.prep/team_config.json` committed,
+- Given a repo with `.runprep/team_config.json` committed,
 - When a teammate clones and adds the repo,
 - Then indexing scope matches the team baseline without manual configuration.
 
@@ -170,9 +170,9 @@ Minimum UI surfaces:
 - When a user attempts to remove an excluded path,
 - Then Prep blocks the change and explains why.
 
-### 3) `.prep/**` is always excluded
+### 3) `.runprep/**` is always excluded
 - Even if team config is missing or malformed,
-- `.prep/**` MUST be excluded from indexing and file watchers.
+- `.runprep/**` MUST be excluded from indexing and file watchers.
 
 ## Open questions
 - Should we support `required_exclude_globs` as a first-class field (vs treating all excludes as required in strict mode)?

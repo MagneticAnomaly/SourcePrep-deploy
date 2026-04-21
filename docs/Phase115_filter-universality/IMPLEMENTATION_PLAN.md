@@ -18,7 +18,7 @@ Ordered steps. Each is an independent commit. Checkpoints marked `[gate]` are wh
 Add at top of file:
 
 ```python
-PREP_OUTPUT_DIRS: Set[str] = {".prep", "prep_data"}
+PREP_OUTPUT_DIRS: Set[str] = {".runprep", "prep_data"}
 PREP_OUTPUT_FILE_GLOBS: Sequence[str] = (... existing AI-tool globs ...)
 ```
 
@@ -79,7 +79,7 @@ if not default_file_globs.issubset(current_excludes):
     write_repo_policy(path, existing)
 ```
 
-**[gate]** Start the daemon against the dogfood repo. Observe that `.prep/repo_policy.json` gets rewritten with the 10+ new entries. Diff the before/after file; entries should be added, not replaced. No entry already in the user's file should vanish.
+**[gate]** Start the daemon against the dogfood repo. Observe that `.runprep/repo_policy.json` gets rewritten with the 10+ new entries. Diff the before/after file; entries should be added, not replaced. No entry already in the user's file should vanish.
 
 ---
 
@@ -91,7 +91,7 @@ Update `WalkConfig::default().exclude_globs` to mirror the Python `DEFAULT_EXCLU
 
 ```rust
 exclude_globs: vec![
-    "**/.prep/**".into(),
+    "**/.runprep/**".into(),
     "**/prep_data/**".into(),
     "**/node_modules/**".into(),
     "**/.git/**".into(),
@@ -200,9 +200,9 @@ Callers already pass `index_dir`; `repo_root` and `trace_ignore_patterns` need t
 
 **File:** `engine/crates/prep-selfheal/src/main.rs` (around lines 93-103)
 
-Selfheal currently reads `repo_policy.json.exclude_globs` and unions with walker defaults. Must also read `project.config.trace.ignore_patterns` (location: per-project config, typically `.prep/project.config.json` or the project registry row).
+Selfheal currently reads `repo_policy.json.exclude_globs` and unions with walker defaults. Must also read `project.config.trace.ignore_patterns` (location: per-project config, typically `.runprep/project.config.json` or the project registry row).
 
-Implementation note: if the config isn't easily reachable from Rust, expose a resolved `effective_exclude_globs` list via a JSON file that the Python daemon writes to `.prep/` on any policy or ignore-pattern change. Selfheal reads the resolved list, not the raw sources.
+Implementation note: if the config isn't easily reachable from Rust, expose a resolved `effective_exclude_globs` list via a JSON file that the Python daemon writes to `.runprep/` on any policy or ignore-pattern change. Selfheal reads the resolved list, not the raw sources.
 
 **[gate]** Add an entry to `trace.ignore_patterns` via the Knowledge Scope endpoint, kill the Python daemon, run selfheal directly. Confirm the ignored path is not re-added to the graph by selfheal.
 

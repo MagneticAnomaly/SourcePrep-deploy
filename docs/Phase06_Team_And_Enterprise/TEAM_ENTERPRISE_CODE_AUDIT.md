@@ -78,7 +78,7 @@
 **Issue:** There are two separate team configuration schemas:
   - `core/team_config.py`: `TeamConfig` — enforcement mode, policy globs, embedding config, config hash.
   - `services/remote_sync.py`: `TeamSyncConfig` — S3 endpoint, bucket, prefix, poll interval.
-Both read from `.prep/team_config.json` but parse different sections. They are not cross-referenced or validated together.
+Both read from `.runprep/team_config.json` but parse different sections. They are not cross-referenced or validated together.
 **Fix (Future):** Unify into a single `TeamConfig` loader that parses the complete schema. The `remote_sync.py` should import from `core/team_config.py` rather than re-implementing JSON parsing.
 
 ### ARCH-3: Entrypoint.sh Silently Ignores Ollama Startup Failure

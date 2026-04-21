@@ -106,7 +106,7 @@ class TestPrimerScoreBoost:
     
     def test_primer_chunks_get_boosted(self, repo_with_primer: Path, fake_embedder: FakeEmbedder):
         """Primer document chunks should receive a score boost."""
-        idx_dir = repo_with_primer / ".prep" / "index"
+        idx_dir = repo_with_primer / ".runprep" / "index"
         idx = CodeIndex(index_dir=idx_dir, embedder=fake_embedder)
         idx.build(repo_root=repo_with_primer)
         
@@ -126,7 +126,7 @@ class TestPrimerScoreBoost:
     
     def test_no_boost_when_disabled(self, repo_with_primer: Path, fake_embedder: FakeEmbedder):
         """No boost should be applied when primer is disabled."""
-        idx_dir = repo_with_primer / ".prep" / "index"
+        idx_dir = repo_with_primer / ".runprep" / "index"
         idx = CodeIndex(index_dir=idx_dir, embedder=fake_embedder)
         idx.build(repo_root=repo_with_primer)
         
@@ -146,7 +146,7 @@ class TestPrimerAlwaysInclude:
     
     def test_always_include_prepends_primer(self, repo_with_primer: Path, fake_embedder: FakeEmbedder):
         """When always_include is True, primer should be prepended to context."""
-        idx_dir = repo_with_primer / ".prep" / "index"
+        idx_dir = repo_with_primer / ".runprep" / "index"
         idx = CodeIndex(index_dir=idx_dir, embedder=fake_embedder)
         idx.build(repo_root=repo_with_primer)
         
@@ -172,7 +172,7 @@ class TestPrimerAlwaysInclude:
     
     def test_always_include_respects_max_chars(self, repo_with_primer: Path, fake_embedder: FakeEmbedder):
         """Primer should respect max_primer_chars budget."""
-        idx_dir = repo_with_primer / ".prep" / "index"
+        idx_dir = repo_with_primer / ".runprep" / "index"
         idx = CodeIndex(index_dir=idx_dir, embedder=fake_embedder)
         idx.build(repo_root=repo_with_primer)
         
@@ -196,7 +196,7 @@ class TestPrimerAlwaysInclude:
     
     def test_no_duplicate_chunks(self, repo_with_primer: Path, fake_embedder: FakeEmbedder):
         """Primer chunks should not be duplicated in search results."""
-        idx_dir = repo_with_primer / ".prep" / "index"
+        idx_dir = repo_with_primer / ".runprep" / "index"
         idx = CodeIndex(index_dir=idx_dir, embedder=fake_embedder)
         idx.build(repo_root=repo_with_primer)
         
@@ -221,7 +221,7 @@ class TestGetPrimerChunks:
     
     def test_returns_primer_chunks(self, repo_with_primer: Path, fake_embedder: FakeEmbedder):
         """Should return chunks from primer files."""
-        idx_dir = repo_with_primer / ".prep" / "index"
+        idx_dir = repo_with_primer / ".runprep" / "index"
         idx = CodeIndex(index_dir=idx_dir, embedder=fake_embedder)
         idx.build(repo_root=repo_with_primer)
         
@@ -232,7 +232,7 @@ class TestGetPrimerChunks:
     
     def test_returns_empty_when_no_primer(self, repo_without_primer: Path, fake_embedder: FakeEmbedder):
         """Should return empty list when no primer files exist."""
-        idx_dir = repo_without_primer / ".prep" / "index"
+        idx_dir = repo_without_primer / ".runprep" / "index"
         idx = CodeIndex(index_dir=idx_dir, embedder=fake_embedder)
         idx.build(repo_root=repo_without_primer)
         
@@ -242,7 +242,7 @@ class TestGetPrimerChunks:
     
     def test_returns_empty_when_disabled(self, repo_with_primer: Path, fake_embedder: FakeEmbedder):
         """Should return empty list when primer is disabled."""
-        idx_dir = repo_with_primer / ".prep" / "index"
+        idx_dir = repo_with_primer / ".runprep" / "index"
         idx = CodeIndex(index_dir=idx_dir, embedder=fake_embedder)
         idx.build(repo_root=repo_with_primer)
         
@@ -260,7 +260,7 @@ class TestRepoPolicyWithPrimer:
     
     def test_ensure_policy_includes_primer(self, repo_with_primer: Path):
         """ensure_repo_policy should include primer config."""
-        idx_dir = repo_with_primer / ".prep" / "index"
+        idx_dir = repo_with_primer / ".runprep" / "index"
         
         policy = ensure_repo_policy(idx_dir, repo_with_primer)
         

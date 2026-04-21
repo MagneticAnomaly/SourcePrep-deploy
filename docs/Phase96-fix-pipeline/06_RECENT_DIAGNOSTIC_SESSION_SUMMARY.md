@@ -15,7 +15,7 @@ This document consolidates findings from a multi-day diagnostic session investig
 ## Issue 1: Frontend Slowness from Excessive Log Files
 
 ### Problem Statement
-The dashboard UI was experiencing general sluggishness, traced to unbounded growth of pipeline log files in `.prep/logs/` directory.
+The dashboard UI was experiencing general sluggishness, traced to unbounded growth of pipeline log files in `.runprep/logs/` directory.
 
 ### Root Cause
 The `PipelineFileLogger` created new log files for every pipeline run without pruning old logs. Over time, hundreds of log files accumulated, causing:
@@ -233,13 +233,13 @@ The files may have unchanged hashes, and the enrichment logic may be skipping th
 ```python
 # Check trace file counts
 import json
-count_nodes = sum(1 for _ in open('.prep/trace_nodes.jsonl'))
-count_epistemic = sum(1 for _ in open('.prep/trace_epistemic.jsonl'))
+count_nodes = sum(1 for _ in open('.runprep/trace_nodes.jsonl'))
+count_epistemic = sum(1 for _ in open('.runprep/trace_epistemic.jsonl'))
 print(f"Nodes: {count_nodes}, Enriched: {count_epistemic}, Gap: {count_nodes - count_epistemic}")
 
 # Load and compare node IDs
-nodes_ids = {json.loads(l)['id'] for l in open('.prep/trace_nodes.jsonl')}
-epistemic_ids = {json.loads(l)['node_id'] for l in open('.prep/trace_epistemic.jsonl')}
+nodes_ids = {json.loads(l)['id'] for l in open('.runprep/trace_nodes.jsonl')}
+epistemic_ids = {json.loads(l)['node_id'] for l in open('.runprep/trace_epistemic.jsonl')}
 missing = nodes_ids - epistemic_ids
 print(f"Missing IDs: {missing}")
 ```

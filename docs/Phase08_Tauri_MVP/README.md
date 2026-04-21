@@ -106,7 +106,7 @@ Rules:
 Recommended defaults:
 - macOS: `~/Library/Application Support/Prep/`
 - Windows: `%APPDATA%\\Prep\\`
-- Linux: `~/.local/share/prep/`
+- Linux: `~/.local/share/runprep/`
 
 ### Packaging strategy
 

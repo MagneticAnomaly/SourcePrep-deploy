@@ -48,7 +48,7 @@ try:
     _SKIP_DIRS = DEFAULT_EXCLUDE_DIR_NAMES
 except ImportError:
     _SKIP_DIRS = {
-        "node_modules", ".git", "__pycache__", ".prep", "dist",
+        "node_modules", ".git", "__pycache__", ".runprep", "dist",
         "build", ".next", "target", "venv", ".venv", ".tox",
         "Pods", "Carthage", "DerivedData", "vendor", "bundle",
         "bower_components",

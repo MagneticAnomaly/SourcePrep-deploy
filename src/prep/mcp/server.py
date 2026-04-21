@@ -357,10 +357,10 @@ class MCPServer:
             if not project_path:
                 return
 
-            # Prep index lives at <project_path>/.prep/ or the daemon's
+            # Prep index lives at <project_path>/.runprep/ or the daemon's
             # configured data dir. Check both common locations.
             candidates = [
-                Path(project_path) / ".prep" / "atlas_updated.signal",
+                Path(project_path) / ".runprep" / "atlas_updated.signal",
             ]
             # Also check if project_path itself IS the index dir (daemon mode)
             direct = Path(project_path) / "atlas_updated.signal"
@@ -575,11 +575,11 @@ class MCPServer:
     async def _auto_register_prep_folders(
         self, paths: List[str], existing_projects: List[Dict[str, Any]]
     ) -> Optional[str]:
-        """Auto-register projects with .prep/ folders that aren't in the daemon yet.
+        """Auto-register projects with .runprep/ folders that aren't in the daemon yet.
 
-        When a workspace root or CWD contains a .prep/ directory (created by
+        When a workspace root or CWD contains a .runprep/ directory (created by
         ``prep init``), the project should be usable immediately without
-        manual ``prep add``. This checks each path for .prep/ and registers
+        manual ``prep add``. This checks each path for .runprep/ and registers
         any unregistered ones as embedded-mode projects.
 
         Returns the project_id of the first newly-registered project, or None.
@@ -593,7 +593,7 @@ class MCPServer:
             if not clean or clean == "/":
                 continue
 
-            prep_dir = Path(clean) / ".prep"
+            prep_dir = Path(clean) / ".runprep"
             if not prep_dir.is_dir():
                 continue
 
@@ -649,8 +649,8 @@ class MCPServer:
         Priority (workspace-specific signals first, global fallbacks last):
           1. Explicit override (from tool call ``project_id`` param)
           2. Pinned project (from CLI ``--project`` flag)
-          3. .prep/project.json pointer (workspace roots, CWD, PREP_WORKSPACE)
-          4. Auto-register .prep/ folders not yet in daemon
+          3. .runprep/project.json pointer (workspace roots, CWD, PREP_WORKSPACE)
+          4. Auto-register .runprep/ folders not yet in daemon
           5. Initialize roots (workspace URIs sent by the IDE)
           6. CWD auto-detect (process working directory)
           7. PREP_PROJECT env var (pin by name or ID)
@@ -665,7 +665,7 @@ class MCPServer:
         if self.project_id:
             return self.project_id
 
-        # 3. Pointer check — instant routing via .prep/project.json
+        # 3. Pointer check — instant routing via .runprep/project.json
         #    Checks: IDE workspace roots → CWD → PREP_WORKSPACE env var
         #    This works without the daemon, making it the fastest path.
         from prep.core.project_registry import read_codrag_pointer
@@ -687,7 +687,7 @@ class MCPServer:
             if pointer and pointer.get("id"):
                 pid = pointer["id"]
                 logger.debug(
-                    f"Resolved project from .prep/project.json pointer: "
+                    f"Resolved project from .runprep/project.json pointer: "
                     f"{pid} (path={pp})"
                 )
                 return pid
@@ -706,7 +706,7 @@ class MCPServer:
             if p.get("activity_status", "active") in ("active", "inactive")
         ]
 
-        # 4. Auto-register workspace roots / CWD with .prep/ folders
+        # 4. Auto-register workspace roots / CWD with .runprep/ folders
         #    that aren't yet in the daemon (zero-config).
         auto_paths = list(self._initialize_roots)
         if cwd != "/" and cwd not in auto_paths:

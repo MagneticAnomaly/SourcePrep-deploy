@@ -404,7 +404,7 @@ See the [Agentic Integration Guide](./AGENTIC_INTEGRATION_GUIDE.md) for framewor
 
 Prep runs entirely locally. Your code never leaves your machine:
 
-- Index is stored in `~/.prep/` or `.prep/` in your repo
+- Index is stored in `~/.runprep/` or `.runprep/` in your repo
 - MCP communication happens over localhost
 - No external API calls (except to local Ollama)
 

@@ -74,7 +74,7 @@
 │                          Storage Layer                                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  Standalone Mode:                                                           │
-│  ~/.local/share/prep/                                                     │
+│  ~/.local/share/runprep/                                                     │
 │  ├── registry.db              (SQLite: projects, settings)                  │
 │  ├── cache/                   (LLM response cache)                          │
 │  └── projects/                                                              │
@@ -87,7 +87,7 @@
 │      └── ...                                                                │
 │                                                                             │
 │  Embedded Mode:                                                             │
-│  /path/to/project/.prep/    (same structure, lives in project)            │
+│  /path/to/project/.runprep/    (same structure, lives in project)            │
 └─────────────────────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -98,7 +98,7 @@
 │  ├── nomic-embed-text        │  ├── Structural code compression (3–20×)     │
 │  └── (optional, not needed)  │  └── No GPU, no sidecar, no extra model      │
 ├──────────────────────────────┼──────────────────────────────────────────────┤
-│  Native ONNX (built-in)      │  License (~/.prep/license.json)            │
+│  Native ONNX (built-in)      │  License (~/.runprep/license.json)            │
 │  ├── nomic-embed-text-v1.5   │  ├── Ed25519 signed offline token            │
 │  └── No external deps needed │  └── PREP_TIER env override (dev)          │
 └──────────────────────────────┴──────────────────────────────────────────────┘
@@ -112,7 +112,7 @@
 
 **Purpose:** Manage project configurations and metadata.
 
-**Storage:** SQLite database at `~/.local/share/prep/registry.db`
+**Storage:** SQLite database at `~/.local/share/runprep/registry.db`
 
 **Schema:**
 ```sql

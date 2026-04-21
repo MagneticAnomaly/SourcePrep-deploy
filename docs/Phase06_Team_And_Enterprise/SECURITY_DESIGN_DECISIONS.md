@@ -8,7 +8,7 @@
 ## CRIT-1: License Verification — How It Actually Works
 
 ### The Problem (Simple Version)
-Right now, anyone can create a file at `~/.prep/license.json` with the contents `{"tier": "enterprise"}` and unlock every paid feature for free. There is zero verification that the person actually paid.
+Right now, anyone can create a file at `~/.runprep/license.json` with the contents `{"tier": "enterprise"}` and unlock every paid feature for free. There is zero verification that the person actually paid.
 
 ### The Solution: Lemon Squeezy's License API (No Custom Crypto Needed)
 
@@ -24,7 +24,7 @@ Customer Journey:
 4. Customer opens Prep desktop app → Settings → "Enter License Key"
 5. Prep app calls Lemon Squeezy API to ACTIVATE the key
 6. LS responds with: tier (Pro/Team/Enterprise), expiry date, seat count
-7. Prep saves the activation response to ~/.prep/license.json
+7. Prep saves the activation response to ~/.runprep/license.json
 8. Periodically (every 7 days), Prep re-validates the key with LS
 ```
 
@@ -64,7 +64,7 @@ I will rewrite `feature_gate.py` to work like this:
 2. Response includes: product_id, variant_id, status, expires_at
 3. Verify product_id matches one of our hard-coded product IDs
 4. Map product_id → tier (MONTHLY, PERPETUAL, TEAM, ENTERPRISE)
-5. Save to ~/.prep/license.json:
+5. Save to ~/.runprep/license.json:
    {
      "license_key": "38b1460a-...",       # The LS key (for re-validation)
      "instance_id": "47596ad9-...",        # LS instance (for deactivation)
@@ -116,7 +116,7 @@ This prevents users from accidentally discovering `PREP_TIER=enterprise` in a St
 ## CRIT-2: S3 Endpoint SSRF — Admin Allowlist Setting
 
 ### The Problem
-The `s3_endpoint` field in `.prep/team_config.json` is committed to Git. A malicious PR could change it to an internal network address, and every developer who pulls would have their Prep daemon make requests to the attacker's endpoint — with S3 credentials attached.
+The `s3_endpoint` field in `.runprep/team_config.json` is committed to Git. A malicious PR could change it to an internal network address, and every developer who pulls would have their Prep daemon make requests to the attacker's endpoint — with S3 credentials attached.
 
 ### The Solution: Admin-Controlled Endpoint Allowlist
 
@@ -160,7 +160,7 @@ This gives admins explicit control over where their team's S3 credentials are se
 ## HIGH-2: Secrets File Permissions & Protection
 
 ### The Question
-Should we check file permissions on `.prep/.secrets`? Would it ever leave the developer's machine? Should it be excluded from the trace graph?
+Should we check file permissions on `.runprep/.secrets`? Would it ever leave the developer's machine? Should it be excluded from the trace graph?
 
 ### Research: How Other Tools Handle This
 
@@ -177,18 +177,18 @@ Should we check file permissions on `.prep/.secrets`? Would it ever leave the de
 ### The Answer: Three Layers of Protection
 
 **Layer 1: Always Gitignored (Already Done)**
-Prep's `.prep/.secrets` lives inside `.prep/` which is typically gitignored. But we should also ensure `.secrets` is explicitly in our recommended `.gitignore` patterns. This file should **never** leave the developer's machine via Git.
+Prep's `.runprep/.secrets` lives inside `.runprep/` which is typically gitignored. But we should also ensure `.secrets` is explicitly in our recommended `.gitignore` patterns. This file should **never** leave the developer's machine via Git.
 
 **Layer 2: Always Excluded from Trace Graph (Should Implement)**
-The Rust parser (`prep-parser`) should never index `.prep/.secrets`. Our default `exclude_globs` should include `.prep/.secrets` and `**/.secrets`. Even if someone explicitly includes `.prep/` in their trace scope, the secrets file must be excluded. This is a hard exclude — not configurable.
+The Rust parser (`prep-parser`) should never index `.runprep/.secrets`. Our default `exclude_globs` should include `.runprep/.secrets` and `**/.secrets`. Even if someone explicitly includes `.runprep/` in their trace scope, the secrets file must be excluded. This is a hard exclude — not configurable.
 
 **Layer 3: Permission Check on Unix Only (Should Implement)**
 Follow the SSH model:
-- **On Unix/macOS:** When reading `.prep/.secrets`, check if permissions are wider than `0600`. If they are, log a `WARNING` but still read the file (unlike SSH which hard-refuses). This is gentler because Prep is a dev tool, not a security-critical system.
+- **On Unix/macOS:** When reading `.runprep/.secrets`, check if permissions are wider than `0600`. If they are, log a `WARNING` but still read the file (unlike SSH which hard-refuses). This is gentler because Prep is a dev tool, not a security-critical system.
 - **On Windows:** Skip the permission check. Windows ACLs work completely differently. The file is protected by the user's profile folder permissions by default.
 
 **Layer 4: On First Creation (Should Implement)**
-When the documentation or CLI creates `.prep/.secrets` for the first time, explicitly set `chmod 600` on Unix:
+When the documentation or CLI creates `.runprep/.secrets` for the first time, explicitly set `chmod 600` on Unix:
 ```python
 import os, stat
 secrets_path.write_text(json.dumps(data, indent=2))
@@ -204,7 +204,7 @@ os.chmod(secrets_path, stat.S_IRUSR | stat.S_IWUSR)  # 0600
 All of these are already true because:
 1. The Rust parser only indexes files matching `include_globs` (source code patterns)
 2. S3 upload only zips files from `INDEX_ARTIFACTS` list (explicit allowlist)
-3. The secrets file is in `.prep/` not in the source tree
+3. The secrets file is in `.runprep/` not in the source tree
 
 **Implementation is low-effort and low-risk.** I can add the permission check and the hard-exclude in one small PR.
 

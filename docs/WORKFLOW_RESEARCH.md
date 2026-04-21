@@ -242,7 +242,7 @@ Acceptance criteria:
 - **Stale signal is fast**
   - UI indicates staleness quickly (seconds).
 - **Loop avoidance**
-  - Watcher ignores index output directories (including `.prep/**` in embedded mode).
+  - Watcher ignores index output directories (including `.runprep/**` in embedded mode).
 
 ### A1 Journey 5 — Structural question with trace-assisted context (Phase04)
 

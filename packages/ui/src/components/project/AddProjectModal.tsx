@@ -23,11 +23,11 @@ export interface AddProjectModalProps {
 const INDEX_LOCATION_INFO: Record<ProjectMode, { best: string; detail: string }> = {
   standalone: {
     best: 'Best for portability',
-    detail: 'Index lives in the app data directory (~/.prep/). Move or delete the repo without losing your index. Ideal if the repo is on network or external storage.',
+    detail: 'Index lives in the app data directory (~/.runprep/). Move or delete the repo without losing your index. Ideal if the repo is on network or external storage.',
   },
   embedded: {
     best: 'Best when boot disk is faster',
-    detail: 'Index lives inside the repo at .prep/. Co-located with your code for zero-config. Best when your boot SSD is faster than the repo\'s storage device.',
+    detail: 'Index lives inside the repo at .runprep/. Co-located with your code for zero-config. Best when your boot SSD is faster than the repo\'s storage device.',
   },
   custom: {
     best: 'Best for performance',
@@ -90,7 +90,7 @@ export function AddProjectModal({
 
   const modes: { key: ProjectMode; label: string; icon: typeof Folder; desc: string }[] = [
     { key: 'standalone', label: 'Standalone', icon: Folder,    desc: 'App data directory' },
-    { key: 'embedded',   label: 'Embedded',   icon: Layout,    desc: '.prep/ in repo' },
+    { key: 'embedded',   label: 'Embedded',   icon: Layout,    desc: '.runprep/ in repo' },
     { key: 'custom',     label: 'Custom',     icon: HardDrive, desc: 'Choose a path' },
   ];
 

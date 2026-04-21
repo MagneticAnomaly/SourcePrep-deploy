@@ -10,7 +10,7 @@ def test_trace_builder_includes_all_languages():
     
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_root = Path(tmpdir)
-        index_dir = repo_root / ".prep"
+        index_dir = repo_root / ".runprep"
         
         # Create dummy files for various languages
         files_to_create = [
@@ -64,7 +64,7 @@ def test_trace_builder_swift_analysis_smoke():
 
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = Path(tmpdir)
-            index_dir = repo_root / ".prep"
+            index_dir = repo_root / ".runprep"
 
             swift_file = repo_root / "test.swift"
             swift_code = """
@@ -112,7 +112,7 @@ def test_trace_builder_includes_new_languages():
     """Verify that TraceBuilder includes all newly added language extensions."""
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_root = Path(tmpdir)
-        index_dir = repo_root / ".prep"
+        index_dir = repo_root / ".runprep"
 
         new_lang_files = [
             "Main.kt",
@@ -149,7 +149,7 @@ def test_generic_regex_analyzer_kotlin():
 
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = Path(tmpdir)
-            index_dir = repo_root / ".prep"
+            index_dir = repo_root / ".runprep"
 
             kt_file = repo_root / "Main.kt"
             kt_file.write_text("""
@@ -195,7 +195,7 @@ def test_generic_regex_analyzer_csharp():
 
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = Path(tmpdir)
-            index_dir = repo_root / ".prep"
+            index_dir = repo_root / ".runprep"
 
             cs_file = repo_root / "Program.cs"
             cs_file.write_text("""
@@ -243,7 +243,7 @@ def test_generic_regex_analyzer_ruby():
 
         with tempfile.TemporaryDirectory() as tmpdir:
             repo_root = Path(tmpdir)
-            index_dir = repo_root / ".prep"
+            index_dir = repo_root / ".runprep"
 
             rb_file = repo_root / "app.rb"
             rb_file.write_text("""

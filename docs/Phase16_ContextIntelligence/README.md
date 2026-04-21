@@ -25,7 +25,7 @@ Ship a `NativeEmbedder` that runs `nomic-embed-text` via ONNX Runtime. No Ollama
 
 1. **New class**: `NativeEmbedder(Embedder)` in `src/prep/core/embedder.py`
    - Uses `onnxruntime.InferenceSession` + `tokenizers.Tokenizer`
-   - Auto-downloads model from HuggingFace Hub on first use to `~/.prep/models/nomic-embed-text/`
+   - Auto-downloads model from HuggingFace Hub on first use to `~/.runprep/models/nomic-embed-text/`
    - Implements `embed()` and `embed_batch()` (batch is actually efficient with ONNX)
    - Mean-pooling + L2 normalization (matching nomic-embed-text's expected usage)
 

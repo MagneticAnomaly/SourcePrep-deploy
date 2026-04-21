@@ -24,7 +24,7 @@ class TestIsRelevantPathspec:
     EXCLUDES = [
         "**/.claude/**",
         "**/.git/**",
-        "**/.prep/**",
+        "**/.runprep/**",
         "**/node_modules/**",
         "**/.venv/**",
         "**/*.lock",
@@ -42,8 +42,8 @@ class TestIsRelevantPathspec:
     @pytest.mark.parametrize("path", [
         ".git/HEAD",
         ".git/objects/ab/cdef.py",
-        ".prep/atlas.json",
-        ".prep/trace_nodes.jsonl",
+        ".runprep/atlas.json",
+        ".runprep/trace_nodes.jsonl",
         ".venv/lib/python3.11/site-packages/foo.py",
         "node_modules/react/index.ts",
         "src/foo/node_modules/bar/baz.ts",

@@ -58,7 +58,7 @@ client, even when the user has the panel closed.
 
 ```bash
 # Tail the daemon access log
-tail -f ~/.local/share/prep/logs/daemon.log | grep -E '/pipeline/(status|health)'
+tail -f ~/.local/share/runprep/logs/daemon.log | grep -E '/pipeline/(status|health)'
 
 # In dashboard: hide the trace-pipeline panel via the layout drawer.
 # Then trigger a run:

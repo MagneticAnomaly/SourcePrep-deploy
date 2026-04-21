@@ -6,7 +6,7 @@ Track opportunities that make team adoption smooth without compromising the loca
 ## Opportunities
 - **Hierarchical config merging**: global → team → project overrides, while keeping shared configs secret-free.
 - **Policy packs**: ship curated ignore + safety defaults for common stacks; org can enforce via team config.
-- **Operational modes**: “embedded committed index” vs “local-only index” vs future server mode; ensure `.prep/**` loop avoidance stays bulletproof.
+- **Operational modes**: “embedded committed index” vs “local-only index” vs future server mode; ensure `.runprep/**` loop avoidance stays bulletproof.
 
 ## Opportunities (dashboard tools + settings)
 - **Config provenance UI**: for every relevant setting, show where it came from:
@@ -36,7 +36,7 @@ Track opportunities that make team adoption smooth without compromising the loca
 - **Config drift across teammates**: if settings aren’t reproducible and visible, team results diverge and adoption stalls.
 - **Repo bloat / merge conflict pain**: committed indexes can explode repo size and create frequent conflicts; UX must treat indexes as rebuildable artifacts.
 - **Path leakage in remote mode**: project paths must not be surfaced to remote clients; errors must be redacted.
-- **Watcher loops in embedded mode**: `.prep/**` must always be excluded from watchers and rebuild triggers.
+- **Watcher loops in embedded mode**: `.runprep/**` must always be excluded from watchers and rebuild triggers.
 
 ## References
 - `TEAM_TIER_TECHNICAL_SPEC.md`

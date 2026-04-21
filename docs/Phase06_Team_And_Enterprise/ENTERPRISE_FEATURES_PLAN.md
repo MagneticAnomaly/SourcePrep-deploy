@@ -12,7 +12,7 @@ This document catalogs EVERY enterprise feature needed, what's built, what's mis
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| `feature_gate.py` — tier gating | ✅ Built | Reads `~/.prep/license.json`, maps tier → features |
+| `feature_gate.py` — tier gating | ✅ Built | Reads `~/.runprep/license.json`, maps tier → features |
 | Ed25519 signature verification | ✅ Built | `licensing.py` has `verify_license_key()` |
 | `expires_at` validation | ✅ Built | Downgrades to FREE when expired |
 | `PREP_DEV_MODE` gating | ✅ Built | Requires `=1` alongside `PREP_TIER` |

@@ -40,7 +40,7 @@ Aider doesn't have native MCP client support. To use Prep with Aider:
 # .aider.conf.yml
 read:
   - AGENTS.md          # Prep atlas + instructions
-  - .prep/context.md # Static context snapshot (optional)
+  - .runprep/context.md # Static context snapshot (optional)
 ```
 
 ---
@@ -51,7 +51,7 @@ Since Aider can't call MCP tools dynamically, Prep should support a **static con
 
 ```bash
 # Prep CLI generates a static context file
-prep export --format markdown --output .prep/context.md
+prep export --format markdown --output .runprep/context.md
 ```
 
 This file contains:
@@ -63,7 +63,7 @@ This file contains:
 Aider reads this at session start via `.aider.conf.yml`:
 ```yaml
 read:
-  - .prep/context.md
+  - .runprep/context.md
 ```
 
 ### Regeneration

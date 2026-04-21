@@ -112,7 +112,7 @@ The important point is that weighting is **advisory**, not a correctness require
 
 Once accepted, store a snapshot of the policy used for builds, so results are reproducible.
 
-- Store under `.prep/` (embedded mode) or index_dir (standalone mode)
+- Store under `.runprep/` (embedded mode) or index_dir (standalone mode)
 - Include it in trace and embedding manifests
 
 ## Optional LLM assistance (recommended shape)

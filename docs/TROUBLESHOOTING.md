@@ -260,7 +260,7 @@ Error: PROJECT_SELECTION_AMBIGUOUS
 **Solutions:**
 1. Keep index size reasonable
 2. Exclude unnecessary files
-3. Use SSD storage for `.prep/`
+3. Use SSD storage for `.runprep/`
 
 ## File Issues
 

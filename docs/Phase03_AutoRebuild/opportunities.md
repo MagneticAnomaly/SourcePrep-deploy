@@ -31,7 +31,7 @@ Track robustness opportunities for keeping indexes fresh without rebuild storms.
   - throttle behavior when changes never settle
   - polling fallback toggle (and polling interval bounds)
 - **Loop avoidance controls**:
-  - explicit “ignore outputs” UI that shows the resolved ignore list (including `.prep/**` and `.git/**`)
+  - explicit “ignore outputs” UI that shows the resolved ignore list (including `.runprep/**` and `.git/**`)
   - a warning banner when the index directory is inside the watched tree (embedded mode)
 - **Manual reconciliation tool**: a “Re-scan for missed changes” action that compares hashes to the manifest and updates staleness state without a full rebuild.
 
@@ -43,7 +43,7 @@ Track robustness opportunities for keeping indexes fresh without rebuild storms.
 
 ## Hazards
 - **Rebuild storms and CPU spikes**: continuous edits can trigger constant rebuilding without robust debounce/throttle.
-- **Watch loops in embedded mode**: if `.prep/**` isn’t excluded reliably, the system can rebuild forever.
+- **Watch loops in embedded mode**: if `.runprep/**` isn’t excluded reliably, the system can rebuild forever.
 - **Missed events**: network filesystems, editor save patterns, and OS watcher limits can cause staleness to be wrong.
 - **Atomic write edge cases**: indexing temp files or half-written files produces misleading chunks and unstable IDs.
 - **Build contention**: multiple builds per project must be serialized; “pending rebuild” must be visible and deterministic.

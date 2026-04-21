@@ -213,7 +213,7 @@ A router was added that calls a method which doesn't exist on the SettingsStore.
 ### 96C — Live cycle validation on fresh state
 
 Still to verify:
-- **Initial build** (empty `.prep/` directory, every stage runs from scratch)
+- **Initial build** (empty `.runprep/` directory, every stage runs from scratch)
 - **Incremental** (modified file → only affected stages re-run)
 - **Rebuild** ✅ validated above
 

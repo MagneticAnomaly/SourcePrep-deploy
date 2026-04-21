@@ -41,7 +41,7 @@ New concept. Lives in `repo_profile.py` adjacent to the existing default sets.
 # in which the LLM reasons about Prep's own state. Every new writer must
 # add its path here; the default exclude sets below derive from this.
 PREP_OUTPUT_DIRS: Set[str] = {
-    ".prep",          # per-project index (embedded mode)
+    ".runprep",          # per-project index (embedded mode)
     "prep_data",      # daemon-wide store (SQLite + telemetry + ui_config)
 }
 
@@ -189,13 +189,13 @@ This is the load-bearing test for Principle 4. If a future writer adds a new out
 - No change to per-language presets in `STACK_PRESETS`.
 - No change to the Knowledge Scope UI or `/trace/ignore` endpoint contract.
 - No reorganization of on-disk layout (that is Phase 113).
-- No migration of `prep_data/` to `~/.local/share/prep/` (tracked separately).
+- No migration of `prep_data/` to `~/.local/share/runprep/` (tracked separately).
 
 ## Interaction with Phase 113
 
-Phase 113 will rename many paths inside `.prep/` (`trace/nodes.jsonl` instead of `trace_nodes.jsonl`, etc.). That changes the *shape* of `PREP_OUTPUT_DIRS` for `.prep/` internals but not the set membership — `.prep/` stays in the registry regardless. Phase 113 migration should:
+Phase 113 will rename many paths inside `.runprep/` (`trace/nodes.jsonl` instead of `trace_nodes.jsonl`, etc.). That changes the *shape* of `PREP_OUTPUT_DIRS` for `.runprep/` internals but not the set membership — `.runprep/` stays in the registry regardless. Phase 113 migration should:
 
 - Keep `.prep` in `PREP_OUTPUT_DIRS` as-is (it's a dir, not a path into it).
-- Not introduce new top-level paths outside `.prep/`.
+- Not introduce new top-level paths outside `.runprep/`.
 
 No merge conflict expected. Phase 115 lands first.

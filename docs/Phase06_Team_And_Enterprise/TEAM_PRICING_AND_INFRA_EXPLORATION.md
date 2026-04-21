@@ -73,4 +73,4 @@ With this killer feature in mind, here are two viable ways to price the Team tie
 
 1. **Investigate Modal vs RunPod Serverless:** Build a quick proof-of-concept Docker container that runs the Prep Python pipeline + Ollama headless, and see how fast it boots on Modal or RunPod Serverless.
 2. **Design the S3 Sync Protocol:** Outline how the local client merges a downloaded `trace_manifest.json` with local uncommitted file changes. (How does it know what to trust?)
-3. **Draft the "Team Onboarding" UX:** How does an engineering manager distribute the S3 read credentials to their team securely? (e.g., via the `.prep/team_config.json` file we planned).
+3. **Draft the "Team Onboarding" UX:** How does an engineering manager distribute the S3 read credentials to their team securely? (e.g., via the `.runprep/team_config.json` file we planned).

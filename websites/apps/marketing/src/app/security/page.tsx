@@ -74,7 +74,7 @@ export default function Page() {
                     </p>
                     <p className="mt-4 text-sm text-text-muted">
                       Prep runs entirely on localhost. Indexes, embeddings, and configuration are
-                      stored locally in <code className="text-xs bg-background border border-border rounded px-1 py-0.5 font-mono">~/.local/share/prep</code> (or
+                      stored locally in <code className="text-xs bg-background border border-border rounded px-1 py-0.5 font-mono">~/.local/share/runprep</code> (or
                       in-project via embedded mode). There is no cloud component, no server-side
                       processing, and no mechanism to upload source code.
                     </p>

@@ -111,7 +111,7 @@ prep add /path/to/myproject
 # Add with custom name
 prep add /path/to/myproject --name "My Awesome Project"
 
-# Use embedded mode (stores index in .prep/ within repo)
+# Use embedded mode (stores index in .runprep/ within repo)
 prep add /path/to/myproject --mode embedded
 ```
 
@@ -642,7 +642,7 @@ prep build abc123 # Must specify project ID
 |----------|---------|-------------|
 | `PREP_HOST` | `127.0.0.1` | Default server host |
 | `PREP_PORT` | `8400` | Default server port |
-| `PREP_DATA_DIR` | `~/.local/share/prep` | Data directory for standalone indexes |
+| `PREP_DATA_DIR` | `~/.local/share/runprep` | Data directory for standalone indexes |
 | `PREP_ENGINE` | `auto` | Indexing engine: `auto`, `rust`, or `python` |
 | `PREP_TIER` | (from license) | Override license tier: `free`, `starter`, `pro`, `team`, `enterprise` |
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama server URL (standard Ollama env var) |

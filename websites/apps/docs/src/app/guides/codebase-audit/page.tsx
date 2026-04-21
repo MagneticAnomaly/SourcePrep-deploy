@@ -232,7 +232,7 @@ prep audit --category architecture`}</code></pre>
           <AnchorHeading id="output-location" level="h2">Output Location</AnchorHeading>
           <p>All audit output is stored inside the project&apos;s index directory:</p>
           <pre className="rounded-lg bg-surface-raised p-4"><code>{`# Standalone mode (default):
-~/.local/share/prep/projects/{project-id}/audit/
+~/.local/share/runprep/projects/{project-id}/audit/
   ├── findings.json            # Raw structured findings
   ├── audit_manifest.json      # Run metadata (timestamps, counts)
   ├── AUDIT_SUMMARY.md         # LLM-generated (if synthesized)
@@ -242,7 +242,7 @@ prep audit --category architecture`}</code></pre>
   └── TECH_DEBT_REPORT.md
 
 # Embedded mode:
-/path/to/project/.prep/audit/
+/path/to/project/.runprep/audit/
   └── (same files)`}</code></pre>
           <p>
             These files are also indexed by Prep&apos;s search engine, so you can
