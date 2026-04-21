@@ -5,7 +5,7 @@ build-backend = "maturin"
 [project]
 name = "prep-engine"
 version = "0.1.0"
-description = "Rust engine core for CoDRAG — file walking, parsing, trace graph"
+description = "Rust engine core for Prep — file walking, parsing, trace graph"
 requires-python = ">=3.10"
 
 [tool.maturin]

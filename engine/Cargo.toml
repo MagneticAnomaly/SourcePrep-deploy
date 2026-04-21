@@ -14,7 +14,7 @@ members = [
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-authors = ["CoDRAG Team"]
+authors = ["Prep Team"]
 
 [workspace.dependencies]
 # Shared deps pinned at workspace level

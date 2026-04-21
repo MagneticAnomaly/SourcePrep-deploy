@@ -1,6 +1,6 @@
 [package]
 name = "prep-engine"
-description = "PyO3 Python bindings for the CoDRAG Rust engine"
+description = "PyO3 Python bindings for the Prep Rust engine"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

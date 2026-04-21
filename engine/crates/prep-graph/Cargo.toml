@@ -1,6 +1,6 @@
 [package]
 name = "prep-graph"
-description = "In-memory trace graph storage and queries for CoDRAG"
+description = "In-memory trace graph storage and queries for Prep"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

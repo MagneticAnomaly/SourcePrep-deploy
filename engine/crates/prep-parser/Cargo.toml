@@ -1,6 +1,6 @@
 [package]
 name = "prep-parser"
-description = "Tree-sitter multi-language AST parsing for CoDRAG"
+description = "Tree-sitter multi-language AST parsing for Prep"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
