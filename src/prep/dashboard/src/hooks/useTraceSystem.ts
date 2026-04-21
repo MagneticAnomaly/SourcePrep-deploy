@@ -133,7 +133,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
 
   const [indexAutoRebuild, setIndexAutoRebuild] = useState<boolean>(() => {
     try {
-      const stored = localStorage.getItem('codrag_index_auto_rebuild')
+      const stored = localStorage.getItem('prep_index_auto_rebuild')
       return stored === 'true'
     } catch { return false }
   })
@@ -473,12 +473,12 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       deep_enrichment_mode: config.deepEnrichment,
     }).catch(() => { /* silent */ })
     // Keep localStorage as a final fallback
-    localStorage.setItem('codrag_enrichment_auto_config', JSON.stringify(config))
+    localStorage.setItem('prep_enrichment_auto_config', JSON.stringify(config))
     // Sync the legacy indexAutoRebuild flag so the watcher hydration
     // effect (which checks both flags) works correctly on page reload.
     if (config.fastSync !== indexAutoRebuild) {
       setIndexAutoRebuild(config.fastSync)
-      localStorage.setItem('codrag_index_auto_rebuild', String(config.fastSync))
+      localStorage.setItem('prep_index_auto_rebuild', String(config.fastSync))
     }
 
     if (!selectedProjectId) return
@@ -548,7 +548,7 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
 
   const handleIndexAutoRebuildChange = useCallback(async (auto: boolean) => {
     setIndexAutoRebuild(auto)
-    localStorage.setItem('codrag_index_auto_rebuild', String(auto))
+    localStorage.setItem('prep_index_auto_rebuild', String(auto))
 
     if (!selectedProjectId) return
 

@@ -1,4 +1,4 @@
-// src/codrag/dashboard/src/components/settings/v2/useSettingsRoute.ts
+// src/prep/dashboard/src/components/settings/v2/useSettingsRoute.ts
 import { useCallback, useEffect, useState } from 'react';
 import {
   parseSettingsParam, buildSettingsParam, type SettingsPageId,

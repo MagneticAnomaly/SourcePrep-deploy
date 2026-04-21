@@ -974,25 +974,25 @@ git commit -m "rename(phase-7): ts/js imports @codrag/* -> @prep/*, typecheck gr
 
 **Files:**
 - Modify: `packages/vscode/package.json`, `packages/vscode/src/extension.ts`, `packages/vscode/src/**/*.ts`, `packages/vscode/webview-ui/src/**/*.{ts,tsx}`
-- `git mv`: `packages/vscode/media/codrag-icon.png` → `prep-icon.png`; `codrag-sidebar.svg` → `prep-sidebar.svg`
+- `git mv`: `packages/vscode/media/prep-icon.png` → `prep-icon.png`; `prep-sidebar.svg` → `prep-sidebar.svg`
 
 - [ ] **Step 1: Rename media files**
 
 ```bash
-git mv packages/vscode/media/codrag-icon.png packages/vscode/media/prep-icon.png
-git mv packages/vscode/media/codrag-sidebar.svg packages/vscode/media/prep-sidebar.svg
+git mv packages/vscode/media/prep-icon.png packages/vscode/media/prep-icon.png
+git mv packages/vscode/media/prep-sidebar.svg packages/vscode/media/prep-sidebar.svg
 ```
 
 - [ ] **Step 2: Rewrite `package.json` contribution IDs**
 
-Key fields: `contributes.commands[].command` (prefix `codrag.`), `contributes.configuration.properties` (keys `codrag.*`), `contributes.viewsContainers.activitybar[].id` (`codrag-sidebar`), `contributes.views.<containerId>` object key, `contributes.menus.*[].when` (references command IDs).
+Key fields: `contributes.commands[].command` (prefix `codrag.`), `contributes.configuration.properties` (keys `codrag.*`), `contributes.viewsContainers.activitybar[].id` (`prep-sidebar`), `contributes.views.<containerId>` object key, `contributes.menus.*[].when` (references command IDs).
 
 ```bash
 # The package.json `name`/`displayName` already updated in Task 6.
 # Command IDs, config keys, view container IDs:
 sed -i '' \
   -e 's|"codrag\.|"prep.|g' \
-  -e 's|"codrag-sidebar"|"prep-sidebar"|g' \
+  -e 's|"prep-sidebar"|"prep-sidebar"|g' \
   -e 's|"icon": "media/codrag-|"icon": "media/prep-|g' \
   packages/vscode/package.json
 
@@ -1024,8 +1024,8 @@ rg -l "getConfiguration\('codrag'" packages/vscode | \
   xargs sed -i '' "s|getConfiguration('codrag')|getConfiguration('prep')|g"
 
 # Icon path refs:
-rg -l 'media/codrag-icon' packages/vscode | xargs sed -i '' 's|media/codrag-icon|media/prep-icon|g'
-rg -l 'media/codrag-sidebar' packages/vscode | xargs sed -i '' 's|media/codrag-sidebar|media/prep-sidebar|g'
+rg -l 'media/prep-icon' packages/vscode | xargs sed -i '' 's|media/prep-icon|media/prep-icon|g'
+rg -l 'media/prep-sidebar' packages/vscode | xargs sed -i '' 's|media/prep-sidebar|media/prep-sidebar|g'
 ```
 
 - [ ] **Step 4: Brand-name pass in extension TS/TSX**
@@ -1298,9 +1298,9 @@ The nested `.git/` inside each moves along with the rest of the directory — no
 - [ ] **Step 2: Rename subtree README / logo files**
 
 ```bash
-git mv public/prep-mcp/codrag-logo.png public/prep-mcp/prep-logo.png 2>/dev/null || true
-git mv public/prep-mcp/codrag-github-header.png public/prep-mcp/prep-github-header.png 2>/dev/null || true
-git mv public/prep-deploy/codrag-github-header.png public/prep-deploy/prep-github-header.png 2>/dev/null || true
+git mv public/prep-mcp/prep-logo.png public/prep-mcp/prep-logo.png 2>/dev/null || true
+git mv public/prep-mcp/prep-github-header.png public/prep-mcp/prep-github-header.png 2>/dev/null || true
+git mv public/prep-deploy/prep-github-header.png public/prep-deploy/prep-github-header.png 2>/dev/null || true
 ```
 
 (`|| true` because these are in the nested repos; if the files don't exist or the nested repo has its own rules, keep moving.)
@@ -1635,7 +1635,7 @@ git commit -m "rename(phase-14): websites — content, routes, domains, emails, 
 **Goal:** Rename image/icon files that carry the CoDRAG name in the filename, update every `<img src>` / `<Image src>` reference, and sweep UI string literals in the Prep dashboard. Visual contents of the images are NOT altered (D6 — rename filenames only).
 
 **Files:**
-- `git mv`: `public/images/CoDRAG.png` → `Prep.png`, `codrag-logo.png` (wherever it lives) → `prep-logo.png`
+- `git mv`: `public/images/Prep.png` → `Prep.png`, `prep-logo.png` (wherever it lives) → `prep-logo.png`
 - Modify: every file that references renamed image filenames
 - Modify: `src/prep/dashboard/src/**/*.{ts,tsx}` (user-visible strings)
 
@@ -1643,10 +1643,10 @@ git commit -m "rename(phase-14): websites — content, routes, domains, emails, 
 
 ```bash
 # Repo-root logo:
-[ -f codrag-logo.png ] && git mv codrag-logo.png prep-logo.png
+[ -f prep-logo.png ] && git mv prep-logo.png prep-logo.png
 
 # Public images folder:
-[ -f public/images/CoDRAG.png ] && git mv public/images/CoDRAG.png public/images/Prep.png
+[ -f public/images/Prep.png ] && git mv public/images/Prep.png public/images/Prep.png
 # Any other codrag-*.png or codrag-*.svg under public/images:
 fd -H 'codrag' public/images -t f | while read -r f; do
   new="${f/codrag/prep}"
@@ -1677,14 +1677,14 @@ done
 
 ```bash
 # In all text files:
-rg -l 'CoDRAG\.png|codrag-logo|codrag-icon|codrag-sidebar|codrag-github-header' \
+rg -l 'CoDRAG\.png|prep-logo|prep-icon|prep-sidebar|prep-github-header' \
   --glob '!.git' --glob '!node_modules' --glob '!.venv' | \
   xargs sed -i '' \
     -e 's|CoDRAG\.png|Prep.png|g' \
-    -e 's|codrag-logo|prep-logo|g' \
-    -e 's|codrag-icon|prep-icon|g' \
-    -e 's|codrag-sidebar|prep-sidebar|g' \
-    -e 's|codrag-github-header|prep-github-header|g'
+    -e 's|prep-logo|prep-logo|g' \
+    -e 's|prep-icon|prep-icon|g' \
+    -e 's|prep-sidebar|prep-sidebar|g' \
+    -e 's|prep-github-header|prep-github-header|g'
 ```
 
 - [ ] **Step 4: Dashboard UI string sweep**

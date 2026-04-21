@@ -1,4 +1,4 @@
-// src/codrag/dashboard/src/components/settings/v2/SettingsOverlay.tsx
+// src/prep/dashboard/src/components/settings/v2/SettingsOverlay.tsx
 import { createPortal } from 'react-dom';
 import { useEffect, useRef } from 'react';
 import { ArrowLeft, X } from 'lucide-react';

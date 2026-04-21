@@ -91,12 +91,12 @@ public/codrag-deploy/                   → public/prep-deploy/  (contains neste
 codrag-mcp-wrapper.sh                          → prep-mcp-wrapper.sh
 codrag-daemon.spec                             → prep-daemon.spec
 scripts/publish_codrag_mcp_subtree.sh          → scripts/publish_prep_mcp_subtree.sh
-public/images/CoDRAG.png                       → public/images/Prep.png
-public/codrag-mcp/codrag-logo.png              → public/prep-mcp/prep-logo.png
-public/codrag-mcp/codrag-github-header.png     → public/prep-mcp/prep-github-header.png
-public/codrag-deploy/codrag-github-header.png  → public/prep-deploy/prep-github-header.png
-packages/vscode/media/codrag-icon.png          → packages/vscode/media/prep-icon.png
-packages/vscode/media/codrag-sidebar.svg       → packages/vscode/media/prep-sidebar.svg
+public/images/Prep.png                       → public/images/Prep.png
+public/codrag-mcp/prep-logo.png              → public/prep-mcp/prep-logo.png
+public/codrag-mcp/prep-github-header.png     → public/prep-mcp/prep-github-header.png
+public/codrag-deploy/prep-github-header.png  → public/prep-deploy/prep-github-header.png
+packages/vscode/media/prep-icon.png          → packages/vscode/media/prep-icon.png
+packages/vscode/media/prep-sidebar.svg       → packages/vscode/media/prep-sidebar.svg
 src/codrag/agents/shared/codrag_data.py        → src/prep/agents/shared/prep_data.py
 src/codrag_data/codrag_settings.db             → src/prep_data/prep_settings.db
 ```
@@ -234,8 +234,8 @@ The implementation plan will confirm each package's current `name` field from it
 | `package.json` → `homepage`/`repository` | `runprep.io` / `MagneticAnomaly/Prep` |
 | `contributes.commands` (`codrag.search`, etc.) | `prep.search`, `prep.assembleContext`, etc. |
 | `contributes.configuration` keys (`codrag.daemonPort`) | `prep.daemonPort` |
-| `contributes.viewsContainers` (id `codrag-sidebar`) | `prep-sidebar` |
-| `media/codrag-icon.png`, `codrag-sidebar.svg` | rename files |
+| `contributes.viewsContainers` (id `prep-sidebar`) | `prep-sidebar` |
+| `media/prep-icon.png`, `prep-sidebar.svg` | rename files |
 | `src/extension.ts` registerCommand calls | `"prep.search"`, etc. |
 | `src/extension.ts` `getConfiguration("codrag")` | `"prep"` |
 

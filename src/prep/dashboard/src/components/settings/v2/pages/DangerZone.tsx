@@ -13,7 +13,7 @@ import {
 import { SettingsPage } from '../SettingsPage';
 
 // Stage labels for the Recover picker.
-// All 15 stages have checkpoint coverage (see src/codrag/services/pipeline_checkpoint.py).
+// All 15 stages have checkpoint coverage (see src/prep/services/pipeline_checkpoint.py).
 const RECOVER_STAGE_OPTIONS: { value: EnrichmentStageId; label: string }[] = [
   { value: 'structural', label: 'Structural' },
   { value: 'inferred_edges', label: 'Inferred Edges' },

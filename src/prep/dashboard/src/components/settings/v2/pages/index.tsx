@@ -87,7 +87,7 @@ export interface PageHostProps {
 
   // ── Global-scope: Integrations page (Task 22) ─────────────────────
   // onOpenAiGateway closes the overlay (drops ?settings= from URL) and
-  // dispatches 'codrag:open-ai-gateway' which App.tsx routes to the
+  // dispatches 'prep:open-ai-gateway' which App.tsx routes to the
   // AI Gateway details panel. The AI Gateway itself is not moved.
   onOpenAiGateway: () => void;
 

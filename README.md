@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/codrag-github-header.png" alt="CoDRAG" width="100%">
+  <img src="docs/assets/prep-github-header.png" alt="CoDRAG" width="100%">
 </p>
 
 <h2 align="center"><em>The bridge between how you think about code and how AI reads it.</em></h2>

@@ -82,7 +82,7 @@ import type { UseConceptSystemReturn } from './useConceptSystem'
 
 const PINNED_PREFIX = 'pinned:'
 
-// Mirror of src/codrag/core/repo_profile.py DEFAULT_EXCLUDE_FILE_GLOBS.
+// Mirror of src/prep/core/repo_profile.py DEFAULT_EXCLUDE_FILE_GLOBS.
 // Files matching these patterns render in the Scope tree as "always-ignored"
 // (strikethrough, no include/exclude icons) because they're AI-assistant rule
 // files that should stay available to agents but out of the index.

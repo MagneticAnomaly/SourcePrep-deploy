@@ -24,7 +24,7 @@ export function useLicenseSystem() {
   const [licenseLoading, setLicenseLoading] = useState(false)
   const [licenseError, setLicenseError] = useState<string | null>(null)
   const [devTierOverride, setDevTierOverride] = useState<LicenseTier | null>(() => {
-    const stored = localStorage.getItem('codrag_dev_tier_override')
+    const stored = localStorage.getItem('prep_dev_tier_override')
     return stored ? stored as LicenseTier : null
   })
 
@@ -32,7 +32,7 @@ export function useLicenseSystem() {
     try {
       // Sync any stored dev tier override to the backend on startup.
       // The backend writes a real license.json so all feature gates work.
-      const stored = localStorage.getItem('codrag_dev_tier_override')
+      const stored = localStorage.getItem('prep_dev_tier_override')
       if (stored) {
         try { await api.setDevTierOverride(stored) } catch { /* ok */ }
       }
@@ -45,7 +45,7 @@ export function useLicenseSystem() {
       const backendOverride = detectDevOverrideFromBackend(status)
       if (backendOverride) {
         setDevTierOverride(backendOverride)
-        localStorage.setItem('codrag_dev_tier_override', backendOverride)
+        localStorage.setItem('prep_dev_tier_override', backendOverride)
       } else if (!stored) {
         // No localStorage AND no backend override — ensure clean state
         setDevTierOverride(null)
@@ -86,9 +86,9 @@ export function useLicenseSystem() {
   const handleDevTierOverrideChange = useCallback(async (tier: LicenseTier | null) => {
     setDevTierOverride(tier)
     if (tier) {
-      localStorage.setItem('codrag_dev_tier_override', tier)
+      localStorage.setItem('prep_dev_tier_override', tier)
     } else {
-      localStorage.removeItem('codrag_dev_tier_override')
+      localStorage.removeItem('prep_dev_tier_override')
     }
     // Propagate to backend — this writes a REAL license.json file
     // so every feature gate works exactly like a real license.

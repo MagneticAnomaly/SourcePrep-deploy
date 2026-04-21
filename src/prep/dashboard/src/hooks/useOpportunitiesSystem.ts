@@ -239,7 +239,7 @@ export function useOpportunitiesSystem(
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')
           a.href = url
-          a.download = `codrag-opportunities.${format}`
+          a.download = `prep-opportunities.${format}`
           a.click()
           URL.revokeObjectURL(url)
         }

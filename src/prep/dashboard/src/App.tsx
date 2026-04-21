@@ -127,10 +127,10 @@ function App() {
 
   // ── UI preferences ─────────────────────────────────────────
   const [uiMode, setUiMode] = useState<'light' | 'dark'>(() =>
-    (localStorage.getItem('codrag_ui_mode') as 'light' | 'dark') ?? 'light'
+    (localStorage.getItem('prep_ui_mode') as 'light' | 'dark') ?? 'light'
   )
   const [uiTheme, setUiTheme] = useState<string>(() =>
-    localStorage.getItem('codrag_ui_theme') ?? 'none'
+    localStorage.getItem('prep_ui_theme') ?? 'none'
   )
   // Opens the V2 settings overlay at a specific page by pushing
   // `?settings=<page>` into the URL and firing a popstate so the
@@ -142,7 +142,7 @@ function App() {
     window.dispatchEvent(new PopStateEvent('popstate'))
   }, [])
   const [bgImage, setBgImage] = useState<string | null>(() =>
-    localStorage.getItem('codrag_bg_image') ?? null
+    localStorage.getItem('prep_bg_image') ?? null
   )
   const [fastCollapsed, setFastCollapsed] = useState<boolean>(true);
   const [deepCollapsed, setDeepCollapsed] = useState<boolean>(true);
@@ -161,7 +161,7 @@ function App() {
   const [dashboardLayout, setDashboardLayout] = useState<DashboardLayout | null>(null)
   const [projectLimitBannerDismissed, setProjectLimitBannerDismissed] = useState(false)
   const [devRoleOverride, setDevRoleOverride] = useState<UserRole | null>(() => {
-    const stored = localStorage.getItem('codrag_dev_role_override')
+    const stored = localStorage.getItem('prep_dev_role_override')
     return stored ? stored as UserRole : null
   })
   const [globalConfig, setGlobalConfig] = useState<{
@@ -201,8 +201,8 @@ function App() {
     const handler = () => {
       layoutApiRef.current?.openDetails('llm-status')
     }
-    window.addEventListener('codrag:open-ai-gateway', handler)
-    return () => window.removeEventListener('codrag:open-ai-gateway', handler)
+    window.addEventListener('prep:open-ai-gateway', handler)
+    return () => window.removeEventListener('prep:open-ai-gateway', handler)
   }, [])
 
   // ── Watch (hook) ─────────────────────────────────────────────
@@ -577,11 +577,11 @@ function App() {
     const root = document.documentElement
     if (uiMode === 'dark') root.classList.add('dark')
     else root.classList.remove('dark')
-    root.setAttribute('data-codrag-theme', uiTheme === 'none' ? 'a' : uiTheme)
-    localStorage.setItem('codrag_ui_mode', uiMode)
-    localStorage.setItem('codrag_ui_theme', uiTheme)
-    if (bgImage) localStorage.setItem('codrag_bg_image', bgImage)
-    else localStorage.removeItem('codrag_bg_image')
+    root.setAttribute('data-prep-theme', uiTheme === 'none' ? 'a' : uiTheme)
+    localStorage.setItem('prep_ui_mode', uiMode)
+    localStorage.setItem('prep_ui_theme', uiTheme)
+    if (bgImage) localStorage.setItem('prep_bg_image', bgImage)
+    else localStorage.removeItem('prep_bg_image')
   }, [uiMode, uiTheme, bgImage])
 
   // ── Persist UI preferences to backend ─────────────────────
@@ -603,8 +603,8 @@ function App() {
 
   const handleDevRoleOverrideChange = useCallback((role: UserRole | null) => {
     setDevRoleOverride(role)
-    if (role) localStorage.setItem('codrag_dev_role_override', role)
-    else localStorage.removeItem('codrag_dev_role_override')
+    if (role) localStorage.setItem('prep_dev_role_override', role)
+    else localStorage.removeItem('prep_dev_role_override')
   }, [])
 
   const handleGlobalConfigChange = useCallback((patch: Record<string, any>) => {
@@ -616,7 +616,7 @@ function App() {
     const next = new URL(window.location.href)
     next.searchParams.delete('settings')
     window.history.replaceState(window.history.state, '', next.toString())
-    window.dispatchEvent(new CustomEvent('codrag:open-ai-gateway'))
+    window.dispatchEvent(new CustomEvent('prep:open-ai-gateway'))
   }, [])
 
   const handleGlobalAdvancedChange = useCallback((patch: Partial<AdvancedConfig>) => {
@@ -786,7 +786,7 @@ function App() {
             // auto-save failed due to SQLite lock contention).
             let localIsNewer = false
             try {
-              const existingRaw = localStorage.getItem('codrag_dashboard_layout')
+              const existingRaw = localStorage.getItem('prep_dashboard_layout')
               if (existingRaw) {
                 const existing = JSON.parse(existingRaw)
                 if (existing?.savedAt && existing.savedAt > (globalCfg.module_layout.savedAt ?? 0)) {
@@ -797,7 +797,7 @@ function App() {
               }
             } catch { /* parse error — overwrite with backend */ }
             if (!localIsNewer) {
-              try { localStorage.setItem('codrag_dashboard_layout', JSON.stringify(globalCfg.module_layout)) } catch { /* storage full */ }
+              try { localStorage.setItem('prep_dashboard_layout', JSON.stringify(globalCfg.module_layout)) } catch { /* storage full */ }
             }
           }
         } catch { /* Global config not available — use defaults */ }
@@ -1016,7 +1016,7 @@ function App() {
       api.exportSecurityReport().then((data: any) => {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
         const url = URL.createObjectURL(blob)
-        const a = document.createElement('a'); a.href = url; a.download = 'codrag-security-report.json'; a.click()
+        const a = document.createElement('a'); a.href = url; a.download = 'prep-security-report.json'; a.click()
         URL.revokeObjectURL(url)
       }).catch(() => { })
     },
@@ -1025,7 +1025,7 @@ function App() {
         const content = data.content || JSON.stringify(data, null, 2)
         const blob = new Blob([content], { type: data.format === 'csv' ? 'text/csv' : 'application/json' })
         const url = URL.createObjectURL(blob)
-        const a = document.createElement('a'); a.href = url; a.download = `codrag-audit-log.${data.format || 'json'}`; a.click()
+        const a = document.createElement('a'); a.href = url; a.download = `prep-audit-log.${data.format || 'json'}`; a.click()
         URL.revokeObjectURL(url)
       }).catch(() => { })
     },
@@ -1083,7 +1083,7 @@ function App() {
       {isDaemonUnhealthy && (
         <div className="fixed inset-x-0 top-0 z-[100] bg-error text-white px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
           <AlertCircle className="w-4 h-4" />
-          Connection to CoDRAG daemon lost. Attempting to reconnect...
+          Connection to Prep daemon lost. Attempting to reconnect...
         </div>
       )}
       <SettingsOverlay

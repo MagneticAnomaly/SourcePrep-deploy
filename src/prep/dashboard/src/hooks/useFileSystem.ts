@@ -79,19 +79,19 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
   const [includedPaths, setIncludedPaths] = useState<Set<string>>(() => {
     try {
       // Migration v2: clear stale data from before folder-aware toggle fix.
-      const version = localStorage.getItem('codrag_included_paths_version')
+      const version = localStorage.getItem('prep_included_paths_version')
       if (version !== '2') {
-        localStorage.removeItem('codrag_included_paths')
-        localStorage.setItem('codrag_included_paths_version', '2')
+        localStorage.removeItem('prep_included_paths')
+        localStorage.setItem('prep_included_paths_version', '2')
         return new Set()
       }
-      const stored = localStorage.getItem('codrag_included_paths')
+      const stored = localStorage.getItem('prep_included_paths')
       return stored ? new Set(JSON.parse(stored)) : new Set()
     } catch { return new Set() }
   })
   const [pinnedPaths, setPinnedPaths] = useState<Set<string>>(() => {
     try {
-      const stored = localStorage.getItem('codrag_pinned_files')
+      const stored = localStorage.getItem('prep_pinned_files')
       return stored ? new Set(JSON.parse(stored)) : new Set()
     } catch { return new Set() }
   })
@@ -265,7 +265,7 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
         }
       }
       
-      localStorage.setItem('codrag_included_paths', JSON.stringify([...next]))
+      localStorage.setItem('prep_included_paths', JSON.stringify([...next]))
 
       // Persist full canonical set to server (fire-and-forget)
       if (selectedProjectId) {
@@ -287,7 +287,7 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
 
   const clearIncludedPaths = useCallback(() => {
     setIncludedPaths(new Set())
-    localStorage.removeItem('codrag_included_paths')
+    localStorage.removeItem('prep_included_paths')
     if (selectedProjectId) {
       api.updateIncludedPaths(selectedProjectId, []).catch(() => {})
     }
@@ -299,7 +299,7 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
     setPinnedPaths((prev) => {
       const next = new Set(prev)
       next.add(path)
-      localStorage.setItem('codrag_pinned_files', JSON.stringify([...next]))
+      localStorage.setItem('prep_pinned_files', JSON.stringify([...next]))
       return next
     })
     // Add as a dashboard panel
@@ -315,7 +315,7 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
     setPinnedPaths((prev) => {
       const next = new Set(prev)
       next.delete(path)
-      localStorage.setItem('codrag_pinned_files', JSON.stringify([...next]))
+      localStorage.setItem('prep_pinned_files', JSON.stringify([...next]))
       return next
     })
     setPinnedFiles((prev) => prev.filter((f) => f.id !== path))
@@ -343,7 +343,7 @@ export function useFileSystem(selectedProjectId: string | null, deps: UseFileSys
       const serverPaths = new Set(data.included_paths ?? [])
       if (serverPaths.size > 0) {
         setIncludedPaths(serverPaths)
-        localStorage.setItem('codrag_included_paths', JSON.stringify([...serverPaths]))
+        localStorage.setItem('prep_included_paths', JSON.stringify([...serverPaths]))
       }
     }).catch(() => { /* keep localStorage state as fallback */ })
   }, [api, selectedProjectId, fetchFileTree])
