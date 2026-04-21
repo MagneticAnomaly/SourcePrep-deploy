@@ -57,7 +57,24 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
           </div>
         </SettingsPage>
       );
-    case 'trace-indexing':        return <TraceIndexingPage {...host as any} />;
+    case 'trace-indexing':
+      return host.projectConfigTyped ? (
+        <TraceIndexingPage
+          projectName={host.projectName}
+          config={host.projectConfigTyped}
+          dirty={host.projectDirty}
+          saving={host.projectSaving}
+          onChange={host.onProjectChange}
+          onSave={host.onProjectSave}
+          onDiscard={host.onProjectDiscard}
+        />
+      ) : (
+        <SettingsPage title="Trace & Indexing" scope="project">
+          <div className="text-sm text-text-muted">
+            Select a project to configure trace settings.
+          </div>
+        </SettingsPage>
+      );
     case 'deep-analysis':         return <DeepAnalysisPage {...host as any} />;
     case 'danger-zone':           return <DangerZonePage {...host as any} />;
     case 'appearance':            return <AppearancePage {...host as any} />;
