@@ -16,7 +16,7 @@ router = APIRouter(tags=["telemetry"])
 
 @router.get("/{project_id}/token-usage")
 def get_project_token_usage(project_id: str, since: float = 0.0) -> Dict[str, Any]:
-    """Aggregated token usage for a project, grouped by CodragTaskId.
+    """Aggregated token usage for a project, grouped by PrepTaskId.
 
     Used by the AI Gateway dashboard to display physical token consumption
     instead of heuristic estimates.

@@ -304,7 +304,7 @@ class TestMappingConsistency:
         assert set(STAGE_TASK_ID.keys()) == set(StageId)
 
     def test_stage_task_id_values_are_valid(self):
-        """All non-None values in STAGE_TASK_ID should be valid CodragTaskIds."""
+        """All non-None values in STAGE_TASK_ID should be valid PrepTaskIds."""
         from prep.services.pipeline_orchestrator import STAGE_TASK_ID
         from prep.server import TASK_TO_SLOT
         valid_tasks = set(TASK_TO_SLOT.keys())

@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { ApiClientProvider, CodragApiClient } from '@prep/ui'
+import { ApiClientProvider, PrepApiClient } from '@prep/ui'
 import { invoke } from '@tauri-apps/api/tauri'
 import App from './App'
 import './index.css'
@@ -22,7 +22,7 @@ const init = async () => {
     }
   }
 
-  const apiClient = new CodragApiClient({
+  const apiClient = new PrepApiClient({
     baseUrl,
     apiKey,
   })

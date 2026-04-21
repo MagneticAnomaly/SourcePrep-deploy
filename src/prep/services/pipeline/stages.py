@@ -120,7 +120,7 @@ STAGE_IS_DETERMINISTIC: Dict[StageId, bool] = {
 
 
 # ── Task ID Mapping (Phase 44) ──────────────────────────────────────
-# Which CodragTaskId each stage uses.  None = no LLM needed.
+# Which PrepTaskId each stage uses.  None = no LLM needed.
 # Used by the VRAM lifecycle manager and the unified LLM resolver.
 
 STAGE_TASK_ID: Dict[StageId, Optional[str]] = {
