@@ -1,5 +1,5 @@
 """
-CoDRAG CLI Health Visualization (Index DNA)
+Prep CLI Health Visualization (Index DNA)
 
 Visualizes the health and coverage of the code index.
 """

@@ -1,7 +1,7 @@
 """Tests for the Pipeline Orchestrator (SM-6).
 
 These tests use a mock BuildOrchestrator to avoid importing heavy
-codrag.core dependencies.  The pipeline orchestrator's sequencing
+prep.core dependencies.  The pipeline orchestrator's sequencing
 logic is pure state management — no I/O needed.
 """
 

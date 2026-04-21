@@ -1,6 +1,6 @@
 """Score calibration and distractor injection tests (Problem #3).
 
-Verifies that cosine similarity scores produced by CoDRAG are meaningful:
+Verifies that cosine similarity scores produced by Prep are meaningful:
   - Known-relevant queries produce top-1 scores above a sensible floor
   - Known-irrelevant ("distractor") chunks score below known-relevant ones
   - Score distribution is not artificially compressed or inflated

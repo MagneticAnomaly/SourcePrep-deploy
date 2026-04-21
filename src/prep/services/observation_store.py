@@ -1,5 +1,5 @@
 """
-CoDRAG Observation Store — Phase 39 (Session Continuity)
+Prep Observation Store — Phase 39 (Session Continuity)
 =========================================================
 
 Persistent store for agent observations linked to files and symbols
@@ -7,7 +7,7 @@ in the trace graph.  Survives process restarts and enables cross-session
 continuity — the agent remembers what it learned.
 
 **Design:**
-  - Uses the shared ``codrag_settings.db`` SQLite database.
+  - Uses the shared ``prep_settings.db`` SQLite database.
   - Dedicated ``observations`` table with FTS5 virtual table for search.
   - Observations are linked to files/symbols via ``file_path`` and
     ``symbol_fqn`` columns.
@@ -16,7 +16,7 @@ continuity — the agent remembers what it learned.
   - No feature gate — observations work on all tiers (Free, Pro, etc.).
 
 **Usage:**
-  ``from codrag.services.observation_store import observation_store``
+  ``from prep.services.observation_store import observation_store``
 
   ``obs_id = observation_store.save("proj-1", "Auth uses JWT tokens", file_path="src/auth.py")``
   ``results = observation_store.get_for_query("proj-1", "authentication")``

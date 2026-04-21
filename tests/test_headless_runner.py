@@ -225,7 +225,7 @@ class TestGetCommitSha:
         from prep.services.headless_runner import HeadlessRunner
         cfg = HeadlessConfig()
         runner = HeadlessRunner(cfg)
-        # Use the CoDRAG repo itself (which is a git repo)
+        # Use the Prep repo itself (which is a git repo)
         sha = runner._get_commit_sha(Path(__file__).parent.parent)
         # Should return a hex string (or empty if git not available)
         assert isinstance(sha, str)

@@ -29,15 +29,15 @@ from prep.core.trace.builder import TraceBuilder
 # Exact paths from the overnight Deep Reasoning leak report
 # (docs/Phase115_filter-universality/00_PROBLEM.md §E1).
 LEAK_CULPRITS = [
-    # CoDRAG self-ingestion
-    ".codrag/trace_nodes.jsonl",
-    "codrag_data/codrag_antibodies.db",
+    # Prep self-ingestion
+    ".prep/trace_nodes.jsonl",
+    "codrag_data/prep_antibodies.db",
     "codrag_data/ui_config.json",
     # AI-tool output
     "AGENTS.md",
     "CLAUDE.md",
-    ".cursor/rules/codrag.mdc",
-    ".windsurf/rules/codrag.md",
+    ".cursor/rules/prep.mdc",
+    ".windsurf/rules/prep.md",
     ".github/copilot-instructions.md",
     # Frontend build artifacts
     "packages/ui/storybook-static/index.html",
@@ -53,10 +53,10 @@ LEAK_CULPRITS = [
 ]
 
 LEGIT_FILES = [
-    "src/codrag/core/trace/builder.py",
+    "src/prep/core/trace/builder.py",
     "packages/ui/src/index.ts",
     "docs/README.md",
-    "engine/crates/codrag-walker/src/lib.rs",
+    "engine/crates/prep-walker/src/lib.rs",
 ]
 
 
@@ -66,7 +66,7 @@ def _scaffold_leaky_repo(tmpdir: Path) -> tuple[Path, Path]:
     # /private/var/... — TraceBuilder does the same internally, so use
     # the resolved form up front to keep relative_to() happy below.
     repo_root = tmpdir.resolve()
-    index_dir = repo_root / ".codrag"
+    index_dir = repo_root / ".prep"
     index_dir.mkdir(parents=True, exist_ok=True)
 
     for rel in LEAK_CULPRITS + LEGIT_FILES:

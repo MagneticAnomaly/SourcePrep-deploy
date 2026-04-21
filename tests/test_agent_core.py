@@ -44,7 +44,7 @@ def mock_git():
 
 @pytest.fixture
 def core(mock_data_access, mock_paperclip, mock_git):
-    with patch("prep.agents.core.CoDRAGDataAccess", return_value=mock_data_access), \
+    with patch("prep.agents.core.PrepDataAccess", return_value=mock_data_access), \
          patch("prep.agents.core.PaperclipClient", return_value=mock_paperclip), \
          patch("prep.agents.core.GitClient", return_value=mock_git):
         c = AgentCore(
@@ -63,10 +63,10 @@ def core(mock_data_access, mock_paperclip, mock_git):
     return c
 
 
-# ── TestCoDRAGReadAccess ───────────────────────────────────────────────────────
+# ── TestPrepReadAccess ───────────────────────────────────────────────────────
 
 
-class TestCoDRAGReadAccess:
+class TestPrepReadAccess:
     def test_get_audit_findings_delegates(self, core, mock_data_access):
         findings = [MagicMock(spec=ActionItem)]
         mock_data_access.get_audit_findings.return_value = findings
@@ -162,7 +162,7 @@ class TestPaperclipWriteAccess:
 
     def test_push_project_raises_when_paperclip_not_configured(self):
         """AgentCore without pm_config raises RuntimeError on Paperclip calls."""
-        with patch("prep.agents.core.CoDRAGDataAccess"), \
+        with patch("prep.agents.core.PrepDataAccess"), \
              patch("prep.agents.core.GitClient"):
             c = AgentCore(
                 project_id="no-pm",
@@ -174,7 +174,7 @@ class TestPaperclipWriteAccess:
             c.push_project(PMProject(name="X"))
 
     def test_push_goal_raises_when_paperclip_not_configured(self):
-        with patch("prep.agents.core.CoDRAGDataAccess"), \
+        with patch("prep.agents.core.PrepDataAccess"), \
              patch("prep.agents.core.GitClient"):
             c = AgentCore(
                 project_id="no-pm",
@@ -187,7 +187,7 @@ class TestPaperclipWriteAccess:
 
     def test_push_raises_when_pm_config_disabled(self):
         """pm_config.enabled=False → Paperclip not created → raises."""
-        with patch("prep.agents.core.CoDRAGDataAccess"), \
+        with patch("prep.agents.core.PrepDataAccess"), \
              patch("prep.agents.core.GitClient"):
             c = AgentCore(
                 project_id="disabled-pm",
@@ -272,7 +272,7 @@ class TestGitAccess:
 
     def test_git_is_none_without_project_root(self):
         """When no project_root is given, git property returns None."""
-        with patch("prep.agents.core.CoDRAGDataAccess"):
+        with patch("prep.agents.core.PrepDataAccess"):
             c = AgentCore(
                 project_id="no-git",
                 index_dir=Path("/tmp/index"),
@@ -283,10 +283,10 @@ class TestGitAccess:
         assert core.project_id == "test-proj"
 
 
-# ── TestNewCoDRAGMethods ─────────────────────────────────────────────────────
+# ── TestNewPrepMethods ─────────────────────────────────────────────────────
 
 
-class TestNewCoDRAGMethods:
+class TestNewPrepMethods:
     def test_get_module_structure_delegates(self, core, mock_data_access):
         mock_data_access.get_module_structure.return_value = [{"name": "Core"}]
         result = core.get_module_structure()

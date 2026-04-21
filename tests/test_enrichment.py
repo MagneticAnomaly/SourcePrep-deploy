@@ -31,10 +31,10 @@ def test_enrich_known_file():
     result = enrich_findings(findings, ctx)
     assert len(result.findings) == 1
     f = result.findings[0]
-    assert f.codrag is not None
-    assert f.codrag["dependents"] == 23
-    assert f.codrag["hub_status"] == "critical"
-    assert len(f.codrag["concepts"]) == 1
+    assert f.prep is not None
+    assert f.prep["dependents"] == 23
+    assert f.prep["hub_status"] == "critical"
+    assert len(f.prep["concepts"]) == 1
 
 
 def test_enrich_unknown_file_shows_stale_message():
@@ -48,7 +48,7 @@ def test_enrich_includes_risk_score():
     findings = [_make_finding()]
     ctx = _make_context()
     result = enrich_findings(findings, ctx)
-    assert 0.0 <= result.findings[0].codrag["risk_score"] <= 1.0
+    assert 0.0 <= result.findings[0].prep["risk_score"] <= 1.0
 
 
 def test_enrich_summary():
@@ -113,12 +113,12 @@ def test_enrich_sarif_round_trip():
     assert result["version"] == "2.1.0"
     assert len(result["runs"]) == 1
 
-    # Result should have CoDRAG property bags
+    # Result should have Prep property bags
     enriched_result = result["runs"][0]["results"][0]
     assert "properties" in enriched_result
-    assert "codrag" in enriched_result["properties"]
-    assert enriched_result["properties"]["codrag"]["dependents"] == 23
+    assert "prep" in enriched_result["properties"]
+    assert enriched_result["properties"]["prep"]["dependents"] == 23
 
     # Run should have summary
     assert "properties" in result["runs"][0]
-    assert "codrag" in result["runs"][0]["properties"]
+    assert "prep" in result["runs"][0]["properties"]

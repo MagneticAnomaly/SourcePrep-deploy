@@ -1,5 +1,5 @@
 """
-Continuous Deepening Loop for CoDRAG (Pass 4+).
+Continuous Deepening Loop for Prep (Pass 4+).
 
 Orchestrates iterative refinement of epistemic enrichment until convergence.
 Detects drift (stale nodes from source changes), manages a priority queue
@@ -452,7 +452,7 @@ class DeepeningLoop:
                          if nodes_by_id.get(node_id) is not None]
 
                 batch_timeout_sec = float(
-                    os.environ.get("CODRAG_DEEPENING_BATCH_TIMEOUT", "600")
+                    os.environ.get("PREP_DEEPENING_BATCH_TIMEOUT", "600")
                 )
                 # Phase 82 follow-up: use the shared bounded pool.
                 # ``concurrency`` now only selects the sequential (==1) vs

@@ -1,9 +1,9 @@
 """
 Client-side remote sync service for team mode.
 
-When a project has a `.codrag/team_config.json` with sync enabled,
+When a project has a `.prep/team_config.json` with sync enabled,
 this service periodically checks the team's S3 bucket for a newer
-index and downloads it to `.codrag/index/remote/`.
+index and downloads it to `.prep/index/remote/`.
 
 The daemon calls `RemoteSyncService.check_and_sync()` on startup,
 on manual "Sync Now" button press, and on a configurable polling
@@ -40,7 +40,7 @@ SECRETS_FILENAME = ".secrets"
 
 @dataclass
 class TeamSyncConfig:
-    """Parsed from .codrag/team_config.json (committed to repo, secret-free)."""
+    """Parsed from .prep/team_config.json (committed to repo, secret-free)."""
     enabled: bool = False
     s3_endpoint: str = ""
     s3_bucket: str = ""
@@ -111,7 +111,7 @@ def _validate_s3_endpoint(url: str) -> tuple:
 
 
 def _check_secrets_permissions(secrets_path: Path) -> None:
-    """EA-B3: Check that .codrag/.secrets file has restrictive permissions.
+    """EA-B3: Check that .prep/.secrets file has restrictive permissions.
 
     Warns if the file is world-readable or group-readable (mode should be 0o600).
     """
@@ -163,21 +163,21 @@ class SyncStatus:
 
 # ── Credential resolution ─────────────────────────────────────
 
-def _resolve_s3_credentials(codrag_dir: Path) -> Dict[str, str]:
-    """Resolve S3 credentials from env vars or .codrag/.secrets file.
+def _resolve_s3_credentials(prep_dir: Path) -> Dict[str, str]:
+    """Resolve S3 credentials from env vars or .prep/.secrets file.
 
     Priority:
-    1. Environment variables (CODRAG_S3_ACCESS_KEY, CODRAG_S3_SECRET_KEY)
-    2. .codrag/.secrets JSON file (gitignored)
+    1. Environment variables (PREP_S3_ACCESS_KEY, PREP_S3_SECRET_KEY)
+    2. .prep/.secrets JSON file (gitignored)
     """
-    access_key = os.environ.get("CODRAG_S3_ACCESS_KEY", "")
-    secret_key = os.environ.get("CODRAG_S3_SECRET_KEY", "")
+    access_key = os.environ.get("PREP_S3_ACCESS_KEY", "")
+    secret_key = os.environ.get("PREP_S3_SECRET_KEY", "")
 
     if access_key and secret_key:
         return {"access_key": access_key, "secret_key": secret_key}
 
-    # Try .codrag/.secrets file
-    secrets_path = codrag_dir / SECRETS_FILENAME
+    # Try .prep/.secrets file
+    secrets_path = prep_dir / SECRETS_FILENAME
     if secrets_path.exists():
         try:
             with open(secrets_path, "r", encoding="utf-8") as f:
@@ -187,7 +187,7 @@ def _resolve_s3_credentials(codrag_dir: Path) -> Dict[str, str]:
             if access_key and secret_key:
                 return {"access_key": access_key, "secret_key": secret_key}
         except Exception as e:
-            logger.warning("Failed to read .codrag/.secrets: %s", e)
+            logger.warning("Failed to read .prep/.secrets: %s", e)
 
     return {"access_key": "", "secret_key": ""}
 
@@ -201,7 +201,7 @@ def _check_for_leaked_secrets(data: Dict[str, Any], filepath: str) -> None:
     """Warn if a config dict contains keys that look like credentials.
 
     team_config.json is committed to Git — it must never contain secrets.
-    Credentials belong in env vars or .codrag/.secrets (gitignored).
+    Credentials belong in env vars or .prep/.secrets (gitignored).
     """
     found: List[str] = []
 
@@ -224,7 +224,7 @@ def _check_for_leaked_secrets(data: Dict[str, Any], filepath: str) -> None:
         logger.warning(
             "SECURITY: %s appears to contain credential-like keys: %s. "
             "This file is typically committed to Git. Move secrets to "
-            "environment variables (CODRAG_S3_ACCESS_KEY) or .codrag/.secrets (gitignored).",
+            "environment variables (PREP_S3_ACCESS_KEY) or .prep/.secrets (gitignored).",
             filepath, ", ".join(found),
         )
 
@@ -236,8 +236,8 @@ class RemoteSyncService:
 
     def __init__(self, project_root: Path):
         self.project_root = Path(project_root).resolve()
-        self.codrag_dir = self.project_root / ".codrag"
-        self.remote_index_dir = self.codrag_dir / "index" / "remote"
+        self.prep_dir = self.project_root / ".prep"
+        self.remote_index_dir = self.prep_dir / "index" / "remote"
         self.local_manifest_path = self.remote_index_dir / "manifest.json"
 
         self._config: Optional[TeamSyncConfig] = None
@@ -249,8 +249,8 @@ class RemoteSyncService:
     # ── Config loading ────────────────────────────────────────
 
     def load_config(self) -> Optional[TeamSyncConfig]:
-        """Load team_config.json from .codrag/ directory."""
-        config_path = self.codrag_dir / TEAM_CONFIG_FILENAME
+        """Load team_config.json from .prep/ directory."""
+        config_path = self.prep_dir / TEAM_CONFIG_FILENAME
         if not config_path.exists():
             self._config = None
             self._status.enabled = False
@@ -280,9 +280,9 @@ class RemoteSyncService:
         if not self._config or not self._config.enabled:
             return None
 
-        creds = _resolve_s3_credentials(self.codrag_dir)
+        creds = _resolve_s3_credentials(self.prep_dir)
         if not creds["access_key"] or not creds["secret_key"]:
-            self._status.error = "S3 credentials not found. Set CODRAG_S3_ACCESS_KEY/CODRAG_S3_SECRET_KEY or create .codrag/.secrets"
+            self._status.error = "S3 credentials not found. Set PREP_S3_ACCESS_KEY/PREP_S3_SECRET_KEY or create .prep/.secrets"
             logger.warning(self._status.error)
             return None
 
@@ -435,7 +435,7 @@ class RemoteSyncService:
 
         Called automatically after a new remote index is downloaded.
         """
-        delta_dir = self.codrag_dir / "index" / "local_deltas"
+        delta_dir = self.prep_dir / "index" / "local_deltas"
         remote_manifest_path = self.remote_index_dir / "trace_manifest.json"
 
         if not delta_dir.exists() or not remote_manifest_path.exists():

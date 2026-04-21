@@ -1,5 +1,5 @@
 """
-CoDRAG CLI Context & Search Visualizations
+Prep CLI Context & Search Visualizations
 
 Visualizes token usage, search relevance, and context assembly metrics.
 """

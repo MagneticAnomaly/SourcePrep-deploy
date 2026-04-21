@@ -1,5 +1,5 @@
 """
-LLM Client for CoDRAG.
+LLM Client for Prep.
 
 Universal multi-provider LLM client and response parsing utilities.
 Extracted from augmenter.py (Refactor 2, GAP-1) to eliminate false
@@ -126,7 +126,7 @@ class OutputMonitor:
         return self.buffer
 
 
-# Default max_chars limits per CoDRAG task type.  Used by the pipeline
+# Default max_chars limits per Prep task type.  Used by the pipeline
 # to cap output length and prevent runaway generation.
 TASK_MAX_CHARS = {
     "atlas_small": 15_000,

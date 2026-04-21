@@ -194,7 +194,7 @@ async def get_data_provenance(
             entry: Dict[str, Any] = {
                 "stage_id": stage.value,
                 "run_id": manifest.run_id,
-                "codrag_version": manifest.codrag_version,
+                "prep_version": manifest.prep_version,
                 "generated_at": age_ref,
                 "age_days": age_days,
             }

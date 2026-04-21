@@ -1,6 +1,6 @@
-"""Tests for CoDRAGDataAccess — the read-only CoDRAG data facade.
+"""Tests for PrepDataAccess — the read-only Prep data facade.
 
-All CoDRAG internals are mocked so no index data is required on disk.
+All Prep internals are mocked so no index data is required on disk.
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from prep.agents.shared.codrag_data import CoDRAGDataAccess
+from prep.agents.shared.codrag_data import PrepDataAccess
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -61,10 +61,10 @@ def _build_data_access(
     mock_trace_index: MagicMock,
     mock_obs_store: MagicMock,
     project_id: str = "test-proj",
-) -> CoDRAGDataAccess:
-    """Helper: patch all internals and return a CoDRAGDataAccess instance.
+) -> PrepDataAccess:
+    """Helper: patch all internals and return a PrepDataAccess instance.
 
-    Because CoDRAGDataAccess uses lazy imports inside __init__, we patch at
+    Because PrepDataAccess uses lazy imports inside __init__, we patch at
     the source module level so the constructors return our mocks.
     """
     index_dir = tmp_path / "index"
@@ -88,7 +88,7 @@ def _build_data_access(
             mock_obs_store,
         ),
     ):
-        da = CoDRAGDataAccess(
+        da = PrepDataAccess(
             index_dir=index_dir,
             project_root=tmp_path,
             project_id=project_id,
@@ -231,7 +231,7 @@ class TestGetImpactRadius:
                 mock_obs_store,
             ),
         ):
-            da = CoDRAGDataAccess(index_dir=index_dir, project_root=tmp_path)
+            da = PrepDataAccess(index_dir=index_dir, project_root=tmp_path)
         da._trace_index = None  # ensure it's really None
 
         result = da.get_impact_radius("src/something.py")

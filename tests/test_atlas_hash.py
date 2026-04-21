@@ -17,7 +17,7 @@ def test_managed_content_includes_atlas_hash():
         project_id="test-id",
     )
     expected_hash = hashlib.sha256(atlas.strip().encode()).hexdigest()[:12]
-    assert f"codrag-atlas-hash:{expected_hash}" in content
+    assert f"prep-atlas-hash:{expected_hash}" in content
 
 
 def test_managed_content_no_hash_when_no_atlas():
@@ -30,14 +30,14 @@ def test_managed_content_no_hash_when_no_atlas():
         stats=None,
         project_id="test-id",
     )
-    assert "codrag-atlas-hash" not in content
+    assert "prep-atlas-hash" not in content
 
 
 def test_extract_atlas_hash_from_rules_content():
     """The MCP server should extract the atlas hash from rules file content."""
     atlas = "IDENTITY: Test\nSTACK: Python"
     expected_hash = hashlib.sha256(atlas.strip().encode()).hexdigest()[:12]
-    rules_content = f"<!-- codrag-atlas-hash:{expected_hash} -->\n## Codebase Atlas\n{atlas}"
+    rules_content = f"<!-- prep-atlas-hash:{expected_hash} -->\n## Codebase Atlas\n{atlas}"
     extracted = MCPServer._extract_atlas_hash(rules_content)
     assert extracted == expected_hash
 
@@ -85,7 +85,7 @@ def test_managed_content_mentions_prompts():
         stats=None,
         project_id="test-id",
     )
-    assert "codrag-onboard" in content
+    assert "prep-onboard" in content
     assert "MCP Prompts" in content
 
 

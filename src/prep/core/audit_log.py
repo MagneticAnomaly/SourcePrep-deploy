@@ -142,7 +142,7 @@ class AuditLog:
         """Auto-initialize with default path if not already initialized."""
         if self._conn is not None:
             return
-        default_path = Path.home() / ".local" / "share" / "codrag" / "audit_log.db"
+        default_path = Path.home() / ".local" / "share" / "prep" / "audit_log.db"
         self.init(default_path)
 
     def record(

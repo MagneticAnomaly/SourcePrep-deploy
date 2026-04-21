@@ -1,6 +1,6 @@
 """Agent Operations API — HR, Researcher, Custodian endpoints.
 
-Provides REST endpoints for all three CoDRAG agent engines.
+Provides REST endpoints for all three Prep agent engines.
 """
 from __future__ import annotations
 
@@ -196,9 +196,9 @@ def hr_sync(project_id: str) -> Dict[str, Any]:
             400, "PAPERCLIP_NOT_CONFIGURED",
             "Paperclip push is not enabled.",
             hint=(
-                "Via CLI: codrag config pm_push.enabled true && "
-                "codrag config pm_push.paperclip_url http://localhost:3100 && "
-                "codrag config pm_push.paperclip_company_id <your-company-id>. "
+                "Via CLI: prep config pm_push.enabled true && "
+                "prep config pm_push.paperclip_url http://localhost:3100 && "
+                "prep config pm_push.paperclip_company_id <your-company-id>. "
                 "Or configure in the dashboard Settings panel."
             ),
         )
@@ -244,7 +244,7 @@ def hr_audit(project_id: str) -> Dict[str, Any]:
 
 @router.post("/projects/{project_id}/agents/hr/adopt")
 def hr_adopt(project_id: str, req: HRAdoptRequest) -> Dict[str, Any]:
-    """Import existing agent files and enrich with CoDRAG intelligence.
+    """Import existing agent files and enrich with Prep intelligence.
 
     Reads AGENTS.md from each subdirectory of agents_dir, then generates
     role-filtered KNOWLEDGE.md and SOUL.md (if missing) for each role.
@@ -394,9 +394,9 @@ def researcher_push(project_id: str) -> Dict[str, Any]:
             400, "PAPERCLIP_NOT_CONFIGURED",
             "Paperclip push is not enabled.",
             hint=(
-                "Via CLI: codrag config pm_push.enabled true && "
-                "codrag config pm_push.paperclip_url http://localhost:3100 && "
-                "codrag config pm_push.paperclip_company_id <your-company-id>. "
+                "Via CLI: prep config pm_push.enabled true && "
+                "prep config pm_push.paperclip_url http://localhost:3100 && "
+                "prep config pm_push.paperclip_company_id <your-company-id>. "
                 "Or configure in the dashboard Settings panel."
             ),
         )
@@ -459,9 +459,9 @@ def custodian_push(project_id: str) -> Dict[str, Any]:
             400, "PAPERCLIP_NOT_CONFIGURED",
             "Paperclip push is not enabled.",
             hint=(
-                "Via CLI: codrag config pm_push.enabled true && "
-                "codrag config pm_push.paperclip_url http://localhost:3100 && "
-                "codrag config pm_push.paperclip_company_id <your-company-id>. "
+                "Via CLI: prep config pm_push.enabled true && "
+                "prep config pm_push.paperclip_url http://localhost:3100 && "
+                "prep config pm_push.paperclip_company_id <your-company-id>. "
                 "Or configure in the dashboard Settings panel."
             ),
         )
@@ -605,7 +605,7 @@ def _probe_paperclip(url: str, company_id: str = "") -> Dict[str, Any]:
         except Exception:
             pass
 
-        # Step 4: Check for CoDRAG plugin
+        # Step 4: Check for Prep plugin
         try:
             req = urllib.request.Request(
                 f"{url.rstrip('/')}/api/companies/{company_id}/plugins",
@@ -616,7 +616,7 @@ def _probe_paperclip(url: str, company_id: str = "") -> Dict[str, Any]:
                 plugins = _json.loads(resp.read().decode("utf-8"))
                 plugin_list = plugins if isinstance(plugins, list) else plugins.get("plugins", [])
                 for p in plugin_list:
-                    if "codrag" in str(p.get("name", "")).lower() or "codrag" in str(p.get("id", "")).lower():
+                    if "prep" in str(p.get("name", "")).lower() or "prep" in str(p.get("id", "")).lower():
                         result["plugin_detected"] = True
                         break
         except Exception:
@@ -662,8 +662,8 @@ def _get_llm_fn(project_id: str):
                 400, "NO_LLM_CONFIGURED",
                 "No LLM model configured. Agent operations require an LLM.",
                 hint=(
-                    "Via CLI: codrag config pipeline_config.model_thinking <model> && "
-                    "codrag config pipeline_config.llm_provider <ollama|anthropic|openai>. "
+                    "Via CLI: prep config pipeline_config.model_thinking <model> && "
+                    "prep config pipeline_config.llm_provider <ollama|anthropic|openai>. "
                     "Or use the dashboard AI Gateway panel."
                 ),
             )

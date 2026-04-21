@@ -1,9 +1,9 @@
 """
-Per-run pipeline file logger — writes verbose logs to .codrag/logs/
+Per-run pipeline file logger — writes verbose logs to .prep/logs/
 =====================================================================
 
 Each pipeline run gets its own timestamped log file inside the project's
-index directory (e.g. ``TEST/.codrag/logs/pipeline_20260215_222600.log``).
+index directory (e.g. ``TEST/.prep/logs/pipeline_20260215_222600.log``).
 
 Logs are VERY verbose: every stage transition, every LLM call result,
 every file processed, every error.  This is intentional — the files are
@@ -50,7 +50,7 @@ class PipelineFileLogger:
         self._stage_start: Optional[float] = None
         self._fh: Optional[Any] = None
 
-        # Also attach a stdlib FileHandler to capture ALL codrag.* loggers
+        # Also attach a stdlib FileHandler to capture ALL prep.* loggers
         self._file_handler: Optional[logging.FileHandler] = None
 
     def start_run(self, group: str, stages: List[str], project_id: str = "") -> None:
@@ -64,7 +64,7 @@ class PipelineFileLogger:
         ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         self.log_path = self.logs_dir / f"pipeline_{ts}.log"
 
-        # Set up stdlib file handler for ALL codrag loggers
+        # Set up stdlib file handler for ALL prep loggers
         self._file_handler = logging.FileHandler(str(self.log_path), encoding="utf-8")
         self._file_handler.setLevel(logging.DEBUG)
         fmt = logging.Formatter(
@@ -73,10 +73,10 @@ class PipelineFileLogger:
         )
         self._file_handler.setFormatter(fmt)
 
-        # Attach to the root codrag logger so ALL subsystems are captured
+        # Attach to the root prep logger so ALL subsystems are captured
         # (child loggers propagate up automatically — do NOT add to children too)
-        codrag_root = logging.getLogger("codrag")
-        codrag_root.addHandler(self._file_handler)
+        prep_root = logging.getLogger("prep")
+        prep_root.addHandler(self._file_handler)
 
         self._prune_old_logs()
 
@@ -113,7 +113,7 @@ class PipelineFileLogger:
         })
         # Remove file handler
         if self._file_handler:
-            logging.getLogger("codrag").removeHandler(self._file_handler)
+            logging.getLogger("prep").removeHandler(self._file_handler)
             self._file_handler.close()
             self._file_handler = None
 

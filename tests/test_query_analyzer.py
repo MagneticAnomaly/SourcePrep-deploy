@@ -11,18 +11,18 @@ class TestFileNameExtraction:
         assert "orchestrator.py" in signals.file_names
 
     def test_does_not_extract_name_from_path(self) -> None:
-        signals = QueryAnalyzer.extract_signals("look at src/codrag/mcp/server.py")
+        signals = QueryAnalyzer.extract_signals("look at src/prep/mcp/server.py")
         # server.py is part of a path, should not also appear as a bare name
         assert "server.py" not in signals.file_names
 
 
 class TestFilePathExtraction:
     def test_extracts_file_path(self) -> None:
-        signals = QueryAnalyzer.extract_signals("look at src/codrag/mcp/server.py")
-        assert "src/codrag/mcp/server.py" in signals.file_paths
+        signals = QueryAnalyzer.extract_signals("look at src/prep/mcp/server.py")
+        assert "src/prep/mcp/server.py" in signals.file_paths
 
     def test_path_with_various_extensions(self) -> None:
-        signals = QueryAnalyzer.extract_signals("check engine/crates/codrag-walker/src/lib.rs")
+        signals = QueryAnalyzer.extract_signals("check engine/crates/prep-walker/src/lib.rs")
         assert any(p.endswith(".rs") for p in signals.file_paths)
 
 
@@ -37,9 +37,9 @@ class TestSymbolExtraction:
 
     def test_symbol_not_from_file_path(self) -> None:
         signals = QueryAnalyzer.extract_signals(
-            "how does CodeIndex.search in src/codrag/core/index.py handle scoring"
+            "how does CodeIndex.search in src/prep/core/index.py handle scoring"
         )
-        assert "src/codrag/core/index.py" in signals.file_paths
+        assert "src/prep/core/index.py" in signals.file_paths
         assert "CodeIndex" in signals.symbols
 
 
@@ -54,9 +54,9 @@ class TestNoSignalsFromPlainQuery:
 class TestMixedQuery:
     def test_path_and_symbol(self) -> None:
         signals = QueryAnalyzer.extract_signals(
-            "how does CodeIndex.search in src/codrag/core/index.py handle scoring"
+            "how does CodeIndex.search in src/prep/core/index.py handle scoring"
         )
-        assert "src/codrag/core/index.py" in signals.file_paths
+        assert "src/prep/core/index.py" in signals.file_paths
         assert "CodeIndex" in signals.symbols
 
 
@@ -109,10 +109,10 @@ class TestGraphInjection:
     def test_file_path_signal_boosts_matching_docs(self) -> None:
         from prep.core.query_analyzer import QueryAnalyzer
         from prep.core.index import _structural_boosts
-        signals = QueryAnalyzer.extract_signals("look at src/codrag/mcp/server.py")
+        signals = QueryAnalyzer.extract_signals("look at src/prep/mcp/server.py")
         docs = [
-            {"source_path": "src/codrag/mcp/server.py", "id": "1"},
-            {"source_path": "src/codrag/core/index.py", "id": "2"},
+            {"source_path": "src/prep/mcp/server.py", "id": "1"},
+            {"source_path": "src/prep/core/index.py", "id": "2"},
         ]
         boosts = _structural_boosts(signals, docs)
         assert boosts[0] > 0.0
@@ -123,8 +123,8 @@ class TestGraphInjection:
         from prep.core.index import _structural_boosts
         signals = QueryAnalyzer.extract_signals("explain orchestrator.py")
         docs = [
-            {"source_path": "src/codrag/services/pipeline/orchestrator.py", "id": "1"},
-            {"source_path": "src/codrag/core/index.py", "id": "2"},
+            {"source_path": "src/prep/services/pipeline/orchestrator.py", "id": "1"},
+            {"source_path": "src/prep/core/index.py", "id": "2"},
         ]
         boosts = _structural_boosts(signals, docs)
         assert boosts[0] > 0.0

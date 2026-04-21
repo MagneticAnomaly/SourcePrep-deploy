@@ -1,14 +1,14 @@
 """
-CoDRAG Team Sync — Modal.com Adapter
+Prep Team Sync — Modal.com Adapter
 
-Deploys the CoDRAG headless indexer as a serverless GPU function on Modal.
+Deploys the Prep headless indexer as a serverless GPU function on Modal.
 Scales to zero when idle (costs $0.00). Wakes up in <1 second when triggered.
 
 Setup:
   1. pip install modal
   2. modal setup
-  3. Create a Modal Secret named "codrag-s3-creds" with your S3 credentials:
-       CODRAG_S3_ENDPOINT, CODRAG_S3_BUCKET, CODRAG_S3_ACCESS_KEY, CODRAG_S3_SECRET_KEY
+  3. Create a Modal Secret named "prep-s3-creds" with your S3 credentials:
+       PREP_S3_ENDPOINT, PREP_S3_BUCKET, PREP_S3_ACCESS_KEY, PREP_S3_SECRET_KEY
   4. modal deploy modal/modal_adapter.py
   5. Copy the webhook URL into your GitHub Action.
 
@@ -20,32 +20,32 @@ Trigger (from GitHub Actions or curl):
 
 import modal
 
-# ── Image: pull the pre-built CoDRAG GPU image from GHCR ─────
+# ── Image: pull the pre-built Prep GPU image from GHCR ─────
 codrag_image = modal.Image.from_registry(
-    "ghcr.io/ericbintner/codrag-headless:gpu",
+    "ghcr.io/ericbintner/prep-headless:gpu",
     add_python="3.11",
 )
 
-app = modal.App("codrag-team-sync")
+app = modal.App("prep-team-sync")
 
 
 @app.function(
     image=codrag_image,
     gpu="A10G",  # Change to "A100" for larger repos, or "T4" for budget
     timeout=7200,  # 2 hour max (adjust for repo size)
-    secrets=[modal.Secret.from_name("codrag-s3-creds")],
+    secrets=[modal.Secret.from_name("prep-s3-creds")],
 )
 @modal.web_endpoint(method="POST")
 def trigger_sync(payload: dict):
     """Webhook endpoint: triggers a headless index build.
 
-    Set CODRAG_WEBHOOK_SECRET in your Modal Secret to enable auth.
+    Set PREP_WEBHOOK_SECRET in your Modal Secret to enable auth.
     """
     import subprocess
     import os
 
     # Authenticate the request
-    webhook_secret = os.environ.get("CODRAG_WEBHOOK_SECRET", "")
+    webhook_secret = os.environ.get("PREP_WEBHOOK_SECRET", "")
     if webhook_secret:
         request_secret = payload.pop("_webhook_secret", "")
         if request_secret != webhook_secret:
@@ -61,7 +61,7 @@ def trigger_sync(payload: dict):
         return {"status": "error", "message": "repo_url is required"}
 
     cmd = [
-        "codrag", "sync-headless",
+        "prep", "sync-headless",
         "--repo-url", repo_url,
         "--branch", branch,
         "--model-provider", model_provider,
@@ -73,7 +73,7 @@ def trigger_sync(payload: dict):
         cmd.append("--full")
 
     # S3 credentials are injected via Modal Secrets as env vars
-    print(f"[codrag-modal] Running: {' '.join(cmd)}")
+    print(f"[prep-modal] Running: {' '.join(cmd)}")
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=7200)
 
     if result.returncode != 0:

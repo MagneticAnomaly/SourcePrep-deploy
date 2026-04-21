@@ -1,5 +1,5 @@
 """
-Content sanitization for CoDRAG context output and LLM input.
+Content sanitization for Prep context output and LLM input.
 
 EA-B5:  Sanitize content rendered inside markdown code fences to prevent
         prompt injection via triple-backtick breakout.
@@ -32,7 +32,7 @@ _TRIPLE_BACKTICK_RE = re.compile(r"(`{3,})")
 def sanitize_code_fence_content(content: str) -> str:
     """Escape triple backticks inside content to prevent markdown code fence breakout.
 
-    When CoDRAG assembles context, document content is wrapped in triple-backtick
+    When Prep assembles context, document content is wrapped in triple-backtick
     fences. If the content itself contains triple backticks, an attacker could
     break out of the fence and inject arbitrary markdown/instructions.
 

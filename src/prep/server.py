@@ -1,12 +1,12 @@
 """
-CoDRAG FastAPI server.
+Prep FastAPI server.
 
-Main HTTP API for the CoDRAG daemon.
+Main HTTP API for the Prep daemon.
 
 Usage:
-    python -m codrag.server --repo-root /path/to/repo --port 8400
+    python -m prep.server --repo-root /path/to/repo --port 8400
 
-Daemon-wide state defaults to `$CODRAG_DATA_DIR` or `~/.local/share/codrag/`.
+Daemon-wide state defaults to `$PREP_DATA_DIR` or `~/.local/share/prep/`.
 Pass `--index-dir <path>` to override (deprecated).
 """
 
@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
 
     # Ensure key namespaces have propagate=True and correct level
     # so their messages reach the root handler via propagation.
-    for logger_name in ["codrag", "uvicorn", "uvicorn.error", "uvicorn.access"]:
+    for logger_name in ["prep", "uvicorn", "uvicorn.error", "uvicorn.access"]:
         ns_logger = logging.getLogger(logger_name)
         ns_logger.propagate = True
         if ns_logger.level > logging.INFO:
@@ -97,7 +97,7 @@ async def lifespan(app: FastAPI):
     # Initialize ProgressManager (ensure it's created)
     get_progress_manager()
 
-    logger.info("CoDRAG EventBus initialized")
+    logger.info("Prep EventBus initialized")
     yield
     # Phase 93: Write clean shutdown markers for projects with no active runs.
     # On next startup, auto_recover_stale_pipelines will see these markers and
@@ -138,7 +138,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="CoDRAG",
+    title="Prep",
     description="Code Documentation and RAG - Multi-project semantic search platform",
     version=__version__,
     lifespan=lifespan,
@@ -157,7 +157,7 @@ async def _feature_gate_handler(request, exc: FeatureGateError):
             "error": {
                 "code": "FEATURE_GATED",
                 "message": str(exc),
-                "hint": f"Upgrade to {exc.required_tier} at https://codrag.io/pricing",
+                "hint": f"Upgrade to {exc.required_tier} at https://prep.io/pricing",
                 "details": {
                     "feature": exc.feature,
                     "current_tier": exc.current_tier,
@@ -171,8 +171,8 @@ async def _feature_gate_handler(request, exc: FeatureGateError):
 # CORS for dashboard (restricted to known origins).
 # Starlette's CORSMiddleware does NOT support wildcard port patterns like
 # "http://localhost:*".  Use allow_origin_regex for port-flexible matching.
-# In development, set CODRAG_CORS_ALLOW_ALL=1 to revert to allow_origins=["*"].
-if os.environ.get("CODRAG_CORS_ALLOW_ALL"):
+# In development, set PREP_CORS_ALLOW_ALL=1 to revert to allow_origins=["*"].
+if os.environ.get("PREP_CORS_ALLOW_ALL"):
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -197,7 +197,7 @@ async def verify_ipc_token(request: Request, call_next):
     if request.url.path in ["/health", "/events"]:
         return await call_next(request)
     
-    expected_token = os.environ.get("CODRAG_DAEMON_TOKEN")
+    expected_token = os.environ.get("PREP_DAEMON_TOKEN")
     if expected_token:
         auth_header = request.headers.get("Authorization") or ""
         if not auth_header.startswith("Bearer "):
@@ -737,7 +737,7 @@ def configure(
 
     Phase 113: `index_dir` default is now `paths.data_dir()` (XDG).
     Pass an explicit path to override (deprecated; prefer
-    `$CODRAG_DATA_DIR`).
+    `$PREP_DATA_DIR`).
     """
     global _config, _index, _watcher
     if _watcher is not None:
@@ -762,7 +762,7 @@ def configure(
     from prep.services.settings_store import settings as _settings_store
     idx_path = Path(resolved_index_dir)
     idx_path.mkdir(parents=True, exist_ok=True)
-    db_path = idx_path / "codrag_settings.db"
+    db_path = idx_path / "prep_settings.db"
     _settings_store.init(db_path)
 
     # Auto-migrate from ui_config.json if this is first run
@@ -780,7 +780,7 @@ def configure(
     except Exception:
         logger.debug("Orphan pruning failed (non-fatal)", exc_info=True)
 
-    # Phase 55: Validate and heal .codrag/project.json pointers
+    # Phase 55: Validate and heal .prep/project.json pointers
     # Ensures every project has a pointer with the correct ID,
     # preventing MCP routing failures for pre-existing projects.
     try:
@@ -796,9 +796,9 @@ def configure(
 
     # Initialize pipeline journal + crash recovery (Phase 25).
     #
-    # F-54: dedicated codrag_pipeline_journal.db file (same pattern as
+    # F-54: dedicated prep_pipeline_journal.db file (same pattern as
     # F-36 concept_store and F-37 antibody_store).  Without this, the
-    # journal shares codrag_settings.db with settings_store et al, and
+    # journal shares prep_settings.db with settings_store et al, and
     # journal.start_run() during /pipeline/finalize blocks for 30+s on
     # SQLite "database is locked".  Symptom: clicking the Finalize Run
     # button (or auto-mode triggering finalize) silently never starts
@@ -807,30 +807,30 @@ def configure(
     # writer-lock contention exactly the same way F-36 fixed concept
     # saves.
     from prep.services.pipeline_journal import journal as _journal
-    _journal_db_path = db_path.parent / "codrag_pipeline_journal.db"
+    _journal_db_path = db_path.parent / "prep_pipeline_journal.db"
     _journal.init(_journal_db_path)
 
     # Initialize pipeline run history (Phase 49: Process Info).
-    # F-55: dedicated codrag_pipeline_history.db (was sharing codrag_settings.db).
+    # F-55: dedicated prep_pipeline_history.db (was sharing prep_settings.db).
     from prep.services.pipeline_history import history as _history
-    _history_db_path = db_path.parent / "codrag_pipeline_history.db"
+    _history_db_path = db_path.parent / "prep_pipeline_history.db"
     _history.init(_history_db_path)
 
     # Initialize token telemetry (Phase 56: AI Gateway Phase 2).
-    # F-55: dedicated codrag_token_telemetry.db (was sharing codrag_settings.db).
+    # F-55: dedicated prep_token_telemetry.db (was sharing prep_settings.db).
     from prep.services.token_telemetry import telemetry as _telemetry
-    _telemetry_db_path = db_path.parent / "codrag_token_telemetry.db"
+    _telemetry_db_path = db_path.parent / "prep_token_telemetry.db"
     _telemetry.init(_telemetry_db_path)
 
     # Initialize observation store (Phase 39: Session Continuity).
-    # F-55: dedicated codrag_observations.db (was sharing codrag_settings.db).
+    # F-55: dedicated prep_observations.db (was sharing prep_settings.db).
     from prep.services.observation_store import observation_store as _obs_store
-    _obs_store_db_path = db_path.parent / "codrag_observations.db"
+    _obs_store_db_path = db_path.parent / "prep_observations.db"
     _obs_store.init(_obs_store_db_path)
 
     # Initialize concept store (Phase 74: Epistemic Concepts)
     # Phase 96 / F-36: Use a dedicated concepts.db file instead of the
-    # shared codrag_settings.db.  When the swarm path saves 26+ concepts
+    # shared prep_settings.db.  When the swarm path saves 26+ concepts
     # in tight succession during finalize, the writer-lock contention
     # against pipeline_journal, pipeline_history, observation_store, and
     # antibody_store (all sharing settings.db) caused SQLITE_BUSY for
@@ -838,7 +838,7 @@ def configure(
     # the entire failure mode — concept_store now has its own writer
     # lock that only contends with itself.
     from prep.services.concept_store import concept_store as _concept_store
-    _concept_store_db_path = db_path.parent / "codrag_concepts.db"
+    _concept_store_db_path = db_path.parent / "prep_concepts.db"
 
     # One-shot migration: if the dedicated file doesn't exist yet but
     # the shared settings.db has a concepts table, copy the concepts
@@ -909,7 +909,7 @@ def configure(
     # got one (F-36): per-save commits on the shared settings.db hit
     # writer-lock contention against pipeline_journal et al.
     from prep.services.antibody_store import antibody_store as _antibody_store
-    _antibody_store_db_path = db_path.parent / "codrag_antibodies.db"
+    _antibody_store_db_path = db_path.parent / "prep_antibodies.db"
     _antibody_store.init(_antibody_store_db_path)
 
     from prep.services.pipeline_orchestrator import pipeline_orchestrator as _pipeline
@@ -1121,12 +1121,12 @@ def mount_dashboard():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="CoDRAG Server")
+    parser = argparse.ArgumentParser(description="Prep Server")
     parser.add_argument("--repo-root", help="Default repository root to index")
     parser.add_argument(
         "--index-dir",
         default=None,
-        help="Directory to store index (deprecated; default is $CODRAG_DATA_DIR or ~/.local/share/codrag/)",
+        help="Directory to store index (deprecated; default is $PREP_DATA_DIR or ~/.local/share/prep/)",
     )
     parser.add_argument("--ollama-url", default="http://localhost:11434", help="Ollama API URL")
     parser.add_argument("--model", default="nomic-embed-text", help="Embedding model name")
@@ -1144,7 +1144,7 @@ def main():
     mount_dashboard()
 
     import uvicorn
-    logger.info("Starting CoDRAG server on %s:%d", args.host, args.port)
+    logger.info("Starting Prep server on %s:%d", args.host, args.port)
     uvicorn.run(app, host=args.host, port=args.port)
 
 

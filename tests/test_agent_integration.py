@@ -1,6 +1,6 @@
 """Integration smoke test for the agents package.
 
-Verifies AgentCore can be constructed with real CoDRAG classes,
+Verifies AgentCore can be constructed with real Prep classes,
 mocking only external I/O (Paperclip HTTP, git subprocess, LLM).
 """
 

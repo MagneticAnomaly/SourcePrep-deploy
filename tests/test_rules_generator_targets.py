@@ -43,8 +43,8 @@ def test_claude_target_keeps_essentials():
     """Claude target must still include project_id routing and tool table."""
     content = _build_managed_content(**_BASE_ARGS, target="claude")
     assert "aaaa-bbbb-cccc-dddd" in content
-    assert "codrag_search" in content
-    assert "codrag_impact" in content
+    assert "prep_search" in content
+    assert "prep_impact" in content
     assert "Codebase Atlas" in content
     assert "Focus Areas" in content
 
@@ -83,7 +83,7 @@ def test_atlas_hash_preserved_for_all_targets():
         expected_hash = hashlib.sha256(
             _BASE_ARGS["atlas_content"].strip().encode()
         ).hexdigest()[:12]
-        assert f"codrag-atlas-hash:{expected_hash}" in content, f"Missing hash for target={target}"
+        assert f"prep-atlas-hash:{expected_hash}" in content, f"Missing hash for target={target}"
 
 
 def test_no_project_id_still_works():
@@ -91,7 +91,7 @@ def test_no_project_id_still_works():
     args = {**_BASE_ARGS, "project_id": None}
     for target in ("claude", "cursor", "universal"):
         content = _build_managed_content(**args, target=target)
-        assert "codrag" in content.lower()
+        assert "prep" in content.lower()
 
 
 # -- Integration tests: write_rules_file wiring --
@@ -116,7 +116,7 @@ def test_write_rules_passes_claude_target(tmp_path):
     claude_md = (tmp_path / "CLAUDE.md").read_text()
     # Claude target should NOT contain the verbose universal sections
     assert "Tool Calling Rules" not in claude_md
-    assert "codrag" in claude_md.lower()
+    assert "prep" in claude_md.lower()
 
 
 def test_write_rules_passes_universal_target_for_agents_md(tmp_path):

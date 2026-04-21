@@ -1,5 +1,5 @@
 """
-CoDRAG Pipeline Router — Phase 24 (SM-6) + Phase 25 (Crash Protection) + Phase 76 (Rebuild) + Phase 96 (3×5)
+Prep Pipeline Router — Phase 24 (SM-6) + Phase 25 (Crash Protection) + Phase 76 (Rebuild) + Phase 96 (3×5)
 =============================================================================================================
 
 Exposes the 15-stage pipeline orchestrator via HTTP endpoints.

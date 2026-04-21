@@ -1,5 +1,5 @@
 """
-Feature gating for CoDRAG tiers.
+Feature gating for Prep tiers.
 
 Tiers:
   - free:       3 projects, all features (project limit only)
@@ -8,8 +8,8 @@ Tiers:
   - team:       perpetual + shared config, centralized policy
   - enterprise: team + air-gapped, SSO, audit
 
-License is read from ~/.codrag/license.json (offline Ed25519 signed token)
-or overridden via CODRAG_TIER env var for development.
+License is read from ~/.prep/license.json (offline Ed25519 signed token)
+or overridden via PREP_TIER env var for development.
 
 Note: MONTHLY and PERPETUAL are feature-identical. The only difference is
 the payment model and expiry: monthly licenses carry an expires_at date.
@@ -103,7 +103,7 @@ class License:
         }
 
 
-_LICENSE_PATH = Path.home() / ".codrag" / "license.json"
+_LICENSE_PATH = Path.home() / ".prep" / "license.json"
 _cached_license: Optional[License] = None
 
 
@@ -140,14 +140,14 @@ def get_license() -> License:
     if _cached_license is not None:
         return _cached_license
 
-    # EA-A8: Dev override via env var — requires CODRAG_DEV_MODE=1
-    env_tier = os.environ.get("CODRAG_TIER", "").strip().lower()
+    # EA-A8: Dev override via env var — requires PREP_DEV_MODE=1
+    env_tier = os.environ.get("PREP_TIER", "").strip().lower()
     if env_tier:
-        dev_mode = os.environ.get("CODRAG_DEV_MODE", "").strip()
+        dev_mode = os.environ.get("PREP_DEV_MODE", "").strip()
         if dev_mode != "1":
             logger.warning(
-                "SECURITY: CODRAG_TIER=%s is set but CODRAG_DEV_MODE=1 is not. "
-                "Ignoring CODRAG_TIER. Set CODRAG_DEV_MODE=1 to enable tier override for development.",
+                "SECURITY: PREP_TIER=%s is set but PREP_DEV_MODE=1 is not. "
+                "Ignoring PREP_TIER. Set PREP_DEV_MODE=1 to enable tier override for development.",
                 env_tier,
             )
         else:
@@ -157,12 +157,12 @@ def get_license() -> License:
                 tier = Tier[env_tier.upper()]
                 _cached_license = License(tier=tier, activation_method="dev_env")
                 logger.warning(
-                    "DEV MODE: Using tier from CODRAG_TIER env: %s (NOT for production)",
+                    "DEV MODE: Using tier from PREP_TIER env: %s (NOT for production)",
                     tier.name,
                 )
                 return _cached_license
             except KeyError:
-                logger.warning("Invalid CODRAG_TIER=%s, falling back to FREE", env_tier)
+                logger.warning("Invalid PREP_TIER=%s, falling back to FREE", env_tier)
 
     # Try loading license file
     if _LICENSE_PATH.exists():
@@ -195,7 +195,7 @@ def get_license() -> License:
                 logger.warning(
                     "SECURITY: License file at %s has no cryptographic signature. "
                     "Unsigned licenses will be rejected in a future version. "
-                    "Re-activate your license at https://codrag.io/settings to get a signed license.",
+                    "Re-activate your license at https://prep.io/settings to get a signed license.",
                     _LICENSE_PATH,
                 )
 
@@ -212,7 +212,7 @@ def get_license() -> License:
             if valid and _is_license_expired(expires_at_raw):
                 logger.warning(
                     "License has expired (expires_at=%s). Reverting to FREE tier. "
-                    "Renew at https://codrag.io/pricing",
+                    "Renew at https://prep.io/pricing",
                     expires_at_raw,
                 )
                 valid = False
@@ -299,5 +299,5 @@ class FeatureGateError(Exception):
         self.required_tier = required_tier
         super().__init__(
             f"Feature '{feature}' requires {required_tier} tier "
-            f"(current: {current_tier}). Upgrade at https://codrag.io/pricing"
+            f"(current: {current_tier}). Upgrade at https://prep.io/pricing"
         )

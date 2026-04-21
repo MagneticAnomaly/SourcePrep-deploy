@@ -7,10 +7,10 @@ Orchestrates the full headless indexing workflow:
 3. Run the 11-stage enrichment pipeline
 4. Upload the resulting index artifacts to S3
 
-This module is called by the `codrag sync-headless` CLI command.
+This module is called by the `prep sync-headless` CLI command.
 
 **Key design decision (P06-S05):**
-  The daemon's pipeline uses WorkerFactory → codrag.server singletons.
+  The daemon's pipeline uses WorkerFactory → prep.server singletons.
   The headless runner bypasses all server imports by constructing core
   classes (TraceBuilder, TraceAugmenter, etc.) directly with explicit
   params.  Stages run sequentially in the main thread — no
@@ -396,7 +396,7 @@ class HeadlessRunner:
             logger.info("Repository path: %s (branch: %s)", repo_path, self.config.branch)
 
             # 2. Set up the index directory
-            index_dir = repo_path / ".codrag" / "index"
+            index_dir = repo_path / ".prep" / "index"
             index_dir.mkdir(parents=True, exist_ok=True)
 
             # 3. Download existing index for incremental rebuild
@@ -447,7 +447,7 @@ class HeadlessRunner:
 
     def _clone_repo(self) -> Path:
         """Clone the repository to a temp directory."""
-        self._work_dir = Path(tempfile.mkdtemp(prefix="codrag-headless-"))
+        self._work_dir = Path(tempfile.mkdtemp(prefix="prep-headless-"))
         self._cleanup_work_dir = True
         repo_dir = self._work_dir / "repo"
 

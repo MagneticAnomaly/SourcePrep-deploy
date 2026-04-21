@@ -93,8 +93,8 @@ def test_serialize_segments_returns_expected_fields():
         segments=[
             _FakeSegment(
                 segment_id="seg_src_codrag",
-                segment_name="src/codrag",
-                dir_path="src/codrag",
+                segment_name="src/prep",
+                dir_path="src/prep",
                 file_count=47,
                 char_count=2100,
             ),
@@ -112,8 +112,8 @@ def test_serialize_segments_returns_expected_fields():
     assert len(out) == 2
     assert out[0] == {
         "segment_id": "seg_src_codrag",
-        "segment_name": "src/codrag",
-        "dir_path": "src/codrag",
+        "segment_name": "src/prep",
+        "dir_path": "src/prep",
         "file_count": 47,
         "char_count": 2100,
         "mode": "structural",
@@ -129,7 +129,7 @@ def test_serialize_segments_includes_content_for_preview():
             _FakeSegment(
                 segment_id="s1",
                 segment_name="core",
-                dir_path="src/codrag/core",
+                dir_path="src/prep/core",
                 file_count=10,
                 char_count=100,
                 content="[CORE]\nindexing + embedding pipeline",

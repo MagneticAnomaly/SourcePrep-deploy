@@ -3,7 +3,7 @@
 Wraps CustodianEngine operations as a LangGraph StateGraph:
 Scan → Verify → Plan → (optionally Execute).
 
-Requires: pip install codrag[langgraph]
+Requires: pip install prep[langgraph]
 """
 from __future__ import annotations
 

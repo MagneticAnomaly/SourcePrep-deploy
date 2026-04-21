@@ -1,5 +1,5 @@
 """
-CoDRAG Concept Seeder — Phase 74 (Epistemic Concepts) + Phase 96F (Swarm)
+Prep Concept Seeder — Phase 74 (Epistemic Concepts) + Phase 96F (Swarm)
 =========================================================================
 
 LLM-powered concept extraction from existing pipeline outputs.
@@ -180,7 +180,7 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
     raw_responses: list[tuple[str, str | None]] = []
 
     batch_timeout_sec = float(
-        os.environ.get("CODRAG_CONCEPTS_BATCH_TIMEOUT", "900")
+        os.environ.get("PREP_CONCEPTS_BATCH_TIMEOUT", "900")
     )
 
     pool = llm_pool

@@ -51,7 +51,7 @@ def test_excluded_paths_includes_lockfiles_and_media():
     assert _is_excluded_path("docs/diagram.svg") is True
     assert _is_excluded_path("AGENTS.md") is True
     assert _is_excluded_path("CLAUDE.md") is True
-    assert _is_excluded_path(".codrag/state.json") is True
+    assert _is_excluded_path(".prep/state.json") is True
     assert _is_excluded_path(".cursor/rules.mdc") is True
 
     # Nested monorepo lockfiles (regression guard for fnmatch depth)
@@ -62,9 +62,9 @@ def test_excluded_paths_includes_lockfiles_and_media():
 
 def test_excluded_paths_excludes_normal_source():
     """Normal source files are not excluded."""
-    assert _is_excluded_path("src/codrag/foo.py") is False
+    assert _is_excluded_path("src/prep/foo.py") is False
     assert _is_excluded_path("tests/test_foo.py") is False
-    assert _is_excluded_path("README.md") is False  # Not a CoDRAG-managed file
+    assert _is_excluded_path("README.md") is False  # Not a Prep-managed file
 
 
 def test_git_evidence_init_sets_defaults(tmp_path):

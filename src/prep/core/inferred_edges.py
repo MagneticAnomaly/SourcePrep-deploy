@@ -1,5 +1,5 @@
 """
-CoDRAG Inferred Edges — LLM-powered edge discovery (Stage 1.5)
+Prep Inferred Edges — LLM-powered edge discovery (Stage 1.5)
 ==============================================================
 
 Reads trace_nodes.jsonl + source code and uses an LLM to infer edges
@@ -765,7 +765,7 @@ def generate_directory_proximity_edges(
     that decays with directory size (large directories are less informative).
 
     Args:
-        index_dir: Path to .codrag index directory.
+        index_dir: Path to .prep index directory.
         max_dir_size: Skip directories with more files than this (too noisy).
         min_confidence: Minimum confidence threshold for emitted edges.
 
@@ -889,7 +889,7 @@ def generate_git_cochange_edges(
     with exponential recency weighting.
 
     Args:
-        index_dir: Path to .codrag index directory.
+        index_dir: Path to .prep index directory.
         repo_root: Path to the git repository root.
         min_commits: Minimum co-occurrence count to consider a pair.
         min_jaccard: Minimum Jaccard similarity threshold.

@@ -1,10 +1,10 @@
 """
-GitHub sync for CoDRAG Roadmap — Phase 59D.
+GitHub sync for Prep Roadmap — Phase 59D.
 
 Provides a lightweight client for GitHub's GraphQL API to import
 issues, project items, and milestones as RoadmapNode entries.
 
-Backend-only: all GitHub calls stay on the CoDRAG server. The frontend
+Backend-only: all GitHub calls stay on the Prep server. The frontend
 never touches GitHub directly (no token exposure).
 
 Usage:

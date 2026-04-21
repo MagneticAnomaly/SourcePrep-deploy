@@ -1,5 +1,5 @@
 """
-Goalposts & Roadmap data models for CoDRAG (Phase 57 + Phase 59).
+Goalposts & Roadmap data models for Prep (Phase 57 + Phase 59).
 
 Phase 57: Forward-looking AI planning (GoalpostProposal, GoalpostsState).
 Phase 59: Visual roadmap timeline (RoadmapNode, RoadmapState) — evolves

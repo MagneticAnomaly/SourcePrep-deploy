@@ -1,5 +1,5 @@
 """
-Role Projection Engine for CoDRAG (Phase 64A).
+Role Projection Engine for Prep (Phase 64A).
 
 Scores every indexed file against a RoleVector and assembles a
 role-appropriate sub-atlas within budget.  Uses three detail levels:
@@ -477,7 +477,7 @@ def _try_rust_scoring(
     or None if the Rust engine is unavailable or fails.
     """
     try:
-        from codrag_engine import score_files_for_role  # type: ignore[import-not-found]
+        from prep_engine import score_files_for_role  # type: ignore[import-not-found]
     except ImportError:
         return None
 
@@ -661,7 +661,7 @@ def project_atlas_for_role(
             return pin_block + f"[Role: {role.display_name}]\n\n{atlas_content}"
         return pin_block + f"[Role: {role.display_name}] No codebase data available."
 
-    # Drop CoDRAG-generated / AI-tool instruction files from projection
+    # Drop Prep-generated / AI-tool instruction files from projection
     # results. These are already excluded at the walker level via
     # repo_profile.DEFAULT_EXCLUDE_FILE_NAMES, but older index builds can
     # still contain them — filter here so stale indexes don't leak

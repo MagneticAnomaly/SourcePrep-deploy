@@ -1,5 +1,5 @@
 """
-CoDRAG Scope Router — Phase 24 (SM-8: Knowledge Scope Pipeline)
+Prep Scope Router — Phase 24 (SM-8: Knowledge Scope Pipeline)
 ================================================================
 
 Exposes the scope orchestrator via HTTP endpoints for the FolderTree panel.

@@ -1,6 +1,6 @@
-"""Shared data models for CoDRAG agent subsystem.
+"""Shared data models for Prep agent subsystem.
 
-Pure dataclasses with no CoDRAG internal imports.
+Pure dataclasses with no Prep internal imports.
 These define data contracts between agent engines and shared infrastructure.
 """
 from __future__ import annotations

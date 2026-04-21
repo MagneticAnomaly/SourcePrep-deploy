@@ -1,4 +1,4 @@
-"""Git client for CoDRAG agent operations.
+"""Git client for Prep agent operations.
 
 Wraps subprocess git calls for branch management, commits, and archive operations.
 Used primarily by the Digital Custodian agent for branch creation, file archiving,

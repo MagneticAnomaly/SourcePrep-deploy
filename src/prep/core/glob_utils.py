@@ -1,5 +1,5 @@
 """
-Centralized glob matching for CoDRAG (Refactor 2, GAP-8).
+Centralized glob matching for Prep (Refactor 2, GAP-8).
 
 Provides a consistent glob matching interface used by trace.py,
 index.py, and projects.py.  Uses ``pathspec`` for gitignore-style
@@ -21,7 +21,7 @@ def matches_any_glob(rel_path: str, patterns: List[str]) -> bool:
     trace.py ``_is_relevant()`` and projects.py ``_glob_match()``.
 
     Args:
-        rel_path: Repo-root-relative POSIX path (e.g. ``src/codrag/core/trace.py``).
+        rel_path: Repo-root-relative POSIX path (e.g. ``src/prep/core/trace.py``).
         patterns: List of glob patterns (e.g. ``["**/*.py", "docs/**"]``).
 
     Returns:

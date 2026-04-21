@@ -289,7 +289,7 @@ def _group_by_directory(file_paths: List[str]) -> Dict[str, List[str]]:
             # Root-level file
             groups["_root"].append(fp)
         elif parts[0].lower() in _DEEP_DIRS and len(parts) >= 3:
-            # Deep directory: use depth 2 (e.g. src/codrag/, packages/ui/)
+            # Deep directory: use depth 2 (e.g. src/prep/, packages/ui/)
             key = f"{parts[0]}/{parts[1]}"
             groups[key].append(fp)
         else:

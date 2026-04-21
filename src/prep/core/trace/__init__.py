@@ -1,7 +1,7 @@
 """
-Trace Index subsystem for CoDRAG.
+Trace Index subsystem for Prep.
 
-Re-exports all public symbols so that ``from codrag.core.trace import X``
+Re-exports all public symbols so that ``from prep.core.trace import X``
 continues to work after the split into a subpackage.
 """
 from .models import (

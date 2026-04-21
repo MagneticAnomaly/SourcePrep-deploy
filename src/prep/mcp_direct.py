@@ -1,7 +1,7 @@
 """
-CoDRAG Direct MCP Server.
+Prep Direct MCP Server.
 
-Implements the MCP protocol by directly calling CoDRAG core components (CodeIndex, TraceIndex)
+Implements the MCP protocol by directly calling Prep core components (CodeIndex, TraceIndex)
 in the same process, avoiding the need for a separate daemon.
 """
 
@@ -68,13 +68,13 @@ class DirectMCPServer:
     ):
         self.repo_root = Path(repo_root).resolve()
 
-        # Default index location: .codrag/index inside repo (direct mode
+        # Default index location: .prep/index inside repo (direct mode
         # is always a single-repo use case; server mode is what uses
         # the daemon-wide data_dir).
         if index_dir:
             self.index_dir = Path(index_dir).resolve()
         else:
-            self.index_dir = self.repo_root / ".codrag" / "index"
+            self.index_dir = self.repo_root / ".prep" / "index"
 
         self.ollama_url = ollama_url
         self.model = model
@@ -217,7 +217,7 @@ class DirectMCPServer:
                 "results": [],
                 "error": (
                     "Index not loaded. Build it from your terminal:\n"
-                    f"  codrag build\n\n"
+                    f"  prep build\n\n"
                     "This runs the full indexing pipeline on your codebase."
                 ),
             }
@@ -254,7 +254,7 @@ class DirectMCPServer:
 
         await self._ensure_init()
         if not self._index or not self._index.is_loaded():
-            return {"context": "", "error": "Index not loaded. Run codrag_build first."}
+            return {"context": "", "error": "Index not loaded. Run prep_build first."}
 
         # Run blocking context assembly in thread
         data = await asyncio.to_thread(
@@ -332,7 +332,7 @@ class DirectMCPServer:
         # Health observations
         observations: List[str] = []
         if not index_exists:
-            observations.append("No index exists yet — run `codrag_build` to get started.")
+            observations.append("No index exists yet — run `prep_build` to get started.")
 
         if observations:
             lines.append("**Heads up:**")
@@ -345,7 +345,7 @@ class DirectMCPServer:
         # Suggested prompts
         prompts: List[str] = []
         if not index_exists:
-            prompts.append("Build my index: `codrag_build`")
+            prompts.append("Build my index: `prep_build`")
         else:
             prompts.append(f"How is {project_name} structured? What are the main modules?")
             prompts.append(f"Find the main entry point of {project_name}.")
@@ -381,7 +381,7 @@ class DirectMCPServer:
             "'I'm looking at...'. Keep it warm and helpful.\n\n"
             "WITH A QUESTION (user said 'hi_codrag' AND asked something): Briefly "
             "acknowledge what you see (1-2 sentences), then address their question. "
-            "If you need specific code context to answer, call codrag_search with "
+            "If you need specific code context to answer, call prep_search with "
             "their question."
         )
 
@@ -402,7 +402,7 @@ class DirectMCPServer:
                 "tools": {"listChanged": False},
             },
             "serverInfo": {
-                "name": "codrag-direct",
+                "name": "prep-direct",
                 "version": "0.1.0",
             },
         }
@@ -415,17 +415,17 @@ class DirectMCPServer:
         args = params.get("arguments", {})
 
         try:
-            if name == "codrag_status":
+            if name == "prep_status":
                 result = await self.tool_status()
-            elif name == "codrag_build":
+            elif name == "prep_build":
                 result = await self.tool_build(full=args.get("full", False))
-            elif name == "codrag_search":
+            elif name == "prep_search":
                 result = await self.tool_search(
                     query=args.get("query", ""),
                     k=args.get("k", 8),
                     min_score=args.get("min_score", 0.15),
                 )
-            elif name == "codrag":
+            elif name == "prep":
                 result = await self.tool_context(
                     query=args.get("query", ""),
                     k=args.get("k", 5),

@@ -1,5 +1,5 @@
 """
-CoDRAG Antibody Store — Phase 87.1 (Persistence)
+Prep Antibody Store — Phase 87.1 (Persistence)
 ==================================================
 
 Persistent SQLite store for codebase immune system antibodies.
@@ -9,7 +9,7 @@ architectural violations when files change. This store persists them so they
 survive across daemon restarts and MCP sessions.
 
 **Design:**
-  - Uses the shared ``codrag_settings.db`` SQLite database (same pattern as
+  - Uses the shared ``prep_settings.db`` SQLite database (same pattern as
     concept_store and settings_store).
   - Dedicated ``antibodies`` table with JSON-encoded trigger/response columns.
   - CRUD operations: save, get, list, update_status, record_trigger,
@@ -17,7 +17,7 @@ survive across daemon restarts and MCP sessions.
   - Thread-safe via threading.Lock (same pattern as ConceptStore).
 
 **Usage:**
-  ``from codrag.services.antibody_store import antibody_store``
+  ``from prep.services.antibody_store import antibody_store``
 
   ``antibody_store.save("proj-1", antibody)``
   ``antibody_store.list_antibodies("proj-1", status="active")``

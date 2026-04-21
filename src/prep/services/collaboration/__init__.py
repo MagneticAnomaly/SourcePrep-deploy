@@ -1,7 +1,7 @@
 """Agent Collaboration Infrastructure — Phase 73.5.
 
 Provides cross-agent awareness, coordination, and conflict detection.
-All stores share the codrag_settings.db SQLite database.
+All stores share the prep_settings.db SQLite database.
 """
 from __future__ import annotations
 

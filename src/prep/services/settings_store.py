@@ -1,11 +1,11 @@
 """
-CoDRAG Settings Store — Phase 24 (Phase 3: Settings Persistence)
+Prep Settings Store — Phase 24 (Phase 3: Settings Persistence)
 =================================================================
 
-SQLite-backed key-value store for all CoDRAG settings.
+SQLite-backed key-value store for all Prep settings.
 
 **Design:**
-  - Single ``codrag_settings.db`` file in the data directory.
+  - Single ``prep_settings.db`` file in the data directory.
   - Namespaced keys: ``global/<key>`` for global settings,
     ``project/<project_id>/<key>`` for per-project settings.
   - Values stored as JSON text (supports dicts, lists, scalars).
@@ -14,7 +14,7 @@ SQLite-backed key-value store for all CoDRAG settings.
   - Auto-migrates ``ui_config.json`` on first load if it exists.
 
 **Usage:**
-  ``from codrag.services.settings_store import settings``
+  ``from prep.services.settings_store import settings``
   ``settings.get("pipeline_config")``
   ``settings.set("pipeline_config", {"fast_sync": {"auto": True}})``
   ``settings.get("llm_config.embedding.model")``  # dot-path access

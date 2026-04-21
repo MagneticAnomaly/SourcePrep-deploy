@@ -2,7 +2,7 @@
 """
 Phase 103 R5 — seed → active concept promotion utility.
 
-Reads codrag_concepts.db, applies promotion criteria, flips matching
+Reads prep_concepts.db, applies promotion criteria, flips matching
 seeds to `active` status. Idempotent; running twice is a no-op.
 
 Promotion criteria (post-R5 audit):
@@ -103,7 +103,7 @@ def promote(
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Phase 103 R5 seed promotion utility")
-    p.add_argument("--db", type=Path, required=True, help="Path to codrag_concepts.db")
+    p.add_argument("--db", type=Path, required=True, help="Path to prep_concepts.db")
     p.add_argument("--project-id", required=True, help="Project UUID to filter seeds")
     p.add_argument("--category", default="constraint", help="Category to promote (default: constraint — best for antibodies)")
     p.add_argument("--min-confidence", type=float, default=0.85)

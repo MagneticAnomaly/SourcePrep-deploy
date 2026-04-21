@@ -1,15 +1,15 @@
 """
-CoDRAG CLI entry point.
+Prep CLI entry point.
 
 Usage:
-    codrag serve              Start the daemon
-    codrag add <path>         Add a project
-    codrag list               List projects
-    codrag build <id>         Build project index
-    codrag search <id> <q>    Search project
-    codrag reset              Full reset (delete all project data)
-    codrag sync-headless      Run headless team sync (CI/CD)
-    codrag ui                 Open dashboard
+    prep serve              Start the daemon
+    prep add <path>         Add a project
+    prep list               List projects
+    prep build <id>         Build project index
+    prep search <id> <q>    Search project
+    prep reset              Full reset (delete all project data)
+    prep sync-headless      Run headless team sync (CI/CD)
+    prep ui                 Open dashboard
 """
 
 import json
@@ -29,8 +29,8 @@ from rich.markdown import Markdown
 from prep import __version__
 
 app = typer.Typer(
-    name="codrag",
-    help="CoDRAG - Code Documentation and RAG.\n\nSemantic search, context assembly, and structural analysis for your codebase.",
+    name="prep",
+    help="Prep - Code Documentation and RAG.\n\nSemantic search, context assembly, and structural analysis for your codebase.",
     no_args_is_help=False,
     add_completion=False,
 )
@@ -61,8 +61,8 @@ def _post_json(url: str, payload: dict) -> Any:
         console.print(f"[red]HTTP Error: {e}[/red]")
         raise typer.Exit(1)
     except requests.exceptions.ConnectionError:
-        console.print(f"[red]Error: Cannot connect to CoDRAG daemon at {url}[/red]")
-        console.print("[dim]Is the server running? Try: codrag serve[/dim]")
+        console.print(f"[red]Error: Cannot connect to Prep daemon at {url}[/red]")
+        console.print("[dim]Is the server running? Try: prep serve[/dim]")
         raise typer.Exit(1)
 
 
@@ -86,8 +86,8 @@ def _get_json(url: str) -> Any:
         console.print(f"[red]HTTP Error: {e}[/red]")
         raise typer.Exit(1)
     except requests.exceptions.ConnectionError:
-        console.print(f"[red]Error: Cannot connect to CoDRAG daemon at {url}[/red]")
-        console.print("[dim]Is the server running? Try: codrag serve[/dim]")
+        console.print(f"[red]Error: Cannot connect to Prep daemon at {url}[/red]")
+        console.print("[dim]Is the server running? Try: prep serve[/dim]")
         raise typer.Exit(1)
 
 
@@ -111,8 +111,8 @@ def _delete_json(url: str) -> Any:
         console.print(f"[red]HTTP Error: {e}[/red]")
         raise typer.Exit(1)
     except requests.exceptions.ConnectionError:
-        console.print(f"[red]Error: Cannot connect to CoDRAG daemon at {url}[/red]")
-        console.print("[dim]Is the server running? Try: codrag serve[/dim]")
+        console.print(f"[red]Error: Cannot connect to Prep daemon at {url}[/red]")
+        console.print("[dim]Is the server running? Try: prep serve[/dim]")
         raise typer.Exit(1)
 
 
@@ -156,7 +156,7 @@ def _resolve_project(base: str, project_id: Optional[str] = None, auto: bool = T
 
     if not projects:
         console.print("[yellow]No projects found in daemon.[/yellow]")
-        console.print("Run 'codrag add <path>' to register a project.")
+        console.print("Run 'prep add <path>' to register a project.")
         raise typer.Exit(1)
 
     # 1. Try auto-detect from CWD
@@ -198,7 +198,7 @@ def _resolve_project(base: str, project_id: Optional[str] = None, auto: bool = T
 @app.callback(invoke_without_command=True)
 def callback(ctx: typer.Context) -> None:
     """
-    CoDRAG: Code Documentation and Retrieval Augmented Generation.
+    Prep: Code Documentation and Retrieval Augmented Generation.
 
     Manage code indexes, run semantic searches, and assemble context for LLMs.
     """
@@ -210,7 +210,7 @@ def callback(ctx: typer.Context) -> None:
 @app.command()
 def version() -> None:
     """Show version information."""
-    console.print(f"CoDRAG v{__version__}")
+    console.print(f"Prep v{__version__}")
 
 
 @app.command()
@@ -220,14 +220,14 @@ def serve(
     reload: bool = typer.Option(False, "--reload", help="Enable auto-reload (dev mode)"),
 ) -> None:
     """
-    Start the CoDRAG daemon.
+    Start the Prep daemon.
 
     The daemon manages projects, indexes, and provides the API for clients/IDEs.
     """
-    console.print(f"[green]Starting CoDRAG server on {host}:{port}...[/green]")
+    console.print(f"[green]Starting Prep server on {host}:{port}...[/green]")
 
     # Phase 113: ensure legacy ./codrag_data/ is migrated before
-    # `codrag.server` imports the store modules. Safe no-op in the
+    # `prep.server` imports the store modules. Safe no-op in the
     # common case (sentinel present → no-op).
     from prep.core.data_dir_migration import migrate_legacy_data_dir
     migrate_legacy_data_dir()
@@ -248,7 +248,7 @@ def add(
     mode: str = typer.Option(
         "standalone", "--mode", "-m",
         help="Index location: standalone (app data dir, best for portability), "
-             "embedded (.codrag/ in repo, best when boot disk is faster), "
+             "embedded (.prep/ in repo, best when boot disk is faster), "
              "or custom (specify --index-path, best for fast scratch disks)",
     ),
     index_path: str = typer.Option(
@@ -262,7 +262,7 @@ def add(
     """
     Register a new project with the daemon.
 
-    Does not automatically build the index. Run 'codrag build' after adding.
+    Does not automatically build the index. Run 'prep build' after adding.
     """
     base = _base_url(host, port)
     abs_path = str(Path(path).resolve())
@@ -289,7 +289,7 @@ def add(
     console.print(f"  Mode: {p.get('mode')}")
     if index_path:
         console.print(f"  Index Path: {p.get('index_path', index_path)}")
-    console.print("\n[dim]Run 'codrag build' to index this project.[/dim]")
+    console.print("\n[dim]Run 'prep build' to index this project.[/dim]")
 
 
 @app.command("list")
@@ -306,7 +306,7 @@ def list_projects(
         console.print("[yellow]No projects found.[/yellow]")
         return
 
-    table = Table(title="CoDRAG Projects")
+    table = Table(title="Prep Projects")
     table.add_column("ID", style="cyan", no_wrap=True)
     table.add_column("Name", style="green")
     table.add_column("Path")
@@ -393,10 +393,10 @@ def prune(
     mode = proj_data.get("mode", "standalone")
 
     if mode == "embedded":
-        idx_dir = Path(proj_path) / ".codrag"
+        idx_dir = Path(proj_path) / ".prep"
     else:
-        from prep.core.project_registry import codrag_data_dir
-        idx_dir = codrag_data_dir() / "projects" / pid
+        from prep.core.project_registry import prep_data_dir
+        idx_dir = prep_data_dir() / "projects" / pid
 
     if not idx_dir.exists():
         console.print("[yellow]No index directory found.[/yellow]")
@@ -493,7 +493,7 @@ def status(
         console.print(f"  Last Build: {idx.get('last_build_at')}")
     else:
         console.print("[yellow]○ Embeddings Index: Not Built[/yellow]")
-        console.print("  Run 'codrag build' to create.")
+        console.print("  Run 'prep build' to create.")
 
     if data.get("building"):
         console.print("[cyan]  (Building in progress...)[/cyan]")
@@ -525,7 +525,7 @@ def build(
     """
     Trigger an index build.
 
-    Builds are asynchronous. Use 'codrag status' to check progress.
+    Builds are asynchronous. Use 'prep status' to check progress.
     """
     base = _base_url(host, port)
     pid = _resolve_project(base, project_id)
@@ -539,7 +539,7 @@ def build(
     
     if data.get("started"):
         console.print("[green]Build started successfully.[/green]")
-        console.print("Use 'codrag status' to monitor progress.")
+        console.print("Use 'prep status' to monitor progress.")
     else:
         console.print(f"[yellow]Build did not start: {data}[/yellow]")
 
@@ -691,7 +691,7 @@ def models_download() -> None:
 def ui(
     port: int = typer.Option(8400, "--port", "-p", help="Dashboard port"),
 ) -> None:
-    """Open the CoDRAG web dashboard."""
+    """Open the Prep web dashboard."""
     import webbrowser
     url = f"http://localhost:{port}/ui"
     console.print(f"[green]Opening dashboard: {url}[/green]")
@@ -703,7 +703,7 @@ def mcp(
     project_id: str = typer.Option(None, "--project", "-p", help="Project ID (pinned mode)"),
     auto: bool = typer.Option(True, "--auto", "-a", help="Auto-detect project from cwd (Server Mode). Enabled by default."),
     mode: str = typer.Option("server", "--mode", "-m", help="Mode: server | direct"),
-    daemon_url: str = typer.Option("http://127.0.0.1:8400", "--daemon", "-d", help="CoDRAG daemon URL (Server Mode)"),
+    daemon_url: str = typer.Option("http://127.0.0.1:8400", "--daemon", "-d", help="Prep daemon URL (Server Mode)"),
     repo_root: str = typer.Option(None, "--repo-root", "-r", help="Repository root (Direct Mode). Defaults to cwd."),
     debug: bool = typer.Option(False, "--debug", help="Enable debug logging (stderr)."),
     log_file: Optional[str] = typer.Option(None, "--log-file", help="Write MCP debug logs to a file (rotating)."),
@@ -714,11 +714,11 @@ def mcp(
     """
     Run the Model Context Protocol (MCP) server.
 
-    Connects IDEs (Cursor, Windsurf, Claude Desktop) to CoDRAG.
+    Connects IDEs (Cursor, Windsurf, Claude Desktop) to Prep.
     
     Modes:
-      server (default): Bridges IDE to the running CoDRAG daemon.
-      direct: Runs the CoDRAG engine in-process (no daemon required).
+      server (default): Bridges IDE to the running Prep daemon.
+      direct: Runs the Prep engine in-process (no daemon required).
       
     Transports:
       stdio (default): Standard input/output (for local IDEs).
@@ -730,17 +730,17 @@ def mcp(
     
     if mode == "direct":
         if transport == "http":
-            print("[codrag] Error: Direct mode currently only supports stdio transport.", file=sys.stderr)
+            print("[prep] Error: Direct mode currently only supports stdio transport.", file=sys.stderr)
             raise typer.Exit(1)
             
         root = Path(repo_root).resolve() if repo_root else Path.cwd()
         configure_logging(debug=bool(debug), log_file=log_file)
-        print(f"[codrag] Starting MCP (Direct Mode) at {root}...", file=sys.stderr)
+        print(f"[prep] Starting MCP (Direct Mode) at {root}...", file=sys.stderr)
         server = DirectMCPServer(repo_root=root)
         asyncio.run(run_stdio(server))
     else:
         # Server mode
-        print(f"[codrag] Starting MCP (Server Mode) -> {daemon_url}...", file=sys.stderr)
+        print(f"[prep] Starting MCP (Server Mode) -> {daemon_url}...", file=sys.stderr)
         mcp_server_main(
             daemon_url=daemon_url,
             project_id=project_id,
@@ -762,13 +762,13 @@ def mcp_config(
         help="Target IDE: claude, cursor, windsurf, vscode, jetbrains, all",
     ),
     mode: str = typer.Option("auto", "--mode", "-m", help="Mode: auto | project | direct"),
-    daemon_url: str = typer.Option("http://127.0.0.1:8400", "--daemon", "-d", help="CoDRAG daemon URL"),
+    daemon_url: str = typer.Option("http://127.0.0.1:8400", "--daemon", "-d", help="Prep daemon URL"),
     project_id: str = typer.Option(None, "--project", "-p", help="Optional pinned Project ID"),
 ) -> None:
     """
     Generate MCP configuration for IDEs.
 
-    Prints the JSON configuration needed to add CoDRAG to your IDE.
+    Prints the JSON configuration needed to add Prep to your IDE.
     """
     from prep.mcp_config import generate_mcp_configs
     
@@ -886,7 +886,7 @@ def config(
     host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
     port: int = typer.Option(8400, "--port", help="Server port"),
 ) -> None:
-    """View or modify CoDRAG configuration."""
+    """View or modify Prep configuration."""
     import json
     base = _base_url(host, port)
     
@@ -1232,11 +1232,11 @@ def sync_headless(
     api_key: str = typer.Option("", "--api-key", help="API key for cloud LLM provider (or use env vars)"),
     embedder: str = typer.Option("native", "--embedder", help="Embedding engine: native (ONNX, CPU) | ollama"),
     full: bool = typer.Option(False, "--full", help="Force a full rebuild (skip incremental diffing)"),
-    s3_endpoint: str = typer.Option("", "--s3-endpoint", help="S3-compatible endpoint URL (or CODRAG_S3_ENDPOINT env)"),
-    s3_bucket: str = typer.Option("", "--s3-bucket", help="S3 bucket name (or CODRAG_S3_BUCKET env)"),
-    s3_prefix: str = typer.Option("", "--s3-prefix", help="S3 key prefix for this project (or CODRAG_S3_PREFIX env)"),
-    s3_access_key: str = typer.Option("", "--s3-access-key", help="S3 access key (or CODRAG_S3_ACCESS_KEY env)"),
-    s3_secret_key: str = typer.Option("", "--s3-secret-key", help="S3 secret key (or CODRAG_S3_SECRET_KEY env)"),
+    s3_endpoint: str = typer.Option("", "--s3-endpoint", help="S3-compatible endpoint URL (or PREP_S3_ENDPOINT env)"),
+    s3_bucket: str = typer.Option("", "--s3-bucket", help="S3 bucket name (or PREP_S3_BUCKET env)"),
+    s3_prefix: str = typer.Option("", "--s3-prefix", help="S3 key prefix for this project (or PREP_S3_PREFIX env)"),
+    s3_access_key: str = typer.Option("", "--s3-access-key", help="S3 access key (or PREP_S3_ACCESS_KEY env)"),
+    s3_secret_key: str = typer.Option("", "--s3-secret-key", help="S3 secret key (or PREP_S3_SECRET_KEY env)"),
 ) -> None:
     """
     Run the headless indexing pipeline for team sync.
@@ -1246,14 +1246,14 @@ def sync_headless(
 
     \b
     Quick Start (CPU + BYOK):
-      codrag sync-headless --repo-path . --model-provider openai --model-name gpt-4.1-mini
+      prep sync-headless --repo-path . --model-provider openai --model-name gpt-4.1-mini
 
     \b
     GPU + Local LLM:
-      codrag sync-headless --repo-url https://github.com/org/repo --model-provider local --model-name qwen3:4b
+      prep sync-headless --repo-url https://github.com/org/repo --model-provider local --model-name qwen3:4b
 
     S3 credentials can be passed via flags or environment variables
-    (CODRAG_S3_ENDPOINT, CODRAG_S3_BUCKET, CODRAG_S3_ACCESS_KEY, CODRAG_S3_SECRET_KEY).
+    (PREP_S3_ENDPOINT, PREP_S3_BUCKET, PREP_S3_ACCESS_KEY, PREP_S3_SECRET_KEY).
     """
     import logging
     logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(name)s: %(message)s")
@@ -1268,7 +1268,7 @@ def sync_headless(
         console.print(
             f"[red]Error: sync-headless requires a Team or Enterprise license "
             f"(current: {License._display_tier(lic.tier)}). "
-            f"Upgrade at https://codrag.io/pricing[/red]"
+            f"Upgrade at https://prep.io/pricing[/red]"
         )
         raise typer.Exit(1)
 
@@ -1281,7 +1281,7 @@ def sync_headless(
         console.print(
             "[yellow]⚠ Deprecation warning: Passing S3 credentials via CLI flags is deprecated "
             "and will be removed in a future version. Use environment variables instead: "
-            "CODRAG_S3_ACCESS_KEY, CODRAG_S3_SECRET_KEY[/yellow]"
+            "PREP_S3_ACCESS_KEY, PREP_S3_SECRET_KEY[/yellow]"
         )
     if api_key:
         console.print(
@@ -1333,7 +1333,7 @@ def sync_headless(
         s3=s3_cfg if has_s3 else None,
     )
 
-    console.print(f"[cyan]CoDRAG Headless Sync[/cyan]")
+    console.print(f"[cyan]Prep Headless Sync[/cyan]")
     console.print(f"  Repo: {repo_url or repo_path}")
     console.print(f"  Branch: {branch}")
     console.print(f"  Model: {model_provider}/{model_name}")
@@ -1376,16 +1376,16 @@ def opportunities(
     """
     Show codebase improvement opportunities.
 
-    CoDRAG discovers actionable opportunities across your codebase:
+    Prep discovers actionable opportunities across your codebase:
     architecture issues, tech debt, naming inconsistencies, and more.
 
     \b
     Quick Start:
-      codrag opportunities                         # Show existing findings
-      codrag opportunities --refresh               # Fresh scan + display
-      codrag opportunities --format sarif > out.sarif  # SARIF export
-      codrag opportunities --format ai_prompt      # Paste into AI agent
-      codrag opportunities --priority P0           # Critical only
+      prep opportunities                         # Show existing findings
+      prep opportunities --refresh               # Fresh scan + display
+      prep opportunities --format sarif > out.sarif  # SARIF export
+      prep opportunities --format ai_prompt      # Paste into AI agent
+      prep opportunities --priority P0           # Critical only
     """
     base = _base_url(host, port)
 
@@ -1414,7 +1414,7 @@ def opportunities(
             console.print(f"[red]Export error: {e}[/red]")
             raise typer.Exit(1)
         except requests.exceptions.ConnectionError:
-            console.print(f"[red]Cannot connect to CoDRAG daemon at {base}[/red]")
+            console.print(f"[red]Cannot connect to Prep daemon at {base}[/red]")
             raise typer.Exit(1)
         return
 
@@ -1448,7 +1448,7 @@ def opportunities(
     if not items:
         console.print("[yellow]No opportunities found.[/yellow]")
         if not refresh:
-            console.print("[dim]Run 'codrag opportunities --refresh' to scan for new findings.[/dim]")
+            console.print("[dim]Run 'prep opportunities --refresh' to scan for new findings.[/dim]")
         return
 
     # Summary panel
@@ -1466,7 +1466,7 @@ def opportunities(
         f"[blue]{info}[/blue] info | "
         f"[dim]{dismissed} dismissed[/dim]\n"
         f"[dim]Last refresh: {last_refresh}[/dim]",
-        title="CoDRAG Opportunities",
+        title="Prep Opportunities",
         expand=False,
     ))
 
@@ -1494,7 +1494,7 @@ def opportunities(
 
     console.print(table)
     console.print()
-    console.print("[dim]Export: codrag opportunities --format sarif | json | csv | md | ai_prompt[/dim]")
+    console.print("[dim]Export: prep opportunities --format sarif | json | csv | md | ai_prompt[/dim]")
 
 
 # ── Agent Commands (Phase 67) ──────────────────────────────────────
@@ -1534,10 +1534,10 @@ def hr_generate(
 
     \b
     Examples:
-      codrag hr-generate "Backend Dev" "API Engineer" --mode list
-      codrag hr-generate --mode auto
-      codrag hr-generate "CTO" --mode hybrid
-      codrag hr-generate --mode auto --dry-run
+      prep hr-generate "Backend Dev" "API Engineer" --mode list
+      prep hr-generate --mode auto
+      prep hr-generate "CTO" --mode hybrid
+      prep hr-generate --mode auto --dry-run
     """
     base = _base_url(host, port)
     pid = _resolve_project(base, project_id)
@@ -1599,7 +1599,7 @@ def hr_roster(
     data = _get_json(f"{base}/projects/{pid}/agents/hr/roster")
     roles = data.get("roles", [])
     if not roles:
-        console.print("[dim]No roles generated yet. Run: codrag hr-generate[/dim]")
+        console.print("[dim]No roles generated yet. Run: prep hr-generate[/dim]")
         return
     table = Table(title="Agent Roster")
     table.add_column("Slug")
@@ -1661,7 +1661,7 @@ def hr_sync(
     data = _post_json(f"{base}/projects/{pid}/agents/hr/sync", {})
     synced = data.get("synced", {})
     if not synced:
-        console.print("[dim]No roles to sync. Generate roles first: codrag hr-generate[/dim]")
+        console.print("[dim]No roles to sync. Generate roles first: prep hr-generate[/dim]")
         return
     console.print(f"[green]Synced {len(synced)} role(s) to Paperclip:[/green]")
     for slug, agent_id in synced.items():
@@ -1675,7 +1675,7 @@ def hr_adopt(
     host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
     port: int = typer.Option(8400, "--port", help="Server port"),
 ) -> None:
-    """Import existing agent files and enrich with CoDRAG intelligence.
+    """Import existing agent files and enrich with Prep intelligence.
 
     \b
     Reads AGENTS.md from each subdirectory of the given path, then generates
@@ -1683,8 +1683,8 @@ def hr_adopt(
 
     \b
     Examples:
-      codrag hr-adopt .agents
-      codrag hr-adopt /path/to/agents --project my-project
+      prep hr-adopt .agents
+      prep hr-adopt /path/to/agents --project my-project
     """
     base = _base_url(host, port)
     pid = _resolve_project(base, project_id)
@@ -1733,7 +1733,7 @@ def research_history(
     data = _get_json(f"{base}/projects/{pid}/agents/researcher/history")
     runs = data.get("runs", [])
     if not runs:
-        console.print("[dim]No research runs yet. Run: codrag research-run[/dim]")
+        console.print("[dim]No research runs yet. Run: prep research-run[/dim]")
         return
     table = Table(title="Research History")
     table.add_column("Run ID")
@@ -1810,7 +1810,7 @@ def agents_overview(
     """Agent Operations — status overview and command reference.
 
     \b
-    Shows the current state of all three CoDRAG agents and lists
+    Shows the current state of all three Prep agents and lists
     available commands for each.
     """
     base = _base_url(host, port)
@@ -1859,21 +1859,21 @@ def agents_overview(
     cmd_table.add_column("Command", style="cyan")
     cmd_table.add_column("Description", style="dim")
 
-    cmd_table.add_row("codrag hr-readiness", "Check codebase readiness for role generation")
-    cmd_table.add_row('codrag hr-generate "Role Name"', "Generate role definitions (list mode)")
-    cmd_table.add_row("codrag hr-generate --mode auto", "Auto-infer roles from codebase")
-    cmd_table.add_row("codrag hr-roster", "List generated roles")
-    cmd_table.add_row("codrag hr-audit", "Run drift detection on roles")
-    cmd_table.add_row("codrag hr-generate --dry-run", "Preview what generation would produce")
-    cmd_table.add_row("codrag hr-adopt .agents", "Import existing agents and enrich with CoDRAG")
-    cmd_table.add_row("codrag hr-sync", "Sync roles to Paperclip")
+    cmd_table.add_row("prep hr-readiness", "Check codebase readiness for role generation")
+    cmd_table.add_row('prep hr-generate "Role Name"', "Generate role definitions (list mode)")
+    cmd_table.add_row("prep hr-generate --mode auto", "Auto-infer roles from codebase")
+    cmd_table.add_row("prep hr-roster", "List generated roles")
+    cmd_table.add_row("prep hr-audit", "Run drift detection on roles")
+    cmd_table.add_row("prep hr-generate --dry-run", "Preview what generation would produce")
+    cmd_table.add_row("prep hr-adopt .agents", "Import existing agents and enrich with Prep")
+    cmd_table.add_row("prep hr-sync", "Sync roles to Paperclip")
     cmd_table.add_row("", "")
-    cmd_table.add_row("codrag research-run", "Mine audit findings, formulate plans")
-    cmd_table.add_row("codrag research-history", "Show research run history")
+    cmd_table.add_row("prep research-run", "Mine audit findings, formulate plans")
+    cmd_table.add_row("prep research-history", "Show research run history")
     cmd_table.add_row("", "")
-    cmd_table.add_row("codrag custodian-run", "Scan for dead code (dry-run default)")
-    cmd_table.add_row("codrag custodian-run --live", "Execute cleanup (creates branch)")
-    cmd_table.add_row("codrag custodian-manifest", "Show archive manifest")
+    cmd_table.add_row("prep custodian-run", "Scan for dead code (dry-run default)")
+    cmd_table.add_row("prep custodian-run --live", "Execute cleanup (creates branch)")
+    cmd_table.add_row("prep custodian-manifest", "Show archive manifest")
 
     console.print(cmd_table)
 
@@ -1881,9 +1881,9 @@ def agents_overview(
     if hr_count == 0 and res_count == 0 and cust_count == 0:
         console.print()
         console.print("[yellow]Get started:[/yellow]")
-        console.print("  1. Ensure an LLM is configured: [cyan]codrag config[/cyan]")
-        console.print("  2. Check readiness: [cyan]codrag hr-readiness[/cyan]")
-        console.print("  3. Generate roles: [cyan]codrag hr-generate --mode auto[/cyan]")
+        console.print("  1. Ensure an LLM is configured: [cyan]prep config[/cyan]")
+        console.print("  2. Check readiness: [cyan]prep hr-readiness[/cyan]")
+        console.print("  3. Generate roles: [cyan]prep hr-generate --mode auto[/cyan]")
 
 
 @app.command("agents-discover")
@@ -1916,9 +1916,9 @@ def agents_discover(
         if data.get("agent_count"):
             console.print(f"  Agents: {data['agent_count']}")
         if data.get("plugin_detected"):
-            console.print("  [green]CoDRAG plugin detected ✓[/green]")
+            console.print("  [green]Prep plugin detected ✓[/green]")
         else:
-            console.print("  [yellow]CoDRAG plugin not detected[/yellow]")
+            console.print("  [yellow]Prep plugin not detected[/yellow]")
         if data.get("version"):
             console.print(f"  Version: {data['version']}")
     else:

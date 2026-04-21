@@ -40,7 +40,7 @@ def build_langchain_llm(
         except ImportError:
             raise ImportError(
                 "langchain-ollama is required for Ollama LangGraph adapters. "
-                "Install with: pip install codrag[langgraph]"
+                "Install with: pip install prep[langgraph]"
             )
         return ChatOllama(
             model=model,
@@ -54,7 +54,7 @@ def build_langchain_llm(
         except ImportError:
             raise ImportError(
                 "langchain-anthropic is required for Anthropic LangGraph adapters. "
-                "Install with: pip install codrag[langgraph]"
+                "Install with: pip install prep[langgraph]"
             )
         return ChatAnthropic(
             model=model,
@@ -68,7 +68,7 @@ def build_langchain_llm(
         except ImportError:
             raise ImportError(
                 "langchain-openai is required for OpenAI LangGraph adapters. "
-                "Install with: pip install codrag[langgraph]"
+                "Install with: pip install prep[langgraph]"
             )
         return ChatOpenAI(
             model=model,
@@ -81,7 +81,7 @@ def build_langchain_llm(
 
 
 def build_llm_from_settings() -> Any:
-    """Build a LangChain LLM from the CoDRAG AI Gateway settings.
+    """Build a LangChain LLM from the Prep AI Gateway settings.
 
     Returns:
         A LangChain BaseChatModel instance.

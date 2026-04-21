@@ -22,7 +22,7 @@ class InvalidParamsError(MCPError):
 
 
 class DaemonUnavailableError(MCPError):
-    def __init__(self, message: str = "CoDRAG daemon is not running"):
+    def __init__(self, message: str = "Prep daemon is not running"):
         super().__init__(message, code=-32000)
 
 

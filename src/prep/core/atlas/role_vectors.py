@@ -1,7 +1,7 @@
 """
-Role Vectors for CoDRAG Role Composition Engine (Phase 64A).
+Role Vectors for Prep Role Composition Engine (Phase 64A).
 
-Defines the RoleVector dataclass — a continuous weight vector over CoDRAG's
+Defines the RoleVector dataclass — a continuous weight vector over Prep's
 existing epistemic dimensions (architecture_layer, domain_tags, centrality,
 confidence).  Each built-in role is a preset RoleVector that controls how
 the atlas is filtered and compressed for a specific audience.
@@ -449,7 +449,7 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
     ),
 
     # ── Personal Assistant / Coordination (Phase 103 broadening) ────
-    # CoDRAG isn't only a dev tool. AI agents like OpenClaw operate as
+    # Prep isn't only a dev tool. AI agents like OpenClaw operate as
     # personal assistants — focused on plans, decisions, MVP specs, todo
     # lists, and project memory rather than code. These roles serve those
     # non-dev agent personas reading the same codebase atlas.
@@ -525,7 +525,7 @@ BUILT_IN_ROLES: Dict[str, RoleVector] = {
             "hypothesis", "finding", "experiment",
             "metrics", "measurement", "analysis", "literature",
             "survey", "methodology", "calibration",
-            # CoDRAG-research-adjacent vocabulary
+            # Prep-research-adjacent vocabulary
             "ai-agent", "agent-architecture", "knowledge-graph",
             "epistemic-analysis", "context-engineering",
             "code-intelligence", "graph-rag",

@@ -18,7 +18,7 @@ File contents (first 200 lines):
 {truncated}
 ```
 
-CoDRAG analysis:
+Prep analysis:
 - Dependents (static imports): {dependent_count} (should be 0)
 - This file imports: {imports_str}
 - Module membership: {module_name}
@@ -49,7 +49,7 @@ def render_archive_readme(
     return f"""# Archived by Digital Custodian
 
 **Archived at:** {archived_at}
-**CoDRAG Finding:** {finding_id}
+**Prep Finding:** {finding_id}
 **Reason:** {reason}
 
 ## Original Locations

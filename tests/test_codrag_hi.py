@@ -179,7 +179,7 @@ class TestToolHiDaemon:
 
     @pytest.mark.asyncio
     async def test_summary_shows_no_index(self, server):
-        """When no index exists, summary says so and suggests codrag_build."""
+        """When no index exists, summary says so and suggests prep_build."""
         mock_get = await _mock_api_get_factory(status=_make_status(index_exists=False, total_chunks=0, built_at=None))
         server._api_get = mock_get
 
@@ -396,7 +396,7 @@ class TestToolHiDaemon:
 
     @pytest.mark.asyncio
     async def test_mcp_tools_call_dispatch(self, server):
-        """hi_codrag is dispatched via alias to codrag (tool_context)."""
+        """hi_codrag is dispatched via alias to prep (tool_context)."""
         ambient_response = {
             "context": "test context",
             "total_chars": 100,
@@ -416,7 +416,7 @@ class TestToolHiDaemon:
             })
 
             assert response["isError"] is False
-            # hi_codrag now routes to codrag (ambient context) via alias
+            # hi_codrag now routes to prep (ambient context) via alias
             assert len(response["content"][0]["text"]) > 0
 
     @pytest.mark.asyncio
@@ -440,19 +440,19 @@ class TestToolHiDaemon:
 
     @pytest.mark.asyncio
     async def test_codrag_listed_in_tools_list(self, server):
-        """codrag (primary tool) appears in tools/list. hi_codrag is an alias, not listed."""
+        """prep (primary tool) appears in tools/list. hi_codrag is an alias, not listed."""
         response = await server.handle_tools_list({})
         tool_names = [t["name"] for t in response["tools"]]
-        assert "codrag" in tool_names
+        assert "prep" in tool_names
         # hi_codrag is a dispatch alias, not a listed tool
         assert "hi_codrag" not in tool_names
 
     @pytest.mark.asyncio
     async def test_codrag_schema_no_required_params(self, server):
-        """codrag tool schema has no required params."""
+        """prep tool schema has no required params."""
         response = await server.handle_tools_list({})
-        codrag_tool = next(t for t in response["tools"] if t["name"] == "codrag")
-        assert codrag_tool["inputSchema"]["required"] == []
+        prep_tool = next(t for t in response["tools"] if t["name"] == "prep")
+        assert prep_tool["inputSchema"]["required"] == []
 
 
 # =============================================================================
@@ -906,11 +906,11 @@ class TestO4SmartPromptOrdering:
 
 
 class TestO5AmbientContextChain:
-    """O-5: _ai_note tells the AI to call codrag for deeper context."""
+    """O-5: _ai_note tells the AI to call prep for deeper context."""
 
     @pytest.mark.asyncio
     async def test_ai_note_mentions_codrag_tool(self, server):
-        """The _ai_note includes guidance about calling codrag for deeper context."""
+        """The _ai_note includes guidance about calling prep for deeper context."""
         paths = ["src/main.py"]
         mock_get = await _mock_api_get_factory(included=_make_included_paths(paths))
         server._api_get = mock_get
@@ -918,7 +918,7 @@ class TestO5AmbientContextChain:
         result = await server.tool_hi()
 
         assert "DEEPER CONTEXT" in result["_ai_note"]
-        assert "codrag" in result["_ai_note"]
+        assert "prep" in result["_ai_note"]
         assert "hub files" in result["_ai_note"].lower() or "ambient" in result["_ai_note"].lower()
 
 

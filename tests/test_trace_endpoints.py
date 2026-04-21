@@ -88,7 +88,7 @@ def _build_trace_index(project_id: str, repo_root: Path) -> None:
 
     builder = TraceBuilder(
         repo_root=repo_root,
-        index_dir=repo_root / ".codrag",
+        index_dir=repo_root / ".prep",
         include_globs=list(include_globs) if isinstance(include_globs, list) else None,
         exclude_globs=list(exclude_globs) if isinstance(exclude_globs, list) else None,
         max_file_bytes=max_file_bytes,
@@ -317,7 +317,7 @@ def test_lsp_edges_accepted(client: TestClient, tmp_path: Path) -> None:
     assert data["rejected_duplicate"] == 0
 
     # Verify the LSP edges file was created
-    lsp_path = repo_root / ".codrag" / "trace_lsp_edges.jsonl"
+    lsp_path = repo_root / ".prep" / "trace_lsp_edges.jsonl"
     assert lsp_path.exists()
     import json
     edges = [json.loads(line) for line in lsp_path.read_text().strip().split("\n") if line.strip()]

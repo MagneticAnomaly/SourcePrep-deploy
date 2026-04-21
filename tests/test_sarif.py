@@ -333,7 +333,7 @@ def _make_enrichment_result(sarif_input: SarifInput) -> EnrichmentResult:
                 message=f["message"],
                 severity=f["severity"],
                 tool=f["tool"],
-                codrag={
+                prep={
                     "dependents": 12,
                     "hub_status": "high",
                     "module": "core",
@@ -358,20 +358,20 @@ def _make_enrichment_result(sarif_input: SarifInput) -> EnrichmentResult:
 
 
 def test_enriched_to_sarif_injects_property_bags():
-    """Enriched results get properties.codrag with dependents, hub_status, etc."""
+    """Enriched results get properties.prep with dependents, hub_status, etc."""
     sarif_input = parse_sarif(copy.deepcopy(SAMPLE_SARIF))
     enrichment = _make_enrichment_result(sarif_input)
     output = enriched_to_sarif(sarif_input, enrichment)
 
-    # Check that codrag properties are injected
+    # Check that prep properties are injected
     result0 = output["runs"][0]["results"][0]
     assert "properties" in result0
-    assert "codrag" in result0["properties"]
-    codrag = result0["properties"]["codrag"]
-    assert codrag["dependents"] == 12
-    assert codrag["hub_status"] == "high"
-    assert codrag["risk_score"] == 0.75
-    assert codrag["recommendation"] == "Review carefully"
+    assert "prep" in result0["properties"]
+    prep = result0["properties"]["prep"]
+    assert prep["dependents"] == 12
+    assert prep["hub_status"] == "high"
+    assert prep["risk_score"] == 0.75
+    assert prep["recommendation"] == "Review carefully"
 
 
 def test_enriched_to_sarif_preserves_original_fields():
@@ -388,12 +388,12 @@ def test_enriched_to_sarif_preserves_original_fields():
 
 
 def test_enriched_to_sarif_adds_run_summary():
-    """runs[0].properties.codrag.summary is present."""
+    """runs[0].properties.prep.summary is present."""
     sarif_input = parse_sarif(copy.deepcopy(SAMPLE_SARIF))
     enrichment = _make_enrichment_result(sarif_input)
     output = enriched_to_sarif(sarif_input, enrichment)
 
-    run_props = output["runs"][0]["properties"]["codrag"]
+    run_props = output["runs"][0]["properties"]["prep"]
     assert "summary" in run_props
     assert run_props["summary"]["total"] == 2
     assert run_props["summary"]["enriched"] == 2

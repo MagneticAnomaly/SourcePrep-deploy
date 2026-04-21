@@ -1,5 +1,5 @@
 """
-CoDRAG Core Engine.
+Prep Core Engine.
 
 Contains the main components:
 - CodeIndex: Hybrid semantic + keyword search index
@@ -7,8 +7,8 @@ Contains the main components:
 - Chunking: Document chunking strategies
 
 Engine selection:
-- Set CODRAG_ENGINE=rust to force the Rust engine (codrag_engine via PyO3)
-- Set CODRAG_ENGINE=python to force the Python fallback
+- Set PREP_ENGINE=rust to force the Rust engine (prep_engine via PyO3)
+- Set PREP_ENGINE=python to force the Python fallback
 - Default: auto-detect (use Rust if available, else Python)
 """
 
@@ -18,7 +18,7 @@ import os
 _logger = logging.getLogger(__name__)
 
 # --- Engine detection ---
-_engine_preference = os.environ.get("CODRAG_ENGINE", "auto").lower()
+_engine_preference = os.environ.get("PREP_ENGINE", "auto").lower()
 
 try:
     import prep_engine as _rust_engine
@@ -31,7 +31,7 @@ except ImportError:
     _rust_engine = None
 
 if _engine_preference == "rust" and not _RUST_AVAILABLE:
-    _logger.warning("CODRAG_ENGINE=rust but codrag_engine not installed; falling back to Python")
+    _logger.warning("PREP_ENGINE=rust but prep_engine not installed; falling back to Python")
 
 if _engine_preference == "rust" and _RUST_AVAILABLE:
     ENGINE = "rust"
@@ -48,7 +48,7 @@ else:
     if _RUST_AVAILABLE:
         _logger.info("Using Python engine (Rust available but not selected)")
     else:
-        _logger.debug("Using Python engine (codrag_engine not installed)")
+        _logger.debug("Using Python engine (prep_engine not installed)")
 
 from .embedder import Embedder, OllamaEmbedder, NativeEmbedder, FakeEmbedder, EmbeddingResult
 from .chunking import Chunk, chunk_markdown, chunk_code

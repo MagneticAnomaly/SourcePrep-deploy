@@ -1,5 +1,5 @@
 """
-CoDRAG License Router — Phase 23 Sprint 10
+Prep License Router — Phase 23 Sprint 10
 ============================================
 
 **Origin:** Extracted from ``server.py`` (lines ~1261–1393).
@@ -10,8 +10,8 @@ CoDRAG License Router — Phase 23 Sprint 10
   - POST /license/deactivate — remove license file, revert to free tier
 
 **Shared state accessed (from server.py):**
-  - None — license is stored on disk at ``~/.codrag/license.json``
-    and read via ``codrag.core.feature_gate``.
+  - None — license is stored on disk at ``~/.prep/license.json``
+    and read via ``prep.core.feature_gate``.
 
 **Phase 24 note (State Machine — SM-7 License & Feature Gate):**
   Currently license state is stateless (read from disk each time).
@@ -86,7 +86,7 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
     Supports three activation methods (tried in order):
     1. LemonSqueezy UUID key → calls LS API for online activation
     2. Ed25519 signed offline key → cryptographic verification (enterprise)
-    3. Dev/testing: tier name, JSON, or base64 (requires CODRAG_DEV_MODE=1)
+    3. Dev/testing: tier name, JSON, or base64 (requires PREP_DEV_MODE=1)
     """
     import time as _time
 
@@ -145,8 +145,8 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
             logger.info("Verified signed license key for %s", lic_data.get("issued_to", "unknown"))
 
     # ── Method 3: Dev/testing shortcuts ──────────────────────────
-    # Only available when CODRAG_DEV_MODE=1 is set
-    dev_mode = os.environ.get("CODRAG_DEV_MODE", "").strip() == "1"
+    # Only available when PREP_DEV_MODE=1 is set
+    dev_mode = os.environ.get("PREP_DEV_MODE", "").strip() == "1"
 
     if lic_data is None and dev_mode:
         tier_guess = _legacy_tier_map.get(key.lower(), key.lower())
@@ -170,7 +170,7 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
             status_code=400,
             code="INVALID_LICENSE",
             message="Invalid license key. Enter a valid LemonSqueezy license key.",
-            hint="Purchase a license at https://codrag.io/pricing",
+            hint="Purchase a license at https://prep.io/pricing",
         )
 
     # Normalize tier
@@ -186,7 +186,7 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
     lic_data.setdefault("last_validated", _time.time())
 
     # Save to disk
-    license_path = Path.home() / ".codrag" / "license.json"
+    license_path = Path.home() / ".prep" / "license.json"
     license_path.parent.mkdir(parents=True, exist_ok=True)
     license_path.write_text(json.dumps(lic_data, indent=2), encoding="utf-8")
 
@@ -218,7 +218,7 @@ def validate_license_online() -> Dict[str, Any]:
     """
     import time as _time
 
-    license_path = Path.home() / ".codrag" / "license.json"
+    license_path = Path.home() / ".prep" / "license.json"
     if not license_path.exists():
         return ok({"validated": False, "reason": "No license file"})
 
@@ -315,7 +315,7 @@ def deactivate_license() -> Dict[str, Any]:
 
     If this is a LemonSqueezy license, calls LS API to free the activation slot.
     """
-    license_path = Path.home() / ".codrag" / "license.json"
+    license_path = Path.home() / ".prep" / "license.json"
 
     # Try to deactivate with LS first (frees activation slot)
     if license_path.exists():
@@ -362,7 +362,7 @@ def get_seat_status() -> Dict[str, Any]:
     Returns seat count, activation limit, and activation method info.
     For LS licenses, this reflects the LS activation limit.
     """
-    license_path = Path.home() / ".codrag" / "license.json"
+    license_path = Path.home() / ".prep" / "license.json"
     if not license_path.exists():
         return ok({"seats_used": 0, "seats_total": 1, "tier": "free", "activations": []})
 
@@ -421,7 +421,7 @@ def provision_seat(req: RecoverLicenseRequest) -> Dict[str, Any]:
     """SEAT-4: Admin seat provisioning.
     
     Generates a sub-key or invite for a team member.
-    Currently a placeholder for the api.codrag.io integration.
+    Currently a placeholder for the api.prep.io integration.
     """
     email = str(req.email or "").strip()
     if not email or "@" not in email:
@@ -431,7 +431,7 @@ def provision_seat(req: RecoverLicenseRequest) -> Dict[str, Any]:
             message="Please enter a valid email address",
         )
         
-    license_path = Path.home() / ".codrag" / "license.json"
+    license_path = Path.home() / ".prep" / "license.json"
     if not license_path.exists():
         raise ApiException(status_code=400, code="NO_LICENSE", message="No active license to provision from.")
         
@@ -441,7 +441,7 @@ def provision_seat(req: RecoverLicenseRequest) -> Dict[str, Any]:
         if tier not in ("team", "enterprise"):
             raise ApiException(status_code=403, code="TIER_ERROR", message="Seat provisioning requires a Team or Enterprise plan.")
             
-        # In the future, this calls api.codrag.io/v1/seats/provision
+        # In the future, this calls api.prep.io/v1/seats/provision
         # which talks to LemonSqueezy to generate a customer portal link or sub-key.
         return ok({
             "provisioned": True,
@@ -463,7 +463,7 @@ def recover_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
     license recovery mechanism.
 
     For now, returns instructions since the actual LS lookup requires
-    the store API key (which lives on api.codrag.io, not the desktop app).
+    the store API key (which lives on api.prep.io, not the desktop app).
     """
     email = str(req.key or "").strip()
     if not email or "@" not in email:
@@ -477,25 +477,25 @@ def recover_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
     try:
         import requests
         # LemonSqueezy doesn't have a public "recover by email" endpoint.
-        # Recovery is handled via the LS customer portal or payments.codrag.io/recover.
+        # Recovery is handled via the LS customer portal or payments.prep.io/recover.
         # For the desktop app, we redirect the user to the web recovery flow.
         return ok({
             "recovered": False,
             "message": f"License recovery request sent for {email}. Check your email for the license key.",
-            "recovery_url": f"https://payments.codrag.io/recover?email={email}",
+            "recovery_url": f"https://payments.prep.io/recover?email={email}",
             "instructions": [
-                f"1. Visit https://payments.codrag.io/recover",
+                f"1. Visit https://payments.prep.io/recover",
                 f"2. Enter your email: {email}",
                 f"3. Check your inbox for the license key",
-                f"4. Paste the key into CoDRAG → Settings → License",
+                f"4. Paste the key into Prep → Settings → License",
             ],
         })
     except Exception as e:
         logger.warning("License recovery error: %s", e)
         return ok({
             "recovered": False,
-            "message": "Visit https://payments.codrag.io/recover to recover your license key.",
-            "recovery_url": "https://payments.codrag.io/recover",
+            "message": "Visit https://payments.prep.io/recover to recover your license key.",
+            "recovery_url": "https://payments.prep.io/recover",
         })
 
 
@@ -514,8 +514,8 @@ def set_dev_tier_override(req: DevTierOverrideRequest) -> Dict[str, Any]:
     import time as _time
     import shutil
 
-    license_path = Path.home() / ".codrag" / "license.json"
-    backup_path = Path.home() / ".codrag" / "license.json.real"
+    license_path = Path.home() / ".prep" / "license.json"
+    backup_path = Path.home() / ".prep" / "license.json.real"
     allowed = {"free", "pro", "team", "enterprise"}
     tier = (req.tier or "").strip().lower()
 
@@ -534,8 +534,8 @@ def set_dev_tier_override(req: DevTierOverrideRequest) -> Dict[str, Any]:
             except Exception:
                 pass
         # Clean up env vars if any were set by older code
-        os.environ.pop("CODRAG_TIER", None)
-        os.environ.pop("CODRAG_DEV_MODE", None)
+        os.environ.pop("PREP_TIER", None)
+        os.environ.pop("PREP_DEV_MODE", None)
         clear_license_cache()
         logger.info("Cleared dev tier override")
         return get_license_status()
@@ -576,8 +576,8 @@ def set_dev_tier_override(req: DevTierOverrideRequest) -> Dict[str, Any]:
 
     # Also set env vars as belt-and-suspenders for any code that
     # checks os.environ before calling get_license()
-    os.environ["CODRAG_TIER"] = tier
-    os.environ["CODRAG_DEV_MODE"] = "1"
+    os.environ["PREP_TIER"] = tier
+    os.environ["PREP_DEV_MODE"] = "1"
 
     clear_license_cache()
     logger.info("DEV OVERRIDE: Wrote real license file with tier=%s (%s)", tier, internal_tier)

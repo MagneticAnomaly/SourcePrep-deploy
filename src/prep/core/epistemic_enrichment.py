@@ -1,5 +1,5 @@
 """
-Epistemic Enrichment Engine for CoDRAG (Pass 2).
+Epistemic Enrichment Engine for Prep (Pass 2).
 
 Uses a 14b model to deeply enrich each trace node with contextual
 understanding: domain tags, architecture layer, subsystem, design

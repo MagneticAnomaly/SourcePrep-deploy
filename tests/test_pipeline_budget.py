@@ -164,7 +164,7 @@ class TestScheduleEvaluator:
         import prep.server
         with patch.object(ScheduleEvaluator, '_get_schedule_config', return_value={
             "mode": "scheduled", "interval_minutes": 1, "threshold_percent": 0,
-        }), patch.object(codrag.server, '_registry') as mock_reg:
+        }), patch.object(prep.server, '_registry') as mock_reg:
             mock_reg.list_projects.return_value = [mock_project]
             # No last run recorded → elapsed is very large → should trigger
             self.evaluator._do_evaluate()
@@ -183,7 +183,7 @@ class TestScheduleEvaluator:
         import prep.server
         with patch.object(ScheduleEvaluator, '_get_schedule_config', return_value={
             "mode": "scheduled", "interval_minutes": 60, "threshold_percent": 0,
-        }), patch.object(codrag.server, '_registry') as mock_reg:
+        }), patch.object(prep.server, '_registry') as mock_reg:
             mock_reg.list_projects.return_value = [mock_project]
             self.evaluator._do_evaluate()
 
@@ -202,7 +202,7 @@ class TestScheduleEvaluator:
         with patch.object(ScheduleEvaluator, '_get_schedule_config', return_value={
             "mode": "scheduled", "interval_minutes": 0, "threshold_percent": 10,
         }), patch.object(ScheduleEvaluator, '_get_stale_percent', return_value=25.0), \
-             patch.object(codrag.server, '_registry') as mock_reg:
+             patch.object(prep.server, '_registry') as mock_reg:
             mock_reg.list_projects.return_value = [mock_project]
             self.evaluator._do_evaluate()
 

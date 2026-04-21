@@ -28,8 +28,8 @@ def test_get_missing_returns_default(store):
 
 
 def test_set_and_get_string(store):
-    store.set("name", "CoDRAG")
-    assert store.get("name") == "CoDRAG"
+    store.set("name", "Prep")
+    assert store.get("name") == "Prep"
 
 
 def test_set_and_get_int(store):

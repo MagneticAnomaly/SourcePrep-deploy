@@ -1,1 +1,1 @@
-"""Gold query evaluation module for CoDRAG search quality."""
+"""Gold query evaluation module for Prep search quality."""

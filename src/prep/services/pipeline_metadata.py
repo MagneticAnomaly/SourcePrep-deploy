@@ -3,7 +3,7 @@ Pipeline Run Metadata — Phase 49 (Process Info)
 ================================================
 
 Captures run-level metadata for pipeline executions:
-- CoDRAG/engine version
+- Prep/engine version
 - Per-stage timing, models, quality metrics
 - Overall quality summary
 - Configuration snapshot
@@ -85,7 +85,7 @@ class PipelineRunMetadata:
     group: str = ""
 
     # Provenance
-    codrag_version: str = ""
+    prep_version: str = ""
     engine_version: Optional[str] = None
     engine_backend: str = "python"
 
@@ -119,7 +119,7 @@ class PipelineRunMetadata:
             "project_id": self.project_id,
             "group": self.group,
             "status": self.status,
-            "codrag_version": self.codrag_version,
+            "prep_version": self.prep_version,
         }
         if self.engine_version:
             d["engine_version"] = self.engine_version
@@ -147,7 +147,7 @@ class PipelineRunMetadata:
             run_id=d.get("run_id", ""),
             project_id=d.get("project_id", ""),
             group=d.get("group", ""),
-            codrag_version=d.get("codrag_version", ""),
+            prep_version=d.get("prep_version", ""),
             engine_version=d.get("engine_version"),
             engine_backend=d.get("engine_backend", "python"),
             started_at=d.get("started_at"),
@@ -181,7 +181,7 @@ def create_run_metadata(
         run_id=run_id,
         project_id=project_id,
         group=group,
-        codrag_version=get_codrag_version(),
+        prep_version=get_codrag_version(),
         engine_version=get_engine_version(),
         engine_backend=get_engine_backend(),
         started_at=datetime.now(timezone.utc).isoformat(),

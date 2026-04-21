@@ -1,8 +1,8 @@
-# src/codrag/agents/researcher/engine.py
+# src/prep/agents/researcher/engine.py
 """Researcher Agent Engine — mines audit findings and formulates implementation plans.
 
 Pipeline: ingest findings -> select topics -> research solutions -> formulate plans.
-Uses AgentCore for CoDRAG data access when available.
+Uses AgentCore for Prep data access when available.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ LLMFn = Callable[..., Tuple[str, int]]
 
 
 class ResearcherEngine:
-    """Mines CoDRAG audit findings, researches solutions, formulates plans.
+    """Mines Prep audit findings, researches solutions, formulates plans.
 
     Accepts either an AgentCore instance (preferred) or raw index_dir
     + project_id for lightweight / test usage.
@@ -280,7 +280,7 @@ class ResearcherEngine:
                 priority=self._finding_priority(plan),
                 category="research",
                 effort=plan.effort,
-                codrag_address=f"codrag://{self._project_id}/research/{plan.topic_id}",
+                prep_address=f"prep://{self._project_id}/research/{plan.topic_id}",
             )
             issues.append(issue)
 

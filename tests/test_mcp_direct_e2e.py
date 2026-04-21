@@ -12,11 +12,11 @@ from prep.mcp_direct import DirectMCPServer
 
 async def test_end_to_end():
     repo_root = Path(__file__).parent / "fixtures" / "mini_repo"
-    codrag_dir = repo_root / ".codrag"
+    prep_dir = repo_root / ".prep"
     
     # Clean up previous run
-    if codrag_dir.exists():
-        shutil.rmtree(codrag_dir)
+    if prep_dir.exists():
+        shutil.rmtree(prep_dir)
         
     print(f"Testing with repo: {repo_root}")
     

@@ -8,11 +8,11 @@ from prep.core.compressor import StructuralCompressor
 def test_registry_generates_short_codes() -> None:
     reg = SymbolRegistry()
     reg.register_paths([
-        "src/codrag/core/swarm_orchestrator.py",
-        "src/codrag/services/observation_store.py",
-        "src/codrag/mcp/server.py",
+        "src/prep/core/swarm_orchestrator.py",
+        "src/prep/services/observation_store.py",
+        "src/prep/mcp/server.py",
     ])
-    code = reg.get_code("src/codrag/core/swarm_orchestrator.py")
+    code = reg.get_code("src/prep/core/swarm_orchestrator.py")
     assert code is not None
     assert 2 <= len(code) <= 5
     assert code == code.upper()

@@ -1,5 +1,5 @@
 """
-Embedder abstraction for CoDRAG.
+Embedder abstraction for Prep.
 
 Provides a base class and Ollama implementation for generating embeddings.
 """

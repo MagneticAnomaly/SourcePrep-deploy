@@ -74,9 +74,9 @@ class AutoRebuildWatcher:
         self._last_coverage_trigger_at: float = 0.0  # epoch when we last triggered a coverage rebuild
 
         # L1 (repo_profile.DEFAULT_EXCLUDE_DIR_NAMES) already covers the
-        # default `.codrag/` and `codrag_data/` index dirs. Only add an
+        # default `.prep/` and `codrag_data/` index dirs. Only add an
         # extra guard when the project uses a non-standard index_dir
-        # outside the CoDRAG-owned names — otherwise watcher events on
+        # outside the Prep-owned names — otherwise watcher events on
         # our own output would trigger rebuilds.
         self._extra_exclude_globs: List[str] = []
 
@@ -94,9 +94,9 @@ class AutoRebuildWatcher:
 
         _add_repo_relative_exclude(self.index_dir)
 
-        # Phase 113: if the daemon-wide data dir ($CODRAG_DATA_DIR or
+        # Phase 113: if the daemon-wide data dir ($PREP_DATA_DIR or
         # XDG default) happens to be inside this watched repo, exclude
-        # it too. Rare — normally data_dir() is ~/.local/share/codrag
+        # it too. Rare — normally data_dir() is ~/.local/share/prep
         # which no one indexes — but an env-var override pointing
         # inside the repo would otherwise create a feedback loop on
         # every SQLite WAL checkpoint.
@@ -374,7 +374,7 @@ class AutoRebuildWatcher:
         # Includes come from per-project L2 policy; excludes go through
         # effective_excludes() which unions L1 (code defaults) + L2 (policy
         # file) + L3 (runtime trace.ignore_patterns, auto-resolved via the
-        # .codrag/project.json pointer so the watcher honours live user
+        # .prep/project.json pointer so the watcher honours live user
         # edits without a trace rebuild).
         path = policy_path_for_index(self.index_dir)
         pol = load_repo_policy(path)
@@ -400,7 +400,7 @@ class AutoRebuildWatcher:
         # the way fnmatch/gitignore-style globs do — for example:
         #   Path(".claude/worktrees/x/y.py").match("**/.claude/**") -> False
         # That broke every directory-level exclude pattern (.claude, .git,
-        # .codrag, node_modules, etc.) and let the watcher report changes
+        # .prep, node_modules, etc.) and let the watcher report changes
         # in worktrees as "relevant", which then triggered delta builds that
         # walked the duplicated repo.  Use pathspec (gitwildmatch) instead —
         # the rest of the codebase already uses it for the same purpose.

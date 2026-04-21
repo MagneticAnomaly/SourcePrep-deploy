@@ -155,7 +155,7 @@ async def test_mcp_direct_protocol_initialize(mini_repo: Path, fake_embedder: Fa
     assert "capabilities" in result
     assert "tools" in result["capabilities"]
     assert "serverInfo" in result
-    assert result["serverInfo"]["name"] == "codrag-direct"
+    assert result["serverInfo"]["name"] == "prep-direct"
 
 
 @pytest.mark.asyncio
@@ -168,10 +168,10 @@ async def test_mcp_direct_protocol_tools_list(mini_repo: Path, fake_embedder: Fa
     assert "tools" in result
     tools = result["tools"]
     tool_names = {t["name"] for t in tools}
-    assert "codrag_status" in tool_names
-    assert "codrag_build" in tool_names
-    assert "codrag_search" in tool_names
-    assert "codrag" in tool_names
+    assert "prep_status" in tool_names
+    assert "prep_build" in tool_names
+    assert "prep_search" in tool_names
+    assert "prep" in tool_names
 
 
 @pytest.mark.asyncio
@@ -181,7 +181,7 @@ async def test_mcp_direct_protocol_tools_call(mini_repo: Path, fake_embedder: Fa
 
     result = await server.handle_tools_call(
         {
-            "name": "codrag_status",
+            "name": "prep_status",
             "arguments": {},
         }
     )

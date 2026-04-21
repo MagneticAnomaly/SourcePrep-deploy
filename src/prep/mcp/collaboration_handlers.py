@@ -20,7 +20,7 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
     pid = project_id
     return [
         {
-            "uri": f"codrag://{pid}/memory/{{role}}",
+            "uri": f"prep://{pid}/memory/{{role}}",
             "name": "Agent Memory",
             "description": (
                 "An agent's own prior observations, filtered by role. "
@@ -31,7 +31,7 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
             "annotations": {"audience": ["assistant"]},
         },
         {
-            "uri": f"codrag://{pid}/agents/{{role}}/findings",
+            "uri": f"prep://{pid}/agents/{{role}}/findings",
             "name": "Cross-Agent Findings",
             "description": (
                 "Another agent's recent findings. "
@@ -41,7 +41,7 @@ def get_collaboration_resources(project_id: str) -> List[Dict[str, Any]]:
             "annotations": {"audience": ["assistant"]},
         },
         {
-            "uri": f"codrag://{pid}/delta",
+            "uri": f"prep://{pid}/delta",
             "name": "Structural Delta",
             "description": (
                 "What changed structurally in the codebase graph "
@@ -62,7 +62,7 @@ def parse_collaboration_uri(
     """Parse a collaboration resource URI path.
 
     Args:
-        resource_type: Everything after ``codrag://{pid}/``.
+        resource_type: Everything after ``prep://{pid}/``.
 
     Returns:
         ``(resource_name, params)`` or ``None`` if not a collab resource.
@@ -251,7 +251,7 @@ def get_collaboration_prompts() -> List[Dict[str, Any]]:
     """Return prompt descriptors for collaboration prompts."""
     return [
         {
-            "name": "codrag-handoff",
+            "name": "prep-handoff",
             "description": (
                 "Transfer context from one agent to another — "
                 "packages prior work, findings, and structural data"
@@ -275,7 +275,7 @@ def get_collaboration_prompts() -> List[Dict[str, Any]]:
             ],
         },
         {
-            "name": "codrag-scope",
+            "name": "prep-scope",
             "description": (
                 "Show what an agent role owns — modules, "
                 "recent changes, open findings"
@@ -289,7 +289,7 @@ def get_collaboration_prompts() -> List[Dict[str, Any]]:
             ],
         },
         {
-            "name": "codrag-enrich",
+            "name": "prep-enrich",
             "description": (
                 "Enrich findings with structural intelligence — "
                 "blast radius, hub involvement, cross-module analysis"
@@ -310,7 +310,7 @@ def get_collaboration_prompt_messages(
     arguments: Dict[str, str],
 ) -> Optional[Dict[str, Any]]:
     """Return prompt messages, or None if not a collab prompt."""
-    if name == "codrag-handoff":
+    if name == "prep-handoff":
         from_role = arguments.get("from_role", "previous agent")
         to_role = arguments.get("to_role", "you")
         task = arguments.get("task", "")
@@ -325,13 +325,13 @@ def get_collaboration_prompt_messages(
                         "You are taking over a task from the "
                         f"{from_role} agent.{task_line}\n"
                         f"1. Review what {from_role} found — check "
-                        f"@codrag://memory/{from_role} for their "
+                        f"@prep://memory/{from_role} for their "
                         f"observations and "
-                        f"@codrag://agents/{from_role}/findings "
+                        f"@prep://agents/{from_role}/findings "
                         f"for findings.\n"
-                        "2. Check @codrag://delta for any structural "
+                        "2. Check @prep://delta for any structural "
                         "changes since their last session.\n"
-                        "3. Call `codrag_search` to deepen your "
+                        "3. Call `prep_search` to deepen your "
                         "understanding of relevant code.\n"
                         "4. Summarize what you're picking up and "
                         "your next steps.\n"
@@ -346,7 +346,7 @@ def get_collaboration_prompt_messages(
             }],
         }
 
-    if name == "codrag-scope":
+    if name == "prep-scope":
         role = arguments.get("role", "agent")
         return {
             "description": f"Scope overview for {role}",
@@ -356,11 +356,11 @@ def get_collaboration_prompt_messages(
                     "type": "text",
                     "text": (
                         f"Show me what the {role} agent owns.\n\n"
-                        "1. Call `codrag` for the structural "
+                        "1. Call `prep` for the structural "
                         f"overview relevant to {role}.\n"
-                        f"2. Check @codrag://memory/{role} for "
+                        f"2. Check @prep://memory/{role} for "
                         "recent observations.\n"
-                        "3. Check @codrag://delta for structural "
+                        "3. Check @prep://delta for structural "
                         "changes in their scope.\n"
                         f"4. Summarize: what does {role} own, "
                         "what changed, what needs attention."
@@ -369,7 +369,7 @@ def get_collaboration_prompt_messages(
             }],
         }
 
-    if name == "codrag-enrich":
+    if name == "prep-enrich":
         scope = arguments.get("scope", "")
         scope_text = f" Focus on: {scope}." if scope else ""
         return {
@@ -380,12 +380,12 @@ def get_collaboration_prompt_messages(
                     "type": "text",
                     "text": (
                         "Enrich the current findings with structural "
-                        "intelligence from CoDRAG."
+                        "intelligence from Prep."
                         f"{scope_text}\n\n"
-                        "1. Call `codrag_audit` to get current "
+                        "1. Call `prep_audit` to get current "
                         "findings.\n"
                         "2. For the top findings, call "
-                        "`codrag_impact` to assess blast radius.\n"
+                        "`prep_impact` to assess blast radius.\n"
                         "3. Identify which findings touch hub files "
                         "vs leaf files.\n"
                         "4. Note which findings span multiple "
@@ -394,7 +394,7 @@ def get_collaboration_prompt_messages(
                         "size, hub involvement, blast radius, "
                         "and whether it overlaps with areas other "
                         "agents have flagged.\n"
-                        "6. Call `codrag_search` on the top findings "
+                        "6. Call `prep_search` on the top findings "
                         "for deeper structural context.\n"
                         "7. Check active file claims: which files are "
                         "currently claimed by agents?\n"

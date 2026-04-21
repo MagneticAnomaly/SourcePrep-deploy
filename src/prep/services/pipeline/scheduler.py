@@ -1587,7 +1587,7 @@ class PipelineScheduler:
         """Max ``dynamic_capacity`` across non-embedding LLM slots.
 
         Phase 82 completion (2026-04-20): used by
-        ``codrag.core.llm_client._get_llm_concurrency`` to scale per-stage
+        ``prep.core.llm_client._get_llm_concurrency`` to scale per-stage
         ``ThreadPoolExecutor`` sizing with the AIMD-discovered budget —
         the same signal ``get_batch_concurrency`` and
         ``full_budget_for_swarm`` consume.

@@ -126,8 +126,8 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
     if proj.mode == "embedded":
         if exclude_globs is None:
             exclude_globs = []
-        if "**/.codrag/**" not in exclude_globs:
-            exclude_globs.append("**/.codrag/**")
+        if "**/.prep/**" not in exclude_globs:
+            exclude_globs.append("**/.prep/**")
 
     started = _start_project_trace_build(proj, include_globs, exclude_globs, max_file_bytes=max_file_bytes)
     if not started:

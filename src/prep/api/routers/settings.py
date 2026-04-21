@@ -1,5 +1,5 @@
 """
-CoDRAG Settings Router — Phase 24 (Phase 3: Settings Persistence)
+Prep Settings Router — Phase 24 (Phase 3: Settings Persistence)
 ==================================================================
 
 Exposes the SQLite settings store via HTTP endpoints.

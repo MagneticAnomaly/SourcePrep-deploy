@@ -3,7 +3,7 @@
 Wraps StaffingEngine operations as a LangGraph StateGraph:
 Analyze → Generate → Push.
 
-Requires: pip install codrag[langgraph]
+Requires: pip install prep[langgraph]
 """
 from __future__ import annotations
 

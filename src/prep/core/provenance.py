@@ -2,7 +2,7 @@
 Provenance Helpers — Capture version info, file hashes, and quality metrics.
 
 Provides utilities for tracking:
-- CoDRAG version
+- Prep version
 - Rust engine version (if available)
 - File hashes (blake3)
 - Quality metric aggregation from JSONL files
@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_codrag_version() -> str:
-    """Get the current CoDRAG version."""
+    """Get the current Prep version."""
     try:
         import prep
-        return getattr(codrag, "__version__", "unknown")
+        return getattr(prep, "__version__", "unknown")
     except Exception:
         return "unknown"
 
@@ -32,7 +32,7 @@ def get_engine_version() -> Optional[str]:
     """Get the Rust engine version if available."""
     try:
         import prep_engine  # type: ignore
-        return getattr(codrag_engine, "__version__", None)
+        return getattr(prep_engine, "__version__", None)
     except ImportError:
         return None
 
@@ -40,7 +40,7 @@ def get_engine_version() -> Optional[str]:
 def get_engine_backend() -> str:
     """Detect which trace engine backend is in use.
     
-    Returns "rust" if codrag_engine is available, "python" otherwise.
+    Returns "rust" if prep_engine is available, "python" otherwise.
     """
     try:
         import prep_engine  # type: ignore  # noqa: F401

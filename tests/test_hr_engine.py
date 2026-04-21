@@ -94,7 +94,7 @@ class TestListMode:
             role_names=["Dev"],
             llm_fn=_fake_llm,
         )
-        assert "codrag" in roles[0].knowledge_md
+        assert "prep" in roles[0].knowledge_md
         assert "test_proj" in roles[0].knowledge_md
 
     def test_generate_roles_saves_to_roster(self, engine: StaffingEngine) -> None:

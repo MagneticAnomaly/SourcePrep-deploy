@@ -36,7 +36,7 @@ class StageManifest:
     project_id: Optional[str] = None
     
     # Provenance
-    codrag_version: str = ""
+    prep_version: str = ""
     engine_version: Optional[str] = None
     engine_backend: str = "python"  # "python" | "rust"
     
@@ -124,8 +124,8 @@ class StageManifest:
             d["project_id"] = self.project_id
         
         # Provenance
-        if self.codrag_version:
-            d["codrag_version"] = self.codrag_version
+        if self.prep_version:
+            d["prep_version"] = self.prep_version
         if self.engine_version:
             d["engine_version"] = self.engine_version
         if self.engine_backend:
@@ -191,7 +191,7 @@ class StageManifest:
             stage_id=d.get("stage_id", ""),
             run_id=d.get("run_id"),
             project_id=d.get("project_id"),
-            codrag_version=d.get("codrag_version", ""),
+            prep_version=d.get("prep_version", ""),
             engine_version=d.get("engine_version"),
             engine_backend=d.get("engine_backend", "python"),
             model=d.get("model"),
@@ -231,7 +231,7 @@ def create_stage_manifest(
         stage_id=stage_id,
         run_id=run_id,
         project_id=project_id,
-        codrag_version=get_codrag_version(),
+        prep_version=get_codrag_version(),
         engine_version=get_engine_version(),
         engine_backend=get_engine_backend(),
         started_at=datetime.now(timezone.utc).isoformat(),

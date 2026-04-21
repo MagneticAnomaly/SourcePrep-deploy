@@ -59,9 +59,9 @@ class AtlasDocument:
 @dataclass
 class Segment:
     """A directory-based grouping of files for segmented atlas generation."""
-    id: str           # e.g. "src-codrag-core"
+    id: str           # e.g. "src-prep-core"
     name: str         # e.g. "Core Engine"
-    dir_path: str     # e.g. "src/codrag/core"
+    dir_path: str     # e.g. "src/prep/core"
     file_paths: List[str] = field(default_factory=list)
     module_ids: List[str] = field(default_factory=list)
     domain_tags: List[str] = field(default_factory=list)

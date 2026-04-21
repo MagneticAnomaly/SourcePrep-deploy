@@ -1,5 +1,5 @@
 """
-Context compression abstraction for CoDRAG.
+Context compression abstraction for Prep.
 
 Provides a base class and concrete implementations for compressing
 retrieved context before injecting it into LLM prompts.

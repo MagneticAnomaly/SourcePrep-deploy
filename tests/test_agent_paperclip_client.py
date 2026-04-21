@@ -110,11 +110,11 @@ class TestBulkPush:
             ActionItem(title="Issue A", priority="P1", category="quality"),
             ActionItem(title="Issue B", priority="P2", category="tech_debt"),
         ]
-        result = client.bulk_push(items, codrag_project_id="cdr-proj-1")
+        result = client.bulk_push(items, prep_project_id="cdr-proj-1")
 
         mock_push_engine.push.assert_called_once_with(
             items,
-            codrag_project_id="cdr-proj-1",
+            prep_project_id="cdr-proj-1",
             strategy="category",
             min_priority="P2",
             dry_run=False,
@@ -137,7 +137,7 @@ class TestBulkPush:
 
         mock_push_engine.push.assert_called_once_with(
             items,
-            codrag_project_id="",
+            prep_project_id="",
             strategy="root_file",
             min_priority="P1",
             dry_run=False,

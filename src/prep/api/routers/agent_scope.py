@@ -180,7 +180,7 @@ class AutoPopulateRequest(BaseModel):
 def auto_populate_agent_scope(
     project_id: str, role: str, req: AutoPopulateRequest = AutoPopulateRequest()
 ) -> Dict[str, Any]:
-    """Use CoDRAG's role projection engine to intelligently select files for
+    """Use Prep's role projection engine to intelligently select files for
     an agent's knowledge scope.
 
     This performs a deep search across the entire code graph, scoring every

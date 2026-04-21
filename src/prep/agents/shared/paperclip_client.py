@@ -67,7 +67,7 @@ class PaperclipClient:
     def bulk_push(
         self,
         items: List[ActionItem],
-        codrag_project_id: str = "",
+        prep_project_id: str = "",
         strategy: str = "category",
         min_priority: str = "P2",
         dry_run: bool = False,
@@ -76,7 +76,7 @@ class PaperclipClient:
 
         Args:
             items: Raw ActionItems from OpportunityManager or audit runner.
-            codrag_project_id: CoDRAG project ID used for address generation.
+            prep_project_id: Prep project ID used for address generation.
             strategy: Consolidation strategy ("category", "root_file", "severity_band").
             min_priority: Only push items at this priority or higher ("P0"–"P3").
             dry_run: Preview mode — returns result without actually pushing.
@@ -86,7 +86,7 @@ class PaperclipClient:
         """
         return self._push_engine.push(
             items,
-            codrag_project_id=codrag_project_id,
+            prep_project_id=prep_project_id,
             strategy=strategy,
             min_priority=min_priority,
             dry_run=dry_run,

@@ -1,5 +1,5 @@
 """
-Sprint intelligence for CoDRAG Roadmap — Phase 59D-4.
+Sprint intelligence for Prep Roadmap — Phase 59D-4.
 
 Tracks velocity (nodes completed per time period) and provides
 AI-powered sprint planning suggestions based on historical throughput.

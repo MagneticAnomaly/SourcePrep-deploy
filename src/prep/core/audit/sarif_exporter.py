@@ -1,5 +1,5 @@
 """
-SARIF 2.1.0 exporter for CoDRAG ActionItems (Phase 63).
+SARIF 2.1.0 exporter for Prep ActionItems (Phase 63).
 
 Converts ActionItems to OASIS SARIF format for consumption by:
 - GitHub Code Scanning (upload via github/codeql-action/upload-sarif)
@@ -24,7 +24,7 @@ SARIF_SCHEMA = (
     "main/sarif-2.1/schema/sarif-schema-2.1.0.json"
 )
 SARIF_VERSION = "2.1.0"
-CODRAG_INFO_URI = "https://codrag.dev"
+PREP_INFO_URI = "https://prep.dev"
 
 
 # ── Rule catalog ─────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ def _build_rules(items: List[ActionItem]) -> List[Dict[str, Any]]:
         rule: Dict[str, Any] = {
             "id": rule_id,
             "name": _to_pascal_case(item.analyzer or item.source),
-            "shortDescription": {"text": f"CoDRAG {item.source} finding ({item.analyzer})"},
+            "shortDescription": {"text": f"Prep {item.source} finding ({item.analyzer})"},
             "properties": {
                 "tags": [item.category, item.source],
             },
@@ -66,14 +66,14 @@ def _to_pascal_case(s: str) -> str:
 def action_items_to_sarif(
     items: List[ActionItem],
     tool_version: str = "2026.1",
-    tool_name: str = "CoDRAG",
+    tool_name: str = "Prep",
 ) -> Dict[str, Any]:
     """Convert a list of ActionItems to a SARIF 2.1.0 JSON document.
 
     Args:
         items: ActionItems to export (only active items recommended).
-        tool_version: Version string for the CoDRAG tool driver.
-        tool_name: Name of the tool (default: CoDRAG).
+        tool_version: Version string for the Prep tool driver.
+        tool_name: Name of the tool (default: Prep).
 
     Returns:
         SARIF JSON as a Python dict.
@@ -90,7 +90,7 @@ def action_items_to_sarif(
                     "driver": {
                         "name": tool_name,
                         "version": tool_version,
-                        "informationUri": CODRAG_INFO_URI,
+                        "informationUri": PREP_INFO_URI,
                         "rules": _build_rules(active_items),
                     }
                 },
@@ -112,7 +112,7 @@ def write_sarif_file(
     Args:
         items: ActionItems to export.
         output_path: Where to write the SARIF file.
-        tool_version: Version string for the CoDRAG tool driver.
+        tool_version: Version string for the Prep tool driver.
 
     Returns:
         The output path (for chaining).
@@ -135,5 +135,5 @@ def sarif_to_json_string(
     sarif = action_items_to_sarif(items, tool_version)
     return json.dumps(sarif, indent=indent)
 """
-Description: SARIF exporter for CoDRAG ActionItems (Phase 63).
+Description: SARIF exporter for Prep ActionItems (Phase 63).
 """

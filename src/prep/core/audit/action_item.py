@@ -1,8 +1,8 @@
 """
-Unified ActionItem model for CoDRAG analysis tools.
+Unified ActionItem model for Prep analysis tools.
 
 Phase 57B: Original model for Health Scanner + Advisor output.
-Phase 63:  Universal export model — the core of CoDRAG's hexagonal
+Phase 63:  Universal export model — the core of Prep's hexagonal
            architecture. All 7 adapters (MCP, A2A, CLI, HTTP, SARIF,
            JSON, CSV) serialize this single model.
 
@@ -186,32 +186,32 @@ class ActionItem:
 
         Returns a ready-to-paste command for Claude Code, Cursor, etc.
         """
-        cmd = f'codrag_audit action="{action}" finding_ids=["{self.id}"]'
+        cmd = f'prep_audit action="{action}" finding_ids=["{self.id}"]'
         if self.user_notes:
             escaped = self.user_notes.replace('"', '\\"')
             cmd += f' instructions="{escaped}"'
         return cmd
 
-    # ── Phase 65: CoDRAG Address Protocol ─────────────────────────
+    # ── Phase 65: Prep Address Protocol ─────────────────────────
 
-    def codrag_address(self, project_id: str = "") -> str:
-        """Stable CoDRAG address for cross-system reference.
+    def prep_address(self, project_id: str = "") -> str:
+        """Stable Prep address for cross-system reference.
 
-        Format: codrag://project_id/ITEM_ID  (with project)
-                codrag://ITEM_ID              (without project)
+        Format: prep://project_id/ITEM_ID  (with project)
+                prep://ITEM_ID              (without project)
 
         This address is embedded in PM tool issues so agents can
-        call back to CoDRAG for live context at work-time.
+        call back to Prep for live context at work-time.
         """
         if project_id:
-            return f"codrag://{project_id}/{self.id}"
-        return f"codrag://{self.id}"
+            return f"prep://{project_id}/{self.id}"
+        return f"prep://{self.id}"
 
     def to_pm_export(self, project_id: str = "") -> Dict[str, Any]:
         """Export optimized for PM tool consumption (Phase 65).
 
         Returns a dict that the PM push adapter converts into the
-        target system's issue format. Includes CoDRAG address and
+        target system's issue format. Includes Prep address and
         MCP command for agent context retrieval.
         """
         return {
@@ -222,7 +222,7 @@ class ActionItem:
             "priority": self.priority,
             "effort": self.effort,
             "source": self.source,
-            "codrag_address": self.codrag_address(project_id),
+            "prep_address": self.prep_address(project_id),
             "mcp_command": self.mcp_command(),
             "affected_files": self.affected_files,
             "suggested_action": self.suggested_action,
@@ -265,7 +265,7 @@ class ActionItem:
             "level": _PRIORITY_TO_SARIF_LEVEL.get(self.priority, "note"),
             "message": {"text": f"{self.title}: {self.description}" if self.description else self.title},
             "properties": {
-                "codrag_id": self.id,
+                "prep_id": self.id,
                 "category": self.category,
                 "effort": self.effort,
                 "priority": self.priority,
@@ -349,7 +349,7 @@ class ActionItem:
                 for fp in task.file_paths:
                     lines.append(f"   - `{fp}`")
             lines.append("")
-        lines.append(f"**CoDRAG command:** `{self.mcp_command()}`")
+        lines.append(f"**Prep command:** `{self.mcp_command()}`")
         return "\n".join(lines)
 
     def dismiss(self) -> None:

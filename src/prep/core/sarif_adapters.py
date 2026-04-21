@@ -1,7 +1,7 @@
 """Tool-specific enrichment adapters for SARIF sources.
 
 Different SARIF-emitting tools have different characteristics. Adapters
-customize the emphasis of CoDRAG enrichment based on the source tool.
+customize the emphasis of Prep enrichment based on the source tool.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from typing import Optional
 class ToolAdapter:
     """Configuration for how to emphasize enrichment for a specific tool."""
     tool_name: str
-    focus: str              # What CoDRAG signal to emphasize in recommendations
+    focus: str              # What Prep signal to emphasize in recommendations
     severity_note: str      # Context about the tool's severity scale
 
 
@@ -42,7 +42,7 @@ _ADAPTERS = {
     "sonarqube": ToolAdapter(
         tool_name="sonarqube",
         focus="composite",
-        severity_note="Broad coverage tool. CoDRAG risk score composites structural + epistemological signals.",
+        severity_note="Broad coverage tool. Prep risk score composites structural + epistemological signals.",
     ),
     "pylint": ToolAdapter(
         tool_name="pylint",
@@ -54,7 +54,7 @@ _ADAPTERS = {
 _DEFAULT_ADAPTER = ToolAdapter(
     tool_name="unknown",
     focus="composite",
-    severity_note="Unknown tool. CoDRAG provides standard structural enrichment.",
+    severity_note="Unknown tool. Prep provides standard structural enrichment.",
 )
 
 

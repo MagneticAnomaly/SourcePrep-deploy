@@ -9,7 +9,7 @@ CoDRAG is built on a **Local-First** philosophy. We believe your code is your in
 **CoDRAG does NOT upload your source code to any CoDRAG-controlled servers.**
 
 - **Indexing**: All indexing (parsing, symbol extraction, vector embedding) happens locally on your machine.
-- **Storage**: Your code index and trace graph are stored locally on your disk (typically in `~/.local/share/codrag` or inside your project's `.codrag` folder).
+- **Storage**: Your code index and trace graph are stored locally on your disk (typically in `~/.local/share/prep` or inside your project's `.codrag` folder).
 - **Search**: All search queries are processed locally against your local index.
 
 ## 2. Network Activity

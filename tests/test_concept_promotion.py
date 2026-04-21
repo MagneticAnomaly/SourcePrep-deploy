@@ -32,12 +32,12 @@ def test_build_concept_from_observation():
     obs = _make_observation(
         "We decided to use SQLite for portability",
         category="decision",
-        file_path="src/codrag/core/project_registry.py",
+        file_path="src/prep/core/project_registry.py",
     )
     concept = build_concept_from_observation(obs)
     assert concept["title"] != ""
     assert concept["content"] == obs["content"]
-    assert "src/codrag/core/project_registry.py" in concept["anchors"]
+    assert "src/prep/core/project_registry.py" in concept["anchors"]
     assert concept["status"] == "proposed"
     assert concept["assertion"] == ""
 

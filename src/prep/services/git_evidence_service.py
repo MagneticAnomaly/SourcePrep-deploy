@@ -31,12 +31,12 @@ def _is_git_repo(root: Path) -> bool:
 def _cache_dir_for(repo_root: Path) -> Path:
     """Resolve the evidence cache dir.
 
-    Prefers the embedded `.codrag/` dir if present (tracks with the repo);
+    Prefers the embedded `.prep/` dir if present (tracks with the repo);
     otherwise falls back to the standalone project index dir via
-    `project_registry.project_index_dir`; final fallback is `.codrag/` at
+    `project_registry.project_index_dir`; final fallback is `.prep/` at
     the repo root even if not present.
     """
-    embedded = repo_root / ".codrag"
+    embedded = repo_root / ".prep"
     if embedded.exists():
         return embedded / "git_evidence"
 

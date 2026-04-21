@@ -33,8 +33,8 @@ def test_mcp_config_cursor_auto_with_explicit_daemon_url(client: TestClient) -> 
     assert data["file"] == ".cursor/mcp.json"
 
     cfg = data["config"]
-    server_cfg = cfg["mcpServers"]["codrag"]
-    assert server_cfg["command"] == "codrag"
+    server_cfg = cfg["mcpServers"]["prep"]
+    assert server_cfg["command"] == "prep"
     assert server_cfg["args"][0] == "mcp"
     assert "--auto" in server_cfg["args"]
     assert "--daemon" in server_cfg["args"]
@@ -57,7 +57,7 @@ def test_mcp_config_project_mode_includes_project_arg(client: TestClient) -> Non
     data = env["data"]
 
     cfg = data["config"]
-    server_cfg = cfg["mcpServers"]["codrag"]
+    server_cfg = cfg["mcpServers"]["prep"]
     assert "--project" in server_cfg["args"]
     assert "proj_123" in server_cfg["args"]
 

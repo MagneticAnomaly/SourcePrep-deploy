@@ -1,5 +1,5 @@
 """
-CoDRAG Concepts Router — Phase 74 (Epistemic Concepts)
+Prep Concepts Router — Phase 74 (Epistemic Concepts)
 ========================================================
 
 Exposes the concept store via HTTP endpoints for the dashboard

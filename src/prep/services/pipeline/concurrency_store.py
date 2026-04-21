@@ -90,7 +90,7 @@ def concurrency_store() -> ConcurrencyStore:
     """Return the daemon-wide ConcurrencyStore singleton.
 
     Stored at ``<data_dir>/concurrency_store.db``. See
-    ``codrag.core.paths.data_dir`` for the resolution rules.
+    ``prep.core.paths.data_dir`` for the resolution rules.
     """
     global _store
     if _store is None:

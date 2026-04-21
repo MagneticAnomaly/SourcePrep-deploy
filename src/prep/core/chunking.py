@@ -1,5 +1,5 @@
 """
-Chunking strategies for CoDRAG.
+Chunking strategies for Prep.
 
 Provides heading-based markdown chunking and size-based code chunking.
 """

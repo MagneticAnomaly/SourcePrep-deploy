@@ -1,5 +1,5 @@
 """
-Read-only git history evidence for CoDRAG (Phase 105).
+Read-only git history evidence for Prep (Phase 105).
 
 Produces file-level churn data, hub classification labels, and hot-zone
 directory lists. Consumed on-demand by:

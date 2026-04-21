@@ -1,6 +1,6 @@
-"""Structural-only audit scanner for CoDRAG.
+"""Structural-only audit scanner for Prep.
 
-Returns ONLY CoDRAG-unique findings: coupling hotspots and import cycles.
+Returns ONLY Prep-unique findings: coupling hotspots and import cycles.
 Deliberately excludes anything a linter can already catch.
 """
 from __future__ import annotations

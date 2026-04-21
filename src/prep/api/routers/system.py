@@ -1,5 +1,5 @@
 """
-CoDRAG System Router — Phase 23 Sprint 9
+Prep System Router — Phase 23 Sprint 9
 =========================================
 
 **Origin:** Extracted from ``server.py`` (lines ~103–157, 1453–1470, 4161–4286).
@@ -122,7 +122,7 @@ def thread_dump() -> dict:
 def root() -> dict:
     """Root endpoint with API info."""
     return {
-        "name": "CoDRAG",
+        "name": "Prep",
         "version": __version__,
         "description": "Code Documentation and RAG",
         "docs": "/docs",

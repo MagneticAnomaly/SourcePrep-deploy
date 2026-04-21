@@ -1,5 +1,5 @@
 """
-CoDRAG Concept Store — Phase 74 (Epistemic Concepts)
+Prep Concept Store — Phase 74 (Epistemic Concepts)
 =====================================================
 
 Persistent store for codebase concepts — high-level knowledge about
@@ -12,7 +12,7 @@ Concepts are heavier than observations:
   - They bridge the gap between structural intelligence and understanding
 
 **Design:**
-  - Uses the shared ``codrag_settings.db`` SQLite database.
+  - Uses the shared ``prep_settings.db`` SQLite database.
   - Dedicated ``concepts`` table with FTS5 virtual table for search.
   - Concepts are linked to files via ``anchors`` (JSON array of paths).
   - When anchored files change, linked concepts are marked stale.

@@ -325,11 +325,11 @@ class TestScenarioNewFeatures:
 
     @pytest.mark.asyncio
     async def test_ai_note_mentions_deeper_context(self, test_server):
-        """O-5: _ai_note tells the AI to call codrag for deeper context."""
+        """O-5: _ai_note tells the AI to call prep for deeper context."""
         result = await test_server.tool_hi()
 
         assert "DEEPER CONTEXT" in result["_ai_note"]
-        assert "codrag" in result["_ai_note"]
+        assert "prep" in result["_ai_note"]
 
     @pytest.mark.asyncio
     async def test_prompts_ordered_by_relevance(self, test_server):

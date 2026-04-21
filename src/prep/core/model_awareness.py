@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 CLOUD_PROVIDERS: Set[str] = {"openai", "anthropic", "google", "openai-compatible"}
 LOCAL_PROVIDERS: Set[str] = {"ollama", "lm-studio"}
 
-# LM Studio defaults to 4096 context which is too small for most CoDRAG tasks.
+# LM Studio defaults to 4096 context which is too small for most Prep tasks.
 # Unlike Ollama (where num_ctx is set per-request), LM Studio sets context_length
 # at model load time only.  16384 covers all pipeline tasks comfortably.
 _LMSTUDIO_DEFAULT_CONTEXT_LENGTH = 16384

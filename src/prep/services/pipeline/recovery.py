@@ -465,7 +465,7 @@ class RecoveryManager:
         Returns a summary dict with resurrected/already_complete/still_missing counts.
         """
         # Dev flag: disable selfheal entirely
-        if os.environ.get("CODRAG_SELFHEAL", "1") == "0":
+        if os.environ.get("PREP_SELFHEAL", "1") == "0":
             return {"disabled": True, "resurrected": 0}
 
         # Force rebuild: skip selfheal
@@ -1172,7 +1172,7 @@ class RecoveryManager:
                                 stage.value, output_file, data_path.stat().st_size,
                             )
                             store.write_provenance(stage, {
-                                "codrag_version": "0.1.0",
+                                "prep_version": "0.1.0",
                                 "format_version": "2.0",
                                 "stage_id": stage.value,
                                 "restored": True,

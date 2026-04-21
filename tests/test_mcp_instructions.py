@@ -18,7 +18,7 @@ def test_instructions_short_for_claude():
     server = _make_server("claude-code")
     instructions = server._build_instructions()
     assert len(instructions) < 300
-    assert "codrag" in instructions.lower()
+    assert "prep" in instructions.lower()
     assert "read-only" in instructions.lower() or "auto-approve" in instructions.lower()
 
 
@@ -26,16 +26,16 @@ def test_instructions_verbose_for_unknown():
     """Unknown clients should get the full instructions."""
     server = _make_server("unknown")
     instructions = server._build_instructions()
-    assert "codrag_search" in instructions
-    assert "codrag_impact" in instructions
-    assert "codrag_audit" in instructions
+    assert "prep_search" in instructions
+    assert "prep_impact" in instructions
+    assert "prep_audit" in instructions
 
 
 def test_instructions_verbose_for_cursor():
     """Cursor gets verbose instructions (its rules file may not exist)."""
     server = _make_server("cursor")
     instructions = server._build_instructions()
-    assert "codrag_search" in instructions
+    assert "prep_search" in instructions
 
 
 def test_instructions_short_for_gemini():

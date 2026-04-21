@@ -58,7 +58,7 @@ class PushEngine:
     def push(
         self,
         items: List[ActionItem],
-        codrag_project_id: str = "",
+        prep_project_id: str = "",
         *,
         strategy: str = "category",
         min_priority: str = "P2",
@@ -70,7 +70,7 @@ class PushEngine:
 
         Args:
             items: Raw ActionItems from OpportunityManager.
-            codrag_project_id: CoDRAG project ID for address generation.
+            prep_project_id: Prep project ID for address generation.
             strategy: Consolidation strategy ("category", "root_file", "severity_band").
             min_priority: Only push items at this priority or higher.
             exclude_categories: Categories to skip.
@@ -106,11 +106,11 @@ class PushEngine:
             try:
                 from prep.services.observation_store import observation_store
                 attributed = observation_store.get_all_attributed(
-                    codrag_project_id, limit=200,
+                    prep_project_id, limit=200,
                 )
                 if attributed:
                     conflicts = self._conflict_detector.detect_from_observations(
-                        codrag_project_id, attributed,
+                        prep_project_id, attributed,
                     )
                     for c in conflicts:
                         self._conflict_store.save(c)
@@ -118,7 +118,7 @@ class PushEngine:
 
                     # Step 2c: Push conflicts to Paperclip as issues
                     for c in conflicts:
-                        self._push_conflict_to_pm(c, codrag_project_id)
+                        self._push_conflict_to_pm(c, prep_project_id)
             except Exception:
                 logger.debug(
                     "Conflict detection failed (non-fatal)",
@@ -131,9 +131,9 @@ class PushEngine:
             return result
 
         # ── Step 3: Ensure PM goal (one per push) ────────────────
-        goal_title = "CoDRAG: Codebase Health"
+        goal_title = "Prep: Codebase Health"
         goal_desc = (
-            f"Automated codebase intelligence from CoDRAG.\n"
+            f"Automated codebase intelligence from Prep.\n"
             f"Last push: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}\n"
             f"Items: {len(filtered)} findings consolidated into {len(groups)} groups."
         )
@@ -153,7 +153,7 @@ class PushEngine:
             try:
                 self._push_group(
                     group,
-                    codrag_project_id=codrag_project_id,
+                    prep_project_id=prep_project_id,
                     goal_id=goal_id,
                     project_root=project_root,
                     result=result,
@@ -178,16 +178,16 @@ class PushEngine:
         self,
         group: ConsolidatedGroup,
         *,
-        codrag_project_id: str,
+        prep_project_id: str,
         goal_id: str,
         project_root: str,
         result: PushResult,
     ) -> None:
         """Push a single consolidated group to the PM tool."""
         # Ensure a PM project exists for the group's category
-        project_name = f"CoDRAG: {group.label}"
+        project_name = f"Prep: {group.label}"
         project_desc = (
-            f"Automated findings from CoDRAG codebase intelligence.\n"
+            f"Automated findings from Prep codebase intelligence.\n"
             f"Category: {group.category}\n"
             f"Contains {len(group.items)} findings."
         )
@@ -204,26 +204,26 @@ class PushEngine:
         )
         result.projects_created += 1
 
-        # Build the CoDRAG address
+        # Build the Prep address
         if len(group.items) == 1:
             single = group.items[0]
-            codrag_address = (
-                f"codrag://{codrag_project_id}/{single.id}"
-                if codrag_project_id
-                else f"codrag://{single.id}"
+            prep_address = (
+                f"prep://{prep_project_id}/{single.id}"
+                if prep_project_id
+                else f"prep://{single.id}"
             )
             mcp_command = single.mcp_command()
         else:
             # For consolidated groups, list all IDs
-            ids = group.codrag_item_ids
-            codrag_address = (
-                f"codrag://{codrag_project_id}/group:{group.key}"
-                if codrag_project_id
-                else f"codrag://group:{group.key}"
+            ids = group.prep_item_ids
+            prep_address = (
+                f"prep://{prep_project_id}/group:{group.key}"
+                if prep_project_id
+                else f"prep://group:{group.key}"
             )
             # MCP command that fetches all items in the group
             id_list = ", ".join(f'"{i}"' for i in ids[:10])
-            mcp_command = f'codrag_audit action="refactor" finding_ids=[{id_list}]'
+            mcp_command = f'prep_audit action="refactor" finding_ids=[{id_list}]'
 
         # Build PMIssue
         pm_issue = PMIssue(
@@ -232,25 +232,25 @@ class PushEngine:
             priority=group.priority,
             category=group.category,
             effort=group.effort,
-            codrag_address=codrag_address,
+            prep_address=prep_address,
             mcp_command=mcp_command,
             affected_files=group.affected_files[:20],  # Cap file list
             sub_items=group.sub_items,
             project_id=project_id,
             goal_id=goal_id,
             item_count=len(group.items),
-            codrag_item_ids=group.codrag_item_ids,
+            prep_item_ids=group.prep_item_ids,
         )
 
         # Structural enrichment (Phase 73.5 Emergence)
         structural_ctx = self._enrich_with_structural_context(
             affected_files=group.affected_files[:20],
-            project_id=codrag_project_id,
+            project_id=prep_project_id,
         )
         if structural_ctx:
             pm_issue.structural_context = structural_ctx
             pm_issue.description += (
-                f"\n\n---\n### Structural Context (CoDRAG)\n"
+                f"\n\n---\n### Structural Context (Prep)\n"
                 f"- **Complexity:** {structural_ctx.complexity_tier}\n"
             )
             if structural_ctx.hub_files_involved:
@@ -264,11 +264,11 @@ class PushEngine:
                 pm_issue.description += f"- **Modules spanned:** {mod_list}\n"
 
         # Consensus enrichment
-        if codrag_project_id:
+        if prep_project_id:
             try:
                 from prep.services.observation_store import observation_store
                 consensus = observation_store.get_consensus_scores(
-                    codrag_project_id, min_agents=2, since_days=30,
+                    prep_project_id, min_agents=2, since_days=30,
                 )
                 affected_set = set(group.affected_files)
                 matching = [
@@ -287,7 +287,7 @@ class PushEngine:
                 pass  # Consensus is best-effort
 
         # Check for existing issue (dedup)
-        existing_id = self.adapter.find_issue_by_codrag_address(codrag_address)
+        existing_id = self.adapter.find_issue_by_codrag_address(prep_address)
         if existing_id:
             # Update existing issue
             updated = self.adapter.update_issue(existing_id, {
@@ -309,14 +309,14 @@ class PushEngine:
 
     def _push_conflict_to_pm(self, conflict: Any, project_id: str) -> None:
         """Push a detected conflict to Paperclip as a tagged issue."""
-        address = f"codrag://{project_id}/CONFLICT-{conflict.id}"
+        address = f"prep://{project_id}/CONFLICT-{conflict.id}"
         # Dedup: check if this conflict is already pushed
         existing = self.adapter.find_issue_by_codrag_address(address)
         if existing:
             return
 
         title = (
-            f"CoDRAG Conflict: {conflict.file_path} "
+            f"Prep Conflict: {conflict.file_path} "
             f"— {conflict.agent_a} vs {conflict.agent_b}"
         )
         desc = (
@@ -327,8 +327,8 @@ class PushEngine:
             f"\"{conflict.agent_b_assessment}\"\n\n"
             f"**Type:** {conflict.conflict_type}\n\n"
             f"---\n"
-            f"<!-- codrag-address:{address} -->\n"
-            f"<!-- codrag-conflict:true -->"
+            f"<!-- prep-address:{address} -->\n"
+            f"<!-- prep-conflict:true -->"
         )
         try:
             issue = PMIssue(
@@ -336,7 +336,7 @@ class PushEngine:
                 description=desc,
                 priority="P2",
                 category="conflict",
-                codrag_address=address,
+                prep_address=address,
             )
             self.adapter.create_issue(issue)
         except Exception:
@@ -422,7 +422,7 @@ class PushEngine:
 
             if change_type == "hub":
                 path = change.get("path", "unknown")
-                address = f"codrag://{project_id}/DELTA-hub-{hash(path) & 0xFFFFFFFF:08x}"
+                address = f"prep://{project_id}/DELTA-hub-{hash(path) & 0xFFFFFFFF:08x}"
                 if change_action == "new":
                     deps = change.get("dependents_count", 0)
                     rank = change.get("rank", "?")
@@ -435,8 +435,8 @@ class PushEngine:
                         f"Hub files are central dependencies — many other files import from them. "
                         f"Changes to hub files have high blast radius.\n\n"
                         f"---\n"
-                        f"<!-- codrag-address:{address} -->\n"
-                        f"<!-- codrag-delta:true -->"
+                        f"<!-- prep-address:{address} -->\n"
+                        f"<!-- prep-delta:true -->"
                     )
                 else:
                     title = f"Structural Change: {path} is no longer a hub"
@@ -445,12 +445,12 @@ class PushEngine:
                         f"**File:** {path}\n\n"
                         f"This file no longer has enough dependents to be a hub.\n\n"
                         f"---\n"
-                        f"<!-- codrag-address:{address} -->\n"
-                        f"<!-- codrag-delta:true -->"
+                        f"<!-- prep-address:{address} -->\n"
+                        f"<!-- prep-delta:true -->"
                     )
             else:
                 name = change.get("name", "unknown")
-                address = f"codrag://{project_id}/DELTA-module-{hash(name) & 0xFFFFFFFF:08x}"
+                address = f"prep://{project_id}/DELTA-module-{hash(name) & 0xFFFFFFFF:08x}"
                 if change_action == "new":
                     file_count = change.get("file_count", 0)
                     title = f"Structural Change: new module '{name}' ({file_count} files)"
@@ -459,8 +459,8 @@ class PushEngine:
                         f"**Module:** {name}\n"
                         f"**Files:** {file_count}\n\n"
                         f"---\n"
-                        f"<!-- codrag-address:{address} -->\n"
-                        f"<!-- codrag-delta:true -->"
+                        f"<!-- prep-address:{address} -->\n"
+                        f"<!-- prep-delta:true -->"
                     )
                 else:
                     title = f"Structural Change: module '{name}' removed"
@@ -468,8 +468,8 @@ class PushEngine:
                         f"A module was removed after pipeline rebuild.\n\n"
                         f"**Module:** {name}\n\n"
                         f"---\n"
-                        f"<!-- codrag-address:{address} -->\n"
-                        f"<!-- codrag-delta:true -->"
+                        f"<!-- prep-address:{address} -->\n"
+                        f"<!-- prep-delta:true -->"
                     )
 
             existing = self.adapter.find_issue_by_codrag_address(address)
@@ -482,7 +482,7 @@ class PushEngine:
                     description=desc,
                     priority="P3",
                     category="architecture",
-                    codrag_address=address,
+                    prep_address=address,
                 )
                 self.adapter.create_issue(issue)
                 created += 1

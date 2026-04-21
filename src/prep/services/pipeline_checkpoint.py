@@ -1,5 +1,5 @@
 """
-CoDRAG Pipeline Checkpoint — Phase 25 (Crash Protection)
+Prep Pipeline Checkpoint — Phase 25 (Crash Protection)
 =========================================================
 
 Creates and restores backup snapshots of trace data files before

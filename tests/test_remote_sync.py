@@ -88,8 +88,8 @@ class TestSyncStatus:
 class TestResolveS3Credentials:
     def test_from_env_vars(self, tmp_path):
         env = {
-            "CODRAG_S3_ACCESS_KEY": "AKIA_TEST",
-            "CODRAG_S3_SECRET_KEY": "secret_test",
+            "PREP_S3_ACCESS_KEY": "AKIA_TEST",
+            "PREP_S3_SECRET_KEY": "secret_test",
         }
         with patch.dict(os.environ, env, clear=False):
             creds = _resolve_s3_credentials(tmp_path)
@@ -101,7 +101,7 @@ class TestResolveS3Credentials:
         (tmp_path / SECRETS_FILENAME).write_text(json.dumps(secrets))
 
         # Clear env vars to force file resolution
-        with patch.dict(os.environ, {"CODRAG_S3_ACCESS_KEY": "", "CODRAG_S3_SECRET_KEY": ""}, clear=False):
+        with patch.dict(os.environ, {"PREP_S3_ACCESS_KEY": "", "PREP_S3_SECRET_KEY": ""}, clear=False):
             creds = _resolve_s3_credentials(tmp_path)
             assert creds["access_key"] == "file_key"
             assert creds["secret_key"] == "file_secret"
@@ -111,22 +111,22 @@ class TestResolveS3Credentials:
         (tmp_path / SECRETS_FILENAME).write_text(json.dumps(secrets))
 
         env = {
-            "CODRAG_S3_ACCESS_KEY": "env_key",
-            "CODRAG_S3_SECRET_KEY": "env_secret",
+            "PREP_S3_ACCESS_KEY": "env_key",
+            "PREP_S3_SECRET_KEY": "env_secret",
         }
         with patch.dict(os.environ, env, clear=False):
             creds = _resolve_s3_credentials(tmp_path)
             assert creds["access_key"] == "env_key"  # env wins
 
     def test_empty_when_nothing_configured(self, tmp_path):
-        with patch.dict(os.environ, {"CODRAG_S3_ACCESS_KEY": "", "CODRAG_S3_SECRET_KEY": ""}, clear=False):
+        with patch.dict(os.environ, {"PREP_S3_ACCESS_KEY": "", "PREP_S3_SECRET_KEY": ""}, clear=False):
             creds = _resolve_s3_credentials(tmp_path)
             assert creds["access_key"] == ""
             assert creds["secret_key"] == ""
 
     def test_corrupt_secrets_file(self, tmp_path):
         (tmp_path / SECRETS_FILENAME).write_text("not json")
-        with patch.dict(os.environ, {"CODRAG_S3_ACCESS_KEY": "", "CODRAG_S3_SECRET_KEY": ""}, clear=False):
+        with patch.dict(os.environ, {"PREP_S3_ACCESS_KEY": "", "PREP_S3_SECRET_KEY": ""}, clear=False):
             creds = _resolve_s3_credentials(tmp_path)
             assert creds["access_key"] == ""
 
@@ -195,11 +195,11 @@ class TestCheckForLeakedSecrets:
 
 class TestRemoteSyncService:
     def _make_project(self, tmp_path: Path, config: Dict[str, Any] = None) -> Path:
-        """Create a fake project root with .codrag/ directory."""
-        codrag = tmp_path / ".codrag"
-        codrag.mkdir(parents=True)
+        """Create a fake project root with .prep/ directory."""
+        prep = tmp_path / ".prep"
+        prep.mkdir(parents=True)
         if config:
-            (codrag / TEAM_CONFIG_FILENAME).write_text(json.dumps(config))
+            (prep / TEAM_CONFIG_FILENAME).write_text(json.dumps(config))
         return tmp_path
 
     def test_load_config_missing_file(self, tmp_path):
@@ -254,7 +254,7 @@ class TestRemoteSyncService:
         root = self._make_project(tmp_path, {
             "sync": {"enabled": True, "s3_bucket": "b"}
         })
-        with patch.dict(os.environ, {"CODRAG_S3_ACCESS_KEY": "", "CODRAG_S3_SECRET_KEY": ""}, clear=False):
+        with patch.dict(os.environ, {"PREP_S3_ACCESS_KEY": "", "PREP_S3_SECRET_KEY": ""}, clear=False):
             svc = RemoteSyncService(root)
             assert svc.check_and_sync() is False
             assert "credentials" in svc.status.error.lower()

@@ -1,5 +1,5 @@
 """
-CoDRAG Embedder Factory — Phase 23 (S-23.6)
+Prep Embedder Factory — Phase 23 (S-23.6)
 =============================================
 
 Extracted from ``build_manager.py`` to separate embedder creation concerns
@@ -37,7 +37,7 @@ def create_embedder(embedding_source: Optional[str] = None) -> Any:
     3. CLI ``_config`` values (``--model``, ``--ollama-url``).
     4. NativeEmbedder (if deps available), else OllamaEmbedder fallback.
 
-    **Headless safety:** If ``codrag.server`` is not importable (e.g., in
+    **Headless safety:** If ``prep.server`` is not importable (e.g., in
     a headless Docker container without FastAPI), steps 2-3 are skipped
     gracefully and we fall through to step 4.
     """
@@ -49,7 +49,7 @@ def create_embedder(embedding_source: Optional[str] = None) -> Any:
         _config = _srv_config
         _load_ui_config = _srv_load_ui
     except ImportError:
-        logger.debug("codrag.server not available (headless mode); skipping dashboard/CLI config")
+        logger.debug("prep.server not available (headless mode); skipping dashboard/CLI config")
 
     # ── 1. Explicit project-level override ──────────────────
     if embedding_source == "ollama":

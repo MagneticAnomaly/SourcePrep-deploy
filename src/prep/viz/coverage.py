@@ -1,5 +1,5 @@
 """
-CoDRAG CLI File Tree Coverage Visualization
+Prep CLI File Tree Coverage Visualization
 
 Visualizes which parts of the codebase are indexed vs excluded.
 """

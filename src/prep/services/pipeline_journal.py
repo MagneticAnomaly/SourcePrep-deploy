@@ -1,12 +1,12 @@
 """
-CoDRAG Pipeline Journal — Phase 25 (Crash Protection)
+Prep Pipeline Journal — Phase 25 (Crash Protection)
 ======================================================
 
 Persistent "black box" recorder for pipeline runs.  Survives process
 crashes, power loss, and browser refreshes.
 
 **Design:**
-  - Uses the shared ``codrag_settings.db`` SQLite database.
+  - Uses the shared ``prep_settings.db`` SQLite database.
   - Dedicated ``pipeline_runs`` table (not the generic key-value store).
   - Every state transition is written *before* the work begins (WAL).
   - Heartbeat column updated every ~10s by running workers.

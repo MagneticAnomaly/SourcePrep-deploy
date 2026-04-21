@@ -3,7 +3,7 @@
 Wraps ResearcherEngine operations as a LangGraph StateGraph:
 Ingest → Select → Research → Formulate → Push.
 
-Requires: pip install codrag[langgraph]
+Requires: pip install prep[langgraph]
 """
 from __future__ import annotations
 

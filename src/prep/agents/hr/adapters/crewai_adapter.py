@@ -2,7 +2,7 @@
 
 Wraps StaffingEngine as a 2-agent CrewAI Crew: Analyst + Generator.
 
-Requires: pip install codrag[crewai]
+Requires: pip install prep[crewai]
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def build_staffing_crew(
     except ImportError:
         raise ImportError(
             "crewai is required for CrewAI adapters. "
-            "Install with: pip install codrag[crewai]"
+            "Install with: pip install prep[crewai]"
         )
 
     if llm is None:

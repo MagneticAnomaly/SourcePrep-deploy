@@ -1,5 +1,5 @@
 """
-Goalposts planner engine for CoDRAG (Phase 57).
+Goalposts planner engine for Prep (Phase 57).
 
 Reads the Atlas, audit findings, and user product intent to generate
 forward-looking goalpost proposals and design questions via an LLM call.

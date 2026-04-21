@@ -226,7 +226,7 @@ class CustodianEngine:
                 priority="P3",
                 category="cleanup",
                 effort="small",
-                codrag_address=f"codrag://{self._project_id}/custodian/{candidate.finding_id}",
+                prep_address=f"prep://{self._project_id}/custodian/{candidate.finding_id}",
             )
             issues.append(issue)
 

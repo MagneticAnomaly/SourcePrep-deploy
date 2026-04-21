@@ -1,11 +1,11 @@
 """
 Universal PM data models — adapter-agnostic (Phase 65).
 
-These models represent the *outgoing* data that CoDRAG pushes to any
+These models represent the *outgoing* data that Prep pushes to any
 project management tool. Each PM adapter maps these to its own API
 format (Paperclip issues, GitHub Issues, Jira tickets, etc.).
 
-The models are intentionally simple — they carry CoDRAG intelligence
+The models are intentionally simple — they carry Prep intelligence
 without assuming anything about the target system's schema.
 """
 from __future__ import annotations
@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 # ── Priority mapping helpers ─────────────────────────────────────────
 
-CODRAG_TO_PM_PRIORITY = {
+PREP_TO_PM_PRIORITY = {
     "P0": "urgent",
     "P1": "high",
     "P2": "medium",
@@ -39,11 +39,11 @@ class PMIssue:
     """
     title: str
     description: str
-    priority: str = "P2"               # CoDRAG priority (adapter maps to target)
+    priority: str = "P2"               # Prep priority (adapter maps to target)
     category: str = "quality"
     effort: str = "small"
-    codrag_address: str = ""           # codrag://project_id/HEALTH-a7b9
-    mcp_command: str = ""              # Ready-to-paste CoDRAG command
+    prep_address: str = ""           # prep://project_id/HEALTH-a7b9
+    mcp_command: str = ""              # Ready-to-paste Prep command
     affected_files: List[str] = field(default_factory=list)
     sub_items: List[str] = field(default_factory=list)  # Descriptions of consolidated items
 
@@ -53,15 +53,15 @@ class PMIssue:
 
     # Consolidation metadata
     item_count: int = 1                # How many ActionItems were consolidated
-    codrag_item_ids: List[str] = field(default_factory=list)  # All original item IDs
+    prep_item_ids: List[str] = field(default_factory=list)  # All original item IDs
 
     # Structural enrichment (Phase 73.5 Emergence)
     structural_context: Optional["StructuralContext"] = None
     significance: str = "recommended"   # "mandatory" | "recommended" | "informational"
 
     def pm_priority(self) -> str:
-        """Map CoDRAG priority to a generic PM priority string."""
-        return CODRAG_TO_PM_PRIORITY.get(self.priority, "medium")
+        """Map Prep priority to a generic PM priority string."""
+        return PREP_TO_PM_PRIORITY.get(self.priority, "medium")
 
 
 @dataclass
@@ -180,7 +180,7 @@ class PMPushConfig:
 class StructuralContext:
     """Structural intelligence attached to a PM issue.
 
-    CoDRAG-only data that helps Paperclip route work.
+    Prep-only data that helps Paperclip route work.
     """
     hub_files_involved: List[str] = field(default_factory=list)
     hub_count: int = 0

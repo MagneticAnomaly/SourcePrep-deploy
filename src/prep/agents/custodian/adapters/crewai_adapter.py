@@ -2,7 +2,7 @@
 
 Wraps CustodianEngine as a 2-agent CrewAI Crew: Analyzer + Janitor.
 
-Requires: pip install codrag[crewai]
+Requires: pip install prep[crewai]
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def build_custodian_crew(
     except ImportError:
         raise ImportError(
             "crewai is required for CrewAI adapters. "
-            "Install with: pip install codrag[crewai]"
+            "Install with: pip install prep[crewai]"
         )
 
     if llm is None:
@@ -48,7 +48,7 @@ def build_custodian_crew(
         backstory=(
             f"You are scanning {len(findings)} audit findings for dead code. "
             "You filter to dead_code, orphan, and deprecated categories, "
-            "then verify each candidate via CoDRAG impact analysis."
+            "then verify each candidate via Prep impact analysis."
         ),
         llm=llm,
         verbose=False,

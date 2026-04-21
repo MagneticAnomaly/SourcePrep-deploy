@@ -1,4 +1,4 @@
-"""Tests for src/codrag/agents/shared/git_client.py
+"""Tests for src/prep/agents/shared/git_client.py
 
 Uses real git repos created in tmp_path to exercise branch management,
 commit operations, and file archiving.

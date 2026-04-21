@@ -1,4 +1,4 @@
-"""Tests for src/codrag/agents/shared/models.py"""
+"""Tests for src/prep/agents/shared/models.py"""
 from __future__ import annotations
 
 import pytest

@@ -1,8 +1,8 @@
 """
-CoDRAG CLI Data Visualization
+Prep CLI Data Visualization
 
 This module provides terminal-based visualizations that mirror
-the GUI components in @codrag/ui. Same data models, different renderers.
+the GUI components in @prep/ui. Same data models, different renderers.
 """
 
 from .activity_heatmap import render_activity_heatmap, ActivityDay, ActivityHeatmapData

@@ -64,12 +64,12 @@ class TestSyncManifest:
 class TestS3Config:
     def test_from_env(self):
         env = {
-            "CODRAG_S3_ENDPOINT": "https://r2.example.com",
-            "CODRAG_S3_BUCKET": "my-bucket",
-            "CODRAG_S3_PREFIX": "indexes/repo",
-            "CODRAG_S3_ACCESS_KEY": "AKIA...",
-            "CODRAG_S3_SECRET_KEY": "secret",
-            "CODRAG_S3_REGION": "us-east-1",
+            "PREP_S3_ENDPOINT": "https://r2.example.com",
+            "PREP_S3_BUCKET": "my-bucket",
+            "PREP_S3_PREFIX": "indexes/repo",
+            "PREP_S3_ACCESS_KEY": "AKIA...",
+            "PREP_S3_SECRET_KEY": "secret",
+            "PREP_S3_REGION": "us-east-1",
         }
         with patch.dict(os.environ, env, clear=False):
             cfg = S3Config.from_env()

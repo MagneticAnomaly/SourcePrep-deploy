@@ -1,4 +1,4 @@
-"""Observation → Concept promotion for CoDRAG.
+"""Observation → Concept promotion for Prep.
 
 Suggests promoting durable observations (decisions, patterns, assumptions)
 into structured concepts. The human confirms and fills in the assertion.

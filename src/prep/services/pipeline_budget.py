@@ -1,5 +1,5 @@
 """
-CoDRAG Pipeline Budget Throttle — Phase 26 (S-26.5 + S-26.3)
+Prep Pipeline Budget Throttle — Phase 26 (S-26.5 + S-26.3)
 =============================================================
 
 Token-budget enforcement for Auto and Scheduled deep enrichment modes.

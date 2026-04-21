@@ -1,4 +1,4 @@
-"""Enrichment engine — annotates external findings with CoDRAG structural context.
+"""Enrichment engine — annotates external findings with Prep structural context.
 
 Each incoming finding (file, line, message, severity, tool) is looked up in the
 provided context dict (keyed by file path).  When found, structural signals
@@ -28,14 +28,14 @@ _HUB_PERCENTILE = {
 
 @dataclass
 class EnrichedFinding:
-    """An external lint/analysis finding annotated with optional CoDRAG context."""
+    """An external lint/analysis finding annotated with optional Prep context."""
 
     file: str
     line: int
     message: str
     severity: str
     tool: str
-    codrag: Optional[Dict] = field(default=None)
+    prep: Optional[Dict] = field(default=None)
 
     def to_dict(self) -> Dict:
         d: Dict = {
@@ -45,8 +45,8 @@ class EnrichedFinding:
             "severity": self.severity,
             "tool": self.tool,
         }
-        if self.codrag is not None:
-            d["codrag"] = self.codrag
+        if self.prep is not None:
+            d["prep"] = self.prep
         return d
 
 
@@ -66,7 +66,7 @@ class EnrichmentResult:
         }
         if self.stale_data_warning:
             d["message"] = (
-                "Looks like you have stale data, CoDRAG recommends running enrichment again."
+                "Looks like you have stale data, Prep recommends running enrichment again."
             )
         return d
 
@@ -76,7 +76,7 @@ def enrich_findings(
     context: Dict[str, Dict],
     max_findings: int = 200,
 ) -> EnrichmentResult:
-    """Annotate external findings with CoDRAG structural context.
+    """Annotate external findings with Prep structural context.
 
     Args:
         findings: List of dicts with keys: file, line, message, severity, tool.
@@ -97,7 +97,7 @@ def enrich_findings(
         file_path: str = raw.get("file", "")
         ctx = context.get(file_path)
 
-        codrag_annotation: Optional[Dict] = None
+        prep_annotation: Optional[Dict] = None
         if ctx is not None:
             hub_status: str = ctx.get("hub_status", "low")
             dependents: int = ctx.get("dependents", 0)
@@ -127,7 +127,7 @@ def enrich_findings(
                 observations=observations,
             )
 
-            codrag_annotation = {
+            prep_annotation = {
                 "dependents": dependents,
                 "hub_status": hub_status,
                 "module": module,
@@ -149,19 +149,19 @@ def enrich_findings(
                 message=raw.get("message", ""),
                 severity=raw.get("severity", ""),
                 tool=raw.get("tool", ""),
-                codrag=codrag_annotation,
+                prep=prep_annotation,
             )
         )
 
-    enriched_count = sum(1 for f in enriched_findings if f.codrag is not None)
+    enriched_count = sum(1 for f in enriched_findings if f.prep is not None)
     unenriched_count = len(enriched_findings) - enriched_count
 
     # Generate key_insight from highest-risk finding
     key_insight = ""
-    enriched_with_scores = [f for f in enriched_findings if f.codrag is not None]
+    enriched_with_scores = [f for f in enriched_findings if f.prep is not None]
     if enriched_with_scores:
-        top = max(enriched_with_scores, key=lambda f: f.codrag["risk_score"])
-        tc = top.codrag
+        top = max(enriched_with_scores, key=lambda f: f.prep["risk_score"])
+        tc = top.prep
         if tc["risk_score"] >= _HIGH_RISK_THRESHOLD:
             key_insight = (
                 f"{top.file} is the highest-risk finding "
@@ -190,7 +190,7 @@ def enrich_sarif(
     context: Dict[str, Dict],
     max_findings: int = 200,
 ) -> Dict:
-    """Enrich SARIF input with CoDRAG structural context.
+    """Enrich SARIF input with Prep structural context.
 
     Orchestrates: parse SARIF → convert to simple → enrich → convert back to SARIF.
 
@@ -200,7 +200,7 @@ def enrich_sarif(
         max_findings: Maximum findings to process
 
     Returns:
-        Enriched SARIF dict with CoDRAG property bags injected.
+        Enriched SARIF dict with Prep property bags injected.
     """
     from prep.core.sarif import parse_sarif, sarif_to_simple, enriched_to_sarif
 

@@ -68,7 +68,7 @@ class TestKnowledgeMd:
             domain_focus=["backend", "database"],
             project_id="proj_123",
         )
-        assert "codrag" in result
+        assert "prep" in result
         assert "backend_dev" in result
         assert "proj_123" in result
 

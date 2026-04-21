@@ -1,13 +1,13 @@
 """
-AGENTS.md auto-writer for CoDRAG — Phase 63 (Headless Mode).
+AGENTS.md auto-writer for Prep — Phase 63 (Headless Mode).
 
 Writes the current opportunity findings into the project's
 .agents/AGENTS.md file so any AI agent that reads project files
 (Claude Code, Cursor, Antigravity, etc.) automatically gets
-CoDRAG's latest intelligence without configuration.
+Prep's latest intelligence without configuration.
 
 This is the "zero-config" integration path:
-  1. CoDRAG discovers opportunities via Health Scanner + Spaghetti
+  1. Prep discovers opportunities via Health Scanner + Spaghetti
   2. This writer serializes top findings into AGENTS.md
   3. Any agent opening the project reads AGENTS.md automatically
 
@@ -30,9 +30,9 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ────────────────────────────────────────────────────────
 
-# Markers for the CoDRAG-managed section
-_SECTION_START = "<!-- codrag-opportunities-start -->"
-_SECTION_END = "<!-- codrag-opportunities-end -->"
+# Markers for the Prep-managed section
+_SECTION_START = "<!-- prep-opportunities-start -->"
+_SECTION_END = "<!-- prep-opportunities-end -->"
 
 # Max items to include in AGENTS.md (keep it focused)
 _MAX_ITEMS = 15
@@ -45,9 +45,9 @@ def write_agents_md(
     items: List[ActionItem],
     max_items: int = _MAX_ITEMS,
 ) -> Optional[Path]:
-    """Write or update the CoDRAG section in .agents/AGENTS.md.
+    """Write or update the Prep section in .agents/AGENTS.md.
 
-    If AGENTS.md already exists, only the CoDRAG-managed section
+    If AGENTS.md already exists, only the Prep-managed section
     (between the start/end markers) is updated. Other content is
     preserved. If AGENTS.md doesn't exist, a new one is created.
 
@@ -70,14 +70,14 @@ def write_agents_md(
     ))
     active = active[:max_items]
 
-    # Build the CoDRAG section content
+    # Build the Prep section content
     section = _build_section(active)
 
     try:
         agents_dir.mkdir(parents=True, exist_ok=True)
 
         if agents_path.exists():
-            # Update existing file — splice in the CoDRAG section
+            # Update existing file — splice in the Prep section
             existing = agents_path.read_text(encoding="utf-8")
             new_content = _splice_section(existing, section)
         else:
@@ -97,19 +97,19 @@ def write_agents_md(
 
 
 def _build_section(items: List[ActionItem]) -> str:
-    """Build the Markdown content for the CoDRAG-managed section."""
+    """Build the Markdown content for the Prep-managed section."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     lines = [
         _SECTION_START,
-        "## CoDRAG Codebase Intelligence",
+        "## Prep Codebase Intelligence",
         "",
         f"*Auto-generated at {now} — {len(items)} active opportunity findings.*",
         "",
     ]
 
     if not items:
-        lines.append("No active opportunities. Run `codrag opportunities --refresh` to scan.")
+        lines.append("No active opportunities. Run `prep opportunities --refresh` to scan.")
         lines.append("")
         lines.append(_SECTION_END)
         return "\n".join(lines)
@@ -136,8 +136,8 @@ def _build_section(items: List[ActionItem]) -> str:
 
     lines.append("")
     lines.append(
-        "*Address these with:* `codrag opportunities --format ai_prompt` "
-        "*or use the MCP tool:* `codrag_audit`"
+        "*Address these with:* `prep opportunities --format ai_prompt` "
+        "*or use the MCP tool:* `prep_audit`"
     )
     lines.append("")
     lines.append(_SECTION_END)
@@ -146,7 +146,7 @@ def _build_section(items: List[ActionItem]) -> str:
 
 
 def _splice_section(existing: str, section: str) -> str:
-    """Replace the CoDRAG-managed section in existing content.
+    """Replace the Prep-managed section in existing content.
 
     If the markers aren't found, append the section at the end.
     """

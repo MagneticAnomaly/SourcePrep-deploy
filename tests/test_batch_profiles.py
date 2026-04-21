@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-# Load batch modules directly from file to avoid codrag.core.__init__'s
+# Load batch modules directly from file to avoid prep.core.__init__'s
 # heavy dependency chain (fastapi, etc.)
 _CORE = Path(__file__).resolve().parent.parent / "src" / "prep" / "core"
 

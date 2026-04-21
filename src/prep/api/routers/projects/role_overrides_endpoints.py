@@ -2,8 +2,8 @@
 Role Overrides endpoints — Phase 104.
 
 Exposes per-project, per-role overrides applied when an agent calls
-``codrag(role=...)``. Overrides layer on top of built-in ``RoleVector``
-defaults; see ``codrag.services.role_overrides_store``.
+``prep(role=...)``. Overrides layer on top of built-in ``RoleVector``
+defaults; see ``prep.services.role_overrides_store``.
 
 Endpoints:
   GET    /projects/{id}/role-overrides               — list all overrides

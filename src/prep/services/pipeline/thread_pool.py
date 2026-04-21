@@ -16,7 +16,7 @@ Usage (in pipeline stages):
     from concurrent.futures import wait, FIRST_COMPLETED
     done, pending = wait(futures, timeout=120, return_when=FIRST_COMPLETED)
 
-The pool is bounded (default 32 workers, ``CODRAG_LLM_POOL_SIZE``
+The pool is bounded (default 32 workers, ``PREP_LLM_POOL_SIZE``
 env override up to 64) so thread growth is capped. The **actual**
 LLM concurrency ceiling is enforced by the AIMD gate inside
 ``LLMClient.generate`` (``PipelineScheduler.acquire_request``) — the
@@ -64,7 +64,7 @@ logger = logging.getLogger(__name__)
 #     are blocked on the gate or on I/O to the LLM endpoint, so the
 #     active-thread count stays low.
 #
-# Can be overridden via ``CODRAG_LLM_POOL_SIZE`` env var, range [1,64].
+# Can be overridden via ``PREP_LLM_POOL_SIZE`` env var, range [1,64].
 _DEFAULT_POOL_SIZE = 32
 _MAX_POOL_SIZE = 64
 
@@ -76,13 +76,13 @@ _pool_lock = threading.Lock()
 def _get_pool_size() -> int:
     """Read pool size from env or use default."""
     try:
-        val = os.environ.get("CODRAG_LLM_POOL_SIZE")
+        val = os.environ.get("PREP_LLM_POOL_SIZE")
         if val:
             n = int(val)
             if 1 <= n <= _MAX_POOL_SIZE:
                 return n
             logger.warning(
-                "CODRAG_LLM_POOL_SIZE=%d out of range [1,%d], using default %d",
+                "PREP_LLM_POOL_SIZE=%d out of range [1,%d], using default %d",
                 n, _MAX_POOL_SIZE, _DEFAULT_POOL_SIZE,
             )
     except (ValueError, TypeError):

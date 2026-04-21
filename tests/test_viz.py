@@ -1,5 +1,5 @@
 """
-Tests for codrag.viz — all CLI visualization modules.
+Tests for prep.viz — all CLI visualization modules.
 
 These tests verify that each render function runs without error and produces
 output to the console. They do NOT assert specific visual formatting (that's

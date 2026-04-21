@@ -9,14 +9,14 @@ logger = logging.getLogger(__name__)
 
 
 def detect_codrag_command() -> str:
-    return "codrag"
+    return "prep"
 
 
 def generate_mcp_configs(
     *,
     ide: str = "all",
     daemon_url: str = "http://127.0.0.1:8400",
-    codrag_command: Optional[str] = None,
+    prep_command: Optional[str] = None,
     mode: str = "auto",
     project_id: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -29,7 +29,7 @@ def generate_mcp_configs(
         if project_id is None or not str(project_id).strip():
             raise ValueError("project_id is required when mode='project'")
 
-    codrag_path = codrag_command or detect_codrag_command()
+    prep_path = prep_command or detect_codrag_command()
 
     args = ["mcp"]
     if norm_mode == "direct":
@@ -41,7 +41,7 @@ def generate_mcp_configs(
         args.extend(["--auto", "--daemon", daemon_url])
 
     base_config: Dict[str, Any] = {
-        "command": codrag_path,
+        "command": prep_path,
         "args": args,
     }
 
@@ -51,28 +51,28 @@ def generate_mcp_configs(
         configs["claude-code"] = {
             "file": ".claude/mcp.json",
             "path_hint": "Project root (project-scoped) or ~/.claude/ (global)",
-            "config": {"servers": {"codrag": base_config}},
+            "config": {"servers": {"prep": base_config}},
         }
 
     if ide in ("all", "claude", "claude-desktop"):
         configs["claude"] = {
             "file": "claude_desktop_config.json",
             "path_hint": "~/Library/Application Support/Claude/ (macOS) or %APPDATA%/Claude/ (Windows)",
-            "config": {"mcpServers": {"codrag": base_config}},
+            "config": {"mcpServers": {"prep": base_config}},
         }
 
     if ide in ("all", "cursor"):
         configs["cursor"] = {
             "file": ".cursor/mcp.json",
             "path_hint": "Project root or ~/.cursor/",
-            "config": {"mcpServers": {"codrag": base_config}},
+            "config": {"mcpServers": {"prep": base_config}},
         }
 
     if ide in ("all", "vscode"):
         configs["vscode"] = {
             "file": ".vscode/mcp.json",
             "path_hint": "Project root",
-            "config": {"servers": {"codrag": base_config}},
+            "config": {"servers": {"prep": base_config}},
         }
 
     if ide in ("all", "jetbrains"):
@@ -82,8 +82,8 @@ def generate_mcp_configs(
             "config": {
                 "servers": [
                     {
-                        "name": "codrag",
-                        "command": codrag_path,
+                        "name": "prep",
+                        "command": prep_path,
                         "args": args,
                     }
                 ]
@@ -94,21 +94,21 @@ def generate_mcp_configs(
         configs["windsurf"] = {
             "file": ".windsurf/mcp.json",
             "path_hint": "Project root",
-            "config": {"mcpServers": {"codrag": base_config}},
+            "config": {"mcpServers": {"prep": base_config}},
         }
 
     if ide in ("all", "gemini"):
         configs["gemini"] = {
             "file": "settings.json",
             "path_hint": "~/.gemini/",
-            "config": {"mcpServers": {"codrag": {**base_config, "trust": True}}},
+            "config": {"mcpServers": {"prep": {**base_config, "trust": True}}},
         }
 
     if ide in ("all", "zed"):
         configs["zed"] = {
             "file": "settings.json",
             "path_hint": "~/.config/zed/ or project .zed/",
-            "config": {"context_servers": {"codrag": base_config}},
+            "config": {"context_servers": {"prep": base_config}},
         }
 
     if not configs:
@@ -134,21 +134,21 @@ def install_mcp_to_workspace(
     workspace_path: str | Path,
     *,
     daemon_url: str = "http://127.0.0.1:8400",
-    codrag_command: Optional[str] = None,
+    prep_command: Optional[str] = None,
     mode: str = "auto",
     project_id: Optional[str] = None,
     runtimes: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """Write MCP config files into a workspace so all agent runtimes
-    running there automatically discover CoDRAG tools.
+    running there automatically discover Prep tools.
 
-    This is the "Enable CoDRAG for Workspace" one-click action.
+    This is the "Enable Prep for Workspace" one-click action.
 
     Args:
         workspace_path: Absolute path to the project workspace (where
             Paperclip agents' ``cwd`` is set).
-        daemon_url: CoDRAG daemon base URL.
-        codrag_command: Override ``codrag`` binary path.
+        daemon_url: Prep daemon base URL.
+        prep_command: Override ``prep`` binary path.
         mode: MCP mode (auto, project, direct).
         project_id: Required when mode='project'.
         runtimes: Which runtimes to write configs for.
@@ -167,7 +167,7 @@ def install_mcp_to_workspace(
     all_configs = generate_mcp_configs(
         ide="all",
         daemon_url=daemon_url,
-        codrag_command=codrag_command,
+        prep_command=prep_command,
         mode=mode,
         project_id=project_id,
     )
@@ -198,7 +198,7 @@ def install_mcp_to_workspace(
             except (json.JSONDecodeError, OSError):
                 existing = {}
 
-        # Deep merge: add our "codrag" key under the merge_key without removing
+        # Deep merge: add our "prep" key under the merge_key without removing
         # any other servers the user may have configured.
         if merge_key in config_data:
             if merge_key not in existing:
@@ -274,9 +274,9 @@ def uninstall_mcp_from_workspace(
     *,
     runtimes: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Remove CoDRAG entries from MCP config files in a workspace.
+    """Remove Prep entries from MCP config files in a workspace.
 
-    Does not delete the files — only removes the ``codrag`` key from
+    Does not delete the files — only removes the ``prep`` key from
     each config's server list.
     """
     ws = Path(workspace_path).expanduser().resolve()
@@ -298,18 +298,18 @@ def uninstall_mcp_from_workspace(
         try:
             data = json.loads(target_file.read_text(encoding="utf-8"))
             if merge_key in data and isinstance(data[merge_key], dict):
-                if "codrag" in data[merge_key]:
-                    del data[merge_key]["codrag"]
+                if "prep" in data[merge_key]:
+                    del data[merge_key]["prep"]
                     target_file.write_text(
                         json.dumps(data, indent=2) + "\n",
                         encoding="utf-8",
                     )
                     removed.append(str(target_file))
-                    logger.info("Removed CoDRAG from %s: %s", runtime, target_file)
+                    logger.info("Removed Prep from %s: %s", runtime, target_file)
                 else:
-                    skipped.append({"runtime": runtime, "reason": "CoDRAG not found in config"})
+                    skipped.append({"runtime": runtime, "reason": "Prep not found in config"})
             else:
-                skipped.append({"runtime": runtime, "reason": "CoDRAG not found in config"})
+                skipped.append({"runtime": runtime, "reason": "Prep not found in config"})
         except (json.JSONDecodeError, OSError) as exc:
             skipped.append({"runtime": runtime, "reason": str(exc)})
 

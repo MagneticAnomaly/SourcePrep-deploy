@@ -92,7 +92,7 @@ def test_destroy_sequence_cleans_disk_and_memory(tmp_path: Path) -> None:
     assert instance_before is not None
 
     # Build a fake index_dir with git_evidence populated
-    index_dir = tmp_path / ".codrag_index"
+    index_dir = tmp_path / ".prep_index"
     index_dir.mkdir()
     ge_dir = _populate_git_evidence_dir(index_dir)
     assert ge_dir.is_dir()

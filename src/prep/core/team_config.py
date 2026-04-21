@@ -11,7 +11,7 @@ from .ids import stable_sha256
 logger = logging.getLogger(__name__)
 
 
-TEAM_CONFIG_REL_PATH = Path(".codrag") / "team_config.json"
+TEAM_CONFIG_REL_PATH = Path(".prep") / "team_config.json"
 
 
 @dataclass(frozen=True)

@@ -1,5 +1,5 @@
 """
-Shared tool definitions for CoDRAG MCP servers.
+Shared tool definitions for Prep MCP servers.
 
 Phase 50: Consolidated from 16 tools to 5 + 1 dev alias.
 Descriptions use Purpose + Guidelines pattern (arXiv:2602.14878).
@@ -10,12 +10,12 @@ TOOL_ALIASES — maps old tool names to new tool handlers
 """
 import os as _os
 
-_DEV_MODE = _os.environ.get("CODRAG_DEV_MODE", "").lower() in ("1", "true", "yes")
+_DEV_MODE = _os.environ.get("PREP_DEV_MODE", "").lower() in ("1", "true", "yes")
 
 # Shared project_id property — reused across all tools
 _PROJECT_ID_PROP = {
     "type": "string",
-    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
+    "description": "Prep project ID. Auto-detected from workspace root if omitted.",
 }
 
 # =============================================================================
@@ -23,15 +23,15 @@ _PROJECT_ID_PROP = {
 # =============================================================================
 
 _CORE_TOOLS = [
-    # ── 1. codrag (ambient context — the primary tool) ──────────────
+    # ── 1. prep (ambient context — the primary tool) ──────────────
     {
-        "name": "codrag",
+        "name": "prep",
         "description": (
             "Get structural codebase context -- modules, hub files, and knowledge base content. "
             "Call this FIRST at the start of every task to understand the codebase architecture "
             "before reading or editing files. Returns module summaries, the most-connected files, "
             "and any files the user has selected as focus areas. No arguments needed. "
-            "Use codrag_search instead when you need to find something specific."
+            "Use prep_search instead when you need to find something specific."
         ),
         "inputSchema": {
             "type": "object",
@@ -41,7 +41,7 @@ _CORE_TOOLS = [
                     "description": (
                         "(Phase 103 R4) Natural-language description of what you are about to do "
                         "(e.g. 'review the auth middleware for security issues', 'fix the react "
-                        "dashboard panel'). When provided without an explicit `role`, CoDRAG infers "
+                        "dashboard panel'). When provided without an explicit `role`, Prep infers "
                         "the best-fitting role from the task text and returns a role-scoped atlas. "
                         "If inference confidence is low, falls back to the uniform atlas gracefully."
                     ),
@@ -62,8 +62,8 @@ _CORE_TOOLS = [
                 "working_dir": {
                     "type": "string",
                     "description": (
-                        "Directory you are currently working in (e.g. 'src/codrag/services'). "
-                        "When set, CoDRAG includes L2 scoped context: observations and concepts "
+                        "Directory you are currently working in (e.g. 'src/prep/services'). "
+                        "When set, Prep includes L2 scoped context: observations and concepts "
                         "anchored to files in this directory. Improves relevance without a search query."
                     ),
                 },
@@ -71,14 +71,14 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "annotations": {"title": "CoDRAG: Codebase Context", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+        "annotations": {"title": "Prep: Codebase Context", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
-    # ── 2. codrag_search (query-based retrieval) ────────────────────
+    # ── 2. prep_search (query-based retrieval) ────────────────────
     {
-        "name": "codrag_search",
+        "name": "prep_search",
         "description": (
             "Search for code using a natural language query or symbol name. "
-            "CoDRAG applies semantic search, structural trace expansion, and LOD compression "
+            "Prep applies semantic search, structural trace expansion, and LOD compression "
             "to assemble focused context. Use 'type' to select the search mode: "
             "'context' (default) for semantic search with structural expansion, "
             "'symbol' for finding functions/classes/modules by name."
@@ -99,7 +99,7 @@ _CORE_TOOLS = [
                 "exclude_paths": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "File paths already in your context. CoDRAG excludes these to avoid redundancy.",
+                    "description": "File paths already in your context. Prep excludes these to avoid redundancy.",
                     "default": [],
                 },
                 "max_chars": {
@@ -115,7 +115,7 @@ _CORE_TOOLS = [
                 "intent": {
                     "type": "string",
                     "description": (
-                        "Override auto-detected intent. CoDRAG classifies queries automatically "
+                        "Override auto-detected intent. Prep classifies queries automatically "
                         "(LOCATE for 'where is X', RATIONALE for 'why X', etc.) — use this "
                         "only when auto-detection gets it wrong."
                     ),
@@ -137,8 +137,8 @@ _CORE_TOOLS = [
                 "working_dir": {
                     "type": "string",
                     "description": (
-                        "Directory you are currently working in (e.g. 'src/codrag/services'). "
-                        "When set, CoDRAG includes L2 scoped context: observations and concepts "
+                        "Directory you are currently working in (e.g. 'src/prep/services'). "
+                        "When set, Prep includes L2 scoped context: observations and concepts "
                         "anchored to files in this directory."
                     ),
                 },
@@ -146,11 +146,11 @@ _CORE_TOOLS = [
             },
             "required": ["query"],
         },
-        "annotations": {"title": "CoDRAG: Code Search", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+        "annotations": {"title": "Prep: Code Search", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
-    # ── 3. codrag_impact (blast radius + graph traversal) ───────────
+    # ── 3. prep_impact (blast radius + graph traversal) ───────────
     {
-        "name": "codrag_impact",
+        "name": "prep_impact",
         "description": (
             "Analyze what connects to a file or symbol -- dependencies, dependents, or both. "
             "Requires file_path or symbol. "
@@ -168,7 +168,7 @@ _CORE_TOOLS = [
                 },
                 "symbol": {
                     "type": "string",
-                    "description": "Symbol node ID for symbol-level analysis (from codrag_search type='symbol' results).",
+                    "description": "Symbol node ID for symbol-level analysis (from prep_search type='symbol' results).",
                 },
                 "direction": {
                     "type": "string",
@@ -185,16 +185,16 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "annotations": {"title": "CoDRAG: Impact Analysis", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+        "annotations": {"title": "Prep: Impact Analysis", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
-    # ── 4. codrag_audit (codebase health + enrichment) ────────────
+    # ── 4. prep_audit (codebase health + enrichment) ────────────
     {
-        "name": "codrag_audit",
+        "name": "prep_audit",
         "description": (
             "Codebase structural intelligence and finding enrichment. "
-            "Two modes: (1) Call with no 'findings' param to get CoDRAG's own "
+            "Two modes: (1) Call with no 'findings' param to get Prep's own "
             "structural insights — coupling hotspots, import cycles, hub concentration, "
-            "concept violations. These are things only CoDRAG can see. "
+            "concept violations. These are things only Prep can see. "
             "(2) Call with 'findings' param to enrich external lint/analysis results "
             "with structural context — dependent counts, hub status, related concepts, "
             "risk scores. Pipe ruff/eslint/semgrep output through here to make findings "
@@ -216,10 +216,10 @@ _CORE_TOOLS = [
                 },
                 "findings": {
                     "description": (
-                        "External findings to enrich with CoDRAG structural context. "
+                        "External findings to enrich with Prep structural context. "
                         "Pass an array of objects [{file, message, line?, severity?, tool?}] "
                         "for simple enrichment, or a SARIF dict ({version, runs}) for "
-                        "SARIF-in/SARIF-out enrichment. Omit to get CoDRAG's own structural findings."
+                        "SARIF-in/SARIF-out enrichment. Omit to get Prep's own structural findings."
                     ),
                 },
                 "scope": {
@@ -269,11 +269,11 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "annotations": {"title": "CoDRAG: Codebase Audit", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+        "annotations": {"title": "Prep: Codebase Audit", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
     },
-    # ── 5. codrag_observe (session memory) ──────────────────────────
+    # ── 5. prep_observe (session memory) ──────────────────────────
     {
-        "name": "codrag_observe",
+        "name": "prep_observe",
         "description": (
             "Save or retrieve observations about the codebase for cross-session memory. "
             "Observations persist across sessions and are flagged stale when linked files change. "
@@ -333,11 +333,11 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "annotations": {"title": "CoDRAG: Observations", "readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+        "annotations": {"title": "Prep: Observations", "readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
     },
-    # ── 6. codrag_concepts (epistemic knowledge layer) ─────────────
+    # ── 6. prep_concepts (epistemic knowledge layer) ─────────────
     {
-        "name": "codrag_concepts",
+        "name": "prep_concepts",
         "description": (
             "Get or save high-level codebase concepts — the 'why' behind the code. "
             "Concepts capture business rationale, design decisions, domain knowledge, "
@@ -415,16 +415,16 @@ _CORE_TOOLS = [
             },
             "required": [],
         },
-        "annotations": {"title": "CoDRAG: Concepts", "readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
+        "annotations": {"title": "Prep: Concepts", "readOnlyHint": False, "destructiveHint": False, "idempotentHint": False, "openWorldHint": True},
     },
 ]
 
-# Dev alias: codrag_context (listed only when CODRAG_DEV_MODE=1)
+# Dev alias: prep_context (listed only when PREP_DEV_MODE=1)
 _DEV_ALIAS_TOOL = {
-    "name": "codrag_context",
+    "name": "prep_context",
     "description": (
-        "Alias for `codrag` -- get ambient structural codebase context. "
-        "Same as calling codrag with no arguments. "
+        "Alias for `prep` -- get ambient structural codebase context. "
+        "Same as calling prep with no arguments. "
         "Provided for development/testing clarity."
     ),
     "inputSchema": {
@@ -439,7 +439,7 @@ _DEV_ALIAS_TOOL = {
         },
         "required": [],
     },
-    "annotations": {"title": "CoDRAG: Context (Dev)", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+    "annotations": {"title": "Prep: Context (Dev)", "readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
 }
 
 # Build the final TOOLS list
@@ -458,31 +458,31 @@ if _DEV_MODE:
 
 TOOL_ALIASES = {
     # Direct aliases (identical behavior)
-    "codrag_context": "codrag",
-    "codrag_":        "codrag",
+    "prep_context": "prep",
+    "prep_":        "prep",
 
-    # Absorbed into codrag (ambient response includes health + coverage)
-    "hi_codrag":           "codrag",
-    "codrag_status":       "codrag",
-    "codrag_trace_coverage": "codrag",
+    # Absorbed into prep (ambient response includes health + coverage)
+    "hi_codrag":           "prep",
+    "prep_status":       "prep",
+    "prep_trace_coverage": "prep",
 
-    # Consolidated into codrag_search
-    "codrag_trace_search": "codrag_search",       # type=symbol
+    # Consolidated into prep_search
+    "prep_trace_search": "prep_search",       # type=symbol
 
-    # Consolidated into codrag_impact (direction=all for neighbors)
-    "codrag_trace_neighbors": "codrag_impact",     # direction=all
+    # Consolidated into prep_impact (direction=all for neighbors)
+    "prep_trace_neighbors": "prep_impact",     # direction=all
 
     # Admin tool -- kept as hidden dispatch alias
-    "codrag_build": "codrag_build",                # special: not in TOOLS but still dispatches
+    "prep_build": "prep_build",                # special: not in TOOLS but still dispatches
 
-    # Consolidated into codrag_audit
-    "codrag_audit_refactor": "codrag_audit",       # action=refactor
-    "codrag_audit_check":    "codrag_audit",       # action=verify
-    "codrag_audit_report":   "codrag_audit",       # action=report
+    # Consolidated into prep_audit
+    "prep_audit_refactor": "prep_audit",       # action=refactor
+    "prep_audit_check":    "prep_audit",       # action=verify
+    "prep_audit_report":   "prep_audit",       # action=report
 
-    # Consolidated into codrag_observe
-    "codrag_save_observation": "codrag_observe",   # action=save
-    "codrag_get_observations": "codrag_observe",   # action=get
+    # Consolidated into prep_observe
+    "prep_save_observation": "prep_observe",   # action=save
+    "prep_get_observations": "prep_observe",   # action=get
 }
 
 
@@ -494,14 +494,14 @@ TOOL_ALIASES = {
 
 LEGACY_TOOLS = [
     {
-        "name": "codrag_status",
-        "description": "Get CoDRAG index status and daemon health. Returns index stats, build state, and configuration.",
+        "name": "prep_status",
+        "description": "Get Prep index status and daemon health. Returns index stats, build state, and configuration.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted. Use codrag_status to list available projects.",
+                    "description": "Prep project ID to target. Optional — auto-detected from workspace root if omitted. Use prep_status to list available projects.",
                 },
             },
             "required": [],
@@ -515,8 +515,8 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_build",
-        "description": "Trigger an index build. Returns immediately; build runs async in background. Use codrag_status to check progress.",
+        "name": "prep_build",
+        "description": "Trigger an index build. Returns immediately; build runs async in background. Use prep_status to check progress.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -527,7 +527,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
             "required": [],
@@ -541,8 +541,8 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_search",
-        "description": "Search for specific code context using a natural language query. CoDRAG applies semantic search, structural trace expansion, LOD compression, and atlas routing to assemble focused context. For complex requests spanning multiple topics, call once per topic. IMPORTANT: If you receive a PROJECT_SELECTION_AMBIGUOUS error, it means the server cannot auto-detect which project you are working on. You must look at the list of available projects in the error message and immediately retry this tool by passing the correct `project_id`.",
+        "name": "prep_search",
+        "description": "Search for specific code context using a natural language query. Prep applies semantic search, structural trace expansion, LOD compression, and atlas routing to assemble focused context. For complex requests spanning multiple topics, call once per topic. IMPORTANT: If you receive a PROJECT_SELECTION_AMBIGUOUS error, it means the server cannot auto-detect which project you are working on. You must look at the list of available projects in the error message and immediately retry this tool by passing the correct `project_id`.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -553,7 +553,7 @@ LEGACY_TOOLS = [
                 "exclude_paths": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "File paths already in your context. CoDRAG will exclude these from results to avoid redundancy.",
+                    "description": "File paths already in your context. Prep will exclude these from results to avoid redundancy.",
                     "default": [],
                 },
                 "max_chars": {
@@ -579,7 +579,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID. Auto-detected from workspace root if omitted.",
                 },
             },
             "required": ["query"],
@@ -593,8 +593,8 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag",
-        "description": "Get ambient codebase context — the primary CoDRAG tool. Returns hub files (highest connectivity), module summaries, and structurally related neighbors based on the user's selected focus areas. No query needed. Use codrag_search instead when you need to find something specific. (Full name: codrag_context) IMPORTANT: If you receive a PROJECT_SELECTION_AMBIGUOUS error, it means the server cannot auto-detect which project you are working on. You must look at the list of available projects in the error message and immediately retry this tool by passing the correct `project_id`.",
+        "name": "prep",
+        "description": "Get ambient codebase context — the primary Prep tool. Returns hub files (highest connectivity), module summaries, and structurally related neighbors based on the user's selected focus areas. No query needed. Use prep_search instead when you need to find something specific. (Full name: prep_context) IMPORTANT: If you receive a PROJECT_SELECTION_AMBIGUOUS error, it means the server cannot auto-detect which project you are working on. You must look at the list of available projects in the error message and immediately retry this tool by passing the correct `project_id`.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -605,7 +605,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
             "required": [],
@@ -619,8 +619,8 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_context",
-        "description": "Alias for the primary `codrag` tool — get ambient codebase context. Returns hub files (highest connectivity), module summaries, and structurally related neighbors based on the user's selected focus areas. No query needed. Use codrag_search instead when you need to find something specific. IMPORTANT: If you receive a PROJECT_SELECTION_AMBIGUOUS error, it means the server cannot auto-detect which project you are working on. You must look at the list of available projects in the error message and immediately retry this tool by passing the correct `project_id`.",
+        "name": "prep_context",
+        "description": "Alias for the primary `prep` tool — get ambient codebase context. Returns hub files (highest connectivity), module summaries, and structurally related neighbors based on the user's selected focus areas. No query needed. Use prep_search instead when you need to find something specific. IMPORTANT: If you receive a PROJECT_SELECTION_AMBIGUOUS error, it means the server cannot auto-detect which project you are working on. You must look at the list of available projects in the error message and immediately retry this tool by passing the correct `project_id`.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -631,7 +631,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
             "required": [],
@@ -645,7 +645,7 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_trace_search",
+        "name": "prep_trace_search",
         "description": "Search the code graph (trace index) for symbols by name. Returns matching functions, classes, modules, and other code elements with their file locations.",
         "inputSchema": {
             "type": "object",
@@ -666,7 +666,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
             "required": ["query"],
@@ -680,7 +680,7 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_trace_neighbors",
+        "name": "prep_trace_neighbors",
         "description": "Get neighboring nodes in the code graph for a given node ID. Returns imports, callers, callees, and other structural relationships.",
         "inputSchema": {
             "type": "object",
@@ -707,7 +707,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
             "required": ["node_id"],
@@ -721,14 +721,14 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_trace_coverage",
+        "name": "prep_trace_coverage",
         "description": "Get trace coverage statistics: which files are traced, untraced, stale, or ignored. Useful for understanding code graph completeness.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted. Use codrag_status to list available projects.",
+                    "description": "Prep project ID to target. Optional — auto-detected from workspace root if omitted. Use prep_status to list available projects.",
                 },
             },
             "required": [],
@@ -743,13 +743,13 @@ LEGACY_TOOLS = [
     },
     {
         "name": "hi_codrag",
-        "description": "Greet the user and show what you can see. Call this when the user says 'hi_codrag' or asks what CoDRAG knows. Present the response CONVERSATIONALLY — tell the user what files and areas you're looking at, mention any health issues, and offer the suggested prompts as numbered next-step options. If the user also asked a question, briefly summarize what you see then answer their question (use codrag_search for specifics).",
+        "description": "Greet the user and show what you can see. Call this when the user says 'hi_codrag' or asks what Prep knows. Present the response CONVERSATIONALLY — tell the user what files and areas you're looking at, mention any health issues, and offer the suggested prompts as numbered next-step options. If the user also asked a question, briefly summarize what you see then answer their question (use prep_search for specifics).",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
             "required": [],
@@ -763,7 +763,7 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_impact",
+        "name": "prep_impact",
         "description": "Analyze what depends on a file or symbol — 'what breaks if I change X?' Traverses reverse dependencies (callers, importers) in the code graph and returns a LOD-compressed impact summary. Use this before making changes to understand the blast radius.",
         "inputSchema": {
             "type": "object",
@@ -783,7 +783,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID to target. Optional — auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID to target. Optional — auto-detected from workspace root if omitted.",
                 },
             },
             "required": [],
@@ -797,7 +797,7 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_save_observation",
+        "name": "prep_save_observation",
         "description": "Save a note about the codebase for future sessions. Observations are linked to specific files or symbols and automatically flagged stale when those files change. Use this to record architectural decisions, discovered bugs, design patterns, or assumptions you've made during analysis. Observations persist across sessions so you don't re-discover the same things.",
         "inputSchema": {
             "type": "object",
@@ -826,7 +826,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID. Auto-detected from workspace root if omitted.",
                 },
             },
             "required": ["content"],
@@ -840,7 +840,7 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_get_observations",
+        "name": "prep_get_observations",
         "description": "Retrieve previous observations about the codebase. Returns notes saved in earlier sessions, with stale flags for observations whose linked files have changed. Use this at the start of a session or when working on a file to see what was previously discovered.",
         "inputSchema": {
             "type": "object",
@@ -865,7 +865,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID. Auto-detected from workspace root if omitted.",
                 },
             },
             "required": [],
@@ -879,7 +879,7 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_audit",
+        "name": "prep_audit",
         "description": "Run or retrieve a codebase health audit. Returns structured findings about architecture, code quality, test coverage, tech debt, and more. Findings are generated from trace graph analysis (no LLM needed). Call with synthesize=true to also generate full markdown reports via LLM.",
         "inputSchema": {
             "type": "object",
@@ -896,7 +896,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID. Auto-detected from workspace root if omitted.",
                 },
             },
             "required": [],
@@ -910,15 +910,15 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_audit_refactor",
-        "description": "Get specific audit findings with trace context for implementation. The user has selected which findings to address. Each finding includes affected files, the problem, and the concrete action to take. CoDRAG automatically includes relevant code context from the trace graph for the affected files. Use this after the user reviews codrag_audit results and selects items to fix.",
+        "name": "prep_audit_refactor",
+        "description": "Get specific audit findings with trace context for implementation. The user has selected which findings to address. Each finding includes affected files, the problem, and the concrete action to take. Prep automatically includes relevant code context from the trace graph for the affected files. Use this after the user reviews prep_audit results and selects items to fix.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "finding_ids": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "IDs of the findings to address (e.g. ['ARCH-1', 'QUAL-3']). Get these from codrag_audit.",
+                    "description": "IDs of the findings to address (e.g. ['ARCH-1', 'QUAL-3']). Get these from prep_audit.",
                 },
                 "instructions": {
                     "type": "string",
@@ -926,7 +926,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID. Auto-detected from workspace root if omitted.",
                 },
             },
             "required": ["finding_ids"],
@@ -940,7 +940,7 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_audit_check",
+        "name": "prep_audit_check",
         "description": "Re-run specific audit analyzers to verify fixes. Returns only findings from the specified analyzers, so you can confirm whether a fix resolved the issue. Use this after making changes to verify the audit finding is gone.",
         "inputSchema": {
             "type": "object",
@@ -952,7 +952,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID. Auto-detected from workspace root if omitted.",
                 },
             },
             "required": ["analyzers"],
@@ -966,8 +966,8 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "codrag_audit_report",
-        "description": "Retrieve a specific audit report document by name. Reports are generated by codrag_audit with synthesize=true. Available reports: AUDIT_SUMMARY, ARCHITECTURE_ANALYSIS, GAP_ANALYSIS, COMPONENT_INVENTORY, TECH_DEBT_REPORT.",
+        "name": "prep_audit_report",
+        "description": "Retrieve a specific audit report document by name. Reports are generated by prep_audit with synthesize=true. Available reports: AUDIT_SUMMARY, ARCHITECTURE_ANALYSIS, GAP_ANALYSIS, COMPONENT_INVENTORY, TECH_DEBT_REPORT.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -978,7 +978,7 @@ LEGACY_TOOLS = [
                 },
                 "project_id": {
                     "type": "string",
-                    "description": "CoDRAG project ID. Auto-detected from workspace root if omitted.",
+                    "description": "Prep project ID. Auto-detected from workspace root if omitted.",
                 },
             },
             "required": ["report_name"],

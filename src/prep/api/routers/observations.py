@@ -1,5 +1,5 @@
 """
-CoDRAG Observations Router — Phase 39 (Session Continuity)
+Prep Observations Router — Phase 39 (Session Continuity)
 ============================================================
 
 Exposes the observation store via HTTP endpoints for MCP tools

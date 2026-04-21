@@ -1,5 +1,5 @@
 """
-AutoAudit analyzers for CoDRAG (Phase 43).
+AutoAudit analyzers for Prep (Phase 43).
 
 Each analyzer is a callable that takes an AuditContext and returns
 a list of Finding objects. Analyzers are pure — no side effects,

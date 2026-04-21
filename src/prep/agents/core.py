@@ -1,7 +1,7 @@
-"""AgentCore — single facade combining CoDRAG data access, Paperclip push, git, and config.
+"""AgentCore — single facade combining Prep data access, Paperclip push, git, and config.
 
 All agent engines and orchestration adapters should instantiate AgentCore rather than
-reaching into CoDRAGDataAccess, PaperclipClient, or GitClient directly.
+reaching into PrepDataAccess, PaperclipClient, or GitClient directly.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from prep.adapters.pm_models import PMGoal, PMIssue, PMProject, PMPushConfig, PushResult
-from prep.agents.shared.codrag_data import CoDRAGDataAccess
+from prep.agents.shared.codrag_data import PrepDataAccess
 from prep.agents.shared.git_client import GitClient
 from prep.agents.shared.models import AgentConfig
 from prep.agents.shared.paperclip_client import PaperclipClient
@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 class AgentCore:
     """Single entry point for all agent engines.
 
-    Combines CoDRAG read access, Paperclip write access, git operations,
+    Combines Prep read access, Paperclip write access, git operations,
     and per-agent configuration into one cohesive interface.
 
     Args:
-        project_id: CoDRAG project identifier.
-        index_dir: Path to the CoDRAG index directory.
+        project_id: Prep project identifier.
+        index_dir: Path to the Prep index directory.
         project_root: Optional path to the project source root.
         pm_config: Optional PM push configuration; Paperclip client is only
             created when ``pm_config`` is provided and ``pm_config.enabled``
@@ -44,12 +44,12 @@ class AgentCore:
         collab_hub: Optional[Any] = None,
     ) -> None:
         self.project_id = project_id
-        self._data = CoDRAGDataAccess(index_dir, project_root, project_id)
+        self._data = PrepDataAccess(index_dir, project_root, project_id)
         self._paperclip = PaperclipClient(pm_config) if pm_config and pm_config.enabled else None
         self._git = GitClient(project_root) if project_root else None
         self.collab = collab_hub
 
-    # ── CoDRAG Read Methods ──────────────────────────────────────────────
+    # ── Prep Read Methods ──────────────────────────────────────────────
 
     def get_audit_findings(
         self,
@@ -63,7 +63,7 @@ class AgentCore:
             categories: Optional list of category strings to filter by.
 
         Returns:
-            List of :class:`~codrag.core.audit.action_item.ActionItem` instances.
+            List of :class:`~prep.core.audit.action_item.ActionItem` instances.
         """
         return self._data.get_audit_findings(min_priority=min_priority, categories=categories)
 
@@ -77,7 +77,7 @@ class AgentCore:
             categories: Optional list of category strings to limit scanning.
 
         Returns:
-            List of :class:`~codrag.core.audit.action_item.ActionItem` instances.
+            List of :class:`~prep.core.audit.action_item.ActionItem` instances.
         """
         return self._data.refresh_audit(categories=categories)
 
@@ -130,7 +130,7 @@ class AgentCore:
             limit: Maximum number of results.
 
         Returns:
-            List of :class:`~codrag.services.observation_store.Observation` instances.
+            List of :class:`~prep.services.observation_store.Observation` instances.
         """
         return self._data.get_observations(query, limit=limit)
 

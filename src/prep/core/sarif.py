@@ -1,8 +1,8 @@
-"""SARIF parser, converter, and auto-detection for CoDRAG enrichment.
+"""SARIF parser, converter, and auto-detection for Prep enrichment.
 
 Supports SARIF v2.0.0 and v2.1.0.  Converts SARIF results into the simple
-finding schema used by :func:`codrag.core.enrichment.enrich_findings`, and
-converts enriched results back into valid SARIF with CoDRAG property bags.
+finding schema used by :func:`prep.core.enrichment.enrich_findings`, and
+converts enriched results back into valid SARIF with Prep property bags.
 """
 from __future__ import annotations
 
@@ -155,11 +155,11 @@ def enriched_to_sarif(
     sarif_input: SarifInput,
     enrichment_result: EnrichmentResult,
 ) -> Dict[str, Any]:
-    """Inject CoDRAG enrichment data back into a SARIF structure.
+    """Inject Prep enrichment data back into a SARIF structure.
 
     Returns a new SARIF dict (does not mutate the original).  Each result that
-    was enriched gets a ``properties.codrag`` dict.  Each run gets a summary
-    in ``properties.codrag.summary``.
+    was enriched gets a ``properties.prep`` dict.  Each run gets a summary
+    in ``properties.prep.summary``.
     """
     output = copy.deepcopy(sarif_input.raw)
     output["version"] = "2.1.0"
@@ -184,22 +184,22 @@ def enriched_to_sarif(
             out_result = out_run["results"][kept_idx]
             run_total += 1
 
-            if enriched_finding.codrag is not None:
+            if enriched_finding.prep is not None:
                 # Inject tool context from adapter
                 from prep.core.sarif_adapters import get_tool_context
                 tool_ctx = get_tool_context(run.tool_name)
-                enriched_finding.codrag["tool_context"] = tool_ctx
+                enriched_finding.prep["tool_context"] = tool_ctx
 
                 out_result.setdefault("properties", {})
-                out_result["properties"]["codrag"] = enriched_finding.codrag
+                out_result["properties"]["prep"] = enriched_finding.prep
                 run_enriched += 1
-                if enriched_finding.codrag.get("risk_score", 0) >= 0.5:
+                if enriched_finding.prep.get("risk_score", 0) >= 0.5:
                     run_high_risk += 1
 
         # Per-run summary with per-run high_risk count.
         key_insight = enrichment_result.summary.get("key_insight", "")
         out_run.setdefault("properties", {})
-        out_run["properties"]["codrag"] = {
+        out_run["properties"]["prep"] = {
             "summary": {
                 "total": run_total,
                 "enriched": run_enriched,

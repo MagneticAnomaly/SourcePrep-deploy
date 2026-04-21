@@ -366,7 +366,7 @@ class TraceBuilder:
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
     ) -> Dict[str, Any]:
-        """Delegate trace build to the Rust engine via codrag_engine."""
+        """Delegate trace build to the Rust engine via prep_engine."""
         import time
 
         logger.info("Building trace index via Rust engine")

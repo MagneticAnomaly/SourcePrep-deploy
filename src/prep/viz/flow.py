@@ -1,5 +1,5 @@
 """
-CoDRAG CLI RAG Flow Visualization
+Prep CLI RAG Flow Visualization
 
 Visualizes the end-to-step RAG pipeline execution.
 Shows the flow of data from Query -> Retrieval -> Reranking -> Context -> LLM.

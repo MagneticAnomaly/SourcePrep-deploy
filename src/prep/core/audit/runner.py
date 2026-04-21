@@ -1,5 +1,5 @@
 """
-AutoAudit runner for CoDRAG (Phase 43).
+AutoAudit runner for Prep (Phase 43).
 
 Orchestrates all analyzers, collects findings, writes results to disk.
 """

@@ -160,32 +160,32 @@ class TestLicenseGating:
 
     def test_free_tier_cannot_access_team_config(self):
         from prep.core.feature_gate import check_feature
-        with patch.dict(os.environ, {"CODRAG_TIER": "free"}, clear=False):
+        with patch.dict(os.environ, {"PREP_TIER": "free"}, clear=False):
             from prep.core.feature_gate import clear_license_cache
             clear_license_cache()
             assert check_feature("team_config") is False
 
     def test_team_tier_can_access_team_config(self):
         from prep.core.feature_gate import check_feature, clear_license_cache
-        with patch.dict(os.environ, {"CODRAG_TIER": "team"}, clear=False):
+        with patch.dict(os.environ, {"PREP_TIER": "team"}, clear=False):
             clear_license_cache()
             assert check_feature("team_config") is True
 
     def test_enterprise_tier_can_access_team_config(self):
         from prep.core.feature_gate import check_feature, clear_license_cache
-        with patch.dict(os.environ, {"CODRAG_TIER": "enterprise"}, clear=False):
+        with patch.dict(os.environ, {"PREP_TIER": "enterprise"}, clear=False):
             clear_license_cache()
             assert check_feature("team_config") is True
 
     def test_pro_tier_cannot_access_team_config(self):
         from prep.core.feature_gate import check_feature, clear_license_cache
-        with patch.dict(os.environ, {"CODRAG_TIER": "pro"}, clear=False):
+        with patch.dict(os.environ, {"PREP_TIER": "pro"}, clear=False):
             clear_license_cache()
             assert check_feature("team_config") is False
 
     def test_require_team_config_raises_for_free(self):
         from prep.core.feature_gate import require_feature, FeatureGateError, clear_license_cache
-        with patch.dict(os.environ, {"CODRAG_TIER": "free"}, clear=False):
+        with patch.dict(os.environ, {"PREP_TIER": "free"}, clear=False):
             clear_license_cache()
             with pytest.raises(FeatureGateError, match="team_config"):
                 require_feature("team_config")
@@ -348,8 +348,8 @@ class TestWatcherDeltaRouting:
         bm = BuildManager()
 
         # Set up remote index
-        codrag_dir = tmp_path / ".codrag"
-        remote_dir = codrag_dir / "remote"
+        prep_dir = tmp_path / ".prep"
+        remote_dir = prep_dir / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text("[]")
 
@@ -376,8 +376,8 @@ class TestWatcherDeltaRouting:
         proj = _make_project(tmp_path, "full-route")
 
         bm = BuildManager()
-        codrag_dir = tmp_path / ".codrag"
-        codrag_dir.mkdir(parents=True, exist_ok=True)
+        prep_dir = tmp_path / ".prep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
 
         assert bm.has_remote_index(proj) is False
 
@@ -407,9 +407,9 @@ class TestSyncAndPruneEndToEnd:
         from prep.services.s3_storage import SyncManifest
 
         # Set up project with enabled sync config
-        codrag_dir = tmp_path / ".codrag"
-        codrag_dir.mkdir(parents=True, exist_ok=True)
-        (codrag_dir / "team_config.json").write_text(json.dumps({
+        prep_dir = tmp_path / ".prep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
+        (prep_dir / "team_config.json").write_text(json.dumps({
             "sync": {
                 "enabled": True,
                 "s3_endpoint": "https://r2.example.com",
@@ -419,7 +419,7 @@ class TestSyncAndPruneEndToEnd:
         }))
 
         # Pre-create local deltas that should get pruned
-        index_dir = codrag_dir / "index"
+        index_dir = prep_dir / "index"
         delta_dir = index_dir / "local_deltas"
         delta_dir.mkdir(parents=True, exist_ok=True)
         (delta_dir / "documents.json").write_text(json.dumps([
@@ -451,8 +451,8 @@ class TestSyncAndPruneEndToEnd:
         mock_s3.download_index = MagicMock()
 
         with patch.dict(os.environ, {
-            "CODRAG_S3_ACCESS_KEY": "test_key",
-            "CODRAG_S3_SECRET_KEY": "test_secret",
+            "PREP_S3_ACCESS_KEY": "test_key",
+            "PREP_S3_SECRET_KEY": "test_secret",
         }, clear=False):
             svc.load_config()
             svc._get_s3_provider = MagicMock(return_value=mock_s3)
@@ -474,9 +474,9 @@ class TestSyncAndPruneEndToEnd:
         from prep.services.remote_sync import RemoteSyncService
         from prep.services.s3_storage import SyncManifest
 
-        codrag_dir = tmp_path / ".codrag"
-        codrag_dir.mkdir(parents=True, exist_ok=True)
-        (codrag_dir / "team_config.json").write_text(json.dumps({
+        prep_dir = tmp_path / ".prep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
+        (prep_dir / "team_config.json").write_text(json.dumps({
             "sync": {
                 "enabled": True,
                 "s3_endpoint": "https://r2.example.com",
@@ -493,8 +493,8 @@ class TestSyncAndPruneEndToEnd:
         mock_s3.download_index = MagicMock()
 
         with patch.dict(os.environ, {
-            "CODRAG_S3_ACCESS_KEY": "k",
-            "CODRAG_S3_SECRET_KEY": "s",
+            "PREP_S3_ACCESS_KEY": "k",
+            "PREP_S3_SECRET_KEY": "s",
         }, clear=False):
             svc.load_config()
             svc._get_s3_provider = MagicMock(return_value=mock_s3)
@@ -524,16 +524,16 @@ class TestFullSyncLifecycle:
         from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "lifecycle")
 
-        codrag_dir = tmp_path / ".codrag"
-        remote_dir = codrag_dir / "remote"
-        delta_dir = codrag_dir / "local_deltas"
+        prep_dir = tmp_path / ".prep"
+        remote_dir = prep_dir / "remote"
+        delta_dir = prep_dir / "local_deltas"
 
         # ── Step 1: Remote index from CI ──
         remote_docs = [
             {"source_path": "src/auth.py", "content": "def login(): pass  # v1", "section": "login"},
             {"source_path": "src/utils.py", "content": "def helper(): return 42", "section": "helper"},
         ]
-        _make_index_dir(tmp_path / ".codrag", "remote", remote_docs)
+        _make_index_dir(tmp_path / ".prep", "remote", remote_docs)
 
         bm = BuildManager()
         idx = bm.get_project_layered_index(proj)
@@ -547,7 +547,7 @@ class TestFullSyncLifecycle:
         delta_docs = [
             {"source_path": "src/auth.py", "content": "def login(): validate_mfa()  # v2-local", "section": "login"},
         ]
-        _make_index_dir(tmp_path / ".codrag", "local_deltas", delta_docs)
+        _make_index_dir(tmp_path / ".prep", "local_deltas", delta_docs)
 
         # Invalidate cache to pick up new delta
         bm.invalidate_layered_cache("lifecycle")
@@ -570,7 +570,7 @@ class TestFullSyncLifecycle:
             {"source_path": "src/auth.py", "content": "def login(): validate_mfa()  # v2-merged", "section": "login"},
             {"source_path": "src/utils.py", "content": "def helper(): return 42", "section": "helper"},
         ]
-        _make_index_dir(tmp_path / ".codrag", "remote", new_remote_docs)
+        _make_index_dir(tmp_path / ".prep", "remote", new_remote_docs)
 
         # Write trace_manifest for pruning
         (remote_dir / "trace_manifest.json").write_text(json.dumps({
@@ -632,18 +632,18 @@ class TestAPIIntegration:
         )
 
         # Create a LOCAL index for this project (not remote — simpler for API tests)
-        codrag_dir = tmp_path / ".codrag"
-        codrag_dir.mkdir(parents=True, exist_ok=True)
+        prep_dir = tmp_path / ".prep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
         docs = [
             {"source_path": "main.py", "content": "def main(): print('hello world')", "section": "main"},
             {"source_path": "utils.py", "content": "def add(a, b): return a + b", "section": "add"},
         ]
-        (codrag_dir / "documents.json").write_text(json.dumps(docs))
+        (prep_dir / "documents.json").write_text(json.dumps(docs))
         # Use dim=768 to match the default NativeEmbedder/OllamaEmbedder dimension
         emb = np.random.default_rng(42).standard_normal((2, 768)).astype(np.float32)
         norms = np.linalg.norm(emb, axis=1, keepdims=True)
         emb = emb / norms
-        np.save(codrag_dir / "embeddings.npy", emb)
+        np.save(prep_dir / "embeddings.npy", emb)
 
         return app, proj
 
@@ -707,7 +707,7 @@ class TestCacheCoherence:
         from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "cache-reads")
 
-        remote_dir = tmp_path / ".codrag" / "remote"
+        remote_dir = tmp_path / ".prep" / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text(json.dumps([
             {"source_path": "a.py", "content": "x", "section": ""},
@@ -726,7 +726,7 @@ class TestCacheCoherence:
         from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "cache-refresh")
 
-        remote_dir = tmp_path / ".codrag" / "remote"
+        remote_dir = tmp_path / ".prep" / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text(json.dumps([
             {"source_path": "a.py", "content": "version1", "section": ""},
@@ -759,7 +759,7 @@ class TestCacheCoherence:
         proj_b = _make_project(tmp_path / "b", "proj-b")
 
         for p in [tmp_path / "a", tmp_path / "b"]:
-            rdir = p / ".codrag" / "remote"
+            rdir = p / ".prep" / "remote"
             rdir.mkdir(parents=True, exist_ok=True)
             (rdir / "documents.json").write_text(json.dumps([
                 {"source_path": "x.py", "content": "x", "section": ""},
@@ -868,7 +868,7 @@ class TestEdgeCases:
         assert pruned == 0
 
     def test_sync_service_handles_missing_codrag_dir(self, tmp_path):
-        """RemoteSyncService works even if .codrag doesn't exist initially."""
+        """RemoteSyncService works even if .prep doesn't exist initially."""
         from prep.services.remote_sync import RemoteSyncService
         svc = RemoteSyncService(tmp_path)
         assert svc.status.enabled is False
@@ -879,7 +879,7 @@ class TestEdgeCases:
         from prep.services.build_manager import BuildManager
         proj = _make_project(tmp_path, "corrupt-remote")
 
-        remote_dir = tmp_path / ".codrag" / "remote"
+        remote_dir = tmp_path / ".prep" / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text("corrupt json")
 

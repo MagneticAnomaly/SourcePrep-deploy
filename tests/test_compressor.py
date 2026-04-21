@@ -3,7 +3,7 @@
 Covers:
   - NoopCompressor pass-through behavior
   - CompressResult dataclass correctness
-  - LOD extraction on real CoDRAG source files (compression ratio validation)
+  - LOD extraction on real Prep source files (compression ratio validation)
 """
 from __future__ import annotations
 
@@ -103,16 +103,16 @@ class TestCompressResult:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# LOD on real CoDRAG source files
+# LOD on real Prep source files
 # ═══════════════════════════════════════════════════════════════════
 
 # Real project files to test against — these are known to exist
-REPO_ROOT = Path("/Volumes/4TB-BAD/HumanAI/CoDRAG")
+REPO_ROOT = Path("/Volumes/4TB-BAD/HumanAI/Prep")
 REAL_FILES = {
-    "src/codrag/core/compressor.py": "python",
-    "src/codrag/core/lod_extractor.py": "python",
-    "src/codrag/core/feature_gate.py": "python",
-    "src/codrag/mcp_tools.py": "python",
+    "src/prep/core/compressor.py": "python",
+    "src/prep/core/lod_extractor.py": "python",
+    "src/prep/core/feature_gate.py": "python",
+    "src/prep/mcp_tools.py": "python",
 }
 
 
@@ -199,10 +199,10 @@ def _load_trace_nodes_for_file(file_path: str) -> List[Dict[str, Any]]:
 
 @pytest.mark.skipif(
     not REPO_ROOT.exists(),
-    reason="Real CoDRAG repo not available at expected path",
+    reason="Real Prep repo not available at expected path",
 )
 class TestLODOnRealFiles:
-    """Validate LOD compression ratios on actual CoDRAG source files."""
+    """Validate LOD compression ratios on actual Prep source files."""
 
     @pytest.fixture
     def extractor(self) -> LODExtractor:

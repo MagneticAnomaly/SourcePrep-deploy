@@ -2,21 +2,21 @@
 
 Pre-fix: several modules hardcoded `./codrag_data` as the daemon's
 default data dir, so the daemon's on-disk state followed its CWD. The
-fix introduced `codrag.core.paths.data_dir()` as the single source of
+fix introduced `prep.core.paths.data_dir()` as the single source of
 truth. This test fails if any new src file reintroduces the legacy
 literal outside a narrow, documented allowlist (the migration helper,
 self-ingestion guard strings, and CLI docstrings).
 
 If this test fails, the path you're tempted to reach for is:
-`from codrag.core.paths import data_dir` (daemon-wide) or
-`from codrag.core.project_registry import project_index_dir` (per-project).
+`from prep.core.paths import data_dir` (daemon-wide) or
+`from prep.core.project_registry import project_index_dir` (per-project).
 """
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-SRC_ROOT = Path(__file__).resolve().parent.parent / "src" / "codrag"
+SRC_ROOT = Path(__file__).resolve().parent.parent / "src" / "prep"
 
 # Files allowed to reference the legacy literal because their job IS
 # to deal with the legacy layout.
@@ -66,7 +66,7 @@ def test_no_cwd_relative_codrag_data_in_src() -> None:
 
     assert not offenders, (
         "The following src files contain a CWD-relative `codrag_data` "
-        "literal. Route through `codrag.core.paths.data_dir()` instead:\n  "
+        "literal. Route through `prep.core.paths.data_dir()` instead:\n  "
         + "\n  ".join(offenders)
     )
 

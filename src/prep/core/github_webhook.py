@@ -1,5 +1,5 @@
 """
-GitHub Webhook handler for CoDRAG Roadmap — Phase 59D-2.
+GitHub Webhook handler for Prep Roadmap — Phase 59D-2.
 
 Receives GitHub webhook events and auto-promotes/demotes roadmap nodes:
   - issues.closed → promote to 'completed'

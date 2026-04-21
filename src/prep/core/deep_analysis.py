@@ -1,5 +1,5 @@
 """
-Deep Analysis Orchestrator for CoDRAG.
+Deep Analysis Orchestrator for Prep.
 
 Implements Phase 2 (Steps 4-5) from LLM_TRACE_AUGMENTATION_RESEARCH.md:
 - Step 4: Reasoning Validation (validate low-confidence augmentations)

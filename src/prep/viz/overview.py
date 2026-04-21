@@ -1,5 +1,5 @@
 """
-CoDRAG CLI Dashboard Overview
+Prep CLI Dashboard Overview
 
 Combines multiple visualizations into a single comprehensive dashboard view.
 """
@@ -23,7 +23,7 @@ def render_dashboard(
     console: Console | None = None
 ) -> None:
     """
-    Render the full CoDRAG CLI dashboard.
+    Render the full Prep CLI dashboard.
     
     Args:
         health_stats: Stats for index health
@@ -44,7 +44,7 @@ def render_dashboard(
     
     # --- Header ---
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    header_text = Text(f" CoDRAG Index Dashboard • {now} ", style="bold white on blue", justify="center")
+    header_text = Text(f" Prep Index Dashboard • {now} ", style="bold white on blue", justify="center")
     layout["header"].update(header_text)
     
     # --- Top: Health & DNA ---

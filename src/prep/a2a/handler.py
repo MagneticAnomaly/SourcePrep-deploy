@@ -1,8 +1,8 @@
 """
-A2A (Agent-to-Agent) Protocol Handler for CoDRAG — Phase 63.
+A2A (Agent-to-Agent) Protocol Handler for Prep — Phase 63.
 
 Implements a JSON-RPC 2.0 handler per the A2A specification
-(Google/Linux Foundation). Maps A2A task requests to CoDRAG's
+(Google/Linux Foundation). Maps A2A task requests to Prep's
 existing pipeline functions.
 
 Protocol: https://a2a-protocol.org
@@ -12,7 +12,7 @@ Discovery: Agent Card at /.well-known/agent.json
 Task lifecycle:
     submitted → working → completed | failed | input-required
 
-This handler is mounted at /a2a on CoDRAG's existing HTTP server.
+This handler is mounted at /a2a on Prep's existing HTTP server.
 """
 from __future__ import annotations
 
@@ -106,7 +106,7 @@ class A2ATask:
 class A2AHandler:
     """Handles A2A protocol JSON-RPC 2.0 task requests.
 
-    Maps A2A skill IDs to CoDRAG pipeline functions:
+    Maps A2A skill IDs to Prep pipeline functions:
         codebase-context      → context assembly (search)
         opportunity-discovery → OpportunityManager.refresh + export
         impact-analysis       → dependency/dependent analysis
@@ -215,7 +215,7 @@ class A2AHandler:
     # ── Skill execution ─────────────────────────────────────────
 
     def _execute_skill(self, task: A2ATask, project_id: Optional[str]) -> None:
-        """Route task to the appropriate CoDRAG pipeline function."""
+        """Route task to the appropriate Prep pipeline function."""
         index_dir = self._get_index_dir(project_id)
         project_root = self._get_project_root(project_id)
 
@@ -240,7 +240,7 @@ class A2AHandler:
     ) -> None:
         """Assemble codebase context for a query.
 
-        Maps to codrag_search internally.
+        Maps to prep_search internally.
         """
         try:
             from prep.mcp_server import _handle_codrag_search
@@ -309,7 +309,7 @@ class A2AHandler:
     ) -> None:
         """Analyze impact/dependencies of a file.
 
-        Maps to codrag_impact internally.
+        Maps to prep_impact internally.
         """
         try:
             from prep.mcp_server import _handle_codrag_impact
@@ -333,7 +333,7 @@ class A2AHandler:
     ) -> None:
         """Return structural overview.
 
-        Maps to codrag (base overview) internally.
+        Maps to prep (base overview) internally.
         """
         try:
             from prep.mcp_server import _handle_codrag

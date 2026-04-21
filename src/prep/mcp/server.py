@@ -71,7 +71,7 @@ METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 INTERNAL_ERROR = -32603
 
-# CoDRAG-specific error codes
+# Prep-specific error codes
 DAEMON_UNAVAILABLE = -32000
 INDEX_NOT_READY = -32001
 BUILD_IN_PROGRESS = -32002
@@ -99,9 +99,9 @@ from prep.mcp_tools import TOOLS
 
 class MCPServer:
     """
-    CoDRAG MCP Server.
+    Prep MCP Server.
 
-    Communicates with the CoDRAG daemon via HTTP API.
+    Communicates with the Prep daemon via HTTP API.
     """
 
     def __init__(
@@ -182,7 +182,7 @@ class MCPServer:
         sizes. We detect the client from the MCP initialize handshake
         and assign the appropriate tier budget.
 
-        Phase 73.2: First-call orientation boost — the first `codrag` call
+        Phase 73.2: First-call orientation boost — the first `prep` call
         in a session gets 50% more context because that's when the agent
         is building its mental model of the codebase. Subsequent calls
         get the standard budget since the agent already has orientation.
@@ -221,29 +221,29 @@ class MCPServer:
         )
         if has_rules_file:
             return (
-                "CoDRAG provides structural codebase intelligence. "
+                "Prep provides structural codebase intelligence. "
                 "All tools are read-only and safe to auto-approve. "
-                "Call `codrag` at the start of every task for orientation."
+                "Call `prep` at the start of every task for orientation."
             )
         return (
-            "CoDRAG maps how your codebase is connected -- modules, dependencies, "
+            "Prep maps how your codebase is connected -- modules, dependencies, "
             "hub files, and architectural patterns. All tools are read-only. "
-            "Call `codrag` at the start of every task for structural overview. "
-            "Use `codrag_search` for code queries with dependency expansion. "
-            "Use `codrag_impact` before changes to see what breaks. "
-            "Use `codrag_audit` for codebase health findings. "
+            "Call `prep` at the start of every task for structural overview. "
+            "Use `prep_search` for code queries with dependency expansion. "
+            "Use `prep_impact` before changes to see what breaks. "
+            "Use `prep_audit` for codebase health findings. "
             "Categories: code structure, architecture, dependencies, navigation."
         )
 
     def _project_has_rules_file(self, project_id: str) -> bool:
-        """Check if a CoDRAG rules file exists for the resolved project.
+        """Check if a Prep rules file exists for the resolved project.
 
         ISSUE-6: When a rules file exists, the atlas is already in the AI's
-        system prompt. The codrag tool response can skip the atlas and allocate
+        system prompt. The prep tool response can skip the atlas and allocate
         more budget to actual code content.
 
-        Checks for any of: .cursor/rules/codrag.mdc, .windsurf/rules/codrag.md,
-        AGENTS.md with CoDRAG markers, CLAUDE.md with CoDRAG markers.
+        Checks for any of: .cursor/rules/prep.mdc, .windsurf/rules/prep.md,
+        AGENTS.md with Prep markers, CLAUDE.md with Prep markers.
         Cached per project_id for the session lifetime (~0 cost after first check).
 
         Also extracts the atlas content hash if present, cached in
@@ -269,14 +269,14 @@ class MCPServer:
             if project_path:
                 p = Path(project_path)
                 # Check the most common rules files
-                if (p / ".cursor" / "rules" / "codrag.mdc").exists():
+                if (p / ".cursor" / "rules" / "prep.mdc").exists():
                     found = True
-                elif (p / ".windsurf" / "rules" / "codrag.md").exists():
+                elif (p / ".windsurf" / "rules" / "prep.md").exists():
                     found = True
                 elif (p / "AGENTS.md").exists():
                     try:
                         content = (p / "AGENTS.md").read_text(encoding="utf-8")[:500]
-                        if "codrag-managed" in content or "CoDRAG" in content:
+                        if "prep-managed" in content or "Prep" in content:
                             found = True
                     except Exception:
                         pass
@@ -284,7 +284,7 @@ class MCPServer:
                 if not found and (p / "CLAUDE.md").exists():
                     try:
                         content = (p / "CLAUDE.md").read_text(encoding="utf-8")
-                        if "codrag-managed" in content[:500] or "CoDRAG" in content[:500]:
+                        if "prep-managed" in content[:500] or "Prep" in content[:500]:
                             found = True
                         # Extract atlas hash (may be anywhere in the managed section)
                         atlas_hash = self._extract_atlas_hash(content)
@@ -317,10 +317,10 @@ class MCPServer:
     def _extract_atlas_hash(content: str) -> str | None:
         """Extract the atlas content hash from a rules file.
 
-        Looks for <!-- codrag-atlas-hash:XXXX --> comment.
+        Looks for <!-- prep-atlas-hash:XXXX --> comment.
         Returns the hash string or None if not found.
         """
-        match = re.search(r"codrag-atlas-hash:([a-f0-9]{12})", content)
+        match = re.search(r"prep-atlas-hash:([a-f0-9]{12})", content)
         return match.group(1) if match else None
 
     def _get_project_path_sync(self, project_id: str) -> Optional[str]:
@@ -357,10 +357,10 @@ class MCPServer:
             if not project_path:
                 return
 
-            # CoDRAG index lives at <project_path>/.codrag/ or the daemon's
+            # Prep index lives at <project_path>/.prep/ or the daemon's
             # configured data dir. Check both common locations.
             candidates = [
-                Path(project_path) / ".codrag" / "atlas_updated.signal",
+                Path(project_path) / ".prep" / "atlas_updated.signal",
             ]
             # Also check if project_path itself IS the index dir (daemon mode)
             direct = Path(project_path) / "atlas_updated.signal"
@@ -387,7 +387,7 @@ class MCPServer:
                 # Notify host that cached resources are stale.
                 # Atlas rebuild affects: atlas, structure, modules (all derived from index).
                 for resource_type in ("atlas", "structure", "modules", "health"):
-                    await self.notify_resource_changed(f"codrag://{project_id}/{resource_type}")
+                    await self.notify_resource_changed(f"prep://{project_id}/{resource_type}")
                 logger.debug(
                     "D1: Atlas signal detected for %s (mtime %.0f > %.0f)", project_id, mtime, last
                 )
@@ -457,7 +457,7 @@ class MCPServer:
 
         # SECURITY: Include IPC token if daemon requires authentication
         headers: Dict[str, str] = {}
-        ipc_token = os.environ.get("CODRAG_DAEMON_TOKEN")
+        ipc_token = os.environ.get("PREP_DAEMON_TOKEN")
         if ipc_token:
             headers["Authorization"] = f"Bearer {ipc_token}"
 
@@ -466,9 +466,9 @@ class MCPServer:
             resp.raise_for_status()
         except httpx.ConnectError:
             raise DaemonUnavailableError(
-                f"Cannot connect to CoDRAG daemon at {self.daemon_url}\n\n"
+                f"Cannot connect to Prep daemon at {self.daemon_url}\n\n"
                 f"Start the daemon in a terminal:\n"
-                f"  codrag serve"
+                f"  prep serve"
             )
         except httpx.HTTPStatusError as e:
             try:
@@ -495,7 +495,7 @@ class MCPServer:
 
         # SECURITY: Include IPC token if daemon requires authentication
         headers: Dict[str, str] = {}
-        ipc_token = os.environ.get("CODRAG_DAEMON_TOKEN")
+        ipc_token = os.environ.get("PREP_DAEMON_TOKEN")
         if ipc_token:
             headers["Authorization"] = f"Bearer {ipc_token}"
 
@@ -504,9 +504,9 @@ class MCPServer:
             resp.raise_for_status()
         except httpx.ConnectError:
             raise DaemonUnavailableError(
-                f"Cannot connect to CoDRAG daemon at {self.daemon_url}\n\n"
+                f"Cannot connect to Prep daemon at {self.daemon_url}\n\n"
                 f"Start the daemon in a terminal:\n"
-                f"  codrag serve"
+                f"  prep serve"
             )
         except httpx.HTTPStatusError as e:
             try:
@@ -575,11 +575,11 @@ class MCPServer:
     async def _auto_register_codrag_folders(
         self, paths: List[str], existing_projects: List[Dict[str, Any]]
     ) -> Optional[str]:
-        """Auto-register projects with .codrag/ folders that aren't in the daemon yet.
+        """Auto-register projects with .prep/ folders that aren't in the daemon yet.
 
-        When a workspace root or CWD contains a .codrag/ directory (created by
-        ``codrag init``), the project should be usable immediately without
-        manual ``codrag add``. This checks each path for .codrag/ and registers
+        When a workspace root or CWD contains a .prep/ directory (created by
+        ``prep init``), the project should be usable immediately without
+        manual ``prep add``. This checks each path for .prep/ and registers
         any unregistered ones as embedded-mode projects.
 
         Returns the project_id of the first newly-registered project, or None.
@@ -593,8 +593,8 @@ class MCPServer:
             if not clean or clean == "/":
                 continue
 
-            codrag_dir = Path(clean) / ".codrag"
-            if not codrag_dir.is_dir():
+            prep_dir = Path(clean) / ".prep"
+            if not prep_dir.is_dir():
                 continue
 
             # Already registered?
@@ -615,7 +615,7 @@ class MCPServer:
                 if isinstance(result, dict):
                     new_id = str(result.get("id") or result.get("project", {}).get("id", ""))
                 if new_id:
-                    logger.info(f"Auto-registered project from .codrag folder: {clean} -> {new_id}")
+                    logger.info(f"Auto-registered project from .prep folder: {clean} -> {new_id}")
                     return new_id
             except Exception as e:
                 logger.debug(f"Auto-register failed for {clean}: {e}")
@@ -649,11 +649,11 @@ class MCPServer:
         Priority (workspace-specific signals first, global fallbacks last):
           1. Explicit override (from tool call ``project_id`` param)
           2. Pinned project (from CLI ``--project`` flag)
-          3. .codrag/project.json pointer (workspace roots, CWD, CODRAG_WORKSPACE)
-          4. Auto-register .codrag/ folders not yet in daemon
+          3. .prep/project.json pointer (workspace roots, CWD, PREP_WORKSPACE)
+          4. Auto-register .prep/ folders not yet in daemon
           5. Initialize roots (workspace URIs sent by the IDE)
           6. CWD auto-detect (process working directory)
-          7. CODRAG_PROJECT env var (pin by name or ID)
+          7. PREP_PROJECT env var (pin by name or ID)
           8. Single-project shortcut (only 1 project registered)
           9. Actionable error with project list
         """
@@ -665,8 +665,8 @@ class MCPServer:
         if self.project_id:
             return self.project_id
 
-        # 3. Pointer check — instant routing via .codrag/project.json
-        #    Checks: IDE workspace roots → CWD → CODRAG_WORKSPACE env var
+        # 3. Pointer check — instant routing via .prep/project.json
+        #    Checks: IDE workspace roots → CWD → PREP_WORKSPACE env var
         #    This works without the daemon, making it the fastest path.
         from prep.core.project_registry import read_codrag_pointer
 
@@ -675,10 +675,10 @@ class MCPServer:
         if cwd != "/" and cwd not in pointer_paths:
             pointer_paths.append(cwd)
 
-        # CODRAG_WORKSPACE env var — guaranteed routing for IDEs that don't
+        # PREP_WORKSPACE env var — guaranteed routing for IDEs that don't
         # send workspace roots in MCP initialize (e.g. Antigravity).
         # Set per-workspace in the MCP config's "env" block.
-        env_workspace = os.environ.get("CODRAG_WORKSPACE", "").strip()
+        env_workspace = os.environ.get("PREP_WORKSPACE", "").strip()
         if env_workspace and env_workspace not in pointer_paths:
             pointer_paths.append(env_workspace)
 
@@ -687,7 +687,7 @@ class MCPServer:
             if pointer and pointer.get("id"):
                 pid = pointer["id"]
                 logger.debug(
-                    f"Resolved project from .codrag/project.json pointer: "
+                    f"Resolved project from .prep/project.json pointer: "
                     f"{pid} (path={pp})"
                 )
                 return pid
@@ -706,7 +706,7 @@ class MCPServer:
             if p.get("activity_status", "active") in ("active", "inactive")
         ]
 
-        # 4. Auto-register workspace roots / CWD with .codrag/ folders
+        # 4. Auto-register workspace roots / CWD with .prep/ folders
         #    that aren't yet in the daemon (zero-config).
         auto_paths = list(self._initialize_roots)
         if cwd != "/" and cwd not in auto_paths:
@@ -718,8 +718,8 @@ class MCPServer:
 
         if not projects:
             raise ProjectNotFoundError(
-                "No projects configured in CoDRAG daemon. "
-                "Add one with: codrag add /path/to/your/repo"
+                "No projects configured in Prep daemon. "
+                "Add one with: prep add /path/to/your/repo"
             )
 
         def _project_lines() -> str:
@@ -747,8 +747,8 @@ class MCPServer:
             logger.debug(f"Auto-detected project from CWD: {pid} cwd={cwd}")
             return pid
 
-        # 7. CODRAG_PROJECT env var — pin by name or ID
-        env_project = os.environ.get("CODRAG_PROJECT", "").strip()
+        # 7. PREP_PROJECT env var — pin by name or ID
+        env_project = os.environ.get("PREP_PROJECT", "").strip()
         if env_project:
             for p in projects:
                 if (
@@ -756,7 +756,7 @@ class MCPServer:
                     or str(p.get("name", "")).strip().lower() == env_project.lower()
                 ):
                     pid = str(p["id"])
-                    logger.debug(f"Resolved project from CODRAG_PROJECT env: {pid}")
+                    logger.debug(f"Resolved project from PREP_PROJECT env: {pid}")
                     return pid
 
         # 8. Single-project shortcut
@@ -847,7 +847,7 @@ class MCPServer:
             return {
                 "project_id": project_id,
                 "status": "started",
-                "message": "Index build started. Use codrag_status to check progress.",
+                "message": "Index build started. Use prep_status to check progress.",
             }
         return {"project_id": project_id, "status": "unknown", "data": data}
 
@@ -1012,7 +1012,7 @@ class MCPServer:
 
         Phase 50 ISSUE-3: If the index hasn't been built yet, returns a
         helpful onboarding response (isError=False) instead of an error.
-        This prevents the AI from learning to avoid CoDRAG after a failed
+        This prevents the AI from learning to avoid Prep after a failed
         first attempt.
         """
         try:
@@ -1034,7 +1034,7 @@ class MCPServer:
         await self._check_atlas_signal(project_id)
 
         # ISSUE-6 + Phase 73.4: Adaptive atlas inclusion with hash freshness.
-        # If a CoDRAG rules file exists, the atlas is already in the AI's
+        # If a Prep rules file exists, the atlas is already in the AI's
         # system prompt (via alwaysApply/always_on). Skipping the atlas
         # prepend saves ~500-2500 chars of budget that goes to actual code
         # content instead. Without rules files, include the atlas so the AI
@@ -1066,14 +1066,14 @@ class MCPServer:
         except IndexNotReadyError:
             # Phase 50 ISSUE-3: Graceful first-run response.
             setup_md = (
-                "## CoDRAG (setup in progress)\n\n"
+                "## Prep (setup in progress)\n\n"
                 "The codebase index hasn't been built yet. "
-                "CoDRAG needs to scan your code before it can provide structural context.\n\n"
+                "Prep needs to scan your code before it can provide structural context.\n\n"
                 "To build the index:\n"
-                "1. Open the CoDRAG dashboard (http://localhost:8400)\n"
+                "1. Open the Prep dashboard (http://localhost:8400)\n"
                 "2. Click 'Rebuild Knowledge Base'\n"
-                "-- OR run: codrag build\n\n"
-                "Once built, call `codrag` again for module structure, hub files, "
+                "-- OR run: prep build\n\n"
+                "Once built, call `prep` again for module structure, hub files, "
                 "and structural relationships.\n\n"
                 "For now, work with the code directly using read_file and grep_search."
             )
@@ -1207,7 +1207,7 @@ class MCPServer:
                             concept_line += f", +{len(sorted_cats) - 4} more"
                     if pending_q:
                         concept_line += f" | {pending_q} questions pending"
-                    concept_line += ". Use codrag_concepts to explore.]"
+                    concept_line += ". Use prep_concepts to explore.]"
                     md_parts.append(concept_line)
                     result["concepts_total"] = total
                     result["concepts_active"] = active
@@ -1836,7 +1836,7 @@ class MCPServer:
                     )
                 concepts_md = "\n".join(md_lines)
             else:
-                concepts_md = "No concepts found. Use the CoDRAG dashboard to initialize concepts, or save one with action='save'."
+                concepts_md = "No concepts found. Use the Prep dashboard to initialize concepts, or save one with action='save'."
 
             return {
                 "project_id": project_id,
@@ -1929,7 +1929,7 @@ class MCPServer:
                 md_lines.append(f"  Action: {action}")
         if result.get("available_reports"):
             md_lines.append(f"\nAvailable reports: {', '.join(result['available_reports'])}")
-            md_lines.append("Use `codrag_audit action='report' report_name='...'` to retrieve.")
+            md_lines.append("Use `prep_audit action='report' report_name='...'` to retrieve.")
         result["_to_markdown"] = "\n".join(md_lines)
 
         return result
@@ -2247,7 +2247,7 @@ class MCPServer:
         max_findings: int = 200,
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Enrich SARIF input with CoDRAG structural context. Returns enriched SARIF."""
+        """Enrich SARIF input with Prep structural context. Returns enriched SARIF."""
         from prep.core.enrichment import enrich_sarif
 
         project_id = await self._resolve_project_id(override=project_override)
@@ -2271,7 +2271,7 @@ class MCPServer:
         md_lines = ["## SARIF Enrichment Results\n"]
         for run in enriched_sarif.get("runs", []):
             tool_name = run.get("tool", {}).get("driver", {}).get("name", "unknown")
-            run_summary = run.get("properties", {}).get("codrag", {}).get("summary", {})
+            run_summary = run.get("properties", {}).get("prep", {}).get("summary", {})
             md_lines.append(f"**Tool: {tool_name}**")
             md_lines.append(f"- Total: {run_summary.get('total', 0)}")
             md_lines.append(f"- Enriched: {run_summary.get('enriched', 0)}")
@@ -2291,7 +2291,7 @@ class MCPServer:
         output_format: str = "auto",
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Enrich external findings (simple schema) with CoDRAG structural context."""
+        """Enrich external findings (simple schema) with Prep structural context."""
         from prep.core.enrichment import enrich_findings
 
         project_id = await self._resolve_project_id(override=project_override)
@@ -2311,35 +2311,35 @@ class MCPServer:
         md_lines = [
             f"## Enrichment Results\n",
             f"- Total: {summary.get('total', 0)}",
-            f"- Enriched with CoDRAG context: {summary.get('enriched', 0)}",
+            f"- Enriched with Prep context: {summary.get('enriched', 0)}",
             f"- Unenriched (file not in index): {summary.get('unenriched', 0)}",
             f"- High risk: {summary.get('high_risk', 0)}",
         ]
         if result_dict.get("stale_data_warning"):
             md_lines.append(
                 "\n> Looks like you have stale data, "
-                "CoDRAG recommends running enrichment again."
+                "Prep recommends running enrichment again."
             )
 
         # Show top high-risk findings
         high_risk = [
             f for f in result_dict.get("findings", [])
-            if (f.get("codrag") or {}).get("risk_score", 0) >= 0.5
+            if (f.get("prep") or {}).get("risk_score", 0) >= 0.5
         ]
         if high_risk:
             md_lines.append(f"\n### High-Risk Findings ({len(high_risk)})\n")
             for f in high_risk[:10]:
-                codrag_ctx = f.get("codrag", {})
+                prep_ctx = f.get("prep", {})
                 md_lines.append(
                     f"- **{f.get('file', '?')}:{f.get('line', '?')}** "
                     f"[{f.get('severity', '')}] {f.get('message', '')}"
                 )
                 md_lines.append(
-                    f"  Risk: {codrag_ctx.get('risk_score', 0):.2f} | "
-                    f"Hub: {codrag_ctx.get('hub_status', 'low')} | "
-                    f"Deps: {codrag_ctx.get('dependents', 0)}"
+                    f"  Risk: {prep_ctx.get('risk_score', 0):.2f} | "
+                    f"Hub: {prep_ctx.get('hub_status', 'low')} | "
+                    f"Deps: {prep_ctx.get('dependents', 0)}"
                 )
-                rec = codrag_ctx.get("recommendation", "")
+                rec = prep_ctx.get("recommendation", "")
                 if rec:
                     md_lines.append(f"  → {rec}")
 
@@ -2353,10 +2353,10 @@ class MCPServer:
             synthetic_sarif = SarifInput(
                 version="2.1.0",
                 runs=[SarifRun(
-                    tool_name="codrag-enrichment",
+                    tool_name="prep-enrichment",
                     results=findings,
                     raw={
-                        "tool": {"driver": {"name": "codrag-enrichment", "rules": []}},
+                        "tool": {"driver": {"name": "prep-enrichment", "rules": []}},
                         "results": [
                             {
                                 "ruleId": f.get("tool", "unknown"),
@@ -2374,7 +2374,7 @@ class MCPServer:
                 raw={
                     "version": "2.1.0",
                     "runs": [{
-                        "tool": {"driver": {"name": "codrag-enrichment", "rules": []}},
+                        "tool": {"driver": {"name": "prep-enrichment", "rules": []}},
                         "results": [
                             {
                                 "ruleId": f.get("tool", "unknown"),
@@ -2423,7 +2423,7 @@ class MCPServer:
         if not selected:
             return {
                 "project_id": project_id,
-                "error": f"No findings matched IDs: {finding_ids}. Run codrag_audit first.",
+                "error": f"No findings matched IDs: {finding_ids}. Run prep_audit first.",
             }
 
         # Collect all affected file paths for context retrieval
@@ -2436,8 +2436,8 @@ class MCPServer:
             "## Audit Findings to Address\n",
             "CRITICAL SYSTEM INSTRUCTIONS FOR AI:",
             "1. Focus strictly on resolving the findings listed below.",
-            "2. If 'Relevant Code Context' is truncated (stops abruptly), focus on the first few findings, then use `codrag_search` to gather the rest.",
-            "3. When you finish implementing these fixes, you MUST call `codrag_audit` with `action='verify'` and the relevant analyzers to verify your work before telling the user you are done.\n",
+            "2. If 'Relevant Code Context' is truncated (stops abruptly), focus on the first few findings, then use `prep_search` to gather the rest.",
+            "3. When you finish implementing these fixes, you MUST call `prep_audit` with `action='verify'` and the relevant analyzers to verify your work before telling the user you are done.\n",
         ]
         for f in selected:
             fid = f.get("finding_id", "")
@@ -2582,7 +2582,7 @@ class MCPServer:
             "report": report_name,
             "content": content,
             "_to_markdown": content
-            or f"(Report '{report_name}' not found. Run `codrag_audit action='scan' synthesize=true` first.)",
+            or f"(Report '{report_name}' not found. Run `prep_audit action='scan' synthesize=true` first.)",
         }
 
     async def tool_advise(
@@ -2762,7 +2762,7 @@ class MCPServer:
         """Handle initialize request.
 
         Extracts workspace roots from the client so we can match them
-        against registered CoDRAG projects for automatic routing.
+        against registered Prep projects for automatic routing.
         """
         self._initialize_roots = []
 
@@ -2818,7 +2818,7 @@ class MCPServer:
                 "prompts": {"listChanged": True},
             },
             "serverInfo": {
-                "name": "codrag",
+                "name": "prep",
                 "version": "2.0.0",
             },
             # Phase 77: Client-aware instructions. Compact for clients with
@@ -2858,49 +2858,49 @@ class MCPServer:
 
         resources = [
                 {
-                    "uri": f"codrag://{project_id}/atlas",
+                    "uri": f"prep://{project_id}/atlas",
                     "name": "Codebase Atlas",
                     "description": "Architectural overview: identity, stack, workspace map, cross-cutting concerns.",
                     "mimeType": "text/markdown",
                     "annotations": {"audience": ["assistant"]},
                 },
                 {
-                    "uri": f"codrag://{project_id}/structure",
+                    "uri": f"prep://{project_id}/structure",
                     "name": "Codebase Structure",
                     "description": "Hub files with connection counts and structural roles.",
                     "mimeType": "text/markdown",
                     "annotations": {"audience": ["assistant"]},
                 },
                 {
-                    "uri": f"codrag://{project_id}/modules",
+                    "uri": f"prep://{project_id}/modules",
                     "name": "Module Map",
                     "description": "Module list with file counts, dependencies, and summaries.",
                     "mimeType": "text/markdown",
                     "annotations": {"audience": ["assistant"]},
                 },
                 {
-                    "uri": f"codrag://{project_id}/audit",
+                    "uri": f"prep://{project_id}/audit",
                     "name": "Audit Findings",
                     "description": "Latest codebase health findings: architecture, quality, tech debt.",
                     "mimeType": "text/markdown",
                     "annotations": {"audience": ["user", "assistant"]},
                 },
                 {
-                    "uri": f"codrag://{project_id}/concepts",
+                    "uri": f"prep://{project_id}/concepts",
                     "name": "Concepts",
                     "description": "High-level codebase concepts: business rationale, design decisions, domain knowledge.",
                     "mimeType": "text/markdown",
                     "annotations": {"audience": ["assistant"]},
                 },
                 {
-                    "uri": f"codrag://{project_id}/focus",
+                    "uri": f"prep://{project_id}/focus",
                     "name": "Focus Areas",
                     "description": "User-selected focus areas with content excerpts.",
                     "mimeType": "text/markdown",
                     "annotations": {"audience": ["assistant"]},
                 },
                 {
-                    "uri": f"codrag://{project_id}/health",
+                    "uri": f"prep://{project_id}/health",
                     "name": "Index Health",
                     "description": "Index freshness, coverage, and build status.",
                     "mimeType": "text/markdown",
@@ -2924,7 +2924,7 @@ class MCPServer:
         return {
             "resourceTemplates": [
                 {
-                    "uriTemplate": f"codrag://{project_id}/modules/{{name}}",
+                    "uriTemplate": f"prep://{project_id}/modules/{{name}}",
                     "name": "Module Detail",
                     "description": "Detailed view of a single module: files, dependencies, summary.",
                     "mimeType": "text/markdown",
@@ -2942,11 +2942,11 @@ class MCPServer:
         if not uri:
             raise InvalidParamsError("uri is required")
 
-        # Parse URI: codrag://{project_id}/{resource_type}
-        if not uri.startswith("codrag://"):
+        # Parse URI: prep://{project_id}/{resource_type}
+        if not uri.startswith("prep://"):
             raise InvalidParamsError(f"Unknown resource URI scheme: {uri}")
 
-        parts = uri[len("codrag://") :].split("/", 1)
+        parts = uri[len("prep://") :].split("/", 1)
         if len(parts) != 2:
             raise InvalidParamsError(f"Invalid resource URI: {uri}")
 
@@ -3097,7 +3097,7 @@ class MCPServer:
         if len(parts) <= 2:
             return "(Structure data not yet available -- build the index first)"
 
-        parts.append("Call `codrag` for full module summaries and hub file content.")
+        parts.append("Call `prep` for full module summaries and hub file content.")
         return "\n".join(parts)
 
     async def _resource_atlas(self, project_id: str) -> str:
@@ -3143,7 +3143,7 @@ class MCPServer:
                 parts.append(f"- `{p}`")
             if len(paths) > 20:
                 parts.append(f"- ... +{len(paths) - 20} more")
-            parts.append("\nCall `codrag` for detailed content from these areas.")
+            parts.append("\nCall `prep` for detailed content from these areas.")
             return "\n".join(parts)
         except Exception as e:
             return f"(File list unavailable: {e})"
@@ -3261,7 +3261,7 @@ class MCPServer:
         try:
             data = await self._api_get(f"/projects/{project_id}/audit/findings")
             if not isinstance(data, dict):
-                return "(No audit data available -- run `codrag_audit` first)"
+                return "(No audit data available -- run `prep_audit` first)"
 
             findings = data.get("findings", [])
             if not findings:
@@ -3289,7 +3289,7 @@ class MCPServer:
 
             concepts = data.get("concepts", [])
             if not concepts:
-                return "(No concepts saved yet -- use `codrag_concepts` to add them)"
+                return "(No concepts saved yet -- use `prep_concepts` to add them)"
 
             # Group by category
             by_cat: Dict[str, list] = {}
@@ -3333,12 +3333,12 @@ class MCPServer:
 
     _PROMPTS = [
         {
-            "name": "codrag-onboard",
+            "name": "prep-onboard",
             "description": "Orient to this codebase — get structural overview, key modules, and hub files",
             "arguments": [],
         },
         {
-            "name": "codrag-review",
+            "name": "prep-review",
             "description": "Review a file with structural awareness — blast radius, dependencies, and related code",
             "arguments": [
                 {
@@ -3354,7 +3354,7 @@ class MCPServer:
             ],
         },
         {
-            "name": "codrag-plan",
+            "name": "prep-plan",
             "description": "Plan a change with impact analysis — understand what files are affected before editing",
             "arguments": [
                 {
@@ -3365,7 +3365,7 @@ class MCPServer:
             ],
         },
         {
-            "name": "codrag-investigate",
+            "name": "prep-investigate",
             "description": "Deep-dive into a topic — search, trace expansion, and module context",
             "arguments": [
                 {
@@ -3376,7 +3376,7 @@ class MCPServer:
             ],
         },
         {
-            "name": "codrag-health",
+            "name": "prep-health",
             "description": "Check codebase health — audit findings, tech debt, and improvement recommendations",
             "arguments": [
                 {
@@ -3406,7 +3406,7 @@ class MCPServer:
         if collab_result is not None:
             return collab_result
 
-        if name == "codrag-onboard":
+        if name == "prep-onboard":
             try:
                 pid = await self._resolve_project_id()
             except Exception:
@@ -3420,9 +3420,9 @@ class MCPServer:
                             {
                                 "type": "text",
                                 "text": (
-                                    "Orient me to this codebase using CoDRAG.\n\n"
+                                    "Orient me to this codebase using Prep.\n\n"
                                     "I've attached the codebase atlas and module map as context. "
-                                    "Use these plus CoDRAG tools to:\n\n"
+                                    "Use these plus Prep tools to:\n\n"
                                     "1. Summarize the architecture: what are the main components and how do they connect?\n"
                                     "2. Identify the most important files (hub files) and explain their role.\n"
                                     "3. List the key entry points and data flow patterns.\n"
@@ -3432,7 +3432,7 @@ class MCPServer:
                             {
                                 "type": "resource",
                                 "resource": {
-                                    "uri": f"codrag://{pid}/atlas",
+                                    "uri": f"prep://{pid}/atlas",
                                     "mimeType": "text/markdown",
                                     "text": "",
                                 },
@@ -3440,7 +3440,7 @@ class MCPServer:
                             {
                                 "type": "resource",
                                 "resource": {
-                                    "uri": f"codrag://{pid}/modules",
+                                    "uri": f"prep://{pid}/modules",
                                     "mimeType": "text/markdown",
                                     "text": "",
                                 },
@@ -3450,7 +3450,7 @@ class MCPServer:
                 ],
             }
 
-        elif name == "codrag-review":
+        elif name == "prep-review":
             file_path = arguments.get("file_path", "the current file")
             scope = arguments.get("scope", "file")
             return {
@@ -3461,9 +3461,9 @@ class MCPServer:
                         "content": {
                             "type": "text",
                             "text": (
-                                f"Review `{file_path}` (scope: {scope}) using CoDRAG's structural understanding.\n\n"
-                                "1. Call `codrag_impact` on the file to understand its dependencies and dependents.\n"
-                                "2. Call `codrag_search` to find related code and patterns.\n"
+                                f"Review `{file_path}` (scope: {scope}) using Prep's structural understanding.\n\n"
+                                "1. Call `prep_impact` on the file to understand its dependencies and dependents.\n"
+                                "2. Call `prep_search` to find related code and patterns.\n"
                                 "3. Check for bugs, style issues, missing error handling, and structural problems.\n"
                                 "4. Consider how changes here would affect connected files.\n"
                                 "5. Provide concrete improvement suggestions with file references."
@@ -3473,7 +3473,7 @@ class MCPServer:
                 ],
             }
 
-        elif name == "codrag-plan":
+        elif name == "prep-plan":
             change = arguments.get("change", "the proposed change")
             return {
                 "description": "Change planning with impact analysis",
@@ -3484,9 +3484,9 @@ class MCPServer:
                             "type": "text",
                             "text": (
                                 f"Plan this change: {change}\n\n"
-                                "1. Call `codrag` for structural overview of the codebase.\n"
-                                "2. Call `codrag_impact` on files that will be modified to understand the blast radius.\n"
-                                "3. Call `codrag_search` to find related code that may need updates.\n"
+                                "1. Call `prep` for structural overview of the codebase.\n"
+                                "2. Call `prep_impact` on files that will be modified to understand the blast radius.\n"
+                                "3. Call `prep_search` to find related code that may need updates.\n"
                                 "4. Create a step-by-step implementation plan that accounts for all dependencies.\n"
                                 "5. List all files that need changes, in the order they should be modified."
                             ),
@@ -3495,7 +3495,7 @@ class MCPServer:
                 ],
             }
 
-        elif name == "codrag-investigate":
+        elif name == "prep-investigate":
             query = arguments.get("query", "this topic")
             return {
                 "description": "Deep investigation with structural context",
@@ -3506,9 +3506,9 @@ class MCPServer:
                             "type": "text",
                             "text": (
                                 f"Help me understand: {query}\n\n"
-                                "1. Call `codrag_search` to find relevant code and documentation.\n"
-                                "2. Call `codrag` for module structure around the relevant area.\n"
-                                "3. Call `codrag_impact` on key files to trace the dependency graph.\n"
+                                "1. Call `prep_search` to find relevant code and documentation.\n"
+                                "2. Call `prep` for module structure around the relevant area.\n"
+                                "3. Call `prep_impact` on key files to trace the dependency graph.\n"
                                 "4. Explain how the pieces connect — data flow, call chains, design patterns.\n"
                                 "5. Summarize with a clear mental model I can use going forward."
                             ),
@@ -3517,7 +3517,7 @@ class MCPServer:
                 ],
             }
 
-        elif name == "codrag-health":
+        elif name == "prep-health":
             focus = arguments.get("focus", "")
             focus_text = f" Focus on: {focus}." if focus else ""
             try:
@@ -3533,10 +3533,10 @@ class MCPServer:
                             {
                                 "type": "text",
                                 "text": (
-                                    f"Check the health of this codebase using CoDRAG.{focus_text}\n\n"
-                                    "I've attached the latest audit findings. Use these plus CoDRAG tools to:\n\n"
+                                    f"Check the health of this codebase using Prep.{focus_text}\n\n"
+                                    "I've attached the latest audit findings. Use these plus Prep tools to:\n\n"
                                     "1. Prioritize findings by impact: what's most likely to cause problems?\n"
-                                    "2. Call `codrag` for structural context — hub files and module dependencies.\n"
+                                    "2. Call `prep` for structural context — hub files and module dependencies.\n"
                                     "3. For the top 3 findings, suggest concrete fixes with file references.\n"
                                     "4. Summarize the overall health: what's good, what needs work."
                                 ),
@@ -3544,7 +3544,7 @@ class MCPServer:
                             {
                                 "type": "resource",
                                 "resource": {
-                                    "uri": f"codrag://{pid}/audit",
+                                    "uri": f"prep://{pid}/audit",
                                     "mimeType": "text/markdown",
                                     "text": "",
                                 },
@@ -3552,7 +3552,7 @@ class MCPServer:
                             {
                                 "type": "resource",
                                 "resource": {
-                                    "uri": f"codrag://{pid}/health",
+                                    "uri": f"prep://{pid}/health",
                                     "mimeType": "text/markdown",
                                     "text": "",
                                 },
@@ -3586,7 +3586,7 @@ class MCPServer:
         except Exception:
             return {"completion": {"values": [], "hasMore": False}}
 
-        # File path completion (for codrag-review file_path argument)
+        # File path completion (for prep-review file_path argument)
         if arg_name == "file_path" and arg_value:
             try:
                 data = await self._api_get(f"/projects/{project_id}/files")
@@ -3611,7 +3611,7 @@ class MCPServer:
             except Exception:
                 pass
 
-        # Query completion (for codrag-investigate query argument)
+        # Query completion (for prep-investigate query argument)
         elif arg_name == "query" and arg_value:
             # Suggest from recent observations/concepts as query hints
             try:
@@ -3666,8 +3666,8 @@ class MCPServer:
         """Handle tools/call request.
 
         Phase 50: Consolidated dispatch with alias routing.
-        New tool names (codrag, codrag_search, codrag_impact, codrag_audit,
-        codrag_observe) are handled directly. Legacy tool names are
+        New tool names (prep, prep_search, prep_impact, prep_audit,
+        prep_observe) are handled directly. Legacy tool names are
         transparently routed via TOOL_ALIASES with parameter transforms.
         """
         from prep.mcp_tools import TOOL_ALIASES
@@ -3687,10 +3687,10 @@ class MCPServer:
             logger.debug("Alias dispatch: %s -> %s", name, resolved)
 
             # Parameter transforms for legacy -> consolidated routing
-            if name == "codrag_trace_search":
+            if name == "prep_trace_search":
                 args.setdefault("type", "symbol")
                 name = resolved
-            elif name == "codrag_trace_neighbors":
+            elif name == "prep_trace_neighbors":
                 # Map neighbors params to impact params
                 args.setdefault("direction", "all")
                 if "node_id" in args:
@@ -3698,19 +3698,19 @@ class MCPServer:
                 if "max_nodes" in args:
                     args.setdefault("max_hops", 1)
                 name = resolved
-            elif name == "codrag_audit_refactor":
+            elif name == "prep_audit_refactor":
                 args.setdefault("action", "refactor")
                 name = resolved
-            elif name == "codrag_audit_check":
+            elif name == "prep_audit_check":
                 args.setdefault("action", "verify")
                 name = resolved
-            elif name == "codrag_audit_report":
+            elif name == "prep_audit_report":
                 args.setdefault("action", "report")
                 name = resolved
-            elif name == "codrag_save_observation":
+            elif name == "prep_save_observation":
                 args.setdefault("action", "save")
                 name = resolved
-            elif name == "codrag_get_observations":
+            elif name == "prep_get_observations":
                 args.setdefault("action", "get")
                 name = resolved
             else:
@@ -3720,7 +3720,7 @@ class MCPServer:
 
         try:
             # ── Primary tools (new consolidated set) ────────────────
-            if name in ("codrag", "codrag_context", "codrag_"):
+            if name in ("prep", "prep_context", "prep_"):
                 # Phase 103 R4: resolve task → role before dispatch.
                 # If caller passed an explicit role, always use it.
                 # Otherwise, if they passed a task, try to infer role;
@@ -3761,7 +3761,7 @@ class MCPServer:
                 # Set AFTER tool_context so first-call orientation boost fires
                 self._codrag_called = True
 
-            elif name == "codrag_search":
+            elif name == "prep_search":
                 search_type = args.get("type", "context")
                 query_text = args.get("query", "")
                 intent_override = args.get("intent")
@@ -3867,18 +3867,18 @@ class MCPServer:
                         "original_query": query_text,
                         "clean_query": clean_query,
                     }
-                # Phase 50 Sprint 3: Nudge if codrag hasn't been called yet
+                # Phase 50 Sprint 3: Nudge if prep hasn't been called yet
                 if not self._codrag_called and isinstance(result, dict):
                     md = result.get("_to_markdown", "")
                     if md:
                         result["_to_markdown"] = (
-                            md + "\n\n---\n[tip: Call `codrag` (no args) for structural "
+                            md + "\n\n---\n[tip: Call `prep` (no args) for structural "
                             "codebase overview -- modules, hub files, and architecture.]"
                         )
 
-            elif name == "codrag_impact":
+            elif name == "prep_impact":
                 if not args.get("file_path") and not args.get("symbol") and not args.get("node_id"):
-                    raise InvalidParamsError("codrag_impact requires file_path or symbol")
+                    raise InvalidParamsError("prep_impact requires file_path or symbol")
                 direction = args.get("direction", "dependents")
                 if direction == "all":
                     # Full neighborhood -- use trace_neighbors backend
@@ -3912,16 +3912,16 @@ class MCPServer:
                         max_hops=args.get("max_hops", 2),
                         project_override=project_override,
                     )
-                # Phase 50: Nudge if codrag hasn't been called yet
+                # Phase 50: Nudge if prep hasn't been called yet
                 if not self._codrag_called and isinstance(result, dict):
                     md = result.get("_to_markdown", "")
                     if md:
                         result["_to_markdown"] = (
-                            md + "\n\n---\n[tip: Call `codrag` (no args) for structural "
+                            md + "\n\n---\n[tip: Call `prep` (no args) for structural "
                             "codebase overview -- modules, hub files, and architecture.]"
                         )
 
-            elif name == "codrag_audit":
+            elif name == "prep_audit":
                 ext_findings = args.get("findings")
                 if ext_findings is not None:
                     # Enrichment mode: detect SARIF vs simple schema
@@ -3985,21 +3985,21 @@ class MCPServer:
                             max_findings=args.get("max_findings", 20),
                             project_override=project_override,
                         )
-                # Phase 50: Nudge if codrag hasn't been called yet
+                # Phase 50: Nudge if prep hasn't been called yet
                 if not self._codrag_called and isinstance(result, dict):
                     md = result.get("_to_markdown", "")
                     if md:
                         result["_to_markdown"] = (
-                            md + "\n\n---\n[tip: Call `codrag` (no args) for structural "
+                            md + "\n\n---\n[tip: Call `prep` (no args) for structural "
                             "codebase overview -- modules, hub files, and architecture.]"
                         )
 
-            elif name == "codrag_observe":
+            elif name == "prep_observe":
                 action = args.get("action", "get")
                 if action == "save":
                     if not args.get("content", "").strip():
                         raise InvalidParamsError(
-                            "codrag_observe action='save' requires non-empty content"
+                            "prep_observe action='save' requires non-empty content"
                         )
                     result = await self.tool_save_observation(
                         content=args.get("content", ""),
@@ -4021,7 +4021,7 @@ class MCPServer:
                     )
 
             # Phase 74: Concepts tool
-            elif name == "codrag_concepts":
+            elif name == "prep_concepts":
                 result = await self.tool_concepts(
                     action=args.get("action", "get"),
                     query=args.get("query"),
@@ -4038,7 +4038,7 @@ class MCPServer:
                 )
 
             # ── Hidden admin tool (not listed, but dispatches) ──────
-            elif name == "codrag_build":
+            elif name == "prep_build":
                 result = await self.tool_build(
                     full=args.get("full", False),
                     project_override=project_override,

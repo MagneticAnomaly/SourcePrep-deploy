@@ -1,5 +1,5 @@
 """
-Event Bus and Progress Tracking for CoDRAG.
+Event Bus and Progress Tracking for Prep.
 
 Handles real-time broadcasting of logs and task progress to the frontend via SSE.
 Uses stdlib ``queue.Queue`` (thread-safe) so that background build threads

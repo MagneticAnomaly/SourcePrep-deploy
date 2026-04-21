@@ -1,7 +1,7 @@
 """Phase 113 Step 3 — one-time legacy-codrag_data migration.
 
 Pre-fix: the daemon's state was split between ./codrag_data/ (CWD) and
-~/.local/share/codrag/ (XDG) with no migration path. Users who moved
+~/.local/share/prep/ (XDG) with no migration path. Users who moved
 between versions, or who changed the directory they launched from,
 silently ended up with fragmented state.
 

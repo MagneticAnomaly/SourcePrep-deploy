@@ -1,5 +1,5 @@
 """
-Pytest configuration and shared fixtures for CoDRAG tests.
+Pytest configuration and shared fixtures for Prep tests.
 
 Fixtures defined here are automatically available to all test files.
 """
@@ -23,9 +23,9 @@ if str(_SRC) not in sys.path:
 
 @pytest.fixture(autouse=True)
 def _unlock_all_features(monkeypatch):
-    """Set CODRAG_TIER=pro for all tests so feature gates don't block integration tests."""
-    monkeypatch.setenv("CODRAG_TIER", "pro")
-    monkeypatch.setenv("CODRAG_DEV_MODE", "1")
+    """Set PREP_TIER=pro for all tests so feature gates don't block integration tests."""
+    monkeypatch.setenv("PREP_TIER", "pro")
+    monkeypatch.setenv("PREP_DEV_MODE", "1")
     from prep.core.feature_gate import clear_license_cache
     clear_license_cache()
     yield
@@ -53,13 +53,13 @@ def _isolate_concurrency_store(tmp_path_factory, monkeypatch):
 
     The store is a process-level singleton that reads data_dir() lazily.
     Without isolation, tests would read the real user's persisted AIMD
-    ceilings at ~/.local/share/codrag/concurrency_store.db, polluting
+    ceilings at ~/.local/share/prep/concurrency_store.db, polluting
     scheduler tests that expect fresh cloud-slot seeds (current_limit=5).
     """
     from prep.services.pipeline import concurrency_store as _cs_mod
     from prep.core import paths as _paths_mod
 
-    test_data_dir = tmp_path_factory.mktemp("codrag_test_data")
+    test_data_dir = tmp_path_factory.mktemp("prep_test_data")
     monkeypatch.setattr(_paths_mod, "data_dir", lambda: test_data_dir)
     monkeypatch.setattr(_cs_mod, "_store", None)
     yield
@@ -143,18 +143,18 @@ def fake_embedder():
 @pytest.fixture
 def clean_codrag_dir(mini_repo: Path) -> Generator[Path, None, None]:
     """
-    Ensure .codrag directory is clean before and after test.
+    Ensure .prep directory is clean before and after test.
     
     Usage:
         def test_something(clean_codrag_dir):
-            repo = clean_codrag_dir  # .codrag is guaranteed clean
+            repo = clean_codrag_dir  # .prep is guaranteed clean
     """
-    codrag_dir = mini_repo / ".codrag"
-    if codrag_dir.exists():
-        shutil.rmtree(codrag_dir)
+    prep_dir = mini_repo / ".prep"
+    if prep_dir.exists():
+        shutil.rmtree(prep_dir)
     
     yield mini_repo
     
     # Cleanup after test
-    if codrag_dir.exists():
-        shutil.rmtree(codrag_dir)
+    if prep_dir.exists():
+        shutil.rmtree(prep_dir)

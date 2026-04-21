@@ -71,13 +71,13 @@ class TestThreadPoolInfra:
         )
 
     def test_env_override_accepts_values_up_to_cap(self, monkeypatch) -> None:
-        """CODRAG_LLM_POOL_SIZE should accept values up to the new cap (64)."""
+        """PREP_LLM_POOL_SIZE should accept values up to the new cap (64)."""
         from prep.services.pipeline import thread_pool as tp
 
-        monkeypatch.setenv("CODRAG_LLM_POOL_SIZE", "48")
+        monkeypatch.setenv("PREP_LLM_POOL_SIZE", "48")
         assert tp._get_pool_size() == 48
 
-        monkeypatch.setenv("CODRAG_LLM_POOL_SIZE", "64")
+        monkeypatch.setenv("PREP_LLM_POOL_SIZE", "64")
         assert tp._get_pool_size() == 64
 
     def test_env_override_rejects_values_above_cap(self, monkeypatch, caplog) -> None:
@@ -85,7 +85,7 @@ class TestThreadPoolInfra:
         from prep.services.pipeline import thread_pool as tp
         import logging
 
-        monkeypatch.setenv("CODRAG_LLM_POOL_SIZE", "100")
+        monkeypatch.setenv("PREP_LLM_POOL_SIZE", "100")
         with caplog.at_level(logging.WARNING, logger="prep.services.pipeline.thread_pool"):
             size = tp._get_pool_size()
         assert size == tp._DEFAULT_POOL_SIZE
@@ -383,7 +383,7 @@ class TestActualAugmenterCode:
         Regression guard for the NameError bug found in review pass 3.
         """
         from pathlib import Path
-        src = str(Path(__file__).parent.parent / "src" / "codrag" / "core" / "augmenter.py")
+        src = str(Path(__file__).parent.parent / "src" / "prep" / "core" / "augmenter.py")
         undefined = self._check_name_defined_in_scope(src, "pool")
         assert not undefined, (
             f"augmenter.py has pool.X references in scopes where 'pool' is not defined:\n"
@@ -397,7 +397,7 @@ class TestActualAugmenterCode:
         Regression guard for the NameError bug found in review pass 3.
         """
         from pathlib import Path
-        src = str(Path(__file__).parent.parent / "src" / "codrag" / "core" / "epistemic_enrichment.py")
+        src = str(Path(__file__).parent.parent / "src" / "prep" / "core" / "epistemic_enrichment.py")
         undefined = self._check_name_defined_in_scope(src, "future_to_items")
         assert not undefined, (
             f"epistemic_enrichment.py has future_to_items reads in scopes "

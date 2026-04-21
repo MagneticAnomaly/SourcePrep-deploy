@@ -19,11 +19,11 @@ class TestTier1SynopsisPrefix:
         chunk = Chunk(
             chunk_id="abc123",
             content="for ch in chunks: text = self._format(ch)",
-            metadata={"source_path": "src/codrag/core/index.py", "section": "build"},
+            metadata={"source_path": "src/prep/core/index.py", "section": "build"},
         )
         result = idx._format_chunk_for_embedding(
             chunk, file_hash="deadbeef",
-            file_synopsis="File: src/codrag/core/index.py\nPurpose: Core search index\nClasses: CodeIndex"
+            file_synopsis="File: src/prep/core/index.py\nPurpose: Core search index\nClasses: CodeIndex"
         )
         assert "File context:" in result
         assert "Core search index" in result

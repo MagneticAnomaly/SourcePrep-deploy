@@ -1,5 +1,5 @@
 """
-Trace Augmenter for CoDRAG.
+Trace Augmenter for Prep.
 
 LLM-based augmentation of trace nodes with summaries, roles, and confidence scores.
 Implements the Phase 1 pipeline (Steps 2-3) from LLM_TRACE_AUGMENTATION_RESEARCH.md.
@@ -1824,7 +1824,7 @@ class TraceAugmenter:
         # Write exploratory telemetry
         if getattr(self, "is_exploratory", False) and result.retry_telemetry:
             try:
-                # Store in .codrag/logs/ since index_dir is .codrag/index/proj_id
+                # Store in .prep/logs/ since index_dir is .prep/index/proj_id
                 logs_dir = self.index_dir.parent.parent / "logs"
                 logs_dir.mkdir(parents=True, exist_ok=True)
                 log_file = logs_dir / "exploratory_retries.jsonl"
@@ -1859,7 +1859,7 @@ class TraceAugmenter:
         for validation. Writes trace_inferred_edges.jsonl.
 
         Args:
-            trace_handle: A codrag_engine.TraceHandle (Rust trace graph).
+            trace_handle: A prep_engine.TraceHandle (Rust trace graph).
                           If None, attempts to import and load from index_dir.
 
         Returns:
@@ -1868,7 +1868,7 @@ class TraceAugmenter:
         if trace_handle is None:
             try:
                 import prep_engine
-                trace_handle = codrag_engine.load_trace(str(self.index_dir))
+                trace_handle = prep_engine.load_trace(str(self.index_dir))
             except Exception as e:
                 logger.warning("Cannot load Rust trace for Pass 0.5: %s", e)
                 return {"error": str(e)}

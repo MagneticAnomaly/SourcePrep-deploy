@@ -1,5 +1,5 @@
 """
-Tests for codrag.cli — all CLI commands.
+Tests for prep.cli — all CLI commands.
 
 All daemon HTTP calls are mocked so these run without a live server.
 """
@@ -43,7 +43,7 @@ def _envelope(data):
 def test_version():
     result = runner.invoke(app, ["version"])
     assert result.exit_code == 0
-    assert "CoDRAG v" in result.output
+    assert "Prep v" in result.output
 
 
 # ── serve (just checks it tries to start) ────────────────────────
@@ -51,7 +51,7 @@ def test_version():
 def test_serve_help():
     result = runner.invoke(app, ["serve", "--help"])
     assert result.exit_code == 0
-    assert "Start the CoDRAG daemon" in result.output
+    assert "Start the Prep daemon" in result.output
 
 
 # ── add ──────────────────────────────────────────────────────────
@@ -249,12 +249,12 @@ def test_mcp_config_single_ide(mock_gen):
     mock_gen.return_value = {
         "cursor": {
             "file": ".cursor/mcp.json",
-            "config": {"mcpServers": {"codrag": {"command": "codrag", "args": ["mcp"]}}},
+            "config": {"mcpServers": {"prep": {"command": "prep", "args": ["mcp"]}}},
         }
     }
     result = runner.invoke(app, ["mcp-config", "--ide", "cursor"])
     assert result.exit_code == 0
-    assert "codrag" in result.output
+    assert "prep" in result.output
 
 
 @patch("prep.mcp_config.generate_mcp_configs")
@@ -354,7 +354,7 @@ def test_full_reset_with_confirmation(mock_get, mock_delete):
 def test_no_args_shows_help():
     result = runner.invoke(app, [])
     assert result.exit_code == 0
-    assert "CoDRAG" in result.output
+    assert "Prep" in result.output
 
 
 def test_help_flag():

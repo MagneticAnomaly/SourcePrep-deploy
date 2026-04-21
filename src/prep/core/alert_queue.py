@@ -1,7 +1,7 @@
 """Alert queue for the codebase immune system.
 
 Antibodies that fire add alerts to this queue. The ambient context
-handler (`codrag()`) drains the queue and injects alerts into responses.
+handler (`prep()`) drains the queue and injects alerts into responses.
 Max 3 alerts per drain, deduplicated per session.
 """
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """
-Allow running codrag as a module:
-    python -m codrag --repo-root /path/to/repo
+Allow running prep as a module:
+    python -m prep --repo-root /path/to/repo
 """
 
 from .server import main

@@ -24,7 +24,7 @@ class TestIsRelevantPathspec:
     EXCLUDES = [
         "**/.claude/**",
         "**/.git/**",
-        "**/.codrag/**",
+        "**/.prep/**",
         "**/node_modules/**",
         "**/.venv/**",
         "**/*.lock",
@@ -33,7 +33,7 @@ class TestIsRelevantPathspec:
     @pytest.mark.parametrize("path", [
         ".claude/worktrees/busy-swirles/backend_config.py",
         ".claude/worktrees/busy-swirles/AGENTS.md",
-        ".claude/worktrees/foo/src/codrag/server.py",
+        ".claude/worktrees/foo/src/prep/server.py",
         ".claude/skills/foo.md",
     ])
     def test_claude_subtree_excluded(self, path):
@@ -42,8 +42,8 @@ class TestIsRelevantPathspec:
     @pytest.mark.parametrize("path", [
         ".git/HEAD",
         ".git/objects/ab/cdef.py",
-        ".codrag/atlas.json",
-        ".codrag/trace_nodes.jsonl",
+        ".prep/atlas.json",
+        ".prep/trace_nodes.jsonl",
         ".venv/lib/python3.11/site-packages/foo.py",
         "node_modules/react/index.ts",
         "src/foo/node_modules/bar/baz.ts",
@@ -52,7 +52,7 @@ class TestIsRelevantPathspec:
         assert AutoRebuildWatcher._is_relevant(path, self.INCLUDES, self.EXCLUDES) is False
 
     @pytest.mark.parametrize("path", [
-        "src/codrag/server.py",
+        "src/prep/server.py",
         "docs/README.md",
         "packages/ui/src/index.ts",
         "tests/test_foo.py",

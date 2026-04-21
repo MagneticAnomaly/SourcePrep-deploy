@@ -1,4 +1,4 @@
-"""Tests for codrag.core.atomic_io — tmp→rename file writes."""
+"""Tests for prep.core.atomic_io — tmp→rename file writes."""
 from __future__ import annotations
 
 import os

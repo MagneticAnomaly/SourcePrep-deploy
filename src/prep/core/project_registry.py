@@ -33,11 +33,11 @@ class Project:
     updated_at: str
 
 
-def codrag_data_dir() -> Path:
+def prep_data_dir() -> Path:
     """Daemon-wide data directory.
 
     Deprecated shim — new callers should import `data_dir` from
-    `codrag.core.paths` directly. Kept because six internal callers
+    `prep.core.paths` directly. Kept because six internal callers
     here plus external code paths (cli.py, watcher.py, etc.) still
     import this name.
     """
@@ -46,7 +46,7 @@ def codrag_data_dir() -> Path:
 
 
 def default_registry_db_path() -> Path:
-    return codrag_data_dir() / "registry.db"
+    return prep_data_dir() / "registry.db"
 
 
 def project_index_dir(project: Project) -> Path:
@@ -57,9 +57,9 @@ def project_index_dir(project: Project) -> Path:
 
     project_root = Path(project.path).expanduser().resolve()
     if project.mode == "embedded":
-        return project_root / ".codrag"
+        return project_root / ".prep"
 
-    return codrag_data_dir() / "projects" / project.id
+    return prep_data_dir() / "projects" / project.id
 
 
 def project_for_index_dir(index_dir: Path | str) -> Optional[Project]:
@@ -110,7 +110,7 @@ def _now_iso() -> str:
 
 def write_active_project_signal(project_id: str) -> None:
     """Write the ID of the last user-activated project to a global signal file."""
-    signal_file = codrag_data_dir() / "active_project.json"
+    signal_file = prep_data_dir() / "active_project.json"
     signal_file.parent.mkdir(parents=True, exist_ok=True)
     try:
         data = {
@@ -124,7 +124,7 @@ def write_active_project_signal(project_id: str) -> None:
 
 def read_active_project_signal() -> Optional[Dict[str, Any]]:
     """Read the global active project signal file."""
-    signal_file = codrag_data_dir() / "active_project.json"
+    signal_file = prep_data_dir() / "active_project.json"
     if not signal_file.is_file():
         return None
     try:
@@ -244,7 +244,7 @@ class ProjectRegistry:
             updated_at=now,
         )
 
-        # Create .codrag/project.json pointer in the project root.
+        # Create .prep/project.json pointer in the project root.
         # This allows MCP servers to instantly identify the project
         # without querying the daemon.
         ensure_codrag_pointer(proj)
@@ -366,9 +366,9 @@ class ProjectRegistry:
                 if not resolved.is_relative_to(proj_root):
                     raise RuntimeError("Refusing to purge index outside project root")
             else:
-                base = (codrag_data_dir() / "projects").expanduser().resolve()
+                base = (prep_data_dir() / "projects").expanduser().resolve()
                 if not resolved.is_relative_to(base):
-                    raise RuntimeError("Refusing to purge index outside CoDRAG data dir")
+                    raise RuntimeError("Refusing to purge index outside Prep data dir")
 
             if resolved.exists() and resolved.is_dir():
                 shutil.rmtree(resolved)
@@ -390,11 +390,11 @@ class ProjectRegistry:
         return removed
 
     def validate_and_heal_pointers(self) -> Dict[str, List[str]]:
-        """Validate and heal .codrag/project.json pointers for all projects.
+        """Validate and heal .prep/project.json pointers for all projects.
 
         Checks every registered project:
         1. Does the project path still exist?
-        2. Does .codrag/project.json exist with the correct project ID?
+        2. Does .prep/project.json exist with the correct project ID?
         3. Does the pointer ID match our registry?
 
         Returns a report dict:
@@ -418,7 +418,7 @@ class ProjectRegistry:
                 )
                 continue
 
-            # Check .codrag/project.json
+            # Check .prep/project.json
             pointer = read_codrag_pointer(project_root)
             if pointer and pointer.get("id") == proj.id:
                 report["ok"].append(label)
@@ -435,7 +435,7 @@ class ProjectRegistry:
 
 
 # =============================================================================
-# .codrag/project.json pointer
+# .prep/project.json pointer
 # =============================================================================
 
 _POINTER_FILENAME = "project.json"
@@ -445,10 +445,10 @@ def ensure_codrag_pointer(
     proj: Project,
     daemon_url: str = "http://127.0.0.1:8400",
 ) -> None:
-    """Create or update .codrag/project.json in the project root.
+    """Create or update .prep/project.json in the project root.
 
     This pointer file allows MCP servers and tooling to instantly identify
-    which CoDRAG project a workspace belongs to, without querying the daemon.
+    which Prep project a workspace belongs to, without querying the daemon.
 
     The file is intentionally minimal — just enough for routing:
       {
@@ -464,8 +464,8 @@ def ensure_codrag_pointer(
         if not project_root.is_dir():
             return  # Project root doesn't exist (yet); skip silently
 
-        codrag_dir = project_root / ".codrag"
-        codrag_dir.mkdir(parents=False, exist_ok=True)
+        prep_dir = project_root / ".prep"
+        prep_dir.mkdir(parents=False, exist_ok=True)
 
         pointer = {
             "id": proj.id,
@@ -473,7 +473,7 @@ def ensure_codrag_pointer(
             "daemon": daemon_url,
         }
 
-        pointer_path = codrag_dir / _POINTER_FILENAME
+        pointer_path = prep_dir / _POINTER_FILENAME
         pointer_path.write_text(json.dumps(pointer, indent=2) + "\n")
     except Exception:
         # Non-fatal — the pointer is a convenience, not a requirement.
@@ -482,13 +482,13 @@ def ensure_codrag_pointer(
 
 
 def read_codrag_pointer(directory: str | Path) -> Optional[Dict[str, str]]:
-    """Read .codrag/project.json from a directory, if it exists.
+    """Read .prep/project.json from a directory, if it exists.
 
     Returns a dict with 'id', 'mode', and 'daemon' keys, or None
     if the pointer doesn't exist or is malformed.
     """
     try:
-        pointer_path = Path(directory).expanduser().resolve() / ".codrag" / _POINTER_FILENAME
+        pointer_path = Path(directory).expanduser().resolve() / ".prep" / _POINTER_FILENAME
         if not pointer_path.is_file():
             return None
         data = json.loads(pointer_path.read_text())

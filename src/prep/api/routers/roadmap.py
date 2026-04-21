@@ -1,5 +1,5 @@
 """
-CoDRAG Roadmap Router — Phase 59
+Prep Roadmap Router — Phase 59
 ====================================
 
 REST endpoints for the visual roadmap timeline.
@@ -647,7 +647,7 @@ def get_github_status(project_id: str) -> Dict[str, Any]:
 
 @router.post("/projects/{project_id}/roadmap/mine")
 def trigger_mine(project_id: str) -> Dict[str, Any]:
-    """Mine CoDRAG pipeline data for roadmap contenders."""
+    """Mine Prep pipeline data for roadmap contenders."""
     from prep.services.project_helpers import require_project_writable
     proj = require_project_writable(project_id)
 

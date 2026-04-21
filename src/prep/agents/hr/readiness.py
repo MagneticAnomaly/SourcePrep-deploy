@@ -45,7 +45,7 @@ def compute_readiness(
     has_hub_files: bool = False,
     has_docs: bool = False,
 ) -> ReadinessReport:
-    """Compute epistemic readiness score from CoDRAG data.
+    """Compute epistemic readiness score from Prep data.
 
     Args:
         modules: Module cluster dicts from ``get_module_structure()``.
@@ -63,7 +63,7 @@ def compute_readiness(
     # 1. Pipeline completion — atlas exists and has content
     dims["pipeline_completion"] = min(1.0, len(atlas_content) / 100) if atlas_content else 0.0
     if dims["pipeline_completion"] < 0.5:
-        missing.append("Run the CoDRAG pipeline to generate atlas data")
+        missing.append("Run the Prep pipeline to generate atlas data")
 
     # 2. File count — need ≥20 files for meaningful analysis
     dims["file_count"] = min(1.0, file_count / 20)

@@ -3,7 +3,7 @@ Agent Concurrency Gate — Phase 66
 
 Ensures autonomous agent LLM calls don't compete with pipeline LLM calls.
 
-The CoDRAG pipeline is the primary consumer of LLM/GPU resources.  Agent
+The Prep pipeline is the primary consumer of LLM/GPU resources.  Agent
 scenarios (Watchdog, Dispatcher, Librarian, etc.) are secondary.  This gate
 enforces a simple rule:
 
@@ -67,7 +67,7 @@ class AgentConcurrencyGate:
         The caller MUST call ``release()`` when done (use try/finally).
 
         Args:
-            project_id: CoDRAG project ID to check pipeline status for.
+            project_id: Prep project ID to check pipeline status for.
             task_name: Human-readable name for logging (e.g., "watchdog").
 
         Returns:

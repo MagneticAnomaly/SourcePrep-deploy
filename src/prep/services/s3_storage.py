@@ -22,7 +22,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 # Index artifacts that get zipped and uploaded.
-# Must stay in sync with _PRESERVE_FILES in codrag.core.index.
+# Must stay in sync with _PRESERVE_FILES in prep.core.index.
 INDEX_ARTIFACTS = [
     # Code index (semantic search)
     "documents.json",
@@ -103,23 +103,23 @@ class S3Config:
     def from_env(cls) -> "S3Config":
         """Load configuration from environment variables."""
         return cls(
-            endpoint=os.environ.get("CODRAG_S3_ENDPOINT", ""),
-            bucket=os.environ.get("CODRAG_S3_BUCKET", ""),
-            prefix=os.environ.get("CODRAG_S3_PREFIX", ""),
-            access_key=os.environ.get("CODRAG_S3_ACCESS_KEY", ""),
-            secret_key=os.environ.get("CODRAG_S3_SECRET_KEY", ""),
-            region=os.environ.get("CODRAG_S3_REGION", "auto"),
+            endpoint=os.environ.get("PREP_S3_ENDPOINT", ""),
+            bucket=os.environ.get("PREP_S3_BUCKET", ""),
+            prefix=os.environ.get("PREP_S3_PREFIX", ""),
+            access_key=os.environ.get("PREP_S3_ACCESS_KEY", ""),
+            secret_key=os.environ.get("PREP_S3_SECRET_KEY", ""),
+            region=os.environ.get("PREP_S3_REGION", "auto"),
         )
 
     def validate(self) -> List[str]:
         """Return list of missing required fields."""
         errors = []
         if not self.bucket:
-            errors.append("S3 bucket is required (CODRAG_S3_BUCKET)")
+            errors.append("S3 bucket is required (PREP_S3_BUCKET)")
         if not self.access_key:
-            errors.append("S3 access key is required (CODRAG_S3_ACCESS_KEY)")
+            errors.append("S3 access key is required (PREP_S3_ACCESS_KEY)")
         if not self.secret_key:
-            errors.append("S3 secret key is required (CODRAG_S3_SECRET_KEY)")
+            errors.append("S3 secret key is required (PREP_S3_SECRET_KEY)")
         return errors
 
 

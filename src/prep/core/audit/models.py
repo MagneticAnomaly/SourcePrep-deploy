@@ -1,5 +1,5 @@
 """
-AutoAudit data models for CoDRAG (Phase 43).
+AutoAudit data models for Prep (Phase 43).
 
 Core data structures for the autonomous codebase analysis system.
 """

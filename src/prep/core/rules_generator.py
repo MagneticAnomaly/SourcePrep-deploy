@@ -2,7 +2,7 @@
 Rules file generator for AI coding tools (Cursor, Windsurf, Claude Code).
 
 Generates project-level instruction files that tell AI assistants to use
-CoDRAG's MCP tools for structural codebase context. Embeds the atlas
+Prep's MCP tools for structural codebase context. Embeds the atlas
 (when available) for always-on priming.
 
 Phase 50: MCP Interfacing.
@@ -32,15 +32,15 @@ def _write(path: Path, content: str) -> None:
     atomic_write_text(path, content)
 
 # ── Markers for managed sections ────────────────────────────────────
-# Used to identify CoDRAG-managed content in rules files that may also
+# Used to identify Prep-managed content in rules files that may also
 # contain user-written rules. Everything between START and END markers
 # is replaced on regeneration; content outside is preserved.
 
-_CURSOR_MARKER_START = "# --- CoDRAG-managed (auto-generated, do not edit above USER ADDITIONS) ---"
+_CURSOR_MARKER_START = "# --- Prep-managed (auto-generated, do not edit above USER ADDITIONS) ---"
 _CURSOR_MARKER_END = "# --- USER ADDITIONS BELOW (preserved across updates) ---"
 
-_MANAGED_MARKER_START = "<!-- codrag-managed-start -->"
-_MANAGED_MARKER_END = "<!-- codrag-managed-end -->"
+_MANAGED_MARKER_START = "<!-- prep-managed-start -->"
+_MANAGED_MARKER_END = "<!-- prep-managed-end -->"
 
 # Backward compat aliases (used in detection of existing markers)
 _WINDSURF_MARKER_START = _MANAGED_MARKER_START
@@ -69,7 +69,7 @@ def write_rules_file(
     """Write rules files for detected IDEs.
 
     Generates rules for all detected IDEs (or the specified one).
-    Preserves user content outside of CoDRAG-managed markers.
+    Preserves user content outside of Prep-managed markers.
 
     Args:
         project_path: Root path of the project.
@@ -79,7 +79,7 @@ def write_rules_file(
         is_preliminary: If True, adds "Full analysis in progress" note.
         stats: Optional dict with node_count, edge_count, coverage_pct, last_indexed.
         ide: "auto" (detect all), "cursor", "windsurf", "claude", or "all".
-        project_id: CoDRAG project UUID. Embedded in rules for LLM-based routing.
+        project_id: Prep project UUID. Embedded in rules for LLM-based routing.
 
     Returns:
         Dict mapping IDE name to whether the file was written.
@@ -87,7 +87,7 @@ def write_rules_file(
     project_path = Path(project_path)
     results: Dict[str, bool] = {}
 
-    # Auto-detect project_id from .codrag/project.json if not provided
+    # Auto-detect project_id from .prep/project.json if not provided
     if not project_id:
         from prep.core.project_registry import read_codrag_pointer
         pointer = read_codrag_pointer(project_path)
@@ -103,11 +103,11 @@ def write_rules_file(
         "cursor": _write_cursor_rules,
         "windsurf": _write_windsurf_rules,
         "claude": _write_claude_rules,
-        "claude_skill": _write_claude_skill,  # .claude/skills/codrag.md
+        "claude_skill": _write_claude_skill,  # .claude/skills/prep.md
         "gemini": _write_generic_md,  # GEMINI.md
         "copilot": _write_copilot_rules,  # .github/copilot-instructions.md
         "cline": _write_cline_rules,  # .clinerules
-        "roo_code": _write_roo_rules,  # .roo/rules/codrag.md
+        "roo_code": _write_roo_rules,  # .roo/rules/prep.md
     }
 
     for target_ide in targets:
@@ -125,7 +125,7 @@ def write_rules_file(
                     stats,
                     project_id=project_id,
                     filename="GEMINI.md",
-                    heading="# CoDRAG Integration",
+                    heading="# Prep Integration",
                 )
             else:
                 results[target_ide] = writer(*_args)
@@ -164,20 +164,20 @@ def detect_and_regenerate(
     project_path = Path(project_path)
     targets = _detect_targets(project_path, "auto")
 
-    # Check which targets already have CoDRAG content
+    # Check which targets already have Prep content
     _target_paths = {
         "agents_md": project_path / "AGENTS.md",
-        "cursor": project_path / ".cursor" / "rules" / "codrag.mdc",
-        "windsurf": project_path / ".windsurf" / "rules" / "codrag.md",
+        "cursor": project_path / ".cursor" / "rules" / "prep.mdc",
+        "windsurf": project_path / ".windsurf" / "rules" / "prep.md",
         "claude": project_path / "CLAUDE.md",
         "gemini": project_path / "GEMINI.md",
         "copilot": project_path / ".github" / "copilot-instructions.md",
         "cline": project_path / ".clinerules",
-        "roo_code": project_path / ".roo" / "rules" / "codrag.md",
+        "roo_code": project_path / ".roo" / "rules" / "prep.md",
     }
 
     if not force:
-        # Only regenerate targets that are missing CoDRAG content
+        # Only regenerate targets that are missing Prep content
         needs_write: List[str] = []
         for target in targets:
             path = _target_paths.get(target)
@@ -346,7 +346,7 @@ def _build_managed_content(
     project_id: Optional[str] = None,
     target: str = "universal",
 ) -> str:
-    """Build the CoDRAG-managed content block.
+    """Build the Prep-managed content block.
 
     Args:
         target: Content profile.
@@ -373,10 +373,10 @@ def _build_managed_content(
 
     # ── Project ID routing (all targets) ──
     if project_id:
-        parts.append(f"codrag_project_id: {project_id}")
+        parts.append(f"prep_project_id: {project_id}")
         parts.append("")
         parts.append(
-            f"**ROUTING: When calling ANY CoDRAG tool, ALWAYS include "
+            f"**ROUTING: When calling ANY Prep tool, ALWAYS include "
             f"`project_id: \"{project_id}\"` in the arguments.**"
         )
         parts.append("")
@@ -385,26 +385,26 @@ def _build_managed_content(
     parts.append("## Tools")
     parts.append("| Tool | When to Use |")
     parts.append("|------|-------------|")
-    parts.append("| `codrag` | START of every task — structural overview, modules, hub files, immune system alerts |")
-    parts.append("| `codrag_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER). |")
-    parts.append("| `codrag_impact` | BEFORE editing — check what depends on a file |")
-    parts.append("| `codrag_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action=\"antibodies\"` for immune system. |")
-    parts.append("| `codrag_observe` | Save/retrieve cross-session notes |")
-    parts.append("| `codrag_concepts` | Record/query business rationale and design decisions |")
+    parts.append("| `prep` | START of every task — structural overview, modules, hub files, immune system alerts |")
+    parts.append("| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER). |")
+    parts.append("| `prep_impact` | BEFORE editing — check what depends on a file |")
+    parts.append("| `prep_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action=\"antibodies\"` for immune system. |")
+    parts.append("| `prep_observe` | Save/retrieve cross-session notes |")
+    parts.append("| `prep_concepts` | Record/query business rationale and design decisions |")
     parts.append("")
-    parts.append("Call `codrag` first. Call `codrag_impact` before modifying hub files.")
+    parts.append("Call `prep` first. Call `prep_impact` before modifying hub files.")
     parts.append("All read-only tools are safe to auto-approve.")
     parts.append("")
     parts.append("### Audit Enrichment")
     parts.append("Enrich external lint/analysis findings with structural context:")
     parts.append("```")
-    parts.append("codrag_audit(findings=[{file, line, message, severity, tool}])")
+    parts.append("prep_audit(findings=[{file, line, message, severity, tool}])")
     parts.append("```")
-    parts.append("CoDRAG adds: dependent count, hub status, concepts, risk score, recommendation.")
+    parts.append("Prep adds: dependent count, hub status, concepts, risk score, recommendation.")
     parts.append("Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.")
     parts.append("")
     parts.append("### Search Intent")
-    parts.append("`codrag_search` auto-detects query intent: \"where is X\" → symbol lookup,")
+    parts.append("`prep_search` auto-detects query intent: \"where is X\" → symbol lookup,")
     parts.append("\"why X\" → concepts, \"who imports X\" → trace graph. Override with `intent` param if needed.")
     parts.append("")
 
@@ -419,39 +419,39 @@ def _build_managed_content(
         )
         parts.append("")
         parts.append(
-            "Use `@` to browse CoDRAG resources (atlas, modules, audit). "
+            "Use `@` to browse Prep resources (atlas, modules, audit). "
             "Use `/mcp__codrag__codrag-onboard` for guided orientation."
         )
     elif target == "cursor":
         parts.append(
-            "For specific code lookups, use `codrag_search` with a natural language query.\n"
-            "CoDRAG understands structural relationships — use it instead of\n"
+            "For specific code lookups, use `prep_search` with a natural language query.\n"
+            "Prep understands structural relationships — use it instead of\n"
             "grep when you need to understand how files connect."
         )
     else:
         # Universal (AGENTS.md): verbose, multi-IDE
         parts.append(
-            "You have access to CoDRAG, a structural code intelligence system.\n"
-            "ALWAYS call `codrag` (no arguments) at the START of every task.\n"
+            "You have access to Prep, a structural code intelligence system.\n"
+            "ALWAYS call `prep` (no arguments) at the START of every task.\n"
             "This gives you module structure, hub files, and the user's selected focus areas."
         )
         parts.append("")
         parts.append(
-            "For specific code lookups, use `codrag_search` with a natural language query.\n"
-            "Before making changes to a file, use `codrag_impact` to understand dependencies.\n"
-            "CoDRAG understands structural relationships between files -- use it instead of\n"
+            "For specific code lookups, use `prep_search` with a natural language query.\n"
+            "Before making changes to a file, use `prep_impact` to understand dependencies.\n"
+            "Prep understands structural relationships between files -- use it instead of\n"
             "grep when you need to understand how files connect to each other."
         )
         parts.append("")
         parts.append(
-            "For codebase health and tech debt, use `codrag_audit`.\n"
-            "For cross-session memory, use `codrag_observe` to save/retrieve notes.\n"
-            "All CoDRAG tools are read-only and safe to auto-approve."
+            "For codebase health and tech debt, use `prep_audit`.\n"
+            "For cross-session memory, use `prep_observe` to save/retrieve notes.\n"
+            "All Prep tools are read-only and safe to auto-approve."
         )
         parts.append("")
         parts.append(
             "### Auto-Approve Configuration\n"
-            "To skip approval prompts for CoDRAG's read-only tools, add to your settings:\n"
+            "To skip approval prompts for Prep's read-only tools, add to your settings:\n"
             '```json\n'
             '{ "permissions": { "allow": ["mcp__codrag"] } }\n'
             '```\n'
@@ -462,7 +462,7 @@ def _build_managed_content(
     if atlas_content and atlas_content.strip():
         atlas_hash = hashlib.sha256(atlas_content.strip().encode()).hexdigest()[:12]
         parts.append("")
-        parts.append(f"<!-- codrag-atlas-hash:{atlas_hash} -->")
+        parts.append(f"<!-- prep-atlas-hash:{atlas_hash} -->")
         parts.append("## Codebase Atlas")
         parts.append("")
         parts.append(atlas_content.strip())
@@ -475,58 +475,58 @@ def _build_managed_content(
             parts.append(f"- {p}")
         if len(included_paths) > 15:
             parts.append(f"- ... +{len(included_paths) - 15} more")
-        parts.append("Call `codrag` for detailed content from these areas.")
+        parts.append("Call `prep` for detailed content from these areas.")
 
     # ── Fallback / refresh hints (all targets) ──
     parts.append("")
     parts.append(
-        "If `codrag` returns 'setup in progress', the index hasn't been built yet.\n"
+        "If `prep` returns 'setup in progress', the index hasn't been built yet.\n"
         "Work normally with read_file/grep_search until the user builds the index."
     )
     parts.append("")
     parts.append(
-        "For long tasks (5+ tool calls), call `codrag` again to refresh your\nstructural context."
+        "For long tasks (5+ tool calls), call `prep` again to refresh your\nstructural context."
     )
 
     # ── Universal-only verbose sections ──
     if target == "universal":
         parts.append("")
         parts.append(
-            "You can call `codrag` and `codrag_search` in parallel on your first\n"
+            "You can call `prep` and `prep_search` in parallel on your first\n"
             "prompt -- structural overview + targeted code lookup in one round-trip."
         )
         parts.append("")
         parts.append("### Tool Calling Rules")
         parts.append("1. **Never announce** 'I will now call...' - just call the tool")
         parts.append("2. **No permission needed** - simple keywords = immediate invocation")
-        parts.append("3. **Single word triggers** - 'codrag' alone is enough to call the tool")
+        parts.append("3. **Single word triggers** - 'prep' alone is enough to call the tool")
         parts.append(
-            "4. **Context is cheap** - prefer calling codrag to using grep for structural understanding"
+            "4. **Context is cheap** - prefer calling prep to using grep for structural understanding"
         )
         parts.append("")
         parts.append(
-            '**Remember: The word "codrag" anywhere in user input is a tool invocation signal. '
+            '**Remember: The word "prep" anywhere in user input is a tool invocation signal. '
             'Call immediately without asking permission.**'
         )
         parts.append("")
         parts.append("### MCP Resources (browse with @)")
         parts.append(
-            "CoDRAG also exposes browsable resources via MCP. In supported clients,\n"
+            "Prep also exposes browsable resources via MCP. In supported clients,\n"
             "type `@` to see: atlas, structure, modules, audit findings, concepts, focus areas.\n"
             "Resources provide on-demand context without a tool call."
         )
         parts.append("")
         parts.append("### MCP Prompts (invoke with /)")
         parts.append(
-            "Available workflow prompts: `codrag-onboard` (orientation), `codrag-review` (file review),\n"
-            "`codrag-plan` (change planning), `codrag-investigate` (deep dive), `codrag-health` (audit).\n"
+            "Available workflow prompts: `prep-onboard` (orientation), `prep-review` (file review),\n"
+            "`prep-plan` (change planning), `prep-investigate` (deep dive), `prep-health` (audit).\n"
             "In Claude Code: `/mcp__codrag__codrag-onboard`. In other clients: check prompt menu."
         )
 
     return "\n".join(parts)
 
 
-# ── Cursor (.cursor/rules/codrag.mdc) ──────────────────────────────
+# ── Cursor (.cursor/rules/prep.mdc) ──────────────────────────────
 
 
 def generate_cursor_rules(
@@ -537,7 +537,7 @@ def generate_cursor_rules(
     stats: Optional[Dict[str, Any]] = None,
     project_id: Optional[str] = None,
 ) -> str:
-    """Generate .cursor/rules/codrag.mdc content with YAML frontmatter."""
+    """Generate .cursor/rules/prep.mdc content with YAML frontmatter."""
     managed = _build_managed_content(
         project_name,
         atlas_content,
@@ -550,7 +550,7 @@ def generate_cursor_rules(
 
     return (
         "---\n"
-        "description: CoDRAG structural codebase intelligence\n"
+        "description: Prep structural codebase intelligence\n"
         "alwaysApply: true\n"
         "---\n"
         "\n"
@@ -571,9 +571,9 @@ def _write_cursor_rules(
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
 ) -> bool:
-    """Write or update .cursor/rules/codrag.mdc."""
+    """Write or update .cursor/rules/prep.mdc."""
     rules_dir = project_path / ".cursor" / "rules"
-    target = rules_dir / "codrag.mdc"
+    target = rules_dir / "prep.mdc"
 
     new_content = generate_cursor_rules(
         project_name,
@@ -592,9 +592,9 @@ def _write_cursor_rules(
             # Replace managed section, keep user section
             new_content = new_content.rstrip("\n") + user_section
         elif _CURSOR_MARKER_START not in existing:
-            # File exists but has no CoDRAG markers -- user created it manually.
+            # File exists but has no Prep markers -- user created it manually.
             # Don't overwrite. Append our content at the end.
-            logger.info("Existing codrag.mdc without markers -- appending CoDRAG section")
+            logger.info("Existing prep.mdc without markers -- appending Prep section")
             new_content = existing.rstrip("\n") + "\n\n" + new_content
 
     rules_dir.mkdir(parents=True, exist_ok=True)
@@ -602,7 +602,7 @@ def _write_cursor_rules(
     return True
 
 
-# ── Windsurf (.windsurf/rules/codrag.md) ────────────────────────────
+# ── Windsurf (.windsurf/rules/prep.md) ────────────────────────────
 # NOTE: Windsurf moved from .windsurfrules to .windsurf/rules/*.md
 # with YAML frontmatter (trigger: always_on). We write to the new
 # path but also check for legacy .windsurfrules.
@@ -616,7 +616,7 @@ def generate_windsurf_rules(
     stats: Optional[Dict[str, Any]] = None,
     project_id: Optional[str] = None,
 ) -> str:
-    """Generate .windsurf/rules/codrag.md content with YAML frontmatter."""
+    """Generate .windsurf/rules/prep.md content with YAML frontmatter."""
     managed = _build_managed_content(
         project_name,
         atlas_content,
@@ -629,11 +629,11 @@ def generate_windsurf_rules(
     return (
         "---\n"
         "trigger: always_on\n"
-        "description: CoDRAG structural codebase intelligence\n"
+        "description: Prep structural codebase intelligence\n"
         "---\n"
         "\n"
         f"{_WINDSURF_MARKER_START}\n"
-        f"## CoDRAG Structural Context\n"
+        f"## Prep Structural Context\n"
         "\n"
         f"{managed}\n"
         f"{_WINDSURF_MARKER_END}"
@@ -649,7 +649,7 @@ def _write_windsurf_rules(
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
 ) -> bool:
-    """Write .windsurf/rules/codrag.md (new path) or update legacy .windsurfrules."""
+    """Write .windsurf/rules/prep.md (new path) or update legacy .windsurfrules."""
     new_content = generate_windsurf_rules(
         project_name,
         atlas_content,
@@ -659,9 +659,9 @@ def _write_windsurf_rules(
         project_id=project_id,
     )
 
-    # Prefer new path: .windsurf/rules/codrag.md
+    # Prefer new path: .windsurf/rules/prep.md
     new_dir = project_path / ".windsurf" / "rules"
-    new_target = new_dir / "codrag.md"
+    new_target = new_dir / "prep.md"
     legacy_target = project_path / ".windsurfrules"
 
     if new_dir.exists() or (project_path / ".windsurf").exists():
@@ -699,7 +699,7 @@ def generate_claude_rules(
     stats: Optional[Dict[str, Any]] = None,
     project_id: Optional[str] = None,
 ) -> str:
-    """Generate CoDRAG section for CLAUDE.md."""
+    """Generate Prep section for CLAUDE.md."""
     managed = _build_managed_content(
         project_name,
         atlas_content,
@@ -710,7 +710,7 @@ def generate_claude_rules(
         target="claude",
     )
 
-    return f"{_CLAUDE_MARKER_START}\n# CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
+    return f"{_CLAUDE_MARKER_START}\n# Prep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
 
 
 def _write_claude_rules(
@@ -737,13 +737,13 @@ def _write_claude_rules(
     if target.exists():
         existing = target.read_text(encoding="utf-8")
         if _CLAUDE_MARKER_START in existing:
-            # Replace existing CoDRAG section
+            # Replace existing Prep section
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
             _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
         else:
-            # No CoDRAG section yet -- append
+            # No Prep section yet -- append
             _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
     else:
         _write(target, new_section + "\n")
@@ -751,7 +751,7 @@ def _write_claude_rules(
     return True
 
 
-# ── Claude Code Skills (.claude/skills/codrag.md) ────────────────────
+# ── Claude Code Skills (.claude/skills/prep.md) ────────────────────
 
 
 def _write_claude_skill(
@@ -763,41 +763,41 @@ def _write_claude_skill(
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
 ) -> bool:
-    """Write .claude/skills/codrag.md for Claude Code slash command.
+    """Write .claude/skills/prep.md for Claude Code slash command.
 
-    Creates a /codrag skill that Claude Code users can trigger as a slash
-    command. The skill instructs Claude to call CoDRAG tools in a
+    Creates a /prep skill that Claude Code users can trigger as a slash
+    command. The skill instructs Claude to call Prep tools in a
     structured workflow. Only written if .claude/ directory already exists.
     """
     skills_dir = project_path / ".claude" / "skills"
     skills_dir.mkdir(parents=True, exist_ok=True)
-    target = skills_dir / "codrag.md"
+    target = skills_dir / "prep.md"
 
     content = (
         "---\n"
-        "description: Get structural codebase context from CoDRAG\n"
+        "description: Get structural codebase context from Prep\n"
         "tools:\n"
         "  - mcp__codrag__codrag\n"
         "  - mcp__codrag__codrag_search\n"
         "  - mcp__codrag__codrag_impact\n"
         "---\n"
         "\n"
-        "Call `codrag` to get the structural overview of this codebase -- modules,\n"
+        "Call `prep` to get the structural overview of this codebase -- modules,\n"
         "hub files, and knowledge base content. Use the structural context to\n"
         "inform your approach before reading or editing files.\n"
         "\n"
-        "If the user asked a specific question, also call `codrag_search` with\n"
+        "If the user asked a specific question, also call `prep_search` with\n"
         "their question to find relevant code with structural trace expansion.\n"
         "\n"
-        "Before making changes, call `codrag_impact` on the target file to\n"
+        "Before making changes, call `prep_impact` on the target file to\n"
         "understand what depends on it.\n"
     )
 
     # Don't overwrite if user has customized the skill
     if target.exists():
         existing = target.read_text(encoding="utf-8")
-        if "codrag" in existing.lower() and "---" in existing:
-            return True  # Already has a CoDRAG skill, don't overwrite
+        if "prep" in existing.lower() and "---" in existing:
+            return True  # Already has a Prep skill, don't overwrite
 
     _write(target, content)
     return True
@@ -815,7 +815,7 @@ def _write_agents_md(
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
 ) -> bool:
-    """Write or update AGENTS.md with CoDRAG section.
+    """Write or update AGENTS.md with Prep section.
 
     AGENTS.md is the universal standard read by 22+ tools (Cursor, Windsurf,
     Copilot, Claude Code, Gemini CLI, Roo Code, Zed, Aider, Amp, etc.).
@@ -831,7 +831,7 @@ def _write_agents_md(
         target="universal",
     )
     new_section = (
-        f"{_CLAUDE_MARKER_START}\n## CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
+        f"{_CLAUDE_MARKER_START}\n## Prep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
     )
 
     target = project_path / "AGENTS.md"
@@ -861,9 +861,9 @@ def _write_generic_md(
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
     filename: str = "GEMINI.md",
-    heading: str = "# CoDRAG Integration",
+    heading: str = "# Prep Integration",
 ) -> bool:
-    """Write or update a generic markdown file with CoDRAG section.
+    """Write or update a generic markdown file with Prep section.
 
     Used for GEMINI.md and similar files that use marker-based sections.
     """
@@ -904,7 +904,7 @@ def _write_copilot_rules(
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
 ) -> bool:
-    """Write or update .github/copilot-instructions.md with CoDRAG section."""
+    """Write or update .github/copilot-instructions.md with Prep section."""
     managed = _build_managed_content(
         project_name,
         atlas_content,
@@ -914,7 +914,7 @@ def _write_copilot_rules(
         project_id=project_id,
     )
     new_section = (
-        f"{_CLAUDE_MARKER_START}\n## CoDRAG Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
+        f"{_CLAUDE_MARKER_START}\n## Prep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
     )
 
     github_dir = project_path / ".github"
@@ -947,7 +947,7 @@ def _write_cline_rules(
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
 ) -> bool:
-    """Write or update .clinerules with CoDRAG keyword triggers.
+    """Write or update .clinerules with Prep keyword triggers.
 
     Cline uses keyword-based MCP activation: when the AI sees keywords
     matching a .clinerules entry, it activates the corresponding MCP server.
@@ -964,11 +964,11 @@ def _write_cline_rules(
     trigger_block = (
         "When asked about code structure, architecture, dependencies, modules, "
         "hub files, blast radius, impact analysis, or codebase navigation, "
-        "use the CoDRAG MCP tools.\n\n"
+        "use the Prep MCP tools.\n\n"
     )
     new_section = (
         f"{_CLAUDE_MARKER_START}\n"
-        f"## CoDRAG Integration\n\n"
+        f"## Prep Integration\n\n"
         f"{trigger_block}"
         f"{managed}\n"
         f"{_CLAUDE_MARKER_END}"
@@ -989,7 +989,7 @@ def _write_cline_rules(
     return True
 
 
-# ── Roo Code (.roo/rules/codrag.md) ─────────────────────────────────
+# ── Roo Code (.roo/rules/prep.md) ─────────────────────────────────
 
 
 def _write_roo_rules(
@@ -1001,15 +1001,15 @@ def _write_roo_rules(
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
 ) -> bool:
-    """Write .roo/rules/codrag.md + mode-specific rules for Roo Code.
+    """Write .roo/rules/prep.md + mode-specific rules for Roo Code.
 
     Roo Code reads .roo/rules/*.md files (all modes) and mode-specific
     directories (.roo/rules-architect/, .roo/rules-code/, etc.).
 
     We write:
-    - .roo/rules/codrag.md -- base rules for all modes (full managed content)
-    - .roo/rules-architect/codrag.md -- architecture focus (codrag + codrag_audit)
-    - .roo/rules-code/codrag.md -- change focus (codrag_impact before edits)
+    - .roo/rules/prep.md -- base rules for all modes (full managed content)
+    - .roo/rules-architect/prep.md -- architecture focus (prep + prep_audit)
+    - .roo/rules-code/prep.md -- change focus (prep_impact before edits)
     """
     managed = _build_managed_content(
         project_name,
@@ -1019,35 +1019,35 @@ def _write_roo_rules(
         stats,
         project_id=project_id,
     )
-    content = f"# CoDRAG Integration\n\n{managed}\n"
+    content = f"# Prep Integration\n\n{managed}\n"
 
     # Base rules (all modes)
     rules_dir = project_path / ".roo" / "rules"
     rules_dir.mkdir(parents=True, exist_ok=True)
-    target = rules_dir / "codrag.md"
+    target = rules_dir / "prep.md"
     _write(target, content)
 
     # Mode-specific: Architect -- emphasize structural overview + audit
     arch_dir = project_path / ".roo" / "rules-architect"
     arch_dir.mkdir(parents=True, exist_ok=True)
     arch_content = (
-        "# CoDRAG -- Architect Mode\n\n"
-        "In Architect mode, always start with `codrag` for the structural overview.\n"
-        "Use `codrag_audit` to identify architecture issues, tech debt, and refactoring targets.\n"
-        "Use `codrag_search` to explore how modules and subsystems connect.\n"
+        "# Prep -- Architect Mode\n\n"
+        "In Architect mode, always start with `prep` for the structural overview.\n"
+        "Use `prep_audit` to identify architecture issues, tech debt, and refactoring targets.\n"
+        "Use `prep_search` to explore how modules and subsystems connect.\n"
     )
-    _write(arch_dir / "codrag.md", arch_content)
+    _write(arch_dir / "prep.md", arch_content)
 
     # Mode-specific: Code -- emphasize impact analysis before changes
     code_dir = project_path / ".roo" / "rules-code"
     code_dir.mkdir(parents=True, exist_ok=True)
     code_content = (
-        "# CoDRAG -- Code Mode\n\n"
-        "Before editing files, call `codrag_impact` to understand the blast radius.\n"
-        "Use `codrag_search` to find related code that may need updates.\n"
-        "After finishing changes, use `codrag_observe` to record decisions and patterns.\n"
+        "# Prep -- Code Mode\n\n"
+        "Before editing files, call `prep_impact` to understand the blast radius.\n"
+        "Use `prep_search` to find related code that may need updates.\n"
+        "After finishing changes, use `prep_observe` to record decisions and patterns.\n"
     )
-    _write(code_dir / "codrag.md", code_content)
+    _write(code_dir / "prep.md", code_content)
 
     return True
 

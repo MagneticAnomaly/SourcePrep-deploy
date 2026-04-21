@@ -235,7 +235,7 @@ async def run_http(
             logger.error(f"Error handling message: {e}")
             return Response(status_code=500, content=str(e))
 
-    print(f"[codrag] Starting MCP HTTP server at http://{host}:{port}/sse", file=sys.stderr)
+    print(f"[prep] Starting MCP HTTP server at http://{host}:{port}/sse", file=sys.stderr)
     config = uvicorn.Config(app, host=host, port=port, log_level="warning")
     server = uvicorn.Server(config)
     await server.serve()

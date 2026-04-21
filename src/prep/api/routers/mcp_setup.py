@@ -2,7 +2,7 @@
 
 Provides endpoints for:
   - Generating MCP config snippets for various IDEs (copy-paste flow)
-  - Installing/uninstalling the CoDRAG Paperclip skill globally
+  - Installing/uninstalling the Prep Paperclip skill globally
   - Checking skill installation status
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ router = APIRouter(tags=["mcp"])
 
 
 class SkillInstallRequest(BaseModel):
-    """Request to install or uninstall the CoDRAG Paperclip skill."""
+    """Request to install or uninstall the Prep Paperclip skill."""
     mode: str = "symlink"  # "symlink" or "copy"
 
 
@@ -68,13 +68,13 @@ def mcp_config_get(
 
 @router.post("/paperclip/install-skill")
 def paperclip_install_skill(req: SkillInstallRequest) -> Dict[str, Any]:
-    """Install the CoDRAG skill into ~/.claude/skills/codrag.
+    """Install the Prep skill into ~/.claude/skills/prep.
 
-    This makes CoDRAG available as a Paperclip skill.  Agents can then
+    This makes Prep available as a Paperclip skill.  Agents can then
     enable it via the Skills tab in their Paperclip configuration.
 
     Modes:
-        symlink: (default) Symlinks to the CoDRAG repo source.
+        symlink: (default) Symlinks to the Prep repo source.
                  Best for development — stays in sync automatically.
         copy:    Copies files.  Best when the source tree may move.
     """
@@ -86,7 +86,7 @@ def paperclip_install_skill(req: SkillInstallRequest) -> Dict[str, Any]:
 
 @router.post("/paperclip/uninstall-skill")
 def paperclip_uninstall_skill() -> Dict[str, Any]:
-    """Remove the CoDRAG skill from ~/.claude/skills/codrag."""
+    """Remove the Prep skill from ~/.claude/skills/prep."""
     from prep.paperclip_skill import uninstall_skill
 
     result = uninstall_skill()
@@ -95,7 +95,7 @@ def paperclip_uninstall_skill() -> Dict[str, Any]:
 
 @router.get("/paperclip/skill-status")
 def paperclip_skill_status() -> Dict[str, Any]:
-    """Check if the CoDRAG Paperclip skill is installed.
+    """Check if the Prep Paperclip skill is installed.
 
     Returns installation status, path, and mode (symlink or copy).
     """
@@ -111,4 +111,4 @@ def paperclip_skill_status() -> Dict[str, Any]:
 
 def _get_daemon_url() -> str:
     """Get the daemon URL from the current server config."""
-    return os.environ.get("CODRAG_DAEMON_URL", "http://127.0.0.1:8400")
+    return os.environ.get("PREP_DAEMON_URL", "http://127.0.0.1:8400")

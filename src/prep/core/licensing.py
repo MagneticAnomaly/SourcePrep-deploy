@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # In a real scenario, this would be the public key corresponding to the private key used by the licensing server.
 # For now, we'll use a placeholder or load it from config if needed.
 # This is a random Ed25519 public key for demonstration/dev purposes.
-# We will allow overriding this via env var CODRAG_LICENSE_PUBLIC_KEY for testing.
+# We will allow overriding this via env var PREP_LICENSE_PUBLIC_KEY for testing.
 DEFAULT_PUBLIC_KEY_HEX = "3b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29" 
 
 def verify_license_key(key: str, public_key_hex: Optional[str] = None) -> Optional[Dict[str, Any]]:

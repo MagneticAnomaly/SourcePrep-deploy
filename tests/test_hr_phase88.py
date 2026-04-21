@@ -383,7 +383,7 @@ class TestAdoption:
 
         adopted = engine.adopt_existing_agents(agents_dir, _dummy_llm_fn)
         assert len(adopted) == 1
-        assert "codrag" in adopted[0].knowledge_md.lower()
+        assert "prep" in adopted[0].knowledge_md.lower()
         assert "Project ID" in adopted[0].knowledge_md  # project_id present
 
     def test_adopt_skips_non_directories(

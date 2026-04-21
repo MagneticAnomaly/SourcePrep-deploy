@@ -2,7 +2,7 @@
 Pipeline orchestrator subpackage — stages, workers, and orchestrator.
 
 Re-exports all public symbols so that
-``from codrag.services.pipeline_orchestrator import X`` still works
+``from prep.services.pipeline_orchestrator import X`` still works
 via the backward-compat wrapper in the parent module.
 """
 from .stages import (

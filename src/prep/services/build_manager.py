@@ -1,5 +1,5 @@
 """
-CoDRAG Build Manager Service — Phase 23 Sprint 14
+Prep Build Manager Service — Phase 23 Sprint 14
 ====================================================
 
 **Origin:** Extracted from ``server.py`` globals (lines ~134–158) and helper

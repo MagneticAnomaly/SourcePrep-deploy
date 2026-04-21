@@ -20,13 +20,13 @@ _DEFAULT_CONFIG = {
 def mock_server_config():
     """Provide default server config for all tests."""
     import prep.server
-    orig_config = getattr(codrag.server, '_config', {})
-    orig_load = getattr(codrag.server, '_load_ui_config', lambda: {})
-    codrag.server._config = dict(_DEFAULT_CONFIG)
-    codrag.server._load_ui_config = lambda: {}
+    orig_config = getattr(prep.server, '_config', {})
+    orig_load = getattr(prep.server, '_load_ui_config', lambda: {})
+    prep.server._config = dict(_DEFAULT_CONFIG)
+    prep.server._load_ui_config = lambda: {}
     yield
-    codrag.server._config = orig_config
-    codrag.server._load_ui_config = orig_load
+    prep.server._config = orig_config
+    prep.server._load_ui_config = orig_load
 
 
 class TestEmbedderFactory:
@@ -60,7 +60,7 @@ class TestEmbedderFactory:
     def test_dashboard_huggingface_source(self):
         """Dashboard config with source='huggingface' returns NativeEmbedder."""
         import prep.server
-        codrag.server._load_ui_config = lambda: {
+        prep.server._load_ui_config = lambda: {
             "llm_config": {"embedding": {"source": "huggingface"}},
         }
         with patch('prep.services.embedder_factory.NativeEmbedder') as MockNative:
@@ -74,7 +74,7 @@ class TestEmbedderFactory:
     def test_dashboard_endpoint_source_ollama(self):
         """Dashboard config with endpoint pointing to Ollama returns OllamaEmbedder."""
         import prep.server
-        codrag.server._load_ui_config = lambda: {
+        prep.server._load_ui_config = lambda: {
             "llm_config": {
                 "embedding": {"source": "endpoint", "endpoint_id": "ep-1", "model": "mxbai-embed-large"},
                 "saved_endpoints": [{"id": "ep-1", "provider": "ollama", "url": "http://gpu:11434"}],
@@ -88,7 +88,7 @@ class TestEmbedderFactory:
     def test_cli_ollama_fallback(self):
         """CLI embedding_source='ollama' returns OllamaEmbedder."""
         import prep.server
-        codrag.server._config = {
+        prep.server._config = {
             "ollama_url": "http://remote:11434",
             "model": "custom-embed",
             "embedding_source": "ollama",
@@ -120,7 +120,7 @@ class TestEmbedderFactory:
     def test_dashboard_config_error_falls_through(self):
         """If dashboard config throws, we fall through to CLI/default."""
         import prep.server
-        codrag.server._load_ui_config = MagicMock(side_effect=Exception("disk error"))
+        prep.server._load_ui_config = MagicMock(side_effect=Exception("disk error"))
         # Should not raise — falls through to CLI config
         embedder = create_embedder()
         assert embedder is not None

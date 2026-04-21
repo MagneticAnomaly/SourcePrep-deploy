@@ -1,5 +1,5 @@
 """
-AuditContext loader for CoDRAG (Phase 43).
+AuditContext loader for Prep (Phase 43).
 
 Reads all trace graph data into memory once, providing a unified
 context object that all analyzers share.

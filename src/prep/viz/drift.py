@@ -1,5 +1,5 @@
 """
-CoDRAG CLI Index Drift Visualization
+Prep CLI Index Drift Visualization
 
 Visualizes the "freshness" of the index compared to the filesystem.
 Identifies "rotting" files (modified after indexing) and age distribution.

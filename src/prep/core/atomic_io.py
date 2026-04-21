@@ -8,7 +8,7 @@ data instead of the prior valid file.
 
 The helpers in this module write to a sibling temp path, fsync, then
 rename over the final path. On the same filesystem (always true for
-files under the project's `.codrag/` directory), `os.replace` is an
+files under the project's `.prep/` directory), `os.replace` is an
 atomic rename — either the reader sees the old file or the new one,
 never a half-file.
 """

@@ -28,7 +28,7 @@ class TestStageManifest:
             stage_id="catalogue",
             run_id="run-abc",
             project_id="proj-1",
-            codrag_version="0.9.0",
+            prep_version="0.9.0",
             engine_backend="rust",
             started_at="2026-03-11T23:45:00Z",
             finished_at="2026-03-11T23:47:30Z",
@@ -39,7 +39,7 @@ class TestStageManifest:
         d = m.to_dict()
         assert d["stage_id"] == "catalogue"
         assert d["run_id"] == "run-abc"
-        assert d["codrag_version"] == "0.9.0"
+        assert d["prep_version"] == "0.9.0"
         assert d["model"]["provider"] == "ollama"
         assert d["quality"]["avg_confidence"] == 0.87
 
@@ -51,7 +51,7 @@ class TestStageManifest:
         from prep.core.stage_manifest import (
             StageManifest, save_stage_manifest, load_stage_manifest,
         )
-        m = StageManifest(stage_id="enrichment", codrag_version="0.9.0")
+        m = StageManifest(stage_id="enrichment", prep_version="0.9.0")
         path = tmp_path / "test_manifest.json"
         save_stage_manifest(m, path)
         assert path.exists()
@@ -71,7 +71,7 @@ class TestStageManifest:
         assert m.stage_id == "catalogue"
         assert m.run_id == "run-1"
         assert m.started_at is not None
-        assert m.codrag_version != ""
+        assert m.prep_version != ""
 
     def test_minimal_manifest(self):
         from prep.core.stage_manifest import StageManifest
@@ -306,7 +306,7 @@ class TestPipelineRunMetadata:
         assert len(meta.stages) == 3
         assert meta.stages[0].stage_id == "structural"
         assert meta.started_at is not None
-        assert meta.codrag_version != ""
+        assert meta.prep_version != ""
 
     def test_mark_stage_completed(self):
         from prep.services.pipeline_metadata import (

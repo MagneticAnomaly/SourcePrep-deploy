@@ -1,4 +1,4 @@
-"""CoDRAG autonomous agent subsystem.
+"""Prep autonomous agent subsystem.
 
 Three agents share a common AgentCore:
 - Staffing Agent (hr/) — generates and audits Paperclip agent roles

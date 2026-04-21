@@ -1,17 +1,17 @@
 """
 Pi Agent — Phase 66: Proactive Intelligence Agent
 
-Autonomous background analysis agent that runs within the CoDRAG daemon.
+Autonomous background analysis agent that runs within the Prep daemon.
 Provides 7 intelligence scenarios that execute after pipeline completions
 or on scheduled intervals.
 
 Design principles:
   - Runs as a daemon thread (no separate process)
-  - Imports CoDRAG modules directly (no MCP serialization overhead)
-  - Uses CoDRAG's LLMClient (inherits OutputMonitor, rate limiting, JSON repair)
+  - Imports Prep modules directly (no MCP serialization overhead)
+  - Uses Prep's LLMClient (inherits OutputMonitor, rate limiting, JSON repair)
   - Respects AgentConcurrencyGate (defers to pipeline)
   - Token telemetry is automatic via LLMClient
-  - All results written to codrag_observe (cross-session memory)
+  - All results written to prep_observe (cross-session memory)
   - Works with aggregated ActionItems (50-200), never raw nodes (5,000+)
 
 Scenarios:
@@ -162,7 +162,7 @@ class PiAgent:
 
         Steps:
           1. Check agent gate (defer if pipeline still using LLM)
-          2. Run codrag_audit scan (pure Python, ~5s)
+          2. Run prep_audit scan (pure Python, ~5s)
           3. Load previous scan summary from observations
           4. Compute delta (new/resolved findings)
           5. If delta is non-empty: summarize with LLM (~74s local)
@@ -229,7 +229,7 @@ class PiAgent:
     def run_librarian(self) -> Optional[Dict[str, Any]]:
         """Clean up stale and orphaned observations.
 
-        Checks codrag_observe entries for:
+        Checks prep_observe entries for:
         - Stale observations (linked file changed since observation was saved)
         - Orphaned observations (referenced file no longer exists)
 
@@ -307,7 +307,7 @@ class PiAgent:
         Steps:
           1. Get current audit findings
           2. Select TOP N critical/warning findings
-          3. Run codrag_impact on each (graph traversal, no LLM, ~100ms each)
+          3. Run prep_impact on each (graph traversal, no LLM, ~100ms each)
           4. Group by shared impacted files (potential root causes)
           5. Save triage summary
 
@@ -975,7 +975,7 @@ class PiAgent:
 
             result = engine.push(
                 items,
-                codrag_project_id=self.project_id,
+                prep_project_id=self.project_id,
                 strategy=config.consolidation_strategy,
                 min_priority=config.min_priority,
                 exclude_categories=config.exclude_categories or None,
@@ -1019,7 +1019,7 @@ class PiAgent:
     def _get_current_scan_summary(self) -> Optional[Dict[str, Any]]:
         """Run audit scan and return a summary dict.
 
-        Uses the same audit runner as codrag_audit(action="scan").
+        Uses the same audit runner as prep_audit(action="scan").
         Pure Python, no LLM, takes ~2-5 seconds.
         """
         try:

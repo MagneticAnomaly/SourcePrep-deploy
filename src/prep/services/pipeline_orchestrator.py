@@ -1,7 +1,7 @@
 """
 Backward-compat wrapper — re-exports everything from the pipeline subpackage.
 
-All 26+ import sites that do ``from codrag.services.pipeline_orchestrator import X``
+All 26+ import sites that do ``from prep.services.pipeline_orchestrator import X``
 continue to work without modification.
 """
 from prep.services.pipeline import (  # noqa: F401

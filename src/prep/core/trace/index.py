@@ -1,7 +1,7 @@
 """
 TraceIndex — query interface for a built trace graph.
 
-Dual backend: Rust TraceHandle when CODRAG_ENGINE=rust, else Python dicts.
+Dual backend: Rust TraceHandle when PREP_ENGINE=rust, else Python dicts.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ except ImportError:
 class TraceIndex:
     """
     Query interface for a built trace index.
-    Uses Rust TraceHandle when CODRAG_ENGINE=rust, else Python dicts.
+    Uses Rust TraceHandle when PREP_ENGINE=rust, else Python dicts.
     """
 
     def __init__(self, index_dir: Path):
@@ -217,7 +217,7 @@ class TraceIndex:
             if engine == "python":
                 degraded_reason = (
                     "The Python fallback analyzer only extracts relationships for .py files. "
-                    "Install the Rust engine (pip install codrag-engine) for full "
+                    "Install the Rust engine (pip install prep-engine) for full "
                     "TypeScript/JavaScript/Go/Rust/Java/C/C++ analysis."
                 )
             else:

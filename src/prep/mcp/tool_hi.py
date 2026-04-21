@@ -6,7 +6,7 @@ protocol handling. This tool aggregates project state from multiple
 endpoints and returns a friendly markdown summary with health notes
 and content-aware suggested prompts.
 
-Phase 32: codrag_hi — Selected Files as Primary Context.
+Phase 32: prep_hi — Selected Files as Primary Context.
 Phase 50: Preserved as standalone module; routed via alias dispatch.
 """
 from __future__ import annotations
@@ -269,7 +269,7 @@ async def tool_hi(server: MCPServer, project_override: Optional[str] = None) -> 
     # Health observations
     observations: List[str] = []
     if not index_exists:
-        observations.append("No index exists yet -- build from the CoDRAG dashboard to get started.")
+        observations.append("No index exists yet -- build from the Prep dashboard to get started.")
     elif building:
         observations.append("Index is currently building -- results will improve once it finishes.")
     elif stale:
@@ -415,8 +415,8 @@ async def tool_hi(server: MCPServer, project_override: Optional[str] = None) -> 
         "Offer the suggested prompts as numbered options. Speak in first person.\n\n"
         "WITH A QUESTION (user said 'hi_codrag' AND asked something): Briefly "
         "acknowledge the selected files (1 sentence), then address their question. "
-        "Use codrag_search to retrieve specific content from the selected files.\n\n"
-        "DEEPER CONTEXT: For detailed file content, call `codrag` (the ambient "
+        "Use prep_search to retrieve specific content from the selected files.\n\n"
+        "DEEPER CONTEXT: For detailed file content, call `prep` (the ambient "
         "context tool) -- it returns LOD-stratified content from hub files and "
         "module summaries. Use it when the user picks a suggested prompt or asks "
         "a specific question about the selected files."
@@ -504,7 +504,7 @@ def _build_prompts(
     prompts: List[str] = []
 
     if not index_exists:
-        prompts.append("Build the index from the CoDRAG dashboard to get started.")
+        prompts.append("Build the index from the Prep dashboard to get started.")
         return prompts
 
     # Doc-aware prompts
@@ -545,7 +545,7 @@ def _build_prompts(
         prompts.append("What are the most connected files and why?")
 
     if stale:
-        prompts.append("Rebuild the index from the CoDRAG dashboard to refresh.")
+        prompts.append("Rebuild the index from the Prep dashboard to refresh.")
 
     if stale_file_paths and not stale:
         stale_sample = ", ".join(f"`{Path(sp).name}`" for sp in stale_file_paths[:3])

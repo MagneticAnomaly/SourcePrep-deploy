@@ -69,7 +69,7 @@ class TestFullPipeline:
             assert len(role.agents_md) > 0
             assert len(role.soul_md) > 0
             assert len(role.knowledge_md) > 0
-            assert "codrag" in role.knowledge_md
+            assert "prep" in role.knowledge_md
 
         # 4. Verify roster persistence
         roster = Roster(rich_index)

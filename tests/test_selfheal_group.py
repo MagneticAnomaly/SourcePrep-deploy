@@ -172,11 +172,11 @@ class TestSelfhealGroup:
     def test_disabled_via_env_var(
         self, idx_dir: Path, pfl: MagicMock,
     ) -> None:
-        """CODRAG_SELFHEAL=0 -> disabled, nothing resurrected."""
+        """PREP_SELFHEAL=0 -> disabled, nothing resurrected."""
         stage = StageId.ENRICHMENT
         _make_golden(idx_dir, stage)
 
-        with patch.dict("os.environ", {"CODRAG_SELFHEAL": "0"}):
+        with patch.dict("os.environ", {"PREP_SELFHEAL": "0"}):
             result = RecoveryManager.selfheal_group(
                 project_id="test-proj",
                 stages=[stage],

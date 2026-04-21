@@ -1,5 +1,5 @@
 """
-CoDRAG Scope Orchestrator — Phase 24 (SM-8: Knowledge Scope Pipeline)
+Prep Scope Orchestrator — Phase 24 (SM-8: Knowledge Scope Pipeline)
 ======================================================================
 
 Manages the Knowledge Scope (File Tree) pipeline: when users add/remove

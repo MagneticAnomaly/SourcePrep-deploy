@@ -1,5 +1,5 @@
 """
-Role Resolver for CoDRAG Role Composition Engine (Phase 64A).
+Role Resolver for Prep Role Composition Engine (Phase 64A).
 
 Maps arbitrary role strings to RoleVector instances using three strategies:
   A. Exact match against built-in roles

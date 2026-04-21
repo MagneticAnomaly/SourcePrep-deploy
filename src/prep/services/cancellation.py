@@ -1,5 +1,5 @@
 """
-CoDRAG Pipeline Cancellation Token — Cooperative Cancel/Pause
+Prep Pipeline Cancellation Token — Cooperative Cancel/Pause
 =============================================================
 
 Provides a thread-safe token that pipeline workers check periodically

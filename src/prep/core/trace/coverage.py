@@ -91,7 +91,7 @@ def compute_trace_coverage(
         # User-provided exclude_globs — make a mutable copy
         exclude_globs = list(exclude_globs)
     # Phase 89: Always include system-level file exclusions (e.g. AGENTS.md).
-    # These are CoDRAG-generated files that should never appear as "untraced".
+    # These are Prep-generated files that should never appear as "untraced".
     # Previously only added when exclude_globs was None, causing AGENTS.md
     # files to show as permanently untraced when project had custom excludes.
     for pattern in DEFAULT_EXCLUDE_FILE_GLOBS:

@@ -1,4 +1,4 @@
-"""Concept conflict detection for CoDRAG.
+"""Concept conflict detection for Prep.
 
 Detects POTENTIAL conflicts: active constraint/architecture concepts that
 share anchors. Shared anchors are a heuristic — two concepts anchored to

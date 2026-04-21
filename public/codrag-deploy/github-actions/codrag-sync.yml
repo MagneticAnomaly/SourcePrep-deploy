@@ -23,7 +23,7 @@ concurrency:
 jobs:
   # ── Mode 1: CPU + BYOK (runs in the Actions runner) ─────────
   sync-cpu:
-    if: ${{ vars.CODRAG_SYNC_MODE != 'gpu' }}
+    if: ${{ vars.PREP_SYNC_MODE != 'gpu' }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/ericbintner/codrag-headless:cpu
@@ -34,32 +34,32 @@ jobs:
 
       - name: Build & Upload Index
         env:
-          CODRAG_S3_ENDPOINT: ${{ secrets.CODRAG_S3_ENDPOINT }}
-          CODRAG_S3_BUCKET: ${{ secrets.CODRAG_S3_BUCKET }}
-          CODRAG_S3_PREFIX: ${{ github.event.repository.name }}/${{ github.ref_name }}
-          CODRAG_S3_ACCESS_KEY: ${{ secrets.CODRAG_S3_ACCESS_KEY }}
-          CODRAG_S3_SECRET_KEY: ${{ secrets.CODRAG_S3_SECRET_KEY }}
+          PREP_S3_ENDPOINT: ${{ secrets.PREP_S3_ENDPOINT }}
+          PREP_S3_BUCKET: ${{ secrets.PREP_S3_BUCKET }}
+          PREP_S3_PREFIX: ${{ github.event.repository.name }}/${{ github.ref_name }}
+          PREP_S3_ACCESS_KEY: ${{ secrets.PREP_S3_ACCESS_KEY }}
+          PREP_S3_SECRET_KEY: ${{ secrets.PREP_S3_SECRET_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           codrag sync-headless \
             --repo-path . \
             --branch "${{ github.ref_name }}" \
-            --model-provider "${CODRAG_MODEL_PROVIDER:-openai}" \
-            --model-name "${CODRAG_MODEL_NAME:-gpt-4.1-mini}" \
+            --model-provider "${PREP_MODEL_PROVIDER:-openai}" \
+            --model-name "${PREP_MODEL_NAME:-gpt-4.1-mini}" \
             --embedder native
 
   # ── Mode 2: GPU webhook (triggers RunPod/Modal) ─────────────
   sync-gpu:
-    if: ${{ vars.CODRAG_SYNC_MODE == 'gpu' }}
+    if: ${{ vars.PREP_SYNC_MODE == 'gpu' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
       - name: Trigger GPU Indexer
         env:
-          WEBHOOK_URL: ${{ secrets.CODRAG_GPU_WEBHOOK_URL }}
-          WEBHOOK_SECRET: ${{ secrets.CODRAG_GPU_WEBHOOK_SECRET }}
+          WEBHOOK_URL: ${{ secrets.PREP_GPU_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.PREP_GPU_WEBHOOK_SECRET }}
         run: |
           curl -sf -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \

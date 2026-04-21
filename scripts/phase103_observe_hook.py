@@ -4,7 +4,7 @@ Phase 103 R7 — PostToolUse hook: auto-capture observations from edits.
 
 Designed as a Claude Code PostToolUse hook that runs after Edit / Write
 tool invocations. Writes a single minimal observation row to the
-CoDRAG observations store.  No daemon dependency (stdlib + sqlite3).
+Prep observations store.  No daemon dependency (stdlib + sqlite3).
 
 Two invocation modes:
 
@@ -16,13 +16,13 @@ Two invocation modes:
      writes an observation describing the edit.
 
   2. File-path mode (manual / testing):
-       python scripts/phase103_observe_hook.py --file src/codrag/... \
+       python scripts/phase103_observe_hook.py --file src/prep/... \
          --tool Edit [--project-id ...]
 
 Exits 0 on success (even when nothing written — hooks must not block
 the agent). Prints a single-line status to stderr for observability.
-Observation store path defaults to ``codrag_data/codrag_observations.db``
-relative to the repo root (auto-detected via CODRAG_DATA_DIR or
+Observation store path defaults to ``codrag_data/prep_observations.db``
+relative to the repo root (auto-detected via PREP_DATA_DIR or
 fallback to the git toplevel).
 
 .claude/settings.json install snippet::
@@ -69,7 +69,7 @@ AGENT_ARTIFACT_PREFIXES = (
 
 
 def resolve_data_dir() -> Path:
-    env = os.environ.get("CODRAG_DATA_DIR")
+    env = os.environ.get("PREP_DATA_DIR")
     if env:
         return Path(env)
     # Try git toplevel / codrag_data
@@ -180,7 +180,7 @@ def main() -> int:
     p.add_argument("--file", help="File path (manual-test mode)")
     p.add_argument("--tool", default="Edit", help="Tool name (manual-test mode)")
     p.add_argument("--project-id", default=os.environ.get(
-        "CODRAG_PROJECT_ID", "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b"))
+        "PREP_PROJECT_ID", "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b"))
     p.add_argument("--db", type=Path, default=None)
     p.add_argument("--quiet", action="store_true")
     args = p.parse_args()
@@ -200,7 +200,7 @@ def main() -> int:
             print(f"[r7-hook] skip: {reason}", file=sys.stderr)
         return 0
 
-    db = args.db or (resolve_data_dir() / "codrag_observations.db")
+    db = args.db or (resolve_data_dir() / "prep_observations.db")
     obs = build_observation(
         file_path=file_path,
         tool_name=tool_name,

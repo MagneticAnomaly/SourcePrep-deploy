@@ -1,15 +1,15 @@
 """
-Gold query evaluation runner for CoDRAG search + atlas quality.
+Gold query evaluation runner for Prep search + atlas quality.
 
 Usage:
     # Legacy: search-quality eval (condition A baseline, uniform)
-    python -m tests.eval.eval_runner --repo /path/to/codrag
-    python -m tests.eval.eval_runner --repo /path/to/codrag --query gq-001
+    python -m tests.eval.eval_runner --repo /path/to/prep
+    python -m tests.eval.eval_runner --repo /path/to/prep --query gq-001
 
     # Phase 103 POC: atlas-mode with conditions
-    python -m tests.eval.eval_runner --repo /path/to/codrag --mode atlas --condition A
-    python -m tests.eval.eval_runner --repo /path/to/codrag --mode atlas --condition B --role security
-    python -m tests.eval.eval_runner --repo /path/to/codrag --mode atlas --condition B --role security --output-json results.json
+    python -m tests.eval.eval_runner --repo /path/to/prep --mode atlas --condition A
+    python -m tests.eval.eval_runner --repo /path/to/prep --mode atlas --condition B --role security
+    python -m tests.eval.eval_runner --repo /path/to/prep --mode atlas --condition B --role security --output-json results.json
 
 Conditions (Phase 103 R3):
     A = uniform atlas (neutral RoleVector, no domain weighting)
@@ -157,7 +157,7 @@ def _neutral_role_vector(max_chars: int = 4000):
     full at 1.0. Budget matches practitioner tier so A never loses on
     pure size.
     """
-    from codrag.core.atlas.role_vectors import RoleVector
+    from prep.core.atlas.role_vectors import RoleVector
 
     all_layers = {
         "presentation": 1.0, "business_logic": 1.0, "data": 1.0,
@@ -166,7 +166,7 @@ def _neutral_role_vector(max_chars: int = 4000):
     }
 
     # Stable, codebase-universal terms. Chosen as the top-frequency
-    # tags observed in trace_epistemic.jsonl for CoDRAG (ui, testing, mcp,
+    # tags observed in trace_epistemic.jsonl for Prep (ui, testing, mcp,
     # react, typescript, documentation, python, security, pipeline-
     # orchestration, cli, dashboard, configuration, rag). NOT sourced
     # from BUILT_IN_ROLES — so role calibration work below does not
@@ -197,15 +197,15 @@ def assemble_atlas_context(
     """Assemble the context string an agent would receive for a given condition.
 
     This is the Phase 103 POC's primary measurement primitive — the thing
-    `codrag(role=...)` returns in production.
+    `prep(role=...)` returns in production.
 
     - Condition A → neutral role vector (uniform baseline)
     - Condition B → resolved role vector (knowledge-honing thesis)
     - Conditions C/D → same as A/B for now; persona wrapping is applied later
       by the LLM-call layer (not yet wired)
     """
-    from codrag.core.atlas.role_projection import project_atlas_for_role
-    from codrag.core.atlas.role_resolver import resolve_role
+    from prep.core.atlas.role_projection import project_atlas_for_role
+    from prep.core.atlas.role_resolver import resolve_role
 
     if condition in ("A", "C"):
         role_vec = _neutral_role_vector()
@@ -298,7 +298,7 @@ def evaluate_query_atlas(
     """Evaluate a gold query against assembled atlas text.
 
     Whereas `evaluate_query` measures search-index quality, this measures
-    whether the context we'd HAND to an agent via `codrag(role=...)` contains
+    whether the context we'd HAND to an agent via `prep(role=...)` contains
     the files/keywords needed for the task.
 
     Scoring (post-R3 baseline Run 01 tuning):
@@ -390,10 +390,10 @@ def run_evaluation_atlas(
         print("No queries to evaluate")
         return []
 
-    # Locate index: daemon embedded mode uses .codrag/ directly;
-    # CodeIndex.build() writes to .codrag/index/. Prefer whichever has
+    # Locate index: daemon embedded mode uses .prep/ directly;
+    # CodeIndex.build() writes to .prep/index/. Prefer whichever has
     # trace_modules.jsonl (what role projection actually consumes).
-    candidates = [repo_root / ".codrag", repo_root / ".codrag" / "index"]
+    candidates = [repo_root / ".prep", repo_root / ".prep" / "index"]
     index_dir = next((c for c in candidates if (c / "trace_modules.jsonl").exists()), None)
     if index_dir is None:
         # Fall back to whichever exists so project_atlas_for_role can still
@@ -457,7 +457,7 @@ def run_evaluation(
     verbose: bool = False,
 ) -> List[QueryResult]:
     """Run evaluation on gold queries."""
-    from codrag.core import CodeIndex, FakeEmbedder, OllamaEmbedder
+    from prep.core import CodeIndex, FakeEmbedder, OllamaEmbedder
     
     # Load gold queries
     gold = load_gold_queries()
@@ -472,7 +472,7 @@ def run_evaluation(
         return []
     
     # Find or create index
-    index_dir = repo_root / ".codrag" / "index"
+    index_dir = repo_root / ".prep" / "index"
     
     # Try to use real embedder, fall back to fake
     try:
@@ -541,7 +541,7 @@ def print_summary(results: List[QueryResult]) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate CoDRAG search + atlas quality")
+    parser = argparse.ArgumentParser(description="Evaluate Prep search + atlas quality")
     parser.add_argument("--repo", type=Path, required=True, help="Repository root path")
     parser.add_argument("--query", type=str, action="append", help="Specific query ID(s) to run")
     parser.add_argument("--k", type=int, default=10, help="Number of search results (search mode)")

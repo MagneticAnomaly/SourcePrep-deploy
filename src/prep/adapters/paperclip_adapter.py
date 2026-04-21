@@ -10,7 +10,7 @@ Paperclip entity hierarchy:
 API base: http://localhost:3100/api
 Auth: Bearer token or session cookie
 
-Dedup strategy: CoDRAG addresses are embedded in issue descriptions.
+Dedup strategy: Prep addresses are embedded in issue descriptions.
 find_issue_by_codrag_address() searches existing issues for the address
 string, since Paperclip has no native externalId field.
 """
@@ -24,7 +24,7 @@ from urllib.request import Request, urlopen
 
 from prep.adapters.pm_adapter import PMAdapter
 from prep.adapters.pm_models import (
-    CODRAG_TO_PM_PRIORITY,
+    PREP_TO_PM_PRIORITY,
     PMGoal,
     PMIssue,
     PMProject,
@@ -240,10 +240,10 @@ class PaperclipAdapter(PMAdapter):
             return False
 
     def find_issue_by_codrag_address(self, address: str) -> Optional[str]:
-        """Search existing issues for one containing this CoDRAG address.
+        """Search existing issues for one containing this Prep address.
 
         Since Paperclip doesn't have a native externalId field, we embed
-        the CoDRAG address in the issue description and search for it.
+        the Prep address in the issue description and search for it.
         """
         try:
             issues = self.list_issues()
@@ -285,10 +285,10 @@ class PaperclipAdapter(PMAdapter):
     # ── Description Builder ──────────────────────────────────────
 
     def _build_description(self, issue: PMIssue) -> str:
-        """Build rich Markdown description with CoDRAG context hooks.
+        """Build rich Markdown description with Prep context hooks.
 
-        The description includes the CoDRAG address and MCP command
-        so Paperclip agents can call back to CoDRAG for live context.
+        The description includes the Prep address and MCP command
+        so Paperclip agents can call back to Prep for live context.
         """
         lines: List[str] = [issue.description]
 
@@ -310,13 +310,13 @@ class PaperclipAdapter(PMAdapter):
             if len(issue.affected_files) > 15:
                 lines.append(f"- _...and {len(issue.affected_files) - 15} more_")
 
-        # CoDRAG integration block
+        # Prep integration block
         lines.append("")
         lines.append("---")
-        lines.append("### 🔍 CoDRAG Context")
+        lines.append("### 🔍 Prep Context")
         lines.append("")
-        if issue.codrag_address:
-            lines.append(f"**CoDRAG Address:** `{issue.codrag_address}`")
+        if issue.prep_address:
+            lines.append(f"**Prep Address:** `{issue.prep_address}`")
         lines.append(f"**Priority:** {issue.priority} | **Effort:** {issue.effort}")
         lines.append(f"**Category:** {issue.category}")
         if issue.mcp_command:

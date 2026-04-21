@@ -11,7 +11,7 @@ SAMPLE_PYTHON = '''"""
 Pipeline orchestrator for multi-stage builds.
 
 This module coordinates build stages, manages dependencies,
-and handles error recovery for the CoDRAG indexing pipeline.
+and handles error recovery for the Prep indexing pipeline.
 """
 
 from __future__ import annotations

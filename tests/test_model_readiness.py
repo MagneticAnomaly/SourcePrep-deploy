@@ -1,5 +1,5 @@
 """
-Tests for codrag.core.model_readiness module.
+Tests for prep.core.model_readiness module.
 
 Uses unittest.mock to simulate Ollama API responses without requiring
 a live Ollama server.
@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Import the module directly to avoid heavy codrag.core.__init__.py chain
+# Import the module directly to avoid heavy prep.core.__init__.py chain
 _mod_path = Path(__file__).resolve().parent.parent / "src" / "prep" / "core" / "model_readiness.py"
 _spec = importlib.util.spec_from_file_location("prep.core.model_readiness", _mod_path)
 _mr = importlib.util.module_from_spec(_spec)
@@ -50,7 +50,7 @@ lmstudio_unload = _mr.lmstudio_unload
 lmstudio_get_status = _mr.lmstudio_get_status
 lmstudio_ensure_ready = _mr.lmstudio_ensure_ready
 
-# Module-level patch target (avoids string-based patching through codrag.* path)
+# Module-level patch target (avoids string-based patching through prep.* path)
 _MR = "prep.core.model_readiness"
 
 

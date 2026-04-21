@@ -1,9 +1,9 @@
-"""Phase 113 Step 1 — codrag.core.paths.data_dir() resolution.
+"""Phase 113 Step 1 — prep.core.paths.data_dir() resolution.
 
 Pre-fix state: there was no single path helper. Several callers
 (server.py, config_manager.py, build_manager.py) defaulted to
-`./codrag_data` while project_registry.codrag_data_dir() returned
-`~/.local/share/codrag/`. Post-fix, every caller routes through
+`./codrag_data` while project_registry.prep_data_dir() returned
+`~/.local/share/prep/`. Post-fix, every caller routes through
 `paths.data_dir()`.
 """
 from __future__ import annotations
@@ -19,35 +19,35 @@ from prep.core.paths import data_dir, legacy_cwd_data_dir
 
 
 def test_env_var_overrides_default() -> None:
-    """CODRAG_DATA_DIR (absolute) takes precedence over ~/.local/share/codrag."""
+    """PREP_DATA_DIR (absolute) takes precedence over ~/.local/share/prep."""
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td).resolve()
-        with patch.dict(os.environ, {"CODRAG_DATA_DIR": str(td_path)}):
+        with patch.dict(os.environ, {"PREP_DATA_DIR": str(td_path)}):
             resolved = data_dir()
         assert resolved == td_path
 
 
 def test_env_var_must_be_absolute() -> None:
-    """A relative CODRAG_DATA_DIR must raise — we refuse CWD-drift."""
-    with patch.dict(os.environ, {"CODRAG_DATA_DIR": "relative/path"}):
+    """A relative PREP_DATA_DIR must raise — we refuse CWD-drift."""
+    with patch.dict(os.environ, {"PREP_DATA_DIR": "relative/path"}):
         with pytest.raises(ValueError, match="absolute"):
             data_dir()
 
 
 def test_default_is_xdg() -> None:
-    """With no env var, default is ~/.local/share/codrag."""
+    """With no env var, default is ~/.local/share/prep."""
     with patch.dict(os.environ, {}, clear=False):
-        os.environ.pop("CODRAG_DATA_DIR", None)
+        os.environ.pop("PREP_DATA_DIR", None)
         resolved = data_dir()
-    assert resolved == Path.home() / ".local" / "share" / "codrag"
+    assert resolved == Path.home() / ".local" / "share" / "prep"
 
 
 def test_env_var_path_is_created() -> None:
     """data_dir() must create the directory if absent (parents=True)."""
     with tempfile.TemporaryDirectory() as td:
-        td_path = Path(td).resolve() / "nested" / "codrag"
+        td_path = Path(td).resolve() / "nested" / "prep"
         assert not td_path.exists()
-        with patch.dict(os.environ, {"CODRAG_DATA_DIR": str(td_path)}):
+        with patch.dict(os.environ, {"PREP_DATA_DIR": str(td_path)}):
             resolved = data_dir()
         assert resolved.is_dir()
         assert resolved == td_path
@@ -58,9 +58,9 @@ def test_env_var_expanduser() -> None:
     with tempfile.TemporaryDirectory() as td:
         td_path = Path(td).resolve()
         # Simulate ~-prefixed value by pointing HOME at td
-        with patch.dict(os.environ, {"HOME": str(td_path), "CODRAG_DATA_DIR": "~/codrag"}):
+        with patch.dict(os.environ, {"HOME": str(td_path), "PREP_DATA_DIR": "~/prep"}):
             resolved = data_dir()
-        assert resolved == td_path / "codrag"
+        assert resolved == td_path / "prep"
 
 
 def test_legacy_cwd_data_dir_is_relative_to_arg() -> None:
@@ -71,7 +71,7 @@ def test_legacy_cwd_data_dir_is_relative_to_arg() -> None:
 
 
 def test_empty_env_var_falls_through_to_default() -> None:
-    """An empty CODRAG_DATA_DIR is treated as unset."""
-    with patch.dict(os.environ, {"CODRAG_DATA_DIR": "  "}):
+    """An empty PREP_DATA_DIR is treated as unset."""
+    with patch.dict(os.environ, {"PREP_DATA_DIR": "  "}):
         resolved = data_dir()
-    assert resolved == Path.home() / ".local" / "share" / "codrag"
+    assert resolved == Path.home() / ".local" / "share" / "prep"

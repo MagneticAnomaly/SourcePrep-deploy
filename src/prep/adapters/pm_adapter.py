@@ -83,9 +83,9 @@ class PMAdapter(ABC):
 
     @abstractmethod
     def find_issue_by_codrag_address(self, address: str) -> Optional[str]:
-        """Find an existing issue by its CoDRAG address.
+        """Find an existing issue by its Prep address.
 
-        Used for dedup — if an issue with this CoDRAG address already
+        Used for dedup — if an issue with this Prep address already
         exists, we update it instead of creating a duplicate.
 
         Returns:

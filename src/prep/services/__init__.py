@@ -1,1 +1,1 @@
-# Service layer for CoDRAG — encapsulates threading, state, and business logic.
+# Service layer for Prep — encapsulates threading, state, and business logic.

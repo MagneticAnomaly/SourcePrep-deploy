@@ -1,7 +1,7 @@
 """
-Codebase Atlas subsystem for CoDRAG.
+Codebase Atlas subsystem for Prep.
 
-Re-exports all public symbols so that ``from codrag.core.atlas import X``
+Re-exports all public symbols so that ``from prep.core.atlas import X``
 continues to work after the split into a subpackage.
 """
 from .models import (

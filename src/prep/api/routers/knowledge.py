@@ -1,5 +1,5 @@
 """
-CoDRAG Knowledge Router — Phase 23 Sprint 12
+Prep Knowledge Router — Phase 23 Sprint 12
 ===============================================
 
 **Origin:** Extracted from ``server.py`` (lines ~3148–3253 in the original).

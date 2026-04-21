@@ -1,5 +1,5 @@
 """
-AutoAudit Tier 2 synthesizer for CoDRAG (Phase 43).
+AutoAudit Tier 2 synthesizer for Prep (Phase 43).
 
 Takes Tier 1 findings + graph data and uses an LLM to generate
 user-facing markdown report documents.

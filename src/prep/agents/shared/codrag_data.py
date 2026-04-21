@@ -1,4 +1,4 @@
-"""Read-only facade wrapping CoDRAG's internal data sources for agent engines.
+"""Read-only facade wrapping Prep's internal data sources for agent engines.
 
 Provides a stable, simplified interface to OpportunityManager, CodebaseAtlas,
 TraceIndex, and ObservationStore — shielding agent code from internal API changes.
@@ -12,14 +12,14 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
-class CoDRAGDataAccess:
-    """Read-only wrapper around CoDRAG internal data sources.
+class PrepDataAccess:
+    """Read-only wrapper around Prep internal data sources.
 
     Instantiate once per agent run, passing the project's index directory.
 
     Args:
-        index_dir: Path to the CoDRAG index directory (e.g. ``.codrag/`` or
-            ``~/.local/share/codrag/projects/<slug>/``).
+        index_dir: Path to the Prep index directory (e.g. ``.prep/`` or
+            ``~/.local/share/prep/projects/<slug>/``).
         project_root: Optional path to the project source root.  Used for
             audit refresh operations.
         project_id: Project ID used to scope observations.
@@ -72,7 +72,7 @@ class CoDRAGDataAccess:
             categories: Optional list of category strings to filter by.
 
         Returns:
-            List of :class:`~codrag.core.audit.action_item.ActionItem` instances.
+            List of :class:`~prep.core.audit.action_item.ActionItem` instances.
         """
         kwargs: Dict[str, Any] = {"include_dismissed": False}
         if min_priority is not None:
@@ -91,7 +91,7 @@ class CoDRAGDataAccess:
             categories: Optional list of category strings to limit scanning.
 
         Returns:
-            List of :class:`~codrag.core.audit.action_item.ActionItem` instances.
+            List of :class:`~prep.core.audit.action_item.ActionItem` instances.
         """
         kwargs: Dict[str, Any] = {"project_root": self._project_root}
         if categories is not None:
@@ -272,7 +272,7 @@ class CoDRAGDataAccess:
             limit: Maximum number of results.
 
         Returns:
-            List of :class:`~codrag.services.observation_store.Observation` instances.
+            List of :class:`~prep.services.observation_store.Observation` instances.
         """
         return self._observation_store.get_for_query(
             self._project_id,

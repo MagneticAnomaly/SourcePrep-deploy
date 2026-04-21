@@ -1,4 +1,4 @@
-"""Tests for CoDRAG Role Vectors (Phase 64A)."""
+"""Tests for Prep Role Vectors (Phase 64A)."""
 import pytest
 
 from prep.core.atlas.role_vectors import (

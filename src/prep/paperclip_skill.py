@@ -1,17 +1,17 @@
 """
-Paperclip Skill installer for CoDRAG.
+Paperclip Skill installer for Prep.
 
-Installs the CoDRAG skill into ``~/.claude/skills/codrag`` so that
-Paperclip agents can discover and use CoDRAG's MCP tools.  The skill
-directory shipped with CoDRAG lives at ``packages/paperclip-skill/``
+Installs the Prep skill into ``~/.claude/skills/prep`` so that
+Paperclip agents can discover and use Prep's MCP tools.  The skill
+directory shipped with Prep lives at ``packages/paperclip-skill/``
 and is symlinked into the global skills home.
 
 Two installation modes:
   1. **Symlink** (default): Creates a symlink from the global skills
-     directory to the CoDRAG source tree.  Best for development — the
+     directory to the Prep source tree.  Best for development — the
      skill stays in sync with the repo.
   2. **Copy**: Copies the skill files into the global skills directory.
-     Best for distribution when the CoDRAG source tree may not be
+     Best for distribution when the Prep source tree may not be
      available.
 """
 from __future__ import annotations
@@ -26,13 +26,13 @@ logger = logging.getLogger(__name__)
 
 # ── Paths ────────────────────────────────────────────────────────────
 
-# Where the skill source lives in the CoDRAG repo
+# Where the skill source lives in the Prep repo
 _SKILL_SOURCE_DIR = Path(__file__).resolve().parent.parent / "packages" / "paperclip-skill"
 
 # Default global skills home (Claude / OpenCode convention)
 _DEFAULT_SKILLS_HOME = Path.home() / ".claude" / "skills"
 
-SKILL_NAME = "codrag"
+SKILL_NAME = "prep"
 
 
 # ── Public API ───────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ def install_skill(
     mode: str = "symlink",
     source_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Install the CoDRAG skill into the global skills directory.
+    """Install the Prep skill into the global skills directory.
 
     Args:
         skills_home: Override the global skills directory.
@@ -83,7 +83,7 @@ def install_skill(
     if mode == "symlink":
         try:
             target.symlink_to(source)
-            logger.info("Symlinked CoDRAG skill: %s → %s", target, source)
+            logger.info("Symlinked Prep skill: %s → %s", target, source)
         except OSError as exc:
             return {
                 "installed": False,
@@ -94,7 +94,7 @@ def install_skill(
     elif mode == "copy":
         try:
             shutil.copytree(source, target)
-            logger.info("Copied CoDRAG skill to %s", target)
+            logger.info("Copied Prep skill to %s", target)
         except OSError as exc:
             return {
                 "installed": False,
@@ -114,7 +114,7 @@ def install_skill(
         "installed": True,
         "path": str(target),
         "mode": mode,
-        "message": "CoDRAG skill installed. Agents can now enable it in Paperclip.",
+        "message": "Prep skill installed. Agents can now enable it in Paperclip.",
     }
 
 
@@ -122,7 +122,7 @@ def uninstall_skill(
     *,
     skills_home: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Remove the CoDRAG skill from the global skills directory."""
+    """Remove the Prep skill from the global skills directory."""
     home = (skills_home or _DEFAULT_SKILLS_HOME).expanduser().resolve()
     target = home / SKILL_NAME
 
@@ -140,7 +140,7 @@ def get_skill_status(
     *,
     skills_home: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Check if the CoDRAG skill is installed in the global skills directory."""
+    """Check if the Prep skill is installed in the global skills directory."""
     home = (skills_home or _DEFAULT_SKILLS_HOME).expanduser().resolve()
     target = home / SKILL_NAME
     skill_md = target / "SKILL.md"

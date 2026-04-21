@@ -5,7 +5,7 @@ Pipeline Run History — Phase 49 (Process Info)
 SQLite-backed historical registry of all pipeline runs.
 Enables fast queries across runs: by project, model, quality, version.
 
-Stored in the shared ``codrag_settings.db`` alongside the pipeline journal.
+Stored in the shared ``prep_settings.db`` alongside the pipeline journal.
 
 Usage::
 
@@ -44,7 +44,7 @@ class HistoryEntry:
     started_at: Optional[float] = None
     finished_at: Optional[float] = None
     elapsed_seconds: Optional[float] = None
-    codrag_version: Optional[str] = None
+    prep_version: Optional[str] = None
     engine_backend: Optional[str] = None
     quality_summary: Optional[Dict[str, Any]] = None
     models_used: Optional[Dict[str, Dict[str, Any]]] = None
@@ -63,7 +63,7 @@ class HistoryEntry:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "elapsed_seconds": self.elapsed_seconds,
-            "codrag_version": self.codrag_version,
+            "prep_version": self.prep_version,
             "engine_backend": self.engine_backend,
             "total_stages": self.total_stages,
             "completed_stages": self.completed_stages,
@@ -88,7 +88,7 @@ class HistoryEntry:
             started_at=row["started_at"],
             finished_at=row["finished_at"],
             elapsed_seconds=row["elapsed_seconds"],
-            codrag_version=row["codrag_version"],
+            prep_version=row["prep_version"],
             engine_backend=row["engine_backend"],
             quality_summary=_safe_json_loads(row["quality_summary"]),
             models_used=_safe_json_loads(row["models_used"]),
@@ -151,7 +151,7 @@ class PipelineRunHistory:
                 started_at         REAL,
                 finished_at        REAL,
                 elapsed_seconds    REAL,
-                codrag_version     TEXT,
+                prep_version     TEXT,
                 engine_backend     TEXT,
                 quality_summary    TEXT,
                 models_used        TEXT,
@@ -169,7 +169,7 @@ class PipelineRunHistory:
                 ON pipeline_run_history (status);
 
             CREATE INDEX IF NOT EXISTS idx_run_history_version
-                ON pipeline_run_history (codrag_version);
+                ON pipeline_run_history (prep_version);
         """)
         self._conn.commit()
 
@@ -196,7 +196,7 @@ class PipelineRunHistory:
                 """INSERT OR REPLACE INTO pipeline_run_history
                    (run_id, project_id, group_name, status,
                     started_at, finished_at, elapsed_seconds,
-                    codrag_version, engine_backend,
+                    prep_version, engine_backend,
                     quality_summary, models_used,
                     total_stages, completed_stages, failed_stages,
                     metadata_file, created_at)
@@ -209,7 +209,7 @@ class PipelineRunHistory:
                     started_at,
                     finished_at,
                     meta.elapsed_seconds,
-                    meta.codrag_version,
+                    meta.prep_version,
                     meta.engine_backend,
                     json.dumps(meta.quality_summary) if meta.quality_summary else None,
                     json.dumps(meta.models_used) if meta.models_used else None,
@@ -273,15 +273,15 @@ class PipelineRunHistory:
             ).fetchall()
         return [HistoryEntry.from_row(r) for r in rows]
 
-    def get_runs_by_version(self, codrag_version: str, limit: int = 50) -> List[HistoryEntry]:
-        """Find runs from a specific CoDRAG version."""
+    def get_runs_by_version(self, prep_version: str, limit: int = 50) -> List[HistoryEntry]:
+        """Find runs from a specific Prep version."""
         conn = self._require_conn()
         with self._lock:
             rows = conn.execute(
                 """SELECT * FROM pipeline_run_history
-                   WHERE codrag_version = ?
+                   WHERE prep_version = ?
                    ORDER BY started_at DESC LIMIT ?""",
-                (codrag_version, limit),
+                (prep_version, limit),
             ).fetchall()
         return [HistoryEntry.from_row(r) for r in rows]
 

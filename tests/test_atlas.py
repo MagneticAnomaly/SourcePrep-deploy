@@ -1,5 +1,5 @@
 """
-Tests for CoDRAG Codebase Atlas (Phase 29).
+Tests for Prep Codebase Atlas (Phase 29).
 
 Tests cover:
 - AtlasDocument serialization
@@ -687,7 +687,7 @@ class TestSegmentDiscovery:
 
     def test_groups_by_top_level_dir(self, tmp_index_dir):
         # Need >=10 files per group to survive MIN_SEGMENT_FILES merge
-        files = [f"src/codrag/core/file{i}.py" for i in range(12)]
+        files = [f"src/prep/core/file{i}.py" for i in range(12)]
         files += [f"tests/test_{i}.py" for i in range(12)]
         _write_nodes_with_paths(tmp_index_dir, files)
         _write_manifest(tmp_index_dir, {"files_indexed": 24})
@@ -695,9 +695,9 @@ class TestSegmentDiscovery:
         segments = compute_segments(tmp_index_dir)
         assert len(segments) >= 2
 
-        # Should have src/codrag segments (deep dirs)
+        # Should have src/prep segments (deep dirs)
         seg_dirs = {s.dir_path for s in segments}
-        assert any("codrag" in d for d in seg_dirs)
+        assert any("prep" in d for d in seg_dirs)
 
     def test_deep_dir_uses_depth_2(self, tmp_index_dir):
         files = [f"src/core/file{i}.py" for i in range(12)]

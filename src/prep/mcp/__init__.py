@@ -2,7 +2,7 @@
 MCP subpackage — Model Context Protocol integration.
 
 Re-exports MCPServer and key classes for backward compatibility with
-``from codrag.mcp_server import MCPServer``.
+``from prep.mcp_server import MCPServer``.
 """
 from .server import MCPServer, configure_logging
 from .errors import (

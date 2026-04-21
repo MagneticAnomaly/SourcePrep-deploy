@@ -1,5 +1,5 @@
 """
-Epistemic Scoring System for CoDRAG.
+Epistemic Scoring System for Prep.
 
 Computes a composite score (0.0-1.0) representing how well the trace
 understands a node in the context of the entire codebase. This is

@@ -219,7 +219,7 @@ Use for: Testing `max_file_bytes` enforcement.
 
 ### `.codrag` Directory
 
-CoDRAG creates `.codrag/` inside repos to store:
+CoDRAG creates `.prep/` inside repos to store:
 - Index files
 - Manifests
 - Build state
@@ -292,6 +292,6 @@ If search returns `count == 0`, check:
 - **`mini_repo`** = 2-file fixture for Direct MCP E2E tests
 - **Create new fixtures** under `tests/fixtures/` when needed
 - **Keep fixtures minimal** and deterministic
-- **Clean `.codrag/`** if you need a fresh state
+- **Clean `.prep/`** if you need a fresh state
 
 For more on running tests, see `scripts/run_tests.py` and `pyproject.toml` for test configuration.

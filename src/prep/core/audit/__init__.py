@@ -1,5 +1,5 @@
 """
-AutoAudit — Autonomous Codebase Analysis for CoDRAG (Phase 43/63).
+AutoAudit — Autonomous Codebase Analysis for Prep (Phase 43/63).
 
 Three tiers:
   Tier 1: Analyzers (pure graph queries, no LLM)

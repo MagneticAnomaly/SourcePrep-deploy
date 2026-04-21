@@ -1,1 +1,1 @@
-"""Shared infrastructure for all CoDRAG agents."""
+"""Shared infrastructure for all Prep agents."""

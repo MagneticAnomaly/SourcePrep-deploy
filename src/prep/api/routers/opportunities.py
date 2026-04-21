@@ -1,5 +1,5 @@
 """
-CoDRAG Opportunities Router — Phase 63
+Prep Opportunities Router — Phase 63
 ========================================
 
 REST endpoints for the Opportunity Console.
@@ -233,22 +233,22 @@ def export_opportunities(
         content=content,
         media_type=media_type,
         headers={
-            "Content-Disposition": f'inline; filename="codrag-opportunities.{format}"',
+            "Content-Disposition": f'inline; filename="prep-opportunities.{format}"',
         },
     )
 
 
-# ── CoDRAG Address Resolution (Phase 65) ──────────────────────────
+# ── Prep Address Resolution (Phase 65) ──────────────────────────
 
 @router.get("/projects/{project_id}/opportunities/{item_id}/context")
 def resolve_codrag_address(
     project_id: str,
     item_id: str,
 ) -> Dict[str, Any]:
-    """Resolve a CoDRAG address to live context.
+    """Resolve a Prep address to live context.
 
     This is the endpoint Paperclip agents call when they pick up an
-    issue with a codrag:// address. Returns:
+    issue with a prep:// address. Returns:
     - Current item status (still active? or resolved?)
     - Full item details with code context
     - Impact analysis (what files are affected, what depends on them)
@@ -277,13 +277,13 @@ def resolve_codrag_address(
         return ok({
             "status": "resolved",
             "message": f"Item {item_id} is no longer in the findings list. It may have been fixed.",
-            "codrag_address": f"codrag://{project_id}/{item_id}",
+            "prep_address": f"prep://{project_id}/{item_id}",
         })
 
     # Build rich context
     context: Dict[str, Any] = {
         "status": target.state,
-        "codrag_address": target.codrag_address(project_id),
+        "prep_address": target.prep_address(project_id),
         "item": target.to_pm_export(project_id),
         "is_active": target.state != "dismissed",
     }
@@ -323,7 +323,7 @@ def agent_card() -> Dict[str, Any]:
     """Serve the A2A Agent Card for protocol discovery.
 
     Any A2A-compliant orchestrator (Paperclip, CrewAI, etc.) can
-    discover CoDRAG's capabilities by fetching this endpoint.
+    discover Prep's capabilities by fetching this endpoint.
     """
     from prep.a2a.handler import load_agent_card
     return load_agent_card()

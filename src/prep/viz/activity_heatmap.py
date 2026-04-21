@@ -2,7 +2,7 @@
 CLI Activity Heatmap Visualization
 
 Renders a GitHub-style contribution grid in the terminal using rich.
-Same data model as the GUI ActivityHeatmap component in @codrag/ui.
+Same data model as the GUI ActivityHeatmap component in @prep/ui.
 
 Color scheme:
 - Cyan: Embeddings activity

@@ -1,5 +1,5 @@
 """
-GitHub bidirectional push for CoDRAG Roadmap — Phase 59D-3.
+GitHub bidirectional push for Prep Roadmap — Phase 59D-3.
 
 Pushes accepted roadmap nodes BACK to GitHub as issues, and updates
 ProjectV2 status fields when nodes change tiers.
@@ -171,7 +171,7 @@ class GitHubPushClient:
                     lines.append(f"  Files: {files}")
 
         lines.append("")
-        lines.append("*Created from CoDRAG Roadmap*")
+        lines.append("*Created from Prep Roadmap*")
 
         return "\n".join(lines)
 

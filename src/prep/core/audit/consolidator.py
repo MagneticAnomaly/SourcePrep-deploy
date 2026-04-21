@@ -109,7 +109,7 @@ class ConsolidatedGroup:
         return sorted(files)
 
     @property
-    def codrag_item_ids(self) -> List[str]:
+    def prep_item_ids(self) -> List[str]:
         """All original ActionItem IDs."""
         return [item.id for item in self.items]
 
@@ -121,7 +121,7 @@ class ConsolidatedGroup:
             return item.description or item.suggested_action
 
         lines: List[str] = []
-        lines.append(f"CoDRAG discovered **{len(self.items)} findings** in this area.")
+        lines.append(f"Prep discovered **{len(self.items)} findings** in this area.")
         lines.append("")
 
         # Group by severity for the summary
@@ -169,7 +169,7 @@ class ConsolidatedGroup:
             "effort": self.effort,
             "item_count": len(self.items),
             "affected_files_count": len(self.affected_files),
-            "codrag_item_ids": self.codrag_item_ids,
+            "prep_item_ids": self.prep_item_ids,
         }
 
 

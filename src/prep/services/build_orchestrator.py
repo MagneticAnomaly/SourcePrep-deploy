@@ -1,5 +1,5 @@
 """
-CoDRAG Build Orchestrator — Phase 24 (SM-4)
+Prep Build Orchestrator — Phase 24 (SM-4)
 =============================================
 
 Replaces the ad-hoc threading model in ``build_manager.py`` with explicit

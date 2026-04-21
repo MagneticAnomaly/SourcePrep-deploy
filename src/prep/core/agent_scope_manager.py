@@ -14,7 +14,7 @@ the namespace ``agent_scope/<project_id>``.
    tree per agent, but the actual embedding index uses the *union* of
    all agent scopes + the global scope.  Files are only embedded once.
 
-2. **Runtime Masking.**  When an agent calls ``codrag_search(role=...)``,
+2. **Runtime Masking.**  When an agent calls ``prep_search(role=...)``,
    the search results are filtered to only return hits from that agent's
    configured files.  Agents without a scope fall back to the global tree.
 

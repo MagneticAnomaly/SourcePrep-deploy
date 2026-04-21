@@ -16,7 +16,7 @@ def test_import_trigger_fires_on_matching_import():
         target="src/pi_agent.py",
         pattern="llm_client|openai|anthropic",
     )
-    content = "import os\nfrom codrag.core.llm_client import generate\nimport json"
+    content = "import os\nfrom prep.core.llm_client import generate\nimport json"
     assert evaluate_trigger(trigger, "src/pi_agent.py", content) is True
 
 
@@ -71,7 +71,7 @@ def test_path_matches_directory():
     assert _path_matches("src/dashboard/App.tsx", "src/dashboard/") is True
 
 def test_path_matches_glob():
-    assert _path_matches("src/codrag/pi_agent/main.py", "src/codrag/pi_agent/**") is True
+    assert _path_matches("src/prep/pi_agent/main.py", "src/prep/pi_agent/**") is True
 
 def test_path_no_match():
     assert _path_matches("src/other.py", "src/server.py") is False

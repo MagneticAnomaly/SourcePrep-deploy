@@ -144,7 +144,7 @@ def test_daemon_thread_count():
     import subprocess
     # Find daemon PID
     result = subprocess.run(
-        ["pgrep", "-f", "codrag.cli serve"],
+        ["pgrep", "-f", "prep.cli serve"],
         capture_output=True, text=True,
     )
     pids = result.stdout.strip().split()

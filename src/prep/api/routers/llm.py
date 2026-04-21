@@ -1,4 +1,4 @@
-"""CoDRAG LLM Router — Phase 23 Sprint 13 (updated Phase 31)
+"""Prep LLM Router — Phase 23 Sprint 13 (updated Phase 31)
 ========================================
 
 **Endpoints:**

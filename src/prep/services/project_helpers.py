@@ -1,5 +1,5 @@
 """
-CoDRAG Project Helpers Service — Phase 23 Sprint 16c
+Prep Project Helpers Service — Phase 23 Sprint 16c
 =====================================================
 
 **Origin:** Extracted from ``server.py`` (lines ~192–480).
@@ -356,7 +356,7 @@ def project_trace_status(project: Project) -> Dict[str, Any]:
     ``config.trace.enabled`` was False, even if the trace files
     existed on disk.  That left the dashboard showing "Initialize
     Trace Graph" for projects that already had a fully-built graph
-    (e.g. CoDRAG itself: 21k nodes, 31k edges in trace_nodes.jsonl
+    (e.g. Prep itself: 21k nodes, 31k edges in trace_nodes.jsonl
     but ``trace.enabled`` was never flipped to True).
 
     Now we always probe the on-disk index via ``trace_idx.status()``

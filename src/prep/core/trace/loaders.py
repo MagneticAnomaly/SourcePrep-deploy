@@ -1,7 +1,7 @@
 """Shared trace-output loaders.
 
 Readers of `trace_nodes.jsonl` must apply the live `effective_excludes()`
-so that an upgraded policy (e.g. a new default added in a later CoDRAG
+so that an upgraded policy (e.g. a new default added in a later Prep
 version) takes effect immediately, without waiting for the trace builder
 to rewrite the .jsonl.
 

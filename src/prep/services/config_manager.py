@@ -1,5 +1,5 @@
 """
-CoDRAG Config Manager Service — Phase 23 Sprint 16b
+Prep Config Manager Service — Phase 23 Sprint 16b
 =====================================================
 
 **Origin:** Extracted from ``server.py`` (lines ~163–344).
@@ -239,7 +239,7 @@ def ui_config_path(config: Dict[str, Any]) -> Path:
     """
     from prep.core.paths import data_dir
     override = config.get("index_dir")
-    if override and override not in ("./codrag_data", "codrag_data"):
+    if override and override not in ("./codrag_data", "codrag_data", "./prep_data", "prep_data"):
         return Path(override).expanduser() / "ui_config.json"
     return data_dir() / "ui_config.json"
 

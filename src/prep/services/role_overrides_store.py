@@ -3,7 +3,7 @@ Role Overrides Store — Phase 104 (Sub-Atlas & Role Lens)
 =========================================================
 
 Per-project, per-role overrides applied on top of built-in ``RoleVector``
-defaults when an agent calls ``codrag(role=...)``.
+defaults when an agent calls ``prep(role=...)``.
 
 **What is overridable in v1:**
   - ``max_chars``: override the char budget for the projected sub-atlas.
@@ -15,7 +15,7 @@ defaults when an agent calls ``codrag(role=...)``.
   (``role_overrides`` and ``concept_role_pins``). That would require a
   schema migration. Instead we reuse the existing ``settings_store``'s
   per-project key/value namespace, which is already WAL-safe, tested, and
-  lives in the same ``codrag_settings.db`` file. Two namespaced keys:
+  lives in the same ``prep_settings.db`` file. Two namespaced keys:
 
     ``project/<pid>/role_overrides/<role_id>``  → override dict
     ``project/<pid>/role_pins/<role_id>``       → {concept_id: pinned_at}

@@ -1,11 +1,11 @@
 """
-CoDRAG Team Sync — RunPod Serverless Handler
+Prep Team Sync — RunPod Serverless Handler
 
 Listens to the RunPod job queue and triggers headless index builds.
-The handler parses job input and calls `codrag sync-headless`.
+The handler parses job input and calls `prep sync-headless`.
 
 Environment variables (set in RunPod Endpoint settings):
-  CODRAG_S3_ENDPOINT, CODRAG_S3_BUCKET, CODRAG_S3_ACCESS_KEY, CODRAG_S3_SECRET_KEY
+  PREP_S3_ENDPOINT, PREP_S3_BUCKET, PREP_S3_ACCESS_KEY, PREP_S3_SECRET_KEY
 """
 
 import subprocess
@@ -26,7 +26,7 @@ def handler(job):
         return {"status": "error", "message": "repo_url is required"}
 
     cmd = [
-        "codrag", "sync-headless",
+        "prep", "sync-headless",
         "--repo-url", repo_url,
         "--branch", branch,
         "--model-provider", model_provider,
@@ -37,7 +37,7 @@ def handler(job):
     if full:
         cmd.append("--full")
 
-    print(f"[codrag-runpod] Running: {' '.join(cmd)}")
+    print(f"[prep-runpod] Running: {' '.join(cmd)}")
 
     result = subprocess.run(
         cmd,

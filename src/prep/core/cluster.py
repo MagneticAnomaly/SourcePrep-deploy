@@ -1,5 +1,5 @@
 """
-Cluster Synthesis for CoDRAG (Pass 3).
+Cluster Synthesis for Prep (Pass 3).
 
 Groups enriched file nodes into subsystem clusters based on domain_tags
 and graph connectivity. For each cluster, generates a module-level
@@ -1542,7 +1542,7 @@ class ClusterSynthesizer:
         done_count = 0
 
         batch_timeout_sec = float(
-            os.environ.get("CODRAG_CLUSTER_BATCH_TIMEOUT", "900")
+            os.environ.get("PREP_CLUSTER_BATCH_TIMEOUT", "900")
         )
 
         pool = llm_pool

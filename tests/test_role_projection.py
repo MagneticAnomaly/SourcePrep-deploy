@@ -1,4 +1,4 @@
-"""Tests for CoDRAG Role Projection (Phase 64A)."""
+"""Tests for Prep Role Projection (Phase 64A)."""
 import json
 import pytest
 from pathlib import Path

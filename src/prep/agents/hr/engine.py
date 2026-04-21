@@ -1,7 +1,7 @@
 """Staffing Agent Engine — generates AI agent role definitions from codebase analysis.
 
 Orchestrates readiness scoring, role generation (list/auto/hybrid modes),
-and roster persistence. Uses AgentCore for CoDRAG data access when available.
+and roster persistence. Uses AgentCore for Prep data access when available.
 """
 from __future__ import annotations
 
@@ -70,8 +70,8 @@ class StaffingEngine:
     Args:
         core: AgentCore instance. When provided, ``index_dir`` and ``project_id``
             are derived from it.
-        index_dir: Path to the CoDRAG index directory. Used when ``core`` is None.
-        project_id: CoDRAG project identifier. Used when ``core`` is None.
+        index_dir: Path to the Prep index directory. Used when ``core`` is None.
+        project_id: Prep project identifier. Used when ``core`` is None.
     """
 
     def __init__(
@@ -975,7 +975,7 @@ class StaffingEngine:
         agents_dir: Path,
         llm_fn: LLMFn,
     ) -> List[RoleSpec]:
-        """Import existing agent files and enrich them with CoDRAG intelligence.
+        """Import existing agent files and enrich them with Prep intelligence.
 
         Reads AGENTS.md (and optionally SOUL.md, KNOWLEDGE.md) from each
         subdirectory of agents_dir, then regenerates KNOWLEDGE.md with

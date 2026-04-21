@@ -70,7 +70,7 @@ def _check_s3_endpoint(project_root: Optional[Path]) -> Dict[str, Any]:
         from prep.services.remote_sync import TeamSyncConfig
         import json
 
-        config_path = project_root / ".codrag" / "team_config.json"
+        config_path = project_root / ".prep" / "team_config.json"
         if not config_path.exists():
             return {"name": "S3 Endpoint Security", "status": "pass", "issues": [], "details": {"reason": "No team_config.json"}}
 
@@ -104,7 +104,7 @@ def _check_credentials(project_root: Optional[Path]) -> Dict[str, Any]:
     details: Dict[str, Any] = {}
 
     if project_root:
-        secrets_path = project_root / ".codrag" / ".secrets"
+        secrets_path = project_root / ".prep" / ".secrets"
         if secrets_path.exists():
             try:
                 import stat
@@ -132,7 +132,7 @@ def _check_index_integrity(project_root: Optional[Path]) -> Dict[str, Any]:
     if not project_root:
         return {"name": "Index Integrity", "status": "pass", "issues": [], "details": {"reason": "No project root"}}
 
-    remote_manifest = project_root / ".codrag" / "index" / "remote" / "manifest.json"
+    remote_manifest = project_root / ".prep" / "index" / "remote" / "manifest.json"
     if not remote_manifest.exists():
         return {"name": "Index Integrity", "status": "pass", "issues": [], "details": {"reason": "No remote index"}}
 
@@ -145,7 +145,7 @@ def _check_index_integrity(project_root: Optional[Path]) -> Dict[str, Any]:
             issues.append("Remote index manifest has no content_hash")
 
         # EA-I14: Check embedding file integrity
-        embeddings_path = project_root / ".codrag" / "index" / "remote" / "embeddings.npy"
+        embeddings_path = project_root / ".prep" / "index" / "remote" / "embeddings.npy"
         embedding_hash_in_manifest = manifest.get("embedding_hash")
         embeddings_exist = embeddings_path.exists()
         if embeddings_exist and not embedding_hash_in_manifest:
@@ -208,7 +208,7 @@ def _check_config_drift(project_root: Optional[Path]) -> Dict[str, Any]:
             return {"name": "Config Drift", "status": "pass", "issues": [], "details": {"reason": "No team_config"}}
 
         # Check for invisible Unicode in config file (Rules File Backdoor attack)
-        config_path = project_root / ".codrag" / "team_config.json"
+        config_path = project_root / ".prep" / "team_config.json"
         issues: List[str] = []
         if config_path.exists():
             from prep.core.content_sanitizer import detect_invisible_unicode
@@ -255,8 +255,8 @@ def _check_daemon_auth() -> Dict[str, Any]:
         from prep.server import _config
         # We need to see if the server is exposed and if it has a token.
         # Since this runs in the daemon process, we can check env vars and config.
-        has_token = bool(os.environ.get("CODRAG_DAEMON_TOKEN"))
-        host = os.environ.get("CODRAG_HOST", "127.0.0.1")
+        has_token = bool(os.environ.get("PREP_DAEMON_TOKEN"))
+        host = os.environ.get("PREP_HOST", "127.0.0.1")
         
         issues = []
         status = "pass"
@@ -282,14 +282,14 @@ def _check_daemon_auth() -> Dict[str, Any]:
 def _check_cors() -> Dict[str, Any]:
     """Check 9: CORS Configuration (FULL-1)."""
     try:
-        allow_all = bool(os.environ.get("CODRAG_CORS_ALLOW_ALL"))
+        allow_all = bool(os.environ.get("PREP_CORS_ALLOW_ALL"))
         
         issues = []
         status = "pass"
         
         if allow_all:
             status = "fail"
-            issues.append("CODRAG_CORS_ALLOW_ALL is enabled. Any website can access the daemon!")
+            issues.append("PREP_CORS_ALLOW_ALL is enabled. Any website can access the daemon!")
             
         return {
             "name": "CORS Configuration",
@@ -304,14 +304,14 @@ def _check_cors() -> Dict[str, Any]:
 def _check_dev_mode() -> Dict[str, Any]:
     """Check 10: Dev Mode Detection (CRIT-1 bypass)."""
     try:
-        dev_mode = bool(os.environ.get("CODRAG_DEV_MODE"))
+        dev_mode = bool(os.environ.get("PREP_DEV_MODE"))
         
         issues = []
         status = "pass"
         
         if dev_mode:
             status = "warn"
-            issues.append("CODRAG_DEV_MODE is active. Security bypasses may be enabled.")
+            issues.append("PREP_DEV_MODE is active. Security bypasses may be enabled.")
             
         return {
             "name": "Dev Mode Detection",
@@ -435,7 +435,7 @@ def _check_secret_detection_coverage(project_root: Optional[Path] = None) -> Dic
 
         # Spot-check: scan a sample of indexed files for secrets
         if project_root:
-            index_dir = project_root / ".codrag" / "index"
+            index_dir = project_root / ".prep" / "index"
             docs_path = index_dir / "documents.json"
             secrets_found = 0
             files_scanned = 0
@@ -483,7 +483,7 @@ def _check_data_exposure(project_root: Optional[Path] = None) -> Dict[str, Any]:
 
     # Count indexed files
     if project_root:
-        index_dir = project_root / ".codrag" / "index"
+        index_dir = project_root / ".prep" / "index"
         docs_path = index_dir / "documents.json"
         if docs_path.exists():
             try:
@@ -534,7 +534,7 @@ def _check_unicode_in_index(project_root: Optional[Path] = None) -> Dict[str, An
         from prep.core.content_sanitizer import detect_invisible_unicode
         import json
 
-        index_dir = project_root / ".codrag" / "index"
+        index_dir = project_root / ".prep" / "index"
         docs_path = index_dir / "documents.json"
         if not docs_path.exists():
             return {"name": "Unicode Injection Scan", "status": "pass", "issues": [], "details": {"reason": "No index"}}

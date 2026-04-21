@@ -1,8 +1,8 @@
 """
-CoDRAG PM Push Router — Phase 65
+Prep PM Push Router — Phase 65
 ==================================
 
-REST endpoints for pushing CoDRAG opportunities to external PM tools.
+REST endpoints for pushing Prep opportunities to external PM tools.
 Paperclip-first, universal interface.
 
 Endpoints:
@@ -136,7 +136,7 @@ def push_to_pm(
 
     result = engine.push(
         items,
-        codrag_project_id=project_id,
+        prep_project_id=project_id,
         strategy=strategy,
         min_priority=min_priority,
         exclude_categories=exclude_cats,

@@ -1,4 +1,4 @@
-"""Tests for CoDRAG Role Resolver (Phase 64A)."""
+"""Tests for Prep Role Resolver (Phase 64A)."""
 import pytest
 
 from prep.core.atlas.role_resolver import resolve_role, KEYWORD_TO_BASE

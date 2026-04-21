@@ -1,5 +1,5 @@
 """
-Core CoDRAG Index implementation.
+Core Prep Index implementation.
 
 Provides hybrid semantic + keyword search over documents.
 """
@@ -959,7 +959,7 @@ class CodeIndex:
             return {"tests": 1.15, "code": 1.0, "docs": 0.90, "other": 0.90}
         if intent == "code":
             return {"code": 1.10, "tests": 1.0, "docs": 0.82, "other": 0.85}
-        # default: mild code bias — CoDRAG primarily serves AI coding tools
+        # default: mild code bias — Prep primarily serves AI coding tools
         return {"code": 1.05, "docs": 0.92, "tests": 1.0, "other": 0.95}
 
     def query_policy(self, query: str) -> Dict[str, Any]:
@@ -1949,7 +1949,7 @@ class CodeIndex:
         if not primer_cfg.get("enabled", True):
             return np.zeros(len(docs), dtype=np.float32)
         
-        filenames = primer_cfg.get("filenames") or ["AGENTS.md", "CODRAG_PRIMER.md", "PROJECT_PRIMER.md"]
+        filenames = primer_cfg.get("filenames") or ["AGENTS.md", "PREP_PRIMER.md", "PROJECT_PRIMER.md"]
         score_boost = float(primer_cfg.get("score_boost", 0.25))
         
         # Normalize filenames to lowercase for comparison
@@ -1978,7 +1978,7 @@ class CodeIndex:
         if not primer_cfg.get("enabled", True):
             return []
         
-        filenames = primer_cfg.get("filenames") or ["AGENTS.md", "CODRAG_PRIMER.md", "PROJECT_PRIMER.md"]
+        filenames = primer_cfg.get("filenames") or ["AGENTS.md", "PREP_PRIMER.md", "PROJECT_PRIMER.md"]
         primer_names = {f.lower() for f in filenames}
         
         primer_chunks = []

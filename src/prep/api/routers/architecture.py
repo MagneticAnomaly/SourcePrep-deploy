@@ -1,5 +1,5 @@
 """
-CoDRAG Architecture Router — Phase 71A
+Prep Architecture Router — Phase 71A
 =======================================
 
 REST endpoints for the interactive architecture diagram.

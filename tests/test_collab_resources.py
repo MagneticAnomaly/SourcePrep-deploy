@@ -55,7 +55,7 @@ def test_get_collaboration_resources_returns_3():
     resources = get_collaboration_resources("proj-1")
     assert len(resources) == 3
     uris = {r["uri"] for r in resources}
-    assert "codrag://proj-1/delta" in uris
+    assert "prep://proj-1/delta" in uris
     # activity and conflicts should NOT be in the list
     assert not any("activity" in u for u in uris)
     assert not any("conflicts" in u for u in uris)
@@ -153,49 +153,49 @@ def test_get_collaboration_prompts_returns_3():
     prompts = get_collaboration_prompts()
     assert len(prompts) == 3
     names = {p["name"] for p in prompts}
-    assert names == {"codrag-handoff", "codrag-scope", "codrag-enrich"}
+    assert names == {"prep-handoff", "prep-scope", "prep-enrich"}
 
 
 def test_prompt_handoff_returns_messages():
     result = get_collaboration_prompt_messages(
-        "codrag-handoff",
+        "prep-handoff",
         {"from_role": "researcher", "to_role": "custodian"},
     )
     assert result is not None
     text = result["messages"][0]["content"]["text"]
     assert "researcher" in text
     # Should reference delta, not activity/conflicts
-    assert "@codrag://delta" in text
-    assert "@codrag://activity" not in text
-    assert "@codrag://conflicts" not in text
+    assert "@prep://delta" in text
+    assert "@prep://activity" not in text
+    assert "@prep://conflicts" not in text
 
 
 def test_prompt_scope_returns_messages():
     result = get_collaboration_prompt_messages(
-        "codrag-scope", {"role": "researcher"},
+        "prep-scope", {"role": "researcher"},
     )
     assert result is not None
     text = result["messages"][0]["content"]["text"]
     assert "researcher" in text
-    assert "@codrag://conflicts" not in text
+    assert "@prep://conflicts" not in text
 
 
 def test_prompt_enrich_returns_messages():
     result = get_collaboration_prompt_messages(
-        "codrag-enrich", {},
+        "prep-enrich", {},
     )
     assert result is not None
     text = result["messages"][0]["content"]["text"]
-    assert "codrag_audit" in text
-    assert "codrag_impact" in text
+    assert "prep_audit" in text
+    assert "prep_impact" in text
     assert "hub files" in text
 
 
 def test_prompt_triage_no_longer_exists():
-    result = get_collaboration_prompt_messages("codrag-triage", {})
+    result = get_collaboration_prompt_messages("prep-triage", {})
     assert result is None
 
 
 def test_prompt_unknown_returns_none():
-    result = get_collaboration_prompt_messages("codrag-unknown", {})
+    result = get_collaboration_prompt_messages("prep-unknown", {})
     assert result is None

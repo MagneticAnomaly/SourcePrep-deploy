@@ -1,5 +1,5 @@
 """
-Query preprocessing for CoDRAG (Phase 34e F).
+Query preprocessing for Prep (Phase 34e F).
 
 Lightweight cleanup for better embedding similarity without
 destroying semantic content.  Extracted from projects.py router

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate a signed offline CoDRAG license key.
+Generate a signed offline Prep license key.
 
 Usage:
   python scripts/generate_license.py --email user@example.com --tier pro
@@ -28,7 +28,7 @@ except ImportError:
     sys.exit(1)
 
 
-# The default test private key (matches the test public key in codrag.core.licensing)
+# The default test private key (matches the test public key in prep.core.licensing)
 # DO NOT USE IN PRODUCTION
 DEFAULT_PRIV_KEY_HEX = "c6b3c439525def409ea605e0143ba2ab91d933f300c155c42e2e824b057da84f"
 
@@ -61,7 +61,7 @@ def generate_license(email: str, tier: str, priv_hex: str) -> str:
     payload_b64 = _base64url_encode(payload_json.encode("utf-8"))
     
     # 2. Sign payload
-    # Note: codrag.core.licensing.verify_license_key signs the base64 string
+    # Note: prep.core.licensing.verify_license_key signs the base64 string
     # "payload_b64" (if 2 parts) or "header_b64.payload_b64" (if 3 parts).
     # We'll use the 2-part format.
     signing_input = payload_b64.encode("ascii")
@@ -77,7 +77,7 @@ def generate_license(email: str, tier: str, priv_hex: str) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Generate CoDRAG License Key")
+    parser = argparse.ArgumentParser(description="Generate Prep License Key")
     parser.add_argument("--email", required=True, help="Email address of the licensee")
     parser.add_argument("--tier", required=True, choices=["free", "monthly", "perpetual", "team", "enterprise"], help="License tier")
     parser.add_argument("--priv", help="Hex encoded Ed25519 private key (defaults to test key)")
@@ -97,7 +97,7 @@ def main():
             f.write(license_key)
         print(f"License key written to {args.out}")
     else:
-        print("\n=== CoDRAG License Key ===")
+        print("\n=== Prep License Key ===")
         print(license_key)
         print("==========================\n")
 

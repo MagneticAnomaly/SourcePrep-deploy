@@ -1,5 +1,5 @@
 """
-Tests for the CoDRAG MCP server.
+Tests for the Prep MCP server.
 
 Tests cover:
 - MCP protocol handling (initialize, tools/list, tools/call)
@@ -67,7 +67,7 @@ def mock_search_response():
                 "chunk_id": "chunk_2",
                 "source_path": "README.md",
                 "span": {"start_line": 1, "end_line": 3},
-                "preview": "# Installation\n\npip install codrag",
+                "preview": "# Installation\n\npip install prep",
                 "score": 0.72,
             },
         ],
@@ -113,7 +113,7 @@ class TestMCPProtocol:
         assert "result" in response
         assert response["result"]["protocolVersion"] == MCP_PROTOCOL_VERSION
         assert "tools" in response["result"]["capabilities"]
-        assert response["result"]["serverInfo"]["name"] == "codrag"
+        assert response["result"]["serverInfo"]["name"] == "prep"
 
     @pytest.mark.asyncio
     async def test_tools_list(self, server):
@@ -132,7 +132,7 @@ class TestMCPProtocol:
         assert len(tools) == 5  # Phase 50: consolidated from 16 to 5
         
         tool_names = {t["name"] for t in tools}
-        assert tool_names == {"codrag", "codrag_search", "codrag_impact", "codrag_audit", "codrag_observe"}
+        assert tool_names == {"prep", "prep_search", "prep_impact", "prep_audit", "prep_observe"}
 
     @pytest.mark.asyncio
     async def test_ping(self, server):
@@ -184,7 +184,7 @@ class TestMCPProtocol:
 # =============================================================================
 
 class TestToolStatus:
-    """Test codrag_status tool."""
+    """Test prep_status tool."""
 
     @pytest.mark.asyncio
     async def test_status_success(self, server, mock_status_response):
@@ -233,7 +233,7 @@ class TestToolStatus:
 
 
 class TestToolBuild:
-    """Test codrag_build tool."""
+    """Test prep_build tool."""
 
     @pytest.mark.asyncio
     async def test_build_started(self, server):
@@ -258,7 +258,7 @@ class TestToolBuild:
 
 
 class TestToolSearch:
-    """Test codrag_search tool (query-based context with trace + routing)."""
+    """Test prep_search tool (query-based context with trace + routing)."""
 
     @pytest.mark.asyncio
     async def test_search_success(self, server, mock_context_response):
@@ -305,7 +305,7 @@ class TestToolSearch:
 
 
 class TestToolContext:
-    """Test codrag tool (ambient context assembly, no query)."""
+    """Test prep tool (ambient context assembly, no query)."""
 
     @pytest.mark.asyncio
     async def test_ambient_context_success(self, server):
@@ -352,7 +352,7 @@ class TestToolsCall:
 
     @pytest.mark.asyncio
     async def test_call_status_alias(self, server):
-        """Test calling legacy codrag_status routes to codrag (ambient context) via alias."""
+        """Test calling legacy prep_status routes to prep (ambient context) via alias."""
         ambient_response = {
             "context": "test context",
             "total_chars": 100,
@@ -370,7 +370,7 @@ class TestToolsCall:
                 "id": 10,
                 "method": "tools/call",
                 "params": {
-                    "name": "codrag_status",
+                    "name": "prep_status",
                     "arguments": {},
                 },
             }
@@ -394,7 +394,7 @@ class TestToolsCall:
                 "id": 11,
                 "method": "tools/call",
                 "params": {
-                    "name": "codrag_search",
+                    "name": "prep_search",
                     "arguments": {"query": "find main function"},
                 },
             }
@@ -448,7 +448,7 @@ class TestToolsCall:
                 "id": 13,
                 "method": "tools/call",
                 "params": {
-                    "name": "codrag",
+                    "name": "prep",
                     "arguments": {},
                 },
             }
@@ -467,7 +467,7 @@ class TestToolsCall:
             "id": 14,
             "method": "tools/call",
             "params": {
-                "name": "codrag_search",
+                "name": "prep_search",
                 "arguments": {"query": "find", "k": MAX_CONTEXT_K + 1},
             },
         }
@@ -483,7 +483,7 @@ class TestToolsCall:
             "id": 15,
             "method": "tools/call",
             "params": {
-                "name": "codrag",
+                "name": "prep",
                 "arguments": {"max_chars": MAX_CONTEXT_CHARS + 1},
             },
         }
@@ -510,7 +510,7 @@ class TestToolsCall:
                 "jsonrpc": "2.0",
                 "id": 16,
                 "method": "tools/call",
-                "params": {"name": "codrag_status", "arguments": {}},
+                "params": {"name": "prep_status", "arguments": {}},
             }
 
             response = await srv.handle_request(request)
@@ -538,7 +538,7 @@ class TestToolsCall:
                 "id": 17,
                 "method": "tools/call",
                 "params": {
-                    "name": "codrag",
+                    "name": "prep",
                     "arguments": {"project_id": "proj_override"},
                 },
             }
@@ -577,23 +577,23 @@ class TestToolSchemas:
 
     def test_search_requires_query(self):
         """Test search tool requires query parameter."""
-        search_tool = next(t for t in TOOLS if t["name"] == "codrag_search")
+        search_tool = next(t for t in TOOLS if t["name"] == "prep_search")
         assert "query" in search_tool["inputSchema"]["required"]
 
     def test_context_no_required_params(self):
-        """Test codrag (ambient) tool has no required parameters."""
-        context_tool = next(t for t in TOOLS if t["name"] == "codrag")
+        """Test prep (ambient) tool has no required parameters."""
+        context_tool = next(t for t in TOOLS if t["name"] == "prep")
         assert context_tool["inputSchema"]["required"] == []
         assert "query" not in context_tool["inputSchema"]["properties"]
 
     def test_audit_no_required_params(self):
-        """Test codrag_audit has no required parameters."""
-        audit_tool = next(t for t in TOOLS if t["name"] == "codrag_audit")
+        """Test prep_audit has no required parameters."""
+        audit_tool = next(t for t in TOOLS if t["name"] == "prep_audit")
         assert audit_tool["inputSchema"]["required"] == []
 
     def test_observe_no_required_params(self):
-        """Test codrag_observe has no required parameters."""
-        observe_tool = next(t for t in TOOLS if t["name"] == "codrag_observe")
+        """Test prep_observe has no required parameters."""
+        observe_tool = next(t for t in TOOLS if t["name"] == "prep_observe")
         assert observe_tool["inputSchema"]["required"] == []
 
     def test_annotations_on_tools(self):
@@ -879,7 +879,7 @@ def test_prompts_list_has_all_prompts():
         server.handle_prompts_list({})
     )
     prompt_names = {p["name"] for p in result["prompts"]}
-    expected = {"codrag-onboard", "codrag-review", "codrag-plan", "codrag-investigate", "codrag-health"}
+    expected = {"prep-onboard", "prep-review", "prep-plan", "prep-investigate", "prep-health"}
     assert expected.issubset(prompt_names), f"Missing: {expected - prompt_names}"
 
 
@@ -899,7 +899,7 @@ def test_prompt_onboard_returns_messages_with_resources():
     server._resolve_project_id = AsyncMock(return_value="test-project")
 
     result = asyncio.get_event_loop().run_until_complete(
-        server.handle_prompts_get({"name": "codrag-onboard", "arguments": {}})
+        server.handle_prompts_get({"name": "prep-onboard", "arguments": {}})
     )
     assert "messages" in result
     assert len(result["messages"]) > 0
@@ -927,7 +927,7 @@ def test_prompt_investigate_uses_query():
 
     result = asyncio.get_event_loop().run_until_complete(
         server.handle_prompts_get({
-            "name": "codrag-investigate",
+            "name": "prep-investigate",
             "arguments": {"query": "authentication flow"},
         })
     )
@@ -950,7 +950,7 @@ def test_prompt_health_embeds_audit_resource():
     server._resolve_project_id = AsyncMock(return_value="test-project")
 
     result = asyncio.get_event_loop().run_until_complete(
-        server.handle_prompts_get({"name": "codrag-health", "arguments": {}})
+        server.handle_prompts_get({"name": "prep-health", "arguments": {}})
     )
     content = result["messages"][0]["content"]
     assert isinstance(content, list)

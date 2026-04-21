@@ -17,7 +17,7 @@ DEFAULT_POLICY_FILENAME = "repo_policy.json"
 # Default primer configuration
 DEFAULT_PRIMER_CONFIG = {
     "enabled": True,
-    "filenames": ["AGENTS.md", "CODRAG_PRIMER.md", "PROJECT_PRIMER.md"],
+    "filenames": ["AGENTS.md", "PREP_PRIMER.md", "PROJECT_PRIMER.md"],
     "score_boost": 0.25,  # Added to similarity score for primer chunks
     "always_include": False,  # If True, primer chunks always appear in context
     "max_primer_chars": 2000,  # Max chars to include from primer when always_include=True
@@ -201,7 +201,7 @@ def ensure_repo_policy(index_dir: Path, repo_root: Path, force: bool = False) ->
             #   (1) dir-name defaults from DEFAULT_EXCLUDE_DIR_NAMES,
             #   (2) file-glob defaults from DEFAULT_EXCLUDE_FILE_GLOBS,
             #   (3) the broad dotfile glob.
-            # Defaults added in new CoDRAG versions back-fill automatically
+            # Defaults added in new Prep versions back-fill automatically
             # without requiring a forced re-profile.
             current_excludes = set(_normalize_globs(existing.get("exclude_globs")))
             default_excludes = {f"**/{d}/**" for d in DEFAULT_EXCLUDE_DIR_NAMES}

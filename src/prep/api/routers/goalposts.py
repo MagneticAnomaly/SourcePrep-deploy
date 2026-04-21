@@ -1,5 +1,5 @@
 """
-CoDRAG Goalposts Router — Phase 57
+Prep Goalposts Router — Phase 57
 =====================================
 
 REST endpoints for forward-looking AI planning.

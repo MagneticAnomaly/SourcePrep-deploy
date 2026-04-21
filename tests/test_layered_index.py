@@ -231,9 +231,9 @@ class TestBuildManagerLayeredIndex:
             mode="embedded", config={}, created_at="", updated_at="",
         )
 
-        # Create the .codrag dir (embedded mode)
-        codrag_dir = tmp_path / ".codrag"
-        codrag_dir.mkdir(parents=True, exist_ok=True)
+        # Create the .prep dir (embedded mode)
+        prep_dir = tmp_path / ".prep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
 
         idx = bm.get_project_layered_index(proj)
         # Should be a plain CodeIndex (no remote dir)
@@ -251,10 +251,10 @@ class TestBuildManagerLayeredIndex:
             mode="embedded", config={}, created_at="", updated_at="",
         )
 
-        # Create .codrag dir with remote subdirectory
-        codrag_dir = tmp_path / ".codrag"
-        codrag_dir.mkdir(parents=True, exist_ok=True)
-        remote_dir = codrag_dir / "remote"
+        # Create .prep dir with remote subdirectory
+        prep_dir = tmp_path / ".prep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
+        remote_dir = prep_dir / "remote"
         remote_dir.mkdir()
         # Write minimal documents.json + embeddings.npy
         (remote_dir / "documents.json").write_text(json.dumps([
@@ -277,11 +277,11 @@ class TestBuildManagerLayeredIndex:
             mode="embedded", config={}, created_at="", updated_at="",
         )
 
-        codrag_dir = tmp_path / ".codrag"
-        codrag_dir.mkdir(parents=True, exist_ok=True)
+        prep_dir = tmp_path / ".prep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
 
         # Remote index
-        remote_dir = codrag_dir / "remote"
+        remote_dir = prep_dir / "remote"
         remote_dir.mkdir()
         (remote_dir / "documents.json").write_text(json.dumps([
             {"source_path": "a.py", "content": "old", "section": ""},
@@ -290,7 +290,7 @@ class TestBuildManagerLayeredIndex:
         np.save(remote_dir / "embeddings.npy", np.zeros((2, 4), dtype=np.float32))
 
         # Local deltas
-        delta_dir = codrag_dir / "local_deltas"
+        delta_dir = prep_dir / "local_deltas"
         delta_dir.mkdir()
         (delta_dir / "documents.json").write_text(json.dumps([
             {"source_path": "a.py", "content": "new local version", "section": ""},
@@ -335,9 +335,9 @@ class TestRemoteSyncStartup:
         )
 
         # Write team_config.json
-        codrag_dir = tmp_path / ".codrag"
-        codrag_dir.mkdir(parents=True, exist_ok=True)
-        (codrag_dir / "team_config.json").write_text(json.dumps({
+        prep_dir = tmp_path / ".prep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
+        (prep_dir / "team_config.json").write_text(json.dumps({
             "sync": {
                 "enabled": True,
                 "s3_endpoint": "https://example.r2.cloudflarestorage.com",
@@ -360,9 +360,9 @@ class TestRemoteSyncStartup:
             mode="embedded", config={}, created_at="", updated_at="",
         )
 
-        codrag_dir = tmp_path / ".codrag"
-        codrag_dir.mkdir(parents=True, exist_ok=True)
-        (codrag_dir / "team_config.json").write_text(json.dumps({
+        prep_dir = tmp_path / ".prep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
+        (prep_dir / "team_config.json").write_text(json.dumps({
             "sync": {"enabled": False}
         }))
 
@@ -384,8 +384,8 @@ class TestBuildManagerDeltaBuild:
             id="no-remote", name="Test", path=str(tmp_path),
             mode="embedded", config={}, created_at="", updated_at="",
         )
-        codrag_dir = tmp_path / ".codrag"
-        codrag_dir.mkdir(parents=True, exist_ok=True)
+        prep_dir = tmp_path / ".prep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
 
         assert bm.has_remote_index(proj) is False
 
@@ -399,7 +399,7 @@ class TestBuildManagerDeltaBuild:
             id="has-remote", name="Test", path=str(tmp_path),
             mode="embedded", config={}, created_at="", updated_at="",
         )
-        remote_dir = tmp_path / ".codrag" / "remote"
+        remote_dir = tmp_path / ".prep" / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text("[]")
 
@@ -417,8 +417,8 @@ class TestBuildManagerDeltaBuild:
         )
 
         # Set up remote index
-        codrag_dir = tmp_path / ".codrag"
-        remote_dir = codrag_dir / "remote"
+        prep_dir = tmp_path / ".prep"
+        remote_dir = prep_dir / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "documents.json").write_text(json.dumps([
             {"source_path": "a.py", "content": "x", "section": ""},
@@ -453,8 +453,8 @@ class TestBuildManagerDeltaBuild:
             mode="embedded", config={}, created_at="", updated_at="",
         )
 
-        codrag_dir = tmp_path / ".codrag"
-        remote_dir = codrag_dir / "remote"
+        prep_dir = tmp_path / ".prep"
+        remote_dir = prep_dir / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         docs_path = remote_dir / "documents.json"
         docs_path.write_text(json.dumps([
@@ -486,14 +486,14 @@ class TestRemoteSyncDeltaPruning:
         svc = RemoteSyncService(tmp_path)
 
         # Set up remote index dir with manifest
-        remote_dir = tmp_path / ".codrag" / "index" / "remote"
+        remote_dir = tmp_path / ".prep" / "index" / "remote"
         remote_dir.mkdir(parents=True, exist_ok=True)
         (remote_dir / "trace_manifest.json").write_text(json.dumps({
             "file_hashes": {"src/a.py": "hash_a"},
         }))
 
         # Set up local deltas with a stale file
-        delta_dir = tmp_path / ".codrag" / "index" / "local_deltas"
+        delta_dir = tmp_path / ".prep" / "index" / "local_deltas"
         delta_dir.mkdir(parents=True, exist_ok=True)
         (delta_dir / "documents.json").write_text(json.dumps([
             {"source_path": "src/a.py", "content": "stale local"},

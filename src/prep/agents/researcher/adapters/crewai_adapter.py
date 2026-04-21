@@ -2,7 +2,7 @@
 
 Wraps ResearcherEngine as a 3-agent CrewAI Crew: Analyst + Architect + PM.
 
-Requires: pip install codrag[crewai]
+Requires: pip install prep[crewai]
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def build_researcher_crew(
     except ImportError:
         raise ImportError(
             "crewai is required for CrewAI adapters. "
-            "Install with: pip install codrag[crewai]"
+            "Install with: pip install prep[crewai]"
         )
 
     if llm is None:
@@ -46,7 +46,7 @@ def build_researcher_crew(
         backstory=(
             f"You have deep knowledge of this codebase. "
             f"There are {len(findings)} audit findings to review. "
-            "You use CoDRAG's epistemic analysis to find issues that matter."
+            "You use Prep's epistemic analysis to find issues that matter."
         ),
         llm=llm,
         verbose=False,

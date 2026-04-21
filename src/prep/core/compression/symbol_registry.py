@@ -6,7 +6,7 @@ and FQNs with 3-5 character uppercase codes. No decoder needed — a
 legend block is prepended to the output so any LLM can read it.
 
 Codes are derived from the filename (not the full path) to be
-human-guessable: src/codrag/core/swarm_orchestrator.py -> SWO.
+human-guessable: src/prep/core/swarm_orchestrator.py -> SWO.
 Collisions are resolved by appending digits.
 """
 

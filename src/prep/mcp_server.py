@@ -1,11 +1,11 @@
 """
 Backward-compat wrapper — re-exports everything from the mcp subpackage.
 
-Import sites that do ``from codrag.mcp_server import MCPServer`` etc.
+Import sites that do ``from prep.mcp_server import MCPServer`` etc.
 continue to work without modification.
 """
 # These module-level names are needed because tests patch them via
-# ``patch("codrag.mcp_server.Path")`` etc.
+# ``patch("prep.mcp_server.Path")`` etc.
 from pathlib import Path  # noqa: F401
 from prep.mcp import (  # noqa: F401
     MCPServer,

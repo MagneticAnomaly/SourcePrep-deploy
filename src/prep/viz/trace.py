@@ -1,5 +1,5 @@
 """
-CoDRAG CLI Trace Visualization
+Prep CLI Trace Visualization
 
 Visualizes structural code analysis data (GraphRAG).
 Includes degree distribution, hub identification, and graph stats.
