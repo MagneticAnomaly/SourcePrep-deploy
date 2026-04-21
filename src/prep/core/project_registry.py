@@ -488,6 +488,11 @@ def read_codrag_pointer(directory: str | Path) -> Optional[Dict[str, str]]:
     if the pointer doesn't exist or is malformed.
     """
     try:
+        from prep.core.paths import _migrate_embedded_dir
+        _migrate_embedded_dir(Path(directory).expanduser().resolve())
+    except Exception:
+        pass  # migration failure must never break project resolution
+    try:
         pointer_path = Path(directory).expanduser().resolve() / ".prep" / _POINTER_FILENAME
         if not pointer_path.is_file():
             return None

@@ -34,9 +34,13 @@ from prep import __version__
 # singleton — once they've opened the old path, the migration would
 # race against live write traffic. Running it here guarantees the
 # stores pick up their new XDG location from the first open.
-from prep.core.data_dir_migration import migrate_legacy_data_dir as _migrate_legacy
+from prep.core.data_dir_migration import (
+    migrate_from_legacy_codrag as _migrate_from_codrag,
+    migrate_legacy_data_dir as _migrate_legacy,
+)
 
-_migrate_legacy()
+_migrate_from_codrag()  # codrag -> prep XDG dirs (rename one-shot, D4)
+_migrate_legacy()       # CWD codrag_data -> XDG (Phase 113 one-shot)
 
 from prep.api.envelope import install_api_exception_handlers
 from prep.core import CodeIndex

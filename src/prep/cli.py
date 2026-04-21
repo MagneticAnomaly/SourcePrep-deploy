@@ -229,8 +229,9 @@ def serve(
     # Phase 113: ensure legacy ./codrag_data/ is migrated before
     # `prep.server` imports the store modules. Safe no-op in the
     # common case (sentinel present → no-op).
-    from prep.core.data_dir_migration import migrate_legacy_data_dir
-    migrate_legacy_data_dir()
+    from prep.core.data_dir_migration import migrate_from_legacy_codrag, migrate_legacy_data_dir
+    migrate_from_legacy_codrag()  # codrag -> prep XDG dirs (rename one-shot, D4)
+    migrate_legacy_data_dir()     # CWD codrag_data -> XDG (Phase 113 one-shot)
 
     import uvicorn
     from prep.server import app as fastapi_app, configure, mount_dashboard

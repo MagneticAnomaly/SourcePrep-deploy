@@ -53,6 +53,20 @@ def data_dir() -> Path:
     return _XDG_DEFAULT
 
 
+def _migrate_embedded_dir(project_root: Path) -> None:
+    """Rename a legacy ``.codrag/`` embedded index dir to ``.prep/``.
+
+    Called once per project open before any ``.prep/`` read. No-op when
+    ``.codrag/`` is absent or ``.prep/`` already exists.
+
+    Used only by the codrag->prep rename migration (D5). Not for new call sites.
+    """
+    legacy = project_root / ".codrag"
+    target = project_root / ".prep"
+    if legacy.exists() and not target.exists():
+        legacy.rename(target)
+
+
 def legacy_cwd_data_dir(cwd: Path | None = None) -> Path:
     """Return the legacy ``./codrag_data`` path (relative to ``cwd``).
 

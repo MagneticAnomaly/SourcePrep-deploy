@@ -283,3 +283,90 @@ def test_sidecar_conflict_preserved_with_db() -> None:
         assert wal_side[0].read_bytes() == b"legacy-wal-data"
         # Legacy side is drained.
         assert not (legacy / "codrag_antibodies.db-wal").exists()
+
+
+# ---------------------------------------------------------------------------
+# Task 3B: codrag XDG dir -> prep XDG dir migration (D4)
+# ---------------------------------------------------------------------------
+
+def test_migrate_from_legacy_codrag_dir(tmp_path, monkeypatch):
+    """First prep-serve run migrates ~/.local/share/codrag to ~/.local/share/prep."""
+    fake_home = tmp_path / "home"
+    legacy = fake_home / ".local" / "share" / "codrag"
+    target = fake_home / ".local" / "share" / "prep"
+    legacy.mkdir(parents=True)
+    (legacy / "prep_settings.db").write_bytes(b"SQLITE payload")
+    (legacy / "projects").mkdir()
+    # Patch Path.home() directly for macOS compatibility (HOME env var
+    # is not always respected by Path.home() on macOS/Python).
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+    monkeypatch.delenv("PREP_DATA_DIR", raising=False)
+
+    from prep.core.data_dir_migration import migrate_from_legacy_codrag
+    migrated = migrate_from_legacy_codrag()
+
+    assert migrated is True
+    assert target.exists()
+    assert (target / "prep_settings.db").read_bytes() == b"SQLITE payload"
+    assert (target / ".migrated_from_codrag").exists()
+    assert not legacy.exists()
+
+
+def test_migrate_from_legacy_codrag_is_idempotent(tmp_path, monkeypatch):
+    """Sentinel file prevents re-migration."""
+    fake_home = tmp_path / "home"
+    target = fake_home / ".local" / "share" / "prep"
+    target.mkdir(parents=True)
+    (target / ".migrated_from_codrag").write_text("2026-04-21T00:00:00Z\n")
+    legacy = fake_home / ".local" / "share" / "codrag"
+    legacy.mkdir(parents=True)
+    (legacy / "prep_settings.db").write_bytes(b"should_not_migrate")
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+    monkeypatch.delenv("PREP_DATA_DIR", raising=False)
+
+    from prep.core.data_dir_migration import migrate_from_legacy_codrag
+    migrated = migrate_from_legacy_codrag()
+
+    assert migrated is False
+    assert legacy.exists()  # untouched
+    assert not (target / "prep_settings.db").exists()
+
+
+def test_migrate_from_legacy_codrag_conflict_preserves_both(tmp_path, monkeypatch):
+    """Both dirs non-empty: target wins; legacy saved as conflict suffix."""
+    fake_home = tmp_path / "home"
+    legacy = fake_home / ".local" / "share" / "codrag"
+    target = fake_home / ".local" / "share" / "prep"
+    legacy.mkdir(parents=True)
+    target.mkdir(parents=True)
+    (legacy / "prep_settings.db").write_bytes(b"legacy_data")
+    (target / "prep_settings.db").write_bytes(b"newer_data")
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+    monkeypatch.delenv("PREP_DATA_DIR", raising=False)
+
+    from prep.core.data_dir_migration import migrate_from_legacy_codrag
+    result = migrate_from_legacy_codrag()
+
+    assert result is True
+    assert (target / "prep_settings.db").read_bytes() == b"newer_data"
+    conflicts = list(fake_home.glob(".local/share/codrag.migration-conflict.*"))
+    assert len(conflicts) == 1
+    assert (conflicts[0] / "prep_settings.db").read_bytes() == b"legacy_data"
+
+
+# ---------------------------------------------------------------------------
+# Task 3B: embedded .codrag -> .prep migration (D5)
+# ---------------------------------------------------------------------------
+
+def test_migrate_embedded_codrag_dir(tmp_path):
+    """Embedded .codrag/ in a project root is renamed to .prep/ on project open."""
+    from prep.core.paths import _migrate_embedded_dir
+    project = tmp_path / "myproj"
+    (project / ".codrag").mkdir(parents=True)
+    (project / ".codrag" / "index.json").write_text("{}")
+
+    _migrate_embedded_dir(project)
+
+    assert (project / ".prep").exists()
+    assert (project / ".prep" / "index.json").read_text() == "{}"
+    assert not (project / ".codrag").exists()

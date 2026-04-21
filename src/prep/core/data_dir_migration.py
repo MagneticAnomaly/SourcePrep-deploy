@@ -300,6 +300,63 @@ def _migrate_one(
         result.errors.append(f"{name}: {e!r}")
 
 
+_LEGACY_CODRAG_SENTINEL = ".migrated_from_codrag"
+
+
+def migrate_from_legacy_codrag() -> bool:
+    """Migrate ~/.local/share/codrag/ -> ~/.local/share/prep/ once.
+
+    Sentinel-gated: writes <target>/.migrated_from_codrag on completion.
+    On conflict (both sides non-empty), target wins; legacy is renamed to
+    <legacy_parent>/codrag.migration-conflict.<ISO8601>/.
+
+    Returns True if a migration occurred (including conflict resolution),
+    False if no migration was needed (sentinel exists or legacy absent).
+    """
+    try:
+        home = Path.home()
+        legacy = home / ".local" / "share" / "codrag"
+        target = home / ".local" / "share" / "prep"
+        sentinel = target / _LEGACY_CODRAG_SENTINEL
+
+        if sentinel.exists():
+            return False
+        if not legacy.exists():
+            return False
+
+        logger.info(
+            "codrag->prep dir migration: legacy=%s → target=%s", legacy, target
+        )
+
+        if target.exists() and any(target.iterdir()):
+            # Conflict: target already has data. Preserve legacy as a sibling.
+            iso = _iso_now()
+            conflict = legacy.with_name(f"codrag.migration-conflict.{iso}")
+            legacy.rename(conflict)
+            logger.info(
+                "codrag->prep dir migration: conflict — target already populated; "
+                "legacy preserved as %s",
+                conflict,
+            )
+        else:
+            # Target is absent or empty — move legacy in place.
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists():
+                target.rmdir()  # empty dir from a prior aborted run
+            shutil.move(str(legacy), str(target))
+
+        target.mkdir(exist_ok=True)
+        sentinel.write_text(datetime.now(timezone.utc).isoformat() + "Z\n")
+        logger.info("codrag->prep dir migration: done")
+        return True
+
+    except Exception:
+        logger.exception(
+            "codrag->prep dir migration: top-level failure (daemon will still start)"
+        )
+        return False
+
+
 def migrate_legacy_data_dir(
     cwd: Path | None = None,
     data_dir_override: Path | None = None,
