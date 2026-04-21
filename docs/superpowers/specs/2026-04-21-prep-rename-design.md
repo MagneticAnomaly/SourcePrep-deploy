@@ -10,6 +10,8 @@
 
 Rename the entire CoDRAG project to **Prep**. The product is unchanged; the name, identifiers, content, and websites all change. This is an alpha-stage project with no external users, so we do a hard cutover with no backward-compatibility shims. Git history is preserved on all four repos via GitHub's native transfer + rename.
 
+**Guiding rule: no visual redesign.** This is a pure text / identifier rename. Image files are renamed (filename changes) but their visual contents are not redrawn — the existing logos, OG cards, icons, and favicons keep their current pixels. A visual refresh is a separate work item if/when desired.
+
 **End state:**
 
 | Surface | Value |
@@ -369,7 +371,7 @@ No settings migration for users (alpha, no users).
 
 **Payments-specific:** Lemon Squeezy product names / SKUs, success page copy, license recovery email templates.
 
-**`websites/MagneticAnomaly/`:** defunct Vite React app (last mod Feb 23, 2026), not linked from active builds, adds ~7MB of irrelevant content. **Delete** (decision D3).
+**`websites/MagneticAnomaly/`:** kept in place (decision D3). Any "CoDRAG" references inside (scan found at least one in `src/App.jsx`) get the same find/replace treatment as other content. No deletion, no directory rename.
 
 **Verification:** dev server for each site, grep DOM for "codrag" returns 0 matches, built `sitemap.xml` uses `runprep.io` only.
 
@@ -379,7 +381,7 @@ No settings migration for users (alpha, no users).
 
 **Update every reference**: `<img src>`, `<Image src>`, CSS `url()`, VS Code `icon:` ref.
 
-**OG / Twitter card / favicon images** (decision D6): flag for manual visual-redesign review; auto-rename only filenames, not content.
+**OG / Twitter card / favicon images** (decision D6): rename filenames only. Visual contents (existing logos, pixel art, typography) are preserved as-is; only the filename + references update. Image recreation is a separate work item outside this rename.
 
 **User-visible UI strings in dashboard** (`src/prep/dashboard/src/`):
 - `StartupScreen.tsx`, `UpdateBanner.tsx` (version banner), `Toast.tsx`, `ErrorToast.tsx`
@@ -422,6 +424,8 @@ No settings migration for users (alpha, no users).
 
 ### Section 14 — CLaRa scrubbing
 
+**Decision D2: delete.** CLaRa is gone everywhere, no archive.
+
 **Live code — scrub completely:**
 - `src/prep/core/lod_extractor.py` docstring/comment refs
 - `pyproject.toml` optional-dependencies `clara` extra — remove
@@ -429,18 +433,19 @@ No settings migration for users (alpha, no users).
 - `src/prep/core/trace/analyzers/*` — scrub any CLaRa mentions
 - CLaRa in test files → delete dead tests, rename files
 
-**`.git/config`:** remove `clara-dev` remote (Phase 0 / Phase 22). GitHub repo `EricBintner/CLaRa-Remembers-It-All` untouched.
+**Historical docs — delete entirely:**
+- `docs/Phase31_CLaRa-replacement/` — `git rm -rf` the whole directory
+- `docs/Phase00_Initial-Concept/STAGE2_CLARA_QUERYTIME.md` — `git rm`
+- Any other file with `CLaRa` in the filename — delete
+- Any `CLaRa` mention in other phase docs — scrub from content
 
-**Historical docs (decision D2):**
-- Option A: delete `docs/Phase31_CLaRa-replacement/` and `docs/Phase00_Initial-Concept/STAGE2_CLARA_QUERYTIME.md`
-- Option B: rename Phase31 dir, scrub direct CLaRa mentions, rewrite narrative
-- Option C (**recommended**): move to `docs/archive/Phase31_CLaRa-replacement/`, add `archive/README.md` noting historical-artifact status, allowlist the archive path in the grep gate
+**`.git/config`:** remove `clara-dev` remote (Phase 0 / Phase 22). GitHub repo `EricBintner/CLaRa-Remembers-It-All` untouched on GitHub; just no longer referenced locally.
 
-**Similarly-named-but-not-CLaRa:**
-- `docs/Phase64_prep-for-agents+paperclip/` — uses "prep" as verb, coincidental, keep
+**Similarly-named-but-not-CLaRa (keep):**
+- `docs/Phase64_prep-for-agents+paperclip/` — uses "prep" as verb, coincidental
 - `docs/Phase67_AGENTS/HR-concept-adapter/` — unrelated
 
-**Verification:** `grep -rni "clara\|CLaRa" --exclude-dir=.git --exclude-dir=archive` → 0; pipeline still builds.
+**Verification:** `grep -rni "clara\|CLaRa" --exclude-dir=.git --exclude-dir=node_modules` → 0 hits across the repo.
 
 ### Section 15 — Historical phase docs
 
@@ -461,9 +466,9 @@ No settings migration for users (alpha, no users).
 docs/Phase00_Initial-Concept/
 docs/Phase01_Foundation/
 docs/Phase02_Dashboard/
-docs/archive/
 CHANGELOG.md
 ```
+(No `docs/archive/` entry — decision D2 deletes CLaRa docs rather than archiving.)
 
 **Phase102 draft doc (this file supersedes it)**: keep `docs/Phase102_Prep_rename/Phase102_Prep_rename.md` with a one-line pointer header noting supersession, rather than deleting.
 
@@ -550,20 +555,20 @@ Must return 0 lines. Allowlist entries (Section 15).
 
 ---
 
-## Open decisions
+## Decisions (resolved 2026-04-21)
 
-| # | Decision | Recommendation |
+| # | Decision | Resolution |
 |---|---|---|
-| D1 | Tags/releases on current GitHub | Leave historical `v0.x` tags |
-| D2 | CLaRa historical docs | Option C: archive + allowlist |
-| D3 | `websites/MagneticAnomaly/` | Delete |
-| D4 | Data-dir auto-migration | Implement |
-| D5 | Embedded `.codrag/` migration | Auto-detect and rename |
-| D6 | OG / Twitter / favicon images | Flag for visual redesign review |
-| D7 | PyPI / crates.io publish today? | Assumed no; confirm |
+| D1 | Tags/releases on current GitHub | Leave historical `v0.x` tags; start new series at first Prep release |
+| D2 | CLaRa historical docs | **Delete** — no archive, no allowlist |
+| D3 | `websites/MagneticAnomaly/` | **Keep in place**; "CoDRAG" refs inside get same find/replace as other content |
+| D4 | Data-dir auto-migration | Implement — one-shot migration in `data_dir_migration.py`, sentinel-gated |
+| D5 | Embedded `.codrag/` migration in client repos | Auto-detect and rename to `.prep/` on project open |
+| D6 | OG / Twitter / favicon images | Rename filenames only; visual content preserved (no redesign) |
+| D7 | PyPI / crates.io / npm publishing | Not today, soon. Separate task: check `prep` name availability on PyPI, npm, crates.io before first publish (see Prerequisites for follow-ups) |
 | D8 | VS Code publisher ID `magnetic-anomaly` | Keep |
 | D9 | Tauri bundle-ID format | `io.runprep.app` |
-| D10 | Phase102 draft doc | Keep with "superseded" header |
+| D10 | Phase102 draft doc | Keep with "superseded" header pointing at this spec |
 
 ---
 
@@ -591,9 +596,15 @@ Must return 0 lines. Allowlist entries (Section 15).
 
 ## Prerequisites before execution
 
-1. Answers to the 10 open decisions (or acceptance of defaults).
+1. ~~Answers to the 10 open decisions~~ — resolved 2026-04-21.
 2. No concurrent branch work during the rename window.
 3. `runprep.io` registered before Phase 14 (or explicit `TODO_DOMAIN` marker placeholder).
+
+## Follow-ups (outside this rename)
+
+- **Registry name check** (from D7): before first public publish, verify `prep` is available on PyPI, `@prep` on npm, and `prep-*` crate names on crates.io. If any collide, pick a disambiguated publish name (e.g., `runprep`, `prep-ai`) without changing internal identifiers — only the published distribution name changes.
+- **Visual refresh** (from D6 and guiding rule): if/when a logo / OG card redesign is desired, it's a separate work item. The rename leaves existing pixels untouched.
+- **Stale users of deleted `clara-dev` remote**: none expected; if anyone had this remote configured in a fork/clone, they'll hit a "remote not found" on fetch.
 
 ---
 
