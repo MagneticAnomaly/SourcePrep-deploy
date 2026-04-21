@@ -43,6 +43,16 @@ export interface PageHostProps {
   onDeepAnalysisScheduleChange: (next: DeepAnalysisSchedule) => void;
   largeModelConfigured: boolean;
   fastModelConfigured: boolean;
+
+  // ── Project-scope: Danger Zone page (Task 17) ─────────────────────
+  // One-shot destructive actions — no dirty/save. Each button opens the
+  // shared ConfirmDialog with a typed-confirm gate for Rebuild Pipeline
+  // (Phase 114 UX preserved verbatim from the drawer).
+  pipelineRunning: boolean;
+  onRebuildPipeline: () => void;
+  onDestroyIndex: () => void;
+  onDestroyEnrichmentFull: () => void;
+  onDestroyFinalizeFull: () => void;
 }
 
 export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
@@ -94,7 +104,18 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
           fastModelConfigured={host.fastModelConfigured}
         />
       );
-    case 'danger-zone':           return <DangerZonePage {...host as any} />;
+    case 'danger-zone':
+      return (
+        <DangerZonePage
+          projectName={host.projectName}
+          projectId={host.activeProjectId}
+          pipelineRunning={host.pipelineRunning}
+          onRebuildPipeline={host.onRebuildPipeline}
+          onDestroyIndex={host.onDestroyIndex}
+          onDestroyEnrichmentFull={host.onDestroyEnrichmentFull}
+          onDestroyFinalizeFull={host.onDestroyFinalizeFull}
+        />
+      );
     case 'appearance':            return <AppearancePage {...host as any} />;
     case 'chunking-embeddings':   return <ChunkingEmbeddingsPage {...host as any} />;
     case 'pipeline-defaults':     return <PipelineDefaultsPage {...host as any} />;

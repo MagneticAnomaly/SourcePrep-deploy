@@ -994,6 +994,14 @@ function App() {
     },
   })
 
+  // Pipeline-running signal used by the Settings Danger Zone (legacy drawer
+  // and v2 overlay both consume this to disable Recover-from-Snapshot
+  // during active runs). Extracted so both code paths see the same value.
+  const settingsPipelineRunning =
+    inferredEdgesRunning || augmenting || validating || epistemicRunning ||
+    groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning ||
+    fastKnowledgeBuilding || deepKnowledgeBuilding
+
   // ── Loading state ──────────────────────────────────────────
   // Consolidated: show StartupScreen throughout both the daemon‐connection
   // phase AND the subsequent init/hydration phase. The stage text updates
@@ -1059,6 +1067,11 @@ function App() {
             onDeepAnalysisScheduleChange: handleSyncedDeepAnalysisScheduleChange,
             largeModelConfigured: !!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model),
             fastModelConfigured: !!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model),
+            pipelineRunning: settingsPipelineRunning,
+            onRebuildPipeline: handleRebuildPipeline,
+            onDestroyIndex: handleDestroyIndex,
+            onDestroyEnrichmentFull: handleDestroyEnrichmentFull,
+            onDestroyFinalizeFull: handleDestroyFinalizeFull,
           })}
           projectName={selectedProject?.name ?? null}
           confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}
@@ -1096,11 +1109,7 @@ function App() {
           licenseError={licenseError}
           projectName={selectedProject?.name}
           projectId={selectedProjectId}
-          pipelineRunning={
-            inferredEdgesRunning || augmenting || validating || epistemicRunning ||
-            groupReasoningRunning || clusterRunning || atlasRunning || deepeningRunning ||
-            fastKnowledgeBuilding || deepKnowledgeBuilding
-          }
+          pipelineRunning={settingsPipelineRunning}
           onDestroyIndex={handleDestroyIndex}
           onDestroyEnrichmentFull={handleDestroyEnrichmentFull}
           onDestroyFinalizeFull={handleDestroyFinalizeFull}
