@@ -1055,6 +1055,10 @@ function App() {
             onProjectSave: handleProjectSave,
             onProjectDiscard: handleProjectDiscard,
             onDetectStack: selectedProjectId ? handleDetectStack : undefined,
+            deepAnalysisSchedule,
+            onDeepAnalysisScheduleChange: handleSyncedDeepAnalysisScheduleChange,
+            largeModelConfigured: !!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model),
+            fastModelConfigured: !!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model),
           })}
           projectName={selectedProject?.name ?? null}
           confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}

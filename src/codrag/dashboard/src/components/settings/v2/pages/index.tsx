@@ -1,4 +1,4 @@
-import type { ProjectConfig } from '@codrag/ui';
+import type { DeepAnalysisSchedule, ProjectConfig } from '@codrag/ui';
 import type { SettingsPageId } from '../routeParser';
 import { SettingsPage } from '../SettingsPage';
 import { SourcesPage } from './Sources';
@@ -34,6 +34,15 @@ export interface PageHostProps {
     detected_presets: string[];
     all_presets: Record<string, string[]>;
   }>;
+
+  // ── Project-scope: Deep Analysis page (Task 16) ───────────────────
+  // Autosave — onDeepAnalysisScheduleChange persists immediately via
+  // handleSyncedDeepAnalysisScheduleChange in App.tsx, so no Save/Discard
+  // wiring is needed for this page.
+  deepAnalysisSchedule: DeepAnalysisSchedule;
+  onDeepAnalysisScheduleChange: (next: DeepAnalysisSchedule) => void;
+  largeModelConfigured: boolean;
+  fastModelConfigured: boolean;
 }
 
 export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
@@ -75,7 +84,16 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
           </div>
         </SettingsPage>
       );
-    case 'deep-analysis':         return <DeepAnalysisPage {...host as any} />;
+    case 'deep-analysis':
+      return (
+        <DeepAnalysisPage
+          projectName={host.projectName}
+          schedule={host.deepAnalysisSchedule}
+          onScheduleChange={host.onDeepAnalysisScheduleChange}
+          largeModelConfigured={host.largeModelConfigured}
+          fastModelConfigured={host.fastModelConfigured}
+        />
+      );
     case 'danger-zone':           return <DangerZonePage {...host as any} />;
     case 'appearance':            return <AppearancePage {...host as any} />;
     case 'chunking-embeddings':   return <ChunkingEmbeddingsPage {...host as any} />;
