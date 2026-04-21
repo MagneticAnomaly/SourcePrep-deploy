@@ -88,6 +88,12 @@ export interface PageHostProps {
   licenseLoading: boolean;
   licenseError: string | null;
   devTierOverride: string | null;
+
+  // ── Global-scope: Integrations page (Task 22) ─────────────────────
+  // onOpenAiGateway closes the overlay (drops ?settings= from URL) and
+  // dispatches 'codrag:open-ai-gateway' which App.tsx routes to the
+  // AI Gateway details panel. The AI Gateway itself is not moved.
+  onOpenAiGateway: () => void;
 }
 
 export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
@@ -191,7 +197,8 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
           devTierOverride={host.devTierOverride}
         />
       );
-    case 'integrations':          return <IntegrationsPage {...host as any} />;
+    case 'integrations':
+      return <IntegrationsPage onOpenAiGateway={host.onOpenAiGateway} />;
     case 'developer-debug':       return <DevTogglesPage {...host as any} />;
     case 'developer-diagnostics': return <DiagnosticsPage {...host as any} />;
     case 'developer-reset':       return <SelectiveResetPage {...host as any} />;

@@ -605,6 +605,13 @@ function App() {
     api.updateGlobalConfig(patch as any).catch(() => { })
   }, [api])
 
+  const handleOpenAiGateway = useCallback(() => {
+    const next = new URL(window.location.href)
+    next.searchParams.delete('settings')
+    window.history.replaceState(window.history.state, '', next.toString())
+    window.dispatchEvent(new CustomEvent('codrag:open-ai-gateway'))
+  }, [])
+
   const handleGlobalAdvancedChange = useCallback((patch: Partial<AdvancedConfig>) => {
     setGlobalAdvanced(prev => ({ ...prev, ...patch }))
     api.updateAdvancedConfig(patch).catch(() => { })
@@ -1109,6 +1116,7 @@ function App() {
             licenseLoading,
             licenseError,
             devTierOverride,
+            onOpenAiGateway: handleOpenAiGateway,
           })}
           projectName={selectedProject?.name ?? null}
           confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}
