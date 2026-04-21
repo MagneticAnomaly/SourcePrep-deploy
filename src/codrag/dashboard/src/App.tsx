@@ -916,7 +916,7 @@ function App() {
     logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
     onOpenDeepSettings: () => { openSettingsAt('deep-analysis') },
-    onOpenSettings: () => { openSettingsAt('appearance') },
+    onOpenSettings: () => { openSettingsAt(selectedProjectId ? 'sources' : 'appearance') },
     onOpenDetails: (panelId: string) => layoutApiRef.current?.openDetails(panelId),
     showDevPanels: globalConfig.developer_show_dev_panels ?? false,
     tracePipelinePanelVisible,
@@ -1126,13 +1126,13 @@ function App() {
           onDestroyDeepEnrichment: handleDestroyDeepEnrichment,
         })}
         projectName={selectedProject?.name ?? null}
-        confirmCloseIfDirty={() => true /* TODO: wire projectDirty from useSettingsDirty once Project pages land */}
+        confirmCloseIfDirty={() => !configDirty || window.confirm('Discard unsaved changes?')}
       />
       {/* Floating Settings trigger — always visible; overlay (z-50) masks it when open. */}
       <Button
         variant="outline"
         size="icon"
-        onClick={() => openSettingsAt('sources')}
+        onClick={() => openSettingsAt(selectedProjectId ? 'sources' : 'appearance')}
         title="Settings"
         className="fixed bottom-4 right-4 z-40 shadow-lg bg-surface hover:bg-surface-raised"
       >
