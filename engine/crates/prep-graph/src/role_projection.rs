@@ -1,4 +1,4 @@
-//! Role Projection Engine for CoDRAG (Phase 64D).
+//! Role Projection Engine for Prep (Phase 64D).
 //!
 //! Ports the scoring hot path from Python to Rust. Scores every indexed file
 //! against a `RoleVector` using:

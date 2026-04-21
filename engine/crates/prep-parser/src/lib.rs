@@ -1,4 +1,4 @@
-//! Tree-sitter multi-language AST parsing for CoDRAG.
+//! Tree-sitter multi-language AST parsing for Prep.
 //!
 //! Replaces Python's `ast.parse()` with tree-sitter for multi-language support.
 //! Currently supports: Python, TypeScript, JavaScript, Go, Rust, Java, C, C++.

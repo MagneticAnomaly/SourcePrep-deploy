@@ -1,5 +1,5 @@
 [package]
-name = "codrag-sanitize"
+name = "prep-sanitize"
 description = "Content sanitization for CoDRAG: code fence escaping, invisible Unicode stripping, NFKC normalization, and secret detection"
 version.workspace = true
 edition.workspace = true

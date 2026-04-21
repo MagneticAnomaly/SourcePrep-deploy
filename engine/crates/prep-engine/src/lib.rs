@@ -1,4 +1,4 @@
-//! PyO3 Python bindings for the CoDRAG Rust engine.
+//! PyO3 Python bindings for the Prep Rust engine.
 //!
 //! This crate exposes the Rust engine to Python via PyO3.
 //! It provides: file walking, content hashing, multi-language parsing,
@@ -16,12 +16,12 @@ use pyo3::IntoPyObjectExt;
 
 #[pyfunction]
 fn version() -> String {
-    format!("codrag-engine {}", env!("CARGO_PKG_VERSION"))
+    format!("prep-engine {}", env!("CARGO_PKG_VERSION"))
 }
 
 #[pyfunction]
 fn supported_languages() -> Vec<String> {
-    codrag_parser::supported_languages()
+    prep_parser::supported_languages()
         .iter()
         .map(|s| s.to_string())
         .collect()
@@ -38,7 +38,7 @@ fn walk_repo(
     max_file_bytes: Option<u64>,
     max_files: Option<usize>,
 ) -> PyResult<Vec<PyFileEntry>> {
-    let mut config = codrag_walker::WalkConfig::default();
+    let mut config = prep_walker::WalkConfig::default();
     if let Some(ig) = include_globs {
         config.include_globs = ig;
     }
@@ -52,7 +52,7 @@ fn walk_repo(
         config.max_files = mf;
     }
 
-    let entries = codrag_walker::walk_repo(&PathBuf::from(root), &config)
+    let entries = prep_walker::walk_repo(&PathBuf::from(root), &config)
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
     Ok(entries
@@ -90,12 +90,12 @@ impl PyFileEntry {
 
 #[pyfunction]
 fn hash_content(content: &str) -> String {
-    codrag_walker::hash_content(content)
+    prep_walker::hash_content(content)
 }
 
 #[pyfunction]
 fn detect_language(path: &str) -> Option<String> {
-    codrag_walker::detect_language(path).map(|s| s.to_string())
+    prep_walker::detect_language(path).map(|s| s.to_string())
 }
 
 // --- Parser ---
@@ -107,7 +107,7 @@ fn parse_file(
     language: &str,
     repo_root: &str,
 ) -> PyResult<PyParseResult> {
-    let result = codrag_parser::parse_file(
+    let result = prep_parser::parse_file(
         file_path,
         content,
         language,
@@ -193,8 +193,8 @@ struct PyParsedNode {
     header_depth: Option<usize>,
 }
 
-impl From<codrag_parser::ParsedNode> for PyParsedNode {
-    fn from(n: codrag_parser::ParsedNode) -> Self {
+impl From<prep_parser::ParsedNode> for PyParsedNode {
+    fn from(n: prep_parser::ParsedNode) -> Self {
         Self {
             id: n.id,
             kind: n.kind,
@@ -306,8 +306,8 @@ struct PyParsedEdge {
     external: Option<bool>,
 }
 
-impl From<codrag_parser::ParsedEdge> for PyParsedEdge {
-    fn from(e: codrag_parser::ParsedEdge) -> Self {
+impl From<prep_parser::ParsedEdge> for PyParsedEdge {
+    fn from(e: prep_parser::ParsedEdge) -> Self {
         Self {
             id: e.id,
             kind: e.kind,
@@ -374,7 +374,7 @@ fn parse_files_parallel(
     repo_root: &str,
 ) -> PyResult<Vec<PyParseResult>> {
     let root = PathBuf::from(repo_root);
-    let results = codrag_parser::parse_files_parallel(&entries, &root);
+    let results = prep_parser::parse_files_parallel(&entries, &root);
 
     Ok(results
         .into_iter()
@@ -398,8 +398,8 @@ fn parse_files_parallel(
 
 #[pyclass]
 struct TraceHandle {
-    graph: Arc<Mutex<codrag_graph::TraceGraph>>,
-    manifest: Option<codrag_graph::TraceManifest>,
+    graph: Arc<Mutex<prep_graph::TraceGraph>>,
+    manifest: Option<prep_graph::TraceManifest>,
 }
 
 #[pyfunction]
@@ -411,7 +411,7 @@ fn build_trace(
     exclude_globs: Option<Vec<String>>,
     max_file_bytes: Option<u64>,
 ) -> PyResult<TraceHandle> {
-    let mut config = codrag_graph::TraceBuildConfig::default();
+    let mut config = prep_graph::TraceBuildConfig::default();
     if let Some(ig) = include_globs {
         config.include_globs = ig;
     }
@@ -422,7 +422,7 @@ fn build_trace(
         config.max_file_bytes = mb;
     }
 
-    let (graph, manifest) = codrag_graph::build_trace(
+    let (graph, manifest) = prep_graph::build_trace(
         &PathBuf::from(repo_root),
         &PathBuf::from(index_dir),
         &config,
@@ -437,7 +437,7 @@ fn build_trace(
 
 #[pyfunction]
 fn load_trace(index_dir: &str) -> PyResult<TraceHandle> {
-    let graph = codrag_graph::TraceGraph::load_jsonl(&PathBuf::from(index_dir))
+    let graph = prep_graph::TraceGraph::load_jsonl(&PathBuf::from(index_dir))
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
 
     Ok(TraceHandle {
@@ -546,7 +546,7 @@ impl TraceHandle {
             let conf = dict.get_item("confidence")?
                 .ok_or_else(|| PyRuntimeError::new_err("Missing confidence"))?
                 .extract::<f64>()?;
-            hypotheses.push(codrag_graph::InferredEdgeInput {
+            hypotheses.push(prep_graph::InferredEdgeInput {
                 source_node_id: source,
                 target_file_path: target,
                 relationship: rel,
@@ -615,27 +615,27 @@ struct PyNeighborResult {
 
 #[pyfunction]
 fn sanitize_code_fences(content: &str) -> String {
-    codrag_sanitize::sanitize_code_fences(content)
+    prep_sanitize::sanitize_code_fences(content)
 }
 
 #[pyfunction]
 fn strip_invisible_unicode(text: &str) -> String {
-    codrag_sanitize::strip_invisible_unicode(text)
+    prep_sanitize::strip_invisible_unicode(text)
 }
 
 #[pyfunction]
 fn has_invisible_unicode(text: &str) -> bool {
-    codrag_sanitize::has_invisible_unicode(text)
+    prep_sanitize::has_invisible_unicode(text)
 }
 
 #[pyfunction]
 fn normalize_nfkc(text: &str) -> String {
-    codrag_sanitize::normalize_nfkc(text)
+    prep_sanitize::normalize_nfkc(text)
 }
 
 #[pyfunction]
 fn detect_secrets(content: &str) -> Vec<String> {
-    codrag_sanitize::detect_secrets(content)
+    prep_sanitize::detect_secrets(content)
 }
 
 // ── Chunking bindings ────────────────────────────────────────────────────────
@@ -657,7 +657,7 @@ impl PyChunk {
     }
 }
 
-fn chunk_to_pychunk(py: Python<'_>, chunk: codrag_chunking::Chunk) -> PyResult<PyChunk> {
+fn chunk_to_pychunk(py: Python<'_>, chunk: prep_chunking::Chunk) -> PyResult<PyChunk> {
     let meta_json = serde_json::to_string(&chunk.metadata)
         .map_err(|e| PyRuntimeError::new_err(e.to_string()))?;
     let json_mod = py.import("json")?;
@@ -680,7 +680,7 @@ fn chunk_markdown(
     max_chars: usize,
     min_chars: usize,
 ) -> PyResult<Vec<PyChunk>> {
-    let chunks = codrag_chunking::chunk_markdown(text, source_path, xref_id, name, max_chars, min_chars);
+    let chunks = prep_chunking::chunk_markdown(text, source_path, xref_id, name, max_chars, min_chars);
     chunks
         .into_iter()
         .map(|c| chunk_to_pychunk(py, c))
@@ -696,7 +696,7 @@ fn chunk_code(
     max_chars: usize,
     overlap_chars: usize,
 ) -> PyResult<Vec<PyChunk>> {
-    let chunks = codrag_chunking::chunk_code(text, source_path, max_chars, overlap_chars);
+    let chunks = prep_chunking::chunk_code(text, source_path, max_chars, overlap_chars);
     chunks
         .into_iter()
         .map(|c| chunk_to_pychunk(py, c))
@@ -785,9 +785,9 @@ fn extract_lod(
     augmented_summary: Option<&str>,
     augmented_role: Option<&str>,
 ) -> PyLODResult {
-    let sym_infos: Vec<codrag_graph::lod::SymbolInfo> = symbols
+    let sym_infos: Vec<prep_graph::lod::SymbolInfo> = symbols
         .iter()
-        .map(|s| codrag_graph::lod::SymbolInfo {
+        .map(|s| prep_graph::lod::SymbolInfo {
             name: s.name.clone(),
             kind: s.kind.clone(),
             qualname: s.qualname.clone(),
@@ -799,7 +799,7 @@ fn extract_lod(
         .collect();
 
     let augmented = if augmented_summary.is_some() || augmented_role.is_some() {
-        Some(codrag_graph::lod::AugmentedInfo {
+        Some(prep_graph::lod::AugmentedInfo {
             summary: augmented_summary.map(|s| s.to_string()),
             role: augmented_role.map(|s| s.to_string()),
         })
@@ -807,7 +807,7 @@ fn extract_lod(
         None
     };
 
-    let result = codrag_graph::lod::extract_lod(
+    let result = prep_graph::lod::extract_lod(
         file_path,
         lod,
         &sym_infos,
@@ -831,7 +831,7 @@ fn extract_lod(
 #[pyfunction]
 #[pyo3(signature = (score, is_trace_expanded=false))]
 fn assign_lod(score: f64, is_trace_expanded: bool) -> u8 {
-    codrag_graph::lod::assign_lod(score, is_trace_expanded)
+    prep_graph::lod::assign_lod(score, is_trace_expanded)
 }
 
 // ── Phase 64D: Rust role projection scoring ──────────────────────────────────
@@ -857,13 +857,13 @@ fn score_files_for_role(
     role_json: &str,
 ) -> PyResult<PyObject> {
     // Deserialize the role vector from JSON
-    let role: codrag_graph::role_projection::RoleVector =
+    let role: prep_graph::role_projection::RoleVector =
         serde_json::from_str(role_json).map_err(|e| {
             PyRuntimeError::new_err(format!("Failed to parse role JSON: {}", e))
         })?;
 
     // Run the Rust scoring engine
-    let scored = codrag_graph::role_projection::score_files_for_role(
+    let scored = prep_graph::role_projection::score_files_for_role(
         &std::path::PathBuf::from(index_dir),
         &role,
     );
@@ -885,7 +885,7 @@ fn score_files_for_role(
 }
 
 #[pymodule]
-fn codrag_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn prep_engine(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(version, m)?)?;
     m.add_function(wrap_pyfunction!(supported_languages, m)?)?;
     m.add_function(wrap_pyfunction!(walk_repo, m)?)?;

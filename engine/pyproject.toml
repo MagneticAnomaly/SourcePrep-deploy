@@ -3,11 +3,11 @@ requires = ["maturin>=1.0,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "codrag-engine"
+name = "prep-engine"
 version = "0.1.0"
 description = "Rust engine core for CoDRAG — file walking, parsing, trace graph"
 requires-python = ">=3.10"
 
 [tool.maturin]
-manifest-path = "crates/codrag-engine/Cargo.toml"
-module-name = "codrag_engine"
+manifest-path = "crates/prep-engine/Cargo.toml"
+module-name = "prep_engine"

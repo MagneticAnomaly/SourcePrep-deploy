@@ -1,4 +1,4 @@
-//! Content sanitization for CoDRAG.
+//! Content sanitization for Prep.
 //!
 //! Provides high-performance Rust implementations of security-critical text processing:
 //! - Code fence escaping (prevents prompt injection via triple-backtick breakout)

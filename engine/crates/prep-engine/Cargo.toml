@@ -1,5 +1,5 @@
 [package]
-name = "codrag-engine"
+name = "prep-engine"
 description = "PyO3 Python bindings for the CoDRAG Rust engine"
 version.workspace = true
 edition.workspace = true
@@ -7,7 +7,7 @@ license.workspace = true
 authors.workspace = true
 
 [lib]
-name = "codrag_engine"
+name = "prep_engine"
 crate-type = ["cdylib"]
 
 [dependencies]
@@ -16,8 +16,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
 
-codrag-walker = { path = "../codrag-walker" }
-codrag-parser = { path = "../codrag-parser" }
-codrag-graph = { path = "../codrag-graph" }
-codrag-sanitize = { path = "../codrag-sanitize" }
-codrag-chunking = { path = "../codrag-chunking" }
+prep-walker = { path = "../prep-walker" }
+prep-parser = { path = "../prep-parser" }
+prep-graph = { path = "../prep-graph" }
+prep-sanitize = { path = "../prep-sanitize" }
+prep-chunking = { path = "../prep-chunking" }

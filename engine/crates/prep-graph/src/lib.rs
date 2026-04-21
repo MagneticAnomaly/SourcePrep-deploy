@@ -1,4 +1,4 @@
-//! In-memory trace graph storage and queries for CoDRAG.
+//! In-memory trace graph storage and queries for Prep.
 //!
 //! Provides a compact, arena-friendly graph that stores trace nodes and edges
 //! with efficient lookup by ID, name search, and neighbor traversal.
@@ -9,17 +9,17 @@ pub mod role_projection;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use codrag_parser::{ParsedEdge, ParsedNode};
-use codrag_walker::WalkConfig;
+use prep_parser::{ParsedEdge, ParsedNode};
+use prep_walker::WalkConfig;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum GraphError {
     #[error("walker error: {0}")]
-    Walker(#[from] codrag_walker::WalkerError),
+    Walker(#[from] prep_walker::WalkerError),
     #[error("parser error: {0}")]
-    Parser(#[from] codrag_parser::ParserError),
+    Parser(#[from] prep_parser::ParserError),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
     #[error("graph validation failed: {0}")]
@@ -281,7 +281,7 @@ impl TraceGraph {
                 let mut resolved = None;
                 for ext in &extensions {
                     let candidate = format!("{}{}", base, ext);
-                    let file_id = codrag_parser::stable_file_node_id(&candidate);
+                    let file_id = prep_parser::stable_file_node_id(&candidate);
                     if self.nodes.contains_key(&file_id) {
                         resolved = Some(file_id);
                         break;
@@ -297,7 +297,7 @@ impl TraceGraph {
                 if resolved.is_none() {
                     for idx in &index_files {
                         let candidate = format!("{}/{}", base.trim_end_matches('/'), idx);
-                        let file_id = codrag_parser::stable_file_node_id(&candidate);
+                        let file_id = prep_parser::stable_file_node_id(&candidate);
                         if self.nodes.contains_key(&file_id) {
                             resolved = Some(file_id);
                             break;
@@ -342,7 +342,7 @@ impl TraceGraph {
                     .as_ref()
                     .map(|s| format!("{}:{}", s, edge.metadata.line.unwrap_or(0)))
                     .unwrap_or_default();
-                edge.id = codrag_parser::stable_edge_id(
+                edge.id = prep_parser::stable_edge_id(
                     &edge.kind,
                     &edge.source,
                     &edge.target,
@@ -368,7 +368,7 @@ impl TraceGraph {
     ///
     /// Resolution strategies (tried in order):
     /// 1. **Relative path**: `./foo` or `../bar` → resolve relative to importing file
-    /// 2. **Module path**: `codrag.core.trace` → map dots/colons to directory separators
+    /// 2. **Module path**: `prep.core.trace` → map dots/colons to directory separators
     /// 3. **Symbol name**: `Router` → search for files named `Router.{ext}` or containing
     ///    an exported symbol named `Router`
     /// 4. **Namespace prefix**: `Slim\Routing\Router` (PHP) → map `\` to `/`
@@ -469,7 +469,7 @@ impl TraceGraph {
             );
 
             if let Some(file_path) = resolved {
-                let file_id = codrag_parser::stable_file_node_id(&file_path);
+                let file_id = prep_parser::stable_file_node_id(&file_path);
                 if self.nodes.contains_key(&file_id) {
                     rewrites.insert(ext_id.clone(), file_id);
                 }
@@ -501,7 +501,7 @@ impl TraceGraph {
                     .as_ref()
                     .map(|s| format!("{}:{}", s, edge.metadata.line.unwrap_or(0)))
                     .unwrap_or_default();
-                edge.id = codrag_parser::stable_edge_id(
+                edge.id = prep_parser::stable_edge_id(
                     &edge.kind,
                     &edge.source,
                     &edge.target,
@@ -565,7 +565,7 @@ impl TraceGraph {
         }
 
         // Strategy 2: Module path mapping (dots → dirs, backslash → dirs)
-        // Python: codrag.core.trace → codrag/core/trace.py or codrag/core/trace/__init__.py
+        // Python: prep.core.trace → prep/core/trace.py or prep/core/trace/__init__.py
         // PHP:    Slim\Routing\Router → Slim/Routing/Router.php
         // Rust:   crate::core::trace → src/core/trace.rs or src/core/trace/mod.rs
         // Go:     ./internal/router → internal/router (relative)
@@ -934,7 +934,7 @@ pub fn build_trace(
     };
 
     // Phase 1: Walk
-    let entries = codrag_walker::walk_repo(repo_root, &walk_config)?;
+    let entries = prep_walker::walk_repo(repo_root, &walk_config)?;
 
     // Phase 2: Parse each file
     let mut graph = TraceGraph::new();
@@ -944,8 +944,8 @@ pub fn build_trace(
 
     for entry in &entries {
         // Add file node
-        let file_node_id = codrag_parser::stable_file_node_id(&entry.path);
-        let language = codrag_walker::detect_language(&entry.path);
+        let file_node_id = prep_parser::stable_file_node_id(&entry.path);
+        let language = prep_walker::detect_language(&entry.path);
 
         graph.add_node(ParsedNode {
             id: file_node_id.clone(),
@@ -978,7 +978,7 @@ pub fn build_trace(
                 }
             };
 
-            match codrag_parser::parse_file(&entry.path, &content, lang, repo_root) {
+            match prep_parser::parse_file(&entry.path, &content, lang, repo_root) {
                 Ok(result) => {
                     for node in result.nodes {
                         graph.add_node(node);
@@ -1099,7 +1099,7 @@ impl TraceGraph {
             }
 
             // 2. Resolve target file path to node ID
-            let target_id = codrag_parser::stable_file_node_id(&hyp.target_file_path);
+            let target_id = prep_parser::stable_file_node_id(&hyp.target_file_path);
             if !self.nodes.contains_key(&target_id) {
                 result.rejected_missing_target += 1;
                 continue;
@@ -1112,7 +1112,7 @@ impl TraceGraph {
             }
 
             // 4. Check for duplicate inferred edge
-            let edge_id = codrag_parser::stable_edge_id(
+            let edge_id = prep_parser::stable_edge_id(
                 "inferred",
                 &hyp.source_node_id,
                 &target_id,
@@ -1143,7 +1143,7 @@ impl TraceGraph {
                 kind: "inferred".to_string(),
                 source: hyp.source_node_id.clone(),
                 target: target_id,
-                metadata: codrag_parser::EdgeMetadata {
+                metadata: prep_parser::EdgeMetadata {
                     confidence: final_confidence,
                     import_str: Some(hyp.relationship.clone()),
                     ..Default::default()
@@ -1218,7 +1218,7 @@ fn chrono_now_utc() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use codrag_parser::Span;
+    use prep_parser::Span;
 
     #[test]
     fn test_graph_basic() {
@@ -1241,7 +1241,7 @@ mod tests {
             file_path: "main.py".to_string(),
             span: Some(Span { start_line: 1, end_line: 3 }),
             language: Some("python".to_string()),
-            metadata: codrag_parser::NodeMetadata {
+            metadata: prep_parser::NodeMetadata {
                 symbol_type: Some("function".to_string()),
                 qualname: Some("hello".to_string()),
                 ..Default::default()
@@ -1253,7 +1253,7 @@ mod tests {
             kind: "contains".to_string(),
             source: "file:main.py".to_string(),
             target: "sym:hello@main.py:1".to_string(),
-            metadata: codrag_parser::EdgeMetadata { confidence: 1.0, ..Default::default() },
+            metadata: prep_parser::EdgeMetadata { confidence: 1.0, ..Default::default() },
         });
 
         assert_eq!(graph.node_count(), 2);
@@ -1309,7 +1309,7 @@ mod tests {
             kind: "contains".to_string(),
             source: "file:a.py".to_string(),
             target: "sym:foo@a.py:1".to_string(),
-            metadata: codrag_parser::EdgeMetadata { confidence: 1.0, ..Default::default() },
+            metadata: prep_parser::EdgeMetadata { confidence: 1.0, ..Default::default() },
         });
 
         assert_eq!(graph.node_count(), 3);
@@ -1367,7 +1367,7 @@ mod tests {
             kind: "references".to_string(),
             source: "file:docs/README.md".to_string(),
             target: "file:src/main.py".to_string(),
-            metadata: codrag_parser::EdgeMetadata { confidence: 0.9, ..Default::default() },
+            metadata: prep_parser::EdgeMetadata { confidence: 0.9, ..Default::default() },
         });
         graph
     }

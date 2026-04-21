@@ -1,4 +1,4 @@
-//! Fast parallel file walking and content hashing for CoDRAG.
+//! Fast parallel file walking and content hashing for Prep.
 //!
 //! Replaces Python's `os.walk` + `hashlib` with the `ignore` crate (from ripgrep)
 //! and `blake3` for 10-50x speedups on large repositories.
@@ -87,13 +87,13 @@ impl Default for WalkConfig {
                 "**/*.exs".into(),
             ],
             // Mirror of Python's DEFAULT_EXCLUDE_DIR_NAMES + DEFAULT_EXCLUDE_FILE_GLOBS
-            // (src/codrag/core/repo_profile.py). Kept as a safety net; the trusted
+            // (src/prep/core/repo_profile.py). Kept as a safety net; the trusted
             // filter is resolved Python-side and passed to walk_repo() on each call.
             // Parity is pinned by tests/test_walker_parity.py.
             exclude_globs: vec![
-                // CoDRAG outputs (self-ingestion guard)
-                "**/.codrag/**".into(),
-                "**/codrag_data/**".into(),
+                // Prep outputs (self-ingestion guard)
+                "**/.prep/**".into(),
+                "**/prep_data/**".into(),
                 // VCS
                 "**/.git/**".into(),
                 // Python dep/build

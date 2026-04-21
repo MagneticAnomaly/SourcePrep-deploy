@@ -1,5 +1,5 @@
 [package]
-name = "codrag-walker"
+name = "prep-walker"
 description = "Fast parallel file walking and content hashing for CoDRAG"
 version.workspace = true
 edition.workspace = true

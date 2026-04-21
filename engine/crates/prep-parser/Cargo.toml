@@ -1,5 +1,5 @@
 [package]
-name = "codrag-parser"
+name = "prep-parser"
 description = "Tree-sitter multi-language AST parsing for CoDRAG"
 version.workspace = true
 edition.workspace = true

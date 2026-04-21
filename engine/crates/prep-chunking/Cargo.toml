@@ -1,5 +1,5 @@
 [package]
-name = "codrag-chunking"
+name = "prep-chunking"
 description = "Document chunking for CoDRAG: heading-based markdown chunking and size-based code chunking"
 version.workspace = true
 edition.workspace = true

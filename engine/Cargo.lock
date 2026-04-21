@@ -84,105 +84,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
-name = "codrag-chunking"
-version = "0.1.0"
-dependencies = [
- "once_cell",
- "regex",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "codrag-engine"
-version = "0.1.0"
-dependencies = [
- "codrag-chunking",
- "codrag-graph",
- "codrag-parser",
- "codrag-sanitize",
- "codrag-walker",
- "log",
- "pyo3",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "codrag-graph"
-version = "0.1.0"
-dependencies = [
- "blake3",
- "codrag-parser",
- "codrag-walker",
- "log",
- "once_cell",
- "rayon",
- "regex",
- "rustc-hash",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
-name = "codrag-parser"
-version = "0.1.0"
-dependencies = [
- "log",
- "rayon",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
- "tree-sitter",
- "tree-sitter-c",
- "tree-sitter-cpp",
- "tree-sitter-go",
- "tree-sitter-java",
- "tree-sitter-javascript",
- "tree-sitter-python",
- "tree-sitter-rust",
- "tree-sitter-typescript",
-]
-
-[[package]]
-name = "codrag-sanitize"
-version = "0.1.0"
-dependencies = [
- "once_cell",
- "regex",
- "unicode-normalization",
-]
-
-[[package]]
-name = "codrag-selfheal"
-version = "0.1.0"
-dependencies = [
- "codrag-walker",
- "ignore",
- "log",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "codrag-walker"
-version = "0.1.0"
-dependencies = [
- "blake3",
- "ignore",
- "log",
- "rayon",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror",
-]
-
-[[package]]
 name = "constant_time_eq"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -386,6 +287,105 @@ name = "portable-atomic"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
+
+[[package]]
+name = "prep-chunking"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "prep-engine"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "prep-chunking",
+ "prep-graph",
+ "prep-parser",
+ "prep-sanitize",
+ "prep-walker",
+ "pyo3",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "prep-graph"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "log",
+ "once_cell",
+ "prep-parser",
+ "prep-walker",
+ "rayon",
+ "regex",
+ "rustc-hash",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
+
+[[package]]
+name = "prep-parser"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "rayon",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tree-sitter",
+ "tree-sitter-c",
+ "tree-sitter-cpp",
+ "tree-sitter-go",
+ "tree-sitter-java",
+ "tree-sitter-javascript",
+ "tree-sitter-python",
+ "tree-sitter-rust",
+ "tree-sitter-typescript",
+]
+
+[[package]]
+name = "prep-sanitize"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
+ "regex",
+ "unicode-normalization",
+]
+
+[[package]]
+name = "prep-selfheal"
+version = "0.1.0"
+dependencies = [
+ "ignore",
+ "log",
+ "prep-walker",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "prep-walker"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "ignore",
+ "log",
+ "rayon",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+]
 
 [[package]]
 name = "proc-macro2"

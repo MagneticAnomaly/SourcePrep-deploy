@@ -1,4 +1,4 @@
-//! Document chunking for CoDRAG.
+//! Document chunking for Prep.
 //!
 //! Provides heading-based markdown chunking and size-based code chunking,
 //! with stable SHA-256 chunk IDs matching the Python `ids.py` implementation.

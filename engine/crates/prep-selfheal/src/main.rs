@@ -1,4 +1,4 @@
-use codrag_walker::{walk_repo, WalkConfig};
+use prep_walker::{walk_repo, WalkConfig};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -90,7 +90,7 @@ fn load_extra_excludes(path: &Path) -> Vec<String> {
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        eprintln!("Usage: codrag-selfheal <repo_root> <index_dir> [--extra-excludes-file <path>]");
+        eprintln!("Usage: prep-selfheal <repo_root> <index_dir> [--extra-excludes-file <path>]");
         std::process::exit(1);
     }
 

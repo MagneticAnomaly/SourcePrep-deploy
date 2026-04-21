@@ -1,5 +1,5 @@
 [package]
-name = "codrag-graph"
+name = "prep-graph"
 description = "In-memory trace graph storage and queries for CoDRAG"
 version.workspace = true
 edition.workspace = true
@@ -17,8 +17,8 @@ regex = { workspace = true }
 once_cell = { workspace = true }
 rustc-hash = { workspace = true }
 
-codrag-walker = { path = "../codrag-walker" }
-codrag-parser = { path = "../codrag-parser" }
+prep-walker = { path = "../prep-walker" }
+prep-parser = { path = "../prep-parser" }
 
 [dev-dependencies]
 tempfile = "3"

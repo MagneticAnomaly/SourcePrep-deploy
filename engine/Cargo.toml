@@ -1,13 +1,13 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/codrag-walker",
-    "crates/codrag-parser",
-    "crates/codrag-graph",
-    "crates/codrag-sanitize",
-    "crates/codrag-chunking",
-    "crates/codrag-engine",
-    "crates/codrag-selfheal",
+    "crates/prep-walker",
+    "crates/prep-parser",
+    "crates/prep-graph",
+    "crates/prep-sanitize",
+    "crates/prep-chunking",
+    "crates/prep-engine",
+    "crates/prep-selfheal",
 ]
 
 [workspace.package]
