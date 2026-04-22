@@ -3,7 +3,7 @@
 Phase 113 — single source of truth for "where does the Prep
 installation on this machine keep its state". Before this module, the
 answer was split: `project_registry.prep_data_dir()` returned
-`~/.local/share/runprep/` while `server.py`, `config_manager.py`, and
+`~/.local/share/sourceprep/` while `server.py`, `config_manager.py`, and
 `build_manager.py` hardcoded `./prep_data` (CWD-relative). The two
 worlds never got unified, leading to fragmented on-disk layout.
 
@@ -16,7 +16,7 @@ Resolution precedence for `data_dir()`:
   1. `$PREP_DATA_DIR` if set. Must be an absolute path — a relative
      value raises at startup, because a CWD-relative "canonical" data
      dir is exactly the bug this module exists to prevent.
-  2. `~/.local/share/runprep/` (XDG-style default on Linux/macOS).
+  2. `~/.local/share/sourceprep/` (XDG-style default on Linux/macOS).
 
 The returned path is guaranteed to exist (parents are created).
 """
@@ -26,7 +26,7 @@ import os
 from pathlib import Path
 
 _ENV_VAR = "PREP_DATA_DIR"
-_XDG_DEFAULT = Path.home() / ".local" / "share" / "runprep"
+_XDG_DEFAULT = Path.home() / ".local" / "share" / "sourceprep"
 
 
 def data_dir() -> Path:
