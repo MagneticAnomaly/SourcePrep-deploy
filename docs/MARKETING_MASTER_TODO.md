@@ -13,23 +13,23 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - Manual tasks (accounts, DNS, payments): `FOR_ERIC_TODO.md`
 
 ## Canonical decisions (locked unless explicitly changed)
-- Canonical domain: `runprep.io`
+- Canonical domain: `sourceprep.io`
 - Subdomains (v0):
-  - `docs.runprep.io`
-  - `support.runprep.io`
-  - `payments.runprep.io`
+  - `docs.sourceprep.io`
+  - `support.sourceprep.io`
+  - `payments.sourceprep.io`
 
 ## Implementation plan (milestones)
 - **MKT-M1: Local dev + build reliability** ✅
   - [x] Resolve the Next.js dev static asset 404 issue (ports 3000–3003). (Fixed via `scripts/run_websites.sh` and robust Vite proxying)
   - [x] Ensure `turbo dev` and `turbo build` succeed for all 4 apps.
 
-- **MKT-M2: Marketing v0 pages ship (runprep.io)** ✅
+- **MKT-M2: Marketing v0 pages ship (sourceprep.io)** ✅
   - [x] Home, Download, Pricing, Security/Privacy, Contact.
   - [x] Implemented "Radical Design Directions" (Swiss, Neo-Brutalist, Studio, etc.) for subpages.
   - [x] Copy aligned with `COPY_DECK.md` and "No LLM Required" messaging.
 
-- **MKT-M3: Docs v0 scaffold ship (docs.runprep.io)** ✅
+- **MKT-M3: Docs v0 scaffold ship (docs.sourceprep.io)** ✅
   - [x] Getting Started “10-minute trust loop”.
   - [x] Concepts + Guides + Troubleshooting scaffold.
   - [x] MCP setup guide (Cursor/Windsurf specific).
@@ -60,7 +60,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] Decide default `data-prep-theme`: **Theme K (Inclusive Focus)** selected as default.
 - [x] Implemented Atomic Design `Button` primitive across all sites.
 
-### MKT-W2: Marketing site (`websites/apps/marketing`) runprep.io
+### MKT-W2: Marketing site (`websites/apps/marketing`) sourceprep.io
 - [x] `/` home: hero + loop + local-first trust block + integrations links.
 - [x] `/download`: Platform cards + quick start + feature grid.
 - [x] `/pricing`: Free/Starter/Pro/Team tiers + “no token markup” messaging.
@@ -71,7 +71,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] `/blog`: Studio Collage layout (Direction I).
 - [x] `/privacy`, `/terms`: Enterprise Console layout (Direction L).
 
-### MKT-W3: Docs site (`websites/apps/docs`) docs.runprep.io
+### MKT-W3: Docs site (`websites/apps/docs`) docs.sourceprep.io
 - [x] `/getting-started`: “10-minute trust loop” (Install -> Serve -> Add -> Connect -> Verify).
 - [x] `/mcp`: Cursor/Windsurf guides + manual vs auto configuration.
 - [x] `/troubleshooting`: Connection issues + Native vs Ollama embeddings + Build debugging.
@@ -81,12 +81,12 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] `/faq`: Common questions (Privacy, GPU, Editors).
 - [x] `/search`: Client-side search implementation.
 
-### MKT-W4: Support site (`websites/apps/support`) support.runprep.io (`support@runprep.io`)
+### MKT-W4: Support site (`websites/apps/support`) support.sourceprep.io (`support@sourceprep.io`)
 - [x] Support Hub: Troubleshooting, Bug Report, Q&A, Billing, Email, Security cards.
-- [x] Wired to `support.runprep.io` in Vercel config.
+- [x] Wired to `support.sourceprep.io` in Vercel config.
 - [x] "Headless GitHub" integration for Discussions/Issues.
 
-### MKT-W5: Payments site (`websites/apps/payments`) payments.runprep.io
+### MKT-W5: Payments site (`websites/apps/payments`) payments.sourceprep.io
 - [x] Wire `NEXT_PUBLIC_PREP_CHECKOUT_URL` and document local `.env` usage.
 - [x] Recovery path: `/recover` route implemented.
 - [x] Success page: `/success` route implemented with next steps.
@@ -110,7 +110,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [x] **Socials**: Update SiteFooter with real Twitter/X and GitHub URLs.
 - [x] **Careers**: Add "Not actively hiring" disclaimer (optional).
 - [ ] **Legal**: External legal review of Privacy/Terms.
-- [ ] **Email**: Configure `support@runprep.io` and `hello@runprep.io` catch-alls.
+- [ ] **Email**: Configure `support@sourceprep.io` and `hello@sourceprep.io` catch-alls.
 
 ### MKT-W10: Phase 29 UX Audit — Copy & Messaging Corrections (Feb 2026)
 
@@ -149,7 +149,7 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 **Manual tasks (Eric):** See `FOR_ERIC_TODO.md` §2 (Lemon Squeezy), §3 (Netlify env vars + DNS), §4 (Verification).
 
 **License infrastructure (AI-implementable):**
-- [ ] **LIC-01**: Deploy `api.runprep.io` serverless function for Ed25519 license signing.
+- [ ] **LIC-01**: Deploy `api.sourceprep.io` serverless function for Ed25519 license signing.
 - [ ] **LIC-04**: Implement license recovery API (replace mock in `payments/api/recover/route.ts`).
 
 ### MKT-W8: Later (post-v0 / 2.0)

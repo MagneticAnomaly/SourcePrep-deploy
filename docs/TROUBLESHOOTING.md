@@ -330,4 +330,4 @@ Include in bug reports:
 - Error message and stack trace
 - Minimal reproduction steps
 
-**GitHub Issues:** https://github.com/MagneticAnomaly/RunPrep-MCP/issues
+**GitHub Issues:** https://github.com/MagneticAnomaly/SourcePrep-MCP/issues

@@ -270,7 +270,7 @@ These sprints are intentionally cross-phase. Each sprint should end with:
 ### Sprint S-15: Monetization & Distribution Plumbing (Phase 11)
 **Goal:** End-to-end licensing flow, payments recovery, and secure update channels.
 
-- [x] S-15.1 License Activation Exchange (api.runprep.io relay + Ed25519 verification)
+- [x] S-15.1 License Activation Exchange (api.sourceprep.io relay + Ed25519 verification)
 - [x] S-15.2 Payments Recovery (Lemon Squeezy order lookup integration)
 - [ ] S-15.3 Auto-Update System (UPD-1..10)
   - [x] UPD-1 Embed updater public key in `tauri.conf.json`
@@ -505,7 +505,7 @@ This section tracks shared decisions/strategies that must remain consistent acro
 ### STR-09: Licensing + feature gating strategy
 - **Status:** ✅ Decided + Enforcement Implemented
 - **Implementation:** Lemon Squeezy as MoR. "Activation Exchange" flow:
-  LS issues key → user enters in app → exchange via api.runprep.io → signed Ed25519 offline license.
+  LS issues key → user enters in app → exchange via api.sourceprep.io → signed Ed25519 offline license.
   Documented in ADR-013 + `docs/DISTRIBUTION_AND_REVENUE_PLAN.md` (authoritative).
 - **Enforcement:** `src/prep/core/feature_gate.py` — runtime tier checks.
   Server gates: project count, watcher.
@@ -646,7 +646,7 @@ Add brief notes here after completing a sprint:
 ### 2026-02-02: Documentation alignment + CLI/MCP gaps identified
 
 **What was done:**
-- Aligned `docs/Phase12.../MCP-Shim-strategy-and-examples.md` with canonical domain (`runprep.io`), repo name (`prep-mcp`), and attribution policy (optional/user-controlled).
+- Aligned `docs/Phase12.../MCP-Shim-strategy-and-examples.md` with canonical domain (`sourceprep.io`), repo name (`prep-mcp`), and attribution policy (optional/user-controlled).
 - Updated `docs/Phase14_MCP-CLI/PUBLIC_GITHUB_STRATEGY.md` with current implementation status.
 
 **Known gaps to resolve (CLI/daemon):**
@@ -1099,11 +1099,11 @@ All three trace tools now proxy to the project-scoped HTTP endpoints in `mcp_ser
 
  #### pyproject.toml Issues ✅ FIXED
 - [x] `requires-python = ">=3.11"` — kept as-is (3.11 is intended minimum per classifiers)
-- [x] `project.urls` → updated to `github.com/MagneticAnomaly/RunPrep-MCP` ✅
+- [x] `project.urls` → updated to `github.com/MagneticAnomaly/SourcePrep-MCP` ✅
 - [x] `addopts` → removed `--cov` flags that crash pytest without pytest-cov ✅
 
  #### Wrong Org URL — ~~`anthropics/Prep`~~ ✅ FIXED
-All URLs updated to `github.com/MagneticAnomaly/RunPrep-MCP`:
+All URLs updated to `github.com/MagneticAnomaly/SourcePrep-MCP`:
 - [x] `pyproject.toml` lines 71-74 — `project.urls` ✅
 - [x] `packages/ui/package.json` line 83 — `repository.url` ✅
 - [x] `mcp-server.json` lines 5-6 — `homepage` + `repository` ✅
@@ -1283,10 +1283,10 @@ All URLs updated to `github.com/MagneticAnomaly/RunPrep-MCP`:
  - Direct JSON license payload
  - Tier name string (`free`/`starter`/`pro`/`team`/`enterprise`)
  - Base64url-encoded JSON token
- The planned flow (user enters LS key → exchange via `api.runprep.io` → signed Ed25519 offline
+ The planned flow (user enters LS key → exchange via `api.sourceprep.io` → signed Ed25519 offline
  license) is **not implemented**. This blocks the full licensing story.
  - [ ] Implement Lemon Squeezy activation exchange in `POST /license/activate`
- - [ ] Wire `api.runprep.io` relay service for key → license exchange
+ - [ ] Wire `api.sourceprep.io` relay service for key → license exchange
  - [ ] Ed25519 signature verification in license loader (already tracked)
 
  #### NEW: Payments Recovery Route — Mock Stub
@@ -1344,7 +1344,7 @@ All URLs updated to `github.com/MagneticAnomaly/RunPrep-MCP`:
 
  **Phase 17 (`Phase17_VSC-plugin/TODO.md`) — ✅ dependencies table updated:**
  All daemon endpoints now marked ✅ Exists. Remaining ❌ items are genuine gaps:
- - `api.runprep.io` activation exchange endpoint (P1 License activation)
+ - `api.sourceprep.io` activation exchange endpoint (P1 License activation)
  - Lemon Squeezy product + activation limits (P2 Payments recovery)
  - Signed Prep binaries on PATH (dev-only, not blocking)
  - [x] **ACTION:** Update Phase 17 TODO.md dependencies table ✅ DONE
@@ -1380,7 +1380,7 @@ All URLs updated to `github.com/MagneticAnomaly/RunPrep-MCP`:
 | **P1** | Phase 07 (Testing) | 14 | Open | Entire phase unstarted — MVP quality bar |
 | **P1** | Test coverage | 2 | **Partial** | CLI (900 lines), viz (8 files) untested; +24 new tests: `test_pipeline_budget.py` (15), `test_embedder_factory.py` (9) |
 | ~~**P1**~~ | ~~pyproject.toml~~ | ~~3~~ |  **FIXED** | ~~Python version, pytest-cov crash, wrong org URL~~ |
-| ~~**P1**~~ | ~~Wrong org URL~~ | ~~3~~ |  **FIXED** | ~~`anthropics/Prep`~~ → `MagneticAnomaly/RunPrep` |
+| ~~**P1**~~ | ~~Wrong org URL~~ | ~~3~~ |  **FIXED** | ~~`anthropics/Prep`~~ → `MagneticAnomaly/SourcePrep` |
 | ~~**P1**~~ | ~~Legacy endpoints~~ | ~~3~~ |  **DEPRECATED** | ~~`/api/code-index/*`~~ → deprecation warnings added |
  | ~~**P1**~~ | ~~Dashboard error UX~~ | ~~1~~ |  **FIXED** | ~~`_error` state~~ → ErrorToast component wired |
  | ~~**P2**~~ | ~~Dead code~~ | ~~2~~ |  **DELETED** | ~~`server_old.py` + `api/responses.py`~~ |
@@ -1485,10 +1485,10 @@ All URLs updated to `github.com/MagneticAnomaly/RunPrep-MCP`:
 #### ~~NEW: Analytics TODO placeholders in all website app layouts~~ ✅ DONE
 
 All four Next.js sites now use Plausible via `<Script strategy="afterInteractive" />`:
-- [x] `websites/apps/marketing/src/app/layout.tsx` — `data-domain="runprep.io"` ✅
-- [x] `websites/apps/docs/src/app/layout.tsx` — `data-domain="docs.runprep.io"` ✅
-- [x] `websites/apps/support/src/app/layout.tsx` — `data-domain="support.runprep.io"` ✅
-- [x] `websites/apps/payments/src/app/layout.tsx` — `data-domain="payments.runprep.io"` ✅
+- [x] `websites/apps/marketing/src/app/layout.tsx` — `data-domain="sourceprep.io"` ✅
+- [x] `websites/apps/docs/src/app/layout.tsx` — `data-domain="docs.sourceprep.io"` ✅
+- [x] `websites/apps/support/src/app/layout.tsx` — `data-domain="support.sourceprep.io"` ✅
+- [x] `websites/apps/payments/src/app/layout.tsx` — `data-domain="payments.sourceprep.io"` ✅
 
 **Note:** Plausible account + site setup still required. Script loads but won't report until sites are registered at plausible.io.
 

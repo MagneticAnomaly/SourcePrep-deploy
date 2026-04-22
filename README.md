@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="docs/assets/prep-github-header.png" alt="RunPrep" width="100%">
+  <img src="docs/assets/prep-github-header.png" alt="SourcePrep" width="100%">
 </p>
 
 <h2 align="center"><em>The bridge between how you think about code and how AI reads it.</em></h2>
 
-**RunPrep: prep the context before any AI call.** Epistemic trace intelligence for autonomous agents and codebase orchestration.
+**SourcePrep: prep the context before any AI call.** Epistemic trace intelligence for autonomous agents and codebase orchestration.
 
-AI assistants are only as good as the context they receive. Most tools send fragments — a single file, a keyword match — and the model fills in the gaps with hallucinations. RunPrep fixes this by building a **persistent, semantic index** of your entire codebase (or multiple repos) and serving bounded, source-cited context on demand.
+AI assistants are only as good as the context they receive. Most tools send fragments — a single file, a keyword match — and the model fills in the gaps with hallucinations. SourcePrep fixes this by building a **persistent, semantic index** of your entire codebase (or multiple repos) and serving bounded, source-cited context on demand.
 
 ### Core capabilities
 
@@ -21,10 +21,10 @@ AI assistants are only as good as the context they receive. Most tools send frag
 
 ## CLI + MCP Quickstart
 
-RunPrep is primarily used in two ways:
+SourcePrep is primarily used in two ways:
 
 - **CLI**: manage projects, build indexes, search, and assemble context.
-- **MCP tool/server**: expose RunPrep capabilities to AI tools (Cursor, Windsurf, Claude Code, Gemini CLI, Qwen Code, Copilot) via the Model Context Protocol.
+- **MCP tool/server**: expose SourcePrep capabilities to AI tools (Cursor, Windsurf, Claude Code, Gemini CLI, Qwen Code, Copilot) via the Model Context Protocol.
 
 ### CLI (daemon mode)
 
@@ -59,14 +59,14 @@ For the full CLI reference, see `docs/CLI.md`.
 
 ### GUI (Dashboard)
 
-RunPrep also ships with a **GUI dashboard** for day-to-day workflows:
+SourcePrep also ships with a **GUI dashboard** for day-to-day workflows:
 
 - **Project visibility** (index status, staleness, trace status)
 - **Build controls** and configuration editing
 - **Search + preview** and **context assembly** (LLM-ready output)
 - A modular layout you can tailor to your workflow
 
-<img src="dashboard-demo.png" width="100%" alt="RunPrep dashboard" />
+<img src="dashboard-demo.png" width="100%" alt="SourcePrep dashboard" />
 
 ```bash
 # Open the dashboard in your browser
@@ -75,7 +75,7 @@ prep ui
 
 ## Vision
 
-RunPrep is an **epistemic, team-ready** application that provides:
+SourcePrep is an **epistemic, team-ready** application that provides:
 
 - **Semantic code search** across multiple codebases simultaneously
 - **Trace indexing** for structural understanding (symbols, imports, call graphs)
@@ -83,9 +83,9 @@ RunPrep is an **epistemic, team-ready** application that provides:
 - **Unified dashboard** with project tabs, search, and visualization
 - **MCP integration** for AI tools (Cursor, Windsurf, Claude Code, Gemini CLI, Qwen Code, VS Code, Copilot)
 
-### Why RunPrep?
+### Why SourcePrep?
 
-| Developer Problem | RunPrep Solution |
+| Developer Problem | SourcePrep Solution |
 |---------|-----------------|
 | "Managing separate RAG indexes for 5+ repos is tedious" | Single daemon manages all projects |
 | "Each IDE tool spins up its own Ollama connection" | Shared LLM connection pool |
@@ -148,7 +148,7 @@ RunPrep is an **epistemic, team-ready** application that provides:
 - Teams can commit embedded indexes to git to skip initial indexing time
 
 ### Code Graph
-Beyond keyword/semantic search, RunPrep builds a **structural graph**:
+Beyond keyword/semantic search, SourcePrep builds a **structural graph**:
 - **Nodes:** Files, symbols, classes, functions, endpoints
 - **Edges:** Imports, calls, inheritance relationships
 - Queries: Find all callers of a function, trace import chains, explore class hierarchies
@@ -190,7 +190,7 @@ Generate [AGENTS.md](https://agents.md/) documentation from trace index:
 ### Quick Start
 
 ```bash
-# Download and install from runprep.io
+# Download and install from sourceprep.io
 # Or install via package manager:
 
 # macOS (Homebrew)
@@ -545,7 +545,7 @@ See [PHASES.md](docs/PHASES.md) for the authoritative phase index and [ROADMAP.m
 
 ## Related Projects
 
-- **[Ollama](https://ollama.com/)** — Local LLM serving (RunPrep uses for embeddings)
-- **[Model Context Protocol](https://modelcontextprotocol.io)** — The standard RunPrep speaks natively
+- **[Ollama](https://ollama.com/)** — Local LLM serving (SourcePrep uses for embeddings)
+- **[Model Context Protocol](https://modelcontextprotocol.io)** — The standard SourcePrep speaks natively
 ---
 

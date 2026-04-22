@@ -30,7 +30,7 @@ pip install prep
 Or install from source:
 
 ```bash
-git clone https://github.com/MagneticAnomaly/RunPrep-MCP.git
+git clone https://github.com/MagneticAnomaly/SourcePrep-MCP.git
 cd Prep
 pip install -e ".[dev]"
 ```
@@ -241,5 +241,5 @@ For repositories with many files:
 
 ## Getting Help
 
-- **Issues:** [GitHub Issues](https://github.com/MagneticAnomaly/RunPrep-MCP/issues)
-- **Discussions:** [GitHub Discussions](https://github.com/MagneticAnomaly/RunPrep-MCP/discussions)
+- **Issues:** [GitHub Issues](https://github.com/MagneticAnomaly/SourcePrep-MCP/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/MagneticAnomaly/SourcePrep-MCP/discussions)

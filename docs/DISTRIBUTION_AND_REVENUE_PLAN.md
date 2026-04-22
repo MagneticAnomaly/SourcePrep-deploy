@@ -31,7 +31,7 @@ Prep is distributed as a **native Tauri desktop app** (macOS + Windows).
 
 | Decision | Choice | Rationale |
 |:---|:---|:---|
-| **Primary distribution** | Direct download from runprep.io | Full control, zero commission, fastest iteration |
+| **Primary distribution** | Direct download from sourceprep.io | Full control, zero commission, fastest iteration |
 | **Secondary distribution** | Microsoft Store | Free listing, external licensing allowed per MS policy |
 | **Deferred distribution** | Mac App Store | Apple requires IAP for feature unlocks; needs separate payment flow |
 | **Payment processor** | **Lemon Squeezy** (Merchant of Record) | Handles tax, VAT, refunds globally. No Stripe Tax config needed. |
@@ -47,12 +47,12 @@ Prep is distributed as a **native Tauri desktop app** (macOS + Windows).
 
 The primary distribution channel. Highest margin, full control, fastest time to market.
 
-- **Website:** runprep.io/download
+- **Website:** sourceprep.io/download
 - **Artifacts:**
   - macOS: `.dmg` (Universal — Apple Silicon + Intel), code-signed + notarized
   - Windows: `.msi` installer (x64), code-signed (EV certificate recommended)
-- **Hosting:** GitHub Releases (`github.com/MagneticAnomaly/RunPrep-MCP/releases`)
-  - Download buttons on runprep.io/download link to the latest GitHub Release assets
+- **Hosting:** GitHub Releases (`github.com/MagneticAnomaly/SourcePrep-MCP/releases`)
+  - Download buttons on sourceprep.io/download link to the latest GitHub Release assets
   - SHA-256 checksums published alongside each release
 - **Auto-update:** Tauri built-in updater checks for new releases on launch
 - **Commission:** 0% (only Lemon Squeezy's MoR fee — see §4)
@@ -72,7 +72,7 @@ Low friction to set up. Microsoft allows external licensing for non-game desktop
   - Code-signed MSI/EXE
   - Declare use of third-party purchase API in Partner Center submission
 - **In-app UX:** "Upgrade to Pro" prompts are allowed. Users are directed to
-  runprep.io/pricing (Lemon Squeezy checkout) or can enter a license key directly.
+  sourceprep.io/pricing (Lemon Squeezy checkout) or can enter a license key directly.
 
 ### Channel C: Mac App Store (DEFERRED — Post-Launch, If Pursued)
 
@@ -101,7 +101,7 @@ applies to unlocking features inside a free app via external payment. A paid-upf
 app has no license mechanism at all: `PREP_TIER=pro` is baked in at build time,
 Apple's purchase receipt tied to the user's Apple ID is the "license", and the app
 optionally verifies the StoreKit receipt to prevent side-loading. No Lemon Squeezy,
-no api.runprep.io, no machine activation limits — Apple handles all of it.
+no api.sourceprep.io, no machine activation limits — Apple handles all of it.
 
 **Tiers on Apple:** Free app (free tier only) + Pro app ($84.99). **No Monthly tier** —
 the subscription model doesn't map cleanly to a paid-upfront App Store app.
@@ -135,9 +135,9 @@ an IAP variant on the Mac App Store.
 |:---|:---|
 | **Role** | Merchant of Record (MoR) |
 | **What MoR means** | Lemon Squeezy is the legal seller. They handle sales tax, VAT, refunds, chargebacks, and compliance. You receive net payouts. |
-| **Storefront** | payments.runprep.io (Lemon Squeezy-hosted checkout or embedded) |
+| **Storefront** | payments.sourceprep.io (Lemon Squeezy-hosted checkout or embedded) |
 | **Products** | Monthly Subscription, Perpetual License, Team Subscription (configured as LS products) |
-| **Webhooks** | `order_completed` → triggers license generation on api.runprep.io |
+| **Webhooks** | `order_completed` → triggers license generation on api.sourceprep.io |
 | **Fee** | ~5% + payment processing (~2.9% + $0.30 per txn) |
 | **Payout** | To Magnetic Anomaly LLC business bank account |
 
@@ -153,7 +153,7 @@ an IAP variant on the Mac App Store.
 
 ```
 ┌─────────────┐     ┌──────────────────┐     ┌──────────────────┐     ┌─────────────┐
-│  Customer    │     │  Lemon Squeezy   │     │  api.runprep.io   │     │  Prep App │
+│  Customer    │     │  Lemon Squeezy   │     │  api.sourceprep.io   │     │  Prep App │
 │  (Browser)   │     │  (MoR + Checkout)│     │  (Serverless)    │     │  (Desktop)  │
 └──────┬───────┘     └────────┬─────────┘     └────────┬─────────┘     └──────┬──────┘
        │                      │                        │                      │
@@ -257,7 +257,7 @@ Business Checking Account
 **Price rationale:** $84.99 at 15% Small Business rate nets ~$72.24 — nearly identical
 to the $72.85 net from a $79 direct sale via Lemon Squeezy.
 
-Note: No Lemon Squeezy, no api.runprep.io, no machine activation logic — Apple handles
+Note: No Lemon Squeezy, no api.sourceprep.io, no machine activation logic — Apple handles
 all payment and receipt validation. Implementation cost is a build flag + optional
 StoreKit receipt check. The real cost is App Sandbox compliance testing.
 
@@ -270,20 +270,20 @@ StoreKit receipt check. The real cost is App Sandbox compliance testing.
 | Step | What the user does | What happens behind the scenes |
 |:---|:---|:---|
 | 1. **Discover** | Finds Prep via search, recommendation, or MCP marketplace | — |
-| 2. **Download** | Goes to runprep.io/download, clicks "Download for Mac" | Browser downloads `.dmg` from GitHub Releases |
+| 2. **Download** | Goes to sourceprep.io/download, clicks "Download for Mac" | Browser downloads `.dmg` from GitHub Releases |
 | 3. **Install** | Opens `.dmg`, drags to Applications | Standard macOS install. Gatekeeper passes (notarized). |
 | 4. **Launch** | Opens Prep from Applications | Tauri app starts, launches Python sidecar daemon on port 8400 |
 | 5. **Use (Free)** | Adds 3 projects, connects MCP, uses Prep | Free tier: 3 projects, fully automated syncing. No account needed. |
-| 6. **Hit limit** | Tries to add a 4th project | Dashboard shows "Upgrade to Pro" with link to runprep.io/pricing |
-| 7. **Buy** | Clicks link → runprep.io/pricing → Lemon Squeezy checkout | LS processes payment, handles tax. Webhook fires. |
-| 8. **Receive key** | Gets email with license key | api.runprep.io generates Ed25519 license upon webhook receipt |
-| 9. **Activate** | Pastes key into Prep → Settings → License | App calls `POST api.runprep.io/activate` with the LS key |
+| 6. **Hit limit** | Tries to add a 4th project | Dashboard shows "Upgrade to Pro" with link to sourceprep.io/pricing |
+| 7. **Buy** | Clicks link → sourceprep.io/pricing → Lemon Squeezy checkout | LS processes payment, handles tax. Webhook fires. |
+| 8. **Receive key** | Gets email with license key | api.sourceprep.io generates Ed25519 license upon webhook receipt |
+| 9. **Activate** | Pastes key into Prep → Settings → License | App calls `POST api.sourceprep.io/activate` with the LS key |
 | 10. **Activated** | Sees "Pro — Active" in dashboard | Signed license saved to `~/.runprep/license.key`. Fully offline from here. |
 | 11. **Use (Pro)** | Unlimited projects, Trace Index, auto-rebuild, full MCP | Feature gates read tier from local license file |
 
 ### Recovery Path: Lost License Key
 
-1. User goes to runprep.io/recover (or payments.runprep.io/recover)
+1. User goes to sourceprep.io/recover (or payments.sourceprep.io/recover)
 2. Enters email address
 3. Lemon Squeezy API looks up orders by email
 4. License key is re-sent to the user's email
@@ -303,7 +303,7 @@ functionality, such as **license keys**..."
 
 **Prep impact:**
 - ❌ Cannot use Lemon Squeezy license keys to unlock Pro features in a Mac App Store build
-- ❌ Cannot show "Buy on runprep.io" or "Upgrade to Pro" prompts (unless using US storefront
+- ❌ Cannot show "Buy on sourceprep.io" or "Upgrade to Pro" prompts (unless using US storefront
   entitlement, which is iOS/iPadOS only)
 - ✅ Could list a free-only version with zero purchase CTAs (Guideline 3.1.3(f))
   — but this provides no revenue and limits UX
@@ -342,8 +342,8 @@ purchases of digital items or services."
 
 **What you still handle:**
 - Product pricing decisions
-- License key generation (your api.runprep.io service)
-- Customer support (support@runprep.io)
+- License key generation (your api.sourceprep.io service)
+- Customer support (support@sourceprep.io)
 - Accounting reconciliation (LS payouts vs. bank deposits)
 
 ---
@@ -374,7 +374,7 @@ revenue from tier-1 economies.
 | **3 — Maximum** | 60% | $3/mo | $29 | $6/seat/mo | India, Indonesia, Vietnam, Nigeria, Pakistan |
 
 - Geo-detection via Netlify Edge Function (reads `context.geo.country`)
-- Prices adjusted on runprep.io/pricing; LS checkout uses PPP discount codes
+- Prices adjusted on sourceprep.io/pricing; LS checkout uses PPP discount codes
 - License files are identical regardless of price paid — no tier difference
 - Full strategy: [`Phase10_.../Pricing/GLOBAL_PRICING.md`](Phase10_Business_And_Competitive_Research/Pricing/GLOBAL_PRICING.md)
 
@@ -387,8 +387,8 @@ revenue from tier-1 economies.
 | **Entity** | Magnetic Anomaly LLC | Holds IP, receives revenue |
 | **Banking** | Mercury or Chase | Single business checking account |
 | **Payments (MoR)** | Lemon Squeezy | Handles tax, compliance, refunds |
-| **License Generation** | api.runprep.io (serverless) | Ed25519 signing on webhook receipt |
-| **Hosting (website)** | Netlify | runprep.io, docs.runprep.io, support.runprep.io, payments.runprep.io (free tier, commercial OK) |
+| **License Generation** | api.sourceprep.io (serverless) | Ed25519 signing on webhook receipt |
+| **Hosting (website)** | Netlify | sourceprep.io, docs.sourceprep.io, support.sourceprep.io, payments.sourceprep.io (free tier, commercial OK) |
 | **Hosting (releases)** | GitHub Releases | DMG, MSI, checksums |
 | **DNS** | Cloudflare | Edge caching, redirects |
 | **Accounting** | Xero or QuickBooks | Syncs with bank; tag revenue by channel |
@@ -406,7 +406,7 @@ research but **this document takes precedence** on any point of conflict.
 | Document | Conflict |
 |:---|:---|
 | `docs/Phase10_.../FINANCE_AND_LEGAL_STRUCTURE.md` | Says **Stripe** is payment processor (§3, §4). Should be **Lemon Squeezy**. |
-| `docs/Phase11_.../LICENSING_IMPLEMENTATION.md` | Activation flow (line 118–122) says "Stripe Webhook → Prep License Service". Should be **Lemon Squeezy webhook → api.runprep.io**. |
+| `docs/Phase11_.../LICENSING_IMPLEMENTATION.md` | Activation flow (line 118–122) says "Stripe Webhook → Prep License Service". Should be **Lemon Squeezy webhook → api.sourceprep.io**. |
 | `docs/Phase11_.../ENTERPRISE_DISTRIBUTION_AND_LICENSING.md` | Line 91: "App Store builds will likely be 'Pro' via In-App Purchase (IAP)". Correct for Apple, but **Mac App Store is deferred** per this plan. |
 | `docs/Phase11_.../LEMON_SQUEEZY_INTEGRATION.md` | Referenced in MASTER_TODO.md (STR-09) but **file does not exist**. This document replaces it. |
 
@@ -419,7 +419,7 @@ research but **this document takes precedence** on any point of conflict.
 | Item | Status | Ref |
 |:---|:---|:---|
 | `POST /license/activate` — full LS activation exchange | NOT_IMPLEMENTED (returns stub) | MASTER_TODO.md audit |
-| api.runprep.io relay service (serverless) | NOT_IMPLEMENTED | — |
+| api.sourceprep.io relay service (serverless) | NOT_IMPLEMENTED | — |
 | Ed25519 key pair generation + secure storage (HSM) | NOT_IMPLEMENTED | LICENSING_IMPLEMENTATION.md |
 | Lemon Squeezy product setup (5 tiers) | NOT_DONE | — |
 | Lemon Squeezy webhook integration | NOT_DONE | — |
@@ -451,7 +451,7 @@ The narrow exception in 3.1.3(f) ("free stand-alone companion to a paid web tool
 requires that there be **no purchasing inside the app** and **no calls to action for
 purchase outside the app.** This means:
 - No "Upgrade to Pro" button
-- No "Visit runprep.io/pricing" link
+- No "Visit sourceprep.io/pricing" link
 - No indication that paid features exist
 - The free version must feel complete on its own
 
@@ -462,5 +462,5 @@ the App Store listing generates no revenue and provides minimal conversion value
 Linear, Raycast, and most other successful desktop dev tools either skip the Mac
 App Store entirely or maintain a separate IAP flow for the App Store channel.
 
-**Bottom line:** Direct download from runprep.io is the correct primary channel.
+**Bottom line:** Direct download from sourceprep.io is the correct primary channel.
 Microsoft Store is a free bonus. Mac App Store is a future option requiring IAP work.
