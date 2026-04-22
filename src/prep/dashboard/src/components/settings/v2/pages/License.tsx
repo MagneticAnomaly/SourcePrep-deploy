@@ -27,7 +27,7 @@ export function LicensePage({
     <SettingsPage
       title="License"
       scope="global"
-      description="Your RunPrep license tier and activation key."
+      description="Your SourcePrep license tier and activation key."
     >
       <Section>
         <div className="space-y-3 p-1">
@@ -84,12 +84,12 @@ export function LicensePage({
           <p className="text-xs text-text-muted">
             Purchase a license at{' '}
             <a
-              href="https://runprep.io/pricing"
+              href="https://sourceprep.io/pricing"
               target="_blank"
               rel="noreferrer"
               className="text-primary underline"
             >
-              runprep.io/pricing
+              sourceprep.io/pricing
             </a>
             .
           </p>

@@ -141,7 +141,7 @@ export function SourcesPage({
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')) {
-        setDetectedMessage('Detection failed — is the RunPrep daemon running?');
+        setDetectedMessage('Detection failed — is the SourcePrep daemon running?');
       } else {
         setDetectedMessage(`Detection failed: ${msg}`);
       }

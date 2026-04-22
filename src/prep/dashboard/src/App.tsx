@@ -1058,7 +1058,7 @@ function App() {
       {isDaemonUnhealthy && (
         <div className="fixed inset-x-0 top-0 z-[100] bg-error text-white px-4 py-2 text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
           <AlertCircle className="w-4 h-4" />
-          Connection to RunPrep daemon lost. Attempting to reconnect...
+          Connection to SourcePrep daemon lost. Attempting to reconnect...
         </div>
       )}
       <SettingsOverlay
