@@ -75,8 +75,9 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Prep data (don't commit local indexes)
-.runprep/
+.sourceprep/
 # legacy (migration-era pointer directories — keep ignored)
+.runprep/
 .codrag/
 # Phase 113: legacy ./codrag_data/ path. Daemon state moved to
 # $PREP_DATA_DIR (default ~/.local/share/runprep/). Anything
