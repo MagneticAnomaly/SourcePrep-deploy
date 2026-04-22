@@ -1,8 +1,8 @@
-# RunPrep
+# SourcePrep
 **The Context Engine for AI-Assisted Software Engineering**
 
-## What is RunPrep?
-RunPrep is an advanced context engine and semantic search platform designed specifically for the era of AI-assisted development. It bridges the gap between massive, complex codebases and Large Language Models (LLMs) by providing precise, graph-augmented context rather than simply overwhelming the model with raw text. 
+## What is SourcePrep?
+SourcePrep is an advanced context engine and semantic search platform designed specifically for the era of AI-assisted development. It bridges the gap between massive, complex codebases and Large Language Models (LLMs) by providing precise, graph-augmented context rather than simply overwhelming the model with raw text. 
 
 Our mission is to give your AI tools the *right* code, not just *more* code—ensuring high-quality, accurate, and hallucination-free code generation.
 
@@ -13,12 +13,12 @@ The traditional approach to AI coding context is broken. Dumping thousands of li
 - **Stale Information:** Codebases change rapidly. Outdated context fed to an AI leads to broken logic, hallucinated APIs, and frustrating debugging loops.
 
 ## How It Works
-RunPrep acts as the intelligent bridge between your codebase and your AI agent, providing a full-cycle context pipeline:
+SourcePrep acts as the intelligent bridge between your codebase and your AI agent, providing a full-cycle context pipeline:
 
 1. **Native Semantic Search:** Fast, locally-run embedding models (ONNX) search your codebase to find the most semantically relevant snippets without ever sending your raw code to external third-party APIs.
-2. **Code Graph & Trace Expansion:** Using advanced AST parsing (Tree-sitter), RunPrep builds an in-memory graph of your code's structure. When it finds a relevant snippet, it intelligently follows dependencies (imports, calls, interfaces) to gather the full structural picture.
-3. **Smart Compression:** RunPrep applies structural compression (Level-of-Detail extraction), stripping out bulky implementations while preserving critical signatures, types, and docstrings. This achieves up to 20:1 token compression without sacrificing reasoning quality.
-4. **Model Context Protocol (MCP):** RunPrep integrates seamlessly with modern AI IDEs via the open MCP standard, allowing your AI agent to natively query the codebase, resolve imports, and navigate the project autonomously.
+2. **Code Graph & Trace Expansion:** Using advanced AST parsing (Tree-sitter), SourcePrep builds an in-memory graph of your code's structure. When it finds a relevant snippet, it intelligently follows dependencies (imports, calls, interfaces) to gather the full structural picture.
+3. **Smart Compression:** SourcePrep applies structural compression (Level-of-Detail extraction), stripping out bulky implementations while preserving critical signatures, types, and docstrings. This achieves up to 20:1 token compression without sacrificing reasoning quality.
+4. **Model Context Protocol (MCP):** SourcePrep integrates seamlessly with modern AI IDEs via the open MCP standard, allowing your AI agent to natively query the codebase, resolve imports, and navigate the project autonomously.
 
 ## Built for the Future of Development
-RunPrep is delivered as a secure, local desktop application complete with a powerful visual dashboard for managing your knowledge bases, exploring trace graphs, and tuning your AI pipeline settings. Available in tiers ranging from Indie Hackers to Enterprise, it is the definitive intelligence layer for modern engineering.
+SourcePrep is delivered as a secure, local desktop application complete with a powerful visual dashboard for managing your knowledge bases, exploring trace graphs, and tuning your AI pipeline settings. Available in tiers ranging from Indie Hackers to Enterprise, it is the definitive intelligence layer for modern engineering.
