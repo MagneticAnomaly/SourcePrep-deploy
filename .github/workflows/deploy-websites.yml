@@ -1,0 +1,94 @@
+name: Deploy Websites to Netlify
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'websites/**'
+      - 'packages/ui/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'turbo.json'
+  workflow_dispatch:
+
+jobs:
+  deploy-marketing:
+    name: Deploy Marketing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Build Marketing
+        run: npx turbo run build --filter=@prep/marketing
+      - name: Deploy to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_MARKETING_SITE_ID }}
+        run: npx netlify-cli deploy --prod --dir=websites/apps/marketing/.next
+
+  deploy-docs:
+    name: Deploy Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Build Docs
+        run: npx turbo run build --filter=@prep/docs
+      - name: Deploy to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_DOCS_SITE_ID }}
+        run: npx netlify-cli deploy --prod --dir=websites/apps/docs/.next
+
+  deploy-support:
+    name: Deploy Support
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Build Support
+        run: npx turbo run build --filter=@prep/support
+      - name: Deploy to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SUPPORT_SITE_ID }}
+        run: npx netlify-cli deploy --prod --dir=websites/apps/support/.next
+
+  deploy-payments:
+    name: Deploy Payments
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: npm ci
+      - name: Build Payments
+        run: npx turbo run build --filter=@prep/payments
+      - name: Deploy to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_PAYMENTS_SITE_ID }}
+        run: npx netlify-cli deploy --prod --dir=websites/apps/payments/.next
