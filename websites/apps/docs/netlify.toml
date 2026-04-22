@@ -1,7 +1,7 @@
 [build]
   base    = "websites/apps/docs"
   command = "cd ../../.. && npx turbo run build --filter=@prep/docs"
-  publish = ".next"
+  publish = "websites/apps/docs/.next"
 
 [build.environment]
   NODE_VERSION = "20"
