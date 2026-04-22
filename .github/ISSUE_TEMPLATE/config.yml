@@ -1,16 +1,16 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions and Discussions
-    url: https://github.com/MagneticAnomaly/RunPrep/discussions
+    url: https://github.com/MagneticAnomaly/SourcePrep/discussions
     about: Ask questions, share ideas, and discuss Prep with the community.
   - name: Troubleshooting docs
-    url: https://docs.runprep.io/troubleshooting
+    url: https://docs.sourceprep.io/troubleshooting
     about: Common issues and fixes.
   - name: Support hub
-    url: https://runprep.io/support
+    url: https://sourceprep.io/support
   - name: Billing & licensing (private)
-    url: mailto:support@runprep.io
+    url: mailto:support@sourceprep.io
     about: Billing, licensing, enterprise, and other sensitive matters.
   - name: Security report (private)
-    url: mailto:security@runprep.io
+    url: mailto:security@sourceprep.io
     about: Responsible disclosure of vulnerabilities.
