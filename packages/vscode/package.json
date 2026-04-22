@@ -1,18 +1,18 @@
 {
   "name": "prep-vscode",
-  "displayName": "RunPrep — Local Code Context Engine",
-  "description": "Local-first semantic code search, context assembly, and structural trace for AI workflows. No code upload. RunPrep works with Copilot, Cursor, Windsurf via MCP.",
+  "displayName": "SourcePrep — Local Code Context Engine",
+  "description": "Local-first semantic code search, context assembly, and structural trace for AI workflows. No code upload. SourcePrep works with Copilot, Cursor, Windsurf via MCP.",
   "version": "0.1.0",
   "publisher": "magnetic-anomaly",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MagneticAnomaly/RunPrep"
+    "url": "https://github.com/MagneticAnomaly/SourcePrep"
   },
   "bugs": {
-    "url": "https://github.com/MagneticAnomaly/RunPrep/issues"
+    "url": "https://github.com/MagneticAnomaly/SourcePrep/issues"
   },
-  "homepage": "https://runprep.io",
+  "homepage": "https://sourceprep.io",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -38,7 +38,7 @@
       "activitybar": [
         {
           "id": "prep",
-          "title": "RunPrep",
+          "title": "SourcePrep",
           "icon": "media/prep-sidebar.svg"
         }
       ]
@@ -278,32 +278,32 @@
       }
     ],
     "configuration": {
-      "title": "RunPrep",
+      "title": "SourcePrep",
       "properties": {
         "prep.daemon.host": {
           "type": "string",
           "default": "127.0.0.1",
-          "description": "RunPrep daemon host address"
+          "description": "SourcePrep daemon host address"
         },
         "prep.daemon.port": {
           "type": "number",
           "default": 8400,
-          "description": "RunPrep daemon port"
+          "description": "SourcePrep daemon port"
         },
         "prep.daemon.executable": {
           "type": "string",
           "default": "prep",
-          "description": "Path to the RunPrep executable (or command name if on PATH)"
+          "description": "Path to the SourcePrep executable (or command name if on PATH)"
         },
         "prep.daemon.autoStart": {
           "type": "boolean",
           "default": false,
-          "description": "Automatically start the RunPrep daemon when the extension activates"
+          "description": "Automatically start the SourcePrep daemon when the extension activates"
         },
         "prep.statusBar.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show RunPrep status in the status bar"
+          "description": "Show SourcePrep status in the status bar"
         },
         "prep.pollingInterval": {
           "type": "number",
@@ -318,8 +318,8 @@
       {
         "id": "prep.chat",
         "name": "prep",
-        "fullName": "RunPrep",
-        "description": "Ask questions about your codebase using RunPrep's semantic index.",
+        "fullName": "SourcePrep",
+        "description": "Ask questions about your codebase using SourcePrep's semantic index.",
         "isSticky": true
       }
     ]
