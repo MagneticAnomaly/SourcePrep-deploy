@@ -125,20 +125,20 @@ jobs:
         with:
           projectPath: src/prep/dashboard
           tagName: app-v__VERSION__
-          releaseName: 'Prep v__VERSION__'
+          releaseName: 'SourcePrep v__VERSION__'
           releaseBody: |
             ## What's Changed
 
-            **Full Changelog**: https://github.com/MagneticAnomaly/RunPrep/compare/${{ needs.get-version.outputs.previous_tag }}...${{ github.ref_name }}
+            **Full Changelog**: https://github.com/MagneticAnomaly/SourcePrep/compare/${{ needs.get-version.outputs.previous_tag }}...${{ github.ref_name }}
 
-            See the full changelog at https://github.com/MagneticAnomaly/RunPrep/blob/main/CHANGELOG.md
+            See the full changelog at https://github.com/MagneticAnomaly/SourcePrep/blob/main/CHANGELOG.md
 
             ## Downloads
 
             | Platform | File |
             |----------|------|
-            | macOS (Apple Silicon) | `Prep_*_aarch64.dmg` |
-            | Windows | `Prep_*_x64-setup.exe` |
+            | macOS (Apple Silicon) | `SourcePrep_*_aarch64.dmg` |
+            | Windows | `SourcePrep_*_x64-setup.exe` |
 
             ---
             *This release was automatically built and signed.*
@@ -154,7 +154,7 @@ jobs:
         shell: bash
         run: |
           echo "Testing macOS app bundle..."
-          APP_PATH="src/prep/dashboard/src-tauri/target/release/bundle/macos/Prep.app"
+          APP_PATH="src/prep/dashboard/src-tauri/target/release/bundle/macos/SourcePrep.app"
           if [ -d "$APP_PATH" ]; then
             echo "✓ App bundle exists"
             # Check that the sidecar is bundled
@@ -166,7 +166,7 @@ jobs:
               echo "⚠ Sidecar not found at expected location"
             fi
             # Test that the binary is executable
-            if [ -x "$APP_PATH/Contents/MacOS/Prep" ]; then
+            if [ -x "$APP_PATH/Contents/MacOS/SourcePrep" ]; then
               echo "✓ Main binary is executable"
             fi
           else
@@ -179,8 +179,8 @@ jobs:
         shell: pwsh
         run: |
           Write-Host "Testing Windows installer..."
-          $exePath = "src/prep/dashboard/src-tauri/target/release/bundle/nsis/Prep_*_x64-setup.exe"
-          $msiPath = "src/prep/dashboard/src-tauri/target/release/release/bundle/msi/Prep_*.msi"
+          $exePath = "src/prep/dashboard/src-tauri/target/release/bundle/nsis/SourcePrep_*_x64-setup.exe"
+          $msiPath = "src/prep/dashboard/src-tauri/target/release/release/bundle/msi/SourcePrep_*.msi"
           if (Test-Path $exePath) {
             Write-Host "✓ NSIS installer exists"
           } elseif (Test-Path $msiPath) {
