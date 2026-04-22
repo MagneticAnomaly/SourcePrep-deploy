@@ -5,12 +5,12 @@ build-backend = "hatchling.build"
 [project]
 name = "prep"
 version = "0.1.0"
-description = "Prep — prepare context before any AI call"
+description = "SourcePrep — prepare context before any AI call"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
 authors = [
-    { name = "Prep Team" }
+    { name = "SourcePrep Team" }
 ]
 keywords = ["rag", "semantic-search", "code-search", "embeddings", "ollama"]
 classifiers = [
@@ -99,10 +99,10 @@ headless = [
 prep = "prep.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/MagneticAnomaly/RunPrep"
-Documentation = "https://github.com/MagneticAnomaly/RunPrep#readme"
-Repository = "https://github.com/MagneticAnomaly/RunPrep"
-Issues = "https://github.com/MagneticAnomaly/RunPrep/issues"
+Homepage = "https://github.com/MagneticAnomaly/SourcePrep"
+Documentation = "https://github.com/MagneticAnomaly/SourcePrep#readme"
+Repository = "https://github.com/MagneticAnomaly/SourcePrep"
+Issues = "https://github.com/MagneticAnomaly/SourcePrep/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/prep"]
