@@ -1,12 +1,12 @@
 """
-Scenario test: hi_codrag with a real-world file selection.
+Scenario test: hi_prep with a real-world file selection.
 
 Simulates the TEST repo scenario:
 - docs/ with DesignPlan/ .md files (design specs, roadmaps, trust section redesign)
 - src/components/ with React .tsx components (Hero, Trust, Parallax, etc.)
 - Path weights: docs/ ×1.0, DesignPlan/ ×0.6, src/ ×1.0, components/ ×1.0
 
-This test prints the full hi_codrag output so we can see what the AI model
+This test prints the full hi_prep output so we can see what the AI model
 would receive and present to the user.
 """
 
@@ -173,16 +173,16 @@ def test_server():
 # =============================================================================
 
 class TestDesignPlanComponentsScenario:
-    """Test hi_codrag with the TEST repo: design .md files + components/ folder."""
+    """Test hi_prep with the TEST repo: design .md files + components/ folder."""
 
     @pytest.mark.asyncio
     async def test_scenario_full_output(self, test_server, capsys):
-        """Print the full hi_codrag output for visual inspection."""
+        """Print the full hi_prep output for visual inspection."""
         result = await test_server.tool_hi()
 
         # Print for visual inspection
         print("\n" + "=" * 70)
-        print("hi_codrag RESPONSE — TEST REPO SCENARIO")
+        print("hi_prep RESPONSE — TEST REPO SCENARIO")
         print("=" * 70)
         print("\n--- _ai_note ---")
         print(result["_ai_note"])
@@ -368,11 +368,11 @@ class TestScenarioNewFeatures:
 
     @pytest.mark.asyncio
     async def test_full_output_with_enhancements(self, test_server, capsys):
-        """Print the enhanced hi_codrag output for visual inspection."""
+        """Print the enhanced hi_prep output for visual inspection."""
         result = await test_server.tool_hi()
 
         print("\n" + "=" * 70)
-        print("hi_codrag ENHANCED RESPONSE — TEST REPO SCENARIO")
+        print("hi_prep ENHANCED RESPONSE — TEST REPO SCENARIO")
         print("=" * 70)
         print("\n--- summary ---")
         print(result["summary"])

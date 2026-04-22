@@ -1,5 +1,5 @@
 """
-Tests for the hi_codrag MCP tool (Phase 32).
+Tests for the hi_prep MCP tool (Phase 32).
 
 Tests cover:
 - Daemon-mode tool_hi() with mocked API responses
@@ -137,7 +137,7 @@ async def _mock_api_get_factory(
 # =============================================================================
 
 class TestToolHiDaemon:
-    """Test hi_codrag in daemon mode (MCPServer)."""
+    """Test hi_prep in daemon mode (MCPServer)."""
 
     @pytest.mark.asyncio
     async def test_basic_summary_structure(self, server):
@@ -396,7 +396,7 @@ class TestToolHiDaemon:
 
     @pytest.mark.asyncio
     async def test_mcp_tools_call_dispatch(self, server):
-        """hi_codrag is dispatched via alias to prep (tool_context)."""
+        """hi_prep is dispatched via alias to prep (tool_context)."""
         ambient_response = {
             "context": "test context",
             "total_chars": 100,
@@ -411,17 +411,17 @@ class TestToolHiDaemon:
             mock_post.return_value = ambient_response
 
             response = await server.handle_tools_call({
-                "name": "hi_codrag",
+                "name": "hi_prep",
                 "arguments": {},
             })
 
             assert response["isError"] is False
-            # hi_codrag now routes to prep (ambient context) via alias
+            # hi_prep now routes to prep (ambient context) via alias
             assert len(response["content"][0]["text"]) > 0
 
     @pytest.mark.asyncio
     async def test_mcp_tools_call_with_project_override(self, server):
-        """hi_codrag alias accepts project_id override."""
+        """hi_prep alias accepts project_id override."""
         ambient_response = {
             "context": "test context",
             "total_chars": 100,
@@ -432,23 +432,23 @@ class TestToolHiDaemon:
             mock_post.return_value = ambient_response
 
             response = await server.handle_tools_call({
-                "name": "hi_codrag",
+                "name": "hi_prep",
                 "arguments": {"project_id": "proj_test"},
             })
 
             assert response["isError"] is False
 
     @pytest.mark.asyncio
-    async def test_codrag_listed_in_tools_list(self, server):
-        """prep (primary tool) appears in tools/list. hi_codrag is an alias, not listed."""
+    async def test_prep_listed_in_tools_list(self, server):
+        """prep (primary tool) appears in tools/list. hi_prep is an alias, not listed."""
         response = await server.handle_tools_list({})
         tool_names = [t["name"] for t in response["tools"]]
         assert "prep" in tool_names
-        # hi_codrag is a dispatch alias, not a listed tool
-        assert "hi_codrag" not in tool_names
+        # hi_prep is a dispatch alias, not a listed tool
+        assert "hi_prep" not in tool_names
 
     @pytest.mark.asyncio
-    async def test_codrag_schema_no_required_params(self, server):
+    async def test_prep_schema_no_required_params(self, server):
         """prep tool schema has no required params."""
         response = await server.handle_tools_list({})
         prep_tool = next(t for t in response["tools"] if t["name"] == "prep")
@@ -562,7 +562,7 @@ class TestPromptGeneration:
 # =============================================================================
 
 class TestFileInventory:
-    """Test file categorization and inventory in hi_codrag response."""
+    """Test file categorization and inventory in hi_prep response."""
 
     @pytest.mark.asyncio
     async def test_file_inventory_in_response(self, server):
@@ -909,7 +909,7 @@ class TestO5AmbientContextChain:
     """O-5: _ai_note tells the AI to call prep for deeper context."""
 
     @pytest.mark.asyncio
-    async def test_ai_note_mentions_codrag_tool(self, server):
+    async def test_ai_note_mentions_prep_tool(self, server):
         """The _ai_note includes guidance about calling prep for deeper context."""
         paths = ["src/main.py"]
         mock_get = await _mock_api_get_factory(included=_make_included_paths(paths))
