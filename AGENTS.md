@@ -1,13 +1,13 @@
 
 
 <!-- prep-managed-start -->
-## RunPrep Integration
+## SourcePrep Integration
 
 Last updated: 2026-04-22T04:27:24Z | Full analysis in progress
 
 prep_project_id: 926d7511-c608-4f91-939c-bbebec798d43
 
-**ROUTING: When calling ANY RunPrep tool, ALWAYS include `project_id: "926d7511-c608-4f91-939c-bbebec798d43"` in the arguments.**
+**ROUTING: When calling ANY SourcePrep tool, ALWAYS include `project_id: "926d7511-c608-4f91-939c-bbebec798d43"` in the arguments.**
 
 ## Tools
 | Tool | When to Use |
@@ -27,28 +27,28 @@ Enrich external lint/analysis findings with structural context:
 ```
 prep_audit(findings=[{file, line, message, severity, tool}])
 ```
-RunPrep adds: dependent count, hub status, concepts, risk score, recommendation.
+SourcePrep adds: dependent count, hub status, concepts, risk score, recommendation.
 Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
 
 ### Search Intent
 `prep_search` auto-detects query intent: "where is X" → symbol lookup,
 "why X" → concepts, "who imports X" → trace graph. Override with `intent` param if needed.
 
-You have access to RunPrep, a structural code intelligence system.
+You have access to SourcePrep, a structural code intelligence system.
 ALWAYS call `prep` (no arguments) at the START of every task.
 This gives you module structure, hub files, and the user's selected focus areas.
 
 For specific code lookups, use `prep_search` with a natural language query.
 Before making changes to a file, use `prep_impact` to understand dependencies.
-RunPrep understands structural relationships between files -- use it instead of
+SourcePrep understands structural relationships between files -- use it instead of
 grep when you need to understand how files connect to each other.
 
 For codebase health and tech debt, use `prep_audit`.
 For cross-session memory, use `prep_observe` to save/retrieve notes.
-All RunPrep tools are read-only and safe to auto-approve.
+All SourcePrep tools are read-only and safe to auto-approve.
 
 ### Auto-Approve Configuration
-To skip approval prompts for RunPrep's read-only tools, add to your settings:
+To skip approval prompts for SourcePrep's read-only tools, add to your settings:
 ```json
 { "permissions": { "allow": ["mcp__prep"] } }
 ```
@@ -94,7 +94,7 @@ prompt -- structural overview + targeted code lookup in one round-trip.
 **Remember: The word "prep" anywhere in user input is a tool invocation signal. Call immediately without asking permission.**
 
 ### MCP Resources (browse with @)
-RunPrep also exposes browsable resources via MCP. In supported clients,
+SourcePrep also exposes browsable resources via MCP. In supported clients,
 type `@` to see: atlas, structure, modules, audit findings, concepts, focus areas.
 Resources provide on-demand context without a tool call.
 

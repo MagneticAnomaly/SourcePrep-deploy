@@ -1,5 +1,5 @@
 ---
-description: RunPrep structural codebase intelligence
+description: SourcePrep structural codebase intelligence
 alwaysApply: true
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-04-22T04:27:24Z | Full analysis in progress
 
 prep_project_id: 926d7511-c608-4f91-939c-bbebec798d43
 
-**ROUTING: When calling ANY RunPrep tool, ALWAYS include `project_id: "926d7511-c608-4f91-939c-bbebec798d43"` in the arguments.**
+**ROUTING: When calling ANY SourcePrep tool, ALWAYS include `project_id: "926d7511-c608-4f91-939c-bbebec798d43"` in the arguments.**
 
 ## Tools
 | Tool | When to Use |
@@ -29,7 +29,7 @@ Enrich external lint/analysis findings with structural context:
 ```
 prep_audit(findings=[{file, line, message, severity, tool}])
 ```
-RunPrep adds: dependent count, hub status, concepts, risk score, recommendation.
+SourcePrep adds: dependent count, hub status, concepts, risk score, recommendation.
 Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
 
 ### Search Intent
@@ -37,7 +37,7 @@ Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
 "why X" → concepts, "who imports X" → trace graph. Override with `intent` param if needed.
 
 For specific code lookups, use `prep_search` with a natural language query.
-RunPrep understands structural relationships — use it instead of
+SourcePrep understands structural relationships — use it instead of
 grep when you need to understand how files connect.
 
 <!-- prep-atlas-hash:eee32ea3b4a5 -->
