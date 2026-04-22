@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/success', '/recover'], // Don't index transactional pages
     },
-    sitemap: 'https://payments.runprep.io/sitemap.xml',
+    sitemap: 'https://payments.sourceprep.io/sitemap.xml',
   };
 }

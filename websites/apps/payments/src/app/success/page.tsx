@@ -4,7 +4,7 @@ export default function Page() {
       <div className="mx-auto max-w-3xl px-6 py-16">
         <h1 className="text-3xl font-bold tracking-tight">Purchase complete</h1>
         <p className="mt-4 text-lg text-text-muted">
-          Thanks for supporting RunPrep. Your receipt and license details should
+          Thanks for supporting SourcePrep. Your receipt and license details should
           arrive by email.
         </p>
 
@@ -22,22 +22,22 @@ export default function Page() {
 
         <div className="mt-10 flex flex-wrap gap-3">
           <a
-            href="https://docs.runprep.io"
+            href="https://docs.sourceprep.io"
             className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium text-text"
           >
             Read docs
           </a>
           <a
-            href="https://support.runprep.io"
+            href="https://support.sourceprep.io"
             className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium text-text"
           >
             Support
           </a>
           <a
-            href="https://runprep.io"
+            href="https://sourceprep.io"
             className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium text-text"
           >
-            Back to runprep.io
+            Back to sourceprep.io
           </a>
         </div>
       </div>

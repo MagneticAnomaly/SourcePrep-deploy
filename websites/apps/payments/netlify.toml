@@ -12,7 +12,7 @@
 #   NEXT_PUBLIC_LS_CHECKOUT_TEAM     — Lemon Squeezy checkout URL for Team product
 #   LEMONSQUEEZY_API_KEY             — (secret) API key for license recovery
 #   LEMONSQUEEZY_STORE_ID            — Lemon Squeezy store ID
-#   NEXT_PUBLIC_SITE_URL             — https://payments.runprep.io
+#   NEXT_PUBLIC_SITE_URL             — https://payments.sourceprep.io
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

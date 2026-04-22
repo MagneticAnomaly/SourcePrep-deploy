@@ -98,7 +98,7 @@ export default function Page() {
 
       <p className="mt-8 text-center text-sm text-text-muted">
         Still having trouble?{' '}
-        <a href="mailto:licenses@runprep.io" className="text-primary hover:underline">
+        <a href="mailto:licenses@sourceprep.io" className="text-primary hover:underline">
           Contact support
         </a>
       </p>
