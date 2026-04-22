@@ -92,7 +92,8 @@ impl Default for WalkConfig {
             // Parity is pinned by tests/test_walker_parity.py.
             exclude_globs: vec![
                 // Prep outputs (self-ingestion guard)
-                "**/.runprep/**".into(),
+                "**/.sourceprep/**".into(),
+                "**/.runprep/**".into(),   // back-compat: legacy RunPrep per-project dir
                 "**/prep_data/**".into(),
                 "**/prep_data/**".into(),  // legacy name kept for parity with Python L1
                 // VCS

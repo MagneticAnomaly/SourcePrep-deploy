@@ -17,7 +17,7 @@ export default function Page() {
           
           <AnchorHeading id="global-config" level="h2">Global Config</AnchorHeading>
           <p>
-            Stored in <code>~/.runprep/config.json</code> (Mac/Linux) or <code>%APPDATA%\prep\config.json</code> (Windows).
+            Stored in <code>~/.sourceprep/config.json</code> (Mac/Linux) or <code>%APPDATA%\prep\config.json</code> (Windows).
           </p>
           <p className="text-sm text-text-muted">
             Contains daemon settings, global model preferences, and license information. You typically edit this via the Dashboard settings, but it can be modified manually.
@@ -25,15 +25,15 @@ export default function Page() {
 
           <AnchorHeading id="project-config" level="h2">Project Config</AnchorHeading>
           <p>
-            Stored in the internal SQLite database (managed via CLI/Dashboard). You can also place a <code>.runprep/config.json</code> in your project root to override settings for that specific repo.
+            Stored in the internal SQLite database (managed via CLI/Dashboard). You can also place a <code>.sourceprep/config.json</code> in your project root to override settings for that specific repo.
           </p>
 
-          <h3 className="text-base font-semibold mt-4">.runprep/ignore</h3>
+          <h3 className="text-base font-semibold mt-4">.sourceprep/ignore</h3>
           <p>
             Works exactly like <code>.gitignore</code>. Use this to exclude files from indexing that you might want to keep in git (or local-only files not in gitignore).
           </p>
           <pre className="overflow-x-auto text-sm">
-            <code># Example .runprep/ignore
+            <code># Example .sourceprep/ignore
 *.lock
 docs/generated/
 legacy/</code>

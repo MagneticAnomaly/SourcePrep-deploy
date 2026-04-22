@@ -1,5 +1,5 @@
 /**
- * RunPrep Paperclip Plugin Manifest
+ * SourcePrep Paperclip Plugin Manifest
  */
 import type { PaperclipPluginManifestV1 } from '@paperclipai/plugin-sdk';
 
@@ -7,11 +7,11 @@ const manifest: PaperclipPluginManifestV1 = {
   id: 'prep',
   apiVersion: 1,
   version: '0.1.0',
-  displayName: 'RunPrep Codebase Intelligence',
+  displayName: 'SourcePrep Codebase Intelligence',
   description:
     'Gives every Paperclip agent structural codebase knowledge — module maps, ' +
-    'dependency graphs, semantic search, and health analysis powered by RunPrep.',
-  author: 'RunPrep <hello@runprep.io>',
+    'dependency graphs, semantic search, and health analysis powered by SourcePrep.',
+  author: 'SourcePrep <hello@sourceprep.io>',
   categories: ['connector'],
 
   capabilities: [
@@ -39,17 +39,17 @@ const manifest: PaperclipPluginManifestV1 = {
     properties: {
       daemon_url: {
         type: 'string',
-        description: 'RunPrep daemon base URL',
+        description: 'SourcePrep daemon base URL',
         default: 'http://127.0.0.1:8400',
       },
       project_id: {
         type: 'string',
-        description: 'Default RunPrep project ID (auto-detected if empty)',
+        description: 'Default SourcePrep project ID (auto-detected if empty)',
         default: '',
       },
       auto_context: {
         type: 'boolean',
-        description: 'Automatically attach RunPrep context to new issues',
+        description: 'Automatically attach SourcePrep context to new issues',
         default: true,
       },
     },
@@ -146,7 +146,7 @@ const manifest: PaperclipPluginManifestV1 = {
       {
         type: 'page',
         id: 'prep-settings',
-        displayName: 'RunPrep Settings',
+        displayName: 'SourcePrep Settings',
         exportName: 'SettingsPage',
       },
     ],
@@ -155,8 +155,8 @@ const manifest: PaperclipPluginManifestV1 = {
   jobs: [
     {
       jobKey: 'reindex-check',
-      displayName: 'RunPrep Reindex Check',
-      description: 'Check if RunPrep index is stale and needs rebuild',
+      displayName: 'SourcePrep Reindex Check',
+      description: 'Check if SourcePrep index is stale and needs rebuild',
       schedule: '0 */6 * * *',
     },
   ],

@@ -146,8 +146,8 @@ export default function Page() {
                 If the daemon consumes too much RAM:
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
-                <li>Reduce the number of indexed files by excluding large folders (<code>vendor/</code>, <code>node_modules/</code>) in <code>.runprep/ignore</code>.</li>
-                <li>Lower the <code>max_file_bytes</code> setting in your project configuration (via Dashboard or <code>.runprep/config.json</code>).</li>
+                <li>Reduce the number of indexed files by excluding large folders (<code>vendor/</code>, <code>node_modules/</code>) in <code>.sourceprep/ignore</code>.</li>
+                <li>Lower the <code>max_file_bytes</code> setting in your project configuration (via Dashboard or <code>.sourceprep/config.json</code>).</li>
                 <li>Context compression adds negligible memory overhead (structural compression needs no model; language compression loads a ~178 MB BERT model on demand).</li>
               </ul>
             </div>
@@ -176,7 +176,7 @@ export default function Page() {
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>Check <code>exclude_globs</code> in the Dashboard.</li>
                 <li>Check your project's <code>.gitignore</code> (SourcePrep respects this by default).</li>
-                <li>Check for a <code>.runprep/ignore</code> file.</li>
+                <li>Check for a <code>.sourceprep/ignore</code> file.</li>
               </ul>
             </div>
 

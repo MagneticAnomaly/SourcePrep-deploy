@@ -67,7 +67,7 @@ fi
 
 if ! git -C "$repo_root" remote get-url "$dev_remote" >/dev/null 2>&1; then
   echo "Missing git remote: $dev_remote" >&2
-  echo "Add it with: git remote add $dev_remote git@github.com:MagneticAnomaly/RunPrep-deploy.git"
+  echo "Add it with: git remote add $dev_remote git@github.com:MagneticAnomaly/SourcePrep-deploy.git"
   echo "Or run with: --dev-remote $public_remote to skip the staging hop."
   exit 1
 fi

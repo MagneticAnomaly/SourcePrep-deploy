@@ -1,13 +1,13 @@
 {
   "name": "prep",
-  "display_name": "RunPrep",
-  "description": "RunPrep: Code Intelligence Platform - Multi-project semantic search for codebases. Provides semantic code search, context assembly for LLM prompts, and index management.",
-  "homepage": "https://github.com/MagneticAnomaly/RunPrep",
-  "repository": "https://github.com/MagneticAnomaly/RunPrep",
+  "display_name": "SourcePrep",
+  "description": "SourcePrep: Code Intelligence Platform - Multi-project semantic search for codebases. Provides semantic code search, context assembly for LLM prompts, and index management.",
+  "homepage": "https://github.com/MagneticAnomaly/SourcePrep",
+  "repository": "https://github.com/MagneticAnomaly/SourcePrep",
   "license": "MIT",
   "authors": [
     {
-      "name": "RunPrep Team"
+      "name": "SourcePrep Team"
     }
   ],
   "version": "0.1.0",
@@ -37,7 +37,7 @@
   "tools": [
     {
       "name": "prep_status",
-      "description": "Get RunPrep index status and daemon health"
+      "description": "Get SourcePrep index status and daemon health"
     },
     {
       "name": "prep_build",

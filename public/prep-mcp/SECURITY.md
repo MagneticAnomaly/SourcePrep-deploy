@@ -2,12 +2,12 @@
 
 ## Reporting a Vulnerability
 
-We take the security of RunPrep seriously. If you discover a security vulnerability, please report it to us immediately.
+We take the security of SourcePrep seriously. If you discover a security vulnerability, please report it to us immediately.
 
 **Do NOT file public GitHub issues for security vulnerabilities.**
 
 ### Contact
-Please email **security@runprep.io** with a description of the issue, steps to reproduce, and any proof-of-concept code.
+Please email **security@sourceprep.io** with a description of the issue, steps to reproduce, and any proof-of-concept code.
 
 ### Response Timeline
 - **Acknowledgment**: We will acknowledge receipt of your report within 24 hours.
@@ -16,7 +16,7 @@ Please email **security@runprep.io** with a description of the issue, steps to r
 
 ## Supported Versions
 
-We provide security updates for the **latest major release** of the RunPrep Desktop Application and the RunPrep MCP Server.
+We provide security updates for the **latest major release** of the SourcePrep Desktop Application and the SourcePrep MCP Server.
 
 | Version | Supported | Notes |
 | :--- | :--- | :--- |
@@ -25,8 +25,8 @@ We provide security updates for the **latest major release** of the RunPrep Desk
 
 ## Integrity Verification
 
-All official releases of RunPrep are signed.
+All official releases of SourcePrep are signed.
 - **macOS**: Signed with our Apple Developer ID and notarized by Apple.
 - **Windows**: Signed with our EV Code Signing Certificate.
 
-Do not run RunPrep binaries that fail signature verification or originate from untrusted sources.
+Do not run SourcePrep binaries that fail signature verification or originate from untrusted sources.

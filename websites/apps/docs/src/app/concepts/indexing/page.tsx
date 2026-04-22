@@ -69,7 +69,7 @@ export default function Page() {
 
           <AnchorHeading id="exclusions" level="h2">Exclusions</AnchorHeading>
           <p>
-            You can control what gets indexed via the Dashboard or <code>.runprep/ignore</code>.
+            You can control what gets indexed via the Dashboard or <code>.sourceprep/ignore</code>.
             Common patterns like <code>node_modules/</code>, <code>dist/</code>, and <code>.git/</code> 
             are ignored by default.
           </p>

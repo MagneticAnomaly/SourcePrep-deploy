@@ -299,7 +299,7 @@ export function EnterpriseAdminPanel({
               <Cloud className="w-8 h-8 text-text-muted mx-auto mb-2" />
               <p className="text-xs text-text-muted">No projects with Team Sync enabled.</p>
               <p className="text-[10px] text-text-muted mt-1">
-                Add a <code className="text-primary">.runprep/team_config.json</code> to a project repo to enable sync.
+                Add a <code className="text-primary">.sourceprep/team_config.json</code> to a project repo to enable sync.
               </p>
             </div>
           ) : (
@@ -817,7 +817,7 @@ export function EnterpriseAdminPanel({
               <Settings2 className="w-8 h-8 text-text-muted mx-auto mb-2" />
               <p className="text-sm text-text-muted">No admin policy configured.</p>
               <p className="text-[10px] text-text-muted mt-1">
-                Add an <code className="text-primary">admin_policy</code> section to your <code className="text-primary">.runprep/team_config.json</code> to set provider locks, model restrictions, and DLP rules.
+                Add an <code className="text-primary">admin_policy</code> section to your <code className="text-primary">.sourceprep/team_config.json</code> to set provider locks, model restrictions, and DLP rules.
               </p>
             </div>
           )}

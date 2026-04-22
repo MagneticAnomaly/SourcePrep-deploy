@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="prep-github-header.png" alt="RunPrep" width="100%">
+  <img src="prep-github-header.png" alt="SourcePrep" width="100%">
 </p>
 
 <h2 align="center"><em>The bridge between how you think about code and how AI reads it.</em></h2>
@@ -8,15 +8,15 @@
 
 [![License](https://img.shields.io/badge/license-Commercial-blue.svg)](LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io)
-[![Sovereign Context](https://img.shields.io/badge/Sovereign-Context-purple.svg)](https://runprep.io)
+[![Sovereign Context](https://img.shields.io/badge/Sovereign-Context-purple.svg)](https://sourceprep.io)
 
 </div>
 
 **Code Documentation and RAG** — Epistemic trace intelligence for autonomous agents and codebase orchestration.
 
-AI assistants are only as good as the context they receive. Most tools send fragments — a single file, a keyword match — and the model fills in the gaps with hallucinations. RunPrep fixes this by building a **persistent, semantic index** of your entire codebase (or multiple repos) and serving bounded, source-cited context on demand.
+AI assistants are only as good as the context they receive. Most tools send fragments — a single file, a keyword match — and the model fills in the gaps with hallucinations. SourcePrep fixes this by building a **persistent, semantic index** of your entire codebase (or multiple repos) and serving bounded, source-cited context on demand.
 
-> **Important:** RunPrep is a **local desktop application**, not a cloud service. This repository contains the MCP server shim — a thin wrapper that connects your AI tools to the RunPrep engine running on your machine. **You must install the full RunPrep application first.** See [Installation](#installation) below.
+> **Important:** SourcePrep is a **local desktop application**, not a cloud service. This repository contains the MCP server shim — a thin wrapper that connects your AI tools to the SourcePrep engine running on your machine. **You must install the full SourcePrep application first.** See [Installation](#installation) below.
 
 ### Core capabilities
 
@@ -28,19 +28,19 @@ AI assistants are only as good as the context they receive. Most tools send frag
 
 ---
 
-<img src="dashboard-demo.png" width="100%" alt="RunPrep dashboard" />
+<img src="dashboard-demo.png" width="100%" alt="SourcePrep dashboard" />
 
-## Why RunPrep?
+## Why SourcePrep?
 
 AI tools are evolving fast. The context they need shouldn't be locked inside one specific editor.
 
-| Developer Problem | RunPrep Solution |
+| Developer Problem | SourcePrep Solution |
 |:---|:---|
-| **"AI hallucinations"** | AI guesses when it lacks context or gets condused with too much context. RunPrep provides **grounded, guided, source-cited context** from targeted parts of your codebase. |
-| **"Fragmented Context"** | Each tool (Cursor, VS Code, CLI) has its own partial index. RunPrep is a **unified context server** for *all* your tools. |
-| **"Dumb Search"** | grep/regex misses concepts. RunPrep uses **Trace Indexing** (Who calls this? What implements this interface?) + Semantic Search. |
-| **"Privacy Risks"** | Most tools upload code to index it. RunPrep guarantees **Sovereign Context**. Your code never leaves your machine. |
-| **"Context Window Limits"** | Pasting huge files wastes tokens. RunPrep uses **Structural Compression** (LOD) to pack 3–20× more files into the same window — no GPU or sidecar needed. |
+| **"AI hallucinations"** | AI guesses when it lacks context or gets condused with too much context. SourcePrep provides **grounded, guided, source-cited context** from targeted parts of your codebase. |
+| **"Fragmented Context"** | Each tool (Cursor, VS Code, CLI) has its own partial index. SourcePrep is a **unified context server** for *all* your tools. |
+| **"Dumb Search"** | grep/regex misses concepts. SourcePrep uses **Trace Indexing** (Who calls this? What implements this interface?) + Semantic Search. |
+| **"Privacy Risks"** | Most tools upload code to index it. SourcePrep guarantees **Sovereign Context**. Your code never leaves your machine. |
+| **"Context Window Limits"** | Pasting huge files wastes tokens. SourcePrep uses **Structural Compression** (LOD) to pack 3–20× more files into the same window — no GPU or sidecar needed. |
 | **"Managing separate RAG indexes for 5+ repos is tedious"** | Single daemon manages all projects. |
 | **"Each IDE tool spins up its own Ollama connection"** | Shared LLM connection pool. |
 | **"Juggling multiple ports/processes per project"** | One port (8400), project tabs in UI. |
@@ -51,14 +51,14 @@ AI tools are evolving fast. The context they need shouldn't be locked inside one
 
 ## Installation
 
-RunPrep is a desktop application. Install it first, then configure your AI tools to connect via MCP.
+SourcePrep is a desktop application. Install it first, then configure your AI tools to connect via MCP.
 
 ### Prerequisites
 - macOS 11+ or Windows 10+
 - 4GB free disk space
-- Ollama (optional, for embeddings — RunPrep also ships native ONNX embeddings)
+- Ollama (optional, for embeddings — SourcePrep also ships native ONNX embeddings)
 
-### Step 1: Install the RunPrep Application
+### Step 1: Install the SourcePrep Application
 
 ```bash
 # macOS (Homebrew)
@@ -68,9 +68,9 @@ brew install --cask prep
 winget install MagneticAnomaly.Prep
 ```
 
-Or download directly from [runprep.io/download](https://runprep.io/download).
+Or download directly from [sourceprep.io/download](https://sourceprep.io/download).
 
-*Free for personal and commercial use (3 active projects, all features). See [runprep.io/pricing](https://runprep.io/pricing) for unlimited projects and Team/Enterprise tiers.*
+*Free for personal and commercial use (3 active projects, all features). See [sourceprep.io/pricing](https://sourceprep.io/pricing) for unlimited projects and Team/Enterprise tiers.*
 
 ### Step 2: Start the Daemon and Index a Project
 
@@ -90,7 +90,7 @@ prep ui
 
 ### Step 3: Connect Your AI Tool via MCP
 
-Once RunPrep is running, connect any MCP-compatible tool:
+Once SourcePrep is running, connect any MCP-compatible tool:
 
 ```bash
 # Start MCP in server mode (connects to the running daemon)
@@ -119,11 +119,11 @@ ollama pull nomic-embed-text        # standard quality (~274 MB)
 
 ## Multi-Project Setup
 
-RunPrep supports multiple projects in a single daemon. When you invoke `prep` from an AI tool like Windsurf or Cursor, the MCP server needs to know **which project** to query. There are three routing mechanisms, applied in priority order:
+SourcePrep supports multiple projects in a single daemon. When you invoke `prep` from an AI tool like Windsurf or Cursor, the MCP server needs to know **which project** to query. There are three routing mechanisms, applied in priority order:
 
 ### 1. Auto-Detect from Workspace (Default)
 
-When your IDE opens a workspace, it spawns a separate MCP process per window. RunPrep matches the workspace root against registered project paths:
+When your IDE opens a workspace, it spawns a separate MCP process per window. SourcePrep matches the workspace root against registered project paths:
 
 ```
 Windsurf Window 1: /Users/you/projects/frontend
@@ -156,7 +156,7 @@ prep mcp-config --ide windsurf --project proj_abc123
 
 ### 3. Tool-Level Override (AI Self-Correction)
 
-Every RunPrep tool accepts an optional `project_id` parameter. If auto-detect is ambiguous, the AI model receives the full project list in the error message and can retry with an explicit ID:
+Every SourcePrep tool accepts an optional `project_id` parameter. If auto-detect is ambiguous, the AI model receives the full project list in the error message and can retry with an explicit ID:
 
 ```json
 // AI calls prep_status, gets ambiguous error with project list
@@ -205,13 +205,13 @@ prep mcp-config --ide windsurf --project proj_abc123
 
 ## Verified Integrations
 
-RunPrep works with any MCP-compatible client. We officially verify and document the following:
+SourcePrep works with any MCP-compatible client. We officially verify and document the following:
 
 ### Tier 1: Verified
 - **[Cursor](https://cursor.sh)** — The AI code editor.
 - **[Windsurf](https://windsurf.ai)** — The agentic IDE.
 - **[Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — Anthropic's terminal-native coding agent.
-- **[VS Code](https://code.visualstudio.com)** — Via the official RunPrep extension or MCP plugin.
+- **[VS Code](https://code.visualstudio.com)** — Via the official SourcePrep extension or MCP plugin.
 - **[GitHub Copilot](https://github.com/features/copilot)** — Via MCP integration in VS Code / JetBrains.
 - **[Gemini CLI](https://github.com/google-gemini/gemini-cli)** — Google's terminal agent for Gemini models.
 - **[Qwen Code](https://github.com/QwenLM/qwen-code)** — The terminal agent for Qwen models.
@@ -227,16 +227,16 @@ RunPrep works with any MCP-compatible client. We officially verify and document 
 
 We believe in a **Model-View-Controller** approach to AI development:
 
-- **The Model (RunPrep)**: The source of truth. Manages the trace graph, file index, semantic search, and context assembly.
+- **The Model (SourcePrep)**: The source of truth. Manages the trace graph, file index, semantic search, and context assembly.
 - **The View (Your Tool)**: Cursor, Windsurf, Claude Code, Gemini CLI, Qwen Code, or VS Code. Handles the UI and LLM inference.
 
-RunPrep is the universal model. Bring your own view.
+SourcePrep is the universal model. Bring your own view.
 
 ---
 
 ## Vision
 
-RunPrep is an **epistemic, team-ready** application that provides:
+SourcePrep is an **epistemic, team-ready** application that provides:
 
 - **Semantic code search** across multiple codebases simultaneously
 - **Trace indexing** for structural understanding (symbols, imports, call graphs)
@@ -319,12 +319,12 @@ graph TD
 - Cross-project search (enterprise tier only)
 
 ### Hybrid Index Mode
-- **Standalone mode** (default): Index stored in `~/.local/share/runprep/projects/`
-- **Embedded mode** (team): Index stored in project `.runprep/` directory
+- **Standalone mode** (default): Index stored in `~/.local/share/sourceprep/projects/`
+- **Embedded mode** (team): Index stored in project `.sourceprep/` directory
 - Teams can commit embedded indexes to git to skip initial indexing time
 
 ### Trace Index
-Beyond keyword/semantic search, RunPrep builds a **structural graph**:
+Beyond keyword/semantic search, SourcePrep builds a **structural graph**:
 - **Nodes:** Files, symbols, classes, functions, endpoints
 - **Edges:** Imports, calls, inheritance relationships
 - Queries: Find all callers of a function, trace import chains, explore class hierarchies
@@ -442,7 +442,7 @@ ollama:
   
 # Index Settings
 index:
-  data_dir: ~/.local/share/runprep
+  data_dir: ~/.local/share/sourceprep
   max_size_gb: 10
 
 # Auto-Rebuild
@@ -556,9 +556,9 @@ POST /llm/test                    Test connections
 # Team lead sets up project with embedded index
 prep add /path/to/team-project --embedded
 
-# Index lives in /path/to/team-project/.runprep/
+# Index lives in /path/to/team-project/.sourceprep/
 # Commit to git:
-git add .runprep/
+git add .sourceprep/
 git commit -m "Add Prep index"
 
 # Team members clone and use existing index
@@ -590,7 +590,7 @@ prep config set server.remote_url http://team-server:8400
 
 ## GUI (Dashboard)
 
-RunPrep ships with a **GUI dashboard** for day-to-day workflows:
+SourcePrep ships with a **GUI dashboard** for day-to-day workflows:
 
 - **Project visibility** (index status, staleness, trace status)
 - **Build controls** and configuration editing
@@ -609,24 +609,24 @@ prep ui
 This repository (`prep-mcp`) contains:
 
 - **The MCP server shim** (`bin/prep-mcp.js`) — a thin Node.js wrapper that spawns `prep mcp` and bridges stdio for MCP clients.
-- **Documentation** for the RunPrep application and its MCP integration.
+- **Documentation** for the SourcePrep application and its MCP integration.
 - **Issue tracker** for MCP-related bugs and feature requests.
 
-The actual RunPrep engine, dashboard, CLI, and all indexing logic live in the main application. This package exists so that MCP clients (like Cursor or Claude Code) can reference `prep-mcp` as a server entry point.
+The actual SourcePrep engine, dashboard, CLI, and all indexing logic live in the main application. This package exists so that MCP clients (like Cursor or Claude Code) can reference `prep-mcp` as a server entry point.
 
 ---
 
 ## Related Projects
 
-- **[Ollama](https://ollama.com/)** — Local LLM serving (RunPrep uses for embeddings)
-- **[Model Context Protocol](https://modelcontextprotocol.io)** — The standard RunPrep speaks natively
+- **[Ollama](https://ollama.com/)** — Local LLM serving (SourcePrep uses for embeddings)
+- **[Model Context Protocol](https://modelcontextprotocol.io)** — The standard SourcePrep speaks natively
 
 ---
 
 ## License
 
-The RunPrep Desktop App and Engine are commercial software.
+The SourcePrep Desktop App and Engine are commercial software.
 This repository serves as the public documentation and MCP shim for the integration.
 
 See [LICENSE](LICENSE) for details on this repository's content (MIT).
-See [runprep.io/terms](https://runprep.io/terms) for the RunPrep application license.
+See [sourceprep.io/terms](https://sourceprep.io/terms) for the SourcePrep application license.

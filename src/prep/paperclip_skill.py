@@ -1,17 +1,17 @@
 """
-Paperclip Skill installer for RunPrep.
+Paperclip Skill installer for SourcePrep.
 
-Installs the RunPrep skill into ``~/.claude/skills/prep`` so that
-Paperclip agents can discover and use RunPrep's MCP tools.  The skill
-directory shipped with RunPrep lives at ``packages/paperclip-skill/``
+Installs the SourcePrep skill into ``~/.claude/skills/prep`` so that
+Paperclip agents can discover and use SourcePrep's MCP tools.  The skill
+directory shipped with SourcePrep lives at ``packages/paperclip-skill/``
 and is symlinked into the global skills home.
 
 Two installation modes:
   1. **Symlink** (default): Creates a symlink from the global skills
-     directory to the RunPrep source tree.  Best for development — the
+     directory to the SourcePrep source tree.  Best for development — the
      skill stays in sync with the repo.
   2. **Copy**: Copies the skill files into the global skills directory.
-     Best for distribution when the RunPrep source tree may not be
+     Best for distribution when the SourcePrep source tree may not be
      available.
 """
 from __future__ import annotations
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # ── Paths ────────────────────────────────────────────────────────────
 
-# Where the skill source lives in the RunPrep repo
+# Where the skill source lives in the SourcePrep repo
 _SKILL_SOURCE_DIR = Path(__file__).resolve().parent.parent / "packages" / "paperclip-skill"
 
 # Default global skills home (Claude / OpenCode convention)
@@ -44,7 +44,7 @@ def install_skill(
     mode: str = "symlink",
     source_dir: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Install the RunPrep skill into the global skills directory.
+    """Install the SourcePrep skill into the global skills directory.
 
     Args:
         skills_home: Override the global skills directory.
@@ -83,7 +83,7 @@ def install_skill(
     if mode == "symlink":
         try:
             target.symlink_to(source)
-            logger.info("Symlinked RunPrep skill: %s → %s", target, source)
+            logger.info("Symlinked SourcePrep skill: %s → %s", target, source)
         except OSError as exc:
             return {
                 "installed": False,
@@ -94,7 +94,7 @@ def install_skill(
     elif mode == "copy":
         try:
             shutil.copytree(source, target)
-            logger.info("Copied RunPrep skill to %s", target)
+            logger.info("Copied SourcePrep skill to %s", target)
         except OSError as exc:
             return {
                 "installed": False,
@@ -114,7 +114,7 @@ def install_skill(
         "installed": True,
         "path": str(target),
         "mode": mode,
-        "message": "RunPrep skill installed. Agents can now enable it in Paperclip.",
+        "message": "SourcePrep skill installed. Agents can now enable it in Paperclip.",
     }
 
 
@@ -122,7 +122,7 @@ def uninstall_skill(
     *,
     skills_home: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Remove the RunPrep skill from the global skills directory."""
+    """Remove the SourcePrep skill from the global skills directory."""
     home = (skills_home or _DEFAULT_SKILLS_HOME).expanduser().resolve()
     target = home / SKILL_NAME
 
@@ -140,7 +140,7 @@ def get_skill_status(
     *,
     skills_home: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Check if the RunPrep skill is installed in the global skills directory."""
+    """Check if the SourcePrep skill is installed in the global skills directory."""
     home = (skills_home or _DEFAULT_SKILLS_HOME).expanduser().resolve()
     target = home / SKILL_NAME
     skill_md = target / "SKILL.md"

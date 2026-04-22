@@ -1,5 +1,5 @@
 """
-RunPrep Concept Seeder — Phase 74 (Epistemic Concepts) + Phase 96F (Swarm)
+SourcePrep Concept Seeder — Phase 74 (Epistemic Concepts) + Phase 96F (Swarm)
 =========================================================================
 
 LLM-powered concept extraction from existing pipeline outputs.

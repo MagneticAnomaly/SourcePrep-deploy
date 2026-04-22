@@ -1,4 +1,4 @@
-"""Enrichment engine — annotates external findings with RunPrep structural context.
+"""Enrichment engine — annotates external findings with SourcePrep structural context.
 
 Each incoming finding (file, line, message, severity, tool) is looked up in the
 provided context dict (keyed by file path).  When found, structural signals
@@ -28,7 +28,7 @@ _HUB_PERCENTILE = {
 
 @dataclass
 class EnrichedFinding:
-    """An external lint/analysis finding annotated with optional RunPrep context."""
+    """An external lint/analysis finding annotated with optional SourcePrep context."""
 
     file: str
     line: int
@@ -66,7 +66,7 @@ class EnrichmentResult:
         }
         if self.stale_data_warning:
             d["message"] = (
-                "Looks like you have stale data, RunPrep recommends running enrichment again."
+                "Looks like you have stale data, SourcePrep recommends running enrichment again."
             )
         return d
 
@@ -76,7 +76,7 @@ def enrich_findings(
     context: Dict[str, Dict],
     max_findings: int = 200,
 ) -> EnrichmentResult:
-    """Annotate external findings with RunPrep structural context.
+    """Annotate external findings with SourcePrep structural context.
 
     Args:
         findings: List of dicts with keys: file, line, message, severity, tool.
@@ -190,7 +190,7 @@ def enrich_sarif(
     context: Dict[str, Dict],
     max_findings: int = 200,
 ) -> Dict:
-    """Enrich SARIF input with RunPrep structural context.
+    """Enrich SARIF input with SourcePrep structural context.
 
     Orchestrates: parse SARIF → convert to simple → enrich → convert back to SARIF.
 
@@ -200,7 +200,7 @@ def enrich_sarif(
         max_findings: Maximum findings to process
 
     Returns:
-        Enriched SARIF dict with RunPrep property bags injected.
+        Enriched SARIF dict with SourcePrep property bags injected.
     """
     from prep.core.sarif import parse_sarif, sarif_to_simple, enriched_to_sarif
 

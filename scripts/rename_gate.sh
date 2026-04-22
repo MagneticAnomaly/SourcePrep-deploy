@@ -3,7 +3,7 @@
 # Usage: bash scripts/rename_gate.sh            # prints offending lines
 #        bash scripts/rename_gate.sh | wc -l    # expected: 0 before merge
 set -u
-grep -rniE 'codrag|\bclara\b|codrag\.io|codrag\.ai' \
+grep -rniE 'codrag|\bclara\b|codrag\.io|codrag\.ai|\brunprep\b|runprep\.io' \
   --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.venv \
   --exclude-dir=target --exclude-dir=dist --exclude-dir=build \
   --exclude-dir=__pycache__ --exclude-dir=.turbo --exclude-dir=.next \

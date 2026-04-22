@@ -545,7 +545,7 @@ export function ProjectSettingsPanel({
             </p>
             <p className="text-text-muted text-xs leading-relaxed">
               {mode === 'embedded' 
-                ? 'Index is stored inside the project folder at .runprep/ (committed to git if not ignored).'
+                ? 'Index is stored inside the project folder at .sourceprep/ (committed to git if not ignored).'
                 : 'Index is stored in the SourcePrep application data directory, separate from your source code.'}
             </p>
             {path && (

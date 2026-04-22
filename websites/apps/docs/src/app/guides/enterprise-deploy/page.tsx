@@ -248,7 +248,7 @@ docker push my-org/prep-runpod`}
           <li><strong>No telemetry.</strong> SourcePrep does not phone home, collect usage data, or send any information to external servers.</li>
           <li><strong>No cloud dependency.</strong> The GPU image includes everything needed to run completely offline.</li>
           <li><strong>Secrets leakage detection.</strong> SourcePrep warns if credential-like keys appear in <code>team_config.json</code> (which is committed to Git).</li>
-          <li><strong>S3 credentials</strong> are resolved from environment variables or a gitignored <code>.runprep/.secrets</code> file — never from committed files.</li>
+          <li><strong>S3 credentials</strong> are resolved from environment variables or a gitignored <code>.sourceprep/.secrets</code> file — never from committed files.</li>
           <li><strong>Offline license activation.</strong> Enterprise licenses are Ed25519-signed and validated locally. No internet required after activation.</li>
         </ul>
 
@@ -317,9 +317,9 @@ docker push my-org/prep-runpod`}
         <AnchorHeading id="team-config" level="h2">team_config.json Reference</AnchorHeading>
 
         <p className="mt-4 text-text-muted">
-          The team configuration file is committed to your repository at <code>.runprep/team_config.json</code>.
+          The team configuration file is committed to your repository at <code>.sourceprep/team_config.json</code>.
           It contains only non-secret settings — credentials are resolved from environment variables or
-          <code>.runprep/.secrets</code> (gitignored).
+          <code>.sourceprep/.secrets</code> (gitignored).
         </p>
 
         <AnchorHeading id="sync-config" level="h3">Sync Configuration</AnchorHeading>

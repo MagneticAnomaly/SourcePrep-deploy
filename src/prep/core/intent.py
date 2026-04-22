@@ -1,4 +1,4 @@
-"""Rule-based intent classifier for RunPrep search queries.
+"""Rule-based intent classifier for SourcePrep search queries.
 
 Zero-latency, deterministic classification of search queries into
 one of 7 intents, each routing to a different retrieval strategy.
