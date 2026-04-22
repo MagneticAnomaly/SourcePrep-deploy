@@ -75,3 +75,38 @@ def test_empty_env_var_falls_through_to_default() -> None:
     with patch.dict(os.environ, {"PREP_DATA_DIR": "  "}):
         resolved = data_dir()
     assert resolved == Path.home() / ".local" / "share" / "sourceprep"
+
+
+def test_migrate_embedded_runprep_to_sourceprep(tmp_path: Path) -> None:
+    """_migrate_embedded_dir renames `.runprep/` to `.sourceprep/` when target absent."""
+    from prep.core.paths import _migrate_embedded_dir
+
+    legacy = tmp_path / ".runprep"
+    legacy.mkdir()
+    (legacy / "project.json").write_text('{"id": "x"}')
+
+    _migrate_embedded_dir(tmp_path)
+
+    target = tmp_path / ".sourceprep"
+    assert target.is_dir()
+    assert (target / "project.json").read_text() == '{"id": "x"}'
+    assert not legacy.exists()
+
+
+def test_migrate_embedded_prefers_target_when_both_exist(tmp_path: Path) -> None:
+    """If both `.runprep/` and `.sourceprep/` exist, target wins; legacy untouched."""
+    from prep.core.paths import _migrate_embedded_dir
+
+    legacy = tmp_path / ".runprep"
+    target = tmp_path / ".sourceprep"
+    legacy.mkdir()
+    target.mkdir()
+    (legacy / "old.txt").write_text("legacy")
+    (target / "new.txt").write_text("target")
+
+    _migrate_embedded_dir(tmp_path)
+
+    # Legacy preserved, target untouched
+    assert legacy.is_dir()
+    assert target.is_dir()
+    assert (target / "new.txt").read_text() == "target"

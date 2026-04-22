@@ -54,17 +54,27 @@ def data_dir() -> Path:
 
 
 def _migrate_embedded_dir(project_root: Path) -> None:
-    """Rename a legacy ``.codrag/`` embedded index dir to ``.runprep/``.
+    """Chain legacy embedded-dir renames up to the current target.
 
-    Called once per project open before any ``.runprep/`` read. No-op when
-    ``.codrag/`` is absent or ``.runprep/`` already exists.
+    Performs in order (each step is idempotent and only acts when the source
+    exists and the target does not):
 
-    Used only by the codrag->prep rename migration (D5). Not for new call sites.
+      .codrag/    -> .runprep/      (codrag -> prep rename)
+      .runprep/   -> .sourceprep/   (RunPrep -> SourcePrep rename)
+
+    Called once per project open before any ``.sourceprep/`` read. No-op when
+    a given source is absent or the downstream target already exists.
     """
-    legacy = project_root / ".codrag"
-    target = project_root / ".runprep"
-    if legacy.exists() and not target.exists():
-        legacy.rename(target)
+    # codrag -> runprep
+    codrag_legacy = project_root / ".codrag"
+    runprep_intermediate = project_root / ".runprep"
+    if codrag_legacy.exists() and not runprep_intermediate.exists():
+        codrag_legacy.rename(runprep_intermediate)
+
+    # runprep -> sourceprep
+    sourceprep_target = project_root / ".sourceprep"
+    if runprep_intermediate.exists() and not sourceprep_target.exists():
+        runprep_intermediate.rename(sourceprep_target)
 
 
 def legacy_cwd_data_dir(cwd: Path | None = None) -> Path:
