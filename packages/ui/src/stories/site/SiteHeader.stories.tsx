@@ -22,7 +22,7 @@ const defaultLinks = [
 
 export const Default: Story = {
   args: {
-    productName: 'RunPrep',
+    productName: 'SourcePrep',
     links: defaultLinks,
     actions: (
       <a href="#" className="px-4 py-2 bg-primary text-white rounded-md text-sm font-medium">
@@ -34,7 +34,7 @@ export const Default: Story = {
 
 export const WithBadge: Story = {
   args: {
-    productName: 'RunPrep',
+    productName: 'SourcePrep',
     productBadge: 'Beta',
     links: defaultLinks,
     actions: (
@@ -47,7 +47,7 @@ export const WithBadge: Story = {
 
 export const WithSearch: Story = {
   args: {
-    productName: 'RunPrep Docs',
+    productName: 'SourcePrep Docs',
     links: defaultLinks,
     searchPlaceholder: 'Search documentation...',
     onSearch: (q) => console.log(q),

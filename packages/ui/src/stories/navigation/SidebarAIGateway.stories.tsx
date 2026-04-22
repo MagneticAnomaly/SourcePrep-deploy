@@ -71,7 +71,7 @@ const concurrentTask: RunningTask = {
 const swarmTask: RunningTask = {
   task_id: 'group_reasoning',
   project_id: 'p2',
-  project_name: 'RunPrep',
+  project_name: 'SourcePrep',
   group: 'deep_enrichment',
   stage: 'group_reasoning',
   model_slot: 'large',

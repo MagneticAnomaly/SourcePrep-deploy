@@ -1,5 +1,5 @@
-// RunPrep UI - Shared Component Library
-// This package provides the design system foundation for RunPrep app and website
+// SourcePrep UI - Shared Component Library
+// This package provides the design system foundation for SourcePrep app and website
 
 // Utilities
 export { cn } from './lib/utils';

@@ -224,14 +224,14 @@ export const prepConceptsDemo: CliScript = {
     { type: 'pause', durationMs: 300 },
     {
       type: 'agent_output',
-      text: 'The payment module uses a saga pattern because:\n\n• **Cross-service coordination** — payments span billing, inventory, and notifications. A single DB transaction can\'t cover all three.\n• **Compensating actions** — if inventory reservation fails after charge, the saga auto-refunds.\n• **Constraint:** `payment/` must never import `db.transaction` directly — RunPrep will flag violations via the immune system.\n\nThis concept was recorded by your team and linked to `saga_runner.py`.',
+      text: 'The payment module uses a saga pattern because:\n\n• **Cross-service coordination** — payments span billing, inventory, and notifications. A single DB transaction can\'t cover all three.\n• **Compensating actions** — if inventory reservation fails after charge, the saga auto-refunds.\n• **Constraint:** `payment/` must never import `db.transaction` directly — SourcePrep will flag violations via the immune system.\n\nThis concept was recorded by your team and linked to `saga_runner.py`.',
       typewriterDelayMs: 12,
     },
   ],
 };
 
 /**
- * Demo: Agent IDE operations — shows RunPrep powering an agentic edit
+ * Demo: Agent IDE operations — shows SourcePrep powering an agentic edit
  */
 export const ideDemoScript: CliScript = {
   title: 'prep-ide-demo',

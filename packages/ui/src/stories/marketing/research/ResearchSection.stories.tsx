@@ -27,7 +27,7 @@ export const Compression: Story = {
     id: 'compression',
     title: 'Compression & Levels of Detail',
     intro:
-      'Why RunPrep\u2019s context assembler ladders code from full source down to one-line signatures.',
+      'Why SourcePrep\u2019s context assembler ladders code from full source down to one-line signatures.',
     sources: RESEARCH_SOURCES.filter((s) => s.problemArea === 'compression'),
   },
 };
@@ -37,7 +37,7 @@ export const Concepts: Story = {
     id: 'concepts',
     title: 'Concepts, Knowledge & Standards',
     intro:
-      'Why RunPrep treats concepts as first-class artifacts and where the protocol surface comes from.',
+      'Why SourcePrep treats concepts as first-class artifacts and where the protocol surface comes from.',
     sources: RESEARCH_SOURCES.filter((s) => s.problemArea === 'concepts'),
   },
 };

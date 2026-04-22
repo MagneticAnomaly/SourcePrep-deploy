@@ -7,7 +7,7 @@ const meta: Meta<typeof AgentCard> = {
   component: AgentCard,
   parameters: {
     layout: 'padded',
-    docs: { description: { component: 'Compact card showing one RunPrep agent\u2019s status \u2014 name, status badge, key metric, and last run timestamp. Used inside AgentOpsPanel.' } },
+    docs: { description: { component: 'Compact card showing one SourcePrep agent\u2019s status \u2014 name, status badge, key metric, and last run timestamp. Used inside AgentOpsPanel.' } },
   },
   decorators: [(Story) => <div style={{ maxWidth: 320 }}><Story /></div>],
 };

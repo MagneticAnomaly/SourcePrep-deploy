@@ -701,7 +701,7 @@ export function AIModelsSettings({
               AI Models
               <InfoTooltip 
                 content="Learn how to choose and configure models." 
-                href="https://docs.runprep.io/guides/models" 
+                href="https://docs.sourceprep.io/guides/models" 
               />
             </h2>
             <p className="text-sm text-text-muted mt-1">Configure LLMs for embedding and analysis</p>
@@ -808,7 +808,7 @@ export function AIModelsSettings({
                   </svg>
                 }
                 info="Use a single powerful model here (like Claude/GPT) to handle both Fast and Thinking tasks, or combine a smaller local model with a larger one below."
-                infoLink="https://docs.runprep.io/guides/models"
+                infoLink="https://docs.sourceprep.io/guides/models"
                 endpoint={config.small_model.endpoint_id}
                 model={config.small_model.model}
                 alwaysOn={config.small_model.always_on}
@@ -838,7 +838,7 @@ export function AIModelsSettings({
                   </svg>
                 }
                 info="Optional code-specialized model for inferring cross-file relationships. Falls back to the Fast model if not configured. Best with code-tuned models like qwen2.5-coder or deepseek-coder."
-                infoLink="https://docs.runprep.io/guides/models"
+                infoLink="https://docs.sourceprep.io/guides/models"
                 endpoint={config.code_model?.endpoint_id}
                 model={config.code_model?.model}
                 alwaysOn={config.code_model?.always_on}
@@ -891,7 +891,7 @@ export function AIModelsSettings({
               <div className="flex flex-col gap-2">
                 <div className="rounded-md border border-border/60 bg-surface-raised/40 px-3 py-2 text-[11px] text-text-muted leading-relaxed">
                   <span className="font-medium text-text">Swarm Coordinator (Optional):</span>{' '}
-                  During Deep Enrichment, RunPrep fans out per-file analysis to the Thinking Model
+                  During Deep Enrichment, SourcePrep fans out per-file analysis to the Thinking Model
                   (the Worker) and uses a separate model to plan clusters and synthesize domain modules.
                   Assign a fast, JSON-reliable model here (e.g. Gemini Flash) to avoid token exhaustion
                   on reasoning-heavy workers like Kimi. Leave inherited to use the Thinking Model for both.
@@ -906,7 +906,7 @@ export function AIModelsSettings({
                     </svg>
                   }
                   info="Routes large-context planning and synthesis to a fast, JSON-reliable model (e.g. Gemini Flash). If left inherited, the Thinking Model handles both worker and coordinator roles."
-                  infoLink="https://docs.runprep.io/guides/models"
+                  infoLink="https://docs.sourceprep.io/guides/models"
                   endpoint={coordinatorSlot.endpoint_id}
                   model={coordinatorSlot.model}
                   alwaysOn={coordinatorSlot.always_on}
@@ -1102,7 +1102,7 @@ export function AIModelsSettings({
         <div>
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-semibold font-mono text-text">Model Recommendations (Ollama)</h4>
-            <a href="https://docs.runprep.io/guides/model-advisor" target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Setup Advisor →</a>
+            <a href="https://docs.sourceprep.io/guides/model-advisor" target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">Setup Advisor →</a>
           </div>
           <ul className="text-xs text-text-muted space-y-1.5 list-disc pl-4">
             <li><strong>Embedding:</strong> nomic-embed-text-v1.5 (Built-in ONNX — no Ollama needed)</li>

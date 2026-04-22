@@ -74,7 +74,7 @@ export const EmptyProjects: Story = {
     >
       <EmptyState
         title="No projects yet"
-        description="Add your first project to get started with RunPrep. Projects are indexed locally; nothing is uploaded."
+        description="Add your first project to get started with SourcePrep. Projects are indexed locally; nothing is uploaded."
         action={{
           label: 'Add Project',
           onClick: () => {},

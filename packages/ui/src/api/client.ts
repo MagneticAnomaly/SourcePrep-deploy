@@ -876,7 +876,7 @@ export class PrepApiClient implements ApiClient {
         message: err instanceof Error ? err.message : String(err),
         stack: err instanceof Error ? err.stack : undefined
       });
-      throw new ApiClientError('Network error contacting RunPrep daemon', { url: url.toString() });
+      throw new ApiClientError('Network error contacting SourcePrep daemon', { url: url.toString() });
     }
     clearTimeout(timeoutId)
 
@@ -885,7 +885,7 @@ export class PrepApiClient implements ApiClient {
       json = await res.json();
     } catch {
       console.error(`[ApiClient] Invalid JSON from ${url.toString()}:`, res.status);
-      throw new ApiClientError('Invalid JSON response from RunPrep daemon', {
+      throw new ApiClientError('Invalid JSON response from SourcePrep daemon', {
         status: res.status,
         url: url.toString(),
       });
@@ -895,7 +895,7 @@ export class PrepApiClient implements ApiClient {
 
     const envelope = json as ApiEnvelope<T>;
     if (typeof envelope !== 'object' || envelope === null || typeof envelope.success !== 'boolean') {
-      throw new ApiClientError(`Unexpected response shape from RunPrep daemon: ${url.pathname} (HTTP ${res.status})`, {
+      throw new ApiClientError(`Unexpected response shape from SourcePrep daemon: ${url.pathname} (HTTP ${res.status})`, {
         status: res.status,
         url: url.toString(),
       });

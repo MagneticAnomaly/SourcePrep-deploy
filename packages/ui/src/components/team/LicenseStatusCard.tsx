@@ -37,11 +37,11 @@ export function LicenseStatusCard({
             License
             <InfoTooltip 
               content="View pricing and features." 
-              href="https://runprep.io/pricing" 
+              href="https://sourceprep.io/pricing" 
             />
           </h3>
           <p className="text-sm text-text-muted mt-1">
-            RunPrep {label} License
+            SourcePrep {label} License
           </p>
         </div>
         <div className="flex items-center gap-2">

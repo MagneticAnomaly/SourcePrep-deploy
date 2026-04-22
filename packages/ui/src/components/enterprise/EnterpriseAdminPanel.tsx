@@ -457,7 +457,7 @@ export function EnterpriseAdminPanel({
               {seatStatus.seats_used >= seatStatus.seats_total && (
                 <div className="p-2 rounded border border-amber-500/30 bg-amber-500/5 text-xs text-amber-400">
                   All seats are in use. To activate on another machine, deactivate one first or purchase additional seats at{' '}
-                  <a href="https://runprep.io/pricing" target="_blank" rel="noreferrer" className="underline hover:text-amber-300">runprep.io/pricing</a>.
+                  <a href="https://sourceprep.io/pricing" target="_blank" rel="noreferrer" className="underline hover:text-amber-300">sourceprep.io/pricing</a>.
                 </div>
               )}
               {/* Provision Seat Form */}

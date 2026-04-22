@@ -6,7 +6,7 @@ import { cn } from '../../lib/utils';
 import type { LogEntry } from '../../types';
 
 /** Where reports are POSTed. Update when cloud endpoint is deployed. */
-const BUG_REPORT_ENDPOINT = 'https://support.runprep.io/api/bug-report';
+const BUG_REPORT_ENDPOINT = 'https://support.sourceprep.io/api/bug-report';
 const SUBMIT_TIMEOUT_MS = 10_000;
 const EMAIL_STORAGE_KEY = 'prep_bug_report_email';
 
@@ -365,7 +365,7 @@ export function BugReportModal({ open, onClose, logs, diagnosticData }: BugRepor
                     <p>{submitError}</p>
                     <p className="text-text-muted">
                       The report was downloaded as a file. Please attach it to an email at{' '}
-                      <a href="mailto:support@runprep.io" className="underline">support@runprep.io</a>.
+                      <a href="mailto:support@sourceprep.io" className="underline">support@sourceprep.io</a>.
                     </p>
                   </div>
                 </div>

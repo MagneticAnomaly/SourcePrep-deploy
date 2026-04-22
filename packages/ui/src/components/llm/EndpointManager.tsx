@@ -168,7 +168,7 @@ export function EndpointManager({
             <Server className="w-5 h-5 text-primary" />
             <InfoTooltip 
               content="Learn about supported LLM providers." 
-              href="https://docs.runprep.io/guides/models" 
+              href="https://docs.sourceprep.io/guides/models" 
             />
             Saved Endpoints
           </h3>

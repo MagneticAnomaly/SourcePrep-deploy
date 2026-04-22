@@ -130,7 +130,7 @@ export function ProjectSettingsPanel({
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed')) {
-        setDetectedMessage('Detection failed — is the RunPrep daemon running?');
+        setDetectedMessage('Detection failed — is the SourcePrep daemon running?');
       } else {
         setDetectedMessage(`Detection failed: ${msg}`);
       }
@@ -546,12 +546,12 @@ export function ProjectSettingsPanel({
             <p className="text-text-muted text-xs leading-relaxed">
               {mode === 'embedded' 
                 ? 'Index is stored inside the project folder at .runprep/ (committed to git if not ignored).'
-                : 'Index is stored in the RunPrep application data directory, separate from your source code.'}
+                : 'Index is stored in the SourcePrep application data directory, separate from your source code.'}
             </p>
             {path && (
               <div className="flex items-center gap-1.5 mt-2 text-xs text-text-subtle font-mono bg-surface px-2 py-1 rounded border border-border/50 break-all">
                 <FolderOpen className="w-3 h-3 shrink-0" />
-                {mode === 'embedded' ? `${path}/.prep` : 'Managed by RunPrep'}
+                {mode === 'embedded' ? `${path}/.prep` : 'Managed by SourcePrep'}
               </div>
             )}
           </div>

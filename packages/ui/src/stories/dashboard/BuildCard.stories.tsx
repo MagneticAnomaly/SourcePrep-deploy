@@ -42,7 +42,7 @@ export const Empty: Story = {
 
 export const Building: Story = {
   render: () => {
-    const [repoRoot, setRepoRoot] = useState('/Volumes/Code/RunPrep');
+    const [repoRoot, setRepoRoot] = useState('/Volumes/Code/SourcePrep');
     return (
       <BuildCard
         repoRoot={repoRoot}

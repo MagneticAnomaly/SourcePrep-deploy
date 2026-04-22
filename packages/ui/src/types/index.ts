@@ -1,5 +1,5 @@
 /**
- * RunPrep UI Type Definitions — barrel re-export.
+ * SourcePrep UI Type Definitions — barrel re-export.
  *
  * The types directory exists so consumers can import from
  * ``@prep/ui/types`` or ``../types``.  All types are currently

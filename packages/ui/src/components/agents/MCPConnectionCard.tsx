@@ -1,7 +1,7 @@
 /**
  * MCPConnectionCard — Paperclip Skill integration status.
  *
- * Shows whether the RunPrep skill is installed globally in
+ * Shows whether the SourcePrep skill is installed globally in
  * ~/.claude/skills/prep so Paperclip agents can use it.
  * Provides one-click install/uninstall and a manual snippet.
  */
@@ -142,7 +142,7 @@ export function MCPConnectionCard({
               <Check size={14} className="text-green-500 mt-0.5 shrink-0" />
               <div className="text-xs text-green-700 dark:text-green-400 space-y-1">
                 <p className="font-medium">
-                  RunPrep skill is installed globally
+                  SourcePrep skill is installed globally
                 </p>
                 <p>
                   Enable the <code className="bg-green-500/10 px-1 rounded">prep</code> skill
@@ -176,7 +176,7 @@ export function MCPConnectionCard({
           /* ── Not installed state ── */
           <>
             <p className="text-xs text-muted-foreground">
-              Install the RunPrep skill so Paperclip agents can use structural
+              Install the SourcePrep skill so Paperclip agents can use structural
               codebase intelligence tools (<code className="bg-muted px-1 rounded">prep</code>,{' '}
               <code className="bg-muted px-1 rounded">prep_search</code>,{' '}
               <code className="bg-muted px-1 rounded">prep_impact</code>).

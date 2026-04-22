@@ -21,14 +21,14 @@ export function GlassHero({ isBetaMode }: { isBetaMode: boolean }) {
           </h1>
           
           <p className="text-xl text-text-muted mb-8 max-w-2xl mx-auto">
-            RunPrep sits between your codebase and your AI tools — built-in embeddings, structural tracing,
+            SourcePrep sits between your codebase and your AI tools — built-in embeddings, structural tracing,
             path weights for precision control, and smart compression for both code and docs. Better context in, better code out. Core runs entirely locally, add cloud reasoning when needed.
           </p>
 
           <Flex className="gap-4" justifyContent="center">
             {isBetaMode ? (
               <Button size="lg" className="backdrop-blur-md bg-primary/80 hover:bg-primary text-background rounded-xl shadow-lg hover:shadow-primary/30 border border-white/20" asChild>
-                <a href="mailto:support@runprep.io?subject=RunPrep%20Beta%20Access%20Request">Request Beta</a>
+                <a href="mailto:support@sourceprep.io?subject=SourcePrep%20Beta%20Access%20Request">Request Beta</a>
               </Button>
             ) : (
               <Button size="lg" className="backdrop-blur-md bg-primary/80 hover:bg-primary text-background rounded-xl shadow-lg hover:shadow-primary/30 border border-white/20" asChild>

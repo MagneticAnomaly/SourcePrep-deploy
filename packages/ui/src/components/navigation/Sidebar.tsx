@@ -94,8 +94,8 @@ export function Sidebar({
         )}>
           {!collapsed && (
             <span className="font-semibold text-lg flex items-center text-text">
-              <img src="/prep-logo.png" alt="RunPrep" className="w-12 h-12 rounded" />
-              RunPrep
+              <img src="/prep-logo.png" alt="SourcePrep" className="w-12 h-12 rounded" />
+              SourcePrep
             </span>
           )}
           {onCollapseToggle && (

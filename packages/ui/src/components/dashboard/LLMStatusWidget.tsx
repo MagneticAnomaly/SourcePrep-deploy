@@ -240,7 +240,7 @@ export function LLMStatusWidget({
             <h3 className="font-semibold text-text">AI Gateway</h3>
             <InfoTooltip 
               content="Configure your LLM providers." 
-              href="https://docs.runprep.io/guides/models" 
+              href="https://docs.sourceprep.io/guides/models" 
             />
           </div>
         </div>

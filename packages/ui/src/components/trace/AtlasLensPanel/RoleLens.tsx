@@ -86,7 +86,7 @@ export function RoleLens({
       {!role && (
         <p className="text-xs text-text-muted italic">
           Pick a role to preview the sub-atlas an agent using that role would
-          receive from RunPrep MCP. No changes here — this is what is actually
+          receive from SourcePrep MCP. No changes here — this is what is actually
           served right now.
         </p>
       )}

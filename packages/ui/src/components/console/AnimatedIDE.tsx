@@ -227,7 +227,7 @@ export function AnimatedIDE({
 
         {/* Status Bar */}
         <div className="h-[22px] bg-[#007acc] text-white flex items-center px-2 text-[11px]">
-            <span className="mr-4">RunPrep Project</span>
+            <span className="mr-4">SourcePrep Project</span>
             <span className="mr-4">main*</span>
             <span className="flex-1"></span>
             <span>TypeScript</span>

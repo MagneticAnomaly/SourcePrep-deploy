@@ -72,7 +72,7 @@ export function GenerateWizard({
       {/* Mode description */}
       <p className="text-xs text-muted-foreground">
         {mode === 'auto' && 'LLM analyzes your codebase and infers the optimal team structure.'}
-        {mode === 'list' && 'You specify role names. RunPrep generates instructions grounded in your code.'}
+        {mode === 'list' && 'You specify role names. SourcePrep generates instructions grounded in your code.'}
         {mode === 'hybrid' && 'LLM infers roles, but your specified roles are guaranteed to be included.'}
       </p>
 

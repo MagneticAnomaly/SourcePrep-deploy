@@ -1,7 +1,7 @@
 /**
- * RunPrep UI Components
+ * SourcePrep UI Components
  * 
- * Foundational wireframe components for the RunPrep dashboard.
+ * Foundational wireframe components for the SourcePrep dashboard.
  * These are structural components - styling will be applied after
  * visual direction is finalized (Phase 13).
  */

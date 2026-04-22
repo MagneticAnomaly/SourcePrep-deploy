@@ -41,7 +41,7 @@ export interface SiteFooterProps {
 }
 
 export function SiteFooter({
-  productName = 'RunPrep',
+  productName = 'SourcePrep',
   logo = <Box className="w-5 h-5 text-primary" />,
   sections = defaultSections,
   socials,
@@ -114,8 +114,8 @@ export function SiteFooter({
             {copyright || `© ${currentYear} ${productName} Inc. All rights reserved.`}
           </p>
           <div className="flex gap-6">
-            <a href="https://runprep.io/privacy" className="text-xs text-text-subtle hover:text-text transition-colors">Privacy Policy</a>
-            <a href="https://runprep.io/terms" className="text-xs text-text-subtle hover:text-text transition-colors">Terms of Service</a>
+            <a href="https://sourceprep.io/privacy" className="text-xs text-text-subtle hover:text-text transition-colors">Privacy Policy</a>
+            <a href="https://sourceprep.io/terms" className="text-xs text-text-subtle hover:text-text transition-colors">Terms of Service</a>
           </div>
         </div>
       </div>
@@ -127,29 +127,29 @@ const defaultSections: FooterSection[] = [
   {
     title: 'Product',
     links: [
-      { label: 'Download', href: 'https://runprep.io/download' },
-      { label: 'Pricing', href: 'https://runprep.io/pricing' },
-      { label: 'Changelog', href: 'https://runprep.io/changelog' },
-      { label: 'Docs', href: 'https://docs.runprep.io' },
+      { label: 'Download', href: 'https://sourceprep.io/download' },
+      { label: 'Pricing', href: 'https://sourceprep.io/pricing' },
+      { label: 'Changelog', href: 'https://sourceprep.io/changelog' },
+      { label: 'Docs', href: 'https://docs.sourceprep.io' },
     ],
   },
   {
     title: 'Resources',
     links: [
-      { label: 'Blog', href: 'https://runprep.io/blog' },
-      { label: 'Community', href: 'https://runprep.io/community' },
-      { label: 'Help Center', href: 'https://runprep.io/support' },
+      { label: 'Blog', href: 'https://sourceprep.io/blog' },
+      { label: 'Community', href: 'https://sourceprep.io/community' },
+      { label: 'Help Center', href: 'https://sourceprep.io/support' },
     ],
   },
   {
     title: 'Company',
     links: [
-      { label: 'About', href: 'https://runprep.io/about' },
-      { label: 'Careers', href: 'https://runprep.io/careers' },
-      { label: 'Contact', href: 'https://runprep.io/contact' },
-      { label: 'Security', href: 'https://runprep.io/security' },
-      { label: 'RunPrep vs Cursor', href: 'https://runprep.io/compare/prep-vs-cursor-indexing' },
-      { label: 'RunPrep vs Greptile', href: 'https://runprep.io/compare/prep-vs-greptile' },
+      { label: 'About', href: 'https://sourceprep.io/about' },
+      { label: 'Careers', href: 'https://sourceprep.io/careers' },
+      { label: 'Contact', href: 'https://sourceprep.io/contact' },
+      { label: 'Security', href: 'https://sourceprep.io/security' },
+      { label: 'SourcePrep vs Cursor', href: 'https://sourceprep.io/compare/prep-vs-cursor-indexing' },
+      { label: 'SourcePrep vs Greptile', href: 'https://sourceprep.io/compare/prep-vs-greptile' },
     ],
   },
 ];
