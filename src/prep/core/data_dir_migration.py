@@ -302,10 +302,11 @@ def _migrate_one(
 
 _LEGACY_CODRAG_SENTINEL = ".migrated_from_codrag"
 _LEGACY_PREP_SENTINEL = ".migrated_from_prep"
+_LEGACY_RUNPREP_SENTINEL = ".migrated_from_runprep"
 
 
 def _migrate_xdg_legacy(legacy_name: str, sentinel_name: str) -> bool:
-    """Move ~/.local/share/<legacy_name>/ -> ~/.local/share/runprep/ once.
+    """Move ~/.local/share/<legacy_name>/ -> ~/.local/share/sourceprep/ once.
 
     Sentinel-gated at <target>/<sentinel_name>. On conflict (both sides
     non-empty), target wins; legacy is preserved as a sibling
@@ -314,7 +315,7 @@ def _migrate_xdg_legacy(legacy_name: str, sentinel_name: str) -> bool:
     try:
         home = Path.home()
         legacy = home / ".local" / "share" / legacy_name
-        target = home / ".local" / "share" / "runprep"
+        target = home / ".local" / "share" / "sourceprep"
         sentinel = target / sentinel_name
 
         if sentinel.exists():
@@ -323,7 +324,7 @@ def _migrate_xdg_legacy(legacy_name: str, sentinel_name: str) -> bool:
             return False
 
         logger.info(
-            "%s->runprep dir migration: legacy=%s → target=%s",
+            "%s->sourceprep dir migration: legacy=%s → target=%s",
             legacy_name, legacy, target,
         )
 
@@ -332,7 +333,7 @@ def _migrate_xdg_legacy(legacy_name: str, sentinel_name: str) -> bool:
             conflict = legacy.with_name(f"{legacy_name}.migration-conflict.{iso}")
             legacy.rename(conflict)
             logger.info(
-                "%s->runprep dir migration: conflict — target already populated; "
+                "%s->sourceprep dir migration: conflict — target already populated; "
                 "legacy preserved as %s",
                 legacy_name, conflict,
             )
@@ -344,29 +345,38 @@ def _migrate_xdg_legacy(legacy_name: str, sentinel_name: str) -> bool:
 
         target.mkdir(exist_ok=True)
         sentinel.write_text(datetime.now(timezone.utc).isoformat() + "Z\n")
-        logger.info("%s->runprep dir migration: done", legacy_name)
+        logger.info("%s->sourceprep dir migration: done", legacy_name)
         return True
 
     except Exception:
         logger.exception(
-            "%s->runprep dir migration: top-level failure (daemon will still start)",
+            "%s->sourceprep dir migration: top-level failure (daemon will still start)",
             legacy_name,
         )
         return False
 
 
 def migrate_from_legacy_codrag() -> bool:
-    """Migrate ~/.local/share/codrag/ -> ~/.local/share/runprep/ once."""
+    """Migrate ~/.local/share/codrag/ -> ~/.local/share/sourceprep/ once."""
     return _migrate_xdg_legacy("codrag", _LEGACY_CODRAG_SENTINEL)
 
 
 def migrate_from_legacy_prep() -> bool:
-    """Migrate ~/.local/share/prep/ -> ~/.local/share/runprep/ once.
+    """Migrate ~/.local/share/prep/ -> ~/.local/share/sourceprep/ once.
 
     Handles the pre-RunPrep-brand intermediate name for dev installs that
     saw the codrag→prep rename before the prep→runprep brand split.
     """
     return _migrate_xdg_legacy("prep", _LEGACY_PREP_SENTINEL)
+
+
+def migrate_from_legacy_runprep() -> bool:
+    """Migrate ~/.local/share/runprep/ -> ~/.local/share/sourceprep/ once.
+
+    Handles the RunPrep -> SourcePrep brand rename for installs that saw the
+    prep -> runprep rename but not yet runprep -> sourceprep.
+    """
+    return _migrate_xdg_legacy("runprep", _LEGACY_RUNPREP_SENTINEL)
 
 
 def migrate_legacy_data_dir(
