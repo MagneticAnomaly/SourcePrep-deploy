@@ -134,3 +134,6 @@ tests/test_team_sync_integration.py
 tests/test_user_exclude_respected.py
 tests/test_walker_parity.py
 websites/apps/docs/tsconfig.tsbuildinfo
+docs/superpowers/plans/2026-04-22-sourceprep-rename-implementation.md
+docs/superpowers/specs/2026-04-22-sourceprep-rename-design.md
+docs/Phase102_Prep_rename/SOURCEPREP_RENAME_INSTRUCTIONS.md
