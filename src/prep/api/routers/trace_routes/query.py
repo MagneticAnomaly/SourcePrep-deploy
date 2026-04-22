@@ -128,6 +128,8 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
             exclude_globs = []
         if "**/.runprep/**" not in exclude_globs:
             exclude_globs.append("**/.runprep/**")
+        if "**/.sourceprep/**" not in exclude_globs:
+            exclude_globs.append("**/.sourceprep/**")
 
     started = _start_project_trace_build(proj, include_globs, exclude_globs, max_file_bytes=max_file_bytes)
     if not started:

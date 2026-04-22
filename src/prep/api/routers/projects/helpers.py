@@ -43,5 +43,7 @@ def _get_project_globs(proj, *, use_defaults: bool = True) -> Tuple[List[str], L
     if getattr(proj, "mode", None) == "embedded":
         if "**/.runprep/**" not in exclude_globs:
             exclude_globs.append("**/.runprep/**")
+        if "**/.sourceprep/**" not in exclude_globs:
+            exclude_globs.append("**/.sourceprep/**")
 
     return include_globs, exclude_globs

@@ -1,9 +1,9 @@
 """
-Per-run pipeline file logger — writes verbose logs to .runprep/logs/
+Per-run pipeline file logger — writes verbose logs to .sourceprep/logs/
 =====================================================================
 
 Each pipeline run gets its own timestamped log file inside the project's
-index directory (e.g. ``TEST/.runprep/logs/pipeline_20260215_222600.log``).
+index directory (e.g. ``TEST/.sourceprep/logs/pipeline_20260215_222600.log``).
 
 Logs are VERY verbose: every stage transition, every LLM call result,
 every file processed, every error.  This is intentional — the files are

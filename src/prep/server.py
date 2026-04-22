@@ -786,7 +786,7 @@ def configure(
     except Exception:
         logger.debug("Orphan pruning failed (non-fatal)", exc_info=True)
 
-    # Phase 55: Validate and heal .runprep/project.json pointers
+    # Phase 55: Validate and heal .sourceprep/project.json pointers
     # Ensures every project has a pointer with the correct ID,
     # preventing MCP routing failures for pre-existing projects.
     try:

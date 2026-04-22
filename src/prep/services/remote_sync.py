@@ -1,9 +1,9 @@
 """
 Client-side remote sync service for team mode.
 
-When a project has a `.runprep/team_config.json` with sync enabled,
+When a project has a `.sourceprep/team_config.json` with sync enabled,
 this service periodically checks the team's S3 bucket for a newer
-index and downloads it to `.runprep/index/remote/`.
+index and downloads it to `.sourceprep/index/remote/`.
 
 The daemon calls `RemoteSyncService.check_and_sync()` on startup,
 on manual "Sync Now" button press, and on a configurable polling
@@ -40,7 +40,7 @@ SECRETS_FILENAME = ".secrets"
 
 @dataclass
 class TeamSyncConfig:
-    """Parsed from .runprep/team_config.json (committed to repo, secret-free)."""
+    """Parsed from .sourceprep/team_config.json (committed to repo, secret-free)."""
     enabled: bool = False
     s3_endpoint: str = ""
     s3_bucket: str = ""
@@ -111,7 +111,7 @@ def _validate_s3_endpoint(url: str) -> tuple:
 
 
 def _check_secrets_permissions(secrets_path: Path) -> None:
-    """EA-B3: Check that .runprep/.secrets file has restrictive permissions.
+    """EA-B3: Check that .sourceprep/.secrets file has restrictive permissions.
 
     Warns if the file is world-readable or group-readable (mode should be 0o600).
     """
@@ -164,11 +164,11 @@ class SyncStatus:
 # ── Credential resolution ─────────────────────────────────────
 
 def _resolve_s3_credentials(prep_dir: Path) -> Dict[str, str]:
-    """Resolve S3 credentials from env vars or .runprep/.secrets file.
+    """Resolve S3 credentials from env vars or .sourceprep/.secrets file.
 
     Priority:
     1. Environment variables (PREP_S3_ACCESS_KEY, PREP_S3_SECRET_KEY)
-    2. .runprep/.secrets JSON file (gitignored)
+    2. .sourceprep/.secrets JSON file (gitignored)
     """
     access_key = os.environ.get("PREP_S3_ACCESS_KEY", "")
     secret_key = os.environ.get("PREP_S3_SECRET_KEY", "")
@@ -176,7 +176,7 @@ def _resolve_s3_credentials(prep_dir: Path) -> Dict[str, str]:
     if access_key and secret_key:
         return {"access_key": access_key, "secret_key": secret_key}
 
-    # Try .runprep/.secrets file
+    # Try .sourceprep/.secrets file
     secrets_path = prep_dir / SECRETS_FILENAME
     if secrets_path.exists():
         try:
@@ -187,7 +187,7 @@ def _resolve_s3_credentials(prep_dir: Path) -> Dict[str, str]:
             if access_key and secret_key:
                 return {"access_key": access_key, "secret_key": secret_key}
         except Exception as e:
-            logger.warning("Failed to read .runprep/.secrets: %s", e)
+            logger.warning("Failed to read .sourceprep/.secrets: %s", e)
 
     return {"access_key": "", "secret_key": ""}
 
@@ -201,7 +201,7 @@ def _check_for_leaked_secrets(data: Dict[str, Any], filepath: str) -> None:
     """Warn if a config dict contains keys that look like credentials.
 
     team_config.json is committed to Git — it must never contain secrets.
-    Credentials belong in env vars or .runprep/.secrets (gitignored).
+    Credentials belong in env vars or .sourceprep/.secrets (gitignored).
     """
     found: List[str] = []
 
@@ -224,7 +224,7 @@ def _check_for_leaked_secrets(data: Dict[str, Any], filepath: str) -> None:
         logger.warning(
             "SECURITY: %s appears to contain credential-like keys: %s. "
             "This file is typically committed to Git. Move secrets to "
-            "environment variables (PREP_S3_ACCESS_KEY) or .runprep/.secrets (gitignored).",
+            "environment variables (PREP_S3_ACCESS_KEY) or .sourceprep/.secrets (gitignored).",
             filepath, ", ".join(found),
         )
 
@@ -236,7 +236,7 @@ class RemoteSyncService:
 
     def __init__(self, project_root: Path):
         self.project_root = Path(project_root).resolve()
-        self.prep_dir = self.project_root / ".runprep"
+        self.prep_dir = self.project_root / ".sourceprep"
         self.remote_index_dir = self.prep_dir / "index" / "remote"
         self.local_manifest_path = self.remote_index_dir / "manifest.json"
 
@@ -249,7 +249,7 @@ class RemoteSyncService:
     # ── Config loading ────────────────────────────────────────
 
     def load_config(self) -> Optional[TeamSyncConfig]:
-        """Load team_config.json from .runprep/ directory."""
+        """Load team_config.json from .sourceprep/ directory."""
         config_path = self.prep_dir / TEAM_CONFIG_FILENAME
         if not config_path.exists():
             self._config = None
@@ -282,7 +282,7 @@ class RemoteSyncService:
 
         creds = _resolve_s3_credentials(self.prep_dir)
         if not creds["access_key"] or not creds["secret_key"]:
-            self._status.error = "S3 credentials not found. Set PREP_S3_ACCESS_KEY/PREP_S3_SECRET_KEY or create .runprep/.secrets"
+            self._status.error = "S3 credentials not found. Set PREP_S3_ACCESS_KEY/PREP_S3_SECRET_KEY or create .sourceprep/.secrets"
             logger.warning(self._status.error)
             return None
 

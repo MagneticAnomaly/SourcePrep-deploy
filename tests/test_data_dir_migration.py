@@ -359,7 +359,7 @@ def test_migrate_from_legacy_codrag_conflict_preserves_both(tmp_path, monkeypatc
 # ---------------------------------------------------------------------------
 
 def test_migrate_embedded_codrag_dir(tmp_path):
-    """Embedded .codrag/ in a project root is renamed to .runprep/ on project open."""
+    """Embedded .codrag/ chains all the way to .sourceprep/ via Task 1.4 migration."""
     from prep.core.paths import _migrate_embedded_dir
     project = tmp_path / "myproj"
     (project / ".codrag").mkdir(parents=True)
@@ -367,9 +367,10 @@ def test_migrate_embedded_codrag_dir(tmp_path):
 
     _migrate_embedded_dir(project)
 
-    assert (project / ".runprep").exists()
-    assert (project / ".runprep" / "index.json").read_text() == "{}"
+    assert (project / ".sourceprep").exists()
+    assert (project / ".sourceprep" / "index.json").read_text() == "{}"
     assert not (project / ".codrag").exists()
+    assert not (project / ".runprep").exists()
 
 
 # ---------------------------------------------------------------------------

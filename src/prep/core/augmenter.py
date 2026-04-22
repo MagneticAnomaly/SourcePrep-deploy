@@ -1824,7 +1824,7 @@ class TraceAugmenter:
         # Write exploratory telemetry
         if getattr(self, "is_exploratory", False) and result.retry_telemetry:
             try:
-                # Store in .runprep/logs/ since index_dir is .runprep/index/proj_id
+                # Store in .sourceprep/logs/ since index_dir is .sourceprep/index/proj_id
                 logs_dir = self.index_dir.parent.parent / "logs"
                 logs_dir.mkdir(parents=True, exist_ok=True)
                 log_file = logs_dir / "exploratory_retries.jsonl"

@@ -68,13 +68,13 @@ class DirectMCPServer:
     ):
         self.repo_root = Path(repo_root).resolve()
 
-        # Default index location: .runprep/index inside repo (direct mode
+        # Default index location: .sourceprep/index inside repo (direct mode
         # is always a single-repo use case; server mode is what uses
         # the daemon-wide data_dir).
         if index_dir:
             self.index_dir = Path(index_dir).resolve()
         else:
-            self.index_dir = self.repo_root / ".runprep" / "index"
+            self.index_dir = self.repo_root / ".sourceprep" / "index"
 
         self.ollama_url = ollama_url
         self.model = model

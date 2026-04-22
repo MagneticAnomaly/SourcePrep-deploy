@@ -117,6 +117,8 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
     if req.mode == "embedded":
         if "**/.runprep/**" not in default_cfg["exclude_globs"]:
             default_cfg["exclude_globs"].append("**/.runprep/**")
+        if "**/.sourceprep/**" not in default_cfg["exclude_globs"]:
+            default_cfg["exclude_globs"].append("**/.sourceprep/**")
     
     # Store custom index path in config if applicable
     if custom_index_path:
@@ -149,7 +151,7 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
     existing_index = False
     existing_index_files: List[str] = []
     if req.mode == "embedded":
-        prep_dir = p / ".runprep"
+        prep_dir = p / ".sourceprep"
         if prep_dir.is_dir():
             existing_index_files = [f.name for f in prep_dir.iterdir() if not f.name.startswith(".")]
             existing_index = len(existing_index_files) > 0
@@ -615,7 +617,7 @@ def unarchive_project(project_id: str) -> Dict[str, Any]:
 
 @router.post("/projects/validate-pointers")
 def validate_pointers() -> Dict[str, Any]:
-    """Validate and heal .runprep/project.json pointers for all projects.
+    """Validate and heal .sourceprep/project.json pointers for all projects.
 
     Checks every registered project and ensures its pointer file
     exists with the correct project ID. Heals mismatches automatically.

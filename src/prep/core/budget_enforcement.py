@@ -189,7 +189,7 @@ def _load_budget_config(project_root: Optional[Path]) -> Optional[Dict[str, Any]
         ap = result.config.admin_policy
         # Look for budget config in the raw team_config.json
         import json
-        config_path = project_root / ".runprep" / "team_config.json"
+        config_path = project_root / ".sourceprep" / "team_config.json"
         if config_path.exists():
             raw = json.loads(config_path.read_text(encoding="utf-8"))
             return (raw.get("admin_policy") or {}).get("budgets")

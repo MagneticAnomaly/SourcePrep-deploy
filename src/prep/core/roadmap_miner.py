@@ -236,7 +236,7 @@ def _mine_roadmap_keywords(
     except ImportError:
         skip_dirs = {
             "node_modules", "vendor", "Pods", "bundle", "bower_components",
-            ".git", ".runprep", "DerivedData", "Carthage",
+            ".git", ".sourceprep", ".runprep", ".codrag", "DerivedData", "Carthage",
         }
     glob_flags: list[str] = []
     for d in sorted(skip_dirs):

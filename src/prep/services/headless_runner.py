@@ -396,7 +396,7 @@ class HeadlessRunner:
             logger.info("Repository path: %s (branch: %s)", repo_path, self.config.branch)
 
             # 2. Set up the index directory
-            index_dir = repo_path / ".runprep" / "index"
+            index_dir = repo_path / ".sourceprep" / "index"
             index_dir.mkdir(parents=True, exist_ok=True)
 
             # 3. Download existing index for incremental rebuild

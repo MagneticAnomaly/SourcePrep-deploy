@@ -254,7 +254,7 @@ def add(
     mode: str = typer.Option(
         "standalone", "--mode", "-m",
         help="Index location: standalone (app data dir, best for portability), "
-             "embedded (.runprep/ in repo, best when boot disk is faster), "
+             "embedded (.sourceprep/ in repo, best when boot disk is faster), "
              "or custom (specify --index-path, best for fast scratch disks)",
     ),
     index_path: str = typer.Option(
@@ -399,7 +399,7 @@ def prune(
     mode = proj_data.get("mode", "standalone")
 
     if mode == "embedded":
-        idx_dir = Path(proj_path) / ".runprep"
+        idx_dir = Path(proj_path) / ".sourceprep"
     else:
         from prep.core.project_registry import prep_data_dir
         idx_dir = prep_data_dir() / "projects" / pid

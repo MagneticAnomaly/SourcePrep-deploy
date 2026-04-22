@@ -74,7 +74,7 @@ class AutoRebuildWatcher:
         self._last_coverage_trigger_at: float = 0.0  # epoch when we last triggered a coverage rebuild
 
         # L1 (repo_profile.DEFAULT_EXCLUDE_DIR_NAMES) already covers the
-        # default `.runprep/` and `codrag_data/` index dirs. Only add an
+        # default `.sourceprep/` and `codrag_data/` index dirs. Only add an
         # extra guard when the project uses a non-standard index_dir
         # outside the Prep-owned names — otherwise watcher events on
         # our own output would trigger rebuilds.
@@ -374,7 +374,7 @@ class AutoRebuildWatcher:
         # Includes come from per-project L2 policy; excludes go through
         # effective_excludes() which unions L1 (code defaults) + L2 (policy
         # file) + L3 (runtime trace.ignore_patterns, auto-resolved via the
-        # .runprep/project.json pointer so the watcher honours live user
+        # .sourceprep/project.json pointer so the watcher honours live user
         # edits without a trace rebuild).
         path = policy_path_for_index(self.index_dir)
         pol = load_repo_policy(path)

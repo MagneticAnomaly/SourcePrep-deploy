@@ -70,7 +70,7 @@ def _check_s3_endpoint(project_root: Optional[Path]) -> Dict[str, Any]:
         from prep.services.remote_sync import TeamSyncConfig
         import json
 
-        config_path = project_root / ".runprep" / "team_config.json"
+        config_path = project_root / ".sourceprep" / "team_config.json"
         if not config_path.exists():
             return {"name": "S3 Endpoint Security", "status": "pass", "issues": [], "details": {"reason": "No team_config.json"}}
 
@@ -104,7 +104,7 @@ def _check_credentials(project_root: Optional[Path]) -> Dict[str, Any]:
     details: Dict[str, Any] = {}
 
     if project_root:
-        secrets_path = project_root / ".runprep" / ".secrets"
+        secrets_path = project_root / ".sourceprep" / ".secrets"
         if secrets_path.exists():
             try:
                 import stat
@@ -132,7 +132,7 @@ def _check_index_integrity(project_root: Optional[Path]) -> Dict[str, Any]:
     if not project_root:
         return {"name": "Index Integrity", "status": "pass", "issues": [], "details": {"reason": "No project root"}}
 
-    remote_manifest = project_root / ".runprep" / "index" / "remote" / "manifest.json"
+    remote_manifest = project_root / ".sourceprep" / "index" / "remote" / "manifest.json"
     if not remote_manifest.exists():
         return {"name": "Index Integrity", "status": "pass", "issues": [], "details": {"reason": "No remote index"}}
 
@@ -145,7 +145,7 @@ def _check_index_integrity(project_root: Optional[Path]) -> Dict[str, Any]:
             issues.append("Remote index manifest has no content_hash")
 
         # EA-I14: Check embedding file integrity
-        embeddings_path = project_root / ".runprep" / "index" / "remote" / "embeddings.npy"
+        embeddings_path = project_root / ".sourceprep" / "index" / "remote" / "embeddings.npy"
         embedding_hash_in_manifest = manifest.get("embedding_hash")
         embeddings_exist = embeddings_path.exists()
         if embeddings_exist and not embedding_hash_in_manifest:
@@ -208,7 +208,7 @@ def _check_config_drift(project_root: Optional[Path]) -> Dict[str, Any]:
             return {"name": "Config Drift", "status": "pass", "issues": [], "details": {"reason": "No team_config"}}
 
         # Check for invisible Unicode in config file (Rules File Backdoor attack)
-        config_path = project_root / ".runprep" / "team_config.json"
+        config_path = project_root / ".sourceprep" / "team_config.json"
         issues: List[str] = []
         if config_path.exists():
             from prep.core.content_sanitizer import detect_invisible_unicode
@@ -435,7 +435,7 @@ def _check_secret_detection_coverage(project_root: Optional[Path] = None) -> Dic
 
         # Spot-check: scan a sample of indexed files for secrets
         if project_root:
-            index_dir = project_root / ".runprep" / "index"
+            index_dir = project_root / ".sourceprep" / "index"
             docs_path = index_dir / "documents.json"
             secrets_found = 0
             files_scanned = 0
@@ -483,7 +483,7 @@ def _check_data_exposure(project_root: Optional[Path] = None) -> Dict[str, Any]:
 
     # Count indexed files
     if project_root:
-        index_dir = project_root / ".runprep" / "index"
+        index_dir = project_root / ".sourceprep" / "index"
         docs_path = index_dir / "documents.json"
         if docs_path.exists():
             try:
@@ -534,7 +534,7 @@ def _check_unicode_in_index(project_root: Optional[Path] = None) -> Dict[str, An
         from prep.core.content_sanitizer import detect_invisible_unicode
         import json
 
-        index_dir = project_root / ".runprep" / "index"
+        index_dir = project_root / ".sourceprep" / "index"
         docs_path = index_dir / "documents.json"
         if not docs_path.exists():
             return {"name": "Unicode Injection Scan", "status": "pass", "issues": [], "details": {"reason": "No index"}}
