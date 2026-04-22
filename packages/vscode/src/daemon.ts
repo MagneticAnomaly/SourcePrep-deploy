@@ -83,12 +83,12 @@ export class DaemonManager implements vscode.Disposable {
 
   async startDaemon(): Promise<void> {
     if (this._state === 'connected') {
-      vscode.window.showInformationMessage('RunPrep daemon is already running.');
+      vscode.window.showInformationMessage('SourcePrep daemon is already running.');
       return;
     }
 
     this.setState('starting');
-    this._output.appendLine('Starting RunPrep daemon...');
+    this._output.appendLine('Starting SourcePrep daemon...');
 
     try {
       const cp = await import('child_process');
@@ -106,7 +106,7 @@ export class DaemonManager implements vscode.Disposable {
       this._daemonProcess.on('error', (err) => {
         this._output.appendLine(`Failed to start daemon: ${err.message}`);
         vscode.window.showErrorMessage(
-          `Could not start RunPrep daemon. Is 'prep' on your PATH?\n${err.message}`,
+          `Could not start SourcePrep daemon. Is 'prep' on your PATH?\n${err.message}`,
         );
         this.setState('disconnected');
       });
@@ -157,16 +157,16 @@ export class DaemonManager implements vscode.Disposable {
 
   async requireFeature(feature: keyof LicenseStatus['features'], label: string): Promise<boolean> {
     if (this._state !== 'connected') {
-      vscode.window.showWarningMessage('RunPrep daemon is not running. Start it first.');
+      vscode.window.showWarningMessage('SourcePrep daemon is not running. Start it first.');
       return false;
     }
     if (!this.isFeatureAvailable(feature)) {
       const action = await vscode.window.showWarningMessage(
-        `"${label}" requires a Pro license. Upgrade at runprep.io/pricing`,
+        `"${label}" requires a Pro license. Upgrade at sourceprep.io/pricing`,
         'Open Pricing',
       );
       if (action === 'Open Pricing') {
-        vscode.env.openExternal(vscode.Uri.parse('https://runprep.io/pricing'));
+        vscode.env.openExternal(vscode.Uri.parse('https://sourceprep.io/pricing'));
       }
       return false;
     }
@@ -176,7 +176,7 @@ export class DaemonManager implements vscode.Disposable {
   async requireConnected(): Promise<boolean> {
     if (this._state !== 'connected') {
       const action = await vscode.window.showWarningMessage(
-        'RunPrep daemon is not running.',
+        'SourcePrep daemon is not running.',
         'Start Daemon',
       );
       if (action === 'Start Daemon') {

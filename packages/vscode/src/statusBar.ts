@@ -32,22 +32,22 @@ export class StatusBarManager implements vscode.Disposable {
     switch (state) {
       case 'connected': {
         const ver = this._daemon.version ? ` v${this._daemon.version}` : '';
-        this._item.text = `$(check) RunPrep${ver}`;
-        this._item.tooltip = `RunPrep daemon connected (${tier})`;
+        this._item.text = `$(check) SourcePrep${ver}`;
+        this._item.tooltip = `SourcePrep daemon connected (${tier})`;
         this._item.backgroundColor = undefined;
         this._item.command = 'prep.openDashboard';
         break;
       }
       case 'starting':
-        this._item.text = '$(sync~spin) RunPrep';
-        this._item.tooltip = 'Starting RunPrep daemon...';
+        this._item.text = '$(sync~spin) SourcePrep';
+        this._item.tooltip = 'Starting SourcePrep daemon...';
         this._item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
         this._item.command = undefined;
         break;
       case 'disconnected':
       default:
-        this._item.text = '$(error) RunPrep';
-        this._item.tooltip = 'RunPrep daemon is not running. Click to start.';
+        this._item.text = '$(error) SourcePrep';
+        this._item.tooltip = 'SourcePrep daemon is not running. Click to start.';
         this._item.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
         this._item.command = 'prep.startDaemon';
         break;

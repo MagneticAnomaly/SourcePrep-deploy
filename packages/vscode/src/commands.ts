@@ -197,7 +197,7 @@ export function registerCommands(
     if (!(await daemon.requireConnected())) { return; }
 
     const key = await vscode.window.showInputBox({
-      prompt: 'Enter your RunPrep license key',
+      prompt: 'Enter your SourcePrep license key',
       placeHolder: 'PREP-XXXX-XXXX-XXXX',
       password: true,
     });
@@ -220,7 +220,7 @@ export function registerCommands(
           'Manage Licenses'
         );
         if (action === 'Manage Licenses') {
-          vscode.env.openExternal(vscode.Uri.parse('https://runprep.io/account'));
+          vscode.env.openExternal(vscode.Uri.parse('https://sourceprep.io/account'));
         }
       } else {
         vscode.window.showErrorMessage(`Activation failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -328,7 +328,7 @@ export function registerCommands(
 
 function getSelectedProjectId(tree: ProjectsTreeDataProvider): string | undefined {
   if (!tree.selectedProjectId) {
-    vscode.window.showWarningMessage('No project selected. Select one in the RunPrep sidebar.');
+    vscode.window.showWarningMessage('No project selected. Select one in the SourcePrep sidebar.');
     return undefined;
   }
   return tree.selectedProjectId;
