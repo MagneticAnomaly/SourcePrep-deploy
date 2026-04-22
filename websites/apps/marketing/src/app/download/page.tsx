@@ -5,7 +5,7 @@ import { Button } from '@prep/ui';
 
 const RELEASES_URL =
   process.env.NEXT_PUBLIC_PREP_RELEASES_URL ??
-  'https://github.com/MagneticAnomaly/RunPrep-MCP/releases';
+  'https://github.com/MagneticAnomaly/SourcePrep-MCP/releases';
 
 const MCP_CONFIGS = [
   {
@@ -120,7 +120,7 @@ export default function Page() {
 
         <div className="max-w-4xl">
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-text mb-8">
-            Download RunPrep.
+            Download SourcePrep.
           </h1>
           <p className="text-2xl md:text-3xl text-text-muted leading-normal mb-12 max-w-3xl">
             Epistemic codebase indexing, trace graphs, and MCP integration, with Private by Design architecture.
@@ -170,7 +170,7 @@ export default function Page() {
               <div className="flex-1">
                 <div className="text-xl font-semibold mb-2">Install &amp; launch the app</div>
                 <p className="text-text-muted">
-                  Open the <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">.dmg</code> or <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">.msi</code> and follow the installer. RunPrep starts the background daemon automatically.
+                  Open the <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">.dmg</code> or <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">.msi</code> and follow the installer. SourcePrep starts the background daemon automatically.
                 </p>
               </div>
             </div>
@@ -180,7 +180,7 @@ export default function Page() {
               <div className="flex-1">
                 <div className="text-xl font-semibold mb-2">Add your project</div>
                 <p className="text-text-muted">
-                  Click <strong>+</strong> in the sidebar, select your project folder, and RunPrep begins indexing immediately.
+                  Click <strong>+</strong> in the sidebar, select your project folder, and SourcePrep begins indexing immediately.
                 </p>
               </div>
             </div>
@@ -190,7 +190,7 @@ export default function Page() {
               <div className="flex-1">
                 <div className="text-xl font-semibold mb-2">Connect your AI editor via MCP</div>
                 <p className="text-text-muted mb-4">
-                  Add RunPrep to your editor&apos;s MCP config. Your AI assistant gets structural code intelligence, semantic search, and dependency analysis.
+                  Add SourcePrep to your editor&apos;s MCP config. Your AI assistant gets structural code intelligence, semantic search, and dependency analysis.
                 </p>
                 <MCPConfigs />
               </div>
@@ -208,7 +208,7 @@ export default function Page() {
             <a href="/setup" className="text-primary font-bold hover:underline underline-offset-4 text-lg">
               Full MCP Setup Guide →
             </a>
-            <a href="https://docs.runprep.io" className="text-primary font-bold hover:underline underline-offset-4 text-lg">
+            <a href="https://docs.sourceprep.io" className="text-primary font-bold hover:underline underline-offset-4 text-lg">
               Read Documentation →
             </a>
             <a href="/security" className="text-primary font-bold hover:underline underline-offset-4 text-lg">

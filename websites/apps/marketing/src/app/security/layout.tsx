@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'Security & Privacy',
-  description: 'RunPrep is Private by Design. Sovereign Context ensures your codebase stays on your machine. Learn about our zero-telemetry architecture.',
+  description: 'SourcePrep is Private by Design. Sovereign Context ensures your codebase stays on your machine. Learn about our zero-telemetry architecture.',
   path: '/security',
 });
 

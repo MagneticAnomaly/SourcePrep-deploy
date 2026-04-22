@@ -15,7 +15,7 @@ export const BLOG_POSTS: BlogPost[] = [
     excerpt:
       'AI assistants already index your code — but they grab files, not relationships. Here\'s why the structural layer changes everything.',
     date: 'March 1, 2026',
-    author: 'RunPrep Team',
+    author: 'SourcePrep Team',
     tags: ['Product', 'Philosophy'],
     featured: true,
   },
@@ -32,7 +32,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: 'mcp-the-universal-connector',
     title: 'MCP: The Universal Connector',
     excerpt:
-      'How the Model Context Protocol lets RunPrep integrate with Cursor, Windsurf, VS Code, and Claude Code.',
+      'How the Model Context Protocol lets SourcePrep integrate with Cursor, Windsurf, VS Code, and Claude Code.',
     date: 'Feb 01, 2026',
     author: 'Integration',
     tags: ['Ecosystem'],

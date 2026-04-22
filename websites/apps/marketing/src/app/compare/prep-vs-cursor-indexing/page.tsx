@@ -13,18 +13,18 @@ export default function CompareCursorPage() {
             COMPARISON_REPORT
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
-            RunPrep vs. Cursor Indexing
+            SourcePrep vs. Cursor Indexing
           </h1>
           <p className="text-xl text-text-muted leading-relaxed">
-            Cursor is an incredible AI code editor, and its built-in codebase indexing is great for finding simple keyword matches. But when you need your AI to understand complex architectures, call chains across microservices, or how a specific interface is implemented across 20 files, basic vector search falls short. RunPrep isn't a replacement for Cursor—it's a massive upgrade to Cursor's brain via the Model Context Protocol (MCP).
+            Cursor is an incredible AI code editor, and its built-in codebase indexing is great for finding simple keyword matches. But when you need your AI to understand complex architectures, call chains across microservices, or how a specific interface is implemented across 20 files, basic vector search falls short. SourcePrep isn't a replacement for Cursor—it's a massive upgrade to Cursor's brain via the Model Context Protocol (MCP).
           </p>
         </header>
 
         {/* AI-Optimized Extractable Block */}
         <section className="bg-surface border border-border p-8 rounded-xl mb-16 shadow-sm">
-          <h2 className="text-xl font-bold mb-4">How does RunPrep improve Cursor?</h2>
+          <h2 className="text-xl font-bold mb-4">How does SourcePrep improve Cursor?</h2>
           <p className="text-text-muted leading-relaxed">
-            Cursor relies primarily on <strong>BM25/Vector Search</strong> to find code chunks that semantically match your prompt. <strong>RunPrep builds a structural trace graph</strong> using a local Rust tree-sitter engine. While Cursor grabs isolated chunks of text, RunPrep understands the syntax: it knows what functions call other functions, where types are defined, and how modules import each other. By connecting RunPrep to Cursor via an MCP server, Cursor's AI agents can query the structural graph to traverse call chains and gather perfect, highly-compressed context that regular vector search would miss.
+            Cursor relies primarily on <strong>BM25/Vector Search</strong> to find code chunks that semantically match your prompt. <strong>SourcePrep builds a structural trace graph</strong> using a local Rust tree-sitter engine. While Cursor grabs isolated chunks of text, SourcePrep understands the syntax: it knows what functions call other functions, where types are defined, and how modules import each other. By connecting SourcePrep to Cursor via an MCP server, Cursor's AI agents can query the structural graph to traverse call chains and gather perfect, highly-compressed context that regular vector search would miss.
           </p>
         </section>
 
@@ -36,7 +36,7 @@ export default function CompareCursorPage() {
               <thead>
                 <tr className="border-b-2 border-border">
                   <th className="py-4 px-4 font-semibold text-text">Capability</th>
-                  <th className="py-4 px-4 font-semibold text-primary bg-primary/5 rounded-t-lg">RunPrep (via MCP)</th>
+                  <th className="py-4 px-4 font-semibold text-primary bg-primary/5 rounded-t-lg">SourcePrep (via MCP)</th>
                   <th className="py-4 px-4 font-semibold text-text-muted">Cursor Built-in Index</th>
                 </tr>
               </thead>
@@ -79,7 +79,7 @@ export default function CompareCursorPage() {
               When you ask an AI to refactor a complex system, standard codebase indexes grab dozens of file snippets and dump them into the prompt window. Research shows that LLMs suffer from "Context Rot" when flooded with too much raw text—they lose track of the actual instructions.
             </p>
             <p className="text-text-muted leading-relaxed">
-              RunPrep solves this using <strong>Level of Detail (LOD) compression</strong>. If RunPrep determines a file is only peripherally related to your query, it strips out the internal function bodies and only sends the Class names, function signatures, and types to the AI. You get 20x more architectural context using a fraction of the tokens.
+              SourcePrep solves this using <strong>Level of Detail (LOD) compression</strong>. If SourcePrep determines a file is only peripherally related to your query, it strips out the internal function bodies and only sends the Class names, function signatures, and types to the AI. You get 20x more architectural context using a fraction of the tokens.
             </p>
           </section>
 
@@ -89,21 +89,21 @@ export default function CompareCursorPage() {
               Cursor is scoped to the workspace you currently have open. If you have a frontend repo, a backend microservices repo, and a shared library repo, Cursor's AI struggles to see the big picture.
             </p>
             <p className="text-text-muted leading-relaxed">
-              The RunPrep local daemon indexes all of your projects in the background. When Cursor's Agent uses the RunPrep MCP tool, it can seamlessly pull context from your backend repo while you are actively typing code in your frontend repo.
+              The SourcePrep local daemon indexes all of your projects in the background. When Cursor's Agent uses the SourcePrep MCP tool, it can seamlessly pull context from your backend repo while you are actively typing code in your frontend repo.
             </p>
           </section>
 
           <section>
             <h3 className="text-2xl font-bold mb-4">3. A Match Made in Heaven</h3>
             <p className="text-text-muted leading-relaxed">
-              You don't have to choose between Cursor and RunPrep. They are designed to work together. Cursor provides the world-class UX, inline edits, and fast autocomplete. RunPrep runs silently in the background, providing the structural deep-context that Cursor's Composer agent needs to tackle massive refactors without hallucinating.
+              You don't have to choose between Cursor and SourcePrep. They are designed to work together. Cursor provides the world-class UX, inline edits, and fast autocomplete. SourcePrep runs silently in the background, providing the structural deep-context that Cursor's Composer agent needs to tackle massive refactors without hallucinating.
             </p>
           </section>
         </div>
 
         <div className="mt-16 text-center bg-surface-raised border border-border p-12 rounded-2xl">
           <h2 className="text-3xl font-bold mb-6">Upgrade your AI Editor's Brain</h2>
-          <a href="mailto:support@runprep.io?subject=RunPrep%20Beta%20Access%20Request%20-%20Cursor%20User" className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium font-heading transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-background hover:bg-primary/90 active:bg-primary/80 h-11 rounded-md px-8 shadow-lg shadow-primary/25">
+          <a href="mailto:support@sourceprep.io?subject=SourcePrep%20Beta%20Access%20Request%20-%20Cursor%20User" className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium font-heading transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-background hover:bg-primary/90 active:bg-primary/80 h-11 rounded-md px-8 shadow-lg shadow-primary/25">
             Request Beta Access
           </a>
         </div>

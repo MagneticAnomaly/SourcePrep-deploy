@@ -143,17 +143,17 @@ export default function GraphEnrichmentPage() {
     <DetailPageLayout
       title="Graph Enrichment"
       subtitle="How It Works"
-      description="RunPrep learns how your code actually connects — not just what words appear where. A multi-step pipeline turns raw source files into a living knowledge graph your AI can reason over: fast structural parsing first, then deeper reasoning about meaning, and finally the guides, rules, and safeguards your tools consume."
+      description="SourcePrep learns how your code actually connects — not just what words appear where. A multi-step pipeline turns raw source files into a living knowledge graph your AI can reason over: fast structural parsing first, then deeper reasoning about meaning, and finally the guides, rules, and safeguards your tools consume."
       badge="Pipeline"
       sections={SECTIONS}
-      docsUrl="https://docs.runprep.io/concepts/graph-enrichment"
+      docsUrl="https://docs.sourceprep.io/concepts/graph-enrichment"
       docsLabel="Learn more in the docs"
     >
       {/* The Journey */}
       <section id="journey">
         <h2 className="text-2xl font-semibold text-text mb-4">The Journey</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          When RunPrep indexes your codebase, a multi-step pipeline runs in three phases.
+          When SourcePrep indexes your codebase, a multi-step pipeline runs in three phases.
           First, it <strong className="text-text">syncs</strong> instantly — parsing your code and building a structural map in seconds, so your agents have useful context right away.
           Then it <strong className="text-text">enriches</strong> in the background — reasoning about what each module actually <em>does</em>, how pieces relate, and which code matters most.
           Finally it <strong className="text-text">finalizes</strong> — producing the atlas, rules, concepts, audit findings, and safeguards your tools actually consume.

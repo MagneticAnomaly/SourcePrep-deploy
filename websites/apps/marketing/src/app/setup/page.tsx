@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'MCP Setup — Connect RunPrep to Your AI Editor',
+  title: 'MCP Setup — Connect SourcePrep to Your AI Editor',
   description:
     'Copy-paste MCP configuration for Claude Code, Cursor, Windsurf, GitHub Copilot, Gemini CLI, Zed, and more. One command to give your AI assistant structural code intelligence.',
   keywords: [
-    'RunPrep MCP setup',
+    'SourcePrep MCP setup',
     'Claude Code MCP',
     'Cursor MCP config',
     'Windsurf MCP config',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     'MCP server configuration',
   ],
   alternates: {
-    canonical: 'https://runprep.io/setup',
+    canonical: 'https://sourceprep.io/setup',
   },
 };
 
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
  *    2. Copy the JSON block.
  *    3. Write it to the file path shown.
  *    4. Restart your editor / CLI session.
- *    5. The RunPrep daemon must be running: `prep serve`
+ *    5. The SourcePrep daemon must be running: `prep serve`
  * ──────────────────────────────────────────────────────────────
  */
 
@@ -55,7 +55,7 @@ const TOOLS: {
     fileHint: 'Project root (project-scoped) or ~/.claude/settings.json (global)',
     serverKey: 'servers',
     notes:
-      'Add "permissions": { "allow": ["mcp__prep"] } to settings.json to auto-approve all RunPrep tools. Or run: claude mcp add prep -- prep mcp',
+      'Add "permissions": { "allow": ["mcp__prep"] } to settings.json to auto-approve all SourcePrep tools. Or run: claude mcp add prep -- prep mcp',
     config: {
       servers: {
         prep: { command: 'prep', args: ['mcp'] },
@@ -107,7 +107,7 @@ const TOOLS: {
     file: '~/.gemini/settings.json',
     fileHint: 'Global config',
     serverKey: 'mcpServers',
-    notes: '"trust": true auto-approves tool calls. Safe for RunPrep (read-only tools).',
+    notes: '"trust": true auto-approves tool calls. Safe for SourcePrep (read-only tools).',
     config: {
       mcpServers: {
         prep: { command: 'prep', args: ['mcp'], trust: true },
@@ -160,7 +160,7 @@ const TOOLS: {
     file: 'MCP config or AGENTS.md',
     fileHint: 'Codex reads AGENTS.md natively',
     serverKey: 'mcpServers',
-    notes: 'Codex also reads AGENTS.md — RunPrep can auto-generate this file.',
+    notes: 'Codex also reads AGENTS.md — SourcePrep can auto-generate this file.',
     config: {
       mcpServers: {
         prep: { command: 'prep', args: ['mcp'] },
@@ -173,20 +173,20 @@ const TOOLS: {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'HowTo',
-  name: 'Set up RunPrep MCP for AI coding tools',
+  name: 'Set up SourcePrep MCP for AI coding tools',
   description:
-    'Configure the RunPrep Model Context Protocol server to give your AI coding assistant structural code intelligence, semantic search, and dependency analysis.',
+    'Configure the SourcePrep Model Context Protocol server to give your AI coding assistant structural code intelligence, semantic search, and dependency analysis.',
   step: TOOLS.map((tool, i) => ({
     '@type': 'HowToStep',
     position: i + 1,
     name: `Configure ${tool.name}`,
     text: `Add to ${tool.file}: ${JSON.stringify(tool.config)}`,
-    url: `https://runprep.io/setup#${tool.id}`,
+    url: `https://sourceprep.io/setup#${tool.id}`,
   })),
   tool: {
     '@type': 'SoftwareApplication',
-    name: 'RunPrep',
-    url: 'https://runprep.io',
+    name: 'SourcePrep',
+    url: 'https://sourceprep.io',
     applicationCategory: 'DeveloperApplication',
   },
 };
@@ -205,11 +205,11 @@ export default function SetupPage() {
             MCP Setup
           </h1>
           <p className="text-xl text-text-muted mb-4 max-w-2xl">
-            Connect RunPrep to your AI editor in under a minute. Pick your tool,
+            Connect SourcePrep to your AI editor in under a minute. Pick your tool,
             copy the config, and restart.
           </p>
           <p className="text-base text-text-subtle mb-16 max-w-2xl">
-            RunPrep&apos;s MCP server gives your AI assistant semantic code
+            SourcePrep&apos;s MCP server gives your AI assistant semantic code
             search, structural context (modules, hub files, import graph), and
             dependency impact analysis. All tools are read-only and run locally.
           </p>
@@ -219,7 +219,7 @@ export default function SetupPage() {
             <h2 className="text-lg font-bold mb-3">Prerequisites</h2>
             <ol className="list-decimal list-inside space-y-2 text-text-muted">
               <li>
-                Install RunPrep:{' '}
+                Install SourcePrep:{' '}
                 <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">
                   pip install prep
                 </code>
@@ -340,7 +340,7 @@ export default function SetupPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-text mb-1">
-                  RunPrep daemon must be running
+                  SourcePrep daemon must be running
                 </h3>
                 <p>
                   The MCP server connects to the daemon at{' '}
@@ -354,7 +354,7 @@ export default function SetupPage() {
                   Multiple projects
                 </h3>
                 <p>
-                  RunPrep auto-detects which project you&apos;re in from the workspace root.
+                  SourcePrep auto-detects which project you&apos;re in from the workspace root.
                   To pin a specific project:{' '}
                   <code className="font-mono text-sm">
                     &quot;args&quot;: [&quot;mcp&quot;, &quot;--project&quot;, &quot;YOUR_PROJECT_ID&quot;]
@@ -367,7 +367,7 @@ export default function SetupPage() {
           {/* Links */}
           <div className="mt-16 flex gap-6">
             <a
-              href="https://docs.runprep.io"
+              href="https://docs.sourceprep.io"
               className="text-primary font-bold hover:underline underline-offset-4"
             >
               Full Documentation
@@ -376,7 +376,7 @@ export default function SetupPage() {
               href="/download"
               className="text-primary font-bold hover:underline underline-offset-4"
             >
-              Download RunPrep
+              Download SourcePrep
             </a>
           </div>
         </div>

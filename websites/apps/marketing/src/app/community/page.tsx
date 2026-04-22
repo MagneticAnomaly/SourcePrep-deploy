@@ -4,7 +4,7 @@ import { Button } from '@prep/ui';
 
 const GITHUB_URL =
   process.env.NEXT_PUBLIC_PREP_GITHUB_URL ??
-  'https://github.com/MagneticAnomaly/RunPrep-MCP';
+  'https://github.com/MagneticAnomaly/SourcePrep-MCP';
 
 export default function Page() {
   return (
@@ -27,7 +27,7 @@ export default function Page() {
               </span>
             </h1>
             <p className="text-xl text-text-muted leading-relaxed max-w-lg">
-              RunPrep is built for developers, by developers. We&apos;re building the future of 
+              SourcePrep is built for developers, by developers. We&apos;re building the future of 
               structured context together.
             </p>
           </div>
@@ -85,14 +85,14 @@ export default function Page() {
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-6 text-primary text-xl">🐛</div>
               <h3 className="text-xl font-bold mb-2">Edge Cases</h3>
               <p className="text-text-muted leading-relaxed">
-                RunPrep parses dozens of languages. If your codebase triggers weird behavior, your bug report helps everyone.
+                SourcePrep parses dozens of languages. If your codebase triggers weird behavior, your bug report helps everyone.
               </p>
             </div>
             <div className="p-8 rounded-2xl bg-surface/50 border border-border">
               <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mb-6 text-blue-500 text-xl">💡</div>
               <h3 className="text-xl font-bold mb-2">Workflows</h3>
               <p className="text-text-muted leading-relaxed">
-                Share your &quot;RunPrep Stack&quot; — which models, prompts, and IDE setups are you using? We feature the best ones.
+                Share your &quot;SourcePrep Stack&quot; — which models, prompts, and IDE setups are you using? We feature the best ones.
               </p>
             </div>
             <div className="p-8 rounded-2xl bg-surface/50 border border-border">

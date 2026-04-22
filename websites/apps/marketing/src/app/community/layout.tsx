@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'Community',
-  description: 'Join the RunPrep community of developers building the next generation of AI-assisted software.',
+  description: 'Join the SourcePrep community of developers building the next generation of AI-assisted software.',
   path: '/community',
 });
 

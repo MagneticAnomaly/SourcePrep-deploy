@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'Contact Us',
-  description: 'Get in touch with the RunPrep team for support, enterprise inquiries, or general questions.',
+  description: 'Get in touch with the SourcePrep team for support, enterprise inquiries, or general questions.',
   path: '/contact',
 });
 

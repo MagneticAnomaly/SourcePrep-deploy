@@ -8,15 +8,15 @@
 
 # www → apex redirect
 [[redirects]]
-  from   = "https://www.runprep.io/*"
-  to     = "https://runprep.io/:splat"
+  from   = "https://www.sourceprep.io/*"
+  to     = "https://sourceprep.io/:splat"
   status = 301
   force  = true
 
 #  legacy redirect (if this site owns that domain too)
 [[redirects]]
   from   = ""
-  to     = "https://runprep.io/:splat"
+  to     = "https://sourceprep.io/:splat"
   status = 301
   force  = true
 

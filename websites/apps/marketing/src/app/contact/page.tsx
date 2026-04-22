@@ -7,7 +7,7 @@ export default function Page() {
   const router = useRouter();
   useEffect(() => {
     // Redirect to mailto — this page is no longer a primary destination
-    window.location.href = 'mailto:support@runprep.io';
+    window.location.href = 'mailto:support@sourceprep.io';
     // Fallback: show a simple redirect page
   }, []);
 
@@ -17,9 +17,9 @@ export default function Page() {
         <h1 className="text-2xl font-bold mb-4">Contact Us</h1>
         <p className="text-text-muted mb-6">Opening your email client...</p>
         <div className="space-y-3">
-          <a href="mailto:support@runprep.io" className="block text-primary hover:underline font-mono">support@runprep.io</a>
-          <a href="mailto:security@runprep.io" className="block text-primary hover:underline font-mono">security@runprep.io</a>
-          <a href="https://github.com/MagneticAnomaly/RunPrep-MCP/discussions" className="block text-primary hover:underline">GitHub Discussions →</a>
+          <a href="mailto:support@sourceprep.io" className="block text-primary hover:underline font-mono">support@sourceprep.io</a>
+          <a href="mailto:security@sourceprep.io" className="block text-primary hover:underline font-mono">security@sourceprep.io</a>
+          <a href="https://github.com/MagneticAnomaly/SourcePrep-MCP/discussions" className="block text-primary hover:underline">GitHub Discussions →</a>
         </div>
         <div className="mt-8">
           <a href="/" className="text-sm text-text-muted hover:text-text transition-colors">← Return Home</a>

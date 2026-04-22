@@ -33,15 +33,15 @@ export default function Page() {
 
         {/* SEO — screen-reader only, crawlers only */}
         <section className="sr-only">
-          <h2>What is RunPrep?</h2>
+          <h2>What is SourcePrep?</h2>
           <p>
-            RunPrep is a structural codebase intelligence MCP server for AI coding agents.
+            SourcePrep is a structural codebase intelligence MCP server for AI coding agents.
             It builds a code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies — then delivers that deep structural context directly to Claude Code, Antigravity, Cursor, VS Code, and any MCP-compatible tool.
             Connect your preferred LLM — Ollama Kimi2.5, local models, or frontier APIs.
           </p>
         </section>
 
-        {/* Why RunPrep + Capabilities (merged) */}
+        {/* Why SourcePrep + Capabilities (merged) */}
         <section>
           <div className="text-center mb-16">
             <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Prep the context before the AI call</p>
@@ -49,7 +49,7 @@ export default function Page() {
               Run prep before grep
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              Your AI agent orients itself by opening files and running grep — one guess at a time. RunPrep is the prep step that hands it a structural map of the codebase up front, so every answer starts from a full picture instead of a keyword match. The payoff: <strong className="text-text font-semibold">3–20× more signal per token</strong> than dumping whole files into the prompt.
+              Your AI agent orients itself by opening files and running grep — one guess at a time. SourcePrep is the prep step that hands it a structural map of the codebase up front, so every answer starts from a full picture instead of a keyword match. The payoff: <strong className="text-text font-semibold">3–20× more signal per token</strong> than dumping whole files into the prompt.
             </p>
           </div>
           <FeatureBlocks features={marketingFeatures} variant="list" />
@@ -63,7 +63,7 @@ export default function Page() {
               Six MCP tools. Deep codebase intelligence.
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              Connect RunPrep once to Claude Code, Antigravity, Cursor, or any MCP-compatible editor and your AI gets structural awareness, semantic search, blast radius analysis, audit enrichment, persistent memory, and recorded design rationale.
+              Connect SourcePrep once to Claude Code, Antigravity, Cursor, or any MCP-compatible editor and your AI gets structural awareness, semantic search, blast radius analysis, audit enrichment, persistent memory, and recorded design rationale.
             </p>
           </div>
 
@@ -121,7 +121,7 @@ export default function Page() {
               Works with the editors and agents you already use
             </h2>
             <p className="mt-3 text-base text-text-muted max-w-2xl mx-auto">
-              One MCP server, every client. Connect RunPrep once and any MCP-aware tool picks it up.
+              One MCP server, every client. Connect SourcePrep once and any MCP-aware tool picks it up.
             </p>
           </div>
 
@@ -200,7 +200,7 @@ export default function Page() {
               <iframe
                 className="w-full h-full"
                 src="https://www.youtube.com/embed/bjC6DFQ8Zmw?rel=0"
-                title="RunPrep Demo Video"
+                title="SourcePrep Demo Video"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 referrerPolicy="strict-origin-when-cross-origin"
                 allowFullScreen
@@ -235,7 +235,7 @@ export default function Page() {
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             {IS_BETA_MODE ? (
               <a
-                href="mailto:support@runprep.io?subject=RunPrep%20Beta%20Access%20Request"
+                href="mailto:support@sourceprep.io?subject=SourcePrep%20Beta%20Access%20Request"
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-background shadow-lg shadow-primary/25 hover:bg-primary-hover transition-colors"
               >
                 Request Beta Access <ArrowRight className="w-4 h-4" />
@@ -245,7 +245,7 @@ export default function Page() {
                 href="/download"
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-6 py-3 text-sm font-semibold text-background shadow-lg shadow-primary/25 hover:bg-primary-hover transition-colors"
               >
-                Get RunPrep <ArrowRight className="w-4 h-4" />
+                Get SourcePrep <ArrowRight className="w-4 h-4" />
               </a>
             )}
             <Link

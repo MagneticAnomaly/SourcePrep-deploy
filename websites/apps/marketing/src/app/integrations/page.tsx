@@ -36,10 +36,10 @@ export default function IntegrationsPage() {
     <DetailPageLayout
       title="IDE Integrations"
       subtitle="One Server, Every Editor"
-      description="RunPrep speaks the Model Context Protocol. Any editor or agent that speaks MCP connects to the same daemon with the same config — no per-editor forks, no bespoke plugins."
+      description="SourcePrep speaks the Model Context Protocol. Any editor or agent that speaks MCP connects to the same daemon with the same config — no per-editor forks, no bespoke plugins."
       badge="MCP"
       sections={SECTIONS}
-      docsUrl="https://docs.runprep.io/integrations"
+      docsUrl="https://docs.sourceprep.io/integrations"
       docsLabel="Integration setup guides"
     >
       {/* Universal */}
@@ -76,7 +76,7 @@ export default function IntegrationsPage() {
           <p className="text-xs text-text-muted mt-3">
             This is the common core. Every editor nests it slightly differently (<code className="font-mono">servers</code>{' '}
             vs <code className="font-mono">mcpServers</code> vs <code className="font-mono">context_servers</code>) and
-            stores it at a different path. RunPrep auto-generates these files when it detects a supported client.
+            stores it at a different path. SourcePrep auto-generates these files when it detects a supported client.
           </p>
           <a
             href="/setup"
@@ -124,7 +124,7 @@ export default function IntegrationsPage() {
         <h2 className="text-2xl font-semibold text-text mb-4">Agentic IDEs</h2>
         <p className="text-text-muted leading-relaxed mb-6">
           The big agentic editors all speak MCP natively — Cursor, Antigravity, Windsurf, and VS Code
-          (via GitHub Copilot). The setup story is the same everywhere: drop the RunPrep MCP block into
+          (via GitHub Copilot). The setup story is the same everywhere: drop the SourcePrep MCP block into
           the editor&apos;s config, restart, done. What differs is the editor itself, not the integration.
         </p>
 
@@ -147,7 +147,7 @@ export default function IntegrationsPage() {
       <section id="client-aware">
         <h2 className="text-2xl font-semibold text-text mb-4">Client-Aware Delivery</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          The setup is uniform, but the output isn&apos;t. RunPrep reads the MCP{' '}
+          The setup is uniform, but the output isn&apos;t. SourcePrep reads the MCP{' '}
           <code className="text-primary font-mono text-sm">clientInfo</code> handshake and tunes the
           response per client — format density, context budget, and which hints to attach. Agents get
           shaped output without any per-editor configuration.
@@ -165,7 +165,7 @@ export default function IntegrationsPage() {
           ))}
         </div>
         <a
-          href="https://docs.runprep.io/integrations"
+          href="https://docs.sourceprep.io/integrations"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-background hover:bg-primary-hover transition-colors"

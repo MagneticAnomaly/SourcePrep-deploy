@@ -77,7 +77,7 @@ export default function Page() {
             Changelog
           </h1>
           <p className="text-xl text-text-muted max-w-2xl leading-relaxed">
-            New updates and improvements to RunPrep.
+            New updates and improvements to SourcePrep.
           </p>
         </div>
 
@@ -128,7 +128,7 @@ export default function Page() {
             Download Latest Build
           </Button>
           <Button size="lg" variant="outline" asChild>
-            <a href="https://docs.runprep.io">Read Documentation</a>
+            <a href="https://docs.sourceprep.io">Read Documentation</a>
           </Button>
         </div>
 

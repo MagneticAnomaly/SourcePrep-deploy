@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://runprep.io';
+  const baseUrl = 'https://sourceprep.io';
   
   // Core pages
   const routes = [

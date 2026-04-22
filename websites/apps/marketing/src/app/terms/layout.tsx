@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'Terms of Service',
-  description: 'Terms of service and licensing agreement for RunPrep.',
+  description: 'Terms of service and licensing agreement for SourcePrep.',
   path: '/terms',
 });
 

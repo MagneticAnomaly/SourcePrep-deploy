@@ -1,8 +1,8 @@
 import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
-  title: 'Paperclip Integration — Agent Orchestration with RunPrep',
-  description: 'RunPrep provides deep structural codebase intelligence to Paperclip agent teams. Auto-push findings, RunPrep addresses, and hybrid MCP+REST integration.',
+  title: 'Paperclip Integration — Agent Orchestration with SourcePrep',
+  description: 'SourcePrep provides deep structural codebase intelligence to Paperclip agent teams. Auto-push findings, SourcePrep addresses, and hybrid MCP+REST integration.',
   path: '/paperclip',
 });
 

@@ -4,7 +4,7 @@ import { DetailPageLayout } from '@prep/ui';
 import { ArrowRight, Bot, Brain, FileText, History, Search, Shield, Zap } from 'lucide-react';
 
 const SECTIONS = [
-  { id: 'why', label: 'Why Claude Code + RunPrep' },
+  { id: 'why', label: 'Why Claude Code + SourcePrep' },
   { id: 'tools', label: 'Six Tools at a Glance' },
   { id: 'auto-approve', label: 'Auto-Approve & Skills' },
   { id: 'agents-md', label: 'AGENTS.md Generation' },
@@ -49,18 +49,18 @@ export default function ClaudeCodePage() {
     <DetailPageLayout
       title="Claude Code"
       subtitle="Deepest Integration"
-      description="RunPrep is purpose-built for Claude Code. Six MCP tools, auto-approve safety, skills integration, and client-aware content delivery."
+      description="SourcePrep is purpose-built for Claude Code. Six MCP tools, auto-approve safety, skills integration, and client-aware content delivery."
       badge="Integration"
       sections={SECTIONS}
-      docsUrl="https://docs.runprep.io/integrations/claude-code"
+      docsUrl="https://docs.sourceprep.io/integrations/claude-code"
       docsLabel="Claude Code setup guide"
     >
-      {/* Why Claude Code + RunPrep */}
+      {/* Why Claude Code + SourcePrep */}
       <section id="why">
-        <h2 className="text-2xl font-semibold text-text mb-4">Why Claude Code + RunPrep</h2>
+        <h2 className="text-2xl font-semibold text-text mb-4">Why Claude Code + SourcePrep</h2>
         <p className="text-text-muted leading-relaxed mb-6">
           Claude Code is the most capable AI coding CLI — it reasons, plans, and executes across an entire codebase.
-          But even the best model is limited by what context it can see. RunPrep gives Claude Code structural codebase
+          But even the best model is limited by what context it can see. SourcePrep gives Claude Code structural codebase
           intelligence via MCP: the full module graph, import chains, hub files, design decisions, and semantic search.
           Together, Claude Code doesn&apos;t just read files — it understands architecture.
         </p>
@@ -74,7 +74,7 @@ export default function ClaudeCodePage() {
             {
               icon: <Bot className="w-5 h-5" />,
               title: 'Agent-Native',
-              desc: 'RunPrep is designed for autonomous agentic loops — low noise, high signal, source-cited.',
+              desc: 'SourcePrep is designed for autonomous agentic loops — low noise, high signal, source-cited.',
             },
             {
               icon: <Zap className="w-5 h-5" />,
@@ -95,7 +95,7 @@ export default function ClaudeCodePage() {
       <section id="tools">
         <h2 className="text-2xl font-semibold text-text mb-4">Six Tools at a Glance</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          RunPrep registers six MCP tools with Claude Code. Each is read-only and purpose-built for a specific
+          SourcePrep registers six MCP tools with Claude Code. Each is read-only and purpose-built for a specific
           type of codebase intelligence.
         </p>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -115,9 +115,9 @@ export default function ClaudeCodePage() {
       <section id="auto-approve">
         <h2 className="text-2xl font-semibold text-text mb-4">Auto-Approve &amp; Skills</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          All six RunPrep tools are read-only and completely safe to auto-approve. No writes, no side effects,
-          no shell commands. RunPrep generates the auto-approve config and a skills file for your project automatically
-          — so Claude Code can call RunPrep without a permission prompt on every invocation.
+          All six SourcePrep tools are read-only and completely safe to auto-approve. No writes, no side effects,
+          no shell commands. SourcePrep generates the auto-approve config and a skills file for your project automatically
+          — so Claude Code can call SourcePrep without a permission prompt on every invocation.
         </p>
         <div className="rounded-lg border border-border bg-[#0d1117] p-5 font-mono text-sm mb-4">
           <div className="text-[#8b949e] mb-2 text-xs">{"// .claude/settings.json"}</div>
@@ -136,7 +136,7 @@ export default function ClaudeCodePage() {
           <div className="text-[#e6edf3]">{"}"}</div>
         </div>
         <p className="text-sm text-text-muted">
-          RunPrep also generates a <code className="text-primary font-mono text-xs">.claude/skills/</code> file
+          SourcePrep also generates a <code className="text-primary font-mono text-xs">.claude/skills/</code> file
           that tells Claude Code when and how to call each tool — reducing friction and ensuring tools are used
           at the right moment in agentic workflows.
         </p>
@@ -146,7 +146,7 @@ export default function ClaudeCodePage() {
       <section id="agents-md">
         <h2 className="text-2xl font-semibold text-text mb-4">AGENTS.md Generation</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          RunPrep auto-generates an <code className="text-primary font-mono text-sm">AGENTS.md</code> file at the
+          SourcePrep auto-generates an <code className="text-primary font-mono text-sm">AGENTS.md</code> file at the
           root of your project. This file is the bridge between static project knowledge and live queryable
           intelligence — it tells Claude Code about the MCP tools available, provides a codebase atlas, lists hub
           files and entry points, and maps the full module structure.
@@ -165,7 +165,7 @@ export default function ClaudeCodePage() {
           ))}
         </div>
         <p className="text-sm text-text-muted">
-          The file is regenerated whenever RunPrep rebuilds the index. User additions outside the managed block
+          The file is regenerated whenever SourcePrep rebuilds the index. User additions outside the managed block
           are preserved across regenerations.
         </p>
       </section>
@@ -174,7 +174,7 @@ export default function ClaudeCodePage() {
       <section id="client-aware">
         <h2 className="text-2xl font-semibold text-text mb-4">Client-Aware Delivery</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          RunPrep detects it&apos;s talking to Claude Code and tailors content delivery accordingly. Claude Code gets
+          SourcePrep detects it&apos;s talking to Claude Code and tailors content delivery accordingly. Claude Code gets
           compact, high-density responses optimized for its context window — not the verbose output suited for
           a human-facing dashboard. Token budgets, response format, and tool instructions are all tuned
           per-client automatically.
@@ -200,7 +200,7 @@ export default function ClaudeCodePage() {
           </div>
         </div>
         <a
-          href="https://docs.runprep.io/integrations/claude-code"
+          href="https://docs.sourceprep.io/integrations/claude-code"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-background hover:bg-primary-hover transition-colors"

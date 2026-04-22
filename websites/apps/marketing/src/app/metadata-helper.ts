@@ -13,11 +13,11 @@ export function constructMetadata({ title, description, path }: MetaProps): Meta
     openGraph: {
       title,
       description,
-      url: `https://runprep.io${path}`,
-      siteName: 'RunPrep',
+      url: `https://sourceprep.io${path}`,
+      siteName: 'SourcePrep',
       images: [
         {
-          url: 'https://runprep.io/images/og-image.png',
+          url: 'https://sourceprep.io/images/og-image.png',
           width: 1245,
           height: 779,
           alt: title,
@@ -30,7 +30,7 @@ export function constructMetadata({ title, description, path }: MetaProps): Meta
       card: 'summary_large_image',
       title,
       description,
-      images: ['https://runprep.io/images/og-image.png'],
+      images: ['https://sourceprep.io/images/og-image.png'],
     },
   };
 }
