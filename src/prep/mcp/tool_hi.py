@@ -1,5 +1,5 @@
 """
-Project overview and context discovery tool (hi_codrag).
+Project overview and context discovery tool (hi_prep).
 
 Extracted from MCPServer to keep the main server module focused on
 protocol handling. This tool aggregates project state from multiple
@@ -405,7 +405,7 @@ async def tool_hi(server: MCPServer, project_override: Optional[str] = None) -> 
     # -- AI presentation guidance ------------------------------------------
     ai_note = (
         "IMPORTANT: The selected files ARE the user's focus. Lead with them.\n\n"
-        "STANDALONE (user only said 'hi_codrag'): Present the file inventory "
+        "STANDALONE (user only said 'hi_prep'): Present the file inventory "
         "conversationally -- tell the user exactly which files and areas you're "
         "looking at. Group them naturally: 'I can see your design docs (X, Y), "
         "the code in components/ (A, B, C), and some tests.' If docs are selected, "
@@ -413,7 +413,7 @@ async def tool_hi(server: MCPServer, project_override: Optional[str] = None) -> 
         "Mention hub files as 'the most important/connected files'. "
         "Mention trace/graph as a background capability, not the lead. "
         "Offer the suggested prompts as numbered options. Speak in first person.\n\n"
-        "WITH A QUESTION (user said 'hi_codrag' AND asked something): Briefly "
+        "WITH A QUESTION (user said 'hi_prep' AND asked something): Briefly "
         "acknowledge the selected files (1 sentence), then address their question. "
         "Use prep_search to retrieve specific content from the selected files.\n\n"
         "DEEPER CONTEXT: For detailed file content, call `prep` (the ambient "

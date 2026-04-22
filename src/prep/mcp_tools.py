@@ -462,7 +462,7 @@ TOOL_ALIASES = {
     "prep_":        "prep",
 
     # Absorbed into prep (ambient response includes health + coverage)
-    "hi_codrag":           "prep",
+    "hi_prep":           "prep",
     "prep_status":       "prep",
     "prep_trace_coverage": "prep",
 
@@ -742,8 +742,8 @@ LEGACY_TOOLS = [
         }
     },
     {
-        "name": "hi_codrag",
-        "description": "Greet the user and show what you can see. Call this when the user says 'hi_codrag' or asks what Prep knows. Present the response CONVERSATIONALLY — tell the user what files and areas you're looking at, mention any health issues, and offer the suggested prompts as numbered next-step options. If the user also asked a question, briefly summarize what you see then answer their question (use prep_search for specifics).",
+        "name": "hi_prep",
+        "description": "Greet the user and show what you can see. Call this when the user says 'hi_prep' or asks what Prep knows. Present the response CONVERSATIONALLY — tell the user what files and areas you're looking at, mention any health issues, and offer the suggested prompts as numbered next-step options. If the user also asked a question, briefly summarize what you see then answer their question (use prep_search for specifics).",
         "inputSchema": {
             "type": "object",
             "properties": {

@@ -605,7 +605,7 @@ def ingest_lsp_edges(
 
 
 # ═════════════════════════════════════════════════════════════════
-# Hub Files & File Edges (Phase 32 — hi_codrag enhancements)
+# Hub Files & File Edges (Phase 32 — hi_prep enhancements)
 # ═════════════════════════════════════════════════════════════════
 
 @router.get("/projects/{project_id}/trace/hub_files")
@@ -648,7 +648,7 @@ def get_trace_file_edges(
     """Return trace edges between a set of files.
 
     Only returns edges where both source and target are in the given paths set.
-    Used by hi_codrag to show cross-file relationships.
+    Used by hi_prep to show cross-file relationships.
     """
     from prep.server import _require_project, _get_project_trace_index
     proj = _require_project(project_id)

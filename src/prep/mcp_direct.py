@@ -374,12 +374,12 @@ class DirectMCPServer:
         }
 
         ai_note = (
-            "STANDALONE (user only said 'hi_codrag'): Present the summary above "
+            "STANDALONE (user only said 'hi_prep'): Present the summary above "
             "conversationally — tell the user what you're looking at, mention any "
             "health issues naturally, and offer the suggested prompts as numbered "
             "options they can pick from. Speak in first person: 'I can see...', "
             "'I'm looking at...'. Keep it warm and helpful.\n\n"
-            "WITH A QUESTION (user said 'hi_codrag' AND asked something): Briefly "
+            "WITH A QUESTION (user said 'hi_prep' AND asked something): Briefly "
             "acknowledge what you see (1-2 sentences), then address their question. "
             "If you need specific code context to answer, call prep_search with "
             "their question."
@@ -445,7 +445,7 @@ class DirectMCPServer:
                             result["role_atlas_chars"] = len(role_atlas)
                     except Exception:
                         pass  # Direct mode: silent fallback
-            elif name == "hi_codrag":
+            elif name == "hi_prep":
                 result = await self.tool_hi()
             else:
                 raise MethodNotFoundError(f"Unknown tool: {name}")
