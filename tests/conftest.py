@@ -149,7 +149,7 @@ def clean_codrag_dir(mini_repo: Path) -> Generator[Path, None, None]:
         def test_something(clean_codrag_dir):
             repo = clean_codrag_dir  # .prep is guaranteed clean
     """
-    prep_dir = mini_repo / ".runprep"
+    prep_dir = mini_repo / ".sourceprep"
     if prep_dir.exists():
         shutil.rmtree(prep_dir)
     
