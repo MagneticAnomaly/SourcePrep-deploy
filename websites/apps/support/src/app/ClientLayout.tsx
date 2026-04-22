@@ -5,15 +5,15 @@ import { SiteHeader, SiteFooter } from '@prep/ui';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-const HOME_URL = isDev ? 'http://localhost:3000' : 'https://runprep.io';
-const DOCS_URL = isDev ? 'http://localhost:3001' : 'https://docs.runprep.io';
+const HOME_URL = isDev ? 'http://localhost:3000' : 'https://sourceprep.io';
+const DOCS_URL = isDev ? 'http://localhost:3001' : 'https://docs.sourceprep.io';
 
 export function ClientLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen bg-background text-text">
       <SiteHeader
-        productName="RunPrep Support"
-        logo={<img src="/prep-logo.png" alt="RunPrep" className="w-6 h-6 rounded" />}
+        productName="SourcePrep Support"
+        logo={<img src="/prep-logo.png" alt="SourcePrep" className="w-6 h-6 rounded" />}
         links={[
           { label: 'Home', href: HOME_URL },
           { label: 'Docs', href: DOCS_URL },
@@ -29,11 +29,11 @@ export function ClientLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
       <SiteFooter
-        productName="RunPrep"
+        productName="SourcePrep"
         socials={{
           twitter: 'https://x.com/Prep_io',
-          github: 'https://github.com/MagneticAnomaly/RunPrep-MCP',
-          email: 'support@runprep.io',
+          github: 'https://github.com/MagneticAnomaly/SourcePrep-MCP',
+          email: 'support@sourceprep.io',
         }}
         className="border-t mt-auto"
       />

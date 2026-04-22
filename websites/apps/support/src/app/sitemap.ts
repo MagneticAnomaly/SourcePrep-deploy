@@ -3,7 +3,7 @@ import { MetadataRoute } from 'next';
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: 'https://support.runprep.io',
+      url: 'https://support.sourceprep.io',
       lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 1,

@@ -3,14 +3,14 @@
 import { FeatureBlocks } from '@prep/ui';
 import { HelpCircle, Bug, CreditCard, Mail, Shield } from 'lucide-react';
 
-const GITHUB_REPO_URL = 'https://github.com/MagneticAnomaly/RunPrep-MCP';
+const GITHUB_REPO_URL = 'https://github.com/MagneticAnomaly/SourcePrep-MCP';
 
 const supportOptions = [
   {
     icon: <HelpCircle className="w-8 h-8" />,
     title: 'Troubleshooting',
     description: 'Common issues, fixes, and performance tips.',
-    href: 'https://docs.runprep.io/troubleshooting',
+    href: 'https://docs.sourceprep.io/troubleshooting',
     external: true,
   },
   {
@@ -24,21 +24,21 @@ const supportOptions = [
     icon: <CreditCard className="w-8 h-8" />,
     title: 'Billing & licenses',
     description: 'Purchase, license delivery, and recovery.',
-    href: 'https://payments.runprep.io',
+    href: 'https://payments.sourceprep.io',
     external: true,
   },
   {
     icon: <Mail className="w-8 h-8" />,
     title: 'Email support',
-    description: 'support@runprep.io',
-    href: 'mailto:support@runprep.io',
+    description: 'support@sourceprep.io',
+    href: 'mailto:support@sourceprep.io',
     external: true,
   },
   {
     icon: <Shield className="w-8 h-8" />,
     title: 'Security reporting',
-    description: 'security@runprep.io',
-    href: 'mailto:security@runprep.io',
+    description: 'security@sourceprep.io',
+    href: 'mailto:security@sourceprep.io',
     external: true,
   },
 ];

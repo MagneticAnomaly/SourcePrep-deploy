@@ -2,7 +2,7 @@ import { graphql } from "@octokit/graphql";
 import type { GraphQlQueryResponseData } from "@octokit/graphql";
 
 const REPO_OWNER = 'EricBintner';
-const REPO_NAME = 'RunPrep';
+const REPO_NAME = 'SourcePrep';
 
 // Use a read-only token if available, otherwise rely on public access if possible (GraphQL requires token usually)
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;

@@ -21,7 +21,7 @@ export function DiscussionList({ discussions }: DiscussionListProps) {
         </p>
         <div className="mt-6">
           <Button asChild>
-            <a href="https://github.com/MagneticAnomaly/RunPrep-MCP/discussions" target="_blank" rel="noopener noreferrer">
+            <a href="https://github.com/MagneticAnomaly/SourcePrep-MCP/discussions" target="_blank" rel="noopener noreferrer">
               View all discussions &rarr;
             </a>
           </Button>
@@ -35,7 +35,7 @@ export function DiscussionList({ discussions }: DiscussionListProps) {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-text">Community Discussions</h2>
         <Button variant="outline" size="sm" asChild>
-          <a href="https://github.com/MagneticAnomaly/RunPrep-MCP/discussions" target="_blank" rel="noopener noreferrer" className="gap-2">
+          <a href="https://github.com/MagneticAnomaly/SourcePrep-MCP/discussions" target="_blank" rel="noopener noreferrer" className="gap-2">
             View all on GitHub <ExternalLink className="w-4 h-4" />
           </a>
         </Button>

@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: '/private/',
     },
-    sitemap: 'https://support.runprep.io/sitemap.xml',
+    sitemap: 'https://support.sourceprep.io/sitemap.xml',
   };
 }

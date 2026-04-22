@@ -14,9 +14,9 @@ const spaceMono = Space_Mono({ weight: ['400', '700'], subsets: ['latin'], varia
 const ibmPlexSerif = IBM_Plex_Serif({ weight: ['400', '600'], subsets: ['latin'], variable: '--font-heading' });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://support.runprep.io'),
-  title: 'RunPrep Support',
-  description: 'Support hub for RunPrep: tickets, bugs, questions, and security reporting.',
+  metadataBase: new URL('https://support.sourceprep.io'),
+  title: 'SourcePrep Support',
+  description: 'Support hub for SourcePrep: tickets, bugs, questions, and security reporting.',
   icons: {
     icon: [
       { url: '/favicon_io/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
