@@ -33,7 +33,7 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_MARKETING_SITE_ID }}
-        run: npx netlify-cli deploy --prod --dir=websites/apps/marketing/.next
+        run: npx netlify-cli deploy --prod --dir=websites/apps/marketing/.next --filter=@prep/marketing
 
   deploy-docs:
     name: Deploy Docs
@@ -55,7 +55,7 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_DOCS_SITE_ID }}
-        run: npx netlify-cli deploy --prod --dir=websites/apps/docs/.next
+        run: npx netlify-cli deploy --prod --dir=websites/apps/docs/.next --filter=@prep/docs
 
 #  deploy-support:
 #    name: Deploy Support
@@ -75,7 +75,7 @@ jobs:
 #        env:
 #          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
 #          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SUPPORT_SITE_ID }}
-#        run: npx netlify-cli deploy --prod --dir=websites/apps/support/.next
+#        run: npx netlify-cli deploy --prod --dir=websites/apps/support/.next --filter=@prep/support
 #
 #  deploy-payments:
 #    name: Deploy Payments
@@ -95,4 +95,4 @@ jobs:
 #        env:
 #          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
 #          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_PAYMENTS_SITE_ID }}
-#        run: npx netlify-cli deploy --prod --dir=websites/apps/payments/.next
+#        run: npx netlify-cli deploy --prod --dir=websites/apps/payments/.next --filter=@prep/payments
