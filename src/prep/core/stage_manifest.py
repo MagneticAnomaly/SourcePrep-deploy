@@ -224,14 +224,14 @@ def create_stage_manifest(
     Call this at the start of a stage, then populate timing/quality/etc.
     as the stage executes.
     """
-    from prep.core.provenance import get_codrag_version, get_engine_version, get_engine_backend
-    
+    from prep.core.provenance import get_prep_version, get_engine_version, get_engine_backend
+
     return StageManifest(
         format_version="2.0",
         stage_id=stage_id,
         run_id=run_id,
         project_id=project_id,
-        prep_version=get_codrag_version(),
+        prep_version=get_prep_version(),
         engine_version=get_engine_version(),
         engine_backend=get_engine_backend(),
         started_at=datetime.now(timezone.utc).isoformat(),

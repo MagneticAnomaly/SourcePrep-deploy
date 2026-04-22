@@ -11,7 +11,7 @@ API base: http://localhost:3100/api
 Auth: Bearer token or session cookie
 
 Dedup strategy: Prep addresses are embedded in issue descriptions.
-find_issue_by_codrag_address() searches existing issues for the address
+find_issue_by_prep_address() searches existing issues for the address
 string, since Paperclip has no native externalId field.
 """
 from __future__ import annotations
@@ -239,7 +239,7 @@ class PaperclipAdapter(PMAdapter):
             logger.warning("Failed to update Paperclip issue %s: %s", issue_id, e)
             return False
 
-    def find_issue_by_codrag_address(self, address: str) -> Optional[str]:
+    def find_issue_by_prep_address(self, address: str) -> Optional[str]:
         """Search existing issues for one containing this Prep address.
 
         Since Paperclip doesn't have a native externalId field, we embed

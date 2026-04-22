@@ -241,7 +241,7 @@ def export_opportunities(
 # ── Prep Address Resolution (Phase 65) ──────────────────────────
 
 @router.get("/projects/{project_id}/opportunities/{item_id}/context")
-def resolve_codrag_address(
+def resolve_prep_address(
     project_id: str,
     item_id: str,
 ) -> Dict[str, Any]:

@@ -29,7 +29,7 @@ def test_rank_change_only_pushes_nothing():
 
 def test_new_hub_creates_issue():
     adapter = MagicMock()
-    adapter.find_issue_by_codrag_address.return_value = None
+    adapter.find_issue_by_prep_address.return_value = None
     engine = PushEngine(adapter)
     delta = StructuralDelta(
         since=0, until=1000,
@@ -45,7 +45,7 @@ def test_new_hub_creates_issue():
 
 def test_dedup_same_delta_twice():
     adapter = MagicMock()
-    adapter.find_issue_by_codrag_address.return_value = "existing-id"
+    adapter.find_issue_by_prep_address.return_value = "existing-id"
     engine = PushEngine(adapter)
     delta = StructuralDelta(
         since=0, until=1000,
@@ -58,7 +58,7 @@ def test_dedup_same_delta_twice():
 
 def test_mixed_delta_creates_multiple_issues():
     adapter = MagicMock()
-    adapter.find_issue_by_codrag_address.return_value = None
+    adapter.find_issue_by_prep_address.return_value = None
     engine = PushEngine(adapter)
     delta = StructuralDelta(
         since=0, until=1000,

@@ -16,7 +16,7 @@ Prep System Router — Phase 23 Sprint 9
   - ``_config``           — CLI launch config (repo_root, index_dir, etc.)
   - ``_index``            — legacy singleton CodeIndex (cleared on embedding change)
   - ``_project_indexes``  — per-project CodeIndex cache (cleared on embedding change)
-  - ``_load_ui_config``   — reads ``codrag_data/ui_config.json`` with defaults
+  - ``_load_ui_config``   — reads ``<data_dir>/ui_config.json`` with defaults
   - ``_save_ui_config``   — writes merged config back
   - ``_deep_merge``       — recursive dict merge helper
 

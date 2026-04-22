@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 
-def get_codrag_version() -> str:
+def get_prep_version() -> str:
     """Get the current Prep version."""
     try:
         import prep

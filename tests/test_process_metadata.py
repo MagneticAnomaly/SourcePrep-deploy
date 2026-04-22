@@ -95,9 +95,9 @@ class TestStageManifest:
 # ── Provenance Tests ─────────────────────────────────────────────
 
 class TestProvenance:
-    def test_get_codrag_version(self):
-        from prep.core.provenance import get_codrag_version
-        v = get_codrag_version()
+    def test_get_prep_version(self):
+        from prep.core.provenance import get_prep_version
+        v = get_prep_version()
         assert isinstance(v, str)
 
     def test_get_engine_backend(self):

@@ -250,7 +250,7 @@ class ProjectRegistry:
         # Create .sourceprep/project.json pointer in the project root.
         # This allows MCP servers to instantly identify the project
         # without querying the daemon.
-        ensure_codrag_pointer(proj)
+        ensure_prep_pointer(proj)
 
         return proj
 
@@ -427,7 +427,7 @@ class ProjectRegistry:
                 report["ok"].append(label)
             else:
                 # Pointer missing or wrong ID — heal it
-                ensure_codrag_pointer(proj)
+                ensure_prep_pointer(proj)
                 _logger.info(
                     "validate_pointers: healed pointer for %s (id=%s) at %s",
                     label, proj.id[:12], proj.path,
@@ -444,7 +444,7 @@ class ProjectRegistry:
 _POINTER_FILENAME = "project.json"
 
 
-def ensure_codrag_pointer(
+def ensure_prep_pointer(
     proj: Project,
     daemon_url: str = "http://127.0.0.1:8400",
 ) -> None:

@@ -78,7 +78,7 @@ from .atlas import (
 from .rules_generator import write_rules_file, schedule_rules_regeneration, detect_and_regenerate
 from .stage_manifest import StageManifest, create_stage_manifest, save_stage_manifest, load_stage_manifest
 from .provenance import (
-    get_codrag_version, get_engine_version, get_engine_backend,
+    get_prep_version, get_engine_version, get_engine_backend,
     compute_file_hash, get_file_metadata,
     aggregate_quality_metrics, aggregate_epistemic_quality,
     aggregate_model_breakdown,
@@ -144,7 +144,7 @@ __all__ = [
     "create_stage_manifest",
     "save_stage_manifest",
     "load_stage_manifest",
-    "get_codrag_version",
+    "get_prep_version",
     "get_engine_version",
     "get_engine_backend",
     "compute_file_hash",

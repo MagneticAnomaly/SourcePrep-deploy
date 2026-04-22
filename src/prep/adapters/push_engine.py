@@ -287,7 +287,7 @@ class PushEngine:
                 pass  # Consensus is best-effort
 
         # Check for existing issue (dedup)
-        existing_id = self.adapter.find_issue_by_codrag_address(prep_address)
+        existing_id = self.adapter.find_issue_by_prep_address(prep_address)
         if existing_id:
             # Update existing issue
             updated = self.adapter.update_issue(existing_id, {
@@ -311,7 +311,7 @@ class PushEngine:
         """Push a detected conflict to Paperclip as a tagged issue."""
         address = f"prep://{project_id}/CONFLICT-{conflict.id}"
         # Dedup: check if this conflict is already pushed
-        existing = self.adapter.find_issue_by_codrag_address(address)
+        existing = self.adapter.find_issue_by_prep_address(address)
         if existing:
             return
 
@@ -472,7 +472,7 @@ class PushEngine:
                         f"<!-- prep-delta:true -->"
                     )
 
-            existing = self.adapter.find_issue_by_codrag_address(address)
+            existing = self.adapter.find_issue_by_prep_address(address)
             if existing:
                 continue
 

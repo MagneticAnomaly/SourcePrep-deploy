@@ -37,11 +37,11 @@ def build_project(project_id: str, full: bool = False, req: Optional[BuildReques
         included_paths = cfg.get("included_paths") if isinstance(cfg, dict) else None
     logger.info("build_project: req=%s, included_paths count=%s", req, len(included_paths) if included_paths else None)
 
-    from prep.core.project_registry import ensure_codrag_pointer
+    from prep.core.project_registry import ensure_prep_pointer
     
     # Self-heal missing pointers on build
     try:
-        ensure_codrag_pointer(proj)
+        ensure_prep_pointer(proj)
     except Exception:
         pass
 

@@ -243,9 +243,9 @@ class A2AHandler:
         Maps to prep_search internally.
         """
         try:
-            from prep.mcp_server import _handle_codrag_search
+            from prep.mcp_server import _handle_prep_search
 
-            result = _handle_codrag_search(
+            result = _handle_prep_search(
                 query=task.input_text,
                 project_id=None,
                 search_type="context",
@@ -312,9 +312,9 @@ class A2AHandler:
         Maps to prep_impact internally.
         """
         try:
-            from prep.mcp_server import _handle_codrag_impact
+            from prep.mcp_server import _handle_prep_impact
 
-            result = _handle_codrag_impact(
+            result = _handle_prep_impact(
                 file_path=task.input_text.strip(),
                 direction="all",
                 max_hops=2,
@@ -336,9 +336,9 @@ class A2AHandler:
         Maps to prep (base overview) internally.
         """
         try:
-            from prep.mcp_server import _handle_codrag
+            from prep.mcp_server import _handle_prep
 
-            result = _handle_codrag(project_id=None)
+            result = _handle_prep(project_id=None)
             task.add_artifact("text/plain", result)
         except ImportError:
             task.add_artifact(

@@ -172,7 +172,7 @@ def create_run_metadata(
     stage_ids: List[str],
 ) -> PipelineRunMetadata:
     """Create initial PipelineRunMetadata at the start of a run."""
-    from prep.core.provenance import get_codrag_version, get_engine_version, get_engine_backend
+    from prep.core.provenance import get_prep_version, get_engine_version, get_engine_backend
 
     # Capture config snapshot
     config_snapshot = _capture_config_snapshot()
@@ -181,7 +181,7 @@ def create_run_metadata(
         run_id=run_id,
         project_id=project_id,
         group=group,
-        prep_version=get_codrag_version(),
+        prep_version=get_prep_version(),
         engine_version=get_engine_version(),
         engine_backend=get_engine_backend(),
         started_at=datetime.now(timezone.utc).isoformat(),
