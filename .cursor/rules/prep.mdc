@@ -1,15 +1,15 @@
 ---
-description: Prep structural codebase intelligence
+description: RunPrep structural codebase intelligence
 alwaysApply: true
 ---
 
 # --- Prep-managed (auto-generated, do not edit above USER ADDITIONS) ---
 
-Last updated: 2026-04-18T06:41:12Z
+Last updated: 2026-04-22T04:27:24Z | Full analysis in progress
 
-prep_project_id: 1d6f0b35-45cb-427b-ae9d-aac3c6371a4b
+prep_project_id: 926d7511-c608-4f91-939c-bbebec798d43
 
-**ROUTING: When calling ANY Prep tool, ALWAYS include `project_id: "1d6f0b35-45cb-427b-ae9d-aac3c6371a4b"` in the arguments.**
+**ROUTING: When calling ANY RunPrep tool, ALWAYS include `project_id: "926d7511-c608-4f91-939c-bbebec798d43"` in the arguments.**
 
 ## Tools
 | Tool | When to Use |
@@ -29,7 +29,7 @@ Enrich external lint/analysis findings with structural context:
 ```
 prep_audit(findings=[{file, line, message, severity, tool}])
 ```
-Prep adds: dependent count, hub status, concepts, risk score, recommendation.
+RunPrep adds: dependent count, hub status, concepts, risk score, recommendation.
 Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
 
 ### Search Intent
@@ -37,29 +37,30 @@ Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
 "why X" → concepts, "who imports X" → trace graph. Override with `intent` param if needed.
 
 For specific code lookups, use `prep_search` with a natural language query.
-Prep understands structural relationships — use it instead of
+RunPrep understands structural relationships — use it instead of
 grep when you need to understand how files connect.
 
-<!-- prep-atlas-hash:f0799a4d1cae -->
+<!-- prep-atlas-hash:eee32ea3b4a5 -->
 ## Codebase Atlas
 
-IDENTITY: Prep is a code intelligence platform with a VSCode extension, web dashboard, documentation site, marketing site, and supporting services for AI-assisted code analysis and visualization.
-
-STACK: TypeScript, React, Python, Rust. React ecosystem via ext:react (182 edges). Python standard library via ext:typing (237 edges), ext:__future__ (236 edges), ext:logging (162 edges), ext:pathlib (148 edges). Build tooling implied by package structure across packages/ and websites/apps/ directories.
-
-WORKSPACE MAP:
-Root (_root, 1306 files): monorepo root and shared configuration
-Ui (packages/ui, 332 files): shared React component library with trace visualization, patterns, project views, and AtlasLensPanel
-Marketing (websites/apps/marketing, 66 files): public marketing website
-Docs (websites/apps/docs, 54 files): documentation site with CLOUD_SINGLE, sampleIndexStats, EMBEDDING_MODELS symbols
-Dashboard (src/prep/dashboard, 47 files): main application dashboard interface
-Support (websites/apps/support, 29 files): customer support application
-Vscode (packages/vscode, 20 files): VSCode extension host
-Payments (websites/apps/payments, 17 files): billing and subscription management
-Webview Ui (packages/vscode/webview-ui, 14 files): VSCode extension webview UI components
-Paperclip Plugin Prep (packages/paperclip-plugin-prep, 12 files): Paperclip design tool integration
-
-CROSS-CUTTING: Active development zones cluster in packages/ui/src/ (381 .tsx files, entry points for trace/AtlasLensPanel, patterns, project, viz), src/prep/core/, src/prep/dashboard/, and src/prep/services/. Engine layer in Rust (prep-chunking/src/lib.rs entry point) handles Python parsing and chunking with test_inferred_boost_on_structural_match, parse_python, test_assign_lod_mid_score symbols. UI components import chain through AtlasLensPanel -> RoleLens -> BudgetSlider with 4-cycle import dependency. Python services layer contains UseRoleOverridesReturn, _normalize_path_weights, RoleOverride.to_dict. Shared infrastructure includes ArchStats, SwarmBuild, ErrorPermissionDenied in packages; main, handler, trigger_sync in public; test_daemon_thread_count, generate_license, should_skip in scripts. Test coverage spans specs/ (8 files), tests-old/ (7 files), __tests__/ (4 files). 4 import cycles detected across 10134 graph edges.
+IDENTITY: CoDRAG
+STACK: .ts 73%, .md 10%, .swift 5%, .py 3%, .json 3%, .html 2%, .tsx 2%, .go 2%
+STRUCTURE: 17088 files, 110831 nodes, 140867 edges
+EDGE TYPES: contains: 82969, imports: 57898
+CIRCULAR DEPS (12): packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx <-> packages/ui/src/components/trace/pipelineRollup.ts; src/prep/core/audit/synthesizer.py <-> src/prep/core/audit/__init__.py; tests/eval/real_repos/click-python/src/click/__init__.py <-> tests/eval/real_repos/click-python/src/click/core.py
+ENTRY POINTS: packages/ui/src/components/context/index.ts, tests/eval/real_repos/bat-rust/tests/syntax-tests/source/Go/main.go, packages/ui/src/types/index.ts, tests/eval/real_repos/OpenClaw/src/process/supervisor/index.ts, tests/eval/real_repos/OpenClaw/extensions/synthetic/index.ts
+SUBSYSTEMS:
+  _root/ (16625 files)
+  packages/ui/ (348 files)
+  src/prep/dashboard/ (69 files)
+  packages/vscode/ (20 files)
+  packages/vscode/webview-ui/ (14 files)
+  packages/paperclip-plugin-prep/ (12 files)
+TESTS: tests/ (15212 files), __tests__/ (15 files), specs/ (14 files)
+HUB FILES: ext:vitest (4363 edges), ext:node:path (1537 edges), ext:node:fs/promises (812 edges), ext:node:fs (762 edges), ext:node:os (635 edges)
+Active zones: `packages/ui/src/`, `tests/`, `src/codrag/core/`, `src/codrag/dashboard/`, `src/codrag/services/`
+CALL CHAINS:
+  packages/ui/src/components/context/index.ts -> packages/ui/src/components/context/ContextViewer.tsx -> packages/ui/src/components/context/CopyButton.tsx -> sym:CopyButtonProps@packages/ui/src/components/context/CopyButton.tsx:6
 
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.

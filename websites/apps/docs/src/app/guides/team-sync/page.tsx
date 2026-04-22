@@ -34,7 +34,7 @@ export default function Page() {
         <AnchorHeading id="how-it-works" level="h2">How it works</AnchorHeading>
 
         <ol className="mt-4 list-decimal list-inside space-y-2 text-text-muted">
-          <li><strong>Build once:</strong> A CI/CD job runs the RunPrep headless image after every merge to <code>main</code>. It produces the full 10-stage enriched trace graph.</li>
+          <li><strong>Build once:</strong> A CI/CD job runs the RunPrep headless image after every merge to <code>main</code>. It produces the full enriched trace graph — structural, semantic, and clustered — so every developer on the team starts from the same understanding.</li>
           <li><strong>Store centrally:</strong> The index artifacts are uploaded to an S3-compatible bucket (Cloudflare R2, AWS S3, MinIO, etc.).</li>
           <li><strong>Sync locally:</strong> Each developer&apos;s RunPrep client checks the bucket on startup and downloads the latest index in seconds.</li>
           <li><strong>Delta only:</strong> When a developer edits files locally, RunPrep enriches only those files using their local LLM or BYOK API key. The rest of the graph comes from the shared index.</li>

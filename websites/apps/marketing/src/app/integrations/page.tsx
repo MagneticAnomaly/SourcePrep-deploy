@@ -1,15 +1,34 @@
 "use client";
 
-import { DetailPageLayout } from '@prep/ui';
-import { Terminal, Code, Plug, Monitor, Cpu, ArrowRight } from 'lucide-react';
+// TODO(MVP): Re-add the "VS Code Extension" section once the native
+// extension (sidebar UI for search, context assembly, trace navigation,
+// Pro tier graph features) is back in MVP scope. Previous copy lived in
+// git history (search: "VS Code Extension" in prior commits of this file).
+// The extension is still planned — just not pitched publicly during MVP.
+// For now VS Code is listed only as an MCP-capable IDE via GitHub Copilot.
+
+import { DetailPageLayout, AnimatedCLI, AnimatedIDE, prepOverviewDemo, ideDemoScript } from '@prep/ui';
+import { Terminal, Plug, Cpu, ArrowRight } from 'lucide-react';
 
 const SECTIONS = [
   { id: 'universal', label: 'One Server, Every Editor' },
-  { id: 'claude-code', label: 'Claude Code' },
-  { id: 'antigravity', label: 'Antigravity' },
-  { id: 'cursor-windsurf', label: 'Cursor & Windsurf' },
-  { id: 'vscode', label: 'VS Code Extension' },
+  { id: 'cli', label: 'CLI Agents' },
+  { id: 'ide', label: 'Agentic IDEs' },
   { id: 'client-aware', label: 'Client-Aware Delivery' },
+];
+
+const CLI_AGENTS = [
+  { name: 'Claude Code', vendor: 'Anthropic', note: 'Primary target — deepest hooks' },
+  { name: 'Gemini CLI', vendor: 'Google', note: 'Native MCP support' },
+  { name: 'Qwen Code', vendor: 'Alibaba', note: 'Native MCP support' },
+  { name: 'Any MCP CLI', vendor: '—', note: 'Aider, Amp, Zed terminal, and others' },
+];
+
+const IDES = [
+  { name: 'Cursor', vendor: 'Cursor', note: 'Native MCP' },
+  { name: 'Antigravity', vendor: 'Google', note: 'Native MCP' },
+  { name: 'Windsurf', vendor: 'Codeium', note: 'Native MCP' },
+  { name: 'VS Code', vendor: 'Microsoft', note: 'MCP via GitHub Copilot' },
 ];
 
 export default function IntegrationsPage() {
@@ -17,7 +36,7 @@ export default function IntegrationsPage() {
     <DetailPageLayout
       title="IDE Integrations"
       subtitle="One Server, Every Editor"
-      description="RunPrep connects to Claude Code, Antigravity, Cursor, Windsurf, VS Code, and any MCP-compatible tool via a single MCP server."
+      description="RunPrep speaks the Model Context Protocol. Any editor or agent that speaks MCP connects to the same daemon with the same config — no per-editor forks, no bespoke plugins."
       badge="MCP"
       sections={SECTIONS}
       docsUrl="https://docs.runprep.io/integrations"
@@ -27,111 +46,100 @@ export default function IntegrationsPage() {
       <section id="universal">
         <h2 className="text-2xl font-semibold text-text mb-4">One Server, Every Editor</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          RunPrep is a single MCP server that connects to any tool supporting the Model Context Protocol.
-          Run <code className="text-primary font-mono text-sm">prep serve</code> once, and every editor in your workflow
-          gets the same structural intelligence. No per-editor plugins to maintain, no vendor lock-in.
+          Run <code className="text-primary font-mono text-sm">prep serve</code> once. Every MCP-aware
+          agent in your workflow — CLI or IDE — reaches the same daemon and gets the same structural
+          intelligence. No per-editor plugins, no vendor lock-in, no duplicated indexes.
         </p>
-        <div className="grid sm:grid-cols-3 gap-4">
+
+        <div className="grid sm:grid-cols-3 gap-6 mb-10">
           {[
-            { icon: <Terminal className="w-5 h-5" />, title: 'Single Command', desc: 'One daemon serves all connected editors simultaneously' },
-            { icon: <Plug className="w-5 h-5" />, title: 'MCP Standard', desc: 'Works with any tool that supports Model Context Protocol' },
-            { icon: <Cpu className="w-5 h-5" />, title: 'No Lock-in', desc: 'Switch editors freely — your index and context travel with you' },
+            { icon: <Terminal className="w-5 h-5" />, title: 'Single Command', desc: 'One daemon serves every connected agent simultaneously' },
+            { icon: <Plug className="w-5 h-5" />, title: 'MCP Standard', desc: 'Works with any tool that implements the Model Context Protocol' },
+            { icon: <Cpu className="w-5 h-5" />, title: 'No Lock-in', desc: 'Switch tools freely — your index and context travel with you' },
           ].map((item) => (
-            <div key={item.title} className="rounded-lg border border-border bg-surface p-4">
+            <div key={item.title}>
               <div className="text-primary mb-2">{item.icon}</div>
               <h3 className="font-medium text-sm text-text mb-1">{item.title}</h3>
               <p className="text-xs text-text-muted">{item.desc}</p>
             </div>
           ))}
         </div>
-      </section>
 
-      {/* Claude Code */}
-      <section id="claude-code">
-        <h2 className="text-2xl font-semibold text-text mb-4">Claude Code</h2>
-        <p className="text-text-muted leading-relaxed mb-6">
-          Claude Code receives RunPrep's deepest integration. The full suite of MCP tools is designed around Claude Code's
-          agentic workflows, with client-aware context delivery, skills integration, and automatic project onboarding.
-        </p>
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-6 mb-4">
-          <div className="flex items-center gap-2 mb-4">
-            <Terminal className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-text">Claude Code</h3>
-            <span className="ml-auto text-xs font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">Deepest Integration</span>
-          </div>
-          <ul className="space-y-2 text-sm text-text-muted">
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> 6 MCP tools with auto-approve safety</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Skills integration for automated workflows</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> AGENTS.md generation for project onboarding</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Client-aware content tailored for Claude Code</li>
-          </ul>
+        <div className="rounded-lg border border-border bg-surface p-6">
+          <p className="text-xs uppercase tracking-widest text-text-muted mb-3">Shared MCP config</p>
+          <pre className="bg-background border border-border-subtle rounded-md p-3 text-xs font-mono overflow-x-auto text-text">
+            {`"prep": {
+  "command": "prep",
+  "args": ["mcp"]
+}`}
+          </pre>
+          <p className="text-xs text-text-muted mt-3">
+            This is the common core. Every editor nests it slightly differently (<code className="font-mono">servers</code>{' '}
+            vs <code className="font-mono">mcpServers</code> vs <code className="font-mono">context_servers</code>) and
+            stores it at a different path. RunPrep auto-generates these files when it detects a supported client.
+          </p>
           <a
-            href="/claude-code"
+            href="/setup"
             className="inline-flex items-center gap-2 mt-4 text-sm font-medium text-primary hover:underline"
           >
-            Full Claude Code integration guide <ArrowRight className="w-4 h-4" />
+            MCP config setup guides <ArrowRight className="w-4 h-4" />
           </a>
         </div>
       </section>
 
-      {/* Antigravity */}
-      <section id="antigravity">
-        <h2 className="text-2xl font-semibold text-text mb-4">Antigravity</h2>
+      {/* CLI Agents */}
+      <section id="cli">
+        <h2 className="text-2xl font-semibold text-text mb-4">CLI Agents</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          Antigravity's agentic editing mode pairs naturally with RunPrep's structural intelligence — giving agents
-          the codebase context they need to make confident, architecturally-aware edits.
+          Terminal-first coding agents see the biggest lift from structural context because they have no
+          sidebar, no open tabs, no visible file tree to orient themselves. Claude Code is the primary
+          target — the tool dispatch, auto-approve hints, and AGENTS.md generation are all shaped around
+          it — but the MCP server works the same for Gemini CLI, Qwen Code, and other MCP-aware CLIs.
         </p>
-        <div className="rounded-lg border border-border bg-surface p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Code className="w-5 h-5 text-text-muted" />
-            <h3 className="font-semibold text-text">Antigravity</h3>
-          </div>
-          <ul className="space-y-2 text-sm text-text-muted">
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Full MCP tool support</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Ambient context on every task</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Works with Antigravity's agentic editing mode</li>
-          </ul>
+
+        <div className="mb-8">
+          <AnimatedCLI script={prepOverviewDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
         </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {CLI_AGENTS.map((agent) => (
+            <div key={agent.name} className="rounded-lg border border-border bg-surface p-4">
+              <div className="font-medium text-sm text-text">{agent.name}</div>
+              <div className="text-xs text-text-muted mt-0.5">{agent.vendor}</div>
+              <div className="text-xs text-text-muted mt-2">{agent.note}</div>
+            </div>
+          ))}
+        </div>
+
+        <a
+          href="/claude-code"
+          className="inline-flex items-center gap-2 mt-6 text-sm font-medium text-primary hover:underline"
+        >
+          Claude Code deep dive <ArrowRight className="w-4 h-4" />
+        </a>
       </section>
 
-      {/* Cursor & Windsurf */}
-      <section id="cursor-windsurf">
-        <h2 className="text-2xl font-semibold text-text mb-4">Cursor &amp; Windsurf</h2>
+      {/* Agentic IDEs */}
+      <section id="ide">
+        <h2 className="text-2xl font-semibold text-text mb-4">Agentic IDEs</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          Both Cursor and Windsurf support MCP natively. RunPrep plugs in without any special configuration and adds
-          structural depth that their built-in AI features don't provide.
+          The big agentic editors all speak MCP natively — Cursor, Antigravity, Windsurf, and VS Code
+          (via GitHub Copilot). The setup story is the same everywhere: drop the RunPrep MCP block into
+          the editor&apos;s config, restart, done. What differs is the editor itself, not the integration.
         </p>
-        <div className="rounded-lg border border-border bg-surface p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Monitor className="w-5 h-5 text-text-muted" />
-            <h3 className="font-semibold text-text">Cursor &amp; Windsurf</h3>
-          </div>
-          <ul className="space-y-2 text-sm text-text-muted">
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Native MCP support in both editors</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Auto-generated rules files (<code className="font-mono text-xs">.cursor/</code>, <code className="font-mono text-xs">.windsurf/</code>)</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Works alongside their built-in AI features — RunPrep adds structural depth they don't have</li>
-          </ul>
-        </div>
-      </section>
 
-      {/* VS Code */}
-      <section id="vscode">
-        <h2 className="text-2xl font-semibold text-text mb-4">VS Code Extension</h2>
-        <p className="text-text-muted leading-relaxed mb-6">
-          RunPrep ships a native VS Code extension with a sidebar UI for semantic search, context assembly, and trace navigation —
-          no CLI required. Works alongside GitHub Copilot via MCP.
-        </p>
-        <div className="rounded-lg border border-border bg-surface p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Code className="w-5 h-5 text-text-muted" />
-            <h3 className="font-semibold text-text">VS Code Extension</h3>
-          </div>
-          <ul className="space-y-2 text-sm text-text-muted">
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Native VS Code extension with sidebar UI</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Semantic search, context assembly, trace navigation</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Free tier with Pro upgrade for graph features</li>
-            <li className="flex items-start gap-2"><span className="text-primary mt-0.5">→</span> Works with Copilot via MCP</li>
-          </ul>
+        <div className="mb-8">
+          <AnimatedIDE script={ideDemoScript} className="w-full" />
+        </div>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {IDES.map((ide) => (
+            <div key={ide.name} className="rounded-lg border border-border bg-surface p-4">
+              <div className="font-medium text-sm text-text">{ide.name}</div>
+              <div className="text-xs text-text-muted mt-0.5">{ide.vendor}</div>
+              <div className="text-xs text-text-muted mt-2">{ide.note}</div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -139,15 +147,16 @@ export default function IntegrationsPage() {
       <section id="client-aware">
         <h2 className="text-2xl font-semibold text-text mb-4">Client-Aware Delivery</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          RunPrep auto-detects which client is connecting via MCP <code className="text-primary font-mono text-sm">clientInfo</code>.
-          It tailors content delivery per client — compact format for Claude Code, richer format for Cursor, optimized
-          budgets per client's context window. Your agents get exactly the right amount of context, automatically.
+          The setup is uniform, but the output isn&apos;t. RunPrep reads the MCP{' '}
+          <code className="text-primary font-mono text-sm">clientInfo</code> handshake and tunes the
+          response per client — format density, context budget, and which hints to attach. Agents get
+          shaped output without any per-editor configuration.
         </p>
         <div className="grid sm:grid-cols-3 gap-4 mb-8">
           {[
             { client: 'Claude Code', detail: 'Compact format, auto-approve hints, skills context' },
             { client: 'Cursor', detail: 'Richer format with inline code blocks and annotations' },
-            { client: 'Windsurf', detail: 'Optimized budget for Windsurf\'s context window' },
+            { client: 'Windsurf', detail: 'Budget tuned to Windsurf\'s context window' },
           ].map((item) => (
             <div key={item.client} className="rounded-lg border border-border bg-surface px-4 py-3">
               <span className="font-mono text-xs font-bold text-primary block mb-1">{item.client}</span>

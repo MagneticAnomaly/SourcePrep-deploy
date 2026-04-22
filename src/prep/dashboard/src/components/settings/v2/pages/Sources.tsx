@@ -13,7 +13,6 @@ import {
   ChevronUp,
   Layers,
   Plus,
-  Save,
   Wand2,
   X,
 } from 'lucide-react';
@@ -39,11 +38,9 @@ export interface SourcesPageProps {
   /** Name of the active project — used in the description copy. */
   projectName: string | null;
   config: ProjectConfig;
-  dirty: boolean;
   /** Applies a full replacement config (matches handleProjectConfigChange). */
   onChange: (next: ProjectConfig) => void;
-  onSave: () => void | Promise<void>;
-  onDiscard: () => void;
+  /** True while a debounced autosave is in-flight — drives the "Saving…" indicator. */
   saving: boolean;
   onDetectStack?: () => Promise<{
     recommended_globs: string[];
@@ -55,10 +52,7 @@ export interface SourcesPageProps {
 export function SourcesPage({
   projectName,
   config,
-  dirty,
   onChange,
-  onSave,
-  onDiscard,
   saving,
   onDetectStack,
 }: SourcesPageProps) {
@@ -396,24 +390,9 @@ export function SourcesPage({
     </div>
   );
 
-  const saveAction = (
-    <div className="flex items-center gap-2">
-      {dirty && (
-        <Button variant="ghost" size="sm" onClick={onDiscard} disabled={saving}>
-          Discard
-        </Button>
-      )}
-      <Button
-        size="sm"
-        onClick={() => void onSave()}
-        disabled={!dirty || saving}
-        icon={Save}
-        className="bg-primary text-primary-foreground"
-      >
-        {saving ? 'Saving…' : 'Save Changes'}
-      </Button>
-    </div>
-  );
+  const savingIndicator = saving ? (
+    <span className="text-xs text-text-muted">Saving…</span>
+  ) : null;
 
   const description = projectName
     ? `Which files are included in ${projectName}'s index.`
@@ -424,8 +403,7 @@ export function SourcesPage({
       title="Sources & Scope"
       scope="project"
       description={description}
-      actions={saveAction}
-      dirty={dirty}
+      actions={savingIndicator}
     >
       <Section title="Include Patterns">
         {/* The include-pattern editor is multi-line (auto-detect, presets,

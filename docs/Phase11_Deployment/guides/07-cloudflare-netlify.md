@@ -143,7 +143,7 @@ Configure each site as follows:
 | **Site name** | `prep-marketing` (or similar — this becomes `prep-marketing.netlify.app`) |
 | **Branch** | `main` |
 | **Base directory** | `websites/apps/marketing` |
-| **Build command** | `cd ../../.. && npx turbo run build --filter=@prep/marketing` |
+| **Build command** | `cd ../../.. && npx turbo run build --filter=@runprep/marketing` |
 | **Publish directory** | `websites/apps/marketing/.next` |
 
 **Environment variables** (Site settings → Environment variables → Add variable):
@@ -165,7 +165,7 @@ Configure each site as follows:
 | **Site name** | `prep-docs` |
 | **Branch** | `main` |
 | **Base directory** | `websites/apps/docs` |
-| **Build command** | `cd ../../.. && npx turbo run build --filter=@prep/docs` |
+| **Build command** | `cd ../../.. && npx turbo run build --filter=@runprep/docs` |
 | **Publish directory** | `websites/apps/docs/.next` |
 
 **Environment variables:**
@@ -184,7 +184,7 @@ Configure each site as follows:
 | **Site name** | `prep-support` |
 | **Branch** | `main` |
 | **Base directory** | `websites/apps/support` |
-| **Build command** | `cd ../../.. && npx turbo run build --filter=@prep/support` |
+| **Build command** | `cd ../../.. && npx turbo run build --filter=@runprep/support` |
 | **Publish directory** | `websites/apps/support/.next` |
 
 **Environment variables:**
@@ -214,14 +214,14 @@ Configure each site as follows:
 | **Site name** | `prep-payments` |
 | **Branch** | `main` |
 | **Base directory** | `websites/apps/payments` |
-| **Build command** | `cd ../../.. && npx turbo run build --filter=@prep/payments` |
+| **Build command** | `cd ../../.. && npx turbo run build --filter=@runprep/payments` |
 | **Publish directory** | `websites/apps/payments/.next` |
 
 **Environment variables:**
 | Key | Value |
 |-----|-------|
 | `NEXT_PUBLIC_SITE_URL` | `https://payments.runprep.io` |
-| `NEXT_PUBLIC_PREP_CHECKOUT_URL` | Your Lemon Squeezy checkout URL (from ACC-6) |
+| `NEXT_PUBLIC_RUNPREP_CHECKOUT_URL` | Your Lemon Squeezy checkout URL (from ACC-6) |
 | `LEMONSQUEEZY_API_KEY` | From ACC-6 (Lemon Squeezy → API Keys) |
 | `LEMONSQUEEZY_STORE_ID` | From ACC-6 (Lemon Squeezy → Store settings) |
 

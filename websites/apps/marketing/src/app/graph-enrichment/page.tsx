@@ -143,7 +143,7 @@ export default function GraphEnrichmentPage() {
     <DetailPageLayout
       title="Graph Enrichment"
       subtitle="How It Works"
-      description="A 15-stage pipeline in three groups of five transforms raw source files into a rich structural knowledge graph — from Rust parsing to deep LLM reasoning to architectural synthesis."
+      description="RunPrep learns how your code actually connects — not just what words appear where. A multi-step pipeline turns raw source files into a living knowledge graph your AI can reason over: fast structural parsing first, then deeper reasoning about meaning, and finally the guides, rules, and safeguards your tools consume."
       badge="Pipeline"
       sections={SECTIONS}
       docsUrl="https://docs.runprep.io/concepts/graph-enrichment"
@@ -153,33 +153,33 @@ export default function GraphEnrichmentPage() {
       <section id="journey">
         <h2 className="text-2xl font-semibold text-text mb-4">The Journey</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          When RunPrep indexes your codebase, a 15-stage pipeline runs in three groups of five.
-          The first five stages <strong className="text-text">sync</strong> instantly — Rust parsing, graph building, and first-pass annotation in seconds.
-          The next five <strong className="text-text">enrich</strong> in the background — deep LLM reasoning that progressively deepens understanding.
-          The final five <strong className="text-text">finalize</strong> — producing the atlas, rules files, concepts, audit findings, and immune system defenses that your tools actually consume.
+          When RunPrep indexes your codebase, a multi-step pipeline runs in three phases.
+          First, it <strong className="text-text">syncs</strong> instantly — parsing your code and building a structural map in seconds, so your agents have useful context right away.
+          Then it <strong className="text-text">enriches</strong> in the background — reasoning about what each module actually <em>does</em>, how pieces relate, and which code matters most.
+          Finally it <strong className="text-text">finalizes</strong> — producing the atlas, rules, concepts, audit findings, and safeguards your tools actually consume.
         </p>
         <div className="grid sm:grid-cols-3 gap-4">
           <div className="rounded-lg border border-border bg-surface p-4">
             <div className="text-primary mb-2"><Zap className="w-5 h-5" /></div>
             <h3 className="font-medium text-sm text-text mb-1">Sync — Seconds</h3>
-            <p className="text-xs text-text-muted">Stages 1–5. Rust parsing, graph building, search index. No LLM wait.</p>
+            <p className="text-xs text-text-muted">Parses your code and builds the structural map instantly. Your agents get usable context in seconds, before any deeper reasoning starts.</p>
           </div>
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <div className="text-primary mb-2"><Brain className="w-5 h-5" /></div>
             <h3 className="font-medium text-sm text-text mb-1">Enrich — Background</h3>
-            <p className="text-xs text-text-muted">Stages 6–10. Deep LLM reasoning, module discovery, epistemic scoring.</p>
+            <p className="text-xs text-text-muted">Reasons about what each piece of code actually <em>does</em>, finds clusters of related modules, and scores what matters most.</p>
           </div>
           <div className="rounded-lg border border-[#3fb950]/30 bg-[#3fb950]/5 p-4">
             <div className="text-[#3fb950] mb-2"><Shield className="w-5 h-5" /></div>
             <h3 className="font-medium text-sm text-text mb-1">Finalize — Deliver</h3>
-            <p className="text-xs text-text-muted">Stages 11–15. Atlas, rules, concepts, audit, antibodies. Parallel where possible.</p>
+            <p className="text-xs text-text-muted">Packages the results into the atlas, rules, concepts, audit findings, and guardrails your tools consume. Runs in parallel where possible.</p>
           </div>
         </div>
       </section>
 
       {/* Sync Stages */}
       <section id="sync">
-        <h2 className="text-2xl font-semibold text-text mb-2">Sync (Stages 1–5)</h2>
+        <h2 className="text-2xl font-semibold text-text mb-2">Sync</h2>
         <p className="text-text-muted leading-relaxed mb-6">
           Completes in seconds with minimal LLM use. Your agents get structural context immediately.
         </p>
@@ -199,7 +199,7 @@ export default function GraphEnrichmentPage() {
 
       {/* Enrich Stages */}
       <section id="enrich">
-        <h2 className="text-2xl font-semibold text-text mb-2">Enrich (Stages 6–10)</h2>
+        <h2 className="text-2xl font-semibold text-text mb-2">Enrich</h2>
         <p className="text-text-muted leading-relaxed mb-6">
           Runs in the background with full LLM passes. Each stage builds on the previous, producing progressively richer structural understanding. Supports swarm mode — multiple LLM workers processing nodes in parallel.
         </p>
@@ -219,10 +219,10 @@ export default function GraphEnrichmentPage() {
 
       {/* Finalize Stages */}
       <section id="finalize">
-        <h2 className="text-2xl font-semibold text-text mb-2">Finalize (Stages 11–15)</h2>
+        <h2 className="text-2xl font-semibold text-text mb-2">Finalize</h2>
         <p className="text-text-muted leading-relaxed mb-6">
           Produces the deliverables your tools actually consume — the atlas document, IDE rules files, seeded concepts, audit findings, and immune system defenses.
-          Stages 12–14 run in parallel after Atlas completes, then Antibodies derives from Concepts last.
+          Most of these run in parallel once the atlas is ready; the safeguards are derived from your recorded concepts last.
         </p>
         <div className="space-y-3">
           {FINALIZE_STAGES.map((stage) => (

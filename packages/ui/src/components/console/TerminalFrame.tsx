@@ -8,6 +8,7 @@ export interface TerminalFrameProps {
   title?: string;
   theme?: TerminalTheme;
   className?: string;
+  contentClassName?: string;
 }
 
 export function TerminalFrame({
@@ -15,6 +16,7 @@ export function TerminalFrame({
   title = 'Terminal',
   theme = 'dark',
   className = '',
+  contentClassName = 'min-h-[300px] max-h-[450px]',
 }: TerminalFrameProps) {
   const themeStyles: Record<TerminalTheme, { bg: string; border: string; titleBg: string }> = {
     dark: {
@@ -47,7 +49,7 @@ export function TerminalFrame({
         <span className="text-xs text-[#8b949e] font-mono flex-1 text-center select-none">{title}</span>
         <div className="w-[42px]" />
       </div>
-      <div className="p-4 font-mono text-sm leading-relaxed min-h-[300px] max-h-[450px] overflow-y-auto">
+      <div className={`p-4 font-mono text-sm leading-relaxed overflow-y-auto ${contentClassName}`}>
         {children}
       </div>
     </div>

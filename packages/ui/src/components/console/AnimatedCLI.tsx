@@ -8,6 +8,7 @@ export interface AnimatedCLIProps {
   script: CliScript;
   theme?: 'dark' | 'claude' | 'minimal';
   className?: string;
+  contentClassName?: string;
   autoPlay?: boolean;
 }
 
@@ -29,6 +30,7 @@ export function AnimatedCLI({
   script,
   theme = 'dark',
   className = '',
+  contentClassName,
   autoPlay = true,
 }: AnimatedCLIProps) {
   const [lines, setLines] = useState<RenderedLine[]>([]);
@@ -170,7 +172,7 @@ export function AnimatedCLI({
   }
 
   return (
-    <TerminalFrame title={script.title ?? 'claude'} theme={theme} className={className}>
+    <TerminalFrame title={script.title ?? 'claude'} theme={theme} className={className} contentClassName={contentClassName}>
       <div ref={scrollRef} className="space-y-1">
         {/* Committed lines */}
         {lines.map(line => (

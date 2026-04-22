@@ -33,9 +33,9 @@ export default function Page() {
 
         <p className="mt-4 text-text-muted">
           RunPrep ships two Docker images for headless indexing. Both run the full
-          10-stage enrichment pipeline (structural AST parse → epistemic enrichment →
-          cluster synthesis → atlas generation) and upload the resulting index to
-          S3-compatible storage.
+          enrichment pipeline — parsing your code, reasoning about how it connects,
+          clustering it into architectural groups, and producing the project atlas —
+          then upload the resulting index to S3-compatible storage.
         </p>
 
         <div className="mt-4 overflow-x-auto">

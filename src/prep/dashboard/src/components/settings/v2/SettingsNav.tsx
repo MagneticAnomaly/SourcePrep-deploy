@@ -28,58 +28,74 @@ export function SettingsNav({ activePage, onNavigate, projectName }: SettingsNav
   const pages = filterPagesForBuild(isDevBuild());
   const projectDisabled = projectName === null;
 
-  const renderItem = (id: SettingsPageId, disabled = false) => (
-    <button
-      key={id}
-      type="button"
-      disabled={disabled}
-      aria-current={activePage === id ? 'page' : undefined}
-      onClick={() => !disabled && onNavigate(id)}
+  const renderItem = (id: SettingsPageId, disabled = false) => {
+    const active = activePage === id && !disabled;
+    return (
+      <li key={id}>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-current={active ? 'page' : undefined}
+          onClick={() => !disabled && onNavigate(id)}
+          className={cn(
+            'block w-full text-left px-2 py-1.5 text-sm rounded-md transition-colors',
+            disabled
+              ? 'text-text-subtle cursor-not-allowed'
+              : 'text-text-muted hover:text-text hover:bg-surface-raised cursor-pointer',
+            active && 'bg-primary/10 text-primary font-medium',
+          )}
+        >
+          {LABELS[id]}
+        </button>
+      </li>
+    );
+  };
+
+  const sectionHeading = (label: string, first = false) => (
+    <h4
       className={cn(
-        'w-full text-left text-sm rounded-md mx-0 px-3 py-1.5',
-        disabled
-          ? 'text-text-subtle cursor-not-allowed'
-          : 'text-text-muted hover:bg-surface-raised cursor-pointer',
-        activePage === id && !disabled && 'bg-surface-raised text-text font-medium',
+        'font-semibold text-xs uppercase tracking-wider text-primary mb-3 px-2',
+        first ? '' : 'border-t border-border pt-4 mt-2',
       )}
     >
-      {LABELS[id]}
-    </button>
+      {label}
+    </h4>
   );
 
   return (
-    <nav aria-label="Settings" className="w-60 border-r border-border-subtle overflow-y-auto py-2">
-      <div className="px-3">
-        <div className="text-xs uppercase tracking-wide text-text-muted pt-4 pb-1">
-          {projectDisabled
-            ? 'Project · none selected'
-            : `Project · ${projectName}`}
-        </div>
-        <div className="space-y-0.5">
-          {pages.project.map(id => renderItem(id, projectDisabled))}
-        </div>
-        {projectDisabled && (
-          <p className="text-xs text-text-muted mt-2 px-1">Select a project first.</p>
+    <nav aria-label="Settings" className="w-4/5">
+      <ul className="space-y-4">
+        <li>
+          {sectionHeading(
+            projectDisabled
+              ? 'Project · none selected'
+              : `Project · ${projectName}`,
+            true,
+          )}
+          <ul className="space-y-1">
+            {pages.project.map((id) => renderItem(id, projectDisabled))}
+          </ul>
+          {projectDisabled && (
+            <p className="text-xs text-text-muted mt-2 px-2">Select a project first.</p>
+          )}
+        </li>
+
+        <li>
+          {sectionHeading('Global')}
+          <ul className="space-y-1">
+            {pages.global.map((id) => renderItem(id))}
+          </ul>
+        </li>
+
+        {pages.developer.length > 0 && (
+          <li>
+            {sectionHeading('Developer')}
+            <ul className="space-y-1">
+              {pages.developer.map((id) => renderItem(id))}
+            </ul>
+          </li>
         )}
-      </div>
-
-      <div className="border-t border-border-subtle mt-4 pt-2 px-3">
-        <div className="text-xs uppercase tracking-wide text-text-muted pt-2 pb-1">Global</div>
-        <div className="space-y-0.5">
-          {pages.global.map(id => renderItem(id))}
-        </div>
-      </div>
-
-      {pages.developer.length > 0 && (
-        <div className="border-t border-border-subtle mt-4 pt-2 px-3">
-          <div className="text-xs uppercase tracking-wide text-text-muted pt-2 pb-1">
-            Developer
-          </div>
-          <div className="space-y-0.5">
-            {pages.developer.map(id => renderItem(id))}
-          </div>
-        </div>
-      )}
+      </ul>
     </nav>
   );
 }

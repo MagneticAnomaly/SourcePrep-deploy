@@ -1,7 +1,7 @@
 import { Badge, Button, Flex, Text, Title } from '@tremor/react';
-import { 
-  Terminal, Search, Cpu, Shield, Globe, Layers, Zap, Eye, 
-  Database, Server, Lock, Activity, FileText, Code, 
+import {
+  Terminal, Search, Cpu, Shield, Globe, Layers, Zap, Eye,
+  Database, Server, Lock, Activity, FileText, Code,
   ChevronRight, Command, Hash, Download, ArrowRight, LayoutGrid,
   AlertTriangle
 } from 'lucide-react';
@@ -62,8 +62,8 @@ function CenteredHero() {
 
         {/* Subheadline */}
         <p className="mt-6 text-lg md:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed">
-          Prep indexes your code locally, delivers trace-aware search results, 
-          and assembles perfect context for Cursor, Windsurf, and Copilot—all without 
+          Prep indexes your code locally, delivers trace-aware search results,
+          and assembles perfect context for Cursor, Windsurf, and Copilot—all without
           sending your code to the cloud.
         </p>
 
@@ -89,7 +89,7 @@ function CenteredHero() {
             <Lock className="w-4 h-4 text-success" /> Perpetual license available
           </span>
           <span className="flex items-center gap-2">
-            <Server className="w-4 h-4 text-success" /> macOS & Windows
+            <Server className="w-4 h-4 text-success" /> macOS, Windows & Linux
           </span>
         </div>
       </div>
@@ -135,16 +135,16 @@ function NeoBrutalistHero() {
           <div className="inline-flex items-center gap-2 border-2 border-border bg-warning px-4 py-1 text-sm font-bold text-black mb-6 transform -rotate-2">
             <AlertTriangle className="w-4 h-4" /> NO CLOUD REQUIRED
           </div>
-          
+
           <h1 className="text-5xl md:text-7xl font-bold text-text leading-none uppercase tracking-tighter">
-            Stop<br/>
-            Feeding<br/>
-            <span className="bg-primary text-white px-2">The AI</span><br/>
+            Stop<br />
+            Feeding<br />
+            <span className="bg-primary text-white px-2">The AI</span><br />
             Beast.
           </h1>
-          
+
           <p className="mt-6 text-xl text-text font-mono border-l-4 border-primary pl-4">
-            Prep runs locally. Your code stays yours. 
+            Prep runs locally. Your code stays yours.
             Semantic search that actually respects your privacy.
           </p>
 
@@ -189,8 +189,8 @@ function SwissHero() {
       <div className="grid grid-cols-12 gap-4 border-t border-text">
         <div className="col-span-12 md:col-span-8 pt-12 pb-24 pr-12">
           <h1 className="text-6xl md:text-8xl font-bold text-text tracking-tight leading-[0.9]">
-            Local.<br/>
-            Context.<br/>
+            Local.<br />
+            Context.<br />
             Solved.
           </h1>
           <div className="mt-12 grid grid-cols-2 gap-8 border-t border-text pt-6">
@@ -224,19 +224,19 @@ function GlassHero() {
     <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-8 md:p-16">
       <div className="absolute top-0 left-0 w-64 h-64 bg-primary/30 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-info/30 rounded-full blur-3xl translate-x-1/3 translate-y-1/3"></div>
-      
+
       <div className="relative z-10 flex flex-col items-center text-center">
         <div className="backdrop-blur-xl bg-white/30 border border-white/50 shadow-xl rounded-2xl p-8 md:p-12 max-w-4xl w-full">
           <Badge className="bg-white/50 text-text border-white/60 backdrop-blur-md mb-6 shadow-sm gap-2">
             <Zap className="w-4 h-4 text-warning" /> The future of local search
           </Badge>
-          
+
           <h1 className="text-5xl md:text-7xl font-bold text-text bg-clip-text text-transparent bg-gradient-to-r from-text to-primary mb-6">
             Crystal Clear Context
           </h1>
-          
+
           <p className="text-xl text-text-muted mb-8 max-w-2xl mx-auto">
-            A beautiful, translucent layer between your code and your AI. 
+            A beautiful, translucent layer between your code and your AI.
             See through the noise with semantic understanding.
           </p>
 
@@ -252,7 +252,7 @@ function GlassHero() {
 
         {/* Floating cards */}
         <div className="mt-16 flex gap-6" style={{ perspective: '1000px' }}>
-          <div 
+          <div
             className="backdrop-blur-lg bg-white/20 border border-white/30 p-4 rounded-xl shadow-lg"
             style={{ transform: 'rotateY(12deg) translateY(1rem)' }}
           >
@@ -264,7 +264,7 @@ function GlassHero() {
             <div className="text-4xl mb-2 flex justify-center"><Cpu className="w-12 h-12 text-primary" /></div>
             <div className="font-bold text-text">Deep Index</div>
           </div>
-          <div 
+          <div
             className="backdrop-blur-lg bg-white/20 border border-white/30 p-4 rounded-xl shadow-lg"
             style={{ transform: 'rotateY(-12deg) translateY(1rem)' }}
           >
@@ -282,21 +282,21 @@ function RetroHero() {
   return (
     <div className="relative overflow-hidden rounded-lg bg-background border border-primary/50">
       {/* Grid Floor */}
-      <div className="absolute inset-0" 
-           style={{ 
-             backgroundImage: 'linear-gradient(rgba(255, 0, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 0, 255, 0.1) 1px, transparent 1px)',
-             backgroundSize: '40px 40px',
-             transform: 'perspective(500px) rotateX(60deg) translateY(-100px) scale(2)',
-             opacity: 0.5
-           }}>
+      <div className="absolute inset-0"
+        style={{
+          backgroundImage: 'linear-gradient(rgba(255, 0, 255, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 0, 255, 0.1) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+          transform: 'perspective(500px) rotateX(60deg) translateY(-100px) scale(2)',
+          opacity: 0.5
+        }}>
       </div>
-      
+
       {/* Sun */}
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-gradient-to-t from-warning to-primary rounded-full blur-[80px] opacity-40"></div>
 
       <div className="relative z-10 px-8 py-20 text-center">
         <h1 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-primary to-purple-800 drop-shadow-[0_0_10px_rgba(255,0,255,0.5)]"
-            style={{ fontFamily: "'Share Tech Mono', monospace" }}>
+          style={{ fontFamily: "'Share Tech Mono', monospace" }}>
           PREP
         </h1>
         <p className="text-2xl text-primary font-bold tracking-[0.5em] mt-2 mb-12 uppercase drop-shadow-md">
@@ -305,10 +305,10 @@ function RetroHero() {
 
         <div className="max-w-3xl mx-auto bg-black/50 backdrop-blur-sm border border-primary/50 p-6 rounded-lg shadow-[0_0_30px_rgba(255,0,255,0.2)]">
           <p className="text-lg text-white font-mono leading-relaxed">
-            <span className="text-success">INITIALIZING...</span><br/>
-            &gt; LOCAL INDEX: <span className="text-success">ONLINE</span><br/>
-            &gt; CLOUD UPLOAD: <span className="text-error">DISABLED</span><br/>
-            &gt; SYMBOL TRACING: <span className="text-info">ACTIVE</span><br/><br/>
+            <span className="text-success">INITIALIZING...</span><br />
+            &gt; LOCAL INDEX: <span className="text-success">ONLINE</span><br />
+            &gt; CLOUD UPLOAD: <span className="text-error">DISABLED</span><br />
+            &gt; SYMBOL TRACING: <span className="text-info">ACTIVE</span><br /><br />
             <span className="animate-pulse flex items-center justify-center gap-2">_READY FOR INPUT <Terminal className="w-4 h-4" /></span>
           </p>
         </div>
@@ -329,7 +329,7 @@ function SplitHero() {
         <Badge size="lg" className="bg-primary/10 text-primary border border-primary/20 mb-6 gap-2">
           <Zap className="w-4 h-4" /> Now in Public Beta
         </Badge>
-        
+
         <h1 className="text-4xl md:text-5xl font-bold text-text leading-tight">
           Your code. <br />
           <span className="text-primary">Your context.</span> <br />
@@ -337,7 +337,7 @@ function SplitHero() {
         </h1>
 
         <p className="mt-6 text-lg text-text-muted leading-relaxed">
-          Stop wrestling with AI hallucinations. Prep builds a semantic index 
+          Stop wrestling with AI hallucinations. Prep builds a semantic index
           of your codebase and delivers precisely relevant context—locally and instantly.
         </p>
 
@@ -363,7 +363,7 @@ function SplitHero() {
         <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 to-info/20 rounded-3xl blur-3xl opacity-50" />
         <div className="relative rounded-2xl border border-border bg-surface p-6 shadow-xl">
           <Text className="text-text-subtle text-sm mb-4 flex items-center gap-2"><Search className="w-4 h-4" /> Search: "authentication middleware"</Text>
-          
+
           <div className="space-y-3">
             {[
               { file: 'src/auth/middleware.ts', score: 94, lines: '12-45' },
@@ -405,7 +405,7 @@ function StudioHero() {
       {/* Abstract Shapes/Collage Elements */}
       <div className="absolute top-10 right-10 w-64 h-64 bg-primary/20 rounded-full blur-3xl mix-blend-multiply"></div>
       <div className="absolute bottom-10 left-10 w-80 h-80 bg-warning/20 rounded-full blur-3xl mix-blend-multiply"></div>
-      
+
       <div className="relative z-10 w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
         {/* Main Text Block - Asymmetric */}
         <div className="col-span-12 md:col-span-7 space-y-6">
@@ -414,15 +414,15 @@ function StudioHero() {
               <Code className="w-3 h-3" /> Experimental Build v0.9
             </span>
           </div>
-          
+
           <h1 className="text-6xl md:text-8xl font-serif text-text leading-[0.9] tracking-tight">
-            Code as <br/>
+            Code as <br />
             <span className="italic text-primary">material.</span>
           </h1>
-          
+
           <div className="max-w-md bg-surface/80 backdrop-blur-sm p-6 border-l-4 border-primary mt-8">
             <p className="text-lg font-sans text-text leading-relaxed">
-              Prep reclaims your codebase from the cloud. A local-first studio for 
+              Prep reclaims your codebase from the cloud. A local-first studio for
               semantic indexing and intelligent retrieval.
             </p>
           </div>
@@ -440,11 +440,11 @@ function StudioHero() {
         {/* Visual Collage Right (No Rotation, playful retro-future elements) */}
         <div className="col-span-12 md:col-span-5 relative h-[400px]">
           {/* Retro Grid element */}
-          <div className="absolute top-0 right-10 w-48 h-48 opacity-20" 
-             style={{ 
-               backgroundImage: 'linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)',
-               backgroundSize: '10px 10px'
-             }}>
+          <div className="absolute top-0 right-10 w-48 h-48 opacity-20"
+            style={{
+              backgroundImage: 'linear-gradient(currentColor 1px, transparent 1px), linear-gradient(90deg, currentColor 1px, transparent 1px)',
+              backgroundSize: '10px 10px'
+            }}>
           </div>
 
           <div className="absolute top-10 right-0 w-64 bg-surface border-2 border-border p-4 shadow-xl z-20">
@@ -470,7 +470,7 @@ function StudioHero() {
 
           <div className="absolute bottom-10 right-20 w-40 h-40 border-4 border-primary rounded-full flex items-center justify-center bg-background/50 backdrop-blur-sm z-30">
             <span className="font-mono text-xs text-center font-bold">
-              100%<br/>LOCAL<br/>STORAGE
+              100%<br />LOCAL<br />STORAGE
             </span>
           </div>
         </div>
@@ -505,7 +505,7 @@ function YaleHero() {
           {/* Column 1: Description */}
           <div className="col-span-12 md:col-span-3 md:col-start-4">
             <p className="font-sans text-base text-text leading-relaxed mb-6">
-              Prep provides a unified interface for code retrieval and generation 
+              Prep provides a unified interface for code retrieval and generation
               context, operating entirely within the local filesystem to ensure data sovereignty.
             </p>
             <a href="#" className="font-sans font-medium text-primary hover:underline underline-offset-4 decoration-2 flex items-center gap-1">
@@ -565,12 +565,12 @@ function FocusHero() {
         </div>
 
         <h1 className="text-5xl md:text-7xl font-bold text-text mb-8 tracking-tight">
-          Clear code context.<br/>
+          Clear code context.<br />
           <span className="text-primary underline decoration-4 underline-offset-8 decoration-primary/30">Zero distractions.</span>
         </h1>
 
         <p className="text-xl md:text-2xl text-text-muted max-w-2xl mx-auto mb-12 leading-relaxed font-medium">
-          Prep helps you focus by handling the complexity of code context automatically. 
+          Prep helps you focus by handling the complexity of code context automatically.
           Local, fast, and designed for clarity.
         </p>
 
@@ -631,7 +631,7 @@ function EnterpriseHero() {
               Scale your development context securely.
             </h1>
             <p className="text-text-muted text-lg leading-relaxed">
-              Standardize semantic indexing across your engineering organization. 
+              Standardize semantic indexing across your engineering organization.
               Enforce governance, manage access, and accelerate onboarding with shared context layers.
             </p>
           </div>
@@ -666,7 +666,7 @@ function EnterpriseHero() {
                 <span className="w-3 h-3 bg-border rounded-full"></span>
               </div>
             </div>
-            
+
             <div className="p-6 grid grid-cols-2 gap-4">
               <div className="col-span-2 bg-surface border border-border p-4">
                 <div className="text-xs text-text-subtle uppercase mb-2">Total Context Usage</div>
@@ -678,13 +678,13 @@ function EnterpriseHero() {
                   <div className="w-full bg-primary/20 h-[75%] relative"><div className="absolute top-0 w-full h-1 bg-primary"></div></div>
                 </div>
               </div>
-              
+
               <div className="bg-surface border border-border p-4">
                 <div className="text-xs text-text-subtle uppercase mb-1">Active Seats</div>
                 <div className="text-3xl font-mono font-medium text-text">1,248</div>
                 <div className="text-xs text-success mt-1">+12% vs last month</div>
               </div>
-              
+
               <div className="bg-surface border border-border p-4">
                 <div className="text-xs text-text-subtle uppercase mb-1">System Status</div>
                 <div className="text-lg font-medium text-text flex items-center gap-2">

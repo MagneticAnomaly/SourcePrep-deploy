@@ -17,14 +17,13 @@ import { SelectiveResetPage } from './SelectiveReset';
 export interface PageHostProps {
   activeProjectId: string | null;
 
-  // ── Project-scope: Sources page (Task 14) ─────────────────────────
+  // ── Project-scope: Sources / Trace & Indexing pages ───────────────
+  // Autosave — onProjectChange persists on change via debounced useEffect
+  // in App.tsx. projectSaving drives the "Saving…" indicator in the page header.
   projectName: string | null;
   projectConfigTyped: ProjectConfig | null;
-  projectDirty: boolean;
   projectSaving: boolean;
   onProjectChange: (next: ProjectConfig) => void;
-  onProjectSave: () => void | Promise<void>;
-  onProjectDiscard: () => void;
   onDetectStack?: () => Promise<{
     recommended_globs: string[];
     detected_presets: string[];
@@ -119,11 +118,8 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
         <SourcesPage
           projectName={host.projectName}
           config={host.projectConfigTyped}
-          dirty={host.projectDirty}
           saving={host.projectSaving}
           onChange={host.onProjectChange}
-          onSave={host.onProjectSave}
-          onDiscard={host.onProjectDiscard}
           onDetectStack={host.onDetectStack}
         />
       ) : (
@@ -138,11 +134,8 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
         <TraceIndexingPage
           projectName={host.projectName}
           config={host.projectConfigTyped}
-          dirty={host.projectDirty}
           saving={host.projectSaving}
           onChange={host.onProjectChange}
-          onSave={host.onProjectSave}
-          onDiscard={host.onProjectDiscard}
         />
       ) : (
         <SettingsPage title="Trace & Indexing" scope="project">

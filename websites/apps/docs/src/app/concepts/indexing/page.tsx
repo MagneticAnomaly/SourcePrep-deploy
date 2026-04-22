@@ -10,13 +10,13 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Vector Indexing</h1>
         <p className="mt-4 text-xl text-text-muted">
-          Stage 2 of the Knowledge Pipeline: Creating the searchable semantic layer.
+          How RunPrep finds the right code when you describe what you want instead of naming it exactly.
         </p>
 
         <div className="mt-12 prose  max-w-none">
           <AnchorHeading id="pipeline" level="h2">The Indexing Process</AnchorHeading>
           <p>
-            <span className="font-semibold text-text">Vector Indexing</span> is the second stage of the <a href="/dashboard#knowledge-pipeline">Knowledge Pipeline</a>. While the Structural Trace (Stage 1) maps the skeleton of your code, Vector Indexing creates the "muscle" that allows for fuzzy semantic search.
+            <span className="font-semibold text-text">Vector Indexing</span> is what lets RunPrep answer &quot;fuzzy&quot; questions — the kind where you describe intent instead of typing exact names. The <a href="/dashboard#knowledge-pipeline">Knowledge Pipeline</a>&apos;s structural map gives you the skeleton of your code; vector indexing adds the muscle, so searching for &quot;how authentication works&quot; can surface the right files even if none of them contain the word &quot;authentication&quot; verbatim.
           </p>
           <p>
             Unlike cloud-based tools, this happens entirely on your localhost.

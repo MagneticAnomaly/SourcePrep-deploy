@@ -6,7 +6,7 @@
 
 ## Overview
 
-All four Prep web applications (`marketing`, `docs`, `support`, `payments`) deploy on
+All four RunPrep web applications (`marketing`, `docs`, `support`, `payments`) deploy on
 **Netlify** free tier (100 GB bandwidth, 300 build min/mo, commercial use allowed).
 **Cloudflare** manages DNS and edge caching.
 
@@ -39,10 +39,10 @@ Each app is a separate Netlify site connected to the same GitHub repo.
 
 | Site | Base Directory | Build Command | Publish Dir |
 |------|---------------|---------------|-------------|
-| Marketing | `websites/apps/marketing` | `cd ../../.. && npx turbo run build --filter=@prep/marketing` | `.next` |
-| Docs | `websites/apps/docs` | `cd ../../.. && npx turbo run build --filter=@prep/docs` | `.next` |
-| Support | `websites/apps/support` | `cd ../../.. && npx turbo run build --filter=@prep/support` | `.next` |
-| Payments | `websites/apps/payments` | `cd ../../.. && npx turbo run build --filter=@prep/payments` | `.next` |
+| Marketing | `websites/apps/marketing` | `cd ../../.. && npx turbo run build --filter=@runprep/marketing` | `.next` |
+| Docs | `websites/apps/docs` | `cd ../../.. && npx turbo run build --filter=@runprep/docs` | `.next` |
+| Support | `websites/apps/support` | `cd ../../.. && npx turbo run build --filter=@runprep/support` | `.next` |
+| Payments | `websites/apps/payments` | `cd ../../.. && npx turbo run build --filter=@runprep/payments` | `.next` |
 
 Alternatively, add a `netlify.toml` to each app for declarative config.
 
@@ -96,7 +96,7 @@ Set these in the Netlify dashboard for each site:
 - `BUG_REPORT_EMAIL`: Destination for bug report alerts (default: `bugs@runprep.io`)
 
 **Payments App:**
-- `NEXT_PUBLIC_PREP_CHECKOUT_URL`: Lemon Squeezy checkout URL
+- `NEXT_PUBLIC_RUNPREP_CHECKOUT_URL`: Lemon Squeezy checkout URL
 - `LEMONSQUEEZY_API_KEY`: (Secret) API key for license recovery
 - `LEMONSQUEEZY_STORE_ID`: Store ID
 

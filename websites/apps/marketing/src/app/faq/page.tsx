@@ -55,8 +55,8 @@ const faqs: FAQItem[] = [
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">RunPrep + trace expansion</td><td>~2,000</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Cursor default chat cap</td><td>~20,000</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT-5.3 (OpenAI)</td><td>400,000</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Sonnet 4 / Opus 4.6 (standard)</td><td>200,000</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Sonnet 4.5 / Opus 4.6 (extended beta)</td><td>1,000,000</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Sonnet 4.6 (Anthropic)</td><td>200,000</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Opus 4.7 (Anthropic)</td><td>1,000,000</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Gemini 3 Pro (Google)</td><td>1,000,000–2,000,000</td></tr>
               <tr><td className="py-2 pr-6">Qwen3-Coder-480B (local / open)</td><td>256,000 native · 1M extrapolated</td></tr>
             </tbody>
@@ -82,7 +82,7 @@ const faqs: FAQItem[] = [
             </thead>
             <tbody className="text-text-muted">
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT-5.3 (OpenAI)</td><td>~16–32K tokens — larger windows don&apos;t eliminate degradation</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Opus 4.6 / Sonnet 4</td><td>~32K tokens — 1M window available, but RAG accuracy still peaks early</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Opus 4.7 / Sonnet 4.6</td><td>~32K tokens — RAG accuracy peaks early even on long-context models</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Gemini 3 Pro</td><td>~32–64K tokens — best long-context retrieval of any frontier model</td></tr>
               <tr><td className="py-2 pr-6">Qwen3-Coder-480B (local)</td><td>~16–32K tokens — strong coder, MoE architecture, 256K native window</td></tr>
             </tbody>

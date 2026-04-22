@@ -23,7 +23,7 @@ export default function Page() {
           </p>
           <ol className="list-decimal pl-5 space-y-2 mt-4 mb-6">
             <li><span className="font-semibold text-text">Graph Scope (Panel A)</span>: Managing the inventory of files (what enters the graph).</li>
-            <li><span className="font-semibold text-text">Graph Engine (Panel B)</span>: Orchestrating the 9-stage knowledge pipeline (how it’s processed).</li>
+            <li><span className="font-semibold text-text">Graph Engine (Panel B)</span>: Orchestrating the knowledge pipeline that learns how your code connects (how it’s processed).</li>
           </ol>
           <p>
             This layout streamlines the workflow: you define the scope, and the AI engine handles the heavy lifting of tracing, indexing, and enriching your codebase.
@@ -82,7 +82,7 @@ export default function Page() {
 
           <AnchorHeading id="panel-b" level="h2" className="text-2xl font-bold mt-12 mb-6">2. Knowledge Pipeline (Panel B)</AnchorHeading>
           <p>
-            The <span className="font-semibold text-text">Knowledge Pipeline</span> panel (right pane) is the “Factory”. It visualizes the 9-stage process that transforms your files (Scope) into intelligent context.
+            The <span className="font-semibold text-text">Knowledge Pipeline</span> panel (right pane) is the “Factory”. It visualizes each step of the process that turns your files (Scope) into context your AI can actually reason over — parsing the structure, reasoning about meaning, and packaging the guides and safeguards your tools consume.
           </p>
 
           <AnchorHeading id="pipeline-controls" level="h3" className="text-xl font-semibold mt-8 mb-4">Controls</AnchorHeading>
@@ -91,8 +91,8 @@ export default function Page() {
             <li><span className="font-semibold text-text">Budget Info:</span> Real-time tracking of token usage (e.g., "12k / 50k tokens") to ensure no surprise costs.</li>
           </ul>
 
-          <AnchorHeading id="pipeline-stages" level="h3" className="text-xl font-semibold mt-8 mb-4">The 9 Stages</AnchorHeading>
-          <p className="text-sm text-text-muted mb-4">Stages 1–4 form <span className="font-semibold text-text">Fast Sync</span> (runs on every file save). Stages 5–9 form <span className="font-semibold text-text">Deep Enrichment</span> (runs on idle or schedule).</p>
+          <AnchorHeading id="pipeline-stages" level="h3" className="text-xl font-semibold mt-8 mb-4">What each step does</AnchorHeading>
+          <p className="text-sm text-text-muted mb-4">The pipeline has two modes: <span className="font-semibold text-text">Fast Sync</span> runs on every file save to keep the structural map current, and <span className="font-semibold text-text">Deep Enrichment</span> runs on idle or a schedule to layer in meaning and relationships. The individual steps below are the detail for the curious — day to day, you just let it run.</p>
           <div className="space-y-4 mb-8">
             <div className="p-4 border border-border rounded bg-surface">
               <div className="font-semibold text-sm">1. Structural Graph <span className="text-xs font-normal text-text-muted">(Rust)</span></div>
@@ -135,7 +135,7 @@ export default function Page() {
           <StoryEmbed
             storyId="dashboard-widgets-trace-graphenrichmentpipeline--full-pipeline-running"
             height={450}
-            caption="Knowledge Pipeline in action — all 9 stages visualized with live progress"
+            caption="Knowledge Pipeline in action — every step visualized with live progress"
           />
 
           <hr className="my-12 border-border" />

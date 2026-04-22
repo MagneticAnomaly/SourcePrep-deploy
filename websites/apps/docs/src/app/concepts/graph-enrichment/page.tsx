@@ -10,11 +10,23 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Graph Enrichment</h1>
         <p className="mt-4 text-xl text-text-muted">
-          How RunPrep builds a self-refining understanding of your codebase — and why
-          treating a code graph as an epistemological system changes everything.
+          How RunPrep keeps deepening what it knows about your code — parsing structure fast, reasoning about meaning slowly, and re-checking what it thinks it knows whenever the code changes.
         </p>
 
         <div className="mt-12 prose max-w-none">
+
+          <div className="not-prose my-6 rounded-lg border border-border bg-surface p-5">
+            <div className="text-sm font-semibold text-text mb-2">The short version</div>
+            <p className="text-sm text-text-muted m-0">
+              RunPrep doesn&apos;t just search your code — it actively tries to <em>understand</em> it.
+              A fast Rust parser maps the structure in seconds. Then small and large language
+              models layer in meaning: what each file does, how it connects to others, which
+              modules it belongs to. When you change a file, the system notices its neighbors&apos;
+              understanding may have shifted and re-checks them. Your AI never acts on stale
+              context. The rest of this page explains how — including the research it&apos;s built on,
+              for readers who want that depth.
+            </p>
+          </div>
 
           <AnchorHeading id="why-epistemology" level="h2">Why Epistemology?</AnchorHeading>
           <p>
@@ -38,11 +50,11 @@ export default function Page() {
             about its own knowledge</span>.
           </p>
 
-          <AnchorHeading id="the-pipeline" level="h2">The 9-Stage Pipeline</AnchorHeading>
+          <AnchorHeading id="the-pipeline" level="h2">Inside the Pipeline</AnchorHeading>
           <p>
-            Enrichment is split into two groups: a <span className="font-semibold text-text">Fast Sync</span> group that runs on
-            every file save (~seconds), and a <span className="font-semibold text-text">Deep Enrichment</span> group that runs
-            when the system is idle or on a schedule (~minutes).
+            Enrichment runs in two groups. <span className="font-semibold text-text">Fast Sync</span> runs on
+            every file save (~seconds) to keep the structural map current. <span className="font-semibold text-text">Deep Enrichment</span> runs
+            when the system is idle or on a schedule (~minutes) to layer in meaning and relationships.
           </p>
 
           <h3 className="text-lg font-semibold mt-6 mb-4">Group A: Fast Sync</h3>

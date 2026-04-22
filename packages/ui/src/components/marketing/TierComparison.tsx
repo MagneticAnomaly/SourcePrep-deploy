@@ -47,7 +47,6 @@ const features: TierFeature[] = [
 
   // Privacy & Runtime
   { category: 'Privacy & Runtime', name: '100% local — no cloud upload', free: true, pro: true },
-  { category: 'Privacy & Runtime', name: 'Works without any LLM', free: true, pro: true },
   { category: 'Privacy & Runtime', name: 'Optional Ollama for local reasoning', free: true, pro: true },
   { category: 'Privacy & Runtime', name: 'Optional cloud LLM (BYOK)', free: true, pro: true },
 

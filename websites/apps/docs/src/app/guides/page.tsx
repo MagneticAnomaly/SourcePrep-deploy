@@ -98,6 +98,30 @@ export default function Page() {
               and actionable recommendations — all generated from the trace graph.
             </p>
           </a>
+
+          <a
+            href="/guides/audit-enrichment"
+            className="block rounded-lg border border-border bg-surface p-6 hover:border-primary transition-colors"
+          >
+            <h2 className="text-xl font-semibold">Audit Enrichment</h2>
+            <p className="mt-2 text-sm text-text-muted">
+              Pipe lint and static-analysis findings through RunPrep to get structural context
+              on every result — dependent count, hub status, related concepts, and risk score.
+              Accepts simple JSON or SARIF round-trip.
+            </p>
+          </a>
+
+          <a
+            href="/guides/smart-search"
+            className="block rounded-lg border border-border bg-surface p-6 hover:border-primary transition-colors"
+          >
+            <h2 className="text-xl font-semibold">Smart Search</h2>
+            <p className="mt-2 text-sm text-text-muted">
+              How <code>prep_search</code> routes your query to the right backend — symbol lookup,
+              semantic search, concepts, or trace graph — based on whether you asked{' '}
+              <em>where</em>, <em>how</em>, <em>why</em>, or <em>who calls</em>.
+            </p>
+          </a>
         </div>
       </div>
     </main>

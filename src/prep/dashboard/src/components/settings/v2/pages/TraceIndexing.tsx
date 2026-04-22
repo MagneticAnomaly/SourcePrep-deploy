@@ -1,11 +1,10 @@
 import {
-  Button,
   Section,
   SettingRow,
   Toggle,
   type ProjectConfig,
 } from '@prep/ui';
-import { RotateCcw, Save } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { SettingsPage } from '../SettingsPage';
 
 // Defaults lifted verbatim from the legacy advanced settings panel (removed
@@ -19,21 +18,16 @@ const TRACE_LIMIT_DEFAULTS = {
 export interface TraceIndexingPageProps {
   projectName: string | null;
   config: ProjectConfig;
-  dirty: boolean;
+  /** True while a debounced autosave is in-flight — drives the "Saving…" indicator. */
   saving: boolean;
   onChange: (next: ProjectConfig) => void;
-  onSave: () => void | Promise<void>;
-  onDiscard: () => void;
 }
 
 export function TraceIndexingPage({
   projectName,
   config,
-  dirty,
   saving,
   onChange,
-  onSave,
-  onDiscard,
 }: TraceIndexingPageProps) {
   const autoRebuild = config.auto_rebuild;
   const trace = config.trace;
@@ -177,24 +171,9 @@ export function TraceIndexingPage({
     onReset: () => resetAdvanced('max_edges'),
   });
 
-  const saveAction = (
-    <div className="flex items-center gap-2">
-      {dirty && (
-        <Button variant="ghost" size="sm" onClick={onDiscard} disabled={saving}>
-          Discard
-        </Button>
-      )}
-      <Button
-        size="sm"
-        onClick={() => void onSave()}
-        disabled={!dirty || saving}
-        icon={Save}
-        className="bg-primary text-primary-foreground"
-      >
-        {saving ? 'Saving…' : 'Save Changes'}
-      </Button>
-    </div>
-  );
+  const savingIndicator = saving ? (
+    <span className="text-xs text-text-muted">Saving…</span>
+  ) : null;
 
   const description = projectName
     ? `How ${projectName}'s code graph is built and refreshed.`
@@ -205,8 +184,7 @@ export function TraceIndexingPage({
       title="Trace & Indexing"
       scope="project"
       description={description}
-      actions={saveAction}
-      dirty={dirty}
+      actions={savingIndicator}
     >
       <Section title="Trace">
         <SettingRow

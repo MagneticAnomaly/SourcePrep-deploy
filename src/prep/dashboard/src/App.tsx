@@ -507,45 +507,17 @@ function App() {
     }
   }, [setDeepAnalysisSchedule, enrichmentAutoConfig, handleEnrichmentAutoConfigChange])
 
-  // ── Settings v2: Project save/discard wiring (T14) ──────────
+  // ── Settings v2: Project autosave wiring ────────────────────
+  // Project pages autosave on change (debounced). No explicit Save/Discard.
   const [projectSaving, setProjectSaving] = useState(false)
-  const handleProjectSave = useCallback(async () => {
-    setProjectSaving(true)
-    try {
-      await handleSaveConfig()
-    } finally {
-      setProjectSaving(false)
-    }
-  }, [handleSaveConfig])
-  // Discard: re-fetch the canonical config from the daemon and clear dirty.
-  // If the fetch fails (e.g. daemon unreachable), we still clear the dirty
-  // flag so the user can escape — the next project-switch will re-hydrate.
-  const handleProjectDiscard = useCallback(() => {
-    if (!selectedProjectId) {
-      setConfigDirty(false)
-      return
-    }
-    void api.getProject(selectedProjectId)
-      .then((data) => {
-        const cfg = data.project?.config
-        if (cfg) {
-          setProjectConfig((prev) => ({
-            ...prev,
-            include_globs: cfg.include_globs ?? prev.include_globs,
-            exclude_globs: cfg.exclude_globs ?? prev.exclude_globs,
-            max_file_bytes: cfg.max_file_bytes ?? prev.max_file_bytes,
-            hard_limit_bytes: cfg.hard_limit_bytes ?? prev.hard_limit_bytes,
-            use_gitignore: cfg.use_gitignore ?? prev.use_gitignore,
-            trace: cfg.trace ?? prev.trace,
-            auto_rebuild: cfg.auto_rebuild ?? prev.auto_rebuild,
-            auto_config: cfg.auto_config,
-            deep_analysis_schedule: cfg.deep_analysis_schedule,
-          }))
-        }
-      })
-      .catch(() => { /* fall through: still clear dirty */ })
-      .finally(() => setConfigDirty(false))
-  }, [api, selectedProjectId, setProjectConfig, setConfigDirty])
+  useEffect(() => {
+    if (!configDirty || !selectedProjectId) return
+    const t = window.setTimeout(() => {
+      setProjectSaving(true)
+      void handleSaveConfig().finally(() => setProjectSaving(false))
+    }, 500)
+    return () => window.clearTimeout(t)
+  }, [configDirty, selectedProjectId, handleSaveConfig])
 
   // ── LLM config (hook) ───────────────────────────────────────
   const {
@@ -558,7 +530,10 @@ function App() {
     markLLMConfigClean, flushPendingSave,
     fetchLLMSlotsStatus,
   } = useLLMConfig({
-    onDirty: () => setConfigDirty(true),
+    // Intentionally no onDirty: LLM has its own useDebouncedAutoSave + flushPendingSave.
+    // Piping LLM changes into setConfigDirty would re-trigger project-config autosave
+    // whenever model details refresh (mergeContextCache) — manifests as a blinking
+    // "Saving…" indicator in the settings overlay.
     onSwapModel: handleSwapModel,
   })
 
@@ -1092,11 +1067,8 @@ function App() {
           activeProjectId: selectedProjectId,
           projectName: selectedProject?.name ?? null,
           projectConfigTyped: selectedProjectId ? projectConfig : null,
-          projectDirty: configDirty,
           projectSaving,
           onProjectChange: handleProjectConfigChange,
-          onProjectSave: handleProjectSave,
-          onProjectDiscard: handleProjectDiscard,
           onDetectStack: selectedProjectId ? handleDetectStack : undefined,
           deepAnalysisSchedule,
           onDeepAnalysisScheduleChange: handleSyncedDeepAnalysisScheduleChange,
@@ -1135,7 +1107,6 @@ function App() {
           onDestroyDeepEnrichment: handleDestroyDeepEnrichment,
         })}
         projectName={selectedProject?.name ?? null}
-        confirmCloseIfDirty={() => !configDirty || window.confirm('Discard unsaved changes?')}
       />
       {/* Floating Settings trigger — always visible; overlay (z-[110]) masks it when open. */}
       <Button

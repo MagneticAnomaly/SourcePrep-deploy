@@ -314,7 +314,7 @@ prep audit --category architecture`}</code></pre>
             tool that reads the same data the pipeline writes. The connection:
           </p>
           <ol className="list-decimal pl-6 space-y-2">
-            <li>The enrichment pipeline runs (stages 1–11) and produces trace_nodes, trace_augmented, trace_epistemic, trace_modules, and atlas.json.</li>
+            <li>The enrichment pipeline runs to completion and produces trace_nodes, trace_augmented, trace_epistemic, trace_modules, and atlas.json.</li>
             <li>You run <code>prep audit</code> when you want insights. The audit reads all that data and produces findings + reports.</li>
             <li>If <code>auto_run_after_deep</code> is enabled, Tier 1 analyzers run automatically when deep enrichment completes.</li>
             <li>Audit reports are indexed by RunPrep&apos;s search engine and served via MCP, so your AI tools can access them.</li>

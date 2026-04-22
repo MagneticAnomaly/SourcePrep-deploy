@@ -44,79 +44,26 @@ export default function Page() {
         {/* Why RunPrep + Capabilities (merged) */}
         <section>
           <div className="text-center mb-16">
-            <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Why developers need this</p>
+            <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Prep the context before the AI call</p>
             <h2 className="text-3xl font-medium tracking-tight text-text sm:text-4xl">
-              If you use AI to write code, you need RunPrep
+              Run prep before grep
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              AI assistants are only as good as the context they receive. RunPrep makes sure they get the right context, every time — delivering <strong className="text-text font-semibold">3–20× more signal per token</strong> than dumping whole files into the prompt.
+              Your AI agent orients itself by opening files and running grep — one guess at a time. RunPrep is the prep step that hands it a structural map of the codebase up front, so every answer starts from a full picture instead of a keyword match. The payoff: <strong className="text-text font-semibold">3–20× more signal per token</strong> than dumping whole files into the prompt.
             </p>
           </div>
           <FeatureBlocks features={marketingFeatures} variant="list" />
-
-          {/* Capabilities grid + YouTube inline */}
-          <div className="mt-20">
-            <div className="text-center mb-12">
-              <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Capabilities</p>
-              <h2 className="text-2xl font-medium tracking-tight text-text sm:text-3xl">
-                Built for large codebases and sprawling doc trees
-              </h2>
-            </div>
-
-            <FeatureBlocks features={prepFeatures.filter((_: any, i: number) => [0, 1, 2, 3, 4, 7, 10, 11, 12].includes(i))} variant="cards" />
-
-            {/* Deep-dive pages */}
-            <div className="mt-12 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {[
-                { href: '/claude-code', title: 'Claude Code', desc: 'Our deepest integration' },
-                { href: '/paperclip', title: 'Paperclip', desc: 'Agent orchestration' },
-                { href: '/graph-enrichment', title: 'Graph Enrichment', desc: 'Multi-stage pipeline' },
-                { href: '/immune-system', title: 'Immune System', desc: 'Architectural guardrails' },
-                { href: '/integrations', title: 'IDE Ecosystem', desc: 'One server, every editor' },
-              ].map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 hover:border-primary/40 hover:bg-surface-raised transition-all group"
-                >
-                  <div>
-                    <span className="text-sm font-medium text-text group-hover:text-primary transition-colors">{link.title}</span>
-                    <span className="text-xs text-text-muted ml-2">{link.desc}</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-text-muted group-hover:text-primary transition-colors" />
-                </Link>
-              ))}
-            </div>
-
-            {/* YouTube — compact inline, not a hero panel */}
-            <div className="mt-12 max-w-3xl mx-auto">
-              <div className="flex items-center gap-2 mb-3">
-                <Play className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-text-muted">See it in action</span>
-              </div>
-              <div className="rounded-xl border border-border shadow-lg overflow-hidden aspect-video bg-black">
-                <iframe
-                  className="w-full h-full"
-                  src="https://www.youtube.com/embed/bjC6DFQ8Zmw?rel=0"
-                  title="RunPrep Demo Video"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                  allowFullScreen
-                />
-              </div>
-            </div>
-          </div>
         </section>
 
         {/* Live Demos — tabbed showcase replacing static tool cards */}
-        <section className="rounded-2xl border border-border bg-surface p-6 md:p-10">
+        <section>
           <div className="text-center mb-10">
             <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">See The Tools</p>
             <h2 className="text-3xl font-medium tracking-tight text-text sm:text-4xl">
               Six MCP tools. Deep codebase intelligence.
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              Connect RunPrep once to Claude Code, Antigravity, Cursor, or any MCP-compatible editor — and your AI gets structural awareness, semantic search, blast radius analysis, audit enrichment, persistent memory, and recorded design rationale.
+              Connect RunPrep once to Claude Code, Antigravity, Cursor, or any MCP-compatible editor and your AI gets structural awareness, semantic search, blast radius analysis, audit enrichment, persistent memory, and recorded design rationale.
             </p>
           </div>
 
@@ -126,11 +73,10 @@ export default function Page() {
               <button
                 key={tab.key}
                 onClick={() => setActiveDemo(tab.key)}
-                className={`px-4 py-2 rounded-lg text-sm font-mono transition-all ${
-                  activeDemo === tab.key
-                    ? 'bg-primary text-background font-semibold shadow-md shadow-primary/25'
-                    : 'bg-surface-raised border border-border text-text-muted hover:text-text hover:border-primary/40'
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-mono transition-all ${activeDemo === tab.key
+                  ? 'bg-primary text-background font-semibold shadow-md shadow-primary/25'
+                  : 'bg-surface-raised border border-border text-text-muted hover:text-text hover:border-primary/40'
+                  }`}
               >
                 <span className="hidden sm:inline">{tab.label}</span>
                 <span className="sm:hidden">{tab.label.replace('prep_', '')}</span>
@@ -142,49 +88,123 @@ export default function Page() {
           {/* Demo display */}
           <div className="max-w-5xl mx-auto">
             {activeDemo === 'overview' && (
-              <AnimatedCLI script={prepOverviewDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepOverviewDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
             )}
             {activeDemo === 'search' && (
-              <AnimatedCLI script={prepSearchDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepSearchDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
             )}
             {activeDemo === 'impact' && (
-              <AnimatedCLI script={prepImpactDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepImpactDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
             )}
             {activeDemo === 'audit' && (
-              <AnimatedCLI script={prepAuditDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepAuditDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
             )}
             {activeDemo === 'observe' && (
-              <AnimatedCLI script={prepObserveDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepObserveDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
             )}
             {activeDemo === 'concepts' && (
-              <AnimatedCLI script={prepConceptsDemo} theme="dark" className="w-full" />
+              <AnimatedCLI script={prepConceptsDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
             )}
             {activeDemo === 'ide' && (
               <AnimatedIDE script={ideDemoScript} className="w-full" />
             )}
           </div>
 
-          {/* Quick setup */}
-          <div className="max-w-2xl mx-auto mt-10">
-            <div className="rounded-xl border border-border bg-background p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">&#x2713;</div>
-                <h3 className="font-mono font-medium text-sm text-text">Connect instantly via MCP</h3>
-              </div>
-              <div className="font-mono text-sm space-y-3">
-                <div className="bg-surface p-2 rounded border border-border-subtle text-success text-xs">
-                  $ prep serve
+
+        </section>
+
+        {/* Integrations */}
+        <section>
+          <div className="text-center mb-10">
+            <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Integrations</p>
+            <h2 className="text-2xl font-medium tracking-tight text-text sm:text-3xl">
+              Works with the editors and agents you already use
+            </h2>
+            <p className="mt-3 text-base text-text-muted max-w-2xl mx-auto">
+              One MCP server, every client. Connect RunPrep once and any MCP-aware tool picks it up.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {[
+              { href: '/claude-code', name: 'Claude Code', tag: 'Deepest integration', logo: '/logos/claude.svg' },
+              { href: '/integrations#cursor', name: 'Cursor', tag: 'MCP-native', logo: '/logos/cursor.svg' },
+              { href: '/integrations#windsurf', name: 'Windsurf', tag: 'MCP-native', logo: '/logos/windsurf.svg' },
+              { href: '/integrations#vscode', name: 'VS Code', tag: 'Extension + MCP', logo: '/logos/vscode.svg' },
+              { href: '/integrations#copilot', name: 'GitHub Copilot', tag: 'MCP bridge', logo: '/logos/copilot.png' },
+              { href: '/integrations#gemini-cli', name: 'Gemini CLI', tag: 'MCP-native', logo: '/logos/gemini.svg' },
+              { href: '/paperclip', name: 'Paperclip', tag: 'Agent orchestration', logo: '/logos/paperclip.svg' },
+              { href: '/integrations', name: 'See all', tag: 'Full ecosystem', logo: null },
+            ].map((item) => (
+              <Link
+                key={item.href + item.name}
+                href={item.href}
+                className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 hover:border-primary/40 hover:bg-surface-raised transition-all group"
+              >
+                {/* Logo slot — drop a square PNG/SVG into public/logos/ */}
+                {item.logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.logo} alt="" className="w-9 h-9 object-contain shrink-0" />
+                ) : (
+                  <div className="w-9 h-9 rounded-md bg-background border border-border-subtle flex items-center justify-center shrink-0">
+                    <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-primary transition-colors" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-text group-hover:text-primary transition-colors truncate">{item.name}</div>
+                  <div className="text-xs text-text-muted truncate">{item.tag}</div>
                 </div>
-                <div className="bg-surface p-2 rounded border border-border-subtle text-text-subtle text-xs">
-                  <span className="text-text-muted">{`// Add to your editor's MCP config:`}</span><br/>
-                  {`"prep": { "command": "prep", "args": ["mcp"] }`}
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* Capabilities */}
+        <section>
+          <div className="text-center mb-12">
+            <p className="text-sm font-semibold uppercase tracking-widest text-primary mb-3">Capabilities</p>
+            <h2 className="text-2xl font-medium tracking-tight text-text sm:text-3xl">
+              Built for large codebases and sprawling doc trees
+            </h2>
+          </div>
+
+          <FeatureBlocks features={prepFeatures.filter((_: any, i: number) => [0, 1, 2, 3, 4, 7, 10, 11, 12].includes(i))} variant="cards" />
+
+          {/* Deep-dive feature pages 
+          <div className="mt-12 grid sm:grid-cols-2 gap-3 max-w-3xl mx-auto">
+            {[
+              { href: '/graph-enrichment', title: 'Graph Enrichment', desc: 'Multi-stage pipeline' },
+              { href: '/immune-system', title: 'Immune System', desc: 'Architectural guardrails' },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3 hover:border-primary/40 hover:bg-surface-raised transition-all group"
+              >
+                <div>
+                  <span className="text-sm font-medium text-text group-hover:text-primary transition-colors">{link.title}</span>
+                  <span className="text-xs text-text-muted ml-2">{link.desc}</span>
                 </div>
-              </div>
+                <ArrowRight className="w-3.5 h-3.5 text-text-muted group-hover:text-primary transition-colors" />
+              </Link>
+            ))}
+          </div>*/}
+
+          {/* YouTube — compact inline, not a hero panel */}
+          <div className="mt-12 max-w-3xl mx-auto">
+            <div className="flex items-center gap-2 mb-3">
+              <Play className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-text-muted">See it in action</span>
             </div>
-            <div className="text-center mt-6">
-              <a href="https://docs.runprep.io/mcp" className="text-sm text-primary hover:underline">
-                View full integration guides for Claude Code, Antigravity, Cursor, and more →
-              </a>
+            <div className="rounded-xl border border-border shadow-lg overflow-hidden aspect-video bg-black">
+              <iframe
+                className="w-full h-full"
+                src="https://www.youtube.com/embed/bjC6DFQ8Zmw?rel=0"
+                title="RunPrep Demo Video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
             </div>
           </div>
         </section>

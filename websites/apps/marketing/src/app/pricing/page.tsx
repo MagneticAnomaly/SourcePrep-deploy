@@ -61,8 +61,8 @@ export default function Page() {
             Simple, honest pricing
           </h1>
           <p className="mt-6 text-xl text-text-muted leading-relaxed">
-            Private by design. Sovereign context. RunPrep ships with built-in ONNX embeddings —
-            semantic search works out of the box, no LLM required. Subscribe monthly or pay once and own it forever.
+            Private by design. Sovereign context. RunPrep ships with built-in ONNX embeddings so
+            semantic search runs locally from day one. Subscribe monthly or pay once and own it forever.
           </p>
         </div>
 
@@ -146,7 +146,7 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>9-stage graph enrichment pipeline</span>
+                <span>Full graph enrichment — the same deep pipeline powers every tier</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-text-subtle mt-0.5">&#8594;</span>
@@ -215,7 +215,7 @@ export default function Page() {
             </div>
             <p className="mt-3 text-sm text-text-muted">
               Build the trace graph once in CI/CD. Your whole team downloads it instantly.
-              Only local changes get re-enriched — no developer runs LLMs.
+              Only local changes get re-enriched, so developers skip the heavy lifting.
             </p>
             <ul className="mt-4 space-y-2 text-sm">
               <li className="flex items-start gap-2">
@@ -224,7 +224,7 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Headless CI/CD indexer — runs the 10-stage pipeline on every push to <code className="text-xs bg-surface-raised px-1 py-0.5 rounded">main</code></span>
+                <span>Headless CI/CD indexer — runs the full enrichment pipeline on every push to <code className="text-xs bg-surface-raised px-1 py-0.5 rounded">main</code>, so every developer on the team starts with fresh context</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
@@ -326,8 +326,8 @@ export default function Page() {
               <div className="text-3xl">1</div>
               <p className="mt-2 font-semibold">Build once</p>
               <p className="mt-1 text-sm text-text-muted">
-                A CI/CD job runs the headless Docker image after every merge. It produces the full
-                10-stage enriched trace graph — structural, epistemic, clustered.
+                A CI/CD job runs the headless Docker image after every merge. It produces the fully
+                enriched knowledge graph — the structural map, the semantic meaning, and the architectural clusters your agents need.
               </p>
             </div>
             <div className="text-center">
@@ -357,7 +357,7 @@ export default function Page() {
           <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-sm text-text-muted">
             <span>Private by Design — your context index is yours to control</span>
             <span>Built-in embeddings — connect to Ollama Cloud or frontier cloud APIs for advanced reasoning</span>
-            <span>macOS & Windows</span>
+            <span>macOS, Windows & Linux</span>
             <span>MCP integration</span>
           </div>
         </div>

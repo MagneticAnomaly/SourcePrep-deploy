@@ -37,7 +37,7 @@ export default function Page() {
 
           <AnchorHeading id="indexing-status" level="h2" className="mt-8">Indexing Status</AnchorHeading>
           <p>
-            Once added, RunPrep begins the 7-stage knowledge process managed by the <span className="font-semibold text-text">Knowledge Pipeline</span> (Panel B):
+            Once added, RunPrep starts learning about your codebase through the <span className="font-semibold text-text">Knowledge Pipeline</span> (Panel B) — first building the structural map, then layering in meaning and relationships:
           </p>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li><span className="font-semibold text-text">Structural Trace:</span> (Rust) Fast parsing of your codebase structure.</li>

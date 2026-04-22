@@ -54,10 +54,10 @@ export default function Page() {
               <span className="text-xs font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full">Pro</span>
             </div>
             <p className="mt-2 text-sm text-text-muted">
-              A 9-stage pipeline that deepens the Code Graph over time — from fast structural
-              parsing to LLM-powered deep reasoning, module synthesis, and self-refining
-              convergence. Rooted in epistemological principles: the graph knows what it knows,
-              and knows when that knowledge has gone stale.
+              A multi-step pipeline that keeps deepening your Code Graph — starting with fast
+              structural parsing, then layering in meaning, module relationships, and
+              architectural summaries. The graph tracks what it knows and flags when that
+              knowledge goes stale, so your AI never acts on outdated context.
             </p>
           </a>
         </div>

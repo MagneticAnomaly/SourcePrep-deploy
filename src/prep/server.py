@@ -908,6 +908,12 @@ def configure(
     else:
         _concept_store.init(_concept_store_db_path)
 
+    # Belt-and-suspenders: the migration branch above skips init() when
+    # prep_concepts.db is missing AND prep_settings.db exists AND settings.db
+    # has no concepts table (e.g. fresh brand-rename data dirs). init() is
+    # idempotent, so this is a no-op when migration already called it.
+    _concept_store.init(_concept_store_db_path)
+
     # Initialize antibody store (Phase 80: Immune System)
     # F-37: previously never initialized — antibody saves silently failed
     # because the worker catches RuntimeError at DEBUG level.

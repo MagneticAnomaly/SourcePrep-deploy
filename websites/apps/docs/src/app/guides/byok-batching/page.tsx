@@ -97,7 +97,7 @@ export default function Page() {
               <tbody>
                 <tr>
                   <td className="p-3 border-b border-border font-medium text-text">Large</td>
-                  <td className="p-3 border-b border-border text-text-muted">Claude Sonnet 4.5+, Gemini 2.5 Pro</td>
+                  <td className="p-3 border-b border-border text-text-muted">Claude Sonnet 4.6+, Gemini 2.5 Pro</td>
                   <td className="p-3 border-b border-border">50&ndash;100</td>
                 </tr>
                 <tr>
@@ -107,7 +107,7 @@ export default function Page() {
                 </tr>
                 <tr>
                   <td className="p-3 border-b border-border font-medium text-text">Compact</td>
-                  <td className="p-3 border-b border-border text-text-muted">DeepSeek, GPT-4o, Gemini Flash, Haiku 3.5</td>
+                  <td className="p-3 border-b border-border text-text-muted">DeepSeek, GPT-4o, Gemini Flash, Haiku 4.5</td>
                   <td className="p-3 border-b border-border">10&ndash;20</td>
                 </tr>
                 <tr>

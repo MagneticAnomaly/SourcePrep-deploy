@@ -1,5 +1,14 @@
 "use client";
 
+// TODO(marketing): refresh recommended model set.
+// Baseline to research & verify against current vendor catalogs + Ollama Cloud:
+//   Fast slot           → gemini3-flash:cloud (via Ollama)
+//   Code slot           → qwen3-coder-next:cloud (via Ollama)
+//   Thinking slot       → kimi2.5:cloud (via Ollama)
+//   Swarm organizer     → gemini3-flash:cloud (via Ollama)
+// Current page still references claude-haiku-3.5 and claude-sonnet-4.5 with
+// stale pricing. Next pass: research live pricing and availability online
+// before bumping model names so the per-M-token numbers stay accurate.
 import { useState, useMemo } from 'react';
 import { Monitor, Cloud, Zap, Cpu, DollarSign, HardDrive, ChevronDown, Check, AlertTriangle, Copy, ExternalLink, Zap as ZapIcon, Brain, Code, Lightbulb, Key } from 'lucide-react';
 

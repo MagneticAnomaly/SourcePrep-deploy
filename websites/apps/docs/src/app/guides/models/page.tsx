@@ -151,7 +151,7 @@ export default function Page() {
               <h3 className="text-lg font-semibold">3. Thinking Model</h3>
               <p className="text-sm text-text-muted mb-2"><code>Recommended: qwen3:8b</code> (5.2GB)</p>
               <p className="text-sm text-text-muted mb-2"><code>Better: qwen3:14b</code> (9.3GB) or <code>qwen3:30b</code> MoE (19GB)</p>
-              <p className="text-sm text-text-muted mb-2"><code>BYOK: gpt-4.1-mini, claude-sonnet-4.5, gemini-2.5-flash</code></p>
+              <p className="text-sm text-text-muted mb-2"><code>BYOK: gpt-4.1-mini, claude-sonnet-4.6, gemini-2.5-flash</code></p>
               <p>
                 The reasoning model used for epistemic enrichment, clustering, and deep analysis.
                 It takes each file with its neighbor context and produces extended summaries and domain tags.

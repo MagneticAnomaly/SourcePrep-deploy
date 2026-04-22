@@ -74,7 +74,7 @@ export function CenteredHero({ isBetaMode }: { isBetaMode: boolean }) {
             <Lock className="w-4 h-4 text-success" /> Pro license — yours forever
           </span>
           <span className="flex items-center gap-2">
-            <Server className="w-4 h-4 text-success" /> macOS & Windows
+            <Server className="w-4 h-4 text-success" /> macOS, Windows & Linux
           </span>
         </div>
       </div>

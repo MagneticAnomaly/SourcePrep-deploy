@@ -96,7 +96,7 @@ export default function Page() {
 
           <AnchorHeading id="knowledge-pipeline" level="h2">The Knowledge Pipeline</AnchorHeading>
           <p>
-            The Code Graph is not a static artifact; it is the backbone of a dynamic <span className="font-semibold text-text">7-Stage Knowledge Pipeline</span> that transforms raw text into navigable knowledge.
+            The Code Graph is not a static artifact. It is the backbone of a living <span className="font-semibold text-text">Knowledge Pipeline</span> that keeps learning about your code — turning raw text into navigable knowledge your AI can actually reason over.
           </p>
           
           <div className="mt-6 border border-border rounded-lg overflow-hidden">
