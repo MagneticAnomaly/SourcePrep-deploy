@@ -308,7 +308,7 @@ SUBSYSTEMS:
   packages/paperclip-plugin-prep/ (12 files)
 TESTS: tests/ (15212 files), __tests__/ (15 files), specs/ (14 files)
 HUB FILES: ext:vitest (4363 edges), ext:node:path (1537 edges), ext:node:fs/promises (812 edges), ext:node:fs (762 edges), ext:node:os (635 edges)
-Active zones: `packages/ui/src/`, `tests/`, `src/codrag/core/`, `src/codrag/dashboard/`, `src/codrag/services/`
+Active zones: `packages/ui/src/`, `tests/`, `src/prep/core/`, `src/prep/dashboard/`, `src/prep/services/`
 CALL CHAINS:
   packages/ui/src/components/context/index.ts -> packages/ui/src/components/context/ContextViewer.tsx -> packages/ui/src/components/context/CopyButton.tsx -> sym:CopyButtonProps@packages/ui/src/components/context/CopyButton.tsx:6
 
