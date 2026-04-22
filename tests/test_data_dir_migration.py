@@ -370,3 +370,44 @@ def test_migrate_embedded_codrag_dir(tmp_path):
     assert (project / ".runprep").exists()
     assert (project / ".runprep" / "index.json").read_text() == "{}"
     assert not (project / ".codrag").exists()
+
+
+# ---------------------------------------------------------------------------
+# Task 1.1: runprep XDG dir -> sourceprep XDG dir migration (SourcePrep rebrand)
+# ---------------------------------------------------------------------------
+
+
+def test_migrate_from_legacy_runprep_moves_xdg_dir(tmp_path, monkeypatch):
+    """~/.local/share/runprep/ -> ~/.local/share/sourceprep/ when sentinel absent."""
+    from prep.core.data_dir_migration import migrate_from_legacy_runprep
+
+    fake_home = tmp_path / "home"
+    legacy = fake_home / ".local" / "share" / "runprep"
+    legacy.mkdir(parents=True)
+    (legacy / "prep_settings.db").write_text("legacy-db")
+
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+    # Also override the default XDG target derivation inside migration
+    monkeypatch.setenv("PREP_DATA_DIR", str(fake_home / ".local" / "share" / "sourceprep"))
+
+    assert migrate_from_legacy_runprep() is True
+
+    target = fake_home / ".local" / "share" / "sourceprep"
+    assert (target / "prep_settings.db").read_text() == "legacy-db"
+    assert (target / ".migrated_from_runprep").exists()
+    assert not legacy.exists()
+
+
+def test_migrate_from_legacy_runprep_idempotent(tmp_path, monkeypatch):
+    """Second call is a no-op after sentinel is written."""
+    from prep.core.data_dir_migration import migrate_from_legacy_runprep
+
+    fake_home = tmp_path / "home"
+    target = fake_home / ".local" / "share" / "sourceprep"
+    target.mkdir(parents=True)
+    (target / ".migrated_from_runprep").touch()
+
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: fake_home))
+    monkeypatch.setenv("PREP_DATA_DIR", str(target))
+
+    assert migrate_from_legacy_runprep() is False
