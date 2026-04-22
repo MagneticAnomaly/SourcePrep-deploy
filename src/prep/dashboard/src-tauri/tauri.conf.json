@@ -6,7 +6,7 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "RunPrep",
+    "productName": "SourcePrep",
     "version": "0.1.0"
   },
   "tauri": {
@@ -39,7 +39,7 @@
         "icons/icon.icns",
         "icons/icon.ico"
       ],
-      "identifier": "io.runprep.app",
+      "identifier": "io.sourceprep.app",
       "longDescription": "",
       "macOS": {
         "entitlements": null,
@@ -65,14 +65,14 @@
       "dialog": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM0M0Y2QkYxOEFFQTFGRTAKUldUZ0grcUs4V3MveERBU29ObTNoNTBoM0Fna3NEMit4bjhHRE5vbG0yZE1wSnVBWGpHL25kWjgK",
       "endpoints": [
-        "https://github.com/MagneticAnomaly/RunPrep/releases/latest/download/latest.json"
+        "https://github.com/MagneticAnomaly/SourcePrep/releases/latest/download/latest.json"
       ]
     },
     "windows": [
       {
         "fullscreen": false,
         "resizable": true,
-        "title": "RunPrep",
+        "title": "SourcePrep",
         "width": 1200,
         "height": 800
       }
