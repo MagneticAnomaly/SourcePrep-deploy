@@ -23,7 +23,7 @@ export default function Page() {
           
           <AnchorHeading id="retrieval" level="h3" className="text-lg font-semibold mt-6">1. Retrieval</AnchorHeading>
           <p>
-            RunPrep gathers candidates from multiple sources:
+            SourcePrep gathers candidates from multiple sources:
           </p>
           <ul className="list-disc pl-5">
             <li><span className="font-semibold text-text">Semantic Search:</span> Top-K chunks via vector similarity.</li>
@@ -37,7 +37,7 @@ export default function Page() {
           </p>
           <ul className="list-disc pl-5">
             <li><span className="font-semibold text-text">Relevance:</span> The raw vector distance.</li>
-            <li><span className="font-semibold text-text">Query Intent:</span> RunPrep classifies your query (e.g. &quot;docs&quot;, &quot;tests&quot;, &quot;code&quot;, or &quot;default&quot;) and automatically adjusts role weights. For example, &quot;how to use auth&quot; boosts documentation, while &quot;auth test failure&quot; boosts test files.</li>
+            <li><span className="font-semibold text-text">Query Intent:</span> SourcePrep classifies your query (e.g. &quot;docs&quot;, &quot;tests&quot;, &quot;code&quot;, or &quot;default&quot;) and automatically adjusts role weights. For example, &quot;how to use auth&quot; boosts documentation, while &quot;auth test failure&quot; boosts test files.</li>
             <li><span className="font-semibold text-text">Path Weights:</span> User-defined multipliers (e.g. boost <code>src/core</code> by 1.5x, suppress <code>tests/</code> by 0.5x).</li>
             <li><span className="font-semibold text-text">Priming:</span> Files named <code>AGENTS.md</code>, <code>PREP_PRIMER.md</code>, or <code>PROJECT_PRIMER.md</code> receive a global score boost (default +0.25). These files are ideal for high-level architectural overviews that should be considered relevant to most queries.</li>
             <li><span className="font-semibold text-text">Recency:</span> Slight boost for recently modified files (configurable).</li>
@@ -45,7 +45,7 @@ export default function Page() {
 
           <AnchorHeading id="budgeting" level="h3" className="text-lg font-semibold mt-6">3. Budgeting & Truncation</AnchorHeading>
           <p>
-            You specify a <code>max_chars</code> or <code>max_tokens</code> budget. RunPrep:
+            You specify a <code>max_chars</code> or <code>max_tokens</code> budget. SourcePrep:
           </p>
           <ul className="list-disc pl-5">
             <li>Sorts chunks by their final score.</li>
@@ -55,7 +55,7 @@ export default function Page() {
 
           <AnchorHeading id="compression" level="h3" className="text-lg font-semibold mt-6">4. Smart Compression</AnchorHeading>
           <p>
-            When compression is enabled, RunPrep uses two engines. <span className="font-semibold text-text">Code files</span> are structurally
+            When compression is enabled, SourcePrep uses two engines. <span className="font-semibold text-text">Code files</span> are structurally
             compressed at a Level of Detail (LOD) determined by relevance score &mdash; top results stay full,
             mid-relevance shows signatures, peripheral files show names only (3&ndash;20&times;, no model needed).
             <span className="font-semibold text-text">Documentation</span> is compressed with a lightweight language model that removes filler
@@ -84,7 +84,7 @@ export default function Page() {
                   <br/><span className="text-xs">Default: 20. Increase for broad queries, decrease for precision.</span>
                 </li>
                 <li>
-                  <span className="font-semibold text-text">Max Chars:</span> The hard limit for the final output. RunPrep will stop adding chunks once this budget is hit.
+                  <span className="font-semibold text-text">Max Chars:</span> The hard limit for the final output. SourcePrep will stop adding chunks once this budget is hit.
                   <br/><span className="text-xs">Default: 24,000 chars (fits comfortably in most 32k context windows).</span>
                 </li>
               </ul>

@@ -11,7 +11,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Embedding Models</h1>
         <p className="mt-4 text-lg text-text-muted">
-          RunPrep supports three embedding tiers — from a zero-dependency CPU fallback to a
+          SourcePrep supports three embedding tiers — from a zero-dependency CPU fallback to a
           GPU-accelerated code-specialized model. Pick the one that fits your hardware.
         </p>
 
@@ -77,7 +77,7 @@ export default function Page() {
                 <span className="text-xs text-text-muted ml-auto">Built-in ONNX · ~132 MB</span>
               </div>
               <p className="text-sm text-text-muted leading-relaxed">
-                The same nomic-embed-text model, shipped as a quantized ONNX file that RunPrep
+                The same nomic-embed-text model, shipped as a quantized ONNX file that SourcePrep
                 downloads automatically from HuggingFace. <span className="font-semibold text-text">Runs entirely on CPU — no GPU,
                 no Ollama, no external service needed.</span> CPU inference is perfectly fine for
                 indexing and search; embedding speed is not a bottleneck in normal usage. This is the
@@ -191,7 +191,7 @@ export default function Page() {
 
           <h3 className="mt-6 text-base font-semibold">Tier 3: Built-in ONNX (default, no setup required)</h3>
           <p className="mt-3 text-sm text-text-muted">
-            Nothing to configure — this is the default. On first build RunPrep downloads
+            Nothing to configure — this is the default. On first build SourcePrep downloads
             the quantized ONNX model (~132 MB) from HuggingFace and caches it locally.
             To pre-download before your first build:
           </p>

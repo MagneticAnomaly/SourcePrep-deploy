@@ -8,7 +8,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Smart Context Compression</h1>
         <p className="mt-4 text-lg text-text-muted">
-          RunPrep uses structural compression (LOD) to deliver code context at variable fidelity.
+          SourcePrep uses structural compression (LOD) to deliver code context at variable fidelity.
           Top results stay at full source, mid-relevance files show signatures and docstrings,
           peripheral files show just names and imports &mdash; achieving 3&ndash;20&times; compression
           with zero dependencies. The compression level adapts automatically to your AI tool&apos;s
@@ -19,7 +19,7 @@ export default function Page() {
         <section className="mt-10">
           <h2 className="text-2xl font-semibold">How it works</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
-            LOD (Levels of Detail) uses RunPrep&apos;s trace graph to understand your code&apos;s
+            LOD (Levels of Detail) uses SourcePrep&apos;s trace graph to understand your code&apos;s
             structure &mdash; functions, classes, imports, docstrings &mdash; and extracts at
             variable fidelity based on relevance score. No model inference, no GPU, no dependencies.
           </p>
@@ -88,7 +88,7 @@ export default function Page() {
             </table>
           </div>
           <p className="mt-3 text-sm text-text-muted">
-            Ratios measured on real RunPrep source files (7K&ndash;18K chars). Files with more code inside
+            Ratios measured on real SourcePrep source files (7K&ndash;18K chars). Files with more code inside
             functions achieve higher ratios; files with heavy module-level constants compress less at LOD 2.
           </p>
         </section>
@@ -97,7 +97,7 @@ export default function Page() {
         <section className="mt-10">
           <h2 className="text-2xl font-semibold">Tier-Adaptive Compression</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
-            RunPrep detects your AI tool from the MCP handshake and adapts compression to match
+            SourcePrep detects your AI tool from the MCP handshake and adapts compression to match
             the context window. Larger windows get more full-source files; smaller windows get
             tighter compression so the same structural information fits.
           </p>
@@ -163,7 +163,7 @@ export default function Page() {
             <div className="text-text-muted">Compressed context assembled within budget</div>
           </div>
           <p className="mt-3 text-sm text-text-muted">
-            The extractor uses RunPrep&apos;s pre-computed trace graph (symbol spans, class hierarchy,
+            The extractor uses SourcePrep&apos;s pre-computed trace graph (symbol spans, class hierarchy,
             import edges) to know exactly where functions start and end &mdash; no re-parsing needed
             at query time.
           </p>
@@ -251,7 +251,7 @@ export default function Page() {
           <h2 className="text-2xl font-semibold">Fallback behaviour</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
             Compression is <span className="font-semibold text-text">best-effort</span>. If the trace graph doesn&apos;t have symbol
-            data for a file (e.g., the file was added after the last build), RunPrep falls back to
+            data for a file (e.g., the file was added after the last build), SourcePrep falls back to
             LOD 0 and returns the full source. The <code>fallback</code> field in the chunk metadata
             will be <code>true</code>.
           </p>

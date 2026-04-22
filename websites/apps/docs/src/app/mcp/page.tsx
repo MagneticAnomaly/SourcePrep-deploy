@@ -13,7 +13,7 @@ export default function Page() {
           MCP Integrations
         </h1>
         <p className="mt-4 text-xl text-text-muted">
-          Connect RunPrep to your favorite AI editors using the Model Context Protocol.
+          Connect SourcePrep to your favorite AI editors using the Model Context Protocol.
         </p>
 
         <div className="mt-12 grid gap-6 sm:grid-cols-2">
@@ -33,7 +33,7 @@ export default function Page() {
               <span className="text-text-muted">→</span>
             </div>
             <p className="text-text-muted">
-              Connect command-line workflows like Claude Code and Gemini CLI directly to your local RunPrep index.
+              Connect command-line workflows like Claude Code and Gemini CLI directly to your local SourcePrep index.
             </p>
           </a>
 
@@ -54,7 +54,7 @@ export default function Page() {
             The <a href="https://modelcontextprotocol.io" target="_blank" className="text-primary hover:underline">Model Context Protocol (MCP)</a> is an open standard that enables AI models to interact with external data and tools.
           </p>
           <p>
-            RunPrep runs a local MCP server that exposes your indexed codebase as a set of tools. 
+            SourcePrep runs a local MCP server that exposes your indexed codebase as a set of tools. 
             It supports both <span className="font-semibold text-text">Stdio</span> (recommended for local editors) and <span className="font-semibold text-text">SSE</span> (for remote/containerized setups).
             When you connect an editor like Cursor or Windsurf, their internal AI agents gain the ability to:
           </p>
@@ -103,7 +103,7 @@ export default function Page() {
 
           <AnchorHeading id="live-preview" level="h2">Live Dashboard Preview</AnchorHeading>
           <p className="mt-2 mb-4">
-            These are live, interactive previews of the RunPrep dashboard panels your agents interact with.
+            These are live, interactive previews of the SourcePrep dashboard panels your agents interact with.
           </p>
 
           <div className="grid gap-6 mt-6">

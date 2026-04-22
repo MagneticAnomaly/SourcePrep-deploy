@@ -1,7 +1,7 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
 
 export const metadata = {
-  title: 'Smart Search — RunPrep Docs',
+  title: 'Smart Search — SourcePrep Docs',
   description:
     'How prep_search routes your query to the right backend — symbol lookup, semantic search, concepts, or trace graph — based on what you actually asked.',
 };
@@ -20,7 +20,7 @@ export default function Page() {
         <p className="mt-4 text-lg text-text-muted">
           &quot;Where is the login handler?&quot; and &quot;Why does the login
           handler bypass the rate limiter?&quot; are different questions that
-          deserve different answers. RunPrep reads the shape of your query
+          deserve different answers. SourcePrep reads the shape of your query
           and routes it to the right backend automatically.
         </p>
 
@@ -30,7 +30,7 @@ export default function Page() {
             A single search tool is only good at one kind of answer. If
             everything goes through semantic search, exact symbol lookups get
             polluted with near-matches. If everything goes through the symbol
-            index, conceptual questions return nothing. RunPrep classifies
+            index, conceptual questions return nothing. SourcePrep classifies
             your query into one of seven intents and sends it to the backend
             that actually knows how to answer it.
           </p>
@@ -131,7 +131,7 @@ export default function Page() {
 
           <AnchorHeading id="query-rewriting" level="h2">Query rewriting</AnchorHeading>
           <p>
-            Once an intent is detected, RunPrep strips the signal words
+            Once an intent is detected, SourcePrep strips the signal words
             (&quot;where is&quot;, &quot;why does&quot;, &quot;how to&quot;)
             before passing the remainder to the chosen backend. That means{' '}
             <em>&quot;where is the login handler&quot;</em> becomes a clean{' '}

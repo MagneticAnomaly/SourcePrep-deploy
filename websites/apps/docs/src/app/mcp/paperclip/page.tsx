@@ -21,7 +21,7 @@ export default function Page() {
           <h3 className="text-lg font-semibold text-primary">Why this is different</h3>
           <p className="mt-2 text-text-muted">
             Most AI agents work blind — they grep files, guess at structure, and miss
-            architectural context. RunPrep&apos;s Paperclip plugin gives agents a
+            architectural context. SourcePrep&apos;s Paperclip plugin gives agents a
             structural brain: they understand which modules exist, how files connect,
             what the blast radius of a change is, and what the codebase health looks
             like — <span className="text-text font-medium">before writing a single line of code</span>.
@@ -29,7 +29,7 @@ export default function Page() {
           <p className="mt-2 text-text-muted">
             This is a novel workflow: <span className="text-text font-medium">epistemic-first agent orchestration</span>.
             Instead of agents discovering codebase structure through trial and error,
-            RunPrep pre-computes it and serves it on demand. The result is agents that
+            SourcePrep pre-computes it and serves it on demand. The result is agents that
             make better decisions, faster, with fewer hallucinations.
           </p>
         </div>
@@ -50,14 +50,14 @@ export default function Page() {
             </div>
             <div className="text-text-muted ml-4">{'     ↑ pulls knowledge from'}</div>
             <div>
-              <span className="text-primary">Layer 1: RunPrep</span>
+              <span className="text-primary">Layer 1: SourcePrep</span>
               <span className="text-text-muted"> — The brain. WHAT the agent knows about your code.</span>
             </div>
           </div>
 
           <p className="mt-4">
-            The RunPrep plugin registers 5 tools that any Paperclip agent can call during
-            their runs. These tools proxy to your local RunPrep daemon, which has already
+            The SourcePrep plugin registers 5 tools that any Paperclip agent can call during
+            their runs. These tools proxy to your local SourcePrep daemon, which has already
             indexed your codebase with embeddings, a structural graph, and epistemic analysis.
           </p>
 
@@ -66,12 +66,12 @@ export default function Page() {
           <h3 className="text-lg font-semibold mt-6">Prerequisites</h3>
           <ol className="list-decimal pl-6 space-y-2 mt-2">
             <li>
-              <span className="font-semibold text-text">RunPrep Desktop App</span> — Download from{' '}
+              <span className="font-semibold text-text">SourcePrep Desktop App</span> — Download from{' '}
               <a href="https://prep.dev" className="text-primary hover:underline">prep.dev</a>.
               The daemon must be running at <code>localhost:8400</code>.
             </li>
             <li>
-              <span className="font-semibold text-text">A RunPrep project</span> — Add your repo:{' '}
+              <span className="font-semibold text-text">A SourcePrep project</span> — Add your repo:{' '}
               <code>prep add /path/to/your/project</code>
             </li>
             <li>
@@ -96,7 +96,7 @@ export default function Page() {
 
           <h3 className="text-lg font-semibold mt-6">Configure</h3>
           <p className="mt-2">
-            In Paperclip Settings → Plugins → RunPrep:
+            In Paperclip Settings → Plugins → SourcePrep:
           </p>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full text-sm">
@@ -111,17 +111,17 @@ export default function Page() {
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">daemon_url</td>
                   <td className="py-2 pr-4 text-xs">http://127.0.0.1:8400</td>
-                  <td className="py-2 text-xs">RunPrep daemon URL</td>
+                  <td className="py-2 text-xs">SourcePrep daemon URL</td>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">project_id</td>
                   <td className="py-2 pr-4 text-xs">(auto-detected)</td>
-                  <td className="py-2 text-xs">RunPrep project ID. Auto-detects if you have one project.</td>
+                  <td className="py-2 text-xs">SourcePrep project ID. Auto-detects if you have one project.</td>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">auto_context</td>
                   <td className="py-2 pr-4 text-xs">true</td>
-                  <td className="py-2 text-xs">Automatically attach RunPrep context to new issues</td>
+                  <td className="py-2 text-xs">Automatically attach SourcePrep context to new issues</td>
                 </tr>
               </tbody>
             </table>
@@ -171,7 +171,7 @@ export default function Page() {
               storyId="agents-agentopspanel--active"
               height={400}
               title="Agent Operations Panel"
-              caption="Live preview: The three RunPrep agents (HR, Researcher, Custodian) with managed employee badges."
+              caption="Live preview: The three SourcePrep agents (HR, Researcher, Custodian) with managed employee badges."
             />
           </div>
 
@@ -186,11 +186,11 @@ export default function Page() {
             </li>
             <li>
               <span className="font-semibold text-text">Knowledge Scope Tab</span> — On each agent&apos;s
-              detail page, shows which files RunPrep has assigned to that agent&apos;s role scope.
+              detail page, shows which files SourcePrep has assigned to that agent&apos;s role scope.
             </li>
             <li>
               <span className="font-semibold text-text">Issue Context Tab</span> — On each issue&apos;s
-              detail page, shows RunPrep structural context for issues created from audit findings.
+              detail page, shows SourcePrep structural context for issues created from audit findings.
             </li>
             <li>
               <span className="font-semibold text-text">Settings Page</span> — Connection status,
@@ -200,7 +200,7 @@ export default function Page() {
 
           <AnchorHeading id="agent-workflow" level="h2">The Agent Workflow</AnchorHeading>
           <p className="mt-2">
-            Here&apos;s what happens when a Paperclip agent works on a task with RunPrep installed:
+            Here&apos;s what happens when a Paperclip agent works on a task with SourcePrep installed:
           </p>
 
           <div className="mt-4 space-y-4">
@@ -238,7 +238,7 @@ export default function Page() {
           <p className="mt-2">
             Traditional AI agents approach codebases like a developer on their first day —
             grepping files, reading README.md, hoping they stumble onto the right architecture.
-            RunPrep inverts this:
+            SourcePrep inverts this:
           </p>
           <ul className="list-disc pl-6 space-y-2 mt-2">
             <li>
@@ -247,13 +247,13 @@ export default function Page() {
               they query it.
             </li>
             <li>
-              <span className="font-semibold text-text">Epistemic confidence</span> — RunPrep knows
+              <span className="font-semibold text-text">Epistemic confidence</span> — SourcePrep knows
               which parts of the codebase are well-understood (high enrichment) vs. opaque. Agents
               can be cautious where the index is thin.
             </li>
             <li>
               <span className="font-semibold text-text">Role-scoped context</span> — A backend agent
-              sees backend-relevant files. A frontend agent sees frontend files. RunPrep&apos;s RoleVector
+              sees backend-relevant files. A frontend agent sees frontend files. SourcePrep&apos;s RoleVector
               system projects the atlas differently per role.
             </li>
             <li>
@@ -266,10 +266,10 @@ export default function Page() {
           <AnchorHeading id="source" level="h2">Source Code</AnchorHeading>
           <p className="mt-2">
             The plugin source is at{' '}
-            <a href="https://github.com/MagneticAnomaly/RunPrep/tree/main/packages/paperclip-plugin" className="text-primary hover:underline">
+            <a href="https://github.com/MagneticAnomaly/SourcePrep/tree/main/packages/paperclip-plugin" className="text-primary hover:underline">
               packages/paperclip-plugin
             </a>{' '}
-            in the RunPrep repository. It&apos;s MIT-licensed.
+            in the SourcePrep repository. It&apos;s MIT-licensed.
           </p>
         </div>
       </div>

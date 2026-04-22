@@ -1,7 +1,7 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
 
 export const metadata = {
-  title: 'Audit Enrichment — RunPrep Docs',
+  title: 'Audit Enrichment — SourcePrep Docs',
   description:
     'Pipe lint and static-analysis findings through prep_audit to get structural context — dependent count, hub status, related concepts, and risk score — attached to each result.',
 };
@@ -19,7 +19,7 @@ export default function Page() {
         </h1>
         <p className="mt-4 text-lg text-text-muted">
           A lint warning in a hub file that 200 other files depend on is not the
-          same as the same warning in a one-off script. RunPrep takes raw
+          same as the same warning in a one-off script. SourcePrep takes raw
           findings from your linter and annotates each one with structural
           context so you can triage by blast radius, not just by severity.
         </p>
@@ -28,7 +28,7 @@ export default function Page() {
           <AnchorHeading id="overview" level="h2">What it does</AnchorHeading>
           <p>
             Feed <code>prep_audit</code> a list of findings from any tool —
-            ruff, ESLint, semgrep, CodeQL, GitHub Code Scanning — and RunPrep
+            ruff, ESLint, semgrep, CodeQL, GitHub Code Scanning — and SourcePrep
             layers structural information on top of each one:
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-2">
@@ -58,7 +58,7 @@ export default function Page() {
 ])`}
           </pre>
           <p className="mt-4">
-            RunPrep returns each finding with a <code>prep</code> object
+            SourcePrep returns each finding with a <code>prep</code> object
             attached:
           </p>
           <pre className="bg-surface border border-border rounded-xl p-5 text-sm font-mono overflow-x-auto">
@@ -83,7 +83,7 @@ export default function Page() {
           <p>
             If your pipeline already speaks SARIF (GitHub Code Scanning,
             semgrep, CodeQL), hand the SARIF document directly to{' '}
-            <code>prep_audit</code>. RunPrep detects the format, enriches every
+            <code>prep_audit</code>. SourcePrep detects the format, enriches every
             result, and returns a valid SARIF document back — the structural
             context rides along as <code>properties.prep</code> on each result.
           </p>
@@ -107,7 +107,7 @@ prep_audit(findings=<SARIF dict>)
             Linters and scanners are structure-blind by design — they look at
             one file at a time. That produces long flat lists where a dead
             import in a leaf utility looks identical to a dead import in a file
-            that forty modules depend on. RunPrep fixes that triage gap
+            that forty modules depend on. SourcePrep fixes that triage gap
             without changing your scanner:
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-2">

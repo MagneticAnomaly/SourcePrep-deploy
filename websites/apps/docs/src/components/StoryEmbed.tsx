@@ -10,7 +10,7 @@ import './StoryEmbed.css';
  * - `sandbox="allow-scripts"` — no navigation, forms, popups, or top-frame access
  * - `referrerPolicy="no-referrer"` — no URL leakage from parent
  * - `allow=""` — no camera/mic/geolocation permissions
- * - Separate origin isolation when deployed to storybook.runprep.io
+ * - Separate origin isolation when deployed to storybook.sourceprep.io
  * - Stories use hardcoded mock data only — no real API calls
  */
 
@@ -86,7 +86,7 @@ export function StoryEmbed({
         <iframe
           ref={iframeRef}
           src={src}
-          title={title || `RunPrep Dashboard — ${storyId.split('--')[0].replaceAll('-', ' ')}`}
+          title={title || `SourcePrep Dashboard — ${storyId.split('--')[0].replaceAll('-', ' ')}`}
           className={`story-embed__iframe ${loaded ? 'story-embed__iframe--loaded' : ''}`}
           style={{ height: heightValue }}
           sandbox="allow-scripts allow-same-origin"

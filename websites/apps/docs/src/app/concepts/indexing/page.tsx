@@ -10,13 +10,13 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Vector Indexing</h1>
         <p className="mt-4 text-xl text-text-muted">
-          How RunPrep finds the right code when you describe what you want instead of naming it exactly.
+          How SourcePrep finds the right code when you describe what you want instead of naming it exactly.
         </p>
 
         <div className="mt-12 prose  max-w-none">
           <AnchorHeading id="pipeline" level="h2">The Indexing Process</AnchorHeading>
           <p>
-            <span className="font-semibold text-text">Vector Indexing</span> is what lets RunPrep answer &quot;fuzzy&quot; questions — the kind where you describe intent instead of typing exact names. The <a href="/dashboard#knowledge-pipeline">Knowledge Pipeline</a>&apos;s structural map gives you the skeleton of your code; vector indexing adds the muscle, so searching for &quot;how authentication works&quot; can surface the right files even if none of them contain the word &quot;authentication&quot; verbatim.
+            <span className="font-semibold text-text">Vector Indexing</span> is what lets SourcePrep answer &quot;fuzzy&quot; questions — the kind where you describe intent instead of typing exact names. The <a href="/dashboard#knowledge-pipeline">Knowledge Pipeline</a>&apos;s structural map gives you the skeleton of your code; vector indexing adds the muscle, so searching for &quot;how authentication works&quot; can surface the right files even if none of them contain the word &quot;authentication&quot; verbatim.
           </p>
           <p>
             Unlike cloud-based tools, this happens entirely on your localhost.
@@ -55,7 +55,7 @@ export default function Page() {
 
           <AnchorHeading id="incremental" level="h2">Incremental Updates</AnchorHeading>
           <p>
-            RunPrep includes a real-time file watcher (<code>watchdog</code>). When you save a file:
+            SourcePrep includes a real-time file watcher (<code>watchdog</code>). When you save a file:
           </p>
           <ul className="list-disc pl-5">
             <li>The watcher detects the <code>modify</code> event.</li>

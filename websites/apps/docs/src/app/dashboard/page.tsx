@@ -12,7 +12,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-4xl font-bold tracking-tight">Dashboard Guide</h1>
         <p className="mt-4 text-xl text-text-muted">
-          A comprehensive tour of the RunPrep desktop interface panels and controls.
+          A comprehensive tour of the SourcePrep desktop interface panels and controls.
         </p>
 
         <div className="mt-12 prose  max-w-none">
@@ -32,14 +32,14 @@ export default function Page() {
           <StoryEmbed
             storyId="dashboard-layouts-fulldashboard--full-dashboard"
             height={600}
-            caption="The RunPrep modular dashboard — drag, resize, and arrange panels to your workflow"
+            caption="The SourcePrep modular dashboard — drag, resize, and arrange panels to your workflow"
           />
 
           <hr className="my-12 border-border" />
 
           <AnchorHeading id="panel-a" level="h2" className="text-2xl font-bold mt-12 mb-6">1. Graph Scope (Panel A)</AnchorHeading>
           <p>
-            The <span className="font-semibold text-text">Graph Scope</span> panel (left pane) is your inventory control. It defines exactly <em>what</em> code and documentation RunPrep is allowed to see.
+            The <span className="font-semibold text-text">Graph Scope</span> panel (left pane) is your inventory control. It defines exactly <em>what</em> code and documentation SourcePrep is allowed to see.
           </p>
 
           <AnchorHeading id="scope-header" level="h3" className="text-xl font-semibold mt-8 mb-4">Header & Health</AnchorHeading>

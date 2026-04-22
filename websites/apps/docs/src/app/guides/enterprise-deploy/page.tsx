@@ -1,8 +1,8 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
 
 export const metadata = {
-  title: 'Enterprise Deployment Guide — RunPrep Docs',
-  description: 'Deploy RunPrep headless indexing inside your own infrastructure: air-gapped, VPC, serverless GPU.',
+  title: 'Enterprise Deployment Guide — SourcePrep Docs',
+  description: 'Deploy SourcePrep headless indexing inside your own infrastructure: air-gapped, VPC, serverless GPU.',
 };
 
 export default function Page() {
@@ -17,7 +17,7 @@ export default function Page() {
           Enterprise Deployment
         </h1>
         <p className="mt-4 text-lg text-text-muted">
-          Deploy RunPrep&apos;s headless indexer inside your own cloud infrastructure.
+          Deploy SourcePrep&apos;s headless indexer inside your own cloud infrastructure.
           No code leaves your network. GPU or CPU images run on any container orchestrator.
         </p>
         <p className="mt-2 text-sm text-text-subtle">
@@ -32,7 +32,7 @@ export default function Page() {
         <AnchorHeading id="overview" level="h2">Overview</AnchorHeading>
 
         <p className="mt-4 text-text-muted">
-          RunPrep ships two Docker images for headless indexing. Both run the full
+          SourcePrep ships two Docker images for headless indexing. Both run the full
           enrichment pipeline — parsing your code, reasoning about how it connects,
           clustering it into architectural groups, and producing the project atlas —
           then upload the resulting index to S3-compatible storage.
@@ -122,7 +122,7 @@ RUN ollama serve & sleep 3 && ollama pull qwen3:8b && kill %1 || true`}
         <p className="mt-4 text-text-muted">
           Run the headless indexer as an ECS task with GPU support.
           A reference task definition is provided in the{' '}
-          <a href="https://github.com/MagneticAnomaly/RunPrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/MagneticAnomaly/SourcePrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
             prep-deploy
           </a>{' '}
           repository under <code>aws/</code>.
@@ -168,7 +168,7 @@ RUN ollama serve & sleep 3 && ollama pull qwen3:8b && kill %1 || true`}
         </ol>
         <p className="mt-2 text-xs text-text-subtle">
           Adapter source:{' '}
-          <a href="https://github.com/MagneticAnomaly/RunPrep-deploy/tree/main/modal" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/MagneticAnomaly/SourcePrep-deploy/tree/main/modal" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
             prep-deploy/modal/
           </a>
         </p>
@@ -187,7 +187,7 @@ docker push my-org/prep-runpod`}
         </ol>
         <p className="mt-2 text-xs text-text-subtle">
           Handler source:{' '}
-          <a href="https://github.com/MagneticAnomaly/RunPrep-deploy/tree/main/runpod" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/MagneticAnomaly/SourcePrep-deploy/tree/main/runpod" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
             prep-deploy/runpod/
           </a>
         </p>
@@ -245,9 +245,9 @@ docker push my-org/prep-runpod`}
         <AnchorHeading id="security" level="h2">Security Posture</AnchorHeading>
 
         <ul className="mt-4 list-disc list-inside space-y-2 text-text-muted">
-          <li><strong>No telemetry.</strong> RunPrep does not phone home, collect usage data, or send any information to external servers.</li>
+          <li><strong>No telemetry.</strong> SourcePrep does not phone home, collect usage data, or send any information to external servers.</li>
           <li><strong>No cloud dependency.</strong> The GPU image includes everything needed to run completely offline.</li>
-          <li><strong>Secrets leakage detection.</strong> RunPrep warns if credential-like keys appear in <code>team_config.json</code> (which is committed to Git).</li>
+          <li><strong>Secrets leakage detection.</strong> SourcePrep warns if credential-like keys appear in <code>team_config.json</code> (which is committed to Git).</li>
           <li><strong>S3 credentials</strong> are resolved from environment variables or a gitignored <code>.runprep/.secrets</code> file — never from committed files.</li>
           <li><strong>Offline license activation.</strong> Enterprise licenses are Ed25519-signed and validated locally. No internet required after activation.</li>
         </ul>
@@ -307,7 +307,7 @@ docker push my-org/prep-runpod`}
 
         <p className="mt-4 text-sm text-text-subtle">
           Roadmap features are actively in development. Contact{' '}
-          <a href="mailto:enterprise@runprep.io" className="text-primary hover:underline">enterprise@runprep.io</a>{' '}
+          <a href="mailto:enterprise@sourceprep.io" className="text-primary hover:underline">enterprise@sourceprep.io</a>{' '}
           to discuss your requirements and timeline.
         </p>
 
@@ -443,20 +443,20 @@ docker push my-org/prep-runpod`}
             — Standard CI/CD setup with GitHub Actions
           </li>
           <li>
-            <a href="https://github.com/MagneticAnomaly/RunPrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+            <a href="https://github.com/MagneticAnomaly/SourcePrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
               prep-deploy repository
             </a>{' '}
             — Dockerfiles, platform adapters, and reference configurations
           </li>
           <li>
-            <a href="https://runprep.io/pricing" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+            <a href="https://sourceprep.io/pricing" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
               Pricing
             </a>{' '}
             — Team &amp; Enterprise plans
           </li>
           <li>
-            <a href="mailto:enterprise@runprep.io" className="text-primary hover:underline">
-              enterprise@runprep.io
+            <a href="mailto:enterprise@sourceprep.io" className="text-primary hover:underline">
+              enterprise@sourceprep.io
             </a>{' '}
             — Enterprise sales and custom deployments
           </li>

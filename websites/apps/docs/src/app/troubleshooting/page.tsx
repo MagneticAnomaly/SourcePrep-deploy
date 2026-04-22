@@ -24,9 +24,9 @@ export default function Page() {
                 If your editor or the CLI says it cannot connect to the server:
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
-                <li>Ensure RunPrep is running (open the desktop app or run <code>prep serve</code>).</li>
+                <li>Ensure SourcePrep is running (open the desktop app or run <code>prep serve</code>).</li>
                 <li>Check if port 8400 is blocked by a firewall or another process.</li>
-                <li>On Windows, you may need to allow RunPrep through the firewall when prompted.</li>
+                <li>On Windows, you may need to allow SourcePrep through the firewall when prompted.</li>
               </ul>
             </div>
 
@@ -36,7 +36,7 @@ export default function Page() {
                 If Cursor or Windsurf loses connection:
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
-                <li>Restart the RunPrep desktop app (or the <code>prep serve</code> process if running manually).</li>
+                <li>Restart the SourcePrep desktop app (or the <code>prep serve</code> process if running manually).</li>
                 <li>In Cursor: Go to Settings &gt; MCP and click the &quot;Refresh&quot; icon next to prep.</li>
                 <li>In Windsurf: Restart the window (Cmd+R).</li>
               </ul>
@@ -52,7 +52,7 @@ export default function Page() {
                 <span className="font-semibold text-text">Good news:</span> You probably don&apos;t need Ollama.
               </p>
               <p className="text-sm mb-4">
-                RunPrep uses <span className="font-semibold text-text">Native Embeddings</span> (ONNX) by default, which run inside the RunPrep process without any external dependencies.
+                SourcePrep uses <span className="font-semibold text-text">Native Embeddings</span> (ONNX) by default, which run inside the SourcePrep process without any external dependencies.
               </p>
               <p className="text-sm mb-4">
                 If you explicitly configured <code>embedding_source: &quot;ollama&quot;</code> in your project config:
@@ -67,7 +67,7 @@ export default function Page() {
             <div className="border border-border rounded-lg p-6 bg-surface">
               <h3 className="text-lg font-semibold mt-0">Model Download Stuck</h3>
               <p className="text-sm text-text-muted mb-4">
-                When using Native Embeddings, RunPrep downloads the model (~300MB) on the first run.
+                When using Native Embeddings, SourcePrep downloads the model (~300MB) on the first run.
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>Check your internet connection.</li>
@@ -175,7 +175,7 @@ export default function Page() {
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>Check <code>exclude_globs</code> in the Dashboard.</li>
-                <li>Check your project's <code>.gitignore</code> (RunPrep respects this by default).</li>
+                <li>Check your project's <code>.gitignore</code> (SourcePrep respects this by default).</li>
                 <li>Check for a <code>.runprep/ignore</code> file.</li>
               </ul>
             </div>

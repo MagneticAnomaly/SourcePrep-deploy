@@ -10,7 +10,7 @@ export default function Page() {
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">Graph Enrichment</h1>
         <p className="mt-4 text-xl text-text-muted">
-          How RunPrep keeps deepening what it knows about your code — parsing structure fast, reasoning about meaning slowly, and re-checking what it thinks it knows whenever the code changes.
+          How SourcePrep keeps deepening what it knows about your code — parsing structure fast, reasoning about meaning slowly, and re-checking what it thinks it knows whenever the code changes.
         </p>
 
         <div className="mt-12 prose max-w-none">
@@ -18,7 +18,7 @@ export default function Page() {
           <div className="not-prose my-6 rounded-lg border border-border bg-surface p-5">
             <div className="text-sm font-semibold text-text mb-2">The short version</div>
             <p className="text-sm text-text-muted m-0">
-              RunPrep doesn&apos;t just search your code — it actively tries to <em>understand</em> it.
+              SourcePrep doesn&apos;t just search your code — it actively tries to <em>understand</em> it.
               A fast Rust parser maps the structure in seconds. Then small and large language
               models layer in meaning: what each file does, how it connects to others, which
               modules it belongs to. When you change a file, the system notices its neighbors&apos;
@@ -31,7 +31,7 @@ export default function Page() {
           <AnchorHeading id="why-epistemology" level="h2">Why Epistemology?</AnchorHeading>
           <p>
             Most code intelligence tools answer a simple question: <em>&quot;Which files match this query?&quot;</em>
-            RunPrep asks a fundamentally different one: <span className="font-semibold text-text">&quot;How well does the system understand
+            SourcePrep asks a fundamentally different one: <span className="font-semibold text-text">&quot;How well does the system understand
             this code — and how justified is that understanding?&quot;</span>
           </p>
           <p>
@@ -230,7 +230,7 @@ export default function Page() {
 
           <AnchorHeading id="doc-mining" level="h2">Documentation Mining</AnchorHeading>
           <p>
-            Most indexing tools treat <code>.md</code> files as flat text blobs. RunPrep&apos;s enrichment
+            Most indexing tools treat <code>.md</code> files as flat text blobs. SourcePrep&apos;s enrichment
             pipeline extracts structure from documentation: section headers, code references,
             status markers, and cross-links. This enables:
           </p>

@@ -8,7 +8,7 @@ export const docsInitDemo: CliScript = {
   events: [
     { type: 'user_input', text: 'npx @prep/cli init', typingDelayMs: 30 },
     { type: 'pause', durationMs: 500 },
-    { type: 'agent_output', text: 'Initializing RunPrep workspace locally...', typewriterDelayMs: 5 },
+    { type: 'agent_output', text: 'Initializing SourcePrep workspace locally...', typewriterDelayMs: 5 },
     { type: 'agent_output', text: '✔ Found 240 files.', typewriterDelayMs: 5 },
     { type: 'agent_output', text: '✔ Parsed AST via tree-sitter.', typewriterDelayMs: 5 },
     { type: 'agent_output', text: '✔ Computed dependency edges.', typewriterDelayMs: 5 },
@@ -25,7 +25,7 @@ export const docsAmbientDemo: CliScript = {
   events: [
     { type: 'user_input', text: 'prep', typingDelayMs: 40 },
     { type: 'agent_thinking', durationMs: 600, label: 'fetching graph context' },
-    { type: 'agent_output', text: 'RunPrep Ambient Context Loaded:', typewriterDelayMs: 2 },
+    { type: 'agent_output', text: 'SourcePrep Ambient Context Loaded:', typewriterDelayMs: 2 },
     { type: 'agent_output', text: ' Hub Files: src/auth.ts, src/db.ts', typewriterDelayMs: 2 },
     { type: 'agent_output', text: ' Graph Health: 98% connected components', typewriterDelayMs: 2 },
     { type: 'agent_output', text: ' Active Scope: UI Engineer (restricted to /components)', typewriterDelayMs: 2 },

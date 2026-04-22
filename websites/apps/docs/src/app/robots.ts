@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*',
       allow: '/',
     },
-    sitemap: 'https://docs.runprep.io/sitemap.xml',
+    sitemap: 'https://docs.sourceprep.io/sitemap.xml',
   };
 }

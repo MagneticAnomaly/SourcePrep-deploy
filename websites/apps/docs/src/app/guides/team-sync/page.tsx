@@ -2,7 +2,7 @@ import { AnchorHeading } from '../../../components/AnchorHeading';
 import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export const metadata = {
-  title: 'Team Sync Guide — RunPrep Docs',
+  title: 'Team Sync Guide — SourcePrep Docs',
   description: 'Set up headless CI/CD indexing so your team shares a single, pre-built trace graph.',
 };
 
@@ -25,7 +25,7 @@ export default function Page() {
         <p className="mt-2 text-text-muted">
           Your CI/CD pipeline builds the index once on every push to <code>main</code>.
           Every developer on your team downloads the pre-computed graph instantly.
-          Their local RunPrep only computes deltas for their uncommitted changes.
+          Their local SourcePrep only computes deltas for their uncommitted changes.
         </p>
 
         <hr className="my-8 border-border" />
@@ -34,10 +34,10 @@ export default function Page() {
         <AnchorHeading id="how-it-works" level="h2">How it works</AnchorHeading>
 
         <ol className="mt-4 list-decimal list-inside space-y-2 text-text-muted">
-          <li><strong>Build once:</strong> A CI/CD job runs the RunPrep headless image after every merge to <code>main</code>. It produces the full enriched trace graph — structural, semantic, and clustered — so every developer on the team starts from the same understanding.</li>
+          <li><strong>Build once:</strong> A CI/CD job runs the SourcePrep headless image after every merge to <code>main</code>. It produces the full enriched trace graph — structural, semantic, and clustered — so every developer on the team starts from the same understanding.</li>
           <li><strong>Store centrally:</strong> The index artifacts are uploaded to an S3-compatible bucket (Cloudflare R2, AWS S3, MinIO, etc.).</li>
-          <li><strong>Sync locally:</strong> Each developer&apos;s RunPrep client checks the bucket on startup and downloads the latest index in seconds.</li>
-          <li><strong>Delta only:</strong> When a developer edits files locally, RunPrep enriches only those files using their local LLM or BYOK API key. The rest of the graph comes from the shared index.</li>
+          <li><strong>Sync locally:</strong> Each developer&apos;s SourcePrep client checks the bucket on startup and downloads the latest index in seconds.</li>
+          <li><strong>Delta only:</strong> When a developer edits files locally, SourcePrep enriches only those files using their local LLM or BYOK API key. The rest of the graph comes from the shared index.</li>
         </ol>
 
         <div className="not-prose my-8">
@@ -106,7 +106,7 @@ export default function Page() {
         </p>
         <pre className="mt-3 overflow-x-auto rounded-lg bg-surface-raised p-4 text-xs font-mono text-text border border-border">
 {`# .github/workflows/prep-sync.yml
-name: "RunPrep Team Sync"
+name: "SourcePrep Team Sync"
 on:
   push:
     branches: ["main"]  # Add other branches as needed
@@ -163,7 +163,7 @@ jobs:
           <li>The OS keychain (prompted on first run)</li>
         </ul>
         <p className="mt-2 text-text-muted">
-          When a developer opens the project, RunPrep downloads the latest shared index automatically.
+          When a developer opens the project, SourcePrep downloads the latest shared index automatically.
         </p>
 
         <hr className="my-8 border-border" />
@@ -190,7 +190,7 @@ jobs:
         </ol>
         <p className="mt-2 text-xs text-text-subtle">
           The adapter source is in the{' '}
-          <a href="https://github.com/MagneticAnomaly/RunPrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/MagneticAnomaly/SourcePrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
             prep-deploy
           </a>{' '}
           repository under <code>modal/</code>.
@@ -277,7 +277,7 @@ docker run --gpus all \\
         </ul>
         <p className="mt-2 text-xs text-text-subtle">
           A reference AWS ECS task definition is provided in the{' '}
-          <a href="https://github.com/MagneticAnomaly/RunPrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/MagneticAnomaly/SourcePrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
             prep-deploy
           </a>{' '}
           repository under <code>aws/</code>.
@@ -289,7 +289,7 @@ docker run --gpus all \\
         <AnchorHeading id="local-deltas" level="h2">How Local Deltas Work</AnchorHeading>
 
         <p className="mt-4 text-text-muted">
-          When a developer edits a file that exists in the shared index, RunPrep automatically:
+          When a developer edits a file that exists in the shared index, SourcePrep automatically:
         </p>
         <ol className="mt-2 list-decimal list-inside space-y-1 text-text-muted">
           <li>Detects the change via the local file watcher.</li>
@@ -309,7 +309,7 @@ docker run --gpus all \\
         <ul className="mt-4 list-disc list-inside space-y-2 text-text-muted">
           <li><strong>Never commit S3 credentials to Git.</strong> Use GitHub Secrets, Modal Secrets, or environment variables.</li>
           <li>The <code>.runprep/team_config.json</code> file (committed to your repo) contains only the bucket endpoint, name, and prefix — no secrets.</li>
-          <li>RunPrep includes a built-in <strong>secrets leakage detector</strong> that warns if credential-like keys appear in <code>team_config.json</code>.</li>
+          <li>SourcePrep includes a built-in <strong>secrets leakage detector</strong> that warns if credential-like keys appear in <code>team_config.json</code>.</li>
           <li>Each developer provides read credentials via env vars, a gitignored <code>.runprep/.secrets</code> file, or OS keychain.</li>
         </ul>
 
@@ -374,7 +374,7 @@ docker run --gpus all \\
           <div>
             <p className="font-semibold text-text">Do I need a GPU?</p>
             <p className="mt-1 text-text-muted">
-              No. The <code>:cpu</code> image uses RunPrep&apos;s built-in ONNX embedder (runs on CPU)
+              No. The <code>:cpu</code> image uses SourcePrep&apos;s built-in ONNX embedder (runs on CPU)
               and sends LLM reasoning to a cloud API (OpenAI, Anthropic, etc.). A GPU is only needed
               if you want to run models locally for privacy or cost reasons.
             </p>
@@ -384,7 +384,7 @@ docker run --gpus all \\
             <p className="mt-1 text-text-muted">
               All Dockerfiles, platform adapters (Modal, RunPod), GitHub Actions workflows, and
               AWS ECS references are in the public{' '}
-              <a href="https://github.com/MagneticAnomaly/RunPrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
+              <a href="https://github.com/MagneticAnomaly/SourcePrep-deploy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
                 prep-deploy
               </a>{' '}
               repository.

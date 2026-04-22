@@ -470,7 +470,7 @@ export default function Page() {
         {/* ── Step 1: Mode ── */}
         <div className="mt-8">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted mb-3">
-            How do you want to run RunPrep?
+            How do you want to run SourcePrep?
           </h2>
           <div className="flex gap-3">
             <ModeButton
@@ -631,7 +631,7 @@ export default function Page() {
                     {PROVIDER_LABELS[provider]} <ExternalLink className="inline w-3 h-3" />
                   </a>
                 </li>
-                <li>In RunPrep Dashboard, go to <span className="font-semibold text-text">Settings &gt; AI Models &gt; Saved Endpoints</span></li>
+                <li>In SourcePrep Dashboard, go to <span className="font-semibold text-text">Settings &gt; AI Models &gt; Saved Endpoints</span></li>
                 <li>Add a new endpoint with provider &quot;{provider === 'google' ? 'OpenAI Compatible' : PROVIDER_LABELS[provider]}&quot;
                   {provider === 'google' && <span> and URL <code className="text-xs">https://generativelanguage.googleapis.com/v1beta/openai/</code></span>}
                 </li>
@@ -757,7 +757,7 @@ export default function Page() {
               Why Ollama models swap, not stack
             </h4>
             <p className="mt-2 text-sm">
-              RunPrep&apos;s pipeline runs one stage at a time. Ollama automatically loads and
+              SourcePrep&apos;s pipeline runs one stage at a time. Ollama automatically loads and
               unloads models as needed, so you only need enough VRAM for the <span className="font-semibold text-text">single
               largest model</span> &mdash; not the total of all models combined.
             </p>
