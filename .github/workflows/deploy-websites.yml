@@ -24,7 +24,9 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - name: Install Dependencies
-        run: npm ci
+        run: |
+          npm ci
+          cd packages/ui && npm install @rollup/rollup-linux-x64-gnu --os=linux --cpu=x64 --no-save
       - name: Build Marketing
         run: npx turbo run build --filter=@prep/marketing
       - name: Deploy to Netlify
@@ -44,7 +46,9 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - name: Install Dependencies
-        run: npm ci
+        run: |
+          npm ci
+          cd packages/ui && npm install @rollup/rollup-linux-x64-gnu --os=linux --cpu=x64 --no-save
       - name: Build Docs
         run: npx turbo run build --filter=@prep/docs
       - name: Deploy to Netlify
