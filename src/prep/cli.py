@@ -232,11 +232,13 @@ def serve(
     from prep.core.data_dir_migration import (
         migrate_from_legacy_codrag,
         migrate_from_legacy_prep,
+        migrate_from_legacy_runprep,
         migrate_legacy_data_dir,
     )
-    migrate_from_legacy_codrag()  # codrag -> runprep XDG dirs (rename one-shot, D4)
-    migrate_from_legacy_prep()    # prep -> runprep XDG dirs (brand-split one-shot)
-    migrate_legacy_data_dir()     # CWD codrag_data -> XDG (Phase 113 one-shot)
+    migrate_from_legacy_codrag()   # codrag -> runprep XDG dirs (rename one-shot, D4)
+    migrate_from_legacy_prep()     # prep -> runprep XDG dirs (brand-split one-shot)
+    migrate_from_legacy_runprep()  # runprep -> sourceprep XDG dirs (rename one-shot, S1)
+    migrate_legacy_data_dir()      # CWD codrag_data -> XDG (Phase 113 one-shot)
 
     import uvicorn
     from prep.server import app as fastapi_app, configure, mount_dashboard

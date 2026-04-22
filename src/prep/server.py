@@ -37,12 +37,14 @@ from prep import __version__
 from prep.core.data_dir_migration import (
     migrate_from_legacy_codrag as _migrate_from_codrag,
     migrate_from_legacy_prep as _migrate_from_prep,
+    migrate_from_legacy_runprep as _migrate_from_runprep,
     migrate_legacy_data_dir as _migrate_legacy,
 )
 
-_migrate_from_codrag()  # codrag -> runprep XDG dirs (rename one-shot, D4)
-_migrate_from_prep()    # prep -> runprep XDG dirs (brand-split one-shot)
-_migrate_legacy()       # CWD codrag_data -> XDG (Phase 113 one-shot)
+_migrate_from_codrag()   # codrag -> runprep XDG dirs (rename one-shot, D4)
+_migrate_from_prep()     # prep -> runprep XDG dirs (brand-split one-shot)
+_migrate_from_runprep()  # runprep -> sourceprep XDG dirs (rename one-shot, S1)
+_migrate_legacy()        # CWD codrag_data -> XDG (Phase 113 one-shot)
 
 from prep.api.envelope import install_api_exception_handlers
 from prep.core import CodeIndex
