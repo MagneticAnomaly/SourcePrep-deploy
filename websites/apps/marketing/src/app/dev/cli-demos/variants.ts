@@ -85,6 +85,38 @@ const prepPaymentsOnboard: CliScript = {
   ],
 };
 
+const prepTldrOverview: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'tldr on this codebase',
+      typingDelayMs: 28,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'tool_call',
+      tool: 'prep',
+      args: '',
+      durationMs: 800,
+      statusText: 'Loading structural context…',
+    },
+    {
+      type: 'tool_result',
+      text: 'FastAPI + React · 247 files · payment/ + auth/ + workers/ · 14k LOC',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "It's a FastAPI backend with a React dashboard. Three core modules:\n\n• `payment/` — saga-based payment flow\n• `auth/` — JWT + OAuth\n• `workers/` — background jobs, already using `RetryPolicy`\n\nHub files: `auth/middleware.py` (23 dependents) and `payment/saga_runner.py` (14). Both worth treating carefully. One hard architectural rule: no direct DB transactions inside `payment/`.",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
 // ============================================================================
 // prep_search — semantic search with structural expansion
 // ============================================================================
@@ -153,6 +185,38 @@ const searchOauthCallback: CliScript = {
   ],
 };
 
+const searchMaxConnections: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: "where's 'max connections exceeded' coming from?",
+      typingDelayMs: 28,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'tool_call',
+      tool: 'prep_search',
+      args: '"max connections exceeded"',
+      durationMs: 900,
+      statusText: 'Searching…',
+    },
+    {
+      type: 'tool_result',
+      text: '2 matches · db/pool.py:142 · tests/test_pool.py',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "`DatabasePool.acquire()` throws it in `db/pool.py:142` when the pool is saturated. Pool size lives in `db/config.py` — defaults to 20.\n\nIf you're hitting it in staging, either the pool is smaller there than prod, or something's leaking connections without releasing them. Rest of the codebase uses `with pool.acquire()` — worth grepping whoever you just touched for a missing `with`.",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
 // ============================================================================
 // prep_impact — blast radius before making a change
 // ============================================================================
@@ -216,6 +280,38 @@ const impactDeleteUnused: CliScript = {
     {
       type: 'agent_output',
       text: "Actually, `send_email_legacy` still has 7 callers across 4 files — mostly in `notifications/` and one in `workers/digest.py`. Looks like the migration to the new mailer stopped halfway.\n\nWant me to finish the migration first, then delete the legacy helper? I can flag which call sites are straightforward swaps and which need a closer look.",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
+const impactExtractService: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'thinking about pulling ReportGenerator out into its own service',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 700 },
+    {
+      type: 'tool_call',
+      tool: 'prep_impact',
+      args: '"ReportGenerator"',
+      durationMs: 1000,
+      statusText: 'Tracing dependents…',
+    },
+    {
+      type: 'tool_result',
+      text: '12 callers · 4 files · all in dashboard/ and workers/',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "`ReportGenerator` has 12 callers across 4 files — all contained to `dashboard/` and `workers/`. Good news for extraction.\n\nOne thing to watch: `workers/nightly.py` calls it synchronously inside a scheduled job. Moving it to a remote service turns that into a network hop with failure modes the worker isn't currently handling. Worth wrapping the new client in the existing `RetryPolicy` when you migrate.",
       typewriterDelayMs: 12,
     },
   ],
@@ -313,6 +409,50 @@ const auditBranchReview: CliScript = {
   ],
 };
 
+const auditSecurityScan: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'security scan flagged 6 things — which actually matter?',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 600, label: 'Reading scan…' },
+    {
+      type: 'tool_call',
+      tool: 'bash',
+      args: 'cat security-scan.json',
+      durationMs: 500,
+    },
+    {
+      type: 'tool_result',
+      text: '6 findings · CVEs + SAST',
+      status: 'success',
+    },
+    { type: 'agent_thinking', durationMs: 800, label: 'Cross-referencing graph…' },
+    {
+      type: 'tool_call',
+      tool: 'prep_audit',
+      args: 'findings=[6]',
+      durationMs: 1000,
+      statusText: 'Enriching with graph context…',
+    },
+    {
+      type: 'tool_result',
+      text: '6 enriched · 1 critical (hub) · 1 reachable · 4 unreachable',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "Cross-referenced the 6 findings against your dependency graph:\n\n• **1 critical** — XSS in `api/users.py`'s HTML render path. That file has 23 callers and this one actually reaches user input. Fix first.\n• **1 reachable** — outdated `urllib3` in the worker image. Only matters if workers make outbound HTTP, which `workers/webhook.py` does. Bump it.\n• **4 noise** — in `tests/fixtures/` and seed data, not in the runtime path. Safe to dismiss in scanner config.",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
 // ============================================================================
 // prep_observe — persistent cross-session memory
 // ============================================================================
@@ -381,6 +521,38 @@ const observeZodStandard: CliScript = {
   ],
 };
 
+const observeInvestigationRecall: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'where did we leave off on the cache invalidation investigation?',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'tool_call',
+      tool: 'prep_observe',
+      args: 'action="get", query="cache invalidation"',
+      durationMs: 800,
+      statusText: 'Retrieving observations…',
+    },
+    {
+      type: 'tool_result',
+      text: '3 observations · last active 2 weeks ago',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "Last note was 2 weeks ago. Working theory: stale entries when keys overlap between `user:X` and `session:X` — a key-prefix collision in Redis.\n\nYou were about to force a collision in staging to reproduce. No follow-up notes, so that repro probably didn't happen. The `cache/keys.py` namespace logic is where the collision would actually manifest. Want to pick it up from there?",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
 // ============================================================================
 // prep_concepts — business rationale and architectural constraints
 // ============================================================================
@@ -444,6 +616,38 @@ const conceptsDocumentRule: CliScript = {
     {
       type: 'agent_output',
       text: 'Recorded as *"Payment Saga Rule"* — assertion `no db.transaction inside payment/`, anchored on `payment/saga_runner.py` and `payment/charge.py`.\n\nFrom now on, any new `db.transaction` import inside `payment/` gets flagged by the immune system when anyone using the graph looks at that area. Future-you gets a polite alarm instead of a surprise.',
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
+const conceptsQueueGotchas: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'any gotchas before I start messing with the queue?',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 600 },
+    {
+      type: 'tool_call',
+      tool: 'prep_concepts',
+      args: 'action="get", query="queue"',
+      durationMs: 900,
+      statusText: 'Querying concept store…',
+    },
+    {
+      type: 'tool_result',
+      text: '2 concepts · Queue Ordering Invariant · Idempotency Requirement',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: 'Two rules your team recorded:\n\n• **Queue ordering invariant** — jobs for the same `user_id` must execute in order. If you change dispatch, preserve per-user FIFO.\n• **Idempotency requirement** — handlers must be safe to run twice. Retries can deliver dupes, so `JobHandler.handle()` needs to tolerate that.\n\nBoth are enforced as immune-system antibodies — you\'ll get a polite nudge if new code breaks either one.',
       typewriterDelayMs: 12,
     },
   ],
@@ -630,6 +834,104 @@ export function PaymentForm({ onSubmit }: { onSubmit: (data: FormData) => Promis
   ],
 };
 
+const ideLoadingSkeleton: CliScript = {
+  title: 'prep-ide-demo',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    { type: 'pause', durationMs: 600 },
+    {
+      type: 'user_input',
+      text: 'add a loading state to the Dashboard — match how other pages handle it',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 900 },
+    {
+      type: 'tool_call',
+      tool: 'prep_search',
+      args: '"loading skeleton pattern"',
+      durationMs: 900,
+    },
+    {
+      type: 'tool_result',
+      text: 'ReportsPage.tsx + BillingPage.tsx use <Skeleton /> from @prep/ui',
+      status: 'success',
+    },
+    {
+      type: 'agent_output',
+      text: "Other pages use `<Skeleton />` from `@prep/ui` while data loads. I'll match that pattern on the Dashboard.",
+      typewriterDelayMs: 16,
+    },
+    {
+      type: 'file_open',
+      filePath: 'src/pages/Dashboard.tsx',
+      language: 'typescript',
+      content: `import { useState, useEffect } from 'react';
+import { fetchMetrics, type Metric } from '@/api/metrics';
+import { MetricCard } from '@/components/MetricCard';
+
+export function Dashboard() {
+  const [metrics, setMetrics] = useState<Metric[] | null>(null);
+
+  useEffect(() => {
+    fetchMetrics().then(setMetrics);
+  }, []);
+
+  return (
+    <div className="grid gap-4">
+      {metrics?.map((m) => (
+        <MetricCard key={m.id} metric={m} />
+      ))}
+    </div>
+  );
+}`,
+      durationMs: 1000,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'code_edit',
+      filePath: 'src/pages/Dashboard.tsx',
+      durationMs: 1800,
+      newContent: `import { useState, useEffect } from 'react';
+import { Skeleton } from '@prep/ui';
+import { fetchMetrics, type Metric } from '@/api/metrics';
+import { MetricCard } from '@/components/MetricCard';
+
+export function Dashboard() {
+  const [metrics, setMetrics] = useState<Metric[] | null>(null);
+
+  useEffect(() => {
+    fetchMetrics().then(setMetrics);
+  }, []);
+
+  if (!metrics) {
+    return (
+      <div className="grid gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-md" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {metrics.map((m) => (
+        <MetricCard key={m.id} metric={m} />
+      ))}
+    </div>
+  );
+}`,
+    },
+    {
+      type: 'agent_output',
+      text: "Updated `Dashboard.tsx` — same `<Skeleton />` pattern as Reports and Billing. Renders 4 placeholder rows while `metrics` is loading, swaps to the real cards once the fetch resolves.",
+      typewriterDelayMs: 14,
+    },
+    { type: 'pause', durationMs: 3500 },
+  ],
+};
+
 // ============================================================================
 // Export — ordered so that filter-by-tool groups cleanly in the UI
 // ============================================================================
@@ -650,6 +952,13 @@ export const variants: DemoVariant[] = [
     note: 'Declarative (not a question). Dev signals they\'re onboarding; prep returns structure + surfaces the hard architectural rule before they trip over it.',
     script: prepPaymentsOnboard,
   },
+  {
+    id: 'prep-tldr-overview',
+    tool: 'prep',
+    label: 'tldr request — high-level orientation',
+    note: 'Extremely common real-world prompt. "tldr" signals the dev wants the shape, not a tour. prep gives back the one-screen map.',
+    script: prepTldrOverview,
+  },
 
   // prep_search
   {
@@ -665,6 +974,13 @@ export const variants: DemoVariant[] = [
     label: 'Imperative "show me how X works"',
     note: 'Imperative form — not a question. Returns the actual flow steps rather than a file list, thanks to structural expansion.',
     script: searchOauthCallback,
+  },
+  {
+    id: 'search-max-connections',
+    tool: 'prep_search',
+    label: 'Error message → source',
+    note: 'Pasting an error string is the most common real AI-assistant prompt. Search jumps straight to the raise site without the dev grepping log files.',
+    script: searchMaxConnections,
   },
 
   // prep_impact
@@ -682,6 +998,13 @@ export const variants: DemoVariant[] = [
     note: 'Dev is confidently wrong. Impact catches 7 real callers before the delete happens. Classic graph-wins-over-grep scenario.',
     script: impactDeleteUnused,
   },
+  {
+    id: 'impact-extract-service',
+    tool: 'prep_impact',
+    label: 'Feasibility check for extraction',
+    note: '"Thinking about X" — pre-commitment prompt. Impact returns the blast radius *before* the dev starts, so they can scope the work (or back out) with real data.',
+    script: impactExtractService,
+  },
 
   // prep_audit
   {
@@ -697,6 +1020,13 @@ export const variants: DemoVariant[] = [
     label: 'Imperative "review this branch"',
     note: 'Variant of the PR-check with a more direct, imperative prompt. Same enrichment pattern — agent\'s own review + graph context.',
     script: auditBranchReview,
+  },
+  {
+    id: 'audit-security-scan',
+    tool: 'prep_audit',
+    label: 'Triaging scanner output (reachability)',
+    note: 'External scanner findings are the native input for prep_audit. Enrichment adds reachability + hub status so the dev knows which of 6 findings actually matter.',
+    script: auditSecurityScan,
   },
 
   // prep_observe
@@ -714,6 +1044,13 @@ export const variants: DemoVariant[] = [
     note: 'Declarative save. Shows the write side of observations — plus the auto-linking to affected files, so the note resurfaces when relevant later.',
     script: observeZodStandard,
   },
+  {
+    id: 'observe-investigation-recall',
+    tool: 'prep_observe',
+    label: '"Where did we leave off?"',
+    note: 'Mid-task context recovery. Observe returns the prior investigation trail — hypotheses tried, what was ruled out — so work resumes instead of restarts.',
+    script: observeInvestigationRecall,
+  },
 
   // prep_concepts
   {
@@ -730,6 +1067,13 @@ export const variants: DemoVariant[] = [
     note: 'Save side of concepts. Creates a constraint that the immune system will enforce going forward. Future agents get the alarm automatically.',
     script: conceptsDocumentRule,
   },
+  {
+    id: 'concepts-queue-gotchas',
+    tool: 'prep_concepts',
+    label: '"Any gotchas before I touch X?"',
+    note: 'Risk-probing prompt devs actually say. Concepts returns the pile of team-recorded rules for the queue module before the dev has to learn them the hard way.',
+    script: conceptsQueueGotchas,
+  },
 
   // ide
   {
@@ -745,5 +1089,12 @@ export const variants: DemoVariant[] = [
     label: 'Imperative bug fix — mobile double-submit',
     note: 'Imperative bug report ("fix the X"). Search orients to the handler; edit adds the isSubmitting guard. No question, no explanation asked for.',
     script: ideDoubleSubmitFix,
+  },
+  {
+    id: 'ide-loading-skeleton',
+    tool: 'ide',
+    label: 'UI pattern matching across pages',
+    note: '"Match how other pages do it" is a common consistency prompt. Search surfaces the shared skeleton component so the edit follows existing convention instead of inventing one.',
+    script: ideLoadingSkeleton,
   },
 ];
