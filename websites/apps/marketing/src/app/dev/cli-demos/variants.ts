@@ -17,9 +17,9 @@ export interface DemoVariant {
   script: CliScript;
 }
 
-// ----------------------------------------------------------------------------
-// prep — ambient orientation when starting a real task
-// ----------------------------------------------------------------------------
+// ============================================================================
+// prep — ambient structural orientation
+// ============================================================================
 
 const prepRateLimiting: CliScript = {
   title: 'claude — my-project',
@@ -53,9 +53,41 @@ const prepRateLimiting: CliScript = {
   ],
 };
 
-// ----------------------------------------------------------------------------
-// prep_search — finding existing work before re-implementing it
-// ----------------------------------------------------------------------------
+const prepPaymentsOnboard: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'jumping into the payments module for the first time',
+      typingDelayMs: 28,
+    },
+    { type: 'agent_thinking', durationMs: 700 },
+    {
+      type: 'tool_call',
+      tool: 'prep',
+      args: '',
+      durationMs: 900,
+      statusText: 'Loading structural context…',
+    },
+    {
+      type: 'tool_result',
+      text: 'payment/ · 12 files · hub: saga_runner.py · Stripe + billing/ + inventory/',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: '`payment/` is 12 files, all coordinated by `saga_runner.py`. It talks to Stripe, `billing/`, and `inventory/`.\n\nHeads up before you touch anything: there\'s a hard architectural rule — no direct DB transactions inside `payment/`. The saga runner handles rollbacks when something fails downstream. Worth keeping in mind.',
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
+// ============================================================================
+// prep_search — semantic search with structural expansion
+// ============================================================================
 
 const searchRetryReuse: CliScript = {
   title: 'claude — my-project',
@@ -89,9 +121,41 @@ const searchRetryReuse: CliScript = {
   ],
 };
 
-// ----------------------------------------------------------------------------
+const searchOauthCallback: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'show me how we handle oauth callbacks',
+      typingDelayMs: 28,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'tool_call',
+      tool: 'prep_search',
+      args: '"oauth callback handler"',
+      durationMs: 900,
+      statusText: 'Searching…',
+    },
+    {
+      type: 'tool_result',
+      text: '2 matches · auth/oauth.py · tests/test_oauth.py',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: 'Callback lives in `auth/oauth.py` — `AuthOAuth.handle_callback()`. Flow:\n\n1. Validates the `state` param against Redis (CSRF defense)\n2. Exchanges the code for a token with the provider\n3. Creates or updates the `User` record\n4. Issues a new session\n\nErrors route to `/auth/error?reason=…`. Token refresh is separate — it lives in `token_service.py`.',
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
+// ============================================================================
 // prep_impact — blast radius before making a change
-// ----------------------------------------------------------------------------
+// ============================================================================
 
 const impactRename: CliScript = {
   title: 'claude — my-project',
@@ -125,9 +189,41 @@ const impactRename: CliScript = {
   ],
 };
 
-// ----------------------------------------------------------------------------
+const impactDeleteUnused: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: "removing the legacy email helper — it's unused",
+      typingDelayMs: 28,
+    },
+    { type: 'agent_thinking', durationMs: 600 },
+    {
+      type: 'tool_call',
+      tool: 'prep_impact',
+      args: '"send_email_legacy"',
+      durationMs: 900,
+      statusText: 'Tracing callers…',
+    },
+    {
+      type: 'tool_result',
+      text: '7 callers · 4 files · notifications/, workers/digest.py',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "Actually, `send_email_legacy` still has 7 callers across 4 files — mostly in `notifications/` and one in `workers/digest.py`. Looks like the migration to the new mailer stopped halfway.\n\nWant me to finish the migration first, then delete the legacy helper? I can flag which call sites are straightforward swaps and which need a closer look.",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
+// ============================================================================
 // prep_audit — enriches another tool's findings with graph context
-// ----------------------------------------------------------------------------
+// ============================================================================
 
 const auditPrSanityCheck: CliScript = {
   title: 'claude — my-project',
@@ -173,9 +269,53 @@ const auditPrSanityCheck: CliScript = {
   ],
 };
 
-// ----------------------------------------------------------------------------
-// prep_observe — recall of past decisions, with staleness tracking
-// ----------------------------------------------------------------------------
+const auditBranchReview: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'review this branch before I push',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 600, label: 'Reading diff…' },
+    {
+      type: 'tool_call',
+      tool: 'bash',
+      args: 'git diff main -- src/',
+      durationMs: 600,
+    },
+    {
+      type: 'tool_result',
+      text: '6 files · +204 / -56',
+      status: 'success',
+    },
+    { type: 'agent_thinking', durationMs: 900, label: 'Forming findings…' },
+    {
+      type: 'tool_call',
+      tool: 'prep_audit',
+      args: 'findings=[11]',
+      durationMs: 1100,
+      statusText: 'Enriching with graph context…',
+    },
+    {
+      type: 'tool_result',
+      text: '11 findings · 1 critical · 2 concept violations · 8 low-risk',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "Went through the diff and flagged 11 things. Ranked by blast radius:\n\n• **1 critical** — new unhandled `await` in `payment/charge.ts`, and that file has 14 downstream callers.\n• **2 concept violations** — direct DB writes inside `payment/` (your \"no db.transaction\" rule).\n• **8 low-risk** — naming, minor typing gaps.\n\nI'd fix the critical + concept ones before pushing. Low-risk can follow up.",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
+// ============================================================================
+// prep_observe — persistent cross-session memory
+// ============================================================================
 
 const observeCachingRecall: CliScript = {
   title: 'claude — my-project',
@@ -209,9 +349,41 @@ const observeCachingRecall: CliScript = {
   ],
 };
 
-// ----------------------------------------------------------------------------
-// prep_concepts — surfaces architectural constraints / business rules
-// ----------------------------------------------------------------------------
+const observeZodStandard: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: "note: we're standardizing on zod for new validation",
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'tool_call',
+      tool: 'prep_observe',
+      args: 'action="save", category="decision"',
+      durationMs: 700,
+      statusText: 'Saving observation…',
+    },
+    {
+      type: 'tool_result',
+      text: 'Saved #51 · linked to 4 validation sites',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "Saved. Linked it to the 4 files currently using ad-hoc validation — `api/users.py`, `api/billing.py`, `api/webhooks.py`, `workers/ingest.py`.\n\nIf any of those get touched later, this note resurfaces automatically so you (or whoever picks the work up) knows to weigh a migration to zod.",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
+// ============================================================================
+// prep_concepts — business rationale and architectural constraints
+// ============================================================================
 
 const conceptsTransactionRule: CliScript = {
   title: 'claude — my-project',
@@ -220,7 +392,7 @@ const conceptsTransactionRule: CliScript = {
   events: [
     {
       type: 'user_input',
-      text: 'why can\'t I just wrap this in a transaction?',
+      text: "why can't I just wrap this in a transaction?",
       typingDelayMs: 26,
     },
     { type: 'agent_thinking', durationMs: 600 },
@@ -245,9 +417,41 @@ const conceptsTransactionRule: CliScript = {
   ],
 };
 
-// ----------------------------------------------------------------------------
-// IDE — agentic edit using prep + prep_search for orientation
-// ----------------------------------------------------------------------------
+const conceptsDocumentRule: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: "let's document the no-direct-transactions rule for payment/",
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 600 },
+    {
+      type: 'tool_call',
+      tool: 'prep_concepts',
+      args: 'action="save", category="constraint"',
+      durationMs: 900,
+      statusText: 'Recording concept…',
+    },
+    {
+      type: 'tool_result',
+      text: 'Saved "Payment Saga Rule" · assertion: no db.transaction inside payment/ · 2 anchors',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: 'Recorded as *"Payment Saga Rule"* — assertion `no db.transaction inside payment/`, anchored on `saga_runner.py` and `payment/charge.py`.\n\nFrom now on, any new `db.transaction` import inside `payment/` gets flagged by the immune system when I (or anyone else using the graph) looks at that area. Future-you gets a polite alarm instead of a surprise.',
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
+// ============================================================================
+// IDE — agentic edit, prep + search for orientation
+// ============================================================================
 
 const ideLivePipelineUpdates: CliScript = {
   title: 'prep-ide-demo',
@@ -280,7 +484,7 @@ const ideLivePipelineUpdates: CliScript = {
     },
     {
       type: 'agent_output',
-      text: 'Found `PipelineDashboard.tsx`. There\'s already a `useWebSocket` hook in the codebase — I\'ll wire it into the dashboard instead of rolling new polling logic.',
+      text: "Found `PipelineDashboard.tsx`. There's already a `useWebSocket` hook in the codebase — I'll wire it into the dashboard instead of rolling new polling logic.",
       typewriterDelayMs: 16,
     },
     {
@@ -333,32 +537,153 @@ export function PipelineDashboard() {
   ],
 };
 
-// ----------------------------------------------------------------------------
-// Export
-// ----------------------------------------------------------------------------
+const ideDoubleSubmitFix: CliScript = {
+  title: 'prep-ide-demo',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    { type: 'pause', durationMs: 600 },
+    {
+      type: 'user_input',
+      text: 'fix the double-submit on PaymentForm — only happens on mobile',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 900 },
+    { type: 'tool_call', tool: 'prep_search', args: '"PaymentForm submit handler"', durationMs: 900 },
+    {
+      type: 'tool_result',
+      text: 'PaymentForm.tsx · handleSubmit · no pending-state guard',
+      status: 'success',
+    },
+    {
+      type: 'agent_output',
+      text: "Found it. `handleSubmit` doesn't guard against re-entry while the request is pending — mobile users are probably double-tapping before the spinner renders. I'll add an `isSubmitting` flag and disable the button while it's in flight.",
+      typewriterDelayMs: 16,
+    },
+    {
+      type: 'file_open',
+      filePath: 'src/components/PaymentForm.tsx',
+      language: 'typescript',
+      content: `import { useState } from 'react';
+
+export function PaymentForm({ onSubmit }: { onSubmit: (data: FormData) => Promise<void> }) {
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    try {
+      await onSubmit(new FormData(e.currentTarget));
+    } catch (err) {
+      setError('Payment failed');
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {error && <p className="text-red-500">{error}</p>}
+      <button type="submit" className="btn-primary">Pay</button>
+    </form>
+  );
+}`,
+      durationMs: 1000,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'code_edit',
+      filePath: 'src/components/PaymentForm.tsx',
+      durationMs: 1800,
+      newContent: `import { useState } from 'react';
+
+export function PaymentForm({ onSubmit }: { onSubmit: (data: FormData) => Promise<void> }) {
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await onSubmit(new FormData(e.currentTarget));
+    } catch (err) {
+      setError('Payment failed');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit}>
+      {error && <p className="text-red-500">{error}</p>}
+      <button type="submit" disabled={isSubmitting} className="btn-primary">
+        {isSubmitting ? 'Processing…' : 'Pay'}
+      </button>
+    </form>
+  );
+}`,
+    },
+    {
+      type: 'agent_output',
+      text: 'Added the `isSubmitting` guard — early-return on re-entry, button disables on submit, re-enables in `finally`. Mobile double-tap stops causing a second charge.',
+      typewriterDelayMs: 14,
+    },
+    { type: 'pause', durationMs: 3500 },
+  ],
+};
+
+// ============================================================================
+// Export — ordered so that filter-by-tool groups cleanly in the UI
+// ============================================================================
 
 export const variants: DemoVariant[] = [
+  // prep
   {
     id: 'prep-rate-limiting',
     tool: 'prep',
     label: 'Adding a feature — "where does this fit?"',
-    note: 'Dev starts a real task. prep fires as orientation, not as a query. Value = agent points to the right seam instead of guessing.',
+    note: 'Casual task-start. prep fires as orientation, not as a query. Value = agent points to the right seam instead of guessing.',
     script: prepRateLimiting,
   },
+  {
+    id: 'prep-payments-onboard',
+    tool: 'prep',
+    label: 'Jumping into an unfamiliar module',
+    note: 'Declarative (not a question). Dev signals they\'re onboarding; prep returns structure + surfaces the hard architectural rule before they trip over it.',
+    script: prepPaymentsOnboard,
+  },
+
+  // prep_search
   {
     id: 'search-retry-reuse',
     tool: 'prep_search',
     label: '"Do we already have X?"',
-    note: 'The ultimate casual prompt devs mutter to themselves. Catches near-duplicate implementations before they happen.',
+    note: 'Ultimate casual prompt devs mutter to themselves. Catches near-duplicate implementations before they happen.',
     script: searchRetryReuse,
   },
+  {
+    id: 'search-oauth-callback',
+    tool: 'prep_search',
+    label: 'Imperative "show me how X works"',
+    note: 'Imperative form — not a question. Returns the actual flow steps rather than a file list, thanks to structural expansion.',
+    script: searchOauthCallback,
+  },
+
+  // prep_impact
   {
     id: 'impact-rename',
     tool: 'prep_impact',
     label: 'Rename with public API surface',
-    note: 'Ordinary rename request — impact fires because the agent knows renames have blast radius. Value shows up in the recommendation (alias vs. naked rename).',
+    note: 'Ordinary rename request — impact fires because renames have blast radius. Value shows up in the recommendation (alias vs. naked rename).',
     script: impactRename,
   },
+  {
+    id: 'impact-delete-unused',
+    tool: 'prep_impact',
+    label: 'Declarative "it\'s unused" (spoiler: it\'s not)',
+    note: 'Dev is confidently wrong. Impact catches 7 real callers before the delete happens. Classic graph-wins-over-grep scenario.',
+    script: impactDeleteUnused,
+  },
+
+  // prep_audit
   {
     id: 'audit-pr-sanity-check',
     tool: 'prep_audit',
@@ -367,6 +692,15 @@ export const variants: DemoVariant[] = [
     script: auditPrSanityCheck,
   },
   {
+    id: 'audit-branch-review',
+    tool: 'prep_audit',
+    label: 'Imperative "review this branch"',
+    note: 'Variant of the PR-check with a more direct, imperative prompt. Same enrichment pattern — agent\'s own review + graph context.',
+    script: auditBranchReview,
+  },
+
+  // prep_observe
+  {
     id: 'observe-caching-recall',
     tool: 'prep_observe',
     label: 'Recalling past decisions',
@@ -374,17 +708,42 @@ export const variants: DemoVariant[] = [
     script: observeCachingRecall,
   },
   {
+    id: 'observe-zod-standard',
+    tool: 'prep_observe',
+    label: 'Saving a decision ("note: ...")',
+    note: 'Declarative save. Shows the write side of observations — plus the auto-linking to affected files, so the note resurfaces when relevant later.',
+    script: observeZodStandard,
+  },
+
+  // prep_concepts
+  {
     id: 'concepts-transaction-rule',
     tool: 'prep_concepts',
     label: 'Hitting an architectural constraint',
-    note: 'Dev about to violate a hard rule. concepts surfaces the team-recorded rationale + the sanctioned alternative.',
+    note: 'Dev about to violate a hard rule. Concepts surfaces the team-recorded rationale + the sanctioned alternative.',
     script: conceptsTransactionRule,
   },
+  {
+    id: 'concepts-document-rule',
+    tool: 'prep_concepts',
+    label: 'Declarative "let\'s document this rule"',
+    note: 'Save side of concepts. Creates a constraint that the immune system will enforce going forward. Future agents get the alarm automatically.',
+    script: conceptsDocumentRule,
+  },
+
+  // ide
   {
     id: 'ide-live-pipeline-updates',
     tool: 'ide',
     label: 'Live updates — reusing an existing hook',
     note: 'Casual bug-style prompt. Agent uses prep + search to discover the existing useWebSocket hook instead of rolling new polling logic.',
     script: ideLivePipelineUpdates,
+  },
+  {
+    id: 'ide-double-submit-fix',
+    tool: 'ide',
+    label: 'Imperative bug fix — mobile double-submit',
+    note: 'Imperative bug report ("fix the X"). Search orients to the handler; edit adds the isSubmitting guard. No question, no explanation asked for.',
+    script: ideDoubleSubmitFix,
   },
 ];
