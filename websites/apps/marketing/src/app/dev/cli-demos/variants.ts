@@ -28,7 +28,7 @@ const prepRateLimiting: CliScript = {
   events: [
     {
       type: 'user_input',
-      text: 'need to add rate limiting — where does that fit in here?',
+      text: 'need to add rate limiting — where does that fit?',
       typingDelayMs: 28,
     },
     { type: 'agent_thinking', durationMs: 700 },
@@ -196,7 +196,7 @@ const impactDeleteUnused: CliScript = {
   events: [
     {
       type: 'user_input',
-      text: "removing the legacy email helper — it's unused",
+      text: "remove the legacy email helper — it's unused",
       typingDelayMs: 28,
     },
     { type: 'agent_thinking', durationMs: 600 },
@@ -263,7 +263,7 @@ const auditPrSanityCheck: CliScript = {
     { type: 'pause', durationMs: 300 },
     {
       type: 'agent_output',
-      text: "Found 8 things worth flagging. Graded by blast radius:\n\n• **2 critical** — your `charge()` change hits a hub file with 14 dependents. Second look worth it.\n• **1 concept violation** — direct DB call inside `payment/`, which has a \"no db.transaction\" architectural rule.\n• **5 low-risk** — style nits in leaf files, safe to batch.\n\nI'd only block on the first two. Rest can ship.",
+      text: "Found 8 things worth flagging. Graded by blast radius:\n\n• **2 critical** — your `charge()` change hits a hub file with 14 dependents. Worth a second look.\n• **1 concept violation** — direct DB call inside `payment/`, which has a \"no db.transaction\" architectural rule.\n• **5 low-risk** — style nits in leaf files, safe to batch.\n\nI'd only block on the first two. Rest can ship.",
       typewriterDelayMs: 12,
     },
   ],
@@ -307,7 +307,7 @@ const auditBranchReview: CliScript = {
     { type: 'pause', durationMs: 300 },
     {
       type: 'agent_output',
-      text: "Went through the diff and flagged 11 things. Ranked by blast radius:\n\n• **1 critical** — new unhandled `await` in `payment/charge.ts`, and that file has 14 downstream callers.\n• **2 concept violations** — direct DB writes inside `payment/` (your \"no db.transaction\" rule).\n• **8 low-risk** — naming, minor typing gaps.\n\nI'd fix the critical + concept ones before pushing. Low-risk can follow up.",
+      text: "Went through the diff and flagged 11 things. Ranked by blast radius:\n\n• **1 critical** — missing `await` in `payment/charge.py`, and that file has 14 downstream callers.\n• **2 concept violations** — direct DB writes inside `payment/` (your \"no db.transaction\" rule).\n• **8 low-risk** — naming, minor typing gaps.\n\nI'd fix the critical + concept ones before pushing. Low-risk can follow up.",
       typewriterDelayMs: 12,
     },
   ],
@@ -375,7 +375,7 @@ const observeZodStandard: CliScript = {
     { type: 'pause', durationMs: 300 },
     {
       type: 'agent_output',
-      text: "Saved. Linked it to the 4 files currently using ad-hoc validation — `api/users.py`, `api/billing.py`, `api/webhooks.py`, `workers/ingest.py`.\n\nIf any of those get touched later, this note resurfaces automatically so you (or whoever picks the work up) knows to weigh a migration to zod.",
+      text: "Saved. Linked it to the 4 files currently using ad-hoc validation — `api/users.py`, `api/billing.py`, `api/webhooks.py`, `workers/ingest.py`.\n\nIf any of those get touched later, this note resurfaces automatically, so whoever picks the work up has the context to weigh a migration to zod.",
       typewriterDelayMs: 12,
     },
   ],
@@ -411,7 +411,7 @@ const conceptsTransactionRule: CliScript = {
     { type: 'pause', durationMs: 300 },
     {
       type: 'agent_output',
-      text: 'Payment has a hard rule against direct transactions — your team recorded it as *"no db.transaction inside payment/"*.\n\nReason: payments span billing, inventory, and notifications, and a single DB transaction can\'t cover all three. Use the saga runner in `services/saga_runner.py` — it handles compensating rollbacks for you if something downstream fails.',
+      text: '`payment/` has a hard rule against direct transactions — your team recorded it as *"no db.transaction inside payment/"*.\n\nReason: payments span billing, inventory, and notifications, and a single DB transaction can\'t cover all three. Use the saga runner in `payment/saga_runner.py` — it handles compensating rollbacks for you if something downstream fails.',
       typewriterDelayMs: 12,
     },
   ],
@@ -443,7 +443,7 @@ const conceptsDocumentRule: CliScript = {
     { type: 'pause', durationMs: 300 },
     {
       type: 'agent_output',
-      text: 'Recorded as *"Payment Saga Rule"* — assertion `no db.transaction inside payment/`, anchored on `saga_runner.py` and `payment/charge.py`.\n\nFrom now on, any new `db.transaction` import inside `payment/` gets flagged by the immune system when I (or anyone else using the graph) looks at that area. Future-you gets a polite alarm instead of a surprise.',
+      text: 'Recorded as *"Payment Saga Rule"* — assertion `no db.transaction inside payment/`, anchored on `payment/saga_runner.py` and `payment/charge.py`.\n\nFrom now on, any new `db.transaction` import inside `payment/` gets flagged by the immune system when anyone using the graph looks at that area. Future-you gets a polite alarm instead of a surprise.',
       typewriterDelayMs: 12,
     },
   ],
