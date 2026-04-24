@@ -859,6 +859,22 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
             "written_at": barrier_info["written_at"] if barrier_info else None,
         }
 
+        # Phase 117: attach provenance to each stage entry
+        from prep.services.pipeline_provenance import compute_stage_provenance
+        for stage_id, stage_info in stage_data.items():
+            if not isinstance(stage_info, dict):
+                continue
+            try:
+                stage_info["provenance"] = compute_stage_provenance(project_id, stage_id)
+            except Exception:
+                stage_info["provenance"] = {
+                    "state": "missing",
+                    "manifest_model": None,
+                    "current_config_model": None,
+                    "chip_text": None,
+                    "rebuild_scope": None,
+                }
+
         return ok({
             "fast_sync": pipeline_state.get("fast_sync"),
             "deep_enrichment": pipeline_state.get("deep_enrichment"),
