@@ -463,12 +463,18 @@ export class MockApiClient implements ApiClient {
 
   // ── Pipeline Orchestrator ──────────────────────────────────
 
-  async runPipelineFast(): Promise<any> {
-    return { started: true, group: 'fast' };
+  async runPipelineFast(
+    _projectId: string,
+    opts: { force_from_start?: boolean } = {},
+  ): Promise<{ started: boolean; group: string; force_from_start?: boolean }> {
+    return { started: true, group: 'fast', force_from_start: !!opts.force_from_start };
   }
 
-  async runPipelineDeep(): Promise<any> {
-    return { started: true, group: 'deep' };
+  async runPipelineDeep(
+    _projectId: string,
+    opts: { force_from_start?: boolean } = {},
+  ): Promise<{ started: boolean; group: string; force_from_start?: boolean }> {
+    return { started: true, group: 'deep', force_from_start: !!opts.force_from_start };
   }
 
   async runPipelineFinalize(_projectId: string, _opts: { force?: boolean } = {}): Promise<{ started: boolean; group: string }> {
@@ -481,6 +487,12 @@ export class MockApiClient implements ApiClient {
 
   async rebuildPipeline(): Promise<any> {
     return { started: true, group: 'all', mode: 'rebuild' };
+  }
+
+  async rebuildPipelineStop(
+    _projectId: string,
+  ): Promise<{ stopped: boolean; was_active: boolean; cancelled: boolean }> {
+    return { stopped: true, was_active: false, cancelled: false };
   }
 
   async getPipelineStatus(): Promise<any> {

@@ -448,6 +448,34 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     }
   }, [api, selectedProjectId, state])
 
+  // ── Phase 117: scoped rebuild + stop ────────────────────────
+
+  const triggerRebuild = useCallback(async (scope: 'sync' | 'enrichment' | 'all') => {
+    if (!selectedProjectId) return
+    try {
+      if (scope === 'sync') {
+        await api.runPipelineFast(selectedProjectId, { force_from_start: true })
+      } else if (scope === 'enrichment') {
+        await api.runPipelineDeep(selectedProjectId, { force_from_start: true })
+      } else {
+        await api.rebuildPipeline(selectedProjectId)
+      }
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : `Rebuild ${scope} failed.`, 'error')
+      throw e
+    }
+  }, [api, selectedProjectId])
+
+  const stopRebuild = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      await api.rebuildPipelineStop(selectedProjectId)
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Stop rebuild failed.', 'error')
+      throw e
+    }
+  }, [api, selectedProjectId])
+
   // ── Reset (called by destroy handlers in useTraceSystem) ────
 
   const resetAll = useCallback(() => {
@@ -817,6 +845,9 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     handlePausePipeline,
     handleResumePipeline,
     handleSwapModel,
+    // Phase 117: scoped rebuild + stop
+    triggerRebuild,
+    stopRebuild,
     // Fetch (for external callers that need manual refresh)
     fetchAugmentationStatus,
     fetchEpistemicStatus,

@@ -148,11 +148,12 @@ export interface ApiClient {
   getGraphEngineStatus(projectId: string): Promise<GraphEngineStatus>;
 
   // Pipeline Orchestrator (Phase 24 SM-6)
-  runPipelineFast(projectId: string): Promise<{ started: boolean; group: string }>;
-  runPipelineDeep(projectId: string): Promise<{ started: boolean; group: string }>;
+  runPipelineFast(projectId: string, opts?: { force_from_start?: boolean }): Promise<{ started: boolean; group: string; force_from_start?: boolean }>;
+  runPipelineDeep(projectId: string, opts?: { force_from_start?: boolean }): Promise<{ started: boolean; group: string; force_from_start?: boolean }>;
   runPipelineFinalize(projectId: string, opts?: { force?: boolean }): Promise<{ started: boolean; group: string }>;
   runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }>;
   rebuildPipeline(projectId: string): Promise<{ started: boolean; group: string; mode: string }>;
+  rebuildPipelineStop(projectId: string): Promise<{ stopped: boolean; was_active: boolean; cancelled: boolean }>;
   getPipelineStatus(projectId: string): Promise<PipelineStatus>;
   cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }>;
   pausePipeline(projectId: string, group: string): Promise<{ paused: boolean; group: string }>;
@@ -1063,16 +1064,30 @@ export class PrepApiClient implements ApiClient {
 
   // ── Pipeline Orchestrator (Phase 24 SM-6) ───────────────────
 
-  async runPipelineFast(projectId: string): Promise<{ started: boolean; group: string }> {
-    return this.requestEnvelope<{ started: boolean; group: string }>(`/projects/${projectId}/pipeline/fast`, {
-      method: 'POST',
-    });
+  async runPipelineFast(
+    projectId: string,
+    opts: { force_from_start?: boolean } = {},
+  ): Promise<{ started: boolean; group: string; force_from_start?: boolean }> {
+    return this.requestEnvelope<{ started: boolean; group: string; force_from_start?: boolean }>(
+      `/projects/${projectId}/pipeline/fast`,
+      {
+        method: 'POST',
+        body: opts.force_from_start ? { force_from_start: true } : undefined,
+      },
+    );
   }
 
-  async runPipelineDeep(projectId: string): Promise<{ started: boolean; group: string }> {
-    return this.requestEnvelope<{ started: boolean; group: string }>(`/projects/${projectId}/pipeline/deep`, {
-      method: 'POST',
-    });
+  async runPipelineDeep(
+    projectId: string,
+    opts: { force_from_start?: boolean } = {},
+  ): Promise<{ started: boolean; group: string; force_from_start?: boolean }> {
+    return this.requestEnvelope<{ started: boolean; group: string; force_from_start?: boolean }>(
+      `/projects/${projectId}/pipeline/deep`,
+      {
+        method: 'POST',
+        body: opts.force_from_start ? { force_from_start: true } : undefined,
+      },
+    );
   }
 
   async runPipelineFinalize(
@@ -1096,6 +1111,15 @@ export class PrepApiClient implements ApiClient {
     return this.requestEnvelope<{ started: boolean; group: string; mode: string }>(`/projects/${projectId}/pipeline/rebuild`, {
       method: 'POST',
     });
+  }
+
+  async rebuildPipelineStop(
+    projectId: string,
+  ): Promise<{ stopped: boolean; was_active: boolean; cancelled: boolean }> {
+    return this.requestEnvelope<{ stopped: boolean; was_active: boolean; cancelled: boolean }>(
+      `/projects/${projectId}/pipeline/rebuild/stop`,
+      { method: 'POST' },
+    );
   }
 
   async getPipelineStatus(projectId: string): Promise<PipelineStatus> {
