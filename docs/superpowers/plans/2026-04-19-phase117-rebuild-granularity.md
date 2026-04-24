@@ -1349,7 +1349,10 @@ If a `PipelineBarrier` type already exists, merge the `scope` field into it. If 
 Also add:
 
 ```typescript
-export interface StageProvenance {
+// Named StageRebuildProvenance (NOT StageProvenance) because types.ts
+// already has an unrelated Phase 49 StageProvenance interface. See Task 7
+// implementation notes for the name-collision rationale.
+export interface StageRebuildProvenance {
   state: 'match' | 'drift' | 'recovered_stub' | 'recovered_soft' | 'missing';
   manifest_model: { provider: string; model_name: string } | null;
   current_config_model: { provider: string; model_name: string } | null;
@@ -1385,7 +1388,7 @@ Expected: clean.
 
 ```bash
 git add packages/ui/src/types.ts packages/ui/src/components/trace/rebuildProgress.ts packages/ui/src/components/trace/__tests__/rebuildProgress.test.ts
-git commit -m "feat(ui): add RebuildScope + StageProvenance types, rebuildScope helper"
+git commit -m "feat(ui): add RebuildScope + StageRebuildProvenance types, rebuildScope helper"
 ```
 
 ---
@@ -1505,10 +1508,10 @@ Expected: FAIL — module does not exist.
 Create `packages/ui/src/components/trace/ProvenanceChip.tsx`:
 
 ```tsx
-import type { StageProvenance, RebuildScope } from '../../types';
+import type { StageRebuildProvenance, RebuildScope } from '../../types';
 
 interface ProvenanceChipProps {
-  provenance: StageProvenance;
+  provenance: StageRebuildProvenance;
   onRebuild: (scope: RebuildScope) => void;
 }
 
@@ -2130,7 +2133,7 @@ import { RebuildDropdown } from './RebuildDropdown';
 import { RebuildingRow } from './RebuildingRow';
 import { ProvenanceChip } from './ProvenanceChip';
 import { rebuildScope } from './rebuildProgress';
-import type { RebuildScope, StageProvenance } from '../../types';
+import type { RebuildScope, StageRebuildProvenance } from '../../types';
 ```
 
 - [ ] **Step 2: Extend props**
@@ -2202,7 +2205,7 @@ Find where each stage card is rendered (likely in the `CondensedGroupRow` / stag
 )}
 ```
 
-If the stage objects currently don't carry `provenance`, extend the stage type in `packages/ui/src/types.ts` to include `provenance?: StageProvenance`, then thread the new field through the computations that build each stage entry (there are ~15 `id: ..., state: promoteForRebuild(...), stats: ...` objects around line 1200–1344 in this file). For each, read from the backend-provided status:
+If the stage objects currently don't carry `provenance`, extend the stage type in `packages/ui/src/types.ts` to include `provenance?: StageRebuildProvenance`, then thread the new field through the computations that build each stage entry (there are ~15 `id: ..., state: promoteForRebuild(...), stats: ...` objects around line 1200–1344 in this file). For each, read from the backend-provided status:
 
 ```typescript
 provenance: statusPayload.stages.find((s) => s.id === 'enrichment')?.provenance,
