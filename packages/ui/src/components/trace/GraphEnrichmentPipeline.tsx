@@ -1575,7 +1575,7 @@ export function GraphEnrichmentPipeline({
       )}
 
       {/* ── Phase 117: sticky RebuildingRow (active rebuild only) ─────── */}
-      {isRebuilding && activeRebuildScope && stagesInScope.length > 0 && (
+      {activeRebuildScope && stagesInScope.length > 0 && (
         <div className="sticky top-0 z-20 px-1" data-testid="rebuilding-row">
           <RebuildingRow
             scope={activeRebuildScope}
