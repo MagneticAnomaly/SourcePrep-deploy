@@ -166,6 +166,28 @@ def read_reset_barrier(project_id: str) -> dict | None:
         return None
 
 
+_SCOPE_BOUNDARY = {
+    "sync": "fast_sync",
+    "enrichment": "deep_enrichment",
+    "all": "finalize",
+}
+
+
+def maybe_clear_scoped_barrier(project_id: str, completed_group: str) -> bool:
+    """Clear the reset barrier iff ``completed_group`` is the boundary for its scope.
+
+    Called by the orchestrator after each group finishes. Returns True if the
+    barrier was cleared, False otherwise (wrong boundary, or no barrier set).
+    """
+    info = read_reset_barrier(project_id)
+    if info is None:
+        return False
+    boundary = _SCOPE_BOUNDARY.get(info.get("scope", "all"))
+    if boundary != completed_group:
+        return False
+    return clear_reset_barrier(project_id)
+
+
 class RecoveryManager:
     """Pipeline crash recovery, checkpoint creation, and backup restoration.
 

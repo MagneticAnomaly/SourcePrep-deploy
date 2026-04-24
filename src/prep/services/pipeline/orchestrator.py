@@ -1861,6 +1861,17 @@ class PipelineOrchestrator:
             if run.group == "deep_enrichment":
                 self._maybe_retrigger_deepening(run.project_id, pfl)
 
+            # Phase 117: Clear barrier if scope="enrichment" (deep_enrichment boundary)
+            if run.group == "deep_enrichment":
+                try:
+                    from prep.services.pipeline.recovery import maybe_clear_scoped_barrier
+                    maybe_clear_scoped_barrier(run.project_id, completed_group="deep_enrichment")
+                except Exception:
+                    logger.debug(
+                        "maybe_clear_scoped_barrier failed (non-fatal) for %s",
+                        run.project_id, exc_info=True,
+                    )
+
             # Chain finalize after enrich if configured or explicitly requested
             if run.group == "deep_enrichment":
                 should_chain_fin = False
@@ -1890,11 +1901,22 @@ class PipelineOrchestrator:
                 # manifest, so subsequent selfheal runs can safely consider
                 # orphan outputs and backup sources again.
                 try:
-                    from prep.services.pipeline.recovery import clear_reset_barrier
-                    clear_reset_barrier(run.project_id)
+                    from prep.services.pipeline.recovery import maybe_clear_scoped_barrier
+                    maybe_clear_scoped_barrier(run.project_id, completed_group="finalize")
                 except Exception:
                     logger.debug(
-                        "clear_reset_barrier failed (non-fatal) for %s",
+                        "maybe_clear_scoped_barrier failed (non-fatal) for %s",
+                        run.project_id, exc_info=True,
+                    )
+
+            # Phase 117: Clear barrier if scope="sync" (fast_sync boundary)
+            if run.group == "fast_sync":
+                try:
+                    from prep.services.pipeline.recovery import maybe_clear_scoped_barrier
+                    maybe_clear_scoped_barrier(run.project_id, completed_group="fast_sync")
+                except Exception:
+                    logger.debug(
+                        "maybe_clear_scoped_barrier failed (non-fatal) for %s",
                         run.project_id, exc_info=True,
                     )
 
