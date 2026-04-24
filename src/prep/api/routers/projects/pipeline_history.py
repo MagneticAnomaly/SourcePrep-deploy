@@ -70,6 +70,59 @@ async def get_pipeline_history(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/projects/{project_id}/pipeline/last-rebuild-duration")
+async def get_last_rebuild_duration(project_id: str) -> Dict[str, Any]:
+    """Best-effort last-completed duration_seconds per rebuild scope (Phase 117).
+
+    Looks up the most recent completed run per group:
+      - scope "sync"        → group "fast_sync"
+      - scope "enrichment"  → group "deep_enrichment"
+      - scope "all"         → sum of fast_sync + deep_enrichment + finalize
+                              (run_all chains three separate runs — history
+                              records each group individually, so we aggregate
+                              the most recent completed run from each group).
+
+    Returns {"sync": secs|null, "enrichment": secs|null, "all": secs|null}.
+    Unknown or missing runs yield ``null`` rather than 0.
+    """
+    try:
+        from prep.services.pipeline_history import history
+
+        def _latest_elapsed(group_name: str) -> Optional[float]:
+            entry = history.get_latest_run(project_id, group=group_name)
+            if entry and entry.status == "completed" and entry.elapsed_seconds:
+                return float(entry.elapsed_seconds)
+            return None
+
+        sync_secs = _latest_elapsed("fast_sync")
+        enrich_secs = _latest_elapsed("deep_enrichment")
+        finalize_secs = _latest_elapsed("finalize")
+
+        # "all" scope = sum of the three stage groups' most recent completed
+        # durations. If none recorded, return None. Partial data still
+        # produces a useful estimate (sum of whichever groups have history).
+        parts = [s for s in (sync_secs, enrich_secs, finalize_secs) if s is not None]
+        all_secs: Optional[float] = sum(parts) if parts else None
+
+        return {
+            "success": True,
+            "data": {
+                "sync": sync_secs,
+                "enrichment": enrich_secs,
+                "all": all_secs,
+            },
+        }
+    except RuntimeError:
+        # History DB not initialized — empty project
+        return {
+            "success": True,
+            "data": {"sync": None, "enrichment": None, "all": None},
+        }
+    except Exception as e:
+        logger.exception("Failed to get last rebuild duration for %s", project_id)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/projects/{project_id}/pipeline/runs/{run_id}")
 async def get_pipeline_run(
     project_id: str,

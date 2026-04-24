@@ -495,6 +495,12 @@ export class MockApiClient implements ApiClient {
     return { stopped: true, was_active: false, cancelled: false };
   }
 
+  async getLastRebuildDuration(
+    _projectId: string,
+  ): Promise<{ sync: number | null; enrichment: number | null; all: number | null }> {
+    return { sync: null, enrichment: null, all: null };
+  }
+
   async getPipelineStatus(): Promise<any> {
     return { running: false, group: null, stage: null, progress: null };
   }

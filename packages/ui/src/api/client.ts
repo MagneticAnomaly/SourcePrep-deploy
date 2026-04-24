@@ -154,6 +154,8 @@ export interface ApiClient {
   runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }>;
   rebuildPipeline(projectId: string): Promise<{ started: boolean; group: string; mode: string }>;
   rebuildPipelineStop(projectId: string): Promise<{ stopped: boolean; was_active: boolean; cancelled: boolean }>;
+  /** Phase 117: last completed duration (seconds) for each rebuild scope. Null when no history. */
+  getLastRebuildDuration(projectId: string): Promise<{ sync: number | null; enrichment: number | null; all: number | null }>;
   getPipelineStatus(projectId: string): Promise<PipelineStatus>;
   cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }>;
   pausePipeline(projectId: string, group: string): Promise<{ paused: boolean; group: string }>;
@@ -1119,6 +1121,14 @@ export class PrepApiClient implements ApiClient {
     return this.requestEnvelope<{ stopped: boolean; was_active: boolean; cancelled: boolean }>(
       `/projects/${projectId}/pipeline/rebuild/stop`,
       { method: 'POST' },
+    );
+  }
+
+  async getLastRebuildDuration(
+    projectId: string,
+  ): Promise<{ sync: number | null; enrichment: number | null; all: number | null }> {
+    return this.requestEnvelope<{ sync: number | null; enrichment: number | null; all: number | null }>(
+      `/projects/${projectId}/pipeline/last-rebuild-duration`,
     );
   }
 

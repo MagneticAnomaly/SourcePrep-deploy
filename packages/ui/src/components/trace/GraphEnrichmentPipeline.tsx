@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { cn } from '../../lib/utils';
 import { SlidingSwitch2, SlidingSwitch3 } from '../primitives/SlidingSwitch';
 import {
@@ -14,6 +14,7 @@ import { RebuildDropdown } from './RebuildDropdown';
 import { RebuildingRow } from './RebuildingRow';
 import { ProvenanceChip } from './ProvenanceChip';
 import { HealthBadge } from '../pipeline/HealthBadge';
+import { ConfirmDialog } from '../primitives/ConfirmDialog';
 import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus, BarrierStatus, PipelineHealth, RebuildScope, StageRebuildProvenance } from '../../types';
 import type { ApiClient } from '../../api/client';
 
@@ -181,6 +182,20 @@ export interface EnrichmentStage {
   provenance?: StageProvenance;
   /** Phase 117: rebuild provenance (match/drift/recovered/missing) — distinct from Phase 49 provenance */
   rebuildProvenance?: StageRebuildProvenance;
+}
+
+// ── Phase 117: Rebuild duration formatting ────────────────────────
+
+/** Format a "Last run took ~Xh" clause for the rebuild confirm modal.
+ *  Returns "" when secs is null/zero so callers can append it unconditionally.
+ *  Covers sub-minute and sub-hour ranges so short runs don't round to 0h. */
+function formatEstimate(secs: number | null): string {
+  if (!secs || secs <= 0) return '';
+  const mins = secs / 60;
+  if (mins < 1) return ' Last run took <1m.';
+  if (mins < 60) return ` Last run took ~${Math.round(mins)}m.`;
+  const hours = mins / 60;
+  return ` Last run took ~${hours.toFixed(1)}h.`;
 }
 
 // ── Phase 49: Provenance Helpers ─────────────────────────────────
@@ -1050,6 +1065,33 @@ export function GraphEnrichmentPipeline({
     try { localStorage.setItem('prep_pipeline_details', String(next)); } catch { }
   };
 
+  // ── Phase 117: Rebuild confirm modal state ────────────────────
+  //
+  // "Rebuild Sync" and "Rebuild All" are intentionally gated behind a
+  // confirm dialog (spec A6); "Rebuild Enrichment" is NOT gated because
+  // it's cheap + commonly iterative. We pre-fetch the last-run duration
+  // so the modal can show "Last run took ~Xh" when history exists.
+  const [pendingScope, setPendingScope] = useState<RebuildScope | null>(null);
+  const [estimateSecs, setEstimateSecs] = useState<number | null>(null);
+
+  const handleRebuildRequest = useCallback(async (scope: RebuildScope) => {
+    if (scope === 'enrichment') {
+      onRebuild(scope); // no modal per spec A6
+      return;
+    }
+    // Reset previous estimate so a stale value doesn't flash.
+    setEstimateSecs(null);
+    if (projectId && apiClient) {
+      try {
+        const data = await apiClient.getLastRebuildDuration(projectId);
+        setEstimateSecs(scope === 'sync' ? data.sync : data.all);
+      } catch {
+        /* null estimate is fine — modal just omits the clause */
+      }
+    }
+    setPendingScope(scope);
+  }, [onRebuild, projectId, apiClient]);
+
   // ── Fade-in when transitioning from hero/building → pipeline ──
   const [fadeIn, setFadeIn] = useState(false);
   const prevExistsRef = useRef(trace.exists);
@@ -1558,7 +1600,7 @@ export function GraphEnrichmentPipeline({
         data-testid="pipeline-panel-header"
       >
         <RebuildDropdown
-          onRebuild={onRebuild}
+          onRebuild={handleRebuildRequest}
           disabled={fastRunning || deepRunning || finalizeRunning || isRebuilding}
         />
       </div>
@@ -1912,6 +1954,22 @@ export function GraphEnrichmentPipeline({
           progress={roundedProgress}
         />
       </div>
+
+      {/* ── Phase 117: confirm modal for Rebuild Sync / Rebuild All ─── */}
+      <ConfirmDialog
+        open={pendingScope !== null}
+        variant="default"
+        title={pendingScope === 'sync' ? 'Rebuild Sync?' : 'Rebuild All?'}
+        description={
+          pendingScope === 'sync'
+            ? `This will re-run stages 1-5. Downstream stages 6-15 will incrementally re-derive against the new graph.${formatEstimate(estimateSecs)} Continue?`
+            : `This will re-run all 15 stages.${formatEstimate(estimateSecs)} Continue?`
+        }
+        warning=""
+        confirmLabel={pendingScope === 'sync' ? 'Rebuild Sync' : 'Rebuild All'}
+        onConfirm={() => { if (pendingScope) onRebuild(pendingScope); setPendingScope(null); }}
+        onCancel={() => setPendingScope(null)}
+      />
 
     </div>
   );
