@@ -1015,7 +1015,9 @@ def pipeline_rebuild_stop(project_id: str) -> dict[str, Any]:
                 cancelled = pipeline_orchestrator.cancel_fast_sync(project_id)
             elif scope == "enrichment":
                 cancelled = pipeline_orchestrator.cancel_deep_enrichment(project_id)
-            else:  # "all" — cancel whichever group is live
+            else:
+                # "all" chains fast_sync → deep_enrichment → finalize sequentially,
+                # so short-circuit OR finds the single live group.
                 cancelled = (
                     pipeline_orchestrator.cancel_fast_sync(project_id)
                     or pipeline_orchestrator.cancel_deep_enrichment(project_id)
@@ -1029,7 +1031,7 @@ def pipeline_rebuild_stop(project_id: str) -> dict[str, Any]:
     return ok({
         "stopped": True,
         "was_active": was_active,
-        "cancelled_group": cancelled,
+        "cancelled": cancelled,
     })
 
 
