@@ -1,4 +1,4 @@
-import type { BarrierStatus } from '../../types';
+import type { BarrierStatus, RebuildScope } from '../../types';
 
 export interface RebuildStageSnapshot {
   state: string;       // StageState from GraphEnrichmentPipeline — kept as string to avoid circular imports
@@ -31,4 +31,13 @@ export function computeOverallRebuildPercent(stages: RebuildStageSnapshot[]): nu
   if (stages.length === 0) return 0;
   const sum = stages.reduce((acc, s) => acc + perStageRebuildPercent(s), 0);
   return Math.round(sum / stages.length);
+}
+
+/**
+ * Returns the rebuild scope from the barrier, or null if the pipeline is not
+ * currently rebuilding. Falls back to 'all' for legacy barriers without scope.
+ */
+export function rebuildScope(barrier: BarrierStatus | null | undefined): RebuildScope | null {
+  if (!barrier || !barrier.active || barrier.reason !== 'rebuild') return null;
+  return barrier.scope ?? 'all';
 }

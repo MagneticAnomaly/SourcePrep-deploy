@@ -1775,11 +1775,31 @@ export interface StageRestoreResponse {
   files_restored: string[]
 }
 
+/** Phase 117: which stages a rebuild covers. */
+export type RebuildScope = 'sync' | 'enrichment' | 'all';
+
 export interface BarrierStatus {
   active: boolean;
   age_seconds?: number;
   reason?: string;
   written_at?: number;
+  /** Phase 117; absent → treat as 'all' */
+  scope?: RebuildScope;
+}
+
+/**
+ * Phase 117 rebuild provenance per stage — from `/pipeline/status`.
+ * Distinct from the Phase 49 `StageProvenance` (which comes from
+ * `/projects/{id}/pipeline/provenance` and tracks model/quality metadata).
+ * This type reflects which model produced a stage and whether it matches
+ * the current config, used to decide if a stage needs rebuilding.
+ */
+export interface StageRebuildProvenance {
+  state: 'match' | 'drift' | 'recovered_stub' | 'recovered_soft' | 'missing';
+  manifest_model: { provider: string; model_name: string } | null;
+  current_config_model: { provider: string; model_name: string } | null;
+  chip_text: string | null;
+  rebuild_scope: RebuildScope | null;
 }
 
 // Phase 114: the /pipeline/status response now includes barrier info

@@ -3,6 +3,7 @@ import {
   isPipelineRebuilding,
   perStageRebuildPercent,
   computeOverallRebuildPercent,
+  rebuildScope,
   type RebuildStageSnapshot,
 } from '../rebuildProgress';
 import type { BarrierStatus } from '../../../types';
@@ -113,5 +114,33 @@ describe('full-import-chain rebuild detection', () => {
   it('non-rebuild barrier short-circuits detection even if stages look mid-run', () => {
     const barrier: BarrierStatus = { active: true, reason: 'enrichment_reset' };
     expect(isPipelineRebuilding(barrier)).toBe(false);
+  });
+});
+
+describe('Phase 117 — barrier scope', () => {
+  it('reads barrier.scope when present', () => {
+    const barrier: BarrierStatus = { active: true, reason: 'rebuild', scope: 'sync' };
+    expect(isPipelineRebuilding(barrier)).toBe(true);
+    expect(rebuildScope(barrier)).toBe('sync');
+  });
+
+  it('defaults to "all" when scope is absent (legacy)', () => {
+    const barrier: BarrierStatus = { active: true, reason: 'rebuild' };
+    expect(rebuildScope(barrier)).toBe('all');
+  });
+
+  it('returns null when barrier is inactive', () => {
+    const barrier: BarrierStatus = { active: false, reason: 'rebuild' };
+    expect(rebuildScope(barrier)).toBeNull();
+  });
+
+  it('returns null when reason is not rebuild', () => {
+    const barrier: BarrierStatus = { active: true, reason: 'enrichment_reset' };
+    expect(rebuildScope(barrier)).toBeNull();
+  });
+
+  it('returns null when barrier is null or undefined', () => {
+    expect(rebuildScope(null)).toBeNull();
+    expect(rebuildScope(undefined)).toBeNull();
   });
 });
