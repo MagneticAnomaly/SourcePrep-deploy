@@ -61,6 +61,7 @@ export function RebuildingRow({
       {/* Right: Stop button */}
       <button
         type="button"
+        aria-label="Stop rebuild"
         className="shrink-0 px-2 py-0.5 rounded border border-blue-500/40 text-blue-300 text-xs hover:bg-blue-500/20 transition-colors"
         onClick={onStop}
       >

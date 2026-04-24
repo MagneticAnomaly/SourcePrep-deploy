@@ -61,10 +61,8 @@ describe('RebuildingRow', () => {
 
     const text = treeText(result);
     expect(text).toMatch(/Rebuilding Sync/i);
-    expect(text).toMatch(/3/);
-    expect(text).toMatch(/5/);
-    expect(text).toMatch(/Fast Catalogue/);
-    expect(text).toMatch(/38/);
+    expect(text).toMatch(/stage 3\/5: Fast Catalogue/);
+    expect(text).toMatch(/38%/);
   });
 
   // Test 2: enrichment scope → "Rebuilding Enrichment"
@@ -114,6 +112,7 @@ describe('RebuildingRow', () => {
     expect(result).not.toBeNull();
     const btn = findButton(result);
     expect(btn).not.toBeNull();
+    expect(btn!.props['aria-label']).toBe('Stop rebuild');
     // Invoke the click handler directly
     (btn!.props.onClick as () => void)();
     expect(onStop).toHaveBeenCalledOnce();
