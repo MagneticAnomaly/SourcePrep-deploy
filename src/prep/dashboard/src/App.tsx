@@ -411,6 +411,9 @@ function App() {
     resetAll: resetEnrichment,
     rehydrate: rehydrateEnrichment,
     refreshStageDataFromPipeline,
+    // Phase 117: scoped rebuild + stop
+    triggerRebuild,
+    stopRebuild,
   } = useEnrichment(selectedProjectId, {
     onError: (msg, variant) => showToast(msg, variant),
     pipelineEvents,
@@ -957,6 +960,9 @@ function App() {
       finalizeRunning,
       finalizeCurrentStage,
       refreshStageDataFromPipeline,
+      // Phase 117: scoped rebuild + stop handlers
+      triggerRebuild,
+      stopRebuild,
     },
     llm: {
       llmConfig, llmSlotsStatus,

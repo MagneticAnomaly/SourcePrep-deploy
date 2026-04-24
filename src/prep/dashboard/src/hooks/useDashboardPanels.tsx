@@ -220,6 +220,10 @@ export interface PanelEnrichmentProps {
   onToggleGroupCollapsed?: (group: 'fast' | 'deep' | 'finalize') => void;
   /** Phase 114: called after a per-stage restore so the panel can repaint stage status immediately. */
   refreshStageDataFromPipeline?: () => Promise<void> | void;
+  /** Phase 117: trigger a scoped rebuild (sync / enrichment / all). */
+  triggerRebuild: (scope: import('@prep/ui').RebuildScope) => Promise<void>;
+  /** Phase 117: stop the in-flight rebuild. */
+  stopRebuild: () => Promise<void>;
 }
 
 export interface PanelLLMProps {
@@ -941,6 +945,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           health={health ?? undefined}
           onClearBarrier={clearBarrier}
           onStageRestored={handleStageRestored}
+          onRebuild={(scope) => { void p.triggerRebuild(scope); }}
+          onStopRebuild={() => { void p.stopRebuild(); }}
         />
       </div>
     ),

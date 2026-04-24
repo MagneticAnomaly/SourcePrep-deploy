@@ -398,6 +398,8 @@ export const FullDashboard: StoryObj = {
             augmentation={{ enabled: true, total_nodes: 100, augmented_nodes: 80, validated_nodes: 0, low_confidence_count: 5, avg_confidence: 0.85 }}
             epistemic={{ enabled: true, enriched_nodes: 60, progress_current: 60, progress_total: 100, avg_confidence: 0.9, running: false }}
             isPro={true}
+            onRebuild={(scope) => console.log('[Story] onRebuild', scope)}
+            onStopRebuild={() => console.log('[Story] onStopRebuild')}
           />
         </div>
       ),

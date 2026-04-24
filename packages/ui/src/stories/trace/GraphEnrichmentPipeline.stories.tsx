@@ -10,6 +10,12 @@ const meta: Meta<typeof GraphEnrichmentPipeline> = {
   parameters: {
     layout: 'padded',
   },
+  // Phase 117: scoped rebuild + stop are required props. Stories override
+  // via their own args when they need to assert specific behaviour.
+  args: {
+    onRebuild: (scope) => console.log('onRebuild', scope),
+    onStopRebuild: () => console.log('onStopRebuild'),
+  },
 };
 
 export default meta;

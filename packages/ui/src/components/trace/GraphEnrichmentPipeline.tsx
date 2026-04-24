@@ -9,9 +9,12 @@ import {
 import { computeGroupRollup, type GroupRollup } from './pipelineRollup';
 import { RecoverStagePanel } from './RecoverStagePanel';
 import { BarrierIndicator } from './BarrierIndicator';
-import { isPipelineRebuilding, computeOverallRebuildPercent, type RebuildStageSnapshot } from './rebuildProgress';
+import { isPipelineRebuilding, computeOverallRebuildPercent, rebuildScope, type RebuildStageSnapshot } from './rebuildProgress';
+import { RebuildDropdown } from './RebuildDropdown';
+import { RebuildingRow } from './RebuildingRow';
+import { ProvenanceChip } from './ProvenanceChip';
 import { HealthBadge } from '../pipeline/HealthBadge';
-import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus, BarrierStatus, PipelineHealth } from '../../types';
+import type { AugmentationStatus, DeepAnalysisRunStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, InferredEdgesStatus, AtlasStatus, StageProvenance, RulesStatus, ConceptsStatus, AuditPipelineStatus, AntibodiesStatus, BarrierStatus, PipelineHealth, RebuildScope, StageRebuildProvenance } from '../../types';
 import type { ApiClient } from '../../api/client';
 
 // ── Types ────────────────────────────────────────────────────
@@ -152,6 +155,12 @@ export interface GraphEnrichmentPipelineProps {
   onClearBarrier?: () => void;
   /** Phase 114: pipeline health snapshot rendered as badge in header */
   health?: PipelineHealth;
+  /** Phase 117: trigger a scoped rebuild (from RebuildDropdown or ProvenanceChip). */
+  onRebuild: (scope: RebuildScope) => void;
+  /** Phase 117: stop the currently-running rebuild (from RebuildingRow). */
+  onStopRebuild: () => void;
+  /** Phase 117: per-stage rebuild provenance keyed by stage_id (from /pipeline/status). */
+  rebuildProvenance?: Record<string, StageRebuildProvenance>;
   className?: string;
 }
 
@@ -170,6 +179,8 @@ export interface EnrichmentStage {
   rerun?: { donePercent: number; stalePercent: number };
   /** Phase 49: provenance metadata for this stage */
   provenance?: StageProvenance;
+  /** Phase 117: rebuild provenance (match/drift/recovered/missing) — distinct from Phase 49 provenance */
+  rebuildProvenance?: StageRebuildProvenance;
 }
 
 // ── Phase 49: Provenance Helpers ─────────────────────────────────
@@ -765,6 +776,7 @@ function StageRow({
   onResume,
   showDetails = false,
   isRebuilding = false,
+  onRebuild,
 }: {
   stage: EnrichmentStage;
   isPaused: boolean;
@@ -772,6 +784,7 @@ function StageRow({
   onResume?: (group: "fast_sync" | "deep_enrichment" | "finalize") => void;
   showDetails?: boolean;
   isRebuilding?: boolean;
+  onRebuild?: (scope: RebuildScope) => void;
 }) {
   const s = STATE_STYLES[stage.state];
   const [hovered, setHovered] = useState(false);
@@ -916,6 +929,13 @@ function StageRow({
             No run data
           </p>
         )}
+
+        {/* Phase 117: rebuild provenance chip (drift / recovered_stub / recovered_soft) */}
+        {stage.rebuildProvenance && (
+          <div className="mt-0.5" data-testid={`provenance-chip-${stage.id}`}>
+            <ProvenanceChip provenance={stage.rebuildProvenance} onRebuild={onRebuild} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -990,6 +1010,9 @@ export function GraphEnrichmentPipeline({
   barrier,
   onClearBarrier,
   health,
+  onRebuild,
+  onStopRebuild,
+  rebuildProvenance,
   className,
 }: GraphEnrichmentPipelineProps) {
   const fastPaused = fastPausedProp ?? false;
@@ -1372,6 +1395,13 @@ export function GraphEnrichmentPipeline({
     stage.provenance = lookupProvenance(stage.id, provenance);
   }
 
+  // ── Phase 117: inject rebuild provenance into each stage ─────────
+  if (rebuildProvenance) {
+    for (const stage of [...fastStages, ...deepStages, ...finalizeStages]) {
+      stage.rebuildProvenance = rebuildProvenance[stage.id];
+    }
+  }
+
   // Track which stages have ever been green this session.
   for (const stage of [...fastStages, ...deepStages, ...finalizeStages]) {
     if (stage.state === 'complete') wasCompleteRef.current[stage.id] = true;
@@ -1495,6 +1525,23 @@ export function GraphEnrichmentPipeline({
     );
   }
 
+  // ── Phase 117: resolve active rebuild scope and RebuildingRow context ───
+  const activeRebuildScope = rebuildScope(barrier);
+  const allStages: EnrichmentStage[] = [...fastStages, ...deepStages, ...finalizeStages];
+  const stagesInScope: EnrichmentStage[] =
+    activeRebuildScope === 'sync'
+      ? fastStages
+      : activeRebuildScope === 'enrichment'
+        ? deepStages
+        : activeRebuildScope === 'all'
+          ? allStages
+          : [];
+  const currentStageIndex = stagesInScope.findIndex(
+    (s) => s.state === 'rebuilding' || s.state === 'running',
+  );
+  const safeCurrentIndex = currentStageIndex >= 0 ? currentStageIndex : 0;
+  const currentStageLabel = stagesInScope[safeCurrentIndex]?.label ?? '';
+
   return (
     <div
       data-testid="pipeline-panel"
@@ -1505,6 +1552,17 @@ export function GraphEnrichmentPipeline({
       className={cn("flex flex-col gap-3", fadeIn && "animate-in fade-in duration-500", className)}
     >
 
+      {/* ── Phase 117: panel header with RebuildDropdown ─────────── */}
+      <div
+        className="flex items-center justify-end px-1 pt-1"
+        data-testid="pipeline-panel-header"
+      >
+        <RebuildDropdown
+          onRebuild={onRebuild}
+          disabled={fastRunning || deepRunning || finalizeRunning || isRebuilding}
+        />
+      </div>
+
       {isRebuilding && (
         <div className="px-4 pt-3 pb-1" data-testid="overall-rebuild-bar">
           <StageProgressBar
@@ -1512,6 +1570,20 @@ export function GraphEnrichmentPipeline({
             rebuildPercent={overallRebuildPercent}
             className="h-2"
             rebuildStateOverlay={isPipelinePaused ? 'paused' : undefined}
+          />
+        </div>
+      )}
+
+      {/* ── Phase 117: sticky RebuildingRow (active rebuild only) ─────── */}
+      {isRebuilding && activeRebuildScope && stagesInScope.length > 0 && (
+        <div className="sticky top-0 z-20 px-1" data-testid="rebuilding-row">
+          <RebuildingRow
+            scope={activeRebuildScope}
+            currentStageIndex={safeCurrentIndex}
+            totalStagesInScope={stagesInScope.length}
+            currentStageLabel={currentStageLabel}
+            percent={overallRebuildPercent}
+            onStop={onStopRebuild}
           />
         </div>
       )}
@@ -1604,6 +1676,7 @@ export function GraphEnrichmentPipeline({
                   onResume={isStagePaused && onResumePipeline ? () => onResumePipeline('fast_sync') : undefined}
                   showDetails={showDetails}
                   isRebuilding={isRebuilding}
+                  onRebuild={onRebuild}
                 />
                 {showRecover && (
                   <RecoverStagePanel
@@ -1706,6 +1779,7 @@ export function GraphEnrichmentPipeline({
                   isPaused={isStagePaused}
                   showDetails={showDetails}
                   isRebuilding={isRebuilding}
+                  onRebuild={onRebuild}
                 />
                 {showRecover && (
                   <RecoverStagePanel
@@ -1796,6 +1870,7 @@ export function GraphEnrichmentPipeline({
                   isPaused={isStagePaused}
                   showDetails={showDetails}
                   isRebuilding={isRebuilding}
+                  onRebuild={onRebuild}
                 />
                 {showRecover && (
                   <RecoverStagePanel
