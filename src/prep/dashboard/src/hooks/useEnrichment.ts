@@ -1,5 +1,5 @@
 import { useReducer, useCallback, useEffect, useRef } from 'react'
-import { useApiClient, type PipelineStatus, type KnowledgeEmbeddingStatus } from '@prep/ui'
+import { useApiClient, type PipelineStatus, type KnowledgeEmbeddingStatus, type RebuildScope } from '@prep/ui'
 import {
   enrichmentReducer,
   initialEnrichmentState,
@@ -450,7 +450,9 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
 
   // ── Phase 117: scoped rebuild + stop ────────────────────────
 
-  const triggerRebuild = useCallback(async (scope: 'sync' | 'enrichment' | 'all') => {
+  // Phase 117: Re-throw so RebuildDropdown can surface inline failure;
+  // no STAGE_FAILED dispatch because rebuild scope spans multiple stages.
+  const triggerRebuild = useCallback(async (scope: RebuildScope) => {
     if (!selectedProjectId) return
     try {
       if (scope === 'sync') {

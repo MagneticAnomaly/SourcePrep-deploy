@@ -90,6 +90,8 @@ export type {
   StageBackup,
   StageBackupsResponse,
   StageRestoreResponse,
+  // Phase 117 — scoped rebuild
+  RebuildScope,
 } from './types';
 
 // Components - Status
