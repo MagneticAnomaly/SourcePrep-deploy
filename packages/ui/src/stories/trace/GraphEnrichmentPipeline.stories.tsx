@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { GraphEnrichmentPipeline } from '../../components/trace/GraphEnrichmentPipeline';
-import type { AugmentationStatus, DeepAnalysisRunStatus, InferredEdgesStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, AtlasStatus } from '../../types';
+import type { AugmentationStatus, DeepAnalysisRunStatus, InferredEdgesStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, AtlasStatus, BarrierStatus, StageRebuildProvenance } from '../../types';
 import type { EnrichmentAutoConfig } from '../../components/trace/GraphEnrichmentPipeline';
 
 const meta: Meta<typeof GraphEnrichmentPipeline> = {
@@ -273,5 +273,64 @@ export const FullPipeline10Stages: Story = {
     onRunFastSync: () => alert('Running Fast Sync...'),
     onRunDeepEnrichment: () => alert('Running Deep Enrichment...'),
     isPro: true,
+  },
+};
+
+// ── Phase 117: scoped rebuild + provenance stories ──────────
+
+const barrierRebuildSync: BarrierStatus = {
+  active: true,
+  reason: 'rebuild',
+  scope: 'sync',
+  age_seconds: 12,
+  written_at: Math.floor(Date.now() / 1000) - 12,
+};
+
+const barrierRebuildEnrichment: BarrierStatus = {
+  active: true,
+  reason: 'rebuild',
+  scope: 'enrichment',
+  age_seconds: 34,
+  written_at: Math.floor(Date.now() / 1000) - 34,
+};
+
+export const RebuildingSync: Story = {
+  name: 'Rebuilding — Sync Scope',
+  args: {
+    trace: { ...traceReady, building: true },
+    augmentation: augPartial,
+    deepAnalysis: deepRan,
+    barrier: barrierRebuildSync,
+  },
+};
+
+export const RebuildingEnrichment: Story = {
+  name: 'Rebuilding — Enrichment Scope',
+  args: {
+    trace: traceReady,
+    augmentation: augFull,
+    deepAnalysis: { ...deepRan, running: true },
+    deepAnalyzing: true,
+    barrier: barrierRebuildEnrichment,
+  },
+};
+
+const driftProvenance: Record<string, StageRebuildProvenance> = {
+  catalogue: {
+    state: 'drift',
+    manifest_model: { provider: 'ollama', model_name: 'llama3.2:3b' },
+    current_config_model: { provider: 'ollama', model_name: 'llama3.1:8b' },
+    chip_text: 'Model drift',
+    rebuild_scope: 'sync',
+  },
+};
+
+export const DriftChip: Story = {
+  name: 'Drift — Provenance Chip',
+  args: {
+    trace: traceReady,
+    augmentation: augFull,
+    deepAnalysis: deepRan,
+    rebuildProvenance: driftProvenance,
   },
 };
