@@ -117,6 +117,38 @@ const prepTldrOverview: CliScript = {
   ],
 };
 
+const prepBuildWebhook: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'add a webhook endpoint for subscription.cancelled events',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 700 },
+    {
+      type: 'tool_call',
+      tool: 'prep',
+      args: '',
+      durationMs: 800,
+      statusText: 'Loading structural context…',
+    },
+    {
+      type: 'tool_result',
+      text: 'api/webhooks/ · 4 existing handlers · hub: webhook_router.py',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: 'Webhooks live in `api/webhooks/`, all routed through `webhook_router.py`. There are already 4 handlers (invoice paid, payment failed, dispute, refund) that follow the same shape: validate signature → parse payload → enqueue a domain event → return 200.\n\nI\'ll add `subscription_cancelled.py` next to them and register it in the router so it picks up the same middleware. Ready to draft it?',
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
 // ============================================================================
 // prep_search — semantic search with structural expansion
 // ============================================================================
@@ -217,6 +249,38 @@ const searchMaxConnections: CliScript = {
   ],
 };
 
+const searchBuildWorker: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'build a worker that sends weekly digest emails every sunday',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 600 },
+    {
+      type: 'tool_call',
+      tool: 'prep_search',
+      args: '"scheduled worker base class"',
+      durationMs: 900,
+      statusText: 'Searching…',
+    },
+    {
+      type: 'tool_result',
+      text: 'workers/base.py · ScheduledWorker · 5 existing cron workers',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: '`ScheduledWorker` in `workers/base.py` is the pattern — takes a cron expression, inherits `RetryPolicy` and the shared logger automatically. 5 workers already extend it (`workers/cleanup.py`, `workers/billing_sync.py`, etc.).\n\nI\'ll add `workers/digest.py` extending `ScheduledWorker`, cron `0 9 * * 0` for 9am Sunday, and register it in `workers/__init__.py` next to the others. Ready to write it?',
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
 // ============================================================================
 // prep_impact — blast radius before making a change
 // ============================================================================
@@ -312,6 +376,38 @@ const impactExtractService: CliScript = {
     {
       type: 'agent_output',
       text: "`ReportGenerator` has 12 callers across 4 files — all contained to `dashboard/` and `workers/`. Good news for extraction.\n\nOne thing to watch: `workers/nightly.py` calls it synchronously inside a scheduled job. Moving it to a remote service turns that into a network hop with failure modes the worker isn't currently handling. Worth wrapping the new client in the existing `RetryPolicy` when you migrate.",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
+const impactAsyncMigration: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'make send_email async',
+      typingDelayMs: 28,
+    },
+    { type: 'agent_thinking', durationMs: 700 },
+    {
+      type: 'tool_call',
+      tool: 'prep_impact',
+      args: '"send_email"',
+      durationMs: 1000,
+      statusText: 'Tracing callers…',
+    },
+    {
+      type: 'tool_result',
+      text: '19 callers · 11 files · 4 in sync request paths',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "`send_email` is called from 19 places across 11 files. Most are workers or already-async routes, which are fine — but 4 callers are inside **sync FastAPI handlers** (`api/auth.py`, `api/billing.py`, `api/users.py`, `api/invites.py`) that can't just `await` it.\n\nTwo paths: (a) make those routes async too — small blast radius, clean. (b) keep a sync `send_email_now()` wrapper that schedules via the queue. I'd go with (a). Want me to draft it?",
       typewriterDelayMs: 12,
     },
   ],
@@ -453,6 +549,50 @@ const auditSecurityScan: CliScript = {
   ],
 };
 
+const auditTightenTypes: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'tighten up the types in billing/ — mypy strict',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 600, label: 'Running mypy…' },
+    {
+      type: 'tool_call',
+      tool: 'bash',
+      args: 'mypy --strict src/billing/',
+      durationMs: 800,
+    },
+    {
+      type: 'tool_result',
+      text: '23 errors · 8 files',
+      status: 'success',
+    },
+    { type: 'agent_thinking', durationMs: 800, label: 'Cross-referencing graph…' },
+    {
+      type: 'tool_call',
+      tool: 'prep_audit',
+      args: 'findings=[23]',
+      durationMs: 1000,
+      statusText: 'Enriching with graph context…',
+    },
+    {
+      type: 'tool_result',
+      text: '23 enriched · 3 in hub file · 6 on public API surface · 14 internal',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "mypy flagged 23 issues across 8 files. Ranked by who touches the code:\n\n• **3 in `billing/invoice.py`** — that's a hub (17 dependents). An untyped `Dict[str, Any]` return hurts every caller. Fix first.\n• **6 on the public `BillingAPI` surface** — consumers in `api/billing.py` and the frontend client rely on these signatures. Worth tight types.\n• **14 internal** — helpers inside `billing/`, safe to batch-fix later.\n\nI'd start with the first group. Want me to draft the changes?",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
 // ============================================================================
 // prep_observe — persistent cross-session memory
 // ============================================================================
@@ -553,6 +693,38 @@ const observeInvestigationRecall: CliScript = {
   ],
 };
 
+const observeSaveOwnership: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'save a note — payments team owns retries for the stripe sync job',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'tool_call',
+      tool: 'prep_observe',
+      args: 'action="save", category="ownership"',
+      durationMs: 700,
+      statusText: 'Saving observation…',
+    },
+    {
+      type: 'tool_result',
+      text: 'Saved #62 · linked to workers/stripe_sync.py + payment/saga_runner.py',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "Saved as an ownership note. Linked it to `workers/stripe_sync.py` (the job itself) and `payment/saga_runner.py` (where retries compose).\n\nIf anyone touches either file later, this note resurfaces — so a billing-team dev who wanders in here knows where to route questions before shipping changes.",
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
 // ============================================================================
 // prep_concepts — business rationale and architectural constraints
 // ============================================================================
@@ -648,6 +820,38 @@ const conceptsQueueGotchas: CliScript = {
     {
       type: 'agent_output',
       text: 'Two rules your team recorded:\n\n• **Queue ordering invariant** — jobs for the same `user_id` must execute in order. If you change dispatch, preserve per-user FIFO.\n• **Idempotency requirement** — handlers must be safe to run twice. Retries can deliver dupes, so `JobHandler.handle()` needs to tolerate that.\n\nBoth are enforced as immune-system antibodies — you\'ll get a polite nudge if new code breaks either one.',
+      typewriterDelayMs: 12,
+    },
+  ],
+};
+
+const conceptsBuildRefund: CliScript = {
+  title: 'claude — my-project',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    {
+      type: 'user_input',
+      text: 'add a handler to refund canceled subscriptions',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 700 },
+    {
+      type: 'tool_call',
+      tool: 'prep_concepts',
+      args: 'action="get", query="payment refund"',
+      durationMs: 900,
+      statusText: 'Checking constraints…',
+    },
+    {
+      type: 'tool_result',
+      text: '2 concepts · Payment Saga · Audit Log Required',
+      status: 'success',
+    },
+    { type: 'pause', durationMs: 300 },
+    {
+      type: 'agent_output',
+      text: "Before writing code, two team-recorded rules apply to `payment/`:\n\n• **Payment Saga** — no direct DB transactions. Refunds have to go through `saga_runner.py` so rollback is handled if the Stripe call fails mid-flight.\n• **Audit Log Required** — every monetary write needs an entry in `audit/events.py` with `actor`, `amount`, `reason`.\n\nSo the shape is: compose a `RefundSaga`, call `saga.run()`, emit the audit event on success. Ready to draft it?",
       typewriterDelayMs: 12,
     },
   ],
@@ -932,6 +1136,122 @@ export function Dashboard() {
   ],
 };
 
+const ideAddCsvExport: CliScript = {
+  title: 'prep-ide-demo',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    { type: 'pause', durationMs: 600 },
+    {
+      type: 'user_input',
+      text: 'add a csv export button to the users table',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 900 },
+    {
+      type: 'tool_call',
+      tool: 'prep_search',
+      args: '"csv export helper"',
+      durationMs: 900,
+    },
+    {
+      type: 'tool_result',
+      text: 'ReportsTable.tsx uses exportToCsv() from @/lib/csv',
+      status: 'success',
+    },
+    {
+      type: 'agent_output',
+      text: "There's already an `exportToCsv()` helper in `@/lib/csv` — the Reports table uses it. I'll reuse the same helper so the behavior matches.",
+      typewriterDelayMs: 16,
+    },
+    {
+      type: 'file_open',
+      filePath: 'src/components/UsersTable.tsx',
+      language: 'typescript',
+      content: `import { useState, useEffect } from 'react';
+import { fetchUsers, type User } from '@/api/users';
+
+export function UsersTable() {
+  const [users, setUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    fetchUsers().then(setUsers);
+  }, []);
+
+  return (
+    <table className="w-full">
+      <thead>
+        <tr><th>Name</th><th>Email</th><th>Role</th></tr>
+      </thead>
+      <tbody>
+        {users.map((u) => (
+          <tr key={u.id}>
+            <td>{u.name}</td>
+            <td>{u.email}</td>
+            <td>{u.role}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}`,
+      durationMs: 1000,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'code_edit',
+      filePath: 'src/components/UsersTable.tsx',
+      durationMs: 1800,
+      newContent: `import { useState, useEffect } from 'react';
+import { Button } from '@prep/ui';
+import { exportToCsv } from '@/lib/csv';
+import { fetchUsers, type User } from '@/api/users';
+
+export function UsersTable() {
+  const [users, setUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    fetchUsers().then(setUsers);
+  }, []);
+
+  return (
+    <div>
+      <div className="mb-3 flex justify-end">
+        <Button
+          variant="secondary"
+          onClick={() => exportToCsv('users.csv', users)}
+          disabled={users.length === 0}
+        >
+          Export CSV
+        </Button>
+      </div>
+      <table className="w-full">
+        <thead>
+          <tr><th>Name</th><th>Email</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          {users.map((u) => (
+            <tr key={u.id}>
+              <td>{u.name}</td>
+              <td>{u.email}</td>
+              <td>{u.role}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}`,
+    },
+    {
+      type: 'agent_output',
+      text: "Added the export button using `exportToCsv()` from `@/lib/csv` — same helper the Reports table uses. Disables when there's nothing to export.",
+      typewriterDelayMs: 14,
+    },
+    { type: 'pause', durationMs: 3500 },
+  ],
+};
+
 // ============================================================================
 // Export — ordered so that filter-by-tool groups cleanly in the UI
 // ============================================================================
@@ -959,6 +1279,13 @@ export const variants: DemoVariant[] = [
     note: 'Extremely common real-world prompt. "tldr" signals the dev wants the shape, not a tour. prep gives back the one-screen map.',
     script: prepTldrOverview,
   },
+  {
+    id: 'prep-build-webhook',
+    tool: 'prep',
+    label: 'Build instruction — "add a new webhook"',
+    note: 'Imperative build prompt. prep fires for orientation first — agent finds the existing handler pattern so the new code matches instead of inventing a one-off.',
+    script: prepBuildWebhook,
+  },
 
   // prep_search
   {
@@ -981,6 +1308,13 @@ export const variants: DemoVariant[] = [
     label: 'Error message → source',
     note: 'Pasting an error string is the most common real AI-assistant prompt. Search jumps straight to the raise site without the dev grepping log files.',
     script: searchMaxConnections,
+  },
+  {
+    id: 'search-build-worker',
+    tool: 'prep_search',
+    label: 'Build instruction — "build a new X like the existing ones"',
+    note: 'Imperative "build a worker". Search finds the ScheduledWorker base class + the five workers that already extend it, so the new one inherits RetryPolicy for free.',
+    script: searchBuildWorker,
   },
 
   // prep_impact
@@ -1005,6 +1339,13 @@ export const variants: DemoVariant[] = [
     note: '"Thinking about X" — pre-commitment prompt. Impact returns the blast radius *before* the dev starts, so they can scope the work (or back out) with real data.',
     script: impactExtractService,
   },
+  {
+    id: 'impact-async-migration',
+    tool: 'prep_impact',
+    label: 'Build instruction — change across callers',
+    note: 'Imperative "make X async". Impact surfaces the 4 sync callers that can\'t just await — scopes the real work (upgrade the routes) before any code gets written.',
+    script: impactAsyncMigration,
+  },
 
   // prep_audit
   {
@@ -1027,6 +1368,13 @@ export const variants: DemoVariant[] = [
     label: 'Triaging scanner output (reachability)',
     note: 'External scanner findings are the native input for prep_audit. Enrichment adds reachability + hub status so the dev knows which of 6 findings actually matter.',
     script: auditSecurityScan,
+  },
+  {
+    id: 'audit-tighten-types',
+    tool: 'prep_audit',
+    label: 'Build instruction — tighten types across a module',
+    note: 'Imperative cleanup task. Agent runs mypy --strict, prep_audit ranks the 23 errors by hub status + public-surface exposure so the work starts where it matters most.',
+    script: auditTightenTypes,
   },
 
   // prep_observe
@@ -1051,6 +1399,13 @@ export const variants: DemoVariant[] = [
     note: 'Mid-task context recovery. Observe returns the prior investigation trail — hypotheses tried, what was ruled out — so work resumes instead of restarts.',
     script: observeInvestigationRecall,
   },
+  {
+    id: 'observe-save-ownership',
+    tool: 'prep_observe',
+    label: 'Build instruction — "save an ownership note"',
+    note: 'Imperative save with an explicit "save a note —" prefix. Observe auto-links to both files involved, so the note surfaces for anyone touching either side later.',
+    script: observeSaveOwnership,
+  },
 
   // prep_concepts
   {
@@ -1074,6 +1429,13 @@ export const variants: DemoVariant[] = [
     note: 'Risk-probing prompt devs actually say. Concepts returns the pile of team-recorded rules for the queue module before the dev has to learn them the hard way.',
     script: conceptsQueueGotchas,
   },
+  {
+    id: 'concepts-build-refund',
+    tool: 'prep_concepts',
+    label: 'Build instruction — preflight before writing new code',
+    note: 'Imperative "add a handler for X" inside a constrained module. Concepts fires preflight so the agent shapes the new code around the saga + audit-log rules instead of violating them.',
+    script: conceptsBuildRefund,
+  },
 
   // ide
   {
@@ -1096,5 +1458,12 @@ export const variants: DemoVariant[] = [
     label: 'UI pattern matching across pages',
     note: '"Match how other pages do it" is a common consistency prompt. Search surfaces the shared skeleton component so the edit follows existing convention instead of inventing one.',
     script: ideLoadingSkeleton,
+  },
+  {
+    id: 'ide-add-csv-export',
+    tool: 'ide',
+    label: 'Build instruction — add a new feature',
+    note: 'Imperative "add a CSV export button". Search finds the existing `exportToCsv()` helper so the new button reuses it instead of rolling a parallel implementation.',
+    script: ideAddCsvExport,
   },
 ];
