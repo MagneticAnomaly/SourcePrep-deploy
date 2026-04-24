@@ -59,28 +59,40 @@ def _resolve_idx_dir(project_id: str) -> Path | None:
 
 _CLEAN_SHUTDOWN_FILENAME = ".pipeline_clean_shutdown"
 _RESET_BARRIER_FILENAME = ".reset_barrier"
+_VALID_BARRIER_SCOPES = ("sync", "enrichment", "all")
 
 
-def write_reset_barrier(project_id: str, reason: str) -> bool:
-    """Write a barrier that disables selfheal until the next finalize completes.
+def write_reset_barrier(
+    project_id: str,
+    reason: str,
+    scope: str = "all",
+) -> bool:
+    """Write a barrier that disables selfheal until the scope's group finishes.
 
-    Reset All and Rebuild set this so selfheal cannot resurrect stage data
-    from orphan output files, golden checkpoints, or branch snapshots while
-    the project is in a known-clean state. Without the barrier, an aborted
-    prior run can leave a data file on disk that selfheal then claims as
-    "complete" via a stub manifest — starving downstream stages of real work.
+    Phase 117: ``scope`` names which group the rebuild is forcing from start.
+    - ``sync``: rebuild fast_sync (stages 1-5); barrier auto-clears when stage 5 finishes.
+    - ``enrichment``: rebuild deep_enrichment (stages 6-10); barrier auto-clears when stage 10 finishes.
+    - ``all``: rebuild the full chain; barrier auto-clears when finalize (stage 15) finishes.
 
-    Cleared by the orchestrator when the finalize group completes, because
-    at that point every stage has produced a genuine manifest.
+    The file is a 3-line text format for forward/backward compat:
+        line 1: written_at (epoch seconds, float)
+        line 2: reason
+        line 3: scope   (added Phase 117; absent in legacy barriers → treated as "all")
     """
+    if scope not in _VALID_BARRIER_SCOPES:
+        raise ValueError(f"invalid barrier scope: {scope!r}")
+
     idx_dir = _resolve_idx_dir(project_id)
     if idx_dir is None:
         return False
     try:
         idx_dir.mkdir(parents=True, exist_ok=True)
         barrier = idx_dir / _RESET_BARRIER_FILENAME
-        barrier.write_text(f"{time.time()}\n{reason}\n")
-        logger.info("Reset barrier set for %s (reason=%s)", project_id, reason)
+        barrier.write_text(f"{time.time()}\n{reason}\n{scope}\n")
+        logger.info(
+            "Reset barrier set for %s (reason=%s, scope=%s)",
+            project_id, reason, scope,
+        )
         return True
     except Exception:
         logger.debug("Failed to write reset barrier for %s", project_id, exc_info=True)
@@ -88,7 +100,7 @@ def write_reset_barrier(project_id: str, reason: str) -> bool:
 
 
 def clear_reset_barrier(project_id: str) -> bool:
-    """Remove the reset barrier. Called on successful finalize completion."""
+    """Remove the reset barrier. Called on scope-group or finalize completion."""
     idx_dir = _resolve_idx_dir(project_id)
     if idx_dir is None:
         return False
@@ -115,10 +127,8 @@ def reset_barrier_active(project_id: str) -> bool:
 def read_reset_barrier(project_id: str) -> dict | None:
     """Read the reset barrier contents. Returns None if inactive.
 
-    Returns {"written_at": float, "reason": str, "age_seconds": float}
-    when the barrier is active. written_at is epoch seconds from the
-    barrier file's first line; falls back to file mtime if the file
-    predates the written_at format.
+    Returns {"written_at": float, "reason": str, "scope": str, "age_seconds": float}.
+    Legacy 2-line barriers (no scope line) report scope="all".
     """
     idx_dir = _resolve_idx_dir(project_id)
     if idx_dir is None:
@@ -131,6 +141,7 @@ def read_reset_barrier(project_id: str) -> dict | None:
         lines = text.split("\n")
         written_at: float | None = None
         reason = ""
+        scope = "all"
         if lines:
             try:
                 written_at = float(lines[0])
@@ -138,11 +149,16 @@ def read_reset_barrier(project_id: str) -> dict | None:
                 written_at = None
             if len(lines) >= 2:
                 reason = lines[1].strip()
+            if len(lines) >= 3:
+                candidate = lines[2].strip()
+                if candidate in _VALID_BARRIER_SCOPES:
+                    scope = candidate
         if written_at is None:
             written_at = barrier.stat().st_mtime
         return {
             "written_at": written_at,
             "reason": reason or "unknown",
+            "scope": scope,
             "age_seconds": max(0.0, time.time() - written_at),
         }
     except Exception:
