@@ -985,6 +985,54 @@ def pipeline_cancel(project_id: str, req: CancelRequest) -> dict[str, Any]:
     return ok({"cancelled": True, "group": req.group})
 
 
+@router.post("/projects/{project_id}/pipeline/rebuild/stop")
+def pipeline_rebuild_stop(project_id: str) -> dict[str, Any]:
+    """Phase 117: atomically cancel an active rebuild and clear the barrier.
+
+    Behavior:
+    - Reads the barrier to discover which group was force-rebuilding (sync /
+      enrichment / all).
+    - Cancels that group if it's actively running. The temp files the stage
+      wrote never swap in (atomic-swap guarantee), so the pre-rebuild data
+      for the currently-running stage remains the live copy.
+    - Clears the barrier.
+    - Idempotent: succeeds even if no rebuild is active.
+    """
+    from prep.services.project_helpers import require_project_writable
+    require_project_writable(project_id)
+
+    from prep.services.pipeline import recovery
+    from prep.services.pipeline_orchestrator import pipeline_orchestrator
+
+    info = recovery.read_reset_barrier(project_id)
+    was_active = info is not None and info.get("reason") == "rebuild"
+
+    cancelled = False
+    if was_active:
+        scope = info.get("scope", "all")
+        try:
+            if scope == "sync":
+                cancelled = pipeline_orchestrator.cancel_fast_sync(project_id)
+            elif scope == "enrichment":
+                cancelled = pipeline_orchestrator.cancel_deep_enrichment(project_id)
+            else:  # "all" — cancel whichever group is live
+                cancelled = (
+                    pipeline_orchestrator.cancel_fast_sync(project_id)
+                    or pipeline_orchestrator.cancel_deep_enrichment(project_id)
+                    or pipeline_orchestrator.cancel_finalize(project_id)
+                )
+        except Exception:
+            logger.exception("rebuild/stop: cancel failed for %s", project_id)
+
+    recovery.clear_reset_barrier(project_id)
+
+    return ok({
+        "stopped": True,
+        "was_active": was_active,
+        "cancelled_group": cancelled,
+    })
+
+
 @router.post("/projects/{project_id}/pipeline/pause")
 def pipeline_pause(project_id: str, req: PauseRequest) -> dict[str, Any]:
     """Pause a running pipeline group.
