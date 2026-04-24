@@ -135,14 +135,28 @@ def pipeline_run_fast(
     if force:
         try:
             from prep.services.pipeline.recovery import write_reset_barrier
-            write_reset_barrier(project_id, reason="rebuild", scope="sync")
+            if not write_reset_barrier(project_id, reason="rebuild", scope="sync"):
+                logger.warning(
+                    "Fast rebuild: barrier write returned False for %s",
+                    project_id,
+                )
         except Exception:
-            pass
+            logger.warning(
+                "Fast rebuild: barrier write raised for %s",
+                project_id,
+                exc_info=True,
+            )
 
     from prep.services.pipeline_orchestrator import pipeline_orchestrator
     started = pipeline_orchestrator.run_fast_sync(project_id, force_from_start=force)
 
     if not started:
+        if force:
+            try:
+                from prep.services.pipeline.recovery import clear_reset_barrier
+                clear_reset_barrier(project_id)
+            except Exception:
+                logger.debug("Failed to clear stale rebuild barrier", exc_info=True)
         # Check if we skipped due to incomplete deep enrichment.
         #
         # F-47: a CANCELLED deep_enrichment run still has current_stage set
@@ -197,14 +211,28 @@ def pipeline_run_deep(
     if force:
         try:
             from prep.services.pipeline.recovery import write_reset_barrier
-            write_reset_barrier(project_id, reason="rebuild", scope="enrichment")
+            if not write_reset_barrier(project_id, reason="rebuild", scope="enrichment"):
+                logger.warning(
+                    "Deep rebuild: barrier write returned False for %s",
+                    project_id,
+                )
         except Exception:
-            pass
+            logger.warning(
+                "Deep rebuild: barrier write raised for %s",
+                project_id,
+                exc_info=True,
+            )
 
     from prep.services.pipeline_orchestrator import pipeline_orchestrator
     started = pipeline_orchestrator.run_deep_enrichment(project_id, force_from_start=force)
 
     if not started:
+        if force:
+            try:
+                from prep.services.pipeline.recovery import clear_reset_barrier
+                clear_reset_barrier(project_id)
+            except Exception:
+                logger.debug("Failed to clear stale rebuild barrier", exc_info=True)
         # Diagnose WHY it didn't start
         status = pipeline_orchestrator.status(project_id)
         deep_run = status.get("deep_enrichment")
