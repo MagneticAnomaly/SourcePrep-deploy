@@ -75,6 +75,14 @@ _STATUS_STALE_TTL = 30.0  # serve stale cache for up to 30s if a refresh is in-f
 
 # ── Request models ───────────────────────────────────────────────
 
+class FastRequest(BaseModel):
+    force_from_start: bool = False
+
+
+class DeepRequest(BaseModel):
+    force_from_start: bool = False
+
+
 class CancelRequest(BaseModel):
     # Accepts the three traditional groups + any finalize-stage value
     # (atlas, rules, concepts, audit, antibodies) for solo runs.
@@ -110,13 +118,29 @@ class StageRestoreRequest(BaseModel):
 # ── Endpoints ────────────────────────────────────────────────────
 
 @router.post("/projects/{project_id}/pipeline/fast")
-def pipeline_run_fast(project_id: str) -> dict[str, Any]:
-    """Run Fast Sync (stages 1-4): Structural → Catalogue → Validation → Knowledge Embedding."""
+def pipeline_run_fast(
+    project_id: str,
+    req: FastRequest | None = None,
+) -> dict[str, Any]:
+    """Run Fast Sync (stages 1-4): Structural → Catalogue → Validation → Knowledge Embedding.
+
+    Phase 117: when ``force_from_start`` is True, writes the rebuild barrier
+    with ``scope="sync"`` before dispatch. Otherwise runs incremental resume.
+    """
     from prep.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 
+    force = bool(req.force_from_start) if req else False
+
+    if force:
+        try:
+            from prep.services.pipeline.recovery import write_reset_barrier
+            write_reset_barrier(project_id, reason="rebuild", scope="sync")
+        except Exception:
+            pass
+
     from prep.services.pipeline_orchestrator import pipeline_orchestrator
-    started = pipeline_orchestrator.run_fast_sync(project_id)
+    started = pipeline_orchestrator.run_fast_sync(project_id, force_from_start=force)
 
     if not started:
         # Check if we skipped due to incomplete deep enrichment.
@@ -152,17 +176,33 @@ def pipeline_run_fast(project_id: str) -> dict[str, Any]:
             message="Fast Sync is already up-to-date (no stale or new files detected) or is already running",
         )
 
-    return ok({"started": True, "group": "fast_sync"})
+    return ok({"started": True, "group": "fast_sync", "force_from_start": force})
 
 
 @router.post("/projects/{project_id}/pipeline/deep")
-def pipeline_run_deep(project_id: str) -> dict[str, Any]:
-    """Run Deep Enrichment (stages 5-8): Epistemic → Clustering → Deepening → Deep Knowledge."""
+def pipeline_run_deep(
+    project_id: str,
+    req: DeepRequest | None = None,
+) -> dict[str, Any]:
+    """Run Deep Enrichment (stages 5-8): Epistemic → Clustering → Deepening → Deep Knowledge.
+
+    Phase 117: when ``force_from_start`` is True, writes the rebuild barrier
+    with ``scope="enrichment"`` before dispatch. Otherwise runs incremental resume.
+    """
     from prep.services.project_helpers import require_project_writable
     require_project_writable(project_id)
 
+    force = bool(req.force_from_start) if req else False
+
+    if force:
+        try:
+            from prep.services.pipeline.recovery import write_reset_barrier
+            write_reset_barrier(project_id, reason="rebuild", scope="enrichment")
+        except Exception:
+            pass
+
     from prep.services.pipeline_orchestrator import pipeline_orchestrator
-    started = pipeline_orchestrator.run_deep_enrichment(project_id)
+    started = pipeline_orchestrator.run_deep_enrichment(project_id, force_from_start=force)
 
     if not started:
         # Diagnose WHY it didn't start
@@ -197,7 +237,7 @@ def pipeline_run_deep(project_id: str) -> dict[str, Any]:
             ),
         )
 
-    return ok({"started": True, "group": "deep_enrichment"})
+    return ok({"started": True, "group": "deep_enrichment", "force_from_start": force})
 
 
 @router.post("/projects/{project_id}/pipeline/finalize")
@@ -332,7 +372,7 @@ def pipeline_rebuild(project_id: str) -> dict[str, Any]:
     # through. Cleared when the finalize group completes.
     try:
         from prep.services.pipeline.recovery import write_reset_barrier
-        write_reset_barrier(project_id, reason="rebuild")
+        write_reset_barrier(project_id, reason="rebuild", scope="all")
     except Exception:
         pass
 
