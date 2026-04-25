@@ -112,6 +112,20 @@ export const MCP_TOOLS: McpToolConfig[] = [
     },
   },
   {
+    id: 'antigravity',
+    name: 'Antigravity',
+    category: 'ide',
+    file: '~/.gemini/antigravity/mcp_config.json',
+    fileHint: 'Global Antigravity config (Google)',
+    serverKey: 'mcpServers',
+    notes: 'Google Antigravity uses a Gemini-style nested config under ~/.gemini/antigravity/.',
+    config: {
+      mcpServers: {
+        prep: { command: 'prep', args: ['mcp'] },
+      },
+    },
+  },
+  {
     id: 'openai-codex',
     name: 'OpenAI Codex',
     category: 'terminal',

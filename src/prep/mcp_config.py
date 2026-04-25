@@ -104,6 +104,13 @@ def generate_mcp_configs(
             "config": {"mcpServers": {"prep": {**base_config, "trust": True}}},
         }
 
+    if ide in ("all", "antigravity"):
+        configs["antigravity"] = {
+            "file": "mcp_config.json",
+            "path_hint": "~/.gemini/antigravity/",
+            "config": {"mcpServers": {"prep": base_config}},
+        }
+
     if ide in ("all", "zed"):
         configs["zed"] = {
             "file": "settings.json",

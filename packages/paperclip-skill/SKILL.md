@@ -1,17 +1,17 @@
 ---
 name: prep
 description: >
-  Structural codebase intelligence via Prep MCP tools. Use at the START of
-  every task to get module structure, hub files, and curated knowledge. Use
+  Structural codebase intelligence via SourcePrep MCP tools. Use at the START
+  of every task to get module structure, hub files, and curated knowledge. Use
   prep_search for semantic code lookups with structural trace expansion. Use
   prep_impact before making changes to understand what breaks. Use prep_audit
   for codebase health and tech debt. Use prep_observe for cross-session memory.
   All tools are read-only and safe to auto-approve.
 ---
 
-# Prep — Structural Codebase Intelligence
+# SourcePrep — Structural Codebase Intelligence
 
-Prep maps how your codebase is connected: modules, dependencies, hub files, and architectural patterns. It provides five MCP tools that give you deep structural context before you read or edit files.
+SourcePrep maps how your codebase is connected: modules, dependencies, hub files, and architectural patterns. It provides five MCP tools (called via the `prep` server) that give you deep structural context before you read or edit files.
 
 ## Mandatory First Step
 
@@ -63,18 +63,18 @@ Call `prep_impact` on changed files to verify all dependents are accounted for.
 
 ## Project Routing
 
-When working in a multi-project environment, Prep auto-detects the project from your workspace. If auto-detection fails, pass `project_id` explicitly:
+When working in a multi-project environment, SourcePrep auto-detects the project from your workspace. If auto-detection fails, pass `project_id` explicitly:
 
 ```
 prep(project_id="<uuid>")
 prep_search(query="...", project_id="<uuid>")
 ```
 
-The project ID is shown in the Prep dashboard or in the project's `.sourceprep/project.json` file.
+The project ID is shown in the SourcePrep dashboard or in the project's `.sourceprep/project.json` file.
 
-## What Prep Knows
+## What SourcePrep Knows
 
-Prep's structural graph captures:
+SourcePrep's structural graph captures:
 
 - **Imports** — which files import which
 - **Calls** — which functions call which
@@ -84,4 +84,4 @@ Prep's structural graph captures:
 - **Knowledge base** — curated focus areas selected by the user
 - **Observations** — cross-session notes and decisions
 
-This is NOT just text search. Prep understands structural relationships between files — use it instead of grep when you need to understand how files connect to each other.
+This is NOT just text search. SourcePrep understands structural relationships between files — use it instead of grep when you need to understand how files connect to each other.

@@ -1,6 +1,6 @@
-# Prep MCP Tool Reference
+# SourcePrep MCP Tool Reference
 
-Detailed signatures and usage patterns for all Prep MCP tools.
+Detailed signatures and usage patterns for all SourcePrep MCP tools (called via the `prep` server).
 
 ## prep — Structural Overview
 
@@ -19,7 +19,7 @@ prep(max_chars=20000)             # adjust context budget
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `project_id` | string | auto-detected | Prep project UUID |
+| `project_id` | string | auto-detected | SourcePrep project UUID |
 | `role` | string | none | Filter for a specific audience (e.g. 'ceo', 'security', 'intern') |
 | `max_chars` | integer | auto-sized | Maximum characters in assembled context |
 
@@ -34,7 +34,7 @@ prep(max_chars=20000)             # adjust context budget
 
 ## prep_search — Semantic Code Search
 
-Search for code using a natural language query. Prep applies semantic search, structural trace expansion, and LOD compression to assemble focused context.
+Search for code using a natural language query. SourcePrep applies semantic search, structural trace expansion, and LOD compression to assemble focused context.
 
 ```
 prep_search(query="authentication middleware")
@@ -48,7 +48,7 @@ prep_search(query="UserService", type="symbol", kind="class")
 |-----------|------|---------|-------------|
 | `query` | string | **required** | Natural language query or symbol name |
 | `type` | "context" \| "symbol" | "context" | Search mode |
-| `project_id` | string | auto-detected | Prep project UUID |
+| `project_id` | string | auto-detected | SourcePrep project UUID |
 | `k` | integer | 5 | Number of initial chunks to retrieve |
 | `max_chars` | integer | 12000 | Maximum characters in assembled context |
 | `kind` | string | none | Symbol mode only: "function", "class", "module", "method", "variable", "import" |
@@ -82,7 +82,7 @@ prep_impact(file_path="src/auth/login.py", direction="all")  # full neighborhood
 | `symbol` | string | none | Symbol node ID for symbol-level analysis |
 | `direction` | "dependents" \| "dependencies" \| "all" | "dependents" | Relationship direction |
 | `max_hops` | integer | 2 | Traversal depth (1 = direct only, 2 = include transitive) |
-| `project_id` | string | auto-detected | Prep project UUID |
+| `project_id` | string | auto-detected | SourcePrep project UUID |
 
 ### Returns
 
@@ -113,7 +113,7 @@ prep_audit(action="advise")                      # forward-looking proposals
 | `analyzers` | string[] | none | (verify) Analyzer names to re-run |
 | `report_name` | string | none | (report) Report type to retrieve |
 | `synthesize` | boolean | false | (scan) Also generate markdown reports |
-| `project_id` | string | auto-detected | Prep project UUID |
+| `project_id` | string | auto-detected | SourcePrep project UUID |
 
 ---
 
@@ -139,4 +139,4 @@ prep_observe(action="get", file_path="src/auth/login.py")
 | `query` | string | none | (get) Search observations by content |
 | `limit` | integer | 10 | (get) Maximum observations to return |
 | `include_stale` | boolean | true | (get) Include stale observations |
-| `project_id` | string | auto-detected | Prep project UUID |
+| `project_id` | string | auto-detected | SourcePrep project UUID |

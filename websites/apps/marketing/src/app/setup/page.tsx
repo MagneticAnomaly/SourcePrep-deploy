@@ -115,6 +115,19 @@ const TOOLS: {
     },
   },
   {
+    id: 'antigravity',
+    name: 'Antigravity',
+    file: '~/.gemini/antigravity/mcp_config.json',
+    fileHint: 'Global Antigravity config (Google)',
+    serverKey: 'mcpServers',
+    notes: 'Google Antigravity uses a Gemini-style nested config under ~/.gemini/antigravity/.',
+    config: {
+      mcpServers: {
+        prep: { command: 'prep', args: ['mcp'] },
+      },
+    },
+  },
+  {
     id: 'claude-desktop',
     name: 'Claude Code',
     file: 'claude_desktop_config.json',

@@ -71,6 +71,18 @@ const MCP_CONFIGS = [
 }`,
   },
   {
+    name: 'Antigravity',
+    file: '~/.gemini/antigravity/mcp_config.json',
+    config: `{
+  "mcpServers": {
+    "prep": {
+      "command": "prep",
+      "args": ["mcp"]
+    }
+  }
+}`,
+  },
+  {
     name: 'Zed',
     file: '~/.config/zed/settings.json',
     config: `{
