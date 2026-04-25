@@ -248,6 +248,12 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 | MCP config generation | `src/prep/mcp_config.py` (`prep mcp-config --ide cursor`) |
 | Client context budgets | `src/prep/mcp/server.py:123-138` (per-client char limits) |
 
+### Phase 117 — scoped rebuild endpoints
+
+- `POST /pipeline/fast` and `/pipeline/deep` accept `{"force_from_start": true}` to re-run their group from scratch; the barrier is scoped (`sync` / `enrichment` / `all`) and auto-clears at the appropriate group boundary.
+- `POST /pipeline/rebuild/stop` atomically cancels the active rebuild and clears the barrier.
+- Per-stage provenance (match / drift / self-healed) is exposed under `status.stages[*].provenance` (where `stages` is a dict keyed by stage id; `[*]` denotes each entry).
+
 <!-- prep-managed-start -->
 # SourcePrep Integration
 
