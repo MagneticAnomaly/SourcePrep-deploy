@@ -43,11 +43,13 @@ export interface PageHostProps {
   // One-shot destructive actions — no dirty/save. Each button opens the
   // shared ConfirmDialog with a typed-confirm gate for Rebuild Pipeline
   // (Phase 114 UX preserved verbatim from the drawer).
+  //
+  // Phase 117b: collapsed four rows (Rebuild / Reset All / Reset
+  // Enrichment / Reset Finalize) into two scoped action rows. The host
+  // routes scope to the appropriate destroy/rebuild handler.
   pipelineRunning: boolean;
-  onRebuildPipeline: () => void;
-  onDestroyIndex: () => void;
-  onDestroyEnrichmentFull: () => void;
-  onDestroyFinalizeFull: () => void;
+  onRebuildScoped: (scope: 'all' | 'sync' | 'enrichment') => void;
+  onResetScoped: (scope: 'all' | 'enrichment' | 'finalize') => void;
 
   // ── Global-scope: Appearance page (Task 18) ───────────────────────
   // Autosave — App.tsx useEffect on [uiMode, uiTheme, bgImage] persists via
@@ -160,10 +162,8 @@ export function renderSettingsPage(id: SettingsPageId, host: PageHostProps) {
           projectName={host.projectName}
           projectId={host.activeProjectId}
           pipelineRunning={host.pipelineRunning}
-          onRebuildPipeline={host.onRebuildPipeline}
-          onDestroyIndex={host.onDestroyIndex}
-          onDestroyEnrichmentFull={host.onDestroyEnrichmentFull}
-          onDestroyFinalizeFull={host.onDestroyFinalizeFull}
+          onRebuildScoped={host.onRebuildScoped}
+          onResetScoped={host.onResetScoped}
         />
       );
     case 'appearance':

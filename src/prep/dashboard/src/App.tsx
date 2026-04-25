@@ -1081,10 +1081,26 @@ function App() {
           largeModelConfigured: !!(llmConfig.large_model?.endpoint_id && llmConfig.large_model?.model),
           fastModelConfigured: !!(llmConfig.small_model?.endpoint_id && llmConfig.small_model?.model),
           pipelineRunning: settingsPipelineRunning,
-          onRebuildPipeline: handleRebuildPipeline,
-          onDestroyIndex: handleDestroyIndex,
-          onDestroyEnrichmentFull: handleDestroyEnrichmentFull,
-          onDestroyFinalizeFull: handleDestroyFinalizeFull,
+          // Phase 117b: scoped danger-zone actions. Rebuild routes through
+          // useEnrichment.triggerRebuild for sync/enrichment scopes (Phase 117);
+          // 'all' falls through to handleRebuildPipeline (full /pipeline/rebuild).
+          // Reset dispatches to the existing destroy handlers by scope.
+          onRebuildScoped: (scope) => {
+            if (scope === 'all') {
+              void handleRebuildPipeline();
+            } else {
+              void triggerRebuild(scope);
+            }
+          },
+          onResetScoped: (scope) => {
+            if (scope === 'all') {
+              void handleDestroyIndex();
+            } else if (scope === 'enrichment') {
+              void handleDestroyEnrichmentFull();
+            } else {
+              void handleDestroyFinalizeFull();
+            }
+          },
           uiMode,
           onModeChange: setUiMode,
           uiTheme,

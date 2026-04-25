@@ -1,12 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
-  Button,
   ConfirmDialog,
   InfoTooltip,
   RecoverStagePanel,
+  ScopedActionRow,
   Section,
   Select,
-  SettingRow,
   useApiClient,
   type EnrichmentStageId,
 } from '@prep/ui';
@@ -32,7 +31,21 @@ const RECOVER_STAGE_OPTIONS: { value: EnrichmentStageId; label: string }[] = [
   { value: 'antibodies', label: 'Antibodies' },
 ];
 
-type ConfirmAction = 'index' | 'rebuild' | 'enrichment_full' | 'finalize_full' | null;
+type RebuildScope = 'all' | 'sync' | 'enrichment';
+type ResetScope = 'all' | 'enrichment' | 'finalize';
+type ConfirmAction = 'rebuild' | 'reset' | null;
+
+const REBUILD_OPTIONS: { value: RebuildScope; label: string }[] = [
+  { value: 'all', label: 'All stages (1-15)' },
+  { value: 'sync', label: 'Sync (1-5)' },
+  { value: 'enrichment', label: 'Enrichment (6-10)' },
+];
+
+const RESET_OPTIONS: { value: ResetScope; label: string }[] = [
+  { value: 'all', label: 'All stages (1-15)' },
+  { value: 'enrichment', label: 'Enrichment (6-15)' },
+  { value: 'finalize', label: 'Finalize (11-15)' },
+];
 
 export interface DangerZonePageProps {
   projectName: string | null;
@@ -40,24 +53,34 @@ export interface DangerZonePageProps {
   projectId: string | null;
   /** True when any pipeline stage is actively running — disables Recover to prevent mid-run conflicts. */
   pipelineRunning: boolean;
-  onRebuildPipeline: () => void;
-  onDestroyIndex: () => void;
-  onDestroyEnrichmentFull: () => void;
-  onDestroyFinalizeFull: () => void;
+  /** Trigger a scoped rebuild. 'all' wipes & rebuilds everything; 'sync' / 'enrichment' rebuild that group only. */
+  onRebuildScoped: (scope: RebuildScope) => void;
+  /** Trigger a scoped reset. 'all' wipes everything; 'enrichment' wipes 6-15; 'finalize' wipes 11-15. */
+  onResetScoped: (scope: ResetScope) => void;
+}
+
+/**
+ * Normalize a string for typed-confirm comparison.
+ *
+ * Project names with spaces (e.g. "My Test Project") were silently failing
+ * the rebuild typed-confirm gate because either side could carry trailing
+ * whitespace from input handling, or differ only by Unicode normalization
+ * form (NFC vs NFD — common when names round-trip through macOS HFS+ paths
+ * or get composed/decomposed at different points). Normalizing both sides
+ * to NFC and trimming makes the comparison robust to those differences
+ * without softening the gate (a wrong name still fails).
+ */
+function normalizeForConfirm(value: string): string {
+  return value.normalize('NFC').trim();
 }
 
 /**
  * Danger Zone settings page (Project scope).
  *
- * Lifts the drawer's Project-tab Danger Zone into the v2 overlay. No
- * dirty/save (actions are one-shot). Preserves the Phase 114 typed-confirm
- * UX byte-for-byte by reusing the shared `<ConfirmDialog>` primitive with
- * the same `confirmAction` state machine the drawer uses.
- *
- * Absorbs the drawer's "Reset All" (index wipe) — the per-numeric "Reset
- * All" from the legacy advanced settings panel (removed in T24) is obsoleted
- * by T15's per-field reset affordances on Trace Limits and is intentionally
- * NOT re-added here.
+ * Two scoped action rows — one for Rebuild (1-15 / 1-5 / 6-10) and one
+ * for Reset (1-15 / 6-15 / 11-15). Each row is a `<Select>` + `<Button>`
+ * pair; clicking the button opens the shared `<ConfirmDialog>` with the
+ * Phase 114 typed-confirm UX preserved for rebuild.
  *
  * Developer-tier resets (Atlas / Group Reasoning / Deep Enrichment) live on
  * the Developer → Selective Reset page (T23), not here.
@@ -66,63 +89,98 @@ export function DangerZonePage({
   projectName,
   projectId,
   pipelineRunning,
-  onRebuildPipeline,
-  onDestroyIndex,
-  onDestroyEnrichmentFull,
-  onDestroyFinalizeFull,
+  onRebuildScoped,
+  onResetScoped,
 }: DangerZonePageProps) {
   const api = useApiClient();
 
-  // ── Confirm-dialog state machine (mirrors SettingsDrawer:205-226) ──
+  // ── Scoped row state ──────────────────────────────────────────
+  const [rebuildScope, setRebuildScope] = useState<RebuildScope>('all');
+  const [resetScope, setResetScope] = useState<ResetScope>('all');
+
+  // ── Confirm-dialog state machine ──────────────────────────────
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [pendingRebuildScope, setPendingRebuildScope] = useState<RebuildScope>('all');
+  const [pendingResetScope, setPendingResetScope] = useState<ResetScope>('all');
   const [rebuildTypedName, setRebuildTypedName] = useState('');
   const [recoverStageId, setRecoverStageId] = useState<EnrichmentStageId | ''>('');
 
   const handleConfirmedAction = useCallback(() => {
-    if (confirmAction === 'index') onDestroyIndex();
-    if (confirmAction === 'rebuild') onRebuildPipeline();
-    if (confirmAction === 'enrichment_full') onDestroyEnrichmentFull();
-    if (confirmAction === 'finalize_full') onDestroyFinalizeFull();
+    if (confirmAction === 'rebuild') onRebuildScoped(pendingRebuildScope);
+    if (confirmAction === 'reset') onResetScoped(pendingResetScope);
     setConfirmAction(null);
     setRebuildTypedName('');
   }, [
     confirmAction,
-    onDestroyIndex,
-    onRebuildPipeline,
-    onDestroyEnrichmentFull,
-    onDestroyFinalizeFull,
+    pendingRebuildScope,
+    pendingResetScope,
+    onRebuildScoped,
+    onResetScoped,
   ]);
 
-  // ── Row controls ────────────────────────────────────────────────
-  const rebuildButton = (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => setConfirmAction('rebuild')}
-      className="border-warning/40 text-warning hover:bg-warning/10"
-    >
-      Wipe & Rebuild All
-    </Button>
-  );
+  const openRebuildConfirm = useCallback(() => {
+    setPendingRebuildScope(rebuildScope);
+    setRebuildTypedName('');
+    setConfirmAction('rebuild');
+  }, [rebuildScope]);
 
-  const resetAllButton = (
-    <Button variant="destructive" size="sm" onClick={() => setConfirmAction('index')}>
-      Reset All
-    </Button>
-  );
+  const openResetConfirm = useCallback(() => {
+    setPendingResetScope(resetScope);
+    setConfirmAction('reset');
+  }, [resetScope]);
 
-  const resetEnrichmentButton = (
-    <Button variant="destructive" size="sm" onClick={() => setConfirmAction('enrichment_full')}>
-      Reset Enrichment
-    </Button>
-  );
+  // ── Typed-confirm normalization (project names with spaces / Unicode) ──
+  const typedConfirmReady = useMemo(() => {
+    if (confirmAction !== 'rebuild') return true;
+    if (!projectName) return false;
+    return normalizeForConfirm(rebuildTypedName) === normalizeForConfirm(projectName);
+  }, [confirmAction, rebuildTypedName, projectName]);
 
-  const resetFinalizeButton = (
-    <Button variant="destructive" size="sm" onClick={() => setConfirmAction('finalize_full')}>
-      Reset Finalize
-    </Button>
-  );
+  // ── Confirm dialog copy (action × scope) ──────────────────────
+  // Reuses the existing description strings verbatim (Phase 114 / Phase 117 wording).
+  const dialogTitle = (() => {
+    const projLabel = projectName || 'Project';
+    if (confirmAction === 'rebuild') {
+      return `Rebuild Pipeline for ${projLabel}?`;
+    }
+    if (confirmAction === 'reset') {
+      if (pendingResetScope === 'enrichment') return `Reset Enrichment for ${projLabel}?`;
+      if (pendingResetScope === 'finalize') return `Reset Finalize for ${projLabel}?`;
+      return `Reset All for ${projLabel}?`;
+    }
+    return '';
+  })();
 
+  const dialogDescription = (() => {
+    if (confirmAction === 'rebuild') {
+      // Single, scope-agnostic message — the existing Rebuild dialog text
+      // didn't change between sync/enrichment/all because rebuild semantics
+      // are the same: re-run the chosen stages, hot-swap when done.
+      return 'Re-runs every pipeline stage from scratch. Existing data stays live throughout — each stage atomically replaces its output when the new version is ready. Selfheal is blocked until finalize completes so no stale data resurrects.';
+    }
+    if (confirmAction === 'reset') {
+      if (pendingResetScope === 'enrichment') {
+        return 'Wipes stages 6-15 (deep enrichment and finalize): epistemic, group reasoning, modules, deepening, deep knowledge, atlas, rules, concepts, audit, and antibodies. Clears the concept and antibody SQLite stores so the UI reflects the clean slate. Fast sync (stages 1-5) and observations (user notes) are preserved. Export any hand-authored concepts first if you want to keep them.';
+      }
+      if (pendingResetScope === 'finalize') {
+        return 'Wipes stages 11-15 (atlas, rules, concepts, audit, antibodies) and the concept + antibody SQLite stores so the UI reflects the clean slate. Fast sync, deep enrichment, and observations are preserved. Export any hand-authored concepts first if you want to keep them.';
+      }
+      return 'Wipes every project artifact — embeddings, search index, trace graph, enrichment, SQLite stores, checkpoints, branch snapshots. Writes a reset barrier so selfheal cannot resurrect anything until the next finalize run completes.';
+    }
+    return '';
+  })();
+
+  const dialogConfirmLabel = (() => {
+    if (confirmAction === 'rebuild') return 'Start Rebuild';
+    if (confirmAction === 'reset') {
+      if (pendingResetScope === 'enrichment') return 'Reset Enrichment';
+      if (pendingResetScope === 'finalize') return 'Reset Finalize';
+      return 'Reset Everything';
+    }
+    return 'Confirm';
+  })();
+
+  // ── Recover row control (unchanged) ───────────────────────────
   const recoverControl = (
     <div className="w-full space-y-2">
       <Select
@@ -163,31 +221,32 @@ export function DangerZonePage({
   return (
     <SettingsPage title="Danger Zone" scope="project" description={description}>
       <Section title="Reset data">
-        <SettingRow
+        <ScopedActionRow<RebuildScope>
           label="Rebuild Pipeline"
           description={
             <>
-              Wipes all 15 stages and rebuilds from scratch. Current index data stays readable
-              during the rebuild and is atomically swapped in as each stage finishes. Incremental
-              progress from prior runs is <strong>not preserved</strong>.
+              Re-runs the chosen stages from scratch. Current index data stays readable
+              during the rebuild and is atomically swapped in as each stage finishes.
+              Incremental progress from prior runs is <strong>not preserved</strong>.
             </>
           }
-          control={rebuildButton}
+          options={REBUILD_OPTIONS}
+          value={rebuildScope}
+          onChange={setRebuildScope}
+          buttonLabel="Rebuild"
+          buttonVariant="outline"
+          buttonClassName="border-warning/40 text-warning hover:bg-warning/10"
+          onClick={openRebuildConfirm}
         />
-        <SettingRow
-          label="Reset All"
-          description="Wipes every project artifact — trace graph, embeddings, search index, enrichment, SQLite stores, checkpoints. Blocks selfheal until the next finalize completes."
-          control={resetAllButton}
-        />
-        <SettingRow
-          label="Reset Enrichment"
-          description="Wipes stages 6-15 (deep enrichment + finalize). Fast sync stays intact, so the next run starts fresh at epistemic enrichment."
-          control={resetEnrichmentButton}
-        />
-        <SettingRow
-          label="Reset Finalize"
-          description="Wipes stages 11-15 (atlas, rules, concepts, audit, antibodies). Enrichment and fast sync stay intact, so the next run starts fresh at atlas."
-          control={resetFinalizeButton}
+        <ScopedActionRow<ResetScope>
+          label="Reset"
+          description="Wipes the chosen scope's artifacts — embeddings, manifests, SQLite stores, checkpoints. Blocks selfheal until the next finalize completes so nothing stale resurrects."
+          options={RESET_OPTIONS}
+          value={resetScope}
+          onChange={setResetScope}
+          buttonLabel="Reset"
+          buttonVariant="destructive"
+          onClick={openResetConfirm}
           last
         />
       </Section>
@@ -216,36 +275,10 @@ export function DangerZonePage({
           setConfirmAction(null);
           setRebuildTypedName('');
         }}
-        confirmDisabled={
-          confirmAction === 'rebuild' && (!projectName || rebuildTypedName !== projectName)
-        }
-        title={
-          confirmAction === 'rebuild'
-            ? `Rebuild Pipeline for ${projectName || 'Project'}?`
-            : confirmAction === 'enrichment_full'
-              ? `Reset Enrichment for ${projectName || 'Project'}?`
-              : confirmAction === 'finalize_full'
-                ? `Reset Finalize for ${projectName || 'Project'}?`
-                : `Reset All for ${projectName || 'Project'}?`
-        }
-        description={
-          confirmAction === 'rebuild'
-            ? 'Re-runs every pipeline stage from scratch. Existing data stays live throughout — each stage atomically replaces its output when the new version is ready. Selfheal is blocked until finalize completes so no stale data resurrects.'
-            : confirmAction === 'enrichment_full'
-              ? 'Wipes stages 6-15 (deep enrichment and finalize): epistemic, group reasoning, modules, deepening, deep knowledge, atlas, rules, concepts, audit, and antibodies. Clears the concept and antibody SQLite stores so the UI reflects the clean slate. Fast sync (stages 1-5) and observations (user notes) are preserved. Export any hand-authored concepts first if you want to keep them.'
-              : confirmAction === 'finalize_full'
-                ? 'Wipes stages 11-15 (atlas, rules, concepts, audit, antibodies) and the concept + antibody SQLite stores so the UI reflects the clean slate. Fast sync, deep enrichment, and observations are preserved. Export any hand-authored concepts first if you want to keep them.'
-                : 'Wipes every project artifact — embeddings, search index, trace graph, enrichment, SQLite stores, checkpoints, branch snapshots. Writes a reset barrier so selfheal cannot resurrect anything until the next finalize run completes.'
-        }
-        confirmLabel={
-          confirmAction === 'rebuild'
-            ? 'Start Rebuild'
-            : confirmAction === 'enrichment_full'
-              ? 'Reset Enrichment'
-              : confirmAction === 'finalize_full'
-                ? 'Reset Finalize'
-                : 'Reset Everything'
-        }
+        confirmDisabled={confirmAction === 'rebuild' && !typedConfirmReady}
+        title={dialogTitle}
+        description={dialogDescription}
+        confirmLabel={dialogConfirmLabel}
       >
         {confirmAction === 'rebuild' ? (
           <div className="space-y-2">
