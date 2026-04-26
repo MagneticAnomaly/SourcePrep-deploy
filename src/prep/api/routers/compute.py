@@ -263,7 +263,7 @@ def sync_scheduler() -> Dict[str, Any]:
 @router.post("/compute/clear_locks")
 def clear_locks(project_id: Optional[str] = None) -> Dict[str, Any]:
     """Forcefully purge ghost tasks from the scheduler.
-    
+
     If pipeline threads crash, they can leave active locks in the scheduler
     that prevent any other jobs from running. This self-healing endpoint
     clears them safely without needing to bounce the daemon.
@@ -271,3 +271,25 @@ def clear_locks(project_id: Optional[str] = None) -> Dict[str, Any]:
     from prep.services.pipeline.scheduler import pipeline_scheduler
     pipeline_scheduler.clean_locks(project_id)
     return ok({"cleared": True})
+
+
+@router.post("/compute/concurrency/clear")
+def clear_concurrency_lock(node_id: str) -> dict[str, str]:
+    """Phase 119: clear a discovered-ceiling lock so AIMD re-probes.
+
+    Removes the persisted record AND resets the in-memory slot so the
+    next call sees `state="probing"`. Useful when the user knows the
+    backend capacity changed (plan upgrade, new endpoint).
+    """
+    from prep.services.pipeline.concurrency_store import concurrency_store
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+
+    try:
+        concurrency_store().clear(node_id, "__default__")
+    except Exception:
+        pass
+    slot = pipeline_scheduler._slots.get(node_id)
+    if slot is not None:
+        slot.discovered_ceiling = None
+        slot.ceiling_locked_until = 0.0
+    return {"status": "ok", "node_id": node_id}

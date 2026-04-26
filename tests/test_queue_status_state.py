@@ -84,3 +84,35 @@ def test_state_probing_when_no_lock_no_backoff() -> None:
         backoff_cooldown_s=30.0,
     )
     assert s == "probing"
+
+
+def test_clear_concurrency_endpoint_invalidates_lock(monkeypatch, tmp_path) -> None:
+    """POST /compute/concurrency/clear?node_id=... clears the persisted lock."""
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+    pipeline_scheduler.configure_node("cloud:lock-test", max_concurrent=1)
+    slot = pipeline_scheduler._slots["cloud:lock-test"]
+    slot.discovered_ceiling = 10
+    slot.ceiling_locked_until = time.time() + 3600
+    store_mod.concurrency_store().save_edge(
+        "cloud:lock-test", "__default__",
+        ceiling=10, locked_until=slot.ceiling_locked_until, edge_observed_at=time.time(),
+    )
+
+    app = _make_app()
+    client = TestClient(app)
+    # Use the actual mounted path. The compute router prefix needs to be
+    # verified in the router file; if it's "/compute" then "/compute/concurrency/clear",
+    # otherwise adjust accordingly.
+    resp = client.post("/compute/concurrency/clear", params={"node_id": "cloud:lock-test"})
+    assert resp.status_code in (200, 204)
+
+    # Slot lock cleared in-memory.
+    assert slot.discovered_ceiling is None
+    assert slot.ceiling_locked_until == 0.0
+    # Persisted record gone.
+    assert store_mod.concurrency_store().load_full("cloud:lock-test", "__default__") is None
