@@ -346,6 +346,18 @@ Verification: 75 tests pass (`tests/test_discovery_*.py` + `tests/test_scheduler
 
 **Risk: Low-Medium.** Mostly UI + a bounded backend endpoint. Cost: probes burn a few cents on paid providers — gate behind explicit user click.
 
+**Status: SHIPPED 2026-04-26.** Probe button + Capacity Health panel live in Settings → Diagnostics.
+
+As-built:
+- `src/prep/services/pipeline/endpoint_probe.py` — orchestrator + saturation detector. Public entry point: `run_probe(endpoint_id, burst_size=20)`. Burst clamped to `[1, 50]`. Each request uses `max_tokens=1` against the endpoint's lightest model (small_model slot if it points at this endpoint, else a provider-default like `gpt-4o-mini` / `claude-3-5-haiku-latest`). Per-endpoint in-memory ring buffer (last 10) + per-probe JSON record at `<data_dir>/probes/<endpoint_id>_<ts>.json`.
+- `POST /compute/endpoint-probe` — fires the burst; returns `{wall_clock_ms{p50,p90,p99}, saturation_point, saturation_method, recommended_concurrent, successes, errors, histogram_path}`. Saturation detection: header hint (Phase B) wins when score ≥ 0.5; otherwise scan the windowed-p90 latency staircase for the first index where p90 > 2× the calibration p50.
+- `GET /compute/endpoint-probe/history?endpoint_id=...&limit=10` — recent probes. Falls back to disk-persisted records when the in-memory ring is empty (post-restart).
+- `packages/ui/src/components/llm/ProbeButton.tsx` — idle/probing/done/error states; "Apply N to plan" calls `onEdit({...ep, cloud_concurrency: recommended, plan_tier: 'custom'})`. Cloud-only (gated by `providerNeedsCloudPlan`).
+- `packages/ui/src/components/concurrency/CapacityHealth.tsx` — sibling to `ConcurrencyHealth`. Per saved cloud endpoint: plan tier + soft cap (Phase A), live AIMD limit + in-flight (Phase 119), saturation pill (Phase B placeholder until a stable API is exposed), last probe summary (Phase C).
+- Mounted in `src/prep/dashboard/src/components/settings/v2/pages/Diagnostics.tsx` above the existing Concurrency Health section.
+
+Verification: 10 new probe tests + 36 regression baseline pass (`pytest tests/test_endpoint_probe.py tests/test_concurrency_*.py tests/test_ollama_probe.py`). UI build + dashboard tsc clean. `_dispatch_request` is monkey-patched in tests — no live API calls in CI.
+
 ---
 
 ## Part 5 — What this answers

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Button,
+  CapacityHealth,
   ConcurrencyHealth,
   ConcurrencyResetPanel,
   RecentSwarmLogs,
@@ -135,6 +136,15 @@ export function DiagnosticsPage({
             <strong className="text-text">API:</strong> {api.baseUrl || '(hidden)'}
           </div>
         </div>
+      </Section>
+
+      <Section title="Capacity Health">
+        <p className="text-xs text-text-muted mb-2">
+          Per-endpoint capacity weather report — plan tier and soft cap (what
+          the docs say) vs live AIMD limit, saturation hint, and last probe
+          (what the endpoint actually delivered). Phase 119 Phase C.
+        </p>
+        <CapacityHealth baseUrl={api.baseUrl} className="!p-0" />
       </Section>
 
       <Section title="Concurrency Health">
