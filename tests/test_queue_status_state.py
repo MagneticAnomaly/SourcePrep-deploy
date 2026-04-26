@@ -116,3 +116,27 @@ def test_clear_concurrency_endpoint_invalidates_lock(monkeypatch, tmp_path) -> N
     assert slot.ceiling_locked_until == 0.0
     # Persisted record gone.
     assert store_mod.concurrency_store().load_full("cloud:lock-test", "__default__") is None
+
+
+def test_node_summary_shape_is_documented(monkeypatch, tmp_path) -> None:
+    """Pin the field set so silent contract changes break tests."""
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+    pipeline_scheduler.configure_node("cloud:contract-test", max_concurrent=1)
+
+    app = _make_app()
+    client = TestClient(app)
+    resp = client.get("/system/pipeline-queue")
+    body = resp.json()
+    nodes = body.get("nodes") or body.get("data", {}).get("nodes")
+    n = nodes["cloud:contract-test"]
+    expected = {
+        "max_concurrent", "current_load", "in_flight_requests",
+        "current_limit", "discovered_ceiling", "locked_until",
+        "aimd_mode", "state", "active", "queued",
+    }
+    assert set(n.keys()) >= expected, f"missing fields: {expected - set(n.keys())}"
