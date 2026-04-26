@@ -5,6 +5,7 @@ import { AdvancedLLMSettings } from './AdvancedLLMSettings';
 import { EndpointManager } from './EndpointManager';
 import { LLMAssignmentBlockCard } from './LLMAssignmentBlockCard';
 import { LLMAssignmentsPipeline } from './LLMAssignmentsPipeline';
+import { ConcurrencyResetPanel } from '../concurrency/ConcurrencyResetPanel';
 import { Select } from '../primitives/Select';
 import { Button } from '../primitives/Button';
 import { InfoTooltip } from '../primitives/InfoTooltip';
@@ -78,6 +79,12 @@ export interface AIModelsSettingsProps {
   /** Fires when the user clicks "Apply [Structured|Assigned] mode".
    *  Consumers should flush any pending debounced save, then call switchAssignmentMode. */
   onModeApply?: (mode: AssignmentMode, blocks?: LLMConfig['assignment_blocks']) => Promise<void> | void;
+
+  /** Phase 119 Task 16: Base URL for the SourcePrep daemon. When provided,
+   *  the Pipeline Activity header surfaces a developer-mode wrench icon that
+   *  opens an inline panel for resetting discovered concurrency ceilings on
+   *  `cloud:*` nodes (POST /compute/concurrency/clear). Hidden when omitted. */
+  baseUrl?: string;
 }
 
 // Recommended models per slot.
@@ -374,6 +381,7 @@ export function AIModelsSettings({
   assignmentBlockTesting,
   adminPolicy,
   onModeApply,
+  baseUrl,
 }: AIModelsSettingsProps) {
   const savedMode: AssignmentMode = config.assignment_mode ?? 'structured';
   const [draftMode, setDraftMode] = useState<AssignmentMode>(savedMode);
@@ -1052,14 +1060,33 @@ export function AIModelsSettings({
         </div>
       )}
 
-      {/* Pipeline Activity — visible to all users */}
+      {/* Pipeline Activity — visible to all users.
+          Phase 119 Task 16: also home for the developer-mode "reset
+          discovered concurrency ceiling" wrench. The block renders if
+          there is *either* live activity OR cloud nodes for which a
+          ceiling reset is meaningful, so power users can reach the
+          control even when the queue is empty. */}
       {schedulerStatus && (() => {
         const nodeEntries = Object.entries(schedulerStatus.nodes);
         const hasActivity = nodeEntries.some(([, n]) => n.current_load > 0 || n.queued.length > 0);
-        if (!hasActivity) return null;
+        const cloudNodeIds = nodeEntries
+          .map(([nid]) => nid)
+          .filter((nid) => nid.startsWith('cloud:'));
+        const showResetPanel = Boolean(baseUrl) && cloudNodeIds.length > 0;
+        if (!hasActivity && !showResetPanel) return null;
         return (
           <div className="rounded-lg border border-border bg-surface p-4 space-y-2">
-            <label className="text-xs font-medium text-text-subtle">Pipeline Activity</label>
+            <div className="flex items-start justify-between gap-2">
+              <label className="text-xs font-medium text-text-subtle pt-0.5">Pipeline Activity</label>
+              {showResetPanel && (
+                <div className="shrink-0">
+                  <ConcurrencyResetPanel
+                    cloudNodeIds={cloudNodeIds}
+                    baseUrl={baseUrl as string}
+                  />
+                </div>
+              )}
+            </div>
             {nodeEntries.map(([nodeId, node]) => {
               if (node.current_load === 0 && node.queued.length === 0) return null;
               const activeEntries = Object.entries(node.active);

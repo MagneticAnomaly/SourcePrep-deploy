@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../../lib/utils';
 import {
   ChevronDown,
@@ -9,8 +10,10 @@ import {
   Loader2,
   Maximize2,
   Cpu,
+  Wrench,
 } from 'lucide-react';
 import { Button } from '../primitives/Button';
+import { ConcurrencyResetPanel } from '../concurrency/ConcurrencyResetPanel';
 import type { LLMSlotsStatus, RunningTask, LLMSlotStatus } from '../../types';
 import { TASK_LABELS } from '../../types';
 
@@ -19,6 +22,12 @@ export interface SidebarAIGatewayProps {
   collapsed?: boolean;
   onOpenDetails?: () => void;
   className?: string;
+  /** Phase 119 Task 16: when set, the AI Gateway header surfaces a small
+   *  developer-mode wrench that opens the cloud-concurrency reset panel.
+   *  The same affordance lives in Settings → AI Models → Pipeline Activity;
+   *  the sidebar entry point makes the action one click away from the
+   *  badge that triggered the user's investigation. */
+  baseUrl?: string;
 }
 
 interface SlotInfo {
@@ -131,6 +140,109 @@ function CollapsedView({
 }
 
 /**
+ * Phase 119 Task 16: small inline menu next to the AI Gateway header.
+ * One action — "Reset cloud concurrency discovery" — surfaced under a
+ * subtle wrench icon. Hidden unless `baseUrl` is provided AND at least
+ * one `cloud:*` node is registered with the scheduler (queried lazily).
+ */
+function DevModeMenu({ baseUrl }: { baseUrl: string }) {
+  const [open, setOpen] = useState(false);
+  const [cloudNodeIds, setCloudNodeIds] = useState<string[] | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(null);
+
+  // Recompute anchor coordinates when the popover opens. Using a portal
+  // (rendered into document.body) sidesteps the sidebar's overflow clip
+  // and any z-index stacking inside ProjectList; using fixed-pixel
+  // coordinates from getBoundingClientRect avoids re-implementing
+  // floating-ui-style positioning for a one-shot dev affordance.
+  useEffect(() => {
+    if (!open) return;
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (rect) {
+      setAnchor({ left: rect.right + 8, top: rect.top });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const root = baseUrl.replace(/\/$/, '');
+    (async () => {
+      try {
+        const res = await fetch(`${root}/compute/scheduler`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = await res.json();
+        const nodes = body?.data?.nodes ?? body?.nodes ?? {};
+        const ids = Object.keys(nodes).filter((nid) => nid.startsWith('cloud:'));
+        if (!cancelled) setCloudNodeIds(ids);
+      } catch {
+        if (!cancelled) setCloudNodeIds([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, baseUrl]);
+
+  const portalTarget = typeof document !== 'undefined' ? document.body : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className={cn(
+          'inline-flex items-center justify-center w-5 h-5 rounded transition-colors',
+          'text-text-muted/70 hover:text-text hover:bg-surface-raised',
+          open && 'text-text bg-surface-raised',
+        )}
+        title="Developer tools — reset cloud concurrency discovery"
+        aria-label="Developer tools"
+        aria-expanded={open}
+        data-testid="ai-gateway-devmode-toggle"
+      >
+        <Wrench className="w-3 h-3" />
+      </button>
+      {open && portalTarget && anchor &&
+        createPortal(
+          <>
+            {/* Click-outside backdrop */}
+            <div
+              className="fixed inset-0 z-[9998]"
+              onClick={() => setOpen(false)}
+              aria-hidden
+            />
+            <div
+              className="fixed z-[9999] w-72 rounded-md border border-border bg-surface shadow-xl p-3 space-y-2"
+              style={{ left: anchor.left, top: anchor.top }}
+              data-testid="ai-gateway-devmode-popover"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-text">
+                <Wrench className="w-3 h-3 text-text-muted" />
+                Developer mode
+              </div>
+              <ConcurrencyResetPanel
+                cloudNodeIds={cloudNodeIds ?? []}
+                baseUrl={baseUrl}
+              />
+              {cloudNodeIds === null && (
+                <div className="text-[10px] text-text-muted">Loading nodes…</div>
+              )}
+            </div>
+          </>,
+          portalTarget,
+        )}
+    </>
+  );
+}
+
+/**
  * Expanded sidebar view: collapsible section with model slots and running task details.
  */
 function ExpandedView({
@@ -139,12 +251,14 @@ function ExpandedView({
   sectionOpen,
   onToggleSection,
   onOpenDetails,
+  baseUrl,
 }: {
   slotsStatus: LLMSlotsStatus | null;
   runningTasks: RunningTask[];
   sectionOpen: boolean;
   onToggleSection: () => void;
   onOpenDetails?: () => void;
+  baseUrl?: string;
 }) {
   const slots = getSlots(slotsStatus);
   const totalRunning = totalConcurrentWorkers(runningTasks);
@@ -165,17 +279,20 @@ function ExpandedView({
             </span>
           )}
         </button>
-        {onOpenDetails && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={onOpenDetails}
-            className="text-text-muted hover:text-text w-5 h-5"
-            title="Open AI Gateway details"
-          >
-            <Maximize2 className="w-3 h-3" />
-          </Button>
-        )}
+        <div className="flex items-center gap-0.5">
+          {baseUrl && <DevModeMenu baseUrl={baseUrl} />}
+          {onOpenDetails && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onOpenDetails}
+              className="text-text-muted hover:text-text w-5 h-5"
+              title="Open AI Gateway details"
+            >
+              <Maximize2 className="w-3 h-3" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Collapsible body */}
@@ -266,6 +383,7 @@ export function SidebarAIGateway({
   collapsed = false,
   onOpenDetails,
   className,
+  baseUrl,
 }: SidebarAIGatewayProps) {
   const storageKey = 'prep_sidebar_ai_gateway_open';
   const [sectionOpen, setSectionOpen] = useState(() => {
@@ -298,6 +416,7 @@ export function SidebarAIGateway({
           sectionOpen={sectionOpen}
           onToggleSection={handleToggle}
           onOpenDetails={onOpenDetails}
+          baseUrl={baseUrl}
         />
       )}
     </div>

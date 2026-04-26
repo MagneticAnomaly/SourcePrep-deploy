@@ -303,13 +303,33 @@ def concurrency_history(
 
 
 @router.post("/compute/concurrency/clear")
-def clear_concurrency_lock(node_id: str) -> dict[str, str]:
-    """Phase 119: clear a discovered-ceiling lock so AIMD re-probes.
+def clear_concurrency_lock(node_id: str) -> dict[str, Any]:
+    """Phase 119 Task 16: full reset of a discovered-concurrency slot.
 
-    Removes the persisted record AND resets the in-memory slot so the
-    next call sees `state="probing"`. Useful when the user knows the
-    backend capacity changed (plan upgrade, new endpoint).
+    Clears the persisted record AND re-seeds ``current_limit`` so the
+    in-memory state actually drops back to a fresh starting point.
+    Pre-Task-16 this only nulled out ``discovered_ceiling`` /
+    ``ceiling_locked_until`` — leaving ``current_limit`` stuck at whatever
+    AIMD had grown it to (e.g. 53 inherited from the pre-Phase-119 random
+    walk).
+
+    Behavior by node type:
+      * ``cloud:default_ollama`` — re-probe via
+        :func:`prep.services.pipeline.ollama_probe.probe_ollama_concurrency`,
+        using the saved-endpoint base_url; falls back to 5 on any error.
+      * Other ``cloud:*`` slots — reset to the Phase 82 jumpstart seed
+        (5) and switch ``mode`` back to ``"jumpstart"``.
+      * Local slots — leave ``current_limit`` at ``max_concurrent`` (the
+        VRAM ceiling is a real hardware constraint, not something to
+        rediscover).
+
+    Also resets the per-slot streak / backoff timestamps and appends a
+    ``reset`` event to the history ring buffer so the
+    "Concurrency Health" weather report reflects the user action.
+    Returns ``{status, node_id, old_limit, new_limit, new_mode}`` so
+    the UI can confirm what actually changed.
     """
+    from prep.services.pipeline import ollama_probe
     from prep.services.pipeline.concurrency_store import concurrency_store
     from prep.services.pipeline.scheduler import pipeline_scheduler
 
@@ -317,8 +337,77 @@ def clear_concurrency_lock(node_id: str) -> dict[str, str]:
         concurrency_store().clear(node_id, "__default__")
     except Exception:
         pass
+
     slot = pipeline_scheduler._slots.get(node_id)
-    if slot is not None:
+    if slot is None:
+        return {
+            "status": "ok",
+            "node_id": node_id,
+            "old_limit": None,
+            "new_limit": None,
+            "new_mode": None,
+        }
+
+    is_cloud = node_id.startswith("cloud:")
+    old_limit = int(slot.current_limit)
+
+    if is_cloud:
+        if node_id == "cloud:default_ollama":
+            try:
+                from prep.services.settings_store import settings as _settings
+                llm_config = _settings.get("llm_config") or {}
+                host = "http://localhost:11434"
+                for ep in llm_config.get("saved_endpoints", []):
+                    if ep.get("id") == "default_ollama":
+                        host = ep.get("base_url") or host
+                        break
+                new_seed = ollama_probe.probe_ollama_concurrency(host)
+            except Exception as exc:
+                logger.debug("Ollama probe in reset failed: %s", exc)
+                new_seed = 5
+        else:
+            new_seed = 5
+        new_mode: str = "jumpstart"
+    else:
+        # Local nodes: VRAM ceiling is a real hardware constraint —
+        # don't fake-rediscover it. Just normalize current_limit back
+        # to max_concurrent and clear AIMD scratch state.
+        new_seed = max(1, slot.max_concurrent)
+        new_mode = "congestion_avoidance"
+
+    with pipeline_scheduler._lock:
         slot.discovered_ceiling = None
         slot.ceiling_locked_until = 0.0
-    return {"status": "ok", "node_id": node_id}
+        slot.current_limit = max(1, int(new_seed))
+        # Cloud slots track AIMD mode; local slots stay in congestion_avoidance.
+        slot.mode = new_mode  # type: ignore[assignment]
+        slot.success_streak = 0
+        slot._last_backoff_time = 0.0
+        slot._last_recovery_time = 0.0
+        slot._gate_binding_until = 0.0
+        # Append a "reset" event so the weather-report panel shows
+        # this user action alongside AIMD edges.
+        try:
+            pipeline_scheduler._record_history(
+                slot, old_limit, slot.current_limit, "reset",
+            )
+        except Exception:
+            pass
+        # Wake any waiters so they observe the new (possibly smaller)
+        # limit immediately rather than at the next acquire timeout.
+        try:
+            pipeline_scheduler._wake_slot_waiters(slot)
+        except Exception:
+            pass
+
+    logger.info(
+        "Concurrency reset: %s old_limit=%d → new_limit=%d mode=%s",
+        node_id, old_limit, slot.current_limit, slot.mode,
+    )
+    return {
+        "status": "ok",
+        "node_id": node_id,
+        "old_limit": old_limit,
+        "new_limit": int(slot.current_limit),
+        "new_mode": slot.mode,
+    }

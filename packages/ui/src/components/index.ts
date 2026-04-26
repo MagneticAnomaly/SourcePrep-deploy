@@ -94,3 +94,8 @@ export type {
   ConcurrencyNode,
   ConcurrencyState,
 } from './concurrency/ConcurrencyHealth';
+
+// Concurrency reset (Phase 119 Task 16) — developer-mode reset for the
+// discovered ceiling lock. Lives in AI Gateway → Pipeline Activity.
+export { ConcurrencyResetPanel } from './concurrency/ConcurrencyResetPanel';
+export type { ConcurrencyResetPanelProps } from './concurrency/ConcurrencyResetPanel';

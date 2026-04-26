@@ -162,6 +162,23 @@ export const CollapsedSwarm: Story = {
   },
 };
 
+/**
+ * Phase 119 Task 16: AI Gateway header surfaces a small developer-mode
+ * wrench (next to the expand-to-details Maximize2 icon) when ``baseUrl``
+ * is provided. Click it to open the cloud-concurrency reset popover.
+ *
+ * The story passes a baseUrl that doesn't resolve in Storybook, so the
+ * popover renders its "Loading nodes…" → empty-state branch — sufficient
+ * to verify the wrench is visible and the click handler wires up.
+ */
+export const DevModeResetButton: Story = {
+  name: 'Dev mode reset wrench (Phase 119 Task 16)',
+  args: {
+    slotsStatus: baseSlots,
+    baseUrl: 'http://localhost:8400',
+  },
+};
+
 export const LowConcurrencySwarm: Story = {
   name: '3×Swarm (low concurrency)',
   args: {

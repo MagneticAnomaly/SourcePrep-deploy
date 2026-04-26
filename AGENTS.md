@@ -103,3 +103,30 @@ Available workflow prompts: `prep-onboard` (orientation), `prep-review` (file re
 `prep-plan` (change planning), `prep-investigate` (deep dive), `prep-health` (audit).
 In Claude Code: `/mcp__prep__prep-onboard`. In other clients: check prompt menu.
 <!-- prep-managed-end -->
+
+## Operational notes (user-maintained)
+
+### Reset cloud LLM concurrency discovery (Phase 119)
+
+If the user reports that a cloud endpoint's parallelism looks wrong
+(stuck at an old number after a plan upgrade, climbed too high without
+ever backing off, or just generally unhealthy), the canonical answer is
+to reset the discovered ceiling for that node.
+
+- **From the dashboard:** AI Gateway header → wrench icon →
+  Reset next to the cloud node (typically `cloud:default_ollama`).
+  Same control also lives at Settings → AI Models → Pipeline Activity.
+- **From the API:**
+  `POST /compute/concurrency/clear?node_id=cloud:default_ollama`.
+  Returns `{status, node_id, old_limit, new_limit, new_mode}` so you
+  can confirm the in-memory `current_limit` actually dropped.
+- **What it does:** clears the persisted record, re-seeds
+  `current_limit` from a fresh Ollama probe (or jumpstart=5 for
+  non-Ollama cloud nodes), resets the AIMD streak/backoff timestamps,
+  and lets natural backoffs rediscover the real ceiling.
+
+For more context call
+`prep_search "concurrency reset"` —
+the seeded "Cloud LLM concurrency ceiling lock" concept covers the
+mechanism in detail with anchors into `scheduler.py`,
+`concurrency_store.py`, and `compute.py`.

@@ -51,6 +51,7 @@ export const docsSidebar: DocNode[] = [
       { title: 'Path Weights', href: '/guides/path-weights' },
       { title: 'Knowledge Scope', href: '/guides/knowledge-scope' },
       { title: 'BYOK Batch Processing', href: '/guides/byok-batching' },
+      { title: 'Cloud Concurrency Discovery', href: '/guides/concurrency-discovery' },
       { title: 'Team Sync', href: '/guides/team-sync' },
       { title: 'Model Setup Advisor', href: '/guides/model-advisor' },
       { title: 'Codebase Audit', href: '/guides/codebase-audit' },

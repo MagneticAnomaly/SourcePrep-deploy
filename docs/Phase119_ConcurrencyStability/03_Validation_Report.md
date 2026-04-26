@@ -168,6 +168,45 @@ This drops the persisted `discovered_ceiling` / `locked_until` row for the
 named node; on the next acquire, the slot will reseed via the Ollama probe
 (or fall back to the Phase 82 default of 5) and re-enter `jumpstart` mode.
 
+## Known follow-ups
+
+### AI Gateway badge vs queue panel `in_flight` mismatch (Task 16 spot-check)
+
+User observation: AI Gateway shows `Fast Model 4×` while the queue
+panel shows `cloud:default_ollama 1 / 52` for the same instant.
+
+Root cause is structural — the two surfaces count different things:
+
+- **AI Gateway badge** is computed by `_count_live_workers()` in
+  `src/prep/api/routers/llm.py:51`. It walks
+  `token_telemetry.get_active_requests()`, which `LLMClient` populates
+  *per worker thread* via `track_active_request()` /
+  `untrack_active_request()`. Swarm fan-out spawns N worker threads
+  per logical stage, so the badge counts N.
+- **Queue panel `in_flight_requests`** is the `ComputeSlot.in_flight_requests`
+  counter incremented by `acquire_request()` / decremented by
+  `release_request()`. A swarm stage typically takes one slot via
+  `acquire()` and then submits N inner LLM calls onto that single
+  acquisition — so the counter shows 1 even when 4 calls are concurrently
+  in flight upstream of the gate.
+
+Both surfaces are arguably "correct" for what they measure (calls in
+flight upstream vs slots held at the gate), but the disagreement is
+confusing in the UI. Two paths forward:
+
+1. Reconcile by having swarm workers each call `acquire_request()` /
+   `release_request()` on the slot, so `in_flight_requests` reflects
+   actual concurrent API calls. This is the more honest accounting and
+   makes Phase 119's AIMD edge detection more accurate (each cloud call
+   contributes individually to the success/backoff signal).
+2. Re-label the queue panel's `N / M` to "slots held / current_limit"
+   so the user reads it as a gate metric rather than an LLM-call
+   metric, and accept the mismatch as semantic.
+
+Option 1 is preferable but touches the swarm-orchestrator fan-out
+contract; option 2 is a label-only change. Tracked here rather than
+fixed in Task 16 — needs its own design pass.
+
 ## Source references
 
 - Design spec: `docs/Phase119_ConcurrencyStability/01_Design.md`
