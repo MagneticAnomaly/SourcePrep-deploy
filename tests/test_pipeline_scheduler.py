@@ -1386,9 +1386,11 @@ class TestAIMDFloorAndRecovery:
         slot.current_limit = 4
         slot._last_backoff_time = time.time() - 60  # >30s ago
         slot._last_recovery_time = time.time() - 60  # >30s ago
+        # Phase 119: stamp recent demand so the demand gate doesn't short-circuit.
+        slot._gate_binding_until = time.time() + sched._DEMAND_WINDOW_S
 
-        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
-        # idle recovery should have bumped current_limit by 1
+        sched._maybe_demand_recover(slot)
+        # demand-gated recovery should have bumped current_limit by 1
         assert slot.current_limit == 5
 
     def test_idle_recovery_skipped_during_backoff_cooldown(self):
@@ -1398,9 +1400,12 @@ class TestAIMDFloorAndRecovery:
         slot.current_limit = 4
         slot._last_backoff_time = time.time()  # just backed off
         slot._last_recovery_time = 0
+        # Phase 119: stamp demand so the gate isn't the reason recovery is
+        # skipped — the cooldown should be the cause.
+        slot._gate_binding_until = time.time() + sched._DEMAND_WINDOW_S
 
-        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
-        assert slot.current_limit == 4  # unchanged
+        sched._maybe_demand_recover(slot)
+        assert slot.current_limit == 4  # unchanged — cooldown blocks recovery
 
     def test_idle_recovery_skipped_when_local_at_max(self):
         # Local slots cap at max_concurrent (VRAM ceiling known a priori).
@@ -1411,9 +1416,12 @@ class TestAIMDFloorAndRecovery:
         # Already at max — recovery is a no-op
         slot._last_backoff_time = 0
         slot._last_recovery_time = 0
+        # Phase 119: stamp demand so the gate isn't the reason recovery is
+        # skipped — the local-at-max cap should be the cause.
+        slot._gate_binding_until = time.time() + sched._DEMAND_WINDOW_S
 
-        sched.acquire("proj-a", StageId.CONCEPTS, "local:gpu-0")
-        assert slot.current_limit == 10
+        sched._maybe_demand_recover(slot)
+        assert slot.current_limit == 10  # unchanged — local cap holds
 
     def test_idle_recovery_caps_local_at_max(self):
         # Local slots cap at max_concurrent (VRAM ceiling known a priori).
@@ -1423,14 +1431,16 @@ class TestAIMDFloorAndRecovery:
         slot.current_limit = 4
         slot._last_backoff_time = 0
         slot._last_recovery_time = 0
+        # Phase 119: stamp demand so the gate doesn't block recovery.
+        slot._gate_binding_until = time.time() + sched._DEMAND_WINDOW_S
 
-        # Should grow 4 -> 5 then stop
-        sched.acquire("proj-a", StageId.CONCEPTS, "local:gpu-0")
+        # Should grow 4 -> 5 then stop at max_concurrent
+        sched._maybe_demand_recover(slot)
         assert slot.current_limit == 5
-        # Release and try again — should stay at 5
-        sched.release("proj-a", StageId.CONCEPTS, "local:gpu-0")
+        # Try again — should stay at 5 (local cap)
         slot._last_recovery_time = 0  # bypass interval gate
-        sched.acquire("proj-b", StageId.CONCEPTS, "local:gpu-0")
+        slot._gate_binding_until = time.time() + sched._DEMAND_WINDOW_S  # refresh demand
+        sched._maybe_demand_recover(slot)
         assert slot.current_limit == 5
 
     def test_idle_recovery_unbounded_for_cloud(self):
@@ -1442,14 +1452,17 @@ class TestAIMDFloorAndRecovery:
         slot.current_limit = 5  # at "max" seed
         slot._last_backoff_time = 0
         slot._last_recovery_time = 0
+        # Phase 119: stamp demand so the gate doesn't block recovery.
+        # No discovered_ceiling is set, so cloud growth is unbounded.
+        slot._gate_binding_until = time.time() + sched._DEMAND_WINDOW_S
 
         # Should grow 5 -> 6 even though current_limit equals max_concurrent
-        sched.acquire("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        sched._maybe_demand_recover(slot)
         assert slot.current_limit == 6
-        # Release and try again — should keep growing past max
-        sched.release("proj-a", StageId.CONCEPTS, "cloud:ep-1")
+        # Try again — should keep growing past max (no cloud ceiling)
         slot._last_recovery_time = 0  # bypass interval gate
-        sched.acquire("proj-b", StageId.CONCEPTS, "cloud:ep-1")
+        slot._gate_binding_until = time.time() + sched._DEMAND_WINDOW_S  # refresh demand
+        sched._maybe_demand_recover(slot)
         assert slot.current_limit == 7
 
     def test_backoff_resets_recovery_clock(self):
