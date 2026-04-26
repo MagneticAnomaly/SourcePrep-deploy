@@ -127,6 +127,8 @@ export type { IndexStatusCardProps, IndexStats, IndexStatsProps, StatItem, LLMSt
 // Components - LLM
 export { ModelCard, EndpointManager, AIModelsSettings, DeepAnalysisSettings } from './components/llm';
 export type { DeepAnalysisSchedule, DeepAnalysisStatus } from './components/llm';
+export { PlanDropdown } from './components/llm/PlanDropdown';
+export type { PlanDropdownProps, PlanLimitsTable, PlanLimitProvider, PlanLimitTier } from './components/llm/PlanDropdown';
 
 // Components - Primitives
 export { Button } from './components/primitives/Button';

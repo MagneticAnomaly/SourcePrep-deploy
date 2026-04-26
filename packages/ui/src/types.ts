@@ -776,6 +776,8 @@ export interface SavedEndpoint {
   local_concurrency?: number;
   /** Max concurrent cloud-proxied model requests (rate-limit-bound). Default: 1. */
   cloud_concurrency?: number;
+  /** Phase 119 Phase A: dropdown selection (e.g. "max", "tier_3", "auto"). */
+  plan_tier?: string;
 }
 
 /**
