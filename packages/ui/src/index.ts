@@ -330,6 +330,23 @@ export type {
   ConcurrencyState,
 } from './components/concurrency/ConcurrencyHealth';
 
+// Capacity Health (Phase 119 Phase C) — per-endpoint capacity weather report
+// (plan tier + soft cap + live AIMD limit + saturation hint + last probe).
+export { CapacityHealth } from './components/concurrency/CapacityHealth';
+export type {
+  CapacityHealthProps,
+  CapacityEndpoint,
+  SaturationSnapshot,
+} from './components/concurrency/CapacityHealth';
+
+// Probe button (Phase 119 Phase C) — empirical capacity probe per endpoint.
+export { ProbeButton } from './components/llm/ProbeButton';
+export type {
+  ProbeButtonProps,
+  ProbeResult,
+  ProbeButtonState,
+} from './components/llm/ProbeButton';
+
 // Concurrency reset (Phase 119 Task 16) — developer-mode reset for the
 // discovered ceiling lock. Lives in Settings → Diagnostics.
 export { ConcurrencyResetPanel } from './components/concurrency/ConcurrencyResetPanel';

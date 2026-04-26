@@ -95,6 +95,16 @@ export type {
   ConcurrencyState,
 } from './concurrency/ConcurrencyHealth';
 
+// Capacity Health (Phase 119 Phase C) — per-endpoint capacity weather report:
+// plan tier (Phase A) + soft cap + live AIMD limit + saturation hint
+// (Phase B) + last probe summary (Phase C). Sibling to ConcurrencyHealth.
+export { CapacityHealth } from './concurrency/CapacityHealth';
+export type {
+  CapacityHealthProps,
+  CapacityEndpoint,
+  SaturationSnapshot,
+} from './concurrency/CapacityHealth';
+
 // Concurrency reset (Phase 119 Task 16) — developer-mode reset for the
 // discovered ceiling lock. Lives in AI Gateway → Pipeline Activity.
 export { ConcurrencyResetPanel } from './concurrency/ConcurrencyResetPanel';
