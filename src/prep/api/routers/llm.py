@@ -871,6 +871,19 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
     return ok(result)
 
 
+@router.get("/llm/plan-limits")
+def get_plan_limits() -> Dict[str, Any]:
+    """Phase 119 Phase A: return the per-provider plan-tier table for the UI dropdown."""
+    import json
+    from pathlib import Path
+    path = Path(__file__).resolve().parent.parent.parent / "data" / "concurrency_limits.json"
+    try:
+        return ok(json.loads(path.read_text()))
+    except Exception as exc:
+        logger.warning("plan-limits: failed to read %s: %s", path, exc)
+        return {"success": False, "data": None, "error": {"code": "plan_limits_read_failed", "message": str(exc)}}
+
+
 @router.get("/llm/status")
 @router.get("/api/llm/status")
 def get_llm_status() -> Dict[str, Any]:
