@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { ConcurrencyResetPanel } from '../concurrency/ConcurrencyResetPanel';
+import { RecentSwarmLogs } from '../concurrency/RecentSwarmLogs';
 import { SwarmActivityPanel } from '../concurrency/SwarmActivityPanel';
 import type { LLMSlotsStatus, RunningTask, LLMSlotStatus } from '../../types';
 import { TASK_LABELS } from '../../types';
@@ -261,6 +262,18 @@ function DevModeMenu({
                 <SwarmActivityPanel runningTasks={runningTasks} />
               </div>
 
+              {/* Phase 119 verbose-logging: dynamic browser for the
+                  per-swarm-execution JSONL event logs written by
+                  SwarmEventLogger.  Replaces the previous static path
+                  footer; the popover stays open while the user inspects
+                  events so polling at 5 s is cheap. */}
+              <div className="border-b border-border pb-2 mb-1">
+                <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">
+                  Recent Swarm Logs
+                </h4>
+                <RecentSwarmLogs baseUrl={baseUrl} />
+              </div>
+
               <ConcurrencyResetPanel
                 cloudNodeIds={cloudNodeIds ?? []}
                 baseUrl={baseUrl}
@@ -268,18 +281,6 @@ function DevModeMenu({
               {cloudNodeIds === null && (
                 <div className="text-[10px] text-text-muted">Loading nodes…</div>
               )}
-
-              {/* Phase 119 verbose-logging: per-swarm-execution JSONL
-                  event logs are written here.  Static label is good
-                  enough for v1 — agents/users curl the path directly
-                  or hit /system/swarm-events to enumerate. */}
-              <p className="text-[10px] text-text-muted pt-2 border-t border-border">
-                Per-swarm event logs:
-                <br />
-                <code className="text-text-base break-all">
-                  ~/.local/share/sourceprep/logs/swarm/
-                </code>
-              </p>
             </div>
           </>,
           portalTarget,

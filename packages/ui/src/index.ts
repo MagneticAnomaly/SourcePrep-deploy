@@ -332,3 +332,14 @@ export type {
 // discovered ceiling lock. Lives in AI Gateway → Pipeline Activity.
 export { ConcurrencyResetPanel } from './components/concurrency/ConcurrencyResetPanel';
 export type { ConcurrencyResetPanelProps } from './components/concurrency/ConcurrencyResetPanel';
+
+// Recent swarm logs (Phase 119 verbose-logging) — developer popover
+// browser for the per-swarm-execution JSONL event logs written by
+// SwarmEventLogger. Replaces the static path footer in the AI Gateway
+// dev popover with a dynamic, expandable list.
+export { RecentSwarmLogs, parseSwarmLogName } from './components/concurrency/RecentSwarmLogs';
+export type {
+  RecentSwarmLogsProps,
+  SwarmLogFile,
+  SwarmLogEvent,
+} from './components/concurrency/RecentSwarmLogs';

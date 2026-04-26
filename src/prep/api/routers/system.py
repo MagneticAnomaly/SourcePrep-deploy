@@ -214,17 +214,32 @@ def swarm_events(
     from prep.core.paths import data_dir
 
     log_root = data_dir() / "logs" / "swarm"
-    if not log_root.exists():
-        return {"ok": True, "log_dir": str(log_root), "files": [], "events": None}
 
     # ── Read a specific file ─────────────────────────────────────
     if file:
-        # Reject path traversal — only allow plain basenames.
+        # Reject path traversal — only allow plain basenames.  The check
+        # runs before the log_root.exists() short-circuit so a hostile
+        # path is always rejected with 400, regardless of whether the
+        # logs directory has been materialised yet.
         if "/" in file or "\\" in file or ".." in file:
-            raise ApiException(status_code=400, message="invalid file name")
+            raise ApiException(
+                status_code=400,
+                code="VALIDATION_ERROR",
+                message="invalid file name",
+            )
+        if not log_root.exists():
+            raise ApiException(
+                status_code=404,
+                code="NOT_FOUND",
+                message=f"swarm log not found: {file}",
+            )
         target = log_root / file
         if not target.exists() or not target.is_file():
-            raise ApiException(status_code=404, message=f"swarm log not found: {file}")
+            raise ApiException(
+                status_code=404,
+                code="NOT_FOUND",
+                message=f"swarm log not found: {file}",
+            )
         events: List[Dict[str, Any]] = []
         try:
             for line in target.read_text(encoding="utf-8").splitlines():
@@ -236,7 +251,11 @@ def swarm_events(
                     # Tolerate truncated last line on a still-running swarm
                     pass
         except Exception as exc:
-            raise ApiException(status_code=500, message=f"read failed: {exc}") from exc
+            raise ApiException(
+                status_code=500,
+                code="INTERNAL_ERROR",
+                message=f"read failed: {exc}",
+            ) from exc
         return {
             "ok": True,
             "log_dir": str(log_root),
@@ -246,6 +265,9 @@ def swarm_events(
         }
 
     # ── List files ───────────────────────────────────────────────
+    if not log_root.exists():
+        return {"ok": True, "log_dir": str(log_root), "files": [], "events": None}
+
     candidates = sorted(
         log_root.glob("swarm_*.jsonl"),
         key=lambda p: p.stat().st_mtime,
