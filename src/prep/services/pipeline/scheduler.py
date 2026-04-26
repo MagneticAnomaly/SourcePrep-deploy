@@ -320,6 +320,16 @@ class PipelineScheduler:
                         if record["locked_until"] > 0:
                             discovered_ceiling = record["ceiling"]
                             ceiling_locked_until = record["locked_until"]
+                            logger.info(
+                                "Scheduler: restored locked ceiling %d for %s "
+                                "until %.0f",
+                                record["ceiling"], node_id, record["locked_until"],
+                            )
+                        else:
+                            logger.info(
+                                "Scheduler: hydrated unlocked ceiling %d for %s",
+                                record["ceiling"], node_id,
+                            )
                 self._slots[node_id] = ComputeSlot(
                     node_id=node_id,
                     max_concurrent=new_max,

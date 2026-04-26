@@ -254,3 +254,31 @@ def test_configure_node_hydrates_lock_from_store(monkeypatch, tmp_path) -> None:
     assert slot.current_limit == 12
     # Mode is congestion_avoidance: we have a known edge, not exploration.
     assert slot.mode == "congestion_avoidance"
+
+
+def test_configure_node_hydrates_ceiling_only_when_unlocked(monkeypatch, tmp_path) -> None:
+    """A pre-Phase-119 record (or jumpstart-grown row) has locked_until=0.
+
+    The slot should still seed current_limit from the persisted ceiling
+    (it's a known-good operating point) and switch to congestion_avoidance,
+    BUT should NOT hydrate the lock fields — that lets AIMD continue
+    probing upward instead of being clamped at a phantom ceiling.
+    """
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+
+    # Use the legacy save() path: writes ceiling with locked_until=0.
+    store_mod.concurrency_store().save("cloud:ep-legacy", "__default__", ceiling=8)
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-legacy", max_concurrent=1)
+    slot = sched._slots["cloud:ep-legacy"]
+
+    # Ceiling hydrated as starting point, but NO lock applied.
+    assert slot.current_limit == 8
+    assert slot.mode == "congestion_avoidance"
+    assert slot.discovered_ceiling is None
+    assert slot.ceiling_locked_until == 0.0
