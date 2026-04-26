@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from prep.core.llm_client import LLMClient, _parse_json_response
+from prep.services.token_telemetry import set_swarm_role
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +227,19 @@ class SwarmOrchestrator:
         client = llm if llm is not None else self.worker_llm
         zombie_session_ref: List = []  # mutable container to capture from closure
 
+        # Phase 119 Swarm Authority: tag the LLM call with its swarm role
+        # so token_telemetry stamps the active request.  Uses the phase
+        # name verbatim ("coordinator" / "synthesis") for the
+        # _llm_call_with_timeout path; fan-out workers set their own
+        # role around worker_fn (see _fan_out).
+        # We translate "synthesis" → "synthesizer" so the surfaced role
+        # matches the noun used in the UI grouping.
+        role_tag: Optional[str] = None
+        if phase == "coordinator":
+            role_tag = "coordinator"
+        elif phase == "synthesis":
+            role_tag = "synthesizer"
+
         def _generate_and_capture(**kwargs):
             """Wrapper that captures the thread-local Session for cleanup."""
             # Force Session creation by touching the property, then capture it.
@@ -233,7 +247,8 @@ class SwarmOrchestrator:
             s = getattr(client._thread_local, 'session', None)
             if s is not None:
                 zombie_session_ref.append(s)
-            return client.generate(**kwargs)
+            with set_swarm_role(role_tag):
+                return client.generate(**kwargs)
 
         pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"swarm-{phase}")
         future = pool.submit(
@@ -363,7 +378,12 @@ class SwarmOrchestrator:
                     analysis_angle="Perform standard architectural analysis",
                 )
             try:
-                raw = worker_fn(item, assignment)
+                # Phase 119 Swarm Authority: tag this worker's LLM calls
+                # so token_telemetry stamps swarm_role="worker" on the
+                # ActiveLLMRequest entry.  Lives in the thread the
+                # ThreadPoolExecutor runs us on.
+                with set_swarm_role("worker"):
+                    raw = worker_fn(item, assignment)
                 logger.info("[Swarm] Worker returned: %s len=%d", item.id[:40], len(raw or ""))
                 if raw is None:
                     return WorkerResult(

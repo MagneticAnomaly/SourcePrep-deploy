@@ -37,10 +37,66 @@ class ActiveLLMRequest:
     provider: str
     start_time: float
     model_slot: Optional[str] = None
+    # Phase 119 Swarm Authority: per-call swarm phase tag.  Set by
+    # SwarmOrchestrator around _coordinate / _fan_out / _synthesize so the
+    # AI Gateway can render the three-phase breakdown when a swarm is
+    # actually running.  None for non-swarm calls (parallel, sequential,
+    # agent ops).  Values: "coordinator" | "worker" | "synthesizer".
+    swarm_role: Optional[str] = None
 
 # Track active requests uniquely by thread ID
 _active_requests: Dict[int, ActiveLLMRequest] = {}
 _active_requests_lock = threading.Lock()
+
+# Phase 119 Swarm Authority: per-thread swarm role context.
+# Lifecycle: SwarmOrchestrator wraps each phase in `set_swarm_role(role)`.
+# track_active_request reads it and stamps the role onto the
+# ActiveLLMRequest entry so /llm/slots/status can group by role.
+#
+# Like telemetry context, we keep both a ContextVar (asyncio-correct) and
+# a thread-local fallback (Python 3.11 ThreadPoolExecutor doesn't
+# propagate ContextVars to child threads).  The fan-out path crosses
+# thread boundaries, so the fallback is the load-bearing path here.
+_swarm_role_ctx: contextvars.ContextVar[Optional[str]] = contextvars.ContextVar(
+    "swarm_role_ctx", default=None,
+)
+_swarm_role_local = threading.local()
+
+
+def _get_swarm_role() -> Optional[str]:
+    """Resolve the active swarm role for the current thread.
+
+    Checks the ContextVar first (asyncio path), then the thread-local
+    fallback (ThreadPoolExecutor children).  Returns None when no swarm
+    is active.
+    """
+    role = _swarm_role_ctx.get()
+    if role is not None:
+        return role
+    return getattr(_swarm_role_local, "role", None)
+
+
+@contextmanager
+def set_swarm_role(role: Optional[str]) -> Iterator[None]:
+    """Tag any LLM call inside this block with a swarm phase role.
+
+    Use ``coordinator`` for the planning call, ``worker`` for fan-out
+    calls, ``synthesizer`` for the aggregation call.  The wrapper is a
+    no-op when ``role`` is None — useful for caller code that wants a
+    single ``with set_swarm_role(maybe_role):`` regardless of whether the
+    enclosing path is actually a swarm.
+    """
+    if role is None:
+        yield
+        return
+    token = _swarm_role_ctx.set(role)
+    prev = getattr(_swarm_role_local, "role", None)
+    _swarm_role_local.role = role
+    try:
+        yield
+    finally:
+        _swarm_role_ctx.reset(token)
+        _swarm_role_local.role = prev
 
 
 @contextmanager
@@ -256,6 +312,10 @@ class TokenTelemetryStore:
                 provider=provider,
                 start_time=time.time(),
                 model_slot=model_slot,
+                # Phase 119 Swarm Authority: stamp the swarm phase role
+                # if SwarmOrchestrator opened a `set_swarm_role(...)`
+                # block above this call.  None for normal calls.
+                swarm_role=_get_swarm_role(),
             )
 
     def untrack_active_request(self) -> None:
@@ -273,6 +333,7 @@ class TokenTelemetryStore:
                     "model": req.model,
                     "provider": req.provider,
                     "model_slot": req.model_slot,
+                    "swarm_role": req.swarm_role,
                     "duration_seconds": now - req.start_time,
                 }
                 for req in _active_requests.values()
