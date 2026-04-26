@@ -478,8 +478,21 @@ class LLMClient:
         except Exception as e:
             logger.debug("Failed to track active request: %s", e)
 
-    def _record_throughput(self, queue_time_ms: float = 0.0, rate_limit_remaining: Optional[int] = None, is_429_or_timeout: bool = False) -> None:
-        """Phase 82: Asynchronously notify the PipelineScheduler of connection health for AIMD adjusting."""
+    def _record_throughput(
+        self,
+        queue_time_ms: float = 0.0,
+        rate_limit_remaining: Optional[int] = None,
+        is_429_or_timeout: bool = False,
+        headers: Optional[Dict[str, str]] = None,
+        status: Optional[int] = None,
+    ) -> None:
+        """Phase 82: Asynchronously notify the PipelineScheduler of connection health for AIMD adjusting.
+
+        Phase 119 Phase B: when ``headers`` are passed (OpenAI / Anthropic
+        paths), the scheduler runs the per-provider discovery adapter and
+        slows growth proactively before a 429 fires. Other providers
+        omit ``headers`` and behavior is unchanged.
+        """
         try:
             from prep.services.pipeline.scheduler import pipeline_scheduler
             pipeline_scheduler.record_throughput_for_provider(
@@ -487,7 +500,9 @@ class LLMClient:
                 self.model,
                 queue_time_ms=queue_time_ms,
                 rate_limit_remaining=rate_limit_remaining,
-                is_429_or_timeout=is_429_or_timeout
+                is_429_or_timeout=is_429_or_timeout,
+                headers=headers,
+                status=status,
             )
         except Exception as e:
             logger.debug("Failed to report latency throughput to scheduler: %s", e)
@@ -537,43 +552,50 @@ class LLMClient:
         max_chars: int = 0,
         num_ctx: Optional[int] = None,
     ) -> Tuple[str, int]:
-        self._track_active("start")
+        # Track active only while a request is truly in flight. Tracking
+        # before the gate inflated AI Gateway's "active" count by including
+        # threads blocked waiting for AIMD capacity, not real HTTP calls.
         node_id = self._resolve_scheduler_node_id()
-        try:
-            if node_id is None:
+        if node_id is None:
+            self._track_active("start")
+            try:
                 return self._generate_internal(
                     prompt=prompt, system=system, num_predict=num_predict,
                     json_mode=json_mode, temperature=temperature,
                     response_schema=response_schema, think=think,
                     max_chars=max_chars, num_ctx=num_ctx,
                 )
+            finally:
+                self._track_active("stop")
 
-            from prep.services.pipeline.scheduler import pipeline_scheduler
-            with pipeline_scheduler.acquire_request_ctx(
-                node_id, timeout=_REQUEST_GATE_TIMEOUT_S,
-            ) as token:
-                if token is None:
-                    slot = pipeline_scheduler._slots.get(node_id)
-                    if slot is not None:
-                        logger.warning(
-                            "LLM request gate: timed out waiting on %s "
-                            "(effective_capacity=%d, in_flight=%d). Proceeding uncapped.",
-                            node_id, slot.dynamic_capacity, slot.in_flight_requests,
-                        )
-                    else:
-                        logger.warning(
-                            "LLM request gate: timed out waiting on %s "
-                            "(slot no longer present). Proceeding uncapped.",
-                            node_id,
-                        )
+        from prep.services.pipeline.scheduler import pipeline_scheduler
+        with pipeline_scheduler.acquire_request_ctx(
+            node_id, timeout=_REQUEST_GATE_TIMEOUT_S,
+        ) as token:
+            if token is None:
+                slot = pipeline_scheduler._slots.get(node_id)
+                if slot is not None:
+                    logger.warning(
+                        "LLM request gate: timed out waiting on %s "
+                        "(effective_capacity=%d, in_flight=%d). Proceeding uncapped.",
+                        node_id, slot.dynamic_capacity, slot.in_flight_requests,
+                    )
+                else:
+                    logger.warning(
+                        "LLM request gate: timed out waiting on %s "
+                        "(slot no longer present). Proceeding uncapped.",
+                        node_id,
+                    )
+            self._track_active("start")
+            try:
                 return self._generate_internal(
                     prompt=prompt, system=system, num_predict=num_predict,
                     json_mode=json_mode, temperature=temperature,
                     response_schema=response_schema, think=think,
                     max_chars=max_chars, num_ctx=num_ctx,
                 )
-        finally:
-            self._track_active("stop")
+            finally:
+                self._track_active("stop")
 
     def _generate_internal(
         self,
@@ -932,7 +954,7 @@ class LLMClient:
             for _attempt in range(self._MAX_429_RETRIES + 1):
                 try:
                     _resp = self._session.post(url, json=payload, headers=headers, timeout=self.timeout)
-                    
+
                     # Parse OpenAI ratelimit headers
                     srem = _resp.headers.get("x-ratelimit-remaining-requests")
                     if srem and srem.isdigit():
@@ -943,20 +965,40 @@ class LLMClient:
                 except requests.exceptions.Timeout:
                     self._record_throughput(is_429_or_timeout=True)
                     raise
-                
+
                 if _attempt < self._MAX_429_RETRIES:
-                    self._record_throughput(is_429_or_timeout=True)
+                    # Phase 119 Phase B: pass full response headers so the
+                    # discovery adapter can compute saturation and the
+                    # scheduler can react with appropriate hint logic.
+                    _hdrs_429 = dict(_resp.headers) if _resp is not None else None
+                    self._record_throughput(
+                        is_429_or_timeout=True,
+                        headers=_hdrs_429,
+                        status=_resp.status_code if _resp is not None else 429,
+                    )
                     _wait = 5 * (_attempt + 1)
                     logger.info("429 rate-limited by %s — retry %d/%d in %ds", self.model, _attempt + 1, self._MAX_429_RETRIES, _wait)
                     time.sleep(_wait)
             resp = _resp
             if resp.status_code >= 500:
-                self._record_throughput(is_429_or_timeout=True)
+                self._record_throughput(
+                    is_429_or_timeout=True,
+                    headers=dict(resp.headers),
+                    status=resp.status_code,
+                )
             resp.raise_for_status()
 
             t1 = time.monotonic()
             wall_time_ms = (t1 - t0) * 1000.0
-            self._record_throughput(queue_time_ms=wall_time_ms, rate_limit_remaining=rate_limit_remaining)
+            # Phase 119 Phase B: feed the full success-path header set into
+            # the scheduler so the OpenAI discovery adapter can predict
+            # saturation from x-ratelimit-{limit,remaining}-{requests,tokens}.
+            self._record_throughput(
+                queue_time_ms=wall_time_ms,
+                rate_limit_remaining=rate_limit_remaining,
+                headers=dict(resp.headers),
+                status=resp.status_code,
+            )
             data = resp.json()
 
             choice = data.get("choices", [{}])[0]
@@ -1002,7 +1044,7 @@ class LLMClient:
             for _attempt in range(self._MAX_429_RETRIES + 1):
                 try:
                     _resp = self._session.post(url, json=payload, headers=headers, timeout=self.timeout)
-                    
+
                     # Parse Anthropic ratelimit headers
                     srem = _resp.headers.get("anthropic-ratelimit-requests-remaining")
                     if srem and srem.isdigit():
@@ -1013,20 +1055,38 @@ class LLMClient:
                 except requests.exceptions.Timeout:
                     self._record_throughput(is_429_or_timeout=True)
                     raise
-                
+
                 if _attempt < self._MAX_429_RETRIES:
-                    self._record_throughput(is_429_or_timeout=True)
+                    # Phase 119 Phase B: hand full headers to the scheduler
+                    # so the Anthropic discovery adapter can read the dense
+                    # ratelimit set (requests + combined/input/output tokens).
+                    _hdrs_429 = dict(_resp.headers) if _resp is not None else None
+                    self._record_throughput(
+                        is_429_or_timeout=True,
+                        headers=_hdrs_429,
+                        status=_resp.status_code if _resp is not None else 429,
+                    )
                     _wait = 5 * (_attempt + 1)
                     logger.info("429 rate-limited by %s — retry %d/%d in %ds", self.model, _attempt + 1, self._MAX_429_RETRIES, _wait)
                     time.sleep(_wait)
             resp = _resp
             if resp.status_code >= 500:
-                self._record_throughput(is_429_or_timeout=True)
+                self._record_throughput(
+                    is_429_or_timeout=True,
+                    headers=dict(resp.headers),
+                    status=resp.status_code,
+                )
             resp.raise_for_status()
 
             t1 = time.monotonic()
             wall_time_ms = (t1 - t0) * 1000.0
-            self._record_throughput(queue_time_ms=wall_time_ms, rate_limit_remaining=rate_limit_remaining)
+            # Phase 119 Phase B: success-path headers feed the discovery layer.
+            self._record_throughput(
+                queue_time_ms=wall_time_ms,
+                rate_limit_remaining=rate_limit_remaining,
+                headers=dict(resp.headers),
+                status=resp.status_code,
+            )
             data = resp.json()
 
             # Anthropic returns content as a list of blocks
