@@ -916,6 +916,21 @@ def configure(
     # idempotent, so this is a no-op when migration already called it.
     _concept_store.init(_concept_store_db_path)
 
+    # Phase 119 Task 16: seed built-in "system" concepts (e.g. the
+    # discovered-ceiling lock + reset action) so AI agents calling
+    # `prep_search` for "concurrency reset" / "rate limit too high"
+    # find them. Idempotent — concept_store.save dedupes by title.
+    try:
+        from prep.core.system_concept_seeder import (
+            seed_system_concepts_for_all_projects,
+        )
+        seed_system_concepts_for_all_projects()
+    except Exception:
+        logger.debug(
+            "Phase 119: system concept seeding failed (non-fatal)",
+            exc_info=True,
+        )
+
     # Initialize antibody store (Phase 80: Immune System)
     # F-37: previously never initialized — antibody saves silently failed
     # because the worker catches RuntimeError at DEBUG level.

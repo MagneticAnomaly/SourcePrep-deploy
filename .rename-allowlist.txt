@@ -199,3 +199,5 @@ tests/test_remote_sync.py
 tests/test_trace_builder_globs.py
 tests/test_trace_endpoints.py
 tests/test_watcher_relevance.py
+tests/test_settings_route_ordering.py
+HANDOFF.md

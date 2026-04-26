@@ -61,7 +61,14 @@ import time as _time
 
 _status_cache: dict[str, tuple[float, dict]] = {}
 _status_cache_lock = _threading.Lock()
-_STATUS_CACHE_TTL = 3.0  # seconds
+_STATUS_CACHE_TTL = 3.0  # seconds (idle)
+# Phase 118 G1: when any group is running, the dashboard's poll-driven
+# UI lags behind the API by up to one TTL window, producing user-visible
+# desyncs (DOM shows "running" while API has moved on, or vice versa).
+# Drop the effective TTL to 0.5s during active runs so the dashboard
+# converges within a single poll cycle. The 3s idle TTL still protects
+# the daemon when nothing is happening.
+_STATUS_CACHE_TTL_RUNNING = 0.5
 # Per-project "in-flight" flags prevent multiple executor threads from
 # computing _build_status for the same project simultaneously.  Without
 # this, toggling between N projects fires N parallel _build_status calls,
@@ -856,6 +863,7 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
             "active": barrier_info is not None,
             "age_seconds": barrier_info["age_seconds"] if barrier_info else None,
             "reason": barrier_info["reason"] if barrier_info else None,
+            "scope": barrier_info["scope"] if barrier_info else None,
             "written_at": barrier_info["written_at"] if barrier_info else None,
         }
 
@@ -905,7 +913,19 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
         if cached:
             ts, result = cached
             age = now - ts
-            if age < _STATUS_CACHE_TTL:
+            # Phase 118 G1: if the previous result shows any group running,
+            # use the shorter running-TTL so the dashboard sees fresh data
+            # within one poll cycle.
+            try:
+                running = bool(
+                    isinstance(result, dict)
+                    and isinstance(result.get("data"), dict)
+                    and result["data"].get("any_running")
+                )
+            except Exception:
+                running = False
+            effective_ttl = _STATUS_CACHE_TTL_RUNNING if running else _STATUS_CACHE_TTL
+            if age < effective_ttl:
                 return result  # fresh enough
             # Stale cache available + refresh already in-flight for this
             # project: return whatever we have instead of queuing another

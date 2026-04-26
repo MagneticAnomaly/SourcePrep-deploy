@@ -194,7 +194,7 @@ export const prepFeatures: Feature[] = [
   {
     icon: <Shield className="w-8 h-8" />,
     title: 'Any LLM, Your Choice',
-    description: 'Works with Ollama Kimi2.5 (recommended), local models via Ollama, or frontier APIs like Claude and GPT. Swarm mode runs multiple LLM workers in parallel for faster enrichment.',
+    description: 'Works with Ollama Kimi2.6 (recommended), local models via Ollama, or frontier APIs like Claude and GPT. Swarm mode runs multiple LLM workers in parallel for faster enrichment.',
   },
   {
     icon: <RefreshCw className="w-8 h-8" />,

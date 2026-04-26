@@ -1,0 +1,10 @@
+{
+  "name": "prep-mcp",
+  "version": "0.0.0",
+  "description": "The Universal Context Model for AI Coding Agents (MCP Server)",
+  "license": "MIT",
+  "private": true,
+  "bin": {
+    "prep-mcp": "bin/prep-mcp.js"
+  }
+}

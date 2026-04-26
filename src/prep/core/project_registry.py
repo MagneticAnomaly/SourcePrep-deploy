@@ -252,6 +252,18 @@ class ProjectRegistry:
         # without querying the daemon.
         ensure_prep_pointer(proj)
 
+        # Phase 119 Task 16: seed built-in "system" concepts so AI
+        # agents calling prep_search find runtime-mechanism docs
+        # (e.g. the discovered-ceiling lock + reset action) on day 1.
+        try:
+            from prep.core.system_concept_seeder import seed_system_concepts
+            seed_system_concepts(project_id)
+        except Exception:
+            # Concept store may not be initialized yet (e.g. CLI flows
+            # that import the registry before server.startup).  Safe
+            # to skip — server startup re-seeds across all projects.
+            pass
+
         return proj
 
     def get_project(self, project_id: str) -> Optional[Project]:

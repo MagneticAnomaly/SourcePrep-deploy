@@ -29,6 +29,8 @@ export interface ConfirmDialogProps {
   children?: ReactNode;
   /** When true, disables the confirm button (e.g. while a typed-confirm gate is unmet) */
   confirmDisabled?: boolean;
+  /** Test hook prefix; emits `${testId}` on the dialog container, `${testId}-confirm` on the confirm button, `${testId}-cancel` on the cancel button. */
+  testId?: string;
 }
 
 export function ConfirmDialog({
@@ -44,6 +46,7 @@ export function ConfirmDialog({
   className,
   children,
   confirmDisabled = false,
+  testId,
 }: ConfirmDialogProps) {
   // Close on Escape key
   const handleKeyDown = useCallback(
@@ -83,6 +86,7 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-desc"
+        data-testid={testId}
       >
         <div className="flex items-start gap-3">
           <div className="mt-0.5 shrink-0 rounded-full bg-error/10 p-2">
@@ -102,10 +106,21 @@ export function ConfirmDialog({
         </div>
         {children && <div className="mt-3">{children}</div>}
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onCancel}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCancel}
+            data-testid={testId ? `${testId}-cancel` : undefined}
+          >
             {cancelLabel}
           </Button>
-          <Button variant={variant} size="sm" onClick={onConfirm} disabled={confirmDisabled}>
+          <Button
+            variant={variant}
+            size="sm"
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+            data-testid={testId ? `${testId}-confirm` : undefined}
+          >
             {confirmLabel}
           </Button>
         </div>

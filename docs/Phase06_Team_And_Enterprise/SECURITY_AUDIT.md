@@ -110,7 +110,7 @@ cmd = ["git", "clone", "--depth", "1", "--branch", branch, "--single-branch", "-
 **Recommendation:** Enforce a minimum polling interval (e.g., 5 minutes).
 
 ### MED-2: GitHub Actions Workflow Logs Model Provider and Name
-**File:** `public/prep-deploy/github-actions/prep-sync.yml` line 48-49
+**File:** `public/sourceprep-deploy/github-actions/prep-sync.yml` line 48-49
 **Issue:** The workflow echoes `${PREP_MODEL_PROVIDER}` and `${PREP_MODEL_NAME}` which are fine, but also runs the full CLI which prints `Model: openai/gpt-4o-mini`. While not a secret, it reveals the customer's AI infrastructure choices in public GitHub Actions logs.
 
 **Recommendation:** Consider suppressing the CLI's startup banner in CI environments (e.g., `--quiet` flag).
@@ -140,7 +140,7 @@ The `_verify_license()` method is no longer called from `run()` but still exists
 The boto3 client is cached after first creation. If credentials rotate (e.g., IAM temporary credentials), the stale client will fail. Not a vulnerability per se, but a reliability issue for Enterprise customers using STS.
 
 ### LOW-3: Dockerfile Installs Ollama via Piped Curl
-**File:** `public/prep-deploy/Dockerfile.gpu` line 33
+**File:** `public/sourceprep-deploy/Dockerfile.gpu` line 33
 `curl -fsSL https://ollama.com/install.sh | sh` is a supply chain risk. If ollama.com is compromised, the install script could be tampered with. However, this is standard practice and the alternative (vendoring the binary) creates its own maintenance burden.
 
 **Recommendation:** Pin to a specific Ollama version and verify a checksum.

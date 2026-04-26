@@ -140,7 +140,7 @@ run_stage "sidecar-build" bash "$REPO_ROOT/scripts/build_sidecar.sh"
 # Run on each package that has a package-lock.json
 run_stage "npm-audit-root" bash -c "cd '$REPO_ROOT' && npm audit --omit=dev 2>&1 || true"
 run_stage "npm-audit-ui" bash -c "cd '$REPO_ROOT/packages/ui' && npm audit --omit=dev 2>&1 || true"
-run_stage "npm-audit-mcp" bash -c "cd '$REPO_ROOT/public/prep-mcp' && npm audit --omit=dev 2>&1 || true"
+run_stage "npm-audit-mcp" bash -c "cd '$REPO_ROOT/public/sourceprep-mcp' && npm audit --omit=dev 2>&1 || true"
 
 # ── Stage 8: Tauri App Build ────────────────────────────────────
 if [ "$SKIP_TAURI" = true ]; then

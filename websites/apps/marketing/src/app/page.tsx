@@ -37,7 +37,7 @@ export default function Page() {
           <p>
             SourcePrep is a structural codebase intelligence MCP server for AI coding agents.
             It builds a code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies — then delivers that deep structural context directly to Claude Code, Antigravity, Cursor, VS Code, and any MCP-compatible tool.
-            Connect your preferred LLM — Ollama Kimi2.5, local models, or frontier APIs.
+            Connect your preferred LLM — Kimi 2.6, local models, or frontier APIs.
           </p>
         </section>
 
@@ -229,7 +229,7 @@ export default function Page() {
             </div>
             <div>
               <div className="text-3xl font-bold text-primary">Any LLM</div>
-              <div className="text-sm text-text-muted mt-1">Ollama Kimi2.5, local models, or frontier APIs. Swarm mode for parallel enrichment.</div>
+              <div className="text-sm text-text-muted mt-1">Ollama (local or cloud), or frontier APIs</div>
             </div>
           </div>
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">

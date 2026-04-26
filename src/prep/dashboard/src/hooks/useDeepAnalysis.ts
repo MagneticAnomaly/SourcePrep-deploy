@@ -65,7 +65,15 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError, pro
   useEffect(() => {
     const projSched = (projectConfig as any)?.deep_analysis_schedule
     if (projSched && typeof projSched === 'object') {
-      setDeepAnalysisSchedule({ ...DEFAULT_SCHEDULE, ...projSched })
+      // F-56 cycle guard: only update when values actually differ. A fresh
+      // object ref from projectConfig (triggered by our own autosave writing
+      // back) must NOT produce a fresh deepAnalysisSchedule ref, or the
+      // autosave effect below re-fires → setConfigDirty(true) → infinite
+      // "Saving…" blink.
+      const merged = { ...DEFAULT_SCHEDULE, ...projSched }
+      setDeepAnalysisSchedule((prev) =>
+        JSON.stringify(prev) === JSON.stringify(merged) ? prev : merged,
+      )
       return
     }
     // No per-project schedule yet — load global default once
@@ -77,7 +85,10 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError, pro
       if (cancelled) return
       const saved = cfg?.deep_analysis
       if (saved && typeof saved === 'object') {
-        setDeepAnalysisSchedule((prev) => ({ ...prev, ...saved }))
+        setDeepAnalysisSchedule((prev) => {
+          const merged = { ...prev, ...saved }
+          return JSON.stringify(prev) === JSON.stringify(merged) ? prev : merged
+        })
       }
       const pcMode = (pcResult?.value?.deep_enrichment || {}).mode
       if (pcMode === 'manual' || pcMode === 'auto' || pcMode === 'scheduled') {

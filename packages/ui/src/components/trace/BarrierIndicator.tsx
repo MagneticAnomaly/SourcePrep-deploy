@@ -53,6 +53,9 @@ export function BarrierIndicator({ barrier, onClear }: BarrierIndicatorProps) {
       role="status"
       aria-live="polite"
       aria-atomic="true"
+      data-testid="pipeline-barrier-indicator"
+      data-barrier-scope={barrier.scope ?? undefined}
+      data-barrier-reason={barrier.reason ?? undefined}
       className={`flex items-start gap-2 rounded-md border px-3 py-2 text-xs ${
         isStale
           ? 'border-warning/40 bg-warning/10 text-warning'

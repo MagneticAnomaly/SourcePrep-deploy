@@ -411,10 +411,13 @@ function computeInferredEdgesState(
 ): StageState {
   // F-42: see computeTraceState
   if (!trace.exists && !trace.enabled) return 'disabled';
+  // F-NEW-3 (Phase 118): honor THIS stage's running flag before any
+  // forward-progression heuristic. A stale "later-stage-running" flag
+  // from the prior run otherwise traps this stage at 'complete' for the
+  // first poll cycles of a new run.
+  if (running || ie?.running) return 'running';
   // Pipeline is sequential: if a later stage is running, Edge Discovery finished.
   if (augmenting || validating || fastKnowledgeBuilding) return 'complete';
-  // SSE running flags are always fresh — check before stale API data.
-  if (running || ie?.running) return 'running';
   // Cold state: trace.exists may be stale during pipeline but correct when idle.
   if (!trace.exists) return 'disabled';
   if (!ie) return 'not_built';
@@ -453,12 +456,14 @@ function computeValidationState(
   // F-42: see computeTraceState
   if (!trace.exists && !trace.enabled) return 'disabled';
 
+  // F-NEW-3 (Phase 118): honor THIS stage's running flag before any
+  // forward-progression heuristic.
+  if (validating) return 'running';
+
   // A later stage is running → Validation must have finished.
   if (fastKnowledgeBuilding) {
     return (aug && aug.augmented_nodes > 0) ? 'complete' : 'running';
   }
-
-  if (validating) return 'running';
   if (!trace.exists) return 'disabled';
 
   // "Was previously complete" signal — validated_nodes / last_validate_at
@@ -507,9 +512,15 @@ function computeEpistemicState(
 ): StageState {
   // F-42: see computeTraceState
   if (!trace.exists && !trace.enabled) return 'disabled';
-  // SSE flags are always fresh — check them before stale status data
-  if (clusterRunning || atlasRunning || deepeningRunning || deepKnowledgeBuilding) return 'complete';
+  // F-NEW-3 (Phase 118): the API's per-stage running flag for THIS stage
+  // is the freshest signal we have. If `running || ep?.running` is true,
+  // we MUST honor that even if a stale "later stage running" SSE flag is
+  // still set from a prior run. The previous order let prior-run cluster
+  // / atlas / deepening flags trap this stage at 'complete' for the first
+  // few seconds of a new run.
   if (running || ep?.running) return 'running';
+  // SSE flags as forward-progression hint (only when API doesn't claim this stage is running)
+  if (clusterRunning || atlasRunning || deepeningRunning || deepKnowledgeBuilding) return 'complete';
   // Cold state checks
   if (!trace.exists) return 'disabled';
   if (!aug || !aug.enabled || aug.augmented_nodes === 0) return 'disabled';
@@ -527,9 +538,10 @@ function computeModuleState(
   deepeningRunning?: boolean,
   deepKnowledgeBuilding?: boolean
 ): StageState {
-  // SSE flags are always fresh — check them before stale status data
-  if (atlasRunning || deepeningRunning || deepKnowledgeBuilding) return 'complete';
+  // F-NEW-3 (Phase 118): see computeEnrichmentState — honor THIS stage's
+  // running flag first.
   if (running || mod?.running) return 'running';
+  if (atlasRunning || deepeningRunning || deepKnowledgeBuilding) return 'complete';
   // Cold state checks
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled) return 'not_built';
@@ -546,9 +558,10 @@ function computeAtlasState(
   deepKnowledgeBuilding?: boolean,
   deep?: DeepeningStatus
 ): StageState {
-  // SSE flags are always fresh — check them before stale status data
-  if (deepeningRunning || deepKnowledgeBuilding) return 'complete';
+  // F-NEW-3 (Phase 118): see computeEnrichmentState — honor THIS stage's
+  // running flag first.
   if (running || atlas?.running) return 'running';
+  if (deepeningRunning || deepKnowledgeBuilding) return 'complete';
   // Cold state checks
   if (!ep || !ep.enabled || ep.enriched_nodes === 0) return 'disabled';
   if (!mod || !mod.enabled || mod.module_count === 0) return 'disabled';
@@ -569,9 +582,10 @@ function computeDeepeningState(
   mod?: ModuleStatus,
   deepKnowledgeBuilding?: boolean
 ): StageState {
-  // SSE flags are always fresh — check them before stale status data
-  if (deepKnowledgeBuilding) return 'complete';
+  // F-NEW-3 (Phase 118): see computeEnrichmentState — honor THIS stage's
+  // running flag first.
   if (running || deep?.running) return 'running';
+  if (deepKnowledgeBuilding) return 'complete';
 
   // F-76: If deepening itself has historical data (backend sourced this from
   // deepening_manifest.json), show complete regardless of upstream runtime
@@ -806,7 +820,17 @@ function StageRow({
       data-stage-state={isPaused ? 'paused' : stage.state}
       data-stage-progress={stage.progress ?? ''}
       data-stage-group={group}
-      className="flex items-start gap-3 relative py-0.5 px-1 group"
+      data-stage-frozen={(stage as EnrichmentStage & { _frozen?: boolean })._frozen ? 'true' : undefined}
+      className={cn(
+        "flex items-start gap-3 relative py-0.5 px-1 group",
+        // Phase 118 U6: visually distinguish frozen-from-prior-run stages
+        // from genuinely-complete-this-run stages during a rebuild. The
+        // muted opacity says "this is preserved data, not fresh result."
+        (stage as EnrichmentStage & { _frozen?: boolean })._frozen && "opacity-60",
+      )}
+      title={(stage as EnrichmentStage & { _frozen?: boolean })._frozen
+        ? 'Showing data from prior run — will refresh once this stage re-runs'
+        : undefined}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -1035,11 +1059,86 @@ export function GraphEnrichmentPipeline({
   // revert to not_built/disabled), we keep showing them green until
   // they actually start re-running.
   const wasCompleteRef = useRef<Record<string, boolean>>({});
+  // Phase 118 Issue B: also remember the last good stats text for each
+  // stage. During a rebuild the underlying status payloads (rulesStatus,
+  // conceptsStatus, etc.) report `generated: false` because their manifest
+  // was wiped — that flips the inline stat copy to "Not generated / Not
+  // seeded / Not run / Not derived" even though the prior run produced
+  // those artifacts. Holding the last good stats text and substituting it
+  // back during rebuild keeps the panel honest: "this is what the prior
+  // run produced; it'll be replaced when the new run finishes that stage."
+  const lastGoodStatsRef = useRef<Record<string, string>>({});
+
+  // Phase 118 U3: hold a complete snapshot of finalize status props from
+  // the moment the rebuild started. While rebuild is active, substitute
+  // the snapshot for any prop whose current API-derived value indicates
+  // "wiped" (generated=false, exists=false, count=0). This keeps ALL of
+  // the prior-run detail (counts, model labels, finding totals, atlas
+  // segment counts) visible until the new run reaches that stage and
+  // replaces the data for real.
+  const rebuildSnapshotRef = useRef<{
+    rulesStatus?: typeof rulesStatus;
+    conceptsStatus?: typeof conceptsStatus;
+    auditPipelineStatus?: typeof auditPipelineStatus;
+    antibodiesStatus?: typeof antibodiesStatus;
+    atlas?: typeof atlas;
+    modules?: typeof modules;
+    deepening?: typeof deepening;
+    knowledge?: typeof knowledge;
+    deepKnowledge?: typeof deepKnowledge;
+    epistemic?: typeof epistemic;
+    augmentation?: typeof augmentation;
+    inferredEdges?: typeof inferredEdges;
+  }>({});
+  const wasRebuildingRef = useRef<boolean>(false);
+
   const prevProjectIdRef = useRef(projectId);
   if (prevProjectIdRef.current !== projectId) {
     wasCompleteRef.current = {};
+    lastGoodStatsRef.current = {};
+    rebuildSnapshotRef.current = {};
+    wasRebuildingRef.current = false;
     prevProjectIdRef.current = projectId;
   }
+
+  // Capture snapshot at the moment a rebuild begins.
+  if (isRebuilding && !wasRebuildingRef.current) {
+    rebuildSnapshotRef.current = {
+      rulesStatus, conceptsStatus, auditPipelineStatus, antibodiesStatus,
+      atlas, modules, deepening, knowledge, deepKnowledge,
+      epistemic, augmentation, inferredEdges,
+    };
+  }
+  // Clear snapshot once the rebuild ends so future runs read live values.
+  if (!isRebuilding && wasRebuildingRef.current) {
+    rebuildSnapshotRef.current = {};
+  }
+  wasRebuildingRef.current = isRebuilding;
+
+  // Helper: pick the live value if it has data, otherwise fall back to
+  // the rebuild snapshot. We only fall back for "obviously wiped"
+  // signals (the same ones used to trigger "Not generated" copy) so a
+  // partial / mid-run state still renders fresh data.
+  const rebuildAware = <T,>(live: T | undefined, snap: T | undefined, hasData: (v: T | undefined) => boolean): T | undefined => {
+    if (!isRebuilding) return live;
+    if (hasData(live)) return live;
+    return snap ?? live;
+  };
+  const effectiveRulesStatus = rebuildAware(rulesStatus, rebuildSnapshotRef.current.rulesStatus, (v) => !!v?.generated);
+  const effectiveConceptsStatus = rebuildAware(conceptsStatus, rebuildSnapshotRef.current.conceptsStatus, (v) => !!v?.seeded);
+  const effectiveAuditPipelineStatus = rebuildAware(auditPipelineStatus, rebuildSnapshotRef.current.auditPipelineStatus, (v) => !!v?.exists);
+  const effectiveAntibodiesStatus = rebuildAware(antibodiesStatus, rebuildSnapshotRef.current.antibodiesStatus, (v) => !!v?.count);
+  const effectiveAtlas = rebuildAware(atlas, rebuildSnapshotRef.current.atlas, (v) => !!v?.exists);
+  const effectiveModules = rebuildAware(modules, rebuildSnapshotRef.current.modules, (v) => !!v?.module_count);
+  // Snapshots for deep stages exist in the ref (captured at rebuild start)
+  // but are intentionally NOT substituted into the per-stage compute
+  // functions yet — the deep stages already retain their visual state via
+  // the freeze-green path because their compute*State functions return
+  // 'complete' once chunks_embedded / total_scored / enriched_nodes are
+  // non-zero, and freeze-green will re-promote any regressed state. We
+  // keep the snapshot ref shape consistent so a later iteration can plug
+  // these in if the deep stages start showing the same "Not generated"
+  // regression as the finalize ones.
 
   // ── Phase 49: Details toggle (persisted to localStorage) ──────
   const [showDetails, setShowDetails] = useState(() => {
@@ -1294,9 +1393,18 @@ export function GraphEnrichmentPipeline({
         if (groupReasoning?.enabled && groupReasoning?.group_count > 0) return `${groupReasoning.group_count} groups analyzed`;
         return 'Analyzed';
       })(),
-      progress: (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) && groupReasoning?.progress_total
-        ? Math.min(100, Math.round((groupReasoning.progress_current ?? 0) / groupReasoning.progress_total * 100))
-        : undefined,
+      progress: (() => {
+        const isRunning = groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running;
+        if (!isRunning) return undefined;
+        const total = groupReasoning?.progress_total;
+        // Phase 118 Issue A: while running, ALWAYS render a bar — even if
+        // the daemon hasn't emitted progress_total yet — so the user sees
+        // an indeterminate/empty bar instead of nothing. Group Reasoning
+        // was the worst offender here: bar was simply missing for the
+        // entire stage.
+        if (!total) return 0;
+        return Math.min(100, Math.round((groupReasoning.progress_current ?? 0) / total * 100));
+      })(),
       rerun: (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running)
         ? computeStageRerun(groupReasoning?.progress_baseline, groupReasoning?.progress_total) : undefined,
     },
@@ -1361,8 +1469,12 @@ export function GraphEnrichmentPipeline({
   // "complete". Otherwise placeholder atlas.json / rules files from a
   // fresh project (where deep enrichment never ran) show a green check
   // with "Waiting for modules" sub-text — which is contradictory.
-  const atlasDone = !!atlas?.exists && (modules?.module_count ?? 0) > 0;
-  const rulesDone = !!rulesStatus?.generated && (modules?.module_count ?? 0) > 0;
+  // Phase 118 U3: use rebuild-aware values so the finalize stage cards
+  // keep showing "X concepts / N findings / atlas built" until the
+  // rebuild actually re-runs each stage, instead of flipping to the
+  // empty placeholders the moment the rebuild barrier is set.
+  const atlasDone = !!effectiveAtlas?.exists && (effectiveModules?.module_count ?? 0) > 0;
+  const rulesDone = !!effectiveRulesStatus?.generated && (effectiveModules?.module_count ?? 0) > 0;
 
   const finalizeStages: EnrichmentStage[] = [
     { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking',
@@ -1373,22 +1485,22 @@ export function GraphEnrichmentPipeline({
     {
       id: 'rules', label: 'Rules Generation', icon: FileText, modelTag: 'CPU',
       state: promoteForRebuild(finStageState('rules', rulesDone)),
-      stats: rulesStatus?.generated ? 'Generated' : finStageState('rules', false) === 'running' ? 'Generating...' : 'Not generated',
+      stats: effectiveRulesStatus?.generated ? 'Generated' : finStageState('rules', false) === 'running' ? 'Generating...' : 'Not generated',
     },
     {
       id: 'concepts', label: 'Concept Seeding', icon: Lightbulb, modelTag: 'Thinking',
-      state: promoteForRebuild(finStageState('concepts', !!conceptsStatus?.seeded)),
-      stats: conceptsStatus?.seeded ? `${conceptsStatus.count} concepts` : finStageState('concepts', false) === 'running' ? 'Seeding...' : 'Not seeded',
+      state: promoteForRebuild(finStageState('concepts', !!effectiveConceptsStatus?.seeded)),
+      stats: effectiveConceptsStatus?.seeded ? `${effectiveConceptsStatus.count} concepts` : finStageState('concepts', false) === 'running' ? 'Seeding...' : 'Not seeded',
     },
     {
       id: 'audit', label: 'Structural Audit', icon: ClipboardCheck, modelTag: 'LLM',
-      state: promoteForRebuild(finStageState('audit', !!auditPipelineStatus?.exists)),
-      stats: auditPipelineStatus?.exists ? `${auditPipelineStatus.finding_count} findings` : finStageState('audit', false) === 'running' ? 'Auditing...' : 'Not run',
+      state: promoteForRebuild(finStageState('audit', !!effectiveAuditPipelineStatus?.exists)),
+      stats: effectiveAuditPipelineStatus?.exists ? `${effectiveAuditPipelineStatus.finding_count} findings` : finStageState('audit', false) === 'running' ? 'Auditing...' : 'Not run',
     },
     {
       id: 'antibodies', label: 'Immune System', icon: Shield, modelTag: 'CPU',
-      state: promoteForRebuild(finStageState('antibodies', !!(antibodiesStatus?.count))),
-      stats: antibodiesStatus?.count ? `${antibodiesStatus.count} antibodies` : finStageState('antibodies', false) === 'running' ? 'Deriving...' : 'Not derived',
+      state: promoteForRebuild(finStageState('antibodies', !!(effectiveAntibodiesStatus?.count))),
+      stats: effectiveAntibodiesStatus?.count ? `${effectiveAntibodiesStatus.count} antibodies` : finStageState('antibodies', false) === 'running' ? 'Deriving...' : 'Not derived',
     },
   ];
 
@@ -1404,9 +1516,18 @@ export function GraphEnrichmentPipeline({
     }
   }
 
-  // Track which stages have ever been green this session.
+  // Track which stages have ever been green this session, and remember
+  // the last good stats text for each stage so we can restore it during
+  // a rebuild (when wiped manifests would otherwise flip the stat copy
+  // to "Not generated / Not run / etc.").
+  const NEVER_GENERATED_STATS = new Set([
+    'No run data', 'Not generated', 'Not seeded', 'Not run', 'Not derived',
+  ]);
   for (const stage of [...fastStages, ...deepStages, ...finalizeStages]) {
     if (stage.state === 'complete') wasCompleteRef.current[stage.id] = true;
+    if (typeof stage.stats === 'string' && stage.stats && !NEVER_GENERATED_STATS.has(stage.stats)) {
+      lastGoodStatsRef.current[stage.id] = stage.stats;
+    }
   }
   // Freeze-green: if a stage was previously complete and is now showing a
   // "waiting"-like state because a rebuild destroy wiped its manifest,
@@ -1414,8 +1535,14 @@ export function GraphEnrichmentPipeline({
   // so that Reset-All (which also regresses state but without a rebuild
   // barrier) correctly reverts stages to not_built / disabled instead of
   // trapping them as stale-green.
+  //
+  // Phase 118 Issue B: also include 'stale' and 'warning' — these are the
+  // "data exists but is from a prior run / partial" states that finalize
+  // stages enter when a rebuild wipes their manifest mid-run. Without
+  // these the panel shows "Not generated, No run data" for the rest of
+  // the rebuild even though the prior run finished successfully.
   const regressedStates: StageState[] = [
-    'not_built', 'disabled', 'queued', 'waiting', 'idle',
+    'not_built', 'disabled', 'queued', 'waiting', 'idle', 'stale', 'warning',
   ];
   if (isRebuilding) {
     for (const stage of [...fastStages, ...deepStages, ...finalizeStages]) {
@@ -1425,6 +1552,29 @@ export function GraphEnrichmentPipeline({
       ) {
         stage.state = 'complete';
         stage.progress = undefined;
+        // Phase 118 U6: mark this stage as "frozen from prior run" so the
+        // panel can render it visually distinct from a stage that
+        // genuinely completed in the current rebuild. Without this the
+        // user sees a green checkmark on a stage that hasn't actually
+        // re-run and assumes the rebuild is further along than it is.
+        // The flag is consumed by data-stage-frozen attr on the row +
+        // the stat-text decoration below.
+        (stage as EnrichmentStage & { _frozen?: boolean })._frozen = true;
+      }
+      // Phase 118 Issue B: restore last-known-good stats so frozen stages
+      // don't show "Not generated" while waiting for the rebuild to reach
+      // them. Only override the "never generated" sentinels — actual
+      // running/in-progress stats (e.g. "Generating...", "5/12 batches")
+      // come through unchanged.
+      if (
+        wasCompleteRef.current[stage.id]
+        && typeof stage.stats === 'string'
+        && NEVER_GENERATED_STATS.has(stage.stats)
+        && lastGoodStatsRef.current[stage.id]
+      ) {
+        // Prefix with a small marker so the user can tell this is the
+        // prior-run value being preserved through the rebuild.
+        stage.stats = `prior: ${lastGoodStatsRef.current[stage.id]}`;
       }
     }
   }
@@ -1481,7 +1631,30 @@ export function GraphEnrichmentPipeline({
   const effectiveFinalizePaused = finalizePaused && !finalizeSettled;
 
   // ── Hero state: trace not yet built ──────────────────────────
-  const traceNotBuilt = !trace.exists && !trace.building;
+  // Phase 118 U1: never show the cold-start hero during an active rebuild.
+  // During /pipeline/rebuild the structural manifest is briefly absent
+  // between wipe and re-write — without this guard the panel flips back
+  // to "Initialize Trace Graph" in the middle of a rebuild that the user
+  // explicitly triggered. The barrier is the authoritative signal that a
+  // rebuild is in progress; if it's active, treat trace as built so the
+  // 15-stage panel keeps rendering (with freeze-green covering the gaps).
+  //
+  // Phase 118 U8: same root-cause class — when ANY stage is currently
+  // running (e.g. user destroyed the project then clicked Run; backend
+  // is happily running stages 6-10 of deep enrichment), the panel
+  // STILL needs to render the live pipeline view, not the cold-start
+  // hero. Without this guard, the user clicks Run, the queue shows
+  // "Building", but the main panel sits on the hero — a confusing
+  // backend/frontend disagreement. Detect any pipeline activity from
+  // the per-stage running flags (which are already gated on group
+  // active by F-NEW-6/F-NEW-7).
+  const anyPipelineActive = !!(
+    inferredEdgesRunning || augmenting || validating || fastKnowledgeBuilding
+    || epistemicRunning || groupReasoningRunning || clusterRunning
+    || atlasRunning || deepeningRunning || deepKnowledgeBuilding
+    || finalizeGroupRunning
+  );
+  const traceNotBuilt = !trace.exists && !trace.building && !isRebuilding && !anyPipelineActive;
 
   // ── Loading gate: project is switching, don't show hero or stale data ──
   if (projectLoading) {
@@ -1496,6 +1669,15 @@ export function GraphEnrichmentPipeline({
   if (traceNotBuilt) {
     return (
       <div className={cn("flex flex-col items-center justify-center gap-4 py-8 px-4 text-center", className)}>
+        {/* Phase 118 R4: surface barrier indicator even when the panel is
+            in its empty/hero state. After reset-all the project has no
+            data but a barrier is active; without this the user has no
+            UI signal that selfheal is blocked. */}
+        {barrier?.active && (
+          <div className="w-full max-w-md">
+            <BarrierIndicator barrier={barrier} onClear={onClearBarrier} />
+          </div>
+        )}
         <div className="w-14 h-14 rounded-full border-2 border-primary/30 bg-primary/10 flex items-center justify-center">
           <GitBranch className="w-7 h-7 text-primary" />
         </div>
@@ -1507,6 +1689,7 @@ export function GraphEnrichmentPipeline({
         </div>
         {onRunFastSync ? (
           <button
+            data-testid="pipeline-build-trace-hero"
             onClick={inactive ? undefined : onRunFastSync}
             disabled={inactive || limitReached}
             className={cn(
@@ -1538,9 +1721,21 @@ export function GraphEnrichmentPipeline({
         : activeRebuildScope === 'all'
           ? allStages
           : [];
-  const currentStageIndex = stagesInScope.findIndex(
-    (s) => s.state === 'rebuilding' || s.state === 'running',
-  );
+  // Phase 118 U3 follow-up: pipeline runs sequentially, so when multiple
+  // stages report running/rebuilding (which happens transiently if a
+  // per-stage running flag from a finished group hasn't cleared yet),
+  // the LATEST running stage is the true current — earlier "running"
+  // entries are stale flags. Picking the first one (findIndex) caused
+  // the rebuild header to label the active stage as e.g. "Knowledge"
+  // when enrichment was actually running.
+  let currentStageIndex = -1;
+  for (let i = stagesInScope.length - 1; i >= 0; i--) {
+    const s = stagesInScope[i];
+    if (s.state === 'rebuilding' || s.state === 'running') {
+      currentStageIndex = i;
+      break;
+    }
+  }
   const safeCurrentIndex = currentStageIndex >= 0 ? currentStageIndex : 0;
   const currentStageLabel = stagesInScope[safeCurrentIndex]?.label ?? '';
 
@@ -1612,6 +1807,7 @@ export function GraphEnrichmentPipeline({
           )}
           {!fastAuto && onRunFastSync && !effectiveFastPaused && (
             <button
+              data-testid="pipeline-run-fast_sync"
               onClick={inactive ? undefined : onRunFastSync}
               disabled={fastRunning || limitReached || inactive}
               title={
@@ -1708,6 +1904,7 @@ export function GraphEnrichmentPipeline({
           )}
           {deepMode === 'manual' && onRunDeepEnrichment && !(effectiveDeepPaused && !deepRunning) && (
             <button
+              data-testid="pipeline-run-deep_enrichment"
               onClick={inactive ? undefined : onRunDeepEnrichment}
               disabled={deepRunning || limitReached || inactive}
               title={
@@ -1814,6 +2011,7 @@ export function GraphEnrichmentPipeline({
               automatically after deep completes — manual Run is misleading. */}
           {cfg.finalize === 'manual' && onRunFinalize && !effectiveFinalizePaused && (
             <button
+              data-testid="pipeline-run-finalize"
               onClick={inactive ? undefined : onRunFinalize}
               disabled={finalizeRunning || limitReached || inactive}
               className={cn(

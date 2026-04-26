@@ -65,29 +65,40 @@ function _hydratePipelineStatus(
   const deepActive = ACTIVE_PHASES.has(ps.deep_enrichment?.phase ?? '')
   const finActive = ACTIVE_PHASES.has(ps.finalize?.phase ?? '')
   const stages = (ps.stages ?? {}) as Record<string, unknown>
-  // Per-stage fallback — if the stage's own envelope says it's running,
-  // treat that as authoritative regardless of group-level current_stage.
+  // Phase 118 F-NEW-6 (extension): gate the per-stage fallback on the
+  // finalize GROUP being active. Without this, a stale per-stage
+  // slot_phase='running' on (e.g.) audit survives the group's transition
+  // to completed and the panel shows audit as still running indefinitely.
   const finalizeStageIds = ['atlas', 'rules', 'concepts', 'audit', 'antibodies']
-  const activeFinalizeStage = finalizeStageIds.find(id => _isStageActive(stages[id]))
+  const activeFinalizeStage = finActive
+    ? finalizeStageIds.find(id => _isStageActive(stages[id]))
+    : undefined
   dispatch({
     type: 'FINALIZE_RUNNING',
-    running: finActive || !!activeFinalizeStage,
+    running: finActive,
     currentStage: finActive
       ? ps.finalize?.current_stage ?? activeFinalizeStage ?? undefined
-      : activeFinalizeStage ?? undefined,
+      : undefined,
   })
   dispatch({
     type: 'SYNC_RUNNING',
-    inferredEdgesRunning: _isStageActive(stages.inferred_edges) || (fastActive && ps.fast_sync?.current_stage === 'inferred_edges'),
-    augmenting: _isStageActive(stages.catalogue) || (fastActive && (ps.fast_sync?.current_stage === 'catalogue' || ps.fast_sync?.current_stage === 'augment')),
-    validating: _isStageActive(stages.validation) || (fastActive && ps.fast_sync?.current_stage === 'validation'),
-    epistemicRunning: _isStageActive(stages.enrichment) || (deepActive && ps.deep_enrichment?.current_stage === 'enrichment'),
-    groupReasoningRunning: _isStageActive(stages.group_reasoning) || (deepActive && ps.deep_enrichment?.current_stage === 'group_reasoning'),
-    clusterRunning: _isStageActive(stages.clustering) || (deepActive && ps.deep_enrichment?.current_stage === 'clustering'),
-    atlasRunning: _isStageActive(stages.atlas) || (deepActive && ps.deep_enrichment?.current_stage === 'atlas'),
-    deepeningRunning: _isStageActive(stages.deepening) || (deepActive && ps.deep_enrichment?.current_stage === 'deepening'),
-    fastKnowledgeBuilding: _isStageActive(stages.knowledge) || (fastActive && ps.fast_sync?.current_stage === 'knowledge'),
-    deepKnowledgeBuilding: _isStageActive(stages.deep_knowledge) || (deepActive && ps.deep_enrichment?.current_stage === 'deep_knowledge'),
+    // Phase 118 F-NEW-6: gate per-stage `running` flags on the GROUP being
+    // active. Without this gate, a stale per-stage `running:true` (because
+    // the backend hasn't cleared the slot_phase yet, or an SSE event was
+    // missed) outlives the run and the panel shows a permanent spinner
+    // while the group is `completed`. This matches the API contract: a
+    // stage cannot be `running` if its group has settled out of running/
+    // queued/pausing/recovering.
+    inferredEdgesRunning: fastActive && (_isStageActive(stages.inferred_edges) || ps.fast_sync?.current_stage === 'inferred_edges'),
+    augmenting: fastActive && (_isStageActive(stages.catalogue) || ps.fast_sync?.current_stage === 'catalogue' || ps.fast_sync?.current_stage === 'augment'),
+    validating: fastActive && (_isStageActive(stages.validation) || ps.fast_sync?.current_stage === 'validation'),
+    epistemicRunning: deepActive && (_isStageActive(stages.enrichment) || ps.deep_enrichment?.current_stage === 'enrichment'),
+    groupReasoningRunning: deepActive && (_isStageActive(stages.group_reasoning) || ps.deep_enrichment?.current_stage === 'group_reasoning'),
+    clusterRunning: deepActive && (_isStageActive(stages.clustering) || ps.deep_enrichment?.current_stage === 'clustering'),
+    atlasRunning: deepActive && (_isStageActive(stages.atlas) || ps.deep_enrichment?.current_stage === 'atlas'),
+    deepeningRunning: deepActive && (_isStageActive(stages.deepening) || ps.deep_enrichment?.current_stage === 'deepening'),
+    fastKnowledgeBuilding: fastActive && (_isStageActive(stages.knowledge) || ps.fast_sync?.current_stage === 'knowledge'),
+    deepKnowledgeBuilding: deepActive && (_isStageActive(stages.deep_knowledge) || ps.deep_enrichment?.current_stage === 'deep_knowledge'),
   })
   if (ps.stages?.inferred_edges) {
     dispatch({ type: 'INFERRED_EDGES_STATUS', payload: ps.stages.inferred_edges })
@@ -234,32 +245,33 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       const pollStages = (ps.stages ?? {}) as Record<string, unknown>
       // Per-stage authoritative signal — rescues stages when SSE is delayed
       // or the group-level current_stage is null between stage transitions.
+      // Phase 118 F-NEW-6: gate per-stage `running` on group active.
       dispatch({
         type: 'SYNC_RUNNING',
-        inferredEdgesRunning: _isStageActive(pollStages.inferred_edges) || (fastActivePoll && fastStage === 'inferred_edges'),
-        augmenting: _isStageActive(pollStages.catalogue) || (fastActivePoll && (fastStage === 'augment' || fastStage === 'catalogue')),
-        validating: _isStageActive(pollStages.validation) || (fastActivePoll && fastStage === 'validation'),
-        epistemicRunning: _isStageActive(pollStages.enrichment) || (deepActivePoll && deepStage === 'enrichment'),
-        groupReasoningRunning: _isStageActive(pollStages.group_reasoning) || (deepActivePoll && deepStage === 'group_reasoning'),
-        clusterRunning: _isStageActive(pollStages.clustering) || (deepActivePoll && deepStage === 'clustering'),
-        atlasRunning: _isStageActive(pollStages.atlas) || (deepActivePoll && deepStage === 'atlas'),
-        deepeningRunning: _isStageActive(pollStages.deepening) || (deepActivePoll && deepStage === 'deepening'),
-        fastKnowledgeBuilding: _isStageActive(pollStages.knowledge) || (fastActivePoll && fastStage === 'knowledge'),
-        deepKnowledgeBuilding: _isStageActive(pollStages.deep_knowledge) || (deepActivePoll && deepStage === 'deep_knowledge'),
+        inferredEdgesRunning: fastActivePoll && (_isStageActive(pollStages.inferred_edges) || fastStage === 'inferred_edges'),
+        augmenting: fastActivePoll && (_isStageActive(pollStages.catalogue) || fastStage === 'augment' || fastStage === 'catalogue'),
+        validating: fastActivePoll && (_isStageActive(pollStages.validation) || fastStage === 'validation'),
+        epistemicRunning: deepActivePoll && (_isStageActive(pollStages.enrichment) || deepStage === 'enrichment'),
+        groupReasoningRunning: deepActivePoll && (_isStageActive(pollStages.group_reasoning) || deepStage === 'group_reasoning'),
+        clusterRunning: deepActivePoll && (_isStageActive(pollStages.clustering) || deepStage === 'clustering'),
+        atlasRunning: deepActivePoll && (_isStageActive(pollStages.atlas) || deepStage === 'atlas'),
+        deepeningRunning: deepActivePoll && (_isStageActive(pollStages.deepening) || deepStage === 'deepening'),
+        fastKnowledgeBuilding: fastActivePoll && (_isStageActive(pollStages.knowledge) || fastStage === 'knowledge'),
+        deepKnowledgeBuilding: deepActivePoll && (_isStageActive(pollStages.deep_knowledge) || deepStage === 'deep_knowledge'),
       })
 
       // Finalize group running — poll path previously didn't dispatch this.
-      // Use per-stage fallback so atlas/rules/concepts/audit/antibodies light
-      // up even when SSE is behind or finalize group hasn't yet flipped to
-      // phase:"running" (e.g. still in queued while worker is already live).
+      // Phase 118 F-NEW-6: gate per-stage fallback on group active.
       const finalizeIds = ['atlas', 'rules', 'concepts', 'audit', 'antibodies']
-      const activeFin = finalizeIds.find(id => _isStageActive(pollStages[id]))
+      const activeFin = finActivePoll
+        ? finalizeIds.find(id => _isStageActive(pollStages[id]))
+        : undefined
       dispatch({
         type: 'FINALIZE_RUNNING',
-        running: finActivePoll || !!activeFin,
+        running: finActivePoll,
         currentStage: finActivePoll
           ? ps.finalize?.current_stage ?? activeFin ?? undefined
-          : activeFin ?? undefined,
+          : undefined,
       })
 
       if (ps.stages?.inferred_edges) {
@@ -541,6 +553,39 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     return () => { unmounted = true }
   }, [api, selectedProjectId])
 
+  // ── Phase 118 U9: refresh status on tab visibility regain ──
+  // When the user opens the dashboard during a pipeline run, then
+  // switches tabs (or backgrounds the window), polling pauses on
+  // document.hidden. When the pipeline completes off-screen, the
+  // completion-transition handlers don't fire because there's no
+  // pipelineEvent received. Result: when the user comes back, the
+  // panel still shows stale "running" or "destroyed" state. Force a
+  // full re-hydrate when the tab becomes visible again.
+  useEffect(() => {
+    if (!selectedProjectId) return
+    const onVisibilityChange = () => {
+      if (document.hidden) return
+      void api.getPipelineStatus(selectedProjectId).then((ps: PipelineStatus) => {
+        _hydratePipelineStatus(ps, dispatch)
+      }).catch(() => { /* silent */ })
+      void api.getAugmentStatus(selectedProjectId).then((status) => {
+        dispatch({ type: 'AUGMENTATION_STATUS', payload: status })
+      }).catch(() => { /* silent */ })
+      void api.getEpistemicStatus(selectedProjectId).then((status) => {
+        dispatch({ type: 'EPISTEMIC_STATUS', payload: status })
+      }).catch(() => { /* silent */ })
+      void api.getModuleStatus(selectedProjectId).then((status) => {
+        dispatch({ type: 'MODULE_STATUS', payload: status })
+      }).catch(() => { /* silent */ })
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('focus', onVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('focus', onVisibilityChange)
+    }
+  }, [api, selectedProjectId])
+
   // ── SSE: enrichment-related pipeline updates ────────────────
 
   const pipelineEvent = selectedProjectId ? deps.pipelineEvents?.[selectedProjectId] : undefined
@@ -565,18 +610,19 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     // (BuildSlot.to_dict().phase) — prefer that authoritative signal when the
     // group-level current_stage lags or is null between transitions.
     const sseStages = (pipelineEvent.stages ?? {}) as Record<string, unknown>
+    // Phase 118 F-NEW-6: gate per-stage `running` on group active.
     dispatch({
       type: 'SYNC_RUNNING',
-      inferredEdgesRunning: _isStageActive(sseStages.inferred_edges) || (fastActive && fast?.current_stage === 'inferred_edges'),
-      augmenting: _isStageActive(sseStages.catalogue) || (fastActive && (fast?.current_stage === 'augment' || fast?.current_stage === 'catalogue')),
-      validating: _isStageActive(sseStages.validation) || (fastActive && fast?.current_stage === 'validation'),
-      epistemicRunning: _isStageActive(sseStages.enrichment) || (deepActive && deep?.current_stage === 'enrichment'),
-      groupReasoningRunning: _isStageActive(sseStages.group_reasoning) || (deepActive && deep?.current_stage === 'group_reasoning'),
-      clusterRunning: _isStageActive(sseStages.clustering) || (deepActive && deep?.current_stage === 'clustering'),
-      atlasRunning: _isStageActive(sseStages.atlas) || (deepActive && deep?.current_stage === 'atlas'),
-      deepeningRunning: _isStageActive(sseStages.deepening) || (deepActive && deep?.current_stage === 'deepening'),
-      fastKnowledgeBuilding: _isStageActive(sseStages.knowledge) || (fastActive && fast?.current_stage === 'knowledge'),
-      deepKnowledgeBuilding: _isStageActive(sseStages.deep_knowledge) || (deepActive && deep?.current_stage === 'deep_knowledge'),
+      inferredEdgesRunning: fastActive && (_isStageActive(sseStages.inferred_edges) || fast?.current_stage === 'inferred_edges'),
+      augmenting: fastActive && (_isStageActive(sseStages.catalogue) || fast?.current_stage === 'augment' || fast?.current_stage === 'catalogue'),
+      validating: fastActive && (_isStageActive(sseStages.validation) || fast?.current_stage === 'validation'),
+      epistemicRunning: deepActive && (_isStageActive(sseStages.enrichment) || deep?.current_stage === 'enrichment'),
+      groupReasoningRunning: deepActive && (_isStageActive(sseStages.group_reasoning) || deep?.current_stage === 'group_reasoning'),
+      clusterRunning: deepActive && (_isStageActive(sseStages.clustering) || deep?.current_stage === 'clustering'),
+      atlasRunning: deepActive && (_isStageActive(sseStages.atlas) || deep?.current_stage === 'atlas'),
+      deepeningRunning: deepActive && (_isStageActive(sseStages.deepening) || deep?.current_stage === 'deepening'),
+      fastKnowledgeBuilding: fastActive && (_isStageActive(sseStages.knowledge) || fast?.current_stage === 'knowledge'),
+      deepKnowledgeBuilding: deepActive && (_isStageActive(sseStages.deep_knowledge) || deep?.current_stage === 'deep_knowledge'),
     })
 
     // Sync paused flags — check 'paused' (state machine), 'pausing'
@@ -610,14 +656,17 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     // yet (observed during rebuild: finalize stage worker already live but
     // the group run object briefly reports phase:"queued").
     const finalizePhaseActive = ACTIVE_PHASES.has(finSSE?.phase ?? '')
+    // Phase 118 F-NEW-6: gate per-stage fallback on group active.
     const finalizeIds = ['atlas', 'rules', 'concepts', 'audit', 'antibodies']
-    const activeFinStage = finalizeIds.find(id => _isStageActive(sseStages[id]))
+    const activeFinStage = finalizePhaseActive
+      ? finalizeIds.find(id => _isStageActive(sseStages[id]))
+      : undefined
     dispatch({
       type: 'FINALIZE_RUNNING',
-      running: finalizePhaseActive || !!activeFinStage,
+      running: finalizePhaseActive,
       currentStage: finalizePhaseActive
         ? finSSE?.current_stage ?? activeFinStage ?? undefined
-        : activeFinStage ?? undefined,
+        : undefined,
     })
 
     // ── Detect transitions for status refresh ──

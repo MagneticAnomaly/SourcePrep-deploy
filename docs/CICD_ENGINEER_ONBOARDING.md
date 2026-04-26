@@ -114,7 +114,7 @@ Prep/
 │   ├── security-audit.yml          ← Weekly npm/cargo/pip security audit + test suite
 │   └── websites-ci.yml             ← Docs/marketing site builds
 │
-├── public/prep-deploy/           ← CUSTOMER-FACING deployment templates
+├── public/sourceprep-deploy/           ← CUSTOMER-FACING deployment templates
 │   ├── Dockerfile.cpu              ← Slim headless image (~2-3 GB, BYOK)
 │   ├── Dockerfile.gpu              ← Fat headless image (~8-10 GB, baked Ollama)
 │   ├── entrypoint.sh               ← GPU image Ollama startup
@@ -207,10 +207,10 @@ Prep/
 # From the Prep repo root:
 
 # Build CPU image locally
-docker build -f public/prep-deploy/Dockerfile.cpu -t prep/headless:cpu .
+docker build -f public/sourceprep-deploy/Dockerfile.cpu -t prep/headless:cpu .
 
 # Build GPU image locally (needs ~10GB disk)
-docker build -f public/prep-deploy/Dockerfile.gpu -t prep/headless:gpu .
+docker build -f public/sourceprep-deploy/Dockerfile.gpu -t prep/headless:gpu .
 
 # Quick smoke test: does the CLI work?
 docker run --rm prep/headless:cpu prep sync-headless --help
@@ -261,7 +261,7 @@ git push origin app-v0.1.0-beta
 ### Day 4: Test the customer workflow
 
 1. Fork a test repo
-2. Copy `public/prep-deploy/github-actions/prep-sync.yml` to `.github/workflows/`
+2. Copy `public/sourceprep-deploy/github-actions/prep-sync.yml` to `.github/workflows/`
 3. Add secrets: `PREP_S3_ENDPOINT`, `PREP_S3_BUCKET`, etc.
 4. Push a commit and watch the workflow run
 5. Verify the index appears in S3
@@ -331,7 +331,7 @@ These decisions are documented in the codebase and should not be revisited witho
   - `docs/TEST_STATUS.md` — current test suite status and known failures
   - `docs/Phase06_Team_And_Enterprise/PROGRESS.md` — what's been built
   - `docs/Phase06_Team_And_Enterprise/TODO.md` — full backlog
-  - `public/prep-deploy/README.md` — customer-facing deployment overview
+  - `public/sourceprep-deploy/README.md` — customer-facing deployment overview
 
 ---
 
@@ -344,7 +344,7 @@ A: No. The headless runner is a black box — it takes a repo path and outputs i
 A: Docker, GitHub Actions (YAML), basic Python (for debugging), bash. The Rust engine and React UI are not your concern.
 
 **Q: What's the difference between "our CI" and "customer CI"?**
-A: Our CI (`/.github/workflows/`) builds and tests the Prep product itself. Customer CI uses our templates (`/public/prep-deploy/`) to run headless indexing on their codebases. You maintain both.
+A: Our CI (`/.github/workflows/`) builds and tests the Prep product itself. Customer CI uses our templates (`/public/sourceprep-deploy/`) to run headless indexing on their codebases. You maintain both.
 
 **Q: Why are there two Docker images?**
 A: Cost and privacy trade-off:

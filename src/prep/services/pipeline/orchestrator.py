@@ -420,6 +420,35 @@ class PipelineOrchestrator:
 
     # ── Public API ─────────────────────────────────────────────
 
+    @staticmethod
+    def _is_synthetic_paused(run: "PipelineGroupStateMachine") -> bool:
+        """Distinguish a hydration synthetic-paused snapshot from a real user pause.
+
+        Synthetic snapshots are constructed by `recovery.hydrate_paused_runs_from_disk`
+        (recovery.py:999-1012) when the daemon starts and finds a partially-built
+        group on disk. The construction path drives `START → PAUSE → STAGE_FLUSHED`
+        within a single microsecond, producing the diagnostic fingerprint:
+
+            - is_paused = True
+            - finished_at - started_at < 0.01s (typically ~0.0001s)
+            - journal_run_id is None (orchestrator never opened a real journal row)
+
+        A user-triggered pause has the opposite shape:
+            - finished_at - started_at >> 1s (real elapsed work)
+            - journal_run_id is a uuid
+
+        This is the F-NEW-0 / Phase 118 G3 diagnostic surfaced during the UI
+        smoke phase. The state machine itself cannot distinguish the two; the
+        orchestrator must.
+        """
+        if not run.is_paused:
+            return False
+        if run.journal_run_id is not None:
+            return False
+        if run.started_at is None or run.finished_at is None:
+            return False
+        return (run.finished_at - run.started_at) < 0.01
+
     def _check_project_active(self, project_id: str) -> bool:
         """F-69: Check if project is active before starting any pipeline.
 
@@ -762,8 +791,24 @@ class PipelineOrchestrator:
         # check can miss timing windows when fast_sync and deep_enrichment
         # are triggered from different threads (e.g., recovery vs auto-run).
         # This early check provides defense-in-depth.
+        #
+        # Phase 118 G3: hydration synthetic-paused snapshots
+        # (recovery.py:999-1012) look identical to user-paused runs — same
+        # `is_paused=True`, but with `started_at ≈ finished_at` and
+        # `journal_run_id is None` (the diagnostic fingerprint). For a
+        # `force_from_start=True` rebuild — a deliberate user action — we
+        # MUST NOT let a synthetic snapshot block the run. Detect and
+        # discard the synthetic snapshot so the cross-group guard doesn't
+        # mistake disk-derived state for an in-flight pause.
         with self._lock:
             fast_run = self._runs.get((project_id, "fast_sync"))
+            if fast_run and force_from_start and self._is_synthetic_paused(fast_run):
+                logger.info(
+                    "[%s] Discarding synthetic-paused fast_sync snapshot for "
+                    "deep rebuild (force_from_start=True)", project_id,
+                )
+                self._runs.pop((project_id, "fast_sync"), None)
+                fast_run = None
             # F-64: also block when fast_sync is PAUSED — it will resume
             if fast_run and (fast_run.is_active or fast_run.is_paused):
                 logger.info(
@@ -1634,6 +1679,21 @@ class PipelineOrchestrator:
             if existing and existing.is_active:
                 return False
 
+            # Phase 118 G3: discard synthetic-paused snapshots for OTHER
+            # groups before the cross-group guard runs. They are disk-state
+            # echoes from hydration, not user pauses, and must not block a
+            # legitimate run.
+            stale_keys = [
+                k for k, r in self._runs.items()
+                if k[0] == project_id and k[1] != group and self._is_synthetic_paused(r)
+            ]
+            for k in stale_keys:
+                logger.info(
+                    "[%s] Discarding synthetic-paused %s snapshot before starting %s",
+                    project_id, k[1], group,
+                )
+                self._runs.pop(k, None)
+
             # Block if ANY other group for the same project is active or paused.
             # F-64: PAUSED groups still own the project's files and will resume.
             # Starting a concurrent group while another is paused causes both
@@ -2050,16 +2110,61 @@ class PipelineOrchestrator:
         # in one locked operation, avoiding the TOCTOU race that existed
         # when can_start() and acquire() were called separately.
         if not pipeline_scheduler.acquire(run.project_id, stage, node_id):
-            pipeline_scheduler.enqueue(run.project_id, stage, node_id)
-            if run.can_transition(Event.ENQUEUE):
-                run.transition(Event.ENQUEUE, detail=f"waiting for compute slot ({stage.value})")
-            logger.info(
-                "Pipeline %s/%s — stage %s queued (compute node %s full)",
-                run.project_id, run.group, stage.value, node_id or "__local__",
-            )
-            if pfl:
-                pfl.log(stage.value, f"Queued — waiting for compute capacity on {node_id or '__local__'}")
-            return
+            # Phase 118 U4: defensive self-resume check. If acquire fails
+            # AND nobody else is contending for this node, the pipeline can
+            # silently stall in QUEUED state forever (no other release will
+            # ever fire to dequeue us). This was the user-reported "stalled
+            # at stage 7" symptom: deepening (or any later stage that
+            # routes to a different node than its predecessor) would
+            # transition to QUEUED with an empty queue and never recover.
+            try:
+                sched_status = pipeline_scheduler.status() or {}
+                target_node = node_id or "__local__"
+                node_loads = (sched_status.get("nodes") or {}).get(target_node) or {}
+                holders = node_loads.get("holders") or []
+                contending_others = [h for h in holders if isinstance(h, dict) and h.get("project_id") != run.project_id]
+                if not contending_others:
+                    logger.warning(
+                        "Pipeline %s/%s — stage %s acquire failed on %s with no other "
+                        "contenders; forcing slot reset to break stall",
+                        run.project_id, run.group, stage.value, target_node,
+                    )
+                    # Force-release any phantom hold this project has on the node,
+                    # then retry acquire once before falling back to enqueue.
+                    try:
+                        pipeline_scheduler.release(run.project_id, stage, node_id)
+                    except Exception:
+                        pass
+                    if pipeline_scheduler.acquire(run.project_id, stage, node_id):
+                        run._current_node_id = node_id  # type: ignore[attr-defined]
+                        # Continue with normal start path below — fall through
+                        # by re-entering the next-stage start logic. Use the
+                        # journal recovery path to schedule worker dispatch.
+                        logger.info(
+                            "Pipeline %s/%s — stage %s recovered slot after force-reset",
+                            run.project_id, run.group, stage.value,
+                        )
+                    else:
+                        logger.error(
+                            "Pipeline %s/%s — stage %s acquire still failing after "
+                            "force-reset; node %s may be misconfigured",
+                            run.project_id, run.group, stage.value, target_node,
+                        )
+            except Exception as exc:
+                logger.debug("U4 self-resume probe failed: %s", exc, exc_info=True)
+            # If the recovery branch above didn't succeed, fall back to the
+            # original enqueue-and-wait behavior so we don't double-acquire.
+            if not getattr(run, '_current_node_id', None) == node_id:
+                pipeline_scheduler.enqueue(run.project_id, stage, node_id)
+                if run.can_transition(Event.ENQUEUE):
+                    run.transition(Event.ENQUEUE, detail=f"waiting for compute slot ({stage.value})")
+                logger.info(
+                    "Pipeline %s/%s — stage %s queued (compute node %s full)",
+                    run.project_id, run.group, stage.value, node_id or "__local__",
+                )
+                if pfl:
+                    pfl.log(stage.value, f"Queued — waiting for compute capacity on {node_id or '__local__'}")
+                return
 
         # Stash node_id so _on_build_transition can release on the correct node
         run._current_node_id = node_id  # type: ignore[attr-defined]
@@ -2346,21 +2451,36 @@ class PipelineOrchestrator:
                     self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
                 return
 
-            # Phase 55: Auto-pause on failure for recovery
-            if matching_run.state == PipelineState.RUNNING:
-                logger.error(
-                    "Pipeline %s/%s — stage %s failed: %s. Auto-pausing for recovery.",
+            # Phase 118 U2: a worker failure should mark the pipeline FAILED,
+            # not PAUSED. The original Phase 55 "auto-pause for recovery"
+            # pattern conflated three things — transient errors, real errors,
+            # and user-initiated cancels — and produced the user-visible
+            # symptom of "single project flips to paused while running with
+            # nothing else queued." Failures now go straight to FAILED via
+            # STAGE_FAILED. Recovery is available via the journal and the
+            # explicit /pipeline/resume endpoint when the user wants it.
+            #
+            # Exception: if the error message indicates user-initiated stop
+            # ("Paused by user" / "Cancelled by user"), the slot transitioned
+            # to FAILED as part of the cancel/pause flow itself — there's no
+            # additional action needed; the state machine has already moved
+            # via the explicit endpoint path.
+            err_text = (slot.error or "").lower()
+            user_initiated = "paused by user" in err_text or "cancelled by user" in err_text
+            if user_initiated:
+                logger.info(
+                    "Pipeline %s/%s — stage %s ended with user-initiated marker %r; "
+                    "no additional state transition (already handled by pause/cancel endpoint)",
                     project_id, matching_run.group, stage.value, slot.error,
                 )
-                matching_run.transition(Event.PAUSE, detail=error_msg)
-                matching_run.transition(Event.STAGE_FLUSHED, detail=error_msg)
-                matching_run.stage_results[stage.value] = f"failed: {slot.error}"
+                matching_run.stage_results[stage.value] = "user_stopped"
             else:
                 matching_run.transition(Event.STAGE_FAILED, detail=error_msg)
                 logger.error(
                     "Pipeline %s/%s — stage %s failed: %s",
                     project_id, matching_run.group, stage.value, slot.error,
                 )
+                matching_run.stage_results[stage.value] = f"failed: {slot.error}"
 
             # Release scheduler slot (outside lock)
             _release_node = getattr(matching_run, '_current_node_id', None)

@@ -309,7 +309,7 @@ This is well within the "safe zone" identified in Phase 28 research (4K-16K satu
 | `src/prep/core/rules_generator.py` | Auto-generates rules files for 8 IDE targets |
 | `src/prep/api/routers/projects/search.py` | Context endpoint + ambient assembly |
 | `src/prep/api/routers/projects/models.py` | ContextRequest model |
-| `public/prep-mcp/README.md` | User-facing MCP setup docs |
+| `public/sourceprep-mcp/README.md` | User-facing MCP setup docs |
 
 ---
 

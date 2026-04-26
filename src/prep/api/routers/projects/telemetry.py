@@ -14,7 +14,7 @@ from prep.services.token_telemetry import telemetry
 router = APIRouter(tags=["telemetry"])
 
 
-@router.get("/{project_id}/token-usage")
+@router.get("/projects/{project_id}/token-usage")
 def get_project_token_usage(project_id: str, since: float = 0.0) -> Dict[str, Any]:
     """Aggregated token usage for a project, grouped by PrepTaskId.
 

@@ -8,7 +8,7 @@ set -euo pipefail
 #   scripts/publish_deploy_subtree.sh                  # push to dev remote
 #   scripts/publish_deploy_subtree.sh --promote        # also push to public remote
 
-prefix="public/prep-deploy"
+prefix="public/sourceprep-deploy"
 dev_remote="deploy-dev"
 public_remote="deploy"
 branch="main"

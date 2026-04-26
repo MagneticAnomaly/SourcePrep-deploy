@@ -183,7 +183,7 @@ prep sync-headless --repo-path . --help
 ### CPU Image
 
 ```bash
-docker build -f public/prep-deploy/Dockerfile.cpu -t prep/headless:cpu .
+docker build -f public/sourceprep-deploy/Dockerfile.cpu -t prep/headless:cpu .
 
 docker run --rm prep/headless:cpu sync-headless --help
 ```
@@ -196,7 +196,7 @@ docker run --rm prep/headless:cpu sync-headless --help
 ### GPU Image
 
 ```bash
-docker build -f public/prep-deploy/Dockerfile.gpu -t prep/headless:gpu .
+docker build -f public/sourceprep-deploy/Dockerfile.gpu -t prep/headless:gpu .
 
 docker run --rm prep/headless:gpu sync-headless --help
 ```

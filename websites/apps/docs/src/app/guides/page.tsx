@@ -122,6 +122,18 @@ export default function Page() {
               <em>where</em>, <em>how</em>, <em>why</em>, or <em>who calls</em>.
             </p>
           </a>
+
+          <a
+            href="/guides/concurrency-discovery"
+            className="block rounded-lg border border-border bg-surface p-6 hover:border-primary transition-colors"
+          >
+            <h2 className="text-xl font-semibold">Concurrency Discovery &amp; Locking</h2>
+            <p className="mt-2 text-sm text-text-muted">
+              Why your throughput may dip after a plan upgrade — and the one click
+              that fixes it. How SourcePrep auto-discovers cloud LLM concurrency
+              limits, locks them for 24 h, and how to invalidate a stale lock.
+            </p>
+          </a>
         </div>
       </div>
     </main>

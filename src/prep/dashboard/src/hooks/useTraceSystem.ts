@@ -492,41 +492,38 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       pausePipelineRef.current?.('deep_enrichment').catch(() => { /* silent — may not be running */ })
     }
 
-    // When Fast Sync switches to Auto: start watcher + trigger immediate run
-    // BUT skip the run if the pipeline is already running (user just toggled
-    // the mode selector while an existing run is in progress).
+    // Phase 118 U5: Auto/Manual is a USER PREFERENCE controlling whether
+    // the pipeline auto-triggers on file changes — it MUST NOT trigger a
+    // fresh run by itself. The previous behavior called runPipelineFast /
+    // runPipelineDeep here, which (a) lost the resume cursor when the
+    // user toggled while paused mid-run, restarting from an earlier
+    // stage; and (b) made the Auto toggle behave like a hidden Run
+    // button with no opt-out. The user has explicit Run buttons for
+    // each group; the toggle now only:
+    //   - persists the preference
+    //   - starts the file watcher (if switching TO auto)
+    //   - pauses the running pipeline (if switching TO manual; handled above)
+    // No API trigger. If the user wants a run, they click Run.
     if (config.fastSync && !prevFastSync) {
+      // Side-effect kept: ensure the file watcher is running so future
+      // file changes can auto-trigger the pipeline (the actual purpose
+      // of Auto mode). Also ensure trace.enabled so the watcher has a
+      // build target. NEITHER of these triggers a run.
       try {
         await startWatchRef.current?.()
         await refreshWatchStatusRef.current?.(selectedProjectId)
       } catch { /* watcher start may be feature-gated */ }
-      if (!traceStatus.building) {
-        try {
-          // Ensure trace is enabled
-          if (!deps.projectConfig?.trace?.enabled) {
-            const newCfg = { ...deps.projectConfig, trace: { ...deps.projectConfig?.trace, enabled: true } }
-            deps.setProjectConfig(newCfg)
-            deps.setConfigDirty(true)
-            api.updateProject(selectedProjectId, { config: newCfg }).catch(() => { })
-          }
-          setTraceStatus(prev => ({ ...prev, enabled: true, building: true }))
-          await api.runPipelineFast(selectedProjectId)
-        } catch {
-          setTraceStatus(prev => ({ ...prev, building: false }))
-        }
+      if (!deps.projectConfig?.trace?.enabled) {
+        const newCfg = { ...deps.projectConfig, trace: { ...deps.projectConfig?.trace, enabled: true } }
+        deps.setProjectConfig(newCfg)
+        deps.setConfigDirty(true)
+        api.updateProject(selectedProjectId, { config: newCfg }).catch(() => { })
       }
     }
-
-    // When Deep Enrichment switches to Auto: trigger immediate run
-    // if Fast Sync has completed (trace exists with nodes).
-    // Skip if anything is already running.
-    if (config.deepEnrichment === 'auto' && prevDeep !== 'auto') {
-      if (!traceStatus.building) {
-        try {
-          await api.runPipelineDeep(selectedProjectId)
-        } catch { /* silent — may already be running or fast sync not complete */ }
-      }
-    }
+    // Note: deepEnrichment toggle to 'auto' is now also a pure preference
+    // change — no run trigger. The deep group will start automatically
+    // when fast_sync next chains into it (auto mode), or when the user
+    // clicks Run on Deep Enrichment.
   }, [api, selectedProjectId, enrichmentAutoConfig.fastSync, enrichmentAutoConfig.deepEnrichment, traceStatus.building, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
   // Populate the reset-time toggle flipper now that
@@ -816,6 +813,34 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       // CodeIndex build fires after deep enrichment; give it time to finish
       setTimeout(() => refreshFileTreeRef.current?.(selectedProjectId), 5000)
       setTimeout(() => refreshFileTreeRef.current?.(selectedProjectId), 15000)
+    }
+
+    // Phase 118 U1: finalize completed → re-fetch trace status. Without
+    // this the dashboard never refreshes `trace.exists` after a full
+    // pipeline finishes (the existing fast_sync handler only fires when
+    // fast_sync is the LAST group to settle, which happens for pure-fast
+    // runs but not for full Initial / Rebuild). The polling loop also
+    // exits as soon as `building=false` so it can't pick up the late
+    // file-presence change either. Without a refresh here the panel
+    // reads a stale `exists=false` snapshot from a mid-rebuild moment
+    // and reverts to the "Initialize Trace Graph" hero.
+    const prevFinalizePhase = prev?.finalize?.phase
+    const finalize = pipelineEvent.finalize
+    if (finalize?.phase === 'completed' && (prevFinalizePhase === 'running' || prevFinalizePhase === 'queued' || prevFinalizePhase === 'pausing')) {
+      const refreshTraceOnFinalize = () => {
+        api.getTraceStatus(selectedProjectId).then((data) => {
+          setTraceStatus({
+            enabled: data.enabled ?? false,
+            exists: data.exists ?? false,
+            building: false,
+            counts: data.counts ?? { nodes: 0, edges: 0 },
+            engine: data.engine,
+          })
+        }).catch(() => { /* keep prior state on transient fetch failure */ })
+      }
+      refreshTraceOnFinalize()
+      setTimeout(refreshTraceOnFinalize, 1000)
+      setTimeout(refreshTraceOnFinalize, 3000)
     }
   }, [pipelineEvent, selectedProjectId, api, fetchTraceCoverage])
 

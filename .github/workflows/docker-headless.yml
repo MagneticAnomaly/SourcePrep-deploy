@@ -46,7 +46,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: public/prep-deploy/Dockerfile.cpu
+          file: public/sourceprep-deploy/Dockerfile.cpu
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cpu
@@ -83,7 +83,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: public/prep-deploy/Dockerfile.gpu
+          file: public/sourceprep-deploy/Dockerfile.gpu
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:gpu

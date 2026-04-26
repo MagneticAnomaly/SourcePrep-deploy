@@ -18,13 +18,13 @@
 | `src/prep/cli.py` (sync-headless) | 132 | CLI entry point for headless sync |
 | `src/prep/server.py` (startup) | 30 | Daemon auto-start of team sync polling |
 | `src/prep/services/project_helpers.py` | 30 | Syncer creation and status helpers |
-| `public/prep-deploy/Dockerfile.cpu` | 51 | CPU headless Docker image |
-| `public/prep-deploy/Dockerfile.gpu` | 66 | GPU headless Docker image |
-| `public/prep-deploy/entrypoint.sh` | 25 | GPU image entrypoint (Ollama startup) |
-| `public/prep-deploy/github-actions/prep-sync.yml` | 72 | Reusable GitHub Actions workflow |
-| `public/prep-deploy/runpod/runpod_handler.py` | 65 | RunPod serverless adapter |
-| `public/prep-deploy/modal/modal_adapter.py` | 82 | Modal.com serverless adapter |
-| `public/prep-deploy/aws/ecs-task-definition.json` | 51 | AWS ECS reference task definition |
+| `public/sourceprep-deploy/Dockerfile.cpu` | 51 | CPU headless Docker image |
+| `public/sourceprep-deploy/Dockerfile.gpu` | 66 | GPU headless Docker image |
+| `public/sourceprep-deploy/entrypoint.sh` | 25 | GPU image entrypoint (Ollama startup) |
+| `public/sourceprep-deploy/github-actions/prep-sync.yml` | 72 | Reusable GitHub Actions workflow |
+| `public/sourceprep-deploy/runpod/runpod_handler.py` | 65 | RunPod serverless adapter |
+| `public/sourceprep-deploy/modal/modal_adapter.py` | 82 | Modal.com serverless adapter |
+| `public/sourceprep-deploy/aws/ecs-task-definition.json` | 51 | AWS ECS reference task definition |
 
 ---
 
@@ -43,7 +43,7 @@
 **Fix:** Deprecate the CLI flags and document env-var-only usage. Add a warning if secrets are passed via CLI.
 
 ### SEC-3: Modal Webhook Has No Authentication
-**File:** `public/prep-deploy/modal/modal_adapter.py`
+**File:** `public/sourceprep-deploy/modal/modal_adapter.py`
 **Risk:** MEDIUM — Anyone who discovers the Modal endpoint URL can trigger expensive GPU builds.
 **Issue:** The `trigger_sync` webhook endpoint has no authentication check. Modal provides URL-based security (obscure URLs), but this is security-through-obscurity.
 **Fix:** Add a shared secret check (e.g., `Authorization: Bearer $WEBHOOK_SECRET` header validation).
@@ -82,7 +82,7 @@ Both read from `.runprep/team_config.json` but parse different sections. They ar
 **Fix (Future):** Unify into a single `TeamConfig` loader that parses the complete schema. The `remote_sync.py` should import from `core/team_config.py` rather than re-implementing JSON parsing.
 
 ### ARCH-3: Entrypoint.sh Silently Ignores Ollama Startup Failure
-**File:** `public/prep-deploy/entrypoint.sh`
+**File:** `public/sourceprep-deploy/entrypoint.sh`
 **Issue:** If Ollama fails to start within 30 seconds (e.g., GPU driver mismatch, OOM), the script continues silently. The `prep sync-headless` command will then fail 10 minutes later when it tries to call the LLM, wasting CI minutes and compute costs.
 **Fix:** Exit with an error if Ollama isn't ready after the timeout when `model-provider local` is specified.
 

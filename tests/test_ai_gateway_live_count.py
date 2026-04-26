@@ -162,3 +162,81 @@ def test_real_llmclient_registers_in_telemetry_for_live_count() -> None:
     )
     # After the call, the telemetry entry should be untracked.
     assert _count_live_workers(project_id="proj-test", task_id="concepts") == 0
+
+
+def test_gate_blocked_threads_are_not_counted_as_active() -> None:
+    """Threads waiting at the AIMD request gate must NOT count as 'active'.
+
+    Regression: pre-fix, _track_active('start') ran before acquire_request_ctx,
+    so N threads blocked in the condition-variable wait were all counted as
+    in-flight. With AIMD dynamic_capacity=1 and 4 concurrent calls, only 1
+    LLM call is actually talking to the provider; the other 3 are queued.
+    The fix moves tracking inside the gate. This test proves the new ordering.
+    """
+    import threading
+
+    from prep.core.llm_client import LLMClient
+    from prep.services import token_telemetry
+    from prep.services.pipeline.scheduler import ComputeSlot, pipeline_scheduler
+    from prep.services.token_telemetry import set_telemetry_context
+    from prep.api.routers.llm import _count_live_workers
+
+    node_id = "cloud:gate_test"
+    # Reset telemetry and register a tiny cloud slot with capacity 1.
+    token_telemetry._active_requests.clear()
+    with pipeline_scheduler._lock:
+        pipeline_scheduler._slots[node_id] = ComputeSlot(
+            node_id=node_id,
+            max_concurrent=1,
+            current_limit=1,
+            min_limit=1,
+        )
+
+    try:
+        enter = threading.Event()
+        release = threading.Event()
+        readings: list[int] = []
+
+        def fake_internal(*args, **kwargs):
+            enter.set()
+            release.wait(timeout=5.0)
+            return ("ok", 1)
+
+        def resolve_fixed_node(self):
+            return node_id
+
+        def one_call():
+            client = LLMClient(
+                endpoint_url="http://localhost:11434",
+                model="x:cloud",
+                provider="ollama",
+            )
+            with set_telemetry_context(project_id="p", task_id="t"):
+                client.generate("hi", json_mode=False)
+
+        with patch.object(LLMClient, "_generate_internal", new=fake_internal), \
+                patch.object(LLMClient, "_resolve_scheduler_node_id", new=resolve_fixed_node):
+            threads = [threading.Thread(target=one_call, daemon=True) for _ in range(4)]
+            for t in threads:
+                t.start()
+
+            enter.wait(timeout=5.0)
+            # First call is inside _generate_internal; the other 3 are blocked
+            # at pipeline_scheduler.acquire_request waiting for capacity.
+            readings.append(_count_live_workers(project_id="p", task_id="t"))
+
+            release.set()
+            for t in threads:
+                t.join(timeout=5.0)
+
+        # Only the 1 thread actually making the HTTP call should be counted.
+        # Pre-fix this was 4 — all threads including the 3 blocked at the gate.
+        assert readings[0] == 1, (
+            f"Gate-blocked threads leaked into the active count: {readings[0]} "
+            "expected 1 (pre-fix: 4). Tracking must happen AFTER the gate."
+        )
+        # All calls should have completed and cleaned up.
+        assert _count_live_workers(project_id="p", task_id="t") == 0
+    finally:
+        with pipeline_scheduler._lock:
+            pipeline_scheduler._slots.pop(node_id, None)

@@ -70,7 +70,21 @@ INDEX_FILES = [
     "knowledge_manifest.json",
 ]
 
-ALL_DATA_FILES = TRACE_FILES + INDEX_FILES
+# Phase 118 G2: clean-shutdown marker (F-65) must also be wiped on
+# /index/destroy so the post-destroy state is a true blank slate.
+# Otherwise the marker survives and confuses any later "is this project
+# fresh?" check that relies on its absence.
+# Phase 118 U11: pipeline_state.json is the orchestrator's serialized
+# state-machine snapshot. The destroy didn't list it; surviving past a
+# full reset, it carries pre-reset stage indices that confuse the
+# next run's resume detection. Same root-cause class as the
+# .pipeline_clean_shutdown marker.
+RECOVERY_MARKERS = [
+    ".pipeline_clean_shutdown",
+    "pipeline_state.json",
+]
+
+ALL_DATA_FILES = TRACE_FILES + INDEX_FILES + RECOVERY_MARKERS
 
 
 # ── Pydantic models ─────────────────────────────────────────────

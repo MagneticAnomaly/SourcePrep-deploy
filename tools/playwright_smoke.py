@@ -1,14 +1,24 @@
 """
 Prep dashboard pipeline smoke driver.
 
-Exercises the pipeline UI against a chosen project across three modes:
-    - initial     (destroy index, run from scratch)
-    - incremental (touch a file, let the watcher trigger a re-run)
-    - rebuild     (POST /pipeline/rebuild, equivalent to Danger Zone)
+Exercises the pipeline UI against a chosen project across the following modes:
+    - initial             (destroy index, run from scratch)
+    - incremental         (touch a file, let the watcher trigger a re-run)
+    - rebuild             (POST /pipeline/rebuild, equivalent to Danger Zone "all")
+    - rebuild-sync        (Danger Zone scope=sync, drives the UI: stages 1-5)
+    - rebuild-enrichment  (Danger Zone scope=enrichment, drives the UI: stages 6-10)
+    - reset-all           (Danger Zone Reset scope=all, drives the UI: nuclear)
+    - reset-enrichment    (Danger Zone Reset scope=enrichment: stages 6-15)
+    - reset-finalize      (Danger Zone Reset scope=finalize: stages 11-15)
 
-Polls /projects/{id}/pipeline/status every 2s while any mode is active and
-scrapes the dashboard DOM in parallel. Any disagreement between API truth
-and rendered DOM is logged as a desync event with a screenshot attached.
+Polls /projects/{id}/pipeline/status AND /system/pipeline-queue every 2s while
+any mode is active and scrapes the dashboard DOM in parallel. Any disagreement
+between API truth and rendered DOM is logged as a desync event with screenshot.
+
+Multi-pipeline contract: every API/UI assertion is scoped to the target
+project_id. The harness MUST NOT pause/cancel/reset any other project's
+pipeline. The queue observer filters by project_id and tolerates other
+projects being present.
 
 Usage:
     .venv/bin/python -m tools.playwright_smoke \\
@@ -60,6 +70,27 @@ STAGE_ORDER: list[tuple[str, str]] = [
 ]
 STAGE_TO_GROUP = dict(STAGE_ORDER)
 
+# Phase 118 extra-scrutiny: stage_id → expected manifest filename on disk.
+# Used by the disk-vs-API consistency check (a stage the API claims is
+# "complete" must have its manifest on disk).
+STAGE_MANIFEST: dict[str, str] = {
+    "structural":      "trace_manifest.json",
+    "inferred_edges":  "trace_inferred_manifest.json",
+    "catalogue":       "trace_augment_manifest.json",
+    "validation":      "validation_manifest.json",
+    "knowledge":       "knowledge_manifest.json",
+    "enrichment":      "trace_epistemic_manifest.json",
+    "group_reasoning": "group_reasoning_manifest.json",
+    "clustering":      "trace_modules_manifest.json",
+    "atlas":           "atlas_manifest.json",
+    "deepening":       "deepening_manifest.json",
+    "deep_knowledge":  "deep_knowledge_manifest.json",
+    "rules":           "rules_manifest.json",
+    "concepts":        "concepts_manifest.json",
+    "audit":           "audit_manifest.json",
+    "antibodies":      "antibodies_manifest.json",
+}
+
 # Canonical state vocabulary for desync comparison. Both API and DOM states
 # are normalized into this set before diffing.
 CANON_STATES = {"pending", "running", "complete", "failed"}
@@ -97,11 +128,14 @@ API_PHASE_TO_CANON = {
 @dataclass
 class Event:
     ts: float
-    kind: str  # stage-start | stage-end | desync | error | note
+    kind: str  # stage-start | stage-end | desync | error | note | queue
     data: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> dict[str, Any]:
-        return {"ts": self.ts, "kind": self.kind, **self.data}
+        # `kind` MUST come last so a `data["kind"]` subtype (e.g. desync's
+        # specific kind) cannot clobber the outer event label that filtering
+        # depends on. Subtype keys land under `subtype` to avoid collision.
+        return {"ts": self.ts, **self.data, "kind": self.kind}
 
 
 @dataclass
@@ -111,6 +145,7 @@ class ModeSummary:
     ended_at: float = 0.0
     pass_: bool = False
     desync_count: int = 0
+    anomaly_count: int = 0   # Phase 118: softer mismatches, e.g. polling-grace hits
     error_count: int = 0
     stages_seen: list[str] = field(default_factory=list)
     trigger_reason: str = ""
@@ -124,6 +159,7 @@ class ModeSummary:
             "duration_s": round(self.ended_at - self.started_at, 2) if self.ended_at else None,
             "pass": self.pass_,
             "desync_count": self.desync_count,
+            "anomaly_count": self.anomaly_count,
             "error_count": self.error_count,
             "stages_seen": self.stages_seen,
             "trigger_reason": self.trigger_reason,
@@ -169,6 +205,29 @@ class Api:
     def set_active(self, pid: str, active: bool) -> Any:
         return self._unwrap(self.http.put(f"/projects/{pid}", json={"config": {"active": active}, "touch": True}))
 
+    # Scoped rebuild/reset endpoints (Phase 117).
+    def run_fast(self, pid: str, force_from_start: bool = False) -> Any:
+        return self._unwrap(self.http.post(
+            f"/projects/{pid}/pipeline/fast",
+            json={"force_from_start": force_from_start},
+        ))
+
+    def run_deep(self, pid: str, force_from_start: bool = False) -> Any:
+        return self._unwrap(self.http.post(
+            f"/projects/{pid}/pipeline/deep",
+            json={"force_from_start": force_from_start},
+        ))
+
+    def enrichment_full_reset(self, pid: str) -> Any:
+        return self._unwrap(self.http.delete(f"/projects/{pid}/enrichment/full-reset"))
+
+    def finalize_full_reset(self, pid: str) -> Any:
+        return self._unwrap(self.http.delete(f"/projects/{pid}/finalize/full-reset"))
+
+    def queue(self) -> dict[str, Any]:
+        """Global queue dump (all projects). Caller filters by project_id."""
+        return self._unwrap(self.http.get("/system/pipeline-queue"))
+
 
 # ── DOM scraper ───────────────────────────────────────────────────
 
@@ -211,6 +270,120 @@ def scrape_panel_present(page: Page) -> bool:
     try:
         return page.locator('[data-testid="pipeline-panel"]').count() > 0
     except Exception:
+        return False
+
+
+# ── Danger Zone UI drivers ────────────────────────────────────────
+
+
+def open_danger_zone(page: Page, dashboard_url: str, timeout_ms: int = 10_000) -> bool:
+    """Navigate to ?settings=danger-zone and wait for the rebuild row testid.
+
+    Uses URL-based routing rather than menu clicks so the harness is robust
+    to dashboard navigation changes outside the Danger Zone surface itself.
+    """
+    sep = "&" if "?" in dashboard_url else "?"
+    target = f"{dashboard_url}{sep}settings=danger-zone"
+    page.goto(target)
+    try:
+        page.wait_for_selector(
+            '[data-testid="pipeline-danger-rebuild-button"]',
+            timeout=timeout_ms,
+        )
+        return True
+    except PWTimeout:
+        return False
+
+
+def drive_scoped_rebuild_ui(
+    page: Page,
+    scope: str,
+    project_name: str,
+    ctx: RunContext,
+    timeout_ms: int = 10_000,
+) -> bool:
+    """Drive Danger Zone Rebuild row at the chosen scope through the UI.
+
+    scope: 'all' | 'sync' | 'enrichment' (matches REBUILD_OPTIONS in DangerZone.tsx)
+    Returns True on submit; False if any step fails.
+    """
+    try:
+        sel = page.locator('[data-testid="pipeline-danger-rebuild-scope-select"]')
+        sel.select_option(scope)
+        # Native select_option dispatches change, but React's controlled
+        # value can lag; force an additional input event to nudge the
+        # reducer and verify the selected value matches what we expect.
+        page.evaluate(
+            "(s) => { const el = document.querySelector('[data-testid=\"pipeline-danger-rebuild-scope-select\"]'); if (el) { el.value = s; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); } }",
+            scope,
+        )
+        actual = sel.input_value()
+        if actual != scope:
+            ctx.log(Event(time.time(), "error", {
+                "where": f"drive_scoped_rebuild_ui[{scope}]",
+                "detail": f"select did not commit value: actual={actual!r} expected={scope!r}",
+            }))
+            ctx.summary.error_count += 1
+            return False
+        ctx.snap(page, f"danger_rebuild_{scope}_scope_set")
+        page.locator('[data-testid="pipeline-danger-rebuild-button"]').click(timeout=timeout_ms)
+        page.wait_for_selector('[data-testid="pipeline-danger-confirm"]', timeout=timeout_ms)
+        ctx.snap(page, f"danger_rebuild_{scope}_dialog_open")
+        # Typed-confirm gate (project name).
+        page.locator('[data-testid="pipeline-danger-confirm-typed-name-input"]').fill(project_name)
+        page.locator('[data-testid="pipeline-danger-confirm-confirm"]').click(timeout=timeout_ms)
+        ctx.snap(page, f"danger_rebuild_{scope}_submitted")
+        return True
+    except Exception as e:
+        ctx.log(Event(time.time(), "error", {
+            "where": f"drive_scoped_rebuild_ui[{scope}]",
+            "detail": str(e),
+        }))
+        ctx.summary.error_count += 1
+        ctx.snap(page, f"danger_rebuild_{scope}_failure")
+        return False
+
+
+def drive_scoped_reset_ui(
+    page: Page,
+    scope: str,
+    ctx: RunContext,
+    timeout_ms: int = 10_000,
+) -> bool:
+    """Drive Danger Zone Reset row at the chosen scope through the UI.
+
+    scope: 'all' | 'enrichment' | 'finalize' (matches RESET_OPTIONS in DangerZone.tsx)
+    Reset has no typed-confirm gate; just confirm the dialog.
+    """
+    try:
+        sel = page.locator('[data-testid="pipeline-danger-reset-scope-select"]')
+        sel.select_option(scope)
+        page.evaluate(
+            "(s) => { const el = document.querySelector('[data-testid=\"pipeline-danger-reset-scope-select\"]'); if (el) { el.value = s; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); } }",
+            scope,
+        )
+        actual = sel.input_value()
+        if actual != scope:
+            ctx.log(Event(time.time(), "error", {
+                "where": f"drive_scoped_reset_ui[{scope}]",
+                "detail": f"select did not commit value: actual={actual!r} expected={scope!r}",
+            }))
+            ctx.summary.error_count += 1
+            return False
+        ctx.snap(page, f"danger_reset_{scope}_scope_set")
+        page.locator('[data-testid="pipeline-danger-reset-button"]').click(timeout=timeout_ms)
+        page.wait_for_selector('[data-testid="pipeline-danger-confirm"]', timeout=timeout_ms)
+        ctx.snap(page, f"danger_reset_{scope}_dialog_open")
+        page.locator('[data-testid="pipeline-danger-confirm-confirm"]').click(timeout=timeout_ms)
+        ctx.snap(page, f"danger_reset_{scope}_submitted")
+        return True
+    except Exception as e:
+        ctx.log(Event(time.time(), "error", {
+            "where": f"drive_scoped_reset_ui[{scope}]",
+            "detail": str(e),
+        }))
+        ctx.summary.error_count += 1
+        ctx.snap(page, f"danger_reset_{scope}_failure")
         return False
 
 
@@ -343,6 +516,123 @@ def is_any_running(status: dict[str, Any]) -> bool:
     return any((g.get("phase") == "running") for g in gp.values())
 
 
+def _check_disk_consistency(
+    repo_path: Path,
+    api_stages: dict[str, Any],
+    group_phase: dict[str, Any],
+    ctx: "RunContext",
+    now: float,
+) -> None:
+    """Phase 118 extra scrutiny: any stage the API reports complete in this
+    run must have its manifest on disk. Catches the F-78-class bug where
+    the state machine and disk disagree.
+
+    Only fires for stages whose group is currently `running` (so we know
+    the API is reporting *this run*). Idle groups are skipped to avoid
+    false positives from the synthetic-paused snapshot pattern.
+    """
+    idx_dir = repo_path / ".sourceprep"
+    if not idx_dir.is_dir():
+        return
+    for group_name, gslot in group_phase.items():
+        if not gslot or gslot.get("phase") != "running":
+            continue
+        results = gslot.get("stage_results") or {}
+        for stage_id, state in results.items():
+            if state != "completed":
+                continue
+            manifest = STAGE_MANIFEST.get(stage_id)
+            if not manifest:
+                continue
+            if not (idx_dir / manifest).is_file():
+                ctx.summary.anomaly_count += 1
+                ctx.log(Event(now, "anomaly", {
+                    "subtype": "api_complete_disk_missing_manifest",
+                    "stage": stage_id,
+                    "group": group_name,
+                    "expected_manifest": manifest,
+                }))
+
+
+def _check_group_phase_consistency(
+    api_stages: dict[str, Any],
+    group_phase: dict[str, Any],
+    dom: dict[str, dict[str, Any]],
+    ctx: "RunContext",
+    now: float,
+) -> None:
+    """Phase 118 extra scrutiny: if a group's API phase is `completed`
+    for this run, no stage row in that group should be DOM-rendered as
+    `running`. Catches stale-spinner-after-group-finish bugs (the
+    F-NEW-4 family).
+    """
+    for group_name, gslot in group_phase.items():
+        if not gslot or gslot.get("phase") != "completed":
+            continue
+        for stage_id, g in STAGE_ORDER:
+            if g != group_name:
+                continue
+            row = dom.get(stage_id)
+            if not row:
+                continue
+            if canon_dom_state(row.get("state", "") or "") == "running":
+                ctx.summary.anomaly_count += 1
+                ctx.log(Event(now, "anomaly", {
+                    "subtype": "group_completed_but_stage_dom_running",
+                    "stage": stage_id,
+                    "group": group_name,
+                    "dom": {"state": row.get("state"), "progress": row.get("progress")},
+                }))
+
+
+def _check_barrier_ui(api: Api, pid: str, page: Page, ctx: "RunContext", now: float) -> None:
+    """Phase 118 extra scrutiny: when the API reports a barrier is active,
+    the panel should expose a barrier indicator. We intentionally don't
+    fail loudly here because barrier-indicator visibility may be hidden
+    by panel state — log as anomaly if API says barrier active but the
+    indicator isn't in the DOM at all.
+    """
+    try:
+        st = api.status(pid)
+    except Exception:
+        return
+    bar = st.get("barrier") or {}
+    if not bar.get("active"):
+        return
+    try:
+        present = page.locator('[data-testid="pipeline-barrier-indicator"]').count() > 0
+    except Exception:
+        present = False
+    if not present:
+        ctx.summary.anomaly_count += 1
+        ctx.log(Event(now, "anomaly", {
+            "subtype": "barrier_active_but_indicator_absent",
+            "api_barrier": bar,
+        }))
+
+
+def _queue_snapshot_for(api: Api, pid: str) -> Optional[dict[str, Any]]:
+    """Filtered queue dump for the target project. Tolerates other projects."""
+    try:
+        full = api.queue()
+    except Exception:
+        return None
+    runs = full.get("runs") or full.get("active") or []
+    sched = full.get("scheduler") or {}
+    target_runs = [r for r in runs if isinstance(r, dict) and r.get("project_id") == pid]
+    target_queues = {}
+    for node_id, q in (sched.get("queues") or {}).items():
+        filtered = [
+            e for e in (q if isinstance(q, list) else [])
+            if isinstance(e, dict) and e.get("project_id") == pid
+        ]
+        target_queues[node_id] = filtered
+    return {
+        "project_runs": target_runs,
+        "project_queues_by_node": target_queues,
+    }
+
+
 def watch_until_idle(
     api: Api,
     page: Page,
@@ -352,6 +642,7 @@ def watch_until_idle(
     max_seconds: int,
     startup_grace_seconds: int = 15,
     settle_seconds: int = 8,
+    repo_path: Optional[Path] = None,
 ) -> bool:
     """Poll + scrape + diff until no pipeline group is running (or timeout).
 
@@ -393,8 +684,25 @@ def watch_until_idle(
                 time.sleep(poll_interval)
                 continue
 
+            # Multi-project safe queue observation. Tolerates other projects;
+            # only logs the slice belonging to the project under test.
+            qsnap = _queue_snapshot_for(api, pid)
+            if qsnap is not None:
+                ctx.log(Event(now, "queue", qsnap))
+
             dom = scrape_pipeline_dom(page)
             running = is_any_running(status)
+
+            # Phase 118 extra scrutiny — non-blocking anomaly checks. Run
+            # AFTER the canonical desync detector (below) so it remains
+            # the authoritative pass/fail signal; these add depth without
+            # changing existing pass criteria.
+            api_stages = status.get("stages") or {}
+            group_phase_for_extras = _group_phase(status)
+            _check_group_phase_consistency(api_stages, group_phase_for_extras, dom, ctx, now)
+            if repo_path is not None:
+                _check_disk_consistency(repo_path, api_stages, group_phase_for_extras, ctx, now)
+            _check_barrier_ui(api, pid, page, ctx, now)
             if running:
                 saw_running = True
                 idle_since = None
@@ -453,7 +761,7 @@ def watch_until_idle(
                 ctx.summary.desync_count += 1
                 ctx.log(Event(now, "desync", {
                     "stage": stage_id,
-                    "kind": disagreement[0],
+                    "subtype": disagreement[0],
                     "api": {"state": api_state, "progress": api_progress},
                     "dom": {"state": dom_state_raw, "progress": dom_row.get("progress"), "canon": dom_canon},
                 }))
@@ -479,7 +787,123 @@ def watch_until_idle(
 # ── Mode runners ──────────────────────────────────────────────────
 
 
-def run_initial(api: Api, page: Page, pid: str, ctx: RunContext) -> bool:
+def ensure_manual_mode(api: Api, pid: str, ctx: RunContext) -> None:
+    """Set fast/deep/finalize to manual via the project config so the Run
+    buttons render. Phase 118 UI-Run modes need this — the buttons only
+    appear in manual mode.
+    """
+    try:
+        # Push manual config; the dashboard's enrichment config layer
+        # reads ui_config from project config, but the simplest thing
+        # that makes the Run buttons render is to set ui_config.
+        api.http.put(f"/projects/{pid}", json={
+            "config": {
+                "ui_config": {
+                    "fast_sync": False,
+                    "deep_enrichment": "manual",
+                    "finalize": "manual",
+                },
+            },
+            "touch": True,
+        })
+    except Exception as e:
+        ctx.log(Event(time.time(), "note", {"detail": "ensure_manual_mode_failed", "err": str(e)}))
+
+
+def click_group_run_via_ui(
+    page: Page,
+    group: str,
+    dashboard_url: str,
+    ctx: RunContext,
+    timeout_ms: int = 15_000,
+) -> bool:
+    """Click the Run button for the given group via Playwright (UI test path).
+
+    group: 'fast_sync' | 'deep_enrichment' | 'finalize'
+
+    When the project has no trace data, the dashboard renders the
+    "Initialize Trace Graph" hero instead of the pipeline panel — the
+    hero's Build Trace Graph button calls the same `onRunFastSync`
+    handler as the panel's Fast Sync Run button. For ui-run-fast we
+    fall back to clicking the hero button when the panel isn't there.
+    Deep / Finalize Run buttons aren't reachable until trace exists,
+    so those modes assume a pre-existing build.
+    """
+    page.goto(dashboard_url)
+    # Try the panel selector first; fall back to hero for fast_sync.
+    panel_present = False
+    try:
+        page.wait_for_selector('[data-testid="pipeline-panel"]', timeout=5_000)
+        panel_present = True
+    except PWTimeout:
+        panel_present = False
+
+    if not panel_present:
+        if group != "fast_sync":
+            ctx.log(Event(time.time(), "error", {
+                "where": f"click_group_run_via_ui[{group}]",
+                "detail": (
+                    "pipeline panel not rendered (trace not built); "
+                    f"can't click {group} Run button until fast_sync has run at least once. "
+                    "Run ui-run-fast first."
+                ),
+            }))
+            ctx.summary.error_count += 1
+            return False
+        # fast_sync: click the hero "Build Trace Graph" button.
+        ctx.log(Event(time.time(), "note", {"detail": "panel absent; using hero Build Trace Graph button"}))
+        try:
+            page.wait_for_selector('[data-testid="pipeline-build-trace-hero"]', timeout=timeout_ms)
+            ctx.snap(page, f"ui_run_{group}_hero_loaded")
+            page.locator('[data-testid="pipeline-build-trace-hero"]').click(timeout=timeout_ms)
+            ctx.snap(page, f"ui_run_{group}_hero_clicked")
+            return True
+        except Exception as e:
+            ctx.log(Event(time.time(), "error", {
+                "where": f"click_group_run_via_ui[{group}]",
+                "detail": f"hero button click failed: {e}",
+            }))
+            ctx.summary.error_count += 1
+            ctx.snap(page, f"ui_run_{group}_hero_failure")
+            return False
+
+    ctx.snap(page, f"ui_run_{group}_panel_loaded")
+    btn_sel = f'[data-testid="pipeline-run-{group}"]'
+    try:
+        page.wait_for_selector(btn_sel, timeout=timeout_ms)
+        page.locator(btn_sel).click(timeout=timeout_ms)
+        ctx.snap(page, f"ui_run_{group}_clicked")
+        return True
+    except Exception as e:
+        ctx.log(Event(time.time(), "error", {
+            "where": f"click_group_run_via_ui[{group}]",
+            "detail": f"button click failed: {e}",
+        }))
+        ctx.summary.error_count += 1
+        ctx.snap(page, f"ui_run_{group}_failure")
+        return False
+
+
+def run_ui_run_group(
+    api: Api,
+    page: Page,
+    pid: str,
+    group: str,
+    ctx: RunContext,
+    repo_path: Path,
+    dashboard_url: str,
+) -> bool:
+    """Mode runner: drive the corresponding group's Run button via the UI."""
+    ctx.summary.trigger_reason = f"UI click: Run on {group}"
+    ensure_manual_mode(api, pid, ctx)
+    time.sleep(1)
+    if not click_group_run_via_ui(page, group, dashboard_url, ctx):
+        return False
+    time.sleep(2)
+    return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 60, repo_path=repo_path)
+
+
+def run_initial(api: Api, page: Page, pid: str, ctx: RunContext, repo_path: Path) -> bool:
     ctx.summary.trigger_reason = "DELETE /index/destroy + POST /pipeline/all"
     ctx.snap(page, "before_destroy")
     try:
@@ -500,7 +924,7 @@ def run_initial(api: Api, page: Page, pid: str, ctx: RunContext) -> bool:
         ctx.summary.error_count += 1
         return False
 
-    return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 60)
+    return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 60, repo_path=repo_path)
 
 
 def run_incremental(repo_path: Path, api: Api, page: Page, pid: str, ctx: RunContext) -> bool:
@@ -513,7 +937,7 @@ def run_incremental(repo_path: Path, api: Api, page: Page, pid: str, ctx: RunCon
         time.sleep(2)
         api.run_all(pid)
         ctx.snap(page, "after_run_all_trigger")
-        return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 30, startup_grace_seconds=20)
+        return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 30, startup_grace_seconds=20, repo_path=repo_path)
     finally:
         try:
             tick.unlink()
@@ -522,7 +946,7 @@ def run_incremental(repo_path: Path, api: Api, page: Page, pid: str, ctx: RunCon
             pass
 
 
-def run_rebuild(api: Api, page: Page, pid: str, ctx: RunContext) -> bool:
+def run_rebuild(api: Api, page: Page, pid: str, ctx: RunContext, repo_path: Path) -> bool:
     ctx.summary.trigger_reason = "POST /pipeline/rebuild"
     ctx.snap(page, "before_rebuild")
     try:
@@ -534,7 +958,165 @@ def run_rebuild(api: Api, page: Page, pid: str, ctx: RunContext) -> bool:
 
     time.sleep(3)
     ctx.snap(page, "after_rebuild_trigger")
-    return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 60)
+    return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 60, repo_path=repo_path)
+
+
+# ── Scoped Rebuild modes (UI-driven via Danger Zone) ──────────────
+
+
+def run_rebuild_scoped_ui(
+    api: Api,
+    page: Page,
+    pid: str,
+    project_name: str,
+    scope: str,
+    ctx: RunContext,
+    dashboard_url: str,
+    repo_path: Path,
+) -> bool:
+    """Drive Danger Zone Rebuild row for scope ∈ {sync, enrichment} via the UI.
+
+    Verifies post-conditions:
+        - barrier reason matches scope (Phase 117)
+        - only target stage range animates / re-runs
+    """
+    ctx.summary.trigger_reason = f"Danger Zone Rebuild scope={scope} (UI)"
+    if not open_danger_zone(page, dashboard_url):
+        ctx.log(Event(time.time(), "error", {"where": "open_danger_zone"}))
+        ctx.summary.error_count += 1
+        return False
+    ctx.snap(page, "danger_zone_loaded")
+    if not drive_scoped_rebuild_ui(page, scope, project_name, ctx):
+        return False
+
+    time.sleep(2)
+    # Verify barrier scope after submit; the rebuild handler writes barrier
+    # before dispatch (pipeline.py:135-139 for sync, 213-214 for enrichment).
+    expected_barrier_scope = scope
+    try:
+        st = api.status(pid)
+        bar = st.get("barrier") or {}
+        if bar.get("active") and bar.get("scope") != expected_barrier_scope:
+            ctx.log(Event(time.time(), "error", {
+                "where": "barrier_scope_mismatch",
+                "expected": expected_barrier_scope,
+                "actual_scope": bar.get("scope"),
+                "actual_reason": bar.get("reason"),
+            }))
+            ctx.summary.error_count += 1
+    except Exception as e:
+        ctx.log(Event(time.time(), "note", {"detail": "barrier_check_failed", "err": str(e)}))
+
+    # After submit, navigate back to the main dashboard so the pipeline panel
+    # is visible for the watch loop to scrape.
+    page.goto(dashboard_url)
+    time.sleep(2)
+    ctx.snap(page, f"after_rebuild_{scope}_back_to_dash")
+    return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 60, repo_path=repo_path)
+
+
+# ── Scoped Reset modes (UI-driven via Danger Zone) ────────────────
+
+
+def run_reset_scoped_ui(
+    api: Api,
+    page: Page,
+    pid: str,
+    repo_path: Path,
+    scope: str,
+    ctx: RunContext,
+    dashboard_url: str,
+) -> bool:
+    """Drive Danger Zone Reset row for scope ∈ {all, enrichment, finalize} via UI.
+
+    Reset has no typed-confirm gate; just confirm and observe the UI/disk.
+    """
+    ctx.summary.trigger_reason = f"Danger Zone Reset scope={scope} (UI)"
+    if not open_danger_zone(page, dashboard_url):
+        ctx.log(Event(time.time(), "error", {"where": "open_danger_zone"}))
+        ctx.summary.error_count += 1
+        return False
+    ctx.snap(page, "danger_zone_loaded")
+
+    # Snapshot disk pre-reset for assertion.
+    idx_dir = repo_path / ".sourceprep"
+    pre_files = sorted(p.name for p in idx_dir.iterdir()) if idx_dir.is_dir() else []
+    ctx.log(Event(time.time(), "note", {"detail": "pre_reset_files", "count": len(pre_files), "files": pre_files}))
+
+    if not drive_scoped_reset_ui(page, scope, ctx):
+        return False
+
+    # Reset is synchronous: response returns when wipes are applied. Allow
+    # 3s for the dashboard to receive the new state via SSE/poll.
+    time.sleep(3)
+    page.goto(dashboard_url)
+    time.sleep(2)
+    ctx.snap(page, f"after_reset_{scope}_back_to_dash")
+
+    # Assert post-reset disk state matches the scope.
+    post_files = sorted(p.name for p in idx_dir.iterdir()) if idx_dir.is_dir() else []
+    ctx.log(Event(time.time(), "note", {"detail": "post_reset_files", "count": len(post_files), "files": post_files}))
+
+    fast_sync_files = {
+        "manifest.json", "documents.json", "embeddings.npy",
+        "trace_inferred_hashes.json", "trace_edges.jsonl",
+        "trace_augmented.jsonl", "trace_augment_manifest.json",
+        "knowledge_documents.json", "knowledge_embeddings.npy",
+        "knowledge_manifest.json",
+    }
+    deep_files = {
+        "trace_epistemic.jsonl", "trace_epistemic_manifest.json",
+        "group_reasoning_manifest.json", "deepening_manifest.json",
+        "deep_knowledge_manifest.json",
+    }
+    finalize_files = {
+        "atlas.json", "atlas_manifest.json", "rules_manifest.json",
+        "concepts_manifest.json", "audit_manifest.json", "antibodies_manifest.json",
+    }
+
+    post_set = set(post_files)
+    if scope == "all":
+        # Nothing should remain except project.json + repo_policy.json + barrier.
+        leftover = post_set - {"project.json", "repo_policy.json", ".reset_barrier", "logs"}
+        if leftover:
+            ctx.log(Event(time.time(), "error", {
+                "where": "reset_all_unexpected_files",
+                "leftover": sorted(leftover),
+            }))
+            ctx.summary.error_count += 1
+    elif scope == "enrichment":
+        # Stages 6-15 wiped; fast sync 1-5 should survive.
+        leaked = (deep_files | finalize_files) & post_set
+        missing = fast_sync_files - post_set
+        # 'leaked' files that still exist might be partial (e.g. validation
+        # leaves empty manifests). Log leak as warning, but only error if
+        # core deep manifests survive (group_reasoning_manifest, etc).
+        core_leak = {"group_reasoning_manifest.json", "atlas_manifest.json",
+                     "concepts_manifest.json", "audit_manifest.json"} & post_set
+        if core_leak:
+            ctx.log(Event(time.time(), "error", {
+                "where": "reset_enrichment_left_core_files",
+                "leaked": sorted(core_leak),
+            }))
+            ctx.summary.error_count += 1
+        if missing:
+            ctx.log(Event(time.time(), "note", {
+                "detail": "reset_enrichment_missing_fast_sync_artifact",
+                "missing": sorted(missing),
+            }))
+    elif scope == "finalize":
+        leaked = finalize_files & post_set
+        # Core finalize manifests should be gone.
+        if leaked:
+            ctx.log(Event(time.time(), "error", {
+                "where": "reset_finalize_left_files",
+                "leaked": sorted(leaked),
+            }))
+            ctx.summary.error_count += 1
+
+    # After reset there's nothing running; watch_until_idle returns ok via
+    # the no_activity_observed branch within ~grace*2 seconds.
+    return watch_until_idle(api, page, pid, ctx, max_seconds=60, startup_grace_seconds=10)
 
 
 # ── Top-level ─────────────────────────────────────────────────────
@@ -558,18 +1140,18 @@ def write_top_report(root: Path, summaries: list[ModeSummary]) -> None:
     lines = [
         f"# Pipeline Smoke Run — {root.name}",
         "",
-        "| Mode | Result | Duration | Stages Observed | Desyncs | Errors |",
-        "|---|---|---|---|---|---|",
+        "| Mode | Result | Duration | Stages | Desyncs | Anomalies | Errors |",
+        "|---|---|---|---|---|---|---|",
     ]
     overall_pass = True
     for s in summaries:
         overall_pass = overall_pass and s.pass_ and s.error_count == 0
         dur = f"{round(s.ended_at - s.started_at, 1)}s" if s.ended_at else "—"
         lines.append(
-            f"| {s.mode} | {'✅ pass' if s.pass_ else '❌ fail'} | {dur} | "
-            f"{len(s.stages_seen)} | {s.desync_count} | {s.error_count} |"
+            f"| {s.mode} | {'pass' if s.pass_ else 'fail'} | {dur} | "
+            f"{len(s.stages_seen)} | {s.desync_count} | {s.anomaly_count} | {s.error_count} |"
         )
-    lines += ["", f"**Overall:** {'✅ pass' if overall_pass else '❌ fail'}", ""]
+    lines += ["", f"**Overall:** {'pass' if overall_pass else 'fail'}", ""]
     (root / "report.md").write_text("\n".join(lines))
 
 
@@ -577,7 +1159,10 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[1] if __doc__ else None)
     ap.add_argument("--project-id", required=True)
     ap.add_argument("--modes", default="initial,incremental,rebuild",
-                    help="Comma-separated subset of initial,incremental,rebuild.")
+                    help=("Comma-separated subset of: initial, incremental, rebuild, "
+                          "rebuild-sync, rebuild-enrichment, "
+                          "reset-all, reset-enrichment, reset-finalize, "
+                          "ui-run-fast, ui-run-deep, ui-run-finalize."))
     ap.add_argument("--iterations", type=int, default=1)
     ap.add_argument("--headed", action="store_true", help="Show the browser window.")
     ap.add_argument("--dashboard-url", default="http://localhost:5174")
@@ -587,7 +1172,13 @@ def main(argv: list[str]) -> int:
     args = ap.parse_args(argv)
 
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
-    unknown = [m for m in modes if m not in {"initial", "incremental", "rebuild"}]
+    KNOWN_MODES = {
+        "initial", "incremental", "rebuild",
+        "rebuild-sync", "rebuild-enrichment",
+        "reset-all", "reset-enrichment", "reset-finalize",
+        "ui-run-fast", "ui-run-deep", "ui-run-finalize",
+    }
+    unknown = [m for m in modes if m not in KNOWN_MODES]
     if unknown:
         print(f"ERROR: unknown modes: {unknown}", file=sys.stderr)
         return 2
@@ -637,11 +1228,51 @@ def main(argv: list[str]) -> int:
                         ctx.log(Event(time.time(), "note", {"detail": "set_active_failed", "err": str(e)}))
 
                     if mode == "initial":
-                        passed = run_initial(api, page, args.project_id, ctx)
+                        passed = run_initial(api, page, args.project_id, ctx, repo_path)
                     elif mode == "incremental":
                         passed = run_incremental(repo_path, api, page, args.project_id, ctx)
                     elif mode == "rebuild":
-                        passed = run_rebuild(api, page, args.project_id, ctx)
+                        passed = run_rebuild(api, page, args.project_id, ctx, repo_path)
+                    elif mode == "rebuild-sync":
+                        passed = run_rebuild_scoped_ui(
+                            api, page, args.project_id, project_name,
+                            "sync", ctx, args.dashboard_url, repo_path,
+                        )
+                    elif mode == "rebuild-enrichment":
+                        passed = run_rebuild_scoped_ui(
+                            api, page, args.project_id, project_name,
+                            "enrichment", ctx, args.dashboard_url, repo_path,
+                        )
+                    elif mode == "reset-all":
+                        passed = run_reset_scoped_ui(
+                            api, page, args.project_id, repo_path,
+                            "all", ctx, args.dashboard_url,
+                        )
+                    elif mode == "reset-enrichment":
+                        passed = run_reset_scoped_ui(
+                            api, page, args.project_id, repo_path,
+                            "enrichment", ctx, args.dashboard_url,
+                        )
+                    elif mode == "reset-finalize":
+                        passed = run_reset_scoped_ui(
+                            api, page, args.project_id, repo_path,
+                            "finalize", ctx, args.dashboard_url,
+                        )
+                    elif mode == "ui-run-fast":
+                        passed = run_ui_run_group(
+                            api, page, args.project_id, "fast_sync",
+                            ctx, repo_path, args.dashboard_url,
+                        )
+                    elif mode == "ui-run-deep":
+                        passed = run_ui_run_group(
+                            api, page, args.project_id, "deep_enrichment",
+                            ctx, repo_path, args.dashboard_url,
+                        )
+                    elif mode == "ui-run-finalize":
+                        passed = run_ui_run_group(
+                            api, page, args.project_id, "finalize",
+                            ctx, repo_path, args.dashboard_url,
+                        )
                     else:
                         passed = False
                 except KeyboardInterrupt:

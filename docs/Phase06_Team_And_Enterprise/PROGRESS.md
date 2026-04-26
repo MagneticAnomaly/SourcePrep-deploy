@@ -5,7 +5,7 @@
 ## Completed
 
 ### Scaffolding (Session 1)
-- [x] `public/prep-deploy/` subtree with README, decision tree
+- [x] `public/sourceprep-deploy/` subtree with README, decision tree
 - [x] `Dockerfile.cpu` (slim, ~2-3 GB, BYOK)
 - [x] `Dockerfile.gpu` (fat, ~8-10 GB, baked Ollama + Qwen3:4b)
 - [x] `entrypoint.sh` (GPU image: starts Ollama conditionally)
@@ -65,7 +65,7 @@
 - [x] **Pitfall #3 — Gemini system prompt:** Fixed to use proper `systemInstruction` API field instead of injecting as a fake user message
 - [x] **Pitfall #4 — closure capture bug:** Replaced inline closure with `_make_progress_cb()` factory function that captures `stage_id` by value; added regression test
 - [x] **Pitfall #6 — secrets leakage:** Added `_check_for_leaked_secrets()` that recursively scans `team_config.json` for credential-like keys and logs a SECURITY warning; tested with 5 test cases
-- [x] **Pitfall #7 — Docker build context:** Fixed both Dockerfiles to show correct `docker build -f public/prep-deploy/Dockerfile.* .` command from repo root
+- [x] **Pitfall #7 — Docker build context:** Fixed both Dockerfiles to show correct `docker build -f public/sourceprep-deploy/Dockerfile.* .` command from repo root
 
 ### Tests — P06-S19/S20/S21/S22 (completed)
 - [x] `tests/test_s3_storage.py` — 14 tests (manifest, config, upload/download)
@@ -133,4 +133,4 @@ Anthropic uses `x-api-key` header, `/v1/messages` endpoint, and content blocks. 
 
 ### 7. Docker build context path — ✅ FIXED
 **Problem:** Dockerfile comments showed `docker build -f Dockerfile.cpu .` which would fail because the build context needs to be the repo root.
-**Fix:** Both Dockerfiles now clearly show: `docker build -f public/prep-deploy/Dockerfile.cpu -t prep/headless:cpu .`
+**Fix:** Both Dockerfiles now clearly show: `docker build -f public/sourceprep-deploy/Dockerfile.cpu -t prep/headless:cpu .`

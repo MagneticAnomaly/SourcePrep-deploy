@@ -66,27 +66,24 @@ export function SettingsOverlay({
         onClick={() => close()}
       />
       <div className="relative z-10 h-full w-full bg-background text-text flex flex-col">
-        <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-border">
+          <div className="flex items-center gap-2 min-w-0">
             <span className="text-lg font-semibold truncate">Settings</span>
-            <div className="flex items-center gap-2">
-              <kbd className="text-xs text-text-muted bg-surface-raised rounded px-1.5 py-0.5">⌘,</kbd>
-              <Button
-                ref={closeRef}
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => close()}
-                aria-label="Close settings"
-              >
-                <X className="w-5 h-5" />
-              </Button>
-            </div>
           </div>
-        </header>
-        <div className="flex-1 overflow-y-auto">
+          <Button
+            ref={closeRef}
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => close()}
+            aria-label="Close settings"
+          >
+            <X className="w-5 h-5" />
+          </Button>
+        </div>
+        <div className="flex-1 min-h-0 overflow-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col lg:flex-row lg:gap-10">
-              <aside className="hidden lg:block w-64 shrink-0 py-10 sticky top-0 h-[calc(100vh-3.5rem)] overflow-y-auto border-r border-border pr-6">
+              <aside className="hidden lg:block w-64 shrink-0 py-10 sticky top-0 h-screen overflow-y-auto border-r border-border pr-6">
                 <SettingsNav
                   activePage={page}
                   onNavigate={setPage}

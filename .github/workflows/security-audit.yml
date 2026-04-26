@@ -38,7 +38,7 @@ jobs:
         run: npm audit --omit=dev --audit-level=high || true
 
       - name: Audit prep-mcp
-        working-directory: public/prep-mcp
+        working-directory: public/sourceprep-mcp
         run: npm audit --omit=dev --audit-level=high || true
 
   cargo-audit:

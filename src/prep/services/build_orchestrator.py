@@ -138,7 +138,15 @@ class BuildSlot:
             "error": self.error,
             "duration_seconds": self.duration_seconds,
         }
-        if self.progress_total > 0:
+        # Phase 118 Issue A: always expose progress while the slot is in
+        # an active phase (running, queued, pausing, recovering) so the
+        # dashboard can render an indeterminate bar even before the worker
+        # has computed a total. Previously this guard was `progress_total
+        # > 0`, which left the bar invisible during warmup — particularly
+        # noticeable on Group Reasoning which spends 5–30s computing the
+        # group set before the first batch progress callback fires.
+        active_phases = {"running", "queued", "pausing", "recovering"}
+        if self.progress_total > 0 or self.phase.value in active_phases:
             d["progress"] = {
                 "message": self.progress_message,
                 "current": self.progress_current,

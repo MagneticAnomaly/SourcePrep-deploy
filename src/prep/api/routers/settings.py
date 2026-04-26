@@ -72,42 +72,6 @@ def get_all_settings() -> Dict[str, Any]:
     return ok(settings.get_all())
 
 
-@router.get("/settings/{key}")
-def get_setting(key: str) -> Dict[str, Any]:
-    """Get a single global setting by key."""
-    from prep.services.settings_store import settings
-    value = settings.get(key)
-    if value is None:
-        raise ApiException(
-            status_code=404,
-            code="SETTING_NOT_FOUND",
-            message=f"Setting '{key}' not found",
-        )
-    return ok({"key": key, "value": value})
-
-
-@router.put("/settings/{key}")
-def set_setting(key: str, body: SettingValue) -> Dict[str, Any]:
-    """Set a global setting."""
-    from prep.services.settings_store import settings
-    settings.set(key, body.value)
-    return ok({"key": key, "value": body.value})
-
-
-@router.delete("/settings/{key}")
-def delete_setting(key: str) -> Dict[str, Any]:
-    """Delete a global setting."""
-    from prep.services.settings_store import settings
-    deleted = settings.delete(key)
-    if not deleted:
-        raise ApiException(
-            status_code=404,
-            code="SETTING_NOT_FOUND",
-            message=f"Setting '{key}' not found",
-        )
-    return ok({"key": key, "deleted": True})
-
-
 # ── Per-project settings ────────────────────────────────────────
 
 @router.get("/projects/{project_id}/settings")
@@ -862,3 +826,45 @@ def get_batch_estimate() -> Dict[str, Any]:
         "file_count": file_count,
         "estimated_calls": estimates,
     })
+
+
+# ── Generic /settings/{key} catch-all — registered LAST so it does not
+# shadow specific /settings/<name> routes (pipeline-config, advanced-config,
+# admin-policy, llm-concurrency-guidelines, batch-estimate, etc.).
+# FastAPI matches routes in registration order; putting this first made
+# every specific route 404 with SETTING_NOT_FOUND.
+
+@router.get("/settings/{key}")
+def get_setting(key: str) -> Dict[str, Any]:
+    """Get a single global setting by key."""
+    from prep.services.settings_store import settings
+    value = settings.get(key)
+    if value is None:
+        raise ApiException(
+            status_code=404,
+            code="SETTING_NOT_FOUND",
+            message=f"Setting '{key}' not found",
+        )
+    return ok({"key": key, "value": value})
+
+
+@router.put("/settings/{key}")
+def set_setting(key: str, body: SettingValue) -> Dict[str, Any]:
+    """Set a global setting."""
+    from prep.services.settings_store import settings
+    settings.set(key, body.value)
+    return ok({"key": key, "value": body.value})
+
+
+@router.delete("/settings/{key}")
+def delete_setting(key: str) -> Dict[str, Any]:
+    """Delete a global setting."""
+    from prep.services.settings_store import settings
+    deleted = settings.delete(key)
+    if not deleted:
+        raise ApiException(
+            status_code=404,
+            code="SETTING_NOT_FOUND",
+            message=f"Setting '{key}' not found",
+        )
+    return ok({"key": key, "deleted": True})

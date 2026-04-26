@@ -119,8 +119,8 @@ Each stage card in `GraphEnrichmentPipeline.tsx` gains a single inline chip unde
 
 | State | Chip | Color | Trigger condition |
 |---|---|---|---|
-| Match | None (or quiet `"Kimi2.5 · Apr 18"` when details toggle is on) | neutral | `manifest.model.model_name == current_task_config.model_name` AND `manifest.model.provider == current_task_config.provider` |
-| Drift | `"Built with Kimi2.5 → now Qwen3 · Rebuild"` | amber | Match check fails |
+| Match | None (or quiet `"Kimi2.6 · Apr 18"` when details toggle is on) | neutral | `manifest.model.model_name == current_task_config.model_name` AND `manifest.model.provider == current_task_config.provider` |
+| Drift | `"Built with Kimi2.6 → now Qwen3 · Rebuild"` | amber | Match check fails |
 | Recovered stub | `"Self-healed · provenance unknown · Rebuild"` | amber | `manifest.restored === true` AND no golden-checkpoint evidence |
 | Recovered + golden match | `"Self-healed · model likely current"` | neutral-soft | `manifest.restored === true` AND golden `_meta.json` covers this stage AND current config matches the golden's embedded model |
 | Missing | Existing "not built" treatment | red | No manifest AND no data file |

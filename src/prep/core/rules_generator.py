@@ -407,6 +407,20 @@ def _build_managed_content(
     parts.append("`prep_search` auto-detects query intent: \"where is X\" → symbol lookup,")
     parts.append("\"why X\" → concepts, \"who imports X\" → trace graph. Override with `intent` param if needed.")
     parts.append("")
+    # Phase 119 Task 16: discoverability hint for the discovered-ceiling
+    # mechanism. Surfaced near the search-intent section so an agent
+    # diagnosing throttling symptoms is one search away from the docs.
+    parts.append("### Concurrency limits")
+    parts.append(
+        "If your queries to the cloud LLM seem unexpectedly throttled, check"
+    )
+    parts.append(
+        "`prep_search \"concurrency ceiling\"` for the current discovered limit"
+    )
+    parts.append(
+        "and how to reset it. The limit is auto-discovered and locked for 24h."
+    )
+    parts.append("")
 
     # ── Target-specific instructions ──
     if target == "claude":

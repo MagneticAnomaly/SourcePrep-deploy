@@ -152,8 +152,21 @@ def get_spaghetti_scores(
 
     if result is None:
         result = run_spaghetti_scan(index_dir, Path(proj.path))
+        # Phase 118: don't recreate audit/ during a reset barrier. Without
+        # this guard, the dashboard's first /audit/spaghetti call after
+        # /index/destroy resurrects audit/spaghetti.json (and the audit/
+        # dir itself), defeating the destroy. Same root-cause class as
+        # F-78 but on the audit side. The barrier auto-clears on the
+        # next finalize, after which writes resume normally.
         try:
-            save_spaghetti(result, index_dir)
+            from prep.services.pipeline.recovery import reset_barrier_active
+            if reset_barrier_active(project_id):
+                logger.info(
+                    "Skipping spaghetti save for %s — reset barrier active",
+                    project_id,
+                )
+            else:
+                save_spaghetti(result, index_dir)
         except Exception as e:
             logger.warning("Failed to save spaghetti scores: %s", e)
 

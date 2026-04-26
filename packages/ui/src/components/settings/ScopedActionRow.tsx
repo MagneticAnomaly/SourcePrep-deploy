@@ -27,6 +27,8 @@ export interface ScopedActionRowProps<T extends string> {
   onClick: () => void;
   disabled?: boolean;
   last?: boolean;
+  /** Test hook prefix; emits `${testId}-scope-select` on the Select and `${testId}-button` on the Button. */
+  testId?: string;
 }
 
 export function ScopedActionRow<T extends string>({
@@ -41,6 +43,7 @@ export function ScopedActionRow<T extends string>({
   onClick,
   disabled = false,
   last = false,
+  testId,
 }: ScopedActionRowProps<T>) {
   const control = (
     <div className="flex w-full items-center gap-2">
@@ -52,6 +55,7 @@ export function ScopedActionRow<T extends string>({
         onChange={(e) => onChange(e.target.value as T)}
         disabled={disabled}
         aria-label={`${label} scope`}
+        data-testid={testId ? `${testId}-scope-select` : undefined}
       />
       <Button
         variant={buttonVariant}
@@ -59,6 +63,7 @@ export function ScopedActionRow<T extends string>({
         onClick={onClick}
         disabled={disabled}
         className={buttonClassName}
+        data-testid={testId ? `${testId}-button` : undefined}
       >
         {buttonLabel}
       </Button>

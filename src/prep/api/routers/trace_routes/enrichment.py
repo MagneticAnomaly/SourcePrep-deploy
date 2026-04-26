@@ -1225,10 +1225,11 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
     # reset" leaves data that selfheal or the audit system can resurrect.
     # Phase 105: git_evidence/ holds the on-disk churn/signature cache;
     # must be removed so stale evidence doesn't survive a full reset.
-    for subdir_name in [
+    SUBDIRS_TO_WIPE = [
         ".checkpoints", ".branch_snapshots", "backups", "logs",
         "atlas_segments", "atlas_roles", "audit", "git_evidence",
-    ]:
+    ]
+    for subdir_name in SUBDIRS_TO_WIPE:
         subdir = idx_dir / subdir_name
         if subdir.is_dir():
             try:
@@ -1236,6 +1237,25 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
                 deleted.append(f"{subdir_name}/")
             except Exception as e:
                 errors.append(f"{subdir_name}/: {e}")
+
+    # 2b. Phase 118 F-NEW-2 hardening: a racing watcher / SSE handler /
+    # audit subsystem can recreate a directory in the gap between our
+    # rmtree and the rest of the cleanup. Re-check each subdir; if it
+    # exists again, retry rmtree once. If it survives both attempts,
+    # surface that to errors[] so the caller sees the failure instead
+    # of receiving a misleading success response.
+    for subdir_name in SUBDIRS_TO_WIPE:
+        subdir = idx_dir / subdir_name
+        if subdir.is_dir():
+            try:
+                shutil.rmtree(subdir)
+                deleted.append(f"{subdir_name}/ (retry)")
+                logger.warning(
+                    "Full reset: %s/ was recreated mid-wipe and required a second rmtree (project=%s)",
+                    subdir_name, project_id,
+                )
+            except Exception as e:
+                errors.append(f"{subdir_name}/ (retry): {e}")
 
     # 3. Clean up orphaned temp files (.tmp*)
     if idx_dir.is_dir():

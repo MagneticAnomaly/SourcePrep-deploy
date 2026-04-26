@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-prefix="public/prep-mcp"
+prefix="public/sourceprep-mcp"
 dev_remote="mcp-dev"
 public_remote="mcp"
 branch="main"

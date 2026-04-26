@@ -239,5 +239,5 @@ Known gaps to resolve before calling this “done”:
 - Some CLI “extras” (`activity`, `coverage`, `overview`) currently call legacy root endpoints (e.g. `/status`, `/activity`, `/coverage`, `/trace/stats`) that are not implemented on the daemon; these should be migrated to project-scoped endpoints or implemented as compatibility aliases.
 
 Starter template for the public repo:
-- `public/prep-mcp/`
+- `public/sourceprep-mcp/`
 

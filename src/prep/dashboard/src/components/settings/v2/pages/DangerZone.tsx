@@ -237,6 +237,7 @@ export function DangerZonePage({
           buttonVariant="outline"
           buttonClassName="border-warning/40 text-warning hover:bg-warning/10"
           onClick={openRebuildConfirm}
+          testId="pipeline-danger-rebuild"
         />
         <ScopedActionRow<ResetScope>
           label="Reset"
@@ -247,6 +248,7 @@ export function DangerZonePage({
           buttonLabel="Reset"
           buttonVariant="destructive"
           onClick={openResetConfirm}
+          testId="pipeline-danger-reset"
           last
         />
       </Section>
@@ -279,6 +281,7 @@ export function DangerZonePage({
         title={dialogTitle}
         description={dialogDescription}
         confirmLabel={dialogConfirmLabel}
+        testId="pipeline-danger-confirm"
       >
         {confirmAction === 'rebuild' ? (
           <div className="space-y-2">
@@ -293,6 +296,7 @@ export function DangerZonePage({
               className="w-full rounded border border-border bg-surface px-2 py-1 text-sm text-text focus:outline-none focus:ring-1 focus:ring-warning"
               placeholder={projectName || 'project name'}
               autoFocus
+              data-testid="pipeline-danger-confirm-typed-name-input"
             />
           </div>
         ) : undefined}

@@ -189,27 +189,62 @@ class ResumeStrategy:
                     # skipped:true (e.g. clustering skipped due to missing LLM).
                     # Without this, the resume detector thinks the stage is
                     # complete and skips it on every subsequent run.
+                    #
+                    # Phase 118 U10: BUT a stage that genuinely produced
+                    # zero results (e.g. Edge Discovery on a project where
+                    # no cross-file edges exist, or Validation on a clean
+                    # graph) won't write an output file at all. The
+                    # manifest still records `finished_at` because the
+                    # worker did finish. Without an exception here, the
+                    # resume detector misclassifies these legitimate
+                    # zero-result completions as incomplete on every
+                    # restart, which causes the orchestrator's hydration
+                    # path to synthesize a ghost "Paused at <stage>" state
+                    # in the UI even when the user has a fully-built
+                    # project. Trust manifests that have `finished_at`
+                    # set: that's the worker's signal that it ran to
+                    # completion. Fall back to the strict output-file
+                    # check only for manifests without `finished_at`
+                    # (the original "skipped" / partial scenarios).
                     output_file = STAGE_OUTPUT_FILE.get(stage)
                     if output_file:
                         opath = idx_dir / output_file
                         if not opath.exists() or opath.stat().st_size == 0:
-                            logger.warning(
-                                "Stage %s has manifest but output %s is "
-                                "missing/empty — treating as incomplete",
-                                stage.value, output_file,
-                            )
-                            stage_decisions.append({
-                                "stage": stage.value,
-                                "decision": "INCOMPLETE",
-                                "reason": (
-                                    f"Manifest exists but {output_file} "
-                                    f"missing/empty (stage may have been skipped)"
-                                ),
-                            })
-                            ResumeStrategy._log_resume_decisions(
-                                project_id, stages, i, stage_decisions, skip_mtime_cascade, pfl_fn
-                            )
-                            return i
+                            manifest_finished = False
+                            try:
+                                manifest_data = store.read_provenance(stage)
+                                manifest_finished = bool(
+                                    isinstance(manifest_data, dict)
+                                    and manifest_data.get("finished_at")
+                                )
+                            except Exception:
+                                manifest_finished = False
+                            if manifest_finished:
+                                logger.info(
+                                    "Stage %s manifest has finished_at but output %s "
+                                    "is empty/missing — accepting as a legitimate "
+                                    "zero-result completion (Phase 118 U10)",
+                                    stage.value, output_file,
+                                )
+                            else:
+                                logger.warning(
+                                    "Stage %s has manifest but output %s is "
+                                    "missing/empty AND manifest has no finished_at "
+                                    "— treating as incomplete",
+                                    stage.value, output_file,
+                                )
+                                stage_decisions.append({
+                                    "stage": stage.value,
+                                    "decision": "INCOMPLETE",
+                                    "reason": (
+                                        f"Manifest exists but {output_file} "
+                                        f"missing/empty and no finished_at recorded"
+                                    ),
+                                })
+                                ResumeStrategy._log_resume_decisions(
+                                    project_id, stages, i, stage_decisions, skip_mtime_cascade, pfl_fn
+                                )
+                                return i
 
                     # Structural: verify trace_nodes.jsonl exists
                     if stage == StageId.STRUCTURAL:
@@ -230,22 +265,43 @@ class ResumeStrategy:
                             return i
 
                     # Atlas: verify segments manifest exists
+                    # Phase 118 U10: small projects may legitimately produce
+                    # no atlas segments (atlas.json alone is the deliverable).
+                    # Trust manifests with finished_at set; only flag as
+                    # incomplete if the worker never recorded completion.
                     elif stage == StageId.ATLAS:
                         segments_path = idx_dir / "atlas_segments_manifest.json"
                         if not segments_path.exists() or segments_path.stat().st_size == 0:
-                            logger.warning(
-                                "Atlas manifest exists but atlas_segments_manifest.json "
-                                "is missing/empty — treating as incomplete"
-                            )
-                            stage_decisions.append({
-                                "stage": stage.value,
-                                "decision": "INCOMPLETE",
-                                "reason": "Manifest exists but atlas_segments_manifest.json missing",
-                            })
-                            ResumeStrategy._log_resume_decisions(
-                                project_id, stages, i, stage_decisions, skip_mtime_cascade, pfl_fn
-                            )
-                            return i
+                            atlas_finished = False
+                            try:
+                                atlas_md = store.read_provenance(stage)
+                                atlas_finished = bool(
+                                    isinstance(atlas_md, dict)
+                                    and atlas_md.get("finished_at")
+                                )
+                            except Exception:
+                                atlas_finished = False
+                            if atlas_finished:
+                                logger.info(
+                                    "Atlas manifest has finished_at but "
+                                    "atlas_segments_manifest.json missing — accepting "
+                                    "as a legitimate no-segments completion (Phase 118 U10)"
+                                )
+                            else:
+                                logger.warning(
+                                    "Atlas manifest exists but atlas_segments_manifest.json "
+                                    "is missing/empty AND no finished_at recorded — "
+                                    "treating as incomplete"
+                                )
+                                stage_decisions.append({
+                                    "stage": stage.value,
+                                    "decision": "INCOMPLETE",
+                                    "reason": "Manifest exists but atlas_segments_manifest.json missing and no finished_at",
+                                })
+                                ResumeStrategy._log_resume_decisions(
+                                    project_id, stages, i, stage_decisions, skip_mtime_cascade, pfl_fn
+                                )
+                                return i
 
                     # Staleness check
                     if (
