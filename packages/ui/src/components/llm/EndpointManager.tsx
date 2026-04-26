@@ -441,7 +441,7 @@ export function EndpointManager({
                       <div className="mt-4 p-2.5 rounded bg-amber-500/10 border border-amber-500/20 flex gap-2 items-start text-amber-500/90 leading-tight">
                         <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                         <div className="text-[11px]">
-                          <strong>Ollama requires manual startup configuration to run concurrently.</strong> Ensure you started your Ollama server with <code className="bg-amber-500/20 px-1 py-0.5 rounded font-mono mx-0.5 text-[10px]">OLLAMA_NUM_PARALLEL={Math.max(formLocalConcurrency, formCloudConcurrency)}</code>. Otherwise, requests will queue sequentially.
+                          <strong>Ollama requires manual startup configuration to run concurrently.</strong> Start your Ollama server with <code className="bg-amber-500/20 px-1 py-0.5 rounded font-mono mx-0.5 text-[10px]">OLLAMA_NUM_PARALLEL={formLocalConcurrency + formCloudConcurrency}</code> (the sum: <strong>{formLocalConcurrency}</strong> local-GPU model{formLocalConcurrency === 1 ? '' : 's'} + <strong>{formCloudConcurrency}</strong> cloud-routed call{formCloudConcurrency === 1 ? '' : 's'}). Otherwise, requests will queue sequentially.
                         </div>
                       </div>
                     )}
@@ -498,9 +498,11 @@ export function EndpointManager({
                       )}
                     </div>
                     {ep.provider === 'ollama' && (ep.cloud_concurrency ?? 0) > 0 && (
-                      <p className="text-[10px] text-text-muted mt-1">
-                        Ollama cloud = {ollamaCloudTier(ep.cloud_concurrency ?? 0)}
-                      </p>
+                      <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded bg-primary/10 border border-primary/20 text-primary text-xs font-medium">
+                        <Zap className="w-3 h-3" />
+                        <span>Ollama cloud = <strong>{ollamaCloudTier(ep.cloud_concurrency ?? 0)}</strong></span>
+                        <span className="opacity-70">({ep.cloud_concurrency} concurrent)</span>
+                      </div>
                     )}
                     {testResults[ep.id] && (
                       <div className={cn(
