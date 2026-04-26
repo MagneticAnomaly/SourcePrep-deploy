@@ -48,6 +48,63 @@ from prep.core.model_readiness import (
 _ALLOWED_LOCAL_PORTS = {11434, 1234, 1235}  # Ollama, LM Studio
 
 
+def _stage_value(stage: Any) -> str:
+    """Coerce a StageId-or-str to its string value for comparison.
+
+    The scheduler's swarm window stores ``stage`` as a StageId enum
+    (set by orchestrator.py before calling open_swarm_window) but the
+    UI surfaces stages as strings.  This helper normalises so the
+    runtime comparison in the running-tasks enrichment is enum-safe.
+    """
+    if stage is None:
+        return ""
+    return getattr(stage, "value", stage) if not isinstance(stage, str) else stage
+
+
+def _summarize_swarm_phases(
+    active: List[Dict[str, Any]],
+    *,
+    project_id: str,
+    task_id: str,
+) -> Dict[str, Dict[str, Any]]:
+    """Group live LLM calls by their swarm role for the AI Gateway UI.
+
+    Returns a dict with keys ``coordinator``, ``workers``, ``synthesizer``.
+    Each value is ``{"active": int, "model": str | None}``.  Calls
+    without ``swarm_role`` set are omitted — they were not part of a
+    real swarm phase, even when the swarm window is open (e.g. a non-
+    orchestrator path that happens to fire during the swarm).
+
+    Phase 119 Swarm Authority: this is the data the UI uses to render
+    the three-phase breakdown.  When all three buckets are empty the
+    UI suppresses the breakdown rather than fabricating empty rows.
+    """
+    buckets: Dict[str, Dict[str, Any]] = {
+        "coordinator": {"active": 0, "model": None},
+        "workers": {"active": 0, "model": None},
+        "synthesizer": {"active": 0, "model": None},
+    }
+    role_to_bucket = {
+        "coordinator": "coordinator",
+        "worker": "workers",
+        "synthesizer": "synthesizer",
+    }
+    for req in active:
+        if req.get("project_id") != project_id:
+            continue
+        if task_id and req.get("task_id") != task_id:
+            continue
+        role = req.get("swarm_role")
+        bucket_key = role_to_bucket.get(role)
+        if bucket_key is None:
+            continue
+        bucket = buckets[bucket_key]
+        bucket["active"] = int(bucket["active"]) + 1
+        if not bucket["model"]:
+            bucket["model"] = req.get("model")
+    return buckets
+
+
 def _count_live_workers(*, project_id: str, task_id: str) -> int:
     """Count in-flight LLM requests matching (project_id, task_id).
 
@@ -658,9 +715,9 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
         # debugging / observability.
         try:
             from prep.services.pipeline.scheduler import (
-                pipeline_scheduler, SWARM_CAPABLE_STAGES, is_swarm_active_for_stage,
+                pipeline_scheduler,
             )
-            from prep.services.pipeline._model_resolution import resolve_model_for_stage
+            from prep.services.token_telemetry import telemetry as _tel
             for rt in running_tasks:
                 _scheduler_max, node_id = pipeline_scheduler.concurrent_workers_for_project(
                     rt["project_id"], stage=rt.get("stage"),
@@ -672,21 +729,34 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                 rt["concurrent_workers"] = live_workers
                 rt["scheduler_capacity"] = _scheduler_max
                 rt["compute_node"] = node_id
-                # Phase 82: Model-aware swarm flag
-                # Phase 119 amendment: also require live_workers >= 2.
-                # "Swarming" with one worker is impossible by definition;
-                # without this gate the badge displayed even on a single
-                # in-flight call to a swarm-capable stage/model.
+
+                # Phase 119 Swarm Authority: the "Swarming" badge is now
+                # tied to runtime evidence, not static capability.  We
+                # require ALL of:
+                #   (a) the scheduler has an open swarm window
+                #   (b) that window matches this task's project + stage
+                #   (c) at least 2 live workers are in flight
+                # Without (a)+(b) the badge is misleading — concurrent
+                # independent LLM calls to a "swarm-capable" model on a
+                # "swarm-capable" stage are still just parallel calls.
                 rt["is_swarm"] = False
+                rt["swarm_phases"] = None
                 stage = rt.get("stage", "")
-                if stage in SWARM_CAPABLE_STAGES:
-                    resolved = resolve_model_for_stage(rt["project_id"], stage)
-                    if resolved:
-                        rt["is_swarm"] = (
-                            is_swarm_active_for_stage(stage, *resolved)
-                            and live_workers >= 2
-                        )
+                window = pipeline_scheduler.get_swarm_window()
+                window_matches = (
+                    window is not None
+                    and window.get("project_id") == rt["project_id"]
+                    and _stage_value(window.get("stage")) == stage
+                )
+                if window_matches and live_workers >= 2:
+                    rt["is_swarm"] = True
+                    rt["swarm_phases"] = _summarize_swarm_phases(
+                        _tel.get_active_requests(),
+                        project_id=rt["project_id"],
+                        task_id=rt.get("task_id", ""),
+                    )
         except Exception:
+            logger.debug("running-tasks enrichment failed", exc_info=True)
             pass  # Scheduler not available — leave defaults
 
         # [Goal 3] Merge live telemetry active requests that bypass the orchestrator

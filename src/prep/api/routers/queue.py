@@ -86,27 +86,28 @@ def _build_queue_item(
         project_id, stage=current_stage,
     )
 
-    # Phase 82: Determine swarm mode from actual model capability,
-    # not just stage name.
-    # Phase 119 amendment: also require live concurrent workers >= 2.
-    # "Swarming" with one worker is impossible by definition.
+    # Phase 119 Swarm Authority: tie the badge to runtime evidence —
+    # the scheduler's swarm window — not to a static capability check.
+    # Without this, concurrent independent LLM calls to a swarm-capable
+    # model on a swarm-capable stage would all be labeled "Swarming"
+    # even though the orchestrator never opened a swarm window.
     is_swarm = False
     if current_stage:
         try:
-            from prep.services.pipeline.scheduler import SWARM_CAPABLE_STAGES, is_swarm_active_for_stage
-            from prep.services.pipeline._model_resolution import resolve_model_for_stage
             from prep.services.token_telemetry import telemetry
-            if current_stage in SWARM_CAPABLE_STAGES:
-                resolved = resolve_model_for_stage(project_id, current_stage)
-                if resolved:
-                    live_workers = sum(
-                        1 for req in telemetry.get_active_requests()
-                        if req.get("project_id") == project_id
-                    )
-                    is_swarm = (
-                        is_swarm_active_for_stage(current_stage, *resolved)
-                        and live_workers >= 2
-                    )
+            window = pipeline_scheduler.get_swarm_window()
+            window_stage = window and getattr(window.get("stage"), "value", window.get("stage"))
+            window_matches = (
+                window is not None
+                and window.get("project_id") == project_id
+                and window_stage == current_stage
+            )
+            if window_matches:
+                live_workers = sum(
+                    1 for req in telemetry.get_active_requests()
+                    if req.get("project_id") == project_id
+                )
+                is_swarm = live_workers >= 2
         except Exception:
             pass
 
