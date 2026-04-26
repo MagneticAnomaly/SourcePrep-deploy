@@ -32,6 +32,31 @@ const PROVIDER_OPTIONS: { value: LLMProvider; label: string; hint?: string }[] =
 
 const LOCAL_PROVIDERS = new Set<string>(['ollama', 'lm-studio']);
 
+/**
+ * Phase 119 follow-up: derive Ollama Cloud plan tier from a concurrent value.
+ * 1 → free, 2-3 → pro, 4-10 → max. Values outside the 1-10 range fall back to
+ * "off" (0) or "max" (>10, defensive — clamp).
+ */
+function ollamaCloudTier(n: number): 'off' | 'free' | 'pro' | 'max' {
+  if (n <= 0) return 'off';
+  if (n === 1) return 'free';
+  if (n <= 3) return 'pro';
+  return 'max';
+}
+
+const OLLAMA_CLOUD_OPTIONS = [
+  { value: '1', label: '1 (free)' },
+  { value: '2', label: '2' },
+  { value: '3', label: '3 (pro)' },
+  { value: '4', label: '4' },
+  { value: '5', label: '5' },
+  { value: '6', label: '6' },
+  { value: '7', label: '7' },
+  { value: '8', label: '8' },
+  { value: '9', label: '9' },
+  { value: '10', label: '10 (max)' },
+] as const;
+
 // Phase 119 Phase A: provider key map → concurrency_limits.json provider key.
 // Ollama is split between local OSS and Ollama Cloud at runtime via URL host.
 const PROVIDER_TO_TABLE_KEY: Partial<Record<LLMProvider, string>> = {
@@ -399,12 +424,15 @@ export function EndpointManager({
                             <label className="block text-[10px] text-text-subtle mb-1">Cloud Models</label>
                             <Select
                               size="sm"
-                              value={String(formCloudConcurrency)}
+                              value={String(Math.max(1, Math.min(10, formCloudConcurrency || 1)))}
                               onChange={(e) => setFormCloudConcurrency(Number(e.target.value))}
-                              options={[0,1,2,3,4,5,6,8,10,12,16,20].map(n => ({ value: String(n), label: n === 0 ? 'Off' : String(n) }))}
+                              options={OLLAMA_CLOUD_OPTIONS as unknown as Array<{value: string; label: string}>}
                               className="w-full"
                             />
                             <p className="text-[9px] text-text-subtle mt-0.5">Proxied (kimi, gemini…)</p>
+                            <p className="text-[9px] text-text-subtle mt-0.5">
+                              Ollama cloud = {ollamaCloudTier(formCloudConcurrency || 1)}
+                            </p>
                           </div>
                         </>
                       )}
@@ -469,6 +497,11 @@ export function EndpointManager({
                         />
                       )}
                     </div>
+                    {ep.provider === 'ollama' && (ep.cloud_concurrency ?? 0) > 0 && (
+                      <p className="text-[10px] text-text-muted mt-1">
+                        Ollama cloud = {ollamaCloudTier(ep.cloud_concurrency ?? 0)}
+                      </p>
+                    )}
                     {testResults[ep.id] && (
                       <div className={cn(
                         'text-xs mt-2 flex items-center gap-1.5',
@@ -662,12 +695,15 @@ export function EndpointManager({
                     <label className="block text-[10px] text-text-subtle mb-1">Cloud Models</label>
                     <Select
                       size="sm"
-                      value={String(formCloudConcurrency)}
+                      value={String(Math.max(1, Math.min(10, formCloudConcurrency || 1)))}
                       onChange={(e) => setFormCloudConcurrency(Number(e.target.value))}
-                      options={[0,1,2,3,4,5,6,8,10,12,16,20].map(n => ({ value: String(n), label: n === 0 ? 'Off' : String(n) }))}
+                      options={OLLAMA_CLOUD_OPTIONS as unknown as Array<{value: string; label: string}>}
                       className="w-full"
                     />
                     <p className="text-[9px] text-text-subtle mt-0.5">Proxied (kimi, gemini…)</p>
+                    <p className="text-[9px] text-text-subtle mt-0.5">
+                      Ollama cloud = {ollamaCloudTier(formCloudConcurrency || 1)}
+                    </p>
                   </div>
                 </>
               )}
