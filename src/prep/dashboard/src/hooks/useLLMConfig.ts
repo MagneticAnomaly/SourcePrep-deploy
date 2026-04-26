@@ -15,15 +15,47 @@ interface UseLLMConfigOptions {
   onDirty?: () => void
   /** Fired after a successful auto-save persist. Typically wired to handleSwapModel. */
   onSwapModel?: () => void
+  /**
+   * Phase 119 Phase A 5b: fired when PUT /global/config returns advisory
+   * warnings (e.g. saving an Ollama Cloud endpoint without a plan tier).  The
+   * dashboard wires this to its toast system so the user sees something
+   * visible instead of the warning silently disappearing.  Save still
+   * succeeds; warnings are non-blocking.
+   */
+  onWarnings?: (warnings: string[]) => void
 }
 
 /** Manages LLM endpoint configuration, model fetching/testing, slot status, and auto-persistence. */
-export function useLLMConfig({ onDirty, onSwapModel }: UseLLMConfigOptions = {}) {
+export function useLLMConfig({ onDirty, onSwapModel, onWarnings }: UseLLMConfigOptions = {}) {
   const api = useApiClient()
   const onDirtyRef = useRef(onDirty)
   onDirtyRef.current = onDirty
   const onSwapModelRef = useRef(onSwapModel)
   onSwapModelRef.current = onSwapModel
+  const onWarningsRef = useRef(onWarnings)
+  onWarningsRef.current = onWarnings
+
+  /**
+   * Phase 119 Phase A 5b: thin wrapper around updateGlobalConfigWithWarnings
+   * that swallows network errors (legacy fire-and-forget contract for these
+   * paths) but always forwards any backend warnings to the consumer.
+   */
+  const persistEndpointsWithWarnings = useCallback(
+    async (saved_endpoints: SavedEndpoint[]): Promise<void> => {
+      try {
+        const { warnings } = await api.updateGlobalConfigWithWarnings({
+          llm_config: { saved_endpoints } as unknown as LLMConfig,
+        })
+        if (warnings.length > 0) {
+          onWarningsRef.current?.(warnings)
+        }
+      } catch {
+        // Silent — matches legacy fire-and-forget policy on these endpoint
+        // CRUD paths.  User can retry by editing again.
+      }
+    },
+    [api]
+  )
 
   // ── State ───────────────────────────────────────────────────
   const [llmConfig, setLLMConfig] = useState<LLMConfig>({
@@ -77,29 +109,29 @@ export function useLLMConfig({ onDirty, onSwapModel }: UseLLMConfigOptions = {})
     const id = `ep_${Date.now()}_${Math.random().toString(16).slice(2)}`
     setLLMConfig((prev) => {
       const saved_endpoints = [...prev.saved_endpoints, { ...endpoint, id }]
-      void api.updateGlobalConfig({ llm_config: { saved_endpoints } as unknown as LLMConfig })
+      void persistEndpointsWithWarnings(saved_endpoints)
       return { ...prev, saved_endpoints }
     })
     onDirtyRef.current?.()
-  }, [api])
+  }, [persistEndpointsWithWarnings])
 
   const handleEditEndpoint = useCallback((endpoint: SavedEndpoint) => {
     setLLMConfig((prev) => {
       const saved_endpoints = prev.saved_endpoints.map((e) => (e.id === endpoint.id ? endpoint : e))
-      void api.updateGlobalConfig({ llm_config: { saved_endpoints } as unknown as LLMConfig })
+      void persistEndpointsWithWarnings(saved_endpoints)
       return { ...prev, saved_endpoints }
     })
     onDirtyRef.current?.()
-  }, [api])
+  }, [persistEndpointsWithWarnings])
 
   const handleDeleteEndpoint = useCallback((id: string) => {
     setLLMConfig((prev) => {
       const saved_endpoints = prev.saved_endpoints.filter((e) => e.id !== id)
-      void api.updateGlobalConfig({ llm_config: { saved_endpoints } as unknown as LLMConfig })
+      void persistEndpointsWithWarnings(saved_endpoints)
       return { ...prev, saved_endpoints }
     })
     onDirtyRef.current?.()
-  }, [api])
+  }, [persistEndpointsWithWarnings])
 
   const handleTestEndpoint = useCallback(async (endpoint: SavedEndpoint) => {
     const r = await fetch('/api/llm/proxy/test', {
@@ -251,19 +283,56 @@ export function useLLMConfig({ onDirty, onSwapModel }: UseLLMConfigOptions = {})
   // Trailing-edge debounced persist of the full LLM config (minus mode-owned fields,
   // which are committed via the explicit "Apply mode" button path).
   const saveValue = useMemo(() => stripModeFields(llmConfig), [llmConfig])
+
+  // Phase 118 U7: only fire onSwapModel when the active model identity for
+  // a slot actually changed. The previous behavior fired it after EVERY
+  // successful auto-save (e.g. updating a non-model field, re-saving the
+  // same config, etc.), which paused the currently-running pipeline via
+  // swap_model and left it stuck at the paused stage. Concretely: during
+  // a PMR rebuild, an unrelated config save fired swap_model on
+  // deep_enrichment mid-stage 1 → pause → no resume → the harness's
+  // watch_until_idle saw "no group running" and exited after 226s,
+  // making the rebuild appear to complete in ~2 min when only fast_sync
+  // had actually run.
+  const lastPersistedModelKeyRef = useRef<string>('')
+  const modelKeyOf = (cfg: LLMConfig): string => {
+    const pick = (slot?: { endpoint_id?: string; model?: string; enabled?: boolean }) =>
+      slot?.enabled ? `${slot.endpoint_id ?? ''}/${slot.model ?? ''}` : ''
+    return [
+      pick(cfg.small_model),
+      pick(cfg.large_model),
+      pick(cfg.code_model),
+      pick((cfg as LLMConfig & { coordinator_model?: { endpoint_id?: string; model?: string; enabled?: boolean } }).coordinator_model),
+    ].join('|')
+  }
+
   const { flush: flushPendingSave } = useDebouncedAutoSave({
     value: saveValue,
     enabled: autoSaveEnabled,
     delayMs: 1500,
     onSave: async () => {
       try {
-        await api.updateGlobalConfig({ llm_config: llmConfig })
+        // Phase 119 Phase A 5b: also funnel debounced full-config saves through
+        // the warnings-aware path so that, e.g., changing concurrency on an
+        // existing cloud endpoint without a plan tier surfaces the validator
+        // hint via the dashboard toast.
+        const { warnings } = await api.updateGlobalConfigWithWarnings({ llm_config: llmConfig })
+        if (warnings.length > 0) {
+          onWarningsRef.current?.(warnings)
+        }
       } catch {
         // Silent fail — matches legacy policy. User can retry by editing again.
       }
     },
     onPersist: () => {
-      onSwapModelRef.current?.()
+      const nextKey = modelKeyOf(llmConfig)
+      const prevKey = lastPersistedModelKeyRef.current
+      lastPersistedModelKeyRef.current = nextKey
+      // Only swap if the active model identity actually changed AND we
+      // had a prior key (avoid swapping on the very first load).
+      if (prevKey && prevKey !== nextKey) {
+        onSwapModelRef.current?.()
+      }
       void fetchLLMSlotsStatus()
     },
   })

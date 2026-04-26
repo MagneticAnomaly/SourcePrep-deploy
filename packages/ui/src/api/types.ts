@@ -12,6 +12,14 @@ export interface ApiEnvelope<T> {
   success: boolean;
   data: T | null;
   error: ApiError | null;
+  /**
+   * Phase 119 Phase A 5b: optional non-blocking advisory messages attached to a
+   * 200 OK response.  `_validate_endpoint_concurrency` (PUT /global/config) uses
+   * this to nudge users to pick a plan tier when saving a provider that does
+   * not expose rate-limit headers.  Save still succeeds; UI surfaces these via
+   * a warning toast.
+   */
+  warnings?: string[] | null;
 }
 
 export type ProjectListItem = Pick<

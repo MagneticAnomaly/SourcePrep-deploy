@@ -103,6 +103,13 @@ export interface ApiClient {
   // Global Config
   getGlobalConfig(): Promise<GlobalConfig>;
   updateGlobalConfig(config: GlobalConfig): Promise<GlobalConfig>;
+  /**
+   * Phase 119 Phase A 5b: variant of {@link updateGlobalConfig} that preserves
+   * the response envelope's optional `warnings` array.  Use this on save paths
+   * where the user should be nudged about advisory issues (e.g. saving an
+   * Ollama Cloud endpoint without a plan tier).  Save still succeeds.
+   */
+  updateGlobalConfigWithWarnings(config: GlobalConfig): Promise<{ data: GlobalConfig; warnings: string[] }>;
 
   // LLM Proxy
   testLLMConnectivity(): Promise<{ ollama: { connected: boolean } }>;
@@ -691,6 +698,24 @@ export class PrepApiClient implements ApiClient {
     });
   }
 
+  /**
+   * Phase 119 Phase A 5b: variant of {@link updateGlobalConfig} that preserves
+   * the envelope's `warnings` field.  The Phase A backend validator
+   * (`_validate_endpoint_concurrency` in `api/routers/system.py`) attaches
+   * non-blocking advisories to PUT /global/config — e.g. saving an Ollama Cloud
+   * endpoint without a `plan_tier`.  The default `updateGlobalConfig` strips
+   * these because `requestEnvelope` only returns `envelope.data`; this method
+   * returns both so callers can surface the warnings via toasts/banners.
+   */
+  async updateGlobalConfigWithWarnings(
+    config: GlobalConfig
+  ): Promise<{ data: GlobalConfig; warnings: string[] }> {
+    return this.requestEnvelopeWithWarnings<GlobalConfig>('/global/config', {
+      method: 'PUT',
+      body: config,
+    });
+  }
+
   // ── Architecture (Phase 71) ────────────────────────────────────────
 
   async getArchitectureGraph(projectId: string, layerPath?: string, showOrphans?: boolean): Promise<ArchGraphResponse> {
@@ -809,10 +834,43 @@ export class PrepApiClient implements ApiClient {
     );
   }
 
+  /**
+   * Phase 119 Phase A 5b: variant of {@link requestEnvelope} that returns the
+   * envelope's `data` AND its optional `warnings` array.  Default
+   * `requestEnvelope` discards warnings; callers that need them (currently
+   * just `updateGlobalConfigWithWarnings`) use this helper.
+   */
+  private async requestEnvelopeWithWarnings<T>(
+    path: string,
+    opts?: { method?: string; query?: Record<string, string | number | boolean | undefined>; body?: unknown; timeoutMs?: number; signal?: AbortSignal }
+  ): Promise<{ data: T; warnings: string[] }> {
+    const envelope = await this.fetchEnvelope<T>(path, opts);
+    const warnings = Array.isArray(envelope.warnings) ? envelope.warnings : [];
+    return { data: envelope.data as T, warnings };
+  }
+
   private async requestEnvelope<T>(
     path: string,
     opts?: { method?: string; query?: Record<string, string | number | boolean | undefined>; body?: unknown; timeoutMs?: number; signal?: AbortSignal }
   ): Promise<T> {
+    const envelope = await this.fetchEnvelope<T>(path, opts);
+    if (envelope.data === null || envelope.data === undefined) {
+      throw new ApiClientError('Envelope success=true but data was null', {
+        url: path,
+      });
+    }
+    return envelope.data;
+  }
+
+  /**
+   * Phase 119 Phase A 5b: shared transport that returns the validated envelope
+   * (data + warnings).  {@link requestEnvelope} unwraps `data`;
+   * {@link requestEnvelopeWithWarnings} also exposes `warnings`.
+   */
+  private async fetchEnvelope<T>(
+    path: string,
+    opts?: { method?: string; query?: Record<string, string | number | boolean | undefined>; body?: unknown; timeoutMs?: number; signal?: AbortSignal }
+  ): Promise<ApiEnvelope<T>> {
     const baseUrl = this.baseUrl.endsWith('/') ? this.baseUrl : `${this.baseUrl}/`;
     const relativePath = path.startsWith('/') ? path.slice(1) : path;
     const url = new URL(relativePath, baseUrl);
@@ -914,14 +972,7 @@ export class PrepApiClient implements ApiClient {
       });
     }
 
-    if (envelope.data === null || envelope.data === undefined) {
-      throw new ApiClientError('Envelope success=true but data was null', {
-        status: res.status,
-        url: url.toString(),
-      });
-    }
-
-    return envelope.data;
+    return envelope;
   }
 
   // ── LLM Slot Connectivity ─────────────────────────────────

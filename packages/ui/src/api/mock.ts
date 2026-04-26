@@ -252,6 +252,10 @@ export class MockApiClient implements ApiClient {
     return { success: true };
   }
 
+  async updateGlobalConfigWithWarnings(): Promise<any> {
+    return { data: { success: true }, warnings: [] };
+  }
+
   async getEmbeddingStatus(): Promise<any> {
     return { available: true, model: 'nomic-embed-text-v1.5', dim: 768, downloaded: true };
   }

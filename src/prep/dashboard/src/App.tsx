@@ -538,6 +538,12 @@ function App() {
     // whenever model details refresh (mergeContextCache) — manifests as a blinking
     // "Saving…" indicator in the settings overlay.
     onSwapModel: handleSwapModel,
+    // Phase 119 Phase A 5b: surface validator warnings (e.g. saving an Ollama
+    // Cloud endpoint without picking a plan tier) via the dashboard toast.
+    // Each warning becomes its own toast so users can read and dismiss them.
+    onWarnings: (warnings) => {
+      for (const w of warnings) showToast(w, 'warning', 7000)
+    },
   })
 
   // Apply mode switch: flush any pending debounced slot save first so the
