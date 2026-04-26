@@ -229,3 +229,28 @@ def test_lock_expires_after_ttl(monkeypatch, tmp_path) -> None:
         sched._record_throughput_for_slot(slot, queue_time_ms=10.0)
     # One cautious +1 probe permitted.
     assert slot.current_limit == 11
+
+
+def test_configure_node_hydrates_lock_from_store(monkeypatch, tmp_path) -> None:
+    """A daemon restart preserves the (ceiling, locked_until) record."""
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+    base = 1_000_000.0
+    store_mod.concurrency_store().save_edge(
+        "cloud:ep-restart", "__default__",
+        ceiling=12, locked_until=base + 1000, edge_observed_at=base - 60,
+    )
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-restart", max_concurrent=1)
+    slot = sched._slots["cloud:ep-restart"]
+
+    assert slot.discovered_ceiling == 12
+    assert slot.ceiling_locked_until == base + 1000
+    # current_limit hydrates to the ceiling (we know it was achievable).
+    assert slot.current_limit == 12
+    # Mode is congestion_avoidance: we have a known edge, not exploration.
+    assert slot.mode == "congestion_avoidance"

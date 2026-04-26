@@ -302,23 +302,32 @@ class PipelineScheduler:
                 mode: Literal["jumpstart", "congestion_avoidance"] = (
                     "jumpstart" if is_cloud else "congestion_avoidance"
                 )
+                discovered_ceiling: Optional[int] = None
+                ceiling_locked_until: float = 0.0
                 if is_cloud:
                     try:
-                        persisted = concurrency_store().load(node_id, "__default__")
+                        record = concurrency_store().load_full(node_id, "__default__")
                     except Exception as exc:  # pragma: no cover — best-effort
                         logger.debug(
-                            "concurrency_store.load failed for %s: %s", node_id, exc,
+                            "concurrency_store.load_full failed for %s: %s",
+                            node_id, exc,
                         )
-                        persisted = None
-                    if persisted is not None:
-                        seed = persisted
+                        record = None
+                    if record is not None:
+                        seed = record["ceiling"]
                         mode = "congestion_avoidance"
+                        # Phase 119: hydrate lock state when persisted.
+                        if record["locked_until"] > 0:
+                            discovered_ceiling = record["ceiling"]
+                            ceiling_locked_until = record["locked_until"]
                 self._slots[node_id] = ComputeSlot(
                     node_id=node_id,
                     max_concurrent=new_max,
                     current_limit=seed,
                     min_limit=self._compute_min_limit(node_id, new_max),
                     mode=mode,
+                    discovered_ceiling=discovered_ceiling,
+                    ceiling_locked_until=ceiling_locked_until,
                 )
                 self._queues[node_id] = deque()
         logger.debug(
