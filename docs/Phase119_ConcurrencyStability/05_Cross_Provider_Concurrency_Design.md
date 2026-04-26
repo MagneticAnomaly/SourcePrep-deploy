@@ -315,6 +315,21 @@ doesn't expose rate-limit headers, so we can't auto-detect it."
 
 **Risk: Medium.** Provider header schemas drift. Centralize parsing in adapters and have explicit fallbacks: missing header → fall back to soft cap.
 
+**Status: SHIPPED 2026-04-26.** Per-provider header-driven discovery is live for OpenAI and Anthropic; Kimi/Gemini/Ollama route to a no-op adapter and continue relying on the Phase A soft cap. Phase B narrows growth WITHIN the [min, max] band Phase A defined; the `dynamic_capacity` clamp at `max_concurrent` is preserved.
+
+As-built deviations from the plan above:
+- The hint-mediated path is the success-side AIMD step, not the MD path. 429s remain the only trigger for multiplicative decrease — saturation hints proactively *prevent* growth into the 429 zone but do not synthesize a backoff event from header readings alone.
+- Kimi/Gemini/Ollama adapters were not split into separate files. They share the single `noop_discovery.py` since they all surface the same behavior at this layer (no predictive headers → use Phase A soft cap). Per-tier UI behavior already lives in Phase A's `concurrency_limits.json`.
+- Saturation thresholds: `score >= 0.9` is "hard" (jumpstart→congestion_avoidance), `score >= 0.7` is "soft" (skip the +1 / x2). Lifted directly from the spec preamble; documented as `_SAT_HARD` / `_SAT_SOFT` in `scheduler.py`.
+
+Commits (in order):
+- `b9fb69eb` — discovery package skeleton (`base.py`, `noop_discovery.py`, dispatch, 11 noop tests)
+- `32ffa7df` — OpenAI + Anthropic adapters (23 unit tests across 2 files)
+- `1a0d5ccc` — scheduler consumes `SaturationHint` (10 unit tests)
+- `9f396037` — `llm_client.py` passes full response headers + status into the scheduler hook
+
+Verification: 75 tests pass (`tests/test_discovery_*.py` + `tests/test_scheduler_saturation_hint.py` + Phase A regression suite). Live verification deferred — Phase B is invisible until OpenAI/Anthropic responses come back, which requires the user to switch providers. Static unit tests are sufficient for ship.
+
 ### Phase C — Probe button + capacity health view
 
 **Goal:** explicit user-driven calibration; dashboard panel showing observed-vs-stated capacity.
