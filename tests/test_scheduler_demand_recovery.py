@@ -1,6 +1,7 @@
 """Phase 119: recovery only fires when the gate has recently been binding."""
 from __future__ import annotations
 
+import time
 from unittest.mock import patch
 
 from prep.services.pipeline.scheduler import ComputeSlot, PipelineScheduler
@@ -191,6 +192,11 @@ def test_locked_ceiling_blocks_growth_above(monkeypatch, tmp_path) -> None:
     # Patch time so the lock is unambiguously in the future.
     base = 1_000_000.0
     slot.ceiling_locked_until = base + 3600
+    # Phase 119 amendment: stamp the demand gate so growth is permitted on
+    # the demand-gated AI path. The locked-ceiling rule is what should cap
+    # growth at 10 — without the gate stamp, growth would be blocked for a
+    # different reason and the test would falsely pass.
+    slot._gate_binding_until = base + 7200
     monkeypatch.setattr("prep.services.pipeline.scheduler.time.time", lambda: base)
 
     # 9 successful calls = batch_size complete in CA → would normally grow.
@@ -223,6 +229,10 @@ def test_lock_expires_after_ttl(monkeypatch, tmp_path) -> None:
     slot.ceiling_locked_until = 100.0  # already in the past
 
     base = 100_000.0  # well after locked_until
+    # Phase 119 amendment: stamp demand gate so the post-TTL probe path
+    # is exercised. The "cautious +1 probe" is the AI growth path, which
+    # requires gate-binding evidence.
+    slot._gate_binding_until = base + 60.0
     monkeypatch.setattr("prep.services.pipeline.scheduler.time.time", lambda: base)
 
     for _ in range(10):
@@ -301,3 +311,129 @@ def test_new_cloud_slot_uses_ollama_probe_when_no_persistence(monkeypatch, tmp_p
     # Probe seeded the slot at 12 (not the legacy 5 default, not max_concurrent=1).
     assert slot.current_limit == 12
     assert slot.mode == "jumpstart"  # still exploring above the probe
+
+
+# ───────────────────────────────────────────────────────────────────────
+# Phase 119 amendment: upward path (jumpstart + congestion_avoidance) is
+# also demand-gated. Same rule as the recovery path: cloud growth requires
+# that the gate was binding within _DEMAND_WINDOW_S seconds.
+# ───────────────────────────────────────────────────────────────────────
+
+def test_jumpstart_blocked_when_gate_not_binding(monkeypatch, tmp_path) -> None:
+    """Phase 119 amendment: jumpstart doubling requires gate-binding evidence."""
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-jump", max_concurrent=1)
+    slot = sched._slots["cloud:ep-jump"]
+    slot.mode = "jumpstart"
+    slot.current_limit = 10
+    slot.in_flight_requests = 2  # well below limit
+    slot._gate_binding_until = 0.0  # gate has NOT been binding
+
+    # 10 successful calls = batch_size complete, but gate never binding.
+    for _ in range(10):
+        sched._record_throughput_for_slot(slot, queue_time_ms=10.0)
+
+    assert slot.current_limit == 10, (
+        f"Expected NO growth (gate never binding), got current_limit={slot.current_limit}"
+    )
+
+
+def test_jumpstart_grows_when_gate_was_binding(monkeypatch, tmp_path) -> None:
+    """Conversely, when gate WAS binding, jumpstart doubles as designed."""
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-jump-ok", max_concurrent=1)
+    slot = sched._slots["cloud:ep-jump-ok"]
+    slot.mode = "jumpstart"
+    slot.current_limit = 10
+    slot._gate_binding_until = time.time() + 60.0  # binding observed recently
+
+    for _ in range(10):
+        sched._record_throughput_for_slot(slot, queue_time_ms=10.0)
+
+    assert slot.current_limit == 20, (
+        f"Expected jumpstart doubling 10→20 (gate was binding), got {slot.current_limit}"
+    )
+
+
+def test_additive_increase_blocked_when_gate_not_binding(monkeypatch, tmp_path) -> None:
+    """Same gate also applies to congestion_avoidance +1 growth."""
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-ca", max_concurrent=1)
+    slot = sched._slots["cloud:ep-ca"]
+    slot.mode = "congestion_avoidance"
+    slot.current_limit = 10
+    slot._gate_binding_until = 0.0
+
+    for _ in range(20):
+        sched._record_throughput_for_slot(slot, queue_time_ms=10.0)
+
+    assert slot.current_limit == 10
+
+
+def test_additive_increase_grows_when_gate_was_binding(monkeypatch, tmp_path) -> None:
+    """Congestion_avoidance +1 growth permitted when gate was binding."""
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:ep-ca-ok", max_concurrent=1)
+    slot = sched._slots["cloud:ep-ca-ok"]
+    slot.mode = "congestion_avoidance"
+    slot.current_limit = 10
+    slot._gate_binding_until = time.time() + 60.0
+
+    # batch_size = current_limit (10). One batch = one +1.
+    for _ in range(10):
+        sched._record_throughput_for_slot(slot, queue_time_ms=10.0)
+
+    assert slot.current_limit == 11, (
+        f"Expected additive +1 (10→11) when gate was binding, got {slot.current_limit}"
+    )
+
+
+def test_local_slot_growth_not_demand_gated(monkeypatch, tmp_path) -> None:
+    """Local slots have a hard VRAM ceiling — demand-gating should not apply.
+
+    A local slot at current_limit < max_concurrent must still be able to grow
+    on success batches alone (we know max_concurrent is real)."""
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+
+    sched = PipelineScheduler()
+    sched.configure_node("local:ep-gpu", max_concurrent=4)
+    slot = sched._slots["local:ep-gpu"]
+    slot.mode = "congestion_avoidance"
+    slot.current_limit = 1
+    slot._gate_binding_until = 0.0  # gate never observed binding
+
+    # Local slots ignore the gate — should still climb to max_concurrent.
+    for _ in range(50):
+        sched._record_throughput_for_slot(slot, queue_time_ms=10.0)
+
+    assert slot.current_limit == 4, (
+        f"Local slot must climb on success alone (no gate); got {slot.current_limit}"
+    )

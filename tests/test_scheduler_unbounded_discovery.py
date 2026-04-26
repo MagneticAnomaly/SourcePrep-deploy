@@ -1,6 +1,8 @@
 """Phase 82 completion: cloud AIMD is unbounded; local remains VRAM-capped."""
 from __future__ import annotations
 
+import time
+
 from prep.services.pipeline.scheduler import (
     ComputeSlot,
     PipelineScheduler,
@@ -42,6 +44,9 @@ def test_cloud_aimd_doubling_past_max_concurrent() -> None:
     sched = PipelineScheduler()
     slot = _cloud_slot(seed=5)
     slot.mode = "jumpstart"
+    # Phase 119 amendment: stamp gate-binding so the demand-gated AI path
+    # permits growth (this test models a real demand scenario).
+    slot._gate_binding_until = time.time() + 60.0
     sched._slots["cloud:ep-test"] = slot
 
     # Simulate 5 successful calls (batch_size = current_limit = 5) to trigger
@@ -52,6 +57,9 @@ def test_cloud_aimd_doubling_past_max_concurrent() -> None:
     assert slot.current_limit == 10, (
         f"Expected doubling from 5→10, got current_limit={slot.current_limit}"
     )
+
+    # Re-stamp the gate so the next batch is also demand-justified.
+    slot._gate_binding_until = time.time() + 60.0
 
     # Trigger another 10 successes — should double again (uncapped past
     # original max_concurrent=5). Use a loose >=20 assertion so this stays
@@ -75,6 +83,10 @@ def test_cloud_congestion_avoidance_grows_past_max_concurrent() -> None:
     sched = PipelineScheduler()
     slot = _cloud_slot(seed=5)
     slot.mode = "congestion_avoidance"
+    # Phase 119 amendment: stamp gate-binding so the demand-gated AI path
+    # permits growth (this test models real demand). We re-stamp before each
+    # potential growth tick to keep the gate "binding" throughout the run.
+    slot._gate_binding_until = time.time() + 600.0
     sched._slots["cloud:ep-test"] = slot
 
     # With current_limit=5, batch_size=5 triggers the first +1 (→ 6).
@@ -197,6 +209,10 @@ def test_aimd_doubling_writes_new_ceiling(monkeypatch, tmp_path) -> None:
     sched = PipelineScheduler()
     sched.configure_node("cloud:ep-grow", max_concurrent=1)
     slot = sched._slots["cloud:ep-grow"]
+    # Phase 119 amendment: demand-gate the upward AI path. Stamp the gate
+    # so the doubling fires (this test exercises the persist-on-grow path,
+    # which presupposes growth is permitted).
+    slot._gate_binding_until = time.time() + 60.0
 
     # Force a jumpstart doubling step.
     for _ in range(5):

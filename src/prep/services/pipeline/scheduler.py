@@ -685,6 +685,16 @@ class PipelineScheduler:
                     and time.time() < slot.ceiling_locked_until
                 ):
                     allow_increase = False
+                # Phase 119 amendment: demand-gate the upward path too.
+                # The user observed jumpstart 5→40 while in-flight peaked at 7
+                # — Phase 82 doubled on success batches alone, regardless of
+                # actual gate utilization. Apply the same demand-gating rule
+                # we use for recovery: cloud growth requires that the gate
+                # was binding (in_flight >= dynamic_capacity) within the
+                # last _DEMAND_WINDOW_S seconds. Local slots are VRAM-bounded
+                # with a known hard ceiling — demand-gating adds no value there.
+                if is_cloud and time.time() >= slot._gate_binding_until:
+                    allow_increase = False
                 if allow_increase:
                     if slot.mode == "jumpstart":
                         new_limit = slot.current_limit * 2
