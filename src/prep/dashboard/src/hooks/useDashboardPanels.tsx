@@ -557,6 +557,96 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   // Use local optimistic state as the source of truth for the UI
   const excludedPaths = localExcludedPaths
 
+  // Phase 119 Phase A: Live AI Gateway view shared between the in-grid
+  // `llm-status` panel and the expand-arrow detail overlay. Mounting the
+  // full AIModelsSettings (endpoint cards + Plan dropdown + integer Cloud
+  // Models for Ollama) means clicking the sidebar expand-arrow lands the
+  // user on their endpoint config without a Settings detour.
+  const aiModelsSettingsView = (
+    <AIModelsSettings
+      config={p.llmConfig}
+      onConfigChange={p.handleLLMConfigChange}
+      onAddEndpoint={p.handleAddEndpoint}
+      onEditEndpoint={p.handleEditEndpoint}
+      onDeleteEndpoint={p.handleDeleteEndpoint}
+      onTestEndpoint={p.handleTestEndpoint}
+      onFetchModels={p.handleFetchModels}
+      onTestModel={p.handleTestModel}
+      onClearTestResult={p.handleClearTestResult}
+      onHFDownload={p.handleDownloadModel}
+      availableModels={p.availableModels}
+      modelDetails={p.modelDetails}
+      loadingModels={p.loadingModels}
+      testingSlot={p.testingSlot}
+      testResults={p.testResults}
+      maxActiveProjects={p.maxActiveProjects}
+      onMaxActiveProjectsChange={p.onMaxActiveProjectsChange}
+      schedulerStatus={p.schedulerStatus}
+      computeNodes={p.computeNodes}
+      onComputeNodeAdd={p.onComputeNodeAdd}
+      onComputeNodeUpdate={p.onComputeNodeUpdate}
+      onComputeNodeDelete={p.onComputeNodeDelete}
+      onEndpointNodeChange={p.onEndpointNodeChange}
+      onModeApply={p.handleModeApply}
+      onAssignmentBlockAdd={() => {
+        p.handleLLMConfigChange({
+          ...p.llmConfig,
+          assignment_blocks: [
+            ...(p.llmConfig.assignment_blocks || []),
+            { id: `block-${Date.now()}`, endpoint_id: '', model: '', tasks: [] },
+          ],
+        });
+      }}
+      onAssignmentBlockDelete={(blockId) => {
+        p.handleLLMConfigChange({
+          ...p.llmConfig,
+          assignment_blocks: (p.llmConfig.assignment_blocks || []).filter((b) => b.id !== blockId),
+        });
+      }}
+      onAssignmentBlockEndpointChange={(blockId, endpointId) => {
+        p.handleLLMConfigChange({
+          ...p.llmConfig,
+          assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
+            b.id === blockId ? { ...b, endpoint_id: endpointId, model: '' } : b
+          ),
+        });
+      }}
+      onAssignmentBlockModelChange={(blockId, model) => {
+        p.handleLLMConfigChange({
+          ...p.llmConfig,
+          assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
+            b.id === blockId ? { ...b, model } : b
+          ),
+        });
+      }}
+      onAssignmentBlockAddTask={(blockId, taskId) => {
+        p.handleLLMConfigChange({
+          ...p.llmConfig,
+          assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
+            b.id === blockId ? { ...b, tasks: [...b.tasks, taskId] } : b
+          ),
+        });
+      }}
+      onAssignmentBlockRemoveTask={(blockId, taskId) => {
+        p.handleLLMConfigChange({
+          ...p.llmConfig,
+          assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
+            b.id === blockId ? { ...b, tasks: b.tasks.filter((t) => t !== taskId) } : b
+          ),
+        });
+      }}
+      onAssignmentBlockTest={async (blockId) => {
+        // Simplified testing for mapped blocks using existing handleTestEndpoint logic
+        const block = p.llmConfig.assignment_blocks?.find(b => b.id === blockId);
+        if (!block) return { success: false, message: 'Block not found' };
+        const ep = p.llmConfig.saved_endpoints?.find(e => e.id === block.endpoint_id);
+        if (!ep) return { success: false, message: 'Endpoint not found' };
+        return p.handleTestEndpoint(ep);
+      }}
+      baseUrl={apiClient.baseUrl}
+    />
+  )
+
   const panelContent = useMemo(() => ({
     'log-console': (
       <LogConsole
@@ -679,14 +769,14 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         hideChart={p.transientComplete}
       />
     ),
-    // Phase 74: llm-status summary card is sunset. The sidebar AI Gateway
-    // widget is the sole live view; full settings open via its expand button.
-    // Keeping a minimal stub so any saved layouts referencing 'llm-status' don't crash.
+    // Phase 119 Phase A: per-endpoint Plan dropdown + integer Cloud Models
+    // belong on the endpoint itself (not buried in Settings → AI Models). The
+    // sidebar AI Gateway expand-arrow targets this panel id, so mount the live
+    // AIModelsSettings here too — both the in-grid panel and the detail
+    // overlay (panelDetails['llm-status']) share the same view.
     'llm-status': (
-      <div className="h-full flex items-center justify-center text-sm text-text-muted p-4 text-center">
-        AI Gateway status has moved to the sidebar.
-        <br />
-        Click the expand icon (⤢) to open full settings.
+      <div className="h-full overflow-auto p-4">
+        {aiModelsSettingsView}
       </div>
     ),
     search: (
@@ -1235,87 +1325,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   const panelDetails = useMemo(() => ({
     'llm-status': (
       <div className="max-w-6xl mx-auto w-full p-6 space-y-8">
-        <AIModelsSettings
-          config={p.llmConfig}
-          onConfigChange={p.handleLLMConfigChange}
-          onAddEndpoint={p.handleAddEndpoint}
-          onEditEndpoint={p.handleEditEndpoint}
-          onDeleteEndpoint={p.handleDeleteEndpoint}
-          onTestEndpoint={p.handleTestEndpoint}
-          onFetchModels={p.handleFetchModels}
-          onTestModel={p.handleTestModel}
-          onClearTestResult={p.handleClearTestResult}
-          onHFDownload={p.handleDownloadModel}
-          availableModels={p.availableModels}
-          modelDetails={p.modelDetails}
-          loadingModels={p.loadingModels}
-          testingSlot={p.testingSlot}
-          testResults={p.testResults}
-          maxActiveProjects={p.maxActiveProjects}
-          onMaxActiveProjectsChange={p.onMaxActiveProjectsChange}
-          schedulerStatus={p.schedulerStatus}
-          computeNodes={p.computeNodes}
-          onComputeNodeAdd={p.onComputeNodeAdd}
-          onComputeNodeUpdate={p.onComputeNodeUpdate}
-          onComputeNodeDelete={p.onComputeNodeDelete}
-          onEndpointNodeChange={p.onEndpointNodeChange}
-          onModeApply={p.handleModeApply}
-          onAssignmentBlockAdd={() => {
-            p.handleLLMConfigChange({
-              ...p.llmConfig,
-              assignment_blocks: [
-                ...(p.llmConfig.assignment_blocks || []),
-                { id: `block-${Date.now()}`, endpoint_id: '', model: '', tasks: [] },
-              ],
-            });
-          }}
-          onAssignmentBlockDelete={(blockId) => {
-            p.handleLLMConfigChange({
-              ...p.llmConfig,
-              assignment_blocks: (p.llmConfig.assignment_blocks || []).filter((b) => b.id !== blockId),
-            });
-          }}
-          onAssignmentBlockEndpointChange={(blockId, endpointId) => {
-            p.handleLLMConfigChange({
-              ...p.llmConfig,
-              assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
-                b.id === blockId ? { ...b, endpoint_id: endpointId, model: '' } : b
-              ),
-            });
-          }}
-          onAssignmentBlockModelChange={(blockId, model) => {
-            p.handleLLMConfigChange({
-              ...p.llmConfig,
-              assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
-                b.id === blockId ? { ...b, model } : b
-              ),
-            });
-          }}
-          onAssignmentBlockAddTask={(blockId, taskId) => {
-            p.handleLLMConfigChange({
-              ...p.llmConfig,
-              assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
-                b.id === blockId ? { ...b, tasks: [...b.tasks, taskId] } : b
-              ),
-            });
-          }}
-          onAssignmentBlockRemoveTask={(blockId, taskId) => {
-            p.handleLLMConfigChange({
-              ...p.llmConfig,
-              assignment_blocks: (p.llmConfig.assignment_blocks || []).map((b) =>
-                b.id === blockId ? { ...b, tasks: b.tasks.filter((t) => t !== taskId) } : b
-              ),
-            });
-          }}
-          onAssignmentBlockTest={async (blockId) => {
-            // Simplified testing for mapped blocks using existing handleTestEndpoint logic
-            const block = p.llmConfig.assignment_blocks?.find(b => b.id === blockId);
-            if (!block) return { success: false, message: 'Block not found' };
-            const ep = p.llmConfig.saved_endpoints?.find(e => e.id === block.endpoint_id);
-            if (!ep) return { success: false, message: 'Endpoint not found' };
-            return p.handleTestEndpoint(ep);
-          }}
-        />
+        {aiModelsSettingsView}
       </div>
     ),
     'file-tree': (
