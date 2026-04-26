@@ -197,16 +197,21 @@ function DevModeMenu({ baseUrl }: { baseUrl: string }) {
           setOpen((v) => !v);
         }}
         className={cn(
-          'inline-flex items-center justify-center w-5 h-5 rounded transition-colors',
-          'text-text-muted/70 hover:text-text hover:bg-surface-raised',
-          open && 'text-text bg-surface-raised',
+          // Phase 119 amendment: bumped visual weight (text-amber-400, w-6
+          // h-6, w-3.5 h-3.5 icon) so the developer affordance is
+          // discoverable from a quick scan of the AI Gateway header.
+          // Previously the muted color blended into the sidebar and users
+          // missed it entirely.
+          'inline-flex items-center justify-center w-6 h-6 rounded transition-colors',
+          'text-amber-400 hover:text-amber-300 hover:bg-surface-raised',
+          open && 'text-amber-300 bg-surface-raised',
         )}
         title="Developer tools — reset cloud concurrency discovery"
-        aria-label="Developer tools"
+        aria-label="Developer tools — reset cloud concurrency discovery"
         aria-expanded={open}
         data-testid="ai-gateway-devmode-toggle"
       >
-        <Wrench className="w-3 h-3" />
+        <Wrench className="w-3.5 h-3.5" />
       </button>
       {open && portalTarget && anchor &&
         createPortal(
