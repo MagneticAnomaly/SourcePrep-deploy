@@ -76,3 +76,50 @@ def test_concurrent_values_are_positive_ints() -> None:
         for tier in provider["tiers"]:
             assert isinstance(tier["concurrent"], int)
             assert tier["concurrent"] >= 1, f"{provider_key}/{tier['tier_key']}: bad concurrent={tier['concurrent']}"
+
+
+def test_no_unexpected_tier_keys() -> None:
+    """Strict schema: catch typo'd field names like 'concurency' (missing 'r')
+    or 'tier_label_v2' (drift) that the missing-keys test would silently pass."""
+    data = _load()
+    allowed = {"tier_key", "tier_label", "concurrent", "source_url"}
+    for provider_key, provider in data["providers"].items():
+        for tier in provider["tiers"]:
+            extra = tier.keys() - allowed
+            assert not extra, f"{provider_key}/{tier.get('tier_key')}: unexpected keys {extra}"
+
+
+def test_provider_auto_detect_reason_present_and_nonempty() -> None:
+    """The reason string is maintainer-facing documentation — defend it
+    against accidental drop during a copy/paste edit."""
+    data = _load()
+    for provider_key, provider in data["providers"].items():
+        reason = provider.get("auto_detect_reason", "")
+        assert isinstance(reason, str) and reason.strip(), (
+            f"{provider_key} missing auto_detect_reason"
+        )
+
+
+def test_source_urls_are_http_urls() -> None:
+    """Catch placeholder strings like 'TODO' or accidental file paths."""
+    data = _load()
+    for provider_key, provider in data["providers"].items():
+        for tier in provider["tiers"]:
+            url = tier.get("source_url", "")
+            assert isinstance(url, str) and url.startswith(("http://", "https://")), (
+                f"{provider_key}/{tier.get('tier_key')}: bad source_url {url!r}"
+            )
+
+
+def test_tier_keys_and_labels_are_strings() -> None:
+    """Defend the Python ↔ TypeScript contract. A bare number tier_key (e.g.
+    forgot quotes around 1) would pass JSON parse but break the TS interface."""
+    data = _load()
+    for provider_key, provider in data["providers"].items():
+        for tier in provider["tiers"]:
+            assert isinstance(tier["tier_key"], str), (
+                f"{provider_key}/{tier['tier_key']}: tier_key must be string"
+            )
+            assert isinstance(tier["tier_label"], str), (
+                f"{provider_key}/{tier['tier_key']}: tier_label must be string"
+            )
