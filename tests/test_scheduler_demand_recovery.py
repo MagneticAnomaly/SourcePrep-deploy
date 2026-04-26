@@ -1,10 +1,7 @@
 """Phase 119: recovery only fires when the gate has recently been binding."""
 from __future__ import annotations
 
-import time
 from unittest.mock import patch
-
-import pytest
 
 from prep.services.pipeline.scheduler import ComputeSlot, PipelineScheduler
 
@@ -36,7 +33,7 @@ def test_demand_recovery_skipped_when_idle() -> None:
     assert slot.current_limit == 6
 
 
-def test_demand_recovery_grows_when_gate_was_binding(monkeypatch) -> None:
+def test_demand_recovery_grows_when_gate_was_binding() -> None:
     """When acquire_request observed the gate binding within the demand
     window, the next acquire after cooldown grows current_limit by 1."""
     sched = PipelineScheduler()

@@ -120,8 +120,10 @@ class ComputeSlot:
     # _maybe_demand_recover() only grows current_limit if now < this stamp.
     _gate_binding_until: float = 0.0
     # Phase 119: discovered ceiling lock (mirrors ConcurrencyStore record).
-    # When set, recovery + AI cannot grow current_limit above this value
-    # until ceiling_locked_until passes.
+    # Read by _maybe_demand_recover() to clamp growth at the locked ceiling.
+    # Task 4 will add the writer (on backoff edge) and broaden enforcement
+    # into the AIMD additive-increase / jumpstart paths. Until then this
+    # field is declared but only enforced via demand-gated recovery.
     discovered_ceiling: Optional[int] = None
     ceiling_locked_until: float = 0.0
 
