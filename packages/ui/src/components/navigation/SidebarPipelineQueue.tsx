@@ -36,6 +36,12 @@ interface QueueResponse {
     current_load: number;
     in_flight_requests: number;
     current_limit: number;
+    // Phase 119 — optional fields exposed by the latency-aware concurrency
+    // manager. Older daemons omit them, so consumers must degrade gracefully.
+    discovered_ceiling?: number | null;
+    locked_until?: number | null;
+    aimd_mode?: string | null;
+    state?: 'probing' | 'locked' | 'backing_off' | 'recovering';
   }>;
   ghost_locks_purged: number;
 }
@@ -269,17 +275,40 @@ export function SidebarPipelineQueue({
         <div className="mt-1 space-y-1">
           {Object.entries(nodes).length > 0 && (
             <div className="px-2 py-1 space-y-0.5">
-              {Object.entries(nodes).map(([nid, n]) => (
-                <div key={nid} className="flex items-center justify-between text-[10px] text-text-muted tabular-nums">
-                  <span className="truncate max-w-[140px]" title={nid}>{nid}</span>
-                  <span>
-                    {n.in_flight_requests} / {n.current_limit}
-                    {n.current_limit !== n.max_concurrent && (
-                      <span className="ml-1 opacity-60">(max {n.max_concurrent})</span>
-                    )}
-                  </span>
-                </div>
-              ))}
+              {Object.entries(nodes).map(([nid, n]) => {
+                const ceiling = n.discovered_ceiling ?? null;
+                const state = n.state ?? "probing";
+                // Primary number's denominator: locked ceiling when locked, otherwise current_limit.
+                const cap = ceiling != null && state === "locked" ? ceiling : n.current_limit;
+                const stateBadge = (() => {
+                  switch (state) {
+                    case "locked": return { icon: "🔒", label: "locked" };
+                    case "backing_off": return { icon: "🔻", label: "backing off" };
+                    case "recovering": return { icon: "↗", label: "recovering" };
+                    case "probing":
+                    default: return { icon: "📈", label: "probing" };
+                  }
+                })();
+                // Soft user cap (only when explicitly set below the discovered ceiling).
+                const userCap =
+                  n.max_concurrent > 1 && ceiling != null && n.max_concurrent < ceiling
+                    ? n.max_concurrent
+                    : null;
+                return (
+                  <div key={nid} className="flex items-center justify-between text-[10px] text-text-muted tabular-nums">
+                    <span className="truncate max-w-[140px]" title={nid}>{nid}</span>
+                    <span className="inline-flex items-center gap-1">
+                      {n.in_flight_requests} / {cap}
+                      <span title={stateBadge.label} aria-label={stateBadge.label} className="opacity-70">
+                        {stateBadge.icon}
+                      </span>
+                      {userCap != null && (
+                        <span className="ml-1 opacity-60">(cap {userCap})</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
           {queue.length === 0 ? (
