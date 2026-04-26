@@ -262,20 +262,20 @@ class TestEndpointAwareConcurrency:
         assert sched.can_start("proj-b", StageId.CATALOGUE, "local:ep-1")
 
     def test_cloud_concurrent_three(self):
-        """Phase 82: cloud slots seed at jumpstart=5 (ignoring max_concurrent=3).
+        """Phase 82: cloud slots seed at jumpstart=5 regardless of the
+        configured cap (when the cap is generous).
 
-        The configured ``max_concurrent`` for cloud slots is a legacy UI
-        slider that is NOT a hard ceiling — AIMD discovers the real cap
-        at runtime. So configuring cloud:ep-1 with max=3 still seeds
-        ``current_limit=5``. The slot serializes at 5 concurrent acquires,
-        not 3.
+        Phase 119 Phase A amendment: ``max_concurrent`` IS now a real
+        cap when set > 0. To keep this test exercising the *seed* (5)
+        behavior — not the cap behavior — we configure with a generous
+        cap (50) so the seed=5 remains the binding constraint.
         """
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 3)
+        sched.configure_node("cloud:ep-1", 50)
         # Suppress idle recovery to observe the pure seed.
         sched._slots["cloud:ep-1"]._last_recovery_time = time.time()
 
-        # Seeded at current_limit=5 regardless of the max_concurrent=3 input.
+        # Seeded at current_limit=5 even though max_concurrent=50.
         for i in range(5):
             assert sched.acquire(f"proj-{i}", StageId.ENRICHMENT, "cloud:ep-1")
         # 6th blocks until AIMD grows current_limit past 5.
@@ -604,12 +604,16 @@ class TestAutoDiscoveryBatchWorkers:
     def test_cloud_provider_finds_cloud_node(self):
         """Cloud provider auto-discovers cloud:* nodes.
 
-        Phase 82: cloud seeds at current_limit=5 regardless of
-        max_concurrent=3, so the discovered budget for a single project
-        is 5 (the jumpstart seed), not the configured max.
+        Phase 82: cloud seeds at current_limit=5; with a generous user cap
+        (max_concurrent=50, well above the seed) the binding constraint
+        for the discovered budget is the jumpstart seed.
+
+        Phase 119 Phase A amendment: ``max_concurrent`` is now honored when
+        set > 0, so we use a generous cap here to keep the test about the
+        seed value.
         """
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 3)
+        sched.configure_node("cloud:ep-1", 50)
         # Pin AIMD state: suppress idle recovery so dynamic_capacity
         # stays at the seed (test is about provider discovery, not AIMD
         # drift — see Phase 82 I1 fix).
@@ -623,10 +627,12 @@ class TestAutoDiscoveryBatchWorkers:
     def test_cloud_provider_with_two_projects(self):
         """Cloud provider with 2 active projects splits budget.
 
-        Phase 82: dynamic_capacity=5 (seed), 5 // 2 = 2.
+        Phase 82: dynamic_capacity=5 (seed), 5 // 2 = 2. Phase 119 Phase A
+        amendment: use a generous cap (50) so the seed is the binding
+        constraint, not the user cap.
         """
         sched = PipelineScheduler()
-        sched.configure_node("cloud:ep-1", 3)
+        sched.configure_node("cloud:ep-1", 50)
         # Pin AIMD state — see test above.
         with sched._lock:
             sched._slots["cloud:ep-1"]._last_recovery_time = time.time()

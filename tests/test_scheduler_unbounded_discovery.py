@@ -1,4 +1,9 @@
-"""Phase 82 completion: cloud AIMD is unbounded; local remains VRAM-capped."""
+"""Phase 82 completion: cloud AIMD is unbounded; local remains VRAM-capped.
+
+Phase 119 Phase A amendment: cloud slots only run unbounded when
+``max_concurrent == 0`` (the "Auto" sentinel). Tests that exercise the
+unbounded discovery path now construct slots with ``max_concurrent=0``.
+"""
 from __future__ import annotations
 
 import time
@@ -10,9 +15,12 @@ from prep.services.pipeline.scheduler import (
 
 
 def _cloud_slot(node_id: str = "cloud:ep-test", seed: int = 5) -> ComputeSlot:
+    # Phase 119 Phase A: max_concurrent=0 is the "Auto" sentinel that
+    # selects the Phase 82 unbounded discovery path. Tests in this file
+    # exercise that path, so they pass 0 here.
     return ComputeSlot(
         node_id=node_id,
-        max_concurrent=seed,
+        max_concurrent=0,
         current_limit=seed,
         min_limit=3,
     )

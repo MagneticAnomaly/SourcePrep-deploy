@@ -168,12 +168,24 @@ class ComputeSlot:
 
     @property
     def dynamic_capacity(self) -> int:
-        """Phase 82: cloud slots discover their real ceiling at runtime;
-        clipping by ``max_concurrent`` would defeat the discovery mechanism.
-        Local slots keep the clamp — ``max_concurrent`` is a VRAM ceiling
-        and a real hardware constraint.
+        """Phase 82 + Phase 119 Phase A:
+
+        Cloud slots:
+          - When ``max_concurrent > 0`` (user picked a plan tier or set a
+            custom value), AIMD operates inside ``[min_limit, max_concurrent]``.
+            This is the user's stated cap; we honor it.
+          - When ``max_concurrent == 0`` (the "Auto" sentinel — Phase 82
+            unbounded discovery path), ``current_limit`` is the only ceiling.
+            Used by header-rich providers where AIMD adapts from response
+            headers without a fixed cap.
+
+        Local slots: always clamp at ``max_concurrent`` (VRAM is a real
+        hardware constraint).
         """
-        if self.node_id.startswith("cloud:"):
+        is_cloud = self.node_id.startswith("cloud:")
+        if is_cloud and self.max_concurrent > 0:
+            return min(max(1, self.max_concurrent), max(1, self.current_limit))
+        if is_cloud:
             return max(1, self.current_limit)
         return min(self.max_concurrent, self.current_limit)
 
