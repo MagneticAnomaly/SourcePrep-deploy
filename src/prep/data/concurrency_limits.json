@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "updated_at": "2026-04-26",
+  "_doc": "Per-provider concurrency tier table. Single source of truth for the plan-dropdown UI. See docs/Phase119_ConcurrencyStability/05_Cross_Provider_Concurrency_Design.md.",
+  "providers": {
+    "ollama_cloud": {
+      "label": "Ollama Cloud",
+      "auto_detect": false,
+      "auto_detect_reason": "Ollama Cloud silently queues beyond plan concurrency; no 429 or x-ratelimit-* headers (ollama/ollama#15663)",
+      "tiers": [
+        {"tier_key": "free", "tier_label": "Free", "concurrent": 1, "source_url": "https://ollama.com/pricing"},
+        {"tier_key": "pro", "tier_label": "Pro", "concurrent": 3, "source_url": "https://ollama.com/pricing"},
+        {"tier_key": "max", "tier_label": "Max", "concurrent": 10, "source_url": "https://ollama.com/pricing"}
+      ]
+    },
+    "openai": {
+      "label": "OpenAI",
+      "auto_detect": true,
+      "auto_detect_reason": "x-ratelimit-remaining-requests + x-ratelimit-remaining-tokens headers on every response",
+      "tiers": [
+        {"tier_key": "tier_1", "tier_label": "Tier 1", "concurrent": 5, "source_url": "https://platform.openai.com/docs/guides/rate-limits"},
+        {"tier_key": "tier_2", "tier_label": "Tier 2", "concurrent": 10, "source_url": "https://platform.openai.com/docs/guides/rate-limits"},
+        {"tier_key": "tier_3", "tier_label": "Tier 3", "concurrent": 20, "source_url": "https://platform.openai.com/docs/guides/rate-limits"},
+        {"tier_key": "tier_4", "tier_label": "Tier 4", "concurrent": 40, "source_url": "https://platform.openai.com/docs/guides/rate-limits"},
+        {"tier_key": "tier_5", "tier_label": "Tier 5", "concurrent": 80, "source_url": "https://platform.openai.com/docs/guides/rate-limits"}
+      ]
+    },
+    "anthropic": {
+      "label": "Anthropic Claude",
+      "auto_detect": true,
+      "auto_detect_reason": "anthropic-ratelimit-requests-remaining and tokens-remaining headers on every response",
+      "tiers": [
+        {"tier_key": "tier_1", "tier_label": "Tier 1 ($5)", "concurrent": 5, "source_url": "https://platform.claude.com/docs/en/api/rate-limits"},
+        {"tier_key": "tier_2", "tier_label": "Tier 2 ($40)", "concurrent": 20, "source_url": "https://platform.claude.com/docs/en/api/rate-limits"},
+        {"tier_key": "tier_3", "tier_label": "Tier 3 ($200)", "concurrent": 40, "source_url": "https://platform.claude.com/docs/en/api/rate-limits"},
+        {"tier_key": "tier_4", "tier_label": "Tier 4 ($400)", "concurrent": 80, "source_url": "https://platform.claude.com/docs/en/api/rate-limits"}
+      ]
+    },
+    "google_gemini": {
+      "label": "Google Gemini",
+      "auto_detect": false,
+      "auto_detect_reason": "No predictive rate-limit headers exposed; reactive 429 + Retry-After only",
+      "tiers": [
+        {"tier_key": "free", "tier_label": "Free", "concurrent": 2, "source_url": "https://ai.google.dev/gemini-api/docs/rate-limits"},
+        {"tier_key": "tier_1", "tier_label": "Tier 1 (paid)", "concurrent": 10, "source_url": "https://ai.google.dev/gemini-api/docs/rate-limits"},
+        {"tier_key": "tier_2", "tier_label": "Tier 2", "concurrent": 30, "source_url": "https://ai.google.dev/gemini-api/docs/rate-limits"},
+        {"tier_key": "tier_3", "tier_label": "Tier 3", "concurrent": 60, "source_url": "https://ai.google.dev/gemini-api/docs/rate-limits"}
+      ]
+    },
+    "moonshot_kimi": {
+      "label": "Moonshot Kimi (direct)",
+      "auto_detect": false,
+      "auto_detect_reason": "Headers not documented; published explicit concurrent-per-tier in pricing docs",
+      "tiers": [
+        {"tier_key": "tier_0", "tier_label": "Tier 0 ($0)", "concurrent": 1, "source_url": "https://platform.kimi.ai/docs/pricing/limits"},
+        {"tier_key": "tier_1", "tier_label": "Tier 1 ($10)", "concurrent": 50, "source_url": "https://platform.kimi.ai/docs/pricing/limits"},
+        {"tier_key": "tier_2", "tier_label": "Tier 2 ($20)", "concurrent": 100, "source_url": "https://platform.kimi.ai/docs/pricing/limits"},
+        {"tier_key": "tier_3", "tier_label": "Tier 3 ($100)", "concurrent": 200, "source_url": "https://platform.kimi.ai/docs/pricing/limits"},
+        {"tier_key": "tier_4", "tier_label": "Tier 4 ($1000)", "concurrent": 400, "source_url": "https://platform.kimi.ai/docs/pricing/limits"},
+        {"tier_key": "tier_5", "tier_label": "Tier 5 ($3000)", "concurrent": 1000, "source_url": "https://platform.kimi.ai/docs/pricing/limits"}
+      ]
+    },
+    "ollama_local": {
+      "label": "Local Ollama (OSS)",
+      "auto_detect": true,
+      "auto_detect_reason": "OLLAMA_NUM_PARALLEL env probe via /api/ps",
+      "tiers": [
+        {"tier_key": "default", "tier_label": "OLLAMA_NUM_PARALLEL (default 4)", "concurrent": 4, "source_url": "https://docs.ollama.com/faq"}
+      ]
+    }
+  }
+}
