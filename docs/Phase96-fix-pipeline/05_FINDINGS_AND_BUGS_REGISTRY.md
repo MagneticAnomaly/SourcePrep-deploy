@@ -417,6 +417,22 @@ All 118 scheduler tests pass (107 pre-existing + 11 new).
 
 ---
 
+**Follow-up (2026-04-25, Phase 119):** F-28's idle recovery shipped without
+demand-gating. On cloud slots — which Phase 82 makes unbounded on the upward
+path — this produced a slow random walk: every 30 s `acquire()` call grew
+`current_limit` by 1 regardless of whether anything was waiting on the gate.
+Combined with backoffs that collapsed to `min_limit=3`, the net effect was
+the "60 with max=1" UI display and 67 → 3 whiplash on transient timeouts.
+
+Phase 119 supersedes F-28 by:
+- Renaming `_maybe_idle_recover` → `_maybe_demand_recover`.
+- Gating growth on `slot._gate_binding_until` (stamped by `acquire_request`
+  when in-flight is at or above the cap).
+- Locking discovered ceilings for 24 h after the first backoff edge in
+  `congestion_avoidance` mode.
+
+See `docs/Phase119_ConcurrencyStability/01_Design.md` for the full design.
+
 ### F-29 — Thinking-model swallows num_predict budget on `thinking` field
 
 **Status:** ✅ FIXED in `c4e9fe68` (think=false). The "daemon-runtime hang" caveat noted below was a misdiagnosis (F-35 → F-11) and has been resolved by the F-11 dashboard polling reduction. The think=false fix was always correct and sufficient.

@@ -16,6 +16,13 @@
 > Date: 2026-04-07
 > Purpose: Specify the dynamic concurrency scaling algorithm to optimally utilize both Ollama's local/cloud boundaries and API rate-limited components.
 
+> **Stability follow-up (2026-04-25, Phase 119):** Phase 82 keeps unbounded
+> upward discovery, but on its own it produced a "discovered ceiling that
+> kept growing forever" symptom because F-28's idle recovery walked
+> `current_limit` upward without real demand. Phase 119 adds demand-gating
+> + 24 h ceiling lock on top of Phase 82. See
+> `docs/Phase119_ConcurrencyStability/01_Design.md`.
+
 ## Problem Statement
 
 Earlier pipeline phases hardcoded LLM batch concurrency budgets (e.g. 100 for Cloud models, 1 for local Ollama instances).
