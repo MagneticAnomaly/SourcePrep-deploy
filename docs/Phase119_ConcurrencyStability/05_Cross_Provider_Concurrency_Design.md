@@ -268,6 +268,32 @@ This is consistent with Phase 82's principle: **don't hardcode behavior**, but i
 
 **Risk: Low.** The change is "honor a setting that already exists in the schema". Users who never set `cloud_concurrency` (the `=0` default) keep current behavior.
 
+**Status: SHIPPED 2026-04-26.** See `06_Phase_A_Plan.md` for the as-built changes.
+
+Commits (in order):
+- `f0a9a2d1` — `dynamic_capacity` respects `max_concurrent` when set
+- `5bcacd43` — docstring tightening
+- `e68d469c` — `concurrency_limits.json` data file
+- `e2023865` — schema validation hardening
+- `17be7a06` — `GET /llm/plan-limits` endpoint
+- `69f85d9a` — `PlanDropdown` component + Storybook stories
+- `7d29435d` — PlanDropdown review fixes
+- `9d468f50` — Wire PlanDropdown + save validation
+- `ce6f382f` — review fixes (validator scope, test coverage)
+
+Live verification: daemon restarted with new code; `/llm/plan-limits`
+returns the 6-provider table; `dynamic_capacity` honors
+`max_concurrent` on cloud slots; PlanDropdown renders in
+Settings → AI Models.
+
+**Known follow-up (not in Phase A scope):** the warnings array
+returned by the validator on `PUT /global/config` is not yet surfaced
+to the user. `useLLMConfig.ts` currently discards the response. A
+follow-up task should add a notification surface to display these
+warnings — e.g. when a user saves a cloud-Ollama endpoint without a
+plan tier, they should see "Pick your plan tier — Ollama Cloud
+doesn't expose rate-limit headers, so we can't auto-detect it."
+
 ### Phase B — Per-provider header-driven discovery
 
 **Goal:** for OpenAI / Anthropic / Kimi-direct, the daemon predicts saturation from response headers and proactively throttles before 429.

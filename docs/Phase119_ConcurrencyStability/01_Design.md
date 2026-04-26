@@ -5,6 +5,12 @@
 > Builds on: Phase 82 (Latency-Aware Discovery), F-28 (idle recovery), Phase 91 (queue refinement)
 > Related: docs/Phase82_CloudPipelineConcurrency/, docs/Phase96-fix-pipeline/05_FINDINGS_AND_BUGS_REGISTRY.md (F-28)
 
+> **Phase A shipped 2026-04-26**: AIMD now respects user-stated plan tier as a
+> hard cap. New `concurrency_limits.json` data file + `PlanDropdown` UI in
+> Settings → AI Models. See `06_Phase_A_Plan.md` for execution. Phase B
+> (header-driven discovery for OpenAI/Anthropic) and Phase C (Probe button)
+> are queued but not yet started.
+
 ## Problem
 
 Live observation (Apr 25, 2026 sweep on `tests/eval/sample_repos/generated/rust_repo`):
