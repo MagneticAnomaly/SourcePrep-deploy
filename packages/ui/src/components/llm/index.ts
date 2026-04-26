@@ -7,3 +7,5 @@ export { LLMAssignmentBlockCard } from './LLMAssignmentBlockCard';
 export type { LLMAssignmentBlockCardProps } from './LLMAssignmentBlockCard';
 export { LLMAssignmentsPipeline } from './LLMAssignmentsPipeline';
 export type { LLMAssignmentsPipelineProps } from './LLMAssignmentsPipeline';
+export { ProbeButton } from './ProbeButton';
+export type { ProbeButtonProps, ProbeResult, ProbeButtonState } from './ProbeButton';

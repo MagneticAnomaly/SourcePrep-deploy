@@ -6,6 +6,7 @@ import { Button } from '../primitives/Button';
 import { Select } from '../primitives/Select';
 import { InfoTooltip } from '../primitives/InfoTooltip';
 import { PlanDropdown, type PlanLimitsTable } from './PlanDropdown';
+import { ProbeButton } from './ProbeButton';
 
 export interface EndpointManagerProps {
   endpoints: SavedEndpoint[];
@@ -479,6 +480,26 @@ export function EndpointManager({
                           <AlertCircle className="w-3.5 h-3.5" />
                         )}
                         {testResults[ep.id].message}
+                      </div>
+                    )}
+                    {/* Phase 119 Phase C: empirical capacity probe.
+                        Cloud-only — local providers don't need it. */}
+                    {providerNeedsCloudPlan(ep.provider, ep.url) && (
+                      <div className="mt-3">
+                        <ProbeButton
+                          endpointId={ep.id}
+                          burstSize={20}
+                          onApply={(recommended) => {
+                            // Apply writes to the same cloud_concurrency field
+                            // the Plan dropdown writes to — the two controls
+                            // are complementary.
+                            onEdit({
+                              ...ep,
+                              cloud_concurrency: recommended,
+                              plan_tier: 'custom',
+                            });
+                          }}
+                        />
                       </div>
                     )}
                   </div>
