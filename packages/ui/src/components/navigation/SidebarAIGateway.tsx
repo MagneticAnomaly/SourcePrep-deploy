@@ -1,5 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { useState, useCallback } from 'react';
 import { cn } from '../../lib/utils';
 import {
   ChevronDown,
@@ -10,12 +9,8 @@ import {
   Loader2,
   Maximize2,
   Cpu,
-  Wrench,
 } from 'lucide-react';
 import { Button } from '../primitives/Button';
-import { ConcurrencyResetPanel } from '../concurrency/ConcurrencyResetPanel';
-import { RecentSwarmLogs } from '../concurrency/RecentSwarmLogs';
-import { SwarmActivityPanel } from '../concurrency/SwarmActivityPanel';
 import type { LLMSlotsStatus, RunningTask, LLMSlotStatus } from '../../types';
 import { TASK_LABELS } from '../../types';
 
@@ -24,12 +19,6 @@ export interface SidebarAIGatewayProps {
   collapsed?: boolean;
   onOpenDetails?: () => void;
   className?: string;
-  /** Phase 119 Task 16: when set, the AI Gateway header surfaces a small
-   *  developer-mode wrench that opens the cloud-concurrency reset panel.
-   *  The same affordance lives in Settings → AI Models → Pipeline Activity;
-   *  the sidebar entry point makes the action one click away from the
-   *  badge that triggered the user's investigation. */
-  baseUrl?: string;
 }
 
 interface SlotInfo {
@@ -91,13 +80,14 @@ function totalConcurrentWorkers(runningTasks: RunningTask[]): number {
 
 /**
  * Phase 119 amendment — the per-role swarm breakdown
- * (coordinator/worker/synthesizer) used to render inline under each
- * running task here.  It was confusing for end users (who only need
- * to know "a swarm is active"), so it now lives in the developer
- * popover behind the wrench icon.  See ``SwarmActivityPanel`` in
- * ``../concurrency/SwarmActivityPanel.tsx``.
+ * (coordinator/worker/synthesizer) and developer-mode panels (concurrency
+ * reset, swarm activity, recent swarm logs) have been moved out of this
+ * sidebar entirely. They now live in **Settings → Diagnostics**.
  *
- * The high-level "Swarm" badge + `concurrent_workers` count remain
+ * The sidebar AI Gateway is status-only: running tasks, badges, model
+ * assignments. Anything diagnostic / dogfooding belongs in Settings.
+ *
+ * The high-level "Swarm" badge + ``concurrent_workers`` count remain
  * inline below — those ARE user-facing status.
  */
 
@@ -154,142 +144,6 @@ function CollapsedView({
 }
 
 /**
- * Phase 119 Task 16: small inline menu next to the AI Gateway header.
- * One action — "Reset cloud concurrency discovery" — surfaced under a
- * subtle wrench icon. Hidden unless `baseUrl` is provided AND at least
- * one `cloud:*` node is registered with the scheduler (queried lazily).
- */
-function DevModeMenu({
-  baseUrl,
-  runningTasks,
-}: {
-  baseUrl: string;
-  runningTasks: RunningTask[];
-}) {
-  const [open, setOpen] = useState(false);
-  const [cloudNodeIds, setCloudNodeIds] = useState<string[] | null>(null);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const [anchor, setAnchor] = useState<{ left: number; top: number } | null>(null);
-
-  // Recompute anchor coordinates when the popover opens. Using a portal
-  // (rendered into document.body) sidesteps the sidebar's overflow clip
-  // and any z-index stacking inside ProjectList; using fixed-pixel
-  // coordinates from getBoundingClientRect avoids re-implementing
-  // floating-ui-style positioning for a one-shot dev affordance.
-  useEffect(() => {
-    if (!open) return;
-    const rect = triggerRef.current?.getBoundingClientRect();
-    if (rect) {
-      setAnchor({ left: rect.right + 8, top: rect.top });
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    const root = baseUrl.replace(/\/$/, '');
-    (async () => {
-      try {
-        const res = await fetch(`${root}/compute/scheduler`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = await res.json();
-        const nodes = body?.data?.nodes ?? body?.nodes ?? {};
-        const ids = Object.keys(nodes).filter((nid) => nid.startsWith('cloud:'));
-        if (!cancelled) setCloudNodeIds(ids);
-      } catch {
-        if (!cancelled) setCloudNodeIds([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, baseUrl]);
-
-  const portalTarget = typeof document !== 'undefined' ? document.body : null;
-
-  return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
-        className={cn(
-          // Phase 119 amendment: bumped visual weight (text-amber-400, w-6
-          // h-6, w-3.5 h-3.5 icon) so the developer affordance is
-          // discoverable from a quick scan of the AI Gateway header.
-          // Previously the muted color blended into the sidebar and users
-          // missed it entirely.
-          'inline-flex items-center justify-center w-6 h-6 rounded transition-colors',
-          'text-amber-400 hover:text-amber-300 hover:bg-surface-raised',
-          open && 'text-amber-300 bg-surface-raised',
-        )}
-        title="Developer tools — reset cloud concurrency discovery"
-        aria-label="Developer tools — reset cloud concurrency discovery"
-        aria-expanded={open}
-        data-testid="ai-gateway-devmode-toggle"
-      >
-        <Wrench className="w-3.5 h-3.5" />
-      </button>
-      {open && portalTarget && anchor &&
-        createPortal(
-          <>
-            {/* Click-outside backdrop */}
-            <div
-              className="fixed inset-0 z-[9998]"
-              onClick={() => setOpen(false)}
-              aria-hidden
-            />
-            <div
-              className="fixed z-[9999] w-72 rounded-md border border-border bg-surface shadow-xl p-3 space-y-2"
-              style={{ left: anchor.left, top: anchor.top }}
-              data-testid="ai-gateway-devmode-popover"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-text">
-                <Wrench className="w-3 h-3 text-text-muted" />
-                Developer mode
-              </div>
-
-              {/* Active swarms — diagnostic, so it's surfaced first.
-                  Empty state renders an italic "No active swarms" line. */}
-              <div className="border-b border-border pb-2 mb-1">
-                <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">
-                  Active Swarms
-                </h4>
-                <SwarmActivityPanel runningTasks={runningTasks} />
-              </div>
-
-              {/* Phase 119 verbose-logging: dynamic browser for the
-                  per-swarm-execution JSONL event logs written by
-                  SwarmEventLogger.  Replaces the previous static path
-                  footer; the popover stays open while the user inspects
-                  events so polling at 5 s is cheap. */}
-              <div className="border-b border-border pb-2 mb-1">
-                <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">
-                  Recent Swarm Logs
-                </h4>
-                <RecentSwarmLogs baseUrl={baseUrl} />
-              </div>
-
-              <ConcurrencyResetPanel
-                cloudNodeIds={cloudNodeIds ?? []}
-                baseUrl={baseUrl}
-              />
-              {cloudNodeIds === null && (
-                <div className="text-[10px] text-text-muted">Loading nodes…</div>
-              )}
-            </div>
-          </>,
-          portalTarget,
-        )}
-    </>
-  );
-}
-
-/**
  * Expanded sidebar view: collapsible section with model slots and running task details.
  */
 function ExpandedView({
@@ -298,14 +152,12 @@ function ExpandedView({
   sectionOpen,
   onToggleSection,
   onOpenDetails,
-  baseUrl,
 }: {
   slotsStatus: LLMSlotsStatus | null;
   runningTasks: RunningTask[];
   sectionOpen: boolean;
   onToggleSection: () => void;
   onOpenDetails?: () => void;
-  baseUrl?: string;
 }) {
   const slots = getSlots(slotsStatus);
   const totalRunning = totalConcurrentWorkers(runningTasks);
@@ -327,7 +179,6 @@ function ExpandedView({
           )}
         </button>
         <div className="flex items-center gap-0.5">
-          {baseUrl && <DevModeMenu baseUrl={baseUrl} runningTasks={runningTasks} />}
           {onOpenDetails && (
             <Button
               variant="ghost"
@@ -387,7 +238,7 @@ function ExpandedView({
                       )}
                     </div>
                     <div className="text-[10px] text-text-muted truncate h-[14px]">
-                      {isConfigured && slot.status?.model ? slot.status.model : '\u00A0'}
+                      {isConfigured && slot.status?.model ? slot.status.model : ' '}
                     </div>
                   </div>
                 </div>
@@ -417,11 +268,10 @@ function ExpandedView({
                       </span>
                     </div>
                     {/* Phase 119 amendment — the per-role
-                        coordinator/worker/synthesizer breakdown moved
-                        out of this user-facing sidebar into the
-                        developer popover (wrench icon).  The "Swarm"
-                        badge above is still inline because it's
-                        status, not debugging. */}
+                        coordinator/worker/synthesizer breakdown moved out
+                        of this user-facing sidebar into Settings →
+                        Diagnostics.  The "Swarm" badge above is still
+                        inline because it's status, not debugging. */}
                   </div>
                 ))}
               </div>
@@ -438,7 +288,6 @@ export function SidebarAIGateway({
   collapsed = false,
   onOpenDetails,
   className,
-  baseUrl,
 }: SidebarAIGatewayProps) {
   const storageKey = 'prep_sidebar_ai_gateway_open';
   const [sectionOpen, setSectionOpen] = useState(() => {
@@ -471,7 +320,6 @@ export function SidebarAIGateway({
           sectionOpen={sectionOpen}
           onToggleSection={handleToggle}
           onOpenDetails={onOpenDetails}
-          baseUrl={baseUrl}
         />
       )}
     </div>

@@ -329,9 +329,14 @@ export type {
 } from './components/concurrency/ConcurrencyHealth';
 
 // Concurrency reset (Phase 119 Task 16) — developer-mode reset for the
-// discovered ceiling lock. Lives in AI Gateway → Pipeline Activity.
+// discovered ceiling lock. Lives in Settings → Diagnostics.
 export { ConcurrencyResetPanel } from './components/concurrency/ConcurrencyResetPanel';
 export type { ConcurrencyResetPanelProps } from './components/concurrency/ConcurrencyResetPanel';
+
+// Swarm activity (Phase 119) — per-role coordinator/worker/synthesizer
+// breakdown for currently-running swarms. Lives in Settings → Diagnostics.
+export { SwarmActivityPanel, SwarmRoleRows } from './components/concurrency/SwarmActivityPanel';
+export type { SwarmActivityPanelProps } from './components/concurrency/SwarmActivityPanel';
 
 // Recent swarm logs (Phase 119 verbose-logging) — developer popover
 // browser for the per-swarm-execution JSONL event logs written by

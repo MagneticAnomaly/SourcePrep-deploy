@@ -1,6 +1,14 @@
-import { useState } from 'react';
-import { Button, ConcurrencyHealth, Section, useApiClient } from '@prep/ui';
-import type { LicenseStatus, LicenseTier } from '@prep/ui';
+import { useEffect, useState } from 'react';
+import {
+  Button,
+  ConcurrencyHealth,
+  ConcurrencyResetPanel,
+  RecentSwarmLogs,
+  Section,
+  SwarmActivityPanel,
+  useApiClient,
+} from '@prep/ui';
+import type { LicenseStatus, LicenseTier, RunningTask } from '@prep/ui';
 import { SettingsPage } from '../SettingsPage';
 
 export interface DiagnosticsPageProps {
@@ -8,12 +16,69 @@ export interface DiagnosticsPageProps {
   devTierOverride: LicenseTier | null;
 }
 
+/**
+ * Settings → Diagnostics page.
+ *
+ * Phase 119 amendment: the developer-mode panels that previously lived
+ * inside the AI Gateway sidebar's wrench popover (concurrency reset,
+ * swarm activity, recent swarm logs) now live here.  The sidebar is
+ * status-only — running tasks, badges, model assignments — and any
+ * diagnostic / dogfooding affordance lives in Settings.
+ */
 export function DiagnosticsPage({
   licenseStatus,
   devTierOverride,
 }: DiagnosticsPageProps) {
   const [healthResult, setHealthResult] = useState<string>('No test run yet');
   const api = useApiClient();
+
+  // ── Live state for the swarm + concurrency panels ──────────────
+  // Mirror the polling patterns the sidebar used so the panels render
+  // useful data while the user is on this page. Both endpoints are
+  // cheap; we only poll while mounted.
+  const [runningTasks, setRunningTasks] = useState<RunningTask[]>([]);
+  const [cloudNodeIds, setCloudNodeIds] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    const root = api.baseUrl.replace(/\/$/, '');
+    let cancelled = false;
+
+    const tickSlots = async () => {
+      try {
+        const res = await fetch(`${root}/llm/slots/status`);
+        if (!res.ok) return;
+        const body = await res.json();
+        const tasks: RunningTask[] =
+          body?.data?.running_tasks ?? body?.running_tasks ?? [];
+        if (!cancelled) setRunningTasks(tasks);
+      } catch {
+        /* swallow — panel renders empty state on its own */
+      }
+    };
+
+    const tickScheduler = async () => {
+      try {
+        const res = await fetch(`${root}/compute/scheduler`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = await res.json();
+        const nodes = body?.data?.nodes ?? body?.nodes ?? {};
+        const ids = Object.keys(nodes).filter((nid) => nid.startsWith('cloud:'));
+        if (!cancelled) setCloudNodeIds(ids);
+      } catch {
+        if (!cancelled) setCloudNodeIds([]);
+      }
+    };
+
+    void tickSlots();
+    void tickScheduler();
+    const slotsId = window.setInterval(() => void tickSlots(), 3000);
+    const schedId = window.setInterval(() => void tickScheduler(), 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(slotsId);
+      window.clearInterval(schedId);
+    };
+  }, [api.baseUrl]);
 
   // Lifted verbatim from SettingsDrawer.tsx:228-236
   const runHealthTest = async () => {
@@ -30,7 +95,7 @@ export function DiagnosticsPage({
     <SettingsPage
       title="Diagnostics"
       scope="developer"
-      description="Health checks and effective license state."
+      description="Live cloud-LLM concurrency, swarm activity, recent swarm logs, and license/connection health."
     >
       <Section title="License details">
         <div className="text-xs font-mono bg-background p-3 rounded border border-border space-y-1.5">
@@ -72,12 +137,45 @@ export function DiagnosticsPage({
         </div>
       </Section>
 
-      <Section title="Concurrency Health (Phase 119)">
+      <Section title="Concurrency Health">
         <p className="text-xs text-text-muted mb-2">
-          Live AIMD state per cloud LLM node — current limit, in-flight, discovered
-          ceiling, and recent backoff/grow events. Polls every 2 s.
+          Live AIMD state per cloud LLM node — current limit, in-flight,
+          discovered ceiling, and recent backoff/grow events. Polls every 2 s.
         </p>
         <ConcurrencyHealth baseUrl={api.baseUrl} className="!p-0" />
+      </Section>
+
+      <Section title="Active Swarms">
+        <p className="text-xs text-text-muted mb-2">
+          Coordinator → workers → synthesizer breakdown for currently-running
+          swarm orchestrations. If you see N concurrent calls but no
+          coordinator/synthesizer, the stage is parallel — not swarming.
+        </p>
+        <SwarmActivityPanel runningTasks={runningTasks} />
+      </Section>
+
+      <Section title="Recent Swarm Logs">
+        <p className="text-xs text-text-muted mb-2">
+          Per-swarm JSONL event logs written by{' '}
+          <code className="font-mono text-[11px]">SwarmEventLogger</code>.
+          Click any row to inspect its events inline.
+        </p>
+        <RecentSwarmLogs baseUrl={api.baseUrl} />
+      </Section>
+
+      <Section title="Reset Cloud Concurrency">
+        <p className="text-xs text-text-muted mb-2">
+          Forces SourcePrep to re-probe and rediscover the cloud-LLM
+          concurrency limit. Use after a plan upgrade, endpoint swap, or when
+          the limit value looks wrong.
+        </p>
+        <ConcurrencyResetPanel
+          cloudNodeIds={cloudNodeIds ?? []}
+          baseUrl={api.baseUrl}
+        />
+        {cloudNodeIds === null && (
+          <div className="text-[10px] text-text-muted mt-2">Loading nodes…</div>
+        )}
       </Section>
     </SettingsPage>
   );

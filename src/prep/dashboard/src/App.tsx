@@ -1171,7 +1171,6 @@ function App() {
                     <SidebarAIGateway
                       slotsStatus={llmSlotsStatus}
                       onOpenDetails={() => layoutApiRef.current?.openDetails('llm-status')}
-                      baseUrl={import.meta.env.DEV ? `http://${window.location.hostname}:8400` : api.baseUrl}
                     />
                   </>
                 }

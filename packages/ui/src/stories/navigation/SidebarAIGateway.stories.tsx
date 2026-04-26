@@ -162,23 +162,6 @@ export const CollapsedSwarm: Story = {
   },
 };
 
-/**
- * Phase 119 Task 16: AI Gateway header surfaces a small developer-mode
- * wrench (next to the expand-to-details Maximize2 icon) when ``baseUrl``
- * is provided. Click it to open the cloud-concurrency reset popover.
- *
- * The story passes a baseUrl that doesn't resolve in Storybook, so the
- * popover renders its "Loading nodes…" → empty-state branch — sufficient
- * to verify the wrench is visible and the click handler wires up.
- */
-export const DevModeResetButton: Story = {
-  name: 'Dev mode reset wrench (Phase 119 Task 16)',
-  args: {
-    slotsStatus: baseSlots,
-    baseUrl: 'http://localhost:8400',
-  },
-};
-
 export const LowConcurrencySwarm: Story = {
   name: '3×Swarm (low concurrency)',
   args: {
@@ -198,15 +181,13 @@ export const LowConcurrencySwarm: Story = {
  * coordinator → fan-out → synthesizer pattern, the AI Gateway shows
  * the high-level "Swarm" badge + worker count.
  *
- * Phase 119 amendment (verbose-logging): the per-role
- * coordinator/worker/synthesizer breakdown that USED to render inline
- * here was moved to the developer popover (wrench icon).  Open the
- * wrench in this story and you'll see a ``SwarmActivityPanel`` inside
- * with the same data.  The sidebar itself only surfaces the badge +
- * count, which is what end users need.
+ * Phase 119 amendment: the per-role coordinator/worker/synthesizer
+ * breakdown that USED to render inline here was moved to
+ * **Settings → Diagnostics**.  The sidebar itself only surfaces the
+ * badge + count, which is what end users need.
  */
 export const SwarmThreePhaseBreakdown: Story = {
-  name: 'Swarm badge + count (per-role rows now in dev popover)',
+  name: 'Swarm badge + count (per-role rows now in Settings → Diagnostics)',
   args: {
     slotsStatus: {
       ...baseSlots,
@@ -223,11 +204,6 @@ export const SwarmThreePhaseBreakdown: Story = {
         },
       ],
     },
-    // Phase 119 verbose-logging: pass a baseUrl so the dev wrench
-    // renders.  Click it (or the playwright capture script does) to
-    // see the SwarmActivityPanel + log-location footer that used to
-    // be inline here.
-    baseUrl: 'http://localhost:8400',
   },
 };
 
@@ -235,13 +211,14 @@ export const SwarmThreePhaseBreakdown: Story = {
  * Phase 119 Swarm Authority — fan-out only.
  *
  * Some "swarm-capable" stages (notably ``audit``) open a swarm window
- * but never run a coordinator or synthesizer LLM call.  The dev-popover
- * ``SwarmActivityPanel`` surfaces only the bucket that has actual work,
- * so an audit-style swarm shows "Workers ×5" rather than three rows
- * with two at zero.  The sidebar still shows the high-level badge.
+ * but never run a coordinator or synthesizer LLM call.  The
+ * Settings → Diagnostics ``SwarmActivityPanel`` surfaces only the
+ * bucket that has actual work, so an audit-style swarm shows
+ * "Workers ×5" rather than three rows with two at zero.  The sidebar
+ * still shows the high-level badge.
  */
 export const SwarmFanOutOnly: Story = {
-  name: 'Swarm window open but only workers active (dev popover)',
+  name: 'Swarm window open but only workers active (Settings → Diagnostics)',
   args: {
     slotsStatus: {
       ...baseSlots,
