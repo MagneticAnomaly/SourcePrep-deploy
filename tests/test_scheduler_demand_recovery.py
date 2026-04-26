@@ -187,7 +187,11 @@ def test_locked_ceiling_blocks_growth_above(monkeypatch, tmp_path) -> None:
     slot.mode = "congestion_avoidance"
     slot.current_limit = 9
     slot.discovered_ceiling = 10
-    slot.ceiling_locked_until = 99_999_999.0
+
+    # Patch time so the lock is unambiguously in the future.
+    base = 1_000_000.0
+    slot.ceiling_locked_until = base + 3600
+    monkeypatch.setattr("prep.services.pipeline.scheduler.time.time", lambda: base)
 
     # 9 successful calls = batch_size complete in CA → would normally grow.
     for _ in range(9):
