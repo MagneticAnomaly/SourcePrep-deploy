@@ -35,7 +35,7 @@ import time
 from collections import deque
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Callable, Deque, Dict, List, Literal, Optional, Set, Tuple
+from typing import Any, Callable, Deque, Dict, List, Literal, Mapping, Optional, Set, Tuple
 
 # Priority levels for the star system (three-tier)
 PriorityLevel = Literal["none", "boost", "exclusive"]
@@ -43,6 +43,7 @@ PriorityLevel = Literal["none", "boost", "exclusive"]
 from .stages import QueueType, STAGE_QUEUE_TYPE, StageId
 from prep.services.pipeline import ollama_probe
 from prep.services.pipeline.concurrency_store import concurrency_store
+from prep.services.pipeline.discovery import SaturationHint, predict_saturation
 
 logger = logging.getLogger(__name__)
 
@@ -543,11 +544,16 @@ class PipelineScheduler:
         queue_time_ms: float = 0.0,
         rate_limit_remaining: Optional[int] = None,
         is_429_or_timeout: bool = False,
+        saturation_hint: Optional[SaturationHint] = None,
     ) -> None:
         """Phase 82: Latency-Aware AIMD step, called upon LLM completion.
 
         Adjusts `current_limit` dynamically based on LLM execution queue time
         or hard rate limits.
+
+        Phase 119 Phase B: optional ``saturation_hint`` predicts saturation
+        from per-provider response headers and slows growth proactively
+        before a 429 fires. ``None`` preserves Phase 82 behavior.
         """
         changed = False
         with self._lock:
@@ -555,7 +561,10 @@ class PipelineScheduler:
                 return
             slot = self._slots[node_id]
             old_limit = slot.current_limit
-            self._record_throughput_for_slot(slot, queue_time_ms, rate_limit_remaining, is_429_or_timeout)
+            self._record_throughput_for_slot(
+                slot, queue_time_ms, rate_limit_remaining,
+                is_429_or_timeout, saturation_hint,
+            )
             changed = slot.current_limit != old_limit
         # Phase 91: Broadcast capacity change if AIMD adjusted the limit
         if changed:
@@ -568,8 +577,28 @@ class PipelineScheduler:
         queue_time_ms: float = 0.0,
         rate_limit_remaining: Optional[int] = None,
         is_429_or_timeout: bool = False,
+        headers: Optional[Mapping[str, str]] = None,
+        status: Optional[int] = None,
     ) -> None:
-        """Helper for LLMClient: resolves node automatically based on provider/model."""
+        """Helper for LLMClient: resolves node automatically based on provider/model.
+
+        Phase 119 Phase B: when ``headers`` are supplied, run the
+        provider-specific discovery adapter and pass the resulting
+        ``SaturationHint`` into the AIMD step. Providers without
+        predictive headers (Ollama Cloud, Gemini direct, Kimi direct)
+        receive a no-op hint and behavior is unchanged from Phase A.
+        """
+        # Phase 119 Phase B: compute the saturation hint once per call.
+        # ``predict_saturation`` is pure and very cheap; safe to call
+        # outside the lock.
+        hint: Optional[SaturationHint] = None
+        if headers is not None:
+            try:
+                hint = predict_saturation(provider, headers, status or 200)
+            except Exception as exc:  # pragma: no cover — defensive
+                logger.debug("predict_saturation(%s) failed: %s", provider, exc)
+                hint = None
+
         is_cloud = provider in CLOUD_PROVIDERS
         if not is_cloud and model:
             try:
@@ -579,7 +608,7 @@ class PipelineScheduler:
             except ImportError:
                 pass
         prefix = "cloud:" if is_cloud else "local:"
-        
+
         # F-74: Use non-blocking lock acquisition. This method is called from
         # the build thread after every LLM response. If the dashboard's polling
         # threads hold self._lock (via status() or available_batch_workers()),
@@ -595,7 +624,10 @@ class PipelineScheduler:
             for nid, slot in self._slots.items():
                 if nid.startswith(prefix):
                     old_limit = slot.current_limit
-                    self._record_throughput_for_slot(slot, queue_time_ms, rate_limit_remaining, is_429_or_timeout)
+                    self._record_throughput_for_slot(
+                        slot, queue_time_ms, rate_limit_remaining,
+                        is_429_or_timeout, hint,
+                    )
                     if slot.current_limit != old_limit:
                         changed_nodes.append(nid)
         finally:
@@ -604,12 +636,21 @@ class PipelineScheduler:
         for nid in changed_nodes:
             self._broadcast_capacity_change(nid, "aimd_adjust")
 
+    # Phase 119 Phase B saturation thresholds. score>=_SAT_HARD switches a
+    # jumpstart slot to congestion_avoidance immediately (don't double).
+    # score>=_SAT_SOFT skips the additive +1 this cycle. Suggested_max is
+    # always treated as an additional UPPER bound on growth, never below
+    # the slot's existing current_limit unless mode is congestion_avoidance.
+    _SAT_HARD = 0.9
+    _SAT_SOFT = 0.7
+
     def _record_throughput_for_slot(
         self,
         slot: ComputeSlot,
         queue_time_ms: float = 0.0,
         rate_limit_remaining: Optional[int] = None,
         is_429_or_timeout: bool = False,
+        saturation_hint: Optional[SaturationHint] = None,
     ) -> None:
         """Internal helper to apply AIMD logic to a single slot.
 
@@ -627,6 +668,15 @@ class PipelineScheduler:
         - Cloud APIs: rate_limit_remaining headers still clamp max concurrency.
         queue_time_ms is retained in the signature for logging and to leave
         the telemetry path open for per-token work-normalized signals.
+
+        Phase 119 Phase B: ``saturation_hint`` carries a normalized 0..1
+        prediction from a per-provider header parser. When the score is
+        high (>=_SAT_HARD) we treat it as a soft-fail: jumpstart slots
+        switch to congestion_avoidance immediately (no doubling). When
+        moderately high (>=_SAT_SOFT) we skip the +1 cycle. When the
+        adapter has a request-count opinion (``suggested_max``), it
+        becomes an additional UPPER bound on growth — but Phase A's
+        ``max_concurrent`` clamp still wins via ``dynamic_capacity``.
         """
         # Step 1: Clamp hard limit from cloud rate-limit headers (when available)
         if rate_limit_remaining is not None and rate_limit_remaining >= 0:
@@ -688,6 +738,28 @@ class PipelineScheduler:
             slot.success_streak += 1
 
             is_cloud = slot.node_id.startswith("cloud:")
+
+            # Phase 119 Phase B: hard saturation predicted by header parser.
+            # Treat as a soft-fail signal — jumpstart should not double now.
+            # We do NOT cut current_limit (no headers said "you 429ed"); we
+            # just stop growing aggressively. The demand-gate / locked
+            # ceiling logic below handles the rest.
+            if (
+                saturation_hint is not None
+                and saturation_hint.score >= self._SAT_HARD
+                and slot.mode == "jumpstart"
+            ):
+                logger.info(
+                    "Scheduler: Node %s saturation_hint score=%.2f hard threshold "
+                    "— switching jumpstart→congestion_avoidance (reason=%s)",
+                    slot.node_id, saturation_hint.score, saturation_hint.reason,
+                )
+                slot.mode = "congestion_avoidance"
+                self._record_history(
+                    slot, slot.current_limit, slot.current_limit,
+                    "saturation_hint_hard",
+                )
+
             batch_size = max(1, slot.current_limit)
             if slot.success_streak >= batch_size:
                 slot.success_streak = 0
@@ -711,13 +783,46 @@ class PipelineScheduler:
                 # with a known hard ceiling — demand-gating adds no value there.
                 if is_cloud and time.time() >= slot._gate_binding_until:
                     allow_increase = False
+
+                # Phase 119 Phase B: soft saturation skips the +1 increase
+                # this cycle. Hard saturation (already mode-flipped above)
+                # also lands here as a no-grow event.
+                if (
+                    saturation_hint is not None
+                    and saturation_hint.score >= self._SAT_SOFT
+                ):
+                    if allow_increase:
+                        logger.info(
+                            "Scheduler: Node %s saturation_hint score=%.2f soft "
+                            "threshold — skipping growth this cycle (reason=%s)",
+                            slot.node_id, saturation_hint.score,
+                            saturation_hint.reason,
+                        )
+                    allow_increase = False
+
                 if allow_increase:
+                    # Phase 119 Phase B: ``suggested_max`` is an additional
+                    # UPPER bound on growth (never overrides upward — Phase
+                    # A's ``max_concurrent`` clamp via ``dynamic_capacity``
+                    # remains the OUTER ceiling).
+                    suggested_max: Optional[int] = None
+                    if (
+                        saturation_hint is not None
+                        and saturation_hint.suggested_max is not None
+                    ):
+                        suggested_max = saturation_hint.suggested_max
+
                     if slot.mode == "jumpstart":
                         new_limit = slot.current_limit * 2
                         if not is_cloud:
                             new_limit = min(slot.max_concurrent, new_limit)
                         elif slot.discovered_ceiling is not None and time.time() < slot.ceiling_locked_until:
                             new_limit = min(slot.discovered_ceiling, new_limit)
+                        if suggested_max is not None:
+                            new_limit = min(new_limit, suggested_max)
+                        # Never go below current_limit via suggested_max
+                        # (we are on the success path; no MD here).
+                        new_limit = max(new_limit, slot.current_limit)
                         logger.info(
                             "Scheduler: Node %s jumpstart %d -> %d",
                             slot.node_id, slot.current_limit, new_limit,
@@ -734,6 +839,9 @@ class PipelineScheduler:
                             new_limit = min(slot.max_concurrent, new_limit)
                         elif slot.discovered_ceiling is not None and time.time() < slot.ceiling_locked_until:
                             new_limit = min(slot.discovered_ceiling, new_limit)
+                        if suggested_max is not None:
+                            new_limit = min(new_limit, suggested_max)
+                        new_limit = max(new_limit, slot.current_limit)
                         logger.info(
                             "Scheduler: Node %s additive increase %d -> %d (mode=%s, max=%d, floor=%d)",
                             slot.node_id, slot.current_limit, new_limit,
