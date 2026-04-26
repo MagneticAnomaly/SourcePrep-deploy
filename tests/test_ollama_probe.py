@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from prep.services.pipeline.ollama_probe import probe_ollama_concurrency
 
 
@@ -65,3 +63,29 @@ def test_clamps_to_reasonable_range(monkeypatch) -> None:
         rq.get.return_value = MagicMock(status_code=200, json=lambda: {"models": []})
         # Negative falls through to API → empty → default.
         assert probe_ollama_concurrency("http://localhost:11434") == 5
+
+
+def test_host_without_scheme_gets_http_added(monkeypatch) -> None:
+    monkeypatch.delenv("OLLAMA_NUM_PARALLEL", raising=False)
+    captured = {}
+    def fake_get(url, timeout):
+        captured["url"] = url
+        return MagicMock(status_code=200, json=lambda: {"models": [{}, {}, {}, {}]})
+    with patch("prep.services.pipeline.ollama_probe.requests") as rq:
+        rq.get.side_effect = fake_get
+        result = probe_ollama_concurrency("localhost:11434")
+    assert result == 4
+    assert captured["url"] == "http://localhost:11434/api/ps"
+
+
+def test_host_with_https_scheme_preserved(monkeypatch) -> None:
+    monkeypatch.delenv("OLLAMA_NUM_PARALLEL", raising=False)
+    captured = {}
+    def fake_get(url, timeout):
+        captured["url"] = url
+        return MagicMock(status_code=200, json=lambda: {"models": [{}, {}]})
+    with patch("prep.services.pipeline.ollama_probe.requests") as rq:
+        rq.get.side_effect = fake_get
+        result = probe_ollama_concurrency("https://ollama.example.com")
+    assert result == 2
+    assert captured["url"] == "https://ollama.example.com/api/ps"
