@@ -224,6 +224,10 @@ def _build_queue_sync() -> dict[str, Any]:
             "current_load": node_info.get("current_load", 0),
             "in_flight_requests": node_info.get("in_flight_requests", 0),
             "current_limit": node_info.get("current_limit", node_info.get("max_concurrent", 1)),
+            "discovered_ceiling": node_info.get("discovered_ceiling"),
+            "locked_until": node_info.get("locked_until"),
+            "aimd_mode": node_info.get("aimd_mode"),
+            "state": node_info.get("state", "probing"),
             "active": node_info.get("active", {}),
             "queued": node_info.get("queued", []),
         }

@@ -207,6 +207,29 @@ class QueueEntry:
     enqueued_at: float = field(default_factory=time.time)
 
 
+def _derive_node_state(
+    *,
+    discovered_ceiling: Optional[int],
+    ceiling_locked_until: float,
+    last_backoff_time: float,
+    backoff_cooldown_s: float,
+) -> str:
+    """Derive a presentation-layer state for a compute slot.
+
+    Phase 119 — replaces the misleading raw-number triplet in the UI.
+
+    Returns one of: ``probing``, ``locked``, ``backing_off``, ``recovering``.
+    """
+    now = time.time()
+    if now - last_backoff_time < backoff_cooldown_s:
+        return "backing_off"
+    if discovered_ceiling is not None:
+        if now < ceiling_locked_until:
+            return "locked"
+        return "recovering"
+    return "probing"
+
+
 class PipelineScheduler:
     """Manages compute slot allocation across multiple project pipelines.
 
@@ -1776,6 +1799,14 @@ class PipelineScheduler:
                     "aimd_mode": slot.mode,
                     "current_limit": slot.current_limit,
                     "in_flight_requests": slot.in_flight_requests,
+                    "discovered_ceiling": slot.discovered_ceiling,
+                    "locked_until": slot.ceiling_locked_until or None,
+                    "state": _derive_node_state(
+                        discovered_ceiling=slot.discovered_ceiling,
+                        ceiling_locked_until=slot.ceiling_locked_until,
+                        last_backoff_time=slot._last_backoff_time,
+                        backoff_cooldown_s=self._BACKOFF_COOLDOWN_S,
+                    ),
                     "active": dict(slot.active_stages),
                     "queued": [
                         {
