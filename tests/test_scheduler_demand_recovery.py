@@ -282,3 +282,22 @@ def test_configure_node_hydrates_ceiling_only_when_unlocked(monkeypatch, tmp_pat
     assert slot.mode == "congestion_avoidance"
     assert slot.discovered_ceiling is None
     assert slot.ceiling_locked_until == 0.0
+
+
+def test_new_cloud_slot_uses_ollama_probe_when_no_persistence(monkeypatch, tmp_path) -> None:
+    """First-time configuration of a cloud-via-Ollama slot probes /api/ps."""
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+    from prep.services.pipeline import ollama_probe as probe_mod
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+    monkeypatch.setattr(probe_mod, "probe_ollama_concurrency", lambda host, timeout=1.5: 12)
+
+    sched = PipelineScheduler()
+    sched.configure_node("cloud:default_ollama", max_concurrent=1)
+    slot = sched._slots["cloud:default_ollama"]
+
+    # Probe seeded the slot at 12 (not the legacy 5 default, not max_concurrent=1).
+    assert slot.current_limit == 12
+    assert slot.mode == "jumpstart"  # still exploring above the probe

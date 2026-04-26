@@ -41,6 +41,7 @@ from typing import Any, Callable, Deque, Dict, List, Literal, Optional, Set, Tup
 PriorityLevel = Literal["none", "boost", "exclusive"]
 
 from .stages import QueueType, STAGE_QUEUE_TYPE, StageId
+from prep.services.pipeline import ollama_probe
 from prep.services.pipeline.concurrency_store import concurrency_store
 
 logger = logging.getLogger(__name__)
@@ -330,6 +331,27 @@ class PipelineScheduler:
                                 "Scheduler: hydrated unlocked ceiling %d for %s",
                                 record["ceiling"], node_id,
                             )
+                if is_cloud and record is None and node_id == "cloud:default_ollama":
+                    # Phase 119: probe Ollama instead of the static 5 seed.
+                    try:
+                        from prep.services.settings_store import settings as _s
+                        llm_config = _s.get("llm_config") or {}
+                        host = ""
+                        for ep in llm_config.get("saved_endpoints", []):
+                            if ep.get("id") == "default_ollama":
+                                host = ep.get("base_url") or "http://localhost:11434"
+                                break
+                        host = host or "http://localhost:11434"
+                        probed = ollama_probe.probe_ollama_concurrency(host)
+                        if probed > 0:
+                            seed = probed
+                            logger.info(
+                                "Scheduler: Ollama probe seeded %s at %d "
+                                "(host=%s)",
+                                node_id, probed, host,
+                            )
+                    except Exception as exc:
+                        logger.debug("Ollama probe error for seed: %s", exc)
                 self._slots[node_id] = ComputeSlot(
                     node_id=node_id,
                     max_concurrent=new_max,
