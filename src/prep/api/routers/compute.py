@@ -302,6 +302,77 @@ def concurrency_history(
     return {"history": out}
 
 
+# ── Phase 119 Phase C: manual capacity probe ─────────────────────
+
+
+class EndpointProbeRequest(BaseModel):
+    endpoint_id: str = Field(..., description="Saved endpoint id to probe.")
+    burst_size: int = Field(
+        20, ge=1, le=50,
+        description="Number of parallel calibrated requests (≤50).",
+    )
+
+
+@router.post("/compute/endpoint-probe")
+async def endpoint_probe(req: EndpointProbeRequest) -> Dict[str, Any]:
+    """Phase 119 Phase C: empirically probe a saved endpoint's capacity.
+
+    Fires ``burst_size`` parallel min-cost requests at the endpoint's
+    lightest model, measures wall-clock duration of each, and reports a
+    saturation point detected from the latency staircase. The probe is
+    intentionally cheap (each request uses ``max_tokens=1``) and bounded
+    (``burst_size <= 50``) — it must never run automatically.
+
+    Returns the same shape as ``ProbeResult`` so the UI can render the
+    summary card directly.
+    """
+    from prep.services.pipeline import endpoint_probe as probe_module
+    try:
+        result = await probe_module.run_probe(
+            endpoint_id=req.endpoint_id,
+            burst_size=req.burst_size,
+        )
+    except ValueError as exc:
+        raise ApiException(
+            status_code=404,
+            code="ENDPOINT_NOT_FOUND",
+            message=str(exc),
+        )
+    payload = {
+        "endpoint_id": result.endpoint_id,
+        "probed_at": result.probed_at,
+        "burst_size": result.burst_size,
+        "wall_clock_ms": result.wall_clock_ms,
+        "saturation_point": result.saturation_point,
+        "saturation_method": result.saturation_method,
+        "recommended_concurrent": result.recommended_concurrent,
+        "successes": result.successes,
+        "errors": result.errors,
+        "histogram_path": result.histogram_path,
+    }
+    return ok(payload)
+
+
+@router.get("/compute/endpoint-probe/history")
+def endpoint_probe_history(
+    endpoint_id: str,
+    limit: int = 10,
+) -> Dict[str, Any]:
+    """Recent probe records for an endpoint.
+
+    Returns up to ``limit`` records ordered oldest → newest. Falls back
+    to disk-persisted records when the in-memory ring is empty (e.g.
+    after a daemon restart).
+    """
+    from prep.services.pipeline import endpoint_probe as probe_module
+
+    safe_limit = max(1, min(int(limit), 50))
+    records = probe_module.probe_history.get(endpoint_id, safe_limit)
+    if not records:
+        records = probe_module.read_persisted(endpoint_id, safe_limit)
+    return ok({"endpoint_id": endpoint_id, "probes": records})
+
+
 @router.post("/compute/concurrency/clear")
 def clear_concurrency_lock(node_id: str) -> dict[str, Any]:
     """Phase 119 Task 16: full reset of a discovered-concurrency slot.
