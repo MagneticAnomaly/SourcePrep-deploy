@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-
 export interface PlanLimitTier {
   tier_key: string;
   tier_label: string;
@@ -40,12 +38,6 @@ export function PlanDropdown(props: PlanDropdownProps) {
   const { providerKey, value, customConcurrent, limits, onChange } = props;
   const provider = limits.providers[providerKey];
 
-  // Local state for "Custom..." input.
-  const [customInput, setCustomInput] = useState<number>(customConcurrent || 1);
-  useEffect(() => {
-    setCustomInput(customConcurrent || 1);
-  }, [customConcurrent]);
-
   if (!provider) {
     return (
       <div className="text-xs text-amber-400">
@@ -54,15 +46,18 @@ export function PlanDropdown(props: PlanDropdownProps) {
     );
   }
 
+  // No local state — `customConcurrent` is the single source of truth (parent-controlled).
+  // The input below is fully controlled; every change fires onChange so the
+  // parent updates customConcurrent on the next render.
+  const selectedTier = provider.tiers.find((t) => t.tier_key === value);
+
   // Compute the active concurrent based on selection.
   const activeConcurrent =
     value === SENTINEL_AUTO ? 0 :  // 0 = "auto" sentinel for backend
-    value === SENTINEL_CUSTOM ? customInput :
-    (provider.tiers.find((t) => t.tier_key === value)?.concurrent ?? 0);
+    value === SENTINEL_CUSTOM ? (customConcurrent || 1) :
+    (selectedTier?.concurrent ?? 0);
 
-  const sourceUrl =
-    (provider.tiers.find((t) => t.tier_key === value)?.source_url) ??
-    (provider.tiers[0]?.source_url ?? '');
+  const sourceUrl = selectedTier?.source_url ?? provider.tiers[0]?.source_url ?? '';
 
   let sourceHost = '';
   if (sourceUrl) {
@@ -86,14 +81,16 @@ export function PlanDropdown(props: PlanDropdownProps) {
           } else if (next === SENTINEL_AUTO) {
             onChange({ plan_tier: SENTINEL_AUTO, cloud_concurrency: 0 });
           } else if (next === SENTINEL_CUSTOM) {
-            onChange({ plan_tier: SENTINEL_CUSTOM, cloud_concurrency: customInput });
+            onChange({ plan_tier: SENTINEL_CUSTOM, cloud_concurrency: customConcurrent || 1 });
           } else {
             const tier = provider.tiers.find((t) => t.tier_key === next);
             onChange({ plan_tier: next, cloud_concurrency: tier?.concurrent ?? 0 });
           }
         }}
       >
-        <option value="" disabled>— pick a plan —</option>
+        {(value === undefined || value === '') && (
+          <option value="" disabled>— pick a plan —</option>
+        )}
         {provider.auto_detect && (
           <option value={SENTINEL_AUTO}>Auto-detect from headers (recommended)</option>
         )}
@@ -110,11 +107,12 @@ export function PlanDropdown(props: PlanDropdownProps) {
           type="number"
           min={1}
           max={1000}
-          value={customInput}
+          value={customConcurrent || 1}
           onChange={(e) => {
-            const n = Math.max(1, Math.min(1000, parseInt(e.target.value || '1', 10)));
-            setCustomInput(n);
-            onChange({ plan_tier: SENTINEL_CUSTOM, cloud_concurrency: n });
+            const parsed = parseInt(e.target.value || '1', 10);
+            const safe = Number.isFinite(parsed) ? parsed : 1;
+            const clamped = Math.max(1, Math.min(1000, safe));
+            onChange({ plan_tier: SENTINEL_CUSTOM, cloud_concurrency: clamped });
           }}
           className="w-full bg-surface-raised border border-border rounded px-2 py-1 text-sm"
         />
@@ -122,7 +120,7 @@ export function PlanDropdown(props: PlanDropdownProps) {
 
       {sourceHost && (
         <p className="text-[10px] text-text-muted">
-          ⓘ From{' '}
+          <span aria-hidden="true">ⓘ</span> From{' '}
           <a href={sourceUrl} target="_blank" rel="noreferrer" className="underline">
             {sourceHost}
           </a>
