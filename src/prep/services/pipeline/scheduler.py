@@ -172,7 +172,11 @@ class ComputeSlot:
 
         Cloud slots:
           - When ``max_concurrent > 0`` (user picked a plan tier or set a
-            custom value), AIMD operates inside ``[min_limit, max_concurrent]``.
+            custom value), this property clamps at ``max_concurrent``.
+            AIMD's ``current_limit`` operates within
+            ``[min_limit, max_concurrent]`` elsewhere in the slot's
+            lifecycle (multiplicative decrease floors at ``min_limit``,
+            additive increase ceilings at ``max_concurrent``).
             This is the user's stated cap; we honor it.
           - When ``max_concurrent == 0`` (the "Auto" sentinel — Phase 82
             unbounded discovery path), ``current_limit`` is the only ceiling.
