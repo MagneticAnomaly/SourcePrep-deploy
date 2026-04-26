@@ -665,19 +665,27 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                 _scheduler_max, node_id = pipeline_scheduler.concurrent_workers_for_project(
                     rt["project_id"], stage=rt.get("stage"),
                 )
-                rt["concurrent_workers"] = _count_live_workers(
+                live_workers = _count_live_workers(
                     project_id=rt["project_id"],
                     task_id=rt.get("task_id", ""),
                 )
+                rt["concurrent_workers"] = live_workers
                 rt["scheduler_capacity"] = _scheduler_max
                 rt["compute_node"] = node_id
                 # Phase 82: Model-aware swarm flag
+                # Phase 119 amendment: also require live_workers >= 2.
+                # "Swarming" with one worker is impossible by definition;
+                # without this gate the badge displayed even on a single
+                # in-flight call to a swarm-capable stage/model.
                 rt["is_swarm"] = False
                 stage = rt.get("stage", "")
                 if stage in SWARM_CAPABLE_STAGES:
                     resolved = resolve_model_for_stage(rt["project_id"], stage)
                     if resolved:
-                        rt["is_swarm"] = is_swarm_active_for_stage(stage, *resolved)
+                        rt["is_swarm"] = (
+                            is_swarm_active_for_stage(stage, *resolved)
+                            and live_workers >= 2
+                        )
         except Exception:
             pass  # Scheduler not available — leave defaults
 
