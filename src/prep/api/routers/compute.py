@@ -273,6 +273,35 @@ def clear_locks(project_id: Optional[str] = None) -> Dict[str, Any]:
     return ok({"cleared": True})
 
 
+@router.get("/compute/concurrency/history")
+def concurrency_history(
+    node_id: Optional[str] = None,
+    limit: int = 100,
+) -> Dict[str, Any]:
+    """Phase 119 Task 15: recent AIMD events per slot, for the dashboard
+    "Concurrency Health" weather-report panel.
+
+    Each event has fields: ``ts`` (unix seconds), ``node_id``, ``before``,
+    ``after``, ``reason`` (one of ``demand_recovery`` / ``additive_increase``
+    / ``jumpstart`` / ``backoff`` / ``hydrate`` / ``edge_lock``),
+    ``in_flight``, and ``mode``.
+
+    The ring buffer lives in memory and does NOT survive daemon restart.
+    Returns an envelope-shaped ``{"history": {node_id: [events...]}}``.
+    """
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+
+    out: Dict[str, list[dict]] = {}
+    safe_limit = max(1, min(limit, 500))
+    with pipeline_scheduler._lock:
+        for nid, slot in pipeline_scheduler._slots.items():
+            if node_id and nid != node_id:
+                continue
+            events = list(getattr(slot, "_history", []) or [])
+            out[nid] = events[-safe_limit:]
+    return {"history": out}
+
+
 @router.post("/compute/concurrency/clear")
 def clear_concurrency_lock(node_id: str) -> dict[str, str]:
     """Phase 119: clear a discovered-ceiling lock so AIMD re-probes.

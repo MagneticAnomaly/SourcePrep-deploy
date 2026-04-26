@@ -140,6 +140,11 @@ class ComputeSlot:
     # rejected by release_request via the _live_tokens set.
     _request_stamp_seq: int = 0
     _live_tokens: Set[int] = field(default_factory=set)
+    # Phase 119 Task 15: ring buffer of recent AIMD events for the
+    # dashboard "Concurrency Health" weather-report panel.  Each entry
+    # is a dict with keys ts/node_id/before/after/reason/in_flight/mode.
+    # In-memory only — does not survive daemon restart.
+    _history: Deque[dict] = field(default_factory=lambda: deque(maxlen=50))
 
     def __post_init__(self):
         # Phase 82: cloud slots seed at jumpstart=5 per the Latency-Aware
@@ -385,6 +390,14 @@ class PipelineScheduler:
                     ceiling_locked_until=ceiling_locked_until,
                 )
                 self._queues[node_id] = deque()
+                # Phase 119 Task 15: log hydration as a history event so the
+                # weather-report panel shows where a re-seeded ceiling came
+                # from.  ``record is not None`` means we restored from
+                # ConcurrencyStore — distinguish that from a fresh jumpstart.
+                if is_cloud and record is not None:
+                    self._record_history(
+                        self._slots[node_id], 0, seed, "hydrate",
+                    )
         logger.debug(
             "Scheduler: node %s configured with max_concurrent=%d",
             node_id, max_concurrent,
@@ -633,8 +646,10 @@ class PipelineScheduler:
                         slot.node_id,
                         slot.current_limit, new_limit, slot.min_limit, queue_time_ms,
                     )
+                    before_backoff = slot.current_limit
                     slot.current_limit = new_limit
                     self._persist_cloud_ceiling(slot)
+                    self._record_history(slot, before_backoff, new_limit, "backoff")
                 slot._last_backoff_time = now
                 # Reset recovery clock — idle recovery shouldn't fire
                 # immediately after a fresh backoff.
@@ -642,6 +657,11 @@ class PipelineScheduler:
                 # Phase 119: only mode==congestion_avoidance is a confirmed edge.
                 if old_mode == "congestion_avoidance":
                     self._record_ceiling_edge(slot, now)
+                    # Record the lock as its own event so the timeline shows
+                    # "backoff → edge_lock" pairs when a real ceiling is found.
+                    self._record_history(
+                        slot, slot.current_limit, slot.current_limit, "edge_lock",
+                    )
                 slot.mode = "congestion_avoidance"
                 slot.success_streak = 0
         else:
@@ -676,8 +696,11 @@ class PipelineScheduler:
                             "Scheduler: Node %s jumpstart %d -> %d",
                             slot.node_id, slot.current_limit, new_limit,
                         )
+                        before_grow = slot.current_limit
                         slot.current_limit = new_limit
                         self._persist_cloud_ceiling(slot)
+                        if new_limit != before_grow:
+                            self._record_history(slot, before_grow, new_limit, "jumpstart")
                         self._wake_slot_waiters(slot)
                     else:
                         new_limit = slot.current_limit + 1
@@ -690,8 +713,13 @@ class PipelineScheduler:
                             slot.node_id, slot.current_limit, new_limit,
                             slot.mode, slot.max_concurrent, slot.min_limit,
                         )
+                        before_grow = slot.current_limit
                         slot.current_limit = new_limit
                         self._persist_cloud_ceiling(slot)
+                        if new_limit != before_grow:
+                            self._record_history(
+                                slot, before_grow, new_limit, "additive_increase",
+                            )
                         self._wake_slot_waiters(slot)
 
     def get_priority(self, project_id: str) -> PriorityLevel:
@@ -737,6 +765,34 @@ class PipelineScheduler:
             )
             self._queues[nid] = deque()
         return self._slots[nid]
+
+    def _record_history(
+        self,
+        slot: ComputeSlot,
+        before: int,
+        after: int,
+        reason: str,
+    ) -> None:
+        """Phase 119 Task 15: append an AIMD event to the per-slot ring buffer.
+
+        Caller MUST hold ``self._lock``. Used by the dashboard
+        "Concurrency Health" weather report (GET /compute/concurrency/history).
+
+        ``reason`` is one of: ``demand_recovery``, ``additive_increase``,
+        ``jumpstart``, ``backoff``, ``hydrate``, ``edge_lock``.
+        """
+        try:
+            slot._history.append({
+                "ts": time.time(),
+                "node_id": slot.node_id,
+                "before": int(before),
+                "after": int(after),
+                "reason": reason,
+                "in_flight": int(slot.in_flight_requests),
+                "mode": slot.mode,
+            })
+        except Exception as exc:  # pragma: no cover — telemetry is best-effort
+            logger.debug("scheduler._record_history failed: %s", exc)
 
     def _persist_cloud_ceiling(self, slot: ComputeSlot) -> None:
         """Phase 82: write the current cloud ceiling to ConcurrencyStore.
@@ -861,9 +917,11 @@ class PipelineScheduler:
                 slot.max_concurrent, slot.min_limit,
                 slot.discovered_ceiling,
             )
+            before_recover = slot.current_limit
             slot.current_limit = new_limit
             slot._last_recovery_time = now
             self._persist_cloud_ceiling(slot)
+            self._record_history(slot, before_recover, new_limit, "demand_recovery")
             self._wake_slot_waiters(slot)
 
     # ── Per-request gate (Phase 82 follow-up) ─────────────────────
