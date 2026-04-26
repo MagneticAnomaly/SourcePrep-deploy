@@ -27,9 +27,13 @@ CREATE TABLE IF NOT EXISTS discovered_ceilings (
     model_family TEXT NOT NULL,
     ceiling INTEGER NOT NULL,
     updated_at REAL NOT NULL DEFAULT (strftime('%s', 'now')),
+    locked_until REAL NOT NULL DEFAULT 0,
+    edge_observed_at REAL NOT NULL DEFAULT 0,
     PRIMARY KEY (node_id, model_family)
 )
 """
+
+_LEGACY_COLUMNS = {"locked_until", "edge_observed_at"}
 
 
 class ConcurrencyStore:
@@ -48,6 +52,14 @@ class ConcurrencyStore:
     def _init_schema(self) -> None:
         with self._connect() as conn:
             conn.execute(_SCHEMA)
+            existing = {
+                row[1]
+                for row in conn.execute("PRAGMA table_info(discovered_ceilings)").fetchall()
+            }
+            for col in _LEGACY_COLUMNS - existing:
+                conn.execute(
+                    f"ALTER TABLE discovered_ceilings ADD COLUMN {col} REAL NOT NULL DEFAULT 0"
+                )
             conn.commit()
 
     def load(self, node_id: str, model_family: str) -> int | None:
@@ -79,6 +91,50 @@ class ConcurrencyStore:
                 "DELETE FROM discovered_ceilings "
                 "WHERE node_id = ? AND model_family = ?",
                 (node_id, model_family),
+            )
+            conn.commit()
+
+    def load_full(self, node_id: str, model_family: str) -> dict | None:
+        """Load the full ceiling record (ceiling, locked_until, edge_observed_at)."""
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT ceiling, locked_until, edge_observed_at "
+                "FROM discovered_ceilings WHERE node_id = ? AND model_family = ?",
+                (node_id, model_family),
+            ).fetchone()
+        if row is None:
+            return None
+        return {
+            "ceiling": int(row[0]),
+            "locked_until": float(row[1] or 0),
+            "edge_observed_at": float(row[2] or 0),
+        }
+
+    def save_edge(
+        self,
+        node_id: str,
+        model_family: str,
+        *,
+        ceiling: int,
+        locked_until: float,
+        edge_observed_at: float,
+    ) -> None:
+        """Persist a ceiling locked until ``locked_until`` based on the edge
+        observed at ``edge_observed_at``. Distinct from ``save()`` which is
+        used for jumpstart growth (no lock)."""
+        if ceiling < 1:
+            raise ValueError(f"ceiling must be >= 1, got {ceiling!r}")
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO discovered_ceilings "
+                "(node_id, model_family, ceiling, locked_until, edge_observed_at) "
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(node_id, model_family) DO UPDATE SET "
+                "ceiling = excluded.ceiling, "
+                "locked_until = excluded.locked_until, "
+                "edge_observed_at = excluded.edge_observed_at, "
+                "updated_at = strftime('%s', 'now')",
+                (node_id, model_family, int(ceiling), float(locked_until), float(edge_observed_at)),
             )
             conn.commit()
 
