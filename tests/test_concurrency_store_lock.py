@@ -103,3 +103,24 @@ def test_clear_removes_lock_too(store: ConcurrencyStore) -> None:
 def test_save_edge_rejects_bad_ceiling(store: ConcurrencyStore) -> None:
     with pytest.raises(ValueError):
         store.save_edge("cloud:ep-1", "__default__", ceiling=0, locked_until=0, edge_observed_at=0)
+
+
+def test_save_edge_rejects_lock_before_edge(store: ConcurrencyStore) -> None:
+    """If locked_until is set, it must not precede the edge it locks."""
+    with pytest.raises(ValueError):
+        store.save_edge(
+            "cloud:ep-1", "__default__",
+            ceiling=10, locked_until=100.0, edge_observed_at=200.0,
+        )
+
+
+def test_save_edge_allows_zero_locked_until(store: ConcurrencyStore) -> None:
+    """locked_until=0 means 'no lock yet' — permitted even with non-zero edge."""
+    store.save_edge(
+        "cloud:ep-1", "__default__",
+        ceiling=10, locked_until=0.0, edge_observed_at=12345.0,
+    )
+    record = store.load_full("cloud:ep-1", "__default__")
+    assert record is not None
+    assert record["locked_until"] == 0.0
+    assert record["edge_observed_at"] == 12345.0

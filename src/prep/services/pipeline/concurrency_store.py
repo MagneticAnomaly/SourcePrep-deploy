@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS discovered_ceilings (
 )
 """
 
-_LEGACY_COLUMNS = {"locked_until", "edge_observed_at"}
+_PHASE_119_COLUMNS = {"locked_until", "edge_observed_at"}
 
 
 class ConcurrencyStore:
@@ -56,7 +56,7 @@ class ConcurrencyStore:
                 row[1]
                 for row in conn.execute("PRAGMA table_info(discovered_ceilings)").fetchall()
             }
-            for col in _LEGACY_COLUMNS - existing:
+            for col in _PHASE_119_COLUMNS - existing:
                 conn.execute(
                     f"ALTER TABLE discovered_ceilings ADD COLUMN {col} REAL NOT NULL DEFAULT 0"
                 )
@@ -72,6 +72,10 @@ class ConcurrencyStore:
         return int(row[0]) if row else None
 
     def save(self, node_id: str, model_family: str, *, ceiling: int) -> None:
+        """Persist a ceiling without a lock (used during jumpstart growth).
+
+        For lock-with-TTL writes, use ``save_edge()`` instead.
+        """
         if ceiling < 1:
             raise ValueError(f"ceiling must be >= 1, got {ceiling!r}")
         with self._connect() as conn:
@@ -106,8 +110,8 @@ class ConcurrencyStore:
             return None
         return {
             "ceiling": int(row[0]),
-            "locked_until": float(row[1] or 0),
-            "edge_observed_at": float(row[2] or 0),
+            "locked_until": float(row[1]),
+            "edge_observed_at": float(row[2]),
         }
 
     def save_edge(
@@ -124,6 +128,11 @@ class ConcurrencyStore:
         used for jumpstart growth (no lock)."""
         if ceiling < 1:
             raise ValueError(f"ceiling must be >= 1, got {ceiling!r}")
+        if locked_until and locked_until < edge_observed_at:
+            raise ValueError(
+                f"locked_until ({locked_until!r}) must be >= edge_observed_at "
+                f"({edge_observed_at!r}) when set"
+            )
         with self._connect() as conn:
             conn.execute(
                 "INSERT INTO discovered_ceilings "
