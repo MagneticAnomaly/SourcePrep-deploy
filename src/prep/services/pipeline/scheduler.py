@@ -549,8 +549,7 @@ class PipelineScheduler:
             now = time.time()
             # Cooldown so we don't back off 10 times for a single congested batch
             if now - slot._last_backoff_time > 2.0:
-                slot.mode = "congestion_avoidance"
-                slot.success_streak = 0
+                old_mode = slot.mode
 
                 # Multiplicative Decrease: Half limit, or current in-flight,
                 # but never below the per-node floor (F-28).
@@ -576,6 +575,11 @@ class PipelineScheduler:
                 # Reset recovery clock — idle recovery shouldn't fire
                 # immediately after a fresh backoff.
                 slot._last_recovery_time = now
+                # Phase 119: only mode==congestion_avoidance is a confirmed edge.
+                if old_mode == "congestion_avoidance":
+                    self._record_ceiling_edge(slot, now)
+                slot.mode = "congestion_avoidance"
+                slot.success_streak = 0
         else:
             # Step 3: Additive Increase or Jumpstart (no congestion detected).
             # Phase 82 completion: cloud slots are unbounded — the ceiling is
@@ -588,11 +592,22 @@ class PipelineScheduler:
             if slot.success_streak >= batch_size:
                 slot.success_streak = 0
                 allow_increase = is_cloud or slot.current_limit < slot.max_concurrent
+                # Phase 119: locked ceiling blocks growth above the discovered point
+                # until TTL passes. After TTL, one cautious +1 probe is allowed.
+                if (
+                    is_cloud
+                    and slot.discovered_ceiling is not None
+                    and slot.current_limit >= slot.discovered_ceiling
+                    and time.time() < slot.ceiling_locked_until
+                ):
+                    allow_increase = False
                 if allow_increase:
                     if slot.mode == "jumpstart":
                         new_limit = slot.current_limit * 2
                         if not is_cloud:
                             new_limit = min(slot.max_concurrent, new_limit)
+                        elif slot.discovered_ceiling is not None and time.time() < slot.ceiling_locked_until:
+                            new_limit = min(slot.discovered_ceiling, new_limit)
                         logger.info(
                             "Scheduler: Node %s jumpstart %d -> %d",
                             slot.node_id, slot.current_limit, new_limit,
@@ -604,6 +619,8 @@ class PipelineScheduler:
                         new_limit = slot.current_limit + 1
                         if not is_cloud:
                             new_limit = min(slot.max_concurrent, new_limit)
+                        elif slot.discovered_ceiling is not None and time.time() < slot.ceiling_locked_until:
+                            new_limit = min(slot.discovered_ceiling, new_limit)
                         logger.info(
                             "Scheduler: Node %s additive increase %d -> %d (mode=%s, max=%d, floor=%d)",
                             slot.node_id, slot.current_limit, new_limit,
@@ -676,6 +693,36 @@ class PipelineScheduler:
                 slot.node_id, exc,
             )
 
+    def _record_ceiling_edge(self, slot: ComputeSlot, now: float) -> None:
+        """Persist a discovered ceiling with TTL after a confirmed edge.
+
+        Phase 119: only called from the backoff path when ``mode`` is
+        already ``congestion_avoidance`` — i.e., a real edge, not
+        jumpstart exploration. Caller MUST hold ``self._lock``.
+        """
+        if not slot.node_id.startswith("cloud:"):
+            return
+        try:
+            from prep.services.settings_store import settings as _settings
+            ttl = float(_settings.get("concurrency_lock_ttl_s") or self._DEFAULT_LOCK_TTL_S)
+        except Exception:
+            ttl = self._DEFAULT_LOCK_TTL_S
+
+        slot.discovered_ceiling = slot.current_limit
+        slot.ceiling_locked_until = now + ttl
+        try:
+            concurrency_store().save_edge(
+                slot.node_id, "__default__",
+                ceiling=slot.current_limit,
+                locked_until=slot.ceiling_locked_until,
+                edge_observed_at=now,
+            )
+        except Exception as exc:  # pragma: no cover — best-effort
+            logger.debug(
+                "concurrency_store.save_edge failed for %s: %s",
+                slot.node_id, exc,
+            )
+
     def _compute_min_limit(self, node_id: str, max_concurrent: int) -> int:
         """F-28: per-node floor for AIMD.
 
@@ -696,6 +743,9 @@ class PipelineScheduler:
     # Phase 119 demand window: when acquire_request observes the gate
     # binding, the next 60 s allow recovery to fire.
     _DEMAND_WINDOW_S = 60.0
+    # Phase 119: how long a discovered ceiling stays locked. 24 h is
+    # the project default; can be overridden via settings("concurrency_lock_ttl_s").
+    _DEFAULT_LOCK_TTL_S = 24 * 3600
 
     def _maybe_demand_recover(self, slot: ComputeSlot) -> None:
         """Grow ``slot.current_limit`` by 1 if recent demand justifies it.
