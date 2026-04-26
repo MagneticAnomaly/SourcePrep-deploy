@@ -17,9 +17,11 @@ from concurrent.futures import (
     wait,
 )
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from prep.core.llm_client import LLMClient, _parse_json_response
+from prep.core.swarm_event_logger import SwarmEventLogger, default_log_dir
 from prep.services.token_telemetry import set_swarm_role
 
 logger = logging.getLogger(__name__)
@@ -93,6 +95,10 @@ class SwarmResult:
     synthesis: Optional[Dict[str, Any]] = None
     coordinator_plan: Optional[CoordinatorPlan] = None
     stats: SwarmStats = field(default_factory=SwarmStats)
+    # Phase 119 verbose-logging: path to the JSONL event log written
+    # for this swarm execution.  None when logging was disabled or the
+    # logger could not initialize (e.g. read-only data_dir).
+    event_log_path: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -290,6 +296,7 @@ class SwarmOrchestrator:
         self,
         items: List[WorkItem],
         coordinator_prompt: str,
+        event_log: Optional[SwarmEventLogger] = None,
     ) -> Tuple[Optional[CoordinatorPlan], int]:
         """Single LLM call to decompose work into scoped assignments.
 
@@ -303,6 +310,11 @@ class SwarmOrchestrator:
         )
         prompt = coordinator_prompt.replace("{group_summaries}", summaries)
 
+        coord_model = getattr(self.coordinator_llm, "model", None)
+        if event_log is not None:
+            event_log.phase_start("coordinator", model=coord_model,
+                                  n_items=len(items))
+        coord_t0 = time.monotonic()
         text, tokens = self._llm_call_with_timeout(
             prompt=prompt,
             system=COORDINATOR_SYSTEM,
@@ -312,16 +324,31 @@ class SwarmOrchestrator:
             llm=self.coordinator_llm,
         )
         if text is None:
+            if event_log is not None:
+                event_log.phase_end("coordinator", success=False,
+                                    duration_s=time.monotonic() - coord_t0,
+                                    reason="timeout_or_error", tokens=tokens)
             return None, tokens
 
         parsed = _parse_json_response(text)
         if not parsed:
             logger.warning("Coordinator returned unparseable JSON")
+            if event_log is not None:
+                event_log.parse_failure(where="coordinator",
+                                        raw_chars=len(text),
+                                        reason="json_parse_failed")
+                event_log.phase_end("coordinator", success=False,
+                                    duration_s=time.monotonic() - coord_t0,
+                                    reason="parse_failed", tokens=tokens)
             return None, tokens
 
         raw_assignments = parsed.get("assignments", [])
         if not raw_assignments:
             logger.warning("Coordinator returned empty assignments")
+            if event_log is not None:
+                event_log.phase_end("coordinator", success=False,
+                                    duration_s=time.monotonic() - coord_t0,
+                                    reason="empty_assignments", tokens=tokens)
             return None, tokens
 
         assignments = [
@@ -337,6 +364,10 @@ class SwarmOrchestrator:
             "[Swarm] Coordinator planned %d assignments (%d tokens)",
             len(assignments), tokens,
         )
+        if event_log is not None:
+            event_log.phase_end("coordinator", success=True,
+                                duration_s=time.monotonic() - coord_t0,
+                                tokens=tokens, n_assignments=len(assignments))
         return CoordinatorPlan(assignments=assignments), tokens
 
     # -- Phase 2: Fan-out ---------------------------------------------------
@@ -348,6 +379,7 @@ class SwarmOrchestrator:
         worker_fn: Callable[[WorkItem, WorkerAssignment], Optional[str]],
         progress_fn: Optional[Callable[[int, int], None]] = None,
         t0: Optional[float] = None,
+        event_log: Optional[SwarmEventLogger] = None,
     ) -> List[WorkerResult]:
         """Run worker_fn in parallel for each item.
 
@@ -369,6 +401,8 @@ class SwarmOrchestrator:
         results: List[WorkerResult] = []
         fan_start = t0 or time.monotonic()
 
+        worker_model = getattr(self.worker_llm, "model", None)
+
         def _run_worker(item: WorkItem) -> WorkerResult:
             logger.info("[Swarm] Worker starting: %s", item.id[:40])
             assignment = plan.get_assignment(item.id)
@@ -377,6 +411,19 @@ class SwarmOrchestrator:
                     item_id=item.id,
                     analysis_angle="Perform standard architectural analysis",
                 )
+            worker_id = f"w-{item.id[:32]}"
+            if event_log is not None:
+                # prompt_chars uses the work item's full_context as a
+                # proxy — workers compose their own prompts from this
+                # plus the assignment, so this is the input size we
+                # send into the worker, not the literal LLM prompt.
+                event_log.worker_dispatch(
+                    worker_id=worker_id,
+                    work_item_id=item.id,
+                    model=worker_model,
+                    prompt_chars=len(item.full_context or ""),
+                )
+            w_t0 = time.monotonic()
             try:
                 # Phase 119 Swarm Authority: tag this worker's LLM calls
                 # so token_telemetry stamps swarm_role="worker" on the
@@ -386,20 +433,48 @@ class SwarmOrchestrator:
                     raw = worker_fn(item, assignment)
                 logger.info("[Swarm] Worker returned: %s len=%d", item.id[:40], len(raw or ""))
                 if raw is None:
+                    if event_log is not None:
+                        event_log.worker_complete(
+                            worker_id=worker_id, success=False,
+                            duration_s=time.monotonic() - w_t0,
+                            response_chars=0, parse_ok=False,
+                            error="worker_returned_none",
+                        )
                     return WorkerResult(
                         item_id=item.id, raw_output="", success=False
                     )
                 parsed = _parse_json_response(raw)
+                parse_ok = parsed is not None
+                if event_log is not None:
+                    if not parse_ok:
+                        event_log.parse_failure(
+                            where=f"worker:{item.id}",
+                            raw_chars=len(raw),
+                            reason="json_parse_failed",
+                        )
+                    event_log.worker_complete(
+                        worker_id=worker_id, success=True,
+                        duration_s=time.monotonic() - w_t0,
+                        response_chars=len(raw),
+                        parse_ok=parse_ok,
+                    )
                 return WorkerResult(
                     item_id=item.id,
                     raw_output=raw,
                     parsed=parsed,
                     success=True,
                 )
-            except Exception:
+            except Exception as exc:
                 logger.warning(
                     "Worker failed for %s", item.id, exc_info=True
                 )
+                if event_log is not None:
+                    event_log.worker_complete(
+                        worker_id=worker_id, success=False,
+                        duration_s=time.monotonic() - w_t0,
+                        response_chars=0, parse_ok=False,
+                        error=str(exc) or exc.__class__.__name__,
+                    )
                 return WorkerResult(
                     item_id=item.id, raw_output="", success=False
                 )
@@ -490,6 +565,7 @@ class SwarmOrchestrator:
         self,
         worker_results: List[WorkerResult],
         synthesis_prompt: str,
+        event_log: Optional[SwarmEventLogger] = None,
     ) -> Tuple[Optional[Dict[str, Any]], int]:
         """Single LLM call to aggregate successful worker results.
 
@@ -501,6 +577,9 @@ class SwarmOrchestrator:
         successful = [r for r in worker_results if r.success and r.parsed]
         if not successful:
             logger.warning("[Swarm] No successful workers with parsed output — skipping synthesis")
+            if event_log is not None:
+                event_log.event("phase_skipped", phase="synthesis",
+                                reason="no_successful_workers")
             return None, 0
 
         outputs = "\n\n".join(
@@ -509,6 +588,11 @@ class SwarmOrchestrator:
         )
         prompt = synthesis_prompt.replace("{worker_outputs}", outputs)
 
+        synth_model = getattr(self.coordinator_llm, "model", None)
+        if event_log is not None:
+            event_log.phase_start("synthesizer", model=synth_model,
+                                  n_items=len(successful))
+        s_t0 = time.monotonic()
         text, tokens = self._llm_call_with_timeout(
             prompt=prompt,
             system=SYNTHESIS_SYSTEM,
@@ -518,14 +602,29 @@ class SwarmOrchestrator:
             llm=self.coordinator_llm,
         )
         if text is None:
+            if event_log is not None:
+                event_log.phase_end("synthesizer", success=False,
+                                    duration_s=time.monotonic() - s_t0,
+                                    reason="timeout_or_error", tokens=tokens)
             return None, tokens
 
         parsed = _parse_json_response(text)
         if not parsed:
             logger.warning("Synthesis returned unparseable JSON")
+            if event_log is not None:
+                event_log.parse_failure(where="synthesis",
+                                        raw_chars=len(text),
+                                        reason="json_parse_failed")
+                event_log.phase_end("synthesizer", success=False,
+                                    duration_s=time.monotonic() - s_t0,
+                                    reason="parse_failed", tokens=tokens)
             return None, tokens
 
         logger.info("[Swarm] Synthesis complete (%d tokens)", tokens)
+        if event_log is not None:
+            event_log.phase_end("synthesizer", success=True,
+                                duration_s=time.monotonic() - s_t0,
+                                tokens=tokens)
         return parsed, tokens
 
     # -- Full execution -----------------------------------------------------
@@ -537,6 +636,12 @@ class SwarmOrchestrator:
         worker_fn: Callable[[WorkItem, WorkerAssignment], Optional[str]],
         synthesis_prompt: str,
         progress_fn: Optional[Callable[[int, int], None]] = None,
+        *,
+        run_id: Optional[str] = None,
+        stage: Optional[str] = None,
+        project_id: Optional[str] = None,
+        log_dir: Optional[Any] = None,
+        enable_event_log: bool = True,
     ) -> Optional[SwarmResult]:
         """Run all three phases.
 
@@ -545,6 +650,14 @@ class SwarmOrchestrator:
         synthesis phase is allowed to leave a None synthesis on the
         result — callers handle that by merging raw worker outputs.
         Returns None only when there are zero items to process.
+
+        Phase 119 verbose-logging:
+            run_id / stage / project_id are recorded in the per-swarm
+            JSONL event log written to ``<data_dir>/logs/swarm/``.  Pass
+            ``enable_event_log=False`` to suppress (used by tests that
+            don't want side-effects on the data dir).  Callers that
+            don't pass these get safe defaults — the file still gets
+            written, just with placeholder identifiers.
         """
         if not items:
             return None
@@ -552,8 +665,29 @@ class SwarmOrchestrator:
         t0 = time.monotonic()
         stats = SwarmStats(total_items=len(items))
 
+        # ------------------------------------------------------------------
+        # Phase 119: per-swarm-execution event log.  Best-effort — every
+        # call site is wrapped in try/except inside the helper, so a
+        # broken data_dir cannot fail the swarm.
+        # ------------------------------------------------------------------
+        event_log: Optional[SwarmEventLogger] = None
+        if enable_event_log:
+            try:
+                resolved_log_dir = Path(log_dir) if log_dir is not None else default_log_dir()
+                event_log = SwarmEventLogger(
+                    run_id=run_id or f"adhoc-{int(t0 * 1000) & 0xFFFFFFFF:08x}",
+                    stage=stage or "swarm",
+                    project_id=project_id or "unknown",
+                    log_dir=resolved_log_dir,
+                )
+            except Exception:
+                logger.debug("swarm event logger init failed", exc_info=True)
+                event_log = None
+
         # Phase 1: Coordinate (with timeout, may return empty plan)
-        plan, coordinator_tokens = self._coordinate(items, coordinator_prompt)
+        plan, coordinator_tokens = self._coordinate(
+            items, coordinator_prompt, event_log=event_log,
+        )
         if plan is None:
             logger.info(
                 "[Swarm] Coordinator failed/timed out — proceeding with "
@@ -565,7 +699,22 @@ class SwarmOrchestrator:
 
         # Phase 2: Fan-out (t0 passed for overall wall-time tracking)
         logger.info("[Swarm] Entering fan-out phase (%d items)", len(items))
-        worker_results = self._fan_out(items, plan, worker_fn, progress_fn, t0=t0)
+        if event_log is not None:
+            event_log.phase_start("fanout",
+                                  model=getattr(self.worker_llm, "model", None),
+                                  n_items=len(items))
+        fan_t0 = time.monotonic()
+        worker_results = self._fan_out(
+            items, plan, worker_fn, progress_fn, t0=t0, event_log=event_log,
+        )
+        if event_log is not None:
+            event_log.phase_end(
+                "fanout",
+                success=any(r.success for r in worker_results),
+                duration_s=time.monotonic() - fan_t0,
+                n_succeeded=sum(1 for r in worker_results if r.success),
+                n_total=len(worker_results),
+            )
         logger.info("[Swarm] Fan-out returned: %d results", len(worker_results))
 
         for r in worker_results:
@@ -578,7 +727,7 @@ class SwarmOrchestrator:
         logger.info("[Swarm] Entering synthesis phase (%d/%d succeeded)",
                     stats.workers_succeeded, len(worker_results))
         synthesis, synthesis_tokens = self._synthesize(
-            worker_results, synthesis_prompt
+            worker_results, synthesis_prompt, event_log=event_log,
         )
         logger.info("[Swarm] Synthesis returned (tokens=%d)", synthesis_tokens)
         stats.synthesis_tokens = synthesis_tokens
@@ -590,7 +739,30 @@ class SwarmOrchestrator:
             synthesis=synthesis,
             coordinator_plan=plan,
             stats=stats,
+            event_log_path=str(event_log.path) if event_log and event_log.path else None,
         )
+
+        # Per-session summary line — closes out the JSONL file with the
+        # high-level outcome the dashboard / agent will surface first.
+        if event_log is not None:
+            try:
+                event_log.session_end(
+                    success=(synthesis is not None
+                             or stats.workers_succeeded > 0),
+                    summary={
+                        "total_items": stats.total_items,
+                        "workers_succeeded": stats.workers_succeeded,
+                        "workers_failed": stats.workers_failed,
+                        "coordinator_tokens": stats.coordinator_tokens,
+                        "worker_tokens": stats.worker_tokens,
+                        "synthesis_tokens": stats.synthesis_tokens,
+                        "wall_clock_seconds": round(stats.wall_clock_seconds, 3),
+                        "synthesis_present": synthesis is not None,
+                    },
+                )
+            except Exception:
+                logger.debug("swarm event logger session_end failed",
+                             exc_info=True)
 
         # §9 observability: emit per-run quality + throughput metrics.
         # Uses record_swarm_metrics() if token_telemetry exposes it, otherwise

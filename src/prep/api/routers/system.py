@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import StreamingResponse
@@ -188,6 +188,93 @@ async def events_endpoint(request: Request):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ── Swarm events log (Phase 119 verbose logging) ─────────────────
+
+
+@router.get("/system/swarm-events")
+def swarm_events(
+    file: Optional[str] = Query(None, description="Specific JSONL filename (basename only)"),
+    run_id: Optional[str] = Query(None, description="Match run_id substring (first 8 chars in filename)"),
+    stage: Optional[str] = Query(None, description="Match stage substring in filename"),
+    limit: int = Query(50, ge=1, le=500, description="Max log files to list"),
+) -> Dict[str, Any]:
+    """List or read per-swarm-execution JSONL event logs.
+
+    With no parameters, returns a directory listing of recent swarm log
+    files (newest first).  Pass ``file=<basename>`` to read one log's
+    full event sequence.  ``run_id`` / ``stage`` filter the listing by
+    filename substring (filenames embed both fields).
+
+    Phase 119: this is the back-end for the developer-popover footer
+    that points users to the verbose swarm log directory, and for
+    agents that want to reconstruct a swarm post-hoc.
+    """
+    from prep.core.paths import data_dir
+
+    log_root = data_dir() / "logs" / "swarm"
+    if not log_root.exists():
+        return {"ok": True, "log_dir": str(log_root), "files": [], "events": None}
+
+    # ── Read a specific file ─────────────────────────────────────
+    if file:
+        # Reject path traversal — only allow plain basenames.
+        if "/" in file or "\\" in file or ".." in file:
+            raise ApiException(status_code=400, message="invalid file name")
+        target = log_root / file
+        if not target.exists() or not target.is_file():
+            raise ApiException(status_code=404, message=f"swarm log not found: {file}")
+        events: List[Dict[str, Any]] = []
+        try:
+            for line in target.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    events.append(json.loads(line))
+                except Exception:
+                    # Tolerate truncated last line on a still-running swarm
+                    pass
+        except Exception as exc:
+            raise ApiException(status_code=500, message=f"read failed: {exc}") from exc
+        return {
+            "ok": True,
+            "log_dir": str(log_root),
+            "file": file,
+            "events": events,
+            "n_events": len(events),
+        }
+
+    # ── List files ───────────────────────────────────────────────
+    candidates = sorted(
+        log_root.glob("swarm_*.jsonl"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    files: List[Dict[str, Any]] = []
+    for p in candidates:
+        name = p.name
+        if run_id and run_id not in name:
+            continue
+        if stage and stage not in name:
+            continue
+        try:
+            st = p.stat()
+            files.append({
+                "name": name,
+                "size": st.st_size,
+                "mtime": st.st_mtime,
+            })
+        except Exception:
+            continue
+        if len(files) >= limit:
+            break
+    return {
+        "ok": True,
+        "log_dir": str(log_root),
+        "files": files,
+        "events": None,
+    }
 
 
 # ── MCP config ───────────────────────────────────────────────────
