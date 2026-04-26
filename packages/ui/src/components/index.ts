@@ -85,3 +85,12 @@ export { AnimatedCLI, TerminalFrame, prepSearchDemo, prepImpactDemo, prepOvervie
 export type { AnimatedCLIProps, TerminalFrameProps, CliEvent, CliScript, TerminalTheme } from './console';
 export { DetailPageLayout } from './marketing';
 export type { DetailPageLayoutProps, DetailPageSection } from './marketing';
+
+// Concurrency Health (Phase 119 Task 15) — weather-report panel for AIMD state
+export { ConcurrencyHealth } from './concurrency/ConcurrencyHealth';
+export type {
+  ConcurrencyHealthProps,
+  ConcurrencyEvent,
+  ConcurrencyNode,
+  ConcurrencyState,
+} from './concurrency/ConcurrencyHealth';

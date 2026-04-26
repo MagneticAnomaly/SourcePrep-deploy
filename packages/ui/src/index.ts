@@ -316,3 +316,12 @@ export type {
 } from './components/marketing/research';
 export { RESEARCH_SOURCES, validateResearchSources } from './data/researchSources';
 export type { ResearchSource, SourceType, ProblemArea } from './data/researchSources';
+
+// Concurrency Health (Phase 119 Task 15) — weather-report panel for AIMD state
+export { ConcurrencyHealth } from './components/concurrency/ConcurrencyHealth';
+export type {
+  ConcurrencyHealthProps,
+  ConcurrencyEvent,
+  ConcurrencyNode,
+  ConcurrencyState,
+} from './components/concurrency/ConcurrencyHealth';

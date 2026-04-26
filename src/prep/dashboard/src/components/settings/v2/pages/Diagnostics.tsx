@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button, Section, useApiClient } from '@prep/ui';
+import { Button, ConcurrencyHealth, Section, useApiClient } from '@prep/ui';
 import type { LicenseStatus, LicenseTier } from '@prep/ui';
 import { SettingsPage } from '../SettingsPage';
 
@@ -70,6 +70,14 @@ export function DiagnosticsPage({
             <strong className="text-text">API:</strong> {api.baseUrl || '(hidden)'}
           </div>
         </div>
+      </Section>
+
+      <Section title="Concurrency Health (Phase 119)">
+        <p className="text-xs text-text-muted mb-2">
+          Live AIMD state per cloud LLM node — current limit, in-flight, discovered
+          ceiling, and recent backoff/grow events. Polls every 2 s.
+        </p>
+        <ConcurrencyHealth baseUrl={api.baseUrl} className="!p-0" />
       </Section>
     </SettingsPage>
   );
