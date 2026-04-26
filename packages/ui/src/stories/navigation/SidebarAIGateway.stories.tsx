@@ -192,3 +192,69 @@ export const LowConcurrencySwarm: Story = {
     },
   },
 };
+
+/**
+ * Phase 119 Swarm Authority: when the orchestrator runs a real
+ * coordinator → fan-out → synthesizer pattern, the AI Gateway shows
+ * the per-role breakdown beneath the running task.  The badge fires
+ * only when the scheduler has an open swarm window matching this
+ * project + stage AND ≥2 workers are in flight.
+ */
+export const SwarmThreePhaseBreakdown: Story = {
+  name: 'Swarm with 3-phase breakdown (Phase 119)',
+  args: {
+    slotsStatus: {
+      ...baseSlots,
+      running_task_id: 'group_reasoning',
+      running_tasks: [
+        {
+          ...swarmTask,
+          concurrent_workers: 7,
+          swarm_phases: {
+            coordinator: { active: 1, model: 'claude-sonnet-4.6' },
+            workers: { active: 5, model: 'kimi-k2.5:cloud' },
+            synthesizer: { active: 1, model: 'claude-sonnet-4.6' },
+          },
+        },
+      ],
+    },
+  },
+};
+
+/**
+ * Phase 119 Swarm Authority — fan-out only.
+ *
+ * Some "swarm-capable" stages (notably ``audit``) open a swarm window
+ * but never run a coordinator or synthesizer LLM call.  The breakdown
+ * surfaces only the bucket that has actual work, so the user sees
+ * "Workers ×5" rather than three rows with two of them at 0.  When the
+ * stage is genuinely just parallel calls, ``swarm_phases`` is null and
+ * no breakdown is rendered at all.
+ */
+export const SwarmFanOutOnly: Story = {
+  name: 'Swarm window open but only workers active',
+  args: {
+    slotsStatus: {
+      ...baseSlots,
+      running_task_id: 'audit',
+      running_tasks: [
+        {
+          task_id: 'audit',
+          project_id: 'p1',
+          project_name: 'LinuxBrain',
+          group: 'enrichment',
+          stage: 'audit',
+          model_slot: 'large',
+          concurrent_workers: 5,
+          compute_node: 'cloud:default_ollama',
+          is_swarm: true,
+          swarm_phases: {
+            coordinator: { active: 0, model: null },
+            workers: { active: 5, model: 'claude-sonnet-4.6' },
+            synthesizer: { active: 0, model: null },
+          },
+        },
+      ],
+    },
+  },
+};

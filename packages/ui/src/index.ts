@@ -61,6 +61,8 @@ export type {
   LLMBlockStatus,
   LLMSlotsStatus,
   RunningTask,
+  SwarmPhaseBucket,
+  SwarmPhasesBreakdown,
   GraphEngineStatus,
   GraphEngineConfig,
   KnowledgeEmbeddingStatus,
@@ -325,3 +327,8 @@ export type {
   ConcurrencyNode,
   ConcurrencyState,
 } from './components/concurrency/ConcurrencyHealth';
+
+// Concurrency reset (Phase 119 Task 16) — developer-mode reset for the
+// discovered ceiling lock. Lives in AI Gateway → Pipeline Activity.
+export { ConcurrencyResetPanel } from './components/concurrency/ConcurrencyResetPanel';
+export type { ConcurrencyResetPanelProps } from './components/concurrency/ConcurrencyResetPanel';

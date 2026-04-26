@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { ConcurrencyResetPanel } from '../concurrency/ConcurrencyResetPanel';
-import type { LLMSlotsStatus, RunningTask, LLMSlotStatus } from '../../types';
+import type { LLMSlotsStatus, RunningTask, LLMSlotStatus, SwarmPhasesBreakdown } from '../../types';
 import { TASK_LABELS } from '../../types';
 
 export interface SidebarAIGatewayProps {
@@ -85,6 +85,52 @@ function isSwarmForSlot(
 /** Total concurrent workers across all slots. */
 function totalConcurrentWorkers(runningTasks: RunningTask[]): number {
   return runningTasks.reduce((sum, t) => sum + (t.concurrent_workers || 1), 0);
+}
+
+/**
+ * Phase 119 Swarm Authority: per-role breakdown rendered under a
+ * running task when a real 3-phase swarm is in flight.
+ *
+ * The `is_swarm` badge upstream is now tied to runtime evidence (the
+ * scheduler's swarm window).  When it fires we render the coordinator,
+ * worker, and synthesizer buckets reported by `/llm/slots/status`.
+ * Empty buckets are suppressed — for example, the audit stage opens a
+ * swarm window but does not actually run a coordinator or synthesizer
+ * phase, so those rows would never appear for it.
+ */
+function SwarmPhaseRows({ phases }: { phases: SwarmPhasesBreakdown }) {
+  const rows: Array<{ key: keyof SwarmPhasesBreakdown; label: string; color: string }> = [
+    { key: 'coordinator', label: 'Coordinator', color: 'text-amber-300' },
+    { key: 'workers', label: 'Workers', color: 'text-blue-300' },
+    { key: 'synthesizer', label: 'Synthesizer', color: 'text-purple-300' },
+  ];
+  const visible = rows.filter(r => (phases[r.key]?.active ?? 0) > 0);
+  if (visible.length === 0) return null;
+  return (
+    <div
+      className="ml-4 mt-0.5 space-y-0.5"
+      data-testid="ai-gateway-swarm-phases"
+    >
+      {visible.map(r => {
+        const bucket = phases[r.key];
+        const count = bucket.active;
+        const model = bucket.model;
+        return (
+          <div
+            key={r.key}
+            className="flex items-center gap-1.5 text-[10px] text-text-muted"
+          >
+            <Loader2 className="w-2 h-2 animate-spin shrink-0" />
+            <span className={cn('font-medium shrink-0', r.color)}>{r.label}</span>
+            <span className="shrink-0 tabular-nums">×{count}</span>
+            {model && (
+              <span className="truncate text-text-muted/70">{model}</span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /**
@@ -354,24 +400,35 @@ function ExpandedView({
                 {slotRunning.map(rt => (
                   <div
                     key={`${rt.project_id}-${rt.task_id}`}
-                    className="ml-7 mt-0.5 flex items-center gap-1.5 text-[10px] text-blue-400"
+                    className="ml-7 mt-0.5"
                   >
-                    <Loader2 className="w-2.5 h-2.5 animate-spin shrink-0" />
-                    <span className="truncate">
-                      {TASK_LABELS[rt.task_id] ?? rt.task_id}
-                    </span>
-                    {(rt.concurrent_workers ?? 1) > 1 && (
-                      <span className={cn(
-                        "inline-flex items-center px-1 rounded text-[9px] font-bold shrink-0",
-                        rt.is_swarm ? "bg-purple-500/20 text-purple-300" : "bg-blue-500/20 text-blue-300",
-                      )}>
-                        {rt.concurrent_workers}×{rt.is_swarm ? 'Swarm' : ''}
+                    <div className="flex items-center gap-1.5 text-[10px] text-blue-400">
+                      <Loader2 className="w-2.5 h-2.5 animate-spin shrink-0" />
+                      <span className="truncate">
+                        {TASK_LABELS[rt.task_id] ?? rt.task_id}
                       </span>
+                      {(rt.concurrent_workers ?? 1) > 1 && (
+                        <span className={cn(
+                          "inline-flex items-center px-1 rounded text-[9px] font-bold shrink-0",
+                          rt.is_swarm ? "bg-purple-500/20 text-purple-300" : "bg-blue-500/20 text-blue-300",
+                        )}>
+                          {rt.concurrent_workers}×{rt.is_swarm ? 'Swarm' : ''}
+                        </span>
+                      )}
+                      <span className="text-text-muted/60 shrink-0">on</span>
+                      <span className="text-blue-300 font-medium truncate">
+                        {rt.project_name}
+                      </span>
+                    </div>
+                    {/* Phase 119 Swarm Authority: render the three-phase
+                        breakdown when the orchestrator opened a real
+                        swarm window and tagged each LLM call with its
+                        role.  Null/empty buckets are suppressed — we do
+                        not fabricate empty rows for stages that don't
+                        actually run all three phases (e.g. audit). */}
+                    {rt.is_swarm && rt.swarm_phases && (
+                      <SwarmPhaseRows phases={rt.swarm_phases} />
                     )}
-                    <span className="text-text-muted/60 shrink-0">on</span>
-                    <span className="text-blue-300 font-medium truncate">
-                      {rt.project_name}
-                    </span>
                   </div>
                 ))}
               </div>

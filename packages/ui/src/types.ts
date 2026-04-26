@@ -1344,8 +1344,33 @@ export interface RunningTask {
   concurrent_workers?: number;
   /** Which compute node this project is running on (e.g. "cloud:default_ollama") */
   compute_node?: string | null;
-  /** Whether this stage is running in swarm mode (coordinator → fan-out → synthesis) */
+  /**
+   * Phase 119 Swarm Authority: true only when the scheduler has an open
+   * swarm window matching this task's project + stage AND at least 2
+   * live workers are in flight.  Static "swarm-capable" stages no longer
+   * unconditionally drive this flag.
+   */
   is_swarm?: boolean;
+  /**
+   * Phase 119 Swarm Authority: per-role breakdown of in-flight calls
+   * when this task is genuinely running a 3-phase swarm.  Null when
+   * the swarm is not active or when the orchestrator does not actually
+   * run a coordinator/synthesizer (e.g. audit's parallel-fan-out path).
+   */
+  swarm_phases?: SwarmPhasesBreakdown | null;
+}
+
+/** A single swarm role's live count + the model serving it. */
+export interface SwarmPhaseBucket {
+  active: number;
+  model: string | null;
+}
+
+/** Per-role breakdown surfaced when a real swarm is active. */
+export interface SwarmPhasesBreakdown {
+  coordinator: SwarmPhaseBucket;
+  workers: SwarmPhaseBucket;
+  synthesizer: SwarmPhaseBucket;
 }
 
 /**
