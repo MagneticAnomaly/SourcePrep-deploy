@@ -99,3 +99,9 @@ export type {
 // discovered ceiling lock. Lives in AI Gateway → Pipeline Activity.
 export { ConcurrencyResetPanel } from './concurrency/ConcurrencyResetPanel';
 export type { ConcurrencyResetPanelProps } from './concurrency/ConcurrencyResetPanel';
+
+// Swarm activity panel (Phase 119 verbose-logging) — lists all active
+// swarms with coordinator/worker/synthesizer role breakdown.  Lives in
+// the AI Gateway developer popover; used to be inlined in the sidebar.
+export { SwarmActivityPanel, SwarmRoleRows } from './concurrency/SwarmActivityPanel';
+export type { SwarmActivityPanelProps } from './concurrency/SwarmActivityPanel';

@@ -196,12 +196,17 @@ export const LowConcurrencySwarm: Story = {
 /**
  * Phase 119 Swarm Authority: when the orchestrator runs a real
  * coordinator → fan-out → synthesizer pattern, the AI Gateway shows
- * the per-role breakdown beneath the running task.  The badge fires
- * only when the scheduler has an open swarm window matching this
- * project + stage AND ≥2 workers are in flight.
+ * the high-level "Swarm" badge + worker count.
+ *
+ * Phase 119 amendment (verbose-logging): the per-role
+ * coordinator/worker/synthesizer breakdown that USED to render inline
+ * here was moved to the developer popover (wrench icon).  Open the
+ * wrench in this story and you'll see a ``SwarmActivityPanel`` inside
+ * with the same data.  The sidebar itself only surfaces the badge +
+ * count, which is what end users need.
  */
 export const SwarmThreePhaseBreakdown: Story = {
-  name: 'Swarm with 3-phase breakdown (Phase 119)',
+  name: 'Swarm badge + count (per-role rows now in dev popover)',
   args: {
     slotsStatus: {
       ...baseSlots,
@@ -218,6 +223,11 @@ export const SwarmThreePhaseBreakdown: Story = {
         },
       ],
     },
+    // Phase 119 verbose-logging: pass a baseUrl so the dev wrench
+    // renders.  Click it (or the playwright capture script does) to
+    // see the SwarmActivityPanel + log-location footer that used to
+    // be inline here.
+    baseUrl: 'http://localhost:8400',
   },
 };
 
@@ -225,14 +235,13 @@ export const SwarmThreePhaseBreakdown: Story = {
  * Phase 119 Swarm Authority — fan-out only.
  *
  * Some "swarm-capable" stages (notably ``audit``) open a swarm window
- * but never run a coordinator or synthesizer LLM call.  The breakdown
- * surfaces only the bucket that has actual work, so the user sees
- * "Workers ×5" rather than three rows with two of them at 0.  When the
- * stage is genuinely just parallel calls, ``swarm_phases`` is null and
- * no breakdown is rendered at all.
+ * but never run a coordinator or synthesizer LLM call.  The dev-popover
+ * ``SwarmActivityPanel`` surfaces only the bucket that has actual work,
+ * so an audit-style swarm shows "Workers ×5" rather than three rows
+ * with two at zero.  The sidebar still shows the high-level badge.
  */
 export const SwarmFanOutOnly: Story = {
-  name: 'Swarm window open but only workers active',
+  name: 'Swarm window open but only workers active (dev popover)',
   args: {
     slotsStatus: {
       ...baseSlots,

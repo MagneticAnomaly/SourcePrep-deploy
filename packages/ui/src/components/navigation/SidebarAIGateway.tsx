@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { ConcurrencyResetPanel } from '../concurrency/ConcurrencyResetPanel';
-import type { LLMSlotsStatus, RunningTask, LLMSlotStatus, SwarmPhasesBreakdown } from '../../types';
+import { SwarmActivityPanel } from '../concurrency/SwarmActivityPanel';
+import type { LLMSlotsStatus, RunningTask, LLMSlotStatus } from '../../types';
 import { TASK_LABELS } from '../../types';
 
 export interface SidebarAIGatewayProps {
@@ -88,50 +89,16 @@ function totalConcurrentWorkers(runningTasks: RunningTask[]): number {
 }
 
 /**
- * Phase 119 Swarm Authority: per-role breakdown rendered under a
- * running task when a real 3-phase swarm is in flight.
+ * Phase 119 amendment — the per-role swarm breakdown
+ * (coordinator/worker/synthesizer) used to render inline under each
+ * running task here.  It was confusing for end users (who only need
+ * to know "a swarm is active"), so it now lives in the developer
+ * popover behind the wrench icon.  See ``SwarmActivityPanel`` in
+ * ``../concurrency/SwarmActivityPanel.tsx``.
  *
- * The `is_swarm` badge upstream is now tied to runtime evidence (the
- * scheduler's swarm window).  When it fires we render the coordinator,
- * worker, and synthesizer buckets reported by `/llm/slots/status`.
- * Empty buckets are suppressed — for example, the audit stage opens a
- * swarm window but does not actually run a coordinator or synthesizer
- * phase, so those rows would never appear for it.
+ * The high-level "Swarm" badge + `concurrent_workers` count remain
+ * inline below — those ARE user-facing status.
  */
-function SwarmPhaseRows({ phases }: { phases: SwarmPhasesBreakdown }) {
-  const rows: Array<{ key: keyof SwarmPhasesBreakdown; label: string; color: string }> = [
-    { key: 'coordinator', label: 'Coordinator', color: 'text-amber-300' },
-    { key: 'workers', label: 'Workers', color: 'text-blue-300' },
-    { key: 'synthesizer', label: 'Synthesizer', color: 'text-purple-300' },
-  ];
-  const visible = rows.filter(r => (phases[r.key]?.active ?? 0) > 0);
-  if (visible.length === 0) return null;
-  return (
-    <div
-      className="ml-4 mt-0.5 space-y-0.5"
-      data-testid="ai-gateway-swarm-phases"
-    >
-      {visible.map(r => {
-        const bucket = phases[r.key];
-        const count = bucket.active;
-        const model = bucket.model;
-        return (
-          <div
-            key={r.key}
-            className="flex items-center gap-1.5 text-[10px] text-text-muted"
-          >
-            <Loader2 className="w-2 h-2 animate-spin shrink-0" />
-            <span className={cn('font-medium shrink-0', r.color)}>{r.label}</span>
-            <span className="shrink-0 tabular-nums">×{count}</span>
-            {model && (
-              <span className="truncate text-text-muted/70">{model}</span>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /**
  * Collapsed sidebar view: vertical stack of colored dots per model slot
@@ -191,7 +158,13 @@ function CollapsedView({
  * subtle wrench icon. Hidden unless `baseUrl` is provided AND at least
  * one `cloud:*` node is registered with the scheduler (queried lazily).
  */
-function DevModeMenu({ baseUrl }: { baseUrl: string }) {
+function DevModeMenu({
+  baseUrl,
+  runningTasks,
+}: {
+  baseUrl: string;
+  runningTasks: RunningTask[];
+}) {
   const [open, setOpen] = useState(false);
   const [cloudNodeIds, setCloudNodeIds] = useState<string[] | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -278,6 +251,16 @@ function DevModeMenu({ baseUrl }: { baseUrl: string }) {
                 <Wrench className="w-3 h-3 text-text-muted" />
                 Developer mode
               </div>
+
+              {/* Active swarms — diagnostic, so it's surfaced first.
+                  Empty state renders an italic "No active swarms" line. */}
+              <div className="border-b border-border pb-2 mb-1">
+                <h4 className="text-[10px] uppercase tracking-wider text-text-muted mb-1">
+                  Active Swarms
+                </h4>
+                <SwarmActivityPanel runningTasks={runningTasks} />
+              </div>
+
               <ConcurrencyResetPanel
                 cloudNodeIds={cloudNodeIds ?? []}
                 baseUrl={baseUrl}
@@ -285,6 +268,18 @@ function DevModeMenu({ baseUrl }: { baseUrl: string }) {
               {cloudNodeIds === null && (
                 <div className="text-[10px] text-text-muted">Loading nodes…</div>
               )}
+
+              {/* Phase 119 verbose-logging: per-swarm-execution JSONL
+                  event logs are written here.  Static label is good
+                  enough for v1 — agents/users curl the path directly
+                  or hit /system/swarm-events to enumerate. */}
+              <p className="text-[10px] text-text-muted pt-2 border-t border-border">
+                Per-swarm event logs:
+                <br />
+                <code className="text-text-base break-all">
+                  ~/.local/share/sourceprep/logs/swarm/
+                </code>
+              </p>
             </div>
           </>,
           portalTarget,
@@ -331,7 +326,7 @@ function ExpandedView({
           )}
         </button>
         <div className="flex items-center gap-0.5">
-          {baseUrl && <DevModeMenu baseUrl={baseUrl} />}
+          {baseUrl && <DevModeMenu baseUrl={baseUrl} runningTasks={runningTasks} />}
           {onOpenDetails && (
             <Button
               variant="ghost"
@@ -420,15 +415,12 @@ function ExpandedView({
                         {rt.project_name}
                       </span>
                     </div>
-                    {/* Phase 119 Swarm Authority: render the three-phase
-                        breakdown when the orchestrator opened a real
-                        swarm window and tagged each LLM call with its
-                        role.  Null/empty buckets are suppressed — we do
-                        not fabricate empty rows for stages that don't
-                        actually run all three phases (e.g. audit). */}
-                    {rt.is_swarm && rt.swarm_phases && (
-                      <SwarmPhaseRows phases={rt.swarm_phases} />
-                    )}
+                    {/* Phase 119 amendment — the per-role
+                        coordinator/worker/synthesizer breakdown moved
+                        out of this user-facing sidebar into the
+                        developer popover (wrench icon).  The "Swarm"
+                        badge above is still inline because it's
+                        status, not debugging. */}
                   </div>
                 ))}
               </div>
