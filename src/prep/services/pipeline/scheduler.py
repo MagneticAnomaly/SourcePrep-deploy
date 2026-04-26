@@ -115,6 +115,15 @@ class ComputeSlot:
     # incremented by the recovery path (vs. by an LLM success).  Reset
     # whenever a backoff fires.  Used to gate recovery to ≥30s cadence.
     _last_recovery_time: float = 0.0
+    # Phase 119: demand-gating for recovery. Stamped by acquire_request
+    # when a waiter observes the gate is binding (in_flight >= limit).
+    # _maybe_demand_recover() only grows current_limit if now < this stamp.
+    _gate_binding_until: float = 0.0
+    # Phase 119: discovered ceiling lock (mirrors ConcurrencyStore record).
+    # When set, recovery + AI cannot grow current_limit above this value
+    # until ceiling_locked_until passes.
+    discovered_ceiling: Optional[int] = None
+    ceiling_locked_until: float = 0.0
 
     # Phase 82 follow-up: per-request gate. `in_flight_requests` counts
     # LLM calls currently in flight against this slot. `_cond` is the
@@ -682,42 +691,59 @@ class PipelineScheduler:
     # recovery is allowed to fire.
     _IDLE_RECOVERY_INTERVAL_S = 30.0
     _BACKOFF_COOLDOWN_S = 30.0
+    # Phase 119 demand window: when acquire_request observes the gate
+    # binding, the next 60 s allow recovery to fire.
+    _DEMAND_WINDOW_S = 60.0
 
-    def _maybe_idle_recover(self, slot: ComputeSlot) -> None:
-        """Grow ``slot.current_limit`` by 1 if it's been idle long enough.
+    def _maybe_demand_recover(self, slot: ComputeSlot) -> None:
+        """Grow ``slot.current_limit`` by 1 if recent demand justifies it.
 
         Caller MUST hold ``self._lock``.
 
-        The Phase-82 AIMD additive-increase path only fires when an LLM
-        call completes successfully — if a single slow call backs the
-        slot off and then no more LLM activity happens for a while
-        (e.g. between stages), the slot stays stuck at the reduced cap
-        until the daemon restarts.  This time-based recovery closes the
-        gap by growing on every acquire() call once the cooldown has
-        elapsed, with no extra threads.
+        Phase 119 supersedes Phase 96 F-28's idle recovery: the original
+        version grew on every acquire() call regardless of demand, which
+        produced an unbounded random walk on cloud slots. The new
+        version requires that ``acquire_request`` recently observed the
+        gate as binding (``slot._gate_binding_until`` > now) before
+        growing.
 
-        Local slots cap at ``max_concurrent`` (the VRAM ceiling is known
-        a priori). Cloud slots are unbounded per the Latency-Aware
-        Discovery spec — ``max_concurrent`` on cloud is only the
-        jumpstart seed, not a ceiling.
+        Local slots cap at ``max_concurrent`` (VRAM is a real ceiling).
+        Cloud slots cap at ``discovered_ceiling`` when locked, otherwise
+        unbounded per Phase 82.
         """
         is_cloud = slot.node_id.startswith("cloud:")
+
+        # Cap check — local has VRAM; cloud has the optional locked ceiling.
         if not is_cloud and slot.current_limit >= slot.max_concurrent:
             return
+        if is_cloud and slot.discovered_ceiling is not None:
+            if slot.current_limit >= slot.discovered_ceiling:
+                return
+
         now = time.time()
         if now - slot._last_backoff_time < self._BACKOFF_COOLDOWN_S:
             return
         if now - slot._last_recovery_time < self._IDLE_RECOVERY_INTERVAL_S:
             return
+
+        # Phase 119 demand gate — must have been binding within the window.
+        if now >= slot._gate_binding_until:
+            return
+
         if is_cloud:
             new_limit = slot.current_limit + 1
+            if slot.discovered_ceiling is not None:
+                new_limit = min(new_limit, slot.discovered_ceiling)
         else:
             new_limit = min(slot.max_concurrent, slot.current_limit + 1)
+
         if new_limit > slot.current_limit:
             logger.info(
-                "Scheduler: Node %s idle recovery %d -> %d (max=%d, floor=%d)",
+                "Scheduler: Node %s demand-gated recovery %d -> %d "
+                "(max=%d, floor=%d, ceiling=%s)",
                 slot.node_id, slot.current_limit, new_limit,
                 slot.max_concurrent, slot.min_limit,
+                slot.discovered_ceiling,
             )
             slot.current_limit = new_limit
             slot._last_recovery_time = now
@@ -765,6 +791,12 @@ class PipelineScheduler:
             if slot is None:
                 return None
             cond = self._slot_condition(slot)
+
+            # Phase 119: stamp gate-binding observations so demand-gated
+            # recovery can fire later. Only stamp when the gate would
+            # actually have been binding (in_flight at or above limit).
+            if slot.in_flight_requests >= slot.dynamic_capacity:
+                slot._gate_binding_until = time.time() + self._DEMAND_WINDOW_S
 
             while slot.in_flight_requests >= slot.dynamic_capacity:
                 remaining = deadline - time.monotonic()
@@ -1111,11 +1143,14 @@ class PipelineScheduler:
         resolved = self._resolve_node_for_stage(stage, node_id)
         with self._lock:
             slot = self._get_slot(resolved)
-            # F-28: idle recovery — if no backoff has fired in the last
-            # 30s and the slot is below max_concurrent, grow current_limit
-            # by 1.  This piggybacks on natural pipeline activity instead
-            # of needing a separate ticker thread.
-            self._maybe_idle_recover(slot)
+            # Phase 119: demand-gated recovery — if no backoff has fired
+            # in the last 30s, the recovery interval has elapsed, AND
+            # acquire_request recently observed the gate as binding,
+            # grow current_limit by 1.  This piggybacks on natural
+            # pipeline activity instead of needing a separate ticker
+            # thread, and avoids the unbounded random walk that the
+            # F-28 idle-recovery version produced on cloud slots.
+            self._maybe_demand_recover(slot)
             # Phase 91: Swarm gate (highest priority) — blocks all other
             # projects from acquiring on the swarm node.
             if self._is_blocked_by_swarm(project_id, resolved):
