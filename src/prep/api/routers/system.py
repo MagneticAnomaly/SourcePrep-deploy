@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query, Request, Response
@@ -344,12 +345,100 @@ def get_global_config_v2() -> Dict[str, Any]:
     return ok(_load_ui_config())
 
 
+# Phase 119 Phase A: provider key map from SavedEndpoint.provider →
+# concurrency_limits.json provider key.  Header-rich providers
+# (auto_detect=true) can save with plan_tier='auto'; others must pick a
+# tier or supply an explicit cloud_concurrency.
+_PROVIDER_TO_LIMITS_KEY: Dict[str, str] = {
+    "openai": "openai",
+    "anthropic": "anthropic",
+    "google": "google_gemini",
+    "kimi": "moonshot_kimi",
+    # Note: 'ollama' resolves to ollama_local for localhost URLs and
+    # ollama_cloud for ollama.com hosts — see _resolve_ollama_provider_key.
+}
+
+
+def _resolve_ollama_provider_key(url: str) -> str:
+    """An 'ollama' provider can be local (auto_detect via /api/ps) or cloud
+    (no headers).  Use the URL host to disambiguate."""
+    host = ""
+    try:
+        from urllib.parse import urlparse
+        host = (urlparse(url).hostname or "").lower()
+    except Exception:
+        host = ""
+    # ollama.com / *.ollama.com → cloud; everything else (localhost, 127.x,
+    # private LAN) is treated as local OSS.
+    if host == "ollama.com" or host.endswith(".ollama.com"):
+        return "ollama_cloud"
+    return "ollama_local"
+
+
+def _validate_endpoint_concurrency(endpoint: Dict[str, Any]) -> List[str]:
+    """Phase 119 Phase A: warn when a no-auto-detect provider has neither an
+    explicit ``plan_tier`` nor a positive ``cloud_concurrency``.
+
+    Returns a list of warning strings — empty list means OK.  Pulled from
+    src/prep/data/concurrency_limits.json (the GET /llm/plan-limits source).
+    """
+    if not isinstance(endpoint, dict):
+        return []
+
+    provider = str(endpoint.get("provider", "")).lower().strip()
+    if not provider:
+        return []
+
+    url = str(endpoint.get("url", ""))
+    if provider == "ollama":
+        table_key = _resolve_ollama_provider_key(url)
+    else:
+        table_key = _PROVIDER_TO_LIMITS_KEY.get(provider)
+    if not table_key:
+        return []  # Unknown / OSS-only provider — nothing to validate.
+
+    path = Path(__file__).resolve().parent.parent.parent / "data" / "concurrency_limits.json"
+    try:
+        table = json.loads(path.read_text())
+    except Exception as exc:
+        logger.warning("validate-endpoint: cannot read %s: %s", path, exc)
+        return []  # If the table is unreadable, don't block saves.
+
+    provider_entry = table.get("providers", {}).get(table_key)
+    if not provider_entry:
+        return []
+
+    plan_tier = endpoint.get("plan_tier")
+    cloud_concurrency = endpoint.get("cloud_concurrency")
+    has_explicit_tier = bool(plan_tier) and plan_tier not in ("", "auto")
+    has_explicit_concurrency = (
+        isinstance(cloud_concurrency, int) and cloud_concurrency > 0
+    )
+
+    if not provider_entry.get("auto_detect", True) and not (
+        has_explicit_tier or has_explicit_concurrency
+    ):
+        name = endpoint.get("name") or endpoint.get("id") or table_key
+        return [
+            f"Endpoint '{name}' ({provider_entry.get('label', table_key)}): "
+            f"please pick a Plan tier from the dropdown so concurrency can be "
+            f"capped correctly. This provider does not expose rate-limit "
+            f"headers, so we cannot auto-detect."
+        ]
+    return []
+
+
 @router.put("/global/config")
 async def update_global_config_v2(req: Request) -> Dict[str, Any]:
     """Update global UI configuration (merge update).
 
     Runs the blocking SQLite load/save in a thread pool so the asyncio
     event loop stays responsive during lock contention.
+
+    Phase 119 Phase A: when the patch contains ``llm_config.saved_endpoints``,
+    each endpoint is run through ``_validate_endpoint_concurrency``.  Warnings
+    are returned in the response envelope under ``warnings`` (the save still
+    proceeds — the UI surfaces the warning so the user can pick a tier).
     """
     import asyncio
     from prep.server import (
@@ -364,6 +453,17 @@ async def update_global_config_v2(req: Request) -> Dict[str, Any]:
 
     if not isinstance(data, dict):
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message="Config must be a JSON object")
+
+    # Phase 119 Phase A: collect concurrency warnings before save.
+    warnings: List[str] = []
+    incoming_endpoints = (
+        ((data.get("llm_config") or {}).get("saved_endpoints"))
+        if isinstance(data.get("llm_config"), dict)
+        else None
+    )
+    if isinstance(incoming_endpoints, list):
+        for ep in incoming_endpoints:
+            warnings.extend(_validate_endpoint_concurrency(ep))
 
     def _do_save() -> Dict[str, Any]:
         current = _load_ui_config()
@@ -400,4 +500,7 @@ async def update_global_config_v2(req: Request) -> Dict[str, Any]:
         logger.exception("Failed to save global config")
         raise ApiException(status_code=500, code="CONFIG_SAVE_ERROR", message=f"Failed to save config: {e}")
 
-    return ok(current)
+    response = ok(current)
+    if warnings:
+        response["warnings"] = warnings
+    return response

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { cn } from '../../lib/utils';
 import type { SavedEndpoint, LLMProvider, EndpointTestResult, ComputeNode, AdminPolicy } from '../../types';
 import { Plus, Trash2, Edit2, Play, CheckCircle, AlertCircle, Server, Lock, Wand2, Zap } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { Select } from '../primitives/Select';
 import { InfoTooltip } from '../primitives/InfoTooltip';
+import { PlanDropdown, type PlanLimitsTable } from './PlanDropdown';
 
 export interface EndpointManagerProps {
   endpoints: SavedEndpoint[];
@@ -30,6 +31,43 @@ const PROVIDER_OPTIONS: { value: LLMProvider; label: string; hint?: string }[] =
 
 const LOCAL_PROVIDERS = new Set<string>(['ollama', 'lm-studio']);
 
+// Phase 119 Phase A: provider key map → concurrency_limits.json provider key.
+// Ollama is split between local OSS and Ollama Cloud at runtime via URL host.
+const PROVIDER_TO_TABLE_KEY: Partial<Record<LLMProvider, string>> = {
+  openai: 'openai',
+  anthropic: 'anthropic',
+  google: 'google_gemini',
+};
+
+const PROVIDER_NEEDS_CLOUD_PLAN: LLMProvider[] = ['openai', 'anthropic', 'google'];
+
+function providerNeedsCloudPlan(p: LLMProvider, url: string): boolean {
+  if (PROVIDER_NEEDS_CLOUD_PLAN.includes(p)) return true;
+  // ollama → cloud only when host is ollama.com
+  if (p === 'ollama') {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      return host === 'ollama.com' || host.endsWith('.ollama.com');
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+function mapProviderToTableKey(p: LLMProvider, url: string): string {
+  if (p === 'ollama') {
+    try {
+      const host = new URL(url).hostname.toLowerCase();
+      if (host === 'ollama.com' || host.endsWith('.ollama.com')) return 'ollama_cloud';
+    } catch {
+      // fall through
+    }
+    return 'ollama_local';
+  }
+  return PROVIDER_TO_TABLE_KEY[p] ?? String(p);
+}
+
 export function EndpointManager({
   endpoints,
   onAdd,
@@ -52,6 +90,21 @@ export function EndpointManager({
   const [formApiKey, setFormApiKey] = useState('');
   const [formLocalConcurrency, setFormLocalConcurrency] = useState(1);
   const [formCloudConcurrency, setFormCloudConcurrency] = useState(1);
+  // Phase 119 Phase A: dropdown selection (e.g. "max", "tier_3", "auto", "custom").
+  const [formPlanTier, setFormPlanTier] = useState<string | undefined>(undefined);
+
+  // Phase 119 Phase A: fetch plan-limits table once on mount; PlanDropdown
+  // renders only after this resolves (cloud providers).
+  const [planLimits, setPlanLimits] = useState<PlanLimitsTable | null>(null);
+  useEffect(() => {
+    fetch('/llm/plan-limits')
+      .then((r) => r.json())
+      .then((body) => {
+        const data = body?.data ?? body;
+        setPlanLimits(data && typeof data === 'object' && 'providers' in data ? (data as PlanLimitsTable) : null);
+      })
+      .catch(() => setPlanLimits(null));
+  }, []);
 
   const resetForm = () => {
     setFormName('');
@@ -60,6 +113,7 @@ export function EndpointManager({
     setFormApiKey('');
     setFormLocalConcurrency(1);
     setFormCloudConcurrency(1);
+    setFormPlanTier(undefined);
     setShowAddForm(false);
     setEditingId(null);
   };
@@ -73,6 +127,7 @@ export function EndpointManager({
       api_key: formApiKey.trim() || undefined,
       local_concurrency: formLocalConcurrency,
       cloud_concurrency: formCloudConcurrency,
+      plan_tier: formPlanTier,
     });
     resetForm();
   };
@@ -84,7 +139,8 @@ export function EndpointManager({
     setFormUrl(ep.url);
     setFormApiKey(ep.api_key || '');
     setFormLocalConcurrency(ep.local_concurrency ?? 1);
-    setFormCloudConcurrency(ep.cloud_concurrency ?? 1);
+    setFormCloudConcurrency(ep.cloud_concurrency ?? 0);
+    setFormPlanTier(ep.plan_tier);
     setShowAddForm(false);
   };
 
@@ -98,6 +154,7 @@ export function EndpointManager({
       api_key: formApiKey.trim() || undefined,
       local_concurrency: formLocalConcurrency,
       cloud_concurrency: formCloudConcurrency,
+      plan_tier: formPlanTier,
     });
     resetForm();
   };
@@ -293,8 +350,22 @@ export function EndpointManager({
                       <label className="text-xs font-medium text-text-muted">Concurrency</label>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
-                      {!LOCAL_PROVIDERS.has(formProvider) ? (
-                        /* Cloud provider: single concurrency control */
+                      {providerNeedsCloudPlan(formProvider, formUrl) && planLimits ? (
+                        /* Phase 119 Phase A: plan-tier dropdown for cloud providers */
+                        <div className="col-span-2">
+                          <PlanDropdown
+                            providerKey={mapProviderToTableKey(formProvider, formUrl)}
+                            value={formPlanTier}
+                            customConcurrent={formCloudConcurrency}
+                            limits={planLimits}
+                            onChange={({ plan_tier, cloud_concurrency }) => {
+                              setFormPlanTier(plan_tier || undefined);
+                              setFormCloudConcurrency(cloud_concurrency);
+                            }}
+                          />
+                        </div>
+                      ) : !LOCAL_PROVIDERS.has(formProvider) ? (
+                        /* Cloud provider, plan limits not yet loaded — fall back to numeric */
                         <div className="col-span-2">
                           <label className="block text-[10px] text-text-subtle mb-1">Concurrent API Requests</label>
                           <Select
@@ -307,7 +378,7 @@ export function EndpointManager({
                           <p className="text-[9px] text-text-subtle mt-0.5">Max parallel API calls across all pipeline stages</p>
                         </div>
                       ) : (
-                        /* Ollama / LM Studio: local + cloud concurrency */
+                        /* Ollama / LM Studio (local OSS): local + cloud concurrency */
                         <>
                           <div>
                             <label className="block text-[10px] text-text-subtle mb-1">Local GPU</label>
@@ -524,7 +595,21 @@ export function EndpointManager({
               <label className="text-xs font-medium text-text-muted">Concurrency</label>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {!LOCAL_PROVIDERS.has(formProvider) ? (
+              {providerNeedsCloudPlan(formProvider, formUrl) && planLimits ? (
+                /* Phase 119 Phase A: plan-tier dropdown for cloud providers */
+                <div className="col-span-2">
+                  <PlanDropdown
+                    providerKey={mapProviderToTableKey(formProvider, formUrl)}
+                    value={formPlanTier}
+                    customConcurrent={formCloudConcurrency}
+                    limits={planLimits}
+                    onChange={({ plan_tier, cloud_concurrency }) => {
+                      setFormPlanTier(plan_tier || undefined);
+                      setFormCloudConcurrency(cloud_concurrency);
+                    }}
+                  />
+                </div>
+              ) : !LOCAL_PROVIDERS.has(formProvider) ? (
                 <div className="col-span-2">
                   <label className="block text-[10px] text-text-subtle mb-1">Concurrent API Requests</label>
                   <Select
@@ -565,7 +650,7 @@ export function EndpointManager({
             </div>
           </div>
           <div className="flex gap-2 pt-2">
-            <Button 
+            <Button
               onClick={handleAdd}
               size="sm"
             >
