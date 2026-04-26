@@ -112,7 +112,10 @@ export function EndpointManager({
     setFormUrl('');
     setFormApiKey('');
     setFormLocalConcurrency(1);
-    setFormCloudConcurrency(1);
+    // Phase 119 Phase A fix-up: 0 (sentinel for "auto") so a fresh add of
+    // a cloud-Ollama endpoint that never engages the dropdown surfaces the
+    // plan-tier warning instead of silently saving with the legacy default.
+    setFormCloudConcurrency(0);
     setFormPlanTier(undefined);
     setShowAddForm(false);
     setEditingId(null);

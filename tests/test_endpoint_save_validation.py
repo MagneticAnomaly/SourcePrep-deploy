@@ -76,8 +76,12 @@ def test_plan_limits_includes_source_urls() -> None:
 
 
 def test_save_endpoint_force_tier_for_no_auto_detect_provider() -> None:
-    """Saving an Ollama Cloud-style endpoint without plan_tier returns 400 OR
-    a warning. The provider's auto_detect=false; the user MUST pick a tier."""
+    """Saving an Ollama Cloud-style endpoint without plan_tier emits a warning.
+    The provider's auto_detect=false; the user MUST pick a tier.
+
+    Phase 119 Phase A fix-up: pinned to the 200-with-warnings contract (the
+    save proceeds; the warning surfaces in the response envelope).  A future
+    regression to 400 should fail loudly here rather than pass silently."""
     client = _client()
     payload = {
         "name": "test-ollama-no-tier",
@@ -90,14 +94,14 @@ def test_save_endpoint_force_tier_for_no_auto_detect_provider() -> None:
         "cloud_concurrency": 0,
     }
     resp = _put_endpoint(client, payload)
-    if resp.status_code == 200:
-        body = resp.json()
-        warns = _warnings_for(body)
-        assert any("plan" in w.lower() or "tier" in w.lower() for w in warns), (
-            f"Expected a plan-required warning for ollama cloud (no auto-detect); got: {warns}"
-        )
-    else:
-        assert resp.status_code == 400
+    assert resp.status_code == 200, (
+        f"Expected 200 (warn-and-allow contract), got {resp.status_code}: {resp.text}"
+    )
+    body = resp.json()
+    warns = _warnings_for(body)
+    assert any("plan" in w.lower() or "tier" in w.lower() for w in warns), (
+        f"Expected a plan-required warning for ollama cloud (no auto-detect); got: {warns}"
+    )
 
 
 def test_save_endpoint_auto_for_header_rich_provider_is_ok() -> None:
@@ -140,4 +144,28 @@ def test_save_endpoint_with_custom_tier_persists_value() -> None:
     warns = [w for w in _warnings_for(resp.json()) if "test-custom-7" in w]
     assert not any("pick a Plan tier" in w for w in warns), (
         f"Custom concurrency should satisfy validator; got: {warns}"
+    )
+
+
+def test_save_endpoint_localhost_ollama_no_warning() -> None:
+    """A localhost Ollama endpoint maps to ollama_local (auto_detect=true).
+
+    Should NOT trigger a plan-tier warning even without plan_tier set —
+    auto_detect=true providers are exempt from the force-tier rule.
+    """
+    client = _client()
+    payload = {
+        "name": "test-ollama-localhost",
+        "provider": "ollama",
+        "url": "http://localhost:11434",
+        # no plan_tier, no cloud_concurrency
+    }
+    resp = _put_endpoint(client, payload)
+    assert resp.status_code in (200, 201), (
+        f"Expected localhost Ollama save to succeed; got {resp.status_code}: {resp.text}"
+    )
+    warns = _warnings_for(resp.json())
+    plan_warns = [w for w in warns if "plan" in w.lower() or "tier" in w.lower()]
+    assert not plan_warns, (
+        f"Localhost Ollama should not warn (auto_detect=true via ollama_local); got: {plan_warns}"
     )

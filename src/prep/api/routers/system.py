@@ -31,6 +31,7 @@ Prep System Router — Phase 23 Sprint 9
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 from pathlib import Path
@@ -353,10 +354,27 @@ _PROVIDER_TO_LIMITS_KEY: Dict[str, str] = {
     "openai": "openai",
     "anthropic": "anthropic",
     "google": "google_gemini",
-    "kimi": "moonshot_kimi",
     # Note: 'ollama' resolves to ollama_local for localhost URLs and
     # ollama_cloud for ollama.com hosts — see _resolve_ollama_provider_key.
+    # Note: 'kimi' is intentionally absent — the LLMProvider TS union does
+    # not include it.  Restore "kimi": "moonshot_kimi" if/when the provider
+    # type is added.
 }
+
+
+@functools.lru_cache(maxsize=1)
+def _load_limits_table() -> Dict[str, Any]:
+    """Read concurrency_limits.json once.  Returns empty dict on read failure.
+
+    Phase 119 Phase A fix-up: cached so a single PUT /global/config that
+    iterates through saved_endpoints does not re-read the file N times.
+    """
+    path = Path(__file__).resolve().parent.parent.parent / "data" / "concurrency_limits.json"
+    try:
+        return json.loads(path.read_text())
+    except Exception as exc:
+        logger.warning("validate-endpoint: cannot read %s: %s", path, exc)
+        return {}
 
 
 def _resolve_ollama_provider_key(url: str) -> str:
@@ -397,11 +415,8 @@ def _validate_endpoint_concurrency(endpoint: Dict[str, Any]) -> List[str]:
     if not table_key:
         return []  # Unknown / OSS-only provider — nothing to validate.
 
-    path = Path(__file__).resolve().parent.parent.parent / "data" / "concurrency_limits.json"
-    try:
-        table = json.loads(path.read_text())
-    except Exception as exc:
-        logger.warning("validate-endpoint: cannot read %s: %s", path, exc)
+    table = _load_limits_table()
+    if not table:
         return []  # If the table is unreadable, don't block saves.
 
     provider_entry = table.get("providers", {}).get(table_key)
