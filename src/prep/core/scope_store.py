@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass, field
-from typing import Any, List  # noqa: UP035
+from typing import Any
 
 GLOBAL_SCOPE_ID = "global"
 _SCOPE_KEY_PREFIX = "scope"
 _MAX_SLUG_SUFFIX = 99
+_UNSET: object = object()
 
 
 @dataclass
@@ -36,6 +37,20 @@ class ScopeRecord:
 
 
 class ScopeStore:
+    """CRUD for named scope records, persisted in the per-project
+    settings_store under the ``scope.<scope_id>`` namespace.
+
+    **Concurrency caveat (v1):** ``create()`` and ``update()`` perform
+    a non-atomic read-modify-write — they call ``list()`` to enforce
+    slug-uniqueness and ``assigned_to_role``-uniqueness, then ``_write()``
+    the new record. Two concurrent calls from independent FastAPI
+    workers can race past these checks. The dashboard is a single
+    human writer in practice, so the impact is bounded; if scope
+    mutations ever come from automated/parallel callers, replace the
+    relevant helpers with a registry-style ``mutate_config`` RMW
+    (see Phase 24's ``mutate_global_scope`` for the pattern).
+    """
+
     def get(self, project_id: str, scope_id: str) -> ScopeRecord | None:
         from prep.services.settings_store import settings
 
@@ -44,12 +59,12 @@ class ScopeStore:
             return None
         return ScopeRecord.from_dict(raw)
 
-    def list(self, project_id: str) -> List[ScopeRecord]:  # noqa: UP006
+    def list(self, project_id: str) -> list[ScopeRecord]:
         from prep.services.settings_store import settings
 
         all_settings = settings.project_get_all(project_id)
         prefix = f"{_SCOPE_KEY_PREFIX}."
-        out: List[ScopeRecord] = []  # noqa: UP006
+        out: list[ScopeRecord] = []
         for key, value in all_settings.items():
             if key.startswith(prefix) and isinstance(value, dict):
                 out.append(ScopeRecord.from_dict(value))
@@ -59,7 +74,7 @@ class ScopeStore:
         self,
         project_id: str,
         display_name: str,
-        paths: List[str] | None = None,  # noqa: UP006
+        paths: list[str] | None = None,  # type: ignore[valid-type]  # mypy: ScopeStore.list shadows builtin
         assigned_to_role: str | None = None,
     ) -> ScopeRecord:
         slug = _slugify(display_name)
@@ -85,13 +100,19 @@ class ScopeStore:
         project_id: str,
         scope_id: str,
         display_name: str | None = None,
-        assigned_to_role: str | None = None,
+        assigned_to_role: Any = _UNSET,
     ) -> ScopeRecord:
+        """Update a scope's metadata.
+
+        Pass ``assigned_to_role=None`` to clear an existing assignment.
+        Omit (default) to leave it unchanged. Pass a string to set/replace.
+        """
         rec = self.get(project_id, scope_id)
         if rec is None:
             raise KeyError(scope_id)
-        if assigned_to_role is not None and assigned_to_role != rec.assigned_to_role:
-            self._check_role_unique(project_id, assigned_to_role, exclude_id=scope_id)
+        if assigned_to_role is not _UNSET and assigned_to_role != rec.assigned_to_role:
+            if assigned_to_role:
+                self._check_role_unique(project_id, assigned_to_role, exclude_id=scope_id)
             rec.assigned_to_role = assigned_to_role or None
         if display_name is not None:
             rec.display_name = display_name
@@ -99,16 +120,17 @@ class ScopeStore:
         self._write(project_id, rec)
         return rec
 
-    def set_paths(self, project_id: str, scope_id: str, paths: List[str]) -> ScopeRecord:  # noqa: UP006
+    def set_paths(self, project_id: str, scope_id: str, paths: list[str]) -> ScopeRecord:  # type: ignore[valid-type]  # mypy: ScopeStore.list shadows builtin
         rec = self.get(project_id, scope_id)
         if rec is None:
             raise KeyError(scope_id)
-        rec.paths = sorted({p for p in paths if p})
+        rec.paths = sorted({p for p in paths if p})  # type: ignore[attr-defined]
         rec.updated_at = _iso_now()
         self._write(project_id, rec)
         return rec
 
     def delete(self, project_id: str, scope_id: str) -> bool:
+        """Delete a scope. Returns True if it existed, False otherwise."""
         from prep.services.settings_store import settings
 
         return settings.project_delete(project_id, f"{_SCOPE_KEY_PREFIX}.{scope_id}")

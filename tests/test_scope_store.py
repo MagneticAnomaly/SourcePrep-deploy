@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from prep.core.scope_store import ScopeStore, ScopeRecord, GLOBAL_SCOPE_ID
+
+from prep.core.scope_store import GLOBAL_SCOPE_ID, ScopeStore
 
 
 def test_create_get_round_trip(tmp_settings):
@@ -51,3 +52,22 @@ def test_delete(tmp_settings):
     assert store.delete("proj-1", "marketing") is True
     assert store.get("proj-1", "marketing") is None
     assert store.delete("proj-1", "marketing") is False
+
+
+def test_update_can_clear_assigned_to_role(tmp_settings):
+    store = ScopeStore()
+    store.create("proj-1", display_name="A", paths=[], assigned_to_role="cto")
+    rec = store.update("proj-1", "a", assigned_to_role=None)
+    assert rec.assigned_to_role is None
+    # And another scope can now claim that role.
+    rec2 = store.create("proj-1", display_name="B", paths=[], assigned_to_role="cto")
+    assert rec2.assigned_to_role == "cto"
+
+
+def test_update_omitting_role_leaves_it_unchanged(tmp_settings):
+    store = ScopeStore()
+    store.create("proj-1", display_name="A", paths=[], assigned_to_role="cto")
+    # Update display_name only; role assignment stays.
+    rec = store.update("proj-1", "a", display_name="A2")
+    assert rec.display_name == "A2"
+    assert rec.assigned_to_role == "cto"
