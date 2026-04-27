@@ -712,6 +712,7 @@ from prep.api.routers.projects import router as projects_router
 from prep.api.routers.pipeline import router as pipeline_router
 from prep.api.routers.settings import router as settings_router
 from prep.api.routers.scope import router as scope_router
+from prep.api.routers.scopes import router as scopes_router
 from prep.api.routers.observations import router as observations_router
 from prep.api.routers.concepts import router as concepts_router
 from prep.api.routers.audit import router as audit_router
@@ -737,6 +738,7 @@ app.include_router(projects_router)
 app.include_router(pipeline_router)
 app.include_router(settings_router)
 app.include_router(scope_router)
+app.include_router(scopes_router)
 app.include_router(observations_router)
 app.include_router(concepts_router)
 app.include_router(audit_router)
