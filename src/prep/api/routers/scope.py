@@ -111,8 +111,8 @@ def scope_add_files(project_id: str, req: ScopeFilesRequest) -> Dict[str, Any]:
     Persists the updated included_paths set to project config (SQLite),
     then triggers a debounced CodeIndex rebuild (Pro) or marks as stale (Free).
     """
-    from prep.server import _require_project, _get_registry
-    proj = _require_project(project_id)
+    from prep.server import _require_project
+    _require_project(project_id)
 
     if not req.paths:
         raise ApiException(
@@ -121,26 +121,15 @@ def scope_add_files(project_id: str, req: ScopeFilesRequest) -> Dict[str, Any]:
             message="No file paths provided",
         )
 
-    # Atomic RMW to avoid racing with concurrent /trace/ignore or
-    # /included_paths writers that would overwrite our field.
-    def _apply_add(cfg):
-        current = set(cfg.get("included_paths", []))
-        for p in req.paths:
-            if p:
-                current.add(p)
-                prefix = p + "/"
-                current = {x for x in current if not x.startswith(prefix) or x == p}
-        return {**cfg, "included_paths": sorted(current)}
-    _get_registry().mutate_config(project_id, _apply_add)
-    # Re-read for response
-    current = set((_get_registry().get_project(project_id).config or {}).get("included_paths", []))
+    from prep.services.project_helpers import mutate_global_scope
+    new_paths = mutate_global_scope(project_id, "add", req.paths)
 
     from prep.services.scope_orchestrator import scope_orchestrator
     _ensure_build_fn_registered(project_id)
     scope_orchestrator.on_files_added(project_id, req.paths)
     return ok({
         "added": len(req.paths),
-        "included_paths": sorted(current),
+        "included_paths": new_paths,
         "status": scope_orchestrator.status(project_id),
     })
 
@@ -152,8 +141,8 @@ def scope_remove_files(project_id: str, req: ScopeFilesRequest) -> Dict[str, Any
     Persists the updated included_paths set to project config (SQLite),
     then triggers a debounced CodeIndex rebuild (Pro) or marks as stale (Free).
     """
-    from prep.server import _require_project, _get_registry
-    proj = _require_project(project_id)
+    from prep.server import _require_project
+    _require_project(project_id)
 
     if not req.paths:
         raise ApiException(
@@ -162,25 +151,15 @@ def scope_remove_files(project_id: str, req: ScopeFilesRequest) -> Dict[str, Any
             message="No file paths provided",
         )
 
-    # Atomic RMW to avoid racing with concurrent /trace/ignore or
-    # /included_paths writers that would overwrite our field.
-    def _apply_remove(cfg):
-        current = set(cfg.get("included_paths", []))
-        for p in req.paths:
-            current.discard(p)
-            prefix = p + "/"
-            current = {x for x in current if not x.startswith(prefix)}
-        return {**cfg, "included_paths": sorted(current)}
-    _get_registry().mutate_config(project_id, _apply_remove)
-    # Re-read for response
-    current = set((_get_registry().get_project(project_id).config or {}).get("included_paths", []))
+    from prep.services.project_helpers import mutate_global_scope
+    new_paths = mutate_global_scope(project_id, "remove", req.paths)
 
     from prep.services.scope_orchestrator import scope_orchestrator
     _ensure_build_fn_registered(project_id)
     scope_orchestrator.on_files_removed(project_id, req.paths)
     return ok({
         "removed": len(req.paths),
-        "included_paths": sorted(current),
+        "included_paths": new_paths,
         "status": scope_orchestrator.status(project_id),
     })
 

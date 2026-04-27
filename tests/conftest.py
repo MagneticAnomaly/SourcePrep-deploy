@@ -105,6 +105,33 @@ def dummy_project(tmp_path, monkeypatch):
     return proj
 
 
+class _FakeRegistry:
+    def __init__(self, proj):
+        self._proj = proj
+
+    def get_project(self, project_id):
+        return self._proj if project_id == self._proj.id else None
+
+    def mutate_config(self, project_id, mutator, *, touch: bool = True):
+        if project_id != self._proj.id:
+            return self._proj
+        new_cfg = mutator(self._proj.config or {}) or {}
+        # Project is frozen=True; use object.__setattr__ to bypass the guard.
+        object.__setattr__(self._proj, "config", new_cfg)
+        return self._proj
+
+
+@pytest.fixture
+def dummy_project_in_registry(dummy_project, monkeypatch):
+    """Like dummy_project but also patches the get_registry() singleton so that
+    mutate_global_scope (which calls get_registry().mutate_config / get_project)
+    works against an in-memory registry instead of a real SQLite DB."""
+    from prep.services import project_helpers as ph
+    fake = _FakeRegistry(dummy_project)
+    monkeypatch.setattr(ph, "_registry", fake)
+    return dummy_project
+
+
 @pytest.fixture
 def mini_repo(tmp_path: Path) -> Path:
     """

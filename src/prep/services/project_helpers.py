@@ -704,6 +704,49 @@ def compute_index_membership(project_id: str) -> set[str]:
     return members
 
 
+def mutate_global_scope(
+    project_id: str, action: str, paths: list[str]
+) -> list[str]:
+    """Atomic RMW on ``project.config.included_paths``.
+
+    Single source of truth for both Phase 24's ``/scope/*`` endpoints
+    and Phase 120's ``/scopes/global/*`` endpoints.
+
+    ``action`` is ``"add"`` or ``"remove"``. Returns the new sorted
+    ``included_paths`` list.
+
+    When adding a path that is a parent of already-present descendants,
+    the descendants are pruned (the parent covers them).
+    """
+    if action not in ("add", "remove"):
+        raise ValueError(f"action must be 'add' or 'remove', got {action!r}")
+
+    def _apply(cfg: dict[str, Any]) -> dict[str, Any]:
+        current: set[str] = set(cfg.get("included_paths", []))
+        if action == "add":
+            for p in paths:
+                if not p:
+                    continue
+                current.add(p)
+                # Prune descendants: if we're adding "src/" or "src", remove
+                # "src/foo.py" etc.  Normalise to a prefix that ends with "/"
+                # so both "src" and "src/" work identically.
+                prefix = p.rstrip("/") + "/"
+                current = {x for x in current if not x.startswith(prefix) or x == p}
+        else:
+            for p in paths:
+                current.discard(p)
+                # Also remove any descendants of a removed directory path.
+                prefix = p.rstrip("/") + "/"
+                current = {x for x in current if not x.startswith(prefix)}
+        return {**cfg, "included_paths": sorted(current)}
+
+    reg = get_registry()
+    reg.mutate_config(project_id, _apply)
+    proj = reg.get_project(project_id)
+    return sorted((proj.config or {}).get("included_paths", []))  # type: ignore[union-attr]
+
+
 def build_coverage_tree(repo_root: Path, include_globs: List[str], exclude_globs: List[str]) -> Dict[str, Any]:
     repo_root = Path(repo_root).expanduser().resolve()
     include_globs = list(include_globs or [])
