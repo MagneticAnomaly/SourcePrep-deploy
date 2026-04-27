@@ -40,7 +40,9 @@ def project(tmp_path, tmp_settings, monkeypatch):
             object.__setattr__(self._proj, "config", new_cfg)
             return self._proj
 
-    monkeypatch.setattr(ph, "_registry", _FakeReg(proj))
+    fake = _FakeReg(proj)
+    monkeypatch.setattr(ph, "_registry", fake)
+    monkeypatch.setattr(ph, "get_registry", lambda: fake)
     return proj
 
 
