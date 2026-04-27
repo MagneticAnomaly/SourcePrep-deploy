@@ -58,6 +58,16 @@ from prep.core.trace import TraceBuilder, TraceIndex
 logger = logging.getLogger(__name__)
 
 
+class BuildCancelledError(Exception):
+    """Raised inside a build worker when the user cancels via the queue.
+
+    Treated as a successful unwind, not a failure: the manifest is left in
+    whatever partial state the build had reached so a subsequent reset or
+    rebuild can pick up cleanly. The `finally` block in each worker still
+    drops the thread registration so the queue clears.
+    """
+
+
 class BuildManager:
     """Manages index caches, build threads, and locks for all project types.
 
@@ -267,11 +277,15 @@ class BuildManager:
     ) -> None:
         pm = get_progress_manager()
         task_id = pm.start_task("index_build", project.id)
+        cancel_event = threading.Event()
+        pm.register_cancel_event(task_id, cancel_event)
 
         try:
             idx = self.get_project_index(project)
 
             def _progress_cb(file_path: str, current: int, total: int):
+                if cancel_event.is_set():
+                    raise BuildCancelledError("index_build cancelled by user")
                 msg = f"Indexing {file_path}"
                 pm.update(task_id, msg, current, total)
                 logger.info(msg)
@@ -299,6 +313,9 @@ class BuildManager:
             invalidate_stale_cache(project.id)
             
             pm.finish_task(task_id, success=True, message="Build complete")
+        except BuildCancelledError as e:
+            logger.info("Index build cancelled for %s: %s", project.id, e)
+            pm.finish_task(task_id, success=False, message="cancelled")
         except Exception as e:
             logger.exception("Build failed")
             self.last_build_error[project.id] = str(e)
@@ -358,6 +375,8 @@ class BuildManager:
         """Build worker that writes only changed files to local_deltas/."""
         pm = get_progress_manager()
         task_id = pm.start_task("delta_build", project.id)
+        cancel_event = threading.Event()
+        pm.register_cancel_event(task_id, cancel_event)
 
         try:
             idx_dir = Path(project_index_dir(project))
@@ -370,6 +389,8 @@ class BuildManager:
             delta_idx = CodeIndex(index_dir=delta_dir, embedder=embedder)
 
             def _progress_cb(file_path: str, current: int, total: int):
+                if cancel_event.is_set():
+                    raise BuildCancelledError("delta_build cancelled by user")
                 msg = f"Delta indexing {file_path}"
                 pm.update(task_id, msg, current, total)
 
@@ -396,6 +417,9 @@ class BuildManager:
                 project.id, len(changed_paths),
             )
             pm.finish_task(task_id, success=True, message="Delta build complete")
+        except BuildCancelledError as e:
+            logger.info("Delta build cancelled for %s: %s", project.id, e)
+            pm.finish_task(task_id, success=False, message="cancelled")
         except Exception as e:
             logger.exception("Delta build failed for %s", project.id)
             self.last_build_error[project.id] = str(e)
@@ -456,8 +480,12 @@ class BuildManager:
     ) -> None:
         pm = get_progress_manager()
         task_id = pm.start_task("trace_build", project.id)
+        cancel_event = threading.Event()
+        pm.register_cancel_event(task_id, cancel_event)
 
         def progress_callback(msg: str, current: int, total: int):
+            if cancel_event.is_set():
+                raise BuildCancelledError("trace_build cancelled by user")
             pm.update(task_id, msg, current, total)
             if msg.startswith("trace_scan") and total > 0 and current % 50 == 0:
                  logger.info(f"[Trace] Scanning... ({current}/{total})")
@@ -467,7 +495,7 @@ class BuildManager:
         try:
             idx_dir = project_index_dir(project)
             logger.info(f"Building trace index for {project.id} in {idx_dir}")
-            
+
             builder = TraceBuilder(
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
@@ -482,13 +510,16 @@ class BuildManager:
             trace_idx = TraceIndex(idx_dir)
             trace_idx.load()
             self.project_trace_indexes[project.id] = trace_idx
-            
+
             # Invalidate mtime-based stale cache so status shows fresh
             from prep.services.project_helpers import invalidate_stale_cache
             invalidate_stale_cache(project.id)
-            
+
             logger.info("Trace build completed successfully")
             pm.finish_task(task_id, success=True, message="Trace build completed")
+        except BuildCancelledError as e:
+            logger.info("Trace build cancelled for %s: %s", project.id, e)
+            pm.finish_task(task_id, success=False, message="cancelled")
         except Exception as e:
             logger.error(f"Trace build failed: {e}")
             pm.finish_task(task_id, success=False, message=str(e))
@@ -534,6 +565,8 @@ class BuildManager:
     def _project_knowledge_build_worker(self, project: Project) -> None:
         pm = get_progress_manager()
         task_id = pm.start_task("knowledge_build", project.id)
+        cancel_event = threading.Event()
+        pm.register_cancel_event(task_id, cancel_event)
 
         def progress_callback(msg: str, current: int, total: int, baseline: int = 0):
             # F-44: accept and ignore baseline.  ProgressManager.update only
@@ -541,20 +574,25 @@ class BuildManager:
             # /pipeline/status slot_progress path, not via the SSE progress
             # event.  This wrapper just needs to swallow the 4th arg so the
             # knowledge worker (which now passes baseline) doesn't TypeError.
+            if cancel_event.is_set():
+                raise BuildCancelledError("knowledge_build cancelled by user")
             pm.update(task_id, msg, current, total)
 
         try:
             idx = self.get_project_knowledge_index(project)
             logger.info(f"Building knowledge index for {project.id}")
-            
+
             idx.build(progress_callback=progress_callback)
-            
+
             # Invalidate mtime-based stale cache so status shows fresh
             from prep.services.project_helpers import invalidate_stale_cache
             invalidate_stale_cache(project.id)
-            
+
             logger.info("Knowledge build completed successfully")
             pm.finish_task(task_id, success=True, message="Knowledge build completed")
+        except BuildCancelledError as e:
+            logger.info("Knowledge build cancelled for %s: %s", project.id, e)
+            pm.finish_task(task_id, success=False, message="cancelled")
         except Exception as e:
             logger.error(f"Knowledge build failed: {e}")
             pm.finish_task(task_id, success=False, message=str(e))

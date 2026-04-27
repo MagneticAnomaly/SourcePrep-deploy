@@ -326,6 +326,7 @@ class InferredEdgesAnalyzer:
                         prompt, system=BATCHED_INFERRED_EDGES_SYSTEM,
                         num_predict=num_predict, num_ctx=num_ctx,
                         response_schema=schema,
+                        think=False,
                         max_chars=batched_max_chars("augmentation", len(items)),
                     )
                     return BatchedResponseParser.parse(text, expected_count=len(items))
@@ -573,6 +574,7 @@ class InferredEdgesAnalyzer:
             num_predict=num_predict,
             num_ctx=num_ctx,
             temperature=0.1,
+            think=False,
             max_chars=TASK_MAX_CHARS["augmentation"],
         )
 

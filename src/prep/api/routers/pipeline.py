@@ -569,12 +569,31 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
         # Phase 60D-5: Inline read avoids pipeline_orchestrator.status() lock
         epistemic_path = idx_dir / "trace_epistemic.jsonl"
         enriched_count = _fast_line_count(epistemic_path)
-        total_file_nodes = _fast_line_count(idx_dir / "trace_nodes.jsonl")
+        # total_nodes counts every node in the graph (file + symbol + section
+        # + external_module). total_file_nodes must be only kind:file — those
+        # are the only entities epistemic enrichment ever produces. Using the
+        # unfiltered jsonl line count for total_file_nodes was the bug behind
+        # nonsense ratios like "24/311 nodes enriched" in the Graph Scope
+        # panel: 311 was every node, but the numerator only counts files.
+        # trace_manifest.json["file_hashes"] is the canonical, durable source
+        # (one entry per parsed file = one kind:file node); it's resilient to
+        # JSON whitespace, unlike grepping the jsonl for '"kind":"file"'.
+        total_nodes_all = _fast_line_count(idx_dir / "trace_nodes.jsonl")
+        total_file_nodes = total_nodes_all
+        trace_manifest_path = idx_dir / "trace_manifest.json"
+        if trace_manifest_path.exists():
+            try:
+                tm = _json.loads(trace_manifest_path.read_text(encoding="utf-8"))
+                file_hashes = tm.get("file_hashes") or {}
+                if file_hashes:
+                    total_file_nodes = len(file_hashes)
+            except Exception:
+                pass
         epistemic_status: dict[str, Any] = {
             "enabled": enriched_count > 0,
             "enriched_nodes": enriched_count,
             "total_file_nodes": total_file_nodes,
-            "total_nodes": total_file_nodes,
+            "total_nodes": total_nodes_all,
             "avg_confidence": 0.0,
             "running": False,
         }
@@ -981,7 +1000,18 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
 
 @router.post("/projects/{project_id}/pipeline/cancel")
 def pipeline_cancel(project_id: str, req: CancelRequest) -> dict[str, Any]:
-    """Cancel a running pipeline group."""
+    """Cancel a running pipeline group OR build task.
+
+    The queue panel surfaces both orchestrator runs and ProgressManager
+    tasks as queue items, and the X button hits this endpoint with the
+    item's `group`. Orchestrator groups (fast_sync, deep_enrichment,
+    finalize, solo finalize stages) route to the orchestrator. Anything
+    else is treated as a ProgressManager task type (index_build,
+    trace_build, knowledge_build, delta_build) and dispatched via
+    `request_cancel`. The build worker's progress callback checks the
+    cancel event at the next file boundary and raises BuildCancelledError
+    to unwind cleanly.
+    """
     from prep.server import _require_project
     _require_project(project_id)
 
@@ -1002,14 +1032,11 @@ def pipeline_cancel(project_id: str, req: CancelRequest) -> dict[str, Any]:
         # Solo run — delegate to the internal group cancel using the raw stage name.
         cancelled = pipeline_orchestrator._cancel_group(project_id, req.group)
     else:
-        raise ApiException(
-            status_code=400,
-            code="INVALID_GROUP",
-            message=(
-                f"Unknown group: {req.group}. Must be 'fast_sync', 'deep_enrichment', "
-                f"'finalize', or a finalize stage name ({', '.join(sorted(_solo_finalize_values))})."
-            ),
-        )
+        # ProgressManager task (index_build, trace_build, knowledge_build,
+        # delta_build, or any future build type that calls start_task).
+        from prep.core.events import get_progress_manager
+        delivered = get_progress_manager().request_cancel(project_id, task_type=req.group)
+        cancelled = bool(delivered)
 
     if not cancelled:
         raise ApiException(

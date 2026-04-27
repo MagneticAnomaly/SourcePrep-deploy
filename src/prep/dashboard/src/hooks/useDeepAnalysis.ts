@@ -194,7 +194,9 @@ export function useDeepAnalysis(selectedProjectId: string | null, { onError, pro
         }
         setProjectConfigRef.current?.(newProjectConfig)
         setConfigDirtyRef.current?.(true)
-        api.updateProject(pid, { config: newProjectConfig }).catch(() => { /* silent */ })
+        // Diff-only update — sending the full snapshot leaked stale `active`
+        // across project switches and re-promoted deactivated projects.
+        api.updateProject(pid, { config: { deep_analysis_schedule: deepAnalysisSchedule as unknown as Record<string, unknown> } }).catch(() => { /* silent */ })
       }
       // Save full schedule to global config (ui_config) — kept as a default
       // for new projects.

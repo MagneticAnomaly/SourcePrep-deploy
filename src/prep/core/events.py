@@ -129,6 +129,12 @@ class BroadcastLogHandler(logging.Handler):
 class ProgressManager:
     """
     Singleton to manage active tasks and report progress.
+
+    Active tasks are the single source of truth for "what's running outside
+    the pipeline orchestrator" — index/trace/knowledge/delta builds. The
+    sidebar pipeline queue surfaces every entry here so the user always sees
+    what the daemon is actually doing, and ``request_cancel`` is the
+    matching cancel mechanism the queue's X button drives.
     """
     _instance = None
 
@@ -137,24 +143,104 @@ class ProgressManager:
             cls._instance = super(ProgressManager, cls).__new__(cls)
             cls._instance.bus = get_event_bus()
             cls._instance.active_tasks = {}
+            cls._instance._lock = threading.Lock()
         return cls._instance
 
     def start_task(self, task_type: str, project_id: str) -> str:
         """Start a new task and return its ID."""
         task_id = f"{task_type}:{project_id}:{uuid.uuid4().hex[:8]}"
-        self.active_tasks[task_id] = {"type": task_type, "project_id": project_id}
+        with self._lock:
+            self.active_tasks[task_id] = {
+                "type": task_type,
+                "project_id": project_id,
+                "started_at": time.time(),
+                "cancel_event": None,
+                "current": 0,
+                "total": 0,
+                "message": "",
+            }
         self.bus.emit("task_start", {"task_id": task_id, "type": task_type, "project_id": project_id})
         return task_id
 
+    def register_cancel_event(self, task_id: str, event: threading.Event) -> None:
+        """Attach a threading.Event the worker checks for cancellation.
+
+        Workers create their own Event, register it here so cancel requests
+        can flip it, and check ``event.is_set()`` at safe boundaries (e.g.
+        between files in the index/trace builders). Calling this on an
+        unknown task is a no-op — the worker may have finished racing the
+        registration.
+        """
+        with self._lock:
+            entry = self.active_tasks.get(task_id)
+            if entry is not None:
+                entry["cancel_event"] = event
+
     def update(self, task_id: str, message: str, current: int, total: int) -> None:
         """Update progress for a task."""
+        with self._lock:
+            entry = self.active_tasks.get(task_id)
+            if entry is not None:
+                entry["message"] = message
+                entry["current"] = current
+                entry["total"] = total
         self.bus.emit_progress(task_id, message, current, total)
 
     def finish_task(self, task_id: str, success: bool = True, message: str = "") -> None:
         """Mark a task as finished."""
-        if task_id in self.active_tasks:
-            del self.active_tasks[task_id]
+        with self._lock:
+            existed = task_id in self.active_tasks
+            if existed:
+                del self.active_tasks[task_id]
+        if existed:
             self.bus.emit("task_finish", {"task_id": task_id, "success": success, "message": message})
+
+    def request_cancel(self, project_id: str, task_type: Optional[str] = None) -> List[str]:
+        """Request cancellation for active tasks matching project (and type).
+
+        Sets the worker's cancel_event when one was registered, and emits
+        a ``task_cancel_requested`` event so the queue panel updates
+        immediately. The task entry itself is NOT removed here — workers
+        clean up via ``finish_task`` once they actually unwind. This keeps
+        zombie state visible (a task that ignores cancellation continues
+        to show up) instead of silently disappearing from the queue.
+
+        Returns the list of task_ids the request was delivered to.
+        """
+        delivered: List[str] = []
+        with self._lock:
+            for task_id, entry in self.active_tasks.items():
+                if entry.get("project_id") != project_id:
+                    continue
+                if task_type is not None and entry.get("type") != task_type:
+                    continue
+                evt = entry.get("cancel_event")
+                if evt is not None:
+                    evt.set()
+                delivered.append(task_id)
+        for task_id in delivered:
+            self.bus.emit("task_cancel_requested", {"task_id": task_id, "project_id": project_id})
+        return delivered
+
+    def list_active(self, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Snapshot of active tasks; safe to read without holding the lock."""
+        with self._lock:
+            entries = []
+            for task_id, entry in self.active_tasks.items():
+                if project_id is not None and entry.get("project_id") != project_id:
+                    continue
+                entries.append({
+                    "task_id": task_id,
+                    "type": entry.get("type"),
+                    "project_id": entry.get("project_id"),
+                    "started_at": entry.get("started_at"),
+                    "current": entry.get("current", 0),
+                    "total": entry.get("total", 0),
+                    "message": entry.get("message", ""),
+                    "cancel_requested": bool(entry.get("cancel_event") and entry["cancel_event"].is_set()),
+                    "cancellable": entry.get("cancel_event") is not None,
+                })
+        return entries
 
 # Singleton accessor
 _progress_manager = None

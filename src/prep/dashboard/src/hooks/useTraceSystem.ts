@@ -365,7 +365,9 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     const newConfig = { ...deps.projectConfig, trace: { ...deps.projectConfig.trace, enabled: true } }
     deps.setProjectConfig(newConfig)
     deps.setConfigDirty(true)
-    api.updateProject(selectedProjectId, { config: newConfig }).catch(() => { })
+    // Send only the diff. Sending the full snapshot leaked stale `active`
+    // across project switches and re-promoted deactivated projects.
+    api.updateProject(selectedProjectId, { config: { trace: { ...deps.projectConfig.trace, enabled: true } } }).catch(() => { })
     setTraceStatus(prev => ({ ...prev, enabled: true }))
   }, [api, selectedProjectId, deps.projectConfig, deps.setProjectConfig, deps.setConfigDirty])
 
@@ -406,7 +408,8 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
         const newConfig = { ...deps.projectConfig, trace: { ...deps.projectConfig?.trace, enabled: true } }
         deps.setProjectConfig(newConfig)
         deps.setConfigDirty(true)
-        api.updateProject(selectedProjectId, { config: newConfig }).catch(() => { })
+        // Diff-only update — see handleEnableTrace.
+        api.updateProject(selectedProjectId, { config: { trace: { ...deps.projectConfig?.trace, enabled: true } } }).catch(() => { })
       }
       setTraceStatus(prev => ({ ...prev, enabled: true, building: true }))
       await api.runPipelineFast(selectedProjectId)
@@ -453,17 +456,16 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     // its own Manual/Auto state. Was previously persisted only to the
     // global pipeline_config setting which all projects shared.
     if (selectedProjectId && deps.projectConfig) {
-      const newProjectConfig = {
-        ...deps.projectConfig,
-        auto_config: {
-          fastSync: config.fastSync,
-          deepEnrichment: config.deepEnrichment,
-          finalize: config.finalize,
-        },
+      const auto_config = {
+        fastSync: config.fastSync,
+        deepEnrichment: config.deepEnrichment,
+        finalize: config.finalize,
       }
+      const newProjectConfig = { ...deps.projectConfig, auto_config }
       deps.setProjectConfig(newProjectConfig)
       deps.setConfigDirty(true)
-      api.updateProject(selectedProjectId, { config: newProjectConfig }).catch(() => { /* silent */ })
+      // Diff-only update — see handleEnableTrace.
+      api.updateProject(selectedProjectId, { config: { auto_config } }).catch(() => { /* silent */ })
     }
     // Also keep the global pipeline_config in sync as a default for new
     // projects (and so the auto-trigger paths in settings.py:308/332 still
@@ -517,7 +519,8 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
         const newCfg = { ...deps.projectConfig, trace: { ...deps.projectConfig?.trace, enabled: true } }
         deps.setProjectConfig(newCfg)
         deps.setConfigDirty(true)
-        api.updateProject(selectedProjectId, { config: newCfg }).catch(() => { })
+        // Diff-only update — see handleEnableTrace.
+        api.updateProject(selectedProjectId, { config: { trace: { ...deps.projectConfig?.trace, enabled: true } } }).catch(() => { })
       }
     }
     // Note: deepEnrichment toggle to 'auto' is now also a pure preference
@@ -597,10 +600,10 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   // (now also writes a reset barrier that blocks selfheal resurrection
   // until the next finalize completes).
 
-  const handleDestroyIndex = useCallback(async () => {
+  const handleDestroyIndex = useCallback(async (opts: { force?: boolean } = {}) => {
     if (!selectedProjectId) return
     try {
-      await api.destroyIndex(selectedProjectId)
+      await api.destroyIndex(selectedProjectId, opts)
       flipTogglesToManualRef.current()
       setTraceStatus({ enabled: false, exists: false, building: false, counts: { nodes: 0, edges: 0 } })
       setTraceCoverage({ summary: null, untraced: [], stale: [], traced: [], excluded: [], building: false, loading: false })
@@ -623,7 +626,15 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
       void fetchProvenanceRef.current?.()
       }, 300)
     } catch (e) {
-      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t reset project data.', 'error')
+      const msg = e instanceof Error ? e.message : ''
+      // The daemon returns 409 PIPELINE_RUNNING with a hint pointing at
+      // the queue / force reset. Surface that hint instead of the generic
+      // toast so the user knows what to do next without reading the API.
+      const isRunningGate = /running/i.test(msg)
+      const friendly = isRunningGate
+        ? 'Cancel the running task from the Pipeline Queue (X button) before resetting.'
+        : (msg || 'Couldn\u2019t reset project data.')
+      onErrorRef.current(friendly, 'error')
     }
   }, [api, selectedProjectId])
 

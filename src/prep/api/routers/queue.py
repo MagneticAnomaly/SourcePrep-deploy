@@ -195,6 +195,35 @@ def _build_queue_sync() -> dict[str, Any]:
             )
         )
 
+    # 1b. Active tasks tracked by ProgressManager (build threads outside
+    # the pipeline orchestrator: index_build, trace_build, knowledge_build,
+    # delta_build). The queue is the single source of truth for "what's
+    # the daemon doing right now" — if work is running, it appears here so
+    # the user can see and cancel it. Without this, a stuck index build
+    # silently blocked /full-reset with "Cannot reset while index build is
+    # running" while the queue panel showed "No active pipelines."
+    from prep.core.events import get_progress_manager
+    for entry in get_progress_manager().list_active():
+        pid = entry.get("project_id")
+        if not pid:
+            continue
+        ttype = entry.get("type") or "task"
+        key = (pid, ttype)
+        if key in seen:
+            continue
+        seen.add(key)
+        phase = "cancelling" if entry.get("cancel_requested") else "running"
+        items.append(
+            _build_queue_item(
+                project_id=pid,
+                group=ttype,
+                phase=phase,
+                current_stage=ttype,
+                started_at=entry.get("started_at"),
+                wait_seconds=None,
+            )
+        )
+
     # 2. Queued entries from scheduler (not already in orchestrator)
     # Phase 93: Track which project_ids have orchestrator entries so we
     # can skip scheduler duplicates. The orchestrator state machine already

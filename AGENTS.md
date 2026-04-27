@@ -3,11 +3,11 @@
 <!-- prep-managed-start -->
 ## SourcePrep Integration
 
-Last updated: 2026-04-22T04:27:24Z | Full analysis in progress
+Last updated: 2026-04-27T14:26:52Z
 
-prep_project_id: 926d7511-c608-4f91-939c-bbebec798d43
+prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
-**ROUTING: When calling ANY SourcePrep tool, ALWAYS include `project_id: "926d7511-c608-4f91-939c-bbebec798d43"` in the arguments.**
+**ROUTING: When calling ANY SourcePrep tool, ALWAYS include `project_id: "f1636374-abc6-410d-99ee-822120379e79"` in the arguments.**
 
 ## Tools
 | Tool | When to Use |
@@ -34,6 +34,11 @@ Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
 `prep_search` auto-detects query intent: "where is X" → symbol lookup,
 "why X" → concepts, "who imports X" → trace graph. Override with `intent` param if needed.
 
+### Concurrency limits
+If your queries to the cloud LLM seem unexpectedly throttled, check
+`prep_search "concurrency ceiling"` for the current discovered limit
+and how to reset it. The limit is auto-discovered and locked for 24h.
+
 You have access to SourcePrep, a structural code intelligence system.
 ALWAYS call `prep` (no arguments) at the START of every task.
 This gives you module structure, hub files, and the user's selected focus areas.
@@ -54,27 +59,16 @@ To skip approval prompts for SourcePrep's read-only tools, add to your settings:
 ```
 In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings.
 
-<!-- prep-atlas-hash:eee32ea3b4a5 -->
+<!-- prep-atlas-hash:955d828358fd -->
 ## Codebase Atlas
 
-IDENTITY: CoDRAG
-STACK: .ts 73%, .md 10%, .swift 5%, .py 3%, .json 3%, .html 2%, .tsx 2%, .go 2%
-STRUCTURE: 17088 files, 110831 nodes, 140867 edges
-EDGE TYPES: contains: 82969, imports: 57898
-CIRCULAR DEPS (12): packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx <-> packages/ui/src/components/trace/pipelineRollup.ts; src/prep/core/audit/synthesizer.py <-> src/prep/core/audit/__init__.py; tests/eval/real_repos/click-python/src/click/__init__.py <-> tests/eval/real_repos/click-python/src/click/core.py
-ENTRY POINTS: packages/ui/src/components/context/index.ts, tests/eval/real_repos/bat-rust/tests/syntax-tests/source/Go/main.go, packages/ui/src/types/index.ts, tests/eval/real_repos/OpenClaw/src/process/supervisor/index.ts, tests/eval/real_repos/OpenClaw/extensions/synthetic/index.ts
-SUBSYSTEMS:
-  _root/ (16625 files)
-  packages/ui/ (348 files)
-  src/prep/dashboard/ (69 files)
-  packages/vscode/ (20 files)
-  packages/vscode/webview-ui/ (14 files)
-  packages/paperclip-plugin-prep/ (12 files)
-TESTS: tests/ (15212 files), __tests__/ (15 files), specs/ (14 files)
-HUB FILES: ext:vitest (4363 edges), ext:node:path (1537 edges), ext:node:fs/promises (812 edges), ext:node:fs (762 edges), ext:node:os (635 edges)
-Active zones: `packages/ui/src/`, `tests/`, `src/prep/core/`, `src/prep/dashboard/`, `src/prep/services/`
-CALL CHAINS:
-  packages/ui/src/components/context/index.ts -> packages/ui/src/components/context/ContextViewer.tsx -> packages/ui/src/components/context/CopyButton.tsx -> sym:CopyButtonProps@packages/ui/src/components/context/CopyButton.tsx:6
+IDENTITY: This is a local-first AI productivity platform with a multi-segment workspace spanning a React/Tailwind design system, NextJS marketing sites, a Tauri desktop dashboard, VS Code extension, documentation, support portal, and payments micro-frontend, unified by shared UI components and cross-cutting Python services.
+
+STACK: Languages: .md (830), .tsx (428), .py (304), .ts (152), .json (114), .js (16). Frameworks: React, NextJS, Tauri, TailwindCSS, Storybook. Build tools: TypeScript. Graph: 7665 nodes, 10070 edges, 4 import cycles. Hub dependencies: __future__ (244 edges), typing (241), react (191), logging (169), lucide-react (155).
+
+WORKSPACE MAP: Root (_root, 1222 files): mcp, marketing, local-first, security, rag. Ui (packages/ui, 355 files): storybook, design-system, tailwind, ui, react. Marketing (websites/apps/marketing, 66 files): marketing, nextjs, seo, layout, metadata. Dashboard (src/prep/dashboard, 62 files): dashboard, tauri, react-hooks, state-management, react. Docs (websites/apps/docs, 54 files): documentation, marketing, nextjs, react, seo. Support (websites/apps/support, 27 files): nextjs, typescript, client-component, frontend, micro-frontend. Vscode (packages/vscode, 20 files): vscode-extension, file-navigation, ide-integration, webview, daemon-client. Payments (websites/apps/payments, 15 files): micro-frontend, nextjs, navigation, payments, app-router. Paperclip Plugin Prep (packages/paperclip-plugin-prep, 12 files): typescript, dashboard, plugin-ui, paperclip, plugin. Webview Ui (packages/vscode/webview-ui, 11 files): dashboard, tailwindcss, testing, typescript, vscode-extension.
+
+CROSS-CUTTING: Shared domains across segments: nextjs, marketing, react, dashboard, typescript, seo, micro-frontend, vscode-extension. Active zones: packages/ui/src/, tests/, src/codrag/core/, src/codrag/dashboard/, src/codrag/services/. UI components serve as the primary integration layer with five entry points: patterns/index.ts, enterprise/index.ts, status/index.ts, site/index.ts, marketing/research/index.ts. Directory dependencies flow through symbol exports: docs -> FALLBACK_SINGLE_MODEL, ChatMessage, CLOUD_SINGLE; packages -> ConceptStats, ConceptsPanel, useEventStream; public -> trigger_sync, main, handler; src -> build_concept_from_observation, A2ATask.fail, StructuralFinding; tools -> RunContext.log, Api.cancel, RunContext.snap; websites -> PATCH, DemoTab, isHeroSelection. VS Code extension bridges IDE and dashboard via webview-ui. Paperclip plugin connects dashboard UI to extension ecosystem.
 
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.

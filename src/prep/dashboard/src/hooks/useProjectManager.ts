@@ -182,6 +182,12 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
           // to useTraceSystem and useDeepAnalysis hooks.
           auto_config: cfg.auto_config,
           deep_analysis_schedule: cfg.deep_analysis_schedule,
+          // Hydrate `active` so it tracks the persisted value across
+          // project switches. Without this, `prev.active` leaks the
+          // previously-viewed project's value, and any full-config write
+          // (handleRunFastSync, handleEnrichmentAutoConfigChange, …) sends
+          // a stale flag that re-promotes deactivated projects to active.
+          active: cfg.active,
         }))
         setConfigDirty(false)
       }
@@ -343,13 +349,16 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
   const handleSaveConfig = useCallback(async () => {
     if (!selectedProjectId) return
     try {
+      // `active` is owned exclusively by handleToggleActive's dedicated
+      // write path. Including it here re-promoted deactivated projects to
+      // active across project switches whenever the local state had
+      // drifted from the persisted value.
       await api.updateProject(selectedProjectId, {
         config: {
           include_globs: projectConfig.include_globs,
           exclude_globs: projectConfig.exclude_globs,
           max_file_bytes: projectConfig.max_file_bytes,
           hard_limit_bytes: projectConfig.hard_limit_bytes,
-          active: projectConfig.active,
           use_gitignore: projectConfig.use_gitignore,
           trace: projectConfig.trace,
           auto_rebuild: projectConfig.auto_rebuild,

@@ -325,14 +325,23 @@ export function useLLMConfig({ onDirty, onSwapModel, onWarnings }: UseLLMConfigO
       }
     },
     onPersist: () => {
-      const nextKey = modelKeyOf(llmConfig)
-      const prevKey = lastPersistedModelKeyRef.current
-      lastPersistedModelKeyRef.current = nextKey
-      // Only swap if the active model identity actually changed AND we
-      // had a prior key (avoid swapping on the very first load).
-      if (prevKey && prevKey !== nextKey) {
-        onSwapModelRef.current?.()
-      }
+      // Phase 118 U12 (supersedes U7): never trigger swap_model from the
+      // auto-save path. Two reasons:
+      //   1. Workers re-read LLM config at the START of each stage
+      //      (orchestrator.py — pipeline.workers._get_llm_client_for_task).
+      //      So a config change automatically takes effect on the next
+      //      stage transition without any pause-resume cycle.
+      //   2. The swap_model implementation pauses + resumes the running
+      //      pipeline. That cost is real (worker checkpoint, slot
+      //      release, status churn) and was visible to users as
+      //      "currently active item randomly flipped to paused" — the
+      //      complaint that originally surfaced this whole thread.
+      // U7's modelKey gate reduced the symptom but was defeated by
+      // fetch-overrides-local races on dashboard mount. U12 removes the
+      // trigger entirely; if the user wants an explicit immediate swap,
+      // the existing /pipeline/swap-model endpoint can be wired to a
+      // dedicated button in a future phase.
+      lastPersistedModelKeyRef.current = modelKeyOf(llmConfig)
       void fetchLLMSlotsStatus()
     },
   })

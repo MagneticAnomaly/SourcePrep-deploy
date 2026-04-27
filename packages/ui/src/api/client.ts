@@ -130,7 +130,7 @@ export interface ApiClient {
   cancelDeepAnalysis(projectId: string): Promise<{ cancelled: boolean }>;
 
   // Index destruction (Reset All — destroyGraph removed as redundant subset)
-  destroyIndex(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
+  destroyIndex(projectId: string, opts?: { force?: boolean }): Promise<{ deleted: string[]; errors: string[] }>;
   // Scoped Danger-Zone resets — same safety as destroyIndex but keep
   // fast_sync (stages 1-5) intact.
   destroyEnrichmentFull(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
@@ -1022,8 +1022,9 @@ export class PrepApiClient implements ApiClient {
   // ── Graph Destruction ─────────────────────────────────────
   // destroyGraph() removed — use destroyIndex() for a full clean wipe.
 
-  async destroyIndex(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
-    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/index/destroy`, {
+  async destroyIndex(projectId: string, opts: { force?: boolean } = {}): Promise<{ deleted: string[]; errors: string[] }> {
+    const qs = opts.force ? '?force=true' : '';
+    return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/index/destroy${qs}`, {
       method: 'DELETE',
     });
   }

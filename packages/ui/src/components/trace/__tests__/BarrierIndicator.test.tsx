@@ -117,29 +117,33 @@ describe('barrierGuidance', () => {
     expect(barrierGuidance(INACTIVE_BARRIER)).toBe('');
   });
 
-  it('gives non-stale reset guidance when a recent _reset barrier is present', () => {
+  // Phase 118 U17: copy rewritten in user-facing terms ("Resume" / "Discard"
+  // / "Run again" / "Dismiss") instead of internal jargon ("barrier",
+  // "selfheal", "finalize", "auto-clear", "heartbeat"). Tests assert the
+  // new wording.
+  it('gives reset-action guidance when a recent _reset barrier is present', () => {
     const b: BarrierStatus = { active: true, age_seconds: 120, reason: 'enrichment_reset' };
     const msg = barrierGuidance(b);
-    expect(msg).toMatch(/auto-clear/i);
+    expect(msg).toMatch(/Run Deep Enrichment/i);
     expect(msg.length).toBeGreaterThan(0);
   });
 
-  it('escalates to actionable guidance when a reset barrier goes stale', () => {
+  it('offers Resume or Discard when a rebuild barrier is incomplete', () => {
     const b: BarrierStatus = { active: true, age_seconds: 7200, reason: 'rebuild' };
     const msg = barrierGuidance(b);
-    expect(msg).toMatch(/Re-run|Clear/i);
+    expect(msg).toMatch(/Resume|Discard/i);
   });
 
-  it('gives startup_recovery-specific guidance when reason matches', () => {
+  it('describes interruption when reason is startup_recovery', () => {
     const b: BarrierStatus = { active: true, age_seconds: 60, reason: 'startup_recovery' };
     const msg = barrierGuidance(b);
-    expect(msg).toMatch(/unclean shutdown|heartbeat/i);
+    expect(msg).toMatch(/interrupted|server restart/i);
   });
 
-  it('gives watchdog_heartbeat_stale-specific stale guidance', () => {
+  it('describes stalled pipeline for stale watchdog_heartbeat_stale reason', () => {
     const b: BarrierStatus = { active: true, age_seconds: 9000, reason: 'watchdog_heartbeat_stale' };
     const msg = barrierGuidance(b);
-    expect(msg).toMatch(/heartbeat/i);
-    expect(msg).toMatch(/Clear/i);
+    expect(msg).toMatch(/stalled|abandoned|hour/i);
+    expect(msg).toMatch(/Run|Discard/i);
   });
 });

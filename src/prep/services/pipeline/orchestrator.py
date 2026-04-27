@@ -522,6 +522,25 @@ class PipelineOrchestrator:
         # data, so F-84 cancel-revert is unaffected.
         if force_from_start:
             self._wipe_rebuild_caches(project_id, pfl, scope="fast_sync")
+            # Phase 118 U16: clear any leftover watcher-derived
+            # changed_paths set BEFORE the structural worker pops it.
+            # Otherwise a partial set from a recent watcher event acts
+            # as an unintended file filter on rebuild — the worker
+            # processes only files in that set and silently SKIPS
+            # everything else, including new files that the watcher
+            # hadn't fired for yet AND stale files in different paths.
+            # User-visible symptom: "rebuild seems to skip new and
+            # stale files." The fix: a rebuild = full scan, ALWAYS.
+            try:
+                from prep.services.pipeline.workers import WorkerFactory
+                self._changed_paths.pop(project_id, None)
+                WorkerFactory._changed_paths.pop(project_id, None)
+                if pfl:
+                    pfl.decision("rebuild_changed_paths_cleared", "ok", {
+                        "reason": "force_from_start: full scan (Phase 118 U16)",
+                    })
+            except Exception:
+                logger.debug("U16 changed_paths clear failed (non-fatal)", exc_info=True)
 
         if resume >= len(FAST_SYNC_STAGES):
             # Phase 98 removed this guard with the assumption that "selfheal
@@ -1399,6 +1418,39 @@ class PipelineOrchestrator:
                 )
                 return False
 
+        # User chose to resume — clear the pause-intent marker so a
+        # subsequent restart does not re-pause this run.
+        try:
+            RecoveryManager.clear_user_pause_marker(project_id, group)
+        except Exception:
+            logger.debug("User pause marker clear failed", exc_info=True)
+
+        # A resumed run is re-processing stages on top of partial data —
+        # the rebuild-styled progress bars should fire so the user can
+        # tell apart "fresh run" from "continuing prior work" at a
+        # glance. The barrier auto-clears via maybe_clear_scoped_barrier
+        # when the resumed group's boundary stage completes, so this is
+        # self-cleaning. If a barrier is already active (the original
+        # run was a force-rebuild), leave it untouched.
+        try:
+            from prep.services.pipeline.recovery import (
+                read_reset_barrier,
+                write_reset_barrier,
+            )
+            if read_reset_barrier(project_id) is None:
+                _SCOPE = {
+                    "fast_sync": "sync",
+                    "deep_enrichment": "enrichment",
+                    "finalize": "all",
+                }
+                write_reset_barrier(
+                    project_id,
+                    reason="rebuild",
+                    scope=_SCOPE.get(group, "all"),
+                )
+        except Exception:
+            logger.debug("Resume barrier write failed (non-fatal)", exc_info=True)
+
         logger.info(
             "Resuming paused run %s/%s from stage %d (%s)",
             project_id, group,
@@ -1673,26 +1725,38 @@ class PipelineOrchestrator:
         to enforce activity checks and formal state transitions.
         """
         with self._lock:
-            # Block if this group is already running
+            # Block if this group is already running OR paused. The paused
+            # case is critical: hydration on daemon restart rebuilds a
+            # PAUSED state machine for whatever the user was working on,
+            # and _startup_auto_run runs in parallel with the recovery
+            # path. Without including paused here, a fresh state machine
+            # would silently overwrite the hydrated pause and the pipeline
+            # would auto-resume past the user's stopping point — exactly
+            # the "I paused, restarted, and stages got skipped" report.
+            # Callers wanting to override (an explicit force-rebuild)
+            # must first cancel the paused run; resume_paused() is the
+            # supported path for continuing.
             key = (project_id, group)
             existing = self._runs.get(key)
-            if existing and existing.is_active:
+            if existing and (existing.is_active or existing.is_paused):
+                if existing.is_paused:
+                    logger.info(
+                        "[%s] Skipping %s start — group is PAUSED at stage %s. "
+                        "User must click Resume (or Cancel and re-run).",
+                        project_id, group, existing.current_stage,
+                    )
                 return False
 
-            # Phase 118 G3: discard synthetic-paused snapshots for OTHER
-            # groups before the cross-group guard runs. They are disk-state
-            # echoes from hydration, not user pauses, and must not block a
-            # legitimate run.
-            stale_keys = [
-                k for k, r in self._runs.items()
-                if k[0] == project_id and k[1] != group and self._is_synthetic_paused(r)
-            ]
-            for k in stale_keys:
-                logger.info(
-                    "[%s] Discarding synthetic-paused %s snapshot before starting %s",
-                    project_id, k[1], group,
-                )
-                self._runs.pop(k, None)
+            # NOTE: the previous Phase 118 G3 logic auto-discarded
+            # "synthetic-paused" snapshots from OTHER groups before the
+            # cross-group guard runs. After the always-paused-on-restart
+            # rule, hydrated paused runs ARE meaningful user/safety state
+            # — auto-discarding them would defeat the explicit-Resume
+            # contract. Force-rebuild callers (run_deep_enrichment with
+            # force_from_start=True) still pop synthetic snapshots
+            # themselves before reaching here, so deliberate overrides
+            # still work; this guard simply no longer second-guesses
+            # the user's intent.
 
             # Block if ANY other group for the same project is active or paused.
             # F-64: PAUSED groups still own the project's files and will resume.
@@ -2168,6 +2232,21 @@ class PipelineOrchestrator:
 
         # Stash node_id so _on_build_transition can release on the correct node
         run._current_node_id = node_id  # type: ignore[attr-defined]
+
+        # Phase 118 U15: per-stage rebuild wipe. ONLY runs if this
+        # project is in a force_from_start rebuild — and only wipes
+        # THIS stage's files. Downstream stages keep their prior data
+        # intact on disk until each one is itself about to re-run.
+        # If the user stops mid-rebuild, all not-yet-run stages still
+        # have their prior data — exactly the "no stage should be
+        # reset until new data is ready to replace it" semantics the
+        # user explicitly asked for.
+        if run.project_id in self._force_from_start_runs:
+            try:
+                pfl_for_wipe = self._get_file_logger(run.project_id)
+                self._wipe_stage_files_for_rebuild(run.project_id, stage.value, pfl_for_wipe)
+            except Exception:
+                logger.debug("U15 per-stage wipe failed (non-fatal)", exc_info=True)
 
         # Phase 91: Open swarm window if this is a swarm-eligible stage.
         # This blocks other projects from acquiring slots on this node,
@@ -2689,20 +2768,46 @@ class PipelineOrchestrator:
             self._force_from_start_runs.discard(project_id)
             self._revert_rebuild_to_backup(project_id)
 
+        # Cancel discards the run — clear the user-pause marker so a
+        # subsequent restart does not resurrect the cancelled run as
+        # paused.
+        try:
+            RecoveryManager.clear_user_pause_marker(project_id, group)
+        except Exception:
+            logger.debug("User pause marker clear failed on cancel", exc_info=True)
+
         return True
 
-    # F-87: Files whose presence lets a worker skip per-file LLM work via
-    # content-hash match. Wiped at rebuild start so each worker truly
-    # re-runs end-to-end. Excludes: repo_policy.json, project.json
-    # (user config), _branch_state.json, and anything outside the index
-    # dir. Branch snapshot + _golden checkpoint retain the pre-rebuild
-    # data for F-84 cancel-revert.
+    # Phase 118 U15: per-stage file wipe map. The previous
+    # `_REBUILD_WIPE_FILES_BY_GROUP` deleted ALL files for an entire
+    # group at rebuild start, before ANY stage actually re-ran. Result:
+    # the user starts a rebuild, looks at the dashboard, and sees every
+    # downstream stage immediately flip to "No run data / Waiting for X"
+    # — even though the rebuild has only touched stage 1 so far. The
+    # user explicitly objected: "no stage should be reset or unset or
+    # even prepared to be replaced UNTIL new data has been rebuilt."
     #
-    # Partitioned by group so a partial rebuild (e.g. "Rebuild Deep
-    # Enrichment") does not wipe upstream outputs it cannot regenerate.
-    # Pre-fix: wiping trace_augmented.jsonl on a deep-only rebuild left
-    # Stage 6 (epistemic_enrichment) with no input → 0/1879 silent skip
-    # → all downstream deep stages no-op → deepening thrashes.
+    # The fix maps each stage to ONLY the files it produces. The
+    # wipe runs per-stage at run-start (in `_advance_pipeline`), so
+    # downstream stages keep their prior data on disk until each one
+    # is itself about to be re-run. If the user stops mid-rebuild,
+    # the un-wiped stages still have their prior data intact —
+    # nothing lost.
+    _STAGE_WIPE_FILES: dict[Any, list[str]] = {
+        # Fast Sync (stages 1-5). Note: structural is intentionally
+        # not wiped — `trace_manifest.json` and `trace_nodes.jsonl`
+        # are the structural worker's own atomic-rename outputs.
+        # If we wiped them here, the dashboard would briefly see
+        # `trace.exists=false` even with our U8 guard.
+        # Pipeline-run-metadata is a stage-1 wipe target — it
+        # carries stale resume decisions across runs.
+        # (filled in below by stage_id; lazy-initialised at first use)
+    }
+
+    # F-87 (legacy / kept for diff context): grouped wipe map. Now used
+    # only as the source-of-truth for what each stage produces — not
+    # for upfront mass wiping. See `_STAGE_WIPE_FILES_BY_STAGE` for the
+    # active per-stage breakdown derived from this.
     _REBUILD_WIPE_FILES_BY_GROUP = {
         "fast_sync": [
             # Edge Discovery cache
@@ -2761,6 +2866,110 @@ class PipelineOrchestrator:
     # leaves fast_sync outputs intact (Stage 5 never runs). A finalize rebuild
     # only wipes finalize.
     _REBUILD_WIPE_CHAIN = ["fast_sync", "deep_enrichment", "finalize"]
+
+    # Phase 118 U15: per-stage file map for deferred wipe. Each stage's
+    # files are wiped right before that stage runs, NOT upfront.
+    # Derived from _REBUILD_WIPE_FILES_BY_GROUP but split by stage.
+    _STAGE_WIPE_FILES_BY_STAGE: dict[str, list[str]] = {
+        # Fast Sync
+        "structural": [],  # NEVER wipe — atomic-overwrite outputs (see U8 / trace.exists guard)
+        "inferred_edges": [
+            "trace_inferred_edges.jsonl",
+            "trace_inferred_hashes.json",
+            "trace_inferred_manifest.json",
+        ],
+        "catalogue": [
+            "trace_augmented.jsonl",
+            "trace_augment_manifest.json",
+            # Wipe pipeline_run_metadata.json on the FIRST stage that touches
+            # incremental state (catalogue), so stale resume decisions don't
+            # confuse this rebuild. Stage 1 (structural) is left intact.
+            "pipeline_run_metadata.json",
+        ],
+        "validation": ["validation_manifest.json"],
+        "knowledge": [
+            "knowledge_documents.json",
+            "knowledge_embeddings.npy",
+            "knowledge_manifest.json",
+        ],
+        # Deep Enrichment
+        "enrichment": [
+            "trace_epistemic.jsonl",
+            "trace_epistemic_manifest.json",
+        ],
+        "group_reasoning": [
+            "trace_group_reasoning.jsonl",
+            "group_reasoning_manifest.json",
+        ],
+        "clustering": [
+            "trace_modules.jsonl",
+            "trace_modules_manifest.json",
+            "trace_cluster_swarm_synthesis.json",
+        ],
+        "deepening": ["deepening_manifest.json"],
+        "deep_knowledge": ["deep_knowledge_manifest.json"],
+        # Finalize
+        "atlas": [
+            "atlas.json",
+            "atlas_prev.json",
+            "atlas_manifest.json",
+            "atlas_segments_manifest.json",
+            "atlas_routing.json",
+            "atlas_routing_embeddings.npy",
+            "atlas_updated.signal",
+        ],
+        "rules": ["rules_manifest.json"],
+        "concepts": ["concepts_manifest.json"],
+        "audit": ["audit_manifest.json"],
+        "antibodies": ["antibodies_manifest.json"],
+    }
+
+    def _wipe_stage_files_for_rebuild(
+        self,
+        project_id: str,
+        stage_value: str,
+        pfl: Any = None,
+    ) -> None:
+        """Phase 118 U15: per-stage file wipe at rebuild stage-start.
+
+        Replaces the upfront `_wipe_rebuild_caches` group-wide wipe.
+        Called right before each stage's worker dispatches when this
+        project is in `_force_from_start_runs`. Wipes ONLY the named
+        stage's outputs — downstream stages keep their prior data
+        intact until each one is itself about to re-run.
+
+        Idempotent: re-wiping a stage that already has no files is a
+        no-op.
+        """
+        try:
+            from prep.core.project_registry import project_index_dir
+            from prep.services.project_helpers import require_project
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+        except Exception:
+            return
+        files = self._STAGE_WIPE_FILES_BY_STAGE.get(stage_value, [])
+        if not files:
+            return
+        deleted = []
+        for fname in files:
+            fpath = idx_dir / fname
+            if fpath.exists():
+                try:
+                    fpath.unlink()
+                    deleted.append(fname)
+                except Exception:
+                    pass
+        if deleted:
+            logger.info(
+                "[%s] U15 per-stage wipe (stage=%s): removed %d files",
+                project_id, stage_value, len(deleted),
+            )
+            if pfl:
+                pfl.decision("stage_wipe_for_rebuild", "wiped", {
+                    "stage": stage_value,
+                    "files": deleted,
+                })
 
     def _wipe_files_for_scope(self, scope: str) -> list[str]:
         """Return the list of files to wipe for a rebuild scope.
@@ -2835,25 +3044,24 @@ class PipelineOrchestrator:
                     exc_info=True,
                 )
 
-            wipe_list = self._wipe_files_for_scope(scope)
-            deleted = []
-            for fname in wipe_list:
-                fpath = idx_dir / fname
-                if fpath.exists():
-                    try:
-                        fpath.unlink()
-                        deleted.append(fname)
-                    except Exception:
-                        pass
+            # Phase 118 U15: REMOVED the upfront group-wide file wipe.
+            # Files are now wiped per-stage at stage-start (see
+            # _wipe_stage_files_for_rebuild and the call site in
+            # _advance_pipeline). This way, downstream stages keep
+            # their prior data on disk until each one is itself about
+            # to be re-run — fixing the user-reported "all stages flip
+            # to no-data the moment rebuild starts" problem.
+            #
+            # The pre-rebuild checkpoint above is still saved upfront
+            # so F-84 cancel-revert always has a safety net.
             logger.info(
-                "[%s] F-87 rebuild cache wipe (scope=%s): removed %d files",
-                project_id, scope, len(deleted),
+                "[%s] U15 rebuild start: per-stage wipe deferred (scope=%s)",
+                project_id, scope,
             )
-            if pfl and deleted:
-                pfl.decision("rebuild_cache_wipe", "wiped", {
+            if pfl:
+                pfl.decision("rebuild_cache_wipe", "deferred", {
                     "scope": scope,
-                    "count": len(deleted),
-                    "files": sorted(deleted)[:20],
+                    "policy": "per_stage_at_run_start (Phase 118 U15)",
                 })
         except Exception:
             logger.debug("F-87 cache wipe failed (non-fatal)", exc_info=True)
@@ -3089,6 +3297,15 @@ class PipelineOrchestrator:
             next_entry = pipeline_scheduler.release(project_id, stage, _release_node)
             if next_entry:
                 self._resume_queued_pipeline(next_entry.project_id, next_entry.stage)
+
+        # Persist the user's pause intent to disk so it survives daemon
+        # restart. Without this marker, hydration in auto mode skips
+        # creating a PAUSED state machine and the pipeline auto-resumes
+        # past the stage the user explicitly stopped on.
+        try:
+            RecoveryManager.write_user_pause_marker(project_id, group, current_str)
+        except Exception:
+            logger.debug("User pause marker write failed", exc_info=True)
 
         # Emit SSE so the frontend sees the PAUSED state immediately
         # (the build_orchestrator's FAILED event only triggers pipeline_status
@@ -3904,8 +4121,26 @@ class PipelineOrchestrator:
         """Delegates to RecoveryManager.auto_recover_stale_pipelines."""
 
         def _is_active(pid):
+            # Paused runs MUST short-circuit auto-recovery. A PAUSED state
+            # in `_runs` after hydration represents one of two cases:
+            #   (a) the user explicitly paused before shutdown, or
+            #   (b) the daemon was killed mid-run and hydration rebuilt the
+            #       state from disk artifacts so the user can resume.
+            # Either way, auto-recovery must NOT silently clear the pause
+            # and start a fresh run on the user's behalf — the user has to
+            # click Resume. Without including paused here, the symmetric
+            # `is_active` predicate in _hydrate_paused_runs_from_disk
+            # (which DOES include paused) was contradicted, and
+            # `clear_paused_runs_fn` below would delete the hydrated pause
+            # before triggering a fresh deep enrichment — exactly the
+            # "I paused, restarted, and it auto-resumed past my stage"
+            # bug from real-world reports.
             with self._lock:
-                return any(run.is_active for key, run in self._runs.items() if key[0] == pid)
+                return any(
+                    run.is_active or run.is_paused
+                    for key, run in self._runs.items()
+                    if key[0] == pid
+                )
 
         def _clear_paused(pid):
             with self._lock:

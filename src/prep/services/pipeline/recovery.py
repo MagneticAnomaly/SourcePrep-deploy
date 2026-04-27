@@ -15,7 +15,7 @@ import shutil
 import time
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Optional
 
 from .manifest_store import ManifestStore
 from .stages import (
@@ -59,6 +59,7 @@ def _resolve_idx_dir(project_id: str) -> Path | None:
 
 _CLEAN_SHUTDOWN_FILENAME = ".pipeline_clean_shutdown"
 _RESET_BARRIER_FILENAME = ".reset_barrier"
+_USER_PAUSE_FILENAME_TEMPLATE = ".pipeline_user_pause_{group}.json"
 _VALID_BARRIER_SCOPES = ("sync", "enrichment", "all")
 
 
@@ -234,6 +235,89 @@ class RecoveryManager:
         if idx_dir is None:
             return False
         return (idx_dir / _CLEAN_SHUTDOWN_FILENAME).exists()
+
+    # ── User Pause Markers ─────────────────────────────────────
+    #
+    # When the user clicks Pause, we drop a per-group marker on disk
+    # alongside the pipeline manifests. This marker is the *intent* signal
+    # that survives daemon restart: hydration must rebuild a PAUSED state
+    # machine for the group regardless of auto-mode policy. Without this,
+    # auto-mode bypasses paused-state hydration entirely (the previous
+    # Phase 118 U13 design assumed "auto means restart") and the user's
+    # explicit pause was silently overridden on every restart.
+    #
+    # The marker is cleared on:
+    #   - Resume (user clicks Resume)
+    #   - Cancel (user discards the run)
+    #   - Successful completion of the group's final stage
+    #
+    # The marker payload records *why* and *when* so future debugging can
+    # correlate restart timelines without depending on log retention.
+
+    @staticmethod
+    def write_user_pause_marker(
+        project_id: str,
+        group: str,
+        stage: Optional[str],
+    ) -> bool:
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        try:
+            import json
+            marker_path = idx_dir / _USER_PAUSE_FILENAME_TEMPLATE.format(group=group)
+            marker_path.write_text(json.dumps({
+                "group": group,
+                "stage": stage,
+                "paused_at": time.time(),
+                "user_initiated": True,
+            }, indent=2))
+            return True
+        except Exception:
+            logger.debug(
+                "Failed to write user pause marker for %s/%s",
+                project_id, group, exc_info=True,
+            )
+            return False
+
+    @staticmethod
+    def check_user_pause_marker(project_id: str, group: str) -> bool:
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        return (idx_dir / _USER_PAUSE_FILENAME_TEMPLATE.format(group=group)).exists()
+
+    @staticmethod
+    def read_user_pause_marker(project_id: str, group: str) -> Optional[Dict[str, Any]]:
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return None
+        marker_path = idx_dir / _USER_PAUSE_FILENAME_TEMPLATE.format(group=group)
+        if not marker_path.exists():
+            return None
+        try:
+            import json
+            return json.loads(marker_path.read_text())
+        except Exception:
+            return None
+
+    @staticmethod
+    def clear_user_pause_marker(project_id: str, group: str) -> bool:
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        marker_path = idx_dir / _USER_PAUSE_FILENAME_TEMPLATE.format(group=group)
+        if not marker_path.exists():
+            return False
+        try:
+            marker_path.unlink()
+            return True
+        except Exception:
+            logger.debug(
+                "Failed to clear user pause marker for %s/%s",
+                project_id, group, exc_info=True,
+            )
+            return False
 
     @staticmethod
     def read_and_clear_clean_shutdown_marker(project_id: str) -> bool:
@@ -981,46 +1065,90 @@ class RecoveryManager:
             if is_run_active_fn(pid):
                 continue
 
-            for group, stages, is_auto in groups:
-                if is_auto:
-                    logger.info(
-                        "Skipping PAUSED hydration for %s/%s — "
-                        "auto mode will handle resumption",
-                        pid,
-                        group,
-                    )
-                    continue
-
+            # SIMPLIFIED RULE (per user request): paused is the default
+            # state after server restart. Any group with partial state
+            # surfaces as PAUSED until the user explicitly clicks Resume.
+            # No auto-resume across restart — ever. Auto mode only
+            # triggers fresh runs on cleanly-idle projects (no in-flight
+            # state to inherit), never on incomplete ones.
+            #
+            # The user-pause marker is still tracked for diagnostics
+            # (the marker payload records the original pause stage and
+            # timestamp) and to drive a future "previously paused vs
+            # crash-interrupted" UI distinction, but the hydration
+            # decision itself is unconditional: partial state → PAUSED.
+            for group, stages, _is_auto in groups:
                 resume = detect_resume_fn(pid, stages, True)
-                if resume <= 0 or resume >= len(stages):
+                user_paused = RecoveryManager.check_user_pause_marker(pid, group)
+
+                # Three cases:
+                #   resume >= len(stages) → group fully complete; no hydration.
+                #     Also clear a stale user-pause marker if present, so it
+                #     does not keep producing ghost paused runs forever.
+                #   0 < resume < len(stages) → partial mid-group state; hydrate.
+                #   resume == 0 → either a fresh project that never started
+                #     OR the user paused at the very first stage before any
+                #     manifest was written. The marker disambiguates: if it
+                #     exists, treat as a real pause at stage 0; otherwise
+                #     leave it for auto-mode to start fresh.
+                if resume >= len(stages):
+                    if user_paused:
+                        logger.info(
+                            "Clearing stale user-pause marker for %s/%s — "
+                            "resume detector reports group complete",
+                            pid, group,
+                        )
+                        RecoveryManager.clear_user_pause_marker(pid, group)
                     continue
 
-                # Create a PAUSED state machine at the resume point
+                if resume == 0 and not user_paused:
+                    # Genuinely fresh project for this group — no partial
+                    # state to protect. Auto-mode (or a manual Run click)
+                    # is free to start it.
+                    continue
+
+                # Clamp to a valid stage index. resume==0 with marker means
+                # the user paused before stage 0 wrote any output; pin the
+                # paused state machine to stage 0 so Resume picks up there.
+                resume = max(0, min(resume, len(stages) - 1))
+
+                shutdown_was_clean = RecoveryManager.check_clean_shutdown_marker(pid)
+                if user_paused:
+                    reason = "user pause marker present"
+                elif not shutdown_was_clean:
+                    reason = "no clean shutdown marker (interrupted run)"
+                else:
+                    reason = "partial state on disk (default-paused on restart)"
+
                 sm = PipelineGroupStateMachine(
                     project_id=pid,
                     group=group,
                     stages=[s.value for s in stages],
                 )
                 sm.add_guard(default_guard)
-
-                # Transition: IDLE -> RUNNING -> PAUSING -> PAUSED
-                sm.transition(Event.START)
+                if not sm.transition(Event.START):
+                    logger.warning(
+                        "PAUSED hydration for %s/%s blocked at START — "
+                        "guard refused (project may have toggled inactive)",
+                        pid, group,
+                    )
+                    continue
                 sm.current_stage_index = resume
                 for i in range(resume):
                     sm.stage_results[stages[i].value] = "completed"
                 sm.transition(Event.PAUSE)
                 sm.transition(Event.STAGE_FLUSHED)
-
                 register_run_fn(pid, group, sm)
 
                 logger.info(
                     "Hydrated PAUSED state for %s/%s at stage %d/%d (%s) "
-                    "— user can Resume to continue",
+                    "— %s. User must click Resume to continue.",
                     pid,
                     group,
                     resume,
                     len(stages),
                     stages[resume].value,
+                    reason,
                 )
 
     # ── Auto-recovery of stale pipelines ───────────────────────

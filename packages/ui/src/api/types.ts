@@ -109,6 +109,8 @@ export interface UpdateProjectRequest {
     priority_level?: 'none' | 'boost' | 'exclusive';
     trace: { enabled: boolean; paused?: boolean };
     auto_rebuild: { enabled: boolean; debounce_ms?: number };
+    auto_config?: { fastSync?: boolean; deepEnrichment?: string; finalize?: string };
+    deep_analysis_schedule?: Record<string, unknown>;
     graph_engine?: any;
     advanced?: any;
   }>;

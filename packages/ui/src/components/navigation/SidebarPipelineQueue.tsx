@@ -89,6 +89,12 @@ function groupLabel(group: string): string {
     case 'fast_sync': return 'Fast Sync';
     case 'deep_enrichment': return 'Deep Enrichment';
     case 'finalize': return 'Finalize';
+    // Build threads tracked by ProgressManager (the queue is the single
+    // source of truth — these have to render with friendly names).
+    case 'index_build': return 'Code Index Build';
+    case 'trace_build': return 'Trace Build';
+    case 'knowledge_build': return 'Knowledge Build';
+    case 'delta_build': return 'Delta Build';
     default: return group;
   }
 }

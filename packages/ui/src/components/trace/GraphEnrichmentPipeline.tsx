@@ -901,14 +901,36 @@ function StageRow({
                 className="h-1.5 mt-0 w-full"
                 color={isRerunning ? "bg-purple-500" : "bg-blue-500"}
                 rerun={stage.rerun ? stage.rerun : undefined}
+                /*
+                 * Phase 118 U18: when ANY stage is currently running AND a
+                 * rebuild barrier is active, force the rebuild variant
+                 * (orange-on-top, green-on-bottom stacked bar). The old
+                 * check only fired when the stage's computed state was
+                 * exactly 'rebuilding' — but promoteForRebuild only
+                 * promotes raw 'running' / 'queued' states. If a stage
+                 * legitimately runs with raw state (because the
+                 * compute*State function returned 'running' but the
+                 * promote pass hadn't run yet, or some compute path
+                 * never goes through promote), `variant` was undefined
+                 * and StageProgressBar fell back to the incremental
+                 * 2-tone horizontal bar — exactly what the user
+                 * reported. Now: any active running state during a
+                 * rebuild barrier renders the rebuild visual.
+                 */
                 variant={
-                  stage.state === 'rebuilding' || (stage.state === 'error' && isRebuilding)
+                  isRebuilding && isRunning
                     ? 'rebuild'
+                    : (stage.state === 'rebuilding' || (stage.state === 'error' && isRebuilding))
+                      ? 'rebuild'
+                      : undefined
+                }
+                rebuildPercent={
+                  (isRebuilding && isRunning) || stage.state === 'rebuilding'
+                    ? stage.progress
                     : undefined
                 }
-                rebuildPercent={stage.state === 'rebuilding' ? stage.progress : undefined}
                 rebuildStateOverlay={
-                  stage.state === 'rebuilding' && isPaused
+                  (stage.state === 'rebuilding' || (isRebuilding && isRunning)) && isPaused
                     ? 'paused'
                     : stage.state === 'error' && isRebuilding
                       ? 'failed'
@@ -952,7 +974,15 @@ function StageRow({
         )}
         {showDetails && !stage.provenance && (stage.state === 'complete' || stage.state === 'stale' || stage.state === 'warning') && (
           <p className="text-[9px] text-text-subtle/50 truncate leading-tight mt-0.5">
-            No run data
+            {/* Phase 118 U14: during a rebuild, frozen-from-prior stages
+                show their preserved counts via the `prior:` stat above.
+                The "No run data" line was misleading — it implied the
+                stage had never run, when in fact it had completed in a
+                prior run and the new run hasn't reached it yet. Show
+                "rebuilding…" instead so the meaning matches the data. */}
+            {(stage as EnrichmentStage & { _frozen?: boolean })._frozen
+              ? 'rebuilding…'
+              : 'No run data'}
           </p>
         )}
 
@@ -1520,8 +1550,33 @@ export function GraphEnrichmentPipeline({
   // the last good stats text for each stage so we can restore it during
   // a rebuild (when wiped manifests would otherwise flip the stat copy
   // to "Not generated / Not run / etc.").
+  //
+  // Phase 118 U14: extended to cover EVERY sentinel string that
+  // compute*Stats functions can produce when the underlying status
+  // payload is "wiped". Without this, fast-sync stages (catalogue,
+  // validation, knowledge) and deep-enrichment stages (enrichment,
+  // group_reasoning, clustering, deepening, deep_knowledge) and atlas
+  // would NOT have their prior counts preserved during a rebuild —
+  // the user saw all those rows flip to "Waiting for X / No run data"
+  // the moment the rebuild barrier was set, instead of remaining at
+  // their prior counts until the rebuild actually re-ran each stage.
+  // Earlier U3 only caught the finalize-side never-generated sentinels;
+  // U14 catches the rest.
   const NEVER_GENERATED_STATS = new Set([
-    'No run data', 'Not generated', 'Not seeded', 'Not run', 'Not derived',
+    // Generic
+    'No run data',
+    // Finalize stage sentinels (Phase 118 U3)
+    'Not generated', 'Not seeded', 'Not run', 'Not derived',
+    // Fast-sync stage sentinels (Phase 118 U14)
+    'Not built yet', 'Waiting for graph', 'Ready to discover',
+    'Ready to catalogue', 'Not validated', 'Waiting for catalogue',
+    'Ready to embed',
+    // Deep-enrichment stage sentinels (Phase 118 U14)
+    'Ready to enrich', 'Waiting for enrichment', 'Waiting for clusters',
+    'Ready to synthesize', 'Not started',
+    'Waiting for enrichment + clusters', 'Ready to re-embed',
+    // Finalize miscellaneous (atlas) (Phase 118 U14)
+    'Waiting for modules', 'Ready to build',
   ]);
   for (const stage of [...fastStages, ...deepStages, ...finalizeStages]) {
     if (stage.state === 'complete') wasCompleteRef.current[stage.id] = true;
@@ -1675,7 +1730,7 @@ export function GraphEnrichmentPipeline({
             UI signal that selfheal is blocked. */}
         {barrier?.active && (
           <div className="w-full max-w-md">
-            <BarrierIndicator barrier={barrier} onClear={onClearBarrier} />
+            <BarrierIndicator barrier={barrier} onClear={onClearBarrier} pipelineActive={anyPipelineActive} />
           </div>
         )}
         <div className="w-14 h-14 rounded-full border-2 border-primary/30 bg-primary/10 flex items-center justify-center">

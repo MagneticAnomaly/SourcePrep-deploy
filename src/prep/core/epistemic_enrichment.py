@@ -727,6 +727,7 @@ class EpistemicEnricher:
                     prompt, system=BATCHED_EPISTEMIC_CODE_SYSTEM,
                     num_predict=num_predict, num_ctx=num_ctx,
                     response_schema=code_schema,
+                    think=False,
                     max_chars=batched_max_chars("epistemic", len(items)),
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))

@@ -313,8 +313,21 @@ def epistemic_status_project(project_id: str) -> Dict[str, Any]:
     # Total nodes (all kinds) — the denominator for enrichment percentage
     total_nodes = _fast_count(idx_dir / "trace_nodes.jsonl")
 
+    # Canonical fallback: trace_manifest.json["file_hashes"] has one entry
+    # per parsed file = one kind:file node. The previous fallback grepped
+    # the jsonl for '"kind":"file"' (compact JSON only); pretty-printed
+    # output ("kind": "file") returned 0 and made the panel show absurd
+    # ratios when total_nodes leaked into the denominator.
     if total_file_nodes == 0:
-        total_file_nodes = _fast_count(idx_dir / "trace_nodes.jsonl", '"kind":"file"')
+        trace_manifest_path = idx_dir / "trace_manifest.json"
+        if trace_manifest_path.exists():
+            try:
+                with open(trace_manifest_path, "r", encoding="utf-8") as f:
+                    tm = json.load(f)
+                    file_hashes = tm.get("file_hashes") or {}
+                    if file_hashes:
+                        total_file_nodes = len(file_hashes)
+            except Exception: pass
 
     if not epistemic_path.exists():
         result: Dict[str, Any] = {
@@ -1139,7 +1152,7 @@ def finalize_full_reset(project_id: str) -> Dict[str, Any]:
 
 
 @router.delete("/projects/{project_id}/index/destroy")
-def index_destroy_project(project_id: str) -> Dict[str, Any]:
+def index_destroy_project(project_id: str, force: bool = False) -> Dict[str, Any]:
     """Nuclear reset: delete ALL project data and recovery artifacts.
 
     Removes everything produced by building, tracing, augmenting,
@@ -1152,6 +1165,13 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
     leaving .checkpoints/_golden/ intact.  The self-healing system
     would then restore data from the golden checkpoint on next startup,
     making the reset appear to fail.
+
+    `force=true` bypasses the "build is running" gate. Used as the user's
+    last-resort escape hatch when the running detection is wrong (e.g. a
+    zombie thread that ignored cancellation). The destructive deletes
+    below still run; any background worker that survives the cancel
+    request will simply error out on the next file write — its findings
+    are discarded.
     """
     import shutil
 
@@ -1162,29 +1182,66 @@ def index_destroy_project(project_id: str) -> Dict[str, Any]:
     )
     proj = _require_project_writable(project_id)
 
-    # Refuse if anything is running
-    if _is_project_trace_building(project_id):
-        raise ApiException(status_code=409, code="PIPELINE_RUNNING", message="Cannot reset while trace build is running")
-
-    # Check if a code-index build is running
-    with _project_build_lock:
-        thread = _project_build_threads.get(project_id)
-        if thread and thread.is_alive():
-            raise ApiException(status_code=409, code="PIPELINE_RUNNING", message="Cannot reset while index build is running")
-
-    for state_map, label in [
-        (_deep_analysis_state, "deep analysis"),
-        (_epistemic_state, "epistemic enrichment"),
-        (_cluster_state, "cluster synthesis"),
-        (_deepening_state, "deepening loop"),
-    ]:
-        state = state_map.get(project_id)
-        if state and state.get("thread") and state["thread"].is_alive():
+    if not force:
+        # Refuse if anything is running
+        if _is_project_trace_building(project_id):
             raise ApiException(
                 status_code=409,
                 code="PIPELINE_RUNNING",
-                message=f"Cannot reset while {label} is running",
+                message="Cannot reset while trace build is running",
+                hint="Cancel it from the queue, or pass force=true to override.",
             )
+
+        # Check if a code-index build is running
+        with _project_build_lock:
+            thread = _project_build_threads.get(project_id)
+            if thread and thread.is_alive():
+                raise ApiException(
+                    status_code=409,
+                    code="PIPELINE_RUNNING",
+                    message="Cannot reset while index build is running",
+                    hint="Cancel it from the queue, or pass force=true to override.",
+                )
+
+        for state_map, label in [
+            (_deep_analysis_state, "deep analysis"),
+            (_epistemic_state, "epistemic enrichment"),
+            (_cluster_state, "cluster synthesis"),
+            (_deepening_state, "deepening loop"),
+        ]:
+            state = state_map.get(project_id)
+            if state and state.get("thread") and state["thread"].is_alive():
+                raise ApiException(
+                    status_code=409,
+                    code="PIPELINE_RUNNING",
+                    message=f"Cannot reset while {label} is running",
+                    hint="Cancel it from the queue, or pass force=true to override.",
+                )
+    else:
+        # Force path: best-effort cancel everything we know about so the
+        # workers unwind before we start deleting their output files.
+        from prep.core.events import get_progress_manager
+        get_progress_manager().request_cancel(project_id)
+        try:
+            from prep.services.pipeline_orchestrator import pipeline_orchestrator
+            pipeline_orchestrator.cancel_fast_sync(project_id)
+            pipeline_orchestrator.cancel_deep_enrichment(project_id)
+            pipeline_orchestrator.cancel_finalize(project_id)
+        except Exception:
+            logger.debug("force reset: orchestrator cancel raised", exc_info=True)
+        for state_map in (_deep_analysis_state, _epistemic_state, _cluster_state, _deepening_state):
+            state = state_map.get(project_id)
+            if state and "cancel" in state:
+                try:
+                    state["cancel"].set()
+                except Exception:
+                    pass
+        # Drop legacy thread registrations so the queue clears immediately.
+        # The underlying threads are daemon=True and will exit when their
+        # next progress callback raises BuildCancelledError or, in the
+        # worst case, when the process exits.
+        with _project_build_lock:
+            _project_build_threads.pop(project_id, None)
 
     idx_dir = project_index_dir(proj)
 
