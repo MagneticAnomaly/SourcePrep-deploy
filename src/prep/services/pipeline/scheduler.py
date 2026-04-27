@@ -333,6 +333,36 @@ class PipelineScheduler:
                 # Phase 96B grew the limit on reconfigure; Phase 82 drops
                 # that because cloud discovery is unbounded and the user
                 # editing a (legacy) UI slider shouldn't reset progress.
+                #
+                # Phase A 8 amendment: for no-auto-detect providers
+                # (Ollama Cloud / Gemini / Kimi), the user's plan tier
+                # IS the ceiling — there are no signals to discover one.
+                # When they pick a new tier via the Plan dropdown, snap
+                # current_limit to it and clear any stale lock so AIMD
+                # cannot stay pinned below their stated cap.
+                if is_cloud and not self._provider_supports_auto_detect(node_id):
+                    if (
+                        slot.current_limit != new_max
+                        or slot.discovered_ceiling is not None
+                    ):
+                        before = slot.current_limit
+                        slot.current_limit = new_max
+                        slot.discovered_ceiling = None
+                        slot.ceiling_locked_until = 0.0
+                        slot.mode = "congestion_avoidance"
+                        slot.success_streak = 0
+                        try:
+                            concurrency_store().clear(node_id, "__default__")
+                        except Exception:
+                            pass
+                        self._record_history(slot, before, new_max, "user_tier_set")
+                        self._wake_slot_waiters(slot)
+                        logger.info(
+                            "Scheduler: %s no-auto-detect; snapped "
+                            "current_limit %d -> %d on user tier change "
+                            "(cleared lock)",
+                            node_id, before, new_max,
+                        )
             else:
                 # Phase 82: cloud slots seed at current_limit=5 (jumpstart),
                 # but if the ConcurrencyStore has a previously-discovered
@@ -360,22 +390,43 @@ class PipelineScheduler:
                         )
                         record = None
                     if record is not None:
-                        seed = record["ceiling"]
-                        mode = "congestion_avoidance"
-                        # Phase 119: hydrate lock state when persisted.
-                        if record["locked_until"] > 0:
-                            discovered_ceiling = record["ceiling"]
-                            ceiling_locked_until = record["locked_until"]
+                        # Phase A 8: for no-auto-detect providers (Ollama
+                        # Cloud / Gemini / Kimi), the user's max_concurrent
+                        # is the single source of truth.  Discard any
+                        # persisted ceiling/lock — it would have been
+                        # written by pre-Phase-A AIMD (now disabled for
+                        # these providers) and would override the user's
+                        # plan choice on every restart.
+                        if not self._provider_supports_auto_detect(node_id):
                             logger.info(
-                                "Scheduler: restored locked ceiling %d for %s "
-                                "until %.0f",
-                                record["ceiling"], node_id, record["locked_until"],
+                                "Scheduler: %s is a no-auto-detect provider; "
+                                "discarding persisted ceiling=%d (user's "
+                                "max_concurrent=%d is authoritative)",
+                                node_id, record["ceiling"], new_max,
                             )
+                            seed = max(1, new_max)
+                            mode = "congestion_avoidance"
+                            try:
+                                concurrency_store().clear(node_id, "__default__")
+                            except Exception:
+                                pass
                         else:
-                            logger.info(
-                                "Scheduler: hydrated unlocked ceiling %d for %s",
-                                record["ceiling"], node_id,
-                            )
+                            seed = record["ceiling"]
+                            mode = "congestion_avoidance"
+                            # Phase 119: hydrate lock state when persisted.
+                            if record["locked_until"] > 0:
+                                discovered_ceiling = record["ceiling"]
+                                ceiling_locked_until = record["locked_until"]
+                                logger.info(
+                                    "Scheduler: restored locked ceiling %d for %s "
+                                    "until %.0f",
+                                    record["ceiling"], node_id, record["locked_until"],
+                                )
+                            else:
+                                logger.info(
+                                    "Scheduler: hydrated unlocked ceiling %d for %s",
+                                    record["ceiling"], node_id,
+                                )
                 if is_cloud and record is None and node_id == "cloud:default_ollama":
                     # Phase 119: probe Ollama instead of the static 5 seed.
                     try:
@@ -721,7 +772,13 @@ class PipelineScheduler:
                 # immediately after a fresh backoff.
                 slot._last_recovery_time = now
                 # Phase 119: only mode==congestion_avoidance is a confirmed edge.
-                if old_mode == "congestion_avoidance":
+                # Phase A 8: also gate on the slot's provider — no-auto-detect
+                # providers (Ollama Cloud / Gemini / Kimi) must not lock at
+                # all, so the matching history event is also suppressed.
+                if (
+                    old_mode == "congestion_avoidance"
+                    and self._provider_supports_auto_detect(slot.node_id)
+                ):
                     self._record_ceiling_edge(slot, now)
                     # Record the lock as its own event so the timeline shows
                     # "backoff → edge_lock" pairs when a real ceiling is found.
@@ -947,14 +1004,88 @@ class PipelineScheduler:
                 slot.node_id, exc,
             )
 
+    def _provider_supports_auto_detect(self, node_id: str) -> bool:
+        """Phase A 8: does this slot's provider expose rate-limit signals?
+
+        Returns ``True`` when the provider has predictive headers or a
+        local-environment probe (OpenAI / Anthropic / OSS Ollama).  Returns
+        ``False`` for providers where the user's plan tier is the only
+        authoritative cap (Ollama Cloud / Gemini / Kimi) — for these we
+        skip the AIMD edge-lock entirely so a transient 429 cannot persist
+        a ``discovered_ceiling`` that overrides the user's stated max.
+
+        Defaults to ``True`` on any lookup failure (legacy AIMD behavior).
+        Cheap: reads settings + the cached limits table.
+        """
+        if not node_id.startswith("cloud:"):
+            return True  # local — irrelevant
+        try:
+            import json as _json
+            from pathlib import Path as _Path
+            from prep.services.settings_store import settings as _settings
+            llm_config = _settings.get("llm_config") or {}
+            endpoint_id = node_id[len("cloud:"):]
+            ep = next(
+                (
+                    e for e in llm_config.get("saved_endpoints", [])
+                    if e.get("id") == endpoint_id
+                ),
+                None,
+            )
+            if ep is None:
+                return True
+            provider = str(ep.get("provider", "")).lower().strip()
+            url = str(ep.get("base_url") or ep.get("url", ""))
+            # Resolve provider → concurrency_limits.json key.
+            if provider == "ollama":
+                from urllib.parse import urlparse
+                host = (urlparse(url).hostname or "").lower()
+                table_key = (
+                    "ollama_cloud"
+                    if host == "ollama.com" or host.endswith(".ollama.com")
+                    else "ollama_local"
+                )
+            else:
+                table_key = {
+                    "openai": "openai",
+                    "anthropic": "anthropic",
+                    "google": "google_gemini",
+                    "kimi": "moonshot_kimi",
+                }.get(provider)
+            if not table_key:
+                return True
+            path = _Path(__file__).resolve().parent.parent.parent / "data" / "concurrency_limits.json"
+            table = _json.loads(path.read_text())
+            entry = table.get("providers", {}).get(table_key) or {}
+            return bool(entry.get("auto_detect", True))
+        except Exception as exc:  # pragma: no cover — best-effort
+            logger.debug(
+                "scheduler._provider_supports_auto_detect(%s) failed: %s",
+                node_id, exc,
+            )
+            return True
+
     def _record_ceiling_edge(self, slot: ComputeSlot, now: float) -> None:
         """Persist a discovered ceiling with TTL after a confirmed edge.
 
         Phase 119: only called from the backoff path when ``mode`` is
         already ``congestion_avoidance`` — i.e., a real edge, not
         jumpstart exploration. Caller MUST hold ``self._lock``.
+
+        Phase A 8: skip entirely for providers that cannot auto-detect
+        (Ollama Cloud / Gemini / Kimi). For those the user's
+        ``max_concurrent`` is authoritative — locking a discovered
+        ceiling here would persist a transient 429 and override the
+        user's stated cap on every daemon restart.
         """
         if not slot.node_id.startswith("cloud:"):
+            return
+        if not self._provider_supports_auto_detect(slot.node_id):
+            logger.info(
+                "Scheduler: %s is a no-auto-detect provider; skipping edge-lock "
+                "(user-picked max_concurrent=%d is authoritative)",
+                slot.node_id, slot.max_concurrent,
+            )
             return
         try:
             from prep.services.settings_store import settings as _settings
