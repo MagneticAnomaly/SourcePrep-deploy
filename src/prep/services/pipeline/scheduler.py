@@ -29,6 +29,7 @@ Usage:
 
 from __future__ import annotations
 
+import functools
 import logging
 import threading
 import time
@@ -1003,8 +1004,17 @@ class PipelineScheduler:
         No-op for local slots — their ceiling is a known VRAM constraint,
         not something we discover at runtime. Best-effort: a failing
         persistence call must not disrupt the scheduler.
+
+        Phase A 8: also no-op for no-auto-detect cloud providers (Ollama
+        Cloud / Gemini / Kimi).  Persisting an AIMD-discovered ceiling
+        for these makes a transient 429 a sticky restart-surviving lock
+        — the user's plan tier is the authoritative cap.  configure_node
+        already discards stale records on hydration; this gate prevents
+        them from being written within the same daemon run too.
         """
         if not slot.node_id.startswith("cloud:"):
+            return
+        if not self._provider_supports_auto_detect(slot.node_id):
             return
         try:
             concurrency_store().save(
@@ -1016,6 +1026,24 @@ class PipelineScheduler:
                 slot.node_id, exc,
             )
 
+    @staticmethod
+    @functools.lru_cache(maxsize=1)
+    def _load_concurrency_limits_table() -> Dict[str, Any]:
+        """Read concurrency_limits.json once.  The file is constant for
+        the daemon's lifetime; caching it avoids file I/O on every backoff.
+        """
+        import json as _json
+        from pathlib import Path as _Path
+        path = _Path(__file__).resolve().parent.parent.parent / "data" / "concurrency_limits.json"
+        try:
+            return _json.loads(path.read_text())
+        except Exception as exc:
+            logger.warning(
+                "scheduler._load_concurrency_limits_table cannot read %s: %s",
+                path, exc,
+            )
+            return {}
+
     def _provider_supports_auto_detect(self, node_id: str) -> bool:
         """Phase A 8: does this slot's provider expose rate-limit signals?
 
@@ -1026,14 +1054,13 @@ class PipelineScheduler:
         skip the AIMD edge-lock entirely so a transient 429 cannot persist
         a ``discovered_ceiling`` that overrides the user's stated max.
 
-        Defaults to ``True`` on any lookup failure (legacy AIMD behavior).
-        Cheap: reads settings + the cached limits table.
+        Defaults to ``True`` on any lookup failure (legacy AIMD behavior),
+        but logs at WARNING when the failure is for a ``cloud:`` slot so
+        the user has a breadcrumb if a stuck ``1/1`` reappears.
         """
         if not node_id.startswith("cloud:"):
             return True  # local — irrelevant
         try:
-            import json as _json
-            from pathlib import Path as _Path
             from prep.services.settings_store import settings as _settings
             llm_config = _settings.get("llm_config") or {}
             endpoint_id = node_id[len("cloud:"):]
@@ -1045,8 +1072,15 @@ class PipelineScheduler:
                 None,
             )
             if ep is None:
+                logger.warning(
+                    "scheduler._provider_supports_auto_detect: no saved "
+                    "endpoint matches %s; defaulting to auto_detect=True "
+                    "(AIMD edge-lock active)",
+                    node_id,
+                )
                 return True
             provider = str(ep.get("provider", "")).lower().strip()
+            url = str(ep.get("base_url") or ep.get("url", "")).lower()
             # Resolve provider → concurrency_limits.json key.
             #
             # For ``ollama`` we use the slot prefix, NOT the endpoint URL:
@@ -1056,10 +1090,21 @@ class PipelineScheduler:
             # even when the configured URL is ``localhost:11434``.  The
             # actual rate-limit ceiling is then Ollama Cloud's (no
             # headers), not Ollama OSS's (probable via /api/ps).
+            #
+            # ``openai-compatible`` is the catch-all the UI uses for any
+            # third-party OAI-shaped API.  We URL-sniff the host: Moonshot
+            # Kimi (api.moonshot.cn / api.moonshot.ai) routes to Kimi's
+            # tier table; everything else falls through to the OAI
+            # auto-detect path (header-rich).
             if provider == "ollama":
                 table_key = (
                     "ollama_cloud" if node_id.startswith("cloud:") else "ollama_local"
                 )
+            elif provider == "openai-compatible":
+                if "moonshot.cn" in url or "moonshot.ai" in url:
+                    table_key = "moonshot_kimi"
+                else:
+                    table_key = "openai"  # OAI-shaped; has rate-limit headers
             else:
                 table_key = {
                     "openai": "openai",
@@ -1068,14 +1113,21 @@ class PipelineScheduler:
                     "kimi": "moonshot_kimi",
                 }.get(provider)
             if not table_key:
+                logger.warning(
+                    "scheduler._provider_supports_auto_detect: unknown "
+                    "provider=%r for %s; defaulting to auto_detect=True",
+                    provider, node_id,
+                )
                 return True
-            path = _Path(__file__).resolve().parent.parent.parent / "data" / "concurrency_limits.json"
-            table = _json.loads(path.read_text())
+            table = self._load_concurrency_limits_table()
+            if not table:
+                return True  # warning already logged in the cache loader
             entry = table.get("providers", {}).get(table_key) or {}
             return bool(entry.get("auto_detect", True))
         except Exception as exc:  # pragma: no cover — best-effort
-            logger.debug(
-                "scheduler._provider_supports_auto_detect(%s) failed: %s",
+            logger.warning(
+                "scheduler._provider_supports_auto_detect(%s) failed: %s; "
+                "defaulting to auto_detect=True",
                 node_id, exc,
             )
             return True

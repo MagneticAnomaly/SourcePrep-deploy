@@ -114,11 +114,13 @@ def _count_live_workers(*, project_id: str, task_id: str) -> int:
     cloud_concurrency, so a static read is misleading. Live telemetry is
     authoritative.
 
-    ``model_slot`` is intentionally not filtered on — LLMClient does not
-    reliably set ``_model_slot`` on itself, so telemetry entries almost
-    always carry ``model_slot=None``. ``(project_id, task_id)`` is the
-    authoritative composite key; adding model_slot would always filter
-    everything out.
+    ``model_slot`` is intentionally not filtered on — this counts the
+    total in-flight calls for the gate badge; per-slot bucketing is
+    done downstream in the swarm split.  Phase 119 added slot tagging
+    via ``server._get_llm_client_for_slot``, so newer telemetry entries
+    DO carry ``model_slot``; legacy LLMClient construction paths still
+    leave it ``None``.  Either way, the gate-total semantics here want
+    the unfiltered count.
     """
     from prep.services.token_telemetry import telemetry
 
@@ -768,8 +770,24 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
         # entry with one per (model_slot, swarm_role) seen in live
         # telemetry, so the AI Gateway sidebar shows the calls under
         # whatever slot they actually hit.
+        #
+        # Sum preservation: ALL active calls for the (project, task) are
+        # bucketed — including untagged ones (legacy LLMClient instances
+        # not yet routed through ``_get_llm_client_for_slot``) and calls
+        # without a swarm_role.  Untagged calls land under the stage's
+        # primary slot with swarm_role=None.  Without this the
+        # AI Gateway's "N active" badge would silently drop calls and
+        # disagree with the Pipeline Queue totals.
+        #
+        # Sidebar visibility: the SidebarAIGateway has four canonical
+        # buckets (embedding/small/large/code) — a "coordinator" model
+        # slot would render nowhere.  Remap unknown slots to the stage's
+        # primary slot so a separately-configured coordinator endpoint
+        # is visible alongside its workers, with swarm_role
+        # distinguishing the row in any future role-aware UI.
         try:
             from prep.services.token_telemetry import telemetry as _tel2
+            _SIDEBAR_SLOTS = {"embedding", "small", "large", "code"}
             expanded: List[Dict[str, Any]] = []
             for rt in running_tasks:
                 if not rt.get("is_swarm"):
@@ -779,34 +797,35 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                     req for req in _tel2.get_active_requests()
                     if req.get("project_id") == rt["project_id"]
                     and req.get("task_id") == rt.get("task_id", "")
-                    and req.get("swarm_role") in ("coordinator", "worker", "synthesizer")
                 ]
-                # Group by (model_slot, swarm_role).  Calls without a slot
-                # tag (legacy LLMClient instances) keep the stage's
-                # primary slot so they are still visible in the UI.
-                groups: Dict[tuple, Dict[str, Any]] = {}
                 fallback_slot = rt.get("model_slot")
+                # Group by (sidebar-canonical model_slot, swarm_role).
+                # Both unknown slots ("coordinator") and unset ones
+                # (legacy untagged calls) collapse to fallback_slot.
+                groups: Dict[tuple, Dict[str, Any]] = {}
                 for req in active:
                     slot = req.get("model_slot") or fallback_slot
-                    role = req.get("swarm_role")
+                    if slot not in _SIDEBAR_SLOTS:
+                        slot = fallback_slot
+                    role = req.get("swarm_role")  # may be None
                     key = (slot, role)
                     g = groups.setdefault(key, {
                         "slot": slot,
                         "role": role,
-                        "count": 0,
+                        "concurrent_workers": 0,
                         "model": req.get("model"),
                     })
-                    g["count"] += 1
+                    g["concurrent_workers"] += 1
                 if not groups:
-                    # No tagged active calls — keep the original entry so
-                    # the gate badge total stays consistent.
+                    # No active calls captured — keep the original entry
+                    # so the gate badge stays consistent.
                     expanded.append(rt)
                     continue
                 for (slot, role), g in groups.items():
                     expanded.append({
                         **rt,
                         "model_slot": slot,
-                        "concurrent_workers": g["count"],
+                        "concurrent_workers": g["concurrent_workers"],
                         "swarm_role": role,
                     })
             running_tasks = expanded

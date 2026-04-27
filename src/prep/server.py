@@ -512,11 +512,20 @@ def _get_llm_client_for_slot(slot: str):
     # coordinator/worker/synthesizer calls across the right slots — the
     # whole swarm shows up under one bucket.
     #
-    # Slot keys map to the AI Gateway sidebar buckets the UI knows about:
-    # "small" / "large" / "code" / "coordinator".  Coordinator with its
-    # own config gets "coordinator"; the inherit-from-large fallback path
-    # already returned ``large_client`` above, so it carries "large".
-    client._model_slot = slot if slot in ("small", "large", "code", "coordinator") else slot_key
+    # Normalize the input slot to one of the four canonical short forms
+    # the sidebar buckets render as: ``small`` / ``large`` / ``code`` /
+    # ``coordinator``.  Callers pass either the short form ("small")
+    # or the full config key ("small_model"); we accept both so a caller
+    # rename never silently drops the tag.  The inherit-from-large
+    # coordinator path returned ``large_client`` above, so that case
+    # carries the recursive call's "large" tag — intentional, not a bug.
+    _CANONICAL_SLOT = {
+        "small": "small", "small_model": "small",
+        "large": "large", "large_model": "large",
+        "code": "code", "code_model": "code",
+        "coordinator": "coordinator", "coordinator_model": "coordinator",
+    }
+    client._model_slot = _CANONICAL_SLOT.get(slot, slot_key)
     return client
 
 
