@@ -66,6 +66,29 @@ def _isolate_concurrency_store(tmp_path_factory, monkeypatch):
     # monkeypatch auto-restores singleton and data_dir after each test.
 
 @pytest.fixture
+def tmp_settings(tmp_path):
+    """Swap the settings_store singleton's SQLite file to a tmp_path-backed copy.
+
+    Note: _init_global_stores (autouse) already initialises the settings
+    singleton against a per-test tmp_path DB.  This fixture re-initialises
+    it against a *second* isolated DB so that tests using tmp_settings get a
+    completely clean slate that is not shared with other fixtures.
+    """
+    from prep.services import settings_store as ss
+
+    db = tmp_path / "settings.db"
+    # Close any existing connection first (autouse fixture may have opened one)
+    ss.settings.close()
+    # Point the singleton at the new isolated DB and open a fresh connection
+    ss.settings._db_path = None
+    ss.settings._conn = None
+    ss.settings.init(db)
+    yield ss.settings
+    ss.settings.close()
+    ss.settings._conn = None
+
+
+@pytest.fixture
 def mini_repo(tmp_path: Path) -> Path:
     """
     Create a minimal test repository with deterministic content.
