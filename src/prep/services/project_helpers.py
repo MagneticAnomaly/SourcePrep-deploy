@@ -685,6 +685,25 @@ def project_activity_payload(project: Project, weeks: int) -> Dict[str, Any]:
     return {"days": days, "totals": totals}
 
 
+def compute_index_membership(project_id: str) -> set[str]:
+    """Return the deduped set of paths that should be embedded for a project.
+
+    The set is the union of:
+    - project.config.included_paths (the user's global Scope panel selection)
+    - scope.paths for every named scope in the project's scope store
+
+    Used by the build pipeline as the source of truth for "what to embed."
+    Replaces the prior `pcfg.get("included_paths")` direct reads.
+    """
+    proj = require_project(project_id)
+    cfg = proj.config or {}
+    members: set[str] = set(cfg.get("included_paths") or [])
+    from prep.core.scope_store import scope_store
+    for rec in scope_store.list(project_id):
+        members.update(rec.paths)
+    return members
+
+
 def build_coverage_tree(repo_root: Path, include_globs: List[str], exclude_globs: List[str]) -> Dict[str, Any]:
     repo_root = Path(repo_root).expanduser().resolve()
     include_globs = list(include_globs or [])

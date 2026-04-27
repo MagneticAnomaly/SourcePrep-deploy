@@ -89,6 +89,23 @@ def tmp_settings(tmp_path):
 
 
 @pytest.fixture
+def dummy_project(tmp_path, monkeypatch):
+    from prep.core.project_registry import Project
+    proj = Project(
+        id="proj-test",
+        name="Test",
+        path=str(tmp_path),
+        mode="standalone",
+        config={"included_paths": []},
+        created_at="2026-01-01T00:00:00Z",
+        updated_at="2026-01-01T00:00:00Z",
+    )
+    from prep.services import project_helpers as ph
+    monkeypatch.setattr(ph, "require_project", lambda pid: proj)
+    return proj
+
+
+@pytest.fixture
 def mini_repo(tmp_path: Path) -> Path:
     """
     Create a minimal test repository with deterministic content.
