@@ -423,7 +423,15 @@ def clear_concurrency_lock(node_id: str) -> dict[str, Any]:
     old_limit = int(slot.current_limit)
 
     if is_cloud:
-        if node_id == "cloud:default_ollama":
+        # Phase A 8: for no-auto-detect cloud providers (Ollama Cloud /
+        # Gemini / Kimi) the user's max IS the answer.  Reset back to
+        # max_concurrent in CA mode rather than to the legacy jumpstart=5
+        # seed — which would cause an unnecessary 5→10 ramp that the user
+        # sees as "stuck at 5" right after a clear.
+        if not pipeline_scheduler._provider_supports_auto_detect(node_id):
+            new_seed = max(1, slot.max_concurrent)
+            new_mode: str = "congestion_avoidance"
+        elif node_id == "cloud:default_ollama":
             try:
                 from prep.services.settings_store import settings as _settings
                 llm_config = _settings.get("llm_config") or {}
@@ -436,9 +444,10 @@ def clear_concurrency_lock(node_id: str) -> dict[str, Any]:
             except Exception as exc:
                 logger.debug("Ollama probe in reset failed: %s", exc)
                 new_seed = 5
+            new_mode = "jumpstart"
         else:
             new_seed = 5
-        new_mode: str = "jumpstart"
+            new_mode = "jumpstart"
     else:
         # Local nodes: VRAM ceiling is a real hardware constraint —
         # don't fake-rediscover it. Just normalize current_limit back

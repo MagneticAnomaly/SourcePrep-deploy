@@ -374,9 +374,21 @@ class PipelineScheduler:
                 # successes and overshoot the real ceiling. +1 additive
                 # increase is the correct gentle probe around a known
                 # ceiling.
-                seed = 5 if is_cloud else new_max
+                # Phase A 8: for no-auto-detect cloud providers (Ollama
+                # Cloud / Gemini / Kimi) the user's max IS the answer —
+                # there are no signals to discover from, so jumpstart
+                # ramping is pointless.  Seed straight at max_concurrent.
+                no_auto_detect_cloud = (
+                    is_cloud and not self._provider_supports_auto_detect(node_id)
+                )
+                if no_auto_detect_cloud:
+                    seed = max(1, new_max)
+                else:
+                    seed = 5 if is_cloud else new_max
                 mode: Literal["jumpstart", "congestion_avoidance"] = (
-                    "jumpstart" if is_cloud else "congestion_avoidance"
+                    "congestion_avoidance"
+                    if (no_auto_detect_cloud or not is_cloud)
+                    else "jumpstart"
                 )
                 discovered_ceiling: Optional[int] = None
                 ceiling_locked_until: float = 0.0
@@ -1035,15 +1047,18 @@ class PipelineScheduler:
             if ep is None:
                 return True
             provider = str(ep.get("provider", "")).lower().strip()
-            url = str(ep.get("base_url") or ep.get("url", ""))
             # Resolve provider → concurrency_limits.json key.
+            #
+            # For ``ollama`` we use the slot prefix, NOT the endpoint URL:
+            # OSS Ollama (localhost) can proxy ``*:cloud`` models through
+            # to ollama.com on the user's behalf. So a slot named
+            # ``cloud:default_ollama`` represents cloud-routed traffic
+            # even when the configured URL is ``localhost:11434``.  The
+            # actual rate-limit ceiling is then Ollama Cloud's (no
+            # headers), not Ollama OSS's (probable via /api/ps).
             if provider == "ollama":
-                from urllib.parse import urlparse
-                host = (urlparse(url).hostname or "").lower()
                 table_key = (
-                    "ollama_cloud"
-                    if host == "ollama.com" or host.endswith(".ollama.com")
-                    else "ollama_local"
+                    "ollama_cloud" if node_id.startswith("cloud:") else "ollama_local"
                 )
             else:
                 table_key = {

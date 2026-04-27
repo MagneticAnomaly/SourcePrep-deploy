@@ -759,6 +759,60 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
             logger.debug("running-tasks enrichment failed", exc_info=True)
             pass  # Scheduler not available — leave defaults
 
+        # Phase 119 swarm slot attribution: when a running_task is a real
+        # swarm (window_matches AND live_workers>=2), the single entry
+        # uses STAGE_MODEL_SLOT[stage] — the stage's primary slot — and
+        # collapses the coordinator/worker/synthesizer split into one
+        # bucket (e.g., 11×Swarm under Thinking even when the coordinator
+        # actually ran on a different slot/model).  Replace the single
+        # entry with one per (model_slot, swarm_role) seen in live
+        # telemetry, so the AI Gateway sidebar shows the calls under
+        # whatever slot they actually hit.
+        try:
+            from prep.services.token_telemetry import telemetry as _tel2
+            expanded: List[Dict[str, Any]] = []
+            for rt in running_tasks:
+                if not rt.get("is_swarm"):
+                    expanded.append(rt)
+                    continue
+                active = [
+                    req for req in _tel2.get_active_requests()
+                    if req.get("project_id") == rt["project_id"]
+                    and req.get("task_id") == rt.get("task_id", "")
+                    and req.get("swarm_role") in ("coordinator", "worker", "synthesizer")
+                ]
+                # Group by (model_slot, swarm_role).  Calls without a slot
+                # tag (legacy LLMClient instances) keep the stage's
+                # primary slot so they are still visible in the UI.
+                groups: Dict[tuple, Dict[str, Any]] = {}
+                fallback_slot = rt.get("model_slot")
+                for req in active:
+                    slot = req.get("model_slot") or fallback_slot
+                    role = req.get("swarm_role")
+                    key = (slot, role)
+                    g = groups.setdefault(key, {
+                        "slot": slot,
+                        "role": role,
+                        "count": 0,
+                        "model": req.get("model"),
+                    })
+                    g["count"] += 1
+                if not groups:
+                    # No tagged active calls — keep the original entry so
+                    # the gate badge total stays consistent.
+                    expanded.append(rt)
+                    continue
+                for (slot, role), g in groups.items():
+                    expanded.append({
+                        **rt,
+                        "model_slot": slot,
+                        "concurrent_workers": g["count"],
+                        "swarm_role": role,
+                    })
+            running_tasks = expanded
+        except Exception:
+            logger.debug("swarm slot split failed", exc_info=True)
+
         # [Goal 3] Merge live telemetry active requests that bypass the orchestrator
         from prep.services.token_telemetry import telemetry
         for req in telemetry.get_active_requests():
@@ -1020,9 +1074,14 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
                             ctx = int(ctx)
                             detail["context_tokens"] = ctx
                             detail["context_window"] = f"{ctx // 1000}k" if ctx >= 1000 else str(ctx)
-                        # LM Studio includes architecture, quantization, size
+                        # LM Studio includes architecture/quantization as strings.
+                        # OpenRouter returns architecture as a dict — guard against non-strings.
                         arch = m.get("architecture") or ""
                         quant = m.get("quantization") or ""
+                        if not isinstance(arch, str):
+                            arch = ""
+                        if not isinstance(quant, str):
+                            quant = ""
                         if arch or quant:
                             parts = [p for p in [arch, quant] if p]
                             detail["cost_tier"] = " · ".join(parts)

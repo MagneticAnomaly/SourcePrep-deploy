@@ -496,7 +496,7 @@ def _get_llm_client_for_slot(slot: str):
     # before content on complex files, taking 300-500s+ per call at ~11 tok/s.
     _LARGE_SLOTS = {"large", "large_model", "coordinator", "coordinator_model"}
     timeout = 600.0 if slot in _LARGE_SLOTS else 120.0
-    return LLMClient(
+    client = LLMClient(
         endpoint_url=url,
         model=slot_cfg.get("model", ""),
         api_key=endpoint.get("api_key"),
@@ -505,6 +505,19 @@ def _get_llm_client_for_slot(slot: str):
         always_on=bool(slot_cfg.get("always_on", False)),
         debug_mode=bool(ui_cfg.get("developer_debug_mode", False)),
     )
+    # Phase 119 swarm slot attribution: tag the resolved slot so
+    # token_telemetry.track_active_request can stamp model_slot on every
+    # in-flight LLMClient call.  Without this every active request lands
+    # with model_slot=None, and the AI Gateway can't split a swarm's
+    # coordinator/worker/synthesizer calls across the right slots — the
+    # whole swarm shows up under one bucket.
+    #
+    # Slot keys map to the AI Gateway sidebar buckets the UI knows about:
+    # "small" / "large" / "code" / "coordinator".  Coordinator with its
+    # own config gets "coordinator"; the inherit-from-large fallback path
+    # already returned ``large_client`` above, so it carries "large".
+    client._model_slot = slot if slot in ("small", "large", "code", "coordinator") else slot_key
+    return client
 
 
 def get_advanced_llm_settings() -> Dict[str, Any]:
