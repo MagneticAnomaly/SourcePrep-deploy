@@ -19,7 +19,7 @@ import type {
   SearchResponse,
   WatchActionResponse,
 } from './types';
-import type { LLMStatus, LicenseStatus, Project, ProjectSummary, ProjectStatus, TraceCoverage, TraceCoverageSummary, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun, AssignmentMode, LLMAssignmentBlock } from '../types';
+import type { LLMStatus, LicenseStatus, Project, ProjectSummary, ProjectStatus, TraceCoverage, TraceCoverageSummary, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun, AssignmentMode, LLMAssignmentBlock, ScopeRecord, ScopesListResponse } from '../types';
 
 export interface FileTreeNode {
   name: string;
@@ -349,6 +349,22 @@ export interface ApiClient {
   // Pipeline health (Phase 114)
   getPipelineHealth(projectId: string, signal?: AbortSignal): Promise<import('../types').PipelineHealth>;
   clearResetBarrier(projectId: string): Promise<{ cleared: boolean; previous_reason: string | null }>;
+
+  // Named Scopes (Phase 120)
+  listScopes(projectId: string): Promise<ScopesListResponse>;
+  getScope(projectId: string, scopeId: string): Promise<ScopeRecord>;
+  createScope(
+    projectId: string,
+    body: { display_name: string; paths?: string[]; assigned_to_role?: string | null },
+  ): Promise<ScopeRecord>;
+  updateScope(
+    projectId: string,
+    scopeId: string,
+    body: { display_name?: string; assigned_to_role?: string | null },
+  ): Promise<ScopeRecord>;
+  deleteScope(projectId: string, scopeId: string): Promise<void>;
+  addPathsToScope(projectId: string, scopeId: string, paths: string[]): Promise<ScopeRecord>;
+  removePathsFromScope(projectId: string, scopeId: string, paths: string[]): Promise<ScopeRecord>;
 }
 
 export interface ApiClientConfig {
@@ -831,6 +847,62 @@ export class PrepApiClient implements ApiClient {
     return this.requestEnvelope<{ briefing: string }>(
       `/projects/${encodeURIComponent(projectId)}/architecture/briefing`,
       { method: 'POST', body: { node_id: nodeId, scope } },
+    );
+  }
+
+  // ── Named Scopes (Phase 120) ───────────────────────────────────
+
+  async listScopes(projectId: string): Promise<ScopesListResponse> {
+    return this.requestEnvelope<ScopesListResponse>(
+      `/projects/${encodeURIComponent(projectId)}/scopes`,
+    );
+  }
+
+  async getScope(projectId: string, scopeId: string): Promise<ScopeRecord> {
+    return this.requestEnvelope<ScopeRecord>(
+      `/projects/${encodeURIComponent(projectId)}/scopes/${encodeURIComponent(scopeId)}`,
+    );
+  }
+
+  async createScope(
+    projectId: string,
+    body: { display_name: string; paths?: string[]; assigned_to_role?: string | null },
+  ): Promise<ScopeRecord> {
+    return this.requestEnvelope<ScopeRecord>(
+      `/projects/${encodeURIComponent(projectId)}/scopes`,
+      { method: 'POST', body },
+    );
+  }
+
+  async updateScope(
+    projectId: string,
+    scopeId: string,
+    body: { display_name?: string; assigned_to_role?: string | null },
+  ): Promise<ScopeRecord> {
+    return this.requestEnvelope<ScopeRecord>(
+      `/projects/${encodeURIComponent(projectId)}/scopes/${encodeURIComponent(scopeId)}`,
+      { method: 'PUT', body },
+    );
+  }
+
+  async deleteScope(projectId: string, scopeId: string): Promise<void> {
+    await this.requestEnvelope<{ deleted: boolean }>(
+      `/projects/${encodeURIComponent(projectId)}/scopes/${encodeURIComponent(scopeId)}`,
+      { method: 'DELETE' },
+    );
+  }
+
+  async addPathsToScope(projectId: string, scopeId: string, paths: string[]): Promise<ScopeRecord> {
+    return this.requestEnvelope<ScopeRecord>(
+      `/projects/${encodeURIComponent(projectId)}/scopes/${encodeURIComponent(scopeId)}/add`,
+      { method: 'POST', body: { paths } },
+    );
+  }
+
+  async removePathsFromScope(projectId: string, scopeId: string, paths: string[]): Promise<ScopeRecord> {
+    return this.requestEnvelope<ScopeRecord>(
+      `/projects/${encodeURIComponent(projectId)}/scopes/${encodeURIComponent(scopeId)}/remove`,
+      { method: 'POST', body: { paths } },
     );
   }
 

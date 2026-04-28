@@ -1146,6 +1146,133 @@ export class MockApiClient implements ApiClient {
     this._barrierReason = null;
     return { cleared: true, previous_reason: previous };
   }
+
+  // ── Named Scopes (Phase 120) ──────────────────────────────────
+
+  private _scopes = new Map<string, import('../types').ScopeRecord>();
+
+  async listScopes(projectId: string): Promise<import('../types').ScopesListResponse> {
+    const prefix = `${projectId}:`;
+    const summaries: import('../types').ScopeSummary[] = [
+      {
+        id: 'global',
+        display_name: 'Global',
+        path_count: 0,
+        assigned_to_role: null,
+      },
+      ...Array.from(this._scopes.entries())
+        .filter(([k]) => k.startsWith(prefix))
+        .map(([, rec]) => ({
+          id: rec.id,
+          display_name: rec.display_name,
+          path_count: rec.paths.length,
+          assigned_to_role: rec.assigned_to_role,
+        })),
+    ];
+    return { scopes: summaries };
+  }
+
+  async getScope(projectId: string, scopeId: string): Promise<import('../types').ScopeRecord> {
+    if (scopeId === 'global') {
+      return {
+        id: 'global',
+        display_name: 'Global',
+        paths: [],
+        weights: {},
+        assigned_to_role: null,
+        created_at: '',
+        updated_at: '',
+      };
+    }
+    const rec = this._scopes.get(`${projectId}:${scopeId}`);
+    if (!rec) throw new Error(`Scope '${scopeId}' not found`);
+    return rec;
+  }
+
+  async createScope(
+    projectId: string,
+    body: { display_name: string; paths?: string[]; assigned_to_role?: string | null },
+  ): Promise<import('../types').ScopeRecord> {
+    const id = body.display_name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const now = new Date().toISOString();
+    const rec: import('../types').ScopeRecord = {
+      id,
+      display_name: body.display_name,
+      paths: body.paths ?? [],
+      weights: {},
+      assigned_to_role: body.assigned_to_role ?? null,
+      created_at: now,
+      updated_at: now,
+    };
+    this._scopes.set(`${projectId}:${id}`, rec);
+    return rec;
+  }
+
+  async updateScope(
+    projectId: string,
+    scopeId: string,
+    body: { display_name?: string; assigned_to_role?: string | null },
+  ): Promise<import('../types').ScopeRecord> {
+    const key = `${projectId}:${scopeId}`;
+    const rec = this._scopes.get(key);
+    if (!rec) throw new Error(`Scope '${scopeId}' not found`);
+    const updated: import('../types').ScopeRecord = {
+      ...rec,
+      display_name: body.display_name ?? rec.display_name,
+      assigned_to_role: body.assigned_to_role !== undefined ? body.assigned_to_role : rec.assigned_to_role,
+      updated_at: new Date().toISOString(),
+    };
+    this._scopes.set(key, updated);
+    return updated;
+  }
+
+  async deleteScope(projectId: string, scopeId: string): Promise<void> {
+    this._scopes.delete(`${projectId}:${scopeId}`);
+  }
+
+  async addPathsToScope(
+    projectId: string,
+    scopeId: string,
+    paths: string[],
+  ): Promise<import('../types').ScopeRecord> {
+    if (scopeId === 'global') {
+      return this.getScope(projectId, 'global');
+    }
+    const key = `${projectId}:${scopeId}`;
+    const rec = this._scopes.get(key);
+    if (!rec) throw new Error(`Scope '${scopeId}' not found`);
+    const updated: import('../types').ScopeRecord = {
+      ...rec,
+      paths: Array.from(new Set([...rec.paths, ...paths])).sort(),
+      updated_at: new Date().toISOString(),
+    };
+    this._scopes.set(key, updated);
+    return updated;
+  }
+
+  async removePathsFromScope(
+    projectId: string,
+    scopeId: string,
+    paths: string[],
+  ): Promise<import('../types').ScopeRecord> {
+    if (scopeId === 'global') {
+      return this.getScope(projectId, 'global');
+    }
+    const key = `${projectId}:${scopeId}`;
+    const rec = this._scopes.get(key);
+    if (!rec) throw new Error(`Scope '${scopeId}' not found`);
+    const pathSet = new Set(paths);
+    const updated: import('../types').ScopeRecord = {
+      ...rec,
+      paths: rec.paths.filter(p => !pathSet.has(p)),
+      updated_at: new Date().toISOString(),
+    };
+    this._scopes.set(key, updated);
+    return updated;
+  }
 }
 
 export const createMockApiClient = (): ApiClient => new MockApiClient();
