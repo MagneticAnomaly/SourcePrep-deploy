@@ -1,26 +1,19 @@
 """
-Phase 120 Task 7 — Build pipeline sites read compute_index_membership.
+Phase 120 Task 7 — Build pipeline membership routing.
 
-Five sites previously read pcfg.get("included_paths") directly.
-After Task 7 they all read compute_index_membership(project_id) so that
-named scopes' paths flow into the embedder and into generated AGENTS.md files.
+Contract
+--------
+- Sites that feed start_project_build (the embedder) must receive the FULL
+  membership union: compute_index_membership(project_id) = global included_paths
+  UNION all named-scope paths.
+- Sites that feed write_rules_file (AGENTS.md Focus Areas) must receive ONLY
+  the user's curated global included_paths from project.config.  Scope paths
+  must NOT leak into Focus Areas; Task 13 will add a dedicated Scopes section.
 
-Test strategy
--------------
-- Sites 1 & 2 (post_flight.generate_preliminary_atlas_and_rules,
-               post_flight.regenerate_rules_with_full_atlas) — patch
-  write_rules_file and verify the included_paths arg contains scope paths.
-- Site 3 (post_flight.trigger_code_index_build) — patch
-  build_manager.start_project_build and verify included_paths contains scope paths.
-- Site 4 (workers._rules_worker) — patch write_rules_file in the worker and
-  verify included_paths contains scope paths.
-- Site 5 (routers/scope._build_fn) — patch build_manager.start_project_build
-  and verify included_paths contains scope paths.
-
-All tests share the same shape:
-  global included_paths = ["src/"]
-  named scope adds       = ["websites/marketing/"]
-  expected union         = {"src/", "websites/marketing/"}
+Test layout
+-----------
+- Sites 3 & 5 (embedder)  → assert union {"src/", "websites/marketing/"}
+- Sites 1, 2 & 4 (rules)  → assert only {"src/"} (global only, no scope path)
 """
 
 from __future__ import annotations
@@ -42,6 +35,10 @@ def _setup_project_with_scope(project, project_id: str) -> None:
     )
     scope_store.create(project_id, display_name="Marketing", paths=["websites/marketing/"])
 
+
+# ===========================================================================
+# EMBEDDER SITES — must receive the full membership union
+# ===========================================================================
 
 # ---------------------------------------------------------------------------
 # Site 3: PostFlightActions.trigger_code_index_build
@@ -131,14 +128,19 @@ def test_scope_build_fn_reads_membership(
     assert set(captured[-1]) == {"src/", "websites/marketing/"}
 
 
+# ===========================================================================
+# RULES-FILE SITES — must receive ONLY the user's curated global included_paths
+# ===========================================================================
+
 # ---------------------------------------------------------------------------
 # Site 1: PostFlightActions.generate_preliminary_atlas_and_rules
 # ---------------------------------------------------------------------------
 
-def test_generate_preliminary_atlas_passes_membership_to_rules_file(
+def test_generate_preliminary_atlas_passes_only_global_paths_to_rules_file(
     tmp_settings, dummy_project_in_registry, monkeypatch, tmp_path
 ):
-    """generate_preliminary_atlas_and_rules must pass membership union to write_rules_file."""
+    """generate_preliminary_atlas_and_rules must pass ONLY global included_paths
+    to write_rules_file — not the scope union."""
     pid = dummy_project_in_registry.id
     _setup_project_with_scope(dummy_project_in_registry, pid)
 
@@ -186,18 +188,23 @@ def test_generate_preliminary_atlas_passes_membership_to_rules_file(
         PostFlightActions.generate_preliminary_atlas_and_rules(pid)
 
     assert captured_kwargs, "write_rules_file was never called"
-    paths_arg = captured_kwargs[-1].get("included_paths") or []
-    assert set(paths_arg) == {"src/", "websites/marketing/"}
+    paths_arg = set(captured_kwargs[-1].get("included_paths") or [])
+    # Only the global path should be present — scope path must NOT appear.
+    assert paths_arg == {"src/"}, (
+        f"Expected only global included_paths {{'src/'}} but got {paths_arg}. "
+        "Scope paths must not leak into AGENTS.md Focus Areas."
+    )
 
 
 # ---------------------------------------------------------------------------
 # Site 2: PostFlightActions.regenerate_rules_with_full_atlas
 # ---------------------------------------------------------------------------
 
-def test_regenerate_rules_with_full_atlas_passes_membership(
+def test_regenerate_rules_with_full_atlas_passes_only_global_paths(
     tmp_settings, dummy_project_in_registry, monkeypatch, tmp_path
 ):
-    """regenerate_rules_with_full_atlas must pass membership union to write_rules_file."""
+    """regenerate_rules_with_full_atlas must pass ONLY global included_paths
+    to write_rules_file — not the scope union."""
     pid = dummy_project_in_registry.id
     _setup_project_with_scope(dummy_project_in_registry, pid)
 
@@ -233,18 +240,22 @@ def test_regenerate_rules_with_full_atlas_passes_membership(
         PostFlightActions.regenerate_rules_with_full_atlas(pid)
 
     assert captured_kwargs, "write_rules_file was never called"
-    paths_arg = captured_kwargs[-1].get("included_paths") or []
-    assert set(paths_arg) == {"src/", "websites/marketing/"}
+    paths_arg = set(captured_kwargs[-1].get("included_paths") or [])
+    assert paths_arg == {"src/"}, (
+        f"Expected only global included_paths {{'src/'}} but got {paths_arg}. "
+        "Scope paths must not leak into AGENTS.md Focus Areas."
+    )
 
 
 # ---------------------------------------------------------------------------
-# Site 4: WorkerFactory._rules_worker (workers.py:896)
+# Site 4: WorkerFactory._rules_worker (workers.py)
 # ---------------------------------------------------------------------------
 
-def test_rules_worker_passes_membership_to_rules_file(
+def test_rules_worker_passes_only_global_paths_to_rules_file(
     tmp_settings, dummy_project_in_registry, monkeypatch, tmp_path
 ):
-    """_rules_worker must pass membership union to write_rules_file."""
+    """_rules_worker must pass ONLY global included_paths to write_rules_file —
+    not the scope union."""
     pid = dummy_project_in_registry.id
     _setup_project_with_scope(dummy_project_in_registry, pid)
 
@@ -289,5 +300,8 @@ def test_rules_worker_passes_membership_to_rules_file(
         worker_fn(fake_slot, lambda label, cur, total, baseline=0: None)
 
     assert captured_kwargs, "write_rules_file was never called by _rules_worker"
-    paths_arg = captured_kwargs[-1].get("included_paths") or []
-    assert set(paths_arg) == {"src/", "websites/marketing/"}
+    paths_arg = set(captured_kwargs[-1].get("included_paths") or [])
+    assert paths_arg == {"src/"}, (
+        f"Expected only global included_paths {{'src/'}} but got {paths_arg}. "
+        "Scope paths must not leak into AGENTS.md Focus Areas."
+    )

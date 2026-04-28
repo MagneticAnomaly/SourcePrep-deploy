@@ -87,8 +87,8 @@ class PostFlightActions:
             if doc and doc.file_count:
                 stats.setdefault("node_count", doc.file_count)
 
-            from prep.services.project_helpers import compute_index_membership
-            included_paths = sorted(compute_index_membership(project_id))
+            pcfg = project.config or {}
+            included_paths = pcfg.get("included_paths") or []
             is_prelim = not (existing_doc and existing_doc.mode == "llm")
 
             write_rules_file(
@@ -149,8 +149,8 @@ class PostFlightActions:
             if doc.file_count:
                 stats.setdefault("node_count", doc.file_count)
 
-            from prep.services.project_helpers import compute_index_membership
-            included_paths = sorted(compute_index_membership(project_id))
+            pcfg = project.config or {}
+            included_paths = pcfg.get("included_paths") or []
 
             write_rules_file(
                 project_path=Path(project.path),
