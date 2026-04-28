@@ -87,8 +87,8 @@ class PostFlightActions:
             if doc and doc.file_count:
                 stats.setdefault("node_count", doc.file_count)
 
-            pcfg = project.config or {}
-            included_paths = pcfg.get("included_paths") or []
+            from prep.services.project_helpers import compute_index_membership
+            included_paths = sorted(compute_index_membership(project_id))
             is_prelim = not (existing_doc and existing_doc.mode == "llm")
 
             write_rules_file(
@@ -149,8 +149,8 @@ class PostFlightActions:
             if doc.file_count:
                 stats.setdefault("node_count", doc.file_count)
 
-            pcfg = project.config or {}
-            included_paths = pcfg.get("included_paths") or []
+            from prep.services.project_helpers import compute_index_membership
+            included_paths = sorted(compute_index_membership(project_id))
 
             write_rules_file(
                 project_path=Path(project.path),
@@ -191,7 +191,7 @@ class PostFlightActions:
 
         try:
             from prep.services.build_manager import build_manager
-            from prep.services.project_helpers import require_project
+            from prep.services.project_helpers import compute_index_membership, require_project
 
             project = require_project(project_id)
             cfg = project.config or {}
@@ -199,7 +199,7 @@ class PostFlightActions:
             exclude_globs = cfg.get("exclude_globs") or None
             max_file_bytes = int(cfg.get("max_file_bytes") or 500_000)
             hard_limit_bytes = int(cfg.get("hard_limit_bytes") or 100_000_000)
-            included_paths = cfg.get("included_paths") or None
+            included_paths = sorted(compute_index_membership(project_id)) or None
 
             started = build_manager.start_project_build(
                 project,

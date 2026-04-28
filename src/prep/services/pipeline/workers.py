@@ -892,8 +892,8 @@ class WorkerFactory:
             if doc.file_count:
                 stats.setdefault("node_count", doc.file_count)
 
-            pcfg = project.config or {}
-            included_paths = pcfg.get("included_paths") or []
+            from prep.services.project_helpers import compute_index_membership
+            included_paths = sorted(compute_index_membership(project_id))
 
             write_rules_file(
                 project_path=Path(project.path),

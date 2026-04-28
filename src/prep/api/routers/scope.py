@@ -36,13 +36,13 @@ def _ensure_build_fn_registered(project_id: str) -> None:
 
     from prep.services.scope_orchestrator import scope_orchestrator
     from prep.services.build_manager import build_manager
-    from prep.services.project_helpers import require_project
+    from prep.services.project_helpers import compute_index_membership, require_project
 
     def _build_fn(added, removed, changed) -> bool:
         try:
             project = require_project(project_id)
             cfg = project.config or {}
-            included_paths = cfg.get("included_paths") or None
+            included_paths = sorted(compute_index_membership(project_id)) or None
             started = build_manager.start_project_build(
                 project,
                 None,
