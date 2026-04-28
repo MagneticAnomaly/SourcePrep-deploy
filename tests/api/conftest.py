@@ -52,3 +52,36 @@ def client(project):  # noqa: ARG001  (project installs the fake registry)
     from prep.server import app
 
     return TestClient(app)
+
+
+@pytest.fixture
+def mock_orchestrator(monkeypatch):
+    """Replace the scope_orchestrator singleton with a recorder.
+
+    Tests can assert against `.added` and `.removed` lists. Avoids the
+    real orchestrator's debounce timing (which has a known flaky test
+    on this branch — see docs/Phase120_NamedScopes/PRE_EXISTING_ISSUES.md).
+    """
+
+    class M:
+        def __init__(self) -> None:
+            self.added: list[tuple[str, list[str]]] = []
+            self.removed: list[tuple[str, list[str]]] = []
+
+        def on_files_added(self, pid: str, paths: list[str]) -> None:
+            self.added.append((pid, list(paths)))
+
+        def on_files_removed(self, pid: str, paths: list[str]) -> None:
+            self.removed.append((pid, list(paths)))
+
+        def status(self, pid: str) -> dict:
+            return {"state": "idle"}
+
+        def register_build_fn(self, pid: str, fn) -> None:  # noqa: ARG002
+            pass
+
+    inst = M()
+    from prep.services import scope_orchestrator as so
+
+    monkeypatch.setattr(so, "scope_orchestrator", inst)
+    return inst

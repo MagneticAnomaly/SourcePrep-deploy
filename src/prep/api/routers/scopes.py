@@ -34,6 +34,27 @@ class PathsRequest(BaseModel):
 # ── Helpers ──────────────────────────────────────────────────────
 
 
+def _is_covered_by_membership(path: str, membership: set[str]) -> bool:
+    """Return True if *path* is already covered by at least one entry in *membership*.
+
+    A membership entry covers *path* when:
+    - it matches *path* exactly, OR
+    - it is a directory prefix of *path* (the entry ends with "/" or, when we
+      append "/", it is a prefix of path).
+
+    This mirrors the Phase 24 behaviour: if ``src/`` is in ``included_paths``
+    then ``src/foo.py`` is already embedded — no incremental rebuild needed.
+    """
+    for entry in membership:
+        if entry == path:
+            return True
+        # Normalise the directory prefix to always end with "/"
+        prefix = entry if entry.endswith("/") else entry + "/"
+        if path.startswith(prefix):
+            return True
+    return False
+
+
 def _synthesize_global(project_id: str) -> dict[str, Any]:
     from prep.services.project_helpers import require_project
 
@@ -152,3 +173,107 @@ def delete_scope(project_id: str, scope_id: str) -> dict[str, Any]:
         )
     deleted = scope_store.delete(project_id, scope_id)
     return ok({"deleted": deleted})
+
+
+@router.post("/projects/{project_id}/scopes/{scope_id}/add")
+def add_paths(
+    project_id: str,
+    scope_id: str,
+    req: PathsRequest,
+) -> dict[str, Any]:
+    from prep.server import _require_project
+
+    _require_project(project_id)
+    if not req.paths:
+        raise ApiException(
+            status_code=400,
+            code="EMPTY_PATHS",
+            message="No file paths provided",
+        )
+
+    if scope_id == GLOBAL_SCOPE_ID:
+        from prep.services.project_helpers import mutate_global_scope
+
+        new_paths = mutate_global_scope(project_id, "add", req.paths)
+        from prep.api.routers.scope import _ensure_build_fn_registered
+        from prep.services.scope_orchestrator import scope_orchestrator
+
+        _ensure_build_fn_registered(project_id)
+        scope_orchestrator.on_files_added(project_id, req.paths)
+        return ok({"id": GLOBAL_SCOPE_ID, "paths": new_paths})
+
+    rec = scope_store.get(project_id, scope_id)
+    if rec is None:
+        raise ApiException(
+            status_code=404,
+            code="SCOPE_NOT_FOUND",
+            message=f"scope '{scope_id}' not found",
+        )
+
+    from prep.services.project_helpers import compute_index_membership
+
+    membership_before = compute_index_membership(project_id)
+    rec = scope_store.set_paths(project_id, scope_id, sorted(set(rec.paths) | set(req.paths)))
+    new_paths_outside_membership = [
+        p for p in req.paths if not _is_covered_by_membership(p, membership_before)
+    ]
+    if new_paths_outside_membership:
+        from prep.api.routers.scope import _ensure_build_fn_registered
+        from prep.services.scope_orchestrator import scope_orchestrator
+
+        _ensure_build_fn_registered(project_id)
+        scope_orchestrator.on_files_added(project_id, new_paths_outside_membership)
+    return ok(rec.to_dict())
+
+
+@router.post("/projects/{project_id}/scopes/{scope_id}/remove")
+def remove_paths(
+    project_id: str,
+    scope_id: str,
+    req: PathsRequest,
+) -> dict[str, Any]:
+    from prep.server import _require_project
+
+    _require_project(project_id)
+    if not req.paths:
+        raise ApiException(
+            status_code=400,
+            code="EMPTY_PATHS",
+            message="No file paths provided",
+        )
+
+    if scope_id == GLOBAL_SCOPE_ID:
+        from prep.services.project_helpers import mutate_global_scope
+
+        new_paths = mutate_global_scope(project_id, "remove", req.paths)
+        from prep.api.routers.scope import _ensure_build_fn_registered
+        from prep.services.scope_orchestrator import scope_orchestrator
+
+        _ensure_build_fn_registered(project_id)
+        scope_orchestrator.on_files_removed(project_id, req.paths)
+        return ok({"id": GLOBAL_SCOPE_ID, "paths": new_paths})
+
+    rec = scope_store.get(project_id, scope_id)
+    if rec is None:
+        raise ApiException(
+            status_code=404,
+            code="SCOPE_NOT_FOUND",
+            message=f"scope '{scope_id}' not found",
+        )
+
+    new_paths = sorted(set(rec.paths) - set(req.paths))
+    rec = scope_store.set_paths(project_id, scope_id, new_paths)
+
+    from prep.services.project_helpers import compute_index_membership
+
+    membership_after = compute_index_membership(project_id)
+    paths_dropped_from_membership = [
+        p for p in req.paths if not _is_covered_by_membership(p, membership_after)
+    ]
+    if paths_dropped_from_membership:
+        from prep.api.routers.scope import _ensure_build_fn_registered
+        from prep.services.scope_orchestrator import scope_orchestrator
+
+        _ensure_build_fn_registered(project_id)
+        scope_orchestrator.on_files_removed(project_id, paths_dropped_from_membership)
+    return ok(rec.to_dict())

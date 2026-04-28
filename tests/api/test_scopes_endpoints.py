@@ -69,3 +69,58 @@ def test_update_can_clear_role_via_explicit_null(client, project):
     r = client.put(f"/projects/{project.id}/scopes/m", json={"assigned_to_role": None})
     assert r.status_code == 200
     assert r.json()["data"]["assigned_to_role"] is None
+
+
+def test_add_paths_to_global_writes_included_paths(client, project):
+    r = client.post(
+        f"/projects/{project.id}/scopes/global/add",
+        json={"paths": ["src/foo.py"]},
+    )
+    assert r.status_code == 200
+    # The fake registry's mutate_config updates project.config in-place.
+    assert "src/foo.py" in project.config["included_paths"]
+
+
+def test_add_paths_to_named_scope_writes_record(client, project):
+    client.post(
+        f"/projects/{project.id}/scopes",
+        json={"display_name": "M", "paths": []},
+    )
+    r = client.post(
+        f"/projects/{project.id}/scopes/m/add",
+        json={"paths": ["websites/marketing/"]},
+    )
+    assert r.status_code == 200
+    body = r.json()["data"]
+    assert body["paths"] == ["websites/marketing/"]
+
+
+def test_add_to_named_scope_triggers_orchestrator_when_outside_global(
+    client, project, mock_orchestrator
+):
+    project.config["included_paths"] = ["src/"]
+    client.post(
+        f"/projects/{project.id}/scopes",
+        json={"display_name": "M", "paths": []},
+    )
+    client.post(
+        f"/projects/{project.id}/scopes/m/add",
+        json={"paths": ["websites/marketing/"]},
+    )
+    assert mock_orchestrator.added == [(project.id, ["websites/marketing/"])]
+
+
+def test_add_to_named_scope_skips_orchestrator_when_inside_global(
+    client, project, mock_orchestrator
+):
+    project.config["included_paths"] = ["src/"]
+    client.post(
+        f"/projects/{project.id}/scopes",
+        json={"display_name": "M", "paths": []},
+    )
+    client.post(
+        f"/projects/{project.id}/scopes/m/add",
+        json={"paths": ["src/foo.py"]},
+    )
+    # src/foo.py is already in compute_index_membership via global → no new embed
+    assert mock_orchestrator.added == []
