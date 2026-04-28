@@ -39,6 +39,7 @@ class SearchRequest(BaseModel):
     mmr_lambda: float = 0.7
     exclude_paths: List[str] = []
     role: Optional[str] = None  # Phase 67: agent role for scoped search
+    scope: Optional[str] = None  # Phase 120: named scope filter
 
 
 class ContextRequest(BaseModel):
@@ -57,6 +58,7 @@ class ContextRequest(BaseModel):
     context_tier: Optional[int] = None  # Phase 73.3b: 1=Tier1, 2=Tier2, 3=Tier2.5. None=auto from max_chars.
     include_atlas: bool = False  # Explicit opt-in: prepend atlas text to context. Routing (Phase 29B) handles segment selection automatically; atlas text is primarily accessed via the prep_atlas tool.
     role: Optional[str] = None  # Phase 67: agent role for scoped search filtering
+    scope: Optional[str] = None  # Phase 120: named scope filter
 
 
 class ChunkRequest(BaseModel):

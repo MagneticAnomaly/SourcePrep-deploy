@@ -49,22 +49,17 @@ def search_project(project_id: str, req: SearchRequest) -> Dict[str, Any]:
         exclude_paths=req.exclude_paths or None,
     )
 
-    # ── Phase 67: Agent scope filtering ──────────────────────────
-    _agent_mask = None
-    if req.role:
-        try:
-            from prep.core.agent_scope_manager import agent_scope_manager, _path_matches_scope
-            _agent_mask = agent_scope_manager.get_agent_mask(project_id, req.role)
-        except Exception:
-            logger.debug("Agent scope filtering unavailable", exc_info=True)
+    # ── Phase 120: Named scope filtering (replaces Phase 67 role auto-mask) ──
+    from prep.core.scope_resolver import resolve_mask, path_matches_any_scope
+    _resolution = resolve_mask(project_id, scope=req.scope, role=req.role)
+    _agent_mask = _resolution.mask
 
     out: List[Dict[str, Any]] = []
     for r in results:
         d = r.doc
         source_path = str(d.get("source_path") or "")
 
-        # Phase 67: Skip results outside agent's scope
-        if _agent_mask is not None and source_path and not _path_matches_scope(source_path, _agent_mask):
+        if _agent_mask is not None and source_path and not path_matches_any_scope(source_path, _agent_mask):
             continue
 
         content = str(d.get("content") or "")
@@ -80,7 +75,14 @@ def search_project(project_id: str, req: SearchRequest) -> Dict[str, Any]:
                 "score": float(r.score),
             }
         )
-    return ok({"results": out, **({"agent_scope": req.role} if req.role else {})})
+
+    envelope_extras: Dict[str, Any] = {
+        "applied_scope": _resolution.applied_scope,
+        "applied_role": req.role,
+    }
+    if _resolution.warning:
+        envelope_extras["scope_warning"] = _resolution.warning
+    return ok({"results": out, **envelope_extras})
 
 
 # ── Phase 39: Observation injection ──────────────────────────────
@@ -1069,51 +1071,39 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
     except Exception as e:
         logger.debug("Knowledge routing unavailable: %s", e)
 
-    # ── Phase 67: Agent scope filtering ──────────────────────────
-    # If a role is specified and has a configured agent scope, restrict
-    # _segment_file_paths to only files within the agent's tree.
+    # ── Phase 120: Named scope filtering (replaces Phase 67 role auto-mask) ──
+    from prep.core.scope_resolver import resolve_mask, path_matches_any_scope
+    _ctx_resolution = resolve_mask(project_id, scope=req.scope, role=req.role)
+    _agent_mask = _ctx_resolution.mask
     _agent_scope_applied = False
-    if req.role:
-        try:
-            from prep.core.agent_scope_manager import agent_scope_manager
-            _agent_mask = agent_scope_manager.get_agent_mask(project_id, req.role)
-            if _agent_mask is not None:
-                # Expand directory entries in the mask against indexed documents
-                _expanded_mask: Set[str] = set()
-                _indexed_paths = set()
-                for d in (getattr(idx, '_documents', None) or []):
-                    sp = d.get("source_path")
-                    if sp:
-                        _indexed_paths.add(str(sp))
-                for mp in _agent_mask:
-                    mp_str = str(mp)
-                    if mp_str in _indexed_paths:
-                        _expanded_mask.add(mp_str)
-                    else:
-                        prefix = mp_str.rstrip("/") + "/"
-                        for idxp in _indexed_paths:
-                            if idxp.startswith(prefix):
-                                _expanded_mask.add(idxp)
-
-                if _expanded_mask:
-                    if _segment_file_paths is not None:
-                        # Intersect: only boost files that are BOTH routed AND in scope
-                        _segment_file_paths = _segment_file_paths & _expanded_mask
-                    else:
-                        # No routing — use agent mask as the boost set directly
-                        _segment_file_paths = _expanded_mask
-                    _agent_scope_applied = True
-                    _sr6_segment_boost = max(_sr6_segment_boost, 0.25)  # Ensure strong boost for scoped agents
-                    logger.debug(
-                        "Agent scope applied: role=%s files=%d",
-                        req.role, len(_segment_file_paths),
-                    )
-                    if _routing_meta is None:
-                        _routing_meta = {}
-                    _routing_meta["agent_scope"] = req.role
-                    _routing_meta["agent_scope_files"] = len(_expanded_mask)
-        except Exception:
-            logger.debug("Agent scope filtering unavailable", exc_info=True)
+    if _agent_mask is not None:
+        # Use path_matches_any_scope (prefix-aware) to expand into indexed docs
+        _indexed_paths_for_scope: Set[str] = set()
+        for d in (getattr(idx, '_documents', None) or []):
+            sp = d.get("source_path")
+            if sp:
+                _indexed_paths_for_scope.add(str(sp))
+        _expanded_mask: Set[str] = {
+            p for p in _indexed_paths_for_scope
+            if path_matches_any_scope(p, _agent_mask)
+        }
+        if _expanded_mask:
+            if _segment_file_paths is not None:
+                # Intersect: only boost files that are BOTH routed AND in scope
+                _segment_file_paths = _segment_file_paths & _expanded_mask
+            else:
+                # No routing — use scope mask as the boost set directly
+                _segment_file_paths = _expanded_mask
+            _agent_scope_applied = True
+            _sr6_segment_boost = max(_sr6_segment_boost, 0.25)
+            logger.debug(
+                "Scope applied: scope=%s role=%s files=%d",
+                _ctx_resolution.applied_scope, req.role, len(_segment_file_paths),
+            )
+            if _routing_meta is None:
+                _routing_meta = {}
+            _routing_meta["applied_scope"] = _ctx_resolution.applied_scope
+            _routing_meta["agent_scope_files"] = len(_expanded_mask)
 
     # Update boosted_files to total pool size after both routing tiers
     if _routing_meta is not None and _segment_file_paths:
@@ -1144,6 +1134,10 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         resp["context"], _obs_meta = _inject_observations(resp["context"], project_id, req.query)
         if _obs_meta:
             resp["session_memory"] = _obs_meta
+        resp["applied_scope"] = _ctx_resolution.applied_scope
+        resp["applied_role"] = req.role
+        if _ctx_resolution.warning:
+            resp["scope_warning"] = _ctx_resolution.warning
         return ok(resp)
 
     # ── SR-2: Knowledge Index content fallback ──────────────────
@@ -1234,6 +1228,10 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
             resp_data["session_memory"] = _obs_meta
             resp_data["total_chars"] = len(resp_data["context"])
             resp_data["estimated_tokens"] = resp_data["total_chars"] // 4
+        resp_data["applied_scope"] = _ctx_resolution.applied_scope
+        resp_data["applied_role"] = req.role
+        if _ctx_resolution.warning:
+            resp_data["scope_warning"] = _ctx_resolution.warning
         return ok(resp_data)
 
     results = idx.search(
@@ -1292,6 +1290,10 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         resp_data["session_memory"] = _obs_meta
         resp_data["total_chars"] = len(resp_data["context"])
         resp_data["estimated_tokens"] = resp_data["total_chars"] // 4
+    resp_data["applied_scope"] = _ctx_resolution.applied_scope
+    resp_data["applied_role"] = req.role
+    if _ctx_resolution.warning:
+        resp_data["scope_warning"] = _ctx_resolution.warning
     return ok(resp_data)
 
 
