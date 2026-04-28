@@ -67,6 +67,15 @@ _CORE_TOOLS = [
                         "anchored to files in this directory. Improves relevance without a search query."
                     ),
                 },
+                "scope": {
+                    "type": "string",
+                    "description": (
+                        "Optional named scope to filter retrieval. Defaults to 'global' "
+                        "(the project's full Knowledge Sources). Pass a scope id like "
+                        "'marketing' or 'data-cleaning' to limit results to that file "
+                        "subset. Unknown scopes silently fall back to global."
+                    ),
+                },
                 "project_id": _PROJECT_ID_PROP,
             },
             "required": [],
@@ -129,9 +138,18 @@ _CORE_TOOLS = [
                 "role": {
                     "type": "string",
                     "description": (
-                        "Optional agent role for scoped search. When set, results are "
-                        "filtered to only include files in the agent's configured "
-                        "Knowledge Scope (e.g. 'ceo', 'ux_designer', 'devops')."
+                        "Optional role for trace-graph projection (centrality + layer + "
+                        "domain weights). Does not filter files. Use scope= to limit "
+                        "retrieval to a named file scope."
+                    ),
+                },
+                "scope": {
+                    "type": "string",
+                    "description": (
+                        "Optional named scope to filter retrieval. Defaults to 'global' "
+                        "(the project's full Knowledge Sources). Pass a scope id like "
+                        "'marketing' or 'data-cleaning' to limit results to that file "
+                        "subset. Unknown scopes silently fall back to global."
                     ),
                 },
                 "working_dir": {
@@ -180,6 +198,15 @@ _CORE_TOOLS = [
                     "type": "integer",
                     "description": "Traversal depth. 1 = direct only, 2 = include transitive. Default: 2.",
                     "default": 2,
+                },
+                "scope": {
+                    "type": "string",
+                    "description": (
+                        "Optional named scope to filter retrieval. Defaults to 'global' "
+                        "(the project's full Knowledge Sources). Pass a scope id like "
+                        "'marketing' or 'data-cleaning' to limit results to that file "
+                        "subset. Unknown scopes silently fall back to global."
+                    ),
                 },
                 "project_id": _PROJECT_ID_PROP,
             },
@@ -329,6 +356,15 @@ _CORE_TOOLS = [
                         "Omit for current observations only."
                     ),
                 },
+                "scope": {
+                    "type": "string",
+                    "description": (
+                        "Optional named scope to filter retrieval. Defaults to 'global' "
+                        "(the project's full Knowledge Sources). Pass a scope id like "
+                        "'marketing' or 'data-cleaning' to limit results to that file "
+                        "subset. Unknown scopes silently fall back to global."
+                    ),
+                },
                 "project_id": _PROJECT_ID_PROP,
             },
             "required": [],
@@ -409,6 +445,15 @@ _CORE_TOOLS = [
                         "(get) Unix epoch timestamp for point-in-time queries. "
                         "Returns concepts that were valid at this time. "
                         "Omit for current concepts only."
+                    ),
+                },
+                "scope": {
+                    "type": "string",
+                    "description": (
+                        "Optional named scope to filter retrieval. Defaults to 'global' "
+                        "(the project's full Knowledge Sources). Pass a scope id like "
+                        "'marketing' or 'data-cleaning' to limit results to that file "
+                        "subset. Unknown scopes silently fall back to global."
                     ),
                 },
                 "project_id": _PROJECT_ID_PROP,
