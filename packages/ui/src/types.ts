@@ -1857,3 +1857,28 @@ export interface PipelineHealth {
   stuck_runs: number;
   warnings: string[];
 }
+
+// ============================================================
+// Phase 120 — Named Scopes Types
+// ============================================================
+
+export interface ScopeRecord {
+  id: string;
+  display_name: string;
+  paths: string[];
+  weights?: Record<string, number>;
+  assigned_to_role: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ScopeSummary {
+  id: string;
+  display_name: string;
+  path_count: number;
+  assigned_to_role: string | null;
+}
+
+export interface ScopesListResponse {
+  scopes: ScopeSummary[];
+}

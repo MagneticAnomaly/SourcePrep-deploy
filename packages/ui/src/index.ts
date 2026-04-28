@@ -94,6 +94,10 @@ export type {
   StageRestoreResponse,
   // Phase 117 — scoped rebuild
   RebuildScope,
+  // Phase 120 — named scopes
+  ScopeRecord,
+  ScopeSummary,
+  ScopesListResponse,
 } from './types';
 
 // Components - Status
