@@ -491,6 +491,25 @@ def _build_managed_content(
             parts.append(f"- ... +{len(included_paths) - 15} more")
         parts.append("Call `prep` for detailed content from these areas.")
 
+    # ── Named scopes (Phase 120) ──
+    if project_id:
+        try:
+            from prep.core.scope_store import scope_store
+            scopes = scope_store.list(project_id)
+        except Exception:
+            scopes = []
+        if scopes:
+            parts.append("")
+            parts.append("## Scopes")
+            parts.append("")
+            parts.append(
+                "Pass `scope=<name>` to limit retrieval to that surface. "
+                "Unknown scopes fall back to global with a warning."
+            )
+            parts.append("")
+            scope_ids = ", ".join(f"`{s.id}`" for s in scopes)
+            parts.append(f"Available scopes: `global`, {scope_ids}")
+
     # ── Fallback / refresh hints (all targets) ──
     parts.append("")
     parts.append(

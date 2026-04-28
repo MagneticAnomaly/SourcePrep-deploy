@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter
@@ -11,6 +12,29 @@ from prep.core.scope_store import GLOBAL_SCOPE_ID, scope_store
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["scopes"])
+
+
+def _schedule_regen(project_id: str) -> None:
+    """Trigger a debounced AGENTS.md / rules-file regeneration for *project_id*.
+
+    Called after any scope mutation that changes the set of named scopes so
+    that the generated AGENTS.md Scopes section stays in sync without waiting
+    for the next full index build.
+    """
+    try:
+        from prep.core.rules_generator import schedule_rules_regeneration
+        from prep.services.project_helpers import require_project
+
+        proj = require_project(project_id)
+        cfg = proj.config or {}
+        schedule_rules_regeneration(
+            project_id=project_id,
+            project_path=Path(proj.path),
+            project_name=proj.name,
+            included_paths=cfg.get("included_paths") or None,
+        )
+    except Exception:
+        logger.debug("scope regen trigger failed for %s", project_id, exc_info=True)
 
 
 # ── Request models ───────────────────────────────────────────────
@@ -124,6 +148,7 @@ def create_scope(project_id: str, req: CreateScopeRequest) -> dict[str, Any]:
         )
     except ValueError as e:
         raise ApiException(status_code=409, code="SCOPE_INVALID", message=str(e)) from e
+    _schedule_regen(project_id)
     return ok(rec.to_dict())
 
 
@@ -157,6 +182,7 @@ def update_scope(
         ) from e
     except ValueError as e:
         raise ApiException(status_code=409, code="SCOPE_INVALID", message=str(e)) from e
+    _schedule_regen(project_id)
     return ok(rec.to_dict())
 
 
@@ -172,6 +198,7 @@ def delete_scope(project_id: str, scope_id: str) -> dict[str, Any]:
             message="global scope cannot be deleted",
         )
     deleted = scope_store.delete(project_id, scope_id)
+    _schedule_regen(project_id)
     return ok({"deleted": deleted})
 
 
@@ -200,6 +227,7 @@ def add_paths(
 
         _ensure_build_fn_registered(project_id)
         scope_orchestrator.on_files_added(project_id, req.paths)
+        _schedule_regen(project_id)
         return ok({"id": GLOBAL_SCOPE_ID, "paths": new_paths})
 
     rec = scope_store.get(project_id, scope_id)
@@ -223,6 +251,7 @@ def add_paths(
 
         _ensure_build_fn_registered(project_id)
         scope_orchestrator.on_files_added(project_id, new_paths_outside_membership)
+    _schedule_regen(project_id)
     return ok(rec.to_dict())
 
 
@@ -251,6 +280,7 @@ def remove_paths(
 
         _ensure_build_fn_registered(project_id)
         scope_orchestrator.on_files_removed(project_id, req.paths)
+        _schedule_regen(project_id)
         return ok({"id": GLOBAL_SCOPE_ID, "paths": new_paths})
 
     rec = scope_store.get(project_id, scope_id)
@@ -276,4 +306,5 @@ def remove_paths(
 
         _ensure_build_fn_registered(project_id)
         scope_orchestrator.on_files_removed(project_id, paths_dropped_from_membership)
+    _schedule_regen(project_id)
     return ok(rec.to_dict())
