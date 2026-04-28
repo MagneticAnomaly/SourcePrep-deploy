@@ -860,6 +860,7 @@ class MCPServer:
         compression: str = "none",
         exclude_paths: Optional[List[str]] = None,
         role: Optional[str] = None,  # Phase 67: agent scope filtering
+        scope: Optional[str] = None,  # Phase 120: named scope filter
         working_dir: Optional[str] = None,  # Phase 80: L2 scoped context
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -907,9 +908,22 @@ class MCPServer:
         # Phase 67: Agent scope filtering
         if role:
             payload["role"] = role
+        # Phase 120: Named scope filtering
+        if scope:
+            payload["scope"] = scope
 
         data = await self._api_post(f"/projects/{project_id}/context", payload)
         result = self._format_context_response(project_id, data)
+
+        # Phase 120: Propagate scope envelope fields
+        if isinstance(data, dict):
+            result["applied_scope"] = data.get("applied_scope", "global")
+            result["applied_role"] = data.get("applied_role")
+            if data.get("scope_warning"):
+                result["scope_warning"] = data["scope_warning"]
+        else:
+            result["applied_scope"] = "global"
+            result["applied_role"] = role
 
         # Phase 50 Sprint 3: Markdown output for search results.
         context_str = result.get("context", "")
@@ -1005,6 +1019,7 @@ class MCPServer:
         self,
         max_chars: int = 0,  # 0 = use adaptive budget from OPP-W5
         role: Optional[str] = None,
+        scope: Optional[str] = None,  # Phase 120: named scope filter
         working_dir: Optional[str] = None,  # Phase 80: L2 scoped context
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -1060,6 +1075,11 @@ class MCPServer:
             "include_atlas": include_atlas,
             "context_tier": self._get_context_tier(),
         }
+        # Phase 120: Named scope filtering
+        if scope:
+            payload["scope"] = scope
+        if role:
+            payload["role"] = role
 
         try:
             data = await self._api_post(f"/projects/{project_id}/context", payload)
@@ -1119,6 +1139,62 @@ class MCPServer:
 
         result["atlas_fresh"] = atlas_fresh
 
+        # Phase 120: Scope envelope — propagate from daemon response and
+        # apply client-side filtering of modules / hub_files when scope is active.
+        if isinstance(data, dict):
+            _applied_scope = data.get("applied_scope", "global")
+            _scope_warning = data.get("scope_warning")
+        else:
+            _applied_scope = "global"
+            _scope_warning = None
+
+        if scope:
+            # Client-side segment filtering so prep(scope=X) returns a
+            # scope-flavoured orientation even when the daemon's /context
+            # endpoint doesn't fully constrain the atlas payload.
+            try:
+                from prep.core.scope_resolver import resolve_mask, path_matches_any_scope as _pms
+                _resolution = resolve_mask(project_id, scope=scope, role=role)
+                if _resolution.mask is not None:
+                    _mask = _resolution.mask
+                    # Filter modules list (keyed "modules" or "modules_in_scope")
+                    for _mkey in ("modules", "modules_in_scope"):
+                        if isinstance(data, dict) and isinstance(data.get(_mkey), list):
+                            data[_mkey] = [
+                                m for m in data[_mkey]
+                                if any(
+                                    (m.get("dir_path", "").rstrip("/") + "/").startswith(
+                                        p.rstrip("/") + "/"
+                                    )
+                                    or m.get("dir_path", "").rstrip("/") == p.rstrip("/")
+                                    for p in _mask
+                                )
+                            ]
+                    # Filter hub_files list
+                    if isinstance(data, dict) and isinstance(data.get("hub_files"), list):
+                        data["hub_files"] = [
+                            h for h in data["hub_files"]
+                            if _pms(h.get("path", "") or h.get("source_path", ""), _mask)
+                        ]
+                    # Filter neighbor_files if present
+                    if isinstance(data, dict) and isinstance(data.get("neighbor_files"), list):
+                        data["neighbor_files"] = [
+                            n for n in data["neighbor_files"]
+                            if _pms(
+                                n.get("path", "") or n.get("source_path", ""), _mask
+                            )
+                        ]
+                _applied_scope = _resolution.applied_scope
+                if _resolution.warning:
+                    _scope_warning = _resolution.warning
+            except Exception as _se:
+                logger.debug("Phase 120 scope filter failed in tool_context: %s", _se)
+
+        result["applied_scope"] = _applied_scope
+        result["applied_role"] = role
+        if _scope_warning:
+            result["scope_warning"] = _scope_warning
+
         # Add ambient-specific metadata
         if isinstance(data, dict):
             for key in ("ambient", "hub_files", "modules_in_scope", "neighbor_files"):
@@ -1130,9 +1206,6 @@ class MCPServer:
         # the backend (_assemble_ambient_context). We wrap it with a
         # header + health footer for better AI readability.
         context_str = result.get("context", "")
-        hub_count = result.get("hub_files", 0)
-        mod_count = result.get("modules_in_scope", 0)
-        neighbor_count = result.get("neighbor_files", 0)
         chunks = result.get("chunks_used", 0)
         total_chars = result.get("total_chars", 0)
 
@@ -1500,6 +1573,7 @@ class MCPServer:
         file_path: Optional[str] = None,
         symbol: Optional[str] = None,
         max_hops: int = 2,
+        scope: Optional[str] = None,  # Phase 120: named scope (informational only for trace)
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Analyze what depends on a file or symbol — blast radius analysis."""
@@ -1566,14 +1640,32 @@ class MCPServer:
             lines.append("No dependents found — this node has no reverse dependencies.")
 
         summary = "\n".join(lines)
-        return {
+        # Phase 120: Scope envelope — trace analysis is graph-wide, scope is
+        # informational only (no backend filtering on the trace endpoint).
+        _impact_applied_scope = "global"
+        _impact_scope_warning: Optional[str] = None
+        if scope:
+            try:
+                from prep.core.scope_resolver import resolve_mask as _rm
+                _r = _rm(project_id, scope=scope, role=None)
+                _impact_applied_scope = _r.applied_scope
+                if _r.warning:
+                    _impact_scope_warning = _r.warning
+            except Exception:
+                pass
+        impact_result: Dict[str, Any] = {
             "project_id": project_id,
             "summary": summary,
             "target": target,
             "dependents": dependents,
             "total_dependents": len(dependents),
+            "applied_scope": _impact_applied_scope,
+            "applied_role": None,
             "_to_markdown": summary,
         }
+        if _impact_scope_warning:
+            impact_result["scope_warning"] = _impact_scope_warning
+        return impact_result
 
     async def tool_save_observation(
         self,
@@ -1642,6 +1734,7 @@ class MCPServer:
         limit: int = 10,
         include_stale: bool = True,
         as_of: Optional[float] = None,  # Phase 80: temporal queries
+        scope: Optional[str] = None,  # Phase 120: named scope filter
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Retrieve previous observations about the codebase."""
@@ -1687,12 +1780,38 @@ class MCPServer:
         else:
             obs_md = "No observations found."
 
-        return {
+        # Phase 120: Scope envelope — filter observations by scope paths client-side
+        _obs_applied_scope = "global"
+        _obs_scope_warning: Optional[str] = None
+        if scope:
+            try:
+                from prep.core.scope_resolver import (
+                    resolve_mask as _rm,
+                    path_matches_any_scope as _pms,
+                )
+                _r = _rm(project_id, scope=scope, role=None)
+                _obs_applied_scope = _r.applied_scope
+                if _r.warning:
+                    _obs_scope_warning = _r.warning
+                elif _r.mask is not None:
+                    observations = [
+                        o for o in observations
+                        if not o.get("file_path") or _pms(o["file_path"], _r.mask)
+                    ]
+            except Exception:
+                pass
+
+        obs_result: Dict[str, Any] = {
             "project_id": project_id,
             "count": len(observations),
             "observations": observations,
+            "applied_scope": _obs_applied_scope,
+            "applied_role": None,
             "_to_markdown": obs_md,
         }
+        if _obs_scope_warning:
+            obs_result["scope_warning"] = _obs_scope_warning
+        return obs_result
 
     async def tool_concepts(
         self,
@@ -1707,6 +1826,7 @@ class MCPServer:
         supersede: Optional[str] = None,  # Phase 84
         status: Optional[str] = None,
         as_of: Optional[float] = None,  # Phase 80: temporal queries
+        scope: Optional[str] = None,  # Phase 120: named scope filter
         project_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get or save codebase concepts — high-level 'why' knowledge.
@@ -1762,6 +1882,10 @@ class MCPServer:
                 "id": cid,
                 "project_id": project_id,
                 "message": msg,
+                # Phase 120: scope envelope (save is not scope-filtered, but
+                # always include the fields for envelope consistency)
+                "applied_scope": "global",
+                "applied_role": None,
                 "_to_markdown": msg,
             }
         else:
@@ -1838,12 +1962,41 @@ class MCPServer:
             else:
                 concepts_md = "No concepts found. Use the Prep dashboard to initialize concepts, or save one with action='save'."
 
-            return {
+            # Phase 120: Scope envelope — filter concepts by anchor paths client-side
+            _con_applied_scope = "global"
+            _con_scope_warning: Optional[str] = None
+            if scope:
+                try:
+                    from prep.core.scope_resolver import (
+                        resolve_mask as _rm,
+                        path_matches_any_scope as _pms,
+                    )
+                    _r = _rm(project_id, scope=scope, role=None)
+                    _con_applied_scope = _r.applied_scope
+                    if _r.warning:
+                        _con_scope_warning = _r.warning
+                    elif _r.mask is not None:
+                        # Keep concepts with at least one anchor inside the scope,
+                        # or concepts with no anchors (global knowledge).
+                        concepts = [
+                            c for c in concepts
+                            if not c.get("anchors")
+                            or any(_pms(a, _r.mask) for a in c["anchors"])
+                        ]
+                except Exception:
+                    pass
+
+            concepts_result: Dict[str, Any] = {
                 "project_id": project_id,
                 "count": len(concepts),
                 "concepts": concepts,
+                "applied_scope": _con_applied_scope,
+                "applied_role": None,
                 "_to_markdown": concepts_md,
             }
+            if _con_scope_warning:
+                concepts_result["scope_warning"] = _con_scope_warning
+            return concepts_result
 
     async def tool_audit(
         self,
@@ -3751,6 +3904,7 @@ class MCPServer:
                 result = await self.tool_context(
                     max_chars=args.get("max_chars", 0),  # 0 = adaptive budget (OPP-W5)
                     role=resolved_role,  # Phase 64A + 103 R4: explicit or inferred
+                    scope=args.get("scope"),  # Phase 120: named scope filter
                     working_dir=args.get("working_dir"),  # Phase 80: L2 scoped context
                     project_override=project_override,
                 )
@@ -3799,6 +3953,7 @@ class MCPServer:
                         file_path=clean_query if "/" in clean_query else None,
                         symbol=clean_query if "/" not in clean_query else None,
                         max_hops=2,
+                        scope=args.get("scope"),  # Phase 120
                         project_override=project_override,
                     )
                 elif detected_intent == SearchIntent.RATIONALE:
@@ -3807,6 +3962,7 @@ class MCPServer:
                         result = await self.tool_concepts(
                             action="get",
                             query=clean_query,
+                            scope=args.get("scope"),  # Phase 120
                             project_override=project_override,
                         )
                         # If no concepts found, fall back to semantic search
@@ -3818,6 +3974,7 @@ class MCPServer:
                                 trace_expand=True,
                                 exclude_paths=args.get("exclude_paths") or None,
                                 role=args.get("role"),
+                                scope=args.get("scope"),  # Phase 120
                                 working_dir=args.get("working_dir"),
                                 project_override=project_override,
                             )
@@ -3829,6 +3986,7 @@ class MCPServer:
                             trace_expand=True,
                             exclude_paths=args.get("exclude_paths") or None,
                             role=args.get("role"),
+                            scope=args.get("scope"),  # Phase 120
                             working_dir=args.get("working_dir"),
                             project_override=project_override,
                         )
@@ -3842,6 +4000,7 @@ class MCPServer:
                         compression="lod",
                         exclude_paths=args.get("exclude_paths") or None,
                         role=args.get("role"),
+                        scope=args.get("scope"),  # Phase 120
                         working_dir=args.get("working_dir"),
                         project_override=project_override,
                     )
@@ -3855,6 +4014,7 @@ class MCPServer:
                         compression=args.get("compression", "none"),
                         exclude_paths=args.get("exclude_paths") or None,
                         role=args.get("role"),
+                        scope=args.get("scope"),  # Phase 120
                         working_dir=args.get("working_dir"),
                         project_override=project_override,
                     )
@@ -3910,6 +4070,7 @@ class MCPServer:
                         file_path=args.get("file_path"),
                         symbol=args.get("symbol"),
                         max_hops=args.get("max_hops", 2),
+                        scope=args.get("scope"),  # Phase 120
                         project_override=project_override,
                     )
                 # Phase 50: Nudge if prep hasn't been called yet
@@ -4017,6 +4178,7 @@ class MCPServer:
                         limit=args.get("limit", 10),
                         include_stale=args.get("include_stale", True),
                         as_of=args.get("as_of"),  # Phase 80: temporal queries
+                        scope=args.get("scope"),  # Phase 120
                         project_override=project_override,
                     )
 
@@ -4034,6 +4196,7 @@ class MCPServer:
                     supersede=args.get("supersede"),  # Phase 84
                     status=args.get("status"),
                     as_of=args.get("as_of"),  # Phase 80: temporal queries
+                    scope=args.get("scope"),  # Phase 120
                     project_override=project_override,
                 )
 
