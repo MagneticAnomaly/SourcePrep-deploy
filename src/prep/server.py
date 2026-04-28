@@ -721,7 +721,6 @@ from prep.api.routers.goalposts import router as goalposts_router
 from prep.api.routers.roadmap import router as roadmap_router
 from prep.api.routers.opportunities import router as opportunities_router
 from prep.api.routers.pm_push import router as pm_push_router
-from prep.api.routers.agent_scope import router as agent_scope_router
 from prep.api.routers.agents import router as agents_router
 from prep.api.routers.architecture import router as architecture_router
 from prep.api.routers.mcp_setup import router as mcp_setup_router
@@ -747,7 +746,6 @@ app.include_router(goalposts_router)
 app.include_router(roadmap_router)
 app.include_router(opportunities_router)
 app.include_router(pm_push_router)
-app.include_router(agent_scope_router)
 app.include_router(agents_router)
 app.include_router(architecture_router)
 app.include_router(mcp_setup_router)
