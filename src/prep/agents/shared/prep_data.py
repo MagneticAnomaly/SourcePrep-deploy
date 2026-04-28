@@ -9,6 +9,9 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from prep.core.index import CodeIndex
+from prep.core.scope_resolver import resolve_mask
+
 logger = logging.getLogger(__name__)
 
 
@@ -162,17 +165,14 @@ class PrepDataAccess:
         Returns empty list if no index is available.
         """
         try:
-            from prep.core.index import CodeIndex
-
             idx = CodeIndex(self._index_dir)
             if not idx.is_ready():
                 return []
 
             if role:
                 try:
-                    from prep.core.agent_scope_manager import agent_scope_manager
-
-                    mask = agent_scope_manager.get_agent_mask(self._project_id, role)
+                    resolution = resolve_mask(self._project_id, scope=None, role=role)
+                    mask = resolution.mask
                     if mask:
                         results = idx.search(query, k=k * 2)
                         filtered = [
