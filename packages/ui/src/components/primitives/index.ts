@@ -13,6 +13,9 @@ export type { ButtonProps } from './Button';
 export { Select, selectVariants } from './Select';
 export type { SelectProps, SelectOption } from './Select';
 
+export { SearchableSelect } from './SearchableSelect';
+export type { SearchableSelectProps } from './SearchableSelect';
+
 export { PathInput } from './PathInput';
 export type { PathInputProps, PathPickerMode } from './PathInput';
 

@@ -504,6 +504,13 @@ def _get_llm_client_for_slot(slot: str):
         timeout=timeout,
         always_on=bool(slot_cfg.get("always_on", False)),
         debug_mode=bool(ui_cfg.get("developer_debug_mode", False)),
+        # Phase 119+ correctness: pin the client to its scheduler slot.
+        # Without endpoint_id, _resolve_scheduler_node_id falls back to
+        # first-prefix-match and Qwen-on-OpenRouter calls get gated
+        # through whichever cloud slot was registered first (typically
+        # cloud:default_ollama, the Kimi node), masking real OpenRouter
+        # AIMD state and delaying coordinator phases.
+        endpoint_id=endpoint_id,
     )
     # Phase 119 swarm slot attribution: tag the resolved slot so
     # token_telemetry.track_active_request can stamp model_slot on every
@@ -662,6 +669,7 @@ def _create_client_from_block(block: dict, llm_cfg: dict, task_id: str):
         provider=endpoint.get("provider", "ollama"),
         timeout=timeout,
         always_on=bool(block.get("always_on", False)),
+        endpoint_id=endpoint_id,
     )
 
 

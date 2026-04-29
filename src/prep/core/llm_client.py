@@ -407,6 +407,7 @@ class LLMClient:
         timeout: float = 60.0,
         always_on: bool = False,
         debug_mode: bool = False,
+        endpoint_id: Optional[str] = None,
     ):
         self.endpoint_url = endpoint_url.rstrip("/")
         self.model = model
@@ -415,6 +416,17 @@ class LLMClient:
         self.timeout = timeout
         self.always_on = always_on
         self.debug_mode = debug_mode
+        # Phase 119+ correctness fix: endpoint_id ties this client to its
+        # specific scheduler slot (cloud:{endpoint_id} or local:{endpoint_id})
+        # so AIMD gating, telemetry, and capacity discovery all converge on
+        # the right node — particularly critical for openai-compatible
+        # endpoints (OpenRouter, Together, Groq, Fireworks) where a single
+        # provider name spans both cloud and local URLs.  Without this,
+        # _resolve_scheduler_node_id falls back to first-prefix-match and
+        # routes calls to whichever cloud/local slot was registered first
+        # (typically the Ollama default), masking the real endpoint's
+        # AIMD state and saturating the wrong gate.
+        self.endpoint_id = endpoint_id
 
         # F-59: thread-local Sessions for concurrent swarm workers.
         #
@@ -510,8 +522,17 @@ class LLMClient:
     def _resolve_scheduler_node_id(self) -> Optional[str]:
         """Resolve the PipelineScheduler node_id this client should gate on.
 
-        Mirrors PipelineScheduler.record_throughput_for_provider's prefix
-        logic so gate + AIMD agree on which slot a given LLM call belongs to.
+        Resolution order:
+          1. **By endpoint_id** — exact match on ``cloud:{ep}`` or
+             ``local:{ep}``.  Required for openai-compatible endpoints
+             (OpenRouter, Together, Groq) where a generic provider name
+             can mean either cloud or local depending on the URL.
+          2. **By URL host** — localhost/private IPs go to ``local:`` slots,
+             public hosts to ``cloud:`` slots.  Catches LLMClient
+             constructions that didn't get an endpoint_id.
+          3. **By provider prefix** — legacy fallback using
+             CLOUD_PROVIDERS, returns the first matching slot.
+
         Returns None if no matching slot exists (gate is skipped).
         """
         try:
@@ -522,7 +543,45 @@ class LLMClient:
         except Exception:  # pragma: no cover — import guard
             return None
 
+        slots = list(pipeline_scheduler._slots.keys())
+
+        # 1) endpoint_id-based exact match — preferred.  Try cloud first
+        # because the gating capacity that matters lives on the cloud slot
+        # for endpoints that have both (openai-compatible non-CLOUD_PROVIDERS).
+        if self.endpoint_id:
+            cloud_id = f"cloud:{self.endpoint_id}"
+            local_id = f"local:{self.endpoint_id}"
+            if cloud_id in slots:
+                return cloud_id
+            if local_id in slots:
+                return local_id
+
+        # 2) URL-host-based classification.  localhost/private/loopback
+        # → local:.  Anything else with a public host → cloud:.
         is_cloud = self.provider in CLOUD_PROVIDERS
+        if not is_cloud:
+            try:
+                import urllib.parse, ipaddress, socket as _socket
+                parsed = urllib.parse.urlparse(self.endpoint_url)
+                host = parsed.hostname or ""
+                if host:
+                    if host in ("localhost",):
+                        is_cloud = False
+                    else:
+                        try:
+                            ip = ipaddress.ip_address(
+                                _socket.gethostbyname(host)
+                            )
+                            is_cloud = not (
+                                ip.is_loopback or ip.is_private or ip.is_link_local
+                            )
+                        except (OSError, ValueError):
+                            # DNS failed: assume cloud unless host literally
+                            # contains "localhost".
+                            is_cloud = True
+            except Exception:
+                pass
+
         if not is_cloud and self.model:
             try:
                 from prep.core.batch_profiles import is_cloud_model_via_ollama
@@ -533,7 +592,7 @@ class LLMClient:
 
         prefix = "cloud:" if is_cloud else "local:"
         try:
-            for nid in pipeline_scheduler._slots.keys():
+            for nid in slots:
                 if nid.startswith(prefix):
                     return nid
         except Exception:  # pragma: no cover — defensive

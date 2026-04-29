@@ -1,5 +1,6 @@
 import { Button } from '../primitives/Button';
 import { Select } from '../primitives/Select';
+import { SearchableSelect } from '../primitives/SearchableSelect';
 import { InfoTooltip } from '../primitives/InfoTooltip';
 import { cn } from '../../lib/utils';
 import type { SavedEndpoint, EndpointTestResult, ModelSource } from '../../types';
@@ -286,16 +287,17 @@ export function ModelCard({
                     Model
                   </label>
                   <div className="flex gap-2">
-                    <Select
+                    <SearchableSelect
                       value={model || ''}
-                      onChange={(e) => onModelChange && onModelChange(e.target.value)}
+                      onChange={(v) => onModelChange && onModelChange(v)}
                       disabled={disabled}
+                      placeholder={loadingModels ? 'Loading models...' : 'Select a model...'}
                       options={buildModelOptions({
                         model,
                         availableModels,
                         modelDetails,
                         loadingModels,
-                      })}
+                      }).filter((o) => o.value !== '')}
                       className="flex-1"
                     />
                     {onRefreshModels && (
