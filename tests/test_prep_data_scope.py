@@ -128,3 +128,43 @@ def test_search_code_calls_resolve_mask_not_agent_scope_manager(
     assert captured[0]["project_id"] == dummy_project.id
     assert captured[0]["scope"] is None
     assert captured[0]["role"] == "researcher"
+
+
+def test_search_code_filters_by_directory_prefix(tmp_settings, dummy_project):
+    """I1 regression: scopes contain directory prefixes (e.g. 'docs/').
+    Exact-match 'in mask' returned zero results for any file inside a
+    prefixed scope.  The fix uses path_matches_any_scope which handles
+    prefix semantics."""
+    from prep.core.scope_store import scope_store
+
+    # Store a directory prefix — the typical real-world scope path.
+    scope_store.create(
+        dummy_project.id,
+        display_name="Docs",
+        paths=["docs/"],
+        assigned_to_role="writer",
+    )
+
+    from prep.agents.shared.prep_data import PrepDataAccess
+
+    fake_in = MagicMock()
+    fake_in.doc = {"source_path": "docs/guide.md"}
+    fake_in.score = 0.9
+
+    fake_out = MagicMock()
+    fake_out.doc = {"source_path": "src/foo.py"}
+    fake_out.score = 0.8
+
+    fake_cls = _fake_code_index_cls([fake_in, fake_out])
+
+    with patch("prep.agents.shared.prep_data.CodeIndex", fake_cls):
+        pd = PrepDataAccess(index_dir="/tmp/fake-index", project_id=dummy_project.id)
+        results = pd.search_code("guide", k=5, role="writer")
+
+    paths = [r["doc"]["source_path"] for r in results]
+    assert "docs/guide.md" in paths, (
+        "File inside scope directory must match via prefix"
+    )
+    assert "src/foo.py" not in paths, (
+        "File outside scope directory must be filtered out"
+    )

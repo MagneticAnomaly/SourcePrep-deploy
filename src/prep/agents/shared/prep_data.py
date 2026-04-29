@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from prep.core.index import CodeIndex
-from prep.core.scope_resolver import resolve_mask
+from prep.core.scope_resolver import path_matches_any_scope, resolve_mask
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +178,7 @@ class PrepDataAccess:
                         filtered = [
                             {"doc": r.doc, "score": r.score}
                             for r in results
-                            if r.doc.get("source_path", "") in mask
+                            if path_matches_any_scope(r.doc.get("source_path", ""), mask)
                         ]
                         return filtered[:k]
                 except Exception:
