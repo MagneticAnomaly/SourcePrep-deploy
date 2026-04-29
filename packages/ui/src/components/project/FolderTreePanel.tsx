@@ -393,69 +393,69 @@ export function FolderTreePanel({
 
   return (
     <Container className={cn(!bare && 'border border-border bg-surface shadow-sm', 'h-full min-h-0 flex flex-col', className)}>
-      {!bare && (
-        scopesEnabled ? (
-          /* ── Phase 120: scope-aware header ── */
-          <div className="mb-3 shrink-0">
-            <div className="flex items-center gap-2">
-              <ScopeDropdown
-                scopes={scopes!}
-                activeScopeId={activeScopeId ?? 'global'}
-                onSelect={onSetActiveScope}
-              />
-              <button
-                type="button"
-                aria-label="Add scope"
-                onClick={() => setShowCreate(v => !v)}
-                className={cn(
-                  'flex items-center justify-center w-7 h-7 rounded text-sm font-bold',
-                  'bg-surface-raised border border-border hover:border-primary/50 transition-colors',
-                  'text-text-subtle hover:text-primary'
-                )}
-              >
-                +
-              </button>
-              {!isGlobalScope && activeScope && (
-                <div className="ml-auto">
-                  <ScopeEditPopover
-                    scope={activeScope}
-                    onRename={onRenameScope}
-                    onDelete={onDeleteScope}
-                  />
-                </div>
+      {/* ── Phase 120: scope-aware header — renders in both bare and non-bare modes ── */}
+      {scopesEnabled && (
+        <div className="mb-3 shrink-0">
+          <div className="flex items-center gap-2">
+            <ScopeDropdown
+              scopes={scopes!}
+              activeScopeId={activeScopeId ?? 'global'}
+              onSelect={onSetActiveScope}
+            />
+            <button
+              type="button"
+              aria-label="Add scope"
+              onClick={() => setShowCreate(v => !v)}
+              className={cn(
+                'flex items-center justify-center w-7 h-7 rounded text-sm font-bold',
+                'bg-surface-raised border border-border hover:border-primary/50 transition-colors',
+                'text-text-subtle hover:text-primary'
               )}
-            </div>
-
-            {showCreate && (
-              <div className="mt-2">
-                <ScopeCreateInline
-                  onCancel={() => setShowCreate(false)}
-                  onSubmit={async (name) => {
-                    if (!onCreateScope) return;
-                    await onCreateScope(name);
-                    setShowCreate(false);
-                  }}
+            >
+              +
+            </button>
+            {!isGlobalScope && activeScope && (
+              <div className="ml-auto">
+                <ScopeEditPopover
+                  scope={activeScope}
+                  onRename={onRenameScope}
+                  onDelete={onDeleteScope}
                 />
               </div>
             )}
           </div>
-        ) : (
-          /* ── Legacy header (no scopes passed) ── */
-          <Flex justifyContent="between" alignItems="center" className="mb-4 gap-2">
-            <div className="flex items-center gap-2">
-              <Title className="text-text">{title}</Title>
-              {statusBadge}
+
+          {showCreate && (
+            <div className="mt-2">
+              <ScopeCreateInline
+                onCancel={() => setShowCreate(false)}
+                onSubmit={async (name) => {
+                  if (!onCreateScope) return;
+                  await onCreateScope(name);
+                  setShowCreate(false);
+                }}
+              />
             </div>
-            <div className="flex items-center gap-2">
-              {excludedCount > 0 && (
-                <Badge color="red" size="xs">{excludedCount} excluded</Badge>
-              )}
-              {includedCount > 0 && (
-                <Badge color="neutral" size="xs">{includedCount} included</Badge>
-              )}
-            </div>
-          </Flex>
-        )
+          )}
+        </div>
+      )}
+
+      {/* ── Legacy header (only when not bare AND no scopes passed) ── */}
+      {!bare && !scopesEnabled && (
+        <Flex justifyContent="between" alignItems="center" className="mb-4 gap-2">
+          <div className="flex items-center gap-2">
+            <Title className="text-text">{title}</Title>
+            {statusBadge}
+          </div>
+          <div className="flex items-center gap-2">
+            {excludedCount > 0 && (
+              <Badge color="red" size="xs">{excludedCount} excluded</Badge>
+            )}
+            {includedCount > 0 && (
+              <Badge color="neutral" size="xs">{includedCount} included</Badge>
+            )}
+          </div>
+        </Flex>
       )}
 
       {/* Empty-state banner for freshly-created named scopes */}
