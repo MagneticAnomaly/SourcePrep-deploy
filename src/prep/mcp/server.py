@@ -3947,6 +3947,20 @@ class MCPServer:
                         limit=args.get("limit", args.get("k", 20)),
                         project_override=project_override,
                     )
+                    # I2: tool_trace_search doesn't set the scope envelope;
+                    # inject it post-hoc so every prep_search response is uniform.
+                    if isinstance(result, dict) and "applied_scope" not in result:
+                        try:
+                            from prep.core.scope_resolver import resolve_mask as _rm
+                            _pid = await self._resolve_project_id(override=project_override)
+                            _res = _rm(_pid, scope=args.get("scope"), role=args.get("role"))
+                            result["applied_scope"] = _res.applied_scope
+                            result["applied_role"] = args.get("role")
+                            if _res.warning:
+                                result["scope_warning"] = _res.warning
+                        except Exception:
+                            result.setdefault("applied_scope", "global")
+                            result.setdefault("applied_role", args.get("role"))
                 elif detected_intent == SearchIntent.TRACE:
                     # Delegate to impact tool for graph traversal
                     result = await self.tool_impact(
@@ -4052,6 +4066,19 @@ class MCPServer:
                         max_nodes=args.get("max_nodes", 25),
                         project_override=project_override,
                     )
+                    # I2: tool_trace_neighbors doesn't set the scope envelope.
+                    if isinstance(result, dict) and "applied_scope" not in result:
+                        try:
+                            from prep.core.scope_resolver import resolve_mask as _rm
+                            _pid = await self._resolve_project_id(override=project_override)
+                            _res = _rm(_pid, scope=args.get("scope"), role=None)
+                            result["applied_scope"] = _res.applied_scope
+                            result["applied_role"] = None
+                            if _res.warning:
+                                result["scope_warning"] = _res.warning
+                        except Exception:
+                            result.setdefault("applied_scope", "global")
+                            result.setdefault("applied_role", None)
                 elif direction == "dependencies":
                     # What does X depend on? (outgoing edges)
                     node_id = args.get("symbol") or ""
@@ -4064,6 +4091,19 @@ class MCPServer:
                         max_nodes=args.get("max_nodes", 25),
                         project_override=project_override,
                     )
+                    # I2: tool_trace_neighbors doesn't set the scope envelope.
+                    if isinstance(result, dict) and "applied_scope" not in result:
+                        try:
+                            from prep.core.scope_resolver import resolve_mask as _rm
+                            _pid = await self._resolve_project_id(override=project_override)
+                            _res = _rm(_pid, scope=args.get("scope"), role=None)
+                            result["applied_scope"] = _res.applied_scope
+                            result["applied_role"] = None
+                            if _res.warning:
+                                result["scope_warning"] = _res.warning
+                        except Exception:
+                            result.setdefault("applied_scope", "global")
+                            result.setdefault("applied_role", None)
                 else:
                     # Default: dependents (what breaks if I change X?)
                     result = await self.tool_impact(
