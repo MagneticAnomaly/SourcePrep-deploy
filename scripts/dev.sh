@@ -13,11 +13,21 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cleanup_all() {
     # Disable the trap so we don't recurse
     trap - EXIT INT TERM HUP
+    log_info "Shutting down all services..."
     # Tell watchdog to stop gracefully (so it doesn't re-spawn daemon)
     touch /tmp/prep_daemon_stop 2>/dev/null || true
     pkill -f "daemon_watchdog.sh" 2>/dev/null || true
+    # Kill processes on known dev ports
+    kill_port $DAEMON_PORT
+    kill_port $DASHBOARD_PORT
+    kill_port $STORYBOOK_PORT
+    kill_port $MARKETING_PORT
+    kill_port $DOCS_PORT
+    kill_port $SUPPORT_PORT
+    kill_port $PAYMENTS_PORT
     # Kill all our direct children (dashboard, storybook, websites)
     pkill -P $$ 2>/dev/null || true
+    log_success "All services stopped"
 }
 trap cleanup_all EXIT INT TERM HUP
 
@@ -69,22 +79,6 @@ load_nvm() {
     fi
 }
 
-# Cleanup function for graceful shutdown
-cleanup() {
-    log_info "Shutting down all services..."
-    kill_port $DAEMON_PORT
-    kill_port $DASHBOARD_PORT
-    kill_port $STORYBOOK_PORT
-    kill_port $MARKETING_PORT
-    kill_port $DOCS_PORT
-    kill_port $SUPPORT_PORT
-    kill_port $PAYMENTS_PORT
-    log_success "All services stopped"
-    exit 0
-}
-
-# Trap SIGINT (Ctrl+C) and SIGTERM
-trap cleanup SIGINT SIGTERM
 
 # Main
 main() {
@@ -159,7 +153,7 @@ main() {
     # Start Websites (turbo dev runs all apps)
     log_info "Starting websites (marketing, docs, support, payments)..."
     if [ -d "$PROJECT_ROOT/websites/apps" ]; then
-        (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT" && npx turbo run dev --filter="./websites/apps/*") &
+        (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT" && NEXT_IGNORE_INCORRECT_LOCKFILE=1 npx turbo run dev --filter="./websites/apps/*") &
         WEBSITES_PID=$!
     else
         log_warn "No websites/apps directory found — skipping website dev servers"
