@@ -167,6 +167,10 @@ export * from './components/settings';
 // Hooks - Enterprise (EA-C4)
 export { useAdminPolicy } from './hooks/useAdminPolicy';
 
+// Hooks - Named Scopes (Phase 120)
+export { useScopes } from './hooks/useScopes';
+export type { ScopesApi } from './hooks/useScopes';
+
 // Components - Project
 export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, PinnedTextFilesPanel, AddProjectModal, FilePreviewPane, FileExplorerDetail, CodeViewer } from './components/project';
 export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, CodeViewerProps } from './components/project';
