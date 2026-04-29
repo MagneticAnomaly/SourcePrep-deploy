@@ -459,6 +459,7 @@ function App() {
     handleEnrichmentAutoConfigChange, handleIndexAutoRebuildChange,
     handleDestroyIndex, handleRebuildPipeline,
     handleDestroyEnrichmentFull, handleDestroyFinalizeFull,
+    handleDestroyCodeIndex,
   } = useTraceSystem(selectedProjectId, {
     projectConfig,
     setProjectConfig,
@@ -1103,6 +1104,8 @@ function App() {
               void handleDestroyIndex();
             } else if (scope === 'enrichment') {
               void handleDestroyEnrichmentFull();
+            } else if (scope === 'code-index') {
+              void handleDestroyCodeIndex();
             } else {
               void handleDestroyFinalizeFull();
             }

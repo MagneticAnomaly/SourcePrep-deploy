@@ -49,7 +49,7 @@ export interface PageHostProps {
   // routes scope to the appropriate destroy/rebuild handler.
   pipelineRunning: boolean;
   onRebuildScoped: (scope: 'all' | 'sync' | 'enrichment') => void;
-  onResetScoped: (scope: 'all' | 'enrichment' | 'finalize') => void;
+  onResetScoped: (scope: 'all' | 'enrichment' | 'finalize' | 'code-index') => void;
 
   // ── Global-scope: Appearance page (Task 18) ───────────────────────
   // Autosave — App.tsx useEffect on [uiMode, uiTheme, bgImage] persists via

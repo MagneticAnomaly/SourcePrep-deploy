@@ -199,7 +199,10 @@ class PostFlightActions:
             exclude_globs = cfg.get("exclude_globs") or None
             max_file_bytes = int(cfg.get("max_file_bytes") or 500_000)
             hard_limit_bytes = int(cfg.get("hard_limit_bytes") or 100_000_000)
-            included_paths = cfg.get("included_paths") or None
+            # Tri-state: None = key absent (legacy, embed everything), [] = empty
+            # scope (embed nothing), [...] = scope set. Don't normalize [] -> None.
+            included_paths = cfg.get("included_paths") if isinstance(cfg, dict) else None
+            use_gitignore = bool(cfg.get("use_gitignore", True))
 
             started = build_manager.start_project_build(
                 project,
@@ -208,6 +211,7 @@ class PostFlightActions:
                 exclude_globs,
                 max_file_bytes,
                 hard_limit_bytes,
+                use_gitignore=use_gitignore,
                 included_paths=included_paths,
             )
             logger.info("CodeIndex build triggered for %s after pipeline: started=%s", project_id, started)

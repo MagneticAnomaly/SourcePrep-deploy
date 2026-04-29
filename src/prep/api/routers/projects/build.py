@@ -31,22 +31,30 @@ def build_project(project_id: str, full: bool = False, req: Optional[BuildReques
     max_file_bytes = int((cfg.get("max_file_bytes") or 500_000) if isinstance(cfg, dict) else 500_000)
     hard_limit_bytes = int((cfg.get("hard_limit_bytes") or 100_000_000) if isinstance(cfg, dict) else 100_000_000)
 
-    # Extract included_paths from request body, falling back to project config
-    included_paths = req.included_paths if req and req.included_paths else None
-    if not included_paths:
+    # Tri-state included_paths (Phase 24 SM-8 semantics):
+    #   None  → key absent in body AND in cfg; legacy "embed everything"
+    #   []    → user explicitly chose empty scope; embed nothing
+    #   [...] → embed exactly the listed paths
+    # Use request body when present (caller can override cfg); fall back to
+    # cfg only when the body field is absent (None), not just empty/falsy.
+    if req is not None and req.included_paths is not None:
+        included_paths = req.included_paths
+    else:
         included_paths = cfg.get("included_paths") if isinstance(cfg, dict) else None
     logger.info("build_project: req=%s, included_paths count=%s", req, len(included_paths) if included_paths else None)
 
     from prep.core.project_registry import ensure_prep_pointer
-    
+
     # Self-heal missing pointers on build
     try:
         ensure_prep_pointer(proj)
     except Exception:
         pass
 
+    use_gitignore = bool(cfg.get("use_gitignore", True)) if isinstance(cfg, dict) else True
     started = _srv()._start_project_build(
         proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes,
+        use_gitignore=use_gitignore,
         included_paths=included_paths,
     )
     if not started:

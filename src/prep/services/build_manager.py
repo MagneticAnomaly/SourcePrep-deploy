@@ -343,12 +343,18 @@ class BuildManager:
         exclude_globs: Optional[List[str]],
         max_file_bytes: int = 500_000,
         hard_limit_bytes: int = 100_000_000,
+        use_gitignore: bool = True,
+        included_paths: Optional[List[str]] = None,
     ) -> bool:
         """Build only the changed files into local_deltas/ (for team sync).
 
         When a remote index exists, the watcher should call this instead
         of start_project_build. The main index is the remote (shared) one;
         local edits go into a separate delta directory.
+
+        Honors the same scope rules as start_project_build:
+          - use_gitignore (default True) makes .gitignore filter the walk
+          - included_paths is tri-state (None=all, []=nothing, [...]=that subset)
         """
         with self.build_lock:
             if self.is_project_building(project.id):
@@ -356,7 +362,8 @@ class BuildManager:
 
             t = threading.Thread(
                 target=self._project_delta_build_worker,
-                args=(project, changed_paths, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes),
+                args=(project, changed_paths, include_globs, exclude_globs,
+                      max_file_bytes, hard_limit_bytes, use_gitignore, included_paths),
                 daemon=True,
             )
             self.build_threads[project.id] = t
@@ -371,6 +378,8 @@ class BuildManager:
         exclude_globs: Optional[List[str]],
         max_file_bytes: int,
         hard_limit_bytes: int,
+        use_gitignore: bool = True,
+        included_paths: Optional[List[str]] = None,
     ) -> None:
         """Build worker that writes only changed files to local_deltas/."""
         pm = get_progress_manager()
@@ -403,6 +412,8 @@ class BuildManager:
                 exclude_globs=exclude_globs,
                 max_file_bytes=max_file_bytes,
                 hard_limit_bytes=hard_limit_bytes,
+                use_gitignore=use_gitignore,
+                included_paths=included_paths,
                 progress_callback=_progress_cb,
             )
 

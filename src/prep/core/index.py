@@ -404,7 +404,12 @@ class CodeIndex:
 
         # Apply included_paths filter: only index files the user selected in the tree.
         # Supports both exact file paths AND folder paths (includes all descendants).
-        if included_paths:
+        #
+        # Tri-state semantics (Phase 24 SM-8 design):
+        #   None  → no scope set; embed every file matching include/exclude globs
+        #   []    → user explicitly chose empty scope; embed nothing
+        #   [...] → embed only the listed paths (and descendants of listed dirs)
+        if included_paths is not None:
             included_set = set(included_paths)
 
             def _is_included(rel: str) -> bool:
@@ -636,7 +641,89 @@ class CodeIndex:
             if progress_callback:
                 progress_callback(f"Indexed {rel_path}", i + 1, total_files)
 
+        # Empty result handling. Two distinct cases:
+        #   1. The scope filter produced an empty set (`total_files == 0`).
+        #      Legitimate "user explicitly cleared scope" path — write an
+        #      empty index successfully so the next /search returns nothing
+        #      instead of seeing a stale prior CodeIndex. The hardened
+        #      `_swap_index_dir` preserves all non-CodeIndex artifacts
+        #      (trace graph, atlas, concepts, audit, antibodies, etc.) so
+        #      this is non-destructive.
+        #   2. Files were scanned but every read errored (`total_files > 0`
+        #      but `docs == []`). Surface that as before — it indicates an
+        #      embedder/IO problem, not an empty scope.
         if not docs:
+            if total_files == 0:
+                emb_dim = int(getattr(self.embedder, "dim", 0) or 0)
+                empty_embeddings = (
+                    np.zeros((0, emb_dim), dtype=np.float32)
+                    if emb_dim > 0
+                    else np.zeros((0,), dtype=np.float32)
+                )
+                build_id = uuid.uuid4().hex
+                temp_dir = self.index_dir.parent / f".index_build_{build_id}"
+                temp_dir.mkdir(parents=True, exist_ok=True)
+                try:
+                    with open(temp_dir / "documents.json", "w") as f:
+                        json.dump([], f)
+                    np.save(temp_dir / "embeddings.npy", empty_embeddings)
+                    # Write a fresh empty FTS so the swap can't preserve a
+                    # stale fts.sqlite3 from a prior non-empty build. Without
+                    # this the safety-net's preservation loop would copy the
+                    # OLD fts.sqlite3 into temp_dir, and search results would
+                    # return FTS hits for documents that no longer exist.
+                    try:
+                        self._rebuild_fts([], target_dir=temp_dir)
+                    except Exception as e:
+                        logger.warning(
+                            f"Empty-scope FTS rebuild failed (continuing without keyword index): {e}"
+                        )
+                    manifest = build_manifest(
+                        model=str(getattr(self.embedder, "model", "unknown")),
+                        embedding_dim=emb_dim,
+                        roots=list(selected_roots or []),
+                        count=0,
+                        build=ManifestBuildStats(
+                            mode="empty_scope",
+                            files_total=0,
+                            files_reused=0,
+                            files_embedded=0,
+                            files_deleted=files_deleted,
+                            chunks_total=0,
+                            chunks_reused=0,
+                            chunks_embedded=0,
+                            lines_scanned=0,
+                            lines_indexed=0,
+                            files_docs=0,
+                            files_code=0,
+                            chunks_code=0,
+                            chunks_docs=0,
+                            lines_docs=0,
+                            lines_code=0,
+                        ),
+                        file_hashes={},
+                        config={
+                            "include_globs": include_globs,
+                            "exclude_globs": exclude_globs,
+                            "max_file_bytes": max_file_bytes,
+                        },
+                        built_at=datetime.now(timezone.utc).isoformat(),
+                    )
+                    write_manifest(temp_dir / "manifest.json", manifest)
+                    # Hardened _swap_index_dir preserves non-CodeIndex artifacts
+                    # internally — no need for a manual preservation block here.
+                    self._swap_index_dir(temp_dir)
+                except Exception:
+                    if temp_dir.exists():
+                        shutil.rmtree(temp_dir, ignore_errors=True)
+                    raise
+                self._documents = []
+                self._embeddings = empty_embeddings
+                self._manifest = manifest
+                logger.info(
+                    "Built empty CodeIndex (Knowledge Scope is empty — 0 files matched filter)"
+                )
+                return manifest
             raise RuntimeError("No documents indexed")
 
         embeddings = np.array(vectors, dtype=np.float32)
@@ -737,19 +824,79 @@ class CodeIndex:
         return manifest
 
     def _swap_index_dir(self, new_dir: Path) -> None:
-        """Atomically swap the new index directory with the current one."""
+        """Atomically swap the new index directory with the current one.
+
+        SAFETY-CRITICAL: this primitive both renames the existing index_dir
+        to a temporary backup AND deletes that backup at the end. Any file
+        in the existing index_dir that is not also in `new_dir` will be
+        destroyed. Past callers had to remember a manual preservation copy
+        before invoking this, and forgetting it once destroyed a user's
+        entire trace graph (Apr 2026).
+
+        This implementation now preserves non-CodeIndex artifacts INTERNALLY:
+        before the swap, every entry in index_dir that is not present in
+        new_dir is copied into new_dir. The copy is idempotent, so callers
+        that already copied (the normal build path's explicit preservation
+        block) just skip those names. Callers that forget — or new callers
+        that don't know they need to — are now safe by construction.
+
+        Excluded from preservation:
+          - Names already present in new_dir (the build's own outputs).
+          - Sibling temp dirs (`.index_build_*`, `.index_backup_*`) — those
+            are *other builds' transient state*, not data to keep.
+        """
         # Ensure parent exists
         self.index_dir.parent.mkdir(parents=True, exist_ok=True)
-        
+
+        # Defensive preservation: copy any file/dir in the existing index_dir
+        # that the new_dir doesn't already provide. See docstring for why.
+        if self.index_dir.is_dir() and new_dir.is_dir():
+            existing_in_new = {item.name for item in new_dir.iterdir()}
+
+            # File-family awareness: when the build replaces fts.sqlite3, its
+            # WAL/SHM/journal siblings from the OLD database must NOT be
+            # preserved — they'd be inconsistent against the new DB and could
+            # confuse SQLite's recovery logic. Treat them as already-produced
+            # so the loop below skips them. (fts.sqlite3 is the only artifact
+            # in the CodeIndex with sidecar files; documents.json /
+            # embeddings.npy / manifest.json are standalone.)
+            if "fts.sqlite3" in existing_in_new:
+                existing_in_new |= {
+                    "fts.sqlite3-wal",
+                    "fts.sqlite3-shm",
+                    "fts.sqlite3-journal",
+                }
+
+            for item in self.index_dir.iterdir():
+                if item.name in existing_in_new:
+                    continue
+                if item.name.startswith(".index_build_") or item.name.startswith(".index_backup_"):
+                    continue
+                dest = new_dir / item.name
+                try:
+                    if item.is_dir():
+                        shutil.copytree(item, dest)
+                    else:
+                        shutil.copy2(item, dest)
+                except Exception as e:
+                    # Hard-fail: if we can't preserve, refuse to swap. Better
+                    # to leave the new index uninstalled than to silently
+                    # destroy the existing data.
+                    raise RuntimeError(
+                        f"_swap_index_dir refusing to swap: failed to preserve "
+                        f"{item.name!r} ({e}). Existing index_dir contents "
+                        f"would have been lost."
+                    ) from e
+
         backup_dir = self.index_dir.parent / f".index_backup_{uuid.uuid4().hex}"
-        
+
         # If index_dir exists, move it to backup
         if self.index_dir.exists():
             self.index_dir.rename(backup_dir)
-        
+
         # Move new_dir to index_dir
         new_dir.rename(self.index_dir)
-        
+
         # Cleanup backup
         if backup_dir.exists():
             shutil.rmtree(backup_dir, ignore_errors=True)

@@ -687,6 +687,21 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     }
   }, [api, selectedProjectId])
 
+  // CodeIndex-only reset — wipes the four files written by CodeIndex
+  // (documents.json, embeddings.npy, manifest.json, fts.sqlite3) and the
+  // team-sync directories (local_deltas/, remote/). Trace, atlas, concepts,
+  // observations, and project config (FolderTree / Knowledge Scope
+  // selections) are untouched. No reset barrier — barriers gate trace.
+  const handleDestroyCodeIndex = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      await api.destroyCodeIndex(selectedProjectId)
+      void refreshStatusRef.current(selectedProjectId)
+    } catch (e) {
+      onErrorRef.current(e instanceof Error ? e.message : 'Couldn\u2019t reset the code index.', 'error')
+    }
+  }, [api, selectedProjectId])
+
   // ── SSE: auto-refresh coverage when trace build completes ───
 
   const prevTraceBuildStatusRef = useRef<string | undefined>(undefined)
@@ -942,5 +957,6 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     // Destroy
     handleDestroyIndex, handleRebuildPipeline,
     handleDestroyEnrichmentFull, handleDestroyFinalizeFull,
+    handleDestroyCodeIndex,
   }
 }

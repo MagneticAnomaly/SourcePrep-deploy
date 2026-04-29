@@ -157,12 +157,14 @@ def start_project_watch(
             return True
 
         # No trace — use legacy CodeIndex build path
+        use_gitignore = bool(cfg.get("use_gitignore", True)) if isinstance(cfg, dict) else True
         if _srv()._has_remote_index(proj):
             return _srv()._start_project_delta_build(
                 proj, paths, include_globs, exclude_globs,
                 max_file_bytes, hard_limit_bytes,
+                use_gitignore=use_gitignore, included_paths=included_paths,
             )
-        return _srv()._start_project_build(proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, included_paths=included_paths)
+        return _srv()._start_project_build(proj, None, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore=use_gitignore, included_paths=included_paths)
     
     def is_building() -> bool:
         if _srv()._is_project_building(proj.id) or _srv()._is_project_trace_building(proj.id):
