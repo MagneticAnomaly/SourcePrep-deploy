@@ -32,7 +32,7 @@ const RECOVER_STAGE_OPTIONS: { value: EnrichmentStageId; label: string }[] = [
 ];
 
 type RebuildScope = 'all' | 'sync' | 'enrichment';
-type ResetScope = 'all' | 'enrichment' | 'finalize';
+type ResetScope = 'all' | 'enrichment' | 'finalize' | 'code-index';
 type ConfirmAction = 'rebuild' | 'reset' | null;
 
 const REBUILD_OPTIONS: { value: RebuildScope; label: string }[] = [
@@ -45,6 +45,7 @@ const RESET_OPTIONS: { value: ResetScope; label: string }[] = [
   { value: 'all', label: 'All stages (1-15)' },
   { value: 'enrichment', label: 'Enrichment (6-15)' },
   { value: 'finalize', label: 'Finalize (11-15)' },
+  { value: 'code-index', label: 'Code Index only (RAG embeddings)' },
 ];
 
 export interface DangerZonePageProps {
@@ -146,6 +147,7 @@ export function DangerZonePage({
     if (confirmAction === 'reset') {
       if (pendingResetScope === 'enrichment') return `Reset Enrichment for ${projLabel}?`;
       if (pendingResetScope === 'finalize') return `Reset Finalize for ${projLabel}?`;
+      if (pendingResetScope === 'code-index') return `Reset Code Index for ${projLabel}?`;
       return `Reset All for ${projLabel}?`;
     }
     return '';
@@ -165,6 +167,9 @@ export function DangerZonePage({
       if (pendingResetScope === 'finalize') {
         return 'Wipes stages 11-15 (atlas, rules, concepts, audit, antibodies) and the concept + antibody SQLite stores so the UI reflects the clean slate. Fast sync, deep enrichment, and observations are preserved. Export any hand-authored concepts first if you want to keep them.';
       }
+      if (pendingResetScope === 'code-index') {
+        return 'Wipes only the CodeIndex (the RAG verbatim-source embeddings): documents.json, embeddings.npy, manifest.json, fts.sqlite3, plus team-sync directories (local_deltas/, remote/). Trace graph, atlas, concepts, observations, audit, antibodies, and your Knowledge Scope / FolderTree selections are all preserved. The next CodeIndex build re-embeds whatever your Knowledge Scope currently includes — exactly the user-selected files, no more.';
+      }
       return 'Wipes every project artifact — embeddings, search index, trace graph, enrichment, SQLite stores, checkpoints, branch snapshots. Writes a reset barrier so selfheal cannot resurrect anything until the next finalize run completes.';
     }
     return '';
@@ -175,6 +180,7 @@ export function DangerZonePage({
     if (confirmAction === 'reset') {
       if (pendingResetScope === 'enrichment') return 'Reset Enrichment';
       if (pendingResetScope === 'finalize') return 'Reset Finalize';
+      if (pendingResetScope === 'code-index') return 'Reset Code Index';
       return 'Reset Everything';
     }
     return 'Confirm';

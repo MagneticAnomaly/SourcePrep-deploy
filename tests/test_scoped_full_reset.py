@@ -315,3 +315,108 @@ def test_branch_snapshot_restore_blocked_by_barrier(tmp_path):
     (idx / ".reset_barrier").unlink()
     result = restore_project(idx, "main")
     assert result is not None
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Code-Index-only reset (Knowledge Scope embeddings)
+# ─────────────────────────────────────────────────────────────────────
+
+
+def _seed_code_index(idx_dir: Path) -> None:
+    """Write the four files (and remote/local-deltas dirs) that
+    code_index_destroy is responsible for clearing."""
+    (idx_dir / "documents.json").write_text('[{"id":"x"}]')
+    (idx_dir / "embeddings.npy").write_bytes(b"\x00" * 16)
+    (idx_dir / "manifest.json").write_text('{"count":1}')
+    (idx_dir / "fts.sqlite3").write_bytes(b"SQLite format 3\x00")
+    # WAL/SHM siblings (only present when fts is in WAL mode)
+    (idx_dir / "fts.sqlite3-wal").write_bytes(b"\x00")
+    (idx_dir / "fts.sqlite3-shm").write_bytes(b"\x00")
+    # Team-sync directories
+    remote = idx_dir / "remote"
+    remote.mkdir()
+    (remote / "documents.json").write_text("[]")
+    deltas = idx_dir / "local_deltas"
+    deltas.mkdir()
+    (deltas / "documents.json").write_text("[]")
+
+
+def test_code_index_destroy_wipes_only_code_index_artifacts(client, tmp_path):
+    pid = _add_embedded_project(client, tmp_path)
+    idx_dir = _idx_dir(client, pid)
+    _seed_full_project(idx_dir)  # trace + atlas + concepts + audit
+    _seed_checkpoint(idx_dir)
+    _seed_code_index(idx_dir)
+
+    # Seed a fake .index_backup_<uuid> in idx_dir.parent to verify our
+    # endpoint does NOT sweep the parent (P2 race-prevention).
+    parent_backup = idx_dir.parent / ".index_backup_NOTOURS"
+    parent_backup.mkdir()
+    (parent_backup / "important.txt").write_text("not for us to delete")
+
+    res = client.delete(f"/projects/{pid}/code-index/destroy")
+    assert res.status_code == 200, res.text
+    body = res.json()["data"]
+    deleted = set(body["deleted"])
+
+    # CodeIndex artifacts gone
+    for f in ("documents.json", "embeddings.npy", "manifest.json",
+              "fts.sqlite3", "fts.sqlite3-wal", "fts.sqlite3-shm"):
+        assert not (idx_dir / f).exists(), f"{f} should be deleted"
+        assert f in deleted
+
+    # Team-sync subdirs gone
+    assert not (idx_dir / "remote").exists()
+    assert not (idx_dir / "local_deltas").exists()
+    assert "remote/" in deleted and "local_deltas/" in deleted
+
+    # P2: parent-dir .index_backup_* SURVIVES (we don't sweep that anymore)
+    assert parent_backup.exists(), (
+        "code_index_destroy must not sweep idx_dir.parent — that races with "
+        "in-flight atomic swaps"
+    )
+    assert (parent_backup / "important.txt").read_text() == "not for us to delete"
+
+    # Trace, atlas, concepts, audit, antibodies all PRESERVED
+    assert (idx_dir / "trace_nodes.jsonl").is_file()
+    assert (idx_dir / "trace_epistemic.jsonl").is_file()
+    assert (idx_dir / "atlas.json").is_file()
+    assert (idx_dir / "atlas_manifest.json").is_file()
+    assert (idx_dir / "concepts_manifest.json").is_file()
+    assert (idx_dir / "audit_manifest.json").is_file()
+    assert (idx_dir / "antibodies_manifest.json").is_file()
+    assert (idx_dir / "atlas_roles").is_dir()
+    assert (idx_dir / "audit").is_dir()
+
+    # No reset barrier — code-index reset must not gate trace pipeline
+    assert not (idx_dir / ".reset_barrier").exists()
+
+    # Checkpoints preserved (they belong to trace pipeline, not CodeIndex)
+    assert (idx_dir / ".checkpoints").is_dir()
+
+
+def test_code_index_destroy_preserves_project_config(client, tmp_path):
+    pid = _add_embedded_project(client, tmp_path)
+    res = client.put(
+        f"/projects/{pid}",
+        json={"config": {
+            "include_globs": ["**/*.py"],
+            "exclude_globs": ["**/.mypy_cache/**"],
+            "included_paths": ["src/foo.py", "docs/api.md"],
+            "use_gitignore": True,
+        }},
+    )
+    assert res.status_code == 200
+
+    idx_dir = _idx_dir(client, pid)
+    _seed_code_index(idx_dir)
+
+    assert client.delete(f"/projects/{pid}/code-index/destroy").status_code == 200
+
+    # Project config — particularly included_paths (FolderTree selection) —
+    # must survive the reset.
+    cfg = client.get(f"/projects/{pid}").json()["data"]["project"]["config"]
+    assert cfg["include_globs"] == ["**/*.py"]
+    assert cfg["exclude_globs"] == ["**/.mypy_cache/**"]
+    assert cfg["included_paths"] == ["src/foo.py", "docs/api.md"]
+    assert cfg["use_gitignore"] is True

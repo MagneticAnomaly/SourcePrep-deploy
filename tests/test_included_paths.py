@@ -327,22 +327,221 @@ class TestBuildWithIncludedPaths:
         assert "src/main.py" not in all_paths
         assert "src/utils.py" not in all_paths
 
-    def test_included_paths_empty_list_indexes_everything(self, scoped_repo: Path, tmp_path: Path):
-        """An empty included_paths list should NOT filter (same as None)."""
+    def test_included_paths_empty_list_indexes_nothing(self, scoped_repo: Path, tmp_path: Path):
+        """Tri-state semantics (Phase 24 SM-8 design):
+
+        ``included_paths=[]`` is the user's explicit "empty Knowledge Scope" —
+        embed exactly zero files, not "everything matching include_globs".
+        ``None`` (key absent) is what means "no filter, index everything";
+        see the next test.
+
+        Earlier code used ``if included_paths:`` (truthy) which conflated
+        [] with None and caused 34k-file walks on projects whose Scope
+        panel had been cleared.
+        """
         idx_dir = tmp_path / "index"
         idx_dir.mkdir()
 
         embedder = FakeEmbedder()
         idx = CodeIndex(index_dir=idx_dir, embedder=embedder)
-        meta = idx.build(
+        idx.build(
             repo_root=scoped_repo,
             include_globs=["**/*.py", "**/*.md"],
             included_paths=[],
         )
 
         all_paths = {d["source_path"] for d in idx._documents}
-        # Empty list is falsy, should index everything
-        assert len(all_paths) >= 6
+        assert all_paths == set(), (
+            f"included_paths=[] must produce zero embeddings, got {len(all_paths)}: {all_paths}"
+        )
+
+    def test_included_paths_none_indexes_everything(self, scoped_repo: Path, tmp_path: Path):
+        """``included_paths=None`` (key absent) is the legacy "no scope filter"
+        signal — index every file matching include_globs / exclude_globs."""
+        idx_dir = tmp_path / "index"
+        idx_dir.mkdir()
+
+        embedder = FakeEmbedder()
+        idx = CodeIndex(index_dir=idx_dir, embedder=embedder)
+        idx.build(
+            repo_root=scoped_repo,
+            include_globs=["**/*.py", "**/*.md"],
+            included_paths=None,
+        )
+
+        all_paths = {d["source_path"] for d in idx._documents}
+        assert len(all_paths) >= 6, (
+            f"included_paths=None should embed every matched file, got {len(all_paths)}"
+        )
+
+    def test_empty_scope_build_preserves_unrelated_artifacts(self, scoped_repo: Path, tmp_path: Path):
+        """REGRESSION GUARD for the Apr 2026 trace-graph wipe:
+
+        Build's atomic swap renames the existing index_dir to a backup and
+        then deletes the backup. An empty-scope build that writes only the
+        4 CodeIndex files into temp_dir would (under the original bug)
+        destroy every other artifact sharing index_dir — the trace graph,
+        atlas, concepts, audit, antibodies, knowledge_* embeddings, audit
+        subdirs, etc.
+
+        This test seeds artifacts that simulate a real .sourceprep/ from a
+        completed pipeline, runs the empty-scope build, and asserts every
+        non-CodeIndex file still exists with its original content.
+        """
+        idx_dir = tmp_path / "index"
+        idx_dir.mkdir()
+
+        # Simulate a fully-populated .sourceprep/ from a completed pipeline.
+        seeded = {
+            "trace_nodes.jsonl": '{"id":"n1","kind":"file"}\n{"id":"n2","kind":"symbol"}\n',
+            "trace_edges.jsonl": '{"src":"n1","dst":"n2","kind":"contains"}\n',
+            "trace_manifest.json": '{"stage":"structural","completed_at":"2026-04-27"}',
+            "trace_augmented.jsonl": '{"id":"n1","summary":"main module"}\n',
+            "trace_epistemic.jsonl": '{"id":"n1","confidence":0.9}\n',
+            "atlas.json": '{"identity":"my project","stack":"python"}',
+            "atlas_manifest.json": '{"version":"1.0"}',
+            "concepts_manifest.json": '{"count":42}',
+            "audit_manifest.json": '{"findings":[]}',
+            "antibodies_manifest.json": '{"derived":15}',
+            "knowledge_documents.json": '[{"id":"k1"}]',
+            "knowledge_embeddings.npy": b"\x93NUMPY\x01\x00",  # bogus npy header is fine
+            "rules_manifest.json": '{"emitted":["AGENTS.md"]}',
+            "pipeline_run_metadata.json": '{"run_id":"abc"}',
+        }
+        for name, content in seeded.items():
+            p = idx_dir / name
+            if isinstance(content, bytes):
+                p.write_bytes(content)
+            else:
+                p.write_text(content)
+
+        # Subdirectories the trace pipeline populates
+        (idx_dir / "audit").mkdir()
+        (idx_dir / "audit" / "findings.json").write_text('[{"file":"src/main.py"}]')
+        (idx_dir / "atlas_roles").mkdir()
+        (idx_dir / "atlas_roles" / "architect.json").write_text('{"role":"architect"}')
+        (idx_dir / ".checkpoints").mkdir()
+        (idx_dir / ".checkpoints" / "run-deadbeef").mkdir()
+        (idx_dir / ".checkpoints" / "run-deadbeef" / "trace_nodes.jsonl").write_text(
+            '{"snapshot":true}\n'
+        )
+
+        # Run an empty-scope build — equivalent to "user cleared the
+        # Knowledge Scope and the watcher fired".
+        embedder = FakeEmbedder()
+        idx = CodeIndex(index_dir=idx_dir, embedder=embedder)
+        idx.build(
+            repo_root=scoped_repo,
+            include_globs=["**/*.py", "**/*.md"],
+            included_paths=[],
+        )
+
+        # CodeIndex itself is empty — that's the design.
+        assert idx._documents == []
+
+        # Every seeded file MUST survive the swap with byte-identical content.
+        for name, expected in seeded.items():
+            p = idx_dir / name
+            assert p.exists(), f"{name} was destroyed by the empty-scope build"
+            actual = p.read_bytes() if isinstance(expected, bytes) else p.read_text()
+            assert actual == expected, f"{name} survived but content changed"
+
+        # Every seeded subdirectory + nested file must survive.
+        assert (idx_dir / "audit" / "findings.json").read_text() == '[{"file":"src/main.py"}]'
+        assert (idx_dir / "atlas_roles" / "architect.json").read_text() == '{"role":"architect"}'
+        assert (idx_dir / ".checkpoints" / "run-deadbeef" / "trace_nodes.jsonl").read_text() == (
+            '{"snapshot":true}\n'
+        )
+
+        # And the new CodeIndex files must be present too.
+        assert (idx_dir / "documents.json").exists()
+        assert (idx_dir / "embeddings.npy").exists()
+        assert (idx_dir / "manifest.json").exists()
+        manifest = json.loads((idx_dir / "manifest.json").read_text())
+        assert manifest["build"]["mode"] == "empty_scope"
+        assert manifest["count"] == 0
+
+    def test_normal_build_preserves_unrelated_artifacts(self, scoped_repo: Path, tmp_path: Path):
+        """Defense in depth: the same preservation invariant must hold for
+        a non-empty build, not just empty-scope. The hardened
+        ``_swap_index_dir`` is the safety net for both paths."""
+        idx_dir = tmp_path / "index"
+        idx_dir.mkdir()
+
+        # Seed a single high-value artifact — the trace graph.
+        (idx_dir / "trace_nodes.jsonl").write_text('{"id":"n1"}\n')
+        (idx_dir / "trace_edges.jsonl").write_text('{"src":"n1","dst":"n2"}\n')
+
+        embedder = FakeEmbedder()
+        idx = CodeIndex(index_dir=idx_dir, embedder=embedder)
+        idx.build(
+            repo_root=scoped_repo,
+            include_globs=["**/*.py", "**/*.md"],
+            # No included_paths -> normal full-scope build path.
+        )
+
+        # Both seeded files must survive even though we ran a real build.
+        assert (idx_dir / "trace_nodes.jsonl").read_text() == '{"id":"n1"}\n'
+        assert (idx_dir / "trace_edges.jsonl").read_text() == '{"src":"n1","dst":"n2"}\n'
+
+        # CodeIndex artifacts must also be present.
+        assert (idx_dir / "documents.json").exists()
+        assert (idx_dir / "embeddings.npy").exists()
+        assert (idx_dir / "manifest.json").exists()
+
+    def test_empty_scope_build_replaces_stale_fts(self, scoped_repo: Path, tmp_path: Path):
+        """REGRESSION GUARD for the FTS-sidecar issue:
+
+        fts.sqlite3 is the only CodeIndex artifact with sidecars (WAL/SHM/
+        journal). If an empty-scope build wrote documents.json/embeddings.npy
+        but skipped the FTS rebuild, the safety net would preserve the OLD
+        fts.sqlite3 — leaving a keyword index pointing at documents that no
+        longer exist. Subsequent /search calls would surface phantom hits.
+
+        Two invariants this test pins:
+          1. After an empty-scope build, fts.sqlite3 is the new (empty) one,
+             not bytes from the prior build.
+          2. WAL/SHM/journal siblings of the OLD database don't survive — they
+             were tied to a DB that's been replaced.
+        """
+        idx_dir = tmp_path / "index"
+        idx_dir.mkdir()
+
+        # Seed a "stale" FTS database + its WAL/SHM siblings, simulating a
+        # previous successful build whose CodeIndex we are now wiping.
+        stale_fts_bytes = b"STALE_FTS_HEADER" + b"\x00" * 100
+        (idx_dir / "fts.sqlite3").write_bytes(stale_fts_bytes)
+        (idx_dir / "fts.sqlite3-wal").write_bytes(b"STALE_WAL")
+        (idx_dir / "fts.sqlite3-shm").write_bytes(b"STALE_SHM")
+
+        # Run an empty-scope build.
+        embedder = FakeEmbedder()
+        idx = CodeIndex(index_dir=idx_dir, embedder=embedder)
+        idx.build(
+            repo_root=scoped_repo,
+            include_globs=["**/*.py", "**/*.md"],
+            included_paths=[],
+        )
+
+        # 1. fts.sqlite3 is the new file — not the stale bytes.
+        assert (idx_dir / "fts.sqlite3").exists()
+        new_fts_bytes = (idx_dir / "fts.sqlite3").read_bytes()
+        assert new_fts_bytes != stale_fts_bytes, (
+            "fts.sqlite3 still holds stale bytes — the empty-scope build did "
+            "not write a fresh FTS, so the safety net preserved the old one."
+        )
+        # Sanity-check: the new file is a valid SQLite database.
+        assert new_fts_bytes.startswith(b"SQLite format 3")
+
+        # 2. WAL/SHM siblings of the OLD database must not survive — they
+        #    would be inconsistent against the new fts.sqlite3.
+        assert not (idx_dir / "fts.sqlite3-wal").exists(), (
+            "Stale fts.sqlite3-wal survived the empty-scope build — would "
+            "corrupt SQLite recovery against the new (empty) DB."
+        )
+        assert not (idx_dir / "fts.sqlite3-shm").exists(), (
+            "Stale fts.sqlite3-shm survived the empty-scope build."
+        )
 
 
 # ---------------------------------------------------------------------------

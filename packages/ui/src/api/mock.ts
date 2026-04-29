@@ -346,6 +346,10 @@ export class MockApiClient implements ApiClient {
     return { deleted: [], errors: [] };
   }
 
+  async destroyCodeIndex(): Promise<any> {
+    return { deleted: [], errors: [] };
+  }
+
   async destroyAtlas(): Promise<any> {
     return { deleted: [], errors: [] };
   }

@@ -379,8 +379,8 @@ def _get_project_layered_index(project: Project):
 def _has_remote_index(project: Project) -> bool:
     return _bm.has_remote_index(project)
 
-def _start_project_delta_build(project: Project, changed_paths, include_globs, exclude_globs, max_file_bytes=500_000, hard_limit_bytes=100_000_000) -> bool:
-    return _bm.start_project_delta_build(project, changed_paths, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes)
+def _start_project_delta_build(project: Project, changed_paths, include_globs, exclude_globs, max_file_bytes=500_000, hard_limit_bytes=100_000_000, use_gitignore: bool = True, included_paths=None) -> bool:
+    return _bm.start_project_delta_build(project, changed_paths, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore=use_gitignore, included_paths=included_paths)
 
 def _get_project_trace_index(project: Project) -> "TraceIndex":
     return _bm.get_project_trace_index(project)

@@ -199,7 +199,13 @@ class PostFlightActions:
             exclude_globs = cfg.get("exclude_globs") or None
             max_file_bytes = int(cfg.get("max_file_bytes") or 500_000)
             hard_limit_bytes = int(cfg.get("hard_limit_bytes") or 100_000_000)
-            included_paths = sorted(compute_index_membership(project_id)) or None
+            # Phase 120: source of truth is compute_index_membership (the
+            # deduped union of global scope + named scope paths). Tri-state
+            # semantics preserved: empty Set -> [] -> "embed nothing"; the
+            # earlier `or None` normalization conflated [] with None and
+            # caused full-repo walks on projects with cleared scope.
+            included_paths = sorted(compute_index_membership(project_id))
+            use_gitignore = bool(cfg.get("use_gitignore", True))
 
             started = build_manager.start_project_build(
                 project,
@@ -208,6 +214,7 @@ class PostFlightActions:
                 exclude_globs,
                 max_file_bytes,
                 hard_limit_bytes,
+                use_gitignore=use_gitignore,
                 included_paths=included_paths,
             )
             logger.info("CodeIndex build triggered for %s after pipeline: started=%s", project_id, started)

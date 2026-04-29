@@ -42,7 +42,13 @@ def _ensure_build_fn_registered(project_id: str) -> None:
         try:
             project = require_project(project_id)
             cfg = project.config or {}
-            included_paths = sorted(compute_index_membership(project_id)) or None
+            # Phase 120: source of truth is compute_index_membership (the
+            # deduped union of global scope + named scope paths). Tri-state
+            # semantics preserved: empty Set -> [] -> "embed nothing"; the
+            # earlier `or None` normalization conflated [] with None and
+            # caused full-repo walks on projects with cleared scope.
+            included_paths = sorted(compute_index_membership(project_id))
+            use_gitignore = bool(cfg.get("use_gitignore", True))
             started = build_manager.start_project_build(
                 project,
                 None,
@@ -50,6 +56,7 @@ def _ensure_build_fn_registered(project_id: str) -> None:
                 cfg.get("exclude_globs") or None,
                 int(cfg.get("max_file_bytes") or 500_000),
                 int(cfg.get("hard_limit_bytes") or 100_000_000),
+                use_gitignore=use_gitignore,
                 included_paths=included_paths,
             )
             logger.info("Scope build for %s: started=%s (included_paths=%d)",

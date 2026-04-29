@@ -966,6 +966,31 @@ FINALIZE_FILES = [
 
 FINALIZE_DIRS = ["atlas_roles", "atlas_segments", "audit"]
 
+
+# CodeIndex (Knowledge Scope) — the RAG embedding database for verbatim source.
+# These four canonical files are the on-disk footprint of
+# `prep.core.index.CodeIndex` (src/prep/core/index.py:134-137), plus their
+# SQLite WAL/SHM/journal companions (only present when fts.sqlite3 is in WAL
+# mode). Resetting them is independent of the trace pipeline, atlas, concepts,
+# observations, audit, antibodies, watcher, and project config.
+CODE_INDEX_FILES = [
+    "documents.json",
+    "embeddings.npy",
+    "manifest.json",
+    "fts.sqlite3",
+    "fts.sqlite3-wal",
+    "fts.sqlite3-shm",
+    "fts.sqlite3-journal",
+]
+
+# Subdirectories that hold parallel CodeIndex copies for team-sync mode (Phase
+# 06). `remote/` is the shared team index downloaded from object storage;
+# `local_deltas/` is the local-edit override layer that LayeredCodeIndex merges
+# on top of `remote/`. A CodeIndex reset wipes both. Embedded-mode projects
+# don't have these directories; iteration safely no-ops.
+CODE_INDEX_DIRS = ["local_deltas", "remote"]
+
+
 # Reset Enrichment wipes deep_enrichment + finalize together, because
 # finalize outputs are derived from enrichment outputs — leaving them
 # behind would surface stale atlas/concepts data.
@@ -1149,6 +1174,155 @@ def finalize_full_reset(project_id: str) -> Dict[str, Any]:
         clear_concepts=True,
         barrier_reason="finalize_reset",
     )
+
+
+@router.delete("/projects/{project_id}/code-index/destroy")
+def code_index_destroy(project_id: str, force: bool = False) -> Dict[str, Any]:
+    """Danger-Zone reset for the CodeIndex (RAG verbatim-source embeddings) only.
+
+    Wipes the on-disk footprint of ``prep.core.index.CodeIndex``:
+      - Top-level files: ``documents.json``, ``embeddings.npy``,
+        ``manifest.json``, ``fts.sqlite3`` (+ WAL/SHM/journal siblings)
+      - Team-sync directories: ``local_deltas/``, ``remote/`` (Phase 06,
+        usually absent in embedded mode)
+
+    Drops the in-memory CodeIndex and the LayeredCodeIndex caches so the next
+    /search or /context call re-loads from disk (empty).
+
+    Preserved (NOT touched):
+      - Trace graph and all trace_* artifacts
+      - Atlas, concepts, observations, audit, antibodies, knowledge_* embeddings
+      - Project config: ``include_globs``, ``exclude_globs``, ``included_paths``
+        (FolderTree / Knowledge Scope selections), ``trace.ignore_patterns``
+      - Watcher state, pipeline orchestrator state, reset barriers
+      - .checkpoints/, .branch_snapshots/, pipeline logs
+
+    DESIGN NOTES — what this endpoint deliberately does NOT do, and why:
+
+    1. It does **not** sweep ``idx_dir.parent`` for ``.index_build_*`` /
+       ``.index_backup_*`` stragglers. The atomic-swap inside
+       ``CodeIndex._swap_index_dir`` creates a ``.index_backup_<uuid>``
+       in that parent for milliseconds during every normal build; sweeping
+       it would race with in-flight builds and could destroy live backups.
+       Stale stragglers are cleaned by ``CodeIndex._cleanup_stale_builds``
+       on next instantiation (which has crash-recovery logic anyway).
+
+    2. With ``force=true`` and a build still running after a 10s wait,
+       it returns 409 instead of proceeding to delete. Proceeding would
+       race the worker's atomic swap against the file deletion and could
+       corrupt either the new or the old state. The user can retry, or
+       restart the daemon to forcibly stop the worker.
+
+    No reset barrier is written — barriers gate the trace pipeline; this
+    endpoint never touches trace.
+    """
+    import shutil
+
+    from prep.server import (
+        _require_project_writable,
+        _project_build_lock, _project_build_threads, _project_indexes,
+    )
+    from prep.services.build_manager import build_manager
+
+    proj = _require_project_writable(project_id)
+    idx_dir = project_index_dir(proj)
+
+    # Refuse (or force-cancel) a running CodeIndex build. Trace builds are
+    # not gated — the CodeIndex is independent of trace.
+    with _project_build_lock:
+        thread = _project_build_threads.get(project_id)
+        is_running = bool(thread and thread.is_alive())
+
+    if is_running:
+        if not force:
+            raise ApiException(
+                status_code=409,
+                code="BUILD_RUNNING",
+                message="Cannot reset CodeIndex while an index build is running",
+                hint="Cancel from the queue, or pass force=true to override.",
+            )
+        # Force path: cancel the worker for any CodeIndex-writing task type.
+        # The worker raises BuildCancelledError on its next progress callback
+        # — no atomic swap happens after cancel, so the in-progress temp dir
+        # is abandoned and never overwrites the on-disk files we delete.
+        from prep.core.events import get_progress_manager
+        pm = get_progress_manager()
+        pm.request_cancel(project_id, task_type="index_build")
+        pm.request_cancel(project_id, task_type="delta_build")
+
+        # Wait for the worker to actually unwind. If it doesn't unwind in
+        # time, REFUSE to delete (P3). Proceeding would race the worker's
+        # atomic swap against our deletion. The user can retry once the
+        # worker has hit a progress callback, or restart the daemon.
+        if thread is not None:
+            thread.join(timeout=10.0)
+        if thread is not None and thread.is_alive():
+            raise ApiException(
+                status_code=409,
+                code="BUILD_NOT_CANCELLED",
+                message=(
+                    "force-cancel did not complete within 10 seconds; the build "
+                    "is still running. Refusing to delete index files because "
+                    "the worker could atomic-swap stale data over the deletion."
+                ),
+                hint="Try again in a moment, or restart the daemon.",
+            )
+        with _project_build_lock:
+            cur = _project_build_threads.get(project_id)
+            if cur is not None and (not cur.is_alive() or cur is thread):
+                _project_build_threads.pop(project_id, None)
+
+    backup_path = _backup_files_if_debug(idx_dir, CODE_INDEX_FILES, "code_index_reset")
+
+    deleted: list[str] = []
+    errors: list[str] = []
+
+    # 1. Top-level CodeIndex files (and FTS WAL/SHM/journal siblings).
+    for fname in CODE_INDEX_FILES:
+        fp = idx_dir / fname
+        if fp.exists():
+            try:
+                fp.unlink()
+                deleted.append(fname)
+            except Exception as e:
+                errors.append(f"{fname}: {e}")
+
+    # 2. Team-sync subdirectories.
+    for dirname in CODE_INDEX_DIRS:
+        dp = idx_dir / dirname
+        if dp.is_dir():
+            try:
+                shutil.rmtree(dp)
+                deleted.append(f"{dirname}/")
+            except Exception as e:
+                errors.append(f"{dirname}/: {e}")
+
+    # NOTE: see docstring (1) — this endpoint deliberately does NOT sweep
+    # idx_dir.parent for `.index_build_*` / `.index_backup_*` stragglers.
+
+    # 3. Drop the in-memory CodeIndex AND LayeredCodeIndex caches. Next
+    # /search call re-instantiates from disk (now empty/wiped).
+    _project_indexes.pop(project_id, None)
+    try:
+        build_manager.invalidate_layered_cache(project_id)
+    except Exception:
+        logger.debug("invalidate_layered_cache failed (non-fatal)", exc_info=True)
+
+    # 4. Invalidate the mtime-based stale cache so /status reflects the reset.
+    try:
+        from prep.services.project_helpers import invalidate_stale_cache
+        invalidate_stale_cache(project_id)
+    except Exception:
+        logger.debug("invalidate_stale_cache failed (non-fatal)", exc_info=True)
+
+    logger.info(
+        "CodeIndex reset for %s: deleted %d items, %d errors (force=%s)",
+        project_id, len(deleted), len(errors), force,
+    )
+    result: Dict[str, Any] = {"deleted": deleted, "errors": errors}
+    if backup_path:
+        result["backup"] = backup_path
+    return ok(result)
 
 
 @router.delete("/projects/{project_id}/index/destroy")

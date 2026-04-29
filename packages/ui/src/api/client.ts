@@ -135,6 +135,7 @@ export interface ApiClient {
   // fast_sync (stages 1-5) intact.
   destroyEnrichmentFull(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
   destroyFinalizeFull(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
+  destroyCodeIndex(projectId: string, opts?: { force?: boolean }): Promise<{ deleted: string[]; errors: string[]; backup?: string }>;
   destroyAtlas(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
   destroyGroupReasoning(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
   destroyDeepEnrichment(projectId: string): Promise<{ deleted: string[]; errors: string[] }>;
@@ -1111,6 +1112,17 @@ export class PrepApiClient implements ApiClient {
     return this.requestEnvelope<{ deleted: string[]; errors: string[] }>(`/projects/${projectId}/finalize/full-reset`, {
       method: 'DELETE',
     });
+  }
+
+  async destroyCodeIndex(
+    projectId: string,
+    opts: { force?: boolean } = {},
+  ): Promise<{ deleted: string[]; errors: string[]; backup?: string }> {
+    const qs = opts.force ? '?force=true' : '';
+    return this.requestEnvelope<{ deleted: string[]; errors: string[]; backup?: string }>(
+      `/projects/${projectId}/code-index/destroy${qs}`,
+      { method: 'DELETE' },
+    );
   }
 
   async destroyAtlas(projectId: string): Promise<{ deleted: string[]; errors: string[] }> {
