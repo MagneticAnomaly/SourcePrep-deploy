@@ -1,7 +1,3 @@
-// Agent Scope (Phase 67 — Knowledge Scope Editor)
-export { AgentScopePanel } from './AgentScopePanel';
-export type { AgentScopePanelProps, AutoPopulateResult } from './AgentScopePanel';
-
 // MCP Connection (Phase 67 — Paperclip Integration)
 export { MCPConnectionCard } from './MCPConnectionCard';
 export type {

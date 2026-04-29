@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react'
-import { useApiClient } from '@prep/ui'
+import { useApiClient, useScopes } from '@prep/ui'
+import type { ScopeRecord } from '@prep/ui'
 import { usePipelineHealth } from './usePipelineHealth'
 import type { UseGoalpostsSystemReturn } from './useGoalpostsSystem'
 import type { UseRoadmapSystemReturn } from './useRoadmapSystem'
@@ -20,7 +21,6 @@ import {
   GraphEnrichmentPipeline,
   GraphStructurePanel,
   FolderTreePanel,
-  AgentScopePanel,
   AgentOpsPanel,
   type AgentOpsData,
   type MCPStatusData,
@@ -337,6 +337,21 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   // for the (now rare) callers that don't thread visibility, which matches
   // useEnrichment's backward-compat default.
   const apiClient = useApiClient()
+  // ── Named Scopes (Phase 120) ─────────────────────────────────
+  const scopes = useScopes(p.selectedProjectId, apiClient)
+  const [activeScopeRecord, setActiveScopeRecord] = useState<ScopeRecord | null>(null)
+  useEffect(() => {
+    if (scopes.activeScopeId === 'global' || !p.selectedProjectId) {
+      setActiveScopeRecord(null)
+      return
+    }
+    void apiClient.getScope(p.selectedProjectId, scopes.activeScopeId)
+      .then(setActiveScopeRecord)
+      .catch(() => setActiveScopeRecord(null))
+  }, [scopes.activeScopeId, p.selectedProjectId, apiClient])
+  const scopeIncludedPaths = scopes.activeScopeId === 'global'
+    ? p.includedPaths
+    : new Set(activeScopeRecord?.paths ?? [])
   const { health, refetch: refetchHealth, clearBarrier } = usePipelineHealth(
     p.selectedProjectId,
     p.tracePipelinePanelVisible ?? true,
@@ -842,9 +857,24 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
     'file-tree': (
       <FolderTreePanel
         data={p.fileTree}
-        includedPaths={p.includedPaths}
+        includedPaths={scopeIncludedPaths}
         scopeStatus={p.scopeStatus}
-        onToggleInclude={p.handleToggleInclude}
+        onToggleInclude={async (paths, action) => {
+          if (scopes.activeScopeId === 'global') {
+            p.handleToggleInclude(paths, action)
+          } else {
+            if (action === 'add') {
+              await scopes.addPaths(scopes.activeScopeId, paths)
+            } else {
+              await scopes.removePaths(scopes.activeScopeId, paths)
+            }
+            // Refresh the full scope record so the tree reflects the new paths
+            if (p.selectedProjectId && scopes.activeScopeId !== 'global') {
+              const updated = await apiClient.getScope(p.selectedProjectId, scopes.activeScopeId)
+              setActiveScopeRecord(updated)
+            }
+          }
+        }}
         pathWeights={p.pathWeights}
         onWeightChange={p.handlePathWeightChange}
         excludedPaths={excludedPaths}
@@ -853,6 +883,12 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onLoadChildren={p.handleLoadChildren}
         title="Scope"
         bare
+        scopes={scopes.scopes}
+        activeScopeId={scopes.activeScopeId}
+        onSetActiveScope={scopes.setActiveScopeId}
+        onCreateScope={scopes.createScope}
+        onRenameScope={scopes.renameScope}
+        onDeleteScope={scopes.deleteScope}
       />
     ),
     'agent-ops': (
@@ -866,45 +902,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         pushSettings={pushSettings}
         onPushSettingsUpdate={setPushSettings}
         className="h-full"
-      />
-    ),
-    'agent-scope': (
-      <AgentScopePanel
-        projectId={p.selectedProjectId}
-        data={p.fileTree}
-        onFetchScopes={async (projectId: string) => {
-          const res = await fetch(`/projects/${projectId}/agent-scope`)
-          const json = await res.json()
-          return json.data ?? { roles: [], scopes: {} }
-        }}
-        onSetScope={async (projectId: string, role: string, paths: string[]) => {
-          await fetch(`/projects/${projectId}/agent-scope/${role}/set`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paths }),
-          })
-        }}
-        onAddPaths={async (projectId: string, role: string, paths: string[]) => {
-          await fetch(`/projects/${projectId}/agent-scope/${role}/add`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paths }),
-          })
-        }}
-        onRemovePaths={async (projectId: string, role: string, paths: string[]) => {
-          await fetch(`/projects/${projectId}/agent-scope/${role}/remove`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ paths }),
-          })
-        }}
-        onDeleteScope={async (projectId: string, role: string) => {
-          await fetch(`/projects/${projectId}/agent-scope/${role}`, {
-            method: 'DELETE',
-          })
-        }}
-        onLoadChildren={p.handleLoadChildren}
-        bare
       />
     ),
     ...Object.fromEntries(

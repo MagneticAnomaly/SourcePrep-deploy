@@ -175,9 +175,9 @@ export type { ScopesApi } from './hooks/useScopes';
 export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, PinnedTextFilesPanel, AddProjectModal, FilePreviewPane, FileExplorerDetail, CodeViewer } from './components/project';
 export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, CodeViewerProps } from './components/project';
 
-// Components - Agent Scopes & Operations (Phase 67 / Unified Surfaces)
-export { AgentScopePanel, AgentOpsPanel, MCPConnectionCard, PushSettings } from './components/agents';
-export type { AgentScopePanelProps, AgentOpsPanelProps, AgentOpsData, EngineStatus, MCPConnectionCardProps, MCPStatusData, MCPRuntimeStatus, MCPInstallResult, PushSettingsData, PushSettingsProps } from './components/agents';
+// Components - Agent Operations (Phase 67 / Unified Surfaces)
+export { AgentOpsPanel, MCPConnectionCard, PushSettings } from './components/agents';
+export type { AgentOpsPanelProps, AgentOpsData, EngineStatus, MCPConnectionCardProps, MCPStatusData, MCPRuntimeStatus, MCPInstallResult, PushSettingsData, PushSettingsProps } from './components/agents';
 
 // Components - Watch (Phase 03)
 export { WatchStatusIndicator, WatchControlPanel } from './components/watch';

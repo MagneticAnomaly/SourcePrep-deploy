@@ -25,7 +25,6 @@ import { DeepAnalysisSettings } from '../../components/llm/DeepAnalysisSettings'
 import { LogConsole } from '../../components/console/LogConsole';
 import { ActivityHeatmap, generateSampleActivityData } from '../../components/viz/ActivityHeatmap';
 import { AgentOpsPanel } from '../../components/agents/AgentOpsPanel';
-import { AgentScopePanel } from '../../components/agents/AgentScopePanel';
 import { AuditPanel } from '../../components/audit/AuditPanel';
 import { OpportunitiesPanel } from '../../components/audit/OpportunitiesPanel';
 import { RoadmapPanel } from '../../components/goalposts/RoadmapPanel';
@@ -446,18 +445,6 @@ export const FullDashboard: StoryObj = {
         <AgentOpsPanel 
           data={{ hr: { last_run: '2h ago', push_count: 5 }, researcher: { last_run: null, push_count: 0 }, custodian: { last_run: '1d ago', push_count: 0 } }}
           loading={false} 
-        />
-      ),
-      'agent-scope': (
-        <AgentScopePanel 
-          projectId="mock-project"
-          data={[]}
-          onFetchScopes={async () => ({ roles: ['ceo'], scopes: { ceo: ['src'] } })}
-          onSetScope={async () => {}}
-          onAddPaths={async () => {}}
-          onRemovePaths={async () => {}}
-          onDeleteScope={async () => {}}
-          onAutoPopulate={async () => ({}) as any}
         />
       ),
       'audit': (

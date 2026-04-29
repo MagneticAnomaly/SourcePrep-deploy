@@ -19,7 +19,6 @@ import {
   List,
   Target,
   Terminal,
-  Users,
   Bot,
   Network,
 } from 'lucide-react';
@@ -329,17 +328,6 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     resizable: true,
     docsUrl: 'https://docs.sourceprep.io/guides/opportunities',
     devOnly: true,
-  },
-  {
-    id: 'agent-scope',
-    title: 'Agent Knowledge Scopes',
-    description: 'Per-agent file tree selection. Each Paperclip agent gets their own curated Knowledge Scope, ensuring focused, hallucination-free context retrieval.',
-    icon: Users,
-    minHeight: 6,
-    defaultHeight: 10,
-    category: 'search',
-    closeable: true,
-    resizable: true,
   },
   {
     id: 'agent-ops',

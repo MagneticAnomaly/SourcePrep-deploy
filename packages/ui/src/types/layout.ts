@@ -213,15 +213,6 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
       x: 0,
       y: 38,
       w: 4
-    },
-    {
-      id: "agent-scope",
-      visible: true,
-      height: 10,
-      collapsed: false,
-      x: 4,
-      y: 38,
-      w: 4
     }
   ]
 };
