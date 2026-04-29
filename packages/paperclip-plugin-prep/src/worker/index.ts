@@ -295,8 +295,16 @@ const plugin = definePlugin({
 
         if (!roleSlug) return { files: [], role: null, error: 'No Prep role mapped for this agent' };
 
-        const data = await client.request(`/projects/${pid}/agent-scope/${roleSlug}`);
-        return { ...(data as object), role: roleSlug };
+        // Phase 120: /agent-scope/{role} was removed; resolve via /scopes list.
+        const scopesResponse = await client.request(`/projects/${pid}/scopes`);
+        const scopes: any[] = (scopesResponse as any)?.scopes ?? [];
+        const matchingScope = scopes.find((s: any) => s.assigned_to_role === roleSlug);
+        if (!matchingScope) {
+          return { files: [], role: roleSlug, scope_id: null };
+        }
+        const recordResponse = await client.request(`/projects/${pid}/scopes/${matchingScope.id}`);
+        const record = recordResponse as any;
+        return { files: record?.paths ?? [], role: roleSlug, scope_id: matchingScope.id };
       } catch (err) {
         return { files: [], role: null, error: String(err) };
       }
