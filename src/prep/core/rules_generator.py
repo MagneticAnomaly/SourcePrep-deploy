@@ -317,13 +317,18 @@ def schedule_rules_regeneration(
 
     def _do_regen() -> None:
         _regen_timers.pop(project_id, None)
+        # C1: when the caller didn't pass atlas_content / stats (e.g. scope
+        # CRUD via _schedule_regen), load them from disk so we don't wipe
+        # the Codebase Atlas section from AGENTS.md.
+        effective_atlas = atlas_content if atlas_content else _get_current_atlas_content(project_id)
+        effective_stats = stats if stats is not None else _get_current_stats(project_id)
         write_rules_file(
             project_path=project_path,
             project_name=project_name,
-            atlas_content=atlas_content,
+            atlas_content=effective_atlas or "",
             included_paths=included_paths,
             is_preliminary=False,
-            stats=stats,
+            stats=effective_stats,
             ide="auto",
             project_id=project_id,
         )
