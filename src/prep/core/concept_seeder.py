@@ -463,10 +463,10 @@ def seed_concepts_swarm(project_id: str) -> dict[str, Any]:
         coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
         worker_llm=llm,
         concurrency=concurrency,
-        # Cloud coordinator/synth timeouts bumped (was 10s/120s) —
-        # see group_reasoning.py for rationale.  10s was too short
-        # for thinking models routed via OpenRouter or Ollama Cloud.
-        coordinator_timeout_s=60.0 if is_cloud_model else 90.0,
+        # Cloud coordinator/synth timeouts (was 10s/120s, then
+        # 60s/180s).  See group_reasoning.py for rationale —
+        # Qwen3.6-Max coord prompts >100K tokens need 120s+.
+        coordinator_timeout_s=120.0 if is_cloud_model else 90.0,
         synthesis_timeout_s=180.0 if is_cloud_model else 180.0,
         worker_timeout_s=180.0 if is_cloud_model else 300.0,
         max_wall_time_s=900.0 if is_cloud_model else 1800.0,
