@@ -1877,17 +1877,30 @@ class MCPServer:
             )
             if supersede:
                 msg += f" Supersedes concept {supersede}."
-            return {
+            # I3: resolve scope so the envelope reflects what the caller passed,
+            # even though save itself is not scope-filtered.
+            _save_applied_scope = "global"
+            _save_scope_warning: Optional[str] = None
+            try:
+                from prep.core.scope_resolver import resolve_mask as _rm
+                _save_res = _rm(project_id, scope=scope, role=None)
+                _save_applied_scope = _save_res.applied_scope
+                if _save_res.warning:
+                    _save_scope_warning = _save_res.warning
+            except Exception:
+                pass
+            save_result: Dict[str, Any] = {
                 "saved": True,
                 "id": cid,
                 "project_id": project_id,
                 "message": msg,
-                # Phase 120: scope envelope (save is not scope-filtered, but
-                # always include the fields for envelope consistency)
-                "applied_scope": "global",
+                "applied_scope": _save_applied_scope,
                 "applied_role": None,
                 "_to_markdown": msg,
             }
+            if _save_scope_warning:
+                save_result["scope_warning"] = _save_scope_warning
+            return save_result
         else:
             # Get/search concepts
             if query:

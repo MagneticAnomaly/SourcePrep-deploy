@@ -574,3 +574,59 @@ async def test_impact_all_direction_returns_applied_scope(
 
     assert "applied_scope" in result
     assert result.get("applied_scope") == "global"
+
+
+# ---------------------------------------------------------------------------
+# I3 regression: tool_concepts save branch honors scope in envelope
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_concepts_save_returns_applied_scope_for_known_scope(
+    tmp_settings, dummy_project_in_registry, monkeypatch
+):
+    """I3 regression: tool_concepts save branch was hardcoded to applied_scope
+    'global'. Should resolve the scope like every other tool."""
+    project = dummy_project_in_registry
+    from prep.core.scope_store import scope_store
+    scope_store.create(project.id, display_name="Marketing", paths=["websites/marketing/"])
+
+    server = _make_server(project.id, monkeypatch)
+    _patch_api(
+        server,
+        monkeypatch,
+        post_data={"id": "c-123"},
+    )
+
+    result = await server.tool_concepts(
+        action="save",
+        title="Test Concept",
+        content="Content body.",
+        scope="marketing",
+        project_override=project.id,
+    )
+
+    assert result.get("saved") is True
+    assert result.get("applied_scope") == "marketing", (
+        f"expected 'marketing', got {result.get('applied_scope')!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_concepts_save_returns_global_when_no_scope(
+    tmp_settings, dummy_project_in_registry, monkeypatch
+):
+    """tool_concepts save with no scope → applied_scope='global'."""
+    project = dummy_project_in_registry
+
+    server = _make_server(project.id, monkeypatch)
+    _patch_api(server, monkeypatch, post_data={"id": "c-456"})
+
+    result = await server.tool_concepts(
+        action="save",
+        title="Global Concept",
+        content="Some content.",
+        project_override=project.id,
+    )
+
+    assert result.get("saved") is True
+    assert result.get("applied_scope") == "global"
