@@ -225,6 +225,17 @@ export interface FolderTreeProps {
   /** Called when a depth-truncated folder is expanded — returns children to merge into the tree */
   onLoadChildren?: (path: string) => Promise<TreeNode[]>;
   className?: string;
+  /**
+   * Phase 120 — Named Scopes.
+   * When true, the exclude column is rendered disabled with a tooltip directing
+   * the user to switch to the global scope to edit exclusions.
+   */
+  scopeReadOnlyExclude?: boolean;
+  /**
+   * Phase 120 — Named Scopes.
+   * When true, per-path weight controls are rendered disabled.
+   */
+  scopeReadOnlyWeights?: boolean;
 }
 
 interface TreeItemProps {
@@ -246,6 +257,8 @@ interface TreeItemProps {
   loadingPaths: Set<string>;
   onSetLoading: (path: string, loading: boolean) => void;
   onMergeChildren: (path: string, children: TreeNode[]) => void;
+  scopeReadOnlyExclude?: boolean;
+  scopeReadOnlyWeights?: boolean;
 }
 
 function WeightEditor({
@@ -397,6 +410,8 @@ function TreeItem({
   loadingPaths,
   onSetLoading,
   onMergeChildren,
+  scopeReadOnlyExclude = false,
+  scopeReadOnlyWeights = false,
 }: TreeItemProps) {
   const currentPath = path ? `${path}/${node.name}` : node.name;
   const expanded = expandedPaths.has(currentPath);
@@ -652,17 +667,26 @@ function TreeItem({
             )
           )}
 
-          {/* Weight editor — only when included */}
+          {/* Weight editor — only when included. Disabled on non-global scopes (v1). */}
           {(showFolderWeight || (isIncluded && (effectiveStatus === 'indexed' || effectiveStatus === 'pending'))) && (
-            <WeightEditor
-              effectiveWeight={effectiveWeight}
-              isInherited={isWeightInherited}
-              inheritedFrom={weightSource}
-              onWeightChange={onWeightChange}
-              currentPath={currentPath}
-              isFolder={isFolder}
-              childOverridePaths={childOverridePaths}
-            />
+            scopeReadOnlyWeights ? (
+              <span
+                className="text-xs font-mono px-1.5 py-0.5 rounded text-text-subtle/30 cursor-not-allowed"
+                title="Path weights are disabled in named scopes (v1). Switch to the global scope to edit."
+              >
+                ×{effectiveWeight.toFixed(1)}
+              </span>
+            ) : (
+              <WeightEditor
+                effectiveWeight={effectiveWeight}
+                isInherited={isWeightInherited}
+                inheritedFrom={weightSource}
+                onWeightChange={onWeightChange}
+                currentPath={currentPath}
+                isFolder={isFolder}
+                childOverridePaths={childOverridePaths}
+              />
+            )
           )}
 
           {/* Include checkbox — hidden for always-ignored files */}
@@ -688,19 +712,28 @@ function TreeItem({
             </button>
           )}
 
-          {/* Exclude icon — hidden for always-ignored files */}
+          {/* Exclude icon — hidden for always-ignored files. Disabled on non-global scopes. */}
           {!isAlwaysIgnoredNode && onToggleExclude && (
             <button
-              onClick={handleExcludeClick}
+              onClick={scopeReadOnlyExclude ? undefined : handleExcludeClick}
+              disabled={scopeReadOnlyExclude}
               className={cn(
                 'p-0.5 rounded transition-colors',
-                (isExcluded || isFolderFullyExcluded)
-                  ? 'text-error hover:text-error/80'
-                  : isFolderPartiallyExcluded
-                    ? 'text-error/60 hover:text-error'
-                    : 'text-text-subtle/40 hover:text-text-subtle'
+                scopeReadOnlyExclude
+                  ? 'text-text-subtle/20 cursor-not-allowed'
+                  : (isExcluded || isFolderFullyExcluded)
+                    ? 'text-error hover:text-error/80'
+                    : isFolderPartiallyExcluded
+                      ? 'text-error/60 hover:text-error'
+                      : 'text-text-subtle/40 hover:text-text-subtle'
               )}
-              title={(isExcluded || isFolderFullyExcluded) ? 'Remove trace exclusion' : 'Exclude from trace and knowledge'}
+              title={
+                scopeReadOnlyExclude
+                  ? 'Excludes are global. Switch to the global scope to edit.'
+                  : (isExcluded || isFolderFullyExcluded)
+                    ? 'Remove trace exclusion'
+                    : 'Exclude from trace and knowledge'
+              }
             >
               <Ban className={cn('w-4 h-4', (isExcluded || isFolderFullyExcluded) && 'fill-error/10')} />
             </button>
@@ -731,6 +764,8 @@ function TreeItem({
               loadingPaths={loadingPaths}
               onSetLoading={onSetLoading}
               onMergeChildren={onMergeChildren}
+              scopeReadOnlyExclude={scopeReadOnlyExclude}
+              scopeReadOnlyWeights={scopeReadOnlyWeights}
             />
           ))}
         </div>
@@ -755,6 +790,8 @@ export function FolderTree({
   alwaysIgnoredPatterns,
   onLoadChildren,
   className,
+  scopeReadOnlyExclude = false,
+  scopeReadOnlyWeights = false,
 }: FolderTreeProps) {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(() => {
     if (typeof window === 'undefined') return new Set();
@@ -835,6 +872,8 @@ export function FolderTree({
           loadingPaths={loadingPaths}
           onSetLoading={handleSetLoading}
           onMergeChildren={handleMergeChildren}
+          scopeReadOnlyExclude={scopeReadOnlyExclude}
+          scopeReadOnlyWeights={scopeReadOnlyWeights}
         />
       ))}
     </div>
