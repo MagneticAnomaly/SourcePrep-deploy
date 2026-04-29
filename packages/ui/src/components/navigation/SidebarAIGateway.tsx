@@ -21,22 +21,39 @@ export interface SidebarAIGatewayProps {
   className?: string;
 }
 
+type ModelSlotKey = 'embedding' | 'small' | 'large' | 'code' | 'coordinator';
+
 interface SlotInfo {
   key: string;
   label: string;
   shortLabel: string;
   status: LLMSlotStatus | undefined;
-  modelSlotKey: 'embedding' | 'small' | 'large' | 'code';
+  modelSlotKey: ModelSlotKey;
 }
 
 function getSlots(slotsStatus: LLMSlotsStatus | null): SlotInfo[] {
   if (!slotsStatus) return [];
-  return [
+  const slots: SlotInfo[] = [
     { key: 'embedding', label: 'Embedding', shortLabel: 'Emb', status: slotsStatus.embedding, modelSlotKey: 'embedding' },
     { key: 'small_model', label: 'Fast Model', shortLabel: 'Fast', status: slotsStatus.small_model, modelSlotKey: 'small' },
     { key: 'large_model', label: 'Thinking', shortLabel: 'Think', status: slotsStatus.large_model, modelSlotKey: 'large' },
-    { key: 'code_model', label: 'Code Model', shortLabel: 'Code', status: slotsStatus.code_model, modelSlotKey: 'code' },
   ];
+  // Coordinator slot is shown only when explicitly configured with a
+  // separate endpoint+model (inherit_from_large=False).  The backend
+  // /llm/slots/status reports configured=False with status="inheriting"
+  // for the default-inherit case, so this conditional naturally hides
+  // the phantom row.
+  if (slotsStatus.coordinator_model?.configured) {
+    slots.push({
+      key: 'coordinator_model',
+      label: 'Coordinator',
+      shortLabel: 'Coord',
+      status: slotsStatus.coordinator_model,
+      modelSlotKey: 'coordinator',
+    });
+  }
+  slots.push({ key: 'code_model', label: 'Code Model', shortLabel: 'Code', status: slotsStatus.code_model, modelSlotKey: 'code' });
+  return slots;
 }
 
 function slotColor(status: LLMSlotStatus | undefined, isRunning: boolean): string {
@@ -49,7 +66,7 @@ function slotColor(status: LLMSlotStatus | undefined, isRunning: boolean): strin
 }
 
 function runningCountForSlot(
-  slotKey: 'embedding' | 'small' | 'large' | 'code',
+  slotKey: ModelSlotKey,
   runningTasks: RunningTask[],
 ): number {
   return runningTasks.filter(t => t.model_slot === slotKey).length;
@@ -57,7 +74,7 @@ function runningCountForSlot(
 
 /** Sum concurrent_workers across all tasks for a given slot. */
 function concurrentWorkersForSlot(
-  slotKey: 'embedding' | 'small' | 'large' | 'code',
+  slotKey: ModelSlotKey,
   runningTasks: RunningTask[],
 ): number {
   return runningTasks
@@ -67,7 +84,7 @@ function concurrentWorkersForSlot(
 
 /** Check if any task for a given slot is running in swarm mode. */
 function isSwarmForSlot(
-  slotKey: 'embedding' | 'small' | 'large' | 'code',
+  slotKey: ModelSlotKey,
   runningTasks: RunningTask[],
 ): boolean {
   return runningTasks.some(t => t.model_slot === slotKey && t.is_swarm);

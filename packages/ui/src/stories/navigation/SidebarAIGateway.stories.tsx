@@ -217,6 +217,61 @@ export const SwarmThreePhaseBreakdown: Story = {
  * "Workers ×5" rather than three rows with two at zero.  The sidebar
  * still shows the high-level badge.
  */
+/**
+ * Phase 119+ — separately-configured Swarm Coordinator.
+ *
+ * When the user disables ``inherit_from_large`` and assigns a distinct
+ * endpoint+model to the coordinator slot (e.g. Qwen3.6-Plus on
+ * OpenRouter while workers run Kimi 2.6 on Ollama Cloud), the sidebar
+ * surfaces a fifth row labelled ``Coordinator`` between Thinking and
+ * Code.  The default inherit-from-large case still hides the row —
+ * see ``SwarmRunning`` above.
+ */
+export const SwarmWithSeparateCoordinator: Story = {
+  name: 'Swarm with separate Coordinator (Qwen3.6-Plus + Kimi 2.6)',
+  args: {
+    slotsStatus: {
+      ...baseSlots,
+      large_model: { ...connectedSlot, model: 'kimi-k2.6:cloud', provider: 'ollama' },
+      coordinator_model: {
+        configured: true,
+        enabled: true,
+        model: 'qwen/qwen3.6-plus',
+        provider: 'openai-compatible',
+        status: 'connected',
+        model_available: true,
+      },
+      running_task_id: 'group_reasoning',
+      running_tasks: [
+        {
+          task_id: 'group_reasoning',
+          project_id: 'p2',
+          project_name: 'SourcePrep',
+          group: 'deep_enrichment',
+          stage: 'group_reasoning',
+          model_slot: 'large',
+          concurrent_workers: 10,
+          compute_node: 'cloud:default_ollama',
+          is_swarm: true,
+          swarm_role: 'worker',
+        },
+        {
+          task_id: 'group_reasoning',
+          project_id: 'p2',
+          project_name: 'SourcePrep',
+          group: 'deep_enrichment',
+          stage: 'group_reasoning',
+          model_slot: 'coordinator',
+          concurrent_workers: 1,
+          compute_node: 'cloud:openrouter',
+          is_swarm: true,
+          swarm_role: 'coordinator',
+        },
+      ],
+    },
+  },
+};
+
 export const SwarmFanOutOnly: Story = {
   name: 'Swarm window open but only workers active (Settings → Diagnostics)',
   args: {

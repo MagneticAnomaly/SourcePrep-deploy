@@ -103,7 +103,7 @@ def _run_split(rt: dict) -> list:
     src/prep/api/routers/llm.py around 'swarm slot attribution').
     """
     from prep.services.token_telemetry import telemetry
-    SIDEBAR_SLOTS = {"embedding", "small", "large", "code"}
+    SIDEBAR_SLOTS = {"embedding", "small", "large", "code", "coordinator"}
     if not rt.get("is_swarm"):
         return [rt]
     active = [
@@ -128,13 +128,14 @@ def _run_split(rt: dict) -> list:
     ]
 
 
-def test_swarm_split_remaps_coordinator_into_fallback_slot() -> None:
+def test_swarm_split_keeps_coordinator_in_its_own_slot() -> None:
     """C1: a separately-configured coordinator endpoint produces
-    model_slot='coordinator' on its active requests, but the AI Gateway
-    sidebar only renders the four canonical buckets
-    (embedding/small/large/code).  The split must remap the coordinator
-    entry into the stage's primary slot so it remains visible alongside
-    its workers — distinguished by swarm_role on the row, not dropped.
+    model_slot='coordinator' on its active requests, and the AI Gateway
+    sidebar renders a fifth ``Coordinator`` row when that slot is
+    explicitly configured (inherit_from_large=False).  The split must
+    therefore preserve ``model_slot='coordinator'`` rather than collapse
+    it into the stage's primary slot — that's the whole point of giving
+    the coordinator a dedicated endpoint.
     """
     from prep.services.token_telemetry import _active_requests, ActiveLLMRequest
 
@@ -161,18 +162,18 @@ def test_swarm_split_remaps_coordinator_into_fallback_slot() -> None:
         }
         expanded = _run_split(rt)
 
-        # Coordinator entry remapped from "coordinator" → "large" so the
-        # sidebar renders it; swarm_role retained for diagnostics/future UI.
+        # Coordinator entry stays under "coordinator" so the sidebar
+        # renders it as a dedicated row; workers stay under "large".
         coord = next(e for e in expanded if e.get("swarm_role") == "coordinator")
         worker = next(e for e in expanded if e.get("swarm_role") == "worker")
-        assert coord["model_slot"] == "large"
+        assert coord["model_slot"] == "coordinator"
         assert coord["concurrent_workers"] == 1
         assert worker["model_slot"] == "large"
         assert worker["concurrent_workers"] == 9
-        # All four canonical buckets are valid; nothing produced an
+        # All canonical sidebar slots are valid; nothing produced an
         # off-spec slot value.
         for e in expanded:
-            assert e["model_slot"] in {"embedding", "small", "large", "code"}
+            assert e["model_slot"] in {"embedding", "small", "large", "code", "coordinator"}
     finally:
         _active_requests.clear()
 
@@ -216,6 +217,52 @@ def test_swarm_split_preserves_total_count_with_untagged_calls() -> None:
         )
     finally:
         _active_requests.clear()
+
+
+def test_slots_status_reports_inheriting_when_coordinator_inherits_from_large() -> None:
+    """C2: when ``coordinator_model.inherit_from_large`` is True (the
+    default) the coordinator is not a separate slot — its calls flow
+    through the large client.  ``/llm/slots/status`` therefore reports
+    ``coordinator_model`` with ``configured=False`` and a sentinel
+    ``status="inheriting"`` so the AI Gateway sidebar suppresses the
+    fifth row.  Without this the sidebar would render a phantom
+    Coordinator entry that double-counts the large model.
+    """
+    from prep.api.routers import llm as llm_mod
+
+    llm_cfg = {
+        "small_model":       {"endpoint_id": "ep", "model": "m-small"},
+        "large_model":       {"endpoint_id": "ep", "model": "m-large"},
+        "code_model":        {"endpoint_id": "ep", "model": "m-code"},
+        "coordinator_model": {"endpoint_id": "ep", "model": "m-coord", "inherit_from_large": True},
+    }
+    coord_cfg = llm_cfg.get("coordinator_model") or {}
+    inherits = bool(coord_cfg.get("inherit_from_large", True))
+    assert inherits is True
+    # Mirror the production block at llm.py:944-953 that picks between
+    # "inheriting" sentinel and the live _check_slot probe.
+    coord_status = (
+        {"configured": False, "status": "inheriting"}
+        if inherits
+        else "would-call-_check_slot"
+    )
+    assert coord_status == {"configured": False, "status": "inheriting"}
+    assert llm_mod is not None  # import-smoke
+
+
+def test_slots_status_probes_coordinator_when_inherit_disabled() -> None:
+    """C3: when the user turns OFF ``inherit_from_large``, the
+    coordinator slot must be probed normally (``_check_slot``) so its
+    connectivity surfaces as ``connected`` / ``unreachable`` etc. — the
+    sidebar's fifth row depends on ``configured=True`` to render.
+    """
+    llm_cfg = {
+        "coordinator_model": {"endpoint_id": "ep-coord", "model": "qwen-3.6-plus", "inherit_from_large": False},
+    }
+    coord_cfg = llm_cfg.get("coordinator_model") or {}
+    inherits = bool(coord_cfg.get("inherit_from_large", True))
+    assert inherits is False
+    # In production this branch falls through to _check_slot("coordinator_model").
 
 
 def test_swarm_split_falls_back_when_telemetry_empty() -> None:

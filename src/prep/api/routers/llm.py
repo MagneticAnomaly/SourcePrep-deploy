@@ -779,15 +779,17 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
         # AI Gateway's "N active" badge would silently drop calls and
         # disagree with the Pipeline Queue totals.
         #
-        # Sidebar visibility: the SidebarAIGateway has four canonical
-        # buckets (embedding/small/large/code) — a "coordinator" model
-        # slot would render nowhere.  Remap unknown slots to the stage's
-        # primary slot so a separately-configured coordinator endpoint
-        # is visible alongside its workers, with swarm_role
-        # distinguishing the row in any future role-aware UI.
+        # Sidebar visibility: the SidebarAIGateway renders five canonical
+        # buckets (embedding/small/large/code/coordinator).  When a swarm
+        # coordinator is configured to a separate endpoint+model (not
+        # inherited from large), its in-flight calls carry
+        # ``model_slot="coordinator"`` (tagged by server._get_llm_client_for_slot)
+        # and are surfaced as a dedicated sidebar row alongside Thinking.
+        # Unknown slots still collapse to the stage's primary slot so any
+        # future role tag stays visible without a UI change.
         try:
             from prep.services.token_telemetry import telemetry as _tel2
-            _SIDEBAR_SLOTS = {"embedding", "small", "large", "code"}
+            _SIDEBAR_SLOTS = {"embedding", "small", "large", "code", "coordinator"}
             expanded: List[Dict[str, Any]] = []
             for rt in running_tasks:
                 if not rt.get("is_swarm"):
@@ -937,6 +939,17 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
         "small_model": _check_slot("small_model"),
         "large_model": _check_slot("large_model"),
         "code_model": _check_slot("code_model"),
+        # Coordinator slot is reported only when explicitly configured
+        # with inherit_from_large=False.  The inherit-from-large default
+        # routes coordinator calls through the large slot (see
+        # server._get_llm_client_for_slot), and reporting a separate row
+        # would create a phantom sidebar entry that double-counts the
+        # large model.
+        "coordinator_model": (
+            {"configured": False, "status": "inheriting"}
+            if bool((llm_cfg.get("coordinator_model") or {}).get("inherit_from_large", True))
+            else _check_slot("coordinator_model")
+        ),
     }
     if block_statuses is not None:
         result["assignment_blocks"] = block_statuses

@@ -1310,7 +1310,7 @@ export interface LLMSlotStatus {
   endpoint_url?: string;
   provider?: string;
   source?: string;
-  status: 'not_configured' | 'endpoint_missing' | 'unreachable' | 'connected' | 'connected_no_model' | 'local';
+  status: 'not_configured' | 'endpoint_missing' | 'unreachable' | 'connected' | 'connected_no_model' | 'local' | 'inheriting';
   model_available?: boolean;
   error?: string;
 }
@@ -1360,6 +1360,13 @@ export interface RunningTask {
    * run a coordinator/synthesizer (e.g. audit's parallel-fan-out path).
    */
   swarm_phases?: SwarmPhasesBreakdown | null;
+  /**
+   * Phase 119+: which swarm role this row represents when the backend
+   * splits a single swarm task into per-(slot, role) entries.  Carried
+   * so the AI Gateway can render coordinator-on-its-own-slot calls
+   * distinctly when the user disables ``inherit_from_large``.
+   */
+  swarm_role?: 'coordinator' | 'worker' | 'synthesizer' | null;
 }
 
 /** A single swarm role's live count + the model serving it. */
