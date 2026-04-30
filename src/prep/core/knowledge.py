@@ -53,6 +53,17 @@ class KnowledgeIndex:
         
         self._load()
 
+    def invalidate(self) -> None:
+        """Drop in-memory state. The next read forces a fresh _load() from disk.
+
+        Called by scoped reset endpoints so post-reset reads do not see
+        stale chunks from prior runs. Disk files are wiped by the reset's
+        file-deletion pass, not by this method.
+        """
+        self._documents = None
+        self._embeddings = None
+        self._manifest = {}
+
     def _embedder_model(self) -> str:
         return str(
             getattr(self.embedder, "model", None)
