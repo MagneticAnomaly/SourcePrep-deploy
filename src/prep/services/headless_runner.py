@@ -337,6 +337,7 @@ class HeadlessWorkerFactory:
             index_dir=self.index_dir,
             max_iterations=10,
             batch_size=20,
+            project_id="",
         )
         result = loop.run(progress_callback=progress_cb)
         return {

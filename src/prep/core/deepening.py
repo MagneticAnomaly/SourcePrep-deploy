@@ -31,6 +31,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import _get_llm_concurrency
 from prep.services.pipeline.thread_pool import llm_pool
+from prep.services.pipeline.recovery import is_reuse_blocked
 from .epistemic_score import (
     EpistemicEntry,
     EpistemicScore,
@@ -109,8 +110,9 @@ class DriftDetector:
     3. Doc references to non-existent files → flagged as missing
     """
 
-    def __init__(self, max_propagation_hops: int = 3):
+    def __init__(self, max_propagation_hops: int = 3, project_id: str = ""):
         self.max_hops = max_propagation_hops
+        self.project_id = project_id
 
     def detect(
         self,
@@ -131,6 +133,18 @@ class DriftDetector:
             decayed_nodes={},
             total_checked=len(scores),
         )
+
+        # Reset barrier active → treat every node as stale so deepening
+        # re-processes everything fresh, ignoring any cached "fresh"
+        # decisions from prior runs.
+        if self.project_id and is_reuse_blocked(self.project_id, stage_group="deep_enrichment"):
+            logger.info(
+                "Deepening drift gate triggered by reset barrier for project %s — "
+                "marking all %d known nodes stale",
+                self.project_id, len(scores),
+            )
+            report.stale_nodes = list(scores.keys())
+            return report
 
         # Build adjacency
         adjacency: Dict[str, Set[str]] = defaultdict(set)
@@ -333,17 +347,19 @@ class DeepeningLoop:
         batch_size: int = 20,
         settled_threshold: float = 0.60,
         residual_threshold: float = 0.01,
+        project_id: str = "",
     ):
         self.enricher = enricher
         self.index_dir = index_dir
         self.max_iterations = max_iterations
         self.batch_size = batch_size
+        self.project_id = project_id
         self.convergence_tracker = ConvergenceTracker(
             settled_threshold=settled_threshold,
             residual_threshold=residual_threshold,
             max_iterations=max_iterations,
         )
-        self.drift_detector = DriftDetector()
+        self.drift_detector = DriftDetector(project_id=project_id)
 
     def run(
         self,

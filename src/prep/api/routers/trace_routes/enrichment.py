@@ -677,6 +677,7 @@ def deepening_run_project(project_id: str, req: DeepeningRunRequest) -> Dict[str
         index_dir=idx_dir,
         max_iterations=req.max_iterations or 10,
         batch_size=req.batch_size or 20,
+        project_id=project_id,
     )
 
     bus = get_event_bus()

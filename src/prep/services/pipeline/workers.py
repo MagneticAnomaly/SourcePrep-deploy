@@ -834,6 +834,7 @@ class WorkerFactory:
                 index_dir=idx_dir,
                 max_iterations=10,
                 batch_size=20,
+                project_id=project_id,
             )
             result = loop.run(progress_callback=log_cb)
             logger.info(
