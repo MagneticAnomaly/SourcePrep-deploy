@@ -4,6 +4,7 @@ Pipeline stage definitions, mappings, and group constants.
 from __future__ import annotations
 
 import enum
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from prep.services.build_orchestrator import BuildType
@@ -280,3 +281,149 @@ def stage_manifest_name(stage_id: str) -> str:
         return STAGE_MANIFEST_FILE[StageId(stage_id)]
     except (KeyError, ValueError):
         return f"{stage_id}_manifest.json"
+
+
+# ── Reset Allowlist Support ───────────────────────────────────────────
+# Single source of truth: what files / directories does each stage produce?
+# Used by scoped reset endpoints to build a keep-list (everything else in
+# the index dir gets wiped). New stages adding new outputs land them here
+# and reset behavior updates automatically.
+
+
+@dataclass(frozen=True)
+class OutputSpec:
+    """Files and directories produced by a single stage."""
+    files: frozenset[str] = field(default_factory=frozenset)
+    dirs: frozenset[str] = field(default_factory=frozenset)
+
+    @staticmethod
+    def of(*, files: tuple[str, ...] = (), dirs: tuple[str, ...] = ()) -> "OutputSpec":
+        return OutputSpec(files=frozenset(files), dirs=frozenset(dirs))
+
+
+STAGE_OUTPUTS: Dict[StageId, OutputSpec] = {
+    # ── Fast Sync (1-5) ──────────────────────────────────────────
+    StageId.STRUCTURAL: OutputSpec.of(
+        files=("trace_nodes.jsonl", "trace_edges.jsonl", "trace_manifest.json"),
+    ),
+    StageId.INFERRED_EDGES: OutputSpec.of(
+        files=(
+            "trace_inferred_edges.jsonl",
+            "trace_inferred_hashes.json",
+            "trace_inferred_manifest.json",
+        ),
+    ),
+    StageId.CATALOGUE: OutputSpec.of(
+        files=(
+            "catalogue.jsonl",
+            "catalogue_manifest.json",
+            "trace_augmented.jsonl",
+            "trace_augment_manifest.json",
+        ),
+    ),
+    StageId.VALIDATION: OutputSpec.of(
+        files=("validation_manifest.json",),
+    ),
+    StageId.KNOWLEDGE: OutputSpec.of(
+        files=(
+            "knowledge_documents.json",
+            "knowledge_embeddings.npy",
+            "knowledge_manifest.json",
+            # Legacy un-prefixed names (some installations still write these)
+            "documents.json",
+            "embeddings.npy",
+            "manifest.json",
+        ),
+    ),
+    # ── Deep Enrichment (6-10) ──────────────────────────────────
+    StageId.ENRICHMENT: OutputSpec.of(
+        files=("trace_epistemic.jsonl", "trace_epistemic_manifest.json"),
+    ),
+    StageId.GROUP_REASONING: OutputSpec.of(
+        files=("trace_group_reasoning.jsonl", "group_reasoning_manifest.json"),
+    ),
+    StageId.CLUSTERING: OutputSpec.of(
+        files=(
+            "trace_modules.jsonl",
+            "trace_modules_manifest.json",
+            "trace_cluster_swarm_synthesis.json",
+            "trace_swarm_synthesis.json",
+        ),
+    ),
+    StageId.DEEPENING: OutputSpec.of(
+        files=("deepening_manifest.json",),
+    ),
+    StageId.DEEP_KNOWLEDGE: OutputSpec.of(
+        files=("deep_knowledge_manifest.json",),
+    ),
+    # ── Finalize (11-15) ────────────────────────────────────────
+    StageId.ATLAS: OutputSpec.of(
+        files=(
+            "atlas.json",
+            "atlas_prev.json",
+            "atlas_manifest.json",
+            "atlas_segments_manifest.json",
+            "atlas_routing.json",
+            "atlas_routing_embeddings.npy",
+            "atlas_updated.signal",
+            "atlas_swarm_synthesis.json",
+        ),
+        dirs=("atlas_roles", "atlas_segments"),
+    ),
+    StageId.RULES: OutputSpec.of(
+        files=("rules_manifest.json",),
+    ),
+    StageId.CONCEPTS: OutputSpec.of(
+        files=("concepts_manifest.json",),
+    ),
+    StageId.AUDIT: OutputSpec.of(
+        files=("audit_manifest.json",),
+        dirs=("audit",),
+    ),
+    StageId.ANTIBODIES: OutputSpec.of(
+        files=("antibodies_manifest.json",),
+    ),
+}
+
+
+# Project-level metadata that is never owned by any stage and survives all
+# reset scopes. `pipeline_run_metadata.json` is intentionally NOT here — it
+# is run-state and gets wiped along with the run's stage outputs.
+PROJECT_META_ALLOWLIST: OutputSpec = OutputSpec.of(
+    files=("project.json", "repo_policy.json"),
+    dirs=("logs", "backups"),
+)
+
+
+# scope → which stage groups should SURVIVE the reset.
+_KEEP_GROUPS_BY_SCOPE: Dict[str, tuple[StageId, ...]] = {
+    "enrichment": tuple(FAST_SYNC_STAGES),
+    "finalize": tuple(FAST_SYNC_STAGES) + tuple(DEEP_ENRICHMENT_STAGES),
+}
+
+
+def build_keep_set(scope: str) -> set[str]:
+    """Return the set of file/dir names that must survive a reset of the given scope.
+
+    Includes every output declared by stages that survive, plus PROJECT_META.
+    Reset wipes anything in <idx_dir> not in this set.
+
+    Args:
+        scope: "enrichment" (Reset 6-15) or "finalize" (Reset 11-15)
+
+    Raises:
+        ValueError: if scope is not recognized.
+    """
+    if scope not in _KEEP_GROUPS_BY_SCOPE:
+        raise ValueError(f"unknown reset scope: {scope!r}")
+    keep: set[str] = set()
+    keep |= PROJECT_META_ALLOWLIST.files
+    keep |= PROJECT_META_ALLOWLIST.dirs
+    for stage_id in _KEEP_GROUPS_BY_SCOPE[scope]:
+        spec = STAGE_OUTPUTS[stage_id]
+        keep |= spec.files
+        keep |= spec.dirs
+    # `.checkpoints` and `.reset_barrier` are managed explicitly by the reset
+    # orchestrator (not stage-owned), so they are NOT added to keep — reset
+    # wipes .checkpoints and writes its own .reset_barrier.
+    return keep
