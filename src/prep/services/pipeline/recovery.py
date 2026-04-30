@@ -175,6 +175,40 @@ _SCOPE_BOUNDARY = {
     "all": "finalize",
 }
 
+# Subsumption: a barrier scope blocks reuse for the caller's group
+# when the caller's group is in this set.
+_SCOPE_BLOCKS: dict[str, frozenset[str]] = {
+    "sync":       frozenset({"fast_sync"}),
+    "enrichment": frozenset({"deep_enrichment", "finalize"}),
+    "finalize":   frozenset({"finalize"}),
+    "all":        frozenset({"fast_sync", "deep_enrichment", "finalize"}),
+}
+
+
+def is_reuse_blocked(project_id: str, *, stage_group: str) -> bool:
+    """Return True if a reset barrier is active and its scope blocks
+    incremental-reuse reads for the caller's stage_group.
+
+    Stage-internal reuse paths (cluster fingerprint match, deepening
+    drift cache, group_reasoning fingerprint reuse, knowledge incremental
+    embed) call this before reading prior outputs. If True, the stage
+    must treat existing artifacts as if they don't exist and process
+    everything fresh.
+
+    Args:
+        project_id: the project being processed
+        stage_group: one of "fast_sync", "deep_enrichment", "finalize"
+
+    Returns:
+        True if reuse is blocked, False if reuse is permitted.
+    """
+    info = read_reset_barrier(project_id)
+    if info is None:
+        return False
+    scope = info.get("scope") or "all"  # legacy barriers default to "all"
+    blocks = _SCOPE_BLOCKS.get(scope, frozenset())
+    return stage_group in blocks
+
 
 def maybe_clear_scoped_barrier(project_id: str, completed_group: str) -> bool:
     """Clear the reset barrier iff ``completed_group`` is the boundary for its scope.
