@@ -60,7 +60,7 @@ def _resolve_idx_dir(project_id: str) -> Path | None:
 _CLEAN_SHUTDOWN_FILENAME = ".pipeline_clean_shutdown"
 _RESET_BARRIER_FILENAME = ".reset_barrier"
 _USER_PAUSE_FILENAME_TEMPLATE = ".pipeline_user_pause_{group}.json"
-_VALID_BARRIER_SCOPES = ("sync", "enrichment", "all")
+_VALID_BARRIER_SCOPES = ("sync", "enrichment", "finalize", "all")
 
 
 def write_reset_barrier(
