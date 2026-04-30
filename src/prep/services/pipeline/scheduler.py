@@ -2163,6 +2163,15 @@ class PipelineScheduler:
         Phase 82: When ``stage`` is a swarm-capable stage and the
         model supports swarm, returns the full undivided budget
         instead of the weighted fair-share.
+
+        Phase 119+ alignment: returns ``slot.dynamic_capacity`` (no
+        N-1 reservation), matching ``full_budget_for_swarm`` which is
+        what the orchestrator actually uses to size the worker pool.
+        The earlier ``-1`` reserved a coord-call slot on the worker
+        node, but Phase 119 separated coord onto its own endpoint
+        (``cloud:ep_{coord_endpoint_id}``); reserving on the worker
+        node is now wasted budget AND makes the UI report 9× when
+        workers actually run at 10×.
         """
         with self._lock:
             for nid, slot in self._slots.items():
@@ -2174,8 +2183,8 @@ class PipelineScheduler:
                         from prep.services.pipeline._model_resolution import resolve_model_for_stage
                         resolved = resolve_model_for_stage(project_id, stage)
                         if resolved and is_swarm_active_for_stage(stage, *resolved):
-                            budget = max(1, slot.dynamic_capacity - 1)
-                            return budget, nid
+                            # Phase 119+: full budget, not N-1 — see docstring.
+                            return max(1, slot.dynamic_capacity), nid
                     except Exception:
                         pass  # Fall through to weighted share
                 return self._weighted_share(slot, project_id), nid
