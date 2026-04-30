@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from prep.core.context_config import PipelineTask, compute_optimal_settings
+from prep.services.pipeline.recovery import is_reuse_blocked
 from prep.services.pipeline.workers import WorkerFactory
 
 from .epistemic_score import EpistemicEntry
@@ -233,14 +234,28 @@ class GroupReasoningEngine:
         self,
         llm: LLMClient,
         index_dir: Path,
+        project_id: str = "",
     ):
         self.llm = llm
         self.index_dir = index_dir
+        self.project_id = project_id
         self.output_path = index_dir / "trace_group_reasoning.jsonl"
 
     def load_existing(self) -> dict[str, GroupReasoningEntry]:
-        """Load existing group reasoning entries."""
+        """Load existing group reasoning entries.
+
+        Returns an empty dict if a reset barrier is active for this project
+        and its scope blocks deep_enrichment reuse — reset semantics require
+        group_reasoning to treat all prior entries as nonexistent.
+        """
         entries: dict[str, GroupReasoningEntry] = {}
+        if self.project_id and is_reuse_blocked(self.project_id, stage_group="deep_enrichment"):
+            logger.info(
+                "Group reasoning reuse blocked by reset barrier for project %s — "
+                "treating prior trace_group_reasoning.jsonl as empty",
+                self.project_id,
+            )
+            return entries
         if self.output_path.exists():
             with open(self.output_path, encoding="utf-8") as f:
                 for line in f:

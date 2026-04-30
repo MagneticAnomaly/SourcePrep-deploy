@@ -351,7 +351,7 @@ class HeadlessWorkerFactory:
         from prep.core import GroupReasoningEngine
 
         llm = self._get_llm()
-        engine = GroupReasoningEngine(llm=llm, index_dir=self.index_dir)
+        engine = GroupReasoningEngine(llm=llm, index_dir=self.index_dir, project_id="")
         result = engine.run(progress_callback=progress_cb)
         return {"stage": "group_reasoning", **(result or {})}
 

@@ -646,7 +646,7 @@ class WorkerFactory:
             _t0 = time.time()
             logger.info("[%s/Group Reasoning] Starting: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Group Reasoning", progress_cb, project.name)
-            engine = GroupReasoningEngine(llm=llm_client, index_dir=idx_dir)
+            engine = GroupReasoningEngine(llm=llm_client, index_dir=idx_dir, project_id=project_id)
             result = engine.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             analyzed = result.get("analyzed", 0)
             failed = result.get("failed", 0)
