@@ -14,6 +14,11 @@ from fastapi import APIRouter, Query
 from fastapi.responses import JSONResponse
 
 from prep.api.envelope import ApiException, ok
+
+# Both substrings must be present to identify an "object not yet initialized" RuntimeError
+# (e.g. "X not initialized. Call X.init() first").  Requiring *both* prevents accidentally
+# swallowing unrelated RuntimeErrors that happen to contain only one of the markers.
+_NOT_INIT_MARKERS = ("not initialized", "Call ")
 from prep.core.events import get_event_bus, get_progress_manager
 from prep.core.project_registry import project_index_dir
 from prep.services.pipeline import build_keep_set
@@ -1089,14 +1094,13 @@ def _scoped_full_reset(
     # An uninitialized store means no data to clear — treat as no-op, not
     # fatal. Fatal = store is initialized but the clear operation fails (DB
     # corruption, lock contention, etc.).
-    _NOT_INIT_MARKERS = ("not initialized", "Call ")
     cleanup_errors: dict[str, str] = {}
 
     try:
         from prep.services.pipeline_journal import journal
         journal.delete_runs(project_id, groups=journal_groups)
     except RuntimeError as e:
-        if any(m in str(e) for m in _NOT_INIT_MARKERS):
+        if all(m in str(e) for m in _NOT_INIT_MARKERS):
             logger.debug("pipeline_journal not initialized, skipping delete_runs")
         else:
             cleanup_errors["pipeline_journal"] = repr(e)
@@ -1109,7 +1113,7 @@ def _scoped_full_reset(
         from prep.services.concept_store import concept_store
         concept_store.clear_project(project_id)
     except RuntimeError as e:
-        if any(m in str(e) for m in _NOT_INIT_MARKERS):
+        if all(m in str(e) for m in _NOT_INIT_MARKERS):
             logger.debug("concept_store not initialized, skipping clear_project")
         else:
             cleanup_errors["concept_store"] = repr(e)
@@ -1122,7 +1126,7 @@ def _scoped_full_reset(
         from prep.services.antibody_store import antibody_store
         antibody_store.clear_project(project_id)
     except RuntimeError as e:
-        if any(m in str(e) for m in _NOT_INIT_MARKERS):
+        if all(m in str(e) for m in _NOT_INIT_MARKERS):
             logger.debug("antibody_store not initialized, skipping clear_project")
         else:
             cleanup_errors["antibody_store"] = repr(e)
