@@ -32,6 +32,14 @@ def test_finalize_scope_accepted(project_id: str) -> None:
     clear_reset_barrier(project_id)
 
 
-def test_invalid_scope_rejected(project_id: str) -> None:
+@pytest.mark.parametrize("scope", ["bogus_scope", "random", ""])
+def test_invalid_scope_rejected(project_id: str, scope: str) -> None:
     with pytest.raises(ValueError, match="invalid barrier scope"):
-        write_reset_barrier(project_id, reason="bogus", scope="bogus_scope")
+        write_reset_barrier(project_id, reason="bogus", scope=scope)
+
+
+def test_finalize_scope_maps_to_finalize_boundary() -> None:
+    """Boundary mapping for the new 'finalize' scope clears the barrier
+    when the finalize group completes."""
+    from prep.services.pipeline.recovery import _SCOPE_BOUNDARY
+    assert _SCOPE_BOUNDARY.get("finalize") == "finalize"

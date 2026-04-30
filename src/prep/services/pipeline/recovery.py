@@ -70,9 +70,10 @@ def write_reset_barrier(
 ) -> bool:
     """Write a barrier that disables selfheal until the scope's group finishes.
 
-    Phase 117: ``scope`` names which group the rebuild is forcing from start.
+    ``scope`` names which group the rebuild/reset is forcing from start.
     - ``sync``: rebuild fast_sync (stages 1-5); barrier auto-clears when stage 5 finishes.
     - ``enrichment``: rebuild deep_enrichment (stages 6-10); barrier auto-clears when stage 10 finishes.
+    - ``finalize``: reset finalize (stages 11-15); barrier auto-clears when stage 15 finishes.
     - ``all``: rebuild the full chain; barrier auto-clears when finalize (stage 15) finishes.
 
     The file is a 3-line text format for forward/backward compat:
@@ -170,6 +171,7 @@ def read_reset_barrier(project_id: str) -> dict | None:
 _SCOPE_BOUNDARY = {
     "sync": "fast_sync",
     "enrichment": "deep_enrichment",
+    "finalize": "finalize",
     "all": "finalize",
 }
 
