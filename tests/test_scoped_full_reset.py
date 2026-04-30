@@ -420,3 +420,77 @@ def test_code_index_destroy_preserves_project_config(client, tmp_path):
     assert cfg["exclude_globs"] == ["**/.mypy_cache/**"]
     assert cfg["included_paths"] == ["src/foo.py", "docs/api.md"]
     assert cfg["use_gitignore"] is True
+
+
+def test_enrichment_reset_wipes_unknown_files_via_allowlist(client, tmp_path):
+    """Files not in any stage's output spec also get wiped.
+
+    Regression: previous denylist-based reset left atlas_swarm_synthesis.json,
+    trace_cluster_swarm_synthesis.json, and any future-added stage outputs
+    behind. Allowlist behavior wipes them by default.
+    """
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    pid = _add_embedded_project(client, repo_root)
+    idx_dir = _idx_dir(client, pid)
+    idx_dir.mkdir(parents=True, exist_ok=True)
+
+    # Seed a fast-sync output (must SURVIVE)
+    (idx_dir / "trace_nodes.jsonl").write_text("{}\n")
+    # Seed a known enrichment output (must be wiped)
+    (idx_dir / "trace_modules.jsonl").write_text("{}\n")
+    # Seed UNKNOWN files (regression — must also be wiped)
+    (idx_dir / "atlas_swarm_synthesis_v99.json").write_text("{}")
+    (idx_dir / "future_stage_output.jsonl").write_text("{}")
+
+    res = client.delete(f"/projects/{pid}/enrichment/full-reset")
+    assert res.status_code in (200, 207)
+
+    assert (idx_dir / "trace_nodes.jsonl").is_file()  # fast-sync survived
+    assert not (idx_dir / "trace_modules.jsonl").exists()
+    assert not (idx_dir / "atlas_swarm_synthesis_v99.json").exists()
+    assert not (idx_dir / "future_stage_output.jsonl").exists()
+
+
+def test_finalize_reset_preserves_enrichment_outputs(client, tmp_path):
+    """Reset 11-15 keeps deep_enrichment outputs (stages 6-10)."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    pid = _add_embedded_project(client, repo_root)
+    idx_dir = _idx_dir(client, pid)
+    idx_dir.mkdir(parents=True, exist_ok=True)
+
+    # Fast-sync + enrichment outputs (must SURVIVE)
+    (idx_dir / "trace_nodes.jsonl").write_text("{}\n")
+    (idx_dir / "trace_epistemic.jsonl").write_text("{}\n")
+    (idx_dir / "trace_modules.jsonl").write_text("{}\n")
+    # Finalize outputs (must be wiped)
+    (idx_dir / "atlas.json").write_text("{}")
+    (idx_dir / "rules_manifest.json").write_text("{}")
+
+    res = client.delete(f"/projects/{pid}/finalize/full-reset")
+    assert res.status_code in (200, 207)
+
+    assert (idx_dir / "trace_nodes.jsonl").is_file()
+    assert (idx_dir / "trace_epistemic.jsonl").is_file()
+    assert (idx_dir / "trace_modules.jsonl").is_file()
+    assert not (idx_dir / "atlas.json").exists()
+    assert not (idx_dir / "rules_manifest.json").exists()
+
+
+def test_enrichment_reset_wipes_audit_dir(client, tmp_path):
+    """Regression: audit/spaghetti.json was surviving despite audit/ being
+    in the denylist. Allowlist with explicit audit/ exclusion fixes."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    pid = _add_embedded_project(client, repo_root)
+    idx_dir = _idx_dir(client, pid)
+    idx_dir.mkdir(parents=True, exist_ok=True)
+    audit_dir = idx_dir / "audit"
+    audit_dir.mkdir()
+    (audit_dir / "spaghetti.json").write_text("{}")
+
+    res = client.delete(f"/projects/{pid}/enrichment/full-reset")
+    assert res.status_code in (200, 207)
+
+    assert not audit_dir.exists()
