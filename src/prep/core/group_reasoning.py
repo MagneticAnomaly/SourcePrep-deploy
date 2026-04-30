@@ -471,15 +471,15 @@ class GroupReasoningEngine:
             coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
             worker_llm=self.llm,
             concurrency=concurrency,
-            # Cloud coordinator timeout: started at 10s (broken), bumped
-            # to 60s (still broke on Qwen3.6-Max-Preview at >100K-token
-            # coord prompts), now 120s.  Alibaba's own guidance: "start
-            # 30-60s and increase for >100K-token requests."  Coord
-            # prompts with full file context for ~20 items routinely
-            # exceed 100K.  Synthesizer succeeded at 106s with 180s
-            # budget, so 120s for coord is the right order of magnitude.
-            coordinator_timeout_s=120.0 if is_cloud else 90.0,
-            synthesis_timeout_s=180.0 if is_cloud else 180.0,
+            # Cloud coord/synth timeouts: 10s → 60s → 120s/180s → 180s/240s.
+            # PowerMate (24 items) needed 111s coord and 169s synth at
+            # 120s/180s budgets.  Larger repos (CoDRAG ~300 files,
+            # potentially 50-100 clusters) scale roughly linearly with
+            # coord prompt size.  Bumping coord 120s→180s and synth
+            # 180s→240s gives ~50% headroom over PowerMate's actuals
+            # while still failing fast on a dead endpoint.
+            coordinator_timeout_s=180.0 if is_cloud else 90.0,
+            synthesis_timeout_s=240.0 if is_cloud else 180.0,
             worker_timeout_s=180.0 if is_cloud else 300.0,
             max_wall_time_s=900.0 if is_cloud else 1800.0,
         )

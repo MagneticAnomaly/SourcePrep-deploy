@@ -1319,11 +1319,11 @@ class ClusterSynthesizer:
             coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
             worker_llm=self.llm,
             concurrency=concurrency,
-            # Cloud coordinator/synth timeouts (was 10s/120s, then
-            # 60s/180s).  See group_reasoning.py for rationale —
-            # Qwen3.6-Max coord prompts >100K tokens need 120s+.
-            coordinator_timeout_s=120.0 if is_cloud else 90.0,
-            synthesis_timeout_s=180.0 if is_cloud else 180.0,
+            # Cloud coord/synth timeouts: 10s → 60s → 120s/180s → 180s/240s.
+            # See group_reasoning.py for rationale — larger repos need
+            # ~50% more time than PowerMate's 111s coord / 169s synth.
+            coordinator_timeout_s=180.0 if is_cloud else 90.0,
+            synthesis_timeout_s=240.0 if is_cloud else 180.0,
             worker_timeout_s=180.0 if is_cloud else 300.0,
             max_wall_time_s=900.0 if is_cloud else 1800.0,
         )
