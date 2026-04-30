@@ -758,16 +758,21 @@ class PipelineScheduler:
             if now - slot._last_backoff_time > 2.0:
                 old_mode = slot.mode
 
-                # Multiplicative Decrease: Half limit, or current in-flight,
-                # but never below the per-node floor (F-28).
+                # Multiplicative Decrease: 20% cut (was 50% halving).
+                # Halving on a single 5xx from a local Ollama proxy
+                # (502/503 under bursty cloud-relay load) is far too
+                # punishing — observed 10→5 cuts that took 5+ minutes
+                # of additive_increase (1/step at 6-10s cadence) to
+                # recover from a single transient blip.  20% drops to
+                # 8/10 and recovers in ~30s, which actually matches
+                # the typical 5xx-to-success transition window.
                 #
-                # ``in_flight_requests`` is the gate-level count of currently
-                # outstanding LLM requests.  ``current_load`` is the count of
-                # active stages and is ~1 for any single-stage fan-out, so
-                # using it here collapsed the cap to the floor on every MD
-                # event regardless of actual request concurrency.
+                # Still floored at slot.min_limit (F-28) and never above
+                # in_flight_requests (so we don't keep allowing more
+                # than were actually outstanding at the failure).
                 in_flight = slot.in_flight_requests
-                new_limit = max(slot.min_limit, min(slot.current_limit // 2, in_flight))
+                soft_md = max(1, int(slot.current_limit * 0.8))
+                new_limit = max(slot.min_limit, min(soft_md, in_flight))
 
                 if slot.current_limit > new_limit:
                     logger.warning(
