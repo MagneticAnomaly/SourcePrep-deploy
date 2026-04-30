@@ -530,9 +530,10 @@ class PipelineJournal:
         Returns:
             Number of rows deleted.
         """
-        conn = self._conn
-        if conn is None:
-            raise RuntimeError("Journal not initialized")
+        conn = self._require_conn()
+
+        if groups is not None and not groups:
+            return 0
 
         with self._lock:
             if groups is None:

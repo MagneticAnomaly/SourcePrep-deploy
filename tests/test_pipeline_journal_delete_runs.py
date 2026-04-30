@@ -31,9 +31,11 @@ def _seed(j: PipelineJournal, run_id: str, project_id: str, group: str) -> None:
 
 def test_delete_runs_scoped_to_one_group(journal: PipelineJournal) -> None:
     pid = "proj-A"
+    other = "proj-Other"
     _seed(journal, "r1", pid, "fast_sync")
     _seed(journal, "r2", pid, "deep_enrichment")
     _seed(journal, "r3", pid, "finalize")
+    _seed(journal, "r4", other, "finalize")  # must NOT be deleted
 
     deleted = journal.delete_runs(pid, groups={"finalize"})
 
@@ -44,6 +46,11 @@ def test_delete_runs_scoped_to_one_group(journal: PipelineJournal) -> None:
         ).fetchall()
     ]
     assert sorted(remaining) == ["deep_enrichment", "fast_sync"]
+    # Cross-project assertion: other project's finalize row survived
+    other_rows = journal._conn.execute(
+        "SELECT run_id FROM pipeline_runs WHERE project_id = ?", (other,)
+    ).fetchall()
+    assert [r["run_id"] for r in other_rows] == ["r4"]
 
 
 def test_delete_runs_scoped_to_multiple_groups(journal: PipelineJournal) -> None:
@@ -79,3 +86,16 @@ def test_delete_runs_no_groups_means_all_for_project(journal: PipelineJournal) -
         ).fetchall()
     ]
     assert remaining_pids == [other]
+
+
+def test_delete_runs_with_empty_groups_set_is_noop(journal: PipelineJournal) -> None:
+    pid = "proj-E"
+    _seed(journal, "r1", pid, "fast_sync")
+
+    deleted = journal.delete_runs(pid, groups=set())
+
+    assert deleted == 0
+    remaining = journal._conn.execute(
+        "SELECT run_id FROM pipeline_runs WHERE project_id = ?", (pid,)
+    ).fetchall()
+    assert [r["run_id"] for r in remaining] == ["r1"]
