@@ -509,6 +509,48 @@ class PipelineJournal:
             conn.commit()
         return cur.rowcount
 
+    def delete_runs(
+        self,
+        project_id: str,
+        *,
+        groups: Optional[set[str]] = None,
+    ) -> int:
+        """Delete pipeline_runs rows for a project.
+
+        Called by scoped reset endpoints to drop journal state that would
+        otherwise drive stale "stage X completed" indicators in the dashboard
+        after a reset.
+
+        Args:
+            project_id: project to scope the delete to
+            groups: if provided, only delete runs whose group_name is in this
+                set (e.g. {"deep_enrichment", "finalize"} for Reset 6-15).
+                If None, deletes all runs for the project regardless of group.
+
+        Returns:
+            Number of rows deleted.
+        """
+        conn = self._conn
+        if conn is None:
+            raise RuntimeError("Journal not initialized")
+
+        with self._lock:
+            if groups is None:
+                cur = conn.execute(
+                    "DELETE FROM pipeline_runs WHERE project_id = ?",
+                    (project_id,),
+                )
+            else:
+                placeholders = ",".join("?" * len(groups))
+                params = (project_id, *sorted(groups))
+                cur = conn.execute(
+                    f"DELETE FROM pipeline_runs "
+                    f"WHERE project_id = ? AND group_name IN ({placeholders})",
+                    params,
+                )
+            conn.commit()
+            return cur.rowcount or 0
+
     # ── Heartbeat Thread ─────────────────────────────────────────
 
     def _start_heartbeat(self, run_id: str) -> None:
