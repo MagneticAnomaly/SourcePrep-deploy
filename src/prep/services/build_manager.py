@@ -217,7 +217,7 @@ class BuildManager:
         idx_dir = project_index_dir(project)
         if idx is None or Path(idx.index_dir).resolve() != Path(idx_dir).resolve():
             embedder = self.create_embedder()
-            idx = KnowledgeIndex(idx_dir, embedder)
+            idx = KnowledgeIndex(idx_dir, embedder, project_id=project.id)
             self.project_knowledge_indexes[project.id] = idx
         return idx
 

@@ -252,7 +252,7 @@ class HeadlessWorkerFactory:
         from prep.core.knowledge import KnowledgeIndex
 
         embedder = headless_create_embedder(self.config)
-        idx = KnowledgeIndex(self.index_dir, embedder)
+        idx = KnowledgeIndex(self.index_dir, embedder, project_id="")
         result = idx.build(progress_callback=progress_cb)
         return {"stage": "knowledge", **(result or {})}
 
