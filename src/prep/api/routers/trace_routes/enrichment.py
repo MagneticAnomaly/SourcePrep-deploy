@@ -543,7 +543,7 @@ def modules_run_project(project_id: str) -> Dict[str, Any]:
     idx_dir = project_index_dir(proj)
     from prep.core import ClusterSynthesizer
 
-    synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir)
+    synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir, project_id=project_id)
 
     bus = get_event_bus()
     pm = get_progress_manager()

@@ -285,6 +285,7 @@ class HeadlessWorkerFactory:
             llm=llm,
             index_dir=self.index_dir,
             batch_profile=batch_profile,
+            project_id="",
         )
         result = synthesizer.run(progress_callback=progress_cb)
         return {"stage": "clustering", **(result or {})}

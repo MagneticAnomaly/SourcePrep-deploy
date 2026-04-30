@@ -32,6 +32,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from prep.core.context_config import PipelineTask, compute_optimal_settings
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
+from prep.services.pipeline.recovery import is_reuse_blocked
 from prep.services.pipeline.thread_pool import llm_pool
 from prep.services.pipeline.workers import WorkerFactory
 
@@ -951,11 +952,13 @@ class ClusterSynthesizer:
         llm: LLMClient,
         index_dir: Path,
         batch_profile: Optional[Any] = None,
+        project_id: str = "",
     ):
         self.llm = llm
         self.index_dir = index_dir
         self._batch_profile = batch_profile
         self.modules_path = index_dir / "trace_modules.jsonl"
+        self.project_id = project_id
 
     def _get_swarm_enabled(self) -> bool:
         """Check if swarm is enabled in pipeline settings."""
@@ -996,8 +999,20 @@ class ClusterSynthesizer:
         return edges
 
     def load_existing_modules(self) -> Dict[str, ModuleEntry]:
-        """Load existing module entries."""
+        """Load existing module entries.
+
+        Returns an empty dict if a reset barrier is active for this project
+        and its scope blocks deep_enrichment reuse — reset semantics require
+        clustering to treat all prior data as nonexistent.
+        """
         entries: Dict[str, ModuleEntry] = {}
+        if self.project_id and is_reuse_blocked(self.project_id, stage_group="deep_enrichment"):
+            logger.info(
+                "Cluster reuse blocked by reset barrier for project %s — "
+                "treating prior trace_modules.jsonl as empty",
+                self.project_id,
+            )
+            return entries
         if self.modules_path.exists():
             with open(self.modules_path, "r", encoding="utf-8") as f:
                 for line in f:
