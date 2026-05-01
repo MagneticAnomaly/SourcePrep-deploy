@@ -60,7 +60,7 @@ def _resolve_idx_dir(project_id: str) -> Path | None:
 _CLEAN_SHUTDOWN_FILENAME = ".pipeline_clean_shutdown"
 _RESET_BARRIER_FILENAME = ".reset_barrier"
 _USER_PAUSE_FILENAME_TEMPLATE = ".pipeline_user_pause_{group}.json"
-_VALID_BARRIER_SCOPES = ("sync", "enrichment", "all")
+_VALID_BARRIER_SCOPES = ("sync", "enrichment", "finalize", "all")
 
 
 def write_reset_barrier(
@@ -70,9 +70,10 @@ def write_reset_barrier(
 ) -> bool:
     """Write a barrier that disables selfheal until the scope's group finishes.
 
-    Phase 117: ``scope`` names which group the rebuild is forcing from start.
+    ``scope`` names which group the rebuild/reset is forcing from start.
     - ``sync``: rebuild fast_sync (stages 1-5); barrier auto-clears when stage 5 finishes.
     - ``enrichment``: rebuild deep_enrichment (stages 6-10); barrier auto-clears when stage 10 finishes.
+    - ``finalize``: reset finalize (stages 11-15); barrier auto-clears when stage 15 finishes.
     - ``all``: rebuild the full chain; barrier auto-clears when finalize (stage 15) finishes.
 
     The file is a 3-line text format for forward/backward compat:
@@ -170,8 +171,43 @@ def read_reset_barrier(project_id: str) -> dict | None:
 _SCOPE_BOUNDARY = {
     "sync": "fast_sync",
     "enrichment": "deep_enrichment",
+    "finalize": "finalize",
     "all": "finalize",
 }
+
+# Subsumption: a barrier scope blocks reuse for the caller's group
+# when the caller's group is in this set.
+_SCOPE_BLOCKS: dict[str, frozenset[str]] = {
+    "sync":       frozenset({"fast_sync"}),
+    "enrichment": frozenset({"deep_enrichment", "finalize"}),
+    "finalize":   frozenset({"finalize"}),
+    "all":        frozenset({"fast_sync", "deep_enrichment", "finalize"}),
+}
+
+
+def is_reuse_blocked(project_id: str, *, stage_group: str) -> bool:
+    """Return True if a reset barrier is active and its scope blocks
+    incremental-reuse reads for the caller's stage_group.
+
+    Stage-internal reuse paths (cluster fingerprint match, deepening
+    drift cache, group_reasoning fingerprint reuse, knowledge incremental
+    embed) call this before reading prior outputs. If True, the stage
+    must treat existing artifacts as if they don't exist and process
+    everything fresh.
+
+    Args:
+        project_id: the project being processed
+        stage_group: one of "fast_sync", "deep_enrichment", "finalize"
+
+    Returns:
+        True if reuse is blocked, False if reuse is permitted.
+    """
+    info = read_reset_barrier(project_id)
+    if info is None:
+        return False
+    scope = info.get("scope") or "all"  # legacy barriers default to "all"
+    blocks = _SCOPE_BLOCKS.get(scope, frozenset())
+    return stage_group in blocks
 
 
 def maybe_clear_scoped_barrier(project_id: str, completed_group: str) -> bool:

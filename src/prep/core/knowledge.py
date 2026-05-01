@@ -26,6 +26,7 @@ import numpy as np
 from prep.core.embedder import Embedder
 from prep.core.index import ManifestBuildStats, build_manifest, write_manifest
 from prep.core.project_registry import project_index_dir
+from prep.services.pipeline.recovery import is_reuse_blocked
 
 logger = logging.getLogger(__name__)
 
@@ -39,9 +40,10 @@ class KnowledgeIndex:
     - knowledge_manifest.json: Metadata
     """
     
-    def __init__(self, index_dir: Path, embedder: Embedder):
+    def __init__(self, index_dir: Path, embedder: Embedder, project_id: str = ""):
         self.index_dir = Path(index_dir)
         self.embedder = embedder
+        self.project_id = project_id
         
         self.docs_path = self.index_dir / "knowledge_documents.json"
         self.emb_path = self.index_dir / "knowledge_embeddings.npy"
@@ -52,6 +54,17 @@ class KnowledgeIndex:
         self._manifest: Dict[str, Any] = {}
         
         self._load()
+
+    def invalidate(self) -> None:
+        """Drop in-memory state. The next read forces a fresh _load() from disk.
+
+        Called by scoped reset endpoints so post-reset reads do not see
+        stale chunks from prior runs. Disk files are wiped by the reset's
+        file-deletion pass, not by this method.
+        """
+        self._documents = None
+        self._embeddings = None
+        self._manifest = {}
 
     def _embedder_model(self) -> str:
         return str(
@@ -197,8 +210,19 @@ class KnowledgeIndex:
     def _load_previous_for_reuse(self) -> Dict[str, tuple]:
         """Load previous index and build a reuse map: doc_id → (content_hash, embedding_vector).
 
-        Returns empty dict if no previous index exists or model changed.
+        Returns empty dict if:
+        - no previous index exists,
+        - the embedding model has changed, or
+        - a reset barrier is active for this project (treat as no prior data
+          so build() falls into the full-embed path).
         """
+        if self.project_id and is_reuse_blocked(self.project_id, stage_group="deep_enrichment"):
+            logger.info(
+                "Knowledge incremental reuse blocked by reset barrier for project %s — "
+                "every doc will be re-embedded",
+                self.project_id,
+            )
+            return {}
         # Extract previous model from manifest, handling both formats:
         # - v1 (KnowledgeIndex): {"model": "native:nomic-embed-text-v1.5", ...}
         # - v2 (StageManifest):  {"model": {"provider": "...", "model_name": "..."}, ...}

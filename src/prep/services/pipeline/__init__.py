@@ -18,6 +18,10 @@ from .stages import (
     STAGE_MODEL_SLOT,
     QueueType,
     STAGE_QUEUE_TYPE,
+    OutputSpec,
+    STAGE_OUTPUTS,
+    PROJECT_META_ALLOWLIST,
+    build_keep_set,
 )
 from .scheduler import PipelineScheduler, pipeline_scheduler
 from .workers import (
@@ -54,6 +58,10 @@ __all__ = [
     "STAGE_MODEL_SLOT",
     "QueueType",
     "STAGE_QUEUE_TYPE",
+    "OutputSpec",
+    "STAGE_OUTPUTS",
+    "PROJECT_META_ALLOWLIST",
+    "build_keep_set",
     "PipelineScheduler",
     "pipeline_scheduler",
     "PipelineRunPhase",

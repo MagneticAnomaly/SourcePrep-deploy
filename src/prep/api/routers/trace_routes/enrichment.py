@@ -11,10 +11,17 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse
 
 from prep.api.envelope import ApiException, ok
+
+# Both substrings must be present to identify an "object not yet initialized" RuntimeError
+# (e.g. "X not initialized. Call X.init() first").  Requiring *both* prevents accidentally
+# swallowing unrelated RuntimeErrors that happen to contain only one of the markers.
+_NOT_INIT_MARKERS = ("not initialized", "Call ")
 from prep.core.events import get_event_bus, get_progress_manager
 from prep.core.project_registry import project_index_dir
+from prep.services.pipeline import build_keep_set
 
 from .shared import (
     _deep_analysis_state,
@@ -543,7 +550,7 @@ def modules_run_project(project_id: str) -> Dict[str, Any]:
     idx_dir = project_index_dir(proj)
     from prep.core import ClusterSynthesizer
 
-    synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir)
+    synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir, project_id=project_id)
 
     bus = get_event_bus()
     pm = get_progress_manager()
@@ -677,6 +684,7 @@ def deepening_run_project(project_id: str, req: DeepeningRunRequest) -> Dict[str
         index_dir=idx_dir,
         max_iterations=req.max_iterations or 10,
         batch_size=req.batch_size or 20,
+        project_id=project_id,
     )
 
     bus = get_event_bus()
@@ -945,27 +953,11 @@ def deep_enrichment_destroy(project_id: str) -> Dict[str, Any]:
 # Same safety level as index/destroy (watcher stop, SQLite cleanup,
 # reset barrier) but leave fast-sync (stages 1-5) untouched so the
 # next pipeline run picks up from the beginning of the reset group.
-
-FINALIZE_FILES = [
-    # Atlas (stage 11)
-    "atlas.json",
-    "atlas_prev.json",
-    "atlas_manifest.json",
-    "atlas_segments_manifest.json",
-    "atlas_routing.json",
-    "atlas_routing_embeddings.npy",
-    "atlas_updated.signal",
-    # Rules / Concepts / Audit / Antibodies (stages 12-15)
-    "rules_manifest.json",
-    "concepts_manifest.json",
-    "audit_manifest.json",
-    "antibodies_manifest.json",
-    # Shared pipeline run metadata — rewrite on next run
-    "pipeline_run_metadata.json",
-]
-
-FINALIZE_DIRS = ["atlas_roles", "atlas_segments", "audit"]
-
+#
+# FINALIZE_FILES / FINALIZE_DIRS / ENRICHMENT_FULL_FILES / ENRICHMENT_FULL_DIRS
+# were removed in Phase 120: enrichment_full_reset and finalize_full_reset now
+# use build_keep_set(scope) + an allowlist wipe instead of explicit file lists.
+# See _scoped_full_reset below.
 
 # CodeIndex (Knowledge Scope) — the RAG embedding database for verbatim source.
 # These four canonical files are the on-disk footprint of
@@ -991,29 +983,28 @@ CODE_INDEX_FILES = [
 CODE_INDEX_DIRS = ["local_deltas", "remote"]
 
 
-# Reset Enrichment wipes deep_enrichment + finalize together, because
-# finalize outputs are derived from enrichment outputs — leaving them
-# behind would surface stale atlas/concepts data.
-ENRICHMENT_FULL_FILES = list(set(DEEP_ENRICHMENT_FILES + FINALIZE_FILES))
-ENRICHMENT_FULL_DIRS = list(set(DEEP_ENRICHMENT_DIRS + FINALIZE_DIRS))
-
-
 def _scoped_full_reset(
     project_id: str,
     *,
     label: str,
-    file_list: list[str],
-    dir_list: list[str],
-    clear_antibodies: bool,
-    clear_concepts: bool,
+    scope: str,
     barrier_reason: str,
+    journal_groups: set[str],
+    knowledge_invalidate_scope: str,
 ) -> Dict[str, Any]:
-    """Scoped counterpart to index_destroy_project.
+    """Scoped clean-slate reset.
 
-    Same safety level (orchestrator state clear, reset barrier write) but
-    scoped to the files / dirs / SQLite stores owned by the reset group.
-    Never wipes observation_store — those are user-authored cross-session
-    notes unrelated to any pipeline stage.
+    Wipes everything in the project index dir except the allowlist for the
+    given scope (stages 1-5 outputs for "enrichment", 1-10 for "finalize"),
+    plus PROJECT_META. Cleans associated SQLite stores, in-memory caches,
+    and the pipeline journal. Writes a reset barrier so selfheal cannot
+    resurrect cleared data and stage-internal reuse paths skip prior outputs.
+
+    Cleanup failures (store wipes, journal delete, KnowledgeIndex invalidate)
+    are FATAL — the endpoint returns 500 with detail and the barrier remains
+    so partial state can't be misinterpreted as clean. Per-file unlink errors
+    during the disk wipe are collected; if any occur, the response is
+    returned with HTTP 207 Multi-Status.
     """
     import shutil
 
@@ -1023,12 +1014,12 @@ def _scoped_full_reset(
     )
     proj = _require_project_writable(project_id)
 
+    # ── 1. PRE-FLIGHT ──────────────────────────────────────────────
     if _is_project_trace_building(project_id):
         raise ApiException(
             status_code=409, code="PIPELINE_RUNNING",
             message=f"Cannot reset {label} while pipeline is running",
         )
-
     for state_map, state_label in [
         (_deep_analysis_state, "deep analysis"),
         (_epistemic_state, "epistemic enrichment"),
@@ -1043,37 +1034,125 @@ def _scoped_full_reset(
             )
 
     idx_dir = project_index_dir(proj)
-    backup_path = _backup_files_if_debug(idx_dir, file_list, barrier_reason)
 
+    # ── 2. WRITE BARRIER FIRST (atomicity primitive) ───────────────
+    from prep.services.pipeline.recovery import write_reset_barrier
+    if not write_reset_barrier(project_id, reason=barrier_reason, scope=scope):
+        raise ApiException(
+            status_code=500, code="BARRIER_WRITE_FAILED",
+            message="Could not write reset barrier — refusing to proceed",
+        )
+
+    # ── 3. STOP IN-FLIGHT WORK ─────────────────────────────────────
+    try:
+        from prep.services.pipeline_orchestrator import pipeline_orchestrator
+        pipeline_orchestrator.clear_project(project_id)
+    except Exception as e:
+        logger.warning(
+            "orchestrator.clear_project failed (continuing): %s", e, exc_info=True,
+        )
+    _project_trace_indexes.pop(project_id, None)
+
+    # ── 4. DEBUG BACKUP (best-effort) ──────────────────────────────
+    keep_set = build_keep_set(scope)
     deleted: list[str] = []
     errors: list[str] = []
+    backup_path: Optional[str] = None
+    try:
+        delete_targets = []
+        if idx_dir.is_dir():
+            delete_targets = [
+                p.name for p in idx_dir.iterdir()
+                if p.is_file() and p.name not in keep_set and p.name != ".reset_barrier"
+            ]
+        backup_path = _backup_files_if_debug(idx_dir, delete_targets, barrier_reason)
+    except Exception as e:
+        logger.warning(
+            "Debug backup failed (continuing without backup): %s", e, exc_info=True,
+        )
 
-    for fname in file_list:
-        fp = idx_dir / fname
-        if fp.exists():
+    # ── 5. WIPE DISK (allowlist) ───────────────────────────────────
+    if idx_dir.is_dir():
+        for entry in idx_dir.iterdir():
+            if entry.name in keep_set:
+                continue
+            if entry.name == ".reset_barrier":
+                continue  # don't wipe the barrier we just wrote
+            if entry.name == ".checkpoints":
+                continue  # handled separately at the end
             try:
-                fp.unlink()
-                deleted.append(fname)
+                if entry.is_dir():
+                    shutil.rmtree(entry)
+                    deleted.append(entry.name + "/")
+                else:
+                    entry.unlink()
+                    deleted.append(entry.name)
             except Exception as e:
-                errors.append(f"{fname}: {e}")
+                errors.append(f"{entry.name}: {e}")
 
-    for dirname in dir_list:
-        dp = idx_dir / dirname
-        if dp.is_dir():
-            try:
-                shutil.rmtree(dp)
-                deleted.append(f"{dirname}/")
-            except Exception as e:
-                errors.append(f"{dirname}/: {e}")
+    # ── 6. WIPE STORES (FATAL on failure) ──────────────────────────
+    # An uninitialized store means no data to clear — treat as no-op, not
+    # fatal. Fatal = store is initialized but the clear operation fails (DB
+    # corruption, lock contention, etc.).
+    cleanup_errors: dict[str, str] = {}
 
-    # Wipe recovery checkpoints. _golden contains a snapshot of the
-    # previous successful deep_enrichment state (atlas/concepts/etc
-    # included), which survives a scoped reset by default. Barrier
-    # blocks selfheal while active, but barrier clears on finalize
-    # completion — and _golden is only refreshed at deep_enrichment
-    # completion. For Reset Finalize that leaves stale finalize-era
-    # data in _golden forever, which could be resurrected by selfheal
-    # after a mid-run crash once the barrier clears.
+    try:
+        from prep.services.pipeline_journal import journal
+        journal.delete_runs(project_id, groups=journal_groups)
+    except RuntimeError as e:
+        if all(m in str(e) for m in _NOT_INIT_MARKERS):
+            logger.debug("pipeline_journal not initialized, skipping delete_runs")
+        else:
+            cleanup_errors["pipeline_journal"] = repr(e)
+            logger.error("journal.delete_runs failed", exc_info=True)
+    except Exception as e:
+        cleanup_errors["pipeline_journal"] = repr(e)
+        logger.error("journal.delete_runs failed", exc_info=True)
+
+    try:
+        from prep.services.concept_store import concept_store
+        concept_store.clear_project(project_id)
+    except RuntimeError as e:
+        if all(m in str(e) for m in _NOT_INIT_MARKERS):
+            logger.debug("concept_store not initialized, skipping clear_project")
+        else:
+            cleanup_errors["concept_store"] = repr(e)
+            logger.error("concept_store.clear_project failed", exc_info=True)
+    except Exception as e:
+        cleanup_errors["concept_store"] = repr(e)
+        logger.error("concept_store.clear_project failed", exc_info=True)
+
+    try:
+        from prep.services.antibody_store import antibody_store
+        antibody_store.clear_project(project_id)
+    except RuntimeError as e:
+        if all(m in str(e) for m in _NOT_INIT_MARKERS):
+            logger.debug("antibody_store not initialized, skipping clear_project")
+        else:
+            cleanup_errors["antibody_store"] = repr(e)
+            logger.error("antibody_store.clear_project failed", exc_info=True)
+    except Exception as e:
+        cleanup_errors["antibody_store"] = repr(e)
+        logger.error("antibody_store.clear_project failed", exc_info=True)
+
+    if knowledge_invalidate_scope == "enrichment":
+        try:
+            from prep.core import KnowledgeIndex
+            from prep.services.embedder_factory import create_embedder
+            ki = KnowledgeIndex(idx_dir, create_embedder(), project_id=project_id)
+            ki.invalidate()
+        except Exception as e:
+            cleanup_errors["knowledge_index"] = repr(e)
+            logger.error("KnowledgeIndex.invalidate failed", exc_info=True)
+
+    if cleanup_errors:
+        raise ApiException(
+            status_code=500, code="RESET_CLEANUP_FAILED",
+            message="Reset cleanup failed; barrier remains active. Retry the reset.",
+            details={"errors": cleanup_errors, "deleted_count": len(deleted)},
+        )
+
+    # ── 7. WIPE CHECKPOINTS ────────────────────────────────────────
     cp_dir = idx_dir / ".checkpoints"
     if cp_dir.is_dir():
         try:
@@ -1082,97 +1161,55 @@ def _scoped_full_reset(
         except Exception as e:
             errors.append(f".checkpoints/: {e}")
 
-    # Clear orchestrator state for the affected groups. This does NOT
-    # stop the watcher — fast_sync is still valid and should keep running
-    # on file changes.
-    try:
-        from prep.services.pipeline_orchestrator import pipeline_orchestrator
-        pipeline_orchestrator.clear_project(project_id)
-    except Exception:
-        logger.debug("orchestrator.clear_project failed (non-fatal)", exc_info=True)
-
-    # Clear antibody store — fully derived from the antibodies stage, so
-    # the reset must wipe it or the UI shows stale "N antibodies" after
-    # the manifest is gone.
-    if clear_antibodies:
-        try:
-            from prep.services.antibody_store import antibody_store
-            antibody_store.clear_project(project_id)
-        except Exception:
-            logger.debug("antibody_store.clear_project failed (non-fatal)", exc_info=True)
-
-    # Clear concept store — "Reset" means clean slate. Concepts have no
-    # source field so we can't distinguish pipeline-generated from
-    # user-authored; the Reset confirmation dialog warns about this and
-    # users who care about hand-authored concepts should export them
-    # before resetting.
-    if clear_concepts:
-        try:
-            from prep.services.concept_store import concept_store
-            concept_store.clear_project(project_id)
-        except Exception:
-            logger.debug("concept_store.clear_project failed (non-fatal)", exc_info=True)
-
-    # In-memory trace index is still valid (fast_sync data) but the
-    # atlas/enrichment slices inside it are stale — drop it so the next
-    # load pulls from disk.
-    _project_trace_indexes.pop(project_id, None)
-
-    # Reset barrier: selfheal cannot resurrect from orphan output or
-    # backup sources until finalize re-runs end-to-end.
-    try:
-        from prep.services.pipeline.recovery import write_reset_barrier
-        write_reset_barrier(project_id, reason=barrier_reason)
-    except Exception:
-        logger.debug("Reset barrier write failed (non-fatal)", exc_info=True)
-
     logger.info(
-        "Scoped reset (%s) for %s: deleted %d items, %d errors",
+        "Scoped reset (%s) complete for %s: deleted=%d, errors=%d, barrier=active",
         label, project_id, len(deleted), len(errors),
     )
+
     result: Dict[str, Any] = {"deleted": deleted, "errors": errors}
     if backup_path:
         result["backup"] = backup_path
+    if errors:
+        return JSONResponse(content=ok(result), status_code=207)
     return ok(result)
 
 
 @router.delete("/projects/{project_id}/enrichment/full-reset")
 def enrichment_full_reset(project_id: str) -> Dict[str, Any]:
-    """Danger-Zone reset for stages 6-15 (enrichment + finalize).
+    """Clean-slate reset for stages 6-15 (enrichment + finalize).
 
-    Wipes every artifact produced by deep enrichment and finalize,
-    clears derived antibody data, and writes a reset barrier so selfheal
-    cannot resurrect the cleared stages until the next finalize completes.
-    Fast sync (stages 1-5) is left intact — the next pipeline run picks
-    up at the start of enrichment with fresh data.
+    Wipes every artifact produced by deep enrichment and finalize from disk
+    AND from concept/antibody/journal stores AND from in-memory caches. Writes
+    a reset barrier (scope='enrichment') so selfheal and stage-internal reuse
+    paths cannot resurrect or reuse pre-reset data until the next finalize
+    completes legitimately. Stages 1-5 (fast sync) outputs are preserved.
     """
     return _scoped_full_reset(
         project_id,
         label="enrichment + finalize",
-        file_list=ENRICHMENT_FULL_FILES,
-        dir_list=ENRICHMENT_FULL_DIRS,
-        clear_antibodies=True,
-        clear_concepts=True,
+        scope="enrichment",
         barrier_reason="enrichment_reset",
+        journal_groups={"deep_enrichment", "finalize"},
+        knowledge_invalidate_scope="enrichment",
     )
 
 
 @router.delete("/projects/{project_id}/finalize/full-reset")
 def finalize_full_reset(project_id: str) -> Dict[str, Any]:
-    """Danger-Zone reset for stages 11-15 (finalize only).
+    """Clean-slate reset for stages 11-15 (finalize only).
 
-    Wipes atlas, rules, concepts, audit, antibodies artifacts and clears
-    derived antibody data. Fast sync + deep enrichment outputs are left
-    intact — the next pipeline run re-derives finalize from them.
+    Wipes atlas / rules / concepts / audit / antibodies artifacts from disk,
+    clears the concept and antibody stores, deletes finalize-group rows from
+    the pipeline journal, and writes a reset barrier (scope='finalize'). Fast
+    sync (1-5) and deep enrichment (6-10) outputs are preserved.
     """
     return _scoped_full_reset(
         project_id,
         label="finalize",
-        file_list=FINALIZE_FILES,
-        dir_list=FINALIZE_DIRS,
-        clear_antibodies=True,
-        clear_concepts=True,
+        scope="finalize",
         barrier_reason="finalize_reset",
+        journal_groups={"finalize"},
+        knowledge_invalidate_scope="finalize",
     )
 
 

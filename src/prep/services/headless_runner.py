@@ -252,7 +252,7 @@ class HeadlessWorkerFactory:
         from prep.core.knowledge import KnowledgeIndex
 
         embedder = headless_create_embedder(self.config)
-        idx = KnowledgeIndex(self.index_dir, embedder)
+        idx = KnowledgeIndex(self.index_dir, embedder, project_id="")
         result = idx.build(progress_callback=progress_cb)
         return {"stage": "knowledge", **(result or {})}
 
@@ -285,6 +285,7 @@ class HeadlessWorkerFactory:
             llm=llm,
             index_dir=self.index_dir,
             batch_profile=batch_profile,
+            project_id="",
         )
         result = synthesizer.run(progress_callback=progress_cb)
         return {"stage": "clustering", **(result or {})}
@@ -336,6 +337,7 @@ class HeadlessWorkerFactory:
             index_dir=self.index_dir,
             max_iterations=10,
             batch_size=20,
+            project_id="",
         )
         result = loop.run(progress_callback=progress_cb)
         return {
@@ -350,7 +352,7 @@ class HeadlessWorkerFactory:
         from prep.core import GroupReasoningEngine
 
         llm = self._get_llm()
-        engine = GroupReasoningEngine(llm=llm, index_dir=self.index_dir)
+        engine = GroupReasoningEngine(llm=llm, index_dir=self.index_dir, project_id="")
         result = engine.run(progress_callback=progress_cb)
         return {"stage": "group_reasoning", **(result or {})}
 

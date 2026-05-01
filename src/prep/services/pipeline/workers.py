@@ -692,7 +692,7 @@ class WorkerFactory:
             _t0 = time.time()
             logger.info("[%s/Group Reasoning] Starting: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Group Reasoning", progress_cb, project.name)
-            engine = GroupReasoningEngine(llm=llm_client, index_dir=idx_dir)
+            engine = GroupReasoningEngine(llm=llm_client, index_dir=idx_dir, project_id=project_id)
             result = engine.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             analyzed = result.get("analyzed", 0)
             failed = result.get("failed", 0)
@@ -738,7 +738,12 @@ class WorkerFactory:
             _t0 = time.time()
             logger.info("[%s/Module Synthesis] Starting: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Module Synthesis", progress_cb, project.name)
-            synthesizer = ClusterSynthesizer(llm=llm_client, index_dir=idx_dir, batch_profile=batch_profile)
+            synthesizer = ClusterSynthesizer(
+                llm=llm_client,
+                index_dir=idx_dir,
+                batch_profile=batch_profile,
+                project_id=project_id,
+            )
             result = synthesizer.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             
             synthesized = result.get("synthesized", 0)
@@ -875,6 +880,7 @@ class WorkerFactory:
                 index_dir=idx_dir,
                 max_iterations=10,
                 batch_size=20,
+                project_id=project_id,
             )
             result = loop.run(progress_callback=log_cb)
             logger.info(
