@@ -732,23 +732,27 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                 rt["scheduler_capacity"] = _scheduler_max
                 rt["compute_node"] = node_id
 
-                # Phase 119 Swarm Authority: the "Swarming" badge is now
-                # tied to runtime evidence, not static capability.  We
-                # require:
-                #   (a) the scheduler has an open swarm window
-                #   (b) that window matches this task's project + stage
-                # The earlier ``live_workers >= 2`` gate was wrong —
-                # the coord and synth phases of a real swarm are
-                # intrinsically 1-worker-in-flight by design, so the
-                # gate flipped is_swarm/swarm_phases off on every
-                # phase transition (10× → 1× → 10× → 1×).  The UI then
-                # lost sight of the swarm during coord and synth,
-                # rendering them as bare "Thinking 1×" instead of
-                # "Coordinator 1×" with the dedicated row lit.  The
-                # swarm window is the right authority — when the
-                # orchestrator opened it, we ARE in a swarm regardless
-                # of how many workers happen to be in flight at this
-                # poll instant.
+                # Phase 119+ Swarm Authority: the "Swarming" badge is
+                # tied to runtime evidence in two complementary ways:
+                #   (a) the scheduler has an open swarm window matching
+                #       this task — bureaucratic but cleanest signal
+                #   (b) live LLM calls tagged with swarm_role
+                #       (coordinator / worker / synthesizer) — the
+                #       SwarmOrchestrator stamps these via ContextVar
+                #       during its phase blocks.  THIS is the
+                #       runtime truth.
+                #
+                # The window-only signal misses cases where the
+                # scheduler's 45s cooldown blocks a new window from
+                # opening between back-to-back swarm stages — atlas
+                # closes its window, concepts immediately tries to
+                # open one, gets blocked by cooldown, but
+                # SwarmOrchestrator runs all three phases anyway.
+                # Without (b) the badge stays off for the entire
+                # cooldown-affected stage even though it's genuinely
+                # swarming.  The earlier ``live_workers >= 2`` gate
+                # was also wrong because coord/synth phases are
+                # intrinsically 1-worker-in-flight.
                 rt["is_swarm"] = False
                 rt["swarm_phases"] = None
                 stage = rt.get("stage", "")
@@ -758,7 +762,13 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                     and window.get("project_id") == rt["project_id"]
                     and _stage_value(window.get("stage")) == stage
                 )
-                if window_matches:
+                active_reqs = _tel.get_active_requests()
+                role_tagged = sum(
+                    1 for r in active_reqs
+                    if r.get("project_id") == rt["project_id"]
+                    and r.get("swarm_role")
+                )
+                if window_matches or role_tagged > 0:
                     rt["is_swarm"] = True
                     # _summarize_swarm_phases always returns a
                     # three-bucket dict; idle phases just show
@@ -766,7 +776,7 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                     # Coordinator row stay visible at "[idle]"
                     # instead of vanishing during the synth phase.
                     rt["swarm_phases"] = _summarize_swarm_phases(
-                        _tel.get_active_requests(),
+                        active_reqs,
                         project_id=rt["project_id"],
                         task_id=rt.get("task_id", ""),
                     )
