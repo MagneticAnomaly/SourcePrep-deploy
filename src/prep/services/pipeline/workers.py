@@ -125,7 +125,9 @@ class WorkerFactory:
         elif stage == StageId.VALIDATION:
             base_worker = WorkerFactory._validate_worker(project_id)
         elif stage in (StageId.KNOWLEDGE, StageId.DEEP_KNOWLEDGE):
-            base_worker = WorkerFactory._knowledge_worker(project_id)
+            base_worker = WorkerFactory._knowledge_worker(
+                project_id, is_deep=(stage == StageId.DEEP_KNOWLEDGE),
+            )
         elif stage == StageId.ENRICHMENT:
             base_worker = WorkerFactory._epistemic_worker(project_id)
         elif stage == StageId.GROUP_REASONING:
@@ -516,19 +518,63 @@ class WorkerFactory:
         return worker
 
     @staticmethod
-    def _knowledge_worker(project_id: str):
+    def _knowledge_worker(project_id: str, is_deep: bool = False):
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
             from prep.services.build_manager import build_manager
 
             project, *_ = WorkerFactory._get_project_and_config(project_id)
             _t0 = time.time()
-            logger.info("[%s/Knowledge Embedding] Starting", project.name)
-            log_cb = WorkerFactory._logged_progress("Knowledge Embedding", progress_cb, project.name)
+            stage_label = "Deep Knowledge Embedding" if is_deep else "Knowledge Embedding"
+            logger.info("[%s/%s] Starting", project.name, stage_label)
+            log_cb = WorkerFactory._logged_progress(stage_label, progress_cb, project.name)
+
+            # KnowledgeIndex.build reports `baseline = docs_reused` — chunks
+            # whose content hash matched the cached embedding. For stage 5
+            # (KNOWLEDGE) this correctly means "previously done by this
+            # stage." For stage 10 (DEEP_KNOWLEDGE), the cached embeddings
+            # file was populated by stage 5, so docs_reused includes
+            # upstream-inherited chunks too. Surfacing that as `baseline`
+            # makes the dashboard render a two-tone "incremental" bar even
+            # on a fresh post-reset deep run, which contradicts the user's
+            # mental model that every stage looks like a fresh build until
+            # there's prior work BY THE SAME STAGE to preserve.
+            #
+            # We rewrite the baseline before it leaves the worker: read
+            # `deep_knowledge_manifest.json` (written only at successful
+            # completion of a prior deep_knowledge run) and clamp the
+            # callback's baseline to that recorded count. After a reset
+            # (manifest deleted) → baseline=0, single-tone bar. After a
+            # successful prior deep run → baseline=prior_count, two-tone
+            # bar that legitimately reflects this stage's prior work.
+            cb_to_use = log_cb
+            if is_deep:
+                from pathlib import Path
+                from prep.core.project_registry import project_index_dir
+                manifest_path = Path(project_index_dir(project)) / "deep_knowledge_manifest.json"
+                prior_deep_chunks = 0
+                if manifest_path.exists():
+                    try:
+                        import json as _json
+                        data = _json.loads(manifest_path.read_text(encoding="utf-8"))
+                        prior_deep_chunks = int(
+                            (data.get("quality") or {}).get("total_items") or 0
+                        )
+                    except Exception:
+                        prior_deep_chunks = 0
+
+                def deep_cb(message, current, total, baseline=0):
+                    # Clamp baseline to prior deep work only. KnowledgeIndex's
+                    # docs_reused count includes fast-stage inheritance, which
+                    # we explicitly do NOT want surfaced as this-stage baseline.
+                    effective = min(int(baseline), prior_deep_chunks) if prior_deep_chunks > 0 else 0
+                    log_cb(message, current, total, effective)
+                cb_to_use = deep_cb
+
             idx = build_manager.get_project_knowledge_index(project)
-            result = idx.build(progress_callback=log_cb)
-            logger.info("[%s/Knowledge Embedding] Complete", project.name)
+            result = idx.build(progress_callback=cb_to_use)
+            logger.info("[%s/%s] Complete", project.name, stage_label)
             return {
-                "stage": "knowledge",
+                "stage": "deep_knowledge" if is_deep else "knowledge",
                 **(result or {}),
                 "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
             }
@@ -933,6 +979,18 @@ class WorkerFactory:
             log_cb = WorkerFactory._logged_progress("Concepts", progress_cb, "")
             _t0 = time.time()
 
+            # Capture the model BEFORE running so the manifest records it
+            # regardless of whether seed_concepts ends up calling the LLM
+            # path or the template path. Without this, the dashboard
+            # rendered "built-in" for the Concepts stage even though the
+            # task is configured to use the Thinking model.
+            llm_client = None
+            try:
+                llm_client = WorkerFactory._get_llm_client_for_task("concepts")
+            except RuntimeError:
+                pass
+            model_info = _capture_model_info(llm_client) if llm_client else {}
+
             stats = concept_store.get_stats(project_id)
             if stats["total"] > 0:
                 log_cb(
@@ -943,6 +1001,7 @@ class WorkerFactory:
                     "stage": "concepts",
                     "skipped": True,
                     "existing_count": stats["total"],
+                    "_model_info": model_info,
                     "_stage_timing": {
                         "started_at": _t0,
                         "elapsed": time.time() - _t0,
@@ -950,7 +1009,12 @@ class WorkerFactory:
                 }
 
             log_cb("Seeding concepts from pipeline data", 0, 1)
-            result = seed_concepts(project_id)
+            # Plumb log_cb through to seed_concepts so the dashboard's
+            # Concept Seeding progress bar fills as each per-module
+            # worker completes, instead of binary 0% → 100%.
+            def _seed_progress(message: str, current: int, total: int) -> None:
+                log_cb(message, current, total)
+            result = seed_concepts(project_id, progress_callback=_seed_progress)
             concepts_created = result.get("concepts_created", 0)
             questions_created = result.get("questions_created", 0)
             log_cb(
@@ -958,21 +1022,13 @@ class WorkerFactory:
                 1, 1,
             )
 
-            llm_client = None
-            try:
-                llm_client = WorkerFactory._get_llm_client_for_task("concepts")
-            except RuntimeError:
-                pass
-
             return {
                 "stage": "concepts",
                 "skipped": False,
                 "status": result.get("status"),
                 "concepts_created": concepts_created,
                 "questions_created": questions_created,
-                "_model_info": (
-                    _capture_model_info(llm_client) if llm_client else {}
-                ),
+                "_model_info": model_info,
                 "_stage_timing": {
                     "started_at": _t0,
                     "elapsed": time.time() - _t0,
@@ -984,7 +1040,7 @@ class WorkerFactory:
     def _audit_worker(project_id: str):
         """Run structural audit analyzers + LLM synthesis."""
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
-            from prep.core.audit.runner import run_audit
+            from prep.core.audit.runner import run_audit, save_findings
             from prep.core.project_registry import project_index_dir
             from prep.services.project_helpers import require_project
             from pathlib import Path
@@ -1009,6 +1065,20 @@ class WorkerFactory:
             finding_count = (
                 len(result.findings) if result.findings else 0
             )
+            # Persist Tier 1 findings to disk BEFORE Tier 2 synthesis
+            # runs. Without this, /pipeline/status reads
+            # idx_dir/audit/findings.json (which never gets written) and
+            # reports `0 findings` in the dashboard even though the
+            # synthesis docs (saved later) clearly describe many. Save
+            # here — Tier 2's save_documents() writes its own markdown
+            # files alongside; the two artifacts coexist.
+            try:
+                save_findings(result, Path(idx_dir))
+            except Exception as e:
+                logger.warning(
+                    "[%s/Audit] save_findings failed (non-fatal): %s",
+                    project.name, e, exc_info=True,
+                )
             log_cb(
                 f"Tier 1 complete — {finding_count} findings", 1, 2,
             )
@@ -1069,6 +1139,13 @@ class WorkerFactory:
                 logger.info("[Audit] Tier 2 synthesis skipped: %s", e, exc_info=True)
 
             log_cb("Done", 2, 2)
+            audit_model_info: Dict[str, Any] = {}
+            try:
+                _audit_client = WorkerFactory._get_llm_client_for_task("audit")
+                if _audit_client:
+                    audit_model_info = _capture_model_info(_audit_client)
+            except Exception:
+                pass
             return {
                 "stage": "audit",
                 "skipped": False,
@@ -1077,6 +1154,7 @@ class WorkerFactory:
                 "tier2_mode": tier2_mode,
                 "tier2_doc_count": tier2_doc_count,
                 "errors": result.errors if result.errors else [],
+                "_model_info": audit_model_info,
                 "_stage_timing": {
                     "started_at": _t0,
                     "elapsed": time.time() - _t0,

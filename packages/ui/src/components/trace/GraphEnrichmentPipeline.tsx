@@ -852,7 +852,7 @@ function StageRow({
         <div className="flex items-center justify-between mb-0.5">
           <div className="flex items-center gap-2">
             <span className={cn("text-xs font-semibold", isPaused ? 'text-amber-400' : s.text)}>{stage.label}</span>
-            {stage.modelTag && (
+            {showDetails && stage.modelTag && (
               <span className="text-[10px] text-text-muted px-1.5 py-0.5 rounded bg-surface-raised border border-border">
                 {stage.modelTag}
               </span>
@@ -1212,7 +1212,7 @@ export function GraphEnrichmentPipeline({
   // - 'running' with counts>0: actively building (shows live counts)
   // - 'complete': API confirmed with real counts (always >0 here)
   const structuralStats = (() => {
-    if (structuralState === 'not_built') return 'Not built yet';
+    if (structuralState === 'not_built') return 'Not run';
     if (structuralState === 'disabled') return 'Disabled';
     if (structuralState === 'running') return trace.counts.nodes > 0
       ? `${trace.counts.nodes.toLocaleString()} nodes · ${trace.counts.edges.toLocaleString()} edges`
@@ -1233,7 +1233,7 @@ export function GraphEnrichmentPipeline({
       return 'Discovering edges...';
     }
     if (inferredEdgesState === 'disabled') return 'Waiting for graph';
-    if (inferredEdgesState === 'not_built') return 'Ready to discover';
+    if (inferredEdgesState === 'not_built') return 'Not run';
     if (!inferredEdges) return '';
     return `${inferredEdges.edge_count} edges discovered`;
   })();
@@ -1249,7 +1249,7 @@ export function GraphEnrichmentPipeline({
       return 'Augmenting...';
     }
     if (catalogueState === 'disabled') return 'Waiting for graph';
-    if (catalogueState === 'not_built') return 'Ready to catalogue';
+    if (catalogueState === 'not_built') return 'Not run';
     if (!augmentation) return '';
     const pct = augmentation.total_nodes > 0
       ? Math.round((augmentation.augmented_nodes / augmentation.total_nodes) * 100)
@@ -1277,7 +1277,7 @@ export function GraphEnrichmentPipeline({
   const validationStats = (() => {
     if (validationState === 'running') return 'Validating...';
     if (validationState === 'disabled') return 'Waiting for catalogue';
-    if (validationState === 'not_built') return 'Not validated';
+    if (validationState === 'not_built') return 'Not run';
     return '0 issues found'; // Placeholder until Rust validator is fully implemented
   })();
 
@@ -1291,7 +1291,7 @@ export function GraphEnrichmentPipeline({
       return 'Enriching...';
     }
     if (enrichmentState === 'disabled') return 'Waiting for catalogue';
-    if (enrichmentState === 'not_built') return 'Ready to enrich';
+    if (enrichmentState === 'not_built') return 'Not run';
     if (!epistemic) return '';
     const conf = epistemic.avg_confidence > 0
       ? `${Math.round(epistemic.avg_confidence * 100)}% conf`
@@ -1304,7 +1304,7 @@ export function GraphEnrichmentPipeline({
   const clusteringStats = (() => {
     if (clusteringState === 'running') return 'Synthesizing...';
     if (clusteringState === 'disabled') return 'Waiting for enrichment';
-    if (clusteringState === 'not_built') return 'Ready to synthesize';
+    if (clusteringState === 'not_built') return 'Not run';
     if (!modules) return '';
     return `${modules.module_count} modules · ${modules.total_files_clustered} files`;
   })();
@@ -1312,15 +1312,22 @@ export function GraphEnrichmentPipeline({
   // 6. Atlas Building (Thinking)
   const atlasState = computeAtlasState(epistemic, modules, atlas, atlasRunning, deepeningRunning, deepKnowledgeBuilding, deepening);
   const atlasStats = (() => {
-    if (atlasState === 'running') return 'Building atlas...';
+    if (atlasRunning || atlasState === 'running') return 'Building atlas...';
+    // Show real data whenever it exists, regardless of whatever the
+    // pre-finalize-move computeAtlasState heuristics decide. This prevents
+    // the icon (driven by finStageState/atlasDone) from flashing ✓ complete
+    // while the stats line still says "Not run" because computeAtlasState
+    // hadn't caught up yet.
+    if (atlas) {
+      const parts: string[] = [];
+      if (atlas.module_count) parts.push(`${atlas.module_count} segments`);
+      if (atlas.file_count) parts.push(`${atlas.file_count} files`);
+      if (atlas.routing) parts.push('routing');
+      if (parts.length) return parts.join(' · ');
+      if (atlas.exists) return 'Built';
+    }
     if (atlasState === 'disabled') return 'Waiting for modules';
-    if (atlasState === 'not_built') return 'Ready to build';
-    if (!atlas) return '';
-    const parts: string[] = [];
-    if (atlas.module_count) parts.push(`${atlas.module_count} segments`);
-    if (atlas.file_count) parts.push(`${atlas.file_count} files`);
-    if (atlas.routing) parts.push('routing');
-    return parts.join(' · ') || 'Built';
+    return 'Not run';
   })();
 
   // 7. Continuous Deepening
@@ -1335,7 +1342,7 @@ export function GraphEnrichmentPipeline({
       if (epistemic && epistemic.enabled && epistemic.enriched_nodes > 0) return 'Waiting for clusters';
       return 'Waiting for enrichment';
     }
-    if (deepeningState === 'not_built') return 'Not started';
+    if (deepeningState === 'not_built') return 'Not run';
     if (!deepening) return '';
     const settled = Number.isFinite(deepening.settled_ratio) ? deepening.settled_ratio : 0;
     const avg = Number.isFinite(deepening.avg_score) ? deepening.avg_score : 0;
@@ -1351,7 +1358,7 @@ export function GraphEnrichmentPipeline({
   const fastKnowledgeStats = (() => {
     if (fastKnowledgeState === 'running') return 'Embedding...';
     if (fastKnowledgeState === 'disabled') return 'Waiting for catalogue';
-    if (fastKnowledgeState === 'not_built') return 'Ready to embed';
+    if (fastKnowledgeState === 'not_built') return 'Not run';
     if (!knowledge) return '';
     return `${knowledge.chunks_embedded} chunks embedded`;
   })();
@@ -1364,7 +1371,7 @@ export function GraphEnrichmentPipeline({
   const deepKnowledgeStats = (() => {
     if (deepKnowledgeState === 'running') return 'Re-embedding with deep data...';
     if (deepKnowledgeState === 'disabled') return 'Waiting for enrichment + clusters';
-    if (deepKnowledgeState === 'not_built') return 'Ready to re-embed';
+    if (deepKnowledgeState === 'not_built') return 'Not run';
     if (!deepKnowledgeSource) return '';
     return `${deepKnowledgeSource.chunks_embedded} chunks embedded`;  // Total includes deep + fast
   })();
@@ -1506,31 +1513,63 @@ export function GraphEnrichmentPipeline({
   const atlasDone = !!effectiveAtlas?.exists && (effectiveModules?.module_count ?? 0) > 0;
   const rulesDone = !!effectiveRulesStatus?.generated && (effectiveModules?.module_count ?? 0) > 0;
 
+  // Progress for finalize stages comes from the per-stage slot_progress
+  // that the orchestrator merges into each stage object on /pipeline/status.
+  // Without these wirings the bars stayed empty during runs even though
+  // the worker was emitting current/total ticks (e.g. concepts at 11/15
+  // while the bar still rendered at 0%).
+  const finalizePercent = (status: { progress_current?: number; progress_total?: number } | undefined): number | undefined => {
+    if (!status) return undefined;
+    const cur = status.progress_current;
+    const tot = status.progress_total;
+    if (typeof cur !== 'number' || typeof tot !== 'number' || tot <= 0) return undefined;
+    return Math.min(100, Math.round((cur / tot) * 100));
+  };
+
   const finalizeStages: EnrichmentStage[] = [
     { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking',
       state: promoteForRebuild(finStageState('atlas', atlasDone)),
       stats: atlasStats,
-      rerun: finStageState('atlas', atlasDone) === 'running' ? computeStageRerun(undefined, undefined) : undefined,
+      progress: finStageState('atlas', atlasDone) === 'running' ? finalizePercent(effectiveAtlas) : undefined,
+      rerun: finStageState('atlas', atlasDone) === 'running'
+        ? computeStageRerun(effectiveAtlas?.progress_baseline, effectiveAtlas?.progress_total)
+        : undefined,
     },
     {
       id: 'rules', label: 'Rules Generation', icon: FileText, modelTag: 'CPU',
       state: promoteForRebuild(finStageState('rules', rulesDone)),
-      stats: effectiveRulesStatus?.generated ? 'Generated' : finStageState('rules', false) === 'running' ? 'Generating...' : 'Not generated',
+      stats: effectiveRulesStatus?.generated ? 'Generated' : finStageState('rules', false) === 'running' ? 'Generating...' : 'Not run',
+      progress: finStageState('rules', rulesDone) === 'running' ? finalizePercent(effectiveRulesStatus) : undefined,
+      rerun: finStageState('rules', rulesDone) === 'running'
+        ? computeStageRerun(effectiveRulesStatus?.progress_baseline, effectiveRulesStatus?.progress_total)
+        : undefined,
     },
     {
       id: 'concepts', label: 'Concept Seeding', icon: Lightbulb, modelTag: 'Thinking',
       state: promoteForRebuild(finStageState('concepts', !!effectiveConceptsStatus?.seeded)),
-      stats: effectiveConceptsStatus?.seeded ? `${effectiveConceptsStatus.count} concepts` : finStageState('concepts', false) === 'running' ? 'Seeding...' : 'Not seeded',
+      stats: effectiveConceptsStatus?.seeded ? `${effectiveConceptsStatus.count} concepts` : finStageState('concepts', false) === 'running' ? 'Seeding...' : 'Not run',
+      progress: finStageState('concepts', !!effectiveConceptsStatus?.seeded) === 'running' ? finalizePercent(effectiveConceptsStatus) : undefined,
+      rerun: finStageState('concepts', !!effectiveConceptsStatus?.seeded) === 'running'
+        ? computeStageRerun(effectiveConceptsStatus?.progress_baseline, effectiveConceptsStatus?.progress_total)
+        : undefined,
     },
     {
-      id: 'audit', label: 'Structural Audit', icon: ClipboardCheck, modelTag: 'LLM',
+      id: 'audit', label: 'Structural Audit', icon: ClipboardCheck, modelTag: 'Thinking',
       state: promoteForRebuild(finStageState('audit', !!effectiveAuditPipelineStatus?.exists)),
       stats: effectiveAuditPipelineStatus?.exists ? `${effectiveAuditPipelineStatus.finding_count} findings` : finStageState('audit', false) === 'running' ? 'Auditing...' : 'Not run',
+      progress: finStageState('audit', !!effectiveAuditPipelineStatus?.exists) === 'running' ? finalizePercent(effectiveAuditPipelineStatus) : undefined,
+      rerun: finStageState('audit', !!effectiveAuditPipelineStatus?.exists) === 'running'
+        ? computeStageRerun(effectiveAuditPipelineStatus?.progress_baseline, effectiveAuditPipelineStatus?.progress_total)
+        : undefined,
     },
     {
       id: 'antibodies', label: 'Immune System', icon: Shield, modelTag: 'CPU',
       state: promoteForRebuild(finStageState('antibodies', !!(effectiveAntibodiesStatus?.count))),
-      stats: effectiveAntibodiesStatus?.count ? `${effectiveAntibodiesStatus.count} antibodies` : finStageState('antibodies', false) === 'running' ? 'Deriving...' : 'Not derived',
+      stats: effectiveAntibodiesStatus?.count ? `${effectiveAntibodiesStatus.count} antibodies` : finStageState('antibodies', false) === 'running' ? 'Deriving...' : 'Not run',
+      progress: finStageState('antibodies', !!(effectiveAntibodiesStatus?.count)) === 'running' ? finalizePercent(effectiveAntibodiesStatus) : undefined,
+      rerun: finStageState('antibodies', !!(effectiveAntibodiesStatus?.count)) === 'running'
+        ? computeStageRerun(effectiveAntibodiesStatus?.progress_baseline, effectiveAntibodiesStatus?.progress_total)
+        : undefined,
     },
   ];
 

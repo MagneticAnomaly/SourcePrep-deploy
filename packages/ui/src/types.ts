@@ -507,6 +507,10 @@ export interface AtlasStatus {
   applied_role?: RoleVectorPayload;
   /** Phase 104 — the override that was applied, or null */
   override?: RoleOverride | null;
+  /** Live progress merged in from slot_progress on /pipeline/status */
+  progress_current?: number;
+  progress_total?: number;
+  progress_baseline?: number;
 }
 
 // ============================================================
@@ -519,6 +523,9 @@ export interface RulesStatus {
   stale: boolean;
   mode?: string;
   atlas_chars?: number;
+  progress_current?: number;
+  progress_total?: number;
+  progress_baseline?: number;
 }
 
 /** Stage 13: Concept seeding status */
@@ -526,6 +533,9 @@ export interface ConceptsStatus {
   seeded: boolean;
   count: number;
   questions?: number;
+  progress_current?: number;
+  progress_total?: number;
+  progress_baseline?: number;
 }
 
 /** Stage 14: Structural audit status */
@@ -533,12 +543,18 @@ export interface AuditPipelineStatus {
   exists: boolean;
   finding_count: number;
   tier2?: boolean;
+  progress_current?: number;
+  progress_total?: number;
+  progress_baseline?: number;
 }
 
 /** Stage 15: Antibody derivation status */
 export interface AntibodiesStatus {
   count: number;
   firing?: number;
+  progress_current?: number;
+  progress_total?: number;
+  progress_baseline?: number;
 }
 
 // ============================================================

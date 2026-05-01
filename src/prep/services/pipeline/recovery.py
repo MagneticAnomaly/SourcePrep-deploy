@@ -1078,20 +1078,15 @@ class RecoveryManager:
             # crash-interrupted" UI distinction, but the hydration
             # decision itself is unconditional: partial state → PAUSED.
             for group, stages, _is_auto in groups:
-                resume = detect_resume_fn(pid, stages, True)
-                user_paused = RecoveryManager.check_user_pause_marker(pid, group)
+                detected_resume = detect_resume_fn(pid, stages, True)
+                user_pause_payload = RecoveryManager.read_user_pause_marker(pid, group)
+                user_paused = user_pause_payload is not None
 
-                # Three cases:
-                #   resume >= len(stages) → group fully complete; no hydration.
-                #     Also clear a stale user-pause marker if present, so it
-                #     does not keep producing ghost paused runs forever.
-                #   0 < resume < len(stages) → partial mid-group state; hydrate.
-                #   resume == 0 → either a fresh project that never started
-                #     OR the user paused at the very first stage before any
-                #     manifest was written. The marker disambiguates: if it
-                #     exists, treat as a real pause at stage 0; otherwise
-                #     leave it for auto-mode to start fresh.
-                if resume >= len(stages):
+                # If the detector says every stage is complete, trust it —
+                # the marker is stale (e.g. resume completed all remaining
+                # stages but the marker clear failed). Clear the marker so
+                # it doesn't keep producing ghost paused runs forever.
+                if detected_resume >= len(stages):
                     if user_paused:
                         logger.info(
                             "Clearing stale user-pause marker for %s/%s — "
@@ -1101,11 +1096,37 @@ class RecoveryManager:
                         RecoveryManager.clear_user_pause_marker(pid, group)
                     continue
 
-                if resume == 0 and not user_paused:
-                    # Genuinely fresh project for this group — no partial
-                    # state to protect. Auto-mode (or a manual Run click)
-                    # is free to start it.
+                # No marker, no partial state — fresh project for this group.
+                if detected_resume == 0 and not user_paused:
                     continue
+
+                # The user-pause marker is AUTHORITATIVE for the resume
+                # index when it points to a stage the detector also
+                # considers incomplete-or-earlier. The detector consults
+                # manifest `finished_at` timestamps, which a stale
+                # previous-run manifest reports as "complete" even when
+                # the user paused mid-incremental-rerun of that same
+                # stage. Without this, the user's paused stage 6 gets
+                # reported as resume=7 by the detector — Resume silently
+                # skips the stage they actually stopped on.
+                #
+                # Heuristic: marker wins when marker_index <= detected_resume
+                # (paused at or before the detector's incomplete frontier).
+                # If the marker says we got further than the detector
+                # thinks, the marker is suspect — fall back to the
+                # detector. If the marker is absent or names a stage no
+                # longer in this group, fall back to the detector.
+                stage_lookup = {s.value: i for i, s in enumerate(stages)}
+                marker_index: Optional[int] = None
+                if user_pause_payload:
+                    marker_stage = user_pause_payload.get("stage")
+                    if isinstance(marker_stage, str):
+                        marker_index = stage_lookup.get(marker_stage)
+
+                if marker_index is not None and marker_index <= detected_resume:
+                    resume = marker_index
+                else:
+                    resume = detected_resume
 
                 # Clamp to a valid stage index. resume==0 with marker means
                 # the user paused before stage 0 wrote any output; pin the
@@ -1113,7 +1134,18 @@ class RecoveryManager:
                 resume = max(0, min(resume, len(stages) - 1))
 
                 shutdown_was_clean = RecoveryManager.check_clean_shutdown_marker(pid)
-                if user_paused:
+                if (
+                    user_paused
+                    and marker_index is not None
+                    and marker_index <= detected_resume
+                    and marker_index != detected_resume
+                ):
+                    reason = (
+                        f"user pause marker present (stage={stages[marker_index].value}, "
+                        f"detector said resume={detected_resume} — marker wins because "
+                        f"detector likely tripped on a stale prior-run manifest)"
+                    )
+                elif user_paused:
                     reason = "user pause marker present"
                 elif not shutdown_was_clean:
                     reason = "no clean shutdown marker (interrupted run)"

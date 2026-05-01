@@ -273,14 +273,19 @@ function App() {
     return exc?.id ?? null;
   }, [projectSummaries]);
 
-  const sortedProjectSummaries = useMemo(() => {
-    const levelOrder = { exclusive: 0, boost: 1, none: 2 };
-    return [...projectSummaries].sort((a, b) => {
-      const al = levelOrder[a.priority_level ?? (a.is_starred ? 'boost' : 'none')];
-      const bl = levelOrder[b.priority_level ?? (b.is_starred ? 'boost' : 'none')];
-      return al - bl; // higher priority first
-    })
-  }, [projectSummaries])
+  // Dismiss the "Project 'X' is marked as inactive." toast once X is active again.
+  // The backend raises this on writes against an inactive project; once the user
+  // re-activates it, the warning is no longer relevant.
+  useEffect(() => {
+    if (!toast) return;
+    const match = toast.text.match(/Project '(.+?)' is marked as inactive\./);
+    if (!match) return;
+    const proj = projectSummaries.find(p => p.name === match[1]);
+    if (proj && proj.activity_status === 'active') {
+      setToast(null);
+    }
+  }, [projectSummaries, toast]);
+
 
   // ── Search + Context (hook) ─────────────────────────────────
   const {
@@ -388,6 +393,12 @@ function App() {
     groupReasoningRunning,
     moduleStatus, clusterRunning,
     atlasRunning,
+    // Reducer's atlasStatus carries progress_current/progress_total merged
+    // in from /pipeline/status.stages.atlas. The dashboard panels prop
+    // chain (atlas: { atlasStatus }) defaults to the standalone /atlas
+    // endpoint, which has the content but not progress — without merging
+    // these, the Atlas Building progress bar stays empty during runs.
+    atlasStatus: pipelineAtlasStatus,
     deepeningStatus, deepeningRunning,
     knowledgeStatus, deepKnowledgeStatus, fastKnowledgeBuilding, deepKnowledgeBuilding,
     groupReasoningStatus,
@@ -419,6 +430,16 @@ function App() {
     pipelineEvents,
     onDeepCompleted: () => { void fetchAtlas(); void fetchProvenance() },
     onFastCompleted: () => { void fetchProvenance() },
+    onFinalizeCompleted: () => {
+      // Refresh provenance plus the panels that depend on finalize
+      // outputs but don't otherwise know that the pipeline ran. Without
+      // these the Concepts panel keeps showing "No Concepts Yet" and the
+      // Audit panel keeps showing "No audit results yet" even after the
+      // stages have written their data.
+      void fetchProvenance()
+      void concepts.handleRefresh()
+      void audit.refresh()
+    },
     signal: hydration.signal,
     isHydrating: hydration.isHydrating,
     // Phase 114 T15: gate background polls on panel visibility so the
@@ -986,7 +1007,16 @@ function App() {
       onEndpointNodeChange: handleEndpointNodeChange,
     },
     deepAnalysis: { deepAnalysisSchedule, setDeepAnalysisSchedule, budgetUsage, tokenUsageData },
-    atlas: { atlasStatus },
+    atlas: {
+      atlasStatus: atlasStatus
+        ? ({
+            ...atlasStatus,
+            progress_current: pipelineAtlasStatus?.progress_current ?? atlasStatus.progress_current,
+            progress_total: pipelineAtlasStatus?.progress_total ?? atlasStatus.progress_total,
+            progress_baseline: pipelineAtlasStatus?.progress_baseline ?? atlasStatus.progress_baseline,
+          } as typeof atlasStatus)
+        : (pipelineAtlasStatus as typeof atlasStatus | null),
+    },
     audit,
     spaghetti,
     goalposts,
@@ -1183,7 +1213,7 @@ function App() {
                     />
                   </>
                 }
-                projects={sortedProjectSummaries}
+                projects={projectSummaries}
                 selectedProjectId={selectedProjectId ?? undefined}
                 onProjectSelect={setSelectedProjectId}
                 onAddProject={() => setAddModalOpen(true)}

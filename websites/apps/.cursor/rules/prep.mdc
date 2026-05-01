@@ -1,0 +1,69 @@
+---
+description: SourcePrep structural codebase intelligence
+alwaysApply: true
+---
+
+# --- Prep-managed (auto-generated, do not edit above USER ADDITIONS) ---
+
+Last updated: 2026-04-30T19:52:37Z
+
+prep_project_id: 1e268cdc-1eae-439e-b48d-8157237bddbb
+
+**ROUTING: When calling ANY SourcePrep tool, ALWAYS include `project_id: "1e268cdc-1eae-439e-b48d-8157237bddbb"` in the arguments.**
+
+## Tools
+| Tool | When to Use |
+|------|-------------|
+| `prep` | START of every task — structural overview, modules, hub files, immune system alerts |
+| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER). |
+| `prep_impact` | BEFORE editing — check what depends on a file |
+| `prep_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action="antibodies"` for immune system. |
+| `prep_observe` | Save/retrieve cross-session notes |
+| `prep_concepts` | Record/query business rationale and design decisions |
+
+Call `prep` first. Call `prep_impact` before modifying hub files.
+All read-only tools are safe to auto-approve.
+
+### Audit Enrichment
+Enrich external lint/analysis findings with structural context:
+```
+prep_audit(findings=[{file, line, message, severity, tool}])
+```
+SourcePrep adds: dependent count, hub status, concepts, risk score, recommendation.
+Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.
+
+### Search Intent
+`prep_search` auto-detects query intent: "where is X" → symbol lookup,
+"why X" → concepts, "who imports X" → trace graph. Override with `intent` param if needed.
+
+### Concurrency limits
+If your queries to the cloud LLM seem unexpectedly throttled, check
+`prep_search "concurrency ceiling"` for the current discovered limit
+and how to reset it. The limit is auto-discovered and locked for 24h.
+
+For specific code lookups, use `prep_search` with a natural language query.
+SourcePrep understands structural relationships — use it instead of
+grep when you need to understand how files connect.
+
+<!-- prep-atlas-hash:b6946aad31eb -->
+## Codebase Atlas
+
+IDENTITY: A multi-segment Next.js application with marketing site, documentation portal, support tooling, and payments features sharing UI components and configuration patterns.
+
+STACK: TypeScript, React, Next.js. Languages: .tsx (110), .ts (30), .js (9), .json (8), .css (5), .toml (4), .cjs (4), .md (2). External hubs: ext:react (24 edges), ext:next (19 edges), ext:lucide-react (27 edges), ext:@prep/ui (36 edges).
+
+WORKSPACE MAP:
+marketing (marketing, 69 files): marketing, seo, metadata, nextjs, ui-presentation
+docs (docs, 57 files): documentation, mcp-integration, configuration, developer-experience, api-reference
+support (support, 29 files): support, security, api, react, typescript
+payments (payments, 17 files): payments, configuration, styling, analytics, seo
+
+CROSS-CUTTING: Shared domains are seo and configuration. Hub files connect segments: ext:@prep/ui (36 edges), docs/src/components/AnchorHeading.tsx (30 edges), ext:lucide-react (27 edges). Directory dependencies show symbol sharing within segments: docs uses sym:docsInitDemo, sym:SpeedTier, sym:ModelPlan; marketing uses sym:BLOG_POSTS, sym:PipelineDashboard, sym:handleClick; payments uses sym:robots, sym:ClientLayout, ext:next; support uses sym:validate, sym:RootLayout, sym:Metrics. Import cycles: 27. Longest chains in marketing: scripts/generate_layouts.js through download/layout.tsx to metadata-helper.ts sym:MetaProps; sitemap.ts through faq/page.tsx to ext:lucide-react. Entry points: support/src/lib/reports.ts, marketing/scripts/generate_layouts.
+
+If `prep` returns 'setup in progress', the index hasn't been built yet.
+Work normally with read_file/grep_search until the user builds the index.
+
+For long tasks (5+ tool calls), call `prep` again to refresh your
+structural context.
+
+# --- USER ADDITIONS BELOW (preserved across updates) ---

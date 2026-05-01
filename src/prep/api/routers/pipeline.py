@@ -545,25 +545,50 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
         # is embedding.
         deep_knowledge_status["running"] = False
         deep_knowledge_status["building"] = False
-        deep_knowledge_status["deep_chunks_embedded"] = int(
-            knowledge_status.get("deep_chunks_embedded", 0) or 0
-        )
-        # F-76: If runtime count is 0 but deep_knowledge_manifest records
-        # a historical run (daemon restart mid-rebuild / page refresh),
-        # surface that count so the UI keeps showing green.
-        if deep_knowledge_status["deep_chunks_embedded"] == 0:
-            dk_manifest = idx_dir / "deep_knowledge_manifest.json"
-            if dk_manifest.exists():
-                try:
-                    dm = _json.loads(dk_manifest.read_text(encoding="utf-8"))
-                    hist_total = int(
-                        (dm.get("quality") or {}).get("total_items") or 0
+        # The deep_knowledge_manifest is the authoritative signal that
+        # this stage has actually completed in the current state.
+        # `KnowledgeIndex.status()` derives `deep_chunks_embedded` by
+        # counting "epistemic"/"module" typed documents in
+        # knowledge_documents.json, which is shared across runs and is
+        # NOT wiped by the enrichment reset. So after a reset followed
+        # by fast-stage Knowledge rebuild, the old deep-typed docs from
+        # a prior session are still in the file — and the raw count
+        # would make the dashboard flip stage 10 to green the moment
+        # stage 5 finishes, even though no deep_knowledge run has
+        # happened in this session.
+        #
+        # Gate on the manifest: if it doesn't exist for the current
+        # run, report deep_chunks_embedded = 0 regardless of what's in
+        # knowledge_documents.json. The manifest is wiped by the
+        # rebuild wipe map at deep_knowledge stage start AND by the
+        # enrichment reset, so its presence/absence cleanly tracks
+        # "has this stage completed in the current state."
+        dk_manifest = idx_dir / "deep_knowledge_manifest.json"
+        if dk_manifest.exists():
+            try:
+                dm = _json.loads(dk_manifest.read_text(encoding="utf-8"))
+                hist_total = int(
+                    (dm.get("quality") or {}).get("total_items") or 0
+                )
+                if hist_total > 0:
+                    deep_knowledge_status["deep_chunks_embedded"] = hist_total
+                    deep_knowledge_status["from_manifest"] = True
+                else:
+                    # Manifest exists but reports 0 items — treat as
+                    # "stage has run, no work was needed" (preserves the
+                    # legitimate zero-result completion case).
+                    deep_knowledge_status["deep_chunks_embedded"] = int(
+                        knowledge_status.get("deep_chunks_embedded", 0) or 0
                     )
-                    if hist_total > 0:
-                        deep_knowledge_status["deep_chunks_embedded"] = hist_total
-                        deep_knowledge_status["from_manifest"] = True
-                except Exception:
-                    pass
+            except Exception:
+                deep_knowledge_status["deep_chunks_embedded"] = int(
+                    knowledge_status.get("deep_chunks_embedded", 0) or 0
+                )
+        else:
+            # No manifest = stage has not completed in this state.
+            # Lingering "deep"-typed documents from a prior session
+            # must not surface as completion of this stage.
+            deep_knowledge_status["deep_chunks_embedded"] = 0
 
         # 5. Epistemic enrichment — read directly from files
         # Phase 60D-5: Inline read avoids pipeline_orchestrator.status() lock
@@ -712,11 +737,23 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
             pass
 
         # Concepts status
+        # Gate `seeded` on the stage's own concepts_manifest.json, NOT on
+        # whether the concept store has any rows. The system_concept_seeder
+        # writes baseline concepts at project creation (independent of the
+        # pipeline), so a brand new project has count > 0 from those system
+        # rows alone — that should not flip the Concept Seeding stage to
+        # complete. The manifest is the authoritative "this stage ran in
+        # the current state" signal; it's wiped by both the rebuild map
+        # and the finalize/full reset.
         concepts_status: dict[str, Any] = {"seeded": False, "count": 0}
         try:
             from prep.services.concept_store import concept_store
             cstats = concept_store.get_stats(project_id)
-            concepts_status = {"seeded": cstats["total"] > 0, "count": cstats["total"]}
+            concepts_manifest_path = idx_dir / "concepts_manifest.json"
+            concepts_status = {
+                "seeded": concepts_manifest_path.exists(),
+                "count": int(cstats.get("total") or 0),
+            }
         except Exception:
             pass
 
@@ -745,11 +782,18 @@ async def pipeline_status(project_id: str) -> dict[str, Any]:
             pass
 
         # Antibodies status
+        # Gate on antibodies_manifest.json for the same reason as concepts:
+        # the antibody_store may carry rows derived in a prior session.
+        # Without the manifest gate, count > 0 would flip the Immune
+        # System stage to complete on a fresh post-reset project.
         antibodies_status: dict[str, Any] = {"count": 0}
         try:
             from prep.services.antibody_store import antibody_store
             ab_list = antibody_store.list_antibodies(project_id)
-            antibodies_status = {"count": len(ab_list)}
+            antibodies_manifest_path = idx_dir / "antibodies_manifest.json"
+            antibodies_status = {
+                "count": len(ab_list) if antibodies_manifest_path.exists() else 0,
+            }
         except Exception:
             pass
 

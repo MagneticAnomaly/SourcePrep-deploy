@@ -257,7 +257,7 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 <!-- prep-managed-start -->
 # SourcePrep Integration
 
-Last updated: 2026-04-27T14:26:52Z
+Last updated: 2026-05-01T17:36:56Z
 
 prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
@@ -301,16 +301,16 @@ Add to `.claude/settings.json`:
 
 Use `@` to browse SourcePrep resources (atlas, modules, audit). Use `/mcp__prep__prep-onboard` for guided orientation.
 
-<!-- prep-atlas-hash:955d828358fd -->
+<!-- prep-atlas-hash:7674926cedb3 -->
 ## Codebase Atlas
 
-IDENTITY: This is a local-first AI productivity platform with a multi-segment workspace spanning a React/Tailwind design system, NextJS marketing sites, a Tauri desktop dashboard, VS Code extension, documentation, support portal, and payments micro-frontend, unified by shared UI components and cross-cutting Python services.
+IDENTITY: A local-first, MCP-powered developer platform with a shared React/Next.js UI monorepo, FastAPI backend, VS Code extension, and marketing/docs/support web properties.
 
-STACK: Languages: .md (830), .tsx (428), .py (304), .ts (152), .json (114), .js (16). Frameworks: React, NextJS, Tauri, TailwindCSS, Storybook. Build tools: TypeScript. Graph: 7665 nodes, 10070 edges, 4 import cycles. Hub dependencies: __future__ (244 edges), typing (241), react (191), logging (169), lucide-react (155).
+STACK: TypeScript/React/Next.js frontend, Python/FastAPI backend, VS Code extension with webview UI, Storybook design system, Vite build tooling, 835 markdown docs, 429 TSX components, 305 Python files.
 
-WORKSPACE MAP: Root (_root, 1222 files): mcp, marketing, local-first, security, rag. Ui (packages/ui, 355 files): storybook, design-system, tailwind, ui, react. Marketing (websites/apps/marketing, 66 files): marketing, nextjs, seo, layout, metadata. Dashboard (src/prep/dashboard, 62 files): dashboard, tauri, react-hooks, state-management, react. Docs (websites/apps/docs, 54 files): documentation, marketing, nextjs, react, seo. Support (websites/apps/support, 27 files): nextjs, typescript, client-component, frontend, micro-frontend. Vscode (packages/vscode, 20 files): vscode-extension, file-navigation, ide-integration, webview, daemon-client. Payments (websites/apps/payments, 15 files): micro-frontend, nextjs, navigation, payments, app-router. Paperclip Plugin Prep (packages/paperclip-plugin-prep, 12 files): typescript, dashboard, plugin-ui, paperclip, plugin. Webview Ui (packages/vscode/webview-ui, 11 files): dashboard, tailwindcss, testing, typescript, vscode-extension.
+WORKSPACE MAP: Project Root (_root, 1228 files): marketing, MCP, local-first, dashboard, fastapi orchestration. Ui (packages/ui, 357 files): storybook, design-system, react primitives, documentation, marketing components. Marketing (websites/apps/marketing, 65 files): nextjs SEO marketing-site. Dashboard (src/prep/dashboard, 63 files): react-hooks, state-management, polling. Docs (websites/apps/docs, 53 files): nextjs documentation, static-analysis, fastapi. Support (websites/apps/support, 26 files): nextjs error-handling frontend. Vscode (packages/vscode, 19 files): vscode-extension, semantic-search, lifecycle-management, webview, MCP. Payments (websites/apps/payments, 14 files): nextjs payments API marketing-site. Paperclip Plugin Prep (packages/paperclip-plugin-prep, 12 files): plugin-architecture, MCP, health-monitoring, codebase-intelligence, local-first. Webview Ui (packages/vscode/webview-ui, 11 files): vscode-extension monorepo pricing-conversion vite webview.
 
-CROSS-CUTTING: Shared domains across segments: nextjs, marketing, react, dashboard, typescript, seo, micro-frontend, vscode-extension. Active zones: packages/ui/src/, tests/, src/codrag/core/, src/codrag/dashboard/, src/codrag/services/. UI components serve as the primary integration layer with five entry points: patterns/index.ts, enterprise/index.ts, status/index.ts, site/index.ts, marketing/research/index.ts. Directory dependencies flow through symbol exports: docs -> FALLBACK_SINGLE_MODEL, ChatMessage, CLOUD_SINGLE; packages -> ConceptStats, ConceptsPanel, useEventStream; public -> trigger_sync, main, handler; src -> build_concept_from_observation, A2ATask.fail, StructuralFinding; tools -> RunContext.log, Api.cancel, RunContext.snap; websites -> PATCH, DemoTab, isHeroSelection. VS Code extension bridges IDE and dashboard via webview-ui. Paperclip plugin connects dashboard UI to extension ecosystem.
+CROSS-CUTTING: Shared domains across segments: marketing, nextjs, mcp, local-first, dashboard, fastapi, react, documentation. Hub files: docs/ARCHITECTURE.md, ext:__future__, ext:typing, ext:react, ext:logging. Active zones: packages/ui/src/, tests/, src/codrag/core/, src/codrag/dashboard/, websites/apps/marketing/. Entry points cluster in packages/ui/src/components/primitives/index.ts, status/index.ts, goalposts/index.ts, console/index.ts, navigation/index.ts. Directory dependencies: docs -> sym:prepFeatures, sym:FileStatus, sym:GPU_PLATFORMS; packages -> sym:toggle, sym:CheckIcon, sym:EmptyStateProps; public -> sym:main, sym:trigger_sync, sym:handler; src -> sym:KnowledgeIndex._content_hash, sym:concurrency_history, sym:Project; tools -> sym:Api.status, sym:drive_scoped_reset_ui, sym:run_rebuild; websites -> sym:AnchorHeading, sym:SearchResults, sym:PaymentForm. 48 import cycles detected. Longest chains: status/index.ts -> StatusCard.tsx -> StatusBadge.tsx -> utils.ts -> sym:cn; goalposts/index.ts -> RoadmapPanel.tsx -> RoadmapTimeline.tsx -> colors.ts -> sym:CATEGORY_LABEL; primitives/index.ts -> PathInput.tsx -> sym:PathInputProps.
 
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.

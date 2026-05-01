@@ -279,7 +279,7 @@ class ProjectRegistry:
     def list_projects(self) -> List[Project]:
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT id, name, path, mode, config, created_at, updated_at FROM projects ORDER BY updated_at DESC"
+                "SELECT id, name, path, mode, config, created_at, updated_at FROM projects ORDER BY created_at ASC, id ASC"
             ).fetchall()
         return [self._row_to_project(r) for r in rows]
 

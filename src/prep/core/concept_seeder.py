@@ -36,7 +36,7 @@ import logging
 import os
 from concurrent.futures import TimeoutError as FutureTimeoutError, as_completed
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional
 
 from prep.services.pipeline.thread_pool import llm_pool
 
@@ -59,7 +59,12 @@ MIN_MODULE_FILES_FOR_SWARM = 1
 MIN_MODULES_FOR_SWARM = 3
 
 
-def seed_concepts(project_id: str, *, prefer_swarm: bool = True) -> dict[str, Any]:
+def seed_concepts(
+    project_id: str,
+    *,
+    prefer_swarm: bool = True,
+    progress_callback: Optional[Callable[[str, int, int], None]] = None,
+) -> dict[str, Any]:
     """Run the concept seeding pipeline for a project.
 
     Phase 96F: When ``prefer_swarm`` is True (default), tries the swarm
@@ -72,6 +77,11 @@ def seed_concepts(project_id: str, *, prefer_swarm: bool = True) -> dict[str, An
         project_id: The project to seed concepts for.
         prefer_swarm: If True, attempt swarm path first. Tests and edge
             cases can pass False to force the sequential path.
+        progress_callback: Optional ``(message, current, total)`` callback
+            invoked as each module completes so the dashboard's Concept
+            Seeding progress bar fills in real time. Without this, the
+            stage worker only emits 0/1 then 1/1 — a binary toggle that
+            renders an empty bar for the entire (often multi-minute) run.
 
     Returns a summary dict with concepts_created, questions_created,
     status, and a 'mode' field indicating "swarm", "parallel", or
@@ -79,7 +89,7 @@ def seed_concepts(project_id: str, *, prefer_swarm: bool = True) -> dict[str, An
     """
     if prefer_swarm:
         try:
-            return seed_concepts_swarm(project_id)
+            return seed_concepts_swarm(project_id, progress_callback=progress_callback)
         except _SwarmFallback as fallback:
             logger.info(
                 "Concept seeding falling back to sequential: %s",
@@ -90,14 +100,18 @@ def seed_concepts(project_id: str, *, prefer_swarm: bool = True) -> dict[str, An
                 "Concept seeding swarm path raised, falling back to sequential",
                 exc_info=True,
             )
-    return _seed_concepts_sequential(project_id)
+    return _seed_concepts_sequential(project_id, progress_callback=progress_callback)
 
 
 class _SwarmFallback(RuntimeError):
     """Internal sentinel: swarm path determined sequential is the right choice."""
 
 
-def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
+def _seed_concepts_sequential(
+    project_id: str,
+    *,
+    progress_callback: Optional[Callable[[str, int, int], None]] = None,
+) -> dict[str, Any]:
     """Non-swarm concept seeding with per-module fan-out via llm_pool.
 
     Phase 82 follow-up: historically this was a single global-context LLM
@@ -131,6 +145,7 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
     if len(modules) < 2:
         return _seed_concepts_single_call(
             project_id, llm=llm, project=project, index_dir=index_dir,
+            progress_callback=progress_callback,
         )
 
     logger.info(
@@ -185,6 +200,12 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
 
     pool = llm_pool
     futures = {pool.submit(_call_worker, mod): mod for mod in modules}
+    total_modules = len(futures)
+    if progress_callback:
+        try:
+            progress_callback("Seeding concepts", 0, total_modules)
+        except Exception:
+            pass
     try:
         # Note: ``as_completed`` yields futures on the single caller thread,
         # so the following ``raw_responses.append`` does not need a lock —
@@ -200,6 +221,14 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
                 )
                 text = None
             raw_responses.append((mod.get("module_id", "unknown"), text))
+            if progress_callback:
+                try:
+                    progress_callback(
+                        f"Seeded {len(raw_responses)}/{total_modules}",
+                        len(raw_responses), total_modules,
+                    )
+                except Exception:
+                    pass
     except FutureTimeoutError:
         pending = [
             futures[f].get("module_id", futures[f].get("name", "unknown"))
@@ -276,7 +305,8 @@ def _seed_concepts_sequential(project_id: str) -> dict[str, Any]:
 
 
 def _seed_concepts_single_call(
-    project_id: str, *, llm, project, index_dir
+    project_id: str, *, llm, project, index_dir,
+    progress_callback: Optional[Callable[[str, int, int], None]] = None,
 ) -> dict[str, Any]:
     """Original single-call concept seeding (pre-parallel behavior).
 
@@ -285,6 +315,11 @@ def _seed_concepts_single_call(
     """
     from prep.services.concept_store import concept_store
 
+    if progress_callback:
+        try:
+            progress_callback("Seeding concepts", 0, 1)
+        except Exception:
+            pass
     context_text = _assemble_seeding_context(index_dir, project.path)
     if not context_text or len(context_text) < 100:
         return {
@@ -339,6 +374,11 @@ def _seed_concepts_single_call(
         except Exception as e:
             logger.warning("Failed to save question: %s", e)
 
+    if progress_callback:
+        try:
+            progress_callback("Seeding concepts", 1, 1)
+        except Exception:
+            pass
     return {
         "status": "success",
         "mode": "single_call",
@@ -352,7 +392,11 @@ def _seed_concepts_single_call(
 # ── Phase 96F: Swarm path ────────────────────────────────────────
 
 
-def seed_concepts_swarm(project_id: str) -> dict[str, Any]:
+def seed_concepts_swarm(
+    project_id: str,
+    *,
+    progress_callback: Optional[Callable[[str, int, int], None]] = None,
+) -> dict[str, Any]:
     """Swarm-based concept seeding with per-module fan-out.
 
     Decomposition: each module (≥MIN_MODULE_FILES files) becomes one
@@ -565,11 +609,27 @@ def seed_concepts_swarm(project_id: str) -> dict[str, Any]:
             logger.warning("Concept worker failed for %s", item.id, exc_info=True)
             return None
 
+    swarm_total = len(items)
+    if progress_callback:
+        try:
+            progress_callback("Seeding concepts", 0, swarm_total)
+        except Exception:
+            pass
+
+    def _swarm_progress(done: int, total: int) -> None:
+        if progress_callback is None:
+            return
+        try:
+            progress_callback(f"Seeded {done}/{total}", done, total)
+        except Exception:
+            pass
+
     result = orch.execute(
         items=items,
         coordinator_prompt=coordinator_prompt,
         worker_fn=worker_fn,
         synthesis_prompt=synthesis_prompt,
+        progress_fn=_swarm_progress,
     )
 
     if result is None:

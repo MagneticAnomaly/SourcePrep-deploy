@@ -573,6 +573,154 @@ def test_hydration_clears_stale_marker_when_group_complete(
     )
 
 
+def test_marker_overrides_detector_when_prior_run_manifest_is_stale(
+    tmp_path, monkeypatch, clean_orchestrator,
+):
+    """Reproduces the user's exact bug: paused mid-stage 6 (enrichment) on
+    an incremental run, but a previous successful run's manifest still
+    reports stage 6 as complete. The resume detector trusts the stale
+    `finished_at` and returns resume=1 (skip past stage 6 to stage 7).
+    Without the marker override, hydration would pin the paused state at
+    stage 7 and the user's Resume click would silently skip stage 6's
+    incomplete work.
+
+    With the marker override, hydration uses the marker's stage as the
+    authoritative resume point — the user resumes at stage 6 where they
+    actually paused.
+    """
+    from prep.services.pipeline import recovery as recovery_mod
+    from prep.services.pipeline.recovery import RecoveryManager
+    from prep.services.pipeline.stages import (
+        DEEP_ENRICHMENT_STAGES,
+        FAST_SYNC_STAGES,
+    )
+
+    project_id = "test-marker-overrides-stale-detector"
+    fake_idx_dir = tmp_path / "idx"
+    fake_idx_dir.mkdir()
+    monkeypatch.setattr(recovery_mod, "_resolve_idx_dir", lambda pid: fake_idx_dir)
+
+    class _FakeProject:
+        id = project_id
+
+    class _FakeRegistry:
+        def list_projects(self):
+            return [_FakeProject()]
+
+    class _FakeSettings:
+        def get(self, key):
+            return None
+
+    monkeypatch.setattr("prep.services.project_helpers.get_registry", lambda: _FakeRegistry())
+    monkeypatch.setattr("prep.services.settings_store.settings", _FakeSettings())
+    monkeypatch.setattr(
+        "prep.services.project_helpers.get_project_activity_status",
+        lambda pid: "active",
+    )
+
+    # Marker says user paused on enrichment (index 0).
+    enrichment_stage = DEEP_ENRICHMENT_STAGES[0].value
+    RecoveryManager.write_user_pause_marker(
+        project_id, "deep_enrichment", stage=enrichment_stage,
+    )
+
+    # Detector lies: says stage 0 is complete (resume=1), because the
+    # previous successful run's manifest is still on disk and the
+    # detector trusts its `finished_at` timestamp.
+    def _detect_resume(pid, stages, skip_mtime):
+        if stages == list(FAST_SYNC_STAGES):
+            return len(FAST_SYNC_STAGES)
+        return 1  # detector wrongly thinks stage 0 is done
+
+    registered: list = []
+    RecoveryManager.hydrate_paused_runs_from_disk(
+        detect_resume_fn=_detect_resume,
+        register_run_fn=lambda pid, group, sm: registered.append((pid, group, sm)),
+        is_run_active_fn=lambda pid: False,
+        default_guard=clean_orchestrator._default_guard,
+    )
+
+    deep_runs = [r for r in registered if r[1] == "deep_enrichment"]
+    assert len(deep_runs) == 1
+    sm = deep_runs[0][2]
+    assert sm.is_paused
+    assert sm.current_stage_index == 0, (
+        f"Marker says user paused at stage 0 (enrichment); hydration must "
+        f"pin to that stage, not the detector's stale resume=1. "
+        f"Got current_stage_index={sm.current_stage_index}"
+    )
+
+
+def test_marker_falls_back_to_detector_when_marker_index_above_detector(
+    tmp_path, monkeypatch, clean_orchestrator,
+):
+    """Defensive: if the marker claims a stage further along than the
+    detector's view (e.g. marker says stage 4 but detector says stage 1
+    is incomplete), the marker is suspect — fall back to the detector.
+
+    This shouldn't happen in normal operation (sequential stages) but
+    locks the heuristic so a corrupted marker can't make the system
+    silently skip incomplete earlier stages.
+    """
+    from prep.services.pipeline import recovery as recovery_mod
+    from prep.services.pipeline.recovery import RecoveryManager
+    from prep.services.pipeline.stages import (
+        DEEP_ENRICHMENT_STAGES,
+        FAST_SYNC_STAGES,
+    )
+
+    project_id = "test-marker-too-aggressive"
+    fake_idx_dir = tmp_path / "idx"
+    fake_idx_dir.mkdir()
+    monkeypatch.setattr(recovery_mod, "_resolve_idx_dir", lambda pid: fake_idx_dir)
+
+    class _FakeProject:
+        id = project_id
+
+    class _FakeRegistry:
+        def list_projects(self):
+            return [_FakeProject()]
+
+    class _FakeSettings:
+        def get(self, key):
+            return None
+
+    monkeypatch.setattr("prep.services.project_helpers.get_registry", lambda: _FakeRegistry())
+    monkeypatch.setattr("prep.services.settings_store.settings", _FakeSettings())
+    monkeypatch.setattr(
+        "prep.services.project_helpers.get_project_activity_status",
+        lambda pid: "active",
+    )
+
+    # Marker says stage 4 (deep_knowledge), but detector says resume=1.
+    far_stage = DEEP_ENRICHMENT_STAGES[4].value
+    RecoveryManager.write_user_pause_marker(
+        project_id, "deep_enrichment", stage=far_stage,
+    )
+
+    def _detect_resume(pid, stages, skip_mtime):
+        if stages == list(FAST_SYNC_STAGES):
+            return len(FAST_SYNC_STAGES)
+        return 1
+
+    registered: list = []
+    RecoveryManager.hydrate_paused_runs_from_disk(
+        detect_resume_fn=_detect_resume,
+        register_run_fn=lambda pid, group, sm: registered.append((pid, group, sm)),
+        is_run_active_fn=lambda pid: False,
+        default_guard=clean_orchestrator._default_guard,
+    )
+
+    deep_runs = [r for r in registered if r[1] == "deep_enrichment"]
+    assert len(deep_runs) == 1
+    sm = deep_runs[0][2]
+    assert sm.current_stage_index == 1, (
+        "Marker claimed a stage further than the detector's incomplete "
+        "frontier — should fall back to the detector to avoid silently "
+        "skipping incomplete earlier stages"
+    )
+
+
 def test_resume_writes_rebuild_barrier_for_visual_styling(
     tmp_path, monkeypatch, clean_orchestrator,
 ):

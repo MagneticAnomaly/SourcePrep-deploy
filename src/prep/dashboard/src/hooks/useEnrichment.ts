@@ -18,6 +18,11 @@ export interface UseEnrichmentDeps {
   onDeepCompleted?: () => void
   /** Called when fast sync pipeline completes (e.g. to refresh provenance) */
   onFastCompleted?: () => void
+  /** Called when finalize pipeline completes (refreshes provenance for
+   *  stages 11-15 — without this, audit/antibodies/concepts/rules show
+   *  "No run data" in their provenance line until a manual reload
+   *  because the only refetch triggers were fast/deep completion). */
+  onFinalizeCompleted?: () => void
   /** AbortSignal from hydration controller — aborted on project switch */
   signal?: AbortSignal
   /** True while hydration is in progress — suppress polls */
@@ -159,6 +164,8 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
   onDeepCompletedRef.current = deps.onDeepCompleted
   const onFastCompletedRef = useRef(deps.onFastCompleted)
   onFastCompletedRef.current = deps.onFastCompleted
+  const onFinalizeCompletedRef = useRef(deps.onFinalizeCompleted)
+  onFinalizeCompletedRef.current = deps.onFinalizeCompleted
 
   // F-77: Track the latest selected project synchronously so in-flight
   // fetches can detect a project switch between `await` and `dispatch`.
@@ -760,6 +767,7 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
     if (finSSE?.phase === 'completed' && prevFinWasActive) {
       dispatch({ type: 'FINALIZE_COMPLETED' })
       void refreshStageDataFromPipeline()
+      onFinalizeCompletedRef.current?.()
     }
     if (finSSE?.phase === 'failed' && prevFinWasActive) {
       dispatch({ type: 'FINALIZE_FAILED' })
