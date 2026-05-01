@@ -94,7 +94,6 @@ def _build_queue_item(
     is_swarm = False
     if current_stage:
         try:
-            from prep.services.token_telemetry import telemetry
             window = pipeline_scheduler.get_swarm_window()
             window_stage = window and getattr(window.get("stage"), "value", window.get("stage"))
             window_matches = (
@@ -102,12 +101,15 @@ def _build_queue_item(
                 and window.get("project_id") == project_id
                 and window_stage == current_stage
             )
-            if window_matches:
-                live_workers = sum(
-                    1 for req in telemetry.get_active_requests()
-                    if req.get("project_id") == project_id
-                )
-                is_swarm = live_workers >= 2
+            # Phase 119+ correction: drop the live_workers >= 2 gate.
+            # Coord and synth phases of a real swarm are intrinsically
+            # 1-worker-in-flight by design; the old gate flipped is_swarm
+            # off on every coord→fanout→synth transition, costing the UI
+            # the swarm badge during ~30% of swarm wall time.  The
+            # scheduler's swarm window is the authoritative signal —
+            # if the orchestrator opened it, we ARE in a swarm regardless
+            # of how many calls are in flight at this poll instant.
+            is_swarm = window_matches
         except Exception:
             pass
 

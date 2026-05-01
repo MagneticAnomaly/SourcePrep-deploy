@@ -734,13 +734,21 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
 
                 # Phase 119 Swarm Authority: the "Swarming" badge is now
                 # tied to runtime evidence, not static capability.  We
-                # require ALL of:
+                # require:
                 #   (a) the scheduler has an open swarm window
                 #   (b) that window matches this task's project + stage
-                #   (c) at least 2 live workers are in flight
-                # Without (a)+(b) the badge is misleading — concurrent
-                # independent LLM calls to a "swarm-capable" model on a
-                # "swarm-capable" stage are still just parallel calls.
+                # The earlier ``live_workers >= 2`` gate was wrong —
+                # the coord and synth phases of a real swarm are
+                # intrinsically 1-worker-in-flight by design, so the
+                # gate flipped is_swarm/swarm_phases off on every
+                # phase transition (10× → 1× → 10× → 1×).  The UI then
+                # lost sight of the swarm during coord and synth,
+                # rendering them as bare "Thinking 1×" instead of
+                # "Coordinator 1×" with the dedicated row lit.  The
+                # swarm window is the right authority — when the
+                # orchestrator opened it, we ARE in a swarm regardless
+                # of how many workers happen to be in flight at this
+                # poll instant.
                 rt["is_swarm"] = False
                 rt["swarm_phases"] = None
                 stage = rt.get("stage", "")
@@ -750,8 +758,13 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                     and window.get("project_id") == rt["project_id"]
                     and _stage_value(window.get("stage")) == stage
                 )
-                if window_matches and live_workers >= 2:
+                if window_matches:
                     rt["is_swarm"] = True
+                    # _summarize_swarm_phases always returns a
+                    # three-bucket dict; idle phases just show
+                    # active=0, model=None.  This lets the sidebar's
+                    # Coordinator row stay visible at "[idle]"
+                    # instead of vanishing during the synth phase.
                     rt["swarm_phases"] = _summarize_swarm_phases(
                         _tel.get_active_requests(),
                         project_id=rt["project_id"],
