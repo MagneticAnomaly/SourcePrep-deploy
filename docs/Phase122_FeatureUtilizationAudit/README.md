@@ -6,8 +6,65 @@
 > **Prior art:** Phase 95 (path weights advertised but not implemented),
 > Phase 110 §1.5 (intent classification ‑ multiple shipped components
 > not yet wired through retrieval).
-> **Status:** Research & TODO
+> **Status:** Research & TODO — **handed off to next agent**
 > **Date:** 2026-04-30
+
+---
+
+## 0. Getting started (next agent, read this first)
+
+This phase is scaffolded but **not started**. The doc you're reading
+captures everything found during Phase 119 swarm-quality work that
+points to under-utilized tooling. To continue:
+
+### Recommended first session (≤2 hours)
+
+1. **Read §1 (Problem Statement) and §5 (Initial candidate list).**
+   The spaghetti example is concrete; the "no external imports" list
+   is the seed.
+2. **Verify the spaghetti gap firsthand.** Confirm:
+   - `src/prep/core/audit/spaghetti_scorer.py` exists and has
+     `run_spaghetti_scan` + `save_spaghetti`
+   - Only caller is `src/prep/api/routers/audit.py:146-169`
+   - No call from `src/prep/services/pipeline/workers.py` audit worker
+   - SourcePrep `.sourceprep/audit/` directory is missing `spaghetti.json`
+     while PowerMate's has one
+3. **Build the audit script (T1)** — `tools/feature_audit.py`. This
+   is the reproducible reporter that finds candidates without grep
+   one-liners every time. Start with the Python-module pass (§4.1
+   first row); other passes are stretch.
+4. **Ship the spaghetti wire-up (T4)** — proof-of-concept WIRE-UP.
+   That's a ~30-LoC PR: invoke `run_spaghetti_scan` + `save_spaghetti`
+   inside the audit worker, verify spaghetti.json appears for
+   SourcePrep on next run.
+
+### What's already known good
+
+- The detection-pass methodology in §4.1 is sound; the heuristic for
+  Python modules has a known false-positive bug (T2) — re-exports
+  through `__init__.py` aren't followed. Fix that first or you'll
+  flag false positives.
+- The 279-route / 79-story / 15-module seed numbers are real (verified
+  Phase 119, see commit log).
+- This phase **does not** include UI changes. Another agent owns UI
+  truthfulness (Phase 121-adjacent + an in-flight branch we don't own).
+
+### What this phase explicitly does not do
+
+- Refactor working code that is merely "verbose."
+- Audit third-party deps.
+- Touch any UI file in `packages/ui/src/` or `src/prep/dashboard/`.
+- Change pipeline behavior beyond wiring up unwired tools.
+
+### Who to ask
+
+- The Phase 119 work that surfaced this is on `main` already
+  (commits `fe8a144e` through `1d7393e5`). The author's notes are
+  inlined in those commit messages.
+- If a candidate looks load-bearing in a way the heuristics missed,
+  flag it with `NEEDS-OWNER` (per §4.2) rather than deleting.
+
+---
 
 ---
 
