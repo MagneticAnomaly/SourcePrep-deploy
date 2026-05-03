@@ -91,3 +91,63 @@ def test_clear_holds_set_by_no_match_is_noop() -> None:
     # Clearing by a setter that has no holds is a no-op.
     s.clear_holds_set_by("proj-NONEXISTENT")
     assert s.is_held("proj-A", "cloud:default_ollama") is True
+
+
+def test_should_dispatch_returns_true_when_not_held() -> None:
+    from prep.services.pipeline.workers import _should_dispatch_or_pause
+    # No hold → dispatch immediately, no pause.
+    assert _should_dispatch_or_pause(
+        project_id="proj-A",
+        endpoint_id="cloud:default_ollama",
+        poll_interval_s=0.01,
+        max_wait_s=0.05,
+    ) is True
+
+
+def test_should_dispatch_polls_then_returns_when_cleared() -> None:
+    """When a hold is set then cleared mid-poll, the helper resumes."""
+    import threading
+    import time
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+    from prep.services.pipeline.workers import _should_dispatch_or_pause
+
+    pipeline_scheduler.set_hold(
+        "proj-A", "cloud:default_ollama", reason="manual", set_by_project="test",
+    )
+
+    def _clear_after_delay():
+        time.sleep(0.05)
+        pipeline_scheduler.clear_hold("proj-A", "cloud:default_ollama")
+
+    threading.Thread(target=_clear_after_delay, daemon=True).start()
+    try:
+        result = _should_dispatch_or_pause(
+            project_id="proj-A",
+            endpoint_id="cloud:default_ollama",
+            poll_interval_s=0.01,
+            max_wait_s=1.0,
+        )
+        assert result is True
+    finally:
+        # Defensive: clear in case the daemon thread didn't get there.
+        pipeline_scheduler.clear_hold("proj-A", "cloud:default_ollama")
+
+
+def test_should_dispatch_returns_false_after_max_wait() -> None:
+    """If hold never clears within max_wait_s, helper returns False."""
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+    from prep.services.pipeline.workers import _should_dispatch_or_pause
+
+    pipeline_scheduler.set_hold(
+        "proj-B", "cloud:default_ollama", reason="manual", set_by_project="test",
+    )
+    try:
+        result = _should_dispatch_or_pause(
+            project_id="proj-B",
+            endpoint_id="cloud:default_ollama",
+            poll_interval_s=0.01,
+            max_wait_s=0.05,
+        )
+        assert result is False
+    finally:
+        pipeline_scheduler.clear_hold("proj-B", "cloud:default_ollama")

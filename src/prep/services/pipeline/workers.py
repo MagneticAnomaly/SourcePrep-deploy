@@ -22,6 +22,7 @@ from .stages import (
     StageId, STAGE_TASK_ID, STAGE_MODEL_SLOT,
     STAGE_MANIFEST_FILE, STAGE_OUTPUT_FILE, STAGE_CONFIDENCE_FIELD,
 )
+from prep.services.pipeline.scheduler import pipeline_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,33 @@ def _capture_model_info(llm_client) -> Dict[str, Any]:
         return extract_model_info_from_llm_client(llm_client)
     except Exception:
         return {"model_name": getattr(llm_client, "model", "unknown")}
+
+
+def _should_dispatch_or_pause(
+    *,
+    project_id: str,
+    endpoint_id: str,
+    poll_interval_s: float = 1.0,
+    max_wait_s: float = 600.0,
+) -> bool:
+    """Phase 127 soft-hold check called by stage workers before each LLM
+    dispatch.
+
+    Returns True when the worker may dispatch (no hold OR hold cleared
+    within ``max_wait_s``).  Returns False if the hold is still active
+    after ``max_wait_s`` — caller should checkpoint and exit cleanly.
+
+    The poll interval is deliberately coarse; long-running LLM calls
+    don't notice this overhead because the check fires only between
+    dispatches.
+    """
+    deadline = time.monotonic() + max_wait_s
+    while True:
+        if not pipeline_scheduler.is_held(project_id, endpoint_id):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(poll_interval_s)
 
 
 class PipelineRunPhase(str, enum.Enum):
