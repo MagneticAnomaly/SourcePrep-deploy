@@ -45,6 +45,7 @@ from .stages import QueueType, STAGE_QUEUE_TYPE, StageId
 from prep.services.pipeline import ollama_probe
 from prep.services.pipeline.concurrency_store import concurrency_store
 from prep.services.pipeline.discovery import SaturationHint, predict_saturation
+from prep.services.pipeline.holds import HoldEntry, HoldKey, HoldReason
 
 logger = logging.getLogger(__name__)
 
@@ -288,6 +289,13 @@ class PipelineScheduler:
         # Previously only tracked a single project, causing starvation
         # when multiple projects were starred.
         self._priority_projects: Dict[str, PriorityLevel] = {}
+
+        # Phase 127: soft-hold primitive.  Workers poll is_held() before
+        # each LLM dispatch.  Holds are set by exclusive priority or
+        # swarm window opens, cleared on lift/close.  Per (project,
+        # endpoint) granularity so a project blocked on Ollama Cloud
+        # can still serve requests on, say, OpenRouter.
+        self._holds: Dict[HoldKey, HoldEntry] = {}
 
         # Phase 91: Swarm window — temporary exclusive-like mode for
         # swarm-capable stages that need all resources for fan-out.
@@ -601,6 +609,70 @@ class PipelineScheduler:
     def clear_all_priorities(self) -> None:
         """Remove all project priorities."""
         self.set_priority(None, "none")
+
+    # ── Phase 127: Soft-hold primitive ─────────────────────────────
+
+    def set_hold(
+        self,
+        project_id: str,
+        endpoint_id: str,
+        *,
+        reason: HoldReason,
+        set_by_project: str,
+    ) -> None:
+        """Mark (project_id, endpoint_id) as soft-held.
+
+        Workers polling ``is_held(project_id, endpoint_id)`` will pause
+        new LLM dispatches.  In-flight calls run to completion.
+
+        Re-setting an existing hold replaces ownership: the new
+        ``set_by_project`` overwrites the prior setter, and
+        ``held_since`` resets to ``time.time()``.  This means a
+        subsequent ``clear_holds_set_by(prior_setter)`` will NOT clear
+        this entry.  Sub-phase 2 callers (open_swarm_window,
+        set_priority(exclusive)) are coordinated via the same lock so
+        contention is rare in practice.
+        """
+        with self._lock:
+            key = HoldKey(project_id=project_id, endpoint_id=endpoint_id)
+            self._holds[key] = HoldEntry(
+                reason=reason, set_by_project=set_by_project,
+            )
+
+    def clear_hold(self, project_id: str, endpoint_id: str) -> None:
+        """Clear a single (project, endpoint) hold.  No-op if not held."""
+        with self._lock:
+            self._holds.pop(
+                HoldKey(project_id=project_id, endpoint_id=endpoint_id),
+                None,
+            )
+
+    def clear_holds_set_by(self, set_by_project: str) -> None:
+        """Clear all holds that ``set_by_project`` triggered.
+
+        Used by ``close_swarm_window`` and ``set_priority(P, "none")``
+        to release everything in one call.
+        """
+        with self._lock:
+            to_remove = [
+                k for k, v in self._holds.items()
+                if v.set_by_project == set_by_project
+            ]
+            for k in to_remove:
+                del self._holds[k]
+
+    def is_held(self, project_id: str, endpoint_id: str) -> bool:
+        """Return True if (project_id, endpoint_id) currently has a hold."""
+        with self._lock:
+            return HoldKey(project_id, endpoint_id) in self._holds
+
+    def list_holds(self) -> List[Dict[str, Any]]:
+        """Snapshot all active holds for diagnostics / API surface."""
+        with self._lock:
+            return [
+                {"project_id": k.project_id, "endpoint_id": k.endpoint_id, **v.to_dict()}
+                for k, v in self._holds.items()
+            ]
 
     def record_throughput(
         self,
