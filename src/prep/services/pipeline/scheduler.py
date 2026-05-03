@@ -300,9 +300,6 @@ class PipelineScheduler:
         # Phase 91: Swarm window — temporary exclusive-like mode for
         # swarm-capable stages that need all resources for fan-out.
         self._swarm_window: Optional[Dict[str, Any]] = None
-        # Unix timestamp: no swarm window can open before this time.
-        self._swarm_cooldown_until: float = 0.0
-        self._swarm_cooldown_seconds: float = 45.0
         # How long draining stages have before force-cancel (seconds).
         self._drain_timeout_seconds: int = 600  # 10 minutes
 
@@ -1489,18 +1486,11 @@ class PipelineScheduler:
         node. Already-running stages on other projects continue until
         they finish naturally (drain) or hit the drain timeout.
 
-        Returns True if the window was opened, False if cooldown is
-        still active or a swarm window is already open.
+        Returns True if the window was opened, False if a swarm
+        window is already open.
         """
         resolved = self._resolve_node_for_stage(stage, node_id)
         with self._lock:
-            # Cooldown check
-            if time.time() < self._swarm_cooldown_until:
-                logger.info(
-                    "Scheduler: swarm window blocked by cooldown (%.1fs remaining) for %s",
-                    self._swarm_cooldown_until - time.time(), project_id,
-                )
-                return False
             # Already open
             if self._swarm_window is not None:
                 logger.warning(
@@ -1536,19 +1526,16 @@ class PipelineScheduler:
         return True
 
     def close_swarm_window(self) -> None:
-        """Close the active swarm window and start cooldown."""
+        """Close the active swarm window."""
         with self._lock:
             if self._swarm_window is None:
                 return
             window = self._swarm_window
             self._swarm_window = None
-            self._swarm_cooldown_until = time.time() + self._swarm_cooldown_seconds
             logger.info(
-                "Scheduler: ⚡ swarm window CLOSED for %s/%s — "
-                "%.1fs cooldown started",
+                "Scheduler: ⚡ swarm window CLOSED for %s/%s",
                 window["project_id"],
                 window["stage"].value if hasattr(window["stage"], 'value') else window["stage"],
-                self._swarm_cooldown_seconds,
             )
         # Broadcast outside lock to avoid deadlock with listener callbacks
         self._broadcast_capacity_change(window["node_id"], "swarm_end")
@@ -1784,7 +1771,9 @@ class PipelineScheduler:
                     slot.current_load, slot.dynamic_capacity,
                 )
                 # Phase 91: If the swarm window owner is releasing, close
-                # the window. This triggers cooldown and broadcasts.
+                # the window.  This broadcasts capacity changes to other
+                # waiting projects (Phase 127 removed the cooldown — queue
+                # ordering handles anti-thrash now).
                 _close_swarm = False
                 if self._swarm_window and self._swarm_window["project_id"] == project_id:
                     _close_swarm = True
@@ -2314,12 +2303,10 @@ class PipelineScheduler:
                         for pid, started in w.get("drain_targets", {}).items()
                     },
                 }
-            cooldown_remaining = max(0.0, self._swarm_cooldown_until - time.time())
             return {
                 "nodes": nodes,
                 "priority": priority,
                 "swarm_window": swarm,
-                "swarm_cooldown_remaining": round(cooldown_remaining, 1),
                 "drain_timeout_seconds": self._drain_timeout_seconds,
             }
 

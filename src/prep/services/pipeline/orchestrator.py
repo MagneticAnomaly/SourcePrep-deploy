@@ -2259,7 +2259,8 @@ class PipelineOrchestrator:
                     opened = pipeline_scheduler.open_swarm_window(run.project_id, stage, node_id)
                     if opened:
                         self._start_drain_timer()
-                    # If cooldown blocked it, stage runs with normal budget — fine
+                    # If another swarm window is already open, stage runs with
+                    # normal (non-swarm) budget — fine
             except Exception:
                 logger.debug("Phase 91: swarm window check failed for %s/%s", run.project_id, stage.value, exc_info=True)
 

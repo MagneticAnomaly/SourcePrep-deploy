@@ -742,15 +742,14 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                 #       during its phase blocks.  THIS is the
                 #       runtime truth.
                 #
-                # The window-only signal misses cases where the
-                # scheduler's 45s cooldown blocks a new window from
-                # opening between back-to-back swarm stages — atlas
-                # closes its window, concepts immediately tries to
-                # open one, gets blocked by cooldown, but
-                # SwarmOrchestrator runs all three phases anyway.
-                # Without (b) the badge stays off for the entire
-                # cooldown-affected stage even though it's genuinely
-                # swarming.  The earlier ``live_workers >= 2`` gate
+                # The window-only signal can miss the brief gap during
+                # SwarmOrchestrator phase transitions, where the
+                # scheduler window may not yet be opened or may have
+                # been closed but workers are still running.  Without
+                # (b) the badge would flicker off during these
+                # transitions even though the swarm is genuinely
+                # active.  (Phase 127 removed the 45s cooldown that
+                # historically caused longer false-off windows.)  The earlier ``live_workers >= 2`` gate
                 # was also wrong because coord/synth phases are
                 # intrinsically 1-worker-in-flight.
                 rt["is_swarm"] = False

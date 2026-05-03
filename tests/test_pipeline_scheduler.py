@@ -1069,25 +1069,6 @@ class TestSwarmWindow:
         sched.close_swarm_window()
         assert sched.acquire("proj-b", StageId.ENRICHMENT, "cloud:ep-1") is True
 
-    def test_swarm_cooldown_blocks_reopen(self):
-        sched = PipelineScheduler()
-        sched._swarm_cooldown_seconds = 0.5  # Short for testing
-        sched.configure_node("cloud:ep-1", 10)
-        sched.acquire("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
-
-        sched.open_swarm_window("proj-a", StageId.GROUP_REASONING, "cloud:ep-1")
-        sched.close_swarm_window()
-
-        # Immediately try to reopen — should be blocked by cooldown
-        opened = sched.open_swarm_window("proj-b", StageId.CLUSTERING, "cloud:ep-1")
-        assert opened is False
-
-        # Wait for cooldown
-        time.sleep(0.6)
-        sched.acquire("proj-b", StageId.CLUSTERING, "cloud:ep-1")
-        opened = sched.open_swarm_window("proj-b", StageId.CLUSTERING, "cloud:ep-1")
-        assert opened is True
-
     def test_drain_targets_tracked(self):
         sched = PipelineScheduler()
         sched.configure_node("cloud:ep-1", 10)
@@ -1301,7 +1282,6 @@ class TestStatusSwarmFields:
         sched = PipelineScheduler()
         status = sched.status()
         assert "swarm_window" in status
-        assert "swarm_cooldown_remaining" in status
         assert "drain_timeout_seconds" in status
         assert status["swarm_window"] is None
         assert status["drain_timeout_seconds"] == 600

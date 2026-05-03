@@ -45,7 +45,6 @@ def pipeline(orchestrator):
     pipeline_scheduler._queues.clear()
     pipeline_scheduler._priority_projects.clear()
     pipeline_scheduler._swarm_window = None
-    pipeline_scheduler._swarm_cooldown_until = 0.0
     pipeline_scheduler._capacity_listeners.clear()
     pipeline_scheduler._last_broadcast_times.clear()
     pipeline_scheduler._init_embedding_slot()

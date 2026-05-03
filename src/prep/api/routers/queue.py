@@ -105,10 +105,10 @@ def _build_queue_item(
             # Phase 119+ correction: two complementary signals.
             # (a) scheduler swarm window matches — bureaucratic auth.
             # (b) any live call tagged with swarm_role — runtime truth
-            #     that survives the scheduler's 45s cooldown gate
-            #     (which blocks new windows between back-to-back
-            #     swarm stages even when SwarmOrchestrator is
-            #     genuinely running phases).
+            #     that covers the brief gap between SwarmOrchestrator
+            #     phase transitions where the window may not yet be
+            #     opened/closed in the scheduler. Defensive belt-and-
+            #     suspenders; both signals usually agree.
             role_tagged = sum(
                 1 for r in telemetry.get_active_requests()
                 if r.get("project_id") == project_id and r.get("swarm_role")
