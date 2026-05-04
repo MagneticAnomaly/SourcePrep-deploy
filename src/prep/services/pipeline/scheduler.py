@@ -1564,6 +1564,16 @@ class PipelineScheduler:
                 "started_at": now,
                 "drain_targets": drain_targets,
             }
+            # Phase 127: stamp soft-holds on every drain target so
+            # their workers stop dispatching new LLM calls and let
+            # in-flight finish naturally.  Cleared on
+            # close_swarm_window via clear_holds_set_by(project_id).
+            for drain_pid in drain_targets:
+                key = HoldKey(project_id=drain_pid, endpoint_id=resolved)
+                self._holds[key] = HoldEntry(
+                    reason="swarm",
+                    set_by_project=project_id,
+                )
             logger.info(
                 "Scheduler: ⚡ swarm window OPENED for %s/%s on %s "
                 "(%d drain targets: %s)",
@@ -1582,6 +1592,15 @@ class PipelineScheduler:
                 return
             window = self._swarm_window
             self._swarm_window = None
+            # Phase 127: clear all holds this swarm set on drain targets.
+            owner = window.get("project_id") if window else None
+            if owner:
+                to_clear = [
+                    k for k, v in self._holds.items()
+                    if v.set_by_project == owner and v.reason == "swarm"
+                ]
+                for k in to_clear:
+                    del self._holds[k]
             logger.info(
                 "Scheduler: ⚡ swarm window CLOSED for %s/%s",
                 window["project_id"],
