@@ -245,3 +245,114 @@ def test_clear_all_priorities_clears_all_exclusive_holds() -> None:
     assert s.is_held("proj-X", "cloud:default_ollama") is True
     s.clear_all_priorities()
     assert s.is_held("proj-X", "cloud:default_ollama") is False
+
+
+def test_epistemic_enricher_pauses_on_hold(monkeypatch) -> None:
+    """When soft-held, EpistemicEnricher should NOT dispatch a new
+    LLM call; it should pause and re-poll.
+
+    This test verifies the helper works in the worker pattern.  The
+    enricher integration is verified by the regression suite.
+    """
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+    from prep.services.pipeline.workers import _should_dispatch_or_pause
+
+    pipeline_scheduler.set_hold(
+        "proj-pause-test", "cloud:default_ollama",
+        reason="manual", set_by_project="test",
+    )
+    dispatched: list[bool] = []
+
+    def fake_dispatch():
+        ok = _should_dispatch_or_pause(
+            project_id="proj-pause-test",
+            endpoint_id="cloud:default_ollama",
+            poll_interval_s=0.01,
+            max_wait_s=0.1,
+        )
+        dispatched.append(ok)
+
+    try:
+        fake_dispatch()
+        assert dispatched == [False], "dispatcher should have returned False (held)"
+
+        pipeline_scheduler.clear_hold("proj-pause-test", "cloud:default_ollama")
+        fake_dispatch()
+        assert dispatched == [False, True], "dispatcher should have returned True after clear"
+    finally:
+        # Defensive: ensure no hold leaks to other tests on assertion failure.
+        pipeline_scheduler.clear_hold("proj-pause-test", "cloud:default_ollama")
+
+
+def test_epistemic_enricher_integration_pauses_on_hold(tmp_path) -> None:
+    """End-to-end: construct the REAL EpistemicEnricher with a project_id,
+    set a soft-hold matching the LLM's resolved scheduler node id, and
+    verify:
+
+      1. ``_hold_paused()`` returns True (delegation through
+         ``hold_paused_for_llm`` works).
+      2. ``_call_and_parse`` raises :class:`HoldPausedError` instead of
+         returning ``None`` (so callers don't count the pause as a
+         permanent failure that could trip a circuit breaker).
+      3. The fake LLM's ``generate`` was never called.
+
+    This catches the regression I-2 flagged: the prior unit test only
+    exercised ``_should_dispatch_or_pause`` directly; the enricher's
+    own resolver delegation and the new exception-based signaling were
+    untested.
+    """
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+    from prep.services.pipeline.holds import HoldPausedError
+    from prep.core.epistemic_enrichment import EpistemicEnricher
+
+    class FakeLLM:
+        model = "fake-model"
+        provider = "ollama"
+        endpoint_id = "test-endpoint"
+        endpoint_url = "http://localhost:11434"
+        generate_calls = 0
+
+        def _resolve_scheduler_node_id(self):
+            return "cloud:test-endpoint"
+
+        def generate(self, *args, **kwargs):
+            FakeLLM.generate_calls += 1
+            return ("text", {})
+
+    fake = FakeLLM()
+    enricher = EpistemicEnricher(
+        llm=fake,
+        repo_root=tmp_path,
+        index_dir=tmp_path,
+        project_id="proj-integration-test",
+    )
+
+    pipeline_scheduler.set_hold(
+        "proj-integration-test", "cloud:test-endpoint",
+        reason="manual", set_by_project="test",
+    )
+    try:
+        # 1. Real class sees the hold via the resolver delegation.
+        assert enricher._hold_paused() is True
+
+        # 2. _call_and_parse raises HoldPausedError instead of returning None.
+        try:
+            enricher._call_and_parse(
+                node_id="file:dummy.py",
+                file_path="dummy.py",
+                prompt="(short prompt — under 200k char guard)",
+            )
+        except HoldPausedError as hpe:
+            assert hpe.project_id == "proj-integration-test"
+            assert hpe.endpoint_id == "cloud:test-endpoint"
+        else:
+            assert False, "expected HoldPausedError when held"
+
+        # 3. The LLM was never called.
+        assert FakeLLM.generate_calls == 0, (
+            f"LLM should not be called when held, got {FakeLLM.generate_calls} calls"
+        )
+    finally:
+        pipeline_scheduler.clear_hold(
+            "proj-integration-test", "cloud:test-endpoint",
+        )

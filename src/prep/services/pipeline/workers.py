@@ -667,13 +667,15 @@ class WorkerFactory:
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
                 batch_profile=batch_profile,
+                project_id=project_id,
             )
             result = enricher.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             enriched = result.get("enriched_this_run", 0)
             failed = result.get("failed_this_run", 0)
+            paused = bool(result.get("paused"))
             logger.info(
-                "[%s/Deep Reasoning] Complete — enriched=%s, failed=%s",
-                project.name, enriched, failed,
+                "[%s/Deep Reasoning] Complete — enriched=%s, failed=%s%s",
+                project.name, enriched, failed, " (paused on hold)" if paused else "",
             )
 
             if pfl:
@@ -684,11 +686,19 @@ class WorkerFactory:
                     "skipped": result.get("skipped"),
                     "total_enriched": result.get("total_enriched"),
                     "duration_ms": result.get("duration_ms"),
+                    "paused": paused,
                 })
 
+            # Phase 127: a paused run is NOT a failure — it stopped early
+            # because a soft-hold blocked dispatch.  In-flight calls
+            # finished, results were checkpointed, and the next run
+            # resumes from that checkpoint when the hold clears.  Skip
+            # the failure heuristic in that case.
+            #
             # If we attempted enrichment but got 0 results with failures,
-            # treat this as a failure so the UI shows warning (not green).
-            if enriched == 0 and failed > 0:
+            # treat this as a real failure so the UI shows warning (not
+            # green).
+            if not paused and enriched == 0 and failed > 0:
                 raise RuntimeError(
                     f"Epistemic enrichment failed: 0 enriched, {failed} failed. "
                     "Check model availability, timeout settings, and num_predict."
@@ -899,6 +909,7 @@ class WorkerFactory:
                 llm=llm_client,
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
+                project_id=project_id,
             )
             _t0 = time.time()
             logger.info("[%s/Deepening] Starting deepening loop: model=%s", project.name, llm_client.model)
