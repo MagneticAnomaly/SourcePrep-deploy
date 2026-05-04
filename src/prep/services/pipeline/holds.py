@@ -85,6 +85,24 @@ def resolve_endpoint_id_for_llm(llm: Any) -> str:
     return ""
 
 
+def raise_hold_paused_for_llm(llm: Any, project_id: Optional[str]) -> None:
+    """Raise :class:`HoldPausedError` for this (project, llm-endpoint).
+
+    Resolves the LLM client's actual scheduler-prefixed node id (via
+    :func:`resolve_endpoint_id_for_llm`) and raises with that endpoint
+    plus the supplied project_id.  Both fields fall back to descriptive
+    placeholders (``<unset>`` / ``<unresolved>``) when resolution fails
+    so the error message is always informative even on degenerate inputs.
+
+    Shared by :class:`prep.core.epistemic_enrichment.EpistemicEnricher`,
+    :class:`prep.core.augmenter.TraceAugmenter`, and
+    :class:`prep.core.swarm_orchestrator.SwarmOrchestrator` to keep the
+    fallback strings (and HoldPausedError shape) in one place.
+    """
+    endpoint_id = resolve_endpoint_id_for_llm(llm) or "<unresolved>"
+    raise HoldPausedError(project_id or "<unset>", endpoint_id)
+
+
 def hold_paused_for_llm(
     llm: Any,
     project_id: Optional[str],

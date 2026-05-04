@@ -240,6 +240,12 @@ class GroupReasoningEngine:
         self.index_dir = index_dir
         self.project_id = project_id
         self.output_path = index_dir / "trace_group_reasoning.jsonl"
+        # Phase 127: stash slots for swarm pause signaling.  Initialized
+        # here (instead of relying on getattr fallbacks at the read site)
+        # so a "never set" foot-gun can't silently mask a regression.
+        # Updated by _run_swarm() after each swarm execution.
+        self._last_swarm_paused: bool = False
+        self._last_swarm_pause_info: dict[str, str] = {}
 
     def load_existing(self) -> dict[str, GroupReasoningEntry]:
         """Load existing group reasoning entries.
@@ -497,6 +503,10 @@ class GroupReasoningEngine:
             synthesis_timeout_s=240.0 if is_cloud else 180.0,
             worker_timeout_s=180.0 if is_cloud else 300.0,
             max_wall_time_s=900.0 if is_cloud else 1800.0,
+            # Phase 127: pass project_id so the swarm honors soft-holds
+            # at coord→fanout / fanout→synth boundaries.  Empty string
+            # is fine — hold check is a no-op without a project key.
+            project_id=self.project_id or None,
         )
 
         # Build WorkItem list
@@ -567,6 +577,7 @@ class GroupReasoningEngine:
             worker_fn=worker_fn,
             synthesis_prompt=synthesis_prompt,
             progress_fn=progress_fn,
+            project_id=self.project_id or None,
         )
 
         if result is None:
@@ -581,6 +592,26 @@ class GroupReasoningEngine:
                     entries[entry.group_id] = entry
                 except (KeyError, ValueError) as exc:
                     logger.warning("Failed to parse worker result for %s: %s", wr.item_id, exc)
+
+        # Phase 127: if the swarm paused on a soft-hold, stash the
+        # signal on self so the calling stage can short-circuit instead
+        # of falling through to the sequential path (which would
+        # re-engage the same held endpoint).  Partial entries are
+        # preserved — they get written to disk and the next run resumes
+        # the remaining groups.
+        if result.paused:
+            self._last_swarm_paused = True
+            self._last_swarm_pause_info = result.pause_info or {}
+            info = result.pause_info or {}
+            logger.info(
+                "[Swarm/GroupReasoning] paused on soft-hold "
+                "(project=%s endpoint=%s) — %d/%d groups completed at pause",
+                info.get("project_id", "?"), info.get("endpoint_id", "?"),
+                len(entries), len(items),
+            )
+        else:
+            self._last_swarm_paused = False
+            self._last_swarm_pause_info = {}
 
         # Write synthesis artifact (only if synthesis succeeded)
         if result.synthesis:
@@ -787,6 +818,28 @@ class GroupReasoningEngine:
             swarm_entries = self._run_swarm(
                 to_analyze, epistemic, edges, progress_callback, cancel_token,
             )
+            # Phase 127: if the swarm paused on a soft-hold, persist
+            # whatever partial entries we collected and return
+            # ``paused=True`` immediately — DO NOT fall through to the
+            # sequential path, which would re-engage the same held
+            # endpoint and burn calls against it.
+            if getattr(self, "_last_swarm_paused", False):
+                if swarm_entries:
+                    results.update(swarm_entries)
+                    self._write_results(results)
+                analyzed = len(swarm_entries)
+                elapsed = time.monotonic() - start
+                return {
+                    "total_groups": total_groups,
+                    "analyzed": analyzed,
+                    "reused": len(reuse),
+                    "failed": 0,
+                    "remaining": len(to_analyze) - analyzed,
+                    "duration_ms": round(elapsed * 1000, 1),
+                    "swarm": True,
+                    "paused": True,
+                    "pause_info": getattr(self, "_last_swarm_pause_info", {}),
+                }
             if swarm_entries:
                 results.update(swarm_entries)
                 analyzed = len(swarm_entries)

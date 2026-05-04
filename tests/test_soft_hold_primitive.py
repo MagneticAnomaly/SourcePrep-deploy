@@ -433,6 +433,251 @@ def test_augmenter_integration_pauses_on_hold(tmp_path) -> None:
         )
 
 
+def test_swarm_orchestrator_pauses_at_phase_boundary(tmp_path) -> None:
+    """End-to-end: SwarmOrchestrator with a soft-hold set should never
+    dispatch the coordinator/fanout/synthesis LLM calls and should
+    return a ``paused=True`` SwarmResult.
+
+    Mirrors T2.5/T2.6 pattern: the helper unit test only exercises the
+    resolver; the integration test validates the real class's
+    delegation, the new exception-based signaling at phase boundaries,
+    and the pause flag on SwarmResult.
+    """
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+    from prep.services.pipeline.holds import HoldPausedError
+    from prep.core.swarm_orchestrator import (
+        SwarmOrchestrator,
+        WorkItem,
+    )
+
+    class FakeLLM:
+        model = "fake-model"
+        provider = "ollama"
+        endpoint_id = "test-endpoint"
+        endpoint_url = "http://localhost:11434"
+        timeout = 30.0
+        generate_calls = 0
+
+        def _resolve_scheduler_node_id(self):
+            return "cloud:test-endpoint"
+
+        @property
+        def _session(self):
+            return None
+
+        @property
+        def _thread_local(self):
+            class _TL:
+                session = None
+            return _TL()
+
+        def generate(self, *args, **kwargs):
+            FakeLLM.generate_calls += 1
+            return ("text", 0)
+
+    fake = FakeLLM()
+    orch = SwarmOrchestrator(
+        worker_llm=fake,
+        coordinator_llm=fake,
+        concurrency=1,
+        project_id="proj-swarm-integration",
+    )
+
+    pipeline_scheduler.set_hold(
+        "proj-swarm-integration", "cloud:test-endpoint",
+        reason="manual", set_by_project="test",
+    )
+    try:
+        # 1. Real orchestrator sees the hold via the resolver delegation.
+        assert orch._hold_paused() is True
+
+        # 2. _raise_hold_paused() raises HoldPausedError with the right
+        #    project/endpoint pair.
+        try:
+            orch._raise_hold_paused()
+        except HoldPausedError as hpe:
+            assert hpe.project_id == "proj-swarm-integration"
+            assert hpe.endpoint_id == "cloud:test-endpoint"
+        else:
+            assert False, "expected HoldPausedError when held"
+
+        # 3. execute() catches the boundary HoldPausedError and returns
+        #    a paused=True SwarmResult without dispatching any LLM call.
+        items = [WorkItem(id="w1", summary="x", full_context="y")]
+
+        def worker_fn(_item, _assignment):
+            return None
+
+        result = orch.execute(
+            items=items,
+            coordinator_prompt="(coord)",
+            worker_fn=worker_fn,
+            synthesis_prompt="(synth)",
+            enable_event_log=False,
+        )
+        assert result is not None, "expected SwarmResult, not None"
+        assert result.paused is True, (
+            f"expected result.paused=True, got {result.paused}"
+        )
+        assert result.pause_info is not None
+        assert result.pause_info["project_id"] == "proj-swarm-integration"
+        assert result.pause_info["endpoint_id"] == "cloud:test-endpoint"
+        # No LLM calls should have been dispatched.
+        assert FakeLLM.generate_calls == 0, (
+            f"LLM should not be called when held at the pre-coord boundary, "
+            f"got {FakeLLM.generate_calls} calls"
+        )
+        # No synthesis when paused before coord.
+        assert result.synthesis is None
+    finally:
+        pipeline_scheduler.clear_hold(
+            "proj-swarm-integration", "cloud:test-endpoint",
+        )
+
+
+def test_swarm_orchestrator_paused_mid_fanout_salvages_partials() -> None:
+    """When a hold is set mid-fanout, the swarm pauses at the next phase
+    boundary (fanout→synth) and returns ``paused=True`` with salvaged
+    worker results.
+
+    The pre-coord-boundary test (above) only proves we don't dispatch
+    against an already-held endpoint.  This case proves the salvage
+    path: workers complete, the hold appears mid-flight, the
+    fanout→synth boundary check raises HoldPausedError, and
+    ``execute()`` returns the partial worker_results without invoking
+    synthesis.
+    """
+    import json as _json
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+    from prep.core.swarm_orchestrator import SwarmOrchestrator, WorkItem
+
+    project_id = "proj-swarm-mid-fanout"
+    endpoint_resolved = "cloud:test-endpoint-mid"
+
+    coord_calls = {"n": 0}
+    synth_calls = {"n": 0}
+    worker_calls = {"n": 0}
+
+    def _coord_response(items):
+        return _json.dumps({
+            "assignments": [
+                {
+                    "item_id": it.id,
+                    "analysis_angle": "default",
+                    "priority_concerns": [],
+                }
+                for it in items
+            ]
+        })
+
+    class FakeLLM:
+        model = "fake-mid"
+        provider = "ollama"
+        endpoint_id = "test-endpoint-mid"
+        endpoint_url = "http://localhost:11434"
+        timeout = 30.0
+        # The orchestrator's _llm_call_with_timeout helper touches
+        # ``_session`` and reads ``_thread_local.session`` for zombie
+        # cleanup; provide both so the call path doesn't AttributeError.
+        _items_for_coord: list = []
+
+        def _resolve_scheduler_node_id(self):
+            return endpoint_resolved
+
+        @property
+        def _session(self):
+            return None
+
+        @property
+        def _thread_local(self):
+            class _TL:
+                session = None
+            return _TL()
+
+        def generate(self, *args, **kwargs):
+            # Distinguish coord vs synth by the system prompt content.
+            system = kwargs.get("system", "")
+            if "synthesizing" in system:
+                synth_calls["n"] += 1
+                return ('{"key_insight": "should not reach here"}', 0)
+            else:
+                coord_calls["n"] += 1
+                return (_coord_response(FakeLLM._items_for_coord), 0)
+
+    fake_coord = FakeLLM()
+    fake_worker = FakeLLM()
+
+    # Build 4 items so we get at least 2 worker calls before the hold
+    # latches (concurrency=1 forces strict serial worker execution).
+    items = [
+        WorkItem(id=f"w{i}", summary=f"item {i}", full_context=f"ctx {i}")
+        for i in range(4)
+    ]
+    FakeLLM._items_for_coord = items
+
+    orch = SwarmOrchestrator(
+        worker_llm=fake_worker,
+        coordinator_llm=fake_coord,
+        concurrency=1,
+        project_id=project_id,
+    )
+
+    def worker_fn(item, assignment):
+        worker_calls["n"] += 1
+        # On the second worker call, set the hold.  The remaining
+        # workers may still execute (they're already-submitted futures
+        # in the fan-out pool), but the post-fanout boundary check in
+        # execute() will detect the hold and raise HoldPausedError
+        # before synthesis runs.
+        if worker_calls["n"] == 2:
+            pipeline_scheduler.set_hold(
+                project_id, endpoint_resolved,
+                reason="exclusive", set_by_project="proj-other",
+            )
+        # Return a parseable JSON worker output so the result is marked
+        # successful (so we can assert salvage actually returned data).
+        return _json.dumps({"finding": f"ok-{item.id}"})
+
+    try:
+        result = orch.execute(
+            items=items,
+            coordinator_prompt="Coordinate:\n{group_summaries}",
+            worker_fn=worker_fn,
+            synthesis_prompt="Synthesize:\n{worker_outputs}",
+            enable_event_log=False,
+        )
+
+        assert result is not None, "expected SwarmResult, not None"
+        # Pause must be signaled — the fanout→synth boundary saw the hold.
+        assert result.paused is True, (
+            f"expected result.paused=True after mid-fanout hold, got {result.paused}"
+        )
+        assert result.pause_info is not None
+        assert result.pause_info["project_id"] == project_id
+        assert result.pause_info["endpoint_id"] == endpoint_resolved
+
+        # Salvage: at least one worker DID run before the hold latched.
+        assert worker_calls["n"] >= 1, (
+            f"expected at least one worker to run before pause, got {worker_calls['n']}"
+        )
+        # Salvaged worker results are preserved on the SwarmResult.
+        assert result.worker_results, "expected salvaged worker_results, got empty list"
+        assert any(r.success for r in result.worker_results), (
+            "expected at least one successful worker_result in salvage"
+        )
+
+        # Synthesis must NOT have run — the hold caught us at fanout→synth.
+        assert synth_calls["n"] == 0, (
+            f"synthesis should not have been dispatched after mid-fanout hold, "
+            f"got {synth_calls['n']} synth calls"
+        )
+        assert result.synthesis is None, (
+            "expected result.synthesis=None when paused at fanout→synth boundary"
+        )
+    finally:
+        pipeline_scheduler.clear_hold(project_id, endpoint_resolved)
+
+
 def test_augmenter_run_returns_paused_when_held_at_preflight(tmp_path) -> None:
     """End-to-end: TraceAugmenter.run() with a hold set BEFORE work
     starts returns ``paused=True`` without invoking the LLM.

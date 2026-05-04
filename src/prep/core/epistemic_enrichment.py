@@ -281,13 +281,14 @@ class EpistemicEnricher:
         permanent failure: callers count ``None`` returns as failure,
         which would falsely trip circuit breakers.  The exception
         bubbles up to ``run()`` which catches it once at run level.
+
+        Delegates to :func:`prep.services.pipeline.holds.raise_hold_paused_for_llm`
+        so the (project, endpoint) resolution and fallback strings stay
+        consistent across the three classes that share this pattern
+        (augmenter, epistemic enricher, swarm orchestrator).
         """
-        from prep.services.pipeline.holds import (
-            HoldPausedError,
-            resolve_endpoint_id_for_llm,
-        )
-        endpoint_id = resolve_endpoint_id_for_llm(self.llm) or "<unresolved>"
-        raise HoldPausedError(self.project_id or "<unset>", endpoint_id)
+        from prep.services.pipeline.holds import raise_hold_paused_for_llm
+        raise_hold_paused_for_llm(self.llm, self.project_id)
 
     def load_existing(self) -> Dict[str, EpistemicEntry]:
         """Load existing epistemic entries."""

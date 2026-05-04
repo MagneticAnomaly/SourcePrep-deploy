@@ -514,6 +514,9 @@ def seed_concepts_swarm(
         synthesis_timeout_s=240.0 if is_cloud_model else 180.0,
         worker_timeout_s=180.0 if is_cloud_model else 300.0,
         max_wall_time_s=900.0 if is_cloud_model else 1800.0,
+        # Phase 127: pass project_id so the swarm honors soft-holds
+        # at coord→fanout / fanout→synth boundaries.
+        project_id=project_id,
     )
 
     coordinator_prompt = (
@@ -634,6 +637,30 @@ def seed_concepts_swarm(
 
     if result is None:
         raise _SwarmFallback("swarm orchestrator returned None")
+
+    # Phase 127: if the swarm paused on a soft-hold, return a
+    # ``status="paused"`` summary WITHOUT falling back to the sequential
+    # path (which would re-engage the same held endpoint) and WITHOUT
+    # persisting partial concepts (which would mark the stage complete
+    # and mask the pause).  The next run resumes from where we stopped.
+    if result.paused:
+        info = result.pause_info or {}
+        logger.info(
+            "[Swarm/Concepts] paused on soft-hold (project=%s endpoint=%s) — "
+            "deferring concept persistence to next run",
+            info.get("project_id", "?"), info.get("endpoint_id", "?"),
+        )
+        return {
+            "status": "paused",
+            "mode": "swarm",
+            "concepts_created": 0,
+            "questions_created": 0,
+            "modules_analyzed": len(items),
+            "workers_succeeded": sum(1 for wr in result.worker_results if wr.success),
+            "workers_total": len(result.worker_results),
+            "pause_info": info,
+            "message": "Concept seeding paused on soft-hold; will retry on next run.",
+        }
 
     # 6. Save concepts and questions from synthesis
     concepts_created = 0
