@@ -2256,7 +2256,43 @@ class PipelineOrchestrator:
             try:
                 _provider, _model = self._resolve_model_for_stage(run.project_id, stage)
                 if _provider and _model and is_swarm_active_for_stage(stage.value, _provider, _model):
-                    opened = pipeline_scheduler.open_swarm_window(run.project_id, stage, node_id)
+                    # Phase 127 T3.2: build endpoint_set from coord+worker LLM
+                    # clients so the scheduler holds only conflicting projects.
+                    # Single-endpoint swarms still pass a 1-element set;
+                    # multi-endpoint swarms (coord on OpenRouter + workers on
+                    # Ollama Cloud) pass both.  Resolution is best-effort —
+                    # fall back to {node_id} when client lookup fails.
+                    endpoint_set: set[str] = set()
+                    try:
+                        from prep.server import _get_llm_client_for_slot
+                        for _slot in ("large", "coordinator"):
+                            try:
+                                _client = _get_llm_client_for_slot(_slot)
+                            except Exception:
+                                _client = None
+                            if _client is None:
+                                continue
+                            _resolver = getattr(_client, "_resolve_scheduler_node_id", None)
+                            if not callable(_resolver):
+                                continue
+                            try:
+                                _ep = _resolver()
+                            except Exception:
+                                _ep = None
+                            if _ep:
+                                endpoint_set.add(str(_ep))
+                    except Exception:
+                        logger.debug(
+                            "Phase 127 T3.2: endpoint_set resolution failed; "
+                            "falling back to single-endpoint",
+                            exc_info=True,
+                        )
+                    if not endpoint_set and node_id:
+                        endpoint_set = {node_id}
+                    opened = pipeline_scheduler.open_swarm_window(
+                        run.project_id, stage, node_id,
+                        endpoint_set=endpoint_set or None,
+                    )
                     if opened:
                         self._start_drain_timer()
                     # If another swarm window is already open, stage runs with

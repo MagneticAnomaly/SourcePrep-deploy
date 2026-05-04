@@ -1742,11 +1742,20 @@ class PipelineScheduler:
 
         Callers must hold ``self._lock``. Captures the window reference
         defensively to avoid TOCTOU races if called without the lock.
+
+        Phase 127 T3.2: consults ``endpoint_set`` so multi-endpoint swarms
+        (coord on OpenRouter + workers on Ollama Cloud) block new
+        acquisitions on every endpoint they use.  Falls back to
+        ``{window["node_id"]}`` when the field is missing for backward
+        compatibility with legacy single-endpoint windows.
         """
         window = self._swarm_window
         if window is None:
             return False
-        return window["node_id"] == node_id and window["project_id"] != project_id
+        if window["project_id"] == project_id:
+            return False
+        eps = window.get("endpoint_set") or {window["node_id"]}
+        return node_id in eps
 
     # ── Phase 91: Capacity Change Event Bus ──────────────────────
 
