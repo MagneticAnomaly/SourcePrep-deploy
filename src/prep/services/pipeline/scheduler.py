@@ -1435,6 +1435,56 @@ class PipelineScheduler:
             self._queues[nid] = deque()
         return self._queues[nid]
 
+    def dequeue_next(self, node_id: Optional[str] = None) -> Optional[QueueEntry]:
+        """Pop the highest-priority next queue entry for ``node_id``.
+
+        Phase 127: boost-weighted FIFO.  Boost projects skip ahead of
+        normal projects.  Within a tier, FIFO order is preserved by
+        ``enqueued_at``.  Exclusive doesn't sort separately because
+        exclusive projects rarely enter the queue (they hold the slot
+        directly), but if one does, it's treated as the same tier as
+        boost for ordering purposes.
+
+        Skips entries whose project is currently blocked by an open
+        swarm window — those wait until the window closes.  This
+        preserves the Phase 91 swarm-gate semantics that release()
+        previously enforced inline.
+        """
+        with self._lock:
+            return self._dequeue_next_locked(node_id)
+
+    def _dequeue_next_locked(self, node_id: Optional[str] = None) -> Optional[QueueEntry]:
+        """Internal: caller must hold self._lock.
+
+        Same behavior as dequeue_next but without re-acquiring the lock.
+        Used from release() which already holds the lock.
+        """
+        queue = self._queues.get(node_id) if node_id else self._get_queue()
+        if not queue:
+            return None
+        # Build candidate list excluding swarm-blocked projects.
+        # Iterate by index so we can `del queue[idx]` in place.
+        candidates: List[Tuple[int, QueueEntry, str]] = []
+        for i, e in enumerate(queue):
+            if node_id and self._is_blocked_by_swarm(e.project_id, node_id):
+                continue  # swarm-gate blocks this candidate
+            level = self._priority_projects.get(e.project_id, "none")
+            candidates.append((i, e, level))
+        if not candidates:
+            return None
+        # Pick the highest-priority candidate.  Boost+exclusive tier
+        # beats normal; FIFO within a tier.
+        best_idx, best_entry, best_level = candidates[0]
+        for i, e, level in candidates[1:]:
+            best_is_boost = best_level in ("boost", "exclusive")
+            e_is_boost = level in ("boost", "exclusive")
+            if e_is_boost and not best_is_boost:
+                best_idx, best_entry, best_level = i, e, level
+            elif e_is_boost == best_is_boost and e.enqueued_at < best_entry.enqueued_at:
+                best_idx, best_entry, best_level = i, e, level
+        del queue[best_idx]
+        return best_entry
+
     def _get_max_dynamic_capacity(self) -> int:
         """Return the highest dynamic_capacity across all LLM nodes.
 
@@ -1788,18 +1838,16 @@ class PipelineScheduler:
                 key = f"{project_id}:{resolved}"
                 self._capacity_listeners.pop(key, None)
 
-            # Check if there's a queued pipeline waiting for this node
-            # Phase 91: Don't dequeue if swarm window blocks this node
+            # Check if there's a queued pipeline waiting for this node.
+            # Phase 127: route through boost-weighted FIFO so priority
+            # is honored and the swarm-gate is applied uniformly.  The
+            # _locked variant is used because we already hold self._lock.
             result: Optional[QueueEntry] = None
-            queue = self._get_queue(resolved)
-            if queue and slot.has_capacity:
-                # Peek: if swarm window is active and next entry isn't the
-                # swarm project, don't dequeue.
-                next_entry = queue[0]
-                if not self._is_blocked_by_swarm(next_entry.project_id, resolved):
-                    result = queue.popleft()
+            if slot.has_capacity:
+                result = self._dequeue_next_locked(resolved)
+                if result is not None:
                     logger.info(
-                        "Scheduler: dequeuing %s for %s (waited %.1fs)",
+                        "Scheduler: dequeued %s for %s (boost-weighted FIFO, waited %.1fs)",
                         result.project_id, result.stage.value,
                         time.time() - result.enqueued_at,
                     )
