@@ -562,6 +562,16 @@ class PipelineScheduler:
                     logger.info("Scheduler: clearing all priorities (%d projects)",
                                 len(self._priority_projects))
                 self._priority_projects.clear()
+                # Phase 127: clear every exclusive-reason hold across all
+                # setters when priorities are bulk-cleared.
+                # Bulk-clear: drop set_by_project filter since all
+                # projects' priorities are being wiped.
+                to_clear = [
+                    k for k, v in self._holds.items()
+                    if v.reason == "exclusive"
+                ]
+                for k in to_clear:
+                    del self._holds[k]
                 return
 
             if project_id is None:
@@ -572,6 +582,12 @@ class PipelineScheduler:
                 if old:
                     logger.info("Scheduler: removed priority for %s (was %s)",
                                 project_id, old)
+                # Phase 127: when clearing exclusive, drop all holds this
+                # project stamped with reason="exclusive".  Filter on
+                # reason to avoid clobbering swarm holds set by the same
+                # project (matches the close_swarm_window pattern).
+                if old == "exclusive":
+                    self._clear_holds_set_by_with_reason(project_id, "exclusive")
                 return
 
             # If setting exclusive, demote any existing exclusive projects to boost
@@ -583,6 +599,9 @@ class PipelineScheduler:
                             "Scheduler: demoting %s from exclusive → boost "
                             "(new exclusive: %s)", pid, project_id,
                         )
+                        # Phase 127: demoted project should release its
+                        # exclusive holds — it is no longer exclusive.
+                        self._clear_holds_set_by_with_reason(pid, "exclusive")
 
             old_level = self._priority_projects.get(project_id)
             self._priority_projects[project_id] = level
@@ -596,6 +615,33 @@ class PipelineScheduler:
                     broadcast_reason = "exclusive_start"
                 elif old_level == "exclusive":
                     broadcast_reason = "exclusive_end"
+
+            # Phase 127: when entering exclusive, stamp soft-holds on every
+            # OTHER active project on every non-embedding node.  Re-stamp
+            # is idempotent (set_by_project is always us, reason is always
+            # "exclusive").  Embedding is local-only; never held.
+            if level == "exclusive":
+                # Clear any stale exclusive holds we previously set (e.g.
+                # from a prior exclusive window) so the new set is canonical.
+                self._clear_holds_set_by_with_reason(project_id, "exclusive")
+                for nid, slot in self._slots.items():
+                    if nid == self._EMBEDDING_NODE_ID:
+                        continue  # embedding is local + cheap; don't hold
+                    for other_pid in slot.active_stages:
+                        if other_pid != project_id:
+                            self._holds[
+                                HoldKey(project_id=other_pid, endpoint_id=nid)
+                            ] = HoldEntry(
+                                reason="exclusive",
+                                set_by_project=project_id,
+                            )
+
+            # Phase 127: when leaving exclusive (e.g. exclusive → boost),
+            # release the holds this project stamped.  Use the same
+            # set_by_project + reason filter as close_swarm_window to
+            # avoid clobbering swarm holds.
+            if old_level == "exclusive" and level != "exclusive":
+                self._clear_holds_set_by_with_reason(project_id, "exclusive")
 
         # Broadcast outside lock
         if broadcast_reason:
@@ -657,6 +703,24 @@ class PipelineScheduler:
             ]
             for k in to_remove:
                 del self._holds[k]
+
+    def _clear_holds_set_by_with_reason(
+        self, set_by_project: str, reason: HoldReason,
+    ) -> None:
+        """Clear holds where (set_by_project, reason) both match.
+
+        Caller must hold self._lock.
+
+        Used by set_priority and close_swarm_window so that clearing
+        exclusive holds does not clobber swarm holds (and vice versa)
+        when the same project happens to set both kinds.
+        """
+        to_clear = [
+            k for k, v in self._holds.items()
+            if v.set_by_project == set_by_project and v.reason == reason
+        ]
+        for k in to_clear:
+            del self._holds[k]
 
     def is_held(self, project_id: str, endpoint_id: str) -> bool:
         """Return True if (project_id, endpoint_id) currently has a hold."""
@@ -1595,12 +1659,7 @@ class PipelineScheduler:
             # Phase 127: clear all holds this swarm set on drain targets.
             owner = window.get("project_id") if window else None
             if owner:
-                to_clear = [
-                    k for k, v in self._holds.items()
-                    if v.set_by_project == owner and v.reason == "swarm"
-                ]
-                for k in to_clear:
-                    del self._holds[k]
+                self._clear_holds_set_by_with_reason(owner, "swarm")
             logger.info(
                 "Scheduler: ⚡ swarm window CLOSED for %s/%s",
                 window["project_id"],

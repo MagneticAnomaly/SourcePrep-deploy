@@ -151,3 +151,97 @@ def test_should_dispatch_returns_false_after_max_wait() -> None:
         assert result is False
     finally:
         pipeline_scheduler.clear_hold("proj-B", "cloud:default_ollama")
+
+
+def test_exclusive_sets_holds_on_other_active_projects() -> None:
+    from prep.services.pipeline.scheduler import PipelineScheduler
+    from prep.services.pipeline.stages import StageId
+    s = PipelineScheduler()
+    s.configure_node("cloud:default_ollama", max_concurrent=10)
+    s.acquire("proj-X", StageId.ENRICHMENT, "cloud:default_ollama")
+    s.acquire("proj-Y", StageId.ENRICHMENT, "cloud:default_ollama")
+    # User clicks Exclusive on a NEW project (not currently active).
+    s.set_priority("proj-A", "exclusive")
+    # Both other projects soft-held.
+    assert s.is_held("proj-X", "cloud:default_ollama") is True
+    assert s.is_held("proj-Y", "cloud:default_ollama") is True
+    # The exclusive project itself is not held.
+    assert s.is_held("proj-A", "cloud:default_ollama") is False
+
+
+def test_lifting_exclusive_clears_holds() -> None:
+    from prep.services.pipeline.scheduler import PipelineScheduler
+    from prep.services.pipeline.stages import StageId
+    s = PipelineScheduler()
+    s.configure_node("cloud:default_ollama", max_concurrent=10)
+    s.acquire("proj-X", StageId.ENRICHMENT, "cloud:default_ollama")
+    s.set_priority("proj-A", "exclusive")
+    assert s.is_held("proj-X", "cloud:default_ollama") is True
+    s.set_priority("proj-A", "none")
+    assert s.is_held("proj-X", "cloud:default_ollama") is False
+
+
+def test_exclusive_to_boost_clears_holds() -> None:
+    """Demoting from exclusive to boost must release exclusive holds."""
+    from prep.services.pipeline.scheduler import PipelineScheduler
+    from prep.services.pipeline.stages import StageId
+    s = PipelineScheduler()
+    s.configure_node("cloud:default_ollama", max_concurrent=10)
+    s.acquire("proj-X", StageId.ENRICHMENT, "cloud:default_ollama")
+    s.set_priority("proj-A", "exclusive")
+    assert s.is_held("proj-X", "cloud:default_ollama") is True
+    s.set_priority("proj-A", "boost")
+    assert s.is_held("proj-X", "cloud:default_ollama") is False
+
+
+def test_exclusive_re_stamp_drops_stale_when_active_changes() -> None:
+    """Re-stamping exclusive after active_stages changes drops stale holds."""
+    from prep.services.pipeline.scheduler import PipelineScheduler
+    from prep.services.pipeline.stages import StageId
+    s = PipelineScheduler()
+    s.configure_node("cloud:default_ollama", max_concurrent=10)
+    s.acquire("proj-X", StageId.ENRICHMENT, "cloud:default_ollama")
+    s.set_priority("proj-A", "exclusive")
+    assert s.is_held("proj-X", "cloud:default_ollama") is True
+    # proj-X drains, proj-Y starts.
+    s.release("proj-X", StageId.ENRICHMENT, "cloud:default_ollama")
+    s.acquire("proj-Y", StageId.ENRICHMENT, "cloud:default_ollama")
+    # Re-stamp exclusive on proj-A.
+    s.set_priority("proj-A", "exclusive")
+    # Stale hold on proj-X should be gone; new hold on proj-Y in place.
+    assert s.is_held("proj-X", "cloud:default_ollama") is False
+    assert s.is_held("proj-Y", "cloud:default_ollama") is True
+
+
+def test_new_exclusive_clears_demoted_projects_holds() -> None:
+    """Setting a new project exclusive demotes prior exclusive AND clears its holds."""
+    from prep.services.pipeline.scheduler import PipelineScheduler
+    from prep.services.pipeline.stages import StageId
+    s = PipelineScheduler()
+    s.configure_node("cloud:default_ollama", max_concurrent=10)
+    s.acquire("proj-X", StageId.ENRICHMENT, "cloud:default_ollama")
+    # proj-A goes exclusive — holds proj-X.
+    s.set_priority("proj-A", "exclusive")
+    assert s.is_held("proj-X", "cloud:default_ollama") is True
+    # proj-B goes exclusive — proj-A demoted to boost; A's holds gone.
+    s.acquire("proj-Y", StageId.ENRICHMENT, "cloud:default_ollama")
+    s.set_priority("proj-B", "exclusive")
+    # proj-X is now held by B (still active), not A.
+    held = s.list_holds()
+    a_holds = [h for h in held if h["set_by_project"] == "proj-A"]
+    b_holds = [h for h in held if h["set_by_project"] == "proj-B"]
+    assert a_holds == [], f"proj-A's holds should be cleared on demotion, got {a_holds}"
+    assert len(b_holds) > 0, "proj-B should now hold the others"
+
+
+def test_clear_all_priorities_clears_all_exclusive_holds() -> None:
+    """clear_all_priorities() removes every exclusive-reason hold."""
+    from prep.services.pipeline.scheduler import PipelineScheduler
+    from prep.services.pipeline.stages import StageId
+    s = PipelineScheduler()
+    s.configure_node("cloud:default_ollama", max_concurrent=10)
+    s.acquire("proj-X", StageId.ENRICHMENT, "cloud:default_ollama")
+    s.set_priority("proj-A", "exclusive")
+    assert s.is_held("proj-X", "cloud:default_ollama") is True
+    s.clear_all_priorities()
+    assert s.is_held("proj-X", "cloud:default_ollama") is False
