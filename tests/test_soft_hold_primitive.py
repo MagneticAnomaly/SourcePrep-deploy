@@ -356,3 +356,178 @@ def test_epistemic_enricher_integration_pauses_on_hold(tmp_path) -> None:
         pipeline_scheduler.clear_hold(
             "proj-integration-test", "cloud:test-endpoint",
         )
+
+
+def test_augmenter_integration_pauses_on_hold(tmp_path) -> None:
+    """End-to-end: construct the REAL TraceAugmenter with a project_id,
+    set a soft-hold matching the LLM's resolved scheduler node id, and
+    verify:
+
+      1. ``_hold_paused()`` returns True (delegation through
+         ``hold_paused_for_llm`` works).
+      2. ``_llm_generate_with_retry`` raises :class:`HoldPausedError`
+         instead of going through the retry loop (so a held endpoint
+         doesn't burn retries against itself).
+      3. The fake LLM's ``generate`` was never called.
+
+    Mirrors the T2.5 epistemic-enricher pattern: the helper unit test
+    only exercises the resolver; the integration test validates the
+    real class's delegation and the new exception-based signaling.
+    """
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+    from prep.services.pipeline.holds import HoldPausedError
+    from prep.core.augmenter import TraceAugmenter
+
+    class FakeLLM:
+        model = "fake-model"
+        provider = "ollama"
+        endpoint_id = "test-endpoint"
+        endpoint_url = "http://localhost:11434"
+        timeout = 30.0
+        generate_calls = 0
+
+        def _resolve_scheduler_node_id(self):
+            return "cloud:test-endpoint"
+
+        def generate(self, *args, **kwargs):
+            FakeLLM.generate_calls += 1
+            return ("text", {})
+
+    fake = FakeLLM()
+    augmenter = TraceAugmenter(
+        index_dir=tmp_path,
+        repo_root=tmp_path,
+        llm_client=fake,
+        project_id="proj-aug-integration",
+    )
+
+    pipeline_scheduler.set_hold(
+        "proj-aug-integration", "cloud:test-endpoint",
+        reason="manual", set_by_project="test",
+    )
+    try:
+        # 1. Real class sees the hold via the resolver delegation.
+        assert augmenter._hold_paused() is True
+
+        # 2. _llm_generate_with_retry raises HoldPausedError instead of
+        #    retrying or returning normally.
+        try:
+            augmenter._llm_generate_with_retry(
+                prompt="(short prompt)",
+                system="test-system",
+                label="test",
+            )
+        except HoldPausedError as hpe:
+            assert hpe.project_id == "proj-aug-integration"
+            assert hpe.endpoint_id == "cloud:test-endpoint"
+        else:
+            assert False, "expected HoldPausedError when held"
+
+        # 3. The LLM was never called.
+        assert FakeLLM.generate_calls == 0, (
+            f"LLM should not be called when held, got {FakeLLM.generate_calls} calls"
+        )
+    finally:
+        pipeline_scheduler.clear_hold(
+            "proj-aug-integration", "cloud:test-endpoint",
+        )
+
+
+def test_augmenter_run_returns_paused_when_held_at_preflight(tmp_path) -> None:
+    """End-to-end: TraceAugmenter.run() with a hold set BEFORE work
+    starts returns ``paused=True`` without invoking the LLM.
+
+    Drives the pre-flight bypass at augmenter.py:~L1720: the run() loads
+    trace nodes, computes the work set, then checks ``_hold_paused()``.
+    When held, it skips the pre-flight LLM probe, populates
+    ``result.paused`` / ``result.pause_info`` with the resolved
+    (project, endpoint) tuple, and returns cleanly.
+
+    Reviewer-flagged gap: the existing T2.6 integration test only
+    exercised ``_llm_generate_with_retry`` directly; the run()
+    pre-flight bypass and the AugmentResult.paused signaling had no
+    end-to-end coverage.
+    """
+    import json
+
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+    from prep.core.augmenter import TraceAugmenter
+
+    # Build a minimal index_dir + repo_root with one trace node so the
+    # run() reaches the pre-flight check (early-returns when nodes==[]).
+    index_dir = tmp_path / "index"
+    index_dir.mkdir()
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    (repo_root / "main.py").write_text('def hello():\n    pass\n')
+
+    nodes = [
+        {
+            "id": "node-file-1",
+            "kind": "file",
+            "name": "main.py",
+            "file_path": "main.py",
+            "span": None,
+            "language": "python",
+            "metadata": {},
+        },
+    ]
+    with open(index_dir / "trace_nodes.jsonl", "w") as f:
+        for n in nodes:
+            f.write(json.dumps(n) + "\n")
+    with open(index_dir / "trace_edges.jsonl", "w") as f:
+        pass  # empty edges file
+    with open(index_dir / "trace_manifest.json", "w") as f:
+        json.dump(
+            {
+                "version": "1.0",
+                "built_at": "2025-02-11T00:00:00Z",
+                "counts": {"nodes": len(nodes), "edges": 0},
+            },
+            f,
+        )
+
+    class FakeLLM:
+        model = "fake-model"
+        provider = "ollama"
+        endpoint_id = "test-endpoint"
+        endpoint_url = "http://localhost:11434"
+        timeout = 30.0
+        generate_calls = 0
+
+        def _resolve_scheduler_node_id(self):
+            return "cloud:test-endpoint"
+
+        def generate(self, *args, **kwargs):
+            FakeLLM.generate_calls += 1
+            return ("text", 100)
+
+    fake = FakeLLM()
+    augmenter = TraceAugmenter(
+        index_dir=index_dir,
+        repo_root=repo_root,
+        llm_client=fake,
+        project_id="proj-aug-run-test",
+    )
+
+    pipeline_scheduler.set_hold(
+        "proj-aug-run-test", "cloud:test-endpoint",
+        reason="manual", set_by_project="test",
+    )
+    try:
+        result = augmenter.run()
+        assert result.paused is True, (
+            f"expected result.paused=True, got {result.paused}"
+        )
+        assert result.pause_info is not None, "expected pause_info populated"
+        assert result.pause_info["project_id"] == "proj-aug-run-test"
+        assert result.pause_info["endpoint_id"] == "cloud:test-endpoint"
+        # Pre-flight LLM probe must NOT have been dispatched.
+        assert FakeLLM.generate_calls == 0, (
+            f"LLM should not be called when held at pre-flight, "
+            f"got {FakeLLM.generate_calls} calls"
+        )
+    finally:
+        pipeline_scheduler.clear_hold(
+            "proj-aug-run-test", "cloud:test-endpoint",
+        )

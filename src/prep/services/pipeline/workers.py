@@ -473,11 +473,14 @@ class WorkerFactory:
                 repo_root=project.path,
                 llm_client=llm_client,
                 batch_profile=batch_profile,
+                project_id=project_id,
             )
             result = augmenter.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
+            paused = bool(getattr(result, "paused", False))
             logger.info(
-                "[%s/Fast Catalogue] Complete — %d augmented, %d failed, %d skipped",
+                "[%s/Fast Catalogue] Complete — %d augmented, %d failed, %d skipped%s",
                 project.name, result.augmented, result.failed, result.skipped,
+                " (paused on hold)" if paused else "",
             )
 
             if pfl:
@@ -494,8 +497,9 @@ class WorkerFactory:
                     "items_batched": result.items_batched,
                     "items_parsed": result.items_parsed,
                     "max_prompt_tokens": result.max_prompt_tokens,
+                    "paused": paused,
                 })
-            
+
             model_info = _capture_model_info(llm_client)
             if hasattr(result, "batches_attempted") and result.batches_attempted > 0:
                 model_info["telemetry"] = {
@@ -509,7 +513,13 @@ class WorkerFactory:
                     "parse_success_rate": round(result.items_parsed / result.items_batched * 100, 1) if result.items_batched else 0,
                     "synthetic_reasons": getattr(result, "synthetic_reasons", {}),
                 }
-                
+
+            # Phase 127: a paused run is NOT a failure — it stopped early
+            # because a soft-hold blocked dispatch.  In-flight calls
+            # finished, results were checkpointed, and the next run
+            # resumes when the hold clears.  Surface paused in the
+            # return dict so upstream stage-status logic can show
+            # "paused" instead of red "failed".
             return {
                 "stage": "catalogue",
                 "augmented": result.augmented,
@@ -517,6 +527,7 @@ class WorkerFactory:
                 "failed": result.failed,
                 "skipped": result.skipped,
                 "synthetic": result.synthetic,
+                "paused": paused,
                 "_model_info": model_info,
                 "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
             }
