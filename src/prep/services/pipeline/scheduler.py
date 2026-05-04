@@ -1593,6 +1593,8 @@ class PipelineScheduler:
         project_id: str,
         stage: "StageId",
         node_id: Optional[str] = None,
+        *,
+        endpoint_set: Optional[Set[str]] = None,
     ) -> bool:
         """Open an exclusive swarm window for a project's stage.
 
@@ -1600,10 +1602,20 @@ class PipelineScheduler:
         node. Already-running stages on other projects continue until
         they finish naturally (drain) or hit the drain timeout.
 
+        Phase 127: ``endpoint_set`` (optional) names every endpoint the
+        swarm will hit (e.g. coordinator on OpenRouter + workers on
+        Ollama Cloud).  Holds are stamped on drain targets only for
+        endpoints in the set.  Projects on disjoint endpoints proceed
+        normally.  When omitted, the set defaults to ``{resolved}`` for
+        backward compatibility with single-endpoint callers.
+
         Returns True if the window was opened, False if a swarm
         window is already open.
         """
         resolved = self._resolve_node_for_stage(stage, node_id)
+        # Phase 127: endpoint set defaults to just the resolved node
+        # for backward compat.  Multi-endpoint swarms pass the full set.
+        eps: Set[str] = set(endpoint_set) if endpoint_set else {resolved}
         with self._lock:
             # Already open
             if self._swarm_window is not None:
@@ -1613,40 +1625,42 @@ class PipelineScheduler:
                 )
                 return False
 
-            # Identify drain targets: other active projects on the same node
-            slot = self._get_slot(resolved)
+            # Phase 127: identify drain targets per-endpoint and stamp
+            # soft-holds on each (pid, ep) pair so workers stop
+            # dispatching new LLM calls and let in-flight finish
+            # naturally.  Cleared on close_swarm_window via
+            # _clear_holds_set_by_with_reason(owner, "swarm").
             drain_targets: Dict[str, float] = {}
             now = time.time()
-            for pid in slot.active_stages:
-                if pid != project_id:
+            for ep in eps:
+                slot = self._get_slot(ep)
+                for pid in slot.active_stages:
+                    if pid == project_id:
+                        continue
                     drain_targets[pid] = now
+                    self._holds[HoldKey(project_id=pid, endpoint_id=ep)] = HoldEntry(
+                        reason="swarm",
+                        set_by_project=project_id,
+                    )
 
             self._swarm_window = {
                 "project_id": project_id,
                 "stage": stage,
                 "node_id": resolved,
+                "endpoint_set": eps,
                 "started_at": now,
                 "drain_targets": drain_targets,
             }
-            # Phase 127: stamp soft-holds on every drain target so
-            # their workers stop dispatching new LLM calls and let
-            # in-flight finish naturally.  Cleared on
-            # close_swarm_window via clear_holds_set_by(project_id).
-            for drain_pid in drain_targets:
-                key = HoldKey(project_id=drain_pid, endpoint_id=resolved)
-                self._holds[key] = HoldEntry(
-                    reason="swarm",
-                    set_by_project=project_id,
-                )
             logger.info(
                 "Scheduler: ⚡ swarm window OPENED for %s/%s on %s "
-                "(%d drain targets: %s)",
+                "(eps=%s, %d drain targets: %s)",
                 project_id, stage.value if hasattr(stage, 'value') else stage,
-                resolved, len(drain_targets),
+                resolved, sorted(eps), len(drain_targets),
                 ", ".join(drain_targets.keys()) or "none",
             )
         # C2 fix: Broadcast outside lock so other projects learn their budget dropped
-        self._broadcast_capacity_change(resolved, "swarm_start")
+        for ep in eps:
+            self._broadcast_capacity_change(ep, "swarm_start")
         return True
 
     def close_swarm_window(self) -> None:
@@ -1657,6 +1671,9 @@ class PipelineScheduler:
             window = self._swarm_window
             self._swarm_window = None
             # Phase 127: clear all holds this swarm set on drain targets.
+            # The (set_by_project, reason="swarm") filter clears all
+            # endpoint stamps the owner placed, regardless of which
+            # endpoints were in endpoint_set — no per-ep iteration needed.
             owner = window.get("project_id") if window else None
             if owner:
                 self._clear_holds_set_by_with_reason(owner, "swarm")
@@ -1665,8 +1682,12 @@ class PipelineScheduler:
                 window["project_id"],
                 window["stage"].value if hasattr(window["stage"], 'value') else window["stage"],
             )
-        # Broadcast outside lock to avoid deadlock with listener callbacks
-        self._broadcast_capacity_change(window["node_id"], "swarm_end")
+        # Broadcast outside lock to avoid deadlock with listener callbacks.
+        # Phase 127: broadcast across every endpoint the window held so
+        # capacity listeners on each one re-evaluate.
+        eps_for_broadcast = window.get("endpoint_set") or {window["node_id"]}
+        for ep in eps_for_broadcast:
+            self._broadcast_capacity_change(ep, "swarm_end")
 
     def is_swarm_window_active(self) -> bool:
         """Check if a swarm window is currently open."""
@@ -1681,7 +1702,15 @@ class PipelineScheduler:
             w = self._swarm_window
             if w is None:
                 return None
-            return {**w, "drain_targets": dict(w.get("drain_targets", {}))}
+            snapshot: Dict[str, Any] = {
+                **w,
+                "drain_targets": dict(w.get("drain_targets", {})),
+            }
+            # Phase 127: defensively copy endpoint_set so callers can't
+            # mutate the live window state.
+            if "endpoint_set" in snapshot:
+                snapshot["endpoint_set"] = set(snapshot["endpoint_set"])
+            return snapshot
 
     def check_drain_timeouts(self) -> List[str]:
         """Check if any drain targets have exceeded the timeout.
@@ -2423,6 +2452,9 @@ class PipelineScheduler:
                     "project_id": w["project_id"],
                     "stage": w["stage"].value if hasattr(w["stage"], 'value') else str(w["stage"]),
                     "node_id": w["node_id"],
+                    # Phase 127: surface endpoint_set so multi-endpoint
+                    # swarms are visible in /compute/scheduler.
+                    "endpoint_set": sorted(w.get("endpoint_set") or {w["node_id"]}),
                     "elapsed_seconds": round(now - w["started_at"], 1),
                     "drain_targets": {
                         pid: round(now - started, 1)
