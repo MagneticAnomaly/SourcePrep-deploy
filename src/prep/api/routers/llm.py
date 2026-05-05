@@ -105,6 +105,28 @@ def _summarize_swarm_phases(
     return buckets
 
 
+def _running_task_state(
+    *,
+    project_id: str,
+    is_held: bool,
+    held_reason: Optional[str],
+    is_swarm: bool,
+) -> str:
+    """Phase 127: classify a running task into one of:
+    - "held"           : soft-held by exclusive or swarm window
+    - "swarm_active"   : actively in a swarm session
+    - "running"        : normal pipeline activity
+
+    The dashboard uses this to render a single per-task badge instead
+    of inferring state from a combination of is_held / is_swarm flags.
+    """
+    if is_held:
+        return "held"
+    if is_swarm:
+        return "swarm_active"
+    return "running"
+
+
 def _count_live_workers(*, project_id: str, task_id: str) -> int:
     """Count in-flight LLM requests matching (project_id, task_id).
 
@@ -779,6 +801,33 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                         project_id=rt["project_id"],
                         task_id=rt.get("task_id", ""),
                     )
+
+                # Phase 127 Sub-phase 4: classify hold/swarm state for the UI.
+                # The compute_node may be the synthetic "__local__" or a real
+                # cloud:* / local:* slot id; fall back to default_ollama when
+                # unset so the hold check still has a key to look up.
+                pid = rt["project_id"]
+                primary_node = rt.get("compute_node") or "cloud:default_ollama"
+                is_held = pipeline_scheduler.is_held(pid, primary_node)
+                held_reason: Optional[str] = None
+                if is_held:
+                    for h in pipeline_scheduler.list_holds():
+                        if (
+                            h["project_id"] == pid
+                            and h["endpoint_id"] == primary_node
+                        ):
+                            held_reason = (
+                                f"{h['reason']}_by_{h['set_by_project']}"
+                            )
+                            break
+                rt["is_held"] = is_held
+                rt["held_reason"] = held_reason
+                rt["state"] = _running_task_state(
+                    project_id=pid,
+                    is_held=is_held,
+                    held_reason=held_reason,
+                    is_swarm=rt.get("is_swarm", False),
+                )
         except Exception:
             logger.debug("running-tasks enrichment failed", exc_info=True)
             pass  # Scheduler not available — leave defaults
