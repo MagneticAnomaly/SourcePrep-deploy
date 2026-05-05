@@ -40,3 +40,17 @@ def test_running_task_state_helper() -> None:
         held_reason=None,
         is_swarm=False,
     ) == "running"
+
+
+def test_compute_scheduler_response_includes_exclusive_project() -> None:
+    from prep.services.pipeline.scheduler import pipeline_scheduler
+    pipeline_scheduler.set_priority("test-exclusive-proj", "exclusive")
+    try:
+        exclusive_project = None
+        for pid, level in pipeline_scheduler._priority_projects.items():
+            if level == "exclusive":
+                exclusive_project = pid
+                break
+        assert exclusive_project == "test-exclusive-proj"
+    finally:
+        pipeline_scheduler.set_priority("test-exclusive-proj", "none")
