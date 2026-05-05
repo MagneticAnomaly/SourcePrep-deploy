@@ -976,6 +976,15 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
     if block_statuses is not None:
         result["assignment_blocks"] = block_statuses
 
+    # Phase 127 Sub-phase 4: surface scheduler hold state to the UI.
+    # Each entry: {project_id, endpoint_id, reason, set_by_project, held_since}.
+    try:
+        from prep.services.pipeline.scheduler import pipeline_scheduler as _sched
+        result["held_projects"] = _sched.list_holds()
+    except Exception:
+        logger.debug("held_projects enrichment failed", exc_info=True)
+        result["held_projects"] = []
+
     return ok(result)
 
 
