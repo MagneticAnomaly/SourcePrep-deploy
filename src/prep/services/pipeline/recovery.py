@@ -58,6 +58,7 @@ def _resolve_idx_dir(project_id: str) -> Path | None:
 
 
 _CLEAN_SHUTDOWN_FILENAME = ".pipeline_clean_shutdown"
+_BUILD_SUCCESS_FILENAME = ".pipeline_last_success"  # Phase 128
 _RESET_BARRIER_FILENAME = ".reset_barrier"
 _USER_PAUSE_FILENAME_TEMPLATE = ".pipeline_user_pause_{group}.json"
 _VALID_BARRIER_SCOPES = ("sync", "enrichment", "finalize", "all")
@@ -375,6 +376,83 @@ class RecoveryManager:
         except Exception:
             logger.debug(
                 "Failed to clear clean shutdown marker for %s",
+                project_id, exc_info=True,
+            )
+            return False
+
+    # ── Build-Success Markers (Phase 128) ──────────────────────
+    #
+    # Separate from clean-shutdown markers. The clean-shutdown marker
+    # records "the daemon was gracefully stopped while no run was active"
+    # and can only be written from the lifespan shutdown handler on
+    # SIGTERM. The build-success marker records "a complete pipeline run
+    # finished successfully on disk" and is written when finalize ends.
+    # It survives any subsequent ungraceful daemon termination, closing
+    # the gap where Phase 61B re-triggers a full rebuild after kill -9 /
+    # USB eject / sleep — situations where the existing clean-shutdown
+    # marker is missing despite healthy data.
+    #
+    # The marker is NOT cleared on read — it persists until invalidated
+    # by an actual destructive reset that wipes outputs.
+
+    @staticmethod
+    def write_build_success_marker(project_id: str) -> bool:
+        """Write a marker indicating the pipeline last completed successfully."""
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        try:
+            marker_path = idx_dir / _BUILD_SUCCESS_FILENAME
+            marker_path.write_text(str(time.time()))
+            return True
+        except Exception:
+            logger.debug(
+                "Failed to write build success marker for %s",
+                project_id, exc_info=True,
+            )
+            return False
+
+    @staticmethod
+    def check_build_success_marker(project_id: str) -> bool:
+        """Check if a build-success marker exists (read-only)."""
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        return (idx_dir / _BUILD_SUCCESS_FILENAME).exists()
+
+    @staticmethod
+    def build_success_marker_mtime(project_id: str) -> Optional[float]:
+        """Return the mtime of the build-success marker, or None if absent.
+
+        Phase 61B compares this against structural mtime: if the marker
+        post-dates structural, the existing data is provably fresh.
+        """
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return None
+        marker_path = idx_dir / _BUILD_SUCCESS_FILENAME
+        if not marker_path.exists():
+            return None
+        try:
+            return marker_path.stat().st_mtime
+        except OSError:
+            return None
+
+    @staticmethod
+    def invalidate_build_success_marker(project_id: str) -> bool:
+        """Remove the marker (e.g. when a destructive reset wipes outputs)."""
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        marker_path = idx_dir / _BUILD_SUCCESS_FILENAME
+        if not marker_path.exists():
+            return False
+        try:
+            marker_path.unlink()
+            return True
+        except Exception:
+            logger.debug(
+                "Failed to invalidate build success marker for %s",
                 project_id, exc_info=True,
             )
             return False
