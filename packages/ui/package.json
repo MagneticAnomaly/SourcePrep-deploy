@@ -11,6 +11,8 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./src/config/mcpSetup": "./src/config/mcpSetup.ts",
+    "./src/config/mcpSetup.ts": "./src/config/mcpSetup.ts",
     "./styles": "./src/styles/index.css",
     "./tokens": "./src/tokens/index.css",
     "./themes": "./src/styles/themes/index.css"
