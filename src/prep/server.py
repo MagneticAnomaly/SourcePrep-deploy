@@ -990,6 +990,13 @@ def configure(
     from prep.services.pipeline.scheduler import pipeline_scheduler as _scheduler
     _scheduler.load_from_settings()
 
+    # Phase 127 sub-phase 5: restore priority state across daemon restart.
+    # Must run AFTER load_from_settings (configure_node populates the slot
+    # map that priority operates on) but BEFORE any pipeline tasks resume
+    # so the restored holds/queue ordering takes effect on the first
+    # post-startup dispatch.
+    _scheduler.load_priority_state()
+
     # Auto-run pipeline on startup if settings are set to Auto mode.
     # Checks persisted pipeline_config and triggers runs for projects with
     # stale or incomplete graphs.  Runs in a background thread with a short
