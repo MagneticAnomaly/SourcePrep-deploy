@@ -742,6 +742,24 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                 pipeline_scheduler,
             )
             from prep.services.token_telemetry import telemetry as _tel
+
+            # Phase 127 (audit fix): build project_id → hold mapping once
+            # per response so the per-task held check works for projects
+            # routed to ANY scheduler endpoint (cloud:openrouter,
+            # local:default_ollama, cloud:default_ollama, …) rather than
+            # silently assuming cloud:default_ollama.  list_holds() is
+            # already lock-protected; defensive try/except matches the
+            # T4.1 pattern (held_projects collection).
+            holds_by_project: Dict[str, Dict[str, Any]] = {}
+            try:
+                for h in pipeline_scheduler.list_holds():
+                    # First hold wins; a project held on multiple
+                    # endpoints simultaneously is rare and any one is a
+                    # valid pause signal for the UI.
+                    holds_by_project.setdefault(h["project_id"], h)
+            except Exception:
+                holds_by_project = {}
+
             for rt in running_tasks:
                 _scheduler_max, node_id = pipeline_scheduler.concurrent_workers_for_project(
                     rt["project_id"], stage=rt.get("stage"),
@@ -802,24 +820,23 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                         task_id=rt.get("task_id", ""),
                     )
 
-                # Phase 127 Sub-phase 4: classify hold/swarm state for the UI.
-                # The compute_node may be the synthetic "__local__" or a real
-                # cloud:* / local:* slot id; fall back to default_ollama when
-                # unset so the hold check still has a key to look up.
+                # Phase 127 Sub-phase 4 (audit fix): classify hold/swarm
+                # state for the UI.  Look up holds by project_id only,
+                # using the holds_by_project map built once above — the
+                # earlier implementation hardcoded a "cloud:default_ollama"
+                # fallback for rt["compute_node"], which silently reported
+                # "not held" for projects actually running on other
+                # endpoints (cloud:openrouter, local:default_ollama, …).
+                # is_held now reflects whether ANY hold targets this
+                # project; held_reason carries the same "<reason>_by_<set_by>"
+                # string the dashboard already renders.
                 pid = rt["project_id"]
-                primary_node = rt.get("compute_node") or "cloud:default_ollama"
-                is_held = pipeline_scheduler.is_held(pid, primary_node)
-                held_reason: Optional[str] = None
-                if is_held:
-                    for h in pipeline_scheduler.list_holds():
-                        if (
-                            h["project_id"] == pid
-                            and h["endpoint_id"] == primary_node
-                        ):
-                            held_reason = (
-                                f"{h['reason']}_by_{h['set_by_project']}"
-                            )
-                            break
+                hold_entry = holds_by_project.get(pid)
+                is_held = hold_entry is not None
+                held_reason: Optional[str] = (
+                    f"{hold_entry['reason']}_by_{hold_entry['set_by_project']}"
+                    if hold_entry else None
+                )
                 rt["is_held"] = is_held
                 rt["held_reason"] = held_reason
                 rt["state"] = _running_task_state(
