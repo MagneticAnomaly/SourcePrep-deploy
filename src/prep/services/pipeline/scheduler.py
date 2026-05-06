@@ -572,6 +572,8 @@ class PipelineScheduler:
                 ]
                 for k in to_clear:
                     del self._holds[k]
+                # Phase 127 sub-phase 5: persist outside lock at function exit.
+                self.persist_priority_state()
                 return
 
             if project_id is None:
@@ -588,6 +590,8 @@ class PipelineScheduler:
                 # project (matches the close_swarm_window pattern).
                 if old == "exclusive":
                     self._clear_holds_set_by_with_reason(project_id, "exclusive")
+                # Phase 127 sub-phase 5: persist on per-project clear too.
+                self.persist_priority_state()
                 return
 
             # If setting exclusive, demote any existing exclusive projects to boost
@@ -643,6 +647,11 @@ class PipelineScheduler:
             if old_level == "exclusive" and level != "exclusive":
                 self._clear_holds_set_by_with_reason(project_id, "exclusive")
 
+        # Phase 127 sub-phase 5: persist priority levels so they survive
+        # daemon restart.  Called outside the lock — settings_store has
+        # its own internal lock and writes via a SQLite transaction.
+        self.persist_priority_state()
+
         # Broadcast outside lock
         if broadcast_reason:
             for nid in list(self._slots.keys()):
@@ -652,6 +661,65 @@ class PipelineScheduler:
     def clear_all_priorities(self) -> None:
         """Remove all project priorities."""
         self.set_priority(None, "none")
+
+    # ── Phase 127 sub-phase 5: priority durability ────────────────
+
+    _PRIORITY_STATE_KEY = "scheduler_priority_state"
+
+    def persist_priority_state(self) -> None:
+        """Phase 127: save priority levels so they survive daemon restart.
+
+        In-memory state (swarm window, queue, holds) is intentionally
+        NOT persisted — it is recomputed from priority + active
+        pipelines on restart per Phase 127 spec section 12.
+
+        Best-effort: if the settings store is not initialized (e.g.
+        early test setup), this silently no-ops rather than crashing
+        the caller.
+        """
+        with self._lock:
+            data = {"priority_projects": dict(self._priority_projects)}
+        try:
+            from prep.services.settings_store import settings
+            settings.set(self._PRIORITY_STATE_KEY, data)
+        except Exception as exc:  # pragma: no cover — best-effort
+            logger.debug(
+                "persist_priority_state: settings store unavailable: %s", exc,
+            )
+
+    def load_priority_state(self) -> None:
+        """Phase 127: restore priority levels on daemon start.
+
+        Replaces the in-memory ``_priority_projects`` dict with the
+        persisted snapshot.  Holds and swarm windows are NOT restored
+        — they are derived state and will be re-stamped by the next
+        ``set_priority`` / ``open_swarm_window`` call after live
+        pipelines reattach.
+        """
+        try:
+            from prep.services.settings_store import settings
+            data = settings.get(self._PRIORITY_STATE_KEY)
+        except Exception as exc:  # pragma: no cover — best-effort
+            logger.debug(
+                "load_priority_state: settings store unavailable: %s", exc,
+            )
+            return
+        loaded = (data or {}).get("priority_projects", {}) if isinstance(
+            data, dict
+        ) else {}
+        # Validate that loaded levels are PriorityLevel-compatible.
+        valid = {"none", "boost", "exclusive"}
+        clean: Dict[str, PriorityLevel] = {}
+        for pid, lvl in (loaded or {}).items():
+            if isinstance(pid, str) and lvl in valid and lvl != "none":
+                clean[pid] = lvl  # type: ignore[assignment]
+        with self._lock:
+            self._priority_projects = clean
+        if clean:
+            logger.info(
+                "Scheduler: restored %d priority project(s) from settings store",
+                len(clean),
+            )
 
     # ── Phase 127: Soft-hold primitive ─────────────────────────────
 
