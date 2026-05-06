@@ -476,6 +476,60 @@ class ResumeStrategy:
                     break
 
                 if downstream_complete_stage is not None:
+                    # Phase 128: Refuse to write a recovery stub if the
+                    # journal says this stage's group is currently
+                    # running. The orchestrator F-67-deletes the manifest
+                    # at stage start; without this guard the parallel
+                    # resume scan races the worker and writes a stub
+                    # claiming "recovered, finished_at=NOW" while the
+                    # actual worker is still mid-execution. Observed at
+                    # 21:22:35 on 2026-05-05 in the user's pipeline.
+                    try:
+                        from prep.services.pipeline_journal import journal as _journal
+                        from prep.services.pipeline.stages import (
+                            DEEP_ENRICHMENT_STAGES,
+                            FAST_SYNC_STAGES,
+                            FINALIZE_STAGES,
+                        )
+
+                        if stage in FAST_SYNC_STAGES:
+                            _group_name = "fast_sync"
+                        elif stage in DEEP_ENRICHMENT_STAGES:
+                            _group_name = "deep_enrichment"
+                        elif stage in FINALIZE_STAGES:
+                            _group_name = "finalize"
+                        else:
+                            _group_name = None
+
+                        if _group_name is not None:
+                            active = _journal.get_active_run(project_id, _group_name)
+                            if active is not None:
+                                logger.info(
+                                    "Phase 128: Refusing to write downstream-"
+                                    "proves-upstream stub for %s — journal "
+                                    "shows active %s run %s (avoiding F-67 race)",
+                                    stage.value, _group_name, active.run_id,
+                                )
+                                stage_decisions.append({
+                                    "stage": stage.value,
+                                    "decision": "ACTIVE_RUN_DEFER",
+                                    "reason": (
+                                        f"Active {_group_name} run in journal — "
+                                        "deferring recovery stub to avoid F-67 race"
+                                    ),
+                                })
+                                ResumeStrategy._log_resume_decisions(
+                                    project_id, stages, i, stage_decisions,
+                                    skip_mtime_cascade, pfl_fn,
+                                )
+                                return i
+                    except Exception:
+                        logger.debug(
+                            "Phase 128: active-run check failed for %s "
+                            "(non-fatal — proceeding with stub write)",
+                            stage.value, exc_info=True,
+                        )
+
                     try:
                         store.write_provenance(stage, {
                             "format_version": "2.0",
