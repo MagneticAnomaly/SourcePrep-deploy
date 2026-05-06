@@ -1446,6 +1446,46 @@ class RecoveryManager:
                     )
                 continue
 
+            # Phase 128: Build-success marker gate. Even without a clean-
+            # shutdown marker (which only exists if the daemon got SIGTERM),
+            # a build-success marker that post-dates the structural manifest
+            # proves the on-disk data is healthy. This closes the
+            # kill -9 / USB eject / sleep gap that otherwise leaves Phase 61B
+            # spuriously triggering a full rebuild after every ungraceful
+            # daemon termination.
+            try:
+                marker_mtime = RecoveryManager.build_success_marker_mtime(pid)
+                if marker_mtime is not None:
+                    store_for_marker_check = ManifestStore(idx_dir)
+                    if store_for_marker_check.provenance_exists(StageId.STRUCTURAL):
+                        struct_mtime = store_for_marker_check.provenance_mtime(
+                            StageId.STRUCTURAL
+                        )
+                        if marker_mtime >= struct_mtime:
+                            logger.info(
+                                "Phase 128: Build-success marker for %s "
+                                "post-dates structural — data healthy, "
+                                "skipping deep enrichment auto-recovery",
+                                pid,
+                            )
+                            if pfl:
+                                pfl.selfheal(
+                                    "auto_recover",
+                                    "Skipped — build-success marker proves healthy data",
+                                    {
+                                        "project_id": pid,
+                                        "marker_mtime": marker_mtime,
+                                        "structural_mtime": struct_mtime,
+                                    },
+                                )
+                            continue
+            except Exception:
+                logger.debug(
+                    "Phase 128: build-success marker check failed for %s",
+                    pid, exc_info=True,
+                )
+                # Fall through to existing recovery logic
+
             try:
                 if not is_deep_auto_fn(pid):
                     if pfl:
