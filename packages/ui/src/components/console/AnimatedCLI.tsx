@@ -5,7 +5,10 @@ import type { CliScript, CliEvent } from './cli-types';
 import { TerminalFrame } from './TerminalFrame';
 
 export interface AnimatedCLIProps {
-  script: CliScript;
+  /** Single script. Backwards-compatible. */
+  script?: CliScript;
+  /** Sequence of scripts. When provided, rotates through them on each completion. */
+  scripts?: CliScript[];
   theme?: 'dark' | 'claude' | 'minimal';
   className?: string;
   contentClassName?: string;
@@ -22,17 +25,23 @@ interface RenderedLine {
 /**
  * AnimatedCLI — the playback engine.
  *
- * Takes a CliScript and steps through each event, rendering lines
- * into a terminal frame with typewriter effects, thinking indicators,
- * and tool-call styling.
+ * Takes a CliScript (or a sequence via `scripts`) and steps through
+ * each event, rendering lines into a terminal frame with typewriter
+ * effects, thinking indicators, and tool-call styling. With a sequence,
+ * it advances to the next script after each one completes.
  */
 export function AnimatedCLI({
   script,
+  scripts,
   theme = 'dark',
   className = '',
   contentClassName,
   autoPlay = true,
 }: AnimatedCLIProps) {
+  const allScripts = scripts && scripts.length > 0 ? scripts : script ? [script] : [];
+  const [currentScriptIdx, setCurrentScriptIdx] = useState(0);
+  const safeScriptIdx = Math.min(currentScriptIdx, Math.max(0, allScripts.length - 1));
+  const currentScript = allScripts[safeScriptIdx];
   const [lines, setLines] = useState<RenderedLine[]>([]);
   const [currentEventIdx, setCurrentEventIdx] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
@@ -41,6 +50,7 @@ export function AnimatedCLI({
   const [showCursor, setShowCursor] = useState(true);
   const [isRunning] = useState(autoPlay);
   const lineIdRef = useRef(0);
+  const processedIdxRef = useRef(-1);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const nextId = useCallback(() => ++lineIdRef.current, []);
@@ -65,26 +75,36 @@ export function AnimatedCLI({
 
   // Main event processor
   useEffect(() => {
-    if (!isRunning || isTyping) return;
-    if (currentEventIdx >= script.events.length) {
-      // Script finished — loop or stop
-      if (script.loop !== false) {
-        const delay = script.loopDelayMs ?? 3000;
+    if (!isRunning || isTyping || !currentScript) return;
+    if (currentEventIdx >= currentScript.events.length) {
+      // Script finished. Either advance to the next in a sequence,
+      // loop the same script, or stop.
+      const hasMoreScripts = allScripts.length > 1;
+      const shouldContinue = hasMoreScripts || currentScript.loop !== false;
+      if (shouldContinue) {
+        const delay = currentScript.loopDelayMs ?? 3000;
         const timer = setTimeout(() => {
           setLines([]);
+          if (hasMoreScripts) {
+            setCurrentScriptIdx((p) => (p + 1) % allScripts.length);
+          }
           setCurrentEventIdx(0);
           lineIdRef.current = 0;
+          processedIdxRef.current = -1;
         }, delay);
         return () => clearTimeout(timer);
       }
       return;
     }
 
-    const event = script.events[currentEventIdx];
+    if (processedIdxRef.current === currentEventIdx) return;
+    processedIdxRef.current = currentEventIdx;
+
+    const event = currentScript.events[currentEventIdx];
     processEvent(event);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentEventIdx, isRunning, isTyping]);
+  }, [currentEventIdx, currentScriptIdx, isRunning, isTyping]);
 
   function processEvent(event: CliEvent) {
     switch (event.type) {
@@ -171,8 +191,10 @@ export function AnimatedCLI({
     setCurrentEventIdx(prev => prev + 1);
   }
 
+  if (!currentScript) return null;
+
   return (
-    <TerminalFrame title={script.title ?? 'claude'} theme={theme} className={className} contentClassName={contentClassName}>
+    <TerminalFrame title={currentScript.title ?? 'claude'} theme={theme} className={className} contentClassName={contentClassName}>
       <div ref={scrollRef} className="space-y-1">
         {/* Committed lines */}
         {lines.map(line => (
@@ -192,7 +214,7 @@ export function AnimatedCLI({
         )}
 
         {/* Idle cursor when not typing & script still running */}
-        {!isTyping && currentEventIdx < script.events.length && (
+        {!isTyping && currentEventIdx < currentScript.events.length && (
           <div className="text-[#e6edf3]">
             <span className="text-[#7ee787]">❯ </span>
             <span className={`inline-block w-[2px] h-[1em] bg-[#58a6ff] ml-[1px] align-text-bottom ${showCursor ? 'opacity-100' : 'opacity-0'}`} />

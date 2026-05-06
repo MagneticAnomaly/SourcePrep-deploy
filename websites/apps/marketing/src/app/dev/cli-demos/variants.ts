@@ -800,7 +800,7 @@ const conceptsQueueGotchas: CliScript = {
   events: [
     {
       type: 'user_input',
-      text: 'any gotchas before I start messing with the queue?',
+      text: 'any pitfalls before I start messing with the queue?',
       typingDelayMs: 26,
     },
     { type: 'agent_thinking', durationMs: 600 },
@@ -1252,6 +1252,397 @@ export function UsersTable() {
   ],
 };
 
+const ideButtonGradientVariant: CliScript = {
+  title: 'prep-ide-demo',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    { type: 'pause', durationMs: 600 },
+    {
+      type: 'user_input',
+      text: 'match the figma — primary CTA should have the gradient + glow',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 900 },
+    {
+      type: 'tool_call',
+      tool: 'prep_impact',
+      args: '"Button"',
+      durationMs: 1000,
+      statusText: 'Tracing callers…',
+    },
+    {
+      type: 'tool_result',
+      text: '47 callers · 18 files · used in every CTA across the app',
+      status: 'success',
+    },
+    {
+      type: 'agent_output',
+      text: "`Button` has 47 callers — swapping the default style would affect every CTA, including form inputs and settings buttons that probably shouldn't glow. Safer: add a new `variant='glow'` and opt the hero CTAs in.",
+      typewriterDelayMs: 16,
+    },
+    {
+      type: 'file_open',
+      filePath: 'src/components/ui/Button.tsx',
+      language: 'typescript',
+      content: `import { cva } from 'class-variance-authority';
+
+const button = cva(
+  'inline-flex items-center justify-center rounded-md font-medium transition',
+  {
+    variants: {
+      variant: {
+        primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+      },
+      size: {
+        sm: 'h-8 px-3 text-sm',
+        md: 'h-10 px-4',
+        lg: 'h-12 px-6 text-lg',
+      },
+    },
+    defaultVariants: { variant: 'primary', size: 'md' },
+  },
+);
+
+export function Button({ className, variant, size, ...props }) {
+  return <button className={button({ variant, size, className })} {...props} />;
+}`,
+      durationMs: 1000,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'code_edit',
+      filePath: 'src/components/ui/Button.tsx',
+      durationMs: 1800,
+      newContent: `import { cva } from 'class-variance-authority';
+
+const button = cva(
+  'inline-flex items-center justify-center rounded-md font-medium transition',
+  {
+    variants: {
+      variant: {
+        primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
+        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+        glow: 'bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-violet-500/30 hover:shadow-violet-500/50 hover:brightness-110',
+      },
+      size: {
+        sm: 'h-8 px-3 text-sm',
+        md: 'h-10 px-4',
+        lg: 'h-12 px-6 text-lg',
+      },
+    },
+    defaultVariants: { variant: 'primary', size: 'md' },
+  },
+);
+
+export function Button({ className, variant, size, ...props }) {
+  return <button className={button({ variant, size, className })} {...props} />;
+}`,
+    },
+    {
+      type: 'agent_output',
+      text: "Added `variant='glow'` — violet→fuchsia gradient with a soft shadow that lifts on hover. Default button stays untouched, so the 47 existing callers don't move. Use it on the hero CTAs and the figma matches.",
+      typewriterDelayMs: 14,
+    },
+    { type: 'pause', durationMs: 3500 },
+  ],
+};
+
+const ideColorTokensRule: CliScript = {
+  title: 'prep-ide-demo',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    { type: 'pause', durationMs: 600 },
+    {
+      type: 'user_input',
+      text: 'this stat card looks ad-hoc — make it on-brand',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 900 },
+    {
+      type: 'tool_call',
+      tool: 'prep_concepts',
+      args: 'action="get", query="design tokens"',
+      durationMs: 1000,
+      statusText: 'Querying concept store…',
+    },
+    {
+      type: 'tool_result',
+      text: 'Concept: "Token-Only Colors" · constraint · 12 anchors',
+      status: 'success',
+    },
+    {
+      type: 'agent_output',
+      text: "Your team has a constraint on file — *Token-Only Colors*: no raw hex, only semantic tokens. We've got `bg-surface`, `text-primary`, `text-muted`, `border-subtle`, `text-success` — all of which match what's in this card. Swapping them in.",
+      typewriterDelayMs: 16,
+    },
+    {
+      type: 'file_open',
+      filePath: 'src/components/dashboard/StatCard.tsx',
+      language: 'typescript',
+      content: `interface StatCardProps {
+  label: string;
+  value: string | number;
+  delta?: string;
+}
+
+export function StatCard({ label, value, delta }: StatCardProps) {
+  return (
+    <div className="rounded-xl bg-[#fafafa] border border-[#e5e7eb] p-5">
+      <p className="text-xs text-[#6b7280] uppercase tracking-wide">{label}</p>
+      <p className="mt-2 text-3xl font-semibold text-[#111827]">{value}</p>
+      {delta && (
+        <p className="mt-1 text-sm text-[#10b981]">{delta}</p>
+      )}
+    </div>
+  );
+}`,
+      durationMs: 1000,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'code_edit',
+      filePath: 'src/components/dashboard/StatCard.tsx',
+      durationMs: 1800,
+      newContent: `interface StatCardProps {
+  label: string;
+  value: string | number;
+  delta?: string;
+}
+
+export function StatCard({ label, value, delta }: StatCardProps) {
+  return (
+    <div className="rounded-xl bg-surface border border-subtle p-5">
+      <p className="text-xs text-muted uppercase tracking-wide">{label}</p>
+      <p className="mt-2 text-3xl font-semibold text-primary">{value}</p>
+      {delta && (
+        <p className="mt-1 text-sm text-success">{delta}</p>
+      )}
+    </div>
+  );
+}`,
+    },
+    {
+      type: 'agent_output',
+      text: 'Same look, every color now a semantic token. Dark mode works automatically and the next palette tweak rolls through every card without touching this file. The constraint stays clean — no new raw hex.',
+      typewriterDelayMs: 14,
+    },
+    { type: 'pause', durationMs: 3500 },
+  ],
+};
+
+const ideEmptyStateRecall: CliScript = {
+  title: 'prep-ide-demo',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    { type: 'pause', durationMs: 600 },
+    {
+      type: 'user_input',
+      text: 'projects list needs an empty state — what did we land on for those?',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 800 },
+    {
+      type: 'tool_call',
+      tool: 'prep_observe',
+      args: 'action="get", query="empty state pattern"',
+      durationMs: 900,
+      statusText: 'Retrieving observations…',
+    },
+    {
+      type: 'tool_result',
+      text: '1 observation · last active 6 weeks ago · 2 anchors',
+      status: 'success',
+    },
+    {
+      type: 'agent_output',
+      text: "Found the note from when you and Maya were working through these. The pattern: small icon on top, big heading, supporting line, single primary CTA. Reports and Billing already use it — I'll match it here.",
+      typewriterDelayMs: 16,
+    },
+    {
+      type: 'file_open',
+      filePath: 'src/pages/Projects.tsx',
+      language: 'typescript',
+      content: `import { useProjects } from '@/hooks/useProjects';
+import { ProjectCard } from '@/components/ProjectCard';
+
+export function Projects() {
+  const { projects } = useProjects();
+
+  if (projects.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {projects.map((p) => (
+        <ProjectCard key={p.id} project={p} />
+      ))}
+    </div>
+  );
+}`,
+      durationMs: 1000,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'code_edit',
+      filePath: 'src/pages/Projects.tsx',
+      durationMs: 1800,
+      newContent: `import { EmptyState } from '@prep/ui';
+import { FolderOpenIcon } from 'lucide-react';
+import { useProjects } from '@/hooks/useProjects';
+import { ProjectCard } from '@/components/ProjectCard';
+import { useNewProjectModal } from '@/state/modals';
+
+export function Projects() {
+  const { projects } = useProjects();
+  const newProject = useNewProjectModal();
+
+  if (projects.length === 0) {
+    return (
+      <EmptyState
+        icon={<FolderOpenIcon className="h-10 w-10 text-muted" />}
+        title="No projects yet"
+        description="Spin up your first project to start indexing repos and sharing context with your team."
+        action={{ label: 'Create your first project', onClick: newProject.open }}
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {projects.map((p) => (
+        <ProjectCard key={p.id} project={p} />
+      ))}
+    </div>
+  );
+}`,
+    },
+    {
+      type: 'agent_output',
+      text: "Added the empty state — same shape as Reports and Billing. Folder icon, 'No projects yet', helper line, primary CTA wired into the existing new-project modal. Visual rhythm matches the rest of the app.",
+      typewriterDelayMs: 14,
+    },
+    { type: 'pause', durationMs: 3500 },
+  ],
+};
+
+const ideFormA11yAudit: CliScript = {
+  title: 'prep-ide-demo',
+  loop: true,
+  loopDelayMs: 5000,
+  events: [
+    { type: 'pause', durationMs: 600 },
+    {
+      type: 'user_input',
+      text: 'quick a11y pass on the signup form before we ship?',
+      typingDelayMs: 26,
+    },
+    { type: 'agent_thinking', durationMs: 800, label: 'Running axe…' },
+    {
+      type: 'tool_call',
+      tool: 'bash',
+      args: 'npx axe src/components/SignupForm.tsx',
+      durationMs: 700,
+    },
+    {
+      type: 'tool_result',
+      text: '4 issues · 1 critical · 3 minor',
+      status: 'success',
+    },
+    { type: 'agent_thinking', durationMs: 600, label: 'Cross-referencing graph…' },
+    {
+      type: 'tool_call',
+      tool: 'prep_audit',
+      args: 'findings=[4]',
+      durationMs: 1000,
+      statusText: 'Enriching with graph context…',
+    },
+    {
+      type: 'tool_result',
+      text: '4 enriched · 1 in shared form primitive (high blast) · 3 local',
+      status: 'success',
+    },
+    {
+      type: 'agent_output',
+      text: "axe flagged 4. Ranked by what they touch:\n\n• **Critical** — `<TextField />` is missing the label↔input association. That's a shared primitive used in 8 forms, so fixing it once lifts a11y across all of them.\n• **3 minor** — local to this form (helper-text contrast, missing `aria-describedby`, focus ring). Quick batch.\n\nStarting with the shared one.",
+      typewriterDelayMs: 14,
+    },
+    {
+      type: 'file_open',
+      filePath: 'src/components/ui/TextField.tsx',
+      language: 'typescript',
+      content: `interface TextFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  error?: string;
+}
+
+export function TextField({ label, value, onChange, type = 'text', error }: TextFieldProps) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-sm font-medium text-primary">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-md border border-subtle px-3 py-2"
+      />
+      {error && <span className="text-xs text-danger">{error}</span>}
+    </div>
+  );
+}`,
+      durationMs: 1000,
+    },
+    { type: 'agent_thinking', durationMs: 500 },
+    {
+      type: 'code_edit',
+      filePath: 'src/components/ui/TextField.tsx',
+      durationMs: 1800,
+      newContent: `import { useId } from 'react';
+
+interface TextFieldProps {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  error?: string;
+}
+
+export function TextField({ label, value, onChange, type = 'text', error }: TextFieldProps) {
+  const id = useId();
+  const errorId = error ? \`\${id}-error\` : undefined;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-sm font-medium text-primary">{label}</label>
+      <input
+        id={id}
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={Boolean(error)}
+        aria-describedby={errorId}
+        className="rounded-md border border-subtle px-3 py-2"
+      />
+      {error && <span id={errorId} className="text-xs text-danger">{error}</span>}
+    </div>
+  );
+}`,
+    },
+    {
+      type: 'agent_output',
+      text: "Wrapped the label as a real `<label htmlFor>`, gave the input a stable id via `useId()`, and wired `aria-describedby` to the error. One change, but it lifts a11y across all 8 forms using `<TextField />`.",
+      typewriterDelayMs: 14,
+    },
+    { type: 'pause', durationMs: 3500 },
+  ],
+};
+
 // ============================================================================
 // Export — ordered so that filter-by-tool groups cleanly in the UI
 // ============================================================================
@@ -1425,7 +1816,7 @@ export const variants: DemoVariant[] = [
   {
     id: 'concepts-queue-gotchas',
     tool: 'prep_concepts',
-    label: '"Any gotchas before I touch X?"',
+    label: '"Any pitfalls before I touch X?"',
     note: 'Risk-probing prompt devs actually say. Concepts returns the pile of team-recorded rules for the queue module before the dev has to learn them the hard way.',
     script: conceptsQueueGotchas,
   },
@@ -1465,5 +1856,33 @@ export const variants: DemoVariant[] = [
     label: 'Build instruction — add a new feature',
     note: 'Imperative "add a CSV export button". Search finds the existing `exportToCsv()` helper so the new button reuses it instead of rolling a parallel implementation.',
     script: ideAddCsvExport,
+  },
+  {
+    id: 'ide-button-gradient-variant',
+    tool: 'ide',
+    label: 'Vibe — figma-matched gradient CTA (impact-aware)',
+    note: 'Designer prompt referencing figma. prep_impact catches that Button is a hub (47 callers) and steers the agent toward adding a `variant=\'glow\'` instead of mutating the default — figma matches without breaking 47 unrelated buttons.',
+    script: ideButtonGradientVariant,
+  },
+  {
+    id: 'ide-color-tokens-rule',
+    tool: 'ide',
+    label: 'Vibe — on-brand colors via design-token constraint',
+    note: 'Casual "make this on-brand" prompt. prep_concepts surfaces the team\'s "Token-Only Colors" rule, agent swaps raw hex for semantic tokens. Demonstrates concept-driven design enforcement.',
+    script: ideColorTokensRule,
+  },
+  {
+    id: 'ide-empty-state-recall',
+    tool: 'ide',
+    label: 'Vibe — recalling a prior design decision',
+    note: '"What did we land on for empty states?" — design-memory prompt. prep_observe returns the prior design pattern, agent applies it. Shows observe in a non-engineering frame.',
+    script: ideEmptyStateRecall,
+  },
+  {
+    id: 'ide-form-a11y-audit',
+    tool: 'ide',
+    label: 'Vibe — a11y pass with hub-aware ranking',
+    note: '"Quick a11y pass before we ship?" — designer/PM-flavored prompt. axe finds 4 issues; prep_audit ranks by hub-component status, so the one fix in `<TextField />` lifts a11y across 8 forms.',
+    script: ideFormA11yAudit,
   },
 ];

@@ -4,7 +4,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { CliScript, CliEvent } from './cli-types';
 
 export interface AnimatedIDEProps {
-  script: CliScript;
+  /** Single script. Backwards-compatible. */
+  script?: CliScript;
+  /** Sequence of scripts. When provided, rotates through them on each completion. */
+  scripts?: CliScript[];
   className?: string;
   autoPlay?: boolean;
 }
@@ -26,9 +29,14 @@ interface ChatMessage {
  */
 export function AnimatedIDE({
   script,
+  scripts,
   className = '',
   autoPlay = true,
 }: AnimatedIDEProps) {
+  const allScripts = scripts && scripts.length > 0 ? scripts : script ? [script] : [];
+  const [currentScriptIdx, setCurrentScriptIdx] = useState(0);
+  const safeScriptIdx = Math.min(currentScriptIdx, Math.max(0, allScripts.length - 1));
+  const currentScript = allScripts[safeScriptIdx];
   // Global script state
   const [currentEventIdx, setCurrentEventIdx] = useState(0);
   const [isRunning] = useState(autoPlay);
@@ -45,6 +53,7 @@ export function AnimatedIDE({
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const msgIdRef = useRef(0);
+  const processedIdxRef = useRef(-1);
   const nextId = useCallback(() => ++msgIdRef.current, []);
 
   // Auto-scroll chat
@@ -56,26 +65,35 @@ export function AnimatedIDE({
 
   // Main Event Loop
   useEffect(() => {
-    if (!isRunning || isTyping) return;
-    if (currentEventIdx >= script.events.length) {
-      if (script.loop !== false) {
+    if (!isRunning || isTyping || !currentScript) return;
+    if (currentEventIdx >= currentScript.events.length) {
+      const hasMoreScripts = allScripts.length > 1;
+      const shouldContinue = hasMoreScripts || currentScript.loop !== false;
+      if (shouldContinue) {
         const timer = setTimeout(() => {
           setChatHistory([]);
           setActiveFile('Welcome');
           setFileContent('// Ask the agent to open or edit a file.');
+          if (hasMoreScripts) {
+            setCurrentScriptIdx((p) => (p + 1) % allScripts.length);
+          }
           setCurrentEventIdx(0);
           msgIdRef.current = 0;
-        }, script.loopDelayMs ?? 4000);
+          processedIdxRef.current = -1;
+        }, currentScript.loopDelayMs ?? 4000);
         return () => clearTimeout(timer);
       }
       return;
     }
 
-    const event = script.events[currentEventIdx];
+    if (processedIdxRef.current === currentEventIdx) return;
+    processedIdxRef.current = currentEventIdx;
+
+    const event = currentScript.events[currentEventIdx];
     processEvent(event);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentEventIdx, isRunning, isTyping]);
+  }, [currentEventIdx, currentScriptIdx, isRunning, isTyping]);
 
   function advance() {
     setCurrentEventIdx(prev => prev + 1);
@@ -196,6 +214,8 @@ export function AnimatedIDE({
     }, delayMs);
   }
 
+  if (!currentScript) return null;
+
   return (
     <div className={`flex w-full h-[500px] rounded-xl overflow-hidden border border-[#303030] bg-[#1e1e1e] font-sans text-[13px] shadow-2xl shadow-black/40 ${className}`}>
       
@@ -283,7 +303,7 @@ export function AnimatedIDE({
                 </div>
             )}
 
-            {isTyping && activeTypingText && script.events[currentEventIdx]?.type === 'agent_output' && (
+            {isTyping && activeTypingText && currentScript.events[currentEventIdx]?.type === 'agent_output' && (
                 <div className="text-[#cccccc] self-start w-full leading-relaxed whitespace-pre-wrap">
                     {activeTypingText}<span className="animate-pulse">|</span>
                 </div>
@@ -294,7 +314,7 @@ export function AnimatedIDE({
         <div className="p-4 border-t border-[#303030] bg-[#252526]">
             <div className="bg-[#3c3c3c] border border-[#454545] rounded-xl flex items-end p-2 pb-2 relative">
                 <div className="text-[#cccccc] w-full min-h-[44px] px-2 py-1 flex items-center flex-wrap">
-                    {isTyping && script.events[currentEventIdx]?.type === 'user_input' ? (
+                    {isTyping && currentScript.events[currentEventIdx]?.type === 'user_input' ? (
                         <>{activeTypingText}<span className="w-[2px] h-[1em] bg-[#cccccc] animate-pulse align-middle ml-[1px]"></span></>
                     ) : (
                         <span className="opacity-30">Ask the agent anything...</span>

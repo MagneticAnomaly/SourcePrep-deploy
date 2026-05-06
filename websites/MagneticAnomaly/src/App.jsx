@@ -1,4 +1,4 @@
-import React, { useRef, useState, useLayoutEffect, useEffect } from 'react';
+import React, { useRef, useState, useLayoutEffect, useEffect, useCallback, Suspense, memo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Sphere, Ring, Icosahedron, Stars, useTexture } from '@react-three/drei';
 import * as THREE from 'three';
@@ -296,19 +296,26 @@ function Navbar() {
   );
 }
 
-function Hero() {
+function Hero({ ready }) {
   const container = useRef();
 
+  // Hide hero text on mount so it doesn't paint before the WebGL scene is ready.
+  // Using gsap.set inside useGSAP runs in useLayoutEffect — applies before first paint.
   useGSAP(() => {
-    gsap.from(".hero-anim", {
-      y: 40,
-      opacity: 0,
+    gsap.set(".hero-anim", { autoAlpha: 0, y: 40 });
+  }, { scope: container });
+
+  // Animate hero text in only after the scene has rendered its first frame.
+  useGSAP(() => {
+    if (!ready) return;
+    gsap.to(".hero-anim", {
+      autoAlpha: 1,
+      y: 0,
       duration: 1.5,
       stagger: 0.2,
       ease: "power3.out",
-      delay: 0.2
     });
-  }, { scope: container });
+  }, { scope: container, dependencies: [ready] });
 
   return (
     <section id="hero" ref={container} className="relative w-full h-[100dvh] flex items-center justify-center px-6">
@@ -687,7 +694,7 @@ function Manifesto() {
           </div>
           <h2 className="manifesto-drama font-serif text-5xl md:text-7xl lg:text-8xl italic text-white leading-tight max-md:text-[3.5em] max-md:leading-[1.1] max-sm:px-0 max-md:px-[0.25em] max-md:mt-[0.6em] mb-[2.25em] drop-shadow-[1px_2px_10px_rgba(0,0,0,0.8)] md:drop-shadow-[1px_2px_30px_rgba(0,0,0,0.4)]">
             {/* App Design is a Puzzle & Strategy Game. */}
-            Is there a better way to experience the world?
+            Building the best things that can be imagined.
           </h2>
         </div>
       </section>
@@ -854,8 +861,76 @@ function Footer() {
   );
 }
 
+// Lives inside Canvas + Suspense. Fires onReady on the first useFrame tick —
+// guaranteeing textures have loaded (Suspense resolved), the WebGL pipeline
+// is alive, and shaders compiled. One extra rAF gives the post-process Bloom
+// pass time to render its first pass before we fade the veil.
+function FirstFrameSignal({ onReady }) {
+  const firedRef = useRef(false);
+  useFrame(() => {
+    if (firedRef.current) return;
+    firedRef.current = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => onReady()));
+  });
+  return null;
+}
+
+// Pure presentational component — opacity driven by `ready` prop. No useProgress.
+// Has its own safety timeout so a missing onReady can't strand the user.
+function LoadingVeil({ ready }) {
+  const [safetyHide, setSafetyHide] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSafetyHide(true), 5000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const hidden = ready || safetyHide;
+
+  return (
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none fixed inset-0 z-[9998] bg-void transition-opacity duration-700 ease-out ${hidden ? 'opacity-0' : 'opacity-100'}`}
+    />
+  );
+}
+
+// Memoized so App re-renders (when sceneReady flips) don't propagate into the
+// Canvas tree. SaturnParticles passes array literals like rmaxRange={[20,45]}
+// on every render, which invalidates MagneticParticles' useMemo deps and
+// rebuilds the entire BufferGeometry — that was freezing the particle
+// animation. onReady is stable (useCallback), so memo holds.
+const SceneContents = memo(function SceneContents({ onReady }) {
+  return (
+    <>
+      <EffectComposer disableNormalPass>
+        <Bloom
+          luminanceThreshold={0.2}
+          mipmapBlur={true}
+          intensity={2.0}
+        />
+      </EffectComposer>
+      <Suspense fallback={null}>
+        <SaturnScene />
+        <FirstFrameSignal onReady={onReady} />
+      </Suspense>
+      <CameraRig />
+    </>
+  );
+});
+
 export default function App() {
   const appContainer = useRef();
+  const [sceneReady, setSceneReady] = useState(false);
+  const handleReady = useCallback(() => setSceneReady(true), []);
+
+  // Safety: unblock Hero entrance even if FirstFrameSignal never fires
+  // (e.g. WebGL unavailable). Veil has its own independent timeout.
+  useEffect(() => {
+    if (sceneReady) return;
+    const t = setTimeout(() => setSceneReady(true), 5000);
+    return () => clearTimeout(t);
+  }, [sceneReady]);
 
   useGSAP(() => {
     // CONSTANTS FOR ORBITS (Hardcoded to match 3D Mesh positions)
@@ -1082,20 +1157,14 @@ export default function App() {
           gl={{ antialias: false, powerPreference: "high-performance" }}
           dpr={[1, 1.5]}
         >
-          <EffectComposer disableNormalPass>
-            <Bloom
-              luminanceThreshold={0.2}
-              mipmapBlur={true}
-              intensity={2.0}
-            />
-          </EffectComposer>
-          <SaturnScene />
-          <CameraRig />
+          <SceneContents onReady={handleReady} />
         </Canvas>
       </div>
 
+      <LoadingVeil ready={sceneReady} />
+
       <Navbar />
-      <Hero />
+      <Hero ready={sceneReady} />
       <Payloads />
       <Manifesto />
       <CommLink />
