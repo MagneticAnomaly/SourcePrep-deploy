@@ -1424,7 +1424,49 @@ class RecoveryManager:
             except Exception:
                 logger.debug("Phase 61B: manifest age summary failed for %s", pid, exc_info=True)
 
-            # Step 3: Auto-trigger deep enrichment if manifests are stale
+            # Step 3: Auto-trigger deep enrichment if manifests are stale.
+            #
+            # Phase 128: Journal-authority gate (highest precedence). The
+            # pipeline_journal records every run with status atomically
+            # inside a SQLite transaction. If the journal says a
+            # deep_enrichment run completed and its finished_at post-dates
+            # the structural manifest mtime, the data is provably healthy
+            # — stronger than any disk marker or mtime heuristic. This
+            # gate runs BEFORE all marker / mtime paths so the cheapest,
+            # strongest signal wins.
+            try:
+                from prep.services.pipeline_journal import journal as _journal
+                store_for_journal_check = ManifestStore(idx_dir)
+                if store_for_journal_check.provenance_exists(StageId.STRUCTURAL):
+                    struct_mtime_for_journal = store_for_journal_check.provenance_mtime(
+                        StageId.STRUCTURAL
+                    )
+                    if _journal.has_recent_completed_run(
+                        pid, "deep_enrichment", since_mtime=struct_mtime_for_journal,
+                    ):
+                        logger.info(
+                            "Phase 128: Journal records completed deep_enrichment "
+                            "run for %s post-dating structural — data healthy, "
+                            "skipping auto-recovery",
+                            pid,
+                        )
+                        if pfl:
+                            pfl.selfheal(
+                                "auto_recover",
+                                "Skipped — journal proves recent completion",
+                                {
+                                    "project_id": pid,
+                                    "structural_mtime": struct_mtime_for_journal,
+                                },
+                            )
+                        continue
+            except Exception:
+                logger.debug(
+                    "Phase 128: journal-authority check failed for %s",
+                    pid, exc_info=True,
+                )
+                # Fall through to existing recovery logic
+
             # Phase 93: Clean shutdown guard — if the daemon shut down
             # gracefully and this project had no active runs, its incomplete
             # deep enrichment manifests are steady-state, not an interruption.
