@@ -1043,6 +1043,14 @@ def _scoped_full_reset(
             message="Could not write reset barrier — refusing to proceed",
         )
 
+    # Phase 128: Invalidate the build-success marker BEFORE wiping outputs.
+    # If the wipe fails partway, the marker is already gone — the safe
+    # direction. Without this, a partial reset could leave the marker on
+    # disk pointing at incomplete data and Phase 61B would skip recovery
+    # despite the corruption.
+    from prep.services.pipeline.recovery import RecoveryManager
+    RecoveryManager.invalidate_build_success_marker(project_id)
+
     # ── 3. STOP IN-FLIGHT WORK ─────────────────────────────────────
     try:
         from prep.services.pipeline_orchestrator import pipeline_orchestrator
@@ -1455,6 +1463,14 @@ def index_destroy_project(project_id: str, force: bool = False) -> Dict[str, Any
             _project_build_threads.pop(project_id, None)
 
     idx_dir = project_index_dir(proj)
+
+    # Phase 128: Invalidate the build-success marker BEFORE the watcher /
+    # data wipe. If anything below fails, the marker is already gone — the
+    # safe direction. Otherwise a partial nuke could leave the marker on
+    # disk pointing at incomplete data and Phase 61B would skip recovery
+    # despite the corruption.
+    from prep.services.pipeline.recovery import RecoveryManager
+    RecoveryManager.invalidate_build_success_marker(project_id)
 
     # 0. Stop the file watcher BEFORE deleting anything.
     # If the watcher is running, it will detect file changes and immediately

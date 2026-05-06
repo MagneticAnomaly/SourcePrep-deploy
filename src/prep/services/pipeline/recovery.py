@@ -63,6 +63,28 @@ _RESET_BARRIER_FILENAME = ".reset_barrier"
 _USER_PAUSE_FILENAME_TEMPLATE = ".pipeline_user_pause_{group}.json"
 _VALID_BARRIER_SCOPES = ("sync", "enrichment", "finalize", "all")
 
+# Phase 128: groups whose successful completion proves "deep_enrichment data
+# is healthy" for Phase 61B's staleness check. fast_sync produces structural
+# (which is what the staleness check compares AGAINST), but does not produce
+# deep enrichment manifests. Writing the marker after fast_sync would falsely
+# suppress legitimate deep recovery.
+_BUILD_SUCCESS_GROUPS = ("deep_enrichment", "finalize")
+
+
+def record_group_completion(project_id: str, group: str) -> bool:
+    """Phase 128: Refresh the build-success marker for relevant groups.
+
+    Called by the orchestrator after a group finishes successfully. For
+    fast_sync the marker is intentionally NOT written — fast_sync alone
+    doesn't prove the deep_enrichment data is fresh, and writing it
+    would falsely suppress legitimate Phase 61B recovery.
+
+    Returns True if the marker was written, False otherwise.
+    """
+    if group not in _BUILD_SUCCESS_GROUPS:
+        return False
+    return RecoveryManager.write_build_success_marker(project_id)
+
 
 def write_reset_barrier(
     project_id: str,
