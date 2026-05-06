@@ -1638,6 +1638,23 @@ class TraceAugmenter:
         # The offset is the number of nodes that already have valid
         # augmentations and will be skipped this run.
         _skip_offset = result.total_nodes - total_work  # already-done nodes
+
+        # Gate the baseline reporting on the stage manifest. Without this,
+        # any prior run's `trace_augmented.jsonl` whose hashes still match
+        # the current nodes will surface as a two-tone "incremental" bar
+        # even on a fresh-from-reset run — same class of bug we fixed for
+        # deep_knowledge. The orchestrator wipes
+        # `trace_augment_manifest.json` at catalogue stage start during a
+        # rebuild, and full-reset deletes it too, so its absence cleanly
+        # tracks "this stage has not completed in the current state."
+        # When the manifest is absent we treat the run as initial: collapse
+        # the offset to zero and let the bar render single-tone 0% → 100%
+        # against the work this run is actually doing.
+        _augment_manifest_path = self.index_dir / "trace_augment_manifest.json"
+        _stage_completed_previously = _augment_manifest_path.exists()
+        if not _stage_completed_previously:
+            _skip_offset = 0
+
         if progress_callback and _skip_offset > 0:
             _inner_cb = progress_callback
             _total_for_bar = result.total_nodes

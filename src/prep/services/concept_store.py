@@ -40,8 +40,31 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-# Maximum concepts per project (concepts are heavier than observations)
-MAX_CONCEPTS_PER_PROJECT = 200
+# Phase 125b: per-kind caps replacing the legacy single global cap.
+#
+# History: the original ``MAX_CONCEPTS_PER_PROJECT = 200`` was set in the
+# single-layer era, when concepts were noisy and manually curated. With
+# Phase 125b's two-layer split, that cap was actively destroying the
+# rationale foundation (a CoDRAG run with 2,430 rationale + 21 concepts
+# was silently trimmed to 200 total — losing 92% of the rationale layer).
+#
+# Caps are sized as defensive ceilings, not budgets. The real lever for
+# quality is the **prompt**: Phase 125b worker prompts ask for "0-3
+# load-bearing rationale" per module (was "3-8"), with explicit
+# permission to emit nothing when the WHY is obvious. Synthesizer
+# self-caps at MAX_SYNTHESIZED_CONCEPTS=150.
+#
+# Expected steady-state: 200-800 rationale (depending on codebase
+# size, ~1.2 rationale per module avg), 30-100 concepts. The caps
+# below should rarely fire in practice.
+MAX_CONCEPTS_PER_PROJECT_PER_KIND = {
+    "concept": 500,            # ~5 synthesizer runs worth of accumulation
+    "module_rationale": 2000,  # ~3000-file codebase ceiling
+}
+# Backward-compat alias used by callers that don't yet differentiate.
+# Sum of per-kind caps; only invoked as a hard ceiling on truly runaway
+# saves (e.g., test fixtures, future bugs).
+MAX_CONCEPTS_PER_PROJECT = sum(MAX_CONCEPTS_PER_PROJECT_PER_KIND.values())
 
 # Maximum content length for a single concept
 MAX_CONCEPT_CHARS = 4000
@@ -62,7 +85,33 @@ VALID_CATEGORIES = {
 }
 
 # Valid statuses
-VALID_STATUSES = {"seed", "active", "archived", "superseded", "proposed", "deprecated"}
+VALID_STATUSES = {
+    "seed",
+    "active",
+    "archived",
+    "superseded",
+    "proposed",
+    "deprecated",
+    # Phase 125: multi-pass concept promotion lifecycle
+    "shadow",            # near-duplicate of a cluster representative (Pass 2)
+    "triage_pending",    # passed Pass 3 refine but below auto-active threshold (Pass 4)
+}
+
+
+# Phase 125b: two-layer concept architecture.
+# Per-module rationale (the ~2,000-3,000 raw entries from the swarm
+# seeder) is structurally different from cross-cutting concepts
+# (~30-100 high-level architectural axioms / decisions / tradeoffs).
+# Both live in this table, distinguished by ``kind``:
+#   * ``module_rationale`` — fine-grained, per-module observations.
+#     Searchable via ``prep_search`` but NOT shown via ``prep_concepts``.
+#   * ``concept`` — true cross-cutting concepts. Surfaced via
+#     ``prep_concepts`` and AGENTS.md ambient context.
+# Default is ``module_rationale`` for backward compatibility — the
+# legacy seeder produced module-level entries that should keep that
+# label after migration.
+VALID_KINDS = {"concept", "module_rationale"}
+DEFAULT_KIND_FOR_LEGACY_ROWS = "module_rationale"
 
 
 # ── Data Classes ────────────────────────────────────────────────
@@ -89,6 +138,11 @@ class Concept:
     assertion: str = ""                  # testable statement for violation detection
     doc_links: List[Dict[str, str]] = field(default_factory=list)  # [{path, label, type}]
     superseded_by: Optional[str] = None  # concept ID that replaces this one
+    # Phase 125b: layer discriminator. ``concept`` is the small,
+    # cross-cutting layer (~30-100 per project, surfaced via prep_concepts).
+    # ``module_rationale`` is the per-module observation layer
+    # (~thousands per project, surfaced via prep_search).
+    kind: str = "module_rationale"
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -118,6 +172,8 @@ class Concept:
         d["assertion"] = self.assertion
         d["doc_links"] = self.doc_links
         d["superseded_by"] = self.superseded_by
+        # Phase 125b: kind is always present
+        d["kind"] = self.kind
         return d
 
     @staticmethod
@@ -145,6 +201,8 @@ class Concept:
             assertion=row["assertion"] if "assertion" in keys and row["assertion"] else "",
             doc_links=json.loads(row["doc_links"]) if "doc_links" in keys and row["doc_links"] else [],
             superseded_by=row["superseded_by"] if "superseded_by" in keys else None,
+            # Phase 125b
+            kind=row["kind"] if "kind" in keys and row["kind"] else "module_rationale",
         )
 
 
@@ -259,7 +317,11 @@ class ConceptStore:
                 created_at     REAL NOT NULL,
                 updated_at     REAL,
                 stale          INTEGER NOT NULL DEFAULT 0,
-                stale_reason   TEXT
+                stale_reason   TEXT,
+                -- Phase 125b: discriminator between fine-grained
+                -- per-module rationale (legacy default) and true
+                -- cross-cutting concepts (the small curated layer).
+                kind           TEXT NOT NULL DEFAULT 'module_rationale'
             );
 
             CREATE INDEX IF NOT EXISTS idx_concept_project
@@ -270,6 +332,12 @@ class ConceptStore:
                 ON concepts (project_id, category);
             CREATE INDEX IF NOT EXISTS idx_concept_stale
                 ON concepts (project_id, stale);
+            -- NOTE: idx_concept_kind is intentionally NOT here.
+            -- Legacy DBs don't have the `kind` column yet; creating
+            -- an index on it inside this executescript would fail
+            -- BEFORE the ALTER TABLE below adds the column. The index
+            -- gets created after the ALTER (search this file for
+            -- "idx_concept_kind").
 
             CREATE TABLE IF NOT EXISTS concept_questions (
                 id                 TEXT PRIMARY KEY,
@@ -329,6 +397,31 @@ class ConceptStore:
             except sqlite3.OperationalError:
                 pass  # Column already exists
 
+        # Phase 125b: Add `kind` column. Idempotent — existing DBs
+        # get the column added; new DBs got it via CREATE TABLE.
+        # Backfill: legacy rows are per-module rationale by definition.
+        try:
+            self._conn.execute(
+                "ALTER TABLE concepts ADD COLUMN kind TEXT NOT NULL "
+                "DEFAULT 'module_rationale'"
+            )
+            self._conn.commit()
+            logger.info(
+                "concept_store: added kind column; legacy rows backfilled "
+                "to 'module_rationale' via DEFAULT"
+            )
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+        # Index for the kind discriminator (idempotent)
+        try:
+            self._conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_concept_kind "
+                "ON concepts (project_id, kind)"
+            )
+            self._conn.commit()
+        except sqlite3.OperationalError:
+            pass
+
     def _require_conn(self) -> sqlite3.Connection:
         if self._conn is None:
             raise RuntimeError(
@@ -352,6 +445,7 @@ class ConceptStore:
         assertion: str = "",
         doc_links: Optional[List[Dict[str, str]]] = None,
         superseded_by: Optional[str] = None,
+        kind: str = "module_rationale",  # Phase 125b: layer discriminator
     ) -> str:
         """Save a concept.  Returns the concept ID.
 
@@ -373,18 +467,25 @@ class ConceptStore:
             category = "technical"
         if status not in VALID_STATUSES:
             status = "seed"
+        if kind not in VALID_KINDS:
+            kind = "module_rationale"
 
         anchors_json = json.dumps(anchors or [])
         tags_json = json.dumps(tags or [])
         doc_links_json = json.dumps(doc_links or [])
 
         with self._lock:
-            # Dedup: check for existing concept with same title
+            # Dedup: check for existing concept with same title.
+            # Phase 125b: scope dedup to within the same kind. A
+            # synthesizer-emitted "concept" and a per-module
+            # "module_rationale" with identical titles are NOT
+            # duplicates — they live in different layers.
             existing = conn.execute(
                 """SELECT id FROM concepts
                    WHERE project_id = ? AND title = ? AND status != 'archived'
+                     AND kind = ?
                    LIMIT 1""",
-                (project_id, title),
+                (project_id, title, kind),
             ).fetchone()
             if existing:
                 # Update existing concept
@@ -416,13 +517,8 @@ class ConceptStore:
                 conn.commit()
                 return existing["id"]
 
-            # Enforce per-project limit — evict oldest archived first
-            count = conn.execute(
-                "SELECT COUNT(*) AS cnt FROM concepts WHERE project_id = ?",
-                (project_id,),
-            ).fetchone()["cnt"]
-            if count >= MAX_CONCEPTS_PER_PROJECT:
-                self._evict_oldest(conn, project_id, count - MAX_CONCEPTS_PER_PROJECT + 1)
+            # Phase 125b: per-kind cap — evict only within over-cap kind.
+            self._evict_over_cap_for_kind(conn, project_id, kind, incoming=1)
 
             concept_id = uuid.uuid4().hex[:12]
             now = time.time()
@@ -430,11 +526,11 @@ class ConceptStore:
                 """INSERT INTO concepts
                    (id, project_id, title, content, category, status,
                     confidence, anchors, tags, cluster_id, created_at, stale, valid_from,
-                    assertion, doc_links, superseded_by)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)""",
+                    assertion, doc_links, superseded_by, kind)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)""",
                 (concept_id, project_id, title, content, category, status,
                  confidence, anchors_json, tags_json, cluster_id, now, now,
-                 assertion, doc_links_json, superseded_by),
+                 assertion, doc_links_json, superseded_by, kind),
             )
             # FTS insert
             try:
@@ -502,6 +598,10 @@ class ConceptStore:
             status = raw.get("status", "seed")
             if status not in VALID_STATUSES:
                 status = "seed"
+            # Phase 125b: kind discriminator (default 'module_rationale')
+            kind = raw.get("kind", "module_rationale")
+            if kind not in VALID_KINDS:
+                kind = "module_rationale"
             normalized.append({
                 "title": title,
                 "content": content,
@@ -513,6 +613,7 @@ class ConceptStore:
                 "cluster_id": raw.get("cluster_id"),
                 "assertion": raw.get("assertion") or "",
                 "doc_links_json": json.dumps(raw.get("doc_links") or []),
+                "kind": kind,
             })
 
         if not normalized:
@@ -561,27 +662,29 @@ class ConceptStore:
         saved = 0
         now = time.time()
 
-        # Eviction: count how many we'll add and pre-evict if needed.
-        cur_count = conn.execute(
-            "SELECT COUNT(*) AS cnt FROM concepts WHERE project_id = ?",
-            (project_id,),
-        ).fetchone()["cnt"]
-        projected = cur_count + len(normalized)
-        if projected > MAX_CONCEPTS_PER_PROJECT:
-            self._evict_oldest(
-                conn, project_id, projected - MAX_CONCEPTS_PER_PROJECT,
-            )
+        # Phase 125b: per-kind cap. Group incoming by kind, evict over-cap
+        # kinds independently so a 2,400-rationale batch doesn't trigger
+        # eviction of the 21-row concept layer.
+        from collections import Counter
+        incoming_by_kind = Counter(
+            (e.get("kind") or "module_rationale") for e in normalized
+        )
+        for kind_, n_incoming in incoming_by_kind.items():
+            self._evict_over_cap_for_kind(conn, project_id, kind_, incoming=n_incoming)
 
         for entry in normalized:
             title = entry["title"]
             content = entry["content"]
 
-            # Dedup: title match against existing non-archived
+            # Dedup: title match against existing non-archived.
+            # Phase 125b: scope to same kind so concept layer and
+            # rationale layer don't accidentally collide.
             existing = conn.execute(
                 """SELECT id FROM concepts
                    WHERE project_id = ? AND title = ? AND status != 'archived'
+                     AND kind = ?
                    LIMIT 1""",
-                (project_id, title),
+                (project_id, title, entry["kind"]),
             ).fetchone()
 
             if existing:
@@ -619,14 +722,15 @@ class ConceptStore:
                     """INSERT INTO concepts
                        (id, project_id, title, content, category, status,
                         confidence, anchors, tags, cluster_id, created_at,
-                        stale, valid_from, assertion, doc_links, superseded_by)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL)""",
+                        stale, valid_from, assertion, doc_links, superseded_by, kind)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, NULL, ?)""",
                     (
                         concept_id, project_id, title, content,
                         entry["category"], entry["status"], entry["confidence"],
                         entry["anchors_json"], entry["tags_json"],
                         entry["cluster_id"], now, now,
                         entry["assertion"], entry["doc_links_json"],
+                        entry["kind"],
                     ),
                 )
                 try:
@@ -884,8 +988,15 @@ class ConceptStore:
         include_stale: bool = True,
         include_archived: bool = False,
         as_of: Optional[float] = None,
+        kind: Optional[str] = "concept",
     ) -> List[Concept]:
         """List concepts for a project with optional filters.
+
+        Phase 125b: ``kind`` defaults to ``"concept"`` so the canonical
+        consumer surface (``prep_concepts``, ``prep()`` ambient block)
+        sees only the small curated layer. Pass ``kind="module_rationale"``
+        to browse the per-module rationale layer; pass ``kind=None`` to
+        return both kinds.
 
         If ``as_of`` is provided (Unix epoch float), only concepts that were
         valid at that point in time are returned (valid_from <= as_of and
@@ -906,6 +1017,10 @@ class ConceptStore:
         if category:
             sql += " AND category = ?"
             params.append(category)
+
+        if kind is not None:
+            sql += " AND kind = ?"
+            params.append(kind)
 
         if as_of is not None:
             sql += " AND (valid_from IS NULL OR valid_from <= ?)"
@@ -1018,7 +1133,16 @@ class ConceptStore:
         return results[:limit]
 
     def get_stats(self, project_id: str) -> Dict[str, Any]:
-        """Get concept statistics for the project."""
+        """Get concept statistics for the project.
+
+        Phase 125b: ``total`` continues to count ALL rows (both
+        ``kind='concept'`` and ``kind='module_rationale'``) for
+        backward compat with the existence-guard at workers.py:1089.
+        New top-level fields ``concepts_count`` and
+        ``module_rationale_count`` distinguish the layers so
+        consumers (dashboard, ambient context) can show the small
+        curated layer without scanning every row.
+        """
         conn = self._require_conn()
         with self._lock:
             total = conn.execute(
@@ -1033,6 +1157,7 @@ class ConceptStore:
             by_category = conn.execute(
                 """SELECT category, COUNT(*) AS cnt FROM concepts
                    WHERE project_id = ? AND status != 'archived'
+                     AND kind = 'concept'
                    GROUP BY category""",
                 (project_id,),
             ).fetchall()
@@ -1044,8 +1169,30 @@ class ConceptStore:
                 "SELECT COUNT(*) AS cnt FROM concept_questions WHERE project_id = ? AND answered = 0",
                 (project_id,),
             ).fetchone()["cnt"]
+            # Phase 125b: per-kind counts
+            by_kind = conn.execute(
+                """SELECT kind, COUNT(*) AS cnt FROM concepts
+                   WHERE project_id = ? AND status != 'archived'
+                   GROUP BY kind""",
+                (project_id,),
+            ).fetchall()
+            # Phase 125b wrap-up: per-kind × per-status breakdown so the
+            # MCP trailer can show e.g. "21 concepts (17 active, 4 seed)
+            # + 180 rationale (180 seed)" without conflating layers.
+            by_kind_status = conn.execute(
+                """SELECT COALESCE(kind, 'module_rationale') AS kind,
+                          status, COUNT(*) AS cnt
+                   FROM concepts
+                   WHERE project_id = ? AND status != 'archived'
+                   GROUP BY kind, status""",
+                (project_id,),
+            ).fetchall()
 
         status_dict = {r["status"]: r["cnt"] for r in by_status}
+        kind_dict = {r["kind"]: r["cnt"] for r in by_kind}
+        kind_status: Dict[str, Dict[str, int]] = {}
+        for r in by_kind_status:
+            kind_status.setdefault(r["kind"], {})[r["status"]] = r["cnt"]
         return {
             "total": total,
             "active": status_dict.get("active", 0),
@@ -1054,6 +1201,13 @@ class ConceptStore:
             "stale": stale,
             "by_category": {r["category"]: r["cnt"] for r in by_category},
             "pending_questions": pending_questions,
+            # Phase 125b
+            "concepts_count": kind_dict.get("concept", 0),
+            "module_rationale_count": kind_dict.get("module_rationale", 0),
+            "concepts_active": kind_status.get("concept", {}).get("active", 0),
+            "concepts_seeds": kind_status.get("concept", {}).get("seed", 0),
+            "module_rationale_active": kind_status.get("module_rationale", {}).get("active", 0),
+            "module_rationale_seeds": kind_status.get("module_rationale", {}).get("seed", 0),
         }
 
     # ── Question Operations ──────────────────────────────────────
@@ -1120,12 +1274,83 @@ class ConceptStore:
 
     # ── Internal ─────────────────────────────────────────────────
 
+    def _evict_over_cap_for_kind(
+        self,
+        conn: sqlite3.Connection,
+        project_id: str,
+        kind: str,
+        *,
+        incoming: int,
+    ) -> None:
+        """Evict over-cap rows for a single kind.
+
+        Phase 125b: eviction is per-kind so the rationale and concept
+        layers don't compete for the same budget. ``incoming`` is the
+        number of new rows about to be inserted for this kind.
+        """
+        cap = MAX_CONCEPTS_PER_PROJECT_PER_KIND.get(kind)
+        if not cap:
+            # Unknown kind: fall back to the legacy global cap as a
+            # defensive ceiling (set absurdly high — see module top).
+            cap = MAX_CONCEPTS_PER_PROJECT
+        cur = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM concepts WHERE project_id = ? AND COALESCE(kind, 'module_rationale') = ?",
+            (project_id, kind),
+        ).fetchone()["cnt"]
+        projected = cur + incoming
+        if projected <= cap:
+            return
+        to_evict = projected - cap
+        ids_to_delete = conn.execute(
+            """SELECT id FROM concepts
+               WHERE project_id = ?
+                 AND COALESCE(kind, 'module_rationale') = ?
+               ORDER BY
+                 CASE WHEN status = 'archived' THEN 0
+                      WHEN status = 'seed' THEN 1
+                      ELSE 2 END,
+                 stale DESC,
+                 created_at ASC
+               LIMIT ?""",
+            (project_id, kind, to_evict),
+        ).fetchall()
+        for row in ids_to_delete:
+            conn.execute("DELETE FROM concepts WHERE id = ?", (row["id"],))
+            try:
+                conn.execute("DELETE FROM concepts_fts WHERE id = ?", (row["id"],))
+            except sqlite3.OperationalError:
+                pass
+        if ids_to_delete:
+            logger.info(
+                "Evicted %d %s row(s) over cap for %s",
+                len(ids_to_delete), kind, project_id,
+            )
+
     def _evict_oldest(self, conn: sqlite3.Connection, project_id: str, count: int) -> None:
-        """Evict oldest concepts, preferring archived then stale."""
+        """Evict concepts to make room.
+
+        Phase 125b kind-aware ordering. Eviction priority (lowest = first
+        to go):
+          0. archived items (any kind)
+          1. module_rationale — voluminous foundation layer; individual
+             entries are replaceable per-module, and there are typically
+             100s-1000s of them, so they take the eviction hit first.
+          2. concept-seed (T1) — low-confidence synthesizer candidates.
+          3. concept-active (T2/T3) — the curated user-facing layer;
+             evict last so prep_concepts and the ambient block remain
+             populated under cap pressure.
+
+        Within each priority bucket: stale first, oldest first.
+        """
         ids_to_delete = conn.execute(
             """SELECT id FROM concepts WHERE project_id = ?
                ORDER BY
-                 CASE status WHEN 'archived' THEN 0 WHEN 'seed' THEN 2 ELSE 1 END,
+                 CASE
+                   WHEN status = 'archived' THEN 0
+                   WHEN COALESCE(kind, 'module_rationale') = 'module_rationale' THEN 1
+                   WHEN COALESCE(kind, 'module_rationale') = 'concept' AND status = 'seed' THEN 2
+                   ELSE 3
+                 END,
                  stale DESC,
                  created_at ASC
                LIMIT ?""",

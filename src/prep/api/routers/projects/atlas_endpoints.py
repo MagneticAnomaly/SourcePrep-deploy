@@ -18,6 +18,36 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["projects"])
 
 
+def _load_docs_for_segments(idx_dir) -> dict[str, list[dict[str, Any]]]:
+    """Phase 124 T3: aggregate atlas_markdown_links.json by segment.
+
+    Returns ``{segment_id: [{path, mention_count}, ...]}``. Returns an
+    empty mapping (no error) when ``atlas_markdown_links.json`` or the
+    segments manifest is missing — endpoints stay backward-compatible.
+    """
+    try:
+        import json
+        from pathlib import Path
+        from prep.core.atlas.markdown_links import (
+            load as _load_md_links,
+            aggregate_for_segments,
+        )
+        idx = Path(idx_dir)
+        md_result = _load_md_links(idx)
+        if md_result is None:
+            return {}
+        manifest_path = idx / "atlas_segments_manifest.json"
+        if not manifest_path.is_file():
+            return {}
+        manifest = json.loads(manifest_path.read_text())
+        if not isinstance(manifest, list):
+            return {}
+        return aggregate_for_segments(md_result, manifest, cap=5)
+    except Exception as e:
+        logger.debug("docs_for_segments aggregation skipped: %s", e)
+        return {}
+
+
 def _serialize_segments(atlas) -> list[dict[str, Any]]:
     """Return segment metadata + content for the dashboard sub-atlas tree.
 
@@ -28,10 +58,15 @@ def _serialize_segments(atlas) -> list[dict[str, Any]]:
     Per-segment staleness inherits atlas-level staleness for v1; segments
     do not carry individual stale flags today. Phase 104 follow-on will
     add per-segment fingerprint drift detection.
+
+    Phase 124 T3: each segment dict gains a ``docs_for_segment`` field
+    listing the top-N markdown docs that mention files inside the
+    segment. Empty list when no markdown_links data is on disk.
     """
     if not atlas.has_segments():
         return []
     atlas_stale = atlas.is_stale()
+    docs_index = _load_docs_for_segments(atlas.index_dir)
     segments: list[dict[str, Any]] = []
     for seg in atlas.load_segments():
         segments.append({
@@ -44,6 +79,7 @@ def _serialize_segments(atlas) -> list[dict[str, Any]]:
             "generated_at": seg.generated_at,
             "stale": atlas_stale,
             "content": seg.content,
+            "docs_for_segment": docs_index.get(seg.segment_id, []),
         })
     return segments
 

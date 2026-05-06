@@ -50,6 +50,11 @@ export interface ConceptStats {
   coverage_pct?: number;
   total_modules?: number;
   covered_modules?: number;
+  // Phase 125b: per-kind counts. The two-layer architecture distinguishes
+  // the curated cross-cutting layer (concept) from the per-module
+  // foundation layer (module_rationale). When present, render both.
+  concepts_count?: number;
+  module_rationale_count?: number;
 }
 
 export interface ConceptsPanelProps {
@@ -184,11 +189,25 @@ function StatsBar({ stats, onRefresh, loading, onRegenerate, regenerating }: {
   onRegenerate?: () => void;
   regenerating?: boolean;
 }) {
-  const items = [
-    { label: 'Active', value: stats.active, color: '#34d399' },
-    { label: 'Seeds', value: stats.seeds, color: '#fbbf24' },
-    { label: 'Stale', value: stats.stale, color: '#f87171' },
-  ];
+  // Phase 125b: when per-kind counts are present, lead with the two
+  // layers (concept = curated cross-cutting, rationale = per-module
+  // foundation). Falls back to legacy active/seeds/stale for older
+  // backends that don't yet emit per-kind counts.
+  const hasKindBreakdown =
+    typeof stats.concepts_count === 'number' &&
+    typeof stats.module_rationale_count === 'number';
+  const items = hasKindBreakdown
+    ? [
+        { label: 'Concepts',  value: stats.concepts_count!,          color: '#38bdf8' },
+        { label: 'Rationale', value: stats.module_rationale_count!,  color: '#a78bfa' },
+        { label: 'Active',    value: stats.active,                   color: '#34d399' },
+        { label: 'Seeds',     value: stats.seeds,                    color: '#fbbf24' },
+      ]
+    : [
+        { label: 'Active', value: stats.active, color: '#34d399' },
+        { label: 'Seeds',  value: stats.seeds,  color: '#fbbf24' },
+        { label: 'Stale',  value: stats.stale,  color: '#f87171' },
+      ];
   return (
     <div style={{ display: 'flex', gap: '12px', padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', alignItems: 'center' }}>
       {items.map((item) => (

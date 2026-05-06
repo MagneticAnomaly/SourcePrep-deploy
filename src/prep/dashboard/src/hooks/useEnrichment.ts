@@ -864,7 +864,15 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
 
         const calls: Promise<unknown>[] = []
         if (anyRunning) {
-          if (rs.inferredEdgesRunning || rs.atlasRunning || rs.groupReasoningRunning || rs.augmenting || rs.epistemicRunning || rs.finalizeRunning) calls.push(fx.refreshStageDataFromPipeline())
+          // refreshStageDataFromPipeline is what updates the group-level
+          // `current_stage` and the SYNC_RUNNING flags. Without it the
+          // local `clusterRunning` / `deepKnowledgeBuilding` etc. flags
+          // stay stale, the panel can't see the orchestrator advance
+          // past whichever stage was running when SSE last fired, and
+          // the user sees 2+ stages of lag (queue/AI gateway show
+          // deep_knowledge running, panel still shows clustering at 0%).
+          // Always refresh while any stage is running.
+          calls.push(fx.refreshStageDataFromPipeline())
           if (rs.augmenting) calls.push(fx.fetchAugmentationStatus())
           if (rs.epistemicRunning || rs.clusterRunning || rs.deepeningRunning) calls.push(fx.fetchEpistemicStatus())
           if (rs.clusterRunning) calls.push(fx.fetchModuleStatus())

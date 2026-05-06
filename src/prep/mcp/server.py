@@ -1257,22 +1257,52 @@ class MCPServer:
         except Exception as e:
             logger.debug("Architecture context failed: %s", e)
 
-        # Phase 74: Concepts summary (lightweight — just counts)
+        # Phase 74 / 125b: Concepts summary in ambient context.
+        # Phase 125b distinguishes the small kind='concept' layer
+        # (curated, ~30-100, surfaced here) from the dense
+        # kind='module_rationale' layer (browsable via prep_search).
+        # The trailer prefers concepts_count when present (post 125b
+        # store) and falls back to total for older payloads.
         try:
             concepts_data = await self._api_get(
                 f"/projects/{project_id}/concepts/stats"
             )
             if isinstance(concepts_data, dict):
                 cdata = concepts_data.get("data", concepts_data)
+                concepts_count = cdata.get("concepts_count")
                 total = cdata.get("total", 0)
-                if total > 0:
+                # Prefer the per-kind count when available
+                visible_count = (
+                    concepts_count if concepts_count is not None else total
+                )
+                rationale_count = cdata.get("module_rationale_count", 0)
+                if visible_count > 0 or rationale_count > 0:
                     active = cdata.get("active", 0)
                     seeds = cdata.get("seeds", 0)
                     pending_q = cdata.get("pending_questions", 0)
                     cats = cdata.get("by_category", {})
-                    concept_line = f"\n[Concepts: {active} active, {seeds} seeds"
+                    if concepts_count is not None:
+                        # Phase 125b: per-kind status breakdown so the
+                        # numbers are unambiguous (no conflation between
+                        # kind=concept seeds and kind=module_rationale
+                        # seeds).
+                        c_active = cdata.get("concepts_active", 0)
+                        c_seeds = cdata.get("concepts_seeds", 0)
+                        r_active = cdata.get("module_rationale_active", 0)
+                        r_seeds = cdata.get("module_rationale_seeds", 0)
+                        concept_line = (
+                            f"\n[{visible_count} concepts ({c_active} active, {c_seeds} seed)"
+                        )
+                        if rationale_count:
+                            concept_line += (
+                                f" + {rationale_count} module rationale"
+                                f" ({r_active} active, {r_seeds} seed)"
+                                " — browseable via prep_search"
+                            )
+                    else:
+                        # Pre-125b store
+                        concept_line = f"\n[Concepts: {active} active, {seeds} seeds"
                     if cats:
-                        # Show top 4 categories to keep ambient context concise
                         sorted_cats = sorted(cats.items(), key=lambda x: x[1], reverse=True)
                         top = sorted_cats[:4]
                         concept_line += f" — {', '.join(f'{k}: {v}' for k, v in top)}"
@@ -1284,6 +1314,9 @@ class MCPServer:
                     md_parts.append(concept_line)
                     result["concepts_total"] = total
                     result["concepts_active"] = active
+                    if concepts_count is not None:
+                        result["concepts_count"] = concepts_count
+                        result["module_rationale_count"] = rationale_count
         except Exception as e:
             logger.debug("Concepts context failed: %s", e)
 
@@ -2165,12 +2198,24 @@ class MCPServer:
         except Exception as e:
             logger.debug("Failed to fetch modules for structural audit: %s", e)
 
-        # Gather concepts (lazy import, may not be initialized)
+        # Gather concepts via HTTP API.
+        #
+        # The MCP server may run as a daemon-proxy in its own process,
+        # in which case the in-process ``concept_store`` singleton is
+        # NOT initialized — direct calls would raise RuntimeError and
+        # the broad except below would silently swallow it (Phase 125b
+        # scrutiny found this surfacing as "Concepts loaded: 0" in the
+        # audit data-availability section). Use the HTTP API so the
+        # audit always sees the daemon's authoritative data.
         concepts: List[Dict[str, Any]] = []
         try:
-            from prep.services.concept_store import concept_store
-            raw_concepts = concept_store.list_concepts(project_id)
-            concepts = [c.to_dict() for c in raw_concepts]
+            concepts_resp = await self._api_get(
+                f"/projects/{project_id}/concepts?include_archived=false&kind=concept"
+            )
+            if isinstance(concepts_resp, dict):
+                items = concepts_resp.get("concepts") or concepts_resp.get("data", [])
+                if isinstance(items, list):
+                    concepts = items
         except Exception as e:
             logger.debug("Failed to fetch concepts for structural audit: %s", e)
 

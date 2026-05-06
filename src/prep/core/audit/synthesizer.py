@@ -6,6 +6,7 @@ user-facing markdown report documents.
 """
 from __future__ import annotations
 
+import inspect
 import logging
 import time
 from datetime import datetime, timezone
@@ -15,6 +16,7 @@ from prep.core.llm_client import TASK_MAX_CHARS
 from typing import Any, Callable, Dict, List, Optional
 
 from .models import AuditContext, AuditDocument, AuditResult, Finding
+from .spaghetti_scorer import SpaghettiResult
 from . import prompts
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,7 @@ class AuditSynthesizer:
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
         *,
         concurrency: Optional[int] = None,
+        spaghetti: Optional[SpaghettiResult] = None,
     ) -> List[AuditDocument]:
         """Generate all report documents from findings.
 
@@ -65,9 +68,12 @@ class AuditSynthesizer:
                 generators, result, ctx,
                 concurrency=concurrency,
                 progress_callback=progress_callback,
+                spaghetti=spaghetti,
             )
         return self._synthesize_sequential(
-            generators, result, ctx, progress_callback=progress_callback,
+            generators, result, ctx,
+            progress_callback=progress_callback,
+            spaghetti=spaghetti,
         )
 
     def _synthesize_sequential(
@@ -76,6 +82,8 @@ class AuditSynthesizer:
         result: AuditResult,
         ctx: AuditContext,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        *,
+        spaghetti: Optional[SpaghettiResult] = None,
     ) -> List[AuditDocument]:
         """Sequential synthesis path — original Phase 43 behavior."""
         documents: List[AuditDocument] = []
@@ -85,7 +93,9 @@ class AuditSynthesizer:
             if progress_callback:
                 progress_callback("audit_synthesizing", i, total)
 
-            doc = self._run_generator(name, title, gen_fn, result, ctx)
+            doc = self._run_generator(
+                name, title, gen_fn, result, ctx, spaghetti=spaghetti,
+            )
             documents.append(doc)
 
         if progress_callback:
@@ -101,6 +111,7 @@ class AuditSynthesizer:
         *,
         concurrency: int,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        spaghetti: Optional[SpaghettiResult] = None,
     ) -> List[AuditDocument]:
         """Phase 96F: Parallel synthesis using ThreadPoolExecutor.
 
@@ -128,7 +139,10 @@ class AuditSynthesizer:
         completed = 0
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_idx = {
-                executor.submit(self._run_generator, name, title, gen_fn, result, ctx): i
+                executor.submit(
+                    self._run_generator, name, title, gen_fn, result, ctx,
+                    spaghetti=spaghetti,
+                ): i
                 for i, (name, title, gen_fn) in enumerate(generators)
             }
             for future in as_completed(future_to_idx):
@@ -159,16 +173,57 @@ class AuditSynthesizer:
         gen_fn: Callable,
         result: AuditResult,
         ctx: AuditContext,
+        *,
+        spaghetti: Optional[SpaghettiResult] = None,
     ) -> AuditDocument:
         """Run a single document generator and wrap as an AuditDocument.
 
         Catches generator exceptions and returns a structural fallback
         document so partial failures don't kill the whole synthesis.
         Extracted from synthesize_all in Phase 96F so it can be reused
-        by both sequential and parallel paths.
+        by both sequential and parallel paths. Phase 124 T5b: thread
+        ``spaghetti`` through so generators that consume it (currently
+        ``_gen_summary`` and ``_gen_tech_debt``) get the data; others
+        ignore the kwarg via ``inspect``-free duck-typing — see below.
         """
         try:
-            content = gen_fn(result, ctx)
+            # Generators that opt in to spaghetti accept it as a kwarg.
+            # Use inspect.signature to detect support so we don't swallow
+            # a real TypeError raised inside the generator's body.
+            params = inspect.signature(gen_fn).parameters
+            accepts_spaghetti = "spaghetti" in params or any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+            )
+            if accepts_spaghetti:
+                content = gen_fn(result, ctx, spaghetti=spaghetti)
+            else:
+                content = gen_fn(result, ctx)
+
+            # Phase 124 T5b telemetry: record which generators consumed
+            # spaghetti so we can verify the wire-up post-run.
+            try:
+                from prep.services.pipeline_telemetry import record_event
+                from pathlib import Path as _Path
+                # Best-effort idx_dir lookup — use ctx if it carries one
+                idx = getattr(ctx, "index_dir", None)
+                if idx is not None:
+                    record_event(
+                        _Path(idx),
+                        "audit_synth_generator",
+                        {
+                            "generator": name,
+                            "accepts_spaghetti": accepts_spaghetti,
+                            "spaghetti_provided": spaghetti is not None,
+                            "spaghetti_file_count": (
+                                spaghetti.file_count
+                                if spaghetti is not None else 0
+                            ),
+                            "content_chars": len(content) if content else 0,
+                        },
+                        phase="124", stage="audit",
+                    )
+            except Exception:
+                pass
             doc = AuditDocument(
                 name=name,
                 title=title,
@@ -185,12 +240,19 @@ class AuditSynthesizer:
 
     # ── Individual generators ────────────────────────────────────
 
-    def _gen_summary(self, result: AuditResult, ctx: AuditContext) -> str:
+    def _gen_summary(
+        self,
+        result: AuditResult,
+        ctx: AuditContext,
+        *,
+        spaghetti: Optional[SpaghettiResult] = None,
+    ) -> str:
         """Generate AUDIT_SUMMARY.md"""
         findings_text = self._format_findings(result.findings, max_items=20)
         atlas_content = ""
         if ctx.atlas:
             atlas_content = ctx.atlas.get("content", "")[:2000]
+        spaghetti_text = self._format_spaghetti_top(spaghetti, max_files=8)
 
         prompt = prompts.AUDIT_SUMMARY_PROMPT.format(
             project_name=self.project_name,
@@ -203,6 +265,7 @@ class AuditSynthesizer:
             critical_count=len(result.findings_by_severity("critical")),
             warning_count=len(result.findings_by_severity("warning")),
             findings_formatted=findings_text,
+            spaghetti_hotspots=spaghetti_text,
         )
 
         prompt_tokens = len(prompt) // 4
@@ -334,8 +397,16 @@ class AuditSynthesizer:
         )
         return _clean_markdown(text)
 
-    def _gen_tech_debt(self, result: AuditResult, ctx: AuditContext) -> str:
+    def _gen_tech_debt(
+        self,
+        result: AuditResult,
+        ctx: AuditContext,
+        *,
+        spaghetti: Optional[SpaghettiResult] = None,
+    ) -> str:
         """Generate TECH_DEBT_REPORT.md"""
+        spaghetti_text = self._format_spaghetti_top(spaghetti, max_files=12)
+
         prompt = prompts.TECH_DEBT_REPORT_PROMPT.format(
             project_name=self.project_name,
             tech_debt_findings=self._format_findings(
@@ -347,6 +418,7 @@ class AuditSynthesizer:
             staleness_findings=self._format_findings(
                 result.findings_by_analyzer("staleness"), max_items=5
             ) or "(none)",
+            spaghetti_hotspots=spaghetti_text,
             modules_formatted=self._format_modules(ctx.modules),
         )
 
@@ -409,6 +481,49 @@ class AuditSynthesizer:
         )
 
     # ── Formatting helpers ───────────────────────────────────────
+
+    @staticmethod
+    def _format_spaghetti_top(
+        spaghetti: Optional[SpaghettiResult],
+        *,
+        max_files: int = 10,
+        severities: tuple = ("critical", "warning"),
+    ) -> str:
+        """Format the top spaghetti hotspots as a compact prompt block.
+
+        Phase 124 T5b: structural refactor-urgency scores (file-level
+        coupling + size + tech-debt + epistemic confidence) flow into
+        the audit synthesizer's prompt so the markdown reports cite
+        spaghetti hotspots by file with score/severity instead of
+        re-deriving them from individual findings.
+        """
+        if spaghetti is None:
+            return "(no spaghetti data — pipeline T5 may not have run)"
+        if not spaghetti.files:
+            return "(spaghetti scan ran but returned 0 files)"
+        sev_set = set(severities)
+        ranked = [f for f in spaghetti.files if f.severity in sev_set]
+        ranked.sort(key=lambda f: -f.score)
+        if not ranked:
+            return "(no critical/warning hotspots)"
+        lines: List[str] = []
+        for f in ranked[:max_files]:
+            tags: List[str] = []
+            if f.in_circular:
+                tags.append("circular")
+            if f.tech_debt_count:
+                tags.append(f"{f.tech_debt_count} debt items")
+            if f.estimated_lines:
+                tags.append(f"~{f.estimated_lines}L")
+            if f.fan_in:
+                tags.append(f"fan_in={f.fan_in}")
+            tag_str = f" [{', '.join(tags)}]" if tags else ""
+            lines.append(
+                f"- {f.file_path}  score={f.score:.2f} ({f.severity}){tag_str}"
+            )
+        if len(ranked) > max_files:
+            lines.append(f"... and {len(ranked) - max_files} more hotspots")
+        return "\n".join(lines)
 
     @staticmethod
     def _format_findings(findings: List[Finding], max_items: int = 20) -> str:

@@ -1870,7 +1870,7 @@ export function GraphEnrichmentPipeline({
 
       {/* ── Phase 114: Reset Barrier Banner ─────────── */}
       {barrier?.active && (
-        <BarrierIndicator barrier={barrier} onClear={onClearBarrier} />
+        <BarrierIndicator barrier={barrier} onClear={onClearBarrier} pipelineActive={anyPipelineActive || isRebuilding} />
       )}
 
       {/* ── Phase 114: Pipeline Health Badge ─────────── */}

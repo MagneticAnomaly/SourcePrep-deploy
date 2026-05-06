@@ -342,6 +342,114 @@ def schedule_rules_regeneration(
 # ── Content Generation ──────────────────────────────────────────────
 
 
+def _render_docs_per_module_section(
+    project_id: str,
+    *,
+    top_modules: int = 10,
+    docs_per_module: int = 3,
+) -> str:
+    """Phase 124 T9 — render a 'Top docs per module' markdown block.
+
+    Reads atlas_markdown_links.json (T2 output) and trace_modules.jsonl,
+    picks the top-N modules by file count, and lists each module's top
+    relevant docs. Returns "" when the data isn't available.
+    """
+    try:
+        import json
+        from prep.core.atlas.markdown_links import (
+            load as _load_md_links,
+            docs_for_module,
+        )
+        from prep.core.project_registry import project_index_dir
+        from prep.services.project_helpers import require_project
+    except Exception:
+        return ""
+
+    try:
+        project = require_project(project_id)
+        idx = project_index_dir(project)
+    except Exception:
+        return ""
+
+    md_result = _load_md_links(idx)
+    if md_result is None or not md_result.md_to_files:
+        return ""
+
+    modules_path = idx / "trace_modules.jsonl"
+    if not modules_path.is_file():
+        return ""
+
+    modules: list[dict] = []
+    try:
+        with modules_path.open() as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    modules.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    except Exception:
+        return ""
+
+    # Sort by file_count desc, drop modules with no code members.
+    code_modules = []
+    for m in modules:
+        members = [f for f in (m.get("member_files") or []) if not f.endswith(".md")]
+        if members:
+            code_modules.append((m, members))
+    code_modules.sort(
+        key=lambda mv: -(mv[0].get("file_count") or len(mv[1])),
+    )
+
+    rows: list[tuple[str, list[str]]] = []
+    for mod, members in code_modules[:top_modules]:
+        docs = docs_for_module(md_result, members, cap=docs_per_module)
+        if not docs:
+            continue
+        name = (mod.get("name") or mod.get("module_id") or "?")[:60]
+        rows.append((name, docs))
+
+    if not rows:
+        return ""
+
+    lines: list[str] = []
+    lines.append("## Top docs per module")
+    lines.append("")
+    lines.append(
+        "Planning docs that mention this module's code (Phase 124 T9). "
+        "Use these as a starting point to understand a module's *why* "
+        "before reading source. Generated from "
+        "`atlas_markdown_links.json`."
+    )
+    lines.append("")
+    for name, docs in rows:
+        lines.append(f"- **{name}**")
+        for d in docs:
+            lines.append(f"  - `{d}`")
+    out = "\n".join(lines)
+
+    # Phase 124 T9 telemetry: record what the AGENTS.md doc-section
+    # rendered so post-run analysis can confirm the wire-up.
+    try:
+        from prep.services.pipeline_telemetry import record_event
+        record_event(
+            idx, "agents_md_docs_section_rendered",
+            {
+                "module_count": len(rows),
+                "total_doc_lines": sum(len(docs) for _, docs in rows),
+                "section_chars": len(out),
+                "modules": [name for name, _ in rows],
+            },
+            phase="124", stage="rules", project_id=project_id,
+        )
+    except Exception:
+        pass
+
+    return out
+
+
 def _build_managed_content(
     project_name: str,
     atlas_content: str,
@@ -485,6 +593,18 @@ def _build_managed_content(
         parts.append("## Codebase Atlas")
         parts.append("")
         parts.append(atlas_content.strip())
+
+    # ── Top docs per module (Phase 124 T9, universal target) ──
+    # Surfaces the docs/ planning files that explain each top module so
+    # external agents see the concrete code↔doc cross-references in
+    # AGENTS.md without needing an MCP call. Data source:
+    # atlas_markdown_links.json (Phase 124 T2). Renders nothing if T2
+    # hasn't run for this project.
+    if target == "universal" and project_id:
+        docs_block = _render_docs_per_module_section(project_id)
+        if docs_block:
+            parts.append("")
+            parts.append(docs_block)
 
     # ── Focus areas (all targets) ──
     if included_paths:

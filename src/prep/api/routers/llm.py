@@ -674,8 +674,35 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
         from prep.services.project_helpers import get_registry as _get_reg
         from prep.services.pipeline.stages import STAGE_TASK_ID, STAGE_MODEL_SLOT, STAGE_QUEUE_TYPE, QueueType, StageId
 
+        # Phase 125 follow-up (2026-05-03): defensive ghost-slot check.
+        # The in-memory orchestrator state can desync from the on-disk
+        # pipeline_run_metadata.json across daemon crashes — leaving
+        # ``is_active=True`` for stages that the metadata records as
+        # "completed". The dashboard's AI Gateway then shows a stale
+        # "concepts running" slot indefinitely. Cross-check each
+        # candidate against the manifest before reporting it.
+        import json as _json
+        from pathlib import Path as _Path
+        from prep.core.project_registry import project_index_dir as _project_index_dir
+
+        def _is_run_actually_active(project_obj) -> bool:
+            try:
+                idx = _Path(_project_index_dir(project_obj))
+                meta = idx / "pipeline_run_metadata.json"
+                if not meta.is_file():
+                    return True  # no manifest → trust orchestrator
+                data = _json.loads(meta.read_text())
+                status = (data.get("status") or "").lower()
+                return status not in ("completed", "failed", "cancelled")
+            except Exception:
+                return True
+
         registry = _get_reg()
         for project in registry.list_projects():
+            # Skip projects whose on-disk manifest declares the run is
+            # already done — defends against orchestrator-state staleness.
+            if not _is_run_actually_active(project):
+                continue
             ps = pipeline_orchestrator.status(project.id)
             # Phase 105a: "finalize" covers both traditional finalize
             # group runs AND solo runs like atlas/concepts/audit — the

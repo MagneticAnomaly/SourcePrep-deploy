@@ -95,7 +95,10 @@ STAGE_INPUT_FILES: Dict[StageId, List[str]] = {
     StageId.DEEPENING:       ["trace_epistemic.jsonl", "trace_modules.jsonl"],
     StageId.DEEP_KNOWLEDGE:  ["trace_epistemic.jsonl", "trace_modules.jsonl"],
     StageId.RULES:           [],
-    StageId.CONCEPTS:        [],
+    # Phase 125 fix: concepts seeder reads modules + atlas links.
+    # Empty input list previously made the freshness check a no-op
+    # AND amplified the existence-guard bug in _concepts_worker.
+    StageId.CONCEPTS:        ["trace_modules.jsonl", "atlas_markdown_links.json"],
     StageId.AUDIT:           ["trace_nodes.jsonl", "trace_edges.jsonl", "trace_epistemic.jsonl"],
     StageId.ANTIBODIES:      [],
 }
@@ -367,6 +370,7 @@ STAGE_OUTPUTS: Dict[StageId, OutputSpec] = {
             "atlas_routing_embeddings.npy",
             "atlas_updated.signal",
             "atlas_swarm_synthesis.json",
+            "atlas_markdown_links.json",  # Phase 124 T2 — md→code cross-links
         ),
         dirs=("atlas_roles", "atlas_segments"),
     ),
@@ -390,7 +394,15 @@ STAGE_OUTPUTS: Dict[StageId, OutputSpec] = {
 # reset scopes. `pipeline_run_metadata.json` is intentionally NOT here — it
 # is run-state and gets wiped along with the run's stage outputs.
 PROJECT_META_ALLOWLIST: OutputSpec = OutputSpec.of(
-    files=("project.json", "repo_policy.json"),
+    files=(
+        "project.json",
+        "repo_policy.json",
+        # Phase 124: structured per-run event log. Survives resets so
+        # the harness --show-events / --compare workflows have history
+        # to compare against after a wipe.
+        "pipeline_telemetry.jsonl",
+        "pipeline_telemetry.jsonl.prev",
+    ),
     dirs=("logs", "backups"),
 )
 

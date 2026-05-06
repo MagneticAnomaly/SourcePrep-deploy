@@ -160,12 +160,29 @@ def _seed_concepts_sequential(
         worker_prompt = (
             'You are analyzing the "{name}" subsystem of the codebase "{project}".\n\n'
             'Module data:\n{ctx}\n\n'
-            'Generate 3-8 concept seeds that capture the WHY of this subsystem. '
-            'Focus on design rationale, hidden constraints, trade-offs, and '
-            'business decisions that are not obvious from reading the code itself.\n\n'
-            'Each concept must be SPECIFIC to this subsystem. Anchor concepts '
-            'to specific files in member_files.\n\n'
-            'Respond with JSON only:\n'
+            'Produce **0-3** load-bearing rationale entries explaining WHY '
+            'this subsystem exists in its current shape. Each entry must '
+            'be a non-obvious design decision, hidden constraint, or '
+            'tradeoff — NOT a summary of what the code does.\n\n'
+            'EMPTY OUTPUT IS ACCEPTABLE — padding is a failure mode. '
+            'If the WHY is obvious from filenames or imports, return '
+            '{{"concepts": []}}. ~30% of modules should emit nothing.\n\n'
+            'BANNED outputs (these are what a junior reviewer proposes — '
+            'do NOT emit anything resembling them):\n'
+            '- "Module X handles Y"        (description, not rationale)\n'
+            '- "Uses Z library"             (library use, not WHY)\n'
+            '- "Modular architecture"       (vague)\n'
+            '- "Has tests"                  (observable, not WHY)\n'
+            '- "Uses async/await"           (mechanism, not decision)\n\n'
+            'GOOD title shape: a one-line CLAIM with the WHY embedded.\n'
+            '- Bad:  "Foo uses bar"               (topic)\n'
+            '- Good: "Foo uses bar to avoid X"    (claim with reason)\n'
+            '- Bad:  "Auth has rate limiting"     (description)\n'
+            '- Good: "Auth rate-limits per-IP to mitigate credential stuffing" (claim)\n\n'
+            'Each entry must be FALSIFIABLE: a reviewer with grep should '
+            'be able to test it in <5 min. Anchor every entry to specific '
+            'files in member_files.\n\n'
+            'Respond with JSON only (empty array if nothing meets the bar):\n'
             '{{"concepts": [{{"title": "...", "content": "2-4 sentences", '
             '"category": "architecture|domain|product|epistemic|process|brand|'
             'security|technical|pattern|constraint|decision", '
@@ -476,12 +493,123 @@ def seed_concepts_swarm(
             "modules in batches", len(modules), concurrency,
         )
 
+    # Phase 124 T4: enrich each module's context with linked-doc excerpts
+    # so workers see explicit "this exists because..." rationale from
+    # docs/Phase*/ rather than re-deriving it from code shape. Loaded
+    # once before fan-out. Depends on Phase 124 T2 — the atlas worker
+    # (`_atlas_worker` in workers.py) writes `atlas_markdown_links.json`
+    # at the end of Stage 11. If the file is missing T4 silently no-ops
+    # but logs a clear warning so the cause is debuggable.
+    md_links = None
+    try:
+        from prep.core.atlas.markdown_links import (
+            load as _load_md_links,
+            docs_for_module,
+            extract_excerpt,
+        )
+        md_links = _load_md_links(index_dir)
+    except ImportError as e:
+        logger.warning(
+            "[Swarm/Concepts] T4 import failed — concept enrichment disabled: %s", e,
+        )
+    except Exception as e:
+        logger.debug("markdown_links load raised: %s", e)
+
+    project_root = Path(project.path) if md_links is not None else None
+    if md_links is not None:
+        logger.info(
+            "[Swarm/Concepts] T4: loaded markdown_links — %d md → %d code files",
+            md_links.md_count, md_links.valid_link_count,
+        )
+        try:
+            from prep.services.pipeline_telemetry import record_event
+            record_event(
+                index_dir, "t4_loaded",
+                {
+                    "md_count": md_links.md_count,
+                    "valid_link_count": md_links.valid_link_count,
+                },
+                phase="124", stage="concepts", project_id=project_id,
+            )
+        except Exception:
+            pass
+    else:
+        logger.warning(
+            "[Swarm/Concepts] T4 SKIPPED — atlas_markdown_links.json missing in %s. "
+            "Run the atlas stage (Phase 124 T2 writes the file). Concept worker "
+            "prompts will fall back to module-data-only context.",
+            index_dir,
+        )
+        try:
+            from prep.services.pipeline_telemetry import record_event
+            record_event(
+                index_dir, "t4_skipped",
+                {"reason": "atlas_markdown_links_missing"},
+                phase="124", stage="concepts", project_id=project_id,
+            )
+        except Exception:
+            pass
+
+    def _relevant_docs_for(mod: dict[str, Any]) -> list[dict[str, str]]:
+        if md_links is None or project_root is None:
+            return []
+        members = mod.get("member_files") or mod.get("files") or []
+        members = [m for m in members if not m.endswith(".md")]
+        if not members:
+            return []
+        paths = docs_for_module(md_links, members, cap=5)
+        out: list[dict[str, str]] = []
+        for p in paths:
+            excerpt = extract_excerpt(
+                project_root / p, members,
+                window_lines=4, max_chars=500,
+            )
+            if excerpt:
+                out.append({"path": p, "excerpt": excerpt})
+        return out
+
     items: list[WorkItem] = []
     for mod in modules:
         item_id = f"module:{mod.get('module_id', mod.get('name', 'unknown'))}"
         summary = _build_module_summary(mod)
-        full_context = json.dumps(_build_module_context(mod))
+        relevant = _relevant_docs_for(mod)
+        full_context = json.dumps(
+            _build_module_context(mod, relevant_docs=relevant)
+        )
         items.append(WorkItem(id=item_id, summary=summary, full_context=full_context))
+
+    enriched = sum(1 for it in items if '"relevant_docs"' in it.full_context)
+    if md_links is not None:
+        logger.info(
+            "[Swarm/Concepts] T4 enrichment: %d/%d workers received ≥1 linked doc",
+            enriched, len(items),
+        )
+        try:
+            from prep.services.pipeline_telemetry import record_event
+            # Sample top-N enriched modules to verify enrichment landed on
+            # high-leverage targets, not just rare ones.
+            sample = []
+            for mod in modules[:5]:
+                rel = _relevant_docs_for(mod)
+                if rel:
+                    sample.append({
+                        "module_id": mod.get("module_id") or mod.get("name"),
+                        "name": mod.get("name"),
+                        "doc_count": len(rel),
+                        "doc_paths": [d["path"] for d in rel],
+                    })
+            record_event(
+                index_dir, "t4_enrichment_summary",
+                {
+                    "workers_total": len(items),
+                    "workers_enriched": enriched,
+                    "enrichment_pct": round(100.0 * enriched / max(len(items), 1), 1),
+                    "top_modules_with_docs": sample,
+                },
+                phase="124", stage="concepts", project_id=project_id,
+            )
+        except Exception:
+            pass
 
     logger.info(
         "[Swarm/Concepts] Fan-out: %d modules across %d workers (model=%s)",
@@ -510,10 +638,27 @@ def seed_concepts_swarm(
         # Cloud coord/synth timeouts: 10s → 60s → 120s/180s → 180s/240s.
         # See group_reasoning.py for rationale — larger repos need
         # ~50% more time than PowerMate's 111s coord / 169s synth.
-        coordinator_timeout_s=180.0 if is_cloud_model else 90.0,
-        synthesis_timeout_s=240.0 if is_cloud_model else 180.0,
+        # Phase 123 follow-up #2 (2026-05-03): bumped per-phase
+        # timeouts. Both SourcePrep (507/636 workers) and HomeColab
+        # (324 workers) hit the 240s synthesis timeout in production
+        # despite the 1500s wall-time budget being generous. The
+        # synthesizer LLM call alone needs more than 240s when it has
+        # 500+ workers' outputs to consolidate. Fix: bump to 600s.
+        # Coordinator was also tight at 180s (timed out on SourcePrep);
+        # bumped to 300s.
+        coordinator_timeout_s=300.0 if is_cloud_model else 90.0,
+        synthesis_timeout_s=600.0 if is_cloud_model else 180.0,
         worker_timeout_s=180.0 if is_cloud_model else 300.0,
-        max_wall_time_s=900.0 if is_cloud_model else 1800.0,
+        # Phase 123 follow-up (2026-05-02): bumped cloud cap 900 → 1500.
+        # Phase 124 T4 enriches each worker's prompt with linked-doc
+        # excerpts (~+2.5K chars), and SourcePrep itself now produces
+        # 636+ workers — so 251 workers + T4 enrichment exhausted the
+        # 900s budget, leaving the synthesizer with 0s and silently
+        # dropping all clarifying questions. The cheap fix is more
+        # headroom; the proper fix is making questions survive
+        # synthesis failure (move them to the worker prompt) — not
+        # done here. See memory:project_synthesizer_wall_time_regression.
+        max_wall_time_s=1500.0 if is_cloud_model else 1800.0,
     )
 
     coordinator_prompt = (
@@ -566,19 +711,43 @@ def seed_concepts_swarm(
         except Exception:
             module_data = {}
 
+        # Phase 124 T4: when module_data contains a non-empty
+        # `relevant_docs` array, instruct the worker to prefer rationale
+        # explicitly stated there. The excerpts are pulled from
+        # docs/Phase*/ files that mention this module's source files.
+        # Anchors should include the doc paths when a concept is
+        # elevated based on doc evidence.
         worker_prompt = (
             "You are analyzing the \"{name}\" subsystem of the codebase "
             "\"{project}\".\n\n"
             "Module data:\n{ctx}\n\n"
             "Analysis angle: {angle}\n"
             "Priority concerns: {concerns}\n\n"
-            "Generate 3-8 concept seeds that capture the WHY of this "
-            "subsystem. Focus on design rationale, hidden constraints, "
-            "trade-offs, and business decisions that aren't obvious from "
-            "reading the code itself.\n\n"
-            "Each concept must be SPECIFIC to this subsystem (not generic "
-            "statements). Anchor concepts to specific files in member_files.\n\n"
-            "Respond with JSON only:\n"
+            "Produce **0-3** load-bearing rationale entries explaining WHY "
+            "this subsystem exists in its current shape. Each entry must "
+            "be a non-obvious design decision, hidden constraint, or "
+            "tradeoff — NOT a summary of what the code does.\n\n"
+            "EMPTY OUTPUT IS ACCEPTABLE — padding is a failure mode. "
+            "If the WHY is obvious from filenames or imports, return "
+            "{{\"concepts\": []}}. ~30% of modules should emit nothing.\n\n"
+            "BANNED outputs (these are what a junior reviewer proposes — "
+            "do NOT emit anything resembling them):\n"
+            "- \"Module X handles Y\"        (description, not rationale)\n"
+            "- \"Uses Z library\"             (library use, not WHY)\n"
+            "- \"Modular architecture\"       (vague)\n"
+            "- \"Has tests\"                  (observable, not WHY)\n"
+            "- \"Uses async/await\"           (mechanism, not decision)\n\n"
+            "GOOD title shape: a one-line CLAIM with the WHY embedded.\n"
+            "- Bad:  \"Foo uses bar\"               (topic)\n"
+            "- Good: \"Foo uses bar to avoid X\"    (claim with reason)\n\n"
+            "Each entry must be FALSIFIABLE: a reviewer with grep should "
+            "be able to test it in <5 min.\n\n"
+            "If `relevant_docs` is non-empty in the module data, those "
+            "excerpts are planning documents that mention this module's "
+            "files by path. QUOTE the rationale stated in those excerpts "
+            "rather than inferring from code shape. Include the doc's "
+            "path in `anchors` alongside any source files.\n\n"
+            "Respond with JSON only (empty array if nothing meets the bar):\n"
             '{{"concepts": [{{"title": "...", "content": "2-4 sentences", '
             '"category": "architecture|domain|product|epistemic|process|brand|'
             'security|technical|pattern|constraint|decision", '
@@ -586,7 +755,7 @@ def seed_concepts_swarm(
         ).format(
             name=module_data.get("name", item.id),
             project=project_name,
-            ctx=item.full_context[:2500],
+            ctx=item.full_context[:3500],
             angle=assignment.analysis_angle or "comprehensive analysis",
             concerns=", ".join(assignment.priority_concerns) or "none specified",
         )
@@ -642,10 +811,11 @@ def seed_concepts_swarm(
     synthesized = result.synthesis or {}
     final_concepts = synthesized.get("concepts", [])
     final_questions = synthesized.get("questions", [])
+    synthesis_was_empty = not final_concepts
 
     # If synthesis failed but workers succeeded, fall back to merging
     # raw worker outputs (best-effort dedupe by title).
-    if not final_concepts and result.worker_results:
+    if synthesis_was_empty and result.worker_results:
         seen_titles: set[str] = set()
         for wr in result.worker_results:
             if not wr.success or not wr.parsed:
@@ -655,10 +825,39 @@ def seed_concepts_swarm(
                 if title and title not in seen_titles:
                     seen_titles.add(title)
                     final_concepts.append(c)
-        logger.info(
-            "[Swarm/Concepts] Synthesis empty; merged %d concepts from "
-            "%d worker outputs", len(final_concepts), len(result.worker_results),
+        logger.warning(
+            "[Swarm/Concepts] SYNTHESIS FAILED — merged %d concepts from %d "
+            "worker outputs as fallback. Questions WILL BE ZERO because "
+            "workers do not emit questions today (only synthesis does). "
+            "Phase 123 follow-up: bump synthesizer wall-time budget OR add "
+            "questions to the worker prompt.",
+            len(final_concepts), len(result.worker_results),
         )
+        # Phase 124 telemetry: surface synthesis failure so the harness
+        # `--show-events` mode flags it. Without this, the only signal
+        # was a buried log.warning + zero questions in the store.
+        try:
+            from prep.services.pipeline_telemetry import record_event
+            record_event(
+                index_dir, "concepts_synthesis_failed",
+                {
+                    "fallback_concepts": len(final_concepts),
+                    "worker_count": len(result.worker_results),
+                    "successful_workers": sum(
+                        1 for wr in result.worker_results if wr.success
+                    ),
+                    "questions_lost": True,
+                    "remediation": (
+                        "Phase 123 territory — bump SwarmOrchestrator "
+                        "max_wall_time_s above 900 for cloud models OR "
+                        "add 'questions' field to the worker prompt so "
+                        "they survive synthesis failure"
+                    ),
+                },
+                phase="124", stage="concepts", project_id=project_id,
+            )
+        except Exception:
+            pass
 
     # Phase 96 / F-36: batch the concept saves into a single transaction
     # via concept_store.save_many() instead of N independent save() calls.
@@ -666,6 +865,15 @@ def seed_concepts_swarm(
     # pipeline_metadata, observation_store, and audit_log writes that
     # share the same database during finalize.  save_many holds the writer
     # lock once for the whole batch and includes a retry-on-locked wrapper.
+    #
+    # Phase 125b (2026-05-03): the per-module swarm seeder produces
+    # *module rationale* (per-module observations), NOT cross-cutting
+    # concepts. Tag every entry with kind='module_rationale' so the
+    # canonical concepts surface (prep_concepts) doesn't surface them.
+    # The new concept_synthesizer.py runs as Pass 3 to produce true
+    # kind='concept' rows.
+    for entry in final_concepts:
+        entry.setdefault("kind", "module_rationale")
     try:
         saved, _skipped = concept_store.save_many(project_id, final_concepts)
         concepts_created = saved
@@ -685,6 +893,7 @@ def seed_concepts_swarm(
                     confidence=c.get("confidence", 0.7),
                     anchors=c.get("anchors", []),
                     tags=c.get("tags", []),
+                    kind="module_rationale",  # Phase 125b
                 )
                 concepts_created += 1
             except Exception as e2:
@@ -775,10 +984,22 @@ def _build_module_summary(mod: dict[str, Any]) -> str:
     return f"{name} ({file_count} files): {summary}"
 
 
-def _build_module_context(mod: dict[str, Any]) -> dict[str, Any]:
-    """Build a focused per-module context dict for a worker."""
+def _build_module_context(
+    mod: dict[str, Any],
+    *,
+    relevant_docs: Optional[list[dict[str, str]]] = None,
+) -> dict[str, Any]:
+    """Build a focused per-module context dict for a worker.
+
+    Args:
+        mod: Module record from trace_modules.jsonl.
+        relevant_docs: Optional list of {path, excerpt} dicts pulled from
+            atlas_markdown_links.json (Phase 124 T2). When provided, the
+            worker prompt instructs the LLM to prefer rationale stated
+            in these docs over rationale inferred from code shape.
+    """
     files = mod.get("member_files", mod.get("files", []))
-    return {
+    ctx: dict[str, Any] = {
         "name": mod.get("name", mod.get("module_id", "unnamed")),
         "summary": (mod.get("summary") or "")[:500],
         "domain_tags": mod.get("domain_tags", []),
@@ -789,6 +1010,9 @@ def _build_module_context(mod: dict[str, Any]) -> dict[str, Any]:
         "data_flow": (mod.get("data_flow") or "")[:300],
         "component_status": mod.get("component_status", "unknown"),
     }
+    if relevant_docs:
+        ctx["relevant_docs"] = relevant_docs
+    return ctx
 
 
 def _assemble_seeding_context(index_dir: Path, project_path: str) -> str:

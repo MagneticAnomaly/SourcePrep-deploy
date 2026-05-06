@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-01T21:10:20.967913+00:00",
+  "project_root": "/Volumes/4TB-BAD/HumanAI/CoDRAG",
+  "idx_dir": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.sourceprep",
+  "project_id": "f1636374-abc6-410d-99ee-822120379e79",
+  "overall_score": 7.8,
+  "stages": [
+    {
+      "stage_id": "11_ATLAS",
+      "stage_name": "Atlas",
+      "score": 8.0,
+      "pros": [
+        "atlas.json present",
+        "10 atlas segments",
+        "segments carry file_paths (members enumerable)",
+        "51% of code modules have \u22651 doc mention"
+      ],
+      "cons": [
+        "AP-2: 9/10 segments have zero docs mentioning their own members",
+        "AP-3: docs/Phase13_Storybook/ \u2014 249 files unsegmented"
+      ],
+      "anti_patterns": [
+        "AP-2",
+        "AP-3"
+      ],
+      "metrics": {
+        "atlas_present": true,
+        "segment_count": 10,
+        "routing_present": true,
+        "finished_at": "2026-05-01T17:36:56.863579+00:00",
+        "segments_with_zero_internal_doc_mentions": 9,
+        "unsegmented_md_count": 255,
+        "bulk_dropped_dirs": [
+          [
+            "Phase13_Storybook",
+            249
+          ]
+        ],
+        "atlas_age_hours": 3.6,
+        "modules_with_relevant_docs_pct": 50.7,
+        "modules_total": 410
+      }
+    },
+    {
+      "stage_id": "12_RULES",
+      "stage_name": "Rules",
+      "score": 10.0,
+      "pros": [
+        "AGENTS.md present (126 lines)",
+        "contains prep tool-calling instructions",
+        "contains atlas snippet",
+        "contains concepts mention",
+        "contains project_id routing instruction"
+      ],
+      "cons": [],
+      "anti_patterns": [],
+      "metrics": {
+        "finished_at": "2026-05-01T17:36:56.905206+00:00",
+        "elapsed_seconds": 0.0,
+        "agents_md_lines": 126,
+        "agents_md_chars": 7926,
+        "has_tool_calling": true,
+        "has_atlas": true,
+        "has_concepts": true,
+        "has_project_id": true
+      }
+    },
+    {
+      "stage_id": "13_CONCEPTS",
+      "stage_name": "Concepts",
+      "score": 7.0,
+      "pros": [
+        "13 concepts in store",
+        "100% of concepts have anchors",
+        "8 categories covered",
+        "7 unanswered concept questions surfaced"
+      ],
+      "cons": [
+        "AP-5: only 13 concepts on a 1848-file project (target 30-80)"
+      ],
+      "anti_patterns": [
+        "AP-5"
+      ],
+      "metrics": {
+        "finished_at": "2026-05-01T17:55:15.129836+00:00",
+        "elapsed_seconds": 1098.19,
+        "count": 13,
+        "status_breakdown": {
+          "seed": 12,
+          "active": 1
+        },
+        "category_breakdown": {
+          "product": 1,
+          "security": 2,
+          "architecture": 4,
+          "constraint": 1,
+          "pattern": 1,
+          "decision": 1,
+          "process": 2,
+          "domain": 1
+        },
+        "anchor_pct": 100.0,
+        "category_diversity": 8,
+        "questions": 7
+      }
+    },
+    {
+      "stage_id": "14_AUDIT",
+      "stage_name": "Audit",
+      "score": 5.0,
+      "pros": [
+        "all 5 audit markdown reports present",
+        "spaghetti.json present"
+      ],
+      "cons": [
+        "AP-6: spaghetti.json mtime drifts 1190s from markdown reports \u2014 likely written by manual REST probe, not pipeline",
+        "average audit report is 21 KB \u2014 risk of token sprawl"
+      ],
+      "anti_patterns": [
+        "AP-6"
+      ],
+      "metrics": {
+        "finished_at": "2026-05-01T17:59:28.751252+00:00",
+        "elapsed_seconds": 253.55,
+        "markdown_reports_present": 5,
+        "markdown_reports_expected": 5,
+        "spaghetti_present": true,
+        "spaghetti_vs_md_mtime_drift_s": 1190.1,
+        "avg_md_report_kb": 20.7
+      }
+    },
+    {
+      "stage_id": "15_ANTIBODIES",
+      "stage_name": "Antibodies",
+      "score": 9.0,
+      "pros": [
+        "5 antibodies derived",
+        "100% of eligible concepts produced antibodies",
+        "2 distinct severities"
+      ],
+      "cons": [
+        "derivation reported 0.0s for 5 antibodies \u2014 likely served from cache; verify generation actually ran"
+      ],
+      "anti_patterns": [],
+      "metrics": {
+        "finished_at": "2026-05-01T17:59:28.778803+00:00",
+        "elapsed_seconds": 0.0,
+        "count": 5,
+        "severity_breakdown": {
+          "inform": 4,
+          "warn": 1
+        },
+        "eligible_source_concepts": 5,
+        "antibody_to_eligible_ratio": 1.0
+      }
+    }
+  ],
+  "anti_patterns_flagged": [
+    "AP-2",
+    "AP-3",
+    "AP-5",
+    "AP-6"
+  ]
+}

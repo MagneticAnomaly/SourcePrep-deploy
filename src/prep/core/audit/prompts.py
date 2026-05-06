@@ -22,15 +22,18 @@ CODEBASE ATLAS (architectural overview):
 FINDINGS ({finding_count} total, {critical_count} critical, {warning_count} warning):
 {findings_formatted}
 
+SPAGHETTI HOTSPOTS (refactor-urgency scores from structural analysis — file-level coupling, size, tech-debt density, epistemic confidence):
+{spaghetti_hotspots}
+
 Generate a Markdown document with these sections:
 ## Health Score
-Assign an A–F grade with a 1-sentence rationale.
+Assign an A–F grade with a 1-sentence rationale. Reference spaghetti hotspot count if non-trivial.
 
 ## Critical Findings
-List each critical finding with file paths and recommended action. Max 5.
+List each critical finding with file paths and recommended action. Max 5. When a finding's file appears in the spaghetti hotspots, cite the spaghetti score alongside the finding to ground severity in the structural data.
 
 ## Top Recommendations
-The 5 highest-impact improvements, ordered by effort-to-value ratio.
+The 5 highest-impact improvements, ordered by effort-to-value ratio. Prefer recommendations that target high-spaghetti-score files when the structural signal supports it.
 
 ## Module Status
 One line per module: name, file count, status (healthy/warning/critical), key issue if any.
@@ -142,15 +145,21 @@ LARGE FILE FINDINGS:
 STALENESS FINDINGS:
 {staleness_findings}
 
+SPAGHETTI HOTSPOTS (refactor-urgency scores — combine these with the per-analyzer findings above; the same file may appear in both lists):
+{spaghetti_hotspots}
+
 MODULE HEALTH:
 {modules_formatted}
 
 Generate a Markdown document with:
 ## Debt Summary
-Total items, severity distribution, estimated total effort.
+Total items, severity distribution, estimated total effort. Quote the spaghetti severity counts (critical/warning) so the severity model is anchored in the structural data, not invented.
+
+## Spaghetti Hotspots
+For each top hotspot listed above, give a one-line diagnosis citing its score, severity, and the dominant signal (coupling, debt density, circular, large). Group hotspots by module when possible.
 
 ## By Module
-Each module's debt items grouped and prioritized.
+Each module's debt items grouped and prioritized. When a hotspot file falls inside a module, reference its spaghetti score alongside the per-analyzer findings.
 
 ## Remediation Roadmap
-Suggested order of attack — quick wins first, then structural changes."""
+Suggested order of attack — quick wins first, then structural changes. Prefer hotspots with the highest score-to-estimated-effort ratio."""

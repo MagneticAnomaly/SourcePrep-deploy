@@ -845,6 +845,74 @@ class WorkerFactory:
                 if pfl:
                     pfl.log("atlas", f"Role atlas caching skipped: {e}")
 
+            # Phase 124 T2: extract markdown→code cross-links and persist
+            # as atlas_markdown_links.json so downstream stages can consume
+            # them — concepts (T4) reads it for per-module relevant_docs;
+            # audit synthesizer (T5b) can cite hotspot doc references.
+            # Deterministic, no LLM, runs in seconds. Best-effort: failure
+            # is non-fatal because atlas itself already shipped above.
+            try:
+                from prep.core.atlas.markdown_links import (
+                    extract as _md_extract,
+                    save as _md_save,
+                    load_indexed_files,
+                )
+                indexed = load_indexed_files(idx_dir)
+                md_result = _md_extract(Path(project.path), indexed_files=indexed)
+                _md_save(md_result, idx_dir)
+                result["markdown_links_md_count"] = md_result.md_count
+                result["markdown_links_valid_links"] = md_result.valid_link_count
+                logger.info(
+                    "[Atlas] Markdown links extracted — %d md → %d code files (raw mentions: %d)",
+                    md_result.md_count, md_result.valid_link_count,
+                    md_result.raw_mention_count,
+                )
+                if pfl:
+                    pfl.log(
+                        "atlas",
+                        f"Markdown links: {md_result.md_count} md → "
+                        f"{md_result.valid_link_count} code files",
+                    )
+                # Phase 124 telemetry: record T2 firing with rich payload
+                # so post-run analysis can confirm wire-up works.
+                try:
+                    from prep.services.pipeline_telemetry import record_event
+                    top_md = sorted(
+                        md_result.md_to_files.items(),
+                        key=lambda kv: -len(kv[1]),
+                    )[:5]
+                    record_event(
+                        idx_dir,
+                        "md_links_extracted",
+                        {
+                            "md_count": md_result.md_count,
+                            "valid_link_count": md_result.valid_link_count,
+                            "raw_mention_count": md_result.raw_mention_count,
+                            "indexed_file_count": len(indexed) if indexed else 0,
+                            "top_md_by_links": [
+                                {"path": p, "link_count": len(refs)}
+                                for p, refs in top_md
+                            ],
+                        },
+                        phase="124", stage="atlas", project_id=project_id,
+                    )
+                except Exception:
+                    pass
+            except Exception as e:
+                logger.info("[Atlas] Markdown link extraction skipped: %s", e)
+                result["markdown_links_md_count"] = 0
+                if pfl:
+                    pfl.log("atlas", f"Markdown link extraction skipped: {e}")
+                try:
+                    from prep.services.pipeline_telemetry import record_event
+                    record_event(
+                        idx_dir, "md_links_failed",
+                        {"error": str(e)},
+                        phase="124", stage="atlas", project_id=project_id,
+                    )
+                except Exception:
+                    pass
+
             result["_model_info"] = _capture_model_info(llm_client) if llm_client else {}
             result["_stage_timing"] = {"started_at": _t0, "elapsed": time.time() - _t0}
             return result
@@ -997,42 +1065,110 @@ class WorkerFactory:
                 pass
             model_info = _capture_model_info(llm_client) if llm_client else {}
 
+            # Phase 125 fix (2026-05-02): freshness-based skip instead of
+            # existence-based skip. The previous "if any concept exists,
+            # skip" guard was load-bearing on the bug where a hallucinated
+            # SourcePrep-themed concept would block all subsequent concept
+            # seeding for the project — even after a DB nuke, because the
+            # next run would emit ONE more concept and re-trigger the guard.
+            #
+            # New rule: skip only when the concepts manifest is newer than
+            # ALL declared inputs (trace_modules.jsonl + atlas_markdown_links.json
+            # per stages.STAGE_INPUT_FILES) — same pattern other stages use.
+            # When inputs change OR no manifest exists, re-seed.
+            from pathlib import Path  # local import: workers.py has no top-level pathlib
+            from prep.core.project_registry import project_index_dir
+            from prep.services.project_helpers import require_project
+            from prep.services.pipeline.stages import StageId, STAGE_INPUT_FILES
+            project_obj = require_project(project_id)
+            idx_dir = Path(project_index_dir(project_obj))
+            manifest_path = idx_dir / "concepts_manifest.json"
+            input_paths = [
+                idx_dir / fn for fn in STAGE_INPUT_FILES.get(StageId.CONCEPTS, [])
+            ]
+            # Phase 125b: skip the SEEDER (Pass 1, the per-module rationale
+            # extractor) only when manifest is fresh AND the rationale
+            # layer already has rows. Pass 3 (concept_synthesizer) runs
+            # regardless so the cross-cutting concept layer stays current
+            # without forcing a full re-seed.
             stats = concept_store.get_stats(project_id)
-            if stats["total"] > 0:
-                log_cb(
-                    f"{stats['total']} concepts already exist — skipping",
-                    1, 1,
-                )
-                return {
-                    "stage": "concepts",
-                    "skipped": True,
-                    "existing_count": stats["total"],
-                    "_model_info": model_info,
-                    "_stage_timing": {
-                        "started_at": _t0,
-                        "elapsed": time.time() - _t0,
-                    },
-                }
+            rationale_count = stats.get("module_rationale_count", stats.get("total", 0))
+            should_skip_seeder = False
+            if manifest_path.is_file() and rationale_count > 0 and input_paths:
+                manifest_mtime = manifest_path.stat().st_mtime
+                input_mtimes = [
+                    p.stat().st_mtime for p in input_paths if p.is_file()
+                ]
+                if input_mtimes:
+                    should_skip_seeder = manifest_mtime > max(input_mtimes)
 
-            log_cb("Seeding concepts from pipeline data", 0, 1)
-            # Plumb log_cb through to seed_concepts so the dashboard's
-            # Concept Seeding progress bar fills as each per-module
-            # worker completes, instead of binary 0% → 100%.
-            def _seed_progress(message: str, current: int, total: int) -> None:
-                log_cb(message, current, total)
-            result = seed_concepts(project_id, progress_callback=_seed_progress)
+            if should_skip_seeder:
+                log_cb(
+                    f"{rationale_count} module rationale entries fresh — skipping seeder",
+                    1, 2,
+                )
+                # Skip the seeder but DO NOT return — Pass 3 still needs
+                # to run.
+                concepts_created = 0
+                questions_created = 0
+                result = {"status": "skipped_fresh", "mode": "seeder_skipped"}
+            else:
+                log_cb("Seeding concepts from pipeline data (Pass 1)", 0, 2)
+                # Plumb log_cb through to seed_concepts so the dashboard's
+                # Concept Seeding progress bar fills as each per-module
+                # worker completes, instead of binary 0% → 100%.
+                def _seed_progress(message: str, current: int, total: int) -> None:
+                    log_cb(message, current, total)
+                result = seed_concepts(project_id, progress_callback=_seed_progress)
             concepts_created = result.get("concepts_created", 0)
             questions_created = result.get("questions_created", 0)
             log_cb(
-                f"{concepts_created} concepts, {questions_created} questions",
-                1, 1,
+                f"{concepts_created} module rationale entries seeded",
+                1, 2,
             )
+
+            # Phase 125b — Pass 3: cross-cutting concept synthesis.
+            # Lifts abstraction from the per-module rationale layer
+            # (just produced) to a small ~30-100 concept layer
+            # (kind='concept'). Single LLM call with rich grounding
+            # from atlas + audit + spaghetti + antibodies + rationale
+            # clusters + T2 doc links. See concept_synthesizer.py and
+            # docs/Phase125b_TwoLayerConceptArchitecture/README.md.
+            #
+            # Best-effort: if synthesis fails we still consider the
+            # stage successful (rationale is the substantive output;
+            # synthesis adds the curated layer on top).
+            synth_emitted = 0
+            synth_saved = 0
+            try:
+                from prep.core.concept_synthesizer import synthesize_concepts
+                log_cb("Synthesizing cross-cutting concepts (Pass 3)", 1, 2)
+                synth_report = synthesize_concepts(
+                    project_id, llm=llm_client,
+                )
+                synth_emitted = synth_report.total_emitted
+                synth_saved = synth_report.saved
+                log_cb(
+                    f"Synthesized {synth_emitted} concepts ({synth_saved} saved)",
+                    2, 2,
+                )
+            except Exception as e:
+                logger.warning(
+                    "[Concepts/Pass3] synthesis failed (non-fatal): %s",
+                    e, exc_info=True,
+                )
+                log_cb(
+                    "Synthesis failed — see logs (rationale layer still produced)",
+                    2, 2,
+                )
 
             return {
                 "stage": "concepts",
                 "skipped": False,
                 "status": result.get("status"),
-                "concepts_created": concepts_created,
+                "concepts_created": concepts_created,         # rationale layer
+                "synth_concepts_emitted": synth_emitted,      # Phase 125b layer
+                "synth_concepts_saved": synth_saved,
                 "questions_created": questions_created,
                 "_model_info": model_info,
                 "_stage_timing": {
@@ -1085,6 +1221,70 @@ class WorkerFactory:
                     "[%s/Audit] save_findings failed (non-fatal): %s",
                     project.name, e, exc_info=True,
                 )
+
+            # Phase 124 T5: spaghetti scoring runs in Tier 1, before the LLM
+            # synthesis. Migration history: spaghetti was a separate panel,
+            # got merged via run_health_scan, then the panel→pipeline cutover
+            # wired only run_audit and forgot spaghetti. Direct call here is
+            # ~10 LoC; reuses ctx-loader (one duplicate load, ~5s) without
+            # changing run_audit's return type. T5b will refactor to share
+            # ctx with the Tier 2 synthesizer prompt.
+            sp_result = None
+            try:
+                from prep.core.audit.spaghetti_scorer import (
+                    run_spaghetti_scan, save_spaghetti,
+                )
+                sp_result = run_spaghetti_scan(Path(idx_dir), Path(project.path))
+                save_spaghetti(sp_result, Path(idx_dir))
+                log_cb(
+                    f"Spaghetti scoring complete — {sp_result.file_count} files",
+                    1, 2,
+                )
+                # Phase 124 telemetry: record T5 firing + top hotspots
+                try:
+                    from prep.services.pipeline_telemetry import record_event
+                    sev = dict(sp_result.severity_counts) if hasattr(sp_result, "severity_counts") else {}
+                    top_hotspots = sorted(
+                        (sp_result.files or []),
+                        key=lambda f: -f.score,
+                    )[:5]
+                    record_event(
+                        Path(idx_dir),
+                        "spaghetti_scored",
+                        {
+                            "file_count": sp_result.file_count,
+                            "scored_count": getattr(sp_result, "scored_count", None),
+                            "severity_counts": sev,
+                            "top_hotspots": [
+                                {
+                                    "file_path": f.file_path,
+                                    "score": round(f.score, 3),
+                                    "severity": f.severity,
+                                    "in_circular": f.in_circular,
+                                    "tech_debt_count": f.tech_debt_count,
+                                }
+                                for f in top_hotspots
+                            ],
+                        },
+                        phase="124", stage="audit", project_id=project_id,
+                    )
+                except Exception:
+                    pass
+            except Exception as e:
+                logger.warning(
+                    "[%s/Audit] spaghetti scoring failed (non-fatal): %s",
+                    project.name, e, exc_info=True,
+                )
+                try:
+                    from prep.services.pipeline_telemetry import record_event
+                    record_event(
+                        Path(idx_dir), "spaghetti_failed",
+                        {"error": str(e)},
+                        phase="124", stage="audit", project_id=project_id,
+                    )
+                except Exception:
+                    pass
+
             log_cb(
                 f"Tier 1 complete — {finding_count} findings", 1, 2,
             )
@@ -1130,12 +1330,17 @@ class WorkerFactory:
                     Path(idx_dir),
                     Path(project.path),
                 )
+                # Phase 124 T5b: pass the spaghetti result (computed in
+                # Tier 1 above) into Tier 2 so AUDIT_SUMMARY and
+                # TECH_DEBT_REPORT cite hotspots structurally instead of
+                # re-deriving them from raw findings.
                 documents = synth.synthesize_all(
                     result, ctx,
                     progress_callback=lambda phase, cur, tot: log_cb(
                         phase, cur, tot,
                     ),
                     concurrency=tier2_concurrency,
+                    spaghetti=sp_result,
                 )
                 save_documents(documents, Path(idx_dir))
                 tier2_doc_count = len(documents)

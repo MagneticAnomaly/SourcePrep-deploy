@@ -124,7 +124,9 @@ class TestParallelSynthesis:
         sequential when each generator has nontrivial latency."""
         synth = AuditSynthesizer(llm_client=MagicMock(), project_name="P")
 
-        def slow_run_generator(name, title, gen_fn, result, ctx):
+        def slow_run_generator(name, title, gen_fn, result, ctx, **kwargs):
+            # Phase 124 T5b: _run_generator gained a `spaghetti` kwarg —
+            # accept **kwargs so the mock matches the real signature.
             time.sleep(0.05)  # 50ms per generator
             return AuditDocument(
                 name=name, title=title, content="x",

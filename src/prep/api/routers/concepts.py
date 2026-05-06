@@ -146,8 +146,15 @@ async def list_concepts(
     include_stale: bool = True,
     include_archived: bool = False,
     as_of: Optional[float] = None,
+    kind: Optional[str] = "concept",
 ):
-    """List concepts for a project."""
+    """List concepts for a project.
+
+    Phase 125b: ``kind`` defaults to ``"concept"`` so the canonical
+    consumer surface returns only the curated cross-cutting layer.
+    Pass ``kind=module_rationale`` for the per-module foundation layer
+    or ``kind=`` (empty) to return both.
+    """
     _require_project(project_id)
     store = _get_store()
     concepts = store.list_concepts(
@@ -157,6 +164,7 @@ async def list_concepts(
         include_stale=include_stale,
         include_archived=include_archived,
         as_of=as_of,
+        kind=kind or None,
     )
     return ok({
         "concepts": [c.to_dict() for c in concepts],

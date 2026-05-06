@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "built_at": "2026-04-21T14:39:23.246247+00:00",
+  "built_at": "2026-05-01T23:06:16.340800+00:00",
   "model": "nomic-embed-text",
   "roots": [],
   "count": 2,
@@ -44,6 +44,7 @@
       "**/.cache/**",
       "**/.claude/**",
       "**/.clinerules",
+      "**/.codrag/**",
       "**/.cody/**",
       "**/.continue/**",
       "**/.coverage/**",
@@ -63,6 +64,7 @@
       "**/.roorules",
       "**/.ruff_cache/**",
       "**/.runprep/**",
+      "**/.sourceprep/**",
       "**/.svelte-kit/**",
       "**/.tox/**",
       "**/.turbo/**",

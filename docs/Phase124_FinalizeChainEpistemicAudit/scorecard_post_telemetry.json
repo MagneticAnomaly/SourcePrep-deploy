@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-02T15:19:57.347494+00:00",
+  "project_root": "/Volumes/4TB-BAD/HumanAI/CoDRAG",
+  "idx_dir": "/Volumes/4TB-BAD/HumanAI/CoDRAG/.sourceprep",
+  "project_id": "f1636374-abc6-410d-99ee-822120379e79",
+  "overall_score": 8.9,
+  "stages": [
+    {
+      "stage_id": "11_ATLAS",
+      "stage_name": "Atlas",
+      "score": 9.5,
+      "pros": [
+        "atlas.json present",
+        "10 atlas segments",
+        "segments carry file_paths (members enumerable)",
+        "9/10 segments have docs (90% coverage) \u2014 minor gap",
+        "51% of code modules have \u22651 doc mention"
+      ],
+      "cons": [],
+      "anti_patterns": [],
+      "metrics": {
+        "atlas_present": true,
+        "segment_count": 10,
+        "routing_present": true,
+        "finished_at": "2026-05-02T14:57:52.125338+00:00",
+        "segments_with_zero_doc_mentions": 1,
+        "segment_doc_coverage_pct": 90.0,
+        "unsegmented_md_count": 11,
+        "bulk_dropped_dirs": [],
+        "atlas_age_hours": 0.4,
+        "modules_with_relevant_docs_pct": 50.7,
+        "modules_total": 410
+      }
+    },
+    {
+      "stage_id": "12_RULES",
+      "stage_name": "Rules",
+      "score": 10.0,
+      "pros": [
+        "AGENTS.md present (163 lines)",
+        "contains prep tool-calling instructions",
+        "contains atlas snippet",
+        "contains concepts mention",
+        "contains project_id routing instruction"
+      ],
+      "cons": [],
+      "anti_patterns": [],
+      "metrics": {
+        "finished_at": "2026-05-02T14:57:52.363971+00:00",
+        "elapsed_seconds": 0.02,
+        "agents_md_lines": 163,
+        "agents_md_chars": 9914,
+        "has_tool_calling": true,
+        "has_atlas": true,
+        "has_concepts": true,
+        "has_project_id": true
+      }
+    },
+    {
+      "stage_id": "13_CONCEPTS",
+      "stage_name": "Concepts",
+      "score": 9.0,
+      "pros": [
+        "1590 concepts in store",
+        "doc-rich regime: 1590 concepts, 51% .md-anchored",
+        "100% of concepts have anchors",
+        "11 categories covered"
+      ],
+      "cons": [],
+      "anti_patterns": [],
+      "metrics": {
+        "finished_at": "2026-05-02T15:13:41.193715+00:00",
+        "elapsed_seconds": 948.63,
+        "count": 1590,
+        "status_breakdown": {
+          "seed": 1590
+        },
+        "category_breakdown": {
+          "architecture": 350,
+          "product": 204,
+          "brand": 19,
+          "decision": 174,
+          "constraint": 167,
+          "technical": 235,
+          "domain": 123,
+          "security": 48,
+          "pattern": 39,
+          "process": 203,
+          "epistemic": 28
+        },
+        "anchor_pct": 100.0,
+        "category_diversity": 11,
+        "questions": 0,
+        "md_anchor_pct": 50.9
+      }
+    },
+    {
+      "stage_id": "14_AUDIT",
+      "stage_name": "Audit",
+      "score": 7.0,
+      "pros": [
+        "all 5 audit markdown reports present",
+        "spaghetti.json present",
+        "spaghetti.json written inside audit-worker window (pipeline origin)"
+      ],
+      "cons": [
+        "average audit report is 21 KB \u2014 risk of token sprawl"
+      ],
+      "anti_patterns": [],
+      "metrics": {
+        "finished_at": "2026-05-02T15:19:36.966681+00:00",
+        "elapsed_seconds": 355.69,
+        "markdown_reports_present": 5,
+        "markdown_reports_expected": 5,
+        "spaghetti_present": true,
+        "spaghetti_in_audit_window": true,
+        "spaghetti_offset_from_start_s": 5.2,
+        "avg_md_report_kb": 21.4
+      }
+    },
+    {
+      "stage_id": "15_ANTIBODIES",
+      "stage_name": "Antibodies",
+      "score": 9.0,
+      "pros": [
+        "517 antibodies derived",
+        "100% of eligible concepts produced antibodies",
+        "3 distinct severities"
+      ],
+      "cons": [],
+      "anti_patterns": [],
+      "metrics": {
+        "finished_at": "2026-05-02T15:19:37.347300+00:00",
+        "elapsed_seconds": 0.35,
+        "count": 517,
+        "severity_breakdown": {
+          "inform": 340,
+          "review": 10,
+          "warn": 167
+        },
+        "eligible_source_concepts": 517,
+        "antibody_to_eligible_ratio": 1.0
+      }
+    }
+  ],
+  "anti_patterns_flagged": []
+}

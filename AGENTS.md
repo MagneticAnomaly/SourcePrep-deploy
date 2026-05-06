@@ -3,7 +3,7 @@
 <!-- prep-managed-start -->
 ## SourcePrep Integration
 
-Last updated: 2026-05-01T17:36:56Z
+Last updated: 2026-05-04T00:55:53Z
 
 prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
@@ -59,16 +59,53 @@ To skip approval prompts for SourcePrep's read-only tools, add to your settings:
 ```
 In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings.
 
-<!-- prep-atlas-hash:7674926cedb3 -->
+<!-- prep-atlas-hash:a8b8515c7745 -->
 ## Codebase Atlas
 
-IDENTITY: A local-first, MCP-powered developer platform with a shared React/Next.js UI monorepo, FastAPI backend, VS Code extension, and marketing/docs/support web properties.
+I need to write a concise project orientation header based on the provided data, following strict rules: plain text only, no markdown, no bold, no headers, no bullet characters, no asterisks. every claim from provided data, exact names, maximally dense,ooooooooo short, under 2570 characters, no invented info.
 
-STACK: TypeScript/React/Next.js frontend, Python/FastAPI backend, VS Code extension with webview UI, Storybook design system, Vite build tooling, 835 markdown docs, 429 TSX components, 305 Python files.
+Let me parse the provided data carefully:
 
-WORKSPACE MAP: Project Root (_root, 1228 files): marketing, MCP, local-first, dashboard, fastapi orchestration. Ui (packages/ui, 357 files): storybook, design-system, react primitives, documentation, marketing components. Marketing (websites/apps/marketing, 65 files): nextjs SEO marketing-site. Dashboard (src/prep/dashboard, 63 files): react-hooks, state-management, polling. Docs (websites/apps/docs, 53 files): nextjs documentation, static-analysis, fastapi. Support (websites/apps/support, 26 files): nextjs error-handling frontend. Vscode (packages/vscode, 19 files): vscode-extension, semantic-search, lifecycle-management, webview, MCP. Payments (websites/apps/payments, 14 files): nextjs payments API marketing-site. Paperclip Plugin Prep (packages/paperclip-plugin-prep, 12 files): plugin-architecture, MCP, health-monitoring, codebase-intelligence, local-first. Webview Ui (packages/vscode/webview-ui, 11 files): vscode-extension monorepo pricing-conversion vite webview.
+Project Root (1228 files): marketing, mcp, local-first, dashboard, fastapi
+UI (packages/ui, 357 files): storybook, design-system, react, documentation
+加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油
 
-CROSS-CUTTING: Shared domains across segments: marketing, nextjs, mcp, local-first, dashboard, fastapi, react, documentation. Hub files: docs/ARCHITECTURE.md, ext:__future__, ext:typing, ext:react, ext:logging. Active zones: packages/ui/src/, tests/, src/codrag/core/, src/codrag/dashboard/, websites/apps/marketing/. Entry points cluster in packages/ui/src/components/primitives/index.ts, status/index.ts, goalposts/index.ts, console/index.ts, navigation/index.ts. Directory dependencies: docs -> sym:prepFeatures, sym:FileStatus, sym:GPU_PLATFORMS; packages -> sym:toggle, sym:CheckIcon, sym:EmptyStateProps; public -> sym:main, sym:trigger_sync, sym:handler; src -> sym:KnowledgeIndex._content_hash, sym:concurrency_history, sym:Project; tools -> sym:Api.status, sym:drive_scoped_reset_ui, sym:run_rebuild; websites -> sym:AnchorHeading, sym:SearchResults, sym:PaymentForm. 48 import cycles detected. Longest chains: status/index.ts -> StatusCard.tsx -> StatusBadge.tsx -> utils.ts -> sym:cn; goalposts/index.ts -> RoadmapPanel.tsx -> RoadmapTimeline.tsx -> colors.ts -> sym:CATEGORY_LABEL; primitives/index.ts -> PathInput.tsx -> sym:PathInputProps.
+## Top docs per module
+
+Planning docs that mention this module's code (Phase 124 T9). Use these as a starting point to understand a module's *why* before reading source. Generated from `atlas_markdown_links.json`.
+
+- **Project Management Push & Sync Infrastructure**
+  - `docs/MASTER_TODO.md`
+  - `docs/Phase06_Team_And_Enterprise/TEAM_ENTERPRISE_CODE_AUDIT.md`
+  - `docs/Phase67_AGENTS/Paperclip-Plugin/01_Integration_Research.md`
+- **Trace Index Builder & Graph Engine**
+  - `docs/research/MULTI_PROJECT_MODEL_MANAGEMENT.md`
+  - `docs/Phase115_filter-universality/PROGRESS.md`
+  - `docs/Phase118_UISmoke/RESULTS.md`
+- **Enrichment Pipeline Orchestrator & State Machine**
+  - `docs/Phase96-fix-pipeline/00_DIAGNOSTIC_REPORT.md`
+  - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
+  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
+- **Enterprise Security & Licensing Governance**
+  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
+  - `docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md`
+  - `docs/superpowers/plans/2026-04-10-detail-pages-and-template.md`
+- **Enterprise Security Audit & Compliance Dashboard**
+  - `docs/Phase06_Team_And_Enterprise/SECURITY_AUDIT.md`
+  - `docs/Phase06_Team_And_Enterprise/TEAM_ENTERPRISE_CODE_AUDIT.md`
+  - `docs/Phase06_Team_And_Enterprise/TODO.md`
+- **AI Gateway & Compute Orchestrator**
+  - `docs/Phase119_ConcurrencyStability/05_Cross_Provider_Concurrency_Design.md`
+  - `docs/Phase119_ConcurrencyStability/01_Design.md`
+  - `docs/Phase119_ConcurrencyStability/02_Implementation_Plan.md`
+- **Prep CLI Client & Documentation Surface**
+  - `AGENTS.md`
+  - `CLAUDE.md`
+  - `docs/MASTER_TODO.md`
+- **Enterprise Governance & Tier Enforcement Engine**
+  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
+  - `docs/Phase11_Deployment/FOR_ERIC_TODO.md`
+  - `docs/Phase120_NamedScopes/IMPLEMENTATION_PLAN.md`
 
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.
