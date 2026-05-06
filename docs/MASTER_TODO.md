@@ -48,6 +48,106 @@ This file orchestrates work across phases by:
 - Phase17: `Phase17_VSC-plugin/TODO.md`
 - Phase18: `Phase18_DataVisualization/README.md`
 - Phase19: `Phase19_Alt-Dev-Workflows/TODO.md`
+
+### Recent phases (100+) — quick index
+
+The list below covers phases opened after the original 1-19 sequence.
+These don't all carry per-phase TODO.md files; the README.md plus the
+per-phase RESULTS.md is authoritative.
+
+- Phase 82 (MCP-Dogfooding) — methodology baseline; reused as
+  rubric template by Phase 124
+- Phase 104 (SubAtlas) — role lens panel + per-role overrides
+- Phase 110 §1.5 (Retrieval intelligence) — intent classification
+- Phase 117 (RepairUX) — scoped rebuild endpoints
+- Phase 119 (ConcurrencyStability) — swarm window authority
+- Phase 120 (NamedScopes) — clean-slate reset + barrier gating
+- Phase 122 (FeatureUtilizationAudit) — built-but-unwired triage
+  (in progress — Phase 124 settled spaghetti / antibody_derivation /
+  concept_promotion sub-items)
+- Phase 123 (ConceptQualityRefinement) — synthesis prompt tuning
+  (wall-time bump 900→1500s landed 2026-05-02; richer worker prompt
+  for clarifying questions still pending — see follow-ups below)
+- Phase 124 (FinalizeChainEpistemicAudit) — markdown→code link
+  layer, T4 worker enrichment, T5/T5b spaghetti pipeline+synth
+  wire-up, T9 AGENTS.md docs section, T10 section-aware excerpts,
+  T11 telemetry, T12 harness compare/show-events. **Substantially
+  complete; T8 Playwright sweep deferred.**
+- Phase 125 (ConceptPromotionPipeline) — multi-pass concept
+  promotion (anchor-overlap clustering + scoped LLM refine +
+  deterministic gate). **Scaffolded 2026-05-02; T1 (clusterer) +
+  T2 (Pass 2 worker) shipped.** T3 (LLM tier-rubric refine)
+  PARKED — superseded by Phase 125b's two-layer architecture
+  (the tier rubric now applies to the small concept layer
+  produced by the new synthesizer, not the per-cluster refine
+  the original T3 designed for).
+- Phase 125b (TwoLayerConceptArchitecture) — split concept_store
+  into two layers via `kind` discriminator. ~2,000 per-module
+  entries become `kind='module_rationale'` (searchable,
+  browsable); a NEW synthesizer emits ~30-100 cross-cutting
+  `kind='concept'` entries from rich grounding (atlas + audit +
+  spaghetti + antibodies + rationale clusters + T2 docs).
+  **Scaffolded + built 2026-05-03 (schema migration, seeder
+  relabel, synthesizer module + tests, Pass 3 wired into
+  `_concepts_worker`, MCP ambient kind-aware).** Awaits live
+  pipeline run for end-to-end verification.
+
+### Cross-phase follow-ups (deferred but tracked)
+
+Items surfaced during recent phase work that don't yet have their
+own phase doc but must not be forgotten. Each is tagged with the
+phase that raised it; landing decision lives with the phase
+indicated as the natural home.
+
+- **[Phase 104]** `role="security"` (and other roles) only filter
+  the file-ranking layer in `prep()` output; the "Modules in scope"
+  section is uniform across roles. Surfaced by
+  `docs/Phase124_FinalizeChainEpistemicAudit/MCP_DOGFOOD_FEEDBACK_2026-05-02.md`
+  issue #2. Cheap fix: label the section role-independent in the
+  MCP server response. Architecturally correct fix: apply role
+  weights to module-list emission too.
+- **[Phase 123]** Make worker prompt also emit clarifying
+  questions (currently only synthesis emits them). The 2026-05-02
+  wall-time bump unblocks synthesis success, but workers should
+  emit questions independently so synthesis failure doesn't lose
+  them. ~20 LoC + prompt change.
+- **[Phase 124]** T8 Playwright dashboard sweep (smoke test that
+  the new `docs_for_segment` field, T9 AGENTS.md section, and
+  T5b-shrunken AUDIT_SUMMARY render correctly).
+- **[Phase 125 §13 OR new phase]** Antibody promotion path is
+  broken: `antibody_derivation.py:59,77` hardcodes
+  `status='testing'`; `immune_watcher.py:50` queries
+  `status='active'`. 517 antibodies exist but are invisible to
+  `prep()` ambient context. Surfaced by dogfood issue #3.
+  Recommendation: split into its own phase (the semantics differ
+  from concept promotion — antibodies gate runtime, not retrieval).
+- **[Phase 126 candidate]** Apply the multi-pass refinement
+  pattern (Pass 1 broad LLM → Pass 2 CPU group/score → Pass 3
+  scoped LLM critique → Pass 4 deterministic gate) to other
+  expensive LLM stages. Strongest candidates by yield: ENRICHMENT
+  (Stage 6 — first LLM stage in chain), CLUSTERING (Stage 8 —
+  module synthesis), ATLAS (Stage 11). Prove the pattern on
+  Phase 125 first, then generalize.
+- **[Atlas / role-projection — security bug]** `prep()` returns
+  an atlas whose role-projection block contains apparent prompt
+  injection: a meta-instruction beginning *"I need to write a
+  concise project orientation header based on the provided data,
+  following strict rules: plain text only, no markdown..."* and a
+  long string of repeated `加油` Chinese characters (likely a
+  token-bomb). Reproduced 2026-05-06 against this repo's own
+  index (project_id `f1636374-abc6-410d-99ee-822120379e79`).
+  Discovered during marketing audit dogfooding — see
+  `docs/MARKETING_SITE_AUDIT.md` Issue 13.
+  Investigation steps: (1) inspect `prep_concepts` for entries
+  containing the meta-instruction text or 加油 string;
+  (2) inspect the atlas regeneration cache; (3) trace the
+  role-projection assembly path in
+  `src/prep/core/atlas/` and the LLM atlas-summary prompt to find
+  where the injection lands — likely a poisoned concept,
+  contaminated module rationale, or a stuck cache artifact;
+  (4) purge and rebuild. Severity: HIGH (the atlas is the front
+  door for every MCP client; this content reaches every agent
+  that calls `prep` against this repo).
 - Phase20: `Phase20_support_strategy/README.md`
 - Phase21: `Phase21_logs-and-progress/` (covered by Sprint S-13 — complete)
 - Phase22: `Phase22_trace-epistomology/` (covered by Sprint S-22 — complete)

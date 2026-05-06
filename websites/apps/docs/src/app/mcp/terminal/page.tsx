@@ -2,7 +2,7 @@ import { MCP_TOOLS } from '../../../config/mcp-setup';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 
 export default function TerminalIntegrationsPage() {
-  const terminalTools = MCP_TOOLS.filter((t) => t.category === 'terminal');
+  const terminalTools = MCP_TOOLS.filter((t) => t.category === 'cli');
 
   return (
     <main className="min-h-screen bg-background text-text">
@@ -17,17 +17,17 @@ export default function TerminalIntegrationsPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
-              Terminal Agents
+              CLI Agents
             </h1>
             <p className="mt-1 text-lg text-text-muted">
-              Connect command-line workflows like Claude Code directly to your index.
+              Connect Claude Code, OpenAI Codex, Gemini CLI, and other MCP-aware command-line agents directly to your index.
             </p>
           </div>
         </div>
 
         <div className="mt-8 prose max-w-none">
           <p>
-            Terminal-based AI agents operate headless, but still require structural intelligence when modifying your project. Connecting SourcePrep locally allows them to execute semantic searches and assess blast radiuses without leaving the command line.
+            CLI agents operate headless, but still require structural intelligence when modifying your project. Connecting SourcePrep locally allows them to execute semantic searches and assess blast radiuses without leaving the command line. Claude Code is the primary target; Codex and Gemini CLI use the same MCP server.
           </p>
 
           <AnchorHeading id="setup" level="h2">Integration Setup</AnchorHeading>

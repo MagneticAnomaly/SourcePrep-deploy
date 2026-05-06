@@ -19,16 +19,19 @@ const SECTIONS = [
 
 const CLI_AGENTS = [
   { name: 'Claude Code', vendor: 'Anthropic', note: 'Primary target — deepest hooks' },
+  { name: 'OpenAI Codex', vendor: 'OpenAI', note: 'Native MCP + reads AGENTS.md' },
   { name: 'Gemini CLI', vendor: 'Google', note: 'Native MCP support' },
   { name: 'Qwen Code', vendor: 'Alibaba', note: 'Native MCP support' },
   { name: 'Any MCP CLI', vendor: '—', note: 'Aider, Amp, Zed terminal, and others' },
 ];
 
 const IDES = [
-  { name: 'Cursor', vendor: 'Cursor', note: 'Native MCP' },
-  { name: 'Antigravity', vendor: 'Google', note: 'Native MCP' },
+  { name: 'Cursor', vendor: 'Cursor', note: 'Primary IDE target — native MCP' },
   { name: 'Windsurf', vendor: 'Codeium', note: 'Native MCP' },
-  { name: 'VS Code', vendor: 'Microsoft', note: 'MCP via GitHub Copilot' },
+  { name: 'Antigravity', vendor: 'Google', note: 'Native MCP' },
+  { name: 'VS Code + Copilot', vendor: 'Microsoft', note: 'MCP via GitHub Copilot' },
+  { name: 'Zed', vendor: 'Zed Industries', note: 'Native context_servers' },
+  { name: 'VS Code extensions', vendor: 'Cline · Roo · CodeGPT', note: 'MCP-aware extensions inside VS Code' },
 ];
 
 export default function IntegrationsPage() {
@@ -94,7 +97,8 @@ export default function IntegrationsPage() {
           Terminal-first coding agents see the biggest lift from structural context because they have no
           sidebar, no open tabs, no visible file tree to orient themselves. Claude Code is the primary
           target — the tool dispatch, auto-approve hints, and AGENTS.md generation are all shaped around
-          it — but the MCP server works the same for Gemini CLI, Qwen Code, and other MCP-aware CLIs.
+          it — but the MCP server works the same for Codex, Gemini CLI, Qwen Code, and other MCP-aware
+          CLIs. (Codex is also a first-class AGENTS.md consumer, so the same generated file unlocks it.)
         </p>
 
         <div className="mb-8">
@@ -123,9 +127,11 @@ export default function IntegrationsPage() {
       <section id="ide">
         <h2 className="text-2xl font-semibold text-text mb-4">Agentic IDEs</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          The big agentic editors all speak MCP natively — Cursor, Antigravity, Windsurf, and VS Code
-          (via GitHub Copilot). The setup story is the same everywhere: drop the SourcePrep MCP block into
-          the editor&apos;s config, restart, done. What differs is the editor itself, not the integration.
+          The big agentic editors all speak MCP natively — Cursor, Windsurf, Antigravity, and VS Code
+          (via GitHub Copilot), plus Zed. The setup story is the same everywhere: drop the SourcePrep MCP
+          block into the editor&apos;s config, restart, done. What differs is the editor itself, not the
+          integration. MCP-aware extensions inside VS Code (Cline, Roo, CodeGPT) all work too — they read
+          the same daemon.
         </p>
 
         <div className="mb-8">
@@ -152,9 +158,10 @@ export default function IntegrationsPage() {
           response per client — format density, context budget, and which hints to attach. Agents get
           shaped output without any per-editor configuration.
         </p>
-        <div className="grid sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
             { client: 'Claude Code', detail: 'Compact format, auto-approve hints, skills context' },
+            { client: 'OpenAI Codex', detail: 'AGENTS.md-shaped output; MCP block routed via mcpServers' },
             { client: 'Cursor', detail: 'Richer format with inline code blocks and annotations' },
             { client: 'Windsurf', detail: 'Budget tuned to Windsurf\'s context window' },
           ].map((item) => (

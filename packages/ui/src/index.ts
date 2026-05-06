@@ -105,7 +105,7 @@ export { StatusBadge, StatusCard, BuildProgress, ProgressIndicator } from './com
 export type { StatusBadgeProps, StatusCardProps, BuildProgressProps, ProgressIndicatorProps } from './components/status';
 
 // Components - Console
-export { LogConsole, AnimatedCLI, TerminalFrame, AnimatedIDE, prepSearchDemo, prepImpactDemo, prepOverviewDemo, prepAuditDemo, prepObserveDemo, prepConceptsDemo, ideDemoScript } from './components/console';
+export { LogConsole, AnimatedCLI, TerminalFrame, AnimatedIDE, prepSearchDemo, prepImpactDemo, prepOverviewDemo, prepAuditDemo, prepObserveDemo, prepConceptsDemo, ideDemoScript, prepDemos, prepSearchDemos, prepImpactDemos, prepAuditDemos, prepObserveDemos, prepConceptsDemos, ideDemos } from './components/console';
 export type { LogConsoleProps, AnimatedCLIProps, TerminalFrameProps, AnimatedIDEProps, CliEvent, CliScript, TerminalTheme } from './components/console';
 
 // Components - Navigation
@@ -301,6 +301,16 @@ export { DEFAULT_LAYOUT, LAYOUT_STORAGE_KEY, BASE_COLS, toGridLayout, fromGridLa
 
 // Panel Registry (Phase 15)
 export { PANEL_REGISTRY, getPanelDefinition, getPanelsByCategory } from './config/panelRegistry';
+
+// MCP setup registry — single source of truth for integration JSON
+export {
+  MCP_TOOLS,
+  MCP_CLI_TOOLS,
+  MCP_IDE_TOOLS,
+  getMcpTool,
+  mcpConfigAsString,
+} from './config/mcpSetup';
+export type { McpToolConfig, McpCategory } from './config/mcpSetup';
 
 // Hooks
 export { useEventStream } from './hooks/useEventStream';

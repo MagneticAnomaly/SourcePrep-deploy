@@ -192,10 +192,10 @@ export default function ClaudeCodePage() {
           <div className="rounded-lg border border-border bg-surface p-4">
             <h3 className="font-mono text-xs font-bold text-text mb-2 uppercase tracking-widest">Other Clients</h3>
             <ul className="text-xs text-text-muted space-y-1.5">
+              <li>Codex: AGENTS.md-shaped output, mcpServers config</li>
               <li>Cursor: role-based atlas projection</li>
               <li>Windsurf: verbose structural context</li>
-              <li>VS Code: webview-optimized output</li>
-              <li>Generic: standard MCP response</li>
+              <li>Generic MCP: standard response</li>
             </ul>
           </div>
         </div>

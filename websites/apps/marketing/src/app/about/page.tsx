@@ -110,8 +110,8 @@ export default function Page() {
             <div className="rounded-xl border border-border bg-surface p-5">
               <div className="font-semibold text-text">Work with everything</div>
               <div className="mt-1 text-sm text-text-muted">
-                SourcePrep integrates with Cursor, Windsurf, VS Code, and Claude Code
-                via MCP. We don&apos;t replace your tools — we make them better.
+                SourcePrep integrates with Claude Code, Codex, Cursor, Windsurf, and any other
+                MCP-aware tool. We don&apos;t replace your tools — we make them better.
               </div>
             </div>
           </div>

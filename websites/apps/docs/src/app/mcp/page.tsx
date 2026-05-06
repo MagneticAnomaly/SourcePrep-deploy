@@ -23,17 +23,17 @@ export default function Page() {
               <span className="text-text-muted">→</span>
             </div>
             <p className="text-text-muted">
-              Give Cursor, Windsurf, Copilot, and Zed deep structural codebase awareness and graph-based trace intelligence.
+              Cursor, Windsurf, Antigravity, VS Code (via Copilot), and Zed — plus MCP-aware VS Code extensions (Cline, Roo, CodeGPT).
             </p>
           </a>
 
           <a href="/mcp/terminal" className="group block space-y-3 rounded-2xl border border-border bg-surface p-6 hover:border-primary transition-colors">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-semibold group-hover:text-primary">Terminal Agents</h3>
+              <h3 className="text-xl font-semibold group-hover:text-primary">CLI Agents</h3>
               <span className="text-text-muted">→</span>
             </div>
             <p className="text-text-muted">
-              Connect command-line workflows like Claude Code and Gemini CLI directly to your local SourcePrep index.
+              Claude Code (primary), OpenAI Codex, and Gemini CLI — connect any MCP-aware command-line agent directly to your local SourcePrep index.
             </p>
           </a>
 
@@ -54,9 +54,9 @@ export default function Page() {
             The <a href="https://modelcontextprotocol.io" target="_blank" className="text-primary hover:underline">Model Context Protocol (MCP)</a> is an open standard that enables AI models to interact with external data and tools.
           </p>
           <p>
-            SourcePrep runs a local MCP server that exposes your indexed codebase as a set of tools. 
+            SourcePrep runs a local MCP server that exposes your indexed codebase as a set of tools.
             It supports both <span className="font-semibold text-text">Stdio</span> (recommended for local editors) and <span className="font-semibold text-text">SSE</span> (for remote/containerized setups).
-            When you connect an editor like Cursor or Windsurf, their internal AI agents gain the ability to:
+            When you connect a CLI agent like Claude Code or Codex, or an IDE like Cursor or Windsurf, their internal AI agents gain the ability to:
           </p>
           <ul className="list-disc pl-6 space-y-2">
             <li><span className="font-semibold text-text">Get Oriented:</span> Call <code>prep</code> with no arguments to get ambient context — module structures, hub files, and your selected focus areas formatted perfectly for internal understanding.</li>

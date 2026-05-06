@@ -16,31 +16,31 @@ const SYNC_STAGES = [
     number: 1,
     name: 'STRUCTURAL',
     icon: <GitBranch className="w-4 h-4" />,
-    description: 'Rust engine parses every file via tree-sitter. Extracts imports, symbols, call sites. Builds the trace graph.',
+    description: 'Parses every file via tree-sitter. Extracts imports, symbols, call sites. Builds the trace graph in seconds.',
   },
   {
     number: 2,
     name: 'INFERRED_EDGES',
     icon: <Network className="w-4 h-4" />,
-    description: 'Analyzes git history for co-occurrence patterns. Files that change together get weighted edges.',
+    description: 'Finds edges static parsing misses — cross-language API calls, dynamic dispatch, interface satisfaction, implicit dependencies. Confidence-scored; never overrides parser-derived edges.',
   },
   {
     number: 3,
     name: 'CATALOGUE',
     icon: <BookOpen className="w-4 h-4" />,
-    description: 'Fast model catalogues every file with a one-line summary and tags.',
+    description: 'A one-line summary and tags for every file. The longest single Sync stage on a fresh index — runs while structural context is already serving your agent.',
   },
   {
     number: 4,
     name: 'VALIDATION',
     icon: <CheckCircle className="w-4 h-4" />,
-    description: 'Integrity check. Verifies graph consistency, flags orphan nodes.',
+    description: 'Integrity check. Verifies graph consistency, flags orphan nodes, discards hallucinated edges.',
   },
   {
     number: 5,
     name: 'KNOWLEDGE',
     icon: <Zap className="w-4 h-4" />,
-    description: 'First LLM pass. Enriches key nodes with semantic descriptions and builds the search index.',
+    description: 'The catalogued graph becomes searchable. Deeper enrichment happens next, in Enrich.',
   },
 ];
 
@@ -153,26 +153,25 @@ export default function GraphEnrichmentPage() {
       <section id="journey">
         <h2 className="text-2xl font-semibold text-text mb-4">The Journey</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          When SourcePrep indexes your codebase, a multi-step pipeline runs in three phases.
-          First, it <strong className="text-text">syncs</strong> instantly — parsing your code and building a structural map in seconds, so your agents have useful context right away.
-          Then it <strong className="text-text">enriches</strong> in the background — reasoning about what each module actually <em>does</em>, how pieces relate, and which code matters most.
-          Finally it <strong className="text-text">finalizes</strong> — producing the atlas, rules, concepts, audit findings, and safeguards your tools actually consume.
+          Indexing runs in three groups. <strong className="text-text">Sync</strong> delivers a structural map in seconds and layers in the catalogue and search index over the next few minutes.
+          <strong className="text-text"> Enrich</strong> reasons about what each module does and how it fits the whole.
+          <strong className="text-text"> Finalize</strong> produces the atlas, rules, concepts, audit findings, and safeguards your tools actually consume.
         </p>
         <div className="grid sm:grid-cols-3 gap-4">
           <div className="rounded-lg border border-border bg-surface p-4">
             <div className="text-primary mb-2"><Zap className="w-5 h-5" /></div>
-            <h3 className="font-medium text-sm text-text mb-1">Sync — Seconds</h3>
-            <p className="text-xs text-text-muted">Parses your code and builds the structural map instantly. Your agents get usable context in seconds, before any deeper reasoning starts.</p>
+            <h3 className="font-medium text-sm text-text mb-1">Sync — Structure first</h3>
+            <p className="text-xs text-text-muted">Structural map in seconds (Rust). Catalogue and search index follow in minutes — your agent works the whole time.</p>
           </div>
           <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
             <div className="text-primary mb-2"><Brain className="w-5 h-5" /></div>
             <h3 className="font-medium text-sm text-text mb-1">Enrich — Background</h3>
-            <p className="text-xs text-text-muted">Reasons about what each piece of code actually <em>does</em>, finds clusters of related modules, and scores what matters most.</p>
+            <p className="text-xs text-text-muted">Reasons about what each piece of code does, clusters related modules, and scores what matters most.</p>
           </div>
           <div className="rounded-lg border border-[#3fb950]/30 bg-[#3fb950]/5 p-4">
             <div className="text-[#3fb950] mb-2"><Shield className="w-5 h-5" /></div>
             <h3 className="font-medium text-sm text-text mb-1">Finalize — Deliver</h3>
-            <p className="text-xs text-text-muted">Packages the results into the atlas, rules, concepts, audit findings, and guardrails your tools consume. Runs in parallel where possible.</p>
+            <p className="text-xs text-text-muted">Atlas, rules, concepts, audit findings, and guardrails. Runs in parallel where possible.</p>
           </div>
         </div>
       </section>
@@ -181,7 +180,8 @@ export default function GraphEnrichmentPage() {
       <section id="sync">
         <h2 className="text-2xl font-semibold text-text mb-2">Sync</h2>
         <p className="text-text-muted leading-relaxed mb-6">
-          Completes in seconds with minimal LLM use. Your agents get structural context immediately.
+          The structural map is ready in seconds. The catalogue and search index follow within minutes on most
+          codebases — your agent is already working the whole time.
         </p>
         <div className="space-y-3">
           {SYNC_STAGES.map((stage) => (

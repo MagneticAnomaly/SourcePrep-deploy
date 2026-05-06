@@ -132,7 +132,11 @@ This file tracks **public-facing website work** (marketing/docs/support/payments
 - [ ] **Lemon Squeezy post-purchase flow**: Investigate what Lemon Squeezy shows on the success page. Determine if we need custom copy about offline license.json delivery.
 - [ ] **Homepage screenshots**: Create/capture the top 3 dashboard screenshots for the homepage placeholders (suggested: Knowledge Query results, Code Graph Explorer, Graph Enrichment Pipeline).
 - [ ] **Docs: Codebase Atlas concept page**: Create `/concepts/atlas-routing` once Phase 29B implementation is complete.
-- [x] **Docs: Pipeline stage count**: Docs site `/concepts/graph-enrichment` and `/dashboard` both reflect 9-stage pipeline ✅.
+- [x] **Docs: Pipeline stage count**: Docs site `/concepts/graph-enrichment` and `/dashboard` both reflect 9-stage pipeline ✅. **STALE 2026-05-06** — pipeline is now 15 stages; docs page is out of sync with marketing site. Tracked as Issue 9 in `MARKETING_SITE_AUDIT.md`.
+- [ ] **Docs: Rewrite `/concepts/graph-enrichment` for 15-stage pipeline** (Sync 1–5 / Enrich 6–10 / Finalize 11–15). Source of truth: `src/prep/services/pipeline/stages.py`. Preserve the existing epistemology / decay / research narrative.
+- [ ] **Marketing: Fix "Sync is instant" inaccuracy** on `/graph-enrichment` (Issue 8 in `MARKETING_SITE_AUDIT.md`) — Stages 3 (CATALOGUE) and 5 (KNOWLEDGE) are LLM-bound.
+- [ ] **Marketing: Integration naming taxonomy** — adopt the Cursor-first / Claude-Code-first grouped taxonomy across all marketing pages, add Codex everywhere, fix Claude Desktop mislabel (Issues 10–11 in `MARKETING_SITE_AUDIT.md`). Do NOT touch home hero.
+- [ ] **Docs: Full staleness pass** over `websites/apps/docs/src/app/**` (Issue 12 in `MARKETING_SITE_AUDIT.md`).
 - [x] **Docs: Getting Started verification step**: Added Free tier note about manual trace build requirement ✅.
 
 ### MKT-W11: Pricing & Payments Setup (Pre-Launch)

@@ -4,6 +4,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://sourceprep.io';
   
   // Core pages
+  // Note: /contact and /privacy are server-side redirects (next.config.js);
+  // not listed here so they don't appear as canonical destinations.
   const routes = [
     '',
     '/download',
@@ -11,12 +13,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/pricing',
     '/faq',
     '/security',
-    '/contact',
     '/careers',
     '/changelog',
     '/blog',
     '/research',
-    '/privacy',
     '/terms',
   ].map((route) => ({
     url: `${baseUrl}${route}`,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { MarketingHero, FeatureBlocks, prepFeatures, marketingFeatures, AnimatedCLI, AnimatedIDE, prepOverviewDemo, prepSearchDemo, prepImpactDemo, prepAuditDemo, prepObserveDemo, prepConceptsDemo, ideDemoScript } from '@prep/ui';
+import { MarketingHero, FeatureBlocks, prepFeatures, marketingFeatures, AnimatedCLI, AnimatedIDE, prepDemos, prepSearchDemos, prepImpactDemos, prepAuditDemos, prepObserveDemos, prepConceptsDemos, ideDemos } from '@prep/ui';
 import { ArrowRight, Play } from 'lucide-react';
 import Link from 'next/link';
 import { DevMarketingHero } from './DevMarketingHero';
@@ -36,7 +36,7 @@ export default function Page() {
           <h2>What is SourcePrep?</h2>
           <p>
             SourcePrep is a structural codebase intelligence MCP server for AI coding agents.
-            It builds a code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies — then delivers that deep structural context directly to Claude Code, Antigravity, Cursor, VS Code, and any MCP-compatible tool.
+            It builds a code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies — then delivers that deep structural context directly to Claude Code, OpenAI Codex, Cursor, Windsurf, and any other MCP-compatible tool.
             Connect your preferred LLM — Kimi 2.6, local models, or frontier APIs.
           </p>
         </section>
@@ -63,7 +63,7 @@ export default function Page() {
               Six MCP tools. Deep codebase intelligence.
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              Connect SourcePrep once to Claude Code, Antigravity, Cursor, or any MCP-compatible editor and your AI gets structural awareness, semantic search, blast radius analysis, audit enrichment, persistent memory, and recorded design rationale.
+              Connect SourcePrep once to Claude Code, Codex, Cursor, Windsurf, or any other MCP-compatible tool and your AI gets structural awareness, semantic search, blast radius analysis, audit enrichment, persistent memory, and recorded design rationale.
             </p>
           </div>
 
@@ -88,25 +88,25 @@ export default function Page() {
           {/* Demo display */}
           <div className="max-w-5xl mx-auto">
             {activeDemo === 'overview' && (
-              <AnimatedCLI script={prepOverviewDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
+              <AnimatedCLI scripts={prepDemos} theme="dark" className="w-full" contentClassName="min-h-[480px]" />
             )}
             {activeDemo === 'search' && (
-              <AnimatedCLI script={prepSearchDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
+              <AnimatedCLI scripts={prepSearchDemos} theme="dark" className="w-full" contentClassName="min-h-[480px]" />
             )}
             {activeDemo === 'impact' && (
-              <AnimatedCLI script={prepImpactDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
+              <AnimatedCLI scripts={prepImpactDemos} theme="dark" className="w-full" contentClassName="min-h-[480px]" />
             )}
             {activeDemo === 'audit' && (
-              <AnimatedCLI script={prepAuditDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
+              <AnimatedCLI scripts={prepAuditDemos} theme="dark" className="w-full" contentClassName="min-h-[480px]" />
             )}
             {activeDemo === 'observe' && (
-              <AnimatedCLI script={prepObserveDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
+              <AnimatedCLI scripts={prepObserveDemos} theme="dark" className="w-full" contentClassName="min-h-[480px]" />
             )}
             {activeDemo === 'concepts' && (
-              <AnimatedCLI script={prepConceptsDemo} theme="dark" className="w-full" contentClassName="min-h-[440px] max-h-[520px]" />
+              <AnimatedCLI scripts={prepConceptsDemos} theme="dark" className="w-full" contentClassName="min-h-[480px]" />
             )}
             {activeDemo === 'ide' && (
-              <AnimatedIDE script={ideDemoScript} className="w-full" />
+              <AnimatedIDE scripts={ideDemos} className="w-full" />
             )}
           </div>
 
@@ -127,12 +127,14 @@ export default function Page() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {[
+              // CLIs first — Claude Code primary, Codex grouped with it
               { href: '/claude-code', name: 'Claude Code', tag: 'Deepest integration', logo: '/logos/claude.svg' },
+              { href: '/integrations#openai-codex', name: 'OpenAI Codex', tag: 'Native MCP + AGENTS.md', logo: null },
+              { href: '/integrations#gemini-cli', name: 'Gemini CLI', tag: 'MCP-native', logo: '/logos/gemini.svg' },
+              // IDEs — Cursor primary
               { href: '/integrations#cursor', name: 'Cursor', tag: 'MCP-native', logo: '/logos/cursor.svg' },
               { href: '/integrations#windsurf', name: 'Windsurf', tag: 'MCP-native', logo: '/logos/windsurf.svg' },
-              { href: '/integrations#vscode', name: 'VS Code', tag: 'Extension + MCP', logo: '/logos/vscode.svg' },
-              { href: '/integrations#copilot', name: 'GitHub Copilot', tag: 'MCP bridge', logo: '/logos/copilot.png' },
-              { href: '/integrations#gemini-cli', name: 'Gemini CLI', tag: 'MCP-native', logo: '/logos/gemini.svg' },
+              { href: '/integrations#github-copilot', name: 'VS Code + Copilot', tag: 'MCP via GitHub Copilot', logo: '/logos/vscode.svg' },
               { href: '/paperclip', name: 'Paperclip', tag: 'Agent orchestration', logo: '/logos/paperclip.svg' },
               { href: '/integrations', name: 'See all', tag: 'Full ecosystem', logo: null },
             ].map((item) => (
@@ -255,6 +257,12 @@ export default function Page() {
               Compare to Alternatives <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
+          <p className="text-sm text-text-muted">
+            Got questions?{' '}
+            <Link href="/faq" className="text-primary hover:underline font-medium">
+              Read the FAQ →
+            </Link>
+          </p>
         </section>
       </div>
     </main>

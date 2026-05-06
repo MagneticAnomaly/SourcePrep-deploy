@@ -1,109 +1,21 @@
 "use client";
 
 import { useState } from 'react';
-import { Button } from '@prep/ui';
+import { Button, MCP_TOOLS, mcpConfigAsString } from '@prep/ui';
 
 const RELEASES_URL =
   process.env.NEXT_PUBLIC_PREP_RELEASES_URL ??
   'https://github.com/MagneticAnomaly/SourcePrep-MCP/releases';
 
-const MCP_CONFIGS = [
-  {
-    name: 'Claude Code',
-    file: '.claude/mcp.json (project root)',
-    config: `{
-  "servers": {
-    "prep": {
-      "command": "prep",
-      "args": ["mcp"]
-    }
-  }
-}`,
-  },
-  {
-    name: 'Cursor',
-    file: '.cursor/mcp.json (project root)',
-    config: `{
-  "mcpServers": {
-    "prep": {
-      "command": "prep",
-      "args": ["mcp"]
-    }
-  }
-}`,
-  },
-  {
-    name: 'Windsurf',
-    file: '~/.codeium/windsurf/mcp_config.json',
-    config: `{
-  "mcpServers": {
-    "prep": {
-      "command": "prep",
-      "args": ["mcp"],
-      "disabled": false
-    }
-  }
-}`,
-  },
-  {
-    name: 'Copilot',
-    file: '.vscode/mcp.json (project root)',
-    config: `{
-  "servers": {
-    "prep": {
-      "command": "prep",
-      "args": ["mcp"]
-    }
-  }
-}`,
-  },
-  {
-    name: 'Gemini CLI',
-    file: '~/.gemini/settings.json',
-    config: `{
-  "mcpServers": {
-    "prep": {
-      "command": "prep",
-      "args": ["mcp"],
-      "trust": true
-    }
-  }
-}`,
-  },
-  {
-    name: 'Antigravity',
-    file: '~/.gemini/antigravity/mcp_config.json',
-    config: `{
-  "mcpServers": {
-    "prep": {
-      "command": "prep",
-      "args": ["mcp"]
-    }
-  }
-}`,
-  },
-  {
-    name: 'Zed',
-    file: '~/.config/zed/settings.json',
-    config: `{
-  "context_servers": {
-    "prep": {
-      "command": "prep",
-      "args": ["mcp"]
-    }
-  }
-}`,
-  },
-];
-
 function MCPConfigs() {
   const [active, setActive] = useState(0);
+  const tool = MCP_TOOLS[active];
   return (
     <div className="bg-background border border-border rounded-xl overflow-hidden">
       <div className="flex flex-wrap border-b border-border">
-        {MCP_CONFIGS.map((tool, i) => (
+        {MCP_TOOLS.map((t, i) => (
           <button
-            key={tool.name}
+            key={t.id}
             onClick={() => setActive(i)}
             className={`px-4 py-2.5 text-sm font-medium transition-colors ${
               i === active
@@ -111,14 +23,14 @@ function MCPConfigs() {
                 : 'text-text-muted hover:text-text hover:bg-surface'
             }`}
           >
-            {tool.name}
+            {t.name}
           </button>
         ))}
       </div>
       <div className="p-4">
-        <div className="text-xs text-text-subtle mb-2 font-mono">{MCP_CONFIGS[active].file}</div>
+        <div className="text-xs text-text-subtle mb-2 font-mono">{tool.file}</div>
         <pre className="text-sm font-mono text-text-muted whitespace-pre overflow-x-auto">
-          {MCP_CONFIGS[active].config}
+          {mcpConfigAsString(tool)}
         </pre>
       </div>
     </div>

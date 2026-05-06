@@ -17,7 +17,7 @@ export default function IdeIntegrationsPage() {
             Agentic IDEs
           </h1>
           <p className="mt-4 text-lg text-text-muted">
-            Give Cursor, Windsurf, Copilot, and other agentic editors deep structural codebase awareness.
+            Give Cursor (primary), Windsurf, Antigravity, VS Code (via GitHub Copilot), Zed, and other agentic editors deep structural codebase awareness. MCP-aware VS Code extensions (Cline, Roo, CodeGPT) work too.
           </p>
         </div>
 

@@ -94,7 +94,7 @@ const faqs: FAQItem[] = [
   },
   {
     id: "already-indexed",
-    q: "Doesn't my Agentic IDE (Cursor, Windsurf, Antigravity) or Terminal (Claude Code) already index my codebase?",
+    q: "Doesn't my Agentic IDE (Cursor, Windsurf, Antigravity) or CLI agent (Claude Code, Codex) already index my codebase?",
     a: (
       <div className="space-y-6">
         <p><strong>Yes — and SourcePrep doesn&apos;t replace that.</strong> All three tools solve the basic problem of &quot;find relevant code and inject it.&quot; SourcePrep uses the same foundational technique (embed → cosine similarity → top-K) for core retrieval. <strong>We are not reinventing that wheel.</strong></p>
@@ -106,7 +106,7 @@ const faqs: FAQItem[] = [
                 <tr className="border-b border-border">
                   <th className="text-left py-2 pr-6 text-text font-semibold">Capability</th>
                   <th className="text-center py-2 px-3 text-text font-semibold">Agentic IDEs</th>
-                  <th className="text-center py-2 px-3 text-text font-semibold">Claude Code</th>
+                  <th className="text-center py-2 px-3 text-text font-semibold">CLI agents</th>
                   <th className="text-center py-2 px-3 text-primary font-semibold">SourcePrep</th>
                 </tr>
               </thead>
@@ -121,7 +121,7 @@ const faqs: FAQItem[] = [
                   ["Transparency (scores, chunks, what was sent)", "No", "Partial", "Yes"],
                   ["Works across all tools (MCP standard)", "\u2014", "\u2014", "Yes"],
                   ["Persistent agent memory (cross-session)", "No", "No", "Yes"],
-                  ["Editor portability (Cursor, Antigravity, Windsurf)", "No", "No", "Yes"],
+                  ["Editor portability (Cursor, Windsurf, Antigravity, VS Code)", "No", "No", "Yes"],
                 ].map(([cap, ides, claude, prep]) => (
                   <tr key={cap as string} className="border-b border-border-subtle">
                     <td className="py-2 pr-6">{cap}</td>
@@ -315,7 +315,7 @@ const faqs: FAQItem[] = [
     q: "Which editors does it work with?",
     a: (
       <div className="space-y-4">
-        <p>SourcePrep is a standalone daemon and an <strong>MCP (Model Context Protocol) server</strong>. It is not locked to any IDE. Today it works with <strong>Cursor</strong>, <strong>Windsurf</strong>, <strong>Claude Code</strong>, and <strong>Claude Code</strong> (terminal). A VS Code extension is in development.</p>
+        <p>SourcePrep is a standalone daemon and an <strong>MCP (Model Context Protocol) server</strong>. It is not locked to any IDE. CLI agents: <strong>Claude Code</strong> (primary), <strong>OpenAI Codex</strong>, <strong>Gemini CLI</strong>, <strong>Qwen Code</strong>. IDEs: <strong>Cursor</strong> (primary), <strong>Windsurf</strong>, <strong>Antigravity</strong>, <strong>VS Code via GitHub Copilot</strong>, <strong>Zed</strong>. MCP-aware VS Code extensions (Cline, Roo, CodeGPT) all work too. A native VS Code extension is in development.</p>
         <p>Because SourcePrep uses the open MCP standard, any future editor or agent that supports MCP will work automatically &mdash; no integration work on our end. Your index, weights, observations, and full project configuration are stored locally and editor-independent. Switch tools without losing anything.</p>
       </div>
     ),

@@ -27,7 +27,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/guides/compression',
     '/guides/path-weights',
     '/troubleshooting',
-    '/faq',
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date().toISOString(),
