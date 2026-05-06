@@ -54,7 +54,8 @@ strongest signal winning first:
 | 6 | `src/prep/services/pipeline/recovery.py` (Phase 61B) | Build-success marker gate skips recovery when marker post-dates structural. |
 | 7 | `src/prep/services/pipeline_journal.py` | `has_recent_completed_run` helper. |
 | 8 | `src/prep/services/pipeline/recovery.py` (Phase 61B) | Journal-authority gate runs FIRST; mtime/markers become advisory. |
-| 9 | `src/prep/services/pipeline/resume.py:478` | Downstream-proves-upstream stub writer defers when journal shows active run. Closes F-67 race. |
+| 9 | `src/prep/services/pipeline/resume.py:537` | Downstream-proves-upstream stub writer defers when journal shows active run. Closes F-67 race. |
+| 9b | `src/prep/services/pipeline/resume.py:410-448` | Atlas crash-loop stub writer gets the same active-run guard. New `_stage_group_active_in_journal` helper shared between both stub-writer paths. |
 | 10 | docs + memory | This README + `prep_observe` resolution note. |
 
 ## Test coverage
@@ -70,16 +71,50 @@ All new tests live under `tests/test_phase128_*.py`:
 - `test_phase128_journal_authority.py` (6 tests)
 - `test_phase128_phase61b_journal_authority.py` (2 tests)
 - `test_phase128_resume_no_stub_during_active_run.py` (2 tests)
+- `test_phase128_atlas_stub_race.py` (2 tests)
 
-Total: **35 new tests, all passing**.
+Total: **37 new tests, all passing**.
 
-## Pre-existing test failures (NOT from this phase)
+## Out of scope (flagged for separate triage)
 
-8 tests in `test_resume_strategy.py` / `test_pipeline_journal.py` /
-`test_index_recovery.py` / `test_pipeline_scheduler.py` fail on main
-before this phase. They appear to depend on test fixtures that don't
-match current resume-validation behavior. Out of scope for Phase 128;
-left for separate triage.
+These were surfaced during the Phase 128 audit but are pre-existing
+issues unrelated to the recovery hardening work. Each is independent
+and should ship as its own focused fix.
+
+### Pre-existing test failures (8 tests on main)
+
+- `test_resume_strategy.py` (5): `test_returns_len_when_all_complete`,
+  `test_resumes_from_first_missing_manifest`,
+  `test_atlas_incomplete_when_segments_missing`,
+  `test_atlas_crash_recovery_when_json_exists`,
+  `test_mtime_cascade_skipped_when_flag_set`
+- `test_pipeline_journal.py` (1): `test_resume_crashed_run`
+- `test_index_recovery.py` (1): `test_rebuild_clears_stale_temp_dirs`
+- `test_pipeline_scheduler.py` (1):
+  `test_backoff_clamps_against_request_in_flight_not_stage_count`
+
+Test fixtures appear not to write the output files modern resume
+validation now requires (e.g., `trace_inferred_edges.jsonl` for the
+`inferred_edges` stage). The runtime code is correct — the tests
+predate the validation hardening.
+
+### Stale destroy endpoint signatures (Phase 120 refactor miss)
+
+`src/prep/api/routers/trace_routes/enrichment.py` has three
+`@router.delete` endpoints that call `_scoped_full_reset` with
+parameters from before the Phase 120 refactor:
+
+- `atlas_destroy` (lines 884-902)
+- `group_reasoning_destroy` (lines 905-920)
+- `deep_enrichment_destroy` (lines 923-947)
+
+They pass `file_list`, `dir_list`, `clear_antibodies`, `clear_concepts` —
+none of which exist in the current function signature
+(`scope`, `journal_groups`, `knowledge_invalidate_scope`). Calling
+any of these endpoints would raise `TypeError`. The endpoints are
+probably untested / unused in practice; if they ARE used, callers
+have been getting 500s. Either rewrite them to the new signature
+or delete them.
 
 ## Live validation pending
 

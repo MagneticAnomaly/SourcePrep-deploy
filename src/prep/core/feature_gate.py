@@ -8,8 +8,10 @@ Tiers:
   - team:       perpetual + shared config, centralized policy
   - enterprise: team + air-gapped, SSO, audit
 
-License is read from ~/.runprep/license.json (offline Ed25519 signed token)
-or overridden via PREP_TIER env var for development.
+License is read from ~/.sourceprep/license.json (offline Ed25519 signed
+token), with fallback to ~/.runprep/license.json for legacy installs
+predating the brand split. New license writes go to .sourceprep. May be
+overridden via PREP_TIER env var for development.
 
 Note: MONTHLY and PERPETUAL are feature-identical. The only difference is
 the payment model and expiry: monthly licenses carry an expires_at date.
