@@ -22,8 +22,11 @@ The returned path is guaranteed to exist (parents are created).
 """
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 _ENV_VAR = "PREP_DATA_DIR"
 _XDG_DEFAULT = Path.home() / ".local" / "share" / "sourceprep"
@@ -75,6 +78,26 @@ def _migrate_embedded_dir(project_root: Path) -> None:
     sourceprep_target = project_root / ".sourceprep"
     if runprep_intermediate.exists() and not sourceprep_target.exists():
         runprep_intermediate.rename(sourceprep_target)
+
+    # Phase 128: Warn about orphaned legacy directories. The rename branches
+    # above silently no-op when .sourceprep/ already exists (typical after a
+    # wipe-and-rebuild), leaving .runprep/ or .codrag/ as silent orphans on
+    # disk. They take space and confuse recovery code that grep-walks the
+    # project root. Surface them once at startup with an actionable hint —
+    # do NOT auto-delete: the user might have unmigrated data in there.
+    if sourceprep_target.exists():
+        legacy_orphans = [
+            name for name in (".codrag", ".runprep")
+            if (project_root / name).exists()
+        ]
+        if legacy_orphans:
+            logger.warning(
+                "Legacy index directories found alongside .sourceprep/ at %s: %s. "
+                "These are orphans from the brand-rename migration and can be "
+                "safely deleted after verifying .sourceprep/ has all your data.",
+                project_root,
+                ", ".join(legacy_orphans),
+            )
 
 
 def legacy_cwd_data_dir(cwd: Path | None = None) -> Path:
