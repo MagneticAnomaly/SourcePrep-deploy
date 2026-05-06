@@ -15,13 +15,16 @@ interface Competitor {
   category: string;
 }
 
+// Ordered left-to-right by GitHub popularity (stars) so the most-recognizable
+// names sit closest to the SourcePrep column.
 const competitors: Competitor[] = [
   { id: 'gitnexus', name: 'GitNexus', category: 'Precomputed RAG' },
-  { id: 'vexp', name: 'Vexp', category: 'AST Context Engine' },
-  { id: 'empirica', name: 'Empirica', category: 'Epistemic Agents' },
   { id: 'serena', name: 'Serena', category: 'LSP Agent Toolkit' },
-  { id: 'grepai', name: 'Grepai', category: 'CLI Semantic Search' },
+  { id: 'understand-anything', name: 'Understand-Anything', category: 'LLM Knowledge Graph' },
   { id: 'bloop', name: 'bloop', category: 'AST Search Tools' },
+  { id: 'grepai', name: 'Grepai', category: 'CLI Semantic Search' },
+  { id: 'empirica', name: 'Empirica', category: 'Epistemic Agents' },
+  { id: 'vexp', name: 'Vexp', category: 'AST Context Engine' },
 ];
 
 const tandemTools = [
@@ -92,6 +95,11 @@ const matrixData: FeatureRow[] = [
             status: 'full',
             detail: "bloop also uses a Rust-native Tree-sitter parser, matching SourcePrep's parsing quality and speed. Their AST analysis is solid and well-engineered \u2014 credit where it's due. Where SourcePrep differentiates is in what happens after parsing: SourcePrep enriches the graph with LLM-inferred edges, epistemic understanding scores, and continuous deep analysis that evolves over time.",
           },
+          'understand-anything': {
+            text: 'LLM Multi-Agent\nPipeline',
+            status: 'partial',
+            detail: "Understand-Anything builds its graph through six specialized LLM agents (project-scanner, file-analyzer, architecture-analyzer, tour-builder, graph-reviewer, domain-analyzer) rather than a static parser. Using the LLM as the parser scales to many languages without per-language tooling \u2014 a genuinely clever distribution strategy. The tradeoff is that every full refresh costs LLM calls and carries hallucination risk. SourcePrep's deterministic Rust + Tree-sitter graph is reproducible, free to rebuild, and doesn't drift between runs.",
+          },
         },
       },
       {
@@ -133,6 +141,11 @@ const matrixData: FeatureRow[] = [
             text: 'Local Qdrant\n/Vector',
             status: 'partial',
             detail: "bloop uses Qdrant (a local vector database) for semantic search. Their approach is well-engineered and handles semantic queries effectively. SourcePrep's advantage is the hybrid BM25+ONNX approach combined with intent-aware routing and trace-based expansion \u2014 when a function is found, SourcePrep automatically includes its callers, callees, and module context.",
+          },
+          'understand-anything': {
+            text: 'Fuzzy +\nSemantic',
+            status: 'partial',
+            detail: "Understand-Anything supports fuzzy and semantic search across its node graph, which handles both literal lookups and conceptual queries through a clean slash-command UX. Where SourcePrep differs: hybrid BM25 + ONNX scoring with intent-aware routing automatically picks the right strategy per query, and trace-based expansion includes callers, callees, and module context for any matched node \u2014 Understand-Anything returns nodes, not relationship-expanded context.",
           },
         },
       },
@@ -181,6 +194,11 @@ const matrixData: FeatureRow[] = [
             status: 'none',
             detail: "bloop returns raw code snippets matching the search query. The snippets are accurate and include surrounding context lines for readability, which is a nice touch. However, they lack structural context \u2014 there's no information about callers, imports, or module relationships that would help the AI understand how the code fits into the larger system.",
           },
+          'understand-anything': {
+            text: 'JSON Graph\n+ Slash Commands',
+            status: 'partial',
+            detail: "Output is a committable .understand-anything/knowledge-graph.json artifact that agents query through slash commands (/understand-explain, /understand-chat, /understand-onboard). Per-node plain-English summaries are a real strength for human readability. The graph itself is the deliverable \u2014 there's no per-query LOD assembly that compresses adjacent nodes to signatures and distant nodes to module summaries the way SourcePrep's capsule does.",
+          },
         },
       },
       {
@@ -222,6 +240,11 @@ const matrixData: FeatureRow[] = [
             text: 'Low\n(Full snippets)',
             status: 'none',
             detail: "bloop sends full code snippets with surrounding context. This is helpful for readability but increases token count significantly. There's no structural compression or level-of-detail control.",
+          },
+          'understand-anything': {
+            text: 'Plain-English\nNode Summaries',
+            status: 'partial',
+            detail: "Each node carries a natural-language summary, which is itself a form of compression — the agent reads prose instead of full source. Well-suited for the explain/onboard use cases the tool emphasizes. No dual-engine compression, no per-query LOD adjustment, and no client-tier-aware budgets that scale context to the model's window.",
           },
         },
       },
@@ -270,6 +293,11 @@ const matrixData: FeatureRow[] = [
             status: 'none',
             detail: "bloop builds a vector index for search but does not use LLMs to augment the index with semantic understanding. The search is effective for finding code, but there's no deeper comprehension layer \u2014 no module summaries, no relationship inference, no understanding scores.",
           },
+          'understand-anything': {
+            text: 'LLM-First\n(6 Agents)',
+            status: 'full',
+            detail: "Understand-Anything goes further than any other tool here: LLMs aren't an enrichment layer, they are the index. Six specialized agents perform the parsing, architecture detection, tour generation, and review. The depth of LLM-derived semantic understanding is genuinely impressive. The structural tradeoff is that there's no deterministic ground truth underneath \u2014 SourcePrep keeps a free, reproducible Rust graph and lets LLMs add concepts and rationale on top, so you can run with zero LLM budget if you choose.",
+          },
         },
       },
       {
@@ -311,6 +339,11 @@ const matrixData: FeatureRow[] = [
             text: 'None',
             status: 'none',
             detail: "bloop rebuilds its index from scratch. No continuous enrichment or persistent learning between index builds.",
+          },
+          'understand-anything': {
+            text: 'Incremental\nLLM Re-analysis',
+            status: 'partial',
+            detail: "Supports incremental updates — only changed files get re-analyzed by the agent pipeline, with an optional --auto-update post-commit hook. Sensible design for keeping the graph fresh. Each refresh still costs LLM calls; SourcePrep's enrichment pipeline can run on local Ollama at zero cloud cost and persists understanding scores per module that improve across runs.",
           },
         },
       },
@@ -354,6 +387,11 @@ const matrixData: FeatureRow[] = [
             status: 'none',
             detail: "No drift detection. The index must be manually rebuilt when code changes.",
           },
+          'understand-anything': {
+            text: 'Diff Impact\n(on demand)',
+            status: 'partial',
+            detail: "/understand-diff analyzes which parts of the system are affected by a change — a real and useful feature for reviewing PRs. It runs when invoked rather than continuously flagging stale nodes after each edit. SourcePrep's file watcher marks individual nodes and observations stale automatically the moment their underlying code changes.",
+          },
         },
       },
       {
@@ -395,6 +433,11 @@ const matrixData: FeatureRow[] = [
             text: 'Desktop\nApp',
             status: 'full',
             detail: "bloop has a dedicated desktop app with a polished code search UI. Credit where it's due \u2014 bloop's search interface is clean, fast, and pleasant to use. However, it focuses on search results rather than graph health, enrichment status, or context assembly inspection. SourcePrep's dashboard is specifically built for understanding and controlling the AI's knowledge, not just searching code.",
+          },
+          'understand-anything': {
+            text: 'Interactive\nDashboard + Demo',
+            status: 'full',
+            detail: "Understand-Anything has the strongest visualization story of any tool on this page: a polished interactive dashboard with force-directed graphs, automatic layer view, domain view, and a public live demo at understand-anything.com/demo with a committed reference graph. Credit where it's due \u2014 this is the bar for exploratory navigation. SourcePrep's dashboard is purpose-built for a different question: graph health, enrichment status, and scope control rather than free-form graph exploration.",
           },
         },
       },
@@ -443,6 +486,11 @@ const matrixData: FeatureRow[] = [
             status: 'partial',
             detail: "bloop lets you choose which repositories to index. This is scope control at the repo level, which is useful for multi-repo setups. However, there's no file-level or folder-level control within a repo, and no visual tree for fine-tuning what's included.",
           },
+          'understand-anything': {
+            text: 'Auto Project\nDetection',
+            status: 'partial',
+            detail: "The project-scanner agent auto-detects files, languages, and frameworks. Knowledge-base mode accepts an explicit path argument. There's no visual include/exclude tree exposed for fine-grained scope control within a repo — scope is implicit in what the scanner finds, with no way to focus the AI on a specific subsystem of a large monorepo.",
+          },
         },
       },
       {
@@ -485,6 +533,11 @@ const matrixData: FeatureRow[] = [
             status: 'none',
             detail: "bloop ranks results by vector similarity. The search is effective but there's no graph-based weighting or user-configurable prioritization of modules or file groups.",
           },
+          'understand-anything': {
+            text: 'Auto Layer\nGrouping',
+            status: 'partial',
+            detail: "The architecture-analyzer agent automatically groups files into architectural layers (API / Service / Data / UI / Utility), and tour-builder orders learning walkthroughs by dependency. This is implicit weighting baked into the agent prompts. No user-facing controls to override the LLM's layer assignments or boost specific modules over others.",
+          },
         },
       },
       {
@@ -526,6 +579,11 @@ const matrixData: FeatureRow[] = [
             text: 'Local\n(Qdrant Instance)',
             status: 'full',
             detail: "bloop runs locally with its own Qdrant vector database instance. Fully offline capable with a good privacy story. Comparable to SourcePrep's local-first approach.",
+          },
+          'understand-anything': {
+            text: 'Local Artifact,\nLLM Calls Required',
+            status: 'partial',
+            detail: "The output graph stays on disk as a local JSON file, but the six-agent indexing pipeline requires LLM calls — code is sent to whichever provider you configure. There's no ONNX-equivalent local model path for the build itself. SourcePrep's full local-first story (Rust parser + ONNX embeddings + zero cloud calls by default) is structurally different.",
           },
         },
       },
