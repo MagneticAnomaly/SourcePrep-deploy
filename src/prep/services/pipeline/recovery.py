@@ -1428,8 +1428,19 @@ class RecoveryManager:
                         break
 
                 if deep_stale:
-                    # Phase 72: Touch manifests first and re-check
-                    store.sync_downstream_mtimes(StageId.CATALOGUE, list(DEEP_ENRICHMENT_STAGES))
+                    # Phase 72: Touch manifests first and re-check.
+                    #
+                    # Phase 128: Touch source corrected from CATALOGUE to
+                    # STRUCTURAL. The staleness comparison at line 1426 is
+                    # against ``structural_mtime``. After a successful build
+                    # STRUCTURAL is the newest manifest (touched at finalize),
+                    # so touching deep stages forward to CATALOGUE leaves them
+                    # still older than STRUCTURAL — the post-touch re-check
+                    # always tripped, defeating the heal-in-place safety net.
+                    # Touching to STRUCTURAL allows the re-check to pass when
+                    # the data is genuinely fresh and only the ordering looks
+                    # stale.
+                    store.sync_downstream_mtimes(StageId.STRUCTURAL, list(DEEP_ENRICHMENT_STAGES))
 
                     # Re-verify after touching
                     deep_stale_after_touch = False
