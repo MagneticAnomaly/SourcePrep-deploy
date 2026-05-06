@@ -52,6 +52,7 @@ from .routing import (
     compute_root_atlas_budget,
     compute_segments,
 )
+from .validators import validate_atlas_content
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +247,15 @@ class CodebaseAtlas:
             logger.warning(
                 "Atlas output too short (%d chars, min %d) — falling back to structural",
                 len(content), MIN_ATLAS_CHARS // 2,
+            )
+            return self.generate_structural()
+
+        # Content gate: reject prompt-leak / repeat-loop / missing-section output
+        reject_reason = validate_atlas_content(content)
+        if reject_reason:
+            logger.warning(
+                "Atlas output rejected by content validator (%s) — falling back to structural",
+                reject_reason,
             )
             return self.generate_structural()
 
@@ -576,6 +586,20 @@ class CodebaseAtlas:
                 graph_stats, modules, self._load_epistemic_summary(),
                 self._identify_hubs(graph_stats),
             )
+        else:
+            # Content gate: reject prompt-leak / repeat-loop / missing-section output.
+            # Observed in dogfood (2026-05-06) on this repo's own index — see
+            # docs/Phase124_FinalizeChainEpistemicAudit/MCP_DOGFOOD_FEEDBACK_2026-05-05_SCRUTINY.md
+            reject_reason = validate_atlas_content(content)
+            if reject_reason:
+                logger.warning(
+                    "Root atlas LLM output rejected by content validator (%s) — using structural",
+                    reject_reason,
+                )
+                content = self._build_structural_content(
+                    graph_stats, modules, self._load_epistemic_summary(),
+                    self._identify_hubs(graph_stats),
+                )
 
         # Fingerprint must be computed from the FULL module list, not the
         # VRAM-capped subset used for prompting. Otherwise is_stale() —
@@ -704,11 +728,21 @@ class CodebaseAtlas:
             content = ""
 
         # Quality gate: fall back to structural summary for this segment
-        if len(content) < SEGMENT_ATLAS_MIN_CHARS // 2:
-            logger.warning(
-                "Segment atlas %s: LLM output too short (%d chars) — using structural",
-                segment.name, len(content),
-            )
+        reject_reason = (
+            None if len(content) < SEGMENT_ATLAS_MIN_CHARS // 2
+            else validate_atlas_content(content)
+        )
+        if len(content) < SEGMENT_ATLAS_MIN_CHARS // 2 or reject_reason:
+            if reject_reason:
+                logger.warning(
+                    "Segment atlas %s: rejected by content validator (%s) — using structural",
+                    segment.name, reject_reason,
+                )
+            else:
+                logger.warning(
+                    "Segment atlas %s: LLM output too short (%d chars) — using structural",
+                    segment.name, len(content),
+                )
             parts = [f"SEGMENT: {segment.name} ({segment.dir_path}, {segment.file_count} files)"]
             if seg_modules:
                 mod_names = [m.get("name", "?") for m in seg_modules[:10]]
@@ -858,11 +892,21 @@ class CodebaseAtlas:
             content = ""
 
         # Quality gate: fall back to structural summary for this segment
-        if len(content) < SEGMENT_ATLAS_MIN_CHARS // 2:
-            logger.warning(
-                "Segment atlas (swarm) %s: LLM output too short (%d chars) — using structural",
-                segment.name, len(content),
-            )
+        reject_reason = (
+            None if len(content) < SEGMENT_ATLAS_MIN_CHARS // 2
+            else validate_atlas_content(content)
+        )
+        if len(content) < SEGMENT_ATLAS_MIN_CHARS // 2 or reject_reason:
+            if reject_reason:
+                logger.warning(
+                    "Segment atlas (swarm) %s: rejected by content validator (%s) — using structural",
+                    segment.name, reject_reason,
+                )
+            else:
+                logger.warning(
+                    "Segment atlas (swarm) %s: LLM output too short (%d chars) — using structural",
+                    segment.name, len(content),
+                )
             parts = [f"SEGMENT: {segment.name} ({segment.dir_path}, {segment.file_count} files)"]
             if seg_modules:
                 mod_names = [m.get("name", "?") for m in seg_modules[:10]]
@@ -1459,16 +1503,35 @@ class CodebaseAtlas:
         return content
 
     def load(self) -> Optional[AtlasDocument]:
-        """Load cached Atlas from disk. Returns None if not found."""
+        """Load cached Atlas from disk. Returns None if not found.
+
+        Also returns None if the cached content fails the content validator
+        (prompt-leak, repeat-loop, missing sections). This makes is_stale()
+        report stale and triggers regeneration on the next pipeline pass —
+        critical for self-healing after the 2026-05-06 dogfood incident
+        where bad LLM output was persisted to disk and served indefinitely.
+        Empty content is allowed (intentional for repos below the file
+        threshold).
+        """
         if not self.atlas_path.exists():
             return None
         try:
             with open(self.atlas_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            return AtlasDocument.from_dict(data)
+            doc = AtlasDocument.from_dict(data)
         except (json.JSONDecodeError, KeyError, OSError) as e:
             logger.warning("Failed to load atlas: %s", e)
             return None
+
+        if doc.content:
+            reject_reason = validate_atlas_content(doc.content)
+            if reject_reason:
+                logger.warning(
+                    "Cached atlas content rejected by validator (%s) — treating as stale",
+                    reject_reason,
+                )
+                return None
+        return doc
 
     def is_stale(self) -> bool:
         """Check if the cached Atlas needs regeneration.
@@ -2218,20 +2281,31 @@ class CodebaseAtlas:
             raise
 
     def _load_segment(self, segment_id: str) -> Optional[SegmentDocument]:
-        """Load a cached segment atlas."""
+        """Load a cached segment atlas. Returns None if content fails the
+        validator (poisoned cache self-heals via re-generation)."""
         path = self.segments_dir / f"seg_{segment_id}.json"
         if not path.exists():
             return None
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            return SegmentDocument.from_dict(data)
+            doc = SegmentDocument.from_dict(data)
         except (json.JSONDecodeError, KeyError, OSError) as e:
             logger.warning("Failed to load segment %s: %s", segment_id, e)
             return None
+        if doc.content:
+            reject_reason = validate_atlas_content(doc.content)
+            if reject_reason:
+                logger.warning(
+                    "Cached segment %s rejected by validator (%s) — treating as stale",
+                    segment_id, reject_reason,
+                )
+                return None
+        return doc
 
     def load_segments(self) -> List[SegmentDocument]:
-        """Load all cached segment atlases."""
+        """Load all cached segment atlases. Skips entries whose content fails
+        the validator (poisoned segment caches self-heal on next regen)."""
         if not self.segments_dir.exists():
             return []
         docs: List[SegmentDocument] = []
@@ -2239,9 +2313,18 @@ class CodebaseAtlas:
             try:
                 with open(path, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                docs.append(SegmentDocument.from_dict(data))
+                doc = SegmentDocument.from_dict(data)
             except (json.JSONDecodeError, KeyError, OSError):
                 continue
+            if doc.content:
+                reject_reason = validate_atlas_content(doc.content)
+                if reject_reason:
+                    logger.warning(
+                        "Cached segment %s rejected by validator (%s) — skipping",
+                        path.name, reject_reason,
+                    )
+                    continue
+            docs.append(doc)
         return docs
 
     def _save_segment_manifest(self, segments: List[Segment]) -> None:

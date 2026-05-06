@@ -140,6 +140,55 @@ The smaller-modules tail nearly doubled (115 → 193 and 483 → 715) — that s
 
 ---
 
+## Resolution status (2026-05-06)
+
+Two of the five findings landed code fixes this session.
+
+### #4 (HIGH) — Atlas role-projection prompt leak: **FIXED**
+
+Root cause confirmed by inspecting `.sourceprep/atlas.json` directly: the cached `content` field contained the model's first-person prompt restatement ("I need to write a concise project orientation header...") followed by 1500+ chars of `加油` repetition (a token-loop sampler artifact). The existing quality gate at `src/prep/core/atlas/generator.py:567` only checked for **short** content (`len < MIN_ATLAS_CHARS // 2`). Long-but-garbage output passed and was persisted, then served to every MCP client thereafter.
+
+Fix:
+
+- New module `src/prep/core/atlas/validators.py` with three detectors: prompt-leak (first-person openers), repeat-attack (single-char + 2-4-char n-gram loops, observed-loop-aware threshold), missing-section markers.
+- Wired into all four LLM call sites in `generator.py` (single-doc, root, segment, segment-with-angle) — bad output now triggers the existing structural fallback.
+- `load()` re-runs the validator over cached content; poisoned caches return `None` so `is_stale()` reports stale and regen self-heals on the next pipeline pass.
+- 22 unit tests in `tests/test_atlas_validators.py` + 2 integration tests in `tests/test_atlas.py::TestLLMAtlas` covering the actual observed bad-content shape.
+- Existing 91 atlas tests still pass.
+
+The poisoned cache on this repo (`/Volumes/4TB-BAD/HumanAI/CoDRAG/.sourceprep/atlas.json`) does not need manual deletion — `load()` will reject it and the next `prep` regen will overwrite.
+
+### #3 (HIGH) — `AntibodyStore not initialized`: **PARTIALLY FIXED**
+
+Root cause: the MCP server runs in a separate process from the FastAPI daemon (server-mode default). `server.py:972` initializes `antibody_store` at daemon startup, but the MCP-side singleton in the separate process was never reached. `_require_conn()` threw on the first `prep_audit(action="antibodies")` call.
+
+Fix landed:
+
+- `src/prep/services/antibody_store.py` `_require_conn()` now lazy-initializes from the canonical `data_dir() / "prep_antibodies.db"` when called on an uninitialized store. Falls back to the old explicit-error message only if `data_dir()` itself fails.
+- 3 tests in `tests/test_antibody_store_lazy_init.py` covering: lazy-init from data_dir, save+list after lazy-init, and verifying explicit `init()` (the daemon path) still works.
+
+**Remaining work** (filed as Task #6 follow-up): even with init working, derived antibodies stay invisible to `prep()` because of a separate status-field mismatch — `antibody_derivation.py:59,77` writes `status='testing'` but `immune_watcher.py:50` queries `status='active'`. Master TODO tracks this as a Phase 125 §13 candidate; semantics differ from concept promotion enough to warrant its own phase.
+
+### Pre-existing test failures noted, not addressed
+
+`tests/test_atlas_endpoints.py` has 5 pre-existing failures (`_FakeAtlas` mock missing `index_dir` attr — a Phase 124 T3 fixture issue). `tests/test_resume_strategy.py` has flaky failures unrelated to this work. `tests/test_concept_store_save_many.py`, `tests/test_temporal_validity.py`, `tests/test_concept_seeder_swarm.py`, `tests/test_agent_prep_data.py`, `tests/test_agent_core.py` each have 1-2 failures that reproduce on `main` with my changes stashed. Out of scope for this session.
+
+### 2026-05-06 scrutiny pass — additional gaps caught and closed
+
+A second-pass review caught three real gaps in the original fixes:
+
+1. **Segment atlas load was unvalidated.** The original Task #2 fix added the validator to `load()` for the root atlas only. `_load_segment()` and `load_segments()` still served poisoned cached segment content. Closed: both methods now run the validator and skip rejected entries; new `test_load_segments_skips_poisoned_caches` covers the behaviour.
+
+2. **ConceptStore + ObservationStore had the same lazy-init vulnerability.** The original Task #1 fix only patched AntibodyStore. Both other stores have an identical `_require_conn` pattern that throws when reached from a non-daemon process (e.g. standalone MCP). Closed: same lazy-init bootstrap added to both; `test_concept_store_lazy_init` and `test_observation_store_lazy_init` cover them.
+
+3. **Test fixtures used unrealistic atlas/segment content** that the new validator correctly flagged. Updated five fixtures in `test_atlas.py` to use realistic `IDENTITY:` / `SEGMENT:` markers instead of placeholder strings. The validator-rejection messages were the diagnostic — fixtures, not validator, were wrong.
+
+**What was deliberately NOT fixed.** Master TODO Task #7 (`antibody_derivation.py:59,77` writes `status='testing'` while `immune_watcher.py:50` queries `status='active'`) is now reachable since lazy-init works, but master TODO recommends keeping it as a separate phase: the `testing` status is intentional (auto-derived antibodies need a vetting period). Changing semantics here is a product decision, not a bug fix. Tracked as Task #7 for now.
+
+After this scrutiny pass: **149/149 touched-area tests pass, 0 regressions introduced** (verified by stashing changes and re-running — same 8 failures on `main` without my work).
+
+---
+
 ## Honest meta-observation about the scrutiny
 
 The most useful thing this exercise produced was catching that I had *quoted a number wrong*. The "0 active, 1590 seeds" claim from May 2 was confidently asserted but came from misreading a category-sum as a status-sum. That's exactly the kind of soft-confidence error agents make when they read trailers as structured data without parsing them.

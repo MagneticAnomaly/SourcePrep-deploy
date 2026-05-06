@@ -218,9 +218,18 @@ class ObservationStore:
 
     def _require_conn(self) -> sqlite3.Connection:
         if self._conn is None:
-            raise RuntimeError(
-                "ObservationStore not initialized. Call observation_store.init(db_path) first."
-            )
+            # Lazy-init from canonical data_dir. Same defense as AntibodyStore
+            # and ConceptStore — protects against being reached from a process
+            # that didn't run server.py's startup (e.g. standalone MCP).
+            try:
+                from prep.core.paths import data_dir
+                self.init(data_dir() / "prep_observations.db")
+            except Exception as e:
+                raise RuntimeError(
+                    "ObservationStore not initialized and lazy-init from data_dir "
+                    f"failed: {e}. Call observation_store.init(db_path) explicitly."
+                ) from e
+        assert self._conn is not None
         return self._conn
 
     # ── Write Operations ─────────────────────────────────────────

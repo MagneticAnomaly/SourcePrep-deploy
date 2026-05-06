@@ -421,6 +421,91 @@ class TestLLMAtlas:
         result = CodebaseAtlas._postprocess(text, 5000)
         assert result == ""  # everything after unclosed <think> is stripped
 
+    def test_content_validator_falls_back_on_prompt_leak(self, tmp_index_dir):
+        """LLM that paraphrases its own prompt instead of producing sections
+        triggers structural fallback. Reproduces the 2026-05-06 dogfood bug
+        where atlas.json was poisoned with first-person planning prose plus
+        a 1500-char run of repeated 加油 characters."""
+        _populate_index(tmp_index_dir)
+        mock_llm = MagicMock()
+        mock_llm.model = "broken-model"
+        # Verbatim shape of the actual cached bad content from .sourceprep/atlas.json
+        bad_output = (
+            "I need to write a concise project orientation header based on "
+            "the provided data, following strict rules: plain text only, no "
+            "markdown, no bold, no headers, no bullet characters, no "
+            "asterisks. every claim from provided data, exact names, "
+            "maximally dense,ooooooooo short, under 2570 characters, no "
+            "invented info.\n\n"
+            "Let me parse the provided data carefully:\n\n"
+            "Project Root (1228 files): marketing, mcp, local-first\n"
+            + "加油" * 200
+        )
+        mock_llm.generate.return_value = (bad_output, 600)
+
+        atlas = CodebaseAtlas(tmp_index_dir, llm=mock_llm)
+        doc = atlas.generate()
+
+        # Should have fallen back to structural — bad content must NOT be persisted
+        assert doc.mode == "structural"
+        assert "I need to write" not in doc.content
+        assert "加油" not in doc.content
+        assert "ooooooooo" not in doc.content
+
+    def test_load_rejects_poisoned_cached_content(self, tmp_index_dir):
+        """A previously persisted bad atlas should be treated as missing on
+        load() so is_stale() reports stale and triggers regeneration."""
+        atlas = CodebaseAtlas(tmp_index_dir)
+        bad_body = (
+            "I need to write a concise project orientation header. "
+            + "加油" * 100
+        )
+        doc = AtlasDocument(
+            content=bad_body,
+            generated_at="2026-05-06T00:00:00Z",
+            model="broken-model", fingerprint="poisoned",
+            file_count=100, module_count=5, char_count=len(bad_body),
+            mode="llm",
+        )
+        atlas._save(doc)
+
+        # load() must reject the poisoned content so the daemon self-heals
+        loaded = atlas.load()
+        assert loaded is None
+
+    def test_load_segments_skips_poisoned_caches(self, tmp_index_dir):
+        """A poisoned segment cache (same bug class as the root atlas leak)
+        must be skipped by load_segments() so it self-heals on next regen.
+        Closes a gap noted during 2026-05-06 scrutiny pass."""
+        atlas = CodebaseAtlas(tmp_index_dir)
+        # Save one valid + one poisoned segment
+        good = SegmentDocument(
+            content="SEGMENT: ui (packages/ui, 100 files)\nROLE: design system.",
+            generated_at="2026-05-06T00:00:00Z",
+            model="test", fingerprint="g",
+            segment_id="ui", segment_name="UI", dir_path="packages/ui",
+            file_count=100, char_count=80, mode="llm",
+        )
+        bad = SegmentDocument(
+            content="I need to write a subsystem orientation document. " + "加油" * 80,
+            generated_at="2026-05-06T00:00:00Z",
+            model="broken-model", fingerprint="b",
+            segment_id="dashboard", segment_name="Dashboard",
+            dir_path="src/dashboard", file_count=50,
+            char_count=400, mode="llm",
+        )
+        atlas._save_segment(good)
+        atlas._save_segment(bad)
+
+        loaded = atlas.load_segments()
+        loaded_ids = [d.segment_id for d in loaded]
+        assert "ui" in loaded_ids
+        assert "dashboard" not in loaded_ids  # poisoned segment skipped
+
+        # Same defense at the singular-load entry point
+        assert atlas._load_segment("ui") is not None
+        assert atlas._load_segment("dashboard") is None
+
 
 # ── Staleness Tests ──────────────────────────────────────────────────
 
@@ -797,7 +882,7 @@ class TestSegmentPersistence:
     def test_save_and_load_segment(self, tmp_index_dir):
         atlas = CodebaseAtlas(tmp_index_dir)
         doc = SegmentDocument(
-            content="SEGMENT content",
+            content="SEGMENT: Core (src/core, 10 files)\nROLE: indexing engine.",
             generated_at="2026-02-20T00:00:00Z",
             model="test",
             fingerprint="fp1",
@@ -812,7 +897,7 @@ class TestSegmentPersistence:
 
         loaded = atlas._load_segment("src-core")
         assert loaded is not None
-        assert loaded.content == "SEGMENT content"
+        assert loaded.content.startswith("SEGMENT:")
         assert loaded.segment_id == "src-core"
 
     def test_load_missing_segment(self, tmp_index_dir):
@@ -822,8 +907,9 @@ class TestSegmentPersistence:
     def test_load_all_segments(self, tmp_index_dir):
         atlas = CodebaseAtlas(tmp_index_dir)
         for i in range(3):
+            content = f"SEGMENT: Seg {i} (dir{i}, 5 files)\nROLE: subsystem {i}."
             doc = SegmentDocument(
-                content=f"Segment {i}",
+                content=content,
                 generated_at="2026-02-20T00:00:00Z",
                 model="test",
                 fingerprint=f"fp{i}",
@@ -831,7 +917,7 @@ class TestSegmentPersistence:
                 segment_name=f"Seg {i}",
                 dir_path=f"dir{i}",
                 file_count=5,
-                char_count=9,
+                char_count=len(content),
                 mode="llm",
             )
             atlas._save_segment(doc)
@@ -892,8 +978,9 @@ class TestSegmentSelection:
 
         # Save segment docs
         for seg in segments:
+            content = f"SEGMENT: {seg.name} ({seg.dir_path}, {seg.file_count} files)\nROLE: subsystem."
             doc = SegmentDocument(
-                content=f"Content for {seg.name}",
+                content=content,
                 generated_at="2026-02-20T00:00:00Z",
                 model="test",
                 fingerprint="fp",
@@ -901,7 +988,7 @@ class TestSegmentSelection:
                 segment_name=seg.name,
                 dir_path=seg.dir_path,
                 file_count=seg.file_count,
-                char_count=20,
+                char_count=len(content),
                 mode="llm",
             )
             atlas._save_segment(doc)
@@ -924,13 +1011,14 @@ class TestSegmentSelection:
         atlas.segments_dir.mkdir(parents=True, exist_ok=True)
 
         for seg in segments:
+            content = f"SEGMENT: {seg.name} ({seg.dir_path}, {seg.file_count} files)\nROLE: subsystem."
             atlas._save_segment(SegmentDocument(
-                content=f"Seg {seg.name}" * 10,
+                content=content,
                 generated_at="2026-02-20T00:00:00Z",
                 model="test", fingerprint="fp",
                 segment_id=seg.id, segment_name=seg.name,
                 dir_path=seg.dir_path, file_count=seg.file_count,
-                char_count=40, mode="llm",
+                char_count=len(content), mode="llm",
             ))
 
         # Query touching both segments
@@ -1096,19 +1184,22 @@ class TestDisplayContent:
 
     def test_no_segments_returns_root(self, tmp_index_dir):
         atlas = CodebaseAtlas(tmp_index_dir)
-        # Save a root atlas
+        # Save a root atlas. Content must include a real section marker so it
+        # passes the load-time content validator (added 2026-05-06 to reject
+        # prompt-leak / repeat-loop / missing-section LLM output).
+        body = "IDENTITY: Test project for display content."
         doc = AtlasDocument(
-            content="Root atlas content only",
+            content=body,
             generated_at="2026-02-20T00:00:00Z",
             model="test", fingerprint="fp",
-            file_count=100, module_count=5, char_count=23,
+            file_count=100, module_count=5, char_count=len(body),
             mode="llm",
         )
         atlas._save(doc)
 
         content, chars = atlas.get_display_content()
-        assert content == "Root atlas content only"
-        assert chars == 23
+        assert content == body
+        assert chars == len(body)
 
     def test_concatenates_root_and_segments(self, tmp_index_dir):
         atlas = CodebaseAtlas(tmp_index_dir)
@@ -1134,21 +1225,22 @@ class TestDisplayContent:
         atlas.segments_dir.mkdir(parents=True, exist_ok=True)
 
         for seg in segs:
+            seg_content = f"SEGMENT: {seg.name} ({seg.dir_path}, 1 files)\nROLE: details for {seg.name}."
             atlas._save_segment(SegmentDocument(
-                content=f"Details for {seg.name}",
+                content=seg_content,
                 generated_at="2026-02-20T00:00:00Z",
                 model="test", fingerprint="fp",
                 segment_id=seg.id, segment_name=seg.name,
                 dir_path=seg.dir_path, file_count=seg.file_count,
-                char_count=17, mode="llm",
+                char_count=len(seg_content), mode="llm",
             ))
 
         content, chars = atlas.get_display_content()
         assert "IDENTITY: Test project." in content
         assert "[CORE] (src/core)" in content
         assert "[API] (src/api)" in content
-        assert "Details for Core" in content
-        assert "Details for Api" in content
+        assert "details for Core" in content
+        assert "details for Api" in content
         assert chars > 23  # longer than root alone
 
     def test_no_atlas_returns_empty(self, tmp_index_dir):

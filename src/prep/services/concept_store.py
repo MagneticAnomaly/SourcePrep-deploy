@@ -424,9 +424,19 @@ class ConceptStore:
 
     def _require_conn(self) -> sqlite3.Connection:
         if self._conn is None:
-            raise RuntimeError(
-                "ConceptStore not initialized. Call concept_store.init(db_path) first."
-            )
+            # Lazy-init from canonical data_dir. Necessary when this singleton
+            # is reached from a process that didn't run server.py's startup
+            # (e.g. an MCP server in a separate process). Mirrors the same
+            # defense added to AntibodyStore on 2026-05-06.
+            try:
+                from prep.core.paths import data_dir
+                self.init(data_dir() / "prep_concepts.db")
+            except Exception as e:
+                raise RuntimeError(
+                    "ConceptStore not initialized and lazy-init from data_dir "
+                    f"failed: {e}. Call concept_store.init(db_path) explicitly."
+                ) from e
+        assert self._conn is not None
         return self._conn
 
     # ── Write Operations ─────────────────────────────────────────
