@@ -2,7 +2,7 @@
   <img src="docs/assets/prep-github-header.png" alt="SourcePrep" width="100%">
 </p>
 
-<h2 align="center"><em>The bridge between how you think about code and how AI reads it.</em></h2>
+<h2 align="center"><em>Give your AI access to the epistemic context <br>it needs to understand your codebase.</em></h2>
 
 **SourcePrep: prep the context before any AI call.** Epistemic trace intelligence for autonomous agents and codebase orchestration.
 
@@ -100,7 +100,7 @@ SourcePrep is an **epistemic, team-ready** application that provides:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                              Prep                                     │
+│                              Prep                                       │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  Dashboard (React/Vite → Tauri for MVP)                                 │
 │  ├── Project Tabs (LinuxBrain, HalleyApp, Website, ...)                 │
@@ -119,10 +119,10 @@ SourcePrep is an **epistemic, team-ready** application that provides:
 │  ├── EmbeddingIndex        Semantic vector search (per project)         │
 │  ├── TraceIndex            Symbol graph + import edges                  │
 │  ├── FileWatcher           Auto-rebuild on changes                      │
-│  └── LLMCoordinator        Ollama connection management                  │
+│  └── LLMCoordinator        Ollama connection management                 │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  CLI                                                                    │
-│  prep serve | add | build | search | ui | mcp                         │
+│  prep serve | add | build | search | ui | mcp                           │
 └─────────────────────────────────────────────────────────────────────────┘
             │                                        │
             ▼                                        ▼
