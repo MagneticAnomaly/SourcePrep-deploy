@@ -1960,6 +1960,18 @@ class PipelineOrchestrator:
             self._journal_run_completed(run)
             # Phase 49: finalize run metadata + record in history
             self._finalize_run_metadata(run, "completed")
+            # Phase 128: refresh build-success marker for groups that prove
+            # deep_enrichment data is healthy. The helper itself is a no-op
+            # for fast_sync (which only updates structural, not deep manifests).
+            try:
+                from prep.services.pipeline.recovery import record_group_completion
+                record_group_completion(run.project_id, run.group)
+            except Exception:
+                logger.debug(
+                    "Phase 128: build-success marker refresh failed for %s "
+                    "(non-fatal)",
+                    run.project_id, exc_info=True,
+                )
             # Phase 66: Notify Pi agent that a pipeline group completed.
             # Pi decides whether to run Watchdog/Dispatcher based on its
             # own config and cooldown timers.  Runs in a background thread

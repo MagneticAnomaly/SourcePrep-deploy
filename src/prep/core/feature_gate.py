@@ -8,8 +8,10 @@ Tiers:
   - team:       perpetual + shared config, centralized policy
   - enterprise: team + air-gapped, SSO, audit
 
-License is read from ~/.runprep/license.json (offline Ed25519 signed token)
-or overridden via PREP_TIER env var for development.
+License is read from ~/.sourceprep/license.json (offline Ed25519 signed
+token), with fallback to ~/.runprep/license.json for legacy installs
+predating the brand split. New license writes go to .sourceprep. May be
+overridden via PREP_TIER env var for development.
 
 Note: MONTHLY and PERPETUAL are feature-identical. The only difference is
 the payment model and expiry: monthly licenses carry an expires_at date.
@@ -103,7 +105,29 @@ class License:
         }
 
 
-_LICENSE_PATH = Path.home() / ".runprep" / "license.json"
+# Phase 128: license path resolves .sourceprep first, falls back to .runprep
+# for legacy installs predating the brand split. New writes go to .sourceprep.
+# Path.home() is called at resolve time (not import time) so tests can patch it.
+_LICENSE_FILENAME = "license.json"
+
+
+def _resolve_license_path() -> Path:
+    """Return the active license path.
+
+    Reads prefer ``~/.sourceprep/license.json``; if absent, fall back to
+    ``~/.runprep/license.json`` so existing licensed installs survive the
+    brand rename. When neither file exists, return the new path (writes
+    target the canonical location).
+    """
+    new_path = Path.home() / ".sourceprep" / _LICENSE_FILENAME
+    if new_path.exists():
+        return new_path
+    legacy_path = Path.home() / ".runprep" / _LICENSE_FILENAME
+    if legacy_path.exists():
+        return legacy_path
+    return new_path
+
+
 _cached_license: Optional[License] = None
 
 
@@ -165,9 +189,9 @@ def get_license() -> License:
                 logger.warning("Invalid PREP_TIER=%s, falling back to FREE", env_tier)
 
     # Try loading license file
-    if _LICENSE_PATH.exists():
+    if _resolve_license_path().exists():
         try:
-            data = json.loads(_LICENSE_PATH.read_text(encoding="utf-8"))
+            data = json.loads(_resolve_license_path().read_text(encoding="utf-8"))
 
             # EA-A6: If license contains a signed key, verify signature first
             signed_key = data.get("key", "")
@@ -196,7 +220,7 @@ def get_license() -> License:
                     "SECURITY: License file at %s has no cryptographic signature. "
                     "Unsigned licenses will be rejected in a future version. "
                     "Re-activate your license at https://sourceprep.io/settings to get a signed license.",
-                    _LICENSE_PATH,
+                    _resolve_license_path(),
                 )
 
             tier_raw = str(data.get("tier", "free")).lower()
@@ -234,7 +258,7 @@ def get_license() -> License:
             )
             return _cached_license
         except Exception as e:
-            logger.warning("Failed to load license from %s: %s", _LICENSE_PATH, e)
+            logger.warning("Failed to load license from %s: %s", _resolve_license_path(), e)
 
     _cached_license = License(tier=Tier.FREE)
     return _cached_license

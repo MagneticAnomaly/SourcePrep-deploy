@@ -58,9 +58,32 @@ def _resolve_idx_dir(project_id: str) -> Path | None:
 
 
 _CLEAN_SHUTDOWN_FILENAME = ".pipeline_clean_shutdown"
+_BUILD_SUCCESS_FILENAME = ".pipeline_last_success"  # Phase 128
 _RESET_BARRIER_FILENAME = ".reset_barrier"
 _USER_PAUSE_FILENAME_TEMPLATE = ".pipeline_user_pause_{group}.json"
 _VALID_BARRIER_SCOPES = ("sync", "enrichment", "finalize", "all")
+
+# Phase 128: groups whose successful completion proves "deep_enrichment data
+# is healthy" for Phase 61B's staleness check. fast_sync produces structural
+# (which is what the staleness check compares AGAINST), but does not produce
+# deep enrichment manifests. Writing the marker after fast_sync would falsely
+# suppress legitimate deep recovery.
+_BUILD_SUCCESS_GROUPS = ("deep_enrichment", "finalize")
+
+
+def record_group_completion(project_id: str, group: str) -> bool:
+    """Phase 128: Refresh the build-success marker for relevant groups.
+
+    Called by the orchestrator after a group finishes successfully. For
+    fast_sync the marker is intentionally NOT written — fast_sync alone
+    doesn't prove the deep_enrichment data is fresh, and writing it
+    would falsely suppress legitimate Phase 61B recovery.
+
+    Returns True if the marker was written, False otherwise.
+    """
+    if group not in _BUILD_SUCCESS_GROUPS:
+        return False
+    return RecoveryManager.write_build_success_marker(project_id)
 
 
 def write_reset_barrier(
@@ -375,6 +398,83 @@ class RecoveryManager:
         except Exception:
             logger.debug(
                 "Failed to clear clean shutdown marker for %s",
+                project_id, exc_info=True,
+            )
+            return False
+
+    # ── Build-Success Markers (Phase 128) ──────────────────────
+    #
+    # Separate from clean-shutdown markers. The clean-shutdown marker
+    # records "the daemon was gracefully stopped while no run was active"
+    # and can only be written from the lifespan shutdown handler on
+    # SIGTERM. The build-success marker records "a complete pipeline run
+    # finished successfully on disk" and is written when finalize ends.
+    # It survives any subsequent ungraceful daemon termination, closing
+    # the gap where Phase 61B re-triggers a full rebuild after kill -9 /
+    # USB eject / sleep — situations where the existing clean-shutdown
+    # marker is missing despite healthy data.
+    #
+    # The marker is NOT cleared on read — it persists until invalidated
+    # by an actual destructive reset that wipes outputs.
+
+    @staticmethod
+    def write_build_success_marker(project_id: str) -> bool:
+        """Write a marker indicating the pipeline last completed successfully."""
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        try:
+            marker_path = idx_dir / _BUILD_SUCCESS_FILENAME
+            marker_path.write_text(str(time.time()))
+            return True
+        except Exception:
+            logger.debug(
+                "Failed to write build success marker for %s",
+                project_id, exc_info=True,
+            )
+            return False
+
+    @staticmethod
+    def check_build_success_marker(project_id: str) -> bool:
+        """Check if a build-success marker exists (read-only)."""
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        return (idx_dir / _BUILD_SUCCESS_FILENAME).exists()
+
+    @staticmethod
+    def build_success_marker_mtime(project_id: str) -> Optional[float]:
+        """Return the mtime of the build-success marker, or None if absent.
+
+        Phase 61B compares this against structural mtime: if the marker
+        post-dates structural, the existing data is provably fresh.
+        """
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return None
+        marker_path = idx_dir / _BUILD_SUCCESS_FILENAME
+        if not marker_path.exists():
+            return None
+        try:
+            return marker_path.stat().st_mtime
+        except OSError:
+            return None
+
+    @staticmethod
+    def invalidate_build_success_marker(project_id: str) -> bool:
+        """Remove the marker (e.g. when a destructive reset wipes outputs)."""
+        idx_dir = _resolve_idx_dir(project_id)
+        if idx_dir is None:
+            return False
+        marker_path = idx_dir / _BUILD_SUCCESS_FILENAME
+        if not marker_path.exists():
+            return False
+        try:
+            marker_path.unlink()
+            return True
+        except Exception:
+            logger.debug(
+                "Failed to invalidate build success marker for %s",
                 project_id, exc_info=True,
             )
             return False
@@ -1324,7 +1424,49 @@ class RecoveryManager:
             except Exception:
                 logger.debug("Phase 61B: manifest age summary failed for %s", pid, exc_info=True)
 
-            # Step 3: Auto-trigger deep enrichment if manifests are stale
+            # Step 3: Auto-trigger deep enrichment if manifests are stale.
+            #
+            # Phase 128: Journal-authority gate (highest precedence). The
+            # pipeline_journal records every run with status atomically
+            # inside a SQLite transaction. If the journal says a
+            # deep_enrichment run completed and its finished_at post-dates
+            # the structural manifest mtime, the data is provably healthy
+            # — stronger than any disk marker or mtime heuristic. This
+            # gate runs BEFORE all marker / mtime paths so the cheapest,
+            # strongest signal wins.
+            try:
+                from prep.services.pipeline_journal import journal as _journal
+                store_for_journal_check = ManifestStore(idx_dir)
+                if store_for_journal_check.provenance_exists(StageId.STRUCTURAL):
+                    struct_mtime_for_journal = store_for_journal_check.provenance_mtime(
+                        StageId.STRUCTURAL
+                    )
+                    if _journal.has_recent_completed_run(
+                        pid, "deep_enrichment", since_mtime=struct_mtime_for_journal,
+                    ):
+                        logger.info(
+                            "Phase 128: Journal records completed deep_enrichment "
+                            "run for %s post-dating structural — data healthy, "
+                            "skipping auto-recovery",
+                            pid,
+                        )
+                        if pfl:
+                            pfl.selfheal(
+                                "auto_recover",
+                                "Skipped — journal proves recent completion",
+                                {
+                                    "project_id": pid,
+                                    "structural_mtime": struct_mtime_for_journal,
+                                },
+                            )
+                        continue
+            except Exception:
+                logger.debug(
+                    "Phase 128: journal-authority check failed for %s",
+                    pid, exc_info=True,
+                )
+                # Fall through to existing recovery logic
+
             # Phase 93: Clean shutdown guard — if the daemon shut down
             # gracefully and this project had no active runs, its incomplete
             # deep enrichment manifests are steady-state, not an interruption.
@@ -1345,6 +1487,46 @@ class RecoveryManager:
                         {"project_id": pid},
                     )
                 continue
+
+            # Phase 128: Build-success marker gate. Even without a clean-
+            # shutdown marker (which only exists if the daemon got SIGTERM),
+            # a build-success marker that post-dates the structural manifest
+            # proves the on-disk data is healthy. This closes the
+            # kill -9 / USB eject / sleep gap that otherwise leaves Phase 61B
+            # spuriously triggering a full rebuild after every ungraceful
+            # daemon termination.
+            try:
+                marker_mtime = RecoveryManager.build_success_marker_mtime(pid)
+                if marker_mtime is not None:
+                    store_for_marker_check = ManifestStore(idx_dir)
+                    if store_for_marker_check.provenance_exists(StageId.STRUCTURAL):
+                        struct_mtime = store_for_marker_check.provenance_mtime(
+                            StageId.STRUCTURAL
+                        )
+                        if marker_mtime >= struct_mtime:
+                            logger.info(
+                                "Phase 128: Build-success marker for %s "
+                                "post-dates structural — data healthy, "
+                                "skipping deep enrichment auto-recovery",
+                                pid,
+                            )
+                            if pfl:
+                                pfl.selfheal(
+                                    "auto_recover",
+                                    "Skipped — build-success marker proves healthy data",
+                                    {
+                                        "project_id": pid,
+                                        "marker_mtime": marker_mtime,
+                                        "structural_mtime": struct_mtime,
+                                    },
+                                )
+                            continue
+            except Exception:
+                logger.debug(
+                    "Phase 128: build-success marker check failed for %s",
+                    pid, exc_info=True,
+                )
+                # Fall through to existing recovery logic
 
             try:
                 if not is_deep_auto_fn(pid):
@@ -1428,8 +1610,19 @@ class RecoveryManager:
                         break
 
                 if deep_stale:
-                    # Phase 72: Touch manifests first and re-check
-                    store.sync_downstream_mtimes(StageId.CATALOGUE, list(DEEP_ENRICHMENT_STAGES))
+                    # Phase 72: Touch manifests first and re-check.
+                    #
+                    # Phase 128: Touch source corrected from CATALOGUE to
+                    # STRUCTURAL. The staleness comparison at line 1426 is
+                    # against ``structural_mtime``. After a successful build
+                    # STRUCTURAL is the newest manifest (touched at finalize),
+                    # so touching deep stages forward to CATALOGUE leaves them
+                    # still older than STRUCTURAL — the post-touch re-check
+                    # always tripped, defeating the heal-in-place safety net.
+                    # Touching to STRUCTURAL allows the re-check to pass when
+                    # the data is genuinely fresh and only the ordering looks
+                    # stale.
+                    store.sync_downstream_mtimes(StageId.STRUCTURAL, list(DEEP_ENRICHMENT_STAGES))
 
                     # Re-verify after touching
                     deep_stale_after_touch = False

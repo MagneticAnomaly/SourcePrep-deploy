@@ -36,6 +36,42 @@ def _iso_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _stage_group_active_in_journal(project_id: str, stage: StageId) -> bool:
+    """Phase 128: True iff the journal shows an active run for the group
+    that owns ``stage``.
+
+    Used by all recovery-stub writers in this module to refuse stub
+    writes during a live run. Without this, a parallel resume scan can
+    write a "recovered, finished_at=NOW" stub claiming a stage finished
+    while the actual worker (post-F-67 manifest delete) is still
+    computing, producing inconsistent on-disk state.
+    """
+    try:
+        from .stages import (
+            DEEP_ENRICHMENT_STAGES,
+            FAST_SYNC_STAGES,
+            FINALIZE_STAGES,
+        )
+        from prep.services.pipeline_journal import journal as _journal
+
+        if stage in FAST_SYNC_STAGES:
+            group_name = "fast_sync"
+        elif stage in DEEP_ENRICHMENT_STAGES:
+            group_name = "deep_enrichment"
+        elif stage in FINALIZE_STAGES:
+            group_name = "finalize"
+        else:
+            return False
+
+        return _journal.get_active_run(project_id, group_name) is not None
+    except Exception:
+        logger.debug(
+            "Phase 128: active-run check failed for %s (non-fatal)",
+            stage.value, exc_info=True,
+        )
+        return False
+
+
 # Delay before checking coverage gaps after pipeline completion
 COVERAGE_RETRIGGER_DELAY = 15.0  # seconds
 
@@ -416,6 +452,35 @@ class ResumeStrategy:
                         and segments_manifest.exists()
                         and segments_manifest.stat().st_size > 10
                     ):
+                        # Phase 128: Refuse to write a recovery stub if
+                        # the journal says finalize is currently running.
+                        # The orchestrator F-67-deletes atlas_manifest.json
+                        # at stage start; a parallel resume scan that sees
+                        # atlas.json + atlas_segments_manifest.json from a
+                        # PRIOR run would otherwise write a stub claiming
+                        # atlas finished while the worker is still
+                        # computing. Same race as the downstream-proves-
+                        # upstream stub at line 537.
+                        if _stage_group_active_in_journal(project_id, stage):
+                            logger.info(
+                                "Phase 128: Refusing to write atlas crash-loop "
+                                "stub — journal shows active finalize run "
+                                "(avoiding F-67 race)"
+                            )
+                            stage_decisions.append({
+                                "stage": stage.value,
+                                "decision": "ACTIVE_RUN_DEFER",
+                                "reason": (
+                                    "Active finalize run in journal — "
+                                    "deferring atlas stub to avoid F-67 race"
+                                ),
+                            })
+                            ResumeStrategy._log_resume_decisions(
+                                project_id, stages, i, stage_decisions,
+                                skip_mtime_cascade, pfl_fn,
+                            )
+                            return i
+
                         # Both data files exist — write a recovery manifest
                         # so downstream stages see correct mtimes.
                         store.write_provenance(stage, {
@@ -476,6 +541,32 @@ class ResumeStrategy:
                     break
 
                 if downstream_complete_stage is not None:
+                    # Phase 128: Refuse to write a recovery stub if the
+                    # journal says this stage's group is currently running.
+                    # See _stage_group_active_in_journal for the full F-67
+                    # race rationale. Observed at 21:22:35 on 2026-05-05 in
+                    # the user's pipeline.
+                    if _stage_group_active_in_journal(project_id, stage):
+                        logger.info(
+                            "Phase 128: Refusing to write downstream-proves-"
+                            "upstream stub for %s — journal shows active run "
+                            "(avoiding F-67 race)",
+                            stage.value,
+                        )
+                        stage_decisions.append({
+                            "stage": stage.value,
+                            "decision": "ACTIVE_RUN_DEFER",
+                            "reason": (
+                                "Active run in journal — deferring recovery "
+                                "stub to avoid F-67 race"
+                            ),
+                        })
+                        ResumeStrategy._log_resume_decisions(
+                            project_id, stages, i, stage_decisions,
+                            skip_mtime_cascade, pfl_fn,
+                        )
+                        return i
+
                     try:
                         store.write_provenance(stage, {
                             "format_version": "2.0",
