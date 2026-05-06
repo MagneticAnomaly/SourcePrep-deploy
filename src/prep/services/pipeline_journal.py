@@ -402,6 +402,35 @@ class PipelineJournal:
             ).fetchone()
         return JournalEntry.from_row(row) if row else None
 
+    def has_recent_completed_run(
+        self,
+        project_id: str,
+        group: str,
+        since_mtime: float,
+    ) -> bool:
+        """Phase 128: Authoritative "is this group provably done?" check.
+
+        Returns True iff there exists at least one run for this
+        ``(project_id, group)`` with ``status='completed'`` and
+        ``finished_at >= since_mtime``. Used by Phase 61B as the primary
+        gate before falling back to mtime/marker heuristics — a journal
+        entry is conclusive proof of completion since it is written
+        atomically inside a SQLite transaction.
+        """
+        conn = self._require_conn()
+        with self._lock:
+            row = conn.execute(
+                """SELECT 1 FROM pipeline_runs
+                   WHERE project_id = ?
+                     AND group_name = ?
+                     AND status = 'completed'
+                     AND finished_at IS NOT NULL
+                     AND finished_at >= ?
+                   LIMIT 1""",
+                (project_id, group, since_mtime),
+            ).fetchone()
+        return row is not None
+
     def get_project_runs(self, project_id: str, limit: int = 20) -> List[JournalEntry]:
         """Get recent runs for a project."""
         conn = self._require_conn()
