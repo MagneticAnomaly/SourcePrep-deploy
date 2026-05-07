@@ -30,6 +30,7 @@ from .augmenter import AugmentationEntry
 from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
 from .epistemic_score import EpistemicEntry, EpistemicScore, compute_epistemic_score
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
+from prep.services.pipeline.holds import HoldPausedError
 
 logger = logging.getLogger(__name__)
 
@@ -247,13 +248,47 @@ class EpistemicEnricher:
         repo_root: Path,
         index_dir: Path,
         batch_profile: Optional["BatchProfile"] = None,
+        project_id: Optional[str] = None,
     ):
         self.llm = llm
         self.repo_root = repo_root
         self.index_dir = index_dir
         self._batch_profile = batch_profile
+        # Phase 127: project_id lets us check soft-holds before each LLM
+        # dispatch.  None is acceptable (the hold check becomes a no-op
+        # because no project-keyed hold can match an empty project id).
+        self.project_id = project_id
         self.epistemic_path = index_dir / "trace_epistemic.jsonl"
         self.epistemic_manifest_path = index_dir / "trace_epistemic_manifest.json"
+
+    def _hold_paused(self) -> bool:
+        """Phase 127: True when a soft-hold blocks this dispatch.
+
+        Delegates to :func:`prep.services.pipeline.holds.hold_paused_for_llm`
+        so the (project, scheduler-node-id) resolution and ``is_held``
+        check stays in one place — augmenter and swarm orchestrator
+        share the same helper.  Returns False (proceed) when no hold
+        is active, no project_id is set, or the endpoint can't be
+        resolved.
+        """
+        from prep.services.pipeline.holds import hold_paused_for_llm
+        return hold_paused_for_llm(self.llm, self.project_id, logger)
+
+    def _raise_hold_paused(self) -> None:
+        """Raise :class:`HoldPausedError` with the resolved endpoint id.
+
+        Use at LLM call sites to disambiguate transient pause from
+        permanent failure: callers count ``None`` returns as failure,
+        which would falsely trip circuit breakers.  The exception
+        bubbles up to ``run()`` which catches it once at run level.
+
+        Delegates to :func:`prep.services.pipeline.holds.raise_hold_paused_for_llm`
+        so the (project, endpoint) resolution and fallback strings stay
+        consistent across the three classes that share this pattern
+        (augmenter, epistemic enricher, swarm orchestrator).
+        """
+        from prep.services.pipeline.holds import raise_hold_paused_for_llm
+        raise_hold_paused_for_llm(self.llm, self.project_id)
 
     def load_existing(self) -> Dict[str, EpistemicEntry]:
         """Load existing epistemic entries."""
@@ -579,6 +614,17 @@ class EpistemicEnricher:
                 think=False,
             )
 
+            # Phase 127: respect soft-holds.  If this (project, endpoint)
+            # is held (exclusive on another project, or swarm window
+            # draining ours), raise HoldPausedError.  In-flight calls
+            # finish naturally; ``run()`` catches the exception, logs
+            # once, and breaks the loop so the caller can checkpoint
+            # and resume on the next run.  Raising (not returning None)
+            # disambiguates transient pause from permanent failure so
+            # held workers do NOT trip circuit breakers.
+            if self._hold_paused():
+                self._raise_hold_paused()
+
             text, tokens = self.llm.generate(
                 prompt, system=EPISTEMIC_SYSTEM, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, think=False,
@@ -586,6 +632,9 @@ class EpistemicEnricher:
             )
             _call_elapsed = _time.monotonic() - _call_start
             logger.info("[Epistemic] LLM responded for %s in %.1fs (%d tokens)", file_path, _call_elapsed, tokens)
+        except HoldPausedError:
+            # Phase 127: pause is not a failure — bubble up to ``run()``.
+            raise
         except Exception as e:
             _call_elapsed = _time.monotonic() - _call_start
             logger.warning("Deep reasoning LLM call failed for %s after %.1fs: %s", file_path, _call_elapsed, e)
@@ -723,6 +772,13 @@ class EpistemicEnricher:
                     from prep.core.context_config import compute_num_ctx
                     num_ctx = compute_num_ctx(prompt_tokens, num_predict, self.llm.model)
 
+                # Phase 127: respect soft-holds before dispatching the batch.
+                # Raise HoldPausedError (not return []) so a held batch is
+                # NOT counted as a permanent failure — it bubbles up to
+                # ``run()`` which catches it once per run.
+                if self._hold_paused():
+                    self._raise_hold_paused()
+
                 text, tokens = self.llm.generate(
                     prompt, system=BATCHED_EPISTEMIC_CODE_SYSTEM,
                     num_predict=num_predict, num_ctx=num_ctx,
@@ -731,6 +787,9 @@ class EpistemicEnricher:
                     max_chars=batched_max_chars("epistemic", len(items)),
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))
+            except HoldPausedError:
+                # Phase 127: pause is not a failure — bubble up.
+                raise
             except Exception as e:
                 logger.warning("Batched epistemic code failed for %d items: %s", len(items), e)
                 return []
@@ -743,6 +802,9 @@ class EpistemicEnricher:
                 for batch_items in code_batches:
                     try:
                         yield batch_items, _call_code_batch(batch_items)
+                    except HoldPausedError:
+                        # Phase 127: bubble up so run() can checkpoint.
+                        raise
                     except Exception as e:
                         logger.warning("Code batch failed: %s", e)
                         yield batch_items, []
@@ -753,6 +815,9 @@ class EpistemicEnricher:
                         batch_items = fmap[future]
                         try:
                             yield batch_items, future.result()
+                        except HoldPausedError:
+                            # Phase 127: bubble up so run() can checkpoint.
+                            raise
                         except Exception as e:
                             logger.warning("Code batch future failed: %s", e)
                             yield batch_items, []
@@ -855,6 +920,13 @@ class EpistemicEnricher:
                     from prep.core.context_config import compute_num_ctx
                     num_ctx = compute_num_ctx(prompt_tokens, num_predict, self.llm.model)
 
+                # Phase 127: respect soft-holds before dispatching the batch.
+                # Raise HoldPausedError (not return []) so a held batch is
+                # NOT counted as a permanent failure — it bubbles up to
+                # ``run()`` which catches it once per run.
+                if self._hold_paused():
+                    self._raise_hold_paused()
+
                 text, tokens = self.llm.generate(
                     prompt, system=BATCHED_EPISTEMIC_DOC_SYSTEM,
                     num_predict=num_predict, num_ctx=num_ctx,
@@ -863,6 +935,9 @@ class EpistemicEnricher:
                     max_chars=batched_max_chars("epistemic", len(items)),
                 )
                 return BatchedResponseParser.parse(text, expected_count=len(items))
+            except HoldPausedError:
+                # Phase 127: pause is not a failure — bubble up.
+                raise
             except Exception as e:
                 logger.warning("Batched epistemic doc failed for %d items: %s", len(items), e)
                 return []
@@ -873,6 +948,9 @@ class EpistemicEnricher:
                 for batch_items in doc_batches:
                     try:
                         yield batch_items, _call_doc_batch(batch_items)
+                    except HoldPausedError:
+                        # Phase 127: bubble up so run() can checkpoint.
+                        raise
                     except Exception as e:
                         logger.warning("Doc batch failed: %s", e)
                         yield batch_items, []
@@ -883,6 +961,9 @@ class EpistemicEnricher:
                         batch_items = fmap[future]
                         try:
                             yield batch_items, future.result()
+                        except HoldPausedError:
+                            # Phase 127: bubble up so run() can checkpoint.
+                            raise
                         except Exception as e:
                             logger.warning("Doc batch future failed: %s", e)
                             yield batch_items, []
@@ -994,6 +1075,13 @@ class EpistemicEnricher:
         enriched = dict(existing)
         done = 0
         failed = 0
+        # Phase 127: when a HoldPausedError bubbles up, run() catches it
+        # at run-level, logs once, sets paused=True, and exits cleanly.
+        # The returned stats include "paused" so callers can distinguish
+        # "we hit a soft-hold and stopped early — retry next run" from
+        # "we finished" or "we failed permanently".
+        paused = False
+        pause_info: Optional[Dict[str, str]] = None
 
         if progress_callback:
             progress_callback("epistemic_enrichment", existing_count, total_file_count, existing_count)
@@ -1004,167 +1092,210 @@ class EpistemicEnricher:
             and self._batch_profile.name.value != "off"
         )
 
-        if use_batching and to_enrich:
-            from .batch_profiles import BatchStage
-            code_batch_size = self._batch_profile.batch_size(BatchStage.EPISTEMIC_CODE)
-            doc_batch_size = self._batch_profile.batch_size(BatchStage.EPISTEMIC_DOC)
+        try:
+            if use_batching and to_enrich:
+                from .batch_profiles import BatchStage
+                code_batch_size = self._batch_profile.batch_size(BatchStage.EPISTEMIC_CODE)
+                doc_batch_size = self._batch_profile.batch_size(BatchStage.EPISTEMIC_DOC)
 
-            # Sort into tiers for tier-based batching
-            tiers = topological_sort_into_tiers(to_enrich, edges)
-            logger.info(
-                "BATCHED epistemic enrichment: %d files in %d tiers, code_batch_size=%d, doc_batch_size=%d (%s profile)",
-                total_work, len(tiers), code_batch_size, doc_batch_size, self._batch_profile.name.value,
-            )
-            for tier_idx, tier in enumerate(tiers):
-                # Cooperative cancellation check between tiers
-                if cancel_token and cancel_token.is_cancelled:
-                    logger.info("Batched epistemic enrichment paused/cancelled at tier %d/%d — flushing partial results", tier_idx, len(tiers))
-                    self._write_epistemic(enriched)
-                    cancel_token.raise_if_cancelled()
-
-                tier_done, tier_failed = self._enrich_tier_batched(
-                    tier, edges, nodes_by_id, augmentations, enriched, code_batch_size, doc_batch_size,
-                    progress_callback=progress_callback,
-                    current_progress=existing_count + done + failed,
-                    total_progress=total_file_count,
-                    cancel_token=cancel_token,
-                    progress_baseline=existing_count,
-                )
-                done += tier_done
-                failed += tier_failed
-                # Write checkpoint after each tier
-                self._write_epistemic(enriched)
-                logger.info(
-                    "Tier %d/%d complete: %d enriched, %d failed (%d items in tier) — checkpoint saved",
-                    tier_idx + 1, len(tiers), tier_done, tier_failed, len(tier),
-                )
-                if progress_callback:
-                    progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count, existing_count)
-        else:
-            concurrency = _get_llm_concurrency("deep")
-
-            if concurrency <= 1:
-                # Sort in reverse-topological order (leaves first)
-                to_enrich = topological_sort_files(to_enrich, edges)
-
-                # Sequential by design: each node's neighbor context reads from 'enriched',
-                # which accumulates results from earlier nodes in topological order.
-                # Parallelizing would break the cascading context benefit.
-                for node in to_enrich:
-                    # Cooperative cancellation check
-                    if cancel_token and cancel_token.is_cancelled:
-                        logger.info("Epistemic enrichment paused/cancelled at %d/%d — flushing partial results", done, total_work)
-                        self._write_epistemic(enriched)
-                        cancel_token.raise_if_cancelled()
-
-                    entry = self.enrich_node(node, edges, nodes_by_id, augmentations, enriched)
-                    if entry:
-                        enriched[entry.node_id] = entry
-                        done += 1
-                    else:
-                        failed += 1
-
-                    if progress_callback:
-                        progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count, existing_count)
-
-                    # Periodic checkpoint to avoid losing progress on crash
-                    if done > 0 and done % 25 == 0:
-                        self._write_epistemic(enriched)
-                        logger.info("Epistemic checkpoint saved at %d/%d items", done, total_work)
-            else:
-                # Tier-based concurrent enrichment: nodes within a tier are independent
-                # (they only depend on earlier tiers), so they can be processed in parallel.
-                # After each tier completes, results merge into 'enriched' before the next tier.
+                # Sort into tiers for tier-based batching
                 tiers = topological_sort_into_tiers(to_enrich, edges)
                 logger.info(
-                    "Concurrent epistemic enrichment: %d files in %d tiers, concurrency=%d",
-                    total_work, len(tiers), concurrency,
+                    "BATCHED epistemic enrichment: %d files in %d tiers, code_batch_size=%d, doc_batch_size=%d (%s profile)",
+                    total_work, len(tiers), code_batch_size, doc_batch_size, self._batch_profile.name.value,
                 )
                 for tier_idx, tier in enumerate(tiers):
                     # Cooperative cancellation check between tiers
                     if cancel_token and cancel_token.is_cancelled:
-                        logger.info("Epistemic enrichment paused/cancelled at tier %d/%d — flushing partial results", tier_idx, len(tiers))
+                        logger.info("Batched epistemic enrichment paused/cancelled at tier %d/%d — flushing partial results", tier_idx, len(tiers))
                         self._write_epistemic(enriched)
                         cancel_token.raise_if_cancelled()
 
-                    lock = threading.Lock()
-                    tier_done = 0
-                    tier_failed = 0
-                    last_checkpoint_count = 0
-                    INTRA_TIER_CHECKPOINT_EVERY = 25
-                    with ThreadPoolExecutor(max_workers=concurrency) as pool:
-                        futures = {
-                            pool.submit(
-                                self.enrich_node, node, edges, nodes_by_id, augmentations, enriched
-                            ): node
-                            for node in tier
-                        }
-                        for future in as_completed(futures):
-                            snapshot = None
-                            cur_done = cur_failed = 0
-                            try:
-                                entry = future.result()
-                                with lock:
-                                    if entry:
-                                        enriched[entry.node_id] = entry
-                                        tier_done += 1
-                                    else:
-                                        tier_failed += 1
-                                    cur_done, cur_failed = tier_done, tier_failed
-                                    completed_in_tier = tier_done + tier_failed
-                                    if completed_in_tier - last_checkpoint_count >= INTRA_TIER_CHECKPOINT_EVERY:
-                                        snapshot = dict(enriched)
-                                        last_checkpoint_count = completed_in_tier
-                            except Exception as e:
-                                logger.warning("Epistemic enrichment failed: %s", e)
-                                with lock:
-                                    tier_failed += 1
-                                    cur_done, cur_failed = tier_done, tier_failed
-                            if snapshot is not None:
-                                try:
-                                    self._write_epistemic(snapshot)
-                                    logger.debug(
-                                        "Intra-tier checkpoint: %d/%d in tier %d/%d (%d total enriched)",
-                                        cur_done + cur_failed, len(tier), tier_idx + 1, len(tiers), len(snapshot),
-                                    )
-                                except Exception as ce:
-                                    logger.warning("Intra-tier checkpoint failed: %s", ce)
-                            if progress_callback:
-                                progress_callback(
-                                    "epistemic_enrichment",
-                                    existing_count + done + cur_done + failed + cur_failed,
-                                    total_file_count,
-                                    existing_count,
-                                )
+                    tier_done, tier_failed = self._enrich_tier_batched(
+                        tier, edges, nodes_by_id, augmentations, enriched, code_batch_size, doc_batch_size,
+                        progress_callback=progress_callback,
+                        current_progress=existing_count + done + failed,
+                        total_progress=total_file_count,
+                        cancel_token=cancel_token,
+                        progress_baseline=existing_count,
+                    )
                     done += tier_done
                     failed += tier_failed
                     # Write checkpoint after each tier
                     self._write_epistemic(enriched)
-                    logger.info("Epistemic checkpoint saved after tier %d/%d (%d items so far)", tier_idx + 1, len(tiers), done)
+                    logger.info(
+                        "Tier %d/%d complete: %d enriched, %d failed (%d items in tier) — checkpoint saved",
+                        tier_idx + 1, len(tiers), tier_done, tier_failed, len(tier),
+                    )
                     if progress_callback:
                         progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count, existing_count)
+            else:
+                concurrency = _get_llm_concurrency("deep")
+
+                if concurrency <= 1:
+                    # Sort in reverse-topological order (leaves first)
+                    to_enrich = topological_sort_files(to_enrich, edges)
+
+                    # Sequential by design: each node's neighbor context reads from 'enriched',
+                    # which accumulates results from earlier nodes in topological order.
+                    # Parallelizing would break the cascading context benefit.
+                    for node in to_enrich:
+                        # Cooperative cancellation check
+                        if cancel_token and cancel_token.is_cancelled:
+                            logger.info("Epistemic enrichment paused/cancelled at %d/%d — flushing partial results", done, total_work)
+                            self._write_epistemic(enriched)
+                            cancel_token.raise_if_cancelled()
+
+                        entry = self.enrich_node(node, edges, nodes_by_id, augmentations, enriched)
+                        if entry:
+                            enriched[entry.node_id] = entry
+                            done += 1
+                        else:
+                            failed += 1
+
+                        if progress_callback:
+                            progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count, existing_count)
+
+                        # Periodic checkpoint to avoid losing progress on crash
+                        if done > 0 and done % 25 == 0:
+                            self._write_epistemic(enriched)
+                            logger.info("Epistemic checkpoint saved at %d/%d items", done, total_work)
+                else:
+                    # Tier-based concurrent enrichment: nodes within a tier are independent
+                    # (they only depend on earlier tiers), so they can be processed in parallel.
+                    # After each tier completes, results merge into 'enriched' before the next tier.
+                    tiers = topological_sort_into_tiers(to_enrich, edges)
+                    logger.info(
+                        "Concurrent epistemic enrichment: %d files in %d tiers, concurrency=%d",
+                        total_work, len(tiers), concurrency,
+                    )
+                    for tier_idx, tier in enumerate(tiers):
+                        # Cooperative cancellation check between tiers
+                        if cancel_token and cancel_token.is_cancelled:
+                            logger.info("Epistemic enrichment paused/cancelled at tier %d/%d — flushing partial results", tier_idx, len(tiers))
+                            self._write_epistemic(enriched)
+                            cancel_token.raise_if_cancelled()
+
+                        lock = threading.Lock()
+                        tier_done = 0
+                        tier_failed = 0
+                        last_checkpoint_count = 0
+                        INTRA_TIER_CHECKPOINT_EVERY = 25
+                        # Phase 127: a HoldPausedError on any worker means
+                        # the (project, endpoint) is on soft-hold.  Re-raise
+                        # to the outer try so the run can checkpoint and
+                        # exit cleanly without counting paused calls as
+                        # failures.
+                        _tier_pause: Optional[HoldPausedError] = None
+                        with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                            futures = {
+                                pool.submit(
+                                    self.enrich_node, node, edges, nodes_by_id, augmentations, enriched
+                                ): node
+                                for node in tier
+                            }
+                            for future in as_completed(futures):
+                                snapshot = None
+                                cur_done = cur_failed = 0
+                                try:
+                                    entry = future.result()
+                                    with lock:
+                                        if entry:
+                                            enriched[entry.node_id] = entry
+                                            tier_done += 1
+                                        else:
+                                            tier_failed += 1
+                                        cur_done, cur_failed = tier_done, tier_failed
+                                        completed_in_tier = tier_done + tier_failed
+                                        if completed_in_tier - last_checkpoint_count >= INTRA_TIER_CHECKPOINT_EVERY:
+                                            snapshot = dict(enriched)
+                                            last_checkpoint_count = completed_in_tier
+                                except HoldPausedError as hpe:
+                                    # Capture and break out — pause, not failure.
+                                    _tier_pause = hpe
+                                    with lock:
+                                        cur_done, cur_failed = tier_done, tier_failed
+                                except Exception as e:
+                                    logger.warning("Epistemic enrichment failed: %s", e)
+                                    with lock:
+                                        tier_failed += 1
+                                        cur_done, cur_failed = tier_done, tier_failed
+                                if snapshot is not None:
+                                    try:
+                                        self._write_epistemic(snapshot)
+                                        logger.debug(
+                                            "Intra-tier checkpoint: %d/%d in tier %d/%d (%d total enriched)",
+                                            cur_done + cur_failed, len(tier), tier_idx + 1, len(tiers), len(snapshot),
+                                        )
+                                    except Exception as ce:
+                                        logger.warning("Intra-tier checkpoint failed: %s", ce)
+                                if progress_callback:
+                                    progress_callback(
+                                        "epistemic_enrichment",
+                                        existing_count + done + cur_done + failed + cur_failed,
+                                        total_file_count,
+                                        existing_count,
+                                    )
+                                if _tier_pause is not None:
+                                    break
+                        done += tier_done
+                        failed += tier_failed
+                        # Write checkpoint after each tier
+                        self._write_epistemic(enriched)
+                        if _tier_pause is not None:
+                            raise _tier_pause
+                        logger.info("Epistemic checkpoint saved after tier %d/%d (%d items so far)", tier_idx + 1, len(tiers), done)
+                        if progress_callback:
+                            progress_callback("epistemic_enrichment", existing_count + done + failed, total_file_count, existing_count)
+        except HoldPausedError as hpe:
+            # Phase 127: a soft-hold paused this run.  Log ONCE at INFO
+            # level for operator visibility (per-dispatch checks log at
+            # DEBUG to avoid spam).  Flush whatever we have, signal
+            # paused=True in stats, return cleanly — caller treats this
+            # as "retry on next run", NOT as a permanent failure.
+            paused = True
+            pause_info = {
+                "project_id": hpe.project_id,
+                "endpoint_id": hpe.endpoint_id,
+            }
+            remaining = max(total_work - (done + failed), 0)
+            logger.info(
+                "Epistemic enrichment paused on soft-hold "
+                "(project=%s endpoint=%s) — %d enriched, %d remaining will retry next run",
+                hpe.project_id, hpe.endpoint_id, done, remaining,
+            )
+            self._write_epistemic(enriched)
 
         # Write atomically
         self._write_epistemic(enriched)
 
         duration_ms = (time.monotonic() - start) * 1000
 
-        if progress_callback:
+        if progress_callback and not paused:
             progress_callback("epistemic_complete", total_file_count, total_file_count)
 
-        stats = {
+        stats: Dict[str, Any] = {
             "total_file_nodes": len(file_nodes),
             "enriched_this_run": done,
             "failed_this_run": failed,
             "skipped": len(file_nodes) - total_work,
             "total_enriched": len(enriched),
             "duration_ms": round(duration_ms, 1),
+            "paused": paused,
         }
+        if pause_info is not None:
+            stats["pause_info"] = pause_info
 
-        logger.info(
-            "Epistemic enrichment complete: %d enriched, %d failed in %.1fs",
-            done, failed, duration_ms / 1000,
-        )
+        if paused:
+            logger.info(
+                "Epistemic enrichment paused: %d enriched, %d failed in %.1fs (will retry on next run)",
+                done, failed, duration_ms / 1000,
+            )
+        else:
+            logger.info(
+                "Epistemic enrichment complete: %d enriched, %d failed in %.1fs",
+                done, failed, duration_ms / 1000,
+            )
 
         return stats
 

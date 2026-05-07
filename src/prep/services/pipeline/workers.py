@@ -22,6 +22,7 @@ from .stages import (
     StageId, STAGE_TASK_ID, STAGE_MODEL_SLOT,
     STAGE_MANIFEST_FILE, STAGE_OUTPUT_FILE, STAGE_CONFIDENCE_FIELD,
 )
+from prep.services.pipeline.scheduler import pipeline_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +36,33 @@ def _capture_model_info(llm_client) -> Dict[str, Any]:
         return extract_model_info_from_llm_client(llm_client)
     except Exception:
         return {"model_name": getattr(llm_client, "model", "unknown")}
+
+
+def _should_dispatch_or_pause(
+    *,
+    project_id: str,
+    endpoint_id: str,
+    poll_interval_s: float = 1.0,
+    max_wait_s: float = 600.0,
+) -> bool:
+    """Phase 127 soft-hold check called by stage workers before each LLM
+    dispatch.
+
+    Returns True when the worker may dispatch (no hold OR hold cleared
+    within ``max_wait_s``).  Returns False if the hold is still active
+    after ``max_wait_s`` — caller should checkpoint and exit cleanly.
+
+    The poll interval is deliberately coarse; long-running LLM calls
+    don't notice this overhead because the check fires only between
+    dispatches.
+    """
+    deadline = time.monotonic() + max_wait_s
+    while True:
+        if not pipeline_scheduler.is_held(project_id, endpoint_id):
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(poll_interval_s)
 
 
 class PipelineRunPhase(str, enum.Enum):
@@ -445,11 +473,14 @@ class WorkerFactory:
                 repo_root=project.path,
                 llm_client=llm_client,
                 batch_profile=batch_profile,
+                project_id=project_id,
             )
             result = augmenter.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
+            paused = bool(getattr(result, "paused", False))
             logger.info(
-                "[%s/Fast Catalogue] Complete — %d augmented, %d failed, %d skipped",
+                "[%s/Fast Catalogue] Complete — %d augmented, %d failed, %d skipped%s",
                 project.name, result.augmented, result.failed, result.skipped,
+                " (paused on hold)" if paused else "",
             )
 
             if pfl:
@@ -466,8 +497,9 @@ class WorkerFactory:
                     "items_batched": result.items_batched,
                     "items_parsed": result.items_parsed,
                     "max_prompt_tokens": result.max_prompt_tokens,
+                    "paused": paused,
                 })
-            
+
             model_info = _capture_model_info(llm_client)
             if hasattr(result, "batches_attempted") and result.batches_attempted > 0:
                 model_info["telemetry"] = {
@@ -481,7 +513,13 @@ class WorkerFactory:
                     "parse_success_rate": round(result.items_parsed / result.items_batched * 100, 1) if result.items_batched else 0,
                     "synthetic_reasons": getattr(result, "synthetic_reasons", {}),
                 }
-                
+
+            # Phase 127: a paused run is NOT a failure — it stopped early
+            # because a soft-hold blocked dispatch.  In-flight calls
+            # finished, results were checkpointed, and the next run
+            # resumes when the hold clears.  Surface paused in the
+            # return dict so upstream stage-status logic can show
+            # "paused" instead of red "failed".
             return {
                 "stage": "catalogue",
                 "augmented": result.augmented,
@@ -489,6 +527,7 @@ class WorkerFactory:
                 "failed": result.failed,
                 "skipped": result.skipped,
                 "synthetic": result.synthetic,
+                "paused": paused,
                 "_model_info": model_info,
                 "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
             }
@@ -639,13 +678,15 @@ class WorkerFactory:
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
                 batch_profile=batch_profile,
+                project_id=project_id,
             )
             result = enricher.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             enriched = result.get("enriched_this_run", 0)
             failed = result.get("failed_this_run", 0)
+            paused = bool(result.get("paused"))
             logger.info(
-                "[%s/Deep Reasoning] Complete — enriched=%s, failed=%s",
-                project.name, enriched, failed,
+                "[%s/Deep Reasoning] Complete — enriched=%s, failed=%s%s",
+                project.name, enriched, failed, " (paused on hold)" if paused else "",
             )
 
             if pfl:
@@ -656,11 +697,19 @@ class WorkerFactory:
                     "skipped": result.get("skipped"),
                     "total_enriched": result.get("total_enriched"),
                     "duration_ms": result.get("duration_ms"),
+                    "paused": paused,
                 })
 
+            # Phase 127: a paused run is NOT a failure — it stopped early
+            # because a soft-hold blocked dispatch.  In-flight calls
+            # finished, results were checkpointed, and the next run
+            # resumes from that checkpoint when the hold clears.  Skip
+            # the failure heuristic in that case.
+            #
             # If we attempted enrichment but got 0 results with failures,
-            # treat this as a failure so the UI shows warning (not green).
-            if enriched == 0 and failed > 0:
+            # treat this as a real failure so the UI shows warning (not
+            # green).
+            if not paused and enriched == 0 and failed > 0:
                 raise RuntimeError(
                     f"Epistemic enrichment failed: 0 enriched, {failed} failed. "
                     "Check model availability, timeout settings, and num_predict."
@@ -939,6 +988,7 @@ class WorkerFactory:
                 llm=llm_client,
                 repo_root=Path(project.path),
                 index_dir=idx_dir,
+                project_id=project_id,
             )
             _t0 = time.time()
             logger.info("[%s/Deepening] Starting deepening loop: model=%s", project.name, llm_client.model)

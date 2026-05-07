@@ -25,6 +25,7 @@ from pathlib import Path
 from prep.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
+from prep.services.pipeline.holds import HoldPausedError
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,7 @@ class AugmentResult:
     tokens_used: int = 0
     duration_ms: float = 0.0
     errors: List[str] = field(default_factory=list)
-    
+
     # Telemetry for batching and context sizes
     batches_attempted: int = 0
     batches_failed: int = 0
@@ -162,12 +163,20 @@ class AugmentResult:
     max_prompt_tokens: int = 0
     total_prompt_tokens: int = 0
     model_ctx_size: int = 0
-    
+
     # Telemetry for granular exploratory tracking
     retry_telemetry: List[Dict[str, Any]] = field(default_factory=list)
-    
+
     # Synthetic tracking
     synthetic_reasons: Dict[str, List[str]] = field(default_factory=dict)
+
+    # Phase 127: soft-hold pause signaling.  When ``paused`` is True the
+    # run stopped early because a soft-hold blocked further LLM dispatch
+    # (exclusive priority on another project, or swarm window draining
+    # ours).  Callers should treat this as "retry on next run" rather
+    # than counting it as a permanent failure.
+    paused: bool = False
+    pause_info: Optional[Dict[str, str]] = None
 
 
 # LLMClient class is now in llm_client.py (re-exported above)
@@ -269,21 +278,57 @@ class TraceAugmenter:
         repo_root: str | Path,
         llm_client: LLMClient,
         batch_profile: Optional["BatchProfile"] = None,
+        project_id: Optional[str] = None,
     ):
         self.index_dir = Path(index_dir).resolve()
         self.repo_root = Path(repo_root).resolve()
         self.llm = llm_client
         self._batch_profile = batch_profile
+        # Phase 127: project_id lets us check soft-holds before each LLM
+        # dispatch.  None is acceptable (the hold check becomes a no-op
+        # because no project-keyed hold can match an empty project id).
+        self.project_id = project_id
 
         self.augmented_path = self.index_dir / "trace_augmented.jsonl"
         self.augment_manifest_path = self.index_dir / "trace_augment_manifest.json"
-        
+
         from prep.services.settings_store import settings
         self.is_exploratory = settings.get("exploratory_testing_mode", False)
-        
+
         from prep.core.batch_strategy import BatchRetryStrategy
         mode = "exploratory" if self.is_exploratory else "production"
         self.retry_strategy = BatchRetryStrategy(mode=mode)
+
+    def _hold_paused(self) -> bool:
+        """Phase 127: True when a soft-hold blocks this dispatch.
+
+        Delegates to :func:`prep.services.pipeline.holds.hold_paused_for_llm`
+        so the (project, scheduler-node-id) resolution and ``is_held``
+        check stays in one place — augmenter, epistemic enricher, and
+        swarm orchestrator share the same helper.  Returns False
+        (proceed) when no hold is active, no project_id is set, or the
+        endpoint can't be resolved.
+        """
+        from prep.services.pipeline.holds import hold_paused_for_llm
+        return hold_paused_for_llm(self.llm, self.project_id, logger)
+
+    def _raise_hold_paused(self) -> None:
+        """Raise :class:`HoldPausedError` with the resolved endpoint id.
+
+        Use at LLM call sites to disambiguate transient pause from
+        permanent failure: the augmenter's batch-fallback queue treats
+        ``Exception`` as "subdivide and retry", which would falsely
+        thrash on a held endpoint.  Raising ``HoldPausedError`` (which
+        callers re-raise rather than catch) ensures the run stops cleanly
+        and ``run()`` flushes a checkpoint before exiting.
+
+        Delegates to :func:`prep.services.pipeline.holds.raise_hold_paused_for_llm`
+        so the (project, endpoint) resolution and fallback strings stay
+        consistent across the three classes that share this pattern
+        (augmenter, epistemic enricher, swarm orchestrator).
+        """
+        from prep.services.pipeline.holds import raise_hold_paused_for_llm
+        raise_hold_paused_for_llm(self.llm, self.project_id)
 
     def _process_with_exploratory_fallback(
         self,
@@ -301,13 +346,13 @@ class TraceAugmenter:
         """
         from prep.core.batch_strategy import BatchedResponseParser
         import time
-        
+
         queue = [initial_items]
         final_results_by_id = {}
-        
+
         while queue:
             current_batch = queue.pop(0)
-            
+
             prompt = prompt_builder_fn(current_batch)
             prompt_tokens = len(prompt) // 4
             num_predict, num_ctx, warnings = compute_optimal_settings(
@@ -333,8 +378,16 @@ class TraceAugmenter:
             result.items_batched += len(current_batch)
             
             start_time = time.monotonic()
-            
+
             try:
+                # Phase 127: respect soft-holds before dispatching the batch.
+                # Raise HoldPausedError so the queue-subdivide retry path
+                # (the ``except Exception`` below) does NOT thrash on a
+                # held endpoint — the dedicated re-raise above lets it
+                # bubble to ``run()``.
+                if self._hold_paused():
+                    self._raise_hold_paused()
+
                 text, tokens = self.llm.generate(
                     prompt, system=system_msg,
                     num_predict=num_predict, num_ctx=num_ctx,
@@ -372,7 +425,11 @@ class TraceAugmenter:
                     "model": self.llm.model,
                     "stage": stage_name
                 })
-                
+
+            except HoldPausedError:
+                # Phase 127: pause is not a failure — bubble up to
+                # ``run()`` without subdividing the batch.
+                raise
             except Exception as e:
                 duration = (time.monotonic() - start_time) * 1000
                 error_type = "parse_error" if "parse" in str(e).lower() else "server_error"
@@ -700,11 +757,22 @@ class TraceAugmenter:
         last_err: Optional[Exception] = None
         for attempt in range(1 + max_retries):
             try:
+                # Phase 127: respect soft-holds.  Raise HoldPausedError
+                # rather than retrying — the retry loop should not burn
+                # attempts against a held endpoint.
+                if self._hold_paused():
+                    self._raise_hold_paused()
+
                 return self.llm.generate(
-                    prompt, system=system, 
+                    prompt, system=system,
                     num_predict=num_predict, num_ctx=num_ctx,
                     max_chars=TASK_MAX_CHARS["augmentation"],
                 )
+            except HoldPausedError:
+                # Phase 127: pause is not a failure — bubble up so the
+                # caller (augment_symbol / augment_file / run) can
+                # checkpoint and exit cleanly.
+                raise
             except Exception as e:
                 last_err = e
                 if attempt < max_retries:
@@ -753,6 +821,11 @@ class TraceAugmenter:
                 prompt, system=SYMBOL_SUMMARY_SYSTEM,
                 label=node.get("name", "?"),
             )
+        except HoldPausedError:
+            # Phase 127: pause is not a failure — bubble up so run()
+            # can checkpoint and exit cleanly without writing a
+            # synthetic-llm_failure entry that masks the pause.
+            raise
         except Exception as e:
             logger.warning("LLM call failed for %s after retries: %s", node.get("name"), e)
             return self._synthetic_entry(node, file_hashes, reason="llm_failure")
@@ -923,6 +996,10 @@ class TraceAugmenter:
                 prompt, system=FILE_ROLE_SYSTEM,
                 label=file_path,
             )
+        except HoldPausedError:
+            # Phase 127: pause is not a failure — bubble up so run()
+            # can checkpoint and exit cleanly.
+            raise
         except Exception as e:
             logger.warning("LLM call failed for file %s after retries: %s", file_path, e)
             return self._synthetic_entry(node, file_hashes, reason="llm_failure")
@@ -1005,6 +1082,10 @@ class TraceAugmenter:
                 prompt, system=DOC_ROLE_SYSTEM,
                 label=file_path,
             )
+        except HoldPausedError:
+            # Phase 127: pause is not a failure — bubble up so run()
+            # can checkpoint and exit cleanly.
+            raise
         except Exception as e:
             logger.warning("LLM call failed for doc %s after retries: %s", file_path, e)
             return self._synthetic_entry(node, file_hashes, reason="llm_failure")
@@ -1161,6 +1242,9 @@ class TraceAugmenter:
                         cancel_token.raise_if_cancelled()
                     try:
                         yield batch_items, _call_symbol_batch(batch_items)
+                    except HoldPausedError:
+                        # Phase 127: bubble up so run() can checkpoint.
+                        raise
                     except Exception as e:
                         logger.warning("Symbol batch failed: %s", e)
                         yield batch_items, [None] * len(batch_items)
@@ -1179,6 +1263,9 @@ class TraceAugmenter:
                         batch_items = future_to_items[future]
                         try:
                             yield batch_items, future.result()
+                        except HoldPausedError:
+                            # Phase 127: bubble up so run() can checkpoint.
+                            raise
                         except Exception as e:
                             logger.warning("Symbol batch future failed: %s", e)
                             yield batch_items, [None] * len(batch_items)
@@ -1329,6 +1416,9 @@ class TraceAugmenter:
                 for batch_items in code_batches:
                     try:
                         yield batch_items, _call_code_batch(batch_items)
+                    except HoldPausedError:
+                        # Phase 127: bubble up so run() can checkpoint.
+                        raise
                     except Exception as e:
                         logger.warning("Code batch failed: %s", e)
                         yield batch_items, [None] * len(batch_items)
@@ -1342,6 +1432,9 @@ class TraceAugmenter:
                         batch_items = future_to_items[future]
                         try:
                             yield batch_items, future.result()
+                        except HoldPausedError:
+                            # Phase 127: bubble up so run() can checkpoint.
+                            raise
                         except Exception as e:
                             logger.warning("Code batch future failed: %s", e)
                             yield batch_items, [None] * len(batch_items)
@@ -1444,6 +1537,9 @@ class TraceAugmenter:
                 for batch_items in doc_batches:
                     try:
                         yield batch_items, _call_doc_batch(batch_items)
+                    except HoldPausedError:
+                        # Phase 127: bubble up so run() can checkpoint.
+                        raise
                     except Exception as e:
                         logger.warning("Doc batch failed: %s", e)
                         yield batch_items, [None] * len(batch_items)
@@ -1457,6 +1553,9 @@ class TraceAugmenter:
                         batch_items = future_to_items[future]
                         try:
                             yield batch_items, future.result()
+                        except HoldPausedError:
+                            # Phase 127: bubble up so run() can checkpoint.
+                            raise
                         except Exception as e:
                             logger.warning("Doc batch future failed: %s", e)
                             yield batch_items, [None] * len(batch_items)
@@ -1617,6 +1716,24 @@ class TraceAugmenter:
 
         # Pre-flight: test LLM with a tiny prompt to catch model-loading
         # issues or missing models before committing to 2000+ sequential calls.
+        # Phase 127: when soft-held we skip the pre-flight (a held endpoint
+        # is "paused, not broken") and signal pause to the caller.
+        if self._hold_paused():
+            from prep.services.pipeline.holds import resolve_endpoint_id_for_llm
+            endpoint_id = resolve_endpoint_id_for_llm(self.llm) or "<unresolved>"
+            result.paused = True
+            result.pause_info = {
+                "project_id": self.project_id or "<unset>",
+                "endpoint_id": endpoint_id,
+            }
+            result.skipped = result.total_nodes - total_work
+            logger.info(
+                "Augmentation paused on soft-hold before pre-flight "
+                "(project=%s endpoint=%s) — 0 augmented, %d remaining will retry next run",
+                self.project_id or "<unset>", endpoint_id, total_work,
+            )
+            return result
+
         logger.info("Pre-flight LLM test...")
         try:
             preflight_start = time.monotonic()
@@ -1673,154 +1790,209 @@ class TraceAugmenter:
             and self._batch_profile.name.value != "off"
         )
 
-        # Pass 1: Symbol augmentation
-        if use_batching and to_augment_symbols:
-            logger.info("Pass 1: BATCHED symbol augmentation (%d symbols, profile=%s)",
-                        len(to_augment_symbols), self._batch_profile.name.value)
-            done = self._augment_symbols_batched(
-                to_augment_symbols, edges, nodes_by_id, file_hashes,
-                augmented, result, done, total_work, progress_callback,
-                cancel_token,
-            )
-        elif to_augment_symbols:
-            concurrency = _get_llm_concurrency("fast")
-            logger.info("Pass 1: augmenting %d symbols (concurrency=%d)...", len(to_augment_symbols), concurrency)
+        # Phase 127: when a HoldPausedError bubbles up from any LLM call
+        # site, we catch it once at run-level, log one INFO line, flush
+        # a checkpoint, and exit cleanly with paused=True.  workers.py
+        # treats paused as "retry on next run", NOT a permanent failure
+        # that would trip circuit breakers.
+        try:
+            # Pass 1: Symbol augmentation
+            if use_batching and to_augment_symbols:
+                logger.info("Pass 1: BATCHED symbol augmentation (%d symbols, profile=%s)",
+                            len(to_augment_symbols), self._batch_profile.name.value)
+                done = self._augment_symbols_batched(
+                    to_augment_symbols, edges, nodes_by_id, file_hashes,
+                    augmented, result, done, total_work, progress_callback,
+                    cancel_token,
+                )
+            elif to_augment_symbols:
+                concurrency = _get_llm_concurrency("fast")
+                logger.info("Pass 1: augmenting %d symbols (concurrency=%d)...", len(to_augment_symbols), concurrency)
 
-            if concurrency <= 1:
-                # Sequential symbol augmentation
-                for node in to_augment_symbols:
-                    # Cooperative cancellation check
-                    if cancel_token and cancel_token.is_cancelled:
-                        logger.info("Augmentation paused/cancelled at %d/%d — flushing partial results", done, total_work)
-                        self._write_augmentations(augmented)
-                        cancel_token.raise_if_cancelled()
+                if concurrency <= 1:
+                    # Sequential symbol augmentation
+                    for node in to_augment_symbols:
+                        # Cooperative cancellation check
+                        if cancel_token and cancel_token.is_cancelled:
+                            logger.info("Augmentation paused/cancelled at %d/%d — flushing partial results", done, total_work)
+                            self._write_augmentations(augmented)
+                            cancel_token.raise_if_cancelled()
 
-                    if progress_callback:
-                        progress_callback("augment_symbols", done, total_work)
+                        if progress_callback:
+                            progress_callback("augment_symbols", done, total_work)
 
-                    item_start = time.monotonic()
-                    entry = self.augment_symbol(node, edges, nodes_by_id, file_hashes)
-                    item_elapsed = time.monotonic() - item_start
-                    if entry:
-                        augmented[entry.node_id] = entry
-                        if entry.model.startswith("synthetic:"):
-                            result.synthetic += 1
-                        else:
-                            result.augmented += 1
-                    else:
-                        result.failed += 1
-                    done += 1
-
-                    if done == 1:
-                        logger.info(
-                            "First LLM call %s (%.1fs) — node: %s",
-                            "succeeded" if entry else "FAILED", item_elapsed, node.get("id", "?"),
-                        )
-
-                    # Periodic checkpoint to avoid losing progress on crash
-                    if done % checkpoint_interval == 0:
-                        self._write_augmentations(augmented)
-                        logger.info("Checkpoint saved at %d/%d items", done, total_work)
-            else:
-                # Concurrent symbol augmentation via thread pool
-                lock = threading.Lock()
-                with ThreadPoolExecutor(max_workers=concurrency) as pool:
-                    futures = {
-                        pool.submit(self.augment_symbol, node, edges, nodes_by_id, file_hashes): node
-                        for node in to_augment_symbols
-                    }
-                    for future in as_completed(futures):
-                        try:
-                            entry = future.result()
-                        except Exception as e:
-                            logger.warning("Symbol augmentation thread failed: %s", e)
-                            entry = None
-                        with lock:
-                            if entry:
-                                augmented[entry.node_id] = entry
-                                if entry.model.startswith("synthetic:"):
-                                    result.synthetic += 1
-                                else:
-                                    result.augmented += 1
+                        item_start = time.monotonic()
+                        entry = self.augment_symbol(node, edges, nodes_by_id, file_hashes)
+                        item_elapsed = time.monotonic() - item_start
+                        if entry:
+                            augmented[entry.node_id] = entry
+                            if entry.model.startswith("synthetic:"):
+                                result.synthetic += 1
                             else:
-                                result.failed += 1
-                            done += 1
-                            if progress_callback:
-                                progress_callback("augment_symbols", done, total_work)
-                            if done % checkpoint_interval == 0:
-                                self._write_augmentations(augmented)
-                                logger.info("Checkpoint saved at %d/%d items", done, total_work)
-
-        # Pass 2: File augmentation
-
-        if use_batching and to_augment_files:
-            logger.info("Pass 2: BATCHED file augmentation (%d files, profile=%s)",
-                        len(to_augment_files), self._batch_profile.name.value)
-            done = self._augment_files_batched(
-                to_augment_files, edges, nodes_by_id, file_hashes,
-                augmented, result, done, total_work, progress_callback,
-                cancel_token=cancel_token,
-            )
-        elif to_augment_files:
-            # Individual file augmentation (local models / batching off)
-            concurrency = _get_llm_concurrency("fast")
-            logger.info("Pass 2: augmenting %d files (concurrency=%d)...", len(to_augment_files), concurrency)
-
-            if concurrency <= 1:
-                # Sequential (default)
-                for node in to_augment_files:
-                    # Cooperative cancellation check
-                    if cancel_token and cancel_token.is_cancelled:
-                        logger.info("Augmentation paused/cancelled at %d/%d — flushing partial results", done, total_work)
-                        self._write_augmentations(augmented)
-                        cancel_token.raise_if_cancelled()
-
-                    if progress_callback:
-                        progress_callback("augment_files", done, total_work)
-
-                    item_start = time.monotonic()
-                    entry = self.augment_file(node, edges, nodes_by_id, file_hashes)
-                    item_elapsed = time.monotonic() - item_start
-                    if entry:
-                        augmented[entry.node_id] = entry
-                        if entry.model.startswith("synthetic:"):
-                            result.synthetic += 1
+                                result.augmented += 1
                         else:
-                            result.augmented += 1
-                    else:
-                        result.failed += 1
-                    done += 1
+                            result.failed += 1
+                        done += 1
 
-                    # Periodic checkpoint to avoid losing progress on crash
-                    if done % checkpoint_interval == 0:
-                        self._write_augmentations(augmented)
-                        logger.info("Checkpoint saved at %d/%d items", done, total_work)
-            else:
-                # Concurrent LLM calls via thread pool
-                lock = threading.Lock()
-                with ThreadPoolExecutor(max_workers=concurrency) as pool:
-                    futures = {
-                        pool.submit(self.augment_file, node, edges, nodes_by_id, file_hashes): node
-                        for node in to_augment_files
-                    }
-                    for future in as_completed(futures):
-                        entry = future.result()
-                        with lock:
-                            if entry:
-                                augmented[entry.node_id] = entry
-                                if entry.model.startswith("synthetic:"):
-                                    result.synthetic += 1
+                        if done == 1:
+                            logger.info(
+                                "First LLM call %s (%.1fs) — node: %s",
+                                "succeeded" if entry else "FAILED", item_elapsed, node.get("id", "?"),
+                            )
+
+                        # Periodic checkpoint to avoid losing progress on crash
+                        if done % checkpoint_interval == 0:
+                            self._write_augmentations(augmented)
+                            logger.info("Checkpoint saved at %d/%d items", done, total_work)
+                else:
+                    # Concurrent symbol augmentation via thread pool.
+                    # Phase 127: a HoldPausedError on any worker means the
+                    # (project, endpoint) is on soft-hold.  Re-raise to the
+                    # outer try so the run can checkpoint and exit cleanly
+                    # without counting paused calls as failures.
+                    _sym_pause: Optional[HoldPausedError] = None
+                    lock = threading.Lock()
+                    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                        futures = {
+                            pool.submit(self.augment_symbol, node, edges, nodes_by_id, file_hashes): node
+                            for node in to_augment_symbols
+                        }
+                        for future in as_completed(futures):
+                            try:
+                                entry = future.result()
+                            except HoldPausedError as hpe:
+                                _sym_pause = hpe
+                                entry = None
+                            except Exception as e:
+                                logger.warning("Symbol augmentation thread failed: %s", e)
+                                entry = None
+                            if _sym_pause is not None:
+                                # Stop submitting / collecting further results;
+                                # break out so the outer try can re-raise.
+                                pool.shutdown(wait=False, cancel_futures=True)
+                                break
+                            with lock:
+                                if entry:
+                                    augmented[entry.node_id] = entry
+                                    if entry.model.startswith("synthetic:"):
+                                        result.synthetic += 1
+                                    else:
+                                        result.augmented += 1
                                 else:
-                                    result.augmented += 1
+                                    result.failed += 1
+                                done += 1
+                                if progress_callback:
+                                    progress_callback("augment_symbols", done, total_work)
+                                if done % checkpoint_interval == 0:
+                                    self._write_augmentations(augmented)
+                                    logger.info("Checkpoint saved at %d/%d items", done, total_work)
+                    if _sym_pause is not None:
+                        raise _sym_pause
+
+            # Pass 2: File augmentation
+
+            if use_batching and to_augment_files:
+                logger.info("Pass 2: BATCHED file augmentation (%d files, profile=%s)",
+                            len(to_augment_files), self._batch_profile.name.value)
+                done = self._augment_files_batched(
+                    to_augment_files, edges, nodes_by_id, file_hashes,
+                    augmented, result, done, total_work, progress_callback,
+                    cancel_token=cancel_token,
+                )
+            elif to_augment_files:
+                # Individual file augmentation (local models / batching off)
+                concurrency = _get_llm_concurrency("fast")
+                logger.info("Pass 2: augmenting %d files (concurrency=%d)...", len(to_augment_files), concurrency)
+
+                if concurrency <= 1:
+                    # Sequential (default)
+                    for node in to_augment_files:
+                        # Cooperative cancellation check
+                        if cancel_token and cancel_token.is_cancelled:
+                            logger.info("Augmentation paused/cancelled at %d/%d — flushing partial results", done, total_work)
+                            self._write_augmentations(augmented)
+                            cancel_token.raise_if_cancelled()
+
+                        if progress_callback:
+                            progress_callback("augment_files", done, total_work)
+
+                        item_start = time.monotonic()
+                        entry = self.augment_file(node, edges, nodes_by_id, file_hashes)
+                        item_elapsed = time.monotonic() - item_start
+                        if entry:
+                            augmented[entry.node_id] = entry
+                            if entry.model.startswith("synthetic:"):
+                                result.synthetic += 1
                             else:
-                                result.failed += 1
-                            done += 1
-                            if progress_callback:
-                                progress_callback("augment_files", done, total_work)
-                            # Periodic checkpoint to avoid losing progress on crash
-                            if done % checkpoint_interval == 0:
-                                self._write_augmentations(augmented)
-                                logger.info("Checkpoint saved at %d/%d items", done, total_work)
+                                result.augmented += 1
+                        else:
+                            result.failed += 1
+                        done += 1
+
+                        # Periodic checkpoint to avoid losing progress on crash
+                        if done % checkpoint_interval == 0:
+                            self._write_augmentations(augmented)
+                            logger.info("Checkpoint saved at %d/%d items", done, total_work)
+                else:
+                    # Concurrent LLM calls via thread pool.
+                    # Phase 127: a HoldPausedError on any worker means the
+                    # (project, endpoint) is on soft-hold.  Re-raise to the
+                    # outer try so the run can checkpoint and exit cleanly.
+                    _file_pause: Optional[HoldPausedError] = None
+                    lock = threading.Lock()
+                    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+                        futures = {
+                            pool.submit(self.augment_file, node, edges, nodes_by_id, file_hashes): node
+                            for node in to_augment_files
+                        }
+                        for future in as_completed(futures):
+                            try:
+                                entry = future.result()
+                            except HoldPausedError as hpe:
+                                _file_pause = hpe
+                                entry = None
+                            except Exception as e:
+                                logger.warning("File augmentation thread failed: %s", e)
+                                entry = None
+                            if _file_pause is not None:
+                                pool.shutdown(wait=False, cancel_futures=True)
+                                break
+                            with lock:
+                                if entry:
+                                    augmented[entry.node_id] = entry
+                                    if entry.model.startswith("synthetic:"):
+                                        result.synthetic += 1
+                                    else:
+                                        result.augmented += 1
+                                else:
+                                    result.failed += 1
+                                done += 1
+                                if progress_callback:
+                                    progress_callback("augment_files", done, total_work)
+                                # Periodic checkpoint to avoid losing progress on crash
+                                if done % checkpoint_interval == 0:
+                                    self._write_augmentations(augmented)
+                                    logger.info("Checkpoint saved at %d/%d items", done, total_work)
+                    if _file_pause is not None:
+                        raise _file_pause
+        except HoldPausedError as hpe:
+            # Phase 127: a soft-hold paused this run.  Log ONCE at INFO
+            # level for operator visibility (per-dispatch checks log at
+            # DEBUG to avoid spam).  Flush whatever we have, signal
+            # paused=True in the AugmentResult, return cleanly — caller
+            # treats this as "retry on next run", NOT a permanent failure.
+            result.paused = True
+            result.pause_info = {
+                "project_id": hpe.project_id,
+                "endpoint_id": hpe.endpoint_id,
+            }
+            remaining = max(total_work - done, 0)
+            logger.info(
+                "Augmentation paused on soft-hold "
+                "(project=%s endpoint=%s) — %d processed, %d remaining will retry next run",
+                hpe.project_id, hpe.endpoint_id, done, remaining,
+            )
+            self._write_augmentations(augmented)
 
         # Collect unreadable file paths (synthetic entries)
         for entry in augmented.values():
@@ -1855,14 +2027,23 @@ class TraceAugmenter:
 
         result.duration_ms = (time.monotonic() - start) * 1000
 
-        if progress_callback:
+        # Phase 127: skip the "complete" progress_callback when paused —
+        # we did not finish the work, the next run will resume.
+        if progress_callback and not result.paused:
             progress_callback("augment_complete", total_work, total_work)
 
-        logger.info(
-            "Augmentation complete: %d augmented, %d synthetic, %d skipped, %d failed in %.1fs",
-            result.augmented, result.synthetic, result.skipped, result.failed,
-            result.duration_ms / 1000,
-        )
+        if result.paused:
+            logger.info(
+                "Augmentation paused: %d augmented, %d synthetic, %d failed in %.1fs (will retry on next run)",
+                result.augmented, result.synthetic, result.failed,
+                result.duration_ms / 1000,
+            )
+        else:
+            logger.info(
+                "Augmentation complete: %d augmented, %d synthetic, %d skipped, %d failed in %.1fs",
+                result.augmented, result.synthetic, result.skipped, result.failed,
+                result.duration_ms / 1000,
+            )
         return result
 
     def run_pass_05(

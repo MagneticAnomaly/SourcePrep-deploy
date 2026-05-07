@@ -959,6 +959,12 @@ class ClusterSynthesizer:
         self._batch_profile = batch_profile
         self.modules_path = index_dir / "trace_modules.jsonl"
         self.project_id = project_id
+        # Phase 127: stash slots for swarm pause signaling.  Initialized
+        # here (instead of relying on getattr fallbacks at the read site)
+        # so a "never set" foot-gun can't silently mask a regression.
+        # Updated by _run_swarm() after each swarm execution.
+        self._last_swarm_paused: bool = False
+        self._last_swarm_pause_info: Dict[str, str] = {}
 
     def _get_swarm_enabled(self) -> bool:
         """Check if swarm is enabled in pipeline settings."""
@@ -1341,6 +1347,10 @@ class ClusterSynthesizer:
             synthesis_timeout_s=240.0 if is_cloud else 180.0,
             worker_timeout_s=180.0 if is_cloud else 300.0,
             max_wall_time_s=900.0 if is_cloud else 1800.0,
+            # Phase 127: pass project_id so the swarm honors soft-holds
+            # at coord→fanout / fanout→synth boundaries.  Empty string
+            # is fine — hold check is a no-op without a project key.
+            project_id=self.project_id or None,
         )
 
         # Build WorkItems
@@ -1427,6 +1437,7 @@ class ClusterSynthesizer:
             worker_fn=worker_fn,
             synthesis_prompt=synthesis_prompt,
             progress_fn=progress_fn,
+            project_id=self.project_id or None,
         )
 
         if result is None:
@@ -1440,6 +1451,25 @@ class ClusterSynthesizer:
                     modules[entry.module_id] = entry
                 except (KeyError, ValueError) as exc:
                     logger.warning("Failed to parse cluster worker result for %s: %s", wr.item_id, exc)
+
+        # Phase 127: stash pause signal on self so the calling stage
+        # can short-circuit instead of falling through to the
+        # sequential/batched path (which would re-engage the held
+        # endpoint).  Partial modules are still returned to the caller
+        # for incremental write; the next run resumes the rest.
+        if result.paused:
+            self._last_swarm_paused = True
+            self._last_swarm_pause_info = result.pause_info or {}
+            info = result.pause_info or {}
+            logger.info(
+                "[Swarm/Cluster] paused on soft-hold "
+                "(project=%s endpoint=%s) — %d/%d clusters completed at pause",
+                info.get("project_id", "?"), info.get("endpoint_id", "?"),
+                len(modules), len(items),
+            )
+        else:
+            self._last_swarm_paused = False
+            self._last_swarm_pause_info = {}
 
         if result.synthesis:
             self._write_cluster_synthesis(result)
@@ -1787,6 +1817,32 @@ class ClusterSynthesizer:
             swarm_modules = self._run_swarm(
                 to_synthesize, epistemic, edges, progress_callback, cancel_token,
             )
+            # Phase 127: if the swarm paused on a soft-hold, persist
+            # whatever partial modules we collected and return
+            # ``paused=True`` immediately — DO NOT fall through to the
+            # batched/sequential paths, which would re-engage the same
+            # held endpoint.
+            if getattr(self, "_last_swarm_paused", False):
+                if swarm_modules:
+                    modules.update(swarm_modules)
+                    _deduplicate_module_names(modules)
+                    self._write_modules(modules)
+                synthesized = len(swarm_modules)
+                duration_ms = (time.monotonic() - start) * 1000
+                return {
+                    "clusters": total_work,
+                    "synthesized": synthesized,
+                    "reused": reused,
+                    "failed": 0,
+                    "remaining": len(to_synthesize) - synthesized,
+                    "total_files_clustered": sum(
+                        len(m.member_files) for m in modules.values()
+                    ),
+                    "duration_ms": round(duration_ms, 1),
+                    "swarm": True,
+                    "paused": True,
+                    "pause_info": getattr(self, "_last_swarm_pause_info", {}),
+                }
             if swarm_modules:
                 modules.update(swarm_modules)
                 synthesized = len(swarm_modules)

@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from prep.core.llm_client import LLMClient, _parse_json_response
 from prep.core.swarm_event_logger import SwarmEventLogger, default_log_dir
+from prep.services.pipeline.holds import HoldPausedError
 from prep.services.token_telemetry import set_swarm_role
 
 logger = logging.getLogger(__name__)
@@ -100,6 +101,14 @@ class SwarmResult:
     # logger could not initialize (e.g. read-only data_dir).
     event_log_path: Optional[str] = None
 
+    # Phase 127: soft-hold pause signaling.  When ``paused`` is True the
+    # swarm exited at a phase boundary because a soft-hold blocked
+    # further LLM dispatch (exclusive priority on another project, or
+    # swarm window draining ours).  Callers should treat this as
+    # "retry on next run" rather than counting it as a permanent failure.
+    paused: bool = False
+    pause_info: Optional[Dict[str, str]] = None
+
 
 # ---------------------------------------------------------------------------
 # Orchestrator
@@ -146,6 +155,7 @@ class SwarmOrchestrator:
         synthesis_timeout_s: Optional[float] = None,
         worker_timeout_s: Optional[float] = None,
         max_wall_time_s: Optional[float] = None,
+        project_id: Optional[str] = None,
     ) -> None:
         # Resolve LLMs.  New-style callers pass coordinator_llm + worker_llm.
         # Legacy callers (and tests) still use llm=.  If coordinator_llm is
@@ -189,6 +199,47 @@ class SwarmOrchestrator:
             if max_wall_time_s is not None
             else self.DEFAULT_MAX_WALL_TIME_S
         )
+        # Phase 127: project_id lets us check soft-holds at phase
+        # boundaries.  None is acceptable (the hold check becomes a no-op
+        # because no project-keyed hold can match an empty project id).
+        # ``execute()`` accepts a project_id kwarg too — when provided
+        # there it overrides this for the duration of that call (e.g.
+        # event-log routing).
+        self.project_id = project_id
+
+    def _hold_paused(self) -> bool:
+        """Phase 127: True when a soft-hold blocks this swarm.
+
+        Delegates to :func:`prep.services.pipeline.holds.hold_paused_for_llm`
+        so the (project, scheduler-node-id) resolution and ``is_held``
+        check stays in one place — augmenter, epistemic enricher, and
+        swarm orchestrator share the same helper.  We gate against
+        ``worker_llm`` since the fan-out phase consumes the bulk of
+        capacity; coord and synth typically share the same endpoint
+        family in practice.  Returns False (proceed) when no hold is
+        active, no project_id is set, or the endpoint can't be resolved.
+        """
+        from prep.services.pipeline.holds import hold_paused_for_llm
+        return hold_paused_for_llm(self.worker_llm, self.project_id, logger)
+
+    def _raise_hold_paused(self) -> None:
+        """Raise :class:`HoldPausedError` with the resolved endpoint id.
+
+        Use at phase boundaries (coord→fanout, fanout→synth) to exit
+        cleanly when a soft-hold takes effect mid-swarm.  ``execute()``
+        catches at run-level and returns a ``paused=True`` SwarmResult
+        so callers (group_reasoning, cluster, atlas, concept_seeder)
+        treat the pause as "retry next run" rather than as a permanent
+        swarm failure.
+
+        Delegates to :func:`prep.services.pipeline.holds.raise_hold_paused_for_llm`
+        so the (project, endpoint) resolution and fallback strings stay
+        consistent across the three classes that share this pattern.
+        Uses ``self.worker_llm`` (not ``self.llm``) since fan-out is the
+        bulk-capacity phase the holds primarily target.
+        """
+        from prep.services.pipeline.holds import raise_hold_paused_for_llm
+        raise_hold_paused_for_llm(self.worker_llm, self.project_id)
 
     def _llm_call_with_timeout(
         self,
@@ -665,6 +716,15 @@ class SwarmOrchestrator:
         t0 = time.monotonic()
         stats = SwarmStats(total_items=len(items))
 
+        # Phase 127: prefer the per-call ``project_id`` kwarg (used by
+        # the event logger) over ``self.project_id`` set in __init__,
+        # so callers can override on a per-execute basis.  Save and
+        # restore around the call so the helper methods (_hold_paused,
+        # _raise_hold_paused) see the right project for the duration.
+        _saved_project_id = self.project_id
+        if project_id:
+            self.project_id = project_id
+
         # ------------------------------------------------------------------
         # Phase 119: per-swarm-execution event log.  Best-effort — every
         # call site is wrapped in try/except inside the helper, so a
@@ -677,60 +737,111 @@ class SwarmOrchestrator:
                 event_log = SwarmEventLogger(
                     run_id=run_id or f"adhoc-{int(t0 * 1000) & 0xFFFFFFFF:08x}",
                     stage=stage or "swarm",
-                    project_id=project_id or "unknown",
+                    project_id=self.project_id or "unknown",
                     log_dir=resolved_log_dir,
                 )
             except Exception:
                 logger.debug("swarm event logger init failed", exc_info=True)
                 event_log = None
 
-        # Phase 1: Coordinate (with timeout, may return empty plan)
-        plan, coordinator_tokens = self._coordinate(
-            items, coordinator_prompt, event_log=event_log,
-        )
-        if plan is None:
+        # Phase 127: if we're already on soft-hold before any work
+        # begins, exit immediately with paused=True — don't burn the
+        # coordinator LLM call against a held endpoint.
+        plan: Optional[CoordinatorPlan] = None
+        coordinator_tokens = 0
+        worker_results: List[WorkerResult] = []
+        synthesis: Optional[Dict[str, Any]] = None
+        synthesis_tokens = 0
+        paused = False
+        pause_info: Optional[Dict[str, str]] = None
+
+        try:
+            if self._hold_paused():
+                self._raise_hold_paused()
+
+            # Phase 1: Coordinate (with timeout, may return empty plan)
+            plan, coordinator_tokens = self._coordinate(
+                items, coordinator_prompt, event_log=event_log,
+            )
+            if plan is None:
+                logger.info(
+                    "[Swarm] Coordinator failed/timed out — proceeding with "
+                    "default assignments for %d items",
+                    len(items),
+                )
+                plan = CoordinatorPlan(assignments=[])  # fan-out fills defaults
+            stats.coordinator_tokens = coordinator_tokens
+
+            # Phase 127: phase boundary — coord → fanout.  If a hold
+            # took effect during coord, exit cleanly before fanout
+            # spends N parallel worker calls against a held endpoint.
+            if self._hold_paused():
+                self._raise_hold_paused()
+
+            # Phase 2: Fan-out (t0 passed for overall wall-time tracking)
+            logger.info("[Swarm] Entering fan-out phase (%d items)", len(items))
+            if event_log is not None:
+                event_log.phase_start("fanout",
+                                      model=getattr(self.worker_llm, "model", None),
+                                      n_items=len(items))
+            fan_t0 = time.monotonic()
+            worker_results = self._fan_out(
+                items, plan, worker_fn, progress_fn, t0=t0, event_log=event_log,
+            )
+            if event_log is not None:
+                event_log.phase_end(
+                    "fanout",
+                    success=any(r.success for r in worker_results),
+                    duration_s=time.monotonic() - fan_t0,
+                    n_succeeded=sum(1 for r in worker_results if r.success),
+                    n_total=len(worker_results),
+                )
+            logger.info("[Swarm] Fan-out returned: %d results", len(worker_results))
+
+            for r in worker_results:
+                if r.success:
+                    stats.workers_succeeded += 1
+                else:
+                    stats.workers_failed += 1
+
+            # Phase 127: phase boundary — fanout → synth.  If a hold
+            # took effect during fanout, skip synthesis.  Worker
+            # results gathered so far are preserved on the SwarmResult
+            # and callers can salvage them on retry.
+            if self._hold_paused():
+                self._raise_hold_paused()
+
+            # Phase 3: Synthesize
+            logger.info("[Swarm] Entering synthesis phase (%d/%d succeeded)",
+                        stats.workers_succeeded, len(worker_results))
+            synthesis, synthesis_tokens = self._synthesize(
+                worker_results, synthesis_prompt, event_log=event_log,
+            )
+            logger.info("[Swarm] Synthesis returned (tokens=%d)", synthesis_tokens)
+            stats.synthesis_tokens = synthesis_tokens
+        except HoldPausedError as hpe:
+            # Phase 127: a soft-hold paused this swarm at a phase
+            # boundary.  Log ONCE at INFO level for operator visibility
+            # (per-dispatch checks log at DEBUG to avoid spam).  Salvage
+            # whatever worker results we have, signal paused=True, and
+            # return cleanly — caller treats this as "retry on next run"
+            # rather than counting it as a permanent failure.
+            paused = True
+            pause_info = {
+                "project_id": hpe.project_id,
+                "endpoint_id": hpe.endpoint_id,
+            }
+            n_done = sum(1 for r in worker_results if r.success)
             logger.info(
-                "[Swarm] Coordinator failed/timed out — proceeding with "
-                "default assignments for %d items",
-                len(items),
+                "Swarm paused on soft-hold (project=%s endpoint=%s) — "
+                "%d/%d workers done at pause, %d remaining will retry next run",
+                hpe.project_id, hpe.endpoint_id,
+                n_done, len(items), max(len(items) - len(worker_results), 0),
             )
-            plan = CoordinatorPlan(assignments=[])  # fan-out fills defaults
-        stats.coordinator_tokens = coordinator_tokens
-
-        # Phase 2: Fan-out (t0 passed for overall wall-time tracking)
-        logger.info("[Swarm] Entering fan-out phase (%d items)", len(items))
-        if event_log is not None:
-            event_log.phase_start("fanout",
-                                  model=getattr(self.worker_llm, "model", None),
-                                  n_items=len(items))
-        fan_t0 = time.monotonic()
-        worker_results = self._fan_out(
-            items, plan, worker_fn, progress_fn, t0=t0, event_log=event_log,
-        )
-        if event_log is not None:
-            event_log.phase_end(
-                "fanout",
-                success=any(r.success for r in worker_results),
-                duration_s=time.monotonic() - fan_t0,
-                n_succeeded=sum(1 for r in worker_results if r.success),
-                n_total=len(worker_results),
-            )
-        logger.info("[Swarm] Fan-out returned: %d results", len(worker_results))
-
-        for r in worker_results:
-            if r.success:
-                stats.workers_succeeded += 1
-            else:
-                stats.workers_failed += 1
-
-        # Phase 3: Synthesize
-        logger.info("[Swarm] Entering synthesis phase (%d/%d succeeded)",
-                    stats.workers_succeeded, len(worker_results))
-        synthesis, synthesis_tokens = self._synthesize(
-            worker_results, synthesis_prompt, event_log=event_log,
-        )
-        logger.info("[Swarm] Synthesis returned (tokens=%d)", synthesis_tokens)
-        stats.synthesis_tokens = synthesis_tokens
+        finally:
+            # Restore project_id in case execute() is called again with
+            # different kwargs.
+            self.project_id = _saved_project_id
 
         stats.wall_clock_seconds = time.monotonic() - t0
 
@@ -740,6 +851,8 @@ class SwarmOrchestrator:
             coordinator_plan=plan,
             stats=stats,
             event_log_path=str(event_log.path) if event_log and event_log.path else None,
+            paused=paused,
+            pause_info=pause_info,
         )
 
         # Per-session summary line — closes out the JSONL file with the

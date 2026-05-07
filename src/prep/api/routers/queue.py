@@ -105,10 +105,10 @@ def _build_queue_item(
             # Phase 119+ correction: two complementary signals.
             # (a) scheduler swarm window matches — bureaucratic auth.
             # (b) any live call tagged with swarm_role — runtime truth
-            #     that survives the scheduler's 45s cooldown gate
-            #     (which blocks new windows between back-to-back
-            #     swarm stages even when SwarmOrchestrator is
-            #     genuinely running phases).
+            #     that covers the brief gap between SwarmOrchestrator
+            #     phase transitions where the window may not yet be
+            #     opened/closed in the scheduler. Defensive belt-and-
+            #     suspenders; both signals usually agree.
             role_tagged = sum(
                 1 for r in telemetry.get_active_requests()
                 if r.get("project_id") == project_id and r.get("swarm_role")
@@ -116,6 +116,34 @@ def _build_queue_item(
             is_swarm = window_matches or role_tagged > 0
         except Exception:
             pass
+
+    # Phase 127 Sub-phase 4: surface hold state per (project, primary node).
+    # Queue items always have a node_id from concurrent_workers_for_project,
+    # so we look up the hold against that node — no fallback needed.
+    is_held = False
+    held_reason: str | None = None
+    if node_id:
+        try:
+            is_held = pipeline_scheduler.is_held(project_id, node_id)
+            if is_held:
+                for h in pipeline_scheduler.list_holds():
+                    if (
+                        h["project_id"] == project_id
+                        and h["endpoint_id"] == node_id
+                    ):
+                        held_reason = (
+                            f"{h['reason']}_by_{h['set_by_project']}"
+                        )
+                        break
+        except Exception:
+            pass
+
+    if is_held:
+        item_state = "held"
+    elif is_swarm:
+        item_state = "swarm_active"
+    else:
+        item_state = phase or "running"
 
     return {
         "project_id": project_id,
@@ -130,6 +158,9 @@ def _build_queue_item(
         "compute_node": node_id,
         "concurrent_workers": workers,
         "is_swarm": is_swarm,
+        "is_held": is_held,
+        "held_reason": held_reason,
+        "state": item_state,
     }
 
 

@@ -105,6 +105,28 @@ def _summarize_swarm_phases(
     return buckets
 
 
+def _running_task_state(
+    *,
+    project_id: str,
+    is_held: bool,
+    held_reason: Optional[str],
+    is_swarm: bool,
+) -> str:
+    """Phase 127: classify a running task into one of:
+    - "held"           : soft-held by exclusive or swarm window
+    - "swarm_active"   : actively in a swarm session
+    - "running"        : normal pipeline activity
+
+    The dashboard uses this to render a single per-task badge instead
+    of inferring state from a combination of is_held / is_swarm flags.
+    """
+    if is_held:
+        return "held"
+    if is_swarm:
+        return "swarm_active"
+    return "running"
+
+
 def _count_live_workers(*, project_id: str, task_id: str) -> int:
     """Count in-flight LLM requests matching (project_id, task_id).
 
@@ -747,6 +769,24 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                 pipeline_scheduler,
             )
             from prep.services.token_telemetry import telemetry as _tel
+
+            # Phase 127 (audit fix): build project_id → hold mapping once
+            # per response so the per-task held check works for projects
+            # routed to ANY scheduler endpoint (cloud:openrouter,
+            # local:default_ollama, cloud:default_ollama, …) rather than
+            # silently assuming cloud:default_ollama.  list_holds() is
+            # already lock-protected; defensive try/except matches the
+            # T4.1 pattern (held_projects collection).
+            holds_by_project: Dict[str, Dict[str, Any]] = {}
+            try:
+                for h in pipeline_scheduler.list_holds():
+                    # First hold wins; a project held on multiple
+                    # endpoints simultaneously is rare and any one is a
+                    # valid pause signal for the UI.
+                    holds_by_project.setdefault(h["project_id"], h)
+            except Exception:
+                holds_by_project = {}
+
             for rt in running_tasks:
                 _scheduler_max, node_id = pipeline_scheduler.concurrent_workers_for_project(
                     rt["project_id"], stage=rt.get("stage"),
@@ -769,15 +809,14 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                 #       during its phase blocks.  THIS is the
                 #       runtime truth.
                 #
-                # The window-only signal misses cases where the
-                # scheduler's 45s cooldown blocks a new window from
-                # opening between back-to-back swarm stages — atlas
-                # closes its window, concepts immediately tries to
-                # open one, gets blocked by cooldown, but
-                # SwarmOrchestrator runs all three phases anyway.
-                # Without (b) the badge stays off for the entire
-                # cooldown-affected stage even though it's genuinely
-                # swarming.  The earlier ``live_workers >= 2`` gate
+                # The window-only signal can miss the brief gap during
+                # SwarmOrchestrator phase transitions, where the
+                # scheduler window may not yet be opened or may have
+                # been closed but workers are still running.  Without
+                # (b) the badge would flicker off during these
+                # transitions even though the swarm is genuinely
+                # active.  (Phase 127 removed the 45s cooldown that
+                # historically caused longer false-off windows.)  The earlier ``live_workers >= 2`` gate
                 # was also wrong because coord/synth phases are
                 # intrinsically 1-worker-in-flight.
                 rt["is_swarm"] = False
@@ -807,6 +846,32 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                         project_id=rt["project_id"],
                         task_id=rt.get("task_id", ""),
                     )
+
+                # Phase 127 Sub-phase 4 (audit fix): classify hold/swarm
+                # state for the UI.  Look up holds by project_id only,
+                # using the holds_by_project map built once above — the
+                # earlier implementation hardcoded a "cloud:default_ollama"
+                # fallback for rt["compute_node"], which silently reported
+                # "not held" for projects actually running on other
+                # endpoints (cloud:openrouter, local:default_ollama, …).
+                # is_held now reflects whether ANY hold targets this
+                # project; held_reason carries the same "<reason>_by_<set_by>"
+                # string the dashboard already renders.
+                pid = rt["project_id"]
+                hold_entry = holds_by_project.get(pid)
+                is_held = hold_entry is not None
+                held_reason: Optional[str] = (
+                    f"{hold_entry['reason']}_by_{hold_entry['set_by_project']}"
+                    if hold_entry else None
+                )
+                rt["is_held"] = is_held
+                rt["held_reason"] = held_reason
+                rt["state"] = _running_task_state(
+                    project_id=pid,
+                    is_held=is_held,
+                    held_reason=held_reason,
+                    is_swarm=rt.get("is_swarm", False),
+                )
         except Exception:
             logger.debug("running-tasks enrichment failed", exc_info=True)
             pass  # Scheduler not available — leave defaults
@@ -1003,6 +1068,15 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
     }
     if block_statuses is not None:
         result["assignment_blocks"] = block_statuses
+
+    # Phase 127 Sub-phase 4: surface scheduler hold state to the UI.
+    # Each entry: {project_id, endpoint_id, reason, set_by_project, held_since}.
+    try:
+        from prep.services.pipeline.scheduler import pipeline_scheduler as _sched
+        result["held_projects"] = _sched.list_holds()
+    except Exception:
+        logger.debug("held_projects enrichment failed", exc_info=True)
+        result["held_projects"] = []
 
     return ok(result)
 

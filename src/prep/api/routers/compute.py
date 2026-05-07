@@ -237,9 +237,48 @@ def node_status(node_id: str) -> Dict[str, Any]:
 
 @router.get("/compute/scheduler")
 def scheduler_status() -> Dict[str, Any]:
-    """Full scheduler diagnostic status — all nodes, loads, and queues."""
+    """Full scheduler diagnostic status — all nodes, loads, and queues.
+
+    Phase 127 Sub-phase 4 enrichments (additive):
+      - exclusive_project : str | None — the project (if any) currently
+        holding the exclusive priority lock.
+      - swarm_queue       : list — flattened view of every QueueEntry
+        across all node queues, with priority level resolved.
+      - held_projects     : list — pipeline_scheduler.list_holds() snapshot.
+    """
     from prep.services.pipeline.scheduler import pipeline_scheduler
-    return ok(pipeline_scheduler.status())
+
+    response_data: Dict[str, Any] = pipeline_scheduler.status()
+
+    # exclusive_project — the single project (if any) at exclusive priority.
+    exclusive_project: Optional[str] = None
+    swarm_queue: List[Dict[str, Any]] = []
+    with pipeline_scheduler._lock:
+        for pid, level in pipeline_scheduler._priority_projects.items():
+            if level == "exclusive":
+                exclusive_project = pid
+                break
+        # Flatten every per-node queue into a single list with priority
+        # resolved.  The plan calls this swarm_queue but it is really a
+        # cross-node queue snapshot — kept under that name for the UI
+        # contract.  QueueEntry has fields (project_id, stage, enqueued_at).
+        for nid, q in pipeline_scheduler._queues.items():
+            for entry in q:
+                level = pipeline_scheduler._priority_projects.get(
+                    entry.project_id, "none",
+                )
+                swarm_queue.append({
+                    "project_id": entry.project_id,
+                    "stage": getattr(entry.stage, "value", entry.stage),
+                    "node_id": nid,
+                    "queued_at": entry.enqueued_at,
+                    "priority": level,
+                })
+
+    response_data["exclusive_project"] = exclusive_project
+    response_data["swarm_queue"] = swarm_queue
+    response_data["held_projects"] = pipeline_scheduler.list_holds()
+    return ok(response_data)
 
 
 @router.post("/compute/sync")

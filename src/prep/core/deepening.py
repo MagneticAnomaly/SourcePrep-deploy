@@ -32,6 +32,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from .llm_client import _get_llm_concurrency
 from prep.services.pipeline.thread_pool import llm_pool
 from prep.services.pipeline.recovery import is_reuse_blocked
+from prep.services.pipeline.holds import HoldPausedError
 from .epistemic_score import (
     EpistemicEntry,
     EpistemicScore,
@@ -365,10 +366,28 @@ class DeepeningLoop:
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
     ) -> DeepeningResult:
-        """Run the deepening loop until convergence or budget exhaustion."""
+        """Run the deepening loop until convergence or budget exhaustion.
+
+        Phase 127 (audit fix A2): a :class:`HoldPausedError` raised
+        from ``EpistemicEnricher.enrich_node`` (sequential branch) or
+        propagated out of a future (threaded branch) is caught at the
+        run-loop boundary and treated as
+        "pause, checkpoint, retry on next run" rather than a permanent
+        failure.  Mirrors the T2.5 pattern in
+        :meth:`prep.core.epistemic_enrichment.EpistemicEnricher.run`.
+        The deepening run-loop has no equivalent ``stats`` dict; we
+        record paused=True on the result via ``result.convergence`` and
+        log once at INFO so operators see the pause clearly.  The
+        caller (``WorkerFactory._deepening_worker``) returns the
+        result-shaped dict; downstream pipeline handling resumes on
+        the next pass.
+        """
         start = time.monotonic()
         result = DeepeningResult()
         self.convergence_tracker.reset()
+        paused: bool = False
+        pause_endpoint: Optional[str] = None
+        pause_project: Optional[str] = None
 
         for iteration in range(self.max_iterations):
             logger.info("Deepening iteration %d/%d", iteration + 1, self.max_iterations)
@@ -435,6 +454,14 @@ class DeepeningLoop:
 
             concurrency = _get_llm_concurrency("deep")
 
+            # Phase 127 (audit fix A2): wrap dispatch so a HoldPausedError
+            # from either branch (sequential enrich_node call or threaded
+            # future.result()) is treated as "pause, checkpoint, exit
+            # iterations" instead of failing the run.  Whatever was
+            # enriched up to this point is preserved by the
+            # _write_epistemic call below; the caller resumes on the
+            # next pass.
+            hold_paused_iter: Optional[HoldPausedError] = None
             if concurrency <= 1:
                 # Sequential: one node at a time
                 for node_id, priority, reason in batch:
@@ -443,9 +470,13 @@ class DeepeningLoop:
                         continue
 
                     is_re_enrichment = node_id in existing_epistemic
-                    entry = self.enricher.enrich_node(
-                        node, edges, nodes_by_id, augmentations, existing_epistemic
-                    )
+                    try:
+                        entry = self.enricher.enrich_node(
+                            node, edges, nodes_by_id, augmentations, existing_epistemic
+                        )
+                    except HoldPausedError as hpe:
+                        hold_paused_iter = hpe
+                        break
                     if entry:
                         entry.pass_number = existing_epistemic[node_id].pass_number + 1 if is_re_enrichment else 2
                         existing_epistemic[node_id] = entry
@@ -489,6 +520,16 @@ class DeepeningLoop:
                         node_id, is_re = futures[future]
                         try:
                             entry = future.result()
+                        except HoldPausedError:
+                            # Phase 127 (audit fix A2): a soft-hold paused
+                            # this dispatch — propagate up to the iter-
+                            # level except below so the iteration
+                            # checkpoints cleanly and exits with
+                            # paused=True semantics, instead of being
+                            # logged as a permanent failure here.  Mirrors
+                            # the T2.5 / T2.6 pattern (re-raise at the
+                            # dispatch site, catch at run-loop boundary).
+                            raise
                         except Exception as e:
                             logger.warning("Deepening enrichment failed for %s: %s", node_id, e)
                             entry = None
@@ -499,6 +540,12 @@ class DeepeningLoop:
                                 enriched_this_iter += 1
                                 if is_re:
                                     re_enriched_this_iter += 1
+                except HoldPausedError as hpe:
+                    # Phase 127 (audit fix A2): caught here so the finally
+                    # block below still cancels pending futures (slot
+                    # cleanup) before we record the pause and break out
+                    # of the iteration loop.
+                    hold_paused_iter = hpe
                 except FutureTimeoutError:
                     pending = [
                         futures[f] for f in futures if not f.done()
@@ -530,6 +577,25 @@ class DeepeningLoop:
             # Write updated epistemic entries
             self.enricher._write_epistemic(existing_epistemic)
 
+            # Phase 127 (audit fix A2): if a soft-hold paused this
+            # iteration, the partial work is now checkpointed — log
+            # ONCE at INFO and break out so the run exits cleanly.
+            # The caller (workers._deepening_worker) returns whatever
+            # iterations completed; the next deep run will resume from
+            # this checkpoint when the hold lifts.
+            if hold_paused_iter is not None:
+                paused = True
+                pause_project = hold_paused_iter.project_id
+                pause_endpoint = hold_paused_iter.endpoint_id
+                result.iterations = iteration + 1
+                logger.info(
+                    "Deepening paused on soft-hold "
+                    "(project=%s endpoint=%s) after iteration %d; "
+                    "checkpoint flushed, will resume next run",
+                    pause_project, pause_endpoint, iteration + 1,
+                )
+                break
+
             # 5. Check convergence
             updated_scores = self.enricher.compute_all_scores()
             conv = self.convergence_tracker.check(updated_scores)
@@ -549,14 +615,27 @@ class DeepeningLoop:
 
         result.duration_ms = (time.monotonic() - start) * 1000
 
-        if progress_callback:
+        # Phase 127 (audit fix A2): emit the "complete" progress beacon
+        # only on a real terminal exit; a paused run still has work to
+        # do on the next pass and the dashboard should not flip the
+        # stage UI to "done".
+        if progress_callback and not paused:
             progress_callback("deepening_complete", result.iterations, self.max_iterations)
 
-        logger.info(
-            "Deepening complete: %d iterations, %d enriched, %d re-enriched in %.1fs",
-            result.iterations, result.total_enriched, result.total_re_enriched,
-            result.duration_ms / 1000,
-        )
+        if paused:
+            logger.info(
+                "Deepening paused: %d iterations, %d enriched, %d re-enriched in %.1fs "
+                "(project=%s endpoint=%s) — will resume next run",
+                result.iterations, result.total_enriched, result.total_re_enriched,
+                result.duration_ms / 1000,
+                pause_project, pause_endpoint,
+            )
+        else:
+            logger.info(
+                "Deepening complete: %d iterations, %d enriched, %d re-enriched in %.1fs",
+                result.iterations, result.total_enriched, result.total_re_enriched,
+                result.duration_ms / 1000,
+            )
 
         return result
 

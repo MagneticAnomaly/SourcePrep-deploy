@@ -45,6 +45,7 @@ from .stages import QueueType, STAGE_QUEUE_TYPE, StageId
 from prep.services.pipeline import ollama_probe
 from prep.services.pipeline.concurrency_store import concurrency_store
 from prep.services.pipeline.discovery import SaturationHint, predict_saturation
+from prep.services.pipeline.holds import HoldEntry, HoldKey, HoldReason
 
 logger = logging.getLogger(__name__)
 
@@ -289,12 +290,16 @@ class PipelineScheduler:
         # when multiple projects were starred.
         self._priority_projects: Dict[str, PriorityLevel] = {}
 
+        # Phase 127: soft-hold primitive.  Workers poll is_held() before
+        # each LLM dispatch.  Holds are set by exclusive priority or
+        # swarm window opens, cleared on lift/close.  Per (project,
+        # endpoint) granularity so a project blocked on Ollama Cloud
+        # can still serve requests on, say, OpenRouter.
+        self._holds: Dict[HoldKey, HoldEntry] = {}
+
         # Phase 91: Swarm window — temporary exclusive-like mode for
         # swarm-capable stages that need all resources for fan-out.
         self._swarm_window: Optional[Dict[str, Any]] = None
-        # Unix timestamp: no swarm window can open before this time.
-        self._swarm_cooldown_until: float = 0.0
-        self._swarm_cooldown_seconds: float = 45.0
         # How long draining stages have before force-cancel (seconds).
         self._drain_timeout_seconds: int = 600  # 10 minutes
 
@@ -557,6 +562,18 @@ class PipelineScheduler:
                     logger.info("Scheduler: clearing all priorities (%d projects)",
                                 len(self._priority_projects))
                 self._priority_projects.clear()
+                # Phase 127: clear every exclusive-reason hold across all
+                # setters when priorities are bulk-cleared.
+                # Bulk-clear: drop set_by_project filter since all
+                # projects' priorities are being wiped.
+                to_clear = [
+                    k for k, v in self._holds.items()
+                    if v.reason == "exclusive"
+                ]
+                for k in to_clear:
+                    del self._holds[k]
+                # Phase 127 sub-phase 5: persist outside lock at function exit.
+                self.persist_priority_state()
                 return
 
             if project_id is None:
@@ -567,6 +584,14 @@ class PipelineScheduler:
                 if old:
                     logger.info("Scheduler: removed priority for %s (was %s)",
                                 project_id, old)
+                # Phase 127: when clearing exclusive, drop all holds this
+                # project stamped with reason="exclusive".  Filter on
+                # reason to avoid clobbering swarm holds set by the same
+                # project (matches the close_swarm_window pattern).
+                if old == "exclusive":
+                    self._clear_holds_set_by_with_reason(project_id, "exclusive")
+                # Phase 127 sub-phase 5: persist on per-project clear too.
+                self.persist_priority_state()
                 return
 
             # If setting exclusive, demote any existing exclusive projects to boost
@@ -578,6 +603,9 @@ class PipelineScheduler:
                             "Scheduler: demoting %s from exclusive → boost "
                             "(new exclusive: %s)", pid, project_id,
                         )
+                        # Phase 127: demoted project should release its
+                        # exclusive holds — it is no longer exclusive.
+                        self._clear_holds_set_by_with_reason(pid, "exclusive")
 
             old_level = self._priority_projects.get(project_id)
             self._priority_projects[project_id] = level
@@ -592,6 +620,38 @@ class PipelineScheduler:
                 elif old_level == "exclusive":
                     broadcast_reason = "exclusive_end"
 
+            # Phase 127: when entering exclusive, stamp soft-holds on every
+            # OTHER active project on every non-embedding node.  Re-stamp
+            # is idempotent (set_by_project is always us, reason is always
+            # "exclusive").  Embedding is local-only; never held.
+            if level == "exclusive":
+                # Clear any stale exclusive holds we previously set (e.g.
+                # from a prior exclusive window) so the new set is canonical.
+                self._clear_holds_set_by_with_reason(project_id, "exclusive")
+                for nid, slot in self._slots.items():
+                    if nid == self._EMBEDDING_NODE_ID:
+                        continue  # embedding is local + cheap; don't hold
+                    for other_pid in slot.active_stages:
+                        if other_pid != project_id:
+                            self._holds[
+                                HoldKey(project_id=other_pid, endpoint_id=nid)
+                            ] = HoldEntry(
+                                reason="exclusive",
+                                set_by_project=project_id,
+                            )
+
+            # Phase 127: when leaving exclusive (e.g. exclusive → boost),
+            # release the holds this project stamped.  Use the same
+            # set_by_project + reason filter as close_swarm_window to
+            # avoid clobbering swarm holds.
+            if old_level == "exclusive" and level != "exclusive":
+                self._clear_holds_set_by_with_reason(project_id, "exclusive")
+
+        # Phase 127 sub-phase 5: persist priority levels so they survive
+        # daemon restart.  Called outside the lock — settings_store has
+        # its own internal lock and writes via a SQLite transaction.
+        self.persist_priority_state()
+
         # Broadcast outside lock
         if broadcast_reason:
             for nid in list(self._slots.keys()):
@@ -601,6 +661,147 @@ class PipelineScheduler:
     def clear_all_priorities(self) -> None:
         """Remove all project priorities."""
         self.set_priority(None, "none")
+
+    # ── Phase 127 sub-phase 5: priority durability ────────────────
+
+    _PRIORITY_STATE_KEY = "scheduler_priority_state"
+
+    def persist_priority_state(self) -> None:
+        """Phase 127: save priority levels so they survive daemon restart.
+
+        In-memory state (swarm window, queue, holds) is intentionally
+        NOT persisted — it is recomputed from priority + active
+        pipelines on restart per Phase 127 spec section 12.
+
+        Best-effort: if the settings store is not initialized (e.g.
+        early test setup), this silently no-ops rather than crashing
+        the caller.
+        """
+        with self._lock:
+            data = {"priority_projects": dict(self._priority_projects)}
+        try:
+            from prep.services.settings_store import settings
+            settings.set(self._PRIORITY_STATE_KEY, data)
+        except Exception as exc:  # pragma: no cover — best-effort
+            logger.debug(
+                "persist_priority_state: settings store unavailable: %s", exc,
+            )
+
+    def load_priority_state(self) -> None:
+        """Phase 127: restore priority levels on daemon start.
+
+        Replaces the in-memory ``_priority_projects`` dict with the
+        persisted snapshot.  Holds and swarm windows are NOT restored
+        — they are derived state and will be re-stamped by the next
+        ``set_priority`` / ``open_swarm_window`` call after live
+        pipelines reattach.
+        """
+        try:
+            from prep.services.settings_store import settings
+            data = settings.get(self._PRIORITY_STATE_KEY)
+        except Exception as exc:  # pragma: no cover — best-effort
+            logger.debug(
+                "load_priority_state: settings store unavailable: %s", exc,
+            )
+            return
+        loaded = (data or {}).get("priority_projects", {}) if isinstance(
+            data, dict
+        ) else {}
+        # Validate that loaded levels are PriorityLevel-compatible.
+        valid = {"none", "boost", "exclusive"}
+        clean: Dict[str, PriorityLevel] = {}
+        for pid, lvl in (loaded or {}).items():
+            if isinstance(pid, str) and lvl in valid and lvl != "none":
+                clean[pid] = lvl  # type: ignore[assignment]
+        with self._lock:
+            self._priority_projects = clean
+        if clean:
+            logger.info(
+                "Scheduler: restored %d priority project(s) from settings store",
+                len(clean),
+            )
+
+    # ── Phase 127: Soft-hold primitive ─────────────────────────────
+
+    def set_hold(
+        self,
+        project_id: str,
+        endpoint_id: str,
+        *,
+        reason: HoldReason,
+        set_by_project: str,
+    ) -> None:
+        """Mark (project_id, endpoint_id) as soft-held.
+
+        Workers polling ``is_held(project_id, endpoint_id)`` will pause
+        new LLM dispatches.  In-flight calls run to completion.
+
+        Re-setting an existing hold replaces ownership: the new
+        ``set_by_project`` overwrites the prior setter, and
+        ``held_since`` resets to ``time.time()``.  This means a
+        subsequent ``clear_holds_set_by(prior_setter)`` will NOT clear
+        this entry.  Sub-phase 2 callers (open_swarm_window,
+        set_priority(exclusive)) are coordinated via the same lock so
+        contention is rare in practice.
+        """
+        with self._lock:
+            key = HoldKey(project_id=project_id, endpoint_id=endpoint_id)
+            self._holds[key] = HoldEntry(
+                reason=reason, set_by_project=set_by_project,
+            )
+
+    def clear_hold(self, project_id: str, endpoint_id: str) -> None:
+        """Clear a single (project, endpoint) hold.  No-op if not held."""
+        with self._lock:
+            self._holds.pop(
+                HoldKey(project_id=project_id, endpoint_id=endpoint_id),
+                None,
+            )
+
+    def clear_holds_set_by(self, set_by_project: str) -> None:
+        """Clear all holds that ``set_by_project`` triggered.
+
+        Used by ``close_swarm_window`` and ``set_priority(P, "none")``
+        to release everything in one call.
+        """
+        with self._lock:
+            to_remove = [
+                k for k, v in self._holds.items()
+                if v.set_by_project == set_by_project
+            ]
+            for k in to_remove:
+                del self._holds[k]
+
+    def _clear_holds_set_by_with_reason(
+        self, set_by_project: str, reason: HoldReason,
+    ) -> None:
+        """Clear holds where (set_by_project, reason) both match.
+
+        Caller must hold self._lock.
+
+        Used by set_priority and close_swarm_window so that clearing
+        exclusive holds does not clobber swarm holds (and vice versa)
+        when the same project happens to set both kinds.
+        """
+        to_clear = [
+            k for k, v in self._holds.items()
+            if v.set_by_project == set_by_project and v.reason == reason
+        ]
+        for k in to_clear:
+            del self._holds[k]
+
+    def is_held(self, project_id: str, endpoint_id: str) -> bool:
+        """Return True if (project_id, endpoint_id) currently has a hold."""
+        with self._lock:
+            return HoldKey(project_id, endpoint_id) in self._holds
+
+    def list_holds(self) -> List[Dict[str, Any]]:
+        """Snapshot all active holds for diagnostics / API surface."""
+        with self._lock:
+            return [
+                {"project_id": k.project_id, "endpoint_id": k.endpoint_id, **v.to_dict()}
+                for k, v in self._holds.items()
+            ]
 
     def record_throughput(
         self,
@@ -1366,6 +1567,56 @@ class PipelineScheduler:
             self._queues[nid] = deque()
         return self._queues[nid]
 
+    def dequeue_next(self, node_id: Optional[str] = None) -> Optional[QueueEntry]:
+        """Pop the highest-priority next queue entry for ``node_id``.
+
+        Phase 127: boost-weighted FIFO.  Boost projects skip ahead of
+        normal projects.  Within a tier, FIFO order is preserved by
+        ``enqueued_at``.  Exclusive doesn't sort separately because
+        exclusive projects rarely enter the queue (they hold the slot
+        directly), but if one does, it's treated as the same tier as
+        boost for ordering purposes.
+
+        Skips entries whose project is currently blocked by an open
+        swarm window — those wait until the window closes.  This
+        preserves the Phase 91 swarm-gate semantics that release()
+        previously enforced inline.
+        """
+        with self._lock:
+            return self._dequeue_next_locked(node_id)
+
+    def _dequeue_next_locked(self, node_id: Optional[str] = None) -> Optional[QueueEntry]:
+        """Internal: caller must hold self._lock.
+
+        Same behavior as dequeue_next but without re-acquiring the lock.
+        Used from release() which already holds the lock.
+        """
+        queue = self._queues.get(node_id) if node_id else self._get_queue()
+        if not queue:
+            return None
+        # Build candidate list excluding swarm-blocked projects.
+        # Iterate by index so we can `del queue[idx]` in place.
+        candidates: List[Tuple[int, QueueEntry, str]] = []
+        for i, e in enumerate(queue):
+            if node_id and self._is_blocked_by_swarm(e.project_id, node_id):
+                continue  # swarm-gate blocks this candidate
+            level = self._priority_projects.get(e.project_id, "none")
+            candidates.append((i, e, level))
+        if not candidates:
+            return None
+        # Pick the highest-priority candidate.  Boost+exclusive tier
+        # beats normal; FIFO within a tier.
+        best_idx, best_entry, best_level = candidates[0]
+        for i, e, level in candidates[1:]:
+            best_is_boost = best_level in ("boost", "exclusive")
+            e_is_boost = level in ("boost", "exclusive")
+            if e_is_boost and not best_is_boost:
+                best_idx, best_entry, best_level = i, e, level
+            elif e_is_boost == best_is_boost and e.enqueued_at < best_entry.enqueued_at:
+                best_idx, best_entry, best_level = i, e, level
+        del queue[best_idx]
+        return best_entry
+
     def _get_max_dynamic_capacity(self) -> int:
         """Return the highest dynamic_capacity across all LLM nodes.
 
@@ -1410,6 +1661,8 @@ class PipelineScheduler:
         project_id: str,
         stage: "StageId",
         node_id: Optional[str] = None,
+        *,
+        endpoint_set: Optional[Set[str]] = None,
     ) -> bool:
         """Open an exclusive swarm window for a project's stage.
 
@@ -1417,18 +1670,21 @@ class PipelineScheduler:
         node. Already-running stages on other projects continue until
         they finish naturally (drain) or hit the drain timeout.
 
-        Returns True if the window was opened, False if cooldown is
-        still active or a swarm window is already open.
+        Phase 127: ``endpoint_set`` (optional) names every endpoint the
+        swarm will hit (e.g. coordinator on OpenRouter + workers on
+        Ollama Cloud).  Holds are stamped on drain targets only for
+        endpoints in the set.  Projects on disjoint endpoints proceed
+        normally.  When omitted, the set defaults to ``{resolved}`` for
+        backward compatibility with single-endpoint callers.
+
+        Returns True if the window was opened, False if a swarm
+        window is already open.
         """
         resolved = self._resolve_node_for_stage(stage, node_id)
+        # Phase 127: endpoint set defaults to just the resolved node
+        # for backward compat.  Multi-endpoint swarms pass the full set.
+        eps: Set[str] = set(endpoint_set) if endpoint_set else {resolved}
         with self._lock:
-            # Cooldown check
-            if time.time() < self._swarm_cooldown_until:
-                logger.info(
-                    "Scheduler: swarm window blocked by cooldown (%.1fs remaining) for %s",
-                    self._swarm_cooldown_until - time.time(), project_id,
-                )
-                return False
             # Already open
             if self._swarm_window is not None:
                 logger.warning(
@@ -1437,49 +1693,69 @@ class PipelineScheduler:
                 )
                 return False
 
-            # Identify drain targets: other active projects on the same node
-            slot = self._get_slot(resolved)
+            # Phase 127: identify drain targets per-endpoint and stamp
+            # soft-holds on each (pid, ep) pair so workers stop
+            # dispatching new LLM calls and let in-flight finish
+            # naturally.  Cleared on close_swarm_window via
+            # _clear_holds_set_by_with_reason(owner, "swarm").
             drain_targets: Dict[str, float] = {}
             now = time.time()
-            for pid in slot.active_stages:
-                if pid != project_id:
+            for ep in eps:
+                slot = self._get_slot(ep)
+                for pid in slot.active_stages:
+                    if pid == project_id:
+                        continue
                     drain_targets[pid] = now
+                    self._holds[HoldKey(project_id=pid, endpoint_id=ep)] = HoldEntry(
+                        reason="swarm",
+                        set_by_project=project_id,
+                    )
 
             self._swarm_window = {
                 "project_id": project_id,
                 "stage": stage,
                 "node_id": resolved,
+                "endpoint_set": eps,
                 "started_at": now,
                 "drain_targets": drain_targets,
             }
             logger.info(
                 "Scheduler: ⚡ swarm window OPENED for %s/%s on %s "
-                "(%d drain targets: %s)",
+                "(eps=%s, %d drain targets: %s)",
                 project_id, stage.value if hasattr(stage, 'value') else stage,
-                resolved, len(drain_targets),
+                resolved, sorted(eps), len(drain_targets),
                 ", ".join(drain_targets.keys()) or "none",
             )
         # C2 fix: Broadcast outside lock so other projects learn their budget dropped
-        self._broadcast_capacity_change(resolved, "swarm_start")
+        for ep in eps:
+            self._broadcast_capacity_change(ep, "swarm_start")
         return True
 
     def close_swarm_window(self) -> None:
-        """Close the active swarm window and start cooldown."""
+        """Close the active swarm window."""
         with self._lock:
             if self._swarm_window is None:
                 return
             window = self._swarm_window
             self._swarm_window = None
-            self._swarm_cooldown_until = time.time() + self._swarm_cooldown_seconds
+            # Phase 127: clear all holds this swarm set on drain targets.
+            # The (set_by_project, reason="swarm") filter clears all
+            # endpoint stamps the owner placed, regardless of which
+            # endpoints were in endpoint_set — no per-ep iteration needed.
+            owner = window.get("project_id") if window else None
+            if owner:
+                self._clear_holds_set_by_with_reason(owner, "swarm")
             logger.info(
-                "Scheduler: ⚡ swarm window CLOSED for %s/%s — "
-                "%.1fs cooldown started",
+                "Scheduler: ⚡ swarm window CLOSED for %s/%s",
                 window["project_id"],
                 window["stage"].value if hasattr(window["stage"], 'value') else window["stage"],
-                self._swarm_cooldown_seconds,
             )
-        # Broadcast outside lock to avoid deadlock with listener callbacks
-        self._broadcast_capacity_change(window["node_id"], "swarm_end")
+        # Broadcast outside lock to avoid deadlock with listener callbacks.
+        # Phase 127: broadcast across every endpoint the window held so
+        # capacity listeners on each one re-evaluate.
+        eps_for_broadcast = window.get("endpoint_set") or {window["node_id"]}
+        for ep in eps_for_broadcast:
+            self._broadcast_capacity_change(ep, "swarm_end")
 
     def is_swarm_window_active(self) -> bool:
         """Check if a swarm window is currently open."""
@@ -1494,7 +1770,15 @@ class PipelineScheduler:
             w = self._swarm_window
             if w is None:
                 return None
-            return {**w, "drain_targets": dict(w.get("drain_targets", {}))}
+            snapshot: Dict[str, Any] = {
+                **w,
+                "drain_targets": dict(w.get("drain_targets", {})),
+            }
+            # Phase 127: defensively copy endpoint_set so callers can't
+            # mutate the live window state.
+            if "endpoint_set" in snapshot:
+                snapshot["endpoint_set"] = set(snapshot["endpoint_set"])
+            return snapshot
 
     def check_drain_timeouts(self) -> List[str]:
         """Check if any drain targets have exceeded the timeout.
@@ -1526,11 +1810,20 @@ class PipelineScheduler:
 
         Callers must hold ``self._lock``. Captures the window reference
         defensively to avoid TOCTOU races if called without the lock.
+
+        Phase 127 T3.2: consults ``endpoint_set`` so multi-endpoint swarms
+        (coord on OpenRouter + workers on Ollama Cloud) block new
+        acquisitions on every endpoint they use.  Falls back to
+        ``{window["node_id"]}`` when the field is missing for backward
+        compatibility with legacy single-endpoint windows.
         """
         window = self._swarm_window
         if window is None:
             return False
-        return window["node_id"] == node_id and window["project_id"] != project_id
+        if window["project_id"] == project_id:
+            return False
+        eps = window.get("endpoint_set") or {window["node_id"]}
+        return node_id in eps
 
     # ── Phase 91: Capacity Change Event Bus ──────────────────────
 
@@ -1712,7 +2005,9 @@ class PipelineScheduler:
                     slot.current_load, slot.dynamic_capacity,
                 )
                 # Phase 91: If the swarm window owner is releasing, close
-                # the window. This triggers cooldown and broadcasts.
+                # the window.  This broadcasts capacity changes to other
+                # waiting projects (Phase 127 removed the cooldown — queue
+                # ordering handles anti-thrash now).
                 _close_swarm = False
                 if self._swarm_window and self._swarm_window["project_id"] == project_id:
                     _close_swarm = True
@@ -1727,18 +2022,16 @@ class PipelineScheduler:
                 key = f"{project_id}:{resolved}"
                 self._capacity_listeners.pop(key, None)
 
-            # Check if there's a queued pipeline waiting for this node
-            # Phase 91: Don't dequeue if swarm window blocks this node
+            # Check if there's a queued pipeline waiting for this node.
+            # Phase 127: route through boost-weighted FIFO so priority
+            # is honored and the swarm-gate is applied uniformly.  The
+            # _locked variant is used because we already hold self._lock.
             result: Optional[QueueEntry] = None
-            queue = self._get_queue(resolved)
-            if queue and slot.has_capacity:
-                # Peek: if swarm window is active and next entry isn't the
-                # swarm project, don't dequeue.
-                next_entry = queue[0]
-                if not self._is_blocked_by_swarm(next_entry.project_id, resolved):
-                    result = queue.popleft()
+            if slot.has_capacity:
+                result = self._dequeue_next_locked(resolved)
+                if result is not None:
                     logger.info(
-                        "Scheduler: dequeuing %s for %s (waited %.1fs)",
+                        "Scheduler: dequeued %s for %s (boost-weighted FIFO, waited %.1fs)",
                         result.project_id, result.stage.value,
                         time.time() - result.enqueued_at,
                     )
@@ -2236,18 +2529,19 @@ class PipelineScheduler:
                     "project_id": w["project_id"],
                     "stage": w["stage"].value if hasattr(w["stage"], 'value') else str(w["stage"]),
                     "node_id": w["node_id"],
+                    # Phase 127: surface endpoint_set so multi-endpoint
+                    # swarms are visible in /compute/scheduler.
+                    "endpoint_set": sorted(w.get("endpoint_set") or {w["node_id"]}),
                     "elapsed_seconds": round(now - w["started_at"], 1),
                     "drain_targets": {
                         pid: round(now - started, 1)
                         for pid, started in w.get("drain_targets", {}).items()
                     },
                 }
-            cooldown_remaining = max(0.0, self._swarm_cooldown_until - time.time())
             return {
                 "nodes": nodes,
                 "priority": priority,
                 "swarm_window": swarm,
-                "swarm_cooldown_remaining": round(cooldown_remaining, 1),
                 "drain_timeout_seconds": self._drain_timeout_seconds,
             }
 

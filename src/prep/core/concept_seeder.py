@@ -652,13 +652,15 @@ def seed_concepts_swarm(
         # Phase 123 follow-up (2026-05-02): bumped cloud cap 900 → 1500.
         # Phase 124 T4 enriches each worker's prompt with linked-doc
         # excerpts (~+2.5K chars), and SourcePrep itself now produces
-        # 636+ workers — so 251 workers + T4 enrichment exhausted the
-        # 900s budget, leaving the synthesizer with 0s and silently
-        # dropping all clarifying questions. The cheap fix is more
-        # headroom; the proper fix is making questions survive
+        # very large repos. This budget allows a full run on the
+        # SourcePrep monorepo in ~1,050–1,350s (warm). If budget
+        # is exhausted before synthesis, we log a warning and skip
         # synthesis failure (move them to the worker prompt) — not
         # done here. See memory:project_synthesizer_wall_time_regression.
         max_wall_time_s=1500.0 if is_cloud_model else 1800.0,
+        # Phase 127: pass project_id so the swarm honors soft-holds
+        # at coord→fanout / fanout→synth boundaries.
+        project_id=project_id,
     )
 
     coordinator_prompt = (
@@ -803,6 +805,30 @@ def seed_concepts_swarm(
 
     if result is None:
         raise _SwarmFallback("swarm orchestrator returned None")
+
+    # Phase 127: if the swarm paused on a soft-hold, return a
+    # ``status="paused"`` summary WITHOUT falling back to the sequential
+    # path (which would re-engage the same held endpoint) and WITHOUT
+    # persisting partial concepts (which would mark the stage complete
+    # and mask the pause).  The next run resumes from where we stopped.
+    if result.paused:
+        info = result.pause_info or {}
+        logger.info(
+            "[Swarm/Concepts] paused on soft-hold (project=%s endpoint=%s) — "
+            "deferring concept persistence to next run",
+            info.get("project_id", "?"), info.get("endpoint_id", "?"),
+        )
+        return {
+            "status": "paused",
+            "mode": "swarm",
+            "concepts_created": 0,
+            "questions_created": 0,
+            "modules_analyzed": len(items),
+            "workers_succeeded": sum(1 for wr in result.worker_results if wr.success),
+            "workers_total": len(result.worker_results),
+            "pause_info": info,
+            "message": "Concept seeding paused on soft-hold; will retry on next run.",
+        }
 
     # 6. Save concepts and questions from synthesis
     concepts_created = 0

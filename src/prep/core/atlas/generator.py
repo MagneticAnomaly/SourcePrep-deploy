@@ -993,6 +993,11 @@ class CodebaseAtlas:
             synthesis_timeout_s=240.0 if is_cloud else 180.0,
             worker_timeout_s=180.0 if is_cloud else 300.0,
             max_wall_time_s=900.0 if is_cloud else 1800.0,
+            # Phase 127: AtlasGenerator does not currently carry a
+            # project_id — leaving as None means the soft-hold check
+            # is a no-op for atlas swarms.  When atlas grows project_id
+            # awareness in a follow-up, thread it here.
+            project_id=None,
         )
 
         # Build WorkItems from segments
