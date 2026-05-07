@@ -65,7 +65,7 @@ export function ConceptPageShell({
 }: ConceptPageShellProps) {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-7xl px-6 pb-16 pt-8">
+      <div className="mx-auto max-w-7xl px-6 pb-16 pt-16">
 
         <div className="pb-6 mb-10 border-b border-border">
           <BackLink />
