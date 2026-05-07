@@ -1,157 +1,133 @@
+"use client";
+
+import { Cpu, Network, Eye, Zap, Code2, FileSearch } from 'lucide-react';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 import { StoryEmbed } from '../../../components/StoryEmbed';
+import { ConceptPageShell } from '../../../components/ConceptPageShell';
+
+const SECTIONS = [
+  { id: 'why',           label: 'Why a Graph' },
+  { id: 'rust-engine',   label: 'Rust Engine' },
+  { id: 'the-graph',     label: 'What It Maps' },
+  { id: 'visualization', label: 'Visualizing the Graph' },
+  { id: 'usage',         label: 'How Agents Use It' },
+  { id: 'beyond',        label: 'Beyond the Graph' },
+];
+
+const RELATIONSHIPS = [
+  { icon: <Code2 className="w-4 h-4" />,    title: 'Definitions', body: 'Where is a symbol declared? Files, classes, functions, types.' },
+  { icon: <FileSearch className="w-4 h-4" />, title: 'References', body: 'Where is the symbol used? Every call site, every import.' },
+  { icon: <Network className="w-4 h-4" />,  title: 'Imports',     body: 'What does file A depend on? Module-level dependency edges.' },
+];
 
 export default function Page() {
   return (
-    <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
-        <a href="/" className="text-sm text-text-muted">
-          ← Back to Docs
-        </a>
-
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">Code Graph</h1>
-        <p className="mt-4 text-xl text-text-muted">
-          The structural backbone of SourcePrep.
+    <ConceptPageShell
+      subtitle="Structural Backbone"
+      title="Code Graph"
+      description="Vector search is great for fuzzy questions; it&apos;s terrible at precision. SourcePrep maintains a parallel structural graph of your codebase — a directed graph of imports, definitions, and references — so your AI can answer &quot;where is the User struct defined and what calls it?&quot; with zero hallucinations."
+      sections={SECTIONS}
+    >
+      <section id="why">
+        <h2 className="text-2xl font-semibold text-text mb-4">Why a Graph</h2>
+        <p className="text-text-muted leading-relaxed">
+          Vector embeddings are excellent at semantic similarity but blind to structure. Asking &quot;where is X
+          defined and what calls it?&quot; through a vector store gets you files that <em>talk about</em> X —
+          not files that <em>contain</em> X. The Code Graph is the precision layer: parser-derived ground
+          truth, no LLM in the loop, no hallucinations.
         </p>
+      </section>
 
-        <div className="mt-12 prose  max-w-none">
-          <p>
-            Vector search is great for &quot;fuzzy&quot; questions (&quot;how does auth work?&quot;), but terrible 
-            at precision (&quot;where is the <code>User</code> struct defined and what calls it?&quot;).
-          </p>
-          <p>
-            To solve this, SourcePrep maintains a parallel <span className="font-semibold text-text">Code Graph</span> — a directed graph 
-            of your codebase's structure.
-          </p>
-
-          <AnchorHeading id="rust-engine" level="h2">Rust Engine</AnchorHeading>
-          <p>
-            The Code Graph is built by a high-performance Rust engine (`prep-engine`) that runs alongside the Python daemon.
-          </p>
-          <ul className="list-disc pl-5">
-            <li><span className="font-semibold text-text">Speed:</span> Parses ~50k files in seconds.</li>
-            <li><span className="font-semibold text-text">Accuracy:</span> Uses Tree-sitter to generate concrete syntax trees (CSTs) for accurate symbol extraction.</li>
-            <li><span className="font-semibold text-text">Multi-language:</span> Supports Python, TypeScript, JavaScript, Go, Rust, Java, C, and C++.</li>
-          </ul>
-
-          <AnchorHeading id="the-graph" level="h2">The Graph</AnchorHeading>
-          <p>
-            The index maps three types of relationships:
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 my-6 not-prose">
-            <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="font-bold mb-1">Definitions</div>
-              <div className="text-xs text-text-muted">&quot;Where is X declared?&quot;</div>
-            </div>
-            <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="font-bold mb-1">References</div>
-              <div className="text-xs text-text-muted">&quot;Where is X used?&quot;</div>
-            </div>
-            <div className="p-4 bg-surface border border-border rounded-lg text-center">
-              <div className="font-bold mb-1">Imports</div>
-              <div className="text-xs text-text-muted">&quot;What does file A depend on?&quot;</div>
-            </div>
+      <section id="rust-engine">
+        <h2 className="text-2xl font-semibold text-text mb-4">Rust Engine</h2>
+        <p className="text-text-muted leading-relaxed mb-6">
+          The Code Graph is built by a high-performance Rust engine (<code>prep-engine</code>) that runs
+          alongside the Python daemon. Tree-sitter generates concrete syntax trees for accurate symbol
+          extraction.
+        </p>
+        <div className="rounded-lg border border-border bg-surface p-5 flex items-start gap-4">
+          <div className="text-primary flex-shrink-0 mt-0.5"><Cpu className="w-5 h-5" /></div>
+          <div className="space-y-2">
+            <p className="text-sm text-text"><span className="font-semibold">Speed:</span> parses ~50k files in seconds.</p>
+            <p className="text-sm text-text"><span className="font-semibold">Accuracy:</span> Tree-sitter CSTs, not regex.</p>
+            <p className="text-sm text-text"><span className="font-semibold">Multi-language:</span> Python, TypeScript, JavaScript, Go, Rust, Java, C, C++ — and growing.</p>
           </div>
+        </div>
+      </section>
 
-          <AnchorHeading id="visualization" level="h2">Visualizing the Graph</AnchorHeading>
-          <p>
-            The <span className="font-semibold text-text">Code Graph</span> panel in the dashboard provides an interactive way to explore these relationships.
-          </p>
-          <ul className="list-disc pl-5 mt-2 mb-6">
-            <li><span className="font-semibold text-text">Interactive Map:</span> Visualize your project's structure as a network of nodes (files/symbols) and edges (imports/calls).</li>
-            <li><span className="font-semibold text-text">Neighborhood View:</span> Click any file to see its immediate dependencies (upstream) and consumers (downstream).</li>
-            <li><span className="font-semibold text-text">List View:</span> Toggle to a detailed list to see exact import counts and symbol references.</li>
-          </ul>
-
-          <div className="not-prose my-8">
-            <StoryEmbed
-              storyId="trace-tracegraph--default"
-              height={450}
-              title="Interactive Code Graph"
-              caption="Live preview: An interactive visualization of file-level dependencies and import relationships."
-            />
-          </div>
-
-          <AnchorHeading id="usage" level="h2">Usage</AnchorHeading>
-          <p>
-            You generally don&apos;t query the code graph directly. Instead, you enable <span className="font-semibold text-text">Graph Expansion</span> 
-            in your context request (or use the &quot;Trace&quot; keywords in your MCP editor).
-          </p>
-          <p>
-            When enabled, SourcePrep:
-          </p>
-          <ol className="list-decimal pl-5">
-            <li>Finds the primary chunks via vector search.</li>
-            <li>Identifies key symbols in those chunks.</li>
-            <li>Queries the Code Graph for their definition sites and usages.</li>
-            <li>&quot;Expands&quot; the context to include those related files, even if they didn&apos;t match the search keywords.</li>
-          </ol>
-          
-          <p className="bg-info/10 border-l-4 border-info p-4 mt-6 text-sm">
-            <span className="font-semibold text-text">Example:</span> You ask &quot;How is billing calculated?&quot;. <br/>
-            Vector search finds <code>billing.py</code>. <br/>
-            The Code Graph notices <code>billing.py</code> imports <code>tax_rates.py</code>. <br/>
-            SourcePrep includes <code>tax_rates.py</code> in the context automatically, preventing the AI from hallucinating tax logic.
-          </p>
-
-          <AnchorHeading id="knowledge-pipeline" level="h2">The Knowledge Pipeline</AnchorHeading>
-          <p>
-            The Code Graph is not a static artifact. It is the backbone of a living <span className="font-semibold text-text">Knowledge Pipeline</span> that keeps learning about your code — turning raw text into navigable knowledge your AI can actually reason over.
-          </p>
-          
-          <div className="mt-6 border border-border rounded-lg overflow-hidden">
-            <div className="bg-surface-raised px-4 py-2 border-b border-border font-medium text-sm">Pipeline Stages</div>
-            <div className="divide-y divide-border">
-              <div className="p-4 bg-surface">
-                <div className="font-semibold text-primary">1. Structural Trace (Rust)</div>
-                <div className="text-sm text-text-muted mt-1">High-speed parsing of file structure to build the initial skeleton.</div>
-              </div>
-              <div className="p-4 bg-surface">
-                <div className="font-semibold">2. Vector Indexing</div>
-                <div className="text-sm text-text-muted mt-1">Generating search embeddings for source code chunks (Searchability).</div>
-              </div>
-              <div className="p-4 bg-surface">
-                <div className="font-semibold">3. Fast Catalogue (3b)</div>
-                <div className="text-sm text-text-muted mt-1">Lightweight tagging and classification of symbols.</div>
-              </div>
-              <div className="p-4 bg-surface">
-                <div className="font-semibold text-primary">4. Relationship Validation (Rust)</div>
-                <div className="text-sm text-text-muted mt-1">Verifying imports and call graph edges against the filesystem.</div>
-              </div>
-              <div className="p-4 bg-surface">
-                <div className="font-semibold">5. Deep Reasoning (14b)</div>
-                <div className="text-sm text-text-muted mt-1"><em>Epistemic enrichment.</em> Deep analysis to add domain tags, architecture layers, and an understanding score (0.0–1.0).</div>
-              </div>
-              <div className="p-4 bg-surface">
-                <div className="font-semibold">6. Module Synthesis</div>
-                <div className="text-sm text-text-muted mt-1"><em>Cluster synthesis.</em> Grouping related files into functional subsystem modules with navigable summaries.</div>
-              </div>
-              <div className="p-4 bg-surface">
-                <div className="font-semibold">7. Codebase Atlas</div>
-                <div className="text-sm text-text-muted mt-1">Pre-retrieval routing index built from synthesized modules.</div>
-              </div>
-              <div className="p-4 bg-surface">
-                <div className="font-semibold">8. Continuous Deepening</div>
-                <div className="text-sm text-text-muted mt-1"><em>Convergence loop.</em> Re-enriches nodes with decayed understanding scores until the graph stabilizes.</div>
-              </div>
-              <div className="p-4 bg-surface">
-                <div className="font-semibold text-purple-500">9. Deep Knowledge Embedding</div>
-                <div className="text-sm text-text-muted mt-1">Final deep-storage of synthesized knowledge and enriched connections.</div>
+      <section id="the-graph">
+        <h2 className="text-2xl font-semibold text-text mb-2">What It Maps</h2>
+        <p className="text-text-muted leading-relaxed mb-6">Three relationship types form the graph&apos;s edges:</p>
+        <div className="space-y-3">
+          {RELATIONSHIPS.map((r) => (
+            <div key={r.title} className="flex items-start gap-4 rounded-lg border border-border bg-surface px-5 py-4">
+              <div className="flex-shrink-0 mt-1 text-primary">{r.icon}</div>
+              <div className="flex-1 min-w-0">
+                <div className="font-mono font-bold text-sm text-text mb-1">{r.title}</div>
+                <p className="text-sm text-text-muted">{r.body}</p>
               </div>
             </div>
-          </div>
+          ))}
+        </div>
+      </section>
 
-          <p className="mt-6">
-            This pipeline ensures that SourcePrep understands not just <em>where</em> code is (Structure), but <em>what</em> it does (Enrichment) and <em>how</em> it relates conceptually (Embeddings).
-          </p>
+      <section id="visualization">
+        <h2 className="text-2xl font-semibold text-text mb-4">Visualizing the Graph</h2>
+        <p className="text-text-muted leading-relaxed mb-4">
+          The <span className="font-semibold text-text">Code Graph</span> panel in the dashboard provides an
+          interactive way to explore relationships. Click any file to see its immediate dependencies (upstream)
+          and consumers (downstream); toggle to a list view for exact import counts and symbol references.
+        </p>
+        <div className="rounded-lg overflow-hidden border border-border">
+          <StoryEmbed
+            storyId="trace-tracegraph--default"
+            height={450}
+            title="Interactive Code Graph"
+            caption="Live preview: file-level dependencies and import relationships."
+          />
+        </div>
+      </section>
 
-          <p>
-            <a href="/concepts/graph-enrichment" className="text-primary hover:underline">
-              Learn more about Graph Enrichment →
-            </a>
+      <section id="usage">
+        <h2 className="text-2xl font-semibold text-text mb-4">How Agents Use It</h2>
+        <p className="text-text-muted leading-relaxed mb-4">
+          You don&apos;t query the graph directly. Instead, your agent enables{' '}
+          <span className="font-semibold text-text">trace expansion</span> in its context request (or uses
+          the &quot;Trace&quot; keywords in the MCP editor). When enabled, SourcePrep:
+        </p>
+        <ol className="list-decimal pl-5 space-y-1 text-text-muted">
+          <li>Finds the primary chunks via vector search.</li>
+          <li>Identifies key symbols in those chunks.</li>
+          <li>Queries the Code Graph for their definition sites and usages.</li>
+          <li>Expands the context to include those related files, even if they didn&apos;t match the search keywords.</li>
+        </ol>
+
+        <div className="mt-6 rounded-lg border border-info/40 bg-info/10 p-4">
+          <p className="text-sm font-semibold text-text mb-2"><Eye className="inline w-4 h-4 mr-1" />Example</p>
+          <p className="text-sm text-text-muted">
+            You ask &quot;how is billing calculated?&quot; Vector search finds <code>billing.py</code>. The
+            Code Graph notices <code>billing.py</code> imports <code>tax_rates.py</code> — so SourcePrep
+            includes <code>tax_rates.py</code> in the context automatically, preventing the AI from
+            hallucinating tax logic.
           </p>
         </div>
-      </div>
-    </main>
+      </section>
+
+      <section id="beyond">
+        <AnchorHeading id="beyond" level="h2">Beyond the Graph</AnchorHeading>
+        <p className="mt-3 text-text-muted leading-relaxed">
+          The Code Graph is not a static artifact. It&apos;s the structural foundation for a 15-stage{' '}
+          <a href="/concepts/graph-enrichment" className="text-primary hover:underline">Graph Enrichment</a>{' '}
+          pipeline that layers in meaning, module relationships, and architectural summaries — turning raw
+          structure into navigable knowledge your AI can actually reason over.
+        </p>
+        <a
+          href="/concepts/graph-enrichment"
+          className="inline-flex items-center gap-2 mt-4 text-sm font-medium text-primary hover:underline"
+        >
+          Read the Graph Enrichment guide <Zap className="w-4 h-4" />
+        </a>
+      </section>
+    </ConceptPageShell>
   );
 }
