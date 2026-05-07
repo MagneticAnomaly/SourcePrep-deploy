@@ -91,7 +91,7 @@ Two LLM-bound stages over the entire repo cannot be characterized as "seconds wi
 
 ---
 
-### 9. Two Conflicting Graph Enrichment Articles — Structural Problem, Not Just Stale Copy **[HIGH]** *(new 2026-05-06; reframed)*
+### 9. Two Conflicting Graph Enrichment Articles — Structural Problem, Not Just Stale Copy **[RESOLVED 2026-05-07]**
 
 Two public pages describe graph enrichment:
 
@@ -104,13 +104,20 @@ The duplication is not "marketing has the headline, docs has the deep version" �
 
 **Per durable instruction (memory: `feedback_marketing_vs_docs_split.md`):** marketing = WHAT/WHY, docs = HOW-TO. Concept content belongs in marketing.
 
-**Resolution direction (proposed, awaiting confirmation):**
-- Marketing `/graph-enrichment` is the single source of truth.
-- The valuable epistemology / decay / research content from the docs page either (a) folds into the marketing page as expandable depth, or (b) goes into a single research-flavoured marketing page (`/research/graph-enrichment-foundations` or similar).
-- The docs `/concepts/graph-enrichment` page is deleted (with a redirect) or replaced by a one-paragraph stub linking to marketing.
-- The same treatment applies to other docs `/concepts/*` pages — see Issue 14.
+**Resolved 2026-05-07 (reframed direction):** The docs concept page is the canonical home, NOT marketing. (Per user direction: "I don't want docs links to be linking back to the marketing site.")
 
-`docs/MARKETING_MASTER_TODO.md:135` claim is no longer relevant — it's neither correct (pipeline is 15-stage) nor right-sized (the page shouldn't exist at all).
+Applied changes:
+- `websites/apps/docs/src/app/concepts/graph-enrichment/page.tsx` rewritten with the marketing-page sectioned layout (sticky anchor nav, stage cards, dividers) AND all 15 stages (Sync 1–5 / Enrich 6–10 / Finalize 11–15). Preserved the docs-side depth: Understanding Score, Score Decay table, Documentation Mining, Why It Matters, Research Foundation.
+- Top-of-page back-link is **referrer-aware** — if the user came from sourceprep.io it shows "← Back to sourceprep.io"; otherwise defaults to "← Back to Docs".
+- `websites/apps/marketing/src/app/graph-enrichment/` deleted entirely (page + layout). Replaced with a server-side redirect in `marketing/next.config.js`: `/graph-enrichment → https://docs.sourceprep.io/concepts/graph-enrichment`.
+- `packages/ui/src/components/marketing/FeatureBlocks.tsx` Graph Enrichment entry: badge fixed `'Pro' → 'Built-in'` (per `feature_gate.py:64` `auto_deep_enrichment: Tier.FREE`); `href` repointed to docs.
+
+Two adjacent fixes piggybacked:
+- Pure-hub pages `/concepts` and `/guides` (just menu duplicates of the sidebar) deleted; sidebar headers for these sections become non-clickable text. `next.config.js` redirects `/concepts → /concepts/indexing` and `/guides → /guides/embeddings` so direct URL hits land somewhere sensible.
+- `DocsSidebarNav.tsx` now renders section headers as clickable links when `section.href` is set — fixes the "discovery-poor hub" UX for the four kept hubs (`/getting-started`, `/cli`, `/dashboard`, `/mcp`). Removed `href` from the deleted Concepts and Guides sections so their headers stay plain text.
+- All `← Back to Concepts` / `← Back to Guides` back-links in concept and guide sub-pages repointed to `← Back to Docs` (`href="/"`).
+
+Step C (apply same marketing-style layout to `/concepts/indexing`, `/concepts/code-graph`, `/concepts/context`) is the natural follow-up — substantive content rewriting per page, deferred to focused passes.
 
 ---
 

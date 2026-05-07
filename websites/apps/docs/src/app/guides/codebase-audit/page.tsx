@@ -7,8 +7,8 @@ export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
       <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
-        <a href="/guides" className="text-sm text-text-muted">
-          ← Back to Guides
+        <a href="/" className="text-sm text-text-muted">
+          ← Back to Docs
         </a>
 
         <h1 className="mt-6 text-4xl font-bold tracking-tight">

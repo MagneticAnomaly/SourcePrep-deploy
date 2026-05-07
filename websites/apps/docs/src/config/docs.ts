@@ -14,8 +14,9 @@ export const docsSidebar: DocNode[] = [
     ],
   },
   {
+    // No hub page — section header is non-clickable; concepts listed below.
     title: 'Core Concepts',
-    href: '/concepts',
+    href: '',
     children: [
       { title: 'Local Indexing', href: '/concepts/indexing' },
       { title: 'Code Graph', href: '/concepts/code-graph' },
@@ -41,10 +42,10 @@ export const docsSidebar: DocNode[] = [
     ],
   },
   {
+    // No hub page — guide list lives in the sidebar itself.
     title: 'Guides',
-    href: '/guides',
+    href: '',
     children: [
-      { title: 'Overview', href: '/guides' },
       { title: 'Built-in Embeddings', href: '/guides/embeddings' },
       { title: 'Model Configuration', href: '/guides/models' },
       { title: 'Context Compression', href: '/guides/compression' },

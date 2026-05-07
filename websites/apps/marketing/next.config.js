@@ -14,6 +14,12 @@ const nextConfig = {
         destination: '/support',
         permanent: true,
       },
+      {
+        // Concept pages are canonical on the docs site (single source of truth).
+        source: '/graph-enrichment',
+        destination: 'https://docs.sourceprep.io/concepts/graph-enrichment',
+        permanent: true,
+      },
     ];
   },
 };

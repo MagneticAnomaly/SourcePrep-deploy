@@ -10,6 +10,17 @@ const nextConfig = {
         destination: '/guides/compression',
         permanent: true,
       },
+      // Pure-hub pages removed — land direct hits on the first child instead of 404.
+      {
+        source: '/concepts',
+        destination: '/concepts/indexing',
+        permanent: true,
+      },
+      {
+        source: '/guides',
+        destination: '/guides/embeddings',
+        permanent: true,
+      },
     ];
   },
 };

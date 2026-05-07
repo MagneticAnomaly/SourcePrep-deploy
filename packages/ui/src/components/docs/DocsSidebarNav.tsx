@@ -17,11 +17,21 @@ export function DocsSidebarNav({ items, className }: DocsSidebarNavProps) {
   return (
     <nav className={cn('w-4/5', className)}>
       <ul className="space-y-4">
-        {items.map((section, idx) => (
-          <li key={idx}>
-            <h4 className="font-semibold text-xs uppercase tracking-wider text-primary mb-3 px-2 border-t border-border pt-4 mt-2">
-              {section.title}
-            </h4>
+        {items.map((section, idx) => {
+          const headerClass =
+            'font-semibold text-xs uppercase tracking-wider text-primary mb-3 px-2 border-t border-border pt-4 mt-2';
+          return (
+            <li key={idx}>
+              {section.href ? (
+                <a
+                  href={section.href}
+                  className={cn(headerClass, 'block hover:text-primary-hover transition-colors')}
+                >
+                  {section.title}
+                </a>
+              ) : (
+                <h4 className={headerClass}>{section.title}</h4>
+              )}
             {section.children && (
               <ul className="space-y-1">
                 {section.children.map((item) => (
@@ -41,8 +51,9 @@ export function DocsSidebarNav({ items, className }: DocsSidebarNavProps) {
                 ))}
               </ul>
             )}
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );
