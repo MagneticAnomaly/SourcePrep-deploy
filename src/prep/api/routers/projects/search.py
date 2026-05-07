@@ -433,8 +433,20 @@ def _load_all_modules(idx_dir: Path) -> List[Dict[str, Any]]:
 def _format_module_tiers(
     scope_modules: List[Dict[str, Any]],
     context_tier: Optional["ContextTier"] = None,
+    role: Optional[Any] = None,
 ) -> str:
-    """Format modules into tiered display: significant, small, tiny."""
+    """Format modules into tiered display: significant, small, tiny.
+
+    When ``role`` (a ``RoleVector``) is provided, the *significant* tier is
+    re-ranked by role-affinity score so that domain-relevant modules float
+    to the top — addressing the dogfood finding that role="security" calls
+    were leaking marketing modules to the front of the list. The header
+    becomes "## Modules in scope (role: <display_name>)" so consumers can
+    tell when a role lens is active. Small/tiny tiers are unaffected — the
+    role lens only re-orders the prominent slot. ``role`` is typed as
+    ``Any`` so this module doesn't pull the atlas package into its import
+    graph; callers are expected to pass a ``RoleVector`` or ``None``.
+    """
     from prep.core.context_tier import ContextTier
 
     tier = context_tier if context_tier is not None else ContextTier.TIER_2
@@ -451,8 +463,34 @@ def _format_module_tiers(
     ]
     tiny = [m for m in scope_modules if m.get("file_count", 0) < 2]
 
-    mod_header = "## Modules in scope\n"
-    for m in sorted(significant, key=lambda x: -x.get("file_count", 0)):
+    # Role-weighted re-rank for significant tier.
+    role_label = ""
+    if role is not None and significant:
+        try:
+            from prep.core.atlas.role_vectors import max_tag_affinity
+            affinity = list(getattr(role, "domain_affinity", []) or [])
+            if affinity:
+                def _role_key(mod: Dict[str, Any]) -> tuple:
+                    score = max_tag_affinity(
+                        list(mod.get("domain_tags", []) or []),
+                        affinity,
+                    )
+                    return (-score, -mod.get("file_count", 0))
+                significant = sorted(significant, key=_role_key)
+                display = getattr(role, "display_name", None) or getattr(
+                    role, "role_id", "role"
+                )
+                role_label = f" (role: {display})"
+        except Exception:
+            # Role weighting is best-effort. Fall back to file-count order.
+            significant = sorted(
+                significant, key=lambda x: -x.get("file_count", 0)
+            )
+    else:
+        significant = sorted(significant, key=lambda x: -x.get("file_count", 0))
+
+    mod_header = f"## Modules in scope{role_label}\n"
+    for m in significant:
         name = m.get("name", m.get("module_id", "?"))
         summary = m.get("summary", "")
         fc = m.get("file_count", 0)
@@ -511,11 +549,18 @@ def _assemble_ambient_context(
     included_paths: List[str],
     max_chars: int = 6000,
     context_tier: Optional[int] = None,
+    role: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Assemble context from project state without a query (Phase 34 C1/C2/C3).
 
     Uses included_paths + trace graph hubs + module data to build structural
     context that answers "what's in my focus area and how does it connect?"
+
+    When ``role`` is provided, the module-list header is re-ranked by the
+    role's domain affinity so that domain-relevant modules float to the top
+    (closes the 2026-05-02 dogfood finding that role="security" surfaced
+    marketing modules first). Resolution is best-effort — unknown role
+    strings degrade to the un-weighted ranking silently.
     """
     from prep.core.project_registry import project_index_dir
 
@@ -531,9 +576,18 @@ def _assemble_ambient_context(
         else tier_from_budget(max_chars)
     )
 
+    # Resolve role string to a RoleVector for module re-ranking.
+    role_vec = None
+    if role:
+        try:
+            from prep.core.atlas.role_resolver import resolve_role
+            role_vec = resolve_role(role)
+        except Exception:
+            role_vec = None
+
     # ── C2: Module-aware header ──────────────────────────────────
     scope_modules = _load_scope_modules(idx_dir, included_paths)
-    mod_text = _format_module_tiers(scope_modules, context_tier=tier)
+    mod_text = _format_module_tiers(scope_modules, context_tier=tier, role=role_vec)
     if mod_text:
         parts.append(mod_text)
         total_chars += len(parts[-1])
@@ -850,7 +904,17 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
                 scope_modules = _load_scope_modules(idx_dir, _included)
             else:
                 scope_modules = _load_all_modules(idx_dir)
-            mod_text = _format_module_tiers(scope_modules, context_tier=tier)
+            # Resolve role for module re-ranking (best-effort).
+            _role_vec = None
+            if req.role:
+                try:
+                    from prep.core.atlas.role_resolver import resolve_role
+                    _role_vec = resolve_role(req.role)
+                except Exception:
+                    _role_vec = None
+            mod_text = _format_module_tiers(
+                scope_modules, context_tier=tier, role=_role_vec,
+            )
             if mod_text:
                 parts.append(mod_text)
                 total_chars += len(mod_text)
@@ -919,7 +983,7 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         _included = (proj.config or {}).get("included_paths") or []
         return _assemble_ambient_context(
             proj, project_id, idx, trace_idx, _included, max_chars=req.max_chars,
-            context_tier=req.context_tier,
+            context_tier=req.context_tier, role=req.role,
         )
 
     # ── Phase 34e F: Query preprocessing ─────────────────────────
