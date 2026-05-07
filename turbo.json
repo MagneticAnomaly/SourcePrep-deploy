@@ -6,7 +6,8 @@
       "outputs": ["dist/**", ".next/**", "storybook-static/**"]
     },
     "build-storybook": {
-      "outputs": ["storybook-static/**"]
+      "outputs": ["storybook-static/**"],
+      "env": ["STORYBOOK_PUBLIC"]
     },
     "dev": {
       "cache": false,
