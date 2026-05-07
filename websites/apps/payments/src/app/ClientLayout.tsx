@@ -6,13 +6,19 @@ import { SiteHeader, SiteFooter } from '@prep/ui';
 const isDev = process.env.NODE_ENV !== 'production';
 
 const HOME_URL = isDev ? 'http://localhost:3000' : 'https://sourceprep.io';
-const PRICING_URL = isDev ? 'http://localhost:3000/pricing' : 'https://sourceprep.io/pricing';
-const SUPPORT_URL = isDev ? 'http://localhost:3002' : 'https://support.sourceprep.io';
+const DOCS_URL = isDev ? 'http://localhost:3001' : 'https://docs.sourceprep.io';
+const PRICING_URL = `${HOME_URL}/pricing`;
+const DOWNLOAD_URL = `${HOME_URL}/download`;
+const FAQ_URL = `${HOME_URL}/faq`;
 
+// Canonical nav order across all sites: Home · Docs · Pricing · Download · FAQ
+// (current-site item omitted). See docs/MARKETING_NAV_CANONICAL.md.
 const navLinks = [
   { label: 'Home', href: HOME_URL },
+  { label: 'Docs', href: DOCS_URL },
   { label: 'Pricing', href: PRICING_URL },
-  { label: 'Support', href: SUPPORT_URL },
+  { label: 'Download', href: DOWNLOAD_URL },
+  { label: 'FAQ', href: FAQ_URL },
 ];
 
 export function ClientLayout({ children }: { children: ReactNode }) {

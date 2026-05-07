@@ -11,11 +11,14 @@ const HOME_URL = isDev ? 'http://localhost:3000' : 'https://sourceprep.io';
 const DOWNLOAD_URL = isDev ? 'http://localhost:3000/download' : 'https://sourceprep.io/download';
 const SUPPORT_URL = isDev ? 'http://localhost:3002' : 'https://support.sourceprep.io';
 
-// We're already on the docs site — no self-referential "Documentation" link.
+// Canonical nav order across all sites: Home · Docs · Pricing · Download · FAQ
+// (current-site item omitted; "Docs" omitted here since we are docs).
+// See docs/MARKETING_NAV_CANONICAL.md.
 const navLinks = [
   { label: 'Home', href: HOME_URL },
   { label: 'Pricing', href: `${HOME_URL}/pricing` },
   { label: 'Download', href: DOWNLOAD_URL },
+  { label: 'FAQ', href: `${HOME_URL}/faq` },
 ];
 
 const headerProps = {

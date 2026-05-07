@@ -11,10 +11,12 @@ const DOCS_URL  = isDev ? 'http://localhost:3001' : 'https://docs.sourceprep.io'
 const SUPPORT_URL = isDev ? 'http://localhost:3002' : 'https://support.sourceprep.io';
 // const PAYMENTS_URL = isDev ? 'http://localhost:3003' : 'https://payments.sourceprep.io';
 
+// Canonical nav order across all sites: Home · Docs · Pricing · Download · FAQ
+// (current-site item omitted). See docs/MARKETING_NAV_CANONICAL.md.
 const navLinks = [
-  { label: 'Download', href: '/download' },
   { label: 'Docs', href: DOCS_URL },
   { label: 'Pricing', href: '/pricing' },
+  { label: 'Download', href: '/download' },
   { label: 'FAQ', href: '/faq' },
 ];
 
