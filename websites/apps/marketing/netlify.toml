@@ -13,12 +13,5 @@
   status = 301
   force  = true
 
-#  legacy redirect (if this site owns that domain too)
-[[redirects]]
-  from   = ""
-  to     = "https://sourceprep.io/:splat"
-  status = 301
-  force  = true
-
 [[plugins]]
   package = "@netlify/plugin-nextjs"

@@ -3,7 +3,7 @@
 <!-- prep-managed-start -->
 ## SourcePrep Integration
 
-Last updated: 2026-05-04T00:55:53Z
+Last updated: 2026-05-07T04:37:20Z
 
 prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
@@ -74,38 +74,42 @@ UI (packages/ui, 357 files): storybook, design-system, react, documentation
 
 Planning docs that mention this module's code (Phase 124 T9). Use these as a starting point to understand a module's *why* before reading source. Generated from `atlas_markdown_links.json`.
 
-- **Project Management Push & Sync Infrastructure**
+- **Prep HTTP API Contract & Client Surface**
+  - `docs/MASTER_TODO.md`
+  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
+  - `docs/Phase120_NamedScopes/IMPLEMENTATION_PLAN.md`
+- **Project Management & Roadmap Orchestration Platform**
   - `docs/MASTER_TODO.md`
   - `docs/Phase06_Team_And_Enterprise/TEAM_ENTERPRISE_CODE_AUDIT.md`
-  - `docs/Phase67_AGENTS/Paperclip-Plugin/01_Integration_Research.md`
-- **Trace Index Builder & Graph Engine**
-  - `docs/research/MULTI_PROJECT_MODEL_MANAGEMENT.md`
-  - `docs/Phase115_filter-universality/PROGRESS.md`
+  - `docs/Phase127_MultiProjectQueueArchitecture/README.md`
+- **Deterministic Trace Index Engine**
   - `docs/Phase118_UISmoke/RESULTS.md`
-- **Enrichment Pipeline Orchestrator & State Machine**
-  - `docs/Phase96-fix-pipeline/00_DIAGNOSTIC_REPORT.md`
-  - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
-  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
-- **Enterprise Security & Licensing Governance**
-  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
-  - `docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md`
-  - `docs/superpowers/plans/2026-04-10-detail-pages-and-template.md`
-- **Enterprise Security Audit & Compliance Dashboard**
-  - `docs/Phase06_Team_And_Enterprise/SECURITY_AUDIT.md`
-  - `docs/Phase06_Team_And_Enterprise/TEAM_ENTERPRISE_CODE_AUDIT.md`
-  - `docs/Phase06_Team_And_Enterprise/TODO.md`
-- **AI Gateway & Compute Orchestrator**
-  - `docs/Phase119_ConcurrencyStability/05_Cross_Provider_Concurrency_Design.md`
-  - `docs/Phase119_ConcurrencyStability/01_Design.md`
-  - `docs/Phase119_ConcurrencyStability/02_Implementation_Plan.md`
+  - `docs/research/MULTI_PROJECT_MODEL_MANAGEMENT.md`
+  - `docs/superpowers/plans/2026-04-19-phase117-rebuild-granularity.md`
+- **Interactive Architecture Diagram Engine**
+  - `docs/superpowers/plans/2026-04-04-phase71b-governance-overlays.md`
+  - `docs/superpowers/plans/2026-04-04-phase71a-architecture-diagram.md`
+  - `docs/superpowers/plans/2026-04-08-phase84-concepts-formalization.md`
 - **Prep CLI Client & Documentation Surface**
   - `AGENTS.md`
   - `CLAUDE.md`
   - `docs/MASTER_TODO.md`
-- **Enterprise Governance & Tier Enforcement Engine**
+- **Enrichment Pipeline Orchestrator & State Machine**
+  - `docs/Phase96-fix-pipeline/00_DIAGNOSTIC_REPORT.md`
+  - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
+  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
+- **Security & Compliance Governance Platform**
   - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
-  - `docs/Phase11_Deployment/FOR_ERIC_TODO.md`
-  - `docs/Phase120_NamedScopes/IMPLEMENTATION_PLAN.md`
+  - `docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md`
+  - `docs/superpowers/plans/2026-04-10-detail-pages-and-template.md`
+- **LLM Endpoint & Model Assignment Orchestrator**
+  - `docs/Phase112_Gemini/IMPLEMENTATION_PLAN.md`
+  - `docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md`
+  - `docs/superpowers/plans/2026-04-20-llm-config-autosave-redesign.md`
+- **AI Gateway & LLM Compute Orchestrator**
+  - `docs/Phase119_ConcurrencyStability/05_Cross_Provider_Concurrency_Design.md`
+  - `docs/Phase119_ConcurrencyStability/01_Design.md`
+  - `docs/Phase119_ConcurrencyStability/02_Implementation_Plan.md`
 
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.

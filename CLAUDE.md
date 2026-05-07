@@ -257,7 +257,7 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 <!-- prep-managed-start -->
 # SourcePrep Integration
 
-Last updated: 2026-05-04T00:55:53Z
+Last updated: 2026-05-07T04:37:20Z
 
 prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
