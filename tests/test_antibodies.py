@@ -169,3 +169,106 @@ def test_derive_antibodies_for_project():
     ]
     results = derive_antibodies_for_project(concepts)
     assert len(results) == 2  # constraint + architecture, not pattern
+
+
+# --- Status inheritance tests (closes the testing/active mismatch) ---
+
+
+def test_active_concept_produces_active_antibody():
+    """A concept the user has explicitly promoted to 'active' should
+    derive an antibody that fires immediately. Closes the bug where
+    517 derived antibodies stayed forever in 'testing' because nobody
+    manually promoted them."""
+    concept = {
+        "id": "c-active", "title": "No openai in core",
+        "content": "core must not import openai",
+        "assertion": "core must not import openai",
+        "category": "constraint", "status": "active",
+        "anchors": ["src/core/foo.py"],
+    }
+    ab = suggest_antibody(concept)
+    assert ab is not None
+    assert ab.status == "active"
+
+
+def test_seed_concept_still_produces_testing_antibody():
+    """An unvetted seed concept should still derive a 'testing' antibody
+    that requires manual promotion — preserves the safety valve."""
+    concept = {
+        "id": "c-seed", "title": "Tentative constraint",
+        "content": "core must not import openai",
+        "assertion": "core must not import openai",
+        "category": "constraint", "status": "seed",
+        "anchors": ["src/core/foo.py"],
+    }
+    ab = suggest_antibody(concept)
+    assert ab is not None
+    assert ab.status == "testing"
+
+
+def test_proposed_concept_produces_testing_antibody():
+    """proposed/triage_pending/shadow are also unvetted — testing only."""
+    for status in ("proposed", "triage_pending", "shadow", "testing"):
+        concept = {
+            "id": f"c-{status}", "title": f"x ({status})",
+            "content": "must not import x",
+            "category": "constraint", "status": status,
+            "anchors": ["src/a.py"],
+        }
+        ab = suggest_antibody(concept)
+        assert ab is not None, f"failed to derive for status={status}"
+        assert ab.status == "testing", (
+            f"status={status} should produce testing antibody, got {ab.status}"
+        )
+
+
+def test_archived_concept_skips_derivation():
+    """Archived/superseded/deprecated concepts must not derive antibodies
+    at all — the upstream concept is gone, the antibody would be orphaned."""
+    for status in ("archived", "superseded", "deprecated"):
+        concept = {
+            "id": f"c-{status}", "title": f"x ({status})",
+            "content": "must not import x",
+            "category": "constraint", "status": status,
+            "anchors": ["src/a.py"],
+        }
+        assert suggest_antibody(concept) is None, (
+            f"status={status} should not derive an antibody"
+        )
+
+
+def test_missing_status_defaults_to_testing():
+    """Concepts without an explicit status (legacy rows / dict literals)
+    must NOT silently auto-fire — default to testing."""
+    concept = {
+        "id": "c-no-status", "title": "no status",
+        "content": "must not import openai",
+        "category": "constraint",
+        "anchors": ["src/a.py"],
+    }
+    ab = suggest_antibody(concept)
+    assert ab is not None
+    assert ab.status == "testing"
+
+
+def test_derive_for_project_inherits_per_concept_status():
+    """End-to-end: a mixed batch produces the right per-concept inheritance."""
+    concepts = [
+        {"id": "ca", "title": "active",
+         "content": "must not import openai",
+         "category": "constraint", "status": "active",
+         "anchors": ["src/a.py"]},
+        {"id": "cs", "title": "seed",
+         "content": "must not import requests",
+         "category": "constraint", "status": "seed",
+         "anchors": ["src/b.py"]},
+        {"id": "cd", "title": "deprecated",
+         "content": "must not import flask",
+         "category": "constraint", "status": "deprecated",
+         "anchors": ["src/c.py"]},
+    ]
+    out = derive_antibodies_for_project(concepts)
+    by_source = {ab.source_concept_id: ab for ab in out}
+    assert by_source["ca"].status == "active"
+    assert by_source["cs"].status == "testing"
+    assert "cd" not in by_source  # archived/deprecated → skipped

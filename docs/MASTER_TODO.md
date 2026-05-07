@@ -116,13 +116,23 @@ indicated as the natural home.
 - **[Phase 124]** T8 Playwright dashboard sweep (smoke test that
   the new `docs_for_segment` field, T9 AGENTS.md section, and
   T5b-shrunken AUDIT_SUMMARY render correctly).
-- **[Phase 125 §13 OR new phase]** Antibody promotion path is
-  broken: `antibody_derivation.py:59,77` hardcodes
-  `status='testing'`; `immune_watcher.py:50` queries
-  `status='active'`. 517 antibodies exist but are invisible to
-  `prep()` ambient context. Surfaced by dogfood issue #3.
-  Recommendation: split into its own phase (the semantics differ
-  from concept promotion — antibodies gate runtime, not retrieval).
+- **[Phase 125 §13] [LANDED 2026-05-07]** Antibody status mismatch.
+  `antibody_derivation.suggest_antibody()` previously hardcoded
+  `status='testing'` for every derived antibody, while
+  `immune_watcher.py:50` queries only `status='active'` — so
+  derivations were stuck in a dead state and never fired. Fix:
+  derived antibodies now inherit the source concept's status.
+  An ``active`` (curated) concept produces an ``active`` antibody
+  that fires; ``seed``/``proposed``/``triage_pending``/``shadow``/
+  ``testing`` concepts still produce ``testing`` antibodies that
+  require manual promotion through ``prep_audit(antibody_id,
+  status='active')``. ``archived``/``superseded``/``deprecated``
+  concepts skip derivation entirely. Tests in
+  ``tests/test_antibodies.py`` (6 new); 25/25 pass.
+  Originally master-TODO-recommended as its own phase, but on
+  closer inspection the fix was scoped: propagate the existing
+  concept-promotion gate to the antibody layer rather than
+  introducing a second gate.
 - **[Phase 126 candidate]** Apply the multi-pass refinement
   pattern (Pass 1 broad LLM → Pass 2 CPU group/score → Pass 3
   scoped LLM critique → Pass 4 deterministic gate) to other

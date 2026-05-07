@@ -1,7 +1,20 @@
 """Derive antibody suggestions from concepts.
 
 Constraint and architecture concepts can be auto-derived into antibodies.
-All derived antibodies start in 'testing' status.
+
+Status inheritance: a derived antibody adopts the status of its source
+concept. An ``active`` (curated, vetted) concept produces an ``active``
+antibody that fires on file changes via ``immune_watcher``. Any other
+concept status (``seed``, ``proposed``, ``triage_pending``, etc.)
+produces a ``testing`` antibody that requires manual promotion through
+``prep_audit(antibody_id, status='active')`` before it fires. Archived
+and superseded concepts do not derive antibodies at all.
+
+This propagates the existing concept-promotion gate to the antibody
+layer rather than introducing a second gate. Before this change, every
+derived antibody started in ``testing`` and required a separate manual
+promotion step that nobody performed in practice — leaving the immune
+system functionally inactive even when concepts had been curated.
 """
 from __future__ import annotations
 
@@ -13,15 +26,38 @@ from prep.core.antibodies import (
     Antibody, Trigger, TriggerType, Response, ResponseType, Severity,
 )
 
+# Concept statuses that should not derive antibodies at all.
+_SKIP_DERIVATION_STATUSES: frozenset[str] = frozenset({
+    "archived", "superseded", "deprecated",
+})
+
+
+def _antibody_status_for_concept(concept_status: str) -> str:
+    """Map a concept status to the antibody status it should inherit.
+
+    Only ``active`` concepts produce ``active`` antibodies. Everything
+    else stays in ``testing`` — the existing safety valve for unvetted
+    concepts continues to apply at the antibody layer too.
+    """
+    return "active" if concept_status == "active" else "testing"
+
 
 def suggest_antibody(concept: Dict[str, Any]) -> Optional[Antibody]:
     """Suggest an antibody from a concept, if derivable.
 
     Only constraint and architecture concepts with anchors are candidates.
+    Archived/superseded/deprecated concepts skip derivation. The derived
+    antibody inherits the concept's status (active concepts produce
+    firing antibodies; seed/testing/proposed concepts produce testing
+    antibodies that still require manual promotion).
     Returns None if the concept can't produce a useful antibody.
     """
     category = concept.get("category", "")
     if category not in ("constraint", "architecture"):
+        return None
+
+    concept_status = concept.get("status", "seed")
+    if concept_status in _SKIP_DERIVATION_STATUSES:
         return None
 
     anchors = concept.get("anchors", [])
@@ -37,6 +73,8 @@ def suggest_antibody(concept: Dict[str, Any]) -> Optional[Antibody]:
     text = assertion or content
     if not text:
         return None
+
+    antibody_status = _antibody_status_for_concept(concept_status)
 
     # Detect import restriction patterns
     import_pattern = _extract_import_pattern(text)
@@ -56,7 +94,7 @@ def suggest_antibody(concept: Dict[str, Any]) -> Optional[Antibody]:
                 message=f"Potential violation of '{title}': {assertion or content[:100]}",
             ),
             severity=severity,
-            status="testing",
+            status=antibody_status,
         )
 
     # Default: watch for any modification to anchored files
@@ -74,7 +112,7 @@ def suggest_antibody(concept: Dict[str, Any]) -> Optional[Antibody]:
             message=f"File modified — concept '{title}' applies here: {assertion or content[:100]}",
         ),
         severity=severity,
-        status="testing",
+        status=antibody_status,
     )
 
 
