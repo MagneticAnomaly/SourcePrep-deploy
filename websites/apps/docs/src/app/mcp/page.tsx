@@ -59,11 +59,12 @@ export default function Page() {
             When you connect a CLI agent like Claude Code or Codex, or an IDE like Cursor or Windsurf, their internal AI agents gain the ability to:
           </p>
           <ul className="list-disc pl-6 space-y-2">
-            <li><span className="font-semibold text-text">Get Oriented:</span> Call <code>prep</code> with no arguments to get ambient context — module structures, hub files, and your selected focus areas formatted perfectly for internal understanding.</li>
-            <li><span className="font-semibold text-text">Search Semantically:</span> Use <code>prep_search</code> to find code by meaning ("auth logic") rather than just keywords, expanding structurally to provide required imports automatically.</li>
-            <li><span className="font-semibold text-text">Code Graph:</span> Follow import paths and function calls (Rust-powered graph) defensively. Use <code>prep_impact</code> to see exact blast radiuses before modifying a file.</li>
-            <li><span className="font-semibold text-text">Persistent Memory:</span> Use <code>prep_observe</code> to write cross-session notes that get automatically flagged as `[STALE]` when the underlying files are modified.</li>
-            <li><span className="font-semibold text-text">Audit Codebase:</span> Use <code>prep_audit</code> to get a health report with architecture findings, tech debt, dead code, and test coverage gaps. <a href="/guides/codebase-audit" className="text-primary hover:underline">Learn more →</a></li>
+            <li><span className="font-semibold text-text">Get Oriented:</span> Call <code>prep</code> with no arguments for ambient context — module structures, hub files, focus areas, and immune-system alerts.</li>
+            <li><span className="font-semibold text-text">Search Semantically:</span> Use <code>prep_search</code> to find code by meaning. The query intent is auto-classified (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER) so the right index gets queried.</li>
+            <li><span className="font-semibold text-text">Code Graph:</span> Use <code>prep_impact</code> to see exact blast radius before editing — what depends on a file or symbol, with stdlib/external noise filtered out.</li>
+            <li><span className="font-semibold text-text">Audit Codebase:</span> <code>prep_audit</code> is dual-mode — call with no args for structural findings (coupling, cycles, concept violations), or pass <code>findings</code> to enrich ruff/eslint/semgrep output with structural context. Accepts SARIF in/out. <a href="/guides/codebase-audit" className="text-primary hover:underline">Learn more →</a></li>
+            <li><span className="font-semibold text-text">Persistent Memory:</span> Use <code>prep_observe</code> to save cross-session notes that get automatically flagged as <code>[STALE]</code> when the underlying files change.</li>
+            <li><span className="font-semibold text-text">Business Rationale:</span> Use <code>prep_concepts</code> to record and query the "why" behind code — design decisions, constraints, and architecture rules. Constraint concepts auto-generate antibodies that surface in ambient context when violated.</li>
           </ul>
 
           <AnchorHeading id="tools-reference" level="h2">Tools Reference</AnchorHeading>
@@ -79,23 +80,27 @@ export default function Page() {
               <tbody className="text-text-muted">
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">prep</td>
-                  <td className="py-2 text-xs">Ambient context — hub files, module summaries, focus areas (no arguments needed)</td>
+                  <td className="py-2 text-xs">Ambient context — module map, hub files, focus areas, immune-system alerts</td>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">prep_search</td>
-                  <td className="py-2 text-xs">Semantic search with trace expansion, atlas routing, LOD compression</td>
+                  <td className="py-2 text-xs">Semantic search with auto-classified intent (locate / explain / rationale / trace / example / discover)</td>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">prep_impact</td>
-                  <td className="py-2 text-xs">Blast radius analysis — what depends on a file or symbol</td>
+                  <td className="py-2 text-xs">Blast radius analysis — what depends on a file or symbol, with noise filtered</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-mono text-xs">prep_audit</td>
+                  <td className="py-2 text-xs">Structural findings + lint enrichment (action = scan, antibodies, refactor, verify, report, advise)</td>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">prep_observe</td>
-                  <td className="py-2 text-xs">Save or retrieve cross-session notes about the codebase (with stale flags)</td>
+                  <td className="py-2 text-xs">Save / retrieve cross-session notes with stale flags</td>
                 </tr>
                 <tr>
-                  <td className="py-2 pr-4 font-mono text-xs">prep_audit</td>
-                  <td className="py-2 text-xs">Run or retrieve codebase health audits (action = scan, refactor, verify, report)</td>
+                  <td className="py-2 pr-4 font-mono text-xs">prep_concepts</td>
+                  <td className="py-2 text-xs">Record / query design decisions and constraints; constraint concepts auto-derive antibodies</td>
                 </tr>
               </tbody>
             </table>
