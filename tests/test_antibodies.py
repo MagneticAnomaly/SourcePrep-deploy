@@ -272,3 +272,117 @@ def test_derive_for_project_inherits_per_concept_status():
     assert by_source["ca"].status == "active"
     assert by_source["cs"].status == "testing"
     assert "cd" not in by_source  # archived/deprecated → skipped
+
+
+# --- Layer filter: only kind="concept" derives ---
+
+
+def test_module_rationale_concepts_do_not_derive_antibodies():
+    """``kind='module_rationale'`` rows (per-module observations,
+    ~thousands per project) must NOT auto-derive antibodies — they're
+    too noisy a substrate for runtime alerts. Closes a gap caught
+    during the 2026-05-07 scrutiny pass: ``concept_store.list_concepts``
+    returns both kinds by default, so a project with thousands of
+    rationale entries would otherwise produce noisy auto-derived
+    antibodies on every pipeline run."""
+    rationale = {
+        "id": "r-1", "title": "Module rationale",
+        "content": "must not import openai",
+        "category": "constraint", "status": "active",
+        "anchors": ["src/a.py"],
+        "kind": "module_rationale",
+    }
+    assert suggest_antibody(rationale) is None
+
+
+def test_concept_kind_default_still_derives():
+    """Legacy concept dicts that omit the ``kind`` field (e.g. older
+    rows or hand-built dicts) must still derive — default to the
+    derivable kind."""
+    concept_no_kind = {
+        "id": "c-no-kind", "title": "no kind",
+        "content": "must not import openai",
+        "category": "constraint", "status": "active",
+        "anchors": ["src/a.py"],
+    }
+    ab = suggest_antibody(concept_no_kind)
+    assert ab is not None
+
+
+def test_explicit_concept_kind_derives():
+    """Explicit ``kind='concept'`` rows derive (the small curated layer)."""
+    concept = {
+        "id": "c-1", "title": "explicit concept",
+        "content": "must not import openai",
+        "category": "constraint", "status": "active",
+        "anchors": ["src/a.py"],
+        "kind": "concept",
+    }
+    ab = suggest_antibody(concept)
+    assert ab is not None
+
+
+# --- Stable IDs: re-derivation upserts in place ---
+
+
+def test_re_derivation_produces_stable_id():
+    """Calling suggest_antibody twice on the same concept must yield
+    the same antibody.id so the underlying INSERT OR REPLACE upserts
+    in place rather than accumulating duplicates across pipeline runs.
+    Closes a gap caught during scrutiny: the previous uuid4 ID meant
+    every run grew the antibodies table by N rows."""
+    concept = {
+        "id": "c-stable", "title": "stable",
+        "content": "must not import openai",
+        "category": "constraint", "status": "active",
+        "anchors": ["src/a.py"],
+    }
+    ab1 = suggest_antibody(concept)
+    ab2 = suggest_antibody(concept)
+    assert ab1 is not None and ab2 is not None
+    assert ab1.id == ab2.id
+
+
+def test_distinct_concepts_produce_distinct_ids():
+    """Different source concepts must still produce different IDs."""
+    a = {
+        "id": "ca", "title": "A",
+        "content": "must not import openai",
+        "category": "constraint", "status": "active",
+        "anchors": ["src/a.py"],
+    }
+    b = {
+        "id": "cb", "title": "B",
+        "content": "must not import openai",
+        "category": "constraint", "status": "active",
+        "anchors": ["src/b.py"],  # different anchor → different trigger target
+    }
+    ab1 = suggest_antibody(a)
+    ab2 = suggest_antibody(b)
+    assert ab1 is not None and ab2 is not None
+    assert ab1.id != ab2.id
+
+
+def test_distinct_trigger_types_produce_distinct_ids():
+    """Same source concept producing both an import-trigger and a
+    file-modified trigger (hypothetically, via different content
+    derivations) must produce distinct IDs so they don't collide."""
+    # concept that yields import-trigger (matches _extract_import_pattern)
+    import_concept = {
+        "id": "c-shared", "title": "import",
+        "content": "must not import openai",
+        "category": "constraint", "status": "active",
+        "anchors": ["src/a.py"],
+    }
+    # concept with same id but content that DOESN'T match import pattern,
+    # so it falls through to FILE_MODIFIED
+    file_concept = {
+        "id": "c-shared", "title": "file",
+        "content": "anchored architecture invariant",
+        "category": "architecture", "status": "active",
+        "anchors": ["src/a.py"],
+    }
+    ab1 = suggest_antibody(import_concept)
+    ab2 = suggest_antibody(file_concept)
+    assert ab1 is not None and ab2 is not None
+    assert ab1.id != ab2.id, "trigger type should be part of the ID hash"
