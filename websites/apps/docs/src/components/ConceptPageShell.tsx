@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 
 export interface ConceptSection {
@@ -20,34 +19,33 @@ export interface ConceptPageShellProps {
   children: React.ReactNode;
 }
 
-/** Referrer-aware back-link: marketing → marketing, docs → docs (default). */
+/**
+ * Simple "← Back" link. Uses history.back() when there's history (so users
+ * return to the marketing page or whatever previous tab they came from);
+ * falls back to the docs home for direct visits.
+ *
+ * Note: a previous version sniffed `document.referrer` to label the link
+ * "Back to sourceprep.io" vs "Back to Docs". Cross-origin referrers are
+ * routinely stripped by browsers and Netlify, so the detection wasn't
+ * reliable — better to keep the label generic and let the browser do the
+ * work.
+ */
 function BackLink() {
-  const [target, setTarget] = useState<{ href: string; label: string }>({
-    href: '/',
-    label: 'Back to Docs',
-  });
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const ref = document.referrer;
-    if (!ref) return;
-    try {
-      const url = new URL(ref);
-      // Marketing site (sourceprep.io apex, NOT docs.sourceprep.io subdomain)
-      if (url.hostname === 'sourceprep.io' || url.hostname === 'www.sourceprep.io') {
-        setTarget({ href: 'https://sourceprep.io', label: 'Back to sourceprep.io' });
-      } else if (url.hostname === 'localhost' && url.port === '3000') {
-        // Local marketing dev server.
-        setTarget({ href: 'http://localhost:3000', label: 'Back to sourceprep.io' });
-      }
-    } catch {
-      /* invalid referrer URL — keep default */
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      e.preventDefault();
+      window.history.back();
     }
-  }, []);
+    // else: fall through to the href (docs home).
+  };
 
   return (
-    <a href={target.href} className="text-sm text-text-muted hover:text-primary transition-colors inline-flex items-center gap-2">
-      <ArrowLeft className="w-3 h-3" /> {target.label}
+    <a
+      href="/"
+      onClick={handleClick}
+      className="text-sm text-text-muted hover:text-primary transition-colors inline-flex items-center gap-2"
+    >
+      <ArrowLeft className="w-3 h-3" /> Back
     </a>
   );
 }
@@ -67,9 +65,9 @@ export function ConceptPageShell({
 }: ConceptPageShellProps) {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-7xl px-6 pb-16 pt-0">
+      <div className="mx-auto max-w-7xl px-6 pb-16 pt-8">
 
-        <div className="pb-6 mb-8 border-b border-border">
+        <div className="pb-6 mb-10 border-b border-border">
           <BackLink />
         </div>
 

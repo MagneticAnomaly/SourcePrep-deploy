@@ -11,9 +11,10 @@ const HOME_URL = isDev ? 'http://localhost:3000' : 'https://sourceprep.io';
 const DOWNLOAD_URL = isDev ? 'http://localhost:3000/download' : 'https://sourceprep.io/download';
 const SUPPORT_URL = isDev ? 'http://localhost:3002' : 'https://support.sourceprep.io';
 
+// We're already on the docs site — no self-referential "Documentation" link.
 const navLinks = [
   { label: 'Home', href: HOME_URL },
-  { label: 'Documentation', href: '/' },
+  { label: 'Pricing', href: `${HOME_URL}/pricing` },
   { label: 'Download', href: DOWNLOAD_URL },
 ];
 
