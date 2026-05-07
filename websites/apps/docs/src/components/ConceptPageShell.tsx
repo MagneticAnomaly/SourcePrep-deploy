@@ -65,9 +65,12 @@ export function ConceptPageShell({
 }: ConceptPageShellProps) {
   return (
     <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-7xl px-6 pb-16 pt-16">
+      <div className="mx-auto max-w-7xl px-6 pb-16">
 
-        <div className="pb-6 mb-10 border-b border-border">
+        {/* Strip is exactly 48px tall (h-12) so the bottom border lines up
+            with the border above "GETTING STARTED" in the docs sidebar
+            (py-10 + mt-2 = 48px). Back text vertically centered in the gap. */}
+        <div className="h-12 flex items-center border-b border-border mb-10">
           <BackLink />
         </div>
 
