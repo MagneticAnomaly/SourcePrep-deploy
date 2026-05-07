@@ -99,13 +99,15 @@ own phase doc but must not be forgotten. Each is tagged with the
 phase that raised it; landing decision lives with the phase
 indicated as the natural home.
 
-- **[Phase 104]** `role="security"` (and other roles) only filter
-  the file-ranking layer in `prep()` output; the "Modules in scope"
-  section is uniform across roles. Surfaced by
-  `docs/Phase124_FinalizeChainEpistemicAudit/MCP_DOGFOOD_FEEDBACK_2026-05-02.md`
-  issue #2. Cheap fix: label the section role-independent in the
-  MCP server response. Architecturally correct fix: apply role
-  weights to module-list emission too.
+- **[Phase 104] [LANDED 2026-05-07]** `role="security"` module-list
+  re-ranking. `_format_module_tiers` now accepts a `RoleVector`
+  and re-ranks the *significant* tier by domain-tag affinity;
+  header becomes `## Modules in scope (role: <display_name>)`.
+  Conservative — marketing modules sink rather than disappear,
+  small/tiny tiers unchanged. Plumbed through
+  `_assemble_ambient_context` + the knowledge-fallback ambient
+  path. See commit `0012bcd7`, tests in
+  `tests/test_module_tiers_role_weighted.py`.
 - **[Phase 123]** Make worker prompt also emit clarifying
   questions (currently only synthesis emits them). The 2026-05-02
   wall-time bump unblocks synthesis success, but workers should
@@ -128,26 +130,21 @@ indicated as the natural home.
   (Stage 6 — first LLM stage in chain), CLUSTERING (Stage 8 —
   module synthesis), ATLAS (Stage 11). Prove the pattern on
   Phase 125 first, then generalize.
-- **[Atlas / role-projection — security bug]** `prep()` returns
-  an atlas whose role-projection block contains apparent prompt
-  injection: a meta-instruction beginning *"I need to write a
-  concise project orientation header based on the provided data,
-  following strict rules: plain text only, no markdown..."* and a
-  long string of repeated `加油` Chinese characters (likely a
-  token-bomb). Reproduced 2026-05-06 against this repo's own
-  index (project_id `f1636374-abc6-410d-99ee-822120379e79`).
-  Discovered during marketing audit dogfooding — see
-  `docs/MARKETING_SITE_AUDIT.md` Issue 13.
-  Investigation steps: (1) inspect `prep_concepts` for entries
-  containing the meta-instruction text or 加油 string;
-  (2) inspect the atlas regeneration cache; (3) trace the
-  role-projection assembly path in
-  `src/prep/core/atlas/` and the LLM atlas-summary prompt to find
-  where the injection lands — likely a poisoned concept,
-  contaminated module rationale, or a stuck cache artifact;
-  (4) purge and rebuild. Severity: HIGH (the atlas is the front
-  door for every MCP client; this content reaches every agent
-  that calls `prep` against this repo).
+- **[Atlas / role-projection — security bug] [LANDED 2026-05-06]**
+  Root cause was an LLM (kimi-k2.5) restating its own paraphrased
+  prompt followed by a 1500+ char `加油` token-loop, persisted
+  verbatim into `.sourceprep/atlas.json` because the existing
+  quality gate only checked length. Fix: new
+  `src/prep/core/atlas/validators.py` (prompt-leak openers,
+  single-char + n-gram repeat-attack detection, missing-section
+  markers) wired into all four LLM call sites in `generator.py`
+  plus all `load()` paths so poisoned caches self-heal on next
+  regen. See commit `52727cb4`, tests in
+  `tests/test_atlas_validators.py` (22) +
+  `tests/test_atlas.py::TestLLMAtlas` (2 integration). Same
+  scrutiny pass also added defensive lazy-init to AntibodyStore,
+  ConceptStore, ObservationStore (the `prep_audit` initialization
+  bug — separate from but discovered alongside this one).
 - Phase20: `Phase20_support_strategy/README.md`
 - Phase21: `Phase21_logs-and-progress/` (covered by Sprint S-13 — complete)
 - Phase22: `Phase22_trace-epistomology/` (covered by Sprint S-22 — complete)

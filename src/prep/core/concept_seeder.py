@@ -182,11 +182,20 @@ def _seed_concepts_sequential(
             'Each entry must be FALSIFIABLE: a reviewer with grep should '
             'be able to test it in <5 min. Anchor every entry to specific '
             'files in member_files.\n\n'
-            'Respond with JSON only (empty array if nothing meets the bar):\n'
+            'You MAY also emit 0-2 clarifying QUESTIONS — things a human '
+            'maintainer could answer in one sentence that would unlock a '
+            'sharper rationale (e.g. "why Lemon Squeezy not Stripe?", '
+            '"is the testing-vs-active antibody split intentional?"). '
+            'Empty array is fine — questions are not padding, only emit '
+            'when the WHY is genuinely ambiguous from the code alone.\n\n'
+            'Respond with JSON only (empty arrays are fine):\n'
             '{{"concepts": [{{"title": "...", "content": "2-4 sentences", '
             '"category": "architecture|domain|product|epistemic|process|brand|'
             'security|technical|pattern|constraint|decision", '
-            '"confidence": 0.5-1.0, "anchors": ["..."], "tags": ["..."]}}]}}'
+            '"confidence": 0.5-1.0, "anchors": ["..."], "tags": ["..."]}}], '
+            '"questions": [{{"question": "...", "context": "1-2 sentences '
+            'on what would unlock", "suggested_category": "...", '
+            '"target_module": "{name}"}}]}}'
         ).format(
             name=module.get("name", module.get("module_id", "unknown")),
             project=project_name,
@@ -749,11 +758,18 @@ def seed_concepts_swarm(
             "files by path. QUOTE the rationale stated in those excerpts "
             "rather than inferring from code shape. Include the doc's "
             "path in `anchors` alongside any source files.\n\n"
-            "Respond with JSON only (empty array if nothing meets the bar):\n"
+            "You MAY also emit 0-2 clarifying QUESTIONS — things a human "
+            "maintainer could answer in one sentence that would unlock a "
+            "sharper rationale. Empty array is fine. Questions survive "
+            "synthesis failure (Phase 123): if synthesis times out we "
+            "still keep questions emitted at the worker layer.\n\n"
+            "Respond with JSON only (empty arrays are fine):\n"
             '{{"concepts": [{{"title": "...", "content": "2-4 sentences", '
             '"category": "architecture|domain|product|epistemic|process|brand|'
             'security|technical|pattern|constraint|decision", '
-            '"confidence": 0.5-1.0, "anchors": ["..."], "tags": ["..."]}}]}}'
+            '"confidence": 0.5-1.0, "anchors": ["..."], "tags": ["..."]}}], '
+            '"questions": [{{"question": "...", "context": "1-2 sentences", '
+            '"suggested_category": "...", "target_module": "{name}"}}]}}'
         ).format(
             name=module_data.get("name", item.id),
             project=project_name,
@@ -843,6 +859,10 @@ def seed_concepts_swarm(
     # raw worker outputs (best-effort dedupe by title).
     if synthesis_was_empty and result.worker_results:
         seen_titles: set[str] = set()
+        # Phase 123 follow-up (2026-05-07): workers now emit clarifying
+        # questions too, so they survive synthesis failure. Dedupe by
+        # the (question text, target_module) tuple.
+        seen_questions: set[tuple[str, str]] = set()
         for wr in result.worker_results:
             if not wr.success or not wr.parsed:
                 continue
@@ -851,13 +871,19 @@ def seed_concepts_swarm(
                 if title and title not in seen_titles:
                     seen_titles.add(title)
                     final_concepts.append(c)
+            for q in wr.parsed.get("questions", []):
+                qtext = (q.get("question") or "").strip().lower()
+                qmod = (q.get("target_module") or "").strip().lower()
+                key = (qtext, qmod)
+                if qtext and key not in seen_questions:
+                    seen_questions.add(key)
+                    final_questions.append(q)
         logger.warning(
-            "[Swarm/Concepts] SYNTHESIS FAILED — merged %d concepts from %d "
-            "worker outputs as fallback. Questions WILL BE ZERO because "
-            "workers do not emit questions today (only synthesis does). "
-            "Phase 123 follow-up: bump synthesizer wall-time budget OR add "
-            "questions to the worker prompt.",
-            len(final_concepts), len(result.worker_results),
+            "[Swarm/Concepts] SYNTHESIS FAILED — merged %d concepts and %d "
+            "questions from %d worker outputs as fallback. Phase 123: "
+            "questions now survive synthesis failure since workers emit "
+            "them too. To recover synthesis itself, bump max_wall_time_s.",
+            len(final_concepts), len(final_questions), len(result.worker_results),
         )
         # Phase 124 telemetry: surface synthesis failure so the harness
         # `--show-events` mode flags it. Without this, the only signal
@@ -868,16 +894,23 @@ def seed_concepts_swarm(
                 index_dir, "concepts_synthesis_failed",
                 {
                     "fallback_concepts": len(final_concepts),
+                    "fallback_questions": len(final_questions),
                     "worker_count": len(result.worker_results),
                     "successful_workers": sum(
                         1 for wr in result.worker_results if wr.success
                     ),
-                    "questions_lost": True,
+                    # Phase 123 (2026-05-07): workers now emit questions too,
+                    # so they no longer disappear on synthesis failure.
+                    # questions_lost stays as a numeric "how many fewer than
+                    # synthesis would have produced" — but baseline is now
+                    # "the worker fallback count" rather than "zero".
+                    "questions_lost": False,
                     "remediation": (
-                        "Phase 123 territory — bump SwarmOrchestrator "
-                        "max_wall_time_s above 900 for cloud models OR "
-                        "add 'questions' field to the worker prompt so "
-                        "they survive synthesis failure"
+                        "Phase 123 follow-up landed 2026-05-07 — workers "
+                        "emit their own clarifying questions, so synthesis "
+                        "failure no longer zeroes them. To recover synthesis "
+                        "itself, bump SwarmOrchestrator max_wall_time_s "
+                        "above 900 for cloud models."
                     ),
                 },
                 phase="124", stage="concepts", project_id=project_id,
