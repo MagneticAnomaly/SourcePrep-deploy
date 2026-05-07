@@ -15,6 +15,16 @@ const config: StorybookConfig = {
     autodocs: 'tag',
   },
   viteFinal: async (config) => {
+    // vite-plugin-dts emits .d.ts files into the Vite outDir, which during
+    // `storybook build` is `storybook-static/` — leaking the full @prep/ui
+    // type surface (including the ApiClient interface) into the public bundle.
+    // Strip it from the Storybook build only; the library build (npm run build)
+    // still emits declarations to `dist/`.
+    config.plugins = (config.plugins ?? []).filter((plugin) => {
+      if (!plugin || Array.isArray(plugin)) return true;
+      const name = (plugin as { name?: string }).name;
+      return name !== 'vite:dts';
+    });
     return config;
   },
 };

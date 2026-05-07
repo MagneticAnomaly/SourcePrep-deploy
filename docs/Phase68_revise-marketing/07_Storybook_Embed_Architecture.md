@@ -8,7 +8,7 @@ Embed live, interactive Storybook dashboard panels directly into the public docu
 
 | Layer | Mechanism | What It Prevents |
 |-------|-----------|-----------------|
-| **Origin isolation** | Storybook on `storybook.codrag.io` | No shared cookies, localStorage, DOM access |
+| **Origin isolation** | Storybook on `storybook.sourceprep.io` | No shared cookies, localStorage, DOM access |
 | **Iframe sandbox** | `sandbox="allow-scripts"` | No navigation, forms, popups, top-frame access |
 | **Referrer policy** | `no-referrer` | No URL leakage from docs → storybook |
 | **CSP headers** | `default-src 'self'; script-src 'self' 'unsafe-inline'` | No external script injection |
@@ -63,9 +63,9 @@ interface StoryEmbedProps {
 
 | Option | URL | Pros | Cons |
 |--------|-----|------|------|
-| **Vercel subdomain** | `storybook.codrag.io` | Clean separation, easy deploy | Extra Vercel project |
-| GitHub Pages | `magneticanomaly.github.io/codrag-storybook/` | Free, separate origin | Slower updates |
-| Docs subpath | `docs.codrag.io/_storybook/` | Single deploy | Shares origin (weaker isolation) |
+| **Netlify subdomain** | `storybook.sourceprep.io` | Clean separation, mirrors marketing/docs/payments deploy pattern | Extra Netlify site |
+| GitHub Pages | `magneticanomaly.github.io/sourceprep-storybook/` | Free, separate origin | Slower updates |
+| Docs subpath | `docs.sourceprep.io/storybook/` | Single deploy (via `scripts/build-storybook.sh --copy`) | Shares origin (weaker isolation) |
 
 **Development**: Points to `http://localhost:6006` for hot-reload iteration.
 
@@ -76,6 +76,6 @@ interface StoryEmbedProps {
 - [ ] `sandbox="allow-scripts"` on all iframes
 - [ ] Stories use mock data only
 - [ ] No `localhost:8400` references in stories
-- [ ] `X-Frame-Options: ALLOW-FROM docs.codrag.io` on Storybook
+- [ ] `Content-Security-Policy: frame-ancestors 'self' https://*.sourceprep.io` on Storybook (modern replacement for the deprecated `X-Frame-Options: ALLOW-FROM`)
 - [ ] `referrerPolicy="no-referrer"` on all iframes
 - [ ] Lazy loading for performance

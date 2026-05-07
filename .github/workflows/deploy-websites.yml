@@ -57,6 +57,28 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_DOCS_SITE_ID }}
         run: npx netlify-cli deploy --prod --dir=websites/apps/docs/.next --filter=@prep/docs
 
+  deploy-storybook:
+    name: Deploy Storybook
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install Dependencies
+        run: |
+          npm ci
+          cd packages/ui && npm install @rollup/rollup-linux-x64-gnu --os=linux --cpu=x64 --no-save
+      - name: Build Storybook
+        run: npx turbo run build-storybook --filter=@prep/ui
+      - name: Deploy to Netlify
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_STORYBOOK_SITE_ID }}
+        run: npx netlify-cli deploy --prod --dir=packages/ui/storybook-static --filter=@prep/ui
+
 #  deploy-support:
 #    name: Deploy Support
 #    runs-on: ubuntu-latest

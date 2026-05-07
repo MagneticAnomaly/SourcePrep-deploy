@@ -1,0 +1,27 @@
+[build]
+  base    = "packages/ui"
+  command = "cd ../.. && npx turbo run build-storybook --filter=@prep/ui"
+  # Absolute from repo root, per NETLIFY_DEPLOYMENT_TROUBLESHOOTING.md Issue 2.
+  publish = "packages/ui/storybook-static"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Storybook hosts only mock-fixture stories; no API calls, no secrets.
+# Hardening per docs/Phase68_revise-marketing/07_Storybook_Embed_Architecture.md.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Allow embedding only from sourceprep.io properties; modern browsers honor
+    # CSP frame-ancestors over the deprecated X-Frame-Options.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self' https://sourceprep.io https://*.sourceprep.io;"
+    Referrer-Policy = "no-referrer"
+    X-Content-Type-Options = "nosniff"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+
+# Long-cache hashed assets (Vite emits content-hashed filenames under /assets).
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

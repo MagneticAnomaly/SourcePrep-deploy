@@ -1,8 +1,10 @@
 # Storybook ↔ App Alignment & Docs Embed Plan
 
 > **Status**: Phase 68 — Active implementation. P0 and P1 stories completed. Coverage at **63%**. Docs pages wired with live Storybook embeds.  
-> **Last Updated**: 2026-04-03  
+> **Last Updated**: 2026-05-07  
 > **Theme**: Retro Aurora (`m`) + Dark Mode (hardcoded in StoryEmbed)
+>
+> **Deployment update (2026-05-07)**: Reverted to the **separate-origin** deployment from doc 07 — Storybook publishes to `storybook.sourceprep.io` via its own `packages/ui/netlify.toml`. The same-origin path (`scripts/build-storybook.sh --copy` → `docs/public/storybook/`) is retained for local preview only. Set `NEXT_PUBLIC_STORYBOOK_URL=https://storybook.sourceprep.io` on the docs Netlify site to switch all 12 existing `<StoryEmbed>` calls to the new origin.
 
 ---
 
@@ -280,16 +282,18 @@ All P0/P1/P2/P3 stories created. Only stale refresh items remain (FullDashboard 
 ### Component: `websites/apps/docs/src/components/StoryEmbed.tsx`
 
 - **Renders**: Sandboxed `<iframe>` pointing at `storybook-static/`
-- **Theme**: Hardcoded to `globals=theme:dark;codragTheme:m` (Retro Aurora)
+- **Theme**: Hardcoded to `globals=theme:dark;prepTheme:m;docsMode:true` (Retro Aurora)
 - **Sandbox**: `allow-scripts allow-same-origin` (no popups, no navigation)
 - **Props**: `storyId`, `height`, `title`, `caption`
 - **URL pattern**: `/storybook-static/iframe.html?id={storyId}&viewMode=story&globals=...`
 
 ### Security Model
-- Storybook static assets are bundled with the docs site (same origin)
+- Storybook is served from a separate origin (`storybook.sourceprep.io`) for true isolation
+- CSP `frame-ancestors` restricts embedding to sourceprep.io properties
 - No API keys or backend connections needed (all mock data)
 - Iframe sandbox prevents navigation and form submission
 - No sensitive code exposed — stories use synthetic mock data
+- `vite-plugin-dts` is filtered from the Storybook build (in `.storybook/main.ts`) so `.d.ts` declaration files do not leak into the public bundle
 
 ---
 
