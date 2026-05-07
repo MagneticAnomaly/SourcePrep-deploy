@@ -1,19 +1,18 @@
 """Lightweight structured event log for pipeline observability.
 
-Phase 124: workers and synthesizers emit ``record_event`` calls at
-key decision points so a post-run audit can confirm WHAT actually
-fired, with rich payloads, instead of inferring from artifact mtimes.
+Workers and synthesizers emit ``record_event`` calls at key decision
+points so a post-run audit can confirm WHAT actually fired, with rich
+payloads, instead of inferring from artifact mtimes.
 
 Append-only JSONL at ``<idx_dir>/pipeline_telemetry.jsonl``. Each
 line is a single JSON object:
 
     {
         "ts": "2026-05-02T08:50:00.123456+00:00",
-        "phase": "124",         // optional namespace
-        "event": "t4_loaded",   // free-form event name
-        "stage": "concepts",    // optional stage tag (StageId.value)
-        "project_id": "...",    // optional
-        "payload": { ... }      // rich event-specific data
+        "event": "concepts_synthesis_failed",  // free-form event name
+        "stage": "concepts",                   // optional stage tag (StageId.value)
+        "project_id": "...",                   // optional
+        "payload": { ... }                     // rich event-specific data
     }
 
 The file is best-effort and capped at ``MAX_BYTES`` (default 4 MiB).
@@ -24,8 +23,8 @@ queries always have at least the last ~4 MiB of recent activity.
 Read patterns:
 
     from prep.services.pipeline_telemetry import iter_events
-    for ev in iter_events(idx_dir, phase="124"):
-        if ev["event"] == "t4_loaded":
+    for ev in iter_events(idx_dir, stage="concepts"):
+        if ev["event"] == "synthesis_failed":
             print(ev["payload"])
 
 Designed to be import-cheap, fail-quiet (telemetry must never break
@@ -69,7 +68,7 @@ def record_event(
     event: str,
     payload: Optional[dict[str, Any]] = None,
     *,
-    phase: Optional[str] = None,
+    phase: Optional[str] = None,  # accepted but no longer persisted; see note
     stage: Optional[str] = None,
     project_id: Optional[str] = None,
 ) -> None:
@@ -78,12 +77,16 @@ def record_event(
     Args:
         idx_dir: Project index directory (where the log lives).
         event: Free-form event name. Recommended: snake_case verb,
-            e.g. ``"md_links_extracted"`` or ``"t4_loaded"``.
+            e.g. ``"md_links_extracted"`` or ``"synthesis_failed"``.
         payload: Event-specific data. Must be JSON-serializable.
-        phase: Optional phase tag (e.g. ``"124"``) for filtering.
+        phase: Deprecated. Accepted for back-compat with existing call
+            sites but not written to the log — internal phase numbers
+            were leaking dev chronology into user-facing telemetry. Use
+            ``stage`` for the meaningful taxonomy.
         stage: Optional StageId value (``"atlas"``, ``"concepts"``).
         project_id: Optional project identifier.
     """
+    del phase  # accepted-but-ignored; see docstring
     try:
         idx = Path(idx_dir)
         idx.mkdir(parents=True, exist_ok=True)
@@ -94,8 +97,6 @@ def record_event(
             "ts": datetime.now(timezone.utc).isoformat(),
             "event": event,
         }
-        if phase is not None:
-            record["phase"] = phase
         if stage is not None:
             record["stage"] = stage
         if project_id is not None:
@@ -113,7 +114,7 @@ def record_event(
 def iter_events(
     idx_dir: Path | str,
     *,
-    phase: Optional[str] = None,
+    phase: Optional[str] = None,  # deprecated; see record_event
     event: Optional[str] = None,
     stage: Optional[str] = None,
     include_prev: bool = False,
@@ -122,7 +123,9 @@ def iter_events(
 
     Args:
         idx_dir: Project index directory.
-        phase: Filter to events with this ``phase`` tag.
+        phase: Deprecated. Phase tags were removed from the on-disk
+            schema; this filter still works for any legacy log lines
+            that carry a ``phase`` field, but new lines never will.
         event: Filter to events with this ``event`` name (exact match).
         stage: Filter to events with this ``stage`` tag.
         include_prev: If True, also read the rotated ``.prev`` log.

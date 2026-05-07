@@ -220,7 +220,7 @@ class AuditSynthesizer:
                             ),
                             "content_chars": len(content) if content else 0,
                         },
-                        phase="124", stage="audit",
+                        stage="audit",
                     )
             except Exception:
                 pass

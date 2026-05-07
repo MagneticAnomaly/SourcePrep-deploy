@@ -943,7 +943,7 @@ class WorkerFactory:
                                 for p, refs in top_md
                             ],
                         },
-                        phase="124", stage="atlas", project_id=project_id,
+                        stage="atlas", project_id=project_id,
                     )
                 except Exception:
                     pass
@@ -957,7 +957,7 @@ class WorkerFactory:
                     record_event(
                         idx_dir, "md_links_failed",
                         {"error": str(e)},
-                        phase="124", stage="atlas", project_id=project_id,
+                        stage="atlas", project_id=project_id,
                     )
                 except Exception:
                     pass
@@ -1316,7 +1316,7 @@ class WorkerFactory:
                                 for f in top_hotspots
                             ],
                         },
-                        phase="124", stage="audit", project_id=project_id,
+                        stage="audit", project_id=project_id,
                     )
                 except Exception:
                     pass
@@ -1330,7 +1330,7 @@ class WorkerFactory:
                     record_event(
                         Path(idx_dir), "spaghetti_failed",
                         {"error": str(e)},
-                        phase="124", stage="audit", project_id=project_id,
+                        stage="audit", project_id=project_id,
                     )
                 except Exception:
                     pass

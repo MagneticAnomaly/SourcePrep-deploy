@@ -618,7 +618,7 @@ def _emit_failure_event(
                 "grounding": report.grounding_summary,
                 "elapsed_seconds": round(report.elapsed_seconds, 2),
             },
-            phase="125b", stage="concepts", project_id=project_id,
+            stage="concepts", project_id=project_id,
         )
     except Exception:
         pass
@@ -719,7 +719,7 @@ def synthesize_concepts(
                             "rationale_count": rationale_count,
                             "last_synth_ts": float(manifest.get("synth_completed_at") or 0.0),
                         },
-                        phase="125b", stage="concepts", project_id=project_id,
+                        stage="concepts", project_id=project_id,
                     )
                 except Exception:
                     pass
@@ -823,7 +823,7 @@ def synthesize_concepts(
                 "tier_distribution": tier_dist,
                 "elapsed_seconds": round(time.time() - t0, 2),
             },
-            phase="125b", stage="concepts", project_id=project_id,
+            stage="concepts", project_id=project_id,
         )
     except Exception:
         pass

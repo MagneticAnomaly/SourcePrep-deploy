@@ -389,7 +389,7 @@ def run_pass2_triage(
                     ),
                     "dry_run": dry_run,
                 },
-                phase="125", stage="concepts", project_id=project_id,
+                stage="concepts", project_id=project_id,
             )
         except Exception:
             pass
@@ -485,7 +485,7 @@ def run_pass4_gate(
                     "thresholds": {"high": high, "low": low},
                     "dry_run": dry_run,
                 },
-                phase="125", stage="concepts", project_id=project_id,
+                stage="concepts", project_id=project_id,
             )
         except Exception:
             pass

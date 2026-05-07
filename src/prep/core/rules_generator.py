@@ -442,7 +442,7 @@ def _render_docs_per_module_section(
                 "section_chars": len(out),
                 "modules": [name for name, _ in rows],
             },
-            phase="124", stage="rules", project_id=project_id,
+            stage="rules", project_id=project_id,
         )
     except Exception:
         pass

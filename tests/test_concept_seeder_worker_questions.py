@@ -121,11 +121,14 @@ def test_synthesis_fallback_merges_worker_questions_with_dedup():
     assert sum(1 for k in keys if k == ("why module a is split?", "a")) == 1
 
 
-def test_synthesis_telemetry_questions_lost_is_false():
-    """The telemetry payload at concept_seeder.py:867+ used to set
-    questions_lost=True. With workers now emitting questions, it should
-    be False, and the remediation copy should reflect that."""
+def test_synthesis_telemetry_remediation_is_user_facing():
+    """The synthesis-failed telemetry payload's `remediation` string must
+    not leak internal phase nomenclature. After the 2026-05-07 dev-leak
+    cleanup it should be plain operational copy that points at the
+    actionable fix (bumping the cloud wall-time budget)."""
     src = Path(__file__).resolve().parents[1] / "src" / "prep" / "core" / "concept_seeder.py"
     text = src.read_text(encoding="utf-8")
-    assert '"questions_lost": False' in text
-    assert "Phase 123 follow-up landed 2026-05-07" in text
+    # The leaked dev chronology must be gone from the user-visible string.
+    assert "Phase 123 follow-up landed" not in text
+    # And a plain user-facing remediation should still be present.
+    assert "increase the swarm wall-time budget" in text.lower()

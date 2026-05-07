@@ -1,4 +1,4 @@
-"""Tests for prep.services.pipeline_telemetry — Phase 124 verbose log."""
+"""Tests for the pipeline telemetry event log."""
 from __future__ import annotations
 
 import json
@@ -15,7 +15,7 @@ from prep.services.pipeline_telemetry import (
 
 
 def test_record_event_writes_jsonl(tmp_path: Path):
-    record_event(tmp_path, "test_event", {"k": 1}, phase="124")
+    record_event(tmp_path, "test_event", {"k": 1}, stage="concepts")
     log = tmp_path / "pipeline_telemetry.jsonl"
     assert log.is_file()
     lines = log.read_text().strip().splitlines()
@@ -23,8 +23,18 @@ def test_record_event_writes_jsonl(tmp_path: Path):
     rec = json.loads(lines[0])
     assert rec["event"] == "test_event"
     assert rec["payload"] == {"k": 1}
-    assert rec["phase"] == "124"
+    assert rec["stage"] == "concepts"
     assert "ts" in rec
+
+
+def test_record_event_silently_drops_phase_kwarg(tmp_path: Path):
+    """phase= is back-compat-accepted but never persisted to disk —
+    internal phase numbers were leaking dev chronology to user-visible
+    telemetry. See pipeline_telemetry.py docstring."""
+    record_event(tmp_path, "evt", {"k": 1}, phase="124", stage="concepts")
+    rec = json.loads((tmp_path / "pipeline_telemetry.jsonl").read_text())
+    assert "phase" not in rec
+    assert rec["stage"] == "concepts"
 
 
 def test_record_event_appends(tmp_path: Path):
@@ -51,12 +61,19 @@ def test_record_event_fail_quiet_on_unserializable_payload(tmp_path: Path):
     assert rec["payload"]["obj"] == "<custom>"
 
 
-def test_iter_events_filters_by_phase(tmp_path: Path):
-    record_event(tmp_path, "a", phase="124")
-    record_event(tmp_path, "b", phase="123")
-    record_event(tmp_path, "c", phase="124")
+def test_iter_events_phase_filter_handles_legacy_log_lines(tmp_path: Path):
+    """The phase filter still works on legacy log files that pre-date the
+    phase-removal change — it just returns no matches against new-format
+    lines, which omit the ``phase`` field."""
+    log = tmp_path / "pipeline_telemetry.jsonl"
+    log.write_text(
+        json.dumps({"ts": "2026-01-01T00:00:00+00:00", "event": "old", "phase": "124"})
+        + "\n"
+        + json.dumps({"ts": "2026-01-02T00:00:00+00:00", "event": "newer"})
+        + "\n"
+    )
     out = list(iter_events(tmp_path, phase="124"))
-    assert [e["event"] for e in out] == ["a", "c"]
+    assert [e["event"] for e in out] == ["old"]
 
 
 def test_iter_events_filters_by_event_name(tmp_path: Path):

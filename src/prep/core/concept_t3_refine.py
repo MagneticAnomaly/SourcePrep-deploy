@@ -598,7 +598,7 @@ def run_pass3_refine(
                     "consolidation_distribution": report.consolidation_distribution,
                     "dry_run": dry_run,
                 },
-                phase="125", stage="concepts", project_id=project_id,
+                stage="concepts", project_id=project_id,
             )
         except Exception:
             pass

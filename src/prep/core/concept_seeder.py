@@ -538,15 +538,16 @@ def seed_concepts_swarm(
                     "md_count": md_links.md_count,
                     "valid_link_count": md_links.valid_link_count,
                 },
-                phase="124", stage="concepts", project_id=project_id,
+                stage="concepts", project_id=project_id,
             )
         except Exception:
             pass
     else:
         logger.warning(
-            "[Swarm/Concepts] T4 SKIPPED — atlas_markdown_links.json missing in %s. "
-            "Run the atlas stage (Phase 124 T2 writes the file). Concept worker "
-            "prompts will fall back to module-data-only context.",
+            "[Swarm/Concepts] Doc-link enrichment skipped — atlas_markdown_links.json "
+            "missing in %s. The atlas stage produces this file; rerun the atlas "
+            "stage to enable doc-grounded concept seeding. Concept workers will "
+            "fall back to module-data-only context.",
             index_dir,
         )
         try:
@@ -554,7 +555,7 @@ def seed_concepts_swarm(
             record_event(
                 index_dir, "t4_skipped",
                 {"reason": "atlas_markdown_links_missing"},
-                phase="124", stage="concepts", project_id=project_id,
+                stage="concepts", project_id=project_id,
             )
         except Exception:
             pass
@@ -615,7 +616,7 @@ def seed_concepts_swarm(
                     "enrichment_pct": round(100.0 * enriched / max(len(items), 1), 1),
                     "top_modules_with_docs": sample,
                 },
-                phase="124", stage="concepts", project_id=project_id,
+                stage="concepts", project_id=project_id,
             )
         except Exception:
             pass
@@ -760,9 +761,9 @@ def seed_concepts_swarm(
             "path in `anchors` alongside any source files.\n\n"
             "You MAY also emit 0-2 clarifying QUESTIONS — things a human "
             "maintainer could answer in one sentence that would unlock a "
-            "sharper rationale. Empty array is fine. Questions survive "
-            "synthesis failure (Phase 123): if synthesis times out we "
-            "still keep questions emitted at the worker layer.\n\n"
+            "sharper rationale. Empty array is fine. Questions emitted at "
+            "the worker layer are kept even if the downstream synthesis "
+            "pass fails or times out.\n\n"
             "Respond with JSON only (empty arrays are fine):\n"
             '{{"concepts": [{{"title": "...", "content": "2-4 sentences", '
             '"category": "architecture|domain|product|epistemic|process|brand|'
@@ -879,15 +880,12 @@ def seed_concepts_swarm(
                     seen_questions.add(key)
                     final_questions.append(q)
         logger.warning(
-            "[Swarm/Concepts] SYNTHESIS FAILED — merged %d concepts and %d "
-            "questions from %d worker outputs as fallback. Phase 123: "
-            "questions now survive synthesis failure since workers emit "
-            "them too. To recover synthesis itself, bump max_wall_time_s.",
+            "[Swarm/Concepts] Synthesis pass produced no concepts; merged "
+            "%d concepts and %d questions from %d worker outputs as a "
+            "fallback. To recover the synthesis pass, increase the swarm "
+            "wall-time budget for the configured cloud model.",
             len(final_concepts), len(final_questions), len(result.worker_results),
         )
-        # Phase 124 telemetry: surface synthesis failure so the harness
-        # `--show-events` mode flags it. Without this, the only signal
-        # was a buried log.warning + zero questions in the store.
         try:
             from prep.services.pipeline_telemetry import record_event
             record_event(
@@ -899,21 +897,14 @@ def seed_concepts_swarm(
                     "successful_workers": sum(
                         1 for wr in result.worker_results if wr.success
                     ),
-                    # Phase 123 (2026-05-07): workers now emit questions too,
-                    # so they no longer disappear on synthesis failure.
-                    # questions_lost stays as a numeric "how many fewer than
-                    # synthesis would have produced" — but baseline is now
-                    # "the worker fallback count" rather than "zero".
-                    "questions_lost": False,
                     "remediation": (
-                        "Phase 123 follow-up landed 2026-05-07 — workers "
-                        "emit their own clarifying questions, so synthesis "
-                        "failure no longer zeroes them. To recover synthesis "
-                        "itself, bump SwarmOrchestrator max_wall_time_s "
-                        "above 900 for cloud models."
+                        "Synthesis produced no concepts. Worker outputs "
+                        "were merged as a fallback. To recover synthesis, "
+                        "increase the swarm wall-time budget for the "
+                        "configured cloud model."
                     ),
                 },
-                phase="124", stage="concepts", project_id=project_id,
+                stage="concepts", project_id=project_id,
             )
         except Exception:
             pass
