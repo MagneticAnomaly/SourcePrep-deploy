@@ -69,6 +69,18 @@ const config: StorybookConfig = {
       const name = (plugin as { name?: string }).name;
       return name !== 'vite:dts';
     });
+
+    // Per-mode cache dir. dev.sh runs both private (port 6006) and public
+    // (port 6007) Storybook dev servers from the same packages/ui workspace,
+    // and the two instances have different `stories` lists — so they need
+    // different pre-bundled deps. Without separate cache dirs they share
+    // node_modules/.cache/sb-vite/, write conflicting chunks, and the surviving
+    // server crashes seconds after a hot-reload with "Importing a module script
+    // failed" 404s on chunk-XXXXX.js. Splitting the cache eliminates the
+    // collision.
+    config.cacheDir = isPublic
+      ? 'node_modules/.cache/sb-vite-public'
+      : 'node_modules/.cache/sb-vite-private';
     return config;
   },
 };
