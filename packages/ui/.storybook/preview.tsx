@@ -148,6 +148,27 @@ const preview: Preview = {
       disable: true,
     },
     layout: 'fullscreen',
+    options: {
+      // Phase 131: design-system reading order — start with the foundations,
+      // build up to atoms (Primitives), then composed atoms (Patterns), then
+      // full product surfaces. Within each top-level, items are nested in a
+      // task-oriented sequence; everything not listed falls back to alpha.
+      storySort: {
+        method: 'alphabetical',
+        order: [
+          'Foundations',
+          ['Introduction', 'Accessibility', 'Visual Directions', 'Tokens',
+            ['Colors', 'Typography', 'Spacing']],
+          'Primitives',
+          'Patterns',
+          'Modals',
+          'Dashboard',
+          ['Introduction', 'Layouts', '*'],
+          'Website',
+          ['Layout', 'Marketing', 'Demos', 'Research'],
+        ],
+      },
+    },
   },
   globalTypes: {
     theme: {
