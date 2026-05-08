@@ -2,7 +2,7 @@
 
 > **Source issue:** Issue 12 in `docs/MARKETING_SITE_AUDIT.md`
 > **Origin date:** 2026-05-07
-> **Status:** Scoped, not started
+> **Status:** Substantially complete 2026-05-08 — see "Outcome" below
 
 ## Problem
 
@@ -75,45 +75,120 @@ patterns we'll want to apply systematically to later pages.
 
 ### Tier 1 — known-stale or known-suspect
 
-- [ ] `src/config/docs.ts` — sidebar registry. Remove fake routes (`/mcp/cursor`,
-      `/mcp/windsurf`); ensure every kept entry maps to an actual file. Audit guide
-      coverage (some sub-guides aren't listed in the sidebar).
-- [ ] `src/app/sitemap.ts` — sitemap. Same cleanup as the sidebar plus add the
-      missing `/guides/*` entries (and any other real routes).
-- [ ] `src/app/dashboard/page.tsx` and `src/app/dashboard/projects/page.tsx` —
-      verify against the current dashboard panel registry / current shipping
-      dashboard UX. Likely outdated since the dashboard has been heavily reworked.
-- [ ] `src/app/mcp/page.tsx` — the MCP overview page already had several fixes
-      during Issue 10; verify the prose still matches the current MCP_TOOLS list
-      and tool semantics.
+- [x] `src/config/docs.ts` — sidebar registry. **Done** (commit 918c0a3c):
+      replaced `/mcp/cursor` and `/mcp/windsurf` with the real `/mcp/ides` and
+      `/mcp/terminal`; added missing real guides (audit-enrichment,
+      dynamic-model-loading, smart-search).
+- [x] `src/app/sitemap.ts` — sitemap. **Done** (commit 918c0a3c): removed
+      deleted hubs (`/concepts`, `/guides`) and dead routes
+      (`/concepts/trace-index`, `/dashboard/settings`, `/mcp/cursor`,
+      `/mcp/windsurf`); added the real concept and guide pages plus `/search`.
+- [x] `src/app/dashboard/page.tsx` and `src/app/dashboard/projects/page.tsx` —
+      **Done** (commit 5c29bdef): the page sold a defunct "Two-Pane
+      Architecture (Panel A / Panel B)" mental model. Rewrote against the
+      shipping reality (modular ModularDashboard + 27 panels in 4 categories
+      + 15-stage pipeline). 122 inserts / 164 deletes net.
+- [x] `src/app/mcp/page.tsx` — **Done** (commit ae335f35): added the missing
+      `prep_concepts` tool to the bullet list and the Tools Reference table
+      (page had 5 of 6); fixed the `prep_audit` action enum to include the
+      current values (`antibodies`, `advise`); refreshed prose for the dual
+      structural / enrichment modes.
 
 ### Tier 2 — guides
 
-- [ ] `src/app/guides/embeddings/page.tsx`
-- [ ] `src/app/guides/models/page.tsx` (in-line TODO comment about model refresh)
-- [ ] `src/app/guides/model-advisor/page.tsx`
-- [ ] `src/app/guides/dynamic-model-loading/page.tsx`
-- [ ] `src/app/guides/byok-batching/page.tsx`
-- [ ] `src/app/guides/concurrency-discovery/page.tsx`
-- [ ] `src/app/guides/path-weights/page.tsx`
-- [ ] `src/app/guides/knowledge-scope/page.tsx`
-- [ ] `src/app/guides/smart-search/page.tsx`
-- [ ] `src/app/guides/audit-enrichment/page.tsx`
-- [ ] `src/app/guides/codebase-audit/page.tsx`
-- [ ] `src/app/guides/compression/page.tsx`
-- [ ] `src/app/guides/team-sync/page.tsx`
-- [ ] `src/app/guides/enterprise-deploy/page.tsx`
+- [x] `src/app/guides/embeddings/page.tsx` — verified current (commit 16523ebc
+      triage notes): `prep models` CLI + `/embedding/{status,download}`
+      endpoints all confirmed.
+- [x] `src/app/guides/models/page.tsx` — **fixed** (commit d3e4d7a7): page
+      claimed 4 model slots; actual is 5 (Embedding, Single/Fast, Code,
+      Thinking, Swarm Coordinator). Storybook embed id was wrong
+      (`llm-aimodelssettings--default` →
+      `dashboard-widgets-settings-aimodelssettings--default`). Smart
+      Compression demoted from "fourth slot" to a side note (it is a
+      separate config block).
+- [ ] `src/app/guides/model-advisor/page.tsx` — **deferred** to its own
+      mini-phase: page has an in-source TODO admitting stale Claude pricing,
+      and refresh needs live vendor + Ollama Cloud pricing research before
+      bumping numbers. Logged as a Phase-130 follow-up.
+- [x] `src/app/guides/dynamic-model-loading/page.tsx` — verified current
+      (no staleness signals).
+- [x] `src/app/guides/byok-batching/page.tsx` — **fixed** (commit 16523ebc):
+      Privacy Policy link pointed at a non-existent `nicobailey/SourcePrep`
+      repo; switched to the marketing site's `/security` page (the
+      canonical URL). Storybook embed id corrected
+      (`llm-endpointmanager--default` →
+      `dashboard-widgets-settings-endpointmanager--interactive`).
+- [x] `src/app/guides/concurrency-discovery/page.tsx` — verified current:
+      `POST /compute/concurrency/clear` and `GET /compute/scheduler` exist
+      exactly as documented in `src/prep/api/routers/compute.py`.
+- [x] `src/app/guides/path-weights/page.tsx` — **fixed** (commit 16523ebc):
+      "FolderTree panel" replaced with "Scope panel" (matches the actual
+      panel title in panelRegistry.ts).
+- [x] `src/app/guides/knowledge-scope/page.tsx` — **fixed** (commit d3e4d7a7):
+      "FolderTree panel" / "Knowledge Sources panel" both replaced with
+      "Scope panel"; broken Storybook embed
+      (`agents-agentscopepanel--with-scopes`, story doesn't exist) replaced
+      with the real one
+      (`dashboard-widgets-foldertreepanel--scope-panel-named-populated`).
+- [x] `src/app/guides/smart-search/page.tsx` — verified current: 7-intent
+      enum and `TRACE > RATIONALE > COMPARE > EXAMPLE > DISCOVER > LOCATE >
+      EXPLAIN` tiebreaker order both match `src/prep/core/intent.py` exactly.
+- [x] `src/app/guides/audit-enrichment/page.tsx` — verified current: every
+      enriched-finding field (dependents, hub_status, module, concepts,
+      risk_score, recommendation) verified field-by-field against
+      `EnrichedFinding` in `src/prep/core/enrichment.py`.
+- [x] `src/app/guides/codebase-audit/page.tsx` — verified current: legacy
+      `prep_audit_*` aliases are still exposed in `mcp_tools.py`;
+      Storybook ids for AuditPanel and OpportunitiesPanel resolve.
+- [x] `src/app/guides/compression/page.tsx` — verified current: 50K (Tier 1
+      claude/gemini) and 20K (local cline) char budgets match
+      `_CLIENT_BUDGETS` in `src/prep/mcp/server.py`.
+- [x] `src/app/guides/team-sync/page.tsx` — Storybook embed id verified;
+      no staleness signals.
+- [x] `src/app/guides/enterprise-deploy/page.tsx` — no staleness signals
+      under the source-of-truth checks. (Note: page links to
+      `MagneticAnomaly/SourcePrep-deploy` GitHub repo — out of scope to
+      verify whether the public repo currently exists; left untouched.)
 
 ### Tier 3 — reference-shape pages (lower drift risk)
 
-- [ ] `src/app/cli/page.tsx`, `src/app/cli/commands/page.tsx`, `src/app/cli/config/page.tsx`
-      — CLI reference. Verify against `src/prep/cli.py`.
-- [ ] `src/app/getting-started/page.tsx`, `installation/page.tsx`, `quick-start/page.tsx`
-      — install + first-run flow. Cross-check the package install instructions.
-- [ ] `src/app/troubleshooting/page.tsx` — triage common failures. Cross-check error
-      messages and remediation text against current behavior.
-- [ ] `src/app/page.tsx` (docs home) — verify the feature card grid still matches
-      the rest of the site.
+- [x] `src/app/cli/page.tsx`, `src/app/cli/commands/page.tsx`,
+      `src/app/cli/config/page.tsx` — **fixed** (commit 6d799794):
+      `cli/commands` was advertised as "complete reference" but missed
+      `prep config`, `prep drift`, `prep flow`, `prep opportunities` —
+      added them. `cli/config` had stale `~/.sourceprep/config.json`
+      paths from before Phase 113; switched to
+      `~/.local/share/sourceprep/` and added the `PREP_DATA_DIR` env-var
+      row. `cli/page` (overview) verified clean.
+- [x] `src/app/getting-started/page.tsx`, `installation/page.tsx`,
+      `quick-start/page.tsx` — quick-start had a stale "Knowledge Sources"
+      panel reference (fixed to "Scope" in commit 6d799794). Other pages
+      verified current: 11-analyzer claim matches actual analyzer count;
+      "free tier 3 projects" matches `feature_gate.py`.
+- [x] `src/app/troubleshooting/page.tsx` — **fixed** (commit 6d799794):
+      stale "model (~300MB) on first run"; actual ONNX model is ~132 MB.
+      `max_file_bytes` 500KB default verified against `config_manager.py`.
+- [x] `src/app/page.tsx` (docs home) — **fixed** (commit 6d799794):
+      "Guides" feature card linked to the deleted `/guides` hub (404 on
+      every click). Replaced with a "Core Concepts" card (→
+      `/concepts/indexing`) and an "Embedding Models" card (→
+      `/guides/embeddings`); reordered the grid to put Getting Started and
+      Concepts first.
+
+## Outcome
+
+Sweep landed 2026-05-08 across 8 commits between 918c0a3c and 6d799794.
+13 of 14 tier-2 guides + every tier-1 and tier-3 page touched or
+verified. One tier-2 page (`model-advisor`) deferred to its own
+mini-phase because its pricing data needs live vendor research that
+this sweep can't do confidently from inside.
+
+For each fix, ground truth was sourced from the actual code (panel
+registries, MCP tool schemas, audit analyzers, pipeline stage tables,
+config defaults) — typically using `prep` MCP for the structural
+overview and direct file reads for the specific values. The commit
+messages document the source-of-truth file each claim was verified
+against.
 
 ## Out-of-scope but related (note for future work)
 
