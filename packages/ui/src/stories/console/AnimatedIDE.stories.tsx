@@ -3,7 +3,7 @@ import { AnimatedIDE } from '../../components/console/AnimatedIDE';
 import { ideDemoScript } from '../../components/console/demo-scripts';
 
 const meta: Meta<typeof AnimatedIDE> = {
-  title: 'Console/AnimatedIDE',
+  title: 'Website/Demos/AnimatedIDE',
   component: AnimatedIDE,
   parameters: {
     layout: 'fullscreen',

@@ -4,7 +4,7 @@ import { DeepAnalysisSettings } from '../../components/llm/DeepAnalysisSettings'
 import type { DeepAnalysisSchedule } from '../../components/llm/DeepAnalysisSettings';
 
 const meta: Meta<typeof DeepAnalysisSettings> = {
-  title: 'Dashboard/Widgets/Settings/DeepAnalysisSettings',
+  title: 'Dashboard/LLM/DeepAnalysisSettings',
   component: DeepAnalysisSettings,
   tags: ['autodocs'],
   parameters: {

@@ -3,7 +3,7 @@ import { IndexStatusCard } from '../../components/dashboard/IndexStatusCard';
 
 // IndexStatusCard Stories
 const indexStatusMeta: Meta<typeof IndexStatusCard> = {
-  title: 'Dashboard/Widgets/IndexStatusCard',
+  title: 'Dashboard/Index/IndexStatusCard',
   component: IndexStatusCard,
   tags: ['autodocs'],
   parameters: {

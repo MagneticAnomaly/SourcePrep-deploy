@@ -58,7 +58,7 @@ export default function Page() {
           </ul>
 
           <StoryEmbed
-            storyId="dashboard-primitives-panelpicker--default"
+            storyId="patterns-panelpicker--default"
             height={350}
             caption="Panel Picker — toggle visibility, reset, refit, and copy/paste your layout."
           />
@@ -75,7 +75,7 @@ export default function Page() {
             kept up with your last edits.
           </p>
           <StoryEmbed
-            storyId="dashboard-widgets-indexstatuscard--loaded"
+            storyId="dashboard-index-indexstatuscard--loaded"
             height={220}
             caption="Index Status Card — index size, coverage, and freshness at a glance."
           />
@@ -88,7 +88,7 @@ export default function Page() {
             specific files into the pipeline.
           </p>
           <StoryEmbed
-            storyId="dashboard-widgets-trace-coveragepanel--default"
+            storyId="dashboard-trace-coveragepanel--default"
             height={350}
             caption="Code-Graph Coverage — manage the inventory of indexed files."
           />
@@ -102,7 +102,7 @@ export default function Page() {
             see <a href="/concepts/graph-enrichment" className="text-primary hover:underline">Concepts → Graph Enrichment</a>.
           </p>
           <StoryEmbed
-            storyId="dashboard-widgets-trace-graphenrichmentpipeline--full-pipeline-running"
+            storyId="dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running"
             height={450}
             caption="Pipeline panel — every stage visible with live progress."
           />
@@ -115,7 +115,7 @@ export default function Page() {
             atlas routing, and trace expansion.
           </p>
           <StoryEmbed
-            storyId="dashboard-widgets-searchpanel--full-search-demo"
+            storyId="dashboard-search-searchpanel--full-search-demo"
             height={350}
             caption="Search panel — find code by meaning, with the assembled context preview alongside."
           />

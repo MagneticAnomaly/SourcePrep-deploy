@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { UsageGuidePanel } from '../../components/dashboard/UsageGuidePanel';
 
 const meta: Meta<typeof UsageGuidePanel> = {
-  title: 'Dashboard/Widgets/UsageGuidePanel',
+  title: 'Dashboard/Index/UsageGuidePanel',
   component: UsageGuidePanel,
   tags: ['autodocs'],
   parameters: {

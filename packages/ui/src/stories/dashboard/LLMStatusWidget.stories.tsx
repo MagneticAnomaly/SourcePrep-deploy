@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { LLMStatusWidget } from '../../components/dashboard/LLMStatusWidget';
 
 const meta: Meta<typeof LLMStatusWidget> = {
-  title: 'Dashboard/Widgets/LLMStatusWidget',
+  title: 'Dashboard/LLM/LLMStatusWidget',
   component: LLMStatusWidget,
   tags: ['autodocs'],
   parameters: {

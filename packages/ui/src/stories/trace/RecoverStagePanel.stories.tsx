@@ -59,7 +59,7 @@ function makeClient(overrides: Partial<Pick<ApiClient, 'listStageBackups' | 'res
 // ── Meta ──────────────────────────────────────────────────────
 
 const meta: Meta<typeof RecoverStagePanel> = {
-  title: 'Dashboard/Widgets/Trace/RecoverStagePanel',
+  title: 'Dashboard/Build/RecoverStagePanel',
   component: RecoverStagePanel,
   tags: ['autodocs'],
   parameters: {

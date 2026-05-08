@@ -4,7 +4,7 @@ import { AtlasLensPanel } from '../../components/trace/AtlasLensPanel';
 import type { AtlasStatus } from '../../types';
 
 const meta: Meta<typeof AtlasLensPanel> = {
-  title: 'Trace/AtlasLensPanel',
+  title: 'Dashboard/Trace/AtlasLensPanel',
   component: AtlasLensPanel,
   parameters: { layout: 'padded' },
 };

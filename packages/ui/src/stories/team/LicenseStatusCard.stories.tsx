@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { LicenseStatusCard } from '../../components/team/LicenseStatusCard';
 
 const meta: Meta<typeof LicenseStatusCard> = {
-  title: 'Team/LicenseStatusCard',
+  title: 'Dashboard/Team/LicenseStatusCard',
   component: LicenseStatusCard,
   parameters: {
     layout: 'padded',

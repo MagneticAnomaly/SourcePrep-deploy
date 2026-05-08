@@ -8,7 +8,7 @@ import {
 // Phase 119 Task 15: weather-report dashboard panel.
 
 const meta: Meta<typeof ConcurrencyHealth> = {
-  title: 'Pipeline/ConcurrencyHealth',
+  title: 'Dashboard/Pipeline/ConcurrencyHealth',
   component: ConcurrencyHealth,
   tags: ['autodocs'],
   parameters: {

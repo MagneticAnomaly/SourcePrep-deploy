@@ -5,7 +5,7 @@ import { PanelChrome } from '../../components/layout/PanelChrome';
 import { Button } from '../../components/primitives/Button';
 
 const meta: Meta<typeof PanelChrome> = {
-  title: 'Dashboard/Primitives/PanelChrome',
+  title: 'Patterns/PanelChrome',
   component: PanelChrome,
   parameters: {
     layout: 'padded',

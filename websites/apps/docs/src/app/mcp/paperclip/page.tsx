@@ -168,7 +168,7 @@ export default function Page() {
 
           <div className="not-prose my-8">
             <StoryEmbed
-              storyId="agents-agentopspanel--active"
+              storyId="dashboard-agents-agentopspanel--active"
               height={400}
               title="Agent Operations Panel"
               caption="Live preview: The three SourcePrep agents (HR, Researcher, Custodian) with managed employee badges."

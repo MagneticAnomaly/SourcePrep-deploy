@@ -146,7 +146,7 @@ function Comparison({ nodes, caption, oldNote, newNote }: ComparisonProps) {
 // ── Storybook meta ───────────────────────────────────────────────
 
 const meta: Meta<typeof Comparison> = {
-  title: 'Phase 119 / Old vs New SidebarPipelineQueue',
+  title: 'Dashboard/Pipeline/SidebarPipelineQueueOldVsNew',
   component: Comparison,
   parameters: {
     layout: 'padded',

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { AgentOpsPanel, type AgentOpsData } from '../../components/agents/AgentOpsPanel';
 
 const meta: Meta<typeof AgentOpsPanel> = {
-  title: 'Agents/AgentOpsPanel',
+  title: 'Dashboard/Agents/AgentOpsPanel',
   component: AgentOpsPanel,
   parameters: {
     layout: 'padded',

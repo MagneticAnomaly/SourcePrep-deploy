@@ -5,7 +5,7 @@ import { PanelPicker } from '../../components/layout/PanelPicker';
 import type { DashboardLayout, PanelDefinition } from '../../types/layout';
 
 const meta: Meta<typeof PanelPicker> = {
-  title: 'Dashboard/Primitives/PanelPicker',
+  title: 'Patterns/PanelPicker',
   component: PanelPicker,
   parameters: {
     layout: 'centered',

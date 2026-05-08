@@ -3,7 +3,7 @@ import { SidebarAIGateway } from '../../components/navigation/SidebarAIGateway';
 import type { LLMSlotsStatus, RunningTask, LLMSlotStatus } from '../../types';
 
 const meta: Meta<typeof SidebarAIGateway> = {
-  title: 'Application/Navigation/SidebarAIGateway',
+  title: 'Dashboard/Pipeline/SidebarAIGateway',
   component: SidebarAIGateway,
   tags: ['autodocs'],
   parameters: { layout: 'centered' },

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { SyncStatusCard } from '../../components/team/SyncStatusCard';
 
 const meta: Meta<typeof SyncStatusCard> = {
-  title: 'Team/SyncStatusCard',
+  title: 'Dashboard/Team/SyncStatusCard',
   component: SyncStatusCard,
   parameters: {
     layout: 'padded',

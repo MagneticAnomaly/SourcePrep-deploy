@@ -7,7 +7,7 @@ import { EmptyState } from '../../components/patterns/EmptyState';
 import type { ProjectSummary } from '../../types';
 
 const meta: Meta<typeof AppShell> = {
-  title: 'Application/Navigation/AppShell',
+  title: 'Dashboard/Layouts/AppShell',
   component: AppShell,
   tags: ['autodocs'],
   parameters: {

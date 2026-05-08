@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { StageProgressBar } from '../../components/trace/StageProgressBar';
 
 const meta: Meta<typeof StageProgressBar> = {
-  title: 'Trace/StageProgressBar',
+  title: 'Dashboard/Build/StageProgressBar',
   component: StageProgressBar,
   parameters: {
     layout: 'padded',

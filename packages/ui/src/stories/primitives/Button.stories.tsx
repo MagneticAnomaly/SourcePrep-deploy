@@ -3,7 +3,7 @@ import { Button } from '../../components/primitives/Button';
 import { Mail, ArrowRight, Save } from 'lucide-react';
 
 const meta: Meta<typeof Button> = {
-  title: 'Foundations/Primitives/Button',
+  title: 'Primitives/Button',
   component: Button,
   tags: ['autodocs'],
   argTypes: {

@@ -4,7 +4,7 @@ import { SearchPanel } from '../../components/search/SearchPanel';
 import { ContextOptionsPanel } from '../../components/search/ContextOptionsPanel';
 
 const meta: Meta<typeof SearchPanel> = {
-  title: 'Dashboard/Widgets/SearchPanel',
+  title: 'Dashboard/Search/SearchPanel',
   component: SearchPanel,
   tags: ['autodocs'],
   parameters: {

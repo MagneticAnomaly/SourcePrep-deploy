@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { PathInput } from '../../components/primitives/PathInput';
 
 const meta: Meta<typeof PathInput> = {
-  title: 'Foundations/Primitives/PathInput',
+  title: 'Primitives/PathInput',
   component: PathInput,
   tags: ['autodocs'],
   parameters: {

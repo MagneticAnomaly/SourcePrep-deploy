@@ -95,7 +95,7 @@ export default function Page() {
 
           <div className="not-prose my-6">
             <StoryEmbed
-              storyId="dashboard-widgets-settings-aimodelssettings--default"
+              storyId="dashboard-llm-aimodelssettings--default"
               height={500}
               title="AI Models Settings Panel"
               caption="Live preview: Configure the model slots in the dashboard."

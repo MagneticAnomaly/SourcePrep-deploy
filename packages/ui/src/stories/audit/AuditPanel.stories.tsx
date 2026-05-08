@@ -3,7 +3,7 @@ import { AuditPanel } from '../../components/audit/AuditPanel';
 import type { AuditFinding, AuditStatus, AuditReport } from '../../types';
 
 const meta: Meta<typeof AuditPanel> = {
-  title: 'Audit/AuditPanel',
+  title: 'Dashboard/Audit/AuditPanel',
   component: AuditPanel,
   parameters: {
     layout: 'fullscreen',

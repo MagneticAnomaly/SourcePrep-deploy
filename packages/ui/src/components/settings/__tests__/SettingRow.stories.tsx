@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { SettingRow } from '../SettingRow';
 
 const meta: Meta<typeof SettingRow> = {
-  title: 'Settings/SettingRow',
+  title: 'Primitives/SettingRow',
   component: SettingRow,
 };
 export default meta;

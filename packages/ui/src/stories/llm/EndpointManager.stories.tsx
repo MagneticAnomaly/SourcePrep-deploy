@@ -4,7 +4,7 @@ import { EndpointManager } from '../../components/llm/EndpointManager';
 import type { SavedEndpoint, EndpointTestResult } from '../../types';
 
 const meta: Meta<typeof EndpointManager> = {
-  title: 'Dashboard/Widgets/Settings/EndpointManager',
+  title: 'Dashboard/LLM/EndpointManager',
   component: EndpointManager,
   tags: ['autodocs'],
   parameters: {

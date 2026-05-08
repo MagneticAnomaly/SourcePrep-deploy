@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { ProbeButton, type ProbeResult } from './ProbeButton';
 
 const meta: Meta<typeof ProbeButton> = {
-  title: 'Phase 119 / ProbeButton',
+  title: 'Dashboard/Pipeline/ProbeButton',
   component: ProbeButton,
 };
 export default meta;

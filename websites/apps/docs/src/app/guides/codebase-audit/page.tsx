@@ -36,7 +36,7 @@ export default function Page() {
 
           <div className="not-prose my-8">
             <StoryEmbed
-              storyId="audit-auditpanel--with-findings"
+              storyId="dashboard-audit-auditpanel--with-findings"
               height={600}
               title="Codebase Audit — Findings View"
               caption="Live preview: AutoAudit findings organized by severity and category with AI handoff."
@@ -301,7 +301,7 @@ prep audit --category architecture`}</code></pre>
 
           <div className="not-prose my-8">
             <StoryEmbed
-              storyId="audit-opportunitiespanel--with-opportunities"
+              storyId="dashboard-audit-opportunitiespanel--with-opportunities"
               height={600}
               title="Opportunities Panel — Unified View"
               caption="Live preview: Opportunities panel consolidating all improvement items with filters and Pi Agent status."

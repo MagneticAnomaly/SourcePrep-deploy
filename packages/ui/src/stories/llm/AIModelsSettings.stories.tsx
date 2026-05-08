@@ -11,7 +11,7 @@ import type {
 import { applyPreset } from '../../lib/llm-presets';
 
 const meta: Meta<typeof AIModelsSettings> = {
-  title: 'Dashboard/Widgets/Settings/AIModelsSettings',
+  title: 'Dashboard/LLM/AIModelsSettings',
   component: AIModelsSettings,
   tags: ['autodocs'],
   parameters: {

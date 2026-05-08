@@ -58,7 +58,7 @@ export default function Page() {
 
           <div className="not-prose my-8">
             <StoryEmbed
-              storyId="console-animatedcli--semantic-search"
+              storyId="website-demos-animatedcli--semantic-search"
               height={350}
               title="SourcePrep MCP Demo — Semantic Search"
               caption="Live demo: An AI agent using SourcePrep's semantic search and structural trace expansion."

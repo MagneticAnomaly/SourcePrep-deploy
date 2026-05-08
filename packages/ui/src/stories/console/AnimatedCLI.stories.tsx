@@ -3,7 +3,7 @@ import { AnimatedCLI } from '../../components/console/AnimatedCLI';
 import { prepSearchDemo, prepImpactDemo, prepOverviewDemo } from '../../components/console/demo-scripts';
 
 const meta: Meta<typeof AnimatedCLI> = {
-  title: 'Console/AnimatedCLI',
+  title: 'Website/Demos/AnimatedCLI',
   component: AnimatedCLI,
   parameters: {
     layout: 'padded',

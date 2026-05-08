@@ -3,7 +3,7 @@ import { BugReportModal } from '../../components/console/BugReportModal';
 import type { LogEntry } from '../../types';
 
 const meta: Meta<typeof BugReportModal> = {
-  title: 'Console/BugReportModal',
+  title: 'Modals/BugReportModal',
   component: BugReportModal,
   parameters: {
     layout: 'fullscreen',

@@ -113,12 +113,12 @@ export default function Page() {
 
           <div className="grid gap-6 mt-6">
             <StoryEmbed
-              storyId="dashboard-widgets-searchpanel--default"
+              storyId="dashboard-search-searchpanel--default"
               height={280}
               caption="Semantic Search Panel — find code by meaning, not keywords"
             />
             <StoryEmbed
-              storyId="dashboard-widgets-indexstatuscard--loaded"
+              storyId="dashboard-index-indexstatuscard--loaded"
               height={220}
               caption="Index Status Card — real-time view of your codebase index"
             />

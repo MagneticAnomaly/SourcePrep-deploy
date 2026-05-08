@@ -3,7 +3,7 @@ import { ModelCard } from '../../components/llm/ModelCard';
 import type { SavedEndpoint } from '../../types';
 
 const meta: Meta<typeof ModelCard> = {
-  title: 'Dashboard/Widgets/Settings/ModelCard',
+  title: 'Dashboard/LLM/ModelCard',
   component: ModelCard,
   tags: ['autodocs'],
   parameters: {

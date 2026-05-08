@@ -5,7 +5,7 @@ import { sampleFileTree } from '../../components/project';
 import type { ScopeSummary } from '../../types';
 
 const meta: Meta<typeof FolderTreePanel> = {
-  title: 'Dashboard/Widgets/FolderTreePanel',
+  title: 'Dashboard/Project/FolderTreePanel',
   component: FolderTreePanel,
   parameters: {
     layout: 'padded',

@@ -5,7 +5,7 @@ import { SymbolResultRow } from '../../components/trace/SymbolResultRow';
 import type { TraceNode } from '../../types';
 
 const meta: Meta = {
-  title: 'Dashboard/Widgets/Trace/SymbolSearch',
+  title: 'Dashboard/Search/SymbolSearch',
   tags: ['autodocs'],
   parameters: {
     layout: 'padded',

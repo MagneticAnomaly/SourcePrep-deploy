@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { SystemAgentsTab } from '../../components/agents/SystemAgentsTab';
 
 const meta: Meta<typeof SystemAgentsTab> = {
-  title: 'Agents/SystemAgentsTab',
+  title: 'Dashboard/Agents/SystemAgentsTab',
   component: SystemAgentsTab,
   parameters: {
     layout: 'padded',

@@ -3,7 +3,7 @@ import { WatchStatusIndicator } from '../../components/watch/WatchStatusIndicato
 import type { WatchStatus } from '../../types';
 
 const meta: Meta<typeof WatchStatusIndicator> = {
-  title: 'Dashboard/Widgets/Watch/StatusIndicator',
+  title: 'Dashboard/Watch/StatusIndicator',
   component: WatchStatusIndicator,
   tags: ['autodocs'],
 };

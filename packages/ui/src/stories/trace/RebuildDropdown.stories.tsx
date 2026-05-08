@@ -3,7 +3,7 @@ import { RebuildDropdown } from '../../components/trace/RebuildDropdown';
 import type { RebuildScope } from '../../types';
 
 const meta: Meta<typeof RebuildDropdown> = {
-  title: 'Dashboard/Widgets/Trace/RebuildDropdown',
+  title: 'Dashboard/Build/RebuildDropdown',
   component: RebuildDropdown,
   tags: ['autodocs'],
   parameters: {

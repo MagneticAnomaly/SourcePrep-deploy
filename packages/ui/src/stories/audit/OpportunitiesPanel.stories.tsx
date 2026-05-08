@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { OpportunitiesPanel, type OpportunitiesPanelProps, type OpportunityItem, type OpportunitiesSummary } from '../../components/audit/OpportunitiesPanel';
 
 const meta: Meta<typeof OpportunitiesPanel> = {
-  title: 'Audit/OpportunitiesPanel',
+  title: 'Dashboard/Audit/OpportunitiesPanel',
   component: OpportunitiesPanel,
   parameters: {
     layout: 'fullscreen',

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { Section } from '../Section';
 import { SettingRow } from '../SettingRow';
 
-const meta: Meta<typeof Section> = { title: 'Settings/Section', component: Section };
+const meta: Meta<typeof Section> = { title: 'Primitives/Section', component: Section };
 export default meta;
 
 export const Basic: StoryObj<typeof Section> = {

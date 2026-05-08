@@ -3,7 +3,7 @@ import { LogConsole } from '../../components/console/LogConsole';
 import type { LogEntry } from '../../types';
 
 const meta: Meta<typeof LogConsole> = {
-  title: 'Console/LogConsole',
+  title: 'Dashboard/Console/LogConsole',
   component: LogConsole,
   parameters: {
     layout: 'fullscreen',

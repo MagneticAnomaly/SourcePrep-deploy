@@ -3,7 +3,7 @@ import { RoadmapPanel } from '../../components/goalposts/RoadmapPanel';
 import type { RoadmapNode, GoalpostQuestion, VelocityResponse, SprintSuggestion } from '../../types';
 
 const meta: Meta<typeof RoadmapPanel> = {
-  title: 'Goalposts/RoadmapPanel',
+  title: 'Dashboard/Roadmap/RoadmapPanel',
   component: RoadmapPanel,
   parameters: {
     layout: 'fullscreen',

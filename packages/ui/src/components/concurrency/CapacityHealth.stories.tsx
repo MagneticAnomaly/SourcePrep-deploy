@@ -4,7 +4,7 @@ import type { ConcurrencyNode } from './ConcurrencyHealth';
 import type { ProbeResult } from '../llm/ProbeButton';
 
 const meta: Meta<typeof CapacityHealth> = {
-  title: 'Phase 119 / CapacityHealth',
+  title: 'Dashboard/Pipeline/CapacityHealth',
   component: CapacityHealth,
   parameters: { layout: 'padded' },
 };

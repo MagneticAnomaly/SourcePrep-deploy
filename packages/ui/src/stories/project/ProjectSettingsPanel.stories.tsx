@@ -4,7 +4,7 @@ import { ProjectSettingsPanel } from '../../components/project/ProjectSettingsPa
 import type { ProjectConfig } from '../../types';
 
 const meta: Meta<typeof ProjectSettingsPanel> = {
-  title: 'Dashboard/Widgets/Settings/ProjectSettingsPanel',
+  title: 'Dashboard/Project/ProjectSettingsPanel',
   component: ProjectSettingsPanel,
   tags: ['autodocs'],
   parameters: {

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { TeamSyncIndicator } from '../../components/team/TeamSyncIndicator';
 
 const meta: Meta<typeof TeamSyncIndicator> = {
-  title: 'Team/TeamSyncIndicator',
+  title: 'Dashboard/Team/TeamSyncIndicator',
   component: TeamSyncIndicator,
   parameters: {
     layout: 'centered',

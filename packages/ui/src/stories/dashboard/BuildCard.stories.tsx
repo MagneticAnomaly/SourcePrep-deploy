@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { BuildCard } from '../../components/dashboard/BuildCard';
 
 const meta: Meta<typeof BuildCard> = {
-  title: 'Dashboard/Widgets/BuildCard',
+  title: 'Dashboard/Build/BuildCard',
   component: BuildCard,
   tags: ['autodocs'],
   parameters: {

@@ -4,7 +4,7 @@ import { AdvancedLLMSettings } from '../../components/llm/AdvancedLLMSettings';
 import type { AdvancedLLMSettings as AdvancedSettings } from '../../types';
 
 const meta: Meta<typeof AdvancedLLMSettings> = {
-  title: 'Dashboard/Widgets/Settings/AdvancedLLMSettings',
+  title: 'Dashboard/LLM/AdvancedLLMSettings',
   component: AdvancedLLMSettings,
   tags: ['autodocs'],
   parameters: {

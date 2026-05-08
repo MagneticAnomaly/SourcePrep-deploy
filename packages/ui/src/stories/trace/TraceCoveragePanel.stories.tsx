@@ -37,7 +37,7 @@ const fullSummary: TraceCoverageSummary = {
 };
 
 const meta: Meta<typeof TraceCoveragePanel> = {
-  title: 'Dashboard/Widgets/Trace/CoveragePanel',
+  title: 'Dashboard/Trace/CoveragePanel',
   component: TraceCoveragePanel,
   tags: ['autodocs'],
   parameters: {

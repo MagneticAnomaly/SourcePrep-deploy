@@ -3,7 +3,7 @@ import { ProvenanceChip } from '../../components/trace/ProvenanceChip';
 import type { StageRebuildProvenance } from '../../types';
 
 const meta: Meta<typeof ProvenanceChip> = {
-  title: 'Dashboard/Widgets/Trace/ProvenanceChip',
+  title: 'Dashboard/Trace/ProvenanceChip',
   component: ProvenanceChip,
   tags: ['autodocs'],
   parameters: {

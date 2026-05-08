@@ -44,7 +44,7 @@ export default function Page() {
           </p>
           <div className="not-prose my-6">
             <StoryEmbed
-              storyId="console-animatedcli--project-overview"
+              storyId="website-demos-animatedcli--project-overview"
               height={350}
               title="SourcePrep Dashboard Preview"
               caption="Live preview: The SourcePrep daemon processing a project with structural trace and semantic indexing."

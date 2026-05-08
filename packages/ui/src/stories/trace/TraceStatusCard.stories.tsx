@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { TraceStatusCard } from '../../components/trace/TraceStatusCard';
 
 const meta: Meta<typeof TraceStatusCard> = {
-  title: 'Dashboard/Widgets/Trace/StatusCard',
+  title: 'Dashboard/Trace/StatusCard',
   component: TraceStatusCard,
   tags: ['autodocs'],
   parameters: {

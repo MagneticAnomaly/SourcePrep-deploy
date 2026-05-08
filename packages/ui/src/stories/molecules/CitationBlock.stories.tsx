@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { CitationBlock } from '../../components/context/CitationBlock';
 
 const meta: Meta<typeof CitationBlock> = {
-  title: 'Foundations/Molecules/CitationBlock',
+  title: 'Primitives/CitationBlock',
   component: CitationBlock,
   tags: ['autodocs'],
 };

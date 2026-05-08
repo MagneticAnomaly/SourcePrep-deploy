@@ -3,7 +3,7 @@ import { AgentCard } from '../../components/agents/AgentCard';
 import { Users, BookOpen, Archive } from 'lucide-react';
 
 const meta: Meta<typeof AgentCard> = {
-  title: 'Agents/AgentCard',
+  title: 'Dashboard/Agents/AgentCard',
   component: AgentCard,
   parameters: {
     layout: 'padded',

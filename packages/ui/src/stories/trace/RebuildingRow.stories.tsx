@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { RebuildingRow } from '../../components/trace/RebuildingRow';
 
 const meta: Meta<typeof RebuildingRow> = {
-  title: 'Dashboard/Widgets/Trace/RebuildingRow',
+  title: 'Dashboard/Build/RebuildingRow',
   component: RebuildingRow,
   tags: ['autodocs'],
   parameters: {

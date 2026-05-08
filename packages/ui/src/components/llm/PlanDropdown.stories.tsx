@@ -27,7 +27,7 @@ const FIXTURE: PlanLimitsTable = {
 };
 
 const meta: Meta<typeof PlanDropdown> = {
-  title: 'Phase 119 / PlanDropdown',
+  title: 'Dashboard/Pipeline/PlanDropdown',
   component: PlanDropdown,
 };
 export default meta;

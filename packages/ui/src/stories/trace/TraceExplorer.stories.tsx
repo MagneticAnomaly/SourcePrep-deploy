@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { TraceExplorer } from '../../components/trace/TraceExplorer';
 
 const meta: Meta<typeof TraceExplorer> = {
-  title: 'Trace/TraceExplorer',
+  title: 'Dashboard/Trace/TraceExplorer',
   component: TraceExplorer,
   parameters: {
     layout: 'fullscreen',

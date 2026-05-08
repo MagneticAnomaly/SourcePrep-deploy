@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { SearchableSelect } from '../../components/primitives/SearchableSelect';
 
 const meta: Meta<typeof SearchableSelect> = {
-  title: 'Foundations/Primitives/SearchableSelect',
+  title: 'Primitives/SearchableSelect',
   component: SearchableSelect,
   tags: ['autodocs'],
   decorators: [

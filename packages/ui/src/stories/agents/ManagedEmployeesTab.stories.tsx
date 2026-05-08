@@ -3,7 +3,7 @@ import { ManagedEmployeesTab } from '../../components/agents/ManagedEmployeesTab
 import type { RoleBadge } from '../../components/agents/EmployeeBadges';
 
 const meta: Meta<typeof ManagedEmployeesTab> = {
-  title: 'Agents/ManagedEmployeesTab',
+  title: 'Dashboard/Agents/ManagedEmployeesTab',
   component: ManagedEmployeesTab,
   parameters: {
     layout: 'padded',

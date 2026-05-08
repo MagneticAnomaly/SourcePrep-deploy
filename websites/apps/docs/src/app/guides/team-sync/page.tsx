@@ -42,7 +42,7 @@ export default function Page() {
 
         <div className="not-prose my-8">
           <StoryEmbed
-            storyId="team-syncstatuscard--up-to-date"
+            storyId="dashboard-team-syncstatuscard--up-to-date"
             height={200}
             title="Team Sync Status"
             caption="Live preview: The Sync Status Card showing a synced team index with commit hash and last-synced timestamp."

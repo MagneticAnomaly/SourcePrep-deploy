@@ -80,7 +80,7 @@ export default function Page() {
         </p>
         <div className="rounded-lg overflow-hidden border border-border">
           <StoryEmbed
-            storyId="trace-tracegraph--default"
+            storyId="dashboard-trace-graph--default"
             height={450}
             title="Interactive Code Graph"
             caption="Live preview: file-level dependencies and import relationships."

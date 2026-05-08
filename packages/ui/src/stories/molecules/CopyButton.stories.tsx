@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { CopyButton } from '../../components/context/CopyButton';
 
 const meta: Meta<typeof CopyButton> = {
-  title: 'Foundations/Molecules/CopyButton',
+  title: 'Primitives/CopyButton',
   component: CopyButton,
   tags: ['autodocs'],
 };

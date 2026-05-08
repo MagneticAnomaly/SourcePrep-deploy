@@ -40,7 +40,7 @@ export default function Page() {
               <div className="flex items-start gap-3">
                 <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">1</span>
                 <div>
-                  <div className="font-medium text-text">Select files in the FolderTree</div>
+                  <div className="font-medium text-text">Select files in the Scope panel</div>
                   <div className="mt-1 text-text-muted">Toggle individual files or entire folders. Selecting a folder includes all files inside it.</div>
                 </div>
               </div>
@@ -85,7 +85,7 @@ export default function Page() {
 
           <div className="not-prose my-6">
             <StoryEmbed
-              storyId="dashboard-widgets-foldertreepanel--scope-panel-named-populated"
+              storyId="dashboard-project-foldertreepanel--scope-panel-named-populated"
               height={500}
               title="Scope panel"
               caption="The Scope panel — toggle files and folders into the index, with optional per-path weights."

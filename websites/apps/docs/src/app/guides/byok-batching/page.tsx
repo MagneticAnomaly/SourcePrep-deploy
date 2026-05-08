@@ -126,7 +126,7 @@ export default function Page() {
 
           <div className="not-prose my-8">
             <StoryEmbed
-              storyId="dashboard-widgets-settings-endpointmanager--interactive"
+              storyId="dashboard-llm-endpointmanager--interactive"
               height={400}
               title="Endpoint Manager"
               caption="Live preview: Configure BYOK endpoints for OpenAI, Anthropic, Google, and custom providers."

@@ -3,7 +3,7 @@ import { NodeDetailPanel } from '../../components/trace/NodeDetailPanel';
 import type { TraceNode } from '../../types';
 
 const meta: Meta<typeof NodeDetailPanel> = {
-  title: 'Dashboard/Widgets/Trace/NodeDetailPanel',
+  title: 'Dashboard/Trace/NodeDetailPanel',
   component: NodeDetailPanel,
   tags: ['autodocs'],
   parameters: {

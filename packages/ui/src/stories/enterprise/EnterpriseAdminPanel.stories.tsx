@@ -4,7 +4,7 @@ import type { SyncFleetEntry, UsageData, TokenUsageSummary, SecurityHealthResult
 import type { ComputeNode, SchedulerStatus, AdminPolicy } from '../../types';
 
 const meta: Meta<typeof EnterpriseAdminPanel> = {
-  title: 'Enterprise/EnterpriseAdminPanel',
+  title: 'Dashboard/Enterprise/EnterpriseAdminPanel',
   component: EnterpriseAdminPanel,
   parameters: {
     layout: 'padded',

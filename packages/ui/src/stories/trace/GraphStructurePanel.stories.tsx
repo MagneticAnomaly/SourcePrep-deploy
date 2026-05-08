@@ -3,7 +3,7 @@ import { GraphStructurePanel } from '../../components/trace/GraphStructurePanel'
 import type { TraceCoverageSummary, TraceCoverageFile, EpistemicStatus, AugmentationStatus, ModuleStatus, KnowledgeEmbeddingStatus } from '../../types';
 
 const meta: Meta<typeof GraphStructurePanel> = {
-  title: 'Trace/GraphStructurePanel',
+  title: 'Dashboard/Trace/GraphStructurePanel',
   component: GraphStructurePanel,
   parameters: {
     layout: 'fullscreen',

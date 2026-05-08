@@ -14,7 +14,7 @@ function KbdRow({ keys }: { keys: string[] }) {
 }
 
 const meta: Meta = {
-  title: 'Foundations/Patterns/KeyboardShortcuts',
+  title: 'Patterns/KeyboardShortcuts',
   tags: ['autodocs'],
   parameters: {
     layout: 'padded',

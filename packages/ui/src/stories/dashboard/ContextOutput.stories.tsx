@@ -3,7 +3,7 @@ import { ContextViewer } from '../../components/context/ContextViewer';
 import type { ContextChunk } from '../../components/context/ContextViewer';
 
 const meta: Meta<typeof ContextViewer> = {
-  title: 'Dashboard/Widgets/ContextOutput',
+  title: 'Dashboard/Search/ContextOutput',
   component: ContextViewer,
   tags: ['autodocs'],
   parameters: {

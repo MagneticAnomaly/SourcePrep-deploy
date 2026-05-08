@@ -3,7 +3,7 @@ import { TraceGraph, TraceGraphMini } from '../../components/trace/TraceGraph';
 import type { TraceNode } from '../../components/trace/TraceGraph';
 
 const meta: Meta<typeof TraceGraph> = {
-  title: 'Dashboard/Widgets/Trace/Graph',
+  title: 'Dashboard/Trace/Graph',
   component: TraceGraph,
   tags: ['autodocs'],
   parameters: {

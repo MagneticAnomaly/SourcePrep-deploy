@@ -4,7 +4,7 @@ import { WatchStatusIndicator } from '../../components/watch/WatchStatusIndicato
 import type { WatchStatus } from '../../types';
 
 const meta: Meta<typeof WatchControlPanel> = {
-  title: 'Dashboard/Widgets/WatchControls',
+  title: 'Dashboard/Watch/WatchControls',
   component: WatchControlPanel,
   tags: ['autodocs'],
   parameters: {

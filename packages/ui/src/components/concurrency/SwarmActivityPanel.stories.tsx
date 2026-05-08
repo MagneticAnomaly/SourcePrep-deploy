@@ -8,7 +8,7 @@ import type { RunningTask } from '../../types';
 // per-role rows are debugging detail, not status for end users.
 
 const meta: Meta<typeof SwarmActivityPanel> = {
-  title: 'Pipeline/SwarmActivityPanel',
+  title: 'Dashboard/Pipeline/SwarmActivityPanel',
   component: SwarmActivityPanel,
   tags: ['autodocs'],
   parameters: {

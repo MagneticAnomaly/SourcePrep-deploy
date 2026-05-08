@@ -11,7 +11,7 @@ import {
 // list backed by GET /system/swarm-events.
 
 const meta: Meta<typeof RecentSwarmLogs> = {
-  title: 'Pipeline/RecentSwarmLogs',
+  title: 'Dashboard/Pipeline/RecentSwarmLogs',
   component: RecentSwarmLogs,
   tags: ['autodocs'],
   parameters: {

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { IndexStats } from '../../components/dashboard/IndexStats';
 
 const meta: Meta<typeof IndexStats> = {
-  title: 'Dashboard/Widgets/IndexStats',
+  title: 'Dashboard/Index/IndexStats',
   component: IndexStats,
   parameters: {
     layout: 'padded',

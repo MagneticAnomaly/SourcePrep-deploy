@@ -28,7 +28,7 @@ export default function IdeIntegrationsPage() {
 
           <div className="not-prose my-8">
             <StoryEmbed
-              storyId="console-animatedide--default"
+              storyId="website-demos-animatedide--default"
               height={500}
               title="SourcePrep in an Agentic IDE"
               caption="Live demo: An AI agent using SourcePrep MCP tools inside a split-pane IDE."

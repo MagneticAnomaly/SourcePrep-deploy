@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { ActivityHeatmap, generateSampleActivityData, type ActivityHeatmapData } from '../../components/viz/ActivityHeatmap';
 
 const meta: Meta<typeof ActivityHeatmap> = {
-  title: 'Dashboard/Widgets/ActivityHeatmap',
+  title: 'Dashboard/Visualization/ActivityHeatmap',
   component: ActivityHeatmap,
   tags: ['autodocs'],
   parameters: {

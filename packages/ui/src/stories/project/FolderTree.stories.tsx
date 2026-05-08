@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { FolderTree, sampleFileTree, TreeNode } from '../../components/project';
 
 const meta: Meta<typeof FolderTree> = {
-  title: 'Dashboard/Widgets/FolderTree',
+  title: 'Dashboard/Project/FolderTree',
   component: FolderTree,
   parameters: {
     layout: 'padded',

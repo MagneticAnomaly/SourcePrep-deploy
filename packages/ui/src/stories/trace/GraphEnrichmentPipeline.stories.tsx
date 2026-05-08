@@ -4,7 +4,7 @@ import type { AugmentationStatus, DeepAnalysisRunStatus, InferredEdgesStatus, Ep
 import type { EnrichmentAutoConfig } from '../../components/trace/GraphEnrichmentPipeline';
 
 const meta: Meta<typeof GraphEnrichmentPipeline> = {
-  title: 'Dashboard/Widgets/Trace/GraphEnrichmentPipeline',
+  title: 'Dashboard/Pipeline/GraphEnrichmentPipeline',
   component: GraphEnrichmentPipeline,
   tags: ['autodocs'],
   parameters: {

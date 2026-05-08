@@ -27,7 +27,7 @@ function withMockQueue(items: QueueItem[]) {
 }
 
 const meta: Meta<typeof SidebarPipelineQueue> = {
-  title: 'Application/Navigation/SidebarPipelineQueue',
+  title: 'Dashboard/Pipeline/SidebarPipelineQueue',
   component: SidebarPipelineQueue,
   tags: ['autodocs'],
   parameters: { layout: 'centered' },
