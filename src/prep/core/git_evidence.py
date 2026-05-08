@@ -325,6 +325,10 @@ class GitEvidence:
 
         - Groups churn by parent directory at `depth` segments deep.
         - Filters to directories with >= `min_commits` commits.
+        - Filters out directories that no longer exist on disk
+          (a directory rename leaves the old path in `git log` history
+          forever; without this filter the atlas keeps surfacing
+          ghost paths like `src/codrag/core/` long after the rename).
         - Sorts descending by commit count, tie-break lex-ascending.
         - Returns at most `top_n` entries.
         - Returns [] if fewer than 3 qualifying directories (not worth
@@ -343,6 +347,23 @@ class GitEvidence:
             by_dir[dir_path] = by_dir.get(dir_path, 0) + entry.commits
 
         qualifying = [(d, c) for d, c in by_dir.items() if c >= min_commits]
+
+        # Filter out directories that have since been removed or renamed
+        # (or left behind as empty husks after a rename — `src/codrag/`
+        # in this repo's history is the canonical example, with the real
+        # code now living at `src/prep/`). A directory is "active" only if
+        # it currently contains at least one file. `dir_path` carries a
+        # trailing slash; rstrip before resolving.
+        def _has_any_file(dir_path: str) -> bool:
+            full = self._repo_root / dir_path.rstrip("/")
+            if not full.is_dir():
+                return False
+            try:
+                return any(p.is_file() for p in full.rglob("*"))
+            except OSError:
+                return False
+        qualifying = [(d, c) for d, c in qualifying if _has_any_file(d)]
+
         if len(qualifying) < 3:
             return []
 

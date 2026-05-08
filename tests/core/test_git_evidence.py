@@ -262,6 +262,77 @@ def test_hot_zones_surfaces_when_three_or_more_qualify(tmp_path):
     assert len(set(zones)) == 3   # no duplicates
 
 
+def test_hot_zones_filters_renamed_directories(tmp_path):
+    """Regression: dirs that show up in `git log` but no longer exist on
+    disk (renamed/removed) must not surface as 'Active zones'.
+
+    The dogfooding finding was that this repo's atlas kept reporting
+    `src/codrag/core/` and `src/codrag/dashboard/` as Active zones long
+    after the 2026-04-21 rename to `src/prep/...`. The pre-rename paths
+    have churn forever in `git log`, but the directories are empty on
+    disk — surfacing them in the atlas is misleading.
+    """
+    _init_repo(tmp_path)
+    # Three zones with enough churn to qualify, three more that exist
+    # only in history (rename/remove later).
+    for zone in ("alpha", "beta", "gamma"):
+        for i in range(11):
+            _commit_file(tmp_path, f"src/{zone}/f{i % 2}.py", f"v={i}\n", message=f"{zone}{i}")
+
+    for zone in ("ghost1", "ghost2", "ghost3"):
+        for i in range(11):
+            _commit_file(tmp_path, f"src/{zone}/f{i % 2}.py", f"v={i}\n", message=f"{zone}{i}")
+    # Now remove the ghost directories from disk (and commit the deletion)
+    # so they only exist in history.
+    for zone in ("ghost1", "ghost2", "ghost3"):
+        subprocess.run(
+            ["git", "rm", "-rq", f"src/{zone}"], cwd=tmp_path, check=True,
+        )
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "remove ghost dirs"], cwd=tmp_path, check=True,
+    )
+
+    evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+    zones = evidence.hot_zones(top_n=10, min_commits=10)
+
+    # Only the three real zones survive the existence filter.
+    assert sorted(zones) == ["src/alpha/", "src/beta/", "src/gamma/"]
+    assert not any("ghost" in z for z in zones)
+
+
+def test_hot_zones_filters_empty_directory_husks(tmp_path):
+    """Regression: an empty leftover directory (rename leaves behind
+    parent dirs even after `git rm`) must not surface as a hot zone.
+
+    On disk, this is the exact state of `src/codrag/` in this repo
+    after the 2026-04-21 rename — the directory exists as a 0-byte
+    husk but has no files in it. `is_dir()` is True; we still want it
+    filtered out.
+    """
+    _init_repo(tmp_path)
+    for zone in ("real_a", "real_b", "real_c"):
+        for i in range(11):
+            _commit_file(tmp_path, f"src/{zone}/f{i % 2}.py", f"v={i}\n", message=f"{zone}{i}")
+
+    # Add a husk zone and then delete its contents (leaving the dir).
+    for i in range(11):
+        _commit_file(tmp_path, f"src/husk/f{i % 2}.py", f"v={i}\n", message=f"husk{i}")
+    subprocess.run(["git", "rm", "-rq", "src/husk"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "remove husk files"], cwd=tmp_path, check=True)
+
+    # Re-create the empty parent directory on disk to simulate the leftover.
+    husk_dir = tmp_path / "src" / "husk"
+    husk_dir.mkdir(parents=True, exist_ok=True)
+    assert husk_dir.is_dir()
+    assert not any(husk_dir.iterdir())   # confirmed empty husk
+
+    evidence = GitEvidence(repo_root=tmp_path, cache_dir=tmp_path / ".cache")
+    zones = evidence.hot_zones(top_n=10, min_commits=10)
+
+    assert sorted(zones) == ["src/real_a/", "src/real_b/", "src/real_c/"]
+    assert "src/husk/" not in zones
+
+
 def test_cache_persists_across_instances(tmp_path):
     _init_repo(tmp_path)
     _commit_file(tmp_path, "src/foo.py", "x\n")
