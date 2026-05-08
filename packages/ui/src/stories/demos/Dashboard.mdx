@@ -1,0 +1,52 @@
+import { Meta, Story } from '@storybook/blocks';
+import * as FullDashboardStories from '../dashboard/FullDashboard.stories';
+
+<Meta title="Demos/Dashboard" />
+
+<div className="welcome-frame">
+  <div className="welcome-banner">
+    <h1>SourcePrep · Design System</h1>
+    <p>
+      The dashboard you're looking at is the same component you'd see running in the desktop app —
+      rendered live with the design tokens, primitives, and patterns documented across this site.
+      Browse the sidebar to explore foundations, atoms, composed patterns, and the full product surface.
+    </p>
+  </div>
+  <Story of={FullDashboardStories.FullDashboard} />
+</div>
+
+<style>{`
+  .welcome-frame {
+    min-height: 100vh;
+    width: 100%;
+    background-color: hsl(var(--background));
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.35) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: -1px -1px;
+  }
+  .welcome-banner {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 1.5rem;
+    text-align: center;
+    color: hsl(var(--text));
+  }
+  .welcome-banner h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.5rem;
+  }
+  .welcome-banner p {
+    color: hsl(var(--text-muted));
+    line-height: 1.55;
+    margin: 0;
+  }
+  /* Allow the embedded dashboard story canvas to extend the grid pattern. */
+  .welcome-frame .sb-story,
+  .welcome-frame [data-storybook-story-block] {
+    background: transparent !important;
+  }
+`}</style>

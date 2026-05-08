@@ -83,7 +83,7 @@ type LayoutKind = 'fullscreen' | 'centered' | 'padded' | 'modal-backdrop';
 
 function pickLayout(title: string): LayoutKind {
   // Real fullscreen surfaces — render with no extra wrapper.
-  if (title === 'Foundations/Introduction') return 'fullscreen'; // welcome page
+  if (title.startsWith('Demos/')) return 'fullscreen'; // welcome + design-system showcase
   if (title.startsWith('Dashboard/Layouts/')) return 'fullscreen';
   if (title.startsWith('Website/Layout/')) return 'fullscreen';
   if (title === 'Website/Marketing/Hero') return 'fullscreen';
@@ -158,8 +158,10 @@ const preview: Preview = {
       storySort: {
         method: 'alphabetical',
         order: [
+          'Demos',
+          ['Dashboard', 'Design System'],
           'Foundations',
-          ['Introduction', 'Accessibility', 'Visual Directions', 'Tokens',
+          ['Accessibility', 'Visual Directions', 'Tokens',
             ['Colors', 'Typography', 'Spacing']],
           'Primitives',
           'Patterns',
