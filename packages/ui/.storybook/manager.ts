@@ -60,5 +60,13 @@ addons.setConfig({
   // Visitors land with the bottom Addons panel collapsed — most stories don't
   // need Controls / Actions visible by default, and the canvas reads cleaner.
   // Toggle with the panel button in the toolbar (or `S` shortcut).
+  // Note: Storybook persists this in localStorage once toggled, so existing
+  // local sessions may need a one-time clear (cmd-shift-delete) to pick up.
   showPanel: false,
+  // Keep the panel docked at the bottom even when shown, so it never appears
+  // on the right side of the canvas (some installs default to right-side).
+  panelPosition: 'bottom',
+  // Storybook v7 supports a `bottomPanelHeight: 0` style hint via
+  // initialActive, but the cleanest way to force a closed state on every
+  // load is the inline script below in manager-head.html.
 });

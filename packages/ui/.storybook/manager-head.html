@@ -2,6 +2,28 @@
   Phase 131: visual polish on the Storybook manager (sidebar / top bar).
   See docs/Phase131_StorybookCuration/02_visual_design_plan.md.
 -->
+<script>
+  // Force the addons panel closed on each manager load. setConfig({ showPanel:
+  // false }) only sets the initial default; once a user toggles it open, the
+  // preference sticks in localStorage and overrides setConfig on subsequent
+  // visits. We patch the persisted UI settings before Storybook reads them.
+  try {
+    var keys = ['@storybook/ui:settings', 'storybook-store', 'storybook'];
+    for (var i = 0; i < keys.length; i++) {
+      var raw = window.localStorage.getItem(keys[i]);
+      if (!raw) continue;
+      try {
+        var s = JSON.parse(raw);
+        var dirty = false;
+        if (s && typeof s === 'object') {
+          if (s.layout && s.layout.showPanel === true) { s.layout.showPanel = false; dirty = true; }
+          if (s.showPanel === true) { s.showPanel = false; dirty = true; }
+        }
+        if (dirty) window.localStorage.setItem(keys[i], JSON.stringify(s));
+      } catch (e) { /* ignore parse errors */ }
+    }
+  } catch (e) { /* localStorage unavailable */ }
+</script>
 <style>
   /*
     Brand image — iOS-app-icon styling.
@@ -16,23 +38,36 @@
   .sidebar-header img,
   .sidebar-container img {
     background-color: #0F172A;
-    border-radius: 12px;
-    padding: 10px;
+    border-radius: 10px;
+    padding: 6px;
     box-sizing: border-box;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
   }
 
   /*
-    Hide the brand-area gear/menu button — the "Storybook" / shortcuts
-    affordance that floats next to the logo. The same actions are
-    accessible via the canvas toolbar at top-right and via keyboard
-    shortcuts (cmd-shift-O for the menu); removing it cleans up the
-    sidebar header area.
+    Shortcuts / menu button — keep visible, but anchor it to the top-right
+    corner of the brand area instead of letting the flex layout push it
+    next to the logo. The brand area's nearest container is given relative
+    positioning so the absolute child sits in its corner.
   */
-  a[href="https://sourceprep.io"] + button,
-  [class*="Brand"] ~ button[title*="shortcut" i],
-  [class*="Brand"] ~ button[aria-label*="menu" i],
-  .sidebar-header button:not([class*="search"] *):not([class*="Search"] *) {
-    display: none !important;
+  a[href="https://sourceprep.io"] {
+    position: relative;
+  }
+  a[href="https://sourceprep.io"] ~ button,
+  [class*="Brand"] ~ button,
+  .sidebar-header > button:not([class*="search" i]):not([class*="Search" i]) {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    margin: 0 !important;
+  }
+
+  /*
+    Container above the brand link needs to be a positioning context for
+    the absolute button to land in the right corner. Use :has() (modern
+    browsers; Storybook 7 targets evergreen) to scope the rule narrowly.
+  */
+  div:has(> a[href="https://sourceprep.io"]) {
+    position: relative;
   }
 </style>
