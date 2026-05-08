@@ -120,10 +120,25 @@ const mockCoverageSummary: TraceCoverageSummary = {
 
 import { PANEL_REGISTRY } from '../../config/panelRegistry';
 
-// Use the canonical panel registry — no extra panels needed
-const STORY_PANELS: PanelDefinition[] = [
-  ...PANEL_REGISTRY,
-];
+// Phase 131: filter PANEL_REGISTRY for the storybook demo.
+//
+// 1. Always exclude the legacy "AI Gateway" summary card (`llm-status`).
+//    Phase 74 sunsetted this panel — manually-constructed state drifted from
+//    real pipeline status; the sidebar AI Gateway widget is now the canonical
+//    live view. Keeping it out of the demo means it never appears in either
+//    private or public storybook.
+//
+// 2. In public mode (STORYBOOK_PUBLIC=true), additionally drop every panel
+//    flagged `devOnly: true` in the registry — Spaghetti Finder, Goalposts,
+//    Health Scanner, Advisor, Roadmap, Opportunities. The local developer
+//    storybook keeps showing them so internal work isn't blocked.
+const IS_PUBLIC = (import.meta.env as Record<string, unknown>).STORYBOOK_PUBLIC === true;
+
+const STORY_PANELS: PanelDefinition[] = PANEL_REGISTRY.filter((p) => {
+  if (p.id === 'llm-status') return false; // deprecated
+  if (IS_PUBLIC && p.devOnly) return false;
+  return true;
+});
 
 /** Prefix for dynamically-pinned file panel IDs */
 const PINNED_PREFIX = 'pinned:';

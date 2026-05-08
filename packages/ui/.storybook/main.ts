@@ -81,6 +81,16 @@ const config: StorybookConfig = {
     config.cacheDir = isPublic
       ? 'node_modules/.cache/sb-vite-public'
       : 'node_modules/.cache/sb-vite-private';
+
+    // Expose STORYBOOK_PUBLIC to story modules so they can branch behavior
+    // (e.g. FullDashboard hides devOnly panels in public mode but keeps them
+    // in the local developer storybook). Vite's standard env-var prefix is
+    // `VITE_*`; defining `import.meta.env.STORYBOOK_PUBLIC` explicitly avoids
+    // having to rename the env var elsewhere in the build chain.
+    config.define = {
+      ...(config.define ?? {}),
+      'import.meta.env.STORYBOOK_PUBLIC': JSON.stringify(isPublic),
+    };
     return config;
   },
 };
