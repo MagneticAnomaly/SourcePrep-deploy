@@ -42,43 +42,30 @@
   }
 
   /*
-    Reserve a placement target for the relocated shortcut button. The JS
-    below moves the button into a top-right anchor inside the sidebar
-    header. CSS-only approaches are unreliable here because Storybook 7's
-    manager uses CSS-in-JS hashed class names that change between releases.
+    The shortcut button's final placement is set inline via JS (position:
+    fixed + computed coordinates from the sidebar's bounding rect). No
+    CSS class-based anchor — DOM-positioning approaches were defeated by
+    a multi-level flex column wrapping the brand row that put the button
+    at logo-mid instead of panel-top.
   */
-  .sb-shortcut-anchor {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    z-index: 5;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .sb-shortcut-anchor button {
-    margin: 0 !important;
-  }
 </style>
 <script>
-  // Move the Storybook "shortcuts / menu" button out of its default flex
-  // location next to the brand and into a top-right anchor inside the
-  // sidebar header. Re-runs on DOM mutations so the placement survives
-  // Storybook's manager re-renders.
+  // Pin the Storybook "shortcuts / menu" button to the top-right corner of
+  // the sidebar using fixed positioning. Coordinates come from the sidebar
+  // element's bounding rect, so it lands at the actual visual corner
+  // regardless of the manager's flex/CSS-in-JS structure.
   (function () {
     var SHORTCUT_BUTTON_TITLE_RE = /shortcut|menu/i;
+    var TOP_PAD = 12;
+    var RIGHT_PAD = 12;
 
     function findShortcutButton() {
-      // The shortcut/menu launcher in Storybook 7 is the only button in the
-      // sidebar header that isn't search-related. Find by title/aria-label
-      // first, fall back to the first non-search button near the brand.
       var candidates = document.querySelectorAll('button[title], button[aria-label]');
       for (var i = 0; i < candidates.length; i++) {
         var b = candidates[i];
         var label = (b.getAttribute('title') || '') + ' ' + (b.getAttribute('aria-label') || '');
         if (SHORTCUT_BUTTON_TITLE_RE.test(label)) return b;
       }
-      // Fallback: any button that's a sibling of the brand link.
       var brand = document.querySelector('a[href="https://sourceprep.io"]');
       if (brand && brand.parentElement) {
         var sibBtn = brand.parentElement.querySelector('button');
@@ -87,43 +74,44 @@
       return null;
     }
 
-    function findSidebarHeader() {
+    function findSidebar() {
+      // Storybook 7's sidebar wraps its content in <nav>; fall back to any
+      // element that contains the brand link if <nav> is unavailable.
+      var nav = document.querySelector('nav');
+      if (nav) return nav;
       var brand = document.querySelector('a[href="https://sourceprep.io"]');
-      if (!brand) return null;
-      // Walk up to the first element that visually contains the brand row
-      // (display ~ flex with width matching sidebar). We use the closest
-      // element that has the brand as a child plus has its own bounding box.
-      var node = brand.parentElement;
-      // Two levels up tends to be the header container in SB7.
-      if (node && node.parentElement) return node.parentElement;
-      return node;
+      return brand ? brand.closest('div') : null;
     }
 
-    function relocateShortcut() {
+    function placeShortcut() {
       var btn = findShortcutButton();
-      if (!btn) return;
-      // Already moved — nothing to do.
-      if (btn.parentElement && btn.parentElement.classList.contains('sb-shortcut-anchor')) {
-        return;
-      }
-      var header = findSidebarHeader();
-      if (!header) return;
-      header.style.position = 'relative';
+      var sidebar = findSidebar();
+      if (!btn || !sidebar) return;
+      var rect = sidebar.getBoundingClientRect();
+      // No sidebar visible (collapsed) — leave button alone.
+      if (rect.width < 8) return;
 
-      // Wrap the button in our anchor so absolute positioning is contained.
-      var anchor = header.querySelector(':scope > .sb-shortcut-anchor');
-      if (!anchor) {
-        anchor = document.createElement('div');
-        anchor.className = 'sb-shortcut-anchor';
-        header.appendChild(anchor);
-      }
-      if (btn.parentElement !== anchor) anchor.appendChild(btn);
+      // Measure the button's natural width once before moving (afterwards
+      // its parent changes and offsetWidth would be relative to body).
+      var btnW = btn.offsetWidth || 28;
+      btn.style.position = 'fixed';
+      btn.style.top = (rect.top + TOP_PAD) + 'px';
+      btn.style.left = (rect.right - btnW - RIGHT_PAD) + 'px';
+      btn.style.zIndex = '999';
+      btn.style.margin = '0';
     }
 
     function start() {
-      relocateShortcut();
-      var observer = new MutationObserver(function () { relocateShortcut(); });
-      observer.observe(document.body, { childList: true, subtree: true });
+      placeShortcut();
+      var observer = new MutationObserver(placeShortcut);
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+      window.addEventListener('resize', placeShortcut);
+      // Re-poll for ~3s after load to catch async manager renders.
+      var n = 0;
+      var iv = setInterval(function () {
+        placeShortcut();
+        if (++n > 12) clearInterval(iv);
+      }, 250);
     }
 
     if (document.readyState === 'loading') {
