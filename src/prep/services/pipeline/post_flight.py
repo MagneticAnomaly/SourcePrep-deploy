@@ -66,7 +66,10 @@ class PostFlightActions:
                 logger.debug("trace_nodes.jsonl missing after Stage 1 — skipping preliminary atlas")
                 return
 
-            atlas = CodebaseAtlas(idx_dir, llm=None, project_root=Path(project.path))
+            atlas = CodebaseAtlas(
+                idx_dir, llm=None, project_root=Path(project.path),
+                project_name=project.name,
+            )
 
             # If a full LLM atlas already exists, reuse it instead of downgrading
             existing_doc = atlas.load()

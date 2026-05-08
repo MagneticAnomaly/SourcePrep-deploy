@@ -380,6 +380,9 @@ def _render_docs_per_module_section(
         return ""
 
     modules: list[dict] = []
+    # FIX-16-3 follow-up: strip legacy `#N` suffixes on read so generated
+    # rules files don't surface the synthesizer-failure smell.
+    from prep.core.cluster import strip_legacy_pound_n_suffix
     try:
         with modules_path.open() as fh:
             for line in fh:
@@ -387,7 +390,13 @@ def _render_docs_per_module_section(
                 if not line:
                     continue
                 try:
-                    modules.append(json.loads(line))
+                    m = json.loads(line)
+                    name = m.get("name") or ""
+                    if name:
+                        m["name"] = strip_legacy_pound_n_suffix(
+                            name, m.get("module_id") or "",
+                        )
+                    modules.append(m)
                 except json.JSONDecodeError:
                     continue
     except Exception:

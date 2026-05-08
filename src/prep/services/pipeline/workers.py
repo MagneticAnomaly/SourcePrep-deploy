@@ -842,7 +842,10 @@ class WorkerFactory:
             _t0 = time.time()
             logger.info("[%s/Atlas] Starting atlas generation", project.name)
             log_cb = WorkerFactory._logged_progress("Atlas", progress_cb, project.name)
-            atlas = CodebaseAtlas(idx_dir, llm=llm_client, project_root=Path(project.path))
+            atlas = CodebaseAtlas(
+                idx_dir, llm=llm_client, project_root=Path(project.path),
+                project_name=project.name,
+            )
 
             # Only regenerate if stale or missing
             if not atlas.is_stale() and atlas.exists():

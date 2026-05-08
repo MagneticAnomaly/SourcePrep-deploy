@@ -1022,6 +1022,7 @@ class MCPServer:
         scope: Optional[str] = None,  # Phase 120: named scope filter
         working_dir: Optional[str] = None,  # Phase 80: L2 scoped context
         project_override: Optional[str] = None,
+        verbose: bool = False,  # FIX-16-1: lift module-list cap on demand
     ) -> Dict[str, Any]:
         """Ambient context assembly — no query needed.
 
@@ -1080,6 +1081,9 @@ class MCPServer:
             payload["scope"] = scope
         if role:
             payload["role"] = role
+        # FIX-16-1: opt-in firehose mode for callers that need every module.
+        if verbose:
+            payload["verbose"] = True
 
         try:
             data = await self._api_post(f"/projects/{project_id}/context", payload)
@@ -3965,6 +3969,7 @@ class MCPServer:
                     scope=args.get("scope"),  # Phase 120: named scope filter
                     working_dir=args.get("working_dir"),  # Phase 80: L2 scoped context
                     project_override=project_override,
+                    verbose=bool(args.get("verbose", False)),  # FIX-16-1
                 )
                 # Attach inference metadata so clients can see what happened
                 if isinstance(result, dict) and inference_meta:

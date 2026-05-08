@@ -63,6 +63,17 @@ _RESET_BARRIER_FILENAME = ".reset_barrier"
 _USER_PAUSE_FILENAME_TEMPLATE = ".pipeline_user_pause_{group}.json"
 _VALID_BARRIER_SCOPES = ("sync", "enrichment", "finalize", "all")
 
+# Snapshot of clean-shutdown markers seen at startup, captured ONCE per
+# daemon process. Populated by startup_recovery before hydrate/auto-recover
+# run, then consulted by check_clean_shutdown_marker for the rest of the
+# startup phase. The on-disk markers are unlinked when the snapshot is
+# taken, so an unclean exit later in this daemon's lifetime (kill -9, OOM,
+# tokenizer-fork deadlock, etc.) leaves no stale marker to mislead the
+# next startup. Without this, a marker written months ago would suppress
+# recovery indefinitely across any number of unclean kills.
+_clean_shutdown_at_startup: Dict[str, bool] = {}
+_clean_shutdown_snapshot_taken: bool = False
+
 # Phase 128: groups whose successful completion proves "deep_enrichment data
 # is healthy" for Phase 61B's staleness check. fast_sync produces structural
 # (which is what the staleness check compares AGAINST), but does not produce
@@ -284,16 +295,52 @@ class RecoveryManager:
 
     @staticmethod
     def check_clean_shutdown_marker(project_id: str) -> bool:
-        """Check if a clean shutdown marker exists (read-only, does NOT remove).
+        """Check if a clean shutdown marker exists.
 
-        Use this when multiple code paths need to check the marker. The marker
-        is only cleared by read_and_clear_clean_shutdown_marker() in the
-        recovery code path.
+        After startup_recovery's snapshot pass, the on-disk markers are
+        gone — so this consults the snapshot during startup. Outside of
+        startup, falls back to the disk file.
         """
+        if _clean_shutdown_snapshot_taken:
+            return _clean_shutdown_at_startup.get(project_id, False)
         idx_dir = _resolve_idx_dir(project_id)
         if idx_dir is None:
             return False
         return (idx_dir / _CLEAN_SHUTDOWN_FILENAME).exists()
+
+    @staticmethod
+    def _snapshot_and_clear_clean_shutdown_markers() -> None:
+        """Read every project's clean-shutdown marker into memory, then
+        delete the file. Called once at the top of startup_recovery so
+        an unclean exit later in this daemon's lifetime cannot leave a
+        stale marker behind for the NEXT startup to mistake as 'all
+        was fine.'
+        """
+        global _clean_shutdown_snapshot_taken
+        try:
+            from prep.services.project_helpers import get_registry
+            registry = get_registry()
+            for project in registry.list_projects():
+                pid = project.id
+                idx_dir = _resolve_idx_dir(pid)
+                if idx_dir is None:
+                    _clean_shutdown_at_startup[pid] = False
+                    continue
+                marker = idx_dir / _CLEAN_SHUTDOWN_FILENAME
+                present = marker.is_file()
+                _clean_shutdown_at_startup[pid] = present
+                if present:
+                    try:
+                        marker.unlink()
+                    except Exception:
+                        logger.debug(
+                            "Failed to unlink stale clean-shutdown marker for %s",
+                            pid, exc_info=True,
+                        )
+        except Exception:
+            logger.debug("Clean-shutdown snapshot failed", exc_info=True)
+        finally:
+            _clean_shutdown_snapshot_taken = True
 
     # ── User Pause Markers ─────────────────────────────────────
     #
@@ -1070,6 +1117,14 @@ class RecoveryManager:
 
         Returns list of JournalEntry dicts for the UI to display.
         """
+        # Snapshot then clear all clean-shutdown markers ONCE per daemon
+        # lifetime. Subsequent check_clean_shutdown_marker calls during
+        # this startup read from the snapshot. An unclean exit later
+        # (kill -9, hang, OOM) leaves no marker on disk → next startup
+        # correctly identifies the previous shutdown as unclean and
+        # runs recovery, instead of trusting a months-old marker.
+        RecoveryManager._snapshot_and_clear_clean_shutdown_markers()
+
         # Phase 1: Journal-based crash detection
         journal_results: list = []
         try:

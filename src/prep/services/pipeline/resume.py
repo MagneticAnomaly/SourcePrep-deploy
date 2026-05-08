@@ -134,6 +134,42 @@ class ResumeStrategy:
                     # (deepening shares trace_epistemic.jsonl with enrichment) need the
                     # stub to be treated as incomplete.
                     if store.is_stub_manifest(stage):
+                        # Phase 118 U20b: while a reset_barrier is active, any
+                        # stub manifest written during this rebuild's lifetime
+                        # is recovery-derived, not the result of the stage
+                        # actually running. The rebuild's whole purpose is to
+                        # genuinely re-execute every stage, so trusting a stub
+                        # marks the stage as falsely complete and the rebuild
+                        # never finishes. Treat the stub as INCOMPLETE so
+                        # resume detection pins here and the user gets a
+                        # paused state machine to resume from.
+                        try:
+                            from .recovery import read_reset_barrier
+                            _binfo = read_reset_barrier(project_id)
+                        except Exception:
+                            _binfo = None
+                        if _binfo is not None:
+                            logger.warning(
+                                "Stage %s has a stub manifest while a reset "
+                                "barrier is active (rebuild in progress) — "
+                                "treating as INCOMPLETE so the rebuild "
+                                "actually runs the stage",
+                                stage.value,
+                            )
+                            stage_decisions.append({
+                                "stage": stage.value,
+                                "decision": "STUB_DURING_REBUILD",
+                                "reason": (
+                                    "Stub manifest detected with reset_barrier "
+                                    "active — rebuild must re-execute this stage"
+                                ),
+                            })
+                            ResumeStrategy._log_resume_decisions(
+                                project_id, stages, i, stage_decisions,
+                                skip_mtime_cascade, pfl_fn,
+                            )
+                            return i
+
                         # Stages that share output with prior stages or have no output
                         _SHARED_OUTPUT_STAGES = {
                             StageId.DEEPENING,       # shares trace_epistemic.jsonl with ENRICHMENT
@@ -527,6 +563,25 @@ class ResumeStrategy:
                 # sources — those are NOT proof the stage ran in order.
                 # Treating a stub as proof propagates false completion back
                 # up the chain, skipping multiple legitimate stages.
+                # Phase 118 U20: if a reset barrier is active (rebuild in
+                # progress), reject downstream evidence written BEFORE the
+                # barrier — those manifests are from a prior run and don't
+                # prove the missing stage ran during the current rebuild.
+                # Without this check, a rebuild interrupted at e.g. catalogue
+                # gets fake-recovered using last-week's validation manifest,
+                # which marks the current rebuild as "all complete" without
+                # the missing stage ever actually running.
+                barrier_floor: float | None = None
+                try:
+                    from .recovery import read_reset_barrier
+                    binfo = read_reset_barrier(project_id)
+                    if binfo:
+                        wa = binfo.get("written_at")
+                        if isinstance(wa, (int, float)):
+                            barrier_floor = float(wa)
+                except Exception:
+                    barrier_floor = None
+
                 downstream_complete_stage = None
                 for j in range(i + 1, len(stages)):
                     next_manifest = STAGE_MANIFEST_FILE.get(stages[j])
@@ -537,6 +592,12 @@ class ResumeStrategy:
                         continue
                     if store.is_stub_manifest(stages[j]):
                         continue
+                    if barrier_floor is not None:
+                        try:
+                            if npath.stat().st_mtime < barrier_floor:
+                                continue
+                        except Exception:
+                            pass
                     downstream_complete_stage = stages[j]
                     break
 

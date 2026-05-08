@@ -76,6 +76,15 @@ _CORE_TOOLS = [
                         "subset. Unknown scopes silently fall back to global."
                     ),
                 },
+                "verbose": {
+                    "type": "boolean",
+                    "description": (
+                        "(Advanced) Lift the per-tier module-list cap and emit full multi-sentence "
+                        "module summaries. Default false — Prep returns a bounded, refresh-friendly "
+                        "view. Set true only when you specifically need the exhaustive module catalog."
+                    ),
+                    "default": False,
+                },
                 "project_id": _PROJECT_ID_PROP,
             },
             "required": [],
@@ -479,6 +488,11 @@ _DEV_ALIAS_TOOL = {
                 "type": "integer",
                 "description": "Maximum characters in assembled context. Default: 12000.",
                 "default": 12000,
+            },
+            "verbose": {
+                "type": "boolean",
+                "description": "(Advanced) Lift the module-list cap. Default false.",
+                "default": False,
             },
             "project_id": _PROJECT_ID_PROP,
         },

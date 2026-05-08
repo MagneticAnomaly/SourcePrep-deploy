@@ -542,6 +542,52 @@ class PipelineOrchestrator:
             except Exception:
                 logger.debug("U16 changed_paths clear failed (non-fatal)", exc_info=True)
 
+            # Phase 118 U19: surface the stale/untraced gap on force_from_start.
+            # Previously the gap check only ran when all stages were already
+            # complete (the resume == len(FAST_SYNC_STAGES) branch below), so a
+            # rebuild proceeded blind to which files were stale/new. The rust
+            # engine does a full disk walk and should pick them up, but if its
+            # filters diverge from compute_trace_coverage's, those files leak
+            # through silently. Log the gap so divergence is visible — and so
+            # the user sees concrete confirmation that "stale and new files"
+            # are part of the rebuild scope.
+            try:
+                refreshed = self._refresh_manifest_hashes(project_id)
+                if refreshed > 0 and pfl:
+                    pfl.log("fast_sync", f"Pre-rebuild: refreshed {refreshed} file hashes")
+            except Exception:
+                logger.debug("U19 manifest hash refresh failed (non-fatal)", exc_info=True)
+            try:
+                gap = self.check_coverage_gap(project_id, include_paths=True)
+                stale = gap.get("stale", 0)
+                untraced = gap.get("untraced", 0)
+                if pfl:
+                    pfl.decision("rebuild_gap_check", "checked", {
+                        "stale": stale,
+                        "untraced": untraced,
+                        "coverage_pct": gap.get("coverage_pct", 0),
+                        "total_nodes": gap.get("total_nodes", 0),
+                        "reason": "force_from_start: log gap so rebuild picks them up visibly",
+                    })
+                if stale > 0 or untraced > 0:
+                    changed_paths = gap.get("changed_paths") or set()
+                    sample = sorted(changed_paths)[:20]
+                    logger.info(
+                        "[%s] Rebuild scope: %d stale + %d untraced files to rescan%s",
+                        project_id, stale, untraced,
+                        f" — sample: {', '.join(sample)}"
+                        + (f" (+{len(changed_paths) - 20} more)" if len(changed_paths) > 20 else "")
+                        if sample else "",
+                    )
+                else:
+                    logger.info(
+                        "[%s] Rebuild scope: 0 stale + 0 untraced files "
+                        "(coverage already complete; rebuild will rewrite all manifests)",
+                        project_id,
+                    )
+            except Exception:
+                logger.debug("U19 rebuild gap check failed (non-fatal)", exc_info=True)
+
         if resume >= len(FAST_SYNC_STAGES):
             # Phase 98 removed this guard with the assumption that "selfheal
             # + chain-forward handles incomplete deep enrichment naturally."
@@ -4132,6 +4178,31 @@ class PipelineOrchestrator:
 
     def startup_recovery(self) -> list[Any]:
         """Delegates to RecoveryManager.startup_recovery with orchestrator callbacks."""
+        # Phase 118 U22: re-hydrate force_from_start state from any active
+        # reset_barrier. _force_from_start_runs is in-memory only, so it is
+        # empty after every daemon restart — even when a rebuild is genuinely
+        # in flight. Without this restoration, when the user clicks Resume
+        # to continue an interrupted rebuild, fast_sync's completion handler
+        # treats the run as a normal incremental run and chains to
+        # deep_enrichment WITHOUT force_from_start. Deep stages then skip
+        # with stale prior-run manifests instead of re-running, leaving the
+        # rebuild silently incomplete.
+        try:
+            from prep.services.pipeline.recovery import read_reset_barrier
+            from prep.services.project_helpers import get_registry
+            registry = get_registry()
+            for project in registry.list_projects():
+                binfo = read_reset_barrier(project.id)
+                if binfo and binfo.get("scope") in ("all", "sync", "enrichment"):
+                    self._force_from_start_runs.add(project.id)
+                    logger.info(
+                        "Phase 118 U22: re-marked %s as force_from_start "
+                        "(barrier scope=%s) so Resume preserves rebuild semantics",
+                        project.id, binfo.get("scope"),
+                    )
+        except Exception:
+            logger.debug("U22 force_from_start rehydration failed", exc_info=True)
+
         return RecoveryManager.startup_recovery(
             hydrate_fn=self._hydrate_paused_runs_from_disk,
             auto_recover_fn=self._auto_recover_stale_pipelines,
