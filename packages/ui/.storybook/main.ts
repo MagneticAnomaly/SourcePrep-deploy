@@ -19,7 +19,7 @@ const isPublic = process.env.STORYBOOK_PUBLIC === 'true';
 //      even with autodocs disabled. These need a mock-data + JSDoc sweep
 //      (see docs/Phase131_StorybookCuration §5.2) before going public.
 const internalStoryFilter =
-  /(BugReportModal|EnterpriseAdminPanel|ConcurrencyHealth|CapacityHealth|RecentSwarmLogs|ProbeButton|PlanDropdown|SidebarPipelineQueue|RoadmapPanel|AuditPanel|OpportunitiesPanel|GraphEnrichmentPipeline|LogConsole|SwarmActivityPanel|SidebarAIGateway|AIModelsSettings|ProvenanceChip)\.stories\.[a-z]+$/;
+  /(BugReportModal|EnterpriseAdminPanel|ConcurrencyHealth|CapacityHealth|RecentSwarmLogs|ProbeButton|PlanDropdown|SidebarPipelineQueue|RoadmapPanel|AuditPanel|OpportunitiesPanel|GraphEnrichmentPipeline|LogConsole|SwarmActivityPanel|SidebarAIGateway|AIModelsSettings|ProvenanceChip|RebuildDropdown|RebuildingRow|RecoverStagePanel|StageProgressBar|TraceCoveragePanel|GraphStructurePanel|TraceExplorer)\.stories\.[a-z]+$/;
 
 // Walk packages/ui/src/ for *.mdx and *.stories.{js,jsx,mjs,ts,tsx}. Storybook
 // CLI invokes main.ts with cwd=packages/ui. We can't use __dirname (the package

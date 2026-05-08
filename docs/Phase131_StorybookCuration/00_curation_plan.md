@@ -176,8 +176,13 @@ For all stories shipped publicly:
 | `SidebarAIGateway` | Component description text references "Phase 119+ Swarm Coordinator" |
 | `AIModelsSettings` | `baseUrl` prop JSDoc reads "Phase 119 Task 16: Base URL for the SourcePrep daemon" |
 | `ProvenanceChip` | Phase 117 reference in component JSDoc |
+| `RebuildDropdown`, `RebuildingRow`, `RecoverStagePanel` | Pipeline recovery internals — admin/dev affordances, not design-portfolio panels |
+| `StageProgressBar` | Internal pipeline stage progress UI |
+| `TraceCoveragePanel` | Trace coverage diagnostic surface |
+| `GraphStructurePanel` | Trace graph structure diagnostic |
+| `TraceExplorer` | Internal trace inspector |
 
-Result: 465 → 311 entries shipped, 11M → 8.2M. No "Phase 119" / "Implement MCP streaming responses" / "GraphEnrichmentPipeline.tsx exceeds…" / "GoalpostsPanel is hidden" / "Circular dependency" / `prep.core.augmenter` (in BugReportModal) strings remain in the bundle. autodocs disabled, `.d.ts` filtered, source maps off, no real fetches at render time, `frame-ancestors` CSP restricts embedding to `*.sourceprep.io`.
+Result: 465 → 274 entries shipped, 11M → 8.3M. No "Phase 119" / "Implement MCP streaming responses" / "GraphEnrichmentPipeline.tsx exceeds…" / "GoalpostsPanel is hidden" / "Circular dependency" / `prep.core.augmenter` (in BugReportModal) strings remain in the bundle. autodocs disabled, `.d.ts` filtered, source maps off, no real fetches at render time, `frame-ancestors` CSP restricts embedding to `*.sourceprep.io`.
 
 Local preview commands:
 
