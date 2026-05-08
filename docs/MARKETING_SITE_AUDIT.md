@@ -206,11 +206,15 @@ Setup page had two `name: 'Claude Code'` entries — one was actually Claude Des
 
 ---
 
-### 12. Public Docs Site Likely Broadly Stale **[MEDIUM]** *(new 2026-05-06)*
+### 12. Public Docs Site Likely Broadly Stale **[RESOLVED 2026-05-08]**
 
-The 9-stage-vs-15-stage gap on `/concepts/graph-enrichment` strongly suggests other docs pages are similarly out of date relative to product reality. User flag: "the whole public-facing docs are a bit old."
+The 9-stage-vs-15-stage gap on `/concepts/graph-enrichment` strongly suggested other docs pages were similarly out of date. User flag: "the whole public-facing docs are a bit old."
 
-**Action:** Spawn a separate audit pass over `websites/apps/docs/src/app/**`. Track findings in this same document (new section per page). Suggested priority order: `concepts/`, `mcp/`, `guides/`, `cli/`. Compare each against current source-of-truth (pipeline stages, MCP tool list in `src/prep/mcp_tools.py`, CLI commands in `src/prep/cli.py`, dashboard panels).
+**Resolution:** Phase 130 sweep landed 2026-05-07/08 across 7 commits between `918c0a3c` and `afda7d72`. Tier-1 registries (sidebar, sitemap), Tier-1 prose pages (`/dashboard`, `/dashboard/projects`, `/mcp`), Tier-2 guides (13 of 14 — every guide visited or fixed), and Tier-3 reference pages (CLI commands, CLI config, getting-started/quick-start, troubleshooting, docs home) all touched or verified-current against source-of-truth. Per-page outcome log in `docs/Phase130_DocsSiteStalenessSweep/README.md`.
+
+**Deferred:** `guides/model-advisor` page (its own follow-up — needs live vendor + Ollama Cloud pricing research before refresh, the page even has an in-source TODO admitting this).
+
+**Known follow-up:** Panel registry `docsUrl` anchors in `packages/ui/src/config/panelRegistry.ts` point at anchor ids (`#status`, `#search`, `#knowledge-sources`, `#trace`, etc.) that no longer exist on the rewritten `/dashboard` page. This was pre-existing — the previous "Two-Pane" dashboard page had different anchors too — so not a regression Phase 130 introduced. Coordinated panel-registry/docs-page anchor rationalization belongs in a separate small task.
 
 ---
 
