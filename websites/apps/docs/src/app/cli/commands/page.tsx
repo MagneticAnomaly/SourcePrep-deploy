@@ -155,6 +155,39 @@ export default function Page() {
             Unregisters a project from the daemon. Use <code>--purge</code> to also delete the index files from disk.
           </p>
 
+          <AnchorHeading id="config" level="h3" className="mt-6 text-xl font-semibold">prep config</AnchorHeading>
+          <pre className="overflow-x-auto text-sm"><code>prep config [&lt;key&gt;] [--set &lt;value&gt;]</code></pre>
+          <p className="text-sm text-text-muted">
+            View or modify Prep configuration. With no arguments, prints the current daemon-wide config.
+            Pass a key path to read a specific value, or <code>--set</code> to write one.
+          </p>
+
+          <AnchorHeading id="drift" level="h3" className="mt-6 text-xl font-semibold">prep drift</AnchorHeading>
+          <pre className="overflow-x-auto text-sm"><code>prep drift</code></pre>
+          <p className="text-sm text-text-muted">
+            Shows an index drift report — which files are stale relative to the last build, with
+            freshness metrics. Useful for deciding whether a rebuild is needed.
+          </p>
+
+          <AnchorHeading id="flow" level="h3" className="mt-6 text-xl font-semibold">prep flow</AnchorHeading>
+          <pre className="overflow-x-auto text-sm"><code>prep flow &lt;query&gt;</code></pre>
+          <p className="text-sm text-text-muted">
+            Visualizes the RAG flow for a given query — how it routes through query intent
+            classification, semantic retrieval, trace expansion, and context assembly.
+          </p>
+
+          <AnchorHeading id="opportunities" level="h3" className="mt-6 text-xl font-semibold">prep opportunities</AnchorHeading>
+          <pre className="overflow-x-auto text-sm"><code>prep opportunities [--format &lt;fmt&gt;] [--priority &lt;P0|P1|P2|P3&gt;] [--category &lt;c&gt;] [--limit &lt;n&gt;]</code></pre>
+          <p className="text-sm text-text-muted">
+            Lists actionable findings from the most recent codebase audit (architecture violations,
+            tech debt, dead code, coverage gaps). Filterable by priority, category, and source.
+          </p>
+          <ul className="list-disc pl-5 text-sm text-text-muted">
+            <li><code>--format</code>: <code>table</code> (default), <code>json</code>, <code>sarif</code>, <code>csv</code>, <code>md</code>, or <code>ai_prompt</code>.</li>
+            <li><code>--priority</code>: minimum priority filter — <code>P0</code> through <code>P3</code>.</li>
+            <li><code>--limit</code>: max items to show (default: 50).</li>
+          </ul>
+
           <AnchorHeading id="version" level="h3" className="mt-6 text-xl font-semibold">prep version</AnchorHeading>
           <pre className="overflow-x-auto text-sm"><code>prep version</code></pre>
           <p className="text-sm text-text-muted">

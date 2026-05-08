@@ -70,7 +70,7 @@ export default function Page() {
                 Select Files &amp; Get Ambient Context
               </h3>
               <p className="text-sm text-text-muted mb-2 ml-8">
-                In the SourcePrep dashboard, use the <span className="font-semibold text-text">Knowledge Sources</span> tree to select the files and folders you want to work with. Then in your editor&apos;s AI chat, simply call:
+                In the SourcePrep dashboard, use the <span className="font-semibold text-text">Scope</span> panel to select the files and folders you want to work with. Then in your editor&apos;s AI chat, simply call:
               </p>
               <blockquote className="ml-8 border-l-2 border-primary pl-4 py-1 italic text-text-muted">
                 &quot;prep&quot;

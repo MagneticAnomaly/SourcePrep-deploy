@@ -1,37 +1,43 @@
 "use client";
 
-import { Rocket, LayoutDashboard, Terminal, Plug, Wrench, LifeBuoy, BookOpen } from 'lucide-react';
+import { Rocket, LayoutDashboard, Terminal, Plug, Wrench, LifeBuoy, BookOpen, GitBranch } from 'lucide-react';
 
 const docFeatures = [
   {
     icon: <Rocket className="w-8 h-8" />,
     title: 'Getting Started',
-    description: 'The trust loop: add → build → search → context.',
+    description: 'Install SourcePrep, add a project, and run your first search.',
     href: '/getting-started',
   },
   {
-    icon: <LayoutDashboard className="w-8 h-8" />,
-    title: 'Dashboard UI',
-    description: 'Configure projects, builds, and context settings.',
-    href: '/dashboard',
+    icon: <GitBranch className="w-8 h-8" />,
+    title: 'Core Concepts',
+    description: 'How indexing, the code graph, enrichment, and context assembly fit together.',
+    href: '/concepts/indexing',
   },
   {
-    icon: <Terminal className="w-8 h-8" />,
-    title: 'CLI Reference',
-    description: 'Commands and flags for extracting structural context.',
-    href: '/cli',
+    icon: <LayoutDashboard className="w-8 h-8" />,
+    title: 'Dashboard',
+    description: 'Configurable workspace of panels for monitoring, search, and tuning.',
+    href: '/dashboard',
   },
   {
     icon: <Plug className="w-8 h-8" />,
     title: 'MCP Integration',
-    description: 'Use SourcePrep from Cursor/Windsurf via MCP.',
+    description: 'Connect SourcePrep to Claude Code, Cursor, Windsurf, Codex, and more.',
     href: '/mcp',
   },
   {
+    icon: <Terminal className="w-8 h-8" />,
+    title: 'CLI Reference',
+    description: 'Commands and flags for managing the daemon and your indexes.',
+    href: '/cli',
+  },
+  {
     icon: <BookOpen className="w-8 h-8" />,
-    title: 'Guides',
-    description: 'Embeddings, context compression, path weights, and more.',
-    href: '/guides',
+    title: 'Embedding Models',
+    description: 'Pick the embedding tier that fits your hardware (CPU, GPU, BYOK).',
+    href: '/guides/embeddings',
   },
   {
     icon: <Wrench className="w-8 h-8" />,
@@ -42,7 +48,7 @@ const docFeatures = [
   {
     icon: <LifeBuoy className="w-8 h-8" />,
     title: 'Support',
-    description: 'Ticketing, bugs, questions, and security reporting.',
+    description: 'Tickets, bug reports, and security disclosures.',
     href: 'https://sourceprep.io/support',
     external: true,
   },

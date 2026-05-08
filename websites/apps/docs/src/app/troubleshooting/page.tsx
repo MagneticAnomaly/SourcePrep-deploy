@@ -67,7 +67,7 @@ export default function Page() {
             <div className="border border-border rounded-lg p-6 bg-surface">
               <h3 className="text-lg font-semibold mt-0">Model Download Stuck</h3>
               <p className="text-sm text-text-muted mb-4">
-                When using Native Embeddings, SourcePrep downloads the model (~300MB) on the first run.
+                When using Native Embeddings, SourcePrep downloads the ONNX model (~132 MB) from HuggingFace on the first run.
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>Check your internet connection.</li>

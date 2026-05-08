@@ -15,12 +15,20 @@ export default function Page() {
 
         <div className="mt-12 prose  max-w-none">
           
-          <AnchorHeading id="global-config" level="h2">Global Config</AnchorHeading>
+          <AnchorHeading id="global-config" level="h2">Daemon-wide State</AnchorHeading>
           <p>
-            Stored in <code>~/.sourceprep/config.json</code> (Mac/Linux) or <code>%APPDATA%\prep\config.json</code> (Windows).
+            Default location: <code>~/.local/share/sourceprep/</code> on Mac and Linux. Override with the{' '}
+            <code>PREP_DATA_DIR</code> environment variable (must be an absolute path).
           </p>
           <p className="text-sm text-text-muted">
-            Contains daemon settings, global model preferences, and license information. You typically edit this via the Dashboard settings, but it can be modified manually.
+            This directory holds the daemon&apos;s SQLite stores, registry, audit log, and standalone-mode
+            project indexes. You typically edit settings via the Dashboard — manual edits are rarely
+            needed.
+          </p>
+          <p className="text-sm text-text-muted">
+            Pre-Phase-113 installs had state split between <code>./prep_data/</code> (CWD-relative)
+            and the XDG location. Old layouts are auto-migrated on first daemon startup; the
+            sentinel file <code>.migrated_from_cwd</code> records the migration.
           </p>
 
           <AnchorHeading id="project-config" level="h2">Project Config</AnchorHeading>
@@ -54,6 +62,14 @@ legacy/</code>
                 </tr>
               </thead>
               <tbody className="text-text-muted">
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-mono">PREP_DATA_DIR</td>
+                  <td className="py-2 pr-4">absolute path</td>
+                  <td className="py-2">
+                    Override the default daemon-state location. Defaults to{' '}
+                    <code>~/.local/share/sourceprep/</code>.
+                  </td>
+                </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono">PREP_ENGINE</td>
                   <td className="py-2 pr-4"><code>auto</code> | <code>rust</code> | <code>python</code></td>
