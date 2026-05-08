@@ -105,6 +105,30 @@ So the proposed pattern is: **Primer-style top-level split + Atlassian-style fun
 
 ---
 
+## 3.5b Reconciliation with internal source-of-truth docs (added after prep MCP review, 2026-05-08)
+
+A second pass via the `prep` MCP surfaced two pre-existing internal documents that needed to be reconciled against this proposal:
+
+### `packages/ui/src/COMPONENT_ARCHITECTURE.md`
+
+The original Phase 02 component spec organizes components into **five functional categories** at the file-system level: `status/`, `navigation/`, `search/`, `context/`, `patterns/`. Its §"Storybook Organization" prescribed a matching 5-folder Storybook tree.
+
+That doc is **stale relative to the current state**: the codebase has since grown to 28 directories under `packages/ui/src/components/` (agents, architecture, audit, concepts, concurrency, console, context, dashboard, docs, enterprise, goalposts, layout, llm, marketing, navigation, patterns, pipeline, primitives, project, search, settings, site, status, team, trace, viz, watch). The original 5-category Storybook tree never updated to reflect that growth.
+
+**Phase 131 supersedes the Storybook organization section of `COMPONENT_ARCHITECTURE.md`.** The file-system layout (the 28 directories) stays as-is — file moves are out of scope. Only Storybook `title:` strings change.
+
+### `packages/ui/src/components/dashboard/` — naming conflict
+
+The directory `packages/ui/src/components/dashboard/` holds only **five components**: `IndexStatusCard`, `IndexStats`, `LLMStatusWidget`, `UsageGuidePanel`, `BuildCard`. It's a misleading name — the directory is a small "overview-widgets" subset, not the dashboard surface as a whole.
+
+This proposal's top-level `Dashboard/` Storybook section means *the entire desktop-app surface*, not the 5 components in `components/dashboard/`. The five files inside that directory get split across `Dashboard/Index/`, `Dashboard/Build/`, and `Dashboard/LLM/` per §4.1.a.
+
+**Recommendation**: live with the directory misnomer for now. A future cleanup could rename the directory to `components/overview/` (small refactor, touches 5 files + their imports). Not blocking Phase 131; tracked as an open question (§6.7).
+
+### `packages/ui/src/REFACTOR_PLAN.md`
+
+Phase 1/2/3 component extraction plan from earlier work. Listed extractions are mostly complete (the components referenced exist now in `packages/ui/src/components/`). No taxonomy implications.
+
 ## 3.5 Hard rules (decided 2026-05-08)
 
 These are non-negotiable rules the taxonomy must satisfy. Every story migration is checked against them.
@@ -215,6 +239,22 @@ Dashboard/                           (every dashboard-app surface — Tauri + VS
 ├── Watch/
 │   ├── Watch Controls
 │   └── Status Indicator
+├── Navigation/                      (NEW — addressed by prep review; currently no stories)
+│   ├── Sidebar                      (when story is authored)
+│   ├── Project List                 (when story is authored)
+│   └── Project Tabs                 (when story is authored)
+├── Architecture/                    (NEW — addressed by prep review; currently no stories)
+│   ├── Architecture Diagram Panel   (8+ files in components/architecture/)
+│   ├── Architecture Diagram Detail
+│   ├── Diagram Toolbar
+│   └── Breadcrumb Nav
+├── Concepts/                        (NEW — addressed by prep review; currently no stories)
+│   ├── Concepts Panel
+│   └── Concepts Detail
+├── Visualization/                   (NEW — viz components from components/viz/)
+│   ├── Activity Heatmap             (currently Dashboard/Widgets/ActivityHeatmap)
+│   ├── Index Health Panel           (when story is authored)
+│   └── Token Budget Panel           (when story is authored)
 ├── Console/                         (NEW Dashboard subsection)
 │   └── Log Console                  (← MOVED from top-level Console/, currently excluded)
 ├── Audit/                           (currently excluded — mock-data sweep pending)
@@ -244,13 +284,17 @@ Website/                             (sourceprep.io marketing + docs surfaces)
 ├── Demos/                           (NEW — was Console/)
 │   ├── Animated CLI                 (← MOVED from Console/)
 │   └── Animated IDE                 (← MOVED from Console/)
-└── Research/
-    ├── Research Hero
-    ├── Research Section
-    ├── Research Appendix
-    ├── Source Card
-    ├── Source Filter Chips
-    └── Source Spotlight
+├── Research/
+│   ├── Research Hero
+│   ├── Research Section
+│   ├── Research Appendix
+│   ├── Source Card
+│   ├── Source Filter Chips
+│   └── Source Spotlight
+└── Docs/                            (NEW — components/docs/ for docs.sourceprep.io)
+    ├── Docs Layout                  (when story is authored)
+    ├── Docs Sidebar Nav             (when story is authored)
+    └── Table Of Contents            (when story is authored)
 ```
 
 > **Naming note**: this version uses `Dashboard/` (concrete, matches the Tauri app) instead of the earlier draft's `Product UI/` (abstract). VS Code extension components, when they earn their own stories, can live under `Dashboard/VS Code/` rather than splitting the surface tree.
@@ -379,6 +423,8 @@ For each story being renamed:
 4. **Roadmap / Goalposts**: is this part of the product (if so, where does it live in `Product UI/`?), or is it a planning concept that doesn't earn a story?
 5. **Component rename audit**: current code uses `…Panel`, `…Card`, `…Widget` inconsistently. Do we rename component files too, or only the story `title` strings? File renames are higher cost (touch the components, the imports, the dashboard).
 6. **`SiteFooter.stories.tsx` mock**: currently embeds `github.com/MagneticAnomaly/SourcePrep-MCP` (private repo). Decide what URL to mock once SiteFooter is in the Marketing/ bucket publicly.
+7. **`packages/ui/src/components/dashboard/` directory rename**: the 5-component subset (IndexStatusCard, IndexStats, LLMStatusWidget, UsageGuidePanel, BuildCard) lives in a misleadingly-named directory. Rename to `components/overview/`? Small refactor, touches 5 files + their imports, but disambiguates against the Storybook top-level `Dashboard/`. Not blocking; track separately.
+8. **Architecture/Concepts/Viz/Docs/Navigation stories**: components exist but no stories yet. Should this Phase 131 work commission stories for them, or stay scoped to renaming what already exists? Recommendation: stay scoped; story-authoring is doc-03 v2 territory.
 
 ---
 
