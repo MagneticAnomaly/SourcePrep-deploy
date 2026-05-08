@@ -7,6 +7,14 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# Prevent huggingface/tokenizers fork-after-parallelism deadlock.
+# When tokenizers' Rust threads are initialized and the daemon then
+# spawns a subprocess (via subprocess.run, ProcessPoolExecutor, etc.),
+# the child can deadlock on duplicated mutex state — symptom is the
+# daemon silently hanging mid-stage with no traceback. Setting this
+# in the env before Python starts disables the threading at init.
+export TOKENIZERS_PARALLELISM=false
+
 # F-81: Ensure the daemon watchdog and all dev-server children die when
 # dev.sh exits (Ctrl-C, SIGTERM, normal exit). Without this the watchdog
 # survives the script teardown and keeps respawning the daemon.
@@ -148,6 +156,21 @@ main() {
     log_info "Starting Storybook on port $STORYBOOK_PORT..."
     (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT/packages/ui" && npm run storybook -- -p $STORYBOOK_PORT) &
     STORYBOOK_PID=$!
+    echo ""
+
+    # Build the public Storybook bundle (one-shot, in background) so the
+    # storybook.sourceprep.io artifact is fresh under packages/ui/storybook-static/
+    # for inspection. Logs to /tmp/storybook-public-build.log so dev.sh output
+    # stays clean. See docs/Phase131_StorybookCuration/.
+    log_info "Building public Storybook bundle in background → /tmp/storybook-public-build.log"
+    (
+        source ~/.nvm/nvm.sh && nvm use 20 >/dev/null \
+          && cd "$PROJECT_ROOT/packages/ui" \
+          && npm run build-storybook:public >/tmp/storybook-public-build.log 2>&1 \
+          && log_success "Public Storybook bundle ready → packages/ui/storybook-static/" \
+          || log_warn "Public Storybook build failed — see /tmp/storybook-public-build.log"
+    ) &
+    PUBLIC_SB_PID=$!
     echo ""
 
     # Start Websites (turbo dev runs all apps)
