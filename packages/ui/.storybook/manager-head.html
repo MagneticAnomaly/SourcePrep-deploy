@@ -29,9 +29,6 @@
     Brand image — iOS-app-icon styling.
     Wrap the SourcePrep wordmark in a rounded-square dark-blue tile that
     matches the Slate Developer dark-mode background (#0F172A).
-    Multiple selectors as fallbacks; Storybook 7's manager uses CSS-in-JS
-    with hashed class names so we target structural elements + the brand
-    link's known href attribute.
   */
   a[href="https://sourceprep.io"] img,
   [class*="Brand"] img,
@@ -45,29 +42,94 @@
   }
 
   /*
-    Shortcuts / menu button — keep visible, but anchor it to the top-right
-    corner of the brand area instead of letting the flex layout push it
-    next to the logo. The brand area's nearest container is given relative
-    positioning so the absolute child sits in its corner.
+    Reserve a placement target for the relocated shortcut button. The JS
+    below moves the button into a top-right anchor inside the sidebar
+    header. CSS-only approaches are unreliable here because Storybook 7's
+    manager uses CSS-in-JS hashed class names that change between releases.
   */
-  a[href="https://sourceprep.io"] {
-    position: relative;
+  .sb-shortcut-anchor {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
-  a[href="https://sourceprep.io"] ~ button,
-  [class*="Brand"] ~ button,
-  .sidebar-header > button:not([class*="search" i]):not([class*="Search" i]) {
-    position: absolute !important;
-    top: 8px !important;
-    right: 8px !important;
+  .sb-shortcut-anchor button {
     margin: 0 !important;
   }
-
-  /*
-    Container above the brand link needs to be a positioning context for
-    the absolute button to land in the right corner. Use :has() (modern
-    browsers; Storybook 7 targets evergreen) to scope the rule narrowly.
-  */
-  div:has(> a[href="https://sourceprep.io"]) {
-    position: relative;
-  }
 </style>
+<script>
+  // Move the Storybook "shortcuts / menu" button out of its default flex
+  // location next to the brand and into a top-right anchor inside the
+  // sidebar header. Re-runs on DOM mutations so the placement survives
+  // Storybook's manager re-renders.
+  (function () {
+    var SHORTCUT_BUTTON_TITLE_RE = /shortcut|menu/i;
+
+    function findShortcutButton() {
+      // The shortcut/menu launcher in Storybook 7 is the only button in the
+      // sidebar header that isn't search-related. Find by title/aria-label
+      // first, fall back to the first non-search button near the brand.
+      var candidates = document.querySelectorAll('button[title], button[aria-label]');
+      for (var i = 0; i < candidates.length; i++) {
+        var b = candidates[i];
+        var label = (b.getAttribute('title') || '') + ' ' + (b.getAttribute('aria-label') || '');
+        if (SHORTCUT_BUTTON_TITLE_RE.test(label)) return b;
+      }
+      // Fallback: any button that's a sibling of the brand link.
+      var brand = document.querySelector('a[href="https://sourceprep.io"]');
+      if (brand && brand.parentElement) {
+        var sibBtn = brand.parentElement.querySelector('button');
+        if (sibBtn) return sibBtn;
+      }
+      return null;
+    }
+
+    function findSidebarHeader() {
+      var brand = document.querySelector('a[href="https://sourceprep.io"]');
+      if (!brand) return null;
+      // Walk up to the first element that visually contains the brand row
+      // (display ~ flex with width matching sidebar). We use the closest
+      // element that has the brand as a child plus has its own bounding box.
+      var node = brand.parentElement;
+      // Two levels up tends to be the header container in SB7.
+      if (node && node.parentElement) return node.parentElement;
+      return node;
+    }
+
+    function relocateShortcut() {
+      var btn = findShortcutButton();
+      if (!btn) return;
+      // Already moved — nothing to do.
+      if (btn.parentElement && btn.parentElement.classList.contains('sb-shortcut-anchor')) {
+        return;
+      }
+      var header = findSidebarHeader();
+      if (!header) return;
+      header.style.position = 'relative';
+
+      // Wrap the button in our anchor so absolute positioning is contained.
+      var anchor = header.querySelector(':scope > .sb-shortcut-anchor');
+      if (!anchor) {
+        anchor = document.createElement('div');
+        anchor.className = 'sb-shortcut-anchor';
+        header.appendChild(anchor);
+      }
+      if (btn.parentElement !== anchor) anchor.appendChild(btn);
+    }
+
+    function start() {
+      relocateShortcut();
+      var observer = new MutationObserver(function () { relocateShortcut(); });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', start);
+    } else {
+      start();
+    }
+  })();
+</script>
