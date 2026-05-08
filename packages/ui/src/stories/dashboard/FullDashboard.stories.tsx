@@ -143,6 +143,94 @@ const STORY_PANELS: PanelDefinition[] = PANEL_REGISTRY.filter((p) => {
 /** Prefix for dynamically-pinned file panel IDs */
 const PINNED_PREFIX = 'pinned:';
 
+/**
+ * Pipeline panel for the storybook demo. Renders the GraphEnrichmentPipeline
+ * in a "healthy / fully-built" state with all 10 stages complete, and wires
+ * local React state for the three group-collapse toggles (Fast Sync /
+ * Deep Enrichment / Finalize). The component itself is purely controlled —
+ * without a state-bearing wrapper its chevrons are no-ops.
+ */
+function PipelinePanelDemo() {
+  const [fastCollapsed, setFastCollapsed] = useState(true);
+  const [deepCollapsed, setDeepCollapsed] = useState(true);
+  const [finalizeCollapsed, setFinalizeCollapsed] = useState(true);
+
+  const TOTAL = 1245;
+  const built = new Date(Date.now() - 7_200_000).toISOString(); // 2h ago
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <GraphEnrichmentPipeline
+        trace={{
+          enabled: true,
+          exists: true,
+          building: false,
+          counts: { nodes: TOTAL, edges: 3890 },
+          last_build_at: built,
+        }}
+        inferredEdges={{ enabled: true, exists: true, edge_count: 42 }}
+        augmentation={{
+          enabled: true,
+          total_nodes: TOTAL,
+          augmented_nodes: TOTAL,
+          validated_nodes: TOTAL,
+          avg_confidence: 0.88,
+          low_confidence_count: 0,
+          last_augment_at: built,
+          model: 'qwen2.5:3b',
+        }}
+        epistemic={{
+          enabled: true,
+          enriched_nodes: TOTAL,
+          progress_current: TOTAL,
+          progress_total: TOTAL,
+          avg_confidence: 0.92,
+          running: false,
+        }}
+        modules={{
+          enabled: true,
+          module_count: 12,
+          total_files_clustered: 1100,
+          running: false,
+        }}
+        atlas={{
+          exists: true,
+          content: null,
+          mode: 'structural',
+          module_count: 12,
+          file_count: 1100,
+          routing: true,
+          stale: false,
+        }}
+        deepening={{
+          running: false,
+          total_scored: TOTAL,
+          settled_count: TOTAL,
+          settled_ratio: 1.0,
+          avg_score: 0.91,
+        }}
+        knowledge={{
+          enabled: true,
+          running: false,
+          chunks_embedded: 3200,
+          deep_chunks_embedded: 3200,
+          last_run_at: built,
+        }}
+        autoConfig={{ fastSync: true, deepEnrichment: 'auto', finalize: 'manual' }}
+        fastCollapsed={fastCollapsed}
+        deepCollapsed={deepCollapsed}
+        finalizeCollapsed={finalizeCollapsed}
+        onToggleFastCollapsed={() => setFastCollapsed((c) => !c)}
+        onToggleDeepCollapsed={() => setDeepCollapsed((c) => !c)}
+        onToggleFinalizeCollapsed={() => setFinalizeCollapsed((c) => !c)}
+        isPro={true}
+        onRebuild={(scope) => console.log('[Story] onRebuild', scope)}
+        onStopRebuild={() => console.log('[Story] onStopRebuild')}
+      />
+    </div>
+  );
+}
+
 /** Generate mock file content for Storybook */
 function mockFileContent(path: string): string {
   const name = path.split('/').pop() ?? path;
@@ -418,18 +506,7 @@ export const FullDashboard: StoryObj = {
           traceExists={true}
         />
       ),
-      'trace-pipeline': (
-        <div className="h-full overflow-y-auto">
-          <GraphEnrichmentPipeline
-            trace={{ enabled: true, exists: true, building: false, counts: { nodes: 100, edges: 200 }, last_build_at: new Date().toISOString() }}
-            augmentation={{ enabled: true, total_nodes: 100, augmented_nodes: 80, validated_nodes: 0, low_confidence_count: 5, avg_confidence: 0.85 }}
-            epistemic={{ enabled: true, enriched_nodes: 60, progress_current: 60, progress_total: 100, avg_confidence: 0.9, running: false }}
-            isPro={true}
-            onRebuild={(scope) => console.log('[Story] onRebuild', scope)}
-            onStopRebuild={() => console.log('[Story] onStopRebuild')}
-          />
-        </div>
-      ),
+      'trace-pipeline': <PipelinePanelDemo />,
       'deep-analysis': (
         <div className="h-full overflow-y-auto p-4">
           <DeepAnalysisSettings
