@@ -14,10 +14,12 @@ import { create } from '@storybook/theming';
 const slateDeveloperLight = create({
   base: 'light',
 
-  // Brand
+  // Brand. brandImage is served from .storybook/static/ via staticDirs in
+  // main.ts; the path is relative to the served root (no /static/ prefix).
   brandTitle: 'SourcePrep · Design System',
   brandUrl: 'https://sourceprep.io',
   brandTarget: '_blank',
+  brandImage: './sourceprep-logo.png',
 
   // App canvas — sidebar and surrounding chrome.
   appBg: '#F8FAFC',           // --background

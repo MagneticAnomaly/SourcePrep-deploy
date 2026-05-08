@@ -45,6 +45,7 @@ function resolveStories(): string[] {
 
 const config: StorybookConfig = {
   stories: resolveStories(),
+  staticDirs: ['./static'],
   addons: [
     '@storybook/addon-links',
     '@storybook/addon-essentials',
