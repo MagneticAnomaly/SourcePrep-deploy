@@ -154,8 +154,21 @@ function mockFileContent(path: string): string {
 
 export const FullDashboard: StoryObj = {
   render: () => {
+    // Phase 131: every visit to the storybook demo should boot from the
+    // canonical DEFAULT_LAYOUT in packages/ui/src/types/layout.ts (the same
+    // config the dashboard app ships with). Clear any saved customisation
+    // BEFORE useLayoutPersistence reads from localStorage on mount.
+    useState(() => {
+      try {
+        window.localStorage.removeItem('storybook_fulldashboard_layout');
+      } catch {
+        // localStorage may be blocked in some sandboxed iframes; that's fine.
+      }
+      return null;
+    });
+
     const [building, setBuilding] = useState(false);
-    
+
     const [query, setQuery] = useState('');
     const [searchK, setSearchK] = useState(8);
     const [minScore, setMinScore] = useState(0.15);

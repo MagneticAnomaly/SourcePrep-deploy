@@ -57,4 +57,8 @@ const slateDeveloperLight = create({
 
 addons.setConfig({
   theme: slateDeveloperLight,
+  // Visitors land with the bottom Addons panel collapsed — most stories don't
+  // need Controls / Actions visible by default, and the canvas reads cleaner.
+  // Toggle with the panel button in the toolbar (or `S` shortcut).
+  showPanel: false,
 });

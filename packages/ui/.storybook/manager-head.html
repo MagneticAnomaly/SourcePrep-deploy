@@ -1,0 +1,38 @@
+<!--
+  Phase 131: visual polish on the Storybook manager (sidebar / top bar).
+  See docs/Phase131_StorybookCuration/02_visual_design_plan.md.
+-->
+<style>
+  /*
+    Brand image — iOS-app-icon styling.
+    Wrap the SourcePrep wordmark in a rounded-square dark-blue tile that
+    matches the Slate Developer dark-mode background (#0F172A).
+    Multiple selectors as fallbacks; Storybook 7's manager uses CSS-in-JS
+    with hashed class names so we target structural elements + the brand
+    link's known href attribute.
+  */
+  a[href="https://sourceprep.io"] img,
+  [class*="Brand"] img,
+  .sidebar-header img,
+  .sidebar-container img {
+    background-color: #0F172A;
+    border-radius: 12px;
+    padding: 10px;
+    box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  }
+
+  /*
+    Hide the brand-area gear/menu button — the "Storybook" / shortcuts
+    affordance that floats next to the logo. The same actions are
+    accessible via the canvas toolbar at top-right and via keyboard
+    shortcuts (cmd-shift-O for the menu); removing it cleans up the
+    sidebar header area.
+  */
+  a[href="https://sourceprep.io"] + button,
+  [class*="Brand"] ~ button[title*="shortcut" i],
+  [class*="Brand"] ~ button[aria-label*="menu" i],
+  .sidebar-header button:not([class*="search"] *):not([class*="Search"] *) {
+    display: none !important;
+  }
+</style>
