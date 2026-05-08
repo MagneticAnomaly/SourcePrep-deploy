@@ -105,6 +105,17 @@ So the proposed pattern is: **Primer-style top-level split + Atlassian-style fun
 
 ---
 
+## 3.5 Hard rules (decided 2026-05-08)
+
+These are non-negotiable rules the taxonomy must satisfy. Every story migration is checked against them.
+
+1. **All dashboard-app panels live under `Dashboard/`.** No more parallel top-level sections (`Trace/`, `Pipeline/`, `Audit/`, `Goalposts/`, `Agents/`, `Team/`, `Application/`, `Enterprise/`, etc.) for components that render inside the dashboard. If it's a panel mounted by the dashboard app or a power-user feature surface, its story title starts with `Dashboard/`.
+2. **Modal components get their own top-level `Modals/` section** — `BugReportModal`, `ConfirmDialog`, future modal flows. Modals are not Dashboard panels even though some are launched from the dashboard; they have a distinct interaction model (overlay, dismissable, focus-trapped) and should be browseable as a class.
+3. **Marketing components live under `Website/`** — heroes, feature blocks, demos, research/citation primitives, site header/footer. The Console section is dissolved; CLI/IDE animations are demos and belong here.
+4. **`Console/` is dissolved entirely.** It mixed two unrelated kinds of components (marketing animations + dashboard log surfaces) and the name was misleading.
+5. **Foundations / Primitives / Patterns are cross-cutting and surface-agnostic.** Anything specific to the dashboard or website goes under those top-levels — not under Foundations.
+6. **No empty-shell single-entry top-levels.** If only one story would live there, it belongs in a parent section instead.
+
 ## 4. Proposed taxonomy
 
 The Storybook sidebar reads:
@@ -119,30 +130,35 @@ Foundations/
     ├── Spacing
     └── Typography
 
-Primitives/
+Primitives/                          (atomic UI building blocks)
 ├── Button
 ├── Select
 ├── SearchableSelect
 ├── Toggle
-├── SettingRow
+├── SettingRow                       (← MOVED from top-level Settings/)
+├── Section                          (← MOVED from top-level Settings/)
 ├── PathInput
 ├── InfoTooltip
-├── ConfirmDialog
-├── CopyButton
+├── CopyButton                       (← MOVED from Foundations/Molecules/)
+├── CitationBlock                    (← MOVED from Foundations/Molecules/)
 ├── EmptyState
 ├── ProgressIndicator
-├── StatusBadge
-└── CitationBlock
+└── StatusBadge
 
-Patterns/
-├── State Patterns
-├── Keyboard Shortcuts
-├── Panel Chrome
-└── Panel Picker
+Patterns/                            (composed primitives, UX recipes)
+├── State Patterns                   (← MOVED from Foundations/Patterns/)
+├── Keyboard Shortcuts               (← MOVED from Foundations/Patterns/)
+├── Panel Chrome                     (← MOVED from Dashboard/Primitives/)
+└── Panel Picker                     (← MOVED from Dashboard/Primitives/)
 
-Product UI/                  (the desktop dashboard + VS Code extension surfaces)
-├── Shell/
-│   ├── App Shell
+Modals/                              (NEW — overlay/dismissable surfaces)
+├── Bug Report Modal                 (← MOVED from Console/, after sanitization)
+└── Confirm Dialog                   (← MOVED from Primitives/)
+
+Dashboard/                           (every dashboard-app surface — Tauri + VS Code)
+├── Introduction                     (existing MDX)
+├── Layouts/
+│   ├── App Shell                    (← MOVED from Application/Navigation/)
 │   ├── Full Dashboard
 │   └── Modular Dashboard
 ├── Search/
@@ -151,22 +167,31 @@ Product UI/                  (the desktop dashboard + VS Code extension surfaces
 │   ├── Symbol Search
 │   ├── Context Options
 │   └── Context Output
-├── Trace/
+├── Trace/                           (consolidates top-level Trace/ AND Dashboard/Widgets/Trace/)
 │   ├── Graph
-│   ├── Atlas Lens
-│   ├── Graph Structure
-│   ├── Coverage
+│   ├── Atlas Lens                   (← MOVED from top-level Trace/)
+│   ├── Graph Structure              (← MOVED from top-level Trace/, currently excluded)
+│   ├── Coverage                     (currently excluded — TraceCoveragePanel)
 │   ├── Node Detail
-│   ├── Trace Explorer
+│   ├── Trace Explorer               (← MOVED from top-level Trace/, currently excluded)
 │   └── Status Card
-├── Pipeline/
+├── Pipeline/                        (currently excluded — Phase 119 rename pending)
+│   ├── Concurrency Health
+│   ├── Capacity Health
+│   ├── Recent Swarm Logs
+│   ├── Probe Button
+│   ├── Plan Dropdown
+│   ├── Sidebar Pipeline Queue
+│   ├── Swarm Activity
+│   └── Sidebar AI Gateway
+├── Build/
 │   ├── Build Card
 │   ├── Build Progress
-│   ├── Stage Progress
-│   ├── Rebuild Dropdown
-│   ├── Rebuilding Row
-│   └── Recover Stage
-├── Index/                  (formerly "Status")
+│   ├── Stage Progress               (currently excluded)
+│   ├── Rebuild Dropdown             (currently excluded)
+│   ├── Rebuilding Row               (currently excluded)
+│   └── Recover Stage                (currently excluded)
+├── Index/
 │   ├── Index Status Card
 │   ├── Index Stats
 │   ├── Activity Heatmap
@@ -180,35 +205,45 @@ Product UI/                  (the desktop dashboard + VS Code extension surfaces
 ├── LLM/
 │   ├── LLM Status
 │   ├── Endpoint Manager
-│   └── Model Card
-├── Settings/
-│   ├── Section
-│   ├── Advanced LLM
-│   ├── Deep Analysis
-│   ├── Project Settings
-│   └── (other settings forms)
+│   ├── Model Card
+│   ├── AI Models Settings           (currently excluded — Phase 119 rename pending)
+│   ├── Advanced LLM Settings
+│   └── Deep Analysis Settings
+├── Status/
+│   ├── Status Badge
+│   └── Status Card
 ├── Watch/
 │   ├── Watch Controls
 │   └── Status Indicator
-├── Agents/
+├── Console/                         (NEW Dashboard subsection)
+│   └── Log Console                  (← MOVED from top-level Console/, currently excluded)
+├── Audit/                           (currently excluded — mock-data sweep pending)
+│   ├── Audit Panel
+│   └── Opportunities Panel
+├── Roadmap/                         (currently excluded — mock-data sweep pending)
+│   └── Roadmap Panel                (← MOVED from top-level Goalposts/)
+├── Enterprise/                      (currently excluded — internal admin surface)
+│   └── Enterprise Admin Panel
+├── Agents/                          (← MOVED from top-level Agents/)
 │   ├── Agent Card
 │   ├── Agent Ops
 │   ├── Managed Employees
 │   └── System Agents
-└── Team/
+└── Team/                            (← MOVED from top-level Team/)
     ├── License Status
     ├── Sync Status
     └── Team Sync Indicator
 
-Marketing/                   (sourceprep.io — formerly "Website")
+Website/                             (sourceprep.io marketing + docs surfaces)
 ├── Layout/
 │   ├── Site Header
 │   └── Site Footer
-├── Hero
-├── Feature Blocks
-├── Demos/                  (← MOVED from "Console/")
-│   ├── Animated CLI
-│   └── Animated IDE
+├── Marketing/
+│   ├── Hero
+│   └── Feature Blocks
+├── Demos/                           (NEW — was Console/)
+│   ├── Animated CLI                 (← MOVED from Console/)
+│   └── Animated IDE                 (← MOVED from Console/)
 └── Research/
     ├── Research Hero
     ├── Research Section
@@ -218,27 +253,71 @@ Marketing/                   (sourceprep.io — formerly "Website")
     └── Source Spotlight
 ```
 
-### 4.1 What changed vs current
+> **Naming note**: this version uses `Dashboard/` (concrete, matches the Tauri app) instead of the earlier draft's `Product UI/` (abstract). VS Code extension components, when they earn their own stories, can live under `Dashboard/VS Code/` rather than splitting the surface tree.
 
-| From | To | Why |
+### 4.1 Currently misplaced — full mapping
+
+Every story whose current `title` is wrong under §3.5 hard rules. Currently-public stories first, then currently-excluded (with their planned destinations once content is sanitized).
+
+#### 4.1.a Currently public — needs rename
+
+| Current title | Target title | Reason |
 |---|---|---|
-| `Console/AnimatedCLI`, `Console/AnimatedIDE` | `Marketing/Demos/Animated CLI`, `…/Animated IDE` | User flagged: marketing demos, not internal console |
-| `Console/LogConsole`, `Console/BugReportModal` | (excluded — internal) | Already in §6 exclusion list |
-| `Phase 119/*` | (excluded until renamed) | Internal phase namespace |
-| `Trace/*` (top-level) | `Product UI/Trace/*` | Unify with `Dashboard/Widgets/Trace/*` |
-| `Dashboard/Widgets/Trace/*` | `Product UI/Trace/*` | Same as above |
-| `Dashboard/Widgets/Settings/*` | `Product UI/Settings/*` | Single home for settings |
-| `Settings/SettingRow` (top-level) | `Primitives/SettingRow` | It's a primitive, not a Settings page |
-| `Dashboard/Primitives/PanelChrome`, `PanelPicker` | `Patterns/Panel Chrome`, `Panel Picker` | Composite patterns, not atoms |
-| `Foundations/Primitives/*` | `Primitives/*` | Promote primitives to top level — they're the design-system spine |
-| `Foundations/Molecules/CopyButton`, `CitationBlock` | `Primitives/CopyButton`, `Primitives/CitationBlock` | "Molecule" tier doesn't carry weight given our scale; consolidate |
-| `Foundations/Patterns/*` | `Patterns/*` | Top-level — Patterns are reused everywhere |
-| `Application/Navigation/AppShell` | `Product UI/Shell/App Shell` | Consolidates app-shell concerns |
-| `Goalposts/RoadmapPanel` | (excluded; if rehomed: `Product UI/Roadmap/Roadmap Panel`) | Single-entry "Goalposts" doesn't earn a top-level |
-| `Audit/*` | `Product UI/Audit/*` (when rehomed) | Currently excluded; folds into Product UI |
-| `Enterprise/*` | `Product UI/Enterprise/*` (when rehomed) | Currently excluded; folds into Product UI |
-| `Pipeline/*` | `Product UI/Pipeline/*` (after rename) | Currently excluded under "Phase 119"; rename + rehome |
-| `Website/*` | `Marketing/*` | Mirrors the actual brand — `sourceprep.io` is a marketing site |
+| `Application/Navigation/AppShell` | `Dashboard/Layouts/AppShell` | Dashboard layout, not its own section |
+| `Trace/AtlasLensPanel` | `Dashboard/Trace/Atlas Lens` | Top-level Trace/ duplicates Dashboard/Widgets/Trace/ |
+| `Settings/Section` | `Primitives/Section` | Layout primitive |
+| `Settings/SettingRow` | `Primitives/SettingRow` | Layout primitive |
+| `Agents/AgentCard` | `Dashboard/Agents/Agent Card` | Dashboard panel |
+| `Agents/AgentOpsPanel` | `Dashboard/Agents/Agent Ops` | Dashboard panel |
+| `Agents/ManagedEmployeesTab` | `Dashboard/Agents/Managed Employees` | Dashboard panel |
+| `Agents/SystemAgentsTab` | `Dashboard/Agents/System Agents` | Dashboard panel |
+| `Team/LicenseStatusCard` | `Dashboard/Team/License Status` | Dashboard panel |
+| `Team/SyncStatusCard` | `Dashboard/Team/Sync Status` | Dashboard panel |
+| `Team/TeamSyncIndicator` | `Dashboard/Team/Team Sync Indicator` | Dashboard panel |
+| `Console/AnimatedCLI` | `Website/Demos/Animated CLI` | Marketing demo |
+| `Console/AnimatedIDE` | `Website/Demos/Animated IDE` | Marketing demo |
+| `Foundations/Molecules/CitationBlock` | `Primitives/CitationBlock` | "Molecule" tier doesn't earn its own level |
+| `Foundations/Molecules/CopyButton` | `Primitives/CopyButton` | Same |
+| `Foundations/Patterns/KeyboardShortcuts` | `Patterns/Keyboard Shortcuts` | Promote Patterns to top-level |
+| `Foundations/Patterns/StatePatterns` | `Patterns/State Patterns` | Same |
+| `Foundations/Primitives/Button` | `Primitives/Button` | Promote Primitives to top-level |
+| `Foundations/Primitives/PathInput` | `Primitives/PathInput` | Same |
+| `Foundations/Primitives/SearchableSelect` | `Primitives/SearchableSelect` | Same |
+| `Foundations/Primitives/Select` | `Primitives/Select` | Same |
+| `Dashboard/Primitives/PanelChrome` | `Patterns/Panel Chrome` | Composite, not a primitive |
+| `Dashboard/Primitives/PanelPicker` | `Patterns/Panel Picker` | Same |
+| `Dashboard/Layouts/Introduction` | `Dashboard/Introduction` | Layout intro for the section, not a layout itself |
+| `Design System/Visual Directions` | `Foundations/Visual Directions` | Foundations is the right top-level for design-system docs |
+| `Introduction` (root, no prefix) | `Foundations/Introduction` | Avoid orphan top-level entries |
+
+#### 4.1.b Currently excluded — destination for when content is sanitized
+
+| Story | Planned title | Blocker |
+|---|---|---|
+| `Console/LogConsole` | `Dashboard/Console/Log Console` | Mock log entries reference `prep.core.*` logger names |
+| `Console/BugReportModal` | `Modals/Bug Report Modal` | Could spam support endpoint; mock logs reference internal modules |
+| `Goalposts/RoadmapPanel` | `Dashboard/Roadmap/Roadmap Panel` | Mock data names internal roadmap items |
+| `Audit/AuditPanel` | `Dashboard/Audit/Audit Panel` | Mock findings name internal architectural debt |
+| `Audit/OpportunitiesPanel` | `Dashboard/Audit/Opportunities` | Same |
+| `Dashboard/Widgets/Trace/GraphEnrichmentPipeline` | `Dashboard/Pipeline/Graph Enrichment` | Pipeline-stage names + Phase comments |
+| `Phase 119/CapacityHealth` | `Dashboard/Pipeline/Capacity Health` | Phase 119 namespace |
+| `Phase 119/PlanDropdown` | `Dashboard/Pipeline/Plan Dropdown` | Same |
+| `Phase 119/ProbeButton` | `Dashboard/Pipeline/Probe Button` | Same |
+| `Phase 119/Old vs New SidebarPipelineQueue` | `Dashboard/Pipeline/Sidebar Pipeline Queue` | Same; drop "Old vs New" from public |
+| `Pipeline/ConcurrencyHealth` | `Dashboard/Pipeline/Concurrency Health` | (already not phase-prefixed but in wrong top-level) |
+| `Pipeline/RecentSwarmLogs` | `Dashboard/Pipeline/Recent Swarm Logs` | Same |
+| `Pipeline/SwarmActivityPanel` | `Dashboard/Pipeline/Swarm Activity` | Same |
+| `Application/Navigation/SidebarAIGateway` | `Dashboard/Pipeline/Sidebar AI Gateway` | Phase 119 description text |
+| `Dashboard/Widgets/Settings/AIModelsSettings` | `Dashboard/LLM/AI Models Settings` | Phase 119 prop JSDoc |
+| `Dashboard/Widgets/Trace/ProvenanceChip` | `Dashboard/Trace/Provenance Chip` | Phase 117 in JSDoc |
+| `Trace/GraphStructurePanel` | `Dashboard/Trace/Graph Structure` | Internal diagnostic; ok after JSDoc cleanup |
+| `Trace/StageProgressBar` | `Dashboard/Build/Stage Progress` | Internal pipeline UI; ok after cleanup |
+| `Trace/TraceExplorer` | `Dashboard/Trace/Trace Explorer` | Internal trace inspector |
+| `Dashboard/Widgets/Trace/RebuildDropdown` | `Dashboard/Build/Rebuild Dropdown` | Pipeline recovery UI |
+| `Dashboard/Widgets/Trace/RebuildingRow` | `Dashboard/Build/Rebuilding Row` | Same |
+| `Dashboard/Widgets/Trace/RecoverStagePanel` | `Dashboard/Build/Recover Stage` | Same |
+| `Dashboard/Widgets/Trace/TraceCoveragePanel` | `Dashboard/Trace/Coverage` | Diagnostic |
+| `Enterprise/EnterpriseAdminPanel` | `Dashboard/Enterprise/Enterprise Admin` (or stay excluded) | Admin surface; user decides |
 
 ### 4.2 Naming rules
 
