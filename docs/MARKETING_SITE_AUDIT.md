@@ -392,19 +392,17 @@ Findings 3 and 6 deferred for later focused work.
 
 ---
 
-### 13. SourcePrep Atlas Output Contains Apparent Prompt Injection **[HIGH — product bug]** *(new 2026-05-06, dogfooding finding)*
+### 13. SourcePrep Atlas Output Contains Apparent Prompt Injection **[RESOLVED 2026-05-08]**
 
-Calling `prep` on this repo today returned an atlas whose role-projection block contained:
+Calling `prep` on this repo originally returned an atlas whose role-projection block contained:
 1. A meta-instruction to the LLM ("I need to write a concise project orientation header based on the provided data, following strict rules: plain text only, no markdown, no bold...").
 2. A long string of repeated `加油` Chinese characters (likely a token-bomb injection).
 
-This is in the live atlas this repo serves to its own MCP clients. Not a marketing site issue, but discovered during marketing audit work. Cross-filing as a product bug — likely a poisoned concept entry, a stuck atlas cache, or a compromised generation prompt.
+**Resolution (2026-05-06, commit `52727cb4`):** Root cause was an LLM (kimi-k2.5) restating its own paraphrased prompt followed by a 1500+ char `加油` token-loop, persisted verbatim into `.sourceprep/atlas.json` because the existing quality gate only checked output length. Fix landed `src/prep/core/atlas/validators.py` with three detectors — prompt-leak openers, single-char + n-gram repeat-attack, missing-section markers — wired into all four LLM call sites in `generator.py` plus all `load()` paths so poisoned caches self-heal on next regen. Tests: 22 in `tests/test_atlas_validators.py` plus 2 integration in `tests/test_atlas.py::TestLLMAtlas`.
 
-**Action:**
-- File a separate ticket against the atlas / role-projection subsystem.
-- Inspect `prep_concepts` for entries containing the meta-instruction text or the 加油 string.
-- Inspect the atlas regeneration cache; consider purging and rebuilding.
-- This is a dogfooding-grade finding — exactly the kind of thing the CLAUDE.md "critically evaluate SourcePrep results" guidance asks us to flag.
+**Follow-up (2026-05-08, commit `513364e4`):** During audit-pass scrutiny we noticed the live atlas (post-validator-fix) was still surfacing `src/codrag/core/` and `src/codrag/dashboard/` in its "Active zones" line — pre-rename paths from the 2026-04-21 `src/codrag` → `src/prep` migration. The validator couldn't catch this because the content was structurally valid; root cause was `GitEvidence.hot_zones()` aggregating churn from `git log` history, which carries pre-rename paths forever. Fix added a filesystem-existence filter that drops any directory without at least one file under it on the current filesystem (catches both fully-removed and empty-husk cases). Two new regression tests in `tests/core/test_git_evidence.py`.
+
+Live atlas now reports `IDENTITY: SourcePrep` with `Active zones: packages/ui/src/, tests/, websites/apps/marketing/, websites/apps/docs/, src/prep/core/`.
 
 ---
 
