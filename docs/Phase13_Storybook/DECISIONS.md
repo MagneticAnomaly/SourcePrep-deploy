@@ -2,6 +2,8 @@
 
 ## Default Theme & Mode
 **Decision:** Dark Mode + Theme 'H' (Retro-Futurism).
+> **Superseded 2026-05-08 by Phase 131.** The public Storybook now boots in Dark Mode + Theme 'A' (Slate Developer), with the manager chrome restyled in Slate Developer's *light* variant. Retro-Futurism remains an available theme via the toolbar selector but is no longer the default. Rationale: cleaner, IDE-aligned aesthetic for the public design-system showcase. See `docs/Phase131_StorybookCuration/02_visual_design_plan.md`.
+
 **Rationale:**
 - "Retro-Futurism" (Theme H) provides a distinctive, high-contrast, developer-centric aesthetic that differentiates Prep.
 - Dark mode is the preferred default for developer tools (VS Code, terminal).

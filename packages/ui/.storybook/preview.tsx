@@ -35,7 +35,12 @@ const preview: Preview = {
     prepTheme: {
       name: 'Visual Style',
       description: 'Prep visual theme direction',
-      defaultValue: 'h', // Default to Retro-Futurism as requested
+      // Phase 131: default to Slate Developer ('a') so the public storybook
+      // boots into a clean, IDE-aligned aesthetic. Pairs with the light
+      // Slate Developer manager chrome defined in manager.ts. Visitors can
+      // still flip themes via this toolbar. Supersedes Phase 13's earlier
+      // Retro-Futurism default.
+      defaultValue: 'a',
       toolbar: {
         icon: 'paintbrush',
         items: [
