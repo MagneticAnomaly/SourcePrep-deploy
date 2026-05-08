@@ -26,8 +26,8 @@ export default function Page() {
               SourcePrep only sends data to external LLM providers when <span className="font-semibold text-text">you</span> configure
               a BYOK (Bring Your Own Key) endpoint and explicitly trigger a build.
               By default, all processing is local. See our{' '}
-              <a href="https://github.com/nicobailey/SourcePrep/blob/main/public/sourceprep-mcp/PRIVACY.md" className="text-primary hover:underline">
-                Privacy Policy
+              <a href="https://sourceprep.io/security" className="text-primary hover:underline">
+                Privacy &amp; Security page
               </a>{' '}
               for full details.
             </p>
@@ -126,7 +126,7 @@ export default function Page() {
 
           <div className="not-prose my-8">
             <StoryEmbed
-              storyId="llm-endpointmanager--default"
+              storyId="dashboard-widgets-settings-endpointmanager--interactive"
               height={400}
               title="Endpoint Manager"
               caption="Live preview: Configure BYOK endpoints for OpenAI, Anthropic, Google, and custom providers."

@@ -39,7 +39,7 @@ export default function Page() {
                 <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">1</span>
                 <div>
                   <div className="font-medium text-text">Set weights on folders or files</div>
-                  <div className="mt-1 text-text-muted">Via the dashboard FolderTree or the API.</div>
+                  <div className="mt-1 text-text-muted">Via the dashboard Scope panel or the API.</div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -68,7 +68,7 @@ export default function Page() {
         <section className="mt-10">
           <AnchorHeading id="using-the-dashboard" level="h2">Using the dashboard</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
-            In the project&apos;s <span className="font-semibold text-text">FolderTree</span> panel, each file and folder shows a
+            In the project&apos;s <span className="font-semibold text-text">Scope</span> panel, each file and folder shows a
             weight badge. Click the badge to edit the weight:
           </p>
           
@@ -77,7 +77,7 @@ export default function Page() {
               <ImageIcon className="w-6 h-6" />
             </div>
             <p className="font-medium text-text">Screenshot: Path Weight Badges</p>
-            <p className="text-sm text-center">Show the FolderTree panel with various colored badges (green boost, red suppress, blue manual) on files/folders.</p>
+            <p className="text-sm text-center">Show the Scope panel with various colored badges (green boost, red suppress, blue manual) on files/folders.</p>
           </div>
 
           <ul className="mt-4 space-y-2 text-sm text-text-muted list-disc pl-5">
