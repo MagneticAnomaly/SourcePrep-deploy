@@ -155,6 +155,18 @@ main() {
     DASHBOARD_PID=$!
     echo ""
 
+    # Storybook's Vite builder pre-bundles deps under
+    # packages/ui/node_modules/.cache/sb-vite/. When .storybook/preview.tsx or
+    # .storybook/main.ts imports change between runs, the cache hashes drift
+    # and the dev server serves HTML referencing chunks that no longer exist
+    # (404s like "Importing a module script failed" on chunk-XXXXX.js).
+    # Wiping the cache on every dev.sh start is fast (~1s rebuild) and
+    # eliminates the entire failure class.
+    log_info "Clearing Storybook Vite cache..."
+    rm -rf "$PROJECT_ROOT/packages/ui/node_modules/.cache" 2>/dev/null || true
+    log_success "Vite cache cleared"
+    echo ""
+
     # Start Storybook (private — full set, autodocs on)
     log_info "Starting Storybook (private) on port $STORYBOOK_PORT..."
     (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT/packages/ui" && npm run storybook -- -p $STORYBOOK_PORT) &
