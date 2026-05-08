@@ -26,8 +26,8 @@ export default meta;
 type Story = StoryObj<typeof SwarmActivityPanel>;
 
 const PROJECT: Pick<RunningTask, 'project_id' | 'project_name' | 'group'> = {
-  project_id: 'proj-linuxbrain',
-  project_name: 'LinuxBrain',
+  project_id: 'proj-acme',
+  project_name: 'Acme Search',
   group: 'enrichment',
 };
 
@@ -89,7 +89,7 @@ export const MultipleConcurrentSwarms: Story = {
       {
         task_id: 'group_reasoning',
         project_id: 'proj-1',
-        project_name: 'LinuxBrain',
+        project_name: 'Acme Search',
         group: 'enrichment',
         stage: 'group_reasoning',
         model_slot: 'large',

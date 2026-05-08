@@ -48,7 +48,7 @@ type Story = StoryObj<typeof SidebarPipelineQueue>;
 
 const runningConcurrent: QueueItem = {
   project_id: 'p1',
-  project_name: 'LinuxBrain',
+  project_name: 'Acme Search',
   group: 'fast_sync',
   phase: 'running',
   current_stage: 'catalogue',

@@ -59,7 +59,7 @@ const baseSlots: LLMSlotsStatus = {
 const concurrentTask: RunningTask = {
   task_id: 'catalogue',
   project_id: 'p1',
-  project_name: 'LinuxBrain',
+  project_name: 'Acme Search',
   group: 'fast_sync',
   stage: 'catalogue',
   model_slot: 'small',
@@ -83,7 +83,7 @@ const swarmTask: RunningTask = {
 const clusteringSwarm: RunningTask = {
   task_id: 'clustering',
   project_id: 'p1',
-  project_name: 'LinuxBrain',
+  project_name: 'Acme Search',
   group: 'deep_enrichment',
   stage: 'clustering',
   model_slot: 'large',
@@ -282,7 +282,7 @@ export const SwarmFanOutOnly: Story = {
         {
           task_id: 'audit',
           project_id: 'p1',
-          project_name: 'LinuxBrain',
+          project_name: 'Acme Search',
           group: 'enrichment',
           stage: 'audit',
           model_slot: 'large',

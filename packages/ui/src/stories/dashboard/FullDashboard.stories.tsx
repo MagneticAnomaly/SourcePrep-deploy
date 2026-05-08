@@ -28,6 +28,10 @@ import { AgentOpsPanel } from '../../components/agents/AgentOpsPanel';
 import { AuditPanel } from '../../components/audit/AuditPanel';
 import { OpportunitiesPanel } from '../../components/audit/OpportunitiesPanel';
 import { RoadmapPanel } from '../../components/goalposts/RoadmapPanel';
+import { ConceptsPanel } from '../../components/concepts/ConceptsPanel';
+import type { ConceptItem, ConceptQuestionItem, ConceptStats } from '../../components/concepts/ConceptsPanel';
+import { AtlasLensPanel } from '../../components/trace/AtlasLensPanel/AtlasLensPanel';
+import type { AuditFinding, AuditReport, AtlasStatus } from '../../types';
 
 const noop = () => {};
 
@@ -142,6 +146,166 @@ const STORY_PANELS: PanelDefinition[] = PANEL_REGISTRY.filter((p) => {
 
 /** Prefix for dynamically-pinned file panel IDs */
 const PINNED_PREFIX = 'pinned:';
+
+// ────────────────────────────────────────────────────────────────────────────
+// Demo dummy data — kept generic ("Acme Search") so the showcase doesn't
+// expose internal project names. The audit/atlas/concepts panels render
+// healthy steady-state content (no critical findings, atlas exists, concepts
+// curated).
+// ────────────────────────────────────────────────────────────────────────────
+
+const mockAuditFindings: AuditFinding[] = [
+  {
+    finding_id: 'a1',
+    analyzer: 'doc-coverage',
+    severity: 'info',
+    category: 'documentation',
+    title: 'README missing usage section',
+    description: 'The repo README has install steps but no usage examples.',
+    file_paths: ['README.md'],
+    evidence: {},
+    suggested_action: 'Add a "Usage" section with two or three short examples.',
+    priority: 'p3',
+    effort: 'small',
+  },
+  {
+    finding_id: 'a2',
+    analyzer: 'todo-scanner',
+    severity: 'info',
+    category: 'tech_debt',
+    title: '3 TODOs in core/',
+    description: 'Outstanding TODO comments tracked for the next sprint.',
+    file_paths: ['src/core/embedder.py', 'src/core/cache.py'],
+    evidence: { todo_count: 3 },
+    suggested_action: 'Triage and convert to issues or close.',
+    priority: 'p3',
+    effort: 'small',
+  },
+  {
+    finding_id: 'a3',
+    analyzer: 'oversized-files',
+    severity: 'warning',
+    category: 'architecture',
+    title: 'cache.ts is 22KB',
+    description: 'Approaching the 25KB soft ceiling we use as a refactor signal.',
+    file_paths: ['src/core/cache.ts'],
+    evidence: { size_bytes: 22_400 },
+    suggested_action: 'Split caching policy into its own module.',
+    priority: 'p2',
+    effort: 'medium',
+  },
+  {
+    finding_id: 'a4',
+    analyzer: 'stale-docs',
+    severity: 'suggestion',
+    category: 'documentation',
+    title: 'CHANGELOG.md last touched 6 months ago',
+    description: 'No entries since the v0.4 release.',
+    file_paths: ['CHANGELOG.md'],
+    evidence: {},
+    suggested_action: 'Backfill recent feature work or auto-generate from PR titles.',
+    priority: 'p3',
+    effort: 'small',
+  },
+];
+
+const mockAuditReports: AuditReport[] = [
+  { name: 'Audit · 2026-04-29', filename: 'audit_20260429.md', size_bytes: 18_240 },
+  { name: 'Audit · 2026-04-15', filename: 'audit_20260415.md', size_bytes: 17_760 },
+];
+
+const mockConcepts: ConceptItem[] = [
+  {
+    id: 'c1',
+    title: 'Local-first by default',
+    content: 'All indexing and inference run locally. Cloud endpoints are opt-in via BYOK.',
+    category: 'architecture',
+    status: 'active',
+    confidence: 0.95,
+    anchors: ['src/core/indexer.py', 'src/llm/router.py'],
+    tags: ['privacy', 'principle'],
+    created_at: Date.now() / 1000 - 86_400 * 14,
+  },
+  {
+    id: 'c2',
+    title: 'Structural retrieval over vector-only',
+    content: 'Search blends vector similarity with structural graph traversal so results stay grounded in import/dependency edges.',
+    category: 'architecture',
+    status: 'active',
+    confidence: 0.92,
+    anchors: ['src/search/router.ts', 'src/graph/walker.py'],
+    tags: ['search', 'differentiator'],
+    created_at: Date.now() / 1000 - 86_400 * 7,
+  },
+  {
+    id: 'c3',
+    title: 'Auto-rebuild is debounced + storm-protected',
+    content: 'File-watcher coalesces bursts and applies a per-project storm cap so a vendored dependency drop does not thrash the indexer.',
+    category: 'constraint',
+    status: 'active',
+    confidence: 0.89,
+    anchors: ['src/watch/coalescer.ts'],
+    tags: ['watch', 'reliability'],
+    created_at: Date.now() / 1000 - 86_400 * 4,
+  },
+  {
+    id: 'c4',
+    title: 'Token budget caps every LLM call',
+    content: 'Every cloud or local LLM invocation is bounded by an explicit per-call token budget. No unbounded prompts ship.',
+    category: 'constraint',
+    status: 'active',
+    confidence: 0.97,
+    anchors: ['src/llm/budget.ts'],
+    tags: ['safety', 'cost'],
+    created_at: Date.now() / 1000 - 86_400 * 2,
+  },
+  {
+    id: 'c5',
+    title: 'Sample seed concept — adjust me',
+    content: 'Newly seeded concept awaiting human review.',
+    category: 'general',
+    status: 'seed',
+    confidence: 0.6,
+    anchors: [],
+    tags: [],
+    created_at: Date.now() / 1000 - 3_600,
+  },
+];
+
+const mockConceptQuestions: ConceptQuestionItem[] = [
+  {
+    id: 'q1',
+    question: 'Should the cache layer expose a hit-rate metric?',
+    context: 'Several call sites read from src/core/cache without observability.',
+    suggested_category: 'observability',
+    target_module: 'core/cache',
+    answered: false,
+  },
+];
+
+const mockConceptStats: ConceptStats = {
+  total: 5,
+  active: 4,
+  seeds: 1,
+  archived: 0,
+  stale: 0,
+  pending_questions: 1,
+  by_category: { architecture: 2, constraint: 2, general: 1 },
+  coverage_pct: 78,
+  total_modules: 14,
+  covered_modules: 11,
+  concepts_count: 5,
+};
+
+const mockAtlas: AtlasStatus = {
+  exists: true,
+  content: null,
+  mode: 'structural',
+  module_count: 12,
+  file_count: 1100,
+  routing: true,
+  stale: false,
+};
 
 /**
  * Pipeline panel for the storybook demo. Renders the GraphEnrichmentPipeline
@@ -377,7 +541,7 @@ export const FullDashboard: StoryObj = {
             total_documents: 1234,
             model: 'nomic-embed-text',
             built_at: new Date().toISOString(),
-            index_dir: 'LinuxBrain',
+            index_dir: 'acme-search',
           }}
           building={building}
           onBuild={handleBuild}
@@ -553,12 +717,51 @@ export const FullDashboard: StoryObj = {
         />
       ),
       'audit': (
-        <AuditPanel 
-          status={{ running: false, error: null, has_results: true, finding_count: 5, severity_counts: { critical: 1, warning: 2, info: 2, suggestion: 0 }, last_run: { generated_at: new Date().toISOString(), graph_node_count: 1000, graph_edge_count: 2000, finding_count: 5, document_count: 0, analyzers_run: [], documents: [] } }} 
-          findings={[]} 
-          reports={[]} 
-          onRunAudit={noop} 
-          onViewReport={noop} 
+        <AuditPanel
+          status={{
+            running: false,
+            error: null,
+            has_results: true,
+            finding_count: mockAuditFindings.length,
+            severity_counts: { critical: 0, warning: 1, info: 2, suggestion: 1 },
+            last_run: {
+              generated_at: new Date(Date.now() - 1_800_000).toISOString(),
+              graph_node_count: 1245,
+              graph_edge_count: 3890,
+              finding_count: mockAuditFindings.length,
+              document_count: 0,
+              analyzers_run: ['stale-docs', 'todo-scanner', 'oversized-files', 'doc-coverage'],
+              documents: [],
+            },
+          }}
+          findings={mockAuditFindings}
+          reports={mockAuditReports}
+          onRunAudit={noop}
+          onViewReport={noop}
+        />
+      ),
+      'concepts': (
+        <ConceptsPanel
+          concepts={mockConcepts}
+          questions={mockConceptQuestions}
+          stats={mockConceptStats}
+          loading={false}
+          initializing={false}
+          error={null}
+          onInitialize={noop}
+          onApprove={noop}
+          onArchive={noop}
+          onDelete={noop}
+          onAnswerQuestion={noop}
+        />
+      ),
+      'atlas': (
+        <AtlasLensPanel
+          atlas={mockAtlas}
+          role={null}
+          onRoleChange={noop}
+          regenerating={false}
+          onRegenerate={noop}
         />
       ),
       'opportunities': (

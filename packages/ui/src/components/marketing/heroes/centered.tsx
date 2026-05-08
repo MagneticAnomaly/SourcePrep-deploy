@@ -88,7 +88,7 @@ export function CenteredHero({ isBetaMode }: { isBetaMode: boolean }) {
               <span className="w-3 h-3 rounded-full bg-warning/60" />
               <span className="w-3 h-3 rounded-full bg-success/60" />
             </div>
-            <span className="text-xs text-text-subtle ml-2">SourcePrep — LinuxBrain</span>
+            <span className="text-xs text-text-subtle ml-2">SourcePrep — Acme Search</span>
           </div>
           <div className="p-6 min-h-[200px] bg-gradient-to-b from-surface to-background">
             {/* Mock dashboard UI */}
