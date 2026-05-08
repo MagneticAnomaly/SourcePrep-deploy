@@ -80,27 +80,18 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
   version: 20,
   panels: [
     {
-      id: "status",
+      id: "graph-structure",
       visible: true,
-      height: 4,
+      height: 15,
       collapsed: false,
       x: 0,
       y: 0,
       w: 4
     },
     {
-      id: "graph-structure",
+      id: "trace-pipeline",
       visible: true,
-      height: 10,
-      collapsed: false,
-      x: 8,
-      y: 0,
-      w: 4
-    },
-    {
-      id: "usage-guide",
-      visible: true,
-      height: 6,
+      height: 30,
       collapsed: false,
       x: 4,
       y: 0,
@@ -109,33 +100,87 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
     {
       id: "file-tree",
       visible: true,
+      height: 22,
+      collapsed: false,
+      x: 8,
+      y: 0,
+      w: 4
+    },
+    {
+      id: "agent-ops",
+      visible: true,
+      height: 15,
+      collapsed: true,
+      x: 0,
+      y: 15,
+      w: 4
+    },
+    {
+      id: "audit",
+      visible: true,
+      height: 15,
+      collapsed: false,
+      x: 0,
+      y: 17,
+      w: 4
+    },
+    {
+      id: "status",
+      visible: true,
+      height: 8,
+      collapsed: false,
+      x: 8,
+      y: 22,
+      w: 4
+    },
+    {
+      id: "log-console",
+      visible: true,
+      height: 16,
+      collapsed: true,
+      x: 4,
+      y: 30,
+      w: 8
+    },
+    {
+      id: "concepts",
+      visible: true,
+      height: 16,
+      collapsed: false,
+      x: 6,
+      y: 32,
+      w: 6
+    },
+    {
+      id: "atlas",
+      visible: true,
       height: 16,
       collapsed: false,
       x: 0,
-      y: 4,
+      y: 32,
+      w: 6
+    },
+    {
+      id: "agent-scope",
+      visible: false,
+      height: 10,
+      collapsed: false,
+      x: 4,
+      y: 32,
       w: 4
     },
     {
-      id: "context-options",
-      visible: true,
-      height: 7,
+      id: "search",
+      visible: false,
+      height: 6,
       collapsed: false,
-      x: 4,
-      y: 6,
-      w: 4
-    },
-    {
-      id: "results",
-      visible: true,
-      height: 9,
-      collapsed: false,
-      x: 4,
-      y: 13,
+      x: 0,
+      y: 12,
       w: 4
     },
     {
       id: "trace",
-      visible: true,
+      visible: false,
       height: 13,
       collapsed: false,
       x: 8,
@@ -143,21 +188,48 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
       w: 4
     },
     {
-      id: "search",
-      visible: true,
-      height: 6,
+      id: "deep-analysis",
+      visible: false,
+      height: 12,
       collapsed: false,
-      x: 0,
-      y: 20,
+      x: 8,
+      y: 23,
+      w: 4
+    },
+    {
+      id: "usage-guide",
+      visible: false,
+      height: 20,
+      collapsed: true,
+      x: 4,
+      y: 0,
+      w: 4
+    },
+    {
+      id: "context-options",
+      visible: false,
+      height: 7,
+      collapsed: true,
+      x: 4,
+      y: 2,
+      w: 4
+    },
+    {
+      id: "results",
+      visible: false,
+      height: 9,
+      collapsed: true,
+      x: 4,
+      y: 14,
       w: 4
     },
     {
       id: "context-output",
-      visible: true,
+      visible: false,
       height: 10,
-      collapsed: false,
+      collapsed: true,
       x: 4,
-      y: 22,
+      y: 16,
       w: 4
     },
     {
@@ -170,33 +242,6 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
       w: 4
     },
     {
-      id: "log-console",
-      visible: true,
-      height: 6,
-      collapsed: false,
-      x: 0,
-      y: 32,
-      w: 4
-    },
-    {
-      id: "trace-pipeline",
-      visible: true,
-      height: 5,
-      collapsed: false,
-      x: 8,
-      y: 23,
-      w: 4
-    },
-    {
-      id: "deep-analysis",
-      visible: true,
-      height: 12,
-      collapsed: false,
-      x: 8,
-      y: 28,
-      w: 4
-    },
-    {
       id: "watch",
       visible: false,
       height: 4,
@@ -206,13 +251,13 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
       w: 4
     },
     {
-      id: "agent-ops",
-      visible: true,
-      height: 6,
+      id: "token-budget",
+      visible: false,
+      height: 8,
       collapsed: false,
       x: 0,
-      y: 38,
-      w: 4
+      y: 46,
+      w: 12
     }
   ]
 };
