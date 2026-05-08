@@ -1,91 +1,52 @@
-import { Meta } from '@storybook/blocks';
+import { Meta, Story } from '@storybook/blocks';
+import * as FullDashboardStories from './dashboard/FullDashboard.stories';
 
 <Meta title="Foundations/Introduction" />
 
-# SourcePrep UI Design System
+<div className="welcome-frame">
+  <div className="welcome-banner">
+    <h1>SourcePrep · Design System</h1>
+    <p>
+      The dashboard you're looking at is the same component you'd see running in the desktop app —
+      rendered live with the design tokens, primitives, and patterns documented across this site.
+      Browse the sidebar to explore foundations, atoms, composed patterns, and the full product surface.
+    </p>
+  </div>
+  <Story of={FullDashboardStories.FullDashboard} />
+</div>
 
-Welcome to the Prep UI component library and design system.
-
-## Overview
-
-This Storybook documents the shared UI components used across:
-- **Prep Dashboard** — The main application UI
-- **Prep Website** — Marketing site and documentation
-
-## Design Foundations
-
-Before diving into components, review the design foundations:
-
-### Visual Direction
-The visual direction determines the overall look and feel. Review the options in:
-`docs/Phase13_Storybook/theme-examples/`
-
-Available directions:
-- **Direction A: Slate Developer** — Clean, professional, neutral
-- **Direction B: Deep Focus** — Dark, immersive, code-centric
-- **Direction C: Signal Green** — Technical, status-forward
-- **Direction D: Warm Craft** — Approachable, human, indie-dev feel
-
-### Design Tokens
-All visual properties are defined as CSS custom properties (design tokens):
-- Colors (background, surface, text, semantic)
-- Typography (font families, sizes, weights)
-- Spacing (consistent 4px-based scale)
-- Border radius
-- Shadows
-- Motion/animation
-
-See `src/tokens/index.css` for the full token set.
-
-## Component Categories
-
-### Status Components
-Components that communicate system state:
-- `StatusBadge` — Fresh/Stale/Building indicators
-- `StatusCard` — Project status overview
-
-### Search Components
-Components for search functionality:
-- `SearchResult` — Individual search result row
-- `CodeChunk` — Code snippet with syntax highlighting
-- `CitationBlock` — Source citation display
-
-### Navigation Components
-Components for app navigation:
-- `Sidebar` — Project list and navigation
-- `Tabs` — Project/view switching
-
-### Form Components
-Components for user input:
-- `Input` — Text input
-- `Toggle` — Boolean toggle
-- `Select` — Dropdown select
-
-## Tech Stack
-
-- **React 18** — Component framework
-- **TypeScript** — Type safety
-- **Tailwind CSS** — Utility-first styling
-- **Tremor** — Dashboard component library
-- **Radix UI** — Accessible primitives
-- **Lucide** — Icon library
-
-## Getting Started
-
-```bash
-# Install dependencies
-cd packages/ui
-npm install
-
-# Run Storybook
-npm run storybook
-```
-
-## Contributing
-
-When adding new components:
-1. Create the component in `src/components/`
-2. Add stories in `src/stories/` or co-located `.stories.tsx`
-3. Document props with JSDoc comments
-4. Include loading, empty, and error states
-5. Test accessibility with keyboard navigation
+<style>{`
+  .welcome-frame {
+    min-height: 100vh;
+    width: 100%;
+    background-color: hsl(var(--background));
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.35) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.35) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: -1px -1px;
+  }
+  .welcome-banner {
+    max-width: 56rem;
+    margin: 0 auto;
+    padding: 2.5rem 2rem 1.5rem;
+    text-align: center;
+    color: hsl(var(--text));
+  }
+  .welcome-banner h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.5rem;
+  }
+  .welcome-banner p {
+    color: hsl(var(--text-muted));
+    line-height: 1.55;
+    margin: 0;
+  }
+  /* Allow the embedded dashboard story canvas to extend the grid pattern. */
+  .welcome-frame .sb-story,
+  .welcome-frame [data-storybook-story-block] {
+    background: transparent !important;
+  }
+`}</style>
