@@ -6,7 +6,8 @@ import '../src/styles/index.css';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { PanelChrome } from '../src/components/layout/PanelChrome';
-import { PANEL_REGISTRY, type PanelDefinition } from '../src/config/panelRegistry';
+import { PANEL_REGISTRY } from '../src/config/panelRegistry';
+import type { PanelDefinition } from '../src/config/panelRegistry';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Panel-chrome wrapping
