@@ -35,7 +35,7 @@
   }
 
   .ds-section {
-    max-width: 64rem;
+    max-width: 88rem;
     margin: 0 auto;
     padding: 2.5rem 2rem;
     border-top: 1px solid hsl(var(--border-subtle, var(--border)));
