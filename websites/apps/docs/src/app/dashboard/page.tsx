@@ -1,4 +1,3 @@
-import { Image as ImageIcon } from 'lucide-react';
 import { AnchorHeading } from '../../components/AnchorHeading';
 import { StoryEmbed } from '../../components/StoryEmbed';
 
@@ -12,153 +11,130 @@ export default function Page() {
 
         <h1 className="mt-6 text-4xl font-bold tracking-tight">Dashboard Guide</h1>
         <p className="mt-4 text-xl text-text-muted">
-          A comprehensive tour of the SourcePrep desktop interface panels and controls.
+          A tour of the SourcePrep desktop dashboard — a configurable workspace
+          of panels for monitoring your index, searching code, assembling
+          context, and tuning the engine.
         </p>
 
         <div className="mt-12 prose  max-w-none">
-          
+
           <AnchorHeading id="overview" level="h2">Overview</AnchorHeading>
           <p>
-            The dashboard adopts a unified <span className="font-semibold text-text">Two-Pane Architecture</span> designed to separate concerns:
-          </p>
-          <ol className="list-decimal pl-5 space-y-2 mt-4 mb-6">
-            <li><span className="font-semibold text-text">Graph Scope (Panel A)</span>: Managing the inventory of files (what enters the graph).</li>
-            <li><span className="font-semibold text-text">Graph Engine (Panel B)</span>: Orchestrating the knowledge pipeline that learns how your code connects (how it’s processed).</li>
-          </ol>
-          <p>
-            This layout streamlines the workflow: you define the scope, and the AI engine handles the heavy lifting of tracing, indexing, and enriching your codebase.
+            The dashboard is a <span className="font-semibold text-text">modular grid of panels</span>.
+            Pick the panels you want, drag them where you want, and the layout
+            persists across sessions. There is no fixed left/right split — every
+            panel is independently closeable, resizable, and rearrangeable.
           </p>
 
           <StoryEmbed
             storyId="dashboard-layouts-fulldashboard--full-dashboard"
             height={600}
-            caption="The SourcePrep modular dashboard — drag, resize, and arrange panels to your workflow"
+            caption="A populated dashboard — drag, resize, and close panels to suit your workflow."
           />
 
-          <hr className="my-12 border-border" />
-
-          <AnchorHeading id="panel-a" level="h2" className="text-2xl font-bold mt-12 mb-6">1. Graph Scope (Panel A)</AnchorHeading>
+          <AnchorHeading id="panel-categories" level="h2">Panel categories</AnchorHeading>
           <p>
-            The <span className="font-semibold text-text">Graph Scope</span> panel (left pane) is your inventory control. It defines exactly <em>what</em> code and documentation SourcePrep is allowed to see.
+            Every panel belongs to one of four categories. Use this when
+            choosing what to add to your layout.
           </p>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><span className="font-semibold text-text">Status:</span> what the engine is doing — Index Status, Pipeline progress, Code-Graph coverage, Atlas, Audit, Activity Heatmap, Goalposts, Roadmap.</li>
+            <li><span className="font-semibold text-text">Search:</span> querying the index — Search, Search Results, File Tree, Trace.</li>
+            <li><span className="font-semibold text-text">Context:</span> what gets sent to your AI — Context Options, Context Output, Architecture, Concepts.</li>
+            <li><span className="font-semibold text-text">Config:</span> tuning the engine — Deep Analysis, Token Budget, Agent Ops.</li>
+          </ul>
 
-          <AnchorHeading id="scope-header" level="h3" className="text-xl font-semibold mt-8 mb-4">Header & Health</AnchorHeading>
+          <AnchorHeading id="adding-panels" level="h2">Adding, moving, and resetting panels</AnchorHeading>
           <p>
-            The header displays the total file count tracked by the system and a <span className="font-semibold text-text">Health Indicator</span> (e.g., "97% Traced").
+            The <span className="font-semibold text-text">Panel Picker</span> dropdown
+            (top-right of the dashboard) is how you add and remove panels from your
+            layout. It also exposes layout management:
           </p>
-          <ul className="list-disc pl-5 space-y-2 mb-6 text-sm">
-            <li><span className="font-semibold text-text">Green Bar:</span> High coverage. Most files are successfully parsed and indexed.</li>
-            <li><span className="font-semibold text-text">Yellow/Red:</span> Low coverage. You may need to check the Queue or Excluded tabs.</li>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><span className="font-semibold text-text">Toggle:</span> show or hide any panel — non-essential panels are closeable and persist their hidden state.</li>
+            <li><span className="font-semibold text-text">Refit:</span> recompact the grid after closing panels.</li>
+            <li><span className="font-semibold text-text">Reset:</span> restore the default layout (with a confirmation step).</li>
+            <li><span className="font-semibold text-text">Copy / Paste:</span> serialize the current layout to clipboard so you can share it with a teammate or move it between machines.</li>
           </ul>
 
-          <AnchorHeading id="scope-tabs" level="h3" className="text-xl font-semibold mt-8 mb-4">Management Tabs</AnchorHeading>
-          
-          <h4 className="font-semibold mt-4 mb-2">Queue Tab</h4>
-          <p className="mb-4 text-sm">
-            Lists files that have been detected by the file watcher but are not yet fully integrated into the graph.
-          </p>
-          <ul className="list-disc pl-5 space-y-2 mb-6 text-sm">
-            <li><span className="font-semibold text-text">Untraced:</span> New files waiting for analysis.</li>
-            <li><span className="font-semibold text-text">Stale:</span> Modified files that need re-parsing.</li>
-            <li><span className="font-semibold text-text">Action:</span> Click <span className="font-semibold text-text">Trace Selected</span> or <span className="font-semibold text-text">Trace All</span> to hand these off to the Engine.</li>
-          </ul>
+          <StoryEmbed
+            storyId="dashboard-primitives-panelpicker--default"
+            height={350}
+            caption="Panel Picker — toggle visibility, reset, refit, and copy/paste your layout."
+          />
 
-          <h4 className="font-semibold mt-4 mb-2">Excluded Tab</h4>
-          <p className="mb-4 text-sm">
-            Manage files that are intentionally ignored.
+          <AnchorHeading id="key-panels" level="h2">Key panels</AnchorHeading>
+          <p className="text-sm text-text-muted">
+            Most users start with these. The full list lives in the Panel Picker.
           </p>
-          <ul className="list-disc pl-5 space-y-2 mb-6 text-sm">
-            <li>View active exclusion patterns (e.g., `**/*.min.js`).</li>
-            <li><span className="font-semibold text-text">Un-ignore:</span> Select files to remove them from the blocklist and add them to the Queue.</li>
-          </ul>
 
+          <h3 className="text-xl font-semibold mt-8 mb-2">Index Status</h3>
+          <p className="text-sm">
+            High-level health of the index — file counts, coverage, last build,
+            and stale-file count. The fastest way to see whether the engine has
+            kept up with your last edits.
+          </p>
+          <StoryEmbed
+            storyId="dashboard-widgets-indexstatuscard--loaded"
+            height={220}
+            caption="Index Status Card — index size, coverage, and freshness at a glance."
+          />
+
+          <h3 className="text-xl font-semibold mt-8 mb-2">Code-Graph Coverage</h3>
+          <p className="text-sm">
+            Inventory view of which files made it into the structural code graph,
+            which are queued, which were excluded, and which need re-tracing
+            after a recent change. Use the Untraced and Stale tabs to nudge
+            specific files into the pipeline.
+          </p>
           <StoryEmbed
             storyId="dashboard-widgets-trace-coveragepanel--default"
             height={350}
-            caption="Graph Scope panel — file coverage and queue management"
+            caption="Code-Graph Coverage — manage the inventory of indexed files."
           />
 
-          <hr className="my-12 border-border" />
-
-          <AnchorHeading id="panel-b" level="h2" className="text-2xl font-bold mt-12 mb-6">2. Knowledge Pipeline (Panel B)</AnchorHeading>
-          <p>
-            The <span className="font-semibold text-text">Knowledge Pipeline</span> panel (right pane) is the “Factory”. It visualizes each step of the process that turns your files (Scope) into context your AI can actually reason over — parsing the structure, reasoning about meaning, and packaging the guides and safeguards your tools consume.
+          <h3 className="text-xl font-semibold mt-8 mb-2">Pipeline</h3>
+          <p className="text-sm">
+            Visualizes the 15-stage enrichment pipeline (Sync → Enrich →
+            Finalize). Each stage shows its status, last run, and provenance
+            (deterministic re-use vs. fresh build). For a full breakdown of what
+            each stage does and why,
+            see <a href="/concepts/graph-enrichment" className="text-primary hover:underline">Concepts → Graph Enrichment</a>.
           </p>
-
-          <AnchorHeading id="pipeline-controls" level="h3" className="text-xl font-semibold mt-8 mb-4">Controls</AnchorHeading>
-          <ul className="list-disc pl-5 space-y-2 mb-6">
-            <li><span className="font-semibold text-text">Auto-Pilot:</span> Master toggle. When ON, the engine automatically advances files through the pipeline stages as resources allow.</li>
-            <li><span className="font-semibold text-text">Budget Info:</span> Real-time tracking of token usage (e.g., "12k / 50k tokens") to ensure no surprise costs.</li>
-          </ul>
-
-          <AnchorHeading id="pipeline-stages" level="h3" className="text-xl font-semibold mt-8 mb-4">What each step does</AnchorHeading>
-          <p className="text-sm text-text-muted mb-4">The pipeline has two modes: <span className="font-semibold text-text">Fast Sync</span> runs on every file save to keep the structural map current, and <span className="font-semibold text-text">Deep Enrichment</span> runs on idle or a schedule to layer in meaning and relationships. The individual steps below are the detail for the curious — day to day, you just let it run.</p>
-          <div className="space-y-4 mb-8">
-            <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">1. Structural Graph <span className="text-xs font-normal text-text-muted">(Rust)</span></div>
-              <div className="text-xs text-text-muted">Tree-sitter AST parsing: symbols, imports, call edges, Markdown section extraction.</div>
-            </div>
-            <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">2. Fast Catalogue <span className="text-xs font-normal text-text-muted">(3b LLM)</span></div>
-              <div className="text-xs text-text-muted">Rapid triage — classifies each file’s role and produces an initial summary.</div>
-            </div>
-            <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">3. Relationship Validation <span className="text-xs font-normal text-text-muted">(Rust)</span></div>
-              <div className="text-xs text-text-muted">LLM-hypothesized relationships validated against the filesystem. Hallucinations discarded.</div>
-            </div>
-            <div className="p-4 border border-border rounded bg-surface">
-              <div className="font-semibold text-sm">4. Knowledge Embedding <span className="text-xs font-normal text-text-muted">(Embeddings)</span></div>
-              <div className="text-xs text-text-muted">Validated nodes embedded for semantic search. Makes catalogue immediately searchable.</div>
-            </div>
-            <div className="p-4 border border-primary/30 rounded bg-surface">
-              <div className="font-semibold text-sm">5. Deep Reasoning <span className="text-xs font-normal text-text-muted">(14b LLM)</span></div>
-              <div className="text-xs text-text-muted"><em>Epistemic enrichment.</em> A larger model reasons about each node in graph context — adding domain tags, architecture layers, design patterns, and computing an understanding score (0.0–1.0).</div>
-            </div>
-            <div className="p-4 border border-primary/30 rounded bg-surface">
-              <div className="font-semibold text-sm">6. Module Synthesis <span className="text-xs font-normal text-text-muted">(14b LLM)</span></div>
-              <div className="text-xs text-text-muted"><em>Cluster synthesis.</em> Groups enriched nodes by domain into subsystem modules with navigable summaries.</div>
-            </div>
-            <div className="p-4 border border-primary/30 rounded bg-surface">
-              <div className="font-semibold text-sm">7. Codebase Atlas <span className="text-xs font-normal text-text-muted">(Routing)</span></div>
-              <div className="text-xs text-text-muted">Builds a pre-retrieval routing index from synthesized modules. Scopes queries to the right subsystem.</div>
-            </div>
-            <div className="p-4 border border-primary/30 rounded bg-surface">
-              <div className="font-semibold text-sm">8. Continuous Deepening <span className="text-xs font-normal text-text-muted">(Loop)</span></div>
-              <div className="text-xs text-text-muted"><em>Convergence loop.</em> Re-enriches nodes with decayed understanding scores until the graph stabilizes. Inspired by belief propagation.</div>
-            </div>
-            <div className="p-4 border border-primary/30 rounded bg-surface">
-              <div className="font-semibold text-sm">9. Deep Knowledge Embedding <span className="text-xs font-normal text-text-muted">(Embeddings)</span></div>
-              <div className="text-xs text-text-muted">Re-embeds all enriched knowledge, module summaries, and refined connections for maximum retrieval accuracy.</div>
-            </div>
-          </div>
-
           <StoryEmbed
             storyId="dashboard-widgets-trace-graphenrichmentpipeline--full-pipeline-running"
             height={450}
-            caption="Knowledge Pipeline in action — every step visualized with live progress"
+            caption="Pipeline panel — every stage visible with live progress."
           />
 
-          <hr className="my-12 border-border" />
-
-          <AnchorHeading id="global-settings" level="h2" className="text-2xl font-bold mt-12 mb-6">3. Global Settings</AnchorHeading>
-          <p>
-            The <span className="font-semibold text-text">Engine Room</span> where you configure the behavior of the AI.
-          </p>
-          <ul className="list-disc pl-5 space-y-2 mb-6">
-            <li><span className="font-semibold text-text">Model Selection:</span> Toggle between efficiency (3b models) and depth (14b+ models) for the enrichment stages.</li>
-            <li><span className="font-semibold text-text">Budget Limits:</span> Set hard caps on tokens or processing time.</li>
-            <li><span className="font-semibold text-text">Schedule:</span> Configure auto-save triggers and background processing intervals.</li>
-          </ul>
-
-          <AnchorHeading id="search-context" level="h2" className="text-2xl font-bold mt-12 mb-6">4. Search & Context</AnchorHeading>
-          <p>
-            (Legacy View) The search interface remains available for direct queries against the graph.
+          <h3 className="text-xl font-semibold mt-8 mb-2">Search & Context</h3>
+          <p className="text-sm">
+            The Search panel runs queries against the index; results stream in,
+            and the Context Output panel renders the assembled context as it would
+            be sent to your AI. Pair them with Context Options to control budget,
+            atlas routing, and trace expansion.
           </p>
           <StoryEmbed
             storyId="dashboard-widgets-searchpanel--full-search-demo"
             height={350}
-            caption="Semantic search — find code by meaning with context assembly"
+            caption="Search panel — find code by meaning, with the assembled context preview alongside."
           />
+
+          <AnchorHeading id="settings" level="h2">Settings</AnchorHeading>
+          <p>
+            The Settings panel (Config category) is the configuration surface for
+            the project. It is organized into sub-pages: Pipeline defaults,
+            Chunking and Embeddings, Source globs, Trace, Integrations, and
+            Destructive Actions. Most settings autosave; look for the
+            inline status indicator next to each field.
+          </p>
+
+          <AnchorHeading id="learn-more" level="h2">Learn more</AnchorHeading>
+          <ul className="list-disc pl-6 space-y-2">
+            <li><a href="/dashboard/projects" className="text-primary hover:underline">Managing projects</a> — adding repos, scope control, per-project settings.</li>
+            <li><a href="/concepts/graph-enrichment" className="text-primary hover:underline">Graph Enrichment</a> — what the 15 pipeline stages do.</li>
+            <li><a href="/concepts/code-graph" className="text-primary hover:underline">Code Graph</a> — the structural backbone the dashboard surfaces.</li>
+          </ul>
 
         </div>
       </div>
