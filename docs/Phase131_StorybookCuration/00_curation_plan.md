@@ -156,7 +156,7 @@ For all stories shipped publicly:
 
 ---
 
-## 6. Public/internal split — applied 2026-05-07
+## 6. Public/internal split — applied 2026-05-07, expanded 2026-05-08
 
 `packages/ui/.storybook/main.ts` filters out the following stories when
 `STORYBOOK_PUBLIC=true`:
@@ -172,14 +172,41 @@ For all stories shipped publicly:
 | `AuditPanel`, `OpportunitiesPanel` | Mock findings name internal architectural debt |
 | `GraphEnrichmentPipeline` | Internal pipeline-stage names + Phase comments |
 | `LogConsole` | Mock log entries reference internal logger module names |
+| `SwarmActivityPanel` | Story description text uses "Phase 119 Swarm Authority" naming |
+| `SidebarAIGateway` | Component description text references "Phase 119+ Swarm Coordinator" |
+| `AIModelsSettings` | `baseUrl` prop JSDoc reads "Phase 119 Task 16: Base URL for the SourcePrep daemon" |
+| `ProvenanceChip` | Phase 117 reference in component JSDoc |
 
-Result: 465 → 334 entries shipped. `originalSource` blocks reduced from 400 to 334; the remainder are safe public-bucket stories (UI primitives, layout, marketing). No "Implement MCP streaming responses" / "GraphEnrichmentPipeline.tsx exceeds…" / "GoalpostsPanel is hidden" / "Circular dependency" strings remain in the bundle. autodocs disabled, `.d.ts` filtered, source maps off, no real fetches at render time.
+Result: 465 → 311 entries shipped, 11M → 8.2M. No "Phase 119" / "Implement MCP streaming responses" / "GraphEnrichmentPipeline.tsx exceeds…" / "GoalpostsPanel is hidden" / "Circular dependency" / `prep.core.augmenter` (in BugReportModal) strings remain in the bundle. autodocs disabled, `.d.ts` filtered, source maps off, no real fetches at render time, `frame-ancestors` CSP restricts embedding to `*.sourceprep.io`.
+
+Local preview commands:
+
+- `npm run storybook` — full set on port 6006 (autodocs on, all stories), for design eng.
+- `npm run storybook:public` — public-build preview on port 6007 (mirrors what ships at `storybook.sourceprep.io`).
+- `STORYBOOK_PUBLIC=true npm run build-storybook` or `npm run build-storybook:public` — produce a public static bundle locally.
 
 ### 6.1 Known residuals — accepted for now, address in §5.2
 
-- **`Phase 102`–`Phase 120` strings** still appear in the bundle, leaked through component-source JSDoc comments via the originalSource embedding (e.g. `// Phase 117: per-stage rebuild provenance`). Surfaces in the Controls panel's prop description for any story whose component has a phase-prefixed comment. Mitigation: §5.2 component-comment sweep.
-- **`prep.core.*` / `prep.services.*` logger names** still appear in `FullDashboard` mock log fixtures. Acceptable: Python module conventions, no algorithm content. Mitigation: §5.2 mock-data sweep can replace with neutral logger names.
+After the adversarial pre-push pass on 2026-05-08:
+
+- **`Phase 102/103/104/105/114/117/118/120` strings** in component prop JSDoc surface in the Controls panel for direct visitors. Concrete sources: `AtlasLensPanel` (Phase 103 budget comment), `FullDashboard` (Phase 114/117/118 prop descriptions on the embedded RebuildingRow + scope/pipelineActive/projectId), `FileExplorerDetail` (Phase 120). Phase 119 specifically is fully eliminated. Mitigation: §5.2 component-comment sweep.
+- **`prep.core.*` / `prep.services.*` logger names** in `FullDashboard` mock log fixtures. Python module conventions, no algorithm content. Mitigation: §5.2 mock-data sweep can replace with neutral logger names.
+- **`github.com/MagneticAnomaly/SourcePrep-MCP`** in `SiteFooter.stories.tsx` mock data exposes a (currently private) repo name in the rendered footer. Fix: one-line edit to use a placeholder GitHub URL or the public marketing handle.
 - **Mock file paths** (`src/prep/api/auth.py`, etc.) in fixtures. Accepted per threat model — generic Python module paths, no algorithm leak; backend distribution is Nuitka-compiled binary.
+
+### 6.2 Adversarial-pass clean checks
+
+The following vectors were verified clean on 2026-05-08:
+
+- Excluded story chunks are absent from `storybook-static/assets/` (no leftover compiled output).
+- Excluded story IDs are absent from `stories.json` and `index.json` (no `iframe.html?id=...` access path).
+- No Storybook telemetry endpoints in the static bundle (telemetry is build-time only).
+- No hardcoded external fetch URLs (components that fetch use template literals against a runtime-supplied base URL).
+- `iframe.html` and `index.html` carry no `localhost` / `127.0.0.1` references.
+- No source maps, no `.d.ts` files, no real API keys, no `eval` / `Function` constructor / `dangerouslySetInnerHTML` usage, no service workers.
+- Components that fetch (`ConcurrencyHealth`, `CapacityHealth`, `RecentSwarmLogs`) — excluded; their stories are also gated by `isStoryMode` so they wouldn't have fetched even if shipped.
+- `console.log` leftovers in the bundle are user-action callbacks (`onAdd`, `onBuild`, etc.), not autorun.
+- Netlify CSP: `frame-ancestors 'self' https://sourceprep.io https://*.sourceprep.io`, `connect-src 'self'`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`.
 
 ---
 

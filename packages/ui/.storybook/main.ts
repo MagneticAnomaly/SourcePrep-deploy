@@ -1,6 +1,6 @@
 import type { StorybookConfig } from '@storybook/react-vite';
-import { sync as glob } from 'fast-glob';
-import { resolve } from 'path';
+import { readdirSync } from 'fs';
+import { join } from 'path';
 
 // Public-deploy mode: when STORYBOOK_PUBLIC=true the bundle is hardened for
 // publishing at storybook.sourceprep.io — autodocs is disabled (no Show-code
@@ -14,16 +14,30 @@ const isPublic = process.env.STORYBOOK_PUBLIC === 'true';
 //
 // Two reasons a story lands here:
 //   1. Internal-only surface (admin, dev diagnostics, internal-flow modals).
-//   2. Mock data contains internal roadmap / debt / phase content that would
-//      render on screen even with autodocs disabled. These need a mock-data
-//      sweep (see docs/Phase131_StorybookCuration §5.2) before going public.
+//   2. Mock data or component JSDoc contains internal roadmap / debt / phase
+//      content that would render on screen or surface in the Controls panel
+//      even with autodocs disabled. These need a mock-data + JSDoc sweep
+//      (see docs/Phase131_StorybookCuration §5.2) before going public.
 const internalStoryFilter =
-  /(BugReportModal|EnterpriseAdminPanel|ConcurrencyHealth|CapacityHealth|RecentSwarmLogs|ProbeButton|PlanDropdown|SidebarPipelineQueue|RoadmapPanel|AuditPanel|OpportunitiesPanel|GraphEnrichmentPipeline|LogConsole)\.stories\.[a-z]+$/;
+  /(BugReportModal|EnterpriseAdminPanel|ConcurrencyHealth|CapacityHealth|RecentSwarmLogs|ProbeButton|PlanDropdown|SidebarPipelineQueue|RoadmapPanel|AuditPanel|OpportunitiesPanel|GraphEnrichmentPipeline|LogConsole|SwarmActivityPanel|SidebarAIGateway|AIModelsSettings|ProvenanceChip)\.stories\.[a-z]+$/;
+
+// Walk packages/ui/src/ for *.mdx and *.stories.{js,jsx,mjs,ts,tsx}. Storybook
+// CLI invokes main.ts with cwd=packages/ui. We can't use __dirname (the package
+// is ESM), and we keep this dependency-free to avoid CJS/ESM interop quirks
+// with fast-glob.
+const STORY_FILE_RE = /\.(stories\.(js|jsx|mjs|ts|tsx)|mdx)$/;
+
+function walkStories(dir: string, results: string[] = []): string[] {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) walkStories(full, results);
+    else if (STORY_FILE_RE.test(entry.name)) results.push(full);
+  }
+  return results;
+}
 
 function resolveStories(): string[] {
-  const cwd = resolve(__dirname, '..');
-  const patterns = ['src/**/*.mdx', 'src/**/*.stories.@(js|jsx|mjs|ts|tsx)'];
-  const all = glob(patterns, { cwd, absolute: false });
+  const all = walkStories('src');
   const filtered = isPublic ? all.filter((p) => !internalStoryFilter.test(p)) : all;
   // Storybook expects paths relative to the .storybook directory.
   return filtered.map((p) => `../${p}`);
