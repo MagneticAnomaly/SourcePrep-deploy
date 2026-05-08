@@ -141,11 +141,14 @@ import './DesignSystem.css';
     <div className="ds-form-grid">
       <div className="ds-form-cell">
         <label className="ds-form-label">Select</label>
-        <Select defaultValue="ollama">
-          <option value="ollama">Ollama (local)</option>
-          <option value="openai">OpenAI</option>
-          <option value="anthropic">Anthropic</option>
-        </Select>
+        <Select
+          defaultValue="ollama"
+          options={[
+            { value: 'ollama', label: 'Ollama (local)' },
+            { value: 'openai', label: 'OpenAI' },
+            { value: 'anthropic', label: 'Anthropic' },
+          ]}
+        />
       </div>
       <div className="ds-form-cell">
         <label className="ds-form-label">Searchable Select</label>
@@ -163,7 +166,7 @@ import './DesignSystem.css';
       <div className="ds-form-cell">
         <label className="ds-form-label">Toggle</label>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <Toggle checked onCheckedChange={() => {}} />
+          <Toggle checked onChange={() => {}} />
           <span style={{ fontSize: '0.875rem', color: 'hsl(var(--text-muted))' }}>Auto-rebuild</span>
         </div>
       </div>
@@ -174,7 +177,7 @@ import './DesignSystem.css';
             id="auto-rebuild"
             label="Auto-rebuild on file change"
             description="Re-runs the index when watched files change."
-            control={<Toggle checked onCheckedChange={() => {}} />}
+            control={<Toggle checked onChange={() => {}} />}
           />
         </div>
       </div>
