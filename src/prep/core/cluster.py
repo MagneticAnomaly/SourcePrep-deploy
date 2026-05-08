@@ -1438,6 +1438,10 @@ class ClusterSynthesizer:
             synthesis_prompt=synthesis_prompt,
             progress_fn=progress_fn,
             project_id=self.project_id or None,
+            # Phase 127 (P127-F9): forward cancel_token so the swarm
+            # honors user-pause at phase boundaries and inside fanout's
+            # as_completed loop.
+            cancel_token=cancel_token,
         )
 
         if result is None:

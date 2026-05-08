@@ -776,3 +776,236 @@ def test_augmenter_run_returns_paused_when_held_at_preflight(tmp_path) -> None:
         pipeline_scheduler.clear_hold(
             "proj-aug-run-test", "cloud:test-endpoint",
         )
+
+
+def test_swarm_orchestrator_honors_cancel_token_pre_coord() -> None:
+    """Phase 127 (P127-F9): when cancel_token is set BEFORE execute() runs,
+    the swarm raises PipelinePausedError at the pre-coord boundary without
+    dispatching any LLM call.
+
+    Mirrors the soft-hold pre-coord pattern: same boundary, different
+    exception type.  The PipelinePausedError must propagate so the
+    worker dispatcher (build_orchestrator._run_worker) can transition
+    the slot to inactive — that's the contract that lets the orchestrator's
+    _pause_group wait-loop see slot.is_active flip false.
+    """
+    from prep.core.swarm_orchestrator import SwarmOrchestrator, WorkItem
+    from prep.services.cancellation import CancellationToken, PipelinePausedError
+
+    class FakeLLM:
+        model = "fake-cancel"
+        provider = "ollama"
+        endpoint_id = "test-cancel"
+        endpoint_url = "http://localhost:11434"
+        timeout = 30.0
+        generate_calls = 0
+
+        def _resolve_scheduler_node_id(self):
+            return "cloud:test-cancel"
+
+        @property
+        def _session(self):
+            return None
+
+        @property
+        def _thread_local(self):
+            class _TL:
+                session = None
+            return _TL()
+
+        def generate(self, *args, **kwargs):
+            FakeLLM.generate_calls += 1
+            return ("text", 0)
+
+    fake = FakeLLM()
+    orch = SwarmOrchestrator(
+        worker_llm=fake,
+        coordinator_llm=fake,
+        concurrency=1,
+        project_id=None,  # no project_id so soft-hold is a no-op
+    )
+
+    token = CancellationToken()
+    token.pause()
+
+    items = [WorkItem(id="w1", summary="x", full_context="y")]
+
+    def worker_fn(_item, _assignment):
+        return None
+
+    raised = False
+    try:
+        orch.execute(
+            items=items,
+            coordinator_prompt="(coord)",
+            worker_fn=worker_fn,
+            synthesis_prompt="(synth)",
+            enable_event_log=False,
+            cancel_token=token,
+        )
+    except PipelinePausedError:
+        raised = True
+
+    assert raised, "expected PipelinePausedError to propagate from execute()"
+    # No LLM calls — pre-coord boundary check fired.
+    assert FakeLLM.generate_calls == 0, (
+        f"LLM should not be called when cancel_token is set, "
+        f"got {FakeLLM.generate_calls} calls"
+    )
+
+
+def test_swarm_orchestrator_honors_cancel_token_mid_fanout() -> None:
+    """Phase 127 (P127-F9): when cancel_token is set DURING fanout, the
+    swarm shuts the pool down (no new workers dispatch) and raises
+    PipelinePausedError without invoking synthesis.
+
+    Salvage path: workers that already started complete naturally (Python
+    can't safely cancel a thread mid-HTTP-request); not-yet-started
+    futures are cancelled via cancel_futures=True; synth is skipped.
+
+    To make the test deterministic, the cancel is set BEFORE any worker
+    runs (gating it via a threading.Event); the test then verifies that
+    even though many work items were submitted, fanout raises
+    PipelinePausedError before synthesis, because the cancel is detected
+    at the top of the wait-loop on the very first iteration.
+    """
+    import json as _json
+    import threading as _threading
+
+    from prep.core.swarm_orchestrator import SwarmOrchestrator, WorkItem
+    from prep.services.cancellation import CancellationToken, PipelinePausedError
+
+    synth_calls = {"n": 0}
+    worker_calls = {"n": 0}
+    worker_lock = _threading.Lock()
+    # Gate that holds the first worker until we set the cancel.  Once
+    # the first worker is admitted into worker_fn, it has already been
+    # dispatched as a future — so this exercises "cancel raised between
+    # the first and second worker dispatch".
+    proceed_event = _threading.Event()
+    started_event = _threading.Event()
+
+    def _coord_response(items):
+        return _json.dumps({
+            "assignments": [
+                {
+                    "item_id": it.id,
+                    "analysis_angle": "default",
+                    "priority_concerns": [],
+                }
+                for it in items
+            ]
+        })
+
+    class FakeLLM:
+        model = "fake-cancel-mid"
+        provider = "ollama"
+        endpoint_id = "test-cancel-mid"
+        endpoint_url = "http://localhost:11434"
+        timeout = 30.0
+        _items_for_coord: list = []
+
+        def _resolve_scheduler_node_id(self):
+            return "cloud:test-cancel-mid"
+
+        @property
+        def _session(self):
+            return None
+
+        @property
+        def _thread_local(self):
+            class _TL:
+                session = None
+            return _TL()
+
+        def generate(self, *args, **kwargs):
+            system = kwargs.get("system", "")
+            if "synthesizing" in system:
+                synth_calls["n"] += 1
+                return ('{"key_insight": "should not reach here"}', 0)
+            else:
+                return (_coord_response(FakeLLM._items_for_coord), 0)
+
+    fake_coord = FakeLLM()
+    fake_worker = FakeLLM()
+
+    items = [
+        WorkItem(id=f"w{i}", summary=f"item {i}", full_context=f"ctx {i}")
+        for i in range(4)
+    ]
+    FakeLLM._items_for_coord = items
+
+    orch = SwarmOrchestrator(
+        worker_llm=fake_worker,
+        coordinator_llm=fake_coord,
+        concurrency=1,  # serial workers so the cancel latches deterministically
+        project_id=None,
+    )
+
+    token = CancellationToken()
+
+    def worker_fn(item, assignment):
+        with worker_lock:
+            worker_calls["n"] += 1
+            n = worker_calls["n"]
+        if n == 1:
+            # Signal we've started the first worker, then wait for the
+            # main thread to set the cancel before returning a result.
+            started_event.set()
+            proceed_event.wait(timeout=2.0)
+        return _json.dumps({"finding": f"ok-{item.id}"})
+
+    # Run execute() in a thread so the main thread can set the cancel
+    # after the first worker is actively running.
+    raised_exc: list = []
+
+    def _run():
+        try:
+            orch.execute(
+                items=items,
+                coordinator_prompt="Coordinate:\n{group_summaries}",
+                worker_fn=worker_fn,
+                synthesis_prompt="Synthesize:\n{worker_outputs}",
+                enable_event_log=False,
+                cancel_token=token,
+            )
+        except BaseException as e:
+            raised_exc.append(e)
+
+    t = _threading.Thread(target=_run, daemon=True)
+    t.start()
+    # Wait for the first worker to actually be running.
+    assert started_event.wait(timeout=5.0), (
+        "first worker never started within 5s — test setup broken"
+    )
+    # Set the cancel while the first worker is paused.
+    token.pause()
+    # Let the first worker complete.
+    proceed_event.set()
+    # Wait for execute() to return.
+    t.join(timeout=10.0)
+    assert not t.is_alive(), "execute() did not return within 10s"
+
+    # PipelinePausedError must propagate.
+    assert raised_exc, "expected an exception to propagate"
+    assert isinstance(raised_exc[0], PipelinePausedError), (
+        f"expected PipelinePausedError, got {type(raised_exc[0]).__name__}: "
+        f"{raised_exc[0]}"
+    )
+
+    # The first worker did run (it was already dispatched).
+    assert worker_calls["n"] >= 1, (
+        f"expected at least one worker to run before cancel, got {worker_calls['n']}"
+    )
+    # Critically: not all 4 workers ran.  cancel_futures + the
+    # post-batch cancel check stopped dispatch.
+    assert worker_calls["n"] < 4, (
+        f"expected fanout to stop dispatching new workers after cancel, "
+        f"got {worker_calls['n']} (all 4 workers completed despite cancel)"
+    )
+    # Synthesis must NOT have run — the boundary check after fanout
+    # fires when cancel propagates.
+    assert synth_calls["n"] == 0, (
+        f"synthesis should not have been dispatched after cancel, "
+        f"got {synth_calls['n']} synth calls"
+    )

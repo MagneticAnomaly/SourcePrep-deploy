@@ -578,6 +578,12 @@ class GroupReasoningEngine:
             synthesis_prompt=synthesis_prompt,
             progress_fn=progress_fn,
             project_id=self.project_id or None,
+            # Phase 127 (P127-F9): forward cancel_token so the swarm
+            # honors user-pause at phase boundaries and inside fanout's
+            # as_completed loop.  Without this, the fanout pool keeps
+            # dispatching its 10 parallel workers even after the
+            # pipeline state machine flips to PAUSED.
+            cancel_token=cancel_token,
         )
 
         if result is None:

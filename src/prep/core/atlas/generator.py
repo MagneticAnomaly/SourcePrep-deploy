@@ -335,6 +335,7 @@ class CodebaseAtlas:
     def generate_segmented(
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        cancel_token: Optional[Any] = None,
     ) -> Tuple[AtlasDocument, List[SegmentDocument]]:
         """Generate hierarchical atlas: root + per-segment atlases.
 
@@ -401,6 +402,7 @@ class CodebaseAtlas:
             swarm_docs, swarm_result = self._run_swarm(
                 segments, modules, epistemic, graph_stats, hub_files,
                 progress_callback=progress_callback,
+                cancel_token=cancel_token,
             )
             if swarm_docs:
                 if swarm_result and swarm_result.synthesis:
@@ -900,6 +902,7 @@ class CodebaseAtlas:
         graph_stats: Dict[str, Any],
         hub_files: List[Tuple[str, int]],
         progress_callback: Optional[Callable[..., None]] = None,
+        cancel_token: Optional[Any] = None,
     ) -> Tuple[List[SegmentDocument], Optional[SwarmResult]]:
         """Run swarm-orchestrated segment atlas generation.
 
@@ -1027,6 +1030,15 @@ class CodebaseAtlas:
             worker_fn=worker_fn,
             synthesis_prompt=synthesis_prompt,
             progress_fn=progress_fn,
+            # Phase 127 (P127-F9): forward cancel_token so the swarm
+            # honors user-pause at phase boundaries and inside fanout's
+            # as_completed loop.  Currently the atlas worker dispatcher
+            # in workers.py doesn't pass a cancel_token (atlas was
+            # historically a single LLM call), so this defaults to None
+            # and the cancel checks become no-ops.  When the atlas
+            # worker grows cancel_token support, this plumbing is in
+            # place to honor it.
+            cancel_token=cancel_token,
         )
 
         if result is None:
