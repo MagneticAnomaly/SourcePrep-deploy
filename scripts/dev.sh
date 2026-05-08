@@ -29,6 +29,7 @@ cleanup_all() {
     kill_port $DAEMON_PORT
     kill_port $DASHBOARD_PORT
     kill_port $STORYBOOK_PORT
+    kill_port $STORYBOOK_PUBLIC_PORT
     kill_port $MARKETING_PORT
     kill_port $DOCS_PORT
     kill_port $SUPPORT_PORT
@@ -43,6 +44,7 @@ trap cleanup_all EXIT INT TERM HUP
 DAEMON_PORT=8400
 DASHBOARD_PORT=5174
 STORYBOOK_PORT=6006
+STORYBOOK_PUBLIC_PORT=6007
 MARKETING_PORT=3000
 DOCS_PORT=3001
 SUPPORT_PORT=3002
@@ -103,6 +105,7 @@ main() {
     kill_port $DAEMON_PORT
     kill_port $DASHBOARD_PORT
     kill_port $STORYBOOK_PORT
+    kill_port $STORYBOOK_PUBLIC_PORT
     kill_port $MARKETING_PORT
     kill_port $DOCS_PORT
     kill_port $SUPPORT_PORT
@@ -152,10 +155,16 @@ main() {
     DASHBOARD_PID=$!
     echo ""
 
-    # Start Storybook
-    log_info "Starting Storybook on port $STORYBOOK_PORT..."
+    # Start Storybook (private — full set, autodocs on)
+    log_info "Starting Storybook (private) on port $STORYBOOK_PORT..."
     (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT/packages/ui" && npm run storybook -- -p $STORYBOOK_PORT) &
     STORYBOOK_PID=$!
+    echo ""
+
+    # Start public-mode Storybook (mirrors what ships at storybook.sourceprep.io)
+    log_info "Starting Storybook (public preview) on port $STORYBOOK_PUBLIC_PORT..."
+    (source ~/.nvm/nvm.sh && nvm use 20 >/dev/null && cd "$PROJECT_ROOT/packages/ui" && STORYBOOK_PUBLIC=true npx storybook dev -p $STORYBOOK_PUBLIC_PORT --no-open --quiet) &
+    STORYBOOK_PUBLIC_PID=$!
     echo ""
 
     # Build the public Storybook bundle (one-shot, in background) so the
@@ -195,6 +204,7 @@ main() {
     echo "║  Prep Daemon     │  http://localhost:$DAEMON_PORT              ║"
     echo "║  Dashboard UI      │  http://localhost:$DASHBOARD_PORT              ║"
     echo "║  Storybook         │  http://localhost:$STORYBOOK_PORT               ║"
+    echo "║  Storybook public  │  http://localhost:$STORYBOOK_PUBLIC_PORT               ║"
     echo "║  Marketing Site    │  http://localhost:$MARKETING_PORT               ║"
     echo "║  Docs Site         │  http://localhost:$DOCS_PORT               ║"
     echo "║  Support Site      │  http://localhost:$SUPPORT_PORT               ║"
@@ -217,6 +227,7 @@ case "${1:-}" in
         kill_port $DAEMON_PORT
         kill_port $DASHBOARD_PORT
         kill_port $STORYBOOK_PORT
+        kill_port $STORYBOOK_PUBLIC_PORT
         kill_port $MARKETING_PORT
         kill_port $DOCS_PORT
         kill_port $SUPPORT_PORT
