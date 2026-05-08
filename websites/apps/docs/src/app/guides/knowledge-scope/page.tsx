@@ -20,7 +20,7 @@ export default function Page() {
           <AnchorHeading id="what-is-knowledge-scope" level="h2">What is the Knowledge Scope?</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
             The Knowledge Scope is the set of files and folders you&apos;ve selected in the
-            dashboard&apos;s <span className="font-semibold text-text">FolderTree</span> panel. When you toggle a file or folder
+            dashboard&apos;s <span className="font-semibold text-text">Scope</span> panel. When you toggle a file or folder
             on, it gets included in your project&apos;s index. When you toggle it off, it&apos;s
             excluded. Only selected files are searchable and available as context for your AI tools.
           </p>
@@ -79,16 +79,16 @@ export default function Page() {
         <section className="mt-10">
           <AnchorHeading id="using-the-dashboard" level="h2">Using the dashboard</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
-            Open the <span className="font-semibold text-text">Knowledge Sources</span> panel in your dashboard. Each file and folder
+            Open the <span className="font-semibold text-text">Scope</span> panel in your dashboard. Each file and folder
             has a checkbox. Checked items are in scope; unchecked items are excluded.
           </p>
 
           <div className="not-prose my-6">
             <StoryEmbed
-              storyId="agents-agentscopepanel--with-scopes"
+              storyId="dashboard-widgets-foldertreepanel--scope-panel-named-populated"
               height={500}
-              title="Agent Knowledge Scopes"
-              caption="Live preview: Per-agent file tree selection with AI auto-populate and role presets."
+              title="Scope panel"
+              caption="The Scope panel — toggle files and folders into the index, with optional per-path weights."
             />
           </div>
 

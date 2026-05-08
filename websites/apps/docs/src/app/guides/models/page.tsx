@@ -90,15 +90,15 @@ export default function Page() {
 
           <AnchorHeading id="model-slots" level="h2">Model Slots Explained</AnchorHeading>
           <p>
-            SourcePrep defines four &quot;slots&quot; for AI models. You can configure these in the <span className="font-semibold text-text">Settings &gt; AI Models</span> tab of the dashboard.<br/> <br/> 
+            SourcePrep defines five &quot;slots&quot; for AI models. You can configure these in the <span className="font-semibold text-text">Settings &gt; AI Models</span> tab of the dashboard.<br/> <br/>
           </p>
-          
+
           <div className="not-prose my-6">
             <StoryEmbed
-              storyId="llm-aimodelssettings--default"
+              storyId="dashboard-widgets-settings-aimodelssettings--default"
               height={500}
               title="AI Models Settings Panel"
-              caption="Live preview: Configure the 4 model slots (Embedding, Small, Large, Compression) in the dashboard."
+              caption="Live preview: Configure the model slots in the dashboard."
             />
           </div>
 
@@ -138,36 +138,57 @@ export default function Page() {
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold">2. Fast Model</h3>
+              <h3 className="text-lg font-semibold">2. Single / Fast Model</h3>
               <p className="text-sm text-text-muted mb-2"><code>Recommended: qwen3:4b</code> (2.5GB)</p>
               <p>
-                A high-speed model used for background tasks. When you import a project, this model (if enabled)
-                scans files to generate tags and detect purpose without slowing down the indexing process.
+                A high-speed model used for background tasks like file cataloguing,
+                tagging, and intent detection during indexing. If you only configure
+                this one slot, it also handles Thinking-tier work as a fallback.
                 Alt: <code>qwen3:1.7b</code> for very limited VRAM.
               </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold">3. Thinking Model</h3>
-              <p className="text-sm text-text-muted mb-2"><code>Recommended: qwen3:8b</code> (5.2GB)</p>
-              <p className="text-sm text-text-muted mb-2"><code>Better: qwen3:14b</code> (9.3GB) or <code>qwen3:30b</code> MoE (19GB)</p>
-              <p className="text-sm text-text-muted mb-2"><code>BYOK: gpt-4.1-mini, claude-sonnet-4.6, gemini-2.5-flash</code></p>
+              <h3 className="text-lg font-semibold">3. Code Model</h3>
+              <p className="text-sm text-text-muted mb-2"><code>Recommended: qwen3-coder</code> family or any code-specialized local/cloud model</p>
               <p>
-                The reasoning model used for epistemic enrichment, clustering, and deep analysis.
-                It takes each file with its neighbor context and produces extended summaries and domain tags.
-                For BYOK, any mid-tier cloud model works well &mdash; you don&apos;t need the most expensive option.
+                A code-specialized slot used for code-aware analysis like inferred-edge
+                discovery (which call edges the AST parser missed). Falls back to the
+                Single / Fast Model if not configured.
               </p>
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold">4. Smart Compression (built-in)</h3>
-              <p className="text-sm text-text-muted mb-2">No GPU required</p>
+              <h3 className="text-lg font-semibold">4. Thinking Model</h3>
+              <p className="text-sm text-text-muted mb-2"><code>Recommended: qwen3:8b</code> (5.2GB) or <code>qwen3:14b</code> (9.3GB)</p>
+              <p className="text-sm text-text-muted mb-2"><code>BYOK examples: gpt-4.1-mini, claude-sonnet-4.6, gemini-2.5-flash</code></p>
               <p>
-                Two engines: <span className="font-semibold text-text">structural compression</span> for code extracts at variable Levels of Detail (LOD 0&ndash;5) based on relevance &mdash;
-                3&ndash;20&times;, no model needed. <span className="font-semibold text-text">Language compression</span> for docs uses a lightweight BERT model (~178 MB) to remove filler while preserving meaning. Tier-adaptive per client.
-                <a href="/guides/compression" className="ml-1 text-primary hover:underline">Read the full compression guide &rarr;</a>
+                The reasoning model used for epistemic enrichment, clustering, and
+                deep analysis. It takes each file with its neighbor context and produces
+                extended summaries and domain tags. For BYOK, any mid-tier cloud model
+                works well — you don&apos;t need the most expensive option.
               </p>
             </div>
+
+            <div>
+              <h3 className="text-lg font-semibold">5. Swarm Coordinator (optional)</h3>
+              <p className="text-sm text-text-muted mb-2">Inherits from Thinking Model by default</p>
+              <p>
+                Used during the Group Reasoning stage for cluster routing and
+                large-context synthesis when swarm mode is enabled. Most users
+                leave this inheriting from the Thinking slot; configure it
+                explicitly only when you want a different model for the
+                coordinator step.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-lg border border-border bg-surface p-4 text-sm">
+            <span className="font-semibold text-text">Smart Compression</span> is
+            not a model slot — it&apos;s a built-in feature that runs alongside
+            the slots above. It uses structural Level-of-Detail rendering
+            (no model needed) plus an optional 178 MB BERT model for prose
+            compression. <a href="/guides/compression" className="text-primary hover:underline">Read the compression guide →</a>
           </div>
 
           <div className="mt-8 rounded-lg bg-surface border border-border p-4">
