@@ -149,3 +149,12 @@ input[type="number"] {
   background-color: var(--color-text-muted);
 }
 
+/* MobileDocsDrawer slide-in animation — used by docs mobile nav drawer.
+   Vanilla keyframe because tailwindcss-animate is not installed. */
+@keyframes prep-drawer-slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+.prep-drawer-slide-in {
+  animation: prep-drawer-slide-in 200ms ease-out;
+}
