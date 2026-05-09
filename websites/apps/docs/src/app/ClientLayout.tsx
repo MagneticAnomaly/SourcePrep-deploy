@@ -64,6 +64,7 @@ export function ClientLayout({ children }: { children: ReactNode }) {
       headerProps={headerProps}
       footerProps={footerProps}
       sidebarItems={docsSidebar}
+      currentPath={pathname ?? undefined}
     >
       {children}
     </DocsLayout>
