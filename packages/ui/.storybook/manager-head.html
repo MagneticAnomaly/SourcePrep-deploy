@@ -3,24 +3,41 @@
   See docs/Phase131_StorybookCuration/02_visual_design_plan.md.
 -->
 <script>
-  // Force the addons panel closed on each manager load. setConfig({ showPanel:
-  // false }) only sets the initial default; once a user toggles it open, the
-  // preference sticks in localStorage and overrides setConfig on subsequent
-  // visits. We patch the persisted UI settings before Storybook reads them.
+  // Force the addons panel closed AND docked to the bottom on each manager
+  // load. setConfig({ showPanel: false, panelPosition: 'bottom' }) only seeds
+  // the initial default; once a user toggles or drags, the preference sticks
+  // in localStorage and overrides setConfig forever after. We patch any
+  // persisted Storybook UI state before the manager reads it.
+  //
+  // Storybook 7 uses different localStorage keys across versions
+  // (@storybook/manager/store on 7.6, @storybook/ui:settings on earlier),
+  // so we scan every key that mentions "storybook" rather than guessing.
   try {
-    var keys = ['@storybook/ui:settings', 'storybook-store', 'storybook'];
-    for (var i = 0; i < keys.length; i++) {
-      var raw = window.localStorage.getItem(keys[i]);
-      if (!raw) continue;
-      try {
-        var s = JSON.parse(raw);
-        var dirty = false;
-        if (s && typeof s === 'object') {
-          if (s.layout && s.layout.showPanel === true) { s.layout.showPanel = false; dirty = true; }
-          if (s.showPanel === true) { s.showPanel = false; dirty = true; }
+    function patchOne(raw) {
+      var s;
+      try { s = JSON.parse(raw); } catch (e) { return null; }
+      if (!s || typeof s !== 'object') return null;
+      var dirty = false;
+      function patchLayout(layout) {
+        if (!layout || typeof layout !== 'object') return;
+        if (layout.showPanel === true) { layout.showPanel = false; dirty = true; }
+        if (layout.panelPosition && layout.panelPosition !== 'bottom') {
+          layout.panelPosition = 'bottom'; dirty = true;
         }
-        if (dirty) window.localStorage.setItem(keys[i], JSON.stringify(s));
-      } catch (e) { /* ignore parse errors */ }
+      }
+      patchLayout(s.layout);
+      patchLayout(s);
+      // Some versions nest it under .state or similar.
+      if (s.state) patchLayout(s.state.layout || s.state);
+      return dirty ? JSON.stringify(s) : null;
+    }
+    for (var i = 0; i < window.localStorage.length; i++) {
+      var key = window.localStorage.key(i);
+      if (!key || !/storybook/i.test(key)) continue;
+      var raw = window.localStorage.getItem(key);
+      if (!raw) continue;
+      var patched = patchOne(raw);
+      if (patched) window.localStorage.setItem(key, patched);
     }
   } catch (e) { /* localStorage unavailable */ }
 </script>
