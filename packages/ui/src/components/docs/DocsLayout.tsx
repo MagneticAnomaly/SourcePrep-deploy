@@ -4,6 +4,7 @@ import { DocsSidebarNav, type DocNode } from './DocsSidebarNav';
 import { TableOfContents, type TocItem } from './TableOfContents';
 import { SiteHeader, type SiteHeaderProps } from '../site/SiteHeader';
 import { SiteFooter, type SiteFooterProps } from '../site/SiteFooter';
+import { MobileDocsDrawer } from './MobileDocsDrawer';
 
 export interface DocsLayoutProps {
   headerProps: SiteHeaderProps;
@@ -41,7 +42,20 @@ export function DocsLayout({
 
   return (
     <div className={cn('flex flex-col min-h-screen bg-background text-text', className)}>
-      <SiteHeader {...headerProps} className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60" />
+      <SiteHeader
+        {...headerProps}
+        mobileBreakpoint="lg"
+        mobileMenuContent={(close) => (
+          <MobileDocsDrawer
+            items={flagged}
+            siteLinks={headerProps.links}
+            onSearch={headerProps.onSearch}
+            onClose={close}
+            searchPlaceholder={headerProps.searchPlaceholder}
+          />
+        )}
+        className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      />
 
       <div className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row lg:gap-10">
