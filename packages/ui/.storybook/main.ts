@@ -82,6 +82,26 @@ const config: StorybookConfig = {
       ? 'node_modules/.cache/sb-vite-public'
       : 'node_modules/.cache/sb-vite-private';
 
+    // Splitting the cache dir means Vite pre-bundles each cache independently
+    // and can produce two distinct React copies in the same JS context — which
+    // breaks hooks with "null is not an object (evaluating
+    // dispatcher.useContext)". `resolve.dedupe` forces React + React-DOM to
+    // always resolve from a single node_modules path regardless of which
+    // cache served them, restoring shared module identity for hooks.
+    config.resolve = {
+      ...(config.resolve ?? {}),
+      dedupe: Array.from(
+        new Set([
+          ...((config.resolve?.dedupe as string[] | undefined) ?? []),
+          'react',
+          'react-dom',
+          'react/jsx-runtime',
+          '@storybook/blocks',
+          '@storybook/react',
+        ]),
+      ),
+    };
+
     // Expose STORYBOOK_PUBLIC to story modules so they can branch behavior
     // (e.g. FullDashboard hides devOnly panels in public mode but keeps them
     // in the local developer storybook). Vite's standard env-var prefix is
