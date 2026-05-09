@@ -11,9 +11,11 @@ export interface DocNode {
 export interface DocsSidebarNavProps {
   items: DocNode[];
   className?: string;
+  /** Optional callback fired when any link inside the nav is clicked. Used by the mobile drawer to auto-close on navigate. */
+  onLinkClick?: () => void;
 }
 
-export function DocsSidebarNav({ items, className }: DocsSidebarNavProps) {
+export function DocsSidebarNav({ items, className, onLinkClick }: DocsSidebarNavProps) {
   return (
     <nav className={cn('w-4/5', className)}>
       <ul className="space-y-4">
@@ -25,6 +27,7 @@ export function DocsSidebarNav({ items, className }: DocsSidebarNavProps) {
               {section.href ? (
                 <a
                   href={section.href}
+                  onClick={onLinkClick}
                   className={cn(headerClass, 'block hover:text-primary-hover transition-colors')}
                 >
                   {section.title}
@@ -32,25 +35,26 @@ export function DocsSidebarNav({ items, className }: DocsSidebarNavProps) {
               ) : (
                 <h4 className={headerClass}>{section.title}</h4>
               )}
-            {section.children && (
-              <ul className="space-y-1">
-                {section.children.map((item) => (
-                  <li key={item.href}>
-                    <a
-                      href={item.href}
-                      className={cn(
-                        'block px-2 py-1.5 text-sm rounded-md transition-colors',
-                        item.active
-                          ? 'bg-primary/10 text-primary font-medium'
-                          : 'text-text-muted hover:text-text hover:bg-surface-raised'
-                      )}
-                    >
-                      {item.title}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
+              {section.children && (
+                <ul className="space-y-1">
+                  {section.children.map((item) => (
+                    <li key={item.href}>
+                      <a
+                        href={item.href}
+                        onClick={onLinkClick}
+                        className={cn(
+                          'block px-2 py-1.5 text-sm rounded-md transition-colors',
+                          item.active
+                            ? 'bg-primary/10 text-primary font-medium'
+                            : 'text-text-muted hover:text-text hover:bg-surface-raised'
+                        )}
+                      >
+                        {item.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           );
         })}
