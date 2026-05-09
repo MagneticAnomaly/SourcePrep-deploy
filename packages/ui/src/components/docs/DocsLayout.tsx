@@ -66,6 +66,28 @@ export function DocsLayout({
 
           {/* Main Content Area */}
           <main className="flex-1 py-10 min-w-0">
+            {tocItems && tocItems.length > 0 && (
+              <details className="xl:hidden mb-6 rounded-md border border-border bg-surface-raised">
+                <summary className="cursor-pointer select-none px-4 py-2 text-sm font-medium text-text-muted hover:text-text">
+                  On this page
+                </summary>
+                <ul className="px-4 pb-3 pt-1 space-y-1.5 text-sm">
+                  {tocItems.map((item, idx) => (
+                    <li key={idx} style={{ paddingLeft: `${(item.level - 1) * 12}px` }}>
+                      <a
+                        href={item.href}
+                        className={cn(
+                          'block transition-colors',
+                          item.active ? 'text-primary font-medium' : 'text-text-muted hover:text-text'
+                        )}
+                      >
+                        {item.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             <article className="prose prose-slate dark:prose-invert max-w-none">
               {children}
             </article>
