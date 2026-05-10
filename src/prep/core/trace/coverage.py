@@ -250,6 +250,19 @@ def compute_trace_coverage(
         max_file_bytes=int(max_file_bytes),
     )
 
+    # Phase 133 divergence #5 surface: walker caps at max_files (100k by
+    # default in WalkConfig). When we hit that cap, files past it are
+    # silently dropped — surface a WARNING so operators know.
+    warnings: List[str] = []
+    WALKER_MAX_FILES = 100_000  # mirror engine/crates/prep-walker/src/lib.rs:168
+    if len(entries) >= WALKER_MAX_FILES:
+        warnings.append(
+            f"max_files cap hit: walker returned exactly {len(entries):,} files. "
+            f"Files beyond the cap were silently dropped. If your repo legitimately "
+            f"has more than {WALKER_MAX_FILES:,} eligible files, raise the cap in "
+            f"prep-walker WalkConfig."
+        )
+
     # user_exclude_globs is the user's "shown in Excluded list" surface —
     # applied on top of the walker's output, not as an exclusion to the
     # walker (so the user sees what they manually excluded).
@@ -473,6 +486,7 @@ def compute_trace_coverage(
         "untraced": untraced_files,
         "stale": stale_files,
         "excluded": excluded_files,
+        "warnings": warnings,
         "summary": {
             "total": total,
             "traced": len(final_traced),
