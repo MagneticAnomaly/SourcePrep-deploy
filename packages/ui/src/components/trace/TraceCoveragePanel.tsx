@@ -260,7 +260,7 @@ export function TraceCoveragePanel({
   progress,
   loading,
   onTraceAll,
-  onRetraceStale,
+  onRetraceStale: _onRetraceStale,
   onAddExcludePattern,
   onRemoveExcludePattern,
   onRefresh,
@@ -356,11 +356,14 @@ export function TraceCoveragePanel({
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-border">
+      {/* Tabs + single Update action — see GraphStructurePanel for the
+          full rationale. Both onTraceAll and onRetraceStale upstream
+          resolve to the same Fast Sync call, so this surfaces one
+          button covering all drift. */}
+      <div className="flex items-center border-b border-border">
         <button
           className={cn(
-            'flex-1 text-xs font-medium py-2 px-3 transition-colors border-b-2',
+            'text-xs font-medium py-2 px-3 transition-colors border-b-2',
             activeTab === 'queue'
               ? 'border-primary text-primary'
               : 'border-transparent text-text-muted hover:text-text'
@@ -378,7 +381,7 @@ export function TraceCoveragePanel({
         </button>
         <button
           className={cn(
-            'flex-1 text-xs font-medium py-2 px-3 transition-colors border-b-2',
+            'text-xs font-medium py-2 px-3 transition-colors border-b-2',
             activeTab === 'excluded'
               ? 'border-primary text-primary'
               : 'border-transparent text-text-muted hover:text-text'
@@ -395,6 +398,17 @@ export function TraceCoveragePanel({
             )}
           </span>
         </button>
+        {queueCount > 0 && !building && traceExists && (
+          <Button
+            variant="pill"
+            tone="success"
+            className="ml-auto mr-2"
+            onClick={onTraceAll}
+          >
+            <Play className="w-3 h-3" />
+            Update
+          </Button>
+        )}
       </div>
 
       {/* Tab content */}
@@ -415,21 +429,6 @@ export function TraceCoveragePanel({
                   icon={Clock}
                   iconColor="text-text-subtle"
                   defaultOpen={true}
-                  action={
-                    untracedFiles.length > 0 && !building && traceExists ? (
-                      <Button
-                        variant="pill"
-                        tone="success"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onTraceAll();
-                        }}
-                      >
-                        <Play className="w-3 h-3" />
-                        Map All
-                      </Button>
-                    ) : undefined
-                  }
                 >
                   {untracedFiles.map((f) => (
                     <FileRow key={f.path} file={f} timeField="created" compact={compact} />
@@ -442,21 +441,6 @@ export function TraceCoveragePanel({
                   icon={AlertTriangle}
                   iconColor="text-warning"
                   defaultOpen={true}
-                  action={
-                    staleFiles.length > 0 && !building ? (
-                      <Button
-                        variant="pill"
-                        tone="warning"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onRetraceStale();
-                        }}
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                        Update Map
-                      </Button>
-                    ) : undefined
-                  }
                 >
                   {staleFiles.map((f) => (
                     <FileRow key={f.path} file={f} timeField="modified" compact={compact} />
