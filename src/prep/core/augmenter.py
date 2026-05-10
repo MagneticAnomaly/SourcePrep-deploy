@@ -517,11 +517,17 @@ class TraceAugmenter:
         if node_id not in existing:
             return True
         entry = existing[node_id]
-        # Check if source file changed since last augmentation
+        # Check if source file changed since last augmentation.
+        # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
+        # (SHA-256-64 stored vs BLAKE3-128 manifest) so the Phase 133
+        # cutover does not falsely flag every node as stale and re-LLM
+        # the entire codebase. Phase 134 deletes this entire block —
+        # the changeset will tell us.
         file_path = node.get("file_path", "")
         if file_path and entry.file_hash:
-            current_hash = file_hashes.get(file_path)
-            if current_hash and current_hash != entry.file_hash:
+            from prep.core.ids import is_hash_stale
+            current_hash = file_hashes.get(file_path) or ""
+            if is_hash_stale(entry.file_hash, current_hash):
                 return True
         return False
 

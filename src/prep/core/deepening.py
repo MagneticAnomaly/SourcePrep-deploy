@@ -155,16 +155,21 @@ class DriftDetector:
                 adjacency[src].add(tgt)
                 adjacency[tgt].add(src)
 
-        # Step 1: Find stale nodes (hash mismatch)
+        # Step 1: Find stale nodes (hash mismatch).
+        # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
+        # (SHA-256-64 stored vs BLAKE3-128 manifest) so the Phase 133
+        # cutover does not falsely flag every node stale. Phase 134
+        # deletes this entire block — staleness comes from the changeset.
+        from prep.core.ids import is_hash_stale
         stale_set: Set[str] = set()
         for node_id, score in scores.items():
             aug = augmentations.get(node_id)
             if not aug:
                 continue
             file_path = node_id.replace("file:", "", 1) if node_id.startswith("file:") else ""
-            aug_hash = aug.get("file_hash")
-            current_hash = current_file_hashes.get(file_path)
-            if aug_hash and current_hash and aug_hash != current_hash:
+            aug_hash = aug.get("file_hash") or ""
+            current_hash = current_file_hashes.get(file_path) or ""
+            if is_hash_stale(aug_hash, current_hash):
                 stale_set.add(node_id)
                 report.stale_nodes.append(node_id)
                 report.decayed_nodes[node_id] = 0.0

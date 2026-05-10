@@ -29,12 +29,19 @@ class StalenessAnalyzer(BaseAnalyzer):
 
         stale_files: List[str] = []
 
+        # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
+        # (SHA-256-64 vs BLAKE3-128) so the Phase 133 cutover does not
+        # spam-flag every file as stale enrichment on every audit run.
+        # Phase 134 deletes this analyzer's hash logic — the changeset
+        # tells us what's stale.
+        from prep.core.ids import is_hash_stale
+
         for rel_path, stored_hash in ctx.file_hashes.items():
             aug = None
             node_id = f"file:{rel_path}"
             if node_id in ctx.augmentations:
                 aug_hash = ctx.augmentations[node_id].get("file_hash", "")
-                if aug_hash and aug_hash != stored_hash:
+                if is_hash_stale(aug_hash, stored_hash):
                     stale_files.append(rel_path)
                     continue
 
@@ -48,7 +55,7 @@ class StalenessAnalyzer(BaseAnalyzer):
             except Exception:
                 continue
 
-            if current_hash != stored_hash:
+            if is_hash_stale(stored_hash, current_hash):
                 stale_files.append(rel_path)
 
         if not stale_files:

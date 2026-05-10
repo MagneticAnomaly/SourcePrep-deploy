@@ -466,14 +466,20 @@ class EpistemicEnricher:
         # Not yet enriched
         if node_id not in existing:
             return True
-        # Check if source file changed since last enrichment
+        # Check if source file changed since last enrichment.
+        # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
+        # (SHA-256-64 vs BLAKE3-128) so the Phase 133 cutover does not
+        # re-LLM the entire codebase. Phase 134 deletes this — the
+        # changeset will tell us what to enrich.
         file_path = node.get("file_path", "")
         if file_path:
-            current_hash = file_hashes.get(file_path)
-            # Find the file hash that was recorded during this node's original augmentation
-            # since EpistemicEntry doesn't store the hash directly.
-            aug_hash = augmentations[node_id].get("file_hash")
-            if current_hash and aug_hash and current_hash != aug_hash:
+            from prep.core.ids import is_hash_stale
+            current_hash = file_hashes.get(file_path) or ""
+            # Find the file hash that was recorded during this node's
+            # original augmentation since EpistemicEntry doesn't store
+            # the hash directly.
+            aug_hash = augmentations[node_id].get("file_hash") or ""
+            if is_hash_stale(aug_hash, current_hash):
                 return True
         # Already enriched and unchanged
         return False

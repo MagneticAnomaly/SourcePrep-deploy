@@ -208,12 +208,17 @@ def compute_epistemic_score(
     else:
         c5 = 0.5  # Pass 2
 
-    # 6. Staleness check
+    # 6. Staleness check.
+    # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
+    # (SHA-256-64 vs BLAKE3-128) so the Phase 133 cutover does not
+    # tank every node's score to 0.0. Phase 134 deletes this whole
+    # check — the changeset will tell us what's stale.
+    from prep.core.ids import is_hash_stale
     file_path = node_id.replace("file:", "", 1) if node_id.startswith("file:") else ""
-    aug_hash = augmentation.get("file_hash") if augmentation else None
-    current_hash = current_file_hashes.get(file_path)
+    aug_hash = (augmentation.get("file_hash") if augmentation else None) or ""
+    current_hash = current_file_hashes.get(file_path) or ""
     if aug_hash and current_hash:
-        c6 = 1.0 if aug_hash == current_hash else 0.0
+        c6 = 0.0 if is_hash_stale(aug_hash, current_hash) else 1.0
     else:
         c6 = 0.3  # unknown
 
