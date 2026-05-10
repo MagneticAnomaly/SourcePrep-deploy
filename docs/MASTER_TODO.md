@@ -91,6 +91,20 @@ per-phase RESULTS.md is authoritative.
   relabel, synthesizer module + tests, Pass 3 wired into
   `_concepts_worker`, MCP ambient kind-aware).** Awaits live
   pipeline run for end-to-end verification.
+- Phase 133 (RustWalkerHasherCutover) — completes the half-shipped
+  migration from Python `os.walk` + `fnmatch` + `hashlib.sha256`
+  to `prep_engine.walk_repo` + BLAKE3-128 on the Graph Scope
+  coverage path. Eliminates 6-surface filter divergence between
+  `compute_trace_coverage` and the structural rebuild walker.
+  Manifest gains `hash_algo` field for self-healing migration
+  (Path A: pre-cutover SHA-256-64 → next rebuild rewrites with
+  BLAKE3-128). Phase 125c forward-look (bimodal walker) locked in
+  as a regression contract. Adjacent brand cleanup: dropped
+  legacy `**/.codrag/**` and `**/codrag_data/**` exclude patterns.
+  **Implemented 2026-05-10** (commits 8d87b5c3 → de9a575b on
+  branch `phase-133-rust-walker-cutover`); see
+  `docs/Phase133_RustWalkerHasherCutover/README.md` and
+  `IMPLEMENTATION_PLAN.md`.
 
 ### Cross-phase follow-ups (deferred but tracked)
 
