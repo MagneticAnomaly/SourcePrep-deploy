@@ -15,12 +15,13 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import pathspec
 
+import prep_engine
 from prep.core.ids import (
     stable_edge_id,
     stable_external_module_id,
-    stable_file_hash,
     stable_file_node_id,
 )
+from prep.core.manifest import CURRENT_HASH_ALGO
 from prep.core.repo_policy import effective_excludes, ensure_repo_policy
 from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
 
@@ -215,7 +216,7 @@ class TraceBuilder:
             except Exception:
                 source = ""
             
-            file_hashes[rel_path] = stable_file_hash(source)
+            file_hashes[rel_path] = prep_engine.hash_content(source)
 
             file_node = TraceNode(
                 id=stable_file_node_id(rel_path),
@@ -457,6 +458,7 @@ class TraceBuilder:
                             len(saved_file_hashes), len(new_hashes), len(merged))
             else:
                 manifest["file_hashes"] = new_hashes
+            manifest["hash_algo"] = CURRENT_HASH_ALGO   # Phase 133: tag post-Rust-build manifest
             self._write_manifest(manifest)
 
         return manifest
@@ -478,7 +480,7 @@ class TraceBuilder:
                     source = file_path.read_text(encoding="utf-8", errors="ignore")
             except Exception:
                 source = ""
-            file_hashes[rel_path] = stable_file_hash(source)
+            file_hashes[rel_path] = prep_engine.hash_content(source)
         return file_hashes
 
     def _enumerate_files(self) -> List[Path]:
@@ -599,6 +601,7 @@ class TraceBuilder:
         file_errors: List[FileError],
         last_error: Optional[str],
         file_hashes: Optional[Dict[str, str]] = None,
+        hash_algo: str = CURRENT_HASH_ALGO,   # Phase 133: always tag with algo
     ) -> Dict[str, Any]:
         manifest: Dict[str, Any] = {
             "version": TRACE_MANIFEST_VERSION,
@@ -619,6 +622,7 @@ class TraceBuilder:
             },
             "file_errors": [{"file_path": e.file_path, "error_type": e.error_type, "message": e.message} for e in file_errors],
             "last_error": last_error,
+            "hash_algo": hash_algo,             # Phase 133: always emit
         }
         if file_hashes is not None:
             manifest["file_hashes"] = file_hashes
