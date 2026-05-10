@@ -183,6 +183,16 @@ def compute_trace_coverage(
                                 merged_hashes = dict(fresh_hashes)
                                 merged_hashes.update(new_hashes)
                                 fresh_manifest["file_hashes"] = merged_hashes
+                                # Phase 133: backfill writes BLAKE3 hashes
+                                # via prep_engine.hash_content above; tag the
+                                # manifest accordingly so coverage's Path A
+                                # self-heal does not misfire on the next call
+                                # (pre-fix: a fresh build with trace_nodes.jsonl
+                                # but absent hash_algo would default to
+                                # 'sha256-64' on the next read → mismatch with
+                                # CURRENT_HASH_ALGO → just-backfilled BLAKE3
+                                # hashes flagged as stale → wasted re-compute).
+                                fresh_manifest["hash_algo"] = CURRENT_HASH_ALGO
 
                                 # Update our in-memory view too
                                 manifest_hashes.update(fresh_hashes)
