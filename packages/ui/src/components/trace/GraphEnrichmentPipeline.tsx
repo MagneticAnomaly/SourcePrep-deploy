@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '../../lib/utils';
 import { SlidingSwitch2, SlidingSwitch3 } from '../primitives/SlidingSwitch';
+import { Button } from '../primitives/Button';
 import {
   GitBranch, Brain, ShieldCheck, Play, AlertTriangle, CheckCircle2,
   Circle, Clock, Loader2, Layers, Network, Database, Code2, Map, Eye, Pause,
@@ -1867,35 +1868,35 @@ export function GraphEnrichmentPipeline({
         </div>
         <div className="flex items-center gap-2">
           {!fastAuto && effectiveFastPaused && onResumePipeline && !fastRunning && (
-            <button
+            <Button
+              variant="pill"
+              tone="warning"
               onClick={() => onResumePipeline('fast_sync')}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
               title="Resume from where it paused"
             >
               <Play className="w-3.5 h-3.5" />
               Resume
-            </button>
+            </Button>
           )}
-          {!fastAuto && onRunFastSync && !effectiveFastPaused && (
-            <button
-              data-testid="pipeline-run-fast_sync"
-              onClick={inactive ? undefined : onRunFastSync}
-              disabled={fastRunning || limitReached || inactive}
-              title={
-                inactive ? "Activate this project to run pipelines." :
-                  limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
-              }
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                (fastRunning || limitReached || inactive)
-                  ? "border-border bg-surface text-text-subtle cursor-not-allowed"
-                  : "border-success/40 bg-success/10 text-success hover:bg-success/20"
-              )}
-            >
-              <Play className="w-3.5 h-3.5" />
-              {fastRunning ? 'Running…' : 'Run'}
-            </button>
-          )}
+          {!fastAuto && onRunFastSync && !effectiveFastPaused && (() => {
+            const fastDisabled = fastRunning || limitReached || inactive;
+            return (
+              <Button
+                variant="pill"
+                tone={fastDisabled ? 'default' : 'success'}
+                data-testid="pipeline-run-fast_sync"
+                onClick={inactive ? undefined : onRunFastSync}
+                disabled={fastDisabled}
+                title={
+                  inactive ? "Activate this project to run pipelines." :
+                    limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
+                }
+              >
+                <Play className="w-3.5 h-3.5" />
+                {fastRunning ? 'Running…' : 'Run'}
+              </Button>
+            );
+          })()}
           <SlidingSwitch2
             value={fastAuto}
             onChange={onAutoConfigChange ? setFastSync : undefined}
@@ -1964,35 +1965,35 @@ export function GraphEnrichmentPipeline({
         </div>
         <div className="flex items-center gap-2">
           {effectiveDeepPaused && onResumePipeline && !deepRunning && (
-            <button
+            <Button
+              variant="pill"
+              tone="warning"
               onClick={() => onResumePipeline('deep_enrichment')}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
               title="Resume from where it paused"
             >
               <Play className="w-3.5 h-3.5" />
               Resume
-            </button>
+            </Button>
           )}
-          {deepMode === 'manual' && onRunDeepEnrichment && !(effectiveDeepPaused && !deepRunning) && (
-            <button
-              data-testid="pipeline-run-deep_enrichment"
-              onClick={inactive ? undefined : onRunDeepEnrichment}
-              disabled={deepRunning || limitReached || inactive}
-              title={
-                inactive ? "Activate this project to run pipelines." :
-                  limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
-              }
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                (deepRunning || limitReached || inactive)
-                  ? "border-border bg-surface text-text-subtle cursor-not-allowed"
-                  : "border-success/40 bg-success/10 text-success hover:bg-success/20"
-              )}
-            >
-              <Play className="w-3.5 h-3.5" />
-              {deepRunning ? 'Running…' : effectiveDeepPaused ? 'Paused' : 'Run'}
-            </button>
-          )}
+          {deepMode === 'manual' && onRunDeepEnrichment && !(effectiveDeepPaused && !deepRunning) && (() => {
+            const deepDisabled = deepRunning || limitReached || inactive;
+            return (
+              <Button
+                variant="pill"
+                tone={deepDisabled ? 'default' : 'success'}
+                data-testid="pipeline-run-deep_enrichment"
+                onClick={inactive ? undefined : onRunDeepEnrichment}
+                disabled={deepDisabled}
+                title={
+                  inactive ? "Activate this project to run pipelines." :
+                    limitReached ? "Project limit reached. Upgrade to resume syncing." : undefined
+                }
+              >
+                <Play className="w-3.5 h-3.5" />
+                {deepRunning ? 'Running…' : effectiveDeepPaused ? 'Paused' : 'Run'}
+              </Button>
+            );
+          })()}
           {onOpenDeepSettings && deepMode === 'scheduled' && (
             <button
               onClick={onOpenDeepSettings}
@@ -2068,34 +2069,34 @@ export function GraphEnrichmentPipeline({
         </div>
         <div className="flex items-center gap-2">
           {effectiveFinalizePaused && onResumePipeline && !finalizeRunning && (
-            <button
+            <Button
+              variant="pill"
+              tone="warning"
               onClick={() => onResumePipeline('finalize')}
-              className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
               title="Resume from where it paused"
             >
               <Play className="w-3.5 h-3.5" />
               Resume
-            </button>
+            </Button>
           )}
           {/* Phase 105b: hide Run button when finalize mode is Auto, matching
               the deep-enrichment pattern. In Auto mode, finalize chains
               automatically after deep completes — manual Run is misleading. */}
-          {cfg.finalize === 'manual' && onRunFinalize && !effectiveFinalizePaused && (
-            <button
-              data-testid="pipeline-run-finalize"
-              onClick={inactive ? undefined : onRunFinalize}
-              disabled={finalizeRunning || limitReached || inactive}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                (finalizeRunning || limitReached || inactive)
-                  ? "border-border bg-surface text-text-subtle cursor-not-allowed"
-                  : "border-success/40 bg-success/10 text-success hover:bg-success/20"
-              )}
-            >
-              <Play className="w-3.5 h-3.5" />
-              {finalizeRunning ? 'Running\u2026' : 'Run'}
-            </button>
-          )}
+          {cfg.finalize === 'manual' && onRunFinalize && !effectiveFinalizePaused && (() => {
+            const finDisabled = finalizeRunning || limitReached || inactive;
+            return (
+              <Button
+                variant="pill"
+                tone={finDisabled ? 'default' : 'success'}
+                data-testid="pipeline-run-finalize"
+                onClick={inactive ? undefined : onRunFinalize}
+                disabled={finDisabled}
+              >
+                <Play className="w-3.5 h-3.5" />
+                {finalizeRunning ? 'Running\u2026' : 'Run'}
+              </Button>
+            );
+          })()}
           <SlidingSwitch2
             value={cfg.finalize === 'auto'}
             onChange={onAutoConfigChange ? (v: boolean) => onAutoConfigChange({ ...cfg, finalize: v ? 'auto' : 'manual' }) : undefined}

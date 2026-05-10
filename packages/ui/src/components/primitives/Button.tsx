@@ -15,6 +15,9 @@ const buttonVariants = cva(
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 active:bg-secondary/70",
         ghost: "hover:bg-accent hover:text-accent-foreground active:bg-accent/80",
         link: "text-primary underline-offset-4 hover:underline",
+        // Pill: capsule action button. Tones below set color; size="default"
+        // is overridden via compoundVariants to a smaller height/padding.
+        pill: "rounded-full border gap-1.5 font-semibold",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -23,10 +26,24 @@ const buttonVariants = cva(
         icon: "h-10 w-10",
         "icon-sm": "h-7 w-7 p-1",
       },
+      tone: {
+        default: "",
+        success: "",
+        warning: "",
+      },
     },
+    compoundVariants: [
+      // Pill height + padding override (overrides size="default")
+      { variant: "pill", size: "default", className: "h-7 px-3 text-xs" },
+      // Pill tones — colors only; shape comes from variant="pill"
+      { variant: "pill", tone: "default", className: "border-border bg-surface text-text-muted hover:bg-surface-raised" },
+      { variant: "pill", tone: "success", className: "border-success/40 bg-success/10 text-success hover:bg-success/20" },
+      { variant: "pill", tone: "warning", className: "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20" },
+    ],
     defaultVariants: {
       variant: "default",
       size: "default",
+      tone: "default",
     },
   }
 );
@@ -40,11 +57,11 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, loading = false, icon: Icon, children, ...props }, ref) => {
+  ({ className, variant, size, tone, asChild = false, loading = false, icon: Icon, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({ variant, size, tone, className }))}
         ref={ref}
         disabled={props.disabled || loading}
         {...props}

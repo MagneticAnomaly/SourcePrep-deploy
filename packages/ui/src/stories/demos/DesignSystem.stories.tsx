@@ -1,8 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { ArrowRight, Save, Search } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, Play, Save, Search } from 'lucide-react';
 import { Button } from '../../components/primitives/Button';
 import { Select } from '../../components/primitives/Select';
 import { SearchableSelect } from '../../components/primitives/SearchableSelect';
+import { Checkbox } from '../../components/primitives/Checkbox';
+import { SlidingSwitch2, SlidingSwitch3 } from '../../components/primitives/SlidingSwitch';
 import { CopyButton } from '../../components/context/CopyButton';
 import { CitationBlock } from '../../components/context/CitationBlock';
 import { Section } from '../../components/settings/Section';
@@ -134,7 +137,7 @@ export const Showcase: StoryObj = {
       <section className="ds-section">
         <div className="ds-section-head">
           <h2 style={{ color: TEXT_COLOR }}>Buttons</h2>
-          <p>Six variants, three sizes. Every action you'd take in the product is one of these.</p>
+          <p>Variants, sizes, and pill action capsules. Every action in the product is one of these.</p>
         </div>
         <div className="ds-grid">
           <div className="ds-row">
@@ -153,7 +156,22 @@ export const Showcase: StoryObj = {
             <Button><Save className="h-4 w-4 mr-2" />With icon</Button>
             <Button disabled>Disabled</Button>
           </div>
+          <div className="ds-row">
+            <Button variant="pill" tone="default"><Play className="w-3.5 h-3.5" />Run</Button>
+            <Button variant="pill" tone="success"><Play className="w-3.5 h-3.5" />Run</Button>
+            <Button variant="pill" tone="warning"><Play className="w-3.5 h-3.5" />Resume</Button>
+            <Button variant="pill" tone="default" disabled><Play className="w-3.5 h-3.5" />Disabled</Button>
+          </div>
         </div>
+      </section>
+
+      {/* SLIDING SWITCHES */}
+      <section className="ds-section">
+        <div className="ds-section-head">
+          <h2 style={{ color: TEXT_COLOR }}>Sliding switches</h2>
+          <p>Segmented two- and three-state controls used in the pipeline panel for Manual / Auto / Scheduled.</p>
+        </div>
+        <SlidingSwitchSpecimen />
       </section>
 
       {/* FORM ELEMENTS */}
@@ -193,6 +211,10 @@ export const Showcase: StoryObj = {
               <Toggle checked onChange={() => {}} />
               <span style={{ fontSize: '0.875rem', color: MUTED_COLOR }}>Auto-rebuild</span>
             </div>
+          </div>
+          <div className="ds-form-cell">
+            <span className="ds-form-label">Checkbox</span>
+            <CheckboxSpecimen />
           </div>
           <div className="ds-form-cell">
             <span className="ds-form-label">Setting Row</span>
@@ -270,6 +292,54 @@ function TypeRow({ label, children }: { label: string; children: React.ReactNode
     <div className="ds-type-row">
       <span className="ds-type-label">{label}</span>
       <div>{children}</div>
+    </div>
+  );
+}
+
+function CheckboxSpecimen() {
+  const [a, setA] = useState(true);
+  const [b, setB] = useState(false);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: MUTED_COLOR }}>
+        <Checkbox checked={a} onCheckedChange={setA} />
+        Threshold trigger
+      </label>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: MUTED_COLOR }}>
+        <Checkbox checked={b} onCheckedChange={setB} size="sm" />
+        Schedule (size="sm")
+      </label>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: MUTED_COLOR, opacity: 0.6 }}>
+        <Checkbox checked disabled onCheckedChange={() => {}} />
+        Disabled
+      </label>
+    </div>
+  );
+}
+
+function SlidingSwitchSpecimen() {
+  const [auto, setAuto] = useState(true);
+  const [mode, setMode] = useState<'manual' | 'auto' | 'scheduled'>('auto');
+  return (
+    <div className="ds-grid">
+      <div className="ds-row">
+        <span style={{ fontSize: '0.75rem', color: MUTED_COLOR, minWidth: '8rem' }}>Two-state</span>
+        <SlidingSwitch2 value={auto} onChange={setAuto} />
+        <span style={{ fontSize: '0.75rem', color: MUTED_COLOR }}>{auto ? 'Auto' : 'Manual'}</span>
+      </div>
+      <div className="ds-row">
+        <span style={{ fontSize: '0.75rem', color: MUTED_COLOR, minWidth: '8rem' }}>Three-state</span>
+        <SlidingSwitch3
+          value={mode}
+          options={[
+            { label: 'Manual', value: 'manual' },
+            { label: 'Auto', value: 'auto' },
+            { label: 'Scheduled', value: 'scheduled' },
+          ]}
+          onChange={setMode}
+        />
+        <span style={{ fontSize: '0.75rem', color: MUTED_COLOR }}>{mode}</span>
+      </div>
     </div>
   );
 }

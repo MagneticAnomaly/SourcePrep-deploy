@@ -406,7 +406,7 @@ export function AuditPanel({
     return (
       <div className={cn('flex h-full flex-col', className)}>
         <div className="flex items-center justify-between border-b border-border px-4 py-2">
-          <button className="text-sm text-primary hover:underline" onClick={() => onViewReport('')}>← Back</button>
+          <Button variant="link" className="px-0 h-auto" onClick={() => onViewReport('')}>← Back</Button>
           <CopyBtn text={reportContent} label="Copy" icon={Copy} />
         </div>
         <div className="flex-1 overflow-auto p-4">

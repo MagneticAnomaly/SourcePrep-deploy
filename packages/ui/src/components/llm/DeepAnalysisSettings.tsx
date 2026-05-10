@@ -1,6 +1,7 @@
 import { cn } from '../../lib/utils';
 import { Select } from '../primitives/Select';
 import { StepperNumberInput } from '../primitives/StepperNumberInput';
+import { Checkbox } from '../primitives/Checkbox';
 import { Calendar, Gauge, Info, Zap } from 'lucide-react';
 
 export interface DeepAnalysisSchedule {
@@ -145,12 +146,11 @@ export function DeepAnalysisSettings({
               {/* Threshold trigger */}
               <div className="rounded border border-border p-3 space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={threshEnabled}
-                    onChange={toggleThresh}
+                    onCheckedChange={toggleThresh}
                     disabled={disabled}
-                    className="accent-purple-500 w-3.5 h-3.5"
+                    size="sm"
                   />
                   <span className="text-xs font-medium text-text">Threshold — when files change</span>
                 </label>
@@ -172,12 +172,11 @@ export function DeepAnalysisSettings({
               {/* Time-based trigger */}
               <div className="rounded border border-border p-3 space-y-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={timeEnabled}
-                    onChange={toggleTime}
+                    onCheckedChange={toggleTime}
                     disabled={disabled}
-                    className="accent-purple-500 w-3.5 h-3.5"
+                    size="sm"
                   />
                   <span className="text-xs font-medium text-text">Schedule — time-based</span>
                 </label>

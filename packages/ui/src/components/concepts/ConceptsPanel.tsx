@@ -13,6 +13,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { StageRegenerateButton } from '../pipeline/StageRegenerateButton';
+import { Button } from '../primitives/Button';
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -307,38 +308,31 @@ function ConceptRow({ concept, onApprove, onArchive, onDelete, onMarkFresh }: {
           ))}
         </div>
       )}
-      <div style={{ display: 'flex', gap: '6px', marginTop: '2px', alignItems: 'center' }}>
+      <div className="flex gap-1.5 mt-0.5 items-center">
         {concept.status === 'seed' && (
           <>
-            <button
-              onClick={() => onApprove(concept.id)}
-              style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(52, 211, 153, 0.3)', background: 'rgba(52, 211, 153, 0.1)', color: '#34d399', cursor: 'pointer' }}
-            >
+            <Button variant="pill" tone="success" onClick={() => onApprove(concept.id)}>
               Approve
-            </button>
-            <button
-              onClick={() => onArchive(concept.id)}
-              style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', cursor: 'pointer' }}
-            >
+            </Button>
+            <Button variant="pill" tone="default" onClick={() => onArchive(concept.id)}>
               Dismiss
-            </button>
+            </Button>
           </>
         )}
         {concept.status === 'active' && (
-          <button
-            onClick={() => onArchive(concept.id)}
-            style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#64748b', cursor: 'pointer' }}
-          >
+          <Button variant="pill" tone="default" onClick={() => onArchive(concept.id)}>
             Archive
-          </button>
+          </Button>
         )}
-        <button
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="ml-auto opacity-50 hover:opacity-100 text-text-muted"
           onClick={() => onDelete(concept.id)}
-          style={{ fontSize: '11px', padding: '2px 4px', borderRadius: '4px', border: 'none', background: 'transparent', color: '#64748b', cursor: 'pointer', marginLeft: 'auto', opacity: 0.5 }}
           title="Delete concept"
         >
           <Trash2 size={12} />
-        </button>
+        </Button>
       </div>
     </div>
   );

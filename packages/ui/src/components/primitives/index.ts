@@ -1,6 +1,9 @@
 export { Toggle } from './Toggle';
 export type { ToggleProps } from './Toggle';
 
+export { Checkbox } from './Checkbox';
+export type { CheckboxProps } from './Checkbox';
+
 export { NumberField } from './NumberField';
 export type { NumberFieldProps } from './NumberField';
 
