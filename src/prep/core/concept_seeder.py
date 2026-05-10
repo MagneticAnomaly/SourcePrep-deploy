@@ -64,6 +64,7 @@ def seed_concepts(
     *,
     prefer_swarm: bool = True,
     progress_callback: Optional[Callable[[str, int, int], None]] = None,
+    cancel_token: Optional[Any] = None,
 ) -> dict[str, Any]:
     """Run the concept seeding pipeline for a project.
 
@@ -89,7 +90,11 @@ def seed_concepts(
     """
     if prefer_swarm:
         try:
-            return seed_concepts_swarm(project_id, progress_callback=progress_callback)
+            return seed_concepts_swarm(
+                project_id,
+                progress_callback=progress_callback,
+                cancel_token=cancel_token,
+            )
         except _SwarmFallback as fallback:
             logger.info(
                 "Concept seeding falling back to sequential: %s",
@@ -422,6 +427,7 @@ def seed_concepts_swarm(
     project_id: str,
     *,
     progress_callback: Optional[Callable[[str, int, int], None]] = None,
+    cancel_token: Optional[Any] = None,
 ) -> dict[str, Any]:
     """Swarm-based concept seeding with per-module fan-out.
 
@@ -818,6 +824,11 @@ def seed_concepts_swarm(
         worker_fn=worker_fn,
         synthesis_prompt=synthesis_prompt,
         progress_fn=_swarm_progress,
+        # Phase 127 (P127-F9): forward cancel_token so the swarm honors
+        # user-pause at phase boundaries and inside fanout's
+        # as_completed loop.
+        cancel_token=cancel_token,
+        project_id=project_id,
     )
 
     if result is None:

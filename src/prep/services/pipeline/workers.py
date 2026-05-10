@@ -861,7 +861,12 @@ class WorkerFactory:
             else:
                 # Use segmented generation — produces root + per-segment atlases.
                 # Falls back to single atlas if <2 segments are discovered.
-                doc, segment_docs = atlas.generate_segmented(progress_callback=log_cb)
+                # Phase 127 (P127-F9): pass cancel_token so the underlying
+                # SwarmOrchestrator honors user-pause at phase boundaries.
+                doc, segment_docs = atlas.generate_segmented(
+                    progress_callback=log_cb,
+                    cancel_token=slot.cancel_token,
+                )
                 result = {
                     "stage": "atlas",
                     "skipped": False,
@@ -1175,7 +1180,14 @@ class WorkerFactory:
                     # of the stage's progress (0..1 of 4) so seeder fan-out
                     # doesn't overshoot the stage progress bar.
                     log_cb(message, current, max(total, 1) * 4)
-                result = seed_concepts(project_id, progress_callback=_seed_progress)
+                # Phase 127 (P127-F9): pass cancel_token so the underlying
+                # SwarmOrchestrator honors user-pause at phase boundaries
+                # and stops dispatching new fanout workers.
+                result = seed_concepts(
+                    project_id,
+                    progress_callback=_seed_progress,
+                    cancel_token=slot.cancel_token,
+                )
             concepts_created = result.get("concepts_created", 0)
             questions_created = result.get("questions_created", 0)
             log_cb(

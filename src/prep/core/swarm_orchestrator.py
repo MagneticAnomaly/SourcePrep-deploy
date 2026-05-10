@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from prep.core.llm_client import LLMClient, _parse_json_response
 from prep.core.swarm_event_logger import SwarmEventLogger, default_log_dir
+from prep.services.cancellation import PipelinePausedError
 from prep.services.pipeline.holds import HoldPausedError
 from prep.services.token_telemetry import set_swarm_role
 
@@ -431,6 +432,7 @@ class SwarmOrchestrator:
         progress_fn: Optional[Callable[[int, int], None]] = None,
         t0: Optional[float] = None,
         event_log: Optional[SwarmEventLogger] = None,
+        cancel_token: Any | None = None,
     ) -> List[WorkerResult]:
         """Run worker_fn in parallel for each item.
 
@@ -541,10 +543,60 @@ class SwarmOrchestrator:
         )
         pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="swarm-fanout")
         try:
-            futures = {pool.submit(_run_worker, item): item for item in items}
-            pending = set(futures.keys())
+            # Phase 127 (P127-F9): when cancel_token is provided we
+            # dispatch lazily — keep at most max_workers in flight at any
+            # one time and submit a new work item only when an old one
+            # completes.  This lets us check the cancel_token between
+            # completion and the next submission, so a pause set between
+            # batches stops new dispatch immediately.  Already-running
+            # workers can't be killed (Python can't safely cancel a
+            # thread mid-HTTP-request) — they drain naturally.
+            #
+            # When cancel_token is None we keep the original behavior of
+            # submitting all futures up-front so existing tests and
+            # workloads continue to behave the same.
+            lazy_dispatch = cancel_token is not None
+
+            if lazy_dispatch:
+                items_iter = iter(items)
+                futures: Dict[Any, WorkItem] = {}
+                pending: set = set()
+                # Prime the pool with up to max_workers in-flight.
+                for _ in range(max_workers):
+                    try:
+                        nxt = next(items_iter)
+                    except StopIteration:
+                        break
+                    f = pool.submit(_run_worker, nxt)
+                    futures[f] = nxt
+                    pending.add(f)
+            else:
+                futures = {pool.submit(_run_worker, item): item for item in items}
+                pending = set(futures.keys())
+                items_iter = iter([])  # exhausted
 
             while pending:
+                # Phase 127 (P127-F9): user-pause via cancel_token.  Check
+                # before each wait so a pause set between completions
+                # stops dispatching new work.  Existing in-flight workers
+                # cannot be killed mid-HTTP-request — Python has no safe
+                # thread cancel — so they drain naturally.  cancel_futures
+                # stops any not-yet-started future from running.
+                if cancel_token is not None and cancel_token.is_cancelled:
+                    logger.info(
+                        "[Swarm] cancel_token set — shutting down fan-out pool "
+                        "(%d pending, %d done so far)",
+                        len(pending), done_count,
+                    )
+                    try:
+                        pool.shutdown(wait=False, cancel_futures=True)
+                    except Exception:
+                        pass
+                    # Re-raise as PipelinePausedError (or PipelineCancelledError);
+                    # outer try/except in execute() catches and propagates so
+                    # the worker dispatcher transitions the slot inactive.
+                    cancel_token.raise_if_cancelled()
+
                 # Compute remaining wall time
                 elapsed = time.monotonic() - fan_start
                 remaining_wall = self.max_wall_time_s - elapsed
@@ -597,6 +649,38 @@ class SwarmOrchestrator:
                     )
                     if progress_fn is not None:
                         progress_fn(done_count, total)
+
+                # Phase 127 (P127-F9): post-batch cancel check.  When
+                # lazy_dispatch is on, also use this point to submit a
+                # replacement work item — but ONLY if the cancel_token
+                # is not set, otherwise we'd dispatch new work after
+                # the user paused.
+                if cancel_token is not None and cancel_token.is_cancelled:
+                    logger.info(
+                        "[Swarm] cancel_token set after batch — shutting down "
+                        "fan-out pool (%d pending, %d done)",
+                        len(pending), done_count,
+                    )
+                    try:
+                        pool.shutdown(wait=False, cancel_futures=True)
+                    except Exception:
+                        pass
+                    cancel_token.raise_if_cancelled()
+
+                if lazy_dispatch:
+                    # Refill the pool with one new item per completion so we
+                    # keep max_workers in flight.  A future submission AFTER
+                    # the cancel check above is still safe because a pause
+                    # set during this submission step will be caught at the
+                    # top of the next loop iteration before we wait again.
+                    for _ in range(len(done_set)):
+                        try:
+                            nxt = next(items_iter)
+                        except StopIteration:
+                            break
+                        f = pool.submit(_run_worker, nxt)
+                        futures[f] = nxt
+                        pending.add(f)
         finally:
             pool.shutdown(wait=False)
 
@@ -693,6 +777,7 @@ class SwarmOrchestrator:
         project_id: Optional[str] = None,
         log_dir: Optional[Any] = None,
         enable_event_log: bool = True,
+        cancel_token: Any | None = None,
     ) -> Optional[SwarmResult]:
         """Run all three phases.
 
@@ -756,6 +841,10 @@ class SwarmOrchestrator:
         pause_info: Optional[Dict[str, str]] = None
 
         try:
+            # Phase 127 (P127-F9): user-pause check at pre-coord boundary.
+            # Mirrors the soft-hold check below; both must be honored.
+            if cancel_token is not None and cancel_token.is_cancelled:
+                cancel_token.raise_if_cancelled()
             if self._hold_paused():
                 self._raise_hold_paused()
 
@@ -775,6 +864,9 @@ class SwarmOrchestrator:
             # Phase 127: phase boundary — coord → fanout.  If a hold
             # took effect during coord, exit cleanly before fanout
             # spends N parallel worker calls against a held endpoint.
+            # Phase 127 (P127-F9): also honor user-pause cancel_token here.
+            if cancel_token is not None and cancel_token.is_cancelled:
+                cancel_token.raise_if_cancelled()
             if self._hold_paused():
                 self._raise_hold_paused()
 
@@ -787,6 +879,7 @@ class SwarmOrchestrator:
             fan_t0 = time.monotonic()
             worker_results = self._fan_out(
                 items, plan, worker_fn, progress_fn, t0=t0, event_log=event_log,
+                cancel_token=cancel_token,
             )
             if event_log is not None:
                 event_log.phase_end(
@@ -808,6 +901,9 @@ class SwarmOrchestrator:
             # took effect during fanout, skip synthesis.  Worker
             # results gathered so far are preserved on the SwarmResult
             # and callers can salvage them on retry.
+            # Phase 127 (P127-F9): also honor user-pause cancel_token.
+            if cancel_token is not None and cancel_token.is_cancelled:
+                cancel_token.raise_if_cancelled()
             if self._hold_paused():
                 self._raise_hold_paused()
 
@@ -838,6 +934,25 @@ class SwarmOrchestrator:
                 hpe.project_id, hpe.endpoint_id,
                 n_done, len(items), max(len(items) - len(worker_results), 0),
             )
+        except PipelinePausedError:
+            # Phase 127 (P127-F9): user paused via the pipeline cancel_token.
+            # Re-raise so the worker dispatcher (workers.py) propagates
+            # PipelinePausedError up to build_orchestrator._run_worker,
+            # which transitions the slot to inactive (the existing pattern
+            # at build_orchestrator.py:402).  This is the difference from
+            # soft-hold (HoldPausedError): a soft-hold returns a
+            # ``paused=True`` SwarmResult so the caller retries next run,
+            # but a user-pause must propagate so the pipeline state machine
+            # flips PAUSING→PAUSED.  ``finally`` below restores project_id.
+            n_done = sum(1 for r in worker_results if r.success)
+            logger.info(
+                "[Swarm] Paused by user cancel_token — "
+                "%d/%d workers done at pause; pool shutdown with cancel_futures=True. "
+                "In-flight LLM calls drain naturally (Python cannot safely cancel "
+                "a thread mid-HTTP-request); no NEW workers will dispatch.",
+                n_done, len(items),
+            )
+            raise
         finally:
             # Restore project_id in case execute() is called again with
             # different kwargs.
