@@ -60,7 +60,7 @@ export default function Page() {
           </p>
           <ul className="list-disc pl-6 space-y-2">
             <li><span className="font-semibold text-text">Get Oriented:</span> Call <code>prep</code> with no arguments for ambient context — module structures, hub files, focus areas, and immune-system alerts.</li>
-            <li><span className="font-semibold text-text">Search Semantically:</span> Use <code>prep_search</code> to find code by meaning. The query intent is auto-classified (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER) so the right index gets queried.</li>
+            <li><span className="font-semibold text-text">Search Semantically:</span> Use <code>prep_search</code> to find code by meaning. The query intent is auto-classified (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, COMPARE, DISCOVER) so the right index gets queried.</li>
             <li><span className="font-semibold text-text">Code Graph:</span> Use <code>prep_impact</code> to see exact blast radius before editing — what depends on a file or symbol, with stdlib/external noise filtered out.</li>
             <li><span className="font-semibold text-text">Audit Codebase:</span> <code>prep_audit</code> is dual-mode — call with no args for structural findings (coupling, cycles, concept violations), or pass <code>findings</code> to enrich ruff/eslint/semgrep output with structural context. Accepts SARIF in/out. <a href="/guides/codebase-audit" className="text-primary hover:underline">Learn more →</a></li>
             <li><span className="font-semibold text-text">Persistent Memory:</span> Use <code>prep_observe</code> to save cross-session notes that get automatically flagged as <code>[STALE]</code> when the underlying files change.</li>
@@ -84,7 +84,7 @@ export default function Page() {
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">prep_search</td>
-                  <td className="py-2 text-xs">Semantic search with auto-classified intent (locate / explain / rationale / trace / example / discover)</td>
+                  <td className="py-2 text-xs">Semantic search with auto-classified intent (locate / explain / rationale / trace / example / compare / discover)</td>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">prep_impact</td>

@@ -3,7 +3,7 @@
 <!-- prep-managed-start -->
 ## SourcePrep Integration
 
-Last updated: 2026-05-07T04:37:20Z
+Last updated: 2026-05-10T04:56:12Z | Full analysis in progress
 
 prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
@@ -13,7 +13,7 @@ prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 | Tool | When to Use |
 |------|-------------|
 | `prep` | START of every task — structural overview, modules, hub files, immune system alerts |
-| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER). |
+| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, COMPARE, DISCOVER). |
 | `prep_impact` | BEFORE editing — check what depends on a file |
 | `prep_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action="antibodies"` for immune system. |
 | `prep_observe` | Save/retrieve cross-session notes |
@@ -59,57 +59,79 @@ To skip approval prompts for SourcePrep's read-only tools, add to your settings:
 ```
 In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings.
 
-<!-- prep-atlas-hash:a8b8515c7745 -->
+<!-- prep-atlas-hash:928556b49a03 -->
 ## Codebase Atlas
 
-I need to write a concise project orientation header based on the provided data, following strict rules: plain text only, no markdown, no bold, no headers, no bullet characters, no asterisks. every claim from provided data, exact names, maximally dense,ooooooooo short, under 2570 characters, no invented info.
-
-Let me parse the provided data carefully:
-
-Project Root (1228 files): marketing, mcp, local-first, dashboard, fastapi
-UI (packages/ui, 357 files): storybook, design-system, react, documentation
-加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油加油
+IDENTITY: SourcePrep
+STACK: .md 46%, .tsx 22%, .py 17%, .ts 8%, .json 6%, .js 1%
+STRUCTURE: 1920 files, 8062 nodes, 12842 edges
+EDGE TYPES: contains: 5737, imports: 4970, implements: 1271, configures: 736, listens_to: 64
+CIRCULAR DEPS (61): docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/app.py <-> docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/utils.py; docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/app.py <-> docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/pkg/math_ops.py; docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/app.py <-> docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/pkg/__init__.py
+ENTRY POINTS: packages/ui/src/components/context/index.ts, packages/ui/src/components/trace/index.ts, packages/ui/src/components/docs/index.ts, packages/ui/src/components/console/index.ts, src/prep/__main__.py
+SUBSYSTEMS:
+  MCP Protocol Server & Client Integration (47 files) -- Implements the Model Context Protocol server that exposes Prep's codebase intell
+  Project Lifecycle & Build Orchestrator (42 files) -- Manages project creation, configuration, and incremental index rebuilding with t
+  Roadmap & Sprint Planning Orchestrator (40 files) -- Generates AI-powered project roadmaps with visual timeline nodes, sprint burndow
+  LLM Provider & Model Configuration Console (39 files) -- Configures multi-provider LLM endpoints, assigns models to pipeline slots (embed
+  SourcePrep Design System Primitives (22 files) -- Renders accessible, composable UI primitives for the SourcePrep platform using R
+  AutoAudit Static Analysis Engine (20 files) -- Executes 11 deterministic static analyzers over code import graphs to detect dea
+  Agent Ecosystem Integration & Protocol Strategy (19 files) -- Coordinates multi-protocol agent integrations across MCP, A2A, REST, and SARIF s
+  Prep CLI Thin-Client & Documentation Surface (17 files) -- Proxies user commands to a background daemon via HTTP REST, handling project CRU
+  Dashboard State & Component Refactoring Tracker (16 files) -- Tracks and coordinates frontend technical debt remediation across the CoDRAG das
+  Guerilla Marketing Copy Engine (15 files) -- Produces channel-specific organic marketing copy for Reddit, LinkedIn, Lobsters,
+TESTS: __tests__/ (19 files), specs/ (18 files), TEST_PLAN.md/ (1 files)
+LAYERS: documentation: 868, presentation: 528, business_logic: 176, infrastructure: 103, configuration: 84
+HUB FILES: docs/ARCHITECTURE.md (evolving), ext:__future__, ext:typing, ext:react, ext:logging
+Active zones: `packages/ui/src/`, `tests/`, `websites/apps/marketing/`, `websites/apps/docs/`, `src/prep/core/`
+CALL CHAINS:
+  packages/ui/src/components/docs/index.ts -> packages/ui/src/components/docs/DocsLayout.tsx -> packages/ui/src/components/docs/MobileDocsDrawer.tsx -> packages/ui/src/components/docs/DocsSidebarNav.tsx -> sym:DocsSidebarNav@packages/ui/src/components/docs/DocsSidebarNav.tsx:17
+  packages/ui/src/components/context/index.ts -> packages/ui/src/components/context/ContextViewer.tsx -> packages/ui/src/components/context/CitationBlock.tsx -> docs/Phase04_TraceIndex/CURATED_TRACEABILITY_FRAMEWORK.md
+  packages/ui/src/components/trace/index.ts -> packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx -> packages/ui/src/components/trace/RecoverStagePanel.tsx -> sym:handleOpenToggle@packages/ui/src/components/trace/RecoverStagePanel.tsx:125
+CONFIDENCE: 0.84 avg across 1887 files
+DOMAINS: marketing, mcp, react, design-system, storybook, nextjs, dashboard, documentation
 
 ## Top docs per module
 
 Planning docs that mention this module's code (Phase 124 T9). Use these as a starting point to understand a module's *why* before reading source. Generated from `atlas_markdown_links.json`.
 
-- **Prep HTTP API Contract & Client Surface**
-  - `docs/MASTER_TODO.md`
-  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
+- **MCP Protocol Server & Client Integration**
   - `docs/Phase120_NamedScopes/IMPLEMENTATION_PLAN.md`
-- **Project Management & Roadmap Orchestration Platform**
-  - `docs/MASTER_TODO.md`
-  - `docs/Phase06_Team_And_Enterprise/TEAM_ENTERPRISE_CODE_AUDIT.md`
-  - `docs/Phase127_MultiProjectQueueArchitecture/README.md`
-- **Deterministic Trace Index Engine**
-  - `docs/Phase118_UISmoke/RESULTS.md`
-  - `docs/research/MULTI_PROJECT_MODEL_MANAGEMENT.md`
-  - `docs/superpowers/plans/2026-04-19-phase117-rebuild-granularity.md`
-- **Interactive Architecture Diagram Engine**
-  - `docs/superpowers/plans/2026-04-04-phase71b-governance-overlays.md`
-  - `docs/superpowers/plans/2026-04-04-phase71a-architecture-diagram.md`
-  - `docs/superpowers/plans/2026-04-08-phase84-concepts-formalization.md`
-- **Prep CLI Client & Documentation Surface**
+  - `docs/Phase120_NamedScopes/README.md`
+  - `docs/Phase50_MCP-interfacing/README.md`
+- **Project Lifecycle & Build Orchestrator**
+  - `docs/Phase25_crashprotection/README.md`
+  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
+  - `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/feature_documentation.md`
+- **Roadmap & Sprint Planning Orchestrator**
+  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
+  - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
+  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
+- **LLM Provider & Model Configuration Console**
+  - `docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md`
+  - `docs/Phase119_ConcurrencyStability/03_Validation_Report.md`
+  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
+- **SourcePrep Design System Primitives**
+  - `docs/Phase81_UI-bugfixes/07_Stage3_Loading_States.md`
+  - `.agents/content_marketing_strategist/KNOWLEDGE.md`
+  - `.agents/content_marketing_strategist/SOUL.md`
+- **AutoAudit Static Analysis Engine**
+  - `docs/Phase99_Content/blogs/00_feasibility_audit.md`
+  - `docs/Phase116_strategic-oversight/03_CANDIDATE_CHECKPOINTS.md`
+  - `docs/Phase116_strategic-oversight/04_EXISTING_ABSTRACTIONS.md`
+- **Prep CLI Thin-Client & Documentation Surface**
   - `AGENTS.md`
   - `CLAUDE.md`
-  - `docs/MASTER_TODO.md`
-- **Enrichment Pipeline Orchestrator & State Machine**
+  - `docs/Phase06_Team_And_Enterprise/TEAM_ENTERPRISE_CODE_AUDIT.md`
+- **Dashboard State & Component Refactoring Tracker**
+  - `docs/superpowers/plans/2026-04-19-phase117-rebuild-granularity.md`
+- **Enrichment Pipeline State Machine & Resource Scheduler**
   - `docs/Phase96-fix-pipeline/00_DIAGNOSTIC_REPORT.md`
-  - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
-  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
-- **Security & Compliance Governance Platform**
-  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
-  - `docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md`
-  - `docs/superpowers/plans/2026-04-10-detail-pages-and-template.md`
-- **LLM Endpoint & Model Assignment Orchestrator**
-  - `docs/Phase112_Gemini/IMPLEMENTATION_PLAN.md`
-  - `docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md`
-  - `docs/superpowers/plans/2026-04-20-llm-config-autosave-redesign.md`
-- **AI Gateway & LLM Compute Orchestrator**
-  - `docs/Phase119_ConcurrencyStability/05_Cross_Provider_Concurrency_Design.md`
-  - `docs/Phase119_ConcurrencyStability/01_Design.md`
-  - `docs/Phase119_ConcurrencyStability/02_Implementation_Plan.md`
+  - `docs/Phase96-fix-pipeline/UI+tweaks/PLAN.md`
+  - `docs/refactor2/05_annotated_refactor_plan.md`
+
+## Focus Areas
+- docs/MASTER_ROADMAP.md
+Call `prep` for detailed content from these areas.
 
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.

@@ -129,10 +129,17 @@ class CodebaseAtlas:
         index_dir: Path,
         llm: Optional[Any] = None,  # LLMClient from augmenter.py
         project_root: Optional[Path] = None,
+        project_name: Optional[str] = None,
     ):
         self.index_dir = Path(index_dir)
         self.llm = llm
         self.project_root = Path(project_root) if project_root else None
+        # FIX-16-2 sibling: prefer the registered project name over the
+        # filesystem dir name. The repo dir may be a stale codename
+        # ("CoDRAG") while the canonical product is "SourcePrep" — see
+        # memory/project_brand_split.md and feedback_codrag_is_stale_codename.md.
+        # Falls back to project_root.name when not provided.
+        self.project_name = project_name
         self.atlas_path = self.index_dir / "atlas.json"
         self.atlas_prev_path = self.index_dir / "atlas_prev.json"
         self.segments_dir = self.index_dir / "atlas_segments"
@@ -2083,9 +2090,14 @@ class CodebaseAtlas:
         node_count = graph_stats.get("node_count", 0)
         edge_count = graph_stats.get("edge_count", 0)
 
-        # IDENTITY: Project name (from project_root dir name if available)
-        if self.project_root:
-            sections.append(f"IDENTITY: {self.project_root.name}")
+        # IDENTITY: prefer the registered project name (e.g. "SourcePrep")
+        # over the filesystem dir basename (e.g. "CoDRAG", which is a stale
+        # codename per memory/feedback_codrag_is_stale_codename.md).
+        identity = self.project_name or (
+            self.project_root.name if self.project_root else None
+        )
+        if identity:
+            sections.append(f"IDENTITY: {identity}")
 
         # OPP-S3: STACK with language percentages instead of raw counts
         langs = graph_stats.get("languages", {})

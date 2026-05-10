@@ -19,6 +19,11 @@ import time
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 
+# Prevent huggingface/tokenizers fork-after-parallelism deadlock that
+# can hang the daemon mid-stage when subprocesses are spawned after
+# tokenizer init. Must be set before any tokenizer-using import.
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 import requests
 import typer
 from rich.console import Console
@@ -806,6 +811,133 @@ def mcp_config(
         # Single IDE
         cfg = next(iter(configs.values()))
         print(json.dumps(cfg["config"], indent=2))
+
+
+_RULES_TARGET_PATHS = {
+    "agents_md": "AGENTS.md",
+    "cursor": ".cursor/rules/prep.mdc",
+    "windsurf": ".windsurf/rules/prep.md",
+    "claude": "CLAUDE.md",
+    "claude_skill": ".claude/skills/prep.md",
+    "gemini": "GEMINI.md",
+    "copilot": ".github/copilot-instructions.md",
+    "cline": ".clinerules",
+    "roo_code": ".roo/rules/prep.md",
+}
+
+
+@app.command("rules-regenerate")
+def rules_regenerate(
+    ide: str = typer.Option(
+        "auto",
+        "--ide",
+        "-i",
+        help="Target: auto (all detected), all, or one of: "
+        + ", ".join(_RULES_TARGET_PATHS.keys()),
+    ),
+    project_path: Optional[Path] = typer.Option(
+        None,
+        "--path",
+        help="Project root (default: current directory).",
+    ),
+    project_id: Optional[str] = typer.Option(
+        None,
+        "--project",
+        "-p",
+        help="Project ID (default: read from <path>/.sourceprep/project.json).",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show which files would be regenerated, without writing.",
+    ),
+) -> None:
+    """
+    Regenerate AGENTS.md, CLAUDE.md, and other IDE rule files.
+
+    Rewrites the SourcePrep-managed sections (between
+    <!-- prep-managed-start --> and <!-- prep-managed-end --> markers).
+    Hand-written content outside the markers is preserved.
+
+    Run after editing rules templates in src/prep/core/rules_generator.py
+    or when rule files have drifted out of sync with the current atlas.
+    """
+    from prep.core.project_registry import read_project_pointer
+    from prep.core.rules_generator import (
+        _detect_targets,
+        _get_current_atlas_content,
+        _get_current_included_paths,
+        _get_current_stats,
+        write_rules_file,
+    )
+
+    root = (project_path or Path.cwd()).resolve()
+
+    pid = project_id
+    if not pid:
+        pointer = read_project_pointer(root)
+        if not pointer:
+            console.print(
+                f"[red]No SourcePrep project pointer at "
+                f"{root}/.sourceprep/project.json[/red]"
+            )
+            console.print(
+                "Run 'prep add <path>' to register the project, "
+                "or pass --project <id>."
+            )
+            raise typer.Exit(1)
+        pid = pointer["id"]
+
+    name = root.name
+
+    targets = _detect_targets(root, ide)
+    if not targets:
+        console.print(
+            f"[yellow]No rule-file targets detected for ide={ide!r} "
+            f"in {root}[/yellow]"
+        )
+        raise typer.Exit(0)
+
+    if dry_run:
+        console.print(
+            f"[bold]Dry run — would regenerate {len(targets)} file(s) "
+            f"for project {name} ({pid}):[/bold]"
+        )
+        for t in targets:
+            rel = _RULES_TARGET_PATHS.get(t, t)
+            full = root / rel
+            exists = "exists" if full.exists() else "new"
+            console.print(f"  - [cyan]{t}[/cyan]  {rel}  [dim]({exists})[/dim]")
+        return
+
+    atlas = _get_current_atlas_content(pid)
+    included = _get_current_included_paths(pid)
+    stats = _get_current_stats(pid)
+
+    results = write_rules_file(
+        project_path=root,
+        project_name=name,
+        atlas_content=atlas,
+        included_paths=included,
+        stats=stats,
+        ide=ide,
+        project_id=pid,
+    )
+
+    table = Table(title=f"Rules regeneration — {name}")
+    table.add_column("Target", style="cyan")
+    table.add_column("Path")
+    table.add_column("Result")
+    for t in targets:
+        rel = _RULES_TARGET_PATHS.get(t, t)
+        ok = bool(results.get(t, False))
+        marker = "[green]written[/green]" if ok else "[red]failed[/red]"
+        table.add_row(t, rel, marker)
+    console.print(table)
+
+    failures = [t for t in targets if not results.get(t)]
+    if failures:
+        raise typer.Exit(1)
 
 
 @app.command()

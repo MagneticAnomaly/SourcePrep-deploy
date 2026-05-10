@@ -1,0 +1,72 @@
+{
+  "modules_total": 636,
+  "code_modules_total": 410,
+  "modules_with_relevant_docs": 208,
+  "module_doc_distribution": {
+    "6-10": 23,
+    "1-2": 124,
+    "3-5": 45,
+    "0": 428,
+    "11+": 16
+  },
+  "md_total": 1062,
+  "md_in_segment": 115,
+  "md_orphan": 59,
+  "md_partial": 47,
+  "md_no_mentions": 374,
+  "md_unsegmented": 254,
+  "segments": {
+    "_root": 1228,
+    "packages-ui": 357,
+    "websites-apps-marketing": 65,
+    "src-prep-dashboard": 63,
+    "websites-apps-docs": 53,
+    "websites-apps-support": 26,
+    "packages-vscode": 19,
+    "websites-apps-payments": 14,
+    "packages-paperclip-plugin-prep": 12,
+    "packages-vscode-webview-ui": 11
+  },
+  "top_module_doc_richness": [
+    {
+      "module": "Enrichment Pipeline Orchestrator & State Machine",
+      "doc_count": 64
+    },
+    {
+      "module": "Project Management Push & Sync Infrastructure",
+      "doc_count": 46
+    },
+    {
+      "module": "Prep CLI Client & Documentation Surface",
+      "doc_count": 40
+    },
+    {
+      "module": "MCP Protocol Bridge & Agent Gateway",
+      "doc_count": 34
+    },
+    {
+      "module": "Graph Enrichment Pipeline Orchestrator",
+      "doc_count": 24
+    },
+    {
+      "module": "Prep Daemon Search API Client & Results Renderer",
+      "doc_count": 22
+    },
+    {
+      "module": "Trace Index Builder & Graph Engine",
+      "doc_count": 22
+    },
+    {
+      "module": "Hybrid Traceability Search Engine",
+      "doc_count": 21
+    },
+    {
+      "module": "Multi-Agent Orchestration & Role-Aware Context Platform",
+      "doc_count": 19
+    },
+    {
+      "module": "MCP Tool Schema Registry & Context Retrieval Engine",
+      "doc_count": 17
+    }
+  ]
+}

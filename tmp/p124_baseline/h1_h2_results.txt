@@ -1,0 +1,66 @@
+# Phase 124 baseline — H1/H2 evidence
+
+## Inputs
+- Modules in trace_modules.jsonl: 636
+- Atlas segments on disk:         10
+- Files indexed across segments:  1848
+- Per-segment file counts:
+    _root                                              1228
+    packages-ui                                         357
+    websites-apps-marketing                              65
+    src-prep-dashboard                                   63
+    websites-apps-docs                                   53
+    websites-apps-support                                26
+    packages-vscode                                      19
+    websites-apps-payments                               14
+    packages-paperclip-plugin-prep                       12
+    packages-vscode-webview-ui                           11
+
+- Markdown files under docs/: 1062
+- Raw path mentions extracted:    5822
+- Markdown read errors:           0
+
+## H1 — per-module relevant-doc coverage
+For each module, count the number of docs/*.md files that mention at least one of its member_files.
+
+- Code-bearing modules: 410
+- Modules with >=1 relevant doc: 208 (50.7%)
+
+Distribution of relevant-doc count per module:
+    0      modules: 428
+    1-2    modules: 124
+    3-5    modules: 45
+    6-10   modules: 23
+    11+    modules: 16
+
+Top 10 modules by relevant-doc count (highest leverage if T4 lands):
+     64  Enrichment Pipeline Orchestrator & State Machine
+     46  Project Management Push & Sync Infrastructure
+     40  Prep CLI Client & Documentation Surface
+     34  MCP Protocol Bridge & Agent Gateway
+     24  Graph Enrichment Pipeline Orchestrator
+     22  Prep Daemon Search API Client & Results Renderer
+     22  Trace Index Builder & Graph Engine
+     21  Hybrid Traceability Search Engine
+     19  Multi-Agent Orchestration & Role-Aware Context Platform
+     17  MCP Tool Schema Registry & Context Retrieval Engine
+
+## H2 — .md files orphaned from the code they describe
+For each .md file under docs/, look up the segment it landed in,
+then check whether the code paths it MENTIONS land in the SAME segment.
+
+- .md files with mentions, fully in same segment as their code: 115
+- .md files with mentions, fully orphaned (zero same-segment):  59
+- .md files with mentions, partially orphaned (some same):      47
+- .md files with no resolvable code mentions:                   374
+- .md files not present in any segment (unsegmented):           254
+
+Top 10 cross-segment edges (md_segment -> code_segment, mention count):
+      176  _root                                -> packages-ui
+       29  _root                                -> websites-apps-marketing
+       25  _root                                -> src-prep-dashboard
+        1  _root                                -> websites-apps-support
+        1  _root                                -> websites-apps-docs
+        1  _root                                -> packages-paperclip-plugin-prep
+
+JSON dump: /Volumes/4TB-BAD/HumanAI/CoDRAG/tmp/p124_baseline/h1_h2_results.json

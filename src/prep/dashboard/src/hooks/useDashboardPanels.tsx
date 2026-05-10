@@ -272,6 +272,8 @@ export interface PanelAtlasProps {
 export interface DashboardPanelsProps {
   // Cross-cutting
   projectStatus: ProjectStatus | null
+  /** True when /status has failed repeatedly — IndexStatusCard renders a "stats stale" indicator */
+  projectStatusUnreachable?: boolean
   selectedProject: ProjectListItem | null
   selectedProjectId: string | null
   projectConfig: ProjectConfig
@@ -779,6 +781,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         isPro={p.isPro}
         limitReached={p.limitReached}
         inactive={p.inactive}
+        statsUnreachable={p.projectStatusUnreachable}
         className="h-full border-none shadow-none bg-transparent"
         bare
         hideChart={p.transientComplete}

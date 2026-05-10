@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import tempfile
 import threading
 import time
@@ -163,6 +164,22 @@ SUMMARY RULES:
 - Bad: "Contains 15 TypeScript files related to UI components."
 - Good: "Renders the interactive architecture diagram with semantic zoom, breadcrumb navigation, and annotation overlays. Built on React Flow with custom layout algorithms."
 
+SUMMARY SHAPE (FIX-16-4):
+- Sentence 1: concrete verb + concrete object — what an agent can *do* in this module. Start with a doing-verb (Renders, Parses, Schedules, Persists), not "Provides", "Implements", "Bridges", "Serves as".
+- Sentence 2 (optional): how it connects to the rest of the codebase — name the upstream/downstream subsystem.
+- Sentence 3 (optional, only if true): one specific caveat or in-flight work item.
+- Hard cap: 3 sentences, ~40 words total.
+
+BANNED PHRASES — never emit:
+- "central nervous system"
+- "Bridges X with Y" / "Bridges X and Y"
+- "serves as the [foo] backbone" / "serves as the central"
+- "currently in active transition" / "currently in active development"
+- "end-to-end" (use the actual scope instead — "from request parse to response serialization")
+- "while maintaining" (almost always padding)
+- "tiered" without a specific tier list
+- "robust", "comprehensive", "seamless" (consulting filler)
+
 EXAMPLE — given a cluster with 4 files (scheduler.py, worker_pool.py, job_queue.py, priority.py) in a pipeline domain, a good response is:
 {{"name": "Pipeline Job Scheduler & Worker Pool",
 "summary": "Manages concurrent pipeline job execution with priority queuing and worker lifecycle. Distributes enrichment tasks across a configurable thread pool, enforces per-stage ordering constraints, and provides graceful shutdown with in-flight job draining.",
@@ -174,6 +191,82 @@ EXAMPLE — given a cluster with 4 files (scheduler.py, worker_pool.py, job_queu
 Where component_status describes the overall implementation completeness of this subsystem.
 
 JSON response:"""
+
+
+# ── Summary lint (FIX-16-4) ──────────────────────────────────────────
+
+# Banned consulting-deck phrases. Mirrors the BANNED PHRASES section of
+# MODULE_SYNTHESIS_PROMPT so synthesis output can be checked after the LLM
+# returns. Used today as an advisory log; a follow-up will wire this into
+# a re-prompt loop on detection.
+_BANNED_SUMMARY_PHRASES: tuple[str, ...] = (
+    "central nervous system",
+    "bridges ",  # matches "Bridges X with Y" / "Bridges X and Y"
+    "serves as the central",
+    "serves as the backbone",
+    "backbone for",
+    "currently in active transition",
+    "currently in active development",
+    "end-to-end",
+    "while maintaining",
+    "robust ",
+    "comprehensive ",
+    "seamless ",
+)
+
+
+def lint_module_summary(text: str) -> list[str]:
+    """Return a list of banned-phrase findings in a module summary.
+
+    Pure function — case-insensitive substring matching. Used to flag
+    consulting-deck phrasing in synthesized module summaries
+    (FIX-16-4, see docs/Phase82_MCP-Dogfooding/17_Followup_2026-05-08.md).
+    Empty list means the summary passes the lint.
+    """
+    if not text:
+        return []
+    lowered = text.lower()
+    return [phrase.strip() for phrase in _BANNED_SUMMARY_PHRASES if phrase in lowered]
+
+
+# ── Legacy `#N` suffix migration (FIX-16-3 follow-up) ────────────────
+
+_POUND_N_SUFFIX_RE = re.compile(r"\s*#\d+\s*$")
+
+
+def strip_legacy_pound_n_suffix(name: str, module_id: str) -> str:
+    """Rewrite a legacy `Foo (Packages) #2` into `Foo (Packages) [<idx>]`.
+
+    Modules synthesized before FIX-16-3 carried `#N` suffixes when first-pass
+    distinguishers collided. The new dedup logic emits `[<module_id idx>]`
+    instead. This helper migrates a single name in-place — pure function so
+    callers can decide whether to apply it lazily at load time or eagerly via
+    a CLI cleanup command.
+    """
+    if not name or not _POUND_N_SUFFIX_RE.search(name):
+        return name
+    base = _POUND_N_SUFFIX_RE.sub("", name).rstrip()
+    disc = (module_id.split(":")[-1] if module_id else "") or module_id
+    if not disc:
+        return base
+    return f"{base} [{disc}]"
+
+
+def strip_legacy_pound_n_suffixes(
+    modules: Dict[str, "ModuleEntry"],
+) -> int:
+    """Rewrite legacy `#N` suffixes across an in-memory module dict.
+
+    Returns the number of names rewritten. Idempotent — calling twice has
+    no effect on already-migrated names.
+    """
+    rewritten = 0
+    for mod_id, mod in modules.items():
+        new_name = strip_legacy_pound_n_suffix(mod.name, mod_id)
+        if new_name != mod.name:
+            mod.name = new_name
+            rewritten += 1
+    return rewritten
 
 
 # ── Clustering algorithm ─────────────────────────────────────────────
@@ -928,14 +1021,32 @@ def _deduplicate_module_names(modules: Dict[str, "ModuleEntry"]) -> None:
 
             mod.name = f"{name} ({suffix})"
 
-    # Check for remaining duplicates after first pass (rare)
-    seen_names: Dict[str, int] = {}
-    for mod in modules.values():
-        if mod.name in seen_names:
-            seen_names[mod.name] += 1
-            mod.name = f"{mod.name} #{seen_names[mod.name]}"
-        else:
-            seen_names[mod.name] = 1
+    # Check for remaining duplicates after first pass (rare).
+    #
+    # FIX-16-3 (docs/Phase82_MCP-Dogfooding/17_Followup_2026-05-08.md):
+    # The previous fallback emitted "Foo #2", "Foo #3" when first-pass
+    # parenthetical distinguishers also collided. The `#N` suffix reads as
+    # a synthesizer giveaway in the atlas and is the smell the dogfood
+    # critique flagged. Replace with a module_id-derived discriminator so
+    # duplicates remain distinguishable without signalling failure, and
+    # log a warning so the underlying clustering miss stays visible.
+    name_to_ids: Dict[str, List[str]] = defaultdict(list)
+    for mod_id, mod in modules.items():
+        name_to_ids[mod.name].append(mod_id)
+    for dup_name, dup_ids in name_to_ids.items():
+        if len(dup_ids) < 2:
+            continue
+        logger.warning(
+            "_deduplicate_module_names: %d modules still share name %r after "
+            "first-pass distinguishers — appending module_id discriminator. "
+            "This usually indicates a clustering near-duplicate that should "
+            "be merged or re-clustered.",
+            len(dup_ids), dup_name,
+        )
+        for mod_id in dup_ids:
+            mod = modules[mod_id]
+            disc = mod.module_id.split(":")[-1] or mod.module_id
+            mod.name = f"{mod.name} [{disc}]"
 
 
 # ── Synthesis engine ─────────────────────────────────────────────────
@@ -1098,12 +1209,14 @@ class ClusterSynthesizer:
         edges: List[Dict[str, Any]],
     ) -> Optional[ModuleEntry]:
         """Synthesize a module entry for a cluster using the deep reasoning model."""
-        
+
         # Helper to generate prompt with specific file limit
-        def _generate_with_limit(limit: int) -> Optional[Dict[str, Any]]:
+        def _generate_with_limit(
+            limit: int, extra_instruction: str = "",
+        ) -> Optional[Dict[str, Any]]:
             member_summaries = self._build_member_summaries(cluster, epistemic, max_files=limit)
             external_deps = self._build_external_deps(cluster, edges, epistemic)
-            
+
             prompt = MODULE_SYNTHESIS_PROMPT.format(
                 cluster_name=cluster.primary_tag.replace("_", " ").replace("-", " ").title(),
                 domain_tags=", ".join(sorted(cluster.all_tags)),
@@ -1111,7 +1224,9 @@ class ClusterSynthesizer:
                 member_summaries=member_summaries,
                 external_deps=external_deps,
             )
-            
+            if extra_instruction:
+                prompt = f"{prompt}\n\nADDITIONAL CONSTRAINT:\n{extra_instruction}"
+
             prompt_tokens = len(prompt) // 4
             num_predict, num_ctx, warnings = compute_optimal_settings(
                 task=PipelineTask.CLUSTER,
@@ -1129,19 +1244,47 @@ class ClusterSynthesizer:
 
         cluster_name = cluster.primary_tag.replace("_", " ").replace("-", " ").title()
         parsed = None
-        
+
         # Attempt 1: Standard context (30 files)
         try:
             parsed = _generate_with_limit(30)
         except Exception as e:
             logger.warning("Deep reasoning LLM call failed for cluster %s (full context): %s", cluster.cluster_id, e)
-            
+
             # Attempt 2: Reduced context (10 files)
             try:
                 logger.info("Retrying cluster %s with reduced context (10 files)...", cluster.cluster_id)
                 parsed = _generate_with_limit(10)
             except Exception as e2:
                 logger.warning("Deep reasoning LLM call failed for cluster %s (reduced context): %s", cluster.cluster_id, e2)
+
+        # FIX-16-4 follow-up: re-prompt loop on consulting-deck phrasing.
+        # If the synthesizer emitted a summary containing banned phrases,
+        # spend one extra LLM call asking it to rewrite without them.
+        # Best-effort — failures fall back to the original parsed response.
+        if parsed and isinstance(parsed.get("summary"), str):
+            findings = lint_module_summary(parsed["summary"])
+            if findings:
+                phrases_list = ", ".join(f'"{p}"' for p in findings)
+                instruction = (
+                    "Your previous summary contained banned phrases: "
+                    f"{phrases_list}. Rewrite the JSON object so the 'summary' "
+                    "field does not contain any of those phrases. Lead with a "
+                    "concrete doing-verb and stay under 40 words / 3 sentences."
+                )
+                logger.info(
+                    "FIX-16-4: re-prompting cluster %s after lint flagged %d phrases: %s",
+                    cluster.cluster_id, len(findings), findings,
+                )
+                try:
+                    retry = _generate_with_limit(30, extra_instruction=instruction)
+                    if retry and isinstance(retry.get("summary"), str):
+                        parsed = retry
+                except Exception as e:
+                    logger.warning(
+                        "FIX-16-4 re-prompt failed for cluster %s: %s — keeping original",
+                        cluster.cluster_id, e,
+                    )
 
         # Fallback 3: Basic entry
         if not parsed:
@@ -1271,6 +1414,41 @@ class ClusterSynthesizer:
         if parsed is None:
             logger.warning("[Cluster/Swarm] Unparseable response for %s", cluster.cluster_id)
             return None
+
+        # FIX-16-4 follow-up: re-prompt loop on consulting-deck phrasing.
+        # Same pattern as synthesize_cluster — one extra LLM call when the
+        # summary contains banned phrases. Best-effort; failures keep
+        # the original response.
+        if isinstance(parsed.get("summary"), str):
+            findings = lint_module_summary(parsed["summary"])
+            if findings:
+                phrases_list = ", ".join(f'"{p}"' for p in findings)
+                instruction = (
+                    "Your previous summary contained banned phrases: "
+                    f"{phrases_list}. Rewrite the JSON object so the 'summary' "
+                    "field does not contain any of those phrases. Lead with a "
+                    "concrete doing-verb and stay under 40 words / 3 sentences."
+                )
+                logger.info(
+                    "FIX-16-4: re-prompting (with-angle) cluster %s after lint flagged %d phrases",
+                    cluster.cluster_id, len(findings),
+                )
+                try:
+                    retry_prompt = f"{prompt}\n\nADDITIONAL CONSTRAINT:\n{instruction}"
+                    rt_text, _ = self.llm.generate(
+                        retry_prompt, system=MODULE_SYNTHESIS_SYSTEM,
+                        num_predict=num_predict, num_ctx=num_ctx,
+                        json_mode=False, think=False,
+                        max_chars=TASK_MAX_CHARS["augmentation"],
+                    )
+                    retry_parsed = _parse_json_response(rt_text)
+                    if retry_parsed and isinstance(retry_parsed.get("summary"), str):
+                        parsed = retry_parsed
+                except Exception as e:
+                    logger.warning(
+                        "FIX-16-4 (with-angle) re-prompt failed for %s: %s — keeping original",
+                        cluster.cluster_id, e,
+                    )
 
         module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
         confs = [

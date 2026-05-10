@@ -365,3 +365,66 @@ def test_help_flag():
     assert "build" in result.output
     assert "search" in result.output
     assert "context" in result.output
+
+
+# ── rules-regenerate ─────────────────────────────────────────────
+
+def test_rules_regenerate_help():
+    result = runner.invoke(app, ["rules-regenerate", "--help"])
+    assert result.exit_code == 0
+    assert "AGENTS.md" in result.output
+    assert "CLAUDE.md" in result.output
+    assert "--ide" in result.output
+
+
+def test_rules_regenerate_no_pointer_errors(tmp_path):
+    """Bare directory with no .sourceprep/ pointer should error cleanly."""
+    result = runner.invoke(
+        app, ["rules-regenerate", "--path", str(tmp_path)]
+    )
+    assert result.exit_code != 0
+    assert "No SourcePrep project pointer" in result.output
+
+
+def test_rules_regenerate_dry_run_lists_targets(tmp_path):
+    """Dry-run prints would-be targets, writes nothing."""
+    sp_dir = tmp_path / ".sourceprep"
+    sp_dir.mkdir()
+    (sp_dir / "project.json").write_text('{"id": "test-id", "mode": "embedded"}')
+    (tmp_path / "CLAUDE.md").write_text("# Hand-written\n")
+
+    result = runner.invoke(
+        app,
+        ["rules-regenerate", "--path", str(tmp_path), "--dry-run"],
+    )
+    assert result.exit_code == 0
+    assert "Dry run" in result.output
+    assert "agents_md" in result.output  # always present
+    assert "claude" in result.output      # detected via CLAUDE.md
+    # Dry run must not modify files
+    assert (tmp_path / "AGENTS.md").exists() is False
+    assert (tmp_path / "CLAUDE.md").read_text() == "# Hand-written\n"
+
+
+def test_rules_regenerate_writes_claude_only(tmp_path):
+    """--ide claude writes CLAUDE.md and preserves hand-written content."""
+    sp_dir = tmp_path / ".sourceprep"
+    sp_dir.mkdir()
+    (sp_dir / "project.json").write_text(
+        '{"id": "test-id-123", "mode": "embedded"}'
+    )
+    (tmp_path / "CLAUDE.md").write_text("# My Project\n\nHand-written body.\n")
+
+    result = runner.invoke(
+        app,
+        ["rules-regenerate", "--path", str(tmp_path), "--ide", "claude"],
+    )
+    assert result.exit_code == 0, result.output
+
+    claude_md = (tmp_path / "CLAUDE.md").read_text()
+    assert "# My Project" in claude_md
+    assert "Hand-written body" in claude_md
+    assert "<!-- prep-managed-start -->" in claude_md
+    assert "<!-- prep-managed-end -->" in claude_md
+    assert "ALWAYS call `prep`" in claude_md  # imperative line landed
+    assert "test-id-123" in claude_md         # project_id routing

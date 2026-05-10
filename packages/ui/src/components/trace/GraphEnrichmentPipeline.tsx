@@ -820,17 +820,7 @@ function StageRow({
       data-stage-state={isPaused ? 'paused' : stage.state}
       data-stage-progress={stage.progress ?? ''}
       data-stage-group={group}
-      data-stage-frozen={(stage as EnrichmentStage & { _frozen?: boolean })._frozen ? 'true' : undefined}
-      className={cn(
-        "flex items-start gap-3 relative py-0.5 px-1 group",
-        // Phase 118 U6: visually distinguish frozen-from-prior-run stages
-        // from genuinely-complete-this-run stages during a rebuild. The
-        // muted opacity says "this is preserved data, not fresh result."
-        (stage as EnrichmentStage & { _frozen?: boolean })._frozen && "opacity-60",
-      )}
-      title={(stage as EnrichmentStage & { _frozen?: boolean })._frozen
-        ? 'Showing data from prior run — will refresh once this stage re-runs'
-        : undefined}
+      className="flex items-start gap-3 relative py-0.5 px-1 group"
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -974,15 +964,7 @@ function StageRow({
         )}
         {showDetails && !stage.provenance && (stage.state === 'complete' || stage.state === 'stale' || stage.state === 'warning') && (
           <p className="text-[9px] text-text-subtle/50 truncate leading-tight mt-0.5">
-            {/* Phase 118 U14: during a rebuild, frozen-from-prior stages
-                show their preserved counts via the `prior:` stat above.
-                The "No run data" line was misleading — it implied the
-                stage had never run, when in fact it had completed in a
-                prior run and the new run hasn't reached it yet. Show
-                "rebuilding…" instead so the meaning matches the data. */}
-            {(stage as EnrichmentStage & { _frozen?: boolean })._frozen
-              ? 'rebuilding…'
-              : 'No run data'}
+            No run data
           </p>
         )}
 
@@ -1639,6 +1621,16 @@ export function GraphEnrichmentPipeline({
     'not_built', 'disabled', 'queued', 'waiting', 'idle', 'stale', 'warning',
   ];
   if (isRebuilding) {
+    // During a rebuild, two things matter:
+    //   1. don't flicker previously-complete stages back to "waiting"
+    //      while the rebuild hasn't reached them yet (they still have
+    //      valid prior data on disk).
+    //   2. if backend reports a "Not run / No run data" sentinel for a
+    //      previously-complete stage, restore the last-known stats
+    //      string so the user doesn't see their counts vanish.
+    // No ghosting / opacity / "prior:" prefix — the row's existing
+    // timestamp ("today" vs "6d ago") already tells the user whether
+    // the data is fresh or from a prior run.
     for (const stage of [...fastStages, ...deepStages, ...finalizeStages]) {
       if (
         wasCompleteRef.current[stage.id] &&
@@ -1646,29 +1638,14 @@ export function GraphEnrichmentPipeline({
       ) {
         stage.state = 'complete';
         stage.progress = undefined;
-        // Phase 118 U6: mark this stage as "frozen from prior run" so the
-        // panel can render it visually distinct from a stage that
-        // genuinely completed in the current rebuild. Without this the
-        // user sees a green checkmark on a stage that hasn't actually
-        // re-run and assumes the rebuild is further along than it is.
-        // The flag is consumed by data-stage-frozen attr on the row +
-        // the stat-text decoration below.
-        (stage as EnrichmentStage & { _frozen?: boolean })._frozen = true;
       }
-      // Phase 118 Issue B: restore last-known-good stats so frozen stages
-      // don't show "Not generated" while waiting for the rebuild to reach
-      // them. Only override the "never generated" sentinels — actual
-      // running/in-progress stats (e.g. "Generating...", "5/12 batches")
-      // come through unchanged.
       if (
         wasCompleteRef.current[stage.id]
         && typeof stage.stats === 'string'
         && NEVER_GENERATED_STATS.has(stage.stats)
         && lastGoodStatsRef.current[stage.id]
       ) {
-        // Prefix with a small marker so the user can tell this is the
-        // prior-run value being preserved through the rebuild.
-        stage.stats = `prior: ${lastGoodStatsRef.current[stage.id]}`;
+        stage.stats = lastGoodStatsRef.current[stage.id];
       }
     }
   }

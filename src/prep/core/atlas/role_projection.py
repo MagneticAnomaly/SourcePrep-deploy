@@ -403,7 +403,14 @@ def _load_epistemic_entries(index_dir: Path) -> Dict[str, Dict[str, Any]]:
 
 
 def _load_modules(index_dir: Path) -> List[Dict[str, Any]]:
-    """Load module entries from trace_modules.jsonl."""
+    """Load module entries from trace_modules.jsonl.
+
+    FIX-16-3 follow-up: rewrite legacy `Foo (Packages) #2` names to
+    `Foo (Packages) [<idx>]` form on read so existing projects don't have
+    to wait for a full pipeline rerun to see the cleaner module names.
+    """
+    from prep.core.cluster import strip_legacy_pound_n_suffix
+
     path = index_dir / "trace_modules.jsonl"
     modules: List[Dict[str, Any]] = []
     if path.exists():
@@ -412,7 +419,13 @@ def _load_modules(index_dir: Path) -> List[Dict[str, Any]]:
                 line = line.strip()
                 if line:
                     try:
-                        modules.append(json.loads(line))
+                        m = json.loads(line)
+                        name = m.get("name") or ""
+                        if name:
+                            m["name"] = strip_legacy_pound_n_suffix(
+                                name, m.get("module_id") or "",
+                            )
+                        modules.append(m)
                     except json.JSONDecodeError:
                         continue
     return modules

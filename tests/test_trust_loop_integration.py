@@ -191,10 +191,18 @@ class TestBuildOperations:
     """Test index build operations."""
 
     def test_build_project(self, client: TestClient, mini_repo: Path) -> None:
-        """Building a project should populate the index."""
+        """Building a project with explicit scope should populate the index.
+
+        2026-05: untouched projects no longer default to "embed everything".
+        The build request must carry explicit ``included_paths`` (or the
+        project must have them in config) for any documents to be embedded.
+        """
         project_id = _add_project(client, mini_repo)
 
-        res = client.post(f"/projects/{project_id}/build")
+        res = client.post(
+            f"/projects/{project_id}/build",
+            json={"included_paths": ["main.py", "utils.py", "README.md"]},
+        )
         assert res.status_code == 200
         body = res.json()
         assert body["success"] is True
@@ -223,7 +231,10 @@ class TestSearchOperations:
     def test_search_after_build(self, client: TestClient, mini_repo: Path) -> None:
         """Search should return results after build."""
         project_id = _add_project(client, mini_repo)
-        client.post(f"/projects/{project_id}/build")
+        client.post(
+            f"/projects/{project_id}/build",
+            json={"included_paths": ["main.py", "utils.py", "README.md"]},
+        )
         _wait_for_build(client, project_id)
 
         res = client.post(
@@ -256,7 +267,10 @@ class TestSearchOperations:
     def test_search_with_min_score(self, client: TestClient, mini_repo: Path) -> None:
         """Search with min_score should filter results."""
         project_id = _add_project(client, mini_repo)
-        client.post(f"/projects/{project_id}/build")
+        client.post(
+            f"/projects/{project_id}/build",
+            json={"included_paths": ["main.py", "utils.py", "README.md"]},
+        )
         _wait_for_build(client, project_id)
 
         res = client.post(
@@ -275,7 +289,10 @@ class TestContextOperations:
     def test_context_after_build(self, client: TestClient, mini_repo: Path) -> None:
         """Context assembly should return formatted context after build."""
         project_id = _add_project(client, mini_repo)
-        client.post(f"/projects/{project_id}/build")
+        client.post(
+            f"/projects/{project_id}/build",
+            json={"included_paths": ["main.py", "utils.py", "README.md"]},
+        )
         _wait_for_build(client, project_id)
 
         res = client.post(
@@ -291,7 +308,10 @@ class TestContextOperations:
     def test_context_with_max_chars(self, client: TestClient, mini_repo: Path) -> None:
         """Context with max_chars should respect the limit."""
         project_id = _add_project(client, mini_repo)
-        client.post(f"/projects/{project_id}/build")
+        client.post(
+            f"/projects/{project_id}/build",
+            json={"included_paths": ["main.py", "utils.py", "README.md"]},
+        )
         _wait_for_build(client, project_id)
 
         res = client.post(
@@ -316,7 +336,10 @@ class TestTrustLoopEndToEnd:
         assert res_get.status_code == 200
         assert res_get.json()["data"]["project"]["name"] == "trust_loop_test"
 
-        res_build = client.post(f"/projects/{project_id}/build")
+        res_build = client.post(
+            f"/projects/{project_id}/build",
+            json={"included_paths": ["main.py", "utils.py", "README.md"]},
+        )
         assert res_build.status_code == 200
 
         status = _wait_for_build(client, project_id)

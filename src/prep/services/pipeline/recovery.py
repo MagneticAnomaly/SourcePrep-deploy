@@ -1273,6 +1273,33 @@ class RecoveryManager:
                 user_pause_payload = RecoveryManager.read_user_pause_marker(pid, group)
                 user_paused = user_pause_payload is not None
 
+                # Phase 118 U23: journal-driven pause backstop. The
+                # user_pause_marker is the authoritative source, but if a
+                # prior daemon version (or the bug fixed in the U23
+                # commit) failed to persist the marker, the journal still
+                # records status='paused' on the most recent run. Detect
+                # that case and synthesize a marker from journal data so
+                # hydration below can pin a paused state at the right
+                # stage instead of silently dropping the run.
+                if not user_paused:
+                    try:
+                        from prep.services.pipeline_journal import journal
+                        latest = journal.get_latest_run(pid, group)
+                        if latest is not None and getattr(latest, "status", "") == "paused":
+                            cur = getattr(latest, "current_stage", None)
+                            if cur:
+                                RecoveryManager.write_user_pause_marker(pid, group, cur)
+                                user_pause_payload = RecoveryManager.read_user_pause_marker(pid, group)
+                                user_paused = user_pause_payload is not None
+                                logger.info(
+                                    "U23 backstop: synthesized user-pause "
+                                    "marker for %s/%s at stage %s from "
+                                    "journal status=paused",
+                                    pid, group, cur,
+                                )
+                    except Exception:
+                        logger.debug("U23 journal-paused backstop failed", exc_info=True)
+
                 # If the detector says every stage is complete, trust it —
                 # the marker is stale (e.g. resume completed all remaining
                 # stages but the marker clear failed). Clear the marker so

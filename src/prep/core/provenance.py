@@ -138,18 +138,39 @@ def aggregate_quality_metrics(
     """
     if not jsonl_path.exists():
         return {}
-    
+
     confidences: List[float] = []
     total_items = 0
     parse_errors = 0
-    
+
+    def _lookup(entry: Dict[str, Any], field: str) -> Any:
+        """Resolve a possibly-dotted field path. Falls back to a recursive
+        scan for the leaf key if the dotted path is absent — handles cases
+        where the producer nests the score under metadata/quality/etc.
+        without the caller having to know the exact shape.
+        """
+        cur: Any = entry
+        for part in field.split("."):
+            if not isinstance(cur, dict):
+                return None
+            cur = cur.get(part)
+            if cur is None:
+                break
+        if cur is not None:
+            return cur
+        leaf = field.rsplit(".", 1)[-1]
+        for v in entry.values():
+            if isinstance(v, dict) and leaf in v and isinstance(v[leaf], (int, float)):
+                return v[leaf]
+        return None
+
     try:
         with open(jsonl_path, "r", encoding="utf-8") as f:
             for line in f:
                 total_items += 1
                 try:
                     entry = json.loads(line)
-                    conf = entry.get(confidence_field)
+                    conf = _lookup(entry, confidence_field)
                     if conf is not None and isinstance(conf, (int, float)):
                         confidences.append(float(conf))
                     else:

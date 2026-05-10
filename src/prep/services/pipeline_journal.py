@@ -346,6 +346,30 @@ class PipelineJournal:
         self._stop_heartbeat(run_id)
         logger.info("Journal: run cancelled %s", run_id)
 
+    def run_paused(self, run_id: str) -> None:
+        """Record that the run was paused by the user (distinct from cancelled).
+
+        Phase 118 U23: pause and cancel were both recorded as 'cancelled',
+        making it impossible for recovery to distinguish "user wants to
+        resume" from "user discarded the run". The user_pause_marker on
+        disk is the authoritative source, but having a matching journal
+        status keeps the journal honest and lets crash-recovery filters
+        skip paused runs without resurrecting them.
+        """
+        conn = self._require_conn()
+        now = time.time()
+        with self._lock:
+            conn.execute(
+                """UPDATE pipeline_runs
+                   SET status = 'paused', error = NULL,
+                       finished_at = ?, last_heartbeat = ?
+                   WHERE run_id = ?""",
+                (now, now, run_id),
+            )
+            conn.commit()
+        self._stop_heartbeat(run_id)
+        logger.info("Journal: run paused %s", run_id)
+
     def set_checkpoint(self, run_id: str, checkpoint_path: str) -> None:
         """Record the path to a checkpoint backup directory."""
         conn = self._require_conn()

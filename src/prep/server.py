@@ -1007,22 +1007,22 @@ def configure(
         import time
         time.sleep(3)  # Let server fully initialize
         try:
-            # F-65: global config is now only a fallback — per-project auto_config
-            # is the source of truth.  But we still need the global check to decide
-            # whether to scan projects at all.  If ANY project could have auto mode,
-            # we must scan.  So we check the global as a hint but don't skip if it
-            # says manual — individual projects may have auto_config overrides.
+            # 2026-05 follow-up to F-65: the global pipeline_config is read for
+            # diagnostic logging only — it is no longer a source of truth for
+            # auto-run gating. Each project must explicitly opt in via
+            # `auto_config.fastSync` / `auto_config.deepEnrichment`. A project
+            # whose IndexStatusCard reads Manual must never auto-fire on
+            # daemon restart, even if a stale global flag is set to auto.
             from prep.services.settings_store import settings as _ss
             pc = _ss.get("pipeline_config") or {}
             global_fast_auto = (pc.get("fast_sync") or {}).get("auto", False)
             global_deep_mode = (pc.get("deep_enrichment") or {}).get("mode", "manual")
 
             logger.info(
-                "Startup auto-run check: fast_sync.auto=%s, deep_enrichment.mode=%s",
+                "Startup auto-run check (diagnostic): fast_sync.auto=%s, deep_enrichment.mode=%s "
+                "(global is no longer a fallback — per-project auto_config is authoritative)",
                 global_fast_auto, global_deep_mode,
             )
-
-            # Don't skip — always scan projects since per-project overrides exist
 
             from prep.services.pipeline_orchestrator import pipeline_orchestrator as _po
             from prep.services.project_helpers import (
@@ -1052,11 +1052,16 @@ def configure(
             # to prevent the thread from blocking forever on a slow model.
             MAX_WAIT_PER_PROJECT = 120  # seconds to wait before moving to next
             for proj in projects:
-                # F-65: Read per-project auto_config, fall back to global
+                # 2026-05: Per-project auto_config is the only authority.
+                # Falling back to the global flag was the regression — it
+                # caused projects with their UI on Manual to auto-fire after
+                # daemon restart whenever the global default was still auto.
+                # Default to manual (False / "manual") when the project has
+                # never explicitly set its own auto_config.
                 pcfg = proj.config if isinstance(proj.config, dict) else {}
                 proj_auto = pcfg.get("auto_config") or {}
-                fast_auto = proj_auto.get("fastSync", proj_auto.get("fast_sync", global_fast_auto))
-                deep_mode = proj_auto.get("deepEnrichment", proj_auto.get("deep_enrichment", global_deep_mode))
+                fast_auto = bool(proj_auto.get("fastSync", proj_auto.get("fast_sync", False)))
+                deep_mode = proj_auto.get("deepEnrichment", proj_auto.get("deep_enrichment", "manual"))
 
                 # Phase 45 Fix: Check if project is actually stale or incomplete before running
                 from prep.services.build_manager import build_manager as _bm

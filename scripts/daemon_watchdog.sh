@@ -15,6 +15,11 @@ LOG_DIR="${LOG_DIR:-/tmp/prep_daemon_logs}"
 STOP_FILE="/tmp/prep_daemon_stop"
 HISTORY_LOG="$LOG_DIR/history.log"
 
+# Prevent huggingface/tokenizers fork-after-parallelism deadlock when
+# the daemon spawns subprocesses after tokenizer init. (Standalone
+# launches must set this too — dev.sh does the same.)
+export TOKENIZERS_PARALLELISM=false
+
 mkdir -p "$LOG_DIR"
 rm -f "$STOP_FILE"
 

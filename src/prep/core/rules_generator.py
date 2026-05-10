@@ -508,7 +508,7 @@ def _build_managed_content(
     parts.append("| Tool | When to Use |")
     parts.append("|------|-------------|")
     parts.append("| `prep` | START of every task — structural overview, modules, hub files, immune system alerts |")
-    parts.append("| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER). |")
+    parts.append("| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, COMPARE, DISCOVER). |")
     parts.append("| `prep_impact` | BEFORE editing — check what depends on a file |")
     parts.append("| `prep_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action=\"antibodies\"` for immune system. |")
     parts.append("| `prep_observe` | Save/retrieve cross-session notes |")
@@ -546,6 +546,13 @@ def _build_managed_content(
 
     # ── Target-specific instructions ──
     if target == "claude":
+        parts.append(
+            "**ALWAYS call `prep` (no arguments) at the START of every task** — "
+            "before any file read, grep, or other exploration. "
+            "The word \"prep\" in user input is a tool-invocation signal: "
+            "call immediately, no announcement, no permission prompt."
+        )
+        parts.append("")
         parts.append("### Auto-Approve")
         parts.append(
             "Add to `.claude/settings.json`:\n"

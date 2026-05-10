@@ -106,8 +106,39 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
   const [projectStatuses, setProjectStatuses] = useState<Record<string, ProjectStatus>>({})
   const [buildingProjects, setBuildingProjects] = useState<Set<string>>(new Set())
   const [transientCompleteProjects, setTransientCompleteProjects] = useState<Set<string>>(new Set())
+  // 2026-05: Track per-project IDs whose /status polls have repeatedly
+  // failed. The IndexStatusCard reads this to surface a "stats stale"
+  // indicator instead of silently displaying pre-build numbers — the
+  // dashboard would otherwise look healthy after a /status timeout
+  // because the catch blocks below leave the prior status in state.
+  const [projectStatusStale, setProjectStatusStale] = useState<Set<string>>(new Set())
+  const pollFailureCountsRef = useRef<Record<string, number>>({})
+  const STALE_AFTER_FAILURES = 3
   const [projectConfig, setProjectConfig] = useState<ProjectConfig>(DEFAULT_CONFIG)
   const [configDirty, setConfigDirty] = useState(false)
+
+  const markPollSuccess = useCallback((pid: string) => {
+    pollFailureCountsRef.current[pid] = 0
+    setProjectStatusStale((prev) => {
+      if (!prev.has(pid)) return prev
+      const next = new Set(prev)
+      next.delete(pid)
+      return next
+    })
+  }, [])
+
+  const markPollFailure = useCallback((pid: string) => {
+    const n = (pollFailureCountsRef.current[pid] ?? 0) + 1
+    pollFailureCountsRef.current[pid] = n
+    if (n >= STALE_AFTER_FAILURES) {
+      setProjectStatusStale((prev) => {
+        if (prev.has(pid)) return prev
+        const next = new Set(prev)
+        next.add(pid)
+        return next
+      })
+    }
+  }, [])
 
   // ── Fetch ────────────────────────────────────────────────────
 
@@ -124,6 +155,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     try {
       const status = await api.getProjectStatus(projectId)
       setProjectStatuses((prev) => ({ ...prev, [projectId]: status }))
+      markPollSuccess(projectId)
       if (!status.building) {
         setBuildingProjects((prev) => {
           const next = new Set(prev)
@@ -132,9 +164,11 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
         })
       }
     } catch {
-      // Silently ignore status errors for background polling
+      // Silent for background polling, but track so the UI can surface
+      // a "stats stale" indicator after repeated failures.
+      markPollFailure(projectId)
     }
-  }, [api])
+  }, [api, markPollSuccess, markPollFailure])
 
   // ── Self-hydrate on project change ───────────────────────────
 
@@ -153,11 +187,13 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
           const status = await api.getProjectStatus(pid)
           if (signal?.aborted) return
           setProjectStatuses((prev) => ({ ...prev, [pid]: status }))
+          markPollSuccess(pid)
           if (!status.building) {
             setBuildingProjects((prev) => { const next = new Set(prev); next.delete(pid); return next })
           }
           return // success
         } catch {
+          markPollFailure(pid)
           if (attempt < delays.length) {
             await new Promise(r => setTimeout(r, delays[attempt]))
           }
@@ -218,6 +254,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       try {
         const status = await api.getProjectStatus(selectedProjectId)
         setProjectStatuses((prev) => ({ ...prev, [selectedProjectId]: status }))
+        markPollSuccess(selectedProjectId)
         if (!status.building) {
           clearInterval(poll)
           setTransientCompleteProjects((prev) => new Set(prev).add(selectedProjectId))
@@ -231,7 +268,10 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
           void fetchFileTreeRef.current?.(selectedProjectId)
         }
       } catch {
-        // Silently ignore poll errors
+        // Silent for polling — but track repeated failures so the
+        // IndexStatusCard can show "stats stale" instead of leaving
+        // the user staring at pre-build numbers indefinitely.
+        markPollFailure(selectedProjectId)
       } finally {
         inFlight = false
       }
@@ -239,7 +279,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     const poll = setInterval(tick, 5000)
 
     return () => clearInterval(poll)
-  }, [api, selectedProjectId, projectStatuses, buildingProjects])
+  }, [api, selectedProjectId, projectStatuses, buildingProjects, markPollSuccess, markPollFailure])
 
   // ── Actions ──────────────────────────────────────────────────
 
@@ -310,6 +350,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
         try {
           const status = await api.getProjectStatus(selectedProjectId)
           setProjectStatuses((prev) => ({ ...prev, [selectedProjectId]: status }))
+          markPollSuccess(selectedProjectId)
           if (!status.building) {
             clearInterval(poll)
             setBuildingProjects((prev) => {
@@ -334,6 +375,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
           }
         } catch (e) {
           console.warn('Poll failed', e)
+          markPollFailure(selectedProjectId)
         }
       }, 2000)
     } catch (e) {
@@ -344,7 +386,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       })
       onErrorRef.current(e instanceof Error ? e.message : 'Build failed — check logs for details.', 'error')
     }
-  }, [api, selectedProjectId, refreshStatus])
+  }, [api, selectedProjectId, refreshStatus, markPollSuccess, markPollFailure])
 
   const handleSaveConfig = useCallback(async () => {
     if (!selectedProjectId) return
@@ -528,6 +570,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
   )
 
   const projectStatus = selectedProjectId ? projectStatuses[selectedProjectId] ?? null : null
+  const projectStatusUnreachable = selectedProjectId ? projectStatusStale.has(selectedProjectId) : false
 
   const projectSummaries = useMemo(
     () => projects.map((p) => toProjectSummary(p, projectStatuses[p.id] ?? null, buildingProjects.has(p.id))),
@@ -542,6 +585,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     selectedProjectId,
     selectedProject,
     projectStatus,
+    projectStatusUnreachable,
     projectSummaries,
     projectConfig,
     configDirty,

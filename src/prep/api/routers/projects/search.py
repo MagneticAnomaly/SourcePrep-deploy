@@ -375,6 +375,21 @@ def _get_compressor(compression: str) -> "ContextCompressor":
     return NoopCompressor()
 
 
+def _migrate_legacy_module_name(m: Dict[str, Any]) -> None:
+    """Rewrite legacy `Foo (Packages) #2` names to `Foo (Packages) [<idx>]`
+    in a module dict, in place. Idempotent — no-op for already-migrated
+    or never-suffixed names. FIX-16-3 follow-up so existing projects get
+    cleaner names without forcing a full pipeline rerun.
+    """
+    from prep.core.cluster import strip_legacy_pound_n_suffix
+    name = m.get("name") or ""
+    if not name:
+        return
+    new_name = strip_legacy_pound_n_suffix(name, m.get("module_id") or "")
+    if new_name != name:
+        m["name"] = new_name
+
+
 def _load_scope_modules(
     idx_dir: Path,
     included_paths: List[str],
@@ -392,6 +407,7 @@ def _load_scope_modules(
                     continue
                 try:
                     m = _json.loads(line)
+                    _migrate_legacy_module_name(m)
                     member_files = m.get("member_files", [])
                     for ip in included_paths:
                         prefix = ip.rstrip("/") + "/"
@@ -422,7 +438,9 @@ def _load_all_modules(idx_dir: Path) -> List[Dict[str, Any]]:
                 if not line:
                     continue
                 try:
-                    modules.append(_json.loads(line))
+                    m = _json.loads(line)
+                    _migrate_legacy_module_name(m)
+                    modules.append(m)
                 except _json.JSONDecodeError:
                     continue
     except OSError:
@@ -430,10 +448,27 @@ def _load_all_modules(idx_dir: Path) -> List[Dict[str, Any]]:
     return modules
 
 
+def _first_sentence(text: str) -> str:
+    """Return the first sentence of a summary, or the full text if no period.
+
+    Used by `_format_module_tiers` to keep default ambient-context output
+    bounded. Synthesizer-generated summaries often run 2-3 sentences of
+    consulting-deck filler ("Bridges X with Y while Z…"); the first sentence
+    typically carries the actionable signal.
+    """
+    if not text:
+        return text
+    idx = text.find(". ")
+    if idx == -1:
+        return text
+    return text[: idx + 1]
+
+
 def _format_module_tiers(
     scope_modules: List[Dict[str, Any]],
     context_tier: Optional["ContextTier"] = None,
     role: Optional[Any] = None,
+    verbose: bool = False,
 ) -> str:
     """Format modules into tiered display: significant, small, tiny.
 
@@ -446,6 +481,11 @@ def _format_module_tiers(
     role lens only re-orders the prominent slot. ``role`` is typed as
     ``Any`` so this module doesn't pull the atlas package into its import
     graph; callers are expected to pass a ``RoleVector`` or ``None``.
+
+    When ``verbose`` is False (default), the significant list is capped at
+    ``tier.module_max_significant`` and each module's summary is truncated to
+    its first sentence. ``verbose=True`` restores the original unbounded
+    output (FIX-16-1).
     """
     from prep.core.context_tier import ContextTier
 
@@ -489,10 +529,19 @@ def _format_module_tiers(
     else:
         significant = sorted(significant, key=lambda x: -x.get("file_count", 0))
 
+    omitted_significant = 0
+    if not verbose:
+        cap = tier.module_max_significant
+        if len(significant) > cap:
+            omitted_significant = len(significant) - cap
+            significant = significant[:cap]
+
     mod_header = f"## Modules in scope{role_label}\n"
     for m in significant:
         name = m.get("name", m.get("module_id", "?"))
         summary = m.get("summary", "")
+        if summary and not verbose:
+            summary = _first_sentence(summary)
         fc = m.get("file_count", 0)
         deps = ", ".join(m.get("dependencies", [])[:3])
         line = f"- **{name}** ({fc} files)"
@@ -501,6 +550,11 @@ def _format_module_tiers(
         if deps:
             line += f" → {deps}"
         mod_header += line + "\n"
+    if omitted_significant:
+        mod_header += (
+            f"\n*Plus {omitted_significant} more significant modules — "
+            f"call prep(verbose=true) to see all*\n"
+        )
     if tier.module_show_small and small:
         mod_header += f"\n*Plus {len(small)} smaller modules (2-4 files each)*\n"
     if tier.module_show_tiny and tiny:
@@ -550,6 +604,7 @@ def _assemble_ambient_context(
     max_chars: int = 6000,
     context_tier: Optional[int] = None,
     role: Optional[str] = None,
+    verbose: bool = False,
 ) -> Dict[str, Any]:
     """Assemble context from project state without a query (Phase 34 C1/C2/C3).
 
@@ -587,7 +642,9 @@ def _assemble_ambient_context(
 
     # ── C2: Module-aware header ──────────────────────────────────
     scope_modules = _load_scope_modules(idx_dir, included_paths)
-    mod_text = _format_module_tiers(scope_modules, context_tier=tier, role=role_vec)
+    mod_text = _format_module_tiers(
+        scope_modules, context_tier=tier, role=role_vec, verbose=verbose,
+    )
     if mod_text:
         parts.append(mod_text)
         total_chars += len(parts[-1])
@@ -914,6 +971,7 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
                     _role_vec = None
             mod_text = _format_module_tiers(
                 scope_modules, context_tier=tier, role=_role_vec,
+                verbose=req.verbose,
             )
             if mod_text:
                 parts.append(mod_text)
@@ -983,7 +1041,7 @@ def context_project(project_id: str, req: ContextRequest) -> Dict[str, Any]:
         _included = (proj.config or {}).get("included_paths") or []
         return _assemble_ambient_context(
             proj, project_id, idx, trace_idx, _included, max_chars=req.max_chars,
-            context_tier=req.context_tier, role=req.role,
+            context_tier=req.context_tier, role=req.role, verbose=req.verbose,
         )
 
     # ── Phase 34e F: Query preprocessing ─────────────────────────

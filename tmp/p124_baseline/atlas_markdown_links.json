@@ -1,0 +1,2341 @@
+{
+  "md_to_files": {
+    ".agents/AGENTS.md": [
+      "tests/eval/real_repos/bat-rust/tests/benchmarks/highlighting-speed-src/jquery.js",
+      "tests/eval/real_repos/bat-rust/tests/benchmarks/highlighting-speed-src/numpy_test_multiarray.py",
+      "tests/eval/real_repos/ripgrep-rust/crates/core/flags/defs.rs"
+    ],
+    ".agents/content_marketing_strategist/KNOWLEDGE.md": [
+      "packages/ui/src/components/search/index.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/types/index.ts",
+      "src/prep/cli.py",
+      "src/prep/dashboard/src-tauri/src/main.rs"
+    ],
+    ".agents/content_marketing_strategist/SOUL.md": [
+      "packages/ui/src/index.ts",
+      "src/prep/cli.py"
+    ],
+    ".agents/core_platform_engineer/AGENTS.md": [
+      "packages/ui/src/components/search/index.ts",
+      "packages/ui/src/index.ts",
+      "src/prep/cli.py",
+      "src/prep/dashboard/src-tauri/src/main.rs"
+    ],
+    ".agents/core_platform_engineer/KNOWLEDGE.md": [
+      "packages/ui/src/components/search/index.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/types/index.ts",
+      "src/prep/cli.py",
+      "src/prep/dashboard/src-tauri/src/main.rs"
+    ],
+    ".agents/core_platform_engineer/SOUL.md": [
+      "packages/ui/src/components/search/index.ts",
+      "packages/ui/src/index.ts",
+      "src/prep/cli.py"
+    ],
+    ".agents/mcp_integrations_specialist/AGENTS.md": [
+      "packages/ui/src/index.ts"
+    ],
+    ".agents/mcp_integrations_specialist/KNOWLEDGE.md": [
+      "packages/ui/src/components/search/index.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/types/index.ts",
+      "src/prep/cli.py",
+      "src/prep/dashboard/src-tauri/src/main.rs"
+    ],
+    ".agents/mcp_integrations_specialist/SOUL.md": [
+      "packages/ui/src/index.ts"
+    ],
+    ".agents/security_enterprise_architect/KNOWLEDGE.md": [
+      "packages/ui/src/components/search/index.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/types/index.ts",
+      "src/prep/cli.py",
+      "src/prep/dashboard/src-tauri/src/main.rs"
+    ],
+    ".agents/ui_design_system_engineer/AGENTS.md": [
+      "packages/ui/src/components/search/index.ts",
+      "packages/ui/src/index.ts"
+    ],
+    ".agents/ui_design_system_engineer/KNOWLEDGE.md": [
+      "packages/ui/src/components/search/index.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/types/index.ts",
+      "src/prep/cli.py",
+      "src/prep/dashboard/src-tauri/src/main.rs"
+    ],
+    ".agents/ui_design_system_engineer/SOUL.md": [
+      "packages/ui/src/components/search/index.ts",
+      "packages/ui/src/index.ts"
+    ],
+    "AGENTS.md": [
+      "packages/ui/src/components/primitives/index.ts"
+    ],
+    "CLAUDE.md": [
+      "packages/ui/src/components/primitives/index.ts",
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/data_dir_migration.py",
+      "src/prep/core/rules_generator.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_config.py",
+      "src/prep/mcp_direct.py",
+      "src/prep/mcp_tools.py"
+    ],
+    "HANDOFF.md": [
+      "tests/test_configure_concept_store_init.py",
+      "tests/test_data_dir_migration.py",
+      "tests/test_feature_gate.py",
+      "tests/test_l3_plumbing.py",
+      "tests/test_paths.py"
+    ],
+    "README.md": [
+      "docs/PHASES.md",
+      "docs/ROADMAP.md"
+    ],
+    "docs/API.md": [
+      "src/prep/server.py"
+    ],
+    "docs/ATOMIC_BUILD.md": [
+      "tests/test_atomic_build.py"
+    ],
+    "docs/BUDGETS_POLICY.md": [
+      "src/prep/cli.py",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/mcp_server.py",
+      "src/prep/mcp_tools.py"
+    ],
+    "docs/GETTING_STARTED.md": [
+      "docs/Phase28_ContextWindowResearch/EMBEDDING_MODEL_RESEARCH.md"
+    ],
+    "docs/MANIFEST_SCHEMA.md": [
+      "tests/test_manifest_ids.py"
+    ],
+    "docs/MARKETING_MASTER_TODO.md": [
+      "packages/ui/.storybook/preview.tsx",
+      "packages/ui/src/components/marketing/FeatureBlocks.tsx",
+      "packages/ui/src/config/panelRegistry.ts",
+      "scripts/validate_links.js",
+      "src/prep/dashboard/src/App.tsx",
+      "websites/apps/marketing/src/app/about/page.tsx",
+      "websites/apps/marketing/src/app/page.tsx",
+      "websites/apps/marketing/src/app/pricing/page.tsx"
+    ],
+    "docs/MASTER_TODO.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/api/mock.ts",
+      "packages/ui/src/api/types.ts",
+      "packages/ui/src/components/dashboard/IndexStatusCard.tsx",
+      "packages/ui/src/components/primitives/Select.tsx",
+      "packages/ui/src/components/project/FolderTree.tsx",
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/components/trace/StageProgressBar.tsx",
+      "packages/ui/src/components/trace/TraceCoveragePanel.tsx",
+      "packages/ui/src/config/panelRegistry.ts",
+      "packages/ui/src/stories/dashboard/FullDashboard.stories.tsx",
+      "packages/ui/src/types.ts",
+      "packages/ui/src/types/layout.ts",
+      "packages/ui/tailwind.config.js",
+      "packages/vscode/src/client.ts",
+      "src/prep/api/envelope.py",
+      "src/prep/api/routers/system.py",
+      "src/prep/cli.py",
+      "src/prep/core/embedder.py",
+      "src/prep/core/feature_gate.py",
+      "src/prep/core/ids.py",
+      "src/prep/core/index.py",
+      "src/prep/core/manifest.py",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/dashboard/src/components/ErrorToast.tsx",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/prep/dashboard/src/hooks/useTraceSystem.ts",
+      "src/prep/dashboard/vite.config.ts",
+      "src/prep/mcp_server.py",
+      "src/prep/server.py",
+      "src/prep/services/pipeline_orchestrator.py",
+      "src/prep/viz/__init__.py",
+      "tests/conftest.py",
+      "tests/test_atomic_build.py",
+      "tests/test_dashboard_e2e_flow.py",
+      "tests/test_dashboard_error_states.py",
+      "tests/test_deep_merge.py",
+      "tests/test_feature_gate.py",
+      "tests/test_incremental_rebuild.py",
+      "tests/test_index_recovery.py",
+      "tests/test_js_analyzer.py",
+      "tests/test_mcp_config_endpoint.py",
+      "tests/test_mcp_direct_smoke.py",
+      "tests/test_mcp_server.py",
+      "tests/test_native_embedder.py",
+      "tests/test_path_weights.py",
+      "tests/test_primer.py",
+      "tests/test_trace_endpoints.py",
+      "tests/test_trust_loop_integration.py",
+      "tests/test_watcher_staleness.py",
+      "websites/apps/docs/src/app/layout.tsx",
+      "websites/apps/marketing/src/app/layout.tsx",
+      "websites/apps/payments/src/app/api/recover/route.ts",
+      "websites/apps/payments/src/app/layout.tsx",
+      "websites/apps/support/src/app/api/bug-report/route.ts",
+      "websites/apps/support/src/app/layout.tsx"
+    ],
+    "docs/PRIMER_DETECTION.md": [
+      "tests/test_primer.py"
+    ],
+    "docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/README.md": [
+      "docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/validate_trace.py"
+    ],
+    "docs/Phase02_Dashboard/TEST_PLAN_E2E.md": [
+      "tests/test_dashboard_e2e_flow.py"
+    ],
+    "docs/Phase02_Dashboard/TODO.md": [
+      "tests/test_dashboard_e2e_flow.py",
+      "tests/test_dashboard_error_states.py"
+    ],
+    "docs/Phase03_AutoRebuild/TODO.md": [
+      "src/prep/core/watcher.py",
+      "tests/test_incremental_rebuild.py",
+      "tests/test_watcher_staleness.py"
+    ],
+    "docs/Phase04_TraceIndex/IMPLEMENTATION_PLAN.md": [
+      "src/prep/core/ids.py"
+    ],
+    "docs/Phase04_TraceIndex/LLM_TRACE_AUGMENTATION_RESEARCH.md": [
+      "src/prep/core/chunking.py",
+      "src/prep/core/embedder.py",
+      "src/prep/core/index.py",
+      "src/prep/server.py"
+    ],
+    "docs/Phase04_TraceIndex/README.md": [
+      "src/prep/server.py"
+    ],
+    "docs/Phase04_TraceIndex/Rust-Upgrade/REPLACEMENTS.md": [
+      "src/prep/cli.py",
+      "src/prep/core/__init__.py",
+      "src/prep/core/chunking.py",
+      "src/prep/core/embedder.py",
+      "src/prep/core/index.py",
+      "src/prep/core/project_registry.py",
+      "src/prep/core/repo_policy.py",
+      "src/prep/core/team_config.py",
+      "src/prep/core/watcher.py",
+      "src/prep/server.py"
+    ],
+    "docs/Phase04_TraceIndex/Rust-Upgrade/TODO.md": [
+      "src/prep/core/__init__.py"
+    ],
+    "docs/Phase04_TraceIndex/TODO.md": [
+      "src/prep/core/ids.py"
+    ],
+    "docs/Phase05_MCP_Integration/README.md": [
+      "src/prep/server.py"
+    ],
+    "docs/Phase05_MCP_Integration/TODO.md": [
+      "src/prep/mcp_server.py",
+      "tests/test_mcp_server.py"
+    ],
+    "docs/Phase06_Team_And_Enterprise/ENTERPRISE_ADMIN_DESIGN.md": [
+      "src/prep/core/feature_gate.py",
+      "src/prep/core/licensing.py"
+    ],
+    "docs/Phase06_Team_And_Enterprise/PROGRESS.md": [
+      "src/prep/core/layered_index.py",
+      "src/prep/services/remote_sync.py",
+      "tests/test_headless_runner.py",
+      "tests/test_layered_index.py",
+      "tests/test_remote_sync.py",
+      "tests/test_s3_storage.py"
+    ],
+    "docs/Phase06_Team_And_Enterprise/RESEARCH_SHARED_TRACE_VS_LOCAL_KB.md": [
+      "src/prep/core/index.py"
+    ],
+    "docs/Phase06_Team_And_Enterprise/SECURITY_AUDIT.md": [
+      "src/prep/api/routers/llm.py",
+      "src/prep/core/feature_gate.py",
+      "src/prep/core/inferred_edges.py",
+      "src/prep/core/layered_index.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/server.py",
+      "src/prep/services/headless_runner.py",
+      "src/prep/services/remote_sync.py",
+      "src/prep/services/s3_storage.py"
+    ],
+    "docs/Phase06_Team_And_Enterprise/SECURITY_MARKETING_PAGE.md": [
+      "websites/apps/marketing/src/app/security/page.tsx"
+    ],
+    "docs/Phase06_Team_And_Enterprise/TEAM_ENTERPRISE_CODE_AUDIT.md": [
+      "public/sourceprep-deploy/modal/modal_adapter.py",
+      "public/sourceprep-deploy/runpod/runpod_handler.py",
+      "src/prep/cli.py",
+      "src/prep/core/feature_gate.py",
+      "src/prep/core/layered_index.py",
+      "src/prep/core/team_config.py",
+      "src/prep/server.py",
+      "src/prep/services/headless_runner.py",
+      "src/prep/services/project_helpers.py",
+      "src/prep/services/remote_sync.py",
+      "src/prep/services/s3_storage.py"
+    ],
+    "docs/Phase06_Team_And_Enterprise/TEAM_SYNC_TEST_PLAN.md": [
+      "tests/test_headless_runner.py",
+      "tests/test_layered_index.py",
+      "tests/test_remote_sync.py",
+      "tests/test_s3_storage.py",
+      "tests/test_team_sync_integration.py"
+    ],
+    "docs/Phase06_Team_And_Enterprise/TESTING_STRATEGY.md": [
+      "tests/test_headless_runner.py",
+      "tests/test_layered_index.py",
+      "tests/test_remote_sync.py",
+      "tests/test_s3_storage.py"
+    ],
+    "docs/Phase06_Team_And_Enterprise/TODO.md": [
+      "packages/ui/src/components/team/SyncStatusCard.tsx",
+      "src/prep/api/routers/compute.py",
+      "src/prep/cli.py",
+      "src/prep/core/index.py",
+      "src/prep/services/headless_runner.py",
+      "src/prep/services/pipeline_orchestrator.py",
+      "src/prep/services/remote_sync.py",
+      "src/prep/services/s3_storage.py",
+      "tests/test_headless_runner.py",
+      "tests/test_layered_index.py",
+      "tests/test_s3_storage.py"
+    ],
+    "docs/Phase06_Team_And_Enterprise/UNIFIED_BUILD_STRATEGY.md": [
+      "src/prep/cli.py"
+    ],
+    "docs/Phase08_Tauri_MVP/BUILD_INSTRUCTIONS.md": [
+      "src/prep/server.py"
+    ],
+    "docs/Phase08_Tauri_MVP/PACKAGING_STRATEGY.md": [
+      "src/prep/server.py"
+    ],
+    "docs/Phase103_AgentOptimizations/md-files/08_POC_EXECUTION.md": [
+      "tests/eval/e2e_pipeline.py",
+      "tests/eval/eval_runner.py",
+      "tests/eval/model_comparison.py",
+      "tests/eval/overnight.py"
+    ],
+    "docs/Phase103_AgentOptimizations/md-files/README.md": [
+      "tests/eval/eval_runner.py"
+    ],
+    "docs/Phase103_AgentOptimizations/research/HANDOFF_CALIBRATION.md": [
+      "tests/eval/eval_runner.py"
+    ],
+    "docs/Phase103_AgentOptimizations/research/R3_baseline_run_01.md": [
+      "tests/eval/eval_runner.py"
+    ],
+    "docs/Phase103_AgentOptimizations/research/R3_calibration_runs_03-05.md": [
+      "tests/eval/eval_runner.py"
+    ],
+    "docs/Phase103_AgentOptimizations/research/R5_concept_activation.md": [
+      "scripts/phase103_promote_seeds.py"
+    ],
+    "docs/Phase103_AgentOptimizations/research/R6_temporal_validity.md": [
+      "scripts/phase103_temporal_schema.py"
+    ],
+    "docs/Phase103_AgentOptimizations/research/R7_auto_observation.md": [
+      "scripts/phase103_observe_hook.py"
+    ],
+    "docs/Phase103_AgentOptimizations/research/SESSION_CLOSE.md": [
+      "scripts/phase103_observe_hook.py",
+      "scripts/phase103_promote_seeds.py",
+      "scripts/phase103_temporal_schema.py",
+      "tests/eval/eval_runner.py"
+    ],
+    "docs/Phase104_SubAtlas/IMPLEMENTATION_PLAN.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/api/mock.ts",
+      "packages/ui/src/components/index.ts",
+      "packages/ui/src/components/trace/index.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/stories/trace/AtlasLensPanel.stories.tsx",
+      "packages/ui/src/types.ts"
+    ],
+    "docs/Phase104_SubAtlas/README.md": [
+      "packages/ui/src/types.ts"
+    ],
+    "docs/Phase104_SubAtlas/ROLE_LENS_PANEL_RESEARCH.md": [
+      "packages/ui/src/config/panelRegistry.ts"
+    ],
+    "docs/Phase105_GIT/02_SCOPE.md": [
+      "tests/core/test_atlas_evidence.py",
+      "tests/core/test_git_evidence.py"
+    ],
+    "docs/Phase105_GIT/03_ARCHITECTURE.md": [
+      "tests/core/test_atlas_evidence.py",
+      "tests/core/test_git_evidence.py"
+    ],
+    "docs/Phase105_GIT/DOGFOOD_NOTES.md": [
+      "tests/core/__init__.py",
+      "tests/core/test_atlas_evidence.py",
+      "tests/core/test_git_evidence_destroy.py"
+    ],
+    "docs/Phase105_GIT/IMPLEMENTATION_PLAN.md": [
+      "tests/core/test_atlas_evidence.py",
+      "tests/core/test_git_evidence.py",
+      "tests/core/test_git_evidence_service.py",
+      "tests/core/test_todo_scanner_churn_gate.py"
+    ],
+    "docs/Phase105_IndependentFinalize/105a_PLAN.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/api/mock.ts",
+      "tests/test_atlas.py",
+      "tests/test_atlas_endpoints.py",
+      "tests/test_orchestrator_single_stage.py",
+      "tests/test_pipeline_orchestrator.py",
+      "tests/test_pipeline_stage_endpoint.py",
+      "tests/test_role_overrides_endpoints.py",
+      "tests/test_role_projection_overrides.py",
+      "tests/test_roles_endpoint.py"
+    ],
+    "docs/Phase105_IndependentFinalize/105a_SPEC.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/api/mock.ts",
+      "tests/test_orchestrator_single_stage.py",
+      "tests/test_pipeline_stage_endpoint.py"
+    ],
+    "docs/Phase105_IndependentFinalize/README.md": [
+      "packages/ui/src/components/audit/AuditPanel.tsx",
+      "packages/ui/src/components/concepts/ConceptsPanel.tsx",
+      "packages/ui/src/components/trace/AtlasLensPanel/StatusStrip.tsx",
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx"
+    ],
+    "docs/Phase106_ReviewRecent/MASTER_TODO.md": [
+      "tests/test_selfheal_group.py"
+    ],
+    "docs/Phase107_Pipeline-Stability/README.md": [
+      "tests/test_orchestrator_single_stage.py"
+    ],
+    "docs/Phase111_MVP-Readiness/README.md": [
+      "websites/apps/marketing/src/app/page.tsx"
+    ],
+    "docs/Phase112_Gemini/IMPLEMENTATION_PLAN.md": [
+      "packages/ui/src/components/llm/AIModelsSettings.tsx",
+      "packages/ui/src/components/llm/AdvancedLLMSettings.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/batch_profiles.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/concept_seeder.py",
+      "src/prep/core/group_reasoning.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/core/swarm_optimizer.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/services/config_manager.py",
+      "src/prep/services/token_telemetry.py",
+      "tests/test_atlas_swarm.py",
+      "tests/test_batch_profiles.py",
+      "tests/test_cluster_swarm.py",
+      "tests/test_concept_seeder_swarm.py",
+      "tests/test_swarm_orchestrator.py"
+    ],
+    "docs/Phase112_Gemini/SWARM_UI_PLAN.md": [
+      "packages/ui/src/components/llm/AIModelsSettings.tsx",
+      "src/prep/core/batch_profiles.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/core/swarm_orchestrator.py"
+    ],
+    "docs/Phase112_Gemini/SWARM_UI_PLAN_v2.md": [
+      "packages/ui/src/components/llm/AIModelsSettings.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/batch_profiles.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/concept_seeder.py",
+      "src/prep/core/group_reasoning.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/core/swarm_optimizer.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/services/config_manager.py"
+    ],
+    "docs/Phase113_xdg_state/01_TARGET_DESIGN.md": [
+      "tests/test_data_dir_migration.py",
+      "tests/test_no_cwd_relative_codrag_data.py",
+      "tests/test_paths.py",
+      "tests/test_scoped_full_reset.py"
+    ],
+    "docs/Phase113_xdg_state/IMPLEMENTATION_PLAN.md": [
+      "tests/test_data_dir_migration.py",
+      "tests/test_no_cwd_relative_codrag_data.py",
+      "tests/test_no_self_ingestion.py",
+      "tests/test_paths.py",
+      "tests/test_scoped_full_reset.py"
+    ],
+    "docs/Phase113_xdg_state/PROGRESS.md": [
+      "tests/test_data_dir_migration.py",
+      "tests/test_no_cwd_relative_codrag_data.py",
+      "tests/test_paths.py"
+    ],
+    "docs/Phase114_pipeline-safety/2026-04-16-pipeline-safety-visibility-plan.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/api/mock.ts",
+      "packages/ui/src/components/pipeline/HealthBadge.tsx",
+      "packages/ui/src/components/pipeline/__tests__/HealthBadge.test.tsx",
+      "packages/ui/src/components/trace/BarrierIndicator.tsx",
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/components/trace/__tests__/BarrierIndicator.test.tsx",
+      "packages/ui/src/types.ts",
+      "tests/test_checkpoint_stages.py",
+      "tests/test_pipeline_barrier_clear.py",
+      "tests/test_pipeline_barrier_status.py",
+      "tests/test_pipeline_health.py",
+      "tests/test_pipeline_stage_backups.py",
+      "tests/test_pipeline_stage_endpoint.py",
+      "tests/test_pipeline_stage_restore.py",
+      "tests/test_scoped_full_reset.py"
+    ],
+    "docs/Phase114_pipeline-safety/2026-04-16-recover-button-spec.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/api/mock.ts",
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/components/trace/RecoverStagePanel.tsx",
+      "packages/ui/src/components/trace/__tests__/RecoverStagePanel.test.tsx",
+      "packages/ui/src/stories/trace/RecoverStagePanel.stories.tsx",
+      "packages/ui/src/types.ts",
+      "tests/test_pipeline_stage_backups.py",
+      "tests/test_pipeline_stage_restore.py"
+    ],
+    "docs/Phase115_filter-universality/00_PROBLEM.md": [
+      "engine/crates/prep-walker/src/lib.rs",
+      "packages/ui/storybook-static/assets/arrow-right-D76xP_m8.js",
+      "packages/ui/storybook-static/assets/arrow-up-Bo7eO7DF.js",
+      "packages/ui/storybook-static/assets/book-open-C_TI0RTe.js",
+      "packages/ui/storybook-static/assets/bot-DhdZiCgD.js",
+      "packages/ui/storybook-static/assets/check-circle-DKmRqjAp.js",
+      "packages/ui/storybook-static/assets/chevron-down-xFIJM9ow.js",
+      "packages/ui/storybook-static/assets/chevron-right-DQeNUO3R.js",
+      "packages/ui/storybook-static/assets/chevron-up-DoCq2bXV.js",
+      "packages/ui/storybook-static/assets/cloud-D8Qet7Wb.js",
+      "packages/ui/storybook-static/assets/cloud-off-Do-d761c.js",
+      "packages/ui/storybook-static/assets/code-2-DCUEONsE.js",
+      "packages/ui/storybook-static/assets/copy-CiFpBFcK.js",
+      "packages/ui/storybook-static/assets/minus-Bd4yRTqW.js",
+      "packages/ui/storybook-static/assets/network-DpFqDBNx.js",
+      "packages/ui/storybook-static/assets/play-BfQA5A_j.js",
+      "packages/ui/storybook-static/assets/plus-B0ZBLhon.js",
+      "packages/ui/storybook-static/components/llm/EndpointManager.d.ts",
+      "packages/ui/storybook-static/components/llm/LLMAssignmentBlockCard.d.ts",
+      "packages/ui/storybook-static/components/llm/LLMAssignmentsPipeline.d.ts",
+      "packages/ui/storybook-static/components/llm/ModelCard.d.ts",
+      "packages/ui/storybook-static/components/team/ServerModeIndicator.d.ts",
+      "packages/ui/storybook-static/components/team/SyncStatusCard.d.ts",
+      "packages/ui/storybook-static/components/team/TeamConfigStatus.d.ts",
+      "packages/ui/storybook-static/components/team/TeamSyncIndicator.d.ts"
+    ],
+    "docs/Phase115_filter-universality/01_TARGET_DESIGN.md": [
+      "tests/test_no_self_ingestion.py"
+    ],
+    "docs/Phase115_filter-universality/IMPLEMENTATION_PLAN.md": [
+      "engine/crates/prep-selfheal/src/main.rs",
+      "engine/crates/prep-walker/src/lib.rs",
+      "src/prep/core/epistemic_enrichment.py",
+      "src/prep/core/repo_policy.py",
+      "src/prep/core/repo_profile.py",
+      "src/prep/core/trace/builder.py",
+      "tests/test_no_self_ingestion.py",
+      "tests/test_user_exclude_respected.py",
+      "tests/test_walker_parity.py"
+    ],
+    "docs/Phase115_filter-universality/PROGRESS.md": [
+      "engine/crates/prep-selfheal/src/main.rs",
+      "engine/crates/prep-walker/src/lib.rs",
+      "src/prep/api/routers/projects/search.py",
+      "src/prep/core/atlas/role_projection.py",
+      "src/prep/core/augmenter.py",
+      "src/prep/core/epistemic_enrichment.py",
+      "src/prep/core/repo_policy.py",
+      "src/prep/core/repo_profile.py",
+      "src/prep/core/trace/builder.py",
+      "src/prep/core/trace/loaders.py",
+      "src/prep/core/watcher.py",
+      "src/prep/services/pipeline/workers.py",
+      "tests/test_l3_plumbing.py",
+      "tests/test_no_self_ingestion.py",
+      "tests/test_trace_builder_globs.py",
+      "tests/test_user_exclude_respected.py",
+      "tests/test_walker_parity.py"
+    ],
+    "docs/Phase116_strategic-oversight/02_PIPELINE_MAP.md": [
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/services/pipeline/state_machine.py",
+      "src/prep/services/pipeline/workers.py"
+    ],
+    "docs/Phase116_strategic-oversight/03_CANDIDATE_CHECKPOINTS.md": [
+      "src/prep/core/antibody_derivation.py",
+      "src/prep/core/atlas/role_projection.py",
+      "src/prep/core/audit/recommendations.py",
+      "src/prep/core/audit/synthesizer.py",
+      "src/prep/core/concept_promotion.py",
+      "src/prep/core/epistemic_enrichment.py",
+      "src/prep/core/group_reasoning.py",
+      "src/prep/core/inferred_edges.py",
+      "src/prep/core/repo_policy.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/services/pipeline/workers.py"
+    ],
+    "docs/Phase116_strategic-oversight/04_EXISTING_ABSTRACTIONS.md": [
+      "src/prep/core/audit/synthesizer.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/services/pipeline/manifest_store.py",
+      "src/prep/services/pipeline/state_machine.py",
+      "src/prep/services/pipeline_checkpoint.py"
+    ],
+    "docs/Phase116_strategic-oversight/08_SURPRISES_AND_FEEDBACK.md": [
+      "src/prep/core/audit/synthesizer.py",
+      "src/prep/core/concept_promotion.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/services/pipeline/state_machine.py",
+      "src/prep/services/pipeline/workers.py"
+    ],
+    "docs/Phase118_UISmoke/PIPELINE_REFERENCE.md": [
+      "src/prep/services/pipeline/scheduler.py",
+      "src/prep/services/pipeline/state_machine.py"
+    ],
+    "docs/Phase118_UISmoke/PIPELINE_SPEC.md": [
+      "tools/playwright_smoke.py"
+    ],
+    "docs/Phase118_UISmoke/PMR/CLOSEOUT.md": [
+      "src/prep/api/routers/audit.py"
+    ],
+    "docs/Phase118_UISmoke/RESULTS.md": [
+      "packages/ui/src/components/primitives/ConfirmDialog.tsx",
+      "packages/ui/src/components/settings/ScopedActionRow.tsx",
+      "packages/ui/src/components/trace/BarrierIndicator.tsx",
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/api/routers/trace_routes/enrichment.py",
+      "src/prep/api/routers/trace_routes/shared.py",
+      "src/prep/dashboard/src/components/settings/v2/pages/DangerZone.tsx",
+      "src/prep/dashboard/src/hooks/useEnrichment.ts",
+      "src/prep/dashboard/src/hooks/useTraceSystem.ts",
+      "src/prep/services/build_orchestrator.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "tools/playwright_smoke.py"
+    ],
+    "docs/Phase119_ConcurrencyStability/01_Design.md": [
+      "packages/ui/src/components/navigation/SidebarPipelineQueue.tsx",
+      "src/prep/api/routers/compute.py",
+      "src/prep/api/routers/queue.py",
+      "src/prep/services/pipeline/concurrency_store.py",
+      "src/prep/services/pipeline/ollama_probe.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "tests/test_concurrency_store_lock.py",
+      "tests/test_ollama_probe.py",
+      "tests/test_queue_status_state.py",
+      "tests/test_scheduler_demand_recovery.py"
+    ],
+    "docs/Phase119_ConcurrencyStability/02_Implementation_Plan.md": [
+      "packages/ui/src/components/navigation/SidebarPipelineQueue.tsx",
+      "src/prep/api/routers/compute.py",
+      "src/prep/api/routers/queue.py",
+      "src/prep/services/pipeline/concurrency_store.py",
+      "src/prep/services/pipeline/ollama_probe.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "tests/test_concurrency_store.py",
+      "tests/test_concurrency_store_lock.py",
+      "tests/test_ollama_probe.py",
+      "tests/test_pipeline_scheduler.py",
+      "tests/test_queue_status_state.py",
+      "tests/test_scheduler_demand_recovery.py"
+    ],
+    "docs/Phase119_ConcurrencyStability/03_Validation_Report.md": [
+      "packages/ui/src/components/navigation/SidebarPipelineQueue.tsx",
+      "packages/ui/src/stories/navigation/SidebarPipelineQueue.stories.tsx",
+      "src/prep/api/routers/compute.py",
+      "src/prep/api/routers/llm.py",
+      "src/prep/api/routers/queue.py",
+      "src/prep/services/pipeline/concurrency_store.py",
+      "src/prep/services/pipeline/ollama_probe.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "tests/test_scheduler_demand_recovery.py"
+    ],
+    "docs/Phase119_ConcurrencyStability/04_Swarm_Audit.md": [
+      "src/prep/services/pipeline/orchestrator.py"
+    ],
+    "docs/Phase119_ConcurrencyStability/05_Cross_Provider_Concurrency_Design.md": [
+      "packages/ui/src/components/concurrency/CapacityHealth.tsx",
+      "packages/ui/src/components/llm/ProbeButton.tsx",
+      "src/prep/api/routers/compute.py",
+      "src/prep/api/routers/settings.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/dashboard/src/components/settings/v2/pages/Diagnostics.tsx",
+      "src/prep/services/pipeline/concurrency_store.py",
+      "src/prep/services/pipeline/discovery/__init__.py",
+      "src/prep/services/pipeline/discovery/anthropic_discovery.py",
+      "src/prep/services/pipeline/discovery/openai_discovery.py",
+      "src/prep/services/pipeline/endpoint_probe.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "tests/test_endpoint_probe.py",
+      "tests/test_ollama_probe.py",
+      "tests/test_scheduler_saturation_hint.py"
+    ],
+    "docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md": [
+      "packages/ui/src/components/llm/EndpointManager.tsx",
+      "packages/ui/src/components/llm/PlanDropdown.stories.tsx",
+      "packages/ui/src/components/llm/PlanDropdown.tsx",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/types.ts",
+      "src/prep/api/routers/llm.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "tests/test_concurrency_limits_data.py",
+      "tests/test_concurrency_store_lock.py",
+      "tests/test_endpoint_save_validation.py",
+      "tests/test_pipeline_scheduler.py",
+      "tests/test_scheduler_demand_recovery.py",
+      "tests/test_scheduler_soft_cap_clamp.py",
+      "tests/test_scheduler_unbounded_discovery.py"
+    ],
+    "docs/Phase11_Deployment/CODE_OBFUSCATION_PLAN.md": [
+      "src/prep/server.py"
+    ],
+    "docs/Phase11_Deployment/FOR_ERIC_TODO.md": [
+      "packages/ui/src/components/marketing/MarketingHero.tsx",
+      "src/prep/core/lemon_squeezy.py",
+      "src/prep/core/licensing.py",
+      "websites/apps/marketing/src/app/page.tsx",
+      "websites/apps/marketing/src/app/pricing/page.tsx"
+    ],
+    "docs/Phase11_Deployment/NATIVE_ENGINE_BUILD_STRATEGY.md": [
+      "src/prep/core/__init__.py"
+    ],
+    "docs/Phase11_Deployment/guides/03-lemon-squeezy.md": [
+      "websites/apps/marketing/src/app/pricing/page.tsx"
+    ],
+    "docs/Phase11_Deployment/guides/11-free-licenses.md": [
+      "scripts/generate_license.py"
+    ],
+    "docs/Phase120_NamedScopes/IMPLEMENTATION_PLAN.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/api/mock.ts",
+      "packages/ui/src/api/types.ts",
+      "packages/ui/src/components/agents/index.ts",
+      "packages/ui/src/components/project/FolderTreePanel.tsx",
+      "packages/ui/src/components/project/__tests__/FolderTreePanel.test.tsx",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/stories/project/FolderTree.stories.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/agents/shared/prep_data.py",
+      "src/prep/api/routers/projects/search.py",
+      "src/prep/api/routers/scope.py",
+      "src/prep/api/routers/scopes.py",
+      "src/prep/core/rules_generator.py",
+      "src/prep/core/scope_resolver.py",
+      "src/prep/core/scope_store.py",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/prep/dashboard/src/hooks/useScopes.ts",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_tools.py",
+      "src/prep/server.py",
+      "src/prep/services/pipeline/post_flight.py",
+      "src/prep/services/pipeline/workers.py",
+      "src/prep/services/project_helpers.py",
+      "tests/api/conftest.py",
+      "tests/api/test_scopes_endpoints.py",
+      "tests/api/test_search_with_scope.py",
+      "tests/conftest.py",
+      "tests/test_compute_index_membership.py",
+      "tests/test_mcp_scope_envelope.py",
+      "tests/test_mutate_global_scope.py",
+      "tests/test_pipeline_uses_membership.py",
+      "tests/test_prep_data_scope.py",
+      "tests/test_rules_generator_scopes.py",
+      "tests/test_scope_resolver.py",
+      "tests/test_scope_store.py"
+    ],
+    "docs/Phase120_NamedScopes/PRE_EXISTING_ISSUES.md": [
+      "tests/api/conftest.py",
+      "tests/test_scope_orchestrator.py"
+    ],
+    "docs/Phase120_NamedScopes/README.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/components/agents/index.ts",
+      "packages/ui/src/components/index.ts",
+      "packages/ui/src/components/project/FolderTreePanel.tsx",
+      "packages/ui/src/components/project/__tests__/FolderTreePanel.test.tsx",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/stories/project/FolderTree.stories.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/agents/shared/prep_data.py",
+      "src/prep/api/routers/projects/search.py",
+      "src/prep/api/routers/scope.py",
+      "src/prep/api/routers/scopes.py",
+      "src/prep/core/rules_generator.py",
+      "src/prep/core/scope_resolver.py",
+      "src/prep/core/scope_store.py",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/prep/dashboard/src/hooks/useScopes.ts",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_tools.py",
+      "src/prep/services/pipeline/post_flight.py",
+      "src/prep/services/pipeline/workers.py",
+      "src/prep/services/project_helpers.py",
+      "tests/api/test_scopes_endpoints.py",
+      "tests/api/test_search_with_scope.py",
+      "tests/test_compute_index_membership.py",
+      "tests/test_scope_resolver.py",
+      "tests/test_scope_store.py"
+    ],
+    "docs/Phase121_OllamaConcurrencyUX/README.md": [
+      "packages/ui/src/components/llm/EndpointManager.tsx"
+    ],
+    "docs/Phase122_FeatureUtilizationAudit/README.md": [
+      "packages/ui/src/api/client.ts",
+      "src/prep/api/routers/audit.py",
+      "src/prep/core/audit/spaghetti_scorer.py",
+      "src/prep/services/pipeline/workers.py"
+    ],
+    "docs/Phase123_ConceptQualityRefinement/README.md": [
+      "src/prep/core/concept_seeder.py",
+      "src/prep/services/concept_store.py",
+      "src/prep/services/pipeline/workers.py"
+    ],
+    "docs/Phase124_FinalizeChainEpistemicAudit/README.md": [
+      "src/prep/core/antibody_derivation.py",
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/atlas/role_projection.py",
+      "src/prep/core/atlas/routing.py",
+      "src/prep/core/audit/spaghetti_scorer.py",
+      "src/prep/core/concept_promotion.py",
+      "src/prep/core/concept_seeder.py",
+      "src/prep/core/rules_generator.py",
+      "src/prep/dashboard/src/hooks/useAtlasLens.ts",
+      "src/prep/services/concept_store.py",
+      "src/prep/services/pipeline/stages.py",
+      "src/prep/services/pipeline/workers.py",
+      "tools/finalize_chain_audit.py"
+    ],
+    "docs/Phase124_FinalizeChainEpistemicAudit/RESULTS_BASELINE.md": [
+      "src/prep/services/pipeline/workers.py",
+      "tmp/p124_baseline/h1_h2_evidence.py",
+      "tools/finalize_chain_audit.py"
+    ],
+    "docs/Phase12_Marketing-Documentation-Website/README.md": [
+      "websites/tailwind.preset.cjs"
+    ],
+    "docs/Phase13_Storybook/theme-examples/direction-a-slate-developer.md": [
+      "src/prep/core/index.py",
+      "src/prep/server.py"
+    ],
+    "docs/Phase13_Storybook/theme-examples/direction-b-deep-focus.md": [
+      "src/prep/core/index.py",
+      "src/prep/server.py"
+    ],
+    "docs/Phase13_Storybook/theme-examples/direction-c-signal-green.md": [
+      "src/prep/core/index.py",
+      "src/prep/server.py"
+    ],
+    "docs/Phase13_Storybook/theme-examples/direction-d-warm-craft.md": [
+      "src/prep/core/index.py",
+      "src/prep/server.py"
+    ],
+    "docs/Phase14_MCP-CLI/CHECKLIST.md": [
+      "src/prep/mcp_direct.py",
+      "src/prep/mcp_tools.py",
+      "tests/test_mcp_direct_e2e.py",
+      "tests/test_mcp_direct_manual.py"
+    ],
+    "docs/Phase14_MCP-CLI/FRONTEND_INTEGRATION.md": [
+      "src/prep/dashboard/src/App.tsx"
+    ],
+    "docs/Phase14_MCP-CLI/PUBLIC_GITHUB_STRATEGY.md": [
+      "src/prep/cli.py",
+      "src/prep/mcp_direct.py",
+      "src/prep/mcp_server.py"
+    ],
+    "docs/Phase14_UI_UX_Improvements/Form_UI_Updates.md": [
+      "packages/ui/src/components/dashboard/BuildCard.tsx",
+      "packages/ui/src/components/search/ContextOptionsPanel.tsx",
+      "packages/ui/src/components/search/SearchPanel.tsx",
+      "packages/ui/src/components/trace/SymbolResultRow.tsx",
+      "packages/ui/src/components/trace/SymbolSearchInput.tsx",
+      "packages/ui/src/components/trace/TraceStatusCard.tsx"
+    ],
+    "docs/Phase14_UI_UX_Improvements/KB_STATUS_WIDGET.md": [
+      "packages/ui/src/components/dashboard/IndexStatusCard.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/core/index.py",
+      "src/prep/core/manifest.py"
+    ],
+    "docs/Phase16_ContextIntelligence/README.md": [
+      "src/prep/core/embedder.py"
+    ],
+    "docs/Phase18_DataVisualization/README.md": [
+      "src/prep/cli.py",
+      "src/prep/viz/activity_heatmap.py",
+      "src/prep/viz/context.py",
+      "src/prep/viz/coverage.py",
+      "src/prep/viz/drift.py",
+      "src/prep/viz/flow.py",
+      "src/prep/viz/health.py",
+      "src/prep/viz/overview.py",
+      "src/prep/viz/trace.py"
+    ],
+    "docs/Phase22_trace-epistomology/MULTI_PASS_PIPELINE.md": [
+      "src/prep/core/augmenter.py"
+    ],
+    "docs/Phase22_trace-epistomology/PATH_FORWARD.md": [
+      "engine/crates/prep-engine/src/lib.rs",
+      "engine/crates/prep-graph/src/lib.rs",
+      "engine/crates/prep-parser/src/lib.rs",
+      "engine/crates/prep-parser/src/markdown.rs",
+      "src/prep/core/augmenter.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/epistemic_score.py"
+    ],
+    "docs/Phase23_Cleanup-refactor/IMPLEMENTATION_PLAN.md": [
+      "src/prep/api/routers/__init__.py",
+      "src/prep/api/routers/knowledge.py",
+      "src/prep/api/routers/license.py",
+      "src/prep/api/routers/llm.py",
+      "src/prep/api/routers/system.py",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/prep/dashboard/src/hooks/useDeepAnalysis.ts",
+      "src/prep/dashboard/src/hooks/useLLMConfig.ts",
+      "src/prep/dashboard/src/hooks/useLicenseSystem.ts",
+      "src/prep/dashboard/src/hooks/useTraceSystem.ts",
+      "src/prep/dashboard/src/hooks/useWatchSystem.ts",
+      "src/prep/services/__init__.py",
+      "src/prep/services/build_manager.py",
+      "tests/test_atomic_build.py",
+      "tests/test_feature_gate.py",
+      "tests/test_trace_endpoints.py"
+    ],
+    "docs/Phase23_Cleanup-refactor/REFACTORING_STRATEGY.md": [
+      "packages/ui/src/components/marketing/MarketingHero.tsx",
+      "packages/ui/src/components/project/FolderTree.tsx",
+      "src/prep/api/routers/__init__.py",
+      "src/prep/core/index.py",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/server.py",
+      "src/prep/services/build_manager.py"
+    ],
+    "docs/Phase24_StateMachine/IMPLEMENTATION_TODO.md": [
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/api/routers/scope.py",
+      "src/prep/api/routers/settings.py",
+      "src/prep/services/build_orchestrator.py",
+      "src/prep/services/pipeline_orchestrator.py",
+      "src/prep/services/scope_orchestrator.py",
+      "src/prep/services/settings_store.py",
+      "tests/test_build_orchestrator.py",
+      "tests/test_pipeline_orchestrator.py",
+      "tests/test_scope_orchestrator.py",
+      "tests/test_settings_store.py"
+    ],
+    "docs/Phase24_StateMachine/README.md": [
+      "packages/vscode/src/daemon.ts",
+      "src/prep/core/feature_gate.py",
+      "src/prep/core/watcher.py",
+      "src/prep/dashboard/src-tauri/src/main.rs",
+      "src/prep/dashboard/src/components/StartupScreen.tsx",
+      "src/prep/server.py"
+    ],
+    "docs/Phase25_crashprotection/README.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/types.ts",
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/dashboard/src/hooks/useTraceSystem.ts",
+      "src/prep/server.py",
+      "src/prep/services/pipeline_checkpoint.py",
+      "src/prep/services/pipeline_journal.py",
+      "src/prep/services/pipeline_orchestrator.py",
+      "tests/test_pipeline_journal.py"
+    ],
+    "docs/Phase27_bug-reporting/README.md": [
+      "packages/ui/src/components/console/BugReportModal.tsx",
+      "packages/ui/src/components/console/LogConsole.tsx",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "websites/apps/support/src/app/api/bug-report/route.ts"
+    ],
+    "docs/Phase28_ContextWindowResearch/TODO.md": [
+      "src/prep/core/embedder.py",
+      "src/prep/core/index.py",
+      "src/prep/mcp_server.py",
+      "src/prep/mcp_tools.py",
+      "tests/test_intent_detection.py",
+      "tests/test_min_score_threshold.py",
+      "tests/test_score_calibration.py"
+    ],
+    "docs/Phase29_Website-UX-Audit/WEBSITE_APP_FEATURE_AUDIT.md": [
+      "packages/ui/src/components/marketing/FeatureBlocks.tsx",
+      "packages/ui/src/config/panelRegistry.ts",
+      "src/prep/dashboard/src/App.tsx",
+      "websites/apps/marketing/src/app/about/page.tsx",
+      "websites/apps/marketing/src/app/page.tsx",
+      "websites/apps/marketing/src/app/pricing/page.tsx"
+    ],
+    "docs/Phase32_hi_codrag/README.md": [
+      "packages/ui/src/api/client.ts",
+      "tests/test_included_paths.py"
+    ],
+    "docs/Phase34_query-optimization/TODO.md": [
+      "tests/test_mcp_server.py",
+      "tests/test_pipeline_orchestrator.py",
+      "tests/test_query_preprocessing.py"
+    ],
+    "docs/Phase35_BYOK/MODEL_RECOMMENDATIONS_RESEARCH.md": [
+      "packages/ui/src/components/llm/AIModelsSettings.tsx"
+    ],
+    "docs/Phase41_Managing-Mulitiple-Projects/TODO.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/types.ts"
+    ],
+    "docs/Phase42_BetaAccess/PLAN.md": [
+      "websites/apps/marketing/src/app/page.tsx"
+    ],
+    "docs/Phase44_LLM-Mapping/AI_GATEWAY_PLAN.md": [
+      "packages/ui/src/lib/token-estimates.ts"
+    ],
+    "docs/Phase44_LLM-Mapping/MODEL_AWARENESS_STATE_MACHINE.md": [
+      "src/prep/core/model_awareness.py"
+    ],
+    "docs/Phase46_large-context-window-research-reccommendations-tooling/MODEL_COMPARISON_FINDINGS.md": [
+      "tests/eval/model_comparison.py"
+    ],
+    "docs/Phase48_fix-pipeline/README.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx"
+    ],
+    "docs/Phase49_process-info/FRONTEND_DESIGN.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/api/mock.ts",
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/types.ts"
+    ],
+    "docs/Phase49_process-info/README.md": [
+      "tests/test_process_metadata.py"
+    ],
+    "docs/Phase50_MCP-interfacing/DEEP_DIVE.md": [
+      "src/prep/mcp/server.py"
+    ],
+    "docs/Phase50_MCP-interfacing/DEFERRED_IMPLEMENTATION.md": [
+      "src/prep/core/rules_generator.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp/transport.py",
+      "src/prep/services/pipeline/orchestrator.py"
+    ],
+    "docs/Phase50_MCP-interfacing/PLAN.md": [
+      "src/prep/core/index.py",
+      "src/prep/core/rules_generator.py",
+      "src/prep/server.py",
+      "tests/test_mcp_server.py"
+    ],
+    "docs/Phase50_MCP-interfacing/README.md": [
+      "src/prep/api/routers/projects/models.py",
+      "src/prep/api/routers/projects/search.py",
+      "src/prep/core/rules_generator.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp/tool_hi.py",
+      "src/prep/mcp/transport.py",
+      "src/prep/mcp_tools.py"
+    ],
+    "docs/Phase52_spghetti-finder/README.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/components/audit/SpaghettiFinderPanel.tsx",
+      "packages/ui/src/config/panelRegistry.ts",
+      "tests/test_spaghetti_scorer.py"
+    ],
+    "docs/Phase58_Rust-improvements/01_Implementation_Plan.md": [
+      "tests/test_content_sanitizer.py",
+      "tests/test_lod_extractor.py"
+    ],
+    "docs/Phase60_db-backup/60D_Pipeline_Incrementalism.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/components/trace/GraphStructurePanel.tsx"
+    ],
+    "docs/Phase61_SelfHeal/pipeline_incremental_audit.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/hooks/useEventStream.ts"
+    ],
+    "docs/Phase64_prep-for-agents+paperclip/02_Role_Composition_Engine.md": [
+      "packages/ui/src/index.ts"
+    ],
+    "docs/Phase66_Pi-Agent/README.md": [
+      "packages/ui/src/components/audit/OpportunitiesPanel.tsx",
+      "packages/ui/src/components/audit/index.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/types.ts"
+    ],
+    "docs/Phase67_AGENTS/02_Pipeline_and_AutoPopulate_Plan.md": [
+      "src/prep/api/routers/scope.py",
+      "src/prep/core/trace/coverage.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/workers.py"
+    ],
+    "docs/Phase67_AGENTS/HR-concept-adapter/06_Context_Pipeline_and_Knowledge.md": [
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/mcp/server.py",
+      "src/prep/services/pipeline/orchestrator.py"
+    ],
+    "docs/Phase67_AGENTS/HR-concept-adapter/07_Primary_vs_Agent_Alignment.md": [
+      "src/prep/api/routers/projects/atlas_endpoints.py"
+    ],
+    "docs/Phase67_AGENTS/Paperclip-Plugin/01_Integration_Research.md": [
+      "src/prep/adapters/paperclip_adapter.py",
+      "src/prep/agents/core.py",
+      "src/prep/agents/hr/engine.py"
+    ],
+    "docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md": [
+      "src/prep/adapters/paperclip_adapter.py",
+      "src/prep/adapters/pm_models.py",
+      "src/prep/adapters/push_engine.py",
+      "src/prep/agents/core.py",
+      "src/prep/agents/custodian/engine.py",
+      "src/prep/agents/hr/engine.py",
+      "src/prep/agents/researcher/engine.py",
+      "src/prep/agents/shared/llm_bridge.py",
+      "src/prep/agents/shared/models.py",
+      "src/prep/agents/shared/paperclip_client.py",
+      "src/prep/api/routers/agents.py",
+      "src/prep/api/routers/mcp_setup.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_config.py"
+    ],
+    "docs/Phase67_AGENTS/Researcher-concept-adapter/02_LangGraph_CrewAI.md": [
+      "src/prep/agents/custodian/adapters/langgraph_adapter.py",
+      "src/prep/agents/hr/adapters/langgraph_adapter.py",
+      "src/prep/agents/researcher/adapters/crewai_adapter.py",
+      "src/prep/agents/researcher/adapters/langgraph_adapter.py",
+      "src/prep/agents/shared/llm_bridge.py"
+    ],
+    "docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md": [
+      "packages/ui/src/components/agents/AgentCard.tsx",
+      "packages/ui/src/components/agents/AgentOpsDetail.tsx",
+      "packages/ui/src/components/agents/AgentOpsPanel.tsx",
+      "packages/ui/src/components/agents/CleanupPreview.tsx",
+      "packages/ui/src/components/agents/EmployeeBadges.tsx",
+      "packages/ui/src/components/agents/GenerateWizard.tsx",
+      "packages/ui/src/components/agents/ManagedEmployeesTab.tsx",
+      "packages/ui/src/components/agents/ResearchTopicList.tsx",
+      "packages/ui/src/components/agents/SystemAgentsTab.tsx",
+      "packages/ui/src/config/panelRegistry.ts",
+      "src/prep/adapters/paperclip_adapter.py",
+      "src/prep/adapters/pm_models.py",
+      "src/prep/adapters/push_engine.py",
+      "src/prep/agents/__init__.py",
+      "src/prep/agents/core.py",
+      "src/prep/agents/custodian/engine.py",
+      "src/prep/agents/hr/engine.py",
+      "src/prep/agents/researcher/engine.py",
+      "src/prep/agents/shared/git_client.py",
+      "src/prep/agents/shared/llm_bridge.py",
+      "src/prep/agents/shared/models.py",
+      "src/prep/agents/shared/paperclip_client.py",
+      "src/prep/agents/shared/prep_data.py",
+      "src/prep/core/audit/action_item.py",
+      "src/prep/core/audit/opportunity_manager.py",
+      "src/prep/core/events.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/dashboard/src/hooks/useAgentOps.ts",
+      "src/prep/services/agent_gate.py",
+      "src/prep/services/observation_store.py",
+      "src/prep/services/pi_agent.py",
+      "src/prep/services/settings_store.py"
+    ],
+    "docs/Phase67_AGENTS/Researcher-concept-adapter/implementation_plan.md": [
+      "packages/ui/src/components/agents/AgentOpsPanel.tsx",
+      "src/prep/agents/__init__.py",
+      "src/prep/agents/researcher/adapters/crewai_adapter.py",
+      "src/prep/agents/researcher/adapters/langgraph_adapter.py"
+    ],
+    "docs/Phase67_AGENTS/Researcher-concept-adapter/phase1-staffing-engine-plan.md": [
+      "src/prep/agents/hr/__init__.py",
+      "src/prep/agents/hr/engine.py",
+      "src/prep/agents/hr/prompts.py",
+      "src/prep/agents/hr/readiness.py",
+      "src/prep/agents/hr/roster.py",
+      "tests/test_hr_drift.py",
+      "tests/test_hr_engine.py",
+      "tests/test_hr_integration.py",
+      "tests/test_hr_prompts.py",
+      "tests/test_hr_readiness.py",
+      "tests/test_hr_roster.py"
+    ],
+    "docs/Phase67_AGENTS/Researcher-concept-adapter/phase2-researcher-engine-plan.md": [
+      "src/prep/agents/researcher/__init__.py",
+      "src/prep/agents/researcher/engine.py",
+      "src/prep/agents/researcher/history.py",
+      "src/prep/agents/researcher/prompts.py",
+      "tests/test_researcher_engine.py",
+      "tests/test_researcher_history.py",
+      "tests/test_researcher_integration.py",
+      "tests/test_researcher_prompts.py"
+    ],
+    "docs/Phase67_AGENTS/Researcher-concept-adapter/phase3-custodian-engine-plan.md": [
+      "src/prep/agents/custodian/__init__.py",
+      "src/prep/agents/custodian/engine.py",
+      "src/prep/agents/custodian/manifest.py",
+      "src/prep/agents/custodian/prompts.py",
+      "tests/test_custodian_engine.py",
+      "tests/test_custodian_integration.py",
+      "tests/test_custodian_manifest.py",
+      "tests/test_custodian_prompts.py"
+    ],
+    "docs/Phase68_revise-marketing/05_Model_Reference_Inventory.md": [
+      "docs/Phase68_revise-marketing/model-constants.ts"
+    ],
+    "docs/Phase68_revise-marketing/08_Storybook_App_Alignment_Plan.md": [
+      "websites/apps/docs/src/components/StoryEmbed.tsx"
+    ],
+    "docs/Phase69_WebCLI-PublicDashbard-panels/01_WebCLI_Component_Architecture.md": [
+      "packages/ui/src/components/console/AnimatedCLI.tsx"
+    ],
+    "docs/Phase70_Dashboard-StateMachine/03_overwrite-protection-plan.md": [
+      "tests/test_input_freshness.py",
+      "tests/test_write_guard.py"
+    ],
+    "docs/Phase70_Dashboard-StateMachine/04_two-tone-progress-bars-plan.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/components/trace/StageProgressBar.tsx",
+      "packages/ui/src/types.ts"
+    ],
+    "docs/Phase71_MasterArchitectureDiagram/tasks.md": [
+      "src/prep/core/architecture_acr.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/emergence_and_p3_design.md": [
+      "tests/test_collab_resources.py",
+      "tests/test_consensus_scoring.py",
+      "tests/test_delta_push.py",
+      "tests/test_structural_enrichment.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/feature_documentation.md": [
+      "packages/paperclip-plugin-prep/src/worker/index.ts",
+      "src/prep/adapters/pm_models.py",
+      "src/prep/adapters/push_engine.py",
+      "src/prep/agents/core.py",
+      "src/prep/agents/custodian/engine.py",
+      "src/prep/agents/researcher/engine.py",
+      "src/prep/agents/shared/prep_data.py",
+      "src/prep/api/routers/agents.py",
+      "src/prep/api/routers/collaboration.py",
+      "src/prep/api/routers/observations.py",
+      "src/prep/api/routers/projects/watch.py",
+      "src/prep/mcp/collaboration_handlers.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_tools.py",
+      "src/prep/server.py",
+      "src/prep/services/collaboration/__init__.py",
+      "src/prep/services/collaboration/activity.py",
+      "src/prep/services/collaboration/claims.py",
+      "src/prep/services/collaboration/conflicts.py",
+      "src/prep/services/collaboration/snapshots.py",
+      "src/prep/services/observation_store.py",
+      "src/prep/services/pi_agent.py",
+      "tests/test_activity_store.py",
+      "tests/test_claim_store.py",
+      "tests/test_collab_api.py",
+      "tests/test_collab_resources.py",
+      "tests/test_collaboration_hub.py",
+      "tests/test_conflict_store.py",
+      "tests/test_graph_snapshots.py",
+      "tests/test_observation_attribution.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/next_steps.md": [
+      "src/prep/adapters/push_engine.py",
+      "src/prep/agents/core.py",
+      "src/prep/agents/shared/prep_data.py",
+      "src/prep/api/routers/collaboration.py",
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/audit/action_item.py",
+      "src/prep/mcp/collaboration_handlers.py",
+      "src/prep/mcp/server.py",
+      "src/prep/server.py",
+      "src/prep/services/observation_store.py",
+      "src/prep/services/pi_agent.py",
+      "src/prep/services/pipeline/orchestrator.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/strategic_direction.md": [
+      "packages/paperclip-plugin-prep/src/worker/index.ts"
+    ],
+    "docs/Phase73_Quality-Reccommendations/README.md": [
+      "src/prep/mcp/server.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/V1/01_Implementation_Plan.md": [
+      "src/prep/api/routers/architecture.py",
+      "src/prep/core/audit/analyzers/large_files.py",
+      "src/prep/core/index.py",
+      "src/prep/services/pipeline/orchestrator.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/V1/02_Raw_Evidence.md": [
+      "src/prep/core/llm_client.py",
+      "src/prep/core/model_readiness.py",
+      "src/prep/core/scheduler.py",
+      "src/prep/core/watcher.py",
+      "src/prep/mcp/server.py",
+      "src/prep/services/pipeline/orchestrator.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/V1/03_Improvement_Roadmap.md": [
+      "src/prep/core/llm_client.py",
+      "src/prep/mcp/server.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/V1/05_Epistemic_Depth_Analysis.md": [
+      "src/prep/core/audit/analyzers/large_files.py",
+      "src/prep/core/chunking.py",
+      "src/prep/mcp/server.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/V1/06_Post_Fix_Analysis.md": [
+      "src/prep/api/routers/architecture.py",
+      "src/prep/mcp/server.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/V1/10_Compression_Testing_Audit.md": [
+      "tests/test_compressor.py",
+      "tests/test_lod_extractor.py"
+    ],
+    "docs/Phase73_Quality-Reccommendations/V1/14_MCP_Prompts_Enhancement.md": [
+      "src/prep/mcp/server.py",
+      "tests/test_mcp_server.py"
+    ],
+    "docs/Phase74_Concepts/05_Implementation_Roadmap.md": [
+      "packages/ui/src/components/concepts/ConceptsDetail.tsx",
+      "packages/ui/src/components/concepts/ConceptsPanel.tsx"
+    ],
+    "docs/Phase74_Concepts/implementation_plan2.md": [
+      "packages/ui/src/components/concepts/ConceptsPanel.tsx"
+    ],
+    "docs/Phase75_Queue/01_Pipeline_Queue_Architecture.md": [
+      "packages/ui/src/index.ts"
+    ],
+    "docs/Phase77_Claude-Interoperability/plan_client_aware_delivery.md": [
+      "tests/test_atlas_hash.py",
+      "tests/test_mcp_budget_caps.py",
+      "tests/test_mcp_config_settings.py",
+      "tests/test_mcp_instructions.py",
+      "tests/test_mcp_server.py",
+      "tests/test_rules_generator_targets.py"
+    ],
+    "docs/Phase79_Swarm/02_Swarm_Integration_Design.md": [
+      "src/prep/core/group_reasoning.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/core/swarm_registry.py"
+    ],
+    "docs/Phase79_Swarm/03_Implementation_Plan.md": [
+      "src/prep/core/group_reasoning.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/core/swarm_registry.py",
+      "tests/test_group_reasoning_swarm.py",
+      "tests/test_swarm_orchestrator.py",
+      "tests/test_swarm_registry.py"
+    ],
+    "docs/Phase79_Swarm/04_SwarmBatch.md": [
+      "src/prep/core/augmenter.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/epistemic_enrichment.py",
+      "src/prep/services/pipeline/stages.py"
+    ],
+    "docs/Phase79_Swarm/05_Dual_Model_Swarm_Plan.md": [
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/services/pipeline/stages.py"
+    ],
+    "docs/Phase79_Swarm/07_Rework/CLOUD_MODEL_DAEMON_HANG.md": [
+      "src/prep/core/llm_client.py"
+    ],
+    "docs/Phase79_Swarm/07_Rework/SWARM_HANG_INVESTIGATION.md": [
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/concept_seeder.py",
+      "src/prep/core/group_reasoning.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "tests/test_swarm_orchestrator.py"
+    ],
+    "docs/Phase79_Swarm/07_Rework/THREAD_ACCUMULATION_ROOT_CAUSE.md": [
+      "scripts/diag_daemon_cloud.py",
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/api/routers/trace_routes/query.py",
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/audit/synthesizer.py",
+      "src/prep/core/augmenter.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/deepening.py",
+      "src/prep/core/epistemic_enrichment.py",
+      "src/prep/core/group_reasoning.py",
+      "src/prep/core/inferred_edges.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/services/build_manager.py",
+      "src/prep/services/build_orchestrator.py",
+      "tests/test_swarm_orchestrator.py",
+      "tests/test_swarm_stress.py"
+    ],
+    "docs/Phase80_mempalace/01_MemPalace_Integration_Research_Strategy.md": [
+      "src/prep/agents/core.py",
+      "src/prep/api/routers/projects/search.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/core/watcher.py",
+      "src/prep/mcp/server.py",
+      "src/prep/services/concept_store.py",
+      "src/prep/services/observation_store.py",
+      "src/prep/services/pipeline/stages.py",
+      "src/prep/services/scope_orchestrator.py"
+    ],
+    "docs/Phase81_UI-bugfixes/01_Pipeline_Pause_and_UI_State_Audit.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/components/primitives/SlidingSwitch.tsx",
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx"
+    ],
+    "docs/Phase81_UI-bugfixes/03_Pause_Fix_Implementation.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx"
+    ],
+    "docs/Phase81_UI-bugfixes/07_Stage3_Loading_States.md": [
+      "packages/ui/src/components/primitives/PanelLoading.tsx",
+      "packages/ui/src/components/primitives/index.ts",
+      "packages/ui/src/index.ts"
+    ],
+    "docs/Phase82_CloudPipelineConcurrency/01_Latency_Aware_Discovery.md": [
+      "src/prep/services/pipeline/scheduler.py"
+    ],
+    "docs/Phase82_CloudPipelineConcurrency/02_Design_Spec.md": [
+      "src/prep/api/routers/_llm_helpers.py",
+      "src/prep/api/routers/llm.py",
+      "src/prep/api/routers/queue.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/services/pipeline/scheduler.py"
+    ],
+    "docs/Phase82_CloudPipelineConcurrency/03_Implementation_Plan.md": [
+      "src/prep/api/routers/_llm_helpers.py",
+      "src/prep/api/routers/llm.py",
+      "src/prep/api/routers/queue.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "tests/test_llm_helpers.py",
+      "tests/test_pipeline_scheduler.py",
+      "tests/test_swarm_registry.py"
+    ],
+    "docs/Phase82_CloudPipelineConcurrency/05_Completion_Plan.md": [
+      "src/prep/api/routers/llm.py",
+      "src/prep/core/batch_profiles.py",
+      "src/prep/core/swarm_optimizer.py",
+      "src/prep/server.py",
+      "src/prep/services/pipeline/concurrency_store.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "tests/test_ai_gateway_live_count.py",
+      "tests/test_batch_profiles_no_plan_tier.py",
+      "tests/test_concurrency_store.py",
+      "tests/test_scheduler_unbounded_discovery.py"
+    ],
+    "docs/Phase82_MCP-Dogfooding/04_codrag_audit.md": [
+      "packages/ui/src/api/react.tsx"
+    ],
+    "docs/Phase82_MCP-Dogfooding/06_Cross_Cutting_UX.md": [
+      "packages/ui/src/api/react.tsx"
+    ],
+    "docs/Phase82_MCP-Dogfooding/14_Intent_Classification_For_Search.md": [
+      "packages/ui/src/components/search/SearchInput.tsx",
+      "packages/ui/src/stories/search/SearchComponents.stories.tsx"
+    ],
+    "docs/Phase89_StateMachine-revisited/03_Implementation_Strategy.md": [
+      "tests/test_ghost_guard.py",
+      "tests/test_pipeline_scheduler.py"
+    ],
+    "docs/Phase89_StateMachine-revisited/04_Implementation_Plan.md": [
+      "tests/test_ghost_guard.py",
+      "tests/test_pipeline_orchestrator_transitions.py",
+      "tests/test_pipeline_scheduler.py"
+    ],
+    "docs/Phase91_QueueRefinement/02_Implementation_Plan.md": [
+      "tests/test_pipeline_scheduler.py"
+    ],
+    "docs/Phase92_SQLite-WAL-Recovery/01_SQLite_WAL_Lock_Prevention.md": [
+      "tests/test_observation_store.py",
+      "tests/test_settings_store.py"
+    ],
+    "docs/Phase93_ChunkingResearch/02_Design_Spec.md": [
+      "tests/test_contextual_retrieval.py",
+      "tests/test_semantic_chunking.py",
+      "tests/test_sg_filter.py"
+    ],
+    "docs/Phase93_ChunkingResearch/03_Implementation_Plan.md": [
+      "tests/test_adaptive_k.py",
+      "tests/test_contextual_retrieval.py",
+      "tests/test_incremental_rebuild.py",
+      "tests/test_knowledge_surrogate.py",
+      "tests/test_manifest_ids.py",
+      "tests/test_mmr_diversity.py",
+      "tests/test_semantic_chunking.py",
+      "tests/test_sg_filter.py"
+    ],
+    "docs/Phase93_ChunkingResearch/04_Implementation_Summary.md": [
+      "tests/test_contextual_retrieval.py",
+      "tests/test_semantic_chunking.py",
+      "tests/test_sg_filter.py"
+    ],
+    "docs/Phase96-fix-pipeline/00_DIAGNOSTIC_REPORT.md": [
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/api/routers/queue.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_direct.py",
+      "src/prep/services/build_orchestrator.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/recovery.py",
+      "src/prep/services/pipeline/resume.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "src/prep/services/pipeline/stages.py",
+      "src/prep/services/pipeline/state_machine.py",
+      "src/prep/services/pipeline/workers.py",
+      "tests/test_pipeline_orchestrator.py",
+      "tests/test_pipeline_orchestrator_transitions.py",
+      "tests/test_pipeline_scheduler.py",
+      "tests/test_pipeline_state_machine.py"
+    ],
+    "docs/Phase96-fix-pipeline/01_RESOLUTION_REPORT.md": [
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "tests/test_pipeline_budget.py",
+      "tests/test_pipeline_journal.py",
+      "tests/test_pipeline_orchestrator.py",
+      "tests/test_pipeline_scheduler.py"
+    ],
+    "docs/Phase96-fix-pipeline/02_UI_SYNC_DIAGNOSTIC.md": [
+      "packages/ui/src/components/navigation/ProjectList.tsx",
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "src/prep/api/routers/queue.py",
+      "src/prep/dashboard/src/hooks/useProjectManager.ts",
+      "src/prep/server.py",
+      "tools/playwright_smoke.py"
+    ],
+    "docs/Phase96-fix-pipeline/03_15_STAGE_GAP_PLAN.md": [
+      "src/prep/api/routers/pipeline.py",
+      "tests/test_pipeline_orchestrator.py"
+    ],
+    "docs/Phase96-fix-pipeline/04_SWARM_CONCEPTS_AUDIT_DESIGN.md": [
+      "src/prep/core/audit/runner.py",
+      "src/prep/core/concept_seeder.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "src/prep/services/pipeline/workers.py"
+    ],
+    "docs/Phase96-fix-pipeline/05_FINDINGS_AND_BUGS_REGISTRY.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "src/prep/api/routers/settings.py",
+      "src/prep/core/index.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/core/watcher.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "tests/test_antibody_store.py",
+      "tests/test_concept_store_save_many.py",
+      "tests/test_pipeline_scheduler.py",
+      "tests/test_watcher_relevance.py"
+    ],
+    "docs/Phase96-fix-pipeline/06_RECENT_DIAGNOSTIC_SESSION_SUMMARY.md": [
+      "src/prep/core/repo_profile.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/resume.py",
+      "src/prep/services/pipeline_logger.py"
+    ],
+    "docs/Phase96-fix-pipeline/07_MCP_DOGFOODING_FINDINGS.md": [
+      "src/prep/api/routers/trace_routes/query.py",
+      "src/prep/core/audit/structural.py",
+      "src/prep/mcp/server.py"
+    ],
+    "docs/Phase96-fix-pipeline/UI+tweaks/PIPELINE_15_STAGE_REORGANIZATION.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/stages.py",
+      "src/prep/services/pipeline/workers.py"
+    ],
+    "docs/Phase96-fix-pipeline/UI+tweaks/PLAN.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/core/antibody_derivation.py",
+      "src/prep/core/audit/runner.py",
+      "src/prep/core/concept_seeder.py",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/services/build_orchestrator.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/post_flight.py",
+      "src/prep/services/pipeline/stages.py",
+      "src/prep/services/pipeline/workers.py",
+      "tests/test_pipeline_orchestrator.py",
+      "tests/test_pipeline_orchestrator_transitions.py",
+      "tests/test_pipeline_state_machine.py"
+    ],
+    "docs/Phase97_Pricing-ProductTier-UPDATE/FREE_TIER_PROJECT_LIMITS.md": [
+      "packages/ui/src/api/types.ts"
+    ],
+    "docs/Phase98_UI-UPDATE/Pipeline-Condensed/2026-04-14-pipeline-condensed-design.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx"
+    ],
+    "docs/Phase98_UI-UPDATE/Pipeline-Condensed/2026-04-14-pipeline-condensed-plan.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/api/mock.ts",
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/components/trace/__tests__/pipelineRollup.test.ts",
+      "packages/ui/src/components/trace/pipelineRollup.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/types.ts"
+    ],
+    "docs/Phase98_UI-UPDATE/Trees/MERGED-TREE-PLAN.md": [
+      "packages/ui/src/components/index.ts",
+      "packages/ui/src/components/project/FileExplorerDetail.tsx",
+      "packages/ui/src/components/project/FolderTree.tsx",
+      "packages/ui/src/components/project/FolderTreePanel.tsx",
+      "packages/ui/src/components/project/index.ts",
+      "packages/ui/src/components/trace/GraphStructurePanel.tsx",
+      "packages/ui/src/config/panelRegistry.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/stories/project/FolderTree.stories.tsx",
+      "packages/ui/src/stories/trace/GraphStructurePanel.stories.tsx"
+    ],
+    "docs/Phase98_UI-UPDATE/Trees/MERGED-TREE-SPEC.md": [
+      "packages/ui/src/components/index.ts",
+      "packages/ui/src/components/project/FileExplorerDetail.tsx",
+      "packages/ui/src/components/project/FolderTree.tsx",
+      "packages/ui/src/components/project/FolderTreePanel.tsx",
+      "packages/ui/src/components/project/index.ts",
+      "packages/ui/src/components/trace/GraphStructurePanel.tsx",
+      "packages/ui/src/config/panelRegistry.ts",
+      "packages/ui/src/stories/project/FolderTree.stories.tsx",
+      "packages/ui/src/stories/trace/GraphStructurePanel.stories.tsx"
+    ],
+    "docs/Phase99_Content/blogs/00_feasibility_audit.md": [
+      "engine/crates/prep-parser/src/rust_lang.rs",
+      "src/prep/core/antibodies.py",
+      "src/prep/core/antibody_derivation.py",
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/audit/analyzers/circular_deps.py",
+      "src/prep/core/audit/analyzers/hub_bottlenecks.py"
+    ],
+    "docs/Phase99_Content/blogs/01_cycles_as_diagnosis.md": [
+      "src/prep/core/audit/analyzers/circular_deps.py"
+    ],
+    "docs/Phase99_Content/blogs/02_hub_file_problem.md": [
+      "src/prep/core/audit/analyzers/hub_bottlenecks.py"
+    ],
+    "docs/Phase99_Content/blogs/03_day_zero_onboarding.md": [
+      "src/prep/core/atlas/generator.py"
+    ],
+    "docs/Phase99_Content/blogs/04_aider_repomap_vs_codrag_atlas.md": [
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/audit/analyzers/hub_bottlenecks.py"
+    ],
+    "docs/Phase99_Content/research/00_Research_Sources_Master_List.md": [
+      "src/prep/mcp_tools.py"
+    ],
+    "docs/QA.md": [
+      "src/prep/api/envelope.py"
+    ],
+    "docs/TEST_STATUS.md": [
+      "tests/test_pipeline_orchestrator.py",
+      "tests/test_scope_orchestrator.py"
+    ],
+    "docs/refactor2/01_large_files_audit.md": [
+      "engine/crates/prep-graph/src/lib.rs",
+      "engine/crates/prep-parser/src/typescript.rs",
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/cli.py",
+      "src/prep/core/augmenter.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/index.py",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/prep/mcp_server.py",
+      "src/prep/services/pipeline_orchestrator.py"
+    ],
+    "docs/refactor2/03_implementation_plan.md": [
+      "packages/ui/src/components/marketing/MarketingHero.tsx",
+      "packages/ui/src/components/project/FolderTree.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/api/routers/projects/__init__.py"
+    ],
+    "docs/refactor2/04_structural_comparison_verification.md": [
+      "packages/ui/src/components/marketing/MarketingHero.tsx",
+      "packages/ui/src/types.ts",
+      "packages/ui/src/types/index.ts"
+    ],
+    "docs/refactor2/05_annotated_refactor_plan.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/components/marketing/MarketingHero.tsx",
+      "packages/ui/src/components/project/FolderTree.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/core/__init__.py",
+      "src/prep/core/augmenter.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/epistemic_enrichment.py",
+      "src/prep/core/index.py",
+      "src/prep/core/inferred_edges.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/prep/mcp_server.py",
+      "src/prep/server.py",
+      "src/prep/services/build_manager.py",
+      "src/prep/services/pipeline/__init__.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/stages.py",
+      "src/prep/services/pipeline/workers.py",
+      "src/prep/services/pipeline_orchestrator.py",
+      "tests/test_atlas.py"
+    ],
+    "docs/refactor2/06_gap_analysis.md": [
+      "src/prep/core/glob_utils.py",
+      "src/prep/core/index.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/core/query.py",
+      "src/prep/mcp_server.py"
+    ],
+    "docs/refactor2/07_prompt_inventory.md": [
+      "src/prep/core/augmenter.py",
+      "src/prep/core/batch_prompts.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/epistemic_enrichment.py",
+      "src/prep/core/group_reasoning.py",
+      "src/prep/core/inferred_edges.py"
+    ],
+    "docs/refactor2/08_pipeline_stage_sync.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/services/pipeline_orchestrator.py"
+    ],
+    "docs/research/MULTI_PROJECT_MODEL_MANAGEMENT.md": [
+      "packages/ui/src/components/trace/GraphStructurePanel.tsx",
+      "src/prep/api/routers/trace_routes/enrichment.py",
+      "src/prep/core/index.py",
+      "src/prep/core/repo_profile.py",
+      "src/prep/core/trace/builder.py",
+      "src/prep/core/trace/coverage.py"
+    ],
+    "docs/superpowers/plans/2026-04-01-phase67-agent-foundation.md": [
+      "src/prep/agents/__init__.py",
+      "src/prep/agents/core.py",
+      "src/prep/agents/shared/__init__.py",
+      "src/prep/agents/shared/git_client.py",
+      "src/prep/agents/shared/models.py",
+      "src/prep/agents/shared/paperclip_client.py",
+      "src/prep/agents/shared/prep_data.py",
+      "tests/test_agent_core.py",
+      "tests/test_agent_git_client.py",
+      "tests/test_agent_integration.py",
+      "tests/test_agent_models.py",
+      "tests/test_agent_paperclip_client.py",
+      "tests/test_agent_prep_data.py"
+    ],
+    "docs/superpowers/plans/2026-04-04-phase71a-architecture-diagram.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/components/architecture/AnnotationNode.tsx",
+      "packages/ui/src/components/architecture/ArchitectureDiagramDetail.tsx",
+      "packages/ui/src/components/architecture/ArchitectureDiagramPanel.tsx",
+      "packages/ui/src/components/architecture/DependencyEdge.tsx",
+      "packages/ui/src/components/architecture/ExternalRefNode.tsx",
+      "packages/ui/src/components/architecture/FileNode.tsx",
+      "packages/ui/src/components/architecture/ModuleNode.tsx",
+      "packages/ui/src/components/architecture/index.ts",
+      "packages/ui/src/config/panelRegistry.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/types/architecture.ts",
+      "src/prep/api/routers/architecture.py",
+      "src/prep/core/architecture_state.py",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/dashboard/src/hooks/useArchitectureSystem.ts",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/prep/mcp/server.py",
+      "src/prep/server.py",
+      "tests/test_architecture_router.py",
+      "tests/test_architecture_state.py"
+    ],
+    "docs/superpowers/plans/2026-04-04-phase71b-governance-overlays.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/components/architecture/ArchitectureDiagramDetail.tsx",
+      "packages/ui/src/components/architecture/BreadcrumbNav.tsx",
+      "packages/ui/src/components/architecture/DiagramSidebar.tsx",
+      "packages/ui/src/components/architecture/DiagramToolbar.tsx",
+      "packages/ui/src/components/architecture/EntryPointNode.tsx",
+      "packages/ui/src/components/architecture/FileNode.tsx",
+      "packages/ui/src/components/architecture/IssueBadge.tsx",
+      "packages/ui/src/components/architecture/ModuleNode.tsx",
+      "packages/ui/src/components/architecture/index.ts",
+      "packages/ui/src/types/architecture.ts",
+      "src/prep/api/routers/architecture.py",
+      "src/prep/core/architecture_acr.py",
+      "src/prep/core/architecture_state.py",
+      "src/prep/dashboard/src/hooks/useArchitectureSystem.ts",
+      "src/prep/mcp/server.py",
+      "tests/test_architecture_acr.py"
+    ],
+    "docs/superpowers/plans/2026-04-04-phase72-stage1-manifest-store.md": [
+      "src/prep/services/pipeline/__init__.py",
+      "src/prep/services/pipeline/manifest_store.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "tests/test_manifest_store.py",
+      "tests/test_pipeline_orchestrator.py"
+    ],
+    "docs/superpowers/plans/2026-04-05-phase73-context-quality.md": [
+      "src/prep/api/routers/projects/search.py",
+      "src/prep/core/chunking.py",
+      "src/prep/core/index.py",
+      "src/prep/mcp/server.py",
+      "tests/test_api_envelope.py",
+      "tests/test_context_dedup.py",
+      "tests/test_dashboard_error_states.py",
+      "tests/test_hub_selection.py",
+      "tests/test_mcp_budget_caps.py",
+      "tests/test_mcp_direct_smoke.py",
+      "tests/test_meta_chunk.py",
+      "tests/test_mmr_diversity.py",
+      "tests/test_path_weights.py"
+    ],
+    "docs/superpowers/plans/2026-04-05-tier-adaptive-compression.md": [
+      "src/prep/api/routers/projects/models.py",
+      "src/prep/api/routers/projects/search.py",
+      "src/prep/core/__init__.py",
+      "src/prep/core/context_tier.py",
+      "src/prep/core/lod_extractor.py",
+      "src/prep/mcp/server.py",
+      "tests/test_compressor.py",
+      "tests/test_context_tier.py",
+      "tests/test_lod_extractor.py"
+    ],
+    "docs/superpowers/plans/2026-04-06-agent-collaboration-infrastructure.md": [
+      "src/prep/adapters/pm_models.py",
+      "src/prep/adapters/push_engine.py",
+      "src/prep/agents/core.py",
+      "src/prep/agents/custodian/engine.py",
+      "src/prep/agents/researcher/engine.py",
+      "src/prep/agents/shared/prep_data.py",
+      "src/prep/api/routers/agents.py",
+      "src/prep/api/routers/collaboration.py",
+      "src/prep/api/routers/observations.py",
+      "src/prep/mcp/collaboration_handlers.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_tools.py",
+      "src/prep/server.py",
+      "src/prep/services/collaboration/__init__.py",
+      "src/prep/services/collaboration/activity.py",
+      "src/prep/services/collaboration/claims.py",
+      "src/prep/services/collaboration/conflicts.py",
+      "src/prep/services/collaboration/snapshots.py",
+      "src/prep/services/observation_store.py",
+      "src/prep/services/pi_agent.py",
+      "tests/test_activity_store.py",
+      "tests/test_claim_store.py",
+      "tests/test_collab_api.py",
+      "tests/test_collab_resources.py",
+      "tests/test_collaboration_hub.py",
+      "tests/test_conflict_store.py",
+      "tests/test_graph_snapshots.py",
+      "tests/test_mcp_server.py",
+      "tests/test_observation_attribution.py"
+    ],
+    "docs/superpowers/plans/2026-04-06-global-pipeline-queue.md": [
+      "packages/ui/src/components/navigation/SidebarPipelineQueue.tsx",
+      "packages/ui/src/components/navigation/index.ts",
+      "packages/ui/src/hooks/useEventStream.ts",
+      "packages/ui/src/index.ts",
+      "src/prep/api/routers/queue.py",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/server.py",
+      "src/prep/services/pipeline/ghost_guard.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "tests/test_ghost_guard.py",
+      "tests/test_queue_router.py"
+    ],
+    "docs/superpowers/plans/2026-04-06-mcp-ecosystem-optimization.md": [
+      "src/prep/core/rules_generator.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_tools.py",
+      "tests/test_context_tier.py",
+      "tests/test_mcp_budget_caps.py",
+      "tests/test_mcp_server.py"
+    ],
+    "docs/superpowers/plans/2026-04-06-pipeline-rebuild-button.md": [
+      "packages/ui/src/api/client.ts",
+      "packages/ui/src/api/mock.ts",
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/dashboard/src/hooks/useTraceSystem.ts"
+    ],
+    "docs/superpowers/plans/2026-04-06-query-decomposition-coverage.md": [
+      "src/prep/api/routers/projects/search.py",
+      "src/prep/core/__init__.py",
+      "src/prep/core/index.py",
+      "src/prep/core/query_analyzer.py",
+      "src/prep/mcp/server.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "tests/test_compressor.py",
+      "tests/test_context_tier.py",
+      "tests/test_lod_extractor.py",
+      "tests/test_query_analyzer.py"
+    ],
+    "docs/superpowers/plans/2026-04-06-unified-agent-surfaces.md": [
+      "packages/paperclip-plugin-prep/src/manifest.ts",
+      "packages/paperclip-plugin-prep/src/ui/CodebaseHealthWidget.tsx",
+      "packages/paperclip-plugin-prep/src/ui/IssueContextTab.tsx",
+      "packages/paperclip-plugin-prep/src/ui/KnowledgeScopeTab.tsx",
+      "packages/paperclip-plugin-prep/src/ui/SettingsPage.tsx",
+      "packages/paperclip-plugin-prep/src/worker/index.ts",
+      "packages/ui/src/components/agents/AgentOpsPanel.tsx",
+      "packages/ui/src/components/agents/PushSettings.tsx",
+      "packages/ui/src/components/agents/index.ts",
+      "packages/ui/src/config/panelRegistry.ts",
+      "src/prep/adapters/pm_models.py",
+      "src/prep/adapters/push_engine.py",
+      "src/prep/api/routers/agents.py",
+      "src/prep/api/routers/collaboration.py",
+      "src/prep/dashboard/src/hooks/useAgentOps.ts",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/prep/mcp/collaboration_handlers.py",
+      "src/prep/services/observation_store.py",
+      "tests/test_collab_resources.py",
+      "tests/test_consensus_scoring.py",
+      "tests/test_delta_push.py",
+      "tests/test_push_settings_api.py",
+      "tests/test_significance.py",
+      "tests/test_structural_enrichment.py"
+    ],
+    "docs/superpowers/plans/2026-04-07-clustering-atlas-swarm.md": [
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/group_reasoning.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/core/swarm_registry.py",
+      "tests/test_atlas_swarm.py",
+      "tests/test_cluster_swarm.py",
+      "tests/test_group_reasoning_swarm.py",
+      "tests/test_swarm_orchestrator.py",
+      "tests/test_swarm_registry.py"
+    ],
+    "docs/superpowers/plans/2026-04-07-phase80-mempalace-integration.md": [
+      "src/prep/core/compression/__init__.py",
+      "src/prep/core/compression/symbol_registry.py",
+      "src/prep/core/compressor.py",
+      "src/prep/core/swarm_orchestrator.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_tools.py",
+      "src/prep/services/concept_store.py",
+      "src/prep/services/observation_store.py",
+      "tests/test_concept_store_directory.py",
+      "tests/test_observation_store_directory.py",
+      "tests/test_structural_compressor.py",
+      "tests/test_temporal_validity.py"
+    ],
+    "docs/superpowers/plans/2026-04-08-phase83-audit-redesign.md": [
+      "src/prep/api/routers/audit.py",
+      "src/prep/core/audit/recommendations.py",
+      "src/prep/core/audit/structural.py",
+      "src/prep/core/enrichment.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_tools.py",
+      "src/prep/services/settings_store.py",
+      "tests/test_enrichment.py",
+      "tests/test_experimental_toggle.py",
+      "tests/test_recommendations.py",
+      "tests/test_structural_audit.py"
+    ],
+    "docs/superpowers/plans/2026-04-08-phase84-concepts-formalization.md": [
+      "src/prep/core/audit/structural.py",
+      "src/prep/core/concept_conflicts.py",
+      "src/prep/core/concept_promotion.py",
+      "src/prep/core/project_registry.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_tools.py",
+      "src/prep/services/concept_store.py",
+      "tests/test_concept_conflicts.py",
+      "tests/test_concept_promotion.py",
+      "tests/test_concept_store_v2.py",
+      "tests/test_enrichment.py",
+      "tests/test_recommendations.py",
+      "tests/test_structural_audit.py"
+    ],
+    "docs/superpowers/plans/2026-04-08-phase85-sarif-enrichment.md": [
+      "src/prep/core/enrichment.py",
+      "src/prep/core/sarif.py",
+      "src/prep/core/sarif_adapters.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_tools.py",
+      "tests/test_sarif.py",
+      "tests/test_sarif_adapters.py"
+    ],
+    "docs/superpowers/plans/2026-04-08-sqlite-wal-lock-prevention.md": [
+      "src/prep/server.py",
+      "src/prep/services/settings_store.py",
+      "tests/test_settings_store.py"
+    ],
+    "docs/superpowers/plans/2026-04-10-detail-pages-and-template.md": [
+      "packages/ui/src/components/index.ts",
+      "packages/ui/src/components/marketing/DetailPageLayout.tsx",
+      "packages/ui/src/components/marketing/index.ts",
+      "packages/ui/src/index.ts",
+      "websites/apps/marketing/src/app/claude-code/layout.tsx",
+      "websites/apps/marketing/src/app/claude-code/page.tsx",
+      "websites/apps/marketing/src/app/graph-enrichment/layout.tsx",
+      "websites/apps/marketing/src/app/graph-enrichment/page.tsx",
+      "websites/apps/marketing/src/app/immune-system/layout.tsx",
+      "websites/apps/marketing/src/app/immune-system/page.tsx",
+      "websites/apps/marketing/src/app/integrations/layout.tsx",
+      "websites/apps/marketing/src/app/integrations/page.tsx",
+      "websites/apps/marketing/src/app/page.tsx",
+      "websites/apps/marketing/src/app/paperclip/layout.tsx",
+      "websites/apps/marketing/src/app/paperclip/page.tsx"
+    ],
+    "docs/superpowers/plans/2026-04-10-research-page.md": [
+      "packages/ui/src/components/marketing/index.ts",
+      "packages/ui/src/components/marketing/research/ResearchAppendix.tsx",
+      "packages/ui/src/components/marketing/research/ResearchHero.tsx",
+      "packages/ui/src/components/marketing/research/ResearchSection.tsx",
+      "packages/ui/src/components/marketing/research/SourceCard.tsx",
+      "packages/ui/src/components/marketing/research/SourceFilterChips.tsx",
+      "packages/ui/src/components/marketing/research/SourceSpotlight.tsx",
+      "packages/ui/src/components/marketing/research/index.ts",
+      "packages/ui/src/data/researchSources.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/stories/marketing/research/ResearchAppendix.stories.tsx",
+      "packages/ui/src/stories/marketing/research/ResearchHero.stories.tsx",
+      "packages/ui/src/stories/marketing/research/ResearchSection.stories.tsx",
+      "packages/ui/src/stories/marketing/research/SourceCard.stories.tsx",
+      "packages/ui/src/stories/marketing/research/SourceFilterChips.stories.tsx",
+      "packages/ui/src/stories/marketing/research/SourceSpotlight.stories.tsx",
+      "websites/apps/marketing/src/app/ClientLayout.tsx",
+      "websites/apps/marketing/src/app/about/page.tsx",
+      "websites/apps/marketing/src/app/compare/page.tsx",
+      "websites/apps/marketing/src/app/research/layout.tsx",
+      "websites/apps/marketing/src/app/research/page.tsx",
+      "websites/apps/marketing/src/app/sitemap.ts"
+    ],
+    "docs/superpowers/plans/2026-04-13-pipeline-selfheal-integration.md": [
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/recovery.py",
+      "tests/test_pipeline_orchestrator.py",
+      "tests/test_pipeline_scheduler.py",
+      "tests/test_selfheal_group.py"
+    ],
+    "docs/superpowers/plans/2026-04-17-rebuild-progress-bar.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/components/trace/StageProgressBar.tsx",
+      "packages/ui/src/components/trace/__tests__/rebuildProgress.test.ts",
+      "packages/ui/src/components/trace/rebuildProgress.ts",
+      "packages/ui/src/stories/trace/StageProgressBar.stories.tsx"
+    ],
+    "docs/superpowers/plans/2026-04-19-model-card-saved-value-display.md": [
+      "packages/ui/src/components/llm/ModelCard.tsx",
+      "packages/ui/src/components/llm/__tests__/ModelCard.test.tsx"
+    ],
+    "docs/superpowers/plans/2026-04-19-phase117-rebuild-granularity.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/components/trace/ProvenanceChip.tsx",
+      "packages/ui/src/components/trace/RebuildDropdown.tsx",
+      "packages/ui/src/components/trace/RebuildingRow.tsx",
+      "packages/ui/src/components/trace/__tests__/ProvenanceChip.test.tsx",
+      "packages/ui/src/components/trace/__tests__/RebuildDropdown.test.tsx",
+      "packages/ui/src/components/trace/__tests__/RebuildingRow.test.tsx",
+      "packages/ui/src/components/trace/__tests__/rebuildProgress.test.ts",
+      "packages/ui/src/components/trace/rebuildProgress.ts",
+      "packages/ui/src/stories/trace/GraphEnrichmentPipeline.stories.tsx",
+      "packages/ui/src/stories/trace/ProvenanceChip.stories.tsx",
+      "packages/ui/src/stories/trace/RebuildDropdown.stories.tsx",
+      "packages/ui/src/stories/trace/RebuildingRow.stories.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/dashboard/src/hooks/useEnrichment.ts",
+      "src/prep/services/pipeline/_model_resolution.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/recovery.py",
+      "src/prep/services/pipeline/stages.py",
+      "src/prep/services/pipeline_provenance.py",
+      "tests/api/routers/test_pipeline_rebuild_stop.py",
+      "tests/api/routers/test_pipeline_scoped_rebuild.py",
+      "tests/api/routers/test_pipeline_status_provenance.py",
+      "tests/services/pipeline/test_barrier_scope_autoclear.py",
+      "tests/services/pipeline/test_reset_barrier_scope.py",
+      "tests/services/test_pipeline_provenance.py"
+    ],
+    "docs/superpowers/plans/2026-04-20-aimd-request-gate.md": [
+      "packages/ui/src/components/navigation/SidebarPipelineQueue.tsx",
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/core/deepening.py",
+      "src/prep/core/llm_client.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "src/prep/services/pipeline/thread_pool.py",
+      "tests/test_llm_client_queue_time.py",
+      "tests/test_llm_client_request_gate.py",
+      "tests/test_llm_task_resolver.py",
+      "tests/test_pipeline_orchestrator.py",
+      "tests/test_pipeline_scheduler.py",
+      "tests/test_scheduler_request_gate.py",
+      "tests/test_scheduler_unbounded_discovery.py"
+    ],
+    "docs/superpowers/plans/2026-04-20-llm-config-autosave-redesign.md": [
+      "packages/ui/src/components/llm/AIModelsSettings.tsx",
+      "packages/ui/src/components/llm/ModelCard.tsx",
+      "packages/ui/src/components/llm/__tests__/ModelCard.test.tsx",
+      "packages/ui/src/components/llm/__tests__/llmConfigHelpers.test.ts",
+      "packages/ui/src/components/llm/__tests__/provider-utils.test.ts",
+      "packages/ui/src/components/llm/llmConfigHelpers.ts",
+      "packages/ui/src/components/llm/provider-utils.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/src/lib/__tests__/debouncedSaver.test.ts",
+      "packages/ui/src/lib/debouncedSaver.ts",
+      "packages/ui/vite.config.ts",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "src/prep/dashboard/src/hooks/useDebouncedAutoSave.ts",
+      "src/prep/dashboard/src/hooks/useLLMConfig.ts",
+      "src/prep/dashboard/vite.config.ts"
+    ],
+    "docs/superpowers/plans/2026-04-20-parallel-non-swarm-fallbacks.md": [
+      "src/prep/core/augmenter.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/concept_seeder.py",
+      "src/prep/services/pipeline/thread_pool.py",
+      "src/prep/services/pipeline/workers.py",
+      "tests/test_cluster_parallel_batched.py",
+      "tests/test_concept_seeder_parallel.py",
+      "tests/test_pipeline_orchestrator.py",
+      "tests/test_resume_strategy.py",
+      "tests/test_selfheal_group.py",
+      "tools/playwright_smoke.py"
+    ],
+    "docs/superpowers/plans/2026-04-20-settings-panel-redesign.md": [
+      "packages/ui/src/components/pipeline/__tests__/HealthBadge.test.tsx",
+      "packages/ui/src/components/settings/Section.tsx",
+      "packages/ui/src/components/settings/SettingRow.tsx",
+      "packages/ui/src/components/settings/__tests__/Section.stories.tsx",
+      "packages/ui/src/components/settings/__tests__/SettingRow.stories.tsx",
+      "packages/ui/src/components/settings/__tests__/scope.test.ts",
+      "packages/ui/src/components/settings/index.ts",
+      "packages/ui/src/components/settings/scope.ts",
+      "packages/ui/src/index.ts",
+      "packages/ui/vite.config.ts",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/dashboard/src/components/settings/v2/SettingsNav.tsx",
+      "src/prep/dashboard/src/components/settings/v2/SettingsOverlay.tsx",
+      "src/prep/dashboard/src/components/settings/v2/SettingsPage.tsx",
+      "src/prep/dashboard/src/components/settings/v2/__tests__/devGate.test.ts",
+      "src/prep/dashboard/src/components/settings/v2/__tests__/routeParser.test.ts",
+      "src/prep/dashboard/src/components/settings/v2/devGate.ts",
+      "src/prep/dashboard/src/components/settings/v2/pages/Integrations.tsx",
+      "src/prep/dashboard/src/components/settings/v2/pages/Sources.tsx",
+      "src/prep/dashboard/src/components/settings/v2/pages/TraceIndexing.tsx",
+      "src/prep/dashboard/src/components/settings/v2/pages/index.tsx",
+      "src/prep/dashboard/src/components/settings/v2/routeParser.ts",
+      "src/prep/dashboard/src/components/settings/v2/useSettingsRoute.ts"
+    ],
+    "docs/superpowers/plans/2026-04-21-prep-rename-implementation.md": [
+      "packages/vscode/src/extension.ts",
+      "src/prep/cli.py",
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/data_dir_migration.py",
+      "src/prep/core/feature_gate.py",
+      "src/prep/core/lod_extractor.py",
+      "src/prep/core/paths.py",
+      "src/prep/core/rules_generator.py",
+      "src/prep/server.py",
+      "tests/test_data_dir_migration.py",
+      "tests/test_feature_gate.py",
+      "websites/MagneticAnomaly/src/App.jsx"
+    ],
+    "docs/superpowers/plans/2026-04-22-sourceprep-rename-implementation.md": [
+      "packages/vscode/src/statusBar.ts",
+      "src/prep/a2a/handler.py",
+      "src/prep/adapters/push_engine.py",
+      "src/prep/api/routers/trace_routes/query.py",
+      "src/prep/cli.py",
+      "src/prep/core/data_dir_migration.py",
+      "src/prep/core/paths.py",
+      "src/prep/core/project_registry.py",
+      "src/prep/core/stage_manifest.py",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp/tool_hi.py",
+      "src/prep/mcp_direct.py",
+      "src/prep/mcp_tools.py",
+      "src/prep/server.py",
+      "src/prep/services/pipeline_metadata.py",
+      "tests/test_data_dir_migration.py",
+      "tests/test_paths.py",
+      "tests/test_prep_hi.py",
+      "tests/test_prep_hi_scenario.py",
+      "websites/apps/marketing/src/app/page.tsx"
+    ],
+    "docs/superpowers/plans/2026-04-29-reset-clean-slate.md": [
+      "src/prep/api/routers/trace_routes/enrichment.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/deepening.py",
+      "src/prep/core/group_reasoning.py",
+      "src/prep/core/knowledge.py",
+      "src/prep/services/pipeline/__init__.py",
+      "src/prep/services/pipeline/recovery.py",
+      "src/prep/services/pipeline/stages.py",
+      "src/prep/services/pipeline_journal.py",
+      "tests/test_cluster_reuse_gated_by_barrier.py",
+      "tests/test_deepening_drift_gated_by_barrier.py",
+      "tests/test_group_reasoning_reuse_gated_by_barrier.py",
+      "tests/test_knowledge_incremental_gated_by_barrier.py",
+      "tests/test_knowledge_index_invalidate.py",
+      "tests/test_pipeline_journal_delete_runs.py",
+      "tests/test_reset_barrier_finalize_scope.py",
+      "tests/test_reset_barrier_is_reuse_blocked.py",
+      "tests/test_scoped_full_reset.py",
+      "tests/test_scoped_full_reset_reuse_gate.py",
+      "tests/test_scoped_full_reset_selfheal_race.py",
+      "tests/test_scoped_full_reset_zombies.py",
+      "tests/test_stage_outputs_registry.py"
+    ],
+    "docs/superpowers/specs/2026-04-06-agent-collaboration-infrastructure-design.md": [
+      "src/prep/mcp/collaboration_handlers.py",
+      "tests/test_activity_store.py",
+      "tests/test_claim_store.py",
+      "tests/test_collab_resources.py",
+      "tests/test_collaboration_hub.py",
+      "tests/test_conflict_store.py",
+      "tests/test_graph_snapshots.py",
+      "tests/test_observation_attribution.py"
+    ],
+    "docs/superpowers/specs/2026-04-06-global-pipeline-queue-design.md": [
+      "packages/ui/src/components/navigation/SidebarPipelineQueue.tsx",
+      "packages/ui/src/components/navigation/index.ts",
+      "packages/ui/src/hooks/useEventStream.ts",
+      "packages/ui/src/index.ts",
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/api/routers/queue.py",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/server.py",
+      "src/prep/services/build_orchestrator.py",
+      "src/prep/services/pipeline/ghost_guard.py",
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/scheduler.py",
+      "tests/test_ghost_guard.py",
+      "tests/test_queue_router.py"
+    ],
+    "docs/superpowers/specs/2026-04-06-unified-agent-surfaces-design.md": [
+      "packages/paperclip-plugin-prep/src/ui/SettingsPage.tsx",
+      "packages/paperclip-plugin-prep/src/worker/index.ts",
+      "src/prep/adapters/push_engine.py",
+      "src/prep/api/routers/agents.py",
+      "src/prep/api/routers/collaboration.py",
+      "src/prep/api/routers/projects/watch.py",
+      "src/prep/core/watcher.py",
+      "src/prep/dashboard/src/hooks/useDashboardPanels.tsx",
+      "tests/test_consensus_scoring.py",
+      "tests/test_delta_push.py",
+      "tests/test_push_settings_api.py",
+      "tests/test_significance.py",
+      "tests/test_structural_enrichment.py"
+    ],
+    "docs/superpowers/specs/2026-04-07-clustering-atlas-swarm-design.md": [
+      "src/prep/core/atlas/generator.py",
+      "src/prep/core/cluster.py",
+      "tests/test_atlas_swarm.py",
+      "tests/test_cluster_swarm.py"
+    ],
+    "docs/superpowers/specs/2026-04-08-sqlite-wal-lock-prevention-design.md": [
+      "src/prep/server.py",
+      "src/prep/services/settings_store.py"
+    ],
+    "docs/superpowers/specs/2026-04-10-research-page-design.md": [
+      "packages/ui/src/data/researchSources.ts",
+      "websites/apps/marketing/src/app/research/page.tsx",
+      "websites/apps/marketing/src/app/sitemap.ts"
+    ],
+    "docs/superpowers/specs/2026-04-13-pipeline-selfheal-integration-design.md": [
+      "src/prep/services/pipeline/orchestrator.py",
+      "src/prep/services/pipeline/recovery.py",
+      "src/prep/services/pipeline/resume.py",
+      "src/prep/services/pipeline/stages.py"
+    ],
+    "docs/superpowers/specs/2026-04-16-pipeline-smoke-driver-design.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "tools/playwright_smoke.py"
+    ],
+    "docs/superpowers/specs/2026-04-17-rebuild-progress-bar-design.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/components/trace/StageProgressBar.tsx"
+    ],
+    "docs/superpowers/specs/2026-04-19-model-card-saved-value-display.md": [
+      "packages/ui/src/components/llm/ModelCard.tsx"
+    ],
+    "docs/superpowers/specs/2026-04-19-phase117-rebuild-granularity-design.md": [
+      "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+      "packages/ui/src/components/trace/ProvenanceChip.tsx",
+      "packages/ui/src/components/trace/rebuildProgress.ts",
+      "packages/ui/src/stories/trace/GraphEnrichmentPipeline.stories.tsx",
+      "packages/ui/src/types.ts",
+      "src/prep/api/routers/pipeline.py",
+      "src/prep/dashboard/src/hooks/useEnrichment.ts",
+      "src/prep/services/pipeline/recovery.py",
+      "src/prep/services/pipeline_orchestrator.py",
+      "src/prep/services/pipeline_provenance.py"
+    ],
+    "docs/superpowers/specs/2026-04-20-llm-config-autosave-redesign.md": [
+      "packages/ui/src/components/llm/AIModelsSettings.tsx",
+      "packages/ui/src/components/llm/ModelCard.tsx",
+      "packages/ui/src/components/llm/__tests__/ModelCard.test.tsx",
+      "packages/ui/src/components/llm/__tests__/provider-utils.test.ts",
+      "packages/ui/src/components/llm/provider-utils.ts",
+      "src/prep/dashboard/src/App.tsx",
+      "src/prep/dashboard/src/hooks/useDebouncedAutoSave.ts",
+      "src/prep/dashboard/src/hooks/useLLMConfig.ts"
+    ],
+    "docs/superpowers/specs/2026-04-20-settings-panel-redesign-design.md": [
+      "packages/ui/src/components/settings/Section.tsx",
+      "packages/ui/src/components/settings/SettingRow.tsx"
+    ],
+    "docs/superpowers/specs/2026-04-21-prep-rename-design.md": [
+      "packages/paperclip-plugin-prep/src/manifest.ts",
+      "src/prep/agents/shared/prep_data.py",
+      "src/prep/core/data_dir_migration.py",
+      "src/prep/core/feature_gate.py",
+      "src/prep/core/lod_extractor.py",
+      "src/prep/core/paths.py",
+      "src/prep/core/rules_generator.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp_direct.py",
+      "src/prep/mcp_tools.py",
+      "tests/conftest.py",
+      "tests/test_data_dir_migration.py",
+      "tests/test_feature_gate.py",
+      "tests/test_paths.py"
+    ],
+    "docs/superpowers/specs/2026-04-22-cli-demos-dev-page-design.md": [
+      "packages/ui/src/components/console/demo-scripts.ts"
+    ],
+    "docs/superpowers/specs/2026-04-22-sourceprep-rename-design.md": [
+      "src/prep/a2a/handler.py",
+      "src/prep/adapters/push_engine.py",
+      "src/prep/cli.py",
+      "src/prep/core/data_dir_migration.py",
+      "src/prep/core/paths.py",
+      "src/prep/core/watcher.py",
+      "src/prep/mcp/server.py",
+      "src/prep/mcp/tool_hi.py",
+      "src/prep/mcp_direct.py",
+      "src/prep/mcp_tools.py",
+      "src/prep/server.py",
+      "tests/test_data_dir_migration.py",
+      "tests/test_no_cwd_relative_codrag_data.py",
+      "tests/test_paths.py",
+      "tests/test_prep_hi.py",
+      "tests/test_prep_hi_scenario.py",
+      "websites/apps/marketing/src/app/page.tsx"
+    ],
+    "docs/superpowers/specs/2026-04-29-reset-clean-slate-design.md": [
+      "src/prep/api/routers/trace_routes/enrichment.py",
+      "src/prep/core/cluster.py",
+      "src/prep/core/deepening.py",
+      "src/prep/core/group_reasoning.py",
+      "src/prep/services/pipeline/__init__.py",
+      "src/prep/services/pipeline/recovery.py",
+      "src/prep/services/pipeline_journal.py",
+      "tests/test_scoped_full_reset.py",
+      "tests/test_scoped_full_reset_reuse_gate.py",
+      "tests/test_scoped_full_reset_selfheal_race.py",
+      "tests/test_scoped_full_reset_zombies.py"
+    ],
+    "packages/ui/src/REFACTOR_PLAN.md": [
+      "src/prep/dashboard/src/App.tsx"
+    ],
+    "tests/fixtures/FIXTURES.md": [
+      "tests/test_mcp_direct_e2e.py"
+    ]
+  },
+  "extracted_at": "2026-05-01T21:24:10.573793+00:00",
+  "project_root": "/Volumes/4TB-BAD/HumanAI/CoDRAG",
+  "md_count": 292,
+  "valid_link_count": 1747,
+  "raw_mention_count": 4766,
+  "schema_version": 1
+}

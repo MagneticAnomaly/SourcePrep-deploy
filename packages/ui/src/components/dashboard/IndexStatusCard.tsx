@@ -54,6 +54,8 @@ export interface IndexStatusCardProps {
   hideChart?: boolean;
   /** When true, the project is explicitly marked inactive */
   inactive?: boolean;
+  /** True when /status has been unreachable for several polls — render a "stats stale" badge so the user knows the displayed numbers are not live */
+  statsUnreachable?: boolean;
 }
 
 function formatNumber(num: number): string {
@@ -81,6 +83,7 @@ export function IndexStatusCard({
   hideChart = false,
   limitReached = false,
   inactive = false,
+  statsUnreachable = false,
 }: IndexStatusCardProps) {
   const showAutoToggle = onAutoRebuildChange !== undefined;
   // All tiers have automation — isPro only affects project slot management
@@ -189,7 +192,11 @@ export function IndexStatusCard({
         <div className="flex-1" />
 
         {/* Status badge */}
-        {building ? (
+        {statsUnreachable ? (
+          <span title="Status endpoint is unreachable — displayed numbers may be stale.">
+            <Badge color="yellow">Stats stale</Badge>
+          </span>
+        ) : building ? (
           <Badge color="blue">Building</Badge>
         ) : stats.loaded && !stale ? (
           <Badge color="green">Fresh</Badge>
@@ -213,7 +220,14 @@ export function IndexStatusCard({
         <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
           <div className="flex items-center gap-2 py-1" title="Code chunks (source files)">
             <Code2 className="w-4 h-4 text-blue-400 shrink-0" />
-            <span className="font-semibold text-text tabular-nums w-10 text-right">{formatNumber(stats.build?.chunks_code ?? stats.total_documents ?? 0)}</span>
+            {/* 2026-05: Do NOT fall back to stats.total_documents here.
+                When the CodeIndex build manifest is missing, the API
+                falls through to the KnowledgeIndex (pipeline output)
+                which reports its own count via total_documents. That
+                count is not "code chunks" — surfacing it here let a
+                stale 9.5k from the pipeline appear in the Code field
+                immediately after the user emptied their scope. */}
+            <span className="font-semibold text-text tabular-nums w-10 text-right">{formatNumber(stats.build?.chunks_code ?? 0)}</span>
             <span className="text-text-muted">Code</span>
           </div>
           <div className="flex items-center gap-2 py-1" title="Instructions chunks (.md, docs, plans, research)">

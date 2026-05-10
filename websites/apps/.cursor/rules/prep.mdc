@@ -15,7 +15,7 @@ prep_project_id: 1e268cdc-1eae-439e-b48d-8157237bddbb
 | Tool | When to Use |
 |------|-------------|
 | `prep` | START of every task — structural overview, modules, hub files, immune system alerts |
-| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, DISCOVER). |
+| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, COMPARE, DISCOVER). |
 | `prep_impact` | BEFORE editing — check what depends on a file |
 | `prep_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action="antibodies"` for immune system. |
 | `prep_observe` | Save/retrieve cross-session notes |

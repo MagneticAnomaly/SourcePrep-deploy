@@ -1723,3 +1723,59 @@ All four Next.js sites now use Plausible via `<Script strategy="afterInteractive
 - `src/prep/dashboard/src/hooks/useDashboardPanels.tsx` — wired `ActivityHeatmap` panel
 - `src/prep/dashboard/src/App.tsx` — added activity data state + fetching
 - `packages/ui/src/stories/dashboard/FullDashboard.stories.tsx` — added heatmap panel content
+
+### 2026-05-08: Phase 127 — Multi-project queue + soft-hold, deferred follow-ups
+
+Phase 127 (Multi-Project Queue Architecture) shipped on branch `phase-127-multi-project-queue` — 20 commits, +2716/-415 across 23 files, 122/122 regression tests pass. Plan: `docs/Phase127_MultiProjectQueueArchitecture/IMPLEMENTATION_PLAN.md`. Spec: `docs/Phase127_MultiProjectQueueArchitecture/README.md`.
+
+**Audit pass found two correctness bugs (both fixed in-branch):**
+- `9f9bda77` — `/llm/slots/status` hardcoded `cloud:default_ollama` fallback misreported holds on OpenRouter / local-Ollama projects.
+- `d6234e5b` — DeepeningLoop swallowed `HoldPausedError` as generic Exception, treating pause as failure.
+
+**User-reported bug found post-audit (fixed in-branch):**
+- `9c817649` — **P127-F9:** Pause was broken for swarm-bearing stages. State machine flipped to PAUSED but `SwarmOrchestrator.execute()` didn't accept a `cancel_token`, so its 10-worker fanout `ThreadPoolExecutor` kept dispatching. Fix adds `cancel_token` to `execute()`, checks at all 3 phase boundaries + before/after each fanout batch, lazy-dispatch refill loop so `cancel_futures=True` is actually effective, plumbed through 4 callers (group_reasoning, cluster, concept_seeder, atlas). Bonus: caught that `concept_seeder.seed_concepts_swarm` was never passing `project_id` to `orch.execute()`, silently making T2.7 soft-hold a no-op for concept seeding — fixed alongside.
+
+**Phase 127 deferred follow-ups (open items):**
+
+- [ ] **P127-F1: Anti-stale soft-hold TTL / cleanup** — spec §10.3. Currently if a daemon crashes mid-run or a hold-setter never calls `set_priority(..., "none")` / `close_swarm_window()`, the hold sits indefinitely. `check_drain_timeouts()` returns timed-out drain target PIDs but does NOT clear their holds. Add periodic sweep (drain_timeout_seconds + grace) that clears stale holds and logs a warning.
+
+- [ ] **P127-F2: Pre/post-swarm `self.llm.generate` sites bypass soft-holds.** Direct LLM dispatches outside SwarmOrchestrator path are unguarded. Sites: `cluster.py:1123, 1230, 1261, 1573`, `atlas/generator.py:235, 556, 697, 848`, `group_reasoning.py:400, 682`, `concept_seeder.py:179, 603, 994`. These are short single-call ops (extract / summarize / synthesize fallbacks) so the practical exposure is small, but a project entering exclusive mid-call gets unguarded dispatch. Add `_hold_paused()` checks at each site or extract a shared `LLMDispatcher` mixin.
+
+- [ ] **P127-F3: Headless runner / `/trace/*` routes don't honor soft-holds.** `headless_runner.py:230, 267, 330` and `api/routers/trace_routes/enrichment.py:97, 442, 676` construct EpistemicEnricher / TraceAugmenter with `project_id=None` (no-op fallback). If a user starts a manual `/trace/enrich` while another project is exclusive, the manual run dispatches unrestrained. Plumb `project_id` through these entry points if they should respect multi-project priority.
+
+- [x] **P127-F4: AtlasGenerator passes `project_id=None` to its swarm.** `atlas/generator.py:949-953` had explicit deferred comment. **Closed by `9c817649`** — atlas now plumbs cancel_token end-to-end, and project_id flows through the same channel.
+
+- [ ] **P127-F5: DeepeningLoop hold-handling integration test.** A2 fix (`d6234e5b`) handles `HoldPausedError` correctly in deepening's threaded + sequential branches, but no end-to-end test mocks `enrich_node` to raise `HoldPausedError` mid-batch and asserts `loop.run()` returns a paused-aware `DeepeningResult` (no exception, partial iterations, paused checkpoint written).
+
+- [ ] **P127-F6: Helper consolidation** — `_hold_paused()` exists as a 2-line per-class wrapper in EpistemicEnricher, TraceAugmenter, SwarmOrchestrator. T2.7 fix landed `raise_hold_paused_for_llm` as shared helper in `holds.py`; the matching `hold_paused_for_llm` is also already shared. Could collapse the per-class `_hold_paused` further (mixin or import alias) — minor DRY win.
+
+- [ ] **P127-F7: Lock-discipline gaps on read paths in `scheduler.py`.** `get_priority`, `priority_project_id`, `priority_level`, `priority_projects`, `is_swarm_window_active` read shared dicts WITHOUT `self._lock`. CPython per-key dict reads are atomic so corruption is unlikely, but for consistency wrap in `with self._lock:`. Pure cleanup.
+
+- [ ] **P127-F8: F.2 single-project regression smoke test.** Manual verification: restart daemon, run a single-project full pipeline (1-15) on PowerMate, confirm end-to-end completion with no regression in stage durations or output quality. Multi-project soak (Exclusive toggle mid-run) is optional but recommended before merging to main.
+
+**Branch state:** All 18 feature commits + 2 audit fixes are on `phase-127-multi-project-queue`. F.2 (manual smoke) is the only remaining gate before merge.
+
+### 2026-05-08: Phase 82 — MCP-Dogfooding follow-up (atlas-cluster fixes)
+
+Live dogfooding pass against the Phase 82 (2026-04-07) and 2026-05-04 baselines: `docs/Phase82_MCP-Dogfooding/17_Followup_2026-05-08.md`. Scorecard, `prep_observe` vs Claude auto-memory analysis, and four shipped fixes around the atlas-generation cluster.
+
+**Shipped (162 new tests across 7 new test files, all passing):**
+
+- **FIX-16-1 — module-list firehose cap (end-to-end).** Per-tier `module_max_significant` cap (Tier 1 = 12, Tier 2 = 8, Tier 2.5 = 6) + first-sentence summary truncation. `verbose=true` opt-out plumbed through MCP schema → `tool_context` → `/context` endpoint → assembler → formatter. Files: `context_tier.py`, `search.py`, `models.py`, `mcp/server.py`, `mcp_tools.py`. Tests: `test_module_tiers_cap.py` (12), `test_verbose_plumbing.py` (6).
+- **FIX-16-3 — `#N` numbered-clone fallback removed.** `_deduplicate_module_names` now appends `[<cluster_idx>]` instead of `#2/#3` when first-pass distinguishers collide; logs a warning so the underlying clustering miss stays visible. Plus auto-migration helpers (`strip_legacy_pound_n_suffix*`) wired into 3 user-facing read paths so existing projects clean up at load time without forcing a rebuild. Files: `cluster.py`, `search.py`, `atlas/role_projection.py`, `rules_generator.py`. Tests: `test_module_name_dedup.py` (5), `test_legacy_pound_n_migration.py` (11).
+- **FIX-16-4 — consulting-deck voice (prompt + lint + re-prompt loop).** Synthesis prompt got `SUMMARY SHAPE` rules + 11 banned phrases. New `lint_module_summary()` pure function. Re-prompt loop wired into `synthesize_cluster` AND `synthesize_cluster_with_angle` — one extra LLM call when banned phrases detected; cap at one retry. Files: `cluster.py`. Tests: `test_summary_lint.py` (16), `test_synthesis_reprompt_loop.py` (4).
+- **Brand drift (FIX-16-2 sibling).** `CodebaseAtlas(project_name=...)` plumbed through `workers.py` + `post_flight.py`; IDENTITY surfaces "SourcePrep" not "CoDRAG" on next regeneration. Tests: `test_atlas_identity_brand.py` (4).
+- **prep_observe canonical use case documented in CLAUDE.md** — the split: project-shared (cross-agent, file-anchored, `as_of`-queryable) vs personal preferences in agent auto-memory.
+
+**Phase 82 follow-up open items:**
+
+- [ ] **P82-F1: Live `prep()` byte-count measurement.** Cap deltas should land output in the 12-18K range per Tier 1; needs daemon up to confirm against a real `prep()` call. Baseline before this work was ~35K chars per call.
+- [ ] **P82-F2: `module_budget_pct` safety-net clip in `_assemble_ambient_context`.** The cap alone made the budget-starvation scenario implausible, but a hard percentage clip would harden against future regressions in `_format_module_tiers` callers.
+- [ ] **P82-F3: `_synthesize_batched` re-prompt.** Multi-cluster fan-out per LLM call — re-running an entire batch on one bad summary would explode cost. Either retry the whole batch, or peel bad-summary clusters into single-shot `synthesize_cluster` retries. Architectural decision needed.
+- [ ] **P82-F4: prep_search routing miss surfaced during dogfood.** Query "where is the prep no-arg ambient context budget assembled" returned `No symbols found` against a real codebase where the symbol exists. Auto-classifier should route LOCATE/EXPLAIN, not symbol-name overlap. Worth an intent-classifier review.
+- [ ] **P82-F5: Internal `trace_modules.jsonl` readers — deeper audit.** Migration covered the 3 user-facing read paths (search, role-projection, rules-generator). Four internal readers (`concept_seeder`, `index`, `knowledge`, `audit/context`, `agents/shared/prep_data`) consume modules for non-display purposes — confirm none surface `name` in user-visible output before declaring full coverage.
+- [ ] **P82-F6: Pre-existing test failures unrelated to this work, blocking broader CI green** (none caused by FIX-16 work; flagging for the relevant subsystem owners):
+  - `tests/test_mcp_server.py::TestToolContext::test_ambient_context_success` — asserts `max_chars=12000` and no `context_tier` field, but current code returns adaptive budget + Phase 73.3b `context_tier`.
+  - `tests/test_team_sync_integration.py::TestAPIIntegration::test_context_endpoint_with_layered_index` — 409 from a fixture-setup issue.
+  - `tests/test_atlas_endpoints.py` (5 failures) — Phase 124 T3 `_FakeAtlas` fixture missing `index_dir` attribute.
+  - `tests/test_resume_strategy.py` (2 failures) — `DEEP_ENRICHMENT_STAGES` missing `StageId.ATLAS` after M-state recovery work.

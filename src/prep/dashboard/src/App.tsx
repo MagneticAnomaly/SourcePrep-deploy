@@ -232,7 +232,7 @@ function App() {
   })
   // (includedPathsRef.current is updated below after useFileSystem runs)
   const {
-    selectedProjectId, selectedProject, projectStatus, projectSummaries,
+    selectedProjectId, selectedProject, projectStatus, projectStatusUnreachable, projectSummaries,
     projectConfig, configDirty, transientCompleteProjects,
     setSelectedProjectId, refreshProjects, refreshStatus,
     handleAddProject, handleArchiveProject, handleUnarchiveProject, handleDeleteProject, handleBuild,
@@ -923,7 +923,7 @@ function App() {
   // ── Dashboard panels (hook) ─────────────────────────────────
   const { panelContent, panelDetails, allPanelDefs, PINNED_PREFIX: pinnedPrefix } = useDashboardPanels({
     // Cross-cutting
-    projectStatus, selectedProject, selectedProjectId, projectConfig, isPro, limitReached: isOverProjectLimit,
+    projectStatus, projectStatusUnreachable, selectedProject, selectedProjectId, projectConfig, isPro, limitReached: isOverProjectLimit,
     inactive: selectedProject?.config?.active === false || selectedProject?.activity_status === 'inactive' || selectedProject?.activity_status === 'locked',
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask, handleBuild,

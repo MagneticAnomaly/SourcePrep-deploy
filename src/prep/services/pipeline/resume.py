@@ -116,11 +116,81 @@ class ResumeStrategy:
 
         stage_decisions: list[dict] = []
 
+        # Phase 118 U24: read the rebuild barrier once for the whole
+        # detection pass. Used below to identify manifests whose recorded
+        # finished_at predates the current rebuild — those are pre-rebuild
+        # artifacts and don't satisfy the rebuild's "stage finished"
+        # condition, even when present and structurally valid (non-stub).
+        _u24_barrier_floor: float | None = None
+        try:
+            from .recovery import read_reset_barrier as _u24_read_barrier
+            _u24_binfo = _u24_read_barrier(project_id)
+            if _u24_binfo:
+                _wa = _u24_binfo.get("written_at")
+                if isinstance(_wa, (int, float)):
+                    _u24_barrier_floor = float(_wa)
+        except Exception:
+            _u24_barrier_floor = None
+
         for i, stage in enumerate(stages):
             manifest_file = STAGE_MANIFEST_FILE.get(stage)
             if manifest_file:
                 mpath = idx_dir / manifest_file  # for logging/size checks
                 if store.provenance_exists(stage):
+                    # Phase 118 U24: barrier-floor check for non-stub manifests.
+                    # When a rebuild is in flight (barrier active), a manifest
+                    # whose finished_at predates the barrier is from a prior
+                    # run and does not prove the stage ran in this rebuild.
+                    # Without this, a paused rebuild with stale downstream
+                    # manifests (e.g. clustering finished_at on May 6 while
+                    # the May 8 rebuild only made it through stage 7) is
+                    # reported as "all complete" because the old finished_at
+                    # passes the existence check. Selfheal touches mtimes at
+                    # rebuild start, so mtime alone is unreliable — we need
+                    # to read finished_at from the manifest body itself.
+                    if _u24_barrier_floor is not None:
+                        try:
+                            md = store.read_provenance(stage)
+                            if isinstance(md, dict) and not md.get("recovered"):
+                                fa_str = md.get("finished_at")
+                                fa_ts: float | None = None
+                                if isinstance(fa_str, str):
+                                    try:
+                                        from datetime import datetime
+                                        fa_ts = datetime.fromisoformat(
+                                            fa_str.replace("Z", "+00:00")
+                                        ).timestamp()
+                                    except Exception:
+                                        fa_ts = None
+                                elif isinstance(fa_str, (int, float)):
+                                    fa_ts = float(fa_str)
+                                if fa_ts is not None and fa_ts < _u24_barrier_floor:
+                                    logger.warning(
+                                        "Stage %s manifest finished_at=%s "
+                                        "predates rebuild barrier — treating "
+                                        "as INCOMPLETE so the rebuild runs it",
+                                        stage.value, fa_str,
+                                    )
+                                    stage_decisions.append({
+                                        "stage": stage.value,
+                                        "decision": "PRE_BARRIER_STALE",
+                                        "reason": (
+                                            f"Manifest finished_at={fa_str} "
+                                            f"predates barrier_floor={_u24_barrier_floor:.0f} "
+                                            f"— stage hasn't run in current rebuild"
+                                        ),
+                                    })
+                                    ResumeStrategy._log_resume_decisions(
+                                        project_id, stages, i, stage_decisions,
+                                        skip_mtime_cascade, pfl_fn,
+                                    )
+                                    return i
+                        except Exception:
+                            logger.debug(
+                                "U24 finished_at check failed for %s",
+                                stage.value, exc_info=True,
+                            )
+
                     # Phase 72D: Stub manifest check.
                     # Stubs are created by auto-recovery (Phase 72C) when a
                     # manifest is missing but a data file exists. However, the
@@ -592,9 +662,35 @@ class ResumeStrategy:
                         continue
                     if store.is_stub_manifest(stages[j]):
                         continue
+                    # Phase 118 U20 (finished_at variant): mtime is unreliable
+                    # because selfheal touches downstream manifest mtimes at
+                    # rebuild kickoff to keep them above the structural baseline.
+                    # Read finished_at from the manifest BODY instead — that's
+                    # written once when the worker actually completes and is
+                    # never touched again. Without this, U20 was accepting
+                    # deepening's May-6 manifest as evidence that clustering
+                    # ran in today's rebuild simply because selfheal had
+                    # touched its mtime to today.
                     if barrier_floor is not None:
                         try:
-                            if npath.stat().st_mtime < barrier_floor:
+                            md = store.read_provenance(stages[j])
+                            fa_ts: float | None = None
+                            if isinstance(md, dict):
+                                fa_str = md.get("finished_at")
+                                if isinstance(fa_str, str):
+                                    try:
+                                        from datetime import datetime
+                                        fa_ts = datetime.fromisoformat(
+                                            fa_str.replace("Z", "+00:00")
+                                        ).timestamp()
+                                    except Exception:
+                                        fa_ts = None
+                                elif isinstance(fa_str, (int, float)):
+                                    fa_ts = float(fa_str)
+                            if fa_ts is None:
+                                # Fall back to mtime if finished_at is missing.
+                                fa_ts = npath.stat().st_mtime
+                            if fa_ts < barrier_floor:
                                 continue
                         except Exception:
                             pass

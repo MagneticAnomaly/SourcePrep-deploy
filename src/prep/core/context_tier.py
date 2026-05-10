@@ -37,6 +37,7 @@ class _TierParams(NamedTuple):
     module_min_files_significant: int
     module_show_small: bool
     module_show_tiny: bool
+    module_max_significant: int
 
 
 _TIER_PARAMS: dict[int, _TierParams] = {
@@ -54,6 +55,7 @@ _TIER_PARAMS: dict[int, _TierParams] = {
         module_min_files_significant=5,
         module_show_small=True,
         module_show_tiny=True,
+        module_max_significant=12,
     ),
     2: _TierParams(
         hub_count=6,
@@ -69,6 +71,7 @@ _TIER_PARAMS: dict[int, _TierParams] = {
         module_min_files_significant=5,
         module_show_small=True,
         module_show_tiny=False,
+        module_max_significant=8,
     ),
     3: _TierParams(
         hub_count=4,
@@ -84,6 +87,7 @@ _TIER_PARAMS: dict[int, _TierParams] = {
         module_min_files_significant=5,
         module_show_small=False,
         module_show_tiny=False,
+        module_max_significant=6,
     ),
 }
 
@@ -180,6 +184,17 @@ class ContextTier(IntEnum):
     def module_show_tiny(self) -> bool:
         """Whether to include tiny modules in the module listing."""
         return self._params.module_show_tiny
+
+    @property
+    def module_max_significant(self) -> int:
+        """Maximum number of modules to render in the significant tier.
+
+        Bounds the per-call output so prep() refresh calls don't dump a
+        consulting-deck firehose of every module above the file-count
+        threshold (FIX-16-1, see docs/Phase82_MCP-Dogfooding/17_Followup_2026-05-08.md).
+        Excess modules fold into the trailing footnote.
+        """
+        return self._params.module_max_significant
 
 
 def tier_from_budget(max_chars: int) -> ContextTier:

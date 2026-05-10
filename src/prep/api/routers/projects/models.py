@@ -59,6 +59,7 @@ class ContextRequest(BaseModel):
     include_atlas: bool = False  # Explicit opt-in: prepend atlas text to context. Routing (Phase 29B) handles segment selection automatically; atlas text is primarily accessed via the prep_atlas tool.
     role: Optional[str] = None  # Phase 67: agent role for scoped search filtering
     scope: Optional[str] = None  # Phase 120: named scope filter
+    verbose: bool = False  # FIX-16-1: lift the per-tier module-list cap and emit full module summaries (firehose mode).
 
 
 class ChunkRequest(BaseModel):
