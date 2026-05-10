@@ -2452,11 +2452,19 @@ class PipelineOrchestrator:
 
         # F-67: Invalidate old manifest BEFORE worker starts.
         # If the daemon crashes mid-stage, the old manifest from a prior
-        # run would still exist.  On restart, detect_resume_point sees it
+        # run would still exist. On restart, detect_resume_point sees it
         # and thinks the stage completed — losing all incremental progress.
         # By removing the manifest at stage START, a crash leaves no manifest,
         # so detect_resume_point correctly detects the stage as incomplete
         # and resumes from it.
+        #
+        # Phase 133 hardening: RENAME instead of unlink, so a Rust panic
+        # (or any worker crash) inside the stage doesn't leave the project
+        # without a manifest. The .f67_pending backup is restored at the
+        # next stage start if no fresh manifest was written. Trigger
+        # incident: prep_engine.build_trace panicked on an em-dash in a
+        # docstring, leaving .sourceprep/trace_manifest.json missing → the
+        # dashboard showed 0/1933 traced and looked like a catastrophe.
         try:
             from prep.core.project_registry import project_index_dir
             from prep.services.project_helpers import require_project
@@ -2465,11 +2473,27 @@ class PipelineOrchestrator:
             _manifest_file = STAGE_MANIFEST_FILE.get(stage)
             if _manifest_file:
                 _manifest_path = _idx_dir / _manifest_file
+                _backup_path = _idx_dir / f"{_manifest_file}.f67_pending"
+
+                # Restore from a prior failed run's backup BEFORE invalidating.
+                # If the previous attempt panicked and no fresh manifest was
+                # written since, _backup_path holds the last-known-good state.
+                if _backup_path.exists() and not _manifest_path.exists():
+                    _backup_path.rename(_manifest_path)
+                    logger.warning(
+                        "F-67 hardening: restored manifest %s from .f67_pending "
+                        "backup (prior stage attempt left no fresh manifest)",
+                        _manifest_file,
+                    )
+
                 if _manifest_path.exists():
-                    _manifest_path.unlink()
+                    # Rename instead of unlink — surviving crash recovery.
+                    if _backup_path.exists():
+                        _backup_path.unlink()  # drop any prior backup
+                    _manifest_path.rename(_backup_path)
                     logger.info(
-                        "F-67: Removed stale manifest %s before starting stage %s",
-                        _manifest_file, stage.value,
+                        "F-67: Renamed stale manifest %s → %s.f67_pending before starting stage %s",
+                        _manifest_file, _manifest_file, stage.value,
                     )
         except Exception:
             logger.debug("F-67: manifest invalidation failed (non-fatal)", exc_info=True)

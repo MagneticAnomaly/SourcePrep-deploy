@@ -1001,7 +1001,7 @@ def _scoped_full_reset(
     resurrect cleared data and stage-internal reuse paths skip prior outputs.
 
     Cleanup failures (store wipes, journal delete, KnowledgeIndex invalidate)
-    are FATAL — the endpoint returns 500 with detail and the barrier remains
+    are FATAL -- the endpoint returns 500 with detail and the barrier remains
     so partial state can't be misinterpreted as clean. Per-file unlink errors
     during the disk wipe are collected; if any occur, the response is
     returned with HTTP 207 Multi-Status.
