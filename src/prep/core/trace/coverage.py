@@ -11,16 +11,15 @@ import os
 import tempfile
 import threading
 from datetime import datetime, timezone
-from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 import pathspec
+import prep_engine
 
-from prep.core.ids import stable_file_hash
 from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS
 
-from .utils import _detect_language, _to_posix
+from .utils import _detect_language
 
 logger = logging.getLogger(__name__)
 
@@ -55,20 +54,14 @@ def compute_trace_coverage(
       - excluded: files explicitly excluded by user-configured patterns
       - summary: {total, traced, pending_embedding, untraced, stale, excluded, coverage_pct}
     """
+    # Phase 133: hash algorithm mirroring engine/crates/prep-walker/src/lib.rs:168
+    # This constant must match prep.core.manifest.CURRENT_HASH_ALGO to avoid circular import
+    CURRENT_HASH_ALGO = "blake3-128"
+
     repo_root = Path(repo_root).resolve()
-    
+
     if embedded_paths is None:
         embedded_paths = set()
-
-    # Load .gitignore to ensure coverage aligns identically with TraceBuilder
-    gitignore_spec = None
-    gitignore_path = repo_root / ".gitignore"
-    if gitignore_path.exists():
-        try:
-            with open(gitignore_path, "r", encoding="utf-8") as f:
-                gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
-        except Exception as e:
-            logger.warning("Failed to parse .gitignore during coverage check: %s", e)
 
     if include_globs is None:
         include_globs = [
@@ -160,7 +153,7 @@ def compute_trace_coverage(
                                     source = full.read_text(encoding="utf-8", errors="ignore")
                             except Exception:
                                 source = ""
-                            new_hashes[rel_path] = stable_file_hash(source)
+                            new_hashes[rel_path] = prep_engine.hash_content(source)
 
                         # Persist with lock to avoid clobbering concurrent
                         # writes (e.g. TraceBuilder._compute_file_hashes
@@ -224,144 +217,203 @@ def compute_trace_coverage(
         except Exception:
             pass
 
-    # Directories to always prune from os.walk — these are never interesting
-    # and can contain tens of thousands of files (e.g. node_modules).
-    _PRUNE_DIRS = DEFAULT_EXCLUDE_DIR_NAMES
+    # Phase 133: detect hash format mismatch for Migration Path A self-heal.
+    # Pre-cutover manifests have no hash_algo field (default "sha256-64") or
+    # carry it explicitly. Post-cutover manifests carry "blake3-128".
+    # On mismatch, the per-file hash compare branches below skip computing the
+    # current hash and mark every previously-hashed file stale unconditionally.
+    # The next structural rebuild rewrites the manifest with CURRENT_HASH_ALGO,
+    # after which hash_algo_mismatch becomes False and hash compare resumes.
+    if manifest_path.exists():
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as _mf:
+                _m = json.load(_mf)
+            manifest_hash_algo = _m.get("hash_algo") or "sha256-64"
+        except Exception:
+            manifest_hash_algo = "sha256-64"
+    else:
+        manifest_hash_algo = None  # No manifest → no mismatch to self-heal
+    hash_algo_mismatch = manifest_hash_algo is not None and manifest_hash_algo != CURRENT_HASH_ALGO
 
     traced_files: List[Dict[str, Any]] = []
     untraced_files: List[Dict[str, Any]] = []
     stale_files: List[Dict[str, Any]] = []
     excluded_files: List[Dict[str, Any]] = []
 
-    for root_dir, dirs, filenames in os.walk(repo_root):
-        # Prune noisy directories in-place so os.walk never descends into them
-        dirs[:] = [d for d in dirs if d not in _PRUNE_DIRS and not d.startswith(".")]
-        root_path = Path(root_dir)
-        for fname in filenames:
-            file_path = root_path / fname
-            if file_path.is_symlink():
+    # Phase 133: discovery via the Rust walker. Replaces the previous
+    # os.walk + fnmatch implementation (which diverged from the Rust
+    # walker on six surfaces; see Phase 133 spec). User-configurable
+    # excludes still go through the same exclude_globs argument; the
+    # Rust walker honors gitignore (root + nested + global + git_exclude)
+    # and applies include/exclude globs via globset/gitwildmatch.
+    entries = prep_engine.walk_repo(
+        str(repo_root),
+        include_globs=list(include_globs) if include_globs else None,
+        exclude_globs=list(exclude_globs) if exclude_globs else None,
+        max_file_bytes=int(max_file_bytes),
+    )
+
+    # user_exclude_globs is the user's "shown in Excluded list" surface —
+    # applied on top of the walker's output, not as an exclusion to the
+    # walker (so the user sees what they manually excluded).
+    user_exclude_spec = (
+        pathspec.PathSpec.from_lines("gitwildmatch", user_exclude_globs)
+        if user_exclude_globs else None
+    )
+
+    for entry in entries:
+        rel_path = entry.path  # already POSIX, repo-relative per walker contract
+        file_path = Path(entry.abs_path)
+
+        # User-excluded surface (shown in 'excluded' list)
+        is_user_excluded = bool(
+            user_exclude_spec and user_exclude_spec.match_file(rel_path)
+        )
+
+        # Stat for timestamps (the walker provides size + modified_secs;
+        # use them when possible).
+        file_size = int(entry.size)
+        modified_ts = (
+            datetime.fromtimestamp(entry.modified_secs, tz=timezone.utc).isoformat()
+            if entry.modified_secs else "1970-01-01T00:00:00+00:00"
+        )
+        try:
+            _stat = file_path.stat()
+            created_ts = (
+                datetime.fromtimestamp(_stat.st_birthtime, tz=timezone.utc).isoformat()
+                if file_path.exists() and hasattr(_stat, "st_birthtime")
+                else modified_ts
+            )
+        except OSError:
+            created_ts = modified_ts
+
+        language = _detect_language(rel_path)
+
+        file_info: Dict[str, Any] = {
+            "path": rel_path,
+            "language": language,
+            "size": file_size,
+            "modified": modified_ts,
+            "created": created_ts,
+        }
+
+        if is_user_excluded:
+            excluded_files.append(file_info)
+            continue
+
+        # Hash-compare branch (existing logic — KEEP unchanged in this task;
+        # Task 4 swaps the hash function and adds the hash_algo self-heal).
+        prev_hash = manifest_hashes.get(rel_path)
+        if prev_hash is None:
+            # Even if the file doesn't match current include_globs natively,
+            # count it if it's already in the trace manifest (the trace builder
+            # found it). The walker may not return it because include_globs are
+            # narrower than the trace builder's scope; the backfill pass below
+            # handles those manifest-only paths. For walker-returned paths, if
+            # prev_hash is None, the file is simply untraced.
+            untraced_files.append(file_info)
+        else:
+            # Was traced — check if stale.
+            if hash_algo_mismatch:
+                # Phase 133 self-heal: manifest was written with a different hash
+                # algo. Skip computing the current hash; mark stale unconditionally
+                # so the next structural rebuild rewrites the manifest with
+                # CURRENT_HASH_ALGO (blake3-128), after which subsequent calls
+                # compare normally.
+                stale_files.append(file_info)
                 continue
 
-            rel_path = _to_posix(str(file_path.relative_to(repo_root)))
+            # Fast path: if file mtime is older than the manifest build time,
+            # the file hasn't changed since we last traced it → skip the
+            # expensive hash computation. Only re-hash files that were
+            # modified after the manifest was written.
+            needs_hash = True
+            if manifest_built_at_ts is not None:
+                try:
+                    file_mtime = file_path.stat().st_mtime
+                    if file_mtime < manifest_built_at_ts:
+                        needs_hash = False
+                except Exception:
+                    pass  # Fall through to hash
 
-            # Phase 67: Ignore files matching .gitignore identically to TraceBuilder
-            if gitignore_spec and gitignore_spec.match_file(rel_path):
-                continue
+            if needs_hash:
+                try:
+                    source = file_path.read_text(encoding="utf-8", errors="ignore")
+                    current_hash = prep_engine.hash_content(source)
+                except Exception:
+                    current_hash = ""
 
-            # Check if file matches include globs at all (only code files)
-            base = os.path.basename(rel_path)
-            matches_any_include = False
-            if not include_globs:
-                matches_any_include = True
-            else:
-                for g in include_globs:
-                    patterns = [g]
-                    if g.startswith("**/"):
-                        patterns.append(g[3:])
-                    for p in patterns:
-                        if fnmatch(rel_path, p) or fnmatch(base, p):
-                            matches_any_include = True
-                            break
-                    if matches_any_include:
-                        break
-
-            if not matches_any_include:
-                # Even if the file doesn't match current include_globs, count it
-                # if it's already in the trace manifest (the trace builder found it).
-                # This prevents misleading coverage when config globs are narrower
-                # than the trace builder's own file discovery.
-                if rel_path not in manifest_hashes:
-                    continue
-
-            # Check if excluded by default/system patterns (silently skip)
-            is_default_excluded = False
-            for g in exclude_globs:
-                patterns = [g]
-                if g.startswith("**/"):
-                    patterns.append(g[3:])
-                for p in patterns:
-                    if fnmatch(rel_path, p) or fnmatch(base, p):
-                        is_default_excluded = True
-                        break
-                if is_default_excluded:
-                    break
-
-            if is_default_excluded:
-                continue
-
-            # Check if excluded by user-configured patterns (show in 'excluded' list)
-            is_user_excluded = False
-            for g in user_exclude_globs:
-                patterns = [g]
-                if g.startswith("**/"):
-                    patterns.append(g[3:])
-                for p in patterns:
-                    if fnmatch(rel_path, p) or fnmatch(base, p):
-                        is_user_excluded = True
-                        break
-                if is_user_excluded:
-                    break
-
-            # Get file stat for timestamps
-            try:
-                stat = file_path.stat()
-                file_size = stat.st_size
-                modified_ts = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
-                created_ts = datetime.fromtimestamp(stat.st_birthtime, tz=timezone.utc).isoformat() if hasattr(stat, 'st_birthtime') else modified_ts
-            except OSError:
-                continue
-
-            if file_size > max_file_bytes:
-                continue
-
-            language = _detect_language(rel_path)
-
-            file_info: Dict[str, Any] = {
-                "path": rel_path,
-                "language": language,
-                "size": file_size,
-                "modified": modified_ts,
-                "created": created_ts,
-            }
-
-            if is_user_excluded:
-                excluded_files.append(file_info)
-                continue
-
-            # Compare against manifest hashes
-            prev_hash = manifest_hashes.get(rel_path)
-            if prev_hash is None:
-                # Not in trace manifest → untraced
-                untraced_files.append(file_info)
-            else:
-                # Was traced — check if stale.
-                # Fast path: if file mtime is older than the manifest build time,
-                # the file hasn't changed since we last traced it → skip the
-                # expensive hash computation.  Only re-hash files that were
-                # modified after the manifest was written.
-                needs_hash = True
-                if manifest_built_at_ts is not None:
-                    try:
-                        file_mtime = stat.st_mtime
-                        if file_mtime < manifest_built_at_ts:
-                            needs_hash = False
-                    except Exception:
-                        pass  # Fall through to hash
-
-                if needs_hash:
-                    try:
-                        source = file_path.read_text(encoding="utf-8", errors="ignore")
-                        current_hash = stable_file_hash(source)
-                    except Exception:
-                        current_hash = ""
-
-                    if current_hash != prev_hash:
-                        stale_files.append(file_info)
-                    else:
-                        traced_files.append(file_info)
+                if current_hash != prev_hash:
+                    stale_files.append(file_info)
                 else:
-                    # mtime hasn't changed since build → still fresh
                     traced_files.append(file_info)
+            else:
+                # mtime hasn't changed since build → still fresh
+                traced_files.append(file_info)
+
+    # Backfill carve-out pass: any file in manifest_hashes that the
+    # walker didn't return AND that still exists on disk goes through
+    # the same hash compare. Preserves the prior behavior where files
+    # already in the trace manifest (the trace builder may have had
+    # slightly broader scope than current include_globs) still appear
+    # in coverage output rather than silently disappearing.
+    walker_paths = {e.path for e in entries}
+    for rel_path in set(manifest_hashes.keys()) - walker_paths:
+        abs_p = Path(repo_root) / rel_path
+        if not abs_p.exists():
+            continue
+        try:
+            _bstat = abs_p.stat()
+            file_size = _bstat.st_size
+            if file_size > max_file_bytes:
+                continue  # too big, skip same as walker would
+            modified_ts = datetime.fromtimestamp(_bstat.st_mtime, tz=timezone.utc).isoformat()
+            try:
+                created_ts = (
+                    datetime.fromtimestamp(_bstat.st_birthtime, tz=timezone.utc).isoformat()
+                    if hasattr(_bstat, "st_birthtime")
+                    else modified_ts
+                )
+            except Exception:
+                created_ts = modified_ts
+        except OSError:
+            continue
+        file_info = {
+            "path": rel_path,
+            "language": _detect_language(rel_path),
+            "size": file_size,
+            "modified": modified_ts,
+            "created": created_ts,
+        }
+        # Run the same hash compare for backfilled paths. prev_hash is
+        # always non-None here by definition (came from manifest_hashes).
+        prev_hash = manifest_hashes[rel_path]
+
+        if hash_algo_mismatch:
+            # Phase 133 self-heal: same short-circuit as the main loop.
+            stale_files.append(file_info)
+            continue
+
+        needs_hash = True
+        if manifest_built_at_ts is not None:
+            try:
+                file_mtime = abs_p.stat().st_mtime
+                if file_mtime < manifest_built_at_ts:
+                    needs_hash = False
+            except Exception:
+                pass
+        if needs_hash:
+            try:
+                source = abs_p.read_text(encoding="utf-8", errors="ignore")
+                current_hash = prep_engine.hash_content(source)
+            except Exception:
+                current_hash = ""
+            if current_hash != prev_hash:
+                stale_files.append(file_info)
+            else:
+                traced_files.append(file_info)
+        else:
+            traced_files.append(file_info)
 
     # Sort lists by path
     traced_files.sort(key=lambda f: f["path"])
@@ -424,6 +476,7 @@ def compute_trace_coverage(
         "untraced": untraced_files,
         "stale": stale_files,
         "excluded": excluded_files,
+        "warnings": warnings,
         "summary": {
             "total": total,
             "traced": len(final_traced),
