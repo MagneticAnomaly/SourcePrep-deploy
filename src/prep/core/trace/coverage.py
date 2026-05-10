@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, Set
 import pathspec
 import prep_engine
 
-from prep.core.ids import stable_file_hash
+from prep.core.manifest import CURRENT_HASH_ALGO
 from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS
 
 from .utils import _detect_language
@@ -150,7 +150,7 @@ def compute_trace_coverage(
                                     source = full.read_text(encoding="utf-8", errors="ignore")
                             except Exception:
                                 source = ""
-                            new_hashes[rel_path] = stable_file_hash(source)
+                            new_hashes[rel_path] = prep_engine.hash_content(source)
 
                         # Persist with lock to avoid clobbering concurrent
                         # writes (e.g. TraceBuilder._compute_file_hashes
@@ -213,6 +213,24 @@ def compute_trace_coverage(
                     logger.warning("file_hashes backfill failed: %s", e)
         except Exception:
             pass
+
+    # Phase 133: detect hash format mismatch for Migration Path A self-heal.
+    # Pre-cutover manifests have no hash_algo field (default "sha256-64") or
+    # carry it explicitly. Post-cutover manifests carry "blake3-128".
+    # On mismatch, the per-file hash compare branches below skip computing the
+    # current hash and mark every previously-hashed file stale unconditionally.
+    # The next structural rebuild rewrites the manifest with CURRENT_HASH_ALGO,
+    # after which hash_algo_mismatch becomes False and hash compare resumes.
+    if manifest_path.exists():
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as _mf:
+                _m = json.load(_mf)
+            manifest_hash_algo = _m.get("hash_algo") or "sha256-64"
+        except Exception:
+            manifest_hash_algo = "sha256-64"
+    else:
+        manifest_hash_algo = None  # No manifest → no mismatch to self-heal
+    hash_algo_mismatch = manifest_hash_algo is not None and manifest_hash_algo != CURRENT_HASH_ALGO
 
     traced_files: List[Dict[str, Any]] = []
     untraced_files: List[Dict[str, Any]] = []
@@ -293,6 +311,15 @@ def compute_trace_coverage(
             untraced_files.append(file_info)
         else:
             # Was traced — check if stale.
+            if hash_algo_mismatch:
+                # Phase 133 self-heal: manifest was written with a different hash
+                # algo. Skip computing the current hash; mark stale unconditionally
+                # so the next structural rebuild rewrites the manifest with
+                # CURRENT_HASH_ALGO (blake3-128), after which subsequent calls
+                # compare normally.
+                stale_files.append(file_info)
+                continue
+
             # Fast path: if file mtime is older than the manifest build time,
             # the file hasn't changed since we last traced it → skip the
             # expensive hash computation. Only re-hash files that were
@@ -309,7 +336,7 @@ def compute_trace_coverage(
             if needs_hash:
                 try:
                     source = file_path.read_text(encoding="utf-8", errors="ignore")
-                    current_hash = stable_file_hash(source)
+                    current_hash = prep_engine.hash_content(source)
                 except Exception:
                     current_hash = ""
 
@@ -358,6 +385,12 @@ def compute_trace_coverage(
         # Run the same hash compare for backfilled paths. prev_hash is
         # always non-None here by definition (came from manifest_hashes).
         prev_hash = manifest_hashes[rel_path]
+
+        if hash_algo_mismatch:
+            # Phase 133 self-heal: same short-circuit as the main loop.
+            stale_files.append(file_info)
+            continue
+
         needs_hash = True
         if manifest_built_at_ts is not None:
             try:
@@ -369,7 +402,7 @@ def compute_trace_coverage(
         if needs_hash:
             try:
                 source = abs_p.read_text(encoding="utf-8", errors="ignore")
-                current_hash = stable_file_hash(source)
+                current_hash = prep_engine.hash_content(source)
             except Exception:
                 current_hash = ""
             if current_hash != prev_hash:
