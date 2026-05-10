@@ -88,7 +88,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     minHeight: 5,
     defaultHeight: 7,
     category: 'search',
-    closeable: false, // Core functionality
+    closeable: true,
     docsUrl: 'https://docs.sourceprep.io/dashboard#search',
   },
   {

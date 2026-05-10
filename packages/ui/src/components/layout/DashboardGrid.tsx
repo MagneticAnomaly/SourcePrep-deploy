@@ -103,6 +103,7 @@ export function DashboardGrid({
         onDragStop={handleLayoutCommit}
         onResizeStop={handleLayoutCommit}
         draggableHandle=".drag-handle"
+        draggableCancel=".panel-actions, .panel-actions *"
         isResizable={true}
         resizeHandles={['s', 'e', 'se']}
         compactType="vertical"
