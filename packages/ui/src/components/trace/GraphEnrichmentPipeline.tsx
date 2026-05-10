@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { cn } from '../../lib/utils';
 import { SlidingSwitch2, SlidingSwitch3 } from '../primitives/SlidingSwitch';
 import { Button } from '../primitives/Button';
+import { StatusBadge } from '../status/StatusBadge';
 import {
   GitBranch, Brain, ShieldCheck, Play, AlertTriangle, CheckCircle2,
-  Circle, Clock, Loader2, Layers, Network, Database, Code2, Map, Eye, Pause,
+  Circle, Clock, Loader2, Layers, Network, Database, Code2, Map, Pause,
   FileText, Lightbulb, ClipboardCheck, Shield, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { computeGroupRollup, type GroupRollup } from './pipelineRollup';
@@ -1859,12 +1860,7 @@ export function GraphEnrichmentPipeline({
         <div className="flex items-center gap-2">
           <ChevronButton collapsed={fastCollapsed} onClick={onToggleFastCollapsed} />
           <span className="text-[10px] font-semibold text-text-muted uppercase tracking-wider">Fast Sync</span>
-          {fastAuto && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-success-muted/10 text-success border border-success-muted/20">
-              <Eye className="w-2.5 h-2.5" />
-              Watching
-            </span>
-          )}
+          {fastAuto && <StatusBadge status="fresh" labelOverride="Watching" />}
         </div>
         <div className="flex items-center gap-2">
           {!fastAuto && effectiveFastPaused && onResumePipeline && !fastRunning && (

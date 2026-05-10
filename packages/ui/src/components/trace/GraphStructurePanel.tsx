@@ -552,9 +552,8 @@ export function GraphStructurePanel({
                   action={
                     untracedFiles.length > 0 && !building && traceExists ? (
                       <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-6 px-2 text-xs gap-1.5"
+                        variant="pill"
+                        tone="success"
                         onClick={(e) => {
                           e.stopPropagation();
                           onTraceAll();
@@ -580,9 +579,8 @@ export function GraphStructurePanel({
                   action={
                     staleFiles.length > 0 && !building ? (
                       <Button
-                        variant="default"
-                        size="sm"
-                        className="h-6 px-2 text-xs gap-1.5 bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/30"
+                        variant="pill"
+                        tone="warning"
                         onClick={(e) => {
                           e.stopPropagation();
                           onRetraceStale();
