@@ -535,6 +535,8 @@ This phase ships when, simultaneously:
 | T3 rubric reference | `docs/Phase125_ConceptPromotionPipeline/T3_RESEARCH.md` |
 | 125b README (architectural baseline) | `docs/Phase125b_TwoLayerConceptArchitecture/README.md` |
 | Auto-acceptance bug fix (this phase's prerequisite) | commit `ecb9dee0` |
+| Walker primitive (post-Phase-133 target) | `prep_engine.walk_repo` (Rust). T1 ships with a Python walker in `src/prep/core/docs_grounding.py`; swap to `walk_repo` is a small follow-up patch once Phase 133 cutover lands. The exclude-set composition is already shaped so the swap is mechanical. |
+| Shared exclude catalog | `src/prep/core/repo_profile.py` `DEFAULT_EXCLUDE_DIR_NAMES` / `DOC_DIR_NAMES` / `TEST_DIR_NAMES`. 125c composes its own variant: catalog *minus* `.claude` / `.cursor` / `.windsurf` / `.github` (those contain agent instructions which are PRIME planning material — opposite policy from source indexing). |
 
 ---
 
@@ -553,3 +555,9 @@ This phase ships when, simultaneously:
 - **Phase 87 (immune system)** — depends on T3 emissions. 125c is the
   delivery vehicle for actual T3 concepts → the antibody pipeline
   finally gets fuel.
+- **Phase 133 (Rust Walker/Hasher Cutover)** — opened 2026-05-09. 125c is
+  the third future caller of `prep_engine.walk_repo` (`compute_trace_coverage`
+  + `build_trace` + 125c doc-grounding). Walker swap deferred to land after
+  133 ships; until then 125c uses a Python walker with the same composed
+  exclude-set so the swap is mechanical. See `docs/Phase133_RustWalkerHasherCutover/README.md`
+  out-of-scope row + cross-references.

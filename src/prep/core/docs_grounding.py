@@ -39,13 +39,20 @@ PLANNING_FOLDERS: frozenset[str] = frozenset({
     ".windsurf", ".gemini",
 })
 
-# Dirs we never descend into. These contain generated artifacts,
-# vendored deps, or per-tool internal state — none of it is planning.
+# Dirs we never descend into. Generated artifacts, vendored deps,
+# per-tool internal state, test fixtures, and per-agent worktrees —
+# none of it is planning material. Note: `.claude/worktrees/` is
+# gitignored so the post-Phase-133 Rust walker would skip it natively;
+# we list `worktrees` here as belt-and-suspenders for the current
+# Python walker which doesn't read .gitignore.
 EXCLUDED_DIRS: frozenset[str] = frozenset({
     "node_modules", "dist", "build", "target", "out",
     ".sourceprep", ".git", ".venv", "venv", "__pycache__",
     ".turbo", ".next", ".nuxt", ".cache", "coverage",
     "tmp", ".pytest_cache", ".mypy_cache", ".ruff_cache",
+    # Phase 125c noise reduction (post-T1 dogfood):
+    "worktrees", ".worktrees",
+    "tests", "__tests__", "specs", "fixtures",
 })
 
 # Hidden agent dirs we explicitly DO walk (despite leading dot).
