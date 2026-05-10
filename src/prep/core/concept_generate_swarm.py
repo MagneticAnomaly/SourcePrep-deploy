@@ -72,6 +72,11 @@ class GenerateSwarmReport:
     skipped: int = 0
     failed_workers: list[str] = field(default_factory=list)
     elapsed_seconds: float = 0.0
+    # Phase 125c T6: deduped candidate list, available for hand-off to
+    # the Validate swarm (T3b) when ``save=False``. When ``save=True``
+    # this is still populated for telemetry / debugging but the rows
+    # are already persisted via concept_store.save_many.
+    concepts: list[SynthesizedConcept] = field(default_factory=list)
 
 
 def synthesize_concepts_swarm(
@@ -85,8 +90,9 @@ def synthesize_concepts_swarm(
     per_worker_timeout_s: float = DEFAULT_PER_WORKER_TIMEOUT_S,
     total_timeout_s: float = DEFAULT_TOTAL_TIMEOUT_S,
     dry_run: bool = False,
+    save: bool = True,
 ) -> GenerateSwarmReport:
-    """Run the Generate swarm and persist deduped output.
+    """Run the Generate swarm and (optionally) persist deduped output.
 
     Args:
         project_id: project scope.
@@ -98,8 +104,14 @@ def synthesize_concepts_swarm(
         per_worker_timeout_s: max wall-time per LLM call.
         total_timeout_s: hard cap on the whole swarm.
         dry_run: build prompts and return counts but skip the LLM + save.
+        save: when True (default), persist deduped concepts via
+            ``concept_store.save_many``. Set False when chaining into
+            the Validate swarm (T3b) — Validate re-saves with reconciled
+            statuses, so saving twice is wasted work and produces
+            transient pre-Validate rows in the store.
 
-    Returns a GenerateSwarmReport with per-scope emission counts.
+    Returns a GenerateSwarmReport with per-scope emission counts and
+    the deduped ``concepts`` list (always populated, regardless of save).
     """
     t0 = time.time()
     report = GenerateSwarmReport(project_id=project_id, swarm_size=swarm_size)
@@ -186,9 +198,12 @@ def synthesize_concepts_swarm(
         deduped = deduped[:MAX_SYNTHESIZED_CONCEPTS]
 
     report.candidates_after_dedup = len(deduped)
+    report.concepts = list(deduped)
 
-    # Persist with kind='concept' via the existing save path.
-    if deduped:
+    # Persist with kind='concept' via the existing save path. Skipped
+    # when caller plans to chain into Validate (which re-saves with
+    # reconciled statuses).
+    if deduped and save:
         try:
             from prep.services.concept_store import concept_store
             save_dicts = [c.to_save_dict() for c in deduped]

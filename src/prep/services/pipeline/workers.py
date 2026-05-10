@@ -1191,43 +1191,103 @@ class WorkerFactory:
             # Best-effort: if synthesis fails we still consider the
             # stage successful (rationale is the substantive output;
             # synthesis adds the curated layer on top).
+            # Phase 125c — Pass 2: Generate swarm (replaces 125b single-call).
+            # Per-category fan-out with rich grounding (atlas + planning
+            # docs + rationale + audit + spaghetti + antibodies).
+            # save=False so we hand candidates to Validate in-memory and
+            # the store gets one definitive write at Validate's reconciled
+            # statuses, not two writes (synthesizer-tier then verdict-tier).
             synth_emitted = 0
             synth_saved = 0
+            val_activated = 0
+            val_triaged = 0
+            val_archived = 0
+            val_parse_failures = 0
             try:
-                from prep.core.concept_synthesizer import synthesize_concepts
-                log_cb("Synthesizing cross-cutting concepts (Pass 3)", 1, 3)
-                synth_report = synthesize_concepts(
-                    project_id, llm=llm_client,
+                from prep.core.concept_generate_dedup import (
+                    load_or_build_docs_grounding,
                 )
-                synth_emitted = synth_report.total_emitted
-                synth_saved = synth_report.saved
+                from prep.core.concept_generate_swarm import (
+                    synthesize_concepts_swarm,
+                )
+                from prep.core.concept_synthesizer import load_grounding
+                from prep.core.concept_validate_swarm import (
+                    validate_concepts_swarm,
+                )
+                project_root = Path(project_obj.path)
+                project_name = project_obj.name or ""
+
+                log_cb("Generating concepts via swarm (Pass 2)", 1, 4)
+                gen_report = synthesize_concepts_swarm(
+                    project_id,
+                    llm=llm_client,
+                    swarm_size=3,            # default 3-axis fan-out
+                    idx_dir=idx_dir,
+                    project_root=project_root,
+                    project_name=project_name,
+                    save=False,               # hand off to Validate
+                )
+                synth_emitted = gen_report.candidates_after_dedup
                 log_cb(
-                    f"Synthesized {synth_emitted} concepts ({synth_saved} saved)",
-                    2, 3,
+                    f"Generated {synth_emitted} candidates ({len(gen_report.failed_workers)} workers failed)",
+                    2, 4,
                 )
+
+                if gen_report.concepts:
+                    # Reload grounding for Validate. Cheap relative to
+                    # LLM cost — JSON reads + concept_store row pull.
+                    grounding = load_grounding(
+                        project_id, idx_dir=idx_dir, project_name=project_name,
+                    )
+                    docs = load_or_build_docs_grounding(
+                        project_id, idx_dir=idx_dir, project_root=project_root,
+                    )
+                    log_cb("Validating concepts via swarm (Pass 3)", 2, 4)
+                    val_report = validate_concepts_swarm(
+                        project_id,
+                        candidates=gen_report.concepts,
+                        llm=llm_client,
+                        grounding=grounding,
+                        docs=docs,
+                        idx_dir=idx_dir,
+                    )
+                    val_activated = val_report.activated
+                    val_triaged = val_report.triaged
+                    val_archived = val_report.archived
+                    val_parse_failures = val_report.parse_failures
+                    synth_saved = val_report.saved
+                    log_cb(
+                        f"Validated: {val_activated} active, "
+                        f"{val_triaged} triage, {val_archived} archived",
+                        3, 4,
+                    )
+                else:
+                    log_cb(
+                        "Generate emitted no candidates — skipping Validate",
+                        3, 4,
+                    )
             except Exception as e:
                 logger.warning(
-                    "[Concepts/Pass3] synthesis failed (non-fatal): %s",
+                    "[Concepts/Pass2-3] Generate+Validate failed (non-fatal): %s",
                     e, exc_info=True,
                 )
                 log_cb(
-                    "Synthesis failed — see logs (rationale layer still produced)",
-                    2, 3,
+                    "Generate/Validate failed — see logs",
+                    3, 4,
                 )
 
             # Phase 125c — Pass 4: deterministic confidence gate.
-            # T2/T3 concepts are already at status='active' from the
-            # synthesizer's tier mapping; this CPU pass sweeps the
-            # remaining seed concepts (T1 tier or Validate-deferred):
-            # confidence >= 0.90 → active, 0.65-0.90 → triage_pending,
-            # < 0.65 → archived. Tiebreaker only — Validate (Phase 125c
-            # T3, future) will be the source of truth once it lands.
+            # Sweeps any seed concepts not promoted by Validate (e.g.
+            # parse failures that fell through to default state) and
+            # any leftover module_rationale-style anomalies. Validate
+            # is the source of truth for tier; the gate is just a
+            # tiebreaker that catches edge cases.
             gate_activated = 0
             gate_triaged = 0
             gate_archived = 0
             try:
                 from prep.core.concept_promotion_pipeline import run_pass4_gate
-                log_cb("Gating seed concepts (Pass 4)", 2, 3)
+                log_cb("Gating remaining seeds (Pass 4)", 3, 4)
                 gate_report = run_pass4_gate(
                     project_id, idx_dir=idx_dir, kind="concept",
                 )
@@ -1237,7 +1297,7 @@ class WorkerFactory:
                 log_cb(
                     f"Gate: {gate_activated} active, {gate_triaged} triage, "
                     f"{gate_archived} archived",
-                    3, 3,
+                    4, 4,
                 )
             except Exception as e:
                 logger.warning(
@@ -1250,8 +1310,12 @@ class WorkerFactory:
                 "skipped": False,
                 "status": result.get("status"),
                 "concepts_created": concepts_created,         # rationale layer
-                "synth_concepts_emitted": synth_emitted,      # Phase 125b layer
+                "synth_concepts_emitted": synth_emitted,      # Phase 125c Generate
                 "synth_concepts_saved": synth_saved,
+                "val_activated": val_activated,                # Phase 125c Validate
+                "val_triaged": val_triaged,
+                "val_archived": val_archived,
+                "val_parse_failures": val_parse_failures,
                 "gate_activated": gate_activated,             # Phase 125c T5
                 "gate_triaged": gate_triaged,
                 "gate_archived": gate_archived,
