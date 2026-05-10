@@ -404,20 +404,32 @@ def run_pass4_gate(
     high: float = DEFAULT_GATE_HIGH_CONFIDENCE,
     low: float = DEFAULT_GATE_LOW_CONFIDENCE,
     status_filter: str = "seed",
+    kind: str = "concept",
     dry_run: bool = False,
 ) -> Pass4Report:
     """Apply confidence-based gate to refined concepts.
 
-    Default reads ``status='seed'`` (refined concepts that survived
-    Pass 2 + Pass 3 keep ``status='seed'``). Pass 3 also rewrites
-    confidence values; Pass 4 reads those.
+    Default reads ``status='seed' AND kind='concept'`` — the curated
+    cross-cutting layer left at seed by the synthesizer (T1 tier),
+    or by Validate (Phase 125c) when a candidate doesn't auto-promote.
+    The synthesizer's tier mapping is T1=0.30 / T2=0.65 / T3=0.92, so
+    with default thresholds T1 archives, mid-band stays at triage,
+    and T3 promotes to active. T2/T3 already at status='active' from
+    the synthesizer's own pass are skipped (status filter).
+
+    Pass ``kind='module_rationale'`` to gate the rationale layer
+    (rare — rationale rows are seeded at status='seed' by design and
+    gating would archive most). Pass ``kind=None`` to bypass.
 
     Args:
         project_id: project scope.
         idx_dir: telemetry log location; resolved if None.
         high / low: confidence thresholds. high=0.90 → active,
-            low=0.65 → archive boundary.
+            low=0.65 → triage_pending; below low → archived.
         status_filter: which status to pull for gating. Default 'seed'.
+        kind: which layer to gate. Default 'concept' (the curated layer
+            Phase 125c/b emits). Pass 'module_rationale' for rationale
+            or None for both.
         dry_run: if True, decide but don't write.
     """
     from prep.core.concept_clustering import load_concepts_for_clustering
@@ -438,7 +450,9 @@ def run_pass4_gate(
         raise RuntimeError(
             f"concept DB not found at {db_path}; ensure the daemon has run at least once",
         )
-    refined = load_concepts_for_clustering(str(db_path), project_id, status=status_filter)
+    refined = load_concepts_for_clustering(
+        str(db_path), project_id, status=status_filter, kind=kind,
+    )
 
     actions = decide_pass4_actions(refined, high=high, low=low)
 

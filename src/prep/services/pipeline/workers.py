@@ -1195,7 +1195,7 @@ class WorkerFactory:
             synth_saved = 0
             try:
                 from prep.core.concept_synthesizer import synthesize_concepts
-                log_cb("Synthesizing cross-cutting concepts (Pass 3)", 1, 2)
+                log_cb("Synthesizing cross-cutting concepts (Pass 3)", 1, 3)
                 synth_report = synthesize_concepts(
                     project_id, llm=llm_client,
                 )
@@ -1203,7 +1203,7 @@ class WorkerFactory:
                 synth_saved = synth_report.saved
                 log_cb(
                     f"Synthesized {synth_emitted} concepts ({synth_saved} saved)",
-                    2, 2,
+                    2, 3,
                 )
             except Exception as e:
                 logger.warning(
@@ -1212,7 +1212,37 @@ class WorkerFactory:
                 )
                 log_cb(
                     "Synthesis failed — see logs (rationale layer still produced)",
-                    2, 2,
+                    2, 3,
+                )
+
+            # Phase 125c — Pass 4: deterministic confidence gate.
+            # T2/T3 concepts are already at status='active' from the
+            # synthesizer's tier mapping; this CPU pass sweeps the
+            # remaining seed concepts (T1 tier or Validate-deferred):
+            # confidence >= 0.90 → active, 0.65-0.90 → triage_pending,
+            # < 0.65 → archived. Tiebreaker only — Validate (Phase 125c
+            # T3, future) will be the source of truth once it lands.
+            gate_activated = 0
+            gate_triaged = 0
+            gate_archived = 0
+            try:
+                from prep.core.concept_promotion_pipeline import run_pass4_gate
+                log_cb("Gating seed concepts (Pass 4)", 2, 3)
+                gate_report = run_pass4_gate(
+                    project_id, idx_dir=idx_dir, kind="concept",
+                )
+                gate_activated = gate_report.activated
+                gate_triaged = gate_report.triaged
+                gate_archived = gate_report.archived
+                log_cb(
+                    f"Gate: {gate_activated} active, {gate_triaged} triage, "
+                    f"{gate_archived} archived",
+                    3, 3,
+                )
+            except Exception as e:
+                logger.warning(
+                    "[Concepts/Pass4] gate failed (non-fatal): %s",
+                    e, exc_info=True,
                 )
 
             return {
@@ -1222,6 +1252,9 @@ class WorkerFactory:
                 "concepts_created": concepts_created,         # rationale layer
                 "synth_concepts_emitted": synth_emitted,      # Phase 125b layer
                 "synth_concepts_saved": synth_saved,
+                "gate_activated": gate_activated,             # Phase 125c T5
+                "gate_triaged": gate_triaged,
+                "gate_archived": gate_archived,
                 "questions_created": questions_created,
                 "_model_info": model_info,
                 "_stage_timing": {
