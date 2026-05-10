@@ -398,15 +398,16 @@ export function TraceCoveragePanel({
             )}
           </span>
         </button>
-        {queueCount > 0 && !building && traceExists && (
+        {queueCount > 0 && traceExists && (
           <Button
             variant="pill"
-            tone="success"
+            tone={building ? 'default' : 'success'}
             className="ml-auto mr-2"
             onClick={onTraceAll}
+            disabled={building}
           >
             <Play className="w-3 h-3" />
-            Update
+            {building ? 'Updating…' : 'Update'}
           </Button>
         )}
       </div>
