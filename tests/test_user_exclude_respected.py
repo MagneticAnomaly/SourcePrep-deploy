@@ -53,7 +53,7 @@ def test_effective_excludes_unions_all_three_layers() -> None:
         )
 
         assert "**/.runprep/**" in result, "L1 self-ingestion guard must be present"
-        assert "**/codrag_data/**" in result, "L1 self-ingestion guard must be present"
+        assert "**/prep_data/**" in result, "L1 self-ingestion guard must be present"
         assert "**/storybook-static/**" in result, "L1 leak culprit must be present"
         assert "**/*.d.ts" in result, "L1 build-artifact glob must be present"
         assert "**/*.secret.ts" in result, "L3 runtime pattern must be merged"
@@ -92,7 +92,7 @@ def test_user_excludes_added_to_existing_policy_survive_auto_migration() -> None
 
         # L1 self-ingestion guards back-filled.
         assert "**/.runprep/**" in excludes
-        assert "**/codrag_data/**" in excludes
+        assert "**/prep_data/**" in excludes
 
         # L1 build-artifact globs back-filled.
         assert "**/storybook-static/**" in excludes
@@ -130,7 +130,7 @@ def test_user_cannot_silently_remove_codrag_output_guard() -> None:
 
         # Guard is back.
         assert "**/.runprep/**" in excludes
-        assert "**/codrag_data/**" in excludes
+        assert "**/prep_data/**" in excludes
         # User's custom entry still there.
         assert "**/*.log" in excludes
 
