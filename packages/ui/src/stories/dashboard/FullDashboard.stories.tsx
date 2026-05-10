@@ -31,7 +31,7 @@ import { RoadmapPanel } from '../../components/goalposts/RoadmapPanel';
 import { ConceptsPanel } from '../../components/concepts/ConceptsPanel';
 import type { ConceptItem, ConceptQuestionItem, ConceptStats } from '../../components/concepts/ConceptsPanel';
 import { AtlasLensPanel } from '../../components/trace/AtlasLensPanel/AtlasLensPanel';
-import type { AuditFinding, AuditReport, AtlasStatus } from '../../types';
+import type { AuditFinding, AuditReport, AtlasStatus, ScopeSummary, ScopeStatus, ScopeRecord } from '../../types';
 
 const noop = () => {};
 
@@ -297,6 +297,37 @@ const mockConceptStats: ConceptStats = {
   concepts_count: 5,
 };
 
+// Mirror of useDashboardPanels DEFAULT_ALWAYS_IGNORED_GLOBS so the demo
+// Scope panel renders agent-rule files as strikethrough/always-ignored.
+const ALWAYS_IGNORED_GLOBS: string[] = [
+  '**/AGENTS.md',
+  '**/CLAUDE.md',
+  '**/.cursor/rules/*.mdc',
+  '**/.cursorrules',
+  '**/.windsurfrules',
+  '**/GEMINI.md',
+];
+
+const mockScopes: ScopeSummary[] = [
+  { id: 'global', display_name: 'Global', path_count: 18, assigned_to_role: null },
+  { id: 'scope-backend', display_name: 'Backend', path_count: 9, assigned_to_role: null },
+  { id: 'scope-docs', display_name: 'Docs only', path_count: 4, assigned_to_role: null },
+];
+
+const mockScopeStatus: ScopeStatus = {
+  state: 'idle',
+  pending_adds: 0,
+  pending_removes: 0,
+  pending_changes: 0,
+  total_pending: 0,
+  auto_rebuild: true,
+  debounce_ms: 1500,
+  error: null,
+  last_rebuild_at: Date.now() / 1000 - 3600,
+  stale_since: null,
+  is_stale: false,
+};
+
 const mockAtlas: AtlasStatus = {
   exists: true,
   content: null,
@@ -471,6 +502,79 @@ function OpportunitiesPanelDemo() {
       onSourceFilterChange={setSourceFilter}
       showDismissed={showDismissed}
       onShowDismissedChange={setShowDismissed}
+    />
+  );
+}
+
+/**
+ * Stateful demo wrapper for FolderTreePanel — the Scope panel in the
+ * dashboard. Mirrors the prop set the live useDashboardPanels hook
+ * passes (scope dropdown + exclude UI + always-ignored patterns +
+ * scopeStatus), so the storybook demo shows the same surface area as
+ * the running app. Previously the demo passed a stripped-down prop
+ * set and the conditional features (scope picker, exclude toggle)
+ * were silently hidden.
+ */
+function ScopePanelDemo({
+  data,
+  includedPaths,
+  onToggleInclude,
+  pathWeights,
+  onWeightChange,
+}: {
+  data: typeof sampleFileTree;
+  includedPaths: Set<string>;
+  onToggleInclude: (paths: string[], action: 'add' | 'remove') => void;
+  pathWeights: Record<string, number>;
+  onWeightChange: (path: string, weight: number | null) => void;
+}) {
+  const [activeScopeId, setActiveScopeId] = useState<string>('global');
+  const [scopes, setScopes] = useState<ScopeSummary[]>(mockScopes);
+  const [excludedPaths, setExcludedPaths] = useState<Set<string>>(
+    new Set(['tests', 'scripts/deploy.sh'])
+  );
+
+  const handleToggleExclude = (paths: string[], action: 'add' | 'remove') => {
+    setExcludedPaths((prev) => {
+      const next = new Set(prev);
+      for (const p of paths) action === 'add' ? next.add(p) : next.delete(p);
+      return next;
+    });
+  };
+
+  const handleCreateScope = async (display_name: string): Promise<ScopeRecord | null> => {
+    const id = `scope-${Date.now()}`;
+    setScopes((s) => [...s, { id, display_name, path_count: 0, assigned_to_role: null }]);
+    return { id, display_name, paths: [], assigned_to_role: null };
+  };
+  const handleRenameScope = async (id: string, display_name: string) => {
+    setScopes((s) => s.map((sc) => (sc.id === id ? { ...sc, display_name } : sc)));
+  };
+  const handleDeleteScope = async (id: string) => {
+    setScopes((s) => s.filter((sc) => sc.id !== id));
+    if (activeScopeId === id) setActiveScopeId('global');
+  };
+
+  return (
+    <FolderTreePanel
+      data={data}
+      includedPaths={includedPaths}
+      scopeStatus={mockScopeStatus}
+      onToggleInclude={onToggleInclude}
+      pathWeights={pathWeights}
+      onWeightChange={onWeightChange}
+      excludedPaths={excludedPaths}
+      onToggleExclude={handleToggleExclude}
+      alwaysIgnoredPatterns={ALWAYS_IGNORED_GLOBS}
+      scopes={scopes}
+      activeScopeId={activeScopeId}
+      onSetActiveScope={setActiveScopeId}
+      onCreateScope={handleCreateScope}
+      onRenameScope={handleRenameScope}
+      onDeleteScope={handleDeleteScope}
+      className="h-full border-0 shadow-none"
+      title="Scope"
+      bare
     />
   );
 }
@@ -719,15 +823,12 @@ export const FullDashboard: StoryObj = {
         />
       ),
       'file-tree': (
-        <FolderTreePanel
+        <ScopePanelDemo
           data={sampleFileTree}
           includedPaths={includedPaths}
           onToggleInclude={handleToggleInclude}
           pathWeights={pathWeights}
           onWeightChange={handleWeightChange}
-          className="h-full border-0 shadow-none"
-          title="Index Scope"
-          bare
         />
       ),
       // Dynamic per-file pinned panels
