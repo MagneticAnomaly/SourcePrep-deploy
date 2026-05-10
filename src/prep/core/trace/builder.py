@@ -450,7 +450,36 @@ class TraceBuilder:
             logger.info("Computing file_hashes for Rust-built trace manifest")
             new_hashes = self._compute_file_hashes()
             if saved_file_hashes:
-                # Merge: start with preserved hashes, overlay with freshly computed
+                # Phase 133 Task 7: temporary assertion. After both _compute_file_hashes
+                # and compute_trace_coverage walk via prep_engine.walk_repo (same as
+                # the Rust trace builder), the two file sets MUST agree by
+                # construction. If they don't, divergence has resurfaced and we want
+                # to know loudly. Deletion of the preserve+merge logic is deferred
+                # one release cycle to confirm this assertion stays green in
+                # production. After that, the entire `if saved_file_hashes:` block
+                # below can be removed.
+                additions = set(saved_file_hashes) - set(new_hashes)
+                if additions:
+                    # Log a WARNING (don't crash — this is observability) but assert
+                    # in tests so any regression is loud.
+                    sample = sorted(additions)[:10]
+                    logger.warning(
+                        "Phase 133 Task 7 invariant violation: preserve+merge added "
+                        "%d files not in walker output (sample: %s). Walker/coverage "
+                        "divergence has resurfaced. See docs/Phase133_RustWalkerHasherCutover/README.md",
+                        len(additions), sample,
+                    )
+                    # Test-mode hard fail (production keeps the merge as defense-in-depth):
+                    if __debug__:
+                        import os
+                        if os.environ.get("PYTEST_CURRENT_TEST"):
+                            raise AssertionError(
+                                f"Phase 133: preserve+merge produced {len(additions)} "
+                                f"additions; walker divergence has returned. "
+                                f"Sample: {sample}"
+                            )
+
+                # Existing merge logic (unchanged):
                 merged = dict(saved_file_hashes)
                 merged.update(new_hashes)
                 manifest["file_hashes"] = merged
