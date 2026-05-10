@@ -17,11 +17,14 @@ export interface DocsLayoutProps {
   className?: string;
 }
 
+// Walks one level into children — DocNode trees in this codebase are
+// section + leaf and never grandchildren. If a third level is ever added,
+// extend this helper to recurse.
 function withActive(items: DocNode[], currentPath?: string): DocNode[] {
   if (!currentPath) return items;
   return items.map((section) => ({
     ...section,
-    active: section.href === currentPath,
+    active: !!section.href && section.href === currentPath,
     children: section.children?.map((child) => ({
       ...child,
       active: child.href === currentPath,

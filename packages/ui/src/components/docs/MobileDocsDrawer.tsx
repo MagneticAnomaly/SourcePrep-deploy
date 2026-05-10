@@ -46,13 +46,14 @@ export function MobileDocsDrawer({
       <div
         className="fixed inset-0 top-14 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
         onClick={onClose}
-        aria-hidden
+        aria-hidden="true"
       />
 
       {/* Drawer panel */}
       <div
         className="prep-drawer-slide-in fixed top-14 left-0 z-50 flex flex-col w-[85%] max-w-[320px] h-[calc(100vh-3.5rem)] bg-background border-r border-border shadow-xl lg:hidden"
         role="dialog"
+        aria-modal="true"
         aria-label="Documentation navigation"
       >
         {/* Search */}
