@@ -498,17 +498,21 @@ class ConceptStore:
                 (project_id, title, kind),
             ).fetchone()
             if existing:
-                # Update existing concept
+                # Update existing concept. Phase 125b: include status so a
+                # synthesizer/MCP re-save that promotes seed → active is
+                # reflected on the row. Without this the synthesizer's
+                # T2/T3 → 'active' classification was silently dropped
+                # whenever a same-titled row already existed.
                 now = time.time()
                 conn.execute(
                     """UPDATE concepts
-                       SET content = ?, category = ?, confidence = ?,
+                       SET content = ?, category = ?, status = ?, confidence = ?,
                            anchors = ?, tags = ?, cluster_id = ?,
                            updated_at = ?, stale = 0, stale_reason = NULL,
                            valid_from = ?, valid_to = NULL,
                            assertion = ?, doc_links = ?, superseded_by = ?
                        WHERE id = ?""",
-                    (content, category, confidence, anchors_json,
+                    (content, category, status, confidence, anchors_json,
                      tags_json, cluster_id, now, now,
                      assertion, doc_links_json, superseded_by, existing["id"]),
                 )
@@ -698,16 +702,21 @@ class ConceptStore:
             ).fetchone()
 
             if existing:
+                # Phase 125b: include status so synthesizer T2/T3 → 'active'
+                # promotion takes effect on re-runs against existing rows.
+                # The previous UPDATE silently kept whatever status the
+                # row already had, masking auto-acceptance.
                 conn.execute(
                     """UPDATE concepts
-                       SET content = ?, category = ?, confidence = ?,
+                       SET content = ?, category = ?, status = ?, confidence = ?,
                            anchors = ?, tags = ?, cluster_id = ?,
                            updated_at = ?, stale = 0, stale_reason = NULL,
                            valid_from = ?, valid_to = NULL,
                            assertion = ?, doc_links = ?, superseded_by = NULL
                        WHERE id = ?""",
                     (
-                        content, entry["category"], entry["confidence"],
+                        content, entry["category"], entry["status"],
+                        entry["confidence"],
                         entry["anchors_json"], entry["tags_json"],
                         entry["cluster_id"], now, now,
                         entry["assertion"], entry["doc_links_json"],

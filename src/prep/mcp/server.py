@@ -1887,6 +1887,11 @@ class MCPServer:
                 "content": content,
                 "category": category or "technical",
                 "status": "active",  # AI-created concepts are active
+                # Phase 125b: route AI-direct saves into the curated
+                # concept layer so they surface via prep_concepts and
+                # the prep() ambient trailer (the rationale layer is
+                # for the per-module seeder output only).
+                "kind": "concept",
             }
             if anchors:
                 payload["anchors"] = anchors

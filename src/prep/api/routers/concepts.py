@@ -47,6 +47,11 @@ class SaveConceptRequest(BaseModel):
     assertion: Optional[str] = None
     doc_links: Optional[List[Dict[str, str]]] = None
     superseded_by: Optional[str] = None
+    # Phase 125b: layer discriminator. User/AI-saved concepts default to
+    # the curated "concept" layer (visible in prep_concepts(action='get')
+    # and the prep() ambient trailer). Pipeline seeders pass
+    # kind='module_rationale' explicitly.
+    kind: Optional[str] = "concept"
 
 
 class UpdateConceptRequest(BaseModel):
@@ -264,6 +269,7 @@ async def answer_question(project_id: str, question_id: str, body: AnswerQuestio
             category=category,
             status="active",  # User answers are always active
             confidence=1.0,   # User-provided = full confidence
+            kind="concept",   # Phase 125b: human-curated → concept layer
         )
     except ValueError as e:
         raise ApiException(400, "VALIDATION_ERROR", str(e))
@@ -310,6 +316,7 @@ async def create_concept(project_id: str, body: SaveConceptRequest):
             tags=body.tags,
             assertion=body.assertion or "",
             doc_links=body.doc_links or [],
+            kind=body.kind or "concept",
         )
     except ValueError as e:
         raise ApiException(400, "VALIDATION_ERROR", str(e))
