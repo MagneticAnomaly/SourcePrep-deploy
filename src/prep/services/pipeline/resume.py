@@ -817,13 +817,30 @@ class ResumeStrategy:
         """Refresh ``file_hashes`` in ``trace_manifest.json`` without re-running
         the structural stage.
 
+        Phase 133: walks via ``prep_engine.walk_repo`` (same primitive
+        as ``compute_trace_coverage`` and ``TraceBuilder._compute_file_hashes``)
+        and hashes via ``prep_engine.hash_content`` (BLAKE3-128). Tags
+        the rewritten manifest with ``hash_algo: CURRENT_HASH_ALGO`` so
+        coverage's Path A self-heal does not misfire on the next call
+        (pre-Phase-133 this function wrote SHA-256 hashes while leaving
+        a stale ``hash_algo`` field intact, which silently broke the
+        cutover by producing 100% stale coverage on every subsequent
+        call after any fast_sync completion).
+
         Returns the number of hashes that changed.
         """
         import json as _json
         import tempfile
 
-        from prep.core.ids import stable_file_hash
-        from prep.core.trace.utils import _to_posix
+        try:
+            import prep_engine
+        except ImportError:
+            # Without the Rust engine we cannot match the cutover's
+            # walker/hasher behavior; refusing to run is safer than
+            # writing divergent hashes.
+            return 0
+
+        from prep.core.manifest import CURRENT_HASH_ALGO
 
         try:
             from prep.core.project_registry import project_index_dir
@@ -875,20 +892,8 @@ class ResumeStrategy:
             except Exception:
                 pass
 
-        import pathspec
-
-        from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS
+        from prep.core.repo_profile import DEFAULT_EXCLUDE_FILE_GLOBS
         from prep.core.trace.builder import TraceBuilder
-        from prep.core.trace.utils import _is_relevant
-
-        gitignore_spec = None
-        gitignore_path = repo_root / ".gitignore"
-        if gitignore_path.exists():
-            try:
-                with open(gitignore_path, encoding="utf-8") as f:
-                    gitignore_spec = pathspec.PathSpec.from_lines("gitwildmatch", f)
-            except Exception:
-                pass
 
         trace_cfg = pcfg.get("trace") if isinstance(pcfg, dict) else None
         trace_ignore = (trace_cfg or {}).get("ignore_patterns", [])
@@ -901,12 +906,11 @@ class ResumeStrategy:
             exclude_globs=pcfg.get("exclude_globs") or None,
             max_file_bytes=max_file_bytes,
         )
-        include_globs = default_builder.include_globs
-        exclude_globs = default_builder.exclude_globs
-        
-        # Ensure DEFAULT_EXCLUDE_FILE_GLOBS and user_exclude_globs are respected
-        # identically to compute_trace_coverage
-        exclude_globs = list(exclude_globs)
+        include_globs = list(default_builder.include_globs) if default_builder.include_globs else None
+        exclude_globs = list(default_builder.exclude_globs) if default_builder.exclude_globs else []
+
+        # Match compute_trace_coverage's exclude composition: walker +
+        # DEFAULT_EXCLUDE_FILE_GLOBS + user trace.ignore_patterns.
         for pattern in DEFAULT_EXCLUDE_FILE_GLOBS:
             if pattern not in exclude_globs:
                 exclude_globs.append(pattern)
@@ -914,45 +918,41 @@ class ResumeStrategy:
             if pattern not in exclude_globs:
                 exclude_globs.append(pattern)
 
+        entries = prep_engine.walk_repo(
+            str(repo_root),
+            include_globs=include_globs,
+            exclude_globs=exclude_globs or None,
+            max_file_bytes=int(max_file_bytes),
+        )
+
         updated = 0
         new_hashes = dict(old_hashes)
         seen_paths: set[str] = set()
 
-        for root_dir, dirs, filenames in os.walk(repo_root):
-            dirs[:] = [d for d in dirs if d not in DEFAULT_EXCLUDE_DIR_NAMES and not d.startswith(".")]
-            root_path = Path(root_dir)
-            for fname in filenames:
-                file_path = root_path / fname
-                if file_path.is_symlink():
-                    continue
-                rel_path = _to_posix(str(file_path.relative_to(repo_root)))
+        for entry in entries:
+            rel_path = entry.path  # POSIX, repo-relative
+            abs_path = Path(entry.abs_path)
+            try:
+                file_size = int(entry.size)
+                if file_size > max_file_bytes:
+                    with open(abs_path, encoding="utf-8", errors="ignore") as hf:
+                        source = hf.read(50_000)
+                else:
+                    source = abs_path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
 
-                if gitignore_spec and gitignore_spec.match_file(rel_path):
-                    continue
-                if not _is_relevant(rel_path, include_globs, exclude_globs):
-                    continue
+            current_hash = prep_engine.hash_content(source)
+            seen_paths.add(rel_path)
 
-                try:
-                    fsize = file_path.stat().st_size
-                    if fsize > max_file_bytes:
-                        with open(file_path, encoding="utf-8", errors="ignore") as hf:
-                            source = hf.read(50_000)
-                    else:
-                        source = file_path.read_text(encoding="utf-8", errors="ignore")
-                except Exception:
-                    continue
-
-                current_hash = stable_file_hash(source)
-                seen_paths.add(rel_path)
-
-                prev_hash = old_hashes.get(rel_path)
-                if prev_hash is None:
-                    if rel_path in traced_node_paths:
-                        new_hashes[rel_path] = current_hash
-                        updated += 1
-                elif prev_hash != current_hash:
+            prev_hash = old_hashes.get(rel_path)
+            if prev_hash is None:
+                if rel_path in traced_node_paths:
                     new_hashes[rel_path] = current_hash
                     updated += 1
+            elif prev_hash != current_hash:
+                new_hashes[rel_path] = current_hash
+                updated += 1
 
         # Remove hashes for deleted files
         deleted_paths = set(old_hashes.keys()) - seen_paths
@@ -960,11 +960,18 @@ class ResumeStrategy:
             del new_hashes[dp]
             updated += 1
 
-        if updated == 0:
+        # Phase 133: even when no individual hash changed, the manifest's
+        # hash_algo tag may be stale (pre-cutover or absent). Always
+        # rewrite the algo tag so coverage's Path A self-heal sees the
+        # current algo. If both file_hashes and hash_algo are unchanged,
+        # skip the disk write to preserve mtime.
+        algo_changed = manifest.get("hash_algo") != CURRENT_HASH_ALGO
+        if updated == 0 and not algo_changed:
             return 0
 
         # Write atomically — preserve built_at to avoid mtime cascade
         manifest["file_hashes"] = new_hashes
+        manifest["hash_algo"] = CURRENT_HASH_ALGO
         try:
             tmp = tempfile.NamedTemporaryFile(
                 mode="w",
