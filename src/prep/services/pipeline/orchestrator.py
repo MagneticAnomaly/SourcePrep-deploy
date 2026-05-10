@@ -542,6 +542,23 @@ class PipelineOrchestrator:
             except Exception:
                 logger.debug("U16 changed_paths clear failed (non-fatal)", exc_info=True)
 
+            # Clear the watcher's queued paths and staleness marker so
+            # the dashboard's "stale" badge drops the moment the user
+            # clicks Rebuild — the rebuild's full scan is the
+            # authoritative consumer of those changes. Without this,
+            # pending_paths and stale_since survive an externally-
+            # triggered rebuild and the UI keeps reporting stale until
+            # the next watcher event clears it.
+            try:
+                from prep.api.routers.projects.helpers import _srv
+                watcher = _srv()._project_watchers.get(project_id)
+                if watcher is not None:
+                    cleared = watcher.clear_pending_state(reason="force_from_start_rebuild")
+                    if pfl and (cleared.get("pending_paths_count") or cleared.get("stale_since")):
+                        pfl.decision("watcher_pending_consumed", "ok", cleared)
+            except Exception:
+                logger.debug("Watcher pending-state clear failed (non-fatal)", exc_info=True)
+
             # Phase 118 U19: surface the stale/untraced gap on force_from_start.
             # Previously the gap check only ran when all stages were already
             # complete (the resume == len(FAST_SYNC_STAGES) branch below), so a
@@ -1699,13 +1716,38 @@ class PipelineOrchestrator:
             pfl_fn=self._get_file_logger,
         )
     @staticmethod
+    def _is_fast_sync_auto(project_id: str) -> bool:
+        """Check if fast sync should auto-trigger on file changes.
+
+        Per-project ``auto_config.fastSync`` is the only authority;
+        default is manual. The legacy global gate
+        (``pipeline_config.fast_sync.auto``) is no longer consulted —
+        same regression class as deep_enrichment / finalize: a stale
+        global ``true`` would silently override a per-project Manual
+        choice. Read by ``AutoRebuildWatcher._on_coverage_check`` and
+        the watcher's debounce-fire trigger callback.
+        """
+        try:
+            from prep.services.project_helpers import require_project
+            proj = require_project(project_id)
+            pcfg = proj.config if isinstance(proj.config, dict) else {}
+            auto_cfg = pcfg.get("auto_config") or {}
+            if not isinstance(auto_cfg, dict):
+                return False
+            fast = auto_cfg.get("fastSync", auto_cfg.get("fast_sync", False))
+            return bool(fast)
+        except Exception:
+            return False
+
+    @staticmethod
     def _is_deep_enrichment_auto(project_id: str) -> bool:
         """Check if deep enrichment should auto-chain after fast sync.
 
-        Reads per-project auto_config first, falls back to global.
-        Independent of the fastSync toggle: users can run fast sync
-        automatically (on file change) and still want deep enrichment
-        to wait for the Run button.
+        Per-project ``auto_config`` is the only authority; default is
+        manual. The legacy global fallback was the regression that
+        caused projects with their UI on Manual to auto-chain whenever
+        a stale global ``pipeline_config.deep_enrichment.mode`` was
+        still set to ``auto``.
 
         Note: 'scheduled' is NOT auto-chain — scheduled runs fire on
         their own cadence, not immediately after fast sync.
@@ -1714,18 +1756,11 @@ class PipelineOrchestrator:
             from prep.services.project_helpers import require_project
             proj = require_project(project_id)
             pcfg = proj.config if isinstance(proj.config, dict) else {}
-            auto_cfg = pcfg.get("auto_config")
-            if auto_cfg and isinstance(auto_cfg, dict):
-                deep = auto_cfg.get("deepEnrichment", auto_cfg.get("deep_enrichment", "manual"))
-                return deep == "auto"
-        except Exception:
-            pass
-        # Fallback to global config
-        try:
-            from prep.services.settings_store import settings
-            config = settings.get("pipeline_config") or {}
-            deep_mode = (config.get("deep_enrichment") or {}).get("mode", "manual")
-            return deep_mode == "auto"
+            auto_cfg = pcfg.get("auto_config") or {}
+            if not isinstance(auto_cfg, dict):
+                return False
+            deep = auto_cfg.get("deepEnrichment", auto_cfg.get("deep_enrichment", "manual"))
+            return deep == "auto"
         except Exception:
             return False
 
@@ -1733,27 +1768,20 @@ class PipelineOrchestrator:
     def _is_finalize_auto(project_id: str) -> bool:
         """Check if finalize should auto-chain after deep enrichment.
 
-        Independent of the deepEnrichment toggle: users can have deep
-        enrichment running automatically and still want finalize to
-        wait for the Run button (common for manual concept review
-        before triggering atlas/audit/antibodies regeneration).
+        Per-project ``auto_config`` is the only authority; default is
+        manual. Same regression as ``_is_deep_enrichment_auto`` —
+        falling back to the global flag let stale Auto defaults
+        override the user's per-project Manual choice.
         """
         try:
             from prep.services.project_helpers import require_project
             proj = require_project(project_id)
             pcfg = proj.config if isinstance(proj.config, dict) else {}
-            auto_cfg = pcfg.get("auto_config")
-            if auto_cfg and isinstance(auto_cfg, dict):
-                fin = auto_cfg.get("finalize", "manual")
-                return fin == "auto"
-        except Exception:
-            pass
-        # Fallback to global config
-        try:
-            from prep.services.settings_store import settings
-            config = settings.get("pipeline_config") or {}
-            fin_mode = (config.get("finalize") or {}).get("mode", "manual")
-            return fin_mode == "auto"
+            auto_cfg = pcfg.get("auto_config") or {}
+            if not isinstance(auto_cfg, dict):
+                return False
+            fin = auto_cfg.get("finalize", "manual")
+            return fin == "auto"
         except Exception:
             return False
 
@@ -3353,6 +3381,24 @@ class PipelineOrchestrator:
             if not run.transition(Event.PAUSE):
                 return False
 
+        # Phase 118 U23: persist the pause marker IMMEDIATELY, before any
+        # worker interaction or wait. The original code wrote the marker
+        # at the end of the pause flow (after the 30s worker-flush wait
+        # and the journal record). If the daemon was restarted during
+        # the wait — or the worker completed its current LLM batch and
+        # the manifest got written before pause propagated — the marker
+        # was never persisted. Recovery then had no record of user
+        # intent and the run looked just like an interrupted/cancelled
+        # one (also recorded as 'cancelled' in the journal). The user's
+        # pause was silently lost on restart. By writing first, we
+        # guarantee that even if everything below fails, the next
+        # daemon startup will see the marker and hydrate a PAUSED
+        # state at the correct stage.
+        try:
+            RecoveryManager.write_user_pause_marker(project_id, group, current_str)
+        except Exception:
+            logger.debug("Early user pause marker write failed", exc_info=True)
+
         # Signal the worker to pause (not cancel)
         slot = None
         if current_str:
@@ -3407,11 +3453,11 @@ class PipelineOrchestrator:
         # with phase="pausing" — this emits the final "paused" phase).
         self._emit_pipeline_status(project_id)
 
-        # Journal: record pause
+        # Journal: record pause (distinct from cancel — Phase 118 U23)
         if run.journal_run_id:
             try:
                 from prep.services.pipeline_journal import journal
-                journal.run_cancelled(run.journal_run_id)
+                journal.run_paused(run.journal_run_id)
             except Exception:
                 logger.debug("Journal pause write failed", exc_info=True)
 

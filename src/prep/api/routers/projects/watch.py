@@ -117,10 +117,15 @@ def start_project_watch(
                 # deep enrichment chains automatically after fast sync.
                 from prep.services.settings_store import settings as _ss
                 pc = _ss.get("pipeline_config") or {}
-                
-                fast_auto = (pc.get("fast_sync") or {}).get("auto", False)
+
+                # Per-project auto_config is the source of truth — see
+                # PipelineOrchestrator._is_fast_sync_auto for the regression
+                # class this guards against. Global pipeline_config is no
+                # longer consulted for the gate (it stays in sync via the
+                # toggle handler for migration / first-project-default only).
+                fast_auto = pipeline_orchestrator._is_fast_sync_auto(proj.id)
                 if not fast_auto:
-                    logger.debug("Watcher: skipped pipeline trigger for %s — fast_sync auto is disabled", proj.id)
+                    logger.debug("Watcher: skipped pipeline trigger for %s — fast sync is Manual", proj.id)
                     return False
 
                 # Phase 60A: Log trigger source to pipeline file logger

@@ -195,6 +195,38 @@ class AutoRebuildWatcher:
             "last_rebuild_at": last_rebuild_at,
         }
 
+    def clear_pending_state(self, reason: str = "external_rebuild") -> Dict[str, Any]:
+        """Clear queued paths and the staleness marker.
+
+        Called when an externally-invoked rebuild (e.g. user clicked
+        Rebuild on the dashboard, hitting ``/pipeline/rebuild``)
+        consumes whatever changes the watcher had queued. Without
+        this, the watcher's ``stale_since`` and ``pending_paths_count``
+        survive the rebuild and the UI keeps showing "stale" even
+        though the rebuild already covered the changes.
+
+        Returns the cleared state for logging.
+        """
+        with self._lock:
+            cleared = {
+                "reason": reason,
+                "pending_paths_count": len(self._pending_paths),
+                "stale_since": self._stale_since,
+                "had_timer": self._timer is not None,
+            }
+            self._pending_paths = set()
+            self._stale_since = None
+            self._next_rebuild_at = None
+            if self._timer is not None:
+                try:
+                    self._timer.cancel()
+                except Exception:
+                    pass
+                self._timer = None
+            if self._enabled and self._state in ("debouncing", "throttled"):
+                self._state = "idle"
+        return cleared
+
     def on_event(self, event: FileSystemEvent) -> None:
         if getattr(event, "is_directory", False):
             return
@@ -457,18 +489,21 @@ class AutoRebuildWatcher:
             if not self._enabled:
                 return
 
-        # Respect the pipeline mode: if fast_sync is set to Manual,
+        # Respect the pipeline mode: if fast sync is set to Manual,
         # don't proactively trigger builds via coverage checks.
-        try:
-            from prep.services.settings_store import settings as _ss
-            pc = _ss.get("pipeline_config") or {}
-            fast_auto = (pc.get("fast_sync") or {}).get("auto", False)
-            if not fast_auto:
-                logger.debug("Coverage check skipped — pipeline in manual mode")
-                self._schedule_coverage_check()
-                return
-        except Exception:
-            pass  # Settings unavailable — proceed with check
+        # Per-project auto_config is the only authority — see
+        # PipelineOrchestrator._is_fast_sync_auto for the regression
+        # class this guards against (stale global silently overriding
+        # per-project Manual).
+        if self.project_id:
+            try:
+                from prep.services.pipeline_orchestrator import pipeline_orchestrator
+                if not pipeline_orchestrator._is_fast_sync_auto(self.project_id):
+                    logger.debug("Coverage check skipped — fast sync is Manual for %s", self.project_id)
+                    self._schedule_coverage_check()
+                    return
+            except Exception:
+                pass  # Orchestrator unavailable — proceed with check
 
         # Don't check while a build is in progress (legacy BuildManager)
         if self._is_building():

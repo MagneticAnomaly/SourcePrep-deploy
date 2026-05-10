@@ -161,10 +161,17 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
   // change), and skip the global fallback entirely when switching projects.
   const prevProjectIdRef = useRef<string | null>(null)
   useEffect(() => {
+    // Honest defaults: when a key is unset (per-project auto_config is
+    // null OR the per-project key is missing), the toggle MUST display
+    // Manual — not Auto. The previous `?? true` defaults made the
+    // toggle paint "Auto" for any project that had never been clicked,
+    // while the watcher gate (PipelineOrchestrator._is_fast_sync_auto)
+    // correctly returned False. Result: a green "Auto" pill on a
+    // muzzled watcher with no UI signal that anything was wrong.
     const projAuto = (deps.projectConfig as any)?.auto_config
     if (projAuto && typeof projAuto === 'object') {
       setEnrichmentAutoConfig({
-        fastSync: projAuto.fastSync ?? projAuto.fast_sync ?? true,
+        fastSync: projAuto.fastSync ?? projAuto.fast_sync ?? false,
         deepEnrichment:
           projAuto.deepEnrichment ?? projAuto.deep_enrichment ?? 'manual',
         finalize: projAuto.finalize ?? 'manual',
@@ -177,21 +184,25 @@ export function useTraceSystem(selectedProjectId: string | null, deps: UseTraceS
     // When SWITCHING projects, wait for the per-project config to arrive
     // instead of loading the global (which is the LAST project's state).
     if (selectedProjectId && selectedProjectId !== prevProjectIdRef.current) {
-      // Project switched — reset to safe defaults while we wait for
+      // Project switched — reset to honest defaults while we wait for
       // the per-project config to arrive via deps.projectConfig.
       prevProjectIdRef.current = selectedProjectId
-      setEnrichmentAutoConfig({ fastSync: true, deepEnrichment: 'manual', finalize: 'manual' })
+      setEnrichmentAutoConfig({ fastSync: false, deepEnrichment: 'manual', finalize: 'manual' })
       return
     }
     prevProjectIdRef.current = selectedProjectId
-    // Same project or first mount — try global as migration fallback
+    // Same project or first mount — try global as migration fallback.
+    // Note: the backend gates (PipelineOrchestrator._is_*_auto) no
+    // longer consult the global; this fallback is purely a UI
+    // convenience for projects whose per-project auto_config has not
+    // been written yet. Defaulting to false matches the gates' default.
     let cancelled = false
     api.getSetting('pipeline_config').then((result: { key: string; value: any }) => {
       if (cancelled) return
       const pc = result?.value
       if (pc) {
         setEnrichmentAutoConfig({
-          fastSync: pc.fast_sync?.auto ?? true,
+          fastSync: pc.fast_sync?.auto ?? false,
           deepEnrichment: pc.deep_enrichment?.mode ?? 'manual',
           finalize: pc.finalize?.mode ?? 'manual',
         })

@@ -128,14 +128,55 @@ class TestWatcherStaleness:
         assert "pending" in status
         assert "pending_paths_count" in status
     
+    def test_clear_pending_state_drops_pending_and_stale(self, watcher_setup):
+        """clear_pending_state() must drop pending paths and stale_since
+        so the dashboard's stale badge clears the moment an external
+        rebuild consumes the changes (called from the orchestrator's
+        force_from_start path)."""
+        watcher = watcher_setup["watcher"]
+        watcher.start()
+        try:
+            with watcher._lock:
+                watcher._pending_paths.update({"a.py", "b.py", "c.py"})
+                watcher._stale_since = "2026-05-09T00:00:00+00:00"
+                watcher._state = "debouncing"
+                watcher._next_rebuild_at = "2026-05-09T00:00:05+00:00"
+
+            cleared = watcher.clear_pending_state(reason="force_from_start_rebuild")
+
+            assert cleared["pending_paths_count"] == 3
+            assert cleared["stale_since"] == "2026-05-09T00:00:00+00:00"
+            assert cleared["reason"] == "force_from_start_rebuild"
+
+            status = watcher.status()
+            assert status["pending"] is False
+            assert status["pending_paths_count"] == 0
+            assert status["stale"] is False
+            assert status["stale_since"] is None
+            assert status["next_rebuild_at"] is None
+        finally:
+            watcher.stop()
+
+    def test_clear_pending_state_is_safe_when_empty(self, watcher_setup):
+        """Idempotent: calling clear_pending_state() with no pending
+        state must not raise and must report zero counts."""
+        watcher = watcher_setup["watcher"]
+        watcher.start()
+        try:
+            cleared = watcher.clear_pending_state()
+            assert cleared["pending_paths_count"] == 0
+            assert cleared["stale_since"] is None
+        finally:
+            watcher.stop()
+
     def test_stop_resets_state(self, watcher_setup):
         """Stopping watcher should reset pending paths."""
         watcher = watcher_setup["watcher"]
-        
+
         watcher.start()
         with watcher._lock:
             watcher._pending_paths.add("test.py")
-        
+
         watcher.stop()
         
         status = watcher.status()

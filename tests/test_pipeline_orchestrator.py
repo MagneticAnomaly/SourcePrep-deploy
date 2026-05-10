@@ -540,6 +540,76 @@ class TestAutoModeIndependence:
         ):
             assert PipelineOrchestrator._is_finalize_auto("proj-1") is True
 
+    def test_fast_sync_auto_true_when_per_project_set(self):
+        """fastSync=true in per-project auto_config → watcher gate passes."""
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
+        fake_proj = MagicMock()
+        fake_proj.config = {
+            "auto_config": {"fastSync": True, "deepEnrichment": "manual"},
+        }
+        with patch(
+            "prep.services.project_helpers.require_project",
+            return_value=fake_proj,
+        ):
+            assert PipelineOrchestrator._is_fast_sync_auto("proj-1") is True
+
+    def test_fast_sync_auto_false_when_per_project_manual(self):
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
+        fake_proj = MagicMock()
+        fake_proj.config = {
+            "auto_config": {"fastSync": False},
+        }
+        with patch(
+            "prep.services.project_helpers.require_project",
+            return_value=fake_proj,
+        ):
+            assert PipelineOrchestrator._is_fast_sync_auto("proj-1") is False
+
+    def test_fast_sync_auto_false_when_no_per_project_auto_config(self):
+        """Regression guard for the bug we shipped this fix for: a project
+        that has never had its toggle clicked (auto_config=None) must NOT
+        be treated as Auto, even though the UI used to paint it that way."""
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
+        fake_proj = MagicMock()
+        fake_proj.config = {}  # no auto_config at all
+        with patch(
+            "prep.services.project_helpers.require_project",
+            return_value=fake_proj,
+        ):
+            assert PipelineOrchestrator._is_fast_sync_auto("proj-1") is False
+
+    def test_fast_sync_auto_does_not_fall_back_to_global(self):
+        """Same regression class as deep_enrichment / finalize: a stale
+        global ``pipeline_config.fast_sync.auto = true`` must NOT override
+        a per-project Manual choice (or absence of auto_config)."""
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
+        fake_proj = MagicMock()
+        fake_proj.config = {"auto_config": {"fastSync": False}}
+        # Even with the global set to true, per-project Manual wins.
+        mock_settings = MagicMock()
+        mock_settings.get.return_value = {"fast_sync": {"auto": True}}
+        with patch(
+            "prep.services.project_helpers.require_project",
+            return_value=fake_proj,
+        ), patch(
+            "prep.services.pipeline.orchestrator.settings",
+            mock_settings,
+            create=True,
+        ):
+            assert PipelineOrchestrator._is_fast_sync_auto("proj-1") is False
+
+    def test_fast_sync_auto_accepts_snake_case_key(self):
+        """The toggle handler writes ``fastSync`` (camelCase) but legacy
+        configs may have ``fast_sync``. Both should be honored."""
+        from prep.services.pipeline.orchestrator import PipelineOrchestrator
+        fake_proj = MagicMock()
+        fake_proj.config = {"auto_config": {"fast_sync": True}}
+        with patch(
+            "prep.services.project_helpers.require_project",
+            return_value=fake_proj,
+        ):
+            assert PipelineOrchestrator._is_fast_sync_auto("proj-1") is True
+
 
 # ── Failure handling ─────────────────────────────────────────────
 
