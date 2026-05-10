@@ -466,21 +466,34 @@ class TraceBuilder:
     _PRUNE_DIRS = DEFAULT_EXCLUDE_DIR_NAMES
 
     def _compute_file_hashes(self) -> Dict[str, str]:
-        """Compute content hashes for all eligible files (used to backfill Rust manifests)."""
-        files = self._enumerate_files()
+        """Compute content hashes for all eligible files.
+
+        Phase 133: walks via prep_engine.walk_repo for parity with
+        compute_trace_coverage and the Rust trace builder. Both sides
+        now share one walker primitive.
+        """
         file_hashes: Dict[str, str] = {}
-        for file_path in files:
-            rel_path = _to_posix(str(file_path.relative_to(self.repo_root)))
+        entries = prep_engine.walk_repo(
+            str(self.repo_root),
+            include_globs=list(self.include_globs) if self.include_globs else None,
+            exclude_globs=list(self.exclude_globs) if self.exclude_globs else None,
+            max_file_bytes=int(self.max_file_bytes),
+        )
+
+        for entry in entries:
+            rel_path = entry.path  # already POSIX, repo-relative
+            abs_path = Path(entry.abs_path)
             try:
-                file_size = file_path.stat().st_size
+                file_size = int(entry.size)
                 if file_size > self.max_file_bytes:
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                    with open(abs_path, "r", encoding="utf-8", errors="ignore") as f:
                         source = f.read(50_000)
                 else:
-                    source = file_path.read_text(encoding="utf-8", errors="ignore")
+                    source = abs_path.read_text(encoding="utf-8", errors="ignore")
             except Exception:
                 source = ""
             file_hashes[rel_path] = prep_engine.hash_content(source)
+
         return file_hashes
 
     def _enumerate_files(self) -> List[Path]:
