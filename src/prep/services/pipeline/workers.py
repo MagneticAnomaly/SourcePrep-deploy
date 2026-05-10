@@ -1158,26 +1158,29 @@ class WorkerFactory:
             if should_skip_seeder:
                 log_cb(
                     f"{rationale_count} module rationale entries fresh — skipping seeder",
-                    1, 2,
+                    1, 4,
                 )
-                # Skip the seeder but DO NOT return — Pass 3 still needs
-                # to run.
+                # Skip the seeder but DO NOT return — Generate / Validate
+                # / Gate still need to run.
                 concepts_created = 0
                 questions_created = 0
                 result = {"status": "skipped_fresh", "mode": "seeder_skipped"}
             else:
-                log_cb("Seeding concepts from pipeline data (Pass 1)", 0, 2)
+                log_cb("Seeding concepts from pipeline data (Pass 1)", 0, 4)
                 # Plumb log_cb through to seed_concepts so the dashboard's
                 # Concept Seeding progress bar fills as each per-module
                 # worker completes, instead of binary 0% → 100%.
                 def _seed_progress(message: str, current: int, total: int) -> None:
-                    log_cb(message, current, total)
+                    # Per-module progress is mapped onto the first quarter
+                    # of the stage's progress (0..1 of 4) so seeder fan-out
+                    # doesn't overshoot the stage progress bar.
+                    log_cb(message, current, max(total, 1) * 4)
                 result = seed_concepts(project_id, progress_callback=_seed_progress)
             concepts_created = result.get("concepts_created", 0)
             questions_created = result.get("questions_created", 0)
             log_cb(
                 f"{concepts_created} module rationale entries seeded",
-                1, 2,
+                1, 4,
             )
 
             # Phase 125b — Pass 3: cross-cutting concept synthesis.
@@ -1228,12 +1231,18 @@ class WorkerFactory:
                     save=False,               # hand off to Validate
                 )
                 synth_emitted = gen_report.candidates_after_dedup
-                log_cb(
-                    f"Generated {synth_emitted} candidates ({len(gen_report.failed_workers)} workers failed)",
-                    2, 4,
-                )
+                if gen_report.skipped_fresh:
+                    log_cb(
+                        "Generate skipped — rationale unchanged since last run",
+                        2, 4,
+                    )
+                else:
+                    log_cb(
+                        f"Generated {synth_emitted} candidates ({len(gen_report.failed_workers)} workers failed)",
+                        2, 4,
+                    )
 
-                if gen_report.concepts:
+                if gen_report.concepts and not gen_report.skipped_fresh:
                     # Reload grounding for Validate. Cheap relative to
                     # LLM cost — JSON reads + concept_store row pull.
                     grounding = load_grounding(
@@ -1263,7 +1272,8 @@ class WorkerFactory:
                     )
                 else:
                     log_cb(
-                        "Generate emitted no candidates — skipping Validate",
+                        "Skipping Validate (Generate produced no candidates "
+                        "or short-circuited fresh)",
                         3, 4,
                     )
             except Exception as e:

@@ -929,9 +929,10 @@ def render_events_summary(idx_dir: Path) -> str:
         "concept_synthesis_complete",  # Phase 125b Pass 3 — cross-cutting concept synthesis
         "concept_synthesis_failed",    # Phase 125b Pass 3 negative signal
         "concept_synthesis_skipped_fresh",  # Phase 125b — rationale unchanged, no re-synth needed
-        "generate_swarm_complete",     # Phase 125c T2c.2 — Generate swarm output
-        "validate_swarm_complete",     # Phase 125c T3b — Validate swarm verdicts
-        "pass4_gate_complete",         # Phase 125 T5 — deterministic gate (now wired in 125c)
+        "generate_swarm_complete",        # Phase 125c T2c.2 — Generate swarm output
+        "generate_swarm_skipped_fresh",   # Phase 125c scrutiny — rationale unchanged short-circuit
+        "validate_swarm_complete",        # Phase 125c T3b — Validate swarm verdicts
+        "pass4_gate_complete",            # Phase 125 T5 — deterministic gate (now wired in 125c)
     )
 
     for evname in EXPECTED:

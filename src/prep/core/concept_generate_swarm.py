@@ -46,9 +46,43 @@ from .concept_synthesizer import (
     TIER_TO_CONFIDENCE,
     Grounding,
     SynthesizedConcept,
+    _rationale_fingerprint,
     load_grounding,
     parse_synthesis_response,
 )
+
+
+# Phase 125c uses its own manifest file (separate from 125b's
+# concept_synthesis_manifest.json). Avoids cross-contamination on a
+# project that ran the 125b single-call path before upgrading: the old
+# manifest stays as a 125b artifact; 125c starts fresh and writes its
+# own freshness fingerprint here.
+_GEN_SWARM_MANIFEST_FILENAME = "concept_generate_manifest.json"
+
+
+def _read_gen_swarm_manifest(idx_dir: Optional[Path]) -> Optional[dict]:
+    if idx_dir is None:
+        return None
+    p = idx_dir / _GEN_SWARM_MANIFEST_FILENAME
+    if not p.is_file():
+        return None
+    try:
+        import json
+        return json.loads(p.read_text())
+    except Exception:
+        return None
+
+
+def _write_gen_swarm_manifest(idx_dir: Optional[Path], payload: dict) -> None:
+    if idx_dir is None:
+        return
+    try:
+        import json
+        p = idx_dir / _GEN_SWARM_MANIFEST_FILENAME
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(payload, indent=2))
+    except Exception:
+        pass
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +111,11 @@ class GenerateSwarmReport:
     # this is still populated for telemetry / debugging but the rows
     # are already persisted via concept_store.save_many.
     concepts: list[SynthesizedConcept] = field(default_factory=list)
+    # Phase 125c scrutiny fix: True when the swarm short-circuited
+    # because rationale hasn't changed since the last successful run.
+    # Lets the chain caller in workers.py also skip Validate (no
+    # candidates to validate when Generate didn't run).
+    skipped_fresh: bool = False
 
 
 def synthesize_concepts_swarm(
@@ -91,6 +130,7 @@ def synthesize_concepts_swarm(
     total_timeout_s: float = DEFAULT_TOTAL_TIMEOUT_S,
     dry_run: bool = False,
     save: bool = True,
+    force: bool = False,
 ) -> GenerateSwarmReport:
     """Run the Generate swarm and (optionally) persist deduped output.
 
@@ -109,6 +149,8 @@ def synthesize_concepts_swarm(
             the Validate swarm (T3b) — Validate re-saves with reconciled
             statuses, so saving twice is wasted work and produces
             transient pre-Validate rows in the store.
+        force: bypass the freshness short-circuit (which skips the swarm
+            when rationale hasn't changed since the last successful run).
 
     Returns a GenerateSwarmReport with per-scope emission counts and
     the deduped ``concepts`` list (always populated, regardless of save).
@@ -127,6 +169,40 @@ def synthesize_concepts_swarm(
             project_root = Path(project.path)
         if not project_name:
             project_name = project.name or ""
+
+    # Freshness short-circuit — back-to-back runs with unchanged
+    # rationale skip Generate (and therefore Validate, downstream).
+    # Mirrors Phase 125b's single-call freshness check but reads/writes
+    # its own manifest file so a 125b → 125c upgrade doesn't wrongly
+    # short-circuit on the legacy artifact.
+    if not force and not dry_run:
+        rationale_count, rationale_max_ts = _rationale_fingerprint(project_id)
+        if rationale_count > 0:
+            manifest = _read_gen_swarm_manifest(idx_dir)
+            if manifest:
+                last_count = int(manifest.get("rationale_count") or 0)
+                last_ts = float(manifest.get("rationale_max_updated_at") or 0.0)
+                if last_count == rationale_count and rationale_max_ts <= last_ts:
+                    logger.info(
+                        "[GenSwarm] skipping for %s — rationale unchanged "
+                        "(count=%d, max_ts=%.0f). Pass force=True to override.",
+                        project_id, rationale_count, rationale_max_ts,
+                    )
+                    report.skipped_fresh = True
+                    report.elapsed_seconds = time.time() - t0
+                    try:
+                        from prep.services.pipeline_telemetry import record_event
+                        record_event(
+                            idx_dir, "generate_swarm_skipped_fresh",
+                            {
+                                "rationale_count": rationale_count,
+                                "last_run_ts": float(manifest.get("completed_at") or 0.0),
+                            },
+                            stage="concepts", project_id=project_id,
+                        )
+                    except Exception:
+                        pass
+                    return report
 
     # Load shared grounding + planning-doc grounding.
     grounding = load_grounding(
@@ -212,6 +288,20 @@ def synthesize_concepts_swarm(
             report.skipped = skipped
         except Exception as e:
             logger.warning("[GenSwarm] save_many failed: %s", e, exc_info=True)
+
+    # Write the freshness manifest so the next run can short-circuit
+    # when rationale is unchanged. Best-effort.
+    try:
+        rcount, rts = _rationale_fingerprint(project_id)
+        _write_gen_swarm_manifest(idx_dir, {
+            "rationale_count": rcount,
+            "rationale_max_updated_at": rts,
+            "completed_at": time.time(),
+            "swarm_size": swarm_size,
+            "candidates_after_dedup": report.candidates_after_dedup,
+        })
+    except Exception:
+        logger.debug("[GenSwarm] manifest write failed", exc_info=True)
 
     # Telemetry.
     try:

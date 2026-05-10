@@ -234,6 +234,103 @@ def test_swarm_size_1_runs_single_worker(tmp_path):
     assert report.candidates_emitted_total == 1
 
 
+# ── Freshness short-circuit (scrutiny fix) ──────────────────────────
+
+
+def test_swarm_skips_when_rationale_unchanged(tmp_path):
+    """Second run with same rationale fingerprint must short-circuit
+    without firing the LLM."""
+    llm = _llm_returning({
+        "intent": "[]", "rules": "[]", "implementation": "[]",
+    })
+    # Pre-write a manifest matching the patched _rationale_fingerprint
+    # default. The autouse fixture's grounding has 2 rationale rows,
+    # but _rationale_fingerprint reads concept_store, which our autouse
+    # patch_loaders fixture doesn't intercept. Patch _rationale_fingerprint
+    # directly here to force a deterministic fingerprint.
+    with patch(
+        "prep.core.concept_generate_swarm._rationale_fingerprint",
+        return_value=(5, 1000.0),
+    ), patch(
+        "prep.core.concept_generate_swarm._read_gen_swarm_manifest",
+        return_value={
+            "rationale_count": 5,
+            "rationale_max_updated_at": 1500.0,
+            "completed_at": 1500.0,
+        },
+    ), patch("prep.services.concept_store.concept_store") as store:
+        store.save_many = MagicMock(side_effect=AssertionError("save should not run"))
+        report = synthesize_concepts_swarm(
+            "p1", llm=llm, swarm_size=3,
+            idx_dir=tmp_path, project_root=tmp_path,
+            project_name="test",
+        )
+    assert report.skipped_fresh is True
+    assert report.candidates_emitted_total == 0
+    # No LLM call should have happened (we didn't pre-set llm.generate
+    # to refuse; the gate is structural — if the freshness check fails,
+    # ANY worker-bound call would have hit the empty `_llm_returning`
+    # which returns "[]" rather than raising). We assert via
+    # candidates_emitted_total == 0 + skipped_fresh + save not called.
+
+
+def test_force_bypasses_freshness_check(tmp_path):
+    """force=True overrides the manifest-based skip."""
+    intent_out = json.dumps([
+        _concept_json("Forced", "T2", "architecture", ["src/x.py"])
+    ])
+    llm = _llm_returning({
+        "intent": intent_out, "rules": "[]", "implementation": "[]",
+    })
+    with patch(
+        "prep.core.concept_generate_swarm._rationale_fingerprint",
+        return_value=(5, 1000.0),
+    ), patch(
+        "prep.core.concept_generate_swarm._read_gen_swarm_manifest",
+        return_value={
+            "rationale_count": 5,
+            "rationale_max_updated_at": 1500.0,
+        },
+    ), patch("prep.services.concept_store.concept_store") as store:
+        store.save_many.return_value = (1, 0)
+        report = synthesize_concepts_swarm(
+            "p1", llm=llm, swarm_size=3,
+            idx_dir=tmp_path, project_root=tmp_path,
+            project_name="test",
+            force=True,
+        )
+    assert report.skipped_fresh is False
+    assert report.candidates_emitted_total == 1
+
+
+def test_swarm_runs_when_rationale_changed(tmp_path):
+    """Manifest is older than current rationale max_ts → must run."""
+    intent_out = json.dumps([
+        _concept_json("Refreshed", "T2", "architecture", ["src/x.py"])
+    ])
+    llm = _llm_returning({
+        "intent": intent_out, "rules": "[]", "implementation": "[]",
+    })
+    with patch(
+        "prep.core.concept_generate_swarm._rationale_fingerprint",
+        return_value=(7, 2000.0),   # rationale grew + max_ts moved forward
+    ), patch(
+        "prep.core.concept_generate_swarm._read_gen_swarm_manifest",
+        return_value={
+            "rationale_count": 5,
+            "rationale_max_updated_at": 1500.0,
+        },
+    ), patch("prep.services.concept_store.concept_store") as store:
+        store.save_many.return_value = (1, 0)
+        report = synthesize_concepts_swarm(
+            "p1", llm=llm, swarm_size=3,
+            idx_dir=tmp_path, project_root=tmp_path,
+            project_name="test",
+        )
+    assert report.skipped_fresh is False
+    assert report.candidates_emitted_total == 1
+
+
 # ── Module-level grounding/docs loaders are bypassed via mocks ──────
 
 
