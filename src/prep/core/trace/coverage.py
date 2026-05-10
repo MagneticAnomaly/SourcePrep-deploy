@@ -15,7 +15,30 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
 import pathspec
-import prep_engine
+
+# Phase 133: prep_engine (Rust PyO3 binding) is required by the
+# walker/hasher cutover. Defer the import-error to first call so the
+# daemon can boot and serve other routes — instead of fast-crashing at
+# module load and triggering the watchdog crash-loop guard. See
+# scripts/daemon_watchdog.sh for the python-picking logic that also
+# helps avoid this case.
+try:
+    import prep_engine
+except ImportError as _prep_engine_import_err:
+    prep_engine = None  # type: ignore[assignment]
+    _prep_engine_import_err_msg = str(_prep_engine_import_err)
+
+
+def _require_prep_engine() -> None:
+    if prep_engine is None:
+        raise RuntimeError(
+            "prep_engine (Rust PyO3 binding) is not installed in the current "
+            "Python interpreter. Install with: "
+            "`cd engine && maturin develop --release` (and ensure the daemon "
+            "launcher uses the same python). "
+            f"Original ImportError: {_prep_engine_import_err_msg}"
+        )
+
 
 from prep.core.manifest import CURRENT_HASH_ALGO
 from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS

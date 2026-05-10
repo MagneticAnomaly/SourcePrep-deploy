@@ -61,9 +61,19 @@ while true; do
 
   # Launch in its own process group so we can send signals cleanly.
   # Tee to both the per-run log and our own stdout for live monitoring.
+  # Phase 133: prefer .venv/bin/python over system python3.11. The venv
+  # has prep_engine (Rust PyO3 binding) installed via maturin develop;
+  # system python3.11 typically does not. After Phase 133, prep_engine
+  # is imported by builder.py + coverage.py at module load time, so
+  # using the wrong interpreter fast-crashes the daemon.
+  if [ -x "$PROJECT_ROOT/.venv/bin/python" ]; then
+    DAEMON_PY="$PROJECT_ROOT/.venv/bin/python"
+  else
+    DAEMON_PY="python3.11"
+  fi
   (
     cd "$PROJECT_ROOT"
-    PYTHONPATH="$PROJECT_ROOT/src" exec python3.11 -m prep.cli serve --port "$DAEMON_PORT" 2>&1
+    PYTHONPATH="$PROJECT_ROOT/src" exec "$DAEMON_PY" -m prep.cli serve --port "$DAEMON_PORT" 2>&1
   ) | tee "$run_log" &
   CHILD_PID=$!
 

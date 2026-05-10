@@ -15,7 +15,33 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import pathspec
 
-import prep_engine
+# Phase 133: prep_engine (Rust PyO3 binding) is required by the
+# walker/hasher cutover. Defer the import-error to first call so the
+# daemon can boot, log a useful diagnostic, and serve health/static
+# routes — instead of fast-crashing at module load and triggering the
+# watchdog crash-loop guard. If you see the RuntimeError below, install
+# prep_engine via `cd engine && maturin develop --release` (and ensure
+# the daemon launcher uses the matching python — see scripts/daemon_watchdog.sh).
+try:
+    import prep_engine
+except ImportError as _prep_engine_import_err:
+    prep_engine = None  # type: ignore[assignment]
+    _prep_engine_import_err_msg = str(_prep_engine_import_err)
+
+
+def _require_prep_engine() -> None:
+    if prep_engine is None:
+        raise RuntimeError(
+            "prep_engine (Rust PyO3 binding) is not installed in the current "
+            "Python interpreter. Phase 133 made the Rust walker/hasher "
+            "primitives required for trace coverage and TraceBuilder. Install "
+            "with: `cd engine && maturin develop --release` (and ensure the "
+            "daemon launcher uses the same python — scripts/daemon_watchdog.sh "
+            "now prefers .venv/bin/python). "
+            f"Original ImportError: {_prep_engine_import_err_msg}"
+        )
+
+
 from prep.core.ids import (
     stable_edge_id,
     stable_external_module_id,
