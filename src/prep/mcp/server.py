@@ -1292,10 +1292,18 @@ class MCPServer:
                         # seeds).
                         c_active = cdata.get("concepts_active", 0)
                         c_seeds = cdata.get("concepts_seeds", 0)
+                        c_triage = cdata.get("concepts_triage", 0)
                         r_active = cdata.get("module_rationale_active", 0)
                         r_seeds = cdata.get("module_rationale_seeds", 0)
+                        # Phase 125c T8: surface triage_pending alongside
+                        # active/seed when present so the user sees the
+                        # quality-gate's queue-for-review bucket.
+                        triage_clause = (
+                            f", {c_triage} triage" if c_triage else ""
+                        )
                         concept_line = (
-                            f"\n[{visible_count} concepts ({c_active} active, {c_seeds} seed)"
+                            f"\n[{visible_count} concepts "
+                            f"({c_active} active, {c_seeds} seed{triage_clause})"
                         )
                         if rationale_count:
                             concept_line += (
@@ -2002,7 +2010,14 @@ class MCPServer:
                 md_lines = [header]
                 for c in concepts:
                     stale_tag = " [STALE]" if c.get("stale") else ""
-                    status_tag = f" ({c['status']})" if c.get("status") == "seed" else ""
+                    # Phase 125c T8: tag both seed and triage_pending so the
+                    # consumer sees the quality bucket; active concepts are
+                    # un-tagged (the default).
+                    status_tag = (
+                        f" ({c['status']})"
+                        if c.get("status") in ("seed", "triage_pending")
+                        else ""
+                    )
                     anchors_str = ""
                     if c.get("anchors"):
                         anchors_str = f" → {', '.join(c['anchors'][:3])}"

@@ -1216,6 +1216,7 @@ class ConceptStore:
             "total": total,
             "active": status_dict.get("active", 0),
             "seeds": status_dict.get("seed", 0),
+            "triage_pending": status_dict.get("triage_pending", 0),
             "archived": status_dict.get("archived", 0),
             "stale": stale,
             "by_category": {r["category"]: r["cnt"] for r in by_category},
@@ -1227,6 +1228,9 @@ class ConceptStore:
             "concepts_seeds": kind_status.get("concept", {}).get("seed", 0),
             "module_rationale_active": kind_status.get("module_rationale", {}).get("active", 0),
             "module_rationale_seeds": kind_status.get("module_rationale", {}).get("seed", 0),
+            # Phase 125c T8: triage_pending visibility per kind
+            "concepts_triage": kind_status.get("concept", {}).get("triage_pending", 0),
+            "module_rationale_triage": kind_status.get("module_rationale", {}).get("triage_pending", 0),
         }
 
     # ── Question Operations ──────────────────────────────────────
