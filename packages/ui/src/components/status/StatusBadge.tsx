@@ -8,23 +8,27 @@ export interface StatusBadgeProps {
   labelOverride?: string;
 }
 
-// Tones use the opacity-modifier pattern (bg-X/10, text-X, border-X/40) that
-// the pill Button uses, instead of the per-theme `--{tone}-muted` token.
-// `--success-muted` etc. were defined inconsistently across themes and on
-// some surfaces produced text-on-bg pairs at near-equal luminance, e.g. the
-// Fresh badge rendering as illegible green-on-green on direction-a.
+// Tones use the Tailwind palette directly (emerald/amber/sky/red) with the
+// text at the 300 shade (~75% lightness) so it stays legible on the faint
+// /10 tinted backgrounds in dark mode. The semantic `--success` etc. tokens
+// resolve to medium-lightness greens (~50%) which produced unreadable
+// green-on-green when paired with their own /10 tint; using a paired shade
+// from the same hue family fixes the contrast without theme work.
+// Trade-off: status tones are no longer remapped by theme switches — if we
+// want themable status colors later, introduce per-tone `--{tone}-foreground`
+// tokens and swap back to the semantic class names.
 const statusConfig: Record<StatusState, { label: string; classes: string }> = {
   fresh: {
     label: 'Fresh',
-    classes: 'bg-success/10 text-success border-success/40'
+    classes: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40'
   },
   stale: {
     label: 'Stale',
-    classes: 'bg-warning/10 text-warning border-warning/40'
+    classes: 'bg-amber-500/10 text-amber-300 border-amber-500/40'
   },
   building: {
     label: 'Building',
-    classes: 'bg-info/10 text-info border-info/40 animate-pulse'
+    classes: 'bg-sky-500/10 text-sky-300 border-sky-500/40 animate-pulse'
   },
   pending: {
     label: 'Pending',
@@ -32,7 +36,7 @@ const statusConfig: Record<StatusState, { label: string; classes: string }> = {
   },
   paused: {
     label: 'Paused',
-    classes: 'bg-amber-500/10 text-amber-500 border-amber-500/40'
+    classes: 'bg-amber-500/10 text-amber-300 border-amber-500/40'
   },
   cancelled: {
     label: 'Cancelled',
@@ -40,7 +44,7 @@ const statusConfig: Record<StatusState, { label: string; classes: string }> = {
   },
   error: {
     label: 'Error',
-    classes: 'bg-error/10 text-error border-error/40'
+    classes: 'bg-red-500/10 text-red-300 border-red-500/40'
   },
   disabled: {
     label: 'Disabled',
