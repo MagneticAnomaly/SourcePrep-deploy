@@ -9,6 +9,14 @@ from typing import Any, Dict, Optional
 
 MANIFEST_VERSION = "1.0"
 
+CURRENT_HASH_ALGO = "blake3-128"
+"""Phase 133: post-cutover hash algorithm tag for prep manifests
+that store ``file_hashes``. The trace manifest
+(``TraceBuilder._build_manifest``) writes this constant unconditionally.
+The embedding manifest (``build_manifest`` below) accepts it as an
+optional parameter so a future phase can adopt the same self-healing
+migration without a schema change."""
+
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -58,6 +66,7 @@ def build_manifest(
     build: ManifestBuildStats,
     config: Dict[str, Any],
     file_hashes: Optional[Dict[str, str]] = None,
+    hash_algo: Optional[str] = None,
     version: str = MANIFEST_VERSION,
     built_at: Optional[str] = None,
 ) -> Dict[str, Any]:
@@ -90,4 +99,6 @@ def build_manifest(
     }
     if file_hashes is not None:
         m["file_hashes"] = dict(file_hashes)
+    if hash_algo is not None:
+        m["hash_algo"] = hash_algo
     return m
