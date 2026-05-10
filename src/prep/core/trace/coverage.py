@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Set
 import pathspec
 import prep_engine
 
+from prep.core.manifest import CURRENT_HASH_ALGO
 from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS
 
 from .utils import _detect_language
@@ -54,9 +55,9 @@ def compute_trace_coverage(
       - excluded: files explicitly excluded by user-configured patterns
       - summary: {total, traced, pending_embedding, untraced, stale, excluded, coverage_pct}
     """
-    # Phase 133: hash algorithm mirroring engine/crates/prep-walker/src/lib.rs:168
-    # This constant must match prep.core.manifest.CURRENT_HASH_ALGO to avoid circular import
-    CURRENT_HASH_ALGO = "blake3-128"
+    # Phase 133: CURRENT_HASH_ALGO is imported from prep.core.manifest at the
+    # module top. The single source of truth lives there; do not redefine
+    # locally (which would silently shadow the import and risk format drift).
 
     repo_root = Path(repo_root).resolve()
 
@@ -186,6 +187,16 @@ def compute_trace_coverage(
                                 merged_hashes = dict(fresh_hashes)
                                 merged_hashes.update(new_hashes)
                                 fresh_manifest["file_hashes"] = merged_hashes
+                                # Phase 133: backfill writes BLAKE3 hashes
+                                # via prep_engine.hash_content above; tag the
+                                # manifest accordingly so coverage's Path A
+                                # self-heal does not misfire on the next call
+                                # (pre-fix: a fresh build with trace_nodes.jsonl
+                                # but absent hash_algo would default to
+                                # 'sha256-64' on the next read → mismatch with
+                                # CURRENT_HASH_ALGO → just-backfilled BLAKE3
+                                # hashes flagged as stale → wasted re-compute).
+                                fresh_manifest["hash_algo"] = CURRENT_HASH_ALGO
 
                                 # Update our in-memory view too
                                 manifest_hashes.update(fresh_hashes)

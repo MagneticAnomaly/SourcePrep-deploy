@@ -7,10 +7,14 @@ from typing import List
 from ..models import AuditContext, Finding
 from . import BaseAnalyzer
 
+# Phase 133: hash via the same primitive that compute_trace_coverage and
+# TraceBuilder write. Comparing Python SHA-256 against BLAKE3-128 manifest
+# hashes (post-cutover) would falsely flag every file stale on every
+# audit run.
 try:
-    from prep.core.ids import stable_file_hash
+    import prep_engine
 except ImportError:
-    stable_file_hash = None  # type: ignore[assignment]
+    prep_engine = None  # type: ignore[assignment]
 
 
 class StalenessAnalyzer(BaseAnalyzer):
@@ -20,7 +24,7 @@ class StalenessAnalyzer(BaseAnalyzer):
     def analyze(self, ctx: AuditContext) -> List[Finding]:
         findings: List[Finding] = []
 
-        if not ctx.file_hashes or not ctx.project_root or stable_file_hash is None:
+        if not ctx.file_hashes or not ctx.project_root or prep_engine is None:
             return findings
 
         stale_files: List[str] = []
@@ -40,7 +44,7 @@ class StalenessAnalyzer(BaseAnalyzer):
                 continue
             try:
                 source = abs_path.read_text(encoding="utf-8", errors="ignore")
-                current_hash = stable_file_hash(source)
+                current_hash = prep_engine.hash_content(source)
             except Exception:
                 continue
 

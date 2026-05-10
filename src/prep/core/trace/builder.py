@@ -15,12 +15,13 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import pathspec
 
+import prep_engine
 from prep.core.ids import (
     stable_edge_id,
     stable_external_module_id,
-    stable_file_hash,
     stable_file_node_id,
 )
+from prep.core.manifest import CURRENT_HASH_ALGO
 from prep.core.repo_policy import effective_excludes, ensure_repo_policy
 from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
 
@@ -215,7 +216,7 @@ class TraceBuilder:
             except Exception:
                 source = ""
             
-            file_hashes[rel_path] = stable_file_hash(source)
+            file_hashes[rel_path] = prep_engine.hash_content(source)
 
             file_node = TraceNode(
                 id=stable_file_node_id(rel_path),
@@ -449,7 +450,36 @@ class TraceBuilder:
             logger.info("Computing file_hashes for Rust-built trace manifest")
             new_hashes = self._compute_file_hashes()
             if saved_file_hashes:
-                # Merge: start with preserved hashes, overlay with freshly computed
+                # Phase 133 Task 7: temporary assertion. After both _compute_file_hashes
+                # and compute_trace_coverage walk via prep_engine.walk_repo (same as
+                # the Rust trace builder), the two file sets MUST agree by
+                # construction. If they don't, divergence has resurfaced and we want
+                # to know loudly. Deletion of the preserve+merge logic is deferred
+                # one release cycle to confirm this assertion stays green in
+                # production. After that, the entire `if saved_file_hashes:` block
+                # below can be removed.
+                additions = set(saved_file_hashes) - set(new_hashes)
+                if additions:
+                    # Log a WARNING (don't crash — this is observability) but assert
+                    # in tests so any regression is loud.
+                    sample = sorted(additions)[:10]
+                    logger.warning(
+                        "Phase 133 Task 7 invariant violation: preserve+merge added "
+                        "%d files not in walker output (sample: %s). Walker/coverage "
+                        "divergence has resurfaced. See docs/Phase133_RustWalkerHasherCutover/README.md",
+                        len(additions), sample,
+                    )
+                    # Test-mode hard fail (production keeps the merge as defense-in-depth):
+                    if __debug__:
+                        import os
+                        if os.environ.get("PYTEST_CURRENT_TEST"):
+                            raise AssertionError(
+                                f"Phase 133: preserve+merge produced {len(additions)} "
+                                f"additions; walker divergence has returned. "
+                                f"Sample: {sample}"
+                            )
+
+                # Existing merge logic (unchanged):
                 merged = dict(saved_file_hashes)
                 merged.update(new_hashes)
                 manifest["file_hashes"] = merged
@@ -457,6 +487,7 @@ class TraceBuilder:
                             len(saved_file_hashes), len(new_hashes), len(merged))
             else:
                 manifest["file_hashes"] = new_hashes
+            manifest["hash_algo"] = CURRENT_HASH_ALGO   # Phase 133: tag post-Rust-build manifest
             self._write_manifest(manifest)
 
         return manifest
@@ -464,21 +495,34 @@ class TraceBuilder:
     _PRUNE_DIRS = DEFAULT_EXCLUDE_DIR_NAMES
 
     def _compute_file_hashes(self) -> Dict[str, str]:
-        """Compute content hashes for all eligible files (used to backfill Rust manifests)."""
-        files = self._enumerate_files()
+        """Compute content hashes for all eligible files.
+
+        Phase 133: walks via prep_engine.walk_repo for parity with
+        compute_trace_coverage and the Rust trace builder. Both sides
+        now share one walker primitive.
+        """
         file_hashes: Dict[str, str] = {}
-        for file_path in files:
-            rel_path = _to_posix(str(file_path.relative_to(self.repo_root)))
+        entries = prep_engine.walk_repo(
+            str(self.repo_root),
+            include_globs=list(self.include_globs) if self.include_globs else None,
+            exclude_globs=list(self.exclude_globs) if self.exclude_globs else None,
+            max_file_bytes=int(self.max_file_bytes),
+        )
+
+        for entry in entries:
+            rel_path = entry.path  # already POSIX, repo-relative
+            abs_path = Path(entry.abs_path)
             try:
-                file_size = file_path.stat().st_size
+                file_size = int(entry.size)
                 if file_size > self.max_file_bytes:
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                    with open(abs_path, "r", encoding="utf-8", errors="ignore") as f:
                         source = f.read(50_000)
                 else:
-                    source = file_path.read_text(encoding="utf-8", errors="ignore")
+                    source = abs_path.read_text(encoding="utf-8", errors="ignore")
             except Exception:
                 source = ""
-            file_hashes[rel_path] = stable_file_hash(source)
+            file_hashes[rel_path] = prep_engine.hash_content(source)
+
         return file_hashes
 
     def _enumerate_files(self) -> List[Path]:
@@ -599,6 +643,7 @@ class TraceBuilder:
         file_errors: List[FileError],
         last_error: Optional[str],
         file_hashes: Optional[Dict[str, str]] = None,
+        hash_algo: str = CURRENT_HASH_ALGO,   # Phase 133: always tag with algo
     ) -> Dict[str, Any]:
         manifest: Dict[str, Any] = {
             "version": TRACE_MANIFEST_VERSION,
@@ -619,6 +664,7 @@ class TraceBuilder:
             },
             "file_errors": [{"file_path": e.file_path, "error_type": e.error_type, "message": e.message} for e in file_errors],
             "last_error": last_error,
+            "hash_algo": hash_algo,             # Phase 133: always emit
         }
         if file_hashes is not None:
             manifest["file_hashes"] = file_hashes

@@ -94,8 +94,7 @@ impl Default for WalkConfig {
                 // Prep outputs (self-ingestion guard)
                 "**/.sourceprep/**".into(),
                 "**/.runprep/**".into(),   // back-compat: legacy RunPrep per-project dir
-                "**/prep_data/**".into(),
-                "**/prep_data/**".into(),  // legacy name kept for parity with Python L1
+                "**/prep_data/**".into(),  // CWD-relative daemon dir (default fallback)
                 // VCS
                 "**/.git/**".into(),
                 // Python dep/build
