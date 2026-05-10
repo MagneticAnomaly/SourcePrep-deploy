@@ -12,8 +12,6 @@ from typing import Any, Dict, Iterator, List, Sequence, Set, Tuple
 PREP_OUTPUT_DIRS: Set[str] = {
     ".sourceprep",   # per-project index (embedded mode)
     ".runprep",      # legacy per-project index (pre-SourcePrep rename)
-    ".codrag",       # legacy per-project index (pre-RunPrep rename)
-    "codrag_data",  # legacy daemon-wide store dir (pre-rename installs)
     "prep_data",   # daemon-wide store (SQLite + telemetry + ui_config)
 }
 
