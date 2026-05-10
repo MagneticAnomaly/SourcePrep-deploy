@@ -43,11 +43,10 @@ export const Showcase: StoryObj = {
     <div className="ds-showcase">
       <header className="ds-hero">
         <div className="ds-hero-eyebrow">SourcePrep · Design System</div>
-        <h1 style={{ color: TEXT_COLOR }}>Everything in one place</h1>
+        <h1 style={{ color: TEXT_COLOR }}>Design System Demo</h1>
         <p>
-          A single-page reference of the core design language — color, type, spacing, primitives,
-          patterns, and panel chrome. The same tokens drive the dashboard, the marketing site, and
-          every component you'll see by browsing the sidebar.
+          A single-page reference for the core design language — color, type, spacing, primitives,
+          and panel chrome. The same tokens drive the dashboard and the marketing site.
         </p>
       </header>
 

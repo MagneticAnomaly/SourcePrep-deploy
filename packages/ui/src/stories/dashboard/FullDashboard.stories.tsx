@@ -21,7 +21,7 @@ import { ModularDashboard, type DashboardLayoutApi } from '../../components/layo
 import type { PanelDefinition } from '../../types/layout';
 import { CodeViewer } from '../../components/project/CodeViewer';
 import { UsageGuidePanel } from '../../components/dashboard/UsageGuidePanel';
-import { DeepAnalysisSettings } from '../../components/llm/DeepAnalysisSettings';
+import { DeepAnalysisSettings, type DeepAnalysisSchedule } from '../../components/llm/DeepAnalysisSettings';
 import { LogConsole } from '../../components/console/LogConsole';
 import { ActivityHeatmap, generateSampleActivityData } from '../../components/viz/ActivityHeatmap';
 import { AgentOpsPanel } from '../../components/agents/AgentOpsPanel';
@@ -310,14 +310,20 @@ const mockAtlas: AtlasStatus = {
 /**
  * Pipeline panel for the storybook demo. Renders the GraphEnrichmentPipeline
  * in a "healthy / fully-built" state with all 10 stages complete, and wires
- * local React state for the three group-collapse toggles (Fast Sync /
- * Deep Enrichment / Finalize). The component itself is purely controlled —
- * without a state-bearing wrapper its chevrons are no-ops.
+ * local React state for the three group-collapse toggles AND the
+ * fast/deep/finalize Manual/Auto switches. The component itself is purely
+ * controlled — without a state-bearing wrapper its chevrons and switches
+ * are no-ops.
  */
 function PipelinePanelDemo() {
   const [fastCollapsed, setFastCollapsed] = useState(true);
   const [deepCollapsed, setDeepCollapsed] = useState(true);
   const [finalizeCollapsed, setFinalizeCollapsed] = useState(true);
+  const [autoConfig, setAutoConfig] = useState<{
+    fastSync: boolean;
+    deepEnrichment: 'manual' | 'auto' | 'scheduled' | 'threshold';
+    finalize: 'manual' | 'auto';
+  }>({ fastSync: true, deepEnrichment: 'auto', finalize: 'manual' });
 
   const TOTAL = 1245;
   const built = new Date(Date.now() - 7_200_000).toISOString(); // 2h ago
@@ -380,7 +386,8 @@ function PipelinePanelDemo() {
           deep_chunks_embedded: 3200,
           last_run_at: built,
         }}
-        autoConfig={{ fastSync: true, deepEnrichment: 'auto', finalize: 'manual' }}
+        autoConfig={autoConfig}
+        onAutoConfigChange={setAutoConfig}
         fastCollapsed={fastCollapsed}
         deepCollapsed={deepCollapsed}
         finalizeCollapsed={finalizeCollapsed}
@@ -390,8 +397,110 @@ function PipelinePanelDemo() {
         isPro={true}
         onRebuild={(scope) => console.log('[Story] onRebuild', scope)}
         onStopRebuild={() => console.log('[Story] onStopRebuild')}
+        onRunFastSync={() => console.log('[Story] onRunFastSync')}
+        onRunDeepEnrichment={() => console.log('[Story] onRunDeepEnrichment')}
+        onRunFinalize={() => console.log('[Story] onRunFinalize')}
       />
     </div>
+  );
+}
+
+/**
+ * Stateful demo wrapper for DeepAnalysisSettings — without it the mode/
+ * frequency/hour selects feel stuck when clicked.
+ */
+function DeepAnalysisDemo() {
+  const [schedule, setSchedule] = useState<DeepAnalysisSchedule>({
+    mode: 'scheduled',
+    frequency: 'daily',
+    hour: 0,
+    budget_enabled: true,
+    budget_max_tokens: 100000,
+    budget_max_minutes: 60,
+    budget_max_items: 500,
+    priority: 'lowest_confidence',
+  });
+  return (
+    <div className="h-full overflow-y-auto p-4">
+      <DeepAnalysisSettings
+        schedule={schedule}
+        onScheduleChange={setSchedule}
+        largeModelConfigured={true}
+        fastModelConfigured={true}
+      />
+    </div>
+  );
+}
+
+/** Stateful demo wrapper for AtlasLensPanel role picker. */
+function AtlasPanelDemo() {
+  const [role, setRole] = useState<string | null>(null);
+  return (
+    <AtlasLensPanel
+      atlas={mockAtlas}
+      role={role}
+      onRoleChange={setRole}
+      regenerating={false}
+      onRegenerate={() => console.log('[Story] onRegenerate atlas')}
+    />
+  );
+}
+
+/** Stateful demo wrapper for OpportunitiesPanel filter dropdowns + show-dismissed toggle. */
+function OpportunitiesPanelDemo() {
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
+  const [sourceFilter, setSourceFilter] = useState<string | null>(null);
+  const [showDismissed, setShowDismissed] = useState(false);
+  return (
+    <OpportunitiesPanel
+      items={[]}
+      summary={null}
+      loading={false}
+      refreshing={false}
+      error={null}
+      onRefresh={() => console.log('[Story] onRefresh opportunities')}
+      onDismiss={noop}
+      onRestore={noop}
+      onExport={noop}
+      categoryFilter={categoryFilter}
+      onCategoryFilterChange={setCategoryFilter}
+      priorityFilter={priorityFilter}
+      onPriorityFilterChange={setPriorityFilter}
+      sourceFilter={sourceFilter}
+      onSourceFilterChange={setSourceFilter}
+      showDismissed={showDismissed}
+      onShowDismissedChange={setShowDismissed}
+    />
+  );
+}
+
+/** Stateful demo wrapper for ConceptsPanel — approve/archive/delete remove rows visually. */
+function ConceptsPanelDemo() {
+  const [concepts, setConcepts] = useState<ConceptItem[]>(mockConcepts);
+  const [questions, setQuestions] = useState<ConceptQuestionItem[]>(mockConceptQuestions);
+  const handleApprove = (id: string) =>
+    setConcepts((cs) => cs.map((c) => (c.id === id ? { ...c, status: 'active' } : c)));
+  const handleArchive = (id: string) =>
+    setConcepts((cs) => cs.map((c) => (c.id === id ? { ...c, status: 'archived' } : c)));
+  const handleDelete = (id: string) =>
+    setConcepts((cs) => cs.filter((c) => c.id !== id));
+  const handleAnswer = (questionId: string) =>
+    setQuestions((qs) => qs.map((q) => (q.id === questionId ? { ...q, answered: true } : q)));
+  return (
+    <ConceptsPanel
+      concepts={concepts}
+      questions={questions}
+      stats={mockConceptStats}
+      loading={false}
+      initializing={false}
+      error={null}
+      onInitialize={noop}
+      onApprove={handleApprove}
+      onArchive={handleArchive}
+      onDelete={handleDelete}
+      onAnswerQuestion={handleAnswer}
+    />
   );
 }
 
@@ -671,25 +780,7 @@ export const FullDashboard: StoryObj = {
         />
       ),
       'trace-pipeline': <PipelinePanelDemo />,
-      'deep-analysis': (
-        <div className="h-full overflow-y-auto p-4">
-          <DeepAnalysisSettings
-            schedule={{
-              mode: 'scheduled',
-              frequency: 'daily',
-              hour: 0,
-              budget_enabled: true,
-              budget_max_tokens: 100000,
-              budget_max_minutes: 60,
-              budget_max_items: 500,
-              priority: 'lowest_confidence'
-            }}
-            onScheduleChange={() => {}}
-            largeModelConfigured={true}
-            fastModelConfigured={true}
-          />
-        </div>
-      ),
+      'deep-analysis': <DeepAnalysisDemo />,
       'log-console': (
         <LogConsole
           logs={[
@@ -740,51 +831,9 @@ export const FullDashboard: StoryObj = {
           onViewReport={noop}
         />
       ),
-      'concepts': (
-        <ConceptsPanel
-          concepts={mockConcepts}
-          questions={mockConceptQuestions}
-          stats={mockConceptStats}
-          loading={false}
-          initializing={false}
-          error={null}
-          onInitialize={noop}
-          onApprove={noop}
-          onArchive={noop}
-          onDelete={noop}
-          onAnswerQuestion={noop}
-        />
-      ),
-      'atlas': (
-        <AtlasLensPanel
-          atlas={mockAtlas}
-          role={null}
-          onRoleChange={noop}
-          regenerating={false}
-          onRegenerate={noop}
-        />
-      ),
-      'opportunities': (
-        <OpportunitiesPanel 
-          items={[]}
-          summary={null}
-          loading={false}
-          refreshing={false}
-          error={null}
-          onRefresh={noop}
-          onDismiss={noop}
-          onRestore={noop}
-          onExport={noop}
-          categoryFilter={null}
-          onCategoryFilterChange={noop}
-          priorityFilter={null}
-          onPriorityFilterChange={noop}
-          sourceFilter={null}
-          onSourceFilterChange={noop}
-          showDismissed={false}
-          onShowDismissedChange={noop}
-        />
-      ),
+      'concepts': <ConceptsPanelDemo />,
+      'atlas': <AtlasPanelDemo />,
+      'opportunities': <OpportunitiesPanelDemo />,
       'roadmap': (
         <RoadmapPanel 
           nodes={[]} 

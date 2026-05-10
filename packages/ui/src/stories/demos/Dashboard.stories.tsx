@@ -39,12 +39,11 @@ export const Welcome: StoryObj = {
     <div style={gridStyle}>
       <div style={bannerStyle}>
         <h1 style={{ fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.01em', margin: '0 0 0.5rem', color: 'hsl(var(--text))' }}>
-          SourcePrep · Design System
+          Dashboard Demo
         </h1>
         <p style={{ color: 'hsl(var(--text-muted))', lineHeight: 1.55, margin: 0 }}>
-          The dashboard you're looking at is the same component you'd see running in the desktop app —
-          rendered live with the design tokens, primitives, and patterns documented across this site.
-          Browse the sidebar to explore foundations, atoms, composed patterns, and the full product surface.
+          A live render of the same dashboard you'd see in the desktop app, with mock data so you can
+          interact with every panel.
         </p>
       </div>
       <FullDashboardRender />
