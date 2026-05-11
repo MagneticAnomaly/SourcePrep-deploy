@@ -164,3 +164,77 @@ def test_deepening_stale_set_from_changeset():
     assert "file:changed.py" in stale  # in changeset.modified
     assert "file:gone.py" in stale     # in changeset.deleted (orphan)
     assert "file:old.py" not in stale  # in changeset.unchanged
+
+
+def test_epistemic_enrichment_uses_changeset_not_file_hash():
+    from prep.core import epistemic_enrichment
+    import re
+    src = inspect.getsource(epistemic_enrichment)
+    assert "should_process" in src
+    # Token-boundary check
+    for lineno, line in enumerate(src.splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith("#") or stripped.startswith('"""') or stripped.startswith("'''"):
+            continue
+        if re.search(r'\bfile_hash\b', line) and "Phase 134" not in line:
+            assert False, (
+                f"epistemic_enrichment.py line {lineno} still references file_hash:\n  {line}"
+            )
+    assert "is_hash_stale" not in src
+    # The lambda/method that loaded manifest hashes is gone.
+    assert 'manifest.get("file_hashes"' not in src and "manifest.get('file_hashes'" not in src, (
+        "epistemic_enrichment.py must not read manifest.file_hashes — "
+        "staleness is in the changeset, not the manifest"
+    )
+
+
+def test_epistemic_enrichment_is_stale_uses_changeset():
+    """EpistemicEnricher._needs_enrichment returns True iff the file_path is
+    in changeset.modified (need re-enrichment) — never from a hash
+    compare."""
+    from prep.core.epistemic_enrichment import EpistemicEnricher
+
+    cs = Changeset(
+        added=frozenset({"new.py"}),
+        modified=frozenset({"changed.py"}),
+        deleted=frozenset(),
+        unchanged=frozenset({"old.py"}),
+        run_id="r1",
+        base_run_id=None,
+    )
+    enricher = EpistemicEnricher.__new__(EpistemicEnricher)
+    enricher.changeset = cs
+    # Provide minimal augmentations so _needs_enrichment's "is the file
+    # already enriched" check has something to look at.
+    augmentations = {
+        "file:changed.py": {"node_id": "file:changed.py"},
+        "file:old.py": {"node_id": "file:old.py"},
+    }
+
+    # Simulate that both nodes have existing enrichment entries (so we test
+    # the stale branch, not the "not yet enriched" branch).
+    from prep.core.epistemic_score import EpistemicEntry
+    existing = {
+        "file:changed.py": EpistemicEntry(
+            node_id="file:changed.py",
+            extended_summary="x",
+            domain_tags=[],
+            architecture_layer="unknown",
+        ),
+        "file:old.py": EpistemicEntry(
+            node_id="file:old.py",
+            extended_summary="y",
+            domain_tags=[],
+            architecture_layer="unknown",
+        ),
+    }
+
+    # _needs_enrichment(node, existing, augmentations) -> bool
+    # changed.py is in changeset.modified → needs re-enrichment
+    assert enricher._needs_enrichment(
+        {"id": "file:changed.py", "file_path": "changed.py"}, existing, augmentations
+    ) is True
+    # old.py is in changeset.unchanged → skip
+    assert enricher._needs_enrichment(
+        {"id": "file:old.py", "file_path": "old.py"}, existing, augmentations
+    ) is False

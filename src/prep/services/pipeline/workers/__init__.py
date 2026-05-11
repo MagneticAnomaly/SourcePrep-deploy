@@ -704,6 +704,10 @@ class WorkerFactory:
                 batch_profile=batch_profile,
                 project_id=project_id,
             )
+            # Phase 134: inject the changeset from the wrapped_worker closure
+            # attribute so _needs_enrichment can check changeset.modified
+            # instead of comparing manifest file hashes.
+            enricher.changeset = getattr(wrapped_worker, "changeset", None)
             result = enricher.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             enriched = result.get("enriched_this_run", 0)
             failed = result.get("failed_this_run", 0)
@@ -1022,6 +1026,9 @@ class WorkerFactory:
                 index_dir=idx_dir,
                 project_id=project_id,
             )
+            # Phase 134: inject changeset onto the enricher so _needs_enrichment
+            # can check changeset.modified instead of comparing manifest hashes.
+            enricher.changeset = getattr(wrapped_worker, "changeset", None)
             _t0 = time.time()
             logger.info("[%s/Deepening] Starting deepening loop: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Deepening", progress_cb, project.name)
