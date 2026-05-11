@@ -20,8 +20,8 @@ import { GraphEnrichmentPipeline } from '../../components/trace/GraphEnrichmentP
 import type { TraceCoverageFile, TraceCoverageSummary } from '../../types';
 import { ModularDashboard, type DashboardLayoutApi } from '../../components/layout/ModularDashboard';
 import type { PanelDefinition } from '../../types/layout';
-import { AppShell, Sidebar, ProjectList } from '../../components/navigation/index';
-import type { ProjectSummary } from '../../types';
+import { AppShell, Sidebar, ProjectList, SidebarAIGateway, SidebarPipelineQueue } from '../../components/navigation/index';
+import type { ProjectSummary, LLMSlotsStatus } from '../../types';
 import { CodeViewer } from '../../components/project/CodeViewer';
 import { UsageGuidePanel } from '../../components/dashboard/UsageGuidePanel';
 import { DeepAnalysisSettings, type DeepAnalysisSchedule } from '../../components/llm/DeepAnalysisSettings';
@@ -343,6 +343,25 @@ const demoFileTree: TreeNode[] = sampleFileTree.map(demoStatus);
 // path match the IndexStatusCard's `index_dir` below so the whole demo
 // reads as one coherent "/volumes/filepath/demo-repo" project.
 const DEMO_PROJECT_PATH = '/volumes/filepath/demo-repo';
+
+// SidebarAIGateway needs a slots-status payload. Mock "all connected to
+// local Ollama" — matches the most common dev state and keeps the
+// labels generic (no real org / cloud provider names leak into the
+// public storybook build).
+const mockLLMSlots: LLMSlotsStatus = {
+  running_tasks: [],
+  embedding:    { configured: true, status: 'connected', model: 'nomic-embed-text',     provider: 'ollama' },
+  small_model:  { configured: true, status: 'connected', model: 'qwen2.5:3b',           provider: 'ollama' },
+  large_model:  { configured: true, status: 'connected', model: 'qwen2.5:14b',          provider: 'ollama' },
+  code_model:   { configured: true, status: 'connected', model: 'qwen2.5-coder:7b',     provider: 'ollama' },
+};
+
+// SidebarPipelineQueue fetches from baseUrl/system/pipeline-queue. We
+// point it at an unreachable host (the `.invalid` TLD is reserved by
+// RFC 6761) so the fetch silently fails, the queue stays empty, and
+// the visitor sees the collapsed "Pipeline Queue" header without any
+// fake data. Real daemon at :8400 on the dev machine is bypassed.
+const DEMO_DAEMON_URL = 'http://demo.invalid';
 const mockProjects: ProjectSummary[] = [
   {
     id: 'demo-project',
@@ -1065,6 +1084,9 @@ export const FullDashboard: StoryObj = {
           <Sidebar
             collapsed={sidebarCollapsed}
             onCollapseToggle={() => setSidebarCollapsed((c) => !c)}
+            footer={sidebarCollapsed ? (
+              <SidebarAIGateway slotsStatus={mockLLMSlots} collapsed onOpenDetails={noop} />
+            ) : undefined}
           >
             {!sidebarCollapsed && (
               <ProjectList
@@ -1072,6 +1094,12 @@ export const FullDashboard: StoryObj = {
                 selectedProjectId="demo-project"
                 onProjectSelect={noop}
                 onAddProject={noop}
+                beforeActions={
+                  <>
+                    <SidebarPipelineQueue baseUrl={DEMO_DAEMON_URL} />
+                    <SidebarAIGateway slotsStatus={mockLLMSlots} onOpenDetails={noop} />
+                  </>
+                }
               />
             )}
           </Sidebar>
