@@ -10,6 +10,7 @@ import type { SearchResult } from '../../types';
 import { ChunkPreview } from '../../components/search/ChunkPreview';
 import { ContextOutput } from '../../components/search/ContextOutput';
 import { sampleFileTree } from '../../components/project/index';
+import type { TreeNode } from '../../components/project/index';
 import { FolderTreePanel } from '../../components/project/FolderTreePanel';
 import { FileExplorerDetail } from '../../components/project/FileExplorerDetail';
 import type { PinnedTextFile } from '../../components/project/PinnedTextFilesPanel';
@@ -308,6 +309,34 @@ const ALWAYS_IGNORED_GLOBS: string[] = [
   '**/GEMINI.md',
 ];
 
+/**
+ * Demo-only transform on top of `sampleFileTree`.
+ *
+ * The shared sample tree hardcodes `status: 'indexed'` on most files and
+ * `status: 'pending'` on ROADMAP.md, which overrides FolderTree's derived
+ * "pending when newly included" logic. For the Scope panel demo we want:
+ *
+ *   - ROADMAP.md (the only pre-included file) → render as `indexed`.
+ *   - Every other file → no hardcoded status, so toggling it on derives
+ *     to `pending`, matching what the live app does on a fresh include.
+ *   - Ignored folders (node_modules + its descendants) keep `ignored`.
+ */
+function demoStatus(node: TreeNode): TreeNode {
+  if (node.type === 'file' && node.name === 'ROADMAP.md') {
+    return { ...node, status: 'indexed', chunks: 12 };
+  }
+  if (node.status === 'ignored') {
+    return { ...node, children: node.children?.map(demoStatus) };
+  }
+  const next: TreeNode = { ...node };
+  delete next.status;
+  delete next.chunks;
+  if (node.children) next.children = node.children.map(demoStatus);
+  return next;
+}
+
+const demoFileTree: TreeNode[] = sampleFileTree.map(demoStatus);
+
 const mockScopes: ScopeSummary[] = [
   { id: 'global', display_name: 'Global', path_count: 18, assigned_to_role: null },
   { id: 'scope-backend', display_name: 'Backend', path_count: 9, assigned_to_role: null },
@@ -522,7 +551,7 @@ function ScopePanelDemo({
   pathWeights,
   onWeightChange,
 }: {
-  data: typeof sampleFileTree;
+  data: TreeNode[];
   includedPaths: Set<string>;
   onToggleInclude: (paths: string[], action: 'add' | 'remove') => void;
   pathWeights: Record<string, number>;
@@ -826,7 +855,7 @@ export const FullDashboard: StoryObj = {
       ),
       'file-tree': (
         <ScopePanelDemo
-          data={sampleFileTree}
+          data={demoFileTree}
           includedPaths={includedPaths}
           onToggleInclude={handleToggleInclude}
           pathWeights={pathWeights}
@@ -997,7 +1026,7 @@ export const FullDashboard: StoryObj = {
       ),
       'file-tree': (
         <FileExplorerDetail
-          treeData={sampleFileTree}
+          treeData={demoFileTree}
           pinnedPaths={pinnedPathsSet}
           onPinFile={handlePinFile}
           onUnpinFile={handleUnpinFile}
