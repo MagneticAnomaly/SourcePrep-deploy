@@ -1,4 +1,3 @@
-import { Badge } from '@tremor/react';
 import { Clock, Cpu } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { AtlasStatus } from '../../../types';
@@ -25,7 +24,6 @@ export function StatusStrip({
 }: StatusStripProps) {
   const exists = atlas?.exists ?? false;
   const stale = atlas?.stale ?? false;
-  const mode = atlas?.mode ?? 'structural';
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -34,11 +32,6 @@ export function StatusStrip({
           {!exists && <StatusBadge status="disabled" labelOverride="Not Generated" />}
           {exists && !stale && <StatusBadge status="fresh" />}
           {exists && stale && <StatusBadge status="stale" />}
-          {exists && (
-            <Badge color={mode === 'llm' ? 'indigo' : 'gray'} size="xs">
-              {mode}
-            </Badge>
-          )}
         </div>
         {onRegenerate && (
           <StageRegenerateButton

@@ -5,6 +5,7 @@ import type { AtlasStatus, RoleVectorPayload } from '../../../types';
 import { BudgetBar } from './BudgetBar';
 import { BudgetSlider } from './BudgetSlider';
 import { PinnedConceptsList } from './PinnedConceptsList';
+import { Select } from '../../primitives/Select';
 
 export interface RoleLensProps {
   atlas: AtlasStatus | null;
@@ -68,19 +69,17 @@ export function RoleLens({
         <label htmlFor="atlas-role-picker" className="text-sm font-medium">
           Role Lens
         </label>
-        <select
+        <Select
           id="atlas-role-picker"
           value={role ?? ''}
           onChange={(e) => onRoleChange(e.target.value || null)}
-          className="ml-auto rounded-md border border-border bg-surface-raised px-2 py-1 text-sm"
-        >
-          <option value="">— none —</option>
-          {roleOptions.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
+          size="sm"
+          className="ml-auto w-auto min-w-[10rem]"
+          options={[
+            { value: '', label: '— none —' },
+            ...roleOptions.map((opt) => ({ value: opt.id, label: opt.label })),
+          ]}
+        />
       </div>
 
       {!role && (
