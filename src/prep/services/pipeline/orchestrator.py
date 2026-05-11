@@ -569,12 +569,6 @@ class PipelineOrchestrator:
             # the user sees concrete confirmation that "stale and new files"
             # are part of the rebuild scope.
             try:
-                refreshed = self._refresh_manifest_hashes(project_id)
-                if refreshed > 0 and pfl:
-                    pfl.log("fast_sync", f"Pre-rebuild: refreshed {refreshed} file hashes")
-            except Exception:
-                logger.debug("U19 manifest hash refresh failed (non-fatal)", exc_info=True)
-            try:
                 gap = self.check_coverage_gap(project_id, include_paths=True)
                 stale = gap.get("stale", 0)
                 untraced = gap.get("untraced", 0)
@@ -678,20 +672,6 @@ class PipelineOrchestrator:
 
             # Phase 53: All manifests exist — but are there stale files?
             try:
-                # Phase 72: Refresh file_hashes first to clear false
-                # "stale" from the Phase 60D structural-skip.
-                try:
-                    refreshed = self._refresh_manifest_hashes(project_id)
-                    if refreshed > 0:
-                        logger.info(
-                            "Pre-gap refresh: updated %d file hashes for %s",
-                            refreshed, project_id,
-                        )
-                        if pfl:
-                            pfl.log("fast_sync", f"Pre-gap: refreshed {refreshed} file hashes")
-                except Exception:
-                    pass  # Non-fatal
-
                 gap = self.check_coverage_gap(project_id, include_paths=True)
 
                 if pfl:
@@ -1596,11 +1576,6 @@ class PipelineOrchestrator:
 
 
     @staticmethod
-    def _refresh_manifest_hashes(project_id: str) -> int:
-        """Delegates to ResumeStrategy.refresh_manifest_hashes."""
-        return ResumeStrategy.refresh_manifest_hashes(project_id)
-
-    @staticmethod
     def check_coverage_gap(project_id: str, include_paths: bool = False) -> dict[str, Any]:
         """Delegates to ResumeStrategy.check_coverage_gap."""
         return ResumeStrategy.check_coverage_gap(project_id, include_paths)
@@ -1620,7 +1595,6 @@ class PipelineOrchestrator:
             project_id,
             run_fast_sync_fn=self.run_fast_sync,
             is_any_active_fn=_is_active,
-            refresh_hashes_fn=self._refresh_manifest_hashes,
             pfl=pfl,
         )
     def _resolve_node_for_stage(
@@ -2220,21 +2194,6 @@ class PipelineOrchestrator:
                     logger.info(
                         "NOT chaining deep enrichment for %s (reason=%s)",
                         run.project_id, chain_reason,
-                    )
-
-                # Phase 72: After fast_sync completes, refresh file_hashes
-                # in trace_manifest.json so that modified files are no longer
-                # reported as "stale" by check_coverage_gap().  This is
-                # necessary because the structural stage is skipped during
-                # incremental runs (Phase 60D).
-                try:
-                    refreshed = self._refresh_manifest_hashes(run.project_id)
-                    if refreshed > 0 and pfl:
-                        pfl.log("fast_sync", f"Refreshed {refreshed} file hashes in manifest")
-                except Exception as exc:
-                    logger.warning(
-                        "Failed to refresh manifest hashes for %s: %s",
-                        run.project_id, exc,
                     )
 
                 # Phase 48-F8: After fast_sync completes, schedule a
