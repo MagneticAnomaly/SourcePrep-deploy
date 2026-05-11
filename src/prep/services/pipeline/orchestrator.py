@@ -2417,13 +2417,12 @@ class PipelineOrchestrator:
         # so detect_resume_point correctly detects the stage as incomplete
         # and resumes from it.
         #
-        # Phase 133 hardening: RENAME instead of unlink, so a Rust panic
-        # (or any worker crash) inside the stage doesn't leave the project
-        # without a manifest. The .f67_pending backup is restored at the
-        # next stage start if no fresh manifest was written. Trigger
-        # incident: prep_engine.build_trace panicked on an em-dash in a
-        # docstring, leaving .sourceprep/trace_manifest.json missing → the
-        # dashboard showed 0/1933 traced and looked like a catastrophe.
+        # Phase 134 simplification: the changeset is now the inter-stage
+        # truth, so the manifest is no longer load-bearing for downstream
+        # stages. We rename instead of unlink (so resume-point detection sees
+        # the absence and marks the stage incomplete), but no longer restore
+        # from .f67_pending backup — the changeset from the last successful
+        # run is still on disk and downstream stages keep working off it.
         try:
             from prep.core.project_registry import project_index_dir
             from prep.services.project_helpers import require_project
@@ -2434,19 +2433,9 @@ class PipelineOrchestrator:
                 _manifest_path = _idx_dir / _manifest_file
                 _backup_path = _idx_dir / f"{_manifest_file}.f67_pending"
 
-                # Restore from a prior failed run's backup BEFORE invalidating.
-                # If the previous attempt panicked and no fresh manifest was
-                # written since, _backup_path holds the last-known-good state.
-                if _backup_path.exists() and not _manifest_path.exists():
-                    _backup_path.rename(_manifest_path)
-                    logger.warning(
-                        "F-67 hardening: restored manifest %s from .f67_pending "
-                        "backup (prior stage attempt left no fresh manifest)",
-                        _manifest_file,
-                    )
-
                 if _manifest_path.exists():
-                    # Rename instead of unlink — surviving crash recovery.
+                    # Rename instead of unlink — keeps the manifest safe but
+                    # signals absence to resume-point detection.
                     if _backup_path.exists():
                         _backup_path.unlink()  # drop any prior backup
                     _manifest_path.rename(_backup_path)
