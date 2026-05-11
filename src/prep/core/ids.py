@@ -37,39 +37,3 @@ def stable_edge_id(kind: str, source: str, target: str, disambiguator: str = "")
     return f"edge:{kind}:{source}:{target}"
 
 
-# ── Phase 133 hot-fix: hash format mismatch grace check ──────────────
-# Phase 133 cut over the trace manifest from SHA-256-64 (16 hex chars)
-# to BLAKE3-128 (32 hex chars). Stages 6-15 (augmenter, enrichment,
-# deepening, epistemic_score, audit) each independently compare a
-# stored per-entry `file_hash` against the live manifest's `file_hashes`
-# to decide if their cached enrichment is stale. After Phase 133 the
-# stored hashes are still SHA-256 (from prior runs) while the manifest
-# is BLAKE3 — so EVERY comparison fails by length, every entry looks
-# stale, and clicking deep_enrichment Auto re-runs the whole LLM chain
-# unnecessarily.
-#
-# This helper short-circuits comparisons where the two strings can't
-# possibly represent the same hash (different algorithms / lengths),
-# returning False (not-stale) so the cached enrichment is preserved.
-# When a file is genuinely modified later, the augmenter writes a new
-# BLAKE3 entry; comparisons within the same algorithm work normally.
-#
-# Phase 134 deletes this helper AND every call site — the changeset-
-# driven pipeline removes per-stage staleness checks entirely, so
-# `is_stale` becomes a non-question outside stage 1. Grep for
-# `is_hash_stale` to find every call site that goes away.
-def is_hash_stale(stored_hash: str, current_hash: str) -> bool:
-    """Return True only when the two hashes were produced by the same
-    algorithm AND differ. A length mismatch (different algorithms) is
-    treated as not-stale — Phase 133 migration grace.
-
-    Both inputs may be empty/None; caller is responsible for the
-    "have we ever hashed this?" check before delegating to us.
-    """
-    if not stored_hash or not current_hash:
-        return False
-    if len(stored_hash) != len(current_hash):
-        # Phase 133 grace: SHA-256-64 (16 char) vs BLAKE3-128 (32 char).
-        # Cannot meaningfully compare — preserve the cached entry.
-        return False
-    return stored_hash != current_hash
