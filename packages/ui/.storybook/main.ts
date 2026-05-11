@@ -111,6 +111,24 @@ const config: StorybookConfig = {
       ...(config.define ?? {}),
       'import.meta.env.STORYBOOK_PUBLIC': JSON.stringify(isPublic),
     };
+
+    // Tell Vite's dep optimizer to scan ALL story files upfront so it
+    // pre-bundles every dep on startup. Without this, Vite discovers deps
+    // lazily as you navigate between stories — when a heavy story (like
+    // FullDashboard, which imports 30+ components) is opened, Vite kicks
+    // off a fresh optimize pass, rewrites chunk hashes, and the browser's
+    // in-memory module graph still references the old hashes. The result
+    // is repeated "chunk-XXXXX.js does not exist" errors that require a
+    // hard refresh. Pre-discovering all entries eliminates the race.
+    config.optimizeDeps = {
+      ...(config.optimizeDeps ?? {}),
+      entries: [
+        '.storybook/preview.tsx',
+        'src/**/*.stories.@(ts|tsx|js|jsx|mdx)',
+        'src/**/*.mdx',
+      ],
+      holdUntilCrawlEnd: true,
+    };
     return config;
   },
 };
