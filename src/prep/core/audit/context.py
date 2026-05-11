@@ -93,6 +93,14 @@ def load_audit_context(
         except Exception as e:
             logger.warning("Failed to load manifest: %s", e)
 
+    # Phase 134: populate changeset so StalenessAnalyzer can run orphan +
+    # coverage-gap checks without hashing files.
+    try:
+        from prep.services.pipeline.changeset import read_changeset
+        ctx.changeset = read_changeset(index_dir)
+    except Exception as e:
+        logger.debug("Could not load changeset for audit context: %s", e)
+
     # Load repo_policy exclude globs so file_nodes filters out
     # vendor/Pods/node_modules/etc. files that may be in old trace data.
     exclude_globs = _load_exclude_globs(index_dir)

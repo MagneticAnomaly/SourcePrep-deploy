@@ -263,3 +263,102 @@ def test_score_weights_sum_to_one_after_c6_removal():
         "discounts for stale enrichment because stale entries don't "
         "exist (the changeset prevents them at the augmenter level)"
     )
+
+
+# ---------------------------------------------------------------------------
+# Task 8: Audit StalenessAnalyzer rewrite (orphan + coverage-gap checks)
+# ---------------------------------------------------------------------------
+
+def test_audit_staleness_uses_changeset_not_hashes():
+    from prep.core.audit.analyzers import staleness
+    src = inspect.getsource(staleness)
+    assert "is_hash_stale" not in src
+    assert "prep_engine.hash_content" not in src and "prep_engine\\.hash_content" not in src, (
+        "audit StalenessAnalyzer must not hash files itself — orphan "
+        "and coverage-gap checks read changeset; no hashing"
+    )
+    # Token-boundary check: file_hash should not appear as a name reference
+    import re
+    for lineno, line in enumerate(src.splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith("#") or stripped.startswith('"""') or stripped.startswith("'''"):
+            continue
+        if re.search(r'\bfile_hash\b', line) and "Phase 134" not in line:
+            assert False, f"staleness.py line {lineno} still references file_hash:\n  {line}"
+    assert "should_process" in src or "changeset" in src, (
+        "audit StalenessAnalyzer must consult the changeset"
+    )
+
+
+def test_audit_staleness_orphan_check():
+    """Files in changeset.deleted that still have augmentations are
+    orphans — flag them."""
+    from prep.core.audit.analyzers.staleness import StalenessAnalyzer
+    from prep.core.audit.models import AuditContext
+    from pathlib import Path
+
+    cs = Changeset(
+        added=frozenset(),
+        modified=frozenset(),
+        deleted=frozenset({"gone.py"}),
+        unchanged=frozenset({"alive.py"}),
+        run_id="r1",
+        base_run_id=None,
+    )
+    ctx = AuditContext(
+        project_root=Path("/tmp/fake"),
+        augmentations={
+            "file:gone.py": {"node_id": "file:gone.py"},
+            "file:alive.py": {"node_id": "file:alive.py"},
+        },
+        changeset=cs,
+    )
+    analyzer = StalenessAnalyzer()
+    findings = analyzer.analyze(ctx)
+    # Should find one orphan (gone.py) and zero stale-content findings
+    orphan_findings = [
+        f for f in findings
+        if "orphan" in f.title.lower() or "deleted" in f.title.lower()
+    ]
+    assert len(orphan_findings) == 1, (
+        f"expected 1 orphan finding for gone.py; got {len(orphan_findings)}: {orphan_findings}"
+    )
+
+
+def test_audit_staleness_coverage_gap_check():
+    """Files in changeset.added | modified that the augmenter didn't
+    process — flag as coverage gap."""
+    from prep.core.audit.analyzers.staleness import StalenessAnalyzer
+    from prep.core.audit.models import AuditContext
+    from pathlib import Path
+
+    cs = Changeset(
+        added=frozenset({"new.py"}),
+        modified=frozenset({"changed.py"}),
+        deleted=frozenset(),
+        unchanged=frozenset({"old.py"}),
+        run_id="r1",
+        base_run_id=None,
+    )
+    ctx = AuditContext(
+        project_root=Path("/tmp/fake"),
+        augmentations={
+            # changed.py has an entry; new.py and old.py don't
+            "file:changed.py": {"node_id": "file:changed.py"},
+            "file:old.py": {"node_id": "file:old.py"},  # carried forward, fine
+        },
+        changeset=cs,
+    )
+    analyzer = StalenessAnalyzer()
+    findings = analyzer.analyze(ctx)
+    gap_findings = [
+        f for f in findings
+        if "augment" in f.title.lower() and (
+            "not" in f.title.lower()
+            or "missing" in f.title.lower()
+            or "gap" in f.title.lower()
+        )
+    ]
+    assert len(gap_findings) >= 1, (
+        f"expected coverage-gap finding for new.py; got findings={findings}"
+    )
