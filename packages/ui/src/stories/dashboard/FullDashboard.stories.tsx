@@ -9,7 +9,6 @@ import { SearchResultsList } from '../../components/search/SearchResultsList';
 import type { SearchResult } from '../../types';
 import { ChunkPreview } from '../../components/search/ChunkPreview';
 import { ContextOutput } from '../../components/search/ContextOutput';
-import { sampleFileTree } from '../../components/project/index';
 import type { TreeNode } from '../../components/project/index';
 import { FolderTreePanel } from '../../components/project/FolderTreePanel';
 import { FileExplorerDetail } from '../../components/project/FileExplorerDetail';
@@ -101,28 +100,28 @@ const mockResults: SearchResult[] = [
 ];
 
 const mockUntracedFiles: TraceCoverageFile[] = [
-  { path: 'src/api/handlers.ts', language: 'typescript', size: 4200, modified: new Date(Date.now() - 3_600_000).toISOString(), created: new Date(Date.now() - 86_400_000).toISOString() },
-  { path: 'src/utils/logger.ts', language: 'typescript', size: 1800, modified: new Date(Date.now() - 86_400_000).toISOString(), created: new Date(Date.now() - 604_800_000).toISOString() },
-  { path: 'src/core/scheduler.py', language: 'python', size: 6100, modified: new Date(Date.now() - 3_600_000).toISOString(), created: new Date(Date.now() - 86_400_000).toISOString() },
+  { path: 'backend/workers/retry.py', language: 'python', size: 4200, modified: new Date(Date.now() - 3_600_000).toISOString(), created: new Date(Date.now() - 86_400_000).toISOString() },
+  { path: 'frontend/src/lib/format.ts', language: 'typescript', size: 1800, modified: new Date(Date.now() - 86_400_000).toISOString(), created: new Date(Date.now() - 604_800_000).toISOString() },
+  { path: 'backend/core/scheduler.py', language: 'python', size: 6100, modified: new Date(Date.now() - 3_600_000).toISOString(), created: new Date(Date.now() - 86_400_000).toISOString() },
 ];
 
 const mockStaleFiles: TraceCoverageFile[] = [
-  { path: 'src/core/index.py', language: 'python', size: 8900, modified: new Date(Date.now() - 3_600_000).toISOString(), created: new Date(Date.now() - 604_800_000).toISOString() },
+  { path: 'backend/services/task_service.py', language: 'python', size: 18_400, modified: new Date(Date.now() - 3_600_000).toISOString(), created: new Date(Date.now() - 604_800_000).toISOString() },
 ];
 
 const mockExcludedFiles: TraceCoverageFile[] = [
-  { path: 'tests/test_api.py', language: 'python', size: 3200, modified: new Date(Date.now() - 86_400_000).toISOString(), created: new Date(Date.now() - 604_800_000).toISOString() },
+  { path: 'tests/backend/test_tasks.py', language: 'python', size: 3200, modified: new Date(Date.now() - 86_400_000).toISOString(), created: new Date(Date.now() - 604_800_000).toISOString() },
   { path: 'scripts/deploy.sh', language: null, size: 800, modified: new Date(Date.now() - 86_400_000).toISOString(), created: new Date(Date.now() - 604_800_000).toISOString() },
 ];
 
 const mockCoverageSummary: TraceCoverageSummary = {
-  total: 42,
-  traced: 38,
+  total: 89,
+  traced: 78,
   untraced: 3,
   stale: 1,
-  excluded: 2,
-  coverage_pct: 90.5,
-  last_build_at: new Date(Date.now() - 3_600_000).toISOString(),
+  excluded: 7,
+  coverage_pct: 87.6,
+  last_build_at: new Date(Date.now() - 7_200_000).toISOString(),
 };
 
 import { PANEL_REGISTRY } from '../../config/panelRegistry';
@@ -158,55 +157,136 @@ const PINNED_PREFIX = 'pinned:';
 // ────────────────────────────────────────────────────────────────────────────
 
 const mockAuditFindings: AuditFinding[] = [
+  // ── Warnings ──
   {
     finding_id: 'a1',
-    analyzer: 'doc-coverage',
-    severity: 'info',
-    category: 'coverage',
-    title: 'README missing usage section',
-    description: 'The repo README has install steps but no usage examples.',
-    file_paths: ['README.md'],
-    evidence: {},
-    suggested_action: 'Add a "Usage" section with two or three short examples.',
-    priority: 'P3',
-    effort: 'small',
+    analyzer: 'oversized-files',
+    severity: 'warning',
+    category: 'size',
+    title: 'task_service.py is 18KB',
+    description: 'Approaching the 20KB soft ceiling. Status-transition logic plus side-effect orchestration in one module.',
+    file_paths: ['backend/services/task_service.py'],
+    evidence: { size_bytes: 18_400 },
+    suggested_action: 'Extract status-transition state machine into its own module.',
+    priority: 'P2',
+    effort: 'medium',
   },
   {
     finding_id: 'a2',
+    analyzer: 'import-cycles',
+    severity: 'warning',
+    category: 'architecture',
+    title: 'Import cycle: api.tasks ↔ services.task_service',
+    description: 'tasks.py imports task_service for the create flow; task_service imports tasks for the route URL helpers.',
+    file_paths: ['backend/api/tasks.py', 'backend/services/task_service.py'],
+    evidence: { cycle_length: 2 },
+    suggested_action: 'Move shared TaskRef types to backend/models/task.py and import from there in both.',
+    priority: 'P2',
+    effort: 'medium',
+  },
+  // ── Info ──
+  {
+    finding_id: 'a3',
     analyzer: 'todo-scanner',
     severity: 'info',
     category: 'quality',
-    title: '3 TODOs in core/',
-    description: 'Outstanding TODO comments tracked for the next sprint.',
-    file_paths: ['src/core/embedder.py', 'src/core/cache.py'],
-    evidence: { todo_count: 3 },
+    title: '4 TODOs in backend/workers/',
+    description: 'Outstanding TODO comments tracked for the next sprint — retry backoff tuning + dead-letter wiring.',
+    file_paths: ['backend/workers/queue.py', 'backend/workers/retry.py'],
+    evidence: { todo_count: 4 },
     suggested_action: 'Triage and convert to issues or close.',
     priority: 'P3',
     effort: 'small',
   },
   {
-    finding_id: 'a3',
-    analyzer: 'oversized-files',
-    severity: 'warning',
-    category: 'size',
-    title: 'cache.ts is 22KB',
-    description: 'Approaching the 25KB soft ceiling we use as a refactor signal.',
-    file_paths: ['src/core/cache.ts'],
-    evidence: { size_bytes: 22_400 },
-    suggested_action: 'Split caching policy into its own module.',
+    finding_id: 'a4',
+    analyzer: 'stale-docs',
+    severity: 'info',
+    category: 'coverage',
+    title: 'ROADMAP.md last touched 3 weeks ago',
+    description: 'No entries since the v0.4 release; v0.5 milestones are not reflected.',
+    file_paths: ['docs/ROADMAP.md'],
+    evidence: {},
+    suggested_action: 'Backfill v0.5 milestones from the closed PR list.',
+    priority: 'P3',
+    effort: 'small',
+  },
+  {
+    finding_id: 'a5',
+    analyzer: 'doc-coverage',
+    severity: 'info',
+    category: 'coverage',
+    title: 'README missing "Local development" section',
+    description: 'README documents production deploy but not the docker-compose dev loop.',
+    file_paths: ['docs/README.md'],
+    evidence: {},
+    suggested_action: 'Add a "Local development" section pointing at docker-compose.yml.',
+    priority: 'P3',
+    effort: 'small',
+  },
+  {
+    finding_id: 'a6',
+    analyzer: 'test-coverage',
+    severity: 'info',
+    category: 'testing',
+    title: 'lib/date.ts has no tests',
+    description: 'date.ts is referenced by the "frontend never trusts client-side timestamps" concept — load-bearing but untested.',
+    file_paths: ['frontend/src/lib/date.ts'],
+    evidence: { test_files: 0 },
+    suggested_action: 'Add a test file covering tz normalization + drift handling.',
     priority: 'P2',
+    effort: 'small',
+  },
+  // ── Suggestions ──
+  {
+    finding_id: 'a7',
+    analyzer: 'concept-coverage',
+    severity: 'suggestion',
+    category: 'coverage',
+    title: 'Concept "Tasks soft-delete with deleted_at" is a seed',
+    description: 'Auto-detected pattern from backend/models/task.py is still in seed status — promote or archive.',
+    file_paths: ['backend/models/task.py'],
+    evidence: {},
+    suggested_action: 'Review the concept and promote to active if it reflects intent.',
+    priority: 'P3',
+    effort: 'small',
+  },
+  {
+    finding_id: 'a8',
+    analyzer: 'coupling',
+    severity: 'suggestion',
+    category: 'architecture',
+    title: 'email.py fans out to 12 imports',
+    description: 'Possible god-module — email composition, SMTP transport, and template rendering all in one file.',
+    file_paths: ['backend/services/email.py'],
+    evidence: { import_count: 12 },
+    suggested_action: 'Split into transport + template + composer.',
+    priority: 'P3',
     effort: 'medium',
   },
   {
-    finding_id: 'a4',
-    analyzer: 'stale-docs',
+    finding_id: 'a9',
+    analyzer: 'react-patterns',
+    severity: 'suggestion',
+    category: 'quality',
+    title: 'Settings.tsx has 8 useState calls',
+    description: 'High useState count suggests reducer-shaped state. Consider extracting useReducer.',
+    file_paths: ['frontend/src/pages/Settings.tsx'],
+    evidence: { useState_count: 8 },
+    suggested_action: 'Refactor to useReducer with a Settings action type.',
+    priority: 'P3',
+    effort: 'medium',
+  },
+  {
+    finding_id: 'a10',
+    analyzer: 'atlas-coverage',
     severity: 'suggestion',
     category: 'coverage',
-    title: 'CHANGELOG.md last touched 6 months ago',
-    description: 'No entries since the v0.4 release.',
-    file_paths: ['CHANGELOG.md'],
-    evidence: {},
-    suggested_action: 'Backfill recent feature work or auto-generate from PR titles.',
+    title: '3 directories without sub-atlases',
+    description: 'scripts/, tests/backend/, tests/frontend/ have no curated atlas — agent answers about these areas fall back to raw retrieval.',
+    file_paths: ['scripts/', 'tests/backend/', 'tests/frontend/'],
+    evidence: { uncovered_dirs: 3 },
+    suggested_action: 'Either add sub-atlases or explicitly tag these dirs as "no-atlas".',
     priority: 'P3',
     effort: 'small',
   },
@@ -218,86 +298,153 @@ const mockAuditReports: AuditReport[] = [
 ];
 
 const mockConcepts: ConceptItem[] = [
+  // ── Architecture (3, all active) ──
   {
     id: 'c1',
-    title: 'Local-first by default',
-    content: 'All indexing and inference run locally. Cloud endpoints are opt-in via BYOK.',
+    title: 'Single source of truth for task state',
+    content: 'task_service owns every status transition; routes and workers call into it rather than mutating the model directly. Prevents partial-update races where the API thinks a task is `done` while a worker still has it `running`.',
     category: 'architecture',
     status: 'active',
-    confidence: 0.95,
-    anchors: ['src/core/indexer.py', 'src/llm/router.py'],
-    tags: ['privacy', 'principle'],
-    created_at: Date.now() / 1000 - 86_400 * 14,
+    confidence: 0.94,
+    anchors: ['backend/services/task_service.py'],
+    tags: ['state-machine', 'consistency'],
+    created_at: Date.now() / 1000 - 86_400 * 21,
   },
   {
     id: 'c2',
-    title: 'Structural retrieval over vector-only',
-    content: 'Search blends vector similarity with structural graph traversal so results stay grounded in import/dependency edges.',
+    title: 'Auth lives at the dependency layer, not in routes',
+    content: 'FastAPI Depends(current_user) wraps every protected route. Routes never call get_user() directly so tests can swap the dependency.',
     category: 'architecture',
     status: 'active',
-    confidence: 0.92,
-    anchors: ['src/search/router.ts', 'src/graph/walker.py'],
-    tags: ['search', 'differentiator'],
-    created_at: Date.now() / 1000 - 86_400 * 7,
+    confidence: 0.96,
+    anchors: ['backend/api/deps.py', 'backend/api/auth.py'],
+    tags: ['auth', 'testability'],
+    created_at: Date.now() / 1000 - 86_400 * 18,
   },
   {
     id: 'c3',
-    title: 'Auto-rebuild is debounced + storm-protected',
-    content: 'File-watcher coalesces bursts and applies a per-project storm cap so a vendored dependency drop does not thrash the indexer.',
-    category: 'constraint',
+    title: 'Optimistic UI reconciles on next fetch',
+    content: 'useTasks applies edits to local state immediately, then refetches to verify. If the server rejects, the next refetch rolls back. Keeps the UI snappy without phantom state.',
+    category: 'architecture',
     status: 'active',
-    confidence: 0.89,
-    anchors: ['src/watch/coalescer.ts'],
-    tags: ['watch', 'reliability'],
-    created_at: Date.now() / 1000 - 86_400 * 4,
+    confidence: 0.88,
+    anchors: ['frontend/src/hooks/useTasks.ts'],
+    tags: ['ux', 'frontend'],
+    created_at: Date.now() / 1000 - 86_400 * 9,
   },
+  // ── Constraints (4, all active — these auto-derive antibodies) ──
   {
     id: 'c4',
-    title: 'Token budget caps every LLM call',
-    content: 'Every cloud or local LLM invocation is bounded by an explicit per-call token budget. No unbounded prompts ship.',
+    title: 'All cloud LLM calls are budget-capped',
+    content: 'Every notification template render and every job-summary call passes through a per-call token budget. No unbounded prompt ever ships to a cloud provider.',
     category: 'constraint',
     status: 'active',
     confidence: 0.97,
-    anchors: ['src/llm/budget.ts'],
-    tags: ['safety', 'cost'],
-    created_at: Date.now() / 1000 - 86_400 * 2,
+    anchors: ['backend/services/notification_service.py', 'backend/workers/jobs.py'],
+    tags: ['cost', 'safety'],
+    created_at: Date.now() / 1000 - 86_400 * 14,
   },
   {
     id: 'c5',
-    title: 'Sample seed concept — adjust me',
-    content: 'Newly seeded concept awaiting human review.',
-    category: 'general',
+    title: 'Background jobs are idempotent',
+    content: 'Every job carries an idempotency key; the queue dedupes on retry. Required because retry.py uses at-least-once delivery and the SMTP transport can succeed before ack.',
+    category: 'constraint',
+    status: 'active',
+    confidence: 0.93,
+    anchors: ['backend/workers/queue.py', 'backend/workers/retry.py'],
+    tags: ['reliability', 'workers'],
+    created_at: Date.now() / 1000 - 86_400 * 11,
+  },
+  {
+    id: 'c6',
+    title: 'DB sessions never cross request boundaries',
+    content: 'get_session() is request-scoped via FastAPI dependency. Closing late once exhausted the connection pool — fixed in v0.4, antibody monitors for stale session leaks.',
+    category: 'constraint',
+    status: 'active',
+    confidence: 0.95,
+    anchors: ['backend/core/db.py'],
+    tags: ['db', 'lifecycle'],
+    created_at: Date.now() / 1000 - 86_400 * 5,
+  },
+  {
+    id: 'c7',
+    title: 'Frontend never trusts client-side timestamps',
+    content: 'All timestamps render through lib/date.ts which normalizes against server time. Clock drift on user devices used to produce "task scheduled in the past" bugs.',
+    category: 'constraint',
+    status: 'active',
+    confidence: 0.90,
+    anchors: ['frontend/src/lib/date.ts'],
+    tags: ['frontend', 'reliability'],
+    created_at: Date.now() / 1000 - 86_400 * 3,
+  },
+  // ── Pattern (1, active) ──
+  {
+    id: 'c8',
+    title: 'Notification side-effects are batched, not per-event',
+    content: 'Task changes accumulate in a per-user buffer; notification_service flushes the buffer on a 60s tick or when the user comes online. Avoids hitting provider rate limits during bulk edits.',
+    category: 'pattern',
+    status: 'active',
+    confidence: 0.87,
+    anchors: ['backend/services/notification_service.py'],
+    tags: ['notifications', 'rate-limits'],
+    created_at: Date.now() / 1000 - 86_400 * 6,
+  },
+  // ── Seeds (2, awaiting promotion) ──
+  {
+    id: 'c9',
+    title: 'Tasks soft-delete with a deleted_at column',
+    content: 'task.py has deleted_at + a partial index on deleted_at IS NULL. Inferred from the model; intent looks deliberate. Promote if confirmed.',
+    category: 'constraint',
     status: 'seed',
-    confidence: 0.6,
-    anchors: [],
-    tags: [],
-    created_at: Date.now() / 1000 - 3_600,
+    confidence: 0.72,
+    anchors: ['backend/models/task.py'],
+    tags: ['db', 'undo'],
+    created_at: Date.now() / 1000 - 86_400 * 2,
+  },
+  {
+    id: 'c10',
+    title: 'Email templates live in code, not the database',
+    content: 'email.py loads Jinja templates from disk at boot. Inferred from the import structure; might want to confirm intent vs. accident.',
+    category: 'pattern',
+    status: 'seed',
+    confidence: 0.68,
+    anchors: ['backend/services/email.py'],
+    tags: ['email', 'review-ability'],
+    created_at: Date.now() / 1000 - 3_600 * 6,
   },
 ];
 
 const mockConceptQuestions: ConceptQuestionItem[] = [
   {
     id: 'q1',
-    question: 'Should the cache layer expose a hit-rate metric?',
-    context: 'Several call sites read from src/core/cache without observability.',
-    suggested_category: 'observability',
-    target_module: 'core/cache',
+    question: 'Should we expose a task-history audit log to end users?',
+    context: 'task_service emits status_changed events, but they only land in the worker logs. Users have asked for an in-product timeline view.',
+    suggested_category: 'pattern',
+    target_module: 'backend/services/task_service.py',
+    answered: false,
+  },
+  {
+    id: 'q2',
+    question: 'Is the reducer in Dashboard.tsx supposed to be shared with TaskList?',
+    context: 'Both files reimplement nearly identical filter state. Likely accidental duplication.',
+    suggested_category: 'architecture',
+    target_module: 'frontend/src/pages/Dashboard.tsx',
     answered: false,
   },
 ];
 
 const mockConceptStats: ConceptStats = {
-  total: 5,
-  active: 4,
-  seeds: 1,
+  total: 10,
+  active: 8,
+  seeds: 2,
   archived: 0,
   stale: 0,
-  pending_questions: 1,
-  by_category: { architecture: 2, constraint: 2, general: 1 },
-  coverage_pct: 78,
-  total_modules: 14,
-  covered_modules: 11,
-  concepts_count: 5,
+  pending_questions: 2,
+  by_category: { architecture: 3, constraint: 4, pattern: 2, seed: 1 },
+  coverage_pct: 82,
+  total_modules: 12,
+  covered_modules: 10,
+  concepts_count: 10,
 };
 
 // Mirror of useDashboardPanels DEFAULT_ALWAYS_IGNORED_GLOBS so the demo
@@ -311,33 +458,76 @@ const ALWAYS_IGNORED_GLOBS: string[] = [
   '**/GEMINI.md',
 ];
 
-/**
- * Demo-only transform on top of `sampleFileTree`.
- *
- * The shared sample tree hardcodes `status: 'indexed'` on most files and
- * `status: 'pending'` on ROADMAP.md, which overrides FolderTree's derived
- * "pending when newly included" logic. For the Scope panel demo we want:
- *
- *   - ROADMAP.md (the only pre-included file) → render as `indexed`.
- *   - Every other file → no hardcoded status, so toggling it on derives
- *     to `pending`, matching what the live app does on a fresh include.
- *   - Ignored folders (node_modules + its descendants) keep `ignored`.
- */
-function demoStatus(node: TreeNode): TreeNode {
-  if (node.type === 'file' && node.name === 'ROADMAP.md') {
-    return { ...node, status: 'indexed', chunks: 12 };
-  }
-  if (node.status === 'ignored') {
-    return { ...node, children: node.children?.map(demoStatus) };
-  }
-  const next: TreeNode = { ...node };
-  delete next.status;
-  delete next.chunks;
-  if (node.children) next.children = node.children.map(demoStatus);
-  return next;
-}
+// ────────────────────────────────────────────────────────────────────────────
+// demo-repo file tree — a notional task-management web app (FastAPI backend +
+// React frontend). Designed so the audit findings, concepts, and sub-atlases
+// all anchor to real paths that visitors can trace through the demo.
+// ────────────────────────────────────────────────────────────────────────────
 
-const demoFileTree: TreeNode[] = sampleFileTree.map(demoStatus);
+const f = (name: string, status?: TreeNode['status'], chunks?: number): TreeNode => ({
+  name, type: 'file', ...(status ? { status } : {}), ...(chunks != null ? { chunks } : {}),
+});
+const d = (name: string, children: TreeNode[]): TreeNode => ({ name, type: 'folder', children });
+
+const demoFileTree: TreeNode[] = [
+  d('backend', [
+    d('api', [
+      f('routes.py'), f('auth.py'), f('users.py'), f('tasks.py'), f('deps.py'),
+    ]),
+    d('core', [
+      f('config.py'), f('security.py'), f('db.py'), f('scheduler.py'),
+    ]),
+    d('models', [
+      f('base.py'), f('user.py'), f('task.py'), f('project.py'),
+    ]),
+    d('services', [
+      f('task_service.py'), f('notification_service.py'), f('email.py'),
+    ]),
+    d('workers', [
+      f('queue.py'), f('jobs.py'), f('retry.py'),
+    ]),
+  ]),
+  d('frontend', [
+    d('src', [
+      d('components', [
+        f('TaskList.tsx'), f('TaskCard.tsx'), f('Sidebar.tsx'),
+      ]),
+      d('pages', [
+        f('Dashboard.tsx'), f('Login.tsx'), f('Settings.tsx'),
+      ]),
+      d('hooks', [
+        f('useAuth.ts'), f('useTasks.ts'), f('useTheme.ts'),
+      ]),
+      d('api', [
+        f('client.ts'), f('types.ts'),
+      ]),
+      d('lib', [
+        f('date.ts'), f('format.ts'),
+      ]),
+    ]),
+  ]),
+  d('tests', [
+    d('backend', [
+      f('test_auth.py'), f('test_tasks.py'),
+    ]),
+    d('frontend', [
+      f('tasks.test.ts'),
+    ]),
+  ]),
+  d('docs', [
+    f('README.md'),
+    // Pre-selected in the demo's includedPaths Set — rendered with
+    // status='indexed' so it reads as "already in the knowledge base"
+    // while every other file lights up as `pending` when toggled on.
+    f('ROADMAP.md', 'indexed', 12),
+    f('ARCHITECTURE.md'),
+  ]),
+  d('scripts', [
+    f('deploy.sh'),
+  ]),
+  { name: 'node_modules', type: 'folder', status: 'ignored', children: [] },
+  { name: '.venv', type: 'folder', status: 'ignored', children: [] },
+];
 
 // Single mock project used by the demo sidebar's ProjectList. The name +
 // path match the IndexStatusCard's `index_dir` below so the whole demo
@@ -394,14 +584,146 @@ const mockScopeStatus: ScopeStatus = {
   is_stale: false,
 };
 
+// Sub-atlases for the AtlasLensPanel. Each segment is a curated paragraph
+// summarizing what the module does. Visitors can click into each segment in
+// the demo to preview the body text — same affordance as the live app.
+const ATLAS_NOW = new Date(Date.now() - 7_200_000).toISOString();
+const mockAtlasSegments: NonNullable<AtlasStatus['segments']> = [
+  {
+    segment_id: 'seg-api',
+    segment_name: 'API surface',
+    dir_path: 'backend/api',
+    file_count: 5,
+    char_count: 3200,
+    mode: 'llm',
+    generated_at: ATLAS_NOW,
+    stale: false,
+    content:
+`The HTTP entry point. routes.py mounts the FastAPI app and pulls every
+protected route through deps.current_user. tasks.py is the largest router
+and handles list/create/update/delete; auth.py owns the login + token
+exchange flow and users.py is the smaller account-management surface.
+
+The notable design choice here is that no route reaches into a model
+directly — every write goes through services/task_service so the
+"single source of truth for task state" concept holds at the API edge.`,
+  },
+  {
+    segment_id: 'seg-models',
+    segment_name: 'Persistence models',
+    dir_path: 'backend/models',
+    file_count: 4,
+    char_count: 2100,
+    mode: 'llm',
+    generated_at: ATLAS_NOW,
+    stale: false,
+    content:
+`SQLAlchemy ORM. base.py defines the declarative Base + a shared
+mixin (created_at, updated_at). task.py is the central model and
+includes a deleted_at column for soft-delete; project.py and user.py
+are smaller.
+
+Tasks belong to a Project; both Task and Project belong to a User.
+The deleted_at pattern is consistent across all three but only Task
+has a partial index — flagged as a seed concept awaiting promotion.`,
+  },
+  {
+    segment_id: 'seg-services',
+    segment_name: 'Business logic',
+    dir_path: 'backend/services',
+    file_count: 3,
+    char_count: 2600,
+    mode: 'llm',
+    generated_at: ATLAS_NOW,
+    stale: false,
+    content:
+`Service layer between the API and the models. task_service owns the
+status-transition state machine for tasks; notification_service buffers
+per-user events and flushes them on a 60s tick or login; email.py is
+the SMTP transport plus a small Jinja template loader.
+
+task_service is the biggest file in the backend at 18KB — audit has
+flagged it as approaching the 20KB ceiling. The "single source of truth"
+concept treats this as deliberate centralization; the audit treats it
+as a refactor signal. Both can be right.`,
+  },
+  {
+    segment_id: 'seg-workers',
+    segment_name: 'Async workers',
+    dir_path: 'backend/workers',
+    file_count: 3,
+    char_count: 1800,
+    mode: 'llm',
+    generated_at: ATLAS_NOW,
+    stale: false,
+    content:
+`Background job runner. queue.py wraps the broker (Redis), jobs.py
+declares the job handlers, retry.py owns the backoff policy.
+
+Delivery is at-least-once — every job carries an idempotency key and
+the queue dedupes on retry. This is the source of the "background jobs
+are idempotent" constraint concept; the corresponding antibody fires
+when a new job handler ships without an idempotency_key parameter.`,
+  },
+  {
+    segment_id: 'seg-frontend',
+    segment_name: 'React frontend',
+    dir_path: 'frontend/src',
+    file_count: 14,
+    char_count: 6100,
+    mode: 'llm',
+    generated_at: ATLAS_NOW,
+    stale: false,
+    content:
+`Single-page React app. pages/ hosts the route components (Dashboard,
+Login, Settings); components/ are the leaf widgets (TaskList, TaskCard,
+Sidebar). hooks/ wraps API access — useTasks is where optimistic-update
+reconciliation lives, useAuth proxies token storage.
+
+lib/date.ts is small but load-bearing: every rendered timestamp passes
+through it for tz normalization. The "frontend never trusts client-side
+timestamps" concept anchors here. Audit currently flags it as untested
+even though it's a constraint-grade dependency.`,
+  },
+];
+
 const mockAtlas: AtlasStatus = {
   exists: true,
   content: null,
-  mode: 'structural',
+  mode: 'llm',
   module_count: 12,
   file_count: 1100,
+  char_count: 15_800,
+  generated_at: ATLAS_NOW,
   routing: true,
   stale: false,
+  segmented: true,
+  segments: mockAtlasSegments,
+};
+
+// Finalize-group stage statuses (stages 11-15). All complete + healthy.
+const mockRulesStatus: import('../../types').RulesStatus = {
+  generated: true,
+  stale: false,
+  mode: 'llm',
+  atlas_chars: 15_800,
+};
+
+const mockConceptsStatus: import('../../types').ConceptsStatus = {
+  seeded: true,
+  count: 10,
+  questions: 2,
+};
+
+const mockAuditPipelineStatus: import('../../types').AuditPipelineStatus = {
+  exists: true,
+  finding_count: 10,
+  tier2: true,
+};
+
+const mockAntibodiesStatus: import('../../types').AntibodiesStatus = {
+  count: 6,
+  firing: 0,
 };
 
 /**
@@ -460,15 +782,11 @@ function PipelinePanelDemo() {
           total_files_clustered: 1100,
           running: false,
         }}
-        atlas={{
-          exists: true,
-          content: null,
-          mode: 'structural',
-          module_count: 12,
-          file_count: 1100,
-          routing: true,
-          stale: false,
-        }}
+        atlas={mockAtlas}
+        rulesStatus={mockRulesStatus}
+        conceptsStatus={mockConceptsStatus}
+        auditPipelineStatus={mockAuditPipelineStatus}
+        antibodiesStatus={mockAntibodiesStatus}
         deepening={{
           running: false,
           total_scored: TOTAL,
