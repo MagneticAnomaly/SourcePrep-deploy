@@ -1032,6 +1032,10 @@ class WorkerFactory:
                 batch_size=20,
                 project_id=project_id,
             )
+            # Phase 134: inject the changeset from the wrapped_worker closure
+            # attribute onto the DriftDetector so it can compute stale_set from
+            # changeset.modified | deleted instead of per-entry hash comparison.
+            loop.drift_detector.changeset = getattr(wrapped_worker, "changeset", None)
             result = loop.run(progress_callback=log_cb)
             logger.info(
                 "[Deepening] Complete — %d iterations, converged=%s",

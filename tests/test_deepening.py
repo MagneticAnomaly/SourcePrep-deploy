@@ -9,6 +9,7 @@ from prep.core.deepening import (
     DeepeningResult,
 )
 from prep.core.epistemic_score import EpistemicEntry, EpistemicScore
+from prep.services.pipeline.changeset import Changeset
 
 
 # ── EnrichmentQueue ──────────────────────────────────────────────────
@@ -68,46 +69,62 @@ def _make_score(node_id: str, composite: float) -> EpistemicScore:
 
 class TestDriftDetector:
     def test_detects_stale_node(self):
+        # Phase 134: staleness driven by changeset (modified), not hash compare.
         detector = DriftDetector()
+        detector.changeset = Changeset(
+            added=frozenset(), modified=frozenset({"a.py"}),
+            deleted=frozenset(), unchanged=frozenset(),
+            run_id="r1", base_run_id=None,
+        )
         scores = {"file:a.py": _make_score("file:a.py", 0.8)}
-        augmentations = {"file:a.py": {"file_hash": "old_hash"}}
-        current_hashes = {"a.py": "new_hash"}
+        augmentations = {"file:a.py": {"node_id": "file:a.py"}}
         edges = []
         nodes_by_id = {"file:a.py": {"id": "file:a.py", "kind": "file"}}
 
-        report = detector.detect(scores, augmentations, current_hashes, edges, nodes_by_id)
+        report = detector.detect(scores, augmentations, edges, nodes_by_id)
         assert "file:a.py" in report.stale_nodes
         assert report.decayed_nodes["file:a.py"] == 0.0
 
     def test_propagates_decay_to_neighbor(self):
+        # Phase 134: a.py is modified → stale; b.py is unchanged → only decayed
+        # because it's a neighbor of the stale node.
         detector = DriftDetector(max_propagation_hops=1)
+        detector.changeset = Changeset(
+            added=frozenset(), modified=frozenset({"a.py"}),
+            deleted=frozenset(), unchanged=frozenset({"b.py"}),
+            run_id="r1", base_run_id=None,
+        )
         scores = {
             "file:a.py": _make_score("file:a.py", 0.8),
             "file:b.py": _make_score("file:b.py", 0.9),
         }
         augmentations = {
-            "file:a.py": {"file_hash": "old"},
-            "file:b.py": {"file_hash": "ok"},
+            "file:a.py": {"node_id": "file:a.py"},
+            "file:b.py": {"node_id": "file:b.py"},
         }
-        current_hashes = {"a.py": "new", "b.py": "ok"}
         edges = [{"source": "file:a.py", "target": "file:b.py", "kind": "imports"}]
         nodes_by_id = {
             "file:a.py": {"id": "file:a.py", "kind": "file"},
             "file:b.py": {"id": "file:b.py", "kind": "file"},
         }
 
-        report = detector.detect(scores, augmentations, current_hashes, edges, nodes_by_id)
+        report = detector.detect(scores, augmentations, edges, nodes_by_id)
         assert "file:a.py" in report.stale_nodes
         assert "file:b.py" in report.decayed_nodes
         assert report.decayed_nodes["file:b.py"] == pytest.approx(0.855)  # 0.9 * 0.95
 
-    def test_no_drift_when_hashes_match(self):
+    def test_no_drift_when_unchanged(self):
+        # Phase 134: a.py is unchanged → not stale.
         detector = DriftDetector()
+        detector.changeset = Changeset(
+            added=frozenset(), modified=frozenset(),
+            deleted=frozenset(), unchanged=frozenset({"a.py"}),
+            run_id="r1", base_run_id=None,
+        )
         scores = {"file:a.py": _make_score("file:a.py", 0.9)}
-        augmentations = {"file:a.py": {"file_hash": "same"}}
-        current_hashes = {"a.py": "same"}
+        augmentations = {"file:a.py": {"node_id": "file:a.py"}}
 
-        report = detector.detect(scores, augmentations, current_hashes, [], {})
+        report = detector.detect(scores, augmentations, [], {})
         assert report.stale_nodes == []
 
     def test_missing_references_detected(self):
@@ -119,7 +136,7 @@ class TestDriftDetector:
         ]
         nodes_by_id = {"file:doc.md": {"id": "file:doc.md", "kind": "file"}}
 
-        report = detector.detect(scores, augmentations, {}, edges, nodes_by_id)
+        report = detector.detect(scores, augmentations, edges, nodes_by_id)
         assert len(report.missing_references) == 1
         assert report.missing_references[0] == ("file:doc.md", "deleted.py")
 

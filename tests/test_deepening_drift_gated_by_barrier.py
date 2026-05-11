@@ -15,12 +15,11 @@ def test_drift_marks_all_nodes_stale_when_barrier_active() -> None:
     # and never inspects most of these.
     scores = {f"n{i}": object() for i in range(5)}
     augmentations: dict = {}
-    file_hashes: dict = {}
     edges: list = []
     nodes_by_id: dict = {}
 
     with patch("prep.core.deepening.is_reuse_blocked", return_value=True):
-        report = detector.detect(scores, augmentations, file_hashes, edges, nodes_by_id)
+        report = detector.detect(scores, augmentations, edges, nodes_by_id)
 
     assert sorted(report.stale_nodes) == sorted(scores.keys())
     assert report.total_checked == 5
@@ -35,12 +34,11 @@ def test_drift_runs_normally_when_barrier_clear() -> None:
 
     scores = {f"n{i}": object() for i in range(3)}
     augmentations: dict = {}
-    file_hashes: dict = {}
     edges: list = []
     nodes_by_id: dict = {}
 
     with patch("prep.core.deepening.is_reuse_blocked", return_value=False):
-        report = detector.detect(scores, augmentations, file_hashes, edges, nodes_by_id)
+        report = detector.detect(scores, augmentations, edges, nodes_by_id)
 
     # Real detect path: no augmentations means nothing to compare hashes
     # against, so no nodes get marked stale. total_checked still reflects
@@ -64,7 +62,7 @@ def test_no_check_when_project_id_empty() -> None:
 
     with patch("prep.core.deepening.is_reuse_blocked", return_value=True) as mock:
         scores = {"n1": object()}
-        report = detector.detect(scores, {}, {}, [], {})
+        report = detector.detect(scores, {}, [], {})
 
     # is_reuse_blocked should NOT have been called because project_id is empty
     mock.assert_not_called()

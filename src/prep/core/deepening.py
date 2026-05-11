@@ -16,7 +16,6 @@ See docs/Phase22_trace-epistomology/PATH_FORWARD.md Sprint 6.
 from __future__ import annotations
 
 import heapq
-import json
 import logging
 import os
 import threading
@@ -33,6 +32,7 @@ from .llm_client import _get_llm_concurrency
 from prep.services.pipeline.thread_pool import llm_pool
 from prep.services.pipeline.recovery import is_reuse_blocked
 from prep.services.pipeline.holds import HoldPausedError
+from prep.services.pipeline.workers.base import Worker
 from .epistemic_score import (
     EpistemicEntry,
     EpistemicScore,
@@ -102,11 +102,15 @@ class DriftReport:
     total_checked: int = 0
 
 
-class DriftDetector:
+class DriftDetector(Worker):
     """Detects stale nodes and propagates epistemic decay.
 
+    Phase 134: inherits from Worker to receive changeset injection.
+    Staleness is now determined by changeset.modified | deleted
+    (not by per-entry hash comparison against the manifest).
+
     Checks:
-    1. Source hash mismatch → node is stale (score → 0.0)
+    1. Changeset-driven stale_set → node is stale (score → 0.0)
     2. Neighbor of stale node → mild decay (score × 0.95)
     3. Doc references to non-existent files → flagged as missing
     """
@@ -115,11 +119,32 @@ class DriftDetector:
         self.max_hops = max_propagation_hops
         self.project_id = project_id
 
+    def _compute_stale_set(self, augmentations: Dict[str, Dict[str, Any]]) -> Set[str]:
+        """Phase 134: stale_set is the set of node IDs whose underlying
+        file is in the changeset's modified or deleted set. Replaces
+        pre-Phase-134 per-entry hash comparison.
+
+        Uses should_process (inherited from Worker) to gate modified/added
+        nodes. Deleted nodes are also stale — they are orphaned and their
+        epistemic entries must be reset so deepening does not carry them."""
+        if self.changeset is None:
+            return set()  # defensive: no changeset → assume nothing stale
+        stale: Set[str] = set()
+        deleted_paths = self.changeset.deleted
+        for node_id in augmentations.keys():
+            file_path = node_id.replace("file:", "", 1) if node_id.startswith("file:") else ""
+            if not file_path:
+                continue
+            # should_process returns True for added | modified (files to re-enrich).
+            # Deleted files are orphaned — also mark stale so deepening resets them.
+            if self.should_process(file_path) or file_path in deleted_paths:
+                stale.add(node_id)
+        return stale
+
     def detect(
         self,
         scores: Dict[str, EpistemicScore],
         augmentations: Dict[str, Dict[str, Any]],
-        current_file_hashes: Dict[str, str],
         edges: List[Dict[str, Any]],
         nodes_by_id: Dict[str, Dict[str, Any]],
     ) -> DriftReport:
@@ -155,24 +180,11 @@ class DriftDetector:
                 adjacency[src].add(tgt)
                 adjacency[tgt].add(src)
 
-        # Step 1: Find stale nodes (hash mismatch).
-        # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
-        # (SHA-256-64 stored vs BLAKE3-128 manifest) so the Phase 133
-        # cutover does not falsely flag every node stale. Phase 134
-        # deletes this entire block — staleness comes from the changeset.
-        from prep.core.ids import is_hash_stale
-        stale_set: Set[str] = set()
-        for node_id, score in scores.items():
-            aug = augmentations.get(node_id)
-            if not aug:
-                continue
-            file_path = node_id.replace("file:", "", 1) if node_id.startswith("file:") else ""
-            aug_hash = aug.get("file_hash") or ""
-            current_hash = current_file_hashes.get(file_path) or ""
-            if is_hash_stale(aug_hash, current_hash):
-                stale_set.add(node_id)
-                report.stale_nodes.append(node_id)
-                report.decayed_nodes[node_id] = 0.0
+        # Step 1: Find stale nodes (Phase 134: from changeset, not hash compare).
+        stale_set: Set[str] = self._compute_stale_set(augmentations)
+        for node_id in stale_set:
+            report.stale_nodes.append(node_id)
+            report.decayed_nodes[node_id] = 0.0
 
         # Step 2: Propagate decay to neighbors (BFS, limited hops)
         frontier = set(stale_set)
@@ -412,10 +424,8 @@ class DeepeningLoop:
             nodes = self.enricher.load_trace_nodes()
             nodes_by_id = {n["id"]: n for n in nodes}
 
-            file_hashes = self._load_file_hashes()
-
             drift = self.drift_detector.detect(
-                scores, augmentations, file_hashes, edges, nodes_by_id
+                scores, augmentations, edges, nodes_by_id
             )
             result.drift_stale += len(drift.stale_nodes)
             result.drift_missing_refs += len(drift.missing_references)
@@ -643,15 +653,3 @@ class DeepeningLoop:
             )
 
         return result
-
-    def _load_file_hashes(self) -> Dict[str, str]:
-        """Load current file hashes from trace manifest."""
-        manifest_path = self.index_dir / "trace_manifest.json"
-        if manifest_path.exists():
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = json.load(f)
-                return manifest.get("file_hashes", {})
-            except Exception:
-                pass
-        return {}

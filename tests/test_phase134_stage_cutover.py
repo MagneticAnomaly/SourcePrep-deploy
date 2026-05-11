@@ -90,3 +90,77 @@ def test_augmenter_skips_unchanged_files_per_changeset():
     # TraceAugmenter exposes for the per-node skip decision.
     assert aug._should_skip({"id": "file:old.py", "file_path": "old.py"}, existing) is True
     assert aug._should_skip({"id": "file:changed.py", "file_path": "changed.py"}, existing) is False
+
+
+def test_deepening_uses_changeset_not_file_hash():
+    from prep.core import deepening
+    import re
+    src = inspect.getsource(deepening)
+    assert "should_process" in src, (
+        "deepening.py must consult changeset.should_process for stale_set"
+    )
+    # Token-boundary check (avoid matching the word in a docstring like
+    # "the file_hash field is gone").
+    # Find any actual code references (not in a comment line).
+    for lineno, line in enumerate(src.splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if stripped.startswith('"""') or stripped.startswith("'''"):
+            continue
+        # Inside a method body — file_hash should not appear as a name
+        # being accessed or assigned.
+        if re.search(r'\bfile_hash\b', line) and "Phase 134" not in line:
+            assert False, (
+                f"deepening.py line {lineno} still references file_hash:\n  {line}"
+            )
+    assert "is_hash_stale" not in src
+    assert "_load_manifest_hashes" not in src, (
+        "_load_manifest_hashes is deleted in Phase 134 — staleness "
+        "comes from the changeset, not from a per-stage manifest read"
+    )
+    assert "_load_file_hashes" not in src, (
+        "_load_file_hashes is deleted in Phase 134 — staleness "
+        "comes from the changeset, not from manifest file hash reads"
+    )
+
+
+def test_deepening_stale_set_from_changeset():
+    """The stale_set in DriftDetector comes from changeset.modified |
+    changeset.deleted (NOT from a hash comparison). Pre-Phase-134
+    stale_set was the set of nodes whose stored aug.file_hash differed
+    from the manifest's current_hash. Post-Phase-134 stale_set is the
+    set of nodes whose file_path is in changeset.modified | deleted."""
+    import prep.core.deepening as deepening_mod
+
+    cs = Changeset(
+        added=frozenset(),
+        modified=frozenset({"changed.py"}),
+        deleted=frozenset({"gone.py"}),
+        unchanged=frozenset({"old.py"}),
+        run_id="r1",
+        base_run_id=None,
+    )
+    # Find the class with _compute_stale_set
+    cls = None
+    for name in dir(deepening_mod):
+        obj = getattr(deepening_mod, name)
+        if isinstance(obj, type) and hasattr(obj, "_compute_stale_set"):
+            cls = obj
+            break
+    assert cls is not None, (
+        "deepening module must expose a class with _compute_stale_set "
+        "method (the Phase 134 changeset-driven stale-set helper)"
+    )
+    worker = cls.__new__(cls)
+    worker.changeset = cs
+
+    augmentations = {
+        "file:changed.py": {"node_id": "file:changed.py"},
+        "file:gone.py": {"node_id": "file:gone.py"},
+        "file:old.py": {"node_id": "file:old.py"},
+    }
+    stale = worker._compute_stale_set(augmentations)
+    assert "file:changed.py" in stale  # in changeset.modified
+    assert "file:gone.py" in stale     # in changeset.deleted (orphan)
+    assert "file:old.py" not in stale  # in changeset.unchanged
