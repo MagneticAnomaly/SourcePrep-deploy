@@ -1361,7 +1361,6 @@ class EpistemicEnricher(Worker):
                 neighbor_ids=neighbor_map.get(nid, set()),
                 enriched_node_ids=enriched_ids,
                 cross_ref_count=cross_ref_counts.get(nid, 0),
-                current_file_hashes={},  # Phase 134: hash staleness removed; Task 7 drops this param
             )
             scores[nid] = score
 

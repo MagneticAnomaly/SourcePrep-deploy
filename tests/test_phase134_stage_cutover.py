@@ -238,3 +238,28 @@ def test_epistemic_enrichment_is_stale_uses_changeset():
     assert enricher._needs_enrichment(
         {"id": "file:old.py", "file_path": "old.py"}, existing, augmentations
     ) is False
+
+
+def test_epistemic_score_no_c6_staleness_check():
+    from prep.core import epistemic_score
+    src = inspect.getsource(epistemic_score)
+    assert "is_hash_stale" not in src
+    assert "current_file_hashes" not in src, (
+        "epistemic_score must not take current_file_hashes — c6 deleted"
+    )
+
+
+def test_score_weights_sum_to_one_after_c6_removal():
+    """After deleting the c6 staleness weight, SCORE_WEIGHTS must
+    still sum to 1.0 (renormalized across the remaining 5
+    components)."""
+    from prep.core.epistemic_score import SCORE_WEIGHTS
+    total = sum(SCORE_WEIGHTS.values())
+    assert abs(total - 1.0) < 0.001, (
+        f"SCORE_WEIGHTS must sum to 1.0 after c6 removal; got {total}"
+    )
+    assert "staleness" not in SCORE_WEIGHTS, (
+        "staleness weight removed in Phase 134 — composite no longer "
+        "discounts for stale enrichment because stale entries don't "
+        "exist (the changeset prevents them at the augmenter level)"
+    )

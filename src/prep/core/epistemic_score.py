@@ -7,30 +7,35 @@ fundamentally different from the 3b model's self-reported confidence —
 it measures contextual understanding, not summary accuracy.
 
 Components:
-  1. Summary confidence (0.20) — 3b model's self-reported certainty
-  2. Validation status  (0.15) — has a larger model verified the summary?
-  3. Neighbor coverage  (0.20) — are connected nodes also enriched?
-  4. Cross-ref density  (0.15) — doc↔code bidirectional references
-  5. Enrichment depth   (0.15) — how many passes has this node been through?
-  6. Staleness check    (0.15) — has the source changed since enrichment?
+  1. Summary confidence (0.2353) — 3b model's self-reported certainty
+  2. Validation status  (0.1765) — has a larger model verified the summary?
+  3. Neighbor coverage  (0.2353) — are connected nodes also enriched?
+  4. Cross-ref density  (0.1765) — doc↔code bidirectional references
+  5. Enrichment depth   (0.1765) — how many passes has this node been through?
+
+Note: c6 staleness check deleted in Phase 134. The changeset prevents
+stale entries from existing at the augmenter level, so there is nothing
+to discount. Weights renormalized across the remaining 5 components
+(each old weight divided by 0.85, the sum of the 5 kept weights).
 
 See docs/Phase22_trace-epistomology/EPISTEMOLOGY_SCORING.md for full design.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set
 
 
 # ── Weights ──────────────────────────────────────────────────────────
+# Phase 134: c6 staleness weight (was 0.15) deleted; remaining 5 weights
+# renormalized so they still sum to 1.0 (each divided by 0.85).
 
 SCORE_WEIGHTS = {
-    "summary_confidence": 0.20,
-    "validation_status": 0.15,
-    "neighbor_coverage": 0.20,
-    "cross_reference_density": 0.15,
-    "enrichment_depth": 0.15,
-    "staleness_check": 0.15,
+    "summary_confidence": 0.2353,
+    "validation_status": 0.1765,
+    "neighbor_coverage": 0.2353,
+    "cross_reference_density": 0.1765,
+    "enrichment_depth": 0.1764,  # slightly lower to ensure exact 1.0 sum
 }
 
 
@@ -46,7 +51,6 @@ class EpistemicScore:
     neighbor_coverage: float
     cross_reference_density: float
     enrichment_depth: float
-    staleness_check: float
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -58,7 +62,6 @@ class EpistemicScore:
                 "neighbor_coverage": round(self.neighbor_coverage, 3),
                 "cross_reference_density": round(self.cross_reference_density, 3),
                 "enrichment_depth": round(self.enrichment_depth, 3),
-                "staleness_check": round(self.staleness_check, 3),
             },
         }
 
@@ -153,7 +156,6 @@ def compute_epistemic_score(
     neighbor_ids: Set[str],
     enriched_node_ids: Set[str],
     cross_ref_count: int,
-    current_file_hashes: Dict[str, str],
 ) -> EpistemicScore:
     """Compute the composite epistemic score for a node.
 
@@ -164,7 +166,6 @@ def compute_epistemic_score(
         neighbor_ids: Set of node IDs connected to this node via edges.
         enriched_node_ids: Set of all node IDs that have epistemic entries.
         cross_ref_count: Number of doc↔code cross-references for this node.
-        current_file_hashes: Current file hashes from trace manifest.
 
     Returns:
         EpistemicScore with composite and per-component breakdown.
@@ -208,28 +209,13 @@ def compute_epistemic_score(
     else:
         c5 = 0.5  # Pass 2
 
-    # 6. Staleness check.
-    # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
-    # (SHA-256-64 vs BLAKE3-128) so the Phase 133 cutover does not
-    # tank every node's score to 0.0. Phase 134 deletes this whole
-    # check — the changeset will tell us what's stale.
-    from prep.core.ids import is_hash_stale
-    file_path = node_id.replace("file:", "", 1) if node_id.startswith("file:") else ""
-    aug_hash = (augmentation.get("file_hash") if augmentation else None) or ""
-    current_hash = current_file_hashes.get(file_path) or ""
-    if aug_hash and current_hash:
-        c6 = 0.0 if is_hash_stale(aug_hash, current_hash) else 1.0
-    else:
-        c6 = 0.3  # unknown
-
-    # Weighted sum
+    # Weighted sum (5 components; c6 staleness deleted in Phase 134)
     composite = (
         SCORE_WEIGHTS["summary_confidence"] * c1
         + SCORE_WEIGHTS["validation_status"] * c2
         + SCORE_WEIGHTS["neighbor_coverage"] * c3
         + SCORE_WEIGHTS["cross_reference_density"] * c4
         + SCORE_WEIGHTS["enrichment_depth"] * c5
-        + SCORE_WEIGHTS["staleness_check"] * c6
     )
 
     return EpistemicScore(
@@ -240,7 +226,6 @@ def compute_epistemic_score(
         neighbor_coverage=round(c3, 3),
         cross_reference_density=round(c4, 3),
         enrichment_depth=c5,
-        staleness_check=c6,
     )
 
 
