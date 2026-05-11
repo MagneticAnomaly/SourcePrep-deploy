@@ -362,19 +362,17 @@ const mockLLMSlots: LLMSlotsStatus = {
 // the visitor sees the collapsed "Pipeline Queue" header without any
 // fake data. Real daemon at :8400 on the dev machine is bypassed.
 const DEMO_DAEMON_URL = 'http://demo.invalid';
-const mockProjects: ProjectSummary[] = [
-  {
-    id: 'demo-project',
-    name: DEMO_PROJECT_PATH,
-    path: DEMO_PROJECT_PATH,
-    mode: 'standalone',
-    status: 'fresh',
-    chunk_count: 1245,
-    last_build_at: new Date(Date.now() - 7_200_000).toISOString(),
-    activity_status: 'active',
-    priority_level: 'none',
-  },
-];
+const initialMockProject: ProjectSummary = {
+  id: 'demo-project',
+  name: 'demo-repo',
+  path: DEMO_PROJECT_PATH,
+  mode: 'standalone',
+  status: 'fresh',
+  chunk_count: 1245,
+  last_build_at: new Date(Date.now() - 7_200_000).toISOString(),
+  activity_status: 'active',
+  priority_level: 'none',
+};
 
 const mockScopes: ScopeSummary[] = [
   { id: 'global', display_name: 'Global', path_count: 18, assigned_to_role: null },
@@ -702,6 +700,25 @@ export const FullDashboard: StoryObj = {
 
     const [building, setBuilding] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+    // Single demo project, lifted to state so the active/inactive toggle
+    // and the star priority cycle actually work in the demo.
+    const [projects, setProjects] = useState<ProjectSummary[]>([initialMockProject]);
+    const handleToggleActive = useCallback((projectId: string, active: boolean) => {
+      setProjects((prev) => prev.map((p) =>
+        p.id === projectId ? { ...p, activity_status: active ? 'active' : 'inactive' } : p
+      ));
+    }, []);
+    const handleCyclePriority = useCallback((projectId: string) => {
+      setProjects((prev) => prev.map((p) => {
+        if (p.id !== projectId) return p;
+        const next: ProjectSummary['priority_level'] =
+          p.priority_level === 'none' ? 'boost' :
+          p.priority_level === 'boost' ? 'exclusive' :
+          'none';
+        return { ...p, priority_level: next };
+      }));
+    }, []);
 
     const [query, setQuery] = useState('');
     const [searchK, setSearchK] = useState(8);
@@ -1090,10 +1107,16 @@ export const FullDashboard: StoryObj = {
           >
             {!sidebarCollapsed && (
               <ProjectList
-                projects={mockProjects}
+                projects={projects}
                 selectedProjectId="demo-project"
                 onProjectSelect={noop}
                 onAddProject={noop}
+                onDeleteProject={noop}
+                onArchiveProject={noop}
+                onUnarchiveProject={noop}
+                onToggleActive={handleToggleActive}
+                onCyclePriority={handleCyclePriority}
+                isPro={true}
                 beforeActions={
                   <>
                     <SidebarPipelineQueue baseUrl={DEMO_DAEMON_URL} />
