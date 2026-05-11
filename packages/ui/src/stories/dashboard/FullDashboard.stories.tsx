@@ -20,6 +20,8 @@ import { GraphEnrichmentPipeline } from '../../components/trace/GraphEnrichmentP
 import type { TraceCoverageFile, TraceCoverageSummary } from '../../types';
 import { ModularDashboard, type DashboardLayoutApi } from '../../components/layout/ModularDashboard';
 import type { PanelDefinition } from '../../types/layout';
+import { AppShell, Sidebar, ProjectList } from '../../components/navigation/index';
+import type { ProjectSummary } from '../../types';
 import { CodeViewer } from '../../components/project/CodeViewer';
 import { UsageGuidePanel } from '../../components/dashboard/UsageGuidePanel';
 import { DeepAnalysisSettings, type DeepAnalysisSchedule } from '../../components/llm/DeepAnalysisSettings';
@@ -336,6 +338,24 @@ function demoStatus(node: TreeNode): TreeNode {
 }
 
 const demoFileTree: TreeNode[] = sampleFileTree.map(demoStatus);
+
+// Single mock project used by the demo sidebar's ProjectList. The name +
+// path match the IndexStatusCard's `index_dir` below so the whole demo
+// reads as one coherent "/volumes/filepath/demo-repo" project.
+const DEMO_PROJECT_PATH = '/volumes/filepath/demo-repo';
+const mockProjects: ProjectSummary[] = [
+  {
+    id: 'demo-project',
+    name: DEMO_PROJECT_PATH,
+    path: DEMO_PROJECT_PATH,
+    mode: 'standalone',
+    status: 'fresh',
+    chunk_count: 1245,
+    last_build_at: new Date(Date.now() - 7_200_000).toISOString(),
+    activity_status: 'active',
+    priority_level: 'none',
+  },
+];
 
 const mockScopes: ScopeSummary[] = [
   { id: 'global', display_name: 'Global', path_count: 18, assigned_to_role: null },
@@ -662,6 +682,7 @@ export const FullDashboard: StoryObj = {
     });
 
     const [building, setBuilding] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     const [query, setQuery] = useState('');
     const [searchK, setSearchK] = useState(8);
@@ -785,7 +806,7 @@ export const FullDashboard: StoryObj = {
             total_documents: 1234,
             model: 'nomic-embed-text',
             built_at: new Date().toISOString(),
-            index_dir: 'acme-search',
+            index_dir: DEMO_PROJECT_PATH,
           }}
           building={building}
           onBuild={handleBuild}
@@ -1039,17 +1060,35 @@ export const FullDashboard: StoryObj = {
     }), [includedPaths, pinnedPathsSet, handleToggleInclude, handlePinFile, handleUnpinFile, pathWeights, handleWeightChange]);
 
     return (
-      <div className="min-h-screen bg-background p-6">
-        <ModularDashboard
-          panelDefinitions={allPanelDefs}
-          panelContent={panelContent}
-          panelDetails={panelDetails}
-          storageKey="storybook_fulldashboard_layout"
-          onPanelClose={handlePanelClose}
-          onLayoutReady={(api) => { layoutApiRef.current = api; }}
-          hidePanelPicker
-        />
-      </div>
+      <AppShell
+        sidebar={
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            onCollapseToggle={() => setSidebarCollapsed((c) => !c)}
+          >
+            {!sidebarCollapsed && (
+              <ProjectList
+                projects={mockProjects}
+                selectedProjectId="demo-project"
+                onProjectSelect={noop}
+                onAddProject={noop}
+              />
+            )}
+          </Sidebar>
+        }
+      >
+        <div className="h-full bg-background p-6 overflow-auto">
+          <ModularDashboard
+            panelDefinitions={allPanelDefs}
+            panelContent={panelContent}
+            panelDetails={panelDetails}
+            storageKey="storybook_fulldashboard_layout"
+            onPanelClose={handlePanelClose}
+            onLayoutReady={(api) => { layoutApiRef.current = api; }}
+            hidePanelPicker
+          />
+        </div>
+      </AppShell>
     );
   },
 };
