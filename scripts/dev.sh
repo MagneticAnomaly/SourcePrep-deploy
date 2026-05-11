@@ -155,14 +155,19 @@ main() {
     DASHBOARD_PID=$!
     echo ""
 
-    # Storybook's Vite builder pre-bundles deps under
-    # packages/ui/node_modules/.cache/sb-vite/. When .storybook/preview.tsx or
-    # .storybook/main.ts imports change between runs, the cache hashes drift
-    # and the dev server serves HTML referencing chunks that no longer exist
-    # (404s like "Importing a module script failed" on chunk-XXXXX.js).
-    # Wiping the cache on every dev.sh start is fast (~1s rebuild) and
-    # eliminates the entire failure class.
-    log_info "Clearing Storybook Vite cache..."
+    # Storybook's Vite builder pre-bundles deps. The cache lives in
+    # ~/.cache/codrag-sb-vite/ (configured in .storybook/main.ts) rather
+    # than node_modules/.cache/ because the repo is on slow external
+    # storage (/Volumes/...) and Vite's dep optimizer hits FS-flush race
+    # conditions on USB drives — chunk files are signalled ready before
+    # the OS finishes flushing, producing "chunk-XXX.js does not exist"
+    # 404s mid-session. Local-SSD cache eliminates the race.
+    #
+    # Wipe both locations: the new on-SSD cache AND the legacy
+    # node_modules/.cache/ in case any leftover bundles are still being
+    # served by mistake.
+    log_info "Clearing Storybook Vite cache (on-SSD + legacy)..."
+    rm -rf "$HOME/.cache/codrag-sb-vite" 2>/dev/null || true
     rm -rf "$PROJECT_ROOT/packages/ui/node_modules/.cache" 2>/dev/null || true
     log_success "Vite cache cleared"
     echo ""

@@ -1,5 +1,6 @@
 import type { StorybookConfig } from '@storybook/react-vite';
-import { readdirSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync } from 'fs';
+import { tmpdir, homedir } from 'os';
 import { join } from 'path';
 
 // Public-deploy mode: when STORYBOOK_PUBLIC=true the bundle is hardened for
@@ -78,9 +79,24 @@ const config: StorybookConfig = {
     // server crashes seconds after a hot-reload with "Importing a module script
     // failed" 404s on chunk-XXXXX.js. Splitting the cache eliminates the
     // collision.
-    config.cacheDir = isPublic
-      ? 'node_modules/.cache/sb-vite-public'
-      : 'node_modules/.cache/sb-vite-private';
+    //
+    // The cache lives in $TMPDIR (or ~/.cache as fallback) instead of
+    // node_modules/.cache/ because the repo may be on slow external storage
+    // (USB drive on /Volumes/...). Vite's dep optimizer writes chunks then
+    // immediately signals "ready" — on a slow drive the OS hasn't flushed the
+    // file by the time the browser asks for it, producing "chunk-XXX.js does
+    // not exist" 404s mid-session. Local SSD eliminates the FS-flush race.
+    const projectSlug = isPublic ? 'public' : 'private';
+    // Prefer ~/.cache (persists across reboots), fall back to $TMPDIR.
+    const baseCacheRoot = join(homedir(), '.cache', 'codrag-sb-vite');
+    try {
+      if (!existsSync(baseCacheRoot)) {
+        mkdirSync(baseCacheRoot, { recursive: true });
+      }
+      config.cacheDir = join(baseCacheRoot, projectSlug);
+    } catch {
+      config.cacheDir = join(tmpdir(), 'codrag-sb-vite', projectSlug);
+    }
 
     // Splitting the cache dir means Vite pre-bundles each cache independently
     // and can produce two distinct React copies in the same JS context — which
