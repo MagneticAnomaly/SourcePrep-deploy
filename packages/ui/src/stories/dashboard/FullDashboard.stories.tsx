@@ -650,15 +650,17 @@ export const FullDashboard: StoryObj = {
     const [structured, setStructured] = useState(false);
     const [context, setContext] = useState('');
 
-    // RAG inclusion state (primary functionality)
-    const [includedPaths, setIncludedPaths] = useState<Set<string>>(new Set([
-      'src', 'src/prep', 'src/prep/server.py', 'src/prep/cli.py', 'src/prep/__init__.py',
-      'src/prep/core', 'src/prep/core/registry.py', 'src/prep/core/embedding.py',
-      'src/prep/core/trace.py', 'src/prep/core/watcher.py',
-      'src/prep/api', 'src/prep/api/routes.py', 'src/prep/api/auth.py',
-      'docs', 'docs/ARCHITECTURE.md', 'docs/API.md', 'docs/ROADMAP.md',
-      // Note: docs/CHANGELOG.md is NOT included — it has status 'indexed' so it will show "Removing"
-    ]));
+    // RAG inclusion state (primary functionality).
+    //
+    // Initial state: ONLY `docs/ROADMAP.md`. Critically, do NOT pre-include
+    // the parent folder (`docs`) here — FolderTree's `isPathOrAncestorIncluded`
+    // returns true if any ancestor is in the Set, so seeding both a folder
+    // AND its children would make the file appear checked even after the
+    // user un-checks it (its parent is still in the Set → ancestor inclusion
+    // wins). Seed only the leaf so toggles round-trip cleanly.
+    const [includedPaths, setIncludedPaths] = useState<Set<string>>(
+      new Set(['docs/ROADMAP.md'])
+    );
 
     const handleToggleInclude = useCallback((paths: string[], action: 'add' | 'remove') => {
       setIncludedPaths((prev) => {
