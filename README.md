@@ -4,6 +4,7 @@
 
 <h2 align="center"><em>Give your AI access to the epistemic context <br>it needs to understand your codebase.</em></h2>
 
+
 **SourcePrep: prep the context before any AI call.** Epistemic trace intelligence for autonomous agents and codebase orchestration.
 
 AI assistants are only as good as the context they receive. Most tools send fragments — a single file, a keyword match — and the model fills in the gaps with hallucinations. SourcePrep fixes this by building a **persistent, semantic index** of your entire codebase (or multiple repos) and serving bounded, source-cited context on demand.
