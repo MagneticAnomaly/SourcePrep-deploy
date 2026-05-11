@@ -257,7 +257,10 @@ def test_swarm_skips_when_rationale_unchanged(tmp_path):
             "rationale_count": 5,
             "rationale_max_updated_at": 1500.0,
             "completed_at": 1500.0,
+            "prompt_revision": 999,    # match current; freshness applies
         },
+    ), patch(
+        "prep.core.concept_generate_swarm._GEN_PROMPT_REVISION", 999,
     ), patch("prep.services.concept_store.concept_store") as store:
         store.save_many = MagicMock(side_effect=AssertionError("save should not run"))
         report = synthesize_concepts_swarm(
@@ -290,7 +293,10 @@ def test_force_bypasses_freshness_check(tmp_path):
         return_value={
             "rationale_count": 5,
             "rationale_max_updated_at": 1500.0,
+            "prompt_revision": 999,
         },
+    ), patch(
+        "prep.core.concept_generate_swarm._GEN_PROMPT_REVISION", 999,
     ), patch("prep.services.concept_store.concept_store") as store:
         store.save_many.return_value = (1, 0)
         report = synthesize_concepts_swarm(
@@ -298,6 +304,39 @@ def test_force_bypasses_freshness_check(tmp_path):
             idx_dir=tmp_path, project_root=tmp_path,
             project_name="test",
             force=True,
+        )
+    assert report.skipped_fresh is False
+    assert report.candidates_emitted_total == 1
+
+
+def test_swarm_runs_when_prompt_revision_bumped(tmp_path):
+    """Manifest from an older prompt revision is treated as stale even
+    when rationale is unchanged — bumping prompts forces a re-run so
+    behavior changes take effect immediately."""
+    intent_out = json.dumps([
+        _concept_json("After bump", "T2", "architecture", ["src/x.py"])
+    ])
+    llm = _llm_returning({
+        "intent": intent_out, "rules": "[]", "implementation": "[]",
+    })
+    with patch(
+        "prep.core.concept_generate_swarm._rationale_fingerprint",
+        return_value=(5, 1000.0),   # rationale unchanged
+    ), patch(
+        "prep.core.concept_generate_swarm._read_gen_swarm_manifest",
+        return_value={
+            "rationale_count": 5,
+            "rationale_max_updated_at": 1500.0,
+            "prompt_revision": 1,    # older than current
+        },
+    ), patch(
+        "prep.core.concept_generate_swarm._GEN_PROMPT_REVISION", 2,
+    ), patch("prep.services.concept_store.concept_store") as store:
+        store.save_many.return_value = (1, 0)
+        report = synthesize_concepts_swarm(
+            "p1", llm=llm, swarm_size=3,
+            idx_dir=tmp_path, project_root=tmp_path,
+            project_name="test",
         )
     assert report.skipped_fresh is False
     assert report.candidates_emitted_total == 1
@@ -319,7 +358,10 @@ def test_swarm_runs_when_rationale_changed(tmp_path):
         return_value={
             "rationale_count": 5,
             "rationale_max_updated_at": 1500.0,
+            "prompt_revision": 999,
         },
+    ), patch(
+        "prep.core.concept_generate_swarm._GEN_PROMPT_REVISION", 999,
     ), patch("prep.services.concept_store.concept_store") as store:
         store.save_many.return_value = (1, 0)
         report = synthesize_concepts_swarm(

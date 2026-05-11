@@ -59,23 +59,37 @@ TIER RUBRIC
 
 T3 — Codified in CI / types / constraint; violations FAIL THE BUILD.
      The grounding contains a specific anchor that enforces the claim
-     (decorator, lint rule, type, runtime check). You can quote it.
-     Falsifiable in <5 min via grep or test.
+     in CODE (decorator, lint rule, type, runtime check). You can quote
+     it. Falsifiable in <5 min via grep or test. T3 requires code-level
+     enforcement; doc-only commitments are T2.
 
-T2 — Documented decision (anchored in a `.md` planning doc) WITH at
-     least one observable enforcement pattern in code. Both must be
-     present in the grounding. Removing the enforcement would let the
-     violation through.
+T2 — Documented decision OR observable enforcement — EITHER is enough.
+     EITHER (a) the claim is stated in an authoritative planning doc
+     (ADR / RFC / Phase doc / ARCHITECTURE.md / DESIGN.md / a README
+     with heavy in-link count from code), OR (b) the grounding shows
+     at least one observable enforcement pattern in code. Doc-only
+     anchoring is fine for strategic / positioning concepts ("we don't
+     embed UI in client X") — those legitimately live in docs, not in
+     enforcement code.
 
-T1 — Pattern observed; no enforcement; speculative reading. The
-     grounding shows the pattern but nothing prevents counter-examples.
-     A reader could find a counter-example in the same codebase.
+T1 — Pattern observed; no enforcement and no authoritative doc
+     anchoring. Speculative reading. The grounding shows the pattern
+     but nothing prevents counter-examples. A reader could find a
+     counter-example in the same codebase.
 
 REJECT — One of:
   • Claim is NOT supported by grounding (the anchors don't say what
     the concept claims).
   • Claim is a FILE-LEVEL observation, GRAPH FACT, or LIBRARY USE
     statement (belongs in module rationale layer, not concepts).
+  • Claim is a BUG DESCRIPTION, AUDIT FINDING, or SECURITY ISSUE
+    ("X causes Y bug", "X lacks Y mechanism", "X is attacker-
+    controllable", "X creates Y desync") — these belong in the audit
+    surface, NOT the concept layer.
+  • Claim is a HISTORICAL or META observation about the project's
+    documentation or history ("phase docs encode chronological
+    evolution", "stage count expanded over time") — these are not
+    actionable for an agent working in the code.
   • Claim restates a banned-cliché ("uses async", "modular architecture",
     "follows MVC", "comprehensive", "robust").
   • You cannot quote a verbatim grounding span supporting the claim.

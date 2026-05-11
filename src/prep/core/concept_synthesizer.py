@@ -146,7 +146,11 @@ def load_grounding(
     *,
     idx_dir: Path,
     project_name: str = "",
-    rationale_top_n: int = 50,
+    # Phase 125c post-scrutiny: rationale_top_n bumped 50 -> 200 so that
+    # after Generate's per-category scope filter (3-axis fan-out divides
+    # the rationale across workers), each worker still sees a meaningful
+    # slice (~67 rows per axis on a typical project).
+    rationale_top_n: int = 200,
     audit_top_n: int = 12,
     spaghetti_top_n: int = 10,
     docs_top_n: int = 10,
@@ -262,11 +266,16 @@ def load_grounding(
             include_archived=False,
         )
         rationale.sort(key=lambda c: -(len(c.anchors) + len(c.tags)))
+        # Phase 125c post-scrutiny: include content[:400] so workers see
+        # the WHY of each rationale row, not just the title. Title-only
+        # grounding contributed to bug-description-shaped outputs because
+        # workers were guessing meaning from short titles + anchor paths.
         g.rationale_clusters = [
             {
                 "title": c.title[:90],
                 "category": c.category,
                 "anchors": list(c.anchors)[:3],
+                "content": (c.content or "")[:400],
             }
             for c in rationale[:rationale_top_n]
         ]
@@ -318,6 +327,41 @@ Bad concepts you must NOT emit (belong in module rationale layer, not here):
   - Library uses: "This file uses Pydantic"
 
 ═══════════════════════════════════════════════════════════════════════
+BUG DESCRIPTIONS AND AUDIT FINDINGS — DO NOT EMIT AS CONCEPTS
+═══════════════════════════════════════════════════════════════════════
+
+These belong in the AUDIT surface, not the concept layer. A "concept"
+captures INTENT (what the system is FOR, what the rules are, what the
+tradeoffs WERE chosen). It is NOT a defect report.
+
+If you find yourself writing a candidate of any of these shapes, REJECT it
+and emit nothing for that idea:
+  - "X causes Y bug"                  (defect, not intent)
+  - "X lacks Y mechanism"             (gap, not concept)
+  - "X creates Y desync"              (failure mode, not concept)
+  - "X has security vulnerability Y"  (audit finding, not concept)
+  - "Module X has known issue Y"      (bug report, not concept)
+  - "X risks Y"                       (audit, not concept)
+  - "X is attacker-controllable"      (security finding, not concept)
+  - "X lacks crypto verification"     (security finding, not concept)
+
+A "Pi Agent must never call cloud LLM without license check" is a CONCEPT.
+"License check is missing in Pi Agent at line 47" is an AUDIT FINDING.
+The first belongs here; the second belongs elsewhere.
+
+═══════════════════════════════════════════════════════════════════════
+HISTORICAL / META OBSERVATIONS — also NOT concepts
+═══════════════════════════════════════════════════════════════════════
+
+These describe the documentation or the project's history, not the
+codebase itself:
+  - "Phase-numbered documentation encodes research evolution"
+  - "Stage count expanded from N to M over time"
+  - "Filename conventions encode experimental conditions"
+
+A future agent working in the code cannot ACT on these. Skip them.
+
+═══════════════════════════════════════════════════════════════════════
 GOOD examples (cross-cutting, non-obvious, falsifiable)
 ═══════════════════════════════════════════════════════════════════════
 
@@ -325,6 +369,8 @@ GOOD examples (cross-cutting, non-obvious, falsifiable)
     → T3, falsifiable: grep call sites of LLMClient.generate without @licensed decorator
   - "Embedded mode preserves git-trackability — never write to ~/.local for indexes"
     → T2, falsifiable: grep writes to ~/.local under embedded_mode flag
+  - "Prep is a headless intelligence engine that never owns UI real estate"
+    → T2 (doc-anchored decision; Paperclip plugin docs cite this principle)
   - "Tauri over Electron for binary size — 8 MB vs 80 MB"
     → T1, observable in package.json + dist/ size
 
@@ -336,15 +382,21 @@ T1 — "Pattern hint only; one or two anchors; would not survive adversarial rev
      A reader could find counter-examples in the same codebase. Observation,
      not enforcement.
 
-T2 — "Documented decision with at least one enforcing mechanism."
-     Violating it would cause (a) test failure, (b) lint flag, OR
-     (c) a reviewer pointing at a written decision. counter_evidence
-     exists but is partially refuted by a specific anchor.
+T2 — "Documented decision OR enforced pattern — either, not both required."
+     EITHER (a) anchored to an authoritative planning doc (ADR / RFC /
+     Phase doc / ARCHITECTURE.md / DESIGN.md / a README that's heavily
+     referenced from code), OR (b) at least one observable enforcement
+     mechanism in code (test, lint, decorator, runtime check). Doc-only
+     anchoring counts as T2 when the doc is authoritative — strategic
+     positioning concepts ("we don't embed UI in client X") live in docs
+     not in @licensed decorators. counter_evidence exists but is
+     partially refuted by a specific anchor.
 
 T3 — "Codified in CI/types/constraint-concept; violations fail the build."
      A developer who violated this CANNOT merge. counter_evidence is
      non-empty AND refuted with a specific anchor. Falsifiable in <5min
-     with grep.
+     with grep. T3 requires CODE enforcement; doc-only commitments
+     are T2.
 
 DO NOT DEFAULT TO T2. T1 is the correct tier for weak evidence. T3 is
 RARE — most projects have 0-5 T3 concepts. If everything you emit is T2,

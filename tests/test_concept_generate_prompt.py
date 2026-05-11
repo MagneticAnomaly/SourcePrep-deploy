@@ -118,7 +118,9 @@ def test_payload_tiers_docs_by_score():
 
 
 def test_payload_passes_through_shared_grounding_unchanged():
-    """Atlas/audit/spaghetti/antibodies are global — every worker sees them."""
+    """Atlas/spaghetti/antibodies are global — every worker sees them.
+    audit_findings are deliberately NOT passed (post-scrutiny fix to
+    stop Generate from emitting bug-description-shaped "concepts")."""
     scope = build_worker_scopes(1)[0]
     payload = build_worker_payload(
         scope, grounding=_grounding(), docs=_docs(),
@@ -126,9 +128,26 @@ def test_payload_passes_through_shared_grounding_unchanged():
     assert payload.project_name == "testproj"
     assert payload.atlas_summary.startswith("One-paragraph atlas")
     assert len(payload.atlas_segments) == 1
-    assert len(payload.audit_findings) == 1
     assert len(payload.spaghetti_hotspots) == 1
     assert len(payload.antibody_patterns) == 1
+    # Audit findings deliberately absent — the WorkerPayload field was
+    # removed because passing them to Generate caused "X causes Y bug"
+    # -shaped emissions. Validate still consults audit per-anchor.
+    assert not hasattr(payload, "audit_findings")
+
+
+def test_payload_does_not_render_audit_findings_in_prompt():
+    """Generate's user prompt must not contain an AUDIT FINDINGS section
+    (those go to Validate per-anchor, not to Generate as bulk grounding)."""
+    scope = build_worker_scopes(1)[0]
+    payload = build_worker_payload(
+        scope, grounding=_grounding(), docs=_docs(),
+    )
+    user_prompt = build_generate_user_prompt(payload)
+    assert "AUDIT FINDINGS" not in user_prompt
+    # The audit-finding title from _grounding() must not leak into the
+    # prompt by any other section either.
+    assert "circular import" not in user_prompt
 
 
 # ── Prompt builders ─────────────────────────────────────────────────

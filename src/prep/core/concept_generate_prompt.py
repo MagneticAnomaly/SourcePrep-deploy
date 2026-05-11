@@ -41,7 +41,10 @@ class WorkerPayload:
     project_name: str
     atlas_summary: str = ""
     atlas_segments: list[dict] = field(default_factory=list)
-    audit_findings: list[dict] = field(default_factory=list)
+    # Phase 125c post-scrutiny: audit_findings deliberately NOT passed
+    # to Generate (it was producing bug-description-shaped "concepts"
+    # like "X causes Y desync"). Validate still consults audit per-anchor
+    # for counter-evidence. See `build_worker_payload`.
     spaghetti_hotspots: list[dict] = field(default_factory=list)
     antibody_patterns: list[dict] = field(default_factory=list)
     full_doc_excerpts: list[DiscoveredDoc] = field(default_factory=list)
@@ -78,7 +81,7 @@ def build_worker_payload(
         project_name=grounding.project_name,
         atlas_summary=grounding.atlas_summary,
         atlas_segments=list(grounding.segments),
-        audit_findings=list(grounding.audit_findings),
+        # audit_findings DELIBERATELY OMITTED — see WorkerPayload docstring.
         spaghetti_hotspots=list(grounding.spaghetti_hotspots),
         antibody_patterns=list(grounding.antibody_patterns),
         full_doc_excerpts=full_docs,
@@ -191,14 +194,10 @@ def build_generate_user_prompt(payload: WorkerPayload) -> str:
             parts.append(_format_rationale_row(r))
         parts.append("")
 
-    if payload.audit_findings:
-        parts.append(f"AUDIT FINDINGS (top {len(payload.audit_findings)}):")
-        for f in payload.audit_findings:
-            file_paths = ", ".join(f.get("file_paths") or [])
-            parts.append(
-                f"  [{f.get('severity','?')}] {f.get('title')} — {file_paths}"
-            )
-        parts.append("")
+    # NOTE: audit_findings are deliberately omitted from Generate's
+    # user prompt (see WorkerPayload docstring). They live in the audit
+    # surface; including them here caused Generate to emit bug-description
+    # -shaped "concepts" instead of cross-cutting design intent.
 
     if payload.spaghetti_hotspots:
         parts.append(

@@ -59,6 +59,19 @@ from .concept_synthesizer import (
 # own freshness fingerprint here.
 _GEN_SWARM_MANIFEST_FILENAME = "concept_generate_manifest.json"
 
+# Bump when Generate's prompts, BANNED list, T2/T3 rubric, or grounding
+# composition change in a way that would meaningfully alter outputs.
+# The freshness check ignores manifests whose prompt_revision differs
+# from the current value, forcing a re-run with the new behavior.
+#
+#   revision 1 — initial Phase 125c (T2c.2 / T6 — 2026-05-10)
+#   revision 2 — post-dogfood (2026-05-11):
+#       (A) audit_findings dropped from Generate prompt
+#       (B) BUG DESCRIPTION / AUDIT FINDING explicitly BANNED
+#       (C) T2 relaxed to allow doc-only anchoring
+#       (D) rationale grounding includes content + bumped to top-200
+_GEN_PROMPT_REVISION = 2
+
 
 def _read_gen_swarm_manifest(idx_dir: Optional[Path]) -> Optional[dict]:
     if idx_dir is None:
@@ -182,7 +195,16 @@ def synthesize_concepts_swarm(
             if manifest:
                 last_count = int(manifest.get("rationale_count") or 0)
                 last_ts = float(manifest.get("rationale_max_updated_at") or 0.0)
-                if last_count == rationale_count and rationale_max_ts <= last_ts:
+                manifest_revision = int(manifest.get("prompt_revision") or 0)
+                # Skip only when rationale is unchanged AND prompts haven't
+                # been bumped. Prompt-revision mismatch forces a re-run so
+                # behavior changes (banned-list additions, rubric tweaks,
+                # grounding composition) take effect immediately.
+                if (
+                    last_count == rationale_count
+                    and rationale_max_ts <= last_ts
+                    and manifest_revision == _GEN_PROMPT_REVISION
+                ):
                     logger.info(
                         "[GenSwarm] skipping for %s — rationale unchanged "
                         "(count=%d, max_ts=%.0f). Pass force=True to override.",
@@ -290,7 +312,8 @@ def synthesize_concepts_swarm(
             logger.warning("[GenSwarm] save_many failed: %s", e, exc_info=True)
 
     # Write the freshness manifest so the next run can short-circuit
-    # when rationale is unchanged. Best-effort.
+    # when rationale is unchanged AND prompts haven't been bumped.
+    # Best-effort.
     try:
         rcount, rts = _rationale_fingerprint(project_id)
         _write_gen_swarm_manifest(idx_dir, {
@@ -299,6 +322,7 @@ def synthesize_concepts_swarm(
             "completed_at": time.time(),
             "swarm_size": swarm_size,
             "candidates_after_dedup": report.candidates_after_dedup,
+            "prompt_revision": _GEN_PROMPT_REVISION,
         })
     except Exception:
         logger.debug("[GenSwarm] manifest write failed", exc_info=True)
