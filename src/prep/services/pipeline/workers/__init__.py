@@ -1,5 +1,10 @@
 """
 Pipeline worker factory — creates worker callables for each pipeline stage.
+
+Phase 134: WorkerFactory.create_worker now loads the project Changeset
+from disk and injects it onto the returned callable as `.changeset`.
+Downstream consumers call worker.changeset.should_process(path) to gate
+per-file work instead of performing independent hash comparisons.
 """
 from __future__ import annotations
 
@@ -18,11 +23,12 @@ from prep.services.build_orchestrator import (
     build_orchestrator,
 )
 
-from .stages import (
+from prep.services.pipeline.stages import (
     StageId, STAGE_TASK_ID, STAGE_MODEL_SLOT,
     STAGE_MANIFEST_FILE, STAGE_OUTPUT_FILE, STAGE_CONFIDENCE_FIELD,
 )
 from prep.services.pipeline.scheduler import pipeline_scheduler
+from .base import Worker  # Phase 134: worker contract
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +187,21 @@ class WorkerFactory:
             from prep.services.token_telemetry import set_telemetry_context
             with set_telemetry_context(project_id, stage.value):
                 return base_worker(slot, progress_cb)
+
+        # Phase 134: inject the changeset for downstream stages to consult.
+        # Read once at construction time so downstream workers don't need to
+        # know how to find idx_dir. Defensive: if anything goes wrong (first
+        # build, missing file, import error), set None — workers fall back to
+        # processing everything (see Worker.should_process).
+        try:
+            from prep.core.project_registry import project_index_dir
+            from prep.services.project_helpers import require_project
+            from prep.services.pipeline.changeset import read_changeset
+            _proj = require_project(project_id)
+            _idx_dir = project_index_dir(_proj)
+            wrapped_worker.changeset = read_changeset(_idx_dir)  # type: ignore[attr-defined]
+        except Exception:
+            wrapped_worker.changeset = None  # type: ignore[attr-defined]
 
         return wrapped_worker
 
