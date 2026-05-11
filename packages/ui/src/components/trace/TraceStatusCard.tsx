@@ -1,4 +1,5 @@
 import { Card, Badge } from '@tremor/react';
+import { StatusBadge } from '../status/StatusBadge';
 import { Zap } from 'lucide-react';
 import { Button } from '../primitives/Button';
 import { cn } from '../../lib/utils';
@@ -60,18 +61,14 @@ export function TraceStatusCard({
                 {status.engine === 'rust' ? 'Rust Engine' : 'Python'}
               </Badge>
             )}
-            {!status.enabled && (
-              <Badge color="gray">Disabled</Badge>
-            )}
+            {!status.enabled && <StatusBadge status="disabled" />}
             {status.enabled && !status.exists && (
-              <Badge color="yellow">Not Built</Badge>
+              <StatusBadge status="disabled" labelOverride="Not Built" />
             )}
             {status.enabled && status.exists && !status.building && (
-              <Badge color="green">Ready</Badge>
+              <StatusBadge status="fresh" labelOverride="Ready" />
             )}
-            {status.building && (
-              <Badge color="blue">Building</Badge>
-            )}
+            {status.building && <StatusBadge status="building" />}
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Card, Flex, Title, Badge } from '@tremor/react';
-import { RefreshCw, AlertCircle, Clock, ChevronDown, Pencil, Trash2, Check } from 'lucide-react';
+import { StatusBadge } from '../status/StatusBadge';
+import { ChevronDown, Pencil, Trash2, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { FolderTree } from './FolderTree';
 import type { TreeNode } from './FolderTree';
@@ -365,29 +366,13 @@ export function FolderTreePanel({
   let statusBadge = null;
   if (scopeStatus) {
     if (scopeStatus.state === 'building') {
-      statusBadge = (
-        <Badge icon={RefreshCw} className="animate-pulse" size="xs" color="blue">
-          Building...
-        </Badge>
-      );
+      statusBadge = <StatusBadge status="building" labelOverride="Building…" />;
     } else if (scopeStatus.state === 'debouncing') {
-      statusBadge = (
-        <Badge icon={Clock} size="xs" color="yellow">
-          Pending...
-        </Badge>
-      );
+      statusBadge = <StatusBadge status="pending" labelOverride="Pending…" />;
     } else if (scopeStatus.is_stale) {
-      statusBadge = (
-        <Badge icon={AlertCircle} size="xs" color="orange">
-          Stale
-        </Badge>
-      );
+      statusBadge = <StatusBadge status="stale" />;
     } else if (scopeStatus.error) {
-       statusBadge = (
-        <Badge icon={AlertCircle} size="xs" color="red">
-          Error
-        </Badge>
-      );
+      statusBadge = <StatusBadge status="error" />;
     }
   }
 

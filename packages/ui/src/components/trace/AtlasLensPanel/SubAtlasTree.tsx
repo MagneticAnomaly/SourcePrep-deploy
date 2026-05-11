@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, FolderTree } from 'lucide-react';
-import { Badge } from '@tremor/react';
+import { StatusBadge } from '../../status/StatusBadge';
 import { cn } from '../../../lib/utils';
 import type { AtlasSegmentStatus } from '../../../types';
 
@@ -73,11 +73,9 @@ export function SubAtlasTree({
                 <span className="ml-auto flex items-center gap-2 text-xs text-text-muted shrink-0">
                   <span className="tabular-nums">{seg.file_count.toLocaleString()} files</span>
                   <span className="tabular-nums">{(seg.char_count / 1000).toFixed(1)}K</span>
-                  {seg.stale ? (
-                    <Badge color="yellow" size="xs">stale</Badge>
-                  ) : (
-                    <Badge color="green" size="xs">fresh</Badge>
-                  )}
+                  {seg.stale
+                    ? <StatusBadge status="stale" />
+                    : <StatusBadge status="fresh" />}
                 </span>
               </button>
               {isOpen && (

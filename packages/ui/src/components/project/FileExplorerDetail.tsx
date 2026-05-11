@@ -1,10 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { FolderTree as FolderTreeIcon, RefreshCw, AlertCircle, Clock } from 'lucide-react';
+import { FolderTree as FolderTreeIcon } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { FolderTree } from './FolderTree';
 import type { TreeNode } from './FolderTree';
 import { FilePreviewPane } from './FilePreviewPane';
-import { Badge } from '@tremor/react';
+import { StatusBadge } from '../status/StatusBadge';
 import type { ScopeStatus } from '../../types';
 
 export interface FileExplorerDetailProps {
@@ -58,33 +58,17 @@ export function FileExplorerDetail({
   const [fileLoading, setFileLoading] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
 
-  // Determine status badge
+  // Determine status badge — see FolderTreePanel for the same mapping.
   let statusBadge = null;
   if (scopeStatus) {
     if (scopeStatus.state === 'building') {
-      statusBadge = (
-        <Badge icon={RefreshCw} className="animate-pulse" size="xs" color="blue">
-          Building...
-        </Badge>
-      );
+      statusBadge = <StatusBadge status="building" labelOverride="Building…" />;
     } else if (scopeStatus.state === 'debouncing') {
-      statusBadge = (
-        <Badge icon={Clock} size="xs" color="yellow">
-          Pending...
-        </Badge>
-      );
+      statusBadge = <StatusBadge status="pending" labelOverride="Pending…" />;
     } else if (scopeStatus.is_stale) {
-      statusBadge = (
-        <Badge icon={AlertCircle} size="xs" color="orange">
-          Stale
-        </Badge>
-      );
+      statusBadge = <StatusBadge status="stale" />;
     } else if (scopeStatus.error) {
-       statusBadge = (
-        <Badge icon={AlertCircle} size="xs" color="red">
-          Error
-        </Badge>
-      );
+      statusBadge = <StatusBadge status="error" />;
     }
   }
 

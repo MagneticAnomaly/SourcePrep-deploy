@@ -1,6 +1,7 @@
 import { Folder, Database, AlertCircle, Code2, RefreshCw, Play, GitBranch, BookOpen } from 'lucide-react';
 import { SlidingSwitch2 } from '../primitives/SlidingSwitch';
-import { Card, Badge, Text, Divider } from '@tremor/react';
+import { Card, Text, Divider } from '@tremor/react';
+import { StatusBadge } from '../status/StatusBadge';
 import { cn } from '../../lib/utils';
 import { ProgressIndicator } from '../status/ProgressIndicator';
 import type { TaskProgress } from '../../types';
@@ -194,16 +195,16 @@ export function IndexStatusCard({
         {/* Status badge */}
         {statsUnreachable ? (
           <span title="Status endpoint is unreachable — displayed numbers may be stale.">
-            <Badge color="yellow">Stats stale</Badge>
+            <StatusBadge status="stale" labelOverride="Stats stale" />
           </span>
         ) : building ? (
-          <Badge color="blue">Building</Badge>
+          <StatusBadge status="building" />
         ) : stats.loaded && !stale ? (
-          <Badge color="green">Fresh</Badge>
+          <StatusBadge status="fresh" />
         ) : stats.loaded && stale ? (
-          <Badge color="yellow">Stale</Badge>
+          <StatusBadge status="stale" />
         ) : (
-          <Badge color="gray">Not Built</Badge>
+          <StatusBadge status="disabled" labelOverride="Not Built" />
         )}
       </div>
       

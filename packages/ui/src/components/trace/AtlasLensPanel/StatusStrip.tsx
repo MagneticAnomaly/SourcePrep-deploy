@@ -3,6 +3,7 @@ import { Clock, Cpu } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { AtlasStatus } from '../../../types';
 import { StageRegenerateButton } from '../../pipeline/StageRegenerateButton';
+import { StatusBadge } from '../../status/StatusBadge';
 
 export interface StatusStripProps {
   atlas: AtlasStatus | null;
@@ -30,9 +31,9 @@ export function StatusStrip({
     <div className={cn('space-y-2', className)}>
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          {!exists && <Badge color="gray" size="xs">Not Generated</Badge>}
-          {exists && !stale && <Badge color="green" size="xs">Fresh</Badge>}
-          {exists && stale && <Badge color="yellow" size="xs">Stale</Badge>}
+          {!exists && <StatusBadge status="disabled" labelOverride="Not Generated" />}
+          {exists && !stale && <StatusBadge status="fresh" />}
+          {exists && stale && <StatusBadge status="stale" />}
           {exists && (
             <Badge color={mode === 'llm' ? 'indigo' : 'gray'} size="xs">
               {mode}
