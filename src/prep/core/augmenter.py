@@ -22,10 +22,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from prep.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+
+from prep.core.context_config import PipelineTask, compute_optimal_settings
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
 from prep.services.pipeline.holds import HoldPausedError
+from prep.services.pipeline.workers.base import Worker
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +93,6 @@ class AugmentationEntry:
     validated: bool = False
     validated_at: Optional[str] = None
     validated_by: Optional[str] = None
-    file_hash: Optional[str] = None  # hash of source when augmented, for staleness
     related_files: Optional[List[str]] = None  # LLM-hypothesized related files (feeds Pass 0.5)
     doc_type: Optional[str] = None  # for .md files: research, design_spec, plan, etc.
     doc_status: Optional[str] = None  # for .md files: active, completed, shelved, etc.
@@ -111,8 +112,6 @@ class AugmentationEntry:
             d["validated_at"] = self.validated_at
         if self.validated_by:
             d["validated_by"] = self.validated_by
-        if self.file_hash:
-            d["file_hash"] = self.file_hash
         if self.related_files:
             d["related_files"] = self.related_files
         if self.doc_type:
@@ -134,7 +133,8 @@ class AugmentationEntry:
             validated=bool(d.get("validated", False)),
             validated_at=d.get("validated_at"),
             validated_by=d.get("validated_by"),
-            file_hash=d.get("file_hash"),
+            # Phase 134: the per-entry source hash field was deleted; any
+            # existing JSON with that key is silently ignored here.
             related_files=d.get("related_files"),
             doc_type=d.get("doc_type"),
             doc_status=d.get("doc_status"),
@@ -261,7 +261,7 @@ JSON response:"""
 # are now in llm_client.py (re-exported above)
 
 
-class TraceAugmenter:
+class TraceAugmenter(Worker):
     """
     Augments trace nodes with LLM-generated summaries, roles, and confidence scores.
 
@@ -269,7 +269,8 @@ class TraceAugmenter:
     - Reads trace_nodes.jsonl + trace_edges.jsonl (static trace).
     - Calls a fast/small LLM per symbol node.
     - Writes trace_augmented.jsonl (overlay, never modifies static trace).
-    - Supports incremental runs via file hash comparison.
+    - Supports incremental runs via Changeset (Phase 134+); pre-Phase-134
+      used file hash comparison, which is deleted in Phase 134.
     """
 
     def __init__(
@@ -506,30 +507,37 @@ class TraceAugmenter:
                 pass
         return {}
 
+    def _should_skip(
+        self,
+        node: Dict[str, Any],
+        existing: Dict[str, AugmentationEntry],
+    ) -> bool:
+        """Phase 134: skip a node iff it's already augmented AND the
+        changeset says we should not process its file in this run.
+        Replaces the pre-Phase-134 per-entry source-hash comparison."""
+        node_id = node["id"]
+        if node_id not in existing:
+            return False  # never augmented → must process
+        file_path = node.get("file_path", "")
+        if not file_path:
+            # Symbol-level node without a file_path; nothing to gate on.
+            return True  # already in existing, no change signal → skip
+        return not self.should_process(file_path)
+
     def _needs_augmentation(
         self,
         node: Dict[str, Any],
         existing: Dict[str, AugmentationEntry],
         file_hashes: Dict[str, str],
     ) -> bool:
-        """Check if a node needs (re-)augmentation."""
-        node_id = node["id"]
-        if node_id not in existing:
-            return True
-        entry = existing[node_id]
-        # Check if source file changed since last augmentation.
-        # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
-        # (SHA-256-64 stored vs BLAKE3-128 manifest) so the Phase 133
-        # cutover does not falsely flag every node as stale and re-LLM
-        # the entire codebase. Phase 134 deletes this entire block —
-        # the changeset will tell us.
-        file_path = node.get("file_path", "")
-        if file_path and entry.file_hash:
-            from prep.core.ids import is_hash_stale
-            current_hash = file_hashes.get(file_path) or ""
-            if is_hash_stale(entry.file_hash, current_hash):
-                return True
-        return False
+        """Check if a node needs (re-)augmentation.
+
+        Phase 134: delegates to _should_skip (which uses the Changeset
+        injected via self.changeset). The file_hashes parameter is kept
+        for call-site compatibility but is no longer consulted —
+        per-entry source-hash comparison is gone in Phase 134.
+        """
+        return not self._should_skip(node, existing)
 
     def _read_source_snippet(self, file_path: str, span: Optional[Dict[str, int]], max_chars: int = 2000) -> str:
         """Read source code for a symbol, limited to max_chars."""
@@ -736,7 +744,6 @@ class TraceAugmenter:
             confidence=0.1,  # low confidence signals synthetic origin
             augmented_at=datetime.now(timezone.utc).isoformat(),
             model=model_label,
-            file_hash=file_hashes.get(file_path),
         )
 
     def _llm_generate_with_retry(
@@ -861,7 +868,6 @@ class TraceAugmenter:
             confidence=confidence,
             augmented_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model,
-            file_hash=file_hashes.get(file_path),
         )
 
     # Paths containing these segments are build output / not worth augmenting
@@ -1038,7 +1044,6 @@ class TraceAugmenter:
             confidence=confidence,
             augmented_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model,
-            file_hash=file_hashes.get(file_path),
             related_files=related,
         )
 
@@ -1132,7 +1137,6 @@ class TraceAugmenter:
             confidence=confidence,
             augmented_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model,
-            file_hash=file_hashes.get(file_path),
             related_files=related,
             doc_type=doc_type,
             doc_status=doc_status,
@@ -1300,7 +1304,6 @@ class TraceAugmenter:
                         confidence=_parse_confidence(parsed.get("confidence"), 0.7),
                         augmented_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
-                        file_hash=file_hashes.get(file_path),
                     )
                     augmented[nid] = entry
                     result.augmented += 1
@@ -1461,7 +1464,6 @@ class TraceAugmenter:
                         confidence=_parse_confidence(parsed.get("confidence"), 0.7),
                         augmented_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
-                        file_hash=file_hashes.get(fp),
                         related_files=parsed.get("related_files", [])[:5],
                     )
                     augmented[nid] = entry
@@ -1582,7 +1584,6 @@ class TraceAugmenter:
                         confidence=_parse_confidence(parsed.get("confidence"), 0.7),
                         augmented_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
-                        file_hash=file_hashes.get(fp),
                         related_files=parsed.get("related_files", [])[:5],
                         doc_type=parsed.get("doc_type"),
                         doc_status=parsed.get("doc_status"),
@@ -1649,7 +1650,6 @@ class TraceAugmenter:
                         confidence=_parse_confidence(parsed.get("confidence"), 0.7),
                         augmented_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
-                        file_hash=file_hashes.get(fp),
                         doc_type=parsed.get("doc_type"),
                         doc_status=parsed.get("doc_status"),
                     )

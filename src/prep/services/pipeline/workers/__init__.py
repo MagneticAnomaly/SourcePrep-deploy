@@ -496,6 +496,9 @@ class WorkerFactory:
                 batch_profile=batch_profile,
                 project_id=project_id,
             )
+            # Phase 134: pass the changeset from the wrapped_worker closure
+            # attribute to the augmenter so its should_process can consult it.
+            augmenter.changeset = getattr(wrapped_worker, "changeset", None)
             result = augmenter.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             paused = bool(getattr(result, "paused", False))
             logger.info(
