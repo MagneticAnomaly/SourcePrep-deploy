@@ -35,6 +35,7 @@ from typing import Any
 from prep.core.context_config import PipelineTask, compute_optimal_settings
 from prep.services.pipeline.recovery import is_reuse_blocked
 from prep.services.pipeline.workers import WorkerFactory
+from prep.services.pipeline.workers.base import Worker
 
 from .epistemic_score import EpistemicEntry
 from .llm_client import LLMClient, _parse_json_response
@@ -58,8 +59,6 @@ class GroupReasoningEntry:
     confidence: float = 0.7
     analyzed_at: str = ""
     model: str = ""
-    # Fingerprint: hash of member epistemic entries for staleness detection
-    member_fingerprint: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
@@ -73,7 +72,6 @@ class GroupReasoningEntry:
             "confidence": round(self.confidence, 3),
             "analyzed_at": self.analyzed_at,
             "model": self.model,
-            "member_fingerprint": self.member_fingerprint,
         }
         return d
 
@@ -90,7 +88,6 @@ class GroupReasoningEntry:
             confidence=float(d.get("confidence", 0.7)),
             analyzed_at=d.get("analyzed_at", ""),
             model=d.get("model", ""),
-            member_fingerprint=d.get("member_fingerprint", ""),
         )
 
 
@@ -202,28 +199,9 @@ def build_dependency_groups(
     return groups
 
 
-def compute_group_fingerprint(
-    member_ids: list[str],
-    epistemic: dict[str, EpistemicEntry],
-) -> str:
-    """Compute a fingerprint for a group based on member epistemic entries.
-
-    Changes when any member's enriched_at timestamp changes.
-    """
-    import hashlib
-    parts = []
-    for nid in sorted(member_ids):
-        entry = epistemic.get(nid)
-        if entry:
-            parts.append(f"{nid}:{entry.enriched_at}")
-        else:
-            parts.append(f"{nid}:none")
-    return hashlib.md5("|".join(parts).encode()).hexdigest()[:12]
-
-
 # ── Main Engine ──────────────────────────────────────────────────
 
-class GroupReasoningEngine:
+class GroupReasoningEngine(Worker):
     """Stage 6b: Group Deep Reasoning.
 
     Analyzes groups of related files together using deep reasoning
@@ -246,6 +224,19 @@ class GroupReasoningEngine:
         # Updated by _run_swarm() after each swarm execution.
         self._last_swarm_paused: bool = False
         self._last_swarm_pause_info: dict[str, str] = {}
+
+    def _group_is_stale(self, member_node_ids: list[str]) -> bool:
+        """A group is stale iff any member's underlying file is in
+        changeset.modified | deleted. Falls back to 'all stale' if the
+        changeset is unavailable (defensive — never happens in the live
+        pipeline since WorkerFactory always reads it)."""
+        if self.changeset is None:
+            return True
+        for nid in member_node_ids:
+            file_path = nid[len("file:"):] if nid.startswith("file:") else nid
+            if file_path in self.changeset.modified or file_path in self.changeset.deleted:
+                return True
+        return False
 
     def load_existing(self) -> dict[str, GroupReasoningEntry]:
         """Load existing group reasoning entries.
@@ -428,8 +419,6 @@ class GroupReasoningEngine:
             )
             return None
 
-        fingerprint = compute_group_fingerprint(member_ids, epistemic)
-
         return GroupReasoningEntry(
             group_id=group_id,
             member_node_ids=member_ids,
@@ -441,7 +430,6 @@ class GroupReasoningEngine:
             confidence=max(0.0, min(1.0, float(parsed.get("confidence", 0.7)))),
             analyzed_at=datetime.now(UTC).isoformat(),
             model=self.llm.model,
-            member_fingerprint=fingerprint,
         )
 
     def _run_swarm(
@@ -716,8 +704,6 @@ class GroupReasoningEngine:
             )
             return None
 
-        fingerprint = compute_group_fingerprint(member_ids, epistemic)
-
         return GroupReasoningEntry(
             group_id=group_id,
             member_node_ids=member_ids,
@@ -729,7 +715,6 @@ class GroupReasoningEngine:
             confidence=max(0.0, min(1.0, float(parsed.get("confidence", 0.7)))),
             analyzed_at=datetime.now(UTC).isoformat(),
             model=self.llm.model,
-            member_fingerprint=fingerprint,
         )
 
     def run(
@@ -780,22 +765,22 @@ class GroupReasoningEngine:
             ).hexdigest()[:10]
             group_map[gid] = members
 
-        # Check staleness
+        # Phase 135: a group is stale iff any member file is in
+        # changeset.modified | deleted. No fingerprint computation —
+        # the changeset is the canonical source of truth.
         to_analyze: list[tuple[str, list[str]]] = []
         reuse: dict[str, GroupReasoningEntry] = {}
 
         for gid, members in group_map.items():
-            fingerprint = compute_group_fingerprint(members, epistemic)
             ex = existing.get(gid)
-            if ex and ex.member_fingerprint == fingerprint:
-                # Group hasn't changed, reuse
+            if ex is not None and not self._group_is_stale(members):
                 reuse[gid] = ex
             else:
                 to_analyze.append((gid, members))
 
         total_groups = len(group_map)
         logger.info(
-            "Group reasoning: %d groups total, %d to analyze, %d reused (unchanged)",
+            "Group reasoning: %d groups total, %d to analyze, %d reused (unchanged per changeset)",
             total_groups, len(to_analyze), len(reuse),
         )
 

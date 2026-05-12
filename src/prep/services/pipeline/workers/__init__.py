@@ -776,6 +776,9 @@ class WorkerFactory:
             logger.info("[%s/Group Reasoning] Starting: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Group Reasoning", progress_cb, project.name)
             engine = GroupReasoningEngine(llm=llm_client, index_dir=idx_dir, project_id=project_id)
+            # Phase 135: inject the Changeset. `worker` is the inner-closure
+            # self-reference; Task 0 set base_worker.changeset so this read works.
+            engine.changeset = getattr(worker, "changeset", None)
             result = engine.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             analyzed = result.get("analyzed", 0)
             failed = result.get("failed", 0)
