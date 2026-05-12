@@ -30,7 +30,7 @@ def load_audit_context(
       - trace_epistemic.jsonl
       - trace_modules.jsonl
       - atlas.json
-      - trace_manifest.json (for file_hashes)
+      - changeset.json (Phase 134; for orphan + coverage-gap checks)
     """
     index_dir = Path(index_dir).resolve()
     ctx = AuditContext(
@@ -82,16 +82,14 @@ def load_audit_context(
         except Exception as e:
             logger.warning("Failed to load atlas: %s", e)
 
-    # File hashes from manifest
-    manifest_path = index_dir / "trace_manifest.json"
-    if manifest_path.exists():
-        try:
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                manifest = json.load(f)
-            ctx.file_hashes = manifest.get("file_hashes") or {}
-            logger.debug("Loaded %d file hashes", len(ctx.file_hashes))
-        except Exception as e:
-            logger.warning("Failed to load manifest: %s", e)
+    # Phase 134: populate changeset so StalenessAnalyzer can run orphan +
+    # coverage-gap checks without hashing files. (file_hashes loading was
+    # deleted in Phase 134 polish — no analyzer reads it post-rewrite.)
+    try:
+        from prep.services.pipeline.changeset import read_changeset
+        ctx.changeset = read_changeset(index_dir)
+    except Exception as e:
+        logger.debug("Could not load changeset for audit context: %s", e)
 
     # Load repo_policy exclude globs so file_nodes filters out
     # vendor/Pods/node_modules/etc. files that may be in old trace data.

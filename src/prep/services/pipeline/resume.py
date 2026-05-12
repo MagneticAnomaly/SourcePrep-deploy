@@ -7,14 +7,12 @@ start or resume a pipeline run based on manifest state on disk.
 Key methods:
 - detect_resume_point: Scans manifests to find first incomplete stage
 - check_coverage_gap: Compares filesystem vs trace for stale/untraced files
-- refresh_manifest_hashes: Updates file_hashes without re-running structural
 - should_skip_stage_freshness: Checks if outputs are newer than inputs
 - maybe_retrigger_for_coverage: Auto-retriggers after completion if gaps exist
 """
 from __future__ import annotations
 
 import logging
-import os
 import threading
 import time
 from collections.abc import Callable
@@ -909,200 +907,6 @@ class ResumeStrategy:
             }
 
     @staticmethod
-    def refresh_manifest_hashes(project_id: str) -> int:
-        """Refresh ``file_hashes`` in ``trace_manifest.json`` without re-running
-        the structural stage.
-
-        Phase 133: walks via ``prep_engine.walk_repo`` (same primitive
-        as ``compute_trace_coverage`` and ``TraceBuilder._compute_file_hashes``)
-        and hashes via ``prep_engine.hash_content`` (BLAKE3-128). Tags
-        the rewritten manifest with ``hash_algo: CURRENT_HASH_ALGO`` so
-        coverage's Path A self-heal does not misfire on the next call
-        (pre-Phase-133 this function wrote SHA-256 hashes while leaving
-        a stale ``hash_algo`` field intact, which silently broke the
-        cutover by producing 100% stale coverage on every subsequent
-        call after any fast_sync completion).
-
-        Returns the number of hashes that changed.
-        """
-        import json as _json
-        import tempfile
-
-        try:
-            import prep_engine
-        except ImportError:
-            # Without the Rust engine we cannot match the cutover's
-            # walker/hasher behavior; refusing to run is safer than
-            # writing divergent hashes.
-            return 0
-
-        from prep.core.manifest import CURRENT_HASH_ALGO
-
-        try:
-            from prep.core.project_registry import project_index_dir
-            from prep.services.project_helpers import require_project
-        except ImportError:
-            return 0
-
-        try:
-            project = require_project(project_id)
-        except Exception:
-            return 0
-
-        idx_dir = Path(project_index_dir(project))
-        manifest_path = idx_dir / "trace_manifest.json"
-
-        if not manifest_path.exists():
-            return 0
-
-        try:
-            with open(manifest_path, encoding="utf-8") as f:
-                manifest = _json.load(f)
-        except Exception:
-            return 0
-
-        old_hashes: dict[str, str] = manifest.get("file_hashes") or {}
-        if not old_hashes:
-            return 0
-
-        repo_root = Path(project.path).resolve()
-        pcfg = project.config or {}
-        max_file_bytes = int(pcfg.get("max_file_bytes") or 500_000)
-
-        # Collect traced paths from trace_nodes.jsonl for backfill
-        traced_node_paths: set[str] = set()
-        nodes_path = idx_dir / "trace_nodes.jsonl"
-        if nodes_path.exists():
-            try:
-                with open(nodes_path, encoding="utf-8") as nf:
-                    for line in nf:
-                        line = line.strip()
-                        if not line:
-                            continue
-                        try:
-                            node = _json.loads(line)
-                            if node.get("kind") == "file" and node.get("file_path"):
-                                traced_node_paths.add(node["file_path"])
-                        except _json.JSONDecodeError:
-                            continue
-            except Exception:
-                pass
-
-        from prep.core.repo_profile import DEFAULT_EXCLUDE_FILE_GLOBS
-        from prep.core.trace.builder import TraceBuilder
-
-        trace_cfg = pcfg.get("trace") if isinstance(pcfg, dict) else None
-        trace_ignore = (trace_cfg or {}).get("ignore_patterns", [])
-        user_exclude_globs = [str(p) for p in trace_ignore] if isinstance(trace_ignore, list) else []
-
-        default_builder = TraceBuilder(
-            repo_root=repo_root,
-            index_dir=idx_dir,
-            include_globs=pcfg.get("include_globs") or None,
-            exclude_globs=pcfg.get("exclude_globs") or None,
-            max_file_bytes=max_file_bytes,
-        )
-        include_globs = list(default_builder.include_globs) if default_builder.include_globs else None
-        exclude_globs = list(default_builder.exclude_globs) if default_builder.exclude_globs else []
-
-        # Match compute_trace_coverage's exclude composition: walker +
-        # DEFAULT_EXCLUDE_FILE_GLOBS + user trace.ignore_patterns.
-        for pattern in DEFAULT_EXCLUDE_FILE_GLOBS:
-            if pattern not in exclude_globs:
-                exclude_globs.append(pattern)
-        for pattern in user_exclude_globs:
-            if pattern not in exclude_globs:
-                exclude_globs.append(pattern)
-
-        entries = prep_engine.walk_repo(
-            str(repo_root),
-            include_globs=include_globs,
-            exclude_globs=exclude_globs or None,
-            max_file_bytes=int(max_file_bytes),
-        )
-
-        updated = 0
-        new_hashes = dict(old_hashes)
-        seen_paths: set[str] = set()
-
-        for entry in entries:
-            rel_path = entry.path  # POSIX, repo-relative
-            abs_path = Path(entry.abs_path)
-            try:
-                file_size = int(entry.size)
-                if file_size > max_file_bytes:
-                    with open(abs_path, encoding="utf-8", errors="ignore") as hf:
-                        source = hf.read(50_000)
-                else:
-                    source = abs_path.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
-                continue
-
-            current_hash = prep_engine.hash_content(source)
-            seen_paths.add(rel_path)
-
-            prev_hash = old_hashes.get(rel_path)
-            if prev_hash is None:
-                if rel_path in traced_node_paths:
-                    new_hashes[rel_path] = current_hash
-                    updated += 1
-            elif prev_hash != current_hash:
-                new_hashes[rel_path] = current_hash
-                updated += 1
-
-        # Remove hashes for deleted files
-        deleted_paths = set(old_hashes.keys()) - seen_paths
-        for dp in deleted_paths:
-            del new_hashes[dp]
-            updated += 1
-
-        # Phase 133: even when no individual hash changed, the manifest's
-        # hash_algo tag may be stale (pre-cutover or absent). Always
-        # rewrite the algo tag so coverage's Path A self-heal sees the
-        # current algo. If both file_hashes and hash_algo are unchanged,
-        # skip the disk write to preserve mtime.
-        algo_changed = manifest.get("hash_algo") != CURRENT_HASH_ALGO
-        if updated == 0 and not algo_changed:
-            return 0
-
-        # Write atomically — preserve built_at to avoid mtime cascade
-        manifest["file_hashes"] = new_hashes
-        manifest["hash_algo"] = CURRENT_HASH_ALGO
-        try:
-            tmp = tempfile.NamedTemporaryFile(
-                mode="w",
-                suffix=".json",
-                dir=str(idx_dir),
-                delete=False,
-                encoding="utf-8",
-            )
-            _json.dump(manifest, tmp, indent=2, sort_keys=True)
-            tmp.flush()
-            os.fsync(tmp.fileno())
-            tmp.close()
-            os.rename(tmp.name, manifest_path)
-            logger.info(
-                "Refreshed %d file_hashes in trace_manifest.json for %s "
-                "(added/updated: %d, deleted: %d)",
-                updated,
-                project_id,
-                updated - len(deleted_paths),
-                len(deleted_paths),
-            )
-        except Exception:
-            try:
-                os.unlink(tmp.name)
-            except OSError:
-                pass
-            logger.warning(
-                "Failed to write updated file_hashes for %s",
-                project_id,
-                exc_info=True,
-            )
-
-        return updated
-
-    @staticmethod
     def should_skip_stage_freshness(
         run_project_id: str,
         stage: StageId,
@@ -1166,7 +970,6 @@ class ResumeStrategy:
         project_id: str,
         run_fast_sync_fn: Callable[[str], bool],
         is_any_active_fn: Callable[[str], bool],
-        refresh_hashes_fn: Callable[[str], int],
         pfl: Any = None,
     ) -> None:
         """After pipeline completion, check for untraced/stale files and
@@ -1199,18 +1002,6 @@ class ResumeStrategy:
                         project_id,
                     )
                     return
-
-                # Refresh hashes before checking
-                try:
-                    refreshed = refresh_hashes_fn(project_id)
-                    if refreshed > 0:
-                        logger.info(
-                            "Coverage retrigger: refreshed %d file hashes for %s",
-                            refreshed,
-                            project_id,
-                        )
-                except Exception:
-                    pass
 
                 gap = ResumeStrategy.check_coverage_gap(project_id)
                 if not gap["needs_rebuild"]:

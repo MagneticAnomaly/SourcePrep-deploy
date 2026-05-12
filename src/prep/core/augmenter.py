@@ -22,10 +22,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from prep.core.context_config import PipelineTask, compute_optimal_settings
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+
+from prep.core.context_config import PipelineTask, compute_optimal_settings
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
 from prep.services.pipeline.holds import HoldPausedError
+from prep.services.pipeline.workers.base import Worker
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +93,6 @@ class AugmentationEntry:
     validated: bool = False
     validated_at: Optional[str] = None
     validated_by: Optional[str] = None
-    file_hash: Optional[str] = None  # hash of source when augmented, for staleness
     related_files: Optional[List[str]] = None  # LLM-hypothesized related files (feeds Pass 0.5)
     doc_type: Optional[str] = None  # for .md files: research, design_spec, plan, etc.
     doc_status: Optional[str] = None  # for .md files: active, completed, shelved, etc.
@@ -111,8 +112,6 @@ class AugmentationEntry:
             d["validated_at"] = self.validated_at
         if self.validated_by:
             d["validated_by"] = self.validated_by
-        if self.file_hash:
-            d["file_hash"] = self.file_hash
         if self.related_files:
             d["related_files"] = self.related_files
         if self.doc_type:
@@ -134,7 +133,8 @@ class AugmentationEntry:
             validated=bool(d.get("validated", False)),
             validated_at=d.get("validated_at"),
             validated_by=d.get("validated_by"),
-            file_hash=d.get("file_hash"),
+            # Phase 134: the per-entry source hash field was deleted; any
+            # existing JSON with that key is silently ignored here.
             related_files=d.get("related_files"),
             doc_type=d.get("doc_type"),
             doc_status=d.get("doc_status"),
@@ -261,7 +261,7 @@ JSON response:"""
 # are now in llm_client.py (re-exported above)
 
 
-class TraceAugmenter:
+class TraceAugmenter(Worker):
     """
     Augments trace nodes with LLM-generated summaries, roles, and confidence scores.
 
@@ -269,7 +269,8 @@ class TraceAugmenter:
     - Reads trace_nodes.jsonl + trace_edges.jsonl (static trace).
     - Calls a fast/small LLM per symbol node.
     - Writes trace_augmented.jsonl (overlay, never modifies static trace).
-    - Supports incremental runs via file hash comparison.
+    - Supports incremental runs via Changeset (Phase 134+); pre-Phase-134
+      used file hash comparison, which is deleted in Phase 134.
     """
 
     def __init__(
@@ -494,42 +495,34 @@ class TraceAugmenter:
                         edges.append(json.loads(line))
         return edges
 
-    def load_file_hashes(self) -> Dict[str, str]:
-        """Load file hashes from the trace manifest for staleness detection."""
-        manifest_path = self.index_dir / "trace_manifest.json"
-        if manifest_path.exists():
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = json.load(f)
-                return manifest.get("file_hashes", {})
-            except Exception:
-                pass
-        return {}
+    def _should_skip(
+        self,
+        node: Dict[str, Any],
+        existing: Dict[str, AugmentationEntry],
+    ) -> bool:
+        """Phase 134: skip a node iff it's already augmented AND the
+        changeset says we should not process its file in this run.
+        Replaces the pre-Phase-134 per-entry source-hash comparison."""
+        node_id = node["id"]
+        if node_id not in existing:
+            return False  # never augmented → must process
+        file_path = node.get("file_path", "")
+        if not file_path:
+            # Symbol-level node without a file_path; nothing to gate on.
+            return True  # already in existing, no change signal → skip
+        return not self.should_process(file_path)
 
     def _needs_augmentation(
         self,
         node: Dict[str, Any],
         existing: Dict[str, AugmentationEntry],
-        file_hashes: Dict[str, str],
     ) -> bool:
-        """Check if a node needs (re-)augmentation."""
-        node_id = node["id"]
-        if node_id not in existing:
-            return True
-        entry = existing[node_id]
-        # Check if source file changed since last augmentation.
-        # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
-        # (SHA-256-64 stored vs BLAKE3-128 manifest) so the Phase 133
-        # cutover does not falsely flag every node as stale and re-LLM
-        # the entire codebase. Phase 134 deletes this entire block —
-        # the changeset will tell us.
-        file_path = node.get("file_path", "")
-        if file_path and entry.file_hash:
-            from prep.core.ids import is_hash_stale
-            current_hash = file_hashes.get(file_path) or ""
-            if is_hash_stale(entry.file_hash, current_hash):
-                return True
-        return False
+        """Check if a node needs (re-)augmentation.
+
+        Phase 134: delegates to _should_skip (which uses the Changeset
+        injected via self.changeset).
+        """
+        return not self._should_skip(node, existing)
 
     def _read_source_snippet(self, file_path: str, span: Optional[Dict[str, int]], max_chars: int = 2000) -> str:
         """Read source code for a symbol, limited to max_chars."""
@@ -702,7 +695,6 @@ class TraceAugmenter:
     def _synthetic_entry(
         self,
         node: Dict[str, Any],
-        file_hashes: Dict[str, str],
         reason: str = "llm_failure",
     ) -> AugmentationEntry:
         """Create a synthetic augmentation entry from file metadata.
@@ -736,7 +728,6 @@ class TraceAugmenter:
             confidence=0.1,  # low confidence signals synthetic origin
             augmented_at=datetime.now(timezone.utc).isoformat(),
             model=model_label,
-            file_hash=file_hashes.get(file_path),
         )
 
     def _llm_generate_with_retry(
@@ -795,7 +786,6 @@ class TraceAugmenter:
         node: Dict[str, Any],
         edges: List[Dict[str, Any]],
         nodes_by_id: Dict[str, Dict[str, Any]],
-        file_hashes: Dict[str, str],
     ) -> Optional[AugmentationEntry]:
         """Augment a single symbol node with LLM summary."""
         file_path = node.get("file_path", "")
@@ -803,7 +793,7 @@ class TraceAugmenter:
         source = self._read_source_snippet(file_path, span)
         if not source:
             logger.debug("Empty source for symbol %s — using synthetic entry", node.get("name"))
-            return self._synthetic_entry(node, file_hashes, reason="empty_source")
+            return self._synthetic_entry(node, reason="empty_source")
 
         imports = self._get_file_imports(file_path, edges, nodes_by_id)
         symbol_type = node.get("metadata", {}).get("symbol_type", "function")
@@ -834,12 +824,12 @@ class TraceAugmenter:
             raise
         except Exception as e:
             logger.warning("LLM call failed for %s after retries: %s", node.get("name"), e)
-            return self._synthetic_entry(node, file_hashes, reason="llm_failure")
+            return self._synthetic_entry(node, reason="llm_failure")
 
         parsed = _parse_json_response(text)
         if parsed is None:
             logger.warning("Failed to parse LLM response for %s — raw: %.200s", node.get("name"), text)
-            return self._synthetic_entry(node, file_hashes, reason="parse_failure")
+            return self._synthetic_entry(node, reason="parse_failure")
 
         role = parsed.get("role", "internal")
         if role not in VALID_ROLES:
@@ -861,7 +851,6 @@ class TraceAugmenter:
             confidence=confidence,
             augmented_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model,
-            file_hash=file_hashes.get(file_path),
         )
 
     # Paths containing these segments are build output / not worth augmenting
@@ -935,7 +924,6 @@ class TraceAugmenter:
         node: Dict[str, Any],
         edges: List[Dict[str, Any]],
         nodes_by_id: Dict[str, Dict[str, Any]],
-        file_hashes: Dict[str, str],
     ) -> Optional[AugmentationEntry]:
         """Augment a file node with LLM role classification.
 
@@ -952,16 +940,15 @@ class TraceAugmenter:
         is_markdown = node.get("language") == "markdown" or file_path.endswith((".md", ".markdown"))
 
         if is_markdown:
-            return self._augment_markdown_file(node, edges, nodes_by_id, file_hashes)
+            return self._augment_markdown_file(node, edges, nodes_by_id)
         else:
-            return self._augment_code_file(node, edges, nodes_by_id, file_hashes)
+            return self._augment_code_file(node, edges, nodes_by_id)
 
     def _augment_code_file(
         self,
         node: Dict[str, Any],
         edges: List[Dict[str, Any]],
         nodes_by_id: Dict[str, Dict[str, Any]],
-        file_hashes: Dict[str, str],
     ) -> Optional[AugmentationEntry]:
         """Augment a code file node with LLM role classification."""
         file_path = node.get("file_path", "")
@@ -1008,12 +995,12 @@ class TraceAugmenter:
             raise
         except Exception as e:
             logger.warning("LLM call failed for file %s after retries: %s", file_path, e)
-            return self._synthetic_entry(node, file_hashes, reason="llm_failure")
+            return self._synthetic_entry(node, reason="llm_failure")
 
         parsed = _parse_json_response(text)
         if parsed is None:
             logger.warning("Failed to parse LLM response for file %s — raw: %.200s", file_path, text)
-            return self._synthetic_entry(node, file_hashes, reason="parse_failure")
+            return self._synthetic_entry(node, reason="parse_failure")
 
         role = parsed.get("role", "utility")
         if role not in VALID_ROLES:
@@ -1038,7 +1025,6 @@ class TraceAugmenter:
             confidence=confidence,
             augmented_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model,
-            file_hash=file_hashes.get(file_path),
             related_files=related,
         )
 
@@ -1047,7 +1033,6 @@ class TraceAugmenter:
         node: Dict[str, Any],
         edges: List[Dict[str, Any]],
         nodes_by_id: Dict[str, Dict[str, Any]],
-        file_hashes: Dict[str, str],
     ) -> Optional[AugmentationEntry]:
         """Augment a markdown file with doc-specific prompt and strategic excerpts."""
         file_path = node.get("file_path", "")
@@ -1094,12 +1079,12 @@ class TraceAugmenter:
             raise
         except Exception as e:
             logger.warning("LLM call failed for doc %s after retries: %s", file_path, e)
-            return self._synthetic_entry(node, file_hashes, reason="llm_failure")
+            return self._synthetic_entry(node, reason="llm_failure")
 
         parsed = _parse_json_response(text)
         if parsed is None:
             logger.warning("Failed to parse LLM response for doc %s — raw: %.200s", file_path, text)
-            return self._synthetic_entry(node, file_hashes, reason="parse_failure")
+            return self._synthetic_entry(node, reason="parse_failure")
 
         role = parsed.get("role", "documentation")
         if role not in VALID_ROLES:
@@ -1132,7 +1117,6 @@ class TraceAugmenter:
             confidence=confidence,
             augmented_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model,
-            file_hash=file_hashes.get(file_path),
             related_files=related,
             doc_type=doc_type,
             doc_status=doc_status,
@@ -1143,7 +1127,6 @@ class TraceAugmenter:
         symbol_nodes: List[Dict[str, Any]],
         edges: List[Dict[str, Any]],
         nodes_by_id: Dict[str, Dict[str, Any]],
-        file_hashes: Dict[str, str],
         augmented: Dict[str, "AugmentationEntry"],
         result: "AugmentResult",
         done: int,
@@ -1180,7 +1163,7 @@ class TraceAugmenter:
             # Use smaller snippet for batching (1200 chars vs 2000) to fit more per batch
             source = self._read_source_snippet(file_path, span, max_chars=1200)
             if not source:
-                entry = self._synthetic_entry(node, file_hashes, reason="empty_source")
+                entry = self._synthetic_entry(node, reason="empty_source")
                 augmented[entry.node_id] = entry
                 result.synthetic += 1
                 done += 1
@@ -1300,12 +1283,11 @@ class TraceAugmenter:
                         confidence=_parse_confidence(parsed.get("confidence"), 0.7),
                         augmented_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
-                        file_hash=file_hashes.get(file_path),
                     )
                     augmented[nid] = entry
                     result.augmented += 1
                 else:
-                    entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
+                    entry = self._synthetic_entry(node, reason="batch_parse_failure")
                     augmented[nid] = entry
                     result.synthetic += 1
                 done += 1
@@ -1329,7 +1311,6 @@ class TraceAugmenter:
         file_nodes: List[Dict[str, Any]],
         edges: List[Dict[str, Any]],
         nodes_by_id: Dict[str, Dict[str, Any]],
-        file_hashes: Dict[str, str],
         augmented: Dict[str, "AugmentationEntry"],
         result: "AugmentResult",
         done: int,
@@ -1461,13 +1442,12 @@ class TraceAugmenter:
                         confidence=_parse_confidence(parsed.get("confidence"), 0.7),
                         augmented_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
-                        file_hash=file_hashes.get(fp),
                         related_files=parsed.get("related_files", [])[:5],
                     )
                     augmented[nid] = entry
                     result.augmented += 1
                 else:
-                    entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
+                    entry = self._synthetic_entry(node, reason="batch_parse_failure")
                     augmented[nid] = entry
                     result.synthetic += 1
                 done += 1
@@ -1582,7 +1562,6 @@ class TraceAugmenter:
                         confidence=_parse_confidence(parsed.get("confidence"), 0.7),
                         augmented_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
-                        file_hash=file_hashes.get(fp),
                         related_files=parsed.get("related_files", [])[:5],
                         doc_type=parsed.get("doc_type"),
                         doc_status=parsed.get("doc_status"),
@@ -1590,7 +1569,7 @@ class TraceAugmenter:
                     augmented[nid] = entry
                     result.augmented += 1
                 else:
-                    entry = self._synthetic_entry(node, file_hashes, reason="batch_parse_failure")
+                    entry = self._synthetic_entry(node, reason="batch_parse_failure")
                     augmented[nid] = entry
                     result.synthetic += 1
                 done += 1
@@ -1649,14 +1628,13 @@ class TraceAugmenter:
                         confidence=_parse_confidence(parsed.get("confidence"), 0.7),
                         augmented_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
-                        file_hash=file_hashes.get(fp),
                         doc_type=parsed.get("doc_type"),
                         doc_status=parsed.get("doc_status"),
                     )
                     augmented[nid] = entry
                     result.augmented += 1
                 else:
-                    entry = self._synthetic_entry(node, file_hashes, reason="narrative_parse_failure")
+                    entry = self._synthetic_entry(node, reason="narrative_parse_failure")
                     augmented[nid] = entry
                     result.synthetic += 1
                 done += 1
@@ -1686,7 +1664,6 @@ class TraceAugmenter:
 
         nodes = self.load_trace_nodes()
         edges = self.load_trace_edges()
-        file_hashes = self.load_file_hashes()
         existing = self.load_existing()
 
         if not nodes:
@@ -1701,8 +1678,8 @@ class TraceAugmenter:
         file_nodes = [n for n in nodes if n.get("kind") == "file"]
 
         # Filter to nodes needing augmentation
-        to_augment_symbols = [n for n in symbol_nodes if self._needs_augmentation(n, existing, file_hashes)]
-        to_augment_files = [n for n in file_nodes if self._needs_augmentation(n, existing, file_hashes)]
+        to_augment_symbols = [n for n in symbol_nodes if self._needs_augmentation(n, existing)]
+        to_augment_files = [n for n in file_nodes if self._needs_augmentation(n, existing)]
 
         total_work = len(to_augment_symbols) + len(to_augment_files)
         if max_items and total_work > max_items:
@@ -1807,7 +1784,7 @@ class TraceAugmenter:
                 logger.info("Pass 1: BATCHED symbol augmentation (%d symbols, profile=%s)",
                             len(to_augment_symbols), self._batch_profile.name.value)
                 done = self._augment_symbols_batched(
-                    to_augment_symbols, edges, nodes_by_id, file_hashes,
+                    to_augment_symbols, edges, nodes_by_id,
                     augmented, result, done, total_work, progress_callback,
                     cancel_token,
                 )
@@ -1828,7 +1805,7 @@ class TraceAugmenter:
                             progress_callback("augment_symbols", done, total_work)
 
                         item_start = time.monotonic()
-                        entry = self.augment_symbol(node, edges, nodes_by_id, file_hashes)
+                        entry = self.augment_symbol(node, edges, nodes_by_id)
                         item_elapsed = time.monotonic() - item_start
                         if entry:
                             augmented[entry.node_id] = entry
@@ -1860,7 +1837,7 @@ class TraceAugmenter:
                     lock = threading.Lock()
                     with ThreadPoolExecutor(max_workers=concurrency) as pool:
                         futures = {
-                            pool.submit(self.augment_symbol, node, edges, nodes_by_id, file_hashes): node
+                            pool.submit(self.augment_symbol, node, edges, nodes_by_id): node
                             for node in to_augment_symbols
                         }
                         for future in as_completed(futures):
@@ -1901,7 +1878,7 @@ class TraceAugmenter:
                 logger.info("Pass 2: BATCHED file augmentation (%d files, profile=%s)",
                             len(to_augment_files), self._batch_profile.name.value)
                 done = self._augment_files_batched(
-                    to_augment_files, edges, nodes_by_id, file_hashes,
+                    to_augment_files, edges, nodes_by_id,
                     augmented, result, done, total_work, progress_callback,
                     cancel_token=cancel_token,
                 )
@@ -1923,7 +1900,7 @@ class TraceAugmenter:
                             progress_callback("augment_files", done, total_work)
 
                         item_start = time.monotonic()
-                        entry = self.augment_file(node, edges, nodes_by_id, file_hashes)
+                        entry = self.augment_file(node, edges, nodes_by_id)
                         item_elapsed = time.monotonic() - item_start
                         if entry:
                             augmented[entry.node_id] = entry
@@ -1948,7 +1925,7 @@ class TraceAugmenter:
                     lock = threading.Lock()
                     with ThreadPoolExecutor(max_workers=concurrency) as pool:
                         futures = {
-                            pool.submit(self.augment_file, node, edges, nodes_by_id, file_hashes): node
+                            pool.submit(self.augment_file, node, edges, nodes_by_id): node
                             for node in to_augment_files
                         }
                         for future in as_completed(futures):

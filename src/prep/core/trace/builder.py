@@ -49,15 +49,13 @@ from prep.core.ids import (
 )
 from prep.core.manifest import CURRENT_HASH_ALGO
 from prep.core.repo_policy import effective_excludes, ensure_repo_policy
-from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
-
 from .models import (
     FileError,
     TraceNode,
     TraceEdge,
     TRACE_MANIFEST_VERSION,
 )
-from .utils import _detect_language, _to_posix, _is_relevant
+from .utils import _detect_language, _to_posix
 from .analyzers import PythonAnalyzer, SwiftAnalyzer, GenericRegexAnalyzer, JSAnalyzer
 
 logger = logging.getLogger(__name__)
@@ -344,12 +342,16 @@ class TraceBuilder:
         # Phase 60C: Content-hash comparison — if the file set hasn't
         # changed, skip the destructive write to preserve the existing
         # manifest mtime and prevent false STALE_MTIME cascade.
+        # Phase 134: Load the prior manifest BEFORE any write so we can
+        # diff against it regardless of the skip_write path.
+        prior_manifest_for_changeset: Optional[Dict[str, Any]] = None
         skip_write = False
         if self.manifest_path.exists():
             try:
                 import json as _json
                 with open(self.manifest_path, "r", encoding="utf-8") as f:
                     existing_manifest = _json.load(f)
+                prior_manifest_for_changeset = existing_manifest
                 existing_hashes = existing_manifest.get("file_hashes", {})
                 existing_counts = existing_manifest.get("counts", {})
 
@@ -384,6 +386,11 @@ class TraceBuilder:
             )
             self._write_manifest(manifest)
 
+        # Phase 134: emit the changeset for downstream stages.
+        import uuid as _uuid
+        run_id = manifest.get("run_id") or f"run-{_uuid.uuid4().hex[:12]}"
+        self._emit_changeset(file_hashes, prior_manifest_for_changeset, run_id)
+
         if progress_callback:
             progress_callback("trace_write", len(files), len(files))
 
@@ -403,7 +410,9 @@ class TraceBuilder:
         # The Rust engine writes a minimal manifest without file_hashes,
         # which causes IntegrityGuard to flag a catastrophic shrink
         # (e.g. 95KB → 304B).
+        # Phase 134: also capture the prior manifest for changeset diffing.
         saved_file_hashes: Optional[Dict[str, str]] = None
+        old_manifest: Optional[Dict[str, Any]] = None
         if self.manifest_path.exists():
             try:
                 with open(self.manifest_path, "r", encoding="utf-8") as f:
@@ -516,9 +525,12 @@ class TraceBuilder:
             manifest["hash_algo"] = CURRENT_HASH_ALGO   # Phase 133: tag post-Rust-build manifest
             self._write_manifest(manifest)
 
-        return manifest
+        # Phase 134: emit the changeset for downstream stages.
+        import uuid as _uuid
+        run_id = manifest.get("run_id") or f"run-{_uuid.uuid4().hex[:12]}"
+        self._emit_changeset(manifest.get("file_hashes") or {}, old_manifest, run_id)
 
-    _PRUNE_DIRS = DEFAULT_EXCLUDE_DIR_NAMES
+        return manifest
 
     def _compute_file_hashes(self) -> Dict[str, str]:
         """Compute content hashes for all eligible files.
@@ -552,36 +564,16 @@ class TraceBuilder:
         return file_hashes
 
     def _enumerate_files(self) -> List[Path]:
-        all_files: List[Path] = []
-
-        for root, dirs, files in os.walk(self.repo_root):
-            # Prune dot-directories and explicit exclude dirs
-            dirs[:] = [
-                d for d in dirs 
-                if d not in self._PRUNE_DIRS and not d.startswith(".")
-            ]
-            root_path = Path(root)
-            for fname in files:
-                file_path = root_path / fname
-                rel_path = _to_posix(str(file_path.relative_to(self.repo_root)))
-
-                if file_path.is_symlink():
-                    continue
-
-                if not _is_relevant(rel_path, self.include_globs, self.exclude_globs):
-                    continue
-
-                if self.gitignore_spec and self.gitignore_spec.match_file(rel_path):
-                    continue
-
-                try:
-                    if file_path.stat().st_size > self.hard_limit_bytes:
-                        continue
-                except OSError:
-                    continue
-
-                all_files.append(file_path)
-
+        # Phase 134: migrate to prep_engine.walk_repo for filter parity with
+        # _compute_file_hashes and compute_trace_coverage. The Rust walker
+        # handles gitignore, symlinks, and size limits natively.
+        entries = prep_engine.walk_repo(
+            str(self.repo_root),
+            include_globs=list(self.include_globs) if self.include_globs else None,
+            exclude_globs=list(self.exclude_globs) if self.exclude_globs else None,
+            max_file_bytes=int(self.hard_limit_bytes),
+        )
+        all_files = [Path(entry.abs_path) for entry in entries]
         all_files.sort(key=lambda p: _to_posix(str(p.relative_to(self.repo_root))))
         return all_files
 
@@ -712,6 +704,91 @@ class TraceBuilder:
             except OSError:
                 pass
             raise
+
+    def _emit_changeset(
+        self,
+        new_file_hashes: Dict[str, str],
+        prior_manifest: Optional[Dict[str, Any]],
+        run_id: str,
+    ) -> None:
+        """Phase 134: compute and write .sourceprep/changeset.json by
+        diffing this build's file_hashes against the prior manifest.
+
+        Three cases:
+        - Case 1 (no prior manifest): added = everything, others empty
+        - Case 2 (prior manifest has matching hash_algo): real diff
+        - Case 3 (prior manifest has mismatched/absent hash_algo):
+          unchanged = {prior manifest paths still on disk},
+          added = {new paths not in prior manifest},
+          modified = {} (cannot meaningfully compare SHA-256 vs BLAKE3),
+          deleted = {prior manifest paths no longer on disk}
+
+        See docs/Phase134_ChangesetDrivenPipeline/README.md for rationale.
+        """
+        from prep.services.pipeline.changeset import Changeset, read_changeset, write_changeset
+
+        new_paths = frozenset(new_file_hashes.keys())
+
+        if prior_manifest is None:
+            cs = Changeset(
+                added=new_paths,
+                modified=frozenset(),
+                deleted=frozenset(),
+                unchanged=frozenset(),
+                run_id=run_id,
+                base_run_id=None,
+            )
+            write_changeset(self.index_dir, cs)
+            return
+
+        prior_hashes: Dict[str, str] = prior_manifest.get("file_hashes") or {}
+        prior_paths = frozenset(prior_hashes.keys())
+        prior_algo = prior_manifest.get("hash_algo")
+        # Prefer run_id from the prior changeset (authoritative) over the
+        # manifest (which may not have a run_id field in pre-134 layouts).
+        prior_cs = read_changeset(self.index_dir)
+        base_run_id: Optional[str] = None
+        if prior_cs is not None:
+            base_run_id = prior_cs.run_id or None
+        if base_run_id is None:
+            base_run_id = prior_manifest.get("run_id") or None
+
+        if prior_algo == CURRENT_HASH_ALGO:
+            # Case 2: real hash diff
+            added = new_paths - prior_paths
+            deleted = prior_paths - new_paths
+            common = new_paths & prior_paths
+            modified: set[str] = set()
+            unchanged: set[str] = set()
+            for path in common:
+                if new_file_hashes[path] == prior_hashes[path]:
+                    unchanged.add(path)
+                else:
+                    modified.add(path)
+            cs = Changeset(
+                added=frozenset(added),
+                modified=frozenset(modified),
+                deleted=frozenset(deleted),
+                unchanged=frozenset(unchanged),
+                run_id=run_id,
+                base_run_id=base_run_id,
+            )
+            write_changeset(self.index_dir, cs)
+            return
+
+        # Case 3: hash format mismatch — trust prior work unconditionally.
+        common_alive = frozenset(p for p in prior_paths if p in new_paths)
+        deleted_paths = prior_paths - new_paths
+        added_paths = new_paths - prior_paths
+        cs = Changeset(
+            added=added_paths,
+            modified=frozenset(),
+            deleted=deleted_paths,
+            unchanged=common_alive,
+            run_id=run_id,
+            base_run_id=base_run_id,
+        )
+        write_changeset(self.index_dir, cs)
 
 
 def build_trace(

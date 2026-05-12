@@ -1,5 +1,10 @@
 """
 Pipeline worker factory — creates worker callables for each pipeline stage.
+
+Phase 134: WorkerFactory.create_worker now loads the project Changeset
+from disk and injects it onto the returned callable as `.changeset`.
+Downstream consumers call worker.changeset.should_process(path) to gate
+per-file work instead of performing independent hash comparisons.
 """
 from __future__ import annotations
 
@@ -18,11 +23,12 @@ from prep.services.build_orchestrator import (
     build_orchestrator,
 )
 
-from .stages import (
+from prep.services.pipeline.stages import (
     StageId, STAGE_TASK_ID, STAGE_MODEL_SLOT,
     STAGE_MANIFEST_FILE, STAGE_OUTPUT_FILE, STAGE_CONFIDENCE_FIELD,
 )
 from prep.services.pipeline.scheduler import pipeline_scheduler
+from .base import Worker  # Phase 134: worker contract
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +187,21 @@ class WorkerFactory:
             from prep.services.token_telemetry import set_telemetry_context
             with set_telemetry_context(project_id, stage.value):
                 return base_worker(slot, progress_cb)
+
+        # Phase 134: inject the changeset for downstream stages to consult.
+        # Read once at construction time so downstream workers don't need to
+        # know how to find idx_dir. Defensive: if anything goes wrong (first
+        # build, missing file, import error), set None — workers fall back to
+        # processing everything (see Worker.should_process).
+        try:
+            from prep.core.project_registry import project_index_dir
+            from prep.services.project_helpers import require_project
+            from prep.services.pipeline.changeset import read_changeset
+            _proj = require_project(project_id)
+            _idx_dir = project_index_dir(_proj)
+            wrapped_worker.changeset = read_changeset(_idx_dir)  # type: ignore[attr-defined]
+        except Exception:
+            wrapped_worker.changeset = None  # type: ignore[attr-defined]
 
         return wrapped_worker
 
@@ -475,6 +496,9 @@ class WorkerFactory:
                 batch_profile=batch_profile,
                 project_id=project_id,
             )
+            # Phase 134: pass the changeset from the wrapped_worker closure
+            # attribute to the augmenter so its should_process can consult it.
+            augmenter.changeset = getattr(wrapped_worker, "changeset", None)
             result = augmenter.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             paused = bool(getattr(result, "paused", False))
             logger.info(
@@ -680,6 +704,10 @@ class WorkerFactory:
                 batch_profile=batch_profile,
                 project_id=project_id,
             )
+            # Phase 134: inject the changeset from the wrapped_worker closure
+            # attribute so _needs_enrichment can check changeset.modified
+            # instead of comparing manifest file hashes.
+            enricher.changeset = getattr(wrapped_worker, "changeset", None)
             result = enricher.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             enriched = result.get("enriched_this_run", 0)
             failed = result.get("failed_this_run", 0)
@@ -998,6 +1026,9 @@ class WorkerFactory:
                 index_dir=idx_dir,
                 project_id=project_id,
             )
+            # Phase 134: inject changeset onto the enricher so _needs_enrichment
+            # can check changeset.modified instead of comparing manifest hashes.
+            enricher.changeset = getattr(wrapped_worker, "changeset", None)
             _t0 = time.time()
             logger.info("[%s/Deepening] Starting deepening loop: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Deepening", progress_cb, project.name)
@@ -1008,6 +1039,10 @@ class WorkerFactory:
                 batch_size=20,
                 project_id=project_id,
             )
+            # Phase 134: inject the changeset from the wrapped_worker closure
+            # attribute onto the DriftDetector so it can compute stale_set from
+            # changeset.modified | deleted instead of per-entry hash comparison.
+            loop.drift_detector.changeset = getattr(wrapped_worker, "changeset", None)
             result = loop.run(progress_callback=log_cb)
             logger.info(
                 "[Deepening] Complete — %d iterations, converged=%s",

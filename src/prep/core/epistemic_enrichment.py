@@ -31,6 +31,7 @@ from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _par
 from .epistemic_score import EpistemicEntry, EpistemicScore, compute_epistemic_score
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
 from prep.services.pipeline.holds import HoldPausedError
+from prep.services.pipeline.workers.base import Worker
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +236,7 @@ def topological_sort_into_tiers(
 
 # ── Enrichment engine ────────────────────────────────────────────────
 
-class EpistemicEnricher:
+class EpistemicEnricher(Worker):
     """Pass 2 enrichment engine using a 14b model.
 
     Processes nodes in reverse-topological order, building up contextual
@@ -439,26 +440,20 @@ class EpistemicEnricher:
                     link_targets.append(fp)
         return file_refs, link_targets
 
-    def load_file_hashes(self) -> Dict[str, str]:
-        """Load file hashes from the trace manifest for staleness detection."""
-        manifest_path = self.index_dir / "trace_manifest.json"
-        if manifest_path.exists():
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = json.load(f)
-                return manifest.get("file_hashes", {})
-            except Exception:
-                pass
-        return {}
-
     def _needs_enrichment(
         self,
         node: Dict[str, Any],
         existing: Dict[str, EpistemicEntry],
         augmentations: Dict[str, Dict[str, Any]],
-        file_hashes: Dict[str, str],
     ) -> bool:
-        """Check if a file node needs (re-)enrichment."""
+        """Check if a file node needs (re-)enrichment.
+
+        Phase 134: staleness is determined by the changeset, not by comparing
+        manifest file hashes. A node needs enrichment if:
+        - it has no existing epistemic entry yet, OR
+        - its file_path is in changeset.modified (re-enrichment needed).
+        Files in changeset.unchanged have trusted prior enrichments.
+        """
         node_id = node["id"]
         # Must have a Pass 1 augmentation
         if node_id not in augmentations:
@@ -466,23 +461,18 @@ class EpistemicEnricher:
         # Not yet enriched
         if node_id not in existing:
             return True
-        # Check if source file changed since last enrichment.
-        # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
-        # (SHA-256-64 vs BLAKE3-128) so the Phase 133 cutover does not
-        # re-LLM the entire codebase. Phase 134 deletes this — the
-        # changeset will tell us what to enrich.
+        # Phase 134: a node is stale iff its file_path is in changeset.modified.
+        # We use self.should_process() (the Worker contract) which returns True
+        # for files in added | modified. At this point node_id IS in existing
+        # (we returned True above for the not-yet-enriched case), so the only
+        # files that reach here are ones that had a prior enrichment entry.
+        # For those, we re-enrich if and only if the file was modified this run.
         file_path = node.get("file_path", "")
-        if file_path:
-            from prep.core.ids import is_hash_stale
-            current_hash = file_hashes.get(file_path) or ""
-            # Find the file hash that was recorded during this node's
-            # original augmentation since EpistemicEntry doesn't store
-            # the hash directly.
-            aug_hash = augmentations[node_id].get("file_hash") or ""
-            if is_hash_stale(aug_hash, current_hash):
-                return True
-        # Already enriched and unchanged
-        return False
+        if not file_path:
+            return False  # symbol-level node, no file gate
+        if self.changeset is None:
+            return False  # defensive — no changeset means unknown state, skip
+        return file_path in self.changeset.modified
 
     def get_pending_nodes(self, trace_idx: Any = None) -> List[Dict[str, Any]]:
         """Get a list of file nodes that need enrichment.
@@ -496,11 +486,10 @@ class EpistemicEnricher:
             
         existing = self.load_existing()
         augmentations = self.load_augmentations()
-        file_hashes = self.load_file_hashes()
-        
+
         pending_nodes = []
         for node in file_nodes:
-            if self._needs_enrichment(node, existing, augmentations, file_hashes):
+            if self._needs_enrichment(node, existing, augmentations):
                 pending_nodes.append(node)
                 
         return pending_nodes
@@ -1045,7 +1034,6 @@ class EpistemicEnricher:
         edges = self.load_trace_edges()
         augmentations = self.load_augmentations()
         existing = self.load_existing()
-        file_hashes = self.load_file_hashes()
 
         if not nodes:
             logger.info("No trace nodes found, skipping epistemic enrichment")
@@ -1064,7 +1052,7 @@ class EpistemicEnricher:
                 file_nodes.append(n)
 
         # Filter to nodes needing enrichment
-        to_enrich = [n for n in file_nodes if self._needs_enrichment(n, existing, augmentations, file_hashes)]
+        to_enrich = [n for n in file_nodes if self._needs_enrichment(n, existing, augmentations)]
 
         if max_items:
             to_enrich = to_enrich[:max_items]
@@ -1361,17 +1349,6 @@ class EpistemicEnricher:
                 cross_ref_counts[src] += 1
                 cross_ref_counts[tgt] += 1
 
-        # Load file hashes
-        manifest_path = self.index_dir / "trace_manifest.json"
-        file_hashes: Dict[str, str] = {}
-        if manifest_path.exists():
-            try:
-                with open(manifest_path, "r", encoding="utf-8") as f:
-                    manifest = json.load(f)
-                file_hashes = manifest.get("file_hashes", {})
-            except Exception:
-                pass
-
         scores: Dict[str, EpistemicScore] = {}
         file_nodes = [n for n in nodes if n.get("kind") == "file"]
 
@@ -1384,7 +1361,6 @@ class EpistemicEnricher:
                 neighbor_ids=neighbor_map.get(nid, set()),
                 enriched_node_ids=enriched_ids,
                 cross_ref_count=cross_ref_counts.get(nid, 0),
-                current_file_hashes=file_hashes,
             )
             scores[nid] = score
 

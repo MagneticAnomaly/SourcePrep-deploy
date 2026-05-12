@@ -193,6 +193,7 @@ class TestParseJsonResponse:
 
 class TestAugmentationEntry:
     def test_round_trip(self):
+        # Phase 134: file_hash field deleted — entry no longer carries it.
         entry = AugmentationEntry(
             node_id="node-1",
             summary="Does something",
@@ -200,14 +201,16 @@ class TestAugmentationEntry:
             confidence=0.85,
             augmented_at="2025-02-11T00:00:00Z",
             model="test",
-            file_hash="abc123",
         )
         d = entry.to_dict()
         restored = AugmentationEntry.from_dict(d)
         assert restored.node_id == "node-1"
         assert restored.summary == "Does something"
         assert restored.confidence == 0.85
-        assert restored.file_hash == "abc123"
+        # Verify old JSON with a hash key loads cleanly (key silently ignored).
+        legacy_dict = {**d, "file_hash": "legacy_abc123"}
+        restored_legacy = AugmentationEntry.from_dict(legacy_dict)
+        assert restored_legacy.node_id == "node-1"
 
     def test_validated_fields(self):
         entry = AugmentationEntry(
@@ -268,21 +271,35 @@ class TestTraceAugmenter:
         assert (tmp_index / "trace_augment_manifest.json").exists()
 
     def test_incremental_skips_unchanged(self, tmp_index, tmp_repo):
-        hashes = {"main.py": "hash1", "utils.py": "hash2"}
-        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES, file_hashes=hashes)
+        """Phase 134: incremental skipping is now changeset-driven, not
+        hash-driven. When the injected changeset marks all files unchanged,
+        nodes with existing entries are skipped."""
+        from prep.services.pipeline.changeset import Changeset
+
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
         client = FakeLLMClient()
         aug = TraceAugmenter(tmp_index, tmp_repo, client)
 
-        # First run augments everything
+        # First run: no changeset (process-all mode) — augments everything
         r1 = aug.run()
         assert r1.augmented > 0
-        calls_first = len(client.calls)
 
-        # Second run should skip (hashes unchanged)
+        # Second run: changeset says all files are unchanged → all nodes skipped.
         client.calls.clear()
-        r2 = aug.run()
+        aug2 = TraceAugmenter(tmp_index, tmp_repo, client)
+        # Mark all files as unchanged — no new, no modified
+        all_paths = {n.get("file_path", "") for n in SAMPLE_NODES if n.get("file_path")}
+        aug2.changeset = Changeset(
+            added=frozenset(),
+            modified=frozenset(),
+            deleted=frozenset(),
+            unchanged=frozenset(all_paths),
+            run_id="r2",
+            base_run_id="r1",
+        )
+        r2 = aug2.run()
         assert r2.skipped > 0
-        # Only the pre-flight LLM test call should be made, no augmentation calls
+        # Only the pre-flight LLM check fires — no augmentation calls
         assert len(client.calls) <= 1
 
     def test_max_items_limit(self, tmp_index, tmp_repo):

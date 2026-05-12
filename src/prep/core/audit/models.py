@@ -9,7 +9,10 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+
+if TYPE_CHECKING:
+    from prep.services.pipeline.changeset import Changeset
 
 
 @dataclass
@@ -76,9 +79,12 @@ class AuditContext:
     epistemic: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     modules: List[Dict[str, Any]] = field(default_factory=list)
     atlas: Optional[Dict[str, Any]] = None
-    file_hashes: Dict[str, str] = field(default_factory=dict)
     project_root: Optional[Path] = None
     index_dir: Optional[Path] = None
+    # Phase 134: changeset-driven staleness — replaces per-stage hash compare.
+    # The pre-Phase-134 `file_hashes: Dict[str, str]` field was deleted in
+    # the Phase 134 polish pass; no analyzer reads it post-rewrite.
+    changeset: Optional[Changeset] = None
 
     # Exclude globs loaded from repo_policy — applied to file_nodes
     _exclude_globs: Optional[List[str]] = field(

@@ -1,20 +1,24 @@
-"""Staleness analyzer — finds enrichments that are out of date."""
+"""Phase 134 — Staleness analyzer rewrite.
+
+Pre-Phase-134 this analyzer hashed every file and compared against
+the manifest's file_hashes (per-stage staleness check, the bug class
+Phase 134 deletes). Post-Phase-134 the analyzer consults the
+changeset for two narrow, well-scoped checks:
+
+1. Orphan check: files in changeset.deleted that still have
+   augmentation entries on disk. These are leftover state from
+   files the user removed; the augmentation pipeline should clean
+   them up.
+2. Coverage-gap check: files in changeset.added | modified that
+   the augmenter didn't process by run end. These indicate the
+   augmenter silently failed for some inputs.
+"""
 from __future__ import annotations
 
-from pathlib import Path
 from typing import List
 
 from ..models import AuditContext, Finding
 from . import BaseAnalyzer
-
-# Phase 133: hash via the same primitive that compute_trace_coverage and
-# TraceBuilder write. Comparing Python SHA-256 against BLAKE3-128 manifest
-# hashes (post-cutover) would falsely flag every file stale on every
-# audit run.
-try:
-    import prep_engine
-except ImportError:
-    prep_engine = None  # type: ignore[assignment]
 
 
 class StalenessAnalyzer(BaseAnalyzer):
@@ -23,64 +27,60 @@ class StalenessAnalyzer(BaseAnalyzer):
 
     def analyze(self, ctx: AuditContext) -> List[Finding]:
         findings: List[Finding] = []
-
-        if not ctx.file_hashes or not ctx.project_root or prep_engine is None:
+        if ctx.changeset is None:
             return findings
 
-        stale_files: List[str] = []
+        # Check 1: orphan augmentations (deleted files with lingering entries)
+        deleted_paths = ctx.changeset.deleted
+        orphan_node_ids: List[str] = []
+        for node_id in ctx.augmentations.keys():
+            file_path = node_id.replace("file:", "", 1) if node_id.startswith("file:") else ""
+            if file_path and file_path in deleted_paths:
+                orphan_node_ids.append(node_id)
 
-        # Phase 133 hot-fix: is_hash_stale graces hash-format mismatches
-        # (SHA-256-64 vs BLAKE3-128) so the Phase 133 cutover does not
-        # spam-flag every file as stale enrichment on every audit run.
-        # Phase 134 deletes this analyzer's hash logic — the changeset
-        # tells us what's stale.
-        from prep.core.ids import is_hash_stale
+        if orphan_node_ids:
+            severity = "warning" if len(orphan_node_ids) > 10 else "info"
+            findings.append(Finding(
+                analyzer=self.name,
+                severity=severity,
+                category=self.category,
+                title=f"{len(orphan_node_ids)} orphan augmentations (deleted files)",
+                description=(
+                    f"{len(orphan_node_ids)} augmentation entries reference "
+                    f"files that were deleted in this run. Cleanup pass "
+                    f"should remove them.\n"
+                    f"Top orphans: {', '.join(orphan_node_ids[:10])}"
+                ),
+                file_paths=[
+                    node_id.replace("file:", "", 1) for node_id in orphan_node_ids[:20]
+                ],
+                evidence={"orphan_count": len(orphan_node_ids)},
+                suggested_action="Run augmentation cleanup to remove orphan entries.",
+            ))
 
-        for rel_path, stored_hash in ctx.file_hashes.items():
-            aug = None
-            node_id = f"file:{rel_path}"
-            if node_id in ctx.augmentations:
-                aug_hash = ctx.augmentations[node_id].get("file_hash", "")
-                if is_hash_stale(aug_hash, stored_hash):
-                    stale_files.append(rel_path)
-                    continue
-
-            # Also check if file on disk differs from manifest hash
-            abs_path = ctx.project_root / rel_path
-            if not abs_path.exists():
-                continue
-            try:
-                source = abs_path.read_text(encoding="utf-8", errors="ignore")
-                current_hash = prep_engine.hash_content(source)
-            except Exception:
-                continue
-
-            if is_hash_stale(stored_hash, current_hash):
-                stale_files.append(rel_path)
-
-        if not stale_files:
-            return findings
-
-        severity = "warning" if len(stale_files) > 10 else "info"
-
-        findings.append(Finding(
-            analyzer=self.name,
-            severity=severity,
-            category=self.category,
-            title=f"{len(stale_files)} files have stale enrichments",
-            description=(
-                f"{len(stale_files)} files have been modified since their last "
-                f"enrichment. Their augmentation summaries, epistemic data, and "
-                f"module assignments may be outdated.\n"
-                f"Top stale files: {', '.join(stale_files[:10])}"
-            ),
-            file_paths=stale_files[:20],
-            evidence={
-                "stale_count": len(stale_files),
-                "total_hashed": len(ctx.file_hashes),
-                "stale_pct": round(100 * len(stale_files) / max(len(ctx.file_hashes), 1), 1),
-            },
-            suggested_action="Run the enrichment pipeline to refresh stale nodes.",
-        ))
+        # Check 2: coverage gap (added/modified files not present in augmentations)
+        expected_processed = ctx.changeset.added | ctx.changeset.modified
+        actually_processed = {
+            node_id.replace("file:", "", 1) if node_id.startswith("file:") else ""
+            for node_id in ctx.augmentations.keys()
+        }
+        gap = expected_processed - actually_processed
+        if gap:
+            severity = "warning" if len(gap) > 5 else "info"
+            findings.append(Finding(
+                analyzer=self.name,
+                severity=severity,
+                category=self.category,
+                title=f"{len(gap)} files added/modified but not augmented",
+                description=(
+                    f"{len(gap)} files are in this run's changeset (added "
+                    f"or modified) but no augmentation entry exists for "
+                    f"them. The augmenter may have silently failed.\n"
+                    f"Top missing: {', '.join(sorted(gap)[:10])}"
+                ),
+                file_paths=sorted(gap)[:20],
+                evidence={"gap_count": len(gap)},
+                suggested_action="Re-run augmentation for the affected files.",
+            ))
 
         return findings

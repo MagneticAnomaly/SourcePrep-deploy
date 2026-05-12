@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-import os
 from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Sequence, Set, Tuple
+
+try:
+    import prep_engine as _prep_engine  # Rust PyO3 walker
+except ImportError:
+    _prep_engine = None  # type: ignore[assignment]
 
 # Directories Prep itself writes. Indexing any of these creates a feedback
 # loop in which the LLM reasons about Prep's own state instead of the user's
@@ -238,24 +242,28 @@ def scan_for_presets(root: Path) -> List[str]:
     Skips common heavy directories to be fast.
     """
     detected_presets = set()
-    # Limit depth and directories to avoid slow scans in huge monorepos
-    ignore_dirs = DEFAULT_EXCLUDE_DIR_NAMES | {"vendor", ".idea", ".vscode"}
-    
+    # Extra dirs not already in DEFAULT_EXCLUDE_DIR_NAMES (.idea, .vscode are IDE dirs).
+    _extra_ignore = {".idea", ".vscode"}
+    _all_ignore = DEFAULT_EXCLUDE_DIR_NAMES | _extra_ignore
+
     try:
-        # We'll just walk up to 3 levels deep for speed, or until we find enough evidence
-        for dirpath, dirnames, filenames in os.walk(str(root)):
-            # Prune ignored dirs
-            dirnames[:] = [d for d in dirnames if d not in ignore_dirs and not d.startswith(".")]
-            
-            for f in filenames:
-                ext = Path(f).suffix.lower()
-                if ext in EXT_TO_PRESET:
-                    detected_presets.add(EXT_TO_PRESET[ext])
-            
-            pass
+        # Phase 134: migrate to prep_engine.walk_repo for filter parity.
+        # Include all extensions known to EXT_TO_PRESET; exclude standard dirs.
+        _ext_globs = [f"**/*{ext}" for ext in EXT_TO_PRESET]
+        _excl_globs = [f"**/{d}/**" for d in sorted(_all_ignore)] + ["**/.*/**", "**/.*"]
+        entries = _prep_engine.walk_repo(
+            str(root),
+            include_globs=_ext_globs,
+            exclude_globs=_excl_globs,
+            max_file_bytes=500_000,
+        )
+        for entry in entries:
+            ext = Path(entry.path).suffix.lower()
+            if ext in EXT_TO_PRESET:
+                detected_presets.add(EXT_TO_PRESET[ext])
     except Exception:
         pass
-        
+
     return list(detected_presets)
 
 
@@ -328,27 +336,31 @@ def classify_dir_name(name: str) -> Tuple[str, float]:
 
 
 def _iter_repo_files(repo_root: Path, max_depth: int, max_files: int) -> Iterator[Path]:
+    # Phase 134: migrate to prep_engine.walk_repo for filter parity.
+    # Exclude standard dirs, dot-dirs, and dot-files; honour max_depth and max_files.
+    _excl_globs = [f"**/{d}/**" for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES)] + [
+        "**/.*/**",  # dot-dirs
+        "**/.*",     # dot-files
+    ]
     seen = 0
-    for root, dirs, files in os.walk(repo_root, topdown=True):
-        rel_dir = Path(root).resolve().relative_to(repo_root)
-        depth = len(rel_dir.parts)
-
-        dirs[:] = [
-            d
-            for d in dirs
-            if d not in DEFAULT_EXCLUDE_DIR_NAMES and not d.startswith(".")
-        ]
-
-        if depth >= max_depth:
-            dirs[:] = []
-
-        for fn in files:
-            if fn.startswith("."):
-                continue
-            yield Path(root) / fn
-            seen += 1
-            if seen >= max_files:
-                return
+    entries = _prep_engine.walk_repo(
+        str(repo_root),
+        include_globs=None,
+        exclude_globs=_excl_globs,
+        max_file_bytes=500_000_000,  # no practical size limit here
+    )
+    for entry in entries:
+        # Honour max_depth: entry.path is POSIX repo-relative ("a/b/c.py" → depth=2).
+        # Files in directories at depth==max_depth are included; only subdirectories
+        # at depth>max_depth are skipped (mirrors the original topdown pruning logic).
+        rel_parts = entry.path.split("/")
+        if len(rel_parts) - 1 > max_depth:
+            # file is deeper than max_depth directories — skip
+            continue
+        yield Path(entry.abs_path)
+        seen += 1
+        if seen >= max_files:
+            return
 
 
 def profile_repo(repo_root: Path, max_depth: int = 4, max_files: int = 5000) -> Dict[str, Any]:

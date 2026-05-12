@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 import time
 from pathlib import Path
@@ -569,12 +568,6 @@ class PipelineOrchestrator:
             # the user sees concrete confirmation that "stale and new files"
             # are part of the rebuild scope.
             try:
-                refreshed = self._refresh_manifest_hashes(project_id)
-                if refreshed > 0 and pfl:
-                    pfl.log("fast_sync", f"Pre-rebuild: refreshed {refreshed} file hashes")
-            except Exception:
-                logger.debug("U19 manifest hash refresh failed (non-fatal)", exc_info=True)
-            try:
                 gap = self.check_coverage_gap(project_id, include_paths=True)
                 stale = gap.get("stale", 0)
                 untraced = gap.get("untraced", 0)
@@ -678,20 +671,6 @@ class PipelineOrchestrator:
 
             # Phase 53: All manifests exist — but are there stale files?
             try:
-                # Phase 72: Refresh file_hashes first to clear false
-                # "stale" from the Phase 60D structural-skip.
-                try:
-                    refreshed = self._refresh_manifest_hashes(project_id)
-                    if refreshed > 0:
-                        logger.info(
-                            "Pre-gap refresh: updated %d file hashes for %s",
-                            refreshed, project_id,
-                        )
-                        if pfl:
-                            pfl.log("fast_sync", f"Pre-gap: refreshed {refreshed} file hashes")
-                except Exception:
-                    pass  # Non-fatal
-
                 gap = self.check_coverage_gap(project_id, include_paths=True)
 
                 if pfl:
@@ -1596,11 +1575,6 @@ class PipelineOrchestrator:
 
 
     @staticmethod
-    def _refresh_manifest_hashes(project_id: str) -> int:
-        """Delegates to ResumeStrategy.refresh_manifest_hashes."""
-        return ResumeStrategy.refresh_manifest_hashes(project_id)
-
-    @staticmethod
     def check_coverage_gap(project_id: str, include_paths: bool = False) -> dict[str, Any]:
         """Delegates to ResumeStrategy.check_coverage_gap."""
         return ResumeStrategy.check_coverage_gap(project_id, include_paths)
@@ -1620,7 +1594,6 @@ class PipelineOrchestrator:
             project_id,
             run_fast_sync_fn=self.run_fast_sync,
             is_any_active_fn=_is_active,
-            refresh_hashes_fn=self._refresh_manifest_hashes,
             pfl=pfl,
         )
     def _resolve_node_for_stage(
@@ -2222,21 +2195,6 @@ class PipelineOrchestrator:
                         run.project_id, chain_reason,
                     )
 
-                # Phase 72: After fast_sync completes, refresh file_hashes
-                # in trace_manifest.json so that modified files are no longer
-                # reported as "stale" by check_coverage_gap().  This is
-                # necessary because the structural stage is skipped during
-                # incremental runs (Phase 60D).
-                try:
-                    refreshed = self._refresh_manifest_hashes(run.project_id)
-                    if refreshed > 0 and pfl:
-                        pfl.log("fast_sync", f"Refreshed {refreshed} file hashes in manifest")
-                except Exception as exc:
-                    logger.warning(
-                        "Failed to refresh manifest hashes for %s: %s",
-                        run.project_id, exc,
-                    )
-
                 # Phase 48-F8: After fast_sync completes, schedule a
                 # coverage gap check.  If there are still untraced or
                 # stale files (e.g. Rust engine missed them, or new files
@@ -2458,13 +2416,12 @@ class PipelineOrchestrator:
         # so detect_resume_point correctly detects the stage as incomplete
         # and resumes from it.
         #
-        # Phase 133 hardening: RENAME instead of unlink, so a Rust panic
-        # (or any worker crash) inside the stage doesn't leave the project
-        # without a manifest. The .f67_pending backup is restored at the
-        # next stage start if no fresh manifest was written. Trigger
-        # incident: prep_engine.build_trace panicked on an em-dash in a
-        # docstring, leaving .sourceprep/trace_manifest.json missing → the
-        # dashboard showed 0/1933 traced and looked like a catastrophe.
+        # Phase 134 simplification: the changeset is now the inter-stage
+        # truth, so the manifest is no longer load-bearing for downstream
+        # stages. We rename instead of unlink (so resume-point detection sees
+        # the absence and marks the stage incomplete), but no longer restore
+        # from .f67_pending backup — the changeset from the last successful
+        # run is still on disk and downstream stages keep working off it.
         try:
             from prep.core.project_registry import project_index_dir
             from prep.services.project_helpers import require_project
@@ -2475,19 +2432,9 @@ class PipelineOrchestrator:
                 _manifest_path = _idx_dir / _manifest_file
                 _backup_path = _idx_dir / f"{_manifest_file}.f67_pending"
 
-                # Restore from a prior failed run's backup BEFORE invalidating.
-                # If the previous attempt panicked and no fresh manifest was
-                # written since, _backup_path holds the last-known-good state.
-                if _backup_path.exists() and not _manifest_path.exists():
-                    _backup_path.rename(_manifest_path)
-                    logger.warning(
-                        "F-67 hardening: restored manifest %s from .f67_pending "
-                        "backup (prior stage attempt left no fresh manifest)",
-                        _manifest_file,
-                    )
-
                 if _manifest_path.exists():
-                    # Rename instead of unlink — surviving crash recovery.
+                    # Rename instead of unlink — keeps the manifest safe but
+                    # signals absence to resume-point detection.
                     if _backup_path.exists():
                         _backup_path.unlink()  # drop any prior backup
                     _manifest_path.rename(_backup_path)
@@ -2762,26 +2709,29 @@ class PipelineOrchestrator:
                     _proj = require_project(project_id)
                     _repo = Path(_proj.path)
                     if _repo.is_dir():
-                        # Count up to 5 files to confirm the repo isn't empty
+                        # Count up to 5 files to confirm the repo isn't empty.
+                        # Phase 134: use prep_engine.walk_repo for filter parity.
+                        import prep_engine as _pe
+                        _CODE_GLOBS = [
+                            "**/*.py", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
+                            "**/*.go", "**/*.rs", "**/*.java", "**/*.c", "**/*.cpp",
+                            "**/*.h", "**/*.hpp", "**/*.swift", "**/*.md", "**/*.kt",
+                            "**/*.cs", "**/*.rb", "**/*.php",
+                        ]
+                        _EXCL_GLOBS = [
+                            "**/node_modules/**", "**/__pycache__/**", "**/.git/**",
+                            "**/target/**", "**/build/**", "**/dist/**", "**/vendor/**",
+                            "**/.*/**",
+                        ]
+                        _entries = _pe.walk_repo(
+                            str(_repo),
+                            include_globs=_CODE_GLOBS,
+                            exclude_globs=_EXCL_GLOBS,
+                            max_file_bytes=500_000,
+                        )
                         _found = 0
-                        _CODE_EXTS = {
-                            ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs",
-                            ".java", ".c", ".cpp", ".h", ".hpp", ".swift",
-                            ".md", ".kt", ".cs", ".rb", ".php",
-                        }
-                        for _r, _ds, _fs in os.walk(_repo):
-                            _ds[:] = [
-                                d for d in _ds
-                                if not d.startswith(".") and d not in (
-                                    "node_modules", "__pycache__", ".git",
-                                    "target", "build", "dist", "vendor",
-                                )
-                            ]
-                            for _fn in _fs:
-                                if any(_fn.endswith(ext) for ext in _CODE_EXTS):
-                                    _found += 1
-                                    if _found >= 5:
-                                        break
+                        for _ in _entries:
+                            _found += 1
                             if _found >= 5:
                                 break
 

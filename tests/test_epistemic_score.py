@@ -22,7 +22,6 @@ class TestComputeEpistemicScore:
                 "confidence": 0.95,
                 "validated": True,
                 "validated_by": "qwen2.5:14b",
-                "file_hash": "abc123",
             },
             epistemic=EpistemicEntry(
                 node_id="file:src/main.py",
@@ -34,14 +33,12 @@ class TestComputeEpistemicScore:
             neighbor_ids={"file:src/utils.py", "file:src/config.py"},
             enriched_node_ids={"file:src/utils.py", "file:src/config.py", "file:src/main.py"},
             cross_ref_count=3,
-            current_file_hashes={"src/main.py": "abc123"},
         )
         assert score.composite > 0.9
         assert score.summary_confidence == 0.95
         assert score.validation_status == 1.0
         assert score.neighbor_coverage == 1.0
         assert score.enrichment_depth == 1.0
-        assert score.staleness_check == 1.0
 
     def test_unenriched_node(self):
         """A node with only Pass 1 augmentation should score low."""
@@ -50,28 +47,27 @@ class TestComputeEpistemicScore:
             augmentation={
                 "confidence": 0.8,
                 "validated": False,
-                "file_hash": "def456",
             },
             epistemic=None,
             neighbor_ids={"file:src/a.py", "file:src/b.py"},
             enriched_node_ids=set(),
             cross_ref_count=0,
-            current_file_hashes={"src/new.py": "def456"},
         )
         assert score.composite < 0.5
         assert score.enrichment_depth == 0.0
         assert score.validation_status == 0.0
         assert score.neighbor_coverage == 0.0
 
-    def test_stale_node(self):
-        """A node whose source changed should have staleness_check = 0."""
+    def test_no_staleness_check_field(self):
+        """Phase 134: EpistemicScore has no staleness_check field.
+        The c6 component is deleted — stale entries don't exist because
+        the changeset prevents them at the augmenter level."""
         score = compute_epistemic_score(
             node_id="file:src/changed.py",
             augmentation={
                 "confidence": 0.9,
                 "validated": True,
                 "validated_by": "14b",
-                "file_hash": "old_hash",
             },
             epistemic=EpistemicEntry(
                 node_id="file:src/changed.py",
@@ -83,9 +79,10 @@ class TestComputeEpistemicScore:
             neighbor_ids=set(),
             enriched_node_ids=set(),
             cross_ref_count=0,
-            current_file_hashes={"src/changed.py": "new_hash"},
         )
-        assert score.staleness_check == 0.0
+        assert not hasattr(score, "staleness_check"), (
+            "EpistemicScore.staleness_check was deleted in Phase 134"
+        )
 
     def test_isolated_node_neutral_coverage(self):
         """Isolated nodes (0 neighbors) get neutral 0.5 coverage."""
@@ -96,7 +93,6 @@ class TestComputeEpistemicScore:
             neighbor_ids=set(),
             enriched_node_ids=set(),
             cross_ref_count=0,
-            current_file_hashes={},
         )
         assert score.neighbor_coverage == 0.5
 
@@ -109,7 +105,6 @@ class TestComputeEpistemicScore:
             neighbor_ids=set(),
             enriched_node_ids=set(),
             cross_ref_count=3,
-            current_file_hashes={},
         )
         score_10 = compute_epistemic_score(
             node_id="file:a.py",
@@ -118,7 +113,6 @@ class TestComputeEpistemicScore:
             neighbor_ids=set(),
             enriched_node_ids=set(),
             cross_ref_count=10,
-            current_file_hashes={},
         )
         assert score_3.cross_reference_density == 0.75
         assert score_10.cross_reference_density == 1.0
@@ -132,7 +126,6 @@ class TestComputeEpistemicScore:
             neighbor_ids=set(),
             enriched_node_ids=set(),
             cross_ref_count=0,
-            current_file_hashes={},
         )
         assert score.summary_confidence == 0.0
         assert score.composite < 0.2
@@ -146,12 +139,14 @@ class TestComputeEpistemicScore:
             neighbor_ids=set(),
             enriched_node_ids=set(),
             cross_ref_count=0,
-            current_file_hashes={},
         )
         d = score.to_dict()
         assert "composite" in d
         assert "components" in d
         assert "summary_confidence" in d["components"]
+        assert "staleness_check" not in d["components"], (
+            "staleness_check was deleted from EpistemicScore in Phase 134"
+        )
 
 
 class TestApplyDecay:
