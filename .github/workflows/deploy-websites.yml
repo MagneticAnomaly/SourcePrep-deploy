@@ -10,11 +10,59 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'turbo.json'
+      - '.github/workflows/deploy-websites.yml'
   workflow_dispatch:
 
 jobs:
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      marketing: ${{ steps.filter.outputs.marketing }}
+      docs: ${{ steps.filter.outputs.docs }}
+      storybook: ${{ steps.filter.outputs.storybook }}
+      support: ${{ steps.filter.outputs.support }}
+      payments: ${{ steps.filter.outputs.payments }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            marketing:
+              - 'websites/apps/marketing/**'
+              - 'packages/ui/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+            docs:
+              - 'websites/apps/docs/**'
+              - 'packages/ui/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+            storybook:
+              - 'packages/ui/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+            support:
+              - 'websites/apps/support/**'
+              - 'packages/ui/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+            payments:
+              - 'websites/apps/payments/**'
+              - 'packages/ui/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'turbo.json'
+
   deploy-marketing:
     name: Deploy Marketing
+    needs: changes
+    if: needs.changes.outputs.marketing == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +85,8 @@ jobs:
 
   deploy-docs:
     name: Deploy Docs
+    needs: changes
+    if: needs.changes.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -59,6 +109,8 @@ jobs:
 
   deploy-storybook:
     name: Deploy Storybook
+    needs: changes
+    if: needs.changes.outputs.storybook == 'true' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -86,6 +138,8 @@ jobs:
 
 #  deploy-support:
 #    name: Deploy Support
+#    needs: changes
+#    if: needs.changes.outputs.support == 'true' || github.event_name == 'workflow_dispatch'
 #    runs-on: ubuntu-latest
 #    steps:
 #      - uses: actions/checkout@v4
@@ -106,6 +160,8 @@ jobs:
 #
 #  deploy-payments:
 #    name: Deploy Payments
+#    needs: changes
+#    if: needs.changes.outputs.payments == 'true' || github.event_name == 'workflow_dispatch'
 #    runs-on: ubuntu-latest
 #    steps:
 #      - uses: actions/checkout@v4
