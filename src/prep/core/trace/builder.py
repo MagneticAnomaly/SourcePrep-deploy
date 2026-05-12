@@ -49,15 +49,13 @@ from prep.core.ids import (
 )
 from prep.core.manifest import CURRENT_HASH_ALGO
 from prep.core.repo_policy import effective_excludes, ensure_repo_policy
-from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
-
 from .models import (
     FileError,
     TraceNode,
     TraceEdge,
     TRACE_MANIFEST_VERSION,
 )
-from .utils import _detect_language, _to_posix, _is_relevant
+from .utils import _detect_language, _to_posix
 from .analyzers import PythonAnalyzer, SwiftAnalyzer, GenericRegexAnalyzer, JSAnalyzer
 
 logger = logging.getLogger(__name__)
@@ -534,8 +532,6 @@ class TraceBuilder:
 
         return manifest
 
-    _PRUNE_DIRS = DEFAULT_EXCLUDE_DIR_NAMES
-
     def _compute_file_hashes(self) -> Dict[str, str]:
         """Compute content hashes for all eligible files.
 
@@ -568,36 +564,16 @@ class TraceBuilder:
         return file_hashes
 
     def _enumerate_files(self) -> List[Path]:
-        all_files: List[Path] = []
-
-        for root, dirs, files in os.walk(self.repo_root):
-            # Prune dot-directories and explicit exclude dirs
-            dirs[:] = [
-                d for d in dirs 
-                if d not in self._PRUNE_DIRS and not d.startswith(".")
-            ]
-            root_path = Path(root)
-            for fname in files:
-                file_path = root_path / fname
-                rel_path = _to_posix(str(file_path.relative_to(self.repo_root)))
-
-                if file_path.is_symlink():
-                    continue
-
-                if not _is_relevant(rel_path, self.include_globs, self.exclude_globs):
-                    continue
-
-                if self.gitignore_spec and self.gitignore_spec.match_file(rel_path):
-                    continue
-
-                try:
-                    if file_path.stat().st_size > self.hard_limit_bytes:
-                        continue
-                except OSError:
-                    continue
-
-                all_files.append(file_path)
-
+        # Phase 134: migrate to prep_engine.walk_repo for filter parity with
+        # _compute_file_hashes and compute_trace_coverage. The Rust walker
+        # handles gitignore, symlinks, and size limits natively.
+        entries = prep_engine.walk_repo(
+            str(self.repo_root),
+            include_globs=list(self.include_globs) if self.include_globs else None,
+            exclude_globs=list(self.exclude_globs) if self.exclude_globs else None,
+            max_file_bytes=int(self.hard_limit_bytes),
+        )
+        all_files = [Path(entry.abs_path) for entry in entries]
         all_files.sort(key=lambda p: _to_posix(str(p.relative_to(self.repo_root))))
         return all_files
 
