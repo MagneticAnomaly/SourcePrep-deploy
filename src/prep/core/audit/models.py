@@ -79,10 +79,11 @@ class AuditContext:
     epistemic: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     modules: List[Dict[str, Any]] = field(default_factory=list)
     atlas: Optional[Dict[str, Any]] = None
-    file_hashes: Dict[str, str] = field(default_factory=dict)
     project_root: Optional[Path] = None
     index_dir: Optional[Path] = None
-    # Phase 134: changeset-driven staleness — replaces per-stage hash compare
+    # Phase 134: changeset-driven staleness — replaces per-stage hash compare.
+    # The pre-Phase-134 `file_hashes: Dict[str, str]` field was deleted in
+    # the Phase 134 polish pass; no analyzer reads it post-rewrite.
     changeset: Optional[Changeset] = None
 
     # Exclude globs loaded from repo_policy — applied to file_nodes
