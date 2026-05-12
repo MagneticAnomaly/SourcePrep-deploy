@@ -66,26 +66,20 @@ _MD_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)\s]+?)\)")
 # inside the span so we don't double-collect noise like `cmd --flag`.
 _INLINE_CODE_RE = re.compile(r"`([^`\n]{2,200})`")
 
-# Directory prefixes excluded from the .md walk.
-_WALK_EXCLUDES = (
-    ".sourceprep",
-    ".git",
-    ".claude",       # git worktrees + agent state — parallel doc copies inflate counts
-    ".cursor",
-    ".windsurf",
-    "node_modules",
-    ".venv",
-    "venv",
-    "__pycache__",
-    ".pytest_cache",
-    ".turbo",
-    ".next",
-    "dist",
-    "build",
-    "target",        # rust
-    "tmp",
-    "trash",
-)
+# Phase 133b: dot-dir policy — use the canonical catalog from repo_profile
+# instead of the local 16-entry list this module used to maintain. Keeps
+# the atlas .md walker in lockstep with the trace pipeline; adding a new
+# tool dir to DEFAULT_EXCLUDE_DIR_NAMES automatically propagates here.
+# The legacy local list missed `.agents`, `.opencode`, `.aider`, `.cody`,
+# `.continue`, `.husky`, `.changeset`, `.bun`, `.deno`, `.idea`, etc.
+# Plus a few extras specific to this walker (tmp, trash) the catalog
+# doesn't carry.
+def _build_walk_excludes() -> tuple[str, ...]:
+    from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
+    return tuple(sorted(DEFAULT_EXCLUDE_DIR_NAMES | {"tmp", "trash"}))
+
+
+_WALK_EXCLUDES = _build_walk_excludes()
 
 
 # ──────────────────────────────────────────────────────────────────────

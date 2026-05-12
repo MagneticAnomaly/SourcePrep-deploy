@@ -130,6 +130,24 @@ class TraceBuilder:
                 "**/*.ex", "**/*.exs",
             ]
 
+        # Phase 133b: always merge DEFAULT_EXCLUDE_DIR_NAMES +
+        # DEFAULT_EXCLUDE_FILE_GLOBS as a system-level baseline. Mirrors
+        # the same fix in compute_trace_coverage (commit 34cb9ad2):
+        # when the caller passes a non-empty exclude_globs (e.g., the
+        # project's registry config), the system catalog was being
+        # bypassed entirely — letting `.claude/`, `.agents/`, etc. leak
+        # into trace_nodes.jsonl. Treat user config as additive.
+        from .. import repo_profile as _rp
+        merged = list(exclude_globs or [])
+        for d in sorted(_rp.DEFAULT_EXCLUDE_DIR_NAMES):
+            pattern = f"**/{d}/**"
+            if pattern not in merged:
+                merged.append(pattern)
+        for pattern in _rp.DEFAULT_EXCLUDE_FILE_GLOBS:
+            if pattern not in merged:
+                merged.append(pattern)
+        exclude_globs = merged
+
         self.include_globs = include_globs
         self.exclude_globs = exclude_globs
         self.max_file_bytes = max_file_bytes
