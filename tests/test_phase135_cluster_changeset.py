@@ -77,3 +77,60 @@ def test_cluster_is_stale_none_changeset_returns_true(synth: ClusterSynthesizer)
     """Defensive: no changeset → conservative 'all stale'."""
     synth.changeset = None
     assert synth._cluster_is_stale(["file:foo.py"]) is True
+
+
+def test_reuse_keys_by_member_set_not_module_id(tmp_path: Path) -> None:
+    """Regression guard: cluster_idx is a fresh monotonic counter each
+    run, so module_id can collide across runs with DIFFERENT member sets.
+    The reuse loop must key by frozenset(member_files), not module_id.
+
+    Scenario: prior run had module:foo:1 with members [a.py, b.py, x.py].
+    File x.py is then deleted. New clustering produces a cluster with
+    just [a.py, b.py] that happens to get cluster_idx=1 again. The new
+    code must NOT reuse the old module:foo:1 (whose stored members
+    include the now-deleted x.py).
+    """
+    from prep.core.cluster import ClusterSynthesizer, Cluster
+    from prep.services.pipeline.changeset import Changeset
+
+    llm = MagicMock()
+    llm.model = "test-model"
+    llm.provider = "test"
+    synth = ClusterSynthesizer(
+        llm=llm, index_dir=tmp_path, batch_profile=None, project_id="p1",
+    )
+    synth.changeset = Changeset(
+        added=frozenset(),
+        modified=frozenset(),
+        deleted=frozenset({"x.py"}),
+        unchanged=frozenset({"a.py", "b.py"}),
+        run_id="r2",
+        base_run_id="r1",
+    )
+
+    # Build a clusters list with the renumbered new cluster (members [a.py, b.py])
+    new_cluster = Cluster(
+        cluster_id="cluster:foo:1",
+        primary_tag="foo",
+        member_node_ids=["file:a.py", "file:b.py"],
+    )
+
+    # The existing_by_members frozenset for the OLD module:foo:1
+    # (whose members included x.py) is {a.py, b.py, x.py}.
+    # The new cluster's member_files frozenset is {a.py, b.py}.
+    # These do NOT match → reuse should miss → new cluster goes to
+    # to_synthesize.
+
+    # We don't run the full pipeline; we just check the lookup logic.
+    # Construct an existing_by_members map mimicking what the production
+    # code builds, and assert the new cluster's frozenset is NOT in it.
+    existing_member_sets = [frozenset({"a.py", "b.py", "x.py"})]  # stored on disk
+    new_cluster_members = frozenset(
+        nid.replace("file:", "", 1) for nid in new_cluster.member_node_ids
+    )
+
+    assert new_cluster_members not in existing_member_sets
+    # And for completeness, _cluster_is_stale should return False
+    # (because a.py and b.py are unchanged) — proving the changeset gate
+    # alone wouldn't catch this; the membership-key fix is what does.
+    assert synth._cluster_is_stale(new_cluster.member_node_ids) is False

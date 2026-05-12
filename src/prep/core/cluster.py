@@ -1932,12 +1932,45 @@ class ClusterSynthesizer(Worker):
         reused = 0
         synthesized = 0
 
+        # Phase 135: index existing modules by their member set, not module_id.
+        # cluster_idx is a fresh monotonic counter each run, so module_ids
+        # can collide across runs with DIFFERENT member sets (e.g., after a
+        # file deletion shifts cluster numbering). Keying by membership
+        # identity ensures we only reuse a ModuleEntry whose stored members
+        # match the new cluster exactly — the Changeset.modified|deleted
+        # check then verifies none of those members had content changes.
+        existing_by_members: Dict[frozenset, ModuleEntry] = {
+            frozenset(mod.member_files): mod for mod in existing_modules.values()
+        }
+
         to_synthesize: List[Cluster] = []
         for cluster in clusters:
             module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
-            ex = existing_modules.get(module_id)
+            member_files = [
+                nid.replace("file:", "", 1) if nid.startswith("file:") else nid
+                for nid in cluster.member_node_ids
+            ]
+            ex = existing_by_members.get(frozenset(member_files))
             if ex is not None and not self._cluster_is_stale(cluster.member_node_ids):
-                modules[module_id] = ex
+                # Adopt the existing synthesis under the current module_id
+                # so the output reflects this run's cluster naming.
+                reused_mod = ModuleEntry(
+                    module_id=module_id,
+                    name=ex.name,
+                    summary=ex.summary,
+                    member_files=ex.member_files,
+                    domain_tags=ex.domain_tags,
+                    architecture_layers=ex.architecture_layers,
+                    component_status=ex.component_status,
+                    data_flow=ex.data_flow,
+                    dependencies=ex.dependencies,
+                    tech_debt_summary=ex.tech_debt_summary,
+                    file_count=ex.file_count,
+                    avg_epistemic_confidence=ex.avg_epistemic_confidence,
+                    synthesized_at=ex.synthesized_at,
+                    model=ex.model,
+                )
+                modules[module_id] = reused_mod
                 reused += 1
                 continue
             to_synthesize.append(cluster)
