@@ -63,7 +63,9 @@ def _make_score(node_id: str, composite: float) -> EpistemicScore:
         neighbor_coverage=0.5,
         cross_reference_density=0.0,
         enrichment_depth=0.5,
-        staleness_check=1.0,
+        # Phase 134: staleness_check field deleted (composite no longer
+        # discounts for stale enrichment because stale entries can't
+        # exist post-changeset).
     )
 
 
