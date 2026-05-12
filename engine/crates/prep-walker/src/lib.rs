@@ -147,6 +147,20 @@ impl Default for WalkConfig {
                 "**/.cody/**".into(),
                 "**/.aider/**".into(),
                 "**/.agents/**".into(),
+                "**/.opencode/**".into(),
+                // IDE / editor state
+                "**/.idea/**".into(),
+                "**/.vscode/**".into(),
+                "**/.fleet/**".into(),
+                "**/.zed/**".into(),
+                "**/.junit.run/**".into(),
+                // JS / TS tooling state
+                "**/.husky/**".into(),
+                "**/.changeset/**".into(),
+                "**/.bun/**".into(),
+                "**/.deno/**".into(),
+                "**/.yarn/**".into(),
+                "**/.pnpm-store/**".into(),
                 // Build-artifact file globs
                 "**/*.d.ts".into(),
                 "**/*.min.js".into(),
