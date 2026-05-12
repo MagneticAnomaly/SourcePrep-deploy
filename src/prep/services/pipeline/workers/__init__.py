@@ -193,6 +193,10 @@ class WorkerFactory:
         # know how to find idx_dir. Defensive: if anything goes wrong (first
         # build, missing file, import error), set None — workers fall back to
         # processing everything (see Worker.should_process).
+        # Phase 135 Task 0: ALSO set the attribute on base_worker so the
+        # inner closure's `worker` self-reference can read it. The inner
+        # closures use `getattr(worker, "changeset", None)` — `wrapped_worker`
+        # is NOT in their scope.
         try:
             from prep.core.project_registry import project_index_dir
             from prep.services.project_helpers import require_project
@@ -200,8 +204,10 @@ class WorkerFactory:
             _proj = require_project(project_id)
             _idx_dir = project_index_dir(_proj)
             wrapped_worker.changeset = read_changeset(_idx_dir)  # type: ignore[attr-defined]
+            base_worker.changeset = wrapped_worker.changeset  # type: ignore[attr-defined]
         except Exception:
             wrapped_worker.changeset = None  # type: ignore[attr-defined]
+            base_worker.changeset = None  # type: ignore[attr-defined]
 
         return wrapped_worker
 
@@ -496,9 +502,9 @@ class WorkerFactory:
                 batch_profile=batch_profile,
                 project_id=project_id,
             )
-            # Phase 134: pass the changeset from the wrapped_worker closure
+            # Phase 134: pass the changeset from the worker closure
             # attribute to the augmenter so its should_process can consult it.
-            augmenter.changeset = getattr(wrapped_worker, "changeset", None)
+            augmenter.changeset = getattr(worker, "changeset", None)
             result = augmenter.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             paused = bool(getattr(result, "paused", False))
             logger.info(
@@ -704,10 +710,10 @@ class WorkerFactory:
                 batch_profile=batch_profile,
                 project_id=project_id,
             )
-            # Phase 134: inject the changeset from the wrapped_worker closure
+            # Phase 134: inject the changeset from the worker closure
             # attribute so _needs_enrichment can check changeset.modified
             # instead of comparing manifest file hashes.
-            enricher.changeset = getattr(wrapped_worker, "changeset", None)
+            enricher.changeset = getattr(worker, "changeset", None)
             result = enricher.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             enriched = result.get("enriched_this_run", 0)
             failed = result.get("failed_this_run", 0)
@@ -1028,7 +1034,7 @@ class WorkerFactory:
             )
             # Phase 134: inject changeset onto the enricher so _needs_enrichment
             # can check changeset.modified instead of comparing manifest hashes.
-            enricher.changeset = getattr(wrapped_worker, "changeset", None)
+            enricher.changeset = getattr(worker, "changeset", None)
             _t0 = time.time()
             logger.info("[%s/Deepening] Starting deepening loop: model=%s", project.name, llm_client.model)
             log_cb = WorkerFactory._logged_progress("Deepening", progress_cb, project.name)
@@ -1039,10 +1045,10 @@ class WorkerFactory:
                 batch_size=20,
                 project_id=project_id,
             )
-            # Phase 134: inject the changeset from the wrapped_worker closure
+            # Phase 134: inject the changeset from the worker closure
             # attribute onto the DriftDetector so it can compute stale_set from
             # changeset.modified | deleted instead of per-entry hash comparison.
-            loop.drift_detector.changeset = getattr(wrapped_worker, "changeset", None)
+            loop.drift_detector.changeset = getattr(worker, "changeset", None)
             result = loop.run(progress_callback=log_cb)
             logger.info(
                 "[Deepening] Complete — %d iterations, converged=%s",
