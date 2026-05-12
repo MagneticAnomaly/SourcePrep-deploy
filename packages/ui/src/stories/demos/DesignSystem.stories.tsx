@@ -74,45 +74,83 @@ export const Showcase: StoryObj = {
       <section className="ds-section">
         <div className="ds-section-head">
           <h2 style={{ color: TEXT_COLOR }}>Typography</h2>
-          <p>System font stack — Inter for prose, JetBrains Mono for code. Tracked, sized, and weighted for IDE-density UIs.</p>
+          <p>
+            JetBrains Mono carries the entire UI by default (<code>--font-sans</code> and{' '}
+            <code>--font-mono</code> both resolve to it). IBM Plex Sans is reserved for true{' '}
+            <code>&lt;h1&gt;</code>/<code>&lt;h2&gt;</code> on long-form pages. The recipes below
+            are the patterns actually used in the dashboard and marketing site.
+          </p>
         </div>
         <div className="ds-typography">
-          <TypeRow label="Display">
-            <span style={{ fontSize: '2.5rem', fontWeight: 700, letterSpacing: '-0.02em', color: TEXT_COLOR }}>
-              The quick brown fox
+          <TypeRow label="Hero" meta="font-heading · 5xl · medium">
+            <span className="font-heading text-5xl font-medium tracking-tight" style={{ color: TEXT_COLOR }}>
+              Context, not just code.
             </span>
           </TypeRow>
-          <TypeRow label="Heading 1">
-            <span style={{ fontSize: '1.75rem', fontWeight: 700, color: TEXT_COLOR }}>
-              The quick brown fox jumps
-            </span>
-          </TypeRow>
-          <TypeRow label="Heading 2">
-            <span style={{ fontSize: '1.25rem', fontWeight: 600, color: TEXT_COLOR }}>
+          <TypeRow label="Heading 1" meta="font-heading · 4xl · medium">
+            <span className="font-heading text-4xl font-medium tracking-tight" style={{ color: TEXT_COLOR }}>
               The quick brown fox jumps over
             </span>
           </TypeRow>
-          <TypeRow label="Body">
-            <span style={{ fontSize: '1rem', color: TEXT_COLOR }}>
+          <TypeRow label="Heading 2" meta="font-heading · 2xl · semibold">
+            <span className="font-heading text-2xl font-semibold" style={{ color: TEXT_COLOR }}>
+              The quick brown fox jumps over the lazy
+            </span>
+          </TypeRow>
+          <TypeRow label="Stat" meta="text-2xl · semibold · tabular-nums">
+            <span className="text-2xl font-semibold tabular-nums" style={{ color: TEXT_COLOR }}>
+              547
+            </span>
+            <span className="text-2xl text-text-muted ml-2">files indexed</span>
+          </TypeRow>
+          <TypeRow label="Panel title" meta="text-sm · semibold">
+            <span className="text-sm font-semibold" style={{ color: TEXT_COLOR }}>
+              Graph Structure
+            </span>
+          </TypeRow>
+          <TypeRow label="Section label" meta="text-xs · semibold · uppercase · tracking-wider">
+            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: MUTED_COLOR }}>
+              Module overview
+            </span>
+          </TypeRow>
+          <TypeRow label="Body" meta="text-sm">
+            <span className="text-sm" style={{ color: TEXT_COLOR }}>
               The quick brown fox jumps over the lazy dog.
             </span>
           </TypeRow>
-          <TypeRow label="Small">
-            <span style={{ fontSize: '0.875rem', color: MUTED_COLOR }}>
+          <TypeRow label="Body sm" meta="text-xs">
+            <span className="text-xs" style={{ color: TEXT_COLOR }}>
               The quick brown fox jumps over the lazy dog.
             </span>
           </TypeRow>
-          <TypeRow label="Code">
-            <code style={{
-              fontFamily: '"JetBrains Mono", ui-monospace, monospace',
-              fontSize: '0.875rem',
+          <TypeRow label="Meta" meta="text-xs · text-muted">
+            <span className="text-xs" style={{ color: MUTED_COLOR }}>
+              Generated 2h ago · structural
+            </span>
+          </TypeRow>
+          <TypeRow label="Path" meta="font-mono · text-xs">
+            <span className="font-mono text-xs" style={{ color: TEXT_COLOR }}>
+              src/prep/core/atlas/generator.py
+            </span>
+          </TypeRow>
+          <TypeRow label="Inline code" meta="font-mono · text-xs · pill">
+            <code className="font-mono text-xs px-1.5 py-0.5 rounded" style={{
               background: 'hsl(var(--surface-raised))',
               color: TEXT_COLOR,
-              padding: '0.25rem 0.5rem',
-              borderRadius: 4,
             }}>
-              const ctx = await prep.search(query);
+              prep_search()
             </code>
+          </TypeRow>
+          <TypeRow label="Code block" meta="font-mono · text-sm · leading-normal">
+            <pre className="font-mono text-sm leading-normal px-3 py-2 rounded-md border whitespace-pre-wrap" style={{
+              background: 'hsl(var(--surface-raised))',
+              borderColor: 'hsl(var(--border))',
+              color: TEXT_COLOR,
+              margin: 0,
+            }}>
+{`from prep.search import semantic_search
+results = semantic_search("hub files", top_k=10)`}
+            </pre>
           </TypeRow>
         </div>
       </section>
@@ -287,10 +325,21 @@ export const Showcase: StoryObj = {
   ),
 };
 
-function TypeRow({ label, children }: { label: string; children: React.ReactNode }) {
+function TypeRow({
+  label,
+  meta,
+  children,
+}: {
+  label: string;
+  meta?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="ds-type-row">
-      <span className="ds-type-label">{label}</span>
+      <div>
+        <span className="ds-type-label">{label}</span>
+        {meta && <span className="ds-type-meta">{meta}</span>}
+      </div>
       <div>{children}</div>
     </div>
   );

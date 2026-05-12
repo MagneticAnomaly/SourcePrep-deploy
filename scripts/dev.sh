@@ -156,7 +156,7 @@ main() {
     echo ""
 
     # Storybook's Vite builder pre-bundles deps. The cache lives in
-    # ~/.cache/codrag-sb-vite/ (configured in .storybook/main.ts) rather
+    # ~/.cache/prep-sb-vite/ (configured in .storybook/main.ts) rather
     # than node_modules/.cache/ because the repo is on slow external
     # storage (/Volumes/...) and Vite's dep optimizer hits FS-flush race
     # conditions on USB drives — chunk files are signalled ready before
@@ -165,8 +165,10 @@ main() {
     #
     # Wipe both locations: the new on-SSD cache AND the legacy
     # node_modules/.cache/ in case any leftover bundles are still being
-    # served by mistake.
+    # served by mistake. Also wipes the pre-rename ~/.cache/codrag-sb-vite/
+    # in case anyone is upgrading from before Phase 131.
     log_info "Clearing Storybook Vite cache (on-SSD + legacy)..."
+    rm -rf "$HOME/.cache/prep-sb-vite" 2>/dev/null || true
     rm -rf "$HOME/.cache/codrag-sb-vite" 2>/dev/null || true
     rm -rf "$PROJECT_ROOT/packages/ui/node_modules/.cache" 2>/dev/null || true
     log_success "Vite cache cleared"

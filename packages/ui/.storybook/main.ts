@@ -88,14 +88,14 @@ const config: StorybookConfig = {
     // not exist" 404s mid-session. Local SSD eliminates the FS-flush race.
     const projectSlug = isPublic ? 'public' : 'private';
     // Prefer ~/.cache (persists across reboots), fall back to $TMPDIR.
-    const baseCacheRoot = join(homedir(), '.cache', 'codrag-sb-vite');
+    const baseCacheRoot = join(homedir(), '.cache', 'prep-sb-vite');
     try {
       if (!existsSync(baseCacheRoot)) {
         mkdirSync(baseCacheRoot, { recursive: true });
       }
       config.cacheDir = join(baseCacheRoot, projectSlug);
     } catch {
-      config.cacheDir = join(tmpdir(), 'codrag-sb-vite', projectSlug);
+      config.cacheDir = join(tmpdir(), 'prep-sb-vite', projectSlug);
     }
 
     // Splitting the cache dir means Vite pre-bundles each cache independently
