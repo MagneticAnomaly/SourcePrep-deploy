@@ -640,6 +640,12 @@ class WorkerFactory:
                 cb_to_use = deep_cb
 
             idx = build_manager.get_project_knowledge_index(project)
+            if is_deep:
+                # Phase 135: stage 10 trusts the Changeset for reuse decisions.
+                # `worker` is the inner-closure self-reference (Task 0 set
+                # base_worker.changeset; this name resolves there).
+                idx.use_changeset = True
+                idx.changeset = getattr(worker, "changeset", None)
             result = idx.build(progress_callback=cb_to_use)
             logger.info("[%s/%s] Complete", project.name, stage_label)
             return {
