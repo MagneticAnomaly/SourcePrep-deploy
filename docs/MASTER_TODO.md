@@ -105,6 +105,17 @@ per-phase RESULTS.md is authoritative.
   branch `phase-133-rust-walker-cutover`); see
   `docs/Phase133_RustWalkerHasherCutover/README.md` and
   `IMPLEMENTATION_PLAN.md`.
+- Phase 134 (ChangesetDrivenPipeline) — completes what Phase 133
+  was supposed to deliver: a single source of truth for "what
+  changed in this run" emitted by stage 1 and consumed by every
+  downstream stage. Deletes per-stage staleness checks across
+  augmenter, deepening, epistemic enrichment, epistemic scoring,
+  audit StalenessAnalyzer. Converges 4 remaining os.walk callers
+  onto prep_engine.walk_repo. Deletes Phase 133 hot-fix
+  is_hash_stale helper. Deletes ResumeStrategy.refresh_manifest_hashes
+  (Critical #1 from Phase 133 review). Net diff: roughly -400 lines.
+  **Implemented 2026-05-11**; see
+  docs/Phase134_ChangesetDrivenPipeline/{README.md,IMPLEMENTATION_PLAN.md}.
 
 ### Cross-phase follow-ups (deferred but tracked)
 
