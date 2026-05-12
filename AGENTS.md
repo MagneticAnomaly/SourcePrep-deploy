@@ -3,7 +3,7 @@
 <!-- prep-managed-start -->
 ## SourcePrep Integration
 
-Last updated: 2026-05-10T04:56:12Z | Full analysis in progress
+Last updated: 2026-05-11T17:30:54Z
 
 prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
@@ -59,75 +59,55 @@ To skip approval prompts for SourcePrep's read-only tools, add to your settings:
 ```
 In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings.
 
-<!-- prep-atlas-hash:928556b49a03 -->
+<!-- prep-atlas-hash:eee0abe03719 -->
 ## Codebase Atlas
 
-IDENTITY: SourcePrep
-STACK: .md 46%, .tsx 22%, .py 17%, .ts 8%, .json 6%, .js 1%
-STRUCTURE: 1920 files, 8062 nodes, 12842 edges
-EDGE TYPES: contains: 5737, imports: 4970, implements: 1271, configures: 736, listens_to: 64
-CIRCULAR DEPS (61): docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/app.py <-> docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/utils.py; docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/app.py <-> docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/pkg/math_ops.py; docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/app.py <-> docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/pkg/__init__.py
-ENTRY POINTS: packages/ui/src/components/context/index.ts, packages/ui/src/components/trace/index.ts, packages/ui/src/components/docs/index.ts, packages/ui/src/components/console/index.ts, src/prep/__main__.py
-SUBSYSTEMS:
-  MCP Protocol Server & Client Integration (47 files) -- Implements the Model Context Protocol server that exposes Prep's codebase intell
-  Project Lifecycle & Build Orchestrator (42 files) -- Manages project creation, configuration, and incremental index rebuilding with t
-  Roadmap & Sprint Planning Orchestrator (40 files) -- Generates AI-powered project roadmaps with visual timeline nodes, sprint burndow
-  LLM Provider & Model Configuration Console (39 files) -- Configures multi-provider LLM endpoints, assigns models to pipeline slots (embed
-  SourcePrep Design System Primitives (22 files) -- Renders accessible, composable UI primitives for the SourcePrep platform using R
-  AutoAudit Static Analysis Engine (20 files) -- Executes 11 deterministic static analyzers over code import graphs to detect dea
-  Agent Ecosystem Integration & Protocol Strategy (19 files) -- Coordinates multi-protocol agent integrations across MCP, A2A, REST, and SARIF s
-  Prep CLI Thin-Client & Documentation Surface (17 files) -- Proxies user commands to a background daemon via HTTP REST, handling project CRU
-  Dashboard State & Component Refactoring Tracker (16 files) -- Tracks and coordinates frontend technical debt remediation across the CoDRAG das
-  Guerilla Marketing Copy Engine (15 files) -- Produces channel-specific organic marketing copy for Reddit, LinkedIn, Lobsters,
-TESTS: __tests__/ (19 files), specs/ (18 files), TEST_PLAN.md/ (1 files)
-LAYERS: documentation: 868, presentation: 528, business_logic: 176, infrastructure: 103, configuration: 84
-HUB FILES: docs/ARCHITECTURE.md (evolving), ext:__future__, ext:typing, ext:react, ext:logging
-Active zones: `packages/ui/src/`, `tests/`, `websites/apps/marketing/`, `websites/apps/docs/`, `src/prep/core/`
-CALL CHAINS:
-  packages/ui/src/components/docs/index.ts -> packages/ui/src/components/docs/DocsLayout.tsx -> packages/ui/src/components/docs/MobileDocsDrawer.tsx -> packages/ui/src/components/docs/DocsSidebarNav.tsx -> sym:DocsSidebarNav@packages/ui/src/components/docs/DocsSidebarNav.tsx:17
-  packages/ui/src/components/context/index.ts -> packages/ui/src/components/context/ContextViewer.tsx -> packages/ui/src/components/context/CitationBlock.tsx -> docs/Phase04_TraceIndex/CURATED_TRACEABILITY_FRAMEWORK.md
-  packages/ui/src/components/trace/index.ts -> packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx -> packages/ui/src/components/trace/RecoverStagePanel.tsx -> sym:handleOpenToggle@packages/ui/src/components/trace/RecoverStagePanel.tsx:125
-CONFIDENCE: 0.84 avg across 1887 files
-DOMAINS: marketing, mcp, react, design-system, storybook, nextjs, dashboard, documentation
+IDENTITY: A multi-segment platform combining a React design system, NextJS marketing sites, a FastAPI MCP server, VSCode extension tooling, and documentation, with shared UI components powering dashboard, marketing, docs, support, and payments surfaces.
+
+STACK: Languages: .md 878, .tsx 428, .py 323, .ts 157, .json 118, .js 16. Frameworks: react, nextjs, fastapi, storybook. Build tools inferred from package ecosystems. Graph: 1920 files, 8062 nodes, 12888 edges. Edge types: contains 5737, imports 4970, implements 1307, configures 745, listens_to 64. Import cycles: 61.
+
+WORKSPACE MAP: Root (_root, 1293 files): mcp, marketing, react, fastapi, storybook hub. Ui (packages/ui, 364 files): react design-system, storybook, ui-component, dashboard component library. Marketing (websites/apps/marketing, 64 files): nextjs, seo, mcp, marketing-site. Dashboard (src/prep/dashboard, 63 files): react, state-management, react-hooks, dashboard, settings-ui. Docs (websites/apps/docs, 51 files): documentation, nextjs, react, configuration, marketing. Support (websites/apps/support, 27 files): seo, nextjs, authentication, navigation, bug-reporting. Vscode (packages/vscode, 20 files): vscode-extension, ide-integration, reactive-ui, llm-context, project-management. Payments (websites/apps/payments, 15 files): nextjs, payments, marketing, mcp, react. Paperclip Plugin Prep (packages/paperclip-plugin-prep, 12 files): paperclip-integration, plugin-architecture, react, plugin-ui, public-api. Webview Ui (packages/vscode/webview-ui, 11 files): vscode-extension, webview, react, entry-point, strict-mode.
+
+CROSS-CUTTING: Shared domains: react, marketing, nextjs, mcp, storybook, dashboard, seo, vscode-extension. Hub files: docs/ARCHITECTURE.md, ext:__future__, ext:typing, ext:react, ext:logging. Active zones: packages/ui/src/, tests/, websites/apps/marketing/, websites/apps/docs/, src/prep/core/. Entry points: packages/ui/src/components/architecture/index.ts, packages/ui/src/components/layout/index.ts, docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/app.py, src/prep/mcp/server.py, packages/ui/src/components/dashboard/index.ts. Test dirs: __tests__/ 19 files, specs/ 18 files, TEST_STATUS.md/ 1 file. Directory dependencies: docs -> sym:HeroLayout, sym:NeoBrutalistHero, sym:Feature; packages -> sym:Collapsible, sym:MissingProvenance, sym:StageHealth; public -> sym:trigger_sync, sym:main, sym:handler; src -> sym:PaperclipClient.pause_agent, sym:GroupReasoningEngine.load_edges, sym:NamingConsistencyAnalyzer.
 
 ## Top docs per module
 
 Planning docs that mention this module's code (Phase 124 T9). Use these as a starting point to understand a module's *why* before reading source. Generated from `atlas_markdown_links.json`.
 
-- **MCP Protocol Server & Client Integration**
+- **Prep CLI & Developer Tooling Surface**
+  - `docs/MASTER_TODO.md`
+  - `docs/Phase06_Team_And_Enterprise/TEAM_ENTERPRISE_CODE_AUDIT.md`
+  - `docs/Phase06_Team_And_Enterprise/TODO.md`
+- **AI Roadmap & Sprint Planning System**
+  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
+  - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
+  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
+- **LLM Provider Configuration & Endpoint Orchestrator**
+  - `docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md`
+  - `docs/Phase119_ConcurrencyStability/03_Validation_Report.md`
+  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
+- **MCP Protocol Server & IDE Integration Surface**
   - `docs/Phase120_NamedScopes/IMPLEMENTATION_PLAN.md`
   - `docs/Phase120_NamedScopes/README.md`
   - `docs/Phase50_MCP-interfacing/README.md`
 - **Project Lifecycle & Build Orchestrator**
-  - `docs/Phase25_crashprotection/README.md`
   - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
-  - `docs/Phase73_Quality-Reccommendations/13_agent_collaboration_infrastructure/feature_documentation.md`
-- **Roadmap & Sprint Planning Orchestrator**
-  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
-  - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
-  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
-- **LLM Provider & Model Configuration Console**
-  - `docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md`
-  - `docs/Phase119_ConcurrencyStability/03_Validation_Report.md`
-  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
+  - `docs/Phase80_mempalace/01_MemPalace_Integration_Research_Strategy.md`
+  - `docs/Phase120_NamedScopes/IMPLEMENTATION_PLAN.md`
 - **SourcePrep Design System Primitives**
   - `docs/Phase81_UI-bugfixes/07_Stage3_Loading_States.md`
   - `.agents/content_marketing_strategist/KNOWLEDGE.md`
   - `.agents/content_marketing_strategist/SOUL.md`
 - **AutoAudit Static Analysis Engine**
+  - `docs/Phase134_ChangesetDrivenPipeline/IMPLEMENTATION_PLAN.md`
   - `docs/Phase99_Content/blogs/00_feasibility_audit.md`
   - `docs/Phase116_strategic-oversight/03_CANDIDATE_CHECKPOINTS.md`
-  - `docs/Phase116_strategic-oversight/04_EXISTING_ABSTRACTIONS.md`
-- **Prep CLI Thin-Client & Documentation Surface**
-  - `AGENTS.md`
-  - `CLAUDE.md`
-  - `docs/Phase06_Team_And_Enterprise/TEAM_ENTERPRISE_CODE_AUDIT.md`
 - **Dashboard State & Component Refactoring Tracker**
   - `docs/superpowers/plans/2026-04-19-phase117-rebuild-granularity.md`
 - **Enrichment Pipeline State Machine & Resource Scheduler**
   - `docs/Phase96-fix-pipeline/00_DIAGNOSTIC_REPORT.md`
+  - `docs/Phase128_PipelineRecoveryHardening/IMPLEMENTATION_PLAN.md`
   - `docs/Phase96-fix-pipeline/UI+tweaks/PLAN.md`
-  - `docs/refactor2/05_annotated_refactor_plan.md`
 
 ## Focus Areas
 - docs/MASTER_ROADMAP.md
