@@ -6,6 +6,7 @@ project resolution, and protocol handling.
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import os
@@ -120,6 +121,14 @@ class MCPServer:
         self._prep_called: bool = False  # Phase 50 Sprint 3: nudge tracker
         self._notification_callback = None  # OPP-2: set by transport for resource notifications
         self._last_atlas_signal: Dict[str, float] = {}  # D1: per-project atlas signal mtime
+        # Concurrency guards. asyncio.Lock construction in 3.10+ does not bind
+        # to a loop until first await, so creating these here is safe even when
+        # MCPServer is built outside an event loop (e.g. in test fixtures).
+        self._client_lock: asyncio.Lock = asyncio.Lock()
+        self._inflight_context_lock: asyncio.Lock = asyncio.Lock()
+        # Coalesces concurrent identical `tool_context` calls so multiple
+        # in-flight `prep` invocations share a single daemon round-trip.
+        self._inflight_context: Dict[Tuple[Any, ...], "asyncio.Future[Dict[str, Any]]"] = {}
 
     # OPP-W5: Adaptive token budget tiers based on detected MCP client.
     # Maps clientInfo.name patterns to max_chars defaults.
@@ -395,14 +404,21 @@ class MCPServer:
             pass  # Non-fatal -- worst case the AI gets slightly stale data
 
     async def _get_client(self) -> httpx.AsyncClient:
-        if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30.0)
+        if self._client is not None:
+            return self._client
+        async with self._client_lock:
+            if self._client is None:
+                self._client = httpx.AsyncClient(timeout=30.0)
         return self._client
 
     async def close(self) -> None:
-        if self._client is not None:
-            await self._client.aclose()
+        # Take the same lock as `_get_client` so a concurrent fast-path read
+        # cannot return a client that is being / has just been closed.
+        async with self._client_lock:
+            client = self._client
             self._client = None
+        if client is not None:
+            await client.aclose()
 
     async def notify_resource_changed(self, uri: str) -> None:
         """OPP-2: Send resource-updated notification to the MCP host.
@@ -1016,6 +1032,77 @@ class MCPServer:
         return result
 
     async def tool_context(
+        self,
+        max_chars: int = 0,  # 0 = use adaptive budget from OPP-W5
+        role: Optional[str] = None,
+        scope: Optional[str] = None,
+        working_dir: Optional[str] = None,
+        project_override: Optional[str] = None,
+        verbose: bool = False,
+    ) -> Dict[str, Any]:
+        """Coalescing wrapper — concurrent identical calls share one daemon trip.
+
+        When two MCP clients (or one agent firing parallel tool calls) hit
+        `prep` with the same arguments while a previous call is still in
+        flight, the followers `await` the in-flight Future instead of
+        kicking off a duplicate render.
+
+        Isolation invariant: nobody who awaits this function should ever
+        receive a dict that another caller can mutate. `handle_tools_call`
+        attaches per-call metadata (r4_meta) to the returned dict *without*
+        an `await` between, so the owner's caller mutates the dict before
+        any follower wakes from `await fut`. To keep callers independent
+        we store a *snapshot* deepcopy in the future and have each follower
+        take its own deepcopy of that snapshot. The owner returns the
+        original because nothing else aliases it once the snapshot is taken.
+
+        Known limitation: if the owner is cancelled mid-flight, followers
+        also see CancelledError. Acceptable today because real-world
+        cancellation in MCP corresponds to whole-session teardown.
+
+        `_check_atlas_signal` runs only on the owner path. The host already
+        receives the resource-update notification from that single run, so
+        followers re-notifying would just duplicate it.
+        """
+        key: Tuple[Any, ...] = (max_chars, role, scope, working_dir, project_override, verbose)
+
+        async with self._inflight_context_lock:
+            existing = self._inflight_context.get(key)
+            if existing is not None:
+                fut = existing
+                owner = False
+            else:
+                fut = asyncio.get_running_loop().create_future()
+                self._inflight_context[key] = fut
+                owner = True
+
+        if not owner:
+            snapshot = await fut
+            return copy.deepcopy(snapshot)
+
+        try:
+            result = await self._tool_context_impl(
+                max_chars=max_chars,
+                role=role,
+                scope=scope,
+                working_dir=working_dir,
+                project_override=project_override,
+                verbose=verbose,
+            )
+        except BaseException as exc:
+            async with self._inflight_context_lock:
+                self._inflight_context.pop(key, None)
+            if not fut.done():
+                fut.set_exception(exc)
+            raise
+
+        async with self._inflight_context_lock:
+            self._inflight_context.pop(key, None)
+        if not fut.done():
+            fut.set_result(copy.deepcopy(result))
+        return result
+
+    async def _tool_context_impl(
         self,
         max_chars: int = 0,  # 0 = use adaptive budget from OPP-W5
         role: Optional[str] = None,
