@@ -9,8 +9,8 @@ and before Stage 7 (clustering/module synthesis).
 
 Incremental strategy:
   - Groups are defined by trace graph connectivity (dependency clusters)
-  - A group is "stale" if ANY member file's epistemic entry changed since
-    the group was last analyzed
+  - A group is "stale" if ANY member file is in the pipeline's
+    Changeset.modified | deleted (emitted by stage 1)
   - Single-file changes still trigger full group re-analysis (the value is
     in cross-file reasoning, not per-file)
   - Groups with < 2 members are skipped (no cross-file reasoning needed)
@@ -727,7 +727,7 @@ class GroupReasoningEngine(Worker):
         Steps:
         1. Load epistemic entries and edges.
         2. Build dependency groups from the trace graph.
-        3. Check staleness: skip groups whose member fingerprint hasn't changed.
+        3. Check staleness via Changeset: skip groups whose members are all unchanged per stage 1's Changeset.
         4. Analyze stale/new groups with deep reasoning (think=True).
         5. Write trace_group_reasoning.jsonl atomically.
 
