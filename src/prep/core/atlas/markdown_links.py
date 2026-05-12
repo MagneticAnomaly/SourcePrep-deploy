@@ -41,6 +41,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Optional
 
+try:
+    import prep_engine as _prep_engine  # Rust PyO3 walker
+except ImportError:
+    _prep_engine = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 
@@ -148,14 +153,15 @@ def _extract_candidates(text: str) -> set[str]:
 
 def _walk_markdown(project_root: Path) -> list[Path]:
     """Return all .md files under project_root, skipping noise dirs."""
-    out: list[Path] = []
-    for dirpath, dirnames, filenames in os.walk(project_root):
-        # Mutate dirnames in place to prune the walk.
-        dirnames[:] = [d for d in dirnames if d not in _WALK_EXCLUDES]
-        for fn in filenames:
-            if fn.endswith(".md"):
-                out.append(Path(dirpath) / fn)
-    return sorted(out)
+    # Phase 134: migrate to prep_engine.walk_repo for filter parity.
+    _excl_globs = [f"**/{d}/**" for d in _WALK_EXCLUDES]
+    entries = _prep_engine.walk_repo(
+        str(project_root),
+        include_globs=["**/*.md", "**/*.markdown"],
+        exclude_globs=_excl_globs,
+        max_file_bytes=500_000,
+    )
+    return sorted(Path(entry.abs_path) for entry in entries)
 
 
 def extract(
