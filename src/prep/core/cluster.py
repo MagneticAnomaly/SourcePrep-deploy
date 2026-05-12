@@ -36,6 +36,7 @@ from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
 from prep.services.pipeline.recovery import is_reuse_blocked
 from prep.services.pipeline.thread_pool import llm_pool
 from prep.services.pipeline.workers import WorkerFactory
+from prep.services.pipeline.workers.base import Worker
 
 from .epistemic_score import EpistemicEntry
 from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
@@ -1051,7 +1052,7 @@ def _deduplicate_module_names(modules: Dict[str, "ModuleEntry"]) -> None:
 
 # ── Synthesis engine ─────────────────────────────────────────────────
 
-class ClusterSynthesizer:
+class ClusterSynthesizer(Worker):
     """Pass 3 cluster synthesis engine.
 
     Groups enriched nodes into subsystem clusters, then generates
@@ -1678,12 +1679,19 @@ class ClusterSynthesizer:
             json.dump(artifact, f, indent=2, ensure_ascii=False)
         logger.info("[Cluster/Swarm] Synthesis written to %s", path)
 
-    @staticmethod
-    def _cluster_fingerprint(member_node_ids: List[str]) -> str:
-        """Stable fingerprint for a cluster's membership (sorted node IDs)."""
-        import hashlib
-        key = "\n".join(sorted(member_node_ids))
-        return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+    def _cluster_is_stale(self, member_node_ids: List[str]) -> bool:
+        """A cluster is stale iff any member's underlying file is in
+        changeset.modified | deleted. Falls back to 'all stale' if the
+        changeset is unavailable (defensive)."""
+        if self.changeset is None:
+            return True
+        for nid in member_node_ids:
+            # Match the existing convention in cluster.py for stripping
+            # the "file:" prefix (other call sites use .replace("file:", "", 1)).
+            file_path = nid.replace("file:", "", 1) if nid.startswith("file:") else nid
+            if file_path in self.changeset.modified or file_path in self.changeset.deleted:
+                return True
+        return False
 
     def _synthesize_batched(
         self,
@@ -1886,13 +1894,13 @@ class ClusterSynthesizer:
         """Run Pass 3 cluster synthesis.
 
         Incremental: reuses existing module entries for clusters whose
-        membership hasn't changed, only calling the LLM for new or
-        modified clusters.
+        member files are not in the current Changeset (modified | deleted),
+        only calling the LLM for new or changed clusters.
 
         Steps:
         1. Load epistemic entries and edges.
         2. Build clusters by domain_tags + connectivity.
-        3. Load existing modules and build fingerprint map for reuse.
+        3. Load existing modules; gate reuse via changeset (Phase 135).
         4. Synthesize only new/changed clusters via deep reasoning model.
         5. Write trace_modules.jsonl.
 
@@ -1914,71 +1922,29 @@ class ClusterSynthesizer:
 
         # Load existing modules for incremental reuse
         existing_modules = self.load_existing_modules()
-        # Build TWO lookup maps for matching:
-        # 1. fingerprint → ModuleEntry (content-based, stable across runs)
-        # 2. module_id → (fingerprint, ModuleEntry) (name-based, for exact ID match)
-        fp_to_module: Dict[str, ModuleEntry] = {}
-        existing_fp: Dict[str, tuple] = {}
-        for mod_id, mod in existing_modules.items():
-            fp = self._cluster_fingerprint(
-                [f"file:{f}" if not f.startswith("file:") else f for f in mod.member_files]
-            )
-            fp_to_module[fp] = mod
-            existing_fp[mod_id] = (fp, mod)
 
+        # Phase 135: reuse a cluster iff none of its member files is in
+        # changeset.modified | deleted. No fingerprints — the changeset
+        # is the canonical source of truth for "what changed."
         total_work = len(clusters)
         modules: Dict[str, ModuleEntry] = {}
         failed = 0
         reused = 0
         synthesized = 0
 
-        # Separate reusable clusters from those needing synthesis.
-        # Match by FINGERPRINT first (handles unstable cluster_idx counter),
-        # then fall back to module_id match.
         to_synthesize: List[Cluster] = []
         for cluster in clusters:
             module_id = f"module:{cluster.cluster_id.replace('cluster:', '')}"
-            new_fp = self._cluster_fingerprint(cluster.member_node_ids)
-
-            # Primary: content-based match — same members = reuse
-            if new_fp in fp_to_module:
-                old_module = fp_to_module[new_fp]
-                # Adopt the existing synthesis but assign the new module_id
-                # so the output file uses the current cluster naming scheme
-                reused_mod = ModuleEntry(
-                    module_id=module_id,
-                    name=old_module.name,
-                    summary=old_module.summary,
-                    member_files=old_module.member_files,
-                    domain_tags=old_module.domain_tags,
-                    architecture_layers=old_module.architecture_layers,
-                    component_status=old_module.component_status,
-                    data_flow=old_module.data_flow,
-                    dependencies=old_module.dependencies,
-                    tech_debt_summary=old_module.tech_debt_summary,
-                    file_count=old_module.file_count,
-                    avg_epistemic_confidence=old_module.avg_epistemic_confidence,
-                    synthesized_at=old_module.synthesized_at,
-                    model=old_module.model,
-                )
-                modules[module_id] = reused_mod
+            ex = existing_modules.get(module_id)
+            if ex is not None and not self._cluster_is_stale(cluster.member_node_ids):
+                modules[module_id] = ex
                 reused += 1
                 continue
-
-            # Fallback: exact module_id match (for stable cluster IDs)
-            if module_id in existing_fp:
-                old_fp, old_module = existing_fp[module_id]
-                if old_fp == new_fp:
-                    modules[module_id] = old_module
-                    reused += 1
-                    continue
-
             to_synthesize.append(cluster)
 
         logger.info(
-            "Cluster reuse: %d total, %d reused (fingerprint match), %d to synthesize, "
-            "%d existing modules on disk, %d unique fingerprints",
-            total_work, reused, len(to_synthesize), len(existing_modules), len(fp_to_module),
+            "Cluster reuse: %d total, %d reused (per changeset), %d to synthesize",
+            total_work, reused, len(to_synthesize),
         )
 
         # ── Swarm decision ──────────────────────────────────────────

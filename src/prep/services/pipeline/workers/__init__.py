@@ -830,6 +830,9 @@ class WorkerFactory:
                 batch_profile=batch_profile,
                 project_id=project_id,
             )
+            # Phase 135: inject the Changeset. `worker` is the inner-closure
+            # self-reference (Task 0 set base_worker.changeset).
+            synthesizer.changeset = getattr(worker, "changeset", None)
             result = synthesizer.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             
             synthesized = result.get("synthesized", 0)
