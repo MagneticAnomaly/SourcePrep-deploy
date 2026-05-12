@@ -346,8 +346,10 @@ def _iter_repo_files(repo_root: Path, max_depth: int, max_files: int) -> Iterato
     )
     for entry in entries:
         # Honour max_depth: entry.path is POSIX repo-relative ("a/b/c.py" → depth=2).
+        # Files in directories at depth==max_depth are included; only subdirectories
+        # at depth>max_depth are skipped (mirrors the original topdown pruning logic).
         rel_parts = entry.path.split("/")
-        if len(rel_parts) - 1 >= max_depth:
+        if len(rel_parts) - 1 > max_depth:
             # file is deeper than max_depth directories — skip
             continue
         yield Path(entry.abs_path)
