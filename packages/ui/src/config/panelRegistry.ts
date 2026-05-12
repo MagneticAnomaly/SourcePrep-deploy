@@ -39,7 +39,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#logs',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#key-panels',
     noPadding: true,
   },
   {
@@ -63,7 +63,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 4,
     category: 'status',
     closeable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#status',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#index-status',
   },
   {
     // Phase 74: Sunset — AI Gateway summary card used manually-constructed state
@@ -77,7 +77,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 8,
     category: 'status',
     closeable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#llm-status',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#key-panels',
     devOnly: true,
   },
   {
@@ -89,7 +89,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 7,
     category: 'search',
     closeable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#search',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#search-context',
   },
   {
     id: 'context-options',
@@ -100,7 +100,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 8,
     category: 'context',
     closeable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#context-options',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#search-context',
   },
   {
     id: 'results',
@@ -111,7 +111,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 10,
     category: 'search',
     closeable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#results',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#search-context',
   },
   {
     id: 'context-output',
@@ -122,7 +122,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 10,
     category: 'context',
     closeable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#context-output',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#search-context',
   },
   {
     id: 'file-tree',
@@ -134,7 +134,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'search',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#knowledge-sources',
+    docsUrl: 'https://docs.sourceprep.io/guides/knowledge-scope',
   },
   {
     id: 'trace',
@@ -146,7 +146,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'search',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#trace',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#code-graph-coverage',
   },
   // trace-coverage (Graph Status) removed — consolidated into graph-structure (Graph Scope)
   {
@@ -159,19 +159,19 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'config',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#deep-analysis',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#pipeline',
   },
   {
     id: 'trace-pipeline',
     title: 'Graph Enrichment',
-    description: 'The 9-stage enrichment pipeline: Structural Graph → Catalogue → Validation → Knowledge Embedding → Deep Reasoning → Module Synthesis → Atlas → Continuous Deepening → Deep Knowledge. Hover each stage for its epistemological role.',
+    description: 'The 15-stage enrichment pipeline: Sync (Structural → Inferred Edges → Catalogue → Validation → Knowledge) → Enrich (Enrichment → Group Reasoning → Clustering → Deepening → Deep Knowledge) → Finalize (Atlas → Rules → Concepts → Audit → Antibodies). Hover each stage for its epistemological role.',
     icon: Brain,
     minHeight: 6,
     defaultHeight: 12,
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#trace-pipeline',
+    docsUrl: 'https://docs.sourceprep.io/concepts/graph-enrichment',
   },
   {
     id: 'graph-structure',
@@ -183,7 +183,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/concepts/graph-scope',
+    docsUrl: 'https://docs.sourceprep.io/guides/knowledge-scope',
   },
   // graph-engine (Graph Engine) removed — consolidated into trace-pipeline (Graph Enrichment)
   {
@@ -196,7 +196,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#index-health',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#index-status',
   },
   {
     id: 'atlas',
@@ -208,7 +208,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#atlas',
+    docsUrl: 'https://docs.sourceprep.io/concepts/code-graph',
   },
   {
     id: 'token-budget',
@@ -220,7 +220,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'config',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#token-budget',
+    docsUrl: 'https://docs.sourceprep.io/guides/compression',
   },
   {
     id: 'audit',
@@ -245,7 +245,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/guides/spaghetti-finder',
+    docsUrl: 'https://docs.sourceprep.io/guides/codebase-audit',
     devOnly: true,
   },
   {
@@ -258,7 +258,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/dashboard#activity',
+    docsUrl: 'https://docs.sourceprep.io/dashboard#index-status',
   },
   {
     // Phase 65: Sunset — future revisit with roadmap_layout_concept.png
@@ -271,7 +271,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/guides/goalposts',
+    docsUrl: 'https://docs.sourceprep.io/guides/codebase-audit',
     devOnly: true,
   },
   {
@@ -285,7 +285,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/guides/health-scanner',
+    docsUrl: 'https://docs.sourceprep.io/guides/codebase-audit',
     devOnly: true,
   },
   {
@@ -299,7 +299,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/guides/advisor',
+    docsUrl: 'https://docs.sourceprep.io/guides/model-advisor',
     devOnly: true,
   },
   {
@@ -313,7 +313,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: true,
     fullWidth: true,
-    docsUrl: 'https://docs.sourceprep.io/guides/roadmap',
+    docsUrl: 'https://docs.sourceprep.io/guides/codebase-audit',
     devOnly: true,
   },
   {
@@ -326,7 +326,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/guides/opportunities',
+    docsUrl: 'https://docs.sourceprep.io/guides/codebase-audit',
     devOnly: true,
   },
   {

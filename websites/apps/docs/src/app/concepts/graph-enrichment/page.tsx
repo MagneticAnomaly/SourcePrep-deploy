@@ -29,9 +29,9 @@ const SYNC_STAGES = [
 ];
 
 const ENRICH_STAGES = [
-  { number: 6,  name: 'DEEP_REASONING',   icon: <Brain className="w-4 h-4" />,     description: 'Epistemic scoring — layers, domains, confidence ratings for every node in graph context.' },
+  { number: 6,  name: 'ENRICHMENT',       icon: <Brain className="w-4 h-4" />,     description: 'Epistemic scoring — layers, domains, confidence ratings for every node in graph context.' },
   { number: 7,  name: 'GROUP_REASONING',  icon: <Cpu className="w-4 h-4" />,       description: 'LLM consensus across related nodes. Identifies patterns and architectural themes.' },
-  { number: 8,  name: 'MODULE_SYNTHESIS', icon: <Layers className="w-4 h-4" />,    description: 'Module boundary discovery. Groups files into logical subsystems.' },
+  { number: 8,  name: 'CLUSTERING',       icon: <Layers className="w-4 h-4" />,    description: 'Module boundary discovery. Groups files into logical subsystems.' },
   { number: 9,  name: 'DEEPENING',        icon: <Sparkles className="w-4 h-4" />,  description: 'Iterative epistemic refinement with full graph context available.' },
   { number: 10, name: 'DEEP_KNOWLEDGE',   icon: <Brain className="w-4 h-4" />,     description: 'Re-embed everything with enriched data. The search index now reflects deep understanding.' },
 ];

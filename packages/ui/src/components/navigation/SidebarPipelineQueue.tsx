@@ -261,14 +261,14 @@ export function SidebarPipelineQueue({
   }, [baseUrl, onPriorityChange, fetchQueue]);
 
   return (
-    <div className={cn('px-2 py-2', className)}>
+    <div className={cn('px-3 py-2', className)}>
       <button
         onClick={toggleCollapsed}
-        className="flex items-center justify-between w-full px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-text transition-colors"
+        className="flex items-center justify-between w-full text-xs font-semibold text-text-muted hover:text-text transition-colors"
       >
         <span className="flex items-center gap-1.5">
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-          Pipeline Queue
+          Queue
         </span>
         {queue.length > 0 && (
           <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full bg-primary/15 text-primary">

@@ -68,7 +68,7 @@ export default function Page() {
             Most users start with these. The full list lives in the Panel Picker.
           </p>
 
-          <h3 className="text-xl font-semibold mt-8 mb-2">Index Status</h3>
+          <AnchorHeading id="index-status" level="h3" className="text-xl font-semibold mt-8 mb-2">Index Status</AnchorHeading>
           <p className="text-sm">
             High-level health of the index — file counts, coverage, last build,
             and stale-file count. The fastest way to see whether the engine has
@@ -80,7 +80,7 @@ export default function Page() {
             caption="Index Status Card — index size, coverage, and freshness at a glance."
           />
 
-          <h3 className="text-xl font-semibold mt-8 mb-2">Code-Graph Coverage</h3>
+          <AnchorHeading id="code-graph-coverage" level="h3" className="text-xl font-semibold mt-8 mb-2">Code-Graph Coverage</AnchorHeading>
           <p className="text-sm">
             Inventory view of which files made it into the structural code graph,
             which are queued, which were excluded, and which need re-tracing
@@ -93,7 +93,7 @@ export default function Page() {
             caption="Code-Graph Coverage — manage the inventory of indexed files."
           />
 
-          <h3 className="text-xl font-semibold mt-8 mb-2">Pipeline</h3>
+          <AnchorHeading id="pipeline" level="h3" className="text-xl font-semibold mt-8 mb-2">Pipeline</AnchorHeading>
           <p className="text-sm">
             Visualizes the 15-stage enrichment pipeline (Sync → Enrich →
             Finalize). Each stage shows its status, last run, and provenance
@@ -107,7 +107,7 @@ export default function Page() {
             caption="Pipeline panel — every stage visible with live progress."
           />
 
-          <h3 className="text-xl font-semibold mt-8 mb-2">Search & Context</h3>
+          <AnchorHeading id="search-context" level="h3" className="text-xl font-semibold mt-8 mb-2">Search & Context</AnchorHeading>
           <p className="text-sm">
             The Search panel runs queries against the index; results stream in,
             and the Context Output panel renders the assembled context as it would

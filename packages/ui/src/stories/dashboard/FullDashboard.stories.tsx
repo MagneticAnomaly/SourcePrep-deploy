@@ -735,9 +735,9 @@ const mockAntibodiesStatus: import('../../types').AntibodiesStatus = {
  * are no-ops.
  */
 function PipelinePanelDemo() {
-  const [fastCollapsed, setFastCollapsed] = useState(true);
-  const [deepCollapsed, setDeepCollapsed] = useState(true);
-  const [finalizeCollapsed, setFinalizeCollapsed] = useState(true);
+  const [fastCollapsed, setFastCollapsed] = useState(false);
+  const [deepCollapsed, setDeepCollapsed] = useState(false);
+  const [finalizeCollapsed, setFinalizeCollapsed] = useState(false);
   const [autoConfig, setAutoConfig] = useState<{
     fastSync: boolean;
     deepEnrichment: 'manual' | 'auto' | 'scheduled' | 'threshold';
