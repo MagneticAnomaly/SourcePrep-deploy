@@ -137,13 +137,16 @@ impl Default for WalkConfig {
                 "**/bundle/**".into(),
                 "**/.bundle/**".into(),
                 "**/bower_components/**".into(),
-                // AI tool config dirs
+                // AI tool config dirs (incl. .agents/ — agent SOUL/KNOWLEDGE
+                // markdowns fed to the concept synthesizer only, not the
+                // trace pipeline)
                 "**/.claude/**".into(),
                 "**/.cursor/**".into(),
                 "**/.windsurf/**".into(),
                 "**/.continue/**".into(),
                 "**/.cody/**".into(),
                 "**/.aider/**".into(),
+                "**/.agents/**".into(),
                 // Build-artifact file globs
                 "**/*.d.ts".into(),
                 "**/*.min.js".into(),

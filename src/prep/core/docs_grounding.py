@@ -36,7 +36,7 @@ PLANNING_FOLDERS: frozenset[str] = frozenset({
     "docs/specs", "docs/sprints", "docs/phases",
     "rfcs", "adr", "specs", "prds", "product",
     ".cursor/rules", ".github/instructions", ".claude",
-    ".windsurf", ".gemini",
+    ".windsurf", ".gemini", ".agents",
 })
 
 # Dirs we never descend into. Generated artifacts, vendored deps,
@@ -56,8 +56,14 @@ EXCLUDED_DIRS: frozenset[str] = frozenset({
 })
 
 # Hidden agent dirs we explicitly DO walk (despite leading dot).
+# These are the OPPOSITE policy from the trace pipeline (which excludes
+# them via repo_profile.DEFAULT_EXCLUDE_DIR_NAMES). Agent-instruction
+# files like CLAUDE.md, .cursor/rules/*.mdc, and .agents/*.md are PRIME
+# planning material for concept synthesis; they're noise for source
+# indexing. The trace excludes are wired in src/prep/core/repo_profile.py
+# and src/prep/core/trace/coverage.py.
 ALLOWED_DOT_DIRS: frozenset[str] = frozenset({
-    ".cursor", ".claude", ".github", ".windsurf", ".gemini",
+    ".cursor", ".claude", ".github", ".windsurf", ".gemini", ".agents",
 })
 
 _PHASE_OR_SPRINT_RE = re.compile(r"(?:^|/)(?:Phase|Sprint)\d+[A-Za-z]*_", re.IGNORECASE)

@@ -114,6 +114,19 @@ def compute_trace_coverage(
     for pattern in DEFAULT_EXCLUDE_FILE_GLOBS:
         if pattern not in exclude_globs:
             exclude_globs.append(pattern)
+    # Phase 133 follow-up (2026-05-12): Always merge DEFAULT_EXCLUDE_DIR_NAMES
+    # as a system-level baseline. Pre-Phase-133, os.walk + a `not
+    # name.startswith(".")` filter implicitly excluded every dot-dir; the
+    # Rust walker's `hidden(false)` strategy lets dot-dirs through unless
+    # exclude_globs catches them. A project with custom exclude_globs that
+    # doesn't list `.claude/**` / `.agents/**` / `.cursor/**` would otherwise
+    # leak agent-instruction dirs into the trace queue. Treat the dir
+    # catalog the same way Phase 89 treats DEFAULT_EXCLUDE_FILE_GLOBS:
+    # always merged, user config extends rather than overrides.
+    for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES):
+        pattern = f"**/{d}/**"
+        if pattern not in exclude_globs:
+            exclude_globs.append(pattern)
     if user_exclude_globs is None:
         user_exclude_globs = []
 
