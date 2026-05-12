@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import threading
 import time
 from pathlib import Path
@@ -2710,26 +2709,29 @@ class PipelineOrchestrator:
                     _proj = require_project(project_id)
                     _repo = Path(_proj.path)
                     if _repo.is_dir():
-                        # Count up to 5 files to confirm the repo isn't empty
+                        # Count up to 5 files to confirm the repo isn't empty.
+                        # Phase 134: use prep_engine.walk_repo for filter parity.
+                        import prep_engine as _pe
+                        _CODE_GLOBS = [
+                            "**/*.py", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
+                            "**/*.go", "**/*.rs", "**/*.java", "**/*.c", "**/*.cpp",
+                            "**/*.h", "**/*.hpp", "**/*.swift", "**/*.md", "**/*.kt",
+                            "**/*.cs", "**/*.rb", "**/*.php",
+                        ]
+                        _EXCL_GLOBS = [
+                            "**/node_modules/**", "**/__pycache__/**", "**/.git/**",
+                            "**/target/**", "**/build/**", "**/dist/**", "**/vendor/**",
+                            "**/.*/**",
+                        ]
+                        _entries = _pe.walk_repo(
+                            str(_repo),
+                            include_globs=_CODE_GLOBS,
+                            exclude_globs=_EXCL_GLOBS,
+                            max_file_bytes=500_000,
+                        )
                         _found = 0
-                        _CODE_EXTS = {
-                            ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs",
-                            ".java", ".c", ".cpp", ".h", ".hpp", ".swift",
-                            ".md", ".kt", ".cs", ".rb", ".php",
-                        }
-                        for _r, _ds, _fs in os.walk(_repo):
-                            _ds[:] = [
-                                d for d in _ds
-                                if not d.startswith(".") and d not in (
-                                    "node_modules", "__pycache__", ".git",
-                                    "target", "build", "dist", "vendor",
-                                )
-                            ]
-                            for _fn in _fs:
-                                if any(_fn.endswith(ext) for ext in _CODE_EXTS):
-                                    _found += 1
-                                    if _found >= 5:
-                                        break
+                        for _ in _entries:
+                            _found += 1
                             if _found >= 5:
                                 break
 
