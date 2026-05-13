@@ -53,8 +53,11 @@ export function InitExcludeReviewModal({
   testId,
 }: InitExcludeReviewModalProps) {
   // Default-checked toward exclude (safer-from-runaway default per spec).
-  // Re-initialize whenever `proposed` changes so a new scan's results
-  // start with the right defaults.
+  // Re-initialize whenever the set of proposed rel_paths changes so a new
+  // scan's results start with the right defaults — but key on a STABLE
+  // string derived from rel_paths, not the array reference, so an inline
+  // `proposed={x ?? []}` at the call site doesn't reset checkboxes on
+  // every parent re-render.
   const [checked, setChecked] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
     for (const c of proposed) init[c.rel_path] = true;
@@ -62,11 +65,18 @@ export function InitExcludeReviewModal({
   });
   const [autoExpanded, setAutoExpanded] = useState(false);
 
+  const proposedKey = proposed.map((c) => c.rel_path).join('\0');
   useEffect(() => {
     const init: Record<string, boolean> = {};
     for (const c of proposed) init[c.rel_path] = true;
     setChecked(init);
-  }, [proposed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposedKey]);
+
+  // Reset the auto-excluded accordion to collapsed each time the modal opens.
+  useEffect(() => {
+    if (open) setAutoExpanded(false);
+  }, [open]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -245,6 +255,7 @@ export function InitExcludeReviewModal({
               variant="default"
               size="sm"
               onClick={() => onApply(selected, dismissed)}
+              disabled={proposed.length === 0}
               data-testid={testId ? `${testId}-apply` : undefined}
             >
               Apply {selected.length} Exclude{selected.length === 1 ? '' : 's'} &amp; Initialize
