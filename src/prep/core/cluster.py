@@ -1681,15 +1681,16 @@ class ClusterSynthesizer(Worker):
 
     def _cluster_is_stale(self, member_node_ids: List[str]) -> bool:
         """A cluster is stale iff any member's underlying file is in
-        changeset.modified | deleted. Falls back to 'all stale' if the
-        changeset is unavailable (defensive)."""
-        if self.changeset is None:
+        changeset.modified | deleted. Phase 135.5b: lazy-loads the
+        changeset from disk when not explicitly injected so API
+        endpoints and non-pipeline callers get correct answers instead
+        of the defensive 'all stale' fallback."""
+        cs = self._resolve_changeset()
+        if cs is None:
             return True
         for nid in member_node_ids:
-            # Match the existing convention in cluster.py for stripping
-            # the "file:" prefix (other call sites use .replace("file:", "", 1)).
             file_path = nid.replace("file:", "", 1) if nid.startswith("file:") else nid
-            if file_path in self.changeset.modified or file_path in self.changeset.deleted:
+            if file_path in cs.modified or file_path in cs.deleted:
                 return True
         return False
 

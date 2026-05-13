@@ -1510,18 +1510,14 @@ class CodebaseAtlas(Worker):
 
     def is_stale(self) -> bool:
         """Phase 135.5: stale iff stage 1's Changeset has churn OR atlas
-        doesn't exist yet. The old 4-trigger fingerprint machinery (module
-        fingerprint + hub hashes + file-count delta + segment drift) is
-        gone — those were per-stage staleness reproductions of signals
-        the Changeset already carries authoritatively."""
+        doesn't exist yet. Phase 135.5b: lazy-loads the changeset from
+        <index_dir>/changeset.json when not explicitly injected (so API
+        endpoints, post-flight, headless_runner all get correct answers)."""
         if not self.exists():
             return True
-        if self.changeset is None:
-            # Defensive: no changeset injected (first build, daemon
-            # misconfigured, or a non-pipeline caller). Regenerate to
-            # be safe — the cost is bounded and correctness wins.
+        cs = self._resolve_changeset()
+        if cs is None:
             return True
-        cs = self.changeset
         return bool(cs.added) or bool(cs.modified) or bool(cs.deleted)
 
     def _current_segment_ids(self) -> List[str]:
