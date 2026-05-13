@@ -280,28 +280,13 @@ def _extract_headings(body: str) -> tuple[str, ...]:
 
 
 def _walk_md_files(root: Path) -> list[Path]:
-    """Yield every `.md` file under `root` excluding generated dirs and
-    non-allowlisted dot dirs. Returns absolute paths."""
-    md_paths: list[Path] = []
-
-    def _recurse(d: Path) -> None:
-        try:
-            entries = list(d.iterdir())
-        except (OSError, PermissionError):
-            return
-        for e in entries:
-            name = e.name
-            if e.is_dir():
-                if name in EXCLUDED_DIRS:
-                    continue
-                if name.startswith(".") and name not in ALLOWED_DOT_DIRS:
-                    continue
-                _recurse(e)
-            elif e.is_file() and name.lower().endswith(".md"):
-                md_paths.append(e)
-
-    _recurse(root)
-    return md_paths
+    """Phase 135.5: delegates to prep.core.walker.walk_for_planning_docs.
+    Concept synthesis grounding deliberately includes agent-output dirs
+    (.claude/, .cursor/, .agents/) — the planning-docs variant of the
+    wrapper handles that policy."""
+    from prep.core.walker import walk_for_planning_docs
+    entries = walk_for_planning_docs(root, include_agent_dirs=True)
+    return [Path(entry.abs_path) for entry in entries]
 
 
 def _folder_md_ratio(folder: Path) -> float:
