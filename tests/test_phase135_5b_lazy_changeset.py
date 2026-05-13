@@ -152,3 +152,72 @@ def test_cluster_is_stale_lazy_loads(tmp_path: Path, cs_on_disk: Changeset) -> N
     assert synth.changeset is None
     assert synth._cluster_is_stale(["file:b.py"]) is True
     assert synth._cluster_is_stale(["file:c.py"]) is False
+
+
+def test_drift_detector_lazy_loads(tmp_path: Path, cs_on_disk: Changeset) -> None:
+    """Phase 135.5c — DriftDetector._compute_stale_set lazy-loads."""
+    from prep.core.deepening import DriftDetector
+
+    # DriftDetector takes max_propagation_hops and project_id only.
+    # It uses self.changeset (inherited from Worker) and self.index_dir
+    # for lazy-load. We have to set index_dir manually.
+    detector = DriftDetector(max_propagation_hops=3, project_id="p1")
+    detector.index_dir = tmp_path  # for lazy-load
+
+    # cs_on_disk has "b.py" in modified and "a.py" in added. Build augmentations
+    # to verify they're detected as stale via lazy-load.
+    augmentations = {"file:b.py": {"summary": "x"}, "file:c.py": {"summary": "y"}}
+
+    assert detector.changeset is None
+    stale = detector._compute_stale_set(augmentations)
+    # b.py is in changeset.modified (via should_process), so stale.
+    assert "file:b.py" in stale
+    # c.py is unchanged (in cs_on_disk.unchanged).
+    assert "file:c.py" not in stale
+
+
+def test_epistemic_enricher_needs_enrichment_lazy_loads(tmp_path: Path, cs_on_disk: Changeset) -> None:
+    """Phase 135.5c — EpistemicEnricher._needs_enrichment lazy-loads."""
+    from prep.core.epistemic_enrichment import EpistemicEnricher
+    from prep.core.epistemic_score import EpistemicEntry
+
+    # EpistemicEnricher needs llm and repo_root; build stubs
+    llm = MagicMock()
+    llm.model = "test"
+    llm.provider = "test"
+    enricher = EpistemicEnricher(
+        llm=llm,
+        repo_root=tmp_path,
+        index_dir=tmp_path,
+        project_id="p1",
+    )
+
+    assert enricher.changeset is None
+
+    # Build augmentations (required by _needs_enrichment)
+    augmentations = {"file:b.py": {"summary": "old"}, "file:c.py": {"summary": "old"}}
+    # Build existing entries (already have prior enrichment)
+    existing = {
+        "file:b.py": EpistemicEntry(
+            node_id="file:b.py",
+            extended_summary="old",
+            domain_tags=[],
+            architecture_layer="code",
+        ),
+        "file:c.py": EpistemicEntry(
+            node_id="file:c.py",
+            extended_summary="old",
+            domain_tags=[],
+            architecture_layer="code",
+        ),
+    }
+
+    # Node with file_path in changeset.modified → should re-enrich
+    node_modified = {"id": "file:b.py", "file_path": "b.py"}
+    result = enricher._needs_enrichment(node_modified, existing, augmentations)
+    assert result is True, "Should re-enrich because b.py is in changeset.modified"
+
+    # Node with file_path unchanged → should NOT re-enrich
+    node_unchanged = {"id": "file:c.py", "file_path": "c.py"}
+    result2 = enricher._needs_enrichment(node_unchanged, existing, augmentations)
+    assert result2 is False, "Should not re-enrich because c.py is unchanged"
