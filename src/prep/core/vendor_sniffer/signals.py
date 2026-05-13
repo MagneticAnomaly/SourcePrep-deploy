@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-# Per spec: canonical package-manager install dirs. Project-specific names
-# (vcpkg the tool itself, cesium-native, etc.) deliberately NOT here — those
-# flow to Tier 2 modal so user has a choice.
+# Canonical package-manager install dirs and conventional build-system symlinks.
+# Project-specific names (vcpkg the tool, cesium-native, etc.) deliberately
+# NOT here — those flow through to Tier 2 size-fallback if huge enough, or
+# stay as user code if not. List cross-checked against GitHub Linguist's
+# vendor.yml; we include only top-level conventions, not nested patterns
+# like gradle/wrapper (which lives inside the user-edited gradle/ dir).
 CANONICAL_INSTALL_DIR_NAMES: frozenset[str] = frozenset({
     "node_modules",
     "Pods",
@@ -22,6 +25,9 @@ CANONICAL_INSTALL_DIR_NAMES: frozenset[str] = frozenset({
     ".mypy_cache",
     ".ruff_cache",
     "htmlcov",
+    "bazel-out",         # Bazel build outputs (top-level symlinks)
+    "bazel-bin",
+    "bazel-testlogs",
 })
 
 # Files (or dir-name patterns) whose presence inside a top-level dir signals

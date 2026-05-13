@@ -11,19 +11,22 @@ from prep.core.vendor_sniffer.manifests import (
 )
 from prep.core.vendor_sniffer.models import VendorCandidate, VendorScanResult
 from prep.core.vendor_sniffer.signals import (
-    CANONICAL_INSTALL_DIR_NAMES,
     has_cmake_build_marker,
     has_ignore_everything_gitignore,
     has_nested_git_dir,
-    has_project_anchor,
     is_canonical_install_dir,
 )
 
 logger = logging.getLogger(__name__)
 
-# Per spec: size/file-count is the LAST-RESORT fallback only.
-_SIZE_FALLBACK_BYTES = 100 * 1024 * 1024  # 100 MB
-_SIZE_FALLBACK_FILES = 5000
+# Size/file-count is the LAST-RESORT Tier 2 trigger only. Thresholds set
+# deliberately high so the modal only fires on genuine outliers (e.g. a
+# 1.7GB vendored cesium-native checkout) — not on legitimate user content
+# like assets/ or media/ directories. False-positive cost (excluding user
+# code) is worse than false-negative (missing a vendored thing the user
+# can manually exclude in the file tree).
+_SIZE_FALLBACK_BYTES = 500 * 1024 * 1024  # 500 MB
+_SIZE_FALLBACK_FILES = 25_000
 
 
 def _is_git_repo_root(root: Path) -> bool:
@@ -33,14 +36,27 @@ def _is_git_repo_root(root: Path) -> bool:
 
 
 def _dir_size_and_count(d: Path) -> tuple[int, int]:
-    """Fast size + file-count for one directory tree. Errors swallowed per-entry."""
+    """
+    Size + file-count for one directory tree.
+
+    Short-circuits as soon as either threshold is crossed — we only need to
+    answer "is this bigger than the fallback threshold?", not "how much
+    bigger". Skips symlinks entirely (don't follow into external mounts or
+    chase cycles). Per-entry errors are swallowed.
+    """
+    if d.is_symlink():
+        return 0, 0
     total_bytes = 0
     total_files = 0
     for entry in d.rglob("*"):
         try:
+            if entry.is_symlink():
+                continue
             if entry.is_file():
                 total_files += 1
                 total_bytes += entry.stat().st_size
+                if total_bytes > _SIZE_FALLBACK_BYTES or total_files > _SIZE_FALLBACK_FILES:
+                    return total_bytes, total_files
         except (OSError, PermissionError):
             continue
     return total_bytes, total_files
@@ -120,45 +136,22 @@ def scan_for_vendor_dirs(root: Path) -> VendorScanResult:
                     ))
                 continue
 
-            # Tier-3 user-code check: a project anchor (xcodeproj, package.json, Cargo.toml,
-            # etc.) without a nested .git/ means this is the user's own code, not a vendor
-            # dep. Skip entirely — don't propose, don't auto-exclude.
-            anchor = has_project_anchor(entry)
-            nested_git = has_nested_git_dir(entry)
-            if anchor and not nested_git:
-                continue
-
-            # --- Tier 2 signals ---
-            tier2_reason: str | None = None
-            if nested_git:
-                tier2_reason = "Nested git repo, possibly vendored"
-            else:
-                size, files = _dir_size_and_count(entry)
-                if size > _SIZE_FALLBACK_BYTES or files > _SIZE_FALLBACK_FILES:
-                    tier2_reason = "Large directory, no classification signal"
-                    proposed.append(VendorCandidate(
-                        path=str(entry),
-                        rel_path=rel,
-                        size_bytes=size,
-                        file_count=files,
-                        reason=tier2_reason,
-                        tier="propose",
-                        in_gitignore=in_gi,
-                        is_git_repo=False,
-                    ))
-                    continue
-
-            if tier2_reason is not None:
-                size, files = _dir_size_and_count(entry)
+            # Default to "user code" unless the size-fallback fires.
+            # Per design: sub-repos (nested .git/) and sibling projects (own manifest)
+            # are assumed user code — the cost of falsely excluding user code is worse
+            # than letting a small vendored thing slip through. Users can manually
+            # exclude via the file tree if needed.
+            size, files = _dir_size_and_count(entry)
+            if size > _SIZE_FALLBACK_BYTES or files > _SIZE_FALLBACK_FILES:
                 proposed.append(VendorCandidate(
                     path=str(entry),
                     rel_path=rel,
                     size_bytes=size,
                     file_count=files,
-                    reason=tier2_reason,
+                    reason="Large directory, no classification signal",
                     tier="propose",
                     in_gitignore=in_gi,
-                    is_git_repo=nested_git,
+                    is_git_repo=has_nested_git_dir(entry),
                 ))
 
         return VendorScanResult(

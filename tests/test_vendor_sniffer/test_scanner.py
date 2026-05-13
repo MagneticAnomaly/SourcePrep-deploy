@@ -35,16 +35,47 @@ def test_gitmodules_submodule_auto_excluded(tmp_path: Path):
     assert any("vcpkg" in g for g in r.auto_excluded)
 
 
-def test_nested_git_no_gitmodules_proposed(tmp_path: Path):
-    # cesium-native style: own .git/, not in .gitmodules, not in .gitignore
+def test_small_nested_git_dir_is_user_code_skipped(tmp_path: Path):
+    # cesium-native style: own .git/, not in .gitmodules. Under our "when in
+    # doubt, include" rule, a SMALL nested git repo is treated as user code
+    # (probably a sub-repo they're developing on) — neither auto-excluded
+    # nor proposed. The user can manually exclude via the file tree if
+    # they want to.
     (tmp_path / "cesium-native").mkdir()
     (tmp_path / "cesium-native" / ".git").mkdir()
     _make_file(tmp_path / "cesium-native" / "src" / "engine.cpp")
     r = scan_for_vendor_dirs(tmp_path)
     assert not any("cesium-native" in g for g in r.auto_excluded)
-    assert any(c.rel_path == "cesium-native" for c in r.proposed)
-    cand = next(c for c in r.proposed if c.rel_path == "cesium-native")
-    assert "git" in cand.reason.lower()
+    assert not any(c.rel_path == "cesium-native" for c in r.proposed)
+
+
+def test_huge_unclassified_dir_triggers_size_fallback_proposal(tmp_path: Path):
+    # The size-fallback Tier 2 path is the ONLY trigger for proposal-with-
+    # confirmation. A directory with no manifest signal AND > 25,000 files
+    # gets proposed — the modal copy makes the weak signal honest.
+    huge = tmp_path / "huge-blob"
+    # 25,001 small files crosses the file-count threshold without needing
+    # to actually write 500 MB on disk.
+    for i in range(25_001):
+        _make_file(huge / f"shard_{i // 100}" / f"f_{i}.bin", size=1)
+    r = scan_for_vendor_dirs(tmp_path)
+    cands = [c for c in r.proposed if c.rel_path == "huge-blob"]
+    assert len(cands) == 1
+    assert "Large directory" in cands[0].reason
+
+
+def test_separate_subproject_with_own_manifest_is_skipped(tmp_path: Path):
+    # webgl-component style: has its own package.json, no nested .git/, not
+    # in root workspaces. Under our rule, this is user code (a sibling sub-
+    # project they're developing). Skip it; the user can manually exclude
+    # if it turns out to be vendored.
+    d = tmp_path / "webgl-component"
+    d.mkdir()
+    (d / "package.json").write_text('{"name": "webgl"}')
+    _make_file(d / "src" / "index.ts")
+    r = scan_for_vendor_dirs(tmp_path)
+    assert not any("webgl-component" in g for g in r.auto_excluded)
+    assert not any(c.rel_path == "webgl-component" for c in r.proposed)
 
 
 def test_cmake_build_dir_auto_excluded(tmp_path: Path):
