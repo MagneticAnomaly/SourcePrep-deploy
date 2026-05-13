@@ -69,6 +69,54 @@
   Tracked as `P122-T-treatment_registry` in MASTER_TODO.
 - **Owner:** unassigned.
 
+## swarm_optimizer.py
+- **Path:** `src/prep/core/swarm_optimizer.py` (34 LoC, mostly
+  comments)
+- **Public API:** Four module-level int constants —
+  `KIMI_MAX_BATCH = 10`, `GEMINI_MAX_BATCH_ITEMS = 200`,
+  `GEMINI_ATTENTION_QUALITY_CEILING_TOKENS = 200_000`,
+  `GEMINI_HARD_CONTEXT_TOKENS = 800_000`.
+  No functions, no classes.
+- **Production callers:** 0 (verified 2026-05-13 via Phase 122
+  Custodian run + direct grep for each constant name across `src/`).
+- **Custodian classification:** needs_review
+- **Custodian reason:** "Highly specific, calibrated tuning constants
+  for LLM batching and attention limits (Kimi and Gemini). These
+  values represent domain-specific knowledge that may be referenced
+  dynamically by a configuration loader or a pipeline scheduler not
+  captured by static analysis."
+- **Triage decision:** KEEP-DORMANT — with deletion precondition.
+- **Why:** The file is not part of the working swarm path. Phase 82
+  intentionally pruned this module (deleted `PLAN_TIER_CONCURRENCY`
+  and `PlanTier` literal per `docs/Phase82_CloudPipelineConcurrency/`
+  `05_Completion_Plan.md` line 24, commit `214f261f`); concurrency
+  moved to AIMD discovery in `pipeline_scheduler` + persistent
+  `concurrency_store`. The 4 remaining constants were added by a
+  separate earlier commit (`7216d14a` per SWARM_UI_PLAN_v2 §7) and
+  never wired to a consumer. The *values* are alive: `200_000` is
+  inlined as a literal at `src/prep/core/batch_profiles.py:276,320`
+  and `src/prep/core/epistemic_enrichment.py:588`. What is at risk
+  if this file is deleted is the *calibration rationale* in the
+  comments (the prose explaining WHY 200_000 is the Gemini attention
+  ceiling, why 10 is the Kimi per-file attention lever, etc.) —
+  that rationale lives nowhere else.
+- **State (2026-05-13):** Module loads, no consumers. Live swarm
+  files (`swarm_orchestrator.py`, `swarm_registry.py`,
+  `concept_generate_swarm.py`, `concept_validate_swarm.py`,
+  `swarm_event_logger.py`, `swarm_models.json`) are unaffected.
+  Phase 125c's `concept_generate_swarm.py` *bypasses*
+  `SwarmOrchestrator` and runs `ThreadPoolExecutor` directly
+  (documented at `concept_generate_swarm.py:15`), so the swarm
+  subsystem currently has two execution paths.
+- **Trigger to wire OR delete:** Before any deletion, port the
+  calibration rationale comments to the call sites that actually
+  use the values (`batch_profiles.py:276,320`,
+  `epistemic_enrichment.py:588`), OR have those callers re-import
+  the constants from this file (recentralization). Owner-decision:
+  which direction. Tracked as `P122-T-swarm_optimizer` in
+  MASTER_TODO.
+- **Owner:** unassigned.
+
 ## Other modules under audit
 
 Phase 122 lists several other "no external imports" candidates that
@@ -80,7 +128,6 @@ investigation.
   count). The "no external imports" flag is a false positive — the
   derivation runs but is invoked via re-exports. **Status: WIRED,
   flag was wrong.** Remove from Phase 122 audit list.
-- `swarm_optimizer.py` — pending; distinct from `swarm_orchestrator`
 - `lod_extractor.py` — pending; from Phase 95 LOD work
 - `github_sync.py` — pending
 - `budget_enforcement.py` — pending
