@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-import re as _re
 from pathlib import Path
 
 try:
@@ -14,8 +13,8 @@ except ImportError:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 _GITMODULES_PATH_RE = re.compile(r"^\s*path\s*=\s*(.+?)\s*$")
-_GO_WORK_USE_BLOCK_RE = _re.compile(r"use\s*\(\s*([^)]*)\)", _re.DOTALL)
-_GO_WORK_USE_SINGLE_RE = _re.compile(r"use\s+([^\s]+)")
+_GO_WORK_USE_BLOCK_RE = re.compile(r"use\s*\(\s*([^)]*)\)", re.DOTALL)
+_GO_WORK_USE_SINGLE_RE = re.compile(r"use\s+([^\s]+)")
 
 
 def parse_gitmodules(root: Path) -> set[str]:
