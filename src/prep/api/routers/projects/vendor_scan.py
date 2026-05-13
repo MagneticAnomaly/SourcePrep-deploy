@@ -3,12 +3,20 @@
 - GET /projects/{id}/vendor_scan — returns cached VendorScanResult.
 - POST /projects/{id}/vendor_scan/rescan — synchronous fresh scan + persist.
 - POST /projects/{id}/exclude_proposals/apply — confirm user choices from Gate 2 modal.
+
+Note on dismissed proposals: dismissals are recorded immediately into
+`config["dismissed_proposals"]` but the previously-cached `vendor_scan.proposed`
+list is NOT rewritten by `apply`. The dismissal takes effect on the next
+`rescan` call (which filters dismissed rel_paths out of `proposed` before
+persisting). The Gate 2 modal is one-shot — once the user applies/skips, the
+modal closes — so stale-cache visibility through GET is not a UX issue in
+practice. Re-fetching after `rescan` shows the dismissed items gone.
 """
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -25,16 +33,16 @@ router = APIRouter(tags=["vendor_scan"])
 
 
 class ApplyProposalsRequest(BaseModel):
-    exclude: List[str] = Field(default_factory=list)
-    dismiss: List[str] = Field(default_factory=list)
-    add_to_gitignore: List[str] = Field(default_factory=list)
+    exclude: list[str] = Field(default_factory=list)
+    dismiss: list[str] = Field(default_factory=list)
+    add_to_gitignore: list[str] = Field(default_factory=list)
 
 
 def _glob_for(rel_path: str) -> str:
     return f"**/{rel_path}/**"
 
 
-def _filter_dismissed(result: VendorScanResult, dismissed: List[str]) -> VendorScanResult:
+def _filter_dismissed(result: VendorScanResult, dismissed: list[str]) -> VendorScanResult:
     """Drop any proposed candidate whose rel_path is in `dismissed`."""
     if not dismissed:
         return result
@@ -49,7 +57,7 @@ def _filter_dismissed(result: VendorScanResult, dismissed: List[str]) -> VendorS
     )
 
 
-def _merge_excludes_into_config(cfg: dict, new_globs: List[str]) -> dict:
+def _merge_excludes_into_config(cfg: dict, new_globs: list[str]) -> dict:
     """Phase 115 additive-merge: append new globs not already present."""
     new_cfg = dict(cfg)
     existing = list(new_cfg.get("exclude_globs", []))
@@ -63,7 +71,7 @@ def _merge_excludes_into_config(cfg: dict, new_globs: List[str]) -> dict:
 
 
 @router.get("/projects/{project_id}/vendor_scan")
-def get_vendor_scan(project_id: str) -> Dict[str, Any]:
+def get_vendor_scan(project_id: str) -> dict[str, Any]:
     proj = _srv()._require_project(project_id)
     raw = proj.config.get("vendor_scan")
     if raw is None:
@@ -77,7 +85,7 @@ def get_vendor_scan(project_id: str) -> Dict[str, Any]:
 
 
 @router.post("/projects/{project_id}/vendor_scan/rescan")
-def rescan_vendor(project_id: str) -> Dict[str, Any]:
+def rescan_vendor(project_id: str) -> dict[str, Any]:
     proj = _srv()._require_project(project_id)
     result = scan_for_vendor_dirs(Path(proj.path))
     dismissed = list(proj.config.get("dismissed_proposals") or [])
@@ -95,8 +103,8 @@ def rescan_vendor(project_id: str) -> Dict[str, Any]:
 
 
 @router.post("/projects/{project_id}/exclude_proposals/apply")
-def apply_proposals(project_id: str, req: ApplyProposalsRequest) -> Dict[str, Any]:
-    proj = _srv()._require_project(project_id)
+def apply_proposals(project_id: str, req: ApplyProposalsRequest) -> dict[str, Any]:
+    _srv()._require_project(project_id)  # 404 if unknown; return value unused
     new_globs = [_glob_for(rel) for rel in req.exclude]
 
     if req.add_to_gitignore:
