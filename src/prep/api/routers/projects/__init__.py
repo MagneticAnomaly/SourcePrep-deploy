@@ -16,6 +16,7 @@ from . import (
     role_overrides_endpoints,
     pipeline_history,
     telemetry,
+    vendor_scan,
 )
 
 router = APIRouter()
@@ -29,6 +30,7 @@ router.include_router(atlas_endpoints.router)
 router.include_router(role_overrides_endpoints.router)
 router.include_router(pipeline_history.router)
 router.include_router(telemetry.router)
+router.include_router(vendor_scan.router)
 
 # ── Backward-compat re-exports ────────────────────────────────────
 # Tests and other modules import symbols directly from this package.
