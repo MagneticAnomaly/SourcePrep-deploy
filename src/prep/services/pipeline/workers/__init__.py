@@ -640,12 +640,15 @@ class WorkerFactory:
                 cb_to_use = deep_cb
 
             idx = build_manager.get_project_knowledge_index(project)
-            if is_deep:
-                # Phase 135: stage 10 trusts the Changeset for reuse decisions.
-                # `worker` is the inner-closure self-reference (Task 0 set
-                # base_worker.changeset; this name resolves there).
-                idx.use_changeset = True
-                idx.changeset = getattr(worker, "changeset", None)
+            # Phase 135: ALWAYS reset both attributes — build_manager caches
+            # the KnowledgeIndex instance per project, so an `if is_deep:`-only
+            # write would leak `use_changeset=True` from a prior stage 10 run
+            # into the next run's stage 5. Always-write keeps stage 5 on the
+            # legacy hash path and stage 10 on the changeset path.
+            # `worker` is the inner-closure self-reference (Task 0 set
+            # base_worker.changeset; this name resolves there).
+            idx.use_changeset = is_deep
+            idx.changeset = getattr(worker, "changeset", None) if is_deep else None
             result = idx.build(progress_callback=cb_to_use)
             logger.info("[%s/%s] Complete", project.name, stage_label)
             return {

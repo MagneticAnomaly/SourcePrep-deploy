@@ -87,3 +87,69 @@ def test_stage5_reuse_map_keeps_content_hash(idx: KnowledgeIndex) -> None:
     assert isinstance(val, tuple)
     assert len(val) == 2
     assert isinstance(val[0], str)  # content hash
+
+
+def test_cached_instance_use_changeset_resets_for_stage5(tmp_path: Path) -> None:
+    """Regression: build_manager caches KnowledgeIndex per project. After
+    stage 10 sets use_changeset=True on the cached instance, the next
+    run's stage 5 must reset it back to False — otherwise stage 5
+    silently switches to changeset mode with a stale changeset.
+
+    Invokes _knowledge_worker twice on the SAME cached idx (is_deep=True
+    then is_deep=False) and verifies the flag toggles correctly.
+    """
+    from unittest.mock import patch
+    from prep.services.pipeline.workers.factory import WorkerFactory
+
+    # One cached KnowledgeIndex instance, used by both calls.
+    embedder = MagicMock()
+    embedder.model = "test-embed"
+    cached_idx = KnowledgeIndex(index_dir=tmp_path, embedder=embedder, project_id="p1")
+    cached_idx.build = MagicMock(return_value={"count": 0, "status": "empty"})
+
+    fake_proj = MagicMock()
+    fake_proj.id = "p1"
+    fake_proj.name = "p"
+    fake_proj.config = {}
+    fake_proj.path = str(tmp_path)
+
+    cs1 = Changeset(
+        added=frozenset(), modified=frozenset({"b.py"}),
+        deleted=frozenset(), unchanged=frozenset({"a.py"}),
+        run_id="r1", base_run_id=None,
+    )
+
+    common_patches = [
+        patch(
+            "prep.services.pipeline.workers.WorkerFactory._get_project_and_config",
+            return_value=(fake_proj, {}, [], [], 0, 0, 0, 0, 0),
+        ),
+        patch(
+            "prep.services.build_manager.build_manager.get_project_knowledge_index",
+            return_value=cached_idx,
+        ),
+    ]
+
+    # Call 1: stage 10. Worker should set use_changeset=True.
+    for p in common_patches:
+        p.start()
+    try:
+        worker_fn = WorkerFactory._knowledge_worker("p1", is_deep=True)
+        worker_fn.changeset = cs1  # simulate _build_worker injection
+        worker_fn(MagicMock(cancel_token=None), lambda *a, **kw: None)
+        assert cached_idx.use_changeset is True
+        assert cached_idx.changeset is cs1
+    finally:
+        patch.stopall()
+
+    # Call 2: stage 5 on the SAME cached instance. Worker MUST reset.
+    for p in common_patches:
+        p.start()
+    try:
+        worker_fn = WorkerFactory._knowledge_worker("p1", is_deep=False)
+        worker_fn.changeset = cs1  # injection still happens, but should be ignored
+        worker_fn(MagicMock(cancel_token=None), lambda *a, **kw: None)
+        assert cached_idx.use_changeset is False, "stage 5 inherited stale flag from prior stage 10"
+        assert cached_idx.changeset is None, "stage 5 inherited stale changeset"
+    finally:
+        patch.stopall()

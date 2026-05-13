@@ -298,8 +298,10 @@ class KnowledgeIndex(Worker):
         Build the knowledge index from trace_augmented.jsonl, trace_epistemic.jsonl,
         and trace_modules.jsonl.
 
-        Incremental: reuses embeddings for documents whose content hasn't changed
-        since the last build, only re-embedding new or modified documents.
+        Incremental: reuses embeddings to avoid recomputation. Stage 5
+        (``use_changeset=False``) compares per-doc content hashes; stage 10
+        (``use_changeset=True``) gates on the pipeline's Changeset (no hashing
+        — the changeset is canonical).
         """
         epistemic_path = self.index_dir / "trace_epistemic.jsonl"
         modules_path = self.index_dir / "trace_modules.jsonl"
