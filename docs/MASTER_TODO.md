@@ -1825,3 +1825,22 @@ Surfaced while planning the Phase 122 Custodian dogfood run. `prep_impact(file_p
 - [ ] **P122-D3: When a file_path resolves to *no* graph node at all, return an explicit "not indexed" indicator instead of silently `0 dependents`.** The cosmetic empty parens (`Impact analysis for:  ()`) appear on both working and broken cases, making misdiagnosis easy.
 
 Anchors: `src/prep/mcp/server.py` (handler), `src/prep/core/trace/index.py` (impl), `src/prep/agents/custodian/engine.py:51` (downstream consumer). Cross-ref: `prep_observe` bug id `bd79badde4d2`.
+
+**Phase 122 triage follow-ups:**
+- [ ] **P122-T-treatment_registry [KEEP-DORMANT → wire]:** `src/prep/core/treatment_registry.py` (99 LoC) — Phase 53 two-piece design shipped `ContentClass` wired and `TreatmentRegistry` un-consumed. The augmenter classifies into 3 buckets at `src/prep/core/augmenter.py:1349-1352` then uses a uniform `self._batch_profile.batch_size(BatchStage.CATALOGUE_FILE)` for all of them; same at `src/prep/core/epistemic_enrichment.py:711-723`. Replace those uniform calls with `TreatmentRegistry.compute_batch_size(content_class, base_size)` to consume the per-class registry. Owner: unassigned.
+
+### 2026-05-13: Phase 82 — MCP-Dogfooding follow-up (two findings out of Phase 132 docs audit)
+
+Two prep-runtime findings surfaced while running the Phase 132 docs
+behavioral-fidelity audit. Both are out of scope for the docs phase
+and recorded here so a future MCP-cluster session can pick them up.
+Full write-up with hypotheses and anchors:
+`docs/Phase82_MCP-Dogfooding/20_Followup_2026-05-13.md`.
+
+**Recommended follow-up:**
+- [ ] **P82-F5: instrument the no-arg `prep` codepath.** Live `prep` returned 1 of 10 modules; static `CLAUDE.md` atlas at the same moment had all 10. Log resolved project_id, loader source (cache vs disk), pre/post-projection module counts. Compare to on-disk `atlas.json`.
+- [ ] **P82-F6: tighten or remove the no-query ambient-context relevance threshold.** No-query should mean "full structural overview," not "aggressively trimmed slice."
+- [ ] **P82-F7: invalidate-and-regen module summaries on project rename.** LLM-generated module-summary text still contains `CoDRAG` (CLAUDE.md atlas line 335) even though structured `IDENTITY` and `Active zones` were scrubbed in Phase 130 / Issue 13. Hook into the registry rename path; mark `cluster_summaries.json` (or equivalent) stale; let next Finalize refresh.
+- [ ] **P82-F8: optional safety net — atlas-render brand substitutor.** Tiny replacement table applied on read of any free-text atlas field. Defense-in-depth against future missed invalidations.
+
+Anchors: `src/prep/mcp/server.py` (ambient context handler + `_CLIENT_BUDGETS`), `src/prep/core/atlas/{generator,loader}.py`, `src/prep/core/cluster.py` (`MODULE_SYNTHESIS_PROMPT`). Cross-refs: `prep_observe` bug id `ff75c58924d7` (saved 2026-05-10).
