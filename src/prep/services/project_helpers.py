@@ -32,7 +32,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -510,19 +509,6 @@ def check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:
             _stale_cache[project.id] = (now + _STALE_CACHE_TTL, False, None, 0)
         return result
 
-    # Build pathspec matchers for include/exclude
-    try:
-        import pathspec
-        inc_spec = pathspec.PathSpec.from_lines("gitignore", include_globs) if include_globs else None
-        exc_spec = pathspec.PathSpec.from_lines("gitignore", exclude_globs) if exclude_globs else None
-    except Exception:
-        inc_spec = None
-        exc_spec = None
-
-    # Quick dir-prune set
-    from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES
-    prune_dirs = DEFAULT_EXCLUDE_DIR_NAMES
-
     # Respect included_paths: only check files within the user's selected
     # scope.  Without this, files matching include_globs but outside the
     # selected Knowledge Sources would trigger a false "Stale" badge.
@@ -545,40 +531,33 @@ def check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:
     stale_count = 0
     earliest_stale_mtime: Optional[float] = None
 
-    for root_dir, dirs, filenames in os.walk(repo_root):
-        dirs[:] = [d for d in dirs if d not in prune_dirs and not d.startswith(".")]
-        root_path = Path(root_dir)
+    # Phase 135.5: migrated from raw os.walk to walk_for_source (catalog-backed).
+    # include_globs / exclude_globs from project config are forwarded to the
+    # walker so the L1 catalog + user globs are applied in one pass.
+    from prep.core.walker import walk_for_source
+    _walk_entries = walk_for_source(
+        repo_root,
+        include_globs=include_globs if include_globs else None,
+        user_exclude_globs=exclude_globs if exclude_globs else None,
+    )
 
-        for fname in filenames:
-            fpath = root_path / fname
-            try:
-                rel = fpath.relative_to(repo_root).as_posix()
-            except Exception:
-                continue
+    for entry in _walk_entries:
+        rel = entry.path  # already POSIX, repo-relative per walker contract
 
-            # Apply include filter
-            if inc_spec is not None:
-                if not inc_spec.match_file(rel):
-                    continue
-            # Apply exclude filter
-            if exc_spec is not None:
-                if exc_spec.match_file(rel):
-                    continue
+        # Apply included_paths scope filter
+        if not _is_in_scope(rel):
+            continue
 
-            # Apply included_paths scope filter
-            if not _is_in_scope(rel):
-                continue
+        # Check mtime (walker doesn't expose mtime; stat the file directly)
+        try:
+            mtime = Path(entry.abs_path).stat().st_mtime
+        except OSError:
+            continue
 
-            # Check mtime
-            try:
-                mtime = fpath.stat().st_mtime
-            except OSError:
-                continue
-
-            if mtime > built_epoch:
-                stale_count += 1
-                if earliest_stale_mtime is None or mtime < earliest_stale_mtime:
-                    earliest_stale_mtime = mtime
+        if mtime > built_epoch:
+            stale_count += 1
+            if earliest_stale_mtime is None or mtime < earliest_stale_mtime:
+                earliest_stale_mtime = mtime
 
     is_stale = stale_count > 0
     stale_since: Optional[str] = None

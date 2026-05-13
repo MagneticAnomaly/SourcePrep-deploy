@@ -49,6 +49,7 @@ from prep.core.ids import (
 )
 from prep.core.manifest import CURRENT_HASH_ALGO
 from prep.core.repo_policy import effective_excludes, ensure_repo_policy
+from prep.core.walker import walk_for_source
 from .models import (
     FileError,
     TraceNode,
@@ -556,12 +557,14 @@ class TraceBuilder:
         Phase 133: walks via prep_engine.walk_repo for parity with
         compute_trace_coverage and the Rust trace builder. Both sides
         now share one walker primitive.
+        Phase 135.5: migrated to walk_for_source (catalog-merge handled
+        by the wrapper; pass self.exclude_globs as user_exclude_globs).
         """
         file_hashes: Dict[str, str] = {}
-        entries = prep_engine.walk_repo(
-            str(self.repo_root),
+        entries = walk_for_source(
+            self.repo_root,
             include_globs=list(self.include_globs) if self.include_globs else None,
-            exclude_globs=list(self.exclude_globs) if self.exclude_globs else None,
+            user_exclude_globs=list(self.exclude_globs) if self.exclude_globs else None,
             max_file_bytes=int(self.max_file_bytes),
         )
 
@@ -585,10 +588,12 @@ class TraceBuilder:
         # Phase 134: migrate to prep_engine.walk_repo for filter parity with
         # _compute_file_hashes and compute_trace_coverage. The Rust walker
         # handles gitignore, symlinks, and size limits natively.
-        entries = prep_engine.walk_repo(
-            str(self.repo_root),
+        # Phase 135.5: migrated to walk_for_source (catalog-merge handled
+        # by the wrapper; pass self.exclude_globs as user_exclude_globs).
+        entries = walk_for_source(
+            self.repo_root,
             include_globs=list(self.include_globs) if self.include_globs else None,
-            exclude_globs=list(self.exclude_globs) if self.exclude_globs else None,
+            user_exclude_globs=list(self.exclude_globs) if self.exclude_globs else None,
             max_file_bytes=int(self.hard_limit_bytes),
         )
         all_files = [Path(entry.abs_path) for entry in entries]

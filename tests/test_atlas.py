@@ -172,7 +172,6 @@ class TestAtlasDocument:
             content="Test atlas content",
             generated_at="2026-02-19T00:00:00Z",
             model="test-model",
-            fingerprint="abc123",
             file_count=100,
             module_count=5,
             char_count=18,
@@ -183,7 +182,6 @@ class TestAtlasDocument:
         restored = AtlasDocument.from_dict(d)
         assert restored.content == doc.content
         assert restored.model == doc.model
-        assert restored.fingerprint == doc.fingerprint
         assert restored.file_count == doc.file_count
         assert restored.module_count == doc.module_count
         assert restored.mode == doc.mode
@@ -239,7 +237,6 @@ class TestStructuralAtlas:
         assert doc.content  # non-empty
         assert doc.file_count == 20
         assert doc.module_count == 2
-        assert doc.fingerprint
         assert doc.generated_at
 
     def test_mentions_languages(self, tmp_index_dir):
@@ -274,7 +271,6 @@ class TestStructuralAtlas:
         loaded = atlas.load()
         assert loaded is not None
         assert loaded.content == doc.content
-        assert loaded.fingerprint == doc.fingerprint
 
 
 # ── LLM Atlas Tests (Mocked) ────────────────────────────────────────
@@ -463,7 +459,7 @@ class TestLLMAtlas:
         doc = AtlasDocument(
             content=bad_body,
             generated_at="2026-05-06T00:00:00Z",
-            model="broken-model", fingerprint="poisoned",
+            model="broken-model",
             file_count=100, module_count=5, char_count=len(bad_body),
             mode="llm",
         )
@@ -482,14 +478,14 @@ class TestLLMAtlas:
         good = SegmentDocument(
             content="SEGMENT: ui (packages/ui, 100 files)\nROLE: design system.",
             generated_at="2026-05-06T00:00:00Z",
-            model="test", fingerprint="g",
+            model="test",
             segment_id="ui", segment_name="UI", dir_path="packages/ui",
             file_count=100, char_count=80, mode="llm",
         )
         bad = SegmentDocument(
             content="I need to write a subsystem orientation document. " + "加油" * 80,
             generated_at="2026-05-06T00:00:00Z",
-            model="broken-model", fingerprint="b",
+            model="broken-model",
             segment_id="dashboard", segment_name="Dashboard",
             dir_path="src/dashboard", file_count=50,
             char_count=400, mode="llm",
@@ -515,77 +511,15 @@ class TestStaleness:
         atlas = CodebaseAtlas(tmp_index_dir)
         assert atlas.is_stale() is True
 
-    def test_not_stale_after_generate(self, tmp_index_dir):
+    def test_stale_when_no_changeset(self, tmp_index_dir):
+        """When changeset is None (no pipeline injection), is_stale() is True
+        even if the atlas exists — defensive fallback per Phase 135.5."""
         _populate_index(tmp_index_dir)
         atlas = CodebaseAtlas(tmp_index_dir)
         atlas.generate_structural()
-        assert atlas.is_stale() is False
-
-    def test_stale_when_module_changes(self, tmp_index_dir):
-        _populate_index(tmp_index_dir)
-        atlas = CodebaseAtlas(tmp_index_dir)
-        atlas.generate_structural()
-        assert atlas.is_stale() is False
-
-        # Change a module summary
-        modules = _sample_modules()
-        modules[0]["summary"] = "Completely different summary now"
-        _write_modules(tmp_index_dir, modules)
-
+        # No changeset injected → stale by design
+        assert atlas.changeset is None
         assert atlas.is_stale() is True
-
-    def test_stale_when_module_added(self, tmp_index_dir):
-        _populate_index(tmp_index_dir)
-        atlas = CodebaseAtlas(tmp_index_dir)
-        atlas.generate_structural()
-
-        # Add a new module
-        modules = _sample_modules()
-        modules.append({
-            "module_id": "module:api:0",
-            "name": "API Layer",
-            "summary": "New API layer",
-            "member_files": ["src/api.py"],
-            "domain_tags": ["api"],
-            "architecture_layers": ["service"],
-            "component_status": "complete",
-            "file_count": 1,
-        })
-        _write_modules(tmp_index_dir, modules)
-
-        assert atlas.is_stale() is True
-
-    def test_stale_when_hub_hash_changes(self, tmp_index_dir):
-        _populate_index(tmp_index_dir)
-        atlas = CodebaseAtlas(tmp_index_dir)
-        atlas.generate_structural()
-        assert atlas.is_stale() is False
-
-        # Change a hub file hash in the manifest
-        _write_manifest(tmp_index_dir, {"files_indexed": 20}, {
-            "src/index.py": "CHANGED_HASH",
-            "src/search.py": "def456",
-        })
-        assert atlas.is_stale() is True
-
-    def test_stale_when_file_count_grows_20pct(self, tmp_index_dir):
-        _populate_index(tmp_index_dir)
-        atlas = CodebaseAtlas(tmp_index_dir)
-        atlas.generate_structural()
-        assert atlas.is_stale() is False
-
-        # Increase file count by 25%
-        _write_manifest(tmp_index_dir, {"files_indexed": 25})
-
-        assert atlas.is_stale() is True
-
-    def test_not_stale_when_nothing_changes(self, tmp_index_dir):
-        _populate_index(tmp_index_dir)
-        atlas = CodebaseAtlas(tmp_index_dir)
-        atlas.generate_structural()
-
-        # Same modules, same manifest, same hub hashes — NOT stale
-        assert atlas.is_stale() is False
 
 
 # ── Persistence Tests ────────────────────────────────────────────────
@@ -624,7 +558,7 @@ class TestPersistence:
         prev = atlas.load_previous()
         assert prev is not None
         assert prev.content == doc1.content
-        assert prev.fingerprint != doc2.fingerprint
+        assert prev.content != doc2.content  # different content (different summary)
 
     def test_load_handles_corrupt_json(self, tmp_index_dir):
         atlas = CodebaseAtlas(tmp_index_dir)
@@ -632,43 +566,6 @@ class TestPersistence:
         with open(atlas.atlas_path, "w") as f:
             f.write("not json {{{")
         assert atlas.load() is None
-
-
-# ── Fingerprint Tests ────────────────────────────────────────────────
-
-class TestFingerprint:
-    def test_deterministic(self, tmp_index_dir):
-        _populate_index(tmp_index_dir)
-        atlas = CodebaseAtlas(tmp_index_dir)
-        modules = atlas._load_modules()
-        stats = atlas._load_graph_stats()
-        fp1 = atlas._compute_fingerprint(modules, stats)
-        fp2 = atlas._compute_fingerprint(modules, stats)
-        assert fp1 == fp2
-
-    def test_changes_with_module_content(self, tmp_index_dir):
-        _populate_index(tmp_index_dir)
-        atlas = CodebaseAtlas(tmp_index_dir)
-
-        modules1 = atlas._load_modules()
-        stats = atlas._load_graph_stats()
-        fp1 = atlas._compute_fingerprint(modules1, stats)
-
-        modules1[0]["summary"] = "Different content"
-        fp2 = atlas._compute_fingerprint(modules1, stats)
-        assert fp1 != fp2
-
-    def test_changes_with_file_count(self, tmp_index_dir):
-        _populate_index(tmp_index_dir)
-        atlas = CodebaseAtlas(tmp_index_dir)
-
-        modules = atlas._load_modules()
-        stats1 = {"file_count": 100}
-        stats2 = {"file_count": 200}
-
-        fp1 = atlas._compute_fingerprint(modules, stats1)
-        fp2 = atlas._compute_fingerprint(modules, stats2)
-        assert fp1 != fp2
 
 
 # ── Graph Stats Loading Tests ────────────────────────────────────────
@@ -861,7 +758,6 @@ class TestSegmentDataclass:
             content="SEGMENT: Core Engine...",
             generated_at="2026-02-20T00:00:00Z",
             model="mistral:14b",
-            fingerprint="abc123",
             segment_id="src-core",
             segment_name="Core",
             dir_path="src/core",
@@ -885,7 +781,6 @@ class TestSegmentPersistence:
             content="SEGMENT: Core (src/core, 10 files)\nROLE: indexing engine.",
             generated_at="2026-02-20T00:00:00Z",
             model="test",
-            fingerprint="fp1",
             segment_id="src-core",
             segment_name="Core",
             dir_path="src/core",
@@ -912,7 +807,6 @@ class TestSegmentPersistence:
                 content=content,
                 generated_at="2026-02-20T00:00:00Z",
                 model="test",
-                fingerprint=f"fp{i}",
                 segment_id=f"seg-{i}",
                 segment_name=f"Seg {i}",
                 dir_path=f"dir{i}",
@@ -983,7 +877,6 @@ class TestSegmentSelection:
                 content=content,
                 generated_at="2026-02-20T00:00:00Z",
                 model="test",
-                fingerprint="fp",
                 segment_id=seg.id,
                 segment_name=seg.name,
                 dir_path=seg.dir_path,
@@ -1015,7 +908,7 @@ class TestSegmentSelection:
             atlas._save_segment(SegmentDocument(
                 content=content,
                 generated_at="2026-02-20T00:00:00Z",
-                model="test", fingerprint="fp",
+                model="test",
                 segment_id=seg.id, segment_name=seg.name,
                 dir_path=seg.dir_path, file_count=seg.file_count,
                 char_count=len(content), mode="llm",
@@ -1191,7 +1084,7 @@ class TestDisplayContent:
         doc = AtlasDocument(
             content=body,
             generated_at="2026-02-20T00:00:00Z",
-            model="test", fingerprint="fp",
+            model="test",
             file_count=100, module_count=5, char_count=len(body),
             mode="llm",
         )
@@ -1208,7 +1101,7 @@ class TestDisplayContent:
         doc = AtlasDocument(
             content="IDENTITY: Test project.",
             generated_at="2026-02-20T00:00:00Z",
-            model="test", fingerprint="fp",
+            model="test",
             file_count=100, module_count=5, char_count=23,
             mode="llm",
         )
@@ -1229,7 +1122,7 @@ class TestDisplayContent:
             atlas._save_segment(SegmentDocument(
                 content=seg_content,
                 generated_at="2026-02-20T00:00:00Z",
-                model="test", fingerprint="fp",
+                model="test",
                 segment_id=seg.id, segment_name=seg.name,
                 dir_path=seg.dir_path, file_count=seg.file_count,
                 char_count=len(seg_content), mode="llm",
@@ -1320,7 +1213,6 @@ class TestSegmentDescriptor:
             boundaries=["→ src-api (12 edges)"],
             file_paths=["src/core/index.py", "src/core/trace.py"],
             file_count=2,
-            fingerprint="abc123",
             generated_at="2026-02-20T00:00:00Z",
         )
         d = desc.to_dict()
@@ -1359,7 +1251,6 @@ class TestBuildRoutingDescriptors:
             assert desc.segment_id
             assert desc.covers  # Non-empty COVERS text
             assert desc.file_count > 0
-            assert desc.fingerprint
             assert len(desc.file_paths) > 0
 
     def test_covers_contains_domain_tags(self, tmp_path):
@@ -1418,7 +1309,6 @@ class TestRouteQuery:
                 boundaries=[],
                 file_paths=[f"src/seg{i}/f{j}.py" for j in range(10)],
                 file_count=10,
-                fingerprint=f"fp{i}",
             )
             for i in range(n)
         ]
@@ -1492,13 +1382,13 @@ class TestCodebaseAtlasRouting:
                 segment_id="seg-0", dir_path="src/core", name="Core",
                 covers="indexing search", key_files=["src/core/index.py"],
                 boundaries=[], file_paths=["src/core/index.py"],
-                file_count=1, fingerprint="fp0",
+                file_count=1,
             ),
             SegmentDescriptor(
                 segment_id="seg-1", dir_path="src/api", name="API",
                 covers="api endpoints", key_files=["src/api/server.py"],
                 boundaries=[], file_paths=["src/api/server.py"],
-                file_count=1, fingerprint="fp1",
+                file_count=1,
             ),
         ]
         embeddings = np.random.randn(2, 768).astype(np.float32)
@@ -1522,13 +1412,13 @@ class TestCodebaseAtlasRouting:
             segment_id="a", dir_path="src/a", name="A",
             covers="", key_files=[], boundaries=[],
             file_paths=["src/a/f1.py", "src/a/f2.py"],
-            file_count=2, fingerprint="fp",
+            file_count=2,
         )
         desc_b = SegmentDescriptor(
             segment_id="b", dir_path="src/b", name="B",
             covers="", key_files=[], boundaries=[],
             file_paths=["src/b/g1.py"],
-            file_count=1, fingerprint="fp",
+            file_count=1,
         )
         selected = [(desc_a, 0.9), (desc_b, 0.7)]
         paths = atlas.get_routed_file_paths(selected)

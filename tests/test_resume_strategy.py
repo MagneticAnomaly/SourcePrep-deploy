@@ -16,6 +16,7 @@ from prep.services.pipeline.resume import ResumeStrategy
 from prep.services.pipeline.stages import (
     DEEP_ENRICHMENT_STAGES,
     FAST_SYNC_STAGES,
+    FINALIZE_STAGES,
     STAGE_MANIFEST_FILE,
     STAGE_OUTPUT_FILE,
     StageId,
@@ -84,7 +85,7 @@ class TestDetectResumePoint:
     def test_returns_len_when_all_complete(self, idx_dir, store):
         """All manifests present → all stages complete."""
         for stage in FAST_SYNC_STAGES:
-            store.write_provenance(stage, {"stage_id": stage.value})
+            store.write_provenance(stage, {"stage_id": stage.value, "finished_at": "2026-01-01T00:00:00Z"})
         # Structural also needs trace_nodes.jsonl
         (idx_dir / "trace_nodes.jsonl").write_text('{"kind":"file","file_path":"a.py"}\n')
 
@@ -97,8 +98,8 @@ class TestDetectResumePoint:
     def test_resumes_from_first_missing_manifest(self, idx_dir, store):
         """If structural and inferred_edges manifests exist but catalogue is missing,
         resume from index 2 (catalogue)."""
-        store.write_provenance(StageId.STRUCTURAL, {"stage_id": "structural"})
-        store.write_provenance(StageId.INFERRED_EDGES, {"stage_id": "inferred_edges"})
+        store.write_provenance(StageId.STRUCTURAL, {"stage_id": "structural", "finished_at": "2026-01-01T00:00:00Z"})
+        store.write_provenance(StageId.INFERRED_EDGES, {"stage_id": "inferred_edges", "finished_at": "2026-01-01T00:00:00Z"})
         (idx_dir / "trace_nodes.jsonl").write_text('{"kind":"file","file_path":"a.py"}\n')
 
         with _PatchProject(idx_dir):
@@ -120,42 +121,47 @@ class TestDetectResumePoint:
 
     def test_atlas_incomplete_when_segments_missing(self, idx_dir, store):
         """Atlas manifest exists but atlas_segments_manifest.json missing → incomplete."""
-        # Set up all deep enrichment stages as complete except atlas
-        for stage in DEEP_ENRICHMENT_STAGES:
-            store.write_provenance(stage, {"stage_id": stage.value})
+        # Set up all finalize stages as complete. Atlas manifest has no
+        # finished_at so the missing segments manifest signals incomplete.
+        for stage in FINALIZE_STAGES:
+            if stage == StageId.ATLAS:
+                # No finished_at → missing segments manifest treated as incomplete
+                store.write_provenance(stage, {"stage_id": stage.value})
+            else:
+                store.write_provenance(stage, {"stage_id": stage.value, "finished_at": "2026-01-01T00:00:00Z"})
         # Atlas has manifest but no segments
         # (no atlas_segments_manifest.json)
 
         with _PatchProject(idx_dir):
             result = ResumeStrategy.detect_resume_point(
-                "test-proj", DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True,
+                "test-proj", FINALIZE_STAGES, skip_mtime_cascade=True,
             )
-        # Should stop at atlas (index 3 in deep enrichment stages)
-        atlas_idx = list(DEEP_ENRICHMENT_STAGES).index(StageId.ATLAS)
+        # Should stop at atlas (first stage in FINALIZE_STAGES)
+        atlas_idx = list(FINALIZE_STAGES).index(StageId.ATLAS)
         assert result == atlas_idx
 
     def test_atlas_crash_recovery_when_json_exists(self, idx_dir, store):
         """Atlas manifest missing but atlas.json exists → treat as complete."""
-        for stage in DEEP_ENRICHMENT_STAGES:
+        for stage in FINALIZE_STAGES:
             if stage != StageId.ATLAS:
-                store.write_provenance(stage, {"stage_id": stage.value})
+                store.write_provenance(stage, {"stage_id": stage.value, "finished_at": "2026-01-01T00:00:00Z"})
         # No atlas manifest, but atlas.json exists
         (idx_dir / "atlas.json").write_text('{"content": "test atlas", "mode": "llm"}')
 
         with _PatchProject(idx_dir):
             result = ResumeStrategy.detect_resume_point(
-                "test-proj", DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True,
+                "test-proj", FINALIZE_STAGES, skip_mtime_cascade=True,
             )
-        assert result == len(DEEP_ENRICHMENT_STAGES)
+        assert result == len(FINALIZE_STAGES)
 
     def test_mtime_cascade_skipped_when_flag_set(self, idx_dir, store):
         """With skip_mtime_cascade=True, stale mtimes don't trigger restarts."""
         # Write structural with current time
-        store.write_provenance(StageId.STRUCTURAL, {"stage_id": "structural"})
+        store.write_provenance(StageId.STRUCTURAL, {"stage_id": "structural", "finished_at": "2026-01-01T00:00:00Z"})
         (idx_dir / "trace_nodes.jsonl").write_text('{"kind":"file","file_path":"a.py"}\n')
 
         # Write inferred_edges with older mtime
-        store.write_provenance(StageId.INFERRED_EDGES, {"stage_id": "inferred_edges"})
+        store.write_provenance(StageId.INFERRED_EDGES, {"stage_id": "inferred_edges", "finished_at": "2026-01-01T00:00:00Z"})
         import os
         old_time = time.time() - 3600
         ie_path = store.provenance_path(StageId.INFERRED_EDGES)

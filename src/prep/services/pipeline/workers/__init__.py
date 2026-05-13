@@ -440,6 +440,9 @@ class WorkerFactory:
                 llm_client=llm_client,
                 batch_profile=batch_profile,
             )
+            # Phase 135.5: inject the Changeset. `worker` is the inner-closure
+            # self-reference (Phase 135 Task 0 set base_worker.changeset).
+            analyzer.changeset = getattr(worker, "changeset", None)
             result = analyzer.run(progress_callback=log_cb, cancel_token=slot.cancel_token)
             logger.info(
                 "[%s/Edge Discovery] Complete — %d files analyzed, %d edges written",
@@ -895,6 +898,10 @@ class WorkerFactory:
                 idx_dir, llm=llm_client, project_root=Path(project.path),
                 project_name=project.name,
             )
+            # Phase 135.5: inject the Changeset so the atlas's is_stale gate
+            # consults stage 1's canonical "what changed" signal instead of
+            # computing its own fingerprint.
+            atlas.changeset = getattr(worker, "changeset", None)
 
             # Only regenerate if stale or missing
             if not atlas.is_stale() and atlas.exists():

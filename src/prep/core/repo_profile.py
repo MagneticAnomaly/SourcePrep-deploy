@@ -4,11 +4,6 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Sequence, Set, Tuple
 
-try:
-    import prep_engine as _prep_engine  # Rust PyO3 walker
-except ImportError:
-    _prep_engine = None  # type: ignore[assignment]
-
 # Directories Prep itself writes. Indexing any of these creates a feedback
 # loop in which the LLM reasons about Prep's own state instead of the user's
 # code. Every new writer must register here; DEFAULT_EXCLUDE_DIR_NAMES derives
@@ -277,19 +272,16 @@ def scan_for_presets(root: Path) -> List[str]:
     Skips common heavy directories to be fast.
     """
     detected_presets = set()
-    # Extra dirs not already in DEFAULT_EXCLUDE_DIR_NAMES (.idea, .vscode are IDE dirs).
-    _extra_ignore = {".idea", ".vscode"}
-    _all_ignore = DEFAULT_EXCLUDE_DIR_NAMES | _extra_ignore
 
     try:
-        # Phase 134: migrate to prep_engine.walk_repo for filter parity.
-        # Include all extensions known to EXT_TO_PRESET; exclude standard dirs.
+        # Phase 135.5: migrate to walk_for_source (catalog-backed walker).
+        # .idea and .vscode are already in DEFAULT_EXCLUDE_DIR_NAMES; no extras needed.
+        from prep.core.walker import walk_for_source
         _ext_globs = [f"**/*{ext}" for ext in EXT_TO_PRESET]
-        _excl_globs = [f"**/{d}/**" for d in sorted(_all_ignore)] + ["**/.*/**", "**/.*"]
-        entries = _prep_engine.walk_repo(
-            str(root),
+        entries = walk_for_source(
+            root,
             include_globs=_ext_globs,
-            exclude_globs=_excl_globs,
+            user_exclude_globs=None,
             max_file_bytes=500_000,
         )
         for entry in entries:
@@ -371,17 +363,13 @@ def classify_dir_name(name: str) -> Tuple[str, float]:
 
 
 def _iter_repo_files(repo_root: Path, max_depth: int, max_files: int) -> Iterator[Path]:
-    # Phase 134: migrate to prep_engine.walk_repo for filter parity.
-    # Exclude standard dirs, dot-dirs, and dot-files; honour max_depth and max_files.
-    _excl_globs = [f"**/{d}/**" for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES)] + [
-        "**/.*/**",  # dot-dirs
-        "**/.*",     # dot-files
-    ]
+    # Phase 135.5: migrate to walk_for_source (catalog-backed walker).
+    from prep.core.walker import walk_for_source
     seen = 0
-    entries = _prep_engine.walk_repo(
-        str(repo_root),
+    entries = walk_for_source(
+        repo_root,
         include_globs=None,
-        exclude_globs=_excl_globs,
+        user_exclude_globs=None,
         max_file_bytes=500_000_000,  # no practical size limit here
     )
     for entry in entries:

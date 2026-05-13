@@ -59,6 +59,10 @@ class _FakeAtlas:
         self._display = display or ("full display content", 2048)
         self._role_atlas = role_atlas
         self._role_error = role_error
+        # Phase 124 T3: _serialize_segments accesses atlas.index_dir to load
+        # docs-for-segments metadata. Provide a non-existent path so the
+        # graceful fallback returns {} without error.
+        self.index_dir = "/tmp/__fake_atlas_idx__"
 
     def has_segments(self) -> bool:
         return bool(self._segments)
@@ -110,17 +114,15 @@ def test_serialize_segments_returns_expected_fields():
     )
     out = _serialize_segments(atlas)
     assert len(out) == 2
-    assert out[0] == {
-        "segment_id": "seg_src_prep",
-        "segment_name": "src/prep",
-        "dir_path": "src/prep",
-        "file_count": 47,
-        "char_count": 2100,
-        "mode": "structural",
-        "generated_at": "2026-04-14T00:00:00Z",
-        "stale": False,
-        "content": "",
-    }
+    assert out[0]["segment_id"] == "seg_src_prep"
+    assert out[0]["segment_name"] == "src/prep"
+    assert out[0]["dir_path"] == "src/prep"
+    assert out[0]["file_count"] == 47
+    assert out[0]["char_count"] == 2100
+    assert out[0]["mode"] == "structural"
+    assert out[0]["generated_at"] == "2026-04-14T00:00:00Z"
+    assert out[0]["stale"] is False
+    assert out[0]["content"] == ""
 
 
 def test_serialize_segments_includes_content_for_preview():

@@ -22,7 +22,6 @@ same model without redundant VRAM swaps.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import threading
@@ -35,6 +34,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .llm_client import _get_llm_concurrency, _parse_confidence
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
+from prep.services.pipeline.workers.base import Worker
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,7 @@ class InferredEdgesResult:
 
 # ── Analyzer ─────────────────────────────────────────────────────────
 
-class InferredEdgesAnalyzer:
+class InferredEdgesAnalyzer(Worker):
     """Analyzes source files to discover edges that static parsing misses.
 
     Architecture:
@@ -150,7 +150,8 @@ class InferredEdgesAnalyzer:
     - Reads trace_edges.jsonl for existing static edges (to avoid duplicates).
     - For each code file, sends source + context to the LLM.
     - Writes trace_inferred_edges.jsonl (append-safe, deduped).
-    - Supports incremental runs via a manifest of already-analyzed files.
+    - Phase 135.5: skips files marked unchanged by stage 1's Changeset
+      (`self.should_process`). No per-file hash manifest.
     """
 
     # Files larger than this are skipped (too much context for the LLM)
@@ -171,15 +172,6 @@ class InferredEdgesAnalyzer:
         self._batch_profile = batch_profile
 
         self.inferred_path = self.index_dir / "trace_inferred_edges.jsonl"
-        # Phase 60D-4: Use a separate filename for the per-file content hash
-        # manifest.  The orchestrator writes stage-level provenance metadata
-        # (format_version, stage_id, quality, etc.) to trace_inferred_manifest.json.
-        # Using the same filename caused every incremental run to lose its
-        # hash cache and reprocess ALL 4000+ files from scratch.
-        self.manifest_path = self.index_dir / "trace_inferred_hashes.json"
-        # Migration: if the old manifest exists and looks like a hash dict
-        # (not orchestrator metadata), rename it to the new path.
-        self._migrate_old_manifest()
 
     # ── Public API ────────────────────────────────────────────────
 
@@ -191,7 +183,7 @@ class InferredEdgesAnalyzer:
     ) -> InferredEdgesResult:
         """Run the inferred edges analysis.
 
-        Incremental: skips files whose content hash matches the manifest.
+        Phase 135.5: skips files marked unchanged by stage 1's Changeset (`self.should_process`).
 
         If *cancel_token* is provided, the loop checks it periodically and
         flushes partial results before raising.
@@ -202,7 +194,6 @@ class InferredEdgesAnalyzer:
         nodes = self._load_nodes()
         existing_edges = self._load_existing_edges()
         existing_inferred = self._load_existing_inferred()
-        manifest = self._load_manifest()
 
         # Filter to code files only (skip markdown, external_module nodes)
         code_files = [
@@ -236,10 +227,9 @@ class InferredEdgesAnalyzer:
         to_analyze = []
         for node in code_files:
             fp = node.get("file_path", "")
-            content_hash = self._file_hash(fp)
-            if content_hash and manifest.get(fp) == content_hash:
-                continue  # Already analyzed with same content
-            to_analyze.append((node, content_hash))
+            if not self.should_process(fp):
+                continue
+            to_analyze.append(node)
 
         if max_items:
             to_analyze = to_analyze[:max_items]
@@ -253,7 +243,6 @@ class InferredEdgesAnalyzer:
         failed = 0
 
         new_edges: List[InferredEdge] = []
-        new_manifest = dict(manifest)
 
         # Decide: batched (BYOK) or sequential (local)
         use_batching = (
@@ -290,13 +279,11 @@ class InferredEdgesAnalyzer:
             for batch_start in range(0, total_work, batch_size):
                 batch = to_analyze[batch_start:batch_start + batch_size]
                 items = []
-                for node, content_hash in batch:
+                for node in batch:
                     fp = node.get("file_path", "")
                     source = self._read_source(fp)
                     if not source:
                         failed += 1
-                        if content_hash:
-                            new_manifest[fp] = content_hash
                         continue
                     existing_set = edge_targets.get(fp, set()) | inferred_targets.get(fp, set())
                     existing_text = "\n".join(f"- {fp} → {t}" for t in sorted(existing_set)[:20]) if existing_set else "(none)"
@@ -306,7 +293,6 @@ class InferredEdgesAnalyzer:
                         "source_code": source[:self.MAX_SOURCE_CHARS],
                         "existing_edges": existing_text,
                         "_node": node,
-                        "_content_hash": content_hash,
                     })
                 if items:
                     all_batches.append(items)
@@ -391,9 +377,6 @@ class InferredEdgesAnalyzer:
                             new_edges.append(edge)
                             edges_written += 1
                             inferred_targets.setdefault(fp, set()).add(target)
-
-                        if item["_content_hash"]:
-                            new_manifest[fp] = item["_content_hash"]
                     else:
                         failed += 1
 
@@ -401,15 +384,13 @@ class InferredEdgesAnalyzer:
                 if progress_callback:
                     progress_callback("Inferring edges", min(done_batches * batch_size, total_work) + already_done, len(code_files), already_done)
 
-                # Phase 60D-6: Periodic checkpoint so manifest + edges
-                # survive server restarts mid-run.
+                # Periodic checkpoint so edges survive server restarts mid-run.
                 if done_batches % _CHECKPOINT_INTERVAL == 0:
                     self._write_edges(new_edges)
-                    self._save_manifest(new_manifest)
                     new_edges = []  # Already flushed
                     logger.info(
-                        "Checkpoint: %d batches done, %d hashes saved, %d edges flushed",
-                        done_batches, len(new_manifest), edges_written,
+                        "Checkpoint: %d batches done, %d edges flushed",
+                        done_batches, edges_written,
                     )
 
         else:
@@ -419,12 +400,11 @@ class InferredEdgesAnalyzer:
 
             if concurrency <= 1:
                 # Sequential: one file at a time
-                for i, (node, content_hash) in enumerate(to_analyze):
+                for i, node in enumerate(to_analyze):
                     # Cooperative cancellation check
                     if cancel_token and cancel_token.is_cancelled:
                         logger.info("Inferred edges paused/cancelled at %d/%d — flushing partial results", i, total_work)
                         self._write_edges(new_edges)
-                        self._save_manifest(new_manifest)
                         cancel_token.raise_if_cancelled()
 
                     fp = node.get("file_path", "")
@@ -450,9 +430,6 @@ class InferredEdgesAnalyzer:
                             edges_written += 1
                             # Track for dedup within this run
                             inferred_targets.setdefault(edge.source_file, set()).add(edge.target_file)
-
-                        if content_hash:
-                            new_manifest[fp] = content_hash
                     except Exception as e:
                         logger.warning("Inferred edges failed for %s: %s", fp, e)
                         failed += 1
@@ -464,11 +441,11 @@ class InferredEdgesAnalyzer:
                     futures = {
                         pool.submit(
                             self._analyze_file, node, all_file_paths, edge_targets, inferred_targets
-                        ): (node, content_hash)
-                        for node, content_hash in to_analyze
+                        ): node
+                        for node in to_analyze
                     }
                     for future in as_completed(futures):
-                        node, content_hash = futures[future]
+                        node = futures[future]
                         fp = node.get("file_path", "")
                         try:
                             file_edges = future.result()
@@ -486,8 +463,6 @@ class InferredEdgesAnalyzer:
                                     new_edges.append(edge)
                                     edges_written += 1
                                     inferred_targets.setdefault(edge.source_file, set()).add(edge.target_file)
-                                if content_hash:
-                                    new_manifest[fp] = content_hash
                                 done_count += 1
                                 if progress_callback:
                                     progress_callback("Inferring edges", already_done + done_count, len(code_files), already_done)
@@ -502,7 +477,6 @@ class InferredEdgesAnalyzer:
 
         # Append new edges to the inferred edges file
         self._write_edges(new_edges)
-        self._save_manifest(new_manifest)
 
         duration_ms = int((time.time() - start) * 1000)
 
@@ -654,66 +628,6 @@ class InferredEdgesAnalyzer:
                         edges.append(json.loads(line))
         return edges
 
-    def _migrate_old_manifest(self) -> None:
-        """One-time migration: rescue hash data from old manifest path.
-
-        Before Phase 60D-4, the analyzer stored per-file hashes in
-        ``trace_inferred_manifest.json``.  The orchestrator now writes
-        stage-level provenance metadata to that same file, clobbering
-        the hash data.
-
-        If the NEW path does not exist yet and the OLD path contains
-        what looks like a hash dict (no ``format_version`` key), copy
-        the old data to the new path so we don't lose incrementality.
-        """
-        if self.manifest_path.exists():
-            return  # New path already has data
-        old_path = self.index_dir / "trace_inferred_manifest.json"
-        if not old_path.exists():
-            return
-        try:
-            data = json.loads(old_path.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and "format_version" not in data:
-                # Looks like a hash dict — migrate it
-                self.manifest_path.write_text(
-                    json.dumps(data, indent=2), encoding="utf-8",
-                )
-                logger.info(
-                    "Migrated %d file hashes from old manifest path to %s",
-                    len(data), self.manifest_path.name,
-                )
-        except Exception:
-            pass  # Non-fatal
-
-    def _load_manifest(self) -> Dict[str, str]:
-        """Load manifest of already-analyzed file hashes."""
-        if self.manifest_path.exists():
-            try:
-                data = json.loads(self.manifest_path.read_text(encoding="utf-8"))
-                # Phase 60D-4: Reject orchestrator metadata that may have
-                # been written to the wrong file.  Hash manifests are plain
-                # {path: hash} dicts — no format_version key.
-                if isinstance(data, dict) and "format_version" not in data:
-                    return data
-                logger.warning(
-                    "Inferred edges manifest at %s contains orchestrator metadata "
-                    "(format_version=%s) — ignoring (all files will be re-analyzed)",
-                    self.manifest_path.name, data.get("format_version"),
-                )
-            except Exception:
-                pass
-        return {}
-
-    def _save_manifest(self, manifest: Dict[str, str]) -> None:
-        """Save manifest of analyzed file hashes.
-
-        Atomic tmp→rename so a crash mid-write can't corrupt the hash
-        cache — a corrupt cache forces the next incremental run to
-        reprocess all 4000+ files from scratch (a ~15-minute LLM job).
-        """
-        from prep.core.atomic_io import atomic_write_text
-        atomic_write_text(self.manifest_path, json.dumps(manifest, indent=2))
-
     def _write_edges(self, edges: List[InferredEdge]) -> None:
         """Append new inferred edges to the output file."""
         if not edges:
@@ -729,17 +643,6 @@ class InferredEdgesAnalyzer:
             return None
         try:
             return full_path.read_text(encoding="utf-8", errors="replace")
-        except Exception:
-            return None
-
-    def _file_hash(self, file_path: str) -> Optional[str]:
-        """Compute a content hash for incremental detection."""
-        full_path = self.repo_root / file_path
-        if not full_path.exists():
-            return None
-        try:
-            content = full_path.read_bytes()
-            return hashlib.sha256(content).hexdigest()[:16]
         except Exception:
             return None
 

@@ -42,7 +42,6 @@ def _make_root_doc():
         content="IDENTITY: Test project.\nSTACK: Python.",
         generated_at="2026-04-07T00:00:00Z",
         model="test",
-        fingerprint="abc123",
         file_count=50,
         module_count=4,
         char_count=38,
@@ -66,7 +65,7 @@ class TestAtlasSwarmDecision:
         mock_docs = [
             SegmentDocument(
                 content="SEGMENT: test", generated_at="2026-04-07", model="test",
-                fingerprint="x", file_count=5, segment_id=f"seg:pkg{i}",
+                file_count=5, segment_id=f"seg:pkg{i}",
                 segment_name=f"Package {i}", dir_path=f"packages/pkg{i}",
                 char_count=13, mode="llm",
             )
@@ -105,7 +104,7 @@ class TestAtlasSwarmDecision:
                                     with patch.object(atlas, "_generate_segment_atlas") as mock_seg:
                                         mock_seg.return_value = SegmentDocument(
                                             content="test", generated_at="2026-04-07", model="test",
-                                            fingerprint="x", file_count=5, segment_id="seg:pkg0",
+                                            file_count=5, segment_id="seg:pkg0",
                                             dir_path="packages/pkg0", segment_name="Package 0",
                                             char_count=4, mode="llm",
                                         )
@@ -132,7 +131,7 @@ class TestAtlasSwarmDecision:
                                     with patch.object(atlas, "_generate_segment_atlas") as mock_seg:
                                         mock_seg.return_value = SegmentDocument(
                                             content="test", generated_at="2026-04-07", model="test",
-                                            fingerprint="x", file_count=5, segment_id="seg:pkg0",
+                                            file_count=5, segment_id="seg:pkg0",
                                             dir_path="packages/pkg0", segment_name="Package 0",
                                             char_count=4, mode="llm",
                                         )
@@ -159,7 +158,7 @@ class TestAtlasSwarmDecision:
                                     with patch.object(atlas, "_generate_segment_atlas") as mock_seg:
                                         mock_seg.return_value = SegmentDocument(
                                             content="test", generated_at="2026-04-07", model="test",
-                                            fingerprint="x", file_count=5, segment_id="seg:pkg0",
+                                            file_count=5, segment_id="seg:pkg0",
                                             dir_path="packages/pkg0", segment_name="Package 0",
                                             char_count=4, mode="llm",
                                         )

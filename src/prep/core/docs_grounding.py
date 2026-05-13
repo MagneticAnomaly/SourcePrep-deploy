@@ -62,6 +62,13 @@ EXCLUDED_DIRS: frozenset[str] = frozenset({
 # planning material for concept synthesis; they're noise for source
 # indexing. The trace excludes are wired in src/prep/core/repo_profile.py
 # and src/prep/core/trace/coverage.py.
+#
+# Phase 135.5: This constant is still live — it drives the hidden_agent_dir
+# scoring signal in score_doc() via _path_in_hidden_agent_dir(). It is NOT
+# the walk policy (that moved to walk_for_planning_docs with include_agent_dirs=True),
+# but is retained as a scoring catalog. .github and .gemini are included here
+# because their docs score for the hidden_agent_dir signal even though the Rust
+# walker includes them unconditionally (they are not in DEFAULT_EXCLUDE_DIR_NAMES).
 ALLOWED_DOT_DIRS: frozenset[str] = frozenset({
     ".cursor", ".claude", ".github", ".windsurf", ".gemini", ".agents",
 })
@@ -280,28 +287,19 @@ def _extract_headings(body: str) -> tuple[str, ...]:
 
 
 def _walk_md_files(root: Path) -> list[Path]:
-    """Yield every `.md` file under `root` excluding generated dirs and
-    non-allowlisted dot dirs. Returns absolute paths."""
-    md_paths: list[Path] = []
-
-    def _recurse(d: Path) -> None:
-        try:
-            entries = list(d.iterdir())
-        except (OSError, PermissionError):
-            return
-        for e in entries:
-            name = e.name
-            if e.is_dir():
-                if name in EXCLUDED_DIRS:
-                    continue
-                if name.startswith(".") and name not in ALLOWED_DOT_DIRS:
-                    continue
-                _recurse(e)
-            elif e.is_file() and name.lower().endswith(".md"):
-                md_paths.append(e)
-
-    _recurse(root)
-    return md_paths
+    """Phase 135.5: delegates to prep.core.walker.walk_for_planning_docs.
+    Concept synthesis grounding deliberately includes agent-output dirs
+    (.claude/, .cursor/, .agents/) — the planning-docs variant of the
+    wrapper handles that policy. EXCLUDED_DIRS (Phase 125c noise
+    reduction: tests/, worktrees/, etc.) is passed through as
+    extra_exclude_dir_names."""
+    from prep.core.walker import walk_for_planning_docs
+    entries = walk_for_planning_docs(
+        root,
+        include_agent_dirs=True,
+        extra_exclude_dir_names=EXCLUDED_DIRS,
+    )
+    return [Path(entry.abs_path) for entry in entries]
 
 
 def _folder_md_ratio(folder: Path) -> float:

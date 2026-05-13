@@ -6,7 +6,6 @@ route_query, and all segment helper functions.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 from collections import Counter, defaultdict
@@ -572,9 +571,6 @@ def build_routing_descriptors(
             for seg_id, count in dep_counts.most_common(5)
         ]
 
-        fp_data = f"{segment.id}:{segment.file_count}:{covers}"
-        fingerprint = hashlib.sha256(fp_data.encode("utf-8")).hexdigest()[:16]
-
         descriptors.append(SegmentDescriptor(
             segment_id=segment.id,
             dir_path=segment.dir_path,
@@ -584,7 +580,6 @@ def build_routing_descriptors(
             boundaries=boundary_strs,
             file_paths=segment.file_paths,
             file_count=segment.file_count,
-            fingerprint=fingerprint,
             generated_at=datetime.now(timezone.utc).isoformat(),
         ))
 
