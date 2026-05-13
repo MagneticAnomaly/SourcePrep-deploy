@@ -21,6 +21,8 @@ from prep.core.repo_policy import (
     _normalize_path_weights,
 )
 from prep.core.repo_profile import scan_for_presets, STACK_PRESETS
+from prep.core.vendor_sniffer import scan_for_vendor_dirs
+from prep.core.vendor_sniffer.models import VendorScanResult
 
 from .helpers import _srv, _get_project_globs
 from .models import (
@@ -154,7 +156,6 @@ def add_project(req: AddProjectRequest, background: BackgroundTasks) -> Dict[str
 
     # Initialize vendor_scan as pending so the response carries a known state
     # immediately; the background task will fill in the real result.
-    from prep.core.vendor_sniffer.models import VendorScanResult
     pending_scan = VendorScanResult(
         auto_excluded=[],
         proposed=[],
@@ -228,12 +229,35 @@ def add_project(req: AddProjectRequest, background: BackgroundTasks) -> Dict[str
 
 
 def _run_vendor_scan(project_id: str, root: Path, reg: Any) -> None:
-    """Background task: run vendor scan and merge results into project config."""
-    from prep.core.vendor_sniffer import scan_for_vendor_dirs
+    """Background task: run vendor scan and merge results into project config.
+
+    On scan crash, writes a `status="failed"` VendorScanResult to the project
+    config so consumers polling for `status != "pending"` (Task 10's endpoints,
+    Gate-state UI) never hang on an immortal pending state.
+    """
+    import time
+
     try:
         result = scan_for_vendor_dirs(root)
     except Exception as e:  # noqa: BLE001 — last-resort safety net
         logger.warning("Background vendor scan crashed for %s: %s", project_id, e)
+        failed = VendorScanResult(
+            auto_excluded=[],
+            proposed=[],
+            gitignore_gaps=[],
+            scanned_at=time.time(),
+            status="failed",
+            error=str(e),
+        )
+        try:
+            reg.mutate_config(
+                project_id,
+                lambda cfg: {**cfg, "vendor_scan": failed.to_dict()},
+            )
+        except Exception as e2:  # noqa: BLE001
+            logger.warning(
+                "Could not record failed vendor_scan state for %s: %s", project_id, e2
+            )
         return
 
     def _merge(cfg: dict) -> dict:
