@@ -26,6 +26,7 @@ from prep.core.swarm_orchestrator import (
 )
 from prep.core.swarm_registry import get_min_groups_threshold, get_swarm_tier
 from prep.services.pipeline.workers import WorkerFactory
+from prep.services.pipeline.workers.base import Worker
 
 from .models import AtlasDocument, Segment, SegmentDescriptor, SegmentDocument
 from .prompts import (
@@ -103,7 +104,7 @@ def _build_hot_zones_line(zones: list[str]) -> str:
 
 # ── Atlas Generator ──────────────────────────────────────────────────
 
-class CodebaseAtlas:
+class CodebaseAtlas(Worker):
     """Generates and caches a single-document codebase map.
 
     Usage::
@@ -173,7 +174,7 @@ class CodebaseAtlas:
             progress_callback("atlas_generation", 0, 3)
 
         full_modules = self._load_modules()
-        modules = full_modules  # capped-for-prompt view; fingerprint uses full
+        modules = full_modules  # may be capped for prompt; full set used for metadata
 
         if self.llm:
             from prep.core.context_config import detect_available_vram_gb
@@ -266,22 +267,14 @@ class CodebaseAtlas:
             )
             return self.generate_structural()
 
-        # Compute fingerprint for staleness detection — MUST use the full
-        # module set (not the VRAM-capped prompt view) so is_stale() can
-        # reproduce the same value by reading modules fresh from disk.
-        fp = self._compute_fingerprint(full_modules, graph_stats)
-        hub_hashes = self._compute_hub_hashes(hub_files, graph_stats)
-
         doc = AtlasDocument(
             content=content,
             generated_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model if self.llm else "unknown",
-            fingerprint=fp,
             file_count=graph_stats.get("file_count", 0),
             module_count=len(full_modules),
             char_count=len(content),
             mode="llm",
-            hub_file_hashes=hub_hashes,
             segment_ids=self._current_segment_ids(),
         )
 
@@ -306,7 +299,7 @@ class CodebaseAtlas:
         """
         graph_stats = self._load_graph_stats()
         full_modules = self._load_modules()
-        modules = full_modules  # capped-for-prompt view; fingerprint uses full
+        modules = full_modules  # may be capped for prompt; full set used for metadata
 
         if self.llm:
             from prep.core.context_config import detect_available_vram_gb
@@ -328,19 +321,14 @@ class CodebaseAtlas:
                 graph_stats, modules, epistemic, hub_files,
             )
 
-        fp = self._compute_fingerprint(full_modules, graph_stats)
-        hub_hashes = self._compute_hub_hashes(hub_files, graph_stats)
-
         doc = AtlasDocument(
             content=content,
             generated_at=datetime.now(timezone.utc).isoformat(),
             model="structural",
-            fingerprint=fp,
             file_count=file_count,
             module_count=len(full_modules),
             char_count=len(content),
             mode="structural",
-            hub_file_hashes=hub_hashes,
             segment_ids=self._current_segment_ids(),
         )
 
@@ -610,26 +598,16 @@ class CodebaseAtlas:
                     self._identify_hubs(graph_stats),
                 )
 
-        # Fingerprint must be computed from the FULL module list, not the
-        # VRAM-capped subset used for prompting. Otherwise is_stale() —
-        # which always reads the full set — will never match the saved
-        # fingerprint and the atlas reports stale immediately after a
-        # successful regen. (Observed on DebateHaus, 586 files, after
-        # force-regen with kimi-k2.5 LLM.)
         full_modules = self._load_modules()
-        fp = self._compute_fingerprint(full_modules, graph_stats)
-        hub_hashes = self._compute_hub_hashes(self._identify_hubs(graph_stats), graph_stats)
 
         doc = AtlasDocument(
             content=content,
             generated_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model if self.llm else "structural",
-            fingerprint=fp,
             file_count=graph_stats.get("file_count", 0),
             module_count=len(full_modules),
             char_count=len(content),
             mode="llm" if self.llm else "structural",
-            hub_file_hashes=hub_hashes,
             segment_ids=self._current_segment_ids(),
         )
 
@@ -763,14 +741,10 @@ class CodebaseAtlas:
             parts.append(f"Files: {', '.join(top_files)}")
             content = ". ".join(parts)
 
-        # Compute segment fingerprint
-        fp = self._compute_segment_fingerprint(segment, seg_modules)
-
         seg_doc = SegmentDocument(
             content=content,
             generated_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model,
-            fingerprint=fp,
             segment_id=segment.id,
             segment_name=segment.name,
             dir_path=segment.dir_path,
@@ -927,13 +901,10 @@ class CodebaseAtlas:
             parts.append(f"Files: {', '.join(top_files)}")
             content = ". ".join(parts)
 
-        fp = self._compute_segment_fingerprint(segment, seg_modules)
-
         seg_doc = SegmentDocument(
             content=content,
             generated_at=datetime.now(timezone.utc).isoformat(),
             model=self.llm.model,
-            fingerprint=fp,
             segment_id=segment.id,
             segment_name=segment.name,
             dir_path=segment.dir_path,
@@ -1105,16 +1076,10 @@ class CodebaseAtlas:
                         continue
                     content = wr.parsed.get("content", "")
                     seg_file_set = set(seg.file_paths)
-                    seg_modules = [
-                        m for m in all_modules
-                        if any(mfp in seg_file_set for mfp in m.get("member_files", []))
-                    ]
-                    fingerprint = self._compute_segment_fingerprint(seg, seg_modules)
                     seg_doc = SegmentDocument(
                         content=content,
                         generated_at=datetime.now(timezone.utc).isoformat(),
                         model=self.llm.model,
-                        fingerprint=fingerprint,
                         segment_id=seg.id,
                         segment_name=seg.name,
                         dir_path=seg.dir_path,
@@ -1558,71 +1523,20 @@ class CodebaseAtlas:
         return doc
 
     def is_stale(self) -> bool:
-        """Check if the cached Atlas needs regeneration.
-
-        Three staleness triggers:
-        1. Module fingerprint changed (clusters resynthesized)
-        2. Hub file content changed (core infrastructure modified)
-        3. File count changed >20% (significant growth/shrinkage)
-        """
-        cached = self.load()
-        if cached is None:
+        """Phase 135.5: stale iff stage 1's Changeset has churn OR atlas
+        doesn't exist yet. The old 4-trigger fingerprint machinery (module
+        fingerprint + hub hashes + file-count delta + segment drift) is
+        gone — those were per-stage staleness reproductions of signals
+        the Changeset already carries authoritatively."""
+        if not self.exists():
             return True
-
-        modules = self._load_modules()
-        graph_stats = self._load_graph_stats()
-
-        if not cached.content:
-            # Empty content is intentional for repos below the file threshold —
-            # don't mark as stale or the pipeline will regenerate endlessly.
-            if graph_stats.get("file_count", 0) >= MIN_FILES_FOR_ATLAS:
-                return True
-            # Below threshold: content is expected to be empty, check fingerprint
-            # to detect if the repo grew past the threshold.
-
-        # 1. Module fingerprint check
-        current_fp = self._compute_fingerprint(modules, graph_stats)
-        if current_fp != cached.fingerprint:
-            logger.debug("Atlas stale: fingerprint changed")
+        if self.changeset is None:
+            # Defensive: no changeset injected (first build, daemon
+            # misconfigured, or a non-pipeline caller). Regenerate to
+            # be safe — the cost is bounded and correctness wins.
             return True
-
-        # 2. Hub file hash check
-        hub_files = self._identify_hubs(graph_stats)
-        current_hub_hashes = self._compute_hub_hashes(hub_files, graph_stats)
-        if current_hub_hashes != cached.hub_file_hashes:
-            logger.debug("Atlas stale: hub file hashes changed")
-            return True
-
-        # 3. File count growth/shrinkage >20%
-        current_count = graph_stats.get("file_count", 0)
-        if cached.file_count > 0:
-            ratio = abs(current_count - cached.file_count) / cached.file_count
-            if ratio > 0.20:
-                logger.debug(
-                    "Atlas stale: file count changed %.0f%% (%d → %d)",
-                    ratio * 100, cached.file_count, current_count,
-                )
-                return True
-
-        # 4. Segment drift check — new directories appeared or disappeared
-        # Only recompute segments if trace_nodes.jsonl changed since atlas was generated
-        # (compute_segments reads trace_nodes.jsonl which is O(n) for large projects)
-        if cached.segment_ids:
-            nodes_path = self.index_dir / "trace_nodes.jsonl"
-            atlas_mtime = self.atlas_path.stat().st_mtime if self.atlas_path.exists() else 0
-            if nodes_path.exists() and nodes_path.stat().st_mtime > atlas_mtime:
-                current_ids = sorted(self._current_segment_ids())
-                cached_ids = sorted(cached.segment_ids)
-                if current_ids != cached_ids:
-                    new_segments = set(current_ids) - set(cached_ids)
-                    removed_segments = set(cached_ids) - set(current_ids)
-                    logger.debug(
-                        "Atlas stale: segment drift detected. New: %s, Removed: %s",
-                        new_segments or "none", removed_segments or "none",
-                    )
-                    return True
-
-        return False
+        cs = self.changeset
+        return bool(cs.added) or bool(cs.modified) or bool(cs.deleted)
 
     def _current_segment_ids(self) -> List[str]:
         """Compute current segment IDs from the trace graph."""
@@ -1638,41 +1552,6 @@ class CodebaseAtlas:
     def exists(self) -> bool:
         """Check if a cached Atlas exists on disk."""
         return self.atlas_path.exists()
-
-    # ── Fingerprinting ─────────────────────────────────────────
-
-    def _compute_fingerprint(
-        self,
-        modules: List[Dict[str, Any]],
-        graph_stats: Dict[str, Any],
-    ) -> str:
-        """Compute a stable fingerprint from module membership + file count."""
-        parts: List[str] = []
-        for m in sorted(modules, key=lambda x: x.get("module_id", "")):
-            mid = m.get("module_id", "")
-            fc = m.get("file_count", 0)
-            # Include summary hash to detect re-synthesis with different content
-            s_hash = hashlib.sha256(
-                m.get("summary", "").encode("utf-8")
-            ).hexdigest()[:8]
-            parts.append(f"{mid}:{fc}:{s_hash}")
-        parts.append(f"files:{graph_stats.get('file_count', 0)}")
-        combined = "\n".join(parts)
-        return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:24]
-
-    def _compute_hub_hashes(
-        self,
-        hub_files: List[Tuple[str, int]],
-        graph_stats: Dict[str, Any],
-    ) -> Dict[str, str]:
-        """Get content hashes for hub files from the trace manifest."""
-        manifest_hashes = graph_stats.get("file_hashes", {})
-        result: Dict[str, str] = {}
-        for path, _degree in hub_files[:10]:
-            h = manifest_hashes.get(path)
-            if h:
-                result[path] = h
-        return result
 
     # ── Data Loading ───────────────────────────────────────────
 

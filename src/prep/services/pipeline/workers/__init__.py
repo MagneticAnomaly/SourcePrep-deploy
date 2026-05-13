@@ -898,6 +898,10 @@ class WorkerFactory:
                 idx_dir, llm=llm_client, project_root=Path(project.path),
                 project_name=project.name,
             )
+            # Phase 135.5: inject the Changeset so the atlas's is_stale gate
+            # consults stage 1's canonical "what changed" signal instead of
+            # computing its own fingerprint.
+            atlas.changeset = getattr(worker, "changeset", None)
 
             # Only regenerate if stale or missing
             if not atlas.is_stale() and atlas.exists():

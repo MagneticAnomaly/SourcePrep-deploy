@@ -15,7 +15,6 @@ class AtlasDocument:
     content: str
     generated_at: str
     model: str  # "structural" for no-LLM fallback, else LLM model name
-    fingerprint: str  # hash for staleness detection
     file_count: int
     module_count: int
     char_count: int
@@ -29,7 +28,6 @@ class AtlasDocument:
             "content": self.content,
             "generated_at": self.generated_at,
             "model": self.model,
-            "fingerprint": self.fingerprint,
             "file_count": self.file_count,
             "module_count": self.module_count,
             "char_count": self.char_count,
@@ -45,7 +43,6 @@ class AtlasDocument:
             content=d.get("content", ""),
             generated_at=d.get("generated_at", ""),
             model=d.get("model", "unknown"),
-            fingerprint=d.get("fingerprint", ""),
             file_count=int(d.get("file_count", 0)),
             module_count=int(d.get("module_count", 0)),
             char_count=int(d.get("char_count", 0)),
@@ -97,7 +94,6 @@ class SegmentDocument:
     content: str
     generated_at: str
     model: str
-    fingerprint: str
     segment_id: str
     segment_name: str
     dir_path: str
@@ -111,7 +107,6 @@ class SegmentDocument:
             "content": self.content,
             "generated_at": self.generated_at,
             "model": self.model,
-            "fingerprint": self.fingerprint,
             "segment_id": self.segment_id,
             "segment_name": self.segment_name,
             "dir_path": self.dir_path,
@@ -127,7 +122,6 @@ class SegmentDocument:
             content=d.get("content", ""),
             generated_at=d.get("generated_at", ""),
             model=d.get("model", "unknown"),
-            fingerprint=d.get("fingerprint", ""),
             segment_id=d.get("segment_id", ""),
             segment_name=d.get("segment_name", ""),
             dir_path=d.get("dir_path", ""),
@@ -155,7 +149,6 @@ class SegmentDescriptor:
     boundaries: List[str] # Cross-segment dependency descriptions
     file_paths: List[str]
     file_count: int
-    fingerprint: str
     generated_at: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
@@ -168,7 +161,6 @@ class SegmentDescriptor:
             "boundaries": self.boundaries,
             "file_paths": self.file_paths,
             "file_count": self.file_count,
-            "fingerprint": self.fingerprint,
             "generated_at": self.generated_at,
         }
 
@@ -183,6 +175,5 @@ class SegmentDescriptor:
             boundaries=d.get("boundaries", []),
             file_paths=d.get("file_paths", []),
             file_count=int(d.get("file_count", 0)),
-            fingerprint=d.get("fingerprint", ""),
             generated_at=d.get("generated_at", ""),
         )
