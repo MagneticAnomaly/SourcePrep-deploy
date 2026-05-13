@@ -24,3 +24,9 @@ export type { CodeViewerProps } from './CodeViewer';
 
 export { GitignoreHygieneModal } from './GitignoreHygieneModal';
 export type { GitignoreHygieneModalProps, GitignoreGap } from './GitignoreHygieneModal';
+
+export { InitExcludeReviewModal } from './InitExcludeReviewModal';
+export type {
+  InitExcludeReviewModalProps,
+  VendorCandidateView,
+} from './InitExcludeReviewModal';
