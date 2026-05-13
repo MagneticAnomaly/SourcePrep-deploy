@@ -1804,3 +1804,24 @@ Live dogfooding pass against the Phase 82 (2026-04-07) and 2026-05-04 baselines:
   - `tests/test_team_sync_integration.py::TestAPIIntegration::test_context_endpoint_with_layered_index` — 409 from a fixture-setup issue.
   - `tests/test_atlas_endpoints.py` (5 failures) — Phase 124 T3 `_FakeAtlas` fixture missing `index_dir` attribute.
   - `tests/test_resume_strategy.py` (2 failures) — `DEEP_ENRICHMENT_STAGES` missing `StageId.ATLAS` after M-state recovery work.
+
+### 2026-05-13: Phase 122 — MCP dogfooding finding (`prep_impact` silent-zero on package-imported modules)
+
+Surfaced while planning the Phase 122 Custodian dogfood run. `prep_impact(file_path="src/prep/core/<X>.py", direction="dependents")` returns `0 dependents` for every module under `src/prep/core/` that is consumed via `from prep.core.X import Y` — including `src/prep/core/__init__.py` itself, which has hundreds of consumers. Control case `src/prep/services/pipeline/workers.py` returns the correct 2 dependents.
+
+**Diagnostic evidence:**
+- `prep_search type=symbol "roadmap_miner"` returns **two** nodes: a file node (`src/prep/core/roadmap_miner.py`) AND a separate `external_module` node (`prep.core.roadmap_miner` with empty path). This is a bimodal graph — incoming `from prep.core.X import Y` edges almost certainly land on the `external_module` twin.
+- In `src/prep/mcp/server.py:~4280`, the `dependents` direction calls `tool_impact(file_path=...)` — a different code path than `direction in {dependencies, all}`, which build `f"file:{file_path}"` as `node_id` and route through `tool_trace_neighbors`. The `dependents` path appears to query only the file-node side.
+
+**Hypothesis to test:**
+- `tool_impact` and/or its underlying `core.trace.index` lookup does not aggregate edges across the file ↔ external_module node pair, so reverse-imports that target the external_module sister are invisible.
+
+**Downstream impact:**
+- `prep.agents.custodian.engine.CustodianEngine._get_impact()` (`src/prep/agents/custodian/engine.py:51`) uses the same code path and silently receives `dependent_count=0` for any package-imported module. This biases its LLM safety verifier toward `safe_to_delete` for files that actually have callers. Phase 122 will work around by relying on LLM verification + human grep confirmation, but the underlying bug should be fixed.
+
+**Recommended follow-up:**
+- [ ] **P122-D1: Reproduce the bimodal-node edge-loss on a tiny fixture project.** Build a 3-file fixture that imports `from pkg.x import y`; assert `prep_impact(file_path="pkg/x.py")` returns 1, not 0.
+- [ ] **P122-D2: Fix `tool_impact` (or its underlying core lookup) to aggregate dependents across file ↔ external_module twins.** Symmetric with how `tool_trace_neighbors` handles the `file:` node_id prefix.
+- [ ] **P122-D3: When a file_path resolves to *no* graph node at all, return an explicit "not indexed" indicator instead of silently `0 dependents`.** The cosmetic empty parens (`Impact analysis for:  ()`) appear on both working and broken cases, making misdiagnosis easy.
+
+Anchors: `src/prep/mcp/server.py` (handler), `src/prep/core/trace/index.py` (impl), `src/prep/agents/custodian/engine.py:51` (downstream consumer). Cross-ref: `prep_observe` bug id `bd79badde4d2`.
