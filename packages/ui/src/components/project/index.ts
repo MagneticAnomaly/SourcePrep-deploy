@@ -21,3 +21,6 @@ export type { FileExplorerDetailProps } from './FileExplorerDetail';
 
 export { CodeViewer } from './CodeViewer';
 export type { CodeViewerProps } from './CodeViewer';
+
+export { GitignoreHygieneModal } from './GitignoreHygieneModal';
+export type { GitignoreHygieneModalProps, GitignoreGap } from './GitignoreHygieneModal';
