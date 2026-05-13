@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 
 from prep.api.envelope import ApiException, ok
 from prep.core.feature_gate import (
@@ -48,7 +48,7 @@ def list_projects() -> Dict[str, Any]:
 
 
 @router.post("/projects")
-def add_project(req: AddProjectRequest) -> Dict[str, Any]:
+def add_project(req: AddProjectRequest, background: BackgroundTasks) -> Dict[str, Any]:
     if req.mode not in ("standalone", "embedded", "custom"):
         raise ApiException(status_code=400, code="VALIDATION_ERROR", message=f"Invalid mode: {req.mode}")
 
@@ -130,6 +130,7 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
         )
 
     # Auto-detect stack presets to populate include_globs
+    preset_scan_error: Optional[str] = None
     try:
         detected = scan_for_presets(p)
         if detected:
@@ -137,7 +138,7 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
             detected_globs = []
             for preset in detected:
                 detected_globs.extend(STACK_PRESETS.get(preset, []))
-            
+
             # Merge unique into include_globs
             current_globs = set(default_cfg["include_globs"])
             for g in detected_globs:
@@ -145,7 +146,24 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
                     default_cfg["include_globs"].append(g)
                     current_globs.add(g)
     except Exception as e:
-        logger.warning(f"Failed to auto-detect stack presets: {e}")
+        preset_scan_error = f"{type(e).__name__}: {e}"
+        logger.warning("Failed to auto-detect stack presets: %s", e)
+
+    if preset_scan_error is not None:
+        default_cfg["preset_scan_error"] = preset_scan_error
+
+    # Initialize vendor_scan as pending so the response carries a known state
+    # immediately; the background task will fill in the real result.
+    from prep.core.vendor_sniffer.models import VendorScanResult
+    pending_scan = VendorScanResult(
+        auto_excluded=[],
+        proposed=[],
+        gitignore_gaps=[],
+        scanned_at=0.0,
+        status="pending",
+        error=None,
+    )
+    default_cfg["vendor_scan"] = pending_scan.to_dict()
 
     # Detect existing index directory — reuse it, never overwrite
     existing_index = False
@@ -176,6 +194,9 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
             hint="Use a different path or remove the existing project first.",
         )
 
+    # Schedule background vendor scan now that we have a project ID.
+    background.add_task(_run_vendor_scan, proj.id, p, reg)
+
     result: Dict[str, Any] = {"project": _srv()._project_to_dict(proj)}
     if existing_index:
         result["existing_index"] = {
@@ -204,6 +225,33 @@ def add_project(req: AddProjectRequest) -> Dict[str, Any]:
         result["warning"] = warning_msg
 
     return ok(result)
+
+
+def _run_vendor_scan(project_id: str, root: Path, reg: Any) -> None:
+    """Background task: run vendor scan and merge results into project config."""
+    from prep.core.vendor_sniffer import scan_for_vendor_dirs
+    try:
+        result = scan_for_vendor_dirs(root)
+    except Exception as e:  # noqa: BLE001 — last-resort safety net
+        logger.warning("Background vendor scan crashed for %s: %s", project_id, e)
+        return
+
+    def _merge(cfg: dict) -> dict:
+        new_cfg = dict(cfg)
+        new_cfg["vendor_scan"] = result.to_dict()
+        existing = list(new_cfg.get("exclude_globs", []))
+        seen = set(existing)
+        for g in result.auto_excluded:
+            if g not in seen:
+                existing.append(g)
+                seen.add(g)
+        new_cfg["exclude_globs"] = existing
+        return new_cfg
+
+    try:
+        reg.mutate_config(project_id, _merge)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("mutate_config failed for vendor scan on %s: %s", project_id, e)
 
 
 @router.get("/projects/{project_id}")
