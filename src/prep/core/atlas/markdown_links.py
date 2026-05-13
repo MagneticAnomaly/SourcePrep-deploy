@@ -41,10 +41,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Optional
 
-try:
-    import prep_engine as _prep_engine  # Rust PyO3 walker
-except ImportError:
-    _prep_engine = None  # type: ignore[assignment]
+from prep.core.walker import walk_for_source
 
 logger = logging.getLogger(__name__)
 
@@ -148,11 +145,15 @@ def _extract_candidates(text: str) -> set[str]:
 def _walk_markdown(project_root: Path) -> list[Path]:
     """Return all .md files under project_root, skipping noise dirs."""
     # Phase 134: migrate to prep_engine.walk_repo for filter parity.
-    _excl_globs = [f"**/{d}/**" for d in _WALK_EXCLUDES]
-    entries = _prep_engine.walk_repo(
-        str(project_root),
+    # Phase 135.5: migrated to walk_for_source. The catalog (DEFAULT_EXCLUDE_DIR_NAMES
+    # + DEFAULT_EXCLUDE_FILE_GLOBS) is applied unconditionally by the wrapper.
+    # _WALK_EXCLUDES = DEFAULT_EXCLUDE_DIR_NAMES | {"tmp", "trash"}.  The catalog
+    # portion is handled by walk_for_source; only the two non-catalog extras
+    # ("tmp", "trash") are passed as user_exclude_globs.
+    entries = walk_for_source(
+        project_root,
         include_globs=["**/*.md", "**/*.markdown"],
-        exclude_globs=_excl_globs,
+        user_exclude_globs=["**/tmp/**", "**/trash/**"],
         max_file_bytes=500_000,
     )
     return sorted(Path(entry.abs_path) for entry in entries)

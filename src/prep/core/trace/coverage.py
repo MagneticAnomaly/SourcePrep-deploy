@@ -18,30 +18,7 @@ from typing import Any, Dict, List, Optional, Set
 
 import pathspec
 
-# Phase 133: prep_engine (Rust PyO3 binding) is required by the walker cutover.
-# Defer the import-error to first call so the daemon can boot and serve other
-# routes — instead of fast-crashing at module load and triggering the watchdog
-# crash-loop guard.  See scripts/daemon_watchdog.sh for the python-picking
-# logic that also helps avoid this case.
-try:
-    import prep_engine
-except ImportError as _prep_engine_import_err:
-    prep_engine = None  # type: ignore[assignment]
-    _prep_engine_import_err_msg = str(_prep_engine_import_err)
-
-
-def _require_prep_engine() -> None:
-    if prep_engine is None:
-        raise RuntimeError(
-            "prep_engine (Rust PyO3 binding) is not installed in the current "
-            "Python interpreter. Install with: "
-            "`cd engine && maturin develop --release` (and ensure the daemon "
-            "launcher uses the same python). "
-            f"Original ImportError: {_prep_engine_import_err_msg}"
-        )
-
-
-from prep.core.repo_profile import DEFAULT_EXCLUDE_DIR_NAMES, DEFAULT_EXCLUDE_FILE_GLOBS
+from prep.core.walker import walk_for_source
 from prep.services.pipeline.changeset import Changeset, read_changeset
 
 from .utils import _detect_language
@@ -97,37 +74,20 @@ def compute_trace_coverage(
             "**/*.md", "**/*.markdown",
         ]
     if exclude_globs is None:
-        # Base excludes
-        exclude_globs = [f"**/{d}/**" for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES)]
-        # Add specific file patterns
-        exclude_globs.extend([
+        # Non-catalog extra patterns (the catalog itself is applied by
+        # walk_for_source unconditionally via _baseline_excludes_for_source).
+        exclude_globs = [
             "**/*.lock",
             "**/*.log",
             "**/.DS_Store",
-        ])
+        ]
     else:
         # User-provided exclude_globs — make a mutable copy
         exclude_globs = list(exclude_globs)
-    # Phase 89: Always include system-level file exclusions (e.g. AGENTS.md).
-    # These are Prep-generated files that should never appear as "untraced".
-    # Previously only added when exclude_globs was None, causing AGENTS.md
-    # files to show as permanently untraced when project had custom excludes.
-    for pattern in DEFAULT_EXCLUDE_FILE_GLOBS:
-        if pattern not in exclude_globs:
-            exclude_globs.append(pattern)
-    # Phase 133 follow-up (2026-05-12): Always merge DEFAULT_EXCLUDE_DIR_NAMES
-    # as a system-level baseline. Pre-Phase-133, os.walk + a `not
-    # name.startswith(".")` filter implicitly excluded every dot-dir; the
-    # Rust walker's `hidden(false)` strategy lets dot-dirs through unless
-    # exclude_globs catches them. A project with custom exclude_globs that
-    # doesn't list `.claude/**` / `.agents/**` / `.cursor/**` would otherwise
-    # leak agent-instruction dirs into the trace queue. Treat the dir
-    # catalog the same way Phase 89 treats DEFAULT_EXCLUDE_FILE_GLOBS:
-    # always merged, user config extends rather than overrides.
-    for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES):
-        pattern = f"**/{d}/**"
-        if pattern not in exclude_globs:
-            exclude_globs.append(pattern)
+    # Phase 135.5: DEFAULT_EXCLUDE_DIR_NAMES + DEFAULT_EXCLUDE_FILE_GLOBS are
+    # now applied unconditionally inside walk_for_source (_baseline_excludes_for_source).
+    # The three for-loops that merged them here have been deleted — they were
+    # idempotent with the wrapper and are no longer necessary.
     if user_exclude_globs is None:
         user_exclude_globs = []
 
@@ -159,11 +119,12 @@ def compute_trace_coverage(
     # Phase 133/134: discovery via the Rust walker. Walker honors gitignore
     # (root + nested + global + git_exclude) and applies include/exclude globs
     # via globset/gitwildmatch.
-    _require_prep_engine()
-    entries = prep_engine.walk_repo(
-        str(repo_root),
+    # Phase 135.5: migrated to walk_for_source (catalog-merge handled by the
+    # wrapper; pass exclude_globs as user_exclude_globs).
+    entries = walk_for_source(
+        repo_root,
         include_globs=list(include_globs) if include_globs else None,
-        exclude_globs=list(exclude_globs) if exclude_globs else None,
+        user_exclude_globs=list(exclude_globs) if exclude_globs else None,
         max_file_bytes=int(max_file_bytes),
     )
 
