@@ -19,7 +19,7 @@ class VendorCandidate:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "VendorCandidate":
+    def from_dict(cls, d: dict[str, Any]) -> VendorCandidate:
         return cls(
             path=d["path"],
             rel_path=d["rel_path"],
@@ -45,7 +45,7 @@ class VendorScanResult:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, d: dict[str, Any]) -> "VendorScanResult":
+    def from_dict(cls, d: dict[str, Any]) -> VendorScanResult:
         return cls(
             auto_excluded=list(d.get("auto_excluded", [])),
             proposed=[VendorCandidate.from_dict(c) for c in d.get("proposed", [])],
