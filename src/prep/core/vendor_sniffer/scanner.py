@@ -11,6 +11,7 @@ from prep.core.vendor_sniffer.manifests import (
 )
 from prep.core.vendor_sniffer.models import VendorCandidate, VendorScanResult
 from prep.core.vendor_sniffer.signals import (
+    CANONICAL_INSTALL_DIR_NAMES,
     has_cmake_build_marker,
     has_ignore_everything_gitignore,
     has_nested_git_dir,
@@ -18,6 +19,15 @@ from prep.core.vendor_sniffer.signals import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Hidden top-level dirs are dropped before classification (the walker already
+# skips them), EXCEPT for canonical install dirs that happen to be dot-
+# prefixed (.venv, .build, .bundle, .pytest_cache, etc.). Without this
+# allowlist the Gate 1 hygiene nudge would never fire for these. Derived
+# dynamically so the allowlist stays in sync with the whitelist.
+_DOT_PREFIXED_CANONICAL_NAMES: frozenset[str] = frozenset(
+    n for n in CANONICAL_INSTALL_DIR_NAMES if n.startswith(".")
+)
 
 # Size/file-count is the LAST-RESORT Tier 2 trigger only. Thresholds set
 # deliberately high so the modal only fires on genuine outliers (e.g. a
@@ -92,9 +102,11 @@ def scan_for_vendor_dirs(root: Path) -> VendorScanResult:
         for entry in sorted(root.iterdir()):
             if not entry.is_dir():
                 continue
-            if entry.name.startswith(".") and entry.name not in {".venv", ".tox"}:
-                # Hidden dirs (incl. .git itself) are already excluded by default
-                # walker behavior; don't surface them.
+            if entry.name.startswith(".") and entry.name not in _DOT_PREFIXED_CANONICAL_NAMES:
+                # Hidden dirs (incl. .git itself) are already excluded by the
+                # walker; don't surface them. Dot-prefixed canonical install
+                # dirs (.venv, .build, .bundle, .pytest_cache, etc.) pass
+                # through so they can trigger Tier 1 + gitignore_gap detection.
                 continue
             rel = entry.name
             # Tier 3: workspace member → skip entirely
