@@ -15,10 +15,9 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
-
-CANDIDATES: List[str] = [
+CANDIDATES: list[str] = [
     "roadmap_miner",
     "treatment_registry",
     "swarm_optimizer",
@@ -33,7 +32,7 @@ CANDIDATES: List[str] = [
 ]
 
 
-def build_findings() -> List[Dict[str, Any]]:
+def build_findings() -> list[dict[str, Any]]:
     """Construct synthetic dead_code findings for the candidate modules.
 
     The Custodian's discover() filters on `category in {dead_code,
@@ -41,7 +40,7 @@ def build_findings() -> List[Dict[str, Any]]:
     actual classification (KEEP / DELETE / etc.) is the LLM verifier's
     job downstream.
     """
-    findings: List[Dict[str, Any]] = []
+    findings: list[dict[str, Any]] = []
     for name in CANDIDATES:
         findings.append({
             "id": f"P122-{name}",
@@ -58,7 +57,7 @@ def build_findings() -> List[Dict[str, Any]]:
     return findings
 
 
-def main(argv: List[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--out",

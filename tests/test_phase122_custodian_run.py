@@ -1,13 +1,13 @@
 """Unit tests for the Phase 122 Custodian driver."""
-from tools.phase122_custodian_run import build_findings, CANDIDATES
+from tools.phase122_custodian_run import CANDIDATES, build_findings
 
 
-def test_build_findings_one_per_candidate():
+def test_build_findings_one_per_candidate() -> None:
     findings = build_findings()
     assert len(findings) == len(CANDIDATES) == 11
 
 
-def test_build_findings_use_dead_code_category():
+def test_build_findings_use_dead_code_category() -> None:
     # The Custodian engine filters on category in
     # {dead_code, orphan, deprecated, unused_export}. Anything else is
     # silently dropped, so we hard-code "dead_code".
@@ -15,7 +15,7 @@ def test_build_findings_use_dead_code_category():
     assert all(f["category"] == "dead_code" for f in findings)
 
 
-def test_build_findings_have_required_fields():
+def test_build_findings_have_required_fields() -> None:
     findings = build_findings()
     for f in findings:
         assert f["id"].startswith("P122-")
@@ -25,7 +25,7 @@ def test_build_findings_have_required_fields():
         assert f["description"]
 
 
-def test_candidates_list_matches_spec():
+def test_candidates_list_matches_spec() -> None:
     # If this fails, the candidate list drifted from the spec/plan.
     expected = {
         "roadmap_miner", "treatment_registry", "swarm_optimizer",
