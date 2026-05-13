@@ -1158,20 +1158,6 @@ class CodebaseAtlas(Worker):
         parts = [f"{name}: {count} edges" for name, count in dep_counts.most_common(5)]
         return "\n".join(parts)
 
-    def _compute_segment_fingerprint(
-        self,
-        segment: Segment,
-        modules: List[Dict[str, Any]],
-    ) -> str:
-        """Compute fingerprint for one segment."""
-        parts: List[str] = [f"seg:{segment.id}:files:{segment.file_count}"]
-        for m in sorted(modules, key=lambda x: x.get("module_id", "")):
-            s_hash = hashlib.sha256(
-                m.get("summary", "").encode("utf-8")
-            ).hexdigest()[:8]
-            parts.append(f"{m.get('module_id', '')}:{s_hash}")
-        return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()[:24]
-
     # ── Segment Selection (Query-Time) ────────────────────────────
 
     def build_file_to_segment_index(self) -> Dict[str, str]:

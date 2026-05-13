@@ -112,3 +112,27 @@ def test_walk_for_planning_docs_with_include_agent_dirs_false(tmp_path: Path) ->
     assert not any(".cursor/" in p for p in paths)
     # Regular docs still present
     assert any("docs/guide.md" in p for p in paths)
+
+
+def test_walk_for_planning_docs_with_extra_exclude_dir_names(tmp_path: Path) -> None:
+    """Caller-supplied extra_exclude_dir_names extends the planning-docs
+    exclude set without affecting the agent-dir-inclusion policy."""
+    repo = _make_repo(tmp_path)
+    (repo / "tests").mkdir()
+    (repo / "tests" / "test_x.md").write_text("# noise")
+    (repo / "worktrees").mkdir()
+    (repo / "worktrees" / "tmp.md").write_text("# noise")
+
+    entries = walk_for_planning_docs(
+        repo,
+        include_agent_dirs=True,
+        extra_exclude_dir_names={"tests", "worktrees"},
+    )
+    paths = _paths(entries)
+    # Real docs still included
+    assert any("docs/guide.md" in p for p in paths)
+    # Agent dirs still included (policy unchanged)
+    assert any(".claude/memory.md" in p for p in paths)
+    # extra_exclude_dir_names applied
+    assert not any("tests/test_x.md" in p for p in paths)
+    assert not any("worktrees/tmp.md" in p for p in paths)

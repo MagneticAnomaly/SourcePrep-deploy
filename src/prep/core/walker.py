@@ -20,7 +20,7 @@ update that catalog — the wrapper picks it up unconditionally.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, List
+from typing import Any, Iterable, List
 
 import prep_engine
 
@@ -98,6 +98,7 @@ def walk_for_planning_docs(
     *,
     include_globs: List[str] | None = None,
     include_agent_dirs: bool = True,
+    extra_exclude_dir_names: Iterable[str] | None = None,
 ) -> List[Any]:
     """Walker for concept-synthesis grounding / planning-doc collection.
 
@@ -111,6 +112,10 @@ def walk_for_planning_docs(
             since this API is for planning-doc collection.
         include_agent_dirs: when True (default), agent-output dirs are NOT
             excluded — they're the whole point of this scan.
+        extra_exclude_dir_names: caller-specific dir names to exclude on
+            top of the L1 catalog. Used by concept-synthesis grounding to
+            drop tests/, worktrees/, etc. (Phase 125c noise reduction).
+            These are merged into the exclude pattern set as `**/{name}/**`.
     """
     base_excludes: List[str] = []
     for d in sorted(DEFAULT_EXCLUDE_DIR_NAMES):
@@ -118,6 +123,11 @@ def walk_for_planning_docs(
             continue  # explicitly DON'T exclude agent dirs in this mode
         base_excludes.append(f"**/{d}/**")
     base_excludes.extend(DEFAULT_EXCLUDE_FILE_GLOBS)
+    if extra_exclude_dir_names:
+        for d in sorted(set(extra_exclude_dir_names)):
+            pattern = f"**/{d}/**"
+            if pattern not in base_excludes:
+                base_excludes.append(pattern)
     return prep_engine.walk_repo(
         str(repo_root),
         include_globs=include_globs or ["**/*.md", "**/*.markdown"],

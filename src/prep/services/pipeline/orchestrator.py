@@ -2723,7 +2723,7 @@ class PipelineOrchestrator:
                         _entries = walk_for_source(
                             _repo,
                             include_globs=_CODE_GLOBS,
-                            max_file_bytes=100_000,
+                            max_file_bytes=500_000,
                         )
                         _found = 0
                         for _ in _entries:
