@@ -55,9 +55,9 @@ def _serialize_segments(atlas) -> list[dict[str, Any]]:
     without a second round trip. Typical segment is ~1-3 KB, so even a
     many-segment project adds only a few dozen KB to the payload.
 
-    Per-segment staleness inherits atlas-level staleness for v1; segments
-    do not carry individual stale flags today. Phase 104 follow-on will
-    add per-segment fingerprint drift detection.
+    Per-segment staleness inherits atlas-level staleness; segments do not
+    carry individual stale flags. Atlas-level staleness is driven by the
+    Phase 135.5 Changeset (lazy-loaded by CodebaseAtlas.is_stale()).
 
     Phase 124 T3: each segment dict gains a ``docs_for_segment`` field
     listing the top-N markdown docs that mention files inside the
