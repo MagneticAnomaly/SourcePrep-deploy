@@ -27,10 +27,11 @@ from prep.core.embedder import Embedder
 from prep.core.index import ManifestBuildStats, build_manifest, write_manifest
 from prep.core.project_registry import project_index_dir
 from prep.services.pipeline.recovery import is_reuse_blocked
+from prep.services.pipeline.workers.base import Worker
 
 logger = logging.getLogger(__name__)
 
-class KnowledgeIndex:
+class KnowledgeIndex(Worker):
     """
     Manages the Knowledge Vector Index.
     
@@ -52,7 +53,12 @@ class KnowledgeIndex:
         self._documents: Optional[List[Dict[str, Any]]] = None
         self._embeddings: Optional[np.ndarray] = None
         self._manifest: Dict[str, Any] = {}
-        
+
+        # Phase 135: stage 5 (initial) uses the legacy content-hash reuse
+        # path; stage 10 (deep) uses the changeset. The worker sets
+        # use_changeset=True only for the is_deep call.
+        self.use_changeset: bool = False
+
         self._load()
 
     def invalidate(self) -> None:
@@ -207,8 +213,14 @@ class KnowledgeIndex:
         """Stable hash of document content for incremental reuse."""
         return hashlib.sha256(content.encode("utf-8", errors="replace")).hexdigest()[:16]
 
-    def _load_previous_for_reuse(self) -> Dict[str, tuple]:
-        """Load previous index and build a reuse map: doc_id → (content_hash, embedding_vector).
+    def _load_previous_for_reuse(self) -> Dict[str, Any]:
+        """Return prior embeddings keyed by doc_id.
+
+        Phase 135: shape depends on `self.use_changeset`.
+        - False (stage 5): returns {doc_id: (content_hash, vector)} —
+          legacy path with content-hash compare.
+        - True  (stage 10): returns {doc_id: vector} — reuse decision
+          comes from the changeset, not hash equality.
 
         Returns empty dict if:
         - no previous index exists,
@@ -262,6 +274,17 @@ class KnowledgeIndex:
         if not prev_docs or prev_emb is None or len(prev_docs) != prev_emb.shape[0]:
             return {}
 
+        if self.use_changeset:
+            # Stage 10 (deep): no hash compare — return {doc_id: vector}.
+            # The per-doc reuse decision in build() will gate on the
+            # Changeset (should_process) instead of content equality.
+            return {
+                doc.get("id", ""): prev_emb[i]
+                for i, doc in enumerate(prev_docs)
+                if doc.get("id")
+            }
+
+        # Stage 5 (legacy): return {doc_id: (content_hash, vector)}.
         reuse_map: Dict[str, tuple] = {}
         for i, doc in enumerate(prev_docs):
             doc_id = doc.get("id", "")
@@ -275,8 +298,10 @@ class KnowledgeIndex:
         Build the knowledge index from trace_augmented.jsonl, trace_epistemic.jsonl,
         and trace_modules.jsonl.
 
-        Incremental: reuses embeddings for documents whose content hasn't changed
-        since the last build, only re-embedding new or modified documents.
+        Incremental: reuses embeddings to avoid recomputation. Stage 5
+        (``use_changeset=False``) compares per-doc content hashes; stage 10
+        (``use_changeset=True``) gates on the pipeline's Changeset (no hashing
+        — the changeset is canonical).
         """
         epistemic_path = self.index_dir / "trace_epistemic.jsonl"
         modules_path = self.index_dir / "trace_modules.jsonl"
@@ -447,13 +472,23 @@ class KnowledgeIndex:
         for i, doc in enumerate(docs):
             doc_id = doc.get("id", "")
             content = doc.get("content", "")
-            content_hash = self._content_hash(content)
 
             if can_reuse and doc_id in reuse_map:
-                prev_hash, prev_vec = reuse_map[doc_id]
-                if prev_hash == content_hash:
-                    reused_vectors[i] = prev_vec
-                    continue
+                if self.use_changeset:
+                    # Phase 135: stage 10 trusts the changeset. If the
+                    # doc's underlying file is unchanged, reuse the
+                    # cached vector unconditionally — no hash compare.
+                    file_path = self._file_path_for_doc_id(doc_id)
+                    if file_path and not self.should_process(file_path):
+                        reused_vectors[i] = reuse_map[doc_id]  # plain vector
+                        continue
+                else:
+                    # Stage 5: legacy content-hash compare.
+                    prev_hash, prev_vec = reuse_map[doc_id]
+                    content_hash = self._content_hash(content)
+                    if prev_hash == content_hash:
+                        reused_vectors[i] = prev_vec
+                        continue
 
             docs_to_embed.append(i)
 
@@ -607,3 +642,20 @@ class KnowledgeIndex:
         self._manifest = manifest
 
         return manifest
+
+    @staticmethod
+    def _file_path_for_doc_id(doc_id: str) -> str:
+        """Extract the underlying file path from a knowledge doc_id.
+
+        Doc IDs constructed as:
+          - know:aug:{node_id}        → node_id = "file:<rel_path>"
+          - know:epistemic:{node_id}  → node_id = "file:<rel_path>"
+          - know:module:{module_id}   → module IDs don't map to a file;
+                                         return "" (caller treats as
+                                         "always re-embed").
+        """
+        if doc_id.startswith("know:aug:") or doc_id.startswith("know:epistemic:"):
+            tail = doc_id.split(":", 2)[2]  # strip "know:aug:" / "know:epistemic:"
+            if tail.startswith("file:"):
+                return tail[len("file:"):]
+        return ""
