@@ -172,8 +172,8 @@ export { useScopes } from './hooks/useScopes';
 export type { ScopesApi } from './hooks/useScopes';
 
 // Components - Project
-export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, PinnedTextFilesPanel, AddProjectModal, FilePreviewPane, FileExplorerDetail, CodeViewer } from './components/project';
-export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, CodeViewerProps } from './components/project';
+export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, PinnedTextFilesPanel, AddProjectModal, FilePreviewPane, FileExplorerDetail, CodeViewer, GitignoreHygieneModal, InitExcludeReviewModal } from './components/project';
+export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, CodeViewerProps, GitignoreHygieneModalProps, GitignoreGap, InitExcludeReviewModalProps, VendorCandidateView } from './components/project';
 
 // Components - Agent Operations (Phase 67 / Unified Surfaces)
 export { AgentOpsPanel, MCPConnectionCard, PushSettings } from './components/agents';
