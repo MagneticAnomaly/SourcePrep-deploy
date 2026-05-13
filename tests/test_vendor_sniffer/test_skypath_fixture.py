@@ -20,7 +20,11 @@ def skypath_tree(tmp_path: Path) -> Path:
         vcpkg/                         (vendored: own .git, in .gitmodules)
           .git/
           boot.cmake
-        cesium-native/                 (vendored, NOT in .gitmodules — small in fixture)
+        cesium-native/                 (vendored, NOT in .gitmodules; small in fixture)
+                                         NOTE: nested .git no longer triggers proposal by itself
+                                         per Task 6 simplification — Tier 2 is size-fallback only,
+                                         so even a real 1.7GB cesium-native checkout would propose
+                                         via size, never via nested-.git signal.
           .git/
           src/Engine.cpp
         build/                         (CMake build dir)
@@ -99,9 +103,13 @@ def test_skypath_classification(skypath_tree: Path):
         "treated as user code by default — user manually excludes in file tree."
     )
 
-    # Tier 3 skipped (everything that isn't Tier 1)
+    # Tier 3 skipped (everything that isn't Tier 1). Use the dir-name parse
+    # of each glob ("**/NAME/**" → NAME) so we assert the real classification,
+    # not a substring match that could pass vacuously.
+    auto_excluded_names = {g.split("/")[1] for g in r.auto_excluded if "/" in g}
+    assert "SkyPath" not in auto_excluded_names, "user-code SkyPath/ must not auto-exclude"
+    assert "GeoTestARSceneOriginal" not in auto_excluded_names
     assert "SkyPath" not in proposed_rel
-    assert not any("SkyPath/" in g for g in r.auto_excluded if "SkyPath.xcworkspace" not in g)
     assert "GeoTestARSceneOriginal" not in proposed_rel
     assert "cesium-native" not in proposed_rel  # has nested .git but under size threshold
     assert "webgl-component" not in proposed_rel  # has package.json but not vendor signal
@@ -109,6 +117,9 @@ def test_skypath_classification(skypath_tree: Path):
 
     # Gate 1: gitignore gap — node_modules + build are canonical/build-output
     # and root has no .gitignore. They MUST appear in gitignore_gaps.
+    # vcpkg is in .gitmodules (not the canonical/cmake gap signal set), so
+    # it must NOT appear in gitignore_gaps even though it's auto-excluded.
     gap_rel = {c.rel_path for c in r.gitignore_gaps}
     assert "node_modules" in gap_rel
     assert "build" in gap_rel
+    assert "vcpkg" not in gap_rel
