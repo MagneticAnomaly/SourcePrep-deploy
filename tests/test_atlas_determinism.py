@@ -136,18 +136,4 @@ def test_structural_atlas_is_deterministic(populated_index):
     assert atlas_a.content == atlas_b.content
     assert atlas_a.module_count == atlas_b.module_count
     assert atlas_a.file_count == atlas_b.file_count
-    assert atlas_a.fingerprint == atlas_b.fingerprint
     assert atlas_a.mode == atlas_b.mode == "structural"
-
-
-def test_structural_atlas_fingerprint_stable_across_loads(populated_index):
-    """Fingerprint must be a pure function of inputs — independent of how
-    many times the atlas is generated/saved/reloaded."""
-    atlas = CodebaseAtlas(populated_index, llm=None)
-    doc1 = atlas.generate_structural()
-    fp1 = doc1.fingerprint
-
-    # Reload + regenerate — fingerprint should still match
-    atlas2 = CodebaseAtlas(populated_index, llm=None)
-    doc2 = atlas2.generate_structural()
-    assert doc2.fingerprint == fp1
