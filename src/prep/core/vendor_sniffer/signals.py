@@ -76,7 +76,10 @@ def has_nested_git_dir(p: Path) -> bool:
 
 def has_cmake_build_marker(p: Path) -> bool:
     """Tier-1 signal: directory contains a CMake/build-system generated marker."""
-    return any((p / m).is_file() for m in _CMAKE_BUILD_MARKERS)
+    try:
+        return any((p / m).is_file() for m in _CMAKE_BUILD_MARKERS)
+    except OSError:
+        return False
 
 
 def has_ignore_everything_gitignore(p: Path) -> bool:
@@ -105,10 +108,13 @@ def has_project_anchor(p: Path) -> bool:
     """
     if not p.is_dir():
         return False
-    for child in p.iterdir():
-        if child.name in PROJECT_ANCHOR_FILES:
-            return True
-        for suffix in _PROJECT_ANCHOR_SUFFIXES:
-            if child.name.endswith(suffix):
+    try:
+        for child in p.iterdir():
+            if child.name in PROJECT_ANCHOR_FILES:
                 return True
+            for suffix in _PROJECT_ANCHOR_SUFFIXES:
+                if child.name.endswith(suffix):
+                    return True
+    except OSError:
+        return False
     return False
