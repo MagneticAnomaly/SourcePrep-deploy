@@ -88,14 +88,21 @@ def main(argv: list[str] | None = None) -> int:
     findings = build_findings()
     print(f"[phase122] running Custodian on {len(findings)} candidates "
           f"(dry_run=True)...")
-    plan = engine.run(findings, llm_fn, dry_run=True, max_files=20)
-
-    # Serialize plan + verified candidates. We capture per-candidate
-    # classification + reason from engine.verify_candidates output by
-    # re-running it here (engine.run discards intermediate state).
-    verified = engine.verify_candidates(
-        engine.discover(findings, max_candidates=50), llm_fn,
-    )
+    # Inline the three stages engine.run() would call. Calling engine.run()
+    # directly and then re-running verify_candidates() to harvest the
+    # KEEP/NEEDS_REVIEW verdicts would double the LLM cost — engine.run()
+    # discards everything except the safe_to_delete subset. Inlining
+    # preserves the full verified list at zero behavioural cost.
+    candidates = engine.discover(findings, max_candidates=50)
+    if len(candidates) < len(findings):
+        dropped = {f["affected_files"][0] for f in findings} - {
+            c.file_path for c in candidates
+        }
+        print(f"[phase122] WARNING: discover() dropped {len(dropped)} "
+              f"candidate(s) (likely claimed by another agent or filtered "
+              f"by category): {sorted(dropped)}")
+    verified = engine.verify_candidates(candidates, llm_fn)
+    plan = engine.plan_cleanup(verified, dry_run=True, max_files=20)
     payload: dict[str, Any] = {
         "findings": findings,
         "plan": {
