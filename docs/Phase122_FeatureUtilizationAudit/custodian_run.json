@@ -1,0 +1,176 @@
+{
+  "findings": [
+    {
+      "id": "P122-roadmap_miner",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/roadmap_miner.py"
+      ],
+      "description": "Phase 119 recon: roadmap_miner.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    },
+    {
+      "id": "P122-treatment_registry",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/treatment_registry.py"
+      ],
+      "description": "Phase 119 recon: treatment_registry.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    },
+    {
+      "id": "P122-swarm_optimizer",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/swarm_optimizer.py"
+      ],
+      "description": "Phase 119 recon: swarm_optimizer.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    },
+    {
+      "id": "P122-lod_extractor",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/lod_extractor.py"
+      ],
+      "description": "Phase 119 recon: lod_extractor.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    },
+    {
+      "id": "P122-github_sync",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/github_sync.py"
+      ],
+      "description": "Phase 119 recon: github_sync.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    },
+    {
+      "id": "P122-budget_enforcement",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/budget_enforcement.py"
+      ],
+      "description": "Phase 119 recon: budget_enforcement.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    },
+    {
+      "id": "P122-chunking",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/chunking.py"
+      ],
+      "description": "Phase 119 recon: chunking.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    },
+    {
+      "id": "P122-inferred_edges",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/inferred_edges.py"
+      ],
+      "description": "Phase 119 recon: inferred_edges.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    },
+    {
+      "id": "P122-batch_profiles",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/batch_profiles.py"
+      ],
+      "description": "Phase 119 recon: batch_profiles.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    },
+    {
+      "id": "P122-swarm_registry",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/swarm_registry.py"
+      ],
+      "description": "Phase 119 recon: swarm_registry.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    },
+    {
+      "id": "P122-context_config",
+      "category": "dead_code",
+      "affected_files": [
+        "src/prep/core/context_config.py"
+      ],
+      "description": "Phase 119 recon: context_config.py has no external imports detected by naive grep. Phase 122 dogfood is asking the Custodian's safety verifier to confirm whether this is truly orphaned or is consumed via re-export / dynamic import / API surface."
+    }
+  ],
+  "plan": {
+    "branch_name": "custodian/cleanup-2026-05-13",
+    "dry_run": true,
+    "candidates_in_plan": []
+  },
+  "verified_candidates": [
+    {
+      "file_path": "src/prep/core/roadmap_miner.py",
+      "finding_id": "P122-roadmap_miner",
+      "classification": "needs_review",
+      "dependent_count": 0,
+      "reason": "The file identifies itself as 'Phase 59D' of a pipeline and provides a specific usage example in the docstring. In multi-stage pipelines, stages are frequently invoked via dynamic imports, orchestrators, or configuration files that static analysis tools often fail to detect. Deleting a core logic component of a pipeline phase requires manual verification of the orchestration layer."
+    },
+    {
+      "file_path": "src/prep/core/treatment_registry.py",
+      "finding_id": "P122-treatment_registry",
+      "classification": "needs_review",
+      "dependent_count": 0,
+      "reason": "The file defines a 'TreatmentRegistry' and 'TreatmentConfig' which contain specific business logic and parameters for 'Phase 53' processing. While no static imports were found, registries of this nature are frequently accessed via dynamic discovery, reflection, or string-based lookups in processing pipelines. Deleting core configuration logic for a specific processing phase requires manual verification that the phase itself is no longer active."
+    },
+    {
+      "file_path": "src/prep/core/swarm_optimizer.py",
+      "finding_id": "P122-swarm_optimizer",
+      "classification": "needs_review",
+      "dependent_count": 0,
+      "reason": "While the file reportedly has zero static imports, it contains highly specific, calibrated tuning constants for LLM batching and attention limits (Kimi and Gemini). These values represent domain-specific knowledge ('where Gemini 3 Flash cross-reference attention stays sharp') that may be referenced dynamically by a configuration loader or a pipeline scheduler not captured by static analysis. Deleting it risks losing these calibrated parameters or breaking dynamic systems that expect these constants to be defined in the core prep module."
+    },
+    {
+      "file_path": "src/prep/core/lod_extractor.py",
+      "finding_id": "P122-lod_extractor",
+      "classification": "needs_review",
+      "dependent_count": 1,
+      "reason": "The file contains core logic for structural code compression (LOD 0\u20135) supporting multiple programming languages. The 'Prep analysis' indicates at least one static dependent exists, contradicting the 'should be 0' note. As a core utility in the 'prep.core' namespace, it is highly likely to be a critical component of the system's context-processing pipeline."
+    },
+    {
+      "file_path": "src/prep/core/github_sync.py",
+      "finding_id": "P122-github_sync",
+      "classification": "needs_review",
+      "dependent_count": 0,
+      "reason": "This file implements a GitHub sync integration. Integration modules are frequently invoked dynamically via task schedulers (like Celery), configuration-driven plugin systems, or CLI management commands which would not show up as static imports. The presence of 'Phase 59D' in the docstring suggests it is part of an ongoing or recent feature set."
+    },
+    {
+      "file_path": "src/prep/core/budget_enforcement.py",
+      "finding_id": "P122-budget_enforcement",
+      "classification": "needs_review",
+      "dependent_count": 0,
+      "reason": "This file implements core enterprise budget enforcement and cost-control logic. While static analysis reports zero dependents, the docstring explicitly provides usage examples for importing 'check_budget', suggesting it is a public API within the project. Budget enforcement is often invoked by pipeline runners or middleware that might not be captured by simple static import analysis, and deleting it could inadvertently disable critical cost-safety features."
+    },
+    {
+      "file_path": "src/prep/core/chunking.py",
+      "finding_id": "P122-chunking",
+      "classification": "needs_review",
+      "dependent_count": 2,
+      "reason": "The analysis indicates there are 2 static imports (dependents) referencing this file, meaning it is currently in use within the codebase. Additionally, the file contains complex core logic for semantic text splitting and markdown processing that is unlikely to be obsolete if the 'Prep' module is active."
+    },
+    {
+      "file_path": "src/prep/core/inferred_edges.py",
+      "finding_id": "P122-inferred_edges",
+      "classification": "needs_review",
+      "dependent_count": 1,
+      "reason": "This file implements a core pipeline stage (Stage 1.5) for LLM-powered edge discovery. The documentation explicitly mentions it is managed by a 'pipeline orchestrator' for VRAM management, which strongly suggests it is loaded dynamically or via configuration. Deleting it would remove a significant functional component of the analysis pipeline."
+    },
+    {
+      "file_path": "src/prep/core/batch_profiles.py",
+      "finding_id": "P122-batch_profiles",
+      "classification": "needs_review",
+      "dependent_count": 7,
+      "reason": "The analysis indicates there are 7 static imports of this file. It contains core logic for model batching profiles and a model registry used to map LLM providers to specific performance configurations, making it a critical part of the application's BYOK (Bring Your Own Key) functionality."
+    },
+    {
+      "file_path": "src/prep/core/swarm_registry.py",
+      "finding_id": "P122-swarm_registry",
+      "classification": "needs_review",
+      "dependent_count": 3,
+      "reason": "The file has 3 static dependents (imports), which directly contradicts the requirement for it to be 'dead' (0 dependents). Deleting this file would break the components that rely on get_swarm_tier() and SwarmTier."
+    },
+    {
+      "file_path": "src/prep/core/context_config.py",
+      "finding_id": "P122-context_config",
+      "classification": "needs_review",
+      "dependent_count": 0,
+      "reason": "The file contains complex, platform-specific hardware detection logic (VRAM/RAM for macOS, Linux, and Windows) and domain-specific benchmarking data for LLM context windows. Even if static analysis shows zero dependents, this module defines core enums (PipelineTask) and model metadata that are likely referenced dynamically or are essential for the system's configuration. Deleting it would lose non-trivial logic and calibrated performance data."
+    }
+  ]
+}
