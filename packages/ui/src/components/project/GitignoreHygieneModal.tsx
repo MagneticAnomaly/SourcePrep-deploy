@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Copy, X, AlertTriangle } from 'lucide-react';
 
 import { Button } from '../primitives/Button';
@@ -17,6 +18,8 @@ export interface GitignoreHygieneModalProps {
   onCancel: () => void;
   onContinue: () => void;
   className?: string;
+  /** Test hook prefix; emits `${testId}` on the dialog panel, `${testId}-cancel` on the cancel button, `${testId}-continue` on the continue button. */
+  testId?: string;
 }
 
 function formatBytes(n: number): string {
@@ -32,6 +35,7 @@ export function GitignoreHygieneModal({
   onCancel,
   onContinue,
   className,
+  testId,
 }: GitignoreHygieneModalProps) {
   const [copied, setCopied] = useState(false);
   const snippet = gaps.map((g) => `${g.rel_path}/`).join('\n');
@@ -64,20 +68,24 @@ export function GitignoreHygieneModal({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className={cn(
-        'fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm',
+        'fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm',
         className,
       )}
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="gitignore-hygiene-title"
     >
-      <div className="mx-4 w-full max-w-lg rounded-lg border border-amber-500/40 bg-surface p-6 shadow-2xl">
+      <div
+        className="mx-4 w-full max-w-lg rounded-lg border border-amber-500/40 bg-surface p-6 shadow-2xl"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gitignore-hygiene-title"
+        aria-describedby="gitignore-hygiene-desc"
+        data-testid={testId}
+      >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 shrink-0 rounded-full bg-amber-500/10 p-2">
@@ -87,7 +95,10 @@ export function GitignoreHygieneModal({
               <h3 id="gitignore-hygiene-title" className="text-sm font-semibold text-text">
                 Your .gitignore looks incomplete
               </h3>
-              <p className="mt-1 text-xs text-text-subtle leading-relaxed">
+              <p
+                id="gitignore-hygiene-desc"
+                className="mt-1 text-xs text-text-subtle leading-relaxed"
+              >
                 SourcePrep detected directories at your project root that are typically
                 gitignored but aren&apos;t in your{' '}
                 <code className="font-mono text-[11px]">.gitignore</code>.
@@ -108,10 +119,11 @@ export function GitignoreHygieneModal({
           <p className="text-xs text-text-subtle mb-2">Found (not in .gitignore):</p>
           <ul className="space-y-1 mb-4">
             {gaps.map((g) => (
-              <li key={g.rel_path} className="font-mono text-xs flex items-center gap-2">
+              <li key={g.rel_path} className="font-mono text-xs flex items-start gap-2">
                 <span className="text-text">{g.rel_path}/</span>
                 <span className="text-text-subtle">
-                  ({formatBytes(g.size_bytes)}, {g.file_count.toLocaleString()} files)
+                  ({formatBytes(g.size_bytes)}, {g.file_count.toLocaleString()} files
+                  {g.reason ? ` — ${g.reason}` : ''})
                 </span>
               </li>
             ))}
@@ -130,14 +142,25 @@ export function GitignoreHygieneModal({
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={onCancel}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCancel}
+            data-testid={testId ? `${testId}-cancel` : undefined}
+          >
             Cancel Initialize
           </Button>
-          <Button variant="default" size="sm" onClick={onContinue}>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onContinue}
+            data-testid={testId ? `${testId}-continue` : undefined}
+          >
             Continue Anyway
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
