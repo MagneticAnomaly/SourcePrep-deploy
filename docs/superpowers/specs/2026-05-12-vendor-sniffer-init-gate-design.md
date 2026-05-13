@@ -155,18 +155,43 @@ Whitelist lives next to `DEFAULT_EXCLUDE_DIR_NAMES` in `repo_profile.py` so addi
 
 ### Tier 2 — Propose with confirmation (Gate 2 modal)
 
-Any one of, AND not classified as Tier 1, AND not Tier 3 user-code:
-- Contains a `.git/` (`is_dir()`) but NOT in `.gitmodules` and NOT in `.gitignore` → "nested git repo, possibly vendored"
-- Contains its own project-anchor file (e.g. `package.json`, `Cargo.toml`, `pyproject.toml`) AND that anchor is NOT referenced as a workspace member by the root manifest → "separate sub-project, not in root workspaces"
-- **Fallback only:** size > 100 MB OR file count > 5,000, AND no project anchor present, AND no other signal classified it → "large directory, no classification signal"
+Triggered ONLY by the size-fallback path. Sub-repos (nested `.git/`) and
+sibling projects (own manifest, not in workspaces) are NOT auto-proposed.
+This reflects the design principle "when in doubt, include" — the cost of
+falsely excluding user code outweighs missing a vendored thing the user
+can manually exclude in the file tree, where `vendor/` is already caught
+by Tier 1.
 
-The fallback is the only place size matters, and the modal reason string makes that explicit so the user can judge.
+- **Size fallback (only trigger):** directory's size > 500 MB OR file
+  count > 25,000, AND not classified as Tier 1 → reason: "Large
+  directory, no classification signal".
 
-### Tier 3 — Skip entirely (never proposed, never auto-excluded)
+Thresholds set deliberately high so the modal only fires on genuine
+outliers (e.g. a 1.7GB vendored cesium-native checkout) — not on
+legitimate user content like `assets/` or `media/` directories. The
+modal copy makes the weak signal honest.
 
-- Contains a project anchor (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`, `*.xcodeproj`, `*.xcworkspace`, `Package.swift`, `*.sln`, `*.csproj`, `Gemfile`, `composer.json`, `pubspec.yaml`) AND that anchor is referenced as a workspace member by the root manifest → user code
-- Already covered by an existing `exclude_globs` entry → no point re-surfacing
-- Already covered by `DEFAULT_EXCLUDE_DIR_NAMES` in `repo_profile.py` → no point re-surfacing
+**Industry alignment** (researched 2026-05): ripgrep / VS Code / GitHub
+Copilot all take the "trust gitignore + small built-in list" approach
+(no proposal modal for ambiguous dirs). Sourcegraph hard-excludes
+`vendor/`. JetBrains auto-excludes PHP Composer `vendor/` but re-indexes
+as library. Our v1 sits in the "conventional" camp: respect gitignore,
+small canonical Tier 1 list, plus a size-fallback Tier 2 trigger for the
+SkyPath-shaped failure mode (no manifest signals, just a huge unknown
+blob).
+
+### Tier 3 — Skip entirely (the default for everything else)
+
+Any directory not classified as Tier 1 and not tripping the size
+fallback is silently skipped. This includes:
+
+- Sub-repos with a nested `.git/` that isn't in `.gitmodules`
+- Sibling sub-projects with their own manifest, not in root workspaces
+- Any "looks like code, no manifest signal, under size threshold" case
+- Already covered by an existing `exclude_globs` entry
+- Already covered by `DEFAULT_EXCLUDE_DIR_NAMES` in `repo_profile.py`
+
+The user retains full control by editing excludes in the file tree.
 
 ### Manifest parsers (v1 scope)
 
