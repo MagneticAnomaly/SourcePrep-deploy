@@ -127,10 +127,11 @@ class DriftDetector(Worker):
         Uses should_process (inherited from Worker) to gate modified/added
         nodes. Deleted nodes are also stale — they are orphaned and their
         epistemic entries must be reset so deepening does not carry them."""
-        if self.changeset is None:
+        cs = self._resolve_changeset()
+        if cs is None:
             return set()  # defensive: no changeset → assume nothing stale
         stale: Set[str] = set()
-        deleted_paths = self.changeset.deleted
+        deleted_paths = cs.deleted
         for node_id in augmentations.keys():
             file_path = node_id.replace("file:", "", 1) if node_id.startswith("file:") else ""
             if not file_path:

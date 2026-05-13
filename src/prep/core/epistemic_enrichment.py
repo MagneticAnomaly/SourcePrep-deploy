@@ -470,9 +470,10 @@ class EpistemicEnricher(Worker):
         file_path = node.get("file_path", "")
         if not file_path:
             return False  # symbol-level node, no file gate
-        if self.changeset is None:
+        cs = self._resolve_changeset()
+        if cs is None:
             return False  # defensive — no changeset means unknown state, skip
-        return file_path in self.changeset.modified
+        return file_path in cs.modified
 
     def get_pending_nodes(self, trace_idx: Any = None) -> List[Dict[str, Any]]:
         """Get a list of file nodes that need enrichment.
