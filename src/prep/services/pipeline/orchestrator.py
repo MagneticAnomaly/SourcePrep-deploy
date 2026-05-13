@@ -2710,24 +2710,20 @@ class PipelineOrchestrator:
                     _repo = Path(_proj.path)
                     if _repo.is_dir():
                         # Count up to 5 files to confirm the repo isn't empty.
-                        # Phase 134: use prep_engine.walk_repo for filter parity.
-                        import prep_engine as _pe
+                        # Phase 135.5: use walk_for_source (catalog-backed walker).
+                        # The previous inline _EXCL_GLOBS bypassed the catalog; this
+                        # migration applies DEFAULT_EXCLUDE_DIR_NAMES automatically.
+                        from prep.core.walker import walk_for_source
                         _CODE_GLOBS = [
                             "**/*.py", "**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx",
                             "**/*.go", "**/*.rs", "**/*.java", "**/*.c", "**/*.cpp",
                             "**/*.h", "**/*.hpp", "**/*.swift", "**/*.md", "**/*.kt",
                             "**/*.cs", "**/*.rb", "**/*.php",
                         ]
-                        _EXCL_GLOBS = [
-                            "**/node_modules/**", "**/__pycache__/**", "**/.git/**",
-                            "**/target/**", "**/build/**", "**/dist/**", "**/vendor/**",
-                            "**/.*/**",
-                        ]
-                        _entries = _pe.walk_repo(
-                            str(_repo),
+                        _entries = walk_for_source(
+                            _repo,
                             include_globs=_CODE_GLOBS,
-                            exclude_globs=_EXCL_GLOBS,
-                            max_file_bytes=500_000,
+                            max_file_bytes=100_000,
                         )
                         _found = 0
                         for _ in _entries:
