@@ -8,5 +8,6 @@ re-exported from sub-modules (``models``, ``scanner``, ``signals``,
 ``manifests``) which are added incrementally across the implementation plan.
 """
 from prep.core.vendor_sniffer.models import VendorCandidate, VendorScanResult
+from prep.core.vendor_sniffer.scanner import scan_for_vendor_dirs
 
-__all__ = ["VendorCandidate", "VendorScanResult"]
+__all__ = ["VendorCandidate", "VendorScanResult", "scan_for_vendor_dirs"]
