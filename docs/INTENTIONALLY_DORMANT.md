@@ -128,7 +128,6 @@ investigation.
   count). The "no external imports" flag is a false positive — the
   derivation runs but is invoked via re-exports. **Status: WIRED,
   flag was wrong.** Remove from Phase 122 audit list.
-- `lod_extractor.py` — pending; from Phase 95 LOD work
 - `github_sync.py` — pending
 - `budget_enforcement.py` — pending
 - `chunking.py` — Phase 110 semantic chunking; verify
