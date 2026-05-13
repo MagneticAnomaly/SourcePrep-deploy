@@ -128,7 +128,6 @@ investigation.
   count). The "no external imports" flag is a false positive — the
   derivation runs but is invoked via re-exports. **Status: WIRED,
   flag was wrong.** Remove from Phase 122 audit list.
-- `github_sync.py` — pending
 - `budget_enforcement.py` — pending
 - `chunking.py` — Phase 110 semantic chunking; verify
 - `inferred_edges.py` — pipeline stage exists, verify wiring
