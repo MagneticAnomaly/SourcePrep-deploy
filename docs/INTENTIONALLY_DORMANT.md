@@ -39,7 +39,6 @@ Phase 122 lists several other "no external imports" candidates that
 need triage. Unless added below explicitly, they are still pending
 investigation.
 
-- `roadmap_miner.py` — pending
 - `treatment_registry.py` — likely re-exported via `__init__`
   (Phase 122 §0 false-positive note); verify
 - `antibody_derivation.py` — H3 confirmed via Phase 124 harness:
