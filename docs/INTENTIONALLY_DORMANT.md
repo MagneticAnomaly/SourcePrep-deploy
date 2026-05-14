@@ -117,6 +117,45 @@
   MASTER_TODO.
 - **Owner:** unassigned.
 
+## budget_enforcement.py
+- **Path:** `src/prep/core/budget_enforcement.py` (218 LoC)
+- **Public API:** `check_budget(project_id, project_root) -> BudgetStatus`,
+  `BudgetStatus` dataclass, plus internal helpers
+  (`_get_month_start`, `_load_budget_config`, `_record_budget_event`).
+- **Production callers:** 0 (verified 2026-05-14 via Phase 122
+  Custodian run + grep). Unit-tested at
+  `tests/test_pipeline_budget.py:30`. `cost_estimation.py:6`
+  *mentions* this module in a docstring (`"and budget enforcement
+  (EA-H5)"`) but does not import it.
+- **Custodian classification:** needs_review
+- **Custodian reason:** "Implements core enterprise budget enforcement
+  and cost-control logic. While static analysis reports zero
+  dependents, the docstring explicitly provides usage examples for
+  importing 'check_budget', suggesting it is a public API within the
+  project. Budget enforcement is often invoked by pipeline runners or
+  middleware that might not be captured by simple static import
+  analysis..."
+- **Triage decision:** KEEP-DORMANT — out of MVP scope.
+- **Why:** Tagged `EA-H5` in the docstring; designed in
+  `docs/Phase06_Team_And_Enterprise/ENTERPRISE_ADMIN_DESIGN.md` as part
+  of the enterprise admin / team-tier feature set. Enterprise tier is
+  **not in MVP scope**, so the absence of pipeline-runner
+  integration, audit_log → check_budget wiring, and dashboard UI
+  consumption is by-design-deferral, not abandonment. Marketing
+  references to "budget" elsewhere are about per-query token budgets
+  for context delivery (unrelated to this module's monthly cost cap).
+- **State (2026-05-14):** Tests pass in isolation. No call from
+  `pipeline.runner`, no audit_log integration, no UI consumer in
+  `packages/ui/src/`. Phase 06 is the original design phase; no
+  follow-up phase has touched this file beyond brand renames.
+- **Trigger to wire:** When the enterprise/team tier becomes MVP
+  scope — pipeline runner calls `check_budget()` pre-run and pauses
+  on `not status.allowed`; the dashboard adds an admin panel
+  consuming `BudgetStatus`. Alternative trigger: explicit decision to
+  shelve the enterprise tier permanently, in which case downgrade to
+  DEPRECATE.
+- **Owner:** unassigned.
+
 ## Other modules under audit
 
 Phase 122 lists several other "no external imports" candidates that
@@ -128,7 +167,6 @@ investigation.
   count). The "no external imports" flag is a false positive — the
   derivation runs but is invoked via re-exports. **Status: WIRED,
   flag was wrong.** Remove from Phase 122 audit list.
-- `budget_enforcement.py` — pending
 - `chunking.py` — Phase 110 semantic chunking; verify
 - `inferred_edges.py` — pipeline stage exists, verify wiring
 - `batch_profiles.py` — likely wired via `prep.core` re-export
