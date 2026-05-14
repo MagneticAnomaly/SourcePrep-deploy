@@ -156,16 +156,27 @@
   DEPRECATE.
 - **Owner:** unassigned.
 
-## Other modules under audit
+## Phase 122 audit closure (2026-05-14)
 
-Phase 122 lists several other "no external imports" candidates that
-need triage. Unless added below explicitly, they are still pending
-investigation.
+The Phase 122 audit (`docs/Phase122_FeatureUtilizationAudit/`) triaged
+11 "no external imports" candidates against the Custodian engine plus
+human grep confirmation. Results land above in the per-module entries
+(`treatment_registry.py`, `swarm_optimizer.py`, `budget_enforcement.py`)
+or in the WIRED tally below. Full breakdown in
+`docs/Phase122_FeatureUtilizationAudit/RESULTS.md`.
 
-- `antibody_derivation.py` — H3 confirmed via Phase 124 harness:
-  derivation IS running (5 antibodies → 594 after T4 lifted concept
-  count). The "no external imports" flag is a false positive — the
-  derivation runs but is invoked via re-exports. **Status: WIRED,
-  flag was wrong.** Remove from Phase 122 audit list.
-- `rules_generator.py` — wired (writes AGENTS.md every pipeline run)
-- `concept_seeder.py` — wired (Phase 124 T4 integration verified)
+**Modules removed from this list as WIRED false-positives (the
+`prep_impact` bimodal-node bug, P122-D1/D2/D3 in MASTER_TODO, hid
+the real callers):**
+
+- `antibody_derivation.py` (Phase 124 T4 verified)
+- `rules_generator.py` (writes AGENTS.md every pipeline run)
+- `concept_seeder.py` (Phase 124 T4 verified)
+- `roadmap_miner.py` → `api/routers/roadmap.py:665`
+- `lod_extractor.py` → `api/routers/projects/search.py:267,688,769`
+- `github_sync.py` → `api/routers/roadmap.py:263+`, `core/github_webhook.py:28`
+- `chunking.py` → `core/index.py:27,575-582` (indexer hot path)
+- `inferred_edges.py` → registered as pipeline `StageId.INFERRED_EDGES`
+- `batch_profiles.py` → `inferred_edges.py:254+`, `group_reasoning.py:466+`
+- `swarm_registry.py` → `cluster.py:44`, `group_reasoning.py:43`, `atlas/generator.py:27`, `pipeline/scheduler.py:83`
+- `context_config.py` → pipeline-wide `PipelineTask` + VRAM detection
