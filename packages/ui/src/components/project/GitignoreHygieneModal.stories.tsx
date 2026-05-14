@@ -27,8 +27,9 @@ export const TwoGaps: Story = {
         reason: 'Canonical package-manager install dir',
       },
     ],
-    onCancel: () => alert('Cancel Initialize'),
-    onContinue: () => alert('Continue Anyway'),
+    onFixFirst: () => alert('Fix .gitignore First — modal closes; user goes to fix manually'),
+    onForceExclude: () => alert('Force Exclude in SourcePrep — adds gap globs to exclude_globs'),
+    onContinue: () => alert('Continue Anyway — proceed with neither workaround'),
   },
 };
 
@@ -43,7 +44,8 @@ export const OneGap: Story = {
         reason: 'CMake/build output (CMakeCache.txt present)',
       },
     ],
-    onCancel: () => {},
+    onFixFirst: () => {},
+    onForceExclude: () => {},
     onContinue: () => {},
   },
 };
@@ -52,7 +54,8 @@ export const Closed: Story = {
   args: {
     open: false,
     gaps: [],
-    onCancel: () => {},
+    onFixFirst: () => {},
+    onForceExclude: () => {},
     onContinue: () => {},
   },
 };

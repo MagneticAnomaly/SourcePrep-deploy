@@ -408,12 +408,12 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
         scan = await api.rescanVendor(selectedProjectId)
       }
       setVendorScan(scan)
+      // Gate 1 (gitignore hygiene): only fires for canonical install dirs that
+      // belong in .gitignore. Vendor Pre-Exclude (mechanism 2) already pushed
+      // vcpkg/cesium-native/etc. into exclude_globs at scan time — those show
+      // up pre-excluded in the file tree, no modal needed.
       if (scan.gitignore_gaps.length > 0) {
         setGateState('gate1')
-        return
-      }
-      if (scan.proposed.length > 0) {
-        setGateState('gate2')
         return
       }
     } catch (e) {
@@ -425,42 +425,54 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     await fireBuild()
   }, [api, selectedProjectId, fireBuild])
 
-  const handleGate1Cancel = useCallback(() => setGateState('idle'), [])
+  // Gate 1: "Fix .gitignore First" — recommended path. Modal closes; user
+  // goes to their editor, fixes .gitignore, comes back, re-clicks Initialize.
+  const handleGate1FixFirst = useCallback(() => setGateState('idle'), [])
 
-  const handleGate1Continue = useCallback(() => {
-    if (vendorScan && vendorScan.proposed.length > 0) {
-      setGateState('gate2')
-    } else {
+  // Gate 1: "Force Exclude in SourcePrep" — available but not recommended.
+  // Mechanism (3): adds the canonical-name gap globs to exclude_globs as a
+  // SourcePrep-side workaround. .gitignore stays broken for every other tool.
+  const handleGate1ForceExclude = useCallback(async () => {
+    if (!selectedProjectId) {
       setGateState('idle')
-      void fireBuild()
+      return
     }
-  }, [vendorScan, fireBuild])
+    const gapRelPaths = (vendorScan?.gitignore_gaps ?? []).map((g) => g.rel_path)
+    try {
+      await api.applyVendorProposals(selectedProjectId, {
+        exclude: gapRelPaths,
+        dismiss: [],
+        add_to_gitignore: [],
+      })
+    } catch (e) {
+      onErrorRef.current(
+        e instanceof Error ? e.message : 'Force-exclude failed',
+        'error',
+      )
+    }
+    setGateState('idle')
+    await fireBuild()
+  }, [api, selectedProjectId, vendorScan, fireBuild])
 
+  // Gate 1: "Continue Anyway" — proceed without any SourcePrep-side workaround.
+  // Walker still respects whatever IS in .gitignore.
+  const handleGate1Continue = useCallback(() => {
+    setGateState('idle')
+    void fireBuild()
+  }, [fireBuild])
+
+  // Gate 2 was dropped — Vendor Pre-Exclude (mechanism 2) pre-excludes vendor
+  // candidates into exclude_globs at scan time; user reviews via file tree
+  // instead of a modal. The handlers below stay as no-op stubs so existing
+  // callers don't break; remove once useDashboardPanels stops passing them.
   const handleGate2Close = useCallback(() => setGateState('idle'), [])
-
   const handleGate2Apply = useCallback(
-    async (excludeRelPaths: string[], dismissRelPaths: string[]) => {
-      if (!selectedProjectId) return
-      try {
-        await api.applyVendorProposals(selectedProjectId, {
-          exclude: excludeRelPaths,
-          dismiss: dismissRelPaths,
-          add_to_gitignore: [],
-        })
-      } catch (e) {
-        onErrorRef.current(e instanceof Error ? e.message : 'Apply failed', 'error')
-      }
-      // Intentional: build proceeds even on apply failure. The user already
-      // committed to "Initialize" by clicking Apply; a transient apply error
-      // (e.g. 409 from concurrent settings edit) shouldn't strand them in the
-      // modal. The excludes simply won't be applied — they can re-run from
-      // Settings later.
+    async (_e: string[], _d: string[]) => {
       setGateState('idle')
       await fireBuild()
     },
-    [api, selectedProjectId, fireBuild],
+    [fireBuild],
   )
-
   const handleGate2Skip = useCallback(() => {
     setGateState('idle')
     void fireBuild()
@@ -689,9 +701,12 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     handleToggleActive,
     handleToggleStar,
     handleCyclePriority,
-    // Vendor-scan gate handlers
-    handleGate1Cancel,
+    // Gate 1 handlers (three actions per spec)
+    handleGate1FixFirst,
+    handleGate1ForceExclude,
     handleGate1Continue,
+    // Gate 2 handlers retained as no-op stubs for API stability; remove once
+    // useDashboardPanels stops mounting the (now-deprecated) Gate-2 modal.
     handleGate2Close,
     handleGate2Apply,
     handleGate2Skip,

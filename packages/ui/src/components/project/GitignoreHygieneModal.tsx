@@ -15,10 +15,14 @@ export interface GitignoreGap {
 export interface GitignoreHygieneModalProps {
   open: boolean;
   gaps: GitignoreGap[];
-  onCancel: () => void;
+  /** Recommended path: user fixes .gitignore manually, comes back, re-Initializes. */
+  onFixFirst: () => void;
+  /** Available but not recommended: SourcePrep adds the gap globs to exclude_globs as a workaround. .gitignore stays broken for every other tool. */
+  onForceExclude: () => void;
+  /** Continue without any SourcePrep-side workaround. Walker still respects whatever IS in .gitignore. */
   onContinue: () => void;
   className?: string;
-  /** Test hook prefix; emits `${testId}` on the dialog panel, `${testId}-cancel` on the cancel button, `${testId}-continue` on the continue button. */
+  /** Test hook prefix; emits `${testId}` on the dialog panel, `${testId}-fix`, `${testId}-force`, and `${testId}-continue` on the three action buttons. */
   testId?: string;
 }
 
@@ -32,7 +36,8 @@ function formatBytes(n: number): string {
 export function GitignoreHygieneModal({
   open,
   gaps,
-  onCancel,
+  onFixFirst,
+  onForceExclude,
   onContinue,
   className,
   testId,
@@ -44,10 +49,10 @@ export function GitignoreHygieneModal({
     (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onCancel();
+        onFixFirst();
       }
     },
-    [onCancel],
+    [onFixFirst],
   );
 
   useEffect(() => {
@@ -75,7 +80,7 @@ export function GitignoreHygieneModal({
         className,
       )}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
+        if (e.target === e.currentTarget) onFixFirst();
       }}
     >
       <div
@@ -107,7 +112,7 @@ export function GitignoreHygieneModal({
             </div>
           </div>
           <button
-            onClick={onCancel}
+            onClick={onFixFirst}
             className="rounded-md p-1 text-text-subtle hover:bg-surface-raised hover:text-text transition-colors"
             aria-label="Close"
           >
@@ -141,22 +146,33 @@ export function GitignoreHygieneModal({
           </div>
         </div>
 
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            onClick={onCancel}
-            data-testid={testId ? `${testId}-cancel` : undefined}
+            onClick={onForceExclude}
+            title="Adds the gap globs to SourcePrep's exclude_globs as a workaround. Your .gitignore stays broken for every other tool that reads it."
+            className="text-text-subtle"
+            data-testid={testId ? `${testId}-force` : undefined}
           >
-            Cancel Initialize
+            Force Exclude in SourcePrep
+            <span className="ml-1 text-[10px] text-text-subtle">(not recommended)</span>
           </Button>
           <Button
-            variant="default"
+            variant="outline"
             size="sm"
             onClick={onContinue}
             data-testid={testId ? `${testId}-continue` : undefined}
           >
             Continue Anyway
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onFixFirst}
+            data-testid={testId ? `${testId}-fix` : undefined}
+          >
+            Fix .gitignore First
           </Button>
         </div>
       </div>

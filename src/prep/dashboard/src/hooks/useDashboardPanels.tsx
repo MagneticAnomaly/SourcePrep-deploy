@@ -73,7 +73,6 @@ import {
   ConceptsDetail,
   PanelLoading,
   GitignoreHygieneModal,
-  InitExcludeReviewModal,
 } from '@prep/ui'
 import type { VendorScanResult } from '@prep/ui'
 import type { GateState } from './useProjectManager'
@@ -293,11 +292,10 @@ export interface DashboardPanelsProps {
   // Vendor-scan gate
   gateState: GateState
   vendorScan: VendorScanResult | null
-  handleGate1Cancel: () => void
+  // Gate 1 actions (three buttons)
+  handleGate1FixFirst: () => void
+  handleGate1ForceExclude: () => void | Promise<void>
   handleGate1Continue: () => void
-  handleGate2Close: () => void
-  handleGate2Apply: (excludeRelPaths: string[], dismissRelPaths: string[]) => Promise<void>
-  handleGate2Skip: () => void
   /** Open settings drawer to the Deep Enrichment section */
   onOpenDeepSettings?: () => void
   /** Open settings drawer (generic — used for upgrade CTAs) */
@@ -802,18 +800,10 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         <GitignoreHygieneModal
           open={p.gateState === 'gate1'}
           gaps={p.vendorScan?.gitignore_gaps ?? []}
-          onCancel={p.handleGate1Cancel}
+          onFixFirst={p.handleGate1FixFirst}
+          onForceExclude={p.handleGate1ForceExclude}
           onContinue={p.handleGate1Continue}
           testId="gate1"
-        />
-        <InitExcludeReviewModal
-          open={p.gateState === 'gate2'}
-          proposed={p.vendorScan?.proposed ?? []}
-          autoExcludedSummary={[]}
-          onClose={p.handleGate2Close}
-          onApply={p.handleGate2Apply}
-          onSkip={p.handleGate2Skip}
-          testId="gate2"
         />
       </>
     ),
