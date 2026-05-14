@@ -76,6 +76,7 @@ import {
   InitExcludeReviewModal,
 } from '@prep/ui'
 import type { VendorScanResult } from '@prep/ui'
+import type { GateState } from './useProjectManager'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
 import type { UseSpaghettiSystemReturn } from './useSpaghettiSystem'
@@ -290,7 +291,7 @@ export interface DashboardPanelsProps {
   handleBuild: () => void
   transientComplete: boolean
   // Vendor-scan gate
-  gateState: 'idle' | 'gate1' | 'gate2'
+  gateState: GateState
   vendorScan: VendorScanResult | null
   handleGate1Cancel: () => void
   handleGate1Continue: () => void

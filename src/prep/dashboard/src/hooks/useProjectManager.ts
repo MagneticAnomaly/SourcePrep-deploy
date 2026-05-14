@@ -11,6 +11,10 @@ import {
   type VendorScanResult,
 } from '@prep/ui'
 
+// ── Types ────────────────────────────────────────────────────
+
+export type GateState = 'idle' | 'gate1' | 'gate2'
+
 // ── Helpers ──────────────────────────────────────────────────
 
 function deriveStatus(ps: ProjectStatus | null, building: boolean): StatusState {
@@ -119,7 +123,6 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
   const [configDirty, setConfigDirty] = useState(false)
 
   // ── Vendor-scan gate state ───────────────────────────────────
-  type GateState = 'idle' | 'gate1' | 'gate2'
   const [gateState, setGateState] = useState<GateState>('idle')
   const [vendorScan, setVendorScan] = useState<VendorScanResult | null>(null)
 
@@ -413,9 +416,11 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
         setGateState('gate2')
         return
       }
-    } catch {
-      // If vendor scan fails (e.g. endpoint not yet deployed), fall through to
-      // fire the build directly rather than blocking the user.
+    } catch (e) {
+      // If vendor scan fails (e.g. endpoint not yet deployed, transient 500,
+      // network blip), fall through to fire the build directly rather than
+      // blocking the user. Log so the failure is debuggable in the console.
+      console.warn('[handleBuild] vendor scan failed, proceeding without gate:', e)
     }
     await fireBuild()
   }, [api, selectedProjectId, fireBuild])
@@ -445,6 +450,11 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       } catch (e) {
         onErrorRef.current(e instanceof Error ? e.message : 'Apply failed', 'error')
       }
+      // Intentional: build proceeds even on apply failure. The user already
+      // committed to "Initialize" by clicking Apply; a transient apply error
+      // (e.g. 409 from concurrent settings edit) shouldn't strand them in the
+      // modal. The excludes simply won't be applied — they can re-run from
+      // Settings later.
       setGateState('idle')
       await fireBuild()
     },

@@ -1,4 +1,9 @@
-import type { ApiClient } from './client';
+import type {
+  ApiClient,
+  ApplyVendorProposalsRequest,
+  ApplyVendorProposalsResponse,
+  VendorScanResult,
+} from './client';
 
 const MOCK_PROJECT = {
   id: 'proj_mock_001',
@@ -1280,18 +1285,18 @@ export class MockApiClient implements ApiClient {
 
   // ── Vendor scan ────────────────────────────────────────────
 
-  async getVendorScan(_projectId: string): Promise<import('./client').VendorScanResult> {
+  async getVendorScan(_projectId: string): Promise<VendorScanResult> {
     return { auto_excluded: [], proposed: [], gitignore_gaps: [], scanned_at: 0, status: 'pending', error: null };
   }
 
-  async rescanVendor(_projectId: string): Promise<import('./client').VendorScanResult> {
+  async rescanVendor(_projectId: string): Promise<VendorScanResult> {
     return { auto_excluded: [], proposed: [], gitignore_gaps: [], scanned_at: Date.now() / 1000, status: 'complete', error: null };
   }
 
   async applyVendorProposals(
     _projectId: string,
-    _req: import('./client').ApplyVendorProposalsRequest,
-  ): Promise<import('./client').ApplyVendorProposalsResponse> {
+    _req: ApplyVendorProposalsRequest,
+  ): Promise<ApplyVendorProposalsResponse> {
     return { config: {}, dismissed_proposals: _req.dismiss };
   }
 }
