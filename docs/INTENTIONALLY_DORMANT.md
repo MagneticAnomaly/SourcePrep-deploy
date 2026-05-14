@@ -167,7 +167,6 @@ investigation.
   count). The "no external imports" flag is a false positive — the
   derivation runs but is invoked via re-exports. **Status: WIRED,
   flag was wrong.** Remove from Phase 122 audit list.
-- `inferred_edges.py` — pipeline stage exists, verify wiring
 - `batch_profiles.py` — likely wired via `prep.core` re-export
 - `swarm_registry.py` — pending
 - `rules_generator.py` — wired (writes AGENTS.md every pipeline run)
