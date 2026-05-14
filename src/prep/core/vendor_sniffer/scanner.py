@@ -149,19 +149,36 @@ def scan_for_vendor_dirs(root: Path) -> VendorScanResult:
                     ))
                 continue
 
+            # Tier-2 primary signal: nested .git/ (a separate checkout, by
+            # convention vendored — not a user sub-project). Override is cheap
+            # (uncheck in file tree), so we err on the side of proposing
+            # vendored-looking things even when an anchor file is also present.
+            # Real-world: SkyPath's `cesium-native` has BOTH package.json AND
+            # its own .git/ — the .git wins and it gets proposed.
+            nested_git = has_nested_git_dir(entry)
+            if nested_git:
+                size, files = _dir_size_and_count(entry)
+                proposed.append(VendorCandidate(
+                    path=str(entry),
+                    rel_path=rel,
+                    size_bytes=size,
+                    file_count=files,
+                    reason="Nested .git/ — likely vendored sub-checkout",
+                    tier="propose",
+                    in_gitignore=in_gi,
+                    is_git_repo=True,
+                ))
+                continue
+
             # Tier 3 disambiguator: if this dir has its own project anchor
-            # (xcodeproj/package.json/Cargo.toml/etc.), it's user code — skip,
-            # even if it's huge. SkyPath's GeoTestARSceneOriginal is 530 MB
-            # with its own .xcodeproj and would otherwise be wrongly proposed.
+            # (xcodeproj/package.json/Cargo.toml/etc.) AND no nested .git/,
+            # it's user code — skip even if huge. SkyPath's
+            # GeoTestARSceneOriginal is 530 MB with its own .xcodeproj.
             if has_project_anchor(entry):
                 continue
 
-            # Default to "user code" unless the size-fallback fires.
-            # Per design: sub-repos (nested .git/) and sibling projects without
-            # a project anchor are assumed user code at small sizes — the cost
-            # of falsely excluding user code is worse than letting a small
-            # vendored thing slip through. Users can manually exclude via the
-            # file tree if needed.
+            # Final fallback: large unclassified directory with no anchor and
+            # no nested .git. Surface for user review.
             size, files = _dir_size_and_count(entry)
             if size > _SIZE_FALLBACK_BYTES or files > _SIZE_FALLBACK_FILES:
                 proposed.append(VendorCandidate(
@@ -172,7 +189,7 @@ def scan_for_vendor_dirs(root: Path) -> VendorScanResult:
                     reason="Large directory, no classification signal",
                     tier="propose",
                     in_gitignore=in_gi,
-                    is_git_repo=has_nested_git_dir(entry),
+                    is_git_repo=False,
                 ))
 
         return VendorScanResult(

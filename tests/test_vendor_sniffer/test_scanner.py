@@ -35,18 +35,33 @@ def test_gitmodules_submodule_auto_excluded(tmp_path: Path):
     assert any("vcpkg" in g for g in r.auto_excluded)
 
 
-def test_small_nested_git_dir_is_user_code_skipped(tmp_path: Path):
-    # cesium-native style: own .git/, not in .gitmodules. Under our "when in
-    # doubt, include" rule, a SMALL nested git repo is treated as user code
-    # (probably a sub-repo they're developing on) — neither auto-excluded
-    # nor proposed. The user can manually exclude via the file tree if
-    # they want to.
+def test_nested_git_dir_proposed_as_likely_vendored(tmp_path: Path):
+    # cesium-native style: own .git/, not in .gitmodules. Nested .git is a
+    # strong vendor signal — propose regardless of size, regardless of
+    # anchor. The user reviews via the file tree's pre-excluded state and
+    # unchecks if they're actively developing on this sub-repo.
     (tmp_path / "cesium-native").mkdir()
     (tmp_path / "cesium-native" / ".git").mkdir()
     _make_file(tmp_path / "cesium-native" / "src" / "engine.cpp")
     r = scan_for_vendor_dirs(tmp_path)
     assert not any("cesium-native" in g for g in r.auto_excluded)
-    assert not any(c.rel_path == "cesium-native" for c in r.proposed)
+    cands = [c for c in r.proposed if c.rel_path == "cesium-native"]
+    assert len(cands) == 1
+    assert ".git" in cands[0].reason
+
+
+def test_nested_git_wins_over_project_anchor(tmp_path: Path):
+    # cesium-native real-world case: has BOTH package.json AND its own .git/.
+    # The nested-.git signal wins — propose as likely vendored even though
+    # the anchor would otherwise mark it as user code.
+    d = tmp_path / "cesium-native"
+    d.mkdir()
+    (d / ".git").mkdir()
+    (d / "package.json").write_text('{"name": "cesium-native"}')
+    _make_file(d / "src" / "engine.cpp")
+    r = scan_for_vendor_dirs(tmp_path)
+    cands = [c for c in r.proposed if c.rel_path == "cesium-native"]
+    assert len(cands) == 1, "nested .git/ must override the anchor skip"
 
 
 def test_huge_unclassified_dir_triggers_size_fallback_proposal(tmp_path: Path):

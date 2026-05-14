@@ -92,27 +92,22 @@ def test_skypath_classification(skypath_tree: Path):
     assert "build" in auto, "build/ should auto-exclude via CMakeCache.txt"
     assert "node_modules" in auto, "node_modules should auto-exclude via canonical name"
 
-    # Tier 2 proposed: under the simplified "size-fallback only" rule, a small
-    # nested-git or sibling-manifest dir does NOT propose. Tier 2 only fires
-    # on huge unclassified blobs. In this synthetic fixture, no dir exceeds
-    # 500 MB / 25k files, so nothing should propose.
+    # Tier 2 proposed: nested .git/ is a primary signal — propose cesium-native
+    # (own .git/, not in .gitmodules) even though it's small in the fixture.
+    # vcpkg is in .gitmodules so it's Tier-1 auto-excluded, not proposed.
     proposed_rel = {c.rel_path for c in r.proposed}
-    assert proposed_rel == set(), (
-        f"No dirs should propose in the small synthetic fixture; got {proposed_rel}. "
-        "Sub-repos (cesium-native) and sibling projects (webgl-component) are "
-        "treated as user code by default — user manually excludes in file tree."
-    )
+    assert "cesium-native" in proposed_rel, "nested .git/ should propose cesium-native"
+    assert "vcpkg" not in proposed_rel, "vcpkg is in .gitmodules → Tier 1 auto-exclude, not propose"
 
-    # Tier 3 skipped (everything that isn't Tier 1). Use the dir-name parse
-    # of each glob ("**/NAME/**" → NAME) so we assert the real classification,
-    # not a substring match that could pass vacuously.
+    # Tier 3 skipped (everything that isn't Tier 1 or Tier 2). Use the dir-name
+    # parse of each glob ("**/NAME/**" → NAME) so we assert the real
+    # classification, not a substring match that could pass vacuously.
     auto_excluded_names = {g.split("/")[1] for g in r.auto_excluded if "/" in g}
     assert "SkyPath" not in auto_excluded_names, "user-code SkyPath/ must not auto-exclude"
     assert "GeoTestARSceneOriginal" not in auto_excluded_names
     assert "SkyPath" not in proposed_rel
-    assert "GeoTestARSceneOriginal" not in proposed_rel
-    assert "cesium-native" not in proposed_rel  # has nested .git but under size threshold
-    assert "webgl-component" not in proposed_rel  # has package.json but not vendor signal
+    assert "GeoTestARSceneOriginal" not in proposed_rel  # has .xcodeproj, no nested .git
+    assert "webgl-component" not in proposed_rel  # has package.json, no nested .git
     assert "docs" not in proposed_rel  # small and plain
 
     # Gate 1: gitignore gap — node_modules + build are canonical/build-output

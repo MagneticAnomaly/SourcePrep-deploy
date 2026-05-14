@@ -265,7 +265,16 @@ def _run_vendor_scan(project_id: str, root: Path, reg: Any) -> None:
         new_cfg["vendor_scan"] = result.to_dict()
         existing = list(new_cfg.get("exclude_globs", []))
         seen = set(existing)
-        for g in result.auto_excluded:
+        # Mechanism (2) "Vendor Pre-Exclude": merge BOTH Tier-1 auto-excluded
+        # globs AND Tier-2 proposed candidates into exclude_globs at scan time.
+        # The file tree renders them as excluded; the user reviews and unchecks
+        # any false positives. No modal interruption. Distinct from Gate 1's
+        # "Force Exclude in SourcePrep" button (mechanism 3), which only fires
+        # if the user explicitly clicks it.
+        new_globs = list(result.auto_excluded)
+        for cand in result.proposed:
+            new_globs.append(f"**/{cand.rel_path}/**")
+        for g in new_globs:
             if g not in seen:
                 existing.append(g)
                 seen.add(g)
