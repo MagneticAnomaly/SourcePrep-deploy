@@ -105,6 +105,51 @@ def test_post_apply_excludes_unions_globs_into_config(client: TestClient, tmp_pa
     assert any("vcpkg" in g for g in cfg["exclude_globs"])
 
 
+def test_post_apply_unexclude_removes_globs_from_config(client: TestClient, tmp_path: Path):
+    """The `unexclude` field removes `**/rel_path/**` from exclude_globs.
+
+    Used when the user un-checks a pre-excluded item in the file tree. The
+    inverse of `exclude`. Idempotent — removing a path that isn't excluded
+    is a no-op (no 4xx).
+    """
+    pid, _ = _create_project_with_vendor(client, tmp_path)
+    # Step 1: exclude cesium-native + vcpkg
+    client.post(
+        f"/projects/{pid}/exclude_proposals/apply",
+        json={"exclude": ["cesium-native", "vcpkg"], "dismiss": [], "add_to_gitignore": []},
+    )
+    cfg_before = client.get(f"/projects/{pid}").json()["data"]["project"]["config"]
+    assert any("cesium-native" in g for g in cfg_before["exclude_globs"])
+    assert any("vcpkg" in g for g in cfg_before["exclude_globs"])
+    # Step 2: un-exclude cesium-native (user un-checks it in the file tree)
+    res = client.post(
+        f"/projects/{pid}/exclude_proposals/apply",
+        json={
+            "exclude": [],
+            "unexclude": ["cesium-native"],
+            "dismiss": [],
+            "add_to_gitignore": [],
+        },
+    )
+    assert res.status_code == 200
+    cfg_after = client.get(f"/projects/{pid}").json()["data"]["project"]["config"]
+    assert not any("cesium-native" in g for g in cfg_after["exclude_globs"])
+    # vcpkg should remain excluded
+    assert any("vcpkg" in g for g in cfg_after["exclude_globs"])
+
+    # Step 3: idempotent — un-excluding a path that isn't there does nothing
+    res = client.post(
+        f"/projects/{pid}/exclude_proposals/apply",
+        json={
+            "exclude": [],
+            "unexclude": ["never-was-excluded"],
+            "dismiss": [],
+            "add_to_gitignore": [],
+        },
+    )
+    assert res.status_code == 200
+
+
 def test_post_apply_records_dismissed_proposals(client: TestClient, tmp_path: Path):
     pid, _ = _create_project_with_vendor(client, tmp_path)
     res = client.post(

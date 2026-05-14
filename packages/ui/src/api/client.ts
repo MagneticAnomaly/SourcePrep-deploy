@@ -52,7 +52,11 @@ export interface VendorScanResult {
 }
 
 export interface ApplyVendorProposalsRequest {
+  /** Rel-paths to ADD to exclude_globs (as `**\/rel_path/**`). */
   exclude: string[];
+  /** Rel-paths to REMOVE from exclude_globs — used when the user un-checks
+   * a pre-excluded item in the file tree to bring it back into the index. */
+  unexclude?: string[];
   dismiss: string[];
   add_to_gitignore: string[];
 }

@@ -461,22 +461,25 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     void fireBuild()
   }, [fireBuild])
 
-  // Gate 2 was dropped — Vendor Pre-Exclude (mechanism 2) pre-excludes vendor
-  // candidates into exclude_globs at scan time; user reviews via file tree
-  // instead of a modal. The handlers below stay as no-op stubs so existing
-  // callers don't break; remove once useDashboardPanels stops passing them.
-  const handleGate2Close = useCallback(() => setGateState('idle'), [])
-  const handleGate2Apply = useCallback(
-    async (_e: string[], _d: string[]) => {
-      setGateState('idle')
-      await fireBuild()
-    },
-    [fireBuild],
-  )
-  const handleGate2Skip = useCallback(() => {
-    setGateState('idle')
-    void fireBuild()
-  }, [fireBuild])
+  // Post-scan notice: when the background sniffer completes, surface a small
+  // info toast so the user knows pre-excludes have been applied to the file
+  // tree. Only fires once per scan completion (status transitions to
+  // 'complete'); never fires for 'pending' or 'failed' states.
+  const lastNoticeKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!selectedProjectId) return
+    if (!vendorScan || vendorScan.status !== 'complete') return
+    // Key by project + scan time so we don't re-notify on every render.
+    const key = `${selectedProjectId}::${vendorScan.scanned_at}`
+    if (lastNoticeKeyRef.current === key) return
+    lastNoticeKeyRef.current = key
+    const total = vendorScan.auto_excluded.length + vendorScan.proposed.length
+    if (total === 0) return
+    onErrorRef.current(
+      `Pre-excluded ${total} ${total === 1 ? 'directory' : 'directories'} — review in the file tree.`,
+      'info',
+    )
+  }, [selectedProjectId, vendorScan])
 
   const handleSaveConfig = useCallback(async () => {
     if (!selectedProjectId) return
@@ -705,11 +708,6 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     handleGate1FixFirst,
     handleGate1ForceExclude,
     handleGate1Continue,
-    // Gate 2 handlers retained as no-op stubs for API stability; remove once
-    // useDashboardPanels stops mounting the (now-deprecated) Gate-2 modal.
-    handleGate2Close,
-    handleGate2Apply,
-    handleGate2Skip,
     // Internal setters needed by other hooks (e.g. useTraceSystem needs setProjectConfig)
     setProjectConfig,
     setConfigDirty,

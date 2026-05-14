@@ -34,6 +34,11 @@ router = APIRouter(tags=["vendor_scan"])
 
 class ApplyProposalsRequest(BaseModel):
     exclude: list[str] = Field(default_factory=list)
+    """Rel-paths to ADD to exclude_globs (as `**/rel_path/**`)."""
+    unexclude: list[str] = Field(default_factory=list)
+    """Rel-paths to REMOVE from exclude_globs. Used when the user un-checks a
+    pre-excluded item in the file tree to "include" it. Idempotent: removing
+    a path that isn't in exclude_globs is a no-op."""
     dismiss: list[str] = Field(default_factory=list)
     add_to_gitignore: list[str] = Field(default_factory=list)
 
@@ -67,6 +72,23 @@ def _merge_excludes_into_config(cfg: dict, new_globs: list[str]) -> dict:
             existing.append(g)
             seen.add(g)
     new_cfg["exclude_globs"] = existing
+    return new_cfg
+
+
+def _remove_excludes_from_config(cfg: dict, drop_globs: list[str]) -> dict:
+    """Inverse of `_merge_excludes_into_config`: drop the listed globs.
+
+    Idempotent — globs not currently in exclude_globs are simply ignored.
+    Used by the file tree's un-exclude toggle when the user un-checks a
+    pre-excluded vendor directory.
+    """
+    if not drop_globs:
+        return cfg
+    drop = set(drop_globs)
+    new_cfg = dict(cfg)
+    new_cfg["exclude_globs"] = [
+        g for g in new_cfg.get("exclude_globs", []) if g not in drop
+    ]
     return new_cfg
 
 
@@ -114,9 +136,11 @@ def apply_proposals(project_id: str, req: ApplyProposalsRequest) -> dict[str, An
         )
 
     reg = _srv()._get_registry()
+    drop_globs = [_glob_for(rel) for rel in req.unexclude]
 
     def _merge(cfg: dict) -> dict:
         new_cfg = _merge_excludes_into_config(cfg, new_globs)
+        new_cfg = _remove_excludes_from_config(new_cfg, drop_globs)
         existing_dismissed = list(new_cfg.get("dismissed_proposals") or [])
         seen = set(existing_dismissed)
         for rel in req.dismiss:

@@ -481,6 +481,35 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
     }
   }, [p.traceCoverage?.excluded])
 
+  // Hydrate from exclude_globs — surfaces vendor pre-exclude entries (vcpkg/
+  // cesium-native/etc. added by the background sniffer) in the file tree
+  // immediately on project load, without waiting for trace coverage to run.
+  // Parses `**/path/**` and `path/**` patterns; bare directory entries pass
+  // through unchanged. Glob patterns with wildcards in the middle are skipped.
+  const excludeGlobs = p.projectConfig?.exclude_globs
+  const excludeGlobsKey = excludeGlobs?.join('|') ?? ''
+  useEffect(() => {
+    if (!excludeGlobs || excludeGlobs.length === 0) return
+    setLocalExcludedPaths(prev => {
+      const merged = new Set(prev)
+      for (const glob of excludeGlobs) {
+        // `**/foo/**`  →  foo
+        // `foo/**`     →  foo
+        // `foo`        →  foo
+        // anything with `*` mid-path or other wildcards → skip
+        let stripped = glob
+        if (stripped.startsWith('**/')) stripped = stripped.slice(3)
+        if (stripped.endsWith('/**')) stripped = stripped.slice(0, -3)
+        if (stripped.includes('*') || stripped.includes('?')) continue
+        const clean = stripped.replace(/\/$/, '').replace(/^\//, '')
+        if (clean) merged.add(clean)
+      }
+      if (merged.size === prev.size) return prev
+      return merged
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.selectedProject?.id, excludeGlobsKey])
+
   // Toggle exclude: mirrors the Knowledge Sources selection model exactly.
   // - Add folder: adds folder path, removes descendant paths (parent covers them)
   // - Remove child within selected parent: "explodes" the ancestor by removing it
@@ -569,16 +598,44 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       // causing "exclude vanishes after refresh".
       const addBatch: string[] = []
       const removeBatch: string[] = []
+      const cleanPaths: string[] = []
       for (const rawPath of paths) {
         const cleanPath = rawPath.replace(/\/$/, '')
+        cleanPaths.push(cleanPath)
         const bucket = action === 'add' ? addBatch : removeBatch
         bucket.push(cleanPath)
         bucket.push(`${cleanPath}/**`)
       }
       if (addBatch.length > 0) p.handleAddExcludePattern(addBatch)
       if (removeBatch.length > 0) p.handleRemoveExcludePattern(removeBatch)
+
+      // ALSO write to exclude_globs so the toggle has unified "exclude from
+      // everything" semantics. Vendor pre-excludes (vcpkg/cesium-native/etc.)
+      // live in exclude_globs; un-checking them in the tree must actually
+      // remove them from the index list, not just from trace. Both endpoints
+      // are idempotent — calling both is safe whether or not the path is
+      // present in either list.
+      const projectId = p.selectedProject?.id
+      if (projectId && cleanPaths.length > 0) {
+        apiClient
+          .applyVendorProposals(projectId, {
+            exclude: action === 'add' ? cleanPaths : [],
+            unexclude: action === 'remove' ? cleanPaths : [],
+            dismiss: [],
+            add_to_gitignore: [],
+          })
+          .catch((e) => {
+            console.warn('[handleToggleExclude] applyVendorProposals failed:', e)
+          })
+      }
     },
-    [p.handleAddExcludePattern, p.handleRemoveExcludePattern, p.fileTree]
+    [
+      p.handleAddExcludePattern,
+      p.handleRemoveExcludePattern,
+      p.fileTree,
+      p.selectedProject?.id,
+      apiClient,
+    ]
   )
 
   // Use local optimistic state as the source of truth for the UI
