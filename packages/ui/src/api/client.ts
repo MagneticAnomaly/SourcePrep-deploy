@@ -30,6 +30,38 @@ export interface FileTreeNode {
   has_children?: boolean;
 }
 
+// ── Vendor scan ──────────────────────────────────────────────
+export interface VendorCandidate {
+  path: string;
+  rel_path: string;
+  size_bytes: number;
+  file_count: number;
+  reason: string;
+  tier: 'auto' | 'propose';
+  in_gitignore: boolean;
+  is_git_repo: boolean;
+}
+
+export interface VendorScanResult {
+  auto_excluded: string[];
+  proposed: VendorCandidate[];
+  gitignore_gaps: VendorCandidate[];
+  scanned_at: number;
+  status: 'pending' | 'complete' | 'failed';
+  error: string | null;
+}
+
+export interface ApplyVendorProposalsRequest {
+  exclude: string[];
+  dismiss: string[];
+  add_to_gitignore: string[];
+}
+
+export interface ApplyVendorProposalsResponse {
+  config: Record<string, unknown>;
+  dismissed_proposals: string[];
+}
+
 export interface ApiClient {
   // Configuration
   readonly baseUrl: string;
@@ -366,6 +398,14 @@ export interface ApiClient {
   deleteScope(projectId: string, scopeId: string): Promise<void>;
   addPathsToScope(projectId: string, scopeId: string, paths: string[]): Promise<ScopeRecord>;
   removePathsFromScope(projectId: string, scopeId: string, paths: string[]): Promise<ScopeRecord>;
+
+  // Vendor scan
+  getVendorScan(projectId: string): Promise<VendorScanResult>;
+  rescanVendor(projectId: string): Promise<VendorScanResult>;
+  applyVendorProposals(
+    projectId: string,
+    request: ApplyVendorProposalsRequest,
+  ): Promise<ApplyVendorProposalsResponse>;
 }
 
 export interface ApiClientConfig {
@@ -1919,6 +1959,31 @@ export class PrepApiClient implements ApiClient {
     return this.requestEnvelope<{ cleared: boolean; previous_reason: string | null }>(
       `/projects/${encodeURIComponent(projectId)}/pipeline/reset-barrier`,
       { method: 'DELETE' },
+    );
+  }
+
+  // ── Vendor scan ────────────────────────────────────────────
+
+  async getVendorScan(projectId: string): Promise<VendorScanResult> {
+    return this.requestEnvelope<VendorScanResult>(
+      `/projects/${encodeURIComponent(projectId)}/vendor_scan`,
+    );
+  }
+
+  async rescanVendor(projectId: string): Promise<VendorScanResult> {
+    return this.requestEnvelope<VendorScanResult>(
+      `/projects/${encodeURIComponent(projectId)}/vendor_scan/rescan`,
+      { method: 'POST' },
+    );
+  }
+
+  async applyVendorProposals(
+    projectId: string,
+    request: ApplyVendorProposalsRequest,
+  ): Promise<ApplyVendorProposalsResponse> {
+    return this.requestEnvelope<ApplyVendorProposalsResponse>(
+      `/projects/${encodeURIComponent(projectId)}/exclude_proposals/apply`,
+      { method: 'POST', body: request },
     );
   }
 }

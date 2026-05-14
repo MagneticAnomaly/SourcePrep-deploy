@@ -72,7 +72,11 @@ import {
   ConceptsPanel,
   ConceptsDetail,
   PanelLoading,
+  GitignoreHygieneModal,
+  InitExcludeReviewModal,
 } from '@prep/ui'
+import type { VendorScanResult } from '@prep/ui'
+import type { GateState } from './useProjectManager'
 import type { TraceStatus, TraceCoverage } from './useTraceSystem'
 import type { UseAuditSystemReturn } from './useAuditSystem'
 import type { UseSpaghettiSystemReturn } from './useSpaghettiSystem'
@@ -286,6 +290,14 @@ export interface DashboardPanelsProps {
   findActiveTask: (type: 'index_build' | 'trace_build') => any
   handleBuild: () => void
   transientComplete: boolean
+  // Vendor-scan gate
+  gateState: GateState
+  vendorScan: VendorScanResult | null
+  handleGate1Cancel: () => void
+  handleGate1Continue: () => void
+  handleGate2Close: () => void
+  handleGate2Apply: (excludeRelPaths: string[], dismissRelPaths: string[]) => Promise<void>
+  handleGate2Skip: () => void
   /** Open settings drawer to the Deep Enrichment section */
   onOpenDeepSettings?: () => void
   /** Open settings drawer (generic — used for upgrade CTAs) */
@@ -746,46 +758,64 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       <UsageGuidePanel bare />
     ),
     status: (
-      <IndexStatusCard
-        stats={p.projectStatus ? {
-          loaded: p.projectStatus.index.exists,
-          index_dir: p.selectedProject?.path,
-          total_documents: p.projectStatus.index.total_chunks,
-          model: p.projectStatus.index.embedding_model,
-          built_at: p.projectStatus.index.last_build_at ?? undefined,
-          embedding_dim: p.projectStatus.index.embedding_dim,
-          build: p.projectStatus.index.build,
-        } : {
-          loaded: false,
-          total_documents: 0,
-          embedding_dim: 0,
-          model: 'Unknown',
-          built_at: undefined,
-          build: undefined,
-        }}
-        building={p.projectStatus?.building ?? false}
-        stale={p.projectStatus?.stale ?? false}
-        progress={p.transientComplete ? {
-          task_id: 'complete',
-          message: 'Build complete',
-          current: p.projectStatus?.index.total_chunks ?? 0,
-          total: p.projectStatus?.index.total_chunks ?? 0,
-          percent: 100,
-          status: 'completed'
-        } : p.findActiveTask('index_build')}
-        lastError={p.projectStatus?.index.last_error?.message}
-        onBuild={p.selectedProjectId ? p.handleBuild : undefined}
-        traceChunks={p.traceStatus.counts?.nodes ?? 0}
-        autoRebuild={p.indexAutoRebuild}
-        onAutoRebuildChange={p.handleIndexAutoRebuildChange}
-        isPro={p.isPro}
-        limitReached={p.limitReached}
-        inactive={p.inactive}
-        statsUnreachable={p.projectStatusUnreachable}
-        className="h-full border-none shadow-none bg-transparent"
-        bare
-        hideChart={p.transientComplete}
-      />
+      <>
+        <IndexStatusCard
+          stats={p.projectStatus ? {
+            loaded: p.projectStatus.index.exists,
+            index_dir: p.selectedProject?.path,
+            total_documents: p.projectStatus.index.total_chunks,
+            model: p.projectStatus.index.embedding_model,
+            built_at: p.projectStatus.index.last_build_at ?? undefined,
+            embedding_dim: p.projectStatus.index.embedding_dim,
+            build: p.projectStatus.index.build,
+          } : {
+            loaded: false,
+            total_documents: 0,
+            embedding_dim: 0,
+            model: 'Unknown',
+            built_at: undefined,
+            build: undefined,
+          }}
+          building={p.projectStatus?.building ?? false}
+          stale={p.projectStatus?.stale ?? false}
+          progress={p.transientComplete ? {
+            task_id: 'complete',
+            message: 'Build complete',
+            current: p.projectStatus?.index.total_chunks ?? 0,
+            total: p.projectStatus?.index.total_chunks ?? 0,
+            percent: 100,
+            status: 'completed'
+          } : p.findActiveTask('index_build')}
+          lastError={p.projectStatus?.index.last_error?.message}
+          onBuild={p.selectedProjectId ? p.handleBuild : undefined}
+          traceChunks={p.traceStatus.counts?.nodes ?? 0}
+          autoRebuild={p.indexAutoRebuild}
+          onAutoRebuildChange={p.handleIndexAutoRebuildChange}
+          isPro={p.isPro}
+          limitReached={p.limitReached}
+          inactive={p.inactive}
+          statsUnreachable={p.projectStatusUnreachable}
+          className="h-full border-none shadow-none bg-transparent"
+          bare
+          hideChart={p.transientComplete}
+        />
+        <GitignoreHygieneModal
+          open={p.gateState === 'gate1'}
+          gaps={p.vendorScan?.gitignore_gaps ?? []}
+          onCancel={p.handleGate1Cancel}
+          onContinue={p.handleGate1Continue}
+          testId="gate1"
+        />
+        <InitExcludeReviewModal
+          open={p.gateState === 'gate2'}
+          proposed={p.vendorScan?.proposed ?? []}
+          autoExcludedSummary={[]}
+          onClose={p.handleGate2Close}
+          onApply={p.handleGate2Apply}
+          onSkip={p.handleGate2Skip}
+          testId="gate2"
+        />
+      </>
     ),
     // Phase 119 Phase A: per-endpoint Plan dropdown + integer Cloud Models
     // belong on the endpoint itself (not buried in Settings → AI Models). The

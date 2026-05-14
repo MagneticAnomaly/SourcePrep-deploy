@@ -1,6 +1,14 @@
 export { ApiClientError } from './errors';
 export { PrepApiClient, createPrepApiClient } from './client';
-export type { ApiClient, ApiClientConfig, FileTreeNode } from './client';
+export type {
+  ApiClient,
+  ApiClientConfig,
+  FileTreeNode,
+  VendorCandidate,
+  VendorScanResult,
+  ApplyVendorProposalsRequest,
+  ApplyVendorProposalsResponse,
+} from './client';
 export { MockApiClient } from './mock';
 export { ApiClientProvider, useApiClient } from './react';
 export type {

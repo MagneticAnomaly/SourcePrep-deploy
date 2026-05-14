@@ -238,6 +238,9 @@ function App() {
     handleAddProject, handleArchiveProject, handleUnarchiveProject, handleDeleteProject, handleBuild,
     handleSaveConfig, handleProjectConfigChange, handleDetectStack,
     handleToggleActive, handleToggleStar, handleCyclePriority,
+    gateState, vendorScan,
+    handleGate1Cancel, handleGate1Continue,
+    handleGate2Close, handleGate2Apply, handleGate2Skip,
     setProjectConfig, setConfigDirty,
   } = project
 
@@ -928,6 +931,9 @@ function App() {
     scopeStatus: selectedProjectId ? scopeEvents[selectedProjectId] : undefined,
     logs, clearLogs, findActiveTask, handleBuild,
     transientComplete: selectedProjectId ? transientCompleteProjects.has(selectedProjectId) : false,
+    gateState, vendorScan,
+    handleGate1Cancel, handleGate1Continue,
+    handleGate2Close, handleGate2Apply, handleGate2Skip,
     onOpenDeepSettings: () => { openSettingsAt('deep-analysis') },
     onOpenSettings: () => { openSettingsAt(selectedProjectId ? 'sources' : 'appearance') },
     onOpenDetails: (panelId: string) => layoutApiRef.current?.openDetails(panelId),

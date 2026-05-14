@@ -1334,15 +1334,23 @@ def test_skypath_classification(skypath_tree: Path):
     assert "build" in auto, "build/ should auto-exclude via CMakeCache.txt"
     assert "node_modules" in auto, "node_modules should auto-exclude via canonical name"
 
-    # Tier 2 proposed
+    # Tier 2 proposed: under the simplified "size-fallback only" rule, a small
+    # nested-git or sibling-manifest dir does NOT propose. Tier 2 only fires
+    # on huge unclassified blobs. In this synthetic fixture, no dir exceeds
+    # 500 MB / 25k files, so nothing should propose.
     proposed_rel = {c.rel_path for c in r.proposed}
-    assert "cesium-native" in proposed_rel, "cesium-native should propose (nested .git, not in .gitmodules)"
-    assert "webgl-component" in proposed_rel, "webgl-component should propose (separate project, not in workspaces)"
+    assert proposed_rel == set(), (
+        f"No dirs should propose in the small synthetic fixture; got {proposed_rel}. "
+        "Sub-repos (cesium-native) and sibling projects (webgl-component) are "
+        "treated as user code by default — user manually excludes in file tree."
+    )
 
-    # Tier 3 skipped
+    # Tier 3 skipped (everything that isn't Tier 1)
     assert "SkyPath" not in proposed_rel
     assert not any("SkyPath/" in g for g in r.auto_excluded if "SkyPath.xcworkspace" not in g)
     assert "GeoTestARSceneOriginal" not in proposed_rel
+    assert "cesium-native" not in proposed_rel  # has nested .git but under size threshold
+    assert "webgl-component" not in proposed_rel  # has package.json but not vendor signal
     assert "docs" not in proposed_rel  # small and plain
 
     # Gate 1: gitignore gap — node_modules + build are canonical/build-output

@@ -8,7 +8,12 @@ import {
   type StatusState,
   type ProjectMode,
   type PriorityLevel,
+  type VendorScanResult,
 } from '@prep/ui'
+
+// ── Types ────────────────────────────────────────────────────
+
+export type GateState = 'idle' | 'gate1' | 'gate2'
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -116,6 +121,10 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
   const STALE_AFTER_FAILURES = 3
   const [projectConfig, setProjectConfig] = useState<ProjectConfig>(DEFAULT_CONFIG)
   const [configDirty, setConfigDirty] = useState(false)
+
+  // ── Vendor-scan gate state ───────────────────────────────────
+  const [gateState, setGateState] = useState<GateState>('idle')
+  const [vendorScan, setVendorScan] = useState<VendorScanResult | null>(null)
 
   const markPollSuccess = useCallback((pid: string) => {
     pollFailureCountsRef.current[pid] = 0
@@ -334,7 +343,7 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     }
   }, [api, refreshProjects])
 
-  const handleBuild = useCallback(async () => {
+  const fireBuild = useCallback(async () => {
     if (!selectedProjectId) return
     const paths = [...(includedPathsRef.current ?? [])]
     // If the frontend has explicit selections, send them.
@@ -387,6 +396,75 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
       onErrorRef.current(e instanceof Error ? e.message : 'Build failed — check logs for details.', 'error')
     }
   }, [api, selectedProjectId, refreshStatus, markPollSuccess, markPollFailure])
+
+  const handleBuild = useCallback(async () => {
+    if (!selectedProjectId) return
+    try {
+      let scan = await api.getVendorScan(selectedProjectId)
+      // v1 refresh heuristic: if status is still 'pending' and scanned_at is 0,
+      // this is either a legacy project or a daemon-crash case where pending is
+      // permanent. Force a fresh rescan.
+      if (scan.status === 'pending' && scan.scanned_at === 0) {
+        scan = await api.rescanVendor(selectedProjectId)
+      }
+      setVendorScan(scan)
+      if (scan.gitignore_gaps.length > 0) {
+        setGateState('gate1')
+        return
+      }
+      if (scan.proposed.length > 0) {
+        setGateState('gate2')
+        return
+      }
+    } catch (e) {
+      // If vendor scan fails (e.g. endpoint not yet deployed, transient 500,
+      // network blip), fall through to fire the build directly rather than
+      // blocking the user. Log so the failure is debuggable in the console.
+      console.warn('[handleBuild] vendor scan failed, proceeding without gate:', e)
+    }
+    await fireBuild()
+  }, [api, selectedProjectId, fireBuild])
+
+  const handleGate1Cancel = useCallback(() => setGateState('idle'), [])
+
+  const handleGate1Continue = useCallback(() => {
+    if (vendorScan && vendorScan.proposed.length > 0) {
+      setGateState('gate2')
+    } else {
+      setGateState('idle')
+      void fireBuild()
+    }
+  }, [vendorScan, fireBuild])
+
+  const handleGate2Close = useCallback(() => setGateState('idle'), [])
+
+  const handleGate2Apply = useCallback(
+    async (excludeRelPaths: string[], dismissRelPaths: string[]) => {
+      if (!selectedProjectId) return
+      try {
+        await api.applyVendorProposals(selectedProjectId, {
+          exclude: excludeRelPaths,
+          dismiss: dismissRelPaths,
+          add_to_gitignore: [],
+        })
+      } catch (e) {
+        onErrorRef.current(e instanceof Error ? e.message : 'Apply failed', 'error')
+      }
+      // Intentional: build proceeds even on apply failure. The user already
+      // committed to "Initialize" by clicking Apply; a transient apply error
+      // (e.g. 409 from concurrent settings edit) shouldn't strand them in the
+      // modal. The excludes simply won't be applied — they can re-run from
+      // Settings later.
+      setGateState('idle')
+      await fireBuild()
+    },
+    [api, selectedProjectId, fireBuild],
+  )
+
+  const handleGate2Skip = useCallback(() => {
+    setGateState('idle')
+    void fireBuild()
+  }, [fireBuild])
 
   const handleSaveConfig = useCallback(async () => {
     if (!selectedProjectId) return
@@ -591,6 +669,9 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     configDirty,
     buildingProjects,
     transientCompleteProjects,
+    // Vendor-scan gate state
+    gateState,
+    vendorScan,
     // Selection
     setSelectedProjectId,
     // Fetch
@@ -608,6 +689,12 @@ export function useProjectManager(deps: UseProjectManagerDeps) {
     handleToggleActive,
     handleToggleStar,
     handleCyclePriority,
+    // Vendor-scan gate handlers
+    handleGate1Cancel,
+    handleGate1Continue,
+    handleGate2Close,
+    handleGate2Apply,
+    handleGate2Skip,
     // Internal setters needed by other hooks (e.g. useTraceSystem needs setProjectConfig)
     setProjectConfig,
     setConfigDirty,
