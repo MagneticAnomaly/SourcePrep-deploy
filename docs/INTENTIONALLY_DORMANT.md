@@ -168,5 +168,4 @@ investigation.
   derivation runs but is invoked via re-exports. **Status: WIRED,
   flag was wrong.** Remove from Phase 122 audit list.
 - `rules_generator.py` — wired (writes AGENTS.md every pipeline run)
-- `context_config.py` — pending
 - `concept_seeder.py` — wired (Phase 124 T4 integration verified)
