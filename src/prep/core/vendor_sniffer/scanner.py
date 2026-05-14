@@ -15,6 +15,7 @@ from prep.core.vendor_sniffer.signals import (
     has_cmake_build_marker,
     has_ignore_everything_gitignore,
     has_nested_git_dir,
+    has_project_anchor,
     is_canonical_install_dir,
 )
 
@@ -148,11 +149,19 @@ def scan_for_vendor_dirs(root: Path) -> VendorScanResult:
                     ))
                 continue
 
+            # Tier 3 disambiguator: if this dir has its own project anchor
+            # (xcodeproj/package.json/Cargo.toml/etc.), it's user code — skip,
+            # even if it's huge. SkyPath's GeoTestARSceneOriginal is 530 MB
+            # with its own .xcodeproj and would otherwise be wrongly proposed.
+            if has_project_anchor(entry):
+                continue
+
             # Default to "user code" unless the size-fallback fires.
-            # Per design: sub-repos (nested .git/) and sibling projects (own manifest)
-            # are assumed user code — the cost of falsely excluding user code is worse
-            # than letting a small vendored thing slip through. Users can manually
-            # exclude via the file tree if needed.
+            # Per design: sub-repos (nested .git/) and sibling projects without
+            # a project anchor are assumed user code at small sizes — the cost
+            # of falsely excluding user code is worse than letting a small
+            # vendored thing slip through. Users can manually exclude via the
+            # file tree if needed.
             size, files = _dir_size_and_count(entry)
             if size > _SIZE_FALLBACK_BYTES or files > _SIZE_FALLBACK_FILES:
                 proposed.append(VendorCandidate(

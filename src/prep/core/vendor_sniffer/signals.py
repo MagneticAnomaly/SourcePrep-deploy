@@ -30,6 +30,35 @@ CANONICAL_INSTALL_DIR_NAMES: frozenset[str] = frozenset({
     "bazel-testlogs",
 })
 
+# Files (or dir-name patterns) whose presence inside a top-level dir signals
+# "this is its own project / user code." Used as a Tier 3 disambiguator
+# against size-fallback proposals — a 530MB user-code subproject with its own
+# .xcodeproj would otherwise be wrongly proposed because of size alone.
+# NOTE: CMakeLists.txt deliberately NOT here — it's commonly present in both
+# user-code C++ projects AND vendored libraries (e.g. cesium-native).
+PROJECT_ANCHOR_FILES: frozenset[str] = frozenset({
+    "package.json",
+    "pyproject.toml",
+    "setup.py",
+    "Cargo.toml",
+    "go.mod",
+    "Package.swift",
+    "Gemfile",
+    "composer.json",
+    "pubspec.yaml",
+    "build.gradle",
+    "build.gradle.kts",
+    "pom.xml",
+})
+
+# Patterns matched by suffix instead of exact name
+_PROJECT_ANCHOR_SUFFIXES: tuple[str, ...] = (
+    ".xcodeproj",
+    ".xcworkspace",
+    ".sln",
+    ".csproj",
+)
+
 # Files that mean "this is a CMake (or similar) build-output directory"
 _CMAKE_BUILD_MARKERS: frozenset[str] = frozenset({
     "CMakeCache.txt",
@@ -81,3 +110,28 @@ def has_ignore_everything_gitignore(p: Path) -> bool:
     return False
 
 
+
+
+
+def has_project_anchor(p: Path) -> bool:
+    """
+    Tier-3 disambiguator: directory contains a recognized project/manifest
+    file, signalling user code rather than a vendored dep.
+
+    Used by the scanner to filter the size-fallback path — a large directory
+    with its own xcodeproj/package.json/Cargo.toml/etc. is almost certainly
+    a sub-project the user is actively developing, not a vendored library,
+    even if it crosses the size threshold.
+    """
+    if not p.is_dir():
+        return False
+    try:
+        for child in p.iterdir():
+            if child.name in PROJECT_ANCHOR_FILES:
+                return True
+            for suffix in _PROJECT_ANCHOR_SUFFIXES:
+                if child.name.endswith(suffix):
+                    return True
+    except OSError:
+        return False
+    return False

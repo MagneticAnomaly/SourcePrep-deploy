@@ -2,11 +2,58 @@ from pathlib import Path
 
 from prep.core.vendor_sniffer.signals import (
     CANONICAL_INSTALL_DIR_NAMES,
+    PROJECT_ANCHOR_FILES,
     has_cmake_build_marker,
     has_ignore_everything_gitignore,
     has_nested_git_dir,
+    has_project_anchor,
     is_canonical_install_dir,
 )
+
+
+def test_project_anchor_files_includes_major_ecosystems():
+    assert "package.json" in PROJECT_ANCHOR_FILES
+    assert "pyproject.toml" in PROJECT_ANCHOR_FILES
+    assert "Cargo.toml" in PROJECT_ANCHOR_FILES
+    assert "go.mod" in PROJECT_ANCHOR_FILES
+    assert "Package.swift" in PROJECT_ANCHOR_FILES
+
+
+def test_project_anchor_excludes_cmakelists():
+    # CMakeLists.txt is intentionally NOT an anchor — both user code AND
+    # vendored libraries (e.g. cesium-native) commonly have it.
+    assert "CMakeLists.txt" not in PROJECT_ANCHOR_FILES
+
+
+def test_has_project_anchor_finds_package_json(tmp_path: Path):
+    d = tmp_path / "webgl-component"
+    d.mkdir()
+    (d / "package.json").write_text("{}")
+    assert has_project_anchor(d) is True
+
+
+def test_has_project_anchor_finds_xcodeproj_suffix(tmp_path: Path):
+    d = tmp_path / "GeoTestARSceneOriginal"
+    d.mkdir()
+    (d / "GeoTestARScene.xcodeproj").mkdir()
+    assert has_project_anchor(d) is True
+
+
+def test_has_project_anchor_returns_false_for_cmakelists_only(tmp_path: Path):
+    # Critical: a vendored C++ library with only CMakeLists.txt must NOT
+    # be misclassified as user code by the anchor check.
+    d = tmp_path / "cesium-native"
+    d.mkdir()
+    (d / "CMakeLists.txt").write_text("project(cesium)\n")
+    (d / "src").mkdir()
+    assert has_project_anchor(d) is False
+
+
+def test_has_project_anchor_missing(tmp_path: Path):
+    d = tmp_path / "plain"
+    d.mkdir()
+    (d / "README.md").write_text("# readme\n")
+    assert has_project_anchor(d) is False
 
 
 def test_canonical_install_dir_whitelist_contains_expected(tmp_path: Path):
