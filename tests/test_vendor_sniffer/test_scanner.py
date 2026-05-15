@@ -79,6 +79,45 @@ def test_huge_unclassified_dir_triggers_size_fallback_proposal(tmp_path: Path):
     assert "Large directory" in cands[0].reason
 
 
+def test_size_fallback_disabled_when_root_has_anchor(tmp_path: Path):
+    """Regression: SourcePrep's `src/`, `tests/`, `websites/` were wrongly
+    proposed because size-fallback fired and `has_project_anchor` only looks
+    at the immediate dir's root (not the repo root or deeper). When the REPO
+    root has an anchor (pyproject.toml/package.json/etc.) the whole project
+    is structured and large top-level subdirectories are user code, not
+    vendored dumps. The size-fallback must NOT fire in that case.
+    """
+    # Root has a pyproject.toml — this marks the project as structured
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "myproject"\n')
+    # A huge subdirectory that would otherwise trip the size fallback
+    huge = tmp_path / "src"
+    for i in range(25_001):
+        _make_file(huge / f"shard_{i // 100}" / f"f_{i}.bin", size=1)
+    r = scan_for_vendor_dirs(tmp_path)
+    assert not any(c.rel_path == "src" for c in r.proposed), (
+        "Repo with root anchor should NOT propose its own src/ even if huge"
+    )
+
+
+def test_size_fallback_still_fires_when_root_has_no_anchor(tmp_path: Path):
+    """The size-fallback path remains active for unstructured folder dumps.
+
+    Without a project anchor at the repo root, a huge unclassified
+    subdirectory is suspicious — propose it. This preserves the original
+    SkyPath-shaped failure mode (a folder full of code with no manifest at
+    root) that motivated the size fallback in the first place.
+    """
+    # NO pyproject.toml / package.json / etc. at root
+    huge = tmp_path / "huge-blob"
+    for i in range(25_001):
+        _make_file(huge / f"shard_{i // 100}" / f"f_{i}.bin", size=1)
+    r = scan_for_vendor_dirs(tmp_path)
+    cands = [c for c in r.proposed if c.rel_path == "huge-blob"]
+    assert len(cands) == 1, (
+        f"Folder dump (no root anchor) should still trip size fallback; got {r.proposed}"
+    )
+
+
 def test_separate_subproject_with_own_manifest_is_skipped(tmp_path: Path):
     # webgl-component style: has its own package.json, no nested .git/, not
     # in root workspaces. Under our rule, this is user code (a sibling sub-

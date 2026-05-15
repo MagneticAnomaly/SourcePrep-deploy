@@ -95,6 +95,16 @@ def scan_for_vendor_dirs(root: Path) -> VendorScanResult:
         submodule_paths = parse_gitmodules(root)
         gitignore_dirs = parse_root_gitignore_toplevel_dirs(root)
         workspace_members = parse_workspace_members(root)
+        # If the repo root has a project anchor (pyproject.toml, package.json,
+        # Cargo.toml, .xcodeproj/.xcworkspace, etc.) the project is structured
+        # — top-level subdirectories like `src/`, `tests/`, `websites/` are
+        # almost certainly user code, even if they're huge. Disable the size-
+        # fallback path entirely. Items still get caught by Tier-1 signals
+        # (canonical names, .gitmodules, root .gitignore, CMake markers) and
+        # by the nested-.git Tier-2 signal — those are the real vendor signals.
+        # This prevents the SourcePrep false positive where src/tests/websites
+        # got auto-excluded into exclude_globs.
+        root_has_anchor = has_project_anchor(root)
 
         auto_excluded: list[str] = []
         proposed: list[VendorCandidate] = []
@@ -178,7 +188,11 @@ def scan_for_vendor_dirs(root: Path) -> VendorScanResult:
                 continue
 
             # Final fallback: large unclassified directory with no anchor and
-            # no nested .git. Surface for user review.
+            # no nested .git. Only fires when the REPO ROOT has no project
+            # anchor — i.e., a folder-dump with no manifest structure. If the
+            # root has an anchor, subdirectories are assumed user code.
+            if root_has_anchor:
+                continue
             size, files = _dir_size_and_count(entry)
             if size > _SIZE_FALLBACK_BYTES or files > _SIZE_FALLBACK_FILES:
                 proposed.append(VendorCandidate(
