@@ -1,4 +1,6 @@
+import { AnimatedIDE, ideDoubleSubmitFixDemo } from '../../components/cli-demos';
 import { AnchorHeading } from '../../components/AnchorHeading';
+import { StoryEmbed } from '../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -72,7 +74,7 @@ export default function Page() {
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>Check your internet connection.</li>
                 <li>The model is cached in <code>~/.cache/huggingface/hub</code>. You can try deleting this folder to force a re-download.</li>
-                <li>Run <code>prep serve --debug</code> to see detailed download progress logs.</li>
+                <li>Run <code>prep mcp --debug</code> to see verbose logs (the daemon itself has no <code>--debug</code> flag; the MCP server&apos;s debug stream reports embedder activity).</li>
               </ul>
             </div>
           </div>
@@ -102,7 +104,7 @@ export default function Page() {
                 If indexing seems to stop:
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
-                <li>Check the daemon logs for errors (<code>prep serve --debug</code>).</li>
+                <li>Check the MCP-side logs (<code>prep mcp --debug</code>) or watch the dashboard&apos;s Pipeline panel for stage-level errors.</li>
                 <li>Large binary files or minified JS bundles can slow down indexing. Add them to your <code>exclude_globs</code>.</li>
                 <li>Restart the daemon to clear any stuck locks.</li>
               </ul>
@@ -138,6 +140,15 @@ export default function Page() {
           </div>
 
           <AnchorHeading id="performance" level="h2" className="mt-12">Performance</AnchorHeading>
+
+          <div className="my-6 rounded-lg overflow-hidden border border-border">
+            <StoryEmbed
+              storyId="dashboard-console-logconsole--pipeline-run"
+              height={380}
+              title="Log Console"
+              caption="The Log Console (Settings → Diagnostics) — most performance issues surface as warnings here before anything else."
+            />
+          </div>
 
           <div className="space-y-6">
             <div className="border border-border rounded-lg p-6 bg-surface">
@@ -187,11 +198,27 @@ export default function Page() {
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>The default limit is 500KB per file to prevent choking on minified assets or data dumps.</li>
-                <li>Increase the limit: <code>prep config set max_file_bytes 1000000</code> (or via Dashboard).</li>
+                <li>Increase the limit: <code>prep config max_file_bytes 1000000</code> (or via Dashboard).</li>
                 <li>Or exclude the file if it&apos;s not useful for context.</li>
               </ul>
             </div>
           </div>
+
+          <hr className="my-12 border-border" />
+
+          <AnchorHeading id="ai-handoff" level="h2">Handing a problem to your agent</AnchorHeading>
+          <p className="text-text-muted">
+            When something genuinely breaks and you want your editor agent to investigate, give it a
+            single <code>prep</code> call first so it has structural context, then describe the
+            problem. With SourcePrep&apos;s blast-radius graph in hand, the agent typically isolates
+            the bug faster than working from logs alone.
+          </p>
+          <div className="not-prose my-6">
+            <AnimatedIDE script={ideDoubleSubmitFixDemo} />
+          </div>
+          <p className="text-xs text-text-muted text-center italic -mt-2">
+            What it looks like when an agent diagnoses and patches a bug with SourcePrep context loaded alongside the IDE.
+          </p>
 
         </div>
       </div>

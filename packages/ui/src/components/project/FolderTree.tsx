@@ -553,8 +553,9 @@ function TreeItem({
           !isAlwaysIgnoredNode && !isIgnored && variant === 'panel' && !isFolder && 'cursor-default',
           // Node-status ignored (from backend)
           isIgnored && !isAlwaysIgnoredNode && 'opacity-50 cursor-default',
-          // Included background
-          isIncluded && !isIgnored && !isExcluded && 'bg-primary/5',
+          // Included rows no longer get a bg tint — the checkbox state
+          // already signals inclusion. (Removed 2026-05-15: was bg-primary/5,
+          // redundant with the checkbox and visually noisy in docs embeds.)
           // Excluded background
           isExcluded && !isIgnored && 'bg-error/8',
           // Weight opacity (only for included)

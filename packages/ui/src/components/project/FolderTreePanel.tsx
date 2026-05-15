@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Card, Flex, Title, Badge } from '@tremor/react';
-import { StatusBadge } from '../status/StatusBadge';
+import { Card } from '@tremor/react';
 import { ChevronDown, Pencil, Trash2, Check } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { FolderTree } from './FolderTree';
@@ -237,7 +236,7 @@ function ScopeEditPopover({ scope, onRename, onDelete }: ScopeEditPopoverProps) 
             'bg-surface border border-border rounded-md shadow-lg p-2'
           )}
         >
-          {renaming ? (
+          {onRename && (renaming ? (
             <div className="flex items-center gap-1.5">
               <input
                 type="text"
@@ -271,16 +270,25 @@ function ScopeEditPopover({ scope, onRename, onDelete }: ScopeEditPopoverProps) 
               <Pencil className="w-3.5 h-3.5 text-text-subtle" />
               Rename
             </button>
+          ))}
+
+          {onDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm text-error hover:bg-error/10 transition-colors text-left mt-0.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete
+            </button>
           )}
 
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm text-error hover:bg-error/10 transition-colors text-left mt-0.5"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            Delete
-          </button>
+          {!onRename && !onDelete && (
+            <p className="px-2 py-1.5 text-xs text-text-subtle italic">
+              Global scope has no editable settings — it includes everything by default.
+              Create a named scope (+) to define a focused subset.
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -331,7 +339,9 @@ export interface FolderTreePanelProps {
 export function FolderTreePanel({
   data,
   includedPaths,
-  scopeStatus,
+  // scopeStatus is accepted for backward compat (dashboard still passes it)
+  // but no longer rendered — the legacy header that used it was deleted
+  // 2026-05-15. Safe to drop from callers in a follow-up.
   onToggleInclude,
   pathWeights,
   onWeightChange,
@@ -339,7 +349,10 @@ export function FolderTreePanel({
   onToggleExclude,
   alwaysIgnoredPatterns,
   onLoadChildren,
-  title = 'Scope',
+  // title kept on the interface for backward compat but unused now — the
+  // legacy non-scope header that read it was deleted 2026-05-15. The panel
+  // chrome (from ModularDashboard in production, from the storybook
+  // decorator in stories) renders the title now.
   className,
   bare = false,
   // Phase 120 — Named Scopes
@@ -354,27 +367,12 @@ export function FolderTreePanel({
 
   const Container = bare ? 'div' : Card;
   const includedCount = includedPaths?.size ?? 0;
-  const excludedCount = excludedPaths?.size ?? 0;
 
-  // Whether scopes feature is active (Task 18 will always pass scopes)
+  // Whether scopes feature is active.
   const scopesEnabled = !!scopes && scopes.length > 0;
   const isGlobalScope = !activeScopeId || activeScopeId === 'global';
   const activeScope = scopesEnabled ? scopes!.find(s => s.id === activeScopeId) : undefined;
   const isEmpty = scopesEnabled && !isGlobalScope && (activeScope?.path_count ?? 0) === 0 && includedCount === 0;
-
-  // Determine status badge (legacy single-scope path)
-  let statusBadge = null;
-  if (scopeStatus) {
-    if (scopeStatus.state === 'building') {
-      statusBadge = <StatusBadge status="building" labelOverride="Building…" />;
-    } else if (scopeStatus.state === 'debouncing') {
-      statusBadge = <StatusBadge status="pending" labelOverride="Pending…" />;
-    } else if (scopeStatus.is_stale) {
-      statusBadge = <StatusBadge status="stale" />;
-    } else if (scopeStatus.error) {
-      statusBadge = <StatusBadge status="error" />;
-    }
-  }
 
   return (
     <Container className={cn(!bare && 'border border-border bg-surface shadow-sm', 'h-full min-h-0 flex flex-col', className)}>
@@ -399,12 +397,12 @@ export function FolderTreePanel({
             >
               +
             </button>
-            {!isGlobalScope && activeScope && (
+            {activeScope && (
               <div className="ml-auto">
                 <ScopeEditPopover
                   scope={activeScope}
-                  onRename={onRenameScope}
-                  onDelete={onDeleteScope}
+                  onRename={isGlobalScope ? undefined : onRenameScope}
+                  onDelete={isGlobalScope ? undefined : onDeleteScope}
                 />
               </div>
             )}
@@ -425,23 +423,12 @@ export function FolderTreePanel({
         </div>
       )}
 
-      {/* ── Legacy header (only when not bare AND no scopes passed) ── */}
-      {!bare && !scopesEnabled && (
-        <Flex justifyContent="between" alignItems="center" className="mb-4 gap-2">
-          <div className="flex items-center gap-2">
-            <Title className="text-text">{title}</Title>
-            {statusBadge}
-          </div>
-          <div className="flex items-center gap-2">
-            {excludedCount > 0 && (
-              <Badge color="red" size="xs">{excludedCount} excluded</Badge>
-            )}
-            {includedCount > 0 && (
-              <Badge color="neutral" size="xs">{includedCount} included</Badge>
-            )}
-          </div>
-        </Flex>
-      )}
+      {/* Legacy non-scope header removed 2026-05-15: every call site
+          (dashboard + all stories) passes `scopes`, so the !scopesEnabled
+          branch was dead code that only fired when a story author forgot
+          to pass scopes — producing a duplicate "Knowledge Scope" title in
+          docs embeds. Don't bring it back without adding required-prop
+          enforcement on `scopes` in the type signature too. */}
 
       {/* Empty-state banner for freshly-created named scopes */}
       {isEmpty && (

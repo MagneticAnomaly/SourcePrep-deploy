@@ -41,11 +41,11 @@ export const EmptyNoSearchResults: StateStory = {
 export const EmptyNoIndex: StateStory = {
   render: () => (
     <EmptyState
-      title="Index not built"
-      description="Build the index to enable semantic search across your codebase."
+      title="Knowledge not built yet"
+      description="Build your codebase knowledge to enable semantic search."
       action={{
-        label: 'Build Index',
-        onClick: () => console.log('Build index'),
+        label: 'Build Knowledge',
+        onClick: () => console.log('Build knowledge'),
       }}
     />
   ),

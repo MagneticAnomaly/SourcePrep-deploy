@@ -7,6 +7,7 @@ Provides a base class and Ollama implementation for generating embeddings.
 from __future__ import annotations
 
 import logging
+import os
 import random
 import time
 from abc import ABC, abstractmethod
@@ -16,6 +17,34 @@ from typing import Any, List, Optional
 import requests
 
 logger = logging.getLogger(__name__)
+
+
+# ── Phase 139 env-var knobs ────────────────────────────────────────
+# Documented in CLAUDE.md and docs/Phase139_EmbedderMemoryHardening/.
+def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
+    """Read an int env var, return default on missing/invalid/below-minimum."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        val = int(raw)
+        return val if val >= minimum else default
+    except ValueError:
+        return default
+
+
+def _env_flag(name: str) -> bool:
+    """Read a boolean env var (truthy strings: 1, true, yes)."""
+    raw = os.environ.get(name, "").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
+# Phase 139 escape hatch: revert to pre-139 embedder behavior (no
+# CoreML opts, no fixed-shape padding, original batch sizes, original
+# MAX_LENGTH). Use for emergency rollback if the new path breaks on a
+# user's box. Default off.
+def _legacy_mode() -> bool:
+    return _env_flag("PREP_EMBED_LEGACY")
 
 
 # Known Ollama embedding model presets.
@@ -416,9 +445,101 @@ def _detect_onnx_providers() -> list:
     return providers
 
 
-# Batch size by provider — GPU can handle much larger batches.
-# Scaled by system memory to prevent peak-memory spikes on small machines.
-_PROVIDER_BATCH_SIZES = {
+def _provider_name(provider_entry: Any) -> str:
+    """Return the provider name from either a string or (name, opts) tuple."""
+    if isinstance(provider_entry, tuple) and provider_entry:
+        return provider_entry[0]
+    return str(provider_entry)
+
+
+def _coreml_cache_dir() -> str:
+    """Return a stable directory for CoreML .mlmodelc compilation cache.
+
+    Sharing this across daemon restarts avoids the multi-second
+    Espresso compile on every fresh session. Lives under the user's
+    cache root, isolated by ONNX file name.
+    """
+    import pathlib
+    base = pathlib.Path(os.path.expanduser("~/.cache/sourceprep/coreml"))
+    base.mkdir(parents=True, exist_ok=True)
+    return str(base)
+
+
+def _apply_phase139_provider_opts(providers: list, model_path: str) -> list:
+    """Inject Phase 139 conservative provider options.
+
+    - **CoreML (macOS):** disable ANE by default (CPUAndGPU only) to
+      sidestep the documented ``setEspressoBlobShapes`` hangs and the
+      ANE-pinned memory non-release. Force MLProgram format,
+      RequireStaticInputShapes=1, ModelCacheDirectory, and
+      FastPrediction specialization.
+
+      ``PREP_COREML_USE_ANE=1`` opts back into ANE.
+
+    - **CUDA / DirectML:** no opts added in Phase 139. CPU EP is
+      already tuned in ``_ensure_loaded``.
+
+    Non-macOS platforms see the provider list unchanged (this function
+    is a no-op for them). See RESEARCH.md §1.3 + IMPLEMENTATION_PLAN.md
+    T1.2.
+    """
+    import platform
+    if platform.system() != "Darwin":
+        return providers
+
+    use_ane = _env_flag("PREP_COREML_USE_ANE")
+    coreml_opts = {
+        # Skip the Apple Neural Engine path by default. ANE has had
+        # documented hangs in MLNeuralNetworkEngine.setEspressoBlobShapes
+        # on macOS 15+, and ANE memory does not release back to the OS
+        # within the daemon's lifetime.
+        "MLComputeUnits": "CPUAndNeuralEngine" if use_ane else "CPUAndGPU",
+        # Newer code path under maintenance; supports more model formats.
+        "ModelFormat": "MLProgram",
+        # Dynamic-shape ops fall back to CPU EP per-node instead of
+        # triggering an Espresso recompile that can hang.
+        "RequireStaticInputShapes": "1",
+        # Persist compiled .mlmodelc across daemon restarts.
+        "ModelCacheDirectory": _coreml_cache_dir(),
+        # macOS 14+ — fewer specialization variants kept in memory.
+        "SpecializationStrategy": "FastPrediction",
+    }
+
+    out: list = []
+    saw_coreml = False
+    for entry in providers:
+        if _provider_name(entry) == "CoreMLExecutionProvider":
+            out.append(("CoreMLExecutionProvider", coreml_opts))
+            saw_coreml = True
+        else:
+            out.append(entry)
+    if saw_coreml:
+        logger.info(
+            "Phase 139 CoreML opts applied: MLComputeUnits=%s, "
+            "ModelFormat=MLProgram, RequireStaticInputShapes=1, "
+            "ModelCacheDirectory=%s",
+            coreml_opts["MLComputeUnits"], coreml_opts["ModelCacheDirectory"],
+        )
+    return out
+
+
+# Phase 139: conservative, flat defaults. Bigger machines do NOT batch
+# larger — peak memory is what matters, not throughput for a one-time
+# index. Override via PREP_EMBED_MAX_BATCH env var.
+#
+# Pre-Phase-139 defaults (preserved here for PREP_EMBED_LEGACY=1):
+#   CoreML/CUDA: 128, DirectML: 64, CPU: 32, scaled up to 128 on big RAM.
+# That policy produced ~100 GB physical footprint at B=128 × S=8192
+# (see docs/Phase139_EmbedderMemoryHardening/INCIDENT.md).
+_PHASE139_BATCH_SIZES = {
+    "CoreMLExecutionProvider": 16,
+    "CUDAExecutionProvider": 16,
+    "DmlExecutionProvider": 16,
+    "CPUExecutionProvider": 8,
+}
+
+# Retained verbatim for PREP_EMBED_LEGACY=1 rollback path.
+_LEGACY_BATCH_SIZES = {
     "CoreMLExecutionProvider": 128,
     "CUDAExecutionProvider": 128,
     "DmlExecutionProvider": 64,
@@ -426,29 +547,86 @@ _PROVIDER_BATCH_SIZES = {
 }
 
 
-def _memory_scaled_batch_size(provider: str) -> int:
-    """Return a batch size for *provider* scaled by available system RAM.
+def _default_batch_size(provider: str) -> int:
+    """Return the conservative Phase 139 batch size for *provider*.
 
-    On machines with ≤ 16 GB RAM the default 128-item GPU batch can
-    create ~200 MB of transient numpy arrays during ``_embed_texts()``.
-    Halving the batch size approximately halves that peak.
+    Env override: ``PREP_EMBED_MAX_BATCH`` (absolute integer, applies to
+    all providers, must be ≥ 1).
 
-    Falls back to the static defaults if memory detection fails.
+    Legacy mode (``PREP_EMBED_LEGACY=1``) restores the pre-139 table
+    plus the per-RAM scaling — for emergency rollback only.
     """
+    env_batch = _env_int("PREP_EMBED_MAX_BATCH", 0, minimum=1)
+    if env_batch > 0:
+        return env_batch
+
+    if _legacy_mode():
+        return _legacy_memory_scaled_batch_size(provider)
+
+    return _PHASE139_BATCH_SIZES.get(provider, 8)
+
+
+def _legacy_memory_scaled_batch_size(provider: str) -> int:
+    """Pre-Phase-139 batch policy, retained for PREP_EMBED_LEGACY=1."""
     try:
         from prep.core.context_config import detect_system_memory_gb
         mem_gb = detect_system_memory_gb()
     except Exception:
         mem_gb = 0.0
 
-    base = _PROVIDER_BATCH_SIZES.get(provider, 32)
+    base = _LEGACY_BATCH_SIZES.get(provider, 32)
     if mem_gb <= 0:
-        return base  # detection failed, use defaults
+        return base
     if mem_gb <= 16:
-        return max(8, base // 2)   # 64 for GPU, 16 for CPU
+        return max(8, base // 2)
     if mem_gb <= 64:
-        return max(16, base * 3 // 4)  # 96 for GPU, 24 for CPU
-    return base  # 65 GB+ — full defaults
+        return max(16, base * 3 // 4)
+    return base
+
+
+# Phase 139 bucket boundaries for fixed-shape padding (see RESEARCH.md
+# §3.3 + CORPUS_PROFILE.md). 100% of observed corpus fits ≤512; the
+# 1024 bucket is safety margin for the chunker's 1.5× slack ceiling.
+_DEFAULT_SEQ_BUCKETS = (128, 256, 512, 1024)
+
+
+def _seq_buckets(max_length: int) -> tuple:
+    """Return ascending bucket boundaries, all ≤ *max_length*.
+
+    Buckets above max_length are filtered out. If max_length is smaller
+    than the smallest bucket, returns (max_length,).
+    """
+    out = tuple(b for b in _DEFAULT_SEQ_BUCKETS if b <= max_length)
+    return out if out else (max_length,)
+
+
+def _pick_bucket(token_lens: List[int], buckets: tuple, max_length: int) -> int:
+    """Return the smallest bucket ceiling that fits the longest token sequence.
+
+    If all sequences exceed every bucket, returns *max_length* (which
+    will trigger upstream truncation).
+    """
+    longest = max(token_lens) if token_lens else 0
+    for b in buckets:
+        if longest <= b:
+            return b
+    return max_length
+
+
+def _pad_2d(rows: List[List[int]], target_len: int, pad_value: int = 0) -> "Any":
+    """Right-pad/truncate each row of *rows* to *target_len*, return int64 ndarray.
+
+    The shape is always ``(len(rows), target_len)``. Rows longer than
+    target_len are truncated. Used by Phase 139 fixed-shape padding so
+    the ONNX graph sees a finite set of (batch, seq) shapes.
+    """
+    import numpy as np
+    out = np.full((len(rows), target_len), pad_value, dtype=np.int64)
+    for i, row in enumerate(rows):
+        n = min(len(row), target_len)
+        if n > 0:
+            out[i, :n] = row[:n]
+    return out
 
 
 class NativeEmbedder(Embedder):
@@ -470,17 +648,26 @@ class NativeEmbedder(Embedder):
     HF_REPO_ID = "nomic-ai/nomic-embed-text-v1.5"
     ONNX_FILE = "onnx/model_quantized.onnx"
     TOKENIZER_FILE = "tokenizer.json"
-    MAX_LENGTH = 8192
+    # Phase 139: 8192 → 1024. Profile of real corpus (5K-doc sample of
+    # this repo) shows max observed token length is 322; chunker caps
+    # raw chunks at ~675 tokens worst case (chunking.py:214 max_chars
+    # 1800 × 1.5 slack). 1024 gives ~3× safety margin.
+    # Pre-Phase-139 value (8192) restored when PREP_EMBED_LEGACY=1.
+    # Override via PREP_EMBED_MAX_LEN env var.
+    MAX_LENGTH = 1024
+    LEGACY_MAX_LENGTH = 8192
     DIM = 768
 
     def __init__(
         self,
         repo_id: str = HF_REPO_ID,
         onnx_file: str = ONNX_FILE,
-        max_length: int = MAX_LENGTH,
+        max_length: int = 0,
         batch_size: int = 0,
         document_prefix: str = "search_document: ",
         query_prefix: str = "search_query: ",
+        *,
+        _from_factory: bool = False,
     ):
         """
         Initialize the native ONNX embedder.
@@ -488,18 +675,59 @@ class NativeEmbedder(Embedder):
         Args:
             repo_id: HuggingFace repo ID for the model.
             onnx_file: Path within the repo to the ONNX model file.
-            max_length: Maximum token sequence length (nomic-embed-text supports 8192).
+            max_length: Maximum token sequence length. ``0`` = use the
+                        Phase-139 default (1024) or the
+                        ``PREP_EMBED_MAX_LEN`` env override.
+                        ``PREP_EMBED_LEGACY=1`` restores 8192.
             batch_size: Maximum texts per ONNX inference call.
-                        0 = auto-detect based on execution provider
-                        (128 for GPU, 32 for CPU).
+                        ``0`` = auto-detect based on execution provider
+                        (Phase 139: 16 for GPU/CoreML, 8 for CPU).
+                        Override via ``PREP_EMBED_MAX_BATCH``.
             document_prefix: Prefix prepended to documents during indexing.
             query_prefix: Prefix prepended to queries during search.
+            _from_factory: Set by ``embedder_factory.create_embedder()``
+                           to suppress the direct-construction warning.
+                           **Do not pass manually** — go through the
+                           factory so the singleton cache is honored
+                           (Phase 139 Q11).
         """
+        # Phase 139 Q11: warn loudly when constructed outside the
+        # factory. Bypasses the singleton cache and re-loads the ONNX
+        # session, defeating the duplicate-session fix.
+        if not _from_factory:
+            logger.warning(
+                "NativeEmbedder() constructed directly — bypasses the "
+                "process-wide singleton cache and re-loads the ONNX "
+                "session. Use prep.services.embedder_factory."
+                "create_embedder() instead. (Phase 139)"
+            )
+
         self.repo_id = repo_id
         self.onnx_file = onnx_file
-        self.max_length = max_length
+
+        # Resolve max_length: explicit arg > env var > Phase-139 default
+        # (or LEGACY_MAX_LENGTH under PREP_EMBED_LEGACY=1).
+        if max_length > 0:
+            self.max_length = max_length
+        else:
+            env_max_len = _env_int("PREP_EMBED_MAX_LEN", 0, minimum=1)
+            if env_max_len > 0:
+                self.max_length = env_max_len
+            elif _legacy_mode():
+                self.max_length = self.LEGACY_MAX_LENGTH
+            else:
+                self.max_length = self.MAX_LENGTH
+
+        # Resolve batch_size: explicit arg > env var > provider default.
+        # The env override is applied here at construction so logs are
+        # accurate; provider-specific defaults still apply in _ensure_loaded.
         self._requested_batch_size = batch_size
-        self.batch_size = batch_size if batch_size > 0 else 32  # default until GPU detected
+        if batch_size > 0:
+            self.batch_size = batch_size
+        else:
+            # Provisional until _ensure_loaded determines active provider.
+            self.batch_size = _default_batch_size("CPUExecutionProvider")
+
         self.document_prefix = document_prefix
         self.query_prefix = query_prefix
         self.model_name = f"native:{repo_id.split('/')[-1]}"
@@ -507,6 +735,23 @@ class NativeEmbedder(Embedder):
 
         self._session: Optional[Any] = None
         self._tokenizer: Optional[Any] = None
+
+    def close(self) -> None:
+        """Drop the ONNX session and tokenizer references.
+
+        Per RESEARCH.md §1.1, this is **not** guaranteed to reclaim
+        CoreML/ANE memory in the live process — ORT's CoreML EP does
+        not return memory to the OS until process exit (open issue
+        #26831). Restart the daemon for full reclaim.
+
+        Call from ``embedder_factory.close_shared_embedders()`` on
+        ``/pipeline/rebuild/stop`` and graceful shutdown.
+        """
+        import gc
+        self._session = None
+        self._tokenizer = None
+        gc.collect()
+        logger.debug("NativeEmbedder.close(): dropped session reference")
 
     # -- lazy init ---------------------------------------------------------
 
@@ -516,6 +761,12 @@ class NativeEmbedder(Embedder):
         Automatically selects the best available execution provider:
         CoreML on Apple Silicon, CUDA on NVIDIA, CPU as fallback.
         Adjusts batch_size based on the active provider.
+
+        Phase 139: applies SessionOptions memory tuning
+        (``enable_cpu_mem_arena=False`` + ``enable_mem_pattern=False``)
+        and macOS-only CoreML provider options. See
+        ``docs/Phase139_EmbedderMemoryHardening/RESEARCH.md`` §1.3.
+        Bypass via ``PREP_EMBED_LEGACY=1``.
         """
         if self._session is not None and self._tokenizer is not None:
             return
@@ -541,11 +792,26 @@ class NativeEmbedder(Embedder):
         sess_opts = ort.SessionOptions()
         sess_opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
+        # Phase 139: disable CPU memory arena and memory pattern to cut
+        # baseline footprint. RESEARCH.md §2.3 (ORT issue #11627).
+        # Legacy mode preserves the historic behavior.
+        if not _legacy_mode():
+            try:
+                sess_opts.enable_cpu_mem_arena = False
+                sess_opts.enable_mem_pattern = False
+            except AttributeError:
+                logger.debug("ORT version does not expose mem_arena/mem_pattern flags")
+
         # Detect best available provider
         providers = _detect_onnx_providers()
 
+        # Phase 139: layer in provider-specific options. CoreML opts only
+        # apply on macOS; on Linux/Windows the provider tuple is unchanged.
+        if not _legacy_mode():
+            providers = _apply_phase139_provider_opts(providers, model_path)
+
         # CPU-specific thread tuning (ignored by GPU providers)
-        if providers[0] == "CPUExecutionProvider":
+        if _provider_name(providers[0]) == "CPUExecutionProvider":
             sess_opts.inter_op_num_threads = 1
             sess_opts.intra_op_num_threads = 4
 
@@ -560,7 +826,7 @@ class NativeEmbedder(Embedder):
             # Fall back to CPU silently.
             logger.warning(
                 "GPU provider %s failed, falling back to CPU: %s",
-                providers[0], e,
+                _provider_name(providers[0]), e,
             )
             sess_opts.inter_op_num_threads = 1
             sess_opts.intra_op_num_threads = 4
@@ -576,27 +842,58 @@ class NativeEmbedder(Embedder):
 
         # Auto-detect batch size based on active provider
         if self._requested_batch_size <= 0:
-            self.batch_size = _memory_scaled_batch_size(self.active_provider)
+            self.batch_size = _default_batch_size(self.active_provider)
+
+        # Cache bucket boundaries derived from the final max_length
+        self._seq_buckets = _seq_buckets(self.max_length)
 
         logger.info(
-            "Native embedding model loaded (%s, dim=%d, provider=%s, batch_size=%d)",
+            "Native embedding model loaded (%s, dim=%d, provider=%s, "
+            "batch_size=%d, max_length=%d, buckets=%s%s)",
             self.model_name, self.DIM, self.active_provider, self.batch_size,
+            self.max_length, self._seq_buckets,
+            " [LEGACY mode]" if _legacy_mode() else "",
         )
 
     # -- core embedding ----------------------------------------------------
 
     def _embed_texts(self, texts: List[str]) -> "np.ndarray":
-        """Embed a list of texts, returning an (N, DIM) float32 array."""
+        """Embed a list of texts, returning an (N, DIM) float32 array.
+
+        Phase 139: tokenize with dynamic padding to the longest item,
+        then pad up to the smallest bucket ceiling that fits. This
+        keeps inference on a small, finite set of (batch, seq) shapes
+        — critical for CoreML EP which recompiles per shape.
+        Legacy mode (``PREP_EMBED_LEGACY=1``) restores the pre-139
+        ``pad_to_longest`` only behavior.
+        """
         import numpy as np  # local import keeps module-level import list light
 
         self._ensure_loaded()
         assert self._tokenizer is not None
         assert self._session is not None
 
+        # Tokenize (padding="longest" within batch is the tokenizer default
+        # because enable_padding was set in _ensure_loaded without a fixed length).
         encodings = self._tokenizer.encode_batch(texts)
 
-        input_ids = np.array([e.ids for e in encodings], dtype=np.int64)
-        attention_mask = np.array([e.attention_mask for e in encodings], dtype=np.int64)
+        # Phase 139: snap the per-batch sequence length up to the
+        # smallest matching bucket so the ONNX graph sees a finite set
+        # of shapes. Without this, CoreML EP recompiles per shape and
+        # may hang on macOS 15+ (RESEARCH.md §1.2).
+        if not _legacy_mode() and getattr(self, "_seq_buckets", None):
+            token_lens = [len(e.ids) for e in encodings]
+            bucket_seq = _pick_bucket(token_lens, self._seq_buckets, self.max_length)
+            input_ids = _pad_2d(
+                [e.ids for e in encodings], bucket_seq, pad_value=0,
+            )
+            attention_mask = _pad_2d(
+                [e.attention_mask for e in encodings], bucket_seq, pad_value=0,
+            )
+        else:
+            input_ids = np.array([e.ids for e in encodings], dtype=np.int64)
+            attention_mask = np.array([e.attention_mask for e in encodings], dtype=np.int64)
+
         token_type_ids = np.zeros_like(input_ids)
 
         outputs = self._session.run(
@@ -636,23 +933,62 @@ class NativeEmbedder(Embedder):
         return EmbeddingResult(vector=vec.tolist(), model=self.model_name)
 
     def embed_batch(self, texts: List[str]) -> List[EmbeddingResult]:
-        """Generate embeddings for multiple document texts (batched ONNX inference)."""
+        """Generate embeddings for multiple document texts (batched ONNX inference).
+
+        Phase 139: before each chunk, samples process RSS via the
+        memory_guard. If we're over the soft ceiling, shrinks the
+        chunk size; if we're already at size 1 and still over, raises
+        ``MemoryCeilingExceeded``. Disabled under PREP_EMBED_LEGACY=1.
+        """
         if not texts:
             return []
 
         prefixed = [self.document_prefix + t for t in texts]
         results: List[EmbeddingResult] = []
 
-        for start in range(0, len(prefixed), self.batch_size):
-            chunk = prefixed[start : start + self.batch_size]
+        if _legacy_mode():
+            # Legacy: flat stride, no memory guard.
+            for start in range(0, len(prefixed), self.batch_size):
+                chunk = prefixed[start : start + self.batch_size]
+                vecs = self._embed_texts(chunk)
+                for vec in vecs:
+                    results.append(EmbeddingResult(vector=vec.tolist(), model=self.model_name))
+            return results
+
+        # Phase 139: guard-aware stride. On every chunk, sample RSS;
+        # if over ceiling, halve the active batch until it fits or we
+        # bottom out at 1 and raise.
+        from prep.core import memory_guard
+
+        active_batch = self.batch_size
+        i = 0
+        while i < len(prefixed):
+            snap = memory_guard.check(can_shrink=(active_batch > 1), op="embed_batch")
+            if snap.over_ceiling and active_batch > 1:
+                active_batch = max(1, active_batch // 2)
+                logger.warning(
+                    "Memory guard tripped — shrinking embedder batch to %d "
+                    "(RSS %.2f GB / ceiling %.2f GB)",
+                    active_batch, snap.rss_gb, snap.ceiling_gb,
+                )
+                continue  # re-check before consuming work
+            chunk = prefixed[i : i + active_batch]
             vecs = self._embed_texts(chunk)
             for vec in vecs:
                 results.append(EmbeddingResult(vector=vec.tolist(), model=self.model_name))
+            i += active_batch
 
         return results
 
-    def is_available(self) -> bool:
-        """Check if required dependencies are installed."""
+    @staticmethod
+    def is_available() -> bool:
+        """Check if required dependencies are installed.
+
+        Static — can be called as ``NativeEmbedder.is_available()`` for
+        feature detection without constructing an instance (which would
+        bypass the Phase 139 singleton cache and trigger the
+        direct-construction warning).
+        """
         try:
             import onnxruntime  # noqa: F401
             import tokenizers  # noqa: F401

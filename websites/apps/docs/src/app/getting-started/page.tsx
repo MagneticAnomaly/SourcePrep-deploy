@@ -1,4 +1,5 @@
 import { Image as ImageIcon } from 'lucide-react';
+import { AnimatedCLI, prepTldrOverviewDemo, auditPrSanityCheckDemo } from '../../components/cli-demos';
 import { AnchorHeading } from '../../components/AnchorHeading';
 import { StoryEmbed } from '../../components/StoryEmbed';
 
@@ -32,7 +33,7 @@ export default function Page() {
 
           <AnchorHeading id="install" level="h2">1. Install</AnchorHeading>
           <p>
-            Download SourcePrep from <a href="https://sourceprep.io/download" className="text-primary hover:underline">sourceprep.io/download</a> and install the desktop app. It&apos;s also available on the Mac App Store and Microsoft Store.
+            Download SourcePrep from <a href="https://sourceprep.io/download" className="text-primary hover:underline">sourceprep.io/download</a> and install the desktop app. macOS and Windows are supported today; Linux is planned post-MVP.
           </p>
           <p className="text-sm text-text-muted">
             See the full <a href="/getting-started/installation" className="text-primary hover:underline">Installation Guide</a> for step-by-step instructions.
@@ -43,12 +44,7 @@ export default function Page() {
             Open SourcePrep from your Applications folder (macOS) or Start Menu (Windows). The app automatically starts the background daemon that manages the Rust indexer and MCP server.
           </p>
           <div className="not-prose my-6">
-            <StoryEmbed
-              storyId="website-demos-animatedcli--project-overview"
-              height={350}
-              title="SourcePrep Dashboard Preview"
-              caption="Live preview: The SourcePrep daemon processing a project with structural trace and semantic indexing."
-            />
+            <AnimatedCLI script={prepTldrOverviewDemo} />
           </div>
           <p className="text-sm text-text-muted">
             <em>Alternatively, power users can run <code>prep serve</code> from a terminal.</em>
@@ -64,6 +60,14 @@ export default function Page() {
           <p>
             You&apos;ll see indexing progress in the dashboard. For a 50k file repo, the Rust trace index takes less than a second once semantic indexing wraps up.
           </p>
+          <div className="not-prose my-6 rounded-lg overflow-hidden border border-border">
+            <StoryEmbed
+              storyId="dashboard-index-indexstatuscard--loaded"
+              height={260}
+              title="Knowledge Status"
+              caption="What the dashboard looks like once your first project is indexed and serving structural context."
+            />
+          </div>
 
           <AnchorHeading id="connect-editor" level="h2">4. Connect Your Editor</AnchorHeading>
           <p>
@@ -108,7 +112,7 @@ export default function Page() {
             You should see the agent call <code>prep_search</code> with structural tracing and return an expanded graph analysis.
           </p>
           <p className="text-sm text-text-muted mt-2 bg-surface border border-border rounded-lg p-3">
-            <span className="font-semibold text-text">Free tier note:</span> Graph expansion requires a trace build. On the Free tier, trigger this manually from the dashboard (Graph Status → Build) before trying the graph query above. Paid tiers build the trace automatically on file save.
+            <span className="font-semibold text-text">Note:</span> Graph expansion requires a trace build. The file watcher rebuilds the trace automatically on file changes. To trigger a manual rebuild, open the dashboard&apos;s <span className="font-semibold text-text">Graph Scope</span> panel.
           </p>
 
           <AnchorHeading id="audit" level="h2">6. Run a Codebase Audit</AnchorHeading>
@@ -127,6 +131,9 @@ export default function Page() {
           <p className="text-sm text-text-muted mt-2">
             See the full <a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> for details on all analyzers and the refactor workflow.
           </p>
+          <div className="not-prose my-6">
+            <AnimatedCLI script={auditPrSanityCheckDemo} />
+          </div>
 
           <hr className="my-12 border-border" />
 
@@ -134,7 +141,7 @@ export default function Page() {
           <ul className="list-disc pl-6 space-y-2">
             <li><a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> &mdash; deep-dive into the 11 analyzers and the refactor workflow.</li>
             <li><a href="/guides/path-weights" className="text-primary hover:underline">Tune Path Weights</a> to focus the AI on what matters.</li>
-            <li><a href="/guides/compression" className="text-primary hover:underline">Smart Compression</a> &mdash; structural for code (3&ndash;20&times;), language-aware for docs. Built in.</li>
+            <li><a href="/guides/compression" className="text-primary hover:underline">Smart Compression</a> &mdash; structural code compression (3&ndash;20&times;) built in. Language-aware compression for docs is on the roadmap.</li>
             <li><a href="/troubleshooting" className="text-primary hover:underline">Troubleshooting</a> if something didn&apos;t work.</li>
           </ul>
         </div>

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 import { ConceptPageShell } from '../../../components/ConceptPageShell';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 const SECTIONS = [
   { id: 'journey',          label: 'The Journey' },
@@ -29,9 +30,9 @@ const SYNC_STAGES = [
 ];
 
 const ENRICH_STAGES = [
-  { number: 6,  name: 'ENRICHMENT',       icon: <Brain className="w-4 h-4" />,     description: 'Epistemic scoring — layers, domains, confidence ratings for every node in graph context.' },
+  { number: 6,  name: 'DEEP_REASONING',   icon: <Brain className="w-4 h-4" />,     description: 'Epistemic scoring — layers, domains, confidence ratings for every node in graph context. Stage id `enrichment`.' },
   { number: 7,  name: 'GROUP_REASONING',  icon: <Cpu className="w-4 h-4" />,       description: 'LLM consensus across related nodes. Identifies patterns and architectural themes.' },
-  { number: 8,  name: 'CLUSTERING',       icon: <Layers className="w-4 h-4" />,    description: 'Module boundary discovery. Groups files into logical subsystems.' },
+  { number: 8,  name: 'MODULE_SYNTHESIS', icon: <Layers className="w-4 h-4" />,    description: 'Module boundary discovery. Groups files into logical subsystems. Stage id `clustering`.' },
   { number: 9,  name: 'DEEPENING',        icon: <Sparkles className="w-4 h-4" />,  description: 'Iterative epistemic refinement with full graph context available.' },
   { number: 10, name: 'DEEP_KNOWLEDGE',   icon: <Brain className="w-4 h-4" />,     description: 'Re-embed everything with enriched data. The search index now reflects deep understanding.' },
 ];
@@ -103,6 +104,15 @@ export default function Page() {
             <h3 className="font-medium text-sm text-text mb-1">Finalize — Deliver</h3>
             <p className="text-xs text-text-muted">Atlas, rules, concepts, audit findings, and guardrails. Runs in parallel where possible.</p>
           </div>
+        </div>
+
+        <div className="mt-8 rounded-lg overflow-hidden border border-border">
+          <StoryEmbed
+            storyId="dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running"
+            height={500}
+            title="Graph Enrichment Pipeline"
+            caption="The 15-stage pipeline in action — Sync → Enrich → Finalize, with per-stage progress and provenance."
+          />
         </div>
       </section>
 
@@ -212,6 +222,15 @@ export default function Page() {
             <div className="text-sm font-semibold text-text">Temporal currency <span className="text-xs text-text-muted">(15%)</span></div>
             <div className="text-xs text-text-muted">Has the source changed since enrichment? Stale knowledge scores zero.</div>
           </div>
+        </div>
+
+        <div className="mt-8 rounded-lg overflow-hidden border border-border">
+          <StoryEmbed
+            storyId="dashboard-trace-atlaslenspanel--stale-with-segments"
+            height={420}
+            title="Atlas Lens Panel"
+            caption="The Atlas Lens is what consumes the understanding score — projecting the codebase through role-specific lenses (security, refactor, onboarding)."
+          />
         </div>
       </section>
 

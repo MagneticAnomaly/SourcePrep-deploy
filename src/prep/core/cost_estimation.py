@@ -31,21 +31,24 @@ MODEL_PRICING: Dict[str, Tuple[float, float]] = {
     "o1-mini": (3.00, 12.00),
     "gpt-4-turbo": (10.00, 30.00),
 
-    # Anthropic
-    "claude-4.6-sonnet": (5.00, 25.00),
-    "claude-4.5-haiku": (0.50, 2.50),
+    # Anthropic (verified May 2026 against anthropic.com/api/pricing)
+    "claude-4.7-opus": (5.00, 25.00),
+    "claude-4.6-sonnet": (3.00, 15.00),
+    "claude-4.5-haiku": (1.00, 5.00),
     "claude-3.5-sonnet": (3.00, 15.00),
     "claude-3-haiku": (0.25, 1.25),
     "claude-3-opus": (15.00, 75.00),
 
-    # Google Gemini
-    "gemini-2.5-pro": (1.25, 5.00),
-    "gemini-2.5-flash": (0.075, 0.30),
-    "gemini-2.0-flash": (0.075, 0.30),
+    # Google Gemini — vendor pricing churns; treat these as best-effort projections,
+    # not authoritative billing. Verify against ai.google.dev/gemini-api/docs/pricing.
+    "gemini-3-pro": (1.25, 10.00),
+    "gemini-3-flash": (0.30, 2.50),
+    "gemini-2.5-pro": (1.25, 10.00),
+    "gemini-2.5-flash": (0.30, 2.50),
+    "gemini-2.5-flash-lite": (0.10, 0.40),
+    "gemini-2.0-flash": (0.10, 0.40),
     "gemini-1.5-pro": (1.25, 5.00),
     "gemini-1.5-flash": (0.075, 0.30),
-    "gemini-3-pro-preview": (1.25, 5.00),
-    "gemini-3-flash-preview": (0.075, 0.30),
 
     # Local models (free)
     # Not listed — cost is always $0 for ollama/lm-studio
@@ -61,19 +64,22 @@ _PRICING_PREFIXES = [
     ("o4-mini", (1.10, 4.40)),
     ("o3-mini", (1.10, 4.40)),
     ("o1-mini", (3.00, 12.00)),
-    ("claude-4.6", (5.00, 25.00)),
-    ("claude-4.5-haiku", (0.50, 2.50)),
+    ("claude-4.7-opus", (5.00, 25.00)),
+    ("claude-4.7", (5.00, 25.00)),
+    ("claude-4.6", (3.00, 15.00)),
+    ("claude-4.5-haiku", (1.00, 5.00)),
     ("claude-3.5-sonnet", (3.00, 15.00)),
     ("claude-3.5-haiku", (0.80, 4.00)),
     ("claude-3-haiku", (0.25, 1.25)),
     ("claude-3-opus", (15.00, 75.00)),
-    ("gemini-2.5-pro", (1.25, 5.00)),
-    ("gemini-2.5-flash", (0.075, 0.30)),
-    ("gemini-2.0-flash", (0.075, 0.30)),
+    ("gemini-3-pro", (1.25, 10.00)),
+    ("gemini-3-flash", (0.30, 2.50)),
+    ("gemini-2.5-pro", (1.25, 10.00)),
+    ("gemini-2.5-flash-lite", (0.10, 0.40)),
+    ("gemini-2.5-flash", (0.30, 2.50)),
+    ("gemini-2.0-flash", (0.10, 0.40)),
     ("gemini-1.5-pro", (1.25, 5.00)),
     ("gemini-1.5-flash", (0.075, 0.30)),
-    ("gemini-3-pro", (1.25, 5.00)),
-    ("gemini-3-flash", (0.075, 0.30)),
 ]
 
 # Local providers — always $0

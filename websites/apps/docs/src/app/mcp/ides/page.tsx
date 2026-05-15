@@ -1,6 +1,6 @@
+import { AnimatedIDE, ideAddCsvExportDemo } from '../../../components/cli-demos';
 import { MCP_TOOLS } from '../../../config/mcp-setup';
 import { AnchorHeading } from '../../../components/AnchorHeading';
-import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function IdeIntegrationsPage() {
   const ideTools = MCP_TOOLS.filter((t) => t.category === 'ide');
@@ -17,7 +17,7 @@ export default function IdeIntegrationsPage() {
             Agentic IDEs
           </h1>
           <p className="mt-4 text-lg text-text-muted">
-            Give Cursor (primary), Windsurf, Antigravity, VS Code (via GitHub Copilot), Zed, and other agentic editors deep structural codebase awareness. MCP-aware VS Code extensions (Cline, Roo, CodeGPT) work too.
+            Give Cursor (primary), Windsurf, Antigravity, VS Code (via GitHub Copilot), Zed, and Cline deep structural codebase awareness. Other MCP-aware editors with a generic stdio MCP config can also connect.
           </p>
         </div>
 
@@ -27,12 +27,7 @@ export default function IdeIntegrationsPage() {
           </p>
 
           <div className="not-prose my-8">
-            <StoryEmbed
-              storyId="website-demos-animatedide--default"
-              height={500}
-              title="SourcePrep in an Agentic IDE"
-              caption="Live demo: An AI agent using SourcePrep MCP tools inside a split-pane IDE."
-            />
+            <AnimatedIDE script={ideAddCsvExportDemo} />
           </div>
 
           <AnchorHeading id="setup" level="h2">Integration Setup</AnchorHeading>

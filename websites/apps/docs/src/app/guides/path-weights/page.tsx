@@ -1,5 +1,5 @@
-import { Image as ImageIcon } from 'lucide-react';
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -39,7 +39,7 @@ export default function Page() {
                 <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">1</span>
                 <div>
                   <div className="font-medium text-text">Set weights on folders or files</div>
-                  <div className="mt-1 text-text-muted">Via the dashboard Scope panel or the API.</div>
+                  <div className="mt-1 text-text-muted">Via the dashboard Knowledge Scope panel or the API.</div>
                 </div>
               </div>
               <div className="flex items-start gap-3">
@@ -68,24 +68,35 @@ export default function Page() {
         <section className="mt-10">
           <AnchorHeading id="using-the-dashboard" level="h2">Using the dashboard</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
-            In the project&apos;s <span className="font-semibold text-text">Scope</span> panel, each file and folder shows a
-            weight badge. Click the badge to edit the weight:
+            In the project&apos;s <span className="font-semibold text-text">Knowledge Scope</span> panel,
+            each file and folder shows its current weight as a small{' '}
+            <code>×N.N</code> control on the right side of the row. Click any weight to edit it
+            inline.
           </p>
-          
-          <div className="my-6 p-8 border-2 border-dashed border-border rounded-lg bg-surface flex flex-col items-center justify-center text-text-muted gap-2">
-            <div className="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center">
-              <ImageIcon className="w-6 h-6" />
-            </div>
-            <p className="font-medium text-text">Screenshot: Path Weight Badges</p>
-            <p className="text-sm text-center">Show the Scope panel with various colored badges (green boost, red suppress, blue manual) on files/folders.</p>
+
+          <div className="my-6 rounded-lg overflow-hidden border border-border">
+            <StoryEmbed
+              storyId="dashboard-project-foldertreepanel--scope-panel-with-path-weights"
+              height={500}
+              title="Knowledge Scope — Path Weights"
+              caption="Path-weight controls. src/core is boosted (×1.5), src/utils and tests are suppressed (×0.7 and ×0.3), docs/README.md is boosted (×1.8). Child files show inherited weights in italic."
+            />
           </div>
 
-          <ul className="mt-4 space-y-2 text-sm text-text-muted list-disc pl-5">
-            <li><span className="font-semibold text-text">Grey badge</span> — inherited from parent (no override)</li>
-            <li><span className="font-semibold text-text">Blue badge</span> — explicitly set weight</li>
-            <li><span className="font-semibold text-text">Green badge</span> — boosted (&gt; 1.0)</li>
-            <li><span className="font-semibold text-text">Red badge</span> — suppressed (&lt; 1.0)</li>
+          <p className="mt-4 text-text-muted leading-relaxed">
+            Visual cues on the <code>×N.N</code> control:
+          </p>
+          <ul className="mt-2 space-y-2 text-sm text-text-muted list-disc pl-5">
+            <li><span className="font-mono text-success bg-success/10 px-1.5 py-0.5 rounded">×1.5</span> — green tint means a boost ({'>'} 1.0).</li>
+            <li><span className="font-mono text-warning bg-warning/10 px-1.5 py-0.5 rounded">×0.5</span> — amber tint means a suppression ({'<'} 1.0).</li>
+            <li><span className="font-mono text-text-subtle/40 px-1.5 py-0.5">×1.0</span> — faded means default (no override on this path).</li>
+            <li><em>italic</em> — the weight is inherited from a parent folder, not explicitly set on this row.</li>
           </ul>
+          <p className="mt-3 text-sm text-text-muted">
+            The colored dots/circles you may see elsewhere on the row are <strong>indexing
+            status</strong> indicators (indexed, pending, ignored), not weight indicators —
+            different concept.
+          </p>
           <p className="mt-3 text-sm text-text-muted">
             Changes take effect immediately on the next search — no rebuild needed.
           </p>

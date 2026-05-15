@@ -102,7 +102,7 @@ export function EmbeddedModeIndicator({
                   icon={RefreshCw}
                   className="border-warning/20 text-warning hover:bg-warning-muted/10 hover:text-warning"
                 >
-                  Build Index
+                  Rebuild Knowledge
                 </Button>
               )}
             </div>

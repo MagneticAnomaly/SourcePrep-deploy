@@ -56,7 +56,7 @@ export function SearchPanel({
         <Flex justifyContent="between" alignItems="center" className="mb-4">
           <div className="flex items-center gap-2">
             <Search className="w-5 h-5 text-primary" />
-            <Title className="text-text">Knowledge Query</Title>
+            <Title className="text-text">Search</Title>
             <InfoTooltip 
               content="Learn how semantic search works." 
               href="https://docs.sourceprep.io/concepts/indexing" 

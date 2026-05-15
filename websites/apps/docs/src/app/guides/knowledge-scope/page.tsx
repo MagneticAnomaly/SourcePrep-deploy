@@ -20,8 +20,8 @@ export default function Page() {
           <AnchorHeading id="what-is-knowledge-scope" level="h2">What is the Knowledge Scope?</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
             The Knowledge Scope is the set of files and folders you&apos;ve selected in the
-            dashboard&apos;s <span className="font-semibold text-text">Scope</span> panel. When you toggle a file or folder
-            on, it gets included in your project&apos;s index. When you toggle it off, it&apos;s
+            dashboard&apos;s <span className="font-semibold text-text">Knowledge Scope</span> panel. When you toggle a file or folder
+            on, it gets included in your codebase knowledge. When you toggle it off, it&apos;s
             excluded. Only selected files are searchable and available as context for your AI tools.
           </p>
           <div className="mt-4 p-4 rounded-lg border border-primary/20 bg-primary/5 text-sm">
@@ -40,7 +40,7 @@ export default function Page() {
               <div className="flex items-start gap-3">
                 <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">1</span>
                 <div>
-                  <div className="font-medium text-text">Select files in the Scope panel</div>
+                  <div className="font-medium text-text">Select files in the Knowledge Scope panel</div>
                   <div className="mt-1 text-text-muted">Toggle individual files or entire folders. Selecting a folder includes all files inside it.</div>
                 </div>
               </div>
@@ -79,7 +79,7 @@ export default function Page() {
         <section className="mt-10">
           <AnchorHeading id="using-the-dashboard" level="h2">Using the dashboard</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
-            Open the <span className="font-semibold text-text">Scope</span> panel in your dashboard. Each file and folder
+            Open the <span className="font-semibold text-text">Knowledge Scope</span> panel in your dashboard. Each file and folder
             has a checkbox. Checked items are in scope; unchecked items are excluded.
           </p>
 
@@ -87,8 +87,8 @@ export default function Page() {
             <StoryEmbed
               storyId="dashboard-project-foldertreepanel--scope-panel-named-populated"
               height={500}
-              title="Scope panel"
-              caption="The Scope panel — toggle files and folders into the index, with optional per-path weights."
+              title="Knowledge Scope panel"
+              caption="The Knowledge Scope panel — toggle files and folders into your codebase knowledge, with optional per-path weights."
             />
           </div>
 

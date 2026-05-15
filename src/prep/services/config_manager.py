@@ -334,7 +334,7 @@ def default_ui_config(config: Dict[str, Any]) -> Dict[str, Any]:
         "embedding": {
             "source": "huggingface",
             "hf_repo_id": "nomic-ai/nomic-embed-text-v1.5",
-            "hf_downloaded": NativeEmbedder().is_available(),
+            "hf_downloaded": NativeEmbedder.is_available(),
             "endpoint_id": "default_ollama",
             "model": model,
         },

@@ -1,4 +1,5 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -9,325 +10,251 @@ export default function Page() {
         </a>
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">
-          Dynamic Model Loading
+          Local LLM Setup
         </h1>
         <p className="mt-4 text-lg text-text-muted">
-          How SourcePrep manages VRAM by loading and unloading local models on demand,
-          and what that means for your hardware setup.
+          Running SourcePrep&apos;s pipeline against models on your own hardware — when it&apos;s
+          worth it, what to run, and how SourcePrep handles model swapping for you.
         </p>
 
         <div className="mt-8 prose max-w-none">
 
-          {/* ── Overview ── */}
-          <AnchorHeading id="overview" level="h2">Overview</AnchorHeading>
+          {/* ── Should you even run local? ── */}
+          <AnchorHeading id="should-you" level="h2">Should you run local LLMs at all?</AnchorHeading>
           <p>
-            SourcePrep&apos;s trace pipeline runs up to 10 different LLM tasks — from fast
-            file cataloguing to deep group reasoning. Each task may use a different
-            model optimized for that job. On most consumer hardware, only one or two
-            models fit in VRAM/RAM at a time.
+            For most users, no. While SourcePrep is designed local-first architecturally, for most
+            users a cloud service like Ollama&apos;s cloud will provide faster and better intelligence
+            and — importantly — the concurrency needed for swarm aggregation.
           </p>
-          <p>
-            <strong>Dynamic model loading</strong> is SourcePrep&apos;s system for
-            automatically loading the right model before each pipeline stage and
-            unloading the previous one to free memory. This happens transparently —
-            you configure your models once and SourcePrep handles the rest.
-          </p>
-
-          <div className="my-6 rounded-lg border border-primary/30 bg-primary/5 p-4">
-            <p className="text-sm">
-              <span className="font-semibold text-text">Key concept:</span>{' '}
-              Dynamic model loading only applies to <strong>local model servers</strong>.
-              Cloud API providers (OpenAI, Anthropic, Google) are always &ldquo;ready&rdquo; and
-              don&apos;t require VRAM management.
-            </p>
-          </div>
-
-          {/* ── Provider Support ── */}
-          <AnchorHeading id="provider-support" level="h2">Provider Support</AnchorHeading>
-
-          <div className="my-6 overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 pr-4 font-semibold">Provider</th>
-                  <th className="text-left py-2 pr-4 font-semibold">Dynamic Loading</th>
-                  <th className="text-left py-2 pr-4 font-semibold">MLX Engine</th>
-                  <th className="text-left py-2 font-semibold">Best For</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-primary">Ollama</td>
-                  <td className="py-2 pr-4 text-success font-semibold">✅ Full support</td>
-                  <td className="py-2 pr-4 text-text-muted">❌ Not yet (planned)</td>
-                  <td className="py-2">Multi-model pipelines, automation, headless servers</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-primary">LM Studio</td>
-                  <td className="py-2 pr-4 text-warning font-semibold">⚠️ Manual only</td>
-                  <td className="py-2 pr-4 text-success font-semibold">✅ Built-in</td>
-                  <td className="py-2">Mac users, single-model setups, maximum performance</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-primary">Cloud APIs</td>
-                  <td className="py-2 pr-4 text-text-muted">N/A (always ready)</td>
-                  <td className="py-2 pr-4 text-text-muted">N/A</td>
-                  <td className="py-2">Zero-config, no local hardware needed</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          {/* ── How It Works ── */}
-          <AnchorHeading id="how-it-works" level="h2">How It Works (Ollama)</AnchorHeading>
-          <p>
-            Ollama is the only local provider that supports fully automated dynamic model loading.
-            Here&apos;s what happens during a pipeline run:
-          </p>
-
-          <ol className="space-y-2">
-            <li>
-              <strong>Stage starts</strong> — SourcePrep checks which model is needed for the
-              next task (e.g. <code>qwen3:4b</code> for cataloguing).
-            </li>
-            <li>
-              <strong>Room check</strong> — If a different model is currently loaded,
-              SourcePrep sends a <code>keep_alive=0</code> request to Ollama to unload it.
-            </li>
-            <li>
-              <strong>Preload</strong> — SourcePrep sends an empty generate request to Ollama
-              with the new model name. Ollama loads it into memory.
-            </li>
-            <li>
-              <strong>Ready</strong> — Once loaded, the pipeline stage runs its LLM calls.
-            </li>
-            <li>
-              <strong>Next stage</strong> — If the next stage uses the same model, it stays loaded.
-              If it needs a different model, the cycle repeats.
-            </li>
-          </ol>
-
-          <p>
-            The entire process is transparent. You never need to manually run{' '}
-            <code>ollama run</code> or worry about which model is loaded.
-          </p>
-
-          {/* ── Always Available ── */}
-          <AnchorHeading id="always-available" level="h2">Always Available (Persistent Models)</AnchorHeading>
-          <p>
-            Some models — typically the Fast model used for cataloguing — benefit from staying
-            loaded at all times. This avoids the 5–15 second cold-start delay every time a
-            file changes and triggers a fast sync.
-          </p>
-          <p>
-            In the AI Models settings, check <strong>&ldquo;Always available (Keep loaded)&rdquo;</strong> on
-            any model card. SourcePrep will:
-          </p>
+          <p>Running local makes sense when:</p>
           <ul>
-            <li>Skip unloading this model between pipeline stages</li>
-            <li>
-              If VRAM pressure forces an eviction (e.g. a large reasoning model needs to load),
-              SourcePrep will temporarily unload the persistent model, run the heavy task,
-              then <strong>automatically reload</strong> the persistent model afterward
-            </li>
-            <li>Show a warning indicator in the AI Gateway if a persistent model was temporarily evicted</li>
+            <li>You have a hard requirement that no codebase data leaves your machine.</li>
+            <li>You&apos;re on a low-/no-connectivity setup and need to keep working.</li>
+            <li>You already own a Mac with 32GB+ unified memory or a 24GB+ NVIDIA GPU, and want to use it.</li>
           </ul>
 
           <div className="my-6 rounded-lg border border-warning/30 bg-warning/5 p-4">
             <p className="text-sm">
-              <span className="font-semibold text-warning">VRAM tip:</span>{' '}
-              On machines with limited RAM (16GB or less), avoid marking large models as
-              &ldquo;Always available&rdquo;. A persistent 8B model (5GB) alongside a 30B reasoning
-              model won&apos;t fit — SourcePrep will handle it gracefully via eviction, but the
-              constant load/unload cycle defeats the purpose.
+              <span className="font-semibold text-warning">Hardware floor:</span>{' '}
+              Don&apos;t try to run SourcePrep&apos;s pipeline against local LLMs on a 16GB Mac
+              (or anything similar). The pipeline drives 14B+ parameter models with long context
+              windows; 16GB just doesn&apos;t have the headroom. Use cloud LLMs at that scale —
+              they&apos;ll be faster, more reliable, and won&apos;t lock up your machine.
             </p>
           </div>
 
-          {/* ── LM Studio ── */}
-          <AnchorHeading id="lm-studio" level="h2">LM Studio &amp; MLX</AnchorHeading>
+          {/* ── Recommended models ── */}
+          <AnchorHeading id="recommended-models" level="h2">Recommended models</AnchorHeading>
           <p>
-            <a href="https://lmstudio.ai" target="_blank" rel="noreferrer" className="text-primary hover:underline">LM Studio</a>{' '}
-            is a graphical model server with a built-in <strong>MLX backend</strong>. MLX is
-            Apple&apos;s machine learning framework, purpose-built for Apple Silicon. It uses
-            unified memory more efficiently than the GGUF/llama.cpp backend that Ollama uses.
-          </p>
-
-          <AnchorHeading id="why-lm-studio" level="h3">Why consider LM Studio?</AnchorHeading>
-          <ul>
-            <li>
-              <strong>MLX performance:</strong> On Apple Silicon Macs (M1–M5), MLX models
-              run faster and use less memory than the equivalent GGUF model in Ollama.
-            </li>
-            <li>
-              <strong>Unified memory advantage:</strong> MLX is designed around Apple&apos;s shared
-              CPU/GPU memory architecture. It can fit larger models into the same RAM.
-            </li>
-            <li>
-              <strong>Great UI:</strong> Download, configure, and chat with models without
-              touching the terminal.
-            </li>
-          </ul>
-
-          <AnchorHeading id="lm-studio-limitations" level="h3">Limitations with SourcePrep</AnchorHeading>
-          <p>
-            LM Studio does <strong>not</strong> expose an API for loading or unloading models.
-            This means SourcePrep <strong>cannot</strong> perform dynamic model loading with LM Studio.
-            Specifically:
-          </p>
-          <ul>
-            <li>
-              <strong>No automatic model switching.</strong> If your pipeline uses different models
-              for different tasks, you must manually load the correct model in LM Studio&apos;s UI.
-              SourcePrep will warn you if the loaded model doesn&apos;t match what&apos;s configured.
-            </li>
-            <li>
-              <strong>Context window is manual.</strong> LM Studio defaults to 4,096 tokens.
-              Deep reasoning tasks routinely send 8K–32K token prompts. You must increase the
-              context window in LM Studio&apos;s UI (Load → Context Length) before running
-              the trace pipeline.
-            </li>
-            <li>
-              <strong>&ldquo;Always available&rdquo; is implicit.</strong> Whatever model you load in
-              LM Studio stays loaded. The checkbox in SourcePrep has no effect on LM Studio.
-            </li>
-          </ul>
-
-          <div className="my-6 rounded-lg border border-info/30 bg-info/5 p-4">
-            <p className="text-sm">
-              <span className="font-semibold text-info">Recommendation:</span>{' '}
-              LM Studio is ideal for <strong>Mac users with 32GB+ RAM</strong> who want to keep
-              a single powerful model loaded at all times and leverage MLX performance.
-              Use it as your Fast model endpoint, and optionally pair it with an Ollama
-              endpoint (or cloud API) for the Thinking/Code slots that benefit from
-              dynamic model loading.
-            </p>
-          </div>
-
-          {/* ── MLX vs GGUF ── */}
-          <AnchorHeading id="mlx-vs-gguf" level="h2">MLX vs GGUF (llama.cpp)</AnchorHeading>
-          <p>
-            The local AI landscape on Mac currently has two main inference backends:
+            SourcePrep&apos;s pipeline runs reasoning and code-generation tasks that need real
+            capability. Don&apos;t bother with sub-14B models — they don&apos;t hold up under
+            multi-hop reasoning and produce noisy enrichments. The flagship recommendation is
+            <strong> Qwen 3.5 35B</strong> (the MoE 35B-active-3B variant); we benchmark against it
+            in development and it&apos;s what we tune the prompt budgets for.
           </p>
 
           <div className="my-6 overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 pr-4 font-semibold"></th>
-                  <th className="text-left py-2 pr-4 font-semibold">MLX (LM Studio)</th>
-                  <th className="text-left py-2 font-semibold">GGUF / llama.cpp (Ollama)</th>
+                <tr className="border-b border-border text-left text-text">
+                  <th className="py-2 pr-4 font-medium">Model</th>
+                  <th className="py-2 pr-4 font-medium">VRAM (Q4)</th>
+                  <th className="py-2 font-medium">When to pick it</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="text-text-muted">
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-semibold text-text-muted">Platform</td>
-                  <td className="py-2 pr-4">Apple Silicon only</td>
-                  <td className="py-2">Cross-platform (Mac, Linux, Windows)</td>
+                  <td className="py-2 pr-4 font-mono text-primary whitespace-nowrap">qwen3.5:35b-a3b</td>
+                  <td className="py-2 pr-4">~24 GB</td>
+                  <td className="py-2"><strong>Recommended.</strong> MoE: 35B params, 3B active. Strong reasoning, fits on 32GB Mac (tight) or 48GB+ (comfortable).</td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-semibold text-text-muted">Memory usage</td>
-                  <td className="py-2 pr-4">Lower (unified memory optimized)</td>
-                  <td className="py-2">Higher (Metal backend, less optimized for shared memory)</td>
+                  <td className="py-2 pr-4 font-mono whitespace-nowrap">qwen3.5:35b-a3b-q8_0</td>
+                  <td className="py-2 pr-4">~39 GB</td>
+                  <td className="py-2">Higher-precision MoE. Needs 48GB+ unified memory or a real GPU.</td>
                 </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-semibold text-text-muted">Inference speed</td>
-                  <td className="py-2 pr-4">Faster on Apple Silicon</td>
-                  <td className="py-2">Good, but slightly slower on Mac</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-semibold text-text-muted">Dynamic loading</td>
-                  <td className="py-2 pr-4 text-warning">❌ No API</td>
-                  <td className="py-2 text-success">✅ Full API</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-semibold text-text-muted">Model format</td>
-                  <td className="py-2 pr-4">MLX (safetensors)</td>
-                  <td className="py-2">GGUF (quantized)</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-semibold text-text-muted">Server mode</td>
-                  <td className="py-2 pr-4">GUI app with local server</td>
-                  <td className="py-2">Daemon with CLI + REST API</td>
+                <tr>
+                  <td className="py-2 pr-4 font-mono whitespace-nowrap">qwen3.5:122b-a10b</td>
+                  <td className="py-2 pr-4">~81 GB</td>
+                  <td className="py-2">Flagship MoE. Only on workstations with 96GB+ unified memory or a multi-GPU rig.</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <p>
-            Ollama uses llama.cpp under the hood with a Metal backend on Mac. It does <strong>not</strong> use
-            MLX and there are no current plans for Ollama to ship MLX support (though it&apos;s been
-            discussed in the community). Similarly, llama.cpp itself does not use MLX — it has its
-            own Metal GPU acceleration layer.
-          </p>
-          <p>
-            If you want MLX performance, LM Studio is currently the only practical option with
-            a SourcePrep-compatible OpenAI API endpoint.
+          <p className="text-sm text-text-muted">
+            VRAM figures are SourcePrep&apos;s measured ceilings (see <code>src/prep/core/context_config.py</code>)
+            including the 256K-token context window we provision per slot. Smaller context windows save
+            a few GB but cap how much codebase the agent can reason over.
           </p>
 
-          {/* ── Recommended Setups ── */}
-          <AnchorHeading id="recommended-setups" level="h2">Recommended Setups</AnchorHeading>
-
-          <AnchorHeading id="setup-mac-32gb" level="h3">Mac with 32GB+ RAM</AnchorHeading>
-          <div className="my-4 rounded-lg border border-border bg-surface p-4 space-y-2 text-sm">
-            <div><span className="font-semibold text-primary">Fast Model:</span> LM Studio (MLX) — <code>qwen3:4b</code> — Always Available ✅</div>
-            <div><span className="font-semibold text-primary">Thinking Model:</span> Ollama — <code>qwen3:8b</code> — Dynamic loading</div>
-            <div><span className="font-semibold text-primary">Code Model:</span> Ollama — <code>qwen3-coder:30b</code> — Dynamic loading</div>
-            <p className="text-text-muted pt-2">
-              The Fast model stays hot in LM Studio via MLX (low memory, fast inference).
-              Ollama handles the heavier models with dynamic loading — swapping them in
-              and out of VRAM as the pipeline progresses.
-            </p>
-          </div>
-
-          <AnchorHeading id="setup-mac-16gb" level="h3">Mac with 16GB RAM</AnchorHeading>
-          <div className="my-4 rounded-lg border border-border bg-surface p-4 space-y-2 text-sm">
-            <div><span className="font-semibold text-primary">All models:</span> Ollama — Dynamic loading</div>
-            <div><span className="font-semibold text-primary">Fast:</span> <code>qwen3:4b</code> (2.5GB) — optionally Always Available</div>
-            <div><span className="font-semibold text-primary">Thinking:</span> <code>qwen3:8b</code> (5.2GB)</div>
-            <p className="text-text-muted pt-2">
-              With 16GB, dynamic model loading is essential. Only one model fits comfortably
-              at a time. Ollama&apos;s automated load/unload cycle keeps the pipeline moving
-              without manual intervention.
-            </p>
-          </div>
-
-          <AnchorHeading id="setup-hybrid" level="h3">Hybrid: Local + Cloud</AnchorHeading>
-          <div className="my-4 rounded-lg border border-border bg-surface p-4 space-y-2 text-sm">
-            <div><span className="font-semibold text-primary">Fast tasks:</span> Ollama or LM Studio — local model</div>
-            <div><span className="font-semibold text-primary">Reasoning tasks:</span> Cloud API (Claude, GPT-4o) — no VRAM needed</div>
-            <p className="text-text-muted pt-2">
-              Offload the heavy reasoning tasks (group reasoning, atlas generation, deepening)
-              to a cloud API. This eliminates VRAM pressure entirely for those tasks and
-              gets frontier-quality results. Local models handle the high-volume fast sync tasks.
-            </p>
-          </div>
-
-          <AnchorHeading id="setup-linux" level="h3">Linux / Windows with NVIDIA GPU</AnchorHeading>
-          <div className="my-4 rounded-lg border border-border bg-surface p-4 space-y-2 text-sm">
-            <div><span className="font-semibold text-primary">All models:</span> Ollama — Dynamic loading with CUDA</div>
-            <p className="text-text-muted pt-2">
-              Ollama with CUDA acceleration is the recommended setup. Dynamic model loading
-              works identically to Mac. MLX is not available on Linux/Windows — it&apos;s
-              Apple Silicon only.
-            </p>
-          </div>
-
-          {/* ── Pipeline Safety ── */}
-          <AnchorHeading id="pipeline-safety" level="h2">Pipeline Safety</AnchorHeading>
+          {/* ── How dynamic loading works ── */}
+          <AnchorHeading id="how-it-works" level="h2">How dynamic loading works</AnchorHeading>
           <p>
-            Changing your model configuration while a pipeline is running could cause
-            the next stage to resolve to a different (or missing) model. SourcePrep handles this
-            with a <strong>pipeline-safe mode switch</strong>:
+            SourcePrep&apos;s pipeline runs several different LLM tasks per project — fast file
+            cataloguing, deeper reasoning passes, code-aware refactor planning, etc. On a single
+            machine you can&apos;t keep every model resident, so SourcePrep loads, unloads, and
+            re-warms models between stages on your behalf.
+          </p>
+
+          <ol className="space-y-2">
+            <li><strong>Stage starts</strong> — the orchestrator picks the model for the upcoming task.</li>
+            <li><strong>Room check</strong> — if a different model is currently loaded and the next task uses a different one, the loaded model is unloaded first.</li>
+            <li><strong>Preload</strong> — the new model is loaded into memory, with the right context length, before the stage executes.</li>
+            <li><strong>Ready</strong> — the stage runs.</li>
+            <li><strong>Next stage</strong> — if the same model is needed again, it stays put. Otherwise the cycle repeats.</li>
+          </ol>
+
+          <p>
+            None of this requires manual intervention — you configure your endpoints and models
+            once and SourcePrep handles the choreography per run.
+          </p>
+
+          <div className="my-6 rounded-lg overflow-hidden border border-border">
+            <StoryEmbed
+              storyId="dashboard-llm-advancedllmsettings--default"
+              height={420}
+              title="Advanced LLM Settings"
+              caption="The Advanced LLM Settings panel — keep-alive, VRAM headroom, and per-slot model overrides live here."
+            />
+          </div>
+
+          {/* ── Provider support ── */}
+          <AnchorHeading id="provider-support" level="h2">Provider support</AnchorHeading>
+          <p>
+            Both Ollama and LM Studio are fully supported peers — SourcePrep&apos;s pipeline calls
+            the same load/unload/ensure-ready logic against either backend.
+          </p>
+
+          <div className="my-6 overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-border text-left text-text">
+                  <th className="py-2 pr-4 font-medium">Provider</th>
+                  <th className="py-2 pr-4 font-medium">Dynamic Loading</th>
+                  <th className="py-2 pr-4 font-medium">MLX Backend</th>
+                  <th className="py-2 font-medium">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="text-text-muted">
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-mono text-primary">Ollama</td>
+                  <td className="py-2 pr-4 text-success font-semibold">✅ Full</td>
+                  <td className="py-2 pr-4 text-success font-semibold">✅ Supported</td>
+                  <td className="py-2">Cross-platform. Ollama&apos;s recent MLX support brings Apple Silicon performance close to LM Studio on equivalent models.</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-mono text-primary">LM Studio</td>
+                  <td className="py-2 pr-4 text-success font-semibold">✅ Full</td>
+                  <td className="py-2 pr-4 text-success font-semibold">✅ Built-in</td>
+                  <td className="py-2">Apple Silicon only. SourcePrep auto-sets context length on load; no manual UI fiddling required.</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4 font-mono text-primary">Cloud APIs</td>
+                  <td className="py-2 pr-4 text-text-muted">N/A (always ready)</td>
+                  <td className="py-2 pr-4 text-text-muted">N/A</td>
+                  <td className="py-2">No VRAM management needed. Recommended for most users.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-sm text-text-muted">
+            On Apple Silicon, both backends now run MLX-quantized models. Pick whichever you&apos;re
+            already comfortable with; the SourcePrep integration is the same either way.
+          </p>
+
+          {/* ── Always available ── */}
+          <AnchorHeading id="always-available" level="h2">Persistent models</AnchorHeading>
+          <p>
+            One model can be marked <strong>Always Available</strong> in the AI Models settings —
+            typically the smaller of your two slots, kept resident to skip the 5–15 second cold
+            start when stages cycle.
+          </p>
+          <p>If VRAM pressure forces an eviction, SourcePrep will:</p>
+          <ul>
+            <li>Temporarily unload the persistent model to make room for a larger task.</li>
+            <li>Automatically reload it once the heavy task finishes.</li>
+            <li>Show an eviction warning in the AI Gateway so you know it happened.</li>
+          </ul>
+
+          {/* ── Recommended setups ── */}
+          <AnchorHeading id="recommended-setups" level="h2">Recommended setups</AnchorHeading>
+
+          <AnchorHeading id="setup-mac-48gb" level="h3">Mac with 48–64GB unified memory</AnchorHeading>
+          <div className="my-4 rounded-lg border border-border bg-surface p-4 space-y-2 text-sm">
+            <div><span className="font-semibold text-primary">All slots:</span> <code>qwen3.5:35b-a3b</code> via Ollama or LM Studio</div>
+            <p className="text-text-muted pt-2">
+              The MoE 35B fits with comfortable headroom. Pick either backend — both now use MLX
+              on Apple Silicon. With 48GB+ you can leave the model resident as Always Available
+              and skip cold starts entirely.
+            </p>
+          </div>
+
+          <AnchorHeading id="setup-mac-32gb" level="h3">Mac with 32GB unified memory</AnchorHeading>
+          <div className="my-4 rounded-lg border border-border bg-surface p-4 space-y-2 text-sm">
+            <div><span className="font-semibold text-primary">Primary model:</span> <code>qwen3.5:35b-a3b</code></div>
+            <p className="text-text-muted pt-2">
+              Tight but workable — the 35B-a3b MoE consumes ~24 GB at the provisioned context
+              window, leaving roughly 8 GB for the OS and your other apps. Run a single model
+              and let SourcePrep cycle it across stages; don&apos;t try to keep a second model
+              resident. If 32 GB feels constrained in practice, drop down to the hybrid setup
+              and route reasoning to a cloud endpoint.
+            </p>
+          </div>
+
+          <AnchorHeading id="setup-workstation" level="h3">Workstation with 96GB+ memory or a 48GB+ NVIDIA GPU</AnchorHeading>
+          <div className="my-4 rounded-lg border border-border bg-surface p-4 space-y-2 text-sm">
+            <div><span className="font-semibold text-primary">Primary model:</span> <code>qwen3.5:35b-a3b-q8_0</code> or <code>qwen3.5:122b-a10b</code></div>
+            <p className="text-text-muted pt-2">
+              At this scale you can run the higher-precision Qwen variants or the flagship 122B
+              MoE. Dynamic loading is still on, but mostly to swap between specialised models
+              (reasoning vs code) rather than because you&apos;re out of memory.
+            </p>
+          </div>
+
+          <AnchorHeading id="setup-hybrid" level="h3">Hybrid: local fast + cloud heavy</AnchorHeading>
+          <div className="my-4 rounded-lg border border-border bg-surface p-4 space-y-2 text-sm">
+            <div><span className="font-semibold text-primary">Fast tasks:</span> local <code>qwen3.5:35b-a3b</code></div>
+            <div><span className="font-semibold text-primary">Reasoning + code tasks:</span> cloud (Claude / GPT / Ollama Cloud)</div>
+            <p className="text-text-muted pt-2">
+              Often the most pragmatic setup: keep a single local model resident for high-volume
+              fast-sync work, and route the heavy reasoning / refactor stages to a cloud API.
+              No VRAM pressure, frontier-quality results where they matter, and your codebase
+              data still stays local for the fast-sync passes.
+            </p>
+          </div>
+
+          {/* ── MLX backends ── */}
+          <AnchorHeading id="mlx-vs-gguf" level="h2">MLX vs GGUF (Apple Silicon)</AnchorHeading>
+          <p>
+            On Apple Silicon both backends now offer MLX runtimes — Apple&apos;s ML framework
+            optimised for unified memory. The performance gap that historically favored LM Studio
+            has largely closed now that Ollama ships MLX support.
+          </p>
+          <p>
+            Practically: pick whichever you already have installed. If neither, Ollama&apos;s CLI +
+            REST API is easier to script and works the same on Mac, Linux, and Windows; LM Studio
+            is the better choice if you prefer a GUI for browsing and downloading models. Both
+            give SourcePrep the same dynamic-loading behaviour.
+          </p>
+
+          {/* ── Pipeline safety ── */}
+          <AnchorHeading id="pipeline-safety" level="h2">Pipeline safety</AnchorHeading>
+          <p>
+            Changing your model configuration while a pipeline is running could cause the next
+            stage to resolve to a different (or missing) model. SourcePrep handles this with a
+            <strong> pipeline-safe mode switch</strong>:
           </p>
           <ol className="space-y-2">
-            <li>When you save a configuration change, SourcePrep <strong>pauses</strong> any active pipeline stages</li>
-            <li>The new configuration is written atomically</li>
-            <li>SourcePrep verifies the next stage&apos;s model is available under the new config</li>
-            <li>The pipeline <strong>resumes</strong> from where it left off</li>
+            <li>When you save a configuration change, SourcePrep <strong>pauses</strong> any active pipeline stages.</li>
+            <li>The new configuration is written atomically.</li>
+            <li>SourcePrep verifies the next stage&apos;s model is available under the new config.</li>
+            <li>The pipeline <strong>resumes</strong> from where it left off.</li>
           </ol>
           <p>
-            This means you can safely switch between Structured and Assigned mode, change
-            endpoints, or swap models — even mid-pipeline — without data loss or crashes.
+            This means you can safely switch endpoints, swap models, or move between Structured
+            and Assigned mode — even mid-pipeline — without data loss or crashes.
           </p>
 
         </div>

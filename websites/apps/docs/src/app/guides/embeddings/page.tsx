@@ -1,5 +1,5 @@
-import { Image as ImageIcon } from 'lucide-react';
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -34,7 +34,7 @@ export default function Page() {
                 higher, so this is a flexibility option, not a quality upgrade. <span className="font-semibold text-text">Requires a GPU.</span>
               </p>
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-text-muted">
-                <span>4 096-dim embeddings</span>
+                <span>3 584-dim embeddings (Matryoshka-truncated to 768)</span>
                 <span>·</span>
                 <span>GPU required (Ollama)</span>
                 <span>·</span>
@@ -171,6 +171,15 @@ export default function Page() {
         {/* Configuring the tier */}
         <section className="mt-10">
           <AnchorHeading id="configuring" level="h2">Configuring your embedding tier</AnchorHeading>
+
+          <div className="mt-6 rounded-lg overflow-hidden border border-border">
+            <StoryEmbed
+              storyId="dashboard-llm-modelcard--connected-with-model-and-test-result"
+              height={320}
+              title="Model Card"
+              caption="The Embedding model slot in Settings → AI Models — pick an endpoint and the dashboard auto-detects the model."
+            />
+          </div>
 
           <h3 className="mt-6 text-base font-semibold">Tier 1: nomic-embed-code via Ollama (recommended)</h3>
           <ol className="mt-3 space-y-1.5 text-sm text-text-muted list-decimal pl-5">

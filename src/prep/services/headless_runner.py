@@ -128,14 +128,20 @@ def headless_create_llm_client(config: HeadlessConfig):
 
 
 def headless_create_embedder(config: HeadlessConfig):
-    """Create an embedder without importing from prep.server."""
+    """Create an embedder without importing from prep.server.
+
+    Phase 139: routes through ``embedder_factory.create_embedder`` so
+    the singleton cache and direct-construction warning behave
+    consistently with the server path. The factory gracefully degrades
+    when ``prep.server`` is not importable (this headless path).
+    """
     from prep.core import NativeEmbedder, OllamaEmbedder
 
+    if config.embedder == "native" and NativeEmbedder.is_available():
+        from prep.services.embedder_factory import create_embedder
+        logger.info("Using NativeEmbedder (ONNX, CPU) via factory")
+        return create_embedder("native")
     if config.embedder == "native":
-        native = NativeEmbedder()
-        if native.is_available():
-            logger.info("Using NativeEmbedder (ONNX, CPU)")
-            return native
         logger.warning("NativeEmbedder deps not installed; falling back to Ollama")
 
     # Fallback / explicit ollama

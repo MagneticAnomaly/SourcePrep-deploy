@@ -47,9 +47,11 @@ const STORY_PANELS: Record<string, PanelSpec> = {
   'Dashboard/Roadmap/RoadmapPanel': 'roadmap',
   'Dashboard/Pipeline/GraphEnrichmentPipeline': 'trace-pipeline',
 
+  // Registry-backed entry — BuildCard is a devOnly dashboard panel (Phase 137 dogfood).
+  'Dashboard/Build/BuildCard': 'build',
+
   // Inline (no canonical registry entry — these are panels in the product UI
   // but represented differently in the modular layout config).
-  'Dashboard/Build/BuildCard': { title: 'Build', icon: Hammer },
   'Dashboard/LLM/EndpointManager': { title: 'LLM Endpoints', icon: Zap },
   'Dashboard/LLM/AdvancedLLMSettings': { title: 'Advanced LLM', icon: Settings },
   'Dashboard/LLM/DeepAnalysisSettings': { title: 'Deep Analysis', icon: Settings },
@@ -250,10 +252,53 @@ const preview: Preview = {
         }
       }, [mode, prepTheme]);
 
+      // ──────────────────────────────────────────────────────────────────
+      // Panel rendering must mirror the production hierarchy.
+      //
+      // In the live dashboard, ModularDashboard renders every registered
+      // panel as:
+      //
+      //   <PanelChrome ...>
+      //     <div className="prep-panel-body flex flex-col p-4 h-full min-h-0">
+      //       <PanelComponent bare {...} />
+      //     </div>
+      //   </PanelChrome>
+      //
+      // The `prep-panel-body` wrapper's `p-4` is load-bearing — several
+      // panel components (e.g. FolderTreePanel) use negative-margin tricks
+      // like `-mx-2` on their internal scroll containers that ASSUME this
+      // padding exists. Drop the wrapper and tree rows bleed outside the
+      // panel edges.
+      //
+      // The storybook decorator below replicates this hierarchy 1:1 so the
+      // iframe-embedded story renders the same way the dashboard renders
+      // the same component. The leftover CSS rule strips card chrome from
+      // panel components that don't yet support `bare={true}` — proper fix
+      // is to add `bare` to those components in a follow-up.
+      // ──────────────────────────────────────────────────────────────────
       const body = panel ? (
-        <PanelChrome title={panel.title} icon={panel.icon} description={panel.description}>
-          <Story />
-        </PanelChrome>
+        <>
+          <style>{`
+            .prep-panel > .prep-panel-content > .prep-panel-body > :first-child {
+              border: 0 !important;
+              box-shadow: none !important;
+              border-radius: 0 !important;
+              background-color: transparent !important;
+            }
+          `}</style>
+          <PanelChrome
+            title={panel.title}
+            icon={panel.icon}
+            description={panel.description}
+            onClose={() => {}}
+            onCollapse={() => {}}
+            onDetails={() => {}}
+          >
+            <div className="prep-panel-body flex flex-col p-4 h-full min-h-0 overflow-hidden">
+              <Story />
+            </div>
+          </PanelChrome>
+        </>
       ) : (
         <Story />
       );

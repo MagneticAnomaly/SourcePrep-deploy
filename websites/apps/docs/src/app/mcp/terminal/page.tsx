@@ -1,3 +1,4 @@
+import { AnimatedCLI, prepSearchDemo } from '../../../components/cli-demos';
 import { MCP_TOOLS } from '../../../config/mcp-setup';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 
@@ -33,6 +34,12 @@ export default function TerminalIntegrationsPage() {
           <AnchorHeading id="setup" level="h2">Integration Setup</AnchorHeading>
           <p>
             Select your Terminal AI agent below. Update the respective configuration file with the provided JSON block to register SourcePrep as an MCP tool. Ensure the SourcePrep daemon is running (<code>prep serve</code>) before starting a chat session in the terminal.
+          </p>
+          <div className="not-prose my-8">
+            <AnimatedCLI script={prepSearchDemo} />
+          </div>
+          <p className="text-sm text-text-muted text-center italic -mt-4">
+            What an MCP-aware CLI agent looks like calling <code>prep_search</code> mid-session.
           </p>
         </div>
 

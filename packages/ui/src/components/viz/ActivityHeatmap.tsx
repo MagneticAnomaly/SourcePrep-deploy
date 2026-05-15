@@ -150,7 +150,7 @@ export function ActivityHeatmap({
   return (
     <Card className={cn('border border-border bg-surface shadow-sm', className)}>
       <Flex justifyContent="between" alignItems="center" className="mb-4">
-        <Title className="text-text">Index Activity</Title>
+        <Title className="text-text">Knowledge Activity</Title>
         <Flex className="gap-2">
           <Badge color="cyan" size="xs">{data.totals.embeddings.toLocaleString()} embeddings</Badge>
           <Badge color="amber" size="xs">{data.totals.trace.toLocaleString()} graph nodes</Badge>

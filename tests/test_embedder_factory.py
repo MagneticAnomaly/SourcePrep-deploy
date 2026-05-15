@@ -20,13 +20,17 @@ _DEFAULT_CONFIG = {
 def mock_server_config():
     """Provide default server config for all tests."""
     import prep.server
+    from prep.services.embedder_factory import close_shared_embedders
     orig_config = getattr(prep.server, '_config', {})
     orig_load = getattr(prep.server, '_load_ui_config', lambda: {})
     prep.server._config = dict(_DEFAULT_CONFIG)
     prep.server._load_ui_config = lambda: {}
+    # Phase 139: clear singleton cache so each test gets fresh resolution.
+    close_shared_embedders()
     yield
     prep.server._config = orig_config
     prep.server._load_ui_config = orig_load
+    close_shared_embedders()
 
 
 class TestEmbedderFactory:

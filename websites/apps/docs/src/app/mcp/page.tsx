@@ -1,3 +1,4 @@
+import { AnimatedCLI, prepTldrOverviewDemo } from '../../components/cli-demos';
 import { AnchorHeading } from '../../components/AnchorHeading';
 import { StoryEmbed } from '../../components/StoryEmbed';
 
@@ -106,6 +107,13 @@ export default function Page() {
             </table>
           </div>
 
+          <div className="not-prose my-8">
+            <AnimatedCLI script={prepTldrOverviewDemo} />
+          </div>
+          <p className="text-sm text-text-muted -mt-4 mb-8 text-center italic">
+            What a <code>prep</code> call looks like in your editor — ambient context, no arguments.
+          </p>
+
           <AnchorHeading id="live-preview" level="h2">Live Dashboard Preview</AnchorHeading>
           <p className="mt-2 mb-4">
             These are live, interactive previews of the SourcePrep dashboard panels your agents interact with.
@@ -120,7 +128,12 @@ export default function Page() {
             <StoryEmbed
               storyId="dashboard-index-indexstatuscard--loaded"
               height={220}
-              caption="Index Status Card — real-time view of your codebase index"
+              caption="Knowledge Status — real-time view of your codebase knowledge"
+            />
+            <StoryEmbed
+              storyId="dashboard-agents-agentopspanel--active"
+              height={380}
+              caption="Agent Operations Panel — the cross-cutting view of which MCP-aware agents are using your index right now."
             />
           </div>
         </div>

@@ -682,8 +682,8 @@ def models_download() -> None:
     """
     from prep.core.embedder import NativeEmbedder
 
-    native = NativeEmbedder()
-    if not native.is_available():
+    # Phase 139: static availability check, factory for the instance.
+    if not NativeEmbedder.is_available():
         console.print("[red]Error: Native embedder dependencies not installed.[/red]")
         console.print("[dim]Run: pip install onnxruntime tokenizers huggingface-hub[/dim]")
         raise typer.Exit(1)
@@ -691,6 +691,8 @@ def models_download() -> None:
     console.print(f"[cyan]Downloading model: {NativeEmbedder.HF_REPO_ID}[/cyan]")
     console.print(f"[dim]Files: {NativeEmbedder.TOKENIZER_FILE}, {NativeEmbedder.ONNX_FILE}[/dim]")
 
+    from prep.services.embedder_factory import create_embedder
+    native = create_embedder("native")
     try:
         model_path = native.download_model()
         console.print(f"[green]✓ Model downloaded to: {model_path}[/green]")

@@ -1,5 +1,6 @@
 'use client';
 
+import { AnimatedCLI, auditPrSanityCheckDemo } from '../../../components/cli-demos';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 import { StoryEmbed } from '../../../components/StoryEmbed';
 
@@ -66,41 +67,73 @@ export default function Page() {
           <AnchorHeading id="quick-start" level="h2">Quick Start</AnchorHeading>
 
           <AnchorHeading id="cli" level="h3">CLI</AnchorHeading>
-          <pre className="rounded-lg bg-surface-raised p-4"><code>{`# Run Tier 1 analyzers only (fast, no LLM)
-prep audit
-
-# Run Tier 1 + Tier 2 synthesis (generates markdown reports)
-prep audit --synthesize
-
-# Filter to a specific category
-prep audit --category architecture`}</code></pre>
-
-          <AnchorHeading id="mcp" level="h3">MCP Tools</AnchorHeading>
           <p>
-            Four MCP tools are available in Cursor, Windsurf, and any MCP-compatible editor:
+            Audits are triggered via the MCP <code>prep_audit</code> tool, the REST API,
+            or the dashboard&apos;s Audit panel — not a direct CLI command. To read findings
+            from the most recent run from a terminal, use <code>prep opportunities</code>:
           </p>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>
-              <code className="text-primary">prep_audit</code> — Run or retrieve
-              audit findings. Returns severity counts and top findings. Set{' '}
-              <code>synthesize: true</code> to also generate full reports.
-            </li>
-            <li>
-              <code className="text-primary">prep_audit_report</code> — Read a
-              specific generated report by name. Available reports:{' '}
-              <code>AUDIT_SUMMARY</code>, <code>ARCHITECTURE_ANALYSIS</code>,{' '}
-              <code>GAP_ANALYSIS</code>, <code>COMPONENT_INVENTORY</code>,{' '}
-              <code>TECH_DEBT_REPORT</code>.
-            </li>
-            <li>
-              <code className="text-primary">prep_audit_refactor</code> — (V2) Context Assembly Handoff. 
-              Takes an array of <code>finding_ids</code> (e.g. <code>["ARCH-1", "QUAL-2"]</code>) and returns the full structural trace graph context for all affected files, priming the AI for an immediate refactor.
-            </li>
-            <li>
-              <code className="text-primary">prep_audit_check</code> — (V2) Validation. 
-              Takes an array of <code>analyzers</code> to re-run locally to verify that recent code changes actually resolved the finding.
-            </li>
-          </ul>
+          <pre className="rounded-lg bg-surface-raised p-4"><code>{`# List actionable findings from the latest audit
+prep opportunities
+
+# Filter by minimum priority
+prep opportunities --priority P1
+
+# Export as SARIF for CI ingestion
+prep opportunities --format sarif
+
+# Pipe a high-priority subset to an AI agent prompt
+prep opportunities --priority P0 --format ai_prompt`}</code></pre>
+
+          <div className="not-prose my-6">
+            <AnimatedCLI script={auditPrSanityCheckDemo} />
+          </div>
+          <p className="text-xs text-text-muted text-center italic mt-2">
+            What a PR-sanity audit looks like when an agent calls <code>prep_audit</code> mid-review.
+          </p>
+
+          <AnchorHeading id="mcp" level="h3">MCP Tool</AnchorHeading>
+          <p>
+            One MCP tool, <code className="text-primary">prep_audit</code>, exposes all audit functionality
+            across Cursor, Windsurf, Claude Code, and any MCP-compatible editor. The behavior is
+            selected via the <code>action</code> parameter:
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="py-2 pr-4 text-left font-semibold">Action</th>
+                  <th className="py-2 text-left font-semibold">What it does</th>
+                </tr>
+              </thead>
+              <tbody className="text-text-muted">
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-mono text-xs">scan (default)</td>
+                  <td className="py-2 text-xs">Run analyzers and return structured findings. Set <code>synthesize: true</code> to also generate LLM reports.</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-mono text-xs">report</td>
+                  <td className="py-2 text-xs">Read a specific generated report by name (<code>AUDIT_SUMMARY</code>, <code>ARCHITECTURE_ANALYSIS</code>, <code>GAP_ANALYSIS</code>, <code>COMPONENT_INVENTORY</code>, <code>TECH_DEBT_REPORT</code>).</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-mono text-xs">refactor</td>
+                  <td className="py-2 text-xs">Context-assembly handoff. Pass <code>finding_ids</code> (e.g. <code>["ARCH-1", "QUAL-2"]</code>) and get back the structural trace graph for all affected files, priming the AI for an immediate refactor.</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-mono text-xs">verify</td>
+                  <td className="py-2 text-xs">Re-run a named subset of <code>analyzers</code> to confirm recent edits actually resolved the finding.</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4 font-mono text-xs">antibodies</td>
+                  <td className="py-2 text-xs">List immune-system defenses derived from concept assertions.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-4">
+            Findings can also be passed in via the <code>findings</code> parameter to enrich
+            external lint output (ruff, eslint, semgrep, SARIF) with structural context — see the{' '}
+            <a href="/guides/audit-enrichment" className="text-primary hover:underline">Audit Enrichment guide</a>.
+          </p>
 
           <AnchorHeading id="api" level="h3">REST API</AnchorHeading>
           <div className="overflow-x-auto">

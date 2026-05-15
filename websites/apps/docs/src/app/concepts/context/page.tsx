@@ -1,8 +1,10 @@
 "use client";
 
 import { Search, Scale, Ruler, Minimize2, FileCode } from 'lucide-react';
+import { AnimatedCLI, prepTldrOverviewDemo } from '../../../components/cli-demos';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 import { ConceptPageShell } from '../../../components/ConceptPageShell';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 const SECTIONS = [
   { id: 'why',         label: 'Why Assembly Matters' },
@@ -28,7 +30,7 @@ const STEPS = [
     name: 'SCORING',
     title: 'Scoring & Weighting',
     body: (
-      <>Re-scored on relevance (vector distance), query intent (auto-classified — &quot;docs&quot;, &quot;tests&quot;, &quot;code&quot;, or &quot;default&quot; — adjusts role weights accordingly), path weights (per-directory multipliers), priming (<code>AGENTS.md</code> and primer files get a global boost), and recency.</>
+      <>Re-scored on relevance (vector distance), the kind of question being asked (auto-classified — see the <a href="/mcp" className="text-primary hover:underline">MCP reference</a> for the full intent taxonomy), file-type weights (docs vs code vs tests), path weights (per-directory multipliers), priming (<code>AGENTS.md</code> and primer files get a global boost), and recency.</>
     ),
   },
   {
@@ -102,6 +104,22 @@ export default function Page() {
               <StepCard step={step} index={i} />
             </div>
           ))}
+        </div>
+
+        <div className="mt-8">
+          <AnimatedCLI script={prepTldrOverviewDemo} />
+        </div>
+        <p className="text-xs text-text-muted text-center italic mt-2">
+          What an assembled context payload looks like when an agent calls <code>prep</code>.
+        </p>
+
+        <div className="mt-8 rounded-lg overflow-hidden border border-border">
+          <StoryEmbed
+            storyId="dashboard-search-contextoutput--default"
+            height={420}
+            title="Context Output"
+            caption="The dashboard view of the same assembled payload — every chunk carries its LOD badge and source citation."
+          />
         </div>
       </section>
 

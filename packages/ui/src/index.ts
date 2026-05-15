@@ -105,7 +105,21 @@ export { StatusBadge, StatusCard, BuildProgress, ProgressIndicator } from './com
 export type { StatusBadgeProps, StatusCardProps, BuildProgressProps, ProgressIndicatorProps } from './components/status';
 
 // Components - Console
-export { LogConsole, AnimatedCLI, TerminalFrame, AnimatedIDE, prepSearchDemo, prepImpactDemo, prepOverviewDemo, prepAuditDemo, prepObserveDemo, prepConceptsDemo, ideDemoScript, prepDemos, prepSearchDemos, prepImpactDemos, prepAuditDemos, prepObserveDemos, prepConceptsDemos, ideDemos } from './components/console';
+export {
+  LogConsole, AnimatedCLI, TerminalFrame, AnimatedIDE,
+  // Sequence arrays (cycle through multiple demos)
+  prepDemos, prepSearchDemos, prepImpactDemos, prepAuditDemos, prepObserveDemos, prepConceptsDemos, ideDemos,
+  // Single-script aliases (first pick of each sequence)
+  prepOverviewDemo, prepSearchDemo, prepImpactDemo, prepAuditDemo, prepObserveDemo, prepConceptsDemo, ideDemoScript,
+  // Named individual scripts — for docs pages that want a specific scenario
+  prepRateLimitingDemo, prepTldrOverviewDemo, prepBuildWebhookDemo,
+  searchRetryReuseDemo, searchMaxConnectionsDemo, searchBuildWorkerDemo,
+  impactDeleteUnusedDemo, impactExtractServiceDemo, impactAsyncMigrationDemo,
+  auditPrSanityCheckDemo, auditSecurityScanDemo, auditTightenTypesDemo,
+  observeCachingRecallDemo, observeInvestigationRecallDemo, observeSaveOwnershipDemo,
+  conceptsTransactionRuleDemo, conceptsQueuePitfallsDemo, conceptsBuildRefundDemo,
+  ideDoubleSubmitFixDemo, ideLoadingSkeletonDemo, ideAddCsvExportDemo,
+} from './components/console';
 export type { LogConsoleProps, AnimatedCLIProps, TerminalFrameProps, AnimatedIDEProps, CliEvent, CliScript, TerminalTheme } from './components/console';
 
 // Components - Navigation
@@ -125,8 +139,8 @@ export { EmptyState, LoadingState, ErrorState } from './components/patterns';
 export type { EmptyStateProps, LoadingStateProps, ErrorStateProps } from './components/patterns';
 
 // Components - Dashboard
-export { IndexStatusCard, IndexStatsDisplay, LLMStatusWidget, UsageGuidePanel } from './components/dashboard';
-export type { IndexStatusCardProps, IndexStats, IndexStatsProps, StatItem, LLMStatusWidgetProps, LLMServiceStatus, UsageGuidePanelProps } from './components/dashboard';
+export { IndexStatusCard, IndexStatsDisplay, LLMStatusWidget, UsageGuidePanel, BuildCard } from './components/dashboard';
+export type { IndexStatusCardProps, IndexStats, IndexStatsProps, StatItem, LLMStatusWidgetProps, LLMServiceStatus, UsageGuidePanelProps, BuildCardProps } from './components/dashboard';
 
 // Components - LLM
 export { ModelCard, EndpointManager, AIModelsSettings, DeepAnalysisSettings } from './components/llm';

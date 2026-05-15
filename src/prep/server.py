@@ -105,8 +105,32 @@ async def lifespan(app: FastAPI):
     # Initialize ProgressManager (ensure it's created)
     get_progress_manager()
 
+    # Phase 139: opt-in daemon-wide RSS sampler. Set PREP_RSS_TELEMETRY=1
+    # to enable. No-op when unset.
+    try:
+        from prep.services import rss_sampler
+        rss_sampler.start()
+    except Exception:
+        logger.debug("RSS sampler failed to start (non-fatal)", exc_info=True)
+
     logger.info("SourcePrep EventBus initialized")
     yield
+
+    # Phase 139: stop RSS sampler before SQLite shutdown.
+    try:
+        from prep.services import rss_sampler
+        rss_sampler.stop()
+    except Exception:
+        logger.debug("RSS sampler failed to stop (non-fatal)", exc_info=True)
+
+    # Phase 139: release shared embedders. Drops Python refs; does not
+    # deterministically reclaim CoreML/ANE memory (open ORT issues #26831,
+    # #22007) — restart is the documented remedy. Logged for visibility.
+    try:
+        from prep.services.embedder_factory import close_shared_embedders
+        close_shared_embedders()
+    except Exception:
+        logger.debug("close_shared_embedders failed (non-fatal)", exc_info=True)
     # Phase 93: Write clean shutdown markers for projects with no active runs.
     # On next startup, auto_recover_stale_pipelines will see these markers and
     # skip recovery — incomplete deep enrichment manifests are steady-state,

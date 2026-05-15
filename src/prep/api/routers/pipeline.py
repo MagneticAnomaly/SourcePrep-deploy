@@ -1135,10 +1135,23 @@ def pipeline_rebuild_stop(project_id: str) -> dict[str, Any]:
 
     recovery.clear_reset_barrier(project_id)
 
+    # Phase 139 Q8: drop the shared embedder so the next run gets a
+    # fresh ONNX session. Cold-start cost (~3-6s on first re-embed) is
+    # acceptable — users hit "stop" precisely when they want a clean
+    # slate. Per RESEARCH.md §1.1 this does not deterministically
+    # reclaim CoreML memory, but it does drop the Python ref.
+    released = 0
+    try:
+        from prep.services.embedder_factory import close_shared_embedders
+        released = close_shared_embedders()
+    except Exception:
+        logger.debug("rebuild/stop: close_shared_embedders failed (non-fatal)", exc_info=True)
+
     return ok({
         "stopped": True,
         "was_active": was_active,
         "cancelled": cancelled,
+        "embedders_released": released,
     })
 
 

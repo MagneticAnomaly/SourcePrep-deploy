@@ -81,14 +81,14 @@ legacy/</code>
                   <td className="py-2 pr-4 font-mono">PREP_TIER</td>
                   <td className="py-2 pr-4"><code>free</code> | <code>pro</code> | <code>team</code> | <code>enterprise</code></td>
                   <td className="py-2">
-                    Override the license tier for testing/development.
+                    Override the license tier for testing/development. Requires <code>PREP_DEV_MODE=1</code> to take effect.
                   </td>
                 </tr>
                 <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono">PREP_LOG_LEVEL</td>
-                  <td className="py-2 pr-4"><code>DEBUG</code> | <code>INFO</code> | <code>WARNING</code></td>
+                  <td className="py-2 pr-4 font-mono">PREP_DEV_MODE</td>
+                  <td className="py-2 pr-4"><code>1</code></td>
                   <td className="py-2">
-                    Set the logging verbosity for the daemon and CLI.
+                    Enable development mode — required for <code>PREP_TIER</code> to override the license tier.
                   </td>
                 </tr>
               </tbody>

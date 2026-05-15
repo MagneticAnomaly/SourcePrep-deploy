@@ -317,8 +317,8 @@ class ModelStatusRequest(BaseModel):
 def embedding_status() -> Dict[str, Any]:
     """Return the current embedding provider status."""
     from prep.server import _config
-    native = NativeEmbedder()
-    deps_ok = native.is_available()
+    # Phase 139: static call — no instance construction for introspection.
+    deps_ok = NativeEmbedder.is_available()
 
     model_cached = False
     model_path = None
@@ -359,14 +359,18 @@ def embedding_download() -> Dict[str, Any]:
     The model is cached in the standard HF cache directory (~/.cache/huggingface/).
     This is a blocking call — the download happens synchronously.
     """
-    native = NativeEmbedder()
-    if not native.is_available():
+    # Phase 139: download_model() is a real action — go through the
+    # factory so we get the cached singleton, but the is_available()
+    # gate is checked statically first.
+    if not NativeEmbedder.is_available():
         raise ApiException(
             status_code=400,
             code="NATIVE_DEPS_MISSING",
             message="Native embedding dependencies not installed",
             hint="pip install onnxruntime tokenizers huggingface-hub",
         )
+    from prep.services.embedder_factory import create_embedder
+    native = create_embedder("native")
 
     try:
         model_path = native.download_model()

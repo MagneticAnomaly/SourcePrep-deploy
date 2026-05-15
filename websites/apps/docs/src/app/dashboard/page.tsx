@@ -1,3 +1,4 @@
+import { AnimatedIDE, ideLoadingSkeletonDemo } from '../../components/cli-demos';
 import { AnchorHeading } from '../../components/AnchorHeading';
 import { StoryEmbed } from '../../components/StoryEmbed';
 
@@ -38,7 +39,7 @@ export default function Page() {
             choosing what to add to your layout.
           </p>
           <ul className="list-disc pl-6 space-y-2">
-            <li><span className="font-semibold text-text">Status:</span> what the engine is doing — Index Status, Pipeline progress, Code-Graph coverage, Atlas, Audit, Activity Heatmap, Goalposts, Roadmap.</li>
+            <li><span className="font-semibold text-text">Status:</span> what the engine is doing — Knowledge Status, Pipeline progress, Code-Graph coverage, Atlas, Audit, Knowledge Activity, Goalposts, Roadmap.</li>
             <li><span className="font-semibold text-text">Search:</span> querying the index — Search, Search Results, File Tree, Trace.</li>
             <li><span className="font-semibold text-text">Context:</span> what gets sent to your AI — Context Options, Context Output, Architecture, Concepts.</li>
             <li><span className="font-semibold text-text">Config:</span> tuning the engine — Deep Analysis, Token Budget, Agent Ops.</li>
@@ -68,7 +69,7 @@ export default function Page() {
             Most users start with these. The full list lives in the Panel Picker.
           </p>
 
-          <AnchorHeading id="index-status" level="h3" className="text-xl font-semibold mt-8 mb-2">Index Status</AnchorHeading>
+          <AnchorHeading id="index-status" level="h3" className="text-xl font-semibold mt-8 mb-2">Knowledge Status</AnchorHeading>
           <p className="text-sm">
             High-level health of the index — file counts, coverage, last build,
             and stale-file count. The fastest way to see whether the engine has
@@ -77,7 +78,7 @@ export default function Page() {
           <StoryEmbed
             storyId="dashboard-index-indexstatuscard--loaded"
             height={220}
-            caption="Index Status Card — index size, coverage, and freshness at a glance."
+            caption="Knowledge Status — chunks indexed, embedding model, last build, and freshness at a glance."
           />
 
           <AnchorHeading id="code-graph-coverage" level="h3" className="text-xl font-semibold mt-8 mb-2">Code-Graph Coverage</AnchorHeading>
@@ -120,6 +121,40 @@ export default function Page() {
             caption="Search panel — find code by meaning, with the assembled context preview alongside."
           />
 
+          <AnchorHeading id="agent-ops" level="h3" className="text-xl font-semibold mt-8 mb-2">Agent Operations</AnchorHeading>
+          <p className="text-sm">
+            Cross-cutting view of MCP-aware agents using your index — which editors are connected,
+            which projects they&apos;re scoped to, and how many tool calls they&apos;ve issued. Useful
+            when more than one agent is in flight at the same time.
+          </p>
+          <StoryEmbed
+            storyId="dashboard-agents-agentopspanel--active"
+            height={380}
+            caption="Agent Operations Panel — live connections, scope, and throughput per agent."
+          />
+
+          <AnchorHeading id="roadmap" level="h3" className="text-xl font-semibold mt-8 mb-2">Roadmap</AnchorHeading>
+          <p className="text-sm">
+            LLM-synthesized roadmap derived from your codebase, open tickets, and recent commits.
+            Bi-directional GitHub sync keeps it in step with the work that&apos;s actually moving.
+          </p>
+          <StoryEmbed
+            storyId="dashboard-roadmap-roadmappanel--with-content"
+            height={420}
+            caption="Roadmap Panel — synthesized milestones, sprint suggestions, and burndown."
+          />
+
+          <AnchorHeading id="activity" level="h3" className="text-xl font-semibold mt-8 mb-2">Activity Heatmap</AnchorHeading>
+          <p className="text-sm">
+            Year-view of indexing and enrichment activity per day. Surface dormant areas of the
+            codebase and spot anomalies in incremental-rebuild frequency at a glance.
+          </p>
+          <StoryEmbed
+            storyId="dashboard-visualization-activityheatmap--mixed-activity"
+            height={260}
+            caption="Activity Heatmap — daily indexing + enrichment volume across the year."
+          />
+
           <AnchorHeading id="settings" level="h2">Settings</AnchorHeading>
           <p>
             The Settings panel (Config category) is the configuration surface for
@@ -127,6 +162,19 @@ export default function Page() {
             Chunking and Embeddings, Source globs, Trace, Integrations, and
             Destructive Actions. Most settings autosave; look for the
             inline status indicator next to each field.
+          </p>
+
+          <AnchorHeading id="agent-live" level="h2">What it looks like with an agent attached</AnchorHeading>
+          <p className="text-sm">
+            With the dashboard running and an MCP-aware editor connected, your agent operates
+            against the same panels you see — using SourcePrep&apos;s context to navigate the
+            codebase while you watch progress in real time.
+          </p>
+          <div className="not-prose my-6">
+            <AnimatedIDE script={ideLoadingSkeletonDemo} />
+          </div>
+          <p className="text-xs text-text-muted text-center italic -mt-2">
+            An agent live-editing UI code with SourcePrep&apos;s structural context loaded alongside the IDE.
           </p>
 
           <AnchorHeading id="learn-more" level="h2">Learn more</AnchorHeading>

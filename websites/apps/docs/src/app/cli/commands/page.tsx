@@ -25,7 +25,7 @@ export default function Page() {
             <li><code>--reload</code>: Enable auto-reload (for development).</li>
           </ul>
           <p className="text-sm mt-2 text-text-muted">
-            <em>To enable debug logging, set <code>PREP_LOG_LEVEL=DEBUG</code> before running.</em>
+            <em>For verbose logging from the MCP server, use <code>prep mcp --debug</code>.</em>
           </p>
 
           <AnchorHeading id="add" level="h2" className="mt-8">prep add</AnchorHeading>
@@ -156,10 +156,11 @@ export default function Page() {
           </p>
 
           <AnchorHeading id="config" level="h3" className="mt-6 text-xl font-semibold">prep config</AnchorHeading>
-          <pre className="overflow-x-auto text-sm"><code>prep config [&lt;key&gt;] [--set &lt;value&gt;]</code></pre>
+          <pre className="overflow-x-auto text-sm"><code>prep config [&lt;key&gt;] [&lt;value&gt;]</code></pre>
           <p className="text-sm text-text-muted">
             View or modify Prep configuration. With no arguments, prints the current daemon-wide config.
-            Pass a key path to read a specific value, or <code>--set</code> to write one.
+            Pass a key path (dot-notation, e.g. <code>llm_config.embedding.source</code>) to read a specific value.
+            Pass both <code>&lt;key&gt; &lt;value&gt;</code> as positional args to write one.
           </p>
 
           <AnchorHeading id="drift" level="h3" className="mt-6 text-xl font-semibold">prep drift</AnchorHeading>

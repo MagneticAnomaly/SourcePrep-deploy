@@ -4391,9 +4391,9 @@ class PipelineOrchestrator:
                             }
                         else:
                             # Auto-detect: check if NativeEmbedder is available
+                            # (Phase 139: static — no instance construction).
                             from prep.core import NativeEmbedder
-                            native = NativeEmbedder()
-                            if native.is_available():
+                            if NativeEmbedder.is_available():
                                 manifest.embedding_model = {
                                     "provider": "native",
                                     "model_name": "nomic-embed-text-v1.5",

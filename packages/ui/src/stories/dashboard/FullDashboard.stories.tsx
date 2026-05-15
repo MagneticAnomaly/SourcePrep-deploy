@@ -957,7 +957,7 @@ function ScopePanelDemo({
       onRenameScope={handleRenameScope}
       onDeleteScope={handleDeleteScope}
       className="h-full border-0 shadow-none"
-      title="Scope"
+      title="Knowledge Scope"
       bare
     />
   );

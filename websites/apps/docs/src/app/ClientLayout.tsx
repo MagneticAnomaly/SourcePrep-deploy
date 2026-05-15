@@ -31,13 +31,36 @@ const headerProps = {
   },
 };
 
+const footerSections = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'Download', href: DOWNLOAD_URL },
+      { label: 'Pricing', href: `${HOME_URL}/pricing` },
+      { label: 'Changelog', href: `${HOME_URL}/changelog` },
+      { label: 'Documentation', href: '/' },
+    ],
+  },
+  {
+    title: 'Company',
+    links: [
+      { label: 'FAQ', href: `${HOME_URL}/faq` },
+      { label: 'Research', href: `${HOME_URL}/research` },
+      { label: 'Support', href: SUPPORT_URL },
+    ],
+  },
+];
+
 const footerProps = {
   productName: 'SourcePrep',
+  logo: <img src="/prep-logo.png" alt="SourcePrep" style={{ width: '2.5rem', height: '2.5rem' }} className="rounded" />,
+  sections: footerSections,
   socials: {
     twitter: 'https://x.com/Prep_io',
     github: 'https://github.com/MagneticAnomaly/SourcePrep-MCP',
-    email: 'docs@sourceprep.io',
+    email: 'hello@sourceprep.io',
   },
+  copyright: '© 2026 Magnetic Anomaly llc. All rights reserved.',
 };
 
 export function ClientLayout({ children }: { children: ReactNode }) {

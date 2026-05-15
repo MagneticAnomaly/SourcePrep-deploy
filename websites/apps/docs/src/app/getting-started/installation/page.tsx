@@ -17,7 +17,7 @@ export default function Page() {
           
           <AnchorHeading id="prerequisites" level="h2">Prerequisites</AnchorHeading>
           <ul className="list-disc pl-5 text-sm text-text-muted">
-            <li><span className="font-semibold text-text">OS:</span> macOS (11+) or Windows (10+). Linux is supported but experimental.</li>
+            <li><span className="font-semibold text-text">OS:</span> macOS (11+) or Windows (10+). Linux support is planned.</li>
             <li><span className="font-semibold text-text">Disk:</span> ~500 MB for the app + embedding model. Index size depends on your codebase.</li>
           </ul>
 
@@ -33,7 +33,6 @@ export default function Page() {
             >
               <div className="text-lg font-bold">macOS</div>
               <div className="text-sm text-text-muted mt-1">Download .dmg (Apple Silicon & Intel)</div>
-              <div className="text-xs text-text-muted mt-2">Also available on the Mac App Store</div>
             </a>
             <a
               href="https://sourceprep.io/download"
@@ -41,9 +40,12 @@ export default function Page() {
             >
               <div className="text-lg font-bold">Windows</div>
               <div className="text-sm text-text-muted mt-1">Download .msi installer (x64)</div>
-              <div className="text-xs text-text-muted mt-2">Also available on the Microsoft Store</div>
+              <div className="text-xs text-text-muted mt-2">Microsoft Store distribution is planned post-MVP.</div>
             </a>
           </div>
+          <p className="text-sm text-text-muted">
+            <span className="font-semibold text-text">Linux:</span> support is planned post-MVP. SourcePrep is not currently distributed through the Mac App Store and won&apos;t be — the indexer requires full filesystem access, which sandboxed Mac App Store apps can&apos;t provide.
+          </p>
 
           <AnchorHeading id="install-macos" level="h3" className="mt-6">macOS</AnchorHeading>
           <ol className="list-decimal pl-5 text-sm text-text-muted space-y-2">

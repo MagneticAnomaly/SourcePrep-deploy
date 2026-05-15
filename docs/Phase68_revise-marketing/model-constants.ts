@@ -25,7 +25,7 @@ export interface VramTier {
   code: string | null; singleModel?: boolean;
 }
 
-// ── Local LLM Models (Ollama) ──
+// ── Local LLM Models (Ollama) ── EDIT-Under no ciecumstances do we reccommend anything les than qwen314b and even that is old and tiny and we reccommend ollama cloud first
 export const LOCAL_MODELS: LocalModel[] = [
   { name: 'qwen3:4b', size_gb: 2.5, vram_gb: 3, slot: 'fast', quality: 5, note: 'Best small model. Rivals 72B models at this size.', ollamaLibrary: 'qwen3' }, // NO NEVER USE 4b model ever 8b is absolut bottom
   { name: 'qwen3:1.7b', size_gb: 1.4, vram_gb: 2, slot: 'fast', quality: 3, note: 'Ultra-light. Decent JSON output.', ollamaLibrary: 'qwen3' }, // no no no

@@ -11,80 +11,115 @@ export default function Page() {
         </a>
 
         <h1 className="mt-6 text-3xl font-bold tracking-tight">
-          Model Configuration
+          AI Gateway
         </h1>
         <p className="mt-4 text-lg text-text-muted">
-          Configure local LLMs for analysis, reasoning, and compression.
+          Connect SourcePrep to the LLMs that power deep enrichment, code reasoning, and large-context synthesis.
         </p>
 
         <div className="mt-8 prose  max-w-none">
           <p>
-            SourcePrep uses a tiered architecture where different models handle specific tasks based on their strengths.
-            While you can run everything with a single model, we recommend a specialized stack for the best balance of speed and intelligence.
+            SourcePrep uses a tiered architecture where different model slots handle different jobs based on their strengths.
+            The AI Gateway is where you wire each slot to an endpoint (Ollama Cloud, OpenRouter, a local Ollama instance, or any OpenAI-compatible server).
+            You can run everything with a single model in a pinch, but a small stack gives you the best speed / cost / quality balance.
           </p>
 
-          <div className="my-6 rounded-lg border border-primary/30 bg-primary/5 p-4">
-            <p className="text-sm">
-              <span className="font-semibold text-text">New:</span> Use the{' '}
-              <a href="/guides/model-advisor" className="text-primary hover:underline font-semibold">Model Setup Advisor</a>
-              {' '}to get personalized recommendations based on your GPU and preferences.
-            </p>
-          </div>
-
-          <AnchorHeading id="recommended-stack" level="h2">Recommended Stack</AnchorHeading>
+          <AnchorHeading id="recommended-stack" level="h2">Recommended stack (cloud-first)</AnchorHeading>
           <p>
-            We recommend the <span className="font-semibold text-text">Qwen3</span> family for the core analysis and reasoning loops.
-            These models deliver excellent local inference performance at every size class.
+            The simplest setup that performs well today. Ollama Cloud handles the bulk of the work; OpenRouter picks up large-context synthesis where its long context window helps.
           </p>
 
-          <div className="my-6 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border border-border bg-surface p-4">
-              <div className="font-semibold text-primary">⚡ Fast Model</div>
-              <div className="text-sm font-mono mt-1">qwen3:4b</div>
-              <p className="mt-2 text-xs text-text-muted">
-                Used for fast file cataloguing, intent detection, and auto-tagging during indexing.
-                Only 2.5GB. Rivals 72B models at this size.
-              </p>
-              <a 
-                href="https://ollama.com/library/qwen3" 
-                target="_blank" 
-                rel="noreferrer"
-                className="mt-3 inline-block text-xs text-primary hover:underline"
-              >
-                View on Ollama ↗
-              </a>
-            </div>
-
-            <div className="rounded-lg border border-border bg-surface p-4">
-              <div className="font-semibold text-primary">🧠 Thinking Model</div>
-              <div className="text-sm font-mono mt-1">qwen3:8b</div>
-              <p className="mt-2 text-xs text-text-muted">
-                Used for complex reasoning, epistemic enrichment, and deep analysis.
-                5.2GB. Alt: qwen3:14b (9.3GB) or qwen3:30b MoE (19GB) for better quality.
-              </p>
-              <a 
-                href="https://ollama.com/library/qwen3" 
-                target="_blank" 
-                rel="noreferrer"
-                className="mt-3 inline-block text-xs text-primary hover:underline"
-              >
-                View on Ollama ↗
-              </a>
-            </div>
+          <div className="my-6 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-text">
+                  <th className="py-2 pr-4 font-medium">Slot</th>
+                  <th className="py-2 pr-4 font-medium">Endpoint</th>
+                  <th className="py-2 pr-4 font-medium">Model</th>
+                  <th className="py-2 font-medium">Why</th>
+                </tr>
+              </thead>
+              <tbody className="text-text-muted">
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-semibold text-text">Fast</td>
+                  <td className="py-2 pr-4">Ollama Cloud</td>
+                  <td className="py-2 pr-4 font-mono text-xs">gemini-3-flash-preview:cloud</td>
+                  <td className="py-2">Cheap and fast for cataloguing, intent detection, and tagging.</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-semibold text-text">Code</td>
+                  <td className="py-2 pr-4">Ollama Cloud</td>
+                  <td className="py-2 pr-4 font-mono text-xs">kimi-k2.6:cloud</td>
+                  <td className="py-2">Strong code-aware reasoning for inferred-edge discovery.</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-semibold text-text">Thinking</td>
+                  <td className="py-2 pr-4">Ollama Cloud</td>
+                  <td className="py-2 pr-4 font-mono text-xs">kimi-k2.6:cloud</td>
+                  <td className="py-2">Same model handles deep reasoning + per-file swarm workers.</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4 font-semibold text-text">Swarm Coordinator</td>
+                  <td className="py-2 pr-4">OpenRouter</td>
+                  <td className="py-2 pr-4 font-mono text-xs">qwen/qwen3.6-plus</td>
+                  <td className="py-2">Cluster routing + module synthesis benefit from a fast, JSON-reliable model with a different context profile.</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
-          <AnchorHeading id="why-qwen3" level="h3">Why Qwen3?</AnchorHeading>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>
-              <span className="font-semibold text-text">Best-in-class small models:</span> Qwen3:4b rivals Qwen2.5-72B on benchmarks while being tiny enough for any GPU.
-            </li>
-            <li>
-              <span className="font-semibold text-text">MoE efficiency:</span> The 30B model only activates 3B parameters per token &mdash; outstanding reasoning with efficient VRAM use.
-            </li>
-            <li>
-              <span className="font-semibold text-text">Reliable JSON output:</span> SourcePrep&apos;s pipeline needs structured JSON responses. Qwen3 excels at this.
-            </li>
+          <AnchorHeading id="simpler-stack" level="h2">Simpler stack (all Ollama Cloud)</AnchorHeading>
+          <p>
+            One endpoint, no API keys to juggle, no OpenRouter account needed. Slightly slower on the synthesis stage; perfectly fine for day-to-day use.
+          </p>
+
+          <div className="my-6 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border text-left text-text">
+                  <th className="py-2 pr-4 font-medium">Slot</th>
+                  <th className="py-2 pr-4 font-medium">Endpoint</th>
+                  <th className="py-2 pr-4 font-medium">Model</th>
+                </tr>
+              </thead>
+              <tbody className="text-text-muted">
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-semibold text-text">Fast</td>
+                  <td className="py-2 pr-4">Ollama Cloud</td>
+                  <td className="py-2 pr-4 font-mono text-xs">gemini-3-flash-preview:cloud</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-semibold text-text">Code</td>
+                  <td className="py-2 pr-4">Ollama Cloud</td>
+                  <td className="py-2 pr-4 font-mono text-xs">kimi-k2.6:cloud</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-2 pr-4 font-semibold text-text">Thinking</td>
+                  <td className="py-2 pr-4">Ollama Cloud</td>
+                  <td className="py-2 pr-4 font-mono text-xs">kimi-k2.6:cloud</td>
+                </tr>
+                <tr>
+                  <td className="py-2 pr-4 font-semibold text-text">Swarm Coordinator</td>
+                  <td className="py-2 pr-4">Ollama Cloud</td>
+                  <td className="py-2 pr-4 font-mono text-xs">kimi-k2.6:cloud (inherit)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <AnchorHeading id="local-only-stack" level="h2">Local-only stack (no cloud)</AnchorHeading>
+          <p>
+            Fully offline. Requires a GPU and Ollama installed locally. The <span className="font-semibold text-text">Qwen3</span> family is the recommended baseline — best-in-class small models with reliable JSON output.
+          </p>
+          <ul className="mt-3 list-disc pl-6 space-y-2 text-sm">
+            <li><span className="font-semibold text-text">Fast:</span> <code>qwen3:4b</code> (2.5 GB) — cataloguing, intent, tagging. Falls back here as the single model if you only configure one slot.</li>
+            <li><span className="font-semibold text-text">Code:</span> <code>qwen3-coder</code> family — inferred-edge discovery on AST gaps. Falls back to Fast if unset.</li>
+            <li><span className="font-semibold text-text">Thinking:</span> <code>qwen3:8b</code> (5.2 GB) — epistemic enrichment, clustering. Step up to <code>qwen3:14b</code> (9.3 GB) or <code>qwen3:30b</code> MoE (19 GB) for higher quality.</li>
+            <li><span className="font-semibold text-text">Swarm Coordinator:</span> inherits Thinking by default.</li>
           </ul>
+          <p className="mt-3 text-sm text-text-muted">
+            See <a href="/guides/dynamic-model-loading" className="text-primary hover:underline">Dynamic Model Loading</a> for how SourcePrep balances multiple local models against VRAM.
+          </p>
 
           <hr className="my-8 border-border" />
 

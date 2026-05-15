@@ -311,9 +311,9 @@ results = semantic_search("hub files", top_k=10)`}
         </div>
         <div style={{ maxWidth: '32rem' }}>
           <PanelChrome
-            title="Knowledge Query"
+            title="Search"
             icon={Search}
-            description="Semantic search across documentation, plans, and codebase meanings."
+            description="Semantic search across your codebase knowledge — find code, docs, and plans by meaning."
           >
             <div style={{ padding: '1.25rem', color: MUTED_COLOR, fontSize: '0.875rem' }}>
               Inner panel content goes here. Every panel in the dashboard wears this chrome.

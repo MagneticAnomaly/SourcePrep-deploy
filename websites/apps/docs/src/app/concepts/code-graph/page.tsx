@@ -1,6 +1,7 @@
 "use client";
 
 import { Cpu, Network, Eye, Zap, Code2, FileSearch } from 'lucide-react';
+import { AnimatedCLI, impactExtractServiceDemo } from '../../../components/cli-demos';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 import { StoryEmbed } from '../../../components/StoryEmbed';
 import { ConceptPageShell } from '../../../components/ConceptPageShell';
@@ -86,6 +87,15 @@ export default function Page() {
             caption="Live preview: file-level dependencies and import relationships."
           />
         </div>
+
+        <div className="mt-6 rounded-lg overflow-hidden border border-border">
+          <StoryEmbed
+            storyId="dashboard-trace-nodedetailpanel--file-node"
+            height={380}
+            title="Node Detail Panel"
+            caption="Click any node in the graph to drill down — definitions, references, and import chain for that symbol."
+          />
+        </div>
       </section>
 
       <section id="usage">
@@ -111,6 +121,13 @@ export default function Page() {
             hallucinating tax logic.
           </p>
         </div>
+
+        <div className="mt-6">
+          <AnimatedCLI script={impactExtractServiceDemo} />
+        </div>
+        <p className="text-xs text-text-muted text-center italic mt-2">
+          What blast-radius expansion looks like when an agent calls <code>prep_impact</code> before a refactor.
+        </p>
       </section>
 
       <section id="beyond">

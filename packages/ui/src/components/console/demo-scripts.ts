@@ -4,7 +4,7 @@ import type { CliScript } from './cli-types';
 // prep — ambient structural orientation
 // ============================================================================
 
-const prepRateLimitingDemo: CliScript = {
+export const prepRateLimitingDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -36,7 +36,7 @@ const prepRateLimitingDemo: CliScript = {
   ],
 };
 
-const prepTldrOverviewDemo: CliScript = {
+export const prepTldrOverviewDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -68,7 +68,7 @@ const prepTldrOverviewDemo: CliScript = {
   ],
 };
 
-const prepBuildWebhookDemo: CliScript = {
+export const prepBuildWebhookDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -104,7 +104,7 @@ const prepBuildWebhookDemo: CliScript = {
 // prep_search — semantic search with structural expansion
 // ============================================================================
 
-const searchRetryReuseDemo: CliScript = {
+export const searchRetryReuseDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -136,7 +136,7 @@ const searchRetryReuseDemo: CliScript = {
   ],
 };
 
-const searchMaxConnectionsDemo: CliScript = {
+export const searchMaxConnectionsDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -168,7 +168,7 @@ const searchMaxConnectionsDemo: CliScript = {
   ],
 };
 
-const searchBuildWorkerDemo: CliScript = {
+export const searchBuildWorkerDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -204,7 +204,7 @@ const searchBuildWorkerDemo: CliScript = {
 // prep_impact — blast radius before making a change
 // ============================================================================
 
-const impactDeleteUnusedDemo: CliScript = {
+export const impactDeleteUnusedDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -236,7 +236,7 @@ const impactDeleteUnusedDemo: CliScript = {
   ],
 };
 
-const impactExtractServiceDemo: CliScript = {
+export const impactExtractServiceDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -268,7 +268,7 @@ const impactExtractServiceDemo: CliScript = {
   ],
 };
 
-const impactAsyncMigrationDemo: CliScript = {
+export const impactAsyncMigrationDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -304,7 +304,7 @@ const impactAsyncMigrationDemo: CliScript = {
 // prep_audit — enriches another tool's findings with graph context
 // ============================================================================
 
-const auditPrSanityCheckDemo: CliScript = {
+export const auditPrSanityCheckDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -348,7 +348,7 @@ const auditPrSanityCheckDemo: CliScript = {
   ],
 };
 
-const auditSecurityScanDemo: CliScript = {
+export const auditSecurityScanDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -392,7 +392,7 @@ const auditSecurityScanDemo: CliScript = {
   ],
 };
 
-const auditTightenTypesDemo: CliScript = {
+export const auditTightenTypesDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -440,7 +440,7 @@ const auditTightenTypesDemo: CliScript = {
 // prep_observe — persistent cross-session memory
 // ============================================================================
 
-const observeCachingRecallDemo: CliScript = {
+export const observeCachingRecallDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -472,7 +472,7 @@ const observeCachingRecallDemo: CliScript = {
   ],
 };
 
-const observeInvestigationRecallDemo: CliScript = {
+export const observeInvestigationRecallDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -504,7 +504,7 @@ const observeInvestigationRecallDemo: CliScript = {
   ],
 };
 
-const observeSaveOwnershipDemo: CliScript = {
+export const observeSaveOwnershipDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -540,7 +540,7 @@ const observeSaveOwnershipDemo: CliScript = {
 // prep_concepts — business rationale and architectural constraints
 // ============================================================================
 
-const conceptsTransactionRuleDemo: CliScript = {
+export const conceptsTransactionRuleDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -572,7 +572,7 @@ const conceptsTransactionRuleDemo: CliScript = {
   ],
 };
 
-const conceptsQueuePitfallsDemo: CliScript = {
+export const conceptsQueuePitfallsDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -604,7 +604,7 @@ const conceptsQueuePitfallsDemo: CliScript = {
   ],
 };
 
-const conceptsBuildRefundDemo: CliScript = {
+export const conceptsBuildRefundDemo: CliScript = {
   title: 'claude — my-project',
   loop: true,
   loopDelayMs: 5000,
@@ -640,7 +640,7 @@ const conceptsBuildRefundDemo: CliScript = {
 // IDE — agentic edit demos
 // ============================================================================
 
-const ideDoubleSubmitFixDemo: CliScript = {
+export const ideDoubleSubmitFixDemo: CliScript = {
   title: 'prep-ide-demo',
   loop: true,
   loopDelayMs: 5000,
@@ -733,7 +733,7 @@ export function PaymentForm({ onSubmit }: { onSubmit: (data: FormData) => Promis
   ],
 };
 
-const ideLoadingSkeletonDemo: CliScript = {
+export const ideLoadingSkeletonDemo: CliScript = {
   title: 'prep-ide-demo',
   loop: true,
   loopDelayMs: 5000,
@@ -831,7 +831,7 @@ export function Dashboard() {
   ],
 };
 
-const ideAddCsvExportDemo: CliScript = {
+export const ideAddCsvExportDemo: CliScript = {
   title: 'prep-ide-demo',
   loop: true,
   loopDelayMs: 5000,

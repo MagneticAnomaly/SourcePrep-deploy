@@ -1,3 +1,4 @@
+import { AnimatedCLI, searchRetryReuseDemo, conceptsTransactionRuleDemo } from '../../../components/cli-demos';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 
 export const metadata = {
@@ -51,6 +52,9 @@ export default function Page() {
                 Definition.&quot;
               </p>
               <p className="text-xs text-text-muted mt-1 font-mono">e.g. &quot;where is the login handler&quot;</p>
+              <div className="not-prose mt-4">
+                <AnimatedCLI script={searchRetryReuseDemo} />
+              </div>
             </div>
 
             <div>
@@ -72,6 +76,9 @@ export default function Page() {
                 falls back to semantic search if nothing lands.
               </p>
               <p className="text-xs text-text-muted mt-1 font-mono">e.g. &quot;why does the billing queue retry twice&quot;</p>
+              <div className="not-prose mt-4">
+                <AnimatedCLI script={conceptsTransactionRuleDemo} />
+              </div>
             </div>
 
             <div>

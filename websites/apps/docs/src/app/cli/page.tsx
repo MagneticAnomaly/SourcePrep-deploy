@@ -1,5 +1,5 @@
+import { AnimatedCLI, prepSearchDemo } from '../../components/cli-demos';
 import { AnchorHeading } from '../../components/AnchorHeading';
-import { StoryEmbed } from '../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -57,12 +57,7 @@ export default function Page() {
           </ul>
 
           <div className="not-prose my-8">
-            <StoryEmbed
-              storyId="website-demos-animatedcli--semantic-search"
-              height={350}
-              title="SourcePrep MCP Demo — Semantic Search"
-              caption="Live demo: An AI agent using SourcePrep's semantic search and structural trace expansion."
-            />
+            <AnimatedCLI script={prepSearchDemo} />
           </div>
         </div>
       </div>

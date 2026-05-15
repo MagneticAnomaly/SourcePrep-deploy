@@ -11,3 +11,4 @@ export { UsageGuidePanel } from './UsageGuidePanel';
 export type { UsageGuidePanelProps } from './UsageGuidePanel';
 
 export { BuildCard } from './BuildCard';
+export type { BuildCardProps } from './BuildCard';

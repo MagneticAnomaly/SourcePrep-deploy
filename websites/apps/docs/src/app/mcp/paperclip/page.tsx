@@ -1,3 +1,4 @@
+import { AnimatedCLI, prepOverviewDemo } from '../../../components/cli-demos';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 import { StoryEmbed } from '../../../components/StoryEmbed';
 
@@ -67,7 +68,7 @@ export default function Page() {
           <ol className="list-decimal pl-6 space-y-2 mt-2">
             <li>
               <span className="font-semibold text-text">SourcePrep Desktop App</span> — Download from{' '}
-              <a href="https://prep.dev" className="text-primary hover:underline">prep.dev</a>.
+              <a href="https://sourceprep.io/download" className="text-primary hover:underline">sourceprep.io/download</a>.
               The daemon must be running at <code>localhost:8400</code>.
             </li>
             <li>
@@ -131,6 +132,13 @@ export default function Page() {
           <p className="mt-2">
             Once installed, all Paperclip agents can use these tools during their runs.
             Tools are namespaced as <code>prep:*</code> and appear in the agent&apos;s tool palette.
+          </p>
+
+          <div className="not-prose my-6">
+            <AnimatedCLI script={prepOverviewDemo} />
+          </div>
+          <p className="text-xs text-text-muted text-center italic -mt-2">
+            What an agent sees when it calls <code>prep:context</code> (Paperclip&apos;s wrapper around the base <code>prep</code> MCP tool).
           </p>
 
           <div className="mt-4 overflow-x-auto">
@@ -266,8 +274,8 @@ export default function Page() {
           <AnchorHeading id="source" level="h2">Source Code</AnchorHeading>
           <p className="mt-2">
             The plugin source is at{' '}
-            <a href="https://github.com/MagneticAnomaly/SourcePrep/tree/main/packages/paperclip-plugin" className="text-primary hover:underline">
-              packages/paperclip-plugin
+            <a href="https://github.com/MagneticAnomaly/SourcePrep/tree/main/packages/paperclip-plugin-prep" className="text-primary hover:underline">
+              packages/paperclip-plugin-prep
             </a>{' '}
             in the SourcePrep repository. It&apos;s MIT-licensed.
           </p>

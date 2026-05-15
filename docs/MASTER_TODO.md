@@ -1846,3 +1846,132 @@ Full write-up with hypotheses and anchors:
 - [ ] **P82-F8: optional safety net — atlas-render brand substitutor.** Tiny replacement table applied on read of any free-text atlas field. Defense-in-depth against future missed invalidations.
 
 Anchors: `src/prep/mcp/server.py` (ambient context handler + `_CLIENT_BUDGETS`), `src/prep/core/atlas/{generator,loader}.py`, `src/prep/core/cluster.py` (`MODULE_SYNTHESIS_PROMPT`). Cross-refs: `prep_observe` bug id `ff75c58924d7` (saved 2026-05-10).
+
+### 2026-05-14: Phase 137 — Docs Live Asset Integration (scaffolded)
+
+New phase scaffolded to fix broken `<StoryEmbed>` iframes on the docs site
+and to plan strategic placement of Storybook embeds + animated CLI/IDE demos
+across all ~24 docs pages. Full README + 4 follow-up docs at
+`docs/Phase137_DocsLiveAssetIntegration/`.
+
+**Tech fix landed locally (NOT pushed):**
+
+- [ ] **P137-T1: push the netlify env-var fix.** `websites/apps/docs/netlify.toml`
+  now sets `NEXT_PUBLIC_STORYBOOK_URL = "https://storybook.sourceprep.io"`.
+  This is the one-line fix for the production embed-404 bug shown in the
+  2026-05-13 screenshot. Per `feedback_explicit_push_only.md`, push only on
+  explicit user signal.
+
+**Sequenced behind Phase 132 (do not start until 132 is materially complete):**
+
+- [ ] **P137-A1: page-by-page audit.** Walk all ~24 docs pages and decide
+  where each Storybook embed / CLI animation belongs. Template + page list
+  in `docs/Phase137_DocsLiveAssetIntegration/03_page_audit.md`.
+- [ ] **P137-A2: placement matrix roll-up.** Single-table view of the audit
+  result for engineering hand-off. Skeleton at
+  `docs/Phase137_DocsLiveAssetIntegration/04_placement_matrix.md`.
+- [ ] **P137-A3: gap list.** Stories/animations the audit identifies as
+  needed but missing. Becomes follow-up tasks.
+- [ ] **P137-I1: implementation pass.** Apply the matrix to pages — add
+  `<StoryEmbed>` / `<AnimatedCLI>` nodes. Per-instance customization
+  (heights, captions, prop overrides) happens here too.
+
+### 2026-05-14: Phase 132 — Docs Behavioral Fidelity (progress tracker added)
+
+Phase 132 status was only tracked via the README plan; added a progress
+tracker at `docs/Phase132_DocsBehavioralFidelity/00_progress_tracker.md`
+so a fresh AI can see what's done vs pending at a glance.
+
+**Tier A started (desk pass, install-required items batched for later):**
+
+- [ ] **P132-A1: apply desk fidelity fixes to onboarding pages.** Seven
+  desk-actionable fixes in
+  `docs/Phase132_DocsBehavioralFidelity/01_TierA_onboarding.md` — embedding
+  model size (~132 MB), clarify Free-tier feature gating, reconcile Code-Graph
+  vs trace-build wording, confirm Scope panel canonical name, verify analyzer
+  count, verify perf claim ("<1s trace index for 50k files"), confirm
+  compression ratios.
+- [ ] **P132-A2: install-required batch on Mac + Windows.** Consolidated
+  list of fresh-install checks (bundle size, store listings, CLI install,
+  daemon auto-start, license flow, auto-update) at the bottom of Tier A doc.
+- [ ] **P132-B-remainder: complete Tier B (`mcp/ides`, `mcp/terminal`,
+  `mcp/paperclip`).** Only `mcp/page.tsx` overview is done.
+- [ ] **P132-C: complete Tier C (concept pages).** Only graph-enrichment is
+  partial (display labels reverted with footnotes); indexing/code-graph/context
+  unstarted.
+- [ ] **P132-D-desk: complete Tier D desk items.** smart-search,
+  audit-enrichment, codebase-audit, compression, concurrency-discovery,
+  path-weights, knowledge-scope, model-advisor behavior-check.
+- [ ] **P132-D-deferred: Tier D cloud-spend + external-repo items.**
+  byok-batching, dynamic-model-loading (cloud spend); team-sync,
+  enterprise-deploy (depend on SourcePrep-deploy repo state).
+- [ ] **P132-E: Tier E CLI reference.**
+- [ ] **P132-F: Tier F operational.** troubleshooting (full sweep);
+  dashboard (panel-category claims + 27-panel count).
+- [ ] **P132-CI: wire the three CI fidelity tests.** Sidebar/sitemap
+  resolution, panel-registry docsUrl anchor resolution,
+  `<StoryEmbed storyId>` resolution.
+- [ ] **P132-MEMO: write `99_findings_memo.md`** summarizing top three
+  behavioral-vs-docs gaps as feedback to the broader team.
+
+### 2026-05-14: Cross-phase handoff context
+
+For the next AI picking this up after compaction:
+
+1. **The local netlify.toml change is unstaged and unpushed.** Verify with
+   `git status` in `websites/apps/docs/`. Push gates on user signal.
+2. **Phase 137 scaffolding is complete; page audit is NOT.** Read
+   `Phase137_DocsLiveAssetIntegration/00_README.md` first — it has a
+   dedicated handoff section.
+3. **Phase 132 has a fresh progress tracker.** Read
+   `Phase132_DocsBehavioralFidelity/00_progress_tracker.md` for the
+   current state of Tiers A–F.
+4. **Tier A starter audit is partially populated** — 8 desk-actionable
+   fixes identified, install-required items batched. The Tier A doc itself
+   is the working file: `Phase132_DocsBehavioralFidelity/01_TierA_onboarding.md`.
+5. **Order of operations:** finish Phase 132 desk work (Tiers A-desk, B
+   remainder, C, D-desk, E, F) → then Phase 137 page audit → then Phase
+   137 implementation.
+
+### 2026-05-14 (night): Phase 132 desk work complete
+
+All 6 desk tiers landed ~17 fidelity fixes across 13+ pages. Closed:
+P132-A1 (7 onboarding fixes), P132-B-remainder, P132-C, P132-D-desk,
+P132-E, P132-F. Findings memo lives at
+`docs/Phase132_DocsBehavioralFidelity/99_findings_memo.md`.
+
+Still open from this phase:
+
+- [ ] **P132-CI: wire three CI fidelity tests** (sidebar/sitemap resolution,
+  panel-registry docsUrl anchor resolution, `<StoryEmbed storyId>` resolution).
+  Deferred — comes back to this once we have a quieter day. Prevents the
+  next drift cycle from re-accumulating.
+
+### Ship-readiness checks (last-minute, pre-public-launch)
+
+Holding area for items that don't need to happen now but must happen on
+the actual machine being shipped/demoed shortly before public launch.
+Not desk-doable; not blocking docs work. Build this list out over time —
+expect a dedicated phase when launch is close.
+
+- [ ] **P132-A2 (Mac + Windows fresh-install batch).** Wipe a test
+  machine, install the latest `.dmg` / `.msi`, walk through the full
+  first-run experience while ticking the consolidated checklist at
+  `docs/Phase132_DocsBehavioralFidelity/01_TierA_onboarding.md`
+  "Install-required batch (consolidated for Tier A)" section: app bundle
+  size, Mac App Store / MS Store / Linux state (already corrected in docs
+  but re-confirm), macOS notarization prompt, Windows wizard flow,
+  `prep --version` after install, green Connected status, daemon
+  auto-start, "+" folder picker, Free-tier reproduction, one-time-online
+  license activation, auto-update notification.
+
+### 2026-05-14 (night): Phase 138 scaffolded (deferred follow-up)
+
+- [ ] **Phase 138: Docs "Concepts" rename + explainer migration.**
+  Full plan at `docs/Phase138_DocsConceptsRename/00_README.md`. Bundle:
+  (1) rename `/concepts/` docs section to disambiguate from the
+  `prep_concepts` app feature, (2) move 4 explainer guides
+  (embeddings, compression, smart-search, dynamic-model-loading) into
+  the renamed section, (3) migrate the 4 moved pages to
+  `ConceptPageShell` layout for visual consistency. Blocked on user
+  picking the new section name (recommend "How It Works").

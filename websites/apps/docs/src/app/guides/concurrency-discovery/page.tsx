@@ -1,4 +1,5 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { StoryEmbed } from '../../../components/StoryEmbed';
 
 export default function Page() {
   return (
@@ -85,6 +86,15 @@ export default function Page() {
             Each cloud node has a live event feed showing why the current limit
             is what it is.
           </p>
+
+          <div className="my-6 rounded-lg overflow-hidden border border-border">
+            <StoryEmbed
+              storyId="dashboard-llm-llmstatuswidget--default"
+              height={300}
+              title="LLM Status Widget"
+              caption="The LLM Status widget — each cloud endpoint shows its live concurrency state and last-probe outcome."
+            />
+          </div>
 
           <AnchorHeading id="when-its-wrong" level="h2">When the ceiling is wrong</AnchorHeading>
           <p>

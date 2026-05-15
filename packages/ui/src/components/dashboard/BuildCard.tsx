@@ -30,7 +30,7 @@ export function BuildCard({
         <div className="flex-1">
           {!bare && (
             <div className="flex items-center gap-2">
-              <Title className="text-text">Build Index</Title>
+              <Title className="text-text">Rebuild Knowledge</Title>
               <InfoTooltip 
                 content="Learn how the index is built." 
                 href="https://docs.sourceprep.io/concepts/indexing" 

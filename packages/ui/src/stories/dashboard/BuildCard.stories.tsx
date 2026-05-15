@@ -49,6 +49,7 @@ export const Building: Story = {
         onRepoRootChange={setRepoRoot}
         onBuild={() => {}}
         building={true}
+        bare
       />
     );
   },

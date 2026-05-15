@@ -1,3 +1,5 @@
+import { StoryEmbed } from '../../../components/StoryEmbed';
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-background text-text">
@@ -227,6 +229,24 @@ export default function Page() {
     "lod_distribution": { "0": 1, "2": 3, "4": 2 }
   }
 }`}</pre>
+          </div>
+        </section>
+
+        {/* Live preview of compressed output */}
+        <section className="mt-10">
+          <h2 className="text-2xl font-semibold">What the assembled output looks like</h2>
+          <p className="mt-3 text-text-muted leading-relaxed">
+            The Context Output panel in the dashboard renders the same payload your AI agent
+            receives — including the per-chunk <code>LOD</code> badges and compression-ratio
+            annotations.
+          </p>
+          <div className="mt-4 rounded-lg overflow-hidden border border-border">
+            <StoryEmbed
+              storyId="dashboard-search-contextoutput--default"
+              height={420}
+              title="Context Output"
+              caption="Live preview: the Context Output panel showing source citations and LOD-compressed chunks."
+            />
           </div>
         </section>
 

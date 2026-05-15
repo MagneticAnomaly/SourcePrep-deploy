@@ -1,16 +1,14 @@
 "use client";
 
-// TODO(marketing): refresh recommended model set.
-// Baseline to research & verify against current vendor catalogs + Ollama Cloud:
-//   Fast slot           → gemini3-flash:cloud (via Ollama)
-//   Code slot           → qwen3-coder-next:cloud (via Ollama)
-//   Thinking slot       → kimi2.5:cloud (via Ollama)
-//   Swarm organizer     → gemini3-flash:cloud (via Ollama)
-// Current page still references claude-haiku-3.5 and claude-sonnet-4.5 with
-// stale pricing. Next pass: research live pricing and availability online
-// before bumping model names so the per-M-token numbers stay accurate.
+// Recommendations stay family-level (e.g. "Claude Haiku", "Gemini Flash") rather
+// than version-pinned ("claude-haiku-4-5"). Prices are described as cost tiers
+// ($ / $$ / $$$) instead of per-million-token dollar amounts, so vendor pricing
+// churn doesn't silently make this page wrong. Definitive per-version
+// recommendations live in the dashboard config (model_advisor in core),
+// not in marketing copy.
+
 import { useState, useMemo } from 'react';
-import { Monitor, Cloud, Zap, Cpu, DollarSign, HardDrive, ChevronDown, Check, AlertTriangle, Copy, ExternalLink, Zap as ZapIcon, Brain, Code, Lightbulb, Key } from 'lucide-react';
+import { Monitor, Cloud, Zap, Cpu, HardDrive, ChevronDown, Check, AlertTriangle, Copy, ExternalLink, Zap as ZapIcon, Brain, Code, Lightbulb, Key } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -37,11 +35,12 @@ interface LocalModel {
   note?: string;
 }
 
+type CostTier = '$' | '$$' | '$$$';
+
 interface CloudModel {
-  name: string;
+  name: string;          // family-level, e.g. "Claude Haiku", "Gemini Flash"
   provider: CloudProvider;
-  input_per_m: number;
-  output_per_m: number;
+  cost_tier: CostTier;
   slot: 'fast' | 'thinking';
   batch_profile: string;
 }
@@ -50,7 +49,7 @@ interface SlotRec {
   model: string;
   source: 'local' | 'cloud';
   vram_gb?: number;
-  cost_str?: string;
+  cost_tier?: CostTier;
   note?: string;
   ollama_url?: string;
 }
@@ -59,11 +58,19 @@ interface ModelPlan {
   fast: SlotRec;
   thinking: SlotRec;
   code: SlotRec;
-  cost_per_1k?: string;
+  cost_tier_overall?: CostTier;
   speed_note: string;
   warnings: string[];
   pull_commands: string[];
 }
+
+// Cost tier rubric. Pinned by tier, not vendor — same tier means roughly
+// comparable price across vendors at any given moment.
+const COST_TIER_NOTES: Record<CostTier, string> = {
+  '$':   'Pennies per repo. Small/fast tier (e.g. Gemini Flash-Lite, GPT nano, Claude Haiku class).',
+  '$$':  'Tens of cents to a dollar. Balanced tier (e.g. Gemini Flash, GPT mini class).',
+  '$$$': 'A few dollars per repo. Premium tier (e.g. Claude Sonnet, GPT mid class).',
+};
 
 // ── GPU Database ─────────────────────────────────────────────────────
 
@@ -128,25 +135,29 @@ const LOCAL_MODELS: LocalModel[] = [
 
 // ── Cloud Model Database ─────────────────────────────────────────────
 
+// Family-level recommendations. Pick the current vendor model in that family
+// when configuring the slot in SourcePrep — vendor catalogs ship new versions
+// faster than this page updates, and pricing within a family tends to be
+// roughly stable from one generation to the next.
 const CLOUD_MODELS: Record<CloudProvider, { fast: CloudModel; thinking: CloudModel }> = {
   openai: {
-    fast: { name: 'gpt-4.1-nano', provider: 'openai', input_per_m: 0.10, output_per_m: 0.40, slot: 'fast', batch_profile: 'Standard' },
-    thinking: { name: 'gpt-4.1-mini', provider: 'openai', input_per_m: 0.40, output_per_m: 1.60, slot: 'thinking', batch_profile: 'Standard' },
+    fast:     { name: 'OpenAI nano-class',  provider: 'openai',    cost_tier: '$',  slot: 'fast',     batch_profile: 'Standard' },
+    thinking: { name: 'OpenAI mini-class',  provider: 'openai',    cost_tier: '$$', slot: 'thinking', batch_profile: 'Standard' },
   },
   google: {
-    fast: { name: 'gemini-2.5-flash-lite', provider: 'google', input_per_m: 0.075, output_per_m: 0.30, slot: 'fast', batch_profile: 'Compact' },
-    thinking: { name: 'gemini-2.5-flash', provider: 'google', input_per_m: 0.15, output_per_m: 0.60, slot: 'thinking', batch_profile: 'Compact' },
+    fast:     { name: 'Gemini Flash-Lite',  provider: 'google',    cost_tier: '$',  slot: 'fast',     batch_profile: 'Compact' },
+    thinking: { name: 'Gemini Flash',       provider: 'google',    cost_tier: '$$', slot: 'thinking', batch_profile: 'Compact' },
   },
   anthropic: {
-    fast: { name: 'claude-haiku-3.5', provider: 'anthropic', input_per_m: 0.80, output_per_m: 4.00, slot: 'fast', batch_profile: 'Compact' },
-    thinking: { name: 'claude-sonnet-4.5', provider: 'anthropic', input_per_m: 3.00, output_per_m: 15.00, slot: 'thinking', batch_profile: 'Large' },
+    fast:     { name: 'Claude Haiku',       provider: 'anthropic', cost_tier: '$$', slot: 'fast',     batch_profile: 'Compact' },
+    thinking: { name: 'Claude Sonnet',      provider: 'anthropic', cost_tier: '$$$', slot: 'thinking', batch_profile: 'Large' },
   },
 };
 
 const CLOUD_SINGLE: Record<CloudProvider, CloudModel> = {
-  openai: { name: 'gpt-4.1-mini', provider: 'openai', input_per_m: 0.40, output_per_m: 1.60, slot: 'thinking', batch_profile: 'Standard' },
-  google: { name: 'gemini-2.5-flash', provider: 'google', input_per_m: 0.15, output_per_m: 0.60, slot: 'thinking', batch_profile: 'Compact' },
-  anthropic: { name: 'claude-sonnet-4.5', provider: 'anthropic', input_per_m: 3.00, output_per_m: 15.00, slot: 'thinking', batch_profile: 'Large' },
+  openai:    { name: 'OpenAI mini-class', provider: 'openai',    cost_tier: '$$',  slot: 'thinking', batch_profile: 'Standard' },
+  google:    { name: 'Gemini Flash',      provider: 'google',    cost_tier: '$$',  slot: 'thinking', batch_profile: 'Compact' },
+  anthropic: { name: 'Claude Sonnet',     provider: 'anthropic', cost_tier: '$$$', slot: 'thinking', batch_profile: 'Large' },
 };
 
 const PROVIDER_LABELS: Record<CloudProvider, string> = {
@@ -165,9 +176,12 @@ const SPEED_INFO: Record<SpeedTier, { label: string; note: string; color: string
 
 // ── Recommendation Engine ────────────────────────────────────────────
 
-function estimateCost(model: CloudModel, tokensPerFile: { input: number; output: number }, files: number): number {
-  return (model.input_per_m * tokensPerFile.input * files / 1_000_000)
-    + (model.output_per_m * tokensPerFile.output * files / 1_000_000);
+const TIER_ORDER: Record<CostTier, number> = { '$': 1, '$$': 2, '$$$': 3 };
+
+function maxTier(...tiers: (CostTier | undefined)[]): CostTier | undefined {
+  const known = tiers.filter((t): t is CostTier => !!t);
+  if (known.length === 0) return undefined;
+  return known.sort((a, b) => TIER_ORDER[b] - TIER_ORDER[a])[0];
 }
 
 function bestLocalForSlot(slot: 'fast' | 'thinking' | 'code', maxVram: number): LocalModel | null {
@@ -252,25 +266,22 @@ function computePlan(
   if (mode === 'cloud') {
     if (cloudSetup === '1-model') {
       const m = CLOUD_SINGLE[provider];
-      const cost = estimateCost(m, { input: 600, output: 150 }, 1000);
       return {
-        fast: { model: m.name, source: 'cloud', cost_str: `$${m.input_per_m}/$${m.output_per_m} per 1M tokens` },
-        thinking: { model: m.name, source: 'cloud', cost_str: `$${m.input_per_m}/$${m.output_per_m} per 1M tokens` },
-        code: { model: m.name, source: 'cloud', note: 'Same model' },
-        cost_per_1k: `~$${cost.toFixed(2)}`,
+        fast:     { model: m.name, source: 'cloud', cost_tier: m.cost_tier },
+        thinking: { model: m.name, source: 'cloud', cost_tier: m.cost_tier },
+        code:     { model: m.name, source: 'cloud', note: 'Same model' },
+        cost_tier_overall: m.cost_tier,
         speed_note: 'Cloud models — fast network inference, no local GPU needed',
         warnings,
         pull_commands: [],
       };
     } else {
       const pair = CLOUD_MODELS[provider];
-      const costFast = estimateCost(pair.fast, { input: 500, output: 100 }, 1000);
-      const costThink = estimateCost(pair.thinking, { input: 800, output: 200 }, 1000);
       return {
-        fast: { model: pair.fast.name, source: 'cloud', cost_str: `$${pair.fast.input_per_m}/$${pair.fast.output_per_m} per 1M tokens` },
-        thinking: { model: pair.thinking.name, source: 'cloud', cost_str: `$${pair.thinking.input_per_m}/$${pair.thinking.output_per_m} per 1M tokens` },
-        code: { model: pair.fast.name, source: 'cloud', note: 'Uses Fast model' },
-        cost_per_1k: `~$${(costFast + costThink).toFixed(2)}`,
+        fast:     { model: pair.fast.name,     source: 'cloud', cost_tier: pair.fast.cost_tier },
+        thinking: { model: pair.thinking.name, source: 'cloud', cost_tier: pair.thinking.cost_tier },
+        code:     { model: pair.fast.name,     source: 'cloud', cost_tier: pair.fast.cost_tier, note: 'Uses Fast model' },
+        cost_tier_overall: maxTier(pair.fast.cost_tier, pair.thinking.cost_tier),
         speed_note: 'Cloud models — fast network inference, no local GPU needed',
         warnings,
         pull_commands: [],
@@ -284,15 +295,14 @@ function computePlan(
     const speed = gpu?.speed ?? 'standard';
     const fast = bestLocalForSlot('fast', vram) ?? { name: 'qwen3:4b', size_gb: 2.5, vram_gb: 3, slot: 'fast' as const, quality: 5 };
     const cloudThinking = CLOUD_SINGLE[provider];
-    const costThink = estimateCost(cloudThinking, { input: 800, output: 200 }, 1000);
 
     pull.push(`ollama pull ${fast.name}`);
 
     return {
-      fast: { model: fast.name, source: 'local', vram_gb: fast.vram_gb, note: 'Local — free, handles high-volume catalogue stage' },
-      thinking: { model: cloudThinking.name, source: 'cloud', cost_str: `$${cloudThinking.input_per_m}/$${cloudThinking.output_per_m} per 1M tokens`, note: 'Cloud — quality reasoning for enrichment' },
-      code: { model: cloudThinking.name, source: 'cloud', cost_str: `$${cloudThinking.input_per_m}/$${cloudThinking.output_per_m} per 1M tokens`, note: 'Uses cloud Thinking model for better edge detection' },
-      cost_per_1k: `~$${costThink.toFixed(2)} (Thinking + Code)`,
+      fast:     { model: fast.name,          source: 'local', vram_gb: fast.vram_gb, note: 'Local — free, handles high-volume catalogue stage' },
+      thinking: { model: cloudThinking.name, source: 'cloud', cost_tier: cloudThinking.cost_tier, note: 'Cloud — quality reasoning for enrichment' },
+      code:     { model: cloudThinking.name, source: 'cloud', cost_tier: cloudThinking.cost_tier, note: 'Uses cloud Thinking model for better edge detection' },
+      cost_tier_overall: cloudThinking.cost_tier,
       speed_note: `Local stages: ${SPEED_INFO[speed].note}. Cloud stages: fast.`,
       warnings,
       pull_commands: pull,
@@ -388,9 +398,10 @@ function SlotCard({ label, rec, icon }: { label: string; rec: SlotRec; icon: Rea
           <HardDrive className="inline w-3 h-3 mr-1" />{rec.vram_gb}GB VRAM
         </p>
       )}
-      {rec.cost_str && (
-        <p className="text-xs text-text-muted mt-1">
-          <DollarSign className="inline w-3 h-3 mr-1" />{rec.cost_str}
+      {rec.cost_tier && (
+        <p className="text-xs text-text-muted mt-1" title={COST_TIER_NOTES[rec.cost_tier]}>
+          <span className="font-mono font-semibold text-text">{rec.cost_tier}</span>
+          <span className="ml-1.5">tier — {COST_TIER_NOTES[rec.cost_tier]}</span>
         </p>
       )}
       {rec.note && (
@@ -467,6 +478,18 @@ export default function Page() {
           Get personalized model recommendations based on your hardware and preferences.
         </p>
 
+        <div className="mt-6 rounded-lg border border-primary/30 bg-primary/5 p-4">
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Cloud className="w-4 h-4 text-primary" /> Recommended: Ollama Cloud
+          </h2>
+          <p className="mt-1.5 text-sm text-text-muted">
+            Route cloud-hosted models through one local Ollama config. You get cloud-grade
+            quality without per-vendor API keys, pricing math, or version chasing — Ollama
+            tracks the current generation for you. The picker below stays available for
+            local-only and bring-your-own-key setups.
+          </p>
+        </div>
+
         {/* ── Step 1: Mode ── */}
         <div className="mt-8">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-text-muted mb-3">
@@ -486,7 +509,7 @@ export default function Page() {
             <ModeButton
               mode="cloud" selected={mode === 'cloud'} onClick={() => setMode('cloud')}
               icon={<Cloud className="w-5 h-5" />}
-              title="Cloud" subtitle="Fastest &amp; highest quality. Pay per use."
+              title="Cloud" subtitle="Fastest &amp; highest quality. Bring your own key."
             />
           </div>
         </div>
@@ -592,10 +615,10 @@ export default function Page() {
 
           {/* Summary stats */}
           <div className="mt-4 flex flex-wrap gap-4 text-sm">
-            {plan.cost_per_1k && (
+            {plan.cost_tier_overall && (
               <div className="flex items-center gap-1.5 text-text-muted">
-                <DollarSign className="w-4 h-4" />
-                <span>Est. cost per 1K files: <span className="font-semibold text-text">{plan.cost_per_1k}</span></span>
+                <span className="font-mono font-semibold text-text">{plan.cost_tier_overall}</span>
+                <span>tier overall — {COST_TIER_NOTES[plan.cost_tier_overall]}</span>
               </div>
             )}
             {peakVram > 0 && (
@@ -678,24 +701,29 @@ export default function Page() {
           </div>
 
           <h3 className="text-lg font-semibold mt-8 mb-3">Cloud (BYOK)</h3>
+          <p className="text-sm text-text-muted">
+            Cost tiers are deliberately family-level. Vendor catalogs update faster than this page —
+            check the vendor&apos;s pricing page for the exact per-million-token rate at any moment.
+            <span className="ml-1.5 italic">${'$'} ≈ pennies, ${'$$'} ≈ tens-of-cents to a dollar, ${'$$$'} ≈ a few dollars per indexed repo.</span>
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm border border-border">
               <thead>
                 <tr className="bg-surface">
-                  <th className="p-2 text-left border-b border-border text-text">Model</th>
+                  <th className="p-2 text-left border-b border-border text-text">Family</th>
                   <th className="p-2 text-left border-b border-border text-text">Provider</th>
-                  <th className="p-2 text-left border-b border-border text-text">Input/1M</th>
-                  <th className="p-2 text-left border-b border-border text-text">Output/1M</th>
+                  <th className="p-2 text-left border-b border-border text-text">Slot</th>
+                  <th className="p-2 text-left border-b border-border text-text">Cost tier</th>
                   <th className="p-2 text-left border-b border-border text-text">Batch</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.values(CLOUD_MODELS).flatMap(pair => [pair.fast, pair.thinking]).map((m, i) => (
                   <tr key={i}>
-                    <td className="p-2 border-b border-border font-mono text-xs">{m.name}</td>
+                    <td className="p-2 border-b border-border text-xs">{m.name}</td>
                     <td className="p-2 border-b border-border">{PROVIDER_LABELS[m.provider]}</td>
-                    <td className="p-2 border-b border-border">${m.input_per_m.toFixed(2)}</td>
-                    <td className="p-2 border-b border-border">${m.output_per_m.toFixed(2)}</td>
+                    <td className="p-2 border-b border-border capitalize">{m.slot}</td>
+                    <td className="p-2 border-b border-border font-mono">{m.cost_tier}</td>
                     <td className="p-2 border-b border-border text-text-muted">{m.batch_profile}</td>
                   </tr>
                 ))}

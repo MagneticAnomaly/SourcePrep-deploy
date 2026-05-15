@@ -1,3 +1,4 @@
+import { AnimatedCLI, prepTldrOverviewDemo } from '../../../components/cli-demos';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 
 export default function Page() {
@@ -29,6 +30,9 @@ export default function Page() {
               <p className="text-xs text-text-muted ml-8">
                 Power users: you can also run <code>prep serve</code> in a terminal.
               </p>
+              <div className="ml-8 mt-4">
+                <AnimatedCLI script={prepTldrOverviewDemo} />
+              </div>
             </div>
 
             <div>

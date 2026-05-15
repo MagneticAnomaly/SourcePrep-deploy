@@ -16,7 +16,7 @@ const sampleItems: DocNode[] = [
     title: 'Core Concepts',
     href: '',
     children: [
-      { title: 'Local Indexing', href: '/concepts/indexing' },
+      { title: 'Knowledge', href: '/concepts/indexing' },
       { title: 'Code Graph', href: '/concepts/code-graph' },
       { title: 'Graph Enrichment', href: '/concepts/graph-enrichment', active: true },
       { title: 'Context Assembly', href: '/concepts/context' },

@@ -284,7 +284,7 @@ export function BugReportModal({ open, onClose, logs, diagnosticData }: BugRepor
                   value={steps}
                   onChange={(e) => setSteps(e.target.value)}
                   rows={3}
-                  placeholder={"1. Opened project 'my-app'\n2. Clicked 'Rebuild Knowledge Base'\n3. Build reached 50% then froze\n4. Console showed ERROR from prep.core.index"}
+                  placeholder={"1. Opened project 'my-app'\n2. Clicked 'Rebuild Knowledge'\n3. Build reached 50% then froze\n4. Console showed ERROR from prep.core.index"}
                   className="w-full bg-surface-raised border border-border rounded-md px-3 py-2 text-sm text-text placeholder:text-text-subtle focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-y"
                 />
               </div>

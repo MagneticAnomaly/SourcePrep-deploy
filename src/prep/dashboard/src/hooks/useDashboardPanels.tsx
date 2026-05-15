@@ -8,6 +8,7 @@ import { FileText } from 'lucide-react'
 import { AtlasLensContainer } from '../components/AtlasLensContainer'
 import {
   IndexStatusCard,
+  BuildCard,
   SearchPanel,
   UsageGuidePanel,
   ContextOptionsPanel,
@@ -864,6 +865,16 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         />
       </>
     ),
+    build: (
+      <BuildCard
+        repoRoot={p.selectedProject?.path ?? ''}
+        onRepoRootChange={() => { /* read-only in dashboard; project path is set when adding the project */ }}
+        onBuild={p.selectedProjectId ? p.handleBuild : () => {}}
+        building={p.projectStatus?.building ?? false}
+        bare
+        className="h-full"
+      />
+    ),
     // Phase 119 Phase A: per-endpoint Plan dropdown + integer Cloud Models
     // belong on the endpoint itself (not buried in Settings → AI Models). The
     // sidebar AI Gateway expand-arrow targets this panel id, so mount the live
@@ -961,7 +972,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onToggleExclude={handleToggleExclude}
         alwaysIgnoredPatterns={DEFAULT_ALWAYS_IGNORED_GLOBS}
         onLoadChildren={p.handleLoadChildren}
-        title="Scope"
+        title="Knowledge Scope"
         bare
         scopes={scopes.scopes}
         activeScopeId={scopes.activeScopeId}
