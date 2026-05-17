@@ -12,7 +12,7 @@ import random
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, List, Optional
+from typing import Any
 
 import requests
 
@@ -96,7 +96,7 @@ KNOWN_OLLAMA_MODELS: dict = {
 @dataclass(frozen=True)
 class EmbeddingResult:
     """Result of an embedding operation."""
-    vector: List[float]
+    vector: list[float]
     model: str
 
 
@@ -109,7 +109,7 @@ class Embedder(ABC):
         pass
 
     @abstractmethod
-    def embed_batch(self, texts: List[str]) -> List[EmbeddingResult]:
+    def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
         """Generate embeddings for multiple texts."""
         pass
 
@@ -129,11 +129,11 @@ class OllamaEmbedder(Embedder):
         timeout_s: int = 60,
         max_retries: int = 4,
         keep_alive: str = "10m",
-        max_input_chars: Optional[int] = None,
-        num_ctx: Optional[int] = None,
-        query_prefix: Optional[str] = None,
-        document_prefix: Optional[str] = None,
-        matryoshka_dim: Optional[int] = None,
+        max_input_chars: int | None = None,
+        num_ctx: int | None = None,
+        query_prefix: str | None = None,
+        document_prefix: str | None = None,
+        matryoshka_dim: int | None = None,
     ):
         """
         Initialize the Ollama embedder.
@@ -173,10 +173,10 @@ class OllamaEmbedder(Embedder):
         # Resolve prefixes: explicit arg > KNOWN_OLLAMA_MODELS lookup > empty string
         preset = KNOWN_OLLAMA_MODELS.get(model, {})
         self.max_input_chars = max_input_chars if max_input_chars is not None else preset.get("max_input_chars", self._DEFAULT_MAX_INPUT_CHARS)
-        self.num_ctx: Optional[int] = num_ctx if num_ctx is not None else preset.get("num_ctx")
+        self.num_ctx: int | None = num_ctx if num_ctx is not None else preset.get("num_ctx")
         self.query_prefix: str = query_prefix if query_prefix is not None else preset.get("query_prefix", "")
         self.document_prefix: str = document_prefix if document_prefix is not None else preset.get("document_prefix", "")
-        self.matryoshka_dim: Optional[int] = matryoshka_dim if matryoshka_dim is not None else preset.get("matryoshka_dim")
+        self.matryoshka_dim: int | None = matryoshka_dim if matryoshka_dim is not None else preset.get("matryoshka_dim")
 
     def _ensure_model_ready(self) -> None:
         """Check if the embedding model is loaded and preload if needed.
@@ -190,7 +190,7 @@ class OllamaEmbedder(Embedder):
         self._readiness_checked = True
 
         try:
-            from prep.core.model_readiness import ollama_ensure_ready, ModelStatus
+            from prep.core.model_readiness import ModelStatus, ollama_ensure_ready
 
             # Use a generous timeout for model loading (not the per-request
             # timeout) — after a long LLM run Ollama may need to swap models.
@@ -253,7 +253,7 @@ class OllamaEmbedder(Embedder):
                 "embedding",    # response key: single vector
             ))
 
-        last_err: Optional[Exception] = None
+        last_err: Exception | None = None
         for url, payload, key in endpoints:
             try:
                 resp = requests.post(url, json=payload, timeout=self.timeout_s)
@@ -357,7 +357,7 @@ class OllamaEmbedder(Embedder):
         self._ensure_model_ready()
 
         current_text = text
-        last_err: Optional[Exception] = None
+        last_err: Exception | None = None
         for attempt in range(max(1, self.max_retries)):
             try:
                 return self._try_embed_request(current_text)
@@ -401,7 +401,7 @@ class OllamaEmbedder(Embedder):
         prefixed = self.query_prefix + text if self.query_prefix else text
         return self._embed_with_retries(prefixed)
 
-    def embed_batch(self, texts: List[str]) -> List[EmbeddingResult]:
+    def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
         """Embed multiple document texts (document_prefix applied to each)."""
         return [self._embed_with_retries(self.document_prefix + t if self.document_prefix else t) for t in texts]
 
@@ -600,7 +600,7 @@ def _seq_buckets(max_length: int) -> tuple:
     return out if out else (max_length,)
 
 
-def _pick_bucket(token_lens: List[int], buckets: tuple, max_length: int) -> int:
+def _pick_bucket(token_lens: list[int], buckets: tuple, max_length: int) -> int:
     """Return the smallest bucket ceiling that fits the longest token sequence.
 
     If all sequences exceed every bucket, returns *max_length* (which
@@ -613,7 +613,7 @@ def _pick_bucket(token_lens: List[int], buckets: tuple, max_length: int) -> int:
     return max_length
 
 
-def _pad_2d(rows: List[List[int]], target_len: int, pad_value: int = 0) -> "Any":
+def _pad_2d(rows: list[list[int]], target_len: int, pad_value: int = 0) -> Any:
     """Right-pad/truncate each row of *rows* to *target_len*, return int64 ndarray.
 
     The shape is always ``(len(rows), target_len)``. Rows longer than
@@ -733,8 +733,8 @@ class NativeEmbedder(Embedder):
         self.model_name = f"native:{repo_id.split('/')[-1]}"
         self.active_provider: str = "CPUExecutionProvider"
 
-        self._session: Optional[Any] = None
-        self._tokenizer: Optional[Any] = None
+        self._session: Any | None = None
+        self._tokenizer: Any | None = None
 
     def close(self) -> None:
         """Drop the ONNX session and tokenizer references.
@@ -772,8 +772,8 @@ class NativeEmbedder(Embedder):
             return
 
         try:
-            from huggingface_hub import hf_hub_download  # type: ignore[import-untyped]
             import onnxruntime as ort  # type: ignore[import-untyped]
+            from huggingface_hub import hf_hub_download  # type: ignore[import-untyped]
             from tokenizers import Tokenizer  # type: ignore[import-untyped]
         except ImportError as e:
             raise ImportError(
@@ -857,7 +857,7 @@ class NativeEmbedder(Embedder):
 
     # -- core embedding ----------------------------------------------------
 
-    def _embed_texts(self, texts: List[str]) -> "np.ndarray":
+    def _embed_texts(self, texts: list[str]) -> np.ndarray:
         """Embed a list of texts, returning an (N, DIM) float32 array.
 
         Phase 139: tokenize with dynamic padding to the longest item,
@@ -932,7 +932,7 @@ class NativeEmbedder(Embedder):
         vec = self._embed_texts([prefixed])[0]
         return EmbeddingResult(vector=vec.tolist(), model=self.model_name)
 
-    def embed_batch(self, texts: List[str]) -> List[EmbeddingResult]:
+    def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
         """Generate embeddings for multiple document texts (batched ONNX inference).
 
         Phase 139: before each chunk, samples process RSS via the
@@ -944,7 +944,7 @@ class NativeEmbedder(Embedder):
             return []
 
         prefixed = [self.document_prefix + t for t in texts]
-        results: List[EmbeddingResult] = []
+        results: list[EmbeddingResult] = []
 
         if _legacy_mode():
             # Legacy: flat stride, no memory guard.
@@ -990,9 +990,9 @@ class NativeEmbedder(Embedder):
         direct-construction warning).
         """
         try:
+            import huggingface_hub  # noqa: F401
             import onnxruntime  # noqa: F401
             import tokenizers  # noqa: F401
-            import huggingface_hub  # noqa: F401
             return True
         except ImportError:
             return False
@@ -1029,5 +1029,5 @@ class FakeEmbedder(Embedder):
         vector = [x / norm for x in vector]
         return EmbeddingResult(vector=vector, model=self.model)
 
-    def embed_batch(self, texts: List[str]) -> List[EmbeddingResult]:
+    def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
         return [self.embed(t) for t in texts]

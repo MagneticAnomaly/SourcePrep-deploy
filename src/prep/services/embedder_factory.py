@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Optional
+from typing import Any
 
 from prep.core import NativeEmbedder, OllamaEmbedder
 
@@ -123,7 +123,7 @@ def _ollama_key(model: str, base_url: str) -> tuple:
     return ("ollama", model, base_url)
 
 
-def create_embedder(embedding_source: Optional[str] = None) -> Any:
+def create_embedder(embedding_source: str | None = None) -> Any:
     """Create or return the cached embedder for the resolved configuration.
 
     Priority (highest → lowest):
@@ -144,7 +144,8 @@ def create_embedder(embedding_source: Optional[str] = None) -> Any:
     _config: dict = {}
     _load_ui_config = None
     try:
-        from prep.server import _config as _srv_config, _load_ui_config as _srv_load_ui
+        from prep.server import _config as _srv_config
+        from prep.server import _load_ui_config as _srv_load_ui
         _config = _srv_config
         _load_ui_config = _srv_load_ui
     except ImportError:

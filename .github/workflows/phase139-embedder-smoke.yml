@@ -1,0 +1,138 @@
+name: Phase 139 Embedder Smoke
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/prep/core/embedder.py'
+      - 'src/prep/core/memory_guard.py'
+      - 'src/prep/services/embedder_factory.py'
+      - 'src/prep/services/rss_sampler.py'
+      - 'tests/test_phase139_embedder_memory.py'
+      - 'tests/test_embedder_factory.py'
+      - '.github/workflows/phase139-embedder-smoke.yml'
+  pull_request:
+    paths:
+      - 'src/prep/core/embedder.py'
+      - 'src/prep/core/memory_guard.py'
+      - 'src/prep/services/embedder_factory.py'
+      - 'src/prep/services/rss_sampler.py'
+      - 'tests/test_phase139_embedder_memory.py'
+      - 'tests/test_embedder_factory.py'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Phase 139 ships cross-platform code (singleton, batch defaults, RSS
+# watchdog, telemetry). The CoreML-specific provider options only
+# apply on macOS — Eric validates that path locally. CI here is
+# specifically for catching regressions on the platforms Eric cannot
+# easily test.
+jobs:
+  embedder-smoke:
+    name: Embedder smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.11']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install minimal deps (no Rust engine — pure Python paths)
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          # Install only what the embedder needs. The Rust engine and
+          # full daemon are out of scope for this smoke job.
+          pip install \
+            "onnxruntime>=1.16" \
+            "tokenizers>=0.15" \
+            "huggingface-hub>=0.20" \
+            "psutil>=5.9" \
+            "numpy>=1.24" \
+            "pytest>=8" \
+            "pytest-asyncio>=0.23" \
+            "pydantic>=2" \
+            "fastapi" \
+            "typer" \
+            "requests"
+
+      - name: Install package (no extras, no engine)
+        shell: bash
+        run: |
+          pip install -e . --no-deps || pip install -e .
+
+      - name: Run Phase 139 unit tests
+        shell: bash
+        run: |
+          python -m pytest tests/test_phase139_embedder_memory.py -v --tb=short
+
+      - name: Run embedder factory tests
+        shell: bash
+        run: |
+          python -m pytest tests/test_embedder_factory.py -v --tb=short
+
+      - name: Smoke — singleton + memory_guard import and behavior
+        shell: bash
+        run: |
+          python - <<'PY'
+          import sys
+          # Patch stub for prep.server.create_embedder factory fallback
+          import prep.server
+          prep.server._config = {"embedding_source": "native"}
+          prep.server._load_ui_config = lambda: {}
+
+          from prep.services.embedder_factory import create_embedder, close_shared_embedders
+          from prep.core import memory_guard
+          from prep.services import rss_sampler
+
+          # Memory guard
+          ceiling = memory_guard.compute_ceiling_bytes() / 1024**3
+          snap = memory_guard.sample()
+          print(f"Memory guard: ceiling={ceiling:.2f} GB, RSS={snap.rss_gb:.2f} GB")
+          assert ceiling >= 4.0, f"ceiling below 4 GB floor: {ceiling}"
+
+          # Singleton — without actually loading the ONNX model (download is expensive in CI)
+          # Just verify the factory returns the same object id on repeat calls.
+          a = create_embedder("ollama")
+          b = create_embedder("ollama")
+          assert a is b, "singleton broken for ollama branch"
+          n = close_shared_embedders()
+          assert n >= 1, f"close_shared_embedders should release ≥1, got {n}"
+          print(f"Singleton: OK, released {n} on close")
+
+          # RSS sampler opt-in default off
+          assert not rss_sampler.is_running(), "rss_sampler should be off by default"
+          import os
+          os.environ["PREP_RSS_TELEMETRY"] = "1"
+          assert rss_sampler.start(), "rss_sampler.start() should succeed when env set"
+          rss_sampler.stop()
+          assert not rss_sampler.is_running()
+          print("RSS sampler: opt-in start/stop OK")
+          PY
+
+      - name: Smoke — provider opts are no-op on non-mac
+        shell: bash
+        run: |
+          python - <<'PY'
+          import platform
+          assert platform.system() in ("Linux", "Windows"), platform.system()
+
+          from prep.core.embedder import _apply_phase139_provider_opts
+          providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+          out = _apply_phase139_provider_opts(providers, "/tmp/fake.onnx")
+          assert out == providers, f"non-mac branch should be a no-op, got {out!r}"
+          print(f"Provider opts no-op verified on {platform.system()}")
+          PY

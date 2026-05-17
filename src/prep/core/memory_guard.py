@@ -33,7 +33,6 @@ import logging
 import os
 import threading
 from dataclasses import dataclass
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -70,10 +69,10 @@ class GuardSnapshot:
 
 
 _LOCK = threading.Lock()
-_CACHED_CEILING: Optional[int] = None
+_CACHED_CEILING: int | None = None
 
 
-def _read_env_ceiling() -> Optional[int]:
+def _read_env_ceiling() -> int | None:
     """Read PREP_DAEMON_MAX_RSS_GB as bytes, or None if unset/invalid."""
     raw = os.environ.get("PREP_DAEMON_MAX_RSS_GB", "").strip()
     if not raw:

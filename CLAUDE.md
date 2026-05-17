@@ -149,6 +149,36 @@ row-count / size heuristics; losers preserved as
 Per-project indexes (embedded mode's `.sourceprep/`, standalone mode's
 `<data_dir>/projects/<id>/`) are unchanged.
 
+## Embedder behavior and memory (Phase 139, 2026-05-15)
+
+The local embedder (`NativeEmbedder`, ONNX `nomic-embed-text-v1.5`) is
+**process-wide singleton** — call `prep.services.embedder_factory.create_embedder()`,
+never `NativeEmbedder()` directly. Direct construction logs a warning
+and bypasses the cache. Use `NativeEmbedder.is_available()` (static)
+for feature detection without constructing an instance.
+
+**Restart-to-reclaim is the documented reality.** ONNX Runtime's CoreML
+provider does not deterministically return memory to the OS after
+`del session` (open issues onnxruntime#26831, #22007, #14455). After a
+big indexing run, the daemon's RSS will not return to startup levels
+until you restart the daemon. `close_shared_embedders()` (wired to
+`/pipeline/rebuild/stop` and graceful shutdown) drops the Python
+references; the underlying CoreML/ANE buffers may persist.
+
+**Configuration env vars:**
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `PREP_EMBED_MAX_LEN` | 1024 | Max tokens per sequence. Profile shows real corpus median is 61 tokens (max 322); chunker caps at ~675. 1024 gives a 1.5× safety margin. |
+| `PREP_EMBED_MAX_BATCH` | 16 GPU / 8 CPU | Max texts per inference call. Flat — bigger machines do not get bigger batches. |
+| `PREP_DAEMON_MAX_RSS_GB` | dynamic | Soft RSS ceiling. Default formula: `min(32 GB, max(4 GB, 25% × total_RAM))`. Override with an absolute integer (GB). |
+| `PREP_COREML_USE_ANE` | unset | Set to `1` to enable Apple Neural Engine. Default is `CPUAndGPU` only — ANE has documented hangs in `setEspressoBlobShapes` on macOS 15+ and pins memory that ORT cannot release. |
+| `PREP_EMBED_LEGACY` | unset | Emergency rollback. Restores pre-Phase-139 behavior (no CoreML opts, no fixed-shape padding, original batch sizes, `MAX_LENGTH=8192`). |
+| `PREP_RSS_TELEMETRY` | unset | Set to `1` to enable a background RSS sampler. Writes `daemon_memory` events to `$PREP_DATA_DIR/daemon_rss.jsonl`. Sampling interval: `PREP_RSS_TELEMETRY_INTERVAL_SEC` (default 30s). |
+
+See `docs/Phase139_EmbedderMemoryHardening/` for the full incident
+record, research synthesis, corpus profile, and implementation plan.
+
 ## SourcePrep MCP Tools (Use These)
 
 This project ships its own MCP server. See AGENTS.md for tool-calling details and the current project_id. When the SourcePrep daemon is running, these tools are available and **should be actively used during development**:

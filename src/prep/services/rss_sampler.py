@@ -36,18 +36,16 @@ import json
 import logging
 import os
 import threading
-import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_INTERVAL_SEC = 30.0
 
 _lock = threading.Lock()
-_thread: Optional[threading.Thread] = None
-_stop_event: Optional[threading.Event] = None
+_thread: threading.Thread | None = None
+_stop_event: threading.Event | None = None
 
 
 def _is_enabled() -> bool:
@@ -88,7 +86,7 @@ def _emit(log_path: Path) -> None:
         from prep.core import memory_guard
         snap = memory_guard.sample()
         rec = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "event": "daemon_memory",
             "payload": {
                 "rss_gb": round(snap.rss_gb, 3),
