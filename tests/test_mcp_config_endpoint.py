@@ -34,7 +34,10 @@ def test_mcp_config_cursor_auto_with_explicit_daemon_url(client: TestClient) -> 
 
     cfg = data["config"]
     server_cfg = cfg["mcpServers"]["prep"]
-    assert server_cfg["command"] == "prep"
+    # _detect_prep_command resolves to an absolute path when one is
+    # available so spawn-context consumers (Claude Desktop, Cursor) can
+    # find the binary without inheriting the shell PATH.
+    assert server_cfg["command"] == "prep" or server_cfg["command"].endswith("/prep")
     assert server_cfg["args"][0] == "mcp"
     assert "--auto" in server_cfg["args"]
     assert "--daemon" in server_cfg["args"]

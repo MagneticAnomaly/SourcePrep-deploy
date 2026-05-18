@@ -7,6 +7,11 @@
  */
 import { Users, Search, Trash2 } from 'lucide-react';
 import { MCPConnectionCard, type MCPStatusData, type MCPInstallResult } from './MCPConnectionCard';
+import {
+  WorkspaceMcpCard,
+  type WorkspaceMcpStatusData,
+  type WorkspaceMcpInstallResult,
+} from './WorkspaceMcpCard';
 import { PushSettings, type PushSettingsData } from './PushSettings';
 
 export interface EngineStatus {
@@ -31,6 +36,11 @@ export interface AgentOpsPanelProps {
   onMCPInstall?: () => Promise<MCPInstallResult>;
   onMCPUninstall?: () => Promise<void>;
   onMCPRefresh?: () => void;
+  workspaceMcpStatus?: WorkspaceMcpStatusData | null;
+  workspaceMcpDefaultPath?: string | null;
+  onWorkspaceMcpInstall?: (workspacePath: string) => Promise<WorkspaceMcpInstallResult>;
+  onWorkspaceMcpUninstall?: (workspacePath: string) => Promise<void>;
+  onWorkspaceMcpRefresh?: (workspacePath: string) => void;
   pushSettings?: PushSettingsData | null;
   pushSettingsLoading?: boolean;
   onPushSettingsUpdate?: (settings: PushSettingsData) => void;
@@ -90,6 +100,11 @@ export function AgentOpsPanel({
   onMCPInstall,
   onMCPUninstall,
   onMCPRefresh,
+  workspaceMcpStatus,
+  workspaceMcpDefaultPath,
+  onWorkspaceMcpInstall,
+  onWorkspaceMcpUninstall,
+  onWorkspaceMcpRefresh,
   pushSettings,
   pushSettingsLoading = false,
   onPushSettingsUpdate,
@@ -140,6 +155,13 @@ export function AgentOpsPanel({
         onInstall={onMCPInstall}
         onUninstall={onMCPUninstall}
         onRefresh={onMCPRefresh}
+      />
+      <WorkspaceMcpCard
+        defaultWorkspacePath={workspaceMcpDefaultPath ?? null}
+        status={workspaceMcpStatus ?? null}
+        onInstall={onWorkspaceMcpInstall}
+        onUninstall={onWorkspaceMcpUninstall}
+        onRefresh={onWorkspaceMcpRefresh}
       />
       <PushSettings
         settings={pushSettings ?? null}

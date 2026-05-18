@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -9,6 +11,36 @@ logger = logging.getLogger(__name__)
 
 
 def _detect_prep_command() -> str:
+    """Resolve the absolute path of the ``prep`` CLI for IDE configs.
+
+    Returns an absolute path when possible so generated configs work
+    in spawn contexts (Claude Desktop, Cursor) that do not inherit the
+    shell PATH. Falls back to the bare ``prep`` name only when no real
+    binary can be located.
+
+    Resolution order:
+      1. ``shutil.which("prep")`` — picks up any globally-installed copy
+         on PATH. Wins when the user has symlinked/installed ``prep``
+         into ``/usr/local/bin`` or similar.
+      2. The ``prep`` script next to ``sys.executable`` — when the
+         daemon is itself running from a venv, the sibling script is
+         the binary we are already using.
+      3. Bare ``"prep"`` — last-resort fallback. Emits a warning so the
+         miss is visible in logs.
+    """
+    on_path = shutil.which("prep")
+    if on_path:
+        return on_path
+
+    venv_sibling = Path(sys.executable).resolve().parent / "prep"
+    if venv_sibling.is_file():
+        return str(venv_sibling)
+
+    logger.warning(
+        "prep binary not found via PATH or %s sibling; emitting bare 'prep' "
+        "in generated MCP configs — Claude Desktop / Cursor may fail to spawn it",
+        sys.executable,
+    )
     return "prep"
 
 

@@ -26,6 +26,8 @@ import {
   type AgentOpsData,
   type MCPStatusData,
   type MCPInstallResult,
+  type WorkspaceMcpStatusData,
+  type WorkspaceMcpInstallResult,
   FileExplorerDetail,
   CopyButton,
   LogConsole,
@@ -425,6 +427,41 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
   const handleMCPUninstall = useCallback(async (): Promise<void> => {
     await fetch('/paperclip/uninstall-skill', {
       method: 'POST',
+    })
+  }, [])
+
+  // Per-workspace MCP install ("Enable Prep for Workspace") — writes
+  // .claude/mcp.json, .cursor/mcp.json, .vscode/mcp.json,
+  // .windsurf/mcp.json into the given directory.
+  const [workspaceMcpStatus, setWorkspaceMcpStatus] = useState<WorkspaceMcpStatusData | null>(null)
+
+  const fetchWorkspaceMcpStatus = useCallback((workspacePath: string) => {
+    if (!workspacePath) return
+    const qs = new URLSearchParams({ workspace_path: workspacePath })
+    fetch(`/mcp/status?${qs.toString()}`)
+      .then(r => r.json())
+      .then(json => setWorkspaceMcpStatus(json.data ?? json))
+      .catch(() => {})
+  }, [])
+
+  const handleWorkspaceMcpInstall = useCallback(
+    async (workspacePath: string): Promise<WorkspaceMcpInstallResult> => {
+      const res = await fetch('/mcp/install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspace_path: workspacePath }),
+      })
+      const json = await res.json()
+      return json.data ?? json
+    },
+    [],
+  )
+
+  const handleWorkspaceMcpUninstall = useCallback(async (workspacePath: string): Promise<void> => {
+    await fetch('/mcp/uninstall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ workspace_path: workspacePath }),
     })
   }, [])
 
@@ -990,6 +1027,11 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onMCPInstall={handleMCPInstall}
         onMCPUninstall={handleMCPUninstall}
         onMCPRefresh={fetchMcpStatus}
+        workspaceMcpStatus={workspaceMcpStatus}
+        workspaceMcpDefaultPath={p.selectedProject?.path ?? null}
+        onWorkspaceMcpInstall={handleWorkspaceMcpInstall}
+        onWorkspaceMcpUninstall={handleWorkspaceMcpUninstall}
+        onWorkspaceMcpRefresh={fetchWorkspaceMcpStatus}
         pushSettings={pushSettings}
         onPushSettingsUpdate={setPushSettings}
         className="h-full"
@@ -1509,6 +1551,15 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
             .then(json => setAgentOpsData(mapAgentStatus(json.data ?? json)))
             .catch(() => {});
         }}
+        mcpStatus={mcpStatus}
+        onMCPInstall={handleMCPInstall}
+        onMCPUninstall={handleMCPUninstall}
+        onMCPRefresh={fetchMcpStatus}
+        workspaceMcpStatus={workspaceMcpStatus}
+        workspaceMcpDefaultPath={p.selectedProject?.path ?? null}
+        onWorkspaceMcpInstall={handleWorkspaceMcpInstall}
+        onWorkspaceMcpUninstall={handleWorkspaceMcpUninstall}
+        onWorkspaceMcpRefresh={fetchWorkspaceMcpStatus}
         pushSettings={pushSettings}
         onPushSettingsUpdate={setPushSettings}
       />

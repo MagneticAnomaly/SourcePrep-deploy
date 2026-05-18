@@ -98,6 +98,9 @@ export type {
   ScopeRecord,
   ScopeSummary,
   ScopesListResponse,
+  // Used by docs-site demos.tsx + AdvancedLLMSettings component
+  ModelSlotType,
+  AdvancedLLMSettings as AdvancedLLMSettingsValue,
 } from './types';
 
 // Components - Status
@@ -143,7 +146,7 @@ export { IndexStatusCard, IndexStatsDisplay, LLMStatusWidget, UsageGuidePanel, B
 export type { IndexStatusCardProps, IndexStats, IndexStatsProps, StatItem, LLMStatusWidgetProps, LLMServiceStatus, UsageGuidePanelProps, BuildCardProps } from './components/dashboard';
 
 // Components - LLM
-export { ModelCard, EndpointManager, AIModelsSettings, DeepAnalysisSettings } from './components/llm';
+export { ModelCard, EndpointManager, AIModelsSettings, DeepAnalysisSettings, AdvancedLLMSettings } from './components/llm';
 export type { DeepAnalysisSchedule, DeepAnalysisStatus } from './components/llm';
 export { PlanDropdown } from './components/llm/PlanDropdown';
 export type { PlanDropdownProps, PlanLimitsTable, PlanLimitProvider, PlanLimitTier } from './components/llm/PlanDropdown';
@@ -190,16 +193,22 @@ export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, Pinn
 export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, CodeViewerProps, GitignoreHygieneModalProps, GitignoreGap, InitExcludeReviewModalProps, VendorCandidateView } from './components/project';
 
 // Components - Agent Operations (Phase 67 / Unified Surfaces)
-export { AgentOpsPanel, MCPConnectionCard, PushSettings } from './components/agents';
-export type { AgentOpsPanelProps, AgentOpsData, EngineStatus, MCPConnectionCardProps, MCPStatusData, MCPRuntimeStatus, MCPInstallResult, PushSettingsData, PushSettingsProps } from './components/agents';
+export { AgentOpsPanel, MCPConnectionCard, WorkspaceMcpCard, PushSettings } from './components/agents';
+export type { AgentOpsPanelProps, AgentOpsData, EngineStatus, MCPConnectionCardProps, MCPStatusData, MCPRuntimeStatus, MCPInstallResult, WorkspaceMcpCardProps, WorkspaceMcpStatusData, WorkspaceRuntimeStatus, WorkspaceMcpInstallResult, PushSettingsData, PushSettingsProps } from './components/agents';
 
 // Components - Watch (Phase 03)
 export { WatchStatusIndicator, WatchControlPanel } from './components/watch';
 export type { WatchStatusIndicatorProps, WatchControlPanelProps } from './components/watch';
 
 // Components - Trace (Phase 04)
-export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel, AtlasLensPanel, StatusStrip, SubAtlasTree, RoleLens, BudgetBar, BudgetSlider, PinnedConceptsList, RecoverStagePanel, formatBackupLabel, BarrierIndicator, isBarrierStale, barrierGuidance } from './components/trace';
-export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, EnrichmentAutoConfig, DeepEnrichmentMode, GraphStructurePanelProps, AtlasLensPanelProps, StatusStripProps, SubAtlasTreeProps, RoleLensProps, BudgetBarProps, BudgetSliderProps, PinnedConceptsListProps, RecoverStagePanelProps, BarrierIndicatorProps } from './components/trace';
+export { TraceStatusCard, TraceExplorer, TraceCoveragePanel, GraphEnrichmentPipeline, GraphStructurePanel, AtlasLensPanel, StatusStrip, SubAtlasTree, RoleLens, BudgetBar, BudgetSlider, PinnedConceptsList, RecoverStagePanel, formatBackupLabel, BarrierIndicator, isBarrierStale, barrierGuidance, TraceGraph, TraceGraphMini, NodeDetailPanel, SymbolSearchInput } from './components/trace';
+export type { TraceStatusCardProps, TraceExplorerProps, TraceCoveragePanelProps, GraphEnrichmentPipelineProps, TraceStageInfo, EnrichmentStageId, EnrichmentAutoConfig, DeepEnrichmentMode, GraphStructurePanelProps, AtlasLensPanelProps, StatusStripProps, SubAtlasTreeProps, RoleLensProps, BudgetBarProps, BudgetSliderProps, PinnedConceptsListProps, RecoverStagePanelProps, BarrierIndicatorProps, TraceGraphProps, NodeDetailPanelProps, SymbolSearchInputProps } from './components/trace';
+// TraceGraph component uses a lighter node shape (id, name, kind, inDegree, outDegree)
+// than the canonical API TraceNode (file_path, span, metadata, language). Re-export
+// the graph-render shape under TraceGraphNode/TraceGraphEdge to avoid name clashes;
+// the canonical TraceNode/TraceEdge are bulk-exported from ./types above.
+export type { TraceNode as TraceGraphNode, TraceEdge as TraceGraphEdge } from './components/trace';
+export type { TraceNode, TraceEdge } from './types';
 export type { BarrierStatus } from './types';
 
 // Components - Pipeline (Phase 105b — unified stage controls)
