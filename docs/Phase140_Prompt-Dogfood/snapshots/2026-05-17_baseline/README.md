@@ -30,19 +30,23 @@ Recompute on any prompt change: `shasum -a 256 <file> | cut -c1-12`.
 
 ## Environment
 
-Recorded from PowerMate artifact metadata (slot B):
+Recorded from PowerMate artifact metadata (slot B), updated 2026-05-18:
 
 - Daemon mode: server (default)
 - Embedder: `nomic-embed-text-v1.5` ONNX (Phase 139 hardened)
-- Cloud LLM per pipeline stage (per PowerMate artifacts, 2026-04-29 to 2026-05-01):
-  - Atlas: `kimi-k2.6:cloud`
-  - Augment (catalogue batch): `gemini-3-flash-preview:cloud`
-  - Cluster synthesis: `kimi-k2.6:cloud`
-  - Epistemic enrichment: `kimi-k2.6:cloud` (pass 2)
+- prep_version: `0.1.0`, engine_backend: `rust`
+- Cloud LLM per pipeline stage:
+  - Atlas (May 18 run): `kimi-k2.6:cloud` via Ollama, 13.31s
+  - Rules (May 18 run): templated, 0.01s
+  - Concepts (May 18 run): `kimi-k2.6:cloud`, 163.35s (Phase 125c — swarm_size 3, prompt_revision 2)
+  - Audit (May 18 run): `kimi-k2.6:cloud`, 208.5s (tier2 parallel, 50 findings)
+  - Antibodies (May 18 run): templated, 0.0s
+  - Augment / Epistemic (Apr 29-30, not re-run in May 18 finalize group): `gemini-3-flash-preview:cloud` / `kimi-k2.6:cloud`
 - Concurrency: auto-discovered (Phase 82)
+- Latest run-id: `run-402c4bc15857`, group: `finalize`, 385.35s total
 - Python version: TBD (record on next fresh capture)
 
-Note: per memory `project_llm_strategy.md`, Ollama Cloud is the primary LLM target — `kimi-k2.6:cloud` and `gemini-3-flash-preview:cloud` are both served via that path.
+Note: per memory `project_llm_strategy.md`, Ollama Cloud is the primary LLM target — `kimi-k2.6:cloud` is served via that path.
 
 ## Test repos captured
 
@@ -51,7 +55,7 @@ See [`../../02_TestRepos.md`](../../02_TestRepos.md) for slot definitions. As ou
 | Slot | Repo | Commit | File count | Captured? |
 |---|---|---|---|---|
 | A | SourcePrep self-host (`/Volumes/4TB-BAD/HumanAI/CoDRAG/`) | `01ba3252` | ~2,000 | ⏳ |
-| B | PowerMateReborn (`tests/eval/real_repos/PowerMateReborn/`, Swift) | TBD (from `.git`) | 25 | ✅ 17 sites |
+| B | PowerMateReborn (`tests/eval/real_repos/PowerMateReborn/`, Swift) | TBD (from `.git`) | 25 | ✅ 18 LLM sites + concept records (66) + run metadata |
 | C | TBD | — | — | ⏳ |
 | D | (deferred) | — | — | — |
 | E | (deferred) | — | — | — |

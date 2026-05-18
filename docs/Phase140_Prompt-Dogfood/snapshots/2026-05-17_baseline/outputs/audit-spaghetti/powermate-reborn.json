@@ -1,0 +1,94 @@
+{
+  "file_count": 24,
+  "scored_count": 3,
+  "severity_counts": {
+    "warning": 3
+  },
+  "duration_ms": 3.9,
+  "files": [
+    {
+      "file_path": "docs/research/RESEARCH_BRIGHTNESS.md",
+      "score": 0.68,
+      "severity": "warning",
+      "estimated_lines": 755,
+      "fan_in": 1,
+      "fan_out": 58,
+      "symbol_count": 0,
+      "tech_debt_count": 3,
+      "language": "markdown",
+      "role": "documentation",
+      "module_name": "",
+      "tech_debt_items": [
+        "Document claims 'Tier 1: DisplayServices Private API \u2705 IMPLEMENTED' but neighbor context from README.md indicates this is a research document for planned features, creating tension between claimed implementation status and actual codebase state",
+        "Implementation plan references v1.1, v1.2, v1.3 versioning that may not align with actual project release schedule",
+        "Open Questions section contains 14 unchecked research items that are marked as 'Must Answer' but remain unresolved"
+      ],
+      "summary": "A comprehensive research guide outlining technical strategies for controlling brightness on all types of macOS-connected displays, including native Apple and third-party monitors.",
+      "epistemic_confidence": 0.85,
+      "signals": {
+        "lines": 1.0,
+        "fan_in": 0.7,
+        "fan_out": 1.0,
+        "symbols": 0.5,
+        "circular": 0.0,
+        "tech_debt": 0.4,
+        "low_confidence": 0.8
+      }
+    },
+    {
+      "file_path": "scripts/CODE_SIGNING.md",
+      "score": 0.565,
+      "severity": "warning",
+      "estimated_lines": 153,
+      "fan_in": 1,
+      "fan_out": 28,
+      "symbol_count": 0,
+      "tech_debt_count": 5,
+      "language": "markdown",
+      "role": "documentation",
+      "module_name": "macOS Code Signing & Notarization Guide",
+      "tech_debt_items": [
+        "Hardcoded developer identity 'Developer ID Application: Eric Bintner (TEAMID)' requires manual replacement by other contributors",
+        "Version number v1.1.0 hardcoded throughout examples while release step mentions v1.0.0 tag, creating inconsistency",
+        "No mention of .entitlements file location or contents despite referencing it in Common Issues",
+        "Quick Reference duplicates significant content from Step 3-4 without DRY principle",
+        "Sparkle sign_update path .build/artifacts/sparkle/Sparkle/bin/sign_update assumes specific build artifact location not documented elsewhere"
+      ],
+      "summary": "Provides step-by-step instructions for code signing, notarizing, and releasing the PowerMateReborn macOS application, including Sparkle update configuration.",
+      "epistemic_confidence": 0.92,
+      "signals": {
+        "lines": 0.6,
+        "fan_in": 0.7,
+        "fan_out": 0.6,
+        "symbols": 0.5,
+        "circular": 0.0,
+        "tech_debt": 0.9,
+        "low_confidence": 0.3
+      }
+    },
+    {
+      "file_path": "docs/research/RESEARCH_AUDIO.md",
+      "score": 0.515,
+      "severity": "warning",
+      "estimated_lines": 639,
+      "fan_in": 1,
+      "fan_out": 50,
+      "symbol_count": 0,
+      "tech_debt_count": 0,
+      "language": "markdown",
+      "role": "documentation",
+      "module_name": "macOS Audio Volume Controller",
+      "summary": "A comprehensive research guide outlining strategies for macOS system-level volume control across various audio device types and hardware scenarios.",
+      "epistemic_confidence": 0.92,
+      "signals": {
+        "lines": 0.8,
+        "fan_in": 0.7,
+        "fan_out": 0.8,
+        "symbols": 0.5,
+        "circular": 0.0,
+        "tech_debt": 0.1,
+        "low_confidence": 0.3
+      }
+    }
+  ]
+}

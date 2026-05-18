@@ -23,9 +23,12 @@ Strict JSON. Schema is defined inline in the prompt (lines ~190-220). Verdict �
 - **Adversarial framing fatigue**: hostile-reviewer prompts can produce performatively negative critiques regardless of input quality. Worth comparing a "fair-witness" framing variant on the same candidates.
 - **Few-shot omission**: T3 Refine has few-shot examples; Validate does not. Hypothesis: adding 2-3 worked examples (accept / reject / partial) would tighten the tier distribution.
 
-## Snapshot 2026-05-17
+## Snapshot 2026-05-17 → updated 2026-05-18 with fresh concept-pipeline run
 - Prompt source SHA: `f257c13839aa`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): all 66 concept records (status reflects validate verdicts): [`../snapshots/2026-05-17_baseline/outputs/concept-validate/powermate-reborn-concepts.json`](../snapshots/2026-05-17_baseline/outputs/concept-validate/powermate-reborn-concepts.json)
+  - **Validate-stage breakdown** (from pipeline metadata): of 19 synth concepts seen, validate **activated 6, triaged 3, archived 10**. 0 parse failures. Reject-rate ≈ 53% — within the 5-40% sanity band from grounding §9, slightly hot. Possible iteration target.
 
 ## Iterations
 

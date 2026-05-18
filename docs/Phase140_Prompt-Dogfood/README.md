@@ -72,8 +72,8 @@ If a prompt change requires touching orchestration, that work belongs to a child
 | Bucket | Count | Status |
 |---|---|---|
 | Prompt sites inventoried | 30 | ✅ baseline captured 2026-05-17 |
-| Sites with at least one repo's outputs captured | 14 | ✅ Slot B (PowerMateReborn) — see [`snapshots/2026-05-17_baseline/capture-notes.md`](./snapshots/2026-05-17_baseline/capture-notes.md) |
-| Sites with at least one iteration entry | 1 | `rules-agents-md` (stale-branding finding) |
+| Sites with at least one repo's outputs captured | 18 | ✅ Slot B (PowerMateReborn) — see [`snapshots/2026-05-17_baseline/capture-notes.md`](./snapshots/2026-05-17_baseline/capture-notes.md). Includes concept records via SQL (66 concepts + 36 questions). |
+| Sites with at least one iteration entry | 1 | `rules-agents-md` (double-block bug, cleaned up; user declined to fix in code) |
 | Sites marked `stable` | 0 | — |
 
 See [`01_Inventory.md`](./01_Inventory.md) for the per-site status table.

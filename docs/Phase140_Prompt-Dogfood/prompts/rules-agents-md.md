@@ -34,23 +34,23 @@ Markdown. Required structure:
 - **Brand split** (memory: `project_brand_split.md`). User-facing copy must say "SourcePrep" / "sourceprep.io"; tool calls / project IDs / env vars stay `prep` / `PREP_*`. Audit current output for the split.
 - **Marketing voice** (memory: `feedback_marketing_voice.md`). Lead plain-language, jargon as supporting detail. AGENTS.md is the first thing an agent reads — its voice matters.
 
-## Snapshot 2026-05-17
-- Source file SHA: `c880edc924cd` (1296 lines)
+## Snapshot 2026-05-17 → updated 2026-05-18 post-cleanup
+- Source file SHA: `c880edc924cd` (1296 lines) — unchanged
 - Outputs captured:
-  - Slot A (SourcePrep self): TBD — the live `AGENTS.md` at this repo's root (currently produces "prep"/"SourcePrep" naming correctly)
-  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/rules-agents-md/powermate-reborn.md`](../snapshots/2026-05-17_baseline/outputs/rules-agents-md/powermate-reborn.md) — **last regenerated 2026-04-20, before the codrag→prep rename. See Iteration #1 finding below.**
+  - Slot A (SourcePrep self): TBD — the live `AGENTS.md` at this repo's root (clean, single prep-managed block, no double-block bug)
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/rules-agents-md/powermate-reborn.md`](../snapshots/2026-05-17_baseline/outputs/rules-agents-md/powermate-reborn.md) — **post-cleanup**, 103 lines / 5897 bytes (was 196 lines / 11437 bytes with the double-block bug). See Iteration #1.
 
 ## Iterations
 
-### 2026-05-17: baseline capture surfaces stale-branding finding
+### 2026-05-17/18: double-block bug — rules-generator does not migrate legacy markers
 
-- **Finding (not an iteration on prompt copy):** PowerMate's `AGENTS.md` still uses the legacy `codrag` / `CoDRAG` naming throughout the managed block (lines 1-35+ in the captured file). The file was last regenerated on 2026-04-20 — before the project rename. The rules-generator code today produces `prep` / `SourcePrep` naming correctly (verified against this repo's own `AGENTS.md`), so this is **not a prompt-copy bug — it's a regeneration-cadence bug.**
-- **Hypothesis:** Any client project indexed before the rename and not re-indexed since carries stale branding. We have no automatic detection or re-trigger for "rules content drifted because the generator changed."
-- **Verdict:** **n/a (not a prompt change).** Logged as a structural finding to address outside Phase 140:
-  - Option 1: Add a "regenerate-rules-on-version-bump" hook to the daemon when the rules-generator's managed-content hash changes.
-  - Option 2: Surface a stale-AGENTS.md warning in `prep`'s ambient context when a client project's managed-block content differs from what the current generator would produce.
-  - Option 3: Document it as a known limitation and recommend `prep rules` as a periodic maintenance command.
-- **Follow-up:** Manually run `prep rules` against PowerMate to regenerate a fresh AGENTS.md, then re-capture as the actual prompt-copy baseline.
+- **Finding (revised after deeper inspection):** PowerMate's `AGENTS.md` did NOT have stale branding from a missed regeneration — the rules stage actually ran successfully on 2026-05-18T06:11:01Z (per `pipeline_run_metadata.json`, 0.01s elapsed). The bug is more interesting: **the rules-generator appended a fresh `<!-- prep-managed-start ... prep-managed-end -->` block but did not remove the pre-existing `<!-- codrag-managed-start ... codrag-managed-end -->` block.** End result: 196-line file with two managed blocks, two `## Codebase Atlas` headings, two tool tables, two project IDs (the codrag block referenced project `2e356d01...`, the prep block references `6955793f...`).
+- **Why this happens (hypothesis):** `_write_agents_md` in `src/prep/core/rules_generator.py` probably finds-and-replaces content between `prep-managed-start`/`prep-managed-end` markers. When only the OLD `codrag-managed-*` markers exist, the splicer sees no match for `prep-managed-*` and appends a brand-new block, leaving the legacy block untouched.
+- **Impact:** Any client project that was indexed under the old `codrag` naming and re-indexed under `prep` ends up with a bloated, contradictory AGENTS.md telling downstream agents to call `codrag` AND `prep` against two different project IDs.
+- **Verdict — user decision (2026-05-18):** **Do not fix the rules-generator.** The legacy migration is not worth fixing in code. Manually clean up the affected files as we encounter them.
+- **Action taken:** Manually deleted the entire `<!-- codrag-managed-start ... codrag-managed-end -->` block (lines 3-94) from `tests/eval/real_repos/PowerMateReborn/AGENTS.md`. Snapshot re-captured to reflect the post-cleanup state (103 lines).
+- **Audit done:** Confirmed our own repo's `AGENTS.md` does NOT have the legacy block (`grep -c codrag-managed AGENTS.md` returned 0). So this is a one-off for PowerMate within Phase 140 scope.
+- **Open question (not blocking):** Are there other client projects (beyond PowerMate) that were indexed pre-rename and need similar manual cleanup? Outside Phase 140 scope unless we encounter them.
 
 ## Open questions (revised)
 

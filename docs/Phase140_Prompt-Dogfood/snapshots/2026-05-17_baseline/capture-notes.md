@@ -1,4 +1,7 @@
-# Capture notes — baseline 2026-05-17
+# Capture notes — baseline 2026-05-17 (re-captured 2026-05-18)
+
+> **Update 2026-05-18:** A fresh `finalize` pipeline group run completed on PowerMate at 2026-05-18T06:10-06:17 (run-id `run-402c4bc15857`, 385s total). The stale Apr 29-30 artifacts originally captured here have been replaced with the May 18 outputs. Concept records were extracted from `prep_concepts.db` directly. AGENTS.md was cleaned (legacy `codrag-managed-*` block removed — see `prompts/rules-agents-md.md` Iteration #1).
+
 
 How to read what's in `outputs/` and the caveats on each file.
 
@@ -11,27 +14,35 @@ Slot A (SourcePrep self) and Slot B (PowerMateReborn) were **already indexed** a
 
 The capture date (2026-05-17) is when we *snapshotted* the artifacts into this directory. The artifacts themselves were *generated* at varying earlier dates — see "Capture vs generation dates" below.
 
-## What's captured for Slot B (PowerMateReborn)
+## What's captured for Slot B (PowerMateReborn) — current state
 
 | Prompt site | File | Source | Generated | Notes |
 |---|---|---|---|---|
-| `atlas-single-doc` | `powermate-reborn.json` | `.sourceprep/atlas.json` | 2026-04-30 | Single-segment Swift project; one unified atlas |
-| `atlas-single-doc` | `powermate-reborn-role-architect.txt` | `.sourceprep/atlas_roles/architect.txt` | 2026-04-30 | Phase 103 per-role projection sample |
-| `atlas-single-doc` | `powermate-reborn-role-intern.txt` | `.sourceprep/atlas_roles/intern.txt` | 2026-04-30 | Phase 103 per-role projection sample |
-| `audit-summary` | `powermate-reborn.md` | `.sourceprep/audit/AUDIT_SUMMARY.md` | 2026-05-01 | Health score + key findings |
-| `audit-architecture` | `powermate-reborn.md` | `.sourceprep/audit/ARCHITECTURE_ANALYSIS.md` | 2026-05-01 | |
-| `audit-gaps` | `powermate-reborn.md` | `.sourceprep/audit/GAP_ANALYSIS.md` | 2026-05-01 | |
-| `audit-inventory` | `powermate-reborn.md` | `.sourceprep/audit/COMPONENT_INVENTORY.md` | 2026-05-01 | Only 9 lines — very small component count |
-| `audit-tech-debt` | `powermate-reborn.md` | `.sourceprep/audit/TECH_DEBT_REPORT.md` | 2026-05-01 | |
-| `batch-cluster` | `powermate-reborn.json` | `.sourceprep/trace_cluster_swarm_synthesis.json` | 2026-04-30 | 24 clusters analyzed by kimi-k2.6:cloud, 187.3s wall |
-| `batch-edges` | `powermate-reborn.jsonl` | `.sourceprep/trace_inferred_edges.jsonl` | 2026-04-29 | 36 inferred edges |
-| `batch-symbol` | `powermate-reborn.jsonl` | `.sourceprep/trace_augmented.jsonl` | 2026-04-29 | **Mixed-source file** — filter records by `node_id` starting `symbol:` |
-| `batch-file` | `powermate-reborn.jsonl` | same as above | 2026-04-29 | Filter records where `node_id` starts `file:` and `role` is set |
-| `batch-doc` | `powermate-reborn.jsonl` | same as above | 2026-04-29 | Filter records where `doc_type` and `doc_status` are present |
-| `batch-narrative` | `powermate-reborn.jsonl` | same as above | 2026-04-29 | Subset of doc records — narrative-only summaries |
-| `epistemic-code` | `powermate-reborn.jsonl` | `.sourceprep/trace_epistemic.jsonl` | 2026-04-30 | 24 records, filter by file extension `.swift` for code-only |
-| `epistemic-doc` | `powermate-reborn.jsonl` | same as above | 2026-04-30 | Filter for `.md` / docs |
-| `rules-agents-md` | `powermate-reborn.md` | `PowerMateReborn/AGENTS.md` (repo root) | 2026-04-20 | **STALE BRANDING** — see finding below |
+| `atlas-single-doc` | `powermate-reborn.json` | `.sourceprep/atlas.json` | 2026-05-18 | **Fresh** — model `kimi-k2.6:cloud`, 1551 chars, single-segment |
+| `atlas-single-doc` | `powermate-reborn-role-architect.txt` | `.sourceprep/atlas_roles/architect.txt` | 2026-04-30 | Per-role projection — not re-captured (no role-projection stage in May 18 run) |
+| `atlas-single-doc` | `powermate-reborn-role-intern.txt` | `.sourceprep/atlas_roles/intern.txt` | 2026-04-30 | Same |
+| `audit-summary` | `powermate-reborn.md` | `.sourceprep/audit/AUDIT_SUMMARY.md` | 2026-05-18 | **Fresh** — 50 findings, tier2 parallel, model `kimi-k2.6:cloud`, 208s |
+| `audit-architecture` | `powermate-reborn.md` | `.sourceprep/audit/ARCHITECTURE_ANALYSIS.md` | 2026-05-18 | **Fresh** |
+| `audit-gaps` | `powermate-reborn.md` | `.sourceprep/audit/GAP_ANALYSIS.md` | 2026-05-18 | **Fresh** |
+| `audit-inventory` | `powermate-reborn.md` | `.sourceprep/audit/COMPONENT_INVENTORY.md` | 2026-05-18 | **Fresh** |
+| `audit-tech-debt` | `powermate-reborn.md` | `.sourceprep/audit/TECH_DEBT_REPORT.md` | 2026-05-18 | **Fresh** |
+| `audit-spaghetti` | `powermate-reborn.json` | `.sourceprep/audit/spaghetti.json` | 2026-05-18 | **New capture** — not a separate prompt site but useful audit grounding signal (memory: `project_audit_runner_schema.md`) |
+| `batch-cluster` | `powermate-reborn.json` | `.sourceprep/trace_cluster_swarm_synthesis.json` | 2026-04-30 | Not re-run on 2026-05-18 (finalize group only ran atlas/rules/concepts/audit/antibodies) |
+| `batch-edges` | `powermate-reborn.jsonl` | `.sourceprep/trace_inferred_edges.jsonl` | 2026-04-29 | Not re-captured |
+| `batch-symbol` | `powermate-reborn.jsonl` | `.sourceprep/trace_augmented.jsonl` | 2026-04-29 | **Mixed-source file** — filter by `node_id` starting `symbol:` |
+| `batch-file` | `powermate-reborn.jsonl` | same as above | 2026-04-29 | Filter by `node_id` starting `file:` with `role` set |
+| `batch-doc` | `powermate-reborn.jsonl` | same as above | 2026-04-29 | Filter where `doc_type` and `doc_status` are present |
+| `batch-narrative` | `powermate-reborn.jsonl` | same as above | 2026-04-29 | Narrative-only summary records |
+| `epistemic-code` | `powermate-reborn.jsonl` | `.sourceprep/trace_epistemic.jsonl` | 2026-04-30 | 24 records, filter by `.swift` |
+| `epistemic-doc` | `powermate-reborn.jsonl` | same as above | 2026-04-30 | Filter for `.md` |
+| `concept-synthesize` | `powermate-reborn-concepts.json` | `prep_concepts.db` (66 records) | 2026-05-18 | **New capture via SQL** — Phase 125c current prompts. 6 active / 10 archived / 47 seed / 3 triage_pending |
+| `concept-synthesize` | `powermate-reborn-questions.json` | `prep_concepts.db` (36 questions) | 2026-05-18 | **New capture via SQL** |
+| `concept-validate` | `powermate-reborn-concepts.json` | (same file, mirrored) | 2026-05-18 | Same 66 records — `status` field reflects validate verdicts |
+| `concept-t3-refine` | `powermate-reborn-concepts.json` | (same file, mirrored) | 2026-05-18 | Same 66 records — refine verdicts in `status` |
+| `concept-generate` | `powermate-reborn-concepts.json` | (same file, mirrored) | 2026-05-18 | Same 66 records — seed status (47) shows pre-validate state |
+| `rules-agents-md` | `powermate-reborn.md` | `PowerMateReborn/AGENTS.md` (repo root) | 2026-05-18 cleanup | **Fresh + manually cleaned** — codrag legacy block removed (see Iteration #1) |
+| `_run-metadata` | `powermate-reborn-pipeline-2026-05-18.json` | `.sourceprep/pipeline_run_metadata.json` | 2026-05-18 | **New** — provenance for the fresh run |
+| `_run-metadata` | `powermate-reborn-concept-generate-2026-05-18.json` | `.sourceprep/concept_generate_manifest.json` | 2026-05-18 | **New** — Generate stage stats: swarm_size=3, prompt_revision=2 |
 
 ## Capture vs generation dates
 
@@ -55,31 +66,29 @@ Between 2026-04-25 and 2026-05-17, the following prompts changed substantially (
 
 Treat the "validity" line as a best-effort estimate. If in doubt for a specific site, run `git log -- <prompt-file>` and compare against the artifact generation date.
 
-## First finding (free of charge)
+## First finding (revised after 2026-05-18 deeper inspection)
 
 **Site:** `rules-agents-md`
-**Finding:** PowerMate's `AGENTS.md` at the repo root still uses the **old "codrag" / "CoDRAG" branding** instead of the current "prep" / "SourcePrep" naming. The file was last regenerated 2026-04-20, before the project rename completed.
+**Finding:** The rules-generator stage DID successfully run on 2026-05-18T06:11:01Z — but it **appended** a fresh `prep-managed-*` block instead of **replacing** the legacy `codrag-managed-*` block. PowerMate's AGENTS.md ended up 196 lines with two managed blocks side-by-side, two atlases, two tool tables, two project IDs.
 
-Sample (`outputs/rules-agents-md/powermate-reborn.md` line 3-8):
-```
-<!-- codrag-managed-start -->
-## CoDRAG Integration
+**Verdict (user 2026-05-18):** Don't fix the rules-generator's legacy-marker handling. Manually clean up the affected files when encountered.
 
-Last updated: 2026-04-20T22:30:44Z
+**Action:** Deleted the codrag block from PowerMate's AGENTS.md. File now 103 lines. Snapshot re-captured.
 
-codrag_project_id: 2e356d01-beaa-4559-8b5f-ceadb14b7203
+**Audit:** Our own repo's AGENTS.md is clean — `grep -c codrag-managed AGENTS.md` returned 0. PowerMate was the only file affected in Phase 140 scope.
 
-**ROUTING: When calling ANY CoDRAG tool, ALWAYS include ...**
-```
+Full iteration record: [`../../prompts/rules-agents-md.md`](../../prompts/rules-agents-md.md) Iteration #1.
 
-Implication: any client project that was indexed before the rename and has not had `prep rules` re-run still has stale managed-block content. The rules-generator is correctly written (it produces "prep" today) — but the *regeneration cadence* for previously-indexed projects is the open question.
+## What's NOT captured for Slot B
 
-This is recorded as the first iteration entry in [`../../prompts/rules-agents-md.md`](../../prompts/rules-agents-md.md).
-
-## What's NOT captured
-
-These prompt sites have no Slot B baseline:
-
-- **`concept-*` (4 sites)** — `concepts_manifest.json` exists but only as a metadata pointer; the actual concept records are stored elsewhere (concept store SQLite or similar). Did not chase the actual records since they're pre-Phase125c anyway. Will re-capture after the next concept pipeline run.
 - **`atlas-root` / `atlas-segment`** — PowerMate is single-segment, so these are N/A. Need a multi-segment slot D for these.
-- **`hr-*` / `custodian-*` / `researcher-*` (7 sites)** — these are agent prompts that only fire when the corresponding agent is invoked. PowerMate has never been used as input to the HR/Custodian/Researcher agents. Capture deferred until an agent run is done.
+- **`hr-*` / `custodian-*` / `researcher-*` (7 sites)** — agent prompts that only fire when the corresponding agent is invoked. PowerMate has never been used as input to the HR/Custodian/Researcher agents. Capture deferred until an agent run is done.
+- **`batch-*` and `epistemic-*` were NOT re-captured on 2026-05-18** — the finalize-group pipeline run only re-ran atlas/rules/concepts/audit/antibodies, not the augment/epistemic stages. The Apr 29-30 captures still represent the current state of those artifacts. If those prompt sources change, a deep-pipeline rerun is needed before re-capture.
+
+## Updated capture counts (2026-05-18)
+
+| Bucket | Captured | of total |
+|---|---|---|
+| LLM-driven prompt sites | 18 | 30 |
+| Plus structural artifacts (audit-spaghetti, run-metadata) | 2 | — |
+| Concept records (via SQL) | 66 concepts + 36 questions | — |

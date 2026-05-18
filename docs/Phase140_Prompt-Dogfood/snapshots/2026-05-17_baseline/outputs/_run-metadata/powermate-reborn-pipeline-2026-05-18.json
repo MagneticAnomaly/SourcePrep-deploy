@@ -1,0 +1,146 @@
+{
+  "format_version": "1.0",
+  "run_id": "run-402c4bc15857",
+  "project_id": "6955793f-d824-4e1c-8cb6-417a08bd6669",
+  "group": "finalize",
+  "status": "completed",
+  "prep_version": "0.1.0",
+  "engine_backend": "rust",
+  "started_at": "2026-05-18T06:10:48.107810+00:00",
+  "finished_at": "2026-05-18T06:17:13.454786+00:00",
+  "elapsed_seconds": 385.35,
+  "stages": [
+    {
+      "stage_id": "atlas",
+      "status": "completed",
+      "finished_at": "2026-05-18T06:11:01.478745+00:00",
+      "elapsed_seconds": 13.31,
+      "model": {
+        "provider": "ollama",
+        "endpoint_id": "default_ollama",
+        "model_name": "kimi-k2.6:cloud",
+        "task_id": "atlas"
+      },
+      "manifest_file": "atlas_manifest.json",
+      "worker_result": {
+        "stage": "atlas",
+        "skipped": false,
+        "chars": 1551,
+        "mode": "llm",
+        "file_count": 24,
+        "module_count": 20,
+        "segment_count": 0,
+        "routing_segments": 0,
+        "role_atlases_cached": 18,
+        "markdown_links_md_count": 1,
+        "markdown_links_valid_links": 2
+      }
+    },
+    {
+      "stage_id": "rules",
+      "status": "completed",
+      "finished_at": "2026-05-18T06:11:01.515079+00:00",
+      "elapsed_seconds": 0.01,
+      "manifest_file": "rules_manifest.json",
+      "worker_result": {
+        "stage": "rules",
+        "skipped": false,
+        "mode": "llm",
+        "atlas_chars": 1551
+      }
+    },
+    {
+      "stage_id": "concepts",
+      "status": "completed",
+      "finished_at": "2026-05-18T06:13:44.893309+00:00",
+      "elapsed_seconds": 163.35,
+      "model": {
+        "provider": "ollama",
+        "endpoint_id": "default_ollama",
+        "model_name": "kimi-k2.6:cloud",
+        "task_id": "concepts"
+      },
+      "manifest_file": "concepts_manifest.json",
+      "worker_result": {
+        "stage": "concepts",
+        "skipped": false,
+        "status": "success",
+        "concepts_created": 46,
+        "synth_concepts_emitted": 19,
+        "synth_concepts_saved": 19,
+        "val_activated": 6,
+        "val_triaged": 3,
+        "val_archived": 10,
+        "val_parse_failures": 0,
+        "gate_activated": 0,
+        "gate_triaged": 0,
+        "gate_archived": 0,
+        "questions_created": 36
+      }
+    },
+    {
+      "stage_id": "audit",
+      "status": "completed",
+      "finished_at": "2026-05-18T06:17:13.418727+00:00",
+      "elapsed_seconds": 208.5,
+      "model": {
+        "provider": "ollama",
+        "endpoint_id": "default_ollama",
+        "model_name": "kimi-k2.6:cloud",
+        "task_id": "audit"
+      },
+      "manifest_file": "audit_manifest.json",
+      "worker_result": {
+        "stage": "audit",
+        "skipped": false,
+        "finding_count": 50,
+        "tier2": true,
+        "tier2_mode": "parallel",
+        "tier2_doc_count": 5,
+        "errors": []
+      }
+    },
+    {
+      "stage_id": "antibodies",
+      "status": "completed",
+      "finished_at": "2026-05-18T06:17:13.443986+00:00",
+      "elapsed_seconds": 0.0,
+      "manifest_file": "antibodies_manifest.json",
+      "worker_result": {
+        "stage": "antibodies",
+        "skipped": false,
+        "derived": 4,
+        "saved": 4
+      }
+    }
+  ],
+  "models_used": {
+    "atlas": {
+      "provider": "ollama",
+      "endpoint_id": "default_ollama",
+      "model_name": "kimi-k2.6:cloud",
+      "task_id": "atlas"
+    },
+    "concepts": {
+      "provider": "ollama",
+      "endpoint_id": "default_ollama",
+      "model_name": "kimi-k2.6:cloud",
+      "task_id": "concepts"
+    },
+    "audit": {
+      "provider": "ollama",
+      "endpoint_id": "default_ollama",
+      "model_name": "kimi-k2.6:cloud",
+      "task_id": "audit"
+    }
+  },
+  "quality_summary": {
+    "completed_stages": 5,
+    "failed_stages": 0,
+    "total_stages": 5,
+    "total_files_processed": 0
+  },
+  "config_snapshot": {
+    "assignment_mode": "structured"
+  }
+}

@@ -111,13 +111,14 @@ Sprint 1A or 1B may surface methodology bugs. Common ones to expect:
 
 | Sprint | Status |
 |---|---|
-| 1A — `rules-agents-md` | 🔄 in progress — baseline captured for Slot B (PowerMateReborn); first finding logged (stale `codrag` branding, not a prompt-copy issue). Awaiting Slot A capture. |
-| 1B — `atlas-single-doc` | 🔄 partially started — Slot B captured (PowerMate, Swift). Awaiting Slot A + persona-removal ablation. |
-| 2 — `concept-validate` | ⏳ blocked: PowerMate concept artifacts are pre-Phase125c. Need fresh concept-pipeline run before iteration. |
+| 1A — `rules-agents-md` | ✅ first finding logged & resolved (double-block bug, manually cleaned, user declined to fix in code). Awaiting Slot A capture for a prompt-copy iteration (e.g., aggressive-tone A/B). |
+| 1B — `atlas-single-doc` | 🔄 partially started — Slot B captured (PowerMate, Swift, fresh 2026-05-18). Awaiting Slot A + persona-removal ablation. |
+| 2 — `concept-validate` | 🔄 unblocked — Slot B baseline captured 2026-05-18 with current Phase 125c prompts. Reject-rate observed at ~53% (6 active / 3 triaged / 10 archived of 19 synth) — slightly hot per grounding §9 5-40% band. Concrete iteration target. |
 | 3+ — open backlog | — |
 
-## What changed 2026-05-17 (mid-sprint)
+## What changed 2026-05-17 → 2026-05-18
 
-- **Slot B filled with PowerMateReborn** — Swift project (single-segment, ~25 files, already indexed). Replaced original "small Python lib" framing because PowerMate gives stronger non-Python diversity signal and was already built. See [`02_TestRepos.md`](./02_TestRepos.md).
-- **17 baseline output files captured** from PowerMate's `.sourceprep/` directory and `AGENTS.md`. Covers 14 of 30 prompt sites. See [`snapshots/2026-05-17_baseline/capture-notes.md`](./snapshots/2026-05-17_baseline/capture-notes.md) for what's captured, what's not, and the staleness caveats.
-- **First finding logged** — see [`prompts/rules-agents-md.md`](./prompts/rules-agents-md.md) Iteration #1: PowerMate's AGENTS.md still uses pre-rename `codrag` branding because regeneration hasn't been triggered since the rename. Structural finding (regen cadence), not a prompt-copy bug.
+- **Slot B filled with PowerMateReborn** — Swift project, single-segment, ~25 files. Already indexed in embedded mode. See [`02_TestRepos.md`](./02_TestRepos.md).
+- **Fresh `finalize`-group pipeline run on 2026-05-18** (run-id `run-402c4bc15857`, 385s) regenerated atlas/rules/concepts/audit/antibodies. Stale Apr 29-30 captures replaced. Concept records extracted from `prep_concepts.db` directly (66 concepts, 36 questions).
+- **18 LLM prompt sites + concept records + audit-spaghetti now have Slot B baselines.** Augment/epistemic captures remain from Apr 29-30 (not re-run in the finalize group).
+- **First finding closed (with action):** PowerMate's AGENTS.md had a **double-block bug** — rules-generator appended a fresh `prep-managed-*` block but did not remove the legacy `codrag-managed-*` block. User decided not to fix this in code; the legacy block was manually deleted from PowerMate's AGENTS.md (196 → 103 lines). Our own repo's AGENTS.md was confirmed clean. See [`prompts/rules-agents-md.md`](./prompts/rules-agents-md.md) Iteration #1.

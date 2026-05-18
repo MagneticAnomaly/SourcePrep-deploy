@@ -23,9 +23,12 @@ Per-concept JSON. Required fields: `counter_evidence`, `coincidence_check`, `fal
 - **Confidence calibration** (memory: `project_llm_confidence_calibration.md`). T3 Refine has the rationale-before-score discipline. Hypothesis: T3 outputs should show tighter tier distribution than Validate outputs. Verify with snapshot comparison.
 - **Promotion strategy** (memory: `project_concept_promotion_strategy.md`). T3 Refine is the de facto filter — if it under-rejects, the manual-review queue explodes. Inspect snapshot for `verdict: T3` vs `verdict: reject` distribution.
 
-## Snapshot 2026-05-17
+## Snapshot 2026-05-17 → updated 2026-05-18 with fresh concept-pipeline run
 - Prompt source SHA: `45f6da3f0f1a`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): all 66 concept records (tier distribution visible in `status` field): [`../snapshots/2026-05-17_baseline/outputs/concept-t3-refine/powermate-reborn-concepts.json`](../snapshots/2026-05-17_baseline/outputs/concept-t3-refine/powermate-reborn-concepts.json)
+  - **T3 refine artifacts not separately captured** — refine results are folded into the final `status` field on each concept. Pipeline metadata shows `gate_activated: 0, gate_triaged: 0, gate_archived: 0` for the gate stage (was T3-refine in earlier phases? worth verifying which stage this maps to in current Phase 125c).
 
 ## Iterations
 

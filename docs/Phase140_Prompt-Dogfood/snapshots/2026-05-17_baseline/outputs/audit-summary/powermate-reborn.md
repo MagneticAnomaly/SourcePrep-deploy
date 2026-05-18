@@ -1,34 +1,32 @@
-# PowerMateReborn Codebase Health Audit
-
 ## Health Score
-**Grade: B-**  
-The codebase is functional but suffers from significant architectural fragmentation, with 9 out of 24 modules flagged for technical debt and 12 core files appearing unused or disconnected from the import graph.
+
+**C+** — Zero critical findings keep the project shipping, but 9 warnings, 3 spaghetti hotspots (max score 0.68), and a hub bottleneck in `Sources/AppDelegate.swift` (in-degree 13, z-score 3.7) signal significant structural debt across core Swift files.
 
 ## Critical Findings
-*No critical findings were reported in the provided data (0 critical, 22 warnings).*
+
+None. The audit surfaced **0 critical findings** out of 50 total.
 
 ## Top Recommendations
-1.  **Refactor `Sources/AppDelegate.swift`**: At ~1,253 lines and 50KB, this file contains 9 specific tech debt items (including force unwraps and static singletons); extract lifecycle logic into the existing `PowerMateRebornLifecycleCoordinator` to reduce coupling.
-2.  **Audit Unused Modules**: Investigate the 12 files with zero incoming import edges (including `Sources/PowerMateBLETransport.swift`, `Sources/MIDIController.swift`, and `Sources/DDCController.swift`) to confirm if they are dead code or missing integration points.
-3.  **Modernize MIDI Implementation**: Address deprecated APIs in `Sources/MIDIController.swift` specifically regarding `MIDIPacketList` (deprecated in macOS 11) and fix the fixed 1024-byte buffer overflow risk.
-4.  **Stabilize Brightness Control**: Mitigate breakage risk in `Sources/BrightnessController.swift` by abstracting the reliance on private `DisplayServices.framework` APIs behind a fallback strategy.
-5.  **Resolve Build Configuration Debt**: Update `Package.swift` to remove hardcoded macOS version floors and implement conditional dependencies for Sparkle on non-macOS platforms.
+
+1. **Audit or remove 11 potentially unused Swift core files** — `Sources/BrightnessController.swift`, `Sources/VolumeController.swift`, `Sources/DDCController.swift`, `Sources/MIDIController.swift`, `Sources/OSCController.swift`, `Sources/PowerMateUSBTransport.swift`, `Sources/PowerMateBLETransport.swift`, `Sources/CustomModeEngine.swift`, `Sources/OSDOverlay.swift`, `Sources/MenuBarIcon.swift`, and `Sources/CustomModeSettingsView.swift` are flagged as having no import edges and no entry-point role. Verify whether they are dead code or dynamically loaded, then delete or properly wire them up to reduce the active codebase surface area.
+2. **Decouple `Sources/AppDelegate.swift`** — With 13 incoming edges against a mean of 2.7 (z-score 3.7), it is the dominant hub bottleneck. Extract a protocol-based coordinator or split lifecycle responsibilities into dedicated services to lower coupling.
+3. **Remediate core infrastructure tech debt** — `Sources/BrightnessController.swift` carries 7 debt items (private-api-dependency-fragility, no-sandbox-compliance, gamma-table-capture-ra) and `Sources/CustomModeEngine.swift` carries 5 debt items (massive `CodableActionConfig` struct causing memory bloat). Prioritize sandbox compliance and struct refactoring to stabilize the brightness and profile engines.
+4. **Fix Sparkle auto-update metadata and build config** — Correct the future-dated `pubDate` (`Thu, 12 Mar 2026`) in `docs/appcast.xml`, review the 7 debt items in `scripts/SPARKLE_SETUP.md`, and remove the redundant Sparkle linkage in `Package.swift`.
+5. **Consolidate research documentation spaghetti** — `docs/research/RESEARCH_BRIGHTNESS.md` (spaghetti score 0.68, ~755 lines, 3 debt items) and `docs/research/RESEARCH_AUDIO.md` (score 0.52, ~639 lines) are the top structural hotspots. Archive or distill these files to reduce cognitive load.
 
 ## Module Status
-| Module Name | File Count | Status | Key Issue |
-| :--- | :--- | :--- | :--- |
-| PowerMateReborn Lifecycle Coordinator | 1 | **Warning** | 9 tech debt items in `Sources/AppDelegate.swift` (force unwraps, singletons). |
-| macOS DisplayServices Brightness Controller | 1 | **Warning** | Reliance on private `DisplayServices` APIs in `Sources/BrightnessController.swift`. |
-| PowerMate Custom Mode Action Engine | 1 | **Warning** | Non-polymorphic encoding in `Sources/CustomModeEngine.swift`. |
-| PowerMate Profile Settings View | 1 | **Warning** | Hardcoded dimensions and direct `NSWorkspace` dependency in `Sources/CustomModeSettingsView.swift`. |
-| DDC/CI I2C Display Command Bridge | 1 | **Warning** | Unsafe dynamic symbol loading in `Sources/DDCController.swift`. |
-| PowerMate Virtual MIDI Source | 1 | **Warning** | Deprecated MIDI APIs and buffer overflow risks in `Sources/MIDIController.swift`. |
-| PowerMate SPM Manifest & Framework Linker | 1 | **Info** | Hardcoded version floors in `Package.swift`. |
-| PowerMateReborn User Documentation | 1 | **Info** | Lack of real-hardware validation notes in `README.md`. |
-| Unused/Disconnected Modules | 12 | **Info** | No import edges targeting files like `Sources/PowerMateBLETransport.swift`. |
-| Remaining Operational Modules | 7 | **Healthy** | No specific findings reported in provided data. |
+
+- **Menu-Bar App Bootstrap & Profile Settings UI** (2 files) — healthy — 3 tech debt items (`CodableAppProfile` memory inefficiency in `Sources/CustomModeSettingsView.swift` / `Sources/main.swift`).
+- **Sparkle Auto-Update Feed & Release Cryptography** (2 files) — warning — 7 tech debt items; future-dated `pubDate` in `docs/appcast.xml`.
+- **Swift Package Manager Build Manifest** (1 file) — healthy — redundant Sparkle linkage in `Package.swift`.
+- **PowerMateReborn Application Documentation** (1 file) — warning — 5 tech debt items; incomplete Bluetooth hardware validation noted in `README.md`.
+- **Application Lifecycle & Hardware Input Coordinator** (1 file) — warning — hub bottleneck (`Sources/AppDelegate.swift` in-degree 13, z-score 3.7) plus placeholder icon reuse tech debt.
+- **Multi-Strategy Display Brightness Controller** (1 file) — warning — 7 tech debt items in `Sources/BrightnessController.swift` (private API fragility, sandbox compliance, gamma table capture).
+- **PowerMate Profile Engine** (1 file) — warning — 5 tech debt items in `Sources/CustomModeEngine.swift` (`CodableActionConfig` memory bloat).
+- **DDC/CI Hardware Controller** (1 file) — healthy — 3 tech debt items in `Sources/DDCController.swift` (dynamic private IOKit symbol loading).
 
 ## Next Steps
-1.  **Run a dependency graph analysis** to verify if the 12 "potentially unused" files (e.g., `Sources/OSCController.swift`, `Sources/VolumeController.swift`) are dynamically loaded or truly orphaned, and delete or integrate them accordingly.
-2.  **Create a ticket to split `Sources/AppDelegate.swift`**, moving gesture coordination and menu bar setup into dedicated classes to address the 9 identified tech debt items.
-3.  **Schedule a security review** for `Sources/DDCController.swift` and `Sources/BrightnessController.swift` to replace unsafe dynamic symbol loading and private API calls with supported alternatives or robust fallbacks.
+
+1. **Run a dead-code pass** on the 11 flagged Swift files to confirm whether `Sources/BrightnessController.swift`, `Sources/VolumeController.swift`, `Sources/DDCController.swift`, `Sources/MIDIController.swift`, `Sources/OSCController.swift`, `Sources/PowerMateUSBTransport.swift`, `Sources/PowerMateBLETransport.swift`, `Sources/CustomModeEngine.swift`, `Sources/OSDOverlay.swift`, `Sources/MenuBarIcon.swift`, and `Sources/CustomModeSettingsView.swift` are truly unreferenced; remove any confirmed dead code before the next release.
+2. **Extract an interface from `Sources/AppDelegate.swift`** to break its 13 incoming dependencies and redistribute lifecycle coordination to smaller, single-responsibility types.
+3. **Update the Sparkle feed metadata** by fixing the future-dated `pubDate` in `docs/appcast.xml` and deduplicating the Sparkle framework declaration in `Package.swift`.
