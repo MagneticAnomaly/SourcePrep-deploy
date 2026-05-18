@@ -174,7 +174,10 @@ references; the underlying CoreML/ANE buffers may persist.
 | `PREP_DAEMON_MAX_RSS_GB` | dynamic | Soft RSS ceiling. Default formula: `min(32 GB, max(4 GB, 25% × total_RAM))`. Override with an absolute integer (GB). |
 | `PREP_COREML_USE_ANE` | unset | Set to `1` to enable Apple Neural Engine. Default is `CPUAndGPU` only — ANE has documented hangs in `setEspressoBlobShapes` on macOS 15+ and pins memory that ORT cannot release. |
 | `PREP_EMBED_LEGACY` | unset | Emergency rollback. Restores pre-Phase-139 behavior (no CoreML opts, no fixed-shape padding, original batch sizes, `MAX_LENGTH=8192`). |
-| `PREP_RSS_TELEMETRY` | unset | Set to `1` to enable a background RSS sampler. Writes `daemon_memory` events to `$PREP_DATA_DIR/daemon_rss.jsonl`. Sampling interval: `PREP_RSS_TELEMETRY_INTERVAL_SEC` (default 30s). |
+| `PREP_RSS_TELEMETRY` | unset | Set to `1` to enable a background RSS sampler. Writes `daemon_memory` events to `$PREP_DATA_DIR/daemon_rss.jsonl`. Sampling interval: `PREP_RSS_TELEMETRY_INTERVAL_SEC` (default 30s). PR2 also routes per-batch `embed_batch` and `provider_downgrade` events to the same log. |
+| `PREP_EMBED_MAX_BATCH_TOKENS` | 8192 | (PR2) Token budget per ONNX dispatch. The dispatcher fits `≤ budget/bucket_seq` items per call, so peak memory is `O(budget)` regardless of input length mix. Minimum 128. |
+| `PREP_EMBED_IDLE_RELEASE_SEC` | 600 | (PR2) Drop the shared embedder after N seconds of inactivity. Cold-start cost on next embed is 3-6 s. Set to `0` to disable. |
+| `PREP_EMBED_IDLE_POLL_SEC` | 60 | (PR2) How often the idle-release timer wakes up to check. |
 
 See `docs/Phase139_EmbedderMemoryHardening/` for the full incident
 record, research synthesis, corpus profile, and implementation plan.
@@ -298,7 +301,7 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 <!-- prep-managed-start -->
 # SourcePrep Integration
 
-Last updated: 2026-05-11T17:30:55Z
+Last updated: 2026-05-18T05:35:54Z
 
 prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
@@ -344,20 +347,16 @@ Add to `.claude/settings.json`:
 
 Use `@` to browse SourcePrep resources (atlas, modules, audit). Use `/mcp__prep__prep-onboard` for guided orientation.
 
-<!-- prep-atlas-hash:eee0abe03719 -->
+<!-- prep-atlas-hash:14570b9a550a -->
 ## Codebase Atlas
 
-IDENTITY: A multi-segment platform combining a React design system, NextJS marketing sites, a FastAPI MCP server, VSCode extension tooling, and documentation, with shared UI components powering dashboard, marketing, docs, support, and payments surfaces.
+IDENTITY: This is a multi-segment software platform combining a React design system with NextJS marketing websites, VSCode extensions, documentation sites, and a Python-based pipeline orchestration backend, all unified under a shared MCP architecture.
 
-STACK: Languages: .md 878, .tsx 428, .py 323, .ts 157, .json 118, .js 16. Frameworks: react, nextjs, fastapi, storybook. Build tools inferred from package ecosystems. Graph: 1920 files, 8062 nodes, 12888 edges. Edge types: contains 5737, imports 4970, implements 1307, configures 745, listens_to 64. Import cycles: 61.
+STACK: Languages are markdown (919 files), TSX (434), Python (336), TypeScript (150), JSON (117), JavaScript (15). Frameworks include React, NextJS, Tailwind CSS, Storybook. Build and tooling involve TypeScript compilation, VSCode extension packaging, and Python CLI entry points. The graph contains 28398 nodes and 47841 edges with 117 import cycles.
 
-WORKSPACE MAP: Root (_root, 1293 files): mcp, marketing, react, fastapi, storybook hub. Ui (packages/ui, 364 files): react design-system, storybook, ui-component, dashboard component library. Marketing (websites/apps/marketing, 64 files): nextjs, seo, mcp, marketing-site. Dashboard (src/prep/dashboard, 63 files): react, state-management, react-hooks, dashboard, settings-ui. Docs (websites/apps/docs, 51 files): documentation, nextjs, react, configuration, marketing. Support (websites/apps/support, 27 files): seo, nextjs, authentication, navigation, bug-reporting. Vscode (packages/vscode, 20 files): vscode-extension, ide-integration, reactive-ui, llm-context, project-management. Payments (websites/apps/payments, 15 files): nextjs, payments, marketing, mcp, react. Paperclip Plugin Prep (packages/paperclip-plugin-prep, 12 files): paperclip-integration, plugin-architecture, react, plugin-ui, public-api. Webview Ui (packages/vscode/webview-ui, 11 files): vscode-extension, webview, react, entry-point, strict-mode.
+WORKSPACE MAP: Project Root (_root, 1346 files): MCP, marketing, and pipeline orchestration hub. Ui (packages/ui, 369 files): Storybook-driven design system with accessibility and Tailwind CSS. Marketing (websites/apps/marketing, 62 files): NextJS marketing site with SEO. Dashboard (src/prep/dashboard, 62 files): React dashboard with state management and accessibility. Docs (websites/apps/docs, 51 files): NextJS documentation site using design system. Support (websites/apps/support, 26 files): NextJS frontend support portal. Vscode (packages/vscode, 20 files): VSCode extension with semantic search and auto-discovery. Payments (websites/apps/payments, 14 files): NextJS payments interface. Paperclip Plugin Prep (packages/paperclip-plugin-prep, 11 files): Pipeline orchestration with configuration management and versioning. Webview Ui (packages/vscode/webview-ui, 10 files): React webview for IDE integration.
 
-CROSS-CUTTING: Shared domains: react, marketing, nextjs, mcp, storybook, dashboard, seo, vscode-extension. Hub files: docs/ARCHITECTURE.md, ext:__future__, ext:typing, ext:react, ext:logging. Active zones: packages/ui/src/, tests/, websites/apps/marketing/, websites/apps/docs/, src/prep/core/. Entry points: packages/ui/src/components/architecture/index.ts, packages/ui/src/components/layout/index.ts, docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/app.py, src/prep/mcp/server.py, packages/ui/src/components/dashboard/index.ts. Test dirs: __tests__/ 19 files, specs/ 18 files, TEST_STATUS.md/ 1 file. Directory dependencies: docs -> sym:HeroLayout, sym:NeoBrutalistHero, sym:Feature; packages -> sym:Collapsible, sym:MissingProvenance, sym:StageHealth; public -> sym:trigger_sync, sym:main, sym:handler; src -> sym:PaperclipClient.pause_agent, sym:GroupReasoningEngine.load_edges, sym:NamingConsistencyAnalyzer.
-
-## Focus Areas
-- docs/MASTER_ROADMAP.md
-Call `prep` for detailed content from these areas.
+CROSS-CUTTING: Shared domains across segments are design-system, react, storybook, typescript, nextjs, mcp, marketing, and pipeline-orchestration. Hub files include docs/ARCHITECTURE.md, packages/ui/src/types.ts, packages/ui/src/api/react.tsx, ext:lucide-react, and ext:logging. Active zones are packages/ui/src/, tests/, src/prep/core/, websites/apps/docs/, and websites/apps/marketing/. Entry points include packages/ui/src/components/marketing/heroes/index.ts, packages/ui/src/components/console/index.ts, packages/paperclip-plugin-prep/src/ui/index.ts, packages/ui/.storybook/main.ts, and src/prep/cli.py. The packages/ui segment serves as the central design system dependency for docs, marketing, support, and payments. The VSCode extension and its webview UI share vscode-extension and react domains. The paperclip plugin connects pipeline-orchestration to the UI layer. Test coverage spans specs/ (20 files), __tests__/ (19 files), and TEST_PLAN_E2E.md.
 
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.

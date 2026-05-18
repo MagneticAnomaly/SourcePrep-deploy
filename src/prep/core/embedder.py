@@ -589,6 +589,75 @@ def _legacy_memory_scaled_batch_size(provider: str) -> int:
 # 1024 bucket is safety margin for the chunker's 1.5× slack ceiling.
 _DEFAULT_SEQ_BUCKETS = (128, 256, 512, 1024)
 
+# Phase 139 PR2: token budget for batch dispatch (RESEARCH.md §3.5 +
+# IMPLEMENTATION_PLAN.md T2.1). One ONNX call accumulates inputs until
+# bucket_seq × batch_size > max_batch_tokens. Memory becomes a flat
+# ceiling regardless of input length mix.
+#
+# Override via PREP_EMBED_MAX_BATCH_TOKENS (must be ≥ 128).
+_DEFAULT_MAX_BATCH_TOKENS = 8192
+
+
+def _max_batch_tokens() -> int:
+    """Token budget for one ONNX dispatch. Env: PREP_EMBED_MAX_BATCH_TOKENS."""
+    return _env_int("PREP_EMBED_MAX_BATCH_TOKENS", _DEFAULT_MAX_BATCH_TOKENS, minimum=128)
+
+
+def _emit_provider_downgrade_event(*, requested: str, active: str) -> None:
+    """T5.3: one-line telemetry when ORT silently downgrades the EP."""
+    if not _env_flag("PREP_RSS_TELEMETRY"):
+        return
+    try:
+        import json as _json
+        from datetime import UTC, datetime
+
+        from prep.services import rss_sampler
+        rec = {
+            "ts": datetime.now(UTC).isoformat(),
+            "event": "provider_downgrade",
+            "payload": {"requested": requested, "active": active},
+        }
+        log_path = rss_sampler._default_log_path()
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write(_json.dumps(rec) + "\n")
+    except Exception as e:
+        logger.debug("provider_downgrade telemetry failed (non-fatal): %s", e)
+
+
+def _emit_embed_batch_event(*, batch_size: int, seq_len: int, wall_ms: float, provider: str) -> None:
+    """Phase 139 T5.2: per-batch embedder telemetry. Routes through the
+    daemon RSS log (same file as the sampler) when PREP_RSS_TELEMETRY is
+    enabled. Fail-quiet — telemetry must never break a pipeline.
+    """
+    if not _env_flag("PREP_RSS_TELEMETRY"):
+        return
+    try:
+        import json as _json
+        from datetime import UTC, datetime
+
+        from prep.core import memory_guard
+        from prep.services import rss_sampler
+
+        snap = memory_guard.sample()
+        rec = {
+            "ts": datetime.now(UTC).isoformat(),
+            "event": "embed_batch",
+            "payload": {
+                "batch_size": batch_size,
+                "seq_len": seq_len,
+                "wall_ms": round(wall_ms, 2),
+                "rss_gb": round(snap.rss_gb, 3),
+                "provider": provider,
+            },
+        }
+        log_path = rss_sampler._default_log_path()
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as fh:
+            fh.write(_json.dumps(rec) + "\n")
+    except Exception as e:
+        logger.debug("embed_batch telemetry failed (non-fatal): %s", e)
+
 
 def _seq_buckets(max_length: int) -> tuple:
     """Return ascending bucket boundaries, all ≤ *max_length*.
@@ -735,6 +804,9 @@ class NativeEmbedder(Embedder):
 
         self._session: Any | None = None
         self._tokenizer: Any | None = None
+        # PR2 T3.2: idle-release timer reads this; updated on each embed call.
+        import time as _time
+        self._last_embed_ts: float = _time.monotonic()
 
     def close(self) -> None:
         """Drop the ONNX session and tokenizer references.
@@ -840,6 +912,22 @@ class NativeEmbedder(Embedder):
         active = self._session.get_providers()
         self.active_provider = active[0] if active else "CPUExecutionProvider"
 
+        # PR2 T5.3: detect silent CoreML/CUDA → CPU downgrade. ORT will
+        # accept a provider list and quietly drop unsupported entries.
+        # If we asked for a GPU/CoreML/DML provider and ended up on CPU,
+        # surface it so users notice their "acceleration" isn't happening.
+        requested_first = _provider_name(providers[0])
+        if requested_first != "CPUExecutionProvider" and self.active_provider == "CPUExecutionProvider":
+            logger.warning(
+                "Requested execution provider %s but session reports %s — "
+                "silent downgrade. Verify provider deps (onnxruntime-gpu / "
+                "onnxruntime-directml) or check Phase 139 CoreML opts.",
+                requested_first, self.active_provider,
+            )
+            _emit_provider_downgrade_event(
+                requested=requested_first, active=self.active_provider,
+            )
+
         # Auto-detect batch size based on active provider
         if self._requested_batch_size <= 0:
             self.batch_size = _default_batch_size(self.active_provider)
@@ -933,21 +1021,36 @@ class NativeEmbedder(Embedder):
         return EmbeddingResult(vector=vec.tolist(), model=self.model_name)
 
     def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
-        """Generate embeddings for multiple document texts (batched ONNX inference).
+        """Generate embeddings for multiple document texts.
 
-        Phase 139: before each chunk, samples process RSS via the
-        memory_guard. If we're over the soft ceiling, shrinks the
-        chunk size; if we're already at size 1 and still over, raises
-        ``MemoryCeilingExceeded``. Disabled under PREP_EMBED_LEGACY=1.
+        Phase 139 PR2: length-sorted bucket dispatch with token-budget
+        batching (RESEARCH.md §3.5 + IMPLEMENTATION_PLAN.md T2.1, T2.2).
+
+        1. Tokenize all texts once.
+        2. Group by bucket (smallest matching ceiling).
+        3. Within each bucket, accumulate items until
+           ``len(batch) × bucket_seq > max_batch_tokens``.
+        4. Dispatch one ONNX call per batch.
+        5. Reassemble in original order.
+
+        The memory ceiling per dispatch is ~``max_batch_tokens × hidden_dim``
+        regardless of input length mix — the small-input case processes
+        far more items per call than the old flat-batch policy.
+
+        Memory guard: each dispatched batch is guarded by ``memory_guard.check``.
+        On trip, the active batch is halved until it fits or bottoms out
+        at 1 (``MemoryCeilingExceeded`` raises in that case).
+
+        ``PREP_EMBED_LEGACY=1`` restores the pre-PR-2 flat-stride path.
         """
         if not texts:
             return []
 
         prefixed = [self.document_prefix + t for t in texts]
-        results: list[EmbeddingResult] = []
 
         if _legacy_mode():
             # Legacy: flat stride, no memory guard.
+            results: list[EmbeddingResult] = []
             for start in range(0, len(prefixed), self.batch_size):
                 chunk = prefixed[start : start + self.batch_size]
                 vecs = self._embed_texts(chunk)
@@ -955,30 +1058,127 @@ class NativeEmbedder(Embedder):
                     results.append(EmbeddingResult(vector=vec.tolist(), model=self.model_name))
             return results
 
-        # Phase 139: guard-aware stride. On every chunk, sample RSS;
-        # if over ceiling, halve the active batch until it fits or we
-        # bottom out at 1 and raise.
+        # Phase 139 PR2 path
+        self._ensure_loaded()
+        self._touch_idle()
+        return self._dispatch_token_budget(prefixed)
+
+    def _dispatch_token_budget(self, prefixed: list[str]) -> list[EmbeddingResult]:
+        """Length-sorted bucket dispatch with token-budget batching."""
+        assert self._tokenizer is not None
+        import numpy as np
+
         from prep.core import memory_guard
 
-        active_batch = self.batch_size
-        i = 0
-        while i < len(prefixed):
-            snap = memory_guard.check(can_shrink=(active_batch > 1), op="embed_batch")
-            if snap.over_ceiling and active_batch > 1:
-                active_batch = max(1, active_batch // 2)
-                logger.warning(
-                    "Memory guard tripped — shrinking embedder batch to %d "
-                    "(RSS %.2f GB / ceiling %.2f GB)",
-                    active_batch, snap.rss_gb, snap.ceiling_gb,
-                )
-                continue  # re-check before consuming work
-            chunk = prefixed[i : i + active_batch]
-            vecs = self._embed_texts(chunk)
-            for vec in vecs:
-                results.append(EmbeddingResult(vector=vec.tolist(), model=self.model_name))
-            i += active_batch
+        encodings = self._tokenizer.encode_batch(prefixed)
+        buckets = getattr(self, "_seq_buckets", None) or _seq_buckets(self.max_length)
+        budget = _max_batch_tokens()
 
-        return results
+        # Group input indices by the smallest matching bucket. Inside each
+        # bucket, sort longest-first so similar-length items cluster.
+        per_bucket: dict[int, list[int]] = {b: [] for b in buckets}
+        for idx, enc in enumerate(encodings):
+            token_len = len(enc.ids)
+            bucket = self.max_length
+            for b in buckets:
+                if token_len <= b:
+                    bucket = b
+                    break
+            per_bucket.setdefault(bucket, []).append(idx)
+
+        for b in per_bucket:
+            per_bucket[b].sort(key=lambda i: len(encodings[i].ids), reverse=True)
+
+        # Pre-allocate the output array so we can place vectors at their
+        # original index without a second sort pass.
+        out_vectors: list[np.ndarray | None] = [None] * len(prefixed)
+        active_batch = self.batch_size  # upper bound; budget shrinks per bucket
+
+        for bucket_seq, idxs in per_bucket.items():
+            if not idxs:
+                continue
+            # Effective batch from budget: how many bucket_seq-long items fit.
+            budget_batch = max(1, budget // bucket_seq)
+            batch_cap = max(1, min(active_batch, budget_batch))
+
+            i = 0
+            while i < len(idxs):
+                snap = memory_guard.check(can_shrink=(batch_cap > 1), op="embed_batch")
+                if snap.over_ceiling and batch_cap > 1:
+                    batch_cap = max(1, batch_cap // 2)
+                    logger.warning(
+                        "Memory guard tripped — shrinking embedder batch to %d "
+                        "(RSS %.2f GB / ceiling %.2f GB)",
+                        batch_cap, snap.rss_gb, snap.ceiling_gb,
+                    )
+                    continue
+
+                batch_idxs = idxs[i : i + batch_cap]
+                input_ids = _pad_2d(
+                    [encodings[j].ids for j in batch_idxs], bucket_seq, pad_value=0,
+                )
+                attention_mask = _pad_2d(
+                    [encodings[j].attention_mask for j in batch_idxs], bucket_seq, pad_value=0,
+                )
+                vecs = self._embed_token_batch(input_ids, attention_mask)
+                for k, orig_idx in enumerate(batch_idxs):
+                    out_vectors[orig_idx] = vecs[k]
+                i += batch_cap
+
+        # Sanity: every slot filled.
+        assert all(v is not None for v in out_vectors), "dispatch dropped an input"
+        return [
+            EmbeddingResult(vector=v.tolist(), model=self.model_name)
+            for v in out_vectors  # type: ignore[union-attr]
+        ]
+
+    def _embed_token_batch(self, input_ids: Any, attention_mask: Any) -> Any:
+        """Run one ONNX inference on pre-padded inputs and return pooled embeddings.
+
+        Inner loop of the token-budget dispatcher. ``input_ids`` and
+        ``attention_mask`` are int64 ndarrays of shape (B, S). Returns a
+        (B, DIM) float32 array, L2-normed.
+        """
+        import time
+
+        import numpy as np
+
+        assert self._session is not None
+        token_type_ids = np.zeros_like(input_ids)
+
+        t0 = time.monotonic()
+        outputs = self._session.run(
+            None,
+            {
+                "input_ids": input_ids,
+                "attention_mask": attention_mask,
+                "token_type_ids": token_type_ids,
+            },
+        )
+        wall_ms = (time.monotonic() - t0) * 1000.0
+        hidden = outputs[0]  # (B, S, 768)
+
+        mask_expanded = attention_mask[:, :, np.newaxis].astype(np.float32)
+        summed = np.sum(hidden * mask_expanded, axis=1)
+        counts = np.sum(mask_expanded, axis=1)
+        mean_pooled = summed / np.maximum(counts, 1e-9)
+
+        norms = np.linalg.norm(mean_pooled, axis=1, keepdims=True)
+        normalized = mean_pooled / np.maximum(norms, 1e-9)
+
+        # T5.2: per-batch telemetry (opt-in via PREP_RSS_TELEMETRY).
+        _emit_embed_batch_event(
+            batch_size=int(input_ids.shape[0]),
+            seq_len=int(input_ids.shape[1]),
+            wall_ms=wall_ms,
+            provider=self.active_provider,
+        )
+        return normalized
+
+    def _touch_idle(self) -> None:
+        """Update the idle timestamp so the idle-release timer knows we're active."""
+        import time
+        self._last_embed_ts = time.monotonic()
 
     @staticmethod
     def is_available() -> bool:

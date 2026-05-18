@@ -17,9 +17,9 @@ import hmac
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,8 +36,14 @@ from prep import __version__
 # stores pick up their new XDG location from the first open.
 from prep.core.data_dir_migration import (
     migrate_from_legacy_codrag as _migrate_from_codrag,
+)
+from prep.core.data_dir_migration import (
     migrate_from_legacy_prep as _migrate_from_prep,
+)
+from prep.core.data_dir_migration import (
     migrate_from_legacy_runprep as _migrate_from_runprep,
+)
+from prep.core.data_dir_migration import (
     migrate_legacy_data_dir as _migrate_legacy,
 )
 
@@ -48,9 +54,9 @@ _migrate_legacy()        # CWD codrag_data -> XDG (Phase 113 one-shot)
 
 from prep.api.envelope import install_api_exception_handlers
 from prep.core import CodeIndex
-from prep.core.events import get_event_bus, BroadcastLogHandler, get_progress_manager
-from prep.core.project_registry import Project, ProjectRegistry
+from prep.core.events import BroadcastLogHandler, get_event_bus, get_progress_manager
 from prep.core.feature_gate import FeatureGateError
+from prep.core.project_registry import Project, ProjectRegistry
 from prep.core.watcher import AutoRebuildWatcher
 
 logging.basicConfig(level=logging.INFO)
@@ -113,6 +119,14 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.debug("RSS sampler failed to start (non-fatal)", exc_info=True)
 
+    # Phase 139 PR2: embedder idle-release timer (T3.2). On by default at
+    # 600 s; disable with PREP_EMBED_IDLE_RELEASE_SEC=0.
+    try:
+        from prep.services import idle_release
+        idle_release.start()
+    except Exception:
+        logger.debug("Idle-release timer failed to start (non-fatal)", exc_info=True)
+
     logger.info("SourcePrep EventBus initialized")
     yield
 
@@ -122,6 +136,12 @@ async def lifespan(app: FastAPI):
         rss_sampler.stop()
     except Exception:
         logger.debug("RSS sampler failed to stop (non-fatal)", exc_info=True)
+
+    try:
+        from prep.services import idle_release
+        idle_release.stop()
+    except Exception:
+        logger.debug("Idle-release timer failed to stop (non-fatal)", exc_info=True)
 
     # Phase 139: release shared embedders. Drops Python refs; does not
     # deterministically reclaim CoreML/ANE memory (open ORT issues #26831,
@@ -228,17 +248,17 @@ async def verify_ipc_token(request: Request, call_next):
     # Allow health checks and SSE events to pass without token for simplicity in some contexts
     if request.url.path in ["/health", "/events"]:
         return await call_next(request)
-    
+
     expected_token = os.environ.get("PREP_DAEMON_TOKEN")
     if expected_token:
         auth_header = request.headers.get("Authorization") or ""
         if not auth_header.startswith("Bearer "):
             return JSONResponse(status_code=401, content={"success": False, "error": {"message": "Missing Authorization header"}})
-        
+
         token = auth_header[7:]  # len("Bearer ") == 7
         if not token or not hmac.compare_digest(token, expected_token):
             return JSONResponse(status_code=403, content={"success": False, "error": {"message": "Invalid daemon token"}})
-            
+
     return await call_next(request)
 
 # ── Build Manager (Phase 23 Sprint 14) ────────────────────────────
@@ -248,12 +268,12 @@ async def verify_ipc_token(request: Request, call_next):
 from prep.services.build_manager import build_manager as _bm
 
 # Global state (non-build)
-_config: Dict[str, Any] = {}
-_watcher: Optional[AutoRebuildWatcher] = None
-_SERVER_STARTED_AT = datetime.now(timezone.utc).isoformat()
-_registry: Optional[ProjectRegistry] = None
-_project_watchers: Dict[str, AutoRebuildWatcher] = {}
-_project_syncers: Dict[str, Any] = {}  # Dict[str, RemoteSyncService]
+_config: dict[str, Any] = {}
+_watcher: AutoRebuildWatcher | None = None
+_SERVER_STARTED_AT = datetime.now(UTC).isoformat()
+_registry: ProjectRegistry | None = None
+_project_watchers: dict[str, AutoRebuildWatcher] = {}
+_project_syncers: dict[str, Any] = {}  # Dict[str, RemoteSyncService]
 
 # ── BuildManager aliases (backward compat for routers) ───────────
 _index = None  # legacy — use _bm.legacy_index
@@ -273,12 +293,16 @@ _project_trace_build_threads = _bm.trace_build_threads
 # Config defaults, load/save, and merge logic live in ConfigManager.
 # Thin wrappers below keep backward compatibility for routers.
 from prep.services.config_manager import (
-    _DEFAULT_UI_CONFIG,
-    ui_config_path as _cm_ui_config_path,
     default_ui_config as _cm_default_ui_config,
-    deep_merge as _deep_merge,
+)
+from prep.services.config_manager import (
     load_ui_config as _cm_load_ui_config,
+)
+from prep.services.config_manager import (
     save_ui_config as _cm_save_ui_config,
+)
+from prep.services.config_manager import (
+    ui_config_path as _cm_ui_config_path,
 )
 
 
@@ -286,15 +310,15 @@ def _ui_config_path() -> Path:
     return _cm_ui_config_path(_config)
 
 
-def _default_ui_config() -> Dict[str, Any]:
+def _default_ui_config() -> dict[str, Any]:
     return _cm_default_ui_config(_config)
 
 
-def _load_ui_config() -> Dict[str, Any]:
+def _load_ui_config() -> dict[str, Any]:
     return _cm_load_ui_config(_config)
 
 
-def _save_ui_config(cfg: Dict[str, Any]) -> None:
+def _save_ui_config(cfg: dict[str, Any]) -> None:
     _cm_save_ui_config(_config, cfg)
 
 
@@ -302,23 +326,55 @@ def _save_ui_config(cfg: Dict[str, Any]) -> None:
 # Project helpers live in services/project_helpers.py.
 # Thin wrappers below keep backward compatibility for routers.
 from prep.services.project_helpers import (
-    get_registry as _ph_get_registry,
-    project_to_dict as _ph_project_to_dict,
-    project_id_for_root as _ph_project_id_for_root,
-    current_project as _ph_current_project,
-    require_project as _ph_require_project,
-    require_project_writable as _ph_require_project_writable,
-    project_index_status as _ph_project_index_status,
-    project_trace_status as _ph_project_trace_status,
-    get_project_watcher as _ph_get_project_watcher,
-    get_project_watcher_status as _ph_get_project_watcher_status,
-    get_project_sync_status as _ph_get_project_sync_status,
-    check_index_staleness as _ph_check_index_staleness,
-    invalidate_stale_cache as _ph_invalidate_stale_cache,
-    read_json_file as _ph_read_json_file,
-    parse_iso_datetime as _ph_parse_iso_datetime,
-    project_activity_payload as _ph_project_activity_payload,
     build_coverage_tree as _ph_build_coverage_tree,
+)
+from prep.services.project_helpers import (
+    check_index_staleness as _ph_check_index_staleness,
+)
+from prep.services.project_helpers import (
+    current_project as _ph_current_project,
+)
+from prep.services.project_helpers import (
+    get_project_sync_status as _ph_get_project_sync_status,
+)
+from prep.services.project_helpers import (
+    get_project_watcher as _ph_get_project_watcher,
+)
+from prep.services.project_helpers import (
+    get_project_watcher_status as _ph_get_project_watcher_status,
+)
+from prep.services.project_helpers import (
+    get_registry as _ph_get_registry,
+)
+from prep.services.project_helpers import (
+    invalidate_stale_cache as _ph_invalidate_stale_cache,
+)
+from prep.services.project_helpers import (
+    parse_iso_datetime as _ph_parse_iso_datetime,
+)
+from prep.services.project_helpers import (
+    project_activity_payload as _ph_project_activity_payload,
+)
+from prep.services.project_helpers import (
+    project_id_for_root as _ph_project_id_for_root,
+)
+from prep.services.project_helpers import (
+    project_index_status as _ph_project_index_status,
+)
+from prep.services.project_helpers import (
+    project_to_dict as _ph_project_to_dict,
+)
+from prep.services.project_helpers import (
+    project_trace_status as _ph_project_trace_status,
+)
+from prep.services.project_helpers import (
+    read_json_file as _ph_read_json_file,
+)
+from prep.services.project_helpers import (
+    require_project as _ph_require_project,
+)
+from prep.services.project_helpers import (
+    require_project_writable as _ph_require_project_writable,
 )
 
 
@@ -326,7 +382,7 @@ def _get_registry() -> ProjectRegistry:
     return _ph_get_registry()
 
 
-def _project_to_dict(proj: Project) -> Dict[str, Any]:
+def _project_to_dict(proj: Project) -> dict[str, Any]:
     return _ph_project_to_dict(proj)
 
 
@@ -334,7 +390,7 @@ def _project_id_for_root(root: str) -> str:
     return _ph_project_id_for_root(root)
 
 
-def _current_project() -> Dict[str, Any] | None:
+def _current_project() -> dict[str, Any] | None:
     return _ph_current_project(_config, _watcher, _SERVER_STARTED_AT)
 
 
@@ -346,27 +402,27 @@ def _require_project_writable(project_id: str) -> Project:
     return _ph_require_project_writable(project_id)
 
 
-def _project_index_status(idx: CodeIndex, last_build_error: Optional[str] = None, project: Optional[Project] = None) -> Dict[str, Any]:
+def _project_index_status(idx: CodeIndex, last_build_error: str | None = None, project: Project | None = None) -> dict[str, Any]:
     return _ph_project_index_status(idx, last_build_error, project=project)
 
 
-def _project_trace_status(project: Project) -> Dict[str, Any]:
+def _project_trace_status(project: Project) -> dict[str, Any]:
     return _ph_project_trace_status(project)
 
 
-def _get_project_watcher(project: Project) -> Optional[AutoRebuildWatcher]:
+def _get_project_watcher(project: Project) -> AutoRebuildWatcher | None:
     return _ph_get_project_watcher(project, _project_watchers)
 
 
-def _get_project_watcher_status(project: Project) -> Dict[str, Any]:
+def _get_project_watcher_status(project: Project) -> dict[str, Any]:
     return _ph_get_project_watcher_status(project, _project_watchers)
 
 
-def _get_project_sync_status(project: Project) -> Dict[str, Any]:
+def _get_project_sync_status(project: Project) -> dict[str, Any]:
     return _ph_get_project_sync_status(project, _project_syncers)
 
 
-def _check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:
+def _check_index_staleness(project: Project, idx: CodeIndex) -> dict[str, Any]:
     return _ph_check_index_staleness(project, idx)
 
 
@@ -374,19 +430,19 @@ def _invalidate_stale_cache(project_id: str) -> None:
     _ph_invalidate_stale_cache(project_id)
 
 
-def _read_json_file(path: Path) -> Optional[Dict[str, Any]]:
+def _read_json_file(path: Path) -> dict[str, Any] | None:
     return _ph_read_json_file(path)
 
 
-def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
+def _parse_iso_datetime(value: str | None) -> datetime | None:
     return _ph_parse_iso_datetime(value)
 
 
-def _project_activity_payload(project: Project, weeks: int) -> Dict[str, Any]:
+def _project_activity_payload(project: Project, weeks: int) -> dict[str, Any]:
     return _ph_project_activity_payload(project, weeks)
 
 
-def _build_coverage_tree(repo_root: Path, include_globs: List[str], exclude_globs: List[str]) -> Dict[str, Any]:
+def _build_coverage_tree(repo_root: Path, include_globs: list[str], exclude_globs: list[str]) -> dict[str, Any]:
     return _ph_build_coverage_tree(repo_root, include_globs, exclude_globs)
 
 
@@ -406,10 +462,10 @@ def _has_remote_index(project: Project) -> bool:
 def _start_project_delta_build(project: Project, changed_paths, include_globs, exclude_globs, max_file_bytes=500_000, hard_limit_bytes=100_000_000, use_gitignore: bool = True, included_paths=None) -> bool:
     return _bm.start_project_delta_build(project, changed_paths, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore=use_gitignore, included_paths=included_paths)
 
-def _get_project_trace_index(project: Project) -> "TraceIndex":
+def _get_project_trace_index(project: Project) -> TraceIndex:
     return _bm.get_project_trace_index(project)
 
-def _get_project_knowledge_index(project: Project) -> "KnowledgeIndex":
+def _get_project_knowledge_index(project: Project) -> KnowledgeIndex:
     return _bm.get_project_knowledge_index(project)
 
 def _is_project_building(project_id: str) -> bool:
@@ -437,10 +493,10 @@ def _start_project_build(project: Project, roots, include_globs, exclude_globs, 
 def _start_project_trace_build(project: Project, include_globs=None, exclude_globs=None, max_file_bytes: int = 500_000, hard_limit_bytes: int = 100_000_000, use_gitignore: bool = False) -> bool:
     return _bm.start_project_trace_build(project, include_globs, exclude_globs, max_file_bytes, hard_limit_bytes, use_gitignore)
 
-def _project_augment_status(project: Project) -> Dict[str, Any]:
+def _project_augment_status(project: Project) -> dict[str, Any]:
     """Read augmentation manifest for a project and return status dict."""
-    from prep.core.project_registry import project_index_dir
     from prep.core import TraceAugmenter
+    from prep.core.project_registry import project_index_dir
     idx_dir = project_index_dir(project)
     augmenter = TraceAugmenter(index_dir=idx_dir, repo_root=project.path, llm_client=None)
     return augmenter.status()
@@ -502,14 +558,14 @@ def _get_llm_client_for_slot(slot: str):
     endpoint_id = slot_cfg.get("endpoint_id")
     if not endpoint_id or not slot_cfg.get("model"):
         return None
-        
+
     # Resolve endpoint from saved_endpoints list
     endpoints = llm_config.get("saved_endpoints") or []
     endpoint = next((ep for ep in endpoints if ep.get("id") == endpoint_id), None)
-    
+
     if not endpoint:
         return None
-        
+
     url = endpoint.get("url")
     if not url:
         return None
@@ -560,7 +616,7 @@ def _get_llm_client_for_slot(slot: str):
     return client
 
 
-def get_advanced_llm_settings() -> Dict[str, Any]:
+def get_advanced_llm_settings() -> dict[str, Any]:
     """Return the Phase 112 advanced LLM settings block with safe defaults.
 
     Reads from ``ui_cfg["llm_config"]["advanced"]``.  Defaults to the
@@ -584,7 +640,7 @@ def get_advanced_llm_settings() -> Dict[str, Any]:
 # ── Phase 44: Unified Task-Based LLM Resolver ─────────────────────
 
 # Maps PrepTaskId → structured slot name.  Used when assignment_mode == "structured".
-TASK_TO_SLOT: Dict[str, str] = {
+TASK_TO_SLOT: dict[str, str] = {
     "catalogue":       "small",
     "inferred_edges":  "code",
     "enrichment":      "large",
@@ -625,11 +681,11 @@ def _get_llm_client_for_task(task_id: str):
         client = _resolve_mapped_task(task_id, llm_cfg)
     else:
         client = _resolve_structured_task(task_id)
-        
+
     # EA-C8: Enforce Admin Policy at execution time
     if client:
         try:
-            from prep.core.team_config import parse_admin_policy, is_model_allowed
+            from prep.core.team_config import is_model_allowed, parse_admin_policy
             admin_policy_raw = ui_cfg.get("_admin_policy_cache")
             if admin_policy_raw:
                 policy = parse_admin_policy({"admin_policy": admin_policy_raw})
@@ -646,7 +702,7 @@ def _get_llm_client_for_task(task_id: str):
                     return None
         except Exception as e:
             logger.debug("Failed to enforce admin policy on task %s: %s", task_id, e)
-            
+
     return client
 
 
@@ -697,7 +753,7 @@ def _create_client_from_block(block: dict, llm_cfg: dict, task_id: str):
     )
 
 
-def _get_model_identity_for_task(task_id: str) -> Optional[tuple]:
+def _get_model_identity_for_task(task_id: str) -> tuple | None:
     """Return (endpoint_id, model) for a task, or None.
 
     Used by the VRAM lifecycle manager to detect whether consecutive pipeline
@@ -735,30 +791,31 @@ def _get_model_identity_for_task(task_id: str) -> Optional[tuple]:
 # Routers are imported here (after all helpers/globals are defined) to avoid
 # circular imports — each router does `from prep.server import <helper>`.
 
-from prep.api.routers.system import router as system_router
-from prep.api.routers.license import router as license_router
-from prep.api.routers.trace_routes import router as trace_router
-from prep.api.routers.knowledge import router as knowledge_router
-from prep.api.routers.llm import router as llm_router
-from prep.api.routers.projects import router as projects_router
-from prep.api.routers.pipeline import router as pipeline_router
-from prep.api.routers.settings import router as settings_router
-from prep.api.routers.scope import router as scope_router
-from prep.api.routers.scopes import router as scopes_router
-from prep.api.routers.observations import router as observations_router
-from prep.api.routers.concepts import router as concepts_router
-from prep.api.routers.audit import router as audit_router
-from prep.api.routers.compute import router as compute_router
-from prep.api.routers.goalposts import router as goalposts_router
-from prep.api.routers.roadmap import router as roadmap_router
-from prep.api.routers.opportunities import router as opportunities_router
-from prep.api.routers.pm_push import router as pm_push_router
 from prep.api.routers.agents import router as agents_router
 from prep.api.routers.architecture import router as architecture_router
-from prep.api.routers.mcp_setup import router as mcp_setup_router
+from prep.api.routers.audit import router as audit_router
 from prep.api.routers.collaboration import router as collaboration_router
+from prep.api.routers.compute import router as compute_router
+from prep.api.routers.concepts import router as concepts_router
+from prep.api.routers.goalposts import router as goalposts_router
+from prep.api.routers.knowledge import router as knowledge_router
+from prep.api.routers.license import router as license_router
+from prep.api.routers.llm import router as llm_router
+from prep.api.routers.mcp_setup import router as mcp_setup_router
+from prep.api.routers.observations import router as observations_router
+from prep.api.routers.opportunities import router as opportunities_router
+from prep.api.routers.pipeline import router as pipeline_router
+from prep.api.routers.pm_push import router as pm_push_router
+from prep.api.routers.projects import router as projects_router
 from prep.api.routers.queue import router as queue_router
+from prep.api.routers.roadmap import router as roadmap_router
 from prep.api.routers.roles_endpoints import router as roles_router
+from prep.api.routers.scope import router as scope_router
+from prep.api.routers.scopes import router as scopes_router
+from prep.api.routers.settings import router as settings_router
+from prep.api.routers.system import router as system_router
+from prep.api.routers.trace_routes import router as trace_router
+
 app.include_router(system_router)
 app.include_router(roles_router)
 app.include_router(license_router)
@@ -790,8 +847,8 @@ app.include_router(queue_router)
 # =============================================================================
 
 def configure(
-    repo_root: Optional[str] = None,
-    index_dir: Optional[str] = None,
+    repo_root: str | None = None,
+    index_dir: str | None = None,
     ollama_url: str = "http://localhost:11434",
     model: str = "nomic-embed-text",
 ):
@@ -1030,6 +1087,19 @@ def configure(
     def _startup_auto_run():
         import time
         time.sleep(3)  # Let server fully initialize
+        # 2026-05-17 regression-fix escape hatch: dogfooders who want
+        # the daemon to come up quiet (no auto-rebuilds, no surprise
+        # LLM spend, no "Rebuilding All" cosplay from leftover barriers)
+        # can set PREP_DAEMON_AUTORUN=off / 0 / false. Per-project
+        # auto_config still governs in-session triggers; this only
+        # disables the post-startup sweep.
+        autorun_flag = os.environ.get("PREP_DAEMON_AUTORUN", "").strip().lower()
+        if autorun_flag in ("off", "0", "false", "no"):
+            logger.info(
+                "Startup auto-run: skipped (PREP_DAEMON_AUTORUN=%s)",
+                autorun_flag,
+            )
+            return
         try:
             # 2026-05 follow-up to F-65: the global pipeline_config is read for
             # diagnostic logging only — it is no longer a source of truth for
@@ -1050,7 +1120,8 @@ def configure(
 
             from prep.services.pipeline_orchestrator import pipeline_orchestrator as _po
             from prep.services.project_helpers import (
-                get_registry, is_project_active, get_project_activity_status,
+                get_project_activity_status,
+                get_registry,
             )
             all_projects = get_registry().list_projects()
             projects = []
@@ -1143,12 +1214,25 @@ def configure(
                             needs_deep = True
 
                 started = False
-                if needs_fast_sync and fast_auto and deep_mode == "auto":
-                    started = _po.run_all(proj.id)
-                    logger.info("Startup auto-run: run_all for %s — started=%s", proj.name, started)
-                elif needs_fast_sync and fast_auto:
+                # 2026-05-17 regression fix: Auto = incremental, never a
+                # full rebuild. The old dual-axis branch called run_all()
+                # for fast_auto + deep_auto, which is semantically still
+                # incremental but combined with the resume-path barrier
+                # bug below painted as "Rebuilding All" in the UI and
+                # surprised users. Always use run_fast_sync (incremental);
+                # deep enrichment auto-chains via _is_deep_enrichment_auto
+                # at fast-sync completion (orchestrator.py:2117), and
+                # finalize via _is_finalize_auto. The chain still happens —
+                # but each transition is driven by the per-project
+                # auto_config the completion handler reads, not by the
+                # startup path forging _chain_deep / _chain_finalize flags.
+                if needs_fast_sync and fast_auto:
                     started = _po.run_fast_sync(proj.id)
-                    logger.info("Startup auto-run: fast_sync for %s — started=%s", proj.name, started)
+                    logger.info(
+                        "Startup auto-run: incremental fast_sync for %s — started=%s "
+                        "(deep chain via auto_config if deep_mode=auto)",
+                        proj.name, started,
+                    )
                 elif needs_deep and deep_mode == "auto":
                     started = _po.run_deep_enrichment(proj.id)
                     logger.info("Startup auto-run: deep_enrichment for %s — started=%s", proj.name, started)
