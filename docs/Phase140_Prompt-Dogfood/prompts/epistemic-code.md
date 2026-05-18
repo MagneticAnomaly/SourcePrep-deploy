@@ -1,0 +1,41 @@
+# Epistemic — Code (single-file)
+
+**File:** `src/prep/core/epistemic_enrichment.py:49-87`
+**Symbols:** `EPISTEMIC_SYSTEM`, `EPISTEMIC_CODE_PROMPT`
+**Invoked by:** `epistemic_enrichment.py` worker — processes nodes in reverse-topological order (leaf files first)
+**Pipeline stage:** deep (epistemic enrichment, Phase 22 Pass 2)
+**Output schema:** structured JSON — extended summary, domain tags, architecture layer, subsystem, design patterns, cross-refs, tech debt, staleness risk, confidence
+**Status:** baseline
+
+## Purpose
+Deep per-file analysis for the trace graph. Each file is enriched with epistemic metadata that downstream tools (search, audit, atlas) read.
+
+## Grounding (inputs)
+- Full file content (or large slice if huge)
+- The file's trace-graph neighbors (imports + dependents)
+- Prior epistemic enrichment on neighbors (since leaves are processed first)
+
+## Output schema
+JSON. Senior-architect-voice system prompt; per-file user prompt with the template at lines 53-87.
+
+## Known issues / hypotheses
+- **Single-file vs batched divergence**: batch-epi-code does the same thing for many files at once. Hypothesis: single-file outputs should be measurably deeper (more nuanced cross_refs, more specific tech debt) — if not, batched supersedes and this becomes redundant.
+- **Reverse-topological assumption**: leaf-first processing means leaves get less context (no priors), while roots get more. Worth checking whether root files have systematically richer outputs than leaves.
+- **Senior-architect voice**: prompt asks for a specific persona. Could be over-engineered — a neutral instruction may produce equally good output with less token weight. Worth A/B testing.
+
+## Snapshot 2026-05-17
+- Prompt source SHA: `7c6239a6f300`
+- Outputs captured: TBD
+
+## Iterations
+
+_(none yet)_
+
+## Open questions
+- Should leaf files get a different prompt (no prior-context grounding to mention)?
+- Does the "senior architect" persona produce better output than a generic instruction?
+
+## Cross-references
+- Sibling: [epistemic-doc](./epistemic-doc.md), [batch-epi-code](./batch-epi-code.md)
+- Memory: `project_llm_confidence_calibration.md`
+- Phase 22 — Epistemic enrichment (parent architecture)
