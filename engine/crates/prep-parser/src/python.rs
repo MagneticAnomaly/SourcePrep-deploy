@@ -39,7 +39,9 @@ pub fn analyze(
 
     let mut result = ParseResult::empty();
 
-    // Walk top-level children
+    // Symbol extraction is top-level only: nested functions/classes are
+    // surfaced by extract_class's body walk, which is sufficient for the
+    // graph's symbol coverage.
     let mut cursor = root_node.walk();
     for child in root_node.children(&mut cursor) {
         match child.kind() {
@@ -52,17 +54,48 @@ pub fn analyze(
             "class_definition" => {
                 extract_class(&child, source, file_path, &file_node_id, &mut result);
             }
-            "import_statement" => {
-                extract_import(&child, source, file_path, &file_node_id, repo_root, &mut result);
-            }
-            "import_from_statement" => {
-                extract_import_from(&child, source, file_path, &file_node_id, repo_root, &mut result);
-            }
             _ => {}
         }
     }
 
+    // Phase 136 Part 02: imports are extracted via a SEPARATE tree-wide
+    // walk so that statements nested inside function bodies, method
+    // bodies, conditional blocks, try/except, or `if TYPE_CHECKING:`
+    // guards are captured.  Pre-Phase-136 the top-level walk above
+    // missed every indented import, leading to a silent undercount of
+    // prep_impact dependents for any module imported via a deferred
+    // (function-local) `from .X import Y` — see
+    // docs/Phase136_Dogfood-fixes/Part02_PrepImpactBimodalNode/.
+    extract_imports_recursive(&root_node, source, file_path, &file_node_id, repo_root, &mut result);
+
     Ok(result)
+}
+
+/// Walk the entire AST and emit import edges for every `import_statement`
+/// or `import_from_statement` regardless of nesting depth.  See the call
+/// site in `analyze()` for rationale.
+fn extract_imports_recursive(
+    node: &Node,
+    source: &[u8],
+    file_path: &str,
+    file_node_id: &str,
+    repo_root: &Path,
+    result: &mut ParseResult,
+) {
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        match child.kind() {
+            "import_statement" => {
+                extract_import(&child, source, file_path, file_node_id, repo_root, result);
+            }
+            "import_from_statement" => {
+                extract_import_from(&child, source, file_path, file_node_id, repo_root, result);
+            }
+            _ => {
+                extract_imports_recursive(&child, source, file_path, file_node_id, repo_root, result);
+            }
+        }
+    }
 }
 
 fn node_text<'a>(node: &Node, source: &'a [u8]) -> &'a str {
@@ -662,5 +695,71 @@ class MyClass:
         let result = parse_python("");
         assert!(result.nodes.is_empty());
         assert!(result.edges.is_empty());
+    }
+
+    // Phase 136 Part 02 regression — indented imports must be captured.
+    // Pre-Phase-136 the parser only walked top-level children and silently
+    // dropped any import nested inside a function body, class body, or
+    // conditional.  This biased prep_impact dependent counts toward zero
+    // for any module imported via a deferred (function-local) import.
+
+    #[test]
+    fn test_import_inside_function_body() {
+        let code = "def use_it():\n    from os import path\n    return path.sep\n";
+        let result = parse_python(code);
+        let import_edges: Vec<_> = result.edges.iter()
+            .filter(|e| e.kind == "imports").collect();
+        assert_eq!(import_edges.len(), 1, "Indented import inside function body must be captured");
+    }
+
+    #[test]
+    fn test_import_inside_method_body() {
+        let code = "class Foo:\n    def bar(self):\n        from json import dumps\n        return dumps({})\n";
+        let result = parse_python(code);
+        let import_edges: Vec<_> = result.edges.iter()
+            .filter(|e| e.kind == "imports").collect();
+        assert_eq!(import_edges.len(), 1, "Indented import inside method body must be captured");
+    }
+
+    #[test]
+    fn test_import_inside_if_block() {
+        let code = "import sys\nif sys.version_info >= (3, 10):\n    from typing import TypeAlias\n";
+        let result = parse_python(code);
+        let import_edges: Vec<_> = result.edges.iter()
+            .filter(|e| e.kind == "imports").collect();
+        // sys (top-level) + TypeAlias-via-typing (conditional)
+        assert_eq!(import_edges.len(), 2, "Conditional import must be captured");
+    }
+
+    #[test]
+    fn test_import_inside_try_except() {
+        let code = "try:\n    from fast_lib import fast_op\nexcept ImportError:\n    from slow_lib import slow_op as fast_op\n";
+        let result = parse_python(code);
+        let import_edges: Vec<_> = result.edges.iter()
+            .filter(|e| e.kind == "imports").collect();
+        // Both branches of try/except must surface
+        assert_eq!(import_edges.len(), 2, "Both try/except imports must be captured");
+    }
+
+    #[test]
+    fn test_deeply_nested_import() {
+        // 3 levels deep: class → method → if-block → import
+        let code = "class A:\n    def b(self):\n        if True:\n            from os import path\n";
+        let result = parse_python(code);
+        let import_edges: Vec<_> = result.edges.iter()
+            .filter(|e| e.kind == "imports").collect();
+        assert_eq!(import_edges.len(), 1, "Deeply nested import must be captured");
+    }
+
+    #[test]
+    fn test_top_level_imports_not_duplicated() {
+        // A top-level import must still be emitted exactly once after the
+        // recursive walk is added (regression: full-tree walk could
+        // double-emit if the symbol pass also processed imports).
+        let code = "import os\nimport json\n";
+        let result = parse_python(code);
+        let import_edges: Vec<_> = result.edges.iter()
+            .filter(|e| e.kind == "imports").collect();
+        assert_eq!(import_edges.len(), 2, "Top-level imports must not double-emit");
     }
 }

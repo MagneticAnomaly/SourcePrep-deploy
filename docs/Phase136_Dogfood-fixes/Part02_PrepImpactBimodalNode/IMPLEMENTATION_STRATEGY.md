@@ -1,11 +1,54 @@
 # Part 02 — Implementation strategy (tactical playbook)
 
 > **Companion to:** `IMPLEMENTATION_PLAN.md` (the design spec)
-> **Status:** **BLOCKED 2026-05-17** — implementation surfaced a worse
-> diagnosis than the original spec; the real bug is upstream of the
-> handler/index layer.  Code changes reverted.  Strategy revised below.
+> **Status:** **FIXED 2026-05-18** — Rust parser patched, 6 regression
+> tests passing, end-to-end probe shows augmenter.py Python importers
+> 2 → 8 (4× increase).  Daemon restart required for the live MCP path
+> to pick up the new binding.
 > **Goal:** ship a working fix for the prep_impact undercount end-to-end
 > (code + tests + live MCP probe verification) in a single session.
+
+## Fix delivered (2026-05-18)
+
+`engine/crates/prep-parser/src/python.rs`:
+
+1. Top-level walk in `analyze()` no longer matches
+   `import_statement` / `import_from_statement` — these move to a
+   separate tree-wide pass so nested imports are reachable.
+2. New `extract_imports_recursive(node, source, file_path,
+   file_node_id, repo_root, result)` helper walks the entire AST
+   and dispatches on `import_statement` and `import_from_statement`
+   regardless of nesting depth.
+3. `analyze()` calls it once after the symbol pass.
+
+6 new regression tests in `python.rs::tests`:
+
+- `test_import_inside_function_body`
+- `test_import_inside_method_body`
+- `test_import_inside_if_block`
+- `test_import_inside_try_except`
+- `test_deeply_nested_import`
+- `test_top_level_imports_not_duplicated`
+
+All 51 prep-parser tests pass (45 existing + 6 new).
+
+End-to-end probe (fresh build via the rebuilt binding):
+
+```
+Before: prep_impact src/prep/core/augmenter.py dependents
+  → 2 Python importers (__init__.py, epistemic_enrichment.py)
+
+After:  8 Python importers including:
+  → src/prep/core/deep_analysis.py:192 (indented in method body)
+  → src/prep/core/deep_analysis.py:312 (indented in method body)
+  → src/prep/api/routers/trace_routes/enrichment.py:95
+  → src/prep/server.py:457
+  → src/prep/services/headless_runner.py:231
+  → src/prep/services/pipeline/workers/__init__.py:489
+```
+
+Daemon restart + repo rebuild required for the live `prep_impact` MCP
+output to reflect the fix.
 
 ## 2026-05-17 corrected diagnosis
 
