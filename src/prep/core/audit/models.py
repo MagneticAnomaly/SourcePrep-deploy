@@ -173,6 +173,31 @@ class AuditContext:
         return None
 
 
+def effective_file_size(node: Dict[str, Any]) -> int:
+    """Return a usable byte-size for an audit file node.
+
+    Phase 136 Part 10: the Phase 134/135 Rust-engine cutover stopped
+    populating ``metadata.size`` on file nodes (the Python builder set
+    it; the Rust builder emits ``Default::default()``).  The markdown-
+    link post-process populates ``line_count``, ``section_count`` etc.
+    but never ``size``.  Audit analyzers that previously read
+    ``meta.get("size", 0)`` silently dropped every file post-cutover.
+
+    Fallback: ``line_count * 40``.  ~40 chars/line is the heuristic the
+    spaghetti scorer and large_files thresholds were already calibrated
+    against ("~2000 lines" → 80_000 bytes critical threshold).
+
+    Returns 0 only when neither field is present — a genuine signal
+    that the file metadata is incomplete (e.g., pre-build node).
+    """
+    meta = node.get("metadata", {}) or {}
+    direct = meta.get("size")
+    if direct:
+        return int(direct)
+    line_count = meta.get("line_count", 0) or 0
+    return int(line_count) * 40
+
+
 @dataclass
 class AuditDocument:
     """A generated audit report document."""

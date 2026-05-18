@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from typing import List
 
-from ..models import AuditContext, Finding
+from ..models import AuditContext, Finding, effective_file_size
 from . import BaseAnalyzer
 
 
@@ -51,7 +51,10 @@ class LargeFileAnalyzer(BaseAnalyzer):
         findings: List[Finding] = []
 
         for nid, node in ctx.file_nodes.items():
-            size = node.get("metadata", {}).get("size", 0)
+            # Phase 136 Part 10: effective_file_size falls back to
+            # line_count * 40 when the Rust file-node schema omits
+            # `size` (cutover regression — see models.effective_file_size).
+            size = effective_file_size(node)
             if not size:
                 continue
 

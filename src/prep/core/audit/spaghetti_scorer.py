@@ -244,18 +244,12 @@ def score_files(
     # Collect raw values for each file
     raw_data: List[Tuple[str, Dict[str, Any]]] = []
 
+    from prep.core.audit.models import effective_file_size
     for nid, node in ctx.file_nodes.items():
-        meta = node.get("metadata", {})
-        # Phase 136 Part 10: the Rust-engine file-node schema dropped
-        # `size` in favor of `line_count` (Phase 134/135 changeset
-        # cutover).  Fall back to `line_count * 40` (the ~40 chars/line
-        # heuristic the scorer already uses to derive `est_lines`) so
-        # the scorer works under both schemas.  Without this fallback,
-        # every file scored 0 size, fell below MIN_BYTES, and the entire
-        # spaghetti scorer emitted zero hotspots — silent regression
-        # observed in pipeline_telemetry 2026-05-11 (657 scored) vs
-        # 2026-05-17 (0 scored).
-        size = meta.get("size") or (meta.get("line_count", 0) * 40)
+        # Phase 136 Part 10: shared helper centralizes the
+        # size-or-line-count fallback for the Rust-cutover regression.
+        # See `models.effective_file_size` for the rationale.
+        size = effective_file_size(node)
         if size < min_bytes:
             continue
 
@@ -263,6 +257,7 @@ def score_files(
         if not file_path:
             continue
 
+        meta = node.get("metadata", {}) or {}
         est_lines = meta.get("line_count") or (size // 40)
         fan_in = ctx.in_degree(nid)
         fan_out = ctx.out_degree(nid)

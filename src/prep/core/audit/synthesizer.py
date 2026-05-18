@@ -567,10 +567,16 @@ class AuditSynthesizer:
             key=lambda kv: ctx.in_degree(kv[0]),
             reverse=True,
         )
+        from prep.core.audit.models import effective_file_size
         for nid, node in file_items[:max_files]:
             fp = node.get("file_path", "")
             lang = node.get("language", "?")
-            size = node.get("metadata", {}).get("size", 0)
+            # Phase 136 Part 10: effective_file_size falls back to
+            # line_count * 40 when the Rust file-node schema omits
+            # `size` (cutover regression).  Without this fallback the
+            # prompt rendered "~0 lines" for every file, degrading the
+            # LLM synthesis signal.
+            size = effective_file_size(node)
             aug = ctx.augmentations.get(nid, {})
             role = aug.get("role", "?")
             summary = aug.get("summary", "")[:100]

@@ -5,7 +5,7 @@
 > **Trigger:** 2026-05-17 rebuild telemetry vs 2026-05-11 baseline
 > **Work order:** ships third in Phase 136 (after Parts 02 and 09)
 
-## Fix delivered (2026-05-18)
+## Fix delivered (2026-05-18 — extended via scrutiny pass)
 
 **Root cause:** The Phase 134/135 Rust-engine cutover stopped
 populating `size` on file-node metadata.  Pre-Phase-134, the Python
@@ -14,6 +14,20 @@ line 281); the Rust file-node creation (`engine/crates/prep-graph/src/lib.rs`)
 emits `metadata: Default::default()` (empty), and the markdown-link
 post-process later populates `line_count`, `section_count`, etc. but
 never `size`.
+
+**Scope correction:** initial fix landed in the spaghetti scorer only.
+A scrutiny pass found **two more consumers** with the same
+`meta.get("size", 0)` pattern that were silently degraded:
+
+| Consumer | Symptom |
+|---|---|
+| `src/prep/core/audit/spaghetti_scorer.py` | scored_count went 657 → 0 |
+| `src/prep/core/audit/analyzers/large_files.py:54` | LargeFileAnalyzer emitted 0 findings against 1971 files |
+| `src/prep/core/audit/synthesizer.py:573` | LLM prompts rendered "~0 lines" for every file in inventory |
+
+All three now route through a single helper, `effective_file_size`
+in `prep.core.audit.models`, that does the line-count fallback once
+and explains the cutover history in a docstring.
 
 The spaghetti scorer read `node.get("metadata", {}).get("size", 0)`,
 saw 0 for every file, and silently filtered ALL files out via
@@ -46,11 +60,25 @@ with no error.
    still works, size-wins-when-both, zero-metadata-skips-cleanly.
    All 27 spaghetti tests pass.
 
-**Verified live:** scorer now produces 373 scored files (3 critical,
-285 warning, 85 info) on the current `.sourceprep` graph. The
-2026-05-11 baseline was 657 — different distribution because the
-underlying graph has changed in 6 days, but the scorer is back
-online and emitting hotspots.
+**Verified live:**
+
+- Spaghetti scorer: **0 → 373** scored files (3 critical, 285 warning, 85 info).
+- LargeFileAnalyzer: **0 → 52** findings (12 critical, 40 warning) —
+  the largest planning docs in `docs/superpowers/plans/` now correctly
+  flagged.
+- Audit synthesizer: LLM prompts now render real per-file line
+  counts instead of "~0 lines".
+
+**Tests:** 6 new tests in `tests/test_audit_size_fallback.py` covering
+the `effective_file_size` helper and `LargeFileAnalyzer` under both
+schemas, plus the 4 existing `TestMetadataSchemaFallback` tests in
+`tests/test_spaghetti_scorer.py`.  Spaghetti scorer was also
+refactored to use the shared helper rather than its own inline
+fallback — single source of truth.
+
+47 tests pass across the four touched suites
+(`test_atlas_stale_after_consume`, `test_spaghetti_scorer`,
+`test_audit_size_fallback`, `test_atlas_determinism`).
 
 ## The bug in one paragraph
 
