@@ -4129,6 +4129,50 @@ class MCPServer:
                         limit=args.get("limit", args.get("k", 20)),
                         project_override=project_override,
                     )
+                    # Phase 136 Part 04: auto-fall-back to semantic search
+                    # when LOCATE returns zero results AND the query is
+                    # multi-token (i.e. clearly a description, not a
+                    # symbol name).  Pre-Phase-136 a query like "where is
+                    # the file watcher debounce" would return
+                    # "No symbols found matching: the file watcher
+                    # debounce" instead of the real handler — surfaced
+                    # repeatedly during 2026-05-09 / 2026-05-13 /
+                    # 2026-05-17 dogfooding.  The intent is rule-based;
+                    # the fallback recovers from rule misses without
+                    # changing the classifier.
+                    _zero_hits = (
+                        isinstance(result, dict) and result.get("count", 0) == 0
+                    )
+                    _multi_token = len(clean_query.split()) >= 3
+                    _explicit_symbol = (
+                        args.get("type") == "symbol" or intent_override is not None
+                    )
+                    if _zero_hits and _multi_token and not _explicit_symbol:
+                        logger.info(
+                            "[prep_search] LOCATE returned 0 hits on multi-token "
+                            "query '%s' — auto-falling-back to EXPLAIN (semantic)",
+                            clean_query,
+                        )
+                        result = await self.tool_search(
+                            query=clean_query,
+                            k=args.get("k", 5),
+                            max_chars=args.get("max_chars", 12000),
+                            trace_expand=True,
+                            exclude_paths=args.get("exclude_paths") or None,
+                            role=args.get("role"),
+                            scope=args.get("scope"),
+                            working_dir=args.get("working_dir"),
+                            project_override=project_override,
+                        )
+                        if isinstance(result, dict):
+                            result.setdefault(
+                                "_intent_fallback",
+                                {
+                                    "from": "locate",
+                                    "to": "explain",
+                                    "reason": "no symbols matched the multi-token query",
+                                },
+                            )
                     # I2: tool_trace_search doesn't set the scope envelope;
                     # inject it post-hoc so every prep_search response is uniform.
                     if isinstance(result, dict) and "applied_scope" not in result:

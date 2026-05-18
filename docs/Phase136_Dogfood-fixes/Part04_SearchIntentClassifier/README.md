@@ -1,9 +1,48 @@
 # Part 04 — `prep_search` intent classifier robustness
 
-> **Status:** Stub / awaiting implementation plan
+> **Status:** **FIXED 2026-05-18** — LOCATE-to-EXPLAIN auto-fallback shipped, 5 regression tests landed.
 > **Triggers:** P82-F4 (2026-05-08), 18_Followup §1 (2026-05-09),
-> 19_Followup Gap #1 (2026-05-11)
-> **Work order:** ships after Part 01 (file-role split) — shares fixtures
+> 19_Followup Gap #1 (2026-05-11), 2026-05-18 self-observation during
+> Part 11 atlas-staleness investigation ("where is the concepts module
+> coverage" → NODE_NOT_FOUND).
+> **Work order:** shipped after Part 13b — entirely contained MCP-dispatch fix.
+
+## Fix delivered
+
+`src/prep/mcp/server.py:handle_tools_call` (`prep_search` branch):
+after dispatching to `tool_trace_search` for a `LOCATE`-classified
+query, check whether the result has zero hits AND the cleaned query
+is **multi-token** (≥ 3 words after `rewrite_query` strips signal
+prefixes like "where is"/"find"). If so, transparently retry through
+`tool_search` (EXPLAIN/semantic) and annotate the result with an
+`_intent_fallback` marker recording the transition.
+
+**Skipped when** the user explicitly chose symbol mode (`type=symbol`)
+or pinned the intent (`intent=locate`) — both are clear user signals
+that override the auto-recovery.
+
+## Regression tests
+
+`tests/test_prep_search_locate_fallback.py` (5 new):
+- multi-token zero-hit triggers fallback to `tool_search`
+- single-token zero-hit does NOT fall back (might be a real but
+  unindexed symbol — different failure mode)
+- non-zero LOCATE result skips fallback
+- `type=symbol` explicit override skips fallback
+- `intent=locate` explicit override skips fallback
+
+41 tests pass across this suite + the existing `test_intent.py` and
+`test_intent_detection.py` classifier-level suites.
+
+## Cross-refs
+
+- `src/prep/core/intent.py` (rule-based classifier — unchanged)
+- 2026-05-09 dogfooding: `"where is the file watcher debounce"` →
+  NODE_NOT_FOUND
+- 2026-05-13 dogfooding: `"where is the prep no-arg ambient context
+  budget…"` → 0 hits
+- 2026-05-18 dogfooding (this session): `"where is the concepts
+  module coverage calculated"` → NODE_NOT_FOUND
 
 ## The pattern
 
