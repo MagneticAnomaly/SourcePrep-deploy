@@ -1,8 +1,56 @@
 # Part 10 — Spaghetti scorer silent zero-score regression
 
-> **Status:** Stub / awaiting investigation
+> **Status:** **FIXED 2026-05-18** — root cause located, scorer
+> restored, 4 regression tests + 1 guard rail landed.
 > **Trigger:** 2026-05-17 rebuild telemetry vs 2026-05-11 baseline
 > **Work order:** ships third in Phase 136 (after Parts 02 and 09)
+
+## Fix delivered (2026-05-18)
+
+**Root cause:** The Phase 134/135 Rust-engine cutover stopped
+populating `size` on file-node metadata.  Pre-Phase-134, the Python
+builder set `metadata.size = file_size` (`src/prep/core/trace/builder.py`
+line 281); the Rust file-node creation (`engine/crates/prep-graph/src/lib.rs`)
+emits `metadata: Default::default()` (empty), and the markdown-link
+post-process later populates `line_count`, `section_count`, etc. but
+never `size`.
+
+The spaghetti scorer read `node.get("metadata", {}).get("size", 0)`,
+saw 0 for every file, and silently filtered ALL files out via
+`if size < MIN_BYTES (=2000): continue` — emitting an empty result
+with no error.
+
+**Fix** (`src/prep/core/audit/spaghetti_scorer.py`):
+
+1. Schema fallback in `score_files`:
+
+   ```python
+   size = meta.get("size") or (meta.get("line_count", 0) * 40)
+   est_lines = meta.get("line_count") or (size // 40)
+   ```
+
+   ~40 chars/line is the heuristic the scorer already uses internally
+   to derive `est_lines`; the inversion is consistent.
+
+2. Guard rail in `run_spaghetti_scan`:
+
+   ```python
+   if result.scored_count == 0 and len(ctx.file_nodes) > 100:
+       logger.warning("[Spaghetti] scored_count=0 against %d file_nodes ...")
+   ```
+
+   Future silent regressions become loud.
+
+3. 4 regression tests in `tests/test_spaghetti_scorer.py`
+   `TestMetadataSchemaFallback`: line-count fallback, legacy-size
+   still works, size-wins-when-both, zero-metadata-skips-cleanly.
+   All 27 spaghetti tests pass.
+
+**Verified live:** scorer now produces 373 scored files (3 critical,
+285 warning, 85 info) on the current `.sourceprep` graph. The
+2026-05-11 baseline was 657 — different distribution because the
+underlying graph has changed in 6 days, but the scorer is back
+online and emitting hotspots.
 
 ## The bug in one paragraph
 

@@ -245,7 +245,17 @@ def score_files(
     raw_data: List[Tuple[str, Dict[str, Any]]] = []
 
     for nid, node in ctx.file_nodes.items():
-        size = node.get("metadata", {}).get("size", 0)
+        meta = node.get("metadata", {})
+        # Phase 136 Part 10: the Rust-engine file-node schema dropped
+        # `size` in favor of `line_count` (Phase 134/135 changeset
+        # cutover).  Fall back to `line_count * 40` (the ~40 chars/line
+        # heuristic the scorer already uses to derive `est_lines`) so
+        # the scorer works under both schemas.  Without this fallback,
+        # every file scored 0 size, fell below MIN_BYTES, and the entire
+        # spaghetti scorer emitted zero hotspots — silent regression
+        # observed in pipeline_telemetry 2026-05-11 (657 scored) vs
+        # 2026-05-17 (0 scored).
+        size = meta.get("size") or (meta.get("line_count", 0) * 40)
         if size < min_bytes:
             continue
 
@@ -253,7 +263,7 @@ def score_files(
         if not file_path:
             continue
 
-        est_lines = size // 40
+        est_lines = meta.get("line_count") or (size // 40)
         fan_in = ctx.in_degree(nid)
         fan_out = ctx.out_degree(nid)
         sym_count = symbols_per_file.get(nid, 0)
@@ -421,7 +431,23 @@ def run_spaghetti_scan(
     ctx = load_audit_context(index_dir, project_root)
     if not ctx.nodes:
         return SpaghettiResult()
-    return score_files(ctx)
+    result = score_files(ctx)
+    # Phase 136 Part 10: guard rail — a non-empty file graph that scores
+    # zero hotspots is a silent regression signal (saw it 2026-05-17 when
+    # the Rust file-node schema dropped `size`).  Log loudly so future
+    # divergences surface before someone notices on the dashboard.
+    if (
+        result.scored_count == 0
+        and len(ctx.file_nodes) > 100
+    ):
+        logger.warning(
+            "[Spaghetti] scored_count=0 against %d file_nodes — "
+            "no hotspots emitted.  Likely cause: file-node metadata "
+            "schema mismatch (missing size/line_count) or thresholds "
+            "miscalibrated.  See docs/Phase136_Dogfood-fixes/Part10_*.",
+            len(ctx.file_nodes),
+        )
+    return result
 
 
 def save_spaghetti(result: SpaghettiResult, index_dir: Path) -> Path:

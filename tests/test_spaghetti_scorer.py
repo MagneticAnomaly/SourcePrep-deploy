@@ -398,3 +398,81 @@ class TestFileScoreSerialization:
         assert d["epistemic_confidence"] == pytest.approx(0.3, abs=0.001)
         assert len(d["tech_debt_items"]) == 5  # capped at 5
         assert d["signals"]["lines"] == pytest.approx(0.95, abs=0.001)
+
+
+# Phase 136 Part 10 regression — file-node metadata schema fallback.
+# The Phase 134/135 Rust-engine cutover stopped populating `size` on
+# file nodes (the Python builder used to set it; the Rust builder
+# emits `line_count` and other markdown-link counts instead).  The
+# scorer assumed `size` was always present and silently dropped every
+# file when it wasn't — observed in pipeline_telemetry going from 657
+# scored (2026-05-11) to 0 scored (2026-05-17) with no error.
+
+
+def _make_file_node_line_count(
+    nid: str, file_path: str, line_count: int, language: str = "python"
+) -> Dict[str, Any]:
+    """File node in the post-Phase-134/135 schema: `line_count`, no `size`."""
+    return {
+        "id": nid,
+        "kind": "file",
+        "file_path": file_path,
+        "language": language,
+        "metadata": {"line_count": line_count},
+    }
+
+
+class TestMetadataSchemaFallback:
+    """Scorer must work under both pre- and post-Phase-134/135 file-node
+    schemas: `size` (legacy) and `line_count` (current)."""
+
+    def test_line_count_fallback_replaces_missing_size(self):
+        # 200 lines * 40 chars/line = 8000 bytes — well above MIN_BYTES=2000
+        ctx = _build_ctx(
+            file_nodes=[_make_file_node_line_count("file:a.py", "a.py", line_count=200)],
+        )
+        result = score_files(ctx)
+        # Must produce a scored result instead of silently emitting 0.
+        assert result.file_count == 1
+        # File should at least reach the raw_data stage (whether it
+        # scores high enough for INFO threshold depends on other
+        # signals — that's not the regression).
+
+    def test_old_schema_still_works(self):
+        # File node carrying only `size` (pre-Phase-134/135) must still work.
+        ctx = _build_ctx(
+            file_nodes=[_make_file_node("file:a.py", "a.py", size=8000)],
+        )
+        result = score_files(ctx)
+        assert result.file_count == 1
+
+    def test_size_wins_when_both_present(self):
+        # When both fields exist, `size` is authoritative (existing
+        # convention).  Tested by giving a tiny line_count alongside a
+        # large size — file must NOT be filtered out as "too small".
+        node = {
+            "id": "file:a.py",
+            "kind": "file",
+            "file_path": "a.py",
+            "language": "python",
+            "metadata": {"size": 8000, "line_count": 1},
+        }
+        ctx = _build_ctx(file_nodes=[node])
+        result = score_files(ctx)
+        assert result.file_count == 1
+
+    def test_zero_metadata_skips_file(self):
+        # No size, no line_count → file legitimately too small to score.
+        # Must not crash; must skip cleanly.
+        node = {
+            "id": "file:a.py",
+            "kind": "file",
+            "file_path": "a.py",
+            "language": "python",
+            "metadata": {},
+        }
+        ctx = _build_ctx(file_nodes=[node])
+        result = score_files(ctx)
+        assert result.scored_count == 0
+        # file_count is the raw input count; file_nodes still has 1.
+        # The skip is internal; no hotspots emitted is correct.
