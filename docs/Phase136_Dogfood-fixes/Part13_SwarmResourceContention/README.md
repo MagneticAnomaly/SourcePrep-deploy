@@ -149,17 +149,30 @@ time, full capacity reservation honored.
 
 ## Deferred to follow-ups (NOT fixed in this Part)
 
-### Part 13b — Cluster ID stability (parallel to Part 12)
+### Part 13b — Cluster reuse Jaccard fallback ✅ **FIXED 2026-05-18**
 
-`src/prep/core/cluster.py` uses `cluster_id = f"cluster:{tag}:{idx}"`
-where `idx` is a sequential counter assigned during a single run.
-If the count of clusters with the same tag shifts between runs, all
-those indices renumber → similar cache-invalidation pattern to the
-group_reasoning bug Part 12 fixed.
+`src/prep/core/cluster.py` already keyed reuse on
+`frozenset(member_files)` (better than group_reasoning was pre-Part-12),
+but exact-membership-only — adding/removing one file invalidated the
+cached `ModuleEntry`.  On an incremental rebuild this cascaded across
+most modules, producing "Module Synthesis: rebuilding" dashboard
+behavior even though only a few files changed.
 
-Less hash-sensitive than group_reasoning (the tag is semantic and
-stable, the index is the volatile bit), but still real. Needs its
-own investigation + Jaccard-style overlap fallback.
+Fix: added `_find_overlapping_module(member_files, existing)`
+mirroring Part 12's pattern (symmetric Jaccard ≥ 70 % both ways).
+Wired into the existing reuse loop as a fallback when the exact
+frozenset lookup misses.  9 regression tests in
+`tests/test_cluster_reuse_jaccard.py` covering exact match,
+peripheral add, realistic incremental shift, below-threshold
+rejection, empty inputs, asymmetric subset rejection, multi-
+candidate best-match, and a threshold-sanity smoke check.
+
+The `cluster_id = "cluster:<tag>:<idx>"` instability that initially
+worried me turned out to be a non-issue for reuse correctness:
+cluster.py already indexed by member-set, never by `cluster_id`.
+The `cluster_id` shift just means the module_id naming differs
+between runs — visible in dashboard URLs but not correctness-
+affecting.
 
 ### Part 13c — Same-project stage drain (design question)
 

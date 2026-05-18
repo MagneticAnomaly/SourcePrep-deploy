@@ -45,6 +45,54 @@ from .swarm_registry import get_min_groups_threshold, get_swarm_tier
 
 logger = logging.getLogger(__name__)
 
+# Phase 136 Part 13b — symmetric Jaccard threshold for cluster reuse
+# fallback.  Mirrors Part 12's `_JACCARD_THRESHOLD` in group_reasoning.
+# 0.7 means both halves of the overlap (new∩old / new, new∩old / old)
+# must clear 70 % for the cached ModuleEntry to be reused.
+_CLUSTER_REUSE_JACCARD_THRESHOLD = 0.7
+
+
+def _find_overlapping_module(
+    new_member_files: List[str],
+    existing_modules: Dict[str, "ModuleEntry"],
+) -> Optional["ModuleEntry"]:
+    """Locate a prior ModuleEntry whose member set has high Jaccard
+    overlap with ``new_member_files``.  Returns ``None`` when no
+    cached module clears the threshold.
+
+    Phase 136 Part 13b: fallback used when the exact-frozenset lookup
+    misses.  Pre-Phase-136 a single file joining or leaving a cluster
+    would invalidate the cached module synthesis (frozenset mismatch);
+    on an incremental rebuild this cascaded across most modules and
+    produced "Module Synthesis: rebuilding" behavior even though the
+    user only changed a few files.  See
+    ``docs/Phase136_Dogfood-fixes/Part13_SwarmResourceContention/``
+    "Part 13b" follow-up section for the original finding.
+
+    Symmetric Jaccard: both halves must clear the threshold so a
+    small new cluster can't match its giant cached parent (and vice
+    versa)."""
+    new_set = frozenset(new_member_files)
+    if not new_set:
+        return None
+    best_score = _CLUSTER_REUSE_JACCARD_THRESHOLD
+    best: Optional[ModuleEntry] = None
+    for mod in existing_modules.values():
+        old_set = frozenset(mod.member_files or ())
+        if not old_set:
+            continue
+        intersection = len(new_set & old_set)
+        if intersection == 0:
+            continue
+        new_overlap = intersection / len(new_set)
+        old_overlap = intersection / len(old_set)
+        score = min(new_overlap, old_overlap)
+        if score > best_score:
+            best_score = score
+            best = mod
+    return best
+
+
 # ── Data classes ─────────────────────────────────────────────────────
 
 @dataclass
@@ -1940,6 +1988,15 @@ class ClusterSynthesizer(Worker):
         # identity ensures we only reuse a ModuleEntry whose stored members
         # match the new cluster exactly — the Changeset.modified|deleted
         # check then verifies none of those members had content changes.
+        #
+        # Phase 136 Part 13b: the exact-membership lookup misses whenever
+        # a cluster gains/loses even one member.  Adding the Jaccard
+        # overlap fallback (mirrors Part 12 for group_reasoning) so a
+        # cluster that's mostly the same as a cached one carries forward.
+        # Without this, adding one file to a 20-file cluster invalidates
+        # the entire cached module synthesis — the same cache-cliff
+        # behavior that drove Module Synthesis to look like "rebuilding"
+        # in the dashboard on incremental runs.
         existing_by_members: Dict[frozenset, ModuleEntry] = {
             frozenset(mod.member_files): mod for mod in existing_modules.values()
         }
@@ -1952,6 +2009,9 @@ class ClusterSynthesizer(Worker):
                 for nid in cluster.member_node_ids
             ]
             ex = existing_by_members.get(frozenset(member_files))
+            if ex is None:
+                # Part 13b fallback — symmetric Jaccard match.
+                ex = _find_overlapping_module(member_files, existing_modules)
             if ex is not None and not self._cluster_is_stale(cluster.member_node_ids):
                 # Adopt the existing synthesis under the current module_id
                 # so the output reflects this run's cluster naming.
