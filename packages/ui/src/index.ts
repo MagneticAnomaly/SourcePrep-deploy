@@ -334,6 +334,14 @@ export {
   mcpConfigAsString,
 } from './config/mcpSetup';
 export type { McpToolConfig, McpCategory } from './config/mcpSetup';
+export {
+  MCP_TOOL_LIST,
+  MCP_PRIMARY_TOOLS,
+  MCP_SECONDARY_TOOLS,
+  MCP_TOOL_CATEGORY_LABELS,
+  getMcpToolEntry,
+} from './config/mcpTools';
+export type { McpToolEntry, McpToolCategory } from './config/mcpTools';
 
 // Hooks
 export { useEventStream } from './hooks/useEventStream';

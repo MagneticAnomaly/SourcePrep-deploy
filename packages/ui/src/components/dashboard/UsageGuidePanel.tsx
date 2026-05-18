@@ -7,6 +7,12 @@ import {
   type WorkspaceMcpStatusData,
   type WorkspaceMcpInstallResult,
 } from '../agents/WorkspaceMcpCard';
+import {
+  MCP_PRIMARY_TOOLS,
+  MCP_SECONDARY_TOOLS,
+  MCP_TOOL_CATEGORY_LABELS,
+  type McpToolCategory,
+} from '../../config/mcpTools';
 
 export interface UsageGuidePanelProps {
   className?: string;
@@ -24,64 +30,6 @@ export interface UsageGuidePanelProps {
   onWorkspaceMcpRefresh?: (workspacePath: string) => void;
 }
 
-interface ToolDef {
-  name: string;
-  description: string;
-  example: string;
-  primary?: boolean;
-  category?: string;
-}
-
-const MCP_TOOLS: ToolDef[] = [
-  // ── Context & Search ────────────────────────────────
-  {
-    name: 'prep',
-    description: 'Get assembled context from your selected files, code graph, and atlas routing — the primary tool your AI uses.',
-    example: '"Use prep to understand this codebase"',
-    primary: true,
-    category: 'Context & Search',
-  },
-  {
-    name: 'hi_prep',
-    description: 'See what SourcePrep knows about your selected files — design docs, code areas, connections, and suggested next steps. Best first step.',
-    example: '"hi_prep" — select files in Knowledge Sources first, then ask your AI',
-    primary: true,
-  },
-  {
-    name: 'prep_search',
-    description: 'Semantic search across your indexed code and docs.',
-    example: '"Use prep_search to find authentication logic"',
-  },
-  // ── Index Management ────────────────────────────────
-  {
-    name: 'prep_status',
-    description: 'Check if SourcePrep is connected and the index is ready.',
-    example: '"Use prep_status to check the index"',
-    category: 'Index Management',
-  },
-  {
-    name: 'prep_build',
-    description: 'Trigger an index rebuild when your code has changed.',
-    example: '"Use prep_build to re-index the project"',
-  },
-  // ── Code Graph ──────────────────────────────────────
-  {
-    name: 'prep_trace_search',
-    description: 'Search the structural code graph for symbols (functions, classes, modules).',
-    example: '"Use prep_trace_search to find the UserService class"',
-    category: 'Code Graph',
-  },
-  {
-    name: 'prep_trace_neighbors',
-    description: 'Explore imports, callers, and callees of a symbol in the code graph.',
-    example: '"Use prep_trace_neighbors to see what calls handleAuth"',
-  },
-  {
-    name: 'prep_trace_coverage',
-    description: 'Check which files are traced, stale, or missing from the code graph.',
-    example: '"Use prep_trace_coverage to check graph completeness"',
-  },
-];
 
 function CopyBadge({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -157,15 +105,12 @@ export function UsageGuidePanel({
 
         {/* Primary tools highlight */}
         <div className="space-y-2">
-          {MCP_TOOLS.filter(t => t.primary).map((tool) => (
+          {MCP_PRIMARY_TOOLS.map((tool) => (
             <div key={tool.name} className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1.5">
               <div className="flex items-center gap-2">
                 <CopyBadge text={tool.name} />
-                {tool.name === 'hi_prep' && (
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-primary">Start here</span>
-                )}
-                {tool.name === 'prep' && (
-                  <span className="text-[10px] font-medium uppercase tracking-wider text-primary">Most used</span>
+                {tool.badge && (
+                  <span className="text-[10px] font-medium uppercase tracking-wider text-primary">{tool.badge}</span>
                 )}
               </div>
               <p className="text-xs text-text-muted">{tool.description}</p>
@@ -177,15 +122,16 @@ export function UsageGuidePanel({
         {/* Other tools grouped by category */}
         <div className="space-y-3">
           {(() => {
-            const others = MCP_TOOLS.filter(t => !t.primary);
-            let lastCategory = '';
-            return others.map((tool) => {
-              const showCategory = tool.category && tool.category !== lastCategory;
-              if (tool.category) lastCategory = tool.category;
+            let lastCategory: McpToolCategory | null = null;
+            return MCP_SECONDARY_TOOLS.map((tool) => {
+              const showCategory = tool.category !== lastCategory;
+              lastCategory = tool.category;
               return (
                 <div key={tool.name}>
                   {showCategory && (
-                    <div className="text-[10px] font-medium uppercase tracking-wider text-text-muted/60 mt-2 mb-1">{tool.category}</div>
+                    <div className="text-[10px] font-medium uppercase tracking-wider text-text-muted/60 mt-2 mb-1">
+                      {MCP_TOOL_CATEGORY_LABELS[tool.category]}
+                    </div>
                   )}
                   <div className="flex items-start gap-2 py-1">
                     <CopyBadge text={tool.name} />

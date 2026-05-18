@@ -14,7 +14,7 @@
  * SourcePrep daemon must be running: `prep serve`.
  */
 
-import { MCP_TOOLS, mcpConfigAsString } from '../../config/mcpSetup';
+import { MCP_TOOLS, mcpConfigAsString } from '@prep/ui';
 
 // JSON-LD structured data for AI discoverability
 const jsonLd = {

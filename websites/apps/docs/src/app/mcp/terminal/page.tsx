@@ -1,5 +1,5 @@
 import { AnimatedCLI, prepSearchDemo } from '../../../components/cli-demos';
-import { MCP_TOOLS } from '../../../config/mcp-setup';
+import { MCP_TOOLS } from '@prep/ui';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 
 export default function TerminalIntegrationsPage() {
