@@ -217,10 +217,24 @@ class ComputeSlot:
         the CapacityHealth panel.
         """
         is_cloud = self.node_id.startswith("cloud:")
+        # Phase 136 Part 14: treat ``supports_auto_detect is None`` AS no-
+        # auto-detect when the user has stated a ``max_concurrent``.
+        # Pre-Phase-136 the no-auto-detect short-circuit only fired on
+        # ``supports_auto_detect is False`` — the explicit boolean.  But
+        # the dataclass default is ``None``, and a startup race
+        # (configure_node runs before settings_store finishes loading)
+        # leaves the cached flag as ``None``.  When that happens the
+        # slot falls through to the AIMD-bounded path and silently caps
+        # at the jumpstart seed (``current_limit=5``) — even though the
+        # user picked Ollama Cloud "Max" (max_concurrent=10) and Ollama
+        # Cloud is documented as no-auto-detect.  Observed live
+        # 2026-05-18: swarm stages stuck at 5/10.  The conservative
+        # default for an unknown auto-detect status is to respect the
+        # user's stated cap, not let AIMD silently halve it.
         if (
             is_cloud
             and self.max_concurrent > 0
-            and self.supports_auto_detect is False
+            and self.supports_auto_detect is not True
         ):
             return max(1, self.max_concurrent)
         if is_cloud and self.max_concurrent > 0:
