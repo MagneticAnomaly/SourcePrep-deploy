@@ -1740,11 +1740,23 @@ class MCPServer:
                      if d.get("kind") != "external_module"
                      and not d.get("id", "").startswith("ext:")]
 
-        # Format as human-readable summary for the LLM
+        # Format as human-readable summary for the LLM.
+        # P122-D3: when target is missing both name and path, the file
+        # isn't indexed in the trace graph — say so explicitly instead
+        # of rendering "Impact analysis for:  ()" with empty parens.
         lines = []
-        target_name = target.get("name", node_id)
-        target_path = target.get("file_path", "")
-        lines.append(f"Impact analysis for: {target_name} ({target_path})")
+        target_name = target.get("name") or ""
+        target_path = target.get("file_path") or ""
+        if not target_name and not target_path:
+            lines.append(
+                f"Impact analysis: {node_id} — node not found in trace graph"
+            )
+        elif target_path:
+            lines.append(
+                f"Impact analysis for: {target_name or node_id} ({target_path})"
+            )
+        else:
+            lines.append(f"Impact analysis for: {target_name or node_id}")
         lines.append(f"Total dependents found: {len(dependents)}")
         lines.append("")
 

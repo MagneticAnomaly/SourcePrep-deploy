@@ -21,6 +21,13 @@ class AtlasDocument:
     mode: str  # "llm" or "structural"
     hub_file_hashes: Dict[str, str] = field(default_factory=dict)
     segment_ids: List[str] = field(default_factory=list)  # Phase 70B: tracked for drift detection
+    # Phase 136 Part 11: run_id of the Changeset this atlas was built from.
+    # `CodebaseAtlas.is_stale()` short-circuits to False when the on-disk
+    # Changeset's run_id equals this value — without it, every non-empty
+    # build (added/modified/deleted any) left the atlas permanently
+    # reporting stale.  Empty string on pre-Phase-136 atlases falls
+    # through to the legacy churn check (safe).
+    consumed_changeset_run_id: str = ""
     version: int = 1
 
     def to_dict(self) -> Dict[str, Any]:
@@ -34,6 +41,7 @@ class AtlasDocument:
             "mode": self.mode,
             "hub_file_hashes": self.hub_file_hashes,
             "segment_ids": self.segment_ids,
+            "consumed_changeset_run_id": self.consumed_changeset_run_id,
             "version": self.version,
         }
 
@@ -49,6 +57,7 @@ class AtlasDocument:
             mode=d.get("mode", "structural"),
             hub_file_hashes=d.get("hub_file_hashes") or {},
             segment_ids=d.get("segment_ids") or [],
+            consumed_changeset_run_id=str(d.get("consumed_changeset_run_id") or ""),
             version=int(d.get("version", 1)),
         )
 

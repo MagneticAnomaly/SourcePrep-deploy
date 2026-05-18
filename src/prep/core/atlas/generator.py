@@ -1508,16 +1508,52 @@ class CodebaseAtlas(Worker):
                 return None
         return doc
 
+    def _load_consumed_changeset_run_id(self) -> Optional[str]:
+        """Phase 136 Part 11: return the run_id of the Changeset the
+        current on-disk atlas was built from, or None if absent.
+
+        Read from atlas.json (not atlas_manifest.json) because atlas
+        and stage 1 may live in different pipeline runs — the manifest's
+        own run_id records when the atlas STAGE ran, not which
+        Changeset it consumed.  The atlas worker stamps
+        `consumed_changeset_run_id` in `_save()`; this helper reads
+        it back.  Empty/missing on pre-Phase-136 atlases → caller
+        falls back to the legacy churn check."""
+        if not self.atlas_path.exists():
+            return None
+        try:
+            with open(self.atlas_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return None
+        run_id = data.get("consumed_changeset_run_id")
+        return run_id if isinstance(run_id, str) and run_id else None
+
     def is_stale(self) -> bool:
         """Phase 135.5: stale iff stage 1's Changeset has churn OR atlas
         doesn't exist yet. Phase 135.5b: lazy-loads the changeset from
         <index_dir>/changeset.json when not explicitly injected (so API
-        endpoints, post-flight, headless_runner all get correct answers)."""
+        endpoints, post-flight, headless_runner all get correct answers).
+
+        Phase 136 Part 11: if the changeset's run_id matches the
+        `consumed_changeset_run_id` stamped into atlas.json at save time,
+        the atlas already consumed this changeset and is not stale.
+        Without this check, every non-empty rebuild leaves the atlas
+        permanently stale because the changeset's `added` list is the
+        initial scan (e.g. 1971 files) and the churn check trips on it
+        forever — the bug surfaced in the 2026-05-17 dashboard screenshot
+        showing all 10 sub-atlases as Stale 90s after a successful
+        rebuild.  Pre-Phase-136 atlases have an empty consumed run_id
+        and fall through to the legacy churn check (safe)."""
         if not self.exists():
             return True
         cs = self._resolve_changeset()
         if cs is None:
             return True
+        # P11: short-circuit when the atlas already processed this changeset.
+        consumed = self._load_consumed_changeset_run_id()
+        if consumed and cs.run_id and consumed == cs.run_id:
+            return False
         return bool(cs.added) or bool(cs.modified) or bool(cs.deleted)
 
     def _current_segment_ids(self) -> List[str]:
@@ -2107,8 +2143,22 @@ class CodebaseAtlas(Worker):
     # ── Persistence ────────────────────────────────────────────
 
     def _save(self, doc: AtlasDocument) -> None:
-        """Save Atlas atomically, preserving previous version."""
+        """Save Atlas atomically, preserving previous version.
+
+        Phase 136 Part 11: stamps the doc with the consumed Changeset's
+        run_id immediately before persistence so `is_stale()` can detect
+        the atlas-already-consumed-this-changeset case on subsequent
+        calls.  Without this, the dashboard reports Stale immediately
+        after a successful rebuild because the changeset's `added` list
+        still contains every file from the initial scan."""
         self.index_dir.mkdir(parents=True, exist_ok=True)
+
+        # P11: stamp the consumed Changeset run_id (best effort — falls
+        # back to empty string when no changeset is available, which
+        # makes is_stale degrade to the legacy churn check).
+        cs = self._resolve_changeset()
+        if cs is not None and cs.run_id:
+            doc.consumed_changeset_run_id = cs.run_id
 
         # Rotate: current → prev
         if self.atlas_path.exists():
