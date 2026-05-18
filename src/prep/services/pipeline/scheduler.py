@@ -130,6 +130,17 @@ class ComputeSlot:
     # field is declared but only enforced via demand-gated recovery.
     discovered_ceiling: Optional[int] = None
     ceiling_locked_until: float = 0.0
+    # 2026-05-17: cached per-slot result of
+    # PipelineScheduler._provider_supports_auto_detect(node_id).
+    # Set at configure_node time. None = "not yet evaluated, look it up
+    # via the scheduler" (legacy callers). False = no-auto-detect
+    # provider (Ollama Cloud / Gemini / Kimi-direct) — user's
+    # max_concurrent is the single source of truth; AIMD must not
+    # mutate current_limit or clamp dynamic_capacity below max.
+    # See docs/Phase119_ConcurrencyStability/05_Cross_Provider_Concurrency_Design.md
+    # (the Phase 119-a8 commit landed the persist gate but missed the
+    # in-memory MD gate — this field plumbs it.)
+    supports_auto_detect: Optional[bool] = None
 
     # Phase 82 follow-up: per-request gate. `in_flight_requests` counts
     # LLM calls currently in flight against this slot. `_cond` is the
@@ -188,8 +199,30 @@ class ComputeSlot:
 
         Local slots: always clamp at ``max_concurrent`` (VRAM is a real
         hardware constraint).
+
+        2026-05-17 — no-auto-detect cloud override. For Ollama Cloud,
+        Google Gemini, and Kimi-direct (the providers Phase 119 marked
+        as having no machine-readable rate-limit signal), the user's
+        ``max_concurrent`` is authoritative — period. Returning
+        ``min(max, current_limit)`` lets the in-memory MD path (driven
+        by 503s from the local Ollama proxy under bursty cloud-relay
+        load) silently drive the effective cap below what the user has
+        stated. Observed symptom: Group Reasoning ran at 10 workers,
+        Audit ran at 3 on the same project / same slot because a chain
+        of 503s drove ``current_limit`` from 10 → 3 between stages.
+        The real backpressure for these providers lives in the local
+        Ollama daemon's FIFO queue (OLLAMA_MAX_QUEUE=512 by default);
+        ``OLLAMA_NUM_PARALLEL`` is the hard cap on actually-parallel
+        inference and is reflected separately via ``ollama_probe`` /
+        the CapacityHealth panel.
         """
         is_cloud = self.node_id.startswith("cloud:")
+        if (
+            is_cloud
+            and self.max_concurrent > 0
+            and self.supports_auto_detect is False
+        ):
+            return max(1, self.max_concurrent)
         if is_cloud and self.max_concurrent > 0:
             return min(max(1, self.max_concurrent), max(1, self.current_limit))
         if is_cloud:
@@ -326,6 +359,13 @@ class PipelineScheduler:
             if node_id in self._slots:
                 slot = self._slots[node_id]
                 slot.max_concurrent = new_max
+                # 2026-05-17 — refresh cached auto_detect flag on reconfigure.
+                # User may have switched the endpoint provider in the meantime.
+                if is_cloud:
+                    try:
+                        slot.supports_auto_detect = self._provider_supports_auto_detect(node_id)
+                    except Exception:
+                        pass  # leave prior cached value
                 if not is_cloud:
                     if slot.current_limit > new_max:
                         # Local slots: VRAM ceiling is a real constraint — clamp.
@@ -466,6 +506,16 @@ class PipelineScheduler:
                             )
                     except Exception as exc:
                         logger.debug("Ollama probe error for seed: %s", exc)
+                # 2026-05-17 — cache the auto_detect flag on the slot so
+                # dynamic_capacity and the MD path can gate on it without
+                # round-tripping through scheduler internals from inside
+                # ComputeSlot's dataclass methods.
+                slot_auto_detect: Optional[bool] = None
+                if is_cloud:
+                    try:
+                        slot_auto_detect = self._provider_supports_auto_detect(node_id)
+                    except Exception:
+                        slot_auto_detect = None  # safe: legacy behavior
                 self._slots[node_id] = ComputeSlot(
                     node_id=node_id,
                     max_concurrent=new_max,
@@ -474,6 +524,7 @@ class PipelineScheduler:
                     mode=mode,
                     discovered_ceiling=discovered_ceiling,
                     ceiling_locked_until=ceiling_locked_until,
+                    supports_auto_detect=slot_auto_detect,
                 )
                 self._queues[node_id] = deque()
                 # Phase 119 Task 15: log hydration as a history event so the
@@ -953,6 +1004,28 @@ class PipelineScheduler:
                     self._persist_cloud_ceiling(slot)
 
         # Step 2: Congestion detection — rejection-primary (429/5xx/timeout).
+        # 2026-05-17 — no-auto-detect cloud providers (Ollama Cloud /
+        # Gemini / Kimi-direct) must skip the in-memory MD path. The
+        # Phase 119-a8 commit already gated `_record_ceiling_edge` (the
+        # persist path) on `_provider_supports_auto_detect`, but the
+        # in-memory `current_limit -=` step below kept firing. Result:
+        # a chain of 503s from the local Ollama proxy (bursty cloud
+        # relay) drove `current_limit` from 10 → 3 mid-session and
+        # silently overrode the user's stated cap. Skip MD entirely
+        # for these providers — the local daemon's FIFO queue is the
+        # real backpressure (OLLAMA_MAX_QUEUE=512 default; 503 only on
+        # actual queue overflow, which would be a separate signal).
+        # We still bump `_last_backoff_time` for cooldown bookkeeping
+        # so telemetry and the demand-recovery cadence remain coherent.
+        if is_429_or_timeout and slot.supports_auto_detect is False:
+            slot._last_backoff_time = time.time()
+            slot._last_recovery_time = slot._last_backoff_time
+            logger.info(
+                "Scheduler: %s rejected request but provider is no-auto-detect — "
+                "skipping MD; user's max_concurrent=%d remains authoritative.",
+                slot.node_id, slot.max_concurrent,
+            )
+            return
         if is_429_or_timeout:
             now = time.time()
             # Cooldown so we don't back off 10 times for a single congested batch
@@ -1761,6 +1834,38 @@ class PipelineScheduler:
         """Check if a swarm window is currently open."""
         return self._swarm_window is not None
 
+    def is_my_swarm_window(
+        self,
+        project_id: str,
+        stage: Any = None,
+    ) -> bool:
+        """Return True iff the active swarm window is owned by
+        ``(project_id, stage)``.
+
+        Phase 136 Part 13: gate for stage workers to consult BEFORE
+        launching a SwarmOrchestrator.  When the scheduler's single
+        window is held by a *different* (project, stage), the would-be
+        swarmer must fall back to non-swarm dispatch — otherwise two
+        SwarmOrchestrators race for the same endpoint, defeating the
+        capacity reservation that swarm was designed to provide.
+
+        ``stage`` may be a ``StageId`` enum value or the raw string;
+        ``None`` matches any stage for the given project."""
+        with self._lock:
+            window = self._swarm_window
+            if window is None:
+                return False
+            if window.get("project_id") != project_id:
+                return False
+            if stage is None:
+                return True
+            stage_str = stage.value if hasattr(stage, "value") else str(stage)
+            window_stage = window.get("stage")
+            window_stage_str = (
+                window_stage.value if hasattr(window_stage, "value") else str(window_stage)
+            )
+            return stage_str == window_stage_str
+
     def get_swarm_window(self) -> Optional[Dict[str, Any]]:
         """Return a snapshot of the current swarm window state, or None.
 
@@ -1958,6 +2063,23 @@ class PipelineScheduler:
             # Phase 91: Swarm gate (highest priority) — blocks all other
             # projects from acquiring on the swarm node.
             if self._is_blocked_by_swarm(project_id, resolved):
+                # Phase 136 Part 13 Gap #2: stamp a soft-hold so any
+                # in-flight worker for this project also pauses its
+                # LLM dispatches.  Pre-Phase-136 the swarm window only
+                # held projects that were active at OPEN time (a
+                # snapshot of `slot.active_stages`).  A project that
+                # arrived AFTER the window opened got `acquire` → False
+                # at the stage level but its in-flight workers (and
+                # any worker that goes through `acquire_request`
+                # without a stage-level check) could still dispatch
+                # against the held endpoint.  Stamping the hold here
+                # ensures arrival is symmetric with the open-time
+                # snapshot.
+                owner = self._swarm_window.get("project_id") if self._swarm_window else None
+                if owner and owner != project_id:
+                    self._holds[
+                        HoldKey(project_id=project_id, endpoint_id=resolved)
+                    ] = HoldEntry(reason="swarm", set_by_project=owner)
                 return False
             # Exclusive gate: if another project holds exclusive priority
             # and is active on this node, block.

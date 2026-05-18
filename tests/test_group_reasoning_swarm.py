@@ -96,7 +96,15 @@ class TestGroupReasoningSwarmDecision:
         )
         with patch.object(engine, "_run_swarm", return_value={"g1": fake_entry}) as mock_run:
             with patch.object(engine, "_get_swarm_enabled", return_value=True):
-                result = engine.run()
+                # Phase 136 Part 13: simulate scheduler granting the swarm
+                # window to this stage.  Without the patch, the new
+                # `is_my_swarm_window` gate would fall the engine back
+                # to sequential dispatch.
+                with patch(
+                    "prep.services.pipeline.scheduler.pipeline_scheduler.is_my_swarm_window",
+                    return_value=True,
+                ):
+                    result = engine.run()
 
         mock_run.assert_called_once()
         assert result.get("swarm") is True

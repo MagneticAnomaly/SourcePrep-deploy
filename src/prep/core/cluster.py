@@ -1991,6 +1991,29 @@ class ClusterSynthesizer(Worker):
             and len(to_synthesize) >= min_threshold
         )
 
+        # Phase 136 Part 13: gate on scheduler ownership of the swarm
+        # window.  Pre-Phase-136 cluster.py and group_reasoning.py both
+        # made an INDEPENDENT decision to use swarm based solely on
+        # capability + enable + count — without asking whether the
+        # scheduler had granted THIS stage exclusive endpoint access.
+        # Result: two SwarmOrchestrators could run concurrently on the
+        # same project (Module Synthesis 4× + Group Reasoning 6× on
+        # the same Thinking endpoint), defeating the capacity
+        # reservation.  If the scheduler has not granted this stage
+        # the window, fall back to non-swarm dispatch.
+        if use_swarm:
+            from prep.services.pipeline.scheduler import pipeline_scheduler
+            from prep.services.pipeline.stages import StageId
+            if not pipeline_scheduler.is_my_swarm_window(
+                self.project_id or "", StageId.CLUSTERING,
+            ):
+                logger.info(
+                    "Cluster synthesis: scheduler did not grant swarm window "
+                    "(another stage owns it or it failed to open) — falling "
+                    "back to non-swarm dispatch",
+                )
+                use_swarm = False
+
         if use_swarm:
             logger.info(
                 "Cluster synthesis: using SWARM orchestration (%s, %d clusters, tier=%s)",

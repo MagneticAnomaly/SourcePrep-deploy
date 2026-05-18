@@ -76,8 +76,16 @@ class TestClusterSwarmDecision:
                 with patch.object(synth, "load_epistemic", return_value=epistemic):
                     with patch.object(synth, "load_edges", return_value=[]):
                         with patch("prep.core.cluster.build_clusters", return_value=clusters):
-                            synth.run()
-                            mock_swarm.assert_called_once()
+                            # Phase 136 Part 13: simulate scheduler granting
+                            # the swarm window — without this patch the new
+                            # `is_my_swarm_window` gate falls the synth
+                            # back to non-swarm dispatch.
+                            with patch(
+                                "prep.services.pipeline.scheduler.pipeline_scheduler.is_my_swarm_window",
+                                return_value=True,
+                            ):
+                                synth.run()
+                                mock_swarm.assert_called_once()
 
     @patch("prep.core.cluster.get_swarm_tier")
     def test_swarm_skipped_when_model_unsuitable(self, mock_tier, tmp_path):

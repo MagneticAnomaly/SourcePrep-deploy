@@ -896,6 +896,25 @@ class GroupReasoningEngine(Worker):
             and len(to_analyze) >= min_threshold
         )
 
+        # Phase 136 Part 13: gate on scheduler ownership.  Without this
+        # check, both Module Synthesis and Group Reasoning could launch
+        # SwarmOrchestrators concurrently on the same project / endpoint,
+        # racing for capacity that swarm was designed to reserve.  If
+        # the scheduler hasn't granted this stage the window, fall back
+        # to sequential dispatch.
+        if use_swarm:
+            from prep.services.pipeline.scheduler import pipeline_scheduler
+            from prep.services.pipeline.stages import StageId
+            if not pipeline_scheduler.is_my_swarm_window(
+                self.project_id or "", StageId.GROUP_REASONING,
+            ):
+                logger.info(
+                    "Group reasoning: scheduler did not grant swarm window "
+                    "(another stage owns it or it failed to open) — falling "
+                    "back to sequential dispatch",
+                )
+                use_swarm = False
+
         if use_swarm:
             logger.info(
                 "Group reasoning: using SWARM orchestration (%s, %d groups, tier=%s)",
