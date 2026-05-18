@@ -36,19 +36,23 @@ Numbering is a stable identifier. Work order is below.
 **Updated 2026-05-17** after live dogfood probes against the rebuilt
 index — see `00_Status_2026-05-17.md`.
 
-| # | Part | Cluster | Triggers folded in |
-|---|---|---|---|
-| 01 | File-role split for search ranking | Search ranking | `project_search_docs_bias` memory, 2026-05-12 dogfood |
-| 02 | `prep_impact` correctness — bimodal-node twins | Impact correctness | P122-D1, P122-D2, P122-D3, 19_Followup Gap #2 |
-| 03 | No-arg `prep` atlas — regression guard *(demoted 2026-05-17)* | Ambient context | P82-F5 (new), P82-F6 (new) |
-| 04 | `prep_search` intent classifier robustness | Search routing | P82-F4, 18_Followup §1, 19_Followup Gap #1 |
-| 05 | Atlas role projection — task-named files dominate role tag | Role projection | 19_Followup Gap #3 |
-| 06 | Staleness indicator on MCP responses | Tool ergonomics | FIX-9 |
-| 07 | `detail` parameter for progressive disclosure | Tool ergonomics | FIX-8 |
-| 08 | Cross-tool "Next Steps" suggestions | Tool ergonomics | FIX-7 |
-| **09** | **Synthesizer empty-output regression — 1795 concepts unvalidated, 1334 questions pending** | **Pipeline quality** | 2026-05-17 rebuild telemetry; `project_synthesizer_wall_time_regression` memory |
-| **10** | **Spaghetti scorer silent zero-score regression** | **Audit correctness** | 2026-05-17 vs 2026-05-11 telemetry diff |
-| **11** | **Atlas reports "Stale" immediately after rebuild** | **Pipeline correctness** | 2026-05-17 dashboard screenshot; `is_stale()` never checks consumed-changeset run_id |
+| # | Part | Status | Cluster | Triggers folded in |
+|---|---|---|---|---|
+| 01 | File-role split for search ranking | open | Search ranking | `project_search_docs_bias` memory, 2026-05-12 dogfood |
+| 02 | `prep_impact` — Rust parser indented imports | ✅ shipped 2026-05-18 (`e16023c8`) | Impact correctness | P122-D1, P122-D2, P122-D3, 19_Followup Gap #2 |
+| 03 | No-arg `prep` atlas — regression guard *(demoted)* | open | Ambient context | P82-F5/F6 — not reproducible on rebuild |
+| 04 | `prep_search` LOCATE → EXPLAIN auto-fallback | ✅ shipped 2026-05-18 (`9c80a83a`) | Search routing | P82-F4, 18_Followup §1, 19_Followup Gap #1, self-observed 2026-05-18 |
+| 05 | Atlas role projection — task-named files dominate role tag | open | Role projection | 19_Followup Gap #3 |
+| 06 | Staleness indicator on MCP responses | open | Tool ergonomics | FIX-9 |
+| 07 | `detail` parameter for progressive disclosure | open | Tool ergonomics | FIX-8 |
+| 08 | Cross-tool "Next Steps" suggestions | open | Tool ergonomics | FIX-7 |
+| 09 | Synthesizer empty-output regression — 1795 concepts unvalidated, 1334 questions pending | open | Pipeline quality | 2026-05-17 rebuild telemetry |
+| 10 | Spaghetti scorer + audit size fallback (large_files, synthesizer prompt) | ✅ shipped 2026-05-18 (`a8d4c02f`, `a595d9c2`) | Audit correctness | 2026-05-17 vs 2026-05-11 telemetry diff |
+| 11 | Atlas "Stale" immediately after rebuild (consumed_changeset_run_id) | ✅ shipped 2026-05-18 (`96882585`) | Pipeline correctness | 2026-05-17 dashboard screenshot |
+| 12 | Group reasoning cache Jaccard fallback | ✅ shipped 2026-05-18 (`6cf89eee`) | Pipeline quality | 2026-05-18 dashboard — 98 of 109 groups falsely stale |
+| 13 | Swarm ownership gate + arrival hold | ✅ shipped 2026-05-18 (`d30a6ddf`) | Resource correctness | 2026-05-18 dashboard — two SwarmOrchestrators racing |
+| 13b | Cluster module reuse Jaccard fallback | ✅ shipped 2026-05-18 (`0517df89`) | Pipeline quality | parallel to Part 12 |
+| | P122-D3 cosmetic header fix | ✅ shipped 2026-05-18 (`96882585`) | Tool ergonomics | folded into Phase 136 scaffold commit |
 
 ## Work order
 
