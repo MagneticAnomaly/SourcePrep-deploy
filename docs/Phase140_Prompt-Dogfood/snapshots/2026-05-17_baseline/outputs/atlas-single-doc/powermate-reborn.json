@@ -1,0 +1,22 @@
+{
+  "char_count": 1506,
+  "content": "IDENTITY: PowerMateReborn resurrects Griffin PowerMate USB/Bluetooth rotary knob hardware on modern macOS as a multi-modal menu-bar control surface, bridging HID/Bluetooth LE transports through gesture recognition into system volume, display brightness (DDC/CI, DisplayServices, gamma fallback), MIDI CC, and custom per-application action profiles with Sparkle auto-update distribution.\n\nSTACK: Swift 5, SwiftUI, CoreBluetooth, IOKit/hid, CoreAudio, CoreGraphics, CoreMIDI, Network.framework, Sparkle 2.5.0+, EdDSA, AppleScript, DisplayServices private API, DDC/CI over I2C. Build: Swift Package Manager, custom shell scripts (scripts/build-dmg.sh), GitHub Pages appcast hosting, manual Developer ID code signing and notarization with hardcoded identity strings. Entry: Sources/AppDelegate.swift initializes PowerMateManager lifecycle; Sources/MenuBarAgentBootstrap.swift configures NSApplication accessory delegate pattern with signal handlers referencing AppDelegate.shared before init completes.\n\nARCHITECTURE: Four operational modes (Volume/Brightness/MIDI/Custom) unified through PowerMateManager coordinator. Sources/PowerMateRebornLifecycleCoordinator.swift orchestrates USB HID via Sources/GriffinPowerMateHIDTransportBridge.swift and Bluetooth LE via Sources/PowerMateBLETransport.swift, both feeding into Sources/PowerMateGestureAndTransportFacade.swift for gesture disambiguation (tap/double-tap/long-press/rotation). Brightness control cascades through Sources/macOSDisplayBrightnessController.",
+  "file_count": 25,
+  "fingerprint": "6971da94c4be70664a0ce7c9",
+  "generated_at": "2026-04-30T19:19:01.097832+00:00",
+  "hub_file_hashes": {
+    "Sources/AppDelegate.swift": "99b869ae36ced6af",
+    "Sources/BrightnessController.swift": "444d33b111081448",
+    "Sources/OSDOverlay.swift": "e705167db2586eb8",
+    "Sources/PowerMateBLETransport.swift": "a902495120c133a1",
+    "Sources/PowerMateManager.swift": "9eb58708863a8fd4",
+    "Sources/PowerMateUSBTransport.swift": "5afaee786a94dcb7"
+  },
+  "mode": "llm",
+  "model": "kimi-k2.6:cloud",
+  "module_count": 24,
+  "segment_ids": [
+    "Sources"
+  ],
+  "version": 1
+}

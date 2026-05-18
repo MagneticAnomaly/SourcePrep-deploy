@@ -24,7 +24,9 @@ JSON list. Each: `{path, doc_type, doc_status, summary}`. Schema at `batch_promp
 
 ## Snapshot 2026-05-17
 - Prompt source SHA: `3ec1255d5b0f`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/batch-doc/powermate-reborn.jsonl`](../snapshots/2026-05-17_baseline/outputs/batch-doc/powermate-reborn.jsonl) — **mixed jsonl**: filter records where `doc_type` and `doc_status` are present
 
 ## Iterations
 

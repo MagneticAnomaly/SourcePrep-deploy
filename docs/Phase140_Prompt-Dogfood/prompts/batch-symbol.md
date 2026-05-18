@@ -24,7 +24,9 @@ JSON list, one entry per symbol. Schema enforces fields like `summary` (short), 
 
 ## Snapshot 2026-05-17
 - Prompt source SHA: `3ec1255d5b0f`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/batch-symbol/powermate-reborn.jsonl`](../snapshots/2026-05-17_baseline/outputs/batch-symbol/powermate-reborn.jsonl) — **mixed jsonl**: filter records by `node_id` starting `symbol:`. Generated 2026-04-29 by `gemini-3-flash-preview:cloud`.
 
 ## Iterations
 

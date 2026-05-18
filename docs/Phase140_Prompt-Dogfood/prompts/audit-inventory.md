@@ -25,7 +25,9 @@ Markdown table(s), grouped by module. Each row: component name, location, one-li
 
 ## Snapshot 2026-05-17
 - Prompt source SHA: `d129188714f2`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/audit-inventory/powermate-reborn.md`](../snapshots/2026-05-17_baseline/outputs/audit-inventory/powermate-reborn.md) — only 9 lines, very small component count for a small Swift project
 
 ## Iterations
 

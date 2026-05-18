@@ -26,7 +26,9 @@ Markdown with prescribed sections. Health score is parseable from a labeled line
 
 ## Snapshot 2026-05-17
 - Prompt source SHA: `d129188714f2`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A (SourcePrep self): TBD
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/audit-summary/powermate-reborn.md`](../snapshots/2026-05-17_baseline/outputs/audit-summary/powermate-reborn.md) — generated 2026-05-01
 
 ## Iterations
 

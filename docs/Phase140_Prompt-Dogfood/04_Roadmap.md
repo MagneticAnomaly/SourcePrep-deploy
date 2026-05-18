@@ -111,7 +111,13 @@ Sprint 1A or 1B may surface methodology bugs. Common ones to expect:
 
 | Sprint | Status |
 |---|---|
-| 1A — `rules-agents-md` | ⏳ ready to start (waiting on slot B pick) |
-| 1B — `atlas-single-doc` | ⏳ ready to start (waiting on slot B + C picks) |
-| 2 — `concept-validate` | ⏳ blocked by Sprint 1A+1B completion |
+| 1A — `rules-agents-md` | 🔄 in progress — baseline captured for Slot B (PowerMateReborn); first finding logged (stale `codrag` branding, not a prompt-copy issue). Awaiting Slot A capture. |
+| 1B — `atlas-single-doc` | 🔄 partially started — Slot B captured (PowerMate, Swift). Awaiting Slot A + persona-removal ablation. |
+| 2 — `concept-validate` | ⏳ blocked: PowerMate concept artifacts are pre-Phase125c. Need fresh concept-pipeline run before iteration. |
 | 3+ — open backlog | — |
+
+## What changed 2026-05-17 (mid-sprint)
+
+- **Slot B filled with PowerMateReborn** — Swift project (single-segment, ~25 files, already indexed). Replaced original "small Python lib" framing because PowerMate gives stronger non-Python diversity signal and was already built. See [`02_TestRepos.md`](./02_TestRepos.md).
+- **17 baseline output files captured** from PowerMate's `.sourceprep/` directory and `AGENTS.md`. Covers 14 of 30 prompt sites. See [`snapshots/2026-05-17_baseline/capture-notes.md`](./snapshots/2026-05-17_baseline/capture-notes.md) for what's captured, what's not, and the staleness caveats.
+- **First finding logged** — see [`prompts/rules-agents-md.md`](./prompts/rules-agents-md.md) Iteration #1: PowerMate's AGENTS.md still uses pre-rename `codrag` branding because regeneration hasn't been triggered since the rename. Structural finding (regen cadence), not a prompt-copy bug.

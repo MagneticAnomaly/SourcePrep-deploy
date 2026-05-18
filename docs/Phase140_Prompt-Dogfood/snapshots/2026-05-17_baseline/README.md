@@ -30,13 +30,19 @@ Recompute on any prompt change: `shasum -a 256 <file> | cut -c1-12`.
 
 ## Environment
 
-To be recorded on first output capture. Suggested fields:
+Recorded from PowerMate artifact metadata (slot B):
 
-- Python version: TBD
-- Daemon mode: server (default) | direct
+- Daemon mode: server (default)
 - Embedder: `nomic-embed-text-v1.5` ONNX (Phase 139 hardened)
-- Cloud LLM: TBD (model, version, provider)
+- Cloud LLM per pipeline stage (per PowerMate artifacts, 2026-04-29 to 2026-05-01):
+  - Atlas: `kimi-k2.6:cloud`
+  - Augment (catalogue batch): `gemini-3-flash-preview:cloud`
+  - Cluster synthesis: `kimi-k2.6:cloud`
+  - Epistemic enrichment: `kimi-k2.6:cloud` (pass 2)
 - Concurrency: auto-discovered (Phase 82)
+- Python version: TBD (record on next fresh capture)
+
+Note: per memory `project_llm_strategy.md`, Ollama Cloud is the primary LLM target — `kimi-k2.6:cloud` and `gemini-3-flash-preview:cloud` are both served via that path.
 
 ## Test repos captured
 
@@ -45,10 +51,12 @@ See [`../../02_TestRepos.md`](../../02_TestRepos.md) for slot definitions. As ou
 | Slot | Repo | Commit | File count | Captured? |
 |---|---|---|---|---|
 | A | SourcePrep self-host (`/Volumes/4TB-BAD/HumanAI/CoDRAG/`) | `01ba3252` | ~2,000 | ⏳ |
-| B | TBD | — | — | ⏳ |
+| B | PowerMateReborn (`tests/eval/real_repos/PowerMateReborn/`, Swift) | TBD (from `.git`) | 25 | ✅ 17 sites |
 | C | TBD | — | — | ⏳ |
 | D | (deferred) | — | — | — |
 | E | (deferred) | — | — | — |
+
+See [`capture-notes.md`](./capture-notes.md) for what each captured file represents and what's NOT captured.
 
 ## Outputs index
 

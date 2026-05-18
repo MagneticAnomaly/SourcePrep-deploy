@@ -26,7 +26,9 @@ Markdown with sections: dependency flow, bottlenecks, violations. Includes a tex
 
 ## Snapshot 2026-05-17
 - Prompt source SHA: `d129188714f2`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/audit-architecture/powermate-reborn.md`](../snapshots/2026-05-17_baseline/outputs/audit-architecture/powermate-reborn.md)
 
 ## Iterations
 

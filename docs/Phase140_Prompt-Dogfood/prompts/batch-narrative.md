@@ -23,7 +23,9 @@ JSON list. Each: `{path, summary}`. Lighter schema than batch-doc.
 
 ## Snapshot 2026-05-17
 - Prompt source SHA: `3ec1255d5b0f`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/batch-narrative/powermate-reborn.jsonl`](../snapshots/2026-05-17_baseline/outputs/batch-narrative/powermate-reborn.jsonl) — **mixed jsonl**: filter records with narrative-only summaries (no `doc_type`/`doc_status` structure)
 
 ## Iterations
 

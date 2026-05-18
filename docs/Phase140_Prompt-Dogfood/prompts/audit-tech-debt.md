@@ -28,7 +28,9 @@ Markdown with sections: summary, hotspots (ranked), module health (per-module 1-
 
 ## Snapshot 2026-05-17
 - Prompt source SHA: `d129188714f2`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/audit-tech-debt/powermate-reborn.md`](../snapshots/2026-05-17_baseline/outputs/audit-tech-debt/powermate-reborn.md)
 
 ## Iterations
 

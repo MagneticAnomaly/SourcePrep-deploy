@@ -1,0 +1,33 @@
+[Software Architect View]
+IDENTITY: PowerMateReborn resurrects Griffin PowerMate USB/Bluetooth rotary knob hardware on modern macOS as a multi-modal menu-bar control surface, bridging HID/Bluetooth LE transports through gesture recognition into system volume, display brightness (DDC/CI, DisplayServices, gamma fallback), MIDI CC, and custom per-application action profiles with Sparkle auto-update distribution.
+STACK: Swift 5, SwiftUI, CoreBluetooth, IOKit/hid, CoreAudio, CoreGraphics, CoreMIDI, Network.framework, Sparkle 2.5.0+, EdDSA, AppleScript, DisplayServices private API, DDC/CI over I2C. Build: Swift Package Manager, custom shell scripts (scripts/build-dmg.sh), GitHub Pages appcast hosting, manual Developer ID code signing and notarization with hardcoded identity strings. Entry: Sources/AppDelegate.swift initializes PowerMateManager lifecycle; Sources/MenuBarAgentBootstrap.swift configures NSApplication accessory delegate pattern with signal handlers referencing AppDelegate.shared before init completes.
+
+RELEVANT FILES:
+
+## OSC UDP Message Sender
+• OSCController.swift (infrastructure) [osc, udp, network_framework]
+  Lightweight UDP-based OSC (Open Sound Control) message sender using Apple's Network framework (NWConnection). Implements OSC 1.0 protocol encoding ...
+
+## macOS DisplayServices Brightness Controller
+• BrightnessController.swift (infrastructure) [macos, display-management, hardware-abstraction]
+  A sophisticated multi-tiered display brightness controller that dynamically probes and selects from six different brightness control methods rangin...
+
+## PowerMate SPM Manifest & Framework Linker
+• Package.swift (configuration) [swift-package-manager, macos-system-frameworks, sparkle-updater]
+  Swift Package Manager manifest for PowerMateDriver, a macOS 13+ executable targeting Apple Silicon. Declares Sparkle 2.5.0+ as the sole external de...
+
+## Display Brightness Control Research & Fallback Strategy
+• RESEARCH_BRIGHTNESS.md (documentation) [display-control, ddc-ci, iokit]
+  A comprehensive technical research document establishing a 7-tier fallback strategy for macOS display brightness control across all display types. ...
+
+## PowerMateReborn Architecture Guide
+• README.md (documentation) [project-overview, architecture-documentation, iohid]
+  The central documentation index and architectural overview for PowerMateReborn, a macOS menu-bar application that transforms a Griffin PowerMate US...
+
+## PowerMate Profile Settings View
+• CustomModeSettingsView.swift (presentation) [swiftui, macos, accessibility]
+  A SwiftUI view hierarchy implementing a two-pane configuration interface for application-specific PowerMate profiles. Uses NavigationSplitView with...
+
+## PowerMateReborn Lifecycle Coordinator
+• AppDelegate.swift (business_logic) [app-delegate, hardware-abstraction, menu-bar]
+  Central application delegate orchestrating the complete PowerMateReborn system lifecycle, hardware abstraction, and user interaction layers. Man...

@@ -1,0 +1,45 @@
+[Intern / New Contributor View]
+IDENTITY: PowerMateReborn resurrects Griffin PowerMate USB/Bluetooth rotary knob hardware on modern macOS as a multi-modal menu-bar control surface, bridging HID/Bluetooth LE transports through gesture recognition into system volume, display brightness (DDC/CI, DisplayServices, gamma fallback), MIDI CC, and custom per-application action profiles with Sparkle auto-update distribution.
+STACK: Swift 5, SwiftUI, CoreBluetooth, IOKit/hid, CoreAudio, CoreGraphics, CoreMIDI, Network.framework, Sparkle 2.5.0+, EdDSA, AppleScript, DisplayServices private API, DDC/CI over I2C. Build: Swift Package Manager, custom shell scripts (scripts/build-dmg.sh), GitHub Pages appcast hosting, manual Developer ID code signing and notarization with hardcoded identity strings. Entry: Sources/AppDelegate.swift initializes PowerMateManager lifecycle; Sources/MenuBarAgentBootstrap.swift configures NSApplication accessory delegate pattern with signal handlers referencing AppDelegate.shared before init completes.
+
+RELEVANT FILES:
+
+## Display Brightness Control Research & Fallback Strategy
+• RESEARCH_BRIGHTNESS.md (documentation) [display-control, ddc-ci, iokit]
+  A comprehensive technical research document establishing a 7-tier fallback strategy for macOS display brightness control across all display types. ...
+
+## PowerMateReborn User Documentation & Onboarding
+• README.md (documentation) [user-documentation, project-readme, product-overview]
+  The primary project README serving as user-facing documentation, feature overview, and project identity for PowerMateReborn—a native Swift menu bar...
+
+## PowerMateReborn Architecture Guide
+• README.md (documentation) [project-overview, architecture-documentation, iohid]
+  The central documentation index and architectural overview for PowerMateReborn, a macOS menu-bar application that transforms a Griffin PowerMate US...
+
+## macOS DisplayServices Brightness Controller
+• BrightnessController.swift (infrastructure) [macos, display-management, hardware-abstraction]
+  A sophisticated multi-tiered display brightness controller that dynamically probes and selects from six different brightness control methods rangin...
+
+## Sparkle Auto-Update Release Signer
+• SPARKLE_SETUP.md (documentation) [auto-updates, sparkle-framework, code-signing]
+  A procedural guide for configuring Sparkle 2 auto-update infrastructure for PowerMateReborn, covering EdDSA key generation, GitHub Pages appcast ho...
+
+## macOS Release Signing & Notarization Guide
+• CODE_SIGNING.md (documentation) [macos-security, code-signing, notarization]
+  A procedural guide for macOS application distribution security, covering Developer ID certificate creation, app-specific password management, hiera...
+
+## PowerMateReborn Lifecycle Coordinator
+• AppDelegate.swift (business_logic) [app-delegate, hardware-abstraction, menu-bar]
+  Central application delegate orchestrating the complete PowerMateReborn system lifecycle, hardware abstraction, and user interaction layers. Manage...
+
+## PowerMate Gesture & Transport Facade
+• PowerMateManager.swift (business_logic) [hardware-abstraction, gesture-recognition, state-machine]
+  Central hardware abstraction layer implementing multi-transport orchestration and composite gesture detection for Griffin PowerMate devices. Define...
+
+## macOS Volume Control Research & Fallback Strategy
+• RESEARCH_AUDIO.md (documentation) [coreaudio, audio-device-taxonomy, volume-control-strategy]
+  An exhaustive technical research document establishing a seven-tier fallback strategy for macOS system volume control across heterogeneous audio ha...
+
+## PowerMate Custom Mode Action Engine
+• CustomModeEngine.swift (business_logic) [input-mapping, midi, osc]
+  A profile-driven input action engine that maps PowerMate hardware events (rotation, clicks, holds) to configurable outputs including keyboard short...

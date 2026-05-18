@@ -28,8 +28,9 @@ Plain text, 4 sections in fixed order. Instruction is "no markdown, no headings 
 - Prompt source SHA: `6252f4eca4b2`
 - Outputs captured:
   - Slot A (SourcePrep self): TBD — `../snapshots/2026-05-17_baseline/outputs/atlas-single-doc/sourceprep.json`
-  - Slot B (small Py lib): TBD
-  - Slot C (TS React): TBD
+  - Slot B (PowerMateReborn, Swift, single-segment): [`../snapshots/2026-05-17_baseline/outputs/atlas-single-doc/powermate-reborn.json`](../snapshots/2026-05-17_baseline/outputs/atlas-single-doc/powermate-reborn.json) — generated 2026-04-30 by `kimi-k2.6:cloud`
+  - Plus per-role projections: [`powermate-reborn-role-architect.txt`](../snapshots/2026-05-17_baseline/outputs/atlas-single-doc/powermate-reborn-role-architect.txt), [`powermate-reborn-role-intern.txt`](../snapshots/2026-05-17_baseline/outputs/atlas-single-doc/powermate-reborn-role-intern.txt)
+  - Slot C: TBD
 
 ## Iterations
 

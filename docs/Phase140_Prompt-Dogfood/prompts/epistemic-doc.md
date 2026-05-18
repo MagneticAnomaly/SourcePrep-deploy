@@ -25,7 +25,9 @@ JSON. Shared epistemic fields plus `doc_type`, `doc_status`, `decision_chains`.
 
 ## Snapshot 2026-05-17
 - Prompt source SHA: `7c6239a6f300`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/epistemic-doc/powermate-reborn.jsonl`](../snapshots/2026-05-17_baseline/outputs/epistemic-doc/powermate-reborn.jsonl) — **mixed jsonl**: filter for `.md` / doc records
 
 ## Iterations
 

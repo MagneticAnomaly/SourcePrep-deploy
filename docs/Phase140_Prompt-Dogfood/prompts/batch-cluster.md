@@ -25,7 +25,9 @@ JSON: `{cluster_name, purpose, member_files[], primary_responsibility, integrati
 
 ## Snapshot 2026-05-17
 - Prompt source SHA: `3ec1255d5b0f`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/batch-cluster/powermate-reborn.json`](../snapshots/2026-05-17_baseline/outputs/batch-cluster/powermate-reborn.json) — 24 clusters analyzed by `kimi-k2.6:cloud`, 187.3s wall
 
 ## Iterations
 

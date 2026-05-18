@@ -24,7 +24,9 @@ JSON list. Each: `{path, role, summary, primary_responsibility}`. Schema at `bat
 
 ## Snapshot 2026-05-17
 - Prompt source SHA: `3ec1255d5b0f`
-- Outputs captured: TBD
+- Outputs captured:
+  - Slot A: TBD
+  - Slot B (PowerMateReborn): [`../snapshots/2026-05-17_baseline/outputs/batch-file/powermate-reborn.jsonl`](../snapshots/2026-05-17_baseline/outputs/batch-file/powermate-reborn.jsonl) — **mixed jsonl**: filter records by `node_id` starting `file:` with `role` set
 
 ## Iterations
 

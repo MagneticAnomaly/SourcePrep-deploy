@@ -7,8 +7,8 @@ The curated set of repos that SourcePrep is run against during prompt iteration.
 | Slot | Purpose | Picked? | Path / URL | Commit SHA | File count |
 |---|---|---|---|---|---|
 | **A — SourcePrep self-host** | Biggest signal; we know this codebase intimately. Catches regressions in the prompts we own. | ✅ | `/Volumes/4TB-BAD/HumanAI/CoDRAG/` | `01ba3252` (baseline) | ~2,000 |
-| **B — Small Python lib (~50 files)** | Fast turnaround. Sanity check that prompts behave on a *normal* Python project. | ⏳ TBD | — | — | — |
-| **C — TS-only React project** | Catches Python-centric assumptions baked into prompts. SourcePrep prompts often default to Python framings. | ⏳ TBD | — | — | — |
+| **B — Small non-Python lib** | Fast turnaround. Catches Python-centric assumptions baked into prompts. (Originally framed as "small Python lib" — replaced with Swift since PowerMate already exists indexed and Swift gives stronger non-Python signal.) | ✅ | `tests/eval/real_repos/PowerMateReborn/` (Swift, single-segment, ~15 source files) | `git ls-remote` TBD | 25 |
+| **C — TS-only React project** | Was "TS-only React" — slot B now covers the non-Python diversity goal. Slot C reframed as: a doc-heavy or multi-language repo to stress the doc-classification + atlas-segment prompts. | ⏳ TBD | — | — | — |
 | **D — Monorepo (optional)** | Tests workspace-segment handling. Activate once segment-aware prompts (root/segment atlas) start iterating. | ⏳ deferred | — | — | — |
 | **E — Doc-heavy repo (optional)** | Tests doc-classification prompts (`batch-doc`, `batch-narrative`, `batch-epi-doc`). The corpus bias toward MD (see memory: `project_search_docs_bias.md`) means this slot matters. | ⏳ deferred | — | — | — |
 
@@ -21,12 +21,11 @@ A good slot-B/C/D/E repo:
 - Does NOT use SourcePrep itself (avoid contamination).
 - Has at least one named entry point and one configuration file (so atlas/identity prompts have something to chew on).
 
-## Suggested first picks (TBD — confirm before using)
+## Suggested picks for remaining slots (TBD — confirm before using)
 
-- **B:** something like `click` (Python CLI lib, ~50 files), `requests` core (large but well-known), or a small internal lib of yours.
-- **C:** a small Vite + React starter, or a stripped-down Next.js app. The point is "no Python."
-- **D:** Nx or Turborepo example monorepo, or `vercel/turbo` examples.
-- **E:** a repo where the README + `docs/` outweigh the code — Vue's docs site, a writing tool, or a documentation site project.
+- **C:** a small Python lib (~50 files) — e.g., `click`, `requests` core, or a small internal lib. This fills the "Python diversity outside SourcePrep" gap that slot B was originally going to fill.
+- **D:** Nx or Turborepo example monorepo, or `vercel/turbo` examples. Activates atlas-root / atlas-segment captures.
+- **E:** a repo where the README + `docs/` outweigh the code — Vue docs site, a writing tool, or a documentation-site project. Stresses doc-classification prompts.
 
 ## Anti-picks
 
