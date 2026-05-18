@@ -848,7 +848,14 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       />
     ),
     'usage-guide': (
-      <UsageGuidePanel bare />
+      <UsageGuidePanel
+        bare
+        workspaceMcpStatus={workspaceMcpStatus}
+        workspaceMcpDefaultPath={p.selectedProject?.path ?? null}
+        onWorkspaceMcpInstall={handleWorkspaceMcpInstall}
+        onWorkspaceMcpUninstall={handleWorkspaceMcpUninstall}
+        onWorkspaceMcpRefresh={fetchWorkspaceMcpStatus}
+      />
     ),
     status: (
       <>
@@ -1027,11 +1034,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onMCPInstall={handleMCPInstall}
         onMCPUninstall={handleMCPUninstall}
         onMCPRefresh={fetchMcpStatus}
-        workspaceMcpStatus={workspaceMcpStatus}
-        workspaceMcpDefaultPath={p.selectedProject?.path ?? null}
-        onWorkspaceMcpInstall={handleWorkspaceMcpInstall}
-        onWorkspaceMcpUninstall={handleWorkspaceMcpUninstall}
-        onWorkspaceMcpRefresh={fetchWorkspaceMcpStatus}
         pushSettings={pushSettings}
         onPushSettingsUpdate={setPushSettings}
         className="h-full"
@@ -1555,11 +1557,6 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
         onMCPInstall={handleMCPInstall}
         onMCPUninstall={handleMCPUninstall}
         onMCPRefresh={fetchMcpStatus}
-        workspaceMcpStatus={workspaceMcpStatus}
-        workspaceMcpDefaultPath={p.selectedProject?.path ?? null}
-        onWorkspaceMcpInstall={handleWorkspaceMcpInstall}
-        onWorkspaceMcpUninstall={handleWorkspaceMcpUninstall}
-        onWorkspaceMcpRefresh={fetchWorkspaceMcpStatus}
         pushSettings={pushSettings}
         onPushSettingsUpdate={setPushSettings}
       />

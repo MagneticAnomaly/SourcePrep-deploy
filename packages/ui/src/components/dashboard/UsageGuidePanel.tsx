@@ -2,11 +2,26 @@ import { cn } from '../../lib/utils';
 import { ExternalLink, Copy, Check } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { InfoTooltip } from '../primitives/InfoTooltip';
+import {
+  WorkspaceMcpCard,
+  type WorkspaceMcpStatusData,
+  type WorkspaceMcpInstallResult,
+} from '../agents/WorkspaceMcpCard';
 
 export interface UsageGuidePanelProps {
   className?: string;
   bare?: boolean;
   docsUrl?: string;
+  /**
+   * Optional "Enable Prep for Workspace" props. When provided, a
+   * WorkspaceMcpCard renders above the tool list so users can install
+   * the MCP config into any project directory in one click.
+   */
+  workspaceMcpStatus?: WorkspaceMcpStatusData | null;
+  workspaceMcpDefaultPath?: string | null;
+  onWorkspaceMcpInstall?: (workspacePath: string) => Promise<WorkspaceMcpInstallResult>;
+  onWorkspaceMcpUninstall?: (workspacePath: string) => Promise<void>;
+  onWorkspaceMcpRefresh?: (workspacePath: string) => void;
 }
 
 interface ToolDef {
@@ -94,7 +109,17 @@ function CopyBadge({ text }: { text: string }) {
   );
 }
 
-export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://docs.sourceprep.io' }: UsageGuidePanelProps) {
+export function UsageGuidePanel({
+  className,
+  bare = false,
+  docsUrl = 'https://docs.sourceprep.io',
+  workspaceMcpStatus,
+  workspaceMcpDefaultPath,
+  onWorkspaceMcpInstall,
+  onWorkspaceMcpUninstall,
+  onWorkspaceMcpRefresh,
+}: UsageGuidePanelProps) {
+  const showWorkspaceInstaller = Boolean(onWorkspaceMcpInstall);
   return (
     <div className={cn(
       !bare && 'border border-border bg-surface shadow-sm rounded-lg p-4',
@@ -104,15 +129,26 @@ export function UsageGuidePanel({ className, bare = false, docsUrl = 'https://do
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-text">Quick Start</h3>
-            <InfoTooltip 
-              content="Learn how to invoke SourcePrep tools." 
-              href="https://docs.sourceprep.io/getting-started/quick-start" 
+            <InfoTooltip
+              content="Learn how to invoke SourcePrep tools."
+              href="https://docs.sourceprep.io/getting-started/quick-start"
             />
           </div>
         </div>
       )}
 
       <div className="space-y-4">
+        {/* Workspace installer — "Enable Prep for any project" */}
+        {showWorkspaceInstaller && (
+          <WorkspaceMcpCard
+            defaultWorkspacePath={workspaceMcpDefaultPath ?? null}
+            status={workspaceMcpStatus ?? null}
+            onInstall={onWorkspaceMcpInstall}
+            onUninstall={onWorkspaceMcpUninstall}
+            onRefresh={onWorkspaceMcpRefresh}
+          />
+        )}
+
         {/* Intro */}
         <p className="text-xs text-text-muted leading-relaxed">
           SourcePrep serves context to your AI tools via <span className="font-semibold text-text">MCP</span> (Model Context Protocol).
