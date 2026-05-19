@@ -72,8 +72,12 @@ Respond with this exact JSON format:
 "architecture_layer": "business_logic",
 "subsystem": "name-of-subsystem",
 "design_patterns": ["singleton", "observer"],
-"cross_references": ["path/to/related/doc.md"],
-"tech_debt": ["explicit TODOs/FIXMEs or critical anti-patterns only; empty if none"],
+"cross_references": [
+  {{"target": "docs/path.md", "relationship": "documented_by|configured_by|built_by|references", "context": "why this reference exists"}}
+],
+"tech_debt": [
+  {{"item": "concise issue name", "severity": "low|medium|high", "context": "specific file location or pattern"}}
+],
 "staleness_risk": "low|medium|high — how likely is this file's understanding to become stale",
 "epistemic_confidence": 0.85}}
 
@@ -81,8 +85,11 @@ Where architecture_layer is one of: presentation, business_logic, data, infrastr
 domain_tags: 1-4 descriptive tags for the domain this file operates in (e.g. "monetization", "auth", "ui", "data-persistence")
 subsystem: the logical subsystem this file belongs to (e.g. "ad-framework", "user-auth", "trace-engine")
 design_patterns: any notable patterns used (empty list if none)
-cross_references: documentation files that describe or relate to this code
-tech_debt: list ONLY explicit markers (TODO, FIXME) or severe architectural flaws. Do not list potential improvements or nitpicks.
+cross_references: each entry is an object with target (file path), relationship (verb), context (one short sentence).
+  Targets may be docs OR other source files — both are useful. Empty list if no meaningful refs.
+tech_debt: each entry is an object with item (short name), severity, context (specific location).
+  Include both explicit markers (TODO/FIXME) AND substantive architectural concerns observed in the source.
+  Empty list only when neither exists. Do not invent issues to fill the list.
 
 JSON response:"""
 
@@ -113,15 +120,29 @@ Respond with this exact JSON format:
 "subsystem": "name-of-subsystem-this-doc-covers",
 "doc_type": "design_spec",
 "doc_status": "active",
-"decision_chains": ["key decisions or conclusions documented here"],
-"cross_references": ["src/path/to/code.py"],
-"tech_debt": ["explicit stale content, broken references, or contradictions only; empty if none"],
+"decision_chains": [
+  {{"decision": "one-line decision statement", "rationale": "2-3 sentence justification anchored in this doc", "tradeoffs": "acknowledged cost or alternative considered"}}
+],
+"cross_references": [
+  {{"target": "src/path.py", "relationship": "documented_by|configured_by|built_by|references", "context": "why this reference exists"}}
+],
+"tech_debt": [
+  {{"item": "concise issue name", "severity": "low|medium|high", "context": "specific text location or pattern"}}
+],
 "staleness_risk": "low|medium|high",
 "epistemic_confidence": 0.85}}
 
 Where doc_type is one of: research, design_spec, plan, guide, reference, changelog, readme, todo, status, analysis, overview
 Where doc_status is one of: active, completed, shelved, superseded, draft, stale
-tech_debt: list ONLY explicit issues found in the text. Do not hallucinate or guess.
+
+doc_status reconciliation: You are given `Pass 1 doc_status` as input. PRESERVE it unless the content
+excerpt explicitly contradicts the Pass 1 verdict (e.g., Pass 1 said "active" but the doc is empty,
+a stub, or explicitly marked deprecated). If you change `doc_status`, explain why in `extended_summary`.
+
+decision_chains: each entry is an object with decision/rationale/tradeoffs anchored in the doc body.
+  Do not invent decisions to fill the list; emit [] when no substantive decisions are documented.
+tech_debt: each entry is an object with item/severity/context. Include both explicit markers and
+  substantive issues observed in the doc (broken refs, contradictions, stale content). Do not invent.
 
 JSON response:"""
 

@@ -75,8 +75,12 @@ class EpistemicEntry:
     architecture_layer: str
     subsystem: Optional[str] = None
     design_patterns: Optional[List[str]] = None
-    cross_references: Optional[List[str]] = None
-    tech_debt: Optional[List[str]] = None
+    # cross_references / tech_debt / decision_chains carry mixed shapes
+    # since Phase 140: either plain strings (legacy entries) or structured
+    # dicts ({target, relationship, context} / {item, severity, context} /
+    # {decision, rationale, tradeoffs}). Downstream consumers branch on type.
+    cross_references: Optional[List[Any]] = None
+    tech_debt: Optional[List[Any]] = None
     staleness_risk: Optional[str] = None
     epistemic_confidence: float = 0.5
     pass_number: int = 2
@@ -86,7 +90,7 @@ class EpistemicEntry:
     # Doc-specific fields
     doc_type: Optional[str] = None
     doc_status: Optional[str] = None
-    decision_chains: Optional[List[str]] = None
+    decision_chains: Optional[List[Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d: Dict[str, Any] = {
@@ -120,12 +124,27 @@ class EpistemicEntry:
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "EpistemicEntry":
         def _str_list(val: Any) -> Optional[List[str]]:
-            """Coerce a list field to List[str]; LLMs sometimes return dicts."""
+            """Coerce a list of plain strings (domain_tags, design_patterns).
+            Wraps a non-list scalar into a single-item list.
+            """
             if val is None:
                 return None
             if not isinstance(val, list):
                 return [str(val)]
             return [str(v) if not isinstance(v, str) else v for v in val]
+
+        def _mixed_list(val: Any) -> Optional[List[Any]]:
+            """Preserve list-of-str OR list-of-dict shapes.
+            Phase 140 codified structured object shapes for cross_references,
+            tech_debt, decision_chains. Older entries on disk may still be
+            plain strings; new entries are dicts. Keep both intact through
+            the load/write roundtrip — downstream consumers branch on type.
+            """
+            if val is None:
+                return None
+            if not isinstance(val, list):
+                return [val]
+            return list(val)
 
         return cls(
             node_id=d["node_id"],
@@ -134,8 +153,8 @@ class EpistemicEntry:
             architecture_layer=str(d.get("architecture_layer", "unknown")),
             subsystem=d.get("subsystem"),
             design_patterns=_str_list(d.get("design_patterns")),
-            cross_references=_str_list(d.get("cross_references")),
-            tech_debt=_str_list(d.get("tech_debt")),
+            cross_references=_mixed_list(d.get("cross_references")),
+            tech_debt=_mixed_list(d.get("tech_debt")),
             staleness_risk=d.get("staleness_risk"),
             epistemic_confidence=float(d.get("epistemic_confidence", 0.5)),
             pass_number=int(d.get("pass_number", 2)),
@@ -143,7 +162,7 @@ class EpistemicEntry:
             model=d.get("model", ""),
             doc_type=d.get("doc_type"),
             doc_status=d.get("doc_status"),
-            decision_chains=_str_list(d.get("decision_chains")),
+            decision_chains=_mixed_list(d.get("decision_chains")),
         )
 
 
