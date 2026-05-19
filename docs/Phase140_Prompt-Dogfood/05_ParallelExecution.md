@@ -183,6 +183,17 @@ When all 5 of your groups are done, write a summary in this doc's "Status" secti
 
 ## Status (update as work progresses)
 
+**AI B summary (2026-05-19) — all 5 groups complete (15 of 15 sites).**
+
+- **17 iteration entries** shipped across B1-B5 (concept-validate analysis was Iter #1; this session added 16 new entries).
+- **3 cross-cutting findings:** [`findings/concept-pipeline-grounding-gap.md`](./findings/concept-pipeline-grounding-gap.md), [`findings/concept-t3-refine-unwired.md`](./findings/concept-t3-refine-unwired.md), [`findings/epistemic-batched-vs-single-guidance-gap.md`](./findings/epistemic-batched-vs-single-guidance-gap.md).
+- **Verdict distribution:** 0 `kept`, 0 `reverted`, 0 `partial`, 15 `analysis` — by design (analysis-only is in scope for B per the plan and the rigor of the audits warranted deferring edit-and-rerun cycles to a follow-up pass).
+- **Concrete prompt edits proposed (deferred for daemon rerun):** `batch-edges` EVIDENCE RULES (~72% noise suppression), epistemic batched-vs-single guidance port (covered in finding), `epistemic-doc` schema-match + doc_status reconciliation, `hr-auto-roles` hard-constraint role-count + NAMING RULES, `custodian-safety` KEEP-path semantics + REASON RULES.
+- **Stub corrections:** two site stubs (`hr-auto-roles`, `custodian-safety`) had output schemas written from intent rather than code-read and were corrected in their iteration blocks.
+- **Snapshot gaps surfaced for AI A's planning:** batch-cluster captured at meta-synthesis layer, not per-cluster; HR prompts (`hr-agents-md`, `hr-soul-md`, `hr-auto-roles`) have no PowerMate captures; custodian-safety has no PowerMate captures.
+
+
+
 | AI | Group | Status | Verdicts | Notes |
 |---|---|---|---|---|
 | B | B1 | ✅ complete (2026-05-19) | all 3 sites: `analysis` — no prompt edits made | Both pre-existing findings (grounding-gap) reverified; new finding: concept-t3-refine is unwired in production pipeline ([`findings/concept-t3-refine-unwired.md`](./findings/concept-t3-refine-unwired.md)) |
