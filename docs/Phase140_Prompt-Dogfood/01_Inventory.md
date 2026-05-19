@@ -20,10 +20,10 @@ Two-pass concept extraction: Generate (swarm) → Validate (per-concept critique
 
 | Site | File | Symbols | Page | Status |
 |---|---|---|---|---|
-| Synthesize | `src/prep/core/concept_synthesizer.py:292-527` | `SYNTH_SYSTEM_PROMPT`, `build_synthesis_prompt` | [concept-synthesize.md](./prompts/concept-synthesize.md) | baseline+B |
-| Validate | `src/prep/core/concept_validate_prompt.py:49-227` | `VALIDATE_SYSTEM_PROMPT`, `build_validate_user_prompt` | [concept-validate.md](./prompts/concept-validate.md) | iterating (analysis #1 done; finding deferred to upstream) |
-| T3 Refine | `src/prep/core/concept_t3_refine.py:119-260` | `T3_SYSTEM_PROMPT`, `_FEW_SHOT_EXAMPLES`, `make_t3_*` | [concept-t3-refine.md](./prompts/concept-t3-refine.md) | baseline+B |
-| Generate (swarm) | `src/prep/core/concept_generate_prompt.py:96-237` | `_GENERATE_SYSTEM_HEADER`, `build_worker_prompt` | [concept-generate.md](./prompts/concept-generate.md) | iterating (observation #1 — see Validate analysis) |
+| Synthesize | `src/prep/core/concept_synthesizer.py:292-527` | `SYNTH_SYSTEM_PROMPT`, `build_synthesis_prompt` | [concept-synthesize.md](./prompts/concept-synthesize.md) | analyzed (B1 #1 — well-engineered, grounding-gap same as Validate, no edit) |
+| Validate | `src/prep/core/concept_validate_prompt.py:49-227` | `VALIDATE_SYSTEM_PROMPT`, `build_validate_user_prompt` | [concept-validate.md](./prompts/concept-validate.md) | analyzed (B1 #2 — Iter #1 finding reverified, no edit) |
+| T3 Refine | `src/prep/core/concept_t3_refine.py:119-260` | `T3_SYSTEM_PROMPT`, `_FEW_SHOT_EXAMPLES`, `make_t3_*` | [concept-t3-refine.md](./prompts/concept-t3-refine.md) | analyzed (B1 #1 — **unwired in production pipeline**, no prompt edit possible) |
+| Generate (swarm) | `src/prep/core/concept_generate_prompt.py:96-237` | `_GENERATE_SYSTEM_HEADER`, `build_worker_prompt` | [concept-generate.md](./prompts/concept-generate.md) | observation (B-prior — cross-refs Validate analysis; B2 will revisit) |
 
 ## Batched catalogue (8 sites)
 

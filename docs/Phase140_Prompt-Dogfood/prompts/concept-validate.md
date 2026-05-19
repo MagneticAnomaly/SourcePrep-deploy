@@ -97,6 +97,16 @@ This is a workaround — it preserves recall at the cost of precision. Better th
 
 **Cross-references:** See [`../findings/concept-pipeline-grounding-gap.md`](../findings/concept-pipeline-grounding-gap.md) for the cross-cutting write-up (Validate's reject-rate symptom is a Generate-side opportunity too: Generate is correctly producing implementation-detail claims that downstream can't verify).
 
+### 2026-05-19: B1 group-pass re-verification
+
+Re-read Iteration #1 against the synthesize + t3-refine sources during the B1 group. Finding holds:
+
+- Validate's REJECT rule ("cannot quote a verbatim grounding span supporting the claim") is correctly implemented and correctly fires on most archived candidates.
+- The fix is upstream (T3b runner that builds `related_*` parameters needs to attach source slices when claims are implementation-specific).
+- The rationale-before-score ordering and named-tier rubric are in place.
+
+**Verdict for B1:** `analysis` (no additional edit). Iteration #1 conclusions stand. Marking this site complete-for-Phase-140-pending-Path-A.
+
 ## Open questions
 - Is the falsification step too aggressive for T1 concepts that genuinely have no counter-evidence? Causes false `partial` verdicts?
 - Does per-concept critique scale — or should we batch candidates and let the LLM compare them?

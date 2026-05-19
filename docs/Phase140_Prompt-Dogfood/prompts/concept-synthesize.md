@@ -36,11 +36,39 @@ JSON list. Each concept: `{title, tier, rationale, anchors[], assertions[]}`. Ru
 
 ## Iterations
 
-_(none yet)_
+### 2026-05-19: B1 — synthesize prompt audit
+
+**Type:** analysis-only (no prompt edit)
+
+**Read materials:**
+- `SYNTH_SYSTEM_PROMPT` (`concept_synthesizer.py:292-454`) — the system prompt with banned-outputs list, tier rubric, process steps, output schema.
+- `build_synthesis_prompt` (`concept_synthesizer.py:457-527`) — user prompt builder.
+- PowerMate Slot B captured concepts: 19 synth records (kind=`concept`) — 6 active (T2, conf 0.65), 10 archived (REJECTED by Validate, conf 0.0), 3 triage_pending (T1, conf 0.3). Plus 47 module-rationale records (kind=`module_rationale`) — separate layer, not synth output.
+
+**Strong points of the current prompt** (no iteration needed on these):
+- **Banned-outputs list** is concrete and unambiguous: 5 cliches + 3 layer-violation shapes ("Function X validates inputs" = belongs in module rationale) + 7 audit-shape framings ("X causes Y bug" = belongs in audit surface) + 3 historical/meta framings ("Phase docs encode chronological evolution" = not actionable).
+- **GOOD examples** anchor what cross-cutting concepts look like (license-verification, embedded-mode-preserves-git-trackability, headless-engine, Tauri-over-Electron) — 1 T1, 2 T2, 1 T3-ish, well-balanced.
+- **Hostile-reviewer downgrade pass** at step 5 of process is the right safeguard against tier inflation.
+- **"DO NOT DEFAULT TO T2"** explicit instruction is correctly aimed at the social-register clumping failure mode (grounding §7).
+- **`tier_pairwise` commit before tier** — calibration technique consistent with the named-tier rubric.
+
+**Observation #1 — same grounding-gap as concept-validate.** Synthesize gets `atlas_summary` (first 3K chars) + `segments` + `audit_findings` + `spaghetti_hotspots` + `antibody_patterns` + `top_md_docs` + `rationale_clusters` — but **not actual file content**. When it emits a concept like "dlopen/dlsym of private DisplayServices prevents launch failure", it's drawing the claim from rationale clusters' summaries, not from inspecting source. Downstream Validate (which also lacks source) then rejects for "cannot quote grounding span". The synth prompt's instruction to "QUOTE 1-3 verbatim spans from the input grounding" reinforces this — it quotes the rationale summary, which isn't enough for Validate.
+
+This is the same root cause as the Validate finding: the grounding pipeline is rationale-shaped. The fix is Path A from [`../findings/concept-pipeline-grounding-gap.md`](../findings/concept-pipeline-grounding-gap.md).
+
+**Observation #2 — 0 T3 concepts emitted on PowerMate is consistent with prompt guidance.** The prompt says "most projects have 0-5 T3 concepts" — PowerMate is a single-segment Swift app with no CI/build-gate constraints visible from the indexed surface. 0 T3 is expected, not a bug.
+
+**Observation #3 — all 6 active are confidence 0.65 (T2).** Looks like float-clumping, but per memory `project_llm_confidence_calibration.md` the storage maps tier→float (T2 = 0.65). Not a calibration issue; the LLM is emitting named tiers, the storage layer is doing the float mapping. Correct.
+
+**Observation #4 — synth's "synthesize across, do not echo" instruction is doing real work.** Comparing the 47 module-rationale records (per-file claims like "DDCController.swift uses dlopen for IOKit I2C") to the 19 synth concepts (cross-cutting claims like "Runtime dlopen of private IOKit I2C symbols defends against undocumented API churn"), synth is lifting abstraction. Not just echoing. The 19 cover ~3-5 anchors each — within the "≥3 anchors" requirement.
+
+**Verdict:** `analysis (no edit)`. Synthesize is well-engineered for its job. The downstream reject rate is a grounding-pipeline issue, not a synthesize-prompt issue. No edits recommended pending Path A.
+
+**Open question (deferred):** If Path A ships and Synthesize gets source slices in grounding, would the T3 count rise? Worth re-measuring after that change. Until then, can't test.
 
 ## Open questions
-- Does the rubric's tier definitions need few-shot examples (concept-t3-refine has them — should synth match)?
-- Are "banned outputs" enforced — i.e., do real outputs ever fall into the banned categories?
+- Does the rubric's tier definitions need few-shot examples (concept-t3-refine has them — should synth match)? **Iteration #1 deferred this; the prompt has 4 inline GOOD examples plus a banned-examples list. Adding few-shot would help if/when grounding includes source.**
+- Are "banned outputs" enforced — i.e., do real outputs ever fall into the banned categories? **Quick check on PowerMate's 19 synth records: 0 fall into the banned shapes. The prompt is doing its job.**
 
 ## Cross-references
 - Sibling: [concept-validate](./concept-validate.md), [concept-t3-refine](./concept-t3-refine.md), [concept-generate](./concept-generate.md)

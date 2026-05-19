@@ -185,7 +185,7 @@ When all 5 of your groups are done, write a summary in this doc's "Status" secti
 
 | AI | Group | Status | Verdicts | Notes |
 |---|---|---|---|---|
-| B | B1 | partial — concept-validate analysis #1 done; synthesize/t3-refine pending | concept-validate: analysis | grounding-gap deferred to Path A |
+| B | B1 | ✅ complete (2026-05-19) | all 3 sites: `analysis` — no prompt edits made | Both pre-existing findings (grounding-gap) reverified; new finding: concept-t3-refine is unwired in production pipeline ([`findings/concept-t3-refine-unwired.md`](./findings/concept-t3-refine-unwired.md)) |
 | B | B2 | pending | — | — |
 | B | B3 | pending | — | — |
 | B | B4 | pending | — | — |
