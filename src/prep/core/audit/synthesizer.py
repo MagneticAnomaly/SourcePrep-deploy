@@ -635,14 +635,20 @@ def _clean_markdown(text: str) -> str:
     # prompts (AUDIT_SUMMARY, COMPONENT_INVENTORY) — and on the
     # second-shipped version even echoes the anti-preamble instruction
     # back as preamble. The cheap guaranteed fix is to slice from the
-    # first "## " heading onward. Only applies when ## appears after
-    # >100 chars of leading content (true preamble), not when an
-    # output legitimately begins with a few stray chars.
-    if "\n## " in text or text.startswith("## "):
-        first_h2 = text.find("## ")
-        # Only slice if there is substantial preamble (>50 chars) before
-        # the first H2 — otherwise leave alone (could be a short intro
-        # the model added that's still useful).
-        if first_h2 > 50:
-            text = text[first_h2:].strip()
+    # first REAL "## " heading onward.
+    #
+    # A "real" heading: line-start "## " followed by a capitalized word
+    # that doesn't look like instruction-echo. The previous naive
+    # str.find("## ") was matching the literal "## " INSIDE quoted
+    # instruction text the model echoed back. Stricter regex required.
+    _real_h2 = re.search(
+        r'(?:^|\n)## ([A-Z][A-Za-z0-9 &/\-]{2,80})(?:\n|$)',
+        text,
+    )
+    if _real_h2 and _real_h2.start() > 50:
+        # Slice from the matched heading position (skip leading newline).
+        slice_at = _real_h2.start()
+        if text[slice_at] == '\n':
+            slice_at += 1
+        text = text[slice_at:].strip()
     return text
