@@ -6,7 +6,7 @@
  * Provides one-click install/uninstall and a manual snippet.
  */
 import { useState, useCallback } from 'react';
-import { Plug, Check, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plug, Check } from 'lucide-react';
 
 export interface MCPRuntimeStatus {
   installed: boolean;
@@ -55,8 +55,6 @@ export function MCPConnectionCard({
 }: MCPConnectionCardProps) {
   const [installing, setInstalling] = useState(false);
   const [uninstalling, setUninstalling] = useState(false);
-  const [showSnippet, setShowSnippet] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const installed = status?.installed ?? false;
@@ -90,25 +88,6 @@ export function MCPConnectionCard({
       setUninstalling(false);
     }
   }, [onUninstall, onRefresh]);
-
-  const snippet = JSON.stringify(
-    {
-      servers: {
-        prep: {
-          command: 'prep',
-          args: ['mcp', '--auto', '--daemon', status?.daemon_url ?? 'http://127.0.0.1:8400'],
-        },
-      },
-    },
-    null,
-    2,
-  );
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(snippet);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [snippet]);
 
   return (
     <div className={`rounded-lg border border-border bg-surface/50 ${className}`}>
@@ -198,36 +177,6 @@ export function MCPConnectionCard({
             {message}
           </div>
         )}
-
-        {/* Manual MCP snippet toggle */}
-        <div className="border-t border-border/50 pt-2">
-          <button
-            onClick={() => setShowSnippet(!showSnippet)}
-            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {showSnippet ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-            Manual MCP config
-          </button>
-
-          {showSnippet && (
-            <div className="relative mt-2">
-              <pre className="text-xs font-mono bg-muted/50 rounded-md p-3 overflow-x-auto border border-border/50">
-                {snippet}
-              </pre>
-              <button
-                onClick={handleCopy}
-                className="absolute top-2 right-2 p-1 rounded bg-muted hover:bg-muted-foreground/20 transition-colors"
-                title="Copy to clipboard"
-              >
-                {copied ? (
-                  <Check size={12} className="text-green-500" />
-                ) : (
-                  <Copy size={12} className="text-muted-foreground" />
-                )}
-              </button>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
