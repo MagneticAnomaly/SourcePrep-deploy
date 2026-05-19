@@ -142,8 +142,8 @@ export { EmptyState, LoadingState, ErrorState } from './components/patterns';
 export type { EmptyStateProps, LoadingStateProps, ErrorStateProps } from './components/patterns';
 
 // Components - Dashboard
-export { IndexStatusCard, IndexStatsDisplay, LLMStatusWidget, UsageGuidePanel, BuildCard } from './components/dashboard';
-export type { IndexStatusCardProps, IndexStats, IndexStatsProps, StatItem, LLMStatusWidgetProps, LLMServiceStatus, UsageGuidePanelProps, BuildCardProps } from './components/dashboard';
+export { IndexStatusCard, IndexStatsDisplay, LLMStatusWidget, UsageGuidePanel, BuildCard, McpSnippetCard } from './components/dashboard';
+export type { IndexStatusCardProps, IndexStats, IndexStatsProps, StatItem, LLMStatusWidgetProps, LLMServiceStatus, UsageGuidePanelProps, BuildCardProps, McpSnippetCardProps } from './components/dashboard';
 
 // Components - LLM
 export { ModelCard, EndpointManager, AIModelsSettings, DeepAnalysisSettings, AdvancedLLMSettings } from './components/llm';
@@ -193,8 +193,8 @@ export { FolderTree, sampleFileTree, ProjectSettingsPanel, FolderTreePanel, Pinn
 export type { FolderTreeProps, TreeNode, FileStatus, ProjectSettingsPanelProps, FolderTreePanelProps, PinnedTextFilesPanelProps, PinnedTextFile, AddProjectModalProps, FilePreviewPaneProps, FileExplorerDetailProps, CodeViewerProps, GitignoreHygieneModalProps, GitignoreGap, InitExcludeReviewModalProps, VendorCandidateView } from './components/project';
 
 // Components - Agent Operations (Phase 67 / Unified Surfaces)
-export { AgentOpsPanel, MCPConnectionCard, WorkspaceMcpCard, PushSettings } from './components/agents';
-export type { AgentOpsPanelProps, AgentOpsData, EngineStatus, MCPConnectionCardProps, MCPStatusData, MCPRuntimeStatus, MCPInstallResult, WorkspaceMcpCardProps, WorkspaceMcpStatusData, WorkspaceRuntimeStatus, WorkspaceMcpInstallResult, PushSettingsData, PushSettingsProps } from './components/agents';
+export { AgentOpsPanel, MCPConnectionCard, PushSettings } from './components/agents';
+export type { AgentOpsPanelProps, AgentOpsData, EngineStatus, MCPConnectionCardProps, MCPStatusData, MCPRuntimeStatus, MCPInstallResult, PushSettingsData, PushSettingsProps } from './components/agents';
 
 // Components - Watch (Phase 03)
 export { WatchStatusIndicator, WatchControlPanel } from './components/watch';

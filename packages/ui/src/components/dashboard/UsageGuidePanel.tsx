@@ -2,11 +2,7 @@ import { cn } from '../../lib/utils';
 import { ExternalLink, Copy, Check } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { InfoTooltip } from '../primitives/InfoTooltip';
-import {
-  WorkspaceMcpCard,
-  type WorkspaceMcpStatusData,
-  type WorkspaceMcpInstallResult,
-} from '../agents/WorkspaceMcpCard';
+import { McpSnippetCard } from './McpSnippetCard';
 import {
   MCP_PRIMARY_TOOLS,
   MCP_SECONDARY_TOOLS,
@@ -19,15 +15,15 @@ export interface UsageGuidePanelProps {
   bare?: boolean;
   docsUrl?: string;
   /**
-   * Optional "Enable Prep for Workspace" props. When provided, a
-   * WorkspaceMcpCard renders above the tool list so users can install
-   * the MCP config into any project directory in one click.
+   * Optional resolver for daemon-aware MCP snippets. When provided,
+   * the copy-paste card uses the daemon's `/mcp/config?ide=…` output
+   * (which bakes in the absolute `prep` command path). Without it,
+   * the card falls back to the static MCP_TOOLS registry — useful
+   * for Storybook and contexts where no daemon is reachable.
    */
-  workspaceMcpStatus?: WorkspaceMcpStatusData | null;
-  workspaceMcpDefaultPath?: string | null;
-  onWorkspaceMcpInstall?: (workspacePath: string) => Promise<WorkspaceMcpInstallResult>;
-  onWorkspaceMcpUninstall?: (workspacePath: string) => Promise<void>;
-  onWorkspaceMcpRefresh?: (workspacePath: string) => void;
+  resolveMcpConfig?: (
+    ideId: string,
+  ) => Promise<{ file: string; path_hint?: string; config: object } | null>;
 }
 
 
@@ -61,13 +57,8 @@ export function UsageGuidePanel({
   className,
   bare = false,
   docsUrl = 'https://docs.sourceprep.io',
-  workspaceMcpStatus,
-  workspaceMcpDefaultPath,
-  onWorkspaceMcpInstall,
-  onWorkspaceMcpUninstall,
-  onWorkspaceMcpRefresh,
+  resolveMcpConfig,
 }: UsageGuidePanelProps) {
-  const showWorkspaceInstaller = Boolean(onWorkspaceMcpInstall);
   return (
     <div className={cn(
       !bare && 'border border-border bg-surface shadow-sm rounded-lg p-4',
@@ -86,16 +77,8 @@ export function UsageGuidePanel({
       )}
 
       <div className="space-y-4">
-        {/* Workspace installer — "Enable Prep for any project" */}
-        {showWorkspaceInstaller && (
-          <WorkspaceMcpCard
-            defaultWorkspacePath={workspaceMcpDefaultPath ?? null}
-            status={workspaceMcpStatus ?? null}
-            onInstall={onWorkspaceMcpInstall}
-            onUninstall={onWorkspaceMcpUninstall}
-            onRefresh={onWorkspaceMcpRefresh}
-          />
-        )}
+        {/* Copy-paste MCP config snippet, picker-driven. */}
+        <McpSnippetCard resolveConfig={resolveMcpConfig} />
 
         {/* Intro */}
         <p className="text-xs text-text-muted leading-relaxed">

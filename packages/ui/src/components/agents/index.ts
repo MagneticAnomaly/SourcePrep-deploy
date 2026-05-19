@@ -7,15 +7,6 @@ export type {
   MCPInstallResult,
 } from './MCPConnectionCard';
 
-// Workspace MCP Installer ("Enable Prep for Workspace")
-export { WorkspaceMcpCard } from './WorkspaceMcpCard';
-export type {
-  WorkspaceMcpCardProps,
-  WorkspaceMcpStatusData,
-  WorkspaceRuntimeStatus,
-  WorkspaceMcpInstallResult,
-} from './WorkspaceMcpCard';
-
 // Agent Operations — Config-Only (Unified Surfaces)
 export { AgentOpsPanel } from './AgentOpsPanel';
 export type { AgentOpsData, AgentOpsPanelProps, EngineStatus } from './AgentOpsPanel';

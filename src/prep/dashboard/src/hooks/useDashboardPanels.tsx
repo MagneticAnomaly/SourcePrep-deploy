@@ -26,8 +26,6 @@ import {
   type AgentOpsData,
   type MCPStatusData,
   type MCPInstallResult,
-  type WorkspaceMcpStatusData,
-  type WorkspaceMcpInstallResult,
   FileExplorerDetail,
   CopyButton,
   LogConsole,
@@ -430,40 +428,24 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
     })
   }, [])
 
-  // Per-workspace MCP install ("Enable Prep for Workspace") — writes
-  // .claude/mcp.json, .cursor/mcp.json, .vscode/mcp.json,
-  // .windsurf/mcp.json into the given directory.
-  const [workspaceMcpStatus, setWorkspaceMcpStatus] = useState<WorkspaceMcpStatusData | null>(null)
-
-  const fetchWorkspaceMcpStatus = useCallback((workspacePath: string) => {
-    if (!workspacePath) return
-    const qs = new URLSearchParams({ workspace_path: workspacePath })
-    fetch(`/mcp/status?${qs.toString()}`)
-      .then(r => r.json())
-      .then(json => setWorkspaceMcpStatus(json.data ?? json))
-      .catch(() => {})
-  }, [])
-
-  const handleWorkspaceMcpInstall = useCallback(
-    async (workspacePath: string): Promise<WorkspaceMcpInstallResult> => {
-      const res = await fetch('/mcp/install', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workspace_path: workspacePath }),
-      })
+  // Resolver for the copy-paste MCP snippet card. Calls the daemon's
+  // /mcp/config endpoint per selected IDE so the rendered JSON
+  // includes the absolute `prep` command path (not bare).
+  const resolveMcpConfig = useCallback(
+    async (ideId: string) => {
+      const res = await fetch(`/mcp/config?ide=${encodeURIComponent(ideId)}`)
+      if (!res.ok) return null
       const json = await res.json()
-      return json.data ?? json
+      const data = json.data ?? json
+      if (!data || typeof data !== 'object' || !data.config) return null
+      return {
+        file: String(data.file ?? ''),
+        path_hint: data.path_hint ? String(data.path_hint) : undefined,
+        config: data.config as object,
+      }
     },
     [],
   )
-
-  const handleWorkspaceMcpUninstall = useCallback(async (workspacePath: string): Promise<void> => {
-    await fetch('/mcp/uninstall', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workspace_path: workspacePath }),
-    })
-  }, [])
 
   // Optimistic local state for excluded paths — updates INSTANTLY on click.
   // Seeded from trace coverage when it arrives, but local clicks are immediate.
@@ -848,14 +830,7 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       />
     ),
     'usage-guide': (
-      <UsageGuidePanel
-        bare
-        workspaceMcpStatus={workspaceMcpStatus}
-        workspaceMcpDefaultPath={p.selectedProject?.path ?? null}
-        onWorkspaceMcpInstall={handleWorkspaceMcpInstall}
-        onWorkspaceMcpUninstall={handleWorkspaceMcpUninstall}
-        onWorkspaceMcpRefresh={fetchWorkspaceMcpStatus}
-      />
+      <UsageGuidePanel bare resolveMcpConfig={resolveMcpConfig} />
     ),
     status: (
       <>
