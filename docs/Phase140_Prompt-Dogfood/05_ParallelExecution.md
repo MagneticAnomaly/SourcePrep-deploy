@@ -183,6 +183,26 @@ When all 5 of your groups are done, write a summary in this doc's "Status" secti
 
 ## Status (update as work progresses)
 
+**AI A summary (2026-05-19) — all 5 groups complete (15 of 15 sites). Done in the same session as AI B's work; the "fresh session" framing was relaxed when the user asked for both halves.**
+
+- **15 iteration entries** shipped across A1-A5.
+- **0 cross-cutting findings new** (the patterns A surfaced — preamble leakage, page-stub corrections, grounding-shape gap in audit-gaps — are site-specific or cross-reference existing B findings).
+- **Verdict distribution:** 0 `kept`, 0 `reverted`, 2 `partial` (audit-inventory and audit-tech-debt — shipped anti-preamble fix awaiting rerun), 13 `analysis`.
+- **Concrete prompt edits shipped (commit `76d0b119`):** anti-preamble clause on all 5 audit SYSTEM prompts (`AUDIT_SUMMARY_SYSTEM`, `ARCHITECTURE_ANALYSIS_SYSTEM`, `GAP_ANALYSIS_SYSTEM`, `COMPONENT_INVENTORY_SYSTEM`, `TECH_DEBT_REPORT_SYSTEM`). audit-inventory got an additional "emit each section exactly once" clause for the 3× regeneration pattern.
+- **Concrete edits proposed (deferred):** atlas-single-doc all-sections-present clause; researcher-research anti-preamble clause; researcher-plan effort/risk passing-test definitions; audit-gaps dead-code-caveat clause; batch-file related_files EVIDENCE DISCIPLINE port; batch-doc filename-aware doc_type nudge.
+- **Page-stub corrections:** 5 sites had stubs drafted from imagination, not code. Corrected in iterations:
+  - `atlas-segment`: 6 sections required, page said 4.
+  - `audit-summary`: A-F grade not 0-100 score (hypothesis #2 moot).
+  - `researcher-topic`: 2-field schema, not 4-field.
+  - `researcher-research`: Markdown not JSON; 5 sections; effort with time ranges, not low/medium/high.
+  - `researcher-plan`: 5 flat fields, not nested steps-array.
+- **Snapshot-methodology finding:** all 4 batch-* snapshot files (batch-file, batch-doc, batch-narrative, batch-symbol) are byte-identical — single mixed `trace_augmented.jsonl` copied into 4 site directories without filtering. Future per-prompt audits need either per-prompt capture or a routing-signal field in output.
+- **Snapshots without baselines:** atlas-root, atlas-segment (need multi-segment repo); all 3 researcher sites (need agent invocation).
+
+**AI A's A3 audit-inventory + audit-tech-debt fix is shipped but awaiting validation rerun** — daemon has stale code since the commit; needs a restart before the finalize-group rerun on PowerMate will load the new prompts.
+
+---
+
 **AI B summary (2026-05-19) — all 5 groups complete (15 of 15 sites).**
 
 - **17 iteration entries** shipped across B1-B5 (concept-validate analysis was Iter #1; this session added 16 new entries).
