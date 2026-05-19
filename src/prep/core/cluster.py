@@ -1209,7 +1209,14 @@ class ClusterSynthesizer(Worker):
                 summary = entry.extended_summary or "(no summary)"
                 layer = entry.architecture_layer or "unknown"
                 subsystem = entry.subsystem or ""
-                tech = ", ".join(str(t) if not isinstance(t, str) else t for t in (entry.tech_debt or [])) if entry.tech_debt else ""
+                # tech_debt items may be strings (legacy) or dicts (Phase 140 structured)
+                def _td_str(t):
+                    if isinstance(t, dict):
+                        sev = t.get("severity", "")
+                        name = t.get("item", "")
+                        return f"[{sev}] {name}" if sev else name
+                    return str(t)
+                tech = ", ".join(_td_str(t) for t in (entry.tech_debt or [])) if entry.tech_debt else ""
                 line = f"- {file_path} [{layer}]: {summary}"
                 if tech:
                     line += f" (tech debt: {tech})"

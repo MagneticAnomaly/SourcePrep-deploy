@@ -386,7 +386,15 @@ class GroupReasoningEngine(Worker):
             if entry:
                 fp = nid.replace("file:", "", 1) if nid.startswith("file:") else nid
                 tags = ", ".join(entry.domain_tags) if entry.domain_tags else "none"
-                debt = "; ".join(entry.tech_debt[:2]) if entry.tech_debt else "none identified"
+                # tech_debt items may be strings (legacy) or dicts with item/severity/context
+                # (Phase 140 structured shape) — render to readable string per element.
+                def _td_str(item):
+                    if isinstance(item, dict):
+                        sev = item.get("severity", "")
+                        name = item.get("item", "")
+                        return f"[{sev}] {name}" if sev else name
+                    return str(item)
+                debt = "; ".join(_td_str(t) for t in entry.tech_debt[:2]) if entry.tech_debt else "none identified"
                 parts.append(
                     f"- **{fp}** ({entry.architecture_layer})\n"
                     f"  Summary: {entry.extended_summary[:200]}\n"
