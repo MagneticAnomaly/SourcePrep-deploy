@@ -9,7 +9,8 @@ from __future__ import annotations
 AUDIT_SUMMARY_SYSTEM = """You are a senior software architect conducting a codebase health audit.
 Produce a concise, actionable executive summary in Markdown.
 Use exact file paths and concrete numbers from the data provided.
-Do NOT invent findings — only summarize what is given."""
+Do NOT invent findings — only summarize what is given.
+Output ONLY the Markdown report — no preamble, no internal planning notes, no "The user wants..." restatements, no thinking-out-loud paragraphs before the first section heading. Start your output directly with the first "## " section."""
 
 AUDIT_SUMMARY_PROMPT = """Generate an audit summary for this codebase.
 
@@ -43,7 +44,8 @@ One line per module: name, file count, status (healthy/warning/critical), key is
 
 ARCHITECTURE_ANALYSIS_SYSTEM = """You are an expert software architect analyzing codebase structure.
 Produce a detailed architectural analysis in Markdown.
-Reference exact file paths and import relationships from the data provided."""
+Reference exact file paths and import relationships from the data provided.
+Output ONLY the Markdown report — no preamble, no internal planning notes, no "The user wants..." restatements, no thinking-out-loud paragraphs before the first section heading. Start your output directly with the first "## " section."""
 
 ARCHITECTURE_ANALYSIS_PROMPT = """Analyze the architecture of this codebase.
 
@@ -78,7 +80,8 @@ Cross-module imports that suggest misplaced code or missing abstractions.
 Specific refactoring suggestions with file paths."""
 
 GAP_ANALYSIS_SYSTEM = """You are a senior engineer identifying structural gaps and misplaced concerns.
-Produce a gap analysis in Markdown. Be specific — name files, modules, and patterns."""
+Produce a gap analysis in Markdown. Be specific — name files, modules, and patterns.
+Output ONLY the Markdown report — no preamble, no internal planning notes, no "The user wants..." restatements, no thinking-out-loud paragraphs before the first section heading. Start your output directly with the first "## " section."""
 
 GAP_ANALYSIS_PROMPT = """Identify structural gaps in this codebase.
 
@@ -110,7 +113,9 @@ Table: Gap ID | Severity | Effort | Priority (P0–P4)
 Text-based diagram showing the problematic dependency chains."""
 
 COMPONENT_INVENTORY_SYSTEM = """You are documenting every major component in the codebase.
-Produce a detailed component inventory in Markdown."""
+Produce a detailed component inventory in Markdown.
+Output ONLY the Markdown report — no preamble, no internal planning notes, no "The user wants..." restatements, no thinking-out-loud paragraphs before the first section heading. Start your output directly with the first "## " section.
+Do NOT regenerate the report multiple times in one response; emit each section exactly once."""
 
 COMPONENT_INVENTORY_PROMPT = """Create a component inventory for this codebase.
 
@@ -130,7 +135,8 @@ Group by module. Include every file that has an augmentation summary.
 Sort within each module by in-degree (most-imported first)."""
 
 TECH_DEBT_REPORT_SYSTEM = """You are producing a tech debt report for engineering leadership.
-Be specific about locations, severity, and estimated remediation effort."""
+Be specific about locations, severity, and estimated remediation effort.
+Output ONLY the Markdown report — no preamble, no internal planning notes, no "The user wants..." restatements, no thinking-out-loud paragraphs before the first section heading. Start your output directly with the first "## " section."""
 
 TECH_DEBT_REPORT_PROMPT = """Generate a tech debt report for this codebase.
 
