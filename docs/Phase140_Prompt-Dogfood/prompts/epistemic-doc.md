@@ -31,7 +31,68 @@ JSON. Shared epistemic fields plus `doc_type`, `doc_status`, `decision_chains`.
 
 ## Iterations
 
-_(none yet)_
+### 2026-05-19: B4 — emergent structured shape in decision_chains + doc_status triple-overlap
+
+**Type:** analysis-only (cross-refs B3 cross-cutting finding)
+
+**Read materials:**
+- `EPISTEMIC_DOC_PROMPT` (`epistemic_enrichment.py:89-126`).
+- `_enrich_doc` (`epistemic_enrichment.py:545-575`) — dispatches when `node.language == "markdown"` or path ends `.md` / `.markdown`. Excerpt up to 3000 lines.
+- PowerMate snapshot: doc-portion of [`../snapshots/2026-05-17_baseline/outputs/epistemic-doc/powermate-reborn.jsonl`](../snapshots/2026-05-17_baseline/outputs/epistemic-doc/powermate-reborn.jsonl) — file is mixed code+doc; doc records identifiable by `architecture_layer: "documentation"` or `doc_type` field present.
+
+**Finding #1 — `decision_chains` emerges as `{decision, rationale, tradeoffs}` despite the schema's bare-string spec.** Schema (line 116): `"decision_chains": ["key decisions or conclusions documented here"]` — flat list of strings. README.md output:
+
+```json
+"decision_chains": [
+  {"decision": "Native Swift IOKit HID implementation instead of kernel extensions",
+   "rationale": "No Rosetta dependency, modern macOS compatibility, avoids kext security/privacy restrictions",
+   "tradeoffs": "Must reimplement driver functionality in user space; potential latency vs kernel-level access"},
+  {"decision": "Four-mode architecture (Volume/Brightness/MIDI/Custom)",
+   "rationale": "Covers primary use cases from simple media control to professional DAW integration to power-user customization",
+   "tradeoffs": "Mode cycling complexity; Custom mode subsumes some simpler use cases potentially creating UI confusion"},
+  ... 3 more ...
+]
+```
+
+5 items, all structured. The model is recovering quality by extending the schema (per grounding §5, Geng et al. 2025: schema overhead — when the spec is too thin, the model fills it in). For `decision_chains` specifically, the `{decision, rationale, tradeoffs}` triple acts as a self-check — the model has to *justify* each decision and *acknowledge tradeoffs*, which suppresses the hallucinated-decision failure mode the page's known-issue #2 calls out.
+
+**Recommendation:** match the schema to the emergent shape. Same diff as proposed in [`epistemic-code.md`](./epistemic-code.md) Iteration #1 Finding #2.
+
+**Finding #2 — `doc_status` is produced by THREE prompts and there's no reconciliation rule.** The page's existing hypothesis ("Three doc-status prompts overlap: batch-doc, batch-epi-doc, and this prompt all classify `doc_status`. Likely producing inconsistent values.") is correct. Three doc-status producers:
+
+| Producer | Pipeline stage | Schema |
+|---|---|---|
+| `batch-doc` | Pass 1 (fast catalogue) | doc_type + doc_status, full taxonomy |
+| this prompt (`EPISTEMIC_DOC_PROMPT`) | Pass 2 single-file (deep enrichment) | doc_status taxonomy listed; **receives `pass1_doc_status` as input** but is asked to emit its own |
+| `batch-epi-doc` | Pass 2 batched (deep enrichment) | doc_status taxonomy listed; same input shape |
+
+`EPISTEMIC_DOC_PROMPT` (line 96-97) shows: `Pass 1 summary: {pass1_summary}` + `Pass 1 doc_type: {pass1_doc_type}` + `Pass 1 doc_status: {pass1_doc_status}` — so Pass 2 DOES see Pass 1's verdict. But the prompt then asks it to emit `doc_status` independently with no instruction like "preserve Pass 1's value unless contradicted by content." Result: Pass 2 either echoes (field redundant) or contradicts (drift). Downstream consumers have no rule to pick between them — `EpistemicEntry.doc_status` (line 669) takes Pass 2's value, overwriting Pass 1.
+
+For README.md the captured output shows `doc_status: "active"` — likely matches Pass 1 (most healthy doc statuses are "active"), but without Pass 1 snapshot to verify we can't confirm. A `doc_status` mismatch test across the full PowerMate corpus would expose drift.
+
+**Recommendation:** add to `EPISTEMIC_DOC_PROMPT` (and `EPISTEMIC_DOC` batched sibling) before the schema:
+
+> **doc_status reconciliation:** You are given `Pass 1 doc_status` above. Preserve it unless the content excerpt explicitly contradicts the Pass 1 verdict (e.g., Pass 1 said "active" but the content is empty / a stub / explicitly deprecated). If you change `doc_status`, explain why in `extended_summary`.
+
+This makes Pass 2 a refiner, not a re-classifier — matches the "Pass 2 = deep enrichment of Pass 1's structural verdict" intent.
+
+**Finding #3 — `cross_references` for docs is field-misused similar to the code-side issue.** Schema (line 117) says `"cross_references": ["src/path/to/code.py"]` — a flat list of paths. README.md output emits structured `{context, relationship, target}` objects, which is **better**. Same fix recommended in [`epistemic-code.md`](./epistemic-code.md) (Finding #2/#3) applies — codify the structured shape.
+
+**Finding #4 — single-file vs batched (deferred to B3 cross-cutting finding).** See [`../findings/epistemic-batched-vs-single-guidance-gap.md`](../findings/epistemic-batched-vs-single-guidance-gap.md) for the full pattern. This prompt has more guidance than its batched sibling (decision_chains description, tech_debt anti-hallucination clause); batched users get a degraded version of this same prompt.
+
+**Verdict:** `analysis (no edit shipped this iteration).` Two specific defers:
+
+1. Match schema to emergent structured shape (decision_chains, cross_references — both prompts).
+2. Add `doc_status` reconciliation clause (both prompts).
+
+Both can be done in a single combined iteration block targeting `EPISTEMIC_DOC_PROMPT` + `build_batched_epistemic_doc_prompt` simultaneously, with a single pipeline rerun on PowerMate to validate.
+
+**Grounding citations:**
+- [`../03_PromptEngineeringGrounding.md`](../03_PromptEngineeringGrounding.md) §5 (Geng et al. 2025 schema overhead).
+- [`../03_PromptEngineeringGrounding.md`](../03_PromptEngineeringGrounding.md) §9 (Caulfield over-abduction — decision_chains is the canonical setup; structured `{decision, rationale, tradeoffs}` is the natural counter-measure).
+- Memory: `project_search_docs_bias.md` — adds context about why this prompt's outputs matter (deep doc enrichment amplifies doc-ranking unless balanced).
+
+**Cross-references:** [`epistemic-code.md`](./epistemic-code.md) (sibling, same schema-drift pattern from the code side), [`batch-epi-doc.md`](./batch-epi-doc.md) (batched variant), [`batch-doc.md`](./batch-doc.md) (Pass-1 source of doc_status overlap), [`../findings/epistemic-batched-vs-single-guidance-gap.md`](../findings/epistemic-batched-vs-single-guidance-gap.md).
 
 ## Open questions
 - How does this differ from `batch-epi-doc`? Is single-file mode ever invoked, or did batched supersede it?

@@ -59,7 +59,7 @@ Deep per-file enrichment for the trace graph (Phase 22 Pass 2). Reverse-topologi
 | Site | File | Symbols | Page | Status |
 |---|---|---|---|---|
 | Epistemic code | `src/prep/core/epistemic_enrichment.py:49-87` | `EPISTEMIC_SYSTEM`, `EPISTEMIC_CODE_PROMPT` | [epistemic-code.md](./prompts/epistemic-code.md) | analyzed (B3 #1 — tech_debt instruction violated 26/26 in sample; schema-drift in cross_refs / decision_chains / tech_debt — model recovering quality by exceeding schema) |
-| Epistemic doc | `src/prep/core/epistemic_enrichment.py:89-140` | `EPISTEMIC_SYSTEM`, `EPISTEMIC_DOC_PROMPT` | [epistemic-doc.md](./prompts/epistemic-doc.md) | baseline |
+| Epistemic doc | `src/prep/core/epistemic_enrichment.py:89-140` | `EPISTEMIC_SYSTEM`, `EPISTEMIC_DOC_PROMPT` | [epistemic-doc.md](./prompts/epistemic-doc.md) | analyzed (B4 #1 — decision_chains emerges as `{decision,rationale,tradeoffs}` despite flat-string schema; doc_status triple-overlap needs Pass-1/Pass-2 reconciliation clause) |
 
 ## HR / Custodian / Researcher agents (7 sites)
 
@@ -67,8 +67,8 @@ Per-agent prompts for the role / archival / research automation surface.
 
 | Site | File | Symbols | Page | Status |
 |---|---|---|---|---|
-| HR — AGENTS.md per role | `agents/hr/prompts.py:11-77` (SYSTEM @72) | `AGENTS_MD_SYSTEM`, `render_agents_md_prompt` | [hr-agents-md.md](./prompts/hr-agents-md.md) | baseline |
-| HR — SOUL.md per role | `agents/hr/prompts.py:79-126` (SYSTEM @120) | `SOUL_MD_SYSTEM`, `render_soul_md_prompt` | [hr-soul-md.md](./prompts/hr-soul-md.md) | baseline |
+| HR — AGENTS.md per role | `agents/hr/prompts.py:11-77` (SYSTEM @72) | `AGENTS_MD_SYSTEM`, `render_agents_md_prompt` | [hr-agents-md.md](./prompts/hr-agents-md.md) | analyzed (B4 #1 — corrects page hypothesis on managed markers; edit-preservation fidelity; tool list hardcoded; token target asked of model not enforced; output capture needed for verdicts) |
+| HR — SOUL.md per role | `agents/hr/prompts.py:79-126` (SYSTEM @120) | `SOUL_MD_SYSTEM`, `render_soul_md_prompt` | [hr-soul-md.md](./prompts/hr-soul-md.md) | analyzed (B4 #1 — corrects page hypothesis on voice; per-section voice drift is the real risk; SOUL.md consumption at runtime needs verification) |
 | HR — auto-roles | `agents/hr/prompts.py:185-268` (SYSTEM @267) | `AUTO_ROLES_SYSTEM`, `render_auto_roles_prompt` | [hr-auto-roles.md](./prompts/hr-auto-roles.md) | baseline |
 | Custodian — safety check | `agents/custodian/prompts.py:5-44` (SYSTEM @41) | `SAFETY_VERIFICATION_SYSTEM`, `render_safety_verification_prompt` | [custodian-safety.md](./prompts/custodian-safety.md) | baseline |
 | Researcher — topic select | `agents/researcher/prompts.py:10-53` (SYSTEM @50) | `TOPIC_SELECTION_SYSTEM`, `render_topic_selection_prompt` | [researcher-topic.md](./prompts/researcher-topic.md) | baseline |
