@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from prep.api.envelope import ok
+from prep.api.envelope import ApiException, ok
 
 logger = logging.getLogger(__name__)
 
@@ -98,13 +98,16 @@ def mcp_install(req: MCPInstallRequest) -> Dict[str, Any]:
     from prep.mcp_config import install_mcp_to_workspace
 
     daemon_url = _get_daemon_url()
-    result = install_mcp_to_workspace(
-        req.workspace_path,
-        daemon_url=daemon_url,
-        mode=req.mode,
-        project_id=req.project_id,
-        runtimes=req.runtimes,
-    )
+    try:
+        result = install_mcp_to_workspace(
+            req.workspace_path,
+            daemon_url=daemon_url,
+            mode=req.mode,
+            project_id=req.project_id,
+            runtimes=req.runtimes,
+        )
+    except ValueError as exc:
+        raise ApiException(status_code=400, code="VALIDATION_ERROR", message=str(exc))
     return ok(result)
 
 

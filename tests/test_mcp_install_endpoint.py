@@ -79,3 +79,17 @@ def test_mcp_status_without_workspace_returns_runtimes(client: TestClient) -> No
     data = res.json()["data"]
     assert "supported_runtimes" in data
     assert "claude-code" in data["supported_runtimes"]
+
+
+def test_mcp_install_nonexistent_path_returns_400(client: TestClient) -> None:
+    # install_mcp_to_workspace raises ValueError when the workspace
+    # path does not exist; the endpoint should surface that as a 400
+    # rather than a 500.
+    res = client.post(
+        "/mcp/install",
+        json={"workspace_path": "/tmp/_prep_definitely_does_not_exist_xyz_42"},
+    )
+    assert res.status_code == 400
+    body = res.json()
+    assert body["success"] is False
+    assert body["error"]["code"] == "VALIDATION_ERROR"
