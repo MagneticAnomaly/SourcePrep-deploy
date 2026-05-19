@@ -8,15 +8,17 @@
  * which describes the *IDE config snippets* (Claude Code, Cursor,
  * VS Code, …) needed to wire the MCP server into each runtime.
  *
- * Adding a tool: edit this file. Everywhere else picks it up.
+ * MUST stay aligned with the production tool registry in
+ * `src/prep/mcp_tools.py` (`_CORE_TOOLS`). If you add or remove a
+ * tool there, update this list to match.
  */
 
-export type McpToolCategory = 'context' | 'index' | 'graph';
+export type McpToolCategory = 'context' | 'impact' | 'knowledge';
 
 export interface McpToolEntry {
   /** Tool name as called from the AI agent. */
   name: string;
-  /** End-user blurb (1 sentence). Different audience from the
+  /** End-user blurb (1–2 sentences). Different audience from the
    *  MCP tools/list description (which is written for the AI). */
   description: string;
   /** Suggested invocation prompt to copy/paste. */
@@ -34,67 +36,59 @@ export const MCP_TOOL_LIST: McpToolEntry[] = [
   {
     name: 'prep',
     description:
-      'Get assembled context from your selected files, code graph, and atlas routing — the primary tool your AI uses.',
+      'Structural overview of the codebase — modules, hub files, focus areas, immune-system alerts. Call this first at the start of any task.',
     example: '"Use prep to understand this codebase"',
-    category: 'context',
-    primary: true,
-    badge: 'Most used',
-  },
-  {
-    name: 'hi_prep',
-    description:
-      'See what SourcePrep knows about your selected files — design docs, code areas, connections, and suggested next steps. Best first step.',
-    example: '"hi_prep" — select files in Knowledge Sources first, then ask your AI',
     category: 'context',
     primary: true,
     badge: 'Start here',
   },
   {
     name: 'prep_search',
-    description: 'Semantic search across your indexed code and docs.',
+    description:
+      'Find code by meaning, not just string match. Auto-classifies intent: "where is X" routes to symbol lookup, "why X" to concepts, "who imports X" to graph traversal.',
     example: '"Use prep_search to find authentication logic"',
     category: 'context',
+    primary: true,
+    badge: 'Most used',
   },
 
-  // ── Index Management ────────────────────────────────────────────
+  // ── Impact & Audit ──────────────────────────────────────────────
   {
-    name: 'prep_status',
-    description: 'Check if SourcePrep is connected and the index is ready.',
-    example: '"Use prep_status to check the index"',
-    category: 'index',
+    name: 'prep_impact',
+    description:
+      'Show what depends on a file or symbol — the blast radius if you change it. Call before editing hub files.',
+    example: '"Use prep_impact on src/auth.py before refactoring"',
+    category: 'impact',
   },
   {
-    name: 'prep_build',
-    description: 'Trigger an index rebuild when your code has changed.',
-    example: '"Use prep_build to re-index the project"',
-    category: 'index',
+    name: 'prep_audit',
+    description:
+      'Codebase health findings — coupling hotspots, import cycles, concept violations. Also enriches external lint findings (ruff, eslint, SARIF) with structural context.',
+    example: '"Use prep_audit to find coupling issues"',
+    category: 'impact',
   },
 
-  // ── Code Graph ──────────────────────────────────────────────────
+  // ── Cross-Session Knowledge ─────────────────────────────────────
   {
-    name: 'prep_trace_search',
-    description: 'Search the structural code graph for symbols (functions, classes, modules).',
-    example: '"Use prep_trace_search to find the UserService class"',
-    category: 'graph',
+    name: 'prep_observe',
+    description:
+      'Save or retrieve cross-session notes anchored to specific files. Notes mark stale when their anchors change.',
+    example: '"Use prep_observe to record why we picked this approach"',
+    category: 'knowledge',
   },
   {
-    name: 'prep_trace_neighbors',
-    description: 'Explore imports, callers, and callees of a symbol in the code graph.',
-    example: '"Use prep_trace_neighbors to see what calls handleAuth"',
-    category: 'graph',
-  },
-  {
-    name: 'prep_trace_coverage',
-    description: 'Check which files are traced, stale, or missing from the code graph.',
-    example: '"Use prep_trace_coverage to check graph completeness"',
-    category: 'graph',
+    name: 'prep_concepts',
+    description:
+      'Record and query business rationale, design decisions, and architectural constraints. Concepts with constraint assertions become runtime immune-system defenses.',
+    example: '"Use prep_concepts to see why auth was rewritten"',
+    category: 'knowledge',
   },
 ];
 
 export const MCP_TOOL_CATEGORY_LABELS: Record<McpToolCategory, string> = {
   context: 'Context & Search',
-  index: 'Index Management',
-  graph: 'Code Graph',
+  impact: 'Impact & Audit',
+  knowledge: 'Cross-Session Knowledge',
 };
 
 /** Convenience filter for the featured-card row in dashboard / docs. */
