@@ -10,9 +10,9 @@ Generate plain-text architectural orientation docs for the codebase. Single-doc 
 
 | Site | File | Symbols | Page | Status |
 |---|---|---|---|---|
-| Single-doc atlas | `src/prep/core/atlas/prompts.py:9-43` | `ATLAS_SYSTEM`, `ATLAS_PROMPT` | [atlas-single-doc.md](./prompts/atlas-single-doc.md) | baseline |
-| Root atlas | `src/prep/core/atlas/prompts.py:44-74` | `ROOT_ATLAS_SYSTEM`, `ROOT_ATLAS_PROMPT` | [atlas-root.md](./prompts/atlas-root.md) | baseline |
-| Segment atlas | `src/prep/core/atlas/prompts.py:75-117` | `SEGMENT_ATLAS_SYSTEM`, `SEGMENT_ATLAS_PROMPT` | [atlas-segment.md](./prompts/atlas-segment.md) | baseline |
+| Single-doc atlas | `src/prep/core/atlas/prompts.py:9-43` | `ATLAS_SYSTEM`, `ATLAS_PROMPT` | [atlas-single-doc.md](./prompts/atlas-single-doc.md) | analyzed (A1 #1 — 5 sections required, only 3 emitted on PowerMate; silent-skip under budget pressure; proposes all-sections-present clause) |
+| Root atlas | `src/prep/core/atlas/prompts.py:44-74` | `ROOT_ATLAS_SYSTEM`, `ROOT_ATLAS_PROMPT` | [atlas-root.md](./prompts/atlas-root.md) | analyzed (A1 #1 — structural review; same budget-vs-coverage risk as single-doc; needs multi-segment baseline) |
+| Segment atlas | `src/prep/core/atlas/prompts.py:75-117` | `SEGMENT_ATLAS_SYSTEM`, `SEGMENT_ATLAS_PROMPT` | [atlas-segment.md](./prompts/atlas-segment.md) | analyzed (A1 #1 — corrects page stub schema (6 sections not 4); double-stated anti-fabrication discipline; STATUS fallback pattern is well-designed) |
 
 ## Concept pipeline (4 sites)
 
@@ -31,7 +31,7 @@ Batched LLM prompts for catalogue augmentation, clustering, and epistemic enrich
 
 | Site | File | Symbols | Page | Status |
 |---|---|---|---|---|
-| Symbol summaries | `batch_prompts.py:22-54` | `BATCHED_SYMBOL_SYSTEM`, `build_batched_symbol_prompt` | [batch-symbol.md](./prompts/batch-symbol.md) | baseline |
+| Symbol summaries | `batch_prompts.py:22-54` | `BATCHED_SYMBOL_SYSTEM`, `build_batched_symbol_prompt` | [batch-symbol.md](./prompts/batch-symbol.md) | analyzed (A3 #1 — 64% of records are fallback stubs (LLM not called); role taxonomy too narrow for Swift; confidence clumping 0.9-0.95; iteration deferred until full-coverage capture) |
 | File roles | `batch_prompts.py:59-97` | `BATCHED_FILE_SYSTEM`, `build_batched_file_prompt` | [batch-file.md](./prompts/batch-file.md) | baseline |
 | Doc type/status | `batch_prompts.py:102-136` | `BATCHED_DOC_SYSTEM`, `build_batched_doc_prompt` | [batch-doc.md](./prompts/batch-doc.md) | baseline |
 | Doc narrative | `batch_prompts.py:141-176` | `BATCHED_NARRATIVE_SYSTEM`, `build_batched_narrative_prompt` | [batch-narrative.md](./prompts/batch-narrative.md) | baseline |
@@ -46,11 +46,11 @@ Audit-report document generators. All defined in `src/prep/core/audit/prompts.py
 
 | Site | File | Symbols | Page | Status |
 |---|---|---|---|---|
-| Summary | `audit/prompts.py:9-42` | `AUDIT_SUMMARY_SYSTEM`, `AUDIT_SUMMARY_PROMPT` | [audit-summary.md](./prompts/audit-summary.md) | baseline |
-| Architecture | `audit/prompts.py:44-78` | `ARCHITECTURE_ANALYSIS_SYSTEM`, `ARCHITECTURE_ANALYSIS_PROMPT` | [audit-architecture.md](./prompts/audit-architecture.md) | baseline |
-| Gap analysis | `audit/prompts.py:80-110` | `GAP_ANALYSIS_SYSTEM`, `GAP_ANALYSIS_PROMPT` | [audit-gaps.md](./prompts/audit-gaps.md) | baseline |
-| Component inventory | `audit/prompts.py:112-130` | `COMPONENT_INVENTORY_SYSTEM`, `COMPONENT_INVENTORY_PROMPT` | [audit-inventory.md](./prompts/audit-inventory.md) | baseline |
-| Tech debt | `audit/prompts.py:132-165` | `TECH_DEBT_REPORT_SYSTEM`, `TECH_DEBT_REPORT_PROMPT` | [audit-tech-debt.md](./prompts/audit-tech-debt.md) | baseline |
+| Summary | `audit/prompts.py:9-42` | `AUDIT_SUMMARY_SYSTEM`, `AUDIT_SUMMARY_PROMPT` | [audit-summary.md](./prompts/audit-summary.md) | analyzed (A2 #1 — well-engineered; Module Status truncates to 8 of 20 modules — instruction ambiguous; page hypothesis corrected on grade format) |
+| Architecture | `audit/prompts.py:44-78` | `ARCHITECTURE_ANALYSIS_SYSTEM`, `ARCHITECTURE_ANALYSIS_PROMPT` | [audit-architecture.md](./prompts/audit-architecture.md) | analyzed (A2 #1 — well-engineered; module-identifier casing mixed in output — minor normalization opportunity) |
+| Gap analysis | `audit/prompts.py:80-110` | `GAP_ANALYSIS_SYSTEM`, `GAP_ANALYSIS_PROMPT` | [audit-gaps.md](./prompts/audit-gaps.md) | analyzed (A2 #1 — GAP-1 false-positive dead-code finding; grounding-shape issue; proposes prompt softening as fallback while upstream fix is preferred) |
+| Component inventory | `audit/prompts.py:112-130` | `COMPONENT_INVENTORY_SYSTEM`, `COMPONENT_INVENTORY_PROMPT` | [audit-inventory.md](./prompts/audit-inventory.md) | iterating (A3 #1 partial — 57% preamble + 3× regeneration; shipped anti-preamble + emit-once clauses; awaiting rerun) |
+| Tech debt | `audit/prompts.py:132-165` | `TECH_DEBT_REPORT_SYSTEM`, `TECH_DEBT_REPORT_PROMPT` | [audit-tech-debt.md](./prompts/audit-tech-debt.md) | iterating (A3 #1 partial — 80% preamble; shipped anti-preamble clause; awaiting rerun) |
 
 ## Epistemic enrichment (2 sites)
 
