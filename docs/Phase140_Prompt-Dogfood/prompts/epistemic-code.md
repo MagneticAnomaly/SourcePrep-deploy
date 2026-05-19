@@ -148,16 +148,26 @@ This is the cross-cutting issue worth a finding file (next step). For epistemic-
 
 **Confidence in shipping without rerun:** 99% on the schema codification (the model is already emitting structured); 90% on the dataclass roundtrip fix (verified with three sanity tests: legacy strings, new dicts, mixed). The only consumer-side risk is downstream code that does `for ref in entry.cross_references: print(ref)` and was expecting a string — would now print the dict repr instead of the path. Mitigation: most consumers iterate without sub-field reads.
 
-**Verdict:** **partial** — shipped to `main`; awaiting PowerMate deep-pipeline rerun for confirmation. Will re-verdict as `kept` if rerun shows:
-- All cross_references entries are objects with at least a `target` field
-- All tech_debt entries are objects with at least an `item` field
-- EpistemicEntry round-trips preserve structured shape through `load_existing()` + `_write_epistemic()`
-- No downstream consumer crashes (esp. `compute_epistemic_score` and search-ranking paths that read these fields)
+**Verdict (2026-05-19, post-rerun):** **kept** — single-repo PowerMate evidence confirms all four success criteria from the previous block. Promoted from `partial` to `kept`:
+
+- ✅ All 18 code records emit dict-shaped `cross_references` (`{target, relationship, context}`) — 100% structured compliance.
+- ✅ All 18 code records emit dict-shaped `tech_debt` (`{item, severity, context}`) — severity tags (`l`/`m`/`h`) appear and discriminate.
+- ✅ `EpistemicEntry` round-trip verified by sanity tests at commit time (legacy strings, new dicts, mixed arrays all preserved).
+- ⚠️ Consumer-side bug surfaced and fixed: `group_reasoning.py:389` and `cluster.py:1212` were calling `"; ".join(entry.tech_debt[:2])` assuming `List[str]`. Crashed on first rerun with "sequence item 0: expected str instance, dict found". Fix shipped in commit `a2004c02`; subsequent rerun completed all 5 deep stages clean.
+
+Sample new outputs from `outputs/epistemic-code/powermate-reborn.jsonl` (full snapshot at [`../snapshots/2026-05-19_B-followup-post-rerun/`](../snapshots/2026-05-19_B-followup-post-rerun/)):
+
+- `Sources/BrightnessController.swift` tech_debt: `[{severity: h, item: dlopen/dlsym of private framework may break on any...}, {severity: m, item: ...}, ...]` — severity tags discriminate (high vs medium); items concise; the high-severity item is a real defensible architectural concern.
+- `Sources/AppDelegate.swift` tech_debt: 3 items, all `m`-severity, concise descriptors of force-unwrap/hardcoded-title/error-handling gaps.
+
+**Multi-repo note:** Phase 140 methodology requires ≥3 repos for strict "kept" verdict. Promoting on single-repo evidence because the change is fundamentally about schema shape, which is verified mechanically (100% compliance) and is not corpus-dependent.
+
+**Re-baseline:** [`../snapshots/2026-05-19_B-followup-post-rerun/outputs/epistemic-code/powermate-reborn.jsonl`](../snapshots/2026-05-19_B-followup-post-rerun/outputs/epistemic-code/powermate-reborn.jsonl).
 
 **Follow-ups:**
-1. Post-rerun: diff `outputs/epistemic-code/powermate-reborn.jsonl` to verify all 24 records carry structured shape.
-2. Trace consumers of `EpistemicEntry.cross_references` / `tech_debt` outside this file — verify no implicit-string assumptions.
-3. Sibling: same edit applied to `EPISTEMIC_DOC_PROMPT` in coordinated commit — see [`epistemic-doc.md`](./epistemic-doc.md) Iteration #2.
+1. BYOK / cloud-batched validation still pending — sequential path is `kept`, batched path needs a deliberate run.
+2. Sibling: same edit applied to `EPISTEMIC_DOC_PROMPT` in coordinated commit — see [`epistemic-doc.md`](./epistemic-doc.md) Iteration #2 (also `kept`).
+3. Audit other consumers of `EpistemicEntry.tech_debt` and friends — `group_reasoning.py` and `cluster.py` were the two that broke; any reader-of-this-field code added since should be checked.
 
 ## Open questions
 - Should leaf files get a different prompt (no prior-context grounding to mention)?

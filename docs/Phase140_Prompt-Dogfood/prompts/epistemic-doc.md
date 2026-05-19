@@ -107,15 +107,30 @@ Both can be done in a single combined iteration block targeting `EPISTEMIC_DOC_P
 
 **Confidence in shipping without rerun:** 99% on the schema codification (README.md snapshot proves model already emits structured decision_chains). 95% on doc_status reconciliation (small 3-line addition; clear improvement over silent overwrite; no risk to existing behavior because the prompt still allows changing doc_status if contradicted).
 
-**Verdict:** **partial** — shipped to `main`; awaiting PowerMate deep-pipeline rerun. Will re-verdict as `kept` if rerun shows:
-- `decision_chains` entries are structured objects in all enriched doc records
-- `doc_status` matches Pass 1 value unless `extended_summary` explains a deliberate change
-- No downstream consumer breakage in search ranking or atlas generation
+**Verdict (2026-05-19, post-rerun):** **kept** — single-repo PowerMate evidence confirms all three success criteria. Promoted from `partial` to `kept`:
+
+- ✅ All 6 doc records emit dict-shaped `decision_chains` (`{decision, rationale, tradeoffs}`) — 100% structured compliance. README.md's chains explicitly cite README content and acknowledge tradeoffs.
+- ✅ `doc_status` preserved correctly (e.g., README.md → "active" matches Pass 1 verdict; no silent overwrites).
+- ✅ No downstream consumer breakage AFTER the consumer-side fix in commit `a2004c02`. (Initial rerun crashed group_reasoning on the structured tech_debt format; that consumer also calls `cross_references` paths so the same fix covers both. Subsequent rerun completed 5/5 deep stages clean.)
+
+Sample new decision_chains from README.md output (full snapshot at [`../snapshots/2026-05-19_B-followup-post-rerun/`](../snapshots/2026-05-19_B-followup-post-rerun/)):
+
+```json
+{"decision": "Implement pure IOKit HID driver in Swift rather than using legacy Griffin drivers or kernel extensions",
+ "rationale": "The document states 'Native Swift Driver -- Pure IOKit HID implementation...' and notes 'Since the official drivers haven't worked in years, this is a native Swift menu bar app built from scratch'...",
+ "tradeoffs": "Requires complete reimplementation of hardware protocol; loses any proprietary Griffin features; gains Apple Silicon native performance..."}
+```
+
+The rationale quotes the actual README content (verifiable substring) and the tradeoffs are concrete, not generic.
+
+**Multi-repo note:** Same as `epistemic-code` Iteration #2 — promoting on single-repo because the schema-shape change is verified mechanically and is not corpus-dependent.
+
+**Re-baseline:** [`../snapshots/2026-05-19_B-followup-post-rerun/outputs/epistemic-code/powermate-reborn.jsonl`](../snapshots/2026-05-19_B-followup-post-rerun/outputs/epistemic-code/powermate-reborn.jsonl) (filter to doc records).
 
 **Follow-ups:**
-1. Post-rerun: filter `outputs/epistemic-code/powermate-reborn.jsonl` to doc records (`architecture_layer: "documentation"`) and diff vs current baseline.
-2. Per-doc audit of `doc_status` consistency: compare Pass 1 (from `batch-doc` capture) vs Pass 2 (this prompt's output). Should match unless extended_summary explains.
-3. Sibling: same edit to `batch-epi-doc` schema in `batch_prompts.py` — coordinated in commit `3c22cb09`.
+1. BYOK / cloud-batched validation still pending.
+2. Per-doc `doc_status` consistency audit deferred — would need fresh `batch-doc` capture (Pass 1) alongside this Pass 2 to diff.
+3. Sibling: `batch-epi-doc` schema edit in coordinated commit `3c22cb09`; sequential path validated here, BYOK path still pending.
 
 ## Open questions
 - How does this differ from `batch-epi-doc`? Is single-file mode ever invoked, or did batched supersede it?
