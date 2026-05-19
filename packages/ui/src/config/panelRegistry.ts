@@ -1,4 +1,4 @@
-import { 
+import {
   AlertTriangle,
   BookOpen,
   Brain,
@@ -6,6 +6,7 @@ import {
   Coins,
   Compass,
   Database,
+  FileCode2,
   Flame,
   FolderTree,
   GitBranch,
@@ -54,6 +55,17 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     closeable: true,
     resizable: false,
     docsUrl: 'https://docs.sourceprep.io',
+  },
+  {
+    id: 'mcp-snippet',
+    title: 'MCP Setup Snippet',
+    description: 'Copy-paste MCP config JSON for any IDE or CLI — picker-driven, with the absolute `prep` command baked in.',
+    icon: FileCode2,
+    minHeight: 4,
+    defaultHeight: 6,
+    category: 'config',
+    closeable: true,
+    docsUrl: 'https://docs.sourceprep.io/mcp/ides',
   },
   {
     id: 'status',

@@ -11,6 +11,7 @@ import {
   BuildCard,
   SearchPanel,
   UsageGuidePanel,
+  McpSnippetCard,
   ContextOptionsPanel,
   SearchResultsList,
   ChunkPreview,
@@ -830,7 +831,10 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       />
     ),
     'usage-guide': (
-      <UsageGuidePanel bare resolveMcpConfig={resolveMcpConfig} />
+      <UsageGuidePanel bare />
+    ),
+    'mcp-snippet': (
+      <McpSnippetCard resolveConfig={resolveMcpConfig} />
     ),
     status: (
       <>

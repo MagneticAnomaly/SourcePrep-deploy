@@ -77,7 +77,7 @@ export interface GridLayoutItem {
  * Default layout configuration
  */
 export const DEFAULT_LAYOUT: DashboardLayout = {
-  version: 20,
+  version: 21,
   panels: [
     {
       id: "graph-structure",
@@ -112,6 +112,15 @@ export const DEFAULT_LAYOUT: DashboardLayout = {
       height: 15,
       collapsed: true,
       x: 0,
+      y: 15,
+      w: 4
+    },
+    {
+      id: "mcp-snippet",
+      visible: true,
+      height: 12,
+      collapsed: true,
+      x: 4,
       y: 15,
       w: 4
     },
