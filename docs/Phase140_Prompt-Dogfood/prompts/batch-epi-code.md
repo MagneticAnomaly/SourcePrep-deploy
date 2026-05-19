@@ -103,6 +103,29 @@ The inline descriptions are unusual JSON shape (descriptions in value slots rath
 
 **Cross-references:** [`epistemic-code.md`](./epistemic-code.md) (sibling — same finding from output-observation side), [`batch-epi-doc.md`](./batch-epi-doc.md) (sibling — same guidance-gap pattern for docs), [`epistemic-doc.md`](./epistemic-doc.md) (single-file doc variant).
 
+### 2026-05-19: B3-followup — shipped guidance port + structured schema
+
+**Type:** prompt edit + schema edit (single iteration; ships the recommended port from Iteration #1 + cross-cutting finding)
+
+**Commit:** `3c22cb09 fix(prompts): Phase 140 B-side iterations — batched prompts (edges + epistemic)`
+
+**Edits:**
+- `BATCHED_EPISTEMIC_CODE_SYSTEM`: restored the "grounded in the actual source code shown in each item" anchoring clause that the batched system prompt had dropped vs `EPISTEMIC_SYSTEM`.
+- `build_batched_epistemic_code_prompt`: ported field-level guidance from `EPISTEMIC_CODE_PROMPT` — domain_tags count and examples ("1-4 descriptive tags (e.g. monetization, auth, ui, data-persistence)"), subsystem examples, design_patterns empty-if-none, structured cross_references / tech_debt, staleness_risk description. Added FIELD DISCIPLINE block at end.
+- `epistemic_code` JSON schema: cross_references and tech_debt now arrays of structured objects matching the prompt's request — enforced at structured-output decode time so BYOK / cloud-batched users get the same shape as local-sequential.
+
+**Confidence in shipping without rerun:** 90%. The single-file prompt's field guidance is already well-tested via the sequential snapshot. The only novelty is whether inline descriptions inside JSON value slots survive structured-output decoding cleanly. Risk mitigated because (a) the structured schema is the authoritative shape, descriptions are explanatory, (b) if the model ignores the inline descriptions, the schema still enforces objects.
+
+**Verdict:** **partial** — shipped to `main`; awaiting PowerMate BYOK-profile rerun for confirmation. Will re-verdict as `kept` if rerun shows:
+- BYOK-batched output matches local-sequential output shape for cross_references / tech_debt / domain_tags
+- No parse failures (structured schema accepts model output)
+- domain_tags counts fall in 1-4 range (was unbounded prior to guidance port)
+
+**Follow-ups:**
+1. Trigger PowerMate rerun with BYOK profile enabled (`PREP_BATCH_PROFILE=cloud` or similar — see `epistemic_enrichment.py:1085-1088` for the activation conditional).
+2. Capture into `snapshots/2026-05-19_B3-epi-port-batched/outputs/batch-epi-code/powermate-reborn.jsonl`.
+3. Per-field diff vs current snapshot (which was captured on the sequential single-file path) to confirm BYOK output now matches.
+
 ## Open questions
 - Should we publish a fixed taxonomy of layer/subsystem values?
 - When is batched-epi-code better than single-file epistemic-code? Should one supersede the other?

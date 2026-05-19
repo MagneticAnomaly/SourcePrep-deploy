@@ -133,6 +133,32 @@ This is the cross-cutting issue worth a finding file (next step). For epistemic-
 
 **Cross-references:** [`batch-epi-code.md`](./batch-epi-code.md) (sibling — same enrichment for batched path; needs parallel iteration), [`epistemic-doc.md`](./epistemic-doc.md) (sibling — same prompt file, doc variant has the same schema-drift pattern).
 
+### 2026-05-19: B3-followup — shipped structured schema for cross_references + tech_debt
+
+**Type:** prompt edit + schema edit + dataclass widening (single iteration; ships the schema-match-emergent-shape recommendation from Iteration #1)
+
+**Commit:** `24871dc0 fix(prompts): Phase 140 B-side iterations — single-file epistemic prompts + dataclass`
+
+**Edits:**
+- `EPISTEMIC_CODE_PROMPT`: `cross_references` and `tech_debt` schemas now structured arrays of objects (was flat string lists). Updated field descriptions: cross_references targets may be docs OR source files; tech_debt includes both explicit markers AND substantive concerns.
+- `EpistemicEntry` dataclass (epistemic_score.py): type hints widened from `Optional[List[str]]` to `Optional[List[Any]]` for these three fields; `from_dict` uses `_mixed_list` instead of `_str_list` to preserve dict shape across load/write roundtrip.
+- Companion fix in `batch_prompts.py:get_structured_schema` for the BYOK structured-outputs path.
+
+**Why ship despite tech_debt instruction conflict (Iteration #1 Finding #1):** the previous instruction ("list ONLY explicit markers (TODO, FIXME)... Do not list potential improvements or nitpicks") was being ignored 26/26 times. The model's emit-design-critiques-as-tech_debt behavior produces actionable output regardless of whether it matches the prompt's letter. Codifying the observed-output shape (a) eliminates the prompt-vs-output mismatch, (b) makes tech_debt items queryable (`item`, `severity`, `context` fields), (c) is preserved through load/write roundtrip.
+
+**Confidence in shipping without rerun:** 99% on the schema codification (the model is already emitting structured); 90% on the dataclass roundtrip fix (verified with three sanity tests: legacy strings, new dicts, mixed). The only consumer-side risk is downstream code that does `for ref in entry.cross_references: print(ref)` and was expecting a string — would now print the dict repr instead of the path. Mitigation: most consumers iterate without sub-field reads.
+
+**Verdict:** **partial** — shipped to `main`; awaiting PowerMate deep-pipeline rerun for confirmation. Will re-verdict as `kept` if rerun shows:
+- All cross_references entries are objects with at least a `target` field
+- All tech_debt entries are objects with at least an `item` field
+- EpistemicEntry round-trips preserve structured shape through `load_existing()` + `_write_epistemic()`
+- No downstream consumer crashes (esp. `compute_epistemic_score` and search-ranking paths that read these fields)
+
+**Follow-ups:**
+1. Post-rerun: diff `outputs/epistemic-code/powermate-reborn.jsonl` to verify all 24 records carry structured shape.
+2. Trace consumers of `EpistemicEntry.cross_references` / `tech_debt` outside this file — verify no implicit-string assumptions.
+3. Sibling: same edit applied to `EPISTEMIC_DOC_PROMPT` in coordinated commit — see [`epistemic-doc.md`](./epistemic-doc.md) Iteration #2.
+
 ## Open questions
 - Should leaf files get a different prompt (no prior-context grounding to mention)?
 - Does the "senior architect" persona produce better output than a generic instruction?

@@ -94,6 +94,29 @@ Both can be done in a single combined iteration block targeting `EPISTEMIC_DOC_P
 
 **Cross-references:** [`epistemic-code.md`](./epistemic-code.md) (sibling, same schema-drift pattern from the code side), [`batch-epi-doc.md`](./batch-epi-doc.md) (batched variant), [`batch-doc.md`](./batch-doc.md) (Pass-1 source of doc_status overlap), [`../findings/epistemic-batched-vs-single-guidance-gap.md`](../findings/epistemic-batched-vs-single-guidance-gap.md).
 
+### 2026-05-19: B4-followup — shipped structured schema + doc_status reconciliation
+
+**Type:** prompt edit + schema edit + dataclass widening (single iteration; ships the two recommendations from Iteration #1)
+
+**Commit:** `24871dc0 fix(prompts): Phase 140 B-side iterations — single-file epistemic prompts + dataclass`
+
+**Edits:**
+- `EPISTEMIC_DOC_PROMPT`: `decision_chains` schema now structured array of `{decision, rationale, tradeoffs}` objects (was flat string list — the model was already emitting structured per snapshot). `cross_references` and `tech_debt` same structured shape as code prompt.
+- Added doc_status reconciliation clause: "PRESERVE Pass 1 doc_status unless the content excerpt explicitly contradicts the Pass 1 verdict... If you change doc_status, explain why in extended_summary." Closes the silent-Pass-2-overwrite gap between `batch-doc`, `batch-epi-doc`, and this prompt.
+- `EpistemicEntry.decision_chains` type widened to `Optional[List[Any]]` for roundtrip preservation (same fix as code-side cross_references / tech_debt).
+
+**Confidence in shipping without rerun:** 99% on the schema codification (README.md snapshot proves model already emits structured decision_chains). 95% on doc_status reconciliation (small 3-line addition; clear improvement over silent overwrite; no risk to existing behavior because the prompt still allows changing doc_status if contradicted).
+
+**Verdict:** **partial** — shipped to `main`; awaiting PowerMate deep-pipeline rerun. Will re-verdict as `kept` if rerun shows:
+- `decision_chains` entries are structured objects in all enriched doc records
+- `doc_status` matches Pass 1 value unless `extended_summary` explains a deliberate change
+- No downstream consumer breakage in search ranking or atlas generation
+
+**Follow-ups:**
+1. Post-rerun: filter `outputs/epistemic-code/powermate-reborn.jsonl` to doc records (`architecture_layer: "documentation"`) and diff vs current baseline.
+2. Per-doc audit of `doc_status` consistency: compare Pass 1 (from `batch-doc` capture) vs Pass 2 (this prompt's output). Should match unless extended_summary explains.
+3. Sibling: same edit to `batch-epi-doc` schema in `batch_prompts.py` — coordinated in commit `3c22cb09`.
+
 ## Open questions
 - How does this differ from `batch-epi-doc`? Is single-file mode ever invoked, or did batched supersede it?
 - Should `decision_chains` accept only verified-in-grounding targets, with hallucinated ones silently dropped?

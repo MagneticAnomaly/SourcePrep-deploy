@@ -35,9 +35,9 @@ Batched LLM prompts for catalogue augmentation, clustering, and epistemic enrich
 | File roles | `batch_prompts.py:59-97` | `BATCHED_FILE_SYSTEM`, `build_batched_file_prompt` | [batch-file.md](./prompts/batch-file.md) | baseline |
 | Doc type/status | `batch_prompts.py:102-136` | `BATCHED_DOC_SYSTEM`, `build_batched_doc_prompt` | [batch-doc.md](./prompts/batch-doc.md) | baseline |
 | Doc narrative | `batch_prompts.py:141-176` | `BATCHED_NARRATIVE_SYSTEM`, `build_batched_narrative_prompt` | [batch-narrative.md](./prompts/batch-narrative.md) | baseline |
-| Inferred edges | `batch_prompts.py:181-216` | `BATCHED_INFERRED_EDGES_SYSTEM`, `build_batched_inferred_edges_prompt` | [batch-edges.md](./prompts/batch-edges.md) | analyzed (B2 #1 — 47% hedge-language evidence, 25% build-manifest noise; EVIDENCE RULES edit proposed) |
-| Epistemic code | `batch_prompts.py:221-259` | `BATCHED_EPISTEMIC_CODE_SYSTEM`, `build_batched_epistemic_code_prompt` | [batch-epi-code.md](./prompts/batch-epi-code.md) | analyzed (B3 #1 — field-level guidance gap vs single-file; finding written) |
-| Epistemic doc | `batch_prompts.py:264-308` | `BATCHED_EPISTEMIC_DOC_SYSTEM`, `build_batched_epistemic_doc_prompt` | [batch-epi-doc.md](./prompts/batch-epi-doc.md) | analyzed (B3 #1 — same gap + decision_chains hallucination risk + doc_status Pass-1/2 reconciliation) |
+| Inferred edges | `batch_prompts.py:181-216` | `BATCHED_INFERRED_EDGES_SYSTEM`, `build_batched_inferred_edges_prompt` | [batch-edges.md](./prompts/batch-edges.md) | iterating (B2 #1 analysis + B2-followup `partial` shipped EVIDENCE DISCIPLINE + BUILD-MANIFEST EXCEPTION; awaiting PowerMate rerun) |
+| Epistemic code | `batch_prompts.py:221-259` | `BATCHED_EPISTEMIC_CODE_SYSTEM`, `build_batched_epistemic_code_prompt` | [batch-epi-code.md](./prompts/batch-epi-code.md) | iterating (B3 #1 analysis + B3-followup `partial` shipped guidance port + structured schema; awaiting BYOK rerun) |
+| Epistemic doc | `batch_prompts.py:264-308` | `BATCHED_EPISTEMIC_DOC_SYSTEM`, `build_batched_epistemic_doc_prompt` | [batch-epi-doc.md](./prompts/batch-epi-doc.md) | iterating (B3 #1 analysis + B3-followup `partial` shipped guidance port + structured schema + doc_status reconciliation; awaiting BYOK rerun) |
 | Cluster summary | `batch_prompts.py:313-358` | `BATCHED_CLUSTER_SYSTEM`, `build_batched_cluster_prompt` | [batch-cluster.md](./prompts/batch-cluster.md) | analyzed (B2 #1 — snapshot at wrong layer; structural review only until per-cluster outputs captured) |
 
 ## Audit synthesis (5 sites)
@@ -58,8 +58,8 @@ Deep per-file enrichment for the trace graph (Phase 22 Pass 2). Reverse-topologi
 
 | Site | File | Symbols | Page | Status |
 |---|---|---|---|---|
-| Epistemic code | `src/prep/core/epistemic_enrichment.py:49-87` | `EPISTEMIC_SYSTEM`, `EPISTEMIC_CODE_PROMPT` | [epistemic-code.md](./prompts/epistemic-code.md) | analyzed (B3 #1 — tech_debt instruction violated 26/26 in sample; schema-drift in cross_refs / decision_chains / tech_debt — model recovering quality by exceeding schema) |
-| Epistemic doc | `src/prep/core/epistemic_enrichment.py:89-140` | `EPISTEMIC_SYSTEM`, `EPISTEMIC_DOC_PROMPT` | [epistemic-doc.md](./prompts/epistemic-doc.md) | analyzed (B4 #1 — decision_chains emerges as `{decision,rationale,tradeoffs}` despite flat-string schema; doc_status triple-overlap needs Pass-1/Pass-2 reconciliation clause) |
+| Epistemic code | `src/prep/core/epistemic_enrichment.py:49-87` | `EPISTEMIC_SYSTEM`, `EPISTEMIC_CODE_PROMPT` | [epistemic-code.md](./prompts/epistemic-code.md) | iterating (B3 #1 analysis + B3-followup `partial` shipped structured schema for cross_references + tech_debt + EpistemicEntry roundtrip fix; awaiting rerun) |
+| Epistemic doc | `src/prep/core/epistemic_enrichment.py:89-140` | `EPISTEMIC_SYSTEM`, `EPISTEMIC_DOC_PROMPT` | [epistemic-doc.md](./prompts/epistemic-doc.md) | iterating (B4 #1 analysis + B4-followup `partial` shipped structured schema + doc_status reconciliation clause; awaiting rerun) |
 
 ## HR / Custodian / Researcher agents (7 sites)
 

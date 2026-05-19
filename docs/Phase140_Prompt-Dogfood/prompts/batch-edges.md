@@ -113,8 +113,48 @@ I lean (b): the high-confidence (≥0.85) edges with no hedge language are mostl
 
 **Cross-references:** [`batch-symbol.md`](./batch-symbol.md), [`batch-file.md`](./batch-file.md) (sibling batched prompts; should audit their `evidence`-shaped fields for the same hallucination pattern).
 
+### 2026-05-19: B2-followup — shipped EVIDENCE DISCIPLINE + BUILD-MANIFEST EXCEPTION
+
+**Type:** prompt edit + schema edit (single iteration, ships the changes proposed in Iteration #1)
+
+**Commit:** `3c22cb09 fix(prompts): Phase 140 B-side iterations — batched prompts (edges + epistemic)`
+
+**Diff:**
+```diff
+ BATCHED_INFERRED_EDGES_SYSTEM = """You are a code analyst specializing in cross-file dependency detection.
+ You MUST respond with a JSON object containing a "results" array. ...
+ No markdown, no explanation outside the JSON.
++
++EVIDENCE DISCIPLINE:
++- The `evidence` field MUST be a verbatim quoted substring of the source code shown for that file.
++- If you cannot quote a verbatim substring that demonstrates the edge, OMIT the edge.
++- Hedging language in evidence is forbidden: "likely", "would", "designed for",
++  "though source is not shown", "probably", "may use", "could", "implies".
++
++BUILD-MANIFEST EXCEPTION:
++- Build manifests (Package.swift, package.json, pyproject.toml, etc.) declare what frameworks
++  a TARGET links — they do NOT "configure" individual source files.
++- Do NOT emit `configures` edges from a build manifest to a source file.
+```
+
+Also: `inferred_edges` structured-output schema now requires `evidence` (was optional). Enforces EVIDENCE DISCIPLINE at decode time for BYOK structured-outputs path.
+
+**Confidence in shipping without rerun:** 95%. The failure mode (hedge language, build-manifest noise) is repo-agnostic and well-documented in the captured baseline. The risk surface is small: a model that genuinely cannot quote a verbatim substring would emit an empty edges array, which is correct behavior (the structural parser still catches real edges).
+
+**Verdict:** **partial** — shipped to `main`; awaiting PowerMate finalize-group rerun for confirmation diff. Will re-verdict as `kept` if rerun shows:
+- ≤15 inferred edges per file (was ~17/36 hedge-language items in 36-edge sample = 47% suppression hit rate)
+- Zero `configures` edges from `Package.swift`
+- All retained edges contain verbatim source substrings in `evidence`
+- No new false positives in protocol-conformance edges (lines 3, 7 of the baseline jsonl).
+
+**Follow-ups:**
+1. Post-rerun: diff `outputs/batch-edges/powermate-reborn.jsonl` vs current baseline.
+2. If kept: re-baseline snapshot under `snapshots/2026-05-19_B2-batch-edges-kept/`.
+3. Sibling check: `batch-symbol`, `batch-file`, `batch-doc` schemas have `related_files` / similar fields — same hallucination pattern may apply, worth follow-up audit.
+
 ## Open questions
 - Should we require `evidence_quote` to be substring-matched against input before accepting the edge?
+   **Answered (B2-followup):** yes, shipped via EVIDENCE DISCIPLINE block + schema-required evidence field. Post-hoc parser substring-check is still recommended as a defense-in-depth layer.
 - What's the false-positive rate when run against repos with no dynamic imports (should be near zero)?
 
 ## Cross-references

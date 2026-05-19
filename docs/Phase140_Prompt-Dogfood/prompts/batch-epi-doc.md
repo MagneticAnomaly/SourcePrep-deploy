@@ -82,6 +82,28 @@ For batched docs, the same drift will happen, but without the inline description
 
 **Cross-references:** [`batch-epi-code.md`](./batch-epi-code.md) (sibling, same guidance gap from the code side), [`epistemic-doc.md`](./epistemic-doc.md) (single-file doc variant — the prompt this batched version was supposed to mirror), [`batch-doc.md`](./batch-doc.md) (Pass-1 doc role classifier — source of `doc_status` overlap).
 
+### 2026-05-19: B3-followup — shipped guidance port + structured schema + doc_status reconciliation
+
+**Type:** prompt edit + schema edit (single iteration; ships the recommendations from Iteration #1 + cross-cutting finding)
+
+**Commit:** `3c22cb09 fix(prompts): Phase 140 B-side iterations — batched prompts (edges + epistemic)`
+
+**Edits:**
+- `BATCHED_EPISTEMIC_DOC_SYSTEM`: restored the "grounded in the actual document content" anchoring clause.
+- `build_batched_epistemic_doc_prompt`: ported field-level guidance + structured shapes for decision_chains / cross_references / tech_debt. Added FIELD DISCIPLINE block with doc_status reconciliation rule and decision_chains anti-hallucination guidance.
+- `epistemic_doc` JSON schema: cross_references / tech_debt / decision_chains all arrays of structured objects — enforced at structured-output decode time.
+
+**Confidence in shipping without rerun:** 90% same as batch-epi-code sibling. The decision_chains-as-`{decision, rationale, tradeoffs}` shape is validated by README.md sequential-path output (Iteration #1 quoted evidence). doc_status reconciliation is a 3-line clarification with clear improvement.
+
+**Verdict:** **partial** — shipped to `main`; awaiting PowerMate BYOK-profile rerun. Will re-verdict as `kept` if rerun shows:
+- BYOK doc output matches local-sequential output shape (per [`epistemic-doc.md`](./epistemic-doc.md) Iteration #2)
+- doc_status field changes between Pass 1 and Pass 2 are accompanied by extended_summary justification
+- decision_chains entries are structured objects, not bare strings
+
+**Follow-ups:**
+1. Same as `batch-epi-code` Iteration #2: trigger BYOK PowerMate rerun, capture batched-doc output, diff vs sequential baseline.
+2. Cross-check doc_status reconciliation: filter records to `architecture_layer: "documentation"` in `outputs/epistemic-code/powermate-reborn.jsonl`, compare doc_status to `outputs/batch-doc/powermate-reborn.json` (Pass 1) to measure reconciliation compliance.
+
 ## Open questions
 - Should `decision_chains` be constrained to docs the model can see in grounding (vs free-form invention)?
 - Is batched epistemic-doc better than batch-doc + batch-narrative combined? Or do they each add unique value?
