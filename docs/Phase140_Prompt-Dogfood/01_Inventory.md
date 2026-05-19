@@ -20,10 +20,10 @@ Two-pass concept extraction: Generate (swarm) → Validate (per-concept critique
 
 | Site | File | Symbols | Page | Status |
 |---|---|---|---|---|
-| Synthesize | `src/prep/core/concept_synthesizer.py:292-527` | `SYNTH_SYSTEM_PROMPT`, `build_synthesis_prompt` | [concept-synthesize.md](./prompts/concept-synthesize.md) | baseline |
-| Validate | `src/prep/core/concept_validate_prompt.py:49-227` | `VALIDATE_SYSTEM_PROMPT`, `build_validate_user_prompt` | [concept-validate.md](./prompts/concept-validate.md) | baseline |
-| T3 Refine | `src/prep/core/concept_t3_refine.py:119-260` | `T3_SYSTEM_PROMPT`, `_FEW_SHOT_EXAMPLES`, `make_t3_*` | [concept-t3-refine.md](./prompts/concept-t3-refine.md) | baseline |
-| Generate (swarm) | `src/prep/core/concept_generate_prompt.py:96-237` | `_GENERATE_SYSTEM_HEADER`, `build_worker_prompt` | [concept-generate.md](./prompts/concept-generate.md) | baseline |
+| Synthesize | `src/prep/core/concept_synthesizer.py:292-527` | `SYNTH_SYSTEM_PROMPT`, `build_synthesis_prompt` | [concept-synthesize.md](./prompts/concept-synthesize.md) | baseline+B |
+| Validate | `src/prep/core/concept_validate_prompt.py:49-227` | `VALIDATE_SYSTEM_PROMPT`, `build_validate_user_prompt` | [concept-validate.md](./prompts/concept-validate.md) | iterating (analysis #1 done; finding deferred to upstream) |
+| T3 Refine | `src/prep/core/concept_t3_refine.py:119-260` | `T3_SYSTEM_PROMPT`, `_FEW_SHOT_EXAMPLES`, `make_t3_*` | [concept-t3-refine.md](./prompts/concept-t3-refine.md) | baseline+B |
+| Generate (swarm) | `src/prep/core/concept_generate_prompt.py:96-237` | `_GENERATE_SYSTEM_HEADER`, `build_worker_prompt` | [concept-generate.md](./prompts/concept-generate.md) | iterating (observation #1 — see Validate analysis) |
 
 ## Batched catalogue (8 sites)
 
@@ -81,7 +81,7 @@ AGENTS.md content shipped to client projects. Not a runtime LLM call — but the
 
 | Site | File | Symbols | Page | Status |
 |---|---|---|---|---|
-| AGENTS.md managed block | `src/prep/core/rules_generator.py:_build_managed_content` | `_build_managed_content`, `_write_agents_md` | [rules-agents-md.md](./prompts/rules-agents-md.md) | baseline |
+| AGENTS.md managed block | `src/prep/core/rules_generator.py:_build_managed_content` | `_build_managed_content`, `_write_agents_md` | [rules-agents-md.md](./prompts/rules-agents-md.md) | iterating (double-block cleanup #1) |
 
 ## Totals
 

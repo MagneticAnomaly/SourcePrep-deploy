@@ -113,8 +113,13 @@ Sprint 1A or 1B may surface methodology bugs. Common ones to expect:
 |---|---|
 | 1A — `rules-agents-md` | ✅ first finding logged & resolved (double-block bug, manually cleaned, user declined to fix in code). Awaiting Slot A capture for a prompt-copy iteration (e.g., aggressive-tone A/B). |
 | 1B — `atlas-single-doc` | 🔄 partially started — Slot B captured (PowerMate, Swift, fresh 2026-05-18). Awaiting Slot A + persona-removal ablation. |
-| 2 — `concept-validate` | 🔄 unblocked — Slot B baseline captured 2026-05-18 with current Phase 125c prompts. Reject-rate observed at ~53% (6 active / 3 triaged / 10 archived of 19 synth) — slightly hot per grounding §9 5-40% band. Concrete iteration target. |
+| 2 — `concept-validate` | ✅ first analysis complete (2026-05-18) — 53% reject rate diagnosed as upstream-grounding-gap, not Validate-prompt-aggression. Rejected concepts are mostly implementation-specific claims that Validate cannot confirm because the T3b runner doesn't include actual source slices in grounding. Documented in [`findings/concept-pipeline-grounding-gap.md`](./findings/concept-pipeline-grounding-gap.md). Path A (fix upstream pipeline) is the right fix but outside Phase 140 scope. No prompt edit made. |
 | 3+ — open backlog | — |
+
+## What changed 2026-05-17 → 2026-05-18 (continued)
+
+- **First substantive analysis complete on `concept-validate`** (read all 10 archived + 6 active + 3 triage_pending records, cross-referenced with `VALIDATE_SYSTEM_PROMPT` and `build_validate_user_prompt`). Diagnosed the high reject rate as a structural grounding-gap upstream, not a Validate-side aggression. The Validate prompt itself is correctly implemented (rationale-before-score order present, T1/T2/T3/REJECT rubric clean, tier-tested). No prompt edit needed at this site.
+- **First cross-cutting finding written** — [`findings/concept-pipeline-grounding-gap.md`](./findings/concept-pipeline-grounding-gap.md). Affects `concept-validate` and `concept-generate` directly, plus `concept-t3-refine` indirectly. Documents two paths forward (A: fix upstream pipeline; B: stopgap prompt softening). Recommends Path A out-of-scope.
 
 ## What changed 2026-05-17 → 2026-05-18
 

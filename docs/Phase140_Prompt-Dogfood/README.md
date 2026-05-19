@@ -57,6 +57,7 @@ If a prompt change requires touching orchestration, that work belongs to a child
 - [`04_Roadmap.md`](./04_Roadmap.md) — sequencing recommendation; Sprint 1A/1B/2 proposals
 - [`prompts/`](./prompts/) — one page per prompt site
 - [`snapshots/`](./snapshots/) — captured outputs per site × per repo
+- [`findings/`](./findings/) — cross-cutting findings (created when a pattern affects ≥3 sites or is structural)
 
 ## Cross-references
 
@@ -73,7 +74,8 @@ If a prompt change requires touching orchestration, that work belongs to a child
 |---|---|---|
 | Prompt sites inventoried | 30 | ✅ baseline captured 2026-05-17 |
 | Sites with at least one repo's outputs captured | 18 | ✅ Slot B (PowerMateReborn) — see [`snapshots/2026-05-17_baseline/capture-notes.md`](./snapshots/2026-05-17_baseline/capture-notes.md). Includes concept records via SQL (66 concepts + 36 questions). |
-| Sites with at least one iteration entry | 1 | `rules-agents-md` (double-block bug, cleaned up; user declined to fix in code) |
+| Sites with at least one iteration entry | 3 | `rules-agents-md` (double-block cleanup), `concept-validate` (grounding-gap analysis), `concept-generate` (cross-ref observation) |
+| Cross-cutting findings | 1 | [`findings/concept-pipeline-grounding-gap.md`](./findings/concept-pipeline-grounding-gap.md) — Validate cannot confirm implementation-detail concepts because upstream grounding is rationale-shaped, not source-shaped |
 | Sites marked `stable` | 0 | — |
 
 See [`01_Inventory.md`](./01_Inventory.md) for the per-site status table.

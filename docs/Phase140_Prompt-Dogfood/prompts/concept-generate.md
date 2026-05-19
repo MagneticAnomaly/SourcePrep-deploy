@@ -36,7 +36,19 @@ JSON list. Each candidate: `{title, dimension, draft_rationale, anchors[]}`. Wor
 
 ## Iterations
 
-_(none yet)_
+### 2026-05-18: observation — Generate produces high-quality implementation claims that Validate cannot confirm
+
+**Type:** observation (no edit)
+
+**What I noticed** while auditing concept-validate's 53% reject rate on PowerMate: Generate is producing implementation-specific candidates that look substantively correct (dlopen patterns, gamma isolation, OSC byte ordering, signal handler patterns), but Validate rejects most of them because the upstream grounding doesn't include the actual file content needed to falsify them.
+
+**This is not a Generate bug.** Generate is producing exactly the kind of concept the project wants — concrete, falsifiable, anchored to specific files. The problem is downstream.
+
+But this surfaces an opportunity for Generate: if we **could** know whether downstream will have grounding for a given concept, Generate could be asked to either (a) defer generating concepts whose anchors lack rationale-level grounding, or (b) include the file slice it relied on as part of the candidate (which Validate could then re-use).
+
+**Verdict:** **observation, no edit.** Real action belongs on the upstream grounding pipeline (path A in [`concept-validate.md`](./concept-validate.md) Iteration #1) or on Validate (path B). Generate is not the right lever.
+
+**Cross-references:** [`concept-validate.md`](./concept-validate.md) Iteration #1, [`../findings/concept-pipeline-grounding-gap.md`](../findings/concept-pipeline-grounding-gap.md)
 
 ## Open questions
 - Should worker prompts include "things the other workers are looking for" (negative scoping) to reduce overlap?
