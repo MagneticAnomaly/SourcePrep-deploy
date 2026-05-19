@@ -628,4 +628,21 @@ def _clean_markdown(text: str) -> str:
         text = text[3:].strip()
     if text.endswith("```"):
         text = text[:-3].strip()
+
+    # Phase 140 A3: defense-in-depth anti-preamble. The audit SYSTEM
+    # prompts ask the model to start directly with "## ", but kimi
+    # K2.6 sometimes still emits planning preamble for the larger
+    # prompts (AUDIT_SUMMARY, COMPONENT_INVENTORY) — and on the
+    # second-shipped version even echoes the anti-preamble instruction
+    # back as preamble. The cheap guaranteed fix is to slice from the
+    # first "## " heading onward. Only applies when ## appears after
+    # >100 chars of leading content (true preamble), not when an
+    # output legitimately begins with a few stray chars.
+    if "\n## " in text or text.startswith("## "):
+        first_h2 = text.find("## ")
+        # Only slice if there is substantial preamble (>50 chars) before
+        # the first H2 — otherwise leave alone (could be a short intro
+        # the model added that's still useful).
+        if first_h2 > 50:
+            text = text[first_h2:].strip()
     return text
