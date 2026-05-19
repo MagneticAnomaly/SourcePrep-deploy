@@ -36,8 +36,8 @@ Batched LLM prompts for catalogue augmentation, clustering, and epistemic enrich
 | Doc type/status | `batch_prompts.py:102-136` | `BATCHED_DOC_SYSTEM`, `build_batched_doc_prompt` | [batch-doc.md](./prompts/batch-doc.md) | baseline |
 | Doc narrative | `batch_prompts.py:141-176` | `BATCHED_NARRATIVE_SYSTEM`, `build_batched_narrative_prompt` | [batch-narrative.md](./prompts/batch-narrative.md) | baseline |
 | Inferred edges | `batch_prompts.py:181-216` | `BATCHED_INFERRED_EDGES_SYSTEM`, `build_batched_inferred_edges_prompt` | [batch-edges.md](./prompts/batch-edges.md) | analyzed (B2 #1 — 47% hedge-language evidence, 25% build-manifest noise; EVIDENCE RULES edit proposed) |
-| Epistemic code | `batch_prompts.py:221-259` | `BATCHED_EPISTEMIC_CODE_SYSTEM`, `build_batched_epistemic_code_prompt` | [batch-epi-code.md](./prompts/batch-epi-code.md) | baseline |
-| Epistemic doc | `batch_prompts.py:264-308` | `BATCHED_EPISTEMIC_DOC_SYSTEM`, `build_batched_epistemic_doc_prompt` | [batch-epi-doc.md](./prompts/batch-epi-doc.md) | baseline |
+| Epistemic code | `batch_prompts.py:221-259` | `BATCHED_EPISTEMIC_CODE_SYSTEM`, `build_batched_epistemic_code_prompt` | [batch-epi-code.md](./prompts/batch-epi-code.md) | analyzed (B3 #1 — field-level guidance gap vs single-file; finding written) |
+| Epistemic doc | `batch_prompts.py:264-308` | `BATCHED_EPISTEMIC_DOC_SYSTEM`, `build_batched_epistemic_doc_prompt` | [batch-epi-doc.md](./prompts/batch-epi-doc.md) | analyzed (B3 #1 — same gap + decision_chains hallucination risk + doc_status Pass-1/2 reconciliation) |
 | Cluster summary | `batch_prompts.py:313-358` | `BATCHED_CLUSTER_SYSTEM`, `build_batched_cluster_prompt` | [batch-cluster.md](./prompts/batch-cluster.md) | analyzed (B2 #1 — snapshot at wrong layer; structural review only until per-cluster outputs captured) |
 
 ## Audit synthesis (5 sites)
@@ -58,7 +58,7 @@ Deep per-file enrichment for the trace graph (Phase 22 Pass 2). Reverse-topologi
 
 | Site | File | Symbols | Page | Status |
 |---|---|---|---|---|
-| Epistemic code | `src/prep/core/epistemic_enrichment.py:49-87` | `EPISTEMIC_SYSTEM`, `EPISTEMIC_CODE_PROMPT` | [epistemic-code.md](./prompts/epistemic-code.md) | baseline |
+| Epistemic code | `src/prep/core/epistemic_enrichment.py:49-87` | `EPISTEMIC_SYSTEM`, `EPISTEMIC_CODE_PROMPT` | [epistemic-code.md](./prompts/epistemic-code.md) | analyzed (B3 #1 — tech_debt instruction violated 26/26 in sample; schema-drift in cross_refs / decision_chains / tech_debt — model recovering quality by exceeding schema) |
 | Epistemic doc | `src/prep/core/epistemic_enrichment.py:89-140` | `EPISTEMIC_SYSTEM`, `EPISTEMIC_DOC_PROMPT` | [epistemic-doc.md](./prompts/epistemic-doc.md) | baseline |
 
 ## HR / Custodian / Researcher agents (7 sites)

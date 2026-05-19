@@ -31,7 +31,107 @@ JSON. Senior-architect-voice system prompt; per-file user prompt with the templa
 
 ## Iterations
 
-_(none yet)_
+### 2026-05-19: B3 — instruction-violation in tech_debt + emergent schema drift
+
+**Type:** analysis-only (concrete prompt edit deferred to follow-up with daemon rerun)
+
+**Read materials:**
+- `EPISTEMIC_CODE_PROMPT` (`epistemic_enrichment.py:53-87`) — single-file code-enrichment prompt with explicit field-level constraints.
+- `_enrich_code` (`epistemic_enrichment.py:522-543`) — invocation: prompt is built from `EPISTEMIC_CODE_PROMPT.format(...)` and called with `system=EPISTEMIC_SYSTEM`, `json_mode=False` (line 626 — thinking models return empty with format:json forced; `_parse_json_response` extracts JSON from free-text including `<think>` tags).
+- PowerMate snapshot: 24 records in [`../snapshots/2026-05-17_baseline/outputs/epistemic-code/powermate-reborn.jsonl`](../snapshots/2026-05-17_baseline/outputs/epistemic-code/powermate-reborn.jsonl) — mixed code + doc (filter by extension).
+
+**Finding #1 — `tech_debt` instruction is being completely ignored.** Prompt says (line 85): "list ONLY explicit markers (TODO, FIXME) or severe architectural flaws. Do not list potential improvements or nitpicks." Counting `tech_debt` items in the first 5 PowerMate records:
+
+| File | `tech_debt` count | TODO/FIXME markers | Severity tier |
+|---|---|---|---|
+| `Package.swift` | 3 | 0 | "hardcoded-macos-version-floor", "missing-explicit-swift-language-version" — all nitpicks |
+| `README.md` | 3 | 0 | "No Apple notarization", "Accessibility permission required but not proactively explained" — feature gaps, not debt |
+| `Sources/AppDelegate.swift` | 9 | 0 | "Static shared singleton creates testability and lifecycle issues", "Direct instantiation of all controllers creates tight coupling" — design critiques |
+| `Sources/BrightnessController.swift` | 5 | 0 | "Reliance on private DisplayServices.framework APIs", "Unsafe bit-casting of dlsym results" — design observations |
+| `Sources/CustomModeEngine.swift` | 6 | 0 | "CC accumulator dictionary grows unbounded", "No thread safety on published profile array" — potential issues, not explicit markers |
+
+**26 tech_debt items across 5 files, 0 matching the prompt's specification.** Every item is the model's design critique, not an explicit code marker. The "Do not list potential improvements or nitpicks" instruction has zero effect — the model is doing exactly the prohibited thing.
+
+Two reads of this:
+- **(a) The instruction is unenforceable on this task.** Asking the model to find ONLY explicit TODO/FIXME markers conflicts with the prompt's persona ("expert software architect performing deep analysis"). An expert architect, given a file to review, will surface architectural concerns regardless of whether those are tagged as TODOs. The instruction sets up an internal conflict the persona wins.
+- **(b) The instruction is enforceable but the model needs harder negative scoping.** A clause like "If the file has zero `TODO|FIXME|XXX|HACK` substrings, emit `tech_debt: []`. Do NOT substitute design critique for missing explicit markers." would close the loophole.
+
+Recommend (b) — emit-`[]`-when-no-markers is a clean, testable rule. The model can still emit design critiques elsewhere (in `extended_summary` or in a separate audit pass), but `tech_debt` becomes a TODO-marker channel only.
+
+**Finding #2 — emergent schema drift in `cross_references`, `decision_chains`, `tech_debt`.** Schema spec (lines 75-77, 116-118) declares simple list-of-strings shapes:
+
+```
+"cross_references": ["path/to/related/doc.md"],
+"tech_debt": ["explicit TODOs/FIXMEs or critical anti-patterns only; empty if none"]
+// and for docs:
+"decision_chains": ["key decisions or conclusions documented here"]
+```
+
+But actual `README.md` output emits structured objects:
+
+```json
+"cross_references": [
+  {"context": "Brightness Mode implements 7-tier strategy...", "relationship": "documented_by",
+   "target": "docs/research/RESEARCH_BRIGHTNESS.md"},
+  ...
+],
+"decision_chains": [
+  {"decision": "Native Swift IOKit HID implementation instead of kernel extensions",
+   "rationale": "No Rosetta dependency, modern macOS compatibility...",
+   "tradeoffs": "Must reimplement driver functionality in user space..."},
+  ...
+],
+"tech_debt": [
+  {"context": "Users must right-click Open on first launch...", "item": "No Apple notarization",
+   "severity": "medium"},
+  ...
+]
+```
+
+This is the model deciding richer structure is better and ignoring the schema — exactly the `schema-overhead` failure mode in grounding §5 (Geng et al. 2025: overly restrictive schemas force compute into schema-satisfaction; less restrictive schemas let quality emerge). The model is *recovering* quality by extending the schema. The `decision_chains` enrichment with `{decision, rationale, tradeoffs}` is genuinely more useful than a string of "key decisions." Same for `tech_debt` with `{context, item, severity}` — that's actually actionable, where a bare string isn't.
+
+**Recommendation:** match the schema to the emergent shape, don't fight it. Update `EPISTEMIC_DOC_PROMPT` decision_chains to:
+
+```diff
+-"decision_chains": ["key decisions or conclusions documented here"],
++"decision_chains": [
++  {"decision": "<one-line decision statement>",
++   "rationale": "<2-3 sentence justification anchored in this doc>",
++   "tradeoffs": "<acknowledged cost or alternative considered>"}
++]
+```
+
+Similar update for cross_references (to add `context` + `relationship` fields) and tech_debt (to add `severity` + `context`). The downstream consumer (`EpistemicEntry.from_dict`) already accepts whatever is emitted (line 657 — `cross_references=parsed.get("cross_references")` is loose), so this won't break the data path. It will just make the stored output match what's already happening.
+
+**Finding #3 — `cross_references` field is field-misused on Package.swift.** Schema description (line 84): "documentation files that describe or relate to this code." But Package.swift's `cross_references` contains **7 Swift source files** (the modules whose frameworks Package.swift links). The model is treating "related to this code" broadly. Two fixes:
+- **Tighten the description**: "ONLY .md / .rst / .txt files documenting this code; if no such doc exists, emit `[]`."
+- **Widen the schema**: separate `doc_cross_references` (markdown only) and `code_cross_references` (source files this configures or is configured by). The second is useful for impact analysis.
+
+Recommendation: widen. Constrains the field to a known-useful purpose.
+
+**Finding #4 — `staleness_risk` distribution is degenerate in the sampled output.** All 5 sampled records emit `"low"`. With a wider sample, this may distribute, but as-of the 5 records seen the field is contributing zero signal. Watchpoint, not actionable yet — need a 20+ record audit to confirm.
+
+**Finding #5 — single-file vs batched prompt asymmetry.** The single-file `EPISTEMIC_CODE_PROMPT` carries per-field guidance:
+- "1-4 descriptive tags for the domain..."
+- "any notable patterns used (empty list if none)"
+- "list ONLY explicit markers (TODO, FIXME)..."
+
+The batched `BATCHED_EPISTEMIC_CODE_SYSTEM` + `build_batched_epistemic_code_prompt` (`batch_prompts.py:221-259`) carry NONE of this guidance — they list the schema fields with no per-field description. When the pipeline runs through the batched path (BYOK/cloud profile), the model gets *less* steering than the sequential path. Quality should be measurably worse on batched outputs, especially for fields with intent-shaped instructions (like tech_debt).
+
+This is the cross-cutting issue worth a finding file (next step). For epistemic-code: even though the single-file instruction is being ignored (Finding #1), the *intent* of the instruction lives only in this prompt and not in the batched sibling. Any fix to the single-file `tech_debt` clause needs to be mirrored in batched.
+
+**Verdict:** `analysis (no edit shipped this iteration).` Three deferred actions:
+
+1. **Strengthen `tech_debt`** with emit-`[]`-when-no-markers rule (both single-file and batched).
+2. **Match schema to emergent shape** for `cross_references`, `decision_chains`, `tech_debt` (both prompts).
+3. **Port single-file field-level guidance into batched** (cross-cutting; see [`../findings/epistemic-batched-vs-single-guidance-gap.md`](../findings/epistemic-batched-vs-single-guidance-gap.md) — to be written next, see B3 cross-cutting work).
+
+**Grounding citations:**
+- [`../03_PromptEngineeringGrounding.md`](../03_PromptEngineeringGrounding.md) §5 (Geng et al. 2025 schema overhead — schema too restrictive forces model to fight the constraint or quietly exceed it; here it's exceeded).
+- [`../03_PromptEngineeringGrounding.md`](../03_PromptEngineeringGrounding.md) §6 (persona vs instruction: the "senior architect" persona is winning over the negatively-scoped tech_debt instruction — instructions need to be enforceable, not just stated).
+- Memory: `feedback_test_full_import_chain.md` — applies to the proposed batched-vs-single guidance port: don't test just the prompt change, test the actual path that consumes it (the BYOK batched profile).
+
+**Cross-references:** [`batch-epi-code.md`](./batch-epi-code.md) (sibling — same enrichment for batched path; needs parallel iteration), [`epistemic-doc.md`](./epistemic-doc.md) (sibling — same prompt file, doc variant has the same schema-drift pattern).
 
 ## Open questions
 - Should leaf files get a different prompt (no prior-context grounding to mention)?
