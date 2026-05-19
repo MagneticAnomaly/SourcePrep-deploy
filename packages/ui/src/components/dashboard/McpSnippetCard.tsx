@@ -9,7 +9,7 @@
  * No auto-install. No status check. Just JSON to copy.
  */
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Copy, Check, FileCode2 } from 'lucide-react';
+import { Copy, Check } from 'lucide-react';
 import { MCP_TOOLS, mcpConfigAsString, type McpToolConfig } from '../../config/mcpSetup';
 
 export interface McpSnippetCardProps {
@@ -92,61 +92,54 @@ export function McpSnippetCard({
   const ideTools = MCP_TOOLS.filter((t) => t.category === 'ide');
 
   return (
-    <div className={`rounded-lg border border-border bg-surface/50 ${className}`}>
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border/50">
-        <FileCode2 size={14} className="text-primary" />
-        <h4 className="font-medium text-sm">MCP Config Snippet</h4>
+    <div className={`space-y-3 ${className}`}>
+      <div className="flex items-center gap-2">
+        <label htmlFor="mcp-ide-select" className="text-xs text-text-muted">
+          For:
+        </label>
+        <select
+          id="mcp-ide-select"
+          value={ideId}
+          onChange={(e) => setIdeId(e.target.value)}
+          className="text-xs px-2 py-1 rounded-md border border-border bg-background"
+        >
+          <optgroup label="CLI agents">
+            {cliTools.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </optgroup>
+          <optgroup label="IDEs">
+            {ideTools.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </optgroup>
+        </select>
       </div>
 
-      <div className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <label htmlFor="mcp-ide-select" className="text-xs text-text-muted">
-            For:
-          </label>
-          <select
-            id="mcp-ide-select"
-            value={ideId}
-            onChange={(e) => setIdeId(e.target.value)}
-            className="text-xs px-2 py-1 rounded-md border border-border bg-background"
-          >
-            <optgroup label="CLI agents">
-              {cliTools.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label="IDEs">
-              {ideTools.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-        </div>
+      <div className="text-xs">
+        <div className="font-mono text-text">{snippet.file}</div>
+        <div className="text-text-muted/70 italic">{snippet.pathHint}</div>
+      </div>
 
-        <div className="text-xs">
-          <div className="font-mono text-text">{snippet.file}</div>
-          <div className="text-text-muted/70 italic">{snippet.pathHint}</div>
-        </div>
-
-        <div className="relative">
-          <pre className="text-xs font-mono bg-muted/50 rounded-md p-3 overflow-x-auto border border-border/50 max-h-64">
-            {snippet.json}
-          </pre>
-          <button
-            onClick={handleCopy}
-            className="absolute top-2 right-2 p-1.5 rounded bg-background/80 hover:bg-background border border-border/50 transition-colors"
-            title="Copy to clipboard"
-          >
-            {copied ? (
-              <Check size={12} className="text-green-500" />
-            ) : (
-              <Copy size={12} className="text-text-muted" />
-            )}
-          </button>
-        </div>
+      <div className="relative">
+        <pre className="text-xs font-mono bg-muted/50 rounded-md p-3 overflow-x-auto border border-border/50 max-h-64">
+          {snippet.json}
+        </pre>
+        <button
+          onClick={handleCopy}
+          className="absolute top-2 right-2 p-1.5 rounded bg-background/80 hover:bg-background border border-border/50 transition-colors"
+          title="Copy to clipboard"
+        >
+          {copied ? (
+            <Check size={12} className="text-green-500" />
+          ) : (
+            <Copy size={12} className="text-text-muted" />
+          )}
+        </button>
       </div>
     </div>
   );
