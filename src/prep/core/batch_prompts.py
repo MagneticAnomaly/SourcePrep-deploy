@@ -180,7 +180,23 @@ def build_batched_narrative_prompt(items: List[Dict[str, Any]]) -> str:
 
 BATCHED_INFERRED_EDGES_SYSTEM = """You are a code analyst specializing in cross-file dependency detection.
 You MUST respond with a JSON object containing a "results" array. Each element corresponds to one input file, in order.
-No markdown, no explanation outside the JSON."""
+No markdown, no explanation outside the JSON.
+
+EVIDENCE DISCIPLINE:
+- The `evidence` field MUST be a verbatim quoted substring of the source code shown for that file.
+  Format: `"evidence": "<exact substring from the Source block>"`. Do not paraphrase or restate.
+- If you cannot quote a verbatim substring that demonstrates the edge, OMIT the edge.
+- Hedging language in evidence is forbidden: "likely", "would", "designed for",
+  "though source is not shown", "probably", "may use", "could", "implies".
+  Hedging means you are inferring rather than observing — omit the edge instead.
+
+BUILD-MANIFEST EXCEPTION:
+- Build manifests (Package.swift, package.json, pyproject.toml, Cargo.toml, requirements.txt,
+  build.gradle, pom.xml, setup.py, BUILD, etc.) declare what frameworks/dependencies a TARGET
+  links — they do NOT "configure" individual source files.
+- Do NOT emit `configures` edges from a build manifest to a source file. The transitive
+  relationship "manifest declares framework F → source file imports F" is not a graph edge.
+- You MAY emit edges between build manifests and other build scripts/CI configs."""
 
 def build_batched_inferred_edges_prompt(
     items: List[Dict[str, Any]],
@@ -219,6 +235,7 @@ def build_batched_inferred_edges_prompt(
 # ── Epistemic: Code ───────────────────────────────────────────────
 
 BATCHED_EPISTEMIC_CODE_SYSTEM = """You are a senior software architect performing deep epistemic analysis of source code files.
+You produce structured, accurate analysis grounded in the actual source code shown in each item.
 You MUST respond with a JSON object containing a "results" array. Each element corresponds to one input file, in order.
 No markdown, no explanation outside the JSON."""
 
@@ -246,14 +263,20 @@ def build_batched_epistemic_code_prompt(items: List[Dict[str, Any]]) -> str:
         '\nFor each file, respond with: '
         '{"id": <file_number>, "file": "<file_path>", '
         '"extended_summary": "2-4 sentence detailed description", '
-        '"domain_tags": ["tag1", "tag2"], '
+        '"domain_tags": ["1-4 descriptive tags (e.g. monetization, auth, ui, data-persistence)"], '
         '"architecture_layer": "<presentation|business_logic|data|infrastructure|configuration|testing|documentation|build|unknown>", '
-        '"subsystem": "name-of-subsystem", '
-        '"design_patterns": [], '
-        '"cross_references": [], '
-        '"tech_debt": [], '
-        '"staleness_risk": "low|medium|high", '
+        '"subsystem": "logical subsystem (e.g. ad-framework, user-auth, trace-engine)", '
+        '"design_patterns": ["only notable patterns observed in source; empty list if none"], '
+        '"cross_references": [{"target": "path", "relationship": "documented_by|configured_by|built_by|references", "context": "one short sentence"}], '
+        '"tech_debt": [{"item": "concise issue", "severity": "low|medium|high", "context": "specific location"}], '
+        '"staleness_risk": "low|medium|high — likelihood the file changes a lot", '
         '"epistemic_confidence": 0.85}'
+    )
+    parts.append(
+        '\nFIELD DISCIPLINE:\n'
+        '- cross_references: targets may be docs OR source files. Empty list if no meaningful refs.\n'
+        '- tech_debt: include explicit markers AND substantive architectural concerns. '
+        'Do not invent issues. Emit [] only when truly clean.'
     )
     parts.append('\nJSON response:')
     return "\n".join(parts)
@@ -262,6 +285,7 @@ def build_batched_epistemic_code_prompt(items: List[Dict[str, Any]]) -> str:
 # ── Epistemic: Docs ───────────────────────────────────────────────
 
 BATCHED_EPISTEMIC_DOC_SYSTEM = """You are a senior software architect performing deep epistemic analysis of documentation files.
+You produce structured, accurate analysis grounded in the actual document content shown in each item.
 You MUST respond with a JSON object containing a "results" array. Each element corresponds to one input document, in order.
 No markdown, no explanation outside the JSON."""
 
@@ -293,16 +317,25 @@ def build_batched_epistemic_doc_prompt(items: List[Dict[str, Any]]) -> str:
         '\nFor each doc, respond with: '
         '{"id": <doc_number>, "file": "<file_path>", '
         '"extended_summary": "2-4 sentence description", '
-        '"domain_tags": ["tag1"], '
+        '"domain_tags": ["1-4 descriptive tags"], '
         '"architecture_layer": "documentation", '
-        '"subsystem": "name", '
+        '"subsystem": "logical subsystem this doc covers", '
         '"doc_type": "<research|design_spec|plan|guide|reference|changelog|readme|todo|status|analysis|overview>", '
         '"doc_status": "<active|completed|shelved|superseded|draft|stale>", '
-        '"decision_chains": [], '
-        '"cross_references": [], '
-        '"tech_debt": [], '
+        '"decision_chains": [{"decision": "one line", "rationale": "2-3 sentences anchored in doc", "tradeoffs": "acknowledged cost"}], '
+        '"cross_references": [{"target": "path", "relationship": "documented_by|configured_by|built_by|references", "context": "one short sentence"}], '
+        '"tech_debt": [{"item": "concise issue", "severity": "low|medium|high", "context": "specific text location"}], '
         '"staleness_risk": "low|medium|high", '
         '"epistemic_confidence": 0.85}'
+    )
+    parts.append(
+        '\nFIELD DISCIPLINE:\n'
+        '- doc_status reconciliation: PRESERVE Pass 1 doc_status unless the content excerpt explicitly contradicts '
+        'it (e.g., Pass 1 said "active" but the doc is empty / a stub / marked deprecated). '
+        'If you change it, explain why in extended_summary.\n'
+        '- decision_chains: each entry anchored in the doc body. Do not invent decisions; emit [] when none observed.\n'
+        '- tech_debt: include explicit issues found in text (broken refs, contradictions, stale content). '
+        'Do not hallucinate. Emit [] when none observed.'
     )
     parts.append('\nJSON response:')
     return "\n".join(parts)
@@ -431,7 +464,11 @@ def get_structured_schema(stage: str) -> Dict[str, Any]:
                                         "evidence": {"type": "string"},
                                         "confidence": {"type": "number"},
                                     },
-                                    "required": ["target_file", "kind", "confidence"],
+                                    # evidence is REQUIRED — the EVIDENCE DISCIPLINE
+                                    # block in BATCHED_INFERRED_EDGES_SYSTEM requires
+                                    # a verbatim source-quote per edge. Edges without
+                                    # quotable evidence should be omitted entirely.
+                                    "required": ["target_file", "kind", "evidence", "confidence"],
                                 },
                             },
                         },
@@ -456,8 +493,34 @@ def get_structured_schema(stage: str) -> Dict[str, Any]:
                             "architecture_layer": {"type": "string"},
                             "subsystem": {"type": "string"},
                             "design_patterns": {"type": "array", "items": {"type": "string"}},
-                            "cross_references": {"type": "array", "items": {"type": "string"}},
-                            "tech_debt": {"type": "array", "items": {"type": "string"}},
+                            # cross_references and tech_debt are arrays of structured
+                            # objects (Phase 140 B-side iteration #2 codified the
+                            # emergent shape — model was already emitting objects
+                            # despite the prior bare-string schema).
+                            "cross_references": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "target": {"type": "string"},
+                                        "relationship": {"type": "string"},
+                                        "context": {"type": "string"},
+                                    },
+                                    "required": ["target"],
+                                },
+                            },
+                            "tech_debt": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "item": {"type": "string"},
+                                        "severity": {"type": "string"},
+                                        "context": {"type": "string"},
+                                    },
+                                    "required": ["item"],
+                                },
+                            },
                             "staleness_risk": {"type": "string"},
                             "epistemic_confidence": {"type": "number"},
                         },
@@ -484,9 +547,47 @@ def get_structured_schema(stage: str) -> Dict[str, Any]:
                             "subsystem": {"type": "string"},
                             "doc_type": {"type": "string"},
                             "doc_status": {"type": "string"},
-                            "decision_chains": {"type": "array", "items": {"type": "string"}},
-                            "cross_references": {"type": "array", "items": {"type": "string"}},
-                            "tech_debt": {"type": "array", "items": {"type": "string"}},
+                            # decision_chains / cross_references / tech_debt are
+                            # arrays of structured objects (Phase 140 B-side codified
+                            # the emergent shape — README.md captured output already
+                            # emits decision_chains with {decision, rationale,
+                            # tradeoffs} despite the prior bare-string schema).
+                            "decision_chains": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "decision": {"type": "string"},
+                                        "rationale": {"type": "string"},
+                                        "tradeoffs": {"type": "string"},
+                                    },
+                                    "required": ["decision"],
+                                },
+                            },
+                            "cross_references": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "target": {"type": "string"},
+                                        "relationship": {"type": "string"},
+                                        "context": {"type": "string"},
+                                    },
+                                    "required": ["target"],
+                                },
+                            },
+                            "tech_debt": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "item": {"type": "string"},
+                                        "severity": {"type": "string"},
+                                        "context": {"type": "string"},
+                                    },
+                                    "required": ["item"],
+                                },
+                            },
                             "staleness_risk": {"type": "string"},
                             "epistemic_confidence": {"type": "number"},
                         },
