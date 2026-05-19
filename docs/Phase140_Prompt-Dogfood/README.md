@@ -42,7 +42,7 @@ If a prompt change requires touching orchestration, that work belongs to a child
 
 1. Read [`00_Methodology.md`](./00_Methodology.md) — the five non-negotiables and the snapshot/iteration protocol.
 2. Skim [`03_PromptEngineeringGrounding.md`](./03_PromptEngineeringGrounding.md) — the research canon. Iterations should cite sources from here when possible.
-3. Browse [`01_Inventory.md`](./01_Inventory.md) — pick a prompt site to audit (or follow [`04_Roadmap.md`](./04_Roadmap.md) for the recommended sequence).
+3. Browse [`01_Inventory.md`](./01_Inventory.md) — pick a prompt site to audit (or follow [`04_Roadmap.md`](./04_Roadmap.md) for the recommended sequence, or [`05_ParallelExecution.md`](./05_ParallelExecution.md) if you're working alongside another AI).
 4. Open the corresponding [`prompts/<site>.md`](./prompts/) page — fill in the snapshot, then propose an iteration.
 5. Capture outputs under [`snapshots/<date>_<label>/outputs/<site>/<repo>.json`](./snapshots/).
 6. Record verdict (`kept` / `reverted` / `partial`) at the bottom of the site page.
@@ -55,6 +55,7 @@ If a prompt change requires touching orchestration, that work belongs to a child
 - [`02_TestRepos.md`](./02_TestRepos.md) — curated test-repo slots
 - [`03_PromptEngineeringGrounding.md`](./03_PromptEngineeringGrounding.md) — research canon mapped to our prompt patterns
 - [`04_Roadmap.md`](./04_Roadmap.md) — sequencing recommendation; Sprint 1A/1B/2 proposals
+- [`05_ParallelExecution.md`](./05_ParallelExecution.md) — split 30 sites between two AI sessions (15/15 in groups of 3, 10 pipeline-test cycles total)
 - [`prompts/`](./prompts/) — one page per prompt site
 - [`snapshots/`](./snapshots/) — captured outputs per site × per repo
 - [`findings/`](./findings/) — cross-cutting findings (created when a pattern affects ≥3 sites or is structural)
