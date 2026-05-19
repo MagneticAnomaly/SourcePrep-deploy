@@ -75,7 +75,7 @@ If a prompt change requires touching orchestration, that work belongs to a child
 |---|---|---|
 | Prompt sites inventoried | 30 | ✅ baseline captured 2026-05-17 |
 | Sites with at least one repo's outputs captured | 18 | ✅ Slot B (PowerMateReborn) — see [`snapshots/2026-05-17_baseline/capture-notes.md`](./snapshots/2026-05-17_baseline/capture-notes.md). Includes concept records via SQL (66 concepts + 36 questions). |
-| Sites with at least one iteration entry | 5 | `rules-agents-md`, `concept-validate` (×2), `concept-synthesize`, `concept-t3-refine`, `concept-generate` |
+| Sites with at least one iteration entry | 8 | `rules-agents-md`, `concept-validate` (×2), `concept-synthesize`, `concept-t3-refine`, `concept-generate` (×2), `batch-edges`, `batch-cluster` |
 | Cross-cutting findings | 2 | [`findings/concept-pipeline-grounding-gap.md`](./findings/concept-pipeline-grounding-gap.md) — Validate/Synthesize cannot confirm implementation-detail concepts. [`findings/concept-t3-refine-unwired.md`](./findings/concept-t3-refine-unwired.md) — well-engineered T3 Refine prompt has zero external callers in production pipeline. |
 | Sites marked `stable` | 0 | — |
 

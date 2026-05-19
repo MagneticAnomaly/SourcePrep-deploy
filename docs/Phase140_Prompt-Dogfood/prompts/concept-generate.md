@@ -50,6 +50,39 @@ But this surfaces an opportunity for Generate: if we **could** know whether down
 
 **Cross-references:** [`concept-validate.md`](./concept-validate.md) Iteration #1, [`../findings/concept-pipeline-grounding-gap.md`](../findings/concept-pipeline-grounding-gap.md)
 
+### 2026-05-19: B2 — Generate prompt audit (scope-tighten precedent + swarm dedup overhead)
+
+**Type:** analysis-only (no prompt edit)
+
+**Read materials:**
+- `_GENERATE_SYSTEM_HEADER` + `build_generate_system_prompt` (`concept_generate_prompt.py:96-117`) — per-worker scope orientation prepended to `SYNTH_SYSTEM_PROMPT`.
+- `build_generate_user_prompt` (`concept_generate_prompt.py:146-229`) — per-worker user prompt with payload composition (atlas, segments, full+headings docs, in-scope rationale, spaghetti, antibodies).
+- `WorkerPayload` dataclass (`concept_generate_prompt.py:32-52`) — the per-scope filtered grounding shape, **with `audit_findings` deliberately omitted** (see docstring at lines 44-47).
+- Snapshot: `swarm_size=3, candidates_after_dedup=19, rationale_count=46, prompt_revision=2`.
+
+**Observation #2 — `audit_findings` deliberate omission is a thoughtful scope-tighten worth flagging as a pattern.** Lines 44-47 + lines 197-200 document that `audit_findings` was previously passed to Generate but caused emit of bug-description-shaped pseudo-concepts ("X causes Y desync", "Module Z has known issue Q"). The fix was scope-tightening at the grounding layer rather than adding more "DO NOT EMIT BUG REPORTS" instructions to `SYNTH_SYSTEM_PROMPT` (which it already has — see lines 329-350 of `concept_synthesizer.py`). This is the right move and is a **transferable design pattern**: when an emit-shape violation persists despite a prompt-level prohibition, the more durable fix is to remove the failure-mode-generating grounding rather than restate the prohibition. Worth citing in the methodology doc when a similar issue arises (e.g., if `epistemic-doc` emits architecture findings that belong in `audit-architecture`, look first for grounding-layer overlap).
+
+**Observation #3 — 60% inter-worker overlap (46 rationales → 19 candidates) suggests scope dimensions are not orthogonal.** The current swarm runs 3 workers in parallel, each with `scope.categories` defined by `WorkerScope` (lives in `concept_generate_grounding.py`). 60% dedup is high; in the limit of perfectly-orthogonal scopes the dedup rate would be near 0% (each worker emits candidates the others don't). 60% means workers are independently surfacing the same patterns from the same grounding, which the per-worker rationale filter is supposed to prevent. Two diagnostics worth running:
+
+   1. Is `filter_rationale_by_scope` returning sufficiently disjoint slices? If three workers each see the same top-N rationale items, identical output is the expected behavior.
+   2. Are the scope `categories` lists themselves overlapping (e.g., one scope claims "architecture, decision" and another claims "architecture, constraint" — both will surface architecture rationale)?
+
+   This is *not* a prompt-copy iteration; it's a scope-design iteration that lives in `concept_generate_grounding.py:WorkerScope`. Flagging here for the next concept-pipeline architecture pass.
+
+**Observation #4 — `SYNTH_SYSTEM_PROMPT` reuse means any edit to that prompt propagates to Generate workers.** `build_generate_system_prompt` returns `scope_block + SYNTH_SYSTEM_PROMPT` (line 117). Concept-synthesize Iteration #1 considered two candidate edits to `SYNTH_SYSTEM_PROMPT`: (a) groundedness gate, (b) anti-echo gate. **Both would also reshape Generate behavior.** Specifically: a groundedness gate added to `SYNTH_SYSTEM_PROMPT` would cause Generate workers to also suppress implementation-detail claims at emit time — possibly reducing dedup overhead (workers emit fewer candidates that downstream all reject) and possibly reducing the false-implementation-claim shape that surfaces in `concept-validate`. This is a useful coupling. When prototyping any `SYNTH_SYSTEM_PROMPT` edit, capture both Generate output (`concept-generate/`) and Synthesize output (`concept-synthesize/`) and compare both.
+
+**Verdict:** `analysis (no edit)`. Generate's prompt copy is well-engineered; failures here are upstream (scope orthogonality) or downstream (grounding shape).
+
+**Recommended next iterations (out of this session):**
+1. Audit `WorkerScope` definitions for category-overlap (out of Phase 140 prompt-copy scope; belongs to Phase 125c architecture).
+2. When testing any `SYNTH_SYSTEM_PROMPT` edit (from concept-synthesize), capture Generate output too — the prompt is shared between sites.
+
+**Grounding citations:**
+- [`../03_PromptEngineeringGrounding.md`](../03_PromptEngineeringGrounding.md) §10 (Batched prompts: position-effect, BatchPrompt order-shuffling) — applicable to Generate swarm output ordering across workers.
+- [`../03_PromptEngineeringGrounding.md`](../03_PromptEngineeringGrounding.md) §4 (Self-Refine: role separation > unified critic) — Generate (producer) ↔ Validate (critic) split is consistent with the published architecture.
+
+**Cross-references:** [`concept-synthesize.md`](./concept-synthesize.md) Iteration #1 (shared `SYNTH_SYSTEM_PROMPT`), [`../findings/concept-pipeline-grounding-gap.md`](../findings/concept-pipeline-grounding-gap.md).
+
 ## Open questions
 - Should worker prompts include "things the other workers are looking for" (negative scoping) to reduce overlap?
 - Does antibody-pattern grounding actually help worker output, or is it noise?

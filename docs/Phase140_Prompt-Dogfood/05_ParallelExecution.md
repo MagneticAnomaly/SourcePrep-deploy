@@ -186,7 +186,7 @@ When all 5 of your groups are done, write a summary in this doc's "Status" secti
 | AI | Group | Status | Verdicts | Notes |
 |---|---|---|---|---|
 | B | B1 | ✅ complete (2026-05-19) | all 3 sites: `analysis` — no prompt edits made | Both pre-existing findings (grounding-gap) reverified; new finding: concept-t3-refine is unwired in production pipeline ([`findings/concept-t3-refine-unwired.md`](./findings/concept-t3-refine-unwired.md)) |
-| B | B2 | pending | — | — |
+| B | B2 | ✅ complete (2026-05-19) | all 3 sites: `analysis` — concrete EVIDENCE RULES edit proposed for batch-edges (deferred to follow-up rerun); concept-generate scope-tighten observation; batch-cluster snapshot gap | concept-generate Iteration #2 documents the `SYNTH_SYSTEM_PROMPT` reuse pattern (Generate ↔ Synthesize prompt edits couple); batch-edges proposes a 72%-noise-suppression EVIDENCE RULES clause |
 | B | B3 | pending | — | — |
 | B | B4 | pending | — | — |
 | B | B5 | partial — rules-agents-md cleanup done; hr-auto-roles/custodian-safety pending | rules-agents-md: cleanup verdict | — |

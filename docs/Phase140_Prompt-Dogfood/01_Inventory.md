@@ -23,7 +23,7 @@ Two-pass concept extraction: Generate (swarm) → Validate (per-concept critique
 | Synthesize | `src/prep/core/concept_synthesizer.py:292-527` | `SYNTH_SYSTEM_PROMPT`, `build_synthesis_prompt` | [concept-synthesize.md](./prompts/concept-synthesize.md) | analyzed (B1 #1 — well-engineered, grounding-gap same as Validate, no edit) |
 | Validate | `src/prep/core/concept_validate_prompt.py:49-227` | `VALIDATE_SYSTEM_PROMPT`, `build_validate_user_prompt` | [concept-validate.md](./prompts/concept-validate.md) | analyzed (B1 #2 — Iter #1 finding reverified, no edit) |
 | T3 Refine | `src/prep/core/concept_t3_refine.py:119-260` | `T3_SYSTEM_PROMPT`, `_FEW_SHOT_EXAMPLES`, `make_t3_*` | [concept-t3-refine.md](./prompts/concept-t3-refine.md) | analyzed (B1 #1 — **unwired in production pipeline**, no prompt edit possible) |
-| Generate (swarm) | `src/prep/core/concept_generate_prompt.py:96-237` | `_GENERATE_SYSTEM_HEADER`, `build_worker_prompt` | [concept-generate.md](./prompts/concept-generate.md) | observation (B-prior — cross-refs Validate analysis; B2 will revisit) |
+| Generate (swarm) | `src/prep/core/concept_generate_prompt.py:96-237` | `_GENERATE_SYSTEM_HEADER`, `build_worker_prompt` | [concept-generate.md](./prompts/concept-generate.md) | analyzed (B2 #2 — audit_findings scope-tighten precedent, 60% inter-worker dedup overhead) |
 
 ## Batched catalogue (8 sites)
 
@@ -35,10 +35,10 @@ Batched LLM prompts for catalogue augmentation, clustering, and epistemic enrich
 | File roles | `batch_prompts.py:59-97` | `BATCHED_FILE_SYSTEM`, `build_batched_file_prompt` | [batch-file.md](./prompts/batch-file.md) | baseline |
 | Doc type/status | `batch_prompts.py:102-136` | `BATCHED_DOC_SYSTEM`, `build_batched_doc_prompt` | [batch-doc.md](./prompts/batch-doc.md) | baseline |
 | Doc narrative | `batch_prompts.py:141-176` | `BATCHED_NARRATIVE_SYSTEM`, `build_batched_narrative_prompt` | [batch-narrative.md](./prompts/batch-narrative.md) | baseline |
-| Inferred edges | `batch_prompts.py:181-216` | `BATCHED_INFERRED_EDGES_SYSTEM`, `build_batched_inferred_edges_prompt` | [batch-edges.md](./prompts/batch-edges.md) | baseline |
+| Inferred edges | `batch_prompts.py:181-216` | `BATCHED_INFERRED_EDGES_SYSTEM`, `build_batched_inferred_edges_prompt` | [batch-edges.md](./prompts/batch-edges.md) | analyzed (B2 #1 — 47% hedge-language evidence, 25% build-manifest noise; EVIDENCE RULES edit proposed) |
 | Epistemic code | `batch_prompts.py:221-259` | `BATCHED_EPISTEMIC_CODE_SYSTEM`, `build_batched_epistemic_code_prompt` | [batch-epi-code.md](./prompts/batch-epi-code.md) | baseline |
 | Epistemic doc | `batch_prompts.py:264-308` | `BATCHED_EPISTEMIC_DOC_SYSTEM`, `build_batched_epistemic_doc_prompt` | [batch-epi-doc.md](./prompts/batch-epi-doc.md) | baseline |
-| Cluster summary | `batch_prompts.py:313-358` | `BATCHED_CLUSTER_SYSTEM`, `build_batched_cluster_prompt` | [batch-cluster.md](./prompts/batch-cluster.md) | baseline |
+| Cluster summary | `batch_prompts.py:313-358` | `BATCHED_CLUSTER_SYSTEM`, `build_batched_cluster_prompt` | [batch-cluster.md](./prompts/batch-cluster.md) | analyzed (B2 #1 — snapshot at wrong layer; structural review only until per-cluster outputs captured) |
 
 ## Audit synthesis (5 sites)
 
