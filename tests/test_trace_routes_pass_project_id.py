@@ -24,15 +24,24 @@ TARGET_CLASSES = {"TraceAugmenter", "EpistemicEnricher"}
 
 
 def _collect_target_constructions(source: str) -> list[ast.Call]:
-    """Return every ast.Call whose func name is one of TARGET_CLASSES."""
+    """Return every ast.Call whose func resolves to one of TARGET_CLASSES.
+
+    Matches both bare-Name (``TraceAugmenter(...)``) and Attribute access
+    (``core.TraceAugmenter(...)``) so a future refactor to qualified
+    imports doesn't silently bypass the guard.
+    """
     tree = ast.parse(source)
     hits: list[ast.Call] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        # Pattern: TraceAugmenter(...) or EpistemicEnricher(...)
-        if isinstance(func, ast.Name) and func.id in TARGET_CLASSES:
+        name: str | None = None
+        if isinstance(func, ast.Name):
+            name = func.id
+        elif isinstance(func, ast.Attribute):
+            name = func.attr
+        if name in TARGET_CLASSES:
             hits.append(node)
     return hits
 
