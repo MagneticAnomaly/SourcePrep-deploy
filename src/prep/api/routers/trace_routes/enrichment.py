@@ -98,6 +98,7 @@ def augment_run_project(project_id: str, req: AugmentRequest) -> Dict[str, Any]:
         index_dir=idx_dir,
         repo_root=proj.path,
         llm_client=llm_client,
+        project_id=project_id,
     )
 
     bus = get_event_bus()
@@ -443,6 +444,7 @@ def epistemic_run_project(project_id: str, req: EpistemicRunRequest) -> Dict[str
         llm=llm_client,
         repo_root=Path(proj.path),
         index_dir=idx_dir,
+        project_id=project_id,
     )
 
     bus = get_event_bus()
@@ -677,6 +679,7 @@ def deepening_run_project(project_id: str, req: DeepeningRunRequest) -> Dict[str
         llm=llm_client,
         repo_root=Path(proj.path),
         index_dir=idx_dir,
+        project_id=project_id,
     )
 
     loop = DeepeningLoop(
