@@ -18,7 +18,7 @@ export const Default: Story = {
     productName: 'SourcePrep',
     socials: {
       twitter: 'https://x.com/Prep_io',
-      github: 'https://github.com/MagneticAnomaly/SourcePrep-MCP',
+      github: 'https://github.com/sourceprep',
       email: 'hello@sourceprep.io',
     },
   },

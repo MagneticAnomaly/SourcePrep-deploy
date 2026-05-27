@@ -15,7 +15,7 @@ export interface FileExplorerDetailProps {
   /** Async loader for file content. If omitted, mock content is shown. */
   onLoadFileContent?: (path: string) => Promise<string>;
   includedPaths?: Set<string>;
-  /** Scope orchestrator status (Phase 24) */
+  /** Scope orchestrator status. */
   scopeStatus?: ScopeStatus;
   onToggleInclude?: (paths: string[], action: 'add' | 'remove') => void;
   /** Per-path weight overrides (0.0–2.0, default 1.0). */

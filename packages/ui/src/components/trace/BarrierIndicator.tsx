@@ -7,7 +7,7 @@ export interface BarrierIndicatorProps {
   barrier: BarrierStatus;
   onClear?: () => void;
   /**
-   * Phase 118 U17: when a pipeline group is actively running we hide the
+   * when a pipeline group is actively running we hide the
    * banner entirely — the rebuild progress bar already shows the user
    * what they need to know, and a duplicate "Barrier active" indicator
    * is just clutter that exposes internal plumbing terms.
@@ -20,7 +20,7 @@ export function isBarrierStale(barrier: BarrierStatus): boolean {
   return (barrier.age_seconds ?? 0) > STALE_THRESHOLD_SECONDS;
 }
 
-// Phase 118 U17: user-facing copy for each barrier reason.
+// user-facing copy for each barrier reason.
 // Goals:
 //   - No internal jargon ("barrier", "selfheal", "finalize", "stale heartbeat")
 //   - Tell the user what happened and what to do next
@@ -118,7 +118,7 @@ export function barrierGuidance(barrier: BarrierStatus): string {
 
 export function BarrierIndicator({ barrier, onClear, pipelineActive }: BarrierIndicatorProps) {
   if (!barrier.active) return null;
-  // Phase 118 U17: hide entirely while a pipeline group is actively running.
+  // hide entirely while a pipeline group is actively running.
   // The rebuild progress bar at the top of the panel already tells the user
   // what's happening; a duplicate "Barrier active" notice is just noise that
   // exposes internal plumbing terms (selfheal, finalize, barrier).

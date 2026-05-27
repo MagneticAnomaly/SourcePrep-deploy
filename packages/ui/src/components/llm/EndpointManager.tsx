@@ -33,7 +33,7 @@ const PROVIDER_OPTIONS: { value: LLMProvider; label: string; hint?: string }[] =
 const LOCAL_PROVIDERS = new Set<string>(['ollama', 'lm-studio']);
 
 /**
- * Phase 119 follow-up: derive Ollama Cloud plan tier from a concurrent value.
+ * Derive Ollama Cloud plan tier from a concurrent value.
  * 1 → free, 2-3 → pro, 4-10 → max. Values outside the 1-10 range fall back to
  * "off" (0) or "max" (>10, defensive — clamp).
  */
@@ -57,7 +57,7 @@ const OLLAMA_CLOUD_OPTIONS = [
   { value: '10', label: '10 (max)' },
 ] as const;
 
-// Phase 119 Phase A: provider key map → concurrency_limits.json provider key.
+// Provider key map → concurrency_limits.json provider key.
 // Ollama is split between local OSS and Ollama Cloud at runtime via URL host.
 const PROVIDER_TO_TABLE_KEY: Partial<Record<LLMProvider, string>> = {
   openai: 'openai',
@@ -116,10 +116,10 @@ export function EndpointManager({
   const [formApiKey, setFormApiKey] = useState('');
   const [formLocalConcurrency, setFormLocalConcurrency] = useState(1);
   const [formCloudConcurrency, setFormCloudConcurrency] = useState(1);
-  // Phase 119 Phase A: dropdown selection (e.g. "max", "tier_3", "auto", "custom").
+  // Dropdown selection (e.g. "max", "tier_3", "auto", "custom").
   const [formPlanTier, setFormPlanTier] = useState<string | undefined>(undefined);
 
-  // Phase 119 Phase A: fetch plan-limits table once on mount; PlanDropdown
+  // Fetch plan-limits table once on mount; PlanDropdown
   // renders only after this resolves (cloud providers).
   const [planLimits, setPlanLimits] = useState<PlanLimitsTable | null>(null);
   useEffect(() => {
@@ -138,7 +138,7 @@ export function EndpointManager({
     setFormUrl('');
     setFormApiKey('');
     setFormLocalConcurrency(1);
-    // Phase 119 Phase A fix-up: 0 (sentinel for "auto") so a fresh add of
+    // 0 (sentinel for "auto") so a fresh add of
     // a cloud-Ollama endpoint that never engages the dropdown surfaces the
     // plan-tier warning instead of silently saving with the legacy default.
     setFormCloudConcurrency(0);
@@ -380,7 +380,7 @@ export function EndpointManager({
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       {providerNeedsCloudPlan(formProvider, formUrl) && planLimits ? (
-                        /* Phase 119 Phase A: plan-tier dropdown for cloud providers */
+                        /* Plan-tier dropdown for cloud providers */
                         <div className="col-span-2">
                           <PlanDropdown
                             providerKey={mapProviderToTableKey(formProvider, formUrl)}
@@ -517,7 +517,7 @@ export function EndpointManager({
                         {testResults[ep.id].message}
                       </div>
                     )}
-                    {/* Phase 119 Phase C: empirical capacity probe.
+                    {/* Empirical capacity probe.
                         Cloud-only — local providers don't need it. */}
                     {providerNeedsCloudPlan(ep.provider, ep.url) && (
                       <div className="mt-3">
@@ -655,7 +655,7 @@ export function EndpointManager({
             </div>
             <div className="grid grid-cols-2 gap-3">
               {providerNeedsCloudPlan(formProvider, formUrl) && planLimits ? (
-                /* Phase 119 Phase A: plan-tier dropdown for cloud providers */
+                /* Plan-tier dropdown for cloud providers */
                 <div className="col-span-2">
                   <PlanDropdown
                     providerKey={mapProviderToTableKey(formProvider, formUrl)}

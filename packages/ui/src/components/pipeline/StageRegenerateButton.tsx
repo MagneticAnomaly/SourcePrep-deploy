@@ -16,10 +16,9 @@ export interface StageRegenerateButtonProps {
 }
 
 /**
- * Unified Regenerate button used across atlas / concepts / audit panels
- * (Phase 105b). The visual and disabled-state semantics are intentionally
- * the same everywhere so every stage's "re-run" affordance behaves
- * identically.
+ * Unified Regenerate button used across atlas / concepts / audit panels.
+ * The visual and disabled-state semantics are intentionally the same
+ * everywhere so every stage's "re-run" affordance behaves identically.
  *
  * The button itself is dumb — it only renders and fires onRegenerate.
  * Callers wire `useStageRegenerate` to the click handler.

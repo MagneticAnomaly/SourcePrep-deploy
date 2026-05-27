@@ -133,26 +133,24 @@ For all stories shipped publicly:
 ## 5. Action items
 
 ### 5.1 Build-time (this PR — pre-public-deploy)
-- [ ] Env-gate `autodocs: false` for the public build via `STORYBOOK_PUBLIC=true`.
-- [ ] Story-glob exclusions for the obvious internal-only set:
-  - `BugReportModal.stories.*`
-  - `EnterpriseAdminPanel.stories.*` (when it exists)
-  - `**/Phase 119*` story files (pending rename)
-- [ ] Re-audit `storybook-static/` after rebuild: `originalSource` count = 0, excluded story IDs absent from `stories.json`.
+- [x] Env-gate `autodocs: false` for the public build via `STORYBOOK_PUBLIC=true`. **Shipped 2026-05-07; see §6.**
+- [x] Story-glob exclusions for the obvious internal-only set — **shipped 2026-05-07/08; 24 stories filtered via regex in `.storybook/main.ts:24`.**
+- [x] Re-audit `storybook-static/` after rebuild — **shipped 2026-05-08 adversarial pass (§6.2). 465 → 274 entries; 11M → 8.3M.**
 
 ### 5.2 Curation (subsequent PRs)
-- [ ] Rename the four `Phase 119/` titles to their feature category.
-- [ ] Sweep 47 `// Phase NN:` comments in component source. Keep ones that document a non-obvious *why*; delete ones that just date the change.
-- [ ] Sanitize mock fixture data in stories shipped publicly:
-  - `RoadmapPanel` mock items → generic feature labels.
-  - `AuditPanel` mock findings → generic naming/coupling examples.
-  - `BugReportModal` mock log entries → noop (story is internal-only anyway).
-- [ ] Decide each Bucket C component: promote / archive / delete.
-- [ ] Add a story-tagging convention (e.g. `tags: ['internal']`) so the build glob is data-driven, not file-list-driven.
+- [~] Rename the four `Phase 119/` titles to their feature category. **MOOT — all `Phase 119/*` story files were excluded from public build in §6 instead of renamed; the only remaining `Phase 119` mention in any `.stories.tsx` is body content in `SidebarAIGateway.stories.tsx` which is itself excluded.**
+- [~] Sweep 47 `// Phase NN:` comments in component source. **Partial 2026-05-27:** the publicly-shipped components named in §6.1 (AtlasLensPanel, FullDashboard, FileExplorerDetail) plus `BarrierIndicator`, `StageRegenerateButton`, `EndpointManager` have been cleaned of `Phase NN` prefixes. Remaining: barrel-file comments in `components/index.ts` (don't render in Storybook Controls; lower priority) and excluded-component sources (don't ship publicly).
+- [~] Sanitize mock fixture data in stories shipped publicly:
+  - `RoadmapPanel` — **MOOT (excluded per §6)**
+  - `AuditPanel` — **MOOT (excluded per §6)**
+  - `BugReportModal` — **MOOT (excluded per §6)**
+  - `SiteFooter` — **fixed 2026-05-27** — `github.com/MagneticAnomaly/SourcePrep-MCP` → `github.com/sourceprep` placeholder.
+- [ ] Decide each Bucket C component: promote / archive / delete. **Investigation-mode, no clear action yet.**
+- [ ] Add a story-tagging convention (e.g. `tags: ['internal']`) so the build glob is data-driven, not file-list-driven. **Open.**
 
 ### 5.3 Docs-site coupling
-- [ ] List all `<StoryEmbed storyId="…">` references in `websites/apps/docs/`.
-- [ ] For each, confirm the underlying story is in Bucket A and survives renames.
+- [x] List all `<StoryEmbed storyId="…">` references in `websites/apps/docs/`. **MOOT — Phase 137 implementation pass deleted `StoryEmbed.tsx/.css` (commit `13e0bc4c`); all 29 in-page panel previews now use native React `<Demo*>` wrappers from `websites/apps/docs/src/components/demos.tsx`.**
+- [x] For each, confirm the underlying story is in Bucket A and survives renames. **MOOT — see above.**
 
 ---
 
