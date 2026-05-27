@@ -19,8 +19,8 @@ export default function ImmuneSystemPage() {
       description="Design decisions become runtime defenses. Record the 'why' behind your architecture, and SourcePrep enforces it automatically."
       badge="Unique"
       sections={SECTIONS}
-      docsUrl="https://docs.sourceprep.io/concepts/immune-system"
-      docsLabel="Concepts & antibodies guide"
+      docsUrl="https://docs.sourceprep.io/mcp"
+      docsLabel="prep_audit (antibodies action)"
     >
       {/* How It Works */}
       <section id="how">
@@ -199,12 +199,12 @@ export default function ImmuneSystemPage() {
           enforcement stay in sync automatically.
         </p>
         <a
-          href="https://docs.sourceprep.io/concepts/immune-system"
+          href="https://docs.sourceprep.io/mcp"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-background hover:bg-primary-hover transition-colors"
         >
-          Concepts &amp; antibodies guide <ArrowRight className="w-4 h-4" />
+          See <code className="bg-background/10 rounded px-1.5 py-0.5">prep_audit</code> antibodies in the MCP reference <ArrowRight className="w-4 h-4" />
         </a>
       </section>
     </DetailPageLayout>
