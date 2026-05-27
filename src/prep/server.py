@@ -972,7 +972,7 @@ def configure(
             ).fetchone()
             if _has_concepts:
                 logger.info(
-                    "Phase 96/F-36: migrating concepts from %s to %s",
+                    "Migrating concepts store from %s to %s",
                     db_path, _concept_store_db_path,
                 )
                 _concept_store.init(_concept_store_db_path)
@@ -1006,12 +1006,12 @@ def configure(
                     pass
                 _concept_store._conn.commit()
                 logger.info(
-                    "Phase 96/F-36: migrated %d concept rows", _migrated,
+                    "Migrated %d concept rows", _migrated,
                 )
             _src.close()
         except Exception as e:
             logger.warning(
-                "Phase 96/F-36: concept migration skipped: %s — "
+                "Concept migration skipped: %s — "
                 "starting with empty concepts.db", e,
             )
             try:
@@ -1038,7 +1038,7 @@ def configure(
         seed_system_concepts_for_all_projects()
     except Exception:
         logger.debug(
-            "Phase 119: system concept seeding failed (non-fatal)",
+            "System concept seeding failed (non-fatal)",
             exc_info=True,
         )
 
@@ -1055,7 +1055,7 @@ def configure(
     from prep.services.pipeline_orchestrator import pipeline_orchestrator as _pipeline
     crashed = _pipeline.startup_recovery()
     if crashed:
-        logger.warning("Phase 25: %d crashed pipeline run(s) detected on startup", len(crashed))
+        logger.warning("Detected %d crashed pipeline run(s) on startup", len(crashed))
 
     # Phase 114 follow-up: checkpoint GC at daemon startup.
     # The happy-path prune hook (run_completed) only fires on successful runs,

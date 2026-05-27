@@ -153,7 +153,7 @@ def seed_system_concepts_for_all_projects() -> int:
 
     if total:
         logger.info(
-            "Phase 119: seeded %d system concept(s) across %d project(s)",
+            "Seeded %d system concept(s) across %d project(s)",
             total, len(projects),
         )
     return total

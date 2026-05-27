@@ -611,7 +611,7 @@ class AutoRebuildWatcher:
                 stale_info = check_heartbeat_stale(idx_dir)
                 if stale_info:
                     logger.warning(
-                        "Phase 61B watchdog: Detected %s pipeline for %s "
+                        "Watchdog: detected %s pipeline for %s "
                         "(heartbeat_age=%.0fs) — resetting and re-triggering",
                         stale_info["status"], self.project_id,
                         stale_info.get("heartbeat_age_seconds", 0),
@@ -632,7 +632,7 @@ class AutoRebuildWatcher:
                         from prep.services.pipeline_orchestrator import pipeline_orchestrator
                         reset = pipeline_orchestrator.force_reset_stale_runs(self.project_id)
                         if reset:
-                            logger.info("Phase 61B watchdog: force-reset stale runs: %s", reset)
+                            logger.info("Watchdog: force-reset stale runs: %s", reset)
                     except Exception:
                         pass
 
@@ -643,11 +643,11 @@ class AutoRebuildWatcher:
                         pass
                 else:
                     logger.debug(
-                        "Phase 61B watchdog: Pipeline heartbeat OK for %s",
+                        "Watchdog: pipeline heartbeat OK for %s",
                         self.project_id,
                     )
             except Exception:
-                logger.debug("Phase 61B watchdog check failed", exc_info=True)
+                logger.debug("Watchdog: heartbeat check failed", exc_info=True)
 
         # Phase 72: Deep enrichment completion check.
         # If fast_sync is fully complete but deep enrichment has incomplete
@@ -706,7 +706,7 @@ class AutoRebuildWatcher:
                 return  # All done
 
             logger.info(
-                "Phase 72 selfheal: Deep enrichment incomplete for %s — "
+                "Selfheal: deep enrichment incomplete for %s — "
                 "%d/%d stages missing (%s). Auto-starting.",
                 pid, len(incomplete), len(DEEP_ENRICHMENT_STAGES),
                 ", ".join(s.value for s in incomplete),

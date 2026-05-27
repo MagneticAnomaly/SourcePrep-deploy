@@ -1279,7 +1279,7 @@ class MCPServer:
                 if _resolution.warning:
                     _scope_warning = _resolution.warning
             except Exception as _se:
-                logger.debug("Phase 120 scope filter failed in tool_context: %s", _se)
+                logger.debug("Scope filter failed in tool_context: %s", _se)
 
         result["applied_scope"] = _applied_scope
         result["applied_role"] = role

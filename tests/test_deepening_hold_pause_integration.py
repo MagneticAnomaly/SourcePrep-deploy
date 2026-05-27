@@ -213,3 +213,43 @@ def test_deepening_loop_pause_signals_via_progress_iteration_label(
     # The iteration beacon fires BEFORE work, so it goes through even
     # when iteration-1 pauses immediately.
     assert iter_events[0][1] == 0  # zero-indexed iteration counter
+
+
+def test_deepening_loop_threaded_branch_pauses_cleanly(
+    monkeypatch, tmp_path
+) -> None:
+    """Threaded branch: concurrency > 1 → enrich_node runs on llm_pool;
+    HoldPausedError raised inside a future must bubble out of
+    future.result() and be caught at the iteration-level boundary
+    (deepening.py:559), the iteration cancels pending futures, and
+    loop.run() returns a paused-aware result without raising.
+    """
+    # Force the threaded path.
+    monkeypatch.setattr("prep.core.deepening._get_llm_concurrency", lambda _stage: 4)
+
+    enricher = _FakePausingEnricher(raise_on_call=1)
+    loop = DeepeningLoop(
+        enricher=enricher,
+        index_dir=tmp_path,
+        max_iterations=3,
+        batch_size=10,
+        project_id="proj-test",
+    )
+    cb, events = _progress_recorder()
+    result = loop.run(progress_callback=cb)
+
+    assert isinstance(result, DeepeningResult)
+    # We paused inside iteration 1 — the loop records iterations=1 and
+    # does not progress to the convergence-check phase that bumps it
+    # further.
+    assert result.iterations == 1, (
+        f"expected iterations=1 (paused mid-iteration-1), got {result.iterations}"
+    )
+    # Checkpoint persisted even on the threaded branch — the iteration
+    # falls through to _write_epistemic and the pause-break block.
+    assert enricher.write_calls, "expected _write_epistemic to be called on threaded pause"
+    # No "deepening_complete" beacon on a paused run.
+    complete_events = [e for e in events if e[0] == "deepening_complete"]
+    assert not complete_events, (
+        f"deepening_complete must not fire on paused run, got {complete_events}"
+    )
