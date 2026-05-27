@@ -128,6 +128,14 @@ class PipelineOrchestrator:
                         )
             except Exception:
                 logger.debug("Phase 91: Drain timeout check failed", exc_info=True)
+            # P127-F1: piggyback an orphan-hold sweep on the same tick.
+            # Cheap (single dict scan) and covers the scenario where a
+            # close_swarm_window / set_priority(none) bug-path left a
+            # hold stamped without its backing state.
+            try:
+                pipeline_scheduler.sweep_stale_holds()
+            except Exception:
+                logger.debug("P127-F1: stale-hold sweep failed", exc_info=True)
             # Reschedule if swarm window is still active
             if pipeline_scheduler.is_swarm_window_active():
                 strong_self._drain_timer = threading.Timer(30.0, _check)

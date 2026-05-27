@@ -868,6 +868,68 @@ class PipelineScheduler:
                 for k, v in self._holds.items()
             ]
 
+    def sweep_stale_holds(self, grace_s: float = 300.0) -> List[str]:
+        """Clear orphan holds whose backing state is gone and whose age
+        exceeds drain_timeout + grace.
+
+        A non-"manual" hold is considered orphan when its provenance no
+        longer exists:
+
+          - ``reason="exclusive"`` — set_by_project is not currently in
+            exclusive mode (the canonical clear path set_priority(P,"none")
+            never ran).
+          - ``reason="swarm"`` — no swarm window is owned by set_by_project
+            (close_swarm_window() never ran).
+          - ``reason="manual"`` — reserved for tests / admin tooling;
+            never auto-cleared by this sweep.
+
+        The age guard (drain_timeout + grace) is the safety net: the
+        natural clear path runs immediately on close_swarm_window /
+        set_priority(none), so by the time a hold is older than this
+        threshold and still unbacked, the clear path has either failed
+        to run or been bypassed by a bug.
+
+        Returns a list of cleared hold identifiers in the form
+        ``"<project_id>@<endpoint_id>(<reason>)"`` for logging.
+        """
+        cutoff = self._drain_timeout_seconds + grace_s
+        now = time.time()
+        cleared: List[str] = []
+        with self._lock:
+            for key, entry in list(self._holds.items()):
+                if entry.reason == "manual":
+                    continue
+                if now - entry.held_since < cutoff:
+                    continue
+                if self._hold_has_backing_state(entry):
+                    continue
+                cleared.append(
+                    f"{key.project_id}@{key.endpoint_id}({entry.reason})"
+                )
+                del self._holds[key]
+        if cleared:
+            logger.warning(
+                "Scheduler: swept %d stale hold(s) (>%ds old, no backing state): %s",
+                len(cleared), int(cutoff), ", ".join(cleared),
+            )
+        return cleared
+
+    def _hold_has_backing_state(self, entry: HoldEntry) -> bool:
+        """Return True if ``entry``'s provenance still exists.
+
+        Caller must hold ``self._lock``.  Sweep predicate split out so
+        the orphan rule stays in one place and tests can target it.
+        """
+        if entry.reason == "exclusive":
+            return self._priority_projects.get(entry.set_by_project) == "exclusive"
+        if entry.reason == "swarm":
+            return (
+                self._swarm_window is not None
+                and self._swarm_window.get("project_id") == entry.set_by_project
+            )
+        # "manual" — caller filters these out; defensive default = backed.
+        return True
+
     def record_throughput(
         self,
         node_id: str,
