@@ -1,5 +1,5 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { DemoFolderTreePathWeights } from '../../../components/demos';
 
 export default function Page() {
   return (
@@ -74,13 +74,11 @@ export default function Page() {
             inline.
           </p>
 
-          <div className="my-6 rounded-lg overflow-hidden border border-border">
-            <StoryEmbed
-              storyId="dashboard-project-foldertreepanel--scope-panel-with-path-weights"
-              height={500}
-              title="Knowledge Scope — Path Weights"
-              caption="Path-weight controls. src/core is boosted (×1.5), src/utils and tests are suppressed (×0.7 and ×0.3), docs/README.md is boosted (×1.8). Child files show inherited weights in italic."
-            />
+          <div className="not-prose">
+            <DemoFolderTreePathWeights />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Path-weight controls. <code>src/core</code> is boosted (×1.5), <code>src/utils</code> and <code>tests</code> are suppressed (×0.7 and ×0.3), <code>docs/README.md</code> is boosted (×1.8). Child files show inherited weights in italic.
+            </p>
           </div>
 
           <p className="mt-4 text-text-muted leading-relaxed">

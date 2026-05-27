@@ -1,6 +1,6 @@
 import { Image as ImageIcon } from 'lucide-react';
 import { AnchorHeading } from '../../../components/AnchorHeading';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { DemoFolderTreeKnowledgeScope } from '../../../components/demos';
 
 export default function Page() {
   return (
@@ -83,13 +83,11 @@ export default function Page() {
             has a checkbox. Checked items are in scope; unchecked items are excluded.
           </p>
 
-          <div className="not-prose my-6">
-            <StoryEmbed
-              storyId="dashboard-project-foldertreepanel--scope-panel-named-populated"
-              height={500}
-              title="Knowledge Scope panel"
-              caption="The Knowledge Scope panel — toggle files and folders into your codebase knowledge, with optional per-path weights."
-            />
+          <div className="not-prose">
+            <DemoFolderTreeKnowledgeScope />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              The Knowledge Scope panel — toggle files and folders into your codebase knowledge, with optional per-path weights.
+            </p>
           </div>
 
           <ul className="mt-4 space-y-2 text-sm text-text-muted list-disc pl-5">

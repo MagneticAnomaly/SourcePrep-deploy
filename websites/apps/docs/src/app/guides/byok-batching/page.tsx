@@ -1,5 +1,5 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { DemoEndpointManager } from '../../../components/demos';
 
 export default function Page() {
   return (
@@ -124,13 +124,11 @@ export default function Page() {
             it in <span className="font-semibold text-text">Settings &gt; AI Models</span> if needed.
           </p>
 
-          <div className="not-prose my-8">
-            <StoryEmbed
-              storyId="dashboard-llm-endpointmanager--interactive"
-              height={400}
-              title="Endpoint Manager"
-              caption="Live preview: Configure BYOK endpoints for OpenAI, Anthropic, Google, and custom providers."
-            />
+          <div className="not-prose">
+            <DemoEndpointManager />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Live preview: Configure BYOK endpoints for OpenAI, Anthropic, Google, and custom providers.
+            </p>
           </div>
 
           <AnchorHeading id="benefits" level="h2">Benefits</AnchorHeading>

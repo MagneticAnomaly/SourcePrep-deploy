@@ -1,6 +1,6 @@
 import { AnimatedCLI, prepOverviewDemo } from '../../../components/cli-demos';
 import { AnchorHeading } from '../../../components/AnchorHeading';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { DemoAgentOpsActive } from '../../../components/demos';
 
 export default function Page() {
   return (
@@ -174,13 +174,11 @@ export default function Page() {
             </table>
           </div>
 
-          <div className="not-prose my-8">
-            <StoryEmbed
-              storyId="dashboard-agents-agentopspanel--active"
-              height={400}
-              title="Agent Operations Panel"
-              caption="Live preview: The three SourcePrep agents (HR, Researcher, Custodian) with managed employee badges."
-            />
+          <div className="not-prose">
+            <DemoAgentOpsActive />
+            <p className="text-xs text-text-subtle italic -mt-2 mb-4">
+              Live preview: The three SourcePrep agents (HR, Researcher, Custodian) with managed employee badges.
+            </p>
           </div>
 
           <AnchorHeading id="ui" level="h2">Dashboard Extensions</AnchorHeading>

@@ -1,6 +1,6 @@
 import { AnimatedCLI, prepTldrOverviewDemo } from '../../components/cli-demos';
 import { AnchorHeading } from '../../components/AnchorHeading';
-import { StoryEmbed } from '../../components/StoryEmbed';
+import { DemoSearchPanel, DemoIndexStatusLoaded, DemoAgentOpsActive } from '../../components/demos';
 
 export default function Page() {
   return (
@@ -119,22 +119,25 @@ export default function Page() {
             These are live, interactive previews of the SourcePrep dashboard panels your agents interact with.
           </p>
 
-          <div className="grid gap-6 mt-6">
-            <StoryEmbed
-              storyId="dashboard-search-searchpanel--default"
-              height={280}
-              caption="Semantic Search Panel — find code by meaning, not keywords"
-            />
-            <StoryEmbed
-              storyId="dashboard-index-indexstatuscard--loaded"
-              height={220}
-              caption="Knowledge Status — real-time view of your codebase knowledge"
-            />
-            <StoryEmbed
-              storyId="dashboard-agents-agentopspanel--active"
-              height={380}
-              caption="Agent Operations Panel — the cross-cutting view of which MCP-aware agents are using your index right now."
-            />
+          <div className="grid gap-6 mt-6 not-prose">
+            <div>
+              <DemoSearchPanel />
+              <p className="text-xs text-text-subtle italic -mt-4">
+                Semantic Search Panel — find code by meaning, not keywords.
+              </p>
+            </div>
+            <div>
+              <DemoIndexStatusLoaded />
+              <p className="text-xs text-text-subtle italic -mt-4">
+                Knowledge Status — real-time view of your codebase knowledge.
+              </p>
+            </div>
+            <div>
+              <DemoAgentOpsActive />
+              <p className="text-xs text-text-subtle italic -mt-4">
+                Agent Operations Panel — the cross-cutting view of which MCP-aware agents are using your index right now.
+              </p>
+            </div>
           </div>
         </div>
       </div>

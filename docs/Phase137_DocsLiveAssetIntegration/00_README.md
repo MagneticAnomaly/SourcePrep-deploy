@@ -1,12 +1,23 @@
 # Phase 137 — Docs Live Asset Integration
 
 > **Origin date:** 2026-05-14
-> **Last updated:** 2026-05-14 (night) — post-Phase-132 desk completion
+> **Last updated:** 2026-05-27 — Phase 138 landed, implementation pass committed
 > **Source:** Phase 132 (docs behavioral fidelity) noticed live `<StoryEmbed>`
 > iframes were 404-ing on the production docs site (`docs.sourceprep.io`).
-> **Status:** Tech fix landed locally (not yet pushed). Phase 132 desk work
-> COMPLETE. Page audit ready to start — but see new dependency on Phase 138
-> below. Animation showcase strategy added as `05_animation_showcase_strategy.md`.
+>
+> **Status (2026-05-27):**
+> - ✅ Page audit complete (24 pages in `03_page_audit.md`)
+> - ✅ Placement matrix populated and shipped (29 embeds wired across 13 pages)
+> - ✅ Pre-existing `<StoryEmbed>` iframe wrapper deprecated and removed —
+>   replaced by native React `<Demo*>` wrappers in `demos.tsx`. The
+>   iframe-404 production bug becomes moot for these embeds since they no
+>   longer go through `storybook.sourceprep.io`.
+> - ✅ Phase 138 (Concepts → How It Works rename) landed; URL re-key swept.
+> - ⏸ **P137-T1 netlify env-var push** — gated on user signal per
+>   `feedback_explicit_push_only.md`. Only matters for any remaining
+>   iframe-based embeds (none in `src/app/` after the demos.tsx migration).
+> - ⏸ **Visual regression sweep** — dev-server walkthrough, manual.
+> - ⏸ **8 gap-list follow-up tickets** — file under future phase.
 
 ## Why this phase exists
 

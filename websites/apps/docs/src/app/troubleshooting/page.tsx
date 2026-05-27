@@ -1,6 +1,6 @@
 import { AnimatedIDE, ideDoubleSubmitFixDemo } from '../../components/cli-demos';
 import { AnchorHeading } from '../../components/AnchorHeading';
-import { StoryEmbed } from '../../components/StoryEmbed';
+import { DemoLogConsolePipeline } from '../../components/demos';
 
 export default function Page() {
   return (
@@ -141,14 +141,10 @@ export default function Page() {
 
           <AnchorHeading id="performance" level="h2" className="mt-12">Performance</AnchorHeading>
 
-          <div className="my-6 rounded-lg overflow-hidden border border-border">
-            <StoryEmbed
-              storyId="dashboard-console-logconsole--pipeline-run"
-              height={380}
-              title="Log Console"
-              caption="The Log Console (Settings → Diagnostics) — most performance issues surface as warnings here before anything else."
-            />
-          </div>
+          <DemoLogConsolePipeline />
+          <p className="text-xs text-text-subtle italic -mt-2 mb-4">
+            The Log Console (Settings → Diagnostics) — most performance issues surface as warnings here before anything else.
+          </p>
 
           <div className="space-y-6">
             <div className="border border-border rounded-lg p-6 bg-surface">

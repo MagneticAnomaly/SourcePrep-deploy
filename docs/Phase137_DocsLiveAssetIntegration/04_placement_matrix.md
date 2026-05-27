@@ -3,14 +3,18 @@
 > **Status:** Populated 2026-05-14 from `03_page_audit.md`. Engineering
 > hand-off doc. Captions and detailed reasoning live in `03_page_audit.md`;
 > this file is the cross-cutting view.
-> **Implementation pass landed 2026-05-14 (local).** All 13 placements wired
-> in code; `next build` + `tsc --noEmit` both clean. Not yet committed or
-> pushed. The 2 new Path-B iframes (`/how-it-works/graph-enrichment`,
-> `/guides/path-weights`) need the netlify env-var push (see `01_tech_fix.md`)
-> before they render on production. Path-A native-React animations work
-> regardless of the push.
-> **URL re-keying:** rows tagged ★ move under the renamed Concepts section
-> when Phase 138 lands. Mechanical move — entries don't otherwise change.
+>
+> **Implementation pass SHIPPED 2026-05-27 (commit pending — Lane A).**
+> All 29 placements wired across the in-scope pages. `<StoryEmbed>` iframe
+> wrapper deprecated and deleted; replaced by 24 native React `<Demo*>`
+> wrappers in `websites/apps/docs/src/components/demos.tsx`. `next build`
+> green; `tsc --noEmit` clean. Both `mcp/ides` and `mcp/terminal` also
+> received `"use client"` directives in a follow-up commit so they could
+> import `MCP_TOOLS` from the `@prep/ui` client bundle without the webpack
+> server-component error.
+>
+> **Phase 138 URL re-key complete:** rows tagged ★ now live under
+> `/how-it-works/`. Mechanical sweep; placement decisions carry over.
 
 ## Deep-think densification pass (2026-05-14 evening)
 
@@ -87,35 +91,35 @@ heights live there; this doc is for the cross-cutting view.
 | Page | Asset(s) | Location on page | Story ID / script | Path | Status |
 |---|---|---|---|---|---|
 | `/` | NONE | — | — | — | ❌ punted (hero off-limits + card grid suffices) |
-| `/getting-started` | `<AnimatedCLI>` (swap existing iframe) | After step 2 "Launch the App" (`#start-daemon`) | `prepTldrOverviewDemo` | A | 🟡 swap+refresh |
-| `/getting-started` | `<AnimatedCLI>` (new, optional) | After step 6 "Run a quick audit" (`#audit`) | `auditPrSanityCheckDemo` | A | 🟡 add if page rhythm allows |
+| `/getting-started` | `<AnimatedCLI>` (swap existing iframe) | After step 2 "Launch the App" (`#start-daemon`) | `prepTldrOverviewDemo` | A | ✅ shipped (swap landed) |
+| `/getting-started` | `<AnimatedCLI>` (new, optional) | After step 6 "Run a quick audit" (`#audit`) | `auditPrSanityCheckDemo` | A | ✅ shipped |
 | `/getting-started/installation` | NONE | — | — | — | ❌ punted (install steps = screenshot territory, out of scope) |
-| `/getting-started/quick-start` | `<AnimatedCLI>` | After step 1 in `#five-minute-guide` | `prepTldrOverviewDemo` | A | 🟡 add |
-| `/mcp` | `<StoryEmbed>` × 2 (existing) | Under `#live-preview` | `dashboard-search-searchpanel--default`, `dashboard-index-indexstatuscard--loaded` | B | 🟡 verify keeps |
-| `/mcp` | `<AnimatedCLI>` (new) | After the tools-reference table (`#tools-reference`) | `prepTldrOverviewDemo` | A | 🟡 add |
-| `/mcp/ides` | `<AnimatedIDE>` (swap existing iframe) | Under `#setup` | `ideAddCsvExportDemo` | A | 🟡 swap |
-| `/mcp/terminal` | `<AnimatedCLI>` | Under `#setup`, before first CLI config block | `prepSearchDemo` | A | 🟡 add (medium confidence — verify in preview) |
-| `/mcp/paperclip` | `<StoryEmbed>` (existing) | Under `#ui` | `dashboard-agents-agentopspanel--active` | B | 🟡 verify keeps |
+| `/getting-started/quick-start` | `<AnimatedCLI>` | After step 1 in `#five-minute-guide` | `prepTldrOverviewDemo` | A | ✅ shipped |
+| `/mcp` | `<StoryEmbed>` × 2 (existing) | Under `#live-preview` | `dashboard-search-searchpanel--default`, `dashboard-index-indexstatuscard--loaded` | B | ✅ shipped (verify in dev-server walkthrough) |
+| `/mcp` | `<AnimatedCLI>` (new) | After the tools-reference table (`#tools-reference`) | `prepTldrOverviewDemo` | A | ✅ shipped |
+| `/mcp/ides` | `<AnimatedIDE>` (swap existing iframe) | Under `#setup` | `ideAddCsvExportDemo` | A | ✅ shipped (swap landed; page also got `"use client"` so MCP_TOOLS import works) |
+| `/mcp/terminal` | `<AnimatedCLI>` | Under `#setup`, before first CLI config block | `prepSearchDemo` | A | ✅ shipped (page also got `"use client"` so MCP_TOOLS import works) |
+| `/mcp/paperclip` | `<StoryEmbed>` (existing) | Under `#ui` | `dashboard-agents-agentopspanel--active` | B | ✅ shipped (verify in dev-server walkthrough) |
 | `/how-it-works/indexing` ★ | NONE | — | — | — | ❌ punted; 🔵 gap flagged for "indexing-in-progress" panel (low priority) |
-| `/how-it-works/code-graph` ★ | `<StoryEmbed>` (existing) | Under `#visualization` | `dashboard-trace-graph--default` | B | 🟡 verify keeps |
-| `/how-it-works/code-graph` ★ | `<AnimatedCLI>` (new) | After numbered list under `#usage` | `impactExtractServiceDemo` | A | 🟡 add |
-| `/how-it-works/graph-enrichment` ★ | `<StoryEmbed>` (new) | After `#journey` overview, before Sync stage cards | `dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running` | B | 🟡 add — **highest-value new embed; 05 worksheet said "existing" but it isn't on this page** |
-| `/how-it-works/context` ★ | `<AnimatedCLI>` (new) | After `#formatting`, before `#ui-controls` | `prepTldrOverviewDemo` | A | 🟡 add |
-| `/cli` | `<AnimatedCLI>` (swap existing iframe) | Under `#common-workflows` | `prepSearchDemo` | A | 🟡 swap |
-| `/dashboard` | `<StoryEmbed>` × 6 (existing) | `#overview`, `#adding-panels`, `#index-status`, `#code-graph-coverage`, `#pipeline`, `#search-context` | `dashboard-layouts-fulldashboard--full-dashboard`, `patterns-panelpicker--default`, `dashboard-index-indexstatuscard--loaded`, `dashboard-trace-coveragepanel--default`, `dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running`, `dashboard-search-searchpanel--full-search-demo` | B | 🟡 verify keeps |
+| `/how-it-works/code-graph` ★ | `<StoryEmbed>` (existing) | Under `#visualization` | `dashboard-trace-graph--default` | B | ✅ shipped (verify in dev-server walkthrough) |
+| `/how-it-works/code-graph` ★ | `<AnimatedCLI>` (new) | After numbered list under `#usage` | `impactExtractServiceDemo` | A | ✅ shipped |
+| `/how-it-works/graph-enrichment` ★ | `<StoryEmbed>` (new) | After `#journey` overview, before Sync stage cards | `dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running` | B | ✅ shipped — **highest-value new embed; 05 worksheet said "existing" but it isn't on this page** |
+| `/how-it-works/context` ★ | `<AnimatedCLI>` (new) | After `#formatting`, before `#ui-controls` | `prepTldrOverviewDemo` | A | ✅ shipped |
+| `/cli` | `<AnimatedCLI>` (swap existing iframe) | Under `#common-workflows` | `prepSearchDemo` | A | ✅ shipped (swap landed) |
+| `/dashboard` | `<StoryEmbed>` × 6 (existing) | `#overview`, `#adding-panels`, `#index-status`, `#code-graph-coverage`, `#pipeline`, `#search-context` | `dashboard-layouts-fulldashboard--full-dashboard`, `patterns-panelpicker--default`, `dashboard-index-indexstatuscard--loaded`, `dashboard-trace-coveragepanel--default`, `dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running`, `dashboard-search-searchpanel--full-search-demo` | B | ✅ shipped (verify in dev-server walkthrough) |
 | `/how-it-works/embeddings` ★ | NONE | — | — | — | ❌ punted (selection guide; no fitting asset) |
 | `/guides/audit-enrichment` | NONE (pending gap) | — | — | — | 🔵 gap — wants `prep_audit(findings=...)` enrichment animation (medium priority) |
-| `/guides/codebase-audit` | `<StoryEmbed>` × 2 (existing) | `#overview`, `#pipeline-connection` | `dashboard-audit-auditpanel--with-findings`, `dashboard-audit-opportunitiespanel--with-opportunities` | B | 🟡 verify keeps |
-| `/guides/codebase-audit` | `<AnimatedCLI>` (new) | After `cli` subsection (h3) within `#quick-start` | `auditPrSanityCheckDemo` | A | 🟡 add |
-| `/how-it-works/smart-search` ★ | `<AnimatedCLI>` × 2–3 (new) | Within `#intents` paired with LOCATE + RATIONALE; optionally after `#evaluation-order` | `searchRetryReuseDemo`, `conceptsTransactionRuleDemo`, optional `searchMaxConnectionsDemo` | A | 🟡 add — multi-animation outlier; 🔵 gap for routing-comparison script may collapse this to one |
+| `/guides/codebase-audit` | `<StoryEmbed>` × 2 (existing) | `#overview`, `#pipeline-connection` | `dashboard-audit-auditpanel--with-findings`, `dashboard-audit-opportunitiespanel--with-opportunities` | B | ✅ shipped (verify in dev-server walkthrough) |
+| `/guides/codebase-audit` | `<AnimatedCLI>` (new) | After `cli` subsection (h3) within `#quick-start` | `auditPrSanityCheckDemo` | A | ✅ shipped |
+| `/how-it-works/smart-search` ★ | `<AnimatedCLI>` × 2–3 (new) | Within `#intents` paired with LOCATE + RATIONALE; optionally after `#evaluation-order` | `searchRetryReuseDemo`, `conceptsTransactionRuleDemo`, optional `searchMaxConnectionsDemo` | A | ✅ shipped — multi-animation outlier; 🔵 gap for routing-comparison script may collapse this to one |
 | `/how-it-works/compression` ★ | NONE | — | — | — | ❌ punted (technical reference; tables carry it) |
 | `/guides/concurrency-discovery` | NONE | — | — | — | ❌ punted (operational/FAQ; animation distracts) |
-| `/guides/path-weights` | `<StoryEmbed>` (new, replaces placeholder) | Under `#using-the-dashboard` | `dashboard-project-foldertreepanel--scope-panel-named-populated` (verify shows weight badges) | B | 🟡 add; 🔵 gap if scope variant doesn't show badges |
-| `/guides/path-weights` | `<AnimatedCLI>` (optional) | After `#how-it-works`, before dashboard section | `searchBuildWorkerDemo` | A | 🟡 add only if preview shows value (low confidence) |
-| `/guides/knowledge-scope` | `<StoryEmbed>` (existing) | Under `#using-the-dashboard` | `dashboard-project-foldertreepanel--scope-panel-named-populated` | B | 🟡 verify keeps |
-| `/guides/byok-batching` | `<StoryEmbed>` (existing) | Under `#how-batching-works` | `dashboard-llm-endpointmanager--interactive` | B | 🟡 verify keeps; 🔵 gap for future cost-banner panel (low priority) |
-| `/guides/models` | `<StoryEmbed>` (existing) | Under `#model-slots` | `dashboard-llm-aimodelssettings--default` | B | 🟡 verify keeps |
-| `/guides/team-sync` | `<StoryEmbed>` (existing) | Under `#how-it-works` | `dashboard-team-syncstatuscard--up-to-date` | B | 🟡 verify keeps; further work deferred (external-repo dependency) |
+| `/guides/path-weights` | `<DemoFolderTreePathWeights>` (replaces placeholder) | Under `#using-the-dashboard` | path-weights-specific variant (page-tailored, supersedes original `scope-panel-named-populated` storyId) | A | ✅ shipped (implementer chose a dedicated demo variant over the generic story — better fit) |
+| `/guides/path-weights` | `<AnimatedCLI>` (optional) | After `#how-it-works`, before dashboard section | `searchBuildWorkerDemo` | A | ⏸ deferred (low-confidence optional add; flagged for dev-server walkthrough decision) |
+| `/guides/knowledge-scope` | `<StoryEmbed>` (existing) | Under `#using-the-dashboard` | `dashboard-project-foldertreepanel--scope-panel-named-populated` | B | ✅ shipped (verify in dev-server walkthrough) |
+| `/guides/byok-batching` | `<StoryEmbed>` (existing) | Under `#how-batching-works` | `dashboard-llm-endpointmanager--interactive` | B | ✅ shipped (verify in dev-server walkthrough); 🔵 gap for future cost-banner panel (low priority) |
+| `/guides/models` | `<StoryEmbed>` (existing) | Under `#model-slots` | `dashboard-llm-aimodelssettings--default` | B | ✅ shipped (verify in dev-server walkthrough) |
+| `/guides/team-sync` | `<StoryEmbed>` (existing) | Under `#how-it-works` | `dashboard-team-syncstatuscard--up-to-date` | B | ✅ shipped (verify in dev-server walkthrough); further work deferred (external-repo dependency) |
 | `/how-it-works/dynamic-model-loading` ★ | NONE | — | — | — | ❌ punted (informational; local LLMs secondary path) |
 | `/search` | NONE | — | — | — | ❌ punted (page is itself an interactive UI) |
 | `/troubleshooting` | NONE | — | — | — | ❌ punted (text-heavy reference); 🔵 gap for `BugReportModal` placement (defer — needs copy work) |

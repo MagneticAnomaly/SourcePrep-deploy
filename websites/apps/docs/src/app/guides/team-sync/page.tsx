@@ -1,5 +1,5 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { DemoSyncStatusUpToDate } from '../../../components/demos';
 
 export const metadata = {
   title: 'Team Sync Guide — SourcePrep Docs',
@@ -40,13 +40,11 @@ export default function Page() {
           <li><strong>Delta only:</strong> When a developer edits files locally, SourcePrep enriches only those files using their local LLM or BYOK API key. The rest of the graph comes from the shared index.</li>
         </ol>
 
-        <div className="not-prose my-8">
-          <StoryEmbed
-            storyId="dashboard-team-syncstatuscard--up-to-date"
-            height={200}
-            title="Team Sync Status"
-            caption="Live preview: The Sync Status Card showing a synced team index with commit hash and last-synced timestamp."
-          />
+        <div className="not-prose">
+          <DemoSyncStatusUpToDate />
+          <p className="text-xs text-text-subtle italic -mt-4">
+            Live preview: The Sync Status Card showing a synced team index with commit hash and last-synced timestamp.
+          </p>
         </div>
 
         <p className="mt-4 text-text-muted">Two Docker image variants are available:</p>
