@@ -198,7 +198,7 @@ export interface ApiClient {
   runPipelineAll(projectId: string): Promise<{ started: boolean; group: string }>;
   rebuildPipeline(projectId: string): Promise<{ started: boolean; group: string; mode: string }>;
   rebuildPipelineStop(projectId: string): Promise<{ stopped: boolean; was_active: boolean; cancelled: boolean }>;
-  /** Phase 117: last completed duration (seconds) for each rebuild scope. Null when no history. */
+  /** last completed duration (seconds) for each rebuild scope. Null when no history. */
   getLastRebuildDuration(projectId: string): Promise<{ sync: number | null; enrichment: number | null; all: number | null }>;
   getPipelineStatus(projectId: string): Promise<PipelineStatus>;
   cancelPipeline(projectId: string, group: string): Promise<{ cancelled: boolean; group: string }>;
@@ -215,16 +215,16 @@ export interface ApiClient {
   // Pipeline Provenance (Phase 49)
   getPipelineProvenance(projectId: string): Promise<import('../types').PipelineProvenance>;
 
-  // Codebase Atlas (Phase 29, extended Phase 104)
+  // Codebase Atlas 
   getAtlas(projectId: string, role?: string): Promise<import('../types').AtlasStatus>;
 
-  // Pipeline stage triggers (Phase 105a)
+  // Pipeline stage triggers
   runPipelineStage(projectId: string, stageId: string, opts?: { force?: boolean }): Promise<{ started: boolean; group: string }>;
 
-  // Built-in Roles (Phase 104)
+  // Built-in Roles
   listBuiltinRoles(): Promise<{ roles: import('../types').RoleVectorPayload[]; count: number }>;
 
-  // Role Overrides (Phase 104)
+  // Role Overrides
   listRoleOverrides(projectId: string): Promise<{ overrides: import('../types').RoleOverride[]; count: number }>;
   getRoleOverride(projectId: string, roleId: string): Promise<{ override: import('../types').RoleOverride | null }>;
   putRoleOverride(projectId: string, roleId: string, body: { max_chars?: number | null }): Promise<{ override: import('../types').RoleOverride }>;
@@ -296,7 +296,7 @@ export interface ApiClient {
   removeScopeFiles(projectId: string, paths: string[]): Promise<any>;
   triggerScopeRebuild(projectId: string): Promise<any>;
 
-  // AutoAudit (Phase 43 — triggerAudit removed Phase 105b; use
+  // AutoAudit (triggerAudit removed; use
   // runPipelineStage(projectId, 'audit', {force: true}) instead)
   getAuditStatus(projectId: string): Promise<import('../types').AuditStatus>;
   getAuditFindings(projectId: string, opts?: { severity?: string; category?: string; limit?: number }): Promise<{ finding_count: number; total_finding_count: number; severity_counts: Record<string, number>; findings: import('../types').AuditFinding[] }>;
@@ -379,11 +379,11 @@ export interface ApiClient {
   unlinkIssue(projectId: string, nodeId: string, issueId: string): Promise<{ unlinked: boolean }>;
   generateBriefing(projectId: string, nodeId: string, scope?: 'module' | 'file'): Promise<{ briefing: string }>;
 
-  // Per-stage restore (Phase 114)
+  // Per-stage restore
   listStageBackups(projectId: string, stageId: string, signal?: AbortSignal): Promise<import('../types').StageBackupsResponse>;
   restoreStageFromSnapshot(projectId: string, stageId: string, snapshotId: string): Promise<import('../types').StageRestoreResponse>;
 
-  // Pipeline health (Phase 114)
+  // Pipeline health
   getPipelineHealth(projectId: string, signal?: AbortSignal): Promise<import('../types').PipelineHealth>;
   clearResetBarrier(projectId: string): Promise<{ cleared: boolean; previous_reason: string | null }>;
 
@@ -1404,13 +1404,13 @@ export class PrepApiClient implements ApiClient {
     );
   }
 
-  // ── Built-in Roles (Phase 104) ─────────────────────────────────
+  // ── Built-in Roles ─────────────────────────────────
 
   async listBuiltinRoles(): Promise<{ roles: import('../types').RoleVectorPayload[]; count: number }> {
     return this.requestEnvelope('/roles');
   }
 
-  // ── Role Overrides (Phase 104) ─────────────────────────────────
+  // ── Role Overrides ─────────────────────────────────
 
   async listRoleOverrides(
     projectId: string,
@@ -1583,7 +1583,7 @@ export class PrepApiClient implements ApiClient {
     });
   }
 
-  // AutoAudit (Phase 43 — triggerAudit removed Phase 105b; audit runs
+  // AutoAudit (triggerAudit removed; audit runs
   // route through POST /pipeline/stages/audit/run via runPipelineStage)
 
   async getAuditStatus(projectId: string): Promise<import('../types').AuditStatus> {
@@ -1919,7 +1919,7 @@ export class PrepApiClient implements ApiClient {
     return this.requestEnvelope<{ entries: any[] }>(`/projects/${projectId}/agents/custodian/manifest`);
   }
 
-  // ── Per-stage restore (Phase 114) ─────────────────────────────
+  // ── Per-stage restore ─────────────────────────────
 
   async listStageBackups(
     projectId: string,

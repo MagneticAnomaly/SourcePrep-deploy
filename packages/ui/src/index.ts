@@ -87,12 +87,12 @@ export type {
   ServerMode,
   TeamConfig,
   TeamConfigStatus as TeamConfigStatusType,
-  // Phase 114 — per-stage restore
+  // per-stage restore
   StageBackupKind,
   StageBackup,
   StageBackupsResponse,
   StageRestoreResponse,
-  // Phase 117 — scoped rebuild
+  // scoped rebuild
   RebuildScope,
   // Phase 120 — named scopes
   ScopeRecord,
@@ -211,11 +211,11 @@ export type { TraceNode as TraceGraphNode, TraceEdge as TraceGraphEdge } from '.
 export type { TraceNode, TraceEdge } from './types';
 export type { BarrierStatus } from './types';
 
-// Components - Pipeline (Phase 105b — unified stage controls)
+// Components - Pipeline (unified stage controls)
 export { StageRegenerateButton } from './components/pipeline';
 export type { StageRegenerateButtonProps } from './components/pipeline';
 
-// Components - Pipeline health badge (Phase 114)
+// Components - Pipeline health badge
 export { HealthBadge, computeHealthSummary } from './components/pipeline/HealthBadge';
 export type { HealthBadgeProps, HealthSummary } from './components/pipeline/HealthBadge';
 export type { PipelineHealth, StageHealth } from './types';

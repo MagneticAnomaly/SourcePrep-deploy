@@ -7,7 +7,7 @@ export interface BudgetSliderProps {
   value: number;
   /** Built-in default for this role — shown as a tick mark. */
   defaultValue: number;
-  /** Global ceiling (Phase 103 suggests 8000 cold-start limit). */
+  /** Global ceiling (Recommended ceiling: 8000 cold-start limit). */
   ceiling?: number;
   /** Hard min enforced by the API (200). */
   floor?: number;

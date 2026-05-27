@@ -43,7 +43,7 @@ const MOCK_STATUS = {
 export class MockApiClient implements ApiClient {
   public readonly baseUrl = 'mock://local';
 
-  // Phase 114: mock barrier state lifecycle — starts active so Storybook demos
+  // mock barrier state lifecycle — starts active so Storybook demos
   // render BarrierIndicator by default; `clearResetBarrier` flips it off and
   // subsequent `getPipelineHealth` / status calls reflect the change.
   private _barrierActive = true;
@@ -621,7 +621,7 @@ export class MockApiClient implements ApiClient {
     return { started: true, group: stageId };
   }
 
-  // ── Built-in Roles (Phase 104) ─────────────────────────────────
+  // ── Built-in Roles ─────────────────────────────────
 
   async listBuiltinRoles() {
     const roles: import('../types').RoleVectorPayload[] = [
@@ -634,7 +634,7 @@ export class MockApiClient implements ApiClient {
     return { roles, count: roles.length };
   }
 
-  // ── Role Overrides (Phase 104) ─────────────────────────────────
+  // ── Role Overrides ─────────────────────────────────
 
   // Keyed by projectId → role → override; lives on the instance so tests
   // or Storybook can mutate between renders.
@@ -865,7 +865,7 @@ export class MockApiClient implements ApiClient {
     return { included_paths: includedPaths };
   }
 
-  // AutoAudit (Phase 43 — triggerAudit removed Phase 105b)
+  // AutoAudit (triggerAudit removed)
   async getAuditStatus(_projectId: string): Promise<import('../types').AuditStatus> {
     return { running: false, error: null, has_results: false };
   }
@@ -1093,7 +1093,7 @@ export class MockApiClient implements ApiClient {
   async unlinkIssue(_projectId: string, _nodeId: string, _issueId: string) { return { unlinked: true }; }
   async generateBriefing(_projectId: string, _nodeId: string, _scope?: string) { return { briefing: '' }; }
 
-  // Per-stage restore (Phase 114)
+  // Per-stage restore
   async listStageBackups(_projectId: string, stageId: string, _signal?: AbortSignal) {
     return {
       stage_id: stageId,

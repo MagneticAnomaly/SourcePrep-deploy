@@ -66,7 +66,7 @@ export interface ConceptsPanelProps {
   initializing: boolean;
   error: string | null;
   /** Initialize OR regenerate — both paths now run through the
-   *  orchestrator-backed seed_concepts worker (Phase 105b). The panel
+   *  orchestrator-backed seed_concepts worker. The panel
    *  uses this callback for both the empty-state "Initialize Concepts"
    *  button AND the populated-state "Regenerate" button. */
   onInitialize: () => void;

@@ -37,7 +37,7 @@ const DEFAULT_ROLE_OPTIONS: { id: string; label: string }[] = [
 ];
 
 /**
- * AtlasLensPanel — Phase 104.
+ * AtlasLensPanel — role lens panel.
  *
  * Three stacked bands:
  *   1. StatusStrip   — freshness, counts, regenerate button.

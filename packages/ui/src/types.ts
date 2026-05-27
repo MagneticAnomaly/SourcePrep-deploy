@@ -440,7 +440,7 @@ export interface DeepeningStatus {
 }
 
 /**
- * Per-segment metadata for the sub-atlas tree (Phase 104).
+ * Per-segment metadata for the sub-atlas tree.
  */
 export interface AtlasSegmentStatus {
   segment_id: string;
@@ -458,7 +458,7 @@ export interface AtlasSegmentStatus {
 
 /**
  * Shape of a RoleVector for the `applied_role` field on atlas responses
- * (Phase 104). Matches RoleVector.to_dict() from role_vectors.py.
+ *. Matches RoleVector.to_dict() from role_vectors.py.
  */
 export interface RoleVectorPayload {
   role_id: string;
@@ -472,7 +472,7 @@ export interface RoleVectorPayload {
 
 /**
  * Persistent per-role override layered on top of the built-in RoleVector
- * (Phase 104). Unset fields fall through to the built-in defaults.
+ *. Unset fields fall through to the built-in defaults.
  */
 export interface RoleOverride {
   role_id: string;
@@ -482,7 +482,7 @@ export interface RoleOverride {
 }
 
 /**
- * Codebase Atlas status (Phase 29, extended for Phase 104 sub-atlases)
+ * Codebase Atlas status (sub-atlas tree)
  */
 export interface AtlasStatus {
   exists: boolean;
@@ -503,9 +503,9 @@ export interface AtlasStatus {
   role_atlas?: string;
   role_atlas_chars?: number;
   role_atlas_error?: string;
-  /** Phase 104 — effective role vector after any override is merged in */
+  /** Effective role vector after any override is merged in */
   applied_role?: RoleVectorPayload;
-  /** Phase 104 — the override that was applied, or null */
+  /** The override that was applied, or null */
   override?: RoleOverride | null;
   /** Live progress merged in from slot_progress on /pipeline/status */
   progress_current?: number;
@@ -824,7 +824,7 @@ export interface LLMSlotConfig {
 }
 
 /**
- * Advanced LLM Settings — Phase 112 power-user overrides for cloud token
+ * Advanced LLM Settings — power-user overrides for cloud token
  * safety and thinking budget. All default to conservative values so
  * out-of-the-box behavior matches the documented profile sizes.
  * See docs/Phase112_Gemini/SWARM_UI_PLAN_v2.md §6.
@@ -852,7 +852,7 @@ export interface LLMConfig {
    * the swarm orchestrator falls back to `large_model` for planning/synthesis.
    */
   coordinator_model?: LLMSlotConfig & { inherit_from_large?: boolean };
-  /** Phase 112 advanced overrides — see {@link AdvancedLLMSettings}. */
+  /** Advanced overrides — see {@link AdvancedLLMSettings}. */
   advanced?: AdvancedLLMSettings;
   saved_endpoints: SavedEndpoint[];
   compute_nodes?: ComputeNode[];
@@ -1165,7 +1165,7 @@ export interface PipelineStatus {
   branch?: string | null;
   branch_snapshots?: any[];
   branch_state?: any | null;
-  /** Phase 114: barrier status included in live poll response */
+  /** barrier status included in live poll response */
   barrier?: BarrierStatus;
 }
 
@@ -1794,7 +1794,7 @@ export interface WebhookResult {
 }
 
 // ============================================================
-// Phase 114 — per-stage restore
+// per-stage restore
 // ============================================================
 
 export type StageBackupKind = 'golden' | 'branch'
@@ -1825,7 +1825,7 @@ export interface StageRestoreResponse {
   files_restored: string[]
 }
 
-/** Phase 117: which stages a rebuild covers. */
+/** which stages a rebuild covers. */
 export type RebuildScope = 'sync' | 'enrichment' | 'all';
 
 export interface BarrierStatus {
@@ -1833,12 +1833,12 @@ export interface BarrierStatus {
   age_seconds?: number;
   reason?: string;
   written_at?: number;
-  /** Phase 117; absent → treat as 'all' */
+  /** absent → treat as 'all' */
   scope?: RebuildScope;
 }
 
 /**
- * Phase 117 rebuild provenance per stage — from `/pipeline/status`.
+ * rebuild provenance per stage — from `/pipeline/status`.
  * Distinct from the Phase 49 `StageProvenance` (which comes from
  * `/projects/{id}/pipeline/provenance` and tracks model/quality metadata).
  * This type reflects which model produced a stage and whether it matches
@@ -1852,12 +1852,12 @@ export interface StageRebuildProvenance {
   rebuild_scope: RebuildScope | null;
 }
 
-// Phase 114: the /pipeline/status response now includes barrier info
+// the /pipeline/status response now includes barrier info
 export interface PipelineStatusWithBarrier {
   barrier?: BarrierStatus;
 }
 
-// Phase 114: GET /projects/{id}/pipeline/health response types
+// GET /projects/{id}/pipeline/health response types
 export interface StageHealth {
   stage_id: string;
   manifest_exists: boolean;

@@ -5,7 +5,7 @@ export interface BudgetBarProps {
   value: number;
   /** Built-in default, used as the baseline marker. */
   defaultValue: number;
-  /** Global ceiling — Phase 103 total-artifact budget suggestion. */
+  /** Global ceiling — Total-artifact budget. */
   ceiling?: number;
   className?: string;
 }
