@@ -30,7 +30,7 @@ Two problems surfaced:
    netlify.toml change is pushed.
 2. **Placement is ad-hoc.** Several docs pages that would clearly benefit from
    a live embed don't use one (most `/guides/*`, `/concepts/*` other than
-   `/concepts/code-graph`). Others use embeds chosen opportunistically rather
+   `/how-it-works/code-graph`). Others use embeds chosen opportunistically rather
    than from a survey. There's no inventory anywhere that lists what stories
    and animations are actually available — so authors of new docs pages don't
    know what to reach for.
@@ -50,8 +50,8 @@ full ledger. But a new dependency emerged during Phase 132 audit:
 BEFORE the Phase 137 page audit.** Phase 138 will:
 
 1. Rename the `/concepts/` docs section (likely to `/how-it-works/`) — URL changes
-2. Move 4 explainer guides (`/guides/embeddings`, `/guides/compression`,
-   `/guides/smart-search`, `/guides/dynamic-model-loading`) into the renamed
+2. Move 4 explainer guides (`/how-it-works/embeddings`, `/how-it-works/compression`,
+   `/how-it-works/smart-search`, `/how-it-works/dynamic-model-loading`) into the renamed
    section — URL changes for 4 more pages
 3. Migrate those 4 pages to `ConceptPageShell` layout — page structure changes
 
@@ -171,9 +171,9 @@ new state:
   are LEGACY routing artifacts not surfaced to MCP clients.
 - `/getting-started/page.tsx` had its Free-tier-trace claim rewritten and
   the "language-aware compression: built in" claim reworded as roadmap.
-- `/concepts/indexing` storage backend claim was tightened to "stored
+- `/how-it-works/indexing` storage backend claim was tightened to "stored
   locally on your machine" (was incorrectly claiming LanceDB/Qdrant/Chroma).
-- `/concepts/context` scoring step was rewritten to reference the real
+- `/how-it-works/context` scoring step was rewritten to reference the real
   7-intent classifier + file-type weights (was a confused 4-bucket claim).
 - The 4 explainer guides (`embeddings`, `compression`, `smart-search`,
   `dynamic-model-loading`) are slated to migrate to a renamed Concepts

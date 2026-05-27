@@ -5,7 +5,7 @@
 > this file is the cross-cutting view.
 > **Implementation pass landed 2026-05-14 (local).** All 13 placements wired
 > in code; `next build` + `tsc --noEmit` both clean. Not yet committed or
-> pushed. The 2 new Path-B iframes (`/concepts/graph-enrichment`,
+> pushed. The 2 new Path-B iframes (`/how-it-works/graph-enrichment`,
 > `/guides/path-weights`) need the netlify env-var push (see `01_tech_fix.md`)
 > before they render on production. Path-A native-React animations work
 > regardless of the push.
@@ -24,11 +24,11 @@ placements across 11 pages, wired in the same evening.
 
 | Page | Asset(s) added | Where |
 |---|---|---|
-| `/concepts/indexing` ★ | `BuildCard` (building) + `IndexStats` (default) + `IndexStatusCard` (loaded) | `#pipeline`, `#exclusions`, `#ui-controls` |
-| `/guides/embeddings` ★ | `ModelCard` (connected-with-model-and-test-result) | `#configuring` |
-| `/guides/compression` ★ | `ContextOutput` (default) | After `#response-metadata`, before `#supported-languages` |
+| `/how-it-works/indexing` ★ | `BuildCard` (building) + `IndexStats` (default) + `IndexStatusCard` (loaded) | `#pipeline`, `#exclusions`, `#ui-controls` |
+| `/how-it-works/embeddings` ★ | `ModelCard` (connected-with-model-and-test-result) | `#configuring` |
+| `/how-it-works/compression` ★ | `ContextOutput` (default) | After `#response-metadata`, before `#supported-languages` |
 | `/guides/concurrency-discovery` | `LLMStatusWidget` (default) | After `#what-youll-see` |
-| `/guides/dynamic-model-loading` ★ | `AdvancedLLMSettings` (default) | After `#how-it-works` |
+| `/how-it-works/dynamic-model-loading` ★ | `AdvancedLLMSettings` (default) | After `#how-it-works` |
 | `/troubleshooting` | `LogConsole` (pipeline-run) + `<AnimatedIDE script={ideDoubleSubmitFixDemo}>` | `#performance`, new `#ai-handoff` section |
 
 **Densification pass (additional embeds on already-wired pages):**
@@ -38,9 +38,9 @@ placements across 11 pages, wired in the same evening.
 | `/getting-started` | `IndexStatusCard` (loaded) | After step 3 ("Add Your Repo") |
 | `/mcp` | `AgentOpsPanel` (active) | Added to `#live-preview` grid |
 | `/mcp/paperclip` | `<AnimatedCLI script={prepOverviewDemo}>` | After `#tools` heading |
-| `/concepts/code-graph` ★ | `NodeDetailPanel` (file-node) | After visualization story embed |
-| `/concepts/graph-enrichment` ★ | `AtlasLensPanel` (stale-with-segments) | Closing `#understanding` section |
-| `/concepts/context` ★ | `ContextOutput` (default) | After the closing CLI animation |
+| `/how-it-works/code-graph` ★ | `NodeDetailPanel` (file-node) | After visualization story embed |
+| `/how-it-works/graph-enrichment` ★ | `AtlasLensPanel` (stale-with-segments) | Closing `#understanding` section |
+| `/how-it-works/context` ★ | `ContextOutput` (default) | After the closing CLI animation |
 | `/dashboard` | `AgentOpsPanel` + `RoadmapPanel` (with-content) + `ActivityHeatmap` (mixed-activity) + `<AnimatedIDE script={ideLoadingSkeletonDemo}>` | New h3 sub-sections under `#key-panels`, plus new `#agent-live` h2 |
 
 **Total docs-site placements after both passes:** 29 across the in-scope pages (13 from the original implementation + 16 from the densification pass).
@@ -96,19 +96,19 @@ heights live there; this doc is for the cross-cutting view.
 | `/mcp/ides` | `<AnimatedIDE>` (swap existing iframe) | Under `#setup` | `ideAddCsvExportDemo` | A | 🟡 swap |
 | `/mcp/terminal` | `<AnimatedCLI>` | Under `#setup`, before first CLI config block | `prepSearchDemo` | A | 🟡 add (medium confidence — verify in preview) |
 | `/mcp/paperclip` | `<StoryEmbed>` (existing) | Under `#ui` | `dashboard-agents-agentopspanel--active` | B | 🟡 verify keeps |
-| `/concepts/indexing` ★ | NONE | — | — | — | ❌ punted; 🔵 gap flagged for "indexing-in-progress" panel (low priority) |
-| `/concepts/code-graph` ★ | `<StoryEmbed>` (existing) | Under `#visualization` | `dashboard-trace-graph--default` | B | 🟡 verify keeps |
-| `/concepts/code-graph` ★ | `<AnimatedCLI>` (new) | After numbered list under `#usage` | `impactExtractServiceDemo` | A | 🟡 add |
-| `/concepts/graph-enrichment` ★ | `<StoryEmbed>` (new) | After `#journey` overview, before Sync stage cards | `dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running` | B | 🟡 add — **highest-value new embed; 05 worksheet said "existing" but it isn't on this page** |
-| `/concepts/context` ★ | `<AnimatedCLI>` (new) | After `#formatting`, before `#ui-controls` | `prepTldrOverviewDemo` | A | 🟡 add |
+| `/how-it-works/indexing` ★ | NONE | — | — | — | ❌ punted; 🔵 gap flagged for "indexing-in-progress" panel (low priority) |
+| `/how-it-works/code-graph` ★ | `<StoryEmbed>` (existing) | Under `#visualization` | `dashboard-trace-graph--default` | B | 🟡 verify keeps |
+| `/how-it-works/code-graph` ★ | `<AnimatedCLI>` (new) | After numbered list under `#usage` | `impactExtractServiceDemo` | A | 🟡 add |
+| `/how-it-works/graph-enrichment` ★ | `<StoryEmbed>` (new) | After `#journey` overview, before Sync stage cards | `dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running` | B | 🟡 add — **highest-value new embed; 05 worksheet said "existing" but it isn't on this page** |
+| `/how-it-works/context` ★ | `<AnimatedCLI>` (new) | After `#formatting`, before `#ui-controls` | `prepTldrOverviewDemo` | A | 🟡 add |
 | `/cli` | `<AnimatedCLI>` (swap existing iframe) | Under `#common-workflows` | `prepSearchDemo` | A | 🟡 swap |
 | `/dashboard` | `<StoryEmbed>` × 6 (existing) | `#overview`, `#adding-panels`, `#index-status`, `#code-graph-coverage`, `#pipeline`, `#search-context` | `dashboard-layouts-fulldashboard--full-dashboard`, `patterns-panelpicker--default`, `dashboard-index-indexstatuscard--loaded`, `dashboard-trace-coveragepanel--default`, `dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running`, `dashboard-search-searchpanel--full-search-demo` | B | 🟡 verify keeps |
-| `/guides/embeddings` ★ | NONE | — | — | — | ❌ punted (selection guide; no fitting asset) |
+| `/how-it-works/embeddings` ★ | NONE | — | — | — | ❌ punted (selection guide; no fitting asset) |
 | `/guides/audit-enrichment` | NONE (pending gap) | — | — | — | 🔵 gap — wants `prep_audit(findings=...)` enrichment animation (medium priority) |
 | `/guides/codebase-audit` | `<StoryEmbed>` × 2 (existing) | `#overview`, `#pipeline-connection` | `dashboard-audit-auditpanel--with-findings`, `dashboard-audit-opportunitiespanel--with-opportunities` | B | 🟡 verify keeps |
 | `/guides/codebase-audit` | `<AnimatedCLI>` (new) | After `cli` subsection (h3) within `#quick-start` | `auditPrSanityCheckDemo` | A | 🟡 add |
-| `/guides/smart-search` ★ | `<AnimatedCLI>` × 2–3 (new) | Within `#intents` paired with LOCATE + RATIONALE; optionally after `#evaluation-order` | `searchRetryReuseDemo`, `conceptsTransactionRuleDemo`, optional `searchMaxConnectionsDemo` | A | 🟡 add — multi-animation outlier; 🔵 gap for routing-comparison script may collapse this to one |
-| `/guides/compression` ★ | NONE | — | — | — | ❌ punted (technical reference; tables carry it) |
+| `/how-it-works/smart-search` ★ | `<AnimatedCLI>` × 2–3 (new) | Within `#intents` paired with LOCATE + RATIONALE; optionally after `#evaluation-order` | `searchRetryReuseDemo`, `conceptsTransactionRuleDemo`, optional `searchMaxConnectionsDemo` | A | 🟡 add — multi-animation outlier; 🔵 gap for routing-comparison script may collapse this to one |
+| `/how-it-works/compression` ★ | NONE | — | — | — | ❌ punted (technical reference; tables carry it) |
 | `/guides/concurrency-discovery` | NONE | — | — | — | ❌ punted (operational/FAQ; animation distracts) |
 | `/guides/path-weights` | `<StoryEmbed>` (new, replaces placeholder) | Under `#using-the-dashboard` | `dashboard-project-foldertreepanel--scope-panel-named-populated` (verify shows weight badges) | B | 🟡 add; 🔵 gap if scope variant doesn't show badges |
 | `/guides/path-weights` | `<AnimatedCLI>` (optional) | After `#how-it-works`, before dashboard section | `searchBuildWorkerDemo` | A | 🟡 add only if preview shows value (low confidence) |
@@ -116,7 +116,7 @@ heights live there; this doc is for the cross-cutting view.
 | `/guides/byok-batching` | `<StoryEmbed>` (existing) | Under `#how-batching-works` | `dashboard-llm-endpointmanager--interactive` | B | 🟡 verify keeps; 🔵 gap for future cost-banner panel (low priority) |
 | `/guides/models` | `<StoryEmbed>` (existing) | Under `#model-slots` | `dashboard-llm-aimodelssettings--default` | B | 🟡 verify keeps |
 | `/guides/team-sync` | `<StoryEmbed>` (existing) | Under `#how-it-works` | `dashboard-team-syncstatuscard--up-to-date` | B | 🟡 verify keeps; further work deferred (external-repo dependency) |
-| `/guides/dynamic-model-loading` ★ | NONE | — | — | — | ❌ punted (informational; local LLMs secondary path) |
+| `/how-it-works/dynamic-model-loading` ★ | NONE | — | — | — | ❌ punted (informational; local LLMs secondary path) |
 | `/search` | NONE | — | — | — | ❌ punted (page is itself an interactive UI) |
 | `/troubleshooting` | NONE | — | — | — | ❌ punted (text-heavy reference); 🔵 gap for `BugReportModal` placement (defer — needs copy work) |
 
@@ -139,12 +139,12 @@ Each entry becomes a follow-up task.
 | # | Gap | Pages that want it | Why | Priority | Follow-up task |
 |---|---|---|---|---|---|
 | 1 | "Fresh project — first call to `prep`" script | `/getting-started`, `/getting-started/quick-start` | Onboarding-specific framing; existing `prepTldrOverviewDemo` is serviceable but reuses a generic task-driven script | Low | TBD (file when Phase 137 implementation pass runs) |
-| 2 | "Intent routing comparison" animation (side-by-side LOCATE vs RATIONALE) | `/guides/smart-search` | Page thesis is "different inputs route to different backends"; side-by-side is the cleanest visual; today requires 2–3 separate `<AnimatedCLI>` instances | Medium | TBD |
+| 2 | "Intent routing comparison" animation (side-by-side LOCATE vs RATIONALE) | `/how-it-works/smart-search` | Page thesis is "different inputs route to different backends"; side-by-side is the cleanest visual; today requires 2–3 separate `<AnimatedCLI>` instances | Medium | TBD |
 | 3 | `prep_audit(findings=[...])` enrichment animation | `/guides/audit-enrichment` | Existing audit scripts show *triggering* an audit; this page is about *enriching* external lint findings — different workflow | Medium | TBD |
 | 4 | "Path Weights" / weight-badge Storybook variant | `/guides/path-weights` | Page has a `Screenshot: Path Weight Badges` placeholder; current `FolderTreePanel` scope-panel variant may not show weight badges — verify during implementation | Medium | TBD |
 | 5 | "Concepts panel" Storybook story | (none in-scope today) | `ConceptsPanel` lives in `packages/ui/src/components/concepts/` but isn't storied; blocks future concepts-pipeline page | Low | TBD |
 | 6 | Cost-banner / token-counter panel story | `/guides/byok-batching` (future) | Page mentions cost-tier UI; no story exists yet | Low | TBD |
-| 7 | "Indexing in progress" panel (discovery → parse → embed) | `/concepts/indexing` | Page describes the pipeline but no "live running" visual exists; `IndexStatusCard--loaded` shows steady state, not progress | Low | TBD |
+| 7 | "Indexing in progress" panel (discovery → parse → embed) | `/how-it-works/indexing` | Page describes the pipeline but no "live running" visual exists; `IndexStatusCard--loaded` shows steady state, not progress | Low | TBD |
 | 8 | `BugReportModal` placement on `/troubleshooting` | `/troubleshooting` | Story exists; needs page copy authorship (new "How to file a bug" section) to host it — not a story gap so much as a docs-content gap | Low | TBD (Phase 132 desk follow-up territory) |
 
 ## Implementation order
@@ -152,7 +152,7 @@ Each entry becomes a follow-up task.
 Once all rows are populated, suggested implementation order:
 
 1. **Push the netlify env-var fix first.** Gate on user signal. Without it, every existing iframe 404s on production. See `01_tech_fix.md`.
-2. **Verify-existing pass.** Walk every row marked "verify keeps" with a dev-server preview. Cheap and surfaces any drift from the inventory. Affected: `/mcp`, `/mcp/paperclip`, `/concepts/code-graph`, `/dashboard` (×6 embeds), `/guides/codebase-audit` (×2), `/guides/knowledge-scope`, `/guides/byok-batching`, `/guides/models`, `/guides/team-sync`.
+2. **Verify-existing pass.** Walk every row marked "verify keeps" with a dev-server preview. Cheap and surfaces any drift from the inventory. Affected: `/mcp`, `/mcp/paperclip`, `/how-it-works/code-graph`, `/dashboard` (×6 embeds), `/guides/codebase-audit` (×2), `/guides/knowledge-scope`, `/guides/byok-batching`, `/guides/models`, `/guides/team-sync`.
 3. **High-impact swaps and adds — onboarding + MCP**, in this order:
    1. `/getting-started` step 2 swap → Path A
    2. `/mcp/ides` swap → Path A
@@ -162,12 +162,12 @@ Once all rows are populated, suggested implementation order:
    6. `/getting-started` step 6 animation (only if rhythm allows after step 2 lands)
    7. `/mcp/terminal` lead animation
 4. **Concept-page additions:**
-   1. `/concepts/graph-enrichment` pipeline embed — **highest-value new asset; 05 worksheet was wrong about this being "existing"**
-   2. `/concepts/code-graph` impact animation
-   3. `/concepts/context` closing animation
+   1. `/how-it-works/graph-enrichment` pipeline embed — **highest-value new asset; 05 worksheet was wrong about this being "existing"**
+   2. `/how-it-works/code-graph` impact animation
+   3. `/how-it-works/context` closing animation
 5. **Guide additions:**
    1. `/guides/codebase-audit` CLI animation
-   2. `/guides/smart-search` multi-animation (LOCATE + RATIONALE)
+   2. `/how-it-works/smart-search` multi-animation (LOCATE + RATIONALE)
    3. `/guides/path-weights` scope embed (replaces screenshot placeholder)
 6. **Per-instance customization pass.** Captions, heights, prop overrides (`loop`, `loopDelayMs`). Last pass, informed by what looks right in production after step 1-5 ship.
 7. **Visual regression sweep.** Dev-server walkthrough. Confirm no broken layouts, no animation overlap with text, no oversized embeds breaking page rhythm.

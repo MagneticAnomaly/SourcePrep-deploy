@@ -59,7 +59,7 @@ export function SearchPanel({
             <Title className="text-text">Search</Title>
             <InfoTooltip 
               content="Learn how semantic search works." 
-              href="https://docs.sourceprep.io/concepts/indexing" 
+              href="https://docs.sourceprep.io/how-it-works/indexing" 
             />
           </div>
         </Flex>

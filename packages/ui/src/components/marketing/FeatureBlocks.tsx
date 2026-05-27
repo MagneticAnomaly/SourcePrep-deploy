@@ -151,7 +151,7 @@ export const prepFeatures: Feature[] = [
     title: 'Graph Enrichment Pipeline',
     description: 'A multi-stage pipeline deepens understanding over time — from Rust parsing to deep LLM reasoning to architectural synthesis. Supports swarm mode for parallel LLM processing.',
     badge: 'Built-in',
-    href: 'https://docs.sourceprep.io/concepts/graph-enrichment',
+    href: 'https://docs.sourceprep.io/how-it-works/graph-enrichment',
   },
   {
     icon: <Activity className="w-8 h-8" />,

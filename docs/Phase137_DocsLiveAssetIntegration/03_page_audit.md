@@ -72,10 +72,10 @@ roughly by user-impact (onboarding first, optional guides last).
 
 ### Concept pages (Tier C in Phase 132)
 
-- [x] `/concepts/indexing` ★ Phase 138 move
-- [x] `/concepts/code-graph` ★ Phase 138 move
-- [x] `/concepts/graph-enrichment` ★ Phase 138 move
-- [x] `/concepts/context` ★ Phase 138 move
+- [x] `/how-it-works/indexing` ★ Phase 138 move
+- [x] `/how-it-works/code-graph` ★ Phase 138 move
+- [x] `/how-it-works/graph-enrichment` ★ Phase 138 move
+- [x] `/how-it-works/context` ★ Phase 138 move
 
 ### CLI reference (Tier E in Phase 132)
 
@@ -87,11 +87,11 @@ roughly by user-impact (onboarding first, optional guides last).
 
 ### Guides (Tier D in Phase 132)
 
-- [x] `/guides/embeddings` ★ Phase 138 move
+- [x] `/how-it-works/embeddings` ★ Phase 138 move
 - [x] `/guides/audit-enrichment`
 - [x] `/guides/codebase-audit`
-- [x] `/guides/smart-search` ★ Phase 138 move
-- [x] `/guides/compression` ★ Phase 138 move
+- [x] `/how-it-works/smart-search` ★ Phase 138 move
+- [x] `/how-it-works/compression` ★ Phase 138 move
 - [x] `/guides/concurrency-discovery`
 - [x] `/guides/path-weights`
 - [x] `/guides/knowledge-scope`
@@ -99,7 +99,7 @@ roughly by user-impact (onboarding first, optional guides last).
 - ~~`/guides/model-advisor`~~ — **DROPPED** 2026-05-14: deprecated and hidden from sidebar+sitemap per `project_llm_strategy.md`. Replaced by the simple recommendation list on `/guides/models` (AI Gateway).
 - [x] `/guides/models` *(renamed to "AI Gateway"; was "Model Configuration")*
 - [x] `/guides/team-sync` (may be deferred — README flags external repo dependency)
-- [x] `/guides/dynamic-model-loading` ★ Phase 138 move
+- [x] `/how-it-works/dynamic-model-loading` ★ Phase 138 move
 
 ### Other
 
@@ -294,7 +294,7 @@ roughly by user-impact (onboarding first, optional guides last).
 
 ---
 
-### `/concepts/indexing` ★ Phase 138 move
+### `/how-it-works/indexing` ★ Phase 138 move
 
 **Current state:** No embeds. Four-step pipeline icon-card grid, callouts, controls description.
 
@@ -314,7 +314,7 @@ roughly by user-impact (onboarding first, optional guides last).
 
 ---
 
-### `/concepts/code-graph` ★ Phase 138 move
+### `/how-it-works/code-graph` ★ Phase 138 move
 
 **Current state:** One existing iframe embed under `#visualization`:
 `storyId="dashboard-trace-graph--default"` (height 450, "Interactive Code Graph").
@@ -338,7 +338,7 @@ roughly by user-impact (onboarding first, optional guides last).
 
 ---
 
-### `/concepts/graph-enrichment` ★ Phase 138 move
+### `/how-it-works/graph-enrichment` ★ Phase 138 move
 
 **Current state:** No embeds. 15 stage cards across 3 phases (Sync/Enrich/Finalize), understanding score grid, decay table.
 
@@ -360,7 +360,7 @@ roughly by user-impact (onboarding first, optional guides last).
 
 ---
 
-### `/concepts/context` ★ Phase 138 move
+### `/how-it-works/context` ★ Phase 138 move
 
 **Current state:** No embeds. Five-step assembly pipeline with numbered cards + a two-column panel-control grid.
 
@@ -431,7 +431,7 @@ roughly by user-impact (onboarding first, optional guides last).
 
 ---
 
-### `/guides/embeddings` ★ Phase 138 move
+### `/how-it-works/embeddings` ★ Phase 138 move
 
 **Current state:** No embeds. Three tier boxes + comparison table + configuration subsections + API reference.
 
@@ -499,7 +499,7 @@ roughly by user-impact (onboarding first, optional guides last).
 
 ---
 
-### `/guides/smart-search` ★ Phase 138 move
+### `/how-it-works/smart-search` ★ Phase 138 move
 
 **Current state:** No embeds. Seven intent definition blocks, override paragraph, evaluation-order numbered list.
 
@@ -525,7 +525,7 @@ roughly by user-impact (onboarding first, optional guides last).
 
 ---
 
-### `/guides/compression` ★ Phase 138 move
+### `/how-it-works/compression` ★ Phase 138 move
 
 **Current state:** No embeds. LOD level table, tier table, ASCII flow diagram.
 
@@ -679,7 +679,7 @@ roughly by user-impact (onboarding first, optional guides last).
 
 ---
 
-### `/guides/dynamic-model-loading` ★ Phase 138 move
+### `/how-it-works/dynamic-model-loading` ★ Phase 138 move
 
 **Current state:** No embeds. Provider table, MLX vs GGUF comparison, recommended-setup subsections, pipeline-safety explanation.
 
@@ -744,7 +744,7 @@ roughly by user-impact (onboarding first, optional guides last).
 Mirror these to `04_placement_matrix.md` gap list.
 
 1. **No "fresh project — first call to `prep`" script** (existing follow-up #1 from 05). Wanted by `/getting-started`. Priority: low.
-2. **No "intent routing comparison" animation** (existing follow-up #2). Wanted by `/guides/smart-search`. Priority: medium.
+2. **No "intent routing comparison" animation** (existing follow-up #2). Wanted by `/how-it-works/smart-search`. Priority: medium.
 3. **No "`prep_audit(findings=...)` enrichment" animation** (existing follow-up #3). Wanted by `/guides/audit-enrichment`. Priority: medium.
 4. **No "Path Weights" / "weight badges" Storybook variant** (new). Wanted by `/guides/path-weights`. The current `FolderTreePanel` scope-panel variant may or may not show weight badges; verify during implementation. Priority: medium.
 5. **No "Concepts panel" Storybook story** (existing follow-up #4). Not consumed by any in-scope page today; flagged for future pages. Priority: low.
@@ -754,8 +754,8 @@ Mirror these to `04_placement_matrix.md` gap list.
 ## Decisions log
 
 - **Defaulted to Path A (native React)** for every new animation, per 05 rubric. Existing iframes that are panel/dashboard embeds stay as Path B. Existing iframes that are CLI/IDE animations (`/getting-started`, `/mcp/ides`, `/cli`) get **swapped to Path A** because they are animations, not panels, and paint speed dominates.
-- **05 worksheet correction:** The worksheet claimed `/concepts/graph-enrichment` "already has" the pipeline embed via iframe. **It does not.** The `GraphEnrichmentPipeline` story exists but is consumed by `/dashboard` only. Treating the concepts-page placement as the highest-value *new* embed in the audit.
-- **Multi-animation on `/guides/smart-search`** is deliberate per 05. The page's whole thesis is "different inputs route to different backends"; showing the routings side-by-side is what makes the abstraction concrete. If gap #2 lands first, collapse to a single comparison animation.
+- **05 worksheet correction:** The worksheet claimed `/how-it-works/graph-enrichment` "already has" the pipeline embed via iframe. **It does not.** The `GraphEnrichmentPipeline` story exists but is consumed by `/dashboard` only. Treating the concepts-page placement as the highest-value *new* embed in the audit.
+- **Multi-animation on `/how-it-works/smart-search`** is deliberate per 05. The page's whole thesis is "different inputs route to different backends"; showing the routings side-by-side is what makes the abstraction concrete. If gap #2 lands first, collapse to a single comparison animation.
 - **`/getting-started/quick-start`** gets a single animation, not multiple, to avoid duplicating the longer `/getting-started` page's content. The quick-start is a 5-minute mirror.
 - **`/cli` sub-pages (`/cli/commands`, `/cli/config`)** are out of scope: they are reference pages with no animation fit. The hub page `/cli` carries the embed.
 - **`/guides/audit-enrichment`** ships without animation pending gap #3. The page's two JSON code blocks already carry the explanatory weight.

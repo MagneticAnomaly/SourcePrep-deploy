@@ -123,7 +123,7 @@ better evidence.
 - **`/mcp`** (overview page) — the `prep` row in the tool table would
   benefit from a small inline `<AnimatedCLI>` (any `prepDemos[*]`) sitting
   right after the row.
-- **`/concepts/context`** — the page's narrative is the assembly pipeline;
+- **`/how-it-works/context`** — the page's narrative is the assembly pipeline;
   a `prep` demo at the bottom anchors "this is what comes out the other end".
 
 **Script picks:**
@@ -135,11 +135,11 @@ better evidence.
 
 **Best fit:** any page about querying.
 
-- **`/guides/smart-search`** — the seven-intent classifier description begs
+- **`/how-it-works/smart-search`** — the seven-intent classifier description begs
   for a "what does this look like?" companion. Native React,
   `prepSearchDemos[*]`. Possibly multiple scripts side-by-side to show
   different intents routing differently.
-- **`/concepts/context`** — Retrieval step on the assembly pipeline page.
+- **`/how-it-works/context`** — Retrieval step on the assembly pipeline page.
 - **`/guides/path-weights`** — show how a weighted path changes ranking
   output. `searchBuildWorkerDemo` or similar.
 
@@ -152,7 +152,7 @@ better evidence.
 
 **Best fit:** any page about safe code change.
 
-- **`/concepts/code-graph`** — the page narrative already describes how
+- **`/how-it-works/code-graph`** — the page narrative already describes how
   agents use the graph for trace expansion. An `impactExtractServiceDemo`
   embed after the "How Agents Use It" section closes the loop.
 - **`/guides/codebase-audit`** — adjacent to the refactor workflow
@@ -185,7 +185,7 @@ better evidence.
 
 **Best fit:** any page about persistence + collaboration.
 
-- **`/concepts/context`** — under the assembly pipeline, observe is what
+- **`/how-it-works/context`** — under the assembly pipeline, observe is what
   prevents "the agent forgets everything next session". One demo here
   makes the narrative concrete.
 - **(Future) `/guides/observations`** — if/when a dedicated guide gets
@@ -200,7 +200,7 @@ better evidence.
 
 **Best fit:** any page about codified rules.
 
-- **`/guides/smart-search`** RATIONALE intent section — show
+- **`/how-it-works/smart-search`** RATIONALE intent section — show
   `conceptsTransactionRuleDemo` as the "why" answer.
 - **(Future) `/concepts/concepts-pipeline`** — there's no dedicated page
   yet, but Phase 125 work may produce one.
@@ -242,7 +242,7 @@ a candidate "follow-up phase" item:
    `prep` show?" script for the onboarding page would be cleaner than
    reusing `prepTldrOverviewDemo`. Low priority; the existing one is
    serviceable.
-2. **No "intent routing" comparison animation** — `/guides/smart-search`
+2. **No "intent routing" comparison animation** — `/how-it-works/smart-search`
    would benefit from a side-by-side showing "where is X" routing to LOCATE
    vs "why does X use Y" routing to RATIONALE. Today you'd need to embed
    two separate `<AnimatedCLI>` instances.
@@ -301,21 +301,21 @@ A starter cross-table to seed `03_page_audit.md`. Columns:
 | `/mcp` | `prepTldrOverviewDemo` | A | High | After the prep row in the tool table |
 | `/mcp/ides` | `ideAddCsvExportDemo` | A | High | Replaces current iframe embed |
 | `/mcp/terminal` | `prepSearchDemos[0]` | A | Medium | Native React via `<AnimatedCLI>` |
-| `/concepts/code-graph` | `impactExtractServiceDemo` | A | High | After "How Agents Use It" section |
-| `/concepts/context` | `prepTldrOverviewDemo` (or `observeCachingRecallDemo`) | A | Medium | One canonical at end of page |
-| `/concepts/indexing` | NONE | — | Medium | Page is pipeline narrative; no clean animation fit |
-| `/concepts/graph-enrichment` | (existing pipeline panel embed) | B | High | Already iframe-embedded; keep |
-| `/guides/smart-search` | 2–3 of `prepSearchDemos[*]` side-by-side | A | High | Different scripts show different intents |
+| `/how-it-works/code-graph` | `impactExtractServiceDemo` | A | High | After "How Agents Use It" section |
+| `/how-it-works/context` | `prepTldrOverviewDemo` (or `observeCachingRecallDemo`) | A | Medium | One canonical at end of page |
+| `/how-it-works/indexing` | NONE | — | Medium | Page is pipeline narrative; no clean animation fit |
+| `/how-it-works/graph-enrichment` | (existing pipeline panel embed) | B | High | Already iframe-embedded; keep |
+| `/how-it-works/smart-search` | 2–3 of `prepSearchDemos[*]` side-by-side | A | High | Different scripts show different intents |
 | `/guides/codebase-audit` | `auditPrSanityCheckDemo` | A | High | Already has `<StoryEmbed>` for AuditPanel; pair with CLI animation |
 | `/guides/audit-enrichment` | `auditSecurityScanDemo` (or GAP — see follow-up #3) | A | Medium | Existing scripts don't perfectly fit; flag gap |
 | `/guides/path-weights` | `searchBuildWorkerDemo` | A | Low | Animation fit is okay but page is reference-heavy |
-| `/guides/embeddings` | NONE | — | High | Page is selection guide; no animation fit |
-| `/guides/compression` | NONE | — | High | Page is technical reference |
+| `/how-it-works/embeddings` | NONE | — | High | Page is selection guide; no animation fit |
+| `/how-it-works/compression` | NONE | — | High | Page is technical reference |
 | `/guides/concurrency-discovery` | NONE | — | High | Operational/troubleshooting; animation would distract |
 | `/guides/knowledge-scope` | (existing FolderTreePanel embed) | B | High | Iframe-embedded panel is the fit |
 | `/guides/models` (AI Gateway) | NONE | — | High | Page is configuration reference; AIModelsSettings panel embed already there |
 | `/guides/byok-batching` | NONE | — | Medium | Possible cost-banner panel embed via iframe once that story exists |
-| `/guides/dynamic-model-loading` | NONE | — | High | Informational only |
+| `/how-it-works/dynamic-model-loading` | NONE | — | High | Informational only |
 | `/guides/team-sync` | NONE | — | Medium | External-repo dependency; defer with that work |
 | `/guides/enterprise-deploy` | NONE | — | High | Out-of-scope until enterprise ships |
 | `/cli` | One `prepDemos[*]` per landing slot | A | Medium | Or NONE — page is a reference, animations may distract |
@@ -340,7 +340,7 @@ When this phase ships, a user landing on the docs site should:
 3. **Not wait for iframes to load on pages where the animation is the
    lead visual** — those should be native React, first paint near-instant.
 4. **Not encounter visual overload** — most pages have 0 or 1 animation;
-   only `/guides/smart-search` is the multi-animation outlier and it's
+   only `/how-it-works/smart-search` is the multi-animation outlier and it's
    justified by the side-by-side intent comparison.
 
 If the audit and implementation hit those four marks, this phase has done

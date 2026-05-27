@@ -17,7 +17,7 @@ const nextConfig = {
       {
         // Concept pages are canonical on the docs site (single source of truth).
         source: '/graph-enrichment',
-        destination: 'https://docs.sourceprep.io/concepts/graph-enrichment',
+        destination: 'https://docs.sourceprep.io/how-it-works/graph-enrichment',
         permanent: true,
       },
     ];

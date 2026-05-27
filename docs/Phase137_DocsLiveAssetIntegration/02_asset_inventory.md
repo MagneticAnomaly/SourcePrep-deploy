@@ -81,8 +81,8 @@ panel does or shows.
 
 ### Trace / graph (14 files) — `stories/trace/`
 
-The largest category. Use these on `/concepts/code-graph`,
-`/concepts/graph-enrichment`, and dashboard pages describing trace.
+The largest category. Use these on `/how-it-works/code-graph`,
+`/how-it-works/graph-enrichment`, and dashboard pages describing trace.
 
 | Story file | What it shows |
 |---|---|
@@ -262,7 +262,7 @@ These are gaps observed during inventory; will be refined during the page
 audit in `03_page_audit.md`:
 
 1. **No concepts/ Storybook stories.** `ConceptsPanel` isn't storied; pages
-   like `/concepts/indexing` would benefit from a live concepts panel embed.
+   like `/how-it-works/indexing` would benefit from a live concepts panel embed.
 2. **No "scope picker" / "knowledge scope" story.** The Scope panel is
    referenced in onboarding and `/guides/knowledge-scope` but there's no
    dedicated story for it. Closest matches: `FolderTreePanel`,

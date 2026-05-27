@@ -16,17 +16,17 @@ const sampleItems: DocNode[] = [
     title: 'Core Concepts',
     href: '',
     children: [
-      { title: 'Knowledge', href: '/concepts/indexing' },
-      { title: 'Code Graph', href: '/concepts/code-graph' },
-      { title: 'Graph Enrichment', href: '/concepts/graph-enrichment', active: true },
-      { title: 'Context Assembly', href: '/concepts/context' },
+      { title: 'Knowledge', href: '/how-it-works/indexing' },
+      { title: 'Code Graph', href: '/how-it-works/code-graph' },
+      { title: 'Graph Enrichment', href: '/how-it-works/graph-enrichment', active: true },
+      { title: 'Context Assembly', href: '/how-it-works/context' },
     ],
   },
   {
     title: 'Guides',
     href: '',
     children: [
-      { title: 'Smart Search', href: '/guides/smart-search' },
+      { title: 'Smart Search', href: '/how-it-works/smart-search' },
       { title: 'Path Weights', href: '/guides/path-weights' },
       { title: 'Codebase Audit', href: '/guides/codebase-audit' },
     ],

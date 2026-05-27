@@ -87,7 +87,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     defaultHeight: 4,
     category: 'status',
     closeable: true,
-    docsUrl: 'https://docs.sourceprep.io/concepts/indexing',
+    docsUrl: 'https://docs.sourceprep.io/how-it-works/indexing',
     devOnly: true,
   },
   {
@@ -196,7 +196,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/concepts/graph-enrichment',
+    docsUrl: 'https://docs.sourceprep.io/how-it-works/graph-enrichment',
   },
   {
     id: 'graph-structure',
@@ -233,7 +233,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'status',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/concepts/code-graph',
+    docsUrl: 'https://docs.sourceprep.io/how-it-works/code-graph',
   },
   {
     id: 'token-budget',
@@ -245,7 +245,7 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     category: 'config',
     closeable: true,
     resizable: true,
-    docsUrl: 'https://docs.sourceprep.io/guides/compression',
+    docsUrl: 'https://docs.sourceprep.io/how-it-works/compression',
   },
   {
     id: 'audit',

@@ -314,7 +314,7 @@ export function TraceCoveragePanel({
               Graph Status
               <InfoTooltip 
                 content="Learn about the Code Graph and coverage." 
-                href="https://docs.sourceprep.io/concepts/code-graph" 
+                href="https://docs.sourceprep.io/how-it-works/code-graph" 
               />
             </h3>
             <Button

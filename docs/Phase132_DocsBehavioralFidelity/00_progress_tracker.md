@@ -2,6 +2,12 @@
 
 > Companion to `README.md`. The README is the *plan*; this is the *state*.
 > Update this file whenever a Tier item is touched.
+>
+> **Note (2026-05-26):** Phase 138 landed and renamed `/concepts/*` →
+> `/how-it-works/*` and moved 4 explainer guides into the same section.
+> Table-row labels below (e.g. `concepts/indexing`, `guides/embeddings`)
+> reflect the path at the time of audit. Current URLs are
+> `/how-it-works/indexing`, `/how-it-works/embeddings`, etc.
 
 ## Status snapshot — 2026-05-14 (late night)
 

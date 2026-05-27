@@ -33,7 +33,7 @@ export function BuildCard({
               <Title className="text-text">Rebuild Knowledge</Title>
               <InfoTooltip 
                 content="Learn how the index is built." 
-                href="https://docs.sourceprep.io/concepts/indexing" 
+                href="https://docs.sourceprep.io/how-it-works/indexing" 
               />
             </div>
           )}

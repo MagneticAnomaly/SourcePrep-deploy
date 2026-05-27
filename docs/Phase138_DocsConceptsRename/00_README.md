@@ -1,5 +1,11 @@
 # Phase 138 — Docs "Concepts" Rename + Explainer Migration
 
+> **STATUS: SHIPPED 2026-05-26.** Section name "How It Works" confirmed by
+> Eric. Commits: `d66eed89` (rename + ConceptPageShell migration),
+> `2bb3a281` (mcp/ides + mcp/terminal client-component fix to restore
+> green `next build`). Cross-repo URL re-key for `packages/ui` panels +
+> stories + marketing `next.config.js` redirect landed alongside.
+>
 > **Scaffolded 2026-05-14 during Phase 132.** Deferred until Phase 132 completes
 > to keep momentum on the behavioral-fidelity audit. This is the structural
 > follow-up that came out of the Tier D "what is a Guide anyway?" question.
