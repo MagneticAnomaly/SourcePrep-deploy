@@ -115,7 +115,13 @@ from prep.services.pipeline.workers.base import Worker
 
 from .epistemic_score import EpistemicEntry
 from .llm_client import LLMClient, _parse_json_response
-from .swarm_orchestrator import SwarmOrchestrator, SwarmResult, WorkerAssignment, WorkItem
+from .swarm_orchestrator import (
+    SwarmOrchestrator,
+    SwarmResult,
+    WorkerAssignment,
+    WorkItem,
+    compute_swarm_wall_budget,
+)
 from .swarm_registry import get_min_groups_threshold, get_swarm_tier
 
 logger = logging.getLogger(__name__)
@@ -300,6 +306,17 @@ class GroupReasoningEngine(Worker):
         # Updated by _run_swarm() after each swarm execution.
         self._last_swarm_paused: bool = False
         self._last_swarm_pause_info: dict[str, str] = {}
+        # 2026-05-27 (Phase 141): incomplete-swarm signaling.  Set when
+        # the swarm fan-out cancels pending futures (wall-cap, stall)
+        # and ``len(result.worker_results) < len(items)``.  The caller
+        # (``run``) checks this and refuses to overwrite the cache
+        # with truncated results — the file remains at its pre-stage
+        # state and the stage fails so the user retries.  Without this
+        # guard, the 2026-05-26 incident shrunk trace_group_reasoning.jsonl
+        # from 166 to 61 records when 99/160 workers were silently
+        # cancelled by the 900s wall cap.
+        self._last_swarm_incomplete: bool = False
+        self._last_swarm_incomplete_info: dict[str, Any] = {}
 
     def _group_is_stale(self, member_node_ids: list[str]) -> bool:
         """A group is stale iff any member's underlying file is in
@@ -562,6 +579,13 @@ class GroupReasoningEngine(Worker):
         # use the large-slot 600s HTTP timeout.  Set per-worker and
         # overall wall-time caps so the swarm doesn't appear to hang.
         # Phase 112: coord and worker decoupled — coord uses coordinator_llm slot.
+        # 2026-05-27 (Phase 141): scale wall budget with workload.
+        # Previous fixed 900s (cloud) tripped on the legitimate 160-group
+        # full-rebuild path that needed ~1170-1750s.  See
+        # ``compute_swarm_wall_budget`` for the sizing rationale.
+        wall_budget = compute_swarm_wall_budget(
+            n_items=len(to_analyze), concurrency=concurrency, is_cloud=is_cloud,
+        )
         orch = SwarmOrchestrator(
             coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
             worker_llm=self.llm,
@@ -576,7 +600,7 @@ class GroupReasoningEngine(Worker):
             coordinator_timeout_s=180.0 if is_cloud else 90.0,
             synthesis_timeout_s=240.0 if is_cloud else 180.0,
             worker_timeout_s=180.0 if is_cloud else 300.0,
-            max_wall_time_s=900.0 if is_cloud else 1800.0,
+            max_wall_time_s=wall_budget,
             # Phase 127: pass project_id so the swarm honors soft-holds
             # at coord→fanout / fanout→synth boundaries.  Empty string
             # is fine — hold check is a no-op without a project key.
@@ -692,6 +716,41 @@ class GroupReasoningEngine(Worker):
         else:
             self._last_swarm_paused = False
             self._last_swarm_pause_info = {}
+
+        # 2026-05-27 (Phase 141): detect partial swarm completion.
+        # When the wall-time cap or stall-detection fires, the swarm
+        # cancels pending futures (swarm_orchestrator.py:609) and
+        # returns with ``len(worker_results) < len(items)``.  Per-worker
+        # failures (HTTP errors, unparseable JSON) still produce a
+        # WorkerResult with ``success=False`` — those count as ATTEMPTED
+        # even if they didn't yield an entry.  So the test for
+        # "incomplete" is whether the orchestrator dispatched all items,
+        # which is exactly ``len(result.worker_results) < len(items)``.
+        #
+        # The 2026-05-26 silent shrink was: 99 of 160 workers cancelled
+        # by the 900s wall cap, ``_run_swarm`` returned 61 parsed entries,
+        # the caller wrote them over a 166-record file.  Now we surface
+        # the incomplete signal so the caller refuses to write.
+        attempted = len(result.worker_results)
+        total_items = len(items)
+        if not result.paused and attempted < total_items:
+            self._last_swarm_incomplete = True
+            self._last_swarm_incomplete_info = {
+                "attempted": attempted,
+                "total": total_items,
+                "parsed_entries": len(entries),
+                "wall_clock_seconds": result.stats.wall_clock_seconds,
+            }
+            logger.error(
+                "[Swarm/GroupReasoning] INCOMPLETE: only %d of %d workers "
+                "attempted (rest cancelled by wall-time cap or stall) — "
+                "wall_clock=%.0fs.  Refusing to overwrite cache with "
+                "truncated results.",
+                attempted, total_items, result.stats.wall_clock_seconds,
+            )
+        else:
+            self._last_swarm_incomplete = False
+            self._last_swarm_incomplete_info = {}
 
         # Write synthesis artifact (only if synthesis succeeded)
         if result.synthesis:
@@ -953,6 +1012,37 @@ class GroupReasoningEngine(Worker):
                     "paused": True,
                     "pause_info": getattr(self, "_last_swarm_pause_info", {}),
                 }
+            # 2026-05-27 (Phase 141): refuse to overwrite the cache with
+            # a truncated result.  When the swarm fan-out wall cap (or
+            # stall detection) fires, pending workers are cancelled and
+            # the returned entries cover only a fraction of the work
+            # the stage was asked to do.  Writing that partial result
+            # over the existing file is the silent-shrink vector the
+            # 2026-05-26 incident demonstrated (166 → 61 records).
+            #
+            # Defense-in-depth: even though Fix #3 (workload-scaled
+            # wall budget) makes this unlikely on the happy path,
+            # transient rate-limits, network failures, or future
+            # workload growth could still trip the cap.  Fail loudly
+            # here so the user retries; the on-disk file is preserved
+            # in its pre-stage state.
+            if getattr(self, "_last_swarm_incomplete", False):
+                info = getattr(self, "_last_swarm_incomplete_info", {})
+                attempted = info.get("attempted", "?")
+                total_items = info.get("total", "?")
+                wall = info.get("wall_clock_seconds", 0.0)
+                msg = (
+                    f"Group reasoning swarm incomplete: only "
+                    f"{attempted}/{total_items} workers attempted "
+                    f"(wall_clock={wall:.0f}s).  Refusing to overwrite "
+                    f"trace_group_reasoning.jsonl with truncated results — "
+                    f"previous cache preserved.  Likely cause: swarm "
+                    f"wall-time cap fired or stall detected.  Retry the "
+                    f"stage; if it persists, check the LLM endpoint "
+                    f"latency or raise the wall budget."
+                )
+                logger.error(msg)
+                raise RuntimeError(msg)
             if swarm_entries:
                 results.update(swarm_entries)
                 analyzed = len(swarm_entries)

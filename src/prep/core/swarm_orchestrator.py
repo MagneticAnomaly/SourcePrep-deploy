@@ -112,6 +112,67 @@ class SwarmResult:
 
 
 # ---------------------------------------------------------------------------
+# Wall-time budget helpers
+# ---------------------------------------------------------------------------
+
+
+# Per-worker time estimates used to size the fan-out wall budget.
+# Empirical (2026-05-27, kimi-k2.6:cloud): observed 35-110s per worker
+# on a 167-group group_reasoning run, average ~70s.  Local workers run
+# slower and serialize through ollama's queue, so estimate higher.
+_WORKER_AVG_S_CLOUD: float = 80.0
+_WORKER_AVG_S_LOCAL: float = 120.0
+
+# Safety multiplier applied to the projected runtime before clamping.
+# Workers may have variance, the coordinator and synthesis phases also
+# consume the same budget, and we'd rather over-allocate than re-trip
+# the silent-data-loss path documented in pipeline_checkpoint.py.
+_WALL_SAFETY_FACTOR: float = 1.5
+
+# Lower / upper bounds on the computed budget.  Floor prevents tiny
+# workloads from getting unreasonably short caps; ceiling prevents a
+# wildly-sized workload from disabling the safety net entirely.
+_WALL_FLOOR_CLOUD_S: float = 900.0
+_WALL_FLOOR_LOCAL_S: float = 1800.0
+_WALL_CEILING_S: float = 5400.0  # 90 min — past this, redesign
+
+
+def compute_swarm_wall_budget(
+    n_items: int,
+    concurrency: int,
+    is_cloud: bool,
+) -> float:
+    """Compute a fan-out wall-time budget scaled to the workload.
+
+    Before 2026-05-27 (Phase 141) the swarm wall cap was a fixed 900s
+    inherited from the F-59 fix to the mini-redis-rust finalize stall,
+    when cloud was assumed to be sequential (free tier).  Phase 82
+    enabled AIMD-discovered parallel cloud concurrency (~10x), which
+    invalidated the sizing assumption — a legitimate 160-group
+    group_reasoning run now needs ~1170-1750s, well over 900s.
+
+    The 2026-05-26 incident: swarm hit the 900s cap at worker 61/160,
+    silently cancelled the remaining 99 pending workers (all of which
+    had ``success=True`` records), and wrote a 38%-of-expected output
+    that the IntegrityGuard's broken recovery path then accepted as
+    "completed".  Phase 136 Part 09's risk note —"bigger budget hides
+    workload growth"— was reified.
+
+    This helper sizes the budget per-call so the next workload growth
+    doesn't silently re-trip the same bug.  Stall detection and
+    per-worker timeouts in the orchestrator still catch genuinely
+    hung models within their own budgets.
+    """
+    n = max(1, n_items)
+    conc = max(1, concurrency)
+    worker_avg = _WORKER_AVG_S_CLOUD if is_cloud else _WORKER_AVG_S_LOCAL
+    floor = _WALL_FLOOR_CLOUD_S if is_cloud else _WALL_FLOOR_LOCAL_S
+
+    projected = (n * worker_avg) / conc * _WALL_SAFETY_FACTOR
+    return max(floor, min(projected, _WALL_CEILING_S))
+
+
+# ---------------------------------------------------------------------------
 # Orchestrator
 # ---------------------------------------------------------------------------
 
@@ -143,7 +204,14 @@ class SwarmOrchestrator:
     # marked as failed; the fan-out returns partial results when the
     # overall timeout fires.
     DEFAULT_WORKER_TIMEOUT_S: float = 180.0
-    DEFAULT_MAX_WALL_TIME_S: float = 900.0  # 15 minutes total
+    # 2026-05-27 (Phase 141): bumped from 900s -> 1800s.  The original
+    # 900s assumed free-tier sequential cloud; Phase 82 enabled AIMD
+    # parallel cloud (~10x concurrency) which means legitimate large
+    # workloads (160+ groups × ~70s avg / 10 conc) need ~1170-1750s.
+    # Use ``compute_swarm_wall_budget`` from caller sites instead of
+    # relying on this default — that scales the budget with workload
+    # so we don't trip on the next growth episode.
+    DEFAULT_MAX_WALL_TIME_S: float = 1800.0  # 30 minutes — defensive default
 
     def __init__(
         self,

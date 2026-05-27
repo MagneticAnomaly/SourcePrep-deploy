@@ -23,6 +23,7 @@ from prep.core.swarm_orchestrator import (
     SwarmResult,
     WorkerAssignment,
     WorkItem,
+    compute_swarm_wall_budget,
 )
 from prep.core.swarm_registry import get_min_groups_threshold, get_swarm_tier
 from prep.services.pipeline.workers import WorkerFactory
@@ -409,7 +410,21 @@ class CodebaseAtlas(Worker):
                 progress_callback=progress_callback,
                 cancel_token=cancel_token,
             )
-            if swarm_docs:
+            # 2026-05-27 (Phase 141): check completeness BEFORE accepting
+            # swarm output as the final atlas.  If the wall-cap or stall
+            # cancelled some workers, ``len(worker_results) < len(segments)``
+            # — accepting the partial set would produce a smaller
+            # atlas_segments_manifest.json than the previous run, which
+            # the IntegrityGuard would (correctly) flag as a MAJOR_SHRINK.
+            # Atlas's sequential fallback path below CAN produce a
+            # complete result, so fall through to it rather than raising
+            # — wasted swarm work, but the user gets a complete atlas.
+            swarm_complete = (
+                swarm_result is not None
+                and not swarm_result.paused
+                and len(swarm_result.worker_results) >= len(segments)
+            )
+            if swarm_docs and swarm_complete:
                 if swarm_result and swarm_result.synthesis:
                     self._write_atlas_synthesis(swarm_result)
                 duration_s = time.monotonic() - start
@@ -420,7 +435,19 @@ class CodebaseAtlas(Worker):
                 if progress_callback:
                     progress_callback("atlas_complete", total_steps, total_steps)
                 return root_doc, swarm_docs
-            logger.warning("[Swarm] Atlas swarm returned empty results — falling back to standard path")
+            if swarm_docs and not swarm_complete:
+                attempted = (
+                    len(swarm_result.worker_results) if swarm_result else 0
+                )
+                logger.error(
+                    "[Swarm] Atlas swarm INCOMPLETE: %d of %d segments attempted "
+                    "(rest cancelled by wall-cap or stall).  Discarding partial "
+                    "result and falling through to sequential generation to "
+                    "produce a complete atlas.  Wasted swarm cost: ~%d LLM calls.",
+                    attempted, len(segments), attempted,
+                )
+            else:
+                logger.warning("[Swarm] Atlas swarm returned empty results — falling back to standard path")
 
         # Generate per-segment atlases
         # Phase 72: Use the scheduler's batch concurrency budget to
@@ -961,6 +988,11 @@ class CodebaseAtlas(Worker):
         # F-59 rework: set per-worker and wall-time caps to prevent
         # apparent hangs on sequential cloud endpoints.
         # Phase 112: coord and worker decoupled — coord uses coordinator_llm slot.
+        # 2026-05-27 (Phase 141): scale wall budget with workload.
+        # See compute_swarm_wall_budget docstring for rationale.
+        wall_budget = compute_swarm_wall_budget(
+            n_items=len(segments), concurrency=concurrency, is_cloud=is_cloud,
+        )
         orch = SwarmOrchestrator(
             coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
             worker_llm=self.llm,
@@ -973,7 +1005,7 @@ class CodebaseAtlas(Worker):
             coordinator_timeout_s=180.0 if is_cloud else 90.0,
             synthesis_timeout_s=240.0 if is_cloud else 180.0,
             worker_timeout_s=180.0 if is_cloud else 300.0,
-            max_wall_time_s=900.0 if is_cloud else 1800.0,
+            max_wall_time_s=wall_budget,
             # Phase 127: AtlasGenerator does not currently carry a
             # project_id — leaving as None means the soft-hold check
             # is a no-op for atlas swarms.  When atlas grows project_id

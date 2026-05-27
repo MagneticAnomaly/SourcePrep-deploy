@@ -278,6 +278,8 @@ class IntegrityGuard:
         project_id: str,
         stage_id: str,
         post_files: Dict[str, "FileSnapshot"],
+        *,
+        allowed_shrink_ratio: float = 0.0,
     ) -> tuple[bool, str]:
         """Check if a stage's output would destroy existing data.
 
@@ -286,12 +288,25 @@ class IntegrityGuard:
         pipeline should NOT advance — the stage's output would reduce
         the data below what already existed.
 
-        The pipeline should only grow the graph, never shrink it.
+        ``allowed_shrink_ratio`` (2026-05-27, Phase 141): an expected
+        fraction of shrinkage that is OK because the workload itself
+        shrunk.  The orchestrator computes this from the active
+        Changeset's deletion ratio: a user who deletes 30% of their
+        source files SHOULD see roughly 30% fewer trace records, and
+        that case must not be flagged as a MAJOR_SHRINK incident.
+        Default 0.0 means "any shrinkage blocks" — the historical
+        behavior for callers that don't pass it (tests, etc).
+
+        The pipeline should only grow the graph, never shrink it
+        *beyond what the workload's own shrinkage explains*.
         """
         key = (project_id, stage_id)
         pre = self._snapshots.get(key)
         if pre is None:
             return False, "no pre-flight snapshot"
+
+        # Clamp to [0, 1) — a >=100% allowance would disable the guard.
+        allow = max(0.0, min(allowed_shrink_ratio, 0.95))
 
         for fname, pre_fs in pre.files.items():
             if not pre_fs.exists or pre_fs.record_count == 0:
@@ -304,11 +319,22 @@ class IntegrityGuard:
                     f"({pre_fs.record_count} records existed)"
                 )
 
-            if post_fs.record_count < pre_fs.record_count:
+            # Expected floor: pre_records * (1 - allowance).  E.g.,
+            # with allowance=0.30 (user deleted 30% of files), a
+            # post_records >= 0.70 * pre_records is OK.
+            min_acceptable = int(pre_fs.record_count * (1.0 - allow))
+            if post_fs.record_count < min_acceptable:
+                allow_note = (
+                    f" (allowed up to {allow:.0%} shrinkage given "
+                    f"workload deletions)"
+                    if allow > 0.0
+                    else ""
+                )
                 return True, (
                     f"Stage {stage_id} would shrink {fname} from "
                     f"{pre_fs.record_count} to {post_fs.record_count} records "
                     f"({post_fs.record_count / pre_fs.record_count:.0%} of original)"
+                    f"{allow_note}"
                 )
 
         return False, "ok"

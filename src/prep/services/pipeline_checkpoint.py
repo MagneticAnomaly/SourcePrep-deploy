@@ -47,7 +47,15 @@ from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# Files that constitute the trace graph state
+# Files that constitute the trace graph state.
+#
+# This list MUST stay in sync with STAGE_OUTPUTS below — any file that
+# appears as a stage output must also appear here, or create_checkpoint
+# will skip it and restore_checkpoint will silently no-op for it.  A
+# 2026-05-27 incident saw trace_group_reasoning.jsonl shrink 166→61
+# records, IntegrityGuard recovery logged "RESTORED 10 files" success,
+# but the file remained corrupted because it was not in TRACE_FILES.
+# See tests/test_checkpoint_coverage.py for the enforcement.
 TRACE_FILES = [
     "trace_manifest.json",
     "trace_nodes.jsonl",
@@ -58,7 +66,10 @@ TRACE_FILES = [
     "trace_inferred_manifest.json",
     "trace_epistemic.jsonl",
     "trace_epistemic_manifest.json",
+    "trace_group_reasoning.jsonl",
+    "group_reasoning_manifest.json",
     "trace_modules.jsonl",
+    "trace_modules_manifest.json",
 ]
 
 # Which stages produce which files (used to determine what to checkpoint)
@@ -68,7 +79,8 @@ STAGE_OUTPUTS: Dict[str, List[str]] = {
     "validation":     ["trace_inferred_edges.jsonl", "trace_inferred_manifest.json"],
     "knowledge":      [],  # Knowledge index uses its own atomic swap
     "enrichment":     ["trace_epistemic.jsonl", "trace_epistemic_manifest.json"],
-    "clustering":     ["trace_modules.jsonl"],
+    "group_reasoning": ["trace_group_reasoning.jsonl", "group_reasoning_manifest.json"],
+    "clustering":     ["trace_modules.jsonl", "trace_modules_manifest.json"],
     "atlas":          [
         "atlas.json",
         "atlas_prev.json",
@@ -288,12 +300,13 @@ def auto_heal(
 # Superset of TRACE_FILES — includes deep stage outputs and manifests.
 _GOLDEN_FILES = sorted(set(TRACE_FILES + [
     "trace_group_reasoning.jsonl",
-    "trace_group_reasoning_manifest.json",
+    "group_reasoning_manifest.json",
     "trace_modules_manifest.json",
     "atlas.json",
     "atlas_prev.json",
     "atlas_segments_manifest.json",
     "atlas_routing.json",
+    "atlas_routing_embeddings.npy",
     "atlas_manifest.json",
     "deepening_manifest.json",
     "deep_knowledge_manifest.json",

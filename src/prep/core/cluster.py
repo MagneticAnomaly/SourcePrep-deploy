@@ -40,7 +40,13 @@ from prep.services.pipeline.workers.base import Worker
 
 from .epistemic_score import EpistemicEntry
 from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
-from .swarm_orchestrator import SwarmOrchestrator, SwarmResult, WorkerAssignment, WorkItem
+from .swarm_orchestrator import (
+    SwarmOrchestrator,
+    SwarmResult,
+    WorkerAssignment,
+    WorkItem,
+    compute_swarm_wall_budget,
+)
 from .swarm_registry import get_min_groups_threshold, get_swarm_tier
 
 logger = logging.getLogger(__name__)
@@ -1125,6 +1131,12 @@ class ClusterSynthesizer(Worker):
         # Updated by _run_swarm() after each swarm execution.
         self._last_swarm_paused: bool = False
         self._last_swarm_pause_info: Dict[str, str] = {}
+        # 2026-05-27 (Phase 141): incomplete-swarm signaling — same
+        # rationale as group_reasoning.py.  Set when the swarm wall-cap
+        # or stall fires and pending workers are cancelled.  The caller
+        # raises rather than writing a truncated modules file.
+        self._last_swarm_incomplete: bool = False
+        self._last_swarm_incomplete_info: Dict[str, Any] = {}
 
     def _get_swarm_enabled(self) -> bool:
         """Check if swarm is enabled in pipeline settings."""
@@ -1570,6 +1582,11 @@ class ClusterSynthesizer(Worker):
         # the short cloud timeouts (matches atlas, concept_seeder, group_reasoning).
         from prep.core.llm_client import _is_cloud_endpoint
         is_cloud = _is_cloud_endpoint(self.llm)
+        # 2026-05-27 (Phase 141): scale wall budget with workload.
+        # See compute_swarm_wall_budget docstring for rationale.
+        wall_budget = compute_swarm_wall_budget(
+            n_items=len(to_synthesize), concurrency=concurrency, is_cloud=is_cloud,
+        )
         orch = SwarmOrchestrator(
             coordinator_llm=WorkerFactory._get_coordinator_llm_client(),
             worker_llm=self.llm,
@@ -1580,7 +1597,7 @@ class ClusterSynthesizer(Worker):
             coordinator_timeout_s=180.0 if is_cloud else 90.0,
             synthesis_timeout_s=240.0 if is_cloud else 180.0,
             worker_timeout_s=180.0 if is_cloud else 300.0,
-            max_wall_time_s=900.0 if is_cloud else 1800.0,
+            max_wall_time_s=wall_budget,
             # Phase 127: pass project_id so the swarm honors soft-holds
             # at coord→fanout / fanout→synth boundaries.  Empty string
             # is fine — hold check is a no-op without a project key.
@@ -1708,6 +1725,28 @@ class ClusterSynthesizer(Worker):
         else:
             self._last_swarm_paused = False
             self._last_swarm_pause_info = {}
+
+        # 2026-05-27 (Phase 141): detect partial swarm completion.
+        # See group_reasoning.py:_run_swarm for the full rationale.
+        attempted = len(result.worker_results)
+        total_items = len(items)
+        if not result.paused and attempted < total_items:
+            self._last_swarm_incomplete = True
+            self._last_swarm_incomplete_info = {
+                "attempted": attempted,
+                "total": total_items,
+                "parsed_entries": len(modules),
+                "wall_clock_seconds": result.stats.wall_clock_seconds,
+            }
+            logger.error(
+                "[Swarm/Cluster] INCOMPLETE: only %d of %d workers attempted "
+                "(rest cancelled by wall-time cap or stall) — wall_clock=%.0fs. "
+                "Refusing to overwrite cache with truncated results.",
+                attempted, total_items, result.stats.wall_clock_seconds,
+            )
+        else:
+            self._last_swarm_incomplete = False
+            self._last_swarm_incomplete_info = {}
 
         if result.synthesis:
             self._write_cluster_synthesis(result)
@@ -2115,6 +2154,27 @@ class ClusterSynthesizer(Worker):
                     "paused": True,
                     "pause_info": getattr(self, "_last_swarm_pause_info", {}),
                 }
+            # 2026-05-27 (Phase 141): refuse to overwrite trace_modules.jsonl
+            # with truncated results when the swarm completed only a
+            # subset of clusters (wall-cap or stall fired).  See
+            # group_reasoning.py for the parallel guard and rationale.
+            if getattr(self, "_last_swarm_incomplete", False):
+                info = getattr(self, "_last_swarm_incomplete_info", {})
+                attempted = info.get("attempted", "?")
+                total_items = info.get("total", "?")
+                wall = info.get("wall_clock_seconds", 0.0)
+                msg = (
+                    f"Cluster synthesis swarm incomplete: only "
+                    f"{attempted}/{total_items} workers attempted "
+                    f"(wall_clock={wall:.0f}s).  Refusing to overwrite "
+                    f"trace_modules.jsonl with truncated results — "
+                    f"previous cache preserved.  Likely cause: swarm "
+                    f"wall-time cap fired or stall detected.  Retry the "
+                    f"stage; if it persists, check LLM endpoint latency "
+                    f"or raise the wall budget."
+                )
+                logger.error(msg)
+                raise RuntimeError(msg)
             if swarm_modules:
                 modules.update(swarm_modules)
                 synthesized = len(swarm_modules)

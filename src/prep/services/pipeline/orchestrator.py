@@ -1467,31 +1467,19 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("User pause marker clear failed", exc_info=True)
 
-        # A resumed run is re-processing stages on top of partial data —
-        # the rebuild-styled progress bars should fire so the user can
-        # tell apart "fresh run" from "continuing prior work" at a
-        # glance. The barrier auto-clears via maybe_clear_scoped_barrier
-        # when the resumed group's boundary stage completes, so this is
-        # self-cleaning. If a barrier is already active (the original
-        # run was a force-rebuild), leave it untouched.
-        try:
-            from prep.services.pipeline.recovery import (
-                read_reset_barrier,
-                write_reset_barrier,
-            )
-            if read_reset_barrier(project_id) is None:
-                _SCOPE = {
-                    "fast_sync": "sync",
-                    "deep_enrichment": "enrichment",
-                    "finalize": "all",
-                }
-                write_reset_barrier(
-                    project_id,
-                    reason="rebuild",
-                    scope=_SCOPE.get(group, "all"),
-                )
-        except Exception:
-            logger.debug("Resume barrier write failed (non-fatal)", exc_info=True)
+        # 2026-05-17 regression fix: do NOT forge a reset_barrier on
+        # resume. The previous code wrote one so the UI would render
+        # "Rebuilding [scope]" — but resume is incremental continuation
+        # of paused work, not a rebuild. Users who restart the daemon
+        # then see "Rebuilding All" with no idea why (they never clicked
+        # rebuild). The auto-clear sentence in the original comment was
+        # also misleading: maybe_clear_scoped_barrier only clears when
+        # the resumed group's boundary stage completes, so an
+        # interrupted resume left the false-rebuild label stuck on.
+        # If the user really did force-rebuild before the pause, the
+        # original barrier they wrote still exists and we never touched
+        # it. Resume just continues; the dashboard's normal stage
+        # progress UI is sufficient signal.
 
         logger.info(
             "Resuming paused run %s/%s from stage %d (%s)",
@@ -2594,7 +2582,15 @@ class PipelineOrchestrator:
                 if matching_run.can_transition(Event.STAGE_FAILED):
                     matching_run.transition(Event.STAGE_FAILED, detail=f"WRITE GUARD BLOCKED: {wgb}")
                 self._unload_group_models(matching_run)
-                self._journal_run_completed(matching_run)
+                # 2026-05-27 (Phase 141): record this run as failed in
+                # the journal — do NOT use ``_journal_run_completed``
+                # here, which would (a) set status='completed' and
+                # (b) promote a golden checkpoint from the corrupted
+                # state, exactly the 2026-05-26 incident's
+                # double-bookkeeping bug.
+                self._journal_run_failed(
+                    matching_run, stage, f"WRITE GUARD BLOCKED: {wgb}",
+                )
                 # Phase 89: Release scheduler slot on write guard failure
                 _release_node = getattr(matching_run, '_current_node_id', None)
                 _deferred = pipeline_scheduler.release(project_id, stage, _release_node)
@@ -3722,6 +3718,32 @@ class PipelineOrchestrator:
         except Exception:
             logger.debug("Journal stage_failed write failed", exc_info=True)
 
+    def _journal_run_failed(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        error: str,
+    ) -> None:
+        """Record that a run failed at ``stage`` with ``error``.
+
+        Counterpart to ``_journal_run_completed`` for the
+        ``_WriteGuardBlocked`` path.  Critically, this does NOT promote
+        a golden checkpoint — the 2026-05-26 incident saw the failure
+        path call ``_journal_run_completed`` which both marked status as
+        'completed' AND copied corrupted state into ``_golden/``, so
+        the next run hit the same corrupted cache.
+
+        The run checkpoint is preserved (not cleaned up) so the user
+        can inspect or manually recover.
+        """
+        if not run.journal_run_id:
+            return
+        try:
+            from prep.services.pipeline_journal import journal
+            journal.stage_failed(run.journal_run_id, stage.value, error)
+        except Exception:
+            logger.debug("Journal stage_failed write failed", exc_info=True)
+
     def _journal_run_completed(self, run: PipelineGroupStateMachine) -> None:
         if not run.journal_run_id:
             return
@@ -3865,6 +3887,16 @@ class PipelineOrchestrator:
                 pfl.log(stage.value, f"SKIPPED (freshness): {reason}")
             run.stage_results[stage.value] = "skipped"
 
+            # Persist the skip to pipeline_run_metadata.json so the dashboard
+            # can distinguish "skipped because already current" from "still
+            # running". Without this, the per-stage entry keeps the initial
+            # "pending" status from create_run_metadata and the UI renders the
+            # stage as stuck ("Iteration 0/?" / "Enriching..."). Mirrors the
+            # _update_run_metadata_for_stage call on the normal completion
+            # path, but with no manifest write (manifest mtime correctly
+            # reflects the prior actual run, not this freshness skip).
+            self._update_run_metadata_for_skip(run, stage, reason)
+
             # Phase 96: Release the scheduler slot acquired for this stage
             # BEFORE advancing.  Without this release, the slot is held
             # forever (no worker was launched, so _on_build_transition will
@@ -3886,6 +3918,47 @@ class PipelineOrchestrator:
             run.current_stage_index += 1
             self._advance_pipeline(run)
         return should_skip
+    def _compute_allowed_shrink_ratio(self, idx_dir: Path) -> float:
+        """Return the fraction of shrinkage the integrity guard should
+        tolerate given the active Changeset's deletion ratio.
+
+        2026-05-27 (Phase 141): a user who deletes a significant
+        fraction of their source files SHOULD see downstream trace
+        records shrink proportionally — that is not a data-loss
+        incident.  The formula:
+
+            deletion_ratio = |deleted| / (|deleted| + |all_known|)
+            allowance = deletion_ratio * 1.5 + 0.10
+
+        The 1.5x amplifier accounts for "soft" effects (a deleted
+        hub file removes more graph edges than just its own node),
+        and the +0.10 base tolerance absorbs minor structural noise.
+        Cap at 0.95 in the guard itself so the safety net is never
+        fully disabled.
+
+        Returns 0.0 if no changeset is present (first build, etc.) —
+        the guard then enforces strict no-shrink.
+        """
+        try:
+            from prep.services.pipeline.changeset import read_changeset
+            cs = read_changeset(idx_dir)
+        except Exception:
+            return 0.0
+        if cs is None:
+            return 0.0
+        deleted_n = len(cs.deleted)
+        if deleted_n == 0:
+            return 0.0
+        # all_known() = added | modified | unchanged (excludes deleted).
+        # Adding |deleted| gives the prior known-file count, which is
+        # the right denominator for "what fraction of the world was
+        # removed by the user."
+        prior_n = len(cs.all_known()) + deleted_n
+        if prior_n == 0:
+            return 0.0
+        deletion_ratio = deleted_n / prior_n
+        return deletion_ratio * 1.5 + 0.10
+
     def _try_restore_stage_from_backup(
         self,
         run: PipelineGroupStateMachine,
@@ -3961,8 +4034,18 @@ class PipelineOrchestrator:
                 fpath = idx_dir / fname
                 post_files[fname] = integrity_guard._snapshot_file(fpath)
 
+            # 2026-05-27 (Phase 141): allow shrinkage proportional to
+            # the user's own deletions.  If they removed 30% of their
+            # source files, downstream trace records SHOULD legitimately
+            # shrink by ~30%, and that must not be flagged as a
+            # MAJOR_SHRINK incident.  Read the Changeset emitted by
+            # stage 1 to derive the deletion ratio; fall through with
+            # 0.0 if no changeset (e.g. very first build).
+            allowed_shrink = self._compute_allowed_shrink_ratio(idx_dir)
+
             blocked, reason = integrity_guard.should_block_stage_completion(
                 run.project_id, stage.value, post_files,
+                allowed_shrink_ratio=allowed_shrink,
             )
 
             if blocked:
@@ -4057,6 +4140,10 @@ class PipelineOrchestrator:
         try:
             from prep.core.project_registry import project_index_dir
             from prep.services.pipeline_checkpoint import restore_checkpoint
+            from prep.services.pipeline_integrity import (
+                STAGE_DATA_FILES,
+                integrity_guard,
+            )
             from prep.services.pipeline_journal import journal
             from prep.services.project_helpers import require_project
 
@@ -4069,6 +4156,47 @@ class PipelineOrchestrator:
                 if entry and entry.checkpoint_path:
                     restored = restore_checkpoint(entry.checkpoint_path, idx_dir)
                     if restored > 0:
+                        # 2026-05-27: verify the restore actually fixed the
+                        # shrunken file before declaring success.  Earlier
+                        # behavior accepted ``restored > 0`` blindly — a
+                        # silent data-loss multiplier when the shrunken
+                        # file was not in ``TRACE_FILES`` (and therefore
+                        # not in the checkpoint set).  Re-snapshot the
+                        # stage's data files and re-run the same block
+                        # check that triggered us: if it still blocks,
+                        # the restore was a no-op for the file that
+                        # mattered.
+                        data_files = STAGE_DATA_FILES.get(stage.value, [])
+                        post_restore_files = {
+                            fname: integrity_guard._snapshot_file(idx_dir / fname)
+                            for fname in data_files
+                        }
+                        # Use the same deletion-aware allowance as the
+                        # original block so the recheck is consistent.
+                        allowed_shrink = self._compute_allowed_shrink_ratio(idx_dir)
+                        still_blocked, post_restore_reason = (
+                            integrity_guard.should_block_stage_completion(
+                                run.project_id, stage.value, post_restore_files,
+                                allowed_shrink_ratio=allowed_shrink,
+                            )
+                        )
+                        if still_blocked:
+                            logger.critical(
+                                "Write guard: PHANTOM RESTORE for stage %s/%s — "
+                                "restore_checkpoint copied %d files but the "
+                                "integrity check still blocks after restore. "
+                                "Original: %s | Post-restore: %s",
+                                stage.value, run.project_id, restored,
+                                reason, post_restore_reason,
+                            )
+                            if pfl:
+                                pfl.log(
+                                    stage.value,
+                                    f"Write guard: PHANTOM RESTORE ({restored} "
+                                    f"files copied, still failing: "
+                                    f"{post_restore_reason})",
+                                )
+                            return False
                         logger.warning(
                             "Write guard: RESTORED %d files from checkpoint for "
                             "stage %s/%s (blocked: %s)",
@@ -4521,6 +4649,47 @@ class PipelineOrchestrator:
             save_run_metadata(run_meta, idx_dir)
         except Exception:
             logger.debug("Phase 49: run metadata update failed (non-fatal)", exc_info=True)
+
+    def _update_run_metadata_for_skip(
+        self,
+        run: PipelineGroupStateMachine,
+        stage: StageId,
+        reason: str,
+    ) -> None:
+        """Mark a freshness-skipped stage as ``skipped`` in run metadata.
+
+        The normal completion path goes through
+        ``_update_run_metadata_for_stage`` after a worker finishes.
+        Freshness-skipped stages never launch a worker, so this helper
+        flushes the same on-disk state with a ``"skipped"`` status and
+        the reason string surfaced by ``ResumeStrategy.should_skip_stage_freshness``.
+        Without it, ``pipeline_run_metadata.json`` keeps the initial
+        ``"pending"`` entry forever and the UI renders the skipped stage
+        as still running.
+        """
+        try:
+            from prep.core.project_registry import project_index_dir
+            from prep.services.pipeline_metadata import (
+                mark_stage_skipped,
+                save_run_metadata,
+            )
+            from prep.services.project_helpers import require_project
+
+            key = (run.project_id, run.group)
+            run_meta = self._run_metadata.get(key)
+            if not run_meta:
+                return
+
+            mark_stage_skipped(run_meta, stage.value, reason=reason)
+
+            project = require_project(run.project_id)
+            idx_dir = project_index_dir(project)
+            save_run_metadata(run_meta, idx_dir)
+        except Exception:
+            logger.debug(
+                "Run metadata skip update failed (non-fatal) for %s/%s",
+                run.project_id, stage.value, exc_info=True,
+            )
 
     def _finalize_run_metadata(self, run: PipelineGroupStateMachine, status: str) -> None:
         """Finalize run metadata on completion/failure and record in history."""
