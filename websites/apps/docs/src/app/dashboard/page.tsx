@@ -1,6 +1,15 @@
 import { AnimatedIDE, ideLoadingSkeletonDemo } from '../../components/cli-demos';
 import { AnchorHeading } from '../../components/AnchorHeading';
-import { StoryEmbed } from '../../components/StoryEmbed';
+import {
+  DemoPanelPicker,
+  DemoIndexStatusLoaded,
+  DemoTraceCoverage,
+  DemoGraphEnrichmentPipelineRunning,
+  DemoSearchPanelFullDemo,
+  DemoAgentOpsActive,
+  DemoRoadmapPanel,
+  DemoActivityHeatmapMixed,
+} from '../../components/demos';
 
 export default function Page() {
   return (
@@ -27,11 +36,17 @@ export default function Page() {
             panel is independently closeable, resizable, and rearrangeable.
           </p>
 
-          <StoryEmbed
-            storyId="dashboard-layouts-fulldashboard--full-dashboard"
-            height={600}
-            caption="A populated dashboard — drag, resize, and close panels to suit your workflow."
-          />
+          {/*
+            The full integrated dashboard (15+ panels with linked state) was previously embedded
+            here via iframe. After the iframe migration (Phase 137b) we deferred it — pulling the
+            entire ModularDashboard fixture into this route would balloon the docs bundle. The
+            individual panel demos below cover the same surface area; see the live app for the
+            integrated experience.
+          */}
+          <p className="text-sm text-text-muted italic">
+            See the live SourcePrep dashboard for the full integrated workspace. The individual
+            panels below are each rendered with the same components the dashboard uses.
+          </p>
 
           <AnchorHeading id="panel-categories" level="h2">Panel categories</AnchorHeading>
           <p>
@@ -58,11 +73,12 @@ export default function Page() {
             <li><span className="font-semibold text-text">Copy / Paste:</span> serialize the current layout to clipboard so you can share it with a teammate or move it between machines.</li>
           </ul>
 
-          <StoryEmbed
-            storyId="patterns-panelpicker--default"
-            height={350}
-            caption="Panel Picker — toggle visibility, reset, refit, and copy/paste your layout."
-          />
+          <div className="not-prose">
+            <DemoPanelPicker />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Panel Picker — toggle visibility, reset, refit, and copy/paste your layout.
+            </p>
+          </div>
 
           <AnchorHeading id="key-panels" level="h2">Key panels</AnchorHeading>
           <p className="text-sm text-text-muted">
@@ -75,11 +91,12 @@ export default function Page() {
             and stale-file count. The fastest way to see whether the engine has
             kept up with your last edits.
           </p>
-          <StoryEmbed
-            storyId="dashboard-index-indexstatuscard--loaded"
-            height={220}
-            caption="Knowledge Status — chunks indexed, embedding model, last build, and freshness at a glance."
-          />
+          <div className="not-prose">
+            <DemoIndexStatusLoaded />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Knowledge Status — chunks indexed, embedding model, last build, and freshness at a glance.
+            </p>
+          </div>
 
           <AnchorHeading id="code-graph-coverage" level="h3" className="text-xl font-semibold mt-8 mb-2">Code-Graph Coverage</AnchorHeading>
           <p className="text-sm">
@@ -88,11 +105,12 @@ export default function Page() {
             after a recent change. Use the Untraced and Stale tabs to nudge
             specific files into the pipeline.
           </p>
-          <StoryEmbed
-            storyId="dashboard-trace-coveragepanel--default"
-            height={350}
-            caption="Code-Graph Coverage — manage the inventory of indexed files."
-          />
+          <div className="not-prose">
+            <DemoTraceCoverage />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Code-Graph Coverage — manage the inventory of indexed files.
+            </p>
+          </div>
 
           <AnchorHeading id="pipeline" level="h3" className="text-xl font-semibold mt-8 mb-2">Pipeline</AnchorHeading>
           <p className="text-sm">
@@ -100,13 +118,14 @@ export default function Page() {
             Finalize). Each stage shows its status, last run, and provenance
             (deterministic re-use vs. fresh build). For a full breakdown of what
             each stage does and why,
-            see <a href="/concepts/graph-enrichment" className="text-primary hover:underline">Concepts → Graph Enrichment</a>.
+            see <a href="/how-it-works/graph-enrichment" className="text-primary hover:underline">How It Works → Graph Enrichment</a>.
           </p>
-          <StoryEmbed
-            storyId="dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running"
-            height={450}
-            caption="Pipeline panel — every stage visible with live progress."
-          />
+          <div className="not-prose">
+            <DemoGraphEnrichmentPipelineRunning />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Pipeline panel — every stage visible with live progress.
+            </p>
+          </div>
 
           <AnchorHeading id="search-context" level="h3" className="text-xl font-semibold mt-8 mb-2">Search & Context</AnchorHeading>
           <p className="text-sm">
@@ -115,11 +134,12 @@ export default function Page() {
             be sent to your AI. Pair them with Context Options to control budget,
             atlas routing, and trace expansion.
           </p>
-          <StoryEmbed
-            storyId="dashboard-search-searchpanel--full-search-demo"
-            height={350}
-            caption="Search panel — find code by meaning, with the assembled context preview alongside."
-          />
+          <div className="not-prose">
+            <DemoSearchPanelFullDemo />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Search panel — find code by meaning, with the assembled context preview alongside.
+            </p>
+          </div>
 
           <AnchorHeading id="agent-ops" level="h3" className="text-xl font-semibold mt-8 mb-2">Agent Operations</AnchorHeading>
           <p className="text-sm">
@@ -127,33 +147,36 @@ export default function Page() {
             which projects they&apos;re scoped to, and how many tool calls they&apos;ve issued. Useful
             when more than one agent is in flight at the same time.
           </p>
-          <StoryEmbed
-            storyId="dashboard-agents-agentopspanel--active"
-            height={380}
-            caption="Agent Operations Panel — live connections, scope, and throughput per agent."
-          />
+          <div className="not-prose">
+            <DemoAgentOpsActive />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Agent Operations Panel — live connections, scope, and throughput per agent.
+            </p>
+          </div>
 
           <AnchorHeading id="roadmap" level="h3" className="text-xl font-semibold mt-8 mb-2">Roadmap</AnchorHeading>
           <p className="text-sm">
             LLM-synthesized roadmap derived from your codebase, open tickets, and recent commits.
             Bi-directional GitHub sync keeps it in step with the work that&apos;s actually moving.
           </p>
-          <StoryEmbed
-            storyId="dashboard-roadmap-roadmappanel--with-content"
-            height={420}
-            caption="Roadmap Panel — synthesized milestones, sprint suggestions, and burndown."
-          />
+          <div className="not-prose">
+            <DemoRoadmapPanel />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Roadmap Panel — synthesized milestones, sprint suggestions, and burndown.
+            </p>
+          </div>
 
           <AnchorHeading id="activity" level="h3" className="text-xl font-semibold mt-8 mb-2">Activity Heatmap</AnchorHeading>
           <p className="text-sm">
             Year-view of indexing and enrichment activity per day. Surface dormant areas of the
             codebase and spot anomalies in incremental-rebuild frequency at a glance.
           </p>
-          <StoryEmbed
-            storyId="dashboard-visualization-activityheatmap--mixed-activity"
-            height={260}
-            caption="Activity Heatmap — daily indexing + enrichment volume across the year."
-          />
+          <div className="not-prose">
+            <DemoActivityHeatmapMixed />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Activity Heatmap — daily indexing + enrichment volume across the year.
+            </p>
+          </div>
 
           <AnchorHeading id="settings" level="h2">Settings</AnchorHeading>
           <p>
@@ -180,8 +203,8 @@ export default function Page() {
           <AnchorHeading id="learn-more" level="h2">Learn more</AnchorHeading>
           <ul className="list-disc pl-6 space-y-2">
             <li><a href="/dashboard/projects" className="text-primary hover:underline">Managing projects</a> — adding repos, scope control, per-project settings.</li>
-            <li><a href="/concepts/graph-enrichment" className="text-primary hover:underline">Graph Enrichment</a> — what the 15 pipeline stages do.</li>
-            <li><a href="/concepts/code-graph" className="text-primary hover:underline">Code Graph</a> — the structural backbone the dashboard surfaces.</li>
+            <li><a href="/how-it-works/graph-enrichment" className="text-primary hover:underline">Graph Enrichment</a> — what the 15 pipeline stages do.</li>
+            <li><a href="/how-it-works/code-graph" className="text-primary hover:underline">Code Graph</a> — the structural backbone the dashboard surfaces.</li>
           </ul>
 
         </div>

@@ -1,7 +1,7 @@
 import { Image as ImageIcon } from 'lucide-react';
 import { AnimatedCLI, prepTldrOverviewDemo, auditPrSanityCheckDemo } from '../../components/cli-demos';
 import { AnchorHeading } from '../../components/AnchorHeading';
-import { StoryEmbed } from '../../components/StoryEmbed';
+import { DemoIndexStatusLoaded } from '../../components/demos';
 
 export default function Page() {
   return (
@@ -60,13 +60,11 @@ export default function Page() {
           <p>
             You&apos;ll see indexing progress in the dashboard. For a 50k file repo, the Rust trace index takes less than a second once semantic indexing wraps up.
           </p>
-          <div className="not-prose my-6 rounded-lg overflow-hidden border border-border">
-            <StoryEmbed
-              storyId="dashboard-index-indexstatuscard--loaded"
-              height={260}
-              title="Knowledge Status"
-              caption="What the dashboard looks like once your first project is indexed and serving structural context."
-            />
+          <div className="not-prose">
+            <DemoIndexStatusLoaded />
+            <p className="text-xs text-text-subtle italic -mt-2 mb-4">
+              What the dashboard looks like once your first project is indexed and serving structural context.
+            </p>
           </div>
 
           <AnchorHeading id="connect-editor" level="h2">4. Connect Your Editor</AnchorHeading>
@@ -141,7 +139,7 @@ export default function Page() {
           <ul className="list-disc pl-6 space-y-2">
             <li><a href="/guides/codebase-audit" className="text-primary hover:underline">Codebase Audit Guide</a> &mdash; deep-dive into the 11 analyzers and the refactor workflow.</li>
             <li><a href="/guides/path-weights" className="text-primary hover:underline">Tune Path Weights</a> to focus the AI on what matters.</li>
-            <li><a href="/guides/compression" className="text-primary hover:underline">Smart Compression</a> &mdash; structural code compression (3&ndash;20&times;) built in. Language-aware compression for docs is on the roadmap.</li>
+            <li><a href="/how-it-works/compression" className="text-primary hover:underline">Smart Compression</a> &mdash; structural code compression (3&ndash;20&times;) built in. Language-aware compression for docs is on the roadmap.</li>
             <li><a href="/troubleshooting" className="text-primary hover:underline">Troubleshooting</a> if something didn&apos;t work.</li>
           </ul>
         </div>

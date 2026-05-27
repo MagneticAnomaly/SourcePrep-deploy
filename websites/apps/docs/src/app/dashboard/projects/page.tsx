@@ -37,7 +37,7 @@ export default function Page() {
           </p>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li><span className="font-semibold text-text">Code-Graph Coverage:</span> file inventory and traced/untraced counts.</li>
-            <li><span className="font-semibold text-text">Pipeline:</span> live status of each of the 15 enrichment stages. See <a href="/concepts/graph-enrichment" className="text-primary hover:underline">Graph Enrichment</a> for what each stage does.</li>
+            <li><span className="font-semibold text-text">Pipeline:</span> live status of each of the 15 enrichment stages. See <a href="/how-it-works/graph-enrichment" className="text-primary hover:underline">Graph Enrichment</a> for what each stage does.</li>
           </ul>
 
           <AnchorHeading id="file-management" level="h2" className="mt-8">Controlling what gets indexed</AnchorHeading>

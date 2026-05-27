@@ -1,6 +1,6 @@
 import { Image as ImageIcon } from 'lucide-react';
 import { AnchorHeading } from '../../../components/AnchorHeading';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { DemoAIModelsSettings } from '../../../components/demos';
 
 export default function Page() {
   return (
@@ -118,7 +118,7 @@ export default function Page() {
             <li><span className="font-semibold text-text">Swarm Coordinator:</span> inherits Thinking by default.</li>
           </ul>
           <p className="mt-3 text-sm text-text-muted">
-            See <a href="/guides/dynamic-model-loading" className="text-primary hover:underline">Dynamic Model Loading</a> for how SourcePrep balances multiple local models against VRAM.
+            See <a href="/how-it-works/dynamic-model-loading" className="text-primary hover:underline">Dynamic Model Loading</a> for how SourcePrep balances multiple local models against VRAM.
           </p>
 
           <hr className="my-8 border-border" />
@@ -128,13 +128,11 @@ export default function Page() {
             SourcePrep defines five &quot;slots&quot; for AI models. You can configure these in the <span className="font-semibold text-text">Settings &gt; AI Models</span> tab of the dashboard.<br/> <br/>
           </p>
 
-          <div className="not-prose my-6">
-            <StoryEmbed
-              storyId="dashboard-llm-aimodelssettings--default"
-              height={500}
-              title="AI Models Settings Panel"
-              caption="Live preview: Configure the model slots in the dashboard."
-            />
+          <div className="not-prose">
+            <DemoAIModelsSettings />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Live preview: Configure the model slots in the dashboard.
+            </p>
           </div>
 
           <div className="space-y-6">
@@ -167,7 +165,7 @@ export default function Page() {
                 </li>
               </ul>
               <p className="mt-3 text-sm text-text-muted">
-                See the <a href="/guides/embeddings" className="text-primary hover:underline">Embedding Models guide</a> for
+                See the <a href="/how-it-works/embeddings" className="text-primary hover:underline">Embedding Models guide</a> for
                 setup instructions and a full comparison table.
               </p>
             </div>
@@ -223,7 +221,7 @@ export default function Page() {
             not a model slot — it&apos;s a built-in feature that runs alongside
             the slots above. It uses structural Level-of-Detail rendering
             (no model needed) plus an optional 178 MB BERT model for prose
-            compression. <a href="/guides/compression" className="text-primary hover:underline">Read the compression guide →</a>
+            compression. <a href="/how-it-works/compression" className="text-primary hover:underline">Read the compression guide →</a>
           </div>
 
           <div className="mt-8 rounded-lg bg-surface border border-border p-4">

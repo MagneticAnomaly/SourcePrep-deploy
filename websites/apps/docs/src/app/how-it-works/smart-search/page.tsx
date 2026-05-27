@@ -1,5 +1,6 @@
 import { AnimatedCLI, searchRetryReuseDemo, conceptsTransactionRuleDemo } from '../../../components/cli-demos';
 import { AnchorHeading } from '../../../components/AnchorHeading';
+import { ConceptPageShell } from '../../../components/ConceptPageShell';
 
 export const metadata = {
   title: 'Smart Search — SourcePrep Docs',
@@ -7,25 +8,23 @@ export const metadata = {
     'How prep_search routes your query to the right backend — symbol lookup, semantic search, concepts, or trace graph — based on what you actually asked.',
 };
 
+const SECTIONS = [
+  { id: 'overview',         label: 'Why Routing Matters' },
+  { id: 'intents',          label: 'The Seven Intents' },
+  { id: 'override',         label: 'Overriding the Classifier' },
+  { id: 'query-rewriting',  label: 'Query Rewriting' },
+  { id: 'evaluation-order', label: 'How Ties Are Broken' },
+];
+
 export default function Page() {
   return (
-    <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
-        <a href="/" className="text-sm text-text-muted">
-          ← Back to Docs
-        </a>
-
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">
-          Smart Search
-        </h1>
-        <p className="mt-4 text-lg text-text-muted">
-          &quot;Where is the login handler?&quot; and &quot;Why does the login
-          handler bypass the rate limiter?&quot; are different questions that
-          deserve different answers. SourcePrep reads the shape of your query
-          and routes it to the right backend automatically.
-        </p>
-
-        <div className="mt-12 prose max-w-none">
+    <ConceptPageShell
+      subtitle="How It Works"
+      title="Smart Search"
+      description={`"Where is the login handler?" and "Why does the login handler bypass the rate limiter?" are different questions that deserve different answers. SourcePrep reads the shape of your query and routes it to the right backend automatically.`}
+      sections={SECTIONS}
+    >
+        <div className="prose max-w-none">
           <AnchorHeading id="overview" level="h2">Why routing matters</AnchorHeading>
           <p>
             A single search tool is only good at one kind of answer. If
@@ -176,7 +175,6 @@ export default function Page() {
             </ul>
           </div>
         </div>
-      </div>
-    </main>
+    </ConceptPageShell>
   );
 }

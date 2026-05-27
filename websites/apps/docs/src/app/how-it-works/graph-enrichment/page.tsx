@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 import { ConceptPageShell } from '../../../components/ConceptPageShell';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { DemoGraphEnrichmentPipelineRunning, DemoAtlasLensStaleSegments } from '../../../components/demos';
 
 const SECTIONS = [
   { id: 'journey',          label: 'The Journey' },
@@ -106,13 +106,11 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-lg overflow-hidden border border-border">
-          <StoryEmbed
-            storyId="dashboard-pipeline-graphenrichmentpipeline--full-pipeline-running"
-            height={500}
-            title="Graph Enrichment Pipeline"
-            caption="The 15-stage pipeline in action — Sync → Enrich → Finalize, with per-stage progress and provenance."
-          />
+        <div className="not-prose mt-8">
+          <DemoGraphEnrichmentPipelineRunning />
+          <p className="text-xs text-text-subtle italic -mt-4">
+            The 15-stage pipeline in action — Sync → Enrich → Finalize, with per-stage progress and provenance.
+          </p>
         </div>
       </section>
 
@@ -224,13 +222,11 @@ export default function Page() {
           </div>
         </div>
 
-        <div className="mt-8 rounded-lg overflow-hidden border border-border">
-          <StoryEmbed
-            storyId="dashboard-trace-atlaslenspanel--stale-with-segments"
-            height={420}
-            title="Atlas Lens Panel"
-            caption="The Atlas Lens is what consumes the understanding score — projecting the codebase through role-specific lenses (security, refactor, onboarding)."
-          />
+        <div className="not-prose mt-8">
+          <DemoAtlasLensStaleSegments />
+          <p className="text-xs text-text-subtle italic -mt-4">
+            The Atlas Lens is what consumes the understanding score — projecting the codebase through role-specific lenses (security, refactor, onboarding).
+          </p>
         </div>
       </section>
 

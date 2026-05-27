@@ -3,7 +3,7 @@
 import { Cpu, Network, Eye, Zap, Code2, FileSearch } from 'lucide-react';
 import { AnimatedCLI, impactExtractServiceDemo } from '../../../components/cli-demos';
 import { AnchorHeading } from '../../../components/AnchorHeading';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { DemoTraceGraph, DemoNodeDetailPanel } from '../../../components/demos';
 import { ConceptPageShell } from '../../../components/ConceptPageShell';
 
 const SECTIONS = [
@@ -79,22 +79,18 @@ export default function Page() {
           interactive way to explore relationships. Click any file to see its immediate dependencies (upstream)
           and consumers (downstream); toggle to a list view for exact import counts and symbol references.
         </p>
-        <div className="rounded-lg overflow-hidden border border-border">
-          <StoryEmbed
-            storyId="dashboard-trace-graph--default"
-            height={450}
-            title="Interactive Code Graph"
-            caption="Live preview: file-level dependencies and import relationships."
-          />
+        <div className="not-prose">
+          <DemoTraceGraph />
+          <p className="text-xs text-text-subtle italic -mt-4">
+            Live preview: file-level dependencies and import relationships.
+          </p>
         </div>
 
-        <div className="mt-6 rounded-lg overflow-hidden border border-border">
-          <StoryEmbed
-            storyId="dashboard-trace-nodedetailpanel--file-node"
-            height={380}
-            title="Node Detail Panel"
-            caption="Click any node in the graph to drill down — definitions, references, and import chain for that symbol."
-          />
+        <div className="not-prose mt-6">
+          <DemoNodeDetailPanel />
+          <p className="text-xs text-text-subtle italic -mt-4">
+            Click any node in the graph to drill down — definitions, references, and import chain for that symbol.
+          </p>
         </div>
       </section>
 
@@ -134,12 +130,12 @@ export default function Page() {
         <AnchorHeading id="beyond" level="h2">Beyond the Graph</AnchorHeading>
         <p className="mt-3 text-text-muted leading-relaxed">
           The Code Graph is not a static artifact. It&apos;s the structural foundation for a 15-stage{' '}
-          <a href="/concepts/graph-enrichment" className="text-primary hover:underline">Graph Enrichment</a>{' '}
+          <a href="/how-it-works/graph-enrichment" className="text-primary hover:underline">Graph Enrichment</a>{' '}
           pipeline that layers in meaning, module relationships, and architectural summaries — turning raw
           structure into navigable knowledge your AI can actually reason over.
         </p>
         <a
-          href="/concepts/graph-enrichment"
+          href="/how-it-works/graph-enrichment"
           className="inline-flex items-center gap-2 mt-4 text-sm font-medium text-primary hover:underline"
         >
           Read the Graph Enrichment guide <Zap className="w-4 h-4" />

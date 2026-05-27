@@ -4,7 +4,7 @@ import { Search, Scale, Ruler, Minimize2, FileCode } from 'lucide-react';
 import { AnimatedCLI, prepTldrOverviewDemo } from '../../../components/cli-demos';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 import { ConceptPageShell } from '../../../components/ConceptPageShell';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { DemoContextOutput } from '../../../components/demos';
 
 const SECTIONS = [
   { id: 'why',         label: 'Why Assembly Matters' },
@@ -113,13 +113,11 @@ export default function Page() {
           What an assembled context payload looks like when an agent calls <code>prep</code>.
         </p>
 
-        <div className="mt-8 rounded-lg overflow-hidden border border-border">
-          <StoryEmbed
-            storyId="dashboard-search-contextoutput--default"
-            height={420}
-            title="Context Output"
-            caption="The dashboard view of the same assembled payload — every chunk carries its LOD badge and source citation."
-          />
+        <div className="not-prose mt-8">
+          <DemoContextOutput />
+          <p className="text-xs text-text-subtle italic -mt-4">
+            The dashboard view of the same assembled payload — every chunk carries its LOD badge and source citation.
+          </p>
         </div>
       </section>
 

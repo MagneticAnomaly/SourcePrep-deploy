@@ -3,7 +3,7 @@
 import { FolderTree, Scale, Target, Cpu, FilterX } from 'lucide-react';
 import { AnchorHeading } from '../../../components/AnchorHeading';
 import { ConceptPageShell } from '../../../components/ConceptPageShell';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { DemoIndexStatusLoaded, DemoFolderTreeKnowledgeScope } from '../../../components/demos';
 
 const SECTIONS = [
   { id: 'status',        label: 'Watching your knowledge' },
@@ -30,14 +30,10 @@ export default function Page() {
           panel to add to your dashboard — without it built, nothing else has anything to serve.
         </p>
 
-        <div className="my-4 rounded-lg overflow-hidden">
-          <StoryEmbed
-            storyId="dashboard-index-indexstatuscard--loaded"
-            height={440}
-            title="Knowledge Status"
-            caption="The Knowledge Status panel — chunk count, embedding model, last build, and live freshness."
-          />
-        </div>
+        <DemoIndexStatusLoaded />
+        <p className="text-xs text-text-subtle italic -mt-2 mb-4">
+          The Knowledge Status panel — chunk count, embedding model, last build, and live freshness.
+        </p>
 
         <p className="text-text-muted leading-relaxed mb-3">
           The status badge tells you whether you can trust what the agent is reading right now:
@@ -57,14 +53,10 @@ export default function Page() {
           (file tree) is where you mark that slice — folders and files toggle in and out with a click.
         </p>
 
-        <div className="my-4 rounded-lg overflow-hidden">
-          <StoryEmbed
-            storyId="dashboard-project-foldertreepanel--scope-panel-named-populated"
-            height={420}
-            title="Knowledge Scope panel"
-            caption="The Knowledge Scope panel — the file tree where you pick what your agent will know about."
-          />
-        </div>
+        <DemoFolderTreeKnowledgeScope />
+        <p className="text-xs text-text-subtle italic -mt-2 mb-4">
+          The Knowledge Scope panel — the file tree where you pick what your agent will know about.
+        </p>
 
         <p className="text-text-muted leading-relaxed mb-4">
           By default SourcePrep respects your <code>.gitignore</code> and drops standard noise
@@ -202,7 +194,7 @@ export default function Page() {
           </div>
         </div>
         <p className="text-sm text-text-muted mt-4">
-          For embedder options, see <a href="/guides/embeddings" className="text-primary hover:underline">Embedding Models</a>.
+          For embedder options, see <a href="/how-it-works/embeddings" className="text-primary hover:underline">Embedding Models</a>.
           Everything stays on your machine — there&apos;s no cloud component to indexing.
         </p>
       </section>

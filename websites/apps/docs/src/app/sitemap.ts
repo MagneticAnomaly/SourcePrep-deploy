@@ -2,8 +2,8 @@ import { MetadataRoute } from 'next';
 
 // Source of truth: every route below maps to a page.tsx under src/app/.
 // If you add or remove a page, update this list. Per Phase 130, we no
-// longer list deleted hubs (/concepts, /guides) or routes that don't
-// exist (/mcp/cursor, /mcp/windsurf, /concepts/trace-index, etc.).
+// longer list deleted hubs (/how-it-works, /guides) or routes that don't
+// exist (/mcp/cursor, /mcp/windsurf, etc.).
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://docs.sourceprep.io';
 
@@ -12,10 +12,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/getting-started',
     '/getting-started/installation',
     '/getting-started/quick-start',
-    '/concepts/indexing',
-    '/concepts/code-graph',
-    '/concepts/graph-enrichment',
-    '/concepts/context',
+    '/how-it-works/indexing',
+    '/how-it-works/code-graph',
+    '/how-it-works/graph-enrichment',
+    '/how-it-works/context',
+    '/how-it-works/embeddings',
+    '/how-it-works/compression',
+    '/how-it-works/smart-search',
+    '/how-it-works/dynamic-model-loading',
     '/dashboard',
     '/dashboard/projects',
     '/cli',
@@ -26,12 +30,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/mcp/terminal',
     '/mcp/paperclip',
     '/guides/models',
-    '/guides/dynamic-model-loading',
     '/guides/byok-batching',
     '/guides/concurrency-discovery',
-    '/guides/embeddings',
-    '/guides/compression',
-    '/guides/smart-search',
     '/guides/path-weights',
     '/guides/knowledge-scope',
     '/guides/codebase-audit',

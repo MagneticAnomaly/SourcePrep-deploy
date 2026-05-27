@@ -1,22 +1,26 @@
+"use client";
+
 import { AnchorHeading } from '../../../components/AnchorHeading';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { ConceptPageShell } from '../../../components/ConceptPageShell';
+import { DemoModelCardConnected } from '../../../components/demos';
+
+const SECTIONS = [
+  { id: 'tiers',         label: 'Three Tiers at a Glance' },
+  { id: 'cpu-is-fine',   label: 'Why CPU Is Fine' },
+  { id: 'configuring',   label: 'Configuring Your Tier' },
+  { id: 'pre-download',  label: 'Pre-Downloading' },
+  { id: 'api-reference', label: 'API Reference' },
+];
 
 export default function Page() {
   return (
-    <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
-        <a href="/" className="text-sm text-text-muted">
-          ← Back to Docs
-        </a>
-
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">Embedding Models</h1>
-        <p className="mt-4 text-lg text-text-muted">
-          SourcePrep supports three embedding tiers — from a zero-dependency CPU fallback to a
-          GPU-accelerated code-specialized model. Pick the one that fits your hardware.
-        </p>
-
-        {/* Tier overview */}
-        <section className="mt-10">
+    <ConceptPageShell
+      subtitle="How It Works"
+      title="Embedding Models"
+      description="Three embedding tiers — from a zero-dependency CPU fallback to a GPU-accelerated code-specialized model. Pick the one that fits your hardware."
+      sections={SECTIONS}
+    >
+        <section id="tiers">
           <AnchorHeading id="tiers" level="h2">Three tiers at a glance</AnchorHeading>
 
           <div className="mt-6 space-y-4">
@@ -148,7 +152,7 @@ export default function Page() {
         </section>
 
         {/* Why CPU is fine */}
-        <section className="mt-10">
+        <section id="cpu-is-fine">
           <AnchorHeading id="cpu-is-fine" level="h2">Why CPU inference is fine for the built-in model</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
             The built-in ONNX model runs on CPU using ONNX Runtime — and that is intentional.
@@ -169,16 +173,14 @@ export default function Page() {
         </section>
 
         {/* Configuring the tier */}
-        <section className="mt-10">
+        <section id="configuring">
           <AnchorHeading id="configuring" level="h2">Configuring your embedding tier</AnchorHeading>
 
-          <div className="mt-6 rounded-lg overflow-hidden border border-border">
-            <StoryEmbed
-              storyId="dashboard-llm-modelcard--connected-with-model-and-test-result"
-              height={320}
-              title="Model Card"
-              caption="The Embedding model slot in Settings → AI Models — pick an endpoint and the dashboard auto-detects the model."
-            />
+          <div className="not-prose mt-6">
+            <DemoModelCardConnected />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              The Embedding model slot in Settings → AI Models — pick an endpoint and the dashboard auto-detects the model.
+            </p>
           </div>
 
           <h3 className="mt-6 text-base font-semibold">Tier 1: nomic-embed-code via Ollama (recommended)</h3>
@@ -224,7 +226,7 @@ export default function Page() {
         </section>
 
         {/* Pre-download */}
-        <section className="mt-10">
+        <section id="pre-download">
           <AnchorHeading id="pre-download" level="h2">Pre-downloading the built-in model</AnchorHeading>
           <p className="mt-3 text-text-muted leading-relaxed">
             Useful for restricted networks or air-gapped environments.
@@ -245,7 +247,7 @@ export default function Page() {
         </section>
 
         {/* API Reference */}
-        <section className="mt-10">
+        <section id="api-reference">
           <AnchorHeading id="api-reference" level="h2">API reference</AnchorHeading>
           <div className="mt-4 space-y-4">
             <div className="rounded-lg border border-border bg-surface p-4">
@@ -264,7 +266,6 @@ export default function Page() {
             </div>
           </div>
         </section>
-      </div>
-    </main>
+    </ConceptPageShell>
   );
 }

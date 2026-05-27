@@ -1,24 +1,30 @@
-import { StoryEmbed } from '../../../components/StoryEmbed';
+"use client";
+
+import { ConceptPageShell } from '../../../components/ConceptPageShell';
+import { DemoContextOutput } from '../../../components/demos';
+
+const SECTIONS = [
+  { id: 'overview',              label: 'How It Works' },
+  { id: 'structural-compression', label: 'Levels of Detail' },
+  { id: 'tier-adaptive',         label: 'Tier-Adaptive' },
+  { id: 'compression-flow',      label: 'Compression Flow' },
+  { id: 'usage',                 label: 'Usage' },
+  { id: 'response-metadata',     label: 'Response Metadata' },
+  { id: 'preview',               label: 'Output Preview' },
+  { id: 'languages',             label: 'Supported Languages' },
+  { id: 'fallback',              label: 'Fallback Behaviour' },
+  { id: 'language-compression',  label: 'Coming Soon' },
+];
 
 export default function Page() {
   return (
-    <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
-        <a href="/" className="text-sm text-text-muted">
-          &larr; Back to Docs
-        </a>
-
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">Smart Context Compression</h1>
-        <p className="mt-4 text-lg text-text-muted">
-          SourcePrep uses structural compression (LOD) to deliver code context at variable fidelity.
-          Top results stay at full source, mid-relevance files show signatures and docstrings,
-          peripheral files show just names and imports &mdash; achieving 3&ndash;20&times; compression
-          with zero dependencies. The compression level adapts automatically to your AI tool&apos;s
-          context window tier.
-        </p>
-
-        {/* Overview */}
-        <section className="mt-10">
+    <ConceptPageShell
+      subtitle="How It Works"
+      title="Smart Context Compression"
+      description="Structural LOD compression delivers code context at variable fidelity. Top results stay at full source; peripheral files show just names and imports — achieving 3–20× compression with zero dependencies, adapting automatically to your AI tool's context window tier."
+      sections={SECTIONS}
+    >
+        <section id="overview">
           <h2 className="text-2xl font-semibold">How it works</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
             LOD (Levels of Detail) uses SourcePrep&apos;s trace graph to understand your code&apos;s
@@ -96,7 +102,7 @@ export default function Page() {
         </section>
 
         {/* Tier-adaptive */}
-        <section className="mt-10">
+        <section id="tier-adaptive">
           <h2 className="text-2xl font-semibold">Tier-Adaptive Compression</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
             SourcePrep detects your AI tool from the MCP handshake and adapts compression to match
@@ -146,7 +152,7 @@ export default function Page() {
         </section>
 
         {/* Flow diagram */}
-        <section className="mt-10">
+        <section id="compression-flow">
           <h2 className="text-2xl font-semibold">Compression flow</h2>
           <div className="mt-4 rounded-lg bg-surface border border-border p-6 font-mono text-sm leading-relaxed">
             <div className="text-text-muted">Query arrives</div>
@@ -172,7 +178,7 @@ export default function Page() {
         </section>
 
         {/* Usage */}
-        <section className="mt-10">
+        <section id="usage">
           <h2 className="text-2xl font-semibold">Usage</h2>
 
           <h3 className="mt-6 text-lg font-medium text-text">Via MCP (automatic)</h3>
@@ -204,7 +210,7 @@ export default function Page() {
         </section>
 
         {/* Response metadata */}
-        <section className="mt-10">
+        <section id="response-metadata">
           <h2 className="text-2xl font-semibold">Response metadata</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
             When LOD compression is active, the response includes a <code>compression</code> object
@@ -233,25 +239,23 @@ export default function Page() {
         </section>
 
         {/* Live preview of compressed output */}
-        <section className="mt-10">
+        <section id="preview">
           <h2 className="text-2xl font-semibold">What the assembled output looks like</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
             The Context Output panel in the dashboard renders the same payload your AI agent
             receives — including the per-chunk <code>LOD</code> badges and compression-ratio
             annotations.
           </p>
-          <div className="mt-4 rounded-lg overflow-hidden border border-border">
-            <StoryEmbed
-              storyId="dashboard-search-contextoutput--default"
-              height={420}
-              title="Context Output"
-              caption="Live preview: the Context Output panel showing source citations and LOD-compressed chunks."
-            />
+          <div className="not-prose mt-4">
+            <DemoContextOutput />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              Live preview: the Context Output panel showing source citations and LOD-compressed chunks.
+            </p>
           </div>
         </section>
 
         {/* Languages */}
-        <section className="mt-10">
+        <section id="languages">
           <h2 className="text-2xl font-semibold">Supported languages</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
             LOD extraction supports signature detection and import recognition for:
@@ -267,7 +271,7 @@ export default function Page() {
         </section>
 
         {/* Fallback */}
-        <section className="mt-10">
+        <section id="fallback">
           <h2 className="text-2xl font-semibold">Fallback behaviour</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
             Compression is <span className="font-semibold text-text">best-effort</span>. If the trace graph doesn&apos;t have symbol
@@ -297,7 +301,6 @@ export default function Page() {
             for availability updates.
           </div>
         </section>
-      </div>
-    </main>
+    </ConceptPageShell>
   );
 }

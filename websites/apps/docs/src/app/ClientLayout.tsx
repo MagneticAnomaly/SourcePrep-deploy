@@ -65,9 +65,9 @@ const footerProps = {
 
 export function ClientLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  // Concept pages are designed full-width with their own internal section nav
+  // How-It-Works pages are designed full-width with their own internal section nav
   // (see components/ConceptPageShell). They do not use the docs left sidebar.
-  const useFullWidth = pathname?.startsWith('/concepts/') ?? false;
+  const useFullWidth = pathname?.startsWith('/how-it-works/') ?? false;
 
   if (useFullWidth) {
     return (

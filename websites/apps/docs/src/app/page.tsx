@@ -11,9 +11,9 @@ const docFeatures = [
   },
   {
     icon: <GitBranch className="w-8 h-8" />,
-    title: 'Core Concepts',
+    title: 'How It Works',
     description: 'How indexing, the code graph, enrichment, and context assembly fit together.',
-    href: '/concepts/indexing',
+    href: '/how-it-works/indexing',
   },
   {
     icon: <LayoutDashboard className="w-8 h-8" />,
@@ -37,7 +37,7 @@ const docFeatures = [
     icon: <BookOpen className="w-8 h-8" />,
     title: 'Embedding Models',
     description: 'Pick the embedding tier that fits your hardware (CPU, GPU, BYOK).',
-    href: '/guides/embeddings',
+    href: '/how-it-works/embeddings',
   },
   {
     icon: <Wrench className="w-8 h-8" />,

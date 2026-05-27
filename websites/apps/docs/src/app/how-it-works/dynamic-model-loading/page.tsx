@@ -1,23 +1,27 @@
 import { AnchorHeading } from '../../../components/AnchorHeading';
-import { StoryEmbed } from '../../../components/StoryEmbed';
+import { ConceptPageShell } from '../../../components/ConceptPageShell';
+import { DemoAdvancedLLMSettings } from '../../../components/demos';
+
+const SECTIONS = [
+  { id: 'should-you',         label: 'Should You Run Local?' },
+  { id: 'recommended-models', label: 'Recommended Models' },
+  { id: 'how-it-works',       label: 'How Dynamic Loading Works' },
+  { id: 'provider-support',   label: 'Provider Support' },
+  { id: 'always-available',   label: 'Persistent Models' },
+  { id: 'recommended-setups', label: 'Recommended Setups' },
+  { id: 'mlx-vs-gguf',        label: 'MLX vs GGUF' },
+  { id: 'pipeline-safety',    label: 'Pipeline Safety' },
+];
 
 export default function Page() {
   return (
-    <main className="min-h-screen bg-background text-text">
-      <div className="mx-auto max-w-3xl px-6 pb-16 pt-0">
-        <a href="/" className="text-sm text-text-muted">
-          ← Back to Docs
-        </a>
-
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">
-          Local LLM Setup
-        </h1>
-        <p className="mt-4 text-lg text-text-muted">
-          Running SourcePrep&apos;s pipeline against models on your own hardware — when it&apos;s
-          worth it, what to run, and how SourcePrep handles model swapping for you.
-        </p>
-
-        <div className="mt-8 prose max-w-none">
+    <ConceptPageShell
+      subtitle="How It Works"
+      title="Local LLM Setup"
+      description="Running SourcePrep's pipeline against models on your own hardware — when it's worth it, what to run, and how SourcePrep handles model swapping for you."
+      sections={SECTIONS}
+    >
+        <div className="prose max-w-none">
 
           {/* ── Should you even run local? ── */}
           <AnchorHeading id="should-you" level="h2">Should you run local LLMs at all?</AnchorHeading>
@@ -110,13 +114,11 @@ export default function Page() {
             once and SourcePrep handles the choreography per run.
           </p>
 
-          <div className="my-6 rounded-lg overflow-hidden border border-border">
-            <StoryEmbed
-              storyId="dashboard-llm-advancedllmsettings--default"
-              height={420}
-              title="Advanced LLM Settings"
-              caption="The Advanced LLM Settings panel — keep-alive, VRAM headroom, and per-slot model overrides live here."
-            />
+          <div className="not-prose">
+            <DemoAdvancedLLMSettings />
+            <p className="text-xs text-text-subtle italic -mt-4">
+              The Advanced LLM Settings panel — keep-alive, VRAM headroom, and per-slot model overrides live here.
+            </p>
           </div>
 
           {/* ── Provider support ── */}
@@ -258,7 +260,6 @@ export default function Page() {
           </p>
 
         </div>
-      </div>
-    </main>
+    </ConceptPageShell>
   );
 }
