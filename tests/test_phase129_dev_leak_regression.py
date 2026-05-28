@@ -30,6 +30,12 @@ import prep.core.watcher as watcher_mod
 import prep.core.embedder as embedder_mod
 import prep.core.system_concept_seeder as system_seeder_mod
 import prep.mcp.server as mcp_server_mod
+import prep.services.pipeline.orchestrator as pipeline_orchestrator_mod
+import prep.services.pipeline.recovery as pipeline_recovery_mod
+import prep.services.pipeline.resume as pipeline_resume_mod
+import prep.services.pipeline.post_flight as pipeline_post_flight_mod
+import prep.services.pipeline_metadata as pipeline_metadata_mod
+import prep.core.trace.builder as trace_builder_mod
 
 
 # A leak string starts with either "Phase NN" / "Phase NNX" (e.g.
@@ -71,11 +77,19 @@ def _logger_call_string_leaks(source: str) -> list[tuple[int, str]]:
 
 
 CLEAN_MODULES = [
+    # 2026-05-27 (Lane C): high-visibility startup + watcher cluster.
     server_mod,
     watcher_mod,
     embedder_mod,
     system_seeder_mod,
     mcp_server_mod,
+    # 2026-05-28 (Lane C): pipeline orchestration cluster.
+    pipeline_orchestrator_mod,
+    pipeline_recovery_mod,
+    pipeline_resume_mod,
+    pipeline_post_flight_mod,
+    pipeline_metadata_mod,
+    trace_builder_mod,
 ]
 
 

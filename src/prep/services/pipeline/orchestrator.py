@@ -117,17 +117,17 @@ class PipelineOrchestrator:
                 timed_out = pipeline_scheduler.check_drain_timeouts()
                 for pid in timed_out:
                     logger.warning(
-                        "Phase 91: Drain timeout — force-cancelling %s", pid,
+                        "Drain timeout — force-cancelling %s", pid,
                     )
                     try:
                         strong_self.cancel(pid)
                     except Exception:
                         logger.warning(
-                            "Phase 91: Failed to cancel drained project %s",
+                            "Failed to cancel drained project %s",
                             pid, exc_info=True,
                         )
             except Exception:
-                logger.debug("Phase 91: Drain timeout check failed", exc_info=True)
+                logger.debug("Drain timeout check failed", exc_info=True)
             # P127-F1: piggyback an orphan-hold sweep on the same tick.
             # Cheap (single dict scan) and covers the scenario where a
             # close_swarm_window / set_priority(none) bug-path left a
@@ -225,7 +225,7 @@ class PipelineOrchestrator:
             synced = store.sync_downstream_mtimes(StageId.STRUCTURAL, list(StageId))
             if synced:
                 logger.info(
-                    "Phase 60D: Synced %d downstream manifest mtimes for %s: %s",
+                    "Synced %d downstream manifest mtimes for %s: %s",
                     len(synced), project_id, ", ".join(synced),
                 )
                 if pfl:
@@ -1211,7 +1211,7 @@ class PipelineOrchestrator:
         # Without this, the completion handler never fires and deep enrichment
         # is orphaned with _chain_deep set but never consumed.
         logger.info(
-            "Phase 61B: Fast sync up-to-date for %s — directly calling run_deep_enrichment",
+            "Fast sync up-to-date for %s — directly calling run_deep_enrichment",
             project_id,
         )
         # Clean up the chain_deep flag since we're handling it directly
@@ -1420,7 +1420,7 @@ class PipelineOrchestrator:
             return result
         except Exception:
             logger.debug(
-                "Phase 60B: branch info unavailable for %s",
+                "Branch info unavailable for %s",
                 project_id, exc_info=True,
             )
             return {"branch": None, "branch_snapshots": [], "branch_state": None}
@@ -1925,7 +1925,7 @@ class PipelineOrchestrator:
                 project_name=project.name or project_id,
             )
         except Exception:
-            logger.debug("Phase 50: detect_and_regenerate failed at pipeline start (non-fatal)", exc_info=True)
+            logger.debug("detect_and_regenerate failed at pipeline start (non-fatal)", exc_info=True)
 
         # Phase 60B: Branch-aware backup — detect branch transitions and
         # snapshot/restore pipeline data so LLM reasoning survives branch
@@ -1945,7 +1945,7 @@ class PipelineOrchestrator:
                 )
                 if transition:
                     logger.info(
-                        "Phase 60B: Branch transition %s → %s for %s "
+                        "Branch transition %s → %s for %s "
                         "(snapshot=%s, restored=%s, pruned=%s)",
                         transition["from_branch"], transition["to_branch"],
                         project_id,
@@ -1965,7 +1965,7 @@ class PipelineOrchestrator:
                         delattr(self, cache_key)
             except Exception:
                 logger.debug(
-                    "Phase 60B: branch check failed for %s (non-fatal)",
+                    "Branch check failed for %s (non-fatal)",
                     project_id, exc_info=True,
                 )
 
@@ -2023,7 +2023,7 @@ class PipelineOrchestrator:
                 record_group_completion(run.project_id, run.group)
             except Exception:
                 logger.debug(
-                    "Phase 128: build-success marker refresh failed for %s "
+                    "build-success marker refresh failed for %s "
                     "(non-fatal)",
                     run.project_id, exc_info=True,
                 )
@@ -2335,7 +2335,7 @@ class PipelineOrchestrator:
                                 endpoint_set.add(str(_ep))
                     except Exception:
                         logger.debug(
-                            "Phase 127 T3.2: endpoint_set resolution failed; "
+                            "endpoint_set resolution failed; "
                             "falling back to single-endpoint",
                             exc_info=True,
                         )
@@ -2350,7 +2350,7 @@ class PipelineOrchestrator:
                     # If another swarm window is already open, stage runs with
                     # normal (non-swarm) budget — fine
             except Exception:
-                logger.debug("Phase 91: swarm window check failed for %s/%s", run.project_id, stage.value, exc_info=True)
+                logger.debug("swarm window check failed for %s/%s", run.project_id, stage.value, exc_info=True)
 
         # VRAM lifecycle: only LOCAL LLM stages need model acquire/unload.
         # Cloud endpoints are always ready — no VRAM contention.
@@ -2447,11 +2447,11 @@ class PipelineOrchestrator:
                         _backup_path.unlink()  # drop any prior backup
                     _manifest_path.rename(_backup_path)
                     logger.info(
-                        "F-67: Renamed stale manifest %s → %s.f67_pending before starting stage %s",
+                        "Renamed stale manifest %s → %s.f67_pending before starting stage %s",
                         _manifest_file, _manifest_file, stage.value,
                     )
         except Exception:
-            logger.debug("F-67: manifest invalidation failed (non-fatal)", exc_info=True)
+            logger.debug("manifest invalidation failed (non-fatal)", exc_info=True)
 
         # Phase 61B: Start heartbeat timer for this stage.
         # Writes to pipeline_run_metadata.json every 60s so the watchdog
@@ -3165,7 +3165,7 @@ class PipelineOrchestrator:
                     "policy": "per_stage_at_run_start (Phase 118 U15)",
                 })
         except Exception:
-            logger.debug("F-87 cache wipe failed (non-fatal)", exc_info=True)
+            logger.debug("cache wipe failed (non-fatal)", exc_info=True)
 
         # Clear derived finalize-stage SQLite stores so the rebuild
         # doesn't inherit stale concepts/antibodies. The files wiped
@@ -3565,12 +3565,12 @@ class PipelineOrchestrator:
                 idx_dir = project_index_dir(project)
                 update_heartbeat(idx_dir)
                 logger.debug(
-                    "Phase 61B: heartbeat for %s/%s stage %s",
+                    "heartbeat for %s/%s stage %s",
                     run.project_id, run.group,
                     run.current_stage or "?",
                 )
             except Exception:
-                logger.debug("Phase 61B: heartbeat write failed", exc_info=True)
+                logger.debug("heartbeat write failed", exc_info=True)
 
             # Schedule next tick if still active
             if run.is_active:
@@ -3766,7 +3766,7 @@ class PipelineOrchestrator:
                 gp = create_golden_checkpoint(idx_dir)
                 if gp:
                     logger.info(
-                        "Phase 72D: Golden checkpoint created for %s at %s",
+                        "Golden checkpoint created for %s at %s",
                         run.project_id, gp,
                     )
 
@@ -3774,11 +3774,11 @@ class PipelineOrchestrator:
             pruned = prune_old_checkpoints(idx_dir, keep=3)
             if pruned:
                 logger.info(
-                    "Phase 72D: Pruned %d old checkpoints for %s",
+                    "Pruned %d old checkpoints for %s",
                     pruned, run.project_id,
                 )
         except Exception:
-            logger.debug("Phase 72D golden/prune failed (non-fatal)", exc_info=True)
+            logger.debug("golden/prune failed (non-fatal)", exc_info=True)
 
     def _create_checkpoint_if_needed(self, run: PipelineGroupStateMachine, stage: StageId) -> None:
         """Delegates to RecoveryManager.create_checkpoint_if_needed."""
@@ -4220,7 +4220,7 @@ class PipelineOrchestrator:
                 if binfo and binfo.get("scope") in ("all", "sync", "enrichment"):
                     self._force_from_start_runs.add(project.id)
                     logger.info(
-                        "Phase 118 U22: re-marked %s as force_from_start "
+                        "re-marked %s as force_from_start "
                         "(barrier scope=%s) so Resume preserves rebuild semantics",
                         project.id, binfo.get("scope"),
                     )
@@ -4476,7 +4476,7 @@ class PipelineOrchestrator:
                             manifest.throughput = compute_throughput(total, elapsed)
                 except Exception:
                     logger.debug(
-                        "F-76: failed to synthesize knowledge quality block for %s (non-fatal)",
+                        "failed to synthesize knowledge quality block for %s (non-fatal)",
                         stage.value, exc_info=True,
                     )
 
@@ -4492,7 +4492,7 @@ class PipelineOrchestrator:
 
         except Exception:
             logger.debug(
-                "Phase 49: stage manifest write failed for %s/%s (non-fatal)",
+                "stage manifest write failed for %s/%s (non-fatal)",
                 run.project_id, stage.value, exc_info=True,
             )
 
@@ -4528,7 +4528,7 @@ class PipelineOrchestrator:
             idx_dir = project_index_dir(project)
             save_run_metadata(run_meta, idx_dir)
         except Exception:
-            logger.debug("Phase 49: run metadata update failed (non-fatal)", exc_info=True)
+            logger.debug("run metadata update failed (non-fatal)", exc_info=True)
 
     def _finalize_run_metadata(self, run: PipelineGroupStateMachine, status: str) -> None:
         """Finalize run metadata on completion/failure and record in history."""
@@ -4564,7 +4564,7 @@ class PipelineOrchestrator:
             self._run_metadata.pop(key, None)
 
         except Exception:
-            logger.debug("Phase 49: run metadata finalize failed (non-fatal)", exc_info=True)
+            logger.debug("run metadata finalize failed (non-fatal)", exc_info=True)
 
 
 # ── SSE Event Bridge ─────────────────────────────────────────────

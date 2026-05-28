@@ -595,7 +595,7 @@ class RecoveryManager:
                     best_checkpoint = golden_dir
                     best_size = golden_size
                     logger.info(
-                        "Phase 72D: Preferring golden checkpoint for %s "
+                        "Preferring golden checkpoint for %s "
                         "(%d bytes of data)",
                         project_id, golden_size,
                     )
@@ -631,7 +631,7 @@ class RecoveryManager:
 
             if restored_files:
                 logger.info(
-                    "Phase 60D: Restored %d files from backup %s for %s: %s",
+                    "Restored %d files from backup %s for %s: %s",
                     len(restored_files),
                     best_checkpoint.name,
                     project_id,
@@ -717,7 +717,7 @@ class RecoveryManager:
                 return False
 
             logger.info(
-                "Phase 60B: Found backup data for stage %s from branch '%s' "
+                "Found backup data for stage %s from branch '%s' "
                 "(%d records) — restoring instead of rebuilding",
                 stage.value,
                 backup["branch"],
@@ -1192,7 +1192,7 @@ class RecoveryManager:
         try:
             auto_recover_fn()
         except Exception:
-            logger.debug("Phase 61B auto-recovery failed", exc_info=True)
+            logger.debug("auto-recovery failed", exc_info=True)
 
         return journal_results
 
@@ -1447,7 +1447,7 @@ class RecoveryManager:
                 activity = get_project_activity_status(pid)
                 if activity != "active":
                     logger.debug(
-                        "Phase 61B: skipping auto-recovery for %s (status=%s)",
+                        "skipping auto-recovery for %s (status=%s)",
                         pid, activity,
                     )
                     continue
@@ -1466,7 +1466,7 @@ class RecoveryManager:
                 stale_info = check_heartbeat_stale(idx_dir)
                 if stale_info:
                     logger.warning(
-                        "Phase 61B: Detected %s pipeline metadata for %s "
+                        "Detected %s pipeline metadata for %s "
                         "(run_id=%s, group=%s, age=%.0fs, heartbeat_age=%.0fs)",
                         stale_info["status"],
                         pid,
@@ -1486,7 +1486,7 @@ class RecoveryManager:
                             {"project_id": pid, "previous_status": stale_info["status"]},
                         )
             except Exception:
-                logger.debug("Phase 61B: stale check failed for %s", pid, exc_info=True)
+                logger.debug("stale check failed for %s", pid, exc_info=True)
 
             # Step 2: Log manifest age summary
             try:
@@ -1502,9 +1502,9 @@ class RecoveryManager:
                     f"{k}={v.get('age_hours', '?')}h" if v.get("status") == "present" else f"{k}=MISSING"
                     for k, v in manifest_ages.items()
                 )
-                logger.info("Phase 61B manifest ages for %s: %s", pid, ages_str)
+                logger.info("manifest ages for %s: %s", pid, ages_str)
             except Exception:
-                logger.debug("Phase 61B: manifest age summary failed for %s", pid, exc_info=True)
+                logger.debug("manifest age summary failed for %s", pid, exc_info=True)
 
             # Step 3: Auto-trigger deep enrichment if manifests are stale.
             #
@@ -1527,7 +1527,7 @@ class RecoveryManager:
                         pid, "deep_enrichment", since_mtime=struct_mtime_for_journal,
                     ):
                         logger.info(
-                            "Phase 128: Journal records completed deep_enrichment "
+                            "Journal records completed deep_enrichment "
                             "run for %s post-dating structural — data healthy, "
                             "skipping auto-recovery",
                             pid,
@@ -1544,7 +1544,7 @@ class RecoveryManager:
                         continue
             except Exception:
                 logger.debug(
-                    "Phase 128: journal-authority check failed for %s",
+                    "journal-authority check failed for %s",
                     pid, exc_info=True,
                 )
                 # Fall through to existing recovery logic
@@ -1557,7 +1557,7 @@ class RecoveryManager:
             was_clean = RecoveryManager.check_clean_shutdown_marker(pid)
             if was_clean:
                 logger.info(
-                    "Phase 93: Clean shutdown marker found for %s — "
+                    "Clean shutdown marker found for %s — "
                     "skipping deep enrichment auto-recovery "
                     "(incomplete manifests are steady-state)",
                     pid,
@@ -1587,7 +1587,7 @@ class RecoveryManager:
                         )
                         if marker_mtime >= struct_mtime:
                             logger.info(
-                                "Phase 128: Build-success marker for %s "
+                                "Build-success marker for %s "
                                 "post-dates structural — data healthy, "
                                 "skipping deep enrichment auto-recovery",
                                 pid,
@@ -1605,7 +1605,7 @@ class RecoveryManager:
                             continue
             except Exception:
                 logger.debug(
-                    "Phase 128: build-success marker check failed for %s",
+                    "build-success marker check failed for %s",
                     pid, exc_info=True,
                 )
                 # Fall through to existing recovery logic
@@ -1653,7 +1653,7 @@ class RecoveryManager:
                             # enrichment but never ran deepening, causing ghost
                             # recovery runs on every daemon restart.
                             logger.info(
-                                "Phase 72D/93: Stage %s manifest missing — "
+                                "Stage %s manifest missing — "
                                 "shared-output stage not yet run (steady-state, "
                                 "not stale)",
                                 stage.value,
@@ -1664,7 +1664,7 @@ class RecoveryManager:
                         data_path = (idx_dir / output_file) if output_file else None
                         if data_path and data_path.exists() and data_path.stat().st_size > 0:
                             logger.info(
-                                "Phase 72C: Stage %s manifest missing but data "
+                                "Stage %s manifest missing but data "
                                 "file %s exists (%d bytes). Creating stub manifest "
                                 "instead of triggering re-run.",
                                 stage.value, output_file, data_path.stat().st_size,
@@ -1718,7 +1718,7 @@ class RecoveryManager:
 
                     if not deep_stale_after_touch:
                         logger.info(
-                            "Phase 61B/72: Deep manifests for %s were stale but "
+                            "Deep manifests for %s were stale but "
                             "touch resolved it — no recovery needed",
                             pid,
                         )
@@ -1733,7 +1733,7 @@ class RecoveryManager:
                     # Still stale — check for active/paused runs
                     if is_run_active_fn(pid):
                         logger.info(
-                            "Phase 61B: Deep manifests stale for %s but run already "
+                            "Deep manifests stale for %s but run already "
                             "active — skipping auto-recover",
                             pid,
                         )
@@ -1743,7 +1743,7 @@ class RecoveryManager:
                     cleared = clear_paused_runs_fn(pid)
                     if cleared:
                         logger.info(
-                            "Phase 61B: Cleared %d PAUSED hydrated runs for %s "
+                            "Cleared %d PAUSED hydrated runs for %s "
                             "— auto mode replaces manual Resume",
                             len(cleared),
                             pid,
@@ -1756,7 +1756,7 @@ class RecoveryManager:
                             )
 
                     logger.info(
-                        "Phase 61B: Auto-recovering deep enrichment for %s "
+                        "Auto-recovering deep enrichment for %s "
                         "(deep manifests genuinely stale vs structural trace)",
                         pid,
                     )
@@ -1780,7 +1780,7 @@ class RecoveryManager:
                     try:
                         started = run_deep_enrichment_fn(pid)
                         logger.info(
-                            "Phase 61B: Auto-recovery deep enrichment for %s: started=%s",
+                            "Auto-recovery deep enrichment for %s: started=%s",
                             pid,
                             started,
                         )
@@ -1792,7 +1792,7 @@ class RecoveryManager:
                             )
                     except Exception as e:
                         logger.warning(
-                            "Phase 61B: Auto-recovery failed for %s: %s",
+                            "Auto-recovery failed for %s: %s",
                             pid,
                             e,
                             exc_info=True,
@@ -1812,4 +1812,4 @@ class RecoveryManager:
                         )
 
             except Exception:
-                logger.debug("Phase 61B: auto-trigger check failed for %s", pid, exc_info=True)
+                logger.debug("auto-trigger check failed for %s", pid, exc_info=True)

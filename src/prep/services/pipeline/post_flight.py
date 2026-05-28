@@ -76,7 +76,7 @@ class PostFlightActions:
             existing_doc = atlas.load()
             if existing_doc and existing_doc.mode == "llm" and existing_doc.content:
                 logger.info(
-                    "Phase 50: Existing LLM atlas found for %s — reusing for rules file",
+                    "Existing LLM atlas found for %s — reusing for rules file",
                     project_id,
                 )
                 doc = existing_doc
@@ -110,18 +110,18 @@ class PostFlightActions:
             # Cache role sub-atlases from structural data
             try:
                 role_cache = atlas.cache_role_atlases()
-                logger.info("Phase 64A: Preliminary role atlases cached — %d roles", len(role_cache))
+                logger.info("Preliminary role atlases cached — %d roles", len(role_cache))
             except Exception:
-                logger.debug("Phase 64A: Preliminary role atlas caching failed (non-fatal)", exc_info=True)
+                logger.debug("Preliminary role atlas caching failed (non-fatal)", exc_info=True)
 
             logger.info(
-                "Phase 50: Preliminary atlas + rules file written for %s (%d chars)",
+                "Preliminary atlas + rules file written for %s (%d chars)",
                 project_id,
                 doc.char_count if doc else 0,
             )
         except Exception:
             logger.debug(
-                "Phase 50: Preliminary atlas generation failed for %s (non-fatal)",
+                "Preliminary atlas generation failed for %s (non-fatal)",
                 project_id,
                 exc_info=True,
             )
@@ -169,14 +169,14 @@ class PostFlightActions:
             PostFlightActions.write_atlas_signal(idx_dir)
 
             logger.info(
-                "Phase 50: Rules file updated with full LLM atlas for %s (%d chars, mode=%s)",
+                "Rules file updated with full LLM atlas for %s (%d chars, mode=%s)",
                 project_id,
                 doc.char_count,
                 doc.mode,
             )
         except Exception:
             logger.debug(
-                "Phase 50: Rules file regen failed for %s (non-fatal)",
+                "Rules file regen failed for %s (non-fatal)",
                 project_id,
                 exc_info=True,
             )

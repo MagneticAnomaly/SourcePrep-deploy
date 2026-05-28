@@ -64,7 +64,7 @@ def _stage_group_active_in_journal(project_id: str, stage: StageId) -> bool:
         return _journal.get_active_run(project_id, group_name) is not None
     except Exception:
         logger.debug(
-            "Phase 128: active-run check failed for %s (non-fatal)",
+            "active-run check failed for %s (non-fatal)",
             stage.value, exc_info=True,
         )
         return False
@@ -567,9 +567,9 @@ class ResumeStrategy:
                         # upstream stub at line 537.
                         if _stage_group_active_in_journal(project_id, stage):
                             logger.info(
-                                "Phase 128: Refusing to write atlas crash-loop "
+                                "Refusing to write atlas crash-loop "
                                 "stub — journal shows active finalize run "
-                                "(avoiding F-67 race)"
+                                "(avoiding active-run race)"
                             )
                             stage_decisions.append({
                                 "stage": stage.value,
@@ -703,9 +703,9 @@ class ResumeStrategy:
                     # the user's pipeline.
                     if _stage_group_active_in_journal(project_id, stage):
                         logger.info(
-                            "Phase 128: Refusing to write downstream-proves-"
+                            "Refusing to write downstream-proves-"
                             "upstream stub for %s — journal shows active run "
-                            "(avoiding F-67 race)",
+                            "(avoiding active-run race)",
                             stage.value,
                         )
                         stage_decisions.append({
