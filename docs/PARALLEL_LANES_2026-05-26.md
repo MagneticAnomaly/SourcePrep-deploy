@@ -2,6 +2,66 @@
 
 Single source of truth for the multi-AI work split decided 2026-05-26. Supersedes ad-hoc audit summaries in chat; cross-links into `MASTER_TODO.md` for the canonical per-item history. When this doc and `MASTER_TODO.md` disagree, **this doc is newer** — it reflects code-state verified 2026-05-26 against MASTER_TODO claims that were typed weeks earlier.
 
+## Lane status — 2026-05-28 (rolling)
+
+> Updated as each lane lands. Newest at top.
+
+| Lane | Owner | Status | Last update | Notes |
+|---|---|---|---|---|
+| **A — Docs frontier** | This session | ✅ **SHIPPED** | 2026-05-28 | See "Lane A completion record" below. |
+| **B — Python correctness (Phase 136)** | Parallel AI #1 | ⏳ **wrapping up** | TBD | Lane B owner: fill this row with commit refs + verification when wrapping. |
+| **C — Python reliability (Phase 127 + 129)** | Parallel AI #2 | ⏳ **wrapping up** | TBD | Lane C owner: fill this row with commit refs + verification when wrapping. |
+
+### Atlas swarm-success persistence fix — 2026-05-28 (cross-lane)
+
+While Lane A was verifying daemon health post-restart, a daemon-restart-triggered rebuild surfaced that `core/atlas/generator.py:generate_segmented()` had a Phase-79 regression: the swarm-success branch returned `(root_doc, swarm_docs)` without calling `self._save(root_doc)`, so the root `atlas.json` was never persisted on swarm-success runs. Sub-segments, routing, and the orchestrator-level `atlas_manifest.json` all wrote correctly — only the root was missing.
+
+Cascade: dashboard atlas panel fell back to `.checkpoints/_golden/atlas.json` (showing stale data), `/pipeline/status` reported `atlas.exists: false`, and Phase 136 Part 11's `is_stale()` short-circuit never fired because `_load_consumed_changeset_run_id` reads from `atlas.json` which was missing.
+
+One-line fix at `generator.py:443` plus regression test at `tests/test_atlas_swarm.py::test_swarm_success_writes_root_atlas_json`. Lives in the Phase 136 family but landed in Lane A's commit stream because Lane A's testing pass surfaced it.
+
+## Lane A completion record (2026-05-26 → 2026-05-28)
+
+**Branch:** `main`. **Shipped to `origin/main`** in nine commits:
+
+```
+4aed3c4d  fix(phase131): deep Phase NN sweep on publicly-shipping component surfaces
+6c8a9109  fix(marketing): repoint immune-system docs links to /mcp (pre-existing broken)
+f1001577  fix(phase131): strip Phase NN leaks + SiteFooter URL from public storybook
+13e0bc4c  feat(phase137): commit live-asset implementation pass (29 placements)
+beca8b55  fix(phase138): re-key cross-repo refs to /how-it-works/, mark phase done
+2bb3a281  fix(docs): mark mcp/ides and mcp/terminal as client components
+a66f075d  docs(coordination): add 3-lane parallel work plan for next batch
+d66eed89  docs(phase138): rename /concepts/ -> /how-it-works/, move 4 explainer guides
+(+ atlas swarm fix — to be committed alongside this doc update)
+```
+
+**Closed scope items:**
+- Phase 138 — `/concepts/` → `/how-it-works/` rename, 4 explainer guides migrated, 9 permanent redirects, sidebar/sitemap updated, ConceptPageShell applied to all 8 pages, cross-repo URL re-key (panelRegistry + 5 components + 1 story fixture + marketing redirect destination), CLAUDE.md / AGENTS.md verified clean.
+- Phase 137 — implementation pass committed (was sitting uncommitted 12 days). `<StoryEmbed>` iframe wrapper deleted; 24 native React `<Demo*>` wrappers added in `websites/apps/docs/src/components/demos.tsx` (1372 lines). Matrix marked SHIPPED (9 of 10 "pending" rows verified already-shipped vs source; 1 remains genuinely deferred — `searchBuildWorkerDemo` on path-weights).
+- Phase 131 §5.1 — build-time autodocs:false + 24-story exclusion glob (already done in §6; matrix marked done).
+- Phase 131 §5.2 — deep Phase NN sweep on publicly-shipping JSDoc surfaces (`AtlasLensPanel/*`, `ConceptsPanel`, `types.ts`, `api/{mock,client}.ts`, `index.ts`, plus the user-facing JSDoc surfaces in `BarrierIndicator`, `StageRegenerateButton`, `FileExplorerDetail`, `EndpointManager`). Remaining strings in the bundle (Phase 102/114/117) come from `GraphEnrichmentPipeline`/`RebuildDropdown`/`RebuildingRow`/`ProvenanceChip` — with `autodocs:false` they are not user-visible via Controls; deferred until a future Storybook public mode might surface them.
+- Phase 131 §5.3 — MOOT after Phase 137 deleted `StoryEmbed`; docs-site no longer depends on Storybook story IDs.
+- Marketing `/concepts/immune-system` pre-existing broken link — repointed to `/mcp`.
+- `mcp/ides` + `mcp/terminal` Phase 132 build break — `"use client"` directives added; `next build` now green.
+
+**Dogfooded against prep MCP after daemon reconnect:**
+- `prep` ambient atlas — current state retrievable; atlas/cluster summaries pending refresh from in-flight clustering run.
+- `prep_search "how-it-works docs section"` — 5/5 hits on the renamed pages, scores 0.69-0.72.
+- `prep_search "where is demos.tsx"` — auto-LOCATE classified, found both `demos.tsx` (new) and pre-existing `cli-demos.tsx`.
+- `prep_observe save` × 2 — Phase 138 outcome anchored to `docs.ts` (id `aabedb964aa5`), Phase 128 recovery verification anchored to `recovery.py` (id `b64a9ee916aa`).
+
+**Verified runtime behaviour from daemon restart 2026-05-28:**
+- ✅ Phase 128 recovery — 4 historical crashed `deep_enrichment` runs cleaned at startup with explicit `"Process terminated (cleaned on restart)"` markers; checkpoints preserved at `.sourceprep/.checkpoints/run-*`.
+- ✅ Phase 134/135 changeset-driven reuse — multiple stages report `provenance.state: "match"` confirming the changeset compare is correctly gating rebuilds.
+- 🔍 Atlas swarm-success persistence bug found and fixed (see cross-lane section above).
+
+**Out of Lane A scope (won't ship without manual involvement):**
+- Phase 137 P137-T1 `netlify.toml` env-var push — gated on explicit user signal per `feedback_explicit_push_only.md`. Functionally moot for in-page demos (Phase 137 deleted `StoryEmbed`) but still gated for any future iframe-based content.
+- Phase 137 visual regression sweep — needs interactive dev-server walkthrough.
+- Phase 131 Bucket C component decisions — needs product input.
+- Remaining Phase NN strings in transitively-bundled excluded-story components — not user-visible with `autodocs:false`.
+
 ## Decisions locked
 
 - **Phase 138 section name:** `How It Works` (was `/concepts/` — rename to disambiguate from the `prep_concepts` MCP feature).
@@ -209,6 +269,51 @@ tests/test_dev_leak*.py
 - P82-F1 through F8 — MCP runtime observability, defer.
 - P122-T-treatment_registry / swarm_optimizer / budget_enforcement — built-but-unwired triage, defer.
 
+## Unified testing checklist (run when all three lanes have wrapped)
+
+> Each lane self-verifies its own work in its own commits. This section is the **cross-lane smoke** to run once Lane B and Lane C land — it covers the conflict-prone surfaces (`atlas/generator.py`, `orchestrator.py`) and the runtime integrations that no single lane can verify alone.
+
+### Static checks (fast, no daemon needed)
+
+- [ ] `cd websites/apps/docs && npx next build` — green. Lane A baseline.
+- [ ] `cd websites/apps/marketing && npx next build` — green. Lane A baseline.
+- [ ] `cd packages/ui && npx tsc --noEmit` — green. Lane A + Lane B + Lane C all touch `@prep/ui` transitively.
+- [ ] `.venv/bin/pytest tests/test_atlas_swarm.py tests/test_atlas.py tests/test_atlas_stale_after_consume.py -v` — green. Confirms atlas swarm fix did not regress existing swarm tests + Phase 136 Part 11 invariants still hold.
+- [ ] `.venv/bin/pytest tests/test_holds.py tests/test_scheduler.py tests/test_dev_leak*.py -v` — green. Lane C smoke (P127-F1/F2/F5 + Phase 129 sweep).
+- [ ] `.venv/bin/pytest tests/test_prep_impact*.py tests/test_spaghetti_scorer*.py tests/test_synthesizer*.py tests/test_search_intent*.py -v` — green. Lane B smoke (Phase 136 Parts 02/04/09/10).
+- [ ] `cd packages/ui && STORYBOOK_PUBLIC=true npx storybook build -o /tmp/sb-smoke` — green. Lane A Phase 131 §5.2 verification.
+
+### Daemon-attached checks (need `prep serve` running)
+
+Run after Lane B/C land **and** the daemon has been restarted **and** a full pipeline rebuild has completed end-to-end on the SourcePrep project.
+
+- [ ] **Atlas swarm persistence** — `ls -la .sourceprep/atlas.json` shows mtime within the last hour (atlas swarm fix). `python3 -c "import json; print(json.load(open('.sourceprep/atlas.json'))['consumed_changeset_run_id'])"` returns a non-empty run_id.
+- [ ] **Dashboard atlas panel matches on-disk** — atlas timestamp in the UI matches `.sourceprep/atlas.json`'s `generated_at`, not the golden checkpoint.
+- [ ] **`/pipeline/status` atlas.exists is true** — `curl -sS http://localhost:8400/projects/<id>/pipeline/status | jq '.data.stages.atlas.exists'` returns `true`.
+- [ ] **`is_stale()` short-circuit fires** — call `prep` ambient context twice in a row with no intervening change; second call should return identical content with no atlas regeneration logged. (Phase 136 Part 11 invariant.)
+- [ ] **Phase 127 F5 — DeepeningLoop hold integration** — fire a Pause mid-`deepening` and confirm checkpoint persists; resume and confirm completion. Lane C will land the unit test; this is the live cross-check.
+- [ ] **Phase 136 Part 02 — `prep_impact` bimodal node** — `prep_impact src/prep/core/__init__.py` returns >100 dependents (was 0 pre-fix). Lane B owns.
+- [ ] **Phase 136 Part 09 — Synthesizer wall-time** — concept seeding completes inside 1500s budget with non-zero questions count. Lane B owns.
+- [ ] **Phase 136 Part 10 — Spaghetti scorer** — `prep_audit action=scan` returns >0 spaghetti findings on this repo (was 0 in the 2026-05-17 regression). Lane B owns.
+
+### Conflict-prone surfaces (verify Lane B and Lane C did not collide)
+
+- [ ] `git log --oneline main -- src/prep/core/atlas/generator.py` — review most recent 5 commits. Verify Lane B's `is_stale`/run_id work and Lane C's LLM-dispatch guards live in non-overlapping line ranges, per the **Conflict rules** section above.
+- [ ] `git log --oneline main -- src/prep/services/pipeline/orchestrator.py` — same drill for Lane B synthesizer accounting vs Lane C soft-hold call sites.
+- [ ] `git diff main~10 -- src/prep/core/atlas/generator.py | grep "consumed_changeset_run_id\|_save" | head -20` — confirm Lane B did not accidentally remove the Phase 136 Part 11 invariants.
+- [ ] `prep_audit action=antibodies` — confirm derived antibodies status mismatch (Phase 125 §13) is still in the fixed state (active concepts → active antibodies that fire).
+
+### Push readiness
+
+- [ ] `git status --short` — only intentional pending files remain.
+- [ ] `git log --oneline main ^origin/main` — review every commit author and message; flag anything unexpected before `git push`.
+- [ ] Confirm the 4 Netlify builds (docs / marketing / support / payments) all expected to succeed (run `npx next build` in each before push if uncertain).
+
+### Stop conditions
+
+- All static checks green, all daemon-attached checks green, all conflict-prone surfaces reviewed → ship.
+- If any check fails: post the failing output in the coordination thread before patching. Don't "just fix it" — the failing check may be revealing a real cross-lane regression that needs a coordinated response.
+
 ## Provenance
 
 This doc was generated 2026-05-26 by reading:
@@ -216,3 +321,5 @@ This doc was generated 2026-05-26 by reading:
 - All `docs/Phase125_*` through `docs/Phase140_*` README/status files
 - Direct `git log` + `git grep` verification of every claim
 - `docs/Phase136_Dogfood-fixes/00_Status_2026-05-17.md`
+
+Lane A completion record and atlas swarm fix added 2026-05-28 after daemon restart surfaced the swarm-success persistence bug. Unified testing checklist added 2026-05-28 as a pre-merge gate for Lane B and Lane C wrap-ups.

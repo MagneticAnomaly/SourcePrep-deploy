@@ -427,6 +427,20 @@ class CodebaseAtlas(Worker):
             if swarm_docs and swarm_complete:
                 if swarm_result and swarm_result.synthesis:
                     self._write_atlas_synthesis(swarm_result)
+                # Persist the root atlas. The Phase 79 swarm-success branch
+                # previously fell through to `return` without saving — the
+                # sequential fallback path below ends with self._save(doc),
+                # but this branch did not. Result: atlas_segments/*,
+                # atlas_routing.json, atlas_markdown_links.json, and
+                # atlas_manifest.json all updated on swarm success, but
+                # the root atlas.json was never (re)written. Downstream
+                # (dashboard atlas panel, /pipeline/status atlas.exists,
+                # is_stale's consumed_changeset_run_id read) then fell
+                # back to the golden checkpoint and reported stale-after-
+                # rebuild. _save() also stamps consumed_changeset_run_id
+                # so Phase 136 Part 11's is_stale short-circuit fires
+                # correctly on the next call.
+                self._save(root_doc)
                 duration_s = time.monotonic() - start
                 logger.info(
                     "Segmented atlas (swarm): root + %d segments in %.1fs",

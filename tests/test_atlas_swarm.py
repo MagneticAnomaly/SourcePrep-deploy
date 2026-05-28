@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 from prep.core.atlas.generator import CodebaseAtlas
 from prep.core.atlas.models import Segment, AtlasDocument, SegmentDocument
-from prep.core.swarm_orchestrator import SwarmResult, SwarmStats
+from prep.core.swarm_orchestrator import SwarmResult, SwarmStats, WorkerResult
 from prep.core.swarm_registry import SwarmTier
 
 
@@ -169,3 +169,65 @@ class TestAtlasSwarmDecision:
         mock_llm = _make_mock_llm()
         atlas = CodebaseAtlas(index_dir=tmp_path, llm=mock_llm)
         assert atlas._get_swarm_enabled() is True
+
+    @patch("prep.core.atlas.generator.get_swarm_tier")
+    @patch("prep.core.atlas.generator.compute_segments")
+    def test_swarm_success_writes_root_atlas_json(
+        self, mock_segments, mock_tier, tmp_path
+    ):
+        """Regression guard: the swarm-success branch must persist the root
+        atlas.json. Prior to 2026-05-28 it returned the root doc without
+        calling self._save(), leaving downstream (dashboard atlas panel,
+        /pipeline/status atlas.exists, is_stale's consumed_changeset_run_id
+        read) to fall back to the golden checkpoint and report stale-after-
+        rebuild."""
+        mock_tier.return_value = SwarmTier.BOTH
+        segments = _make_segments(4)
+        mock_segments.return_value = segments
+
+        mock_llm = _make_mock_llm()
+        atlas = CodebaseAtlas(index_dir=tmp_path, llm=mock_llm)
+
+        mock_docs = [
+            SegmentDocument(
+                content="SEGMENT: test", generated_at="2026-04-07", model="test",
+                file_count=5, segment_id=f"seg:pkg{i}",
+                segment_name=f"Package {i}", dir_path=f"packages/pkg{i}",
+                char_count=13, mode="llm",
+            )
+            for i in range(4)
+        ]
+        # swarm_complete gate at generator.py:422 needs worker_results to
+        # match segment count, otherwise the swarm-success branch is skipped
+        # in favor of the sequential fallback.
+        mock_result = SwarmResult(
+            worker_results=[
+                WorkerResult(item_id=f"seg:pkg{i}", raw_output="ok", parsed={"name": f"Package {i}"})
+                for i in range(4)
+            ],
+            stats=SwarmStats(total_items=4, workers_succeeded=4),
+        )
+
+        atlas_path = tmp_path / "atlas.json"
+        assert not atlas_path.exists()  # precondition
+
+        with patch.object(atlas, "_run_swarm", return_value=(mock_docs, mock_result)):
+            with patch.object(atlas, "_get_swarm_enabled", return_value=True):
+                with patch.object(atlas, "_load_modules", return_value=[]):
+                    with patch.object(atlas, "_load_epistemic_summary", return_value={}):
+                        with patch.object(atlas, "_load_graph_stats", return_value={"file_count": 50}):
+                            with patch.object(atlas, "_identify_hubs", return_value=[]):
+                                with patch.object(atlas, "_generate_root_atlas", return_value=_make_root_doc()):
+                                    atlas.generate_segmented()
+
+        assert atlas_path.exists(), (
+            "swarm-success branch failed to persist atlas.json — regression "
+            "of the Phase 79 path that forgot _save(root_doc)"
+        )
+        # Sanity check: the persisted file matches what the test built.
+        persisted = json.loads(atlas_path.read_text())
+        assert persisted["file_count"] == 50
+        assert persisted["module_count"] == 4
+        # consumed_changeset_run_id is stamped by _save() when a changeset
+        # is available; absent here (no changeset fixture) means empty
+        # string per the legacy fallback path — that is fine.
