@@ -38,6 +38,11 @@ from concurrent.futures import TimeoutError as FutureTimeoutError, as_completed
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+from prep.services.pipeline.holds import (
+    HoldPausedError,
+    hold_paused_for_llm,
+    raise_hold_paused_for_llm,
+)
 from prep.services.pipeline.thread_pool import llm_pool
 
 logger = logging.getLogger(__name__)
@@ -207,6 +212,8 @@ def _seed_concepts_sequential(
             ctx=json.dumps(module_data)[:2500],
         )
         try:
+            if hold_paused_for_llm(llm, project_id, logger):
+                raise_hold_paused_for_llm(llm, project_id)
             text, _tokens = llm.generate(
                 prompt=worker_prompt,
                 json_mode=True,
@@ -215,6 +222,8 @@ def _seed_concepts_sequential(
                 think=False,
             )
             return text
+        except HoldPausedError:
+            raise
         except Exception:
             logger.warning(
                 "Concept worker failed for %s",
@@ -362,7 +371,11 @@ def _seed_concepts_single_call(
         }
 
     try:
-        raw_response = _call_llm_for_concepts(llm, context_text, project.name)
+        raw_response = _call_llm_for_concepts(
+            llm, context_text, project.name, project_id=project_id,
+        )
+    except HoldPausedError:
+        raise
     except Exception as e:
         logger.error("Concept seeding LLM call failed: %s", e, exc_info=True)
         return {
@@ -791,6 +804,8 @@ def seed_concepts_swarm(
             # budget on the thinking field.  Per-module concept extraction
             # is a structured-output task that doesn't need chain-of-
             # thought reasoning.
+            if hold_paused_for_llm(llm, project_id, logger):
+                raise_hold_paused_for_llm(llm, project_id)
             text, _tokens = llm.generate(
                 prompt=worker_prompt,
                 json_mode=True,
@@ -799,6 +814,8 @@ def seed_concepts_swarm(
                 think=False,
             )
             return text
+        except HoldPausedError:
+            raise
         except Exception:
             logger.warning("Concept worker failed for %s", item.id, exc_info=True)
             return None
@@ -1195,8 +1212,15 @@ def _get_seeder_llm():
         return None
 
 
-def _call_llm_for_concepts(llm, context_text: str, project_name: str) -> str:
-    """Call the LLM with the concept extraction prompt."""
+def _call_llm_for_concepts(
+    llm, context_text: str, project_name: str, *, project_id: Optional[str] = None,
+) -> str:
+    """Call the LLM with the concept extraction prompt.
+
+    ``project_id`` (P127-F2) enables the soft-hold check before
+    dispatch.  None / empty is acceptable — the check short-circuits
+    at ``hold_paused_for_llm``.
+    """
     prompt = f"""You are analyzing the codebase "{project_name}" to extract high-level concepts.
 
 Based on the following codebase analysis data, generate:
@@ -1249,6 +1273,8 @@ Respond with ONLY a JSON object. No markdown fencing, no reasoning tags, no prea
     # LLMClient.generate returns (text, token_count)
     # Budget needs headroom for thinking models that emit <think> tags
     # before the JSON. kimi-k2.5 uses ~2500 tokens for reasoning.
+    if hold_paused_for_llm(llm, project_id, logger):
+        raise_hold_paused_for_llm(llm, project_id)
     text, _tokens = llm.generate(
         prompt=prompt,
         json_mode=True,

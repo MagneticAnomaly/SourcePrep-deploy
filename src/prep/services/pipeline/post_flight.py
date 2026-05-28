@@ -69,6 +69,7 @@ class PostFlightActions:
             atlas = CodebaseAtlas(
                 idx_dir, llm=None, project_root=Path(project.path),
                 project_name=project.name,
+                project_id=project_id,
             )
 
             # If a full LLM atlas already exists, reuse it instead of downgrading

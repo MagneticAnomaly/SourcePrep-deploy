@@ -109,6 +109,11 @@ def _find_overlapping_entry(
 from typing import Any
 
 from prep.core.context_config import PipelineTask, compute_optimal_settings
+from prep.services.pipeline.holds import (
+    HoldPausedError,
+    hold_paused_for_llm,
+    raise_hold_paused_for_llm,
+)
 from prep.services.pipeline.recovery import is_reuse_blocked
 from prep.services.pipeline.workers import WorkerFactory
 from prep.services.pipeline.workers.base import Worker
@@ -474,6 +479,8 @@ class GroupReasoningEngine(Worker):
             )
 
             from prep.core.llm_client import TASK_MAX_CHARS
+            if hold_paused_for_llm(self.llm, self.project_id, logger):
+                raise_hold_paused_for_llm(self.llm, self.project_id)
             text, tokens = self.llm.generate(
                 prompt,
                 system=GROUP_REASONING_SYSTEM,
@@ -489,6 +496,8 @@ class GroupReasoningEngine(Worker):
                 "[GroupReasoning] Group %s (angled) responded in %.1fs (%d tokens)",
                 group_id, elapsed, tokens,
             )
+        except HoldPausedError:
+            raise
         except Exception as e:
             elapsed = _time.monotonic() - _start
             logger.warning(
@@ -759,6 +768,8 @@ class GroupReasoningEngine(Worker):
             )
 
             from prep.core.llm_client import TASK_MAX_CHARS
+            if hold_paused_for_llm(self.llm, self.project_id, logger):
+                raise_hold_paused_for_llm(self.llm, self.project_id)
             text, tokens = self.llm.generate(
                 prompt,
                 system=GROUP_REASONING_SYSTEM,
@@ -774,6 +785,8 @@ class GroupReasoningEngine(Worker):
                 "[GroupReasoning] Group %s responded in %.1fs (%d tokens)",
                 group_id, elapsed, tokens,
             )
+        except HoldPausedError:
+            raise
         except Exception as e:
             elapsed = _time.monotonic() - _start
             logger.warning(

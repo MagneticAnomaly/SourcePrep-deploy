@@ -33,6 +33,11 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from prep.core.context_config import PipelineTask, compute_optimal_settings
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
+from prep.services.pipeline.holds import (
+    HoldPausedError,
+    hold_paused_for_llm,
+    raise_hold_paused_for_llm,
+)
 from prep.services.pipeline.recovery import is_reuse_blocked
 from prep.services.pipeline.thread_pool import llm_pool
 from prep.services.pipeline.workers import WorkerFactory
@@ -1291,6 +1296,8 @@ class ClusterSynthesizer(Worker):
                 think=False,
             )
 
+            if hold_paused_for_llm(self.llm, self.project_id, logger):
+                raise_hold_paused_for_llm(self.llm, self.project_id)
             text, tokens = self.llm.generate(
                 prompt, system=MODULE_SYNTHESIS_SYSTEM, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, think=False,
@@ -1304,6 +1311,8 @@ class ClusterSynthesizer(Worker):
         # Attempt 1: Standard context (30 files)
         try:
             parsed = _generate_with_limit(30)
+        except HoldPausedError:
+            raise
         except Exception as e:
             logger.warning("Deep reasoning LLM call failed for cluster %s (full context): %s", cluster.cluster_id, e)
 
@@ -1311,6 +1320,8 @@ class ClusterSynthesizer(Worker):
             try:
                 logger.info("Retrying cluster %s with reduced context (10 files)...", cluster.cluster_id)
                 parsed = _generate_with_limit(10)
+            except HoldPausedError:
+                raise
             except Exception as e2:
                 logger.warning("Deep reasoning LLM call failed for cluster %s (reduced context): %s", cluster.cluster_id, e2)
 
@@ -1336,6 +1347,8 @@ class ClusterSynthesizer(Worker):
                     retry = _generate_with_limit(30, extra_instruction=instruction)
                     if retry and isinstance(retry.get("summary"), str):
                         parsed = retry
+                except HoldPausedError:
+                    raise
                 except Exception as e:
                     logger.warning(
                         "FIX-16-4 re-prompt failed for cluster %s: %s — keeping original",
@@ -1426,6 +1439,8 @@ class ClusterSynthesizer(Worker):
 
         # Attempt 1: Full context (30 files)
         try:
+            if hold_paused_for_llm(self.llm, self.project_id, logger):
+                raise_hold_paused_for_llm(self.llm, self.project_id)
             text, tokens = self.llm.generate(
                 prompt, system=MODULE_SYNTHESIS_SYSTEM,
                 num_predict=num_predict, num_ctx=num_ctx,
@@ -1433,6 +1448,8 @@ class ClusterSynthesizer(Worker):
                 max_chars=TASK_MAX_CHARS["augmentation"],
             )
             parsed = _parse_json_response(text)
+        except HoldPausedError:
+            raise
         except Exception as e:
             logger.warning("[Cluster/Swarm] Worker failed for %s (full context): %s", cluster.cluster_id, e)
 
@@ -1457,6 +1474,8 @@ class ClusterSynthesizer(Worker):
                     task=PipelineTask.CLUSTER, prompt_tokens=r_tokens,
                     model=self.llm.model, think=False,
                 )
+                if hold_paused_for_llm(self.llm, self.project_id, logger):
+                    raise_hold_paused_for_llm(self.llm, self.project_id)
                 text, tokens = self.llm.generate(
                     reduced_prompt, system=MODULE_SYNTHESIS_SYSTEM,
                     num_predict=r_predict, num_ctx=r_ctx,
@@ -1464,6 +1483,8 @@ class ClusterSynthesizer(Worker):
                     max_chars=TASK_MAX_CHARS["augmentation"],
                 )
                 parsed = _parse_json_response(text)
+            except HoldPausedError:
+                raise
             except Exception as e2:
                 logger.warning("[Cluster/Swarm] Worker failed for %s (reduced context): %s", cluster.cluster_id, e2)
 
@@ -1491,6 +1512,8 @@ class ClusterSynthesizer(Worker):
                 )
                 try:
                     retry_prompt = f"{prompt}\n\nADDITIONAL CONSTRAINT:\n{instruction}"
+                    if hold_paused_for_llm(self.llm, self.project_id, logger):
+                        raise_hold_paused_for_llm(self.llm, self.project_id)
                     rt_text, _ = self.llm.generate(
                         retry_prompt, system=MODULE_SYNTHESIS_SYSTEM,
                         num_predict=num_predict, num_ctx=num_ctx,
@@ -1500,6 +1523,8 @@ class ClusterSynthesizer(Worker):
                     retry_parsed = _parse_json_response(rt_text)
                     if retry_parsed and isinstance(retry_parsed.get("summary"), str):
                         parsed = retry_parsed
+                except HoldPausedError:
+                    raise
                 except Exception as e:
                     logger.warning(
                         "FIX-16-4 (with-angle) re-prompt failed for %s: %s — keeping original",
@@ -1816,6 +1841,8 @@ class ClusterSynthesizer(Worker):
                     model=self.llm.model,
                     think=False,
                 )
+                if hold_paused_for_llm(self.llm, self.project_id, logger):
+                    raise_hold_paused_for_llm(self.llm, self.project_id)
                 text, _tokens = self.llm.generate(
                     prompt,
                     system=BATCHED_CLUSTER_SYSTEM,
@@ -1826,6 +1853,8 @@ class ClusterSynthesizer(Worker):
                     max_chars=batched_max_chars("augmentation", len(items)),
                 )
                 results_list = BatchedResponseParser.parse(text, expected_count=len(items))
+            except HoldPausedError:
+                raise
             except Exception as e:
                 logger.warning("Batched cluster synthesis failed for %d items: %s", len(items), e)
                 results_list = []
@@ -1856,6 +1885,8 @@ class ClusterSynthesizer(Worker):
 
                 try:
                     items, results_list = future.result()
+                except HoldPausedError:
+                    raise
                 except Exception as e:
                     logger.warning("Batched cluster future failed: %s", e)
                     with lock:
@@ -2211,6 +2242,8 @@ class ClusterSynthesizer(Worker):
                                 done_count += 1
                                 if progress_callback:
                                     progress_callback("cluster_synthesis", reused + done_count, total_work, reused)
+                        except HoldPausedError:
+                            raise
                         except Exception as e:
                             logger.warning("Cluster synthesis failed: %s", e)
                             with lock:
