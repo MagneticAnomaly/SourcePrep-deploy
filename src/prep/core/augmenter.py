@@ -26,7 +26,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from prep.core.context_config import PipelineTask, compute_optimal_settings
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
-from prep.services.pipeline.holds import HoldPausedError
+from prep.services.pipeline.holds import HoldAwareMixin, HoldPausedError
 from prep.services.pipeline.workers.base import Worker
 
 logger = logging.getLogger(__name__)
@@ -261,7 +261,7 @@ JSON response:"""
 # are now in llm_client.py (re-exported above)
 
 
-class TraceAugmenter(Worker):
+class TraceAugmenter(HoldAwareMixin, Worker):
     """
     Augments trace nodes with LLM-generated summaries, roles, and confidence scores.
 
@@ -299,37 +299,6 @@ class TraceAugmenter(Worker):
         from prep.core.batch_strategy import BatchRetryStrategy
         mode = "exploratory" if self.is_exploratory else "production"
         self.retry_strategy = BatchRetryStrategy(mode=mode)
-
-    def _hold_paused(self) -> bool:
-        """Phase 127: True when a soft-hold blocks this dispatch.
-
-        Delegates to :func:`prep.services.pipeline.holds.hold_paused_for_llm`
-        so the (project, scheduler-node-id) resolution and ``is_held``
-        check stays in one place — augmenter, epistemic enricher, and
-        swarm orchestrator share the same helper.  Returns False
-        (proceed) when no hold is active, no project_id is set, or the
-        endpoint can't be resolved.
-        """
-        from prep.services.pipeline.holds import hold_paused_for_llm
-        return hold_paused_for_llm(self.llm, self.project_id, logger)
-
-    def _raise_hold_paused(self) -> None:
-        """Raise :class:`HoldPausedError` with the resolved endpoint id.
-
-        Use at LLM call sites to disambiguate transient pause from
-        permanent failure: the augmenter's batch-fallback queue treats
-        ``Exception`` as "subdivide and retry", which would falsely
-        thrash on a held endpoint.  Raising ``HoldPausedError`` (which
-        callers re-raise rather than catch) ensures the run stops cleanly
-        and ``run()`` flushes a checkpoint before exiting.
-
-        Delegates to :func:`prep.services.pipeline.holds.raise_hold_paused_for_llm`
-        so the (project, endpoint) resolution and fallback strings stay
-        consistent across the three classes that share this pattern
-        (augmenter, epistemic enricher, swarm orchestrator).
-        """
-        from prep.services.pipeline.holds import raise_hold_paused_for_llm
-        raise_hold_paused_for_llm(self.llm, self.project_id)
 
     def _process_with_exploratory_fallback(
         self,
