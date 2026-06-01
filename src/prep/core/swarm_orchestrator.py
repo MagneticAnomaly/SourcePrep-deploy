@@ -23,7 +23,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from prep.core.llm_client import LLMClient, _parse_json_response
 from prep.core.swarm_event_logger import SwarmEventLogger, default_log_dir
 from prep.services.cancellation import PipelinePausedError
-from prep.services.pipeline.holds import HoldPausedError
+from prep.services.pipeline.holds import HoldAwareMixin, HoldPausedError
 from prep.services.token_telemetry import set_swarm_role
 
 logger = logging.getLogger(__name__)
@@ -177,7 +177,7 @@ def compute_swarm_wall_budget(
 # ---------------------------------------------------------------------------
 
 
-class SwarmOrchestrator:
+class SwarmOrchestrator(HoldAwareMixin):
     """Generic three-phase swarm executor.
 
     Phase 96F: Coordinator and synthesis phases now respect their own
@@ -276,39 +276,15 @@ class SwarmOrchestrator:
         # event-log routing).
         self.project_id = project_id
 
-    def _hold_paused(self) -> bool:
-        """Phase 127: True when a soft-hold blocks this swarm.
+    @property
+    def _hold_llm_for_check(self) -> Any:
+        """Gate the soft-hold check against the worker LLM.
 
-        Delegates to :func:`prep.services.pipeline.holds.hold_paused_for_llm`
-        so the (project, scheduler-node-id) resolution and ``is_held``
-        check stays in one place — augmenter, epistemic enricher, and
-        swarm orchestrator share the same helper.  We gate against
-        ``worker_llm`` since the fan-out phase consumes the bulk of
-        capacity; coord and synth typically share the same endpoint
-        family in practice.  Returns False (proceed) when no hold is
-        active, no project_id is set, or the endpoint can't be resolved.
+        Fan-out consumes the bulk of capacity, so the worker endpoint
+        is the right blast-radius bound — coord and synth typically
+        share the same endpoint family in practice.
         """
-        from prep.services.pipeline.holds import hold_paused_for_llm
-        return hold_paused_for_llm(self.worker_llm, self.project_id, logger)
-
-    def _raise_hold_paused(self) -> None:
-        """Raise :class:`HoldPausedError` with the resolved endpoint id.
-
-        Use at phase boundaries (coord→fanout, fanout→synth) to exit
-        cleanly when a soft-hold takes effect mid-swarm.  ``execute()``
-        catches at run-level and returns a ``paused=True`` SwarmResult
-        so callers (group_reasoning, cluster, atlas, concept_seeder)
-        treat the pause as "retry next run" rather than as a permanent
-        swarm failure.
-
-        Delegates to :func:`prep.services.pipeline.holds.raise_hold_paused_for_llm`
-        so the (project, endpoint) resolution and fallback strings stay
-        consistent across the three classes that share this pattern.
-        Uses ``self.worker_llm`` (not ``self.llm``) since fan-out is the
-        bulk-capacity phase the holds primarily target.
-        """
-        from prep.services.pipeline.holds import raise_hold_paused_for_llm
-        raise_hold_paused_for_llm(self.worker_llm, self.project_id)
+        return self.worker_llm
 
     def _llm_call_with_timeout(
         self,

@@ -26,6 +26,11 @@ from prep.core.swarm_orchestrator import (
     compute_swarm_wall_budget,
 )
 from prep.core.swarm_registry import get_min_groups_threshold, get_swarm_tier
+from prep.services.pipeline.holds import (
+    HoldPausedError,
+    hold_paused_for_llm,
+    raise_hold_paused_for_llm,
+)
 from prep.services.pipeline.workers import WorkerFactory
 from prep.services.pipeline.workers.base import Worker
 
@@ -132,6 +137,7 @@ class CodebaseAtlas(Worker):
         llm: Optional[Any] = None,  # LLMClient from augmenter.py
         project_root: Optional[Path] = None,
         project_name: Optional[str] = None,
+        project_id: Optional[str] = None,
     ):
         self.index_dir = Path(index_dir)
         self.llm = llm
@@ -142,6 +148,10 @@ class CodebaseAtlas(Worker):
         # memory/project_brand_split.md and feedback_codrag_is_stale_codename.md.
         # Falls back to project_root.name when not provided.
         self.project_name = project_name
+        # P127-F2: project_id powers the soft-hold check at each LLM
+        # dispatch.  None / empty is acceptable — hold_paused_for_llm
+        # short-circuits at `if not project_id` and returns False.
+        self.project_id = project_id
         self.atlas_path = self.index_dir / "atlas.json"
         self.atlas_prev_path = self.index_dir / "atlas_prev.json"
         self.segments_dir = self.index_dir / "atlas_segments"
@@ -242,11 +252,15 @@ class CodebaseAtlas(Worker):
         )
 
         try:
+            if hold_paused_for_llm(self.llm, self.project_id, logger):
+                raise_hold_paused_for_llm(self.llm, self.project_id)
             text, tokens = self.llm.generate(
                 prompt, system=system, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, temperature=0.3, think=False,
             )
             content = self._postprocess(text, max_chars)
+        except HoldPausedError:
+            raise
         except Exception as e:
             logger.warning("Atlas LLM generation failed: %s — falling back to structural", e)
             return self.generate_structural()
@@ -601,11 +615,15 @@ class CodebaseAtlas(Worker):
         )
 
         try:
+            if hold_paused_for_llm(self.llm, self.project_id, logger):
+                raise_hold_paused_for_llm(self.llm, self.project_id)
             text, tokens = self.llm.generate(
                 prompt, system=system, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, temperature=0.3, think=False,
             )
             content = self._postprocess(text, max_chars)
+        except HoldPausedError:
+            raise
         except Exception as e:
             logger.warning("Root atlas LLM failed: %s — using structural", e)
             content = ""
@@ -746,11 +764,15 @@ class CodebaseAtlas(Worker):
         )
 
         try:
+            if hold_paused_for_llm(self.llm, self.project_id, logger):
+                raise_hold_paused_for_llm(self.llm, self.project_id)
             text, tokens = self.llm.generate(
                 prompt, system=system, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, temperature=0.3, think=False,
             )
             content = self._postprocess(text, max_chars)
+        except HoldPausedError:
+            raise
         except Exception as e:
             logger.warning("Segment atlas LLM failed for %s: %s — using structural", segment.name, e)
             content = ""
@@ -903,11 +925,15 @@ class CodebaseAtlas(Worker):
         )
 
         try:
+            if hold_paused_for_llm(self.llm, self.project_id, logger):
+                raise_hold_paused_for_llm(self.llm, self.project_id)
             text, tokens = self.llm.generate(
                 prompt, system=system, num_predict=num_predict, num_ctx=num_ctx,
                 json_mode=False, temperature=0.3, think=False,
             )
             content = self._postprocess(text, max_chars)
+        except HoldPausedError:
+            raise
         except Exception as e:
             logger.warning(
                 "Segment atlas (swarm) LLM failed for %s: %s — using structural",
@@ -1020,11 +1046,10 @@ class CodebaseAtlas(Worker):
             synthesis_timeout_s=240.0 if is_cloud else 180.0,
             worker_timeout_s=180.0 if is_cloud else 300.0,
             max_wall_time_s=wall_budget,
-            # Phase 127: AtlasGenerator does not currently carry a
-            # project_id — leaving as None means the soft-hold check
-            # is a no-op for atlas swarms.  When atlas grows project_id
-            # awareness in a follow-up, thread it here.
-            project_id=None,
+            # P127-F2: CodebaseAtlas now carries self.project_id; thread
+            # it into the swarm so the worker_llm dispatch respects the
+            # multi-project soft-hold gate.
+            project_id=self.project_id or None,
         )
 
         # Build WorkItems from segments

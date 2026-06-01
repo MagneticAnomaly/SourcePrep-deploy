@@ -30,7 +30,7 @@ from .augmenter import AugmentationEntry
 from .llm_client import LLMClient, _get_llm_concurrency, _parse_confidence, _parse_json_response
 from .epistemic_score import EpistemicEntry, EpistemicScore, compute_epistemic_score
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
-from prep.services.pipeline.holds import HoldPausedError
+from prep.services.pipeline.holds import HoldAwareMixin, HoldPausedError
 from prep.services.pipeline.workers.base import Worker
 
 logger = logging.getLogger(__name__)
@@ -257,7 +257,7 @@ def topological_sort_into_tiers(
 
 # ── Enrichment engine ────────────────────────────────────────────────
 
-class EpistemicEnricher(Worker):
+class EpistemicEnricher(HoldAwareMixin, Worker):
     """Pass 2 enrichment engine using a 14b model.
 
     Processes nodes in reverse-topological order, building up contextual
@@ -282,35 +282,6 @@ class EpistemicEnricher(Worker):
         self.project_id = project_id
         self.epistemic_path = index_dir / "trace_epistemic.jsonl"
         self.epistemic_manifest_path = index_dir / "trace_epistemic_manifest.json"
-
-    def _hold_paused(self) -> bool:
-        """Phase 127: True when a soft-hold blocks this dispatch.
-
-        Delegates to :func:`prep.services.pipeline.holds.hold_paused_for_llm`
-        so the (project, scheduler-node-id) resolution and ``is_held``
-        check stays in one place — augmenter and swarm orchestrator
-        share the same helper.  Returns False (proceed) when no hold
-        is active, no project_id is set, or the endpoint can't be
-        resolved.
-        """
-        from prep.services.pipeline.holds import hold_paused_for_llm
-        return hold_paused_for_llm(self.llm, self.project_id, logger)
-
-    def _raise_hold_paused(self) -> None:
-        """Raise :class:`HoldPausedError` with the resolved endpoint id.
-
-        Use at LLM call sites to disambiguate transient pause from
-        permanent failure: callers count ``None`` returns as failure,
-        which would falsely trip circuit breakers.  The exception
-        bubbles up to ``run()`` which catches it once at run level.
-
-        Delegates to :func:`prep.services.pipeline.holds.raise_hold_paused_for_llm`
-        so the (project, endpoint) resolution and fallback strings stay
-        consistent across the three classes that share this pattern
-        (augmenter, epistemic enricher, swarm orchestrator).
-        """
-        from prep.services.pipeline.holds import raise_hold_paused_for_llm
-        raise_hold_paused_for_llm(self.llm, self.project_id)
 
     def load_existing(self) -> Dict[str, EpistemicEntry]:
         """Load existing epistemic entries."""

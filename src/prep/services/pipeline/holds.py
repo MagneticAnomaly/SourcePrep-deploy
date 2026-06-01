@@ -103,6 +103,51 @@ def raise_hold_paused_for_llm(llm: Any, project_id: Optional[str]) -> None:
     raise HoldPausedError(project_id or "<unset>", endpoint_id)
 
 
+class HoldAwareMixin:
+    """Shared ``_hold_paused`` / ``_raise_hold_paused`` for classes that
+    dispatch LLM calls inside a multi-project run loop.
+
+    Used by :class:`prep.core.epistemic_enrichment.EpistemicEnricher`,
+    :class:`prep.core.augmenter.TraceAugmenter`, and
+    :class:`prep.core.swarm_orchestrator.SwarmOrchestrator` so the
+    (project_id, llm-endpoint) resolution + ``HoldPausedError`` raise
+    pattern stays in exactly one place.
+
+    The using class must expose ``self.project_id`` and an
+    ``llm``-shaped attribute.  SwarmOrchestrator gates against its
+    worker fanout LLM (``self.worker_llm``); override
+    ``_hold_llm_for_check`` to swap which attribute is consulted.
+    """
+
+    project_id: Optional[str]
+
+    @property
+    def _hold_llm_for_check(self) -> Any:
+        """Override to gate against a different LLM attribute.
+
+        Defaults to ``self.llm``.  Classes whose bulk-capacity LLM is
+        named differently (e.g. SwarmOrchestrator.worker_llm) override
+        to return that one.
+        """
+        return getattr(self, "llm", None)
+
+    def _hold_paused(self) -> bool:
+        """True when a soft-hold blocks this dispatch.
+
+        Returns False (proceed) when no hold is active, no project_id
+        is set, or the endpoint can't be resolved.
+        """
+        import logging
+        return hold_paused_for_llm(
+            self._hold_llm_for_check, self.project_id,
+            logging.getLogger(type(self).__module__),
+        )
+
+    def _raise_hold_paused(self) -> None:
+        """Raise :class:`HoldPausedError` with the resolved endpoint id."""
+        raise_hold_paused_for_llm(self._hold_llm_for_check, self.project_id)
+
+
 def hold_paused_for_llm(
     llm: Any,
     project_id: Optional[str],

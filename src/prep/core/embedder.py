@@ -515,7 +515,7 @@ def _apply_phase139_provider_opts(providers: list, model_path: str) -> list:
             out.append(entry)
     if saw_coreml:
         logger.info(
-            "Phase 139 CoreML opts applied: MLComputeUnits=%s, "
+            "CoreML opts applied: MLComputeUnits=%s, "
             "ModelFormat=MLProgram, RequireStaticInputShapes=1, "
             "ModelCacheDirectory=%s",
             coreml_opts["MLComputeUnits"], coreml_opts["ModelCacheDirectory"],

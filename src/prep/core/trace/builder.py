@@ -518,9 +518,9 @@ class TraceBuilder:
                     # in tests so any regression is loud.
                     sample = sorted(additions)[:10]
                     logger.warning(
-                        "Phase 133 Task 7 invariant violation: preserve+merge added "
+                        "Manifest invariant violation: preserve+merge added "
                         "%d files not in walker output (sample: %s). Walker/coverage "
-                        "divergence has resurfaced. See docs/Phase133_RustWalkerHasherCutover/README.md",
+                        "divergence has resurfaced.",
                         len(additions), sample,
                     )
                     # Test-mode hard fail (production keeps the merge as defense-in-depth):
@@ -528,7 +528,7 @@ class TraceBuilder:
                         import os
                         if os.environ.get("PYTEST_CURRENT_TEST"):
                             raise AssertionError(
-                                f"Phase 133: preserve+merge produced {len(additions)} "
+                                f"preserve+merge produced {len(additions)} "
                                 f"additions; walker divergence has returned. "
                                 f"Sample: {sample}"
                             )

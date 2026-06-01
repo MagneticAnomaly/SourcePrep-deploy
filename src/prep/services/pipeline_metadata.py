@@ -383,7 +383,7 @@ def reset_stale_metadata(index_dir: Path, reason: str = "startup_recovery") -> b
     meta.status = "interrupted"
     meta.finished_at = datetime.now(timezone.utc).isoformat()
     logger.info(
-        "Phase 61B: Reset stale pipeline_run_metadata.json for %s/%s "
+        "Reset stale pipeline_run_metadata.json for %s/%s "
         "(run_id=%s, started=%s, reason=%s)",
         meta.project_id, meta.group, meta.run_id,
         meta.started_at, reason,

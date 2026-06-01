@@ -58,6 +58,68 @@ Concrete patterns to search for:
   `"failed"`, `"pausing"` (e.g. `useEnrichment.ts`). These are operational
   states with semantic meaning, not dev numbering.
 
+## High-visibility cluster landed (2026-05-27, Lane C)
+
+Daemon-startup logs and the continuous watchdog/heartbeat logs were the
+loudest user-facing leaks — every daemon start and every watcher tick
+wrote them.  Rewritten to plain operational copy:
+
+- `src/prep/server.py` — concept-store migration logs (3 sites,
+  `Phase 96/F-36`), system-concept seeding fallback (`Phase 119`),
+  crashed-run startup banner (`Phase 25`).
+- `src/prep/core/watcher.py` — five watchdog / selfheal logs
+  (`Phase 61B`, `Phase 72`).
+- `src/prep/core/embedder.py` — CoreML opts banner (`Phase 139`).
+- `src/prep/core/system_concept_seeder.py` — system-seed summary
+  (`Phase 119`).
+- `src/prep/mcp/server.py` — MCP scope-filter debug (`Phase 120`).
+
+## Pipeline-orchestration cluster landed (2026-05-28, Lane C)
+
+Pipeline-stage logs that fire during every build — drain timeouts,
+branch transitions, recovery banners, journal authority checks,
+manifest stale checks.  Same rewrite shape: drop the dev-numbering
+prefix, keep all args + log level + exc_info intact.
+
+- `src/prep/services/pipeline/orchestrator.py` — 22 sites
+  (`Phase 91`, `Phase 60D`, `Phase 61B`, `Phase 72D`, `Phase 49`,
+  `Phase 50`, `Phase 118 U22`, `Phase 60B`, `Phase 128`,
+  `Phase 127 T3.2`, `F-67`, `F-87`, `F-76`).
+- `src/prep/services/pipeline/recovery.py` — 22 sites
+  (`Phase 61B`, `Phase 72D`, `Phase 60D`, `Phase 60B`, `Phase 128`,
+  `Phase 93`, `Phase 72C`).
+- `src/prep/services/pipeline/resume.py` — 3 sites (`Phase 128`).
+- `src/prep/services/pipeline/post_flight.py` — 5 sites
+  (`Phase 50`, `Phase 64A`).
+- `src/prep/services/pipeline_metadata.py` — 1 site (`Phase 61B`).
+- `src/prep/core/trace/builder.py` — 2 sites (`Phase 133`).
+
+## Regression guard
+
+`tests/test_phase129_dev_leak_regression.py` walks each cleaned
+module's AST and asserts no `logger.*` positional string literal starts
+with `Phase N` / `Phase NNX` / `F-NN`.  The `CLEAN_MODULES` list in
+that test is the source of truth for what has shipped — add a module
+to it once sanitized so the regression guard grows monotonically.
+
+## Recipe verdicts (2026-05-28)
+
+- **Recipe 1** (Phase N in non-comment literals): **0 hits** in
+  `src/prep/**.py` outside docstrings.
+- **Recipe 2** (commit-narration "landed YYYY-MM-DD"): **0 hits**.
+- **Recipe 3** (F-NN bug IDs in user-visible strings): **0 hits**.
+- **Recipe 4** (`rules_generator` AGENTS.md content): **0 hits**
+  outside docstrings.
+- **Recipe 5** (LLM-bound prompts): no `prompt=` / `system=`
+  string-literal assignment in `src/prep/` matches `"Phase N"` or
+  `"F-NN"`.
+- **Recipe 6** (telemetry `remediation` / `message` fields): no
+  matches in `src/prep/`.
+
+Module / function docstrings still mention phase numbers as
+chronology breadcrumbs for source readers; per this phase's
+non-goals these are intentionally left in place.
+
 ## Initial sweep landed (2026-05-07)
 
 Already fixed in the session that scaffolded this phase:

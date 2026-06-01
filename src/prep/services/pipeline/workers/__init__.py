@@ -897,6 +897,7 @@ class WorkerFactory:
             atlas = CodebaseAtlas(
                 idx_dir, llm=llm_client, project_root=Path(project.path),
                 project_name=project.name,
+                project_id=project.id,
             )
             # Phase 135.5: inject the Changeset so the atlas's is_stale gate
             # consults stage 1's canonical "what changed" signal instead of

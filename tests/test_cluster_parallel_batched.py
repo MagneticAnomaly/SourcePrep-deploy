@@ -47,6 +47,10 @@ def _make_synthesizer_with_batch_profile(fake_llm):
 
     synth = ClusterSynthesizer.__new__(ClusterSynthesizer)
     synth.llm = fake_llm
+    # P127-F2: ClusterSynthesizer reads self.project_id before each
+    # LLM dispatch (hold check).  Tests that bypass __init__ must set
+    # the attr so the soft-hold check short-circuits cleanly at None.
+    synth.project_id = None
     # Minimal profile that forces batching on with batch_size=2
     profile = MagicMock(spec=BatchProfile)
     profile.name = MagicMock()
