@@ -2,30 +2,51 @@
 
 Single source of truth for the multi-AI work split decided 2026-05-26. Supersedes ad-hoc audit summaries in chat; cross-links into `MASTER_TODO.md` for the canonical per-item history. When this doc and `MASTER_TODO.md` disagree, **this doc is newer** — it reflects code-state verified 2026-05-26 against MASTER_TODO claims that were typed weeks earlier.
 
-## Lane status — 2026-05-28 (rolling)
+## Lane status — 2026-06-01 (rolling)
 
 > Updated as each lane lands. Newest at top.
 
 | Lane | Owner | Status | Last update | Notes |
 |---|---|---|---|---|
-| **A — Docs frontier** | Prior session | ✅ **SHIPPED** | 2026-05-28 | See "Lane A completion record" below. |
-| **B — Python correctness (Phase 136)** | This session | ✅ **VERIFIED on `main`** (Parts 02 / 04 / 10) · ⚠️ Part 09 open | 2026-05-28 | Parts 02 (`e16023c8`), 04 (`9c80a83a`), 10 (`a8d4c02f` + `a595d9c2`) had already shipped to `main`; verified post-rebuild — 14 Python dependents, 5/5 + 39/39 tests, scored_count 0→406. Part 09 still fires in 2026-05-28 07:20 telemetry; handed to next session. Details + Part 09 work order in "Lane B closeout" below. |
-| **C — Python reliability (Phase 127 + 129)** | This session | ✅ **SHIPPED (branch only, not pushed)** | 2026-05-28 | 8 commits on `.claude/worktrees/phase-127-129-hygiene/` (branch `phase-127-129-hygiene`). All 7 spec items closed (F1 / F2 / F3 / F4-already-done / F5 / F6 / P129). 120 Lane-C tests green. Cross-lane diff with Phase 141 in atlas/generator.py needs reconciliation at merge — details in completion record below. |
-| **Phase 141 (outside lanes)** | Emergent (separate session) | ✅ **SHIPPED** | 2026-05-28 | Unrelated to A/B/C — emergent 7-fix prevention of silent swarm cache truncation triggered by the 2026-05-26 incident. End-to-end validated in 2026-05-28 full rebuild. See "Phase 141 completion record" below. |
+| **A — Docs frontier** | Prior session | ✅ **SHIPPED on `main`** | 2026-05-28 | See "Lane A completion record" below. |
+| **B — Python correctness (Phase 136)** | Prior session | ✅ **Parts 02 / 04 / 10 verified on `main`** · ⚠️ Part 09 open | 2026-05-28 | Parts 02 (`e16023c8`), 04 (`9c80a83a`), 10 (`a8d4c02f` + `a595d9c2`) had already shipped to `main`; verified post-rebuild — 14 Python dependents, 5/5 + 39/39 tests, scored_count 0→406. Part 09 still fires in 2026-05-28 07:20 telemetry; handed to next session. Details + Part 09 work order in "Lane B closeout" below. |
+| **C — Python reliability (Phase 127 + 129)** | Merged this session | ✅ **MERGED to `main`** | 2026-06-01 | Merge commit `57a4e335` (`--no-ff` from `phase-127-129-hygiene`). Single conflict at `atlas/generator.py` swarm-construction kwargs resolved by combining Phase 141's `max_wall_time_s=wall_budget` with Lane C's `project_id=self.project_id or None`. 4 other files auto-merged. `tests/test_llm_direct_sites_hold_guarded.py::F2_SITES` re-anchored to post-merge line numbers. 73-test Lane-A+C+atlas cross-lane sweep + 172-test wider atlas/swarm/Lane-B sweep both green. Lane C completion record below remains the canonical scope record. |
+| **Phase 141 (outside lanes)** | Emergent (prior session) | ✅ **SHIPPED on `main`** | 2026-05-28 | Unrelated to A/B/C — emergent 7-fix prevention of silent swarm cache truncation triggered by the 2026-05-26 incident. Commit `e066e5f7` on `origin/main` (pushed alongside Lane A's `c4fa0e39` on 2026-05-28). End-to-end validated in 2026-05-28 full rebuild. See "Phase 141 completion record" below. |
 
-### Atlas swarm-success persistence fix — 2026-05-28 (cross-lane)
+### Atlas swarm-success persistence fix — 2026-05-28 (cross-lane), shipped as `c4fa0e39`
 
 While Lane A was verifying daemon health post-restart, a daemon-restart-triggered rebuild surfaced that `core/atlas/generator.py:generate_segmented()` had a Phase-79 regression: the swarm-success branch returned `(root_doc, swarm_docs)` without calling `self._save(root_doc)`, so the root `atlas.json` was never persisted on swarm-success runs. Sub-segments, routing, and the orchestrator-level `atlas_manifest.json` all wrote correctly — only the root was missing.
 
 Cascade: dashboard atlas panel fell back to `.checkpoints/_golden/atlas.json` (showing stale data), `/pipeline/status` reported `atlas.exists: false`, and Phase 136 Part 11's `is_stale()` short-circuit never fired because `_load_consumed_changeset_run_id` reads from `atlas.json` which was missing.
 
-One-line fix at `generator.py:443` plus regression test at `tests/test_atlas_swarm.py::test_swarm_success_writes_root_atlas_json`. Lives in the Phase 136 family but landed in Lane A's commit stream because Lane A's testing pass surfaced it.
+One-line fix at `generator.py:443` (post-Lane-C merge: line 457) plus regression test at `tests/test_atlas_swarm.py::test_swarm_success_writes_root_atlas_json`. Lives in the Phase 136 family but landed in Lane A's commit stream because Lane A's testing pass surfaced it. **Verified in production 2026-05-28: `atlas.json` written at 2026-05-28T17:46 EDT with `file_count: 2047`.**
+
+### Lane C merge — 2026-06-01, commit `57a4e335`
+
+`git merge --no-ff phase-127-129-hygiene` into `main`. Branch had been sitting unmerged since 2026-05-28 per Lane C closeout's "branch only, not pushed" status. Merge ran cleanly except for a single content conflict at `atlas/generator.py` swarm-construction kwargs. Resolution: combine Phase 141's dynamic `max_wall_time_s=wall_budget` with Lane C's `project_id=self.project_id or None` — both are orthogonal improvements over the pre-Phase-141, pre-Lane-C state and both retained. Comment retained from Lane C (now-correct: project_id IS threaded).
+
+4 other Python files auto-merged: `cluster.py`, `group_reasoning.py`, `swarm_orchestrator.py`, `services/pipeline/orchestrator.py`. Phase 141 invariants intact: `compute_swarm_wall_budget`, `_attempt_write_guard_recovery`, `_journal_run_failed`, `_compute_allowed_shrink_ratio`, `IntegrityGuard` all present. Lane B Part 02/04/10 surfaces verified clean post-merge.
+
+Test-suite re-anchoring landed inside the merge commit (per Lane C closeout's predicted "F2 catalog line numbers drift on merge" runbook):
+
+```
+cluster.py     1301/1444/1479/1517/1846  →  1313/1456/1491/1529/1885
+atlas/generator 256/579/728/889           →  257/620/769/930
+group_reasoning 484/773                    →  501/832
+concept_seeder  217/809/1278 unchanged.
+```
+
+Post-merge verification:
+- 73 tests across Lane C suite + Lane A atlas swarm + atlas-stale + trace_routes invariant — all green.
+- 172 tests across wider atlas/swarm/Lane-B-surface (test_atlas, test_atlas_validators, test_atlas_identity_brand, test_atlas_determinism, test_atlas_hash, test_partial_swarm_refused, test_spaghetti_scorer, test_audit_size_fallback, test_prep_search_locate_fallback) — all green.
+- Pre-existing failures (test_concept_seeder_swarm, test_pipeline_budget, test_pipeline_stage_endpoint, test_pipeline_status_epistemic_counts, test_pipeline_scheduler) confirmed NOT introduced by Lane C — pre-existing per Lane C closeout doc.
 
 ## Lane A completion record (2026-05-26 → 2026-05-28)
 
 **Branch:** `main`. **Shipped to `origin/main`** in nine commits:
 
 ```
+c4fa0e39  fix(phase136): atlas swarm-success path must persist root atlas.json
 4aed3c4d  fix(phase131): deep Phase NN sweep on publicly-shipping component surfaces
 6c8a9109  fix(marketing): repoint immune-system docs links to /mcp (pre-existing broken)
 f1001577  fix(phase131): strip Phase NN leaks + SiteFooter URL from public storybook
@@ -34,7 +55,6 @@ beca8b55  fix(phase138): re-key cross-repo refs to /how-it-works/, mark phase do
 2bb3a281  fix(docs): mark mcp/ides and mcp/terminal as client components
 a66f075d  docs(coordination): add 3-lane parallel work plan for next batch
 d66eed89  docs(phase138): rename /concepts/ -> /how-it-works/, move 4 explainer guides
-(+ atlas swarm fix — to be committed alongside this doc update)
 ```
 
 **Closed scope items:**
