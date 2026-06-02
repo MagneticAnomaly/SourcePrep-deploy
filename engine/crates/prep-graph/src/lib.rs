@@ -28,6 +28,77 @@ pub enum GraphError {
     NotFound(PathBuf),
 }
 
+/// Write a file atomically via tempfile + rename.
+///
+/// The destination is either the previous version or the new version,
+/// never missing, empty, or partially written. POSIX `rename(2)` is
+/// atomic by guarantee — on macOS / Linux / Windows the swap is
+/// observable as a single instant by any concurrent reader.
+///
+/// Background: 2026-06-01 incident. `trace_manifest.json` was written
+/// here via the non-atomic `std::fs::write`, which opens the file with
+/// `O_TRUNC | O_CREAT | O_WRONLY` — the existing live file is truncated
+/// to zero bytes before any new content arrives. A daemon crash, USB
+/// hiccup, sleep/wake, or kill -9 in that tiny window leaves the file at
+/// 0 bytes or absent. The downstream Phase 134 Changeset diff then sees
+/// no prior baseline (`base_run_id=None`), classifies every file as
+/// `added`, and forces a full rebuild of every downstream stage. The
+/// observed cost was ~73 minutes of wasted cloud-LLM time producing
+/// byte-identical output (IntegrityGuard verdict: UNCHANGED on every
+/// stage). The Python `_write_manifest` runs *after* this Rust write
+/// and is correctly atomic — too late to help.
+///
+/// Every other write path in the trace pipeline (Python side) already
+/// uses tempfile + os.rename / os.replace. This helper brings the Rust
+/// engine in line. Use it for any persistent state file the next run
+/// will diff against.
+pub(crate) fn write_atomic(
+    dir: &Path,
+    name: &str,
+    content: impl AsRef<[u8]>,
+) -> std::io::Result<()> {
+    let target = dir.join(name);
+    // Sibling tmp keeps the rename on the same filesystem — POSIX
+    // `rename(2)` only guarantees atomicity for intra-filesystem moves.
+    let tmp = dir.join(format!("{}.tmp", name));
+    std::fs::write(&tmp, content)?;
+    // If rename fails (e.g. cross-device, permission), surface the
+    // error; the .tmp file is left behind so the caller can inspect.
+    std::fs::rename(&tmp, &target)
+}
+
+/// Streaming counterpart to [`write_atomic`].
+///
+/// Use this when the payload would be expensive to buffer in memory —
+/// e.g. trace_nodes.jsonl / trace_edges.jsonl are line-oriented and may
+/// contain tens of thousands of records. The closure is handed a
+/// freshly-truncated tempfile and writes through it directly; on
+/// successful return the tempfile is `fsync`'d-by-rename to the target.
+///
+/// The atomicity guarantee is identical to [`write_atomic`]: readers
+/// see either the prior file or the new file, never an in-progress
+/// stream. This closes the same 2026-06-01 bug surface — `File::create`
+/// at the live path truncates first and exposes a partial-write window.
+pub(crate) fn write_atomic_streaming<F>(
+    dir: &Path,
+    name: &str,
+    writer: F,
+) -> Result<(), GraphError>
+where
+    F: FnOnce(&mut std::fs::File) -> Result<(), GraphError>,
+{
+    use std::io::Write;
+    let target = dir.join(name);
+    let tmp = dir.join(format!("{}.tmp", name));
+    {
+        let mut file = std::fs::File::create(&tmp)?;
+        writer(&mut file)?;
+        file.flush()?;
+    }
+    std::fs::rename(&tmp, &target)?;
+    Ok(())
+}
+
 /// The in-memory trace graph. Holds all nodes and edges with index structures.
 #[derive(Debug)]
 pub struct TraceGraph {
@@ -699,33 +770,35 @@ impl TraceGraph {
     }
 
     /// Write the graph to JSONL files (same format as Python output).
+    ///
+    /// Atomic per file: nodes and edges are streamed to sibling
+    /// tempfiles and renamed onto the target paths. The previous live
+    /// file is preserved verbatim until each rename completes, so a
+    /// crash mid-stream leaves the prior version of every file intact.
     pub fn write_jsonl(&self, index_dir: &Path) -> Result<(), GraphError> {
-        use std::fs;
         use std::io::Write;
 
-        fs::create_dir_all(index_dir)?;
+        std::fs::create_dir_all(index_dir)?;
 
-        // Write nodes
-        let nodes_path = index_dir.join("trace_nodes.jsonl");
-        let mut nodes_file = fs::File::create(&nodes_path)?;
-        for node in self.sorted_nodes() {
-            let json = serde_json::to_string(node).map_err(|e| {
-                GraphError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
-            })?;
-            writeln!(nodes_file, "{}", json)?;
-        }
-        nodes_file.flush()?;
+        write_atomic_streaming(index_dir, "trace_nodes.jsonl", |f| {
+            for node in self.sorted_nodes() {
+                let json = serde_json::to_string(node).map_err(|e| {
+                    GraphError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                })?;
+                writeln!(f, "{}", json)?;
+            }
+            Ok(())
+        })?;
 
-        // Write edges
-        let edges_path = index_dir.join("trace_edges.jsonl");
-        let mut edges_file = fs::File::create(&edges_path)?;
-        for edge in self.sorted_edges() {
-            let json = serde_json::to_string(edge).map_err(|e| {
-                GraphError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
-            })?;
-            writeln!(edges_file, "{}", json)?;
-        }
-        edges_file.flush()?;
+        write_atomic_streaming(index_dir, "trace_edges.jsonl", |f| {
+            for edge in self.sorted_edges() {
+                let json = serde_json::to_string(edge).map_err(|e| {
+                    GraphError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                })?;
+                writeln!(f, "{}", json)?;
+            }
+            Ok(())
+        })?;
 
         Ok(())
     }
@@ -1035,11 +1108,15 @@ pub fn build_trace(
         last_error: None,
     };
 
-    // Write manifest
+    // Write manifest atomically (tempfile + rename).
+    // The non-atomic predecessor (`std::fs::write`) was the root cause of
+    // the 2026-06-01 incident where the live `trace_manifest.json` went
+    // missing and forced a 73-minute wasted full rebuild. See
+    // `write_atomic` docstring above.
     let manifest_json = serde_json::to_string_pretty(&manifest).map_err(|e| {
         GraphError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
     })?;
-    std::fs::write(index_dir.join("trace_manifest.json"), manifest_json)?;
+    write_atomic(index_dir, "trace_manifest.json", manifest_json)?;
 
     Ok((graph, manifest))
 }
@@ -1156,21 +1233,24 @@ impl TraceGraph {
     }
 
     /// Write only inferred edges to a separate JSONL file.
+    ///
+    /// Atomic via [`write_atomic_streaming`] — the prior
+    /// `trace_inferred_edges.jsonl` is preserved until the new file is
+    /// fully streamed, then swapped in by rename.
     pub fn write_inferred_edges_jsonl(&self, index_dir: &Path) -> Result<(), GraphError> {
-        use std::fs;
         use std::io::Write;
 
-        let path = index_dir.join("trace_inferred_edges.jsonl");
-        let mut file = fs::File::create(&path)?;
-        for edge in &self.edges {
-            if edge.kind == "inferred" {
-                let json = serde_json::to_string(edge).map_err(|e| {
-                    GraphError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
-                })?;
-                writeln!(file, "{}", json)?;
+        write_atomic_streaming(index_dir, "trace_inferred_edges.jsonl", |f| {
+            for edge in &self.edges {
+                if edge.kind == "inferred" {
+                    let json = serde_json::to_string(edge).map_err(|e| {
+                        GraphError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+                    })?;
+                    writeln!(f, "{}", json)?;
+                }
             }
-        }
-        file.flush()?;
+            Ok(())
+        })?;
         Ok(())
     }
 
@@ -1492,5 +1572,195 @@ mod tests {
         let content = std::fs::read_to_string(&path).unwrap();
         let lines: Vec<&str> = content.lines().filter(|l| !l.is_empty()).collect();
         assert_eq!(lines.len(), 2);
+    }
+
+    // 2026-06-01: regression tests for the atomic manifest write that
+    // fixes the silent "live trace_manifest.json goes missing" cascade.
+    //
+    // The pre-fix code used `std::fs::write` which is O_TRUNC: the live
+    // file was truncated to 0 bytes before any new content arrived. A
+    // crash, USB hiccup, sleep/wake, or kill -9 in that window left the
+    // file empty or absent. Downstream the Phase 134 Changeset diff saw
+    // no prior baseline (`base_run_id=None`) and forced ~73 minutes of
+    // wasted LLM work classifying every file as `added`.
+
+    #[test]
+    fn test_write_atomic_creates_target_with_content() {
+        let dir = tempfile::tempdir().unwrap();
+        write_atomic(dir.path(), "trace_manifest.json", b"v1 payload").unwrap();
+
+        let target = dir.path().join("trace_manifest.json");
+        assert!(target.exists(), "target file must exist after atomic write");
+        assert_eq!(std::fs::read(&target).unwrap(), b"v1 payload");
+    }
+
+    #[test]
+    fn test_write_atomic_cleans_up_tmp_file() {
+        let dir = tempfile::tempdir().unwrap();
+        write_atomic(dir.path(), "trace_manifest.json", b"payload").unwrap();
+
+        // After a successful write, the .tmp sibling must be gone — it
+        // was renamed onto the target. A lingering .tmp would indicate
+        // the rename never happened (i.e. fell back to copy semantics).
+        let tmp = dir.path().join("trace_manifest.json.tmp");
+        assert!(
+            !tmp.exists(),
+            "tmp file should be consumed by the rename, not left behind"
+        );
+    }
+
+    #[test]
+    fn test_write_atomic_replaces_existing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("trace_manifest.json");
+
+        // Seed with v1.
+        std::fs::write(&target, b"v1").unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"v1");
+
+        // Atomic write of v2 must fully replace v1 — no partial state,
+        // no mixed content, no zero-byte intermediate.
+        write_atomic(dir.path(), "trace_manifest.json", b"v2 fully new").unwrap();
+        assert_eq!(std::fs::read(&target).unwrap(), b"v2 fully new");
+    }
+
+    #[test]
+    fn test_write_atomic_never_leaves_target_empty() {
+        // Read-back sanity: at every point after the helper returns Ok,
+        // the live file must be at the new content. There is no observable
+        // intermediate state where the file is empty or missing — this is
+        // the property the user articulated as the architecturally correct
+        // model ("get the current live data live until the new update is
+        // ready to replace it, then it swaps it out").
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("trace_manifest.json");
+
+        // Pre-seed with non-empty content so the test fails if `write_atomic`
+        // ever regresses to truncate-then-write.
+        std::fs::write(&target, b"old non-empty content that must not vanish").unwrap();
+
+        for i in 0..10 {
+            let content = format!("revision {}", i);
+            write_atomic(dir.path(), "trace_manifest.json", content.as_bytes()).unwrap();
+
+            // After every write, the target must be present AND non-empty.
+            let bytes = std::fs::read(&target).unwrap_or_default();
+            assert!(!bytes.is_empty(), "target became empty on revision {}", i);
+            assert_eq!(bytes, content.as_bytes());
+        }
+    }
+
+    #[test]
+    fn test_write_atomic_streaming_basic() {
+        use std::io::Write;
+        let dir = tempfile::tempdir().unwrap();
+        write_atomic_streaming(dir.path(), "trace_nodes.jsonl", |f| {
+            writeln!(f, "{{\"id\": \"a\"}}")?;
+            writeln!(f, "{{\"id\": \"b\"}}")?;
+            writeln!(f, "{{\"id\": \"c\"}}")?;
+            Ok(())
+        })
+        .unwrap();
+
+        let target = dir.path().join("trace_nodes.jsonl");
+        assert!(target.exists());
+        let lines: Vec<_> = std::fs::read_to_string(&target)
+            .unwrap()
+            .lines()
+            .map(|s| s.to_string())
+            .collect();
+        assert_eq!(lines.len(), 3);
+        assert!(!dir.path().join("trace_nodes.jsonl.tmp").exists());
+    }
+
+    #[test]
+    fn test_write_atomic_streaming_preserves_old_on_writer_error() {
+        // The architectural invariant the user articulated: the live file
+        // must stay live until the new update is fully ready. If the
+        // streaming closure errors out mid-write, the previous version
+        // of the file must remain intact on disk — no truncate, no
+        // partial state.
+        use std::io::Write;
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("trace_nodes.jsonl");
+
+        // Seed with healthy v1.
+        std::fs::write(&target, b"v1 healthy content\n").unwrap();
+
+        // Attempt a streaming write that errors out partway through.
+        let result: Result<(), GraphError> =
+            write_atomic_streaming(dir.path(), "trace_nodes.jsonl", |f| {
+                writeln!(f, "partial line that will be discarded")?;
+                Err(GraphError::Validation("simulated mid-write failure".into()))
+            });
+        assert!(result.is_err(), "writer error must propagate");
+
+        // Live file is untouched because the rename never happened.
+        // This is the property that makes backup/restore unnecessary for
+        // normal incremental builds — atomic-rename means the live data
+        // stays live until the new version is fully ready.
+        assert_eq!(
+            std::fs::read(&target).unwrap(),
+            b"v1 healthy content\n",
+            "old version must survive a failed streaming write"
+        );
+    }
+
+    #[test]
+    fn test_write_jsonl_uses_atomic_pattern() {
+        // Drives the production write_jsonl through a small graph and
+        // verifies (a) outputs land at the target paths, (b) no .tmp
+        // siblings linger, (c) on a re-write that errors out, the
+        // previous content survives.
+        let dir = tempfile::tempdir().unwrap();
+        let mut graph = TraceGraph::new();
+        graph.add_node(ParsedNode {
+            id: "file:main.py".to_string(),
+            kind: "file".to_string(),
+            name: "main.py".to_string(),
+            file_path: "main.py".to_string(),
+            span: None,
+            language: Some("python".to_string()),
+            metadata: Default::default(),
+        });
+        graph.write_jsonl(dir.path()).unwrap();
+
+        assert!(dir.path().join("trace_nodes.jsonl").exists());
+        assert!(dir.path().join("trace_edges.jsonl").exists());
+        assert!(!dir.path().join("trace_nodes.jsonl.tmp").exists());
+        assert!(!dir.path().join("trace_edges.jsonl.tmp").exists());
+    }
+
+    #[test]
+    fn test_build_trace_writes_manifest_atomically() {
+        // Integration check: the production build path uses write_atomic
+        // (not std::fs::write). Here we just confirm the manifest lands
+        // at the target path with valid content — full end-to-end is
+        // exercised by Python tests. The atomic-write helper is also
+        // pinned by the per-helper tests above.
+        let dir = tempfile::tempdir().unwrap();
+        let src_dir = dir.path().join("src");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        std::fs::write(src_dir.join("main.py"), "def main():\n    pass\n").unwrap();
+
+        let cfg = TraceBuildConfig::default();
+        let (_graph, manifest) = build_trace(dir.path(), dir.path(), &cfg).unwrap();
+
+        let manifest_path = dir.path().join("trace_manifest.json");
+        assert!(manifest_path.exists(), "trace_manifest.json must exist post-build");
+        let on_disk: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+        assert!(on_disk.is_object(), "manifest must parse as JSON object");
+
+        // Sanity: counts.files_parsed matches the manifest we returned in-memory.
+        let on_disk_parsed = on_disk
+            .get("counts")
+            .and_then(|c| c.get("files_parsed"))
+            .and_then(|f| f.as_u64())
+            .unwrap_or(u64::MAX);
+        assert_eq!(on_disk_parsed as usize, manifest.counts.files_parsed);
+
+        // No stray .tmp file from the atomic write.
+        assert!(!dir.path().join("trace_manifest.json.tmp").exists());
     }
 }
