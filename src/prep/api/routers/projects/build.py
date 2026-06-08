@@ -31,24 +31,36 @@ def build_project(project_id: str, full: bool = False, req: Optional[BuildReques
     max_file_bytes = int((cfg.get("max_file_bytes") or 500_000) if isinstance(cfg, dict) else 500_000)
     hard_limit_bytes = int((cfg.get("hard_limit_bytes") or 100_000_000) if isinstance(cfg, dict) else 100_000_000)
 
-    # Phase 24 SM-8 + 2026-05 follow-up: included_paths is derived from
-    # project state, not from a None-default that meant "embed everything".
+    # Phase 24 SM-8 + 2026-05 follow-up + 2026-05-17 regression fix:
     #   request body has paths     → use those (caller-explicit override)
-    #   request body absent/None   → compute_index_membership(project)
-    #     · returns []          → user has not added anything to scope; embed nothing
-    #     · returns [paths…]    → embed exactly that union of global + named scopes
-    # The legacy "absent key = embed all repo" default was a footgun: a
-    # freshly-imported project with no Scope panel interaction would walk
-    # the full repo on the first /build call, persist 9k+ chunks_code into
-    # the index metadata, and the IndexStatusCard would then display that
-    # number forever as "last built". An untouched project should embed
-    # nothing until the user explicitly selects something.
+    #   request body absent/None   → derive from project state, but distinguish
+    #     "user has never touched scope" (legacy: embed everything) from
+    #     "user explicitly cleared scope" (tri-state: embed nothing).
+    #
+    # Signal: cfg["included_paths"] is only written by mutate_global_scope and
+    # scope endpoints — its absence means the user never engaged the panel.
+    # Equivalently, named scopes only exist if the user created them. If both
+    # signals are absent, fall back to None so a fresh `prep build` indexes
+    # the full repo (matching the pre-0251b538 behavior the dual-tier system
+    # was built on). The 2026-05 follow-up flipped this default to [], which
+    # silently neutered prep_search on every freshly-imported project — the
+    # trace graph would index everything while the CodeIndex indexed nothing.
     if req is not None and req.included_paths is not None:
         included_paths = req.included_paths
     else:
+        from prep.core.scope_store import scope_store
         from prep.services.project_helpers import compute_index_membership
-        included_paths = sorted(compute_index_membership(project_id))
-    logger.info("build_project: req=%s, included_paths count=%d", req, len(included_paths))
+        cfg_has_global_scope = isinstance(cfg, dict) and "included_paths" in cfg
+        has_named_scopes = bool(scope_store.list(project_id))
+        if cfg_has_global_scope or has_named_scopes:
+            included_paths = sorted(compute_index_membership(project_id))
+        else:
+            included_paths = None
+    logger.info(
+        "build_project: req=%s, included_paths=%s",
+        req,
+        "None (untouched scope → full repo)" if included_paths is None else f"count={len(included_paths)}",
+    )
 
     from prep.core.project_registry import ensure_prep_pointer
 

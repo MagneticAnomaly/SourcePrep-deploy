@@ -145,13 +145,24 @@ def start_project_watch(
                 except Exception:
                     pass  # Decision logging is non-fatal
                     
-                deep_mode = (pc.get("deep_enrichment") or {}).get("mode", "manual")
-                if deep_mode == "auto":
-                    started = pipeline_orchestrator.run_all(proj.id)
-                    logger.info("Watcher: run_all for %s (fast+deep auto) — started=%s", proj.id, started)
-                else:
-                    started = pipeline_orchestrator.run_fast_sync(proj.id)
-                    logger.info("Watcher: run_fast_sync for %s — started=%s", proj.id, started)
+                # 2026-05-17 regression fix (parity with server.py
+                # _startup_auto_run). Watcher triggers are always
+                # incremental — file change → re-augment that file.
+                # The old fork called run_all when both axes were auto,
+                # which (combined with the now-fixed resume barrier
+                # bug) painted as "Rebuilding All" in the UI for what
+                # was actually a 1-file incremental update. Deep
+                # enrichment still auto-chains via _is_deep_enrichment_auto
+                # at fast-sync completion (orchestrator.py:2117), so the
+                # observable end-state is identical without the rebuild
+                # cosplay. The global pc.deep_enrichment.mode read above
+                # is now diagnostic-only.
+                started = pipeline_orchestrator.run_fast_sync(proj.id)
+                logger.info(
+                    "Watcher: incremental fast_sync for %s — started=%s "
+                    "(deep auto-chains if per-project deepEnrichment=auto)",
+                    proj.id, started,
+                )
                 return True
             except Exception:
                 logger.warning("Pipeline trigger failed for %s, falling back to legacy", proj.id, exc_info=True)

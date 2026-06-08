@@ -45,7 +45,7 @@ def test_add_project_populates_globs():
     
     mock_server = MagicMock()
     mock_server._get_registry.return_value = mock_registry
-    mock_server._DEFAULT_UI_CONFIG = {"include_globs": [], "exclude_globs": []}
+    mock_server._default_ui_config.return_value = {"include_globs": [], "exclude_globs": [], "max_file_bytes": 500000, "hard_limit_bytes": 100000000}
     mock_server._project_to_dict.side_effect = lambda p: {"id": p.id, "config": p.config}
     
     # Patch the lazy import in projects.py
@@ -75,7 +75,9 @@ def test_add_project_populates_globs():
             
             mock_registry.add_project.side_effect = capture_add_project
             
-            result = add_project(req)
+            from fastapi import BackgroundTasks
+            background = BackgroundTasks()
+            result = add_project(req, background)
             
             # add_project returns ok({"project": ...}) envelope
             config = result["data"]["project"]["config"]

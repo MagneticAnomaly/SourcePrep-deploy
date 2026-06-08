@@ -21,11 +21,27 @@ def _fresh_slot(node_id: str = "cloud:phase-a8"):
     return slot
 
 
-def test_no_auto_detect_provider_skips_edge_lock(monkeypatch, tmp_path) -> None:
-    """When the slot's provider is auto_detect=false (Ollama Cloud), a
-    backoff in CA mode logs the backoff but does NOT persist a
-    discovered_ceiling — the user's plan tier max_concurrent is
-    authoritative.
+def test_no_auto_detect_provider_skips_md_entirely(monkeypatch, tmp_path) -> None:
+    """2026-05-17 inversion of the Phase 119-a8 contract.
+
+    The original Phase 119-a8 fix gated only the persist path
+    (_record_ceiling_edge) on auto_detect, but the in-memory
+    multiplicative-decrease step kept firing — driving current_limit
+    down on 503s from the local Ollama proxy under bursty cloud-relay
+    load. Symptom: Group Reasoning ran at 10 workers, Audit ran at 3
+    on the same project/slot a few minutes later because a chain of
+    503s walked current_limit from 10 → 3 between stages.
+
+    The new contract: for no-auto-detect providers (Ollama Cloud /
+    Gemini / Kimi-direct), the user's max_concurrent is the single
+    source of truth. The MD path is skipped entirely:
+      - current_limit is NOT modified
+      - no `backoff` history event is recorded (acting on the signal
+        would itself be the bug we're fixing)
+      - edge_lock is still skipped (preserves Phase 119-a8 semantic)
+      - discovered_ceiling stays None
+      - _last_backoff_time IS still bumped so the cooldown bookkeeping
+        and demand-recovery cadence stay coherent
     """
     from prep.core import paths as paths_mod
     from prep.services.pipeline import concurrency_store as store_mod
@@ -41,6 +57,7 @@ def test_no_auto_detect_provider_skips_edge_lock(monkeypatch, tmp_path) -> None:
     )
 
     slot = _fresh_slot("cloud:no-auto-detect")
+    slot.supports_auto_detect = False  # mirror configure_node's caching
     slot.current_limit = 10
     slot.in_flight_requests = 5
     slot.mode = "congestion_avoidance"
@@ -52,12 +69,61 @@ def test_no_auto_detect_provider_skips_edge_lock(monkeypatch, tmp_path) -> None:
         )
 
     reasons = [ev["reason"] for ev in slot._history]
-    assert "backoff" in reasons, f"expected backoff event, got {reasons}"
-    assert "edge_lock" not in reasons, (
-        f"no-auto-detect provider must not record edge_lock; got {reasons}"
+    assert "backoff" not in reasons, (
+        f"no-auto-detect provider must NOT record backoff (acting on "
+        f"the 503 would be the regression we're fixing); got {reasons}"
+    )
+    assert "edge_lock" not in reasons
+    assert slot.current_limit == 10, (
+        "user's stated max_concurrent must be authoritative — "
+        f"current_limit must not drift; got {slot.current_limit}"
     )
     assert slot.discovered_ceiling is None
     assert slot.ceiling_locked_until == 0.0
+    assert slot._last_backoff_time > 0.0, (
+        "cooldown bookkeeping must still update so demand recovery "
+        "cadence stays coherent"
+    )
+
+
+def test_no_auto_detect_dynamic_capacity_returns_max_flat(monkeypatch, tmp_path) -> None:
+    """dynamic_capacity sibling guard for the same regression.
+
+    Even if something else drives current_limit below max_concurrent
+    (legacy code path, manual test fixture, race), the property must
+    return max_concurrent for no-auto-detect cloud providers. The
+    min(max, current_limit) clamp is exactly what let AIMD's MD silently
+    override the user's stated cap in production.
+    """
+    from prep.core import paths as paths_mod
+    from prep.services.pipeline import concurrency_store as store_mod
+    from prep.services.pipeline.scheduler import ComputeSlot
+
+    monkeypatch.setattr(paths_mod, "data_dir", lambda: tmp_path)
+    store_mod._store = None
+
+    slot = ComputeSlot(
+        node_id="cloud:no-auto-detect-cap",
+        max_concurrent=10,
+        current_limit=3,  # simulate AIMD having driven it down
+        supports_auto_detect=False,
+    )
+    assert slot.dynamic_capacity == 10, (
+        "no-auto-detect cloud slot must return max_concurrent flat, "
+        f"ignoring current_limit drift; got {slot.dynamic_capacity}"
+    )
+
+    # Auto-detect slot in the same shape still honors the min() clamp.
+    slot_auto = ComputeSlot(
+        node_id="cloud:auto-detect-cap",
+        max_concurrent=10,
+        current_limit=3,
+        supports_auto_detect=True,
+    )
+    assert slot_auto.dynamic_capacity == 3, (
+        "auto-detect cloud slot must keep the min(max, current_limit) "
+        f"clamp; got {slot_auto.dynamic_capacity}"
+    )
 
 
 def test_auto_detect_provider_keeps_edge_lock(monkeypatch, tmp_path) -> None:

@@ -105,10 +105,10 @@ def add_project(req: AddProjectRequest, background: BackgroundTasks) -> Dict[str
 
     reg = _srv()._get_registry()
     default_cfg: Dict[str, Any] = {
-        "include_globs": list(_srv()._DEFAULT_UI_CONFIG.get("include_globs") or []),
-        "exclude_globs": list(_srv()._DEFAULT_UI_CONFIG.get("exclude_globs") or []),
-        "max_file_bytes": int(_srv()._DEFAULT_UI_CONFIG.get("max_file_bytes") or 500_000),
-        "hard_limit_bytes": int(_srv()._DEFAULT_UI_CONFIG.get("hard_limit_bytes") or 100_000_000),
+        "include_globs": list(_srv()._default_ui_config().get("include_globs") or []),
+        "exclude_globs": list(_srv()._default_ui_config().get("exclude_globs") or []),
+        "max_file_bytes": int(_srv()._default_ui_config().get("max_file_bytes") or 500_000),
+        "hard_limit_bytes": int(_srv()._default_ui_config().get("hard_limit_bytes") or 100_000_000),
         "trace": {"enabled": True},  # Cross-reference on by default for all tiers
         "auto_rebuild": {
             "enabled": auto_rebuild_default,
@@ -126,9 +126,9 @@ def add_project(req: AddProjectRequest, background: BackgroundTasks) -> Dict[str
     if custom_index_path:
         default_cfg["index_path"] = custom_index_path
 
-    if (_srv()._DEFAULT_UI_CONFIG.get("auto_rebuild") or {}).get("debounce_ms") is not None:
+    if (_srv()._default_ui_config().get("auto_rebuild") or {}).get("debounce_ms") is not None:
         default_cfg["auto_rebuild"]["debounce_ms"] = int(
-            (_srv()._DEFAULT_UI_CONFIG.get("auto_rebuild") or {}).get("debounce_ms")
+            (_srv()._default_ui_config().get("auto_rebuild") or {}).get("debounce_ms")
         )
 
     # Auto-detect stack presets to populate include_globs

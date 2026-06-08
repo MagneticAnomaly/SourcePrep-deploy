@@ -32,7 +32,7 @@ def _get_project_globs(proj, *, use_defaults: bool = True) -> Tuple[List[str], L
     exclude_raw = cfg.get("exclude_globs") if isinstance(cfg, dict) else None
 
     if use_defaults:
-        defaults = _srv()._DEFAULT_UI_CONFIG
+        defaults = _srv()._default_ui_config()
         include_globs = list(include_raw) if isinstance(include_raw, list) else list(defaults.get("include_globs") or [])
         exclude_globs = list(exclude_raw) if isinstance(exclude_raw, list) else list(defaults.get("exclude_globs") or [])
     else:
