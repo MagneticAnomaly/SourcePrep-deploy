@@ -58,6 +58,44 @@ TRACE_FILES = [
     "concepts_manifest.json",
     "audit_manifest.json",
     "antibodies_manifest.json",
+    # 2026-05-17 regression fix (sibling to F-78). Phase 134 introduced
+    # the centralized Changeset (stage 1 → all downstream workers); the
+    # destroy list was never updated. Surviving a full reset, the stale
+    # changeset re-classifies every file as `cs.modified` (because the
+    # last rebuild marked them so) — coverage.py:101 maps that to
+    # `stale_set` and the Graph Scope panel paints "74 stale" on a
+    # freshly-wiped project. Files should appear as `untraced` after
+    # reset, not stale.
+    "changeset.json",
+    # 2026-05-17 audit sweep — sync TRACE_FILES with STAGE_OUTPUTS
+    # entries that accreted post-F-78 but were never propagated here.
+    # Each was producing leftover state on /index/destroy:
+    #   - catalogue.jsonl / catalogue_manifest.json (Stage 3 outputs)
+    #   - trace_swarm_synthesis.json (Stage 8 cluster swarm output)
+    #   - atlas_swarm_synthesis.json + atlas_markdown_links.json
+    #     (Phase 124 T2 atlas artifacts)
+    #   - concept_generate_manifest.json (concept-gen swarm progress;
+    #     sub-artifact of stage 13 Concepts)
+    #   - docs_grounding.json (concept-gen dedup cache, recomputable)
+    # See `STAGE_OUTPUTS` in src/prep/services/pipeline/stages.py — the
+    # parity test below pins ALL_DATA_FILES against that source-of-truth
+    # so the next stage output added to STAGE_OUTPUTS triggers a CI fail
+    # here unless it is either added or explicitly excluded.
+    "catalogue.jsonl",
+    "catalogue_manifest.json",
+    "trace_swarm_synthesis.json",
+    "atlas_swarm_synthesis.json",
+    "atlas_markdown_links.json",
+    "concept_generate_manifest.json",
+    "docs_grounding.json",
+    # Sub-artifacts written by core engines that are NOT declared in
+    # STAGE_OUTPUTS (the parity test does not cover them — they live
+    # outside the formal stage list as supporting/intermediate state):
+    #   - concept_synthesis_manifest.json (concept_synthesizer.py:693)
+    #   - deep_analysis_manifest.json (deep_analysis.py — independent
+    #     background job, sibling to the 15-stage pipeline)
+    "concept_synthesis_manifest.json",
+    "deep_analysis_manifest.json",
 ]
 
 INDEX_FILES = [
