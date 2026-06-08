@@ -68,13 +68,14 @@ class DirectMCPServer:
     ):
         self.repo_root = Path(repo_root).resolve()
 
-        # Default index location: .sourceprep/index inside repo (direct mode
-        # is always a single-repo use case; server mode is what uses
-        # the daemon-wide data_dir).
+        # Default index location: .sourceprep/ inside repo. Embedded mode
+        # writes artifacts (manifest.json, documents.json, embeddings.npy,
+        # trace_*.jsonl, atlas.json) directly under .sourceprep/ — there is
+        # no /index/ subdirectory. See cli.py:409 and project_registry.py:63.
         if index_dir:
             self.index_dir = Path(index_dir).resolve()
         else:
-            self.index_dir = self.repo_root / ".sourceprep" / "index"
+            self.index_dir = self.repo_root / ".sourceprep"
 
         self.ollama_url = ollama_url
         self.model = model
@@ -426,25 +427,34 @@ class DirectMCPServer:
                     min_score=args.get("min_score", 0.15),
                 )
             elif name == "prep":
-                result = await self.tool_context(
-                    query=args.get("query", ""),
-                    k=args.get("k", 5),
-                    max_chars=args.get("max_chars", 6000),
-                )
-                # Phase 64A: Role-based atlas projection
-                role = args.get("role")
-                if role:
-                    try:
-                        from prep.core.atlas import CodebaseAtlas
-                        atlas = CodebaseAtlas(self.index_dir)
-                        role_atlas = atlas.get_role_atlas(role)
-                        if role_atlas:
-                            ctx = result.get("context", "")
-                            result["context"] = ctx + "\n---\n" + role_atlas if ctx else role_atlas
-                            result["role"] = role
-                            result["role_atlas_chars"] = len(role_atlas)
-                    except Exception:
-                        pass  # Direct mode: silent fallback
+                # The `prep` tool has no required args per mcp_tools.py — calling
+                # it with no query/task should return the ambient overview, not
+                # the search-context handler that demands a query. `task` is the
+                # schema's natural-language slot; treat it as the query when set.
+                task = (args.get("task") or "").strip()
+                query = (args.get("query") or "").strip() or task
+                if not query:
+                    result = await self.tool_hi()
+                else:
+                    result = await self.tool_context(
+                        query=query,
+                        k=args.get("k", 5),
+                        max_chars=args.get("max_chars", 6000),
+                    )
+                    # Phase 64A: Role-based atlas projection
+                    role = args.get("role")
+                    if role:
+                        try:
+                            from prep.core.atlas import CodebaseAtlas
+                            atlas = CodebaseAtlas(self.index_dir)
+                            role_atlas = atlas.get_role_atlas(role)
+                            if role_atlas:
+                                ctx = result.get("context", "")
+                                result["context"] = ctx + "\n---\n" + role_atlas if ctx else role_atlas
+                                result["role"] = role
+                                result["role_atlas_chars"] = len(role_atlas)
+                        except Exception:
+                            pass  # Direct mode: silent fallback
             elif name == "hi_prep":
                 result = await self.tool_hi()
             else:
