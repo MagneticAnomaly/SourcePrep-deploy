@@ -36,11 +36,8 @@ audit.
 - **Deliverable:** documented search results from USPTO TESS,
   common-law search (Google, GitHub, PyPI, npm, crates.io,
   LinkedIn), and attorney clearance opinion
-- **Status:** Open
-- **Notes:** Memory says `sourceprep.io` is owned by Eric; confirm.
-  STRATEGY.md notes the brand split between "SourcePrep" (user-
-  facing) and "prep" (technical). Filing must be on "SourcePrep"
-  as the consumer mark.
+- **Status:** Researching (2026-06-08)
+- **Notes:** Eric owns `sourceprep.io` and it is live. Common-law search across GitHub/PyPI/NPM/Crates pending. STRATEGY.md notes the brand split between "SourcePrep" (user-facing) and "prep" (technical). Filing must be on "SourcePrep" as the consumer mark.
 
 ### 1.2 — Which USPTO classes?
 
@@ -228,11 +225,8 @@ audit.
   current and acquisition-friendly?
 - **Who:** DIY (with accountant if needed)
 - **Deliverable:** confirm everything is current
-- **Status:** Open
-- **Notes:** Lemon Squeezy handles VAT/sales tax as Merchant of
-  Record. We need: business bank account in LLC name (not Eric
-  personal), EIN, state tax registration if applicable, annual LLC
-  report filed on schedule.
+- **Status:** Researching (2026-06-08)
+- **Notes:** Business bank account is nearly complete, but not yet finished. Lemon Squeezy handles VAT/sales tax as Merchant of Record. We need: business bank account in LLC name (not Eric personal), EIN, state tax registration if applicable, annual LLC report filed on schedule.
 
 ---
 
@@ -469,9 +463,8 @@ audit.
 - **Q:** Do we offer monetary rewards for vulnerability disclosure?
 - **Who:** Business decision
 - **Deliverable:** decision recorded
-- **Status:** Open
-- **Notes:** Recommendation: no formal bounty at Phase 1. Hall-of-
-  fame acknowledgment only. Revisit when revenue justifies.
+- **Status:** Answered (2026-06-08)
+- **Notes:** No bug bounty program for now. Recommendation remains: hall-of-fame acknowledgment only. Revisit when revenue justifies.
 
 ---
 
@@ -552,10 +545,8 @@ audit.
   subscriptions or recent one-time purchases?
 - **Who:** DIY (Lemon Squeezy dashboard)
 - **Deliverable:** customer count + list
-- **Status:** Open
-- **Notes:** Per SCRUTINY §11. If any exist: customer notice
-  required + grandfathering decision. If zero: document the
-  all-clear.
+- **Status:** Answered (2026-06-08)
+- **Notes:** Zero existing customers. Nothing officially launched yet.
 
 ### 11.2 — Customer notice content (if needed)
 
@@ -563,8 +554,8 @@ audit.
   OSS pivot?
 - **Who:** Attorney (review the notice content)
 - **Deliverable:** customer notice email + grandfathering policy
-- **Status:** Open
-- **Notes:** Skip if 11.1 returns zero.
+- **Status:** Answered (2026-06-08)
+- **Notes:** Skipped. Zero existing customers per 11.1.
 
 ---
 
