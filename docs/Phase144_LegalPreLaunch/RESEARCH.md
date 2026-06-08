@@ -37,7 +37,7 @@ audit.
   common-law search (Google, GitHub, PyPI, npm, crates.io,
   LinkedIn), and attorney clearance opinion
 - **Status:** Researching (2026-06-08)
-- **Notes:** Eric owns `sourceprep.io` and it is live. Common-law search across GitHub/PyPI/NPM/Crates pending. STRATEGY.md notes the brand split between "SourcePrep" (user-facing) and "prep" (technical). Filing must be on "SourcePrep" as the consumer mark.
+- **Notes:** Eric owns `sourceprep.io` and it is live. Common-law search across GitHub, PyPI, NPM, and Crates.io returned zero exact matches for "SourcePrep", which is a strong signal for clearance. STRATEGY.md notes the brand split between "SourcePrep" (user-facing) and "prep" (technical). Filing must be on "SourcePrep" as the consumer mark.
 
 ### 1.2 — Which USPTO classes?
 
