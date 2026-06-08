@@ -21,7 +21,10 @@ from pydantic import BaseModel
 from prep.api.envelope import ok
 from prep.core.events import get_event_bus
 from prep.services.pipeline.ghost_guard import purge_ghost_locks
-from prep.services.pipeline.scheduler import pipeline_scheduler
+from prep.services.pipeline.scheduler import (
+    SWARM_CAPABLE_STAGES,
+    pipeline_scheduler,
+)
 from prep.services.pipeline_orchestrator import pipeline_orchestrator
 
 logger = logging.getLogger(__name__)
@@ -113,7 +116,20 @@ def _build_queue_item(
                 1 for r in telemetry.get_active_requests()
                 if r.get("project_id") == project_id and r.get("swarm_role")
             )
-            is_swarm = window_matches or role_tagged > 0
+            # Phase 136 Part 15: gate on SWARM_CAPABLE_STAGES.  The
+            # role_tagged heuristic was meant to cover the brief window
+            # during SwarmOrchestrator phase transitions, but it has no
+            # stage filter — so stale ``swarm_role`` entries that leak
+            # past a swarm stage's drain mislabel the very next plain
+            # batched stage (e.g. ``inferred_edges``) as "Swarming".
+            # A real swarm can only run on a swarm-capable stage, so
+            # gate the heuristic on that set.  Does not address the
+            # underlying ``_active_requests`` leak — see
+            # ``TokenTelemetryStore.dump_active_state`` and the
+            # ``concurrency_snapshot`` events in the pipeline log for
+            # diagnosing those.
+            stage_is_swarm_capable = current_stage in SWARM_CAPABLE_STAGES
+            is_swarm = stage_is_swarm_capable and (window_matches or role_tagged > 0)
         except Exception:
             pass
 
@@ -301,6 +317,17 @@ def _build_queue_sync() -> dict[str, Any]:
             "current_load": node_info.get("current_load", 0),
             "in_flight_requests": node_info.get("in_flight_requests", 0),
             "current_limit": node_info.get("current_limit", node_info.get("max_concurrent", 1)),
+            # Phase 136 Part 15: ``dynamic_capacity`` is the slot's effective
+            # ceiling (clamped by max_concurrent for no-auto-detect cloud,
+            # equal to current_limit for header-rich providers).  The
+            # dashboard sidebar should display this instead of
+            # ``current_limit`` so "10 / 19" doesn't appear on
+            # cloud:default_ollama when AIMD has floated current_limit above
+            # max_concurrent.
+            "dynamic_capacity": node_info.get(
+                "dynamic_capacity",
+                node_info.get("max_concurrent", 1),
+            ),
             "discovered_ceiling": node_info.get("discovered_ceiling"),
             "locked_until": node_info.get("locked_until"),
             "aimd_mode": node_info.get("aimd_mode"),

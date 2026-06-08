@@ -36,6 +36,12 @@ interface QueueResponse {
     current_load: number;
     in_flight_requests: number;
     current_limit: number;
+    // Phase 136 Part 15: ``dynamic_capacity`` is the slot's effective
+    // ceiling.  Equals ``max_concurrent`` for no-auto-detect cloud
+    // providers (Ollama Cloud, Gemini, Moonshot) and equals
+    // ``current_limit`` for header-rich providers (OpenAI, Anthropic)
+    // in Auto mode.  Older daemons omit it — fall back to current_limit.
+    dynamic_capacity?: number;
     // Phase 119 — optional fields exposed by the latency-aware concurrency
     // manager. Older daemons omit them, so consumers must degrade gracefully.
     discovered_ceiling?: number | null;
@@ -284,8 +290,21 @@ export function SidebarPipelineQueue({
               {Object.entries(nodes).map(([nid, n]) => {
                 const ceiling = n.discovered_ceiling ?? null;
                 const state = n.state ?? "probing";
-                // Primary number's denominator: locked ceiling when locked, otherwise current_limit.
-                const cap = ceiling != null && state === "locked" ? ceiling : n.current_limit;
+                // Primary number's denominator:
+                //   - locked: discovered_ceiling (the AIMD-found hard cap)
+                //   - else:   dynamic_capacity (the slot's real effective
+                //             ceiling; equals max_concurrent for
+                //             no-auto-detect cloud, current_limit for
+                //             header-rich providers in Auto mode).
+                //
+                // Pre-Phase-136-Part-15 the else branch used current_limit
+                // directly, which on Ollama Cloud / Gemini / Kimi
+                // (no-auto-detect, max_concurrent>0) floated meaninglessly
+                // above max — surfacing as "10 / 19" on a slot whose real
+                // ceiling was 10.  Fall back to current_limit when an
+                // older daemon doesn't expose dynamic_capacity.
+                const effectiveCap = n.dynamic_capacity ?? n.current_limit;
+                const cap = ceiling != null && state === "locked" ? ceiling : effectiveCap;
                 const stateBadge = (() => {
                   switch (state) {
                     case "locked": return { icon: "🔒", label: "locked" };

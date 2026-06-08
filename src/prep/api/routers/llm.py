@@ -770,6 +770,7 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
         # debugging / observability.
         try:
             from prep.services.pipeline.scheduler import (
+                SWARM_CAPABLE_STAGES,
                 pipeline_scheduler,
             )
             from prep.services.token_telemetry import telemetry as _tel
@@ -838,7 +839,14 @@ def _build_llm_slots_sync() -> Dict[str, Any]:
                     if r.get("project_id") == rt["project_id"]
                     and r.get("swarm_role")
                 )
-                if window_matches or role_tagged > 0:
+                # Phase 136 Part 15: gate on SWARM_CAPABLE_STAGES.  Stale
+                # ``swarm_role`` entries that survived past a swarm
+                # stage's drain were mislabeling subsequent plain
+                # batched stages (notably ``inferred_edges``) as
+                # "Swarming" — a real swarm can only run on a
+                # swarm-capable stage, so guard the heuristic on that.
+                stage_is_swarm_capable = stage in SWARM_CAPABLE_STAGES
+                if stage_is_swarm_capable and (window_matches or role_tagged > 0):
                     rt["is_swarm"] = True
                     # _summarize_swarm_phases always returns a
                     # three-bucket dict; idle phases just show

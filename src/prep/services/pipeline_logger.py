@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -52,6 +53,20 @@ class PipelineFileLogger:
 
         # Also attach a stdlib FileHandler to capture ALL prep.* loggers
         self._file_handler: Optional[logging.FileHandler] = None
+
+        # Phase 136 Part 15: periodic concurrency sampler.  Fires every
+        # ``_concurrency_sample_interval_s`` while a run is active so a
+        # leak that develops mid-stage shows up in the log.  Override
+        # the interval via env ``PREP_PIPELINE_CONCURRENCY_SAMPLE_SEC``
+        # — set to 0 to disable.
+        self._concurrency_sampler_stop: Optional[Any] = None
+        self._concurrency_sampler_thread: Optional[Any] = None
+        try:
+            self._concurrency_sample_interval_s: float = float(
+                os.getenv("PREP_PIPELINE_CONCURRENCY_SAMPLE_SEC", "30")
+            )
+        except (TypeError, ValueError):
+            self._concurrency_sample_interval_s = 30.0
 
     def start_run(self, group: str, stages: List[str], project_id: str = "") -> None:
         """Called at the start of a pipeline run."""
@@ -87,6 +102,13 @@ class PipelineFileLogger:
             "log_file": str(self.log_path),
         })
 
+        # Phase 136 Part 15: start periodic concurrency sampler so
+        # mid-stage drift (e.g. a leak that develops over ~minutes of
+        # a long stage) shows up in the log instead of only at
+        # stage boundaries.  Set PREP_PIPELINE_CONCURRENCY_SAMPLE_SEC=0
+        # to disable; default 30 s.
+        self._start_concurrency_sampler()
+
     def _prune_old_logs(self, max_logs: int = 50) -> None:
         """Keep only the `max_logs` most recent log files to prevent unbounded growth."""
         try:
@@ -106,6 +128,10 @@ class PipelineFileLogger:
     def end_run(self, result: str = "completed", error: Optional[str] = None) -> None:
         """Called when the pipeline run finishes."""
         elapsed = time.time() - self._start_time if self._start_time else 0
+        # Phase 136 Part 15: stop the periodic sampler BEFORE writing the
+        # run_end event so the sampler can't race a snapshot in after the
+        # final log line.
+        self._stop_concurrency_sampler()
         self._write_event("run_end", data={
             "result": result,
             "error": error,
@@ -117,10 +143,57 @@ class PipelineFileLogger:
             self._file_handler.close()
             self._file_handler = None
 
+    def _start_concurrency_sampler(self) -> None:
+        """Spawn a daemon thread that calls ``concurrency_snapshot``
+        every ``_concurrency_sample_interval_s`` until the run ends.
+
+        Set ``PREP_PIPELINE_CONCURRENCY_SAMPLE_SEC=0`` to disable.
+        Daemon thread so process exit doesn't hang.
+        """
+        if self._concurrency_sample_interval_s <= 0:
+            return
+        if self._concurrency_sampler_thread is not None:
+            return  # already running
+        stop = threading.Event()
+        interval = self._concurrency_sample_interval_s
+
+        def _run():
+            while not stop.wait(interval):
+                try:
+                    self.concurrency_snapshot(reason="periodic_sample")
+                except Exception as e:
+                    logger.debug(
+                        "concurrency sampler: snapshot failed: %s", e,
+                    )
+
+        t = threading.Thread(
+            target=_run,
+            name="prep-pipeline-concurrency-sampler",
+            daemon=True,
+        )
+        self._concurrency_sampler_stop = stop
+        self._concurrency_sampler_thread = t
+        t.start()
+
+    def _stop_concurrency_sampler(self) -> None:
+        """Stop the periodic concurrency sampler if it's running."""
+        stop = self._concurrency_sampler_stop
+        if stop is not None:
+            stop.set()
+        thread = self._concurrency_sampler_thread
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=1.0)
+        self._concurrency_sampler_stop = None
+        self._concurrency_sampler_thread = None
+
     def stage_start(self, stage: str, data: Optional[Dict[str, Any]] = None) -> None:
         """Called when a pipeline stage starts."""
         self._stage_start = time.time()
         self._write_event("stage_start", stage=stage, data=data or {})
+        # Phase 136 Part 15: snapshot concurrency state at stage boundary
+        # so past-run analysis can answer "how many workers were in flight
+        # when stage X started" by grepping concurrency_snapshot events.
+        self.concurrency_snapshot(stage=stage, reason="stage_start")
 
     def stage_end(
         self,
@@ -137,7 +210,76 @@ class PipelineFileLogger:
             "elapsed_seconds": round(elapsed, 2),
             **(data or {}),
         })
+        # Phase 136 Part 15: snapshot at stage exit to catch leaks that
+        # bridge the stage boundary (e.g. swarm_role entries that
+        # outlive their stage).
+        self.concurrency_snapshot(stage=stage, reason="stage_end")
         self._stage_start = None
+
+    def concurrency_snapshot(
+        self,
+        stage: Optional[str] = None,
+        reason: str = "",
+    ) -> None:
+        """Phase 136 Part 15 — write a structured concurrency snapshot.
+
+        Records, at the moment of call:
+          * Per-slot scheduler state (max_concurrent, dynamic_capacity,
+            in_flight_requests, current_limit, current_load, AIMD mode,
+            state, active project→stage map).
+          * Per-tid token_telemetry active_requests with thread name +
+            alive flag + age + swarm_role.
+          * The ``in_flight_total`` vs ``active_requests_total`` delta —
+            non-zero means an over-count is in progress and at least one
+            tracked entry isn't matched by an in-flight scheduler request.
+
+        Best-effort: silently no-ops if the scheduler or telemetry
+        modules can't be imported.  Never blocks pipeline progress.
+        """
+        try:
+            from prep.services.pipeline.scheduler import pipeline_scheduler
+            from prep.services.token_telemetry import telemetry as _tel
+        except Exception:  # pragma: no cover — import guard
+            return
+
+        slots: Dict[str, Dict[str, Any]] = {}
+        in_flight_total = 0
+        try:
+            snapshot = pipeline_scheduler.status()
+            for nid, info in snapshot.get("nodes", {}).items():
+                slots[nid] = {
+                    "max_concurrent": info.get("max_concurrent"),
+                    "dynamic_capacity": info.get("dynamic_capacity"),
+                    "current_limit": info.get("current_limit"),
+                    "in_flight_requests": info.get("in_flight_requests"),
+                    "current_load": info.get("current_load"),
+                    "aimd_mode": info.get("aimd_mode"),
+                    "state": info.get("state"),
+                    "active": info.get("active", {}),
+                }
+                in_flight_total += int(info.get("in_flight_requests") or 0)
+        except Exception as e:
+            logger.debug("concurrency_snapshot: scheduler.snapshot failed: %s", e)
+
+        active_requests: List[Dict[str, Any]] = []
+        try:
+            active_requests = _tel.dump_active_state()
+        except Exception as e:
+            logger.debug("concurrency_snapshot: dump_active_state failed: %s", e)
+
+        delta = len(active_requests) - in_flight_total
+        self._write_event("concurrency_snapshot", stage=stage, data={
+            "reason": reason,
+            "slots": slots,
+            "active_requests": active_requests,
+            "in_flight_total": in_flight_total,
+            "active_requests_total": len(active_requests),
+            # delta > 0: tracked entries exceed in_flight — likely leak.
+            # delta < 0: scheduler ahead of telemetry — race between
+            # acquire_request and _track_active("start") (small window,
+            # expected).
+            "tracked_minus_in_flight": delta,
+        })
 
     def log(self, stage: str, message: str, data: Optional[Dict[str, Any]] = None) -> None:
         """Log a general message within a stage."""

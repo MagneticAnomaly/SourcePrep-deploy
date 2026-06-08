@@ -339,4 +339,43 @@ class TokenTelemetryStore:
                 for req in _active_requests.values()
             ]
 
+    def dump_active_state(self) -> List[Dict[str, Any]]:
+        """Phase 136 Part 15 — diagnostic snapshot of ``_active_requests``.
+
+        Returns one dict per entry annotated with the thread's name and
+        liveness so a leak hunter can tell whether stale entries are
+        orphaned on dead threads (``thread_alive=False``) or actively
+        held by live threads that just haven't called
+        ``untrack_active_request`` yet.
+
+        Use case: when ``len(_active_requests for project X) > scheduler
+        in_flight for that project's node``, dump this and look for
+        entries whose ``thread_name`` doesn't match the currently-active
+        ThreadPoolExecutor (e.g. a ``swarm-fanout`` name appearing while
+        the live stage is ``inferred_edges``).
+        """
+        now = time.time()
+        # threading.enumerate() returns only currently-alive threads.
+        # Build a tid → Thread map once so we don't re-walk per entry.
+        alive_by_tid: Dict[int, threading.Thread] = {
+            t.ident: t for t in threading.enumerate() if t.ident is not None
+        }
+        with _active_requests_lock:
+            out: List[Dict[str, Any]] = []
+            for tid, req in _active_requests.items():
+                thread = alive_by_tid.get(tid)
+                out.append({
+                    "tid": tid,
+                    "thread_name": thread.name if thread is not None else None,
+                    "thread_alive": thread is not None,
+                    "age_seconds": max(0.0, now - req.start_time),
+                    "project_id": req.project_id,
+                    "task_id": req.task_id,
+                    "model": req.model,
+                    "provider": req.provider,
+                    "model_slot": req.model_slot,
+                    "swarm_role": req.swarm_role,
+                })
+            return out
+
 telemetry = TokenTelemetryStore()
