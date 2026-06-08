@@ -6,7 +6,7 @@ from pathlib import Path
 # Ensure src/ is on the path so we can import the function directly
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from prep.server import _deep_merge
+from prep.services.config_manager import deep_merge as _deep_merge
 
 
 class TestDeepMerge:

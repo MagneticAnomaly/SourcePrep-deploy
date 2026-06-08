@@ -721,20 +721,27 @@ def test_marker_falls_back_to_detector_when_marker_index_above_detector(
     )
 
 
-def test_resume_writes_rebuild_barrier_for_visual_styling(
+def test_resume_does_not_write_rebuild_barrier(
     tmp_path, monkeypatch, clean_orchestrator,
 ):
-    """Pin the rebuild-styling fix: resume_paused must write a rebuild
-    barrier (when one isn't already active) so the dashboard renders
-    the run with the rebuild progress styling. The barrier auto-clears
-    on group completion via maybe_clear_scoped_barrier so this is
-    self-cleaning.
+    """2026-05-17 regression fix (inverted contract). The prior version
+    of this test pinned a buggy behavior: resume_paused was forging a
+    rebuild barrier so the dashboard would render "Rebuilding [scope]"
+    progress styling. That meant every daemon restart that hydrated a
+    paused run silently mislabeled incremental continuation as a
+    user-initiated rebuild — and the SkyPath dogfooder rightly
+    objected ("Auto means incremental, it should never auto-rebuild").
+
+    Contract is now: resume_paused continues paused work without
+    touching the barrier. The dashboard's normal stage-progress UI is
+    the signal; a genuine rebuild barrier (written by /pipeline/rebuild
+    or the trace_routes scope endpoints) is still untouched by resume.
     """
     from prep.services.pipeline import recovery as recovery_mod
     from prep.services.pipeline.recovery import RecoveryManager
     from prep.services.pipeline_orchestrator import pipeline_orchestrator
 
-    project_id = "test-resume-writes-barrier"
+    project_id = "test-resume-no-barrier"
     fake_idx_dir = tmp_path / "idx"
     fake_idx_dir.mkdir()
     monkeypatch.setattr(recovery_mod, "_resolve_idx_dir", lambda pid: fake_idx_dir)
@@ -744,6 +751,8 @@ def test_resume_writes_rebuild_barrier_for_visual_styling(
 
     # Sanity: no barrier active before resume.
     assert RecoveryManager.check_clean_shutdown_marker(project_id) is False
+    from prep.services.pipeline.recovery import read_reset_barrier
+    assert read_reset_barrier(project_id) is None
 
     advanced: list = []
     monkeypatch.setattr(
@@ -755,11 +764,12 @@ def test_resume_writes_rebuild_barrier_for_visual_styling(
     assert ok
     assert len(advanced) == 1, "_advance_pipeline must fire on resume"
 
-    from prep.services.pipeline.recovery import read_reset_barrier
-    barrier = read_reset_barrier(project_id)
-    assert barrier is not None, "resume must write a rebuild barrier"
-    assert barrier["reason"] == "rebuild"
-    assert barrier["scope"] == "enrichment"
+    assert read_reset_barrier(project_id) is None, (
+        "resume_paused must NOT forge a rebuild barrier — incremental "
+        "continuation is not a rebuild. The dashboard derives the "
+        '"Rebuilding" label from this barrier, so writing one here '
+        "mislabels every daemon-restart resume as user-initiated rebuild."
+    )
 
 
 def test_hydration_skips_when_no_partial_state(
