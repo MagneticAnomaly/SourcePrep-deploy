@@ -5,12 +5,6 @@
 
 [build.environment]
   NODE_VERSION = "20"
-  # Points <StoryEmbed> iframes at the Storybook deploy. Without this, the
-  # fallback in StoryEmbed.tsx is "/storybook" — a relative path on the docs
-  # origin — which routes through not-found.tsx and renders the docs 404
-  # inside every embed. Storybook's CSP allows being framed from any
-  # sourceprep.io subdomain. See docs/Phase137_DocsLiveAssetIntegration/01_tech_fix.md
-  NEXT_PUBLIC_STORYBOOK_URL = "https://storybook.sourceprep.io"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

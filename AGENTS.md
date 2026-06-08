@@ -3,7 +3,7 @@
 <!-- prep-managed-start -->
 ## SourcePrep Integration
 
-Last updated: 2026-05-11T17:30:54Z
+Last updated: 2026-06-08T17:56:20Z
 
 prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
@@ -59,59 +59,71 @@ To skip approval prompts for SourcePrep's read-only tools, add to your settings:
 ```
 In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings.
 
-<!-- prep-atlas-hash:eee0abe03719 -->
+<!-- prep-atlas-hash:60561fc9a6e8 -->
 ## Codebase Atlas
 
-IDENTITY: A multi-segment platform combining a React design system, NextJS marketing sites, a FastAPI MCP server, VSCode extension tooling, and documentation, with shared UI components powering dashboard, marketing, docs, support, and payments surfaces.
+IDENTITY: A multi-platform AI-assisted development environment with a VS Code extension, web dashboard, documentation and marketing sites, and LLM orchestration backend.
 
-STACK: Languages: .md 878, .tsx 428, .py 323, .ts 157, .json 118, .js 16. Frameworks: react, nextjs, fastapi, storybook. Build tools inferred from package ecosystems. Graph: 1920 files, 8062 nodes, 12888 edges. Edge types: contains 5737, imports 4970, implements 1307, configures 745, listens_to 64. Import cycles: 61.
+STACK: TypeScript, TSX, Python, Next.js, React, Storybook, VS Code extension API, Markdown. Build tools inferred from package structure.
 
-WORKSPACE MAP: Root (_root, 1293 files): mcp, marketing, react, fastapi, storybook hub. Ui (packages/ui, 364 files): react design-system, storybook, ui-component, dashboard component library. Marketing (websites/apps/marketing, 64 files): nextjs, seo, mcp, marketing-site. Dashboard (src/prep/dashboard, 63 files): react, state-management, react-hooks, dashboard, settings-ui. Docs (websites/apps/docs, 51 files): documentation, nextjs, react, configuration, marketing. Support (websites/apps/support, 27 files): seo, nextjs, authentication, navigation, bug-reporting. Vscode (packages/vscode, 20 files): vscode-extension, ide-integration, reactive-ui, llm-context, project-management. Payments (websites/apps/payments, 15 files): nextjs, payments, marketing, mcp, react. Paperclip Plugin Prep (packages/paperclip-plugin-prep, 12 files): paperclip-integration, plugin-architecture, react, plugin-ui, public-api. Webview Ui (packages/vscode/webview-ui, 11 files): vscode-extension, webview, react, entry-point, strict-mode.
+WORKSPACE MAP:
+Root (_root, 1422 files): documentation, marketing, quality-assurance, ui, llm-orchestration
+Ui (packages/ui, 371 files): ui, storybook, design-system, documentation, testing
+Dashboard (src/prep/dashboard, 62 files): ui, settings-management, polling, frontend-architecture, documentation
+Marketing (websites/apps/marketing, 61 files): ui, marketing, seo, marketing-site, integrations
+Docs (websites/apps/docs, 50 files): seo, documentation, ui, navigation, documentation-site
+Support (websites/apps/support, 26 files): ui, bug-reporting, admin-tool, nextjs, nextjs-app-router
+Vscode (packages/vscode, 20 files): vscode-extension, configuration, webview, search, semantic-search
+Payments (websites/apps/payments, 14 files): seo, nextjs, ui, monetization, payments
+Paperclip Plugin Prep (packages/paperclip-plugin-prep, 11 files): ui, agent-configuration, ide-integration, plugin-system, agent-consensus
+Webview Ui (packages/vscode/webview-ui, 10 files): vscode-extension, configuration, webview, ui, data-visualization
 
-CROSS-CUTTING: Shared domains: react, marketing, nextjs, mcp, storybook, dashboard, seo, vscode-extension. Hub files: docs/ARCHITECTURE.md, ext:__future__, ext:typing, ext:react, ext:logging. Active zones: packages/ui/src/, tests/, websites/apps/marketing/, websites/apps/docs/, src/prep/core/. Entry points: packages/ui/src/components/architecture/index.ts, packages/ui/src/components/layout/index.ts, docs/Phase00_Initial-Concept/EXAMPLE-TRACE-STRUCTURE/sample_repo/app.py, src/prep/mcp/server.py, packages/ui/src/components/dashboard/index.ts. Test dirs: __tests__/ 19 files, specs/ 18 files, TEST_STATUS.md/ 1 file. Directory dependencies: docs -> sym:HeroLayout, sym:NeoBrutalistHero, sym:Feature; packages -> sym:Collapsible, sym:MissingProvenance, sym:StageHealth; public -> sym:trigger_sync, sym:main, sym:handler; src -> sym:PaperclipClient.pause_agent, sym:GroupReasoningEngine.load_edges, sym:NamingConsistencyAnalyzer.
+CROSS-CUTTING: Five entry points in packages/ui/src/components/ (concepts, trace, console, search, architecture) anchor the component graph. Shared hub files: swarm_event_logger.py (stable), packages/ui/src/types.ts (evolving), packages/ui/src/api/react.tsx. External hubs: lucide-react, logging. Active zones: packages/ui/src/, tests/, src/prep/core/, websites/apps/docs/, websites/apps/marketing/. Shared domains across segments: ui, documentation, seo, marketing, nextjs, vscode-extension, configuration, webview. 176 import cycles present. Key cross-dependencies: docs references concept_fragment, phase_45__multi-gpu_concurrency_research; packages references computeFastKnowledgeState, styles, handleAddPreset; src references BuildManager.get_project_knowledge_index, parseSettingsParam, build_knowledge_project. Longest import chains span from UI components through API types to documentation sections.
 
 ## Top docs per module
 
 Planning docs that mention this module's code (Phase 124 T9). Use these as a starting point to understand a module's *why* before reading source. Generated from `atlas_markdown_links.json`.
 
-- **Prep CLI & Developer Tooling Surface**
+- **SourcePrep Documentation Site**
+  - `docs/Phase130_DocsSiteStalenessSweep/README.md`
+  - `docs/Phase137_DocsLiveAssetIntegration/04_placement_matrix.md`
+  - `docs/MARKETING_SITE_AUDIT.md`
+- **Prep CLI & Terminal Visualization Layer**
+  - `docs/Phase18_DataVisualization/README.md`
+  - `docs/MARKETING_SITE_AUDIT.md`
   - `docs/MASTER_TODO.md`
-  - `docs/Phase06_Team_And_Enterprise/TEAM_ENTERPRISE_CODE_AUDIT.md`
-  - `docs/Phase06_Team_And_Enterprise/TODO.md`
-- **AI Roadmap & Sprint Planning System**
+- **Trace Index & Coverage Engine**
+  - `docs/superpowers/plans/2026-04-08-phase83-audit-redesign.md`
+  - `docs/Phase135_5_FinishConsolidation/IMPLEMENTATION_PLAN.md`
+  - `docs/PARALLEL_LANES_2026-05-26.md`
+- **SourcePrep Rebrand Execution Engine**
+  - `docs/superpowers/plans/2026-04-22-sourceprep-rename-implementation.md`
+  - `docs/superpowers/specs/2026-04-22-sourceprep-rename-design.md`
+  - `docs/MARKETING_MASTER_TODO.md`
+- **Prep Observability & Telemetry Subsystem**
+  - `docs/Phase67_AGENTS/Researcher-concept-adapter/phase2-researcher-engine-plan.md`
+  - `docs/MASTER_TODO.md`
+  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
+- **AIMD LLM Concurrency Controller**
+  - `docs/Phase119_ConcurrencyStability/05_Cross_Provider_Concurrency_Design.md`
+  - `docs/Phase119_ConcurrencyStability/01_Design.md`
+  - `docs/Phase119_ConcurrencyStability/02_Implementation_Plan.md`
+- **LLM Confidence Calibration & Tiered Concept Validation**
+  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
+  - `docs/Phase140_Prompt-Dogfood/snapshots/2026-05-17_baseline/README.md`
+  - `docs/Phase67_AGENTS/Researcher-concept-adapter/phase1-staffing-engine-plan.md`
+- **Agent-Integrated Project Management Push Pipeline**
   - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
   - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
-  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
-- **LLM Provider Configuration & Endpoint Orchestrator**
-  - `docs/Phase119_ConcurrencyStability/06_Phase_A_Plan.md`
-  - `docs/Phase119_ConcurrencyStability/03_Validation_Report.md`
-  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
-- **MCP Protocol Server & IDE Integration Surface**
-  - `docs/Phase120_NamedScopes/IMPLEMENTATION_PLAN.md`
-  - `docs/Phase120_NamedScopes/README.md`
-  - `docs/Phase50_MCP-interfacing/README.md`
-- **Project Lifecycle & Build Orchestrator**
-  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
-  - `docs/Phase80_mempalace/01_MemPalace_Integration_Research_Strategy.md`
-  - `docs/Phase120_NamedScopes/IMPLEMENTATION_PLAN.md`
-- **SourcePrep Design System Primitives**
-  - `docs/Phase81_UI-bugfixes/07_Stage3_Loading_States.md`
-  - `.agents/content_marketing_strategist/KNOWLEDGE.md`
-  - `.agents/content_marketing_strategist/SOUL.md`
-- **AutoAudit Static Analysis Engine**
-  - `docs/Phase134_ChangesetDrivenPipeline/IMPLEMENTATION_PLAN.md`
-  - `docs/Phase99_Content/blogs/00_feasibility_audit.md`
-  - `docs/Phase116_strategic-oversight/03_CANDIDATE_CHECKPOINTS.md`
-- **Dashboard State & Component Refactoring Tracker**
-  - `docs/superpowers/plans/2026-04-19-phase117-rebuild-granularity.md`
-- **Enrichment Pipeline State Machine & Resource Scheduler**
-  - `docs/Phase96-fix-pipeline/00_DIAGNOSTIC_REPORT.md`
-  - `docs/Phase128_PipelineRecoveryHardening/IMPLEMENTATION_PLAN.md`
-  - `docs/Phase96-fix-pipeline/UI+tweaks/PLAN.md`
-
-## Focus Areas
-- docs/MASTER_ROADMAP.md
-Call `prep` for detailed content from these areas.
+  - `docs/superpowers/plans/2026-04-01-phase67-agent-foundation.md`
+- **LLM Configuration & Provider Management Subsystem**
+  - `docs/superpowers/plans/2026-04-20-llm-config-autosave-redesign.md`
+  - `docs/superpowers/specs/2026-04-20-llm-config-autosave-redesign.md`
+  - `docs/Phase23_Cleanup-refactor/IMPLEMENTATION_PLAN.md`
+- **MCP IDE Agent Integration Hub**
+  - `docs/MARKETING_SITE_AUDIT.md`
+  - `docs/NETLIFY_DEPLOYMENT_TROUBLESHOOTING.md`
+  - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
 
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.

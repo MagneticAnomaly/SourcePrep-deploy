@@ -301,7 +301,7 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 <!-- prep-managed-start -->
 # SourcePrep Integration
 
-Last updated: 2026-05-18T05:35:54Z
+Last updated: 2026-06-08T17:56:20Z
 
 prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
@@ -347,16 +347,26 @@ Add to `.claude/settings.json`:
 
 Use `@` to browse SourcePrep resources (atlas, modules, audit). Use `/mcp__prep__prep-onboard` for guided orientation.
 
-<!-- prep-atlas-hash:14570b9a550a -->
+<!-- prep-atlas-hash:60561fc9a6e8 -->
 ## Codebase Atlas
 
-IDENTITY: This is a multi-segment software platform combining a React design system with NextJS marketing websites, VSCode extensions, documentation sites, and a Python-based pipeline orchestration backend, all unified under a shared MCP architecture.
+IDENTITY: A multi-platform AI-assisted development environment with a VS Code extension, web dashboard, documentation and marketing sites, and LLM orchestration backend.
 
-STACK: Languages are markdown (919 files), TSX (434), Python (336), TypeScript (150), JSON (117), JavaScript (15). Frameworks include React, NextJS, Tailwind CSS, Storybook. Build and tooling involve TypeScript compilation, VSCode extension packaging, and Python CLI entry points. The graph contains 28398 nodes and 47841 edges with 117 import cycles.
+STACK: TypeScript, TSX, Python, Next.js, React, Storybook, VS Code extension API, Markdown. Build tools inferred from package structure.
 
-WORKSPACE MAP: Project Root (_root, 1346 files): MCP, marketing, and pipeline orchestration hub. Ui (packages/ui, 369 files): Storybook-driven design system with accessibility and Tailwind CSS. Marketing (websites/apps/marketing, 62 files): NextJS marketing site with SEO. Dashboard (src/prep/dashboard, 62 files): React dashboard with state management and accessibility. Docs (websites/apps/docs, 51 files): NextJS documentation site using design system. Support (websites/apps/support, 26 files): NextJS frontend support portal. Vscode (packages/vscode, 20 files): VSCode extension with semantic search and auto-discovery. Payments (websites/apps/payments, 14 files): NextJS payments interface. Paperclip Plugin Prep (packages/paperclip-plugin-prep, 11 files): Pipeline orchestration with configuration management and versioning. Webview Ui (packages/vscode/webview-ui, 10 files): React webview for IDE integration.
+WORKSPACE MAP:
+Root (_root, 1422 files): documentation, marketing, quality-assurance, ui, llm-orchestration
+Ui (packages/ui, 371 files): ui, storybook, design-system, documentation, testing
+Dashboard (src/prep/dashboard, 62 files): ui, settings-management, polling, frontend-architecture, documentation
+Marketing (websites/apps/marketing, 61 files): ui, marketing, seo, marketing-site, integrations
+Docs (websites/apps/docs, 50 files): seo, documentation, ui, navigation, documentation-site
+Support (websites/apps/support, 26 files): ui, bug-reporting, admin-tool, nextjs, nextjs-app-router
+Vscode (packages/vscode, 20 files): vscode-extension, configuration, webview, search, semantic-search
+Payments (websites/apps/payments, 14 files): seo, nextjs, ui, monetization, payments
+Paperclip Plugin Prep (packages/paperclip-plugin-prep, 11 files): ui, agent-configuration, ide-integration, plugin-system, agent-consensus
+Webview Ui (packages/vscode/webview-ui, 10 files): vscode-extension, configuration, webview, ui, data-visualization
 
-CROSS-CUTTING: Shared domains across segments are design-system, react, storybook, typescript, nextjs, mcp, marketing, and pipeline-orchestration. Hub files include docs/ARCHITECTURE.md, packages/ui/src/types.ts, packages/ui/src/api/react.tsx, ext:lucide-react, and ext:logging. Active zones are packages/ui/src/, tests/, src/prep/core/, websites/apps/docs/, and websites/apps/marketing/. Entry points include packages/ui/src/components/marketing/heroes/index.ts, packages/ui/src/components/console/index.ts, packages/paperclip-plugin-prep/src/ui/index.ts, packages/ui/.storybook/main.ts, and src/prep/cli.py. The packages/ui segment serves as the central design system dependency for docs, marketing, support, and payments. The VSCode extension and its webview UI share vscode-extension and react domains. The paperclip plugin connects pipeline-orchestration to the UI layer. Test coverage spans specs/ (20 files), __tests__/ (19 files), and TEST_PLAN_E2E.md.
+CROSS-CUTTING: Five entry points in packages/ui/src/components/ (concepts, trace, console, search, architecture) anchor the component graph. Shared hub files: swarm_event_logger.py (stable), packages/ui/src/types.ts (evolving), packages/ui/src/api/react.tsx. External hubs: lucide-react, logging. Active zones: packages/ui/src/, tests/, src/prep/core/, websites/apps/docs/, websites/apps/marketing/. Shared domains across segments: ui, documentation, seo, marketing, nextjs, vscode-extension, configuration, webview. 176 import cycles present. Key cross-dependencies: docs references concept_fragment, phase_45__multi-gpu_concurrency_research; packages references computeFastKnowledgeState, styles, handleAddPreset; src references BuildManager.get_project_knowledge_index, parseSettingsParam, build_knowledge_project. Longest import chains span from UI components through API types to documentation sections.
 
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.
