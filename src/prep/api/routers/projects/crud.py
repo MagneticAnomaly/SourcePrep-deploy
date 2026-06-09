@@ -368,6 +368,14 @@ def update_project(project_id: str, req: UpdateProjectRequest) -> Dict[str, Any]
             # generic PUT clobber it with a stale snapshot.
             new_trace.pop("ignore_patterns", None)
             merged["trace"] = {**old_trace, **new_trace}
+        if "auto_config" in incoming_config:
+            # 2026-06-08: deep-merge auto_config so a partial update from
+            # the dashboard (e.g. queue-X-button "Switch to Manual" sending
+            # just {deepEnrichment: "manual"}) does not silently drop
+            # fastSync / finalize / other keys the user previously set.
+            old_auto = old_dict.get("auto_config") or {}
+            new_auto = dict(incoming_config.get("auto_config") or {})
+            merged["auto_config"] = {**old_auto, **new_auto}
         return merged
 
     try:
