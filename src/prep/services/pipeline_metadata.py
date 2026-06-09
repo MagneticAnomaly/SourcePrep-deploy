@@ -255,6 +255,21 @@ def mark_stage_failed(
             return
 
 
+def mark_stage_skipped(
+    meta: PipelineRunMetadata,
+    stage_id: str,
+    reason: str = "",
+) -> None:
+    """Mark a stage as freshness-skipped in the run metadata."""
+    for s in meta.stages:
+        if s.stage_id == stage_id:
+            s.status = "skipped"
+            s.finished_at = datetime.now(timezone.utc).isoformat()
+            s.elapsed_seconds = 0.0
+            s.worker_result = {"skipped": True, "reason": reason}
+            return
+
+
 def finalize_run_metadata(
     meta: PipelineRunMetadata,
     status: str = "completed",
