@@ -94,6 +94,12 @@ class CancelRequest(BaseModel):
     # Accepts the three traditional groups + any finalize-stage value
     # (atlas, rules, concepts, audit, antibodies) for solo runs.
     group: str = "fast_sync"
+    # 2026-06-08: optional reason so the X-button heuristic can
+    # distinguish user-initiated cancels ("user_action") from
+    # infrastructure-initiated ones ("drain_timeout", "watchdog",
+    # "stale_run_reset", etc). Logged for forensics; the heuristic
+    # itself lives in the dashboard's useCancelToast hook.
+    reason: str = "user_action"
 
 
 class PauseRequest(BaseModel):
@@ -1058,6 +1064,11 @@ def pipeline_cancel(project_id: str, req: CancelRequest) -> dict[str, Any]:
     """
     from prep.server import _require_project
     _require_project(project_id)
+
+    logger.info(
+        "Pipeline cancel requested for %s/%s (reason=%s)",
+        project_id, req.group, req.reason,
+    )
 
     from prep.services.pipeline_orchestrator import FINALIZE_STAGES, pipeline_orchestrator
 

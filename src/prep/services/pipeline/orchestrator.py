@@ -120,6 +120,9 @@ class PipelineOrchestrator:
                         "Drain timeout — force-cancelling %s", pid,
                     )
                     try:
+                        # Drain timeout: infrastructure-initiated cancel, NOT user_action.
+                        # The UI's repeat-click heuristic only counts cancels that arrive
+                        # via the HTTP cancel endpoint with reason="user_action".
                         strong_self.cancel(pid)
                     except Exception:
                         logger.warning(
@@ -1557,6 +1560,9 @@ class PipelineOrchestrator:
         """Remove all pipeline state for a project."""
         # Phase 89 WS4: Cancel running builds before clearing state.
         # This ensures scheduler locks are released (via WS2 cancel fix).
+        # Infrastructure-initiated cancel (project teardown), NOT user_action.
+        # The UI's repeat-click heuristic only counts cancels that arrive
+        # via the HTTP cancel endpoint with reason="user_action".
         self.cancel_fast_sync(project_id)
         self.cancel_deep_enrichment(project_id)
         with self._lock:
