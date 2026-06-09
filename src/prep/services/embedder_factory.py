@@ -122,6 +122,14 @@ def _is_other_project_embedding(caller_project_id: str) -> bool:
         active = embed_slot.get("active") or {}
         return any(pid != caller_project_id for pid in active)
     except Exception:
+        # Silent swallow would hide a permanently-broken scheduler path
+        # behind "no other project embedding" — debug-log so post-incident
+        # forensics can see why the close proceeded.
+        logger.debug(
+            "_is_other_project_embedding: scheduler query failed for caller=%s "
+            "— defaulting to False (close will proceed)",
+            caller_project_id, exc_info=True,
+        )
         return False
 
 
