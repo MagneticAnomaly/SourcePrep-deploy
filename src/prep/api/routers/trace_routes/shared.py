@@ -117,9 +117,15 @@ INDEX_FILES = [
 # full reset, it carries pre-reset stage indices that confuse the
 # next run's resume detection. Same root-cause class as the
 # .pipeline_clean_shutdown marker.
+#
+# 2026-06-08 P5: .guard_rejections.json holds Write-Guard rejection
+# markers with a 30-min TTL. Surviving a full destroy would let a
+# stale marker silently defer selfheal on the fresh index for up to
+# 30 minutes — same lifecycle bug as the other markers above.
 RECOVERY_MARKERS = [
     ".pipeline_clean_shutdown",
     "pipeline_state.json",
+    ".guard_rejections.json",
 ]
 
 ALL_DATA_FILES = TRACE_FILES + INDEX_FILES + RECOVERY_MARKERS
