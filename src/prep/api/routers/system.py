@@ -457,9 +457,17 @@ async def update_global_config_v2(req: Request) -> Dict[str, Any]:
     """
     import asyncio
     from prep.server import (
-        _load_ui_config, _save_ui_config, _deep_merge,
+        _load_ui_config, _save_ui_config,
         _index, _project_indexes,
     )
+    # 2026-06-09: _deep_merge was moved out of prep.server into
+    # prep.services.config_manager in commit f3dbd219 (Phase 139 PR2)
+    # but this import was never updated. The ImportError fires only
+    # on PUT /global/config (never at startup), so the latent break
+    # surfaced as a hard 500 every time the dashboard tried to save
+    # the global config — the root cause of the 2026-06-09 UI hang
+    # (dashboard saves theme/layout on load → 500 → bad state).
+    from prep.services.config_manager import deep_merge as _deep_merge
 
     try:
         data = await req.json()
