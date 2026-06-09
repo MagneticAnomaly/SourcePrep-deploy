@@ -1153,7 +1153,7 @@ def pipeline_rebuild_stop(project_id: str) -> dict[str, Any]:
     released = 0
     try:
         from prep.services.embedder_factory import close_shared_embedders
-        released = close_shared_embedders()
+        released = close_shared_embedders(active_project_id=project_id)
     except Exception:
         logger.debug("rebuild/stop: close_shared_embedders failed (non-fatal)", exc_info=True)
 

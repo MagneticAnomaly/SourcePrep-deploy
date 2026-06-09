@@ -61,17 +61,37 @@ def _cache_get_or_make(key: tuple, factory: Any) -> Any:
         return instance
 
 
-def close_shared_embedders() -> int:
+def close_shared_embedders(
+    *, active_project_id: str | None = None,
+) -> int:
     """Drop all cached embedders and call close() on any that expose it.
 
-    Returns the number of embedders released. Per RESEARCH.md §1.1 this
-    will not deterministically reclaim CoreML/ANE memory in the live
-    process — restart is the documented remedy — but it does drop the
-    Python references so the next call gets a fresh session.
+    ``active_project_id`` (2026-06-08): the project that initiated
+    the close (typically from /pipeline/rebuild/stop). If another
+    project is actively embedding (running a stage on the
+    ``__embedding__`` node), the close is SKIPPED — the embedder
+    singleton stays alive so the other project's in-flight ONNX
+    session doesn't get ripped out from under it. Pass ``None`` to
+    force release regardless (e.g., graceful daemon shutdown when
+    there is no concurrent embedding to protect).
 
-    Wired to: graceful daemon shutdown, ``/pipeline/rebuild/stop``.
+    Returns the number of embedders released. Per RESEARCH.md §1.1
+    this will not deterministically reclaim CoreML/ANE memory in the
+    live process — restart is the documented remedy — but it does
+    drop the Python references so the next call gets a fresh session.
+
+    Wired to: graceful daemon shutdown (active_project_id=None),
+    ``/pipeline/rebuild/stop`` (active_project_id=<calling project>).
     """
     import gc
+    if active_project_id is not None and _is_other_project_embedding(
+        active_project_id
+    ):
+        logger.info(
+            "close_shared_embedders: SKIPPED — another project is "
+            "actively embedding (caller=%s)", active_project_id,
+        )
+        return 0
     with _SHARED_EMBEDDERS_LOCK:
         n = len(_SHARED_EMBEDDERS)
         for key, emb in list(_SHARED_EMBEDDERS.items()):
@@ -86,6 +106,23 @@ def close_shared_embedders() -> int:
     if n:
         logger.info("Released %d shared embedder(s)", n)
     return n
+
+
+def _is_other_project_embedding(caller_project_id: str) -> bool:
+    """Return True if any project other than caller_project_id has
+    an active embedding slot on the __embedding__ node.
+
+    Defensive: if the scheduler can't be queried, returns False so
+    the close proceeds (the original pre-2026-06-08 behavior).
+    """
+    try:
+        from prep.services.pipeline.scheduler import pipeline_scheduler
+        status = pipeline_scheduler.status()
+        embed_slot = (status.get("nodes") or {}).get("__embedding__") or {}
+        active = embed_slot.get("active") or {}
+        return any(pid != caller_project_id for pid in active)
+    except Exception:
+        return False
 
 
 def _drop_cached(key: tuple) -> None:
