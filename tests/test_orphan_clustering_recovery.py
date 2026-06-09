@@ -61,3 +61,14 @@ def test_clear_unknown_stage_is_silent_noop(tmp_path: Path):
     being called for stages that were never rejected."""
     clear_guard_rejection(tmp_path, "deepening")  # no marker exists
     # No raise. No assertion needed; the test passes if no exception.
+
+
+def test_clear_one_stage_preserves_others(tmp_path: Path):
+    """When multiple stages are recorded, clearing one must not
+    accidentally drop the others. Exercises the shared key-value
+    store invariant under the watcher's concurrent-clear path."""
+    record_guard_rejection(tmp_path, stage="clustering", reason="x")
+    record_guard_rejection(tmp_path, stage="deepening", reason="y")
+    clear_guard_rejection(tmp_path, "clustering")
+    assert not should_defer_selfheal_resurrection(tmp_path, "clustering")
+    assert should_defer_selfheal_resurrection(tmp_path, "deepening")
