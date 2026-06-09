@@ -29,7 +29,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from prep.api.envelope import ApiException, ok
 from prep.core.project_registry import project_index_dir
@@ -95,11 +95,10 @@ class CancelRequest(BaseModel):
     # (atlas, rules, concepts, audit, antibodies) for solo runs.
     group: str = "fast_sync"
     # 2026-06-08: optional reason so the X-button heuristic can
-    # distinguish user-initiated cancels ("user_action") from
-    # infrastructure-initiated ones ("drain_timeout", "watchdog",
-    # "stale_run_reset", etc). Logged for forensics; the heuristic
-    # itself lives in the dashboard's useCancelToast hook.
-    reason: str = "user_action"
+    # distinguish user-initiated cancels from infrastructure-initiated
+    # ones (drain timeout, watchdog, stale-run reset). Capped at 64
+    # chars — this field gets logged at INFO level.
+    reason: str = Field(default="user_action", max_length=64)
 
 
 class PauseRequest(BaseModel):

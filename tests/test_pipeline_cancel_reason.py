@@ -33,10 +33,11 @@ def test_cancel_endpoint_accepts_reason_field():
     assert r2.status_code in (200, 404, 409), r2.text
 
 
-def test_cancel_endpoint_rejects_unknown_group():
-    """Defensive: malformed group must NOT crash; existing endpoint
-    behavior is to delegate to ProgressManager.request_cancel which
-    returns a 409 NOT_RUNNING. Reason should pass through harmlessly."""
+def test_cancel_endpoint_does_not_crash_on_unknown_group():
+    """Defensive: an unknown group name must not crash the endpoint.
+    The existing behavior is to route through ProgressManager, which
+    returns 409 NOT_RUNNING if nothing of that name is active. Reason
+    should pass through harmlessly regardless of the routing outcome."""
     client = TestClient(app)
     r = client.post(
         "/projects/fake-pid/pipeline/cancel",
