@@ -52,6 +52,19 @@ from .workers import WorkerFactory
 
 logger = logging.getLogger(__name__)
 
+# 2026-06-08: baseline shrink tolerance applied even when there's no
+# changeset or no user deletions. Clustering and other consolidation
+# stages legitimately produce slightly fewer output records than
+# input records as they merge near-duplicates. Without this floor,
+# the Write Guard reverts every such run, selfheal sees the orphan
+# manifest, and the same cluster work re-runs in a loop forever
+# (the 2026-06-08 incident).
+#
+# 0.10 means "up to 10% shrink is OK". The 2026-06-08 clustering
+# case shrunk by 2.9% (836/861). The destructive-data-loss tests
+# (50%+ shrink) still block.
+_BASELINE_SHRINK_TOLERANCE = 0.10
+
 
 class PipelineOrchestrator:
     """Sequences the 15-stage pipeline in three groups.
@@ -3934,44 +3947,37 @@ class PipelineOrchestrator:
         return should_skip
     def _compute_allowed_shrink_ratio(self, idx_dir: Path) -> float:
         """Return the fraction of shrinkage the integrity guard should
-        tolerate given the active Changeset's deletion ratio.
+        tolerate.
 
-        2026-05-27 (Phase 141): a user who deletes a significant
-        fraction of their source files SHOULD see downstream trace
-        records shrink proportionally — that is not a data-loss
-        incident.  The formula:
+        Composition:
+          - baseline:  _BASELINE_SHRINK_TOLERANCE — covers consolidation
+                       stages (clustering, dedup) that legitimately
+                       produce slightly fewer records than they read.
+          - changeset: deletion_ratio * 1.5 — when the user deletes
+                       source files, downstream graph records should
+                       shrink proportionally; amplifier accounts for
+                       cascading edge removal in the graph.
 
-            deletion_ratio = |deleted| / (|deleted| + |all_known|)
-            allowance = deletion_ratio * 1.5 + 0.10
-
-        The 1.5x amplifier accounts for "soft" effects (a deleted
-        hub file removes more graph edges than just its own node),
-        and the +0.10 base tolerance absorbs minor structural noise.
-        Cap at 0.95 in the guard itself so the safety net is never
-        fully disabled.
-
-        Returns 0.0 if no changeset is present (first build, etc.) —
-        the guard then enforces strict no-shrink.
+        Either signal alone is enough — the result is the deletion-driven
+        allowance (which already includes the baseline as its floor) OR
+        the bare baseline when there's no changeset. Capped at 0.95 by
+        the guard itself; 50%+ destructive shrinks still block.
         """
         try:
             from prep.services.pipeline.changeset import read_changeset
             cs = read_changeset(idx_dir)
         except Exception:
-            return 0.0
+            return _BASELINE_SHRINK_TOLERANCE
         if cs is None:
-            return 0.0
+            return _BASELINE_SHRINK_TOLERANCE
         deleted_n = len(cs.deleted)
         if deleted_n == 0:
-            return 0.0
-        # all_known() = added | modified | unchanged (excludes deleted).
-        # Adding |deleted| gives the prior known-file count, which is
-        # the right denominator for "what fraction of the world was
-        # removed by the user."
+            return _BASELINE_SHRINK_TOLERANCE
         prior_n = len(cs.all_known()) + deleted_n
         if prior_n == 0:
-            return 0.0
+            return _BASELINE_SHRINK_TOLERANCE
         deletion_ratio = deleted_n / prior_n
-        return deletion_ratio * 1.5 + 0.10
+        return deletion_ratio * 1.5 + _BASELINE_SHRINK_TOLERANCE
 
     def _try_restore_stage_from_backup(
         self,

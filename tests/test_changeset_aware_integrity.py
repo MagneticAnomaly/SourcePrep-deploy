@@ -141,16 +141,27 @@ def _orch():
 
 
 def test_compute_allowed_shrink_no_changeset(tmp_path):
-    """No changeset on disk → no allowance, strict guard."""
+    """No changeset on disk → baseline tolerance (2026-06-08 fix).
+
+    Previously returned 0.0 (strict), but that caused the clustering
+    revert loop: consolidation stages that shrink by a few percent were
+    reverted even though no data was lost.  The baseline floor ensures
+    natural consolidation passes the guard.
+    """
     orch = _orch()
-    assert orch._compute_allowed_shrink_ratio(tmp_path) == 0.0
+    assert orch._compute_allowed_shrink_ratio(tmp_path) >= 0.10
 
 
 def test_compute_allowed_shrink_zero_deletions(tmp_path):
-    """Changeset with no deletions → no allowance."""
+    """Changeset with no deletions → baseline tolerance (2026-06-08 fix).
+
+    Previously returned 0.0, but consolidation stages (clustering,
+    dedup) legitimately produce slightly fewer records than input even
+    with no user deletions.  The baseline floor covers this case.
+    """
     _write_changeset(tmp_path, added=["a.py"], modified=["b.py"], unchanged=["c.py"])
     orch = _orch()
-    assert orch._compute_allowed_shrink_ratio(tmp_path) == 0.0
+    assert orch._compute_allowed_shrink_ratio(tmp_path) >= 0.10
 
 
 def test_compute_allowed_shrink_proportional_to_deletions(tmp_path):
@@ -181,7 +192,12 @@ def test_compute_allowed_shrink_handles_large_deletions(tmp_path):
 
 
 def test_compute_allowed_shrink_malformed_changeset(tmp_path):
-    """Corrupted changeset.json → fall through with 0.0 (strict)."""
+    """Corrupted changeset.json → fall through with baseline tolerance.
+
+    Previously returned 0.0 (strict).  After the 2026-06-08 fix,
+    the baseline floor applies even on parse errors, so consolidation
+    stages are not spuriously reverted when the changeset is unreadable.
+    """
     (tmp_path / "changeset.json").write_text("{not valid json")
     orch = _orch()
-    assert orch._compute_allowed_shrink_ratio(tmp_path) == 0.0
+    assert orch._compute_allowed_shrink_ratio(tmp_path) >= 0.10
