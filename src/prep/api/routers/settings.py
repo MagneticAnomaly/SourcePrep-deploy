@@ -262,54 +262,28 @@ def update_pipeline_config(body: PipelineConfigUpdate) -> Dict[str, Any]:
 
     settings.set("pipeline_config", config)
 
-    # When fast_sync_auto transitions to true, trigger fast_sync for all
-    # trace-enabled projects so the existing backlog is processed immediately
-    # rather than waiting for new file-system events.
-    if body.fast_sync_auto and not prev_fast_auto:
-        import threading
-
-        def _trigger_auto_runs():
-            try:
-                from prep.services.pipeline_orchestrator import pipeline_orchestrator
-                from prep.services.project_helpers import get_registry, get_project_activity_status
-                for proj in get_registry().list_projects():
-                    pcfg = proj.config if isinstance(proj.config, dict) else {}
-                    trace_cfg = pcfg.get("trace") if isinstance(pcfg.get("trace"), dict) else {}
-                    if not trace_cfg.get("enabled"):
-                        continue
-                    if get_project_activity_status(proj.id) != "active":
-                        continue
-                    started = pipeline_orchestrator.run_fast_sync(proj.id)
-                    if started:
-                        logger.info("Auto-mode activated: triggered fast_sync for %s", proj.id)
-            except Exception:
-                logger.debug("Auto-mode trigger failed (non-fatal)", exc_info=True)
-
-        threading.Thread(target=_trigger_auto_runs, daemon=True).start()
-
-    # When deep_enrichment_mode transitions to 'auto', trigger deep enrichment
-    # for all trace-enabled projects so incomplete deep stages start immediately.
-    if body.deep_enrichment_mode == "auto" and prev_deep_mode != "auto":
-        import threading
-
-        def _trigger_deep_runs():
-            try:
-                from prep.services.pipeline_orchestrator import pipeline_orchestrator
-                from prep.services.project_helpers import get_registry, get_project_activity_status
-                for proj in get_registry().list_projects():
-                    pcfg = proj.config if isinstance(proj.config, dict) else {}
-                    trace_cfg = pcfg.get("trace") if isinstance(pcfg.get("trace"), dict) else {}
-                    if not trace_cfg.get("enabled"):
-                        continue
-                    if get_project_activity_status(proj.id) != "active":
-                        continue
-                    started = pipeline_orchestrator.run_deep_enrichment(proj.id)
-                    if started:
-                        logger.info("Deep auto-mode activated: triggered deep_enrichment for %s", proj.id)
-            except Exception:
-                logger.debug("Deep auto-mode trigger failed (non-fatal)", exc_info=True)
-
-        threading.Thread(target=_trigger_deep_runs, daemon=True).start()
+    # 2026-06-08: Removed cross-project fan-out on auto-mode flips.
+    #
+    # Previously, flipping fast_sync_auto or deep_enrichment_mode to
+    # auto via this global endpoint would spawn a thread that
+    # iterated get_registry().list_projects() and called
+    # pipeline_orchestrator.run_fast_sync / run_deep_enrichment for
+    # every trace-enabled active project. That meant configuring auto
+    # for one project triggered work for ALL projects — directly
+    # violating the per-project authority contract in
+    # PipelineOrchestrator._is_deep_enrichment_auto (orchestrator.py:1712):
+    #
+    #     "Per-project auto_config is the only authority; default is
+    #      manual. The legacy global fallback was the regression that
+    #      caused projects with their UI on Manual to auto-chain
+    #      whenever a stale global pipeline_config.deep_enrichment.mode
+    #      was still set to auto."
+    #
+    # The global pipeline_config is now strictly a default for *new*
+    # projects (read in add_project at crud.py) and a diagnostic
+    # readback. Existing projects rely on their own auto_config plus
+    # the watcher's _check_incomplete_deep_enrichment timer to start
+    # work when there's work to start.
 
     return ok(config)
 
