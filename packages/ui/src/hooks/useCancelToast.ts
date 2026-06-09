@@ -98,6 +98,6 @@ export function useCancelToast(opts: UseCancelToastOpts) {
         });
       }
     },
-    [push, opts],
+    [push, opts.sendCancel, opts.resolveAutoMode, opts.switchToManual, opts.projectName],
   );
 }

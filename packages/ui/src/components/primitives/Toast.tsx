@@ -4,7 +4,7 @@
  * fixed-position stack, dismiss on click or timeout, optional
  * action button. Not a full notification system.
  */
-import { useState, useCallback, createContext, useContext, type ReactNode } from 'react';
+import { useState, useCallback, createContext, useContext, useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -45,8 +45,14 @@ export function useToast(): ToastContextValue {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastEntry[]>([]);
+  const timers = useRef<Map<string, number>>(new Map());
 
   const dismiss = useCallback((id: string) => {
+    const h = timers.current.get(id);
+    if (h !== undefined) {
+      window.clearTimeout(h);
+      timers.current.delete(id);
+    }
     setToasts((t) => t.filter((x) => x.id !== id));
   }, []);
 
@@ -63,18 +69,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       };
       setToasts((prev) => [...prev.filter((x) => x.id !== id), entry]);
       if (entry.durationMs > 0) {
-        window.setTimeout(() => dismiss(id), entry.durationMs);
+        const h = window.setTimeout(() => dismiss(id), entry.durationMs);
+        timers.current.set(id, h);
       }
       return id;
     },
     [dismiss],
   );
 
+  useEffect(() => {
+    return () => {
+      timers.current.forEach((h) => window.clearTimeout(h));
+      timers.current.clear();
+    };
+  }, []);
+
   return (
     <ToastContext.Provider value={{ push, dismiss }}>
       {children}
       <div
-        aria-live="polite"
         className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 max-w-sm pointer-events-none"
       >
         {toasts.map((t) => (
@@ -86,7 +99,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               t.variant === 'warn' && 'bg-amber-950/90 border-amber-700 text-amber-100',
               t.variant === 'info' && 'bg-slate-900/90 border-slate-700 text-slate-100',
             )}
-            role="status"
+            role={t.variant === 'error' ? 'alert' : 'status'}
           >
             <div className="flex items-start gap-2">
               <div className="flex-1 min-w-0">
