@@ -209,10 +209,6 @@ def update_pipeline_config(body: PipelineConfigUpdate) -> Dict[str, Any]:
         "budgets": {},
     }
 
-    # Detect mode transitions for triggering immediate runs
-    prev_fast_auto = (config.get("fast_sync") or {}).get("auto", False)
-    prev_deep_mode = (config.get("deep_enrichment") or {}).get("mode", "manual")
-
     if body.fast_sync_auto is not None:
         config.setdefault("fast_sync", {})["auto"] = body.fast_sync_auto
 
