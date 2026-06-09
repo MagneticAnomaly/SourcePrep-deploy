@@ -177,6 +177,8 @@ export type { AdminSectionProps } from './components/primitives/AdminSection';
 export { PanelLoading } from './components/primitives/PanelLoading';
 export { InfoTooltip } from './components/primitives/InfoTooltip';
 export type { InfoTooltipProps } from './components/primitives/InfoTooltip';
+export { ToastProvider, useToast } from './components/primitives/Toast';
+export type { ToastInput, ToastVariant } from './components/primitives/Toast';
 
 // Components - Settings primitives (v2)
 export * from './components/settings';

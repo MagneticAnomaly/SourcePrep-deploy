@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { ApiClientProvider, PrepApiClient } from '@prep/ui'
+import { ApiClientProvider, PrepApiClient, ToastProvider } from '@prep/ui'
 import { invoke } from '@tauri-apps/api/tauri'
 import App from './App'
 import './index.css'
@@ -30,7 +30,9 @@ const init = async () => {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <ApiClientProvider client={apiClient}>
-        <App />
+        <ToastProvider>
+          <App />
+        </ToastProvider>
       </ApiClientProvider>
     </React.StrictMode>,
   )

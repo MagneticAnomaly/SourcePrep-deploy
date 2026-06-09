@@ -11,6 +11,7 @@ import {
 import { Button } from '../primitives/Button';
 import { StatusBadge } from '../status/StatusBadge';
 import type { StatusState } from '../../types';
+import { useCancelToast } from '../../hooks/useCancelToast';
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -237,18 +238,49 @@ export function SidebarPipelineQueue({
     }
   }, [baseUrl, onResume, fetchQueue]);
 
-  const handleCancel = useCallback(async (item: QueueItem) => {
-    if (onCancel) {
-      onCancel(item.project_id, item.group);
-    } else {
-      await fetch(`${baseUrl}/projects/${item.project_id}/pipeline/cancel`, {
+  const cancelWithToast = useCancelToast({
+    sendCancel: async (projectId, group, reason) => {
+      const r = await fetch(`${baseUrl}/projects/${projectId}/pipeline/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ group: item.group }),
+        body: JSON.stringify({ group, reason }),
       });
-      fetchQueue();
-    }
-  }, [baseUrl, onCancel, fetchQueue]);
+      return r.ok || r.status === 409;
+    },
+    resolveAutoMode: async (projectId) => {
+      const r = await fetch(`${baseUrl}/projects/${projectId}`);
+      const j = await r.json();
+      const cfg = j?.data?.project?.config ?? {};
+      const auto = cfg.auto_config ?? {};
+      return auto.deepEnrichment ?? auto.deep_enrichment ?? 'manual';
+    },
+    switchToManual: async (projectId) => {
+      await fetch(`${baseUrl}/projects/${projectId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          config: { auto_config: { deepEnrichment: 'manual' } },
+        }),
+      });
+    },
+    projectName: (projectId) => {
+      const item = queue.find((q) => q.project_id === projectId);
+      return item?.project_name ?? projectId.slice(0, 8);
+    },
+  });
+
+  const handleCancel = useCallback(
+    async (item: QueueItem) => {
+      if (onCancel) {
+        onCancel(item.project_id, item.group);
+        await fetchQueue();
+        return;
+      }
+      await cancelWithToast(item.project_id, item.group);
+      await fetchQueue();
+    },
+    [onCancel, cancelWithToast, fetchQueue],
+  );
 
   const handlePriority = useCallback(async (item: QueueItem) => {
     const nextLevel = item.priority === 'none' ? 'boost'
