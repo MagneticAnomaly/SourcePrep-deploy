@@ -322,7 +322,11 @@ class IntegrityGuard:
             # Expected floor: pre_records * (1 - allowance).  E.g.,
             # with allowance=0.30 (user deleted 30% of files), a
             # post_records >= 0.70 * pre_records is OK.
-            min_acceptable = int(pre_fs.record_count * (1.0 - allow))
+            # Floor at 1 so a single-record file can't be completely erased
+            # even at allow=1.0. With the 10% baseline (orchestrator), this
+            # corner is reachable in normal operation rather than only when
+            # callers passed an explicit allowance > 0.
+            min_acceptable = max(1, int(pre_fs.record_count * (1.0 - allow)))
             if post_fs.record_count < min_acceptable:
                 allow_note = (
                     f" (allowed up to {allow:.0%} shrinkage given "

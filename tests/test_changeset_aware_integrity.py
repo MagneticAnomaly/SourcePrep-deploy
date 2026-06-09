@@ -149,7 +149,7 @@ def test_compute_allowed_shrink_no_changeset(tmp_path):
     natural consolidation passes the guard.
     """
     orch = _orch()
-    assert orch._compute_allowed_shrink_ratio(tmp_path) >= 0.10
+    assert orch._compute_allowed_shrink_ratio(tmp_path) == 0.10
 
 
 def test_compute_allowed_shrink_zero_deletions(tmp_path):
@@ -161,7 +161,7 @@ def test_compute_allowed_shrink_zero_deletions(tmp_path):
     """
     _write_changeset(tmp_path, added=["a.py"], modified=["b.py"], unchanged=["c.py"])
     orch = _orch()
-    assert orch._compute_allowed_shrink_ratio(tmp_path) >= 0.10
+    assert orch._compute_allowed_shrink_ratio(tmp_path) == 0.10
 
 
 def test_compute_allowed_shrink_proportional_to_deletions(tmp_path):
@@ -200,4 +200,4 @@ def test_compute_allowed_shrink_malformed_changeset(tmp_path):
     """
     (tmp_path / "changeset.json").write_text("{not valid json")
     orch = _orch()
-    assert orch._compute_allowed_shrink_ratio(tmp_path) >= 0.10
+    assert orch._compute_allowed_shrink_ratio(tmp_path) == 0.10
