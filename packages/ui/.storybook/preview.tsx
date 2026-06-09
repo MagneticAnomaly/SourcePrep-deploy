@@ -8,6 +8,7 @@ import 'react-resizable/css/styles.css';
 import { PanelChrome } from '../src/components/layout/PanelChrome';
 import { PANEL_REGISTRY } from '../src/config/panelRegistry';
 import type { PanelDefinition } from '../src/config/panelRegistry';
+import { ToastProvider } from '../src/components/primitives/Toast';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Panel-chrome wrapping
@@ -235,6 +236,17 @@ const preview: Preview = {
     },
   },
   decorators: [
+    // 2026-06-09: outermost wrapper. Components that internally call
+    // useToast (SidebarPipelineQueue → useCancelToast) crashed in
+    // Storybook because no <ToastProvider> was mounted. Toast.tsx now
+    // has a non-throwing no-op fallback so it's safe either way, but
+    // wrapping here means stories that exercise cancel flows get the
+    // real toast behavior on screen instead of silent drops.
+    (Story) => (
+      <ToastProvider>
+        <Story />
+      </ToastProvider>
+    ),
     (Story, context) => {
       const mode = context.globals.theme;
       const prepTheme = context.globals.prepTheme;

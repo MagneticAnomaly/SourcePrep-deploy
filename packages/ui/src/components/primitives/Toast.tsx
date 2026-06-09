@@ -33,14 +33,39 @@ interface ToastContextValue {
   dismiss: (id: string) => void;
 }
 
-const ToastContext = createContext<ToastContextValue | null>(null);
+// 2026-06-09: default to a no-op so consumers stay portable. Components
+// that internally call useToast (e.g. SidebarPipelineQueue via
+// useCancelToast) must not crash when rendered in a host that hasn't
+// mounted <ToastProvider> — Storybook stories, isolated tests, etc.
+// A one-time dev warning makes the missing provider discoverable
+// without breaking the render.
+let _warnedNoProvider = false;
+const _NOOP_TOAST_CTX: ToastContextValue = {
+  push: () => {
+    if (
+      typeof process !== 'undefined' &&
+      process.env?.NODE_ENV !== 'production' &&
+      !_warnedNoProvider
+    ) {
+      _warnedNoProvider = true;
+      // eslint-disable-next-line no-console
+      console.warn(
+        'useToast() called without a <ToastProvider> ancestor — ' +
+          'toasts are being silently dropped. Wrap your tree in ' +
+          '<ToastProvider> from @prep/ui to see them.',
+      );
+    }
+    return '';
+  },
+  dismiss: () => {
+    /* no-op */
+  },
+};
+
+const ToastContext = createContext<ToastContextValue>(_NOOP_TOAST_CTX);
 
 export function useToast(): ToastContextValue {
-  const ctx = useContext(ToastContext);
-  if (!ctx) {
-    throw new Error('useToast must be used inside <ToastProvider>');
-  }
-  return ctx;
+  return useContext(ToastContext);
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
