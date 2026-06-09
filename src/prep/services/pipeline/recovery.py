@@ -63,6 +63,79 @@ _RESET_BARRIER_FILENAME = ".reset_barrier"
 _USER_PAUSE_FILENAME_TEMPLATE = ".pipeline_user_pause_{group}.json"
 _VALID_BARRIER_SCOPES = ("sync", "enrichment", "finalize", "all")
 
+# 2026-06-08 P5: guard-rejected stage marker. When the Write Guard
+# rejects a stage's output and restores from checkpoint, record it
+# here so the next selfheal scan defers resurrection until a real
+# signal arrives (file change, user action, or 30-min timeout).
+# Without this, selfheal sees the orphan manifest and immediately
+# re-triggers the same rejected work in an infinite loop.
+_GUARD_REJECTION_FILENAME = ".guard_rejections.json"
+_GUARD_REJECTION_TTL_SECONDS = 30 * 60  # 30 minutes
+
+
+def record_guard_rejection(idx_dir: Path, stage: str, reason: str) -> None:
+    """Persist that ``stage`` had its output rejected by the Write
+    Guard. Called by the orchestrator's write-guard recovery branch.
+    """
+    import json
+    path = Path(idx_dir) / _GUARD_REJECTION_FILENAME
+    try:
+        existing = json.loads(path.read_text()) if path.exists() else {}
+    except Exception:
+        existing = {}
+    if not isinstance(existing, dict):
+        existing = {}
+    existing[stage] = {"at": time.time(), "reason": reason}
+    try:
+        path.write_text(json.dumps(existing, indent=2))
+    except Exception:
+        pass  # non-fatal
+
+
+def should_defer_selfheal_resurrection(idx_dir: Path, stage: str) -> bool:
+    """True if selfheal must NOT re-trigger ``stage`` because it was
+    recently rejected by the Write Guard. Called by the selfheal
+    scan loop."""
+    import json
+    path = Path(idx_dir) / _GUARD_REJECTION_FILENAME
+    if not path.exists():
+        return False
+    try:
+        data = json.loads(path.read_text())
+    except Exception:
+        return False
+    if not isinstance(data, dict):
+        return False
+    entry = data.get(stage)
+    if not isinstance(entry, dict):
+        return False
+    at = entry.get("at", 0.0)
+    try:
+        at = float(at)
+    except (TypeError, ValueError):
+        return False
+    return (time.time() - at) < _GUARD_REJECTION_TTL_SECONDS
+
+
+def clear_guard_rejection(idx_dir: Path, stage: str) -> None:
+    """Remove the rejection marker — called when a real signal (file
+    change, manual run) arrives so the next selfheal can resurrect."""
+    import json
+    path = Path(idx_dir) / _GUARD_REJECTION_FILENAME
+    if not path.exists():
+        return
+    try:
+        data = json.loads(path.read_text())
+        if not isinstance(data, dict):
+            return
+        data.pop(stage, None)
+        if data:
+            path.write_text(json.dumps(data, indent=2))
+        else:
+            path.unlink()
+    except Exception:
+        pass
+
 # Snapshot of clean-shutdown markers seen at startup, captured ONCE per
 # daemon process. Populated by startup_recovery before hydrate/auto-recover
 # run, then consulted by check_clean_shutdown_marker for the rest of the
@@ -873,6 +946,29 @@ class RecoveryManager:
                                 f"Stage {stage.value}: orphan output is pending work "
                                 f"from interrupted run — leaving manifest missing",
                                 {"stage": stage.value, "source": "orphan_output"},
+                            )
+                        continue
+
+                    # 2026-06-08 P5: if the Write Guard recently rejected this
+                    # stage's output and restored from checkpoint, defer
+                    # resurrection until a real signal arrives (file change,
+                    # manual run, or 30-min TTL). Without this, selfheal sees
+                    # the orphan manifest and re-triggers the same rejected work
+                    # in an infinite loop, burning LLM cycles.
+                    if should_defer_selfheal_resurrection(idx_dir, stage.value):
+                        still_missing += 1
+                        stage_detail["status"] = "deferred_guard_rejection"
+                        stage_detail["reason"] = (
+                            "Write Guard rejected this stage's output recently"
+                        )
+                        details.append(stage_detail)
+                        if pfl:
+                            pfl.selfheal(
+                                "deferred_guard_rejection",
+                                f"Stage {stage.value}: Write Guard rejected this stage's "
+                                f"output recently — waiting for a file change or manual run "
+                                f"before retrying.",
+                                {"stage": stage.value, "source": "guard_rejection_marker"},
                             )
                         continue
 

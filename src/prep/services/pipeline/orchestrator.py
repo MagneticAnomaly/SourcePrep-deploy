@@ -4227,6 +4227,16 @@ class PipelineOrchestrator:
                                 stage.value,
                                 f"Write guard: RESTORED {restored} files from checkpoint ({reason})",
                             )
+                        # 2026-06-08 P5: record the rejection so selfheal defers
+                        # resurrection. Without this marker, the next selfheal scan
+                        # sees the orphan manifest, re-triggers the stage, hits the
+                        # same guard rejection, restores the same checkpoint — looping
+                        # forever and burning LLM cycles.
+                        try:
+                            from prep.services.pipeline.recovery import record_guard_rejection
+                            record_guard_rejection(idx_dir, stage.value, reason)
+                        except Exception:
+                            logger.debug("record_guard_rejection failed (non-fatal)", exc_info=True)
                         return True
 
             logger.critical(

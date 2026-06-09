@@ -319,6 +319,21 @@ class AutoRebuildWatcher:
             except Exception:
                 logger.debug("on_files_changed callback failed", exc_info=True)
 
+        # 2026-06-08 P5: clear guard-rejection markers when real file
+        # activity arrives. A new file change is the signal that the
+        # workload has actually changed; the previously-rejected stage
+        # output may now be different. Without this clear, the selfheal
+        # defer (P5) would stay in effect until the 30-min TTL even after
+        # the user fixed the issue.
+        if paths:
+            try:
+                from prep.services.pipeline.recovery import clear_guard_rejection
+                from prep.services.pipeline.stages import DEEP_ENRICHMENT_STAGES
+                for s in DEEP_ENRICHMENT_STAGES:
+                    clear_guard_rejection(self.index_dir, s.value)
+            except Exception:
+                pass  # Non-fatal — selfheal will still eventually proceed via TTL.
+
         if self._is_building():
             with self._lock:
                 self._pending_paths.update(paths)
