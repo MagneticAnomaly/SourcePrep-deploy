@@ -328,9 +328,20 @@ class AutoRebuildWatcher:
         if paths:
             try:
                 from prep.services.pipeline.recovery import clear_guard_rejection
-                from prep.services.pipeline.stages import DEEP_ENRICHMENT_STAGES
-                for s in DEEP_ENRICHMENT_STAGES:
-                    clear_guard_rejection(self.index_dir, s.value)
+                from prep.services.pipeline.stages import (
+                    DEEP_ENRICHMENT_STAGES,
+                    FAST_SYNC_STAGES,
+                    FINALIZE_STAGES,
+                )
+                # 2026-06-08: clear markers for every stage group, not just deep
+                # enrichment. record_guard_rejection fires from the orchestrator's
+                # checkpoint-restore branch for ANY stage; restricting the clear
+                # loop to DEEP_ENRICHMENT_STAGES left fast-sync (validation) and
+                # finalize (concepts, audit, antibodies) markers stuck for the
+                # full 30-min TTL even after the user fixed the underlying issue.
+                for stage_group in (FAST_SYNC_STAGES, DEEP_ENRICHMENT_STAGES, FINALIZE_STAGES):
+                    for s in stage_group:
+                        clear_guard_rejection(self.index_dir, s.value)
             except Exception:
                 pass  # Non-fatal — selfheal will still eventually proceed via TTL.
 
