@@ -288,6 +288,12 @@ The current clustering algorithm (Pass 3) groups files by primary `domain_tag` t
 3. For each community, compute domain tags from member files' epistemic entries
 4. Name the cluster using the most common domain tag
 
+> **2026-06-10 update (Phase 144):** Leiden was replaced with Louvain
+> via `networkx` (BSD-3-Clause) so the project can ship under Apache 2.0.
+> See `docs/Phase144_LegalPreLaunch/PRE_LAUNCH_BLOCKERS.md` blocker #1
+> and `docs/superpowers/specs/2026-06-08-gpl-dependency-replacement-design.md`
+> for rationale.
+
 **Implementation**: Use `igraph` (Python, C backend) or `grappolo` (Rust). ~150 LOC to integrate.
 
 **Impact**: HIGH — directly fixes the mega-module problem by finding natural community boundaries.

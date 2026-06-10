@@ -583,7 +583,7 @@ def _split_by_secondary_tag(
     return list(groups.values())
 
 
-# ── Leiden-Based Clustering (CL-1, CL-3, CL-4, CL-5) ───────────────
+# ── Louvain-Based Clustering (CL-1, CL-3, CL-4, CL-5) ──────────────
 
 # CL-5: Architecture layer classification patterns
 _TEST_PATTERNS = {"test", "tests", "spec", "specs", "__tests__", "__test__", "e2e", "integration"}
@@ -681,7 +681,7 @@ def build_clusters_leiden(
     for nid in file_nodes:
         layer_groups[layer_map[nid]].append(nid)
 
-    # Run Leiden per layer
+    # Run Louvain per layer
     all_clusters: List[Cluster] = []
     cluster_idx = 0
 
@@ -841,7 +841,7 @@ def build_clusters_leiden(
     split = _split_large_clusters(merged, adjacency, epistemic_entries, max_size)
 
     logger.info(
-        "CL-1: Leiden clustering produced %d clusters from %d files (%d layers)",
+        "CL-1: Louvain clustering produced %d clusters from %d files (%d layers)",
         len(split), total_files, len(layer_groups),
     )
 
@@ -872,14 +872,15 @@ def build_clusters_structural(
     """LLM-free clustering using only edge structure + directory naming.
 
     Usable before epistemic enrichment completes. Requires no domain tags.
-    Uses Leiden if available, otherwise connected-components.
+    Uses Louvain via networkx (BSD-3-Clause); falls back to connected
+    components if the partition step raises.
 
     Args:
         file_paths: List of repo-relative file paths.
         edges: Trace edges (dicts with source, target, kind, metadata).
         min_cluster_size: Merge clusters smaller than this.
         max_cluster_abs: Maximum cluster size before splitting.
-        resolution: Leiden resolution parameter (lower = larger clusters).
+        resolution: Louvain resolution parameter (lower = larger clusters).
 
     Returns:
         List of Cluster objects with directory-based names.
