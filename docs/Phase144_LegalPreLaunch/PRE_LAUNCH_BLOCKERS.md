@@ -4,9 +4,9 @@
 > These items present direct legal, security, or acquisition risks if the repository goes public before they are addressed.
 
 ## 1. GPL Dependency Replacement (Critical Legal Blocker)
-- **Status:** [ ] Open
-- **Risk:** The Python backend currently relies on `igraph` (GPL) and `leidenalg` (GPL-3.0). GPL is "viral." Publishing SourcePrep under Apache 2.0 while importing GPL libraries violates the GPL and could force the entire project to be re-licensed as GPL, severely harming enterprise adoption and acquisition potential.
-- **Action Required:** Replace `igraph` and `leidenalg` (used for community detection in the graph) with Apache/MIT-compatible alternatives. `networkx` or a pure-Python Louvain implementation are recommended replacements.
+- **Status:** [x] Resolved 2026-06-10
+- **Risk:** The Python backend used `igraph` (GPL) and `leidenalg` (GPL-3.0). GPL is "viral." Publishing SourcePrep under Apache 2.0 while importing GPL libraries would have violated the GPL and could have forced the entire project to be re-licensed as GPL.
+- **Resolution:** Replaced Leiden community detection (`igraph` + `leidenalg`) with Louvain via `networkx` (BSD-3-Clause). Changes scoped to `src/prep/core/cluster.py`. `networkx>=3.0` added as a declared dependency in `pyproject.toml`. Both GPL libraries uninstalled from `.venv`. Regression guard added at `tests/test_no_gpl_deps.py` to prevent reintroduction. See `docs/superpowers/specs/2026-06-08-gpl-dependency-replacement-design.md` and `docs/superpowers/plans/2026-06-10-gpl-dependency-replacement.md`.
 
 ## 2. Git History Scrubbing (Critical Security Blocker)
 - **Status:** [ ] Open
