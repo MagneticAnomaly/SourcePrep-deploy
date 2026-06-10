@@ -644,15 +644,13 @@ def build_clusters_leiden(
     tag_weight: float = 0.4,
     edge_weight: float = 0.6,
 ) -> List[Cluster]:
-    """Leiden-based clustering with multi-tag affinity and structural priors.
+    """Louvain-based clustering with multi-tag affinity and structural priors.
 
     Integrates:
-    - CL-1: Leiden algorithm for community detection
+    - CL-1: Louvain algorithm for community detection (was Leiden pre-2026-06-10; see module docstring)
     - CL-3: Multi-tag Jaccard affinity as edge weights
     - CL-4: Directory distance penalty
     - CL-5: Architecture layer separation (test/impl/config/docs)
-
-    Falls back to build_clusters() if igraph/leidenalg unavailable.
     """
     import math
 
