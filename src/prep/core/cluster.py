@@ -10,6 +10,12 @@ understanding — answering questions like "what is the ad-framework subsystem?"
 without needing to enumerate individual files.
 
 See docs/Phase22_trace-epistomology/PATH_FORWARD.md Sprint 5.
+
+Community detection uses Louvain via ``networkx`` (BSD-3-Clause).
+Earlier versions used Leiden via ``igraph`` + ``leidenalg`` (GPL);
+the swap was made on 2026-06-10 to keep the codebase Apache-2.0
+publishable. See docs/superpowers/specs/2026-06-08-gpl-dependency-replacement-design.md
+for the rationale and tradeoff.
 """
 from __future__ import annotations
 
@@ -625,16 +631,6 @@ def _tag_jaccard(tags_a: List[str], tags_b: List[str]) -> float:
     inter = len(set_a & set_b)
     union = len(set_a | set_b)
     return inter / union if union > 0 else 0.0
-
-
-def _leiden_available() -> bool:
-    """Check if igraph + leidenalg are installed."""
-    try:
-        import igraph  # noqa: F401
-        import leidenalg  # noqa: F401
-        return True
-    except ImportError:
-        return False
 
 
 def build_clusters_leiden(
