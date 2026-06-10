@@ -973,25 +973,24 @@ def build_clusters_structural(
                 cluster_idx += 1
             continue
 
-        # Try Leiden, fall back to connected components
+        # Try Louvain (networkx, BSD), fall back to connected components.
         communities: List[List[int]] = []
-        if _leiden_available():
-            import igraph as ig
-            import leidenalg
-            g = ig.Graph(n=ln, directed=False)
-            sorted_ep = sorted(edge_pairs.keys())
-            weights = [edge_pairs[ep] for ep in sorted_ep]
-            g.add_edges(sorted_ep)
-            g.es["weight"] = weights
-            try:
-                partition = leidenalg.find_partition(
-                    g, leidenalg.RBConfigurationVertexPartition,
-                    weights="weight", resolution_parameter=resolution,
-                    n_iterations=-1,
-                )
-                communities = list(partition)
-            except Exception:
-                communities = []
+        g = nx.Graph()
+        g.add_nodes_from(range(ln))
+        sorted_ep = sorted(edge_pairs.keys())
+        weights = [edge_pairs[ep] for ep in sorted_ep]
+        g.add_weighted_edges_from(
+            [(i, j, w) for (i, j), w in zip(sorted_ep, weights)]
+        )
+        try:
+            partition = nx.algorithms.community.louvain_communities(
+                g, weight="weight", resolution=resolution, seed=42,
+            )
+            # louvain_communities returns list[set[int]]; convert
+            # each set to a sorted list for stable iteration.
+            communities = [sorted(c) for c in partition]
+        except Exception:
+            communities = []
 
         if not communities:
             # Fallback: connected components
