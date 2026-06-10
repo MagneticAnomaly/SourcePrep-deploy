@@ -31,6 +31,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
+import networkx as nx
+
 from prep.core.context_config import PipelineTask, compute_optimal_settings
 from prep.core.llm_client import TASK_MAX_CHARS, batched_max_chars
 from prep.services.pipeline.holds import (
@@ -658,15 +660,9 @@ def build_clusters_leiden(
     """
     import math
 
-    if not _leiden_available():
-        logger.info("CL-1: igraph/leidenalg not available, falling back to tag-based clustering")
-        return build_clusters(
-            epistemic_entries, edges, min_cluster_size,
-            max_cluster_fraction, max_cluster_abs,
-        )
-
-    import igraph as ig
-    import leidenalg
+    # Louvain via networkx (BSD-3-Clause). Previously Leiden via
+    # igraph+leidenalg (GPL); swapped 2026-06-10 to clear Phase 144
+    # blocker #1. See docs/superpowers/specs/2026-06-08-gpl-dependency-replacement-design.md
 
     # Collect file nodes
     file_nodes = [
@@ -758,13 +754,16 @@ def build_clusters_leiden(
                     if affinity > 0.05:
                         edge_pairs[(a_idx, b_idx)] = affinity
 
-        # Build igraph Graph
-        g = ig.Graph(n=n, directed=False)
+        # Build networkx Graph. add_nodes_from preserves isolated
+        # nodes (igraph.Graph(n=n) did this implicitly).
+        g = nx.Graph()
+        g.add_nodes_from(range(n))
         if edge_pairs:
             sorted_edges = sorted(edge_pairs.keys())
             weights = [edge_pairs[e] for e in sorted_edges]
-            g.add_edges(sorted_edges)
-            g.es["weight"] = weights
+            g.add_weighted_edges_from(
+                [(i, j, w) for (i, j), w in zip(sorted_edges, weights)]
+            )
         else:
             # No edges — fall back to connected components (each node is its own cluster)
             for nid in layer_nodes:
@@ -779,17 +778,18 @@ def build_clusters_leiden(
                 cluster_idx += 1
             continue
 
-        # Run Leiden
+        # Run Louvain. Deterministic via seed=42; networkx Louvain
+        # runs iterative refinement until convergence (no equivalent
+        # of leidenalg's n_iterations=-1 is needed).
         try:
-            partition = leidenalg.find_partition(
+            partition = nx.algorithms.community.louvain_communities(
                 g,
-                leidenalg.RBConfigurationVertexPartition,
-                weights="weight",
-                resolution_parameter=resolution,
-                n_iterations=-1,
+                weight="weight",
+                resolution=resolution,
+                seed=42,
             )
         except Exception as e:
-            logger.warning("CL-1: Leiden failed for layer %s: %s, falling back", layer, e)
+            logger.warning("CL-1: Louvain failed for layer %s: %s, falling back", layer, e)
             # Fallback: each node is its own cluster
             for nid in layer_nodes:
                 entry = epistemic_entries.get(nid)
