@@ -154,15 +154,17 @@ def _hold_check_reaches_call(func: ast.AST, call: ast.Call) -> bool:
 
 
 F2_SITES: list[tuple[object, int]] = [
-    # Line numbers re-anchored 2026-06-01 after merging phase-127-129-hygiene
-    # into main: Phase 141 (compute_swarm_wall_budget, IntegrityGuard) and
-    # the Lane-A atlas-swarm self._save(root_doc) fix shifted these.
+    # Line numbers re-anchored 2026-06-10 after Phase 144 Leiden→Louvain
+    # swap removed the _leiden_available() shim + igraph/leidenalg imports
+    # from cluster.py, shifting all sites by -7. Earlier anchor 2026-06-01
+    # after Phase 141 (compute_swarm_wall_budget, IntegrityGuard) and the
+    # Lane-A atlas-swarm self._save(root_doc) fix.
     # cluster.py — ClusterSynthesizer.  Five direct dispatch sites.
-    (cluster_mod, 1313),
-    (cluster_mod, 1456),
-    (cluster_mod, 1491),
-    (cluster_mod, 1529),
-    (cluster_mod, 1885),
+    (cluster_mod, 1306),
+    (cluster_mod, 1449),
+    (cluster_mod, 1484),
+    (cluster_mod, 1522),
+    (cluster_mod, 1878),
     # atlas/generator.py — CodebaseAtlas.  Four direct dispatch sites.
     (atlas_generator_mod, 257),
     (atlas_generator_mod, 620),
