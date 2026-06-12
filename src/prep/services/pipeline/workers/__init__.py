@@ -135,6 +135,12 @@ class WorkerFactory:
 
     # Class-level store for changed paths from coverage gap (set by PipelineOrchestrator)
     _changed_paths: Dict[str, set] = {}
+    # Class-level store for force_from_start rebuilds (set by PipelineOrchestrator).
+    # The structural worker passes it to TraceBuilder.build so the emitted
+    # changeset routes every file to `added` (workers re-process) instead of
+    # diffing against the prior manifest (everything `unchanged` — Rebuild
+    # silently did nothing — 2026-05-17 regression).
+    _force_from_start: set = set()
 
     @staticmethod
     def create_worker(
@@ -151,7 +157,11 @@ class WorkerFactory:
         if stage == StageId.STRUCTURAL:
             # Pop changed_paths if available (incremental rebuild)
             changed = WorkerFactory._changed_paths.pop(project_id, None)
-            base_worker = WorkerFactory._trace_worker(project_id, changed_paths=changed)
+            force = project_id in WorkerFactory._force_from_start
+            WorkerFactory._force_from_start.discard(project_id)
+            base_worker = WorkerFactory._trace_worker(
+                project_id, changed_paths=changed, force_from_start=force,
+            )
         elif stage == StageId.INFERRED_EDGES:
             base_worker = WorkerFactory._inferred_edges_worker(project_id)
         elif stage == StageId.CATALOGUE:
@@ -332,7 +342,11 @@ class WorkerFactory:
     # ── Stage Workers ──────────────────────────────────────────
 
     @staticmethod
-    def _trace_worker(project_id: str, changed_paths: Optional[set] = None):
+    def _trace_worker(
+        project_id: str,
+        changed_paths: Optional[set] = None,
+        force_from_start: bool = False,
+    ):
         def worker(slot: BuildSlot, progress_cb: Callable) -> Dict[str, Any]:
             from prep.services.build_manager import build_manager
             from prep.core.trace import TraceBuilder, TraceIndex
@@ -362,7 +376,11 @@ class WorkerFactory:
             else:
                 logger.info("[%s/Structural] Starting trace build", project.name)
             _t0 = time.time()
-            builder.build(progress_callback=log_cb, changed_paths=changed_paths)
+            builder.build(
+                progress_callback=log_cb,
+                changed_paths=changed_paths,
+                force_from_start=force_from_start,
+            )
 
             trace_idx = TraceIndex(idx_dir)
             trace_idx.load()

@@ -189,6 +189,77 @@ class TestFastSync:
             time.sleep(0.5)
 
 
+class TestFastSyncDownstreamPristine:
+    """Regression: Fast Sync must update when downstream is pristine.
+
+    Reproduces the user-reported bug where Manual deep_enrichment +
+    new untraced files caused the Update button to return False with a
+    misleading PIPELINE_UP_TO_DATE toast.
+
+    Root cause: ``run_fast_sync`` treated ``deep_resume == 0`` (never
+    started, no manifests, no selfheal-stub risk) the same as
+    ``0 < deep_resume < total`` (partial state, real stub risk from
+    Phase 98). The pristine corner must be allowed through so Manual
+    deep users can incrementally index new files.
+    """
+
+    def test_fast_sync_proceeds_when_downstream_never_started(self, pipeline):
+        """All fast_sync stages complete on disk + zero deep/finalize
+        manifests + new untraced files → run_fast_sync must start."""
+        def fake_detect_resume(pid, stages, skip_mtime_cascade=False, pfl_fn=None):
+            if stages is FAST_SYNC_STAGES:
+                return len(FAST_SYNC_STAGES)  # all complete
+            return 0  # deep + finalize never started (pristine)
+
+        fake_gap = {
+            "needs_rebuild": True,
+            "stale": 0,
+            "untraced": 21,
+            "coverage_pct": 74.7,
+            "total_nodes": 83,
+            "changed_paths": {f"Packages/Foo/file{i}.swift" for i in range(21)},
+        }
+
+        with patch(
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            return_value=_instant_worker,
+        ), patch(
+            "prep.services.pipeline.resume.ResumeStrategy.detect_resume_point",
+            side_effect=fake_detect_resume,
+        ), patch(
+            "prep.services.pipeline.resume.ResumeStrategy.check_coverage_gap",
+            return_value=fake_gap,
+        ):
+            started = pipeline.run_fast_sync("proj-pristine-downstream")
+            assert started is True, (
+                "Fast Sync must start when downstream is pristine and "
+                "new untraced files exist (Manual deep mode workflow)"
+            )
+
+    def test_fast_sync_still_blocks_when_downstream_partial(self, pipeline):
+        """Partial deep manifests (mid-run, stub-risk per Phase 98) must
+        still block fast_sync from racing on top."""
+        def fake_detect_resume(pid, stages, skip_mtime_cascade=False, pfl_fn=None):
+            if stages is FAST_SYNC_STAGES:
+                return len(FAST_SYNC_STAGES)  # all complete
+            if stages is DEEP_ENRICHMENT_STAGES:
+                return 2  # PARTIAL — 2 of 5 stages done, real stub risk
+            return 0
+
+        with patch(
+            "prep.services.pipeline.orchestrator.WorkerFactory.create_worker",
+            return_value=_instant_worker,
+        ), patch(
+            "prep.services.pipeline.resume.ResumeStrategy.detect_resume_point",
+            side_effect=fake_detect_resume,
+        ):
+            started = pipeline.run_fast_sync("proj-partial-deep")
+            assert started is False, (
+                "Fast Sync must NOT start on top of partial deep manifests "
+                "(Phase 98 stub-corruption protection)"
+            )
+
+
 class TestDeepEnrichment:
     """Test deep enrichment group (stages 5-8)."""
 

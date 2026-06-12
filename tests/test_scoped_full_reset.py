@@ -478,6 +478,98 @@ def test_finalize_reset_preserves_enrichment_outputs(client, tmp_path):
     assert not (idx_dir / "rules_manifest.json").exists()
 
 
+def test_all_data_files_covers_every_stage_output():
+    """Parity test (2026-05-17). The full-reset wipe iterates
+    ALL_DATA_FILES (TRACE_FILES + INDEX_FILES + RECOVERY_MARKERS); if a
+    new stage output is added to STAGE_OUTPUTS but not to ALL_DATA_FILES,
+    that file silently survives /index/destroy and confuses coverage /
+    selfheal / next-run resume on the freshly-"reset" project.
+
+    Phase 134 (changeset.json) + Phase 124 T2 (atlas_markdown_links) +
+    the catalogue + swarm-synthesis artifacts all leaked through this
+    exact gap. This test pins parity so the next leak fails CI here
+    instead of in dogfooding."""
+    from prep.api.routers.trace_routes.shared import ALL_DATA_FILES
+    from prep.services.pipeline.stages import STAGE_OUTPUTS
+
+    all_stage_files: set[str] = set()
+    for spec in STAGE_OUTPUTS.values():
+        all_stage_files |= spec.files
+
+    # KnowledgeIndex outputs live in INDEX_FILES already (the
+    # double-listing is intentional: same files used in two contexts).
+    # Both lists feed into ALL_DATA_FILES so the union below covers them.
+    missing = all_stage_files - set(ALL_DATA_FILES)
+    assert not missing, (
+        "STAGE_OUTPUTS contains file(s) not listed in ALL_DATA_FILES — "
+        "these would survive /index/destroy and confuse the next run. "
+        "Add them to TRACE_FILES (or INDEX_FILES for embedding outputs) "
+        f"in src/prep/api/routers/trace_routes/shared.py. Missing: {sorted(missing)}"
+    )
+
+
+def test_index_destroy_wipes_f67_pending_backups(client, tmp_path):
+    """2026-05-17 regression. F-67 (orchestrator.py:2399) renames stale
+    manifests to <name>.f67_pending at stage start so resume detection
+    sees absence after a mid-stage crash. On a full reset the rebuild
+    these came from is discarded — but the backups previously survived
+    /index/destroy, letting a future selfheal pass restore them and
+    making the next run resume from the wrong stage."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    pid = _add_embedded_project(client, repo_root)
+    idx_dir = _idx_dir(client, pid)
+    idx_dir.mkdir(parents=True, exist_ok=True)
+
+    # Seed F-67 backups (simulating an interrupted rebuild).
+    (idx_dir / "trace_manifest.json.f67_pending").write_text("{}")
+    (idx_dir / "trace_epistemic_manifest.json.f67_pending").write_text("{}")
+    (idx_dir / "knowledge_manifest.json.f67_pending").write_text("{}")
+
+    res = client.delete(f"/projects/{pid}/index/destroy")
+    assert res.status_code in (200, 207), res.text
+
+    leftover = list(idx_dir.glob("*.f67_pending")) if idx_dir.is_dir() else []
+    assert not leftover, (
+        f"/index/destroy must wipe F-67 pending-rename backups so a "
+        f"future selfheal cannot resurrect them. Leftover: "
+        f"{[p.name for p in leftover]}"
+    )
+
+
+def test_index_destroy_wipes_changeset(client, tmp_path):
+    """2026-05-17 regression. Phase 134 introduced changeset.json (the
+    inter-stage truth signal) but never added it to ALL_DATA_FILES,
+    so /index/destroy left it behind. Coverage at coverage.py:101 then
+    re-read the stale changeset and classified every file as `stale`
+    (because the last rebuild had filled cs.modified) instead of
+    `untraced` — the Graph Scope panel showed "74 stale" on a
+    freshly-wiped project. After this fix, full reset wipes the
+    changeset so coverage falls into the cs-is-None branch and files
+    appear as untraced, matching the user's mental model: stale = was
+    indexed AND changed; untraced = was never indexed (or wiped)."""
+    repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    pid = _add_embedded_project(client, repo_root)
+    idx_dir = _idx_dir(client, pid)
+    idx_dir.mkdir(parents=True, exist_ok=True)
+
+    _seed_full_project(idx_dir)
+    (idx_dir / "changeset.json").write_text(
+        '{"added":[],"modified":["main.py"],"deleted":[],"unchanged":[],'
+        '"run_id":"r1","base_run_id":null}'
+    )
+
+    res = client.delete(f"/projects/{pid}/index/destroy")
+    assert res.status_code in (200, 207), res.text
+
+    assert not (idx_dir / "changeset.json").exists(), (
+        "/index/destroy must wipe changeset.json so coverage re-classifies "
+        "files as untraced. Otherwise post-reset Graph Scope falsely shows "
+        "every file as stale."
+    )
+
+
 def test_enrichment_reset_wipes_audit_dir(client, tmp_path):
     """Regression: audit/spaghetti.json was surviving despite audit/ being
     in the denylist. Allowlist with explicit audit/ exclusion fixes."""

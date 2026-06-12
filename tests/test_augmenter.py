@@ -265,7 +265,13 @@ class TestTraceAugmenter:
     def test_run_writes_augmented_file(self, tmp_index, tmp_repo):
         _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
         client = FakeLLMClient()
-        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+        # Batched mode requires an explicit batch_profile; without it
+        # `use_batching=False` at augmenter.py:1818 routes to the legacy
+        # non-batched paths that don't hit the narrative branch at all.
+        from prep.core.batch_profiles import PROFILE_CLOUD_SMALL
+        aug = TraceAugmenter(
+            tmp_index, tmp_repo, client, batch_profile=PROFILE_CLOUD_SMALL,
+        )
         aug.run()
         assert (tmp_index / "trace_augmented.jsonl").exists()
         assert (tmp_index / "trace_augment_manifest.json").exists()
@@ -362,7 +368,13 @@ class TestTraceAugmenter:
     def test_status_after_run(self, tmp_index, tmp_repo):
         _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
         client = FakeLLMClient()
-        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+        # Batched mode requires an explicit batch_profile; without it
+        # `use_batching=False` at augmenter.py:1818 routes to the legacy
+        # non-batched paths that don't hit the narrative branch at all.
+        from prep.core.batch_profiles import PROFILE_CLOUD_SMALL
+        aug = TraceAugmenter(
+            tmp_index, tmp_repo, client, batch_profile=PROFILE_CLOUD_SMALL,
+        )
         aug.run()
         s = aug.status()
         assert s["enabled"] is True
@@ -391,6 +403,134 @@ class TestTraceAugmenter:
         entries = aug.load_existing()
         for entry in entries.values():
             assert entry.role in VALID_ROLES
+
+
+class TestNarrativeConcurrency:
+    """2026-05-17 regression. Narrative-file augmentation used to be a
+    plain `for item in narrative_items:` loop (1x sequential) while the
+    structured-code and structured-docs paths fan out at `_concurrency`
+    (10x typical). On SourcePrep this stage is 7000+ narrative files
+    and the sequential loop dominates Fast Catalogue's wall time. The
+    fix mirrors the code-batch ThreadPoolExecutor pattern."""
+
+    def _make_narrative_repo(self, tmp_repo: Path, count: int) -> List[Dict]:
+        nodes = []
+        for i in range(count):
+            rel = f"notes/note_{i:02d}.md"
+            (tmp_repo / "notes").mkdir(exist_ok=True)
+            # Pure prose (no frontmatter, no fenced code) — classified
+            # as UNSTRUCTURED_NARRATIVE by classify_nodes.
+            (tmp_repo / rel).write_text(
+                f"# Note {i}\n\nThis is a paragraph of plain prose about "
+                f"topic number {i}. It contains no code blocks and no "
+                f"frontmatter, so the classifier routes it to the "
+                f"narrative branch.\n"
+            )
+            nodes.append({
+                "id": f"node-narr-{i}",
+                "kind": "file",
+                "name": f"note_{i:02d}.md",
+                "file_path": rel,
+                "span": None,
+                "language": "markdown",
+                "metadata": {},
+            })
+        return nodes
+
+    def test_narrative_path_uses_thread_pool_when_concurrency_gt_1(
+        self, tmp_index, tmp_repo, monkeypatch,
+    ):
+        """When `_concurrency > 1` and `narrative_items > 1`, the
+        narrative branch must dispatch via ThreadPoolExecutor. Before
+        the fix this assertion failed because the branch was a plain
+        for-loop."""
+        from concurrent.futures import ThreadPoolExecutor as _RealTPE
+
+        nodes = self._make_narrative_repo(tmp_repo, count=4)
+        _write_trace(tmp_index, nodes, [])
+
+        # Pin batch concurrency at 10 — bypass scheduler probing.
+        # The augmenter imports get_batch_concurrency inside the run()
+        # function via `from .batch_profiles import get_batch_concurrency`,
+        # so the patch target is the source module.
+        monkeypatch.setattr(
+            "prep.core.batch_profiles.get_batch_concurrency",
+            lambda provider, **kw: 10,
+        )
+
+        instantiations: List[int] = []
+
+        class _SpyTPE(_RealTPE):
+            def __init__(self, max_workers=None, *a, **kw):
+                instantiations.append(max_workers or 0)
+                super().__init__(max_workers=max_workers, *a, **kw)
+
+        monkeypatch.setattr("prep.core.augmenter.ThreadPoolExecutor", _SpyTPE)
+
+        client = FakeLLMClient()
+        # Batched mode requires an explicit batch_profile; without it
+        # `use_batching=False` at augmenter.py:1818 routes to the legacy
+        # non-batched paths that don't hit the narrative branch at all.
+        from prep.core.batch_profiles import PROFILE_CLOUD_SMALL
+        aug = TraceAugmenter(
+            tmp_index, tmp_repo, client, batch_profile=PROFILE_CLOUD_SMALL,
+        )
+        aug.run()
+
+        # The narrative path must have spawned a ThreadPoolExecutor with
+        # max_workers == min(_concurrency, len(narrative_items)) == 4.
+        # (Symbol and code/doc paths may also spawn pools — we just need
+        # to confirm at least one pool was sized for the narrative items.)
+        assert 4 in instantiations, (
+            "narrative branch must use ThreadPoolExecutor when "
+            f"narrative_items > 1 and _concurrency > 1; saw max_workers "
+            f"instantiations={instantiations}"
+        )
+
+    def test_narrative_path_stays_sequential_for_single_item(
+        self, tmp_index, tmp_repo, monkeypatch,
+    ):
+        """Single narrative item should NOT spawn a ThreadPoolExecutor
+        for the narrative branch (overhead avoidance — matches the
+        code-batch fast-path at augmenter.py:1402)."""
+        from concurrent.futures import ThreadPoolExecutor as _RealTPE
+
+        nodes = self._make_narrative_repo(tmp_repo, count=1)
+        _write_trace(tmp_index, nodes, [])
+
+        # The augmenter imports get_batch_concurrency inside the run()
+        # function via `from .batch_profiles import get_batch_concurrency`,
+        # so the patch target is the source module.
+        monkeypatch.setattr(
+            "prep.core.batch_profiles.get_batch_concurrency",
+            lambda provider, **kw: 10,
+        )
+
+        narrative_sized_pools: List[int] = []
+
+        class _SpyTPE(_RealTPE):
+            def __init__(self, max_workers=None, *a, **kw):
+                # We only care about the narrative-sized pool here.
+                if max_workers == 1:
+                    narrative_sized_pools.append(max_workers)
+                super().__init__(max_workers=max_workers, *a, **kw)
+
+        monkeypatch.setattr("prep.core.augmenter.ThreadPoolExecutor", _SpyTPE)
+
+        client = FakeLLMClient()
+        # Batched mode requires an explicit batch_profile; without it
+        # `use_batching=False` at augmenter.py:1818 routes to the legacy
+        # non-batched paths that don't hit the narrative branch at all.
+        from prep.core.batch_profiles import PROFILE_CLOUD_SMALL
+        aug = TraceAugmenter(
+            tmp_index, tmp_repo, client, batch_profile=PROFILE_CLOUD_SMALL,
+        )
+        aug.run()
+
+        assert not narrative_sized_pools, (
+            "single narrative item must take the sequential fast-path, "
+            f"not spawn a 1-worker pool; saw {narrative_sized_pools}"
+        )
 
 
 # ── Tests: DeepAnalysisOrchestrator ───────────────────────────

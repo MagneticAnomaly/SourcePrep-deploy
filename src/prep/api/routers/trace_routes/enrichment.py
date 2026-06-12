@@ -1544,14 +1544,21 @@ def index_destroy_project(project_id: str, force: bool = False) -> Dict[str, Any
             except Exception as e:
                 errors.append(f"{subdir_name}/ (retry): {e}")
 
-    # 3. Clean up orphaned temp files (.tmp*)
+    # 3. Clean up orphaned temp files (.tmp*) and F-67 pending-rename
+    # manifest backups (*.f67_pending). The backups are created by the
+    # orchestrator at stage start (F-67 manifest-invalidation block in
+    # orchestrator.py) and are named per-manifest, so they can't live in
+    # the static ALL_DATA_FILES list. If
+    # they survive a full reset, a future selfheal pass can restore them
+    # and the next run resumes from the wrong stage.
     if idx_dir.is_dir():
-        for tmp_file in idx_dir.glob("*.tmp*"):
-            try:
-                tmp_file.unlink()
-                deleted.append(tmp_file.name)
-            except Exception as e:
-                errors.append(f"{tmp_file.name}: {e}")
+        for pattern in ("*.tmp*", "*.f67_pending"):
+            for tmp_file in idx_dir.glob(pattern):
+                try:
+                    tmp_file.unlink()
+                    deleted.append(tmp_file.name)
+                except Exception as e:
+                    errors.append(f"{tmp_file.name}: {e}")
 
     # 4. Clear pipeline orchestrator state machines
     try:

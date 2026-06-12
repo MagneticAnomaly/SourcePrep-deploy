@@ -1581,9 +1581,42 @@ class TraceAugmenter(HoldAwareMixin, Worker):
                     stage_name="narrative_file",
                 )
 
-            # Process narrative files one at a time (batch_size=1)
-            for item in narrative_items:
-                results_list = _call_narrative_batch([item])
+            # Process narrative files at batch_size=1 but dispatch them
+            # concurrently (2026-05-17 regression fix). This used to be a
+            # plain sequential loop while the code/doc paths fanned out at
+            # _concurrency — on narrative-heavy repos (SourcePrep: 7000+
+            # files) the 1x loop dominated Fast Catalogue wall time.
+            # Mirrors _iter_code_batch_results above.
+            def _iter_narrative_results():
+                if _concurrency <= 1 or len(narrative_items) <= 1:
+                    # Sequential fast-path: no ThreadPoolExecutor needed.
+                    for item in narrative_items:
+                        try:
+                            yield item, _call_narrative_batch([item])
+                        except HoldPausedError:
+                            # Phase 127: bubble up so run() can checkpoint.
+                            raise
+                        except Exception as e:
+                            logger.warning("Narrative file failed: %s", e)
+                            yield item, [None]
+                else:
+                    with ThreadPoolExecutor(max_workers=min(_concurrency, len(narrative_items))) as pool:
+                        future_to_item = {
+                            pool.submit(_call_narrative_batch, [item]): item
+                            for item in narrative_items
+                        }
+                        for future in as_completed(future_to_item):
+                            item = future_to_item[future]
+                            try:
+                                yield item, future.result()
+                            except HoldPausedError:
+                                # Phase 127: bubble up so run() can checkpoint.
+                                raise
+                            except Exception as e:
+                                logger.warning("Narrative file future failed: %s", e)
+                                yield item, [None]
+
+            for item, results_list in _iter_narrative_results():
                 node = item["_node"]
                 nid = item["_node_id"]
                 fp = item["file_path"]

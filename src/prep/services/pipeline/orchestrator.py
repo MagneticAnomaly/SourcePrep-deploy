@@ -641,16 +641,30 @@ class PipelineOrchestrator:
             from prep.services.pipeline.stages import FINALIZE_STAGES
 
             # (a) Manifest completeness for downstream groups.
+            #
+            # The Phase 98 concern this guard protects against is selfheal
+            # manufacturing stub manifests from *partial* on-disk data —
+            # downstream stages then consume the stubs as real outputs.
+            # That risk only exists when a group has SOME manifests but
+            # not all (0 < resume < total). When a group has zero
+            # manifests (resume == 0, "never started"), there is no
+            # partial data for selfheal to extrapolate from, so no stub
+            # corruption is possible — fast_sync is safe to proceed.
+            #
+            # The Manual-deep / Manual-finalize workflow (user explicitly
+            # controls when downstream runs) makes the all-zero case
+            # common; treating it as "incomplete" caused the watcher
+            # auto-trigger and the dashboard Update button to silently
+            # skip with a misleading "no new files" toast.
             deep_resume = self._detect_resume_point(
                 project_id, DEEP_ENRICHMENT_STAGES, skip_mtime_cascade=True,
             )
             finalize_resume = self._detect_resume_point(
                 project_id, FINALIZE_STAGES, skip_mtime_cascade=True,
             )
-            downstream_incomplete = (
-                deep_resume < len(DEEP_ENRICHMENT_STAGES)
-                or finalize_resume < len(FINALIZE_STAGES)
-            )
+            deep_partial = 0 < deep_resume < len(DEEP_ENRICHMENT_STAGES)
+            finalize_partial = 0 < finalize_resume < len(FINALIZE_STAGES)
+            downstream_partial = deep_partial or finalize_partial
 
             # (b) Active/paused downstream runs in memory. Hydration on
             # daemon restart should populate self._runs from disk; if a
@@ -664,9 +678,9 @@ class PipelineOrchestrator:
                         blocking_run = (blocking_group, other.state.value)
                         break
 
-            if downstream_incomplete or blocking_run is not None:
+            if downstream_partial or blocking_run is not None:
                 reason_parts = []
-                if downstream_incomplete:
+                if downstream_partial:
                     reason_parts.append(
                         f"deep={deep_resume}/{len(DEEP_ENRICHMENT_STAGES)}, "
                         f"finalize={finalize_resume}/{len(FINALIZE_STAGES)}"
@@ -677,7 +691,7 @@ class PipelineOrchestrator:
                     )
                 reason = "; ".join(reason_parts)
                 logger.info(
-                    "[%s] Skipping incremental fast_sync — pipeline incomplete or busy: %s. "
+                    "[%s] Skipping incremental fast_sync — downstream partial or busy: %s. "
                     "Run will be re-attempted after the downstream group settles.",
                     project_id, reason,
                 )
@@ -687,8 +701,10 @@ class PipelineOrchestrator:
                         "reason": reason,
                         "deep_resume": deep_resume,
                         "deep_total": len(DEEP_ENRICHMENT_STAGES),
+                        "deep_partial": deep_partial,
                         "finalize_resume": finalize_resume,
                         "finalize_total": len(FINALIZE_STAGES),
+                        "finalize_partial": finalize_partial,
                         "blocking_run": blocking_run,
                     })
                 return False
@@ -2477,6 +2493,13 @@ class PipelineOrchestrator:
         # Pass changed_paths to WorkerFactory for incremental structural rebuilds
         if stage == StageId.STRUCTURAL and run.project_id in self._changed_paths:
             WorkerFactory._changed_paths[run.project_id] = self._changed_paths.pop(run.project_id)
+
+        # Pass force_from_start to WorkerFactory so the structural worker
+        # emits an all-`added` changeset (Rebuild semantics) instead of
+        # diffing against the surviving manifest, which marked everything
+        # `unchanged` and made downstream workers skip the rebuild.
+        if stage == StageId.STRUCTURAL and run.project_id in self._force_from_start_runs:
+            WorkerFactory._force_from_start.add(run.project_id)
 
         worker = WorkerFactory.create_worker(run.project_id, stage)
         started = self._orchestrator.start(run.project_id, build_type, worker)

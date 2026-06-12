@@ -206,11 +206,12 @@ class TraceBuilder:
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
         changed_paths: Optional[Set[str]] = None,
+        force_from_start: bool = False,
     ) -> Dict[str, Any]:
         self.index_dir.mkdir(parents=True, exist_ok=True)
 
         if _ENGINE == "rust" and _rust_engine is not None:
-            return self._build_rust(progress_callback)
+            return self._build_rust(progress_callback, force_from_start=force_from_start)
 
         # Load .gitignore if requested
         if self.use_gitignore:
@@ -408,7 +409,10 @@ class TraceBuilder:
         # Phase 134: emit the changeset for downstream stages.
         import uuid as _uuid
         run_id = manifest.get("run_id") or f"run-{_uuid.uuid4().hex[:12]}"
-        self._emit_changeset(file_hashes, prior_manifest_for_changeset, run_id)
+        self._emit_changeset(
+            file_hashes, prior_manifest_for_changeset, run_id,
+            force_from_start=force_from_start,
+        )
 
         if progress_callback:
             progress_callback("trace_write", len(files), len(files))
@@ -418,6 +422,7 @@ class TraceBuilder:
     def _build_rust(
         self,
         progress_callback: Optional[Callable[[str, int, int], None]] = None,
+        force_from_start: bool = False,
     ) -> Dict[str, Any]:
         """Delegate trace build to the Rust engine via prep_engine."""
         import time
@@ -547,7 +552,10 @@ class TraceBuilder:
         # Phase 134: emit the changeset for downstream stages.
         import uuid as _uuid
         run_id = manifest.get("run_id") or f"run-{_uuid.uuid4().hex[:12]}"
-        self._emit_changeset(manifest.get("file_hashes") or {}, old_manifest, run_id)
+        self._emit_changeset(
+            manifest.get("file_hashes") or {}, old_manifest, run_id,
+            force_from_start=force_from_start,
+        )
 
         return manifest
 
@@ -728,17 +736,60 @@ class TraceBuilder:
                 pass
             raise
 
+    def _prior_paths_from_trace_augmented(self) -> frozenset:
+        """Case 1c rescue (2026-05-17): recover the prior file set from
+        trace_augmented.jsonl when both the structural manifest AND the
+        prior changeset are gone. The augmenter writes this file in a
+        different stage, so it routinely survives wipes that take out
+        the structural artifacts. File-level node ids are `file:<rel>`
+        (see stable_file_node_id in prep/core/ids.py)."""
+        aug_path = self.index_dir / "trace_augmented.jsonl"
+        if not aug_path.exists():
+            return frozenset()
+        paths: set[str] = set()
+        try:
+            with open(aug_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    node_id = str(entry.get("node_id") or "")
+                    if node_id.startswith("file:") and node_id[5:]:
+                        paths.add(node_id[5:])
+        except OSError:
+            return frozenset()
+        return frozenset(paths)
+
     def _emit_changeset(
         self,
         new_file_hashes: Dict[str, str],
         prior_manifest: Optional[Dict[str, Any]],
         run_id: str,
+        force_from_start: bool = False,
     ) -> None:
         """Phase 134: compute and write .sourceprep/changeset.json by
         diffing this build's file_hashes against the prior manifest.
 
-        Three cases:
-        - Case 1 (no prior manifest): added = everything, others empty
+        Cases:
+        - Force (force_from_start=True): added = everything on disk,
+          modified/unchanged empty. Files go in `added` NOT `modified`
+          because (a) workers consult should_process() which honors
+          both, but (b) compute_trace_coverage reads cs.modified as the
+          stale set — routing a rebuild through `modified` painted the
+          dashboard "everything stale" the moment the rebuild finished
+          (2026-05-17 SkyPath regression).
+        - Case 1a (no prior manifest, no prior changeset, no augmenter
+          output): genuine first build — added = everything
+        - Case 1b (manifest wiped/hash-less but prior changeset
+          survives): carry the previously-known files forward as
+          `unchanged` so downstream caches survive; only new-on-disk
+          files land in `added`, missing ones in `deleted`
+        - Case 1c (manifest AND changeset gone, trace_augmented.jsonl
+          survives): recover the prior file set from augmenter node_ids
         - Case 2 (prior manifest has matching hash_algo): real diff
         - Case 3 (prior manifest has mismatched/absent hash_algo):
           unchanged = {prior manifest paths still on disk},
@@ -752,29 +803,62 @@ class TraceBuilder:
 
         new_paths = frozenset(new_file_hashes.keys())
 
-        if prior_manifest is None:
-            cs = Changeset(
-                added=new_paths,
-                modified=frozenset(),
-                deleted=frozenset(),
-                unchanged=frozenset(),
-                run_id=run_id,
-                base_run_id=None,
-            )
-            write_changeset(self.index_dir, cs)
-            return
-
-        prior_hashes: Dict[str, str] = prior_manifest.get("file_hashes") or {}
+        prior_hashes: Dict[str, str] = (prior_manifest or {}).get("file_hashes") or {}
         prior_paths = frozenset(prior_hashes.keys())
-        prior_algo = prior_manifest.get("hash_algo")
         # Prefer run_id from the prior changeset (authoritative) over the
         # manifest (which may not have a run_id field in pre-134 layouts).
         prior_cs = read_changeset(self.index_dir)
         base_run_id: Optional[str] = None
         if prior_cs is not None:
             base_run_id = prior_cs.run_id or None
-        if base_run_id is None:
+        if base_run_id is None and prior_manifest is not None:
             base_run_id = prior_manifest.get("run_id") or None
+
+        if force_from_start:
+            prior_known = prior_cs.all_known() if prior_cs is not None else prior_paths
+            cs = Changeset(
+                added=new_paths,
+                modified=frozenset(),
+                deleted=frozenset(prior_known - new_paths),
+                unchanged=frozenset(),
+                run_id=run_id,
+                base_run_id=base_run_id,
+            )
+            write_changeset(self.index_dir, cs)
+            return
+
+        if not prior_paths:
+            # Case 1: manifest wiped (or written without file_hashes).
+            # Before declaring "first build", try to recover the prior
+            # file set — marking everything `added` here threw away every
+            # downstream cache on each daemon restart after a crash.
+            if prior_cs is not None:
+                prior_known = prior_cs.all_known()           # Case 1b
+            else:
+                prior_known = self._prior_paths_from_trace_augmented()  # Case 1c
+            if prior_known:
+                cs = Changeset(
+                    added=new_paths - prior_known,
+                    modified=frozenset(),
+                    deleted=frozenset(prior_known - new_paths),
+                    unchanged=prior_known & new_paths,
+                    run_id=run_id,
+                    base_run_id=base_run_id,
+                )
+            else:
+                # Case 1a: genuinely nothing prior — first build.
+                cs = Changeset(
+                    added=new_paths,
+                    modified=frozenset(),
+                    deleted=frozenset(),
+                    unchanged=frozenset(),
+                    run_id=run_id,
+                    base_run_id=base_run_id,
+                )
+            write_changeset(self.index_dir, cs)
+            return
+
+        prior_algo = prior_manifest.get("hash_algo") if prior_manifest else None
 
         if prior_algo == CURRENT_HASH_ALGO:
             # Case 2: real hash diff
