@@ -67,13 +67,13 @@ export function StageProgressBar({
     const donePct = clamp(rerun.donePercent);
     const stalePct = Math.min(100 - donePct, Math.max(0, rerun.stalePercent));
     const staleCompletedPct = stalePct * (clamp(progress) / 100);
-    const stalePendingPct = stalePct - staleCompletedPct;
+    const greenPct = donePct + staleCompletedPct;
+    const orangePct = stalePct - staleCompletedPct;
     return (
       <div className={cn('w-full bg-surface-raised overflow-hidden rounded-full', className)}>
         <div className="h-full flex">
-          <div className="h-full bg-success/80 transition-all duration-300" style={{ width: `${donePct}%` }} />
-          <div className="h-full bg-orange-500 transition-all duration-300" style={{ width: `${staleCompletedPct}%` }} />
-          <div className="h-full bg-orange-500/40 transition-all duration-300" style={{ width: `${stalePendingPct}%` }} />
+          <div className="h-full bg-success/80 transition-all duration-300" style={{ width: `${greenPct}%` }} />
+          <div className="h-full bg-orange-500 transition-all duration-300" style={{ width: `${orangePct}%` }} />
         </div>
       </div>
     );

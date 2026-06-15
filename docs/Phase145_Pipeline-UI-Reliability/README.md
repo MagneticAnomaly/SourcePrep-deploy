@@ -78,6 +78,13 @@ Phase 145's job is to **stop firefighting individual UI bugs and produce a singl
 - `/admin/actions/approve-config` (POST) — admin gate.
 - **No single API contract documents what state each endpoint owns**, leading to the dashboard PUTting partial updates to `/global/config` for things that probably belong elsewhere.
 
+### 2j. Stage `progress` regresses at sub-stage boundaries (open, 2026-06-15)
+
+- Observed live: Group Reasoning's progress bar regressed mid-run (visible as bright-orange shrinkage under the old 3-slab incremental renderer). `progress_baseline` is frozen per stage (verified), so the regression is in `progress_current / progress_total`.
+- Suspected cause: a stage worker with multiple internal phases reports each phase's progress as its own 0→N against the shared `progress_total`, so `current` snaps backward at phase boundaries. First place to look: `src/prep/core/epistemic_enrichment.py:842`.
+- Visual symptom suppressed (not fixed) by the 3→2 slab collapse in `StageProgressBar` 'incremental' variant on 2026-06-15. Under the new renderer the green slab itself will visibly shrink if `progress` regresses — still wrong.
+- **Full notes + recommended follow-up:** [`FINDING_stage-progress-non-monotonic.md`](FINDING_stage-progress-non-monotonic.md). Two layers: frontend monotonic guard (cheap, defensive) + backend stage-worker audit (correct).
+
 ## 3. What we know about the data flow
 
 ```
