@@ -86,7 +86,7 @@ def _ok_worker(item_id: str = "m1") -> WorkerResult:
 
 
 def test_synthesize_returns_raw_text_on_success():
-    """Successful parse path returns (parsed_dict, tokens, raw_text, prompt_chars).
+    """Successful parse path returns (parsed_dict, tokens, raw_text, prompt_chars, meta_failed).
 
     raw_text must equal the LLM response so callers can checkpoint it
     even on success — useful for later quality auditing.
@@ -103,15 +103,18 @@ def test_synthesize_returns_raw_text_on_success():
             event_log=None,
         )
 
-    assert len(out) == 4, (
-        f"_synthesize must return (parsed, tokens, raw_text, prompt_chars); "
-        f"got tuple of length {len(out)}"
+    assert len(out) == 5, (
+        f"_synthesize must return (parsed, tokens, raw_text, prompt_chars, "
+        f"meta_failed); got tuple of length {len(out)}"
     )
-    parsed, tokens, raw_text, prompt_chars = out
+    parsed, tokens, raw_text, prompt_chars, meta_failed = out
     assert parsed == {"concepts": [{"title": "Synthesized"}], "questions": []}
     assert tokens == 100
     assert raw_text == fake_text, "raw_text must echo the LLM response on success"
     assert prompt_chars > 0, "prompt_chars must record the prompt size sent"
+    assert meta_failed is False, (
+        "_synthesize_single never has a meta phase — meta_failed must be False"
+    )
 
 
 def test_synthesize_returns_raw_text_on_parse_failure():
@@ -125,7 +128,7 @@ def test_synthesize_returns_raw_text_on_parse_failure():
 
     with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
                        return_value=(unparseable, 50)):
-        parsed, tokens, raw_text, prompt_chars = orch._synthesize(
+        parsed, tokens, raw_text, prompt_chars, meta_failed = orch._synthesize(
             workers,
             synthesis_prompt="prefix {worker_outputs} suffix",
             event_log=None,
@@ -137,6 +140,9 @@ def test_synthesize_returns_raw_text_on_parse_failure():
         "the diagnostic surface"
     )
     assert prompt_chars > 0
+    assert meta_failed is False, (
+        "_synthesize_single never has a meta phase — meta_failed must be False"
+    )
 
 
 def test_synthesize_returns_none_text_on_llm_timeout():
@@ -148,7 +154,7 @@ def test_synthesize_returns_none_text_on_llm_timeout():
 
     with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
                        return_value=(None, 0)):
-        parsed, tokens, raw_text, prompt_chars = orch._synthesize(
+        parsed, tokens, raw_text, prompt_chars, meta_failed = orch._synthesize(
             workers,
             synthesis_prompt="prefix {worker_outputs} suffix",
             event_log=None,
@@ -161,6 +167,9 @@ def test_synthesize_returns_none_text_on_llm_timeout():
         "the response timed out — the consolidation-prompt-too-large "
         "hypothesis is what we're trying to test"
     )
+    assert meta_failed is False, (
+        "_synthesize_single never has a meta phase — meta_failed must be False"
+    )
 
 
 def test_synthesize_returns_zero_prompt_chars_when_no_workers():
@@ -170,7 +179,7 @@ def test_synthesize_returns_zero_prompt_chars_when_no_workers():
         item_id="x", raw_output="", parsed=None, success=False,
     )
 
-    parsed, tokens, raw_text, prompt_chars = orch._synthesize(
+    parsed, tokens, raw_text, prompt_chars, meta_failed = orch._synthesize(
         [failed],
         synthesis_prompt="prefix {worker_outputs} suffix",
         event_log=None,
@@ -180,6 +189,9 @@ def test_synthesize_returns_zero_prompt_chars_when_no_workers():
     assert raw_text is None
     assert prompt_chars == 0
     assert tokens == 0
+    assert meta_failed is False, (
+        "_synthesize_single never has a meta phase — meta_failed must be False"
+    )
 
 
 # ── concept_seeder diagnostic-fields helper ────────────────────────
