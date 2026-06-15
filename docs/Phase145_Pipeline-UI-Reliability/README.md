@@ -78,6 +78,15 @@ Phase 145's job is to **stop firefighting individual UI bugs and produce a singl
 - `/admin/actions/approve-config` (POST) — admin gate.
 - **No single API contract documents what state each endpoint owns**, leading to the dashboard PUTting partial updates to `/global/config` for things that probably belong elsewhere.
 
+### 2i. Changeset never reports content edits — daemon-wide (FIXED, 2026-06-15)
+
+- Edited source files (confirmed via `git diff`) were classified `changeset.unchanged` and never re-enriched or finalized — no error, no UI signal. Verified across **all 13 local projects**: every one had `hash_algo: None` and `modified=0`.
+- **Root cause (one writer):** `ManifestStore.write_provenance` (STRUCTURAL branch) merged the stage provenance into `trace_manifest.json` preserving only `("file_hashes","config","file_errors")`, **dropping `hash_algo` and `built_at`**. Untagged → `_emit_changeset` always took Case 3 ("trust prior") → Case 2 (real diff) was dead → edits never `modified`. The dropped `built_at` is *also* the §earlier "always 0 stale" staleness bug. One writer, both symptoms.
+- **Fix:** add `hash_algo` + `built_at` to `preserved_keys`. `_emit_changeset` is deliberately left alone (an untagged manifest is ambiguous vs a genuine pre-Phase-133 one, and already-swallowed edits have a poisoned baseline). Existing backlogs clear with a one-time force-rebuild.
+- This is a **backend correctness** bug (distinct from the UI-drift focus of this phase, but surfaces as "the pipeline says up-to-date when it isn't").
+- **Full root-cause + evidence:** [`FINDING_changeset-swallowed-edits.md`](FINDING_changeset-swallowed-edits.md). Tests: `test_phase145_provenance_preserves_hash_algo.py`, `test_phase145_changeset_swallow.py`, `test_phase145_finalize_incremental_hatch.py`.
+- Related item, also fixed: Finalize never auto-chained on incremental runs (missing Phase 89 hatch in `run_finalize`).
+
 ### 2j. Stage `progress` regresses at sub-stage boundaries (open, 2026-06-15)
 
 - Observed live: Group Reasoning's progress bar regressed mid-run (visible as bright-orange shrinkage under the old 3-slab incremental renderer). `progress_baseline` is frozen per stage (verified), so the regression is in `progress_current / progress_total`.

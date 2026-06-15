@@ -1019,8 +1019,21 @@ class PipelineOrchestrator:
             project_id, FINALIZE_STAGES, skip_mtime_cascade=True,
         )
         if resume >= len(FINALIZE_STAGES):
-            logger.info("All finalize stages complete for %s — nothing to do", project_id)
-            return False
+            # Phase 145: even when all finalize manifests look complete, an
+            # incremental changeset (new/changed files) must flow through
+            # atlas/rules/concepts/audit/antibodies. Mirror run_deep_enrichment's
+            # Phase 89 hatch. Without this, incremental edits were deep-enriched
+            # but never finalized.
+            if self._finalize_has_incremental_work(project_id):
+                logger.info(
+                    "All finalize stages complete for %s, but changeset has "
+                    "new/changed files — re-running finalize to process them",
+                    project_id,
+                )
+                resume = 0
+            else:
+                logger.info("All finalize stages complete for %s — nothing to do", project_id)
+                return False
 
         if resume > 0:
             logger.info(
@@ -1765,6 +1778,33 @@ class PipelineOrchestrator:
                 return False
             deep = auto_cfg.get("deepEnrichment", auto_cfg.get("deep_enrichment", "manual"))
             return deep == "auto"
+        except Exception:
+            return False
+
+    @staticmethod
+    def _finalize_has_incremental_work(project_id: str) -> bool:
+        """True if the current changeset has added/modified files that the
+        Finalize stages should reprocess even when all 5 finalize manifests
+        already look complete.
+
+        Phase 145 (2026-06-15): mirrors the Phase 89 incremental escape hatch
+        that ``run_deep_enrichment`` has (orchestrator.py:956). ``is_incremental``
+        is already consumed by ``run_deep_enrichment`` before the deep→finalize
+        chain fires, so the durable signal here is the changeset itself.
+        Loop-safe: the changeset only refreshes on the next structural run, and
+        finalize is only triggered by a deep completion (or explicit request),
+        so this cannot self-trigger; finalize workers are idempotent via
+        ``should_process``.
+        """
+        try:
+            from prep.core.project_registry import project_index_dir
+            from prep.services.pipeline.changeset import read_changeset
+            from prep.services.project_helpers import require_project
+
+            project = require_project(project_id)
+            idx_dir = Path(project_index_dir(project))
+            cs = read_changeset(idx_dir)
+            return bool(cs and (cs.added or cs.modified))
         except Exception:
             return False
 

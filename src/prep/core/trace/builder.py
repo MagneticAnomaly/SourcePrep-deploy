@@ -860,6 +860,20 @@ class TraceBuilder:
 
         prior_algo = prior_manifest.get("hash_algo") if prior_manifest else None
 
+        # NOTE (Phase 145, 2026-06-15): do NOT treat a missing hash_algo as
+        # the current algo here. An untagged manifest is ambiguous — it can
+        # be (a) a current manifest whose tag was dropped by the provenance
+        # write (root-caused + fixed in manifest_store.py so it stops
+        # happening), or (b) a genuine pre-Phase-133 manifest whose hashes
+        # are a different algo. Diffing (b) flags every file modified → the
+        # LLM-recall / "everything stale" storm guarded by
+        # test_phase134_migration_cases. The two are indistinguishable from
+        # the field alone, and already-swallowed edits have a poisoned
+        # baseline that a re-diff cannot recover anyway — a one-time
+        # force-rebuild is the recovery path. So keep trusting prior work
+        # for untagged manifests (Case 3); the manifest_store fix prevents
+        # NEW manifests from ever being untagged.
+
         if prior_algo == CURRENT_HASH_ALGO:
             # Case 2: real hash diff
             added = new_paths - prior_paths

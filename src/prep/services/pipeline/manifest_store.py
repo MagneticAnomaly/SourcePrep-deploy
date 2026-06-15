@@ -121,7 +121,12 @@ class ManifestStore:
                     pass  # Corrupt — overwrite is fine
             # Merge: provenance fields update the manifest, but
             # file_hashes and builder-owned keys are preserved.
-            preserved_keys = ("file_hashes", "config", "file_errors")
+            # `hash_algo` and `built_at` are builder-owned and MUST survive:
+            # dropping hash_algo forced _emit_changeset onto its "can't
+            # compare → trust prior" path (Case 3) for every project, so
+            # content edits were never reported as `modified`; dropping
+            # built_at blinded check_index_staleness. (Phase 145, 2026-06-15.)
+            preserved_keys = ("file_hashes", "config", "file_errors", "hash_algo", "built_at")
             for key in preserved_keys:
                 if key in existing and key not in data:
                     data[key] = existing[key]
