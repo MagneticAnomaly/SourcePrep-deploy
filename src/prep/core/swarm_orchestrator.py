@@ -121,6 +121,19 @@ class SwarmResult:
     raw_synthesis_text: Optional[str] = None
     synthesis_prompt_chars: int = 0
 
+    # Phase 136 Part 09 Step 2: chunked-synthesis surface.
+    # synthesis_chunk_count == 1 means single-call path (or chunking was
+    # eligible but only one chunk's worth of workers).  N > 1 means N
+    # chunks + 1 meta call.  synthesis_meta_failed is True ONLY when the
+    # chunked path ran AND chunks succeeded AND meta failed AND we
+    # returned a manually-deduped union of survivors as result.synthesis.
+    # The diagnostic classifier reads these to distinguish
+    # chunked_meta_failed and chunked_all_failed from the four single-
+    # call failure modes (no_workers / no_text / parse_failed /
+    # parsed_but_empty).
+    synthesis_chunk_count: int = 1
+    synthesis_meta_failed: bool = False
+
 
 # ---------------------------------------------------------------------------
 # Wall-time budget helpers
