@@ -110,6 +110,17 @@ class SwarmResult:
     paused: bool = False
     pause_info: Optional[Dict[str, str]] = None
 
+    # Phase 136 Part 09: raw LLM synthesis response, captured on every
+    # parse path so callers (currently concept_seeder) can include
+    # head/tail in the ``concepts_synthesis_failed`` telemetry payload.
+    # ``None`` when no LLM call was made (no successful workers) or the
+    # call timed out — the call was made if ``synthesis_prompt_chars > 0``.
+    # ``synthesis_prompt_chars`` records the consolidation prompt size so
+    # the "output-token cap on large prompts" hypothesis can be tested
+    # against production telemetry without re-instrumenting later.
+    raw_synthesis_text: Optional[str] = None
+    synthesis_prompt_chars: int = 0
+
 
 # ---------------------------------------------------------------------------
 # Wall-time budget helpers
@@ -745,13 +756,23 @@ class SwarmOrchestrator(HoldAwareMixin):
         worker_results: List[WorkerResult],
         synthesis_prompt: str,
         event_log: Optional[SwarmEventLogger] = None,
-    ) -> Tuple[Optional[Dict[str, Any]], int]:
+    ) -> Tuple[Optional[Dict[str, Any]], int, Optional[str], int]:
         """Single LLM call to aggregate successful worker results.
 
-        Returns (parsed_result, token_count). Result is None on failure,
-        timeout, or if no workers succeeded.  Callers (e.g.
-        concept_seeder) should fall back to merging raw worker outputs
-        when synthesis returns None.
+        Returns ``(parsed_result, token_count, raw_text, prompt_chars)``.
+
+        - ``parsed_result`` is ``None`` on failure, timeout, or if no
+          workers succeeded.
+        - ``raw_text`` is the LLM response captured even on parse
+          failure so callers (currently concept_seeder) can include
+          head/tail in the ``concepts_synthesis_failed`` diagnostic.
+          ``None`` when no LLM call was made (no successful workers) or
+          the call timed out.
+        - ``prompt_chars`` is the consolidation prompt size; ``0`` when
+          no LLM call was made.
+
+        Callers should fall back to merging raw worker outputs when
+        ``parsed_result`` is ``None``.
         """
         successful = [r for r in worker_results if r.success and r.parsed]
         if not successful:
@@ -759,13 +780,14 @@ class SwarmOrchestrator(HoldAwareMixin):
             if event_log is not None:
                 event_log.event("phase_skipped", phase="synthesis",
                                 reason="no_successful_workers")
-            return None, 0
+            return None, 0, None, 0
 
         outputs = "\n\n".join(
             f"### {r.item_id}\n```json\n{json.dumps(r.parsed, indent=2)}\n```"
             for r in successful
         )
         prompt = synthesis_prompt.replace("{worker_outputs}", outputs)
+        prompt_chars = len(prompt)
 
         synth_model = getattr(self.coordinator_llm, "model", None)
         if event_log is not None:
@@ -785,7 +807,7 @@ class SwarmOrchestrator(HoldAwareMixin):
                 event_log.phase_end("synthesizer", success=False,
                                     duration_s=time.monotonic() - s_t0,
                                     reason="timeout_or_error", tokens=tokens)
-            return None, tokens
+            return None, tokens, None, prompt_chars
 
         parsed = _parse_json_response(text)
         if not parsed:
@@ -797,14 +819,14 @@ class SwarmOrchestrator(HoldAwareMixin):
                 event_log.phase_end("synthesizer", success=False,
                                     duration_s=time.monotonic() - s_t0,
                                     reason="parse_failed", tokens=tokens)
-            return None, tokens
+            return None, tokens, text, prompt_chars
 
         logger.info("[Swarm] Synthesis complete (%d tokens)", tokens)
         if event_log is not None:
             event_log.phase_end("synthesizer", success=True,
                                 duration_s=time.monotonic() - s_t0,
                                 tokens=tokens)
-        return parsed, tokens
+        return parsed, tokens, text, prompt_chars
 
     # -- Full execution -----------------------------------------------------
 
@@ -881,6 +903,8 @@ class SwarmOrchestrator(HoldAwareMixin):
         worker_results: List[WorkerResult] = []
         synthesis: Optional[Dict[str, Any]] = None
         synthesis_tokens = 0
+        raw_synthesis_text: Optional[str] = None
+        synthesis_prompt_chars = 0
         paused = False
         pause_info: Optional[Dict[str, str]] = None
 
@@ -954,7 +978,10 @@ class SwarmOrchestrator(HoldAwareMixin):
             # Phase 3: Synthesize
             logger.info("[Swarm] Entering synthesis phase (%d/%d succeeded)",
                         stats.workers_succeeded, len(worker_results))
-            synthesis, synthesis_tokens = self._synthesize(
+            (
+                synthesis, synthesis_tokens,
+                raw_synthesis_text, synthesis_prompt_chars,
+            ) = self._synthesize(
                 worker_results, synthesis_prompt, event_log=event_log,
             )
             logger.info("[Swarm] Synthesis returned (tokens=%d)", synthesis_tokens)
@@ -1012,6 +1039,8 @@ class SwarmOrchestrator(HoldAwareMixin):
             event_log_path=str(event_log.path) if event_log and event_log.path else None,
             paused=paused,
             pause_info=pause_info,
+            raw_synthesis_text=raw_synthesis_text,
+            synthesis_prompt_chars=synthesis_prompt_chars,
         )
 
         # Per-session summary line — closes out the JSONL file with the

@@ -47,6 +47,76 @@ from prep.services.pipeline.thread_pool import llm_pool
 
 logger = logging.getLogger(__name__)
 
+
+# Phase 136 Part 09: how much of the raw synthesis response to capture
+# in the telemetry payload.  500 head + 500 tail × ~1 byte/char comfortably
+# fits inside the JSONL event record without exceeding line buffers.
+_DIAG_HEAD_CHARS = 500
+_DIAG_TAIL_CHARS = 500
+
+
+def _synthesis_diagnostic_fields(result: Any) -> dict:
+    """Phase 136 Part 09 — build the diagnostic-only fields that get
+    spliced into the ``concepts_synthesis_failed`` telemetry payload.
+
+    Captures (a) length of the raw LLM synthesis response, (b) head
+    and tail samples so operators can eyeball whether the response was
+    truncated, empty, all-reasoning-text, or shaped wrong, (c) size
+    of the consolidation prompt to test the output-token-cap
+    hypothesis, (d) cumulative size of worker outputs the prompt
+    bundled, and (e) a coarse ``failure_mode`` classifier so
+    triage queries don't have to re-derive it.
+
+    Pure function over ``SwarmResult`` — no I/O, safe to unit-test.
+
+    ``failure_mode`` values:
+      - ``"no_workers"`` — no successful worker had parseable output;
+        synthesis was never dispatched.
+      - ``"no_text"`` — synthesis LLM call timed out or errored before
+        returning text.
+      - ``"parse_failed"`` — LLM returned text but ``_parse_json_response``
+        rejected it (typical for unclosed ``<think>`` tags, partial
+        JSON, or pure prose).
+      - ``"parsed_but_empty"`` — JSON parsed successfully but the
+        ``concepts`` array was missing or empty (the most common
+        2026-05-17 / 5/18 / 5/28 fingerprint).
+    """
+    raw_text = getattr(result, "raw_synthesis_text", None)
+    prompt_chars = getattr(result, "synthesis_prompt_chars", 0)
+    synthesis = getattr(result, "synthesis", None)
+
+    if raw_text is None:
+        if prompt_chars == 0:
+            failure_mode = "no_workers"
+        else:
+            failure_mode = "no_text"
+    elif synthesis is None:
+        failure_mode = "parse_failed"
+    else:
+        failure_mode = "parsed_but_empty"
+
+    raw = raw_text or ""
+    head = raw[:_DIAG_HEAD_CHARS]
+    # Skip tail when text is shorter than head — head already covers it.
+    tail = raw[-_DIAG_TAIL_CHARS:] if len(raw) > _DIAG_HEAD_CHARS else ""
+
+    worker_chars_total = 0
+    for wr in getattr(result, "worker_results", []) or []:
+        if wr.success and wr.parsed:
+            try:
+                worker_chars_total += len(json.dumps(wr.parsed, indent=2))
+            except (TypeError, ValueError):
+                pass
+
+    return {
+        "raw_synthesis_chars": len(raw),
+        "raw_synthesis_head": head,
+        "raw_synthesis_tail": tail,
+        "synthesis_prompt_chars": int(prompt_chars),
+        "worker_outputs_chars_total": worker_chars_total,
+        "failure_mode": failure_mode,
+    }
+
 # Minimum files for a module to be included in seeding context
 # (sequential path — keeps prompt focused on substantial subsystems)
 MIN_MODULE_FILES = 5
@@ -931,6 +1001,11 @@ def seed_concepts_swarm(
                         "increase the swarm wall-time budget for the "
                         "configured cloud model."
                     ),
+                    # Phase 136 Part 09 diagnostic surface — raw response
+                    # head/tail, prompt sizes, failure-mode classifier so
+                    # the 2026-05-17/18/28 recurring failure can be
+                    # diagnosed from telemetry alone.
+                    **_synthesis_diagnostic_fields(result),
                 },
                 stage="concepts", project_id=project_id,
             )

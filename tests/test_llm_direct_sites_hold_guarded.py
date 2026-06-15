@@ -173,9 +173,12 @@ F2_SITES: list[tuple[object, int]] = [
     (group_reasoning_mod, 501),
     (group_reasoning_mod, 832),
     # concept_seeder.py — module-level workers + a free helper.
-    (concept_seeder_mod, 217),
-    (concept_seeder_mod, 809),
-    (concept_seeder_mod, 1278),
+    # Re-anchored on phase-136-part09 branch: the Part 09 diagnostic
+    # helper (_synthesis_diagnostic_fields) added ~70 LoC at the top of
+    # the module, shifting these +70 from the Lane C merge anchors.
+    (concept_seeder_mod, 287),
+    (concept_seeder_mod, 879),
+    (concept_seeder_mod, 1353),
 ]
 
 
