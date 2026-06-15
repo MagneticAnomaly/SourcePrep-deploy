@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from concurrent.futures import (
     FIRST_COMPLETED,
@@ -292,6 +293,20 @@ class SwarmOrchestrator(HoldAwareMixin):
             if max_wall_time_s is not None
             else self.DEFAULT_MAX_WALL_TIME_S
         )
+        # Phase 136 Part 09 Step 2: threshold above which synthesis
+        # splits into chunks of ~chunk_max_workers each.  Read at
+        # __init__ so tests can monkeypatch the env before constructing
+        # the orchestrator.  Default 200 matches the Part 09 work order.
+        # Same value doubles as the per-chunk batch size (`chunk_max_workers`
+        # workers per chunk; last chunk may be smaller).
+        try:
+            self.synthesis_chunk_max_workers = int(
+                os.environ.get("PREP_SYNTHESIS_CHUNK_MAX_WORKERS", "200")
+            )
+        except ValueError:
+            self.synthesis_chunk_max_workers = 200
+        if self.synthesis_chunk_max_workers < 1:
+            self.synthesis_chunk_max_workers = 200
         # Phase 127: project_id lets us check soft-holds at phase
         # boundaries.  None is acceptable (the hold check becomes a no-op
         # because no project-keyed hold can match an empty project id).

@@ -43,3 +43,49 @@ def test_swarm_result_synthesis_meta_failed_default_is_false():
         "classifier can fire chunked_meta_failed without re-deriving"
     )
     assert r.synthesis_meta_failed is False
+
+
+# ── Config ─────────────────────────────────────────────────────────
+
+
+def test_env_var_overrides_default_threshold(monkeypatch):
+    """PREP_SYNTHESIS_CHUNK_MAX_WORKERS env var sets the threshold at
+    init time.  Tests use a small value (e.g. 10) so they don't need
+    to construct 200+ fake workers.
+    """
+    monkeypatch.setenv("PREP_SYNTHESIS_CHUNK_MAX_WORKERS", "10")
+
+    # Build a fresh orchestrator AFTER the env is set (env is read in
+    # __init__).  Bypass __init__'s LLM-client requirement by passing
+    # a sentinel coordinator/worker pair that satisfies the type but
+    # is never called in this test.
+    class _StubLLM:
+        model = "stub"
+        def _resolve_scheduler_node_id(self):
+            return ""
+
+    stub = _StubLLM()
+    orch = SwarmOrchestrator(
+        coordinator_llm=stub,
+        worker_llm=stub,
+        concurrency=1,
+    )
+    assert orch.synthesis_chunk_max_workers == 10
+
+
+def test_default_chunk_max_workers_is_200_when_env_unset(monkeypatch):
+    """Default threshold matches the work-order's '~200 workers' guidance."""
+    monkeypatch.delenv("PREP_SYNTHESIS_CHUNK_MAX_WORKERS", raising=False)
+
+    class _StubLLM:
+        model = "stub"
+        def _resolve_scheduler_node_id(self):
+            return ""
+
+    stub = _StubLLM()
+    orch = SwarmOrchestrator(
+        coordinator_llm=stub,
+        worker_llm=stub,
+        concurrency=1,
+    )
+    assert orch.synthesis_chunk_max_workers == 200
