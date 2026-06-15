@@ -40,7 +40,7 @@ def _synthesize(self, worker_results, synthesis_prompt, event_log=None):
     successful = [r for r in worker_results if r.success and r.parsed]
     if not successful:
         # existing skip-synthesis path (unchanged)
-        return None, 0, None, 0
+        return None, 0, None, 0, False
 
     if len(successful) > self.synthesis_chunk_max_workers:
         return self._synthesize_chunked(
@@ -51,13 +51,15 @@ def _synthesize(self, worker_results, synthesis_prompt, event_log=None):
     )
 ```
 
-- `_synthesize_single` is the existing `_synthesize` body, renamed. No behavior change.
-- `_synthesize_chunked` is new. Returns the same 4-tuple as `_synthesize_single`: `(parsed, tokens, raw_text, prompt_chars)`.
+- `_synthesize_single` is the existing `_synthesize` body, renamed. Its return signature widens from `(parsed, tokens, raw_text, prompt_chars)` to `(parsed, tokens, raw_text, prompt_chars, meta_failed)` where `meta_failed` is always `False` (single-call never has a meta phase). Step 1's tests for the 4-tuple are updated to unpack the 5-tuple. No behavioral change beyond the extra trailing `False`.
+- `_synthesize_chunked` is new. Returns the same 5-tuple shape. `meta_failed` is `True` only on the `chunked_meta_failed` path (survivors kept, meta call failed).
+- `execute()` reads the 5th element and plumbs it into `SwarmResult.synthesis_meta_failed` alongside `synthesis_chunk_count`.
 
 ### Threshold + configuration
 
 - Trigger: `len(successful_workers) > synthesis_chunk_max_workers`.
 - `synthesis_chunk_max_workers` is read from `PREP_SYNTHESIS_CHUNK_MAX_WORKERS` env at `__init__`, default `200`. Stored as an instance attribute so tests can construct an orchestrator with a smaller threshold.
+- **The same variable serves dual roles** — it is both the threshold (above which we chunk) AND the chunk size (max workers per batch in the chunked path). So at default 200: `≤200 successful workers` → single call; `201 successful workers` → 2 chunks of (200, 1). Tiny last chunk is accepted in V1 for simplicity; V2 could redistribute if telemetry shows enough single-worker-chunk waste to matter.
 - Char-based trigger considered and rejected: input prompt size is a noisy proxy for output JSON size (consolidation deduplicates aggressively), so a worker-count threshold is more honest.
 
 ### Chunking
@@ -70,20 +72,24 @@ def _synthesize(self, worker_results, synthesis_prompt, event_log=None):
 
 Each chunk runs the existing `_synthesize_single` LLM-call path with the same synthesis prompt. Per-chunk outcome is one of:
 
-- success → chunk's parsed JSON joins the meta input list
-- parse_failed → chunk is dropped from meta input; counted in event log
-- LLM timeout/error → chunk is dropped; counted
+- **success** — chunk's parsed JSON joins the meta input list. "Success" means `_synthesize_single` returned `(parsed_dict, ...)` where `parsed_dict is not None`. Parsed-but-empty (e.g., `{"concepts": [], "questions": []}`) is treated as success at the chunk level — meta still receives it, and meta's emergent output determines the final outcome.
+- **parse_failed** — chunk is dropped from meta input; counted in event log.
+- **LLM timeout/error** — chunk is dropped; counted.
 
-Between every chunk dispatch (and before the meta call), the orchestrator checks `_hold_paused()`. On hold, `HoldPausedError` is raised — `execute()`'s existing handler catches it and returns a `paused=True` SwarmResult.
+**Soft-hold checks fire AFTER each chunk completes** (= before the next chunk's LLM call) AND before the meta call. The first chunk dispatches without an extra check because `execute()`'s phase-boundary check at fanout→synth already ran. On hold, `HoldPausedError` is raised — `execute()`'s existing handler catches it and returns a `paused=True` SwarmResult.
 
 ### Meta synthesis
 
-After all chunks are processed (call the running tally of per-chunk LLM-call tokens `sum_chunk_tokens` and the running tally of per-chunk prompt sizes `sum_chunk_prompt_chars`):
+All `_synthesize` variants return a 5-tuple — `(parsed, tokens, raw_text, prompt_chars, meta_failed)` — so the meta-failed signal can ride through `execute()` into `SwarmResult.synthesis_meta_failed`. Single-call always returns `False` as the 5th element. The 4-tuple in Step 1's `_synthesize_returns_raw_text_on_*` tests is updated accordingly.
 
-- If 0 chunks succeeded → return `(None, sum_chunk_tokens, None, sum_chunk_prompt_chars)`. The meta call is skipped. The existing concept_seeder fallback runs against raw worker outputs. `failure_mode = chunked_all_failed`. **Per-chunk raw response text is not persisted** in SwarmResult — operators wanting per-chunk failure detail should consult the swarm event log (`event_log.parse_failure(where="synthesis", ...)` is recorded per chunk).
+After all chunks are processed (call the running tally of per-chunk LLM-call tokens `sum_chunk_tokens` and the **max** per-chunk prompt size `max_chunk_prompt_chars`):
+
+- If 0 chunks succeeded → return `(None, sum_chunk_tokens, None, max_chunk_prompt_chars, False)`. The meta call is skipped. The existing concept_seeder fallback runs against raw worker outputs. `failure_mode = chunked_all_failed`. **Per-chunk raw response text is not persisted** in SwarmResult — operators wanting per-chunk failure detail should consult the swarm event log (`event_log.parse_failure(where="synthesis", ...)` is recorded per chunk).
 - If ≥1 chunk succeeded → call `_synthesize_single` once more with the chunk parsed results formatted as the `{worker_outputs}` payload (each chunk's parsed dict serialized as JSON, joined the same way the original prompt joins workers).
-  - Meta succeeds → return `(meta_parsed, sum_chunk_tokens + meta_tokens, meta_text, sum_chunk_prompt_chars + meta_prompt_chars)`. `failure_mode` does not apply (synthesis succeeded).
-  - Meta fails → return `(union_of_chunk_results, sum_chunk_tokens + meta_tokens, meta_text, sum_chunk_prompt_chars + meta_prompt_chars)`. `failure_mode = chunked_meta_failed`. Manually dedupe concepts by `title.lower().strip()` and questions by `(question.lower().strip(), target_module.lower().strip())` — mirrors the existing `concept_seeder.py:889-909` fallback dedup so behavior is consistent.
+  - Meta succeeds → return `(meta_parsed, sum_chunk_tokens + meta_tokens, meta_text, max(max_chunk_prompt_chars, meta_prompt_chars), False)`. `failure_mode` does not apply (synthesis succeeded).
+  - Meta fails → return `(union_of_chunk_results, sum_chunk_tokens + meta_tokens, meta_text, max(max_chunk_prompt_chars, meta_prompt_chars), True)`. `failure_mode = chunked_meta_failed`. Manually dedupe concepts by `title.lower().strip()` and questions by `(question.lower().strip(), target_module.lower().strip())`. **Mirror concept_seeder's existing fallback defensiveness**: skip entries with empty/missing `title`; skip questions with empty/missing question text. This keeps behavior consistent with the `concept_seeder.py:889-909` fallback so a chunked-meta-failed run and a single-call-empty run produce comparably-shaped concept sets.
+
+**Why max instead of sum for prompt_chars:** `synthesis_prompt_chars` answers the diagnostic question "was the prompt size too large for the model's output cap?" The largest single prompt that the LLM actually saw is the right number. Summing across K+1 calls would mislead operators into thinking each call sent 5× more chars than it did. For single-call path, max == total (one prompt), so no behavior change. Operators wanting cumulative-cost data look at the swarm event log's per-phase records.
 
 ### Meta prompt — reuse same template
 
@@ -107,8 +113,46 @@ synthesis_chunk_count: int = 1
 
 | `failure_mode` | Meaning | Path |
 |---|---|---|
-| `chunked_meta_failed` | Chunks succeeded, meta failed, returned manually-deduped union | `synthesis_chunk_count > 1` AND meta returned None AND we returned a non-empty parsed dict |
-| `chunked_all_failed` | All chunks failed, returned None | `synthesis_chunk_count > 1` AND every chunk returned None |
+| `chunked_meta_failed` | Chunks succeeded, meta failed, returned manually-deduped union | `synthesis_chunk_count > 1` AND `synthesis_meta_failed=True` |
+| `chunked_all_failed` | All chunks failed, returned None | `synthesis_chunk_count > 1` AND `synthesis is None` AND `raw_text is None` AND `prompt_chars > 0` |
+
+### Telemetry — event emission gate (NEW EVENT REQUIRED)
+
+The existing `concepts_synthesis_failed` event is emitted inside concept_seeder's fallback block, which only runs when `synthesis_was_empty = not final_concepts` is True. On the `chunked_meta_failed` path we **return a non-empty deduped union as `result.synthesis`**, so `synthesis_was_empty` is False, so the existing block does not fire. Without a separate emission site, the `chunked_meta_failed` classification would be dead code.
+
+Add a separate record_event call in `seed_concepts_swarm`, placed AFTER the existing `if synthesis_was_empty and result.worker_results:` block, gated on `getattr(result, "synthesis_meta_failed", False) is True`:
+
+```python
+elif getattr(result, "synthesis_meta_failed", False):
+    # Phase 136 Part 09 step 2: chunked path succeeded at chunk level
+    # but meta synthesis failed.  We returned the manually-deduped union
+    # of chunk parsed results as result.synthesis, so the fallback above
+    # did NOT run — this is the recovery success path, not a failure.
+    # Emit a distinct event so operators can see how often the meta
+    # safety-net kicks in.
+    try:
+        from prep.services.pipeline_telemetry import record_event
+        record_event(
+            index_dir, "concepts_chunked_meta_failed",
+            {
+                "concepts_returned": len(final_concepts),
+                "questions_returned": len(final_questions),
+                "worker_count": len(result.worker_results),
+                "successful_workers": sum(
+                    1 for wr in result.worker_results if wr.success
+                ),
+                **_synthesis_diagnostic_fields(result),
+            },
+            stage="concepts", project_id=project_id,
+        )
+    except Exception:
+        pass
+```
+
+Operators get two distinct signals:
+
+- `concepts_synthesis_failed` (existing semantics, no behavior change) — synthesis returned no usable concepts; raw-worker fallback ran.
+- `concepts_chunked_meta_failed` (new) — chunked path's meta safety-net kicked in; survivors were deduped and kept; this is a partial-quality success, not a fallback.
 
 Classification logic in `_synthesis_diagnostic_fields`:
 
@@ -184,6 +228,11 @@ New file `tests/test_synthesis_chunked.py`. Coverage:
 | 12 | `test_diagnostic_failure_mode_chunked_meta_failed` | Returns `chunked_meta_failed` for a result with `synthesis_chunk_count > 1`, `synthesis=dict(survivors)`, `synthesis_meta_failed=True`. |
 | 13 | `test_swarm_result_synthesis_chunk_count_default_is_1` | Backward compat: existing callers see `synthesis_chunk_count == 1`. |
 | 14 | `test_swarm_result_synthesis_meta_failed_default_is_false` | Backward compat: existing callers see `synthesis_meta_failed is False`. |
+| 15 | `test_chunked_full_success_has_meta_dict_and_no_meta_failed` | All 4 chunks + meta succeed: `result.synthesis` is the meta dict, `synthesis_meta_failed is False`, `synthesis_chunk_count == 4`. No `failure_mode` should be derivable. |
+| 16 | `test_chunked_synthesis_prompt_chars_is_max_single_prompt_size` | Run chunks with varying prompt sizes (200K, 300K, 250K) plus a 400K meta prompt. `result.synthesis_prompt_chars == 400_000` — the largest single prompt sent. Operators can read this as "the worst-case prompt the LLM saw." |
+| 17 | `test_chunked_synthesis_tokens_sum_across_chunks_and_meta` | 4 chunks return token counts (100, 110, 90, 95) and meta returns 200. `result.stats.synthesis_tokens == 595`. |
+| 18 | `test_chunked_meta_failed_event_fires_alongside_no_concepts_synthesis_failed` | Mock SwarmResult with `synthesis_meta_failed=True` and non-empty `synthesis.concepts`; invoke the concept_seeder block (or extract a helper); assert `record_event` is called with `"concepts_chunked_meta_failed"` and NOT with `"concepts_synthesis_failed"`. |
+| 19 | `test_chunked_meta_fail_union_skips_entries_with_empty_titles` | Chunk results include `{"concepts": [{"title": ""}, {"title": "Real"}]}`; the deduped union has the "Real" concept only. Mirrors `concept_seeder.py:889-909` defensiveness. |
 
 All tests run in-process with mocked `_llm_call_with_timeout`. No daemon, no real LLM, no I/O.
 
@@ -191,8 +240,8 @@ All tests run in-process with mocked `_llm_call_with_timeout`. No daemon, no rea
 
 Step 2 is shipped when:
 
-1. All 14 tests above pass on the `phase-136-part09` branch.
-2. Existing `test_synthesis_diagnostic.py` (Step 1's 14 tests) still passes — no regression in classification logic.
+1. All 19 tests above pass on the `phase-136-part09` branch.
+2. Existing `test_synthesis_diagnostic.py` (Step 1's 14 tests) still passes — Step 1 tests are updated to unpack the new 5-tuple from `_synthesize`, otherwise unchanged. No regression in classification logic.
 3. Existing `test_soft_hold_primitive.py` still passes — `HoldPausedError` propagation unchanged.
 4. Existing `test_cluster_parallel_batched.py` still passes — small-N callers stay on single-call path.
 5. The branch is **not** merged until Step 1 telemetry from the next live rebuild produces a `concepts_synthesis_failed` event with `failure_mode = parsed_but_empty` AND `synthesis_prompt_chars > 1_500_000`. If telemetry shows a different cause, the branch is kept for reference and Step 3 takes priority.
@@ -212,18 +261,30 @@ Step 2 is shipped when:
 ```
 src/prep/core/swarm_orchestrator.py
   - rename _synthesize body → _synthesize_single
+  - _synthesize_single return signature widens from 4-tuple → 5-tuple
+    (trailing False for meta_failed; pure passthrough)
   - new dispatcher _synthesize (calls _single or _chunked)
-  - new _synthesize_chunked method
-  - SwarmResult gains synthesis_chunk_count + synthesis_meta_failed
+  - new _synthesize_chunked method (returns 5-tuple)
+  - execute() updated to receive 5-tuple and pass synthesis_meta_failed
+    into SwarmResult
+  - SwarmResult gains synthesis_chunk_count: int = 1 and
+    synthesis_meta_failed: bool = False
 
 src/prep/core/concept_seeder.py
   - _synthesis_diagnostic_fields gains two failure_mode branches
+    (chunked_meta_failed, chunked_all_failed)
+  - seed_concepts_swarm gains a new record_event("concepts_chunked_meta_failed", ...)
+    call gated on getattr(result, "synthesis_meta_failed", False) — placed
+    after the existing concepts_synthesis_failed emission
 
-tests/test_synthesis_chunked.py          (new, 14 tests)
-tests/test_synthesis_diagnostic.py       (extend with chunked classifier cases)
+tests/test_synthesis_chunked.py          (new, 19 tests covering items 1-19)
+tests/test_synthesis_diagnostic.py       (Step 1 file: update 5-tuple unpacking
+                                          in _synthesize_returns_* tests; no
+                                          new assertions, no behavioral
+                                          changes to Step 1 surface)
 ```
 
-No changes to cluster.py / atlas/generator.py / group_reasoning.py. Their swarm-worker counts stay well under the 200 threshold; they keep using the existing single-call path.
+No changes to cluster.py / atlas/generator.py / group_reasoning.py. Their swarm-worker counts stay well under the 200 threshold; they keep using the existing single-call path. The 5-tuple is internal to `SwarmOrchestrator` (callers never see it — only `SwarmResult` crosses the API boundary), and the two new `SwarmResult` fields have defaults so existing callers see `chunk_count == 1` and `meta_failed is False` and stay green.
 
 ## Out of scope for Step 2
 
