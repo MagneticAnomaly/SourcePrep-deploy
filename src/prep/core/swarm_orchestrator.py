@@ -770,7 +770,36 @@ class SwarmOrchestrator(HoldAwareMixin):
         synthesis_prompt: str,
         event_log: Optional[SwarmEventLogger] = None,
     ) -> Tuple[Optional[Dict[str, Any]], int, Optional[str], int, bool]:
+        """Phase 136 Part 09 Step 2: dispatch to single-call or chunked
+        synthesis based on worker count.
+
+        When the number of successful workers exceeds
+        ``self.synthesis_chunk_max_workers``, split into chunks and run
+        synthesis + meta-synthesis.  Otherwise run the existing single-
+        call path unchanged.
+
+        Same return shape as ``_synthesize_single``:
+        ``(parsed, tokens, raw_text, prompt_chars, meta_failed)``.
+        """
+        # Phase 136 Part 09 step 2: dispatch decision lives here so all
+        # callers (currently only execute()) see one entry point.
+        # Task 5 wires this to _synthesize_chunked once the chunked path
+        # is implemented.  Until then, always delegate to single-call.
+        return self._synthesize_single(
+            worker_results, synthesis_prompt, event_log=event_log,
+        )
+
+    def _synthesize_single(
+        self,
+        worker_results: List[WorkerResult],
+        synthesis_prompt: str,
+        event_log: Optional[SwarmEventLogger] = None,
+    ) -> Tuple[Optional[Dict[str, Any]], int, Optional[str], int, bool]:
         """Single LLM call to aggregate successful worker results.
+
+        This is the existing single-prompt synthesis path.  The chunked path
+        (`_synthesize_chunked`) calls this method once per chunk plus once
+        for the meta synthesis.
 
         Returns ``(parsed_result, token_count, raw_text, prompt_chars,
         meta_failed)``.
