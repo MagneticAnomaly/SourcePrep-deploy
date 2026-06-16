@@ -68,18 +68,33 @@ Out:
 
 ## Status
 
+**Post-reframe (2026-06-15) checklist** — the original Parts A–K
+plan is preserved in `IMPLEMENTATION_PLAN.md` as fallback, but the
+actual remaining work after the reframe is now a flat DIY list per
+`RESEARCH.md` "Open actions for Eric":
+
 - [x] Phase scaffolded
-- [ ] DIY pre-attorney research complete (Part A)
-- [ ] Consolidated attorney brief drafted (Part B)
-- [ ] Attorney engagement complete (Part C)
-- [ ] Trademark application filed (Part D)
-- [ ] Patent decision made (Part E)
-- [ ] Corporate structure review complete (Part F)
-- [ ] Public policies drafted (Part G)
-- [ ] License hygiene + dependency audit complete (Part H)
-- [ ] Customer-facing terms drafted (Part I)
-- [ ] Security disclosure infrastructure live (Part J)
-- [ ] Insurance review complete (Part K)
+- [x] Zero-users reframe applied to RESEARCH.md (2026-06-15)
+- [x] IP-chain facts captured + template/checklist for IP Assignment
+      Agreement (3.2, 2026-06-16)
+- [x] License hygiene done (5.1 GPL deps replaced 2026-06-10, 5.2
+      gstack audit clean 2026-06-08)
+- [x] SECURITY.md drafted (7.1, 2026-06-10)
+- [ ] USPTO TESS search (1.1 final step) — ~30 min
+- [ ] USPTO TEAS Plus trademark filing, 2 classes (1.2, 1.3) — ~$500
+- [ ] Run `scancode-toolkit` on repo (5.3) — DIY
+- [ ] Compile NOTICE file (5.4) — DIY
+- [ ] Draft CHARTER.md (10.1) — DIY using spec in RESEARCH.md
+- [ ] Check in ICLA.md + CCLA.md (4.1, 4.2) — Apache templates
+- [ ] Configure CLA Assistant on public mirror (4.3) — ~30 min
+- [ ] Register DMCA agent (7.2) — $6, 30 min
+- [ ] Create `security@sourceprep.io` alias (7.1 remaining)
+- [ ] Execute IP Assignment Agreement (3.2) — template via future AI
+      session; Eric signs both sides; store in LLC records
+- [ ] Draft Phase 1 ToS, Privacy Policy, EULA (6.1, 6.2, 6.3) — DIY
+      from templates; attorney review at first-paying-customer trigger
+- [ ] Apply refund-policy text to Lemon Squeezy products (6.4)
+- [ ] Finish business bank account (3.5) — in flight
 - [ ] Phase 144 retro + sign-off for Phase 142 Part C
 
 ## Files in this phase
@@ -95,46 +110,60 @@ Out:
 
 ## Cost + time estimate
 
+**Reframe applied 2026-06-15:** at zero users / zero revenue / solo
+bootstrap, the legal risk profile is far smaller than what the
+original cost table assumed. Industry-standard templates + DIY tools
+cover the vast majority of items; attorney engagement is deferred to
+trigger events (first paying customer / first acquirer LOI / first
+EU prospect). See `RESEARCH.md` for the full decision record.
+
 | Item | Est cost | Est calendar time |
 |---|---|---|
-| USPTO trademark filing (2 classes, TEAS Standard) | ~$700 fees | 8–12 months to registration (use ™ immediately on filing) |
-| Trademark attorney (consult + filing assistance) | $1,500–3,000 | 1–2 weeks |
-| Patent attorney consult (1 hour, novelty assessment) | $400–800 | 1 hour |
-| Provisional patent filing (if attorney recommends — IF any) | $1,500–3,000 each | 1 week |
-| Corporate/IP attorney (LLC operating agreement review, IP assignment, CLA review) | $1,000–2,500 | 1–2 weeks |
-| ToS + Privacy Policy + EULA drafting (template-based with attorney review) | $500–1,500 | 1 week |
+| USPTO trademark filing (2 classes, TEAS Plus, DIY) | ~$500 fees | 8–12 months to registration (use ™ immediately on filing) |
 | DMCA agent registration | $6 USPTO fee + 30 min | Same day |
-| E&O / Cyber liability insurance quote | $0 (quote only at this phase) | 1 week |
-| **Total Phase 144 budget** | **$5,000–11,000** | **3–4 weeks calendar** |
+| Accountant year-end call (sales tax confirmation) | $100–200 | 30 min |
+| ToS + Privacy Policy + EULA + IP Assignment (template-based, DIY) | $0 | ~1 week of Eric drafting |
+| CHARTER.md, CLA configuration, NOTICE compile, scancode run | $0 | 1–2 days |
+| E&O / Cyber insurance quotes (deferred to Phase 2 trigger) | $0 at this phase | — |
+| **Total Phase 144 budget (zero-users reframe)** | **~$256** | **~1 week active work** |
+| **Attorney review at trigger** (first paying customer, first acquirer LOI) | $500–1,500 per engagement | At trigger only |
 
-Note: most calendar time is *waiting on attorney/USPTO*, not active
-work. Active work is ~1 week of Eric's time.
+**Why this is OK at zero-users stage:**
+- Templates from Cooley GO, Y Combinator, GitHub legal, EU
+  Commission SCC are industry-standard and acquirer-acceptable
+- No paying customers means no contract-dispute exposure yet
+- No acquirer in pipeline means no diligence pressure yet
+- Attorney review is cheaper and faster when scoped to one specific
+  trigger event rather than "review everything just in case"
+- The risk of *not* doing the DIY drafting is much higher than the
+  risk of using industry-standard templates without legal review
 
 ## Success criteria
 
 Phase 144 is **complete** when:
 
-1. Every open question in `RESEARCH.md` has either a documented DIY
-   answer or a written attorney opinion
-2. USPTO trademark application is filed (registration takes months;
-   filing is what gates launch)
-3. Patent decisions are recorded: skip / provisional / defensive
-   publication, with rationale per candidate method
-4. Magnetic Anomaly LLC operating agreement has been reviewed by an
-   attorney; any required amendments are filed
+1. Every open question in `RESEARCH.md` has either a Decided, Answered,
+   or Deferred-to-trigger status — no "Open" left
+2. USPTO trademark application is filed (TEAS Plus, DIY, 2 classes;
+   registration takes months but filing is what gates ™ usage)
+3. Patent decisions are recorded: skip + defensive publication via
+   Phase 142 Part G blog posts (decided 2026-06-15)
+4. IP Assignment Agreement (Eric → Magnetic Anomaly LLC) executed and
+   stored in LLC corporate records — covers Jan–Apr 2026 pre-LLC work
 5. Apache 2.0 NOTICE file is complete; dependency license audit
-   passes (no GPL/AGPL/proprietary in the build); CLA Assistant
-   integration tested
-6. CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, CHARTER.md
-   drafted and reviewed
-7. ToS, Privacy Policy, EULA, Subscription Terms, Refund Policy,
-   Acceptable Use Policy drafted and attorney-reviewed
-8. `security@sourceprep.io` is live with a GPG key; DMCA agent
-   registered with USPTO
-9. Insurance quotes obtained; decision recorded (purchase now /
-   defer to Phase 2 / not needed)
+   passes (5.1 already resolved 2026-06-10); CLA Assistant configured;
+   scancode-toolkit run clean
+6. CONTRIBUTING.md, SECURITY.md, CODE_OF_CONDUCT.md, CHARTER.md,
+   ICLA.md, CCLA.md drafted (templates customized)
+7. Phase 1 ToS, Privacy Policy, EULA, Refund Policy drafted from
+   templates and published — attorney review queued at first-paying-
+   customer trigger
+8. `security@sourceprep.io` alias live; DMCA agent registered with
+   USPTO
+9. Insurance decision deferred to Phase 2 trigger with quotes-ready
+   plan recorded
 10. Phase 144 hands off cleanly to Phase 142 Part C (public mirror
-    can ship without legal surprises)
+    can ship without legal surprises at this stage's risk profile)
 
 ## Relationship to existing docs
 

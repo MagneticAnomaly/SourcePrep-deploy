@@ -3,6 +3,19 @@
 > Ordered work to land all legal pre-launch decisions before Phase 142
 > Part C ships.
 
+> **Reframe banner (2026-06-15).** The original plan below assumes
+> an attorney-first sequencing (Parts B–C set up an attorney
+> engagement). After the 2026-06-15 zero-users reframe (see
+> `RESEARCH.md`), most decisions were closed with industry-standard
+> defaults and DIY tools. **Parts B and C are no longer required to
+> ship Phase 142 Part B or Part C.** Attorney review is queued at
+> trigger events (first paying customer, first acquirer LOI, first
+> EU prospect) rather than upfront. The remaining ordered work is
+> consolidated into the **"Open actions for Eric"** section of
+> `RESEARCH.md` — read that for the current ~1-week DIY checklist.
+> The Parts A–K structure below is preserved as a fallback in case
+> Eric chooses to engage an attorney earlier than triggers require.
+
 ## Part A — DIY pre-attorney research
 
 **Goal:** answer everything that *doesn't* need an attorney, so the
