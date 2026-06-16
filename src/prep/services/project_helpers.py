@@ -463,7 +463,17 @@ def check_index_staleness(project: Project, idx: CodeIndex) -> Dict[str, Any]:
             try:
                 import json
                 with open(mani, "r", encoding="utf-8") as f:
-                    built_at_str = json.load(f).get("built_at")
+                    mani_data = json.load(f)
+                # v2.0 trace manifests record the build time as
+                # ``finished_at`` (with ``started_at`` as a fallback); only
+                # the legacy format used ``built_at``. Reading ``built_at``
+                # alone left it None for every v2.0 manifest, short-circuiting
+                # the mtime walk to "0 stale" for all trace-enabled projects.
+                built_at_str = (
+                    mani_data.get("built_at")
+                    or mani_data.get("finished_at")
+                    or mani_data.get("started_at")
+                )
             except Exception:
                 pass
                 

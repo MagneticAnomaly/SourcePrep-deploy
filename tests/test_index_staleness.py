@@ -191,6 +191,62 @@ def test_dotfiles_not_counted(repo_dir: Path):
     invalidate_stale_cache("test5")
 
 
+def test_trace_manifest_finished_at_detects_stale(repo_dir: Path, monkeypatch):
+    """Trace-enabled projects must read the build time from the v2.0 trace
+    manifest, which uses ``finished_at`` (not ``built_at``).
+
+    Regression: the staleness reader only looked for ``built_at``; the v2.0
+    trace_manifest.json stores ``started_at``/``finished_at`` instead, so
+    ``built_at`` was always None and the check short-circuited to
+    ``stale_count: 0`` for every trace-enabled project — the mtime walk
+    never ran.  Discovered dogfooding SkyPath-Restart (8 edited source
+    files showing 0 stale).
+    """
+    import prep.core.project_registry as _pr
+    from prep.services.project_helpers import check_index_staleness, invalidate_stale_cache
+
+    # Index dir holds the trace manifest; point project_index_dir at it.
+    idx_dir = repo_dir / ".sourceprep"
+    idx_dir.mkdir()
+    monkeypatch.setattr(_pr, "project_index_dir", lambda project: idx_dir)
+
+    # All source files predate the build.
+    past = time.time() - 60
+    import os
+    for f in repo_dir.rglob("*"):
+        if f.is_file():
+            os.utime(f, (past, past))
+
+    # v2.0 manifest: finished_at only, NO built_at key.
+    finished_at = datetime.fromtimestamp(time.time() - 30, tz=timezone.utc).isoformat()
+    (idx_dir / "trace_manifest.json").write_text(json.dumps({
+        "format_version": "2.0",
+        "started_at": finished_at,
+        "finished_at": finished_at,
+    }))
+
+    proj = _FakeProject("test_trace", str(repo_dir), {
+        "include_globs": ["**/*.py", "**/*.md"],
+        "trace": {"enabled": True},
+    })
+    idx = _FakeCodeIndex(built_at=None, loaded=True)
+
+    # Fresh first.
+    result = check_index_staleness(proj, idx)
+    assert result["is_stale"] is False
+    invalidate_stale_cache("test_trace")
+
+    # Edit a tracked file after the build.
+    (repo_dir / "src" / "main.py").write_text("print('changed')")
+
+    result = check_index_staleness(proj, idx)
+    assert result["is_stale"] is True
+    assert result["stale_count"] >= 1
+    assert result["stale_since"] is not None
+
+    invalidate_stale_cache("test_trace")
+
+
 def test_cache_returns_same_result(repo_dir: Path):
     """Subsequent calls within TTL should return cached result."""
     from prep.services.project_helpers import check_index_staleness, invalidate_stale_cache
