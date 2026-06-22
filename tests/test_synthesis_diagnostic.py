@@ -77,6 +77,9 @@ def _make_orch() -> SwarmOrchestrator:
     # the default threshold, so set to the default 200 to preserve the
     # single-call path under test.
     orch.synthesis_chunk_max_workers = 200
+    # Phase 136 Part 09 Step 2 follow-up D: dispatcher also reads this
+    # kill switch.  False = keep threshold-gated behavior unchanged.
+    orch.synthesis_chunk_disable = False
     return orch
 
 

@@ -248,7 +248,7 @@ Step 2 is shipped when:
 
    1. Restart the daemon with `PREP_SYNTHESIS_CHUNK_DISABLE=1` set (forces the chunked dispatcher off — see CLAUDE.md "Synthesis chunking").  Without this, the chunked path engages for any run above 200 workers and the original parsed_but_empty signature cannot reproduce.
    2. Trigger a manual rebuild on a 798+ worker corpus (SourcePrep itself, HomeColab, or another large project that historically tripped the regression).
-   3. Inspect `pipeline_telemetry.jsonl` with `tools/finalize_chain_audit.py show-events`.  Filter on `event == concepts_synthesis_failed` and extract `failure_mode` + `synthesis_prompt_chars`.
+   3. Inspect `pipeline_telemetry.jsonl` with `tools/finalize_chain_audit.py --show-events`.  Filter on `event == concepts_synthesis_failed` and extract `failure_mode` + `synthesis_prompt_chars`.
 
    Decision tree from the telemetry:
 
