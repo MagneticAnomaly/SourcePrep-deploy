@@ -704,15 +704,149 @@ class TestProjectPipelineReadyFailure:
 
 
 class TestCancelAndQuiesce:
-    def test_returns_quiesced_false_and_detail_when_daemon_down(self):
-        # Best-effort by design: cancel post errors, wait_for_idle times
-        # out, helper returns False with both facts in the detail string.
+    def test_returns_false_and_detail_when_daemon_down(self):
+        # Daemon unreachable → _pipeline_snapshot returns all-empty →
+        # targets is [] → wait_for_pipeline_idle times out → False
+        # with "no active groups visible; still not idle" detail.
+        # (Pre-fix: detail said "cancel post failed" because the helper
+        # tried to post regardless of state; now it short-circuits when
+        # snapshot has no active phases.)
         quiesced, detail = cancel_and_quiesce(
             "http://127.0.0.1:1", "any-pid", max_seconds=0.2,
         )
         assert quiesced is False
-        assert "cancel post failed" in detail
-        assert "still busy" in detail
+        assert "no active groups visible" in detail
+        assert "still not idle" in detail
+
+    def test_posts_correct_body_for_each_running_group(self, monkeypatch):
+        """Body-shape regression test for PROPOSAL §9.1 cancel-quiesce
+        empty-body false-negative.
+
+        The bug: original cancel_and_quiesce posted with no body, hitting
+        `/pipeline/cancel`'s `CancelRequest` validator and returning a
+        silent 400. Pipeline kept running; harness moved on; next iter
+        409'd on /rebuild and read ERR. This test verifies the post body
+        is now `{group, reason}` for every group identified as running.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        captured: list[dict] = []
+        snapshot_calls: list[int] = [0]
+
+        class FakeResp:
+            def __init__(self, code: int = 200, body: dict | None = None):
+                self.status_code = code
+                self._body = body if body is not None else {"data": {}}
+            def json(self):
+                return self._body
+
+        def fake_get(url, *, timeout=None, **kw):  # noqa: ARG001
+            assert "/pipeline/status" in url
+            snapshot_calls[0] += 1
+            if snapshot_calls[0] == 1:
+                # Initial snapshot: deep_enrichment running, fast_sync
+                # completed, finalize null. Cancel target list = [
+                # "deep_enrichment"].
+                return FakeResp(200, {"data": {
+                    "fast_sync": {"phase": "completed"},
+                    "deep_enrichment": {"phase": "running"},
+                    "finalize": None,
+                }})
+            # Subsequent polls (from wait_for_pipeline_idle): idle.
+            return FakeResp(200, {"data": {
+                "fast_sync": {"phase": "completed"},
+                "deep_enrichment": {"phase": "cancelled"},
+                "finalize": None,
+            }})
+
+        def fake_post(url, *, json=None, timeout=None, **kw):  # noqa: ARG001
+            captured.append({"url": url, "json": json})
+            return FakeResp(200)
+
+        monkeypatch.setattr(rs.httpx, "get", fake_get)
+        monkeypatch.setattr(rs.httpx, "post", fake_post)
+
+        quiesced, detail = rs.cancel_and_quiesce("http://x", "pid", max_seconds=1.0)
+
+        assert quiesced is True
+        assert len(captured) == 1
+        assert captured[0]["url"].endswith("/projects/pid/pipeline/cancel")
+        assert captured[0]["json"] == {
+            "group": "deep_enrichment",
+            "reason": "uat_session_cleanup",
+        }
+        assert "deep_enrichment:cancelled" in detail
+
+    def test_treats_409_not_running_as_already_stopped(self, monkeypatch):
+        """409 NOT_RUNNING is a fine outcome (group quiesced between our
+        snapshot read and our cancel post). It must NOT be classified as
+        a cancel error — the runner needs to know "already-stopped" so it
+        can continue without flagging the iter as failed-cleanup.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        class FakeResp:
+            def __init__(self, code: int = 200, body: dict | None = None):
+                self.status_code = code
+                self._body = body if body is not None else {"data": {}}
+            def json(self):
+                return self._body
+
+        def fake_get(url, *, timeout=None, **kw):  # noqa: ARG001
+            return FakeResp(200, {"data": {
+                "fast_sync": {"phase": "running"},
+                "deep_enrichment": None,
+                "finalize": None,
+            }})
+
+        def fake_post(url, *, json=None, timeout=None, **kw):  # noqa: ARG001
+            return FakeResp(409, {"error": {"code": "NOT_RUNNING"}})
+
+        monkeypatch.setattr(rs.httpx, "get", fake_get)
+        monkeypatch.setattr(rs.httpx, "post", fake_post)
+
+        # Patch wait_for_pipeline_idle to return True instantly so we
+        # don't burn budget on a fake-still-running snapshot.
+        monkeypatch.setattr(rs, "wait_for_pipeline_idle", lambda *a, **k: True)
+
+        quiesced, detail = rs.cancel_and_quiesce("http://x", "pid", max_seconds=0.5)
+        assert quiesced is True
+        assert "fast_sync:already-stopped" in detail
+        assert "cancel-err" not in detail
+
+    def test_cancels_every_active_group_in_snapshot(self, monkeypatch):
+        """If multiple groups are simultaneously active (e.g. fast_sync
+        running + deep_enrichment queued), every one of them needs a
+        cancel post. Verifies the loop visits all targets rather than
+        bailing after the first.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        class FakeResp:
+            def __init__(self, code: int = 200, body: dict | None = None):
+                self.status_code = code
+                self._body = body if body is not None else {"data": {}}
+            def json(self):
+                return self._body
+
+        def fake_get(url, *, timeout=None, **kw):  # noqa: ARG001
+            return FakeResp(200, {"data": {
+                "fast_sync": {"phase": "running"},
+                "deep_enrichment": {"phase": "queued"},
+                "finalize": {"phase": "queued"},
+            }})
+
+        captured_groups: list[str] = []
+        def fake_post(url, *, json=None, timeout=None, **kw):  # noqa: ARG001
+            captured_groups.append(json["group"])
+            return FakeResp(200)
+
+        monkeypatch.setattr(rs.httpx, "get", fake_get)
+        monkeypatch.setattr(rs.httpx, "post", fake_post)
+        monkeypatch.setattr(rs, "wait_for_pipeline_idle", lambda *a, **k: True)
+
+        rs.cancel_and_quiesce("http://x", "pid", max_seconds=0.5)
+        assert sorted(captured_groups) == ["deep_enrichment", "fast_sync", "finalize"]
 
 
 class TestWaitForPipelineIdleFailure:

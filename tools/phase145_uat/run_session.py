@@ -174,31 +174,106 @@ def wait_for_pipeline_idle(
     return False
 
 
+# Phases a /pipeline/cancel post is meaningful for. Idle/completed/
+# cancelled/failed are terminal. `queued` is pre-active but the
+# orchestrator accepts cancels for queued groups (removes them from the
+# queue). Anything else is a no-op we don't want to bother the daemon
+# with.
+_CANCELLABLE_PHASES: frozenset[str] = frozenset({
+    "running", "pausing", "paused", "recovering", "cancelling", "queued",
+})
+
+
+def _pipeline_snapshot(api_url: str, project_id: str) -> dict[str, str]:
+    """Return `{group_name: phase}` for the three top-level pipeline groups.
+
+    Empty string for missing/unreachable groups so callers can do plain
+    `phase in _CANCELLABLE_PHASES` checks without `None` handling.
+    MUST NOT raise — daemon-down maps to all-empty.
+    """
+    snapshot: dict[str, str] = {g: "" for g in ("fast_sync", "deep_enrichment", "finalize")}
+    try:
+        r = httpx.get(
+            f"{api_url.rstrip('/')}/projects/{project_id}/pipeline/status",
+            timeout=3.0,
+        )
+        if r.status_code != 200:
+            return snapshot
+        body = r.json()
+        payload = body.get("data") if isinstance(body, dict) and "data" in body else body
+        if not isinstance(payload, dict):
+            return snapshot
+        for g in snapshot:
+            grp = payload.get(g)
+            if isinstance(grp, dict):
+                phase = grp.get("phase")
+                if isinstance(phase, str):
+                    snapshot[g] = phase
+    except Exception:
+        pass
+    return snapshot
+
+
 def cancel_and_quiesce(
     api_url: str,
     project_id: str,
     *,
     max_seconds: float = 30.0,
 ) -> tuple[bool, str]:
-    """Best-effort POST /pipeline/cancel + wait for idle.
+    """Best-effort cancel of every active group, then wait for idle.
 
-    Returns `(quiesced, detail)` for inclusion in the iter notes — caller
-    surfaces this in the scorecard so a reviewer knows the runner
-    handled a stall vs. silently moving on. If cancel itself errors,
-    `wait_for_pipeline_idle` still runs (the cancel may have partially
-    landed, or another agent may have cancelled in parallel).
+    `/pipeline/cancel` takes ONE group at a time and requires a JSON body
+    of `{group, reason}` (see `src/prep/api/routers/pipeline.py`
+    `CancelRequest`). An empty-body POST returns 400 silently because
+    `httpx` does not raise on non-2xx — that exact bug burned the first
+    T4 dry run and is documented in PROPOSAL §9.1 (cancel-quiesce-
+    empty-body false-negative).
+
+    We snapshot `/pipeline/status`, post cancel for every group whose
+    phase is in `_CANCELLABLE_PHASES`, then `wait_for_pipeline_idle` for
+    the remainder of `max_seconds`. 409 NOT_RUNNING is treated as
+    already-stopped (group quiesced between snapshot and cancel post).
+    Other non-2xx codes are surfaced in the notes string but do not
+    block the quiesce wait.
+
+    Returns `(quiesced, detail)`; detail is surfaced verbatim in the
+    scorecard so a reviewer can see what the runner did.
     """
-    try:
-        httpx.post(
-            f"{api_url.rstrip('/')}/projects/{project_id}/pipeline/cancel",
-            timeout=5.0,
+    snapshot = _pipeline_snapshot(api_url, project_id)
+    targets = [g for g, phase in snapshot.items() if phase in _CANCELLABLE_PHASES]
+
+    if not targets:
+        # No active groups visible. Either pipeline is already idle, or
+        # the daemon is unreachable. Run the idle probe anyway: if
+        # status answered 200 with all terminal phases, this returns
+        # True fast. Daemon-down returns False after the budget.
+        quiesced = wait_for_pipeline_idle(api_url, project_id, max_seconds=max_seconds)
+        detail = (
+            "already idle (nothing to cancel)" if quiesced
+            else f"no active groups visible; still not idle after {max_seconds}s"
         )
-        cancel_note = "cancel posted"
-    except Exception as e:
-        cancel_note = f"cancel post failed: {e!r}"
+        return quiesced, detail
+
+    notes: list[str] = []
+    for group in targets:
+        try:
+            r = httpx.post(
+                f"{api_url.rstrip('/')}/projects/{project_id}/pipeline/cancel",
+                json={"group": group, "reason": "uat_session_cleanup"},
+                timeout=5.0,
+            )
+            if r.status_code == 200:
+                notes.append(f"{group}:cancelled")
+            elif r.status_code == 409:
+                notes.append(f"{group}:already-stopped")
+            else:
+                notes.append(f"{group}:cancel-{r.status_code}")
+        except Exception as e:
+            notes.append(f"{group}:cancel-err-{type(e).__name__}")
+
     quiesced = wait_for_pipeline_idle(api_url, project_id, max_seconds=max_seconds)
     state = "quiesced" if quiesced else f"still busy after {max_seconds}s"
-    return quiesced, f"{cancel_note}; {state}"
+    return quiesced, f"{', '.join(notes)}; {state}"
 
 
 # ── Result + manifest dataclasses ─────────────────────────────────

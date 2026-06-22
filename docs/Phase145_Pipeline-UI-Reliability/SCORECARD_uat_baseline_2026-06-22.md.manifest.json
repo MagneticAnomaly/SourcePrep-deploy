@@ -1,0 +1,797 @@
+{
+  "session_id": "2026-06-22T180157Z",
+  "project_id": "6955793f-d824-4e1c-8cb6-417a08bd6669",
+  "iterations": 3,
+  "operations": [
+    "Op-1",
+    "Op-2",
+    "Op-3",
+    "Op-4"
+  ],
+  "api_url": "http://localhost:8400",
+  "dashboard_url": "http://localhost:5174",
+  "out_root": "tests/eval/ui_smoke",
+  "completed": [
+    {
+      "op_id": "Op-1",
+      "iter_num": 1,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T180214Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": false,
+        "I13": true
+      },
+      "failures": [
+        {
+          "invariant_id": "I3",
+          "count": 8,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "fast_sync",
+                "phase": "running",
+                "current_stage": "catalogue",
+                "current_stage_index": 2,
+                "downstream_stage": "validation",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "fast_sync",
+                "phase": "running",
+                "current_stage": "catalogue",
+                "current_stage_index": 2,
+                "downstream_stage": "knowledge",
+                "downstream_index": 4,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T18:02:14.922093+00:00",
+      "ended_at": "2026-06-22T18:16:15.516809+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-1",
+      "iter_num": 2,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T181643Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": false,
+        "I13": false
+      },
+      "failures": [
+        {
+          "invariant_id": "I13",
+          "count": 1,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "finalize",
+                "phase": "running",
+                "marked_count": 0,
+                "marked_stages": []
+              }
+            ]
+          }
+        },
+        {
+          "invariant_id": "I3",
+          "count": 8,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "fast_sync",
+                "phase": "running",
+                "current_stage": "catalogue",
+                "current_stage_index": 2,
+                "downstream_stage": "validation",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "fast_sync",
+                "phase": "running",
+                "current_stage": "catalogue",
+                "current_stage_index": 2,
+                "downstream_stage": "knowledge",
+                "downstream_index": 4,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T18:16:43.082993+00:00",
+      "ended_at": "2026-06-22T18:28:30.257130+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-1",
+      "iter_num": 3,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T182857Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": false,
+        "I13": true
+      },
+      "failures": [
+        {
+          "invariant_id": "I3",
+          "count": 8,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "fast_sync",
+                "phase": "running",
+                "current_stage": "catalogue",
+                "current_stage_index": 2,
+                "downstream_stage": "validation",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "fast_sync",
+                "phase": "running",
+                "current_stage": "catalogue",
+                "current_stage_index": 2,
+                "downstream_stage": "knowledge",
+                "downstream_index": 4,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T18:28:57.849371+00:00",
+      "ended_at": "2026-06-22T18:43:05.680654+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-2",
+      "iter_num": 1,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T184346Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": false,
+        "I13": true
+      },
+      "failures": [
+        {
+          "invariant_id": "I3",
+          "count": 4,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "group_reasoning",
+                "downstream_index": 1,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "clustering",
+                "downstream_index": 2,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deepening",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T18:43:46.768683+00:00",
+      "ended_at": "2026-06-22T18:46:20.915132+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-2",
+      "iter_num": 2,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T184710Z",
+      "status": "fail",
+      "invariants": {
+        "I1": false,
+        "I2": true,
+        "I3": false,
+        "I13": false
+      },
+      "failures": [
+        {
+          "invariant_id": "I1",
+          "count": 3,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "running_count": 2,
+                "running_stages": [
+                  "enrichment",
+                  "group_reasoning"
+                ],
+                "running_states": {
+                  "enrichment": "running",
+                  "group_reasoning": "running"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "invariant_id": "I13",
+          "count": 3,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "marked_count": 2,
+                "marked_stages": [
+                  "enrichment",
+                  "group_reasoning"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "invariant_id": "I3",
+          "count": 2,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "group_reasoning",
+                "current_stage_index": 1,
+                "downstream_stage": "clustering",
+                "downstream_index": 2,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "group_reasoning",
+                "current_stage_index": 1,
+                "downstream_stage": "deepening",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "group_reasoning",
+                "current_stage_index": 1,
+                "downstream_stage": "deep_knowledge",
+                "downstream_index": 4,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T18:47:10.149670+00:00",
+      "ended_at": "2026-06-22T18:49:26.959464+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-2",
+      "iter_num": 3,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T184955Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T18:49:55.023637+00:00",
+      "ended_at": "2026-06-22T18:49:57.103932+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-3",
+      "iter_num": 1,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T185024Z",
+      "status": "fail",
+      "invariants": {
+        "I1": false,
+        "I2": true,
+        "I3": false,
+        "I13": false
+      },
+      "failures": [
+        {
+          "invariant_id": "I1",
+          "count": 1,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "running_count": 2,
+                "running_stages": [
+                  "enrichment",
+                  "group_reasoning"
+                ],
+                "running_states": {
+                  "enrichment": "rebuilding",
+                  "group_reasoning": "rebuilding"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "invariant_id": "I13",
+          "count": 1,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "marked_count": 2,
+                "marked_stages": [
+                  "enrichment",
+                  "group_reasoning"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "invariant_id": "I3",
+          "count": 9,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "group_reasoning",
+                "downstream_index": 1,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "clustering",
+                "downstream_index": 2,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deepening",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deep_knowledge",
+                "downstream_index": 4,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T18:50:24.973909+00:00",
+      "ended_at": "2026-06-22T18:58:25.509788+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-3",
+      "iter_num": 2,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T185852Z",
+      "status": "fail",
+      "invariants": {
+        "I1": false,
+        "I2": true,
+        "I3": false,
+        "I13": false
+      },
+      "failures": [
+        {
+          "invariant_id": "I1",
+          "count": 1,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "running_count": 2,
+                "running_stages": [
+                  "enrichment",
+                  "group_reasoning"
+                ],
+                "running_states": {
+                  "enrichment": "rebuilding",
+                  "group_reasoning": "rebuilding"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "invariant_id": "I13",
+          "count": 1,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "marked_count": 2,
+                "marked_stages": [
+                  "enrichment",
+                  "group_reasoning"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "invariant_id": "I3",
+          "count": 9,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "group_reasoning",
+                "downstream_index": 1,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "clustering",
+                "downstream_index": 2,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deepening",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deep_knowledge",
+                "downstream_index": 4,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T18:58:52.851329+00:00",
+      "ended_at": "2026-06-22T19:08:52.980039+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-3",
+      "iter_num": 3,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T190920Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": false,
+        "I13": true
+      },
+      "failures": [
+        {
+          "invariant_id": "I3",
+          "count": 9,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "group_reasoning",
+                "downstream_index": 1,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "clustering",
+                "downstream_index": 2,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deepening",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deep_knowledge",
+                "downstream_index": 4,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T19:09:20.396822+00:00",
+      "ended_at": "2026-06-22T19:19:16.153845+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-4",
+      "iter_num": 1,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T191946Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": false,
+        "I13": true
+      },
+      "failures": [
+        {
+          "invariant_id": "I3",
+          "count": 5,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "group_reasoning",
+                "downstream_index": 1,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "clustering",
+                "downstream_index": 2,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deepening",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deep_knowledge",
+                "downstream_index": 4,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T19:19:46.161197+00:00",
+      "ended_at": "2026-06-22T19:24:13.293293+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-4",
+      "iter_num": 2,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T192455Z",
+      "status": "fail",
+      "invariants": {
+        "I1": false,
+        "I2": true,
+        "I3": false,
+        "I13": false
+      },
+      "failures": [
+        {
+          "invariant_id": "I1",
+          "count": 1,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "running_count": 2,
+                "running_stages": [
+                  "clustering",
+                  "deepening"
+                ],
+                "running_states": {
+                  "clustering": "rebuilding",
+                  "deepening": "rebuilding"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "invariant_id": "I13",
+          "count": 1,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "marked_count": 2,
+                "marked_stages": [
+                  "clustering",
+                  "deepening"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "invariant_id": "I3",
+          "count": 5,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "group_reasoning",
+                "downstream_index": 1,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "clustering",
+                "downstream_index": 2,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deepening",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deep_knowledge",
+                "downstream_index": 4,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T19:24:55.699854+00:00",
+      "ended_at": "2026-06-22T19:27:57.683692+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-4",
+      "iter_num": 3,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T192825Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": false,
+        "I13": true
+      },
+      "failures": [
+        {
+          "invariant_id": "I3",
+          "count": 5,
+          "first_evidence": {
+            "failures": [
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "group_reasoning",
+                "downstream_index": 1,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "clustering",
+                "downstream_index": 2,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deepening",
+                "downstream_index": 3,
+                "downstream_state": "complete"
+              },
+              {
+                "group": "deep_enrichment",
+                "phase": "running",
+                "current_stage": "enrichment",
+                "current_stage_index": 0,
+                "downstream_stage": "deep_knowledge",
+                "downstream_index": 4,
+                "downstream_state": "complete"
+              }
+            ]
+          }
+        }
+      ],
+      "started_at": "2026-06-22T19:28:25.138396+00:00",
+      "ended_at": "2026-06-22T19:31:58.556971+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    }
+  ]
+}
