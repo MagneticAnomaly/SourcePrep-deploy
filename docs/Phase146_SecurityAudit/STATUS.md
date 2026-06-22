@@ -4,8 +4,9 @@
 > It is the single source of truth for what is verified, what is pending, and
 > who owns it. Every other doc in this phase is a snapshot; this one is state.
 
-**Last updated:** 2026-06-16
-**Phase state:** SCAFFOLDING COMPLETE → ready to schedule deep phases
+**Last updated:** 2026-06-22
+**Phase state:** PHASE 1 (Auth & Daemon Boundary) reviewed → Phase 2 next
+**Decisions set (2026-06-22):** D-1 = one-phase-at-a-time · D-2 = product + deploy, defer websites · D-3 = loopback-primary + analyze exposed case
 
 ---
 
@@ -15,7 +16,7 @@
 |-----------|-------------|-------|----------------|--------|
 | 0 | Initial orientation (lightweight) | ❌ **SUPERSEDED** (fabricated; see README Errata) | Haiku 4.5 | git `0aa18e0e` (removed) |
 | 0.5 | Ground-truth verification + scaffold rebuild | ✅ **DONE** 2026-06-16 | Opus 4.8 + 6-agent workflow | this directory |
-| 1 | Auth & Daemon Boundary deep dive | ⏳ PENDING | TBD | — |
+| 1 | Auth & Daemon Boundary deep dive | 🔎 REVIEWED 2026-06-22 (code-level; refute panel pending) | Opus 4.8 | `PHASE1_AUTH_BOUNDARY.md` |
 | 2 | License & Feature-Gate deep dive | ⏳ PENDING | TBD | — |
 | 3 | Outbound / SSRF / Team-Sync deep dive | ⏳ PENDING | TBD | — |
 | 4 | LLM Injection & Data-Exposure deep dive | ⏳ PENDING | TBD | — |
@@ -62,13 +63,16 @@ Phase 06 audit. They are hypotheses with evidence pointers, not confirmed vulns.
 
 | # | Candidate | Evidence | Owner phase | State |
 |---|-----------|----------|-------------|-------|
-| C-1 | Daemon HTTP auth OFF by default (`PREP_DAEMON_TOKEN` never auto-generated) | `server.py:246-262` | Phase 1 | ⏳ to verify |
-| C-2 | `/license/dev-override` unauthenticated + sets `PREP_DEV_MODE=1` process-wide → unsigned tier shortcuts | `api/routers/license.py:502-584,147-166` | Phase 1/2 | ⏳ to verify |
-| C-3 | `is_safe_url` bypasses: ollama/lm-studio short-circuit `True`; DNS failure → allow | `api/routers/llm.py:178-191` | Phase 3 | ⏳ to verify |
-| C-4 | `audit_log.record` stores `**details` verbatim, no redaction; records endpoint URLs | `core/audit_log.py:148-187` | Phase 4 | ⏳ to verify |
-| C-5 | MCP HTTP transport: Origin-header-only, no token (allows null/any-localhost Origin) | `mcp/transport.py:121` | Phase 1 | ⏳ to verify |
-| C-6 | git argument injection residual (no `--` separator before user values) | `agents/shared/git_client.py:21-55` | Phase 5 | ⏳ to verify |
+| C-1 | Daemon HTTP auth off by default | `server.py:246-262` | Phase 1 | 🟡 **PARTIAL/reframed** — desktop sets a random token (`main.rs:58,111`); no shipped non-loopback exposure (cloud=`sync-headless`). Real issue = no guardrail vs manual `--host 0.0.0.0`. MEDIUM footgun |
+| C-2 | `/license/dev-override` ungated → self-grant enterprise + `PREP_DEV_MODE=1` | `api/routers/license.py:502-584` | Phase 1→2 | 🔴 **CONFIRMED (code)** — ungated, wired to dashboard UI (`packages/ui/.../client.ts:684`). HIGH if dropdown ships to prod (open Q → Phase 2) |
+| C-3 | `is_safe_url` bypasses: ollama/lm-studio short-circuit; DNS failure → allow | `api/routers/llm.py:178-191` | Phase 3 | ⏳ to verify |
+| C-4 | `audit_log.record` stores `**details` verbatim, no redaction | `core/audit_log.py:148-187` | Phase 4 | ⏳ to verify |
+| C-5 | MCP HTTP transport: Origin-only, no token | `mcp/transport.py:121` | Phase 1 | 🟡 **CONFIRMED, low likelihood** — http transport is opt-in (default `stdio`, `cli.py:725`). MEDIUM |
+| C-6 | git argument injection residual (no `--` separator) | `agents/shared/git_client.py:21-55` | Phase 5 | ⏳ to verify |
 | C-7 | Default license public key is a placeholder/dev key | `core/licensing.py:22` | Phase 2 | ⏳ to verify |
+| **F1-NEW-1** | MCP `is_local` Origin check prefix-bypassable (`http://localhost.evil.com`) | `mcp/transport.py:136` | Phase 1 | 🔴 **CONFIRMED (new)** — daemon CORS regex is sound; MCP transport's hand-rolled check is not. MEDIUM |
+
+Phase 1 detail + evidence: `PHASE1_AUTH_BOUNDARY.md`.
 
 Full detail in `04_CANDIDATE_FINDINGS.md`.
 
@@ -91,13 +95,13 @@ Full detail in `03_TOOLING_BASELINE.md`.
 
 ---
 
-## Open decisions (need a human call)
+## Decisions (RESOLVED 2026-06-22)
 
-| # | Decision | Default if unanswered |
-|---|----------|----------------------|
-| D-1 | Run deep phases as one big orchestrated workflow vs. one phase at a time with review between | one-at-a-time (stay in the loop) |
-| D-2 | Scope: product-code only, or include `public/sourceprep-deploy/` (Dockerfiles, GH Actions) and `websites/` | include deploy; defer websites |
-| D-3 | Does the threat model assume a **non-loopback** daemon deployment? (changes severity of C-1/C-5 dramatically) | assume loopback default + document the network-exposed case |
+| # | Decision | Resolution | Basis |
+|---|----------|------------|-------|
+| D-1 | Orchestration | ✅ **one phase at a time**, review between | findings are dependency-linked; provenance wants review |
+| D-2 | Scope | ✅ **product + `public/sourceprep-deploy/`**; defer `websites/` (payments gets its own later phase) | deploy is small/high-signal + owns MED-2/LOW-3 |
+| D-3 | Threat model | ✅ **loopback-primary + exposed-case as first-class scenario** | code review: no shipped non-loopback exposure; desktop even sets a token; manual `--host 0.0.0.0` is the footgun |
 
 ---
 
@@ -110,9 +114,16 @@ Full detail in `03_TOOLING_BASELINE.md`.
 | 2026-06-16 | `prep_search` "is_safe_url…" (LOCATE) | ❌ "No symbols found" for a function that exists at `llm.py:159` | LOCATE on descriptive phrase fails; product finding to log via prep_observe |
 | 2026-06-16 | `prep_audit antibodies` | ⚪ none exist (no constraint concepts) | opportunity: seed security-constraint concepts (Phase 8) |
 | 2026-06-16 | `prep_impact server.py` | ✅ 30 dependents (hub confirmed); note: server.py not a trace-graph node, import-edges still resolved | single auth chokepoint = good for audit, bad for defense-in-depth |
+| 2026-06-22 | `prep()` (Phase 1 resume) | ❌ daemon down ("Cannot connect to :8400") — fell back to grep/read for the whole phase | restart-before-use; product can't help when daemon is down (expected, but worth noting for headless/CI audits) |
 
 ## Changelog
 
+- **2026-06-22** — D-1/D-2/D-3 resolved. Phase 1 (Auth & Daemon Boundary) reviewed
+  at code level (`PHASE1_AUTH_BOUNDARY.md`). C-1 reframed (MEDIUM footgun, not
+  critical — desktop sets a token, no shipped non-loopback exposure); C-2 confirmed
+  (ungated dev-override wired to dashboard UI); C-5 confirmed but low-likelihood
+  (http transport opt-in); new finding F1-NEW-1 (MCP `is_local` prefix bypass).
+  Refute panel still pending. prep daemon was down → grep/read fallback.
 - **2026-06-16** — Phase 0.5 complete. Removed fabricated `Phase_SecurityAuditPrep/`;
   rebuilt as verified `Phase146_SecurityAudit/`. Ledger seeded from Phase 06 audit
   + verification pass. 7 candidate findings logged. Deep-dive plan (8 workstreams +
