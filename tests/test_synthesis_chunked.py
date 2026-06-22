@@ -535,3 +535,52 @@ def test_chunked_pause_before_meta_propagates_hold_paused():
         f"fires; meta must NOT dispatch; expected 2 LLM calls, got "
         f"{mock_llm.call_count}"
     )
+
+
+# ── Reproducibility ────────────────────────────────────────────────
+
+
+def test_chunk_results_deterministic_by_item_id():
+    """Workers passed in shuffled order produce the same chunk
+    boundaries as sorted-by-item_id workers.  Critical for production
+    debugging — a chunk's contents must be reproducible from the input
+    list.
+    """
+    import random
+
+    orch = _make_orch(chunk_max=100)
+    sorted_workers = _many_ok_workers(250)  # 3 chunks of 100, 100, 50
+    shuffled = sorted_workers.copy()
+    random.Random(42).shuffle(shuffled)
+
+    fake_text = '{"concepts": [{"title": "OK"}], "questions": []}'
+
+    sorted_prompts = []
+    shuffled_prompts = []
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       return_value=(fake_text, 10)) as mock_llm:
+        orch._synthesize(
+            sorted_workers,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+        # First 3 calls = per-chunk; 4th = meta.
+        for call in mock_llm.call_args_list[:3]:
+            sorted_prompts.append(call.kwargs.get("prompt", ""))
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       return_value=(fake_text, 10)) as mock_llm:
+        orch._synthesize(
+            shuffled,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+        for call in mock_llm.call_args_list[:3]:
+            shuffled_prompts.append(call.kwargs.get("prompt", ""))
+
+    assert sorted_prompts == shuffled_prompts, (
+        "Chunk boundaries (and therefore per-chunk prompts) must be "
+        "identical regardless of input worker order — _synthesize_chunked "
+        "sorts by item_id before slicing"
+    )
