@@ -584,3 +584,59 @@ def test_chunk_results_deterministic_by_item_id():
         "identical regardless of input worker order — _synthesize_chunked "
         "sorts by item_id before slicing"
     )
+
+
+# ── Diagnostic classifier — chunked failure modes ──────────────────
+
+
+from prep.core.concept_seeder import _synthesis_diagnostic_fields
+
+
+def test_diagnostic_failure_mode_chunked_all_failed():
+    """SwarmResult with synthesis_chunk_count > 1, synthesis=None,
+    raw_text=None, prompt_chars>0 → failure_mode = chunked_all_failed.
+    """
+    r = SwarmResult(
+        worker_results=[
+            WorkerResult(item_id=f"m{i}", raw_output="", parsed=None,
+                          success=False)
+            for i in range(5)
+        ],
+        synthesis=None,
+        raw_synthesis_text=None,
+        synthesis_prompt_chars=500_000,  # non-zero — chunks were dispatched
+        synthesis_chunk_count=4,
+        synthesis_meta_failed=False,
+    )
+
+    out = _synthesis_diagnostic_fields(r)
+
+    assert out["failure_mode"] == "chunked_all_failed"
+    assert out["raw_synthesis_chars"] == 0
+
+
+def test_diagnostic_failure_mode_chunked_meta_failed():
+    """SwarmResult with synthesis_chunk_count > 1, synthesis (non-empty
+    union), synthesis_meta_failed=True → failure_mode = chunked_meta_failed.
+    """
+    survivors_union = {
+        "concepts": [{"title": "C1"}, {"title": "C2"}],
+        "questions": [],
+    }
+    r = SwarmResult(
+        worker_results=[
+            WorkerResult(item_id=f"m{i}", raw_output="r",
+                          parsed={"concepts": [{"title": "x"}]},
+                          success=True)
+            for i in range(5)
+        ],
+        synthesis=survivors_union,
+        raw_synthesis_text="meta call failed with this response text",
+        synthesis_prompt_chars=400_000,
+        synthesis_chunk_count=4,
+        synthesis_meta_failed=True,
+    )
+
+    out = _synthesis_diagnostic_fields(r)
+
+    assert out["failure_mode"] == "chunked_meta_failed"

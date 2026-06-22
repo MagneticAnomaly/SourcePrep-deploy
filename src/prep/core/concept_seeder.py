@@ -84,14 +84,28 @@ def _synthesis_diagnostic_fields(result: Any) -> dict:
     raw_text = getattr(result, "raw_synthesis_text", None)
     prompt_chars = getattr(result, "synthesis_prompt_chars", 0)
     synthesis = getattr(result, "synthesis", None)
+    chunk_count = getattr(result, "synthesis_chunk_count", 1)
+    meta_failed = getattr(result, "synthesis_meta_failed", False)
 
     if raw_text is None:
         if prompt_chars == 0:
             failure_mode = "no_workers"
+        elif chunk_count > 1:
+            # Chunks were dispatched (prompt_chars > 0 → at least one
+            # chunk's prompt was sent) but none returned parseable text
+            # and meta was skipped → chunked_all_failed.  Per-chunk
+            # raw responses are not bubbled here; see swarm event log
+            # for per-chunk parse_failure records.
+            failure_mode = "chunked_all_failed"
         else:
             failure_mode = "no_text"
     elif synthesis is None:
         failure_mode = "parse_failed"
+    elif chunk_count > 1 and meta_failed:
+        # Chunks succeeded, meta failed; we returned a manually-deduped
+        # union of chunk survivors as result.synthesis.  This is the
+        # chunked path's recovery-success — partial-quality output kept.
+        failure_mode = "chunked_meta_failed"
     else:
         failure_mode = "parsed_but_empty"
 
