@@ -441,3 +441,97 @@ def test_chunked_meta_fail_union_skips_entries_with_empty_titles():
     assert q_texts == {"Real q"}, (
         f"Empty/missing-question entries must be skipped; got {q_texts}"
     )
+
+
+# ── Soft-hold (HoldPausedError) propagation ────────────────────────
+
+
+def test_chunked_pause_between_chunks_propagates_hold_paused():
+    """Mock _hold_paused to return True after chunk 1 completes; the
+    chunked path must raise HoldPausedError; chunks 2-4 and meta must
+    NOT dispatch.
+    """
+    from prep.services.pipeline.holds import HoldPausedError
+
+    orch = _make_orch(chunk_max=200)
+    orch.project_id = "proj-test"
+    workers = _many_ok_workers(798)  # 4 chunks
+
+    # Each chunk call returns valid JSON; meta would too if reached.
+    fake_text = '{"concepts": [{"title": "OK"}], "questions": []}'
+
+    # _hold_paused is only polled at the between-chunks check (line 909
+    # of swarm_orchestrator.py) — _synthesize_single itself does NOT
+    # poll.  So the first poll IS the post-chunk-1 check; return True
+    # there to fire the pause before chunk 2 dispatches.
+    def _fake_hold():
+        return True
+
+    # _raise_hold_paused must raise — patch with the real-ish behavior.
+    def _fake_raise():
+        raise HoldPausedError(
+            project_id="proj-test", endpoint_id="cloud:test",
+        )
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       return_value=(fake_text, 50)) as mock_llm:
+        with patch.object(SwarmOrchestrator, "_hold_paused",
+                           side_effect=_fake_hold):
+            with patch.object(SwarmOrchestrator, "_raise_hold_paused",
+                               side_effect=_fake_raise):
+                with pytest.raises(HoldPausedError):
+                    orch._synthesize(
+                        workers,
+                        synthesis_prompt="prefix {worker_outputs} suffix",
+                        event_log=None,
+                    )
+
+    # Only chunk 1 dispatched before the pause was raised.
+    assert mock_llm.call_count == 1, (
+        f"Pause between chunks must stop dispatch; expected 1 LLM call, "
+        f"got {mock_llm.call_count}"
+    )
+
+
+def test_chunked_pause_before_meta_propagates_hold_paused():
+    """All chunks succeed; _hold_paused returns True at the pre-meta
+    check; HoldPausedError raises; meta does NOT dispatch.
+    """
+    from prep.services.pipeline.holds import HoldPausedError
+
+    orch = _make_orch(chunk_max=200)
+    orch.project_id = "proj-test"
+    workers = _many_ok_workers(400)  # 2 chunks
+
+    fake_text = '{"concepts": [{"title": "OK"}], "questions": []}'
+
+    # _hold_paused: False after chunk 1 (between-chunks check), True
+    # before meta dispatch.
+    hold_returns = iter([False, True])
+    def _fake_hold():
+        return next(hold_returns)
+
+    def _fake_raise():
+        raise HoldPausedError(
+            project_id="proj-test", endpoint_id="cloud:test",
+        )
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       return_value=(fake_text, 50)) as mock_llm:
+        with patch.object(SwarmOrchestrator, "_hold_paused",
+                           side_effect=_fake_hold):
+            with patch.object(SwarmOrchestrator, "_raise_hold_paused",
+                               side_effect=_fake_raise):
+                with pytest.raises(HoldPausedError):
+                    orch._synthesize(
+                        workers,
+                        synthesis_prompt="prefix {worker_outputs} suffix",
+                        event_log=None,
+                    )
+
+    # Both chunks dispatched; meta did NOT.
+    assert mock_llm.call_count == 2, (
+        f"Both chunks must dispatch before the pre-meta hold check "
+        f"fires; meta must NOT dispatch; expected 2 LLM calls, got "
+        f"{mock_llm.call_count}"
+    )
