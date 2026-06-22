@@ -182,6 +182,27 @@ references; the underlying CoreML/ANE buffers may persist.
 See `docs/Phase139_EmbedderMemoryHardening/` for the full incident
 record, research synthesis, corpus profile, and implementation plan.
 
+## Synthesis chunking (Phase 136 Part 09 Step 2)
+
+When the SwarmOrchestrator's concept-synthesis pass has more than
+`PREP_SYNTHESIS_CHUNK_MAX_WORKERS` successful workers, the synthesis
+prompt is split into chunks of that size and a meta-synthesis call
+merges them.  This recovers from the Phase 123 wall-time regression
+where a single 1.5M+ char synthesis prompt exceeded the cloud budget.
+
+| Env var | Default | Purpose |
+|---|---|---|
+| `PREP_SYNTHESIS_CHUNK_MAX_WORKERS` | 200 | Trigger threshold + per-chunk batch size.  Above this worker count, synthesis is chunked. |
+| `PREP_SYNTHESIS_CHUNK_DISABLE` | unset | Truthy values (`1`, `true`, `yes`, `on`) force the single-call path regardless of worker count.  Required for the documented merge gate of Step 2 — a live rebuild with this set should produce `failure_mode = parsed_but_empty` and `synthesis_prompt_chars > 1_500_000` for the gate to be met. |
+
+Telemetry: failure events are `concepts_synthesis_failed` (raw-worker
+fallback, quality cliff) and `concepts_chunked_meta_failed` (chunked
+recovery-success, partial quality kept).  Inspect with
+`tools/finalize_chain_audit.py show-events`.
+
+See `docs/Phase136_Dogfood-fixes/Part09_SynthesizerWallTimeRegression/`
+for the full incident record, design, and acceptance criteria.
+
 ## SourcePrep MCP Tools (Use These)
 
 This project ships its own MCP server. See AGENTS.md for tool-calling details and the current project_id. When the SourcePrep daemon is running, these tools are available and **should be actively used during development**:

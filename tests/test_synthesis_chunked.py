@@ -105,6 +105,9 @@ def _make_orch(chunk_max: int = 200) -> SwarmOrchestrator:
     orch.worker_llm = None
     orch.project_id = None
     orch.synthesis_chunk_max_workers = chunk_max
+    # Phase 136 Part 09 Step 2 follow-up: kill switch defaults to off
+    # so the bypass-__init__ tests exercise the chunked path as before.
+    orch.synthesis_chunk_disable = False
     return orch
 
 
@@ -823,4 +826,113 @@ def test_chunked_with_1_survivor_sets_meta_failed_true():
     assert meta_failed is True, (
         "1-survivor short-circuit must set meta_failed=True so the "
         "telemetry event fires; got meta_failed=False"
+    )
+
+
+# ── PREP_SYNTHESIS_CHUNK_DISABLE kill-switch ───────────────────────
+
+
+def test_chunk_disable_env_forces_single_call(monkeypatch):
+    """When PREP_SYNTHESIS_CHUNK_DISABLE=1, _synthesize takes the
+    single-call path even with worker count above chunk_max_workers.
+
+    Operator rollback path: with the kill switch on, large workloads
+    (798/805/741 workers in production) hit the documented merge gate
+    (single-call concepts_synthesis_failed with parsed_but_empty)
+    instead of falling through to chunked recovery.
+    """
+    monkeypatch.setenv("PREP_SYNTHESIS_CHUNK_DISABLE", "1")
+
+    class _StubLLM:
+        model = "stub"
+        def _resolve_scheduler_node_id(self):
+            return ""
+
+    stub = _StubLLM()
+    orch = SwarmOrchestrator(
+        coordinator_llm=stub,
+        worker_llm=stub,
+        concurrency=1,
+    )
+    # Use a small chunk_max so we don't have to fabricate 200+ workers
+    # — the dispatcher reads chunk_max_workers and chunk_disable
+    # independently.
+    orch.synthesis_chunk_max_workers = 10
+    workers = _many_ok_workers(50)  # 50 > 10 → would chunk if not disabled
+    fake_text = '{"concepts": [{"title": "Single"}], "questions": []}'
+
+    with patch.object(
+        SwarmOrchestrator, "_synthesize_single",
+        return_value=({"concepts": [{"title": "Single"}], "questions": []},
+                      100, fake_text, 500, False),
+    ) as mock_single, patch.object(
+        SwarmOrchestrator, "_synthesize_chunked",
+    ) as mock_chunked:
+        out = orch._synthesize(
+            workers,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+
+    assert mock_single.call_count == 1, (
+        f"Kill switch on → _synthesize_single must be called exactly once; "
+        f"got {mock_single.call_count}"
+    )
+    assert mock_chunked.call_count == 0, (
+        f"Kill switch on → _synthesize_chunked must NOT be called; "
+        f"got {mock_chunked.call_count}"
+    )
+    parsed, _, _, _, meta_failed = out
+    assert parsed == {"concepts": [{"title": "Single"}], "questions": []}
+    assert meta_failed is False
+
+
+def test_chunk_disable_unset_uses_chunking(monkeypatch):
+    """When PREP_SYNTHESIS_CHUNK_DISABLE unset (default), worker count
+    above chunk_max_workers takes the chunked path — confirming the
+    kill switch is genuinely opt-in.
+    """
+    monkeypatch.delenv("PREP_SYNTHESIS_CHUNK_DISABLE", raising=False)
+
+    class _StubLLM:
+        model = "stub"
+        def _resolve_scheduler_node_id(self):
+            return ""
+
+    stub = _StubLLM()
+    orch = SwarmOrchestrator(
+        coordinator_llm=stub,
+        worker_llm=stub,
+        concurrency=1,
+    )
+    orch.synthesis_chunk_max_workers = 10
+    workers = _many_ok_workers(50)  # 50 > 10 → chunked
+
+    with patch.object(
+        SwarmOrchestrator, "_synthesize_chunked",
+        return_value=({"concepts": [{"title": "Meta"}], "questions": []},
+                      200, "meta-raw", 800, False),
+    ) as mock_chunked, patch.object(
+        SwarmOrchestrator, "_synthesize_single",
+        return_value=({"concepts": [{"title": "Single"}], "questions": []},
+                      50, "single-raw", 100, False),
+    ) as mock_single:
+        orch._synthesize(
+            workers,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+
+    assert mock_chunked.call_count == 1, (
+        f"Default (kill switch unset) + 50 workers > chunk_max=10 → "
+        f"_synthesize_chunked must be called; got {mock_chunked.call_count}"
+    )
+    # _synthesize_single may also be patched but our dispatcher does not
+    # call it directly at the top level when the chunked path is taken
+    # (the chunked path calls _synthesize_single internally, but we've
+    # patched the chunked path to short-circuit, so single must not be
+    # invoked from the dispatcher).
+    assert mock_single.call_count == 0, (
+        f"Dispatcher routed to chunked path; _synthesize_single must not "
+        f"be called directly; got {mock_single.call_count}"
     )

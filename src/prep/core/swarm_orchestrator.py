@@ -33,6 +33,17 @@ logger = logging.getLogger(__name__)
 # System prompts
 # ---------------------------------------------------------------------------
 
+def _env_flag(name: str) -> bool:
+    """Read a boolean env var (truthy strings: 1, true, yes, on).
+
+    Mirrors ``prep.core.embedder._env_flag``; duplicated here so the
+    orchestrator does not need to import the embedder module (different
+    concerns, different dependency graph).
+    """
+    raw = os.environ.get(name, "").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
+
 COORDINATOR_SYSTEM = (
     "You are a senior software architect planning a parallel codebase analysis. "
     "Respond with valid JSON only. No markdown, no explanation outside the JSON."
@@ -307,6 +318,16 @@ class SwarmOrchestrator(HoldAwareMixin):
             self.synthesis_chunk_max_workers = 200
         if self.synthesis_chunk_max_workers < 1:
             self.synthesis_chunk_max_workers = 200
+        # Phase 136 Part 09 Step 2 follow-up: hard kill-switch for the
+        # chunked synthesis path.  When truthy, _synthesize always
+        # takes the single-call path regardless of worker count.
+        # Required for the documented merge gate (live rebuild must
+        # produce a single-call parsed_but_empty event to confirm the
+        # original failure mode); without it, large workloads always
+        # go chunked and the gate cannot fire.  Read at __init__ so
+        # tests can monkeypatch the env before construction, matching
+        # the pattern used for ``synthesis_chunk_max_workers`` above.
+        self.synthesis_chunk_disable = _env_flag("PREP_SYNTHESIS_CHUNK_DISABLE")
         # Phase 127: project_id lets us check soft-holds at phase
         # boundaries.  None is acceptable (the hold check becomes a no-op
         # because no project-keyed hold can match an empty project id).
@@ -810,7 +831,10 @@ class SwarmOrchestrator(HoldAwareMixin):
                                 reason="no_successful_workers")
             return None, 0, None, 0, False
 
-        if len(successful) > self.synthesis_chunk_max_workers:
+        if (
+            not self.synthesis_chunk_disable
+            and len(successful) > self.synthesis_chunk_max_workers
+        ):
             return self._synthesize_chunked(
                 successful, synthesis_prompt, event_log=event_log,
             )
@@ -1307,12 +1331,16 @@ class SwarmOrchestrator(HoldAwareMixin):
         # of successful workers so the diagnostic classifier can
         # distinguish chunked from single-call paths without re-deriving.
         n_successful = sum(1 for r in worker_results if r.success and r.parsed)
-        if n_successful > self.synthesis_chunk_max_workers:
+        if (
+            not self.synthesis_chunk_disable
+            and n_successful > self.synthesis_chunk_max_workers
+        ):
             chunk_count = (
                 (n_successful + self.synthesis_chunk_max_workers - 1)
                 // self.synthesis_chunk_max_workers
             )
         else:
+            # Kill-switch on OR worker count <= threshold → single call.
             chunk_count = 1
 
         result = SwarmResult(
