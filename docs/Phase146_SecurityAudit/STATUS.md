@@ -5,7 +5,8 @@
 > who owns it. Every other doc in this phase is a snapshot; this one is state.
 
 **Last updated:** 2026-06-22
-**Phase state:** PHASE 1 (Auth & Daemon Boundary) reviewed → Phase 2 next
+**Phase state:** PHASE 2 (License & Feature-Gate) done → Phase 3 next
+**🔴 TOP FINDING:** license system is cryptographically void — shipped signing key is the all-zeros-seed/RFC-8032 test vector; forgery PROVEN. **Launch-blocker for paid tiers.** See `PHASE2_LICENSE.md`.
 **Decisions set (2026-06-22):** D-1 = one-phase-at-a-time · D-2 = product + deploy, defer websites · D-3 = loopback-primary + analyze exposed case
 
 ---
@@ -17,7 +18,7 @@
 | 0 | Initial orientation (lightweight) | ❌ **SUPERSEDED** (fabricated; see README Errata) | Haiku 4.5 | git `0aa18e0e` (removed) |
 | 0.5 | Ground-truth verification + scaffold rebuild | ✅ **DONE** 2026-06-16 | Opus 4.8 + 6-agent workflow | this directory |
 | 1 | Auth & Daemon Boundary deep dive | 🔎 REVIEWED 2026-06-22 (code-level; refute panel pending) | Opus 4.8 | `PHASE1_AUTH_BOUNDARY.md` |
-| 2 | License & Feature-Gate deep dive | ⏳ PENDING | TBD | — |
+| 2 | License & Feature-Gate deep dive | ✅ **DONE** 2026-06-22 (workflow + lead re-verify; forgery proven) | Opus 4.8 + 46-agent workflow | `PHASE2_LICENSE.md` |
 | 3 | Outbound / SSRF / Team-Sync deep dive | ⏳ PENDING | TBD | — |
 | 4 | LLM Injection & Data-Exposure deep dive | ⏳ PENDING | TBD | — |
 | 5 | File / Path / Process surface deep dive | ⏳ PENDING | TBD | — |
@@ -35,7 +36,7 @@ Legend: ✅ fixed in code · 🟡 partially addressed / residual · 🔴 open ·
 
 | ID | Title | Real location | Phase06 status | Current state | Re-verify? |
 |----|-------|---------------|----------------|---------------|-----------|
-| CRIT-1 | License has no crypto verification | `core/feature_gate.py`, `core/licensing.py` | Needs Design | 🟡 Ed25519 wired & fails closed, BUT placeholder public key + dev-override bypass | ❓ Phase 2 |
+| CRIT-1 | License has no crypto verification | `core/licensing.py:22`, `core/feature_gate.py:218-254` | Needs Design | 🔴 **CONFIRMED CRITICAL (launch-blocker)** — shipped key = all-zeros-seed/RFC-8032 test vector; `PREP_LICENSE_PUBLIC_KEY` override is comment-only; unsigned licenses accepted. **Forgery proven.** | ✅ Phase 2 done |
 | CRIT-2 | SSRF via attacker-controlled S3 endpoint | `services/remote_sync.py:71,211` | Needs Design | ✅ `_validate_s3_endpoint` blocks metadata/private IPs | ❓ Phase 3 (rebinding/redirects) |
 | HIGH-1 | Git clone URL injection | `services/headless_runner.py:485` | Fixed | ✅ `--` separator | low |
 | HIGH-2 | Secrets file no permission check | `services/remote_sync.py:102-131` | Needs Design | 🟡 warns if group/world-readable; Windows behavior open | ❓ Phase 3 |
@@ -64,15 +65,17 @@ Phase 06 audit. They are hypotheses with evidence pointers, not confirmed vulns.
 | # | Candidate | Evidence | Owner phase | State |
 |---|-----------|----------|-------------|-------|
 | C-1 | Daemon HTTP auth off by default | `server.py:246-262` | Phase 1 | 🟡 **PARTIAL/reframed** — desktop sets a random token (`main.rs:58,111`); no shipped non-loopback exposure (cloud=`sync-headless`). Real issue = no guardrail vs manual `--host 0.0.0.0`. MEDIUM footgun |
-| C-2 | `/license/dev-override` ungated → self-grant enterprise + `PREP_DEV_MODE=1` | `api/routers/license.py:502-584` | Phase 1→2 | 🔴 **CONFIRMED (code)** — ungated, wired to dashboard UI (`packages/ui/.../client.ts:684`). HIGH if dropdown ships to prod (open Q → Phase 2) |
+| C-2 | `/license/dev-override` ungated → self-grant enterprise + `PREP_DEV_MODE=1` | `api/routers/license.py:502-584` | Phase 1→2 | 🟡 **reframed (P2-SEC-2)** — endpoint ungated server-side (bounded: token/loopback/CSRF); **dashboard dropdown IS dev-build-gated** so prod UI can't reach it |
 | C-3 | `is_safe_url` bypasses: ollama/lm-studio short-circuit; DNS failure → allow | `api/routers/llm.py:178-191` | Phase 3 | ⏳ to verify |
 | C-4 | `audit_log.record` stores `**details` verbatim, no redaction | `core/audit_log.py:148-187` | Phase 4 | ⏳ to verify |
 | C-5 | MCP HTTP transport: Origin-only, no token | `mcp/transport.py:121` | Phase 1 | 🟡 **CONFIRMED, low likelihood** — http transport is opt-in (default `stdio`, `cli.py:725`). MEDIUM |
 | C-6 | git argument injection residual (no `--` separator) | `agents/shared/git_client.py:21-55` | Phase 5 | ⏳ to verify |
-| C-7 | Default license public key is a placeholder/dev key | `core/licensing.py:22` | Phase 2 | ⏳ to verify |
-| **F1-NEW-1** | MCP `is_local` Origin check prefix-bypassable (`http://localhost.evil.com`) | `mcp/transport.py:136` | Phase 1 | 🔴 **CONFIRMED (new)** — daemon CORS regex is sound; MCP transport's hand-rolled check is not. MEDIUM |
+| C-7 | Default license public key is a placeholder/dev key | `core/licensing.py:22` | Phase 2 | 🔴 **CONFIRMED CRITICAL** — folded into CRIT-1 headline; forgery proven |
+| **F1-NEW-1** | MCP `is_local` Origin check prefix-bypassable (`http://localhost.evil.com`) | `mcp/transport.py:136` | Phase 1 | 🟡 **bug confirmed, exploit refuted (0/2)** — real defect, fix cheap + regression test; mitigations incidental (P2-SEC-3) |
 
-Phase 1 detail + evidence: `PHASE1_AUTH_BOUNDARY.md`.
+**Phase 2 new findings** (detail in `PHASE2_LICENSE.md`): P2-SEC-1 license file perms (`chmod 0600`) · P2-LIC-1 no machine binding · P2-LIC-2 LS activation unsigned/trusted · P2-LIC-3 no store/product pinning · P2-LIC-4 no replay protection · P2-LIC-5 crypto-missing skip · P2-FIX-1 `.sourceprep`/`.runprep` read-write path mismatch · P2-FIX-2 committed (non-matching) private key in `scripts/generate_license.py:33`.
+
+Phase 1 detail: `PHASE1_AUTH_BOUNDARY.md` · Phase 2 detail: `PHASE2_LICENSE.md`.
 
 Full detail in `04_CANDIDATE_FINDINGS.md`.
 
@@ -118,6 +121,14 @@ Full detail in `03_TOOLING_BASELINE.md`.
 
 ## Changelog
 
+- **2026-06-22 (Phase 2)** — License & Feature-Gate done via 46-agent workflow
+  (Map→Probe→Refute) + lead re-verification. **Proven:** offline license forgery —
+  shipped Ed25519 public key is the all-zeros-seed/RFC-8032 test vector,
+  `PREP_LICENSE_PUBLIC_KEY` override is comment-only, and unsigned `license.json`
+  is accepted. CRIT-1/C-7 → CONFIRMED CRITICAL launch-blocker. Refute panel made a
+  key category correction (most license findings are revenue/DRM integrity, not
+  CIA-security) and reframed C-2 (UI is dev-gated) + bounded F1-NEW-1. 8 new
+  findings logged (P2-SEC-1..3, P2-LIC-1..5, P2-FIX-1..4).
 - **2026-06-22** — D-1/D-2/D-3 resolved. Phase 1 (Auth & Daemon Boundary) reviewed
   at code level (`PHASE1_AUTH_BOUNDARY.md`). C-1 reframed (MEDIUM footgun, not
   critical — desktop sets a token, no shipped non-loopback exposure); C-2 confirmed
