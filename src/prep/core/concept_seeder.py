@@ -1008,9 +1008,31 @@ def seed_concepts_swarm(
     final_questions = synthesized.get("questions", [])
     synthesis_was_empty = not final_concepts
 
+    # Phase 136 Part 09 Step 2 Follow-up B (C1):  synthesis_meta_failed
+    # takes priority over synthesis_was_empty.  The chunked path's
+    # recovery output (survivors-union from _dedup_chunk_union) is the
+    # canonical artifact even when its `concepts` list is empty — every
+    # chunk emitting only `questions` (the Phase 123 fingerprint) is a
+    # valid recovery shape.  If we instead let the raw-worker fallback
+    # branch fire, we (a) emit a wrong event name whose payload
+    # carries failure_mode='chunked_meta_failed' from the diagnostic
+    # classifier and (b) overwrite the carefully-deduped chunk-survivor
+    # questions with raw-worker output.  The chunked event must win.
+    if getattr(result, "synthesis_meta_failed", False):
+        _emit_chunked_meta_failed_event(
+            result=result,
+            index_dir=index_dir,
+            project_id=project_id,
+            final_concepts=final_concepts,
+            final_questions=final_questions,
+        )
+
     # If synthesis failed but workers succeeded, fall back to merging
-    # raw worker outputs (best-effort dedupe by title).
-    if synthesis_was_empty and result.worker_results:
+    # raw worker outputs (best-effort dedupe by title).  This branch is
+    # reserved for the single-call-path collapse and the
+    # chunked-all-failed shape — meta_failed has already been handled
+    # by the if-branch above.
+    elif synthesis_was_empty and result.worker_results:
         seen_titles: set[str] = set()
         # Phase 123 follow-up (2026-05-07): workers now emit clarifying
         # questions too, so they survive synthesis failure. Dedupe by
@@ -1065,19 +1087,6 @@ def seed_concepts_swarm(
             )
         except Exception:
             pass
-
-    # Phase 136 Part 09 Step 2: chunked path's meta safety-net fired —
-    # synthesis_was_empty is False (we returned the survivors' union as
-    # result.synthesis), so the block above did NOT run.  Emit a
-    # distinct event so operators can see the recovery happened.
-    elif getattr(result, "synthesis_meta_failed", False):
-        _emit_chunked_meta_failed_event(
-            result=result,
-            index_dir=index_dir,
-            project_id=project_id,
-            final_concepts=final_concepts,
-            final_questions=final_questions,
-        )
 
     # Phase 96 / F-36: batch the concept saves into a single transaction
     # via concept_store.save_many() instead of N independent save() calls.
