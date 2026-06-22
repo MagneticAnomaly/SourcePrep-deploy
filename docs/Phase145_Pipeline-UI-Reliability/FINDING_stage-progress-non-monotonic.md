@@ -79,6 +79,10 @@ Doing (1) without (2) hides a real correctness bug from operators. Doing (2) wit
 - The Phase 70 `progress_baseline` semantics (frozen vs rolling) — confirmed frozen, no change needed.
 - The `initialize` and `rebuild` variants of `StageProgressBar` — untouched by the 3→2 collapse; this finding does not apply to them.
 
+## 8. Adjacent: progress can also OVERSHOOT the total (2026-06-21)
+
+Captured on Applifier Deep Reasoning row: `1,069 / 1,058 files · 100%`. Numerator exceeds denominator by 11. Same family as the regression documented in §1: worker progress emission isn't bounded against `progress_total`. The 3→2 slab collapse from this finding silently caps overshoot at 100% (the bar maxes out) but the displayed text (`1069 / 1058`) leaks the unboundedness. Full context in [`FINDING_manual-update-click-triggers-ui-cluster.md`](FINDING_manual-update-click-triggers-ui-cluster.md) §6.2. The frontend monotonic guard proposed in §5 should also clamp to `min(current, total)`; the backend audit should ensure `progress_current ≤ progress_total` invariant in every worker.
+
 ---
 
 **Linked code:**

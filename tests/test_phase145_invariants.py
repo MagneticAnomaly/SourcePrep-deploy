@@ -1,0 +1,699 @@
+"""Pytest cases for the Phase 145 §8 UI invariant assertion library.
+
+Uses real Playwright (sync API) with mock DOM via ``page.set_content``. No
+daemon, no dashboard, no network. Each invariant gets at least one positive
+case and one negative case; common edge cases (idle group, state synonyms,
+selector absence) are covered too.
+
+Run:
+    .venv/bin/pytest tests/test_phase145_invariants.py -v
+
+Per ``docs/Phase145_Pipeline-UI-Reliability/PROPOSAL_playwright-uat-harness-v1.md`` §5 T1.
+
+Note on file location: the proposal text said ``tools/phase145_uat/test_invariants.py``
+but ``pyproject.toml`` has ``testpaths = ["tests"]``. Living under ``tests/``
+means a default ``pytest`` invocation picks these up as a regression net.
+"""
+from __future__ import annotations
+
+from typing import Iterable
+
+import pytest
+from playwright.sync_api import Browser, Page, sync_playwright
+
+from tools.phase145_uat.invariants import (
+    ALL_INVARIANTS,
+    I1_one_running_row_per_group,
+    I2_running_row_has_no_stale_chip,
+    I3_downstream_not_complete,
+    I13_current_stage_decoration_exists,
+    run_all,
+)
+
+
+# ── Fixtures ──────────────────────────────────────────────────────
+
+
+@pytest.fixture(scope="module")
+def browser() -> Iterable[Browser]:
+    with sync_playwright() as pw:
+        b = pw.chromium.launch(headless=True)
+        try:
+            yield b
+        finally:
+            b.close()
+
+
+@pytest.fixture
+def page(browser: Browser) -> Iterable[Page]:
+    p = browser.new_page()
+    try:
+        yield p
+    finally:
+        p.close()
+
+
+# ── Mock DOM builders ─────────────────────────────────────────────
+
+
+def _row(
+    stage_id: str,
+    state: str,
+    *,
+    current: bool = False,
+    current_hidden: bool = False,
+    last_run_chip: bool = False,
+) -> str:
+    """Render one mock stage row matching the dashboard's selector contract.
+
+    ``current_hidden=True`` renders the indicator inside a display:none span —
+    used to exercise the offsetParent visibility check in _scrape_rows.
+    """
+    if current_hidden:
+        deco = '<span style="display:none"><span data-testid="current-stage-indicator">●</span></span>'
+    elif current:
+        deco = '<span data-testid="current-stage-indicator">●</span>'
+    else:
+        deco = ""
+    chip = (
+        '<span data-testid="last-run-chip">yesterday 1384 chunks</span>'
+        if last_run_chip
+        else ""
+    )
+    return (
+        f'<div data-testid="pipeline-stage-row-{stage_id}" '
+        f'data-stage-id="{stage_id}" data-stage-state="{state}">'
+        f"{deco}{chip}"
+        f"</div>"
+    )
+
+
+def _html(*rows: str) -> str:
+    return "<!doctype html><html><body>" + "".join(rows) + "</body></html>"
+
+
+def _idle_api() -> dict:
+    return {
+        "fast_sync": {"phase": "idle"},
+        "deep_enrichment": {"phase": "idle"},
+        "finalize": {"phase": "idle"},
+    }
+
+
+# ── I1: at most one running row per active group ─────────────────
+
+
+def test_I1_passes_with_one_running_row_per_group(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "running", current=True),
+            _row("catalogue", "pending"),
+            _row("validation", "pending"),
+            _row("knowledge", "pending"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "inferred_edges"}}
+    r = I1_one_running_row_per_group(page, api)
+    assert r.passed, r.evidence
+    assert r.evidence == {}
+
+
+def test_I1_passes_when_group_idle_regardless_of_dom(page: Page) -> None:
+    # A group that isn't running has no constraint on its row count.
+    page.set_content(
+        _html(
+            _row("structural", "running"),
+            _row("inferred_edges", "running"),
+        )
+    )
+    api = _idle_api()
+    assert I1_one_running_row_per_group(page, api).passed
+
+
+def test_I1_fails_with_two_running_rows_in_active_group(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("structural", "running"),
+            _row("inferred_edges", "running"),
+            _row("catalogue", "pending"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
+    r = I1_one_running_row_per_group(page, api)
+    assert not r.passed
+    (fail,) = r.evidence["failures"]
+    assert fail["group"] == "fast_sync"
+    assert fail["running_count"] == 2
+    assert set(fail["running_stages"]) == {"structural", "inferred_edges"}
+
+
+def test_I1_treats_rerunning_and_rebuilding_as_running(page: Page) -> None:
+    # All three terms canonicalize to "running" in playwright_smoke.py.
+    page.set_content(
+        _html(
+            _row("structural", "running"),
+            _row("inferred_edges", "rerunning"),
+            _row("catalogue", "rebuilding"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
+    r = I1_one_running_row_per_group(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["running_count"] == 3
+
+
+def test_I1_checks_each_group_independently(page: Page) -> None:
+    # fast_sync clean, deep_enrichment has two running — only deep flagged.
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("knowledge", "complete"),
+            _row("enrichment", "running"),
+            _row("group_reasoning", "running"),
+        )
+    )
+    api = {
+        "fast_sync": {"phase": "completed"},
+        "deep_enrichment": {"phase": "running", "current_stage": "enrichment"},
+    }
+    r = I1_one_running_row_per_group(page, api)
+    assert not r.passed
+    (fail,) = r.evidence["failures"]
+    assert fail["group"] == "deep_enrichment"
+
+
+def test_I1_fires_on_pausing_phase(page: Page) -> None:
+    # The pausing phase still has a worker mid-stage — multi-running is still
+    # a bug. Adversarial review (2026-06-22) lens A flagged this gap.
+    page.set_content(
+        _html(
+            _row("structural", "running"),
+            _row("inferred_edges", "running"),
+        )
+    )
+    api = {"fast_sync": {"phase": "pausing", "current_stage": "structural"}}
+    r = I1_one_running_row_per_group(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["phase"] == "pausing"
+
+
+def test_I1_fires_on_paused_phase(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("clustering", "running"),
+            _row("deepening", "running"),
+        )
+    )
+    api = {"deep_enrichment": {"phase": "paused", "current_stage": "clustering"}}
+    r = I1_one_running_row_per_group(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["phase"] == "paused"
+
+
+def test_I1_zero_running_in_active_group_passes_by_design(page: Page) -> None:
+    # Documents the deliberate "at most one" weakening so a refactor to
+    # "exactly one" doesn't silently slip past CI.
+    page.set_content(_html(_row("structural", "pending")))
+    api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
+    assert I1_one_running_row_per_group(page, api).passed
+
+
+def test_I1_handles_missing_current_stage_in_active_group(page: Page) -> None:
+    # If the API drops current_stage during an active phase, I1 should still
+    # count rows correctly without crashing or false-passing.
+    page.set_content(
+        _html(
+            _row("structural", "running"),
+            _row("inferred_edges", "running"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running"}}
+    r = I1_one_running_row_per_group(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["running_count"] == 2
+
+
+def test_I1_empty_dom_during_active_phase_passes(page: Page) -> None:
+    # Panel not yet hydrated. _scrape_rows returns []; I1 counts 0 running
+    # and passes. Documents the "row not rendered ≠ failure" semantic.
+    page.set_content("<!doctype html><html><body></body></html>")
+    api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
+    assert I1_one_running_row_per_group(page, api).passed
+
+
+# ── I2: running row has no stale last-run chip ───────────────────
+
+
+def test_I2_passes_when_no_running_row_has_chip(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("structural", "running", current=True),
+            _row("inferred_edges", "complete", last_run_chip=True),
+        )
+    )
+    assert I2_running_row_has_no_stale_chip(page, _idle_api()).passed
+
+
+def test_I2_fails_when_running_row_has_chip(page: Page) -> None:
+    # §2r symptom: row spinning while showing yesterday's count.
+    page.set_content(_html(_row("knowledge", "running", last_run_chip=True)))
+    r = I2_running_row_has_no_stale_chip(page, _idle_api())
+    assert not r.passed
+    (fail,) = r.evidence["failures"]
+    assert fail["stage_id"] == "knowledge"
+    assert fail["state"] == "running"
+
+
+def test_I2_treats_rerunning_as_running_for_chip_check(page: Page) -> None:
+    page.set_content(_html(_row("clustering", "rerunning", last_run_chip=True)))
+    r = I2_running_row_has_no_stale_chip(page, _idle_api())
+    assert not r.passed
+    assert r.evidence["failures"][0]["stage_id"] == "clustering"
+
+
+def test_I2_passes_when_dom_lacks_chip_selector_entirely(page: Page) -> None:
+    # Live dashboard before the packages/ui PR lands: no chip selector exists.
+    # Invariant should pass by default — no chip wrapper = nothing to compare.
+    page.set_content(_html(_row("structural", "running")))
+    assert I2_running_row_has_no_stale_chip(page, _idle_api()).passed
+
+
+def test_I2_treats_rebuilding_as_running_for_chip_check(page: Page) -> None:
+    # Adversarial review (2026-06-22) flagged that rebuilding was the one
+    # RUNNING_DOM_STATES synonym never tested for I2.
+    page.set_content(_html(_row("atlas", "rebuilding", last_run_chip=True)))
+    r = I2_running_row_has_no_stale_chip(page, _idle_api())
+    assert not r.passed
+    assert r.evidence["failures"][0]["stage_id"] == "atlas"
+
+
+# ── I3: no downstream row is complete ────────────────────────────
+
+
+def test_I3_passes_when_downstream_pending(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "running", current=True),
+            _row("catalogue", "pending"),
+            _row("validation", "pending"),
+            _row("knowledge", "pending"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "inferred_edges"}}
+    assert I3_downstream_not_complete(page, api).passed
+
+
+def test_I3_fails_when_downstream_complete(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "running", current=True),
+            _row("catalogue", "pending"),
+            _row("validation", "complete"),  # downstream — illegal
+            _row("knowledge", "pending"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "inferred_edges"}}
+    r = I3_downstream_not_complete(page, api)
+    assert not r.passed
+    (fail,) = r.evidence["failures"]
+    assert fail["downstream_stage"] == "validation"
+    assert fail["current_stage"] == "inferred_edges"
+    assert fail["downstream_state"] == "complete"
+
+
+def test_I3_accepts_stage_alias_field(page: Page) -> None:
+    # api_stage_verdict in playwright_smoke.py accepts either "current_stage"
+    # or "stage" — invariants honor the same loose contract.
+    page.set_content(
+        _html(
+            _row("enrichment", "running"),
+            _row("group_reasoning", "pending"),
+            _row("clustering", "complete"),  # downstream of enrichment — illegal
+        )
+    )
+    api = {"deep_enrichment": {"phase": "running", "stage": "enrichment"}}
+    r = I3_downstream_not_complete(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["downstream_stage"] == "clustering"
+
+
+def test_I3_treats_stale_and_warning_as_complete(page: Page) -> None:
+    # Both canonicalize to "complete" — they leak prior-run state too.
+    page.set_content(
+        _html(
+            _row("structural", "running", current=True),
+            _row("inferred_edges", "stale"),
+            _row("catalogue", "warning"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
+    r = I3_downstream_not_complete(page, api)
+    assert not r.passed
+    states = {f["downstream_stage"]: f["downstream_state"] for f in r.evidence["failures"]}
+    assert states == {"inferred_edges": "stale", "catalogue": "warning"}
+
+
+def test_I3_passes_when_group_idle(page: Page) -> None:
+    # An idle group's complete rows are legitimate prior-run state.
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "complete"),
+            _row("catalogue", "complete"),
+        )
+    )
+    assert I3_downstream_not_complete(page, _idle_api()).passed
+
+
+def test_I3_passes_when_current_stage_is_last_in_group(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "complete"),
+            _row("catalogue", "complete"),
+            _row("validation", "complete"),
+            _row("knowledge", "running", current=True),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "knowledge"}}
+    assert I3_downstream_not_complete(page, api).passed
+
+
+def test_I3_fires_with_current_stage_first_in_group(page: Page) -> None:
+    # Pins the cur_pos == 0 boundary: a downstream-complete must still fail.
+    page.set_content(
+        _html(
+            _row("structural", "running", current=True),
+            _row("inferred_edges", "pending"),
+            _row("catalogue", "complete"),  # downstream of position 0 — illegal
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
+    r = I3_downstream_not_complete(page, api)
+    assert not r.passed
+    (fail,) = r.evidence["failures"]
+    assert fail["current_stage_index"] == 0
+    assert fail["downstream_stage"] == "catalogue"
+
+
+def test_I3_passes_when_phase_active_but_current_stage_missing(page: Page) -> None:
+    # Documented gap: no anchor for "downstream", so we silently pass.
+    # See I3 docstring + PROPOSAL §9 known-gaps note.
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "complete"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running"}}  # no current_stage / stage
+    assert I3_downstream_not_complete(page, api).passed
+
+
+def test_I3_localizes_failure_to_correct_group(page: Page) -> None:
+    # fast_sync running cleanly at inferred_edges; deep_enrichment running at
+    # enrichment with a downstream-complete leak on clustering. Failure must
+    # name deep_enrichment only — no cross-group bleed.
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "running", current=True),
+            _row("catalogue", "pending"),
+            _row("enrichment", "running"),
+            _row("group_reasoning", "pending"),
+            _row("clustering", "complete"),  # downstream of enrichment — illegal
+        )
+    )
+    api = {
+        "fast_sync": {"phase": "running", "current_stage": "inferred_edges"},
+        "deep_enrichment": {"phase": "running", "current_stage": "enrichment"},
+    }
+    r = I3_downstream_not_complete(page, api)
+    assert not r.passed
+    (fail,) = r.evidence["failures"]
+    assert fail["group"] == "deep_enrichment"
+    assert fail["downstream_stage"] == "clustering"
+
+
+def test_I3_robust_to_dom_row_order(page: Page) -> None:
+    # Position is computed from STAGE_ORDER, not DOM order.
+    page.set_content(
+        _html(
+            _row("knowledge", "pending"),
+            _row("validation", "complete"),  # downstream — illegal
+            _row("catalogue", "pending"),
+            _row("inferred_edges", "running", current=True),
+            _row("structural", "complete"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "inferred_edges"}}
+    r = I3_downstream_not_complete(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["downstream_stage"] == "validation"
+
+
+def test_I3_fires_on_paused_phase(page: Page) -> None:
+    # Adversarial review (2026-06-22) lens A: I3 must include non-running
+    # active phases. Paused: worker stopped mid-stage, downstream must still
+    # be pending. A complete downstream means leaked prior-run state.
+    page.set_content(
+        _html(
+            _row("enrichment", "paused", current=True),
+            _row("group_reasoning", "pending"),
+            _row("clustering", "complete"),  # downstream — illegal even when paused
+        )
+    )
+    api = {"deep_enrichment": {"phase": "paused", "current_stage": "enrichment"}}
+    r = I3_downstream_not_complete(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["phase"] == "paused"
+
+
+# ── I13: exactly one current-stage indicator per non-idle group ──
+
+
+def test_I13_passes_when_exactly_one_indicator_per_active_group(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "running", current=True),
+            _row("catalogue", "pending"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "inferred_edges"}}
+    assert I13_current_stage_decoration_exists(page, api).passed
+
+
+def test_I13_fails_when_no_indicator_in_active_group(page: Page) -> None:
+    # §2u §6.2 recurrence: browser refresh wipes the current-stage decoration.
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "running"),  # no current=True
+            _row("catalogue", "pending"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "inferred_edges"}}
+    r = I13_current_stage_decoration_exists(page, api)
+    assert not r.passed
+    (fail,) = r.evidence["failures"]
+    assert fail["group"] == "fast_sync"
+    assert fail["marked_count"] == 0
+    assert fail["phase"] == "running"
+
+
+def test_I13_fails_when_two_indicators_in_one_group(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("structural", "running", current=True),
+            _row("inferred_edges", "running", current=True),
+        )
+    )
+    api = {"fast_sync": {"phase": "running"}}
+    r = I13_current_stage_decoration_exists(page, api)
+    assert not r.passed
+    fail = r.evidence["failures"][0]
+    assert fail["marked_count"] == 2
+    assert set(fail["marked_stages"]) == {"structural", "inferred_edges"}
+
+
+def test_I13_passes_when_group_idle(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "complete"),
+        )
+    )
+    assert I13_current_stage_decoration_exists(page, _idle_api()).passed
+
+
+def test_I13_fires_for_non_running_non_idle_phases(page: Page) -> None:
+    # Paused / recovering / queued groups still need a current-stage marker.
+    page.set_content(
+        _html(
+            _row("structural", "paused"),
+            _row("inferred_edges", "pending"),
+        )
+    )
+    api = {"fast_sync": {"phase": "paused", "current_stage": "structural"}}
+    r = I13_current_stage_decoration_exists(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["phase"] == "paused"
+
+
+def test_I13_terminal_phases_are_na(page: Page) -> None:
+    # completed/cancelled/failed groups have no active stage — no indicator
+    # is expected. Only deep_enrichment (running) is subject to the invariant.
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("knowledge", "complete"),
+            _row("enrichment", "running", current=True),
+            _row("group_reasoning", "pending"),
+        )
+    )
+    api = {
+        "fast_sync": {"phase": "completed"},
+        "deep_enrichment": {"phase": "running", "current_stage": "enrichment"},
+        "finalize": {"phase": "idle"},
+    }
+    assert I13_current_stage_decoration_exists(page, api).passed
+
+
+def test_I13_queued_is_na(page: Page) -> None:
+    # Queued = work scheduled but no active stage yet → invariant is N/A.
+    page.set_content(_html(_row("structural", "queued")))
+    api = {"fast_sync": {"phase": "queued"}}
+    assert I13_current_stage_decoration_exists(page, api).passed
+
+
+def test_I13_failed_phase_is_na(page: Page) -> None:
+    # Terminal failure — no current stage to mark.
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "error"),
+        )
+    )
+    api = {"fast_sync": {"phase": "failed", "current_stage": "inferred_edges"}}
+    assert I13_current_stage_decoration_exists(page, api).passed
+
+
+def test_I13_cancelled_phase_is_na(page: Page) -> None:
+    # Terminal cancellation — no current stage to mark.
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "pending"),
+        )
+    )
+    api = {"fast_sync": {"phase": "cancelled"}}
+    assert I13_current_stage_decoration_exists(page, api).passed
+
+
+def test_I13_fires_for_recovering_phase(page: Page) -> None:
+    # Adversarial review (2026-06-22): recovering was in the phase set but
+    # had no test. Daemon restart mid-stage — current_stage points to the
+    # stage being recovered; indicator must mark it.
+    page.set_content(
+        _html(
+            _row("group_reasoning", "running"),  # no current indicator
+            _row("clustering", "pending"),
+        )
+    )
+    api = {"deep_enrichment": {"phase": "recovering", "current_stage": "group_reasoning"}}
+    r = I13_current_stage_decoration_exists(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["phase"] == "recovering"
+
+
+def test_I13_fires_for_pausing_phase(page: Page) -> None:
+    page.set_content(_html(_row("structural", "pausing")))  # no current indicator
+    api = {"fast_sync": {"phase": "pausing", "current_stage": "structural"}}
+    r = I13_current_stage_decoration_exists(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["phase"] == "pausing"
+
+
+def test_I13_fires_for_cancelling_phase(page: Page) -> None:
+    page.set_content(_html(_row("atlas", "running")))  # no current indicator
+    api = {"finalize": {"phase": "cancelling", "current_stage": "atlas"}}
+    r = I13_current_stage_decoration_exists(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["phase"] == "cancelling"
+
+
+def test_I13_hidden_indicator_does_not_count(page: Page) -> None:
+    # Adversarial review (2026-06-22) lens B: a packages/ui implementation
+    # that keeps the indicator node mounted but display:none-hides it must
+    # NOT pass I13 — the user-visible affordance is gone, which is the
+    # §6.2 bug class.
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "running", current_hidden=True),
+            _row("catalogue", "pending"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "inferred_edges"}}
+    r = I13_current_stage_decoration_exists(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["marked_count"] == 0
+
+
+# ── run_all + registry ───────────────────────────────────────────
+
+
+def test_run_all_returns_one_result_per_invariant(page: Page) -> None:
+    page.set_content(_html(_row("structural", "running", current=True)))
+    api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
+    results = run_all(page, api)
+    assert len(results) == len(ALL_INVARIANTS)
+    assert {r.invariant_id for r in results} == {"I1", "I2", "I3", "I13"}
+
+
+def test_run_all_against_clean_idle_state_all_pass(page: Page) -> None:
+    page.set_content(
+        _html(
+            _row("structural", "complete"),
+            _row("inferred_edges", "complete"),
+            _row("catalogue", "complete"),
+        )
+    )
+    results = run_all(page, _idle_api())
+    failures = {r.invariant_id: r.evidence for r in results if not r.passed}
+    assert not failures, failures
+
+
+def test_run_all_returns_partial_failures(page: Page) -> None:
+    # Multiple simultaneous failures (I1: two running, I3: stale-complete
+    # downstream, I13: no indicator) must all be reported, not short-circuited.
+    page.set_content(
+        _html(
+            _row("structural", "running"),
+            _row("inferred_edges", "running"),       # I1 fires
+            _row("catalogue", "pending"),
+            _row("validation", "complete"),          # I3 fires (downstream)
+            _row("knowledge", "pending"),
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
+    results = {r.invariant_id: r for r in run_all(page, api)}
+    assert set(results) == {"I1", "I2", "I3", "I13"}
+    assert not results["I1"].passed
+    assert results["I2"].passed  # no chip → I2 N/A
+    assert not results["I3"].passed
+    assert not results["I13"].passed  # neither row has indicator
+
+
+def test_to_json_round_trip(page: Page) -> None:
+    page.set_content(_html(_row("structural", "running", current=True)))
+    api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
+    r = I1_one_running_row_per_group(page, api)
+    payload = r.to_json()
+    assert payload["invariant_id"] == "I1"
+    assert payload["passed"] is True
+    assert "label" in payload
+    assert "evidence" in payload

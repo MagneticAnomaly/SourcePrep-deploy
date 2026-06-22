@@ -1,9 +1,68 @@
 # Phase 145 — Pipeline UI Reliability + Browser-Driven Diagnostics
 
-**Status:** Open. Investigation + planning. No code changes proposed in this document yet.
-**Owner:** Eric (created 2026-06-10, handoff-ready for an agent picking up cold)
-**Predecessor:** `docs/superpowers/plans/2026-06-08-pipeline-reliability-ux-fixes.md` (P1–P6, all landed)
-**Related code:** `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx`, `src/prep/services/pipeline/`, `src/prep/api/routers/`
+**Status:** Open. **Evidence-corpus phase**, not a fix-execution phase. The goal is to document and organize every pipeline/UI reliability bug we hit so a future, more powerful orchestrator (Fable) can pick the whole bundle up at once and work through it structurally — *not* whack-a-mole one bug at a time as they surface.
+**Owner:** Eric (created 2026-06-10, expanding as new symptoms land).
+**Predecessor:** `docs/superpowers/plans/2026-06-08-pipeline-reliability-ux-fixes.md` (P1–P6, all landed).
+**Related code:** `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx`, `src/prep/services/pipeline/`, `src/prep/api/routers/`.
+
+**Working principles for this phase:**
+
+- **Document, don't fix yet.** New symptoms land here as `§2x` entries + a `FINDING_*` file. Implementation `PROPOSAL_*` docs are welcome — they're *proposals*, not "execute this now." Code only ships once a proposal has been scrutinized and revised, ideally in a coordinated pass by a more capable orchestrator (Fable) that can see the whole phase at once.
+- **Pin causes when we can, name uncertainty when we can't.** A `FINDING_*` should distinguish proved facts from hypotheses.
+- **Plans get scrutinized before they execute.** Every `PROPOSAL_*` gets at least one scrutiny pass (recorded inline as a "Scrutiny" section or as a separate `SCRUTINY_*` doc) before it's marked ready. Defects are notes for the next revision, not reasons to delete the proposal.
+- **Keep the false starts.** Earlier drafts of a proposal stay in the corpus when superseded — they teach the next reviewer what to verify before assuming. Mark them `superseded by → PROPOSAL_v2` rather than deleting.
+- **Cross-link aggressively.** Each `FINDING_*`, `PROPOSAL_*`, `DIAGNOSTIC_*`, `EVIDENCE_*`, and `SCRUTINY_*` doc should link to the others it depends on or supersedes.
+
+**Document type conventions:**
+
+| Prefix | Purpose | Lifecycle |
+|---|---|---|
+| `FINDING_` | A specific bug, observation, or behavior with evidence. May contain hypotheses for the cause if not pinned. | Open → fixed (with commit cite) |
+| `DIAGNOSTIC_` | A plan for capturing evidence we don't yet have. Often a prerequisite for a `PROPOSAL_`. | Open → completed (synthesis output linked) |
+| `EVIDENCE_` | Captured artifacts from running a diagnostic (logs, scans, on-disk state snapshots). | Static — dated, not edited after capture |
+| `PROPOSAL_` | A draft implementation plan. Includes TDD steps, exact files, exact code. Always subject to scrutiny. | Draft → scrutinized → revised → ready → executed (with PR cite) |
+| `SCRUTINY_` | A second-guess pass on a `PROPOSAL_`. Records defects, missing coverage, broken assumptions. Optional — small proposals may have the scrutiny inline. | Static — dated per pass |
+| `SYNTHESIS_` | A consolidating writeup over multiple findings/evidence docs. Usually authored before a multi-thread proposal. | Static — dated |
+
+## Document index
+
+| File | Type | Status | What's in it |
+|---|---|---|---|
+| `README.md` (this file) | index + symptom catalog | live | §1 background, §2 symptoms (2a–2u, growing), §3 data flow, §4 UI invariants, §5 diagnostic toolkit, §6 investigation plan, §7 open questions, §8 prior fixes, §9 file hotspots, §10 handoff |
+| `FINDING_changeset-swallowed-edits.md` | finding | fixed 2026-06-15 | §2i — manifest writer dropped `hash_algo` + `built_at` |
+| `FINDING_stage-progress-non-monotonic.md` | finding | open | §2j — `progress_current` regresses at sub-stage boundaries |
+| `FINDING_concurrency-undershoot-and-cross-project-work-loss.md` | finding | open | §2k — 6 hypotheses for concurrency undershoot + work loss; needs live evidence capture |
+| `FINDING_reset-barrier-stuck-on-failed-finalize.md` | finding | open | §2l — `.reset_barrier` never auto-clears on failed finalize; root cause pinned |
+| `FINDING_daemon-stall-and-frontend-lockup.md` | finding | partial mitigation 2026-06-17 | §2m — 10-minute gap with uvicorn stall and idle-release trigger; UI lockup mitigated + embedder idle-touch corrected, but CoreML hang RCA still open |
+| `FINDING_stage15-antibodies-never-complete.md` | finding | open | §2n — Immune System stage rendered as `Not run` regardless of whether the worker ran, failed, or returned zero derivables; UI count-gate + narrow derivation filter pinned, 5 hypotheses + diagnostic checklist |
+| `FINDING_incremental-run-shows-50pct-work-after-interrupted-rebuild.md` | finding | open | §2o — Deep Reasoning shows ~57% remaining on a stable repo because a prior force-from-start rebuild reported `success_rate=1.0` after processing 20/2072 files; current run is legitimate recovery work but no UI signal explains why; 5 stacked issues + 4 hypotheses + 5 design questions |
+| `FINDING_two-project-incremental-blocked-during-swarm.md` | finding | open | §2p — Second project's Update hangs with no queue surface while first project's swarm holds 10/10 cloud slots; 4 stacked issues + 4 hypotheses + 4 invariants; probably folds into Thread A as a new sub-thread A.8 |
+| `FINDING_auto-incremental-never-fired-despite-stale-files.md` | finding | open | §2q — Project on Auto, 9 untraced files up to 7h old, no fast_sync in 7h; 6 hypotheses (watcher not started / OS events missed / debounce gated / silently enqueued behind §2p / glob filter / `_check_incomplete_deep_enrichment` self-heal stuck on §2n); probably paired with §2p |
+| `FINDING_multiple-stages-show-running-simultaneously.md` | finding | open, limited-context | §2r — Two screenshots of a Rebuild All showing 2–3 group rows spinning at once with downstream rows holding stale `complete` metadata from earlier runs; circumstances lost, suggested Playwright invariant inline |
+| `FINDING_edge-discovery-stuck-pending-auto-incremental-refuses.md` | finding | open | §2s — Edge Discovery row shows spinner but queue says `Pending`; auto-incremental refuses to fire despite 8 untraced files; refresh doesn't recover. 5 hypotheses + diagnostic checklist + rules out daemon stall, swarm block, barrier, UI rollup race. Likely shares root cause with §2q |
+| `FINDING_edge-discovery-fast-completion-and-rebuild-progress-style-lag.md` | finding | open | §2t — HomeColab's 21s Edge Discovery verified legitimate (171 items, 8.26/sec). But SourcePrep's post-restart 0.82s / 260 items/sec is implausible — almost certainly cache hits reported as fresh work (§2o-family). Plus a minor UX note on rebuild progress-bar style lag |
+| `FINDING_manual-update-click-triggers-ui-cluster.md` | finding — **meta-pattern** | open | §2u — Cascade chain: Auto broken (§2q + §2s) → user clicks Update workaround → non-deterministic cluster of UI symptoms (every other UI finding fires at once). Self-stabilizes by ~stage 8 with refresh. **Key execution-order implication: fix §2q first; removes the trigger and the cascade evaporates** |
+| `SYNTHESIS_2026-06-18_did-the-state-machine-drift.md` | synthesis | open hypothesis | Asks whether the Phase 25B state machine is still canonical or has been progressively eclipsed by 8 parallel state stores. Maps every open §2 finding to a specific S1↔Sx disagreement. Investigation plan IQ1–IQ7 + sketch of a future `REFERENCE_canonical-pipeline-behavior.md` for the Fable pass. No code proposed |
+| `EVIDENCE_s1-vs-everyone-sync-table.md` | evidence | static | IQ1 output. Direct-code map of how S1 sync covers the other 8 stores. **15 transition callsites, 4 stage_results writers bypass Event.*, 0 of 6 `compute*State` functions read S1, scheduler/watcher completely independent, status endpoint silently merges 4 sources.** Cited file:line throughout |
+| `EVIDENCE_findings-replayed-against-pure-s1.md` | evidence | static | IQ2 output. Per-finding verdict on what would happen if UI read S1. **6 Fixed, 4 Persists, 2 Different bug, 7 N/A.** Confirms drift hypothesis for UI-rendering layer; not the cure for upstream subsystem issues |
+| `REFERENCE_canonical-pipeline-behavior.md` | reference | living draft, awaiting OQ1–OQ8 | The target contract. State machine vocabulary + valid transitions + state-store inventory + canonical ownership rule + (action × state) matrix + (system event × state) matrix + UI rendering contract + Playwright invariant catalog. 8 open questions (OQ1–OQ8) for scrutiny to answer before ratification |
+| `PROPOSAL_state-machine-re-centering-v1.md` | proposal — **draft, scrutinized 2026-06-18, awaiting v2** | open | T1 (UI re-centering) + T2 (4 subsystem repairs; 2 of them are PROPOSAL_thread-A-v1 + PROPOSAL_threads-B-and-C-v2) + T3 (long-term invariant enforcement). Risk register R1–R10 + 8 OQ dependencies + decision dependency graph. **11 defects found in scrutiny (3 critical) — see SCRUTINY_v1.** Do not execute T1 as written; needs the D1+D3 fixes |
+| `SCRUTINY_v1_state-machine-re-centering.md` | scrutiny — first pass | static | Self-scrutiny pass on the v1 proposal. **11 defects D1–D11 (3 critical: T1 alone would mask §2l-A and §2n; helper exact-match fails on real failures; §2j/§2o IQ2 verdicts wrong).** Revised tally: 4 cleanly Fixed, 2 partial-needs-bundling, 6 Persists, 7 N/A. Risks R11–R14 added. Recommends fresh-eyes scrutiny by an independent agent before v2. Hypothesis itself holds |
+| `PROPOSAL_playwright-uat-harness-v1.md` | proposal — **T1 shipped 2026-06-22, T2–T5 awaiting execution** | partial | Methodology + 5-task plan to extend the existing `tools/playwright_smoke.py` with 4 Phase 145 §8 invariants (I1, I2, I3, I13), drive HomeColab through 4 operations × 3 iterations, produce `SCORECARD_uat_*.md` baselines. Independent of all fix proposals. **T1 (invariant assertion library) landed at `tools/phase145_uat/invariants.py` + `tests/test_phase145_invariants.py` — 43 pytest cases passing. Four-lens adversarial review run pre-merge; Tier 1+2 findings fixed in-drop, Tier 3 gaps documented in PROPOSAL §9.1. T2 needs the packages/ui selector PR + constants extraction (§9.2 prereqs).** |
+| `tools/phase145_uat/invariants.py` + `tests/test_phase145_invariants.py` | shipped code — T1 of UAT harness | live | I1 (at-most-one-running-row-per-active-group) + I2 (defensive: no chip on running row) + I3 (no-downstream-complete) + I13 (exactly-one-current-stage-indicator). Phase set: `ACTIVE_PIPELINE_PHASES = {running, pausing, paused, recovering, cancelling}`. 43 pytest cases (positive + negative + edge + cross-cutting). Uses mock DOM via `page.set_content()` — no daemon dependency. Selector contract documented in module docstring + PROPOSAL §3 |
+| `PROPOSAL_threads-B-and-C-v1-barrier-and-rollup.md` | proposal — **draft, scrutinized, superseded** | superseded by v2 | First attempt at Thread B + C fixes. Five defects (D1–D5) found in scrutiny. Kept for context |
+| `DIAGNOSTIC_2026-06-15_resume-point-and-failure-paths.md` | diagnostic | open | DG1–DG7 — evidence to capture before §2l Thread C can be planned correctly |
+| `PROPOSAL_threads-B-and-C-v2-barrier-and-resume-detector.md` | proposal — **draft, awaiting scrutiny** | open | Corrected v2: Thread B with the right enums + broader fix location; Thread C reframed to the actual upstream cause (resume detector); Thread D as a UI safety net. Subject to scrutiny before execution |
+| `PROPOSAL_thread-A-v1-concurrency-undershoot-and-work-loss.md` | proposal — **draft, awaiting scrutiny** | open | §2k — Thread A as A.1 (diagnostic) + A.2 (manual-floor, evidence solid) + A.3–A.7 (each gated on which evidence DG-A captures). Risk register RA1–RA7 + invariants from FINDING §5. Subject to scrutiny before execution |
+
+**Reading order for an orchestrator opening this cold:**
+
+1. README §1 + §2 symptom catalog for the lay of the land.
+2. The `FINDING_*` files for each open §2 entry.
+3. The `DIAGNOSTIC_*` files for items where evidence is still being captured.
+4. Any `EVIDENCE_*` outputs that have landed.
+5. The `PROPOSAL_*` files, newest first. For each, read the inline scrutiny section (or matching `SCRUTINY_*` doc) before deciding to execute. Defects flagged in earlier drafts are warnings about what to re-verify in newer drafts.
+6. Only then propose to execute anything.
 
 ---
 
@@ -93,6 +152,112 @@ Phase 145's job is to **stop firefighting individual UI bugs and produce a singl
 - Suspected cause: a stage worker with multiple internal phases reports each phase's progress as its own 0→N against the shared `progress_total`, so `current` snaps backward at phase boundaries. First place to look: `src/prep/core/epistemic_enrichment.py:842`.
 - Visual symptom suppressed (not fixed) by the 3→2 slab collapse in `StageProgressBar` 'incremental' variant on 2026-06-15. Under the new renderer the green slab itself will visibly shrink if `progress` regresses — still wrong.
 - **Full notes + recommended follow-up:** [`FINDING_stage-progress-non-monotonic.md`](FINDING_stage-progress-non-monotonic.md). Two layers: frontend monotonic guard (cheap, defensive) + backend stage-worker audit (correct).
+
+### 2k. Concurrency undershoot + cross-project work loss on second-start (open, 2026-06-15)
+
+- Ollama Pro with manual `llm_concurrency_deep = 10`. Running `ApplicationBrowser` alone on Deep Reasoning (`enrichment`, Stage 6 / Epistemic Enrichment) showed only **2–4 concurrent LLM calls** — not the configured 10. With one active project, Phase 91 fair-share says the project should get the full budget.
+- Starting a second project (`SkyPath-Restart`) mid-run: second project also got only **2–4 calls**, and the first project's run **shut off mid-stage with apparent work loss**, with no surfaced failure.
+- Per `Phase91_QueueRefinement/01_Resource_Allocation_Design.md`: a boost (★) + normal split at budget=10 should be 7/3, not 2–4 / 2–4; `capacity_changed` is supposed to **resize** running stages, not cancel them; cancellation only happens on `drain_timeout` and must surface as a visible `failed` state with reason. A second project's queued swarm ("star with a circle") must not dispossess the first project's in-flight non-swarm work.
+- Backend scheduler/allocator bug — distinct from the UI-drift focus of the rest of this phase, but logged here for triage parity.
+- **Full hypothesis list + evidence to capture:** [`FINDING_concurrency-undershoot-and-cross-project-work-loss.md`](FINDING_concurrency-undershoot-and-cross-project-work-loss.md).
+- **Implementation proposal (v1, draft, awaiting scrutiny):** [`PROPOSAL_thread-A-v1-concurrency-undershoot-and-work-loss.md`](PROPOSAL_thread-A-v1-concurrency-undershoot-and-work-loss.md) — A.1 diagnostic sub-thread (DG-A1..A7), A.2 manual-floor (solid evidence, can ship today), A.3–A.7 each gated on what A.1 surfaces.
+- **2026-06-19 scope clarification:** the swarm code path is confirmed working (`10×Swarm on Applifier` correctly fired on Group Reasoning). §2k concerns are about **non-swarm fair-share** only — Epistemic Enrichment / Catalogue / Module Synthesis / etc. Adjacent datapoint: Applifier alone on Deep Reasoning (Stage 6, non-swarm) only used 1/10 cloud slots when boost-priority alone should give the full budget. See finding §7.
+
+### 2l. UI drift on Applifier: rows show "Not run" while backend says `match`; Run returns PIPELINE_UP_TO_DATE (open, 2026-06-15)
+
+- Direct follow-on to §2k on Applifier (`/Volumes/Thunderbolt/AI/ApplicationBrowser`). After §2k left finalize failed, the user reopened the project and saw every Deep Enrichment row ("Deep Reasoning", "Group Reasoning", "Module Synthesis", "Continuous Deepening", "Deep Knowledge Embedding") rendered as empty circles with "Not run" / "Waiting for enrichment". Overall Health: 33% (5/15). Clicking **Run** on Deep Enrichment surfaces this toast:
+  > ⚠ Deep Enrichment detected all stages as complete. If stages appear incomplete in the UI, try 'Force Reset' then 'Run' again.
+- **Source of the toast:** `src/prep/api/routers/pipeline.py:271-278` — the daemon returns `409 PIPELINE_UP_TO_DATE` when `pipeline_orchestrator.run_deep_enrichment()` decides there's nothing to do. The backend is correct: `/projects/<id>/pipeline/status` shows `enrichment/group_reasoning/clustering/deepening/deep_knowledge` all at `provenance.state="match"`. **The UI rollup is reading from a different field** (the stages' top-level `enabled` flag — all five report `enabled: false` even though they ran to completion in this run). This is the §2b "drift" shape, on a new code path.
+- **The user does have an escape hatch** — clicking Force Reset calls `clear_reset_barrier()` (`pipeline.py:244-247`) and then re-runs, so the project is not truly un-restartable. But the user is being told to trust the toast over what the dashboard is rendering, which inverts the §4c "Status-on-disk is truth" invariant.
+- **The reset barrier is still stuck on disk** (`.sourceprep/.reset_barrier`, 40+ min old, `reason=full_reset`, `scope=all`). Selfheal logs every ~10 minutes: `Selfheal skipped: reset barrier active — awaiting genuine finalize`. Root cause pinned to `maybe_clear_scoped_barrier` being called only from the success branches of each group's post-run handler (`src/prep/services/pipeline/orchestrator.py:2121, 2158, 2169`). When finalize fails, the call is skipped and the barrier persists. Force Reset masks this for the user but the underlying barrier-auto-clear contract is broken — any failure path (LLM timeout, 5xx, cancel) reproduces it.
+- Two threads, separable fixes:
+  - **Thread A (UI rollup, §2b shape):** the deep-enrichment rows must derive state from `provenance.state` (or whichever field reliably reflects on-disk truth), not from `enabled`. Track in §6 alongside the existing §2b investigation.
+  - **Thread B (barrier auto-clear):** move the three `maybe_clear_scoped_barrier` calls out of success branches into a post-run `finally`. Audit the soft-hold lifecycle for missing release paths. Don't require the user to learn about `.reset_barrier` or click Force Reset to recover from a failed run.
+- **Full root cause + evidence + recommended fix shape:** [`FINDING_reset-barrier-stuck-on-failed-finalize.md`](FINDING_reset-barrier-stuck-on-failed-finalize.md).
+- **Implementation proposals:** [`PROPOSAL_threads-B-and-C-v1-barrier-and-rollup.md`](PROPOSAL_threads-B-and-C-v1-barrier-and-rollup.md) (v1 — *superseded by v2*, kept for the scrutiny notes D1–D5) and [`PROPOSAL_threads-B-and-C-v2-barrier-and-resume-detector.md`](PROPOSAL_threads-B-and-C-v2-barrier-and-resume-detector.md) (v2 — current draft, awaiting scrutiny). Thread A (§2k) is deliberately out of scope until its evidence is captured.
+
+### 2m. Daemon stalls and frontend locks up (partial mitigation 2026-06-17)
+
+- Observed live in active terminal (ProcessId 53781). A 10-minute (600s) gap occurs during which no requests (including the highly frequent `/system/pipeline-queue` poll) are logged by uvicorn.
+- Under-the-hood background OS threads continue ticking independently: exactly 10 minutes after inactivity starts, `prep-embedder-idle-release` detects idle state, calls `close_shared_embedders()`, and logs `Idle-release: dropped 1 embedder(s) after 600s of inactivity`.
+- *Immediately* after the background idle-release completes, uvicorn unblocks and resumes processing incoming requests.
+- **Activity-monitor evidence captured 2026-06-17 (Eric):** memory pressure GREEN, 832 KB swap, no paging. Daemon Python process ≈1.05 GB. **Not a resource exhaustion issue** — confirms H2 (native CoreML hang on the trailing batch).
+- **2026-06-18 22:38 suspected recurrence — RETRACTED 2026-06-18 23:38.** Eric verified by browser refresh that the daemon was running and all queued work had completed under the hood at 22:38; the symptom was a frontend hang, NOT a backend stall. The original §2m 2026-06-17 terminal-log evidence (10-minute uvicorn gap) remains a real backend stall. The §2p / §2q "downstream of §2m" reattribution is withdrawn — they stand as independent bugs again. See `FINDING_daemon-stall-and-frontend-lockup.md` §9 for the retraction note.
+- **Full notes + investigation hypotheses:** [`FINDING_daemon-stall-and-frontend-lockup.md`](FINDING_daemon-stall-and-frontend-lockup.md).
+- **Partial mitigations landed 2026-06-17 (does NOT fix the underlying CoreML hang):**
+  - **Frontend resilience:** `SidebarPipelineQueue.tsx` polling `fetch` now uses an `AbortController` with a 5s timeout. When the daemon stalls, the in-flight ref clears, the UI keeps rendering last-known queue state, and the next 10s tick retries — the sidebar no longer locks up indefinitely waiting on a frozen daemon.
+  - **Embedder idle-touch correctness:** `NativeEmbedder._touch_idle()` was being called once per outer `embed_batch(...)` call. A multi-bucket dispatch (the common case for the Knowledge Embedding stage) makes many inner `_session.run(...)` calls; the entry-only touch meant a >600s legitimate run could race the idle-release timer and have its session closed mid-call. Moved to fire *after* each inner `_session.run(...)` returns — successful inner batches keep the embedder marked active, but a stuck `.run()` (which never returns) still goes stale and trips the recovery path that was observed unblocking the daemon in this incident.
+  - **Regression tests:** `tests/test_phase139_pr2_batching.py::TestPhase145IdleTouchPlacement` (2 cases — touch-per-inner-call + timestamp-advances-per-call).
+- **Still open** — neither change fixes the CoreML hang itself. Recovery still requires waiting up to 600s for the idle-release timer. Real RCA needs a py-spy dump captured during the next stall (per finding §4).
+
+### 2n. Stage 15 (Immune System / Antibodies) never appears complete (open, 2026-06-17)
+
+- The Finalize group's final stage continues to render `Not run` after a finalize run completes, with no progress bar and no checkmark — the user can't tell whether the worker is being dispatched, raising silently, or returning successfully with zero derived antibodies.
+- **Code-level finding:** the UI's completion gate (`GraphEnrichmentPipeline.tsx:1551`) is `!!(effectiveAntibodiesStatus?.count)` — strictly count-based. The backend status route (`pipeline.py:789-803`) returns `count: 0` whenever EITHER `antibodies_manifest.json` is missing OR `antibody_store.list_antibodies(project_id)` returns `[]`. Six distinct scenarios (worker never dispatched / worker raised / worker skipped-no-concepts / derivation filter rejected every concept / `save_many` failed / cross-process `data_dir` divergence) all collapse to the same "Not run" rendering.
+- Stage 15 is the only finalize stage gated on a count rather than an existence boolean (compare Atlas / Rules / Concepts / Audit). `STAGE_OUTPUT_FILE[StageId.ANTIBODIES] is None`, so the manifest carries no count of its own — the count lives entirely in the shared SQLite store, which makes the dual-gate read-side fragile.
+- **Most-likely cause without diagnostic evidence yet:** the worker runs and produces zero derivables because `derive_antibodies_for_project`'s filter only accepts `kind="concept"` + `category in {"constraint","architecture"}` + anchors + text, and most projects' concepts are dominated by `module_rationale` rows that fail this filter. That makes the symptom a UX gap, not necessarily a bug — but H2–H5 in the finding are real bugs if they fire and the disambiguation is cheap.
+- **Full notes + 5-step diagnostic checklist:** [`FINDING_stage15-antibodies-never-complete.md`](FINDING_stage15-antibodies-never-complete.md).
+- **2026-06-19 recurrence:** confirmed "regular" pattern (3+ captures across different projects). Latest: small project with 1 concept renders all four other finalize stages ✓ but Immune System "Not run." Strongest hypothesis is scenario (d) — worker ran, filter rejected the only concept as a derivation source, manifest emitted `count: 0`, UI's count-gate renders "Not run." **Cleanly closed by `PROPOSAL_state-machine-re-centering-v1.md` T1** (read `stage_results["antibodies"]` from S1) + a "complete-but-empty" chip from T2.a / Thread D.
+
+### 2o. Incremental Deep Reasoning shows >50% remaining on a stable repo (open, 2026-06-17)
+
+- Live screenshot of the SourcePrep dashboard during a deep_enrichment run: Deep Reasoning bar at `896 / 2,073 files · 43%` with a ~57% in-progress segment, on a repo where the user had not modified anywhere near that many files.
+- **Root cause pinned from on-disk logs:** a prior `force_from_start` rebuild dispatched at 15:43 EDT today wiped `trace_epistemic.jsonl` and then exited the enrichment stage after processing only ~20 of 2072 files — but the orchestrator wrote a manifest with `quality.success_rate: 1.0, processed: 20`. The next run at 17:27 correctly sees only 40 existing entries and is now doing legitimate recovery work to enrich the remaining 2033 files.
+- The work currently in progress is *correct*. The UI surface that frames it as "incremental progress on user edits" is *wrong* — there's no signal distinguishing user-introduced delta from recovery-from-interrupted-prior-run.
+- **At least five distinct issues stack here:** (3a) the enrichment manifest's `quality` block is computed from raw JSONL row count with no expected denominator, so partial completion looks like full completion; (3b) the rebuild trigger is not recorded in the log (UI? API? selfheal?); (3c) the two-tone bar has no copy explaining recovery context; (3d) the 20→40 row jump between the manifest write and the next run start is unexplained (probably deepening sharing the JSONL); (3e) `.sourceprep/logs/` contains events from another project (`7cdea5e4...` = Applifier), making per-project forensics fragile.
+- **Full notes + 5-step diagnostic checklist + 5 design questions:** [`FINDING_incremental-run-shows-50pct-work-after-interrupted-rebuild.md`](FINDING_incremental-run-shows-50pct-work-after-interrupted-rebuild.md).
+
+### 2p. Two-project incremental: second project hangs on Update with no queue surface; one project's swarm consumes full cloud budget (open, 2026-06-18)
+
+- Two projects active, neither boosted: DebateHaus is `Swarming · Deep Enrichment · Module Synthesis · 19m 13s` per the queue widget; Applifier is the one the user clicked **Update** on.
+- Applifier's Update button shows `Updating…` indefinitely. No queued badge, no "behind DebateHaus" hint, no visible feedback. `cloud:default_ollama` is at 10/10.
+- Per Phase 91 contract: when no project is boost/exclusive and one project is swarming, other projects' stages should enter the queue and wait, rendered with `Hourglass + "Queued behind <project>"` (Phase 145 §4a). Today the queue widget shows only the active project — waiters are invisible.
+- Side observations worth pinning: (2a) "Module Synthesis" badged as Swarming, though Phase 79 marks Stage 8 as Medium-benefit / future swarm candidate (Stage 7 Group Reasoning is the primary swarm target); (2b) AI Gateway label says "Deep Reasoning [10×] on DebateHaus" while the queue widget says "Module Synthesis" — stage names disagree at the same instant; (2c) 19m+ on a single stage with no progress signal.
+- **Two layers stacked:** backend (is Applifier actually enqueued?) and UI (if so, why no surface?). Discriminator is a single `/system/pipeline-queue` snapshot while the symptom is live. Related to §2k (same scheduler subsystem, different manifestation — work loss vs no-start), §2f (queue widget shape).
+- **Full notes + 7-step diagnostic checklist + 4 hypotheses + 4 invariants:** [`FINDING_two-project-incremental-blocked-during-swarm.md`](FINDING_two-project-incremental-blocked-during-swarm.md).
+- **2026-06-18 23:38:** the daemon-freeze attribution from 22:38 is **withdrawn** — the daemon was healthy; this was a frontend hang. §2p stands as an independent bug. See finding §9.
+
+### 2q. Auto-incremental pipeline never auto-triggered despite hours of untracked files (open, 2026-06-18)
+
+- Same Applifier screenshot. Project has Auto enabled for Fast Sync + Deep Enrichment + Finalize. Graph Scope shows **9 untraced files** ranging from 3h to 7h old; **Last updated: 7h ago**. The `AutoRebuildWatcher` should have fired and processed these incrementally hours ago.
+- No surface tells the user whether the watcher (a) never started for this project, (b) is running but the OS isn't delivering file events, (c) is firing but the debounce path is silently bailing on a gate (budget / reset-barrier / `_check_incomplete_deep_enrichment` self-heal check), or (d) is firing and enqueueing successfully but the work is invisibly queued behind another project's swarm (§2p).
+- Hypotheses H-Q1 through H-Q6 cover each layer; the discriminator is a focused capture (`/projects/<id>/watch/status` + a probe `touch` + the daemon log tail).
+- Probably paired with §2p — if the watcher *did* fire and §2p's invisible queue is the consequence, this is the same bug at a different surface. Need evidence to know.
+- **Full notes + 7-step diagnostic checklist + 6 hypotheses + 5 design questions:** [`FINDING_auto-incremental-never-fired-despite-stale-files.md`](FINDING_auto-incremental-never-fired-despite-stale-files.md).
+- **2026-06-18 23:38:** the daemon-freeze attribution from 22:38 is **withdrawn** — §2q stands as a standalone watcher-side bug. Six hypotheses (H-Q1..H-Q6) still apply. New adjacent symptom §2s (Edge Discovery stuck `Pending` with auto-incremental refusing to fire) is likely the same underlying bug surfacing on a different surface.
+
+### 2r. Multiple Fast Sync rows render as `running` simultaneously during Rebuild All (open, screenshots only, 2026-06-17)
+
+- Two screenshots from a `Rebuild All` run: in one, the header reads "stage 5/15: Knowledge Embedding · 74%" while three rows (Edge Discovery, Relationship Validation, Knowledge Embedding) all show spinners and progress bars at once; in the other, "stage 3/15: Fast Catalogue · 87%" while Edge Discovery + Fast Catalogue both spin and downstream rows (Validation, Knowledge Embedding) show as ✓ complete with stamps from earlier runs (`yesterday`, `1384 chunks embedded`).
+- A sequential group state machine should have exactly one row in `running` at any moment per Phase 145 §4a.
+- Limited-context capture — the user does not remember the project, the trigger, or the surrounding sequence. Treated as a documented "we saw this once, here's what's visibly wrong" entry rather than a diagnostic plan.
+- Most likely the same `compute*State` family as §2a / §2l / §2n / §2o — the SSE forward-progression hints flip downstream rows to `running` before the API's per-stage running flag clears the upstream row.
+- **Suggested closing action** (in the finding): add a Playwright invariant to Phase 145.3 — *during any SSE snapshot, no group has more than one stage in `running` state* — which would catch this whole class without depending on the lost circumstances.
+- **Short finding:** [`FINDING_multiple-stages-show-running-simultaneously.md`](FINDING_multiple-stages-show-running-simultaneously.md).
+
+### 2s. Edge Discovery (Stage 2) renders spinning but is actually `Pending`; auto-incremental refuses to fire; refresh doesn't recover (open, 2026-06-18)
+
+- Live screenshot 23:38 on SourcePrep repo. Graph Scope shows 8 untraced markdown files aged 37m–1h (the Phase 145 docs being written today). Right panel: Edge Discovery row has a spinner and "Discovering edges…" label. Queue widget: `SourcePrep · Pending · Fast Sync · Edge Discovery`. `cloud:default_ollama: 0/10` — nothing in flight. **Browser refresh does NOT recover.**
+- Three signals disagree at the same moment: row spinner says running, queue widget says pending, cloud load says idle, AI Gateway says `1 active`. Classic compute*State family bug (same shape as §2r) but refresh-resistant — distinguishes it from the §2m-22:38 frontend-hang family.
+- Five hypotheses (H-S1..H-S5): silent failure swallowed; worker thread hung; orchestrator guard short-circuited (overlaps §2q H-Q6); changeset fingerprint missed the new files; auto-trigger deduplicated against an already-Pending entry that never started.
+- Very likely the same underlying bug as §2q (auto-incremental never fired). The fact that auto won't fire while the daemon is otherwise healthy strengthens §2q's case as a real standalone bug, independent of the (now-retracted) §2m attribution.
+- **Recurrence 2026-06-19 07:13 — manual Rebuild All, 8h stall, progress reached 93% then froze.** Stage 1 (Structural) completed in 4s, then Edge Discovery worker started, reached 93%, stalled for 8h. Rules out H-S3/H-S4/H-S5; reinforces H-S2 (worker hung mid-execution). Adds H-S6 (LLM call never returned, slot released by heartbeat but worker still thinks it holds the slot) and H-S7 (non-LLM coordination deadlock). **Implies a new sub-thread T4 — worker-side watchdog with wall-clock timeout** to add to the re-centering proposal v2. py-spy dump on the daemon's worker thread is the discriminator if symptom is still live.
+- **Short finding + diagnostic checklist + 7 hypotheses:** [`FINDING_edge-discovery-stuck-pending-auto-incremental-refuses.md`](FINDING_edge-discovery-stuck-pending-auto-incremental-refuses.md).
+
+### 2t. Edge Discovery completion time is hard to interpret (cache hits look like live runs); rebuild progress bar style switches mid-run (open, 2026-06-19)
+
+- User clicked Rebuild All on HomeColab; Edge Discovery completed in 21s. User asked "did it actually do the work?" **Direct manifest read confirms yes** — 171 items processed at 8.26 items/sec, real avg_confidence 0.843. Plausible cloud-LLM throughput for a small project.
+- **Adjacent concern:** SourcePrep's Edge Discovery manifest from the daemon-restart screenshot shows 214 items in **0.82s = 260 items/sec** with the same model. That's 30× HomeColab's rate — physically implausible for cloud LLM. Almost certainly cache hits from the §2s 8h-stalled prior run, but the manifest's `quality.processed: 214, success_rate: 1.0` doesn't distinguish cache hits from fresh LLM work. **§2o-family bug** — manifest reporting doesn't faithfully represent how the work happened. Three hypotheses (H-T1..H-T3) in the finding.
+- **Minor UX:** rebuild progress bar renders in default-style for ~7s after Rebuild click, then switches to rebuild-style when the "Rebuilding All stage 2/15" banner appears. Cosmetic; suggested fix is optimistic local style on click.
+- **Short finding + manifest evidence + diagnostic command + 3 hypotheses:** [`FINDING_edge-discovery-fast-completion-and-rebuild-progress-style-lag.md`](FINDING_edge-discovery-fast-completion-and-rebuild-progress-style-lag.md).
+
+### 2u. Manual Update click triggers a non-deterministic cluster of UI hang symptoms (recurring, 2026-06-19)
+
+- **The cluster pattern, not a new individual bug.** Each symptom (other projects don't load, missing/multi/wrong-style progress bars, "Update" silent, can't tell if backend is running) maps to an already-documented finding (§2c, §2f, §2m post-retraction, §2p, §2r, §2t §4). What's *new* is the **cascade**: Auto-incremental broken (§2q + §2s) → user clicks Update as workaround → cluster of UI hangs → multiple refreshes needed.
+- **Cluster self-stabilizes by ~stage 8 with one refresh.** Backend healthy throughout. Suggests SSE event burst in the early-stages window overruns the frontend reducer's back-pressure handling — independent of the state-machine drift covered by T1.
+- **Execution-order implication for the proposal:** **fixing §2q (Auto reliability) is the highest-leverage single intervention in the entire backlog** — not because it's the worst individual bug, but because it removes the trigger that exposes every other symptom. If Auto works, the user never clicks Update, the SSE burst never happens, the cascade never fires. `PROPOSAL_state-machine-re-centering-v1.md` should be re-ordered to prioritize §2q before T1.
+- **Short finding + cascade chain + diagnostic capture script:** [`FINDING_manual-update-click-triggers-ui-cluster.md`](FINDING_manual-update-click-triggers-ui-cluster.md).
+- **2026-06-21 recurrence (finding §6.2):** post-refresh, the Applifier panel shows no "current stage" indicator even though queue widget + AI Gateway confirm Deep Reasoning is running with 3× cloud calls in flight. Plus a new sub-symptom — Deep Reasoning row reads `1,069 / 1,058 files · 100%` (progress overshoots the total by 11 files). Suggests SSE channel doesn't replay the `stage_start` for the in-flight stage on reconnect — only cumulative state. Worker progress emission not bounded by `progress_total` (cross-ref to §2j §8).
 
 ## 3. What we know about the data flow
 
