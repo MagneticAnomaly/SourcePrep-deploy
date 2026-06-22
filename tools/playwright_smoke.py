@@ -48,27 +48,19 @@ from playwright.sync_api import (
     sync_playwright,
 )
 
-# Fast Sync → Deep Enrichment → Finalize, in the 15-stage order published
-# by /pipeline/status. Kept as a list of (stage_id, group) pairs because
-# the UI groups stages identically.
-STAGE_ORDER: list[tuple[str, str]] = [
-    ("structural", "fast_sync"),
-    ("inferred_edges", "fast_sync"),
-    ("catalogue", "fast_sync"),
-    ("validation", "fast_sync"),
-    ("knowledge", "fast_sync"),
-    ("enrichment", "deep_enrichment"),
-    ("group_reasoning", "deep_enrichment"),
-    ("clustering", "deep_enrichment"),
-    ("deepening", "deep_enrichment"),
-    ("deep_knowledge", "deep_enrichment"),
-    ("atlas", "finalize"),
-    ("rules", "finalize"),
-    ("concepts", "finalize"),
-    ("audit", "finalize"),
-    ("antibodies", "finalize"),
-]
-STAGE_TO_GROUP = dict(STAGE_ORDER)
+from tools.phase145_uat.constants import (
+    CANON_STATES,
+    DOM_STATE_TO_CANON,
+    STAGE_ORDER,
+    STAGE_TO_GROUP,
+)
+from tools.phase145_uat.invariants import run_all as run_invariants
+
+# CANON_STATES is re-imported for backward compatibility with any external
+# caller that historically imported the canon vocabulary from this module.
+# It is unused inside playwright_smoke itself today; do not delete without
+# auditing downstream importers (none in repo as of T2 land).
+_ = CANON_STATES
 
 # Phase 118 extra-scrutiny: stage_id → expected manifest filename on disk.
 # Used by the disk-vs-API consistency check (a stage the API claims is
@@ -89,26 +81,6 @@ STAGE_MANIFEST: dict[str, str] = {
     "concepts":        "concepts_manifest.json",
     "audit":           "audit_manifest.json",
     "antibodies":      "antibodies_manifest.json",
-}
-
-# Canonical state vocabulary for desync comparison. Both API and DOM states
-# are normalized into this set before diffing.
-CANON_STATES = {"pending", "running", "complete", "failed"}
-
-DOM_STATE_TO_CANON = {
-    "running": "running",
-    "rerunning": "running",
-    "rebuilding": "running",  # promoteForRebuild outputs this during Danger Zone rebuilds
-    "queued": "pending",
-    "waiting": "pending",
-    "idle": "pending",
-    "not_built": "pending",
-    "disabled": "pending",
-    "paused": "pending",
-    "complete": "complete",
-    "stale": "complete",
-    "warning": "complete",
-    "error": "failed",
 }
 
 API_PHASE_TO_CANON = {
@@ -146,6 +118,7 @@ class ModeSummary:
     pass_: bool = False
     desync_count: int = 0
     anomaly_count: int = 0   # Phase 118: softer mismatches, e.g. polling-grace hits
+    invariant_failure_count: int = 0   # Phase 145 T2: I1/I2/I3/I13 violations
     error_count: int = 0
     stages_seen: list[str] = field(default_factory=list)
     trigger_reason: str = ""
@@ -160,6 +133,7 @@ class ModeSummary:
             "pass": self.pass_,
             "desync_count": self.desync_count,
             "anomaly_count": self.anomaly_count,
+            "invariant_failure_count": self.invariant_failure_count,
             "error_count": self.error_count,
             "stages_seen": self.stages_seen,
             "trigger_reason": self.trigger_reason,
@@ -633,6 +607,71 @@ def _queue_snapshot_for(api: Api, pid: str) -> Optional[dict[str, Any]]:
     }
 
 
+# Phase 145 T2: persistence + dedup gate for invariant failures.
+# Adversarial review surfaced two false-positive classes the raw dedup-by-
+# signature design couldn't suppress:
+#   - I13 during the pause→running transition: brief tick where API has
+#     flipped to 'running' but the dashboard has not yet committed the SSE
+#     update; isPaused and isRunning are both false on every row → I13
+#     would fire once before the next tick made it pass again.
+#   - I1/I3/I13 during a 'recovering' phase whose current_stage briefly
+#     points at a stale slot — same shape.
+#
+# Requiring the same evidence-signature to be observed on PERSISTENCE
+# consecutive ticks before emitting absorbs both classes without
+# silencing real persistent bugs. The acceptable latency cost is
+# (PERSISTENCE - 1) × poll_interval seconds (4s at defaults).
+INVARIANT_PERSISTENCE_TICKS = 2
+
+
+def _should_emit_invariant_failure(
+    invariant_id: str,
+    evidence: dict[str, Any],
+    *,
+    pending: dict[str, tuple[str, int]],
+    last_emitted: dict[str, str],
+    persistence: int = INVARIANT_PERSISTENCE_TICKS,
+) -> bool:
+    """Decide whether THIS observation should produce an event.
+
+    Mutates `pending` and `last_emitted` in place. Returns True iff this
+    tick is the first to cross the persistence threshold for the current
+    evidence signature; returns False both during the warm-up ticks
+    (count < persistence) and on identical re-observations after emit.
+
+    Evidence is serialised with sort_keys + default=str so the signature
+    is stable across runs and dict-iteration order. Any unhashable or
+    non-stringifiable type in evidence is coerced via str() — keeps the
+    dedup robust to a future evidence-shape change that includes e.g.
+    a Path or a frozenset.
+    """
+    sig = json.dumps(evidence, sort_keys=True, default=str)
+    prev = pending.get(invariant_id)
+    new_count = prev[1] + 1 if (prev and prev[0] == sig) else 1
+    pending[invariant_id] = (sig, new_count)
+    if new_count < persistence:
+        return False
+    if last_emitted.get(invariant_id) == sig:
+        return False
+    last_emitted[invariant_id] = sig
+    return True
+
+
+def _clear_pending_invariant(
+    invariant_id: str,
+    pending: dict[str, tuple[str, int]],
+) -> None:
+    """Drop the persistence buffer for an invariant that just passed.
+
+    A pass between failures resets the consecutive-tick counter — the
+    next failure starts a fresh persistence countdown. Without this an
+    intermittent bug that flickered pass/fail/pass/fail would never
+    accumulate to PERSISTENCE consecutive failing ticks and would stay
+    silent.
+    """
+    pending.pop(invariant_id, None)
+
+
 def watch_until_idle(
     api: Api,
     page: Page,
@@ -659,6 +698,15 @@ def watch_until_idle(
     t0 = time.time()
     last_api_verdict: dict[str, Optional[str]] = {}
     last_desync_sig: dict[str, tuple[str, str]] = {}
+    # Phase 145 T2: invariant emission state.
+    #   - `pending_invariant_failure`: (invariant_id → (sig, consecutive_count))
+    #     accumulating during the persistence warm-up window.
+    #   - `last_invariant_sig`:        (invariant_id → sig) of the last
+    #     EMITTED failure, used to suppress identical re-fires after
+    #     persistence has been reached.
+    # See _should_emit_invariant_failure for the full contract.
+    pending_invariant_failure: dict[str, tuple[str, int]] = {}
+    last_invariant_sig: dict[str, str] = {}
     saw_running = False
     idle_since: Optional[float] = None
     next_poll = 0.0
@@ -767,6 +815,54 @@ def watch_until_idle(
                 }))
                 ctx.snap(page, f"desync_{stage_id}_{disagreement[0]}")
                 ok = False
+
+            # Phase 145 T2: §8 invariant checks. Run on every API-poll tick
+            # (~2s cadence — same loop as the desync detector) AFTER the
+            # per-stage desync loop so this block sees the same `status` /
+            # DOM snapshot. Gated on the same startup_grace_seconds
+            # threshold as desyncs so the panel has time to hydrate before
+            # we assert against an empty DOM. Only failures are emitted —
+            # passes would generate ~4 invariants × 30 polls/min = ~7k
+            # lines on an hour-long run with zero information value.
+            # Two-layer suppression on emission:
+            #   1. Persistence gate: same evidence-signature must persist
+            #      across INVARIANT_PERSISTENCE_TICKS consecutive polls
+            #      before firing (absorbs SSE/DOM commit-lag races during
+            #      pause→resume and recovering windows).
+            #   2. Dedup: once emitted, identical re-observations are
+            #      suppressed until the evidence-signature changes.
+            if elapsed > startup_grace_seconds:
+                try:
+                    inv_results = run_invariants(page, status)
+                except Exception as e:
+                    ctx.log(Event(now, "error", {
+                        "where": "run_invariants",
+                        "detail": str(e),
+                    }))
+                    ctx.summary.error_count += 1
+                    inv_results = []
+                for inv_result in inv_results:
+                    if inv_result.passed:
+                        _clear_pending_invariant(
+                            inv_result.invariant_id,
+                            pending_invariant_failure,
+                        )
+                        continue
+                    if not _should_emit_invariant_failure(
+                        inv_result.invariant_id,
+                        inv_result.evidence,
+                        pending=pending_invariant_failure,
+                        last_emitted=last_invariant_sig,
+                    ):
+                        continue
+                    ctx.summary.invariant_failure_count += 1
+                    ctx.log(Event(now, "invariant_failure", {
+                        "invariant_id": inv_result.invariant_id,
+                        "label": inv_result.label,
+                        "evidence": inv_result.evidence,
+                    }))
+                    ctx.snap(page, f"invariant_{inv_result.invariant_id}_FAIL")
+                    ok = False
 
             if saw_running and idle_since and (now - idle_since) >= settle_seconds:
                 ctx.log(Event(now, "note", {"detail": "settled_idle", "elapsed_s": round(elapsed, 1)}))
@@ -1140,8 +1236,8 @@ def write_top_report(root: Path, summaries: list[ModeSummary]) -> None:
     lines = [
         f"# Pipeline Smoke Run — {root.name}",
         "",
-        "| Mode | Result | Duration | Stages | Desyncs | Anomalies | Errors |",
-        "|---|---|---|---|---|---|---|",
+        "| Mode | Result | Duration | Stages | Desyncs | Anomalies | Invariants | Errors |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     overall_pass = True
     for s in summaries:
@@ -1149,7 +1245,8 @@ def write_top_report(root: Path, summaries: list[ModeSummary]) -> None:
         dur = f"{round(s.ended_at - s.started_at, 1)}s" if s.ended_at else "—"
         lines.append(
             f"| {s.mode} | {'pass' if s.pass_ else 'fail'} | {dur} | "
-            f"{len(s.stages_seen)} | {s.desync_count} | {s.anomaly_count} | {s.error_count} |"
+            f"{len(s.stages_seen)} | {s.desync_count} | {s.anomaly_count} | "
+            f"{s.invariant_failure_count} | {s.error_count} |"
         )
     lines += ["", f"**Overall:** {'pass' if overall_pass else 'fail'}", ""]
     (root / "report.md").write_text("\n".join(lines))

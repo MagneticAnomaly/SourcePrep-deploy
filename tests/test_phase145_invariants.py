@@ -697,3 +697,169 @@ def test_to_json_round_trip(page: Page) -> None:
     assert payload["passed"] is True
     assert "label" in payload
     assert "evidence" in payload
+
+
+# ── I13: collapsed-group (no rendered rows) skip — adversarial review fix ──
+
+
+def test_I13_passes_when_active_group_has_no_rendered_rows(page: Page) -> None:
+    # B-MED-1 from the 2026-06-22 adversarial review: fast/deep/finalize
+    # default to collapsed in the dashboard — CondensedGroupRow renders
+    # instead of per-stage rows, so _scrape_rows returns no rows for that
+    # group. Without this gate, every active collapsed group would fire
+    # I13 with marked_count=0 → spammy noise on the default dashboard.
+    # Now we treat "group has no rendered rows" as N/A.
+    page.set_content(
+        _html(
+            # Only deep_enrichment has rows rendered; fast_sync is "collapsed".
+            _row("enrichment", "running", current=True),
+            _row("group_reasoning", "pending"),
+        )
+    )
+    api = {
+        # fast_sync is active but no rows for it → must not fire
+        "fast_sync": {"phase": "running", "current_stage": "structural"},
+        "deep_enrichment": {"phase": "running", "current_stage": "enrichment"},
+        "finalize": {"phase": "idle"},
+    }
+    r = I13_current_stage_decoration_exists(page, api)
+    assert r.passed, (
+        "I13 must skip groups with no rendered rows (collapsed group); "
+        f"evidence={r.evidence}"
+    )
+
+
+def test_I13_passes_when_all_active_groups_collapsed(page: Page) -> None:
+    # Edge: ALL active groups are collapsed (extreme case — panel just
+    # loaded with everything condensed). The invariant must pass
+    # cleanly, not fire one failure per active group.
+    page.set_content(_html())  # zero rows in DOM
+    api = {
+        "fast_sync": {"phase": "running", "current_stage": "structural"},
+        "deep_enrichment": {"phase": "paused", "current_stage": "enrichment"},
+        "finalize": {"phase": "recovering", "current_stage": "atlas"},
+    }
+    r = I13_current_stage_decoration_exists(page, api)
+    assert r.passed
+    assert r.evidence == {}
+
+
+def test_I13_still_fires_when_group_has_rows_but_zero_indicators(page: Page) -> None:
+    # Regression net for the collapsed-group fix: the new skip MUST NOT
+    # accidentally suppress the real bug class. If rows ARE rendered but
+    # none of them carries current-stage-indicator, the §2u §6.2 symptom
+    # is present → I13 must still fire.
+    page.set_content(
+        _html(
+            _row("structural", "complete"),  # post-refresh: states intact
+            _row("inferred_edges", "complete"),  # but no row marked current
+        )
+    )
+    api = {"fast_sync": {"phase": "running", "current_stage": "catalogue"}}
+    r = I13_current_stage_decoration_exists(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["marked_count"] == 0
+
+
+# ── Persistence-gate helper (lives in playwright_smoke.py) ────────
+
+
+def test_persistence_gate_waits_for_two_consecutive_ticks() -> None:
+    # The harness must NOT emit on the first observation of a failure —
+    # absorbs pause→resume / recovering SSE-commit races. Emits on the
+    # second consecutive tick with the same evidence signature.
+    from tools.playwright_smoke import _should_emit_invariant_failure
+    pending: dict = {}
+    emitted: dict = {}
+    ev = {"failures": [{"group": "deep_enrichment", "marked_count": 0}]}
+    # tick 1: warm-up, no emit
+    assert not _should_emit_invariant_failure(
+        "I13", ev, pending=pending, last_emitted=emitted
+    )
+    # tick 2: persistence reached → emit
+    assert _should_emit_invariant_failure(
+        "I13", ev, pending=pending, last_emitted=emitted
+    )
+    # tick 3: identical evidence → suppressed by dedup
+    assert not _should_emit_invariant_failure(
+        "I13", ev, pending=pending, last_emitted=emitted
+    )
+
+
+def test_persistence_gate_resets_on_pass() -> None:
+    # An intermittent flicker (fail → pass → fail) must NOT accumulate
+    # toward the persistence threshold across the pass. Otherwise a
+    # genuinely-transient bug would still emit on the second appearance
+    # even though it cleared in between.
+    from tools.playwright_smoke import (
+        _clear_pending_invariant,
+        _should_emit_invariant_failure,
+    )
+    pending: dict = {}
+    emitted: dict = {}
+    ev = {"failures": [{"group": "fast_sync", "running_count": 2}]}
+    # tick 1: warm-up
+    assert not _should_emit_invariant_failure(
+        "I1", ev, pending=pending, last_emitted=emitted
+    )
+    # tick 2: passed → clear pending
+    _clear_pending_invariant("I1", pending)
+    assert "I1" not in pending
+    # tick 3: same evidence — must NOT emit (count is back to 1)
+    assert not _should_emit_invariant_failure(
+        "I1", ev, pending=pending, last_emitted=emitted
+    )
+    # tick 4: persistence finally reached
+    assert _should_emit_invariant_failure(
+        "I1", ev, pending=pending, last_emitted=emitted
+    )
+
+
+def test_persistence_gate_evidence_change_restarts_counter() -> None:
+    # If the failure mode changes signature between ticks (e.g. a
+    # different set of running stages joined the I1 violation), the
+    # counter must reset — the new signature gets its own warm-up
+    # window, and the old emitted-signature is independent.
+    from tools.playwright_smoke import _should_emit_invariant_failure
+    pending: dict = {}
+    emitted: dict = {}
+    ev_a = {"failures": [{"group": "fast_sync", "running_stages": ["a", "b"]}]}
+    ev_b = {"failures": [{"group": "fast_sync", "running_stages": ["a", "b", "c"]}]}
+    # ev_a tick 1 — warm-up
+    assert not _should_emit_invariant_failure(
+        "I1", ev_a, pending=pending, last_emitted=emitted
+    )
+    # ev_b tick 1 (different sig) — counter reset, warm-up again
+    assert not _should_emit_invariant_failure(
+        "I1", ev_b, pending=pending, last_emitted=emitted
+    )
+    # ev_b tick 2 — emit
+    assert _should_emit_invariant_failure(
+        "I1", ev_b, pending=pending, last_emitted=emitted
+    )
+    # ev_a is no longer pending; if it reappears, it needs its own warm-up
+    assert not _should_emit_invariant_failure(
+        "I1", ev_a, pending=pending, last_emitted=emitted
+    )
+    assert _should_emit_invariant_failure(
+        "I1", ev_a, pending=pending, last_emitted=emitted
+    )
+
+
+def test_persistence_gate_evidence_sort_stability() -> None:
+    # Evidence dicts with the same content but different key-insertion
+    # order MUST produce the same signature. Without sort_keys=True the
+    # gate would treat them as distinct evidence and start fresh
+    # warm-ups every tick — defeating the dedup.
+    from tools.playwright_smoke import _should_emit_invariant_failure
+    pending: dict = {}
+    emitted: dict = {}
+    ev_alpha = {"failures": [{"a": 1, "b": 2, "c": 3}]}
+    ev_beta = {"failures": [{"c": 3, "b": 2, "a": 1}]}  # same content, diff order
+    # Both ticks count toward the same persistence window.
+    assert not _should_emit_invariant_failure(
+        "I3", ev_alpha, pending=pending, last_emitted=emitted
+    )
+    assert _should_emit_invariant_failure(
+        "I3", ev_beta, pending=pending, last_emitted=emitted
+    )

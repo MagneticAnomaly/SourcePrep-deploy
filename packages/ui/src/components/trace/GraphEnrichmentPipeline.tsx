@@ -857,8 +857,20 @@ function StageRow({
             {isPaused && stage.progress !== undefined && (
               <span className="text-[10px] text-amber-400 opacity-80">{stage.progress}%</span>
             )}
-            {/* Fixed-size container for spinner/pause/play to prevent layout shift */}
-            <div className="w-5 h-5 flex items-center justify-center shrink-0">
+            {/* Fixed-size container for spinner/pause/play to prevent layout shift.
+                Phase 145 UAT I13: this container is the "current stage" affordance
+                for the row. When the row is the group's currently active stage
+                (running, rerunning, rebuilding, or the paused stage), we attach
+                `data-testid="current-stage-indicator"`; otherwise the attribute
+                is absent. The container itself stays mounted for layout
+                stability — only the testid attribute is conditional. The harness
+                additionally rejects display:none nodes via `offsetParent !== null`,
+                so a future CSS-hide regression that left the testid attached
+                but invisible would still be caught. */}
+            <div
+              className="w-5 h-5 flex items-center justify-center shrink-0"
+              data-testid={(isRunning || isPaused) ? 'current-stage-indicator' : undefined}
+            >
               {isPaused && onResume ? (
                 <button
                   onClick={(e) => { e.stopPropagation(); onResume(group); }}
@@ -952,15 +964,24 @@ function StageRow({
           )
         )}
 
-        {/* Phase 49: Detail line — provenance metadata */}
-        {/* Only show for stages that have actually completed (not disabled/waiting/not_built/running) */}
+        {/* Phase 49: Detail line — provenance metadata.
+            Phase 145 UAT I2: this <p> is the "prior-run timestamp" chip — it
+            renders only for completed/stale/warning rows in detail view. The
+            `last-run-chip` testid is attached here so the invariant can assert
+            that a row in RUNNING_DOM_STATES never simultaneously renders one.
+            The conditional gate already keeps it unmounted on running rows;
+            keeping the testid pinned to the actual visible chip element
+            preserves that contract under future refactors. */}
         {showDetails && stage.provenance && (stage.state === 'complete' || stage.state === 'stale' || stage.state === 'warning') && (
-          <p className={cn(
-            "text-[9px] truncate leading-tight mt-0.5",
-            isStaleAge(stage.provenance.age_days) === 'old' ? 'text-red-400/70' :
-              isStaleAge(stage.provenance.age_days) === 'warn' ? 'text-amber-400/70' :
-                'text-text-subtle'
-          )}>
+          <p
+            data-testid="last-run-chip"
+            className={cn(
+              "text-[9px] truncate leading-tight mt-0.5",
+              isStaleAge(stage.provenance.age_days) === 'old' ? 'text-red-400/70' :
+                isStaleAge(stage.provenance.age_days) === 'warn' ? 'text-amber-400/70' :
+                  'text-text-subtle'
+            )}
+          >
             {formatProvenanceLine(stage.provenance)}
           </p>
         )}

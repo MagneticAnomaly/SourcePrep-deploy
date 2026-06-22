@@ -1,59 +1,61 @@
 """Phase 145 §8 UI invariants — callable assertions for the Playwright UAT harness.
 
-Each invariant takes (page, api_status) and returns an InvariantResult. Designed
-to be called from tools/playwright_smoke.py's watch loop (T2 — not yet wired)
-AND from standalone pytest tests using mock DOM via page.set_content() (T1, this
-commit).
+Each invariant takes (page, api_status) and returns an InvariantResult. Called
+from ``tools/playwright_smoke.py``'s ``watch_until_idle`` loop (T2, 2026-06-22)
+AND from standalone pytest tests using mock DOM via ``page.set_content()``.
 
 Per ``docs/Phase145_Pipeline-UI-Reliability/PROPOSAL_playwright-uat-harness-v1.md`` §3.
 
-Selector contract — VERIFIED PRESENT in the dashboard (2026-06-22):
+Selector contract — VERIFIED PRESENT in the dashboard, all four
+attributes/testids land in
+``packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx``:
 
-    [data-testid="pipeline-stage-row-{stage_id}"]
+    [data-testid="pipeline-stage-row-{stage_id}"]    (the row container)
         data-stage-id="{stage_id}"          e.g. "structural"
         data-stage-state="{state}"          one of: running, rerunning, rebuilding,
                                             queued, waiting, idle, not_built, disabled,
                                             paused, complete, stale, warning, error
+        ↳ [data-testid="current-stage-indicator"]    (T2 add; attribute is conditionally
+                                                      present on the spinner container —
+                                                      mounted iff `isRunning || isPaused`,
+                                                      i.e. this row is the group's
+                                                      currently-active stage)
+        ↳ [data-testid="last-run-chip"]              (T2 add; on the Phase 49 provenance
+                                                      <p>, only rendered when the row's
+                                                      state is in {complete, stale,
+                                                      warning} AND showDetails AND
+                                                      stage.provenance is set)
 
-I1 and I3 work against this contract today. I2 and I13 depend on the
-PROVISIONAL contract below — they will report pass-by-default (I2) or fail
-loudly (I13) on the live dashboard until that contract is honored.
-
-Selector contract — PROVISIONAL, REQUIRED in a small packages/ui PR before T2
-can wire I2 and I13:
-
-    [data-testid="pipeline-stage-row-{stage_id}"]
-        ↳ [data-testid="last-run-chip"]           (I2 — present iff row shows
-                                                   a prior-run timestamp; MUST
-                                                   be absent while state=running)
-        ↳ [data-testid="current-stage-indicator"] (I13 — present iff this row
-                                                   is the group's active stage)
+The source of truth for ``STAGE_ORDER`` / ``STAGE_TO_GROUP`` / ``DOM_STATE_TO_CANON``
+is now ``tools/phase145_uat/constants.py`` (extracted T2 pre-work, 2026-06-22).
+``tools/playwright_smoke.py`` re-imports from there. The extraction breaks the
+circular dependency that would otherwise be created by ``playwright_smoke``
+importing ``run_all`` from this module.
 
 State vocabulary the invariants treat as "running": running, rerunning,
-rebuilding. Mirrors ``DOM_STATE_TO_CANON`` in ``tools/playwright_smoke.py``.
+rebuilding (mirrors ``DOM_STATE_TO_CANON``).
 
 Group phases the invariants treat as "active" (a current_stage exists):
     running, pausing, paused, recovering, cancelling.
 See ``ACTIVE_PIPELINE_PHASES`` below for the canonical set + rationale.
 
 Findings each invariant targets (per PROPOSAL §3 table + 2026-06-22 review):
-    I1  → §2r
+    I1  → §2r (intra-group)
     I2  → defensive (NOT bug-derived — see I2 docstring)
-    I3  → §2r (the actual stale-state-leak path the §2r evidence shows)
+    I3  → §2r (intra-group stale-state-leak only; see I3 docstring + §9.1)
     I13 → §2u §6.2 (refresh wipes the current-stage decoration)
 
-Known gaps NOT covered by I1/I2/I3/I13 — track separately in PROPOSAL §9:
+Known gaps NOT covered by I1/I2/I3/I13 — track in PROPOSAL §9.1:
+    - I3 CROSS-GROUP stale leak: if deep_enrichment is running while
+      finalize rows show stale=complete from a prior run, I3 silently
+      passes (finalize phase isn't ACTIVE so I3 short-circuits). The
+      proposal §3 oversold I3's §2r coverage — needs a separate
+      cross-group variant or a per-row "this-run-vs-prior-run"
+      provenance attribute that doesn't exist today.
     - Progress overshoot (§2j, §2u §6.2: "1069 / 1058 files · 100%")
     - Spinner on pending-state row (§2u §6.2: "Deep Knowledge Embedding ...
       Not run with a spinner glyph")
     - Stage-completion-vs-manifest disagreement (§2n antibodies-never-complete)
-
-T2 wiring prerequisite — when ``tools/playwright_smoke.py`` imports
-``run_all`` from this module, the constant imports below become a circular
-dependency. The fix is to extract ``STAGE_ORDER`` / ``STAGE_TO_GROUP`` /
-``DOM_STATE_TO_CANON`` into a sibling module (``tools/phase145_uat/constants.py``
-or similar) and have both modules import from there. Doing this now would
-also touch ``playwright_smoke.py``, which is out of scope for T1.
 """
 from __future__ import annotations
 
@@ -62,7 +64,7 @@ from typing import Any
 
 from playwright.sync_api import Page
 
-from tools.playwright_smoke import (
+from tools.phase145_uat.constants import (
     DOM_STATE_TO_CANON,
     STAGE_ORDER,
     STAGE_TO_GROUP,
@@ -267,13 +269,24 @@ def I3_downstream_not_complete(page: Page, api: dict[str, Any]) -> InvariantResu
     Edge case: if phase is active but current_stage is missing/null, this
     invariant silently passes (no anchor for "downstream"). That contract
     violation (active phase ⇒ current_stage present per REFERENCE §4) is
-    NOT detected here; flag as a known gap in PROPOSAL §9.
+    NOT detected here; flag as a known gap in PROPOSAL §9.1.
 
     Edge case: during phase=recovering the API's current_stage may be stale
     (it reflects the pre-crash stage). Including recovering catches real
     leaks at the cost of a possible false positive if recovery has already
-    moved past the reported current_stage. Acceptable trade-off — false
-    positives are visible evidence, not silent.
+    moved past the reported current_stage. The harness's persistence gate
+    suppresses single-tick races; only failures that persist across the
+    persistence window are emitted.
+
+    KNOWN GAP — CROSS-GROUP STALE LEAK NOT COVERED. I3 only inspects rows
+    in groups whose phase is in ACTIVE_PIPELINE_PHASES. If deep_enrichment
+    is running while finalize-group rows still show stale=complete from a
+    prior run, I3 silently passes (finalize's phase is idle/queued/
+    completed, so the loop short-circuits). The §2r evidence-set contains
+    BOTH intra-group leaks (caught) and cross-group leaks (NOT caught).
+    Closing this gap needs a per-row provenance attribute distinguishing
+    "this-run" vs "prior-run" state — out of scope for T2. See
+    PROPOSAL §9.1.
     """
     label = "no row downstream of current_stage shows complete"
     failures = []
@@ -312,9 +325,9 @@ def I3_downstream_not_complete(page: Page, api: dict[str, Any]) -> InvariantResu
 
 
 def I13_current_stage_decoration_exists(page: Page, api: dict[str, Any]) -> InvariantResult:
-    """For any group whose API phase is in ACTIVE_PIPELINE_PHASES, exactly one
-    stage row in that group has a VISIBLE [data-testid="current-stage-indicator"]
-    descendant.
+    """For any group whose API phase is in ACTIVE_PIPELINE_PHASES AND whose
+    rows are rendered in the DOM, exactly one stage row in that group has
+    a VISIBLE [data-testid="current-stage-indicator"] descendant.
 
     The §2u §6.2 recurrence: after a browser refresh during an active build,
     the dashboard re-renders with the cumulative stage states intact but
@@ -325,15 +338,23 @@ def I13_current_stage_decoration_exists(page: Page, api: dict[str, Any]) -> Inva
     no indicator is expected — the invariant is N/A for those groups.
     Same for queued (work hasn't started) and idle (no work).
 
-    Visibility: _scrape_rows uses offsetParent !== null so a node that's
-    technically in the DOM but hidden via display:none does NOT count.
-    visibility:hidden / opacity:0 still count; tighten if those become a
-    known false-pass pattern.
+    Collapsed groups are N/A. The dashboard renders ``CondensedGroupRow``
+    instead of per-stage rows when a group is collapsed (fast/deep/finalize
+    each default to collapsed). In that case ``_scrape_rows`` returns no
+    rows for the group and there is no indicator to find — we skip rather
+    than fire a guaranteed-zero false positive. The harness is responsible
+    for expanding the groups before running invariants if it wants live
+    coverage of an active build.
 
-    Selector dependency: rows must mark the active stage with
-    [data-testid="current-stage-indicator"]. Required before T2 wiring;
-    until then this invariant will fail loudly on the live dashboard for
-    every active group, which is the desired forcing function.
+    Visibility: ``_scrape_rows`` uses ``offsetParent !== null`` so a node
+    that's technically in the DOM but hidden via display:none does NOT
+    count. ``visibility:hidden`` / ``opacity:0`` still count; tighten if
+    those become a known false-pass pattern (PROPOSAL §9.1).
+
+    Persistence is enforced by the harness, not this function — the smoke
+    driver requires the same failure to be observed across N consecutive
+    polls before emitting an event, which absorbs pause→resume and
+    recovering→running tick races.
     """
     label = "exactly one current-stage indicator per group with an active stage"
     failures = []
@@ -342,7 +363,13 @@ def I13_current_stage_decoration_exists(page: Page, api: dict[str, Any]) -> Inva
         phase = slot.get("phase")
         if phase not in ACTIVE_PIPELINE_PHASES:
             continue
-        marked = [r for r in by_group[group] if r["has_current_stage_indicator"]]
+        group_rows = by_group[group]
+        if not group_rows:
+            # Group is collapsed or panel hasn't hydrated this group yet.
+            # No rows means no indicator to find — skip rather than emit a
+            # guaranteed-zero failure that would noise out the report.
+            continue
+        marked = [r for r in group_rows if r["has_current_stage_indicator"]]
         if len(marked) != 1:
             failures.append({
                 "group": group,

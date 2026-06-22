@@ -1,8 +1,14 @@
 # PROPOSAL v1 — Playwright UAT harness extension: iterate a test repo through every operation, assert Phase 145 §8 invariants, record results
 
-> **STATUS: DRAFT v1 — T1 SHIPPED 2026-06-22, T2–T5 awaiting execution.** Authored so that Opus (or Fable later) can pick up and execute after a computer restart without re-deriving context. This is a **methodology + extension** proposal — the underlying Playwright tooling already exists (`tools/playwright_smoke.py`). What's new is the invariant assertion layer, the operation matrix, the iteration loop, and the scorecard format.
+> **STATUS: DRAFT v1 — T1 + T2 SHIPPED 2026-06-22, T3–T5 awaiting execution.** Authored so that Opus (or Fable later) can pick up and execute after a computer restart without re-deriving context. This is a **methodology + extension** proposal — the underlying Playwright tooling already exists (`tools/playwright_smoke.py`). What's new is the invariant assertion layer, the operation matrix, the iteration loop, and the scorecard format.
 >
 > **T1 status (2026-06-22):** invariant assertion library landed at `tools/phase145_uat/invariants.py` + pytest at `tests/test_phase145_invariants.py` (43 cases, all passing). Adversarial multi-lens review run pre-merge; Tier 1 + 2 findings fixed in the same drop, Tier 3 gaps documented in §9 below. See §5 T1 for the actual file paths + deviations from the draft text.
+>
+> **T2 status (2026-06-22):** invariants wired into `watch_until_idle`. Three pre-work blockers from §9.2 cleared in the same commit:
+> - Constants extracted to `tools/phase145_uat/constants.py` (closes circular import between invariants and playwright_smoke).
+> - `packages/ui` adds `data-testid="current-stage-indicator"` to the spinner container and `data-testid="last-run-chip"` to the Phase 49 provenance `<p>` (both in `GraphEnrichmentPipeline.tsx`).
+> - Invariant block calls `run_all(page, status)` per API-poll tick, dedup'd by `(invariant_id → evidence-signature)` and gated by a **2-tick persistence window** (a failure must persist across ≥2 consecutive polls before emitting) to absorb pause/resume + recovering SSE-commit races. Failures log as `invariant_failure` events with `{invariant_id, label, evidence}` + a screenshot tagged `invariant_<id>_FAIL_<seq>.png`. New `ModeSummary.invariant_failure_count` rolls up into a new "Invariants" column in `report.md`.
+> - 7 new pytest cases (50 total): 3 covering the I13 collapsed-group skip path + 4 covering the persistence-gate helper. The shared scrape optimization called out in §9.2 was NOT taken — see §9.3 for follow-up.
 
 **Goal:** Take the existing `playwright_smoke.py` harness, add Phase 145 §4a + §8 invariant assertions to it, and iterate it methodically against a known test repo across all user-triggerable operations. Each iteration produces a row in a scorecard documenting which invariants passed, which failed, which §-letter findings the failures map to, and screenshot evidence per failure. The output is the "before" baseline against which any future fix work (PROPOSAL v2 of state-machine re-centering, etc.) gets measured.
 
@@ -197,10 +203,26 @@ def test_I1_fails_with_two_running_rows():
 
 **Acceptance:** pytest passes for all 4 invariants with both positive and negative cases.
 
-### T2 — Wire invariants into `playwright_smoke.py`  *[1 hour]*
+### T2 — Wire invariants into `playwright_smoke.py`  *[shipped 2026-06-22]*
 
-**Files:**
-- Modify: `tools/playwright_smoke.py`
+**Files actually shipped** (deviated from the original draft below — see below):
+- `tools/phase145_uat/constants.py` *(new)* — `STAGE_ORDER`, `STAGE_TO_GROUP`, `DOM_STATE_TO_CANON`, `CANON_STATES`. Extracted from `playwright_smoke.py` to break the circular import; both modules now import from here.
+- `tools/playwright_smoke.py` *(modified)* — imports `run_all` as `run_invariants`; adds `ModeSummary.invariant_failure_count`; new persistence-gate helpers `_should_emit_invariant_failure` + `_clear_pending_invariant` (`INVARIANT_PERSISTENCE_TICKS = 2`); invariant block inside `watch_until_idle` between the per-stage desync loop and the idle-settle check, gated on `elapsed > startup_grace_seconds`; new `Invariants` column in `report.md`.
+- `tools/phase145_uat/invariants.py` *(modified)* — imports moved to `constants.py`; I13 gains the empty-group skip; I3 docstring documents the cross-group gap; I2 / I13 docstrings updated to reflect the now-shipped selector contract.
+- `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx` *(modified)* — `data-testid="current-stage-indicator"` on the spinner container (attribute conditional on `isRunning || isPaused`); `data-testid="last-run-chip"` on the Phase 49 provenance `<p>`.
+- `tests/test_phase145_invariants.py` *(modified)* — 7 new cases: 3 for I13 collapsed-group skip, 4 for the persistence-gate helper. **50 total cases, all passing.**
+
+**Adversarial review (2026-06-22):** four-lens review (T2 wiring, selector contract, constants extraction, failure-mode coverage) run pre-merge via Workflow. Tier-1 fixes landed in this commit:
+1. **2-tick persistence gate** — pre-fix raw signature dedup would fire on a single SSE/DOM commit-lag tick during pause→resume. Now a failure must persist across `INVARIANT_PERSISTENCE_TICKS` consecutive polls before emitting; a pass between failures resets the counter. Trust-erosion concern addressed.
+2. **I13 empty-group skip** — pre-fix the default collapsed dashboard rendered `CondensedGroupRow` instead of per-stage rows, so I13 fired with `marked_count=0` on every active group. Now an active group with zero rendered rows is treated as N/A (caller responsibility to expand groups before asserting).
+3. **I3 cross-group leak documented** — review flagged that I3's §2r coverage only catches intra-group leaks. The cross-group sub-class (stale `finalize` rows during a `deep_enrichment` run) needs per-row provenance attributes that don't exist today. Documented as a known gap in I3's docstring + §9.1.
+4. Stale `invariants.py` docstring sections refreshed (the "T2 not yet wired" + "PROVISIONAL selector contract" blocks were misleading post-T2).
+
+**Deferred to T2 follow-up** (see §9.3): shared scrape per tick, StageRow vitest pinning, smarter per-invariant dedup key, `API_PHASE_TO_CANON` dead-code cleanup.
+
+---
+
+#### Original T2 draft (kept for reference)
 
 In the existing desync-detection block (search for `desync` in the file), add a call to each invariant. When an invariant fails, write its evidence into the existing desync-event JSON + take a screenshot with the invariant ID in the filename.
 
@@ -376,14 +398,26 @@ The four-lens review of the T1 library named these as bug classes the v1 harness
 | **I3 + I13 silent-skip** | When `phase` is in `ACTIVE_PIPELINE_PHASES` but `current_stage` is missing/null, I3 and I13 short-circuit silently. The phase-active-with-no-current-stage shape is itself a REFERENCE §4 contract violation. | Potential during §2u §6.2 SSE-replay window | Sibling invariant or harness-level anomaly log: "active phase ⇒ current_stage present." Don't bury as silent pass. |
 | **I1 zero-running across N polls** | I1 weakens to "at most one" to ignore stage-boundary transients. A persistent 0-running observation across many consecutive polls (e.g., refresh dropped the `data-stage-state="running"` attribute and never restored it) is a real bug class and is invisible to I1. | §2u §6.2 family | Sibling invariant (I1b): "phase active for ≥ N polls AND zero running rows ⇒ failure." Requires harness state across ticks; not a stateless invariant. |
 | **I13 visibility** | Current visibility check uses `offsetParent !== null`, which catches `display:none` but not `visibility:hidden` or `opacity:0`. A regression that swaps to those hide methods would false-pass I13. | Future regression | Tighten the scrape predicate with `getComputedStyle(el).visibility !== 'hidden' && getComputedStyle(el).opacity !== '0'`. Cheap; do when first false-pass observed. |
+| **I3 cross-group stale-leak** *(added 2026-06-22 T2 review)* | I3 only inspects rows in groups whose API phase is in `ACTIVE_PIPELINE_PHASES`. If deep_enrichment is running while finalize-group rows still show `stale`/`complete` from a prior run, I3 silently passes (finalize's phase is idle/queued/completed, so the loop short-circuits). The §3 table claims I3 closes §2r — that's only true for the intra-group leak path. | §2r (cross-group sub-class) | Needs a per-row "this-run vs prior-run" provenance attribute on stage rows so a stale row in a non-active group can be flagged when ANY group is active. Out of scope for T2; track as a known gap. |
+| **I13 condensed-group rendering** *(addressed in T2)* | Default dashboard renders `CondensedGroupRow` for collapsed groups; per-stage rows are absent from the DOM. Before the T2 fix, every active collapsed group fired I13 with `marked_count=0`. | Default dashboard state | **Closed in T2 by skipping groups with zero rendered rows.** Documented in I13's docstring + 3 new pytest cases. The harness must expand groups before running invariants if it wants live coverage of a specific build — otherwise I13 is N/A by design. |
+| **I13 recovering/cancelling false positives** *(absorbed in T2)* | During phase=recovering or pausing→resuming, brief tick windows can leave both `isRunning` and `isPaused` false on every row. Raw signature-dedup would fire on each such tick, eroding trust. | Pause/resume + crash recovery | **Absorbed in T2 by a 2-tick persistence gate** in the harness — a failure must persist across ≥2 consecutive polls before emitting. False-positive races shorter than `poll_interval * (persistence_ticks - 1)` (≈4s at defaults) are silently dropped. |
 
-### 9.2 T2 prerequisites (uncovered by T1)
+### 9.2 T2 prerequisites *(closed 2026-06-22)*
 
-Three concrete blockers before T2 can wire invariants into `tools/playwright_smoke.py`:
+All three blockers cleared in the T2 commit:
 
-1. **packages/ui PR** adding `[data-testid="last-run-chip"]` (on rows that render a prior-run timestamp) and `[data-testid="current-stage-indicator"]` (on the row that is the group's active stage). Without this, I2 passes by-vacuity and I13 fails for every active group on the live dashboard.
-2. **Constants extraction** — `invariants.py` currently imports `STAGE_ORDER` / `STAGE_TO_GROUP` / `DOM_STATE_TO_CANON` from `tools.playwright_smoke`. When T2 adds `from tools.phase145_uat.invariants import run_all` to `playwright_smoke.py`, that becomes a circular import. Fix: extract the constants into `tools/phase145_uat/constants.py` and have both modules import from there. ~30 LOC, mechanical.
-3. **Shared scrape helper** — `_scrape_rows` (invariants) and `scrape_pipeline_dom` (playwright_smoke) overlap. Per-tick T2 would fire 4 redundant `page.evaluate` calls. Either extend `scrape_pipeline_dom` to also return `has_last_run_chip` / `has_current_stage_indicator`, or change the invariant signature from `(page, api)` to `(rows, api)` and have T2 pre-scrape once. Tests can keep page-driven scraping via a thin adapter.
+1. ✅ **packages/ui PR** — `data-testid="current-stage-indicator"` lives on the spinner container (attribute is conditionally present; element always mounted for layout stability). `data-testid="last-run-chip"` lives on the Phase 49 provenance `<p>`. Both in `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx`.
+2. ✅ **Constants extraction** — `tools/phase145_uat/constants.py` now owns `STAGE_ORDER`, `STAGE_TO_GROUP`, `DOM_STATE_TO_CANON`, `CANON_STATES`. Both `playwright_smoke.py` and `invariants.py` import from there. Identity-preserving (verified via runtime `is` check).
+3. ⏸ **Shared scrape helper** — **deferred** to a T2 follow-up (see §9.3). Per-tick T2 currently fires 4 redundant `page.evaluate` calls; the perf cost is small (~40ms / 2s tick) but the bigger concern is same-tick consistency (each invariant samples a slightly different DOM moment). Worth tightening once the harness has run end-to-end and the signature is stable.
+
+### 9.3 T2 follow-ups (post-2026-06-22)
+
+Things explicitly deferred so the T2 PR stayed scoped:
+
+1. **Shared scrape per tick** — extend `scrape_pipeline_dom` to also return `has_last_run_chip` and `has_current_stage_indicator`, then change the invariant signature from `(page, api)` to `(rows, api)`. Cuts 4 `page.evaluate` calls per tick to 1 and guarantees same-tick consistency across invariants. Tests keep page-driven scraping via a thin adapter.
+2. **StageRow vitest coverage** — `packages/ui/src/components/trace/__tests__/` has no test pinning the `current-stage-indicator` / `last-run-chip` contract on the React side. If someone refactors the spinner container or the provenance `<p>`, vitest stays green and the regression only surfaces when the next Playwright smoke runs. ~40 LOC of JSX-tree-walk tests (no `@testing-library/react` needed) closes this. Follow the pattern in `RebuildingRow.test.tsx`.
+3. **Smarter dedup key per invariant** — current dedup hashes the full evidence JSON; a recurring leak whose `current_stage` changes naturally as the build advances re-fires per current_stage change instead of once. Could be replaced with an `InvariantResult.dedupe_key()` method declared per invariant (e.g. I3 keys on `(downstream_stage, downstream_state)`, I1 keys on `frozenset(running_stages)`).
+4. **`API_PHASE_TO_CANON` cleanup** — defined in `playwright_smoke.py` but no references repo-wide. Pre-existing dead code; delete on the next harness pass.
 
 ---
 
