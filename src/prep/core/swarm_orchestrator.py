@@ -917,6 +917,23 @@ class SwarmOrchestrator(HoldAwareMixin):
             )
             return None, sum_chunk_tokens, None, max_chunk_prompt_chars, False
 
+        # Phase 136 Part 09 Step 2 follow-up: 1-survivor short-circuit.
+        # A degenerate meta call over a single chunk-parsed dict adds
+        # wall-time, can silently destroy survivor data if the LLM
+        # returns schema-valid-but-empty JSON, and provides no
+        # cross-chunk synthesis benefit (there is no other chunk to
+        # synthesize against).  Skip meta; treat as recovery-success
+        # via dedup union; flag meta_failed=True so operators get
+        # the chunked_meta_failed signal.
+        if len(chunk_parsed_dicts) == 1:
+            logger.info(
+                "[Swarm/Chunked] Only 1 chunk succeeded — skipping "
+                "meta-synthesis (no cross-chunk benefit); returning "
+                "deduped union"
+            )
+            union = self._dedup_chunk_union(chunk_parsed_dicts)
+            return union, sum_chunk_tokens, None, max_chunk_prompt_chars, True
+
         # Soft-hold check before meta dispatch.
         if self._hold_paused():
             self._raise_hold_paused()

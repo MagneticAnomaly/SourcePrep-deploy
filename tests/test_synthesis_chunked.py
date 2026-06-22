@@ -713,3 +713,114 @@ def test_chunked_meta_failed_event_fires_alongside_no_concepts_synthesis_failed(
     assert payload["questions_returned"] == 1
     assert payload["worker_count"] == 5
     assert payload["raw_synthesis_chars"] == len("meta call failed")
+
+
+# ── 1-survivor short-circuit (Phase 136 Part 09 Step 2 follow-up) ────
+
+
+def test_chunked_with_1_survivor_skips_meta_dispatch():
+    """When only 1 chunk survives parsing, the meta-synthesis call must
+    NOT be dispatched.  A degenerate meta call over a single chunk-parsed
+    dict has no cross-chunk benefit, costs wall-time, and risks silent
+    data loss if the LLM returns schema-valid-but-empty JSON.
+
+    Two chunks: chunk 1 fails to parse, chunk 2 succeeds.  Total LLM
+    dispatches must be exactly 2 (one per chunk) — NOT 3 (chunk1 fail +
+    chunk2 ok + meta).
+    """
+    orch = _make_orch(chunk_max=200)
+    workers = _many_ok_workers(400)  # 2 chunks
+
+    chunk_returns = iter([
+        ("not-json-reasoning-blob", 30),  # chunk 1 fails to parse
+        ('{"concepts": [{"title": "OnlyOne"}], "questions": []}', 50),  # chunk 2 ok
+        # A third return would be consumed iff meta dispatched — but it
+        # must NOT.  Leaving the iterator with no further values means
+        # any meta dispatch would raise StopIteration, which the test
+        # catches via the call-count assertion below.
+    ])
+    def _fake_call(**kwargs):
+        return next(chunk_returns)
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       side_effect=_fake_call) as mock_llm:
+        parsed, tokens, raw_text, prompt_chars, meta_failed = orch._synthesize(
+            workers,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+
+    # Exactly 2 LLM calls (one per chunk) — meta is short-circuited.
+    assert mock_llm.call_count == 2, (
+        f"1-survivor short-circuit must skip meta dispatch; "
+        f"expected 2 LLM calls (per-chunk only), got {mock_llm.call_count}"
+    )
+
+
+def test_chunked_with_1_survivor_preserves_survivor_data():
+    """The lone survivor's concepts must flow through (via dedup union
+    passthrough) — NOT be replaced by an empty meta-synthesis result.
+    Silent data loss prevention.
+    """
+    orch = _make_orch(chunk_max=200)
+    workers = _many_ok_workers(400)  # 2 chunks
+
+    chunk_returns = iter([
+        ("garbage", 30),  # chunk 1 fail
+        (json.dumps({
+            "concepts": [{"title": "OnlyOne"}],
+            "questions": [{"question": "Q1", "target_module": "m"}],
+        }), 50),  # chunk 2 ok — the lone survivor
+    ])
+    def _fake_call(**kwargs):
+        return next(chunk_returns)
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       side_effect=_fake_call):
+        parsed, tokens, raw_text, prompt_chars, meta_failed = orch._synthesize(
+            workers,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+
+    assert parsed is not None, (
+        "1-survivor path must return the survivor's data, NOT None"
+    )
+    titles = {c["title"] for c in parsed.get("concepts", [])}
+    assert titles == {"OnlyOne"}, (
+        f"Survivor's concept must be preserved verbatim; got {titles}"
+    )
+    q_texts = {q["question"] for q in parsed.get("questions", [])}
+    assert q_texts == {"Q1"}, (
+        f"Survivor's question must be preserved verbatim; got {q_texts}"
+    )
+
+
+def test_chunked_with_1_survivor_sets_meta_failed_true():
+    """The short-circuit must set meta_failed=True so the caller emits
+    concepts_chunked_meta_failed — operators see the partial-recovery
+    signal exactly as if meta had failed (which is morally equivalent:
+    meta did not run and did not consolidate cross-chunk).
+    """
+    orch = _make_orch(chunk_max=200)
+    workers = _many_ok_workers(400)  # 2 chunks
+
+    chunk_returns = iter([
+        ("garbage", 30),  # chunk 1 fail
+        ('{"concepts": [{"title": "OnlyOne"}], "questions": []}', 50),  # chunk 2 ok
+    ])
+    def _fake_call(**kwargs):
+        return next(chunk_returns)
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       side_effect=_fake_call):
+        parsed, tokens, raw_text, prompt_chars, meta_failed = orch._synthesize(
+            workers,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+
+    assert meta_failed is True, (
+        "1-survivor short-circuit must set meta_failed=True so the "
+        "telemetry event fires; got meta_failed=False"
+    )
