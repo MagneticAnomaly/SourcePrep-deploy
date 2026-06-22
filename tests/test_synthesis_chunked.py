@@ -278,3 +278,166 @@ def test_chunked_synthesis_prompt_chars_is_max_single_prompt_size():
         f"prompt_chars must be the MAX single prompt size; got {prompt_chars} "
         f"which is smaller than the large worker's content (10K chars)"
     )
+
+
+# ── Per-chunk + meta failure handling ──────────────────────────────
+
+
+def test_chunked_some_chunks_fail_meta_gets_survivors():
+    """2 of 4 chunks parse-fail.  Meta is called with the 2 survivors;
+    result.synthesis is the meta dict; meta_failed is False.
+    """
+    orch = _make_orch(chunk_max=200)
+    workers = _many_ok_workers(798)  # 4 chunks
+
+    # 4 chunk calls return alternating success/failure; 5th call (meta)
+    # returns success.  Failure shape = unparseable text.
+    chunk_returns = iter([
+        ('{"concepts": [{"title": "C1"}], "questions": []}', 50),   # chunk 1 OK
+        ("not-json-reasoning-blob",                          30),    # chunk 2 fail
+        ('{"concepts": [{"title": "C3"}], "questions": []}', 50),   # chunk 3 OK
+        ("more-reasoning-blob",                              30),    # chunk 4 fail
+        ('{"concepts": [{"title": "MetaConsolidated"}], "questions": []}', 100),  # meta
+    ])
+    def _fake_call(**kwargs):
+        return next(chunk_returns)
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       side_effect=_fake_call) as mock_llm:
+        parsed, tokens, raw_text, prompt_chars, meta_failed = orch._synthesize(
+            workers,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+
+    assert mock_llm.call_count == 5, (
+        f"Even with 2 chunks failing, meta call still fires; "
+        f"expected 5 LLM calls, got {mock_llm.call_count}"
+    )
+
+    # Meta input prompt should contain C1 and C3 (survivors) but NOT
+    # any of the failure blobs.
+    meta_call_prompt = mock_llm.call_args_list[-1].kwargs.get("prompt", "")
+    assert "C1" in meta_call_prompt, "Meta must receive surviving chunk 1's parsed JSON"
+    assert "C3" in meta_call_prompt, "Meta must receive surviving chunk 3's parsed JSON"
+
+    # Meta succeeded → use its output, meta_failed False.
+    assert parsed == {"concepts": [{"title": "MetaConsolidated"}], "questions": []}
+    assert meta_failed is False
+
+
+def test_chunked_all_chunks_fail_returns_none():
+    """All 4 chunks fail to parse; meta is NOT called; result is
+    (None, sum_tokens, None, max_prompt_chars, False).
+    """
+    orch = _make_orch(chunk_max=200)
+    workers = _many_ok_workers(798)  # 4 chunks
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       return_value=("garbage non-json", 25)) as mock_llm:
+        parsed, tokens, raw_text, prompt_chars, meta_failed = orch._synthesize(
+            workers,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+
+    # Only the 4 per-chunk calls — meta is skipped.
+    assert mock_llm.call_count == 4, (
+        f"All-chunks-fail must skip meta; expected 4 LLM calls, got "
+        f"{mock_llm.call_count}"
+    )
+    assert parsed is None
+    assert raw_text is None, (
+        "Per-chunk raw text is NOT bubbled to SwarmResult on the "
+        "chunked_all_failed path; operators consult the swarm event log "
+        "for per-chunk evidence"
+    )
+    assert tokens == 4 * 25, "Tokens summed across all 4 chunk calls"
+    assert meta_failed is False, (
+        "All chunks failed → meta never ran → meta_failed remains False"
+    )
+
+
+def test_chunked_meta_fails_returns_deduped_union():
+    """Chunks succeed; meta fails; result.synthesis is the deduped
+    union of chunk parsed results; meta_failed is True.
+    """
+    orch = _make_orch(chunk_max=200)
+    workers = _many_ok_workers(400)  # 2 chunks
+
+    # Chunk 1 and chunk 2 each return concepts with overlapping titles.
+    chunk_returns = iter([
+        ('{"concepts": [{"title": "Shared"}, {"title": "OnlyInChunk1"}], "questions": []}', 50),
+        ('{"concepts": [{"title": "Shared"}, {"title": "OnlyInChunk2"}], "questions": []}', 50),
+        ("unparseable-meta-failure", 75),
+    ])
+    def _fake_call(**kwargs):
+        return next(chunk_returns)
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       side_effect=_fake_call):
+        parsed, tokens, raw_text, prompt_chars, meta_failed = orch._synthesize(
+            workers,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+
+    assert meta_failed is True, (
+        "Meta failure after chunk successes must set meta_failed=True"
+    )
+    assert parsed is not None and "concepts" in parsed
+    titles = {c["title"] for c in parsed["concepts"]}
+    assert titles == {"Shared", "OnlyInChunk1", "OnlyInChunk2"}, (
+        f"Union must dedupe 'Shared' but keep 'OnlyInChunk1' and "
+        f"'OnlyInChunk2'; got {titles}"
+    )
+    # raw_synthesis_text carries the meta response text — operators see
+    # what the failed meta call actually produced.
+    assert raw_text == "unparseable-meta-failure"
+
+
+def test_chunked_meta_fail_union_skips_entries_with_empty_titles():
+    """The manual dedup mirrors concept_seeder.py:889-909 defensiveness:
+    entries with empty/missing titles are skipped; questions with empty
+    text are skipped.
+    """
+    orch = _make_orch(chunk_max=200)
+    workers = _many_ok_workers(400)  # 2 chunks
+
+    chunk_returns = iter([
+        (json.dumps({
+            "concepts": [
+                {"title": "Real"},
+                {"title": ""},  # empty title — must be dropped
+                {"title": "  "},  # whitespace only — must be dropped
+                {"description": "missing title field"},  # missing — must be dropped
+            ],
+            "questions": [
+                {"question": "Real q", "target_module": "m"},
+                {"question": "", "target_module": "m"},  # empty — dropped
+                {"target_module": "m"},  # missing question — dropped
+            ],
+        }), 50),
+        (json.dumps({"concepts": [{"title": "Another"}], "questions": []}), 50),
+        ("unparseable-meta", 75),
+    ])
+    def _fake_call(**kwargs):
+        return next(chunk_returns)
+
+    with patch.object(SwarmOrchestrator, "_llm_call_with_timeout",
+                       side_effect=_fake_call):
+        parsed, tokens, raw_text, prompt_chars, meta_failed = orch._synthesize(
+            workers,
+            synthesis_prompt="prefix {worker_outputs} suffix",
+            event_log=None,
+        )
+
+    assert meta_failed is True
+    titles = {c["title"] for c in parsed["concepts"]}
+    assert titles == {"Real", "Another"}, (
+        f"Empty/missing-title entries must be skipped; got {titles}"
+    )
+    q_texts = {q["question"] for q in parsed["questions"]}
+    assert q_texts == {"Real q"}, (
+        f"Empty/missing-question entries must be skipped; got {q_texts}"
+    )
