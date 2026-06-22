@@ -672,6 +672,83 @@ def _clear_pending_invariant(
     pending.pop(invariant_id, None)
 
 
+# Phase 145 T3 — scheduled side-effect scheduler. Extracted to a pure
+# function so unit tests can feed a controlled clock without spawning a
+# browser. The caller (watch_until_idle) dispatches each returned action
+# kind to its concrete side effect (page.reload, api.run_all).
+def _advance_scheduled_actions(
+    elapsed: float,
+    *,
+    refresh_at_secs: Optional[float],
+    update_at_secs: Optional[float],
+    refresh_fired: bool,
+    update_fired: bool,
+) -> tuple[bool, bool, list[str]]:
+    """Decide which scheduled side effects should fire on this tick.
+
+    Returns `(new_refresh_fired, new_update_fired, actions)` where
+    `actions` is a list of action-kind strings in fire order ("refresh"
+    before "update" — refresh is more disruptive so a same-tick pair
+    fires the reload first, then the update against the reloaded page).
+
+    Each side effect fires at-most-once across the lifetime of a single
+    watch_until_idle call: the booleans flip True on first emission and
+    no subsequent tick re-fires. A None at_secs means "never fire".
+
+    Pure function. No I/O. The caller logs the event and runs the
+    concrete side effect for each returned action kind.
+    """
+    actions: list[str] = []
+    new_refresh = refresh_fired
+    new_update = update_fired
+    if (refresh_at_secs is not None
+            and not refresh_fired
+            and elapsed >= refresh_at_secs):
+        new_refresh = True
+        actions.append("refresh")
+    if (update_at_secs is not None
+            and not update_fired
+            and elapsed >= update_at_secs):
+        new_update = True
+        actions.append("update")
+    return new_refresh, new_update, actions
+
+
+def expand_all_groups(page: Page, timeout_ms: int = 3_000) -> int:
+    """Click the chevron on every collapsed pipeline group. Returns the
+    count of groups expanded.
+
+    React's per-group `fastCollapsed` / `deepCollapsed` / `finalizeCollapsed`
+    state defaults to True (see src/prep/dashboard/src/App.tsx around
+    line 147). When a group is collapsed the panel renders
+    `CondensedGroupRow` instead of per-stage rows, so the I13
+    'current-stage decoration' invariant short-circuits as N/A
+    (`if not group_rows: continue` per Phase 145 T2's empty-group skip).
+
+    Calling this immediately after `page.reload()` restores per-stage row
+    visibility, which is what I13 needs to actually fire against the
+    §2u §6.2 bug class. Tolerates already-expanded groups (Expand button
+    is absent → locator count is 0 → no-op). Tolerates missing panel
+    (e.g. dashboard showing the Build Trace hero) by swallowing per-group
+    locator exceptions.
+    """
+    expanded = 0
+    for group in ("fast_sync", "deep_enrichment", "finalize"):
+        sel = f'[data-testid="pipeline-group-{group}"] button[aria-label="Expand group"]'
+        try:
+            button = page.locator(sel)
+            if button.count() == 0:
+                continue
+            button.first.click(timeout=timeout_ms)
+            expanded += 1
+        except Exception:
+            # Group container absent or button non-interactable; the
+            # caller cares about best-effort expansion, not strict
+            # consistency.
+            continue
+    return expanded
+
+
 def watch_until_idle(
     api: Api,
     page: Page,
@@ -682,6 +759,9 @@ def watch_until_idle(
     startup_grace_seconds: int = 15,
     settle_seconds: int = 8,
     repo_path: Optional[Path] = None,
+    refresh_at_secs: Optional[float] = None,
+    update_at_secs: Optional[float] = None,
+    project_name: Optional[str] = None,
 ) -> bool:
     """Poll + scrape + diff until no pipeline group is running (or timeout).
 
@@ -694,6 +774,34 @@ def watch_until_idle(
 
     Each (stage, desync_kind) pair is emitted at most once per transition —
     repeating the same disagreement every 2s adds noise without information.
+
+    Phase 145 T3 — scheduled mid-run side effects (Op-3 / Op-4):
+        - refresh_at_secs: once `elapsed >= N`, call `page.reload()` once,
+          then re-select the project (if `project_name` is set) and re-
+          expand all pipeline groups so I13 stays armed. Exercises the
+          SSE-replay / dashboard-reconnect path that PROPOSAL §2u §6.2 (I13)
+          targets.
+        - update_at_secs:  once `elapsed >= N`, POST /pipeline/all once and
+          continue watching. Exercises the §2u cluster trigger
+          (incremental-update click during an active rebuild). 409
+          PIPELINE_ALREADY_RUNNING from the orchestrator's guard is
+          treated as a `note` event, not an error — it's the expected
+          response from the API path Op-4 currently uses, and the
+          dashboard's React-side cluster symptoms still fire from the
+          rejected request (toast, loading state). A v2 of this op should
+          drive the actual Update button click via Playwright for a more
+          faithful repro; see PROPOSAL §9.3.
+
+    Both are no-ops when None. Each fires at most once per watch — a third
+    "fire" requires a fresh watch_until_idle call. The at-most-once guard
+    is per-call (function-local booleans); callers that wrap this in a
+    retry loop will re-fire side effects. See PROPOSAL §9.3.
+
+    After a scheduled refresh, the invariant + desync emitters enter a
+    `post_reload_recovery` mode that suppresses fires until the panel
+    re-hydrates, so the React state reset (groups defaulting to
+    collapsed) cannot spuriously clear the 2-tick persistence buffer for
+    a real bug that was mid-detection at refresh time.
     """
     t0 = time.time()
     last_api_verdict: dict[str, Optional[str]] = {}
@@ -712,6 +820,16 @@ def watch_until_idle(
     next_poll = 0.0
     poll_interval = 2.0
     ok = True
+    # Phase 145 T3: at-most-once scheduled side-effect flags + post-reload
+    # recovery gate. post_reload_recovery flips True the moment a refresh
+    # fires and stays True until the pipeline panel is back in the DOM
+    # AND group expansion + project re-select have completed. During
+    # recovery, the invariant block is skipped entirely (no emit, no
+    # clear) so the persistence-gate state for any pre-reload-in-flight
+    # bug survives the empty-DOM tick that always follows reload.
+    refresh_fired = False
+    update_fired = False
+    post_reload_recovery = False
 
     while True:
         now = time.time()
@@ -721,6 +839,95 @@ def watch_until_idle(
             ctx.summary.error_count += 1
             ctx.snap(page, "timeout")
             return False
+
+        # Phase 145 T3: scheduled side effects. _advance_scheduled_actions
+        # is pure (unit-tested separately); we dispatch concrete I/O for
+        # each returned action kind. Both checks are at-most-once per
+        # watch_until_idle call.
+        refresh_fired, update_fired, scheduled_actions = _advance_scheduled_actions(
+            elapsed,
+            refresh_at_secs=refresh_at_secs,
+            update_at_secs=update_at_secs,
+            refresh_fired=refresh_fired,
+            update_fired=update_fired,
+        )
+        for action in scheduled_actions:
+            if action == "refresh":
+                ctx.log(Event(now, "note", {
+                    "detail": "scheduled_refresh_fired",
+                    "elapsed_s": round(elapsed, 1),
+                    "scheduled_at_s": refresh_at_secs,
+                }))
+                ctx.snap(page, "before_scheduled_refresh")
+                try:
+                    page.reload(wait_until="domcontentloaded", timeout=15_000)
+                except Exception as e:
+                    ctx.log(Event(now, "error", {
+                        "where": "scheduled_refresh",
+                        "detail": str(e),
+                    }))
+                    ctx.summary.error_count += 1
+                else:
+                    # Enter recovery. The actual re-select + expand happens
+                    # in the recovery block below as soon as the panel
+                    # re-hydrates (avoids racing React's mount).
+                    post_reload_recovery = True
+                    ctx.snap(page, "after_scheduled_refresh")
+            elif action == "update":
+                ctx.log(Event(now, "note", {
+                    "detail": "scheduled_update_fired",
+                    "elapsed_s": round(elapsed, 1),
+                    "scheduled_at_s": update_at_secs,
+                }))
+                ctx.snap(page, "before_scheduled_update")
+                try:
+                    api.run_all(pid)
+                except Exception as e:
+                    # 409 PIPELINE_ALREADY_RUNNING is the orchestrator's
+                    # expected response to /pipeline/all during a rebuild
+                    # (src/prep/services/pipeline/orchestrator.py run_all
+                    # guard). Surface it as a `note` not `error` so Op-4
+                    # iters don't all read as ERR in the scorecard.
+                    msg = str(e)
+                    is_already_running = (
+                        "409" in msg
+                        or "already running" in msg.lower()
+                        or "PIPELINE_ALREADY_RUNNING" in msg
+                    )
+                    if is_already_running:
+                        ctx.log(Event(now, "note", {
+                            "detail": "scheduled_update_rejected",
+                            "subtype": "pipeline_already_running",
+                            "elapsed_s": round(elapsed, 1),
+                            "context": msg[:200],
+                        }))
+                    else:
+                        ctx.log(Event(now, "error", {
+                            "where": "scheduled_update",
+                            "detail": msg,
+                        }))
+                        ctx.summary.error_count += 1
+                else:
+                    ctx.snap(page, "after_scheduled_update")
+
+        # Post-reload recovery: as soon as the panel is back in the DOM,
+        # re-select the project (the reload reset selectedProjectId to
+        # null per src/prep/dashboard/src/hooks/useProjectManager.ts; the
+        # auto-select-first-project effect is a footgun for any account
+        # with multiple projects) and re-expand all groups so I13 has
+        # per-stage rows to assert against again.
+        if post_reload_recovery and scrape_panel_present(page):
+            if project_name:
+                select_project_in_dashboard(page, project_name, timeout_ms=5_000)
+            n_expanded = expand_all_groups(page)
+            ctx.log(Event(time.time(), "note", {
+                "detail": "post_reload_recovered",
+                "elapsed_s": round(time.time() - t0, 1),
+                "groups_expanded": n_expanded,
+                "reselected_project": bool(project_name),
+            }))
+            ctx.snap(page, "post_reload_recovered")
+            post_reload_recovery = False
 
         if now >= next_poll:
             next_poll = now + poll_interval
@@ -831,7 +1038,11 @@ def watch_until_idle(
             #      pause→resume and recovering windows).
             #   2. Dedup: once emitted, identical re-observations are
             #      suppressed until the evidence-signature changes.
-            if elapsed > startup_grace_seconds:
+            # Phase 145 T3: also gated on `not post_reload_recovery` so
+            # the empty-DOM tick that follows a scheduled refresh does
+            # NOT call _clear_pending_invariant on a real bug whose
+            # persistence buffer was mid-accumulation.
+            if elapsed > startup_grace_seconds and not post_reload_recovery:
                 try:
                     inv_results = run_invariants(page, status)
                 except Exception as e:
@@ -1042,8 +1253,23 @@ def run_incremental(repo_path: Path, api: Api, page: Page, pid: str, ctx: RunCon
             pass
 
 
-def run_rebuild(api: Api, page: Page, pid: str, ctx: RunContext, repo_path: Path) -> bool:
-    ctx.summary.trigger_reason = "POST /pipeline/rebuild"
+def run_rebuild(
+    api: Api,
+    page: Page,
+    pid: str,
+    ctx: RunContext,
+    repo_path: Path,
+    *,
+    refresh_at_secs: Optional[float] = None,
+    update_at_secs: Optional[float] = None,
+    project_name: Optional[str] = None,
+) -> bool:
+    reason = "POST /pipeline/rebuild"
+    if refresh_at_secs is not None:
+        reason += f" + scheduled page.reload() @ {refresh_at_secs}s"
+    if update_at_secs is not None:
+        reason += f" + scheduled POST /pipeline/all @ {update_at_secs}s"
+    ctx.summary.trigger_reason = reason
     ctx.snap(page, "before_rebuild")
     try:
         api.rebuild(pid)
@@ -1053,8 +1279,26 @@ def run_rebuild(api: Api, page: Page, pid: str, ctx: RunContext, repo_path: Path
         return False
 
     time.sleep(3)
+    # Phase 145 T3 Tier-1 fix (Lens C #3): expand all groups before the
+    # watch begins so I13 has per-stage rows to assert against from t=0.
+    # The dashboard's per-group collapse defaults to True; without this
+    # call I13 would silently short-circuit (empty-group N/A) on every
+    # active group through the entire run.
+    expanded = expand_all_groups(page)
+    if expanded:
+        ctx.log(Event(time.time(), "note", {
+            "detail": "pre_watch_groups_expanded",
+            "count": expanded,
+        }))
     ctx.snap(page, "after_rebuild_trigger")
-    return watch_until_idle(api, page, pid, ctx, max_seconds=60 * 60, repo_path=repo_path)
+    return watch_until_idle(
+        api, page, pid, ctx,
+        max_seconds=60 * 60,
+        repo_path=repo_path,
+        refresh_at_secs=refresh_at_secs,
+        update_at_secs=update_at_secs,
+        project_name=project_name,
+    )
 
 
 # ── Scoped Rebuild modes (UI-driven via Danger Zone) ──────────────
@@ -1266,6 +1510,14 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--api-url", default="http://localhost:8400")
     ap.add_argument("--out-root", default="tests/eval/ui_smoke")
     ap.add_argument("--verbose", "-v", action="store_true", default=True)
+    # Phase 145 T3 — scheduled side effects for Op-3 / Op-4 (see
+    # PROPOSAL_playwright-uat-harness-v1.md §4). Both are at-most-once;
+    # both currently apply only to the `rebuild` mode (where the §2u
+    # cluster lives). Wiring them into other modes is a v2 concern.
+    ap.add_argument("--refresh-at-secs", type=float, default=None,
+                    help="During a `rebuild` watch, fire page.reload() once at this elapsed-second mark. Op-3.")
+    ap.add_argument("--update-at-secs", type=float, default=None,
+                    help="During a `rebuild` watch, POST /pipeline/all once at this elapsed-second mark. Op-4.")
     args = ap.parse_args(argv)
 
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
@@ -1279,6 +1531,20 @@ def main(argv: list[str]) -> int:
     if unknown:
         print(f"ERROR: unknown modes: {unknown}", file=sys.stderr)
         return 2
+
+    # Phase 145 T3: --refresh-at-secs / --update-at-secs only fire inside the
+    # `rebuild` mode today. Hard error rather than silently ignore: a user
+    # passing these flags with a different mode is almost certainly making
+    # a mistake (and Op-3/Op-4 from run_session always include rebuild).
+    if (args.refresh_at_secs is not None or args.update_at_secs is not None):
+        if "rebuild" not in modes:
+            print(
+                "ERROR: --refresh-at-secs / --update-at-secs only fire during `rebuild`; "
+                f"current modes={modes} would silently ignore them. "
+                "Either add `rebuild` to --modes or drop the scheduled-action flag.",
+                file=sys.stderr,
+            )
+            return 2
 
     api = Api(args.api_url)
     project = api.project(args.project_id)
@@ -1329,7 +1595,12 @@ def main(argv: list[str]) -> int:
                     elif mode == "incremental":
                         passed = run_incremental(repo_path, api, page, args.project_id, ctx)
                     elif mode == "rebuild":
-                        passed = run_rebuild(api, page, args.project_id, ctx, repo_path)
+                        passed = run_rebuild(
+                            api, page, args.project_id, ctx, repo_path,
+                            refresh_at_secs=args.refresh_at_secs,
+                            update_at_secs=args.update_at_secs,
+                            project_name=project_name,
+                        )
                     elif mode == "rebuild-sync":
                         passed = run_rebuild_scoped_ui(
                             api, page, args.project_id, project_name,
