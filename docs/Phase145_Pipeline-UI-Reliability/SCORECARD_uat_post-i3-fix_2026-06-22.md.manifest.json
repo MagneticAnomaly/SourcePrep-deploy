@@ -1,0 +1,208 @@
+{
+  "session_id": "2026-06-22T232221Z",
+  "project_id": "6955793f-d824-4e1c-8cb6-417a08bd6669",
+  "iterations": 3,
+  "operations": [
+    "Op-1",
+    "Op-2",
+    "Op-3",
+    "Op-4"
+  ],
+  "api_url": "http://localhost:8400",
+  "dashboard_url": "http://localhost:5174",
+  "out_root": "tests/eval/ui_smoke",
+  "completed": [
+    {
+      "op_id": "Op-1",
+      "iter_num": 1,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T232238Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:22:38.580415+00:00",
+      "ended_at": "2026-06-22T23:30:42.820164+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-1",
+      "iter_num": 2,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T233110Z",
+      "status": "pass",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:31:10.396409+00:00",
+      "ended_at": "2026-06-22T23:38:19.102946+00:00",
+      "notes": ""
+    },
+    {
+      "op_id": "Op-1",
+      "iter_num": 3,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T233846Z",
+      "status": "pass",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:38:46.717048+00:00",
+      "ended_at": "2026-06-22T23:45:07.242964+00:00",
+      "notes": ""
+    },
+    {
+      "op_id": "Op-2",
+      "iter_num": 1,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T234534Z",
+      "status": "pass",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:45:34.865763+00:00",
+      "ended_at": "2026-06-22T23:46:18.884704+00:00",
+      "notes": ""
+    },
+    {
+      "op_id": "Op-2",
+      "iter_num": 2,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T234645Z",
+      "status": "pass",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:46:45.811455+00:00",
+      "ended_at": "2026-06-22T23:47:02.444117+00:00",
+      "notes": ""
+    },
+    {
+      "op_id": "Op-2",
+      "iter_num": 3,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T234744Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:47:44.433591+00:00",
+      "ended_at": "2026-06-22T23:47:46.486022+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-3",
+      "iter_num": 1,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T234828Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:48:28.415583+00:00",
+      "ended_at": "2026-06-22T23:48:58.527121+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-3",
+      "iter_num": 2,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T234940Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:49:40.972158+00:00",
+      "ended_at": "2026-06-22T23:50:11.141518+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-3",
+      "iter_num": 3,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T235053Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:50:53.505334+00:00",
+      "ended_at": "2026-06-22T23:51:23.602730+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-4",
+      "iter_num": 1,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T235205Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:52:05.916483+00:00",
+      "ended_at": "2026-06-22T23:52:36.040432+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-4",
+      "iter_num": 2,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T235317Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:53:17.982623+00:00",
+      "ended_at": "2026-06-22T23:53:48.057760+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    },
+    {
+      "op_id": "Op-4",
+      "iter_num": 3,
+      "run_dir": "tests/eval/ui_smoke/run_20260622T235430Z",
+      "status": "fail",
+      "invariants": {
+        "I1": true,
+        "I2": true,
+        "I3": true,
+        "I13": true
+      },
+      "failures": [],
+      "started_at": "2026-06-22T23:54:30.298381+00:00",
+      "ended_at": "2026-06-22T23:55:00.435663+00:00",
+      "notes": "cancel-quiesce: already idle (nothing to cancel)"
+    }
+  ]
+}

@@ -414,6 +414,9 @@ function App() {
     antibodiesStatus,
     finalizeRunning,
     finalizeCurrentStage,
+    // Phase 145 I3: anchors for the rebuild freeze-green helper.
+    fastCurrentStage,
+    deepCurrentStage,
     handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
     handleRunDeepening, handleRunKnowledgeBuild,
     handleRunDeepEnrichment,
@@ -991,6 +994,8 @@ function App() {
       antibodiesStatus,
       finalizeRunning,
       finalizeCurrentStage,
+      fastCurrentStage,
+      deepCurrentStage,
       refreshStageDataFromPipeline,
       // Phase 117: scoped rebuild + stop handlers
       triggerRebuild,

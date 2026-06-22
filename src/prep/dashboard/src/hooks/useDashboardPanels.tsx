@@ -213,6 +213,11 @@ export interface PanelEnrichmentProps {
   finalizeRunning?: boolean
   /** F-58: which finalize stage is currently active */
   finalizeCurrentStage?: string
+  /** Phase 145 I3: anchors for the rebuild freeze-green helper. Threaded
+   * to GraphEnrichmentPipeline so it can distinguish downstream stages
+   * (do NOT freeze green) from already-passed stages (preserve green). */
+  fastCurrentStage?: string
+  deepCurrentStage?: string
   rulesStatus?: RulesStatus
   conceptsStatus?: ConceptsStatus
   auditPipelineStatus?: AuditPipelineStatus
@@ -1120,6 +1125,8 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           finalizePausedStage={p.finalizePausedStage}
           finalizeGroupRunning={p.finalizeRunning}
           finalizeCurrentStage={p.finalizeCurrentStage}
+          fastCurrentStage={p.fastCurrentStage}
+          deepCurrentStage={p.deepCurrentStage}
           rulesStatus={p.rulesStatus}
           conceptsStatus={p.conceptsStatus}
           auditPipelineStatus={p.auditPipelineStatus}

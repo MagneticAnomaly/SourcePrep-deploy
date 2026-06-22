@@ -50,6 +50,13 @@ export interface EnrichmentState {
   // the pipeline was actively processing them)
   finalizeRunning: boolean
   finalizeCurrentStage: string | undefined
+  // Phase 145 I3: which stage each group is currently running, mirrored
+  // from API /pipeline/status. Threaded through useDashboardPanels →
+  // GraphEnrichmentPipeline so the rebuild freeze-green helper can
+  // distinguish "previously-complete stages the rebuild has already
+  // passed" from "downstream stages it hasn't reached yet" (stale leak).
+  fastCurrentStage: string | undefined
+  deepCurrentStage: string | undefined
   // Finalize stage statuses (Phase 96)
   rulesStatus?: RulesStatus
   conceptsStatus?: ConceptsStatus
@@ -85,6 +92,8 @@ export const initialEnrichmentState: EnrichmentState = {
   finalizePaused: false,
   finalizeRunning: false,
   finalizeCurrentStage: undefined,
+  fastCurrentStage: undefined,
+  deepCurrentStage: undefined,
   fastPausedStage: undefined,
   deepPausedStage: undefined,
   finalizePausedStage: undefined,
@@ -105,8 +114,10 @@ export type EnrichmentAction =
   | { type: 'DEEP_KNOWLEDGE_STATUS'; payload: KnowledgeEmbeddingStatus }
   | { type: 'ATLAS_STATUS'; payload: AtlasStatus }
   | { type: 'GROUP_REASONING_STATUS'; payload: { enabled: boolean; group_count: number; analyzed: number; slot_phase?: string; progress_current?: number; progress_total?: number } }
-  // Sync all running flags at once (from SSE or initial hydration)
-  | { type: 'SYNC_RUNNING'; inferredEdgesRunning: boolean; augmenting: boolean; validating: boolean; epistemicRunning: boolean; groupReasoningRunning: boolean; clusterRunning: boolean; atlasRunning: boolean; deepeningRunning: boolean; fastKnowledgeBuilding: boolean; deepKnowledgeBuilding: boolean }
+  // Sync all running flags at once (from SSE or initial hydration). Phase
+  // 145 I3 added fastCurrentStage/deepCurrentStage so the rebuild freeze-
+  // green helper has a per-group anchor for "downstream of current".
+  | { type: 'SYNC_RUNNING'; inferredEdgesRunning: boolean; augmenting: boolean; validating: boolean; epistemicRunning: boolean; groupReasoningRunning: boolean; clusterRunning: boolean; atlasRunning: boolean; deepeningRunning: boolean; fastKnowledgeBuilding: boolean; deepKnowledgeBuilding: boolean; fastCurrentStage?: string; deepCurrentStage?: string }
   // Sync paused flags (from pipeline phase: paused | pausing | legacy failed)
   | { type: 'SYNC_PAUSED'; fastPaused: boolean; deepPaused: boolean; finalizePaused: boolean; fastPausedStage?: string; deepPausedStage?: string; finalizePausedStage?: string }
   // Manual stage start (optimistic UI feedback)
@@ -183,6 +194,8 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
         deepeningRunning: action.deepeningRunning,
         fastKnowledgeBuilding: action.fastKnowledgeBuilding,
         deepKnowledgeBuilding: action.deepKnowledgeBuilding,
+        fastCurrentStage: action.fastCurrentStage,
+        deepCurrentStage: action.deepCurrentStage,
       }
 
     case 'SYNC_PAUSED':
@@ -226,6 +239,9 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
       return {
         ...state,
         inferredEdgesRunning: false, augmenting: false, validating: false, fastKnowledgeBuilding: false, fastPaused: false, fastPausedStage: undefined,
+        // Phase 145 I3: clear current_stage too so downstream-anchor lookups
+        // don't return a stale stage id once the group has settled.
+        fastCurrentStage: undefined,
         // Clear pipeline slot progress so it doesn't bleed into next run
         augmentationStatus: { ...state.augmentationStatus, progress_current: undefined, progress_total: undefined, progress_baseline: undefined },
       }
@@ -235,6 +251,7 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
       return {
         ...state,
         epistemicRunning: false, groupReasoningRunning: false, clusterRunning: false, atlasRunning: false, deepeningRunning: false, deepKnowledgeBuilding: false, deepPaused: false, deepPausedStage: undefined,
+        deepCurrentStage: undefined,
         epistemicStatus: { ...state.epistemicStatus, progress_current: undefined, progress_total: undefined, progress_baseline: undefined },
       }
 

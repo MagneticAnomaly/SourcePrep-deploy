@@ -104,6 +104,11 @@ function _hydratePipelineStatus(
     deepeningRunning: deepActive && (_isStageActive(stages.deepening) || ps.deep_enrichment?.current_stage === 'deepening'),
     fastKnowledgeBuilding: fastActive && (_isStageActive(stages.knowledge) || ps.fast_sync?.current_stage === 'knowledge'),
     deepKnowledgeBuilding: deepActive && (_isStageActive(stages.deep_knowledge) || ps.deep_enrichment?.current_stage === 'deep_knowledge'),
+    // Phase 145 I3: pass through current_stage when the group is active.
+    // GraphEnrichmentPipeline uses these as anchors for the rebuild
+    // freeze-green decision (see freezeGreen.ts).
+    fastCurrentStage: fastActive ? ps.fast_sync?.current_stage : undefined,
+    deepCurrentStage: deepActive ? ps.deep_enrichment?.current_stage : undefined,
   })
   if (ps.stages?.inferred_edges) {
     dispatch({ type: 'INFERRED_EDGES_STATUS', payload: ps.stages.inferred_edges })
@@ -265,6 +270,9 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
         deepeningRunning: deepActivePoll && (_isStageActive(pollStages.deepening) || deepStage === 'deepening'),
         fastKnowledgeBuilding: fastActivePoll && (_isStageActive(pollStages.knowledge) || fastStage === 'knowledge'),
         deepKnowledgeBuilding: deepActivePoll && (_isStageActive(pollStages.deep_knowledge) || deepStage === 'deep_knowledge'),
+        // Phase 145 I3 anchors.
+        fastCurrentStage: fastActivePoll ? fastStage : undefined,
+        deepCurrentStage: deepActivePoll ? deepStage : undefined,
       })
 
       // Finalize group running — poll path previously didn't dispatch this.
@@ -630,6 +638,9 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       deepeningRunning: deepActive && (_isStageActive(sseStages.deepening) || deep?.current_stage === 'deepening'),
       fastKnowledgeBuilding: fastActive && (_isStageActive(sseStages.knowledge) || fast?.current_stage === 'knowledge'),
       deepKnowledgeBuilding: deepActive && (_isStageActive(sseStages.deep_knowledge) || deep?.current_stage === 'deep_knowledge'),
+      // Phase 145 I3 anchors.
+      fastCurrentStage: fastActive ? fast?.current_stage : undefined,
+      deepCurrentStage: deepActive ? deep?.current_stage : undefined,
     })
 
     // Sync paused flags — check 'paused' (state machine), 'pausing'
