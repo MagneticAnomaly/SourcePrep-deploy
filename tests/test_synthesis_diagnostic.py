@@ -72,6 +72,11 @@ def _make_orch() -> SwarmOrchestrator:
     orch.coordinator_llm = None
     orch.worker_llm = None
     orch.project_id = None
+    # Phase 136 Part 09 Step 2: the dispatcher reads this to decide
+    # single-call vs chunked.  Diagnostic tests use ≤1 worker, well below
+    # the default threshold, so set to the default 200 to preserve the
+    # single-call path under test.
+    orch.synthesis_chunk_max_workers = 200
     return orch
 
 
