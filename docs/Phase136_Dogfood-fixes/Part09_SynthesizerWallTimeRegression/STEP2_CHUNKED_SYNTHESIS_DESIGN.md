@@ -9,7 +9,7 @@
 
 The 2026-05-17 / 5/18 / 5/28 `concepts_synthesis_failed` events share a fingerprint: ~1795 fallback concepts, ~1334 fallback questions, ~798 successful workers. The README's revised diagnosis says synthesis returns empty or unparseable on the consolidation prompt. The likely cause (per the README's "Path A" hypothesis) is that the consolidation prompt for 798 workers × ~2.5K chars of T4 enrichment hits the model's output-token cap before it can emit valid JSON.
 
-Step 1 added a diagnostic surface (`raw_synthesis_text`, `synthesis_prompt_chars`, `failure_mode` classifier) so the next live `concepts_synthesis_failed` event will tell us which of four modes actually fires: `no_workers`, `no_text`, `parse_failed`, `parsed_but_empty`. Step 2 is the Path A fix.
+Step 1 added a diagnostic surface (`raw_synthesis_text`, `synthesis_prompt_chars`, `failure_mode` classifier) so the next live `concepts_synthesis_failed` event will tell us which of six modes actually fires: `no_workers`, `no_text`, `parse_failed`, `parsed_but_empty` (the original single-call failure modes), plus `chunked_all_failed` and `chunked_meta_failed` (added in Step 2 implementation). Step 2 is the Path A fix.
 
 ## Goal
 
@@ -27,7 +27,7 @@ When the synthesis input would otherwise exceed what the LLM can consolidate in 
 
 Step 2 is being built before Step 1 telemetry has come in. If the live failure mode turns out to be `parse_failed` (model emitting `<think>` tags or pure prose instead of JSON), chunking will not help — each chunk would emit the same reasoning text. Threshold-gating prevents regression on healthy runs, but the fix would be a no-op.
 
-Merge gate: do not merge Step 2 to `main` until the next post-restart rebuild produces a `concepts_synthesis_failed` event whose `failure_mode` is `parsed_but_empty` AND `synthesis_prompt_chars` is above the chunking threshold. If those don't hold, Step 2 stays on the branch and Step 3 (Path B) takes priority.
+Merge gate: see Acceptance criterion #5 below.  TL;DR: Step 2 is not merged until a chunking-disabled validation rebuild produces the original `parsed_but_empty` signature, OR the gate is data-refuted and Step 2 is shelved.
 
 ## Architecture
 
@@ -244,7 +244,23 @@ Step 2 is shipped when:
 2. Existing `test_synthesis_diagnostic.py` (Step 1's 14 tests) still passes — Step 1 tests are updated to unpack the new 5-tuple from `_synthesize`, otherwise unchanged. No regression in classification logic.
 3. Existing `test_soft_hold_primitive.py` still passes — `HoldPausedError` propagation unchanged.
 4. Existing `test_cluster_parallel_batched.py` still passes — small-N callers stay on single-call path.
-5. The branch is **not** merged until Step 1 telemetry from the next live rebuild produces a `concepts_synthesis_failed` event with `failure_mode = parsed_but_empty` AND `synthesis_prompt_chars > 1_500_000`. If telemetry shows a different cause, the branch is kept for reference and Step 3 takes priority.
+5. The branch is **not** merged until a deliberately gated validation rebuild produces evidence that the original Phase 123 failure mode reproduces under single-call synthesis.  Procedure:
+
+   1. Restart the daemon with `PREP_SYNTHESIS_CHUNK_DISABLE=1` set (forces the chunked dispatcher off — see CLAUDE.md "Synthesis chunking").  Without this, the chunked path engages for any run above 200 workers and the original parsed_but_empty signature cannot reproduce.
+   2. Trigger a manual rebuild on a 798+ worker corpus (SourcePrep itself, HomeColab, or another large project that historically tripped the regression).
+   3. Inspect `pipeline_telemetry.jsonl` with `tools/finalize_chain_audit.py show-events`.  Filter on `event == concepts_synthesis_failed` and extract `failure_mode` + `synthesis_prompt_chars`.
+
+   Decision tree from the telemetry:
+
+   | Observed failure_mode | synthesis_prompt_chars | Decision |
+   |---|---|---|
+   | `parsed_but_empty` | > 1_500_000 | **MERGE** — original regression confirmed; Step 2's chunked path will catch it on a real rebuild. |
+   | `parsed_but_empty` | <= 1_500_000 | Investigate — empty-output path fires below the suspected threshold.  Either the threshold is wrong or there's a second failure mode.  Do NOT merge until understood. |
+   | `parse_failed` | any | **DO NOT MERGE** — the actual failure mode is malformed LLM output, not output-cap exhaustion.  Step 2's chunking does not address this.  Shelve Step 2 on branch; pivot to Step 3 (Path B — operator-driven retry / UI surfacing). |
+   | `no_text` or `no_workers` | any | Investigate — failure preceded synthesis entirely (timeout before response, no successful workers).  Step 2 doesn't address; needs separate investigation. |
+   | event never fires | n/a | Either the gate setup is broken (rebuild didn't actually trigger synthesis), or the corpus isn't large enough.  Verify worker counts and re-run. |
+
+   The 1_500_000-char threshold above is **documentation-only**: it reflects the empirical char count at which historical failures occurred, but is not encoded as a guard in any source file.  Future tuning of this number requires updating only this acceptance criterion (not code).
 
 ## Risks (acknowledged)
 
