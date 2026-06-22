@@ -5,9 +5,37 @@
 > who owns it. Every other doc in this phase is a snapshot; this one is state.
 
 **Last updated:** 2026-06-22
-**Phase state:** PHASE 2 (License & Feature-Gate) done → Phase 3 next
-**🔴 TOP FINDING:** license system is cryptographically void — shipped signing key is the all-zeros-seed/RFC-8032 test vector; forgery PROVEN. **Launch-blocker for paid tiers.** See `PHASE2_LICENSE.md`.
+**Phase state:** ⏸ **Finance/legal track PAUSED pending Phase 142 (OSS-First) landing.** Continuing on non-finance security phases.
+**🔴 TOP FINDING (held as Phase 142 input):** license system is cryptographically void — shipped signing key is the all-zeros-seed/RFC-8032 test vector; forgery PROVEN. Launch-blocker for paid tiers. See `PHASE2_LICENSE.md`.
 **Decisions set (2026-06-22):** D-1 = one-phase-at-a-time · D-2 = product + deploy, defer websites · D-3 = loopback-primary + analyze exposed case
+
+---
+
+## ⏸ PAUSED TRACK — finance / legal (Phase 142 dependency)
+
+**Why:** Phase 142 (OSS-First open-core split) is reworking the license + feature-gate
+and what ships paid vs. free. It is **design-only, not yet implemented/merged**
+(`docs/Phase142_OSS-First/`, no branch, no impl commits as of 2026-06-22). Auditing
+this code further now = auditing soon-to-be-rewritten code. **Resume after Phase 142
+lands and merges.**
+
+**Paused:**
+- Phase 2 follow-through (further license/feature-gate/crypto deep-dive)
+- Phase 3's **S3 / team-sync** portion (CRIT-2, HIGH-2, MED-3 — team-sync is the Pro/open-core monetization layer being restructured)
+- Future payments + legal phases (`websites/apps/payments`, `docs/Phase144_LegalPreLaunch`)
+
+**NOT paused (continue):** Phase 4 (LLM injection), Phase 5 (file/path), Phase 6 (Rust),
+Phase 8 (tooling/hardening), and Phase 3's **LLM-proxy SSRF** sub-part (C-3, `api/routers/llm.py`)
+— all ship in the OSS core and are independent of tiering.
+
+### Feed-forward → Phase 142 (do NOT lose these; they are 142 requirements)
+The Phase 2 findings are precisely what 142's "secret audit" + "apply license" work must satisfy:
+1. **Generate a real production keypair; never ship a test/placeholder key.** Current `licensing.py:22` ships the all-zeros-seed/RFC-8032 key → licenses forgeable (PROVEN).
+2. **Actually implement the `PREP_LICENSE_PUBLIC_KEY` (or build-constant) read** — today it's comment-only.
+3. **Reject unsigned `license.json`** — today `get_license()` warns-but-accepts (second forgery path).
+4. **Remove/relocate the committed private key** in `scripts/generate_license.py:33` before the repo goes public (Apache 2.0).
+5. **Architecture note for open-core:** client-side license gating in the *public* core is inherently bypassable — real entitlement enforcement for Pro/team features must live **server-side** (hosted indexes / team backend), not in the local feature-gate.
+6. Carry the lower-severity P2-LIC/P2-FIX items (machine binding, LS signed-entitlement, store/product pinning, replay protection, `.sourceprep`/`.runprep` path mismatch) into the new license design.
 
 ---
 
@@ -18,13 +46,13 @@
 | 0 | Initial orientation (lightweight) | ❌ **SUPERSEDED** (fabricated; see README Errata) | Haiku 4.5 | git `0aa18e0e` (removed) |
 | 0.5 | Ground-truth verification + scaffold rebuild | ✅ **DONE** 2026-06-16 | Opus 4.8 + 6-agent workflow | this directory |
 | 1 | Auth & Daemon Boundary deep dive | 🔎 REVIEWED 2026-06-22 (code-level; refute panel pending) | Opus 4.8 | `PHASE1_AUTH_BOUNDARY.md` |
-| 2 | License & Feature-Gate deep dive | ✅ **DONE** 2026-06-22 (workflow + lead re-verify; forgery proven) | Opus 4.8 + 46-agent workflow | `PHASE2_LICENSE.md` |
-| 3 | Outbound / SSRF / Team-Sync deep dive | ⏳ PENDING | TBD | — |
-| 4 | LLM Injection & Data-Exposure deep dive | ⏳ PENDING | TBD | — |
-| 5 | File / Path / Process surface deep dive | ⏳ PENDING | TBD | — |
-| 6 | Rust engine deep dive | ⏳ PENDING | TBD | — |
-| 7 | Frontend / webview deep dive | ⏳ PENDING | TBD | — |
-| 8 | Tooling & process hardening | ⏳ PENDING | TBD | — |
+| 2 | License & Feature-Gate deep dive | ✅ findings recorded · ⏸ **follow-through PAUSED** (Phase 142) | Opus 4.8 + 46-agent workflow | `PHASE2_LICENSE.md` |
+| 3 | Outbound / SSRF / Team-Sync deep dive | ⏸ S3/team-sync PAUSED (142); 🟢 LLM-proxy SSRF (C-3) movable | TBD | — |
+| 4 | LLM Injection & Data-Exposure deep dive | 🟢 **READY (recommended next)** | TBD | — |
+| 5 | File / Path / Process surface deep dive | 🟢 ready | TBD | — |
+| 6 | Rust engine deep dive | 🟢 ready | TBD | — |
+| 7 | Frontend / webview deep dive | 🟡 ready minus payments/license UI | TBD | — |
+| 8 | Tooling & process hardening | 🟢 ready (overlaps 142 SECURITY.md/CI/secret-audit) | TBD | — |
 
 See `05_DEEP_DIVE_PLAN.md` for what each sub-phase covers.
 
@@ -121,6 +149,11 @@ Full detail in `03_TOOLING_BASELINE.md`.
 
 ## Changelog
 
+- **2026-06-22 (pause)** — Per user: license + feature-gate are being reworked by
+  Phase 142 (OSS-First, design-only/unmerged). **Finance/legal security track paused**
+  (Phase 2 follow-through, Phase 3 S3/team-sync, payments, legal) until 142 lands.
+  Phase 2 findings preserved as feed-forward requirements for 142's license-application
+  + secret-audit. Non-finance phases (4/5/6/8 + C-3 LLM-proxy SSRF) continue.
 - **2026-06-22 (Phase 2)** — License & Feature-Gate done via 46-agent workflow
   (Map→Probe→Refute) + lead re-verification. **Proven:** offline license forgery —
   shipped Ed25519 public key is the all-zeros-seed/RFC-8032 test vector,
