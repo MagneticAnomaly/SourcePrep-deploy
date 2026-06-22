@@ -131,6 +131,46 @@ def _synthesis_diagnostic_fields(result: Any) -> dict:
         "failure_mode": failure_mode,
     }
 
+
+def _emit_chunked_meta_failed_event(
+    result: Any,
+    index_dir: Any,
+    project_id: Optional[str],
+    final_concepts: list,
+    final_questions: list,
+) -> None:
+    """Phase 136 Part 09 Step 2 — emit ``concepts_chunked_meta_failed``
+    telemetry event when the chunked synthesis's meta call failed but
+    chunk survivors were preserved as ``result.synthesis``.
+
+    Distinct from ``concepts_synthesis_failed`` (which fires when
+    synthesis returned no usable concepts at all and raw-worker
+    fallback ran): this event signals the chunked path's recovery-
+    success — partial-quality output kept, no fallback needed.
+
+    Best-effort: telemetry write failures are silently ignored so a
+    bad data_dir cannot fail the run.
+    """
+    try:
+        from prep.services.pipeline_telemetry import record_event
+        record_event(
+            index_dir, "concepts_chunked_meta_failed",
+            {
+                "concepts_returned": len(final_concepts),
+                "questions_returned": len(final_questions),
+                "worker_count": len(getattr(result, "worker_results", []) or []),
+                "successful_workers": sum(
+                    1 for wr in (getattr(result, "worker_results", []) or [])
+                    if wr.success
+                ),
+                **_synthesis_diagnostic_fields(result),
+            },
+            stage="concepts", project_id=project_id,
+        )
+    except Exception:
+        pass
+
+
 # Minimum files for a module to be included in seeding context
 # (sequential path — keeps prompt focused on substantial subsystems)
 MIN_MODULE_FILES = 5
@@ -1025,6 +1065,19 @@ def seed_concepts_swarm(
             )
         except Exception:
             pass
+
+    # Phase 136 Part 09 Step 2: chunked path's meta safety-net fired —
+    # synthesis_was_empty is False (we returned the survivors' union as
+    # result.synthesis), so the block above did NOT run.  Emit a
+    # distinct event so operators can see the recovery happened.
+    elif getattr(result, "synthesis_meta_failed", False):
+        _emit_chunked_meta_failed_event(
+            result=result,
+            index_dir=index_dir,
+            project_id=project_id,
+            final_concepts=final_concepts,
+            final_questions=final_questions,
+        )
 
     # Phase 96 / F-36: batch the concept saves into a single transaction
     # via concept_store.save_many() instead of N independent save() calls.

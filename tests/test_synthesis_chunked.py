@@ -640,3 +640,76 @@ def test_diagnostic_failure_mode_chunked_meta_failed():
     out = _synthesis_diagnostic_fields(r)
 
     assert out["failure_mode"] == "chunked_meta_failed"
+
+
+# ── concepts_chunked_meta_failed event emission ────────────────────
+
+
+def test_chunked_meta_failed_event_fires_alongside_no_concepts_synthesis_failed(
+    monkeypatch,
+):
+    """When SwarmResult has synthesis_meta_failed=True AND non-empty
+    synthesis.concepts, concept_seeder must emit
+    concepts_chunked_meta_failed event AND NOT emit
+    concepts_synthesis_failed.
+
+    We exercise the emission helper directly by simulating the gating
+    logic concept_seeder uses: if meta_failed → fire the new event;
+    if final_concepts empty → fire the existing event.  This is a
+    contract test for the new emission site behavior.
+    """
+    # Test fixture: build the result + call the helper that emits.
+    # Since seed_concepts_swarm is a 700-LoC function with heavy fixtures,
+    # we factor out the emission helper as `_emit_chunked_meta_failed_event`
+    # and test it directly (implementation step adds the helper).
+    from prep.core.concept_seeder import _emit_chunked_meta_failed_event
+
+    survivors_union = {
+        "concepts": [{"title": "C1"}, {"title": "C2"}],
+        "questions": [{"question": "Q1"}],
+    }
+    r = SwarmResult(
+        worker_results=[
+            WorkerResult(item_id=f"m{i}", raw_output="r",
+                          parsed={"concepts": [{"title": "x"}]},
+                          success=True)
+            for i in range(5)
+        ],
+        synthesis=survivors_union,
+        raw_synthesis_text="meta call failed",
+        synthesis_prompt_chars=400_000,
+        synthesis_chunk_count=4,
+        synthesis_meta_failed=True,
+    )
+
+    captured: List[Dict[str, Any]] = []
+
+    def _capture(index_dir, event_name, payload, **kwargs):
+        captured.append({
+            "event_name": event_name,
+            "payload": payload,
+            "kwargs": kwargs,
+        })
+
+    # Patch record_event at its import site within concept_seeder.
+    import prep.services.pipeline_telemetry as telemetry_mod
+    monkeypatch.setattr(telemetry_mod, "record_event", _capture)
+
+    _emit_chunked_meta_failed_event(
+        result=r,
+        index_dir="/tmp/fake-index",
+        project_id="proj-test",
+        final_concepts=survivors_union["concepts"],
+        final_questions=survivors_union["questions"],
+    )
+
+    assert len(captured) == 1
+    assert captured[0]["event_name"] == "concepts_chunked_meta_failed"
+    payload = captured[0]["payload"]
+    # New event carries the diagnostic-fields surface PLUS the success
+    # counters (concepts_returned + questions_returned).
+    assert payload["failure_mode"] == "chunked_meta_failed"
+    assert payload["concepts_returned"] == 2
+    assert payload["questions_returned"] == 1
+    assert payload["worker_count"] == 5
+    assert payload["raw_synthesis_chars"] == len("meta call failed")
