@@ -34,7 +34,10 @@ Operation matrix (one-to-one with PROPOSAL §4):
 from __future__ import annotations
 
 import argparse
+import atexit
 import json
+import os
+import signal
 import subprocess
 import sys
 import time
@@ -50,6 +53,48 @@ import httpx
 # + similar sites in playwright_smoke.py). invariants.py is the canonical
 # owner; importing from there means a group rename only touches one file.
 from tools.phase145_uat.invariants import GROUPS
+
+
+# ── Subprocess lifecycle tracking (§9.3 #22 B1) ───────────────────
+#
+# Every playwright_smoke child runs in its own session (start_new_session=True)
+# so an SIGKILL of the *group* takes down the grandchildren (the headless
+# chromium it launched, the playwright driver). subprocess.run + plain
+# proc.kill() only SIGKILLs the immediate child, orphaning the browser ─
+# 2 timeouts on a 7-iter run = ~4 orphan ~256 MB chromiums surviving
+# until reboot, which on a daemon-RSS-squeezed box cascades into more
+# timeouts.
+#
+# _PENDING_CHILD_PGIDS holds the pgid of every live child. run_one_iter
+# adds on Popen, removes on join. The atexit hook is a belt-and-braces
+# fallback for cases where the parent dies between Popen and the join
+# WITH a stack unwind ─ KeyboardInterrupt, uncaught exception, sys.exit.
+# atexit does NOT run on os._exit / SIGKILL / SIGABRT / segfault, so a
+# native crash inside playwright / chromium can still orphan a session.
+# In practice that's a much rarer failure mode than KeyboardInterrupt.
+_PENDING_CHILD_PGIDS: set[int] = set()
+
+
+def _kill_pgid_safely(pgid: int) -> None:
+    """SIGKILL a process group; never raise. Idempotent.
+
+    ProcessLookupError = already exited. PermissionError = pgid changed
+    (extremely unlikely between getpgid + killpg). Either way the child
+    is no longer a problem for us, so swallow.
+    """
+    try:
+        os.killpg(pgid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        pass
+
+
+def _atexit_kill_pending_children() -> None:
+    """Last-ditch cleanup of any pgids the join path didn't reach."""
+    for pgid in list(_PENDING_CHILD_PGIDS):
+        _kill_pgid_safely(pgid)
+
+
+atexit.register(_atexit_kill_pending_children)
 
 
 # ── Operation matrix (PROPOSAL §4) ────────────────────────────────
@@ -818,6 +863,13 @@ def run_one_iter(
     `(run_dir, returncode, stderr)`. `run_dir` is None when the
     subprocess timed out or crashed before creating its output dir.
     """
+    # §9.3 #22 B2: cap the child's watch budget below our SIGKILL horizon
+    # so the child can flush its timeout snapshot + stderr before we kill
+    # the process group. 30 s headroom covers ctx.snap + browser.close
+    # under load. Floor at 60 s so an under-budgeted operator config
+    # doesn't push the cap into nonsense territory.
+    child_watch_cap = max(60, per_iter_timeout - 30)
+
     cmd = [
         sys.executable, "-m", "tools.playwright_smoke",
         "--project-id", project_id,
@@ -826,6 +878,7 @@ def run_one_iter(
         "--api-url", api_url,
         "--dashboard-url", dashboard_url,
         "--out-root", str(out_root),
+        "--max-watch-secs", str(child_watch_cap),
         *op.extra_args,
     ]
     print(f"  $ {' '.join(cmd)}", flush=True)
@@ -836,26 +889,58 @@ def run_one_iter(
     # events/poll; a 15-minute iter ≈ tens of MB held by the parent we
     # never read. Drop stdout to /dev/null (we only ever use the stderr
     # tail) and keep stderr piped at a bounded tail length.
+    #
+    # §9.3 #22 B1: start_new_session=True puts the child into its own
+    # process group so killpg() on TimeoutExpired reaches the grandchild
+    # chromium. subprocess.run's timeout path only proc.kill()s the
+    # immediate child — without the group kill, the headless browser
+    # orphans and survives until reboot.
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=per_iter_timeout,
+            start_new_session=True,
         )
-        rc = result.returncode
-        stderr_tail = (result.stderr or "")[-400:]
-    except subprocess.TimeoutExpired as e:
-        # TimeoutExpired exposes captured-so-far stderr; surface its tail
-        # so the manifest can hint at where the subprocess was when it
-        # hung (e.g. last `stage-start` it logged).
-        partial_stderr = (getattr(e, "stderr", None) or "")
-        if isinstance(partial_stderr, bytes):
-            partial_stderr = partial_stderr.decode("utf-8", errors="replace")
-        return None, 124, f"TIMEOUT after {per_iter_timeout}s; stderr tail: {partial_stderr[-200:]}"
     except FileNotFoundError as e:
         return None, 127, f"subprocess spawn failed: {e}"
+
+    # getpgid right after Popen — the kernel guarantees the pgid is valid
+    # for as long as proc has not been reaped. We track it in
+    # _PENDING_CHILD_PGIDS so the atexit hook can kill it if we die.
+    try:
+        pgid = os.getpgid(proc.pid)
+    except ProcessLookupError:
+        # Child exited between Popen and getpgid (rare; instant crash).
+        # Fall back to the immediate-child pid for kill purposes.
+        pgid = proc.pid
+    _PENDING_CHILD_PGIDS.add(pgid)
+
+    try:
+        try:
+            _, stderr_str = proc.communicate(timeout=per_iter_timeout)
+            rc = proc.returncode
+            stderr_tail = (stderr_str or "")[-400:]
+        except subprocess.TimeoutExpired:
+            # SIGKILL the whole session (child + chromium grandchildren),
+            # then drain stderr with a short follow-up budget so the
+            # caller can still see what the subprocess was last doing.
+            _kill_pgid_safely(pgid)
+            try:
+                _, stderr_str = proc.communicate(timeout=5)
+                partial_stderr = stderr_str or ""
+            except subprocess.TimeoutExpired:
+                # communicate timed out even after SIGKILL ─ extremely rare
+                # (would require the kernel to block reaping). Try the
+                # group-kill once more (idempotent); proc.kill() would
+                # only re-SIGKILL the already-dead immediate child and
+                # leave grandchildren alive.
+                _kill_pgid_safely(pgid)
+                partial_stderr = ""
+            return None, 124, f"TIMEOUT after {per_iter_timeout}s; stderr tail: {partial_stderr[-200:]}"
+    finally:
+        _PENDING_CHILD_PGIDS.discard(pgid)
 
     post = set(out_root.glob("run_*"))
     new_dirs = sorted(post - pre, key=lambda p: p.stat().st_mtime)

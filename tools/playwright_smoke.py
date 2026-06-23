@@ -137,6 +137,27 @@ class ModeSummary:
         }
 
 
+# ── Watch budget cap (§9.3 #22 B2) ────────────────────────────────
+#
+# Optional ceiling on max_seconds inside watch_until_idle, set from
+# main()'s --max-watch-secs CLI flag. None = no cap; each mode runner
+# keeps its built-in budget.
+#
+# Why a module global + clamp instead of threading kwargs through every
+# mode runner: the cap is a process-wide invariant (the parent's SIGKILL
+# horizon), not a per-mode tuning knob. Plumbing it as an arg to every
+# run_initial / run_rebuild / run_ui_run_group / etc. mode dispatcher
+# would touch 8+ call sites for no behavioral gain over the clamp.
+_MAX_WATCH_SECS_CAP: Optional[int] = None
+
+
+def _capped_max_seconds(requested: int) -> int:
+    """Apply the global watch budget cap, if set."""
+    if _MAX_WATCH_SECS_CAP is None:
+        return requested
+    return min(requested, _MAX_WATCH_SECS_CAP)
+
+
 # ── API client ────────────────────────────────────────────────────
 
 
@@ -881,7 +902,18 @@ def watch_until_idle(
     collapsed) cannot spuriously clear the 2-tick persistence buffer for
     a real bug that was mid-detection at refresh time.
     """
-    t0 = time.time()
+    # §9.3 #22 B2: clamp the per-mode budget by the global cap so the
+    # child can always reach `ctx.snap(page, "timeout")` before the
+    # parent (run_session.py) sends SIGKILL.
+    max_seconds = _capped_max_seconds(max_seconds)
+
+    # §9.3 #22 B3: monotonic clock for elapsed math; wall clock only for
+    # Event timestamps. Laptop sleep (lid closed) or NTP step makes
+    # time.time() jump forward, which under the old code fired false
+    # timeouts and mis-scheduled --refresh-at-secs / --update-at-secs.
+    # time.monotonic() is immune to both. Event timestamps stay wall so
+    # log readers can correlate against daemon logs / wall-clock UTC.
+    t0_mono = time.monotonic()
     last_api_verdict: dict[str, Optional[str]] = {}
     last_desync_sig: dict[str, tuple[str, str]] = {}
     # Phase 145 T2: invariant emission state.
@@ -910,10 +942,14 @@ def watch_until_idle(
     post_reload_recovery = False
 
     while True:
-        now = time.time()
-        elapsed = now - t0
+        # B3: now_mono drives all elapsed math (next_poll, idle_since,
+        # max_seconds gate). now_wall is what we hand to Event(...) so
+        # log timestamps remain comparable to wall-clock daemon logs.
+        now_mono = time.monotonic()
+        now_wall = time.time()
+        elapsed = now_mono - t0_mono
         if elapsed > max_seconds:
-            ctx.log(Event(now, "error", {"detail": "watch_until_idle timeout", "elapsed_s": round(elapsed, 1)}))
+            ctx.log(Event(now_wall, "error", {"detail": "watch_until_idle timeout", "elapsed_s": round(elapsed, 1)}))
             ctx.summary.error_count += 1
             ctx.snap(page, "timeout")
             return False
@@ -931,7 +967,7 @@ def watch_until_idle(
         )
         for action in scheduled_actions:
             if action == "refresh":
-                ctx.log(Event(now, "note", {
+                ctx.log(Event(now_wall, "note", {
                     "detail": "scheduled_refresh_fired",
                     "elapsed_s": round(elapsed, 1),
                     "scheduled_at_s": refresh_at_secs,
@@ -940,7 +976,7 @@ def watch_until_idle(
                 try:
                     page.reload(wait_until="domcontentloaded", timeout=15_000)
                 except Exception as e:
-                    ctx.log(Event(now, "error", {
+                    ctx.log(Event(now_wall, "error", {
                         "where": "scheduled_refresh",
                         "detail": str(e),
                     }))
@@ -952,7 +988,7 @@ def watch_until_idle(
                     post_reload_recovery = True
                     ctx.snap(page, "after_scheduled_refresh")
             elif action == "update":
-                ctx.log(Event(now, "note", {
+                ctx.log(Event(now_wall, "note", {
                     "detail": "scheduled_update_fired",
                     "elapsed_s": round(elapsed, 1),
                     "scheduled_at_s": update_at_secs,
@@ -966,21 +1002,40 @@ def watch_until_idle(
                     # (src/prep/services/pipeline/orchestrator.py run_all
                     # guard). Surface it as a `note` not `error` so Op-4
                     # iters don't all read as ERR in the scorecard.
+                    #
+                    # §9.3 #22 B4: httpx.TimeoutException / HTTPError on
+                    # this POST is the §9.3 #20 daemon-side rebuild stall
+                    # surfacing here ─ rebuild is holding the connection
+                    # so this concurrent update can't complete. That's a
+                    # known daemon bug; from the harness's perspective
+                    # the cluster trigger still landed (the dashboard
+                    # toast renders from the rejected POST), so we treat
+                    # it the same as a 409 rather than crashing teardown.
                     msg = str(e)
                     is_already_running = (
                         "409" in msg
                         or "already running" in msg.lower()
                         or "PIPELINE_ALREADY_RUNNING" in msg
                     )
+                    is_httpx_transport_error = isinstance(
+                        e, (httpx.TimeoutException, httpx.HTTPError)
+                    )
                     if is_already_running:
-                        ctx.log(Event(now, "note", {
+                        ctx.log(Event(now_wall, "note", {
                             "detail": "scheduled_update_rejected",
                             "subtype": "pipeline_already_running",
                             "elapsed_s": round(elapsed, 1),
                             "context": msg[:200],
                         }))
+                    elif is_httpx_transport_error:
+                        ctx.log(Event(now_wall, "note", {
+                            "detail": "scheduled_update_transport_error",
+                            "subtype": type(e).__name__,
+                            "elapsed_s": round(elapsed, 1),
+                            "context": msg[:200],
+                        }))
                     else:
-                        ctx.log(Event(now, "error", {
+                        ctx.log(Event(now_wall, "error", {
                             "where": "scheduled_update",
                             "detail": msg,
                         }))
@@ -998,21 +1053,23 @@ def watch_until_idle(
             if project_name:
                 select_project_in_dashboard(page, project_name, timeout_ms=5_000)
             n_expanded = expand_all_groups(page)
+            # Refresh both clocks ─ the recovery block can run for several
+            # hundred ms (Playwright DOM operations + project re-select).
             ctx.log(Event(time.time(), "note", {
                 "detail": "post_reload_recovered",
-                "elapsed_s": round(time.time() - t0, 1),
+                "elapsed_s": round(time.monotonic() - t0_mono, 1),
                 "groups_expanded": n_expanded,
                 "reselected_project": bool(project_name),
             }))
             ctx.snap(page, "post_reload_recovered")
             post_reload_recovery = False
 
-        if now >= next_poll:
-            next_poll = now + poll_interval
+        if now_mono >= next_poll:
+            next_poll = now_mono + poll_interval
             try:
                 status = api.status(pid)
             except Exception as e:
-                ctx.log(Event(now, "error", {"where": "api.status", "detail": str(e)}))
+                ctx.log(Event(now_wall, "error", {"where": "api.status", "detail": str(e)}))
                 ctx.summary.error_count += 1
                 time.sleep(poll_interval)
                 continue
@@ -1021,7 +1078,7 @@ def watch_until_idle(
             # only logs the slice belonging to the project under test.
             qsnap = _queue_snapshot_for(api, pid)
             if qsnap is not None:
-                ctx.log(Event(now, "queue", qsnap))
+                ctx.log(Event(now_wall, "queue", qsnap))
 
             dom = scrape_pipeline_dom(page)
             running = is_any_running(status)
@@ -1032,15 +1089,15 @@ def watch_until_idle(
             # changing existing pass criteria.
             api_stages = status.get("stages") or {}
             group_phase_for_extras = _group_phase(status)
-            _check_group_phase_consistency(api_stages, group_phase_for_extras, dom, ctx, now)
+            _check_group_phase_consistency(api_stages, group_phase_for_extras, dom, ctx, now_wall)
             if repo_path is not None:
-                _check_disk_consistency(repo_path, api_stages, group_phase_for_extras, ctx, now)
-            _check_barrier_ui(api, pid, page, ctx, now)
+                _check_disk_consistency(repo_path, api_stages, group_phase_for_extras, ctx, now_wall)
+            _check_barrier_ui(api, pid, page, ctx, now_wall)
             if running:
                 saw_running = True
                 idle_since = None
             elif idle_since is None:
-                idle_since = now
+                idle_since = now_mono
 
             group_phase = _group_phase(status)
 
@@ -1051,12 +1108,12 @@ def watch_until_idle(
                 # Log stage transitions.
                 if api_state != prev:
                     if api_state == "running":
-                        ctx.log(Event(now, "stage-start", {"stage": stage_id, "group": group}))
+                        ctx.log(Event(now_wall, "stage-start", {"stage": stage_id, "group": group}))
                         ctx.snap(page, f"{group}_{stage_id}_start")
                         if stage_id not in ctx.summary.stages_seen:
                             ctx.summary.stages_seen.append(stage_id)
                     elif prev == "running" and api_state in ("complete", "failed"):
-                        ctx.log(Event(now, "stage-end", {"stage": stage_id, "state": api_state}))
+                        ctx.log(Event(now_wall, "stage-end", {"stage": stage_id, "state": api_state}))
                         ctx.snap(page, f"{group}_{stage_id}_{api_state}")
                     last_api_verdict[stage_id] = api_state
 
@@ -1092,7 +1149,7 @@ def watch_until_idle(
                     continue  # same disagreement we already logged
                 last_desync_sig[stage_id] = disagreement
                 ctx.summary.desync_count += 1
-                ctx.log(Event(now, "desync", {
+                ctx.log(Event(now_wall, "desync", {
                     "stage": stage_id,
                     "subtype": disagreement[0],
                     "api": {"state": api_state, "progress": api_progress},
@@ -1124,7 +1181,7 @@ def watch_until_idle(
                 try:
                     inv_results = run_invariants(page, status)
                 except Exception as e:
-                    ctx.log(Event(now, "error", {
+                    ctx.log(Event(now_wall, "error", {
                         "where": "run_invariants",
                         "detail": str(e),
                     }))
@@ -1145,7 +1202,7 @@ def watch_until_idle(
                     ):
                         continue
                     ctx.summary.invariant_failure_count += 1
-                    ctx.log(Event(now, "invariant_failure", {
+                    ctx.log(Event(now_wall, "invariant_failure", {
                         "invariant_id": inv_result.invariant_id,
                         "label": inv_result.label,
                         "evidence": inv_result.evidence,
@@ -1153,8 +1210,8 @@ def watch_until_idle(
                     ctx.snap(page, f"invariant_{inv_result.invariant_id}_FAIL")
                     ok = False
 
-            if saw_running and idle_since and (now - idle_since) >= settle_seconds:
-                ctx.log(Event(now, "note", {"detail": "settled_idle", "elapsed_s": round(elapsed, 1)}))
+            if saw_running and idle_since and (now_mono - idle_since) >= settle_seconds:
+                ctx.log(Event(now_wall, "note", {"detail": "settled_idle", "elapsed_s": round(elapsed, 1)}))
                 ctx.snap(page, "settled_idle")
                 return ok
 
@@ -1162,7 +1219,7 @@ def watch_until_idle(
             # treat that as a no-op run (e.g., incremental with nothing to do) —
             # not a failure.
             if not saw_running and elapsed > startup_grace_seconds * 2 and not running:
-                ctx.log(Event(now, "note", {"detail": "no_activity_observed", "elapsed_s": round(elapsed, 1)}))
+                ctx.log(Event(now_wall, "note", {"detail": "no_activity_observed", "elapsed_s": round(elapsed, 1)}))
                 ctx.snap(page, "no_activity")
                 return ok
 
@@ -1596,6 +1653,17 @@ def main(argv: list[str]) -> int:
                     help="During a `rebuild` watch, fire page.reload() once at this elapsed-second mark. Op-3.")
     ap.add_argument("--update-at-secs", type=float, default=None,
                     help="During a `rebuild` watch, POST /pipeline/all once at this elapsed-second mark. Op-4.")
+    # §9.3 #22 B2: per_iter_timeout in run_session SIGKILLs the child
+    # before its 60-min default watch can ever return — so ctx.snap(page,
+    # "timeout") never runs and there is no DOM evidence of the hung
+    # state. Setting this to (per_iter_timeout - 30) lets the child end
+    # cleanly with a screenshot and 30s headroom for stderr flush.
+    ap.add_argument("--max-watch-secs", type=int, default=None,
+                    help="Cap watch_until_idle wall-clock budget per mode (seconds). "
+                         "Default unset = each mode keeps its built-in budget (rebuild=60m, "
+                         "incremental=30m, scoped-reset=60s). Caller-set values clamp the "
+                         "per-mode budget downward so it cannot exceed the surrounding "
+                         "subprocess timeout.")
     args = ap.parse_args(argv)
 
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
@@ -1624,125 +1692,148 @@ def main(argv: list[str]) -> int:
             )
             return 2
 
+    # §9.3 #22 B2: install the watch budget cap before any mode runs.
+    # Use globals() to bypass UnboundLocalError on a write-then-read in
+    # main() while keeping the symbol module-level for tests / clamp.
+    if args.max_watch_secs is not None:
+        if args.max_watch_secs <= 0:
+            print("ERROR: --max-watch-secs must be > 0", file=sys.stderr)
+            return 2
+        globals()["_MAX_WATCH_SECS_CAP"] = args.max_watch_secs
+
     api = Api(args.api_url)
-    project = api.project(args.project_id)
-    # Project endpoint responses vary; try both shapes.
-    repo_path = Path(project.get("path") or project.get("project", {}).get("path") or "")
-    project_name = project.get("name") or project.get("project", {}).get("name") or args.project_id
-    if not repo_path.is_dir():
-        print(f"ERROR: project path not found: {repo_path}", file=sys.stderr)
-        return 2
+    # §9.3 #22 B4: wrap everything past Api() construction in try/finally
+    # so api.http closes deterministically even on KeyboardInterrupt or
+    # an exception in the dispatch loop. A leaked httpx.Client interacts
+    # badly with sync_playwright()'s teardown ─ a pending socket gets
+    # gc'd while playwright is mid-context-manager exit, producing the
+    # `contextlib.py:158 self.gen.throw` traceback in §9.3 #21.
+    try:
+        project = api.project(args.project_id)
+        # Project endpoint responses vary; try both shapes.
+        repo_path = Path(project.get("path") or project.get("project", {}).get("path") or "")
+        project_name = project.get("name") or project.get("project", {}).get("name") or args.project_id
+        if not repo_path.is_dir():
+            print(f"ERROR: project path not found: {repo_path}", file=sys.stderr)
+            return 2
 
-    overall_ok = True
-    with sync_playwright() as pw:
-        browser: Browser = pw.chromium.launch(headless=not args.headed)
-        context = browser.new_context(viewport={"width": 1600, "height": 1000})
-        page = context.new_page()
-        page.goto(args.dashboard_url)
-        select_project_in_dashboard(page, project_name)
+        overall_ok = True
+        with sync_playwright() as pw:
+            browser: Browser = pw.chromium.launch(headless=not args.headed)
+            context = browser.new_context(viewport={"width": 1600, "height": 1000})
+            page = context.new_page()
+            page.goto(args.dashboard_url)
+            select_project_in_dashboard(page, project_name)
 
-        # Wait briefly for the pipeline panel to hydrate.
-        for _ in range(30):
-            if scrape_panel_present(page):
-                break
-            time.sleep(0.5)
+            # Wait briefly for the pipeline panel to hydrate.
+            for _ in range(30):
+                if scrape_panel_present(page):
+                    break
+                time.sleep(0.5)
 
-        for iteration in range(1, args.iterations + 1):
-            ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-            run_root = Path(args.out_root) / f"run_{ts}"
-            if args.iterations > 1:
-                run_root = run_root.with_name(f"{run_root.name}_iter{iteration}")
-            run_root.mkdir(parents=True, exist_ok=True)
-            print(f"\n=== Iteration {iteration}/{args.iterations} → {run_root}", flush=True)
+            for iteration in range(1, args.iterations + 1):
+                ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                run_root = Path(args.out_root) / f"run_{ts}"
+                if args.iterations > 1:
+                    run_root = run_root.with_name(f"{run_root.name}_iter{iteration}")
+                run_root.mkdir(parents=True, exist_ok=True)
+                print(f"\n=== Iteration {iteration}/{args.iterations} → {run_root}", flush=True)
 
-            summaries: list[ModeSummary] = []
-            for mode in modes:
-                print(f"--- Mode: {mode}", flush=True)
-                ctx = RunContext(run_root / mode, mode, verbose=args.verbose)
-                try:
-                    # Pipelines refuse to start when config.active != True (F-69).
-                    # Force-activate here so the mode is testable regardless of
-                    # the user's last toggle state in the dashboard.
+                summaries: list[ModeSummary] = []
+                for mode in modes:
+                    print(f"--- Mode: {mode}", flush=True)
+                    ctx = RunContext(run_root / mode, mode, verbose=args.verbose)
                     try:
-                        api.set_active(args.project_id, True)
+                        # Pipelines refuse to start when config.active != True (F-69).
+                        # Force-activate here so the mode is testable regardless of
+                        # the user's last toggle state in the dashboard.
+                        try:
+                            api.set_active(args.project_id, True)
+                        except Exception as e:
+                            ctx.log(Event(time.time(), "note", {"detail": "set_active_failed", "err": str(e)}))
+
+                        if mode == "initial":
+                            passed = run_initial(api, page, args.project_id, ctx, repo_path)
+                        elif mode == "incremental":
+                            passed = run_incremental(repo_path, api, page, args.project_id, ctx)
+                        elif mode == "rebuild":
+                            passed = run_rebuild(
+                                api, page, args.project_id, ctx, repo_path,
+                                refresh_at_secs=args.refresh_at_secs,
+                                update_at_secs=args.update_at_secs,
+                                project_name=project_name,
+                            )
+                        elif mode == "rebuild-sync":
+                            passed = run_rebuild_scoped_ui(
+                                api, page, args.project_id, project_name,
+                                "sync", ctx, args.dashboard_url, repo_path,
+                            )
+                        elif mode == "rebuild-enrichment":
+                            passed = run_rebuild_scoped_ui(
+                                api, page, args.project_id, project_name,
+                                "enrichment", ctx, args.dashboard_url, repo_path,
+                            )
+                        elif mode == "reset-all":
+                            passed = run_reset_scoped_ui(
+                                api, page, args.project_id, repo_path,
+                                "all", ctx, args.dashboard_url,
+                            )
+                        elif mode == "reset-enrichment":
+                            passed = run_reset_scoped_ui(
+                                api, page, args.project_id, repo_path,
+                                "enrichment", ctx, args.dashboard_url,
+                            )
+                        elif mode == "reset-finalize":
+                            passed = run_reset_scoped_ui(
+                                api, page, args.project_id, repo_path,
+                                "finalize", ctx, args.dashboard_url,
+                            )
+                        elif mode == "ui-run-fast":
+                            passed = run_ui_run_group(
+                                api, page, args.project_id, "fast_sync",
+                                ctx, repo_path, args.dashboard_url,
+                            )
+                        elif mode == "ui-run-deep":
+                            passed = run_ui_run_group(
+                                api, page, args.project_id, "deep_enrichment",
+                                ctx, repo_path, args.dashboard_url,
+                            )
+                        elif mode == "ui-run-finalize":
+                            passed = run_ui_run_group(
+                                api, page, args.project_id, "finalize",
+                                ctx, repo_path, args.dashboard_url,
+                            )
+                        else:
+                            passed = False
+                    except KeyboardInterrupt:
+                        print("Interrupted — cancelling active pipeline if any…", flush=True)
+                        try:
+                            api.cancel(args.project_id)
+                        except Exception:
+                            pass
+                        ctx.finish(False)
+                        raise
                     except Exception as e:
-                        ctx.log(Event(time.time(), "note", {"detail": "set_active_failed", "err": str(e)}))
-
-                    if mode == "initial":
-                        passed = run_initial(api, page, args.project_id, ctx, repo_path)
-                    elif mode == "incremental":
-                        passed = run_incremental(repo_path, api, page, args.project_id, ctx)
-                    elif mode == "rebuild":
-                        passed = run_rebuild(
-                            api, page, args.project_id, ctx, repo_path,
-                            refresh_at_secs=args.refresh_at_secs,
-                            update_at_secs=args.update_at_secs,
-                            project_name=project_name,
-                        )
-                    elif mode == "rebuild-sync":
-                        passed = run_rebuild_scoped_ui(
-                            api, page, args.project_id, project_name,
-                            "sync", ctx, args.dashboard_url, repo_path,
-                        )
-                    elif mode == "rebuild-enrichment":
-                        passed = run_rebuild_scoped_ui(
-                            api, page, args.project_id, project_name,
-                            "enrichment", ctx, args.dashboard_url, repo_path,
-                        )
-                    elif mode == "reset-all":
-                        passed = run_reset_scoped_ui(
-                            api, page, args.project_id, repo_path,
-                            "all", ctx, args.dashboard_url,
-                        )
-                    elif mode == "reset-enrichment":
-                        passed = run_reset_scoped_ui(
-                            api, page, args.project_id, repo_path,
-                            "enrichment", ctx, args.dashboard_url,
-                        )
-                    elif mode == "reset-finalize":
-                        passed = run_reset_scoped_ui(
-                            api, page, args.project_id, repo_path,
-                            "finalize", ctx, args.dashboard_url,
-                        )
-                    elif mode == "ui-run-fast":
-                        passed = run_ui_run_group(
-                            api, page, args.project_id, "fast_sync",
-                            ctx, repo_path, args.dashboard_url,
-                        )
-                    elif mode == "ui-run-deep":
-                        passed = run_ui_run_group(
-                            api, page, args.project_id, "deep_enrichment",
-                            ctx, repo_path, args.dashboard_url,
-                        )
-                    elif mode == "ui-run-finalize":
-                        passed = run_ui_run_group(
-                            api, page, args.project_id, "finalize",
-                            ctx, repo_path, args.dashboard_url,
-                        )
-                    else:
+                        ctx.log(Event(time.time(), "error", {"where": "mode_runner", "detail": repr(e)}))
+                        ctx.summary.error_count += 1
                         passed = False
-                except KeyboardInterrupt:
-                    print("Interrupted — cancelling active pipeline if any…", flush=True)
-                    try:
-                        api.cancel(args.project_id)
-                    except Exception:
-                        pass
-                    ctx.finish(False)
-                    raise
-                except Exception as e:
-                    ctx.log(Event(time.time(), "error", {"where": "mode_runner", "detail": repr(e)}))
-                    ctx.summary.error_count += 1
-                    passed = False
-                ctx.finish(passed)
-                summaries.append(ctx.summary)
-                overall_ok = overall_ok and passed and ctx.summary.error_count == 0
+                    ctx.finish(passed)
+                    summaries.append(ctx.summary)
+                    overall_ok = overall_ok and passed and ctx.summary.error_count == 0
 
-            write_top_report(run_root, summaries)
+                write_top_report(run_root, summaries)
 
-        browser.close()
+            browser.close()
 
-    print(f"\nOverall: {'PASS' if overall_ok else 'FAIL'}")
-    return 0 if overall_ok else 1
+        print(f"\nOverall: {'PASS' if overall_ok else 'FAIL'}")
+        return 0 if overall_ok else 1
+    finally:
+        # §9.3 #22 B4: close the http client even on KeyboardInterrupt /
+        # exception, so pending sockets do not race playwright teardown.
+        try:
+            api.http.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

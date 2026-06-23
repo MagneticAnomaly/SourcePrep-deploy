@@ -1759,3 +1759,764 @@ class TestApiPhaseToCanonDeleted:
             "a phase→canon map, base it on the full PipelineState enum, "
             "not this stale 7-entry dict."
         )
+
+
+# ── §9.3 #22 PR-B coverage (subprocess + timing hardening) ────────
+
+
+class TestSubprocessLifecycle:
+    """B1 — run_one_iter must use Popen with start_new_session=True and
+    SIGKILL the entire process group on TimeoutExpired. Two timeouts on
+    a 7-iter run was leaving ~4 orphan headless chromiums (~1 GB RSS)
+    surviving until reboot.
+    """
+
+    def test_pending_pgid_set_is_module_level(self):
+        import tools.phase145_uat.run_session as rs
+        assert hasattr(rs, "_PENDING_CHILD_PGIDS")
+        assert isinstance(rs._PENDING_CHILD_PGIDS, set)
+
+    def test_atexit_handler_is_registered(self):
+        """atexit cleanup function must be registered at import time so an
+        OOM / segfault in pure-Python land still kills children. We can't
+        easily inspect atexit's registry across Python versions, but we
+        can assert the symbol exists + is callable + tolerates an empty
+        pending set (the most common case at exit).
+        """
+        import tools.phase145_uat.run_session as rs
+        assert callable(rs._atexit_kill_pending_children)
+        # Should be a no-op when the set is empty — must not raise.
+        rs._PENDING_CHILD_PGIDS.clear()
+        rs._atexit_kill_pending_children()
+
+    def test_kill_pgid_safely_swallows_process_lookup(self):
+        """A pgid that already exited must not raise — kill happens during
+        cleanup paths where re-raising would mask the original error.
+        """
+        import tools.phase145_uat.run_session as rs
+        # PID 1 is init/launchd; trying to killpg it with SIGKILL fails
+        # with PermissionError (or on macOS with whatever pgid 1 holds).
+        # Either way, must not raise out.
+        rs._kill_pgid_safely(1)
+        # Bogus pgid → ProcessLookupError, also swallowed.
+        rs._kill_pgid_safely(2**30)
+
+    def test_run_one_iter_invokes_popen_with_start_new_session(self, monkeypatch, tmp_path):
+        """B1 contract: Popen must be invoked with start_new_session=True
+        so killpg() on TimeoutExpired reaches grandchild chromium.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        captured: dict[str, object] = {}
+
+        class FakeProc:
+            pid = 99999
+            returncode = 0
+
+            def communicate(self, timeout=None):  # noqa: ARG002
+                return ("", "")
+
+        def fake_popen(cmd, **kwargs):  # noqa: ARG001
+            captured["cmd"] = cmd
+            captured["kwargs"] = kwargs
+            return FakeProc()
+
+        def fake_getpgid(pid):
+            return pid
+
+        monkeypatch.setattr(rs.subprocess, "Popen", fake_popen)
+        monkeypatch.setattr(rs.os, "getpgid", fake_getpgid)
+
+        op = OP_BY_ID["Op-1"]
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        rs.run_one_iter(
+            op,
+            project_id="pid",
+            api_url="http://x",
+            dashboard_url="http://y",
+            out_root=out_root,
+            per_iter_timeout=60,
+        )
+
+        assert captured["kwargs"].get("start_new_session") is True, (
+            "Popen must be invoked with start_new_session=True so the "
+            "child's grandchildren (chromium) can be reaped via killpg "
+            "on TimeoutExpired. Without it, parent SIGKILL only takes "
+            "the immediate child and the browser orphans."
+        )
+        # pgid must be discarded from the pending set after a clean run.
+        assert 99999 not in rs._PENDING_CHILD_PGIDS
+
+    def test_pgid_present_in_pending_set_during_call(self, monkeypatch, tmp_path):
+        """B1-PGID-TRACK: existing `not in _PENDING_CHILD_PGIDS` post-call
+        assertions cannot distinguish 'add+discard both ran' from
+        'neither ran' ─ deleting both would silently disable the atexit
+        safety net. Capture set membership DURING the call so an
+        empty-add regression fails loudly.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        observed_during_call: list[set[int]] = []
+
+        class FakeProc:
+            pid = 77777
+            returncode = 0
+            def communicate(self, timeout=None):  # noqa: ARG002
+                observed_during_call.append(set(rs._PENDING_CHILD_PGIDS))
+                return ("", "")
+
+        monkeypatch.setattr(rs.subprocess, "Popen", lambda cmd, **kw: FakeProc())
+        monkeypatch.setattr(rs.os, "getpgid", lambda pid: pid)
+
+        op = OP_BY_ID["Op-1"]
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        rs.run_one_iter(
+            op, project_id="pid", api_url="http://x", dashboard_url="http://y",
+            out_root=out_root, per_iter_timeout=60,
+        )
+
+        assert observed_during_call == [{77777}], (
+            "B1-PGID-TRACK: 77777 must be in _PENDING_CHILD_PGIDS while "
+            "communicate() runs, so atexit can reach it if the parent "
+            "dies mid-call. Empty observation = the `add` line was "
+            "deleted and the safety net is silently disabled."
+        )
+        assert 77777 not in rs._PENDING_CHILD_PGIDS
+
+    def test_run_one_iter_killpg_on_timeout(self, monkeypatch, tmp_path):
+        """B1 contract: on subprocess.TimeoutExpired, the pgid is SIGKILLed
+        via _kill_pgid_safely. Without this the child's chromium orphans.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        killed: list[int] = []
+
+        class FakeProc:
+            pid = 88888
+            returncode = -9
+
+            def __init__(self):
+                self._call = 0
+
+            def communicate(self, timeout=None):  # noqa: ARG002
+                self._call += 1
+                if self._call == 1:
+                    raise rs.subprocess.TimeoutExpired(cmd="fake", timeout=timeout)
+                return ("", "stderr after kill")
+
+            def kill(self):
+                pass
+
+        def fake_popen(cmd, **kwargs):  # noqa: ARG001
+            return FakeProc()
+
+        def fake_getpgid(pid):
+            return pid
+
+        monkeypatch.setattr(rs.subprocess, "Popen", fake_popen)
+        monkeypatch.setattr(rs.os, "getpgid", fake_getpgid)
+        monkeypatch.setattr(rs, "_kill_pgid_safely", lambda pgid: killed.append(pgid))
+
+        op = OP_BY_ID["Op-1"]
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        run_dir, rc, stderr = rs.run_one_iter(
+            op,
+            project_id="pid",
+            api_url="http://x",
+            dashboard_url="http://y",
+            out_root=out_root,
+            per_iter_timeout=10,
+        )
+
+        assert run_dir is None
+        assert rc == 124
+        assert "TIMEOUT" in stderr
+        assert killed == [88888], (
+            "TimeoutExpired path must SIGKILL the whole process group via "
+            "_kill_pgid_safely, not just the immediate child. Otherwise "
+            "chromium grandchildren orphan."
+        )
+        # pgid must be removed from the pending set even on timeout path.
+        assert 88888 not in rs._PENDING_CHILD_PGIDS
+
+
+class TestChildWatchBudgetClamp:
+    """B2 — playwright_smoke's per-mode max_seconds (60m default) must be
+    clamped by the parent's --max-watch-secs flag so the child has time
+    to ctx.snap(page, "timeout") and flush stderr before the parent
+    SIGKILLs. Without the clamp every parent-timeout iter loses its DOM
+    evidence — exactly the data §9.3 #20 needed.
+    """
+
+    def test_capped_max_seconds_is_identity_when_cap_unset(self, monkeypatch):
+        import tools.playwright_smoke as ps
+        monkeypatch.setattr(ps, "_MAX_WATCH_SECS_CAP", None)
+        assert ps._capped_max_seconds(60 * 60) == 60 * 60
+        assert ps._capped_max_seconds(30) == 30
+
+    def test_capped_max_seconds_clamps_downward_only(self, monkeypatch):
+        """If a mode requests 60s and the cap is 600s, the mode keeps its
+        tighter budget. Caps are ceilings, not floors — a shorter
+        intentional budget (e.g. run_reset_scoped_ui's 60s) must survive.
+        """
+        import tools.playwright_smoke as ps
+        monkeypatch.setattr(ps, "_MAX_WATCH_SECS_CAP", 600)
+        assert ps._capped_max_seconds(60 * 60) == 600  # 3600 → 600
+        assert ps._capped_max_seconds(60) == 60        # 60 → 60 (unchanged)
+        assert ps._capped_max_seconds(600) == 600      # equal → equal
+
+    def test_max_watch_secs_cli_flag_accepts_value(self, capsys):
+        """--max-watch-secs must parse + validate (>0). 0 / negative is
+        an explicit user error — surface it rather than silently treating
+        as no-cap.
+        """
+        import tools.playwright_smoke as ps
+        ap_args = ["--project-id", "x", "--max-watch-secs", "0"]
+        rc = ps.main(ap_args)
+        assert rc == 2
+        captured = capsys.readouterr()
+        assert "--max-watch-secs must be > 0" in captured.err
+
+    def test_run_one_iter_passes_max_watch_secs_to_child(self, monkeypatch, tmp_path):
+        """Child cmd must include --max-watch-secs <per_iter_timeout - 30>
+        so the global cap installs before any watch starts."""
+        import tools.phase145_uat.run_session as rs
+
+        captured_cmd: list[str] = []
+
+        class FakeProc:
+            pid = 1
+            returncode = 0
+            def communicate(self, timeout=None):  # noqa: ARG002
+                return ("", "")
+
+        def fake_popen(cmd, **kwargs):  # noqa: ARG001
+            captured_cmd.extend(cmd)
+            return FakeProc()
+
+        monkeypatch.setattr(rs.subprocess, "Popen", fake_popen)
+        monkeypatch.setattr(rs.os, "getpgid", lambda pid: pid)
+
+        op = OP_BY_ID["Op-1"]
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        rs.run_one_iter(
+            op, project_id="pid", api_url="http://x", dashboard_url="http://y",
+            out_root=out_root, per_iter_timeout=900,
+        )
+
+        assert "--max-watch-secs" in captured_cmd
+        idx = captured_cmd.index("--max-watch-secs")
+        # 900 - 30 = 870
+        assert captured_cmd[idx + 1] == "870", (
+            f"Child watch cap must be per_iter_timeout - 30 = 870. "
+            f"Got: {captured_cmd[idx + 1]}"
+        )
+
+    def test_child_watch_cap_floored_at_60s(self, monkeypatch, tmp_path):
+        """If an operator misconfigures per_iter_timeout to a very small
+        value (<90s), the cap arithmetic would push the child watch
+        below 60s and starve every mode. Floor protects against that.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        captured_cmd: list[str] = []
+
+        class FakeProc:
+            pid = 1
+            returncode = 0
+            def communicate(self, timeout=None):  # noqa: ARG002
+                return ("", "")
+
+        def fake_popen(cmd, **kwargs):  # noqa: ARG001
+            captured_cmd.extend(cmd)
+            return FakeProc()
+
+        monkeypatch.setattr(rs.subprocess, "Popen", fake_popen)
+        monkeypatch.setattr(rs.os, "getpgid", lambda pid: pid)
+
+        op = OP_BY_ID["Op-1"]
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        rs.run_one_iter(
+            op, project_id="pid", api_url="http://x", dashboard_url="http://y",
+            out_root=out_root, per_iter_timeout=10,  # absurdly small
+        )
+
+        idx = captured_cmd.index("--max-watch-secs")
+        assert captured_cmd[idx + 1] == "60", (
+            "Floor (max(60, per_iter_timeout - 30)) must prevent the "
+            "child watch from collapsing to <=0 under hostile config."
+        )
+
+
+class TestMonotonicClock:
+    """B3 — watch_until_idle elapsed math must use time.monotonic(), not
+    time.time(). Laptop sleep mid-iter (lid closed) or NTP step causes
+    wall-clock jumps that fire false timeouts and mis-schedule
+    --refresh-at-secs / --update-at-secs. Source-level pin: assert the
+    function references time.monotonic() and the elapsed math uses the
+    monotonic variant rather than wall.
+    """
+
+    def test_watch_until_idle_uses_monotonic_for_t0(self):
+        import inspect
+        import tools.playwright_smoke as ps
+        src = inspect.getsource(ps.watch_until_idle)
+        assert "t0_mono = time.monotonic()" in src, (
+            "B3 regression: watch_until_idle must initialise t0 from "
+            "time.monotonic(), not time.time(). Wall-clock breaks under "
+            "laptop sleep / NTP step."
+        )
+
+    def test_watch_until_idle_separates_now_mono_from_now_wall(self):
+        """now_mono drives elapsed math + next_poll; now_wall drives the
+        Event timestamp so log readers can still correlate with daemon
+        wall-clock logs. Both must be present.
+        """
+        import inspect
+        import tools.playwright_smoke as ps
+        src = inspect.getsource(ps.watch_until_idle)
+        assert "now_mono = time.monotonic()" in src
+        assert "now_wall = time.time()" in src
+        # elapsed math now uses the monotonic snapshot.
+        assert "elapsed = now_mono - t0_mono" in src
+
+    def test_idle_since_and_next_poll_are_monotonic(self):
+        """B3 strengthened pin: the PR claim 'next_poll / idle_since both
+        monotonic' must actually hold ─ otherwise a partial revert that
+        left t0_mono in place but switched next_poll back to wall would
+        silently re-introduce sleep-jump bugs. Pin the specific call
+        sites, not just the symbol presence.
+        """
+        import inspect
+        import re
+        import tools.playwright_smoke as ps
+        src = inspect.getsource(ps.watch_until_idle)
+        # next_poll must compare against and assign from now_mono.
+        assert re.search(r"if\s+now_mono\s*>=\s*next_poll", src), (
+            "B3 regression: `if now >= next_poll` must use now_mono. "
+            "Wall-clock would mis-schedule polls under sleep/NTP."
+        )
+        assert re.search(r"next_poll\s*=\s*now_mono\s*\+\s*poll_interval", src), (
+            "B3 regression: `next_poll = now + poll_interval` must use "
+            "now_mono so the schedule advances linearly across sleep."
+        )
+        # idle_since assignment + compare both use now_mono.
+        assert "idle_since = now_mono" in src, (
+            "B3 regression: `idle_since = now` must use now_mono so the "
+            "settle-window math survives wall-clock jumps."
+        )
+        assert "now_mono - idle_since" in src, (
+            "B3 regression: `(now - idle_since) >= settle_seconds` must "
+            "use now_mono - idle_since for the settle comparison."
+        )
+
+    def test_event_timestamps_in_watch_loop_use_now_wall(self):
+        """B3 strengthened pin: Event(...) calls inside the watch loop
+        should use now_wall (so timestamps remain correlatable to wall-
+        clock daemon logs). Catch a partial revert where someone re-
+        introduced Event(now, ...) and `now` is monotonic.
+        """
+        import inspect
+        import re
+        import tools.playwright_smoke as ps
+        src = inspect.getsource(ps.watch_until_idle)
+        # No stray `Event(now,` (must be now_wall or time.time() refetch).
+        # We use a negative lookahead so `now_wall` / `now_mono` still match
+        # explicitly when expected.
+        stray = re.findall(r"Event\(now\s*,", src)
+        assert stray == [], (
+            f"B3 regression: found {len(stray)} `Event(now, ...)` calls "
+            f"in watch_until_idle. Each must be `Event(now_wall, ...)` "
+            f"(wall) or `Event(time.time(), ...)` (refetch). Stray usage "
+            f"would produce monotonic-seconds Event timestamps that "
+            f"cannot be correlated with daemon logs."
+        )
+
+
+class TestOp4HttpxTeardown:
+    """B4 — httpx.TimeoutException / HTTPError raised by api.run_all in
+    the scheduled_update path (§9.3 #20 daemon-side rebuild stall
+    surfacing through Op-4) must be downgraded to a note event, not an
+    error. Pre-fix this crashed scheduled_update → bubbled through
+    watch_until_idle → tripped Playwright teardown → Op-4 status=ERR
+    with the §9.3 #21 contextlib.py:158 traceback.
+    """
+
+    def test_scheduled_update_downgrades_httpx_timeout_to_note(self):
+        """Source-level pin: the scheduled_update except block must call
+        isinstance(e, (httpx.TimeoutException, httpx.HTTPError)) and
+        route to a `note` event when True.
+        """
+        import inspect
+        import tools.playwright_smoke as ps
+        src = inspect.getsource(ps.watch_until_idle)
+        assert "isinstance(" in src
+        assert "httpx.TimeoutException" in src
+        assert "httpx.HTTPError" in src
+        # The new branch must produce a note, not an error_count++.
+        assert "scheduled_update_transport_error" in src
+
+    def test_main_closes_api_http_in_finally(self):
+        """main() must close api.http via try/finally so a pending socket
+        does not race sync_playwright()'s teardown.
+        """
+        import inspect
+        import tools.playwright_smoke as ps
+        src = inspect.getsource(ps.main)
+        assert "api.http.close()" in src, (
+            "B4 regression: api.http must be closed in main()'s finally "
+            "block. Letting it gc during sync_playwright teardown "
+            "produces §9.3 #21's contextlib.py:158 traceback."
+        )
+        # Must be in a finally block (not just in the happy path).
+        assert "finally:" in src
+
+    def test_httpx_downgrade_branch_does_not_increment_error_count(self):
+        """B4 strengthened pin: a regression like
+            elif is_httpx_transport_error:
+                ctx.log(Event(..., "error", ...))
+                ctx.summary.error_count += 1
+        would still satisfy the original substring assertions while
+        re-breaking §9.3 #20/#21. Pin the structural shape: the
+        is_httpx_transport_error branch must produce a `note` event AND
+        must NOT increment error_count.
+        """
+        import inspect
+        import re
+        import tools.playwright_smoke as ps
+        src = inspect.getsource(ps.watch_until_idle)
+
+        # Find the `elif is_httpx_transport_error:` block and capture
+        # only lines INDENTED MORE DEEPLY than the elif itself ─ i.e.
+        # the branch body, stopping at the sibling `else:` (which sits
+        # at the same indent as the elif). A naive `(.*\n){1,N}` would
+        # straddle into the else: branch and falsely match its
+        # error_count++ usage.
+        elif_match = re.search(
+            r"^( *)elif\s+is_httpx_transport_error\s*:\s*\n", src, re.MULTILINE,
+        )
+        assert elif_match is not None, (
+            "B4 regression: `elif is_httpx_transport_error:` branch "
+            "missing from scheduled_update except block. The transport-"
+            "error path would fall through to `else: error_count += 1` "
+            "and resurrect §9.3 #21."
+        )
+        elif_indent = len(elif_match.group(1))
+        body_lines: list[str] = []
+        for line in src[elif_match.end():].splitlines():
+            stripped = line.lstrip(" ")
+            if not stripped:
+                body_lines.append(line)
+                continue
+            line_indent = len(line) - len(stripped)
+            if line_indent <= elif_indent:
+                break
+            body_lines.append(line)
+        branch_body = "\n".join(body_lines)
+        assert '"note"' in branch_body or "'note'" in branch_body, (
+            f"B4 regression: httpx transport-error branch must log a "
+            f"`note` event, not an `error`. Branch body:\n{branch_body}"
+        )
+        assert "error_count" not in branch_body, (
+            f"B4 regression: httpx transport-error branch must NOT "
+            f"increment error_count ─ that would turn a known daemon "
+            f"stall into a smoke FAIL. Branch body:\n{branch_body}"
+        )
+
+
+# ── §9.3 #22 B5 — cancel_and_quiesce partial-failure tests ───────
+
+
+class TestCancelQuiescePartialFailure:
+    """B5 — per-group cancel outcomes must all surface in the notes
+    string. Pre-PR-B the loop visits every target (good), but the
+    notes assembly was never tested under a mixed 200/500 outcome —
+    a future refactor could regress it to bail-on-first-failure
+    without anyone noticing until a real partial-failure showed up
+    in production.
+    """
+
+    def test_partial_failure_surfaces_per_group_status(self, monkeypatch):
+        """fast_sync POST returns 200 (cancelled), deep_enrichment
+        returns 500 (cancel-500). Both outcomes must appear in detail
+        so a reviewer sees the partial state, not just the first event.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        class FakeResp:
+            def __init__(self, code: int = 200, body: dict | None = None):
+                self.status_code = code
+                self._body = body if body is not None else {"data": {}}
+            def json(self):
+                return self._body
+
+        def fake_get(url, *, timeout=None, **kw):  # noqa: ARG001
+            return FakeResp(200, {"data": {
+                "fast_sync": {"phase": "running"},
+                "deep_enrichment": {"phase": "running"},
+                "finalize": None,
+            }})
+
+        post_calls: list[str] = []
+        def fake_post(url, *, json=None, timeout=None, **kw):  # noqa: ARG001
+            grp = json["group"]
+            post_calls.append(grp)
+            if grp == "fast_sync":
+                return FakeResp(200)
+            return FakeResp(500, {"error": "Internal Server Error"})
+
+        monkeypatch.setattr(rs.httpx, "get", fake_get)
+        monkeypatch.setattr(rs.httpx, "post", fake_post)
+        monkeypatch.setattr(rs, "wait_for_pipeline_idle", lambda *a, **k: False)
+
+        quiesced, detail = rs.cancel_and_quiesce("http://x", "pid", max_seconds=0.5)
+
+        # Both groups visited even though deep_enrichment 500'd.
+        assert sorted(post_calls) == ["deep_enrichment", "fast_sync"]
+        # Per-group outcome surfaced so the reviewer sees both.
+        assert "fast_sync:cancelled" in detail
+        assert "deep_enrichment:cancel-500" in detail
+        # wait_for_pipeline_idle returned False → still-busy detail.
+        assert quiesced is False
+        assert "still busy" in detail
+
+    def test_unexpected_2xx_schema_still_treated_as_cancelled(self, monkeypatch):
+        """A 200 with a wholly unexpected body shape (e.g. an empty dict
+        or a string) must still be treated as `:cancelled`. We classify
+        on status_code, not on body shape — body parsing belongs to
+        api.cancel paths, not to this best-effort cleanup helper.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        class FakeResp:
+            def __init__(self, code: int = 200, body: object | None = None):
+                self.status_code = code
+                self._body = body
+            def json(self):
+                return self._body
+
+        def fake_get(url, *, timeout=None, **kw):  # noqa: ARG001
+            return FakeResp(200, {"data": {
+                "fast_sync": {"phase": "running"},
+                "deep_enrichment": None,
+                "finalize": None,
+            }})
+
+        def fake_post(url, *, json=None, timeout=None, **kw):  # noqa: ARG001
+            # 200 OK but with a body the harness never asked for.
+            return FakeResp(200, {"unexpected": ["nothing", "useful"]})
+
+        monkeypatch.setattr(rs.httpx, "get", fake_get)
+        monkeypatch.setattr(rs.httpx, "post", fake_post)
+        monkeypatch.setattr(rs, "wait_for_pipeline_idle", lambda *a, **k: True)
+
+        quiesced, detail = rs.cancel_and_quiesce("http://x", "pid", max_seconds=0.5)
+        assert quiesced is True
+        assert "fast_sync:cancelled" in detail
+        # No "cancel-err" or "cancel-200" parse error leaked through.
+        assert "cancel-err" not in detail
+
+    def test_first_group_failure_does_not_short_circuit_remaining_groups(self, monkeypatch):
+        """B5-BAIL: the partial-failure test above fails the LAST group;
+        a bail-on-first-failure regression (`if r.status_code != 200:
+        return notes, ...`) would still pass it. Pin the opposite case:
+        fast_sync (FIRST iterated) returns 500, deep_enrichment must
+        still get POSTed AND its outcome must appear in detail.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        class FakeResp:
+            def __init__(self, code: int = 200, body: dict | None = None):
+                self.status_code = code
+                self._body = body if body is not None else {"data": {}}
+            def json(self):
+                return self._body
+
+        def fake_get(url, *, timeout=None, **kw):  # noqa: ARG001
+            return FakeResp(200, {"data": {
+                "fast_sync": {"phase": "running"},
+                "deep_enrichment": {"phase": "running"},
+                "finalize": None,
+            }})
+
+        post_calls: list[str] = []
+        def fake_post(url, *, json=None, timeout=None, **kw):  # noqa: ARG001
+            grp = json["group"]
+            post_calls.append(grp)
+            if grp == "fast_sync":
+                # FIRST iterated group returns 500.
+                return FakeResp(500, {"error": "Internal Server Error"})
+            return FakeResp(200)
+
+        monkeypatch.setattr(rs.httpx, "get", fake_get)
+        monkeypatch.setattr(rs.httpx, "post", fake_post)
+        monkeypatch.setattr(rs, "wait_for_pipeline_idle", lambda *a, **k: True)
+
+        quiesced, detail = rs.cancel_and_quiesce("http://x", "pid", max_seconds=0.5)
+
+        # Both targets visited despite fast_sync 500'ing first.
+        assert sorted(post_calls) == ["deep_enrichment", "fast_sync"], (
+            f"B5-BAIL: bail-on-first-failure regression would leave "
+            f"deep_enrichment unvisited. Got post_calls={post_calls}."
+        )
+        assert "fast_sync:cancel-500" in detail
+        assert "deep_enrichment:cancelled" in detail
+
+
+# ── §9.3 #22 B6 — parse_iter_result empty-events.jsonl regression ─
+
+
+class TestParseIterResultEmptyEvents:
+    """B6 — pin the §9.3 #17 "bare-fail empty-notes" row class so a
+    future refactor can't silently regress to fabricating notes from
+    missing data or crashing on an empty events.jsonl.
+    """
+
+    def test_pass_true_with_empty_events_jsonl_produces_pass_row(self, tmp_path):
+        """summary.pass=True + zero events ⇒ clean pass, empty notes.
+        This is the happy-path baseline that any "surface evidence on
+        fail" code path must not pollute.
+        """
+        op = _op("Op-1")
+        run_dir = _write_smoke_output(
+            tmp_path,
+            mode=op.smoke_mode,
+            summary={"mode": op.smoke_mode, "started_at": 1.0, "ended_at": 2.0,
+                     "pass": True, "desync_count": 0, "anomaly_count": 0,
+                     "invariant_failure_count": 0, "error_count": 0,
+                     "stages_seen": [], "trigger_reason": "", "notes": []},
+            events=[],
+        )
+        r = parse_iter_result(op, 1, run_dir)
+        assert r.status == "pass"
+        assert r.notes == ""
+        assert all(r.invariants.values())
+
+    def test_pass_false_with_empty_events_jsonl_is_bare_fail(self, tmp_path):
+        """summary.pass=False + zero events ⇒ status=fail with empty
+        notes. This is the §9.3 #17 row class: smoke marked it failed
+        but produced no error/desync/invariant evidence to surface.
+        The renderer's bare-fail trend depends on this row staying
+        empty-notes so a count of "fail with no evidence" stays
+        accurate. Past refactors have tried to fabricate notes here;
+        this test pins the empty-string contract.
+        """
+        op = _op("Op-1")
+        run_dir = _write_smoke_output(
+            tmp_path,
+            mode=op.smoke_mode,
+            summary={"mode": op.smoke_mode, "started_at": 1.0, "ended_at": 2.0,
+                     "pass": False, "desync_count": 0, "anomaly_count": 0,
+                     "invariant_failure_count": 0, "error_count": 0,
+                     "stages_seen": [], "trigger_reason": "", "notes": []},
+            events=[],
+        )
+        r = parse_iter_result(op, 1, run_dir)
+        assert r.status == "fail"
+        assert r.notes == "", (
+            "B6: bare-fail rows (pass=False with no error/desync/invariant "
+            "events) must render with empty notes, not a fabricated string. "
+            "The §9.3 #17 trend counter depends on this contract."
+        )
+        # Failures list also empty because no invariant_failure event.
+        assert r.failures == []
+
+    def test_pass_false_with_missing_events_file_does_not_crash(self, tmp_path):
+        """A subprocess that crashed before writing events.jsonl (rare
+        but observed) must not raise from parse_iter_result. Status =
+        fail, notes empty (same contract as empty events.jsonl).
+        """
+        op = _op("Op-1")
+        run_dir = tmp_path / "run_x"
+        mode_dir = run_dir / op.smoke_mode
+        mode_dir.mkdir(parents=True)
+        (mode_dir / "summary.json").write_text(json.dumps({
+            "mode": op.smoke_mode, "started_at": 1.0, "ended_at": 2.0,
+            "pass": False, "desync_count": 0, "anomaly_count": 0,
+            "invariant_failure_count": 0, "error_count": 0,
+            "stages_seen": [], "trigger_reason": "", "notes": [],
+        }))
+        # No events.jsonl on disk.
+        r = parse_iter_result(op, 1, run_dir)
+        assert r.status == "fail"
+        assert r.notes == ""
+
+
+# ── §9.3 #22 B7 — _summarise_event_kind + _md_cell integration ────
+
+
+class TestSummariseEventKindMdCellIntegration:
+    """B7 — parse_iter_result builds the raw notes via
+    `_summarise_event_kind` (+ `_clip_notes`); render_scorecard later
+    wraps every cell through `_md_cell` at the markdown emit boundary.
+    If a detail string contains a pipe or newline, the row must stay on
+    a single line with the pipe escaped. The two helpers were
+    individually tested; this pins the integration contract: notes
+    survive the parse_iter_result → render_scorecard `_md_cell` wrap.
+    """
+
+    def test_pipe_in_event_detail_escaped_at_md_cell_boundary(self):
+        """An error detail containing `|` (e.g. "cmd|grep failed") must
+        not split the SCORECARD row. _summarise_event_kind formats it
+        with surrounding quotes; _md_cell escapes the `|`. Together the
+        result is a single-cell value with the pipe preserved + escaped.
+        """
+        from tools.phase145_uat.run_session import _md_cell, _summarise_event_kind
+        events = [{"detail": "cmd|grep failed"}]
+        summary = _summarise_event_kind(events, "error", "detail")
+        cell = _md_cell(summary)
+        # Pipe escaped (markdown-safe).
+        assert "\\|" in cell
+        # Bare pipe must not appear (would split the cell).
+        assert "|" not in cell.replace("\\|", "")
+        # Detail content preserved aside from the escape.
+        assert "cmd" in cell and "grep" in cell
+
+    def test_newline_in_event_detail_collapsed_at_md_cell_boundary(self):
+        """An error detail with a newline (e.g. a Python traceback
+        fragment) must collapse to ` · ` per _md_cell, not split the
+        markdown row.
+        """
+        from tools.phase145_uat.run_session import _md_cell, _summarise_event_kind
+        events = [{"detail": "Traceback\nFile foo.py line 1"}]
+        summary = _summarise_event_kind(events, "error", "detail")
+        cell = _md_cell(summary)
+        assert "\n" not in cell
+        assert " · " in cell
+
+    def test_multiple_events_with_mixed_metacharacters(self):
+        """Combined: error+desync events, mixed pipes/newlines, run
+        through the full pipeline (parse_iter_result-style assembly).
+        Result must be single-line + pipe-escaped + clipped to
+        _NOTES_MAX_LEN.
+        """
+        from tools.phase145_uat.run_session import (
+            _clip_notes,
+            _md_cell,
+            _summarise_event_kind,
+        )
+        error_events = [
+            {"detail": "rebuild failed|bad config"},
+            {"detail": "TIMEOUT\nstderr tail: stuck"},
+        ]
+        desync_events = [
+            {"subtype": "progress_gap|api>>dom"},
+        ]
+        # Mirror the parse_iter_result assembly verbatim.
+        parts = [
+            _summarise_event_kind(error_events, "error", "detail"),
+            _summarise_event_kind(desync_events, "desync", "subtype"),
+        ]
+        clipped = _clip_notes("; ".join(parts))
+        cell = _md_cell(clipped)
+        # Single-line.
+        assert "\n" not in cell
+        # Pipes escaped.
+        assert "|" not in cell.replace("\\|", "")
+        # Within the notes cap (md_cell does not change length materially).
+        assert len(cell) <= _NOTES_MAX_LEN + 10  # +10 slack for `\|` escapes
