@@ -199,9 +199,11 @@ All SourcePrep tools are read-only and safe to auto-approve.
 
 ### Playwright MCP (live UI driving)
 
-Registered in `.claude/mcp.json` alongside `prep`. Lets the agent drive the dashboard at :5174 interactively — click stages, hover, screenshot, observe rendering bugs the scripted `playwright_smoke.py` harness can't catch (visual stale state, animation glitches, surprise UI behavior). Complementary to the smoke harness — smoke is for repeatable regression coverage, MCP is for interactive triage.
+Install via `claude mcp add playwright --scope user -- npx -y @playwright/mcp@latest --browser=chrome --viewport-size=1600,1000`. The project-level `.claude/mcp.json` is NOT read by Claude Code (it expects `~/.claude.json` `mcpServers` shape, which `claude mcp add` writes for you). Verify with `claude mcp list` — entry must show `✔ Connected`. Restart Claude Code after install so the session enumerates the new tools.
 
-Tools surface as `browser_navigate`, `browser_click`, `browser_snapshot`, `browser_take_screenshot`, etc. Restart Claude Code after first install so the MCP config loads. Chromium is downloaded on first use; first invocation may take ~30s.
+Lets the agent drive the dashboard at :5174 interactively — click stages, hover, screenshot, observe rendering bugs the scripted `playwright_smoke.py` harness can't catch (visual stale state, animation glitches, surprise UI behavior). Complementary to the smoke harness — smoke is for repeatable regression coverage, MCP is for interactive triage.
+
+Tools surface as `browser_navigate`, `browser_click`, `browser_snapshot`, `browser_take_screenshot`, etc. Chromium is downloaded on first use; first invocation may take ~30s.
 
 **When to reach for it:** dogfooding a UI bug, validating a fix by clicking through the live dashboard, capturing screenshot evidence for a `FINDING_*` doc, or chasing a §2x symptom that the smoke harness's invariants don't pin.
 
@@ -309,7 +311,7 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 <!-- prep-managed-start -->
 # SourcePrep Integration
 
-Last updated: 2026-06-23T04:40:40Z
+Last updated: 2026-06-23T04:48:38Z
 
 prep_project_id: f1636374-abc6-410d-99ee-822120379e79
 
@@ -355,16 +357,26 @@ Add to `.claude/settings.json`:
 
 Use `@` to browse SourcePrep resources (atlas, modules, audit). Use `/mcp__prep__prep-onboard` for guided orientation.
 
-<!-- prep-atlas-hash:c4785f1de373 -->
+<!-- prep-atlas-hash:fc10a26c5a2d -->
 ## Codebase Atlas
 
-IDENTITY: Prep is a pipeline-orchestration and quality-assurance platform with MCP-protocol integration, featuring a VSCode extension, web-based dashboard, marketing site, documentation, support portal, and payment system, centered on a shared UI component library and AI-assisted developer tooling.
+IDENTITY: Prep is a pipeline-orchestration and quality-assurance platform with a VSCode extension, web dashboard, marketing site, docs, support portal, and payment system, built around an MCP protocol and plugin architecture for codebase intelligence.
 
-STACK: TypeScript, TSX, Python, Markdown, JSON, JavaScript. React-based UI with Storybook. NextJS for web apps. VSCode extension with webview. Lucide React icons. Logging infrastructure.
+STACK: TypeScript, TSX, Python, JSON, Markdown. React-based UI with Next.js for web apps. Storybook for design system. VSCode extension with webview UI. MCP integration. 206 import cycles managed. Longest import chains route through packages/ui/src/types.ts for MCPToolInput.
 
-WORKSPACE MAP: Project Root (_root, 1488 files): pipeline-orchestration, quality-assurance, prompt-engineering, mcp-protocol, ui. Ui (packages/ui, 376 files): ui, storybook, design-system, marketing, testing. Dashboard (src/prep/dashboard, 62 files): ui, routing, settings, pipeline-orchestration, polling. Marketing (websites/apps/marketing, 61 files): marketing, ui, monetization, competitive-intelligence, seo. Docs (websites/apps/docs, 50 files): documentation, ui, configuration, navigation, monetization. Support (websites/apps/support, 26 files): ui, bug-tracking, auth, security, support-system. Vscode (packages/vscode, 20 files): vscode-extension, ui, webview, developer-experience, mcp-integration. Payments (websites/apps/payments, 14 files): license-management, monetization, ui, security, nextjs. Paperclip Plugin Prep (packages/paperclip-plugin-prep, 11 files): plugin-architecture, codebase-intelligence, ide-integration, plugin-system, access-control. Webview Ui (packages/vscode/webview-ui, 10 files): vscode-extension, webview, monetization, trace-visualization, ui.
+WORKSPACE MAP:
+Root (_root, 1489 files): pipeline-orchestration, quality-assurance, prompt-engineering, ui, mcp-protocol
+Ui (packages/ui, 376 files): design-system, storybook, testing, shared component library
+Dashboard (src/prep/dashboard, 62 files): ui, routing, settings, pipeline-orchestration, polling
+Marketing (websites/apps/marketing, 61 files): marketing, ui, monetization, competitive-intelligence, seo
+Docs (websites/apps/docs, 50 files): documentation, ui, configuration, navigation, monetization
+Support (websites/apps/support, 26 files): ui, bug-tracking, auth, security, support-system
+Vscode (packages/vscode, 20 files): vscode-extension, ui, webview, developer-experience, mcp-integration
+Payments (websites/apps/payments, 14 files): license-management, monetization, ui, security, nextjs
+Paperclip Plugin Prep (packages/paperclip-plugin-prep, 11 files): plugin-architecture, codebase-intelligence, ide-integration, plugin-system, access-control
+Webview Ui (packages/vscode/webview-ui, 10 files): vscode-extension, webview, monetization, trace-visualization, ui
 
-CROSS-CUTTING: The graph has 30706 nodes and 52672 edges with 206 import cycles. Five entry points all route through packages/ui/src/components/ into packages/ui/src/api/react.tsx -> packages/ui/src/api/client.ts -> packages/ui/src/types.ts, making types.ts the evolving hub and react.tsx a shared API layer. Stable hub: src/prep/core/swarm_event_logger.py. Shared external dependency: lucide-react. Active zones: packages/ui/src/, tests/, src/prep/core/, src/prep/services/, websites/apps/docs/. Shared domains across segments: ui (all 10 segments), monetization (marketing, docs, payments, webview-ui), pipeline-orchestration (root, dashboard), marketing (root, ui, marketing), security (support, payments), vscode-extension (vscode, webview-ui), webview (vscode, webview-ui). Directory dependencies show docs references security sections, packages exports symbols like PrepApiClient.approveACR and ProvenanceChip, src exports pipeline_status and PipelineOrchestrator.get_crashed_runs. Longest import chains terminate at sym:MCPToolInput@packages/ui/src/types.
+CROSS-CUTTING: Seven shared domains connect segments: ui, monetization, pipeline-orchestration, marketing, security, vscode-extension, webview. Hub files include src/prep/core/swarm_event_logger.py (stable), packages/ui/src/types.ts (evolving), packages/ui/src/api/react.tsx, plus ext:lucide-react and ext:logging. Active zones cluster in packages/ui/src/, tests/, src/prep/core/, src/prep/services/, websites/apps/docs/. Entry points concentrate in packages/ui/src/components/ with five index.ts files for viz, context, patterns, team, and root components. Directory dependencies show docs depends on sec:expected_workload_after_t2_2, sec:is_no_longer__healthy__until_a_new_run_completes_, sec:5__known_working_models_matrix; packages depends on sym:PrepApiClient.approveACR, sym:ProvenanceChip, sym:RoleLensProps; public depends on sec:trace_index, sec:ide_integration__mcp_, sec:key_features; src depends on sym:pipeline_status, sym:CircularDependencyAnalyzer, sym:PipelineOrchestrator.get_crashed_runs.
 
 ## Focus Areas
 - docs/Phase136_Dogfood-fixes/README.md

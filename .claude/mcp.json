@@ -2,10 +2,7 @@
   "servers": {
     "prep": {
       "command": "/Volumes/4TB-BAD/HumanAI/CoDRAG/prep-mcp-wrapper.sh"
-    },
-    "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp@latest", "--browser=chrome", "--viewport-size=1600,1000"]
     }
   }
 }
+
