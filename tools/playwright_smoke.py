@@ -165,7 +165,10 @@ class Api:
         return self._unwrap(self.http.get(f"/projects/{pid}/pipeline/status"))
 
     def destroy(self, pid: str) -> Any:
-        return self._unwrap(self.http.delete(f"/projects/{pid}/index/destroy"))
+        return self._unwrap(self.http.delete(
+            f"/projects/{pid}/index/destroy",
+            timeout=self._HEAVY_POST_TIMEOUT_S,
+        ))
 
     # Phase 145 §9.3 #17 — /pipeline/all and /pipeline/rebuild can spend
     # tens of seconds doing reset / hydrate work before returning. The
@@ -194,24 +197,34 @@ class Api:
     def set_active(self, pid: str, active: bool) -> Any:
         return self._unwrap(self.http.put(f"/projects/{pid}", json={"config": {"active": active}, "touch": True}))
 
-    # Scoped rebuild/reset endpoints (Phase 117).
+    # Scoped rebuild/reset endpoints (Phase 117). All five do daemon-side
+    # reset / hydrate / re-run work and can exceed the 30s client default
+    # — same reasoning as run_all + rebuild above (§9.3 #17 scrutiny #4).
     def run_fast(self, pid: str, force_from_start: bool = False) -> Any:
         return self._unwrap(self.http.post(
             f"/projects/{pid}/pipeline/fast",
             json={"force_from_start": force_from_start},
+            timeout=self._HEAVY_POST_TIMEOUT_S,
         ))
 
     def run_deep(self, pid: str, force_from_start: bool = False) -> Any:
         return self._unwrap(self.http.post(
             f"/projects/{pid}/pipeline/deep",
             json={"force_from_start": force_from_start},
+            timeout=self._HEAVY_POST_TIMEOUT_S,
         ))
 
     def enrichment_full_reset(self, pid: str) -> Any:
-        return self._unwrap(self.http.delete(f"/projects/{pid}/enrichment/full-reset"))
+        return self._unwrap(self.http.delete(
+            f"/projects/{pid}/enrichment/full-reset",
+            timeout=self._HEAVY_POST_TIMEOUT_S,
+        ))
 
     def finalize_full_reset(self, pid: str) -> Any:
-        return self._unwrap(self.http.delete(f"/projects/{pid}/finalize/full-reset"))
+        return self._unwrap(self.http.delete(
+            f"/projects/{pid}/finalize/full-reset",
+            timeout=self._HEAVY_POST_TIMEOUT_S,
+        ))
 
     def queue(self) -> dict[str, Any]:
         """Global queue dump (all projects). Caller filters by project_id."""
@@ -500,9 +513,27 @@ def _group_phase(status: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# §9.3 #17 scrutiny #5 — pre-fix this only treated "running" as in-flight,
+# missing pausing/recovering/cancelling/queued/paused. watch_until_idle
+# would then declare "settled" mid-transition and the next iter would race
+# the unfinished work. Matches run_session._TERMINAL_PHASES (4 phases the
+# daemon will accept new /pipeline/rebuild from), per state_machine.py
+# PipelineState (94-104) — IDLE + the 3 canonical TERMINAL_STATES (195-199).
+# Mirrored here instead of imported to keep playwright_smoke.py free of
+# cross-package imports from tools/phase145_uat/ — drift is pinned by
+# TestHarnessPhaseSetsMatchCanonical in tests/test_phase145_run_session.py.
+_NON_RUNNING_PHASES: frozenset[str] = frozenset({
+    "idle", "completed", "cancelled", "failed",
+})
+
+
 def is_any_running(status: dict[str, Any]) -> bool:
     gp = _group_phase(status)
-    return any((g.get("phase") == "running") for g in gp.values())
+    for g in gp.values():
+        phase = g.get("phase")
+        if isinstance(phase, str) and phase not in _NON_RUNNING_PHASES:
+            return True
+    return False
 
 
 def _check_disk_consistency(

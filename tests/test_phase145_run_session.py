@@ -34,8 +34,13 @@ from tools.phase145_uat.run_session import (
     SHIPPED_INVARIANTS,
     IterResult,
     SessionManifest,
+    _CANCELLABLE_PHASES,
+    _NOTES_MAX_LEN,
+    _TERMINAL_PHASES,
+    _clip_notes,
     _md_cell,
     _resolve_evidence_paths,
+    _summarise_event_kind,
     cancel_and_quiesce,
     daemon_healthy,
     is_completed,
@@ -46,7 +51,7 @@ from tools.phase145_uat.run_session import (
     wait_for_pipeline_idle,
 )
 
-from tools.playwright_smoke import _advance_scheduled_actions
+from tools.playwright_smoke import _advance_scheduled_actions, is_any_running
 
 
 # ── Fixture builders ──────────────────────────────────────────────
@@ -1215,3 +1220,305 @@ class TestApiRebuildTimeout:
         assert captured["url"].endswith("/projects/pid/pipeline/all")
         assert captured["timeout"] is not None
         assert captured["timeout"] >= 90
+
+
+# ── §9.3 #17 scrutiny fixes — pin the post-merge gaps ──────────────
+
+
+class TestHarnessPhaseSetsMatchCanonical:
+    """SOT enforcement: the harness's `_TERMINAL_PHASES` and
+    `_CANCELLABLE_PHASES` together must be a true partition of the
+    canonical `PipelineState` enum at src/prep/services/pipeline/
+    state_machine.py (Phase 25B). If the state machine adds, renames, or
+    removes a phase, these tests fail loudly — preventing the silent
+    drift that motivated PROPOSAL_state-machine-re-centering-v1.md.
+
+    The harness's `_TERMINAL_PHASES` is an INTENTIONAL superset of
+    canonical `TERMINAL_STATES` (it adds `idle`, which is canonically a
+    starting/reset state but is "ready for next run" from the harness's
+    perspective). See run_session.py docstring for the rationale.
+    """
+
+    def test_union_is_a_true_partition_of_canonical_pipeline_state(self):
+        from src.prep.services.pipeline.state_machine import PipelineState
+
+        canonical = {p.value for p in PipelineState}
+        harness = _TERMINAL_PHASES | _CANCELLABLE_PHASES
+        missing_from_harness = canonical - harness
+        extra_in_harness = harness - canonical
+        assert not missing_from_harness, (
+            f"Canonical PipelineState has values the harness does not cover: "
+            f"{missing_from_harness}. Add them to _TERMINAL_PHASES or "
+            f"_CANCELLABLE_PHASES in tools/phase145_uat/run_session.py."
+        )
+        assert not extra_in_harness, (
+            f"Harness has phase strings the canonical PipelineState no longer "
+            f"defines: {extra_in_harness}. Remove from run_session.py."
+        )
+
+    def test_terminal_and_cancellable_are_disjoint(self):
+        """The two sets must NOT overlap; if they did, the cancel-quiesce
+        helper would treat a phase as both 'still active' and 'ready for
+        next run', breaking the wait/cancel decision."""
+        overlap = _TERMINAL_PHASES & _CANCELLABLE_PHASES
+        assert not overlap, (
+            f"_TERMINAL_PHASES and _CANCELLABLE_PHASES overlap on: {overlap}. "
+            f"Each canonical phase must classify as exactly one of the two."
+        )
+
+    def test_canonical_terminal_states_are_subset_of_harness_terminal(self):
+        """Pre-fix the comment claimed `_TERMINAL_PHASES` mirrored canonical
+        TERMINAL_STATES; in fact the harness intentionally adds `idle`. Pin
+        the relationship explicitly so a future "cleanup" doesn't drop the
+        harness-only members back to the canonical 3.
+        """
+        from src.prep.services.pipeline.state_machine import TERMINAL_STATES
+
+        canonical_terminal = {s.value for s in TERMINAL_STATES}
+        assert canonical_terminal <= _TERMINAL_PHASES, (
+            f"Canonical TERMINAL_STATES {canonical_terminal} must all be in "
+            f"harness _TERMINAL_PHASES {_TERMINAL_PHASES}."
+        )
+        # Harness-only addition is `idle`, by current design. If this changes,
+        # update the rationale comment in run_session.py and adjust this
+        # test to match.
+        harness_only = _TERMINAL_PHASES - canonical_terminal
+        assert harness_only == {"idle"}, (
+            f"Harness adds {harness_only} on top of canonical TERMINAL_STATES; "
+            f"expected just {{'idle'}}. Update the comment or this test."
+        )
+
+
+class TestClipNotes:
+    """Scrutiny fix #1 — pre-fix cap was inside parse_iter_result only, so
+    the cancel-quiesce annotation appended in main() could push notes past
+    the SCORECARD cell width budget. `_clip_notes` is the helper that
+    closes the gap; main() now wraps the append.
+    """
+
+    def test_short_string_passes_through_unchanged(self):
+        s = "error×1 'timed out'"
+        assert _clip_notes(s) is s or _clip_notes(s) == s
+
+    def test_empty_string_passes_through(self):
+        assert _clip_notes("") == ""
+
+    def test_truncates_to_max_len_with_ellipsis(self):
+        s = "x" * (_NOTES_MAX_LEN + 50)
+        clipped = _clip_notes(s)
+        assert len(clipped) == _NOTES_MAX_LEN
+        assert clipped.endswith("...")
+
+    def test_idempotent_on_already_clipped(self):
+        s = "x" * (_NOTES_MAX_LEN + 50)
+        once = _clip_notes(s)
+        twice = _clip_notes(once)
+        assert once == twice
+
+
+class TestSummariseEventKind:
+    """Scrutiny fix #3 — pre-fix kept only events[0] detail, collapsing
+    mixed-cause clusters. Now renders up to 3 distinct values with a
+    `(+N more)` suffix when truncated.
+    """
+
+    def test_single_event_renders_count_and_detail(self):
+        events = [{"detail": "timed out"}]
+        out = _summarise_event_kind(events, "error", "detail")
+        assert "error×1" in out
+        assert "'timed out'" in out
+
+    def test_multiple_events_same_detail_dedupes(self):
+        events = [{"detail": "timed out"} for _ in range(4)]
+        out = _summarise_event_kind(events, "error", "detail")
+        assert "error×4" in out
+        # 4 identical → 1 distinct → no "(+N more)" tail
+        assert "more" not in out
+
+    def test_multiple_distinct_details_rendered_with_separator(self):
+        events = [
+            {"detail": "timed out"},
+            {"detail": "409 Conflict"},
+            {"detail": "ConnectionRefused"},
+        ]
+        out = _summarise_event_kind(events, "error", "detail")
+        assert "error×3" in out
+        assert "'timed out'" in out
+        assert "'409 Conflict'" in out
+        assert "'ConnectionRefused'" in out
+
+    def test_more_than_max_distinct_shows_plus_n_more(self):
+        events = [
+            {"detail": f"err-{i}"} for i in range(5)
+        ]
+        out = _summarise_event_kind(events, "error", "detail", max_distinct=3)
+        assert "error×5" in out
+        assert "'err-0'" in out
+        assert "'err-1'" in out
+        assert "'err-2'" in out
+        # err-3 and err-4 not rendered but counted
+        assert "(+2 more)" in out
+
+    def test_per_detail_truncation(self):
+        events = [{"detail": "X" * 200}]
+        out = _summarise_event_kind(events, "error", "detail", per_detail_max_chars=20)
+        # Detail should be truncated; full 200-char string shouldn't appear.
+        assert "X" * 200 not in out
+
+    def test_works_with_desync_subtype(self):
+        events = [
+            {"subtype": "progress_gap"},
+            {"subtype": "progress_gap"},
+            {"subtype": "api_running_dom_not_running"},
+        ]
+        out = _summarise_event_kind(events, "desync", "subtype")
+        assert "desync×3" in out
+        assert "'progress_gap'" in out
+        assert "'api_running_dom_not_running'" in out
+
+
+class TestCancelQuiesceBudget:
+    """Scrutiny fix #2 — pre-fix default was 30s, too short for daemons
+    in `recovering` (60-90s normal post-crash hydrate). Main loop now
+    passes max_seconds=90 explicitly.
+    """
+
+    def test_main_loop_cancel_call_uses_extended_budget(self):
+        """Scan run_session.py main() source for the cancel_and_quiesce
+        call to verify it doesn't fall back to the 30s default. This is
+        a contract test, not a runtime test, because the alternative
+        (mocking the whole main loop) would be more brittle than a
+        source-level pin.
+        """
+        import re
+        from pathlib import Path
+        src = Path(__file__).resolve().parent.parent / "tools/phase145_uat/run_session.py"
+        text = src.read_text()
+        # Match cancel_and_quiesce(...args.api_url...max_seconds=NN...)
+        # across line breaks. DOTALL so `.` spans newlines; non-greedy so
+        # we stop at the first matching close-paren chain.
+        pattern = re.compile(
+            r"cancel_and_quiesce\s*\(\s*args\.api_url\b[^()]*?max_seconds\s*=\s*([\d.]+)",
+            re.DOTALL,
+        )
+        m = pattern.search(text)
+        assert m, (
+            "main() does not call cancel_and_quiesce(args.api_url, ...) with "
+            "an explicit max_seconds keyword. Pre-fix it inherited the 30s "
+            "default which is too tight for daemons in `recovering`."
+        )
+        budget = float(m.group(1))
+        assert budget >= 60.0, (
+            f"main()'s cancel_and_quiesce budget is {budget}s; recovering "
+            f"daemons need ≥60s. Bump it in tools/phase145_uat/run_session.py."
+        )
+
+
+class TestIsAnyRunningStrictness:
+    """Scrutiny fix #5 — playwright_smoke.is_any_running pre-fix checked
+    only `phase == 'running'`, missing pausing/recovering/cancelling/
+    queued/paused. The watch loop would declare 'settled' mid-transition
+    and the next iter would race the unfinished work. Now matches the
+    same predicate as run_session.wait_for_pipeline_idle.
+    """
+
+    def _wrap(self, phase: str) -> dict:
+        return {"fast_sync": {"phase": phase}, "deep_enrichment": {}, "finalize": {}}
+
+    def test_running_is_running(self):
+        assert is_any_running(self._wrap("running")) is True
+
+    def test_queued_is_running(self):
+        """Pre-fix bug: queued passed as not-running."""
+        assert is_any_running(self._wrap("queued")) is True
+
+    def test_pausing_is_running(self):
+        assert is_any_running(self._wrap("pausing")) is True
+
+    def test_paused_is_running(self):
+        """Harness POV: a paused run still holds a stage row; treat as
+        in-flight so watch_until_idle keeps polling."""
+        assert is_any_running(self._wrap("paused")) is True
+
+    def test_recovering_is_running(self):
+        assert is_any_running(self._wrap("recovering")) is True
+
+    def test_cancelling_is_running(self):
+        assert is_any_running(self._wrap("cancelling")) is True
+
+    def test_idle_is_not_running(self):
+        assert is_any_running(self._wrap("idle")) is False
+
+    def test_completed_is_not_running(self):
+        assert is_any_running(self._wrap("completed")) is False
+
+    def test_cancelled_is_not_running(self):
+        assert is_any_running(self._wrap("cancelled")) is False
+
+    def test_failed_is_not_running(self):
+        assert is_any_running(self._wrap("failed")) is False
+
+    def test_empty_status_is_not_running(self):
+        assert is_any_running({}) is False
+
+
+class TestApiHeavyTimeoutAcrossEndpoints:
+    """Scrutiny fix #4 — pre-fix only run_all + rebuild used the 120s
+    per-call timeout. The other 5 daemon-side heavy endpoints
+    (destroy + run_fast + run_deep + enrichment_full_reset +
+    finalize_full_reset) still used the 30s class default and would
+    reproduce the Op-3/Op-4 timeout cascade for --modes initial /
+    rebuild-sync / rebuild-enrichment / reset-* paths.
+    """
+
+    def _mk_api(self, captured):
+        import tools.playwright_smoke as ps
+
+        class FakeResp:
+            status_code = 200
+            def json(self):
+                return {"success": True, "data": {}}
+            def raise_for_status(self):
+                pass
+
+        class FakeHttp:
+            def post(self, url, *, timeout=None, **kw):
+                captured.append(("post", url, timeout))
+                return FakeResp()
+            def delete(self, url, *, timeout=None, **kw):
+                captured.append(("delete", url, timeout))
+                return FakeResp()
+
+        api = ps.Api("http://x")
+        api.http = FakeHttp()
+        return api
+
+    def test_destroy_uses_heavy_timeout(self):
+        captured = []
+        api = self._mk_api(captured)
+        api.destroy("pid")
+        assert captured[-1][2] is not None and captured[-1][2] >= 90
+
+    def test_run_fast_uses_heavy_timeout(self):
+        captured = []
+        api = self._mk_api(captured)
+        api.run_fast("pid")
+        assert captured[-1][2] is not None and captured[-1][2] >= 90
+
+    def test_run_deep_uses_heavy_timeout(self):
+        captured = []
+        api = self._mk_api(captured)
+        api.run_deep("pid")
+        assert captured[-1][2] is not None and captured[-1][2] >= 90
+
+    def test_enrichment_full_reset_uses_heavy_timeout(self):
+        captured = []
+        api = self._mk_api(captured)
+        api.enrichment_full_reset("pid")
+        assert captured[-1][2] is not None and captured[-1][2] >= 90
+
+    def test_finalize_full_reset_uses_heavy_timeout(self):
+        captured = []
+        api = self._mk_api(captured)
+        api.finalize_full_reset("pid")
+        assert captured[-1][2] is not None and captured[-1][2] >= 90

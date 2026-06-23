@@ -135,10 +135,17 @@ def project_pipeline_ready(api_url: str, project_id: str, timeout: float = 5.0) 
     return r.status_code == 200
 
 
-# Phases that mean the daemon's run is genuinely done — POST
-# /pipeline/rebuild or /pipeline/all will accept work immediately. Per
-# state_machine.py:94-200 these are the four terminal states reachable
-# from any group lifecycle.
+# Phases from which the daemon will accept a fresh POST /pipeline/rebuild
+# or /pipeline/all. This is a HARNESS-SPECIFIC superset of the canonical
+# TERMINAL_STATES at src/prep/services/pipeline/state_machine.py:195-199
+# ({completed, cancelled, failed}) — we add `idle` because a never-started
+# (or post-reset) group also accepts new work, and the harness's goal is
+# "ready for next run" not "has-been-run-and-finished".
+# `paused` is intentionally EXCLUDED — a paused group still holds a stage
+# row and the daemon rejects /rebuild against it.
+# Coverage with `_CANCELLABLE_PHASES` is a true partition of canonical
+# PipelineState (state_machine.py:94-104, 10 values); the partition is
+# pinned by TestHarnessPhaseSetsMatchCanonical in tests/.
 _TERMINAL_PHASES: frozenset[str] = frozenset({
     "idle", "completed", "cancelled", "failed",
 })
@@ -382,6 +389,70 @@ def _ts_from_epoch(v: Any) -> str:
     return ""
 
 
+# ── Notes helpers (§9.3 #17 scrutiny fixes #1 + #3) ──────────────
+
+
+# Hard cap on the entire IterResult.notes string after every mutation.
+# Used by parse_iter_result AND by the main loop's cancel-quiesce append
+# (scrutiny fix #1: pre-fix cap was applied inside parse_iter_result only,
+# so the cancel-quiesce annotation appended in main() could push notes
+# past the SCORECARD cell width).
+_NOTES_MAX_LEN: int = 220
+
+
+def _clip_notes(s: str) -> str:
+    """Truncate to `_NOTES_MAX_LEN` with an ellipsis tail.
+
+    Idempotent: re-clipping an already-clipped string is a no-op. Empty /
+    None passes through unchanged. The truncation marker (`...`) is part
+    of the budget, not added on top.
+    """
+    if not s:
+        return s
+    if len(s) <= _NOTES_MAX_LEN:
+        return s
+    return s[: _NOTES_MAX_LEN - 3] + "..."
+
+
+def _summarise_event_kind(
+    events: list[dict[str, Any]],
+    kind_label: str,
+    detail_key: str,
+    *,
+    max_distinct: int = 3,
+    per_detail_max_chars: int = 60,
+) -> str:
+    """Render a count + up to `max_distinct` unique detail/subtype values.
+
+    Example outputs:
+      - 1 event:                     "error×1 'timed out'"
+      - 4 events, 2 distinct:         "error×4 'timed out'+'409 Conflict'"
+      - 5 events, 4 distinct (cap 3): "error×5 'a'+'b'+'c' (+1 more)"
+
+    Pre-fix (scrutiny #3) the renderer kept only `events[0]` detail,
+    collapsing mixed-cause clusters down to the first failure mode —
+    exactly the Op-3/Op-4 multi-failure case this fix targets.
+    """
+    count = len(events)
+    seen: list[str] = []
+    for ev in events:
+        raw = str(ev.get(detail_key, ""))[:per_detail_max_chars]
+        if raw and raw not in seen:
+            seen.append(raw)
+        if len(seen) >= max_distinct:
+            break
+    details = "+".join(f"'{d}'" for d in seen) if seen else "''"
+    # Count how many events have a distinct detail beyond the rendered set
+    # so the "+N more" suffix is meaningful and not just "+0 more".
+    rendered_set = set(seen)
+    remaining = sum(
+        1 for ev in events
+        if str(ev.get(detail_key, ""))[:per_detail_max_chars] not in rendered_set
+    )
+    suffix = f" (+{remaining} more)" if remaining > 0 else ""
+    return f"{kind_label}×{count} {details}{suffix}"
+
+
 def parse_iter_result(op: Operation, iter_num: int, run_dir: Path) -> IterResult:
     """Read playwright_smoke's per-mode summary + events into an IterResult.
 
@@ -477,21 +548,18 @@ def parse_iter_result(op: Operation, iter_num: int, run_dir: Path) -> IterResult
     # §9.3 #17 — only surface raw evidence on actual failures, only when no
     # invariant matched (failures list is the authoritative summary when
     # present; double-reporting would noise up the Notes column).
+    # Scrutiny fix #3 — show up to 3 distinct detail/subtype values so a
+    # mixed-cause cluster (e.g. timeout + 409 + ConnectionRefused) isn't
+    # collapsed to the first error's detail only.
     raw_evidence_note = ""
     if base_status == "fail" and not failures:
         parts: list[str] = []
         if error_events:
-            first_detail = str(error_events[0].get("detail", ""))[:80]
-            parts.append(f"error×{len(error_events)} '{first_detail}'")
+            parts.append(_summarise_event_kind(error_events, "error", "detail"))
         if desync_events:
-            first_subtype = str(desync_events[0].get("subtype", ""))[:40]
-            parts.append(f"desync×{len(desync_events)} '{first_subtype}'")
+            parts.append(_summarise_event_kind(desync_events, "desync", "subtype"))
         if parts:
-            raw_evidence_note = "; ".join(parts)
-            # Hard cap so a pathological many-events case still fits a
-            # markdown table cell.
-            if len(raw_evidence_note) > 180:
-                raw_evidence_note = raw_evidence_note[:177] + "..."
+            raw_evidence_note = _clip_notes("; ".join(parts))
 
     return IterResult(
         op_id=op.id,
@@ -953,11 +1021,21 @@ def main(argv: list[str]) -> int:
             # would then 409 from /pipeline/rebuild and cascade-fail the
             # rest of the session. Cancel + wait for idle before moving on.
             if result.status in ("error", "fail") or rc != 0:
-                quiesced, detail = cancel_and_quiesce(args.api_url, args.project_id)
+                # Scrutiny fix #2: pre-fix default was 30s which is too
+                # tight for a daemon mid-`recovering` (60-90s is normal
+                # post-crash hydrate). 90s matches the heavy-endpoint
+                # timeout philosophy without blocking the runner forever.
+                quiesced, detail = cancel_and_quiesce(
+                    args.api_url, args.project_id, max_seconds=90.0,
+                )
                 print(f"  cancel-quiesce: {detail}", flush=True)
                 # Annotate the iter notes so the scorecard reader sees
-                # what the runner did about the stall.
-                result.notes = (result.notes + " · " if result.notes else "") + f"cancel-quiesce: {detail}"
+                # what the runner did about the stall. Scrutiny fix #1:
+                # re-clip AFTER the append so the cancel-quiesce tail
+                # can't push us past the SCORECARD cell width budget.
+                result.notes = _clip_notes(
+                    (result.notes + " · " if result.notes else "") + f"cancel-quiesce: {detail}"
+                )
                 persist_manifest(manifest, manifest_path)
 
             time.sleep(args.inter_iter_pause)
