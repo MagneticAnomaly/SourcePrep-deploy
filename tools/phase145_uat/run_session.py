@@ -45,6 +45,12 @@ from typing import Any, Optional
 
 import httpx
 
+# §9.3 second-pass audit: single source for the 3 pipeline group names
+# (was three hard-coded tuples — wait_for_pipeline_idle + _pipeline_snapshot
+# + similar sites in playwright_smoke.py). invariants.py is the canonical
+# owner; importing from there means a group rename only touches one file.
+from tools.phase145_uat.invariants import GROUPS
+
 
 # ── Operation matrix (PROPOSAL §4) ────────────────────────────────
 
@@ -188,7 +194,7 @@ def wait_for_pipeline_idle(
                 payload = body.get("data") if isinstance(body, dict) and "data" in body else body
                 if isinstance(payload, dict):
                     busy = False
-                    for g in ("fast_sync", "deep_enrichment", "finalize"):
+                    for g in GROUPS:
                         grp = payload.get(g)
                         if not isinstance(grp, dict):
                             continue
@@ -221,7 +227,7 @@ def _pipeline_snapshot(api_url: str, project_id: str) -> dict[str, str]:
     `phase in _CANCELLABLE_PHASES` checks without `None` handling.
     MUST NOT raise — daemon-down maps to all-empty.
     """
-    snapshot: dict[str, str] = {g: "" for g in ("fast_sync", "deep_enrichment", "finalize")}
+    snapshot: dict[str, str] = {g: "" for g in GROUPS}
     try:
         r = httpx.get(
             f"{api_url.rstrip('/')}/projects/{project_id}/pipeline/status",

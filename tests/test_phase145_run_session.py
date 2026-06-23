@@ -51,7 +51,13 @@ from tools.phase145_uat.run_session import (
     wait_for_pipeline_idle,
 )
 
-from tools.playwright_smoke import _advance_scheduled_actions, is_any_running
+from tools.playwright_smoke import (
+    _NON_RUNNING_PHASES,
+    _VERDICT_ELIGIBLE_PHASES,
+    _advance_scheduled_actions,
+    is_any_running,
+)
+from tools.phase145_uat.invariants import ACTIVE_PIPELINE_PHASES, GROUPS
 
 
 # ── Fixture builders ──────────────────────────────────────────────
@@ -1522,3 +1528,234 @@ class TestApiHeavyTimeoutAcrossEndpoints:
         api = self._mk_api(captured)
         api.finalize_full_reset("pid")
         assert captured[-1][2] is not None and captured[-1][2] >= 90
+
+
+# ── §9.3 second-pass audit — phase-vocabulary SOT pins ──────────────
+
+
+class TestActivePipelinePhasesPinnedToCanonical:
+    """Second-pass scrutiny caught that ACTIVE_PIPELINE_PHASES in
+    invariants.py was UNPINNED — the first scrutiny's SOT scorecard
+    claimed it was, but no test existed. Pin it now.
+
+    Per state_machine.py:202-208, canonical `ACTIVE_STATES` is
+    {QUEUED, RUNNING, PAUSING, CANCELLING, RECOVERING}. The harness's
+    `ACTIVE_PIPELINE_PHASES` INTENTIONALLY diverges by:
+      - EXCLUDING `queued` (no current_stage to anchor against)
+      - INCLUDING `paused` (still holds a stage row, observable)
+    See invariants.py docstring lines 82-103 for the full rationale.
+    """
+
+    def test_active_pipeline_phases_matches_documented_set(self):
+        # Pin the exact 5-phase set. If invariants.py is edited, this
+        # forces the editor to also update the rationale comment.
+        assert ACTIVE_PIPELINE_PHASES == frozenset({
+            "running", "pausing", "paused", "recovering", "cancelling",
+        }), (
+            f"ACTIVE_PIPELINE_PHASES drifted from documented set. "
+            f"Current: {ACTIVE_PIPELINE_PHASES}. If this is intentional, "
+            f"update invariants.py docstring AND this test together."
+        )
+
+    def test_active_diverges_from_canonical_active_states_by_swap(self):
+        """The divergence vs canonical ACTIVE_STATES is deliberate:
+        drop `queued` (no current_stage), add `paused` (stable snapshot).
+        If a future state machine change makes one of these wrong, this
+        test fires.
+        """
+        from src.prep.services.pipeline.state_machine import ACTIVE_STATES
+
+        canonical_active = {s.value for s in ACTIVE_STATES}
+        # In canonical but excluded from harness:
+        harness_excludes_from_canonical = canonical_active - ACTIVE_PIPELINE_PHASES
+        # In harness but not in canonical active:
+        harness_adds_beyond_canonical = ACTIVE_PIPELINE_PHASES - canonical_active
+
+        assert harness_excludes_from_canonical == {"queued"}, (
+            f"Expected harness to exclude exactly {{'queued'}} from "
+            f"canonical ACTIVE_STATES; actually excludes "
+            f"{harness_excludes_from_canonical}."
+        )
+        assert harness_adds_beyond_canonical == {"paused"}, (
+            f"Expected harness to add exactly {{'paused'}} on top of "
+            f"canonical ACTIVE_STATES; actually adds "
+            f"{harness_adds_beyond_canonical}."
+        )
+
+
+class TestNonRunningPhasesPinnedToCanonical:
+    """Second-pass scrutiny caught that playwright_smoke._NON_RUNNING_PHASES
+    was UNPINNED. Pin it now — must equal canonical TERMINAL_STATES plus
+    `idle` (same divergence rationale as run_session._TERMINAL_PHASES).
+    """
+
+    def test_non_running_phases_match_canonical_plus_idle(self):
+        from src.prep.services.pipeline.state_machine import TERMINAL_STATES
+
+        canonical_terminal = {s.value for s in TERMINAL_STATES}
+        expected = canonical_terminal | {"idle"}
+        assert _NON_RUNNING_PHASES == expected, (
+            f"_NON_RUNNING_PHASES drifted. Expected canonical "
+            f"TERMINAL_STATES + {{'idle'}} = {expected}; got "
+            f"{_NON_RUNNING_PHASES}."
+        )
+
+
+class TestVerdictEligiblePhases:
+    """Second-pass scrutiny added _VERDICT_ELIGIBLE_PHASES so per-stage
+    desync detection works during `paused` (was silently blind pre-fix).
+
+    The set is INTENTIONALLY narrow — only `running` and `paused` have a
+    stable `current_stage`. `pausing`/`cancelling`/`recovering` are
+    EXCLUDED because their `current_stage` is mid-transition and emitting
+    verdicts against it would produce false positives.
+    """
+
+    def test_verdict_eligible_is_exactly_running_and_paused(self):
+        assert _VERDICT_ELIGIBLE_PHASES == frozenset({"running", "paused"})
+
+    def test_verdict_eligible_is_subset_of_active(self):
+        """A phase that's verdict-eligible must also be in
+        ACTIVE_PIPELINE_PHASES (you can only have a verdict when there's
+        an active stage). If a future change adds a verdict-eligible
+        phase that's NOT active, this test catches the inconsistency.
+        """
+        assert _VERDICT_ELIGIBLE_PHASES <= ACTIVE_PIPELINE_PHASES, (
+            f"_VERDICT_ELIGIBLE_PHASES must be a subset of "
+            f"ACTIVE_PIPELINE_PHASES. Diff: "
+            f"{_VERDICT_ELIGIBLE_PHASES - ACTIVE_PIPELINE_PHASES}"
+        )
+
+    def test_pausing_cancelling_recovering_intentionally_excluded(self):
+        """Document the exclusion rationale via a test. If a future
+        refactor adds these phases, this test fails — forcing the
+        author to revisit the false-positive concern.
+        """
+        for transitional in ("pausing", "cancelling", "recovering"):
+            assert transitional not in _VERDICT_ELIGIBLE_PHASES, (
+                f"{transitional!r} has a TRANSITIONAL current_stage; "
+                f"emitting verdicts would produce false positives. "
+                f"See api_stage_verdict docstring."
+            )
+
+
+class TestGroupsConstantSingleSource:
+    """Second-pass scrutiny found 4 hard-coded copies of the 3-group tuple
+    across playwright_smoke.py + run_session.py. All now import from
+    invariants.GROUPS. Pin the canonical set so a rename hits one place.
+    """
+
+    def test_groups_is_the_three_pipeline_top_level_groups(self):
+        assert GROUPS == ("fast_sync", "deep_enrichment", "finalize")
+
+    def test_groups_has_three_entries(self):
+        # State machine has one PipelineGroupStateMachine per group;
+        # changing this count requires a state-machine-side change too.
+        assert len(GROUPS) == 3
+
+
+class TestStageOrderPinnedToCanonical:
+    """Second-pass scrutiny: the 15 pipeline stages are hand-mirrored at
+    least 3 times — `src/prep/services/pipeline/stages.py` (canonical,
+    Phase 25B `StageId` enum), `tools/phase145_uat/constants.py
+    STAGE_ORDER`, and `packages/ui/src/components/trace/freezeGreen.ts`
+    FAST_STAGE_ORDER + DEEP_STAGE_ORDER + FINALIZE_STAGE_ORDER. The TS
+    side cannot import from Python; a single Python-side pin test
+    catches drift in all three at once.
+
+    Pinning the active vocabulary leaves the `augment → catalogue` alias
+    (`freezeGreen.normalizeFastStage`) in place — that alias defends
+    against backends that pre-date the StageId enum; documented as cruft
+    in PROPOSAL §9.3 follow-up.
+    """
+
+    def test_constants_stage_order_matches_canonical_stages_py(self):
+        from src.prep.services.pipeline.stages import (
+            DEEP_ENRICHMENT_STAGES,
+            FAST_SYNC_STAGES,
+            FINALIZE_STAGES,
+        )
+        from tools.phase145_uat.constants import STAGE_ORDER
+
+        canonical_ids = [
+            s.value for s in (FAST_SYNC_STAGES + DEEP_ENRICHMENT_STAGES + FINALIZE_STAGES)
+        ]
+        harness_ids = [stage_id for stage_id, _group in STAGE_ORDER]
+        assert harness_ids == canonical_ids, (
+            f"tools/phase145_uat/constants.py STAGE_ORDER drifted from "
+            f"canonical src/prep/services/pipeline/stages.py. "
+            f"In canonical but not harness: "
+            f"{set(canonical_ids) - set(harness_ids)}. "
+            f"In harness but not canonical: "
+            f"{set(harness_ids) - set(canonical_ids)}."
+        )
+
+    def test_freezegreen_ts_arrays_match_canonical_stages_py(self):
+        """Parse the TypeScript arrays from freezeGreen.ts and assert
+        they equal the canonical Python lists. Catches drift in the
+        TS mirror without requiring vitest invocation from pytest.
+        """
+        import re
+        from pathlib import Path
+
+        from src.prep.services.pipeline.stages import (
+            DEEP_ENRICHMENT_STAGES,
+            FAST_SYNC_STAGES,
+            FINALIZE_STAGES,
+        )
+
+        ts_path = (
+            Path(__file__).resolve().parent.parent
+            / "packages/ui/src/components/trace/freezeGreen.ts"
+        )
+        text = ts_path.read_text()
+
+        def _parse_array(name: str) -> list[str]:
+            # Match `export const NAME: ReadonlyArray<string> = [ 'a', 'b', ... ];`
+            # across multiple lines. Captures the single-quoted string contents.
+            pattern = re.compile(
+                rf"export\s+const\s+{name}\s*:\s*ReadonlyArray<string>\s*=\s*\[(.*?)\];",
+                re.DOTALL,
+            )
+            m = pattern.search(text)
+            assert m, f"Could not find {name} export in {ts_path}"
+            body = m.group(1)
+            return re.findall(r"'([^']+)'", body)
+
+        ts_fast = _parse_array("FAST_STAGE_ORDER")
+        ts_deep = _parse_array("DEEP_STAGE_ORDER")
+        ts_finalize = _parse_array("FINALIZE_STAGE_ORDER")
+
+        canonical_fast = [s.value for s in FAST_SYNC_STAGES]
+        canonical_deep = [s.value for s in DEEP_ENRICHMENT_STAGES]
+        canonical_finalize = [s.value for s in FINALIZE_STAGES]
+
+        assert ts_fast == canonical_fast, (
+            f"freezeGreen.FAST_STAGE_ORDER drifted from canonical "
+            f"FAST_SYNC_STAGES. TS: {ts_fast}. Canonical: {canonical_fast}."
+        )
+        assert ts_deep == canonical_deep, (
+            f"freezeGreen.DEEP_STAGE_ORDER drifted from canonical "
+            f"DEEP_ENRICHMENT_STAGES. TS: {ts_deep}. Canonical: {canonical_deep}."
+        )
+        assert ts_finalize == canonical_finalize, (
+            f"freezeGreen.FINALIZE_STAGE_ORDER drifted from canonical "
+            f"FINALIZE_STAGES. TS: {ts_finalize}. Canonical: {canonical_finalize}."
+        )
+
+
+class TestApiPhaseToCanonDeleted:
+    """Second-pass scrutiny deleted the dead `API_PHASE_TO_CANON` map
+    from playwright_smoke.py — it had zero call sites and documented a
+    stale 7-phase vocabulary (canonical PipelineState has 10). Pin the
+    deletion so it can't be silently resurrected as authoritative.
+    """
+
+    def test_api_phase_to_canon_not_importable(self):
+        import tools.playwright_smoke as ps
+        assert not hasattr(ps, "API_PHASE_TO_CANON"), (
+            "API_PHASE_TO_CANON was deleted in §9.3 second-pass audit "
+            "(zero call sites, missing 3 canonical phases). If you need "
+            "a phase→canon map, base it on the full PipelineState enum, "
+            "not this stale 7-entry dict."
+        )

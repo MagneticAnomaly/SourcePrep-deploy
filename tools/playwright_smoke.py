@@ -83,18 +83,14 @@ STAGE_MANIFEST: dict[str, str] = {
     "antibodies":      "antibodies_manifest.json",
 }
 
-API_PHASE_TO_CANON = {
-    "running": "running",
-    "queued": "pending",
-    "paused": "pending",
-    "idle": "pending",
-    "completed": "complete",
-    "cancelled": "pending",
-    "failed": "failed",
-}
-
-
 # ── Data ──────────────────────────────────────────────────────────
+# §9.3 second-pass audit: API_PHASE_TO_CANON was defined here as a
+# 7-entry dict (missing canonical `pausing`/`cancelling`/`recovering`)
+# but had ZERO call sites repo-wide. Deleted to prevent it being
+# imported as authoritative by future code — the harness's actual phase
+# vocabulary lives in `_NON_RUNNING_PHASES` (this file) and
+# `ACTIVE_PIPELINE_PHASES` (tools/phase145_uat/invariants.py), both
+# pinned to the canonical state machine.
 
 
 @dataclass
@@ -399,12 +395,13 @@ def api_stage_verdict(
 ) -> tuple[Optional[str], Optional[int]]:
     """Return a *confident* API verdict for this stage, or (None, None) if unknown.
 
-    We deliberately refuse to guess. Only three signals produce a verdict:
-        1. The stage's group is `phase == "running"` AND it's the current stage → "running"
-        2. The stage's group is `phase == "running"` AND it appears earlier than
-           the current stage in the group's stage order → "complete" (already done this run)
-        3. The stage's group is `phase == "running"` AND it appears later than
-           the current stage → "pending" (this run)
+    We deliberately refuse to guess. Only these signals produce a verdict:
+        1. The stage's group is in `_VERDICT_ELIGIBLE_PHASES` AND it's the
+           current stage → "running"
+        2. Same phase set AND it appears earlier than the current stage in
+           the group's stage order → "complete" (already done this run)
+        3. Same phase set AND it appears later than the current stage →
+           "pending" (this run)
         4. A group slot with phase in {failed, cancelled} for the stage → "failed"
 
     Returns (None, None) during idle — we don't compare against stale DOM
@@ -412,6 +409,15 @@ def api_stage_verdict(
     Phase 96D.4 is that the panel IS allowed to show the last-known state
     between runs. We flag that separately (dom_says_running_while_api_idle)
     in the watch loop.
+
+    §9.3 second-pass audit: pre-fix the verdict-emitting set was
+    `{"running"}` only, silently blinding desync detection during paused
+    windows. `paused` has a STABLE `current_stage` (worker stopped cleanly
+    at checkpoint) so per-stage ordering is well-defined and verdicts are
+    accurate. `pausing`/`cancelling`/`recovering` are EXCLUDED because
+    their `current_stage` is mid-transition — emitting verdicts would
+    produce false positives the docstring forbids. See
+    `_VERDICT_ELIGIBLE_PHASES` definition for the canonical set.
     """
     group = STAGE_TO_GROUP[stage_id]
     gslot = group_phase.get(group)
@@ -420,10 +426,11 @@ def api_stage_verdict(
 
     phase = gslot.get("phase")
     current_stage = gslot.get("current_stage") or gslot.get("stage")
-    if phase != "running":
-        # Groups can report completed/failed/paused with a final stage, but
-        # we only claim a verdict at transitions; let the idle-branch handle
-        # stale displays.
+    if phase not in _VERDICT_ELIGIBLE_PHASES:
+        # Groups can report idle/completed/failed/cancelled/queued plus the
+        # transitional pausing/cancelling/recovering — we only claim a
+        # verdict where `current_stage` is stable. Let the idle-branch
+        # handle stale displays.
         return None, None
 
     # In-group stage ordering mirrors STAGE_ORDER; compute positions.
@@ -506,11 +513,11 @@ class RunContext:
 
 
 def _group_phase(status: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "fast_sync": status.get("fast_sync") or {},
-        "deep_enrichment": status.get("deep_enrichment") or {},
-        "finalize": status.get("finalize") or {},
-    }
+    # §9.3 second-pass audit: was a hard-coded 3-tuple of group names;
+    # now sourced from the canonical `invariants.GROUPS` so a future
+    # group rename (e.g. fast_sync → sync) only needs to change one place.
+    from tools.phase145_uat.invariants import GROUPS
+    return {g: status.get(g) or {} for g in GROUPS}
 
 
 # §9.3 #17 scrutiny #5 — pre-fix this only treated "running" as in-flight,
@@ -525,6 +532,16 @@ def _group_phase(status: dict[str, Any]) -> dict[str, Any]:
 _NON_RUNNING_PHASES: frozenset[str] = frozenset({
     "idle", "completed", "cancelled", "failed",
 })
+
+
+# §9.3 second-pass audit — phases where `current_stage` is stable enough
+# for per-stage ordering verdicts. `running` (worker actively at stage)
+# and `paused` (worker stopped cleanly at checkpoint) qualify;
+# `pausing`/`cancelling`/`recovering` do NOT because their `current_stage`
+# is mid-transition. Used by `api_stage_verdict` + `_check_disk_consistency`
+# to gate verdict emission without producing false positives.
+# Pinned by `TestVerdictEligiblePhases` in tests/test_phase145_run_session.py.
+_VERDICT_ELIGIBLE_PHASES: frozenset[str] = frozenset({"running", "paused"})
 
 
 def is_any_running(status: dict[str, Any]) -> bool:
@@ -555,7 +572,10 @@ def _check_disk_consistency(
     if not idx_dir.is_dir():
         return
     for group_name, gslot in group_phase.items():
-        if not gslot or gslot.get("phase") != "running":
+        # §9.3 second-pass audit: same gate as api_stage_verdict — only
+        # `running` and `paused` have a stable `stage_results` snapshot
+        # we can compare against disk without race risk.
+        if not gslot or gslot.get("phase") not in _VERDICT_ELIGIBLE_PHASES:
             continue
         results = gslot.get("stage_results") or {}
         for stage_id, state in results.items():
@@ -581,13 +601,24 @@ def _check_group_phase_consistency(
     ctx: "RunContext",
     now: float,
 ) -> None:
-    """Phase 118 extra scrutiny: if a group's API phase is `completed`
-    for this run, no stage row in that group should be DOM-rendered as
+    """Phase 118 extra scrutiny: if a group's API phase is terminal for
+    this run, no stage row in that group should be DOM-rendered as
     `running`. Catches stale-spinner-after-group-finish bugs (the
     F-NEW-4 family).
+
+    §9.3 second-pass audit: pre-fix only fired on `completed`, missing
+    the same bug class for `failed` and `cancelled`. The canonical
+    TERMINAL_STATES at src/prep/services/pipeline/state_machine.py:195-199
+    is {completed, failed, cancelled} — all three carry the same
+    "no work in flight" guarantee against which a still-spinning DOM
+    row is a UI lie.
     """
+    # Canonical TERMINAL_STATES mirror — pinned by
+    # TestHarnessPhaseSetsMatchCanonical.test_canonical_terminal_states_are_subset_of_harness_terminal
+    # (which catches drift in the run_session.py _TERMINAL_PHASES superset).
+    canonical_terminal = {"completed", "failed", "cancelled"}
     for group_name, gslot in group_phase.items():
-        if not gslot or gslot.get("phase") != "completed":
+        if not gslot or gslot.get("phase") not in canonical_terminal:
             continue
         for stage_id, g in STAGE_ORDER:
             if g != group_name:
@@ -778,8 +809,9 @@ def expand_all_groups(page: Page, timeout_ms: int = 3_000) -> int:
     (e.g. dashboard showing the Build Trace hero) by swallowing per-group
     locator exceptions.
     """
+    from tools.phase145_uat.invariants import GROUPS
     expanded = 0
-    for group in ("fast_sync", "deep_enrichment", "finalize"):
+    for group in GROUPS:
         sel = f'[data-testid="pipeline-group-{group}"] button[aria-label="Expand group"]'
         try:
             button = page.locator(sel)
