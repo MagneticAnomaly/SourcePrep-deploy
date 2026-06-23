@@ -144,6 +144,14 @@ export interface GraphEnrichmentPipelineProps {
   fastCurrentStage?: string;
   /** Phase 145 I3: same as fastCurrentStage but for deep_enrichment. */
   deepCurrentStage?: string;
+  /** §9.3 #28/#29: full group phase strings from API /pipeline/status.
+   * When a group transitions to `completed`, current_stage goes null but
+   * per-stage compute fns may still return stale running/idle state.
+   * Passed to i3SafeStageState so the helper can coerce stale state to
+   * 'complete' once the group has authoritatively settled. */
+  fastSyncPhase?: string;
+  deepEnrichmentPhase?: string;
+  finalizePhase?: string;
   /** True while the project is switching and initial data hasn't loaded yet */
   projectLoading?: boolean;
   /** Phase 98: per-group collapse state. Defaults to all collapsed when omitted. */
@@ -1068,6 +1076,9 @@ export function GraphEnrichmentPipeline({
   finalizeCurrentStage: finalizeCurrentStageId,
   fastCurrentStage,
   deepCurrentStage,
+  fastSyncPhase,
+  deepEnrichmentPhase,
+  finalizePhase,
   provenance,
   projectLoading,
   fastCollapsed = true,
@@ -1400,10 +1411,10 @@ export function GraphEnrichmentPipeline({
   // data. Applied at construction so the wasCompleteRef / freeze-green
   // path sees the corrected state too.
   const fastStages: EnrichmentStage[] = [
-    { id: 'structural', label: 'Structural Graph', icon: GitBranch, modelTag: 'Rust', state: i3SafeStageState(promoteForRebuild(structuralState), 'structural', fastCurrentStage), stats: structuralStats },
+    { id: 'structural', label: 'Structural Graph', icon: GitBranch, modelTag: 'Rust', state: i3SafeStageState(promoteForRebuild(structuralState), 'structural', fastCurrentStage, fastSyncPhase), stats: structuralStats },
     {
       id: 'inferred_edges', label: 'Edge Discovery', icon: Code2, modelTag: 'Code',
-      state: i3SafeStageState(promoteForRebuild(inferredEdgesState), 'inferred_edges', fastCurrentStage), stats: inferredEdgesStats,
+      state: i3SafeStageState(promoteForRebuild(inferredEdgesState), 'inferred_edges', fastCurrentStage, fastSyncPhase), stats: inferredEdgesStats,
       progress: inferredEdgesState === 'running' && inferredEdges?.slot_progress?.total
         ? Math.min(100, Math.round((inferredEdges.slot_progress.current / inferredEdges.slot_progress.total) * 100))
         : undefined,
@@ -1411,13 +1422,13 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'catalogue', label: 'Fast Catalogue', icon: Database, modelTag: 'Fast',
-      state: i3SafeStageState(promoteForRebuild(catalogueState), 'catalogue', fastCurrentStage), stats: catalogueStats, progress: catalogueProgress,
+      state: i3SafeStageState(promoteForRebuild(catalogueState), 'catalogue', fastCurrentStage, fastSyncPhase), stats: catalogueStats, progress: catalogueProgress,
       rerun: catalogueState === 'running' ? computeStageRerun(augmentation?.progress_baseline, augmentation?.progress_total) : undefined,
     },
-    { id: 'validation', label: 'Relationship Validation', icon: ShieldCheck, modelTag: 'Rust', state: i3SafeStageState(promoteForRebuild(validationState), 'validation', fastCurrentStage), stats: validationStats },
+    { id: 'validation', label: 'Relationship Validation', icon: ShieldCheck, modelTag: 'Rust', state: i3SafeStageState(promoteForRebuild(validationState), 'validation', fastCurrentStage, fastSyncPhase), stats: validationStats },
     {
       id: 'knowledge', label: 'Knowledge Embedding', icon: Database,
-      state: i3SafeStageState(promoteForRebuild(fastKnowledgeState), 'knowledge', fastCurrentStage), stats: fastKnowledgeStats,
+      state: i3SafeStageState(promoteForRebuild(fastKnowledgeState), 'knowledge', fastCurrentStage, fastSyncPhase), stats: fastKnowledgeStats,
       progress: fastKnowledgeState === 'running'
         ? (knowledge?.progress_total ? Math.min(100, Math.round((knowledge.progress_current ?? 0) / knowledge.progress_total * 100)) : 0)
         : undefined,
@@ -1428,7 +1439,7 @@ export function GraphEnrichmentPipeline({
   const deepStages: EnrichmentStage[] = [
     {
       id: 'enrichment', label: 'Deep Reasoning', icon: Brain, modelTag: 'Thinking',
-      state: i3SafeStageState(promoteForRebuild(enrichmentState), 'enrichment', deepCurrentStage), stats: enrichmentStats,
+      state: i3SafeStageState(promoteForRebuild(enrichmentState), 'enrichment', deepCurrentStage, deepEnrichmentPhase), stats: enrichmentStats,
       progress: (epistemicRunning || epistemic?.running) && epistemic?.progress_total
         ? Math.min(100, Math.round((epistemic.progress_current ?? 0) / epistemic.progress_total * 100))
         : (enrichmentState === 'running' ? 0 : undefined),
@@ -1444,7 +1455,7 @@ export function GraphEnrichmentPipeline({
         if (clusteringState === 'complete' || atlasState === 'complete' || deepeningState === 'complete' || deepeningState === 'stale') return 'complete' as StageState;
         if (groupReasoning?.enabled && groupReasoning?.group_count > 0) return 'complete' as StageState;
         return 'not_built' as StageState;
-      })()), 'group_reasoning', deepCurrentStage),
+      })()), 'group_reasoning', deepCurrentStage, deepEnrichmentPhase),
       stats: (() => {
         if (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'Analyzing groups...';
         if (!epistemic?.enabled || !epistemic?.enriched_nodes) return 'Waiting for enrichment';
@@ -1468,14 +1479,14 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'clustering', label: 'Module Synthesis', icon: Layers, modelTag: 'Thinking',
-      state: i3SafeStageState(promoteForRebuild(clusteringState), 'clustering', deepCurrentStage), stats: clusteringStats,
+      state: i3SafeStageState(promoteForRebuild(clusteringState), 'clustering', deepCurrentStage, deepEnrichmentPhase), stats: clusteringStats,
       progress: (clusterRunning || modules?.running) && modules?.progress_total
         ? Math.min(100, Math.round((modules.progress_current ?? 0) / modules.progress_total * 100))
         : (clusteringState === 'running' ? 0 : undefined),
       rerun: clusteringState === 'running' ? computeStageRerun(modules?.progress_baseline, modules?.progress_total) : undefined,
     },
     { id: 'deepening', label: 'Continuous Deepening', icon: Network,
-      state: i3SafeStageState(promoteForRebuild(deepeningState), 'deepening', deepCurrentStage), stats: deepeningStats,
+      state: i3SafeStageState(promoteForRebuild(deepeningState), 'deepening', deepCurrentStage, deepEnrichmentPhase), stats: deepeningStats,
       progress: deepeningState === 'running' ? (deepeningProgress ?? 0) : undefined,
       rerun: deepeningState === 'running'
         ? computeStageRerun(deepening?.progress_baseline, deepening?.progress_total)
@@ -1483,7 +1494,7 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'deep_knowledge', label: 'Deep Knowledge Embedding', icon: Database,
-      state: i3SafeStageState(promoteForRebuild(deepKnowledgeState), 'deep_knowledge', deepCurrentStage), stats: deepKnowledgeStats,
+      state: i3SafeStageState(promoteForRebuild(deepKnowledgeState), 'deep_knowledge', deepCurrentStage, deepEnrichmentPhase), stats: deepKnowledgeStats,
       progress: deepKnowledgeState === 'running'
         ? (deepKnowledgeSource?.progress_total ? Math.min(100, Math.round((deepKnowledgeSource.progress_current ?? 0) / deepKnowledgeSource.progress_total * 100)) : 0)
         : undefined,
@@ -1549,7 +1560,7 @@ export function GraphEnrichmentPipeline({
 
   const finalizeStages: EnrichmentStage[] = [
     { id: 'atlas', label: 'Atlas Building', icon: Map, modelTag: 'Thinking',
-      state: i3SafeStageState(promoteForRebuild(finStageState('atlas', atlasDone)), 'atlas', finalizeCurrentStageId),
+      state: i3SafeStageState(promoteForRebuild(finStageState('atlas', atlasDone)), 'atlas', finalizeCurrentStageId, finalizePhase),
       stats: atlasStats,
       progress: finStageState('atlas', atlasDone) === 'running' ? finalizePercent(effectiveAtlas) : undefined,
       rerun: finStageState('atlas', atlasDone) === 'running'
@@ -1558,7 +1569,7 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'rules', label: 'Rules Generation', icon: FileText, modelTag: 'CPU',
-      state: i3SafeStageState(promoteForRebuild(finStageState('rules', rulesDone)), 'rules', finalizeCurrentStageId),
+      state: i3SafeStageState(promoteForRebuild(finStageState('rules', rulesDone)), 'rules', finalizeCurrentStageId, finalizePhase),
       stats: effectiveRulesStatus?.generated ? 'Generated' : finStageState('rules', false) === 'running' ? 'Generating...' : 'Not run',
       progress: finStageState('rules', rulesDone) === 'running' ? finalizePercent(effectiveRulesStatus) : undefined,
       rerun: finStageState('rules', rulesDone) === 'running'
@@ -1567,7 +1578,7 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'concepts', label: 'Concept Seeding', icon: Lightbulb, modelTag: 'Thinking',
-      state: i3SafeStageState(promoteForRebuild(finStageState('concepts', !!effectiveConceptsStatus?.seeded)), 'concepts', finalizeCurrentStageId),
+      state: i3SafeStageState(promoteForRebuild(finStageState('concepts', !!effectiveConceptsStatus?.seeded)), 'concepts', finalizeCurrentStageId, finalizePhase),
       stats: effectiveConceptsStatus?.seeded ? `${effectiveConceptsStatus.count} concepts` : finStageState('concepts', false) === 'running' ? 'Seeding...' : 'Not run',
       progress: finStageState('concepts', !!effectiveConceptsStatus?.seeded) === 'running' ? finalizePercent(effectiveConceptsStatus) : undefined,
       rerun: finStageState('concepts', !!effectiveConceptsStatus?.seeded) === 'running'
@@ -1576,7 +1587,7 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'audit', label: 'Structural Audit', icon: ClipboardCheck, modelTag: 'Thinking',
-      state: i3SafeStageState(promoteForRebuild(finStageState('audit', !!effectiveAuditPipelineStatus?.exists)), 'audit', finalizeCurrentStageId),
+      state: i3SafeStageState(promoteForRebuild(finStageState('audit', !!effectiveAuditPipelineStatus?.exists)), 'audit', finalizeCurrentStageId, finalizePhase),
       stats: effectiveAuditPipelineStatus?.exists ? `${effectiveAuditPipelineStatus.finding_count} findings` : finStageState('audit', false) === 'running' ? 'Auditing...' : 'Not run',
       progress: finStageState('audit', !!effectiveAuditPipelineStatus?.exists) === 'running' ? finalizePercent(effectiveAuditPipelineStatus) : undefined,
       rerun: finStageState('audit', !!effectiveAuditPipelineStatus?.exists) === 'running'
@@ -1585,7 +1596,7 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'antibodies', label: 'Immune System', icon: Shield, modelTag: 'CPU',
-      state: i3SafeStageState(promoteForRebuild(finStageState('antibodies', !!(effectiveAntibodiesStatus?.count))), 'antibodies', finalizeCurrentStageId),
+      state: i3SafeStageState(promoteForRebuild(finStageState('antibodies', !!(effectiveAntibodiesStatus?.count))), 'antibodies', finalizeCurrentStageId, finalizePhase),
       stats: effectiveAntibodiesStatus?.count ? `${effectiveAntibodiesStatus.count} antibodies` : finStageState('antibodies', false) === 'running' ? 'Deriving...' : 'Not run',
       progress: finStageState('antibodies', !!(effectiveAntibodiesStatus?.count)) === 'running' ? finalizePercent(effectiveAntibodiesStatus) : undefined,
       rerun: finStageState('antibodies', !!(effectiveAntibodiesStatus?.count)) === 'running'

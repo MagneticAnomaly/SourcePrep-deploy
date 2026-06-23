@@ -57,6 +57,17 @@ export interface EnrichmentState {
   // passed" from "downstream stages it hasn't reached yet" (stale leak).
   fastCurrentStage: string | undefined
   deepCurrentStage: string | undefined
+  // §9.3 #28/#29: full group phase string (running | completed | failed |
+  // cancelled | idle | queued | paused | pausing | recovering | cancelling)
+  // mirrored from API /pipeline/status so the rebuild freeze-green helper
+  // can coerce stale per-stage running/idle state to 'complete' once the
+  // group has settled into the `completed` phase. Without this, current_stage
+  // goes to undefined when the group completes but the per-stage compute
+  // fns may still return a pre-completion stale value (Deep Reasoning
+  // 100%-but-spinning was the live evidence).
+  fastSyncPhase: string | undefined
+  deepEnrichmentPhase: string | undefined
+  finalizePhase: string | undefined
   // Finalize stage statuses (Phase 96)
   rulesStatus?: RulesStatus
   conceptsStatus?: ConceptsStatus
@@ -94,6 +105,9 @@ export const initialEnrichmentState: EnrichmentState = {
   finalizeCurrentStage: undefined,
   fastCurrentStage: undefined,
   deepCurrentStage: undefined,
+  fastSyncPhase: undefined,
+  deepEnrichmentPhase: undefined,
+  finalizePhase: undefined,
   fastPausedStage: undefined,
   deepPausedStage: undefined,
   finalizePausedStage: undefined,
@@ -117,7 +131,7 @@ export type EnrichmentAction =
   // Sync all running flags at once (from SSE or initial hydration). Phase
   // 145 I3 added fastCurrentStage/deepCurrentStage so the rebuild freeze-
   // green helper has a per-group anchor for "downstream of current".
-  | { type: 'SYNC_RUNNING'; inferredEdgesRunning: boolean; augmenting: boolean; validating: boolean; epistemicRunning: boolean; groupReasoningRunning: boolean; clusterRunning: boolean; atlasRunning: boolean; deepeningRunning: boolean; fastKnowledgeBuilding: boolean; deepKnowledgeBuilding: boolean; fastCurrentStage?: string; deepCurrentStage?: string }
+  | { type: 'SYNC_RUNNING'; inferredEdgesRunning: boolean; augmenting: boolean; validating: boolean; epistemicRunning: boolean; groupReasoningRunning: boolean; clusterRunning: boolean; atlasRunning: boolean; deepeningRunning: boolean; fastKnowledgeBuilding: boolean; deepKnowledgeBuilding: boolean; fastCurrentStage?: string; deepCurrentStage?: string; fastSyncPhase?: string; deepEnrichmentPhase?: string; finalizePhase?: string }
   // Sync paused flags (from pipeline phase: paused | pausing | legacy failed)
   | { type: 'SYNC_PAUSED'; fastPaused: boolean; deepPaused: boolean; finalizePaused: boolean; fastPausedStage?: string; deepPausedStage?: string; finalizePausedStage?: string }
   // Manual stage start (optimistic UI feedback)
@@ -196,6 +210,9 @@ export function enrichmentReducer(state: EnrichmentState, action: EnrichmentActi
         deepKnowledgeBuilding: action.deepKnowledgeBuilding,
         fastCurrentStage: action.fastCurrentStage,
         deepCurrentStage: action.deepCurrentStage,
+        fastSyncPhase: action.fastSyncPhase,
+        deepEnrichmentPhase: action.deepEnrichmentPhase,
+        finalizePhase: action.finalizePhase,
       }
 
     case 'SYNC_PAUSED':

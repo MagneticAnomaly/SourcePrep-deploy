@@ -109,6 +109,12 @@ function _hydratePipelineStatus(
     // freeze-green decision (see freezeGreen.ts).
     fastCurrentStage: fastActive ? ps.fast_sync?.current_stage : undefined,
     deepCurrentStage: deepActive ? ps.deep_enrichment?.current_stage : undefined,
+    // §9.3 #28/#29: full group phase strings (unconditional — needed
+    // specifically when phase === 'completed' to coerce stale per-stage
+    // state to 'complete' in i3SafeStageState).
+    fastSyncPhase: ps.fast_sync?.phase ?? undefined,
+    deepEnrichmentPhase: ps.deep_enrichment?.phase ?? undefined,
+    finalizePhase: ps.finalize?.phase ?? undefined,
   })
   if (ps.stages?.inferred_edges) {
     dispatch({ type: 'INFERRED_EDGES_STATUS', payload: ps.stages.inferred_edges })
@@ -273,6 +279,10 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
         // Phase 145 I3 anchors.
         fastCurrentStage: fastActivePoll ? fastStage : undefined,
         deepCurrentStage: deepActivePoll ? deepStage : undefined,
+        // §9.3 #28/#29: unconditional phase strings.
+        fastSyncPhase: ps.fast_sync?.phase ?? undefined,
+        deepEnrichmentPhase: ps.deep_enrichment?.phase ?? undefined,
+        finalizePhase: ps.finalize?.phase ?? undefined,
       })
 
       // Finalize group running — poll path previously didn't dispatch this.
@@ -641,6 +651,10 @@ export function useEnrichment(selectedProjectId: string | null, deps: UseEnrichm
       // Phase 145 I3 anchors.
       fastCurrentStage: fastActive ? fast?.current_stage : undefined,
       deepCurrentStage: deepActive ? deep?.current_stage : undefined,
+      // §9.3 #28/#29: unconditional phase strings (SSE source).
+      fastSyncPhase: fast?.phase ?? undefined,
+      deepEnrichmentPhase: deep?.phase ?? undefined,
+      finalizePhase: pipelineEvent.finalize?.phase ?? undefined,
     })
 
     // Sync paused flags — check 'paused' (state machine), 'pausing'

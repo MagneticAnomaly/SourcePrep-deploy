@@ -218,6 +218,14 @@ export interface PanelEnrichmentProps {
    * (do NOT freeze green) from already-passed stages (preserve green). */
   fastCurrentStage?: string
   deepCurrentStage?: string
+  /** §9.3 #28/#29: full group phase strings. When a group transitions to
+   * `completed`, current_stage goes null but per-stage compute fns may
+   * still return stale running/idle state. The phase string lets
+   * i3SafeStageState coerce stale state to 'complete' once the group
+   * is authoritatively done. */
+  fastSyncPhase?: string
+  deepEnrichmentPhase?: string
+  finalizePhase?: string
   rulesStatus?: RulesStatus
   conceptsStatus?: ConceptsStatus
   auditPipelineStatus?: AuditPipelineStatus
@@ -1127,6 +1135,9 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
           finalizeCurrentStage={p.finalizeCurrentStage}
           fastCurrentStage={p.fastCurrentStage}
           deepCurrentStage={p.deepCurrentStage}
+          fastSyncPhase={p.fastSyncPhase}
+          deepEnrichmentPhase={p.deepEnrichmentPhase}
+          finalizePhase={p.finalizePhase}
           rulesStatus={p.rulesStatus}
           conceptsStatus={p.conceptsStatus}
           auditPipelineStatus={p.auditPipelineStatus}

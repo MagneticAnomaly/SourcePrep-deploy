@@ -27,6 +27,8 @@ from tools.phase145_uat.invariants import (
     I2_running_row_has_no_stale_chip,
     I3_downstream_not_complete,
     I13_current_stage_decoration_exists,
+    I14_no_not_run_text_against_completed_stage,
+    I15_no_percent_chip_exceeds_100,
     run_all,
 )
 
@@ -63,11 +65,15 @@ def _row(
     current: bool = False,
     current_hidden: bool = False,
     last_run_chip: bool = False,
+    secondary_text: str = "",
 ) -> str:
     """Render one mock stage row matching the dashboard's selector contract.
 
     ``current_hidden=True`` renders the indicator inside a display:none span —
     used to exercise the offsetParent visibility check in _scrape_rows.
+
+    ``secondary_text`` lands inside the row as plain text — used by I14/I15
+    tests to exercise the row's text/percent_values scrape path.
     """
     if current_hidden:
         deco = '<span style="display:none"><span data-testid="current-stage-indicator">●</span></span>'
@@ -80,10 +86,11 @@ def _row(
         if last_run_chip
         else ""
     )
+    body = f"<span>{secondary_text}</span>" if secondary_text else ""
     return (
         f'<div data-testid="pipeline-stage-row-{stage_id}" '
         f'data-stage-id="{stage_id}" data-stage-state="{state}">'
-        f"{deco}{chip}"
+        f"{deco}{chip}{body}"
         f"</div>"
     )
 
@@ -651,7 +658,7 @@ def test_run_all_returns_one_result_per_invariant(page: Page) -> None:
     api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
     results = run_all(page, api)
     assert len(results) == len(ALL_INVARIANTS)
-    assert {r.invariant_id for r in results} == {"I1", "I2", "I3", "I13"}
+    assert {r.invariant_id for r in results} == {"I1", "I2", "I3", "I13", "I14", "I15"}
 
 
 def test_run_all_against_clean_idle_state_all_pass(page: Page) -> None:
@@ -681,11 +688,14 @@ def test_run_all_returns_partial_failures(page: Page) -> None:
     )
     api = {"fast_sync": {"phase": "running", "current_stage": "structural"}}
     results = {r.invariant_id: r for r in run_all(page, api)}
-    assert set(results) == {"I1", "I2", "I3", "I13"}
+    assert set(results) == {"I1", "I2", "I3", "I13", "I14", "I15"}
     assert not results["I1"].passed
     assert results["I2"].passed  # no chip → I2 N/A
     assert not results["I3"].passed
     assert not results["I13"].passed  # neither row has indicator
+    # I14/I15 N/A on this DOM (no "Not run" text, no >100% chips).
+    assert results["I14"].passed
+    assert results["I15"].passed
 
 
 def test_to_json_round_trip(page: Page) -> None:
@@ -863,3 +873,227 @@ def test_persistence_gate_evidence_sort_stability() -> None:
     assert _should_emit_invariant_failure(
         "I3", ev_beta, pending=pending, last_emitted=emitted
     )
+
+
+# ── I14: no "Not run" text against completed stage_results (§9.3 #30) ──
+
+
+def _api_with_stage_results(group: str, results: dict[str, str]) -> dict:
+    """Build an API status dict where one group reports completed
+    stage_results — used by I14 tests to assert the failure is detected.
+    """
+    return {
+        "fast_sync": None,
+        "deep_enrichment": (
+            {"phase": "completed", "current_stage": None, "stage_results": results}
+            if group == "deep_enrichment"
+            else None
+        ),
+        "finalize": (
+            {"phase": "completed", "current_stage": None, "stage_results": results}
+            if group == "finalize"
+            else None
+        ),
+    }
+
+
+def test_I14_fires_on_not_run_text_against_completed_stage(page: Page) -> None:
+    """The §9.3 #30 row class — Deep Knowledge Embedding renders the
+    literal text "Not run" while deep_enrichment.stage_results.
+    deep_knowledge == "completed". This is the headline failure pattern
+    I14 was added to catch.
+    """
+    page.set_content(
+        _html(
+            _row("enrichment", "complete", secondary_text="2,102 / 2,102 files"),
+            _row("group_reasoning", "complete", secondary_text="156 groups analyzed"),
+            _row("clustering", "complete", secondary_text="918 modules · 918 files"),
+            _row("deepening", "complete", secondary_text="100% settled · avg 87%"),
+            _row("deep_knowledge", "idle", secondary_text="Not run"),  # bug
+        )
+    )
+    api = _api_with_stage_results("deep_enrichment", {
+        "enrichment": "completed",
+        "group_reasoning": "completed",
+        "clustering": "completed",
+        "deepening": "completed",
+        "deep_knowledge": "completed",
+    })
+    r = I14_no_not_run_text_against_completed_stage(page, api)
+    assert not r.passed
+    assert len(r.evidence["failures"]) == 1
+    f = r.evidence["failures"][0]
+    assert f["stage_id"] == "deep_knowledge"
+    assert f["api_stage_result"] == "completed"
+    assert f["matched_marker"] == "Not run"
+
+
+def test_I14_passes_when_stage_results_empty(page: Page) -> None:
+    """If the API hasn't reported stage_results yet (e.g. group never
+    completed in this run), I14 must short-circuit clean — there's no
+    authoritative claim of completion to contradict, so "Not run" text
+    is legitimate.
+    """
+    page.set_content(_html(_row("deep_knowledge", "idle", secondary_text="Not run")))
+    api = _idle_api()
+    r = I14_no_not_run_text_against_completed_stage(page, api)
+    assert r.passed
+    assert r.evidence == {}
+
+
+def test_I14_passes_when_status_not_completed(page: Page) -> None:
+    """If the API status for the stage is anything other than
+    "completed" (e.g. "failed", "skipped"), the "Not run" text isn't
+    contradicted — fail only on the completed vs. Not-run mismatch.
+    """
+    page.set_content(_html(_row("deep_knowledge", "failed", secondary_text="Not run")))
+    api = _api_with_stage_results("deep_enrichment", {"deep_knowledge": "failed"})
+    r = I14_no_not_run_text_against_completed_stage(page, api)
+    assert r.passed
+
+
+def test_I14_passes_when_row_text_does_not_contain_marker(page: Page) -> None:
+    """A completed stage that renders WITHOUT the "Not run" fallback
+    text (e.g. shows "Done · 1024 chunks") passes. I14 only fires on
+    the specific text-vs-status mismatch.
+    """
+    page.set_content(_html(
+        _row("deep_knowledge", "complete", secondary_text="Done · 1024 chunks")
+    ))
+    api = _api_with_stage_results("deep_enrichment", {"deep_knowledge": "completed"})
+    r = I14_no_not_run_text_against_completed_stage(page, api)
+    assert r.passed
+
+
+def test_I14_passes_when_stage_id_has_no_api_entry(page: Page) -> None:
+    """A stage row whose stage_id is absent from API stage_results
+    (e.g. a different group) is not in scope for I14 — only contradicts
+    when the API authoritatively claims the same stage is completed.
+    """
+    page.set_content(_html(_row("atlas", "idle", secondary_text="Not run")))
+    api = _api_with_stage_results("deep_enrichment", {
+        "deep_knowledge": "completed",  # different stage
+    })
+    r = I14_no_not_run_text_against_completed_stage(page, api)
+    assert r.passed
+
+
+def test_I14_matches_substring_not_word_boundary(page: Page) -> None:
+    """Marker match is substring-based. "Not run yet" still contains
+    "Not run" and must fire. The opposite — "Cannot run" — must NOT
+    fire (different leading word, no marker). Pin both.
+    """
+    page.set_content(_html(
+        _row("deep_knowledge", "idle", secondary_text="Not run yet"),
+    ))
+    api = _api_with_stage_results("deep_enrichment", {"deep_knowledge": "completed"})
+    r = I14_no_not_run_text_against_completed_stage(page, api)
+    assert not r.passed
+
+    page.set_content(_html(
+        _row("deep_knowledge", "idle", secondary_text="Cannot run yet"),
+    ))
+    r2 = I14_no_not_run_text_against_completed_stage(page, api)
+    assert r2.passed
+
+
+# ── I15: percent chip ≤ 100% (§9.3 #31) ──────────────────────────
+
+
+def test_I15_fires_on_5501_percent_coverage(page: Page) -> None:
+    """The §9.3 #31 case verbatim — Fast Catalogue chip shows 5501%
+    coverage (augmented_nodes=7812 / total_nodes=142 × 100 = 5501.4).
+    """
+    page.set_content(_html(
+        _row("catalogue", "complete", secondary_text="5501% coverage · 98% conf"),
+    ))
+    api = _idle_api()  # I15 doesn't depend on API state — pure DOM check
+    r = I15_no_percent_chip_exceeds_100(page, api)
+    assert not r.passed
+    failures = r.evidence["failures"]
+    # 5501 fires once; 98 stays under the ceiling.
+    assert len(failures) == 1
+    assert failures[0]["stage_id"] == "catalogue"
+    assert failures[0]["percent_value"] == 5501.0
+
+
+def test_I15_passes_on_legitimate_progress_percentages(page: Page) -> None:
+    """100% (exact ceiling), 87%, 0% — all legitimate. I15 must not
+    fire false positives on the panel's normal progress + settle chips.
+    """
+    page.set_content(_html(
+        _row("enrichment", "complete", secondary_text="100%"),
+        _row("deepening", "complete", secondary_text="100% settled · avg 87%"),
+        _row("catalogue", "complete", secondary_text="55% coverage · 98% conf"),
+        _row("atlas", "pending", secondary_text="0%"),
+    ))
+    api = _idle_api()
+    r = I15_no_percent_chip_exceeds_100(page, api)
+    assert r.passed
+
+
+def test_I15_fires_once_per_out_of_range_value(page: Page) -> None:
+    """A single row with TWO out-of-range chips (e.g. 200% and 150%)
+    must record both as separate failures so the reviewer sees the
+    full scope of the bug, not just the first hit.
+    """
+    page.set_content(_html(
+        _row("catalogue", "complete", secondary_text="200% coverage · 150% conf"),
+    ))
+    api = _idle_api()
+    r = I15_no_percent_chip_exceeds_100(page, api)
+    assert not r.passed
+    failures = r.evidence["failures"]
+    assert len(failures) == 2
+    vals = sorted(f["percent_value"] for f in failures)
+    assert vals == [150.0, 200.0]
+
+
+def test_I15_passes_when_row_has_no_percent_chips(page: Page) -> None:
+    """A row with no `%` token at all (e.g. only "1024 chunks
+    embedded") must contribute zero failures — no chip to assert
+    against.
+    """
+    page.set_content(_html(
+        _row("knowledge", "complete", secondary_text="1024 chunks embedded"),
+    ))
+    api = _idle_api()
+    r = I15_no_percent_chip_exceeds_100(page, api)
+    assert r.passed
+
+
+def test_I15_treats_100_exact_as_pass(page: Page) -> None:
+    """Boundary: exactly 100% is fine (a stage at full progress). The
+    ceiling is a > comparison, not >=, so legitimate 100% chips don't
+    fire.
+    """
+    page.set_content(_html(_row("enrichment", "complete", secondary_text="100%")))
+    api = _idle_api()
+    r = I15_no_percent_chip_exceeds_100(page, api)
+    assert r.passed
+
+
+def test_I15_treats_100_01_as_failure(page: Page) -> None:
+    """Boundary other side: a fractional overshoot like 100.01%
+    indicates a chip-format bug and must fire. Catches near-100
+    progress overshoot (§2j class) when it's reported as a percentage.
+    """
+    page.set_content(_html(_row("enrichment", "complete", secondary_text="100.01%")))
+    api = _idle_api()
+    r = I15_no_percent_chip_exceeds_100(page, api)
+    assert not r.passed
+    assert r.evidence["failures"][0]["percent_value"] == 100.01
+
+
+# ── Registry includes the new invariants ─────────────────────────
+
+
+def test_all_invariants_registry_includes_i14_and_i15() -> None:
+    """ALL_INVARIANTS is what watch_until_idle iterates per poll. If a
+    new invariant is added without updating the tuple, it never runs
+    against live data. Pin the registry.
+    """
+    names = {fn.__name__ for fn in ALL_INVARIANTS}
+    assert "I14_no_not_run_text_against_completed_stage" in names
+    assert "I15_no_percent_chip_exceeds_100" in names
+    assert len(ALL_INVARIANTS) == 6  # I1, I2, I3, I13, I14, I15

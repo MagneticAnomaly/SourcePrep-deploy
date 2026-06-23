@@ -348,5 +348,55 @@ describe('freezeGreen helpers', () => {
       expect(i3SafeStageState('complete', 'deepening', 'enrichment')).toBe('not_built');
       expect(i3SafeStageState('complete', 'deep_knowledge', 'enrichment')).toBe('not_built');
     });
+
+    // ── §9.3 #28/#29 — groupPhase='completed' coercion ────────────
+
+    it('coerces running to complete when groupPhase is completed', () => {
+      // §9.3 #28 — Deep Reasoning shows blue icon + spinner + 100% bar
+      // (state='running') while API reports deep_enrichment.phase=completed.
+      // The coercion turns the stale running render into a clean done row.
+      expect(i3SafeStageState('running', 'enrichment', undefined, 'completed')).toBe('complete');
+    });
+
+    it('coerces idle/not_built to complete when groupPhase is completed', () => {
+      // §9.3 #29 — Group Reasoning / Module Synthesis / Continuous Deepening
+      // render as empty circle (state='idle' / 'not_built') despite carrying
+      // real analyzed counts and the API reporting phase=completed.
+      // Coercion forces the green chip on every stage in the completed group.
+      expect(i3SafeStageState('idle', 'group_reasoning', undefined, 'completed')).toBe('complete');
+      expect(i3SafeStageState('not_built', 'clustering', undefined, 'completed')).toBe('complete');
+      expect(i3SafeStageState('queued', 'deepening', undefined, 'completed')).toBe('complete');
+    });
+
+    it('does NOT coerce when groupPhase is cancelled or failed', () => {
+      // Cancel-mid-stage and stage-failure leave a mix of finished +
+      // unfinished rows. The per-stage compute fns model this correctly;
+      // a blanket coercion would lie about which stages actually ran.
+      expect(i3SafeStageState('running', 'enrichment', 'enrichment', 'cancelled')).toBe('running');
+      expect(i3SafeStageState('not_built', 'clustering', 'enrichment', 'failed')).toBe('not_built');
+    });
+
+    it('does NOT coerce when groupPhase is running or paused', () => {
+      // Active phases must let the existing downstream-stale logic apply,
+      // not bypass it via the completed-coercion shortcut.
+      expect(i3SafeStageState('not_built', 'clustering', 'enrichment', 'running')).toBe('not_built');
+      expect(i3SafeStageState('complete', 'clustering', 'enrichment', 'paused')).toBe('not_built');
+    });
+
+    it('groupPhase=completed takes precedence over an undefined groupCurrentStage', () => {
+      // The previous code path early-returned computedState when
+      // groupCurrentStage was undefined. With the new coercion, completed
+      // wins regardless of whether the anchor is present.
+      // Pre-fix: would have returned 'running' (stale).
+      // Post-fix: returns 'complete'.
+      expect(i3SafeStageState('running', 'deepening', undefined, 'completed')).toBe('complete');
+    });
+
+    it('groupPhase=undefined preserves existing behavior (backwards compat)', () => {
+      // Callers that pre-date the new param keep working identically.
+      expect(i3SafeStageState('complete', 'rules', undefined, undefined)).toBe('complete');
+      expect(i3SafeStageState('running', 'rules', 'atlas', undefined)).toBe('running');
+      expect(i3SafeStageState('complete', 'knowledge', 'augment', undefined)).toBe('not_built');
+    });
   });
 });

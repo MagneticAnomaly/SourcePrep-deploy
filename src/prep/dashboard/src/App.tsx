@@ -417,6 +417,10 @@ function App() {
     // Phase 145 I3: anchors for the rebuild freeze-green helper.
     fastCurrentStage,
     deepCurrentStage,
+    // §9.3 #28/#29: full group phase strings for completed-coercion.
+    fastSyncPhase,
+    deepEnrichmentPhase,
+    finalizePhase,
     handleRunAugmentation, handleRunEpistemic, handleRunModuleSynthesis,
     handleRunDeepening, handleRunKnowledgeBuild,
     handleRunDeepEnrichment,
@@ -996,6 +1000,9 @@ function App() {
       finalizeCurrentStage,
       fastCurrentStage,
       deepCurrentStage,
+      fastSyncPhase,
+      deepEnrichmentPhase,
+      finalizePhase,
       refreshStageDataFromPipeline,
       // Phase 117: scoped rebuild + stop handlers
       triggerRebuild,

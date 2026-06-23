@@ -160,7 +160,22 @@ export function i3SafeStageState(
   computedState: StageState,
   stageId: string,
   groupCurrentStage: string | undefined,
+  groupPhase?: string,
 ): StageState {
+  // §9.3 #28/#29 — when the group's API phase is `completed`, every stage
+  // in that group has by definition finished. Any pre-computed running /
+  // pending / not_built / idle state is stale from an earlier poll tick
+  // where the group was still in flight; coerce to 'complete' so the row
+  // renders the done chip instead of a spinner-or-blank lie.
+  //
+  // `cancelled` and `failed` are intentionally NOT coerced — cancel-mid-
+  // stage and stage-failure leave a mix of finished + unfinished rows
+  // that the per-stage compute fns model correctly.
+  //
+  // Backwards compatible: callers that pre-date this param pass undefined
+  // and behavior is unchanged.
+  if (groupPhase === 'completed') return 'complete';
+
   if (!groupCurrentStage) return computedState;
   // Only override the three states the harness's I3 invariant treats as
   // 'complete' (see tools/phase145_uat/constants.py DOM_STATE_TO_CANON).

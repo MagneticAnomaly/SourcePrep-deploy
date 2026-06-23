@@ -44,6 +44,8 @@ Findings each invariant targets (per PROPOSAL §3 table + 2026-06-22 review):
     I2  → defensive (NOT bug-derived — see I2 docstring)
     I3  → §2r (intra-group stale-state-leak only; see I3 docstring + §9.1)
     I13 → §2u §6.2 (refresh wipes the current-stage decoration)
+    I14 → §9.3 #30 (literal "Not run" text against completed stage_results)
+    I15 → §9.3 #31 (percent chip exceeds 100% — Fast Catalogue 5501% class)
 
 Known gaps NOT covered by I1/I2/I3/I13 — track in PROPOSAL §9.1:
     - I3 CROSS-GROUP stale leak: if deep_enrichment is running while
@@ -122,7 +124,10 @@ class InvariantResult:
 def _scrape_rows(page: Page) -> list[dict[str, Any]]:
     """One page.evaluate per call; returns one record per pipeline-stage-row.
 
-    Each record: {stage_id, state, has_last_run_chip, has_current_stage_indicator}.
+    Each record: {
+        stage_id, state, has_last_run_chip, has_current_stage_indicator,
+        text, percent_values
+    }.
     Rows absent from the DOM are absent from the list (NOT returned as a stub)
     so callers can distinguish "row not rendered" from "row rendered with empty state."
 
@@ -130,16 +135,33 @@ def _scrape_rows(page: Page) -> list[dict[str, Any]]:
     offsetParent !== null to reject display:none nodes. A node hidden via
     visibility:hidden or opacity:0 still counts as present — if those become
     a known false-pass pattern, tighten with getComputedStyle.
+
+    `text` is the row's flattened innerText with whitespace collapsed — used by
+    I14 to detect literal "Not run" against an API-completed stage.
+
+    `percent_values` is every `N%` or `N.N%` token parsed from `text` as a
+    float — used by I15 to fire on chips that exceed 100% (Fast Catalogue's
+    5501% / §9.3 #31 class). Empty list when the row has no `%` characters.
     """
     raw = page.evaluate(
         """
         () => {
             const visible = el => !!el && el.offsetParent !== null;
             const rows = document.querySelectorAll('[data-testid^="pipeline-stage-row-"]');
+            const PERCENT_RE = /(\\d+(?:\\.\\d+)?)\\s*%/g;
             const out = [];
             rows.forEach(row => {
                 const id = row.getAttribute('data-stage-id');
                 if (!id) return;
+                const raw_text = (row.innerText || row.textContent || '');
+                const text = raw_text.replace(/\\s+/g, ' ').trim();
+                const percent_values = [];
+                let m;
+                PERCENT_RE.lastIndex = 0;
+                while ((m = PERCENT_RE.exec(text)) !== null) {
+                    const val = parseFloat(m[1]);
+                    if (!isNaN(val)) percent_values.push(val);
+                }
                 out.push({
                     stage_id: id,
                     state: row.getAttribute('data-stage-state') || '',
@@ -147,6 +169,8 @@ def _scrape_rows(page: Page) -> list[dict[str, Any]]:
                         visible(row.querySelector('[data-testid="last-run-chip"]')),
                     has_current_stage_indicator:
                         visible(row.querySelector('[data-testid="current-stage-indicator"]')),
+                    text: text,
+                    percent_values: percent_values,
                 });
             });
             return out;
@@ -382,6 +406,132 @@ def I13_current_stage_decoration_exists(page: Page, api: dict[str, Any]) -> Inva
     )
 
 
+# ── I14 ───────────────────────────────────────────────────────────
+
+
+# Literal text the dashboard renders for a stage that has never run. If the
+# API authoritatively says the stage completed (stage_results entry exists
+# AND == "completed"), this text is a stale UI render — exactly the §9.3 #30
+# Deep Knowledge Embedding case from FINDING_dashboard-stale-deep-enrichment-
+# after-completion.md. Conservative: case-sensitive match, only fires on the
+# exact rendered fallback text. Subset matches (e.g. "Not running") are
+# intentionally NOT matched here — they'd be a different bug class.
+_NOT_RUN_TEXT_MARKERS: tuple[str, ...] = ("Not run",)
+
+
+def _flat_stage_results(api: dict[str, Any]) -> dict[str, str]:
+    """Flatten {group: {stage_results: {stage_id: status}}} → {stage_id: status}.
+
+    Stage names are unique across the 15-stage pipeline so the flattening is
+    safe. Groups missing the `stage_results` key contribute nothing. Non-string
+    status values are skipped (defensive — API contract is string).
+    """
+    out: dict[str, str] = {}
+    for g in GROUPS:
+        slot = api.get(g) or {}
+        results = slot.get("stage_results") or {}
+        if not isinstance(results, dict):
+            continue
+        for sid, status in results.items():
+            if isinstance(status, str):
+                out[sid] = status
+    return out
+
+
+def I14_no_not_run_text_against_completed_stage(
+    page: Page, api: dict[str, Any]
+) -> InvariantResult:
+    """No stage row may render the literal text "Not run" while the API's
+    `stage_results` entry for that stage is "completed".
+
+    Targets the §9.3 #30 class — Deep Knowledge Embedding showed "Not run"
+    in the dashboard while `deep_enrichment.stage_results.deep_knowledge =
+    "completed"`. The fallback text path in the stage card was being
+    rendered without first consulting the group's `stage_results` map.
+
+    Stateless predicate over (row text, stage_results map). Fires on any
+    row where both conditions hold; quiet on rows where:
+      - the API has no stage_results entry (stage never ran)
+      - the API status is anything other than "completed"
+      - the row's text doesn't contain the "Not run" marker
+
+    If stage_results is empty (e.g. group never reached completion), the
+    invariant short-circuits without false positives — there's no
+    authoritative claim of completion to contradict.
+    """
+    label = "no row says 'Not run' against an API-completed stage_results entry"
+    stage_results = _flat_stage_results(api)
+    if not stage_results:
+        return InvariantResult("I14", label, True, {})
+    failures = []
+    for row in _scrape_rows(page):
+        sid = row["stage_id"]
+        status = stage_results.get(sid)
+        if status != "completed":
+            continue
+        text = row.get("text", "") or ""
+        hit = next((m for m in _NOT_RUN_TEXT_MARKERS if m in text), None)
+        if hit:
+            failures.append({
+                "stage_id": sid,
+                "api_stage_result": status,
+                "row_state": row["state"],
+                "matched_marker": hit,
+                "row_text_excerpt": text[:200],
+            })
+    return InvariantResult(
+        "I14", label, not failures, {"failures": failures} if failures else {}
+    )
+
+
+# ── I15 ───────────────────────────────────────────────────────────
+
+
+# Sanity ceiling for any percentage chip rendered inside a stage row. Catches
+# Fast Catalogue's 7812 augmented / 142 total × 100 = 5501% display bug
+# documented in §9.3 #31. The threshold is hard 100 — any chip > 100 indicates
+# the numerator/denominator are inverted or the chip formatter mis-multiplied.
+# Trades off a very narrow false-positive surface (a stage that legitimately
+# displays >100% as part of a non-coverage chip) for catching every coverage /
+# settle / completion percentage in the panel.
+_PERCENT_CHIP_CEILING: float = 100.0
+
+
+def I15_no_percent_chip_exceeds_100(
+    page: Page, api: dict[str, Any]
+) -> InvariantResult:
+    """No `N%` token inside any pipeline-stage-row's visible text may
+    exceed 100%.
+
+    The §9.3 #31 case: Fast Catalogue's coverage chip showed `5501%`
+    (`augmented_nodes=7812 / total_nodes=142 * 100 = 5501.4`). The chip
+    formatter inverts the ratio or scopes `total_nodes` to a filtered
+    subset while `augmented_nodes` carries the cumulative count.
+
+    Stateless predicate over scraped row.percent_values. Fires once per
+    out-of-range value (multiple per row possible — e.g. coverage + conf).
+
+    Defensive design: a row with no `%` tokens contributes nothing. If a
+    future stage legitimately renders >100% (e.g. a multiplier display),
+    that stage should switch to a non-% glyph rather than relax this
+    ceiling — percentages should always be in [0, 100].
+    """
+    label = "no percent chip in any pipeline-stage-row exceeds 100%"
+    failures = []
+    for row in _scrape_rows(page):
+        for val in row.get("percent_values", []) or []:
+            if val > _PERCENT_CHIP_CEILING:
+                failures.append({
+                    "stage_id": row["stage_id"],
+                    "percent_value": val,
+                    "ceiling": _PERCENT_CHIP_CEILING,
+                    "row_text_excerpt": (row.get("text", "") or "")[:200],
+                })
+    return InvariantResult(
+        "I15", label, not failures, {"failures": failures} if failures else {}
+    )
+
+
 # ── Registry ──────────────────────────────────────────────────────
 
 
@@ -390,6 +540,8 @@ ALL_INVARIANTS = (
     I2_running_row_has_no_stale_chip,
     I3_downstream_not_complete,
     I13_current_stage_decoration_exists,
+    I14_no_not_run_text_against_completed_stage,
+    I15_no_percent_chip_exceeds_100,
 )
 
 
