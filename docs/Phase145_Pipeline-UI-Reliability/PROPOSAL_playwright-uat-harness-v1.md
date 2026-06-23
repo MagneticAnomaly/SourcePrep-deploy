@@ -480,7 +480,7 @@ Things explicitly deferred so the T2 / T3 PRs stayed scoped:
 
 **From post-T4 baseline + I3 fix (2026-06-22):**
 
-17. **Bare-fail-no-invariant anomaly** *(reframed + fix shipped 2026-06-22 pending live validation)* — Originally characterised as "rc-vs-summary mismatch with `pass=true`"; a direct walk of every bare-fail iter's `summary.json` + `events.jsonl` showed the original diagnosis was wrong — `summary.pass` is actually **false** in every case. The 8 bare-fail rows split into three distinct real-failure classes that all rendered as `✓✓✓✓ + FAIL` because `parse_iter_result` only walked `kind="invariant_failure"` events:
+17. **Bare-fail-no-invariant anomaly** *(reframed + fix shipped 2026-06-23 as `079a262f`, live-smoke-validated)* — Originally characterised as "rc-vs-summary mismatch with `pass=true`"; a direct walk of every bare-fail iter's `summary.json` + `events.jsonl` showed the original diagnosis was wrong — `summary.pass` is actually **false** in every case. The 8 bare-fail rows split into three distinct real-failure classes that all rendered as `✓✓✓✓ + FAIL` because `parse_iter_result` only walked `kind="invariant_failure"` events:
 
     - **Op-1 iter 1:** 3 `desync` events of subtype `api_complete_dom_still_running`. Desyncs are real findings but don't map to any shipped invariant (I1/I2/I3/I13 cover only §2r + §2u).
     - **Op-2 iter 3:** 1 `error` event — HTTPStatusError 409 Conflict on `/pipeline/all`. The previous Op-2 iter's daemon-side cleanup hadn't fully settled when the next iter fired.
