@@ -227,6 +227,176 @@ class TestParseIterResult:
         assert all(r.invariants.values())
 
 
+# ── parse_iter_result — error/desync evidence in notes (§9.3 #17) ─
+
+
+class TestParseIterResultSurfacesErrorEvidence:
+    """§9.3 #17 reframe — bare-fail rows in the post-I3-fix SCORECARD looked
+    like `status=FAIL, I1/I2/I3/I13 ✓✓✓✓, notes='cancel-quiesce: already
+    idle'`. Reading the original starter prompt suggested rc-vs-summary
+    mismatch; the actual evidence (events.jsonl walk) showed THREE distinct
+    real failures hiding in plain sight:
+
+      - Op-1 iter 1: 3 desync events (no matching invariant in shipped set)
+      - Op-2 iter 3: 1 error event "409 Conflict" on /pipeline/all
+      - Op-3/Op-4 (6 iters): 1 error event "timed out" on api.rebuild()
+
+    parse_iter_result previously walked only kind="invariant_failure" so all
+    three classes rendered as bare-fail. The fix surfaces error+desync event
+    evidence in IterResult.notes so the SCORECARD Notes column carries
+    enough signal for a reviewer to triage without opening any jsonl file.
+    """
+
+    def test_error_event_surfaced_in_notes(self, tmp_path):
+        op = _op("Op-3")
+        run_dir = _write_smoke_output(
+            tmp_path,
+            mode=op.smoke_mode,
+            summary={"mode": op.smoke_mode, "started_at": 1.0, "ended_at": 2.0,
+                     "pass": False, "desync_count": 0, "anomaly_count": 0,
+                     "invariant_failure_count": 0, "error_count": 1,
+                     "stages_seen": [], "trigger_reason": "", "notes": []},
+            events=[
+                {"ts": 1.5, "where": "rebuild", "detail": "timed out", "kind": "error"},
+            ],
+        )
+        r = parse_iter_result(op, 1, run_dir)
+        assert r.status == "fail"
+        # All shipped invariants pass (none of them caught this) — the
+        # signal must come from notes.
+        assert all(r.invariants.values())
+        assert "error" in r.notes.lower()
+        assert "timed out" in r.notes
+
+    def test_desync_events_surfaced_in_notes(self, tmp_path):
+        op = _op("Op-1")
+        run_dir = _write_smoke_output(
+            tmp_path,
+            mode=op.smoke_mode,
+            summary={"mode": op.smoke_mode, "started_at": 1.0, "ended_at": 100.0,
+                     "pass": False, "desync_count": 3, "anomaly_count": 0,
+                     "invariant_failure_count": 0, "error_count": 0,
+                     "stages_seen": [], "trigger_reason": "", "notes": []},
+            events=[
+                {"ts": 10.0, "kind": "desync", "stage": "structural",
+                 "subtype": "progress_gap"},
+                {"ts": 20.0, "kind": "desync", "stage": "catalogue",
+                 "subtype": "progress_gap"},
+                {"ts": 30.0, "kind": "desync", "stage": "knowledge",
+                 "subtype": "api_running_dom_not_running"},
+            ],
+        )
+        r = parse_iter_result(op, 1, run_dir)
+        assert r.status == "fail"
+        assert all(r.invariants.values())
+        assert "desync" in r.notes.lower()
+        # Count surfaced so the reviewer sees magnitude, not just kind.
+        assert "3" in r.notes
+
+    def test_combines_errors_and_desyncs_in_notes(self, tmp_path):
+        op = _op("Op-4")
+        run_dir = _write_smoke_output(
+            tmp_path,
+            mode=op.smoke_mode,
+            summary={"mode": op.smoke_mode, "started_at": 1.0, "ended_at": 30.0,
+                     "pass": False, "desync_count": 2, "anomaly_count": 0,
+                     "invariant_failure_count": 0, "error_count": 1,
+                     "stages_seen": [], "trigger_reason": "", "notes": []},
+            events=[
+                {"ts": 5.0, "kind": "desync", "stage": "structural",
+                 "subtype": "progress_gap"},
+                {"ts": 10.0, "kind": "desync", "stage": "catalogue",
+                 "subtype": "progress_gap"},
+                {"ts": 20.0, "where": "rebuild", "detail": "timed out",
+                 "kind": "error"},
+            ],
+        )
+        r = parse_iter_result(op, 1, run_dir)
+        assert r.status == "fail"
+        assert "error" in r.notes.lower()
+        assert "desync" in r.notes.lower()
+
+    def test_does_not_surface_evidence_when_pass_is_true(self, tmp_path):
+        """A passing iter's notes must stay clean. We only walk error/desync
+        events when the smoke flagged failure — otherwise warning events
+        from defensive code paths would pollute clean rows.
+        """
+        op = _op("Op-1")
+        run_dir = _write_smoke_output(
+            tmp_path,
+            mode=op.smoke_mode,
+            summary={"mode": op.smoke_mode, "started_at": 1.0, "ended_at": 100.0,
+                     "pass": True, "desync_count": 0, "anomaly_count": 0,
+                     "invariant_failure_count": 0, "error_count": 0,
+                     "stages_seen": [], "trigger_reason": "", "notes": []},
+            events=[
+                # Stray error event from a non-fatal snapshot failure that
+                # the smoke chose to keep `pass=True` despite. Don't
+                # surface it.
+                {"ts": 5.0, "where": "snap", "detail": "screenshot failed",
+                 "kind": "error"},
+            ],
+        )
+        r = parse_iter_result(op, 1, run_dir)
+        assert r.status == "pass"
+        assert "error" not in (r.notes or "").lower()
+
+    def test_long_error_detail_truncated_in_notes(self, tmp_path):
+        """Tracebacks and HTTPStatusError messages can be 500+ chars and
+        would blow out the markdown table width. Cap the surfaced detail.
+        """
+        op = _op("Op-2")
+        long_detail = "HTTPStatusError(" + "x" * 600 + ")"
+        run_dir = _write_smoke_output(
+            tmp_path,
+            mode=op.smoke_mode,
+            summary={"mode": op.smoke_mode, "started_at": 1.0, "ended_at": 2.0,
+                     "pass": False, "desync_count": 0, "anomaly_count": 0,
+                     "invariant_failure_count": 0, "error_count": 1,
+                     "stages_seen": [], "trigger_reason": "", "notes": []},
+            events=[
+                {"ts": 1.5, "where": "mode_runner", "detail": long_detail,
+                 "kind": "error"},
+            ],
+        )
+        r = parse_iter_result(op, 1, run_dir)
+        # Detail surfaced but bounded — the test guards against the full
+        # 600-char dump landing in the SCORECARD table cell.
+        assert len(r.notes) <= 200
+
+    def test_invariant_failures_take_priority_over_error_notes(self, tmp_path):
+        """When a real invariant fires, the failures list already populates
+        the Notes column. Don't double-up by also writing the raw error/
+        desync evidence — the invariant evidence is the authoritative
+        signal and the failures list is what gets summarized.
+        """
+        op = _op("Op-1")
+        run_dir = _write_smoke_output(
+            tmp_path,
+            mode=op.smoke_mode,
+            summary={"mode": op.smoke_mode, "started_at": 1.0, "ended_at": 100.0,
+                     "pass": False, "desync_count": 1, "anomaly_count": 0,
+                     "invariant_failure_count": 1, "error_count": 0,
+                     "stages_seen": [], "trigger_reason": "", "notes": []},
+            events=[
+                {"ts": 5.0, "kind": "desync", "stage": "structural",
+                 "subtype": "progress_gap"},
+                {"ts": 10.0, "kind": "invariant_failure", "invariant_id": "I3",
+                 "label": "intra-group stale-leak",
+                 "evidence": {"stage": "atlas"}},
+            ],
+        )
+        r = parse_iter_result(op, 1, run_dir)
+        assert r.invariants["I3"] is False
+        # failures list populated — the SCORECARD renderer uses
+        # _summarise_failures for the Notes cell when notes is empty, so
+        # leaving notes empty is the right behavior.
+        assert any(f["invariant_id"] == "I3" for f in r.failures)
+        # No need to also dump the raw desync into notes — the invariant
+        # surface is authoritative.
+        assert r.notes == "" or "desync" not in r.notes.lower()
+
+
 # ── render_scorecard ──────────────────────────────────────────────
 
 
@@ -854,3 +1024,194 @@ class TestWaitForPipelineIdleFailure:
         assert wait_for_pipeline_idle(
             "http://127.0.0.1:1", "any-pid", max_seconds=0.2,
         ) is False
+
+
+class TestWaitForPipelineIdleStrictness:
+    """§9.3 #17 root cause — wait_for_pipeline_idle previously only checked
+    `phase == "running"`, so a daemon mid-transition reported as idle. The
+    next iter fired POST /pipeline/rebuild or /pipeline/all while the daemon
+    was still in `queued`, `pausing`, `recovering`, or `cancelling`, which
+    either 409'd (still-running) or http-timed-out (>30s daemon hold).
+
+    Per state_machine.py:94-200, terminal phases are `idle`, `completed`,
+    `cancelled`, `failed`. Anything else is "still busy" and the poll must
+    continue until terminal or the budget runs out.
+
+    These tests are direct: mock /pipeline/status with each non-terminal
+    phase in turn and assert the helper does NOT short-circuit to True.
+    Each test uses a 0.3s budget so a buggy implementation that returns
+    True instantly is visibly wrong (passes too fast), and a buggy
+    implementation that loops forever is bounded by pytest's per-test
+    budget.
+    """
+
+    @staticmethod
+    def _mk_fake_get(phase_map):
+        """Return a fake httpx.get that always responds with the given
+        per-group phase dict wrapped in the canonical envelope."""
+        class FakeResp:
+            def __init__(self, body):
+                self.status_code = 200
+                self._body = body
+            def json(self):
+                return self._body
+
+        def fake_get(url, *, timeout=None, **kw):  # noqa: ARG001
+            return FakeResp({"data": {g: {"phase": p} for g, p in phase_map.items()}})
+
+        return fake_get
+
+    def test_terminal_idle_returns_true(self, monkeypatch):
+        import tools.phase145_uat.run_session as rs
+        monkeypatch.setattr(rs.httpx, "get", self._mk_fake_get({
+            "fast_sync": "idle", "deep_enrichment": "idle", "finalize": "idle",
+        }))
+        assert wait_for_pipeline_idle("http://x", "pid", max_seconds=0.3) is True
+
+    def test_terminal_completed_returns_true(self, monkeypatch):
+        import tools.phase145_uat.run_session as rs
+        monkeypatch.setattr(rs.httpx, "get", self._mk_fake_get({
+            "fast_sync": "completed", "deep_enrichment": "completed",
+            "finalize": "completed",
+        }))
+        assert wait_for_pipeline_idle("http://x", "pid", max_seconds=0.3) is True
+
+    def test_terminal_cancelled_returns_true(self, monkeypatch):
+        import tools.phase145_uat.run_session as rs
+        monkeypatch.setattr(rs.httpx, "get", self._mk_fake_get({
+            "fast_sync": "cancelled", "deep_enrichment": "cancelled",
+            "finalize": "cancelled",
+        }))
+        assert wait_for_pipeline_idle("http://x", "pid", max_seconds=0.3) is True
+
+    def test_terminal_failed_returns_true(self, monkeypatch):
+        import tools.phase145_uat.run_session as rs
+        monkeypatch.setattr(rs.httpx, "get", self._mk_fake_get({
+            "fast_sync": "failed", "deep_enrichment": "failed",
+            "finalize": "failed",
+        }))
+        assert wait_for_pipeline_idle("http://x", "pid", max_seconds=0.3) is True
+
+    def test_queued_treated_as_busy(self, monkeypatch):
+        """Pre-fix bug: queued reported as idle. This is the cascade root
+        for Op-2 iter 3 in the 2026-06-22 SCORECARD."""
+        import tools.phase145_uat.run_session as rs
+        monkeypatch.setattr(rs.httpx, "get", self._mk_fake_get({
+            "fast_sync": "completed", "deep_enrichment": "queued",
+            "finalize": "idle",
+        }))
+        assert wait_for_pipeline_idle("http://x", "pid", max_seconds=0.3) is False
+
+    def test_pausing_treated_as_busy(self, monkeypatch):
+        import tools.phase145_uat.run_session as rs
+        monkeypatch.setattr(rs.httpx, "get", self._mk_fake_get({
+            "fast_sync": "pausing", "deep_enrichment": "completed",
+            "finalize": "idle",
+        }))
+        assert wait_for_pipeline_idle("http://x", "pid", max_seconds=0.3) is False
+
+    def test_recovering_treated_as_busy(self, monkeypatch):
+        """recovering means daemon-restart mid-stage; the run is still in
+        flight and the next /pipeline/rebuild WILL conflict if we proceed.
+        """
+        import tools.phase145_uat.run_session as rs
+        monkeypatch.setattr(rs.httpx, "get", self._mk_fake_get({
+            "fast_sync": "completed", "deep_enrichment": "recovering",
+            "finalize": "idle",
+        }))
+        assert wait_for_pipeline_idle("http://x", "pid", max_seconds=0.3) is False
+
+    def test_cancelling_treated_as_busy(self, monkeypatch):
+        """We just posted cancel; daemon is acknowledging. Waiting through
+        cancelling → cancelled is the WHOLE POINT of the helper.
+        """
+        import tools.phase145_uat.run_session as rs
+        monkeypatch.setattr(rs.httpx, "get", self._mk_fake_get({
+            "fast_sync": "cancelling", "deep_enrichment": "completed",
+            "finalize": "idle",
+        }))
+        assert wait_for_pipeline_idle("http://x", "pid", max_seconds=0.3) is False
+
+    def test_running_still_treated_as_busy(self, monkeypatch):
+        """Regression: don't break the original primary case while
+        tightening the others."""
+        import tools.phase145_uat.run_session as rs
+        monkeypatch.setattr(rs.httpx, "get", self._mk_fake_get({
+            "fast_sync": "running", "deep_enrichment": "idle",
+            "finalize": "idle",
+        }))
+        assert wait_for_pipeline_idle("http://x", "pid", max_seconds=0.3) is False
+
+    def test_mixed_terminal_and_busy_returns_false(self, monkeypatch):
+        """Three groups, only one busy — still must wait."""
+        import tools.phase145_uat.run_session as rs
+        monkeypatch.setattr(rs.httpx, "get", self._mk_fake_get({
+            "fast_sync": "completed", "deep_enrichment": "completed",
+            "finalize": "queued",
+        }))
+        assert wait_for_pipeline_idle("http://x", "pid", max_seconds=0.3) is False
+
+
+# ── playwright_smoke.Api — extended timeout for rebuild (§9.3 #17) ─
+
+
+class TestApiRebuildTimeout:
+    """§9.3 #17 fix C — api.rebuild() / api.run_all() can take >30s to
+    respond when the daemon is doing post-iter cleanup work
+    (manifest writes, indexing, audit). The default Api httpx timeout was
+    30s; we override per-call to give these heavy endpoints headroom while
+    keeping the default short for fast endpoints (status, cancel).
+    """
+
+    def test_rebuild_uses_extended_timeout(self):
+        import tools.playwright_smoke as ps
+
+        captured = {}
+
+        class FakeResp:
+            status_code = 200
+            def json(self):
+                return {"success": True, "data": {}}
+            def raise_for_status(self):
+                pass
+
+        class FakeHttp:
+            def post(self, url, *, timeout=None, **kw):
+                captured["url"] = url
+                captured["timeout"] = timeout
+                return FakeResp()
+
+        api = ps.Api("http://x")
+        api.http = FakeHttp()
+        api.rebuild("pid")
+        assert captured["url"].endswith("/projects/pid/pipeline/rebuild")
+        # 30s is too tight; expect at least 90s to absorb daemon cleanup.
+        assert captured["timeout"] is not None
+        assert captured["timeout"] >= 90
+
+    def test_run_all_uses_extended_timeout(self):
+        """/pipeline/all is the incremental-rebuild trigger; same daemon
+        cleanup characteristics as /pipeline/rebuild."""
+        import tools.playwright_smoke as ps
+
+        captured = {}
+
+        class FakeResp:
+            status_code = 200
+            def json(self):
+                return {"success": True, "data": {}}
+            def raise_for_status(self):
+                pass
+
+        class FakeHttp:
+            def post(self, url, *, timeout=None, **kw):
+                captured["url"] = url
+                captured["timeout"] = timeout
+                return FakeResp()
+
+        api = ps.Api("http://x")
+        api.http = FakeHttp()
+        api.run_all("pid")
+        assert captured["url"].endswith("/projects/pid/pipeline/all")
+        assert captured["timeout"] is not None
+        assert captured["timeout"] >= 90

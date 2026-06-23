@@ -135,6 +135,15 @@ def project_pipeline_ready(api_url: str, project_id: str, timeout: float = 5.0) 
     return r.status_code == 200
 
 
+# Phases that mean the daemon's run is genuinely done — POST
+# /pipeline/rebuild or /pipeline/all will accept work immediately. Per
+# state_machine.py:94-200 these are the four terminal states reachable
+# from any group lifecycle.
+_TERMINAL_PHASES: frozenset[str] = frozenset({
+    "idle", "completed", "cancelled", "failed",
+})
+
+
 def wait_for_pipeline_idle(
     api_url: str,
     project_id: str,
@@ -142,7 +151,8 @@ def wait_for_pipeline_idle(
     max_seconds: float = 30.0,
     poll_interval: float = 1.0,
 ) -> bool:
-    """Poll /pipeline/status until no group is `running`, or timeout.
+    """Poll /pipeline/status until every group is in a terminal phase, or
+    timeout.
 
     Used by the cancel-quiesce path after a subprocess crash so the next
     iter doesn't immediately 409 because the daemon is still finishing
@@ -150,6 +160,14 @@ def wait_for_pipeline_idle(
     quiesced within `max_seconds`. Returns False on timeout or repeated
     API errors — caller treats False as "next iter is at risk; record but
     keep going" rather than abort.
+
+    §9.3 #17 fix — the original code only treated `phase == "running"` as
+    busy. A daemon mid-transition (queued / pausing / recovering /
+    cancelling) reported as idle and the next iter cascade-failed (Op-2
+    iter 3 → 409; Op-3/Op-4 → httpx 30s timeout). Now any phase OUTSIDE
+    `_TERMINAL_PHASES` is treated as still-busy and the poll continues.
+    Missing groups (null in payload) are treated as terminal — a group
+    that never ran is by definition idle for our purposes.
     """
     deadline = time.monotonic() + max_seconds
     while time.monotonic() < deadline:
@@ -162,11 +180,16 @@ def wait_for_pipeline_idle(
                 body = r.json()
                 payload = body.get("data") if isinstance(body, dict) and "data" in body else body
                 if isinstance(payload, dict):
-                    running = any(
-                        (payload.get(g) or {}).get("phase") == "running"
-                        for g in ("fast_sync", "deep_enrichment", "finalize")
-                    )
-                    if not running:
+                    busy = False
+                    for g in ("fast_sync", "deep_enrichment", "finalize"):
+                        grp = payload.get(g)
+                        if not isinstance(grp, dict):
+                            continue
+                        phase = grp.get("phase")
+                        if isinstance(phase, str) and phase not in _TERMINAL_PHASES:
+                            busy = True
+                            break
+                    if not busy:
                         return True
         except Exception:
             pass
@@ -399,6 +422,13 @@ def parse_iter_result(op: Operation, iter_num: int, run_dir: Path) -> IterResult
         )
 
     invariants_seen: dict[str, list[dict[str, Any]]] = {}
+    # §9.3 #17 — surface raw error/desync evidence in IterResult.notes when
+    # the smoke flagged failure but no shipped invariant fired. Without this
+    # the SCORECARD renders ✓✓✓✓ + FAIL with empty notes, hiding the
+    # actual signal (Op-1 iter 1's desyncs, Op-3/Op-4's "timed out", etc.)
+    # in the events.jsonl that reviewers don't open.
+    error_events: list[dict[str, Any]] = []
+    desync_events: list[dict[str, Any]] = []
     if events_path.is_file():
         with events_path.open() as f:
             for line in f:
@@ -409,16 +439,20 @@ def parse_iter_result(op: Operation, iter_num: int, run_dir: Path) -> IterResult
                     ev = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if ev.get("kind") != "invariant_failure":
-                    continue
-                inv_id = ev.get("invariant_id")
-                if not inv_id:
-                    continue
-                invariants_seen.setdefault(inv_id, []).append({
-                    "label": ev.get("label", ""),
-                    "evidence": ev.get("evidence", {}),
-                    "ts": ev.get("ts"),
-                })
+                kind = ev.get("kind")
+                if kind == "invariant_failure":
+                    inv_id = ev.get("invariant_id")
+                    if not inv_id:
+                        continue
+                    invariants_seen.setdefault(inv_id, []).append({
+                        "label": ev.get("label", ""),
+                        "evidence": ev.get("evidence", {}),
+                        "ts": ev.get("ts"),
+                    })
+                elif kind == "error":
+                    error_events.append(ev)
+                elif kind == "desync":
+                    desync_events.append(ev)
 
     inv_status = {
         inv_id: (inv_id not in invariants_seen)
@@ -440,6 +474,25 @@ def parse_iter_result(op: Operation, iter_num: int, run_dir: Path) -> IterResult
     if failures and base_status == "pass":
         base_status = "fail"
 
+    # §9.3 #17 — only surface raw evidence on actual failures, only when no
+    # invariant matched (failures list is the authoritative summary when
+    # present; double-reporting would noise up the Notes column).
+    raw_evidence_note = ""
+    if base_status == "fail" and not failures:
+        parts: list[str] = []
+        if error_events:
+            first_detail = str(error_events[0].get("detail", ""))[:80]
+            parts.append(f"error×{len(error_events)} '{first_detail}'")
+        if desync_events:
+            first_subtype = str(desync_events[0].get("subtype", ""))[:40]
+            parts.append(f"desync×{len(desync_events)} '{first_subtype}'")
+        if parts:
+            raw_evidence_note = "; ".join(parts)
+            # Hard cap so a pathological many-events case still fits a
+            # markdown table cell.
+            if len(raw_evidence_note) > 180:
+                raw_evidence_note = raw_evidence_note[:177] + "..."
+
     return IterResult(
         op_id=op.id,
         iter_num=iter_num,
@@ -449,6 +502,7 @@ def parse_iter_result(op: Operation, iter_num: int, run_dir: Path) -> IterResult
         failures=failures,
         started_at=_ts_from_epoch(summary.get("started_at")),
         ended_at=_ts_from_epoch(summary.get("ended_at")),
+        notes=raw_evidence_note,
     )
 
 

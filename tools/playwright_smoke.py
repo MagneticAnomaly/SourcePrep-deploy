@@ -167,11 +167,26 @@ class Api:
     def destroy(self, pid: str) -> Any:
         return self._unwrap(self.http.delete(f"/projects/{pid}/index/destroy"))
 
+    # Phase 145 §9.3 #17 — /pipeline/all and /pipeline/rebuild can spend
+    # tens of seconds doing reset / hydrate work before returning. The
+    # client-default 30s timeout caused httpx ReadTimeout on Op-3/Op-4
+    # iters in the 2026-06-22 post-fix SCORECARD (6/12 bare-fail rows
+    # carried "timed out" error events). Per-call override gives these
+    # heavy endpoints 120s headroom while keeping the default short for
+    # status/cancel/etc.
+    _HEAVY_POST_TIMEOUT_S: float = 120.0
+
     def run_all(self, pid: str) -> Any:
-        return self._unwrap(self.http.post(f"/projects/{pid}/pipeline/all"))
+        return self._unwrap(self.http.post(
+            f"/projects/{pid}/pipeline/all",
+            timeout=self._HEAVY_POST_TIMEOUT_S,
+        ))
 
     def rebuild(self, pid: str) -> Any:
-        return self._unwrap(self.http.post(f"/projects/{pid}/pipeline/rebuild"))
+        return self._unwrap(self.http.post(
+            f"/projects/{pid}/pipeline/rebuild",
+            timeout=self._HEAVY_POST_TIMEOUT_S,
+        ))
 
     def cancel(self, pid: str) -> Any:
         return self._unwrap(self.http.post(f"/projects/{pid}/pipeline/cancel"))
