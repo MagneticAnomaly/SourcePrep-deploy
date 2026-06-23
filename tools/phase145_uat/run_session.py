@@ -863,12 +863,24 @@ def run_one_iter(
     `(run_dir, returncode, stderr)`. `run_dir` is None when the
     subprocess timed out or crashed before creating its output dir.
     """
+    # §9.3 #23 B2-FLOOR: per_iter_timeout must leave at least 30 s of
+    # headroom below it for the child's snapshot/teardown. Anything below
+    # 90 s makes child_watch_cap arithmetic produce a cap ≥ per_iter_timeout
+    # (inverting the parent/child SIGKILL relationship) — the exact data-loss
+    # mode B2 was meant to prevent. Surface the misconfiguration loudly here
+    # rather than silently clamping to a value that violates the invariant.
+    if per_iter_timeout < 90:
+        raise ValueError(
+            f"per_iter_timeout={per_iter_timeout}s is too small; the child needs "
+            "at least 30 s of headroom for ctx.snap + browser.close before the "
+            "parent SIGKILLs the process group. Minimum supported value is 90 s."
+        )
     # §9.3 #22 B2: cap the child's watch budget below our SIGKILL horizon
     # so the child can flush its timeout snapshot + stderr before we kill
     # the process group. 30 s headroom covers ctx.snap + browser.close
-    # under load. Floor at 60 s so an under-budgeted operator config
-    # doesn't push the cap into nonsense territory.
-    child_watch_cap = max(60, per_iter_timeout - 30)
+    # under load. Invariant after §9.3 #23 precondition: per_iter_timeout
+    # ≥ 90, so child_watch_cap ≥ 60.
+    child_watch_cap = per_iter_timeout - 30
 
     cmd = [
         sys.executable, "-m", "tools.playwright_smoke",

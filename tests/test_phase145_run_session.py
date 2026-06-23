@@ -1771,6 +1771,28 @@ class TestSubprocessLifecycle:
     surviving until reboot.
     """
 
+    @pytest.fixture(autouse=True)
+    def _snapshot_pending_pgids(self):
+        """§9.3 #24 B1-RACE — several tests in this class inject fake pgids
+        (77777/88888/99999/2**30) into rs._PENDING_CHILD_PGIDS. If a test
+        crashes between mock setup and the production `finally` block, the
+        fake pgid leaks into module-global state. At pytest exit
+        `_atexit_kill_pending_children` would then call
+        `os.killpg(<fake_pgid>, SIGKILL)` — `_kill_pgid_safely` swallows
+        `ProcessLookupError` in the common case, but under unlikely PID
+        reuse this could SIGKILL an unrelated process group.
+
+        Snapshot + restore around every test in this class so a fixture
+        teardown ALWAYS clears any leaked pgids regardless of test outcome.
+        """
+        import tools.phase145_uat.run_session as rs
+        before = set(rs._PENDING_CHILD_PGIDS)
+        try:
+            yield
+        finally:
+            rs._PENDING_CHILD_PGIDS.clear()
+            rs._PENDING_CHILD_PGIDS.update(before)
+
     def test_pending_pgid_set_is_module_level(self):
         import tools.phase145_uat.run_session as rs
         assert hasattr(rs, "_PENDING_CHILD_PGIDS")
@@ -1836,7 +1858,7 @@ class TestSubprocessLifecycle:
             api_url="http://x",
             dashboard_url="http://y",
             out_root=out_root,
-            per_iter_timeout=60,
+            per_iter_timeout=90,  # §9.3 #23 minimum
         )
 
         assert captured["kwargs"].get("start_new_session") is True, (
@@ -1874,7 +1896,7 @@ class TestSubprocessLifecycle:
         out_root.mkdir()
         rs.run_one_iter(
             op, project_id="pid", api_url="http://x", dashboard_url="http://y",
-            out_root=out_root, per_iter_timeout=60,
+            out_root=out_root, per_iter_timeout=90,  # §9.3 #23 minimum
         )
 
         assert observed_during_call == [{77777}], (
@@ -1928,7 +1950,7 @@ class TestSubprocessLifecycle:
             api_url="http://x",
             dashboard_url="http://y",
             out_root=out_root,
-            per_iter_timeout=10,
+            per_iter_timeout=90,  # §9.3 #23 minimum; FakeProc raises TimeoutExpired regardless
         )
 
         assert run_dir is None
@@ -1941,6 +1963,136 @@ class TestSubprocessLifecycle:
         )
         # pgid must be removed from the pending set even on timeout path.
         assert 88888 not in rs._PENDING_CHILD_PGIDS
+
+    # ── §9.3 #25 B1-COVERAGE — three recovery branches in run_one_iter ──
+
+    def test_run_one_iter_returns_127_on_popen_filenotfound(self, monkeypatch, tmp_path):
+        """B1-COVERAGE — when subprocess.Popen raises FileNotFoundError
+        (e.g. broken sys.executable, missing playwright_smoke module),
+        run_one_iter must return (None, 127, "subprocess spawn failed: …")
+        rather than propagating the exception (which would crash the entire
+        UAT session and lose all prior iter results).
+        """
+        import tools.phase145_uat.run_session as rs
+
+        def fake_popen(cmd, **kwargs):  # noqa: ARG001
+            raise FileNotFoundError("No such file or directory: 'python'")
+
+        monkeypatch.setattr(rs.subprocess, "Popen", fake_popen)
+
+        op = OP_BY_ID["Op-1"]
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        run_dir, rc, stderr = rs.run_one_iter(
+            op, project_id="pid", api_url="http://x", dashboard_url="http://y",
+            out_root=out_root, per_iter_timeout=900,
+        )
+
+        assert run_dir is None
+        assert rc == 127, "Conventional 'command not found' exit code"
+        assert "subprocess spawn failed" in stderr
+
+    def test_run_one_iter_falls_back_to_proc_pid_when_getpgid_lookups_fail(
+        self, monkeypatch, tmp_path
+    ):
+        """B1-COVERAGE — if the child crashes between Popen and getpgid
+        (rare; instant segfault before fork returns), os.getpgid raises
+        ProcessLookupError. run_one_iter must fall back to proc.pid for
+        kill-target purposes so the pending set still has SOME pgid to
+        feed atexit.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        observed_during_call: list[set[int]] = []
+
+        class FakeProc:
+            pid = 42424
+            returncode = 0
+            def communicate(self, timeout=None):  # noqa: ARG002
+                observed_during_call.append(set(rs._PENDING_CHILD_PGIDS))
+                return ("", "")
+
+        def fake_popen(cmd, **kwargs):  # noqa: ARG001
+            return FakeProc()
+
+        def fake_getpgid(pid):  # noqa: ARG001
+            raise ProcessLookupError(f"no process: {pid}")
+
+        monkeypatch.setattr(rs.subprocess, "Popen", fake_popen)
+        monkeypatch.setattr(rs.os, "getpgid", fake_getpgid)
+
+        op = OP_BY_ID["Op-1"]
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        rs.run_one_iter(
+            op, project_id="pid", api_url="http://x", dashboard_url="http://y",
+            out_root=out_root, per_iter_timeout=900,
+        )
+
+        assert observed_during_call == [{42424}], (
+            "When os.getpgid raises ProcessLookupError, run_one_iter must "
+            "fall back to proc.pid (42424) and add it to _PENDING_CHILD_PGIDS "
+            "so the atexit handler still has a kill target."
+        )
+
+    def test_run_one_iter_kills_again_when_post_kill_communicate_also_timeouts(
+        self, monkeypatch, tmp_path
+    ):
+        """B1-COVERAGE / B1-FALLBACK — extremely rare path: parent's
+        proc.communicate raises TimeoutExpired, we SIGKILL the group, try
+        to drain stderr with a 5 s budget, and THAT also TimeoutExpires
+        (would require the kernel to block reaping after SIGKILL). The
+        contract is to call _kill_pgid_safely a SECOND time (idempotent
+        group kill) rather than fall back to proc.kill() — proc.kill
+        only re-SIGKILLs the already-dead immediate child and leaves
+        the chromium grandchildren alive.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        killed: list[int] = []
+
+        class FakeProc:
+            pid = 88889
+            returncode = -9
+            def __init__(self):
+                self._call = 0
+            def communicate(self, timeout=None):
+                self._call += 1
+                # Both calls (initial full timeout AND post-kill 5 s drain)
+                # raise TimeoutExpired to exercise the inner-except branch.
+                raise rs.subprocess.TimeoutExpired(cmd="fake", timeout=timeout)
+            def kill(self):
+                # If production code ever falls back to proc.kill() this
+                # would be observed but the killed list (group-kill) would
+                # be short by one entry — the assertion below catches it.
+                pass
+
+        def fake_popen(cmd, **kwargs):  # noqa: ARG001
+            return FakeProc()
+
+        monkeypatch.setattr(rs.subprocess, "Popen", fake_popen)
+        monkeypatch.setattr(rs.os, "getpgid", lambda pid: pid)
+        monkeypatch.setattr(rs, "_kill_pgid_safely", lambda pgid: killed.append(pgid))
+
+        op = OP_BY_ID["Op-1"]
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        run_dir, rc, stderr = rs.run_one_iter(
+            op, project_id="pid", api_url="http://x", dashboard_url="http://y",
+            out_root=out_root, per_iter_timeout=900,
+        )
+
+        assert run_dir is None
+        assert rc == 124, "TimeoutExpired still surfaces as 124 even when drain also times out"
+        assert "TIMEOUT" in stderr
+        assert killed == [88889, 88889], (
+            "When the post-kill communicate also TimeoutExpires, "
+            "_kill_pgid_safely must be invoked a SECOND time (idempotent "
+            f"group kill). Got killed={killed!r}."
+        )
+        # pgid must STILL be removed from the pending set even after the
+        # double-timeout path (the production `finally` block must run).
+        assert 88889 not in rs._PENDING_CHILD_PGIDS
 
 
 class TestChildWatchBudgetClamp:
@@ -1968,17 +2120,64 @@ class TestChildWatchBudgetClamp:
         assert ps._capped_max_seconds(60) == 60        # 60 → 60 (unchanged)
         assert ps._capped_max_seconds(600) == 600      # equal → equal
 
-    def test_max_watch_secs_cli_flag_accepts_value(self, capsys):
-        """--max-watch-secs must parse + validate (>0). 0 / negative is
-        an explicit user error — surface it rather than silently treating
-        as no-cap.
+    @pytest.mark.parametrize("bad_value", ["0", "-1", "-3600"])
+    def test_max_watch_secs_cli_flag_rejects_non_positive(self, capsys, bad_value):
+        """§9.3 #26 B2-CLI — production check is `if args.max_watch_secs
+        <= 0`. The 0 path was already covered; negative values share the
+        same branch but were unexercised. Parametrize so a future drift
+        like `if args.max_watch_secs == 0` (off-by-one strictness) would
+        let -1 silently pass the validation and produce a no-cap regression.
         """
         import tools.playwright_smoke as ps
-        ap_args = ["--project-id", "x", "--max-watch-secs", "0"]
+        ap_args = ["--project-id", "x", "--max-watch-secs", bad_value]
         rc = ps.main(ap_args)
         assert rc == 2
         captured = capsys.readouterr()
         assert "--max-watch-secs must be > 0" in captured.err
+
+    def test_max_watch_secs_cli_flag_sets_module_cap_on_positive(self, monkeypatch):
+        """§9.3 #26 B2-CLI — *behavioral* check that a valid value actually
+        installs the module-global `_MAX_WATCH_SECS_CAP`. The production
+        code uses `globals()["_MAX_WATCH_SECS_CAP"] = args.max_watch_secs`,
+        an indirect assignment that a refactor could silently revert to a
+        plain local (which would silently disable the cap and reintroduce
+        the §9.3 #22 data-loss class).
+
+        Intercept the very next external call after cap install
+        (Api.project) with a sentinel exception so we exit main()
+        deterministically without requiring a live daemon. Then assert
+        the cap WAS set despite the early bail.
+        """
+        import tools.playwright_smoke as ps
+
+        # Reset cap to a known sentinel so we can detect the assignment.
+        monkeypatch.setattr(ps, "_MAX_WATCH_SECS_CAP", None)
+
+        class _StopAfterCap(Exception):
+            pass
+
+        def fake_project(self, project_id):  # noqa: ARG001
+            # Cap is installed earlier in main(); raise here to bypass
+            # the rest of main() without needing a real daemon.
+            raise _StopAfterCap("stopping after cap install")
+
+        monkeypatch.setattr(ps.Api, "project", fake_project)
+
+        ap_args = [
+            "--project-id", "x",
+            "--modes", "initial",
+            "--max-watch-secs", "600",
+        ]
+        with pytest.raises(_StopAfterCap):
+            ps.main(ap_args)
+
+        assert ps._MAX_WATCH_SECS_CAP == 600, (
+            "After main() processes --max-watch-secs 600, the module-global "
+            "_MAX_WATCH_SECS_CAP must equal 600 so _capped_max_seconds() "
+            "actually clamps every mode's watch budget. A regression where "
+            "the assignment becomes local instead of global would silently "
+            "disable §9.3 #22 B2 — this behavioral pin catches that."
+        )
 
     def test_run_one_iter_passes_max_watch_secs_to_child(self, monkeypatch, tmp_path):
         """Child cmd must include --max-watch-secs <per_iter_timeout - 30>
@@ -2016,10 +2215,34 @@ class TestChildWatchBudgetClamp:
             f"Got: {captured_cmd[idx + 1]}"
         )
 
-    def test_child_watch_cap_floored_at_60s(self, monkeypatch, tmp_path):
-        """If an operator misconfigures per_iter_timeout to a very small
-        value (<90s), the cap arithmetic would push the child watch
-        below 60s and starve every mode. Floor protects against that.
+    def test_per_iter_timeout_below_90_raises_value_error(self, tmp_path):
+        """§9.3 #23 B2-FLOOR — historical behavior was
+        `max(60, per_iter_timeout - 30)` which inverts the parent/child
+        SIGKILL relationship when `per_iter_timeout < 90` (parent kills
+        the group at e.g. 10 s while the child still believes it has 60 s
+        to snapshot). The corrected contract: raise ValueError loudly so
+        the operator fixes their config rather than silently losing
+        timeout-snapshot evidence.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        op = OP_BY_ID["Op-1"]
+        out_root = tmp_path / "out"
+        out_root.mkdir()
+        # Exhaustively cover the inversion range plus a value just below
+        # the threshold. 89 must also fail — the boundary is strict (>=).
+        for bad_timeout in (10, 30, 60, 89):
+            with pytest.raises(ValueError, match="per_iter_timeout"):
+                rs.run_one_iter(
+                    op, project_id="pid", api_url="http://x", dashboard_url="http://y",
+                    out_root=out_root, per_iter_timeout=bad_timeout,
+                )
+
+    def test_child_watch_cap_at_per_iter_timeout_90_is_60s(self, monkeypatch, tmp_path):
+        """§9.3 #23 B2-FLOOR boundary — 90 s is the minimum supported value
+        and produces a 60 s child cap (90 - 30 = 60). Pins the boundary so
+        a future drift like `if per_iter_timeout <= 90:` (off-by-one) is
+        caught by this test rather than silently shrinking the floor.
         """
         import tools.phase145_uat.run_session as rs
 
@@ -2043,13 +2266,13 @@ class TestChildWatchBudgetClamp:
         out_root.mkdir()
         rs.run_one_iter(
             op, project_id="pid", api_url="http://x", dashboard_url="http://y",
-            out_root=out_root, per_iter_timeout=10,  # absurdly small
+            out_root=out_root, per_iter_timeout=90,
         )
 
         idx = captured_cmd.index("--max-watch-secs")
         assert captured_cmd[idx + 1] == "60", (
-            "Floor (max(60, per_iter_timeout - 30)) must prevent the "
-            "child watch from collapsing to <=0 under hostile config."
+            "At the per_iter_timeout=90 boundary, child cap must be 60 "
+            "(= 90 - 30). Got: " + captured_cmd[idx + 1]
         )
 
 
@@ -2285,31 +2508,48 @@ class TestCancelQuiescePartialFailure:
         assert quiesced is False
         assert "still busy" in detail
 
-    def test_unexpected_2xx_schema_still_treated_as_cancelled(self, monkeypatch):
-        """A 200 with a wholly unexpected body shape (e.g. an empty dict
-        or a string) must still be treated as `:cancelled`. We classify
-        on status_code, not on body shape — body parsing belongs to
-        api.cancel paths, not to this best-effort cleanup helper.
+    def test_2xx_classification_is_status_code_only(self, monkeypatch):
+        """§9.3 #27 B5-NAMING — production code branches on `r.status_code`
+        and NEVER inspects the body. Old test name overpromised by
+        suggesting we tolerate "unexpected schemas"; tighten by making
+        the FakeResp body raise loudly if ever parsed — that way a future
+        body-parsing regression like `if r.json().get("status") ==
+        "cancelled":` fails this test instead of silently mis-classifying.
         """
         import tools.phase145_uat.run_session as rs
 
         class FakeResp:
-            def __init__(self, code: int = 200, body: object | None = None):
+            def __init__(self, code: int = 200):
                 self.status_code = code
-                self._body = body
             def json(self):
-                return self._body
+                # §9.3 #27 B5-NAMING — if production parses the cancel
+                # response body, fail loudly so the regression is visible.
+                raise AssertionError(
+                    "FakeResp.json() called: production cancel-classification "
+                    "must rely on status_code only. If a future change inspects "
+                    "the body, update both this test AND its docstring."
+                )
+
+        class FakeStatusResp:
+            """Distinct response shape for the /pipeline/status GET path —
+            wait_for_pipeline_idle is monkey-patched anyway, but the inline
+            status-check in cancel_and_quiesce reads .json() to learn which
+            groups are still active. Provide a real body here.
+            """
+            status_code = 200
+            def json(self):
+                return {"data": {
+                    "fast_sync": {"phase": "running"},
+                    "deep_enrichment": None,
+                    "finalize": None,
+                }}
 
         def fake_get(url, *, timeout=None, **kw):  # noqa: ARG001
-            return FakeResp(200, {"data": {
-                "fast_sync": {"phase": "running"},
-                "deep_enrichment": None,
-                "finalize": None,
-            }})
+            return FakeStatusResp()
 
         def fake_post(url, *, json=None, timeout=None, **kw):  # noqa: ARG001
-            # 200 OK but with a body the harness never asked for.
-            return FakeResp(200, {"unexpected": ["nothing", "useful"]})
+            # 200 OK; body would raise AssertionError if production parsed it.
+            return FakeResp(200)
 
         monkeypatch.setattr(rs.httpx, "get", fake_get)
         monkeypatch.setattr(rs.httpx, "post", fake_post)
