@@ -1268,7 +1268,11 @@ export function GraphEnrichmentPipeline({
     }
     if (safeState === 'disabled') return 'Waiting for graph';
     if (safeState === 'not_built') return 'Not run';
-    if (!inferredEdges) return '';
+    // §9.3 #33 PR-F F5 — when safeState coerces to 'complete' (groupPhase
+    // ='completed') but the data prop hasn't loaded yet (polling lag),
+    // we'd previously return '' here — green chip with blank stats text.
+    // Return 'Complete' so the row reflects the badge state.
+    if (!inferredEdges) return 'Complete';
     return `${inferredEdges.edge_count} edges discovered`;
   })();
 
@@ -1286,7 +1290,7 @@ export function GraphEnrichmentPipeline({
     }
     if (safeState === 'disabled') return 'Waiting for graph';
     if (safeState === 'not_built') return 'Not run';
-    if (!augmentation) return '';
+    if (!augmentation) return 'Complete';  // §9.3 #33 PR-F F5 — see inferredEdgesStats
     // §9.3 #31 — defensive clamp. Matches the catalogueProgress clamp at the
     // sibling IIFE below. When augmented_nodes > total_nodes (seen live as
     // 7812/142 → 5501%), the raw ratio escapes 0-100. Data-semantics fix is
@@ -1336,7 +1340,7 @@ export function GraphEnrichmentPipeline({
     }
     if (safeState === 'disabled') return 'Waiting for catalogue';
     if (safeState === 'not_built') return 'Not run';
-    if (!epistemic) return '';
+    if (!epistemic) return 'Complete';  // §9.3 #33 PR-F F5 — see inferredEdgesStats
     const conf = epistemic.avg_confidence > 0
       ? `${Math.round(epistemic.avg_confidence * 100)}% conf`
       : '';
@@ -1351,7 +1355,7 @@ export function GraphEnrichmentPipeline({
     if (safeState === 'running') return 'Synthesizing...';
     if (safeState === 'disabled') return 'Waiting for enrichment';
     if (safeState === 'not_built') return 'Not run';
-    if (!modules) return '';
+    if (!modules) return 'Complete';  // §9.3 #33 PR-F F5 — see inferredEdgesStats
     return `${modules.module_count} modules · ${modules.total_files_clustered} files`;
   })();
 
@@ -1359,8 +1363,16 @@ export function GraphEnrichmentPipeline({
   const atlasState = computeAtlasState(epistemic, modules, atlas, atlasRunning, deepeningRunning, deepKnowledgeBuilding, deepening);
   const atlasStats = (() => {
     // §9.3 #30 — see structuralStats above. Atlas is in the finalize group.
+    // §9.3 #33 PR-F F4 — gate ONLY on safeState. The previous form ORed the
+    // raw running flag with safeState, which bypassed the coercion: in the
+    // race window where the API has flipped finalizePhase to 'completed'
+    // but the raw flag is still true for one poll tick, the badge (which
+    // uses i3SafeStageState too) would show green ✓ while the stats line
+    // still read 'Building atlas...' — the same green-chip-next-to-
+    // contradictory-text class PR-D was meant to fix. See PR-F F4 in the
+    // PROPOSAL for the regression trace.
     const safeState = i3SafeStageState(atlasState, 'atlas', finalizeCurrentStageId, finalizePhase);
-    if (atlasRunning || safeState === 'running') return 'Building atlas...';
+    if (safeState === 'running') return 'Building atlas...';
     // Show real data whenever it exists, regardless of whatever the
     // pre-finalize-move computeAtlasState heuristics decide. This prevents
     // the icon (driven by finStageState/atlasDone) from flashing ✓ complete
@@ -1377,7 +1389,7 @@ export function GraphEnrichmentPipeline({
     if (safeState === 'disabled') return 'Waiting for modules';
     // When finalizePhase === 'completed' safeState coerces to 'complete' —
     // do not display the 'Not run' fallback in that case.
-    if (safeState === 'complete') return '';
+    if (safeState === 'complete') return 'Complete';  // §9.3 #33 PR-F F5
     return 'Not run';
   })();
 
@@ -1396,7 +1408,7 @@ export function GraphEnrichmentPipeline({
       return 'Waiting for enrichment';
     }
     if (safeState === 'not_built') return 'Not run';
-    if (!deepening) return '';
+    if (!deepening) return 'Complete';  // §9.3 #33 PR-F F5 — see inferredEdgesStats
     const settled = Number.isFinite(deepening.settled_ratio) ? deepening.settled_ratio : 0;
     const avg = Number.isFinite(deepening.avg_score) ? deepening.avg_score : 0;
     const pct = Math.round(settled * 100);
@@ -1414,7 +1426,7 @@ export function GraphEnrichmentPipeline({
     if (safeState === 'running') return 'Embedding...';
     if (safeState === 'disabled') return 'Waiting for catalogue';
     if (safeState === 'not_built') return 'Not run';
-    if (!knowledge) return '';
+    if (!knowledge) return 'Complete';  // §9.3 #33 PR-F F5 — see inferredEdgesStats
     return `${knowledge.chunks_embedded} chunks embedded`;
   })();
 
@@ -1433,7 +1445,7 @@ export function GraphEnrichmentPipeline({
     if (safeState === 'running') return 'Re-embedding with deep data...';
     if (safeState === 'disabled') return 'Waiting for enrichment + clusters';
     if (safeState === 'not_built') return 'Not run';
-    if (!deepKnowledgeSource) return '';
+    if (!deepKnowledgeSource) return 'Complete';  // §9.3 #33 PR-F F5 — see inferredEdgesStats
     return `${deepKnowledgeSource.chunks_embedded} chunks embedded`;  // Total includes deep + fast
   })();
 
@@ -1610,7 +1622,7 @@ export function GraphEnrichmentPipeline({
         if (effectiveRulesStatus?.generated) return 'Generated';
         const safeState = i3SafeStageState(finStageState('rules', false), 'rules', finalizeCurrentStageId, finalizePhase);
         if (safeState === 'running') return 'Generating...';
-        if (safeState === 'complete') return '';
+        if (safeState === 'complete') return 'Complete';  // §9.3 #33 PR-F F5
         return 'Not run';
       })(),
       progress: finStageState('rules', rulesDone) === 'running' ? finalizePercent(effectiveRulesStatus) : undefined,
@@ -1626,7 +1638,7 @@ export function GraphEnrichmentPipeline({
         if (effectiveConceptsStatus?.seeded) return `${effectiveConceptsStatus.count} concepts`;
         const safeState = i3SafeStageState(finStageState('concepts', false), 'concepts', finalizeCurrentStageId, finalizePhase);
         if (safeState === 'running') return 'Seeding...';
-        if (safeState === 'complete') return '';
+        if (safeState === 'complete') return 'Complete';  // §9.3 #33 PR-F F5
         return 'Not run';
       })(),
       progress: finStageState('concepts', !!effectiveConceptsStatus?.seeded) === 'running' ? finalizePercent(effectiveConceptsStatus) : undefined,
@@ -1642,7 +1654,7 @@ export function GraphEnrichmentPipeline({
         if (effectiveAuditPipelineStatus?.exists) return `${effectiveAuditPipelineStatus.finding_count} findings`;
         const safeState = i3SafeStageState(finStageState('audit', false), 'audit', finalizeCurrentStageId, finalizePhase);
         if (safeState === 'running') return 'Auditing...';
-        if (safeState === 'complete') return '';
+        if (safeState === 'complete') return 'Complete';  // §9.3 #33 PR-F F5
         return 'Not run';
       })(),
       progress: finStageState('audit', !!effectiveAuditPipelineStatus?.exists) === 'running' ? finalizePercent(effectiveAuditPipelineStatus) : undefined,
@@ -1658,7 +1670,7 @@ export function GraphEnrichmentPipeline({
         if (effectiveAntibodiesStatus?.count) return `${effectiveAntibodiesStatus.count} antibodies`;
         const safeState = i3SafeStageState(finStageState('antibodies', false), 'antibodies', finalizeCurrentStageId, finalizePhase);
         if (safeState === 'running') return 'Deriving...';
-        if (safeState === 'complete') return '';
+        if (safeState === 'complete') return 'Complete';  // §9.3 #33 PR-F F5
         return 'Not run';
       })(),
       progress: finStageState('antibodies', !!(effectiveAntibodiesStatus?.count)) === 'running' ? finalizePercent(effectiveAntibodiesStatus) : undefined,

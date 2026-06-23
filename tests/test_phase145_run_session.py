@@ -2275,6 +2275,57 @@ class TestChildWatchBudgetClamp:
             "(= 90 - 30). Got: " + captured_cmd[idx + 1]
         )
 
+    # ── §9.3 #33 PR-F F6 — argparse-level --per-iter-timeout validation ──
+
+    @pytest.mark.parametrize("bad_value", ["10", "30", "60", "89"])
+    def test_main_rejects_per_iter_timeout_below_90_at_argparse(self, capsys, bad_value):
+        """§9.3 #33 PR-F F6 — PR-E's ValueError in run_one_iter was
+        unhandled by main(): an operator passing --per-iter-timeout 60
+        would crash the entire UAT session with an unhandled traceback
+        AFTER the daemon health probe. Move the floor check to argparse
+        so the failure is a clean SystemExit(2) BEFORE any work begins.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        with pytest.raises(SystemExit) as exc_info:
+            rs.main([
+                "--project-id", "x",
+                "--operations", "Op-1",
+                "--iterations", "1",
+                "--output", "/tmp/scorecard.md",
+                "--per-iter-timeout", bad_value,
+            ])
+        assert exc_info.value.code == 2, (
+            f"argparse rejection must exit 2, not propagate ValueError. "
+            f"Got code={exc_info.value.code}"
+        )
+        captured = capsys.readouterr()
+        assert "--per-iter-timeout" in captured.err
+        assert "≥ 90" in captured.err or "90s" in captured.err, (
+            "Error message must mention the 90s minimum so the operator knows "
+            "what to change."
+        )
+
+    def test_main_rejects_non_integer_per_iter_timeout(self, capsys):
+        """§9.3 #33 PR-F F6 — argparse type fn must also handle non-integer
+        input (e.g. operator typo). int() raising surfaces a confusing
+        builtin error; the custom type fn wraps it cleanly.
+        """
+        import tools.phase145_uat.run_session as rs
+
+        with pytest.raises(SystemExit) as exc_info:
+            rs.main([
+                "--project-id", "x",
+                "--operations", "Op-1",
+                "--iterations", "1",
+                "--output", "/tmp/scorecard.md",
+                "--per-iter-timeout", "ninety",
+            ])
+        assert exc_info.value.code == 2
+        captured = capsys.readouterr()
+        assert "--per-iter-timeout" in captured.err
+        assert "integer" in captured.err.lower()
+
 
 class TestMonotonicClock:
     """B3 — watch_until_idle elapsed math must use time.monotonic(), not

@@ -108,9 +108,12 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
 
   // Green bar includes traced + pendingEmbedding (both are successfully traced)
   const allTracedCount = traced + pendingEmbedding;
-  const tracedPct = (allTracedCount / total) * 100;
-  const inProgressPct = (inProgress / total) * 100;
-  const stalePct = (displayStale / total) * 100;
+  // §9.3 #33 PR-F F1 — defensive clamp. Same bug class as the 5501% Fast
+  // Catalogue chip PR-D fixed; the sibling TraceCoveragePanel's CoverageBar
+  // has the identical fix applied in this PR.
+  const tracedPct = Math.min(100, (allTracedCount / total) * 100);
+  const inProgressPct = Math.min(100, (inProgress / total) * 100);
+  const stalePct = Math.min(100, (displayStale / total) * 100);
   
   return (
     <div className="flex flex-col gap-1.5">

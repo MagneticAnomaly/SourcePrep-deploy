@@ -26,6 +26,35 @@ const SRC = readFileSync(
   'utf-8',
 );
 
+// §9.3 #33 PR-F F2 — Balanced-paren walk to extract every i3SafeStageState
+// call's argument string. Regex-only approaches were either too loose (the
+// bare `, 'id',` literal false-positive-matched stage-id array literals like
+// FAST_STAGE_ORDER, undercounting safeState const removals) or too strict
+// (`[^)]*?` cannot pass over the `)` inside nested calls such as
+// `i3SafeStageState(promoteForRebuild(finStageState('rules', rulesDone)), 'rules', …)`,
+// failing for the 4 finalize stages). A small parser handles both.
+function findI3SafeStageStateArgs(src: string): string[] {
+  const calls: string[] = [];
+  const opener = /\bi3SafeStageState\s*\(/g;
+  let m: RegExpExecArray | null;
+  while ((m = opener.exec(src)) !== null) {
+    const argsStart = m.index + m[0].length;
+    let depth = 1;
+    let i = argsStart;
+    while (i < src.length && depth > 0) {
+      const ch = src[i];
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      if (depth === 0) break;
+      i++;
+    }
+    if (depth === 0) calls.push(src.slice(argsStart, i));
+  }
+  return calls;
+}
+
+const I3_SAFE_STAGE_STATE_CALLS = findI3SafeStageStateArgs(SRC);
+
 // Stages whose stats IIFE/expression had a literal `'Not run'` return
 // before PR-D. Each must now be preceded by a safeState pattern.
 const STAGE_IDS = [
@@ -47,43 +76,77 @@ const STAGE_IDS = [
 
 describe('GraphEnrichmentPipeline stats safe-state coercion (§9.3 #30)', () => {
   it.each(STAGE_IDS)(
-    '%s — has both badge and stats i3SafeStageState calls (≥ 2 references)',
+    '%s — appears in ≥ 2 i3SafeStageState callsites (badge + stats safeState)',
     (stageId) => {
-      // Each stage must be referenced as the stage_id arg of i3SafeStageState
-      // in AT LEAST two places:
-      //   (1) the stage-array `state:` field (badge state, plumbed in PR-C)
-      //   (2) the stats IIFE / inline-ternary safeState const (added in PR-D)
-      // The literal `, '<stage_id>',` only matches the stage_id positional
-      // argument of i3SafeStageState (preceded by comma+whitespace, followed
-      // by comma). Inner references like `finStageState('rules', ...)` are
-      // preceded by `(`, not a comma — so they don't false-match.
-      const pattern = new RegExp(`,\\s*'${stageId}'\\s*,`, 'g');
-      const matches = [...SRC.matchAll(pattern)];
-      expect(matches.length).toBeGreaterThanOrEqual(2);
+      // §9.3 #33 PR-F F2 — Count the i3SafeStageState calls whose argument
+      // string contains the stage_id literal. Each stage must be referenced
+      // in AT LEAST two distinct callsites:
+      //   (1) the stage-array `state:` field (badge state, PR-C)
+      //   (2) the stats IIFE / inline-ternary safeState const (PR-D)
+      // The balanced-paren walk in findI3SafeStageStateArgs guarantees each
+      // entry is exactly one full call, so false-positives from stage-id
+      // array literals (FAST_STAGE_ORDER et al.) are impossible.
+      const stageIdLiteral = `'${stageId}'`;
+      const matchingCalls = I3_SAFE_STAGE_STATE_CALLS.filter(args =>
+        args.includes(stageIdLiteral),
+      );
+      expect(matchingCalls.length).toBeGreaterThanOrEqual(2);
     },
   );
 
   it('every "Not run" stats return is preceded by a safeState guard', () => {
-    // Walk the file, line-by-line. For every `return 'Not run'` we expect
-    // one of the following within the previous 15 lines:
+    // §9.3 #33 PR-F F3 — Walk the file, line-by-line. For every
+    // `return 'Not run'` (anywhere on the line, including the inline-if
+    // form `if (safeState === 'not_built') return 'Not run';` which PR-D
+    // uses for 10 of the 15 sites — the line-start regex used previously
+    // only matched 5 of 15) we expect one of:
     //   - `safeState === 'not_built'` (the IIFE pattern)
     //   - `safeState === 'complete'` (the inline-ternary refactor pattern,
     //     where 'Not run' is the fallback and 'complete' short-circuits)
+    // within the enclosing IIFE body. We bound the look-back to the
+    // nearest enclosing `(() => {` line so guards from a NEIGHBOURING
+    // IIFE (PRD-TQ-2 originally allowed cross-IIFE leak: the preceding
+    // IIFE's safeState satisfied the next IIFE's requirement) cannot
+    // satisfy this IIFE's requirement.
     const lines = SRC.split('\n');
-    const violations: Array<{ line: number; context: string }> = [];
+    const violations: Array<{ line: number; snippet: string }> = [];
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      // Skip comments / docstrings / non-return contexts.
-      if (!/^\s*return\s+'Not run'/.test(line)) continue;
-      const window = lines.slice(Math.max(0, i - 15), i).join('\n');
+      if (!/\breturn\s+'Not run'/.test(line)) continue;
+      // Walk backwards until we hit the start of the enclosing IIFE body.
+      let start = Math.max(0, i - 60); // upper bound — no IIFE is this long
+      for (let j = i - 1; j >= Math.max(0, i - 60); j--) {
+        if (/\(\(\)\s*=>\s*\{/.test(lines[j])) { start = j; break; }
+      }
+      // Include line `i` itself in the window — the inline-if form
+      // `if (safeState === 'not_built') return 'Not run';` has the guard
+      // AND the return on the same line.
+      const window = lines.slice(start, i + 1).join('\n');
       const guarded =
         /safeState\s*===\s*'not_built'/.test(window) ||
         /safeState\s*===\s*'complete'/.test(window);
       if (!guarded) {
-        violations.push({ line: i + 1, context: window.slice(-200) });
+        violations.push({ line: i + 1, snippet: line.trim() });
       }
     }
     expect(violations).toEqual([]);
+  });
+
+  it('every "Not run" return sits inside an IIFE body (boundary sanity)', () => {
+    // §9.3 #33 PR-F F3 — Counter-test for the above. If the IIFE-boundary
+    // walk above ever fails to find a `(() => {` line within 60 lines,
+    // the `start` falls back to `i - 60` and a neighbouring IIFE's guard
+    // could leak in. Pin that every 'Not run' has a `(() => {` opener
+    // within its 60-line look-back. Failure here means the IIFE-boundary
+    // assumption no longer holds and the guard test needs revisiting.
+    const lines = SRC.split('\n');
+    const orphans: number[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (!/\breturn\s+'Not run'/.test(lines[i])) continue;
+      const window = lines.slice(Math.max(0, i - 60), i).join('\n');
+      if (!/\(\(\)\s*=>\s*\{/.test(window)) orphans.push(i + 1);
+    }
+    expect(orphans).toEqual([]);
   });
 });
 
@@ -96,10 +159,14 @@ describe('GraphEnrichmentPipeline catalogue % clamp (§9.3 #31)', () => {
     const body = m![1];
     // Must contain the augmented_nodes / total_nodes calculation.
     expect(body).toMatch(/augmented_nodes\s*\/\s*augmentation\.total_nodes/);
-    // The math must be clamped via Math.min(100, ...). Without the clamp,
-    // augmented_nodes > total_nodes produces the 5501% Fast Catalogue class
-    // observed live on 2026-06-23.
-    expect(body).toMatch(/Math\.min\(\s*100\s*,\s*Math\.round/);
+    // §9.3 #33 PR-F F7 — clamp via Math.min that includes the literal 100.
+    // Relaxed from the rigid `Math.min(100, Math.round(...))` form so a
+    // semantically-equivalent reorder like
+    //   Math.round(Math.min(100, ratio * 100))
+    // (or any other arrangement that wraps the ratio in a Math.min with 100)
+    // still passes. The contract is "clamp present", not "clamp in this
+    // exact syntactic form".
+    expect(body).toMatch(/Math\.min\([^)]*100[^)]*\)/);
   });
 
   it('the sibling catalogueProgress IIFE also clamps (regression net)', () => {
@@ -108,6 +175,60 @@ describe('GraphEnrichmentPipeline catalogue % clamp (§9.3 #31)', () => {
     const m = SRC.match(/const catalogueProgress = \(\(\) => \{([\s\S]*?)\n\s*\}\)\(\);/);
     expect(m).not.toBeNull();
     const body = m![1];
-    expect(body).toMatch(/Math\.min\(\s*100\s*,\s*Math\.round/);
+    // §9.3 #33 PR-F F7 — same relaxed clamp pattern as catalogueStats.
+    expect(body).toMatch(/Math\.min\([^)]*100[^)]*\)/);
+  });
+});
+
+describe('CoverageBar width clamps (§9.3 #33 PR-F F1)', () => {
+  // Pin the sibling CoverageBar widths in TraceCoveragePanel + GraphStructurePanel.
+  // Same bug class as the 5501% catalogue chip — if augmented_nodes > total_nodes
+  // (data-semantics inconsistency tracked under §9.3 #32) leaks into these panels,
+  // unclamped widths break the rounded `overflow-hidden` clip.
+  const TRACE_COVERAGE_SRC = readFileSync(
+    resolve(__dirname, '..', 'TraceCoveragePanel.tsx'),
+    'utf-8',
+  );
+  const GRAPH_STRUCTURE_SRC = readFileSync(
+    resolve(__dirname, '..', 'GraphStructurePanel.tsx'),
+    'utf-8',
+  );
+
+  it('TraceCoveragePanel: every Pct ratio is clamped via Math.min(100, ...)', () => {
+    // Each of tracedPct / inProgressPct / stalePct / untracedPct must be
+    // declared via Math.min(100, ...). The pattern `const xPct = Math.min(100,`
+    // catches the canonical form.
+    for (const name of ['tracedPct', 'inProgressPct', 'stalePct', 'untracedPct']) {
+      const re = new RegExp(`const ${name}\\s*=\\s*Math\\.min\\(\\s*100\\s*,`);
+      expect(TRACE_COVERAGE_SRC).toMatch(re);
+    }
+  });
+
+  it('GraphStructurePanel: every Pct ratio is clamped via Math.min(100, ...)', () => {
+    for (const name of ['tracedPct', 'inProgressPct', 'stalePct']) {
+      const re = new RegExp(`const ${name}\\s*=\\s*Math\\.min\\(\\s*100\\s*,`);
+      expect(GRAPH_STRUCTURE_SRC).toMatch(re);
+    }
+  });
+});
+
+describe('Atlas IIFE safeState gating (§9.3 #33 PR-F F4)', () => {
+  it('atlasStats IIFE gates "Building atlas..." on safeState only — no `atlasRunning ||` bypass', () => {
+    // Pre-PR-F: `if (atlasRunning || safeState === 'running') return 'Building atlas...';`
+    // The raw atlasRunning flag escapes the i3SafeStageState coercion — in
+    // the race window where finalizePhase has flipped to 'completed' but
+    // atlasRunning is still stale-true for one poll tick, the badge would
+    // show green ✓ while the stats line still read 'Building atlas...'.
+    //
+    // PR-F: gate on safeState only.
+    const m = SRC.match(/const atlasStats = \(\(\) => \{([\s\S]*?)\n\s*\}\)\(\);/);
+    expect(m).not.toBeNull();
+    const body = m![1];
+    // The 'Building atlas...' return must NOT be preceded by an `||` with
+    // a raw running-flag identifier. Allow safeState-only forms.
+    expect(body).toMatch(/if \(safeState === 'running'\) return 'Building atlas\.\.\.';/);
+    // Negative: the legacy `atlasRunning || safeState ===` form must not
+    // appear in this IIFE body.
+    expect(body).not.toMatch(/atlasRunning\s*\|\|/);
   });
 });

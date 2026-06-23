@@ -98,10 +98,15 @@ function CoverageBar({ summary, building }: { summary: TraceCoverageSummary; bui
   // When not building, the numerator is just traced + pendingEmbedding.
   const displayNumerator = building ? (traced + inProgress) : (traced + pendingEmbedding);
 
-  const tracedPct = (traced / total) * 100;
-  const inProgressPct = (inProgress / total) * 100;
-  const stalePct = (displayStale / total) * 100;
-  const untracedPct = (displayUntraced / total) * 100;
+  // §9.3 #33 PR-F F1 — defensive clamp. Same bug class as the 5501% Fast
+  // Catalogue chip PR-D fixed in GraphEnrichmentPipeline. The underlying
+  // data-semantics inconsistency (numerator-exceeds-denominator when
+  // per-file vs per-symbol counters disagree) is tracked separately; the
+  // visual progress bar must never overflow the `overflow-hidden` clip.
+  const tracedPct = Math.min(100, (traced / total) * 100);
+  const inProgressPct = Math.min(100, (inProgress / total) * 100);
+  const stalePct = Math.min(100, (displayStale / total) * 100);
+  const untracedPct = Math.min(100, (displayUntraced / total) * 100);
   
   return (
     <div className="flex flex-col gap-1.5">

@@ -980,6 +980,32 @@ def _new_session_id() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
 
 
+def _per_iter_timeout_arg(raw: str) -> int:
+    """§9.3 #33 PR-F F6 — argparse type validator for --per-iter-timeout.
+
+    PR-E added a precondition in run_one_iter that raises ValueError when
+    per_iter_timeout < 90 (the child needs 30s headroom for ctx.snap +
+    browser.close before the parent SIGKILLs). main() did NOT catch that
+    ValueError — an operator passing --per-iter-timeout 60 would crash the
+    entire UAT session with an unhandled traceback AFTER the daemon health
+    probe (losing any partial run state).
+
+    Surface the misconfiguration at argparse time so the failure is a clean
+    `error: argument --per-iter-timeout: …` exit-2, not a traceback.
+    """
+    try:
+        v = int(raw)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"--per-iter-timeout must be an integer; got {raw!r}") from e
+    if v < 90:
+        raise argparse.ArgumentTypeError(
+            f"--per-iter-timeout must be ≥ 90s (child needs 30s headroom for "
+            f"ctx.snap + browser.close before the parent SIGKILLs the process "
+            f"group); got {v}s. See §9.3 #23 in docs/Phase145_Pipeline-UI-Reliability/."
+        )
+    return v
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(
         description="Phase 145 UAT session runner — drives playwright_smoke "
@@ -998,8 +1024,9 @@ def main(argv: list[str]) -> int:
                     help="playwright_smoke output root (default: tests/eval/ui_smoke).")
     ap.add_argument("--api-url", default="http://localhost:8400")
     ap.add_argument("--dashboard-url", default="http://localhost:5174")
-    ap.add_argument("--per-iter-timeout", type=int, default=15 * 60,
-                    help="Wall-clock budget per iter, seconds (default: 900 = 15m).")
+    ap.add_argument("--per-iter-timeout", type=_per_iter_timeout_arg, default=15 * 60,
+                    help="Wall-clock budget per iter, seconds (default: 900 = 15m, "
+                         "minimum: 90 — see §9.3 #23).")
     ap.add_argument("--inter-iter-pause", type=int, default=10,
                     help="Pause between iterations, seconds (default: 10).")
     ap.add_argument("--resume",

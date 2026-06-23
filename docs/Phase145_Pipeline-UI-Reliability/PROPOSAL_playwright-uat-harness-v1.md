@@ -569,6 +569,37 @@ Things explicitly deferred so the T2 / T3 PRs stayed scoped:
 
     All five items shipped as **PR-E (fix(phase145): PR-E — close §9.3 #23-#27 PR-B follow-up backlog)**. Test count: **136 → 143 pytest cases** (+7 net = -2 replaced + 9 added). All 206 phase-145 pytest cases green (`tests/test_phase145_run_session.py` + `tests/test_phase145_invariants.py`).
 
+28. *(see §9.3 #28-#31 entries above — PR-D / PR-C closed those)*
+
+33. **PR-F adversarial scrutiny shipped 2026-06-23** — multi-agent workflow (52 agents, 7 reviewers × 3-lens adversarial verify, ≥ 2/3 confirms) reviewed PR-D + PR-E and surfaced 12 confirmed findings. PR-F (`fix(phase145): PR-F — adversarial scrutiny fixes for PR-D / PR-E`) shipped 7 of those as bounded fixes; 3 deferred (see #34-#36). Closed:
+
+    - **F1 — CoverageBar width clamps (prd-missed-2)**: TraceCoveragePanel.tsx lines 101-104 + GraphStructurePanel.tsx lines 111-113 computed `(count / total) * 100` without `Math.min(100, ...)`. Same bug class as §9.3 #31 — when the underlying data-semantics inconsistency (augmented_nodes > total_nodes; tracked as §9.3 #32) leaks into these panels, the multicolour progress bar's segments collectively overflow the rounded `overflow-hidden` clip. Fix: wrap each pct calc in `Math.min(100, ...)`. Pinned by 2 new vitest cases in `statsSafeState.test.ts`.
+
+    - **F2 — Per-stage pin regex tightening (prd-tq-1 / prd-pind-1)**: PR-D's `,\s*'<stage_id>',` pin false-positive-matched stage_id literals inside the FAST_STAGE_ORDER / DEEP_STAGE_ORDER / FINALIZE_STAGE_ORDER arrays. 8 of 14 stages had count=3 instead of 2; the stats safeState const could be deleted silently from any of them and the ≥ 2 threshold still passed (the exact §9.3 #30 regression PR-D was meant to prevent). Fix: balanced-paren walk extracts every `i3SafeStageState(` call's argument string; count calls whose args contain the stage_id literal. Array literals are not i3SafeStageState calls so no false-positive possible.
+
+    - **F3 — 'Not run' guard sweep regex (prd-tq-2 / prd-pind-2)**: the line-start `^\s*return\s+'Not run'` only matched 5 of 15 'Not run' returns — the 10 IIFE inline-if returns (`if (safeState === 'not_built') return 'Not run';`) were invisible to the sweep. Additionally the 15-line look-back leaked across IIFE boundaries (the preceding IIFE's safeState satisfied the next IIFE's requirement). Fixes: relaxed return regex to `\breturn\s+'Not run'` (matches anywhere in line); bounded the look-back to the nearest enclosing `(() => {` line. New companion test `every "Not run" return sits inside an IIFE body` catches future drift where an IIFE form changes.
+
+    - **F4 — Atlas safeState bypass (prd-edge-1)**: atlasStats IIFE used `if (atlasRunning || safeState === 'running') return 'Building atlas...';` — the raw `atlasRunning` flag escaped the i3SafeStageState coercion. In the race window where finalizePhase has flipped to 'completed' but atlasRunning is still stale-true for one poll tick, the badge would show green ✓ while the stats line still read 'Building atlas...' (the exact green-chip-next-to-contradictory-text class PR-D was meant to fix). Fix: gate on safeState only. Pinned by new vitest case `atlasStats IIFE gates "Building atlas..." on safeState only`.
+
+    - **F5 — Empty-string fallthrough (prd-edge-3)**: 12 stats IIFE sites returned `''` when safeState coerced to 'complete' but the data prop was null (polling lag — API confirmed phase done before per-stage data payload arrived). Visual result: green ✓ chip with blank stats text. 7 sites at `if (!<dataProp>) return '';` + 5 sites at `if (safeState === 'complete') return '';` all changed to `return 'Complete'` so the row reflects the badge state.
+
+    - **F6 — Argparse validation for --per-iter-timeout (prd-pre-1)**: PR-E's `ValueError` in `run_one_iter` was unhandled by main() — operator passing `--per-iter-timeout 60` would crash the entire UAT session with a traceback AFTER the daemon health probe. Fix: new `_per_iter_timeout_arg` argparse type fn validates the floor (≥ 90 s) and emits a clean `SystemExit(2)` with a helpful message naming the §9.3 #23 minimum. 5 new tests (4 parametrized values + 1 non-integer).
+
+    - **F7 — Catalogue clamp test regex (prd-tq-3, incidental)**: relaxed from rigid `Math.min(100, Math.round(...))` to `Math.min([^)]*100[^)]*)` so semantically-equivalent reorderings (`Math.round(Math.min(100, ratio * 100))`) still pass.
+
+    Test counts after PR-F:
+      - `tests/test_phase145_run_session.py`: 143 → 148 (+5).
+      - `tests/test_phase145_invariants.py`: unchanged at 63.
+      - `packages/ui/src/components/trace/__tests__/statsSafeState.test.ts`: 17 → 21 (+4: orphan-IIFE sanity + 2 CoverageBar pins + atlas bypass pin).
+      - Total phase-145 pytest cases: 211 green.
+      - Trace components vitest: 177 green (1 pre-existing stale-worktree failure unchanged).
+
+34. **prd-edge-2 — Stats IIFEs omit `promoteForRebuild` while badges include it** *(deferred from PR-F; tracked under §9.3 #34)* — badges pass `promoteForRebuild(<state>)` before `i3SafeStageState`, so during a `/pipeline/rebuild` the state promotes to 'rebuilding' (driving the red rebuild bar variant). The 14 stats IIFEs do NOT wrap with promoteForRebuild, so under `isPipelineRebuilding(barrier)===true` with stage state='running' or 'queued', the badge shows the rebuild variant while the stats line still reads "Building..." (or "Synthesizing...", etc.) — a stats/badge desync during the rebuild path. Scoped fix needs to (a) wrap with `promoteForRebuild` in all 14 sites and (b) decide what stats text to render for `safeState === 'rebuilding'`. Deferred from PR-F because the 14-site refactor would balloon scope; bundle into its own bounded PR-G.
+
+35. **prd-tq-4 — No behavioural / DOM render test for safeState coercion** *(deferred from PR-F; tracked under §9.3 #35)* — the structural pins in `statsSafeState.test.ts` prove the *syntactic shape* (safeState const present, 'Not run' guarded by safeState, clamps present) but do NOT prove the *behaviour*: that given a fixture where `deep_enrichment.phase === 'completed'` and all per-stage raw computed states are still 'not_built', the rendered Deep Knowledge Embedding row's stats text is NOT 'Not run'. Add a render-based vitest in a new file (e.g. `statsSafeStateBehaviour.test.tsx`) that mounts `<GraphEnrichmentPipeline>` with the §9.3 #30 starting-condition fixture and asserts `screen.queryByText('Not run')` is null + every row's chip has `data-stage-state="complete"`. Deferred to PR-G — sets up its own React Testing Library scaffolding for the component.
+
+36. **prd-pre-2 — 30 s child-watch headroom is engineering judgment, not measurement** *(deferred from PR-F; tracked under §9.3 #36)* — `child_watch_cap = per_iter_timeout - 30` and the precondition floor of 90 s are derived from the comment "30 s headroom covers ctx.snap + browser.close under load". No measurement / profile / observed timing backs the 30 s number. Under genuinely hostile load (concurrent rebuild stressing the same machine, swap thrashing, Playwright wedged on a navigation), `ctx.snap` could conceivably exceed 30 s. Instrument `playwright_smoke`'s teardown path with an `Event('note', {'detail': 'browser_close_ms', 'ms': X})` so future baseline runs can ground the 30 s number in observation, then cite the p99 in the run_session.py comment. Low priority (default 900 s timeout gives 30× headroom in practice); deferred to a separate measurement work-item.
+
 ---
 
 ## 10. Cross-references
