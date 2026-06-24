@@ -1493,6 +1493,14 @@ export function GraphEnrichmentPipeline({
     },
     {
       id: 'group_reasoning', label: 'Group Reasoning', icon: Network, modelTag: 'Thinking',
+      // §9.3 #34 PR-G addenda — extracted the computed state from an inline
+      // IIFE into a const so the badge AND stats can derive their safeState
+      // from the same source. Previously the badge used i3SafeStageState +
+      // promoteForRebuild while the stats IIFE switched on RAW flags
+      // (groupReasoningRunning / slot_phase / running) — same desync class
+      // PR-G fixed for the other 14 stages but missed for group_reasoning
+      // because its stats text was 'Analyzed' (not 'Not run') and never
+      // appeared in the PR-D STAGE_IDS scope.
       state: i3SafeStageState(promoteForRebuild((() => {
         if (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'running' as StageState;
         if (!epistemic?.enabled || !epistemic?.enriched_nodes) return 'disabled' as StageState;
@@ -1503,10 +1511,26 @@ export function GraphEnrichmentPipeline({
         return 'not_built' as StageState;
       })()), 'group_reasoning', deepCurrentStage, deepEnrichmentPhase),
       stats: (() => {
-        if (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'Analyzing groups...';
-        if (!epistemic?.enabled || !epistemic?.enriched_nodes) return 'Waiting for enrichment';
+        // §9.3 #34 PR-G addenda — switch on safeState (matching the badge)
+        // instead of raw flags. The computed-state IIFE is the same as the
+        // badge above; duplicating it inline is acceptable because the
+        // logic is short and the alternative (lifting to a const)
+        // requires re-threading through the deepStages array which other
+        // sites don't do.
+        const groupReasoningState: StageState = (() => {
+          if (groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running) return 'running';
+          if (!epistemic?.enabled || !epistemic?.enriched_nodes) return 'disabled';
+          if (clusterRunning || atlasRunning || deepeningRunning || deepKnowledgeBuilding) return 'complete';
+          if (clusteringState === 'complete' || atlasState === 'complete' || deepeningState === 'complete' || deepeningState === 'stale') return 'complete';
+          if (groupReasoning?.enabled && groupReasoning?.group_count > 0) return 'complete';
+          return 'not_built';
+        })();
+        const safeState = i3SafeStageState(promoteForRebuild(groupReasoningState), 'group_reasoning', deepCurrentStage, deepEnrichmentPhase);
+        if ((safeState === 'running' || safeState === 'rebuilding')) return 'Analyzing groups...';
+        if (safeState === 'disabled') return 'Waiting for enrichment';
+        if (safeState === 'not_built') return 'Not run';
         if (groupReasoning?.enabled && groupReasoning?.group_count > 0) return `${groupReasoning.group_count} groups analyzed`;
-        return 'Analyzed';
+        return 'Complete';
       })(),
       progress: (() => {
         const isRunning = groupReasoningRunning || groupReasoning?.slot_phase === 'running' || groupReasoning?.running;

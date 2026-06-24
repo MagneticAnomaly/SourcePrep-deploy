@@ -55,6 +55,33 @@ function findI3SafeStageStateArgs(src: string): string[] {
 
 const I3_SAFE_STAGE_STATE_CALLS = findI3SafeStageStateArgs(SRC);
 
+// §9.3 #34 PR-G addenda — Balanced-brace walk to extract every IIFE body
+// (`(() => { ... })`). Used to scope assertions to a single IIFE rather
+// than the line-as-unit approach the PR-G sweep originally used (which the
+// PR-G scrutiny found could be defeated by multi-line conditionals or by
+// removing the 'running' literal entirely from a single line).
+function findIIFEBodies(src: string): string[] {
+  const bodies: string[] = [];
+  const opener = /\(\(\)\s*=>\s*\{/g;
+  let m: RegExpExecArray | null;
+  while ((m = opener.exec(src)) !== null) {
+    const bodyStart = m.index + m[0].length;
+    let depth = 1;
+    let i = bodyStart;
+    while (i < src.length && depth > 0) {
+      const ch = src[i];
+      if (ch === '{') depth++;
+      else if (ch === '}') depth--;
+      if (depth === 0) break;
+      i++;
+    }
+    if (depth === 0) bodies.push(src.slice(bodyStart, i));
+  }
+  return bodies;
+}
+
+const IIFE_BODIES = findIIFEBodies(SRC);
+
 // Stages whose stats IIFE/expression had a literal `'Not run'` return
 // before PR-D. Each must now be preceded by a safeState pattern.
 const STAGE_IDS = [
@@ -63,6 +90,7 @@ const STAGE_IDS = [
   'catalogue',
   'validation',
   'enrichment',
+  'group_reasoning',  // §9.3 #34 PR-G addenda — brought into safeState scope
   'clustering',
   'atlas',
   'deepening',
@@ -269,19 +297,52 @@ describe('Stats IIFE promoteForRebuild wrap (§9.3 #34 PR-G)', () => {
     },
   );
 
-  it('every stats IIFE running-text return also matches safeState === "rebuilding"', () => {
-    // Walk every line containing `(safeState === 'running')` (the OR form
-    // includes parens because the replace_all added them). Every such site
-    // must also reference 'rebuilding' on the same line so during a
-    // /pipeline/rebuild the stats text fires instead of falling through
-    // to the data path (which would show 'Complete' from F5).
-    const lines = SRC.split('\n');
-    const violations: Array<{ line: number; snippet: string }> = [];
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!/safeState\s*===\s*'running'/.test(line)) continue;
-      if (!/safeState\s*===\s*'rebuilding'/.test(line)) {
-        violations.push({ line: i + 1, snippet: line.trim() });
+  it('every IIFE body with a safeState running/rebuilding branch has BOTH literals', () => {
+    // §9.3 #34 PR-G addenda — replaces the original line-based sweep
+    // (which the PR-G scrutiny found was asymmetric: it only walked lines
+    // containing `safeState === 'running'`, so a regression that removed
+    // the 'running' literal and left only 'rebuilding' would be silently
+    // skipped — see PRG-TQ-1).
+    //
+    // IIFE-body-based + bidirectional. For each IIFE body that mentions
+    // EITHER `safeState === 'running'` OR `safeState === 'rebuilding'`,
+    // both literals must appear. Catches removal of EITHER direction.
+    //
+    // Also resilient to behaviour-equivalent line-formatting changes
+    // (multi-line conditionals, split-if refactors) that would have
+    // tripped the line-based sweep — see PRG-TQ-2.
+    const violations: Array<{ body_preview: string; missing: string }> = [];
+    for (const body of IIFE_BODIES) {
+      const hasRunning = /safeState\s*===\s*'running'/.test(body);
+      const hasRebuilding = /safeState\s*===\s*'rebuilding'/.test(body);
+      if (hasRunning && !hasRebuilding) {
+        violations.push({ body_preview: body.slice(0, 200).trim(), missing: 'rebuilding' });
+      } else if (hasRebuilding && !hasRunning) {
+        violations.push({ body_preview: body.slice(0, 200).trim(), missing: 'running' });
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it('canonical safeState variable name (PRG-TQ-3 convention pin)', () => {
+    // §9.3 #34 PR-G addenda — the per-stage promoteForRebuild pin and the
+    // 'Not run' guard sweep both hardcode the identifier `safeState`. A
+    // legitimate rename refactor like `const myState = i3SafeStageState(…)`
+    // would silently break both pins for opaque reasons. Document the
+    // convention explicitly so a future maintainer who hits the pin
+    // failures sees a clean error pointing at the contract rather than
+    // chasing structural regex misses.
+    //
+    // The convention: every `const X = i3SafeStageState(` assignment inside
+    // a stats IIFE in GraphEnrichmentPipeline.tsx must use the identifier
+    // `safeState`. The badge-state arg (in the stage array, after `state:`)
+    // is separate and is allowed any form.
+    const violations: string[] = [];
+    const re = /const\s+(\w+)\s*=\s*i3SafeStageState\s*\(/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(SRC)) !== null) {
+      if (m[1] !== 'safeState') {
+        violations.push(`Found 'const ${m[1]} = i3SafeStageState(' — expected 'safeState'`);
       }
     }
     expect(violations).toEqual([]);
