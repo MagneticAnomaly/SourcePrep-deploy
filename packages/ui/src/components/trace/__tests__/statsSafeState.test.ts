@@ -212,6 +212,82 @@ describe('CoverageBar width clamps (§9.3 #33 PR-F F1)', () => {
   });
 });
 
+describe('Stats IIFE promoteForRebuild wrap (§9.3 #34 PR-G)', () => {
+  // PR-D + PR-F left the stats IIFEs computing safeState directly from the
+  // raw computed state, without first wrapping in promoteForRebuild. The
+  // BADGE state at every stage-array entry DOES wrap with promoteForRebuild
+  // (lines ~1448, 1451, 1459, 1462, 1465, 1476, 1516, 1523, 1531 + the 5
+  // finalize badges). During a /pipeline/rebuild this produced a desync:
+  // badge shows the rebuild progress-bar variant (rebuilding); stats text
+  // wouldn't match because the running-branch only matched 'running'.
+  //
+  // PR-G fix: every stats safeState is computed from
+  // i3SafeStageState(promoteForRebuild(<rawState>), ...) — matching the
+  // badge pattern — AND every running-text branch now also matches
+  // 'rebuilding' so the stats text fires during rebuild too.
+
+  it.each(STAGE_IDS)(
+    '%s — stats safeState computation wraps raw state in promoteForRebuild',
+    (stageId) => {
+      // For each stage_id, find the i3SafeStageState call whose stage_id
+      // arg matches AND whose preceding-bytes context shows it's inside a
+      // `const safeState = ` assignment (the stats IIFE pattern, not the
+      // badge stage-array entry which uses `state:`).
+      const stageIdLiteral = `'${stageId}'`;
+      // Find every i3SafeStageState call that references this stage id,
+      // and locate it in the source.
+      const callRe = /\bi3SafeStageState\s*\(/g;
+      const wrappedCallSites: number[] = [];
+      const allCallSites: number[] = [];
+      let m: RegExpExecArray | null;
+      while ((m = callRe.exec(SRC)) !== null) {
+        const argsStart = m.index + m[0].length;
+        // Find the matching closing paren.
+        let depth = 1;
+        let i = argsStart;
+        while (i < SRC.length && depth > 0) {
+          if (SRC[i] === '(') depth++;
+          else if (SRC[i] === ')') depth--;
+          if (depth === 0) break;
+          i++;
+        }
+        const args = SRC.slice(argsStart, i);
+        if (!args.includes(stageIdLiteral)) continue;
+        // What's the ~80 chars preceding `i3SafeStageState(` ? If it
+        // contains `const safeState`, this is a stats-IIFE callsite (the
+        // ones we need to verify wrap promoteForRebuild).
+        const preContext = SRC.slice(Math.max(0, m.index - 80), m.index);
+        if (!/const safeState\s*=\s*$/.test(preContext)) continue;
+        allCallSites.push(m.index);
+        // Did the first arg wrap promoteForRebuild?
+        if (/^\s*promoteForRebuild\s*\(/.test(args)) {
+          wrappedCallSites.push(m.index);
+        }
+      }
+      expect(allCallSites.length).toBeGreaterThanOrEqual(1);
+      expect(wrappedCallSites.length).toBe(allCallSites.length);
+    },
+  );
+
+  it('every stats IIFE running-text return also matches safeState === "rebuilding"', () => {
+    // Walk every line containing `(safeState === 'running')` (the OR form
+    // includes parens because the replace_all added them). Every such site
+    // must also reference 'rebuilding' on the same line so during a
+    // /pipeline/rebuild the stats text fires instead of falling through
+    // to the data path (which would show 'Complete' from F5).
+    const lines = SRC.split('\n');
+    const violations: Array<{ line: number; snippet: string }> = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!/safeState\s*===\s*'running'/.test(line)) continue;
+      if (!/safeState\s*===\s*'rebuilding'/.test(line)) {
+        violations.push({ line: i + 1, snippet: line.trim() });
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});
+
 describe('Atlas IIFE safeState gating (§9.3 #33 PR-F F4)', () => {
   it('atlasStats IIFE gates "Building atlas..." on safeState only — no `atlasRunning ||` bypass', () => {
     // Pre-PR-F: `if (atlasRunning || safeState === 'running') return 'Building atlas...';`
@@ -225,10 +301,17 @@ describe('Atlas IIFE safeState gating (§9.3 #33 PR-F F4)', () => {
     expect(m).not.toBeNull();
     const body = m![1];
     // The 'Building atlas...' return must NOT be preceded by an `||` with
-    // a raw running-flag identifier. Allow safeState-only forms.
-    expect(body).toMatch(/if \(safeState === 'running'\) return 'Building atlas\.\.\.';/);
-    // Negative: the legacy `atlasRunning || safeState ===` form must not
-    // appear in this IIFE body.
+    // a raw running-flag identifier. Allow safeState-only forms (PR-F F4)
+    // and the post-PR-G OR with 'rebuilding' added by §9.3 #34.
+    // Accepted forms (any one):
+    //   if (safeState === 'running') return 'Building atlas...';
+    //   if (safeState === 'running' || safeState === 'rebuilding') return 'Building atlas...';
+    //   if ((safeState === 'running' || safeState === 'rebuilding')) return 'Building atlas...';
+    expect(body).toMatch(
+      /if\s*\(\(?safeState === 'running'(\s*\|\|\s*safeState === 'rebuilding')?\)?\)\s*return 'Building atlas\.\.\.';/,
+    );
+    // Negative: the legacy `atlasRunning ||` form must not appear (the raw
+    // running flag escapes the i3SafeStageState coercion).
     expect(body).not.toMatch(/atlasRunning\s*\|\|/);
   });
 });

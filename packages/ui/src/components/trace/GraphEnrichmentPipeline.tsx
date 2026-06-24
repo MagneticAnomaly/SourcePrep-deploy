@@ -1243,10 +1243,10 @@ export function GraphEnrichmentPipeline({
     // never says 'Not run' when the group's API phase has flipped to
     // 'completed'. Keeps stats in lock-step with the badge state from
     // the corresponding stage-array entry below.
-    const safeState = i3SafeStageState(structuralState, 'structural', fastCurrentStage, fastSyncPhase);
+    const safeState = i3SafeStageState(promoteForRebuild(structuralState), 'structural', fastCurrentStage, fastSyncPhase);
     if (safeState === 'not_built') return 'Not run';
     if (safeState === 'disabled') return 'Disabled';
-    if (safeState === 'running') return trace.counts.nodes > 0
+    if ((safeState === 'running' || safeState === 'rebuilding')) return trace.counts.nodes > 0
       ? `${trace.counts.nodes.toLocaleString()} nodes · ${trace.counts.edges.toLocaleString()} edges`
       : 'Building...';
     // State is 'complete' — if counts are still 0 but a later stage is running,
@@ -1260,8 +1260,8 @@ export function GraphEnrichmentPipeline({
   const inferredEdgesState = computeInferredEdgesState(trace, inferredEdges, inferredEdgesRunning, augmenting, validating, fastKnowledgeBuilding);
   const inferredEdgesStats = (() => {
     // §9.3 #30 — see structuralStats above.
-    const safeState = i3SafeStageState(inferredEdgesState, 'inferred_edges', fastCurrentStage, fastSyncPhase);
-    if (safeState === 'running') {
+    const safeState = i3SafeStageState(promoteForRebuild(inferredEdgesState), 'inferred_edges', fastCurrentStage, fastSyncPhase);
+    if ((safeState === 'running' || safeState === 'rebuilding')) {
       const sp = inferredEdges?.slot_progress;
       if (sp && sp.total > 0) return `${sp.current}/${sp.total} files · ${sp.message || 'Discovering...'}`;
       return 'Discovering edges...';
@@ -1280,8 +1280,8 @@ export function GraphEnrichmentPipeline({
   const catalogueState = computeAugmentState(trace, augmentation, augmenting, validating, fastKnowledgeBuilding);
   const catalogueStats = (() => {
     // §9.3 #30 — see structuralStats above.
-    const safeState = i3SafeStageState(catalogueState, 'catalogue', fastCurrentStage, fastSyncPhase);
-    if (safeState === 'running') {
+    const safeState = i3SafeStageState(promoteForRebuild(catalogueState), 'catalogue', fastCurrentStage, fastSyncPhase);
+    if ((safeState === 'running' || safeState === 'rebuilding')) {
       // Show file progress so the user knows it's alive at 99%
       const cur = augmentation?.progress_current ?? 0;
       const tot = augmentation?.progress_total ?? 0;
@@ -1320,8 +1320,8 @@ export function GraphEnrichmentPipeline({
   const validationState = computeValidationState(trace, augmentation, augmenting, validating, fastKnowledgeBuilding);
   const validationStats = (() => {
     // §9.3 #30 — see structuralStats above.
-    const safeState = i3SafeStageState(validationState, 'validation', fastCurrentStage, fastSyncPhase);
-    if (safeState === 'running') return 'Validating...';
+    const safeState = i3SafeStageState(promoteForRebuild(validationState), 'validation', fastCurrentStage, fastSyncPhase);
+    if ((safeState === 'running' || safeState === 'rebuilding')) return 'Validating...';
     if (safeState === 'disabled') return 'Waiting for catalogue';
     if (safeState === 'not_built') return 'Not run';
     return '0 issues found'; // Placeholder until Rust validator is fully implemented
@@ -1331,8 +1331,8 @@ export function GraphEnrichmentPipeline({
   const enrichmentState = computeEpistemicState(trace, augmentation, epistemic, epistemicRunning, clusterRunning, atlasRunning, deepeningRunning, deepKnowledgeBuilding);
   const enrichmentStats = (() => {
     // §9.3 #30 — see structuralStats above.
-    const safeState = i3SafeStageState(enrichmentState, 'enrichment', deepCurrentStage, deepEnrichmentPhase);
-    if (safeState === 'running') {
+    const safeState = i3SafeStageState(promoteForRebuild(enrichmentState), 'enrichment', deepCurrentStage, deepEnrichmentPhase);
+    if ((safeState === 'running' || safeState === 'rebuilding')) {
       const cur = epistemic?.progress_current ?? 0;
       const tot = epistemic?.progress_total ?? 0;
       if (tot > 0) return `${cur.toLocaleString()} / ${tot.toLocaleString()} files`;
@@ -1351,8 +1351,8 @@ export function GraphEnrichmentPipeline({
   const clusteringState = computeModuleState(epistemic, modules, clusterRunning, atlasRunning, deepeningRunning, deepKnowledgeBuilding);
   const clusteringStats = (() => {
     // §9.3 #30 — see structuralStats above.
-    const safeState = i3SafeStageState(clusteringState, 'clustering', deepCurrentStage, deepEnrichmentPhase);
-    if (safeState === 'running') return 'Synthesizing...';
+    const safeState = i3SafeStageState(promoteForRebuild(clusteringState), 'clustering', deepCurrentStage, deepEnrichmentPhase);
+    if ((safeState === 'running' || safeState === 'rebuilding')) return 'Synthesizing...';
     if (safeState === 'disabled') return 'Waiting for enrichment';
     if (safeState === 'not_built') return 'Not run';
     if (!modules) return 'Complete';  // §9.3 #33 PR-F F5 — see inferredEdgesStats
@@ -1371,8 +1371,8 @@ export function GraphEnrichmentPipeline({
     // still read 'Building atlas...' — the same green-chip-next-to-
     // contradictory-text class PR-D was meant to fix. See PR-F F4 in the
     // PROPOSAL for the regression trace.
-    const safeState = i3SafeStageState(atlasState, 'atlas', finalizeCurrentStageId, finalizePhase);
-    if (safeState === 'running') return 'Building atlas...';
+    const safeState = i3SafeStageState(promoteForRebuild(atlasState), 'atlas', finalizeCurrentStageId, finalizePhase);
+    if ((safeState === 'running' || safeState === 'rebuilding')) return 'Building atlas...';
     // Show real data whenever it exists, regardless of whatever the
     // pre-finalize-move computeAtlasState heuristics decide. This prevents
     // the icon (driven by finStageState/atlasDone) from flashing ✓ complete
@@ -1397,8 +1397,8 @@ export function GraphEnrichmentPipeline({
   const deepeningState = computeDeepeningState(epistemic, deepening, deepeningRunning, modules, deepKnowledgeBuilding);
   const deepeningStats = (() => {
     // §9.3 #30 — see structuralStats above.
-    const safeState = i3SafeStageState(deepeningState, 'deepening', deepCurrentStage, deepEnrichmentPhase);
-    if (safeState === 'running') {
+    const safeState = i3SafeStageState(promoteForRebuild(deepeningState), 'deepening', deepCurrentStage, deepEnrichmentPhase);
+    if ((safeState === 'running' || safeState === 'rebuilding')) {
       const iter = deepening?.iteration ?? 0;
       const max = deepening?.max_iterations ?? '?';
       return `Iteration ${iter}/${max}`;
@@ -1422,8 +1422,8 @@ export function GraphEnrichmentPipeline({
   const fastKnowledgeState = computeFastKnowledgeState(trace, augmentation, knowledge, fastKnowledgeBuilding, augmenting);
   const fastKnowledgeStats = (() => {
     // §9.3 #30 — see structuralStats above.
-    const safeState = i3SafeStageState(fastKnowledgeState, 'knowledge', fastCurrentStage, fastSyncPhase);
-    if (safeState === 'running') return 'Embedding...';
+    const safeState = i3SafeStageState(promoteForRebuild(fastKnowledgeState), 'knowledge', fastCurrentStage, fastSyncPhase);
+    if ((safeState === 'running' || safeState === 'rebuilding')) return 'Embedding...';
     if (safeState === 'disabled') return 'Waiting for catalogue';
     if (safeState === 'not_built') return 'Not run';
     if (!knowledge) return 'Complete';  // §9.3 #33 PR-F F5 — see inferredEdgesStats
@@ -1441,8 +1441,8 @@ export function GraphEnrichmentPipeline({
     // ='completed' with deep_knowledge stage_results also 'completed', yet
     // the stats line still read 'Not run' because the raw computed state
     // hadn't caught up.
-    const safeState = i3SafeStageState(deepKnowledgeState, 'deep_knowledge', deepCurrentStage, deepEnrichmentPhase);
-    if (safeState === 'running') return 'Re-embedding with deep data...';
+    const safeState = i3SafeStageState(promoteForRebuild(deepKnowledgeState), 'deep_knowledge', deepCurrentStage, deepEnrichmentPhase);
+    if ((safeState === 'running' || safeState === 'rebuilding')) return 'Re-embedding with deep data...';
     if (safeState === 'disabled') return 'Waiting for enrichment + clusters';
     if (safeState === 'not_built') return 'Not run';
     if (!deepKnowledgeSource) return 'Complete';  // §9.3 #33 PR-F F5 — see inferredEdgesStats
@@ -1620,8 +1620,8 @@ export function GraphEnrichmentPipeline({
       // when finalizePhase has flipped to 'completed'.
       stats: (() => {
         if (effectiveRulesStatus?.generated) return 'Generated';
-        const safeState = i3SafeStageState(finStageState('rules', false), 'rules', finalizeCurrentStageId, finalizePhase);
-        if (safeState === 'running') return 'Generating...';
+        const safeState = i3SafeStageState(promoteForRebuild(finStageState('rules', false)), 'rules', finalizeCurrentStageId, finalizePhase);
+        if ((safeState === 'running' || safeState === 'rebuilding')) return 'Generating...';
         if (safeState === 'complete') return 'Complete';  // §9.3 #33 PR-F F5
         return 'Not run';
       })(),
@@ -1636,8 +1636,8 @@ export function GraphEnrichmentPipeline({
       // §9.3 #30 — see rules stats above.
       stats: (() => {
         if (effectiveConceptsStatus?.seeded) return `${effectiveConceptsStatus.count} concepts`;
-        const safeState = i3SafeStageState(finStageState('concepts', false), 'concepts', finalizeCurrentStageId, finalizePhase);
-        if (safeState === 'running') return 'Seeding...';
+        const safeState = i3SafeStageState(promoteForRebuild(finStageState('concepts', false)), 'concepts', finalizeCurrentStageId, finalizePhase);
+        if ((safeState === 'running' || safeState === 'rebuilding')) return 'Seeding...';
         if (safeState === 'complete') return 'Complete';  // §9.3 #33 PR-F F5
         return 'Not run';
       })(),
@@ -1652,8 +1652,8 @@ export function GraphEnrichmentPipeline({
       // §9.3 #30 — see rules stats above.
       stats: (() => {
         if (effectiveAuditPipelineStatus?.exists) return `${effectiveAuditPipelineStatus.finding_count} findings`;
-        const safeState = i3SafeStageState(finStageState('audit', false), 'audit', finalizeCurrentStageId, finalizePhase);
-        if (safeState === 'running') return 'Auditing...';
+        const safeState = i3SafeStageState(promoteForRebuild(finStageState('audit', false)), 'audit', finalizeCurrentStageId, finalizePhase);
+        if ((safeState === 'running' || safeState === 'rebuilding')) return 'Auditing...';
         if (safeState === 'complete') return 'Complete';  // §9.3 #33 PR-F F5
         return 'Not run';
       })(),
@@ -1668,8 +1668,8 @@ export function GraphEnrichmentPipeline({
       // §9.3 #30 — see rules stats above.
       stats: (() => {
         if (effectiveAntibodiesStatus?.count) return `${effectiveAntibodiesStatus.count} antibodies`;
-        const safeState = i3SafeStageState(finStageState('antibodies', false), 'antibodies', finalizeCurrentStageId, finalizePhase);
-        if (safeState === 'running') return 'Deriving...';
+        const safeState = i3SafeStageState(promoteForRebuild(finStageState('antibodies', false)), 'antibodies', finalizeCurrentStageId, finalizePhase);
+        if ((safeState === 'running' || safeState === 'rebuilding')) return 'Deriving...';
         if (safeState === 'complete') return 'Complete';  // §9.3 #33 PR-F F5
         return 'Not run';
       })(),
