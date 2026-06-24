@@ -30,7 +30,9 @@
     "build-storybook": "storybook build",
     "build-storybook:public": "STORYBOOK_PUBLIC=true storybook build",
     "lint": "eslint src --ext ts,tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "peerDependencies": {
     "react": "^18.2.0",
@@ -57,6 +59,8 @@
     "@storybook/react": "^7.6.10",
     "@storybook/react-vite": "^7.6.10",
     "@storybook/testing-library": "^0.2.2",
+    "@testing-library/jest-dom": "^6.4.0",
+    "@testing-library/react": "^14.3.0",
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "@types/react-grid-layout": "^1.3.5",
@@ -67,12 +71,14 @@
     "autoprefixer": "^10.4.17",
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
+    "happy-dom": "^15.0.0",
     "postcss": "^8.4.33",
     "storybook": "^7.6.10",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3",
     "vite": "^5.0.12",
-    "vite-plugin-dts": "^3.7.1"
+    "vite-plugin-dts": "^3.7.1",
+    "vitest": "^3.0.0"
   },
   "keywords": [
     "prep",
