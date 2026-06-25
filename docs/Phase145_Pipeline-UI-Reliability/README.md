@@ -58,6 +58,7 @@
 | `DIAGNOSTIC_2026-06-15_resume-point-and-failure-paths.md` | diagnostic | open | DG1–DG7 — evidence to capture before §2l Thread C can be planned correctly |
 | `PROPOSAL_threads-B-and-C-v2-barrier-and-resume-detector.md` | proposal — **draft, awaiting scrutiny** | open | Corrected v2: Thread B with the right enums + broader fix location; Thread C reframed to the actual upstream cause (resume detector); Thread D as a UI safety net. Subject to scrutiny before execution |
 | `PROPOSAL_thread-A-v1-concurrency-undershoot-and-work-loss.md` | proposal — **draft, awaiting scrutiny** | open | §2k — Thread A as A.1 (diagnostic) + A.2 (manual-floor, evidence solid) + A.3–A.7 (each gated on which evidence DG-A captures). Risk register RA1–RA7 + invariants from FINDING §5. Subject to scrutiny before execution |
+| `FINDING_catalogue-augmented-vs-total-semantic-mismatch.md` | finding | open, root cause pinned | §9.3 #32 — `augmented_nodes > total_nodes` (the 7812/142 → 5501% production case). `total_nodes` in manifest is current-run scope (`total_work`); `augmented_nodes` is cumulative project-wide (`len(entries)` from on-disk). Three fix options + recommended Option A (project-wide augmentable count as denominator) for a backend PR. Companion to PR-M Fixture CA8 rendering-clamp regression test (commit `aa8adb7d`) |
 
 **Reading order for an orchestrator opening this cold:**
 
