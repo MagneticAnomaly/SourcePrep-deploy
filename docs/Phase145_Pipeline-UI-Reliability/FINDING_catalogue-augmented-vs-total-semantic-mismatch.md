@@ -72,12 +72,15 @@ files since the last build).
 "augmented": len(entries),
 ```
 
-Where `entries` is the merged dict of `existing + new_entries`:
+Where `entries` is the dict the augmentation loop has been mutating
+in place (NOT a separate "merged" dict — `existing` and `entries`
+are the same reference, renamed at the call site):
 - `existing = self.load_existing()` (`augmenter.py:1669`) reads
   every previously-augmented entry from `trace_augmented.jsonl` on disk
-- New entries from this run are added to `existing` in-place via the
-  augmentation loop (not shown — happens between line 1742 and 1992)
-- The merged dict is passed to `_write_manifest(result, entries)`
+- The augmentation loop mutates `existing` in place, adding entries
+  for nodes processed this run (happens between line 1742 and 1992)
+- The same dict (`existing` post-mutation, passed as `entries`) is
+  what `_write_manifest(result, entries)` receives
 
 After many incremental runs against a large project that's been fully
 augmented once, `len(entries)` can grow to thousands while `total_work`
@@ -108,14 +111,23 @@ numerator already does this.
 
 Mechanic: replace the `augmentable_nodes = result.total_nodes - result.skipped`
 line with a project-wide augmentable count. Compute once at run-start
-by scanning `nodes` for non-external-module kinds:
+by taking the union of the kind-filtered node sets the augmenter
+already iterates over (`symbol_nodes` and `file_nodes`):
 
 ```python
-project_augmentable_total = sum(
-    1 for n in nodes
-    if n.get("kind") != "external_module"  # actual skip-criteria here
+# Matches the actual filter in the shipped fix
+# (augmenter.py:1699 — PR-P):
+augmentable_ids = (
+    {n["id"] for n in symbol_nodes}
+    | {n["id"] for n in file_nodes}
 )
+project_augmentable_count = len(augmentable_ids)
 ```
+
+Note: a negative filter like `kind != "external_module"` would
+over-count — there are other non-augmentable kinds (`section`,
+legacy entries, etc.) that the positive filter correctly excludes.
+The shipped PR-P uses the positive filter for this reason.
 
 Pros: matches the user mental model ("X% of my project's nodes are
 augmented"), the chip number actually means something useful, fixes
@@ -160,9 +172,16 @@ the chip was designed for.
 
 1. Adds a project-wide augmentable-count helper in `augmenter.py`.
 2. Updates `_write_manifest` to use it as `total_nodes`.
-3. Migrates the v2 manifest path (`augmenter.py:2229-2251`) to the
-   same semantics — `quality.total_items` likely has the same
-   current-run-scope problem.
+3. Migrates the v2 manifest path (`augmenter.py:2229-2251`) to
+   coherent semantics. NOTE: v2 does NOT have the same root cause
+   as v1 — v2's bug is that the orchestrator writes its own
+   `total_items`/`processed` that overwrite the v1 counts when both
+   manifests are read together. The fix (shipped as PR-P-fixup +
+   r2) extends `ManifestStore.write_provenance`'s STRUCTURAL
+   merge-preservation pattern to CATALOGUE, preserving the v1
+   `counts`/`stats`/`version`/`built_at`/`model` keys across the v2
+   write. Different code path, different fix; same user-visible
+   symptom.
 4. Adds a daemon-side pytest that writes a manifest with the v1 shape,
    reads it via `_project_augment_status` overlaid through the route,
    and asserts `augmented_nodes <= total_nodes`. This is the
@@ -172,8 +191,10 @@ the chip was designed for.
    (`enrichment.py:62-65`) needs corresponding changes — during
    `BuildPhase.RUNNING` the slot.progress numbers are coherent with
    each other, but `total_nodes` may need to be the project-wide
-   total there too (otherwise the chip swings from "11 of 142" during
-   the run to "11 of 8000" after the manifest writes).
+   total there too (otherwise the chip swings from "11 of 142"
+   during the run to "8000 of 142" after the manifest writes — the
+   numerator that grows is `augmented_nodes`, not `total_nodes`;
+   the small denominator stays small).
 
 PR-M's Fixture CA8 (the 7812/142 → 100% regression test) already pins
 the rendering-side defense. The backend PR closes the actual data
@@ -192,10 +213,33 @@ inconsistency.
    overlay only fires during RUNNING phase, so the 5501% case is
    almost certainly from the POST-run manifest path — but worth
    confirming with a tracing flag during reproduction.
-4. Are there other call sites consuming `augmented_nodes / total_nodes`
-   that would break if the denominator shifted scope? Grep:
-   `augmented_nodes` appears in routes, UI panels, and CoverageBar
-   width math (already clamped by PR-D §9.3 #31 PR-F F1).
+4. ~~Are there other call sites consuming `augmented_nodes / total_nodes`
+   that would break if the denominator shifted scope?~~ **ANSWERED
+   from grep** — 5 consumer sites identified, all safe under a
+   denominator-scope shift:
+   - `src/prep/api/routers/trace_routes/enrichment.py:57,64` — live
+     overlay writes `slot.progress_current` to `augmented_nodes`
+     (same source, just routed; no ratio math here).
+   - `src/prep/services/pi_agent.py:868` — `augmented_nodes / total
+     * 100` ratio math; already flagged in "Not in scope" below as
+     a separate code path (legacy `pi_agent` augmentation).
+   - `src/prep/dashboard/src/hooks/useDashboardPanels.tsx:1207` —
+     reads `augmented_nodes` as `catalogued_nodes` for panel
+     display; no ratio math, just display.
+   - `packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx:462-464`
+     — three reads: `aug.augmented_nodes === 0` (gate),
+     `aug.low_confidence_count > aug.augmented_nodes * 0.3` (warning
+     threshold), `aug.augmented_nodes < aug.total_nodes * 0.5`
+     (stale threshold). The stale-threshold check is the only
+     ratio-like comparison; under the new scope it would compare
+     "cumulative augmentations vs project-wide augmentable" which
+     is the semantically-correct check it always should have been.
+   - `packages/ui/src/types.ts:375` — TypeScript type declaration;
+     no runtime impact.
+
+   Conclusion: shifting `total_nodes` to project-wide augmentable
+   count is safe across all 5 consumers. The only ratio-based UI
+   read (stale threshold) becomes MORE correct under the new scope.
 
 ## Verification of root-cause hypothesis (pending live repro)
 
