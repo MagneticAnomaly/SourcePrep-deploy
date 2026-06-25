@@ -125,3 +125,8 @@ archive/
 # Prep rename inventory snapshots (Phase 0/19, gitignored)
 .rename-inventory-before.txt
 .rename-inventory-after.txt
+
+# Stryker mutation testing (local-dev only, never committed)
+.stryker-tmp/
+reports/mutation/
+packages/ui/reports/
