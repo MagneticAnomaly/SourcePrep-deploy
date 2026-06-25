@@ -1095,13 +1095,64 @@ class WorkerFactory:
                 "[Deepening] Complete — %d iterations, converged=%s",
                 result.iterations, bool(result.convergence),
             )
-            return {
+
+            # §9.3 #32 (PR-S): emit the orchestrator override keys
+            # `_expected_total` and `_processed_count` so
+            # _apply_worker_quality_overrides hoists them into
+            # manifest.quality and the dashboard chip shows a
+            # semantically-coherent denominator (project-wide file
+            # node count) rather than the JSONL line count.
+            #
+            # DEEPENING and ENRICHMENT share trace_epistemic.jsonl per
+            # stages.py STAGE_OUTPUT_FILE (lines 218/222), so the
+            # JSONL row count is cumulative across both stages — it
+            # cannot be the denominator. Project-wide file_nodes is
+            # the right scope: it matches the "Continuous Deepening"
+            # chip's user-perceived meaning ("how many files have
+            # epistemic understanding") and aligns with the
+            # ENRICHMENT denominator chosen in PR-Q.
+            #
+            # Closes PRQ-CSI-002 from PR-Q round-1 scrutiny (the
+            # cross-stage asymmetry where ENRICHMENT was migrated but
+            # DEEPENING continued to leak the §9.3 #32 bug class).
+            try:
+                all_nodes = enricher.load_trace_nodes()
+                file_nodes = [n for n in all_nodes if n.get("kind") == "file"]
+                file_node_ids = {n["id"] for n in file_nodes}
+                existing = enricher.load_existing()
+                # Same orphan-filter pattern as
+                # EpistemicEnricher.run() (PR-Q-fixup-r1): exclude
+                # entries whose node_id no longer matches an in-scope
+                # file node (L3 policy changes, file deletions).
+                in_scope_count = sum(1 for nid in existing if nid in file_node_ids)
+                expected_total = len(file_nodes)
+                processed_count = in_scope_count
+            except Exception:
+                # Defensive: if the read fails for any reason, fall
+                # back to omitting the override keys. The orchestrator
+                # helper's back-compat path uses JSONL semantics —
+                # same as pre-PR-S behavior. Better to silently degrade
+                # than to crash deepening over a manifest-quality
+                # accounting question.
+                logger.debug(
+                    "[Deepening] override-key computation failed; "
+                    "falling back to JSONL semantics (non-fatal)",
+                    exc_info=True,
+                )
+                expected_total = None
+                processed_count = None
+
+            worker_result: Dict[str, Any] = {
                 "stage": "deepening",
                 "iterations": result.iterations,
                 "converged": bool(result.convergence),
                 "_model_info": _capture_model_info(llm_client),
                 "_stage_timing": {"started_at": _t0, "elapsed": time.time() - _t0},
             }
+            if expected_total is not None and expected_total > 0:
+                worker_result["_expected_total"] = expected_total
+                worker_result["_processed_count"] = processed_count
+            return worker_result
         return worker
 
     @staticmethod
