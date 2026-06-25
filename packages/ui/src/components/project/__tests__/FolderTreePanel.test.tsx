@@ -2,11 +2,16 @@
  * FolderTreePanel tests — Phase 120 Named Scopes
  *
  * Pure logic/structural tests following the established BarrierIndicator /
- * RecoverStagePanel pattern. No DOM rendering, no @testing-library/react.
- * These run with vitest from the repo root:
- *   node_modules/.bin/vitest run packages/ui/src/components/project/__tests__/FolderTreePanel.test.tsx
+ * RecoverStagePanel pattern. Source-inspection / function-call only (no
+ * DOM render). Convention, not infra constraint: RTL + happy-dom ARE
+ * wired in packages/ui as of PR-H. Run via:
+ *   npm --workspace=packages/ui run test
+ * or single-file:
+ *   npm --workspace=packages/ui run test -- src/components/project/__tests__/FolderTreePanel.test.tsx
  *
- * Component render tests live in Storybook (Task 19).
+ * See GraphEnrichmentPipeline.behavioral.test.tsx for the DOM-render
+ * pattern. Component render tests previously deferred to Storybook
+ * (Task 19) can now also live in vitest if preferred.
  *
  * The 6 test cases cover:
  *   1. FolderTreePanel is a function component

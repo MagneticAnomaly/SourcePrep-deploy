@@ -17,7 +17,14 @@
  * Test pattern: mount the component into happy-dom via RTL, assert on
  * the textContent / data-stage-state of the rendered row. First DOM
  * render test in packages/ui — the other 16 test files are pure-logic
- * / source-inspection. See vitest.config.ts and vitest.setup.ts.
+ * / source-inspection by convention (vitest + happy-dom + RTL are now
+ * available; choose source-inspection when the contract is syntactic
+ * shape / pure helpers / exported constants, DOM render when the
+ * contract is what the user sees given a state snapshot).
+ *
+ * Infra inventory: vitest@^3, happy-dom@^20 (post-PR-H/3 bump from
+ * ^15 for CRITICAL GHSA-37j7-fg3j-429f), @testing-library/react@^14.3,
+ * @testing-library/jest-dom@^6.4. Wired in PR-H/1 (b3ca8d5f).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
@@ -30,7 +37,7 @@ import '@testing-library/jest-dom/vitest';
 import { GraphEnrichmentPipeline } from '../GraphEnrichmentPipeline';
 import type { GraphEnrichmentPipelineProps } from '../GraphEnrichmentPipeline';
 
-// ── Fixture: §9.3 #30 starting condition ───────────────────────
+// ── Fixture A — primary §9.3 #30 starting condition ────────────
 //
 // The race window: API has flipped deep_enrichment.phase to 'completed'
 // AND nulled current_stage (group has authoritatively settled). The
@@ -45,6 +52,15 @@ import type { GraphEnrichmentPipelineProps } from '../GraphEnrichmentPipeline';
 // returns 'Not run' next to a green badge. §9.3 #30 fix: the IIFE
 // passes deepEnrichmentPhase to i3SafeStageState, which coerces every
 // in-group raw state to 'complete' when the phase is 'completed'.
+//
+// Scrutiny note (PRH-R1-001): under THIS fixture the raw states resolve
+// to enrichment='disabled' (no aug), deepening='stale' (settled_ratio
+// 0.20), deep_knowledge='not_built'. Only deep_knowledge's stats IIFE
+// would otherwise hit the literal 'Not run' branch — the other 4 deep
+// stages render their non-'Not run' fallback strings even without
+// coercion, so this fixture's assertions #3 and #4 (loop assertions)
+// are vacuous for 4 of 5 deep stages. The gap-coverage fixture below
+// (Fixture B) exercises the missed group_reasoning + clustering paths.
 
 const phase30Fixture: GraphEnrichmentPipelineProps = {
   // Required props
@@ -124,6 +140,64 @@ const phase30Fixture: GraphEnrichmentPipelineProps = {
   finalizeCollapsed: false,
 };
 
+// ── Fixture B — gap coverage (PR-H/3 addenda) ──────────────────
+//
+// PRH-R1-001 (scrutiny): the primary fixture's modules.module_count=35
+// and deepening.settled_ratio=0.20 cause clustering and group_reasoning's
+// raw states to resolve to 'complete' BEFORE i3SafeStageState's coercion
+// runs — so a regression that broke safeState ONLY for those stages
+// (the exact regression class PR-G addenda fixed for group_reasoning)
+// would not be caught by Fixture A's loop assertions.
+//
+// Fixture B forces:
+//   - clustering raw → 'not_built'  (modules.enabled with module_count=0)
+//   - group_reasoning raw → 'not_built'  (no downstream complete/stale)
+// With phase='completed', BOTH must coerce to 'complete' and render
+// non-'Not run' stats text. Inline adversarial proof verifies this.
+//
+// enrichment / deepening / deep_knowledge raw states under Fixture B
+// are 'complete' (or close enough) — those are pinned by Fixture A's
+// 'not_built'/'disabled'/'stale' cascades. Fixture B is purpose-built
+// for the two stages Fixture A misses.
+
+const phase30FixtureGapCoverage: GraphEnrichmentPipelineProps = {
+  ...phase30Fixture,
+  // ep.enriched_nodes > 0 keeps downstream raw states out of the
+  // ep-not-enabled 'disabled' early-return, so clustering/group_reasoning
+  // proceed to their module_count / group_count checks.
+  epistemic: { enabled: true, enriched_nodes: 100, avg_confidence: 0.84, running: false },
+  // mod present + module_count=0  →  computeModuleState returns 'not_built'
+  modules: { enabled: true, module_count: 0, total_files_clustered: 0, running: false },
+  // deep present + total_scored=0  →  computeDeepeningState returns 'not_built'
+  // (also keeps deepeningState !== 'complete'/'stale' so group_reasoning's
+  // downstream-complete short-circuit doesn't fire)
+  deepening: { running: false, total_scored: 0, settled_count: 0, settled_ratio: 0, avg_score: 0 },
+  // groupReasoning enabled + group_count=0  →  inline IIFE falls through to 'not_built'
+  groupReasoning: { enabled: true, group_count: 0, analyzed: 0, running: false },
+};
+
+// ── Fixture C — partial-payload variant (PR-H/3 addenda) ───────
+//
+// PRH-R1-005 (scrutiny): Fixture A routes through the PR-F F5 fallthrough
+// `if (!deepKnowledgeSource) return 'Complete'` because deepKnowledge is
+// undefined. But the documented §9.3 #30 production scenario is
+// "deepKnowledge.deep_chunks_embedded is still 0" — i.e. the payload
+// is PRESENT with zero chunks. That triggers the
+// `${deepKnowledgeSource.chunks_embedded} chunks embedded` fallthrough
+// branch instead. Both must work; Fixture C pins the partial-payload
+// branch that Fixture A does not exercise.
+
+const phase30FixtureWithPartialPayload: GraphEnrichmentPipelineProps = {
+  ...phase30Fixture,
+  deepKnowledge: {
+    enabled: true,
+    running: false,
+    chunks_embedded: 0,
+    deep_chunks_embedded: 0,
+    last_run_at: null,
+  },
+};
+
 const DEEP_ENRICHMENT_STAGE_IDS = [
   'enrichment',
   'group_reasoning',
@@ -147,6 +221,10 @@ describe('GraphEnrichmentPipeline — §9.3 #30 behavioural pin', () => {
   let consoleWarn: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    // PRH-R1-002 (scrutiny): keep the no-op mock so React internal
+    // warnings don't pollute test output, but in the hygiene
+    // assertion below we surface any captured calls to stderr so the
+    // developer can see WHAT was logged when the assertion fails.
     consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
@@ -177,26 +255,55 @@ describe('GraphEnrichmentPipeline — §9.3 #30 behavioural pin', () => {
   });
 
   // GROUP — coercion applies uniformly across all 5 deep_enrichment stages.
-  // PR-G addenda was the 15th-and-final fix (group_reasoning). This asserts
-  // the pattern holds for every deep stage, not just deep_knowledge.
-  it("all 5 deep_enrichment stage rows do NOT render 'Not run' under phase='completed'", () => {
+  // Assertions pin both text and data-stage-state (PRH-R1-006 addenda).
+  it("all 5 deep_enrichment stage rows do NOT render 'Not run' AND data-stage-state='complete' under phase='completed'", () => {
     render(<GraphEnrichmentPipeline {...phase30Fixture} />);
     for (const id of DEEP_ENRICHMENT_STAGE_IDS) {
       const row = screen.getByTestId(`pipeline-stage-row-${id}`);
       expect(row, `deep_enrichment stage '${id}' regressed to 'Not run' under phase='completed'`)
         .not.toHaveTextContent('Not run');
+      expect(row, `deep_enrichment stage '${id}' badge not coerced to 'complete'`)
+        .toHaveAttribute('data-stage-state', 'complete');
     }
   });
 
   // GROUP — same contract for fast_sync (fastSyncPhase='completed' must
   // coerce every fast stage too; PR-D shipped the pattern for all 5).
-  it("all 5 fast_sync stage rows do NOT render 'Not run' under phase='completed'", () => {
+  it("all 5 fast_sync stage rows do NOT render 'Not run' AND data-stage-state='complete' under phase='completed'", () => {
     render(<GraphEnrichmentPipeline {...phase30Fixture} />);
     for (const id of FAST_SYNC_STAGE_IDS) {
       const row = screen.getByTestId(`pipeline-stage-row-${id}`);
       expect(row, `fast_sync stage '${id}' regressed to 'Not run' under phase='completed'`)
         .not.toHaveTextContent('Not run');
+      expect(row, `fast_sync stage '${id}' badge not coerced to 'complete'`)
+        .toHaveAttribute('data-stage-state', 'complete');
     }
+  });
+
+  // GAP COVERAGE (PR-H/3 addenda — PRH-R1-001) — group_reasoning and
+  // clustering raw states forced to 'not_built' so the coercion path
+  // is actually exercised for those stages, not short-circuited by
+  // upstream 'complete' (as in Fixture A).
+  it("Fixture B: group_reasoning + clustering rows do NOT render 'Not run' AND data-stage-state='complete' (gap coverage)", () => {
+    render(<GraphEnrichmentPipeline {...phase30FixtureGapCoverage} />);
+    for (const id of ['group_reasoning', 'clustering'] as const) {
+      const row = screen.getByTestId(`pipeline-stage-row-${id}`);
+      expect(row, `gap-coverage: '${id}' regressed to 'Not run' under phase='completed'`)
+        .not.toHaveTextContent('Not run');
+      expect(row, `gap-coverage: '${id}' badge not coerced to 'complete'`)
+        .toHaveAttribute('data-stage-state', 'complete');
+    }
+  });
+
+  // PARTIAL-PAYLOAD variant (PR-H/3 addenda — PRH-R1-005) — pins the
+  // production race shape where deepKnowledge IS present but
+  // deep_chunks_embedded=0. Routes through a different IIFE branch
+  // than Fixture A.
+  it("Fixture C: deep_knowledge row with partial payload (chunks_embedded=0) does NOT render 'Not run'", () => {
+    render(<GraphEnrichmentPipeline {...phase30FixtureWithPartialPayload} />);
+    const row = screen.getByTestId('pipeline-stage-row-deep_knowledge');
+    expect(row).not.toHaveTextContent('Not run');
+    expect(row).toHaveAttribute('data-stage-state', 'complete');
   });
 
   // NEGATIVE CONTROL — proves the test responds to phase changes.
@@ -205,18 +312,14 @@ describe('GraphEnrichmentPipeline — §9.3 #30 behavioural pin', () => {
   // is NOT triggered: i3SafeStageState falls through to the raw state
   // because groupPhase is not 'completed', and the deepKnowledgeStats
   // IIFE returns 'Not run' because the raw deepKnowledgeState IS
-  // legitimately 'not_built' (the deep_knowledge data payload hasn't
-  // been written). Without this control, the primary assertion would
-  // pass even if i3SafeStageState were broken — because 'Not run'
-  // never appears under any state — and would not pin behaviour.
+  // legitimately 'not_built'. Without this control, the primary
+  // assertion would pass even if i3SafeStageState were broken.
   //
-  // This control is intentionally coupled to the literal string 'Not
-  // run' as part of the contract being pinned. If a future refactor
-  // renames 'Not run' to something else, this assertion will need
-  // updating alongside the corresponding structural pin in
-  // statsSafeState.test.ts (which also greps the literal string).
-  // That coupling is consistent across the test suite, not new.
-  it("Deep Knowledge Embedding row DOES render 'Not run' when deepEnrichmentPhase='idle' (control)", () => {
+  // PR-H/3 addenda (PRH-R1-004): also assert data-stage-state='not_built'
+  // so a rename refactor of 'Not run' to 'Not built' produces a
+  // self-documenting structural failure ('attribute is X' rather than
+  // 'expected Not run, received Not built').
+  it("negative control: phase='idle' — deep_knowledge row DOES render 'Not run' AND data-stage-state='not_built'", () => {
     const idleFixture: GraphEnrichmentPipelineProps = {
       ...phase30Fixture,
       deepEnrichmentPhase: 'idle',
@@ -224,14 +327,58 @@ describe('GraphEnrichmentPipeline — §9.3 #30 behavioural pin', () => {
     render(<GraphEnrichmentPipeline {...idleFixture} />);
     const row = screen.getByTestId('pipeline-stage-row-deep_knowledge');
     expect(row).toHaveTextContent('Not run');
+    expect(row).toHaveAttribute('data-stage-state', 'not_built');
+  });
+
+  // NEGATIVE CONTROL — exception list (PR-H/3 addenda — PRH-R1-003).
+  //
+  // freezeGreen.ts:171-173 explicitly states `cancelled` and `failed`
+  // are NOT coerced — cancel-mid-stage and stage-failure leave a mix
+  // of finished + unfinished rows that the per-stage compute fns model
+  // correctly. Without these tests the documented exception list is
+  // unenforced: mutating `if (groupPhase === 'completed')` to also
+  // accept 'cancelled'/'failed' would pass the rest of the suite.
+  it("exception list: phase='cancelled' is NOT coerced — deep_knowledge row renders 'Not run'", () => {
+    const cancelledFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      deepEnrichmentPhase: 'cancelled',
+    };
+    render(<GraphEnrichmentPipeline {...cancelledFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-deep_knowledge');
+    expect(row).toHaveTextContent('Not run');
+    expect(row).toHaveAttribute('data-stage-state', 'not_built');
+  });
+
+  it("exception list: phase='failed' is NOT coerced — deep_knowledge row renders 'Not run'", () => {
+    const failedFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      deepEnrichmentPhase: 'failed',
+    };
+    render(<GraphEnrichmentPipeline {...failedFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-deep_knowledge');
+    expect(row).toHaveTextContent('Not run');
+    expect(row).toHaveAttribute('data-stage-state', 'not_built');
   });
 
   // HYGIENE — render must not surface React errors / warnings.
-  // Catches missing-key warnings, prop-type warnings, hydration
-  // errors that would indicate the fixture is incomplete in a way
-  // that could mask the real regression.
+  // PR-H/3 addenda (PRH-R1-002): dump any captured console calls to
+  // stderr BEFORE the assertion so the developer can see WHAT was
+  // logged when this assertion fails — the no-op mock otherwise
+  // converts a debuggable runtime warning into an opaque AssertionError.
   it('renders without console.error or console.warn', () => {
     render(<GraphEnrichmentPipeline {...phase30Fixture} />);
+    if (consoleError.mock.calls.length > 0) {
+      process.stderr.write(
+        'PR-H hygiene: unexpected console.error captured during render:\n' +
+        JSON.stringify(consoleError.mock.calls, null, 2) + '\n',
+      );
+    }
+    if (consoleWarn.mock.calls.length > 0) {
+      process.stderr.write(
+        'PR-H hygiene: unexpected console.warn captured during render:\n' +
+        JSON.stringify(consoleWarn.mock.calls, null, 2) + '\n',
+      );
+    }
     expect(consoleError).not.toHaveBeenCalled();
     expect(consoleWarn).not.toHaveBeenCalled();
   });

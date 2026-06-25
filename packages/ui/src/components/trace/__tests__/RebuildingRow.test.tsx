@@ -2,8 +2,9 @@
  * RebuildingRow tests
  *
  * Pure logic/unit tests following the ProvenanceChip.test.tsx pattern —
- * no DOM rendering, no @testing-library/react. These typecheck and run
- * with vitest. Component render tests live in Storybook.
+ * source-inspection / function-call only (no DOM render). Convention,
+ * not infra constraint: RTL + happy-dom ARE wired as of PR-H. See
+ * GraphEnrichmentPipeline.behavioral.test.tsx for the DOM-render pattern.
  *
  * The 4 test cases cover:
  *   1. scope="sync"        → renders scope label "Rebuilding Sync", stage 3/5, label, 38%

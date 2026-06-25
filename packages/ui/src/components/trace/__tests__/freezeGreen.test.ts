@@ -8,8 +8,11 @@
  * docs/Phase145_Pipeline-UI-Reliability/SCORECARD_uat_baseline_2026-06-22.md
  * for the live evidence.
  *
- * Test pattern follows RebuildingRow.test.tsx — no DOM render, pure
- * function calls, vitest only.
+ * Test pattern follows RebuildingRow.test.tsx — source-inspection /
+ * pure function calls (no DOM render). RTL + happy-dom ARE available
+ * as of PR-H but unnecessary here: i3SafeStageState / shouldApplyFreezeGreen
+ * are pure functions; rendering through the component would add cost
+ * without strengthening the pin.
  */
 
 import { describe, it, expect } from 'vitest';

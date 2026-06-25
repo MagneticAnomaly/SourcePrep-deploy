@@ -2,9 +2,12 @@
  * BarrierIndicator tests
  *
  * Pure logic/unit tests following the RecoverStagePanel.test.tsx pattern —
- * no DOM rendering, no @testing-library/react. These typecheck and run
- * with vitest once it is wired into the monorepo. Component render tests
- * live in Storybook.
+ * source-inspection / function-call only (no DOM render). Convention,
+ * not infra constraint: vitest + happy-dom + @testing-library/react ARE
+ * wired in packages/ui as of PR-H (commits b3ca8d5f + dd1ff75c). Use
+ * this pattern for syntactic / helper contracts; use the
+ * GraphEnrichmentPipeline.behavioral.test.tsx pattern when the
+ * contract is "what the user sees given a state snapshot".
  *
  * The 8 test cases cover:
  *   1. isBarrierStale — returns false when barrier is inactive

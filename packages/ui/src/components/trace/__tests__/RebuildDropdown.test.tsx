@@ -2,15 +2,16 @@
  * RebuildDropdown tests
  *
  * Pure logic/unit tests following the RecoverStagePanel pattern —
- * no DOM rendering, no @testing-library/react. These typecheck and run
- * with vitest. Component render tests (open/close toggle, keyboard
- * navigation, outside-click dismiss) live in Storybook.
+ * source-inspection / function-call only (no DOM render). Convention,
+ * not infra constraint: vitest + happy-dom + @testing-library/react ARE
+ * wired in packages/ui as of PR-H (commits b3ca8d5f + dd1ff75c).
  *
- * Why no DOM tests? The repo uses vitest without jsdom configured and
- * has no @testing-library/react installed. The RecoverStagePanel pattern
- * (see RecoverStagePanel.test.tsx) demonstrates the convention: export
- * pure constants/helpers from the module and test those directly.
- * Interactive behaviour is validated in Storybook stories.
+ * This file stays source-inspection because the contract under test is
+ * the exported pure helpers / option-list shape — RTL render would add
+ * runtime cost without strengthening the pin. For interactive contracts
+ * (open/close toggle, keyboard navigation, outside-click dismiss) use
+ * the GraphEnrichmentPipeline.behavioral.test.tsx pattern or Storybook
+ * play() functions.
  *
  * The 5 test cases cover:
  *   1. PRIMARY_SCOPE — locks in "clicking Rebuild alone = all" contract

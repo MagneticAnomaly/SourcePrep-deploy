@@ -2,8 +2,9 @@
  * ModelCard tests
  *
  * Pure logic/unit tests following the BarrierIndicator.test.tsx pattern —
- * no DOM rendering, no @testing-library/react. These typecheck and run
- * with vitest once it is wired into the monorepo.
+ * source-inspection / function-call only (no DOM render). Convention,
+ * not infra constraint: vitest + happy-dom + @testing-library/react ARE
+ * wired in packages/ui as of PR-H (commits b3ca8d5f + dd1ff75c).
  *
  * Covers buildModelOptions — the helper that constructs the <Select>
  * option list for the Model dropdown. The key regression being fixed:
