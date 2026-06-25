@@ -30,7 +30,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from prep.services.pipeline.orchestrator import _apply_worker_quality_overrides
+from prep.services.pipeline.orchestrator import (
+    _apply_worker_quality_overrides,
+    _copy_safe_worker_result_keys,
+)
 
 
 class TestApplyWorkerQualityOverridesBoolGuard:
@@ -41,6 +44,11 @@ class TestApplyWorkerQualityOverridesBoolGuard:
     manifest.total_items. Downstream consumers handle bool inconsistently.
     The helper is the safety net for buggy/migrating workers; reject
     bool explicitly.
+
+    Note: only the True case is load-bearing for the first bool guard.
+    False would be early-returned by the `<= 0` clause regardless of
+    the bool exclusion, so a dedicated False test is non-load-bearing
+    (PR-Q-fixup-r2 FIXUP-3 cleanup).
     """
 
     def test_bool_true_expected_total_rejected(self):
@@ -50,26 +58,45 @@ class TestApplyWorkerQualityOverridesBoolGuard:
         out = _apply_worker_quality_overrides(q, {"_expected_total": True})
         assert out == {"total_items": 5, "processed": 5, "success_rate": 1.0}
 
-    def test_bool_false_expected_total_rejected(self):
-        q = {"total_items": 5, "processed": 5}
-        out = _apply_worker_quality_overrides(q, {"_expected_total": False})
-        assert out == {"total_items": 5, "processed": 5}
-
     def test_bool_processed_count_rejected_falls_back_to_jsonl_clamp(self):
-        # With a valid _expected_total but bool _processed_count, the
-        # processed override must NOT fire; the JSONL-derived value
-        # (clamped at expected) is used instead.
-        q = {"total_items": 5, "processed": 5, "success_rate": 1.0}
+        # PR-Q-fixup-r2 FIXUP-5: jsonl_processed (200) > _expected_total
+        # (100) so the clamp must execute to observe the difference.
+        # Without the clamp processed would stay at 200 (success_rate
+        # 2.0 leaks past the §9.3 #32 invariant); with the clamp
+        # processed = min(200, 100) = 100. Without clamp execution
+        # this test would fail — earlier shape (jsonl=5, expected=100)
+        # was a no-op clamp (min(5, 100) = 5) and silently passed even
+        # if the clamp logic were deleted.
+        q = {"total_items": 200, "processed": 200, "success_rate": 1.0}
         out = _apply_worker_quality_overrides(
             q, {"_expected_total": 100, "_processed_count": True},
         )
         assert out is not None
         assert out["total_items"] == 100
-        # processed is the JSONL value (5) clamped at expected (100) = 5,
-        # NOT True (which would coerce to 1 in arithmetic but is
-        # incoherent as a count).
-        assert out["processed"] == 5
-        assert out["success_rate"] == 0.05
+        # processed is the JSONL value (200) clamped at expected (100) = 100,
+        # NOT True (bool _processed_count rejected), NOT 200 (clamp fires).
+        assert out["processed"] == 100
+        assert out["success_rate"] == 1.0
+
+    def test_bool_processed_in_jsonl_is_zeroed_when_no_processed_count_override(self):
+        # PR-Q-fixup-r2 FIXUP-2: pin the third bool-guard's
+        # load-bearing behavior. When quality['processed'] is bool
+        # (upstream aggregate corruption) and no _processed_count
+        # override, the JSONL-clamp branch must zero it out — bool
+        # would otherwise leak through (min(True, N) returns True for
+        # N >= 1). The chip should surface 0% rather than the bogus
+        # bool value. Deleting the else-zero branch causes
+        # processed to stay True and success_rate to compute as 0.01.
+        q = {"total_items": 5, "processed": True, "success_rate": 1.0}
+        out = _apply_worker_quality_overrides(q, {"_expected_total": 100})
+        assert out is not None
+        assert out["total_items"] == 100
+        # processed zeroed out (NOT True, NOT 1, NOT preserved).
+        assert out["processed"] == 0
+        # And the type is concrete int, not bool — defense against
+        # bool-as-int slip in downstream JSON serialization.
+        assert not isinstance(out["processed"], bool)
+        assert out["success_rate"] == 0.0
 
 
 class TestApplyWorkerQualityOverridesPassThrough:
@@ -533,14 +560,28 @@ class TestPRQEndToEndProducerConsumer:
 
         # Step 2 — Consumer: orchestrator helper hoists those keys
         # into the manifest quality block. Simulate the JSONL-derived
-        # quality block aggregate_quality_metrics would produce
-        # (jsonl has 25 lines, all with valid confidence).
+        # quality block aggregate_quality_metrics would produce.
+        #
+        # PR-Q-fixup-r2 FIXUP-4: jsonl_quality.processed is set to 8
+        # (NOT 25, NOT 10) so the consumer-side _processed_count read
+        # is observable. Three possible outcomes:
+        #   - Correct consumer: reads stats['_processed_count'] (10),
+        #     merged['processed'] = min(10, 10) = 10.
+        #   - Consumer renamed _processed_count → _proc_count: falls
+        #     to clamp branch, merged['processed'] = min(8, 10) = 8.
+        #   - Producer renamed _processed_count → _proc_count:
+        #     stats lacks the key, helper falls to clamp branch,
+        #     merged['processed'] = min(8, 10) = 8.
+        # Asserting merged['processed'] == 10 catches BOTH rename
+        # directions. The earlier shape (jsonl.processed = 25) had
+        # min(25, 10) = 10 = _processed_count's value, so renames
+        # passed silently.
         jsonl_quality = {
-            "total_items": 25,  # jsonl line count (in_scope + orphans)
-            "processed": 25,
-            "skipped": 0,
+            "total_items": 25,   # jsonl line count (in_scope + orphans)
+            "processed": 8,      # only 8 of 25 had valid confidence
+            "skipped": 17,
             "failed": 0,
-            "success_rate": 1.0,
+            "success_rate": 0.32,
             "avg_confidence": 0.85,
         }
         merged = _apply_worker_quality_overrides(jsonl_quality, stats)
@@ -555,12 +596,147 @@ class TestPRQEndToEndProducerConsumer:
             "producer key was renamed (worker side) or the consumer "
             "isn't reading it (helper side)."
         )
-        # Numerator: enricher emits 10 (filtered to in-scope),
-        # consumer clamps at 10. Result: coherent 10/10.
-        assert merged["processed"] == 10
+        # Numerator: only correct if BOTH sides honor the
+        # _processed_count contract (worker emits it, consumer reads
+        # it). A rename on either side falls to the clamp branch and
+        # yields min(8, 10) = 8 — this assertion fails.
+        assert merged["processed"] == 10, (
+            "Producer/consumer regression: orchestrator did NOT read "
+            "stats['_processed_count']. Likely a partial rename on "
+            "either side of the contract — the helper fell through to "
+            "the JSONL clamp (min(8, 10) = 8) instead of using the "
+            "worker's authoritative numerator (10)."
+        )
         # Invariant: numerator <= denominator, success_rate <= 1.0.
         assert merged["processed"] <= merged["total_items"]
         assert merged["success_rate"] == 1.0
-        # The jsonl-derived 25/25 quality is GONE — no leak.
+        # The jsonl-derived 25/8 quality is GONE — no leak.
         assert merged["total_items"] != 25
+
+
+# ─────────────────────────────────────────────────────────────────
+# PR-Q-fixup-r2 FIXUP-1: snapshot path bool guard.
+# _update_stage_snapshot_from_slot reads top-level keys
+# (total_items, processed, item_count, nodes, edges) from
+# worker_result with no type validation, then writes to snapshot
+# data that drives /pipeline/status → the dashboard chip. The
+# helper protects the persisted manifest.quality but this second
+# blast radius bypasses it entirely. _copy_safe_worker_result_keys
+# wraps the read with a bool exclusion.
+# ─────────────────────────────────────────────────────────────────
+
+
+class TestCopySafeWorkerResultKeysBoolGuard:
+    """The F1 bug class has two blast radii: the persisted manifest
+    (covered by _apply_worker_quality_overrides) and the
+    /pipeline/status snapshot (covered by this helper). Pin that
+    bool values are rejected at the snapshot path too.
+    """
+
+    def test_non_dict_worker_result_noop(self):
+        snap = {"exists": True}
+        _copy_safe_worker_result_keys(snap, "not-a-dict", ("total_items",))
+        assert snap == {"exists": True}
+
+    def test_none_worker_result_noop(self):
+        snap = {"exists": True}
+        _copy_safe_worker_result_keys(snap, None, ("total_items",))
+        assert snap == {"exists": True}
+
+    def test_valid_int_keys_copied(self):
+        snap: Dict[str, Any] = {"exists": True}
+        worker_result = {"total_items": 42, "processed": 10, "nodes": 100}
+        _copy_safe_worker_result_keys(
+            snap, worker_result,
+            ("total_items", "processed", "item_count", "nodes", "edges"),
+        )
+        # Valid ints copied through.
+        assert snap["total_items"] == 42
+        assert snap["processed"] == 10
+        assert snap["nodes"] == 100
+        # Missing keys not invented.
+        assert "item_count" not in snap
+        assert "edges" not in snap
+
+    def test_bool_total_items_rejected(self):
+        # The F1 bug class on the snapshot path: without the bool
+        # guard a buggy worker that emits total_items=True would
+        # write True into the snapshot → /pipeline/status → chip.
+        snap: Dict[str, Any] = {"exists": True}
+        worker_result = {"total_items": True, "processed": 5}
+        _copy_safe_worker_result_keys(
+            snap, worker_result,
+            ("total_items", "processed"),
+        )
+        # bool rejected, valid int copied.
+        assert "total_items" not in snap
+        assert snap["processed"] == 5
+
+    def test_bool_false_total_items_rejected(self):
+        # False is the bool subclass instance of int (False == 0).
+        # Without the bool guard, False would slip through.
+        snap: Dict[str, Any] = {"exists": True}
+        worker_result = {"total_items": False, "processed": 0}
+        _copy_safe_worker_result_keys(
+            snap, worker_result,
+            ("total_items", "processed"),
+        )
+        # bool False rejected; legitimate int 0 (processed=0) copied.
+        assert "total_items" not in snap
+        assert snap["processed"] == 0
+        assert not isinstance(snap["processed"], bool)
+
+    def test_all_bool_keys_rejected_simultaneously(self):
+        snap: Dict[str, Any] = {"exists": True}
+        worker_result = {
+            "total_items": True,
+            "processed": True,
+            "item_count": True,
+            "nodes": True,
+            "edges": True,
+        }
+        _copy_safe_worker_result_keys(
+            snap, worker_result,
+            ("total_items", "processed", "item_count", "nodes", "edges"),
+        )
+        # ALL bool values rejected — snap unchanged from initial state.
+        assert snap == {"exists": True}
+
+
+class TestUpdateStageSnapshotBoolGuardWiring:
+    """Source-level pin: the snapshot site in orchestrator.py must
+    call _copy_safe_worker_result_keys (not the raw direct-read
+    loop). Wiring regression catcher analogous to
+    TestEnrichmentWorkerEmitsOverrideKeys.test_orchestrator_helper_is_called_in_write_stage_manifest.
+    """
+
+    def test_snapshot_site_routes_through_safe_helper(self):
+        from pathlib import Path
+        src_path = (
+            Path(__file__).parent.parent / "src" / "prep" /
+            "services" / "pipeline" / "orchestrator.py"
+        )
+        body = src_path.read_text(encoding="utf-8")
+        # Pin: helper exists.
+        assert "def _copy_safe_worker_result_keys(" in body
+        # Pin: snapshot site calls it.
+        idx = body.index("def _update_stage_snapshot_from_slot(")
+        body_region = body[idx:idx + 4000]
+        assert "_copy_safe_worker_result_keys(" in body_region, (
+            "§9.3 #32 FIXUP-1 wiring regression: "
+            "_update_stage_snapshot_from_slot must route through "
+            "_copy_safe_worker_result_keys to bool-guard the "
+            "direct worker_result reads. Without the helper, a "
+            "worker that emits total_items=True writes True into "
+            "the /pipeline/status snapshot."
+        )
+        # Pin: no raw worker_result[key] assignments remain in the
+        # snapshot method (the helper is the ONLY path).
+        raw_pattern = "snapshot_data[key] = worker_result[key]"
+        assert raw_pattern not in body_region, (
+            "FIXUP-1 regression: raw direct-read pattern resurrected "
+            "in _update_stage_snapshot_from_slot. All worker_result "
+            "reads in the snapshot path must route through "
+            "_copy_safe_worker_result_keys for bool-guard consistency."
+        )
 

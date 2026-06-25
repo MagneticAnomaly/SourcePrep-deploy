@@ -1261,20 +1261,33 @@ class EpistemicEnricher(HoldAwareMixin, Worker):
         if progress_callback and not paused:
             progress_callback("epistemic_complete", total_file_count, total_file_count)
 
-        # §9.3 #32 (PR-Q-fixup-r1, scrutiny PRQ-1): the _processed_count
-        # the orchestrator override hoists into manifest.quality.processed
-        # MUST be filtered against the current file_nodes set. `enriched`
-        # is the merged dict of `existing` (which load_existing reads from
-        # the on-disk trace_epistemic.jsonl indiscriminately — including
-        # entries whose node_id no longer matches an in-scope file node
-        # because of L3 policy changes, file deletions, or cross-stage
-        # writes by DEEPENING which shares the same JSONL per
-        # stages.py:91/95) PLUS this-run additions. Without the filter,
-        # _processed_count is cumulative-with-orphans; the orchestrator
-        # clamps to _expected_total but the inconsistency persists in the
-        # worker's own `total_enriched` field. This mirrors the
-        # `valid_node_ids` orphan filter PR-P-fixup added to TraceAugmenter
-        # for the structurally-identical catalogue case.
+        # §9.3 #32 (PR-Q-fixup-r1, scrutiny PRQ-1; PR-Q-fixup-r2
+        # scrutiny FIXUP-6 — corrected line refs + scope claim):
+        # the _processed_count the orchestrator override hoists into
+        # manifest.quality.processed MUST be filtered against the
+        # current file_nodes set. `enriched` is the merged dict of
+        # `existing` (which load_existing reads from the on-disk
+        # trace_epistemic.jsonl indiscriminately — including entries
+        # whose node_id no longer matches an in-scope file node because
+        # of L3 policy changes or file deletions) PLUS this-run
+        # additions.
+        #
+        # Scope clarification: this filter excludes OUT-OF-SCOPE orphans
+        # (nodes no longer in file_nodes). It does NOT distinguish
+        # in-scope entries WRITTEN by DEEPENING vs ENRICHMENT — both
+        # stages write to trace_epistemic.jsonl per stages.py
+        # STAGE_OUTPUT_FILE (lines 218/222), so an in-scope node
+        # deepened-but-not-enriched-this-run still counts as
+        # "processed" here. That stage-attribution asymmetry is tracked
+        # as PRQ-CSI-002 and closed by PR-S (DEEPENING worker adopts
+        # the same override contract).
+        #
+        # Without the filter, _processed_count is cumulative-with-
+        # orphans; the orchestrator clamps to _expected_total but the
+        # inconsistency persists in the worker's own `total_enriched`
+        # field. This mirrors the `valid_node_ids` orphan filter
+        # PR-P-fixup added to TraceAugmenter for the structurally-
+        # identical catalogue case.
         file_node_ids = {n["id"] for n in file_nodes}
         in_scope_enriched_count = sum(1 for nid in enriched if nid in file_node_ids)
 

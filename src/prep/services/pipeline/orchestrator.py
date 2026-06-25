@@ -8,7 +8,7 @@ import logging
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 
 from prep.services.build_orchestrator import (
     BuildOrchestrator,
@@ -141,9 +141,41 @@ def _apply_worker_quality_overrides(
         jsonl_processed = quality.get("processed", 0)
         if isinstance(jsonl_processed, int) and not isinstance(jsonl_processed, bool):
             quality["processed"] = min(jsonl_processed, wr_expected)
+        else:
+            # PR-Q-fixup-r2 (scrutiny FIXUP-2): if jsonl_processed is
+            # bool or non-int (upstream aggregate corruption), zero it
+            # out so the chip surfaces 0% rather than silently
+            # preserving the bogus value through the helper. Bool
+            # processed would otherwise survive both bool guards (the
+            # min(True, N) call returns True for N >= 1) and leak into
+            # manifest.quality.processed.
+            quality["processed"] = 0
     proc = quality.get("processed", 0)
     quality["success_rate"] = round(proc / wr_expected, 3)
     return quality
+
+
+def _copy_safe_worker_result_keys(
+    snapshot_data: Dict[str, Any],
+    worker_result: Any,
+    keys: Iterable[str],
+) -> None:
+    """PR-Q-fixup-r2 (scrutiny FIXUP-1): copy keys from worker_result
+    into snapshot_data, rejecting bool values. Same F1 bug class as
+    _apply_worker_quality_overrides — a worker that emits
+    `total_items=True` would otherwise write True into the snapshot
+    that drives /pipeline/status (read by the dashboard chip). The
+    manifest path is already bool-guarded; this is the second blast
+    radius the round-2 scrutiny found.
+
+    Mutates snapshot_data in place. No-op when worker_result is not a
+    dict (matches the pre-fixup snapshot site behavior).
+    """
+    if not isinstance(worker_result, dict):
+        return
+    for key in keys:
+        if key in worker_result and not isinstance(worker_result[key], bool):
+            snapshot_data[key] = worker_result[key]
 
 
 class PipelineOrchestrator:
@@ -3994,11 +4026,12 @@ class PipelineOrchestrator:
                 snapshot_data["progress_total"] = slot.progress_total
                 snapshot_data["progress_baseline"] = getattr(slot, "progress_baseline", 0)
 
-            # Item counts from worker result
-            if isinstance(worker_result, dict):
-                for key in ("total_items", "processed", "item_count", "nodes", "edges"):
-                    if key in worker_result:
-                        snapshot_data[key] = worker_result[key]
+            # Item counts from worker result (PR-Q-fixup-r2 FIXUP-1:
+            # bool-guarded; see _copy_safe_worker_result_keys docstring).
+            _copy_safe_worker_result_keys(
+                snapshot_data, worker_result,
+                ("total_items", "processed", "item_count", "nodes", "edges"),
+            )
 
             # Quality from manifest (just written by _write_stage_manifest)
             try:
