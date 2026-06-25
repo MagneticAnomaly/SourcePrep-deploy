@@ -1687,11 +1687,17 @@ class TraceAugmenter(HoldAwareMixin, Worker):
         symbol_nodes = [n for n in nodes if n.get("kind") == "symbol"]
         file_nodes = [n for n in nodes if n.get("kind") == "file"]
 
-        # §9.3 #32: project-wide augmentable count — used by _write_manifest
-        # as the denominator that matches cumulative `len(entries)`. Must be
-        # computed BEFORE filtering by _needs_augmentation, which is the
-        # this-run work selector.
-        result.project_augmentable_count = len(symbol_nodes) + len(file_nodes)
+        # §9.3 #32: project-wide augmentable id set. Single source of truth
+        # for both the manifest denominator (`project_augmentable_count`)
+        # and the orphan filter (`valid_node_ids` passed to _write_manifest).
+        # Must use the SAME kind filter on both sides — otherwise an entry
+        # on disk whose kind is in nodes_by_id but NOT in {symbol,file}
+        # (e.g. legacy 'section' augmentations) would pass the orphan
+        # filter and re-inflate the numerator past the denominator. Must
+        # be computed BEFORE _needs_augmentation, which is the this-run
+        # work selector.
+        augmentable_ids = {n["id"] for n in symbol_nodes} | {n["id"] for n in file_nodes}
+        result.project_augmentable_count = len(augmentable_ids)
 
         # Filter to nodes needing augmentation
         to_augment_symbols = [n for n in symbol_nodes if self._needs_augmentation(n, existing)]
@@ -2007,10 +2013,11 @@ class TraceAugmenter(HoldAwareMixin, Worker):
 
         # Write atomically
         self._write_augmentations(augmented)
-        # §9.3 #32: pass the current trace node-id set so orphan entries
-        # (whose nodes no longer exist) don't inflate counts.augmented
-        # past counts.total_nodes (the project-wide augmentable denominator).
-        self._write_manifest(result, augmented, valid_node_ids=set(nodes_by_id.keys()))
+        # §9.3 #32: pass the augmentable id set (kind-filtered, same source
+        # as project_augmentable_count above) so orphan entries on disk
+        # — including legacy entries whose kind is no longer augmentable —
+        # don't inflate counts.augmented past counts.total_nodes.
+        self._write_manifest(result, augmented, valid_node_ids=augmentable_ids)
         
         # Write exploratory telemetry
         if getattr(self, "is_exploratory", False) and result.retry_telemetry:
@@ -2189,11 +2196,20 @@ class TraceAugmenter(HoldAwareMixin, Worker):
         # producing the 5501% chip. Fall back to the old value when
         # project_augmentable_count is 0 (callers constructing AugmentResult
         # outside run() haven't been migrated yet) — same semantics as
-        # before for them.
+        # before for them, but log a warning so a regression that drops
+        # the field-population in run() doesn't silently revert the fix.
         if result.project_augmentable_count > 0:
             total_for_manifest = result.project_augmentable_count
         else:
             total_for_manifest = result.total_nodes - result.skipped
+            if result.total_nodes > 0:
+                logger.warning(
+                    "§9.3 #32 fallback: AugmentResult.project_augmentable_count "
+                    "is 0 but total_nodes=%d > 0; using pre-PR-P denominator. "
+                    "Caller should populate project_augmentable_count to keep "
+                    "augmented_nodes <= total_nodes.",
+                    result.total_nodes,
+                )
 
         manifest = {
             "version": AUGMENT_FORMAT_VERSION,

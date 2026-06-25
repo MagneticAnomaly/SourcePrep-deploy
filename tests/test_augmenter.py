@@ -497,7 +497,10 @@ class TestTraceAugmenter:
         run() (e.g. older tests, dataclass(**dict) restoration) leave
         project_augmentable_count at its default 0. _write_manifest must
         fall back to the pre-PR-P denominator formula in that case so
-        existing callers don't see surprise zero-denominator manifests."""
+        existing callers don't see surprise zero-denominator manifests.
+        PR-P-fixup: also asserts the warning fires so a future regression
+        that drops project_augmentable_count from run() leaves a log trail."""
+        import logging
         _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
         client = FakeLLMClient()
         aug = TraceAugmenter(tmp_index, tmp_repo, client)
@@ -508,10 +511,210 @@ class TestTraceAugmenter:
         result.skipped = 3  # → augmentable_nodes = 10 - 3 = 7
         # (project_augmentable_count defaults to 0 → fallback path)
 
-        aug._write_manifest(result, {})
+        with self._captured_logs("prep.core.augmenter", logging.WARNING) as caplog:
+            aug._write_manifest(result, {})
         s = aug.status()
         # Old formula: total_nodes - skipped = 7
         assert s["total_nodes"] == 7
+        # Fallback warning fired so a regression that drops field-population
+        # from run() leaves a visible trail in daemon logs.
+        assert any("§9.3 #32 fallback" in r.getMessage() for r in caplog), (
+            "PR-P-fixup: fallback path must log a warning when "
+            "project_augmentable_count is 0 with total_nodes > 0"
+        )
+
+    @staticmethod
+    def _captured_logs(logger_name: str, level: int):
+        """Tiny inline context manager replacement for pytest's caplog —
+        keeps test code self-contained without adding new fixtures."""
+        import logging
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _ctx():
+            records: list[logging.LogRecord] = []
+            handler = logging.Handler(level=level)
+            handler.emit = records.append  # type: ignore[assignment]
+            logger = logging.getLogger(logger_name)
+            prev_level = logger.level
+            logger.addHandler(handler)
+            logger.setLevel(level)
+            try:
+                yield records
+            finally:
+                logger.removeHandler(handler)
+                logger.setLevel(prev_level)
+
+        return _ctx()
+
+    def test_manifest_v2_write_preserves_v1_counts_for_pipeline_mode(
+        self, tmp_index, tmp_repo,
+    ):
+        """§9.3 #32 INTEGRATION (PR-P-fixup, addresses scrutiny XPR-005 +
+        SCR-PRP-001): the orchestrator's v2 manifest write at
+        `_write_stage_manifest_and_update_run` goes through
+        `ManifestStore.write_provenance` and targets the SAME file as
+        TraceAugmenter._write_manifest. Pre-fixup that write was a plain
+        atomic overwrite for non-STRUCTURAL stages, so PR-P's v1
+        counts/stats block was clobbered milliseconds after being written
+        and `augmenter.status()` fell back to v2's quality block (which
+        has different semantics — per-jsonl-line counts that round to
+        ~100%). The chip's 5501% protection lived ONLY in PR-D's
+        rendering-side Math.min clamp.
+
+        PR-P-fixup extends the STRUCTURAL merge pattern to CATALOGUE so
+        the v1 counts/stats survive the v2 write. This test simulates
+        the pipeline-driven sequence (augmenter writes v1, orchestrator
+        writes v2) and asserts the §9.3 #32 invariant survives.
+        """
+        from prep.services.pipeline.manifest_store import ManifestStore
+        from prep.services.pipeline.stages import StageId
+
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+
+        # Step 1 — augmenter writes v1 manifest with PR-P's coherent
+        # counts (total_nodes = project augmentable count, augmented =
+        # orphan-filtered cumulative count).
+        aug.run()
+        pre = json.loads((tmp_index / "trace_augment_manifest.json").read_text())
+        assert "counts" in pre, "augmenter must write v1 counts block"
+        pre_total = pre["counts"]["total_nodes"]
+        pre_augmented = pre["counts"]["augmented"]
+        assert pre_total > 0
+        assert pre_augmented <= pre_total, (
+            "PR-P precondition: v1 manifest must already satisfy the §9.3 "
+            "#32 invariant before the v2 write."
+        )
+
+        # Step 2 — simulate the orchestrator's v2 write. Mirrors what
+        # `_write_stage_manifest_and_update_run` does at
+        # orchestrator.py:4535+ for the catalogue stage — a stage manifest
+        # blob with quality / output_files / model / timing but NO counts
+        # / stats keys.
+        store = ManifestStore(tmp_index)
+        v2_blob: Dict[str, Any] = {
+            "stage_id": "catalogue",
+            "run_id": "test-pipeline-run-1",
+            "project_id": "test-project",
+            "started_at": "2026-06-25T00:00:00Z",
+            "finished_at": "2026-06-25T00:00:01Z",
+            "elapsed_seconds": 1.0,
+            "model": {"provider": "ollama", "model_name": "test-model"},
+            "quality": {
+                "total_items": pre_augmented,  # cumulative jsonl line count
+                "processed": pre_augmented,
+                "skipped": 0,
+                "failed": 0,
+                "success_rate": 1.0,
+                "avg_confidence": 0.85,
+            },
+            "output_files": {"trace_augmented.jsonl": {"size_bytes": 1024}},
+        }
+        store.write_provenance(StageId.CATALOGUE, v2_blob)
+
+        # Step 3 — pre-fixup, the v1 counts would be GONE here. PR-P-fixup
+        # preserves them via the merge pattern from STRUCTURAL.
+        post = json.loads((tmp_index / "trace_augment_manifest.json").read_text())
+        assert "counts" in post, (
+            "PR-P-fixup regression: v2 write clobbered v1 counts block. "
+            "ManifestStore.write_provenance(StageId.CATALOGUE, ...) must "
+            "preserve the v1 counts/stats keys (matches STRUCTURAL pattern)."
+        )
+        assert post["counts"]["total_nodes"] == pre_total
+        assert post["counts"]["augmented"] == pre_augmented
+        # v2 fields also present.
+        assert "quality" in post
+        assert "stage_id" in post
+
+        # Step 4 — augmenter.status() reads v1 first (line 2211 check on
+        # counts.total_nodes / counts.augmented). With the merge, v1 wins
+        # → §9.3 #32 invariant holds.
+        s = aug.status()
+        assert s["enabled"] is True
+        assert s["augmented_nodes"] <= s["total_nodes"], (
+            f"§9.3 #32 integration regression: augmented_nodes "
+            f"({s['augmented_nodes']}) > total_nodes ({s['total_nodes']}) "
+            "after the v2 manifest write. The merge-preservation in "
+            "ManifestStore.write_provenance must keep v1 counts/stats so "
+            "PR-P's fix survives the pipeline write sequence."
+        )
+        assert s["total_nodes"] == pre_total
+        assert s["augmented_nodes"] == pre_augmented
+
+    def test_manifest_production_like_scenario_5501_class(
+        self, tmp_index, tmp_repo,
+    ):
+        """§9.3 #32 (PR-P-fixup, addresses scrutiny SCR-PRP-005): mirror
+        the actual 7812/142 production ratio rather than the degenerate
+        ÷0 case the original PR-P test used. Many cumulative entries
+        (mostly orphans) against a small this-run scope reproduces the
+        ratio that hit the dashboard in real life.
+        """
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+
+        augmentable = [
+            n for n in SAMPLE_NODES if n.get("kind") in ("symbol", "file")
+        ]
+        n_augmentable = len(augmentable)
+
+        # 100 entries on disk — close mix of valid + orphan, similar
+        # ratio to the 7812/142 production case where most cumulative
+        # entries point at past-project state. 5 valid (one per current
+        # augmentable node) + 95 orphans → pre-PR-P ratio would have
+        # been ~100/142 against a small this-run skipped scope.
+        entries = {}
+        for n in augmentable:
+            entries[n["id"]] = AugmentationEntry(
+                node_id=n["id"], summary="x", role="utility",
+                confidence=0.9, augmented_at="2025-01-01", model="m",
+            )
+        for i in range(95):
+            entries[f"deleted-orphan-{i}"] = AugmentationEntry(
+                node_id=f"deleted-orphan-{i}", summary="x", role="utility",
+                confidence=0.9, augmented_at="2025-01-01", model="m",
+            )
+
+        # Production-like result shape: incremental run with small
+        # this-run scope. PR-P's run() would set
+        # project_augmentable_count = n_augmentable for this scenario.
+        result = AugmentResult()
+        result.total_nodes = len(SAMPLE_NODES)
+        # Small this-run work (mimics 142-style narrow scope): only 1
+        # node needed re-augmentation in this incremental.
+        total_work = 1
+        result.skipped = result.total_nodes - total_work
+        result.project_augmentable_count = n_augmentable
+
+        # Pre-PR-P formula reconstruction (for comparison only):
+        pre_pr_p_total = result.total_nodes - result.skipped  # == total_work == 1
+        pre_pr_p_augmented = len(entries)  # == 100
+        pre_pr_p_ratio_pct = (pre_pr_p_augmented / pre_pr_p_total) * 100
+        assert pre_pr_p_ratio_pct >= 1000, (
+            "Sanity: the pre-PR-P formula must reproduce a chip ratio "
+            "well above 100% on this fixture so the regression test "
+            "genuinely models the 5501% class. Got "
+            f"{pre_pr_p_ratio_pct:.0f}%."
+        )
+
+        valid_ids = {n["id"] for n in augmentable}
+        aug._write_manifest(result, entries, valid_node_ids=valid_ids)
+        s = aug.status()
+
+        # The PR-P invariant must hold under the production-like ratio.
+        assert s["augmented_nodes"] <= s["total_nodes"], (
+            f"§9.3 #32 production-class regression: augmented_nodes "
+            f"({s['augmented_nodes']}) > total_nodes ({s['total_nodes']}). "
+            f"Pre-fix this fixture would have produced "
+            f"{pre_pr_p_ratio_pct:.0f}% — the 5501% bug class."
+        )
+        # Numerator drops orphans (95 of 100 entries are orphans).
+        assert s["augmented_nodes"] == n_augmentable
+        # Denominator is project-wide, not this-run scope.
+        assert s["total_nodes"] == n_augmentable
 
 
 class TestNarrativeConcurrency:
