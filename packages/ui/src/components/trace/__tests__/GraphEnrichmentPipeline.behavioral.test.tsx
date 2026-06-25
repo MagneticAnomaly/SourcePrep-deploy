@@ -752,3 +752,161 @@ describe('GraphEnrichmentPipeline — structuralStats IIFE (PR-L)', () => {
   });
 });
 
+
+// ───────────────────────────────────────────────────────────────
+// validationStats IIFE — PR-N behavioural pins
+// ───────────────────────────────────────────────────────────────
+//
+// Stryker baseline on src/components/trace/GraphEnrichmentPipeline.tsx
+// :1321-1328 (the validationStats IIFE) reported 8.70% mutation
+// score (2 killed / 19 survived / 2 no-coverage). The IIFE is small
+// (4 branches) but completely untouched by the existing PR-H / PR-L
+// behavioural pins — none of the literals / conditionals were tested.
+//
+// PR-N adds 5 per-branch fixtures + 1 Fixture A presence assertion.
+// Same methodology as PR-J / PR-K / PR-L / PR-M.
+//
+// IIFE branches (lines 1321-1328):
+//   safeState === 'running' || 'rebuilding' → 'Validating...'
+//   safeState === 'disabled'                → 'Waiting for catalogue'
+//   safeState === 'not_built'               → 'Not run'
+//   default (typically safeState='complete') → '0 issues found'
+//
+// Note: computeValidationState never returns 'not_built' directly —
+// the not_built branch is reachable only via i3SafeStageState's
+// downstream-position override path (same shape as PR-M's CG).
+
+describe('GraphEnrichmentPipeline — validationStats IIFE (PR-N)', () => {
+  let consoleError: ReturnType<typeof vi.spyOn>;
+  let consoleWarn: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    cleanup();
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
+  });
+
+  // PRESENCE — Fixture A's default-fallthrough render.
+  // phase30Fixture has augmentation=undefined; computeValidationState
+  // returns 'disabled' for that input, but under fastSyncPhase=
+  // 'completed' i3SafeStageState coerces 'disabled' → 'complete'.
+  // safeState='complete' falls past all three IIFE guards and hits
+  // the '0 issues found' default. Pins the literal at line 1327 —
+  // without this, mutants on the default literal survive.
+  it("Fixture A: validation row renders '0 issues found' under fastSyncPhase='completed'", () => {
+    render(<GraphEnrichmentPipeline {...phase30Fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-validation');
+    expect(row).toHaveTextContent('0 issues found');
+    expect(row).toHaveAttribute('data-stage-state', 'complete');
+  });
+
+  // FIXTURE V1 — running branch (safeState='running').
+  // validating=true → computeValidationState returns 'running'.
+  // Group phase 'running' (not 'completed') so i3SafeStageState's
+  // early-coerce doesn't fire. Pins 'Validating...' literal + the
+  // line-1324 running-disjunct ConditionalExpression / LogicalOperator
+  // (||→&&) / EqualityOperator (===→!==) / StringLiteral ('running'→"")
+  // mutants.
+  it("Fixture V1: validation row renders 'Validating...' when validating=true with data-stage-state='running'", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      validating: true,
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'validation',
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-validation');
+    expect(row).toHaveTextContent('Validating...');
+    expect(row).toHaveAttribute('data-stage-state', 'running');
+  });
+
+  // FIXTURE V2 — rebuilding disjunct.
+  // barrier.active=true + barrier.reason='rebuild' triggers
+  // isPipelineRebuilding, which makes promoteForRebuild flip raw
+  // 'running' → 'rebuilding'. Asserts text + data-stage-state=
+  // 'rebuilding' to differentiate from V1's 'running' rendering.
+  // Pins 'rebuilding' literal at line 1324:51 and the rebuilding-
+  // disjunct ConditionalExpression mutant.
+  it("Fixture V2: validation row renders 'Validating...' with data-stage-state='rebuilding' during active rebuild", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      validating: true,
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'validation',
+      barrier: { active: true, reason: 'rebuild' },
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-validation');
+    expect(row).toHaveTextContent('Validating...');
+    expect(row).toHaveAttribute('data-stage-state', 'rebuilding');
+  });
+
+  // FIXTURE V3 — disabled branch.
+  // augmentation=undefined + augmenting=false + validating=false +
+  // fastKnowledgeBuilding=false routes computeValidationState to its
+  // !aug 'disabled' early-return (line 512). Group phase 'running'
+  // (not 'completed') so i3SafeStageState's early-coerce doesn't fire,
+  // and 'disabled' isn't in the override-eligible set {complete, stale,
+  // warning} so safeState stays 'disabled'. Pins 'Waiting for catalogue'
+  // literal at line 1325 + the disabled-check ConditionalExpression /
+  // EqualityOperator / StringLiteral mutants.
+  it("Fixture V3: validation row renders 'Waiting for catalogue' when aug payload absent and group phase not completed", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'catalogue',
+      augmenting: false,
+      validating: false,
+      fastKnowledgeBuilding: false,
+      augmentation: undefined,
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-validation');
+    expect(row).toHaveTextContent('Waiting for catalogue');
+    expect(row).toHaveAttribute('data-stage-state', 'disabled');
+  });
+
+  // FIXTURE V4 — not_built branch via downstream-position override.
+  // computeValidationState NEVER returns 'not_built' directly — the
+  // branch is reachable only via i3SafeStageState's override. Recipe:
+  //   - raw='complete' via aug.validated_nodes>0 (previouslyValidated
+  //     fast-path at line 509)
+  //   - fastSyncPhase='running' (not 'completed' → no early-coerce)
+  //   - fastCurrentStage='structural' (position 0, validation is
+  //     position 3) → override fires → returns 'not_built'
+  // Pins 'Not run' literal + not_built mutants on line 1326 AND the
+  // 'validation' stageId StringLiteral mutant on line 1323:76
+  // (with mutant stageId='', groupForStage('') returns null →
+  // fail-open → returns computedState='complete' → IIFE renders
+  // '0 issues found' instead of 'Not run').
+  it("Fixture V4: validation row renders 'Not run' (not '0 issues') when downstream of running stage — pins stageId + not_built literals", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'structural',
+      augmenting: false,
+      validating: false,
+      fastKnowledgeBuilding: false,
+      augmentation: {
+        enabled: true,
+        total_nodes: 100,
+        augmented_nodes: 100,
+        validated_nodes: 100,
+        avg_confidence: 0.93,
+        low_confidence_count: 0,
+        last_validate_at: '2026-06-23T10:00:00Z',
+      },
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-validation');
+    expect(row).toHaveTextContent('Not run');
+    expect(row).not.toHaveTextContent('0 issues found');
+    expect(row).toHaveAttribute('data-stage-state', 'not_built');
+  });
+});
+
