@@ -160,31 +160,37 @@ class TestComputeDeepeningOverrideKeys:
             },
         )
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         assert total == 2  # both file nodes in scope
         assert processed == 1  # only a.py has pass_number >= 3
 
-    def test_deepening_result_is_ignored_in_fixup_r2(self):
-        # PR-S-fixup-r2 F-1: the convergence path was DROPPED because
-        # convergence.total_count from compute_all_scores has no
-        # empty-file filter (denominator drift from ENRICHMENT) and
-        # convergence.settled_count conflates "score >= threshold"
-        # with "DEEPENING-touched". Pin that even if a deepening_result
-        # with convergence is passed, the helper IGNORES it.
-        from prep.services.pipeline.workers import _compute_deepening_override_keys
+    def test_deepening_result_param_removed_in_fixup_r3(self):
+        # PR-S-fixup-r3 FIX-2: dropped the `deepening_result`
+        # parameter entirely. Pre-fixup-r3 it was kept "for backward
+        # compatibility" — a foot-gun on a module-private helper
+        # with one caller, inviting future re-introduction of the
+        # convergence path that two rounds of scrutiny dropped.
+        # Pin via source-regex that the signature uses keyword-only
+        # arguments after enricher (no positional deepening_result).
+        from pathlib import Path
 
-        n1 = {"id": "file:a.py", "kind": "file", "file_path": "a.py"}
-        enricher = _make_enricher(
-            file_nodes_with_excerpt=[(n1, "real")],
-            existing_entries={"file:a.py": _entry(pass_number=3)},
+        src_path = (
+            Path(__file__).parent.parent / "src" / "prep" /
+            "services" / "pipeline" / "workers" / "__init__.py"
         )
-        # Convergence claims 100 / 75 — would be WRONG if used.
-        result = SimpleNamespace(convergence={"total_count": 100, "settled_count": 75})
-
-        total, processed = _compute_deepening_override_keys(enricher, result)
-        # Helper returns scope-read values (1, 1), NOT (100, 75).
-        assert total == 1
-        assert processed == 1
+        body = src_path.read_text(encoding="utf-8")
+        assert "def _compute_deepening_override_keys(\n    enricher: Any,\n    *," in body, (
+            "FIX-2 regression: _compute_deepening_override_keys "
+            "signature must NOT accept deepening_result. If a future "
+            "PR needs DeepeningResult context, that becomes a "
+            "deliberate API addition — not a vestigial parameter."
+        )
+        # Pin that no legacy deepening_result= kwarg remains in the
+        # worker callsite.
+        assert "deepening_result=result" not in body, (
+            "FIX-2 regression: worker still passes deepening_result "
+            "kwarg. The helper no longer accepts it."
+        )
 
     def test_empty_file_filter_excludes_empty_init(self):
         # F-1 cornerstone: empty file nodes (empty __init__.py) excluded
@@ -198,7 +204,7 @@ class TestComputeDeepeningOverrideKeys:
             existing_entries={"file:real.py": _entry(pass_number=3)},
         )
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         assert total == 1  # __init__.py excluded
         assert processed == 1
 
@@ -224,7 +230,7 @@ class TestComputeDeepeningOverrideKeys:
             "file:a.py": _entry(pass_number=3),
         }
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         # gone.py treated as empty → excluded from denominator.
         assert total == 1
         assert processed == 1
@@ -244,7 +250,7 @@ class TestComputeDeepeningOverrideKeys:
             existing_entries={"file:a.py": _entry(pass_number=3)},
         )
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         assert total == 1
 
     def test_pass_number_filter_excludes_enrichment_only_entries(self):
@@ -265,7 +271,7 @@ class TestComputeDeepeningOverrideKeys:
             },
         )
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         assert total == 3
         assert processed == 1
 
@@ -282,7 +288,7 @@ class TestComputeDeepeningOverrideKeys:
             },
         )
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         assert total == 2
         assert processed == 2
 
@@ -299,7 +305,7 @@ class TestComputeDeepeningOverrideKeys:
             },
         )
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         assert total == 1
         assert processed == 1
 
@@ -310,7 +316,7 @@ class TestComputeDeepeningOverrideKeys:
         from prep.services.pipeline.workers import _compute_deepening_override_keys
 
         enricher = _make_enricher(file_nodes_with_excerpt=[], existing_entries={})
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         assert total == 0
         assert processed == 0
         # CRITICAL: not None. The worker's `is not None` check then
@@ -328,7 +334,7 @@ class TestHelperFailurePath:
         enricher = MagicMock()
         enricher.load_trace_nodes.side_effect = OSError("disk full")
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         assert total is None
         assert processed is None
 
@@ -338,7 +344,7 @@ class TestHelperFailurePath:
         enricher = MagicMock()
         enricher.load_trace_nodes.side_effect = json.JSONDecodeError("bad", "doc", 0)
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         assert total is None
         assert processed is None
 
@@ -354,7 +360,7 @@ class TestHelperFailurePath:
         enricher._get_file_excerpt.return_value = "content"
         enricher.load_existing.return_value = {}
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher)
         assert total is None
         assert processed is None
 
@@ -366,7 +372,7 @@ class TestHelperFailurePath:
 
         import pytest as _pytest
         with _pytest.raises(TypeError):
-            _compute_deepening_override_keys(enricher, None)
+            _compute_deepening_override_keys(enricher)
 
     def test_warning_logged_with_exc_info(self, caplog):
         # F-3: WARNING + exc_info must be emitted from the except
@@ -378,7 +384,7 @@ class TestHelperFailurePath:
         enricher.load_trace_nodes.side_effect = OSError("disk error msg")
 
         with caplog.at_level(logging.WARNING, logger="prep.services.pipeline.workers"):
-            _compute_deepening_override_keys(enricher, None)
+            _compute_deepening_override_keys(enricher)
 
         # WARNING level present with the exception type AND message.
         warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
@@ -417,7 +423,7 @@ class TestHelperFailurePath:
         enricher.load_trace_nodes.side_effect = json.JSONDecodeError("bad json", "doc", 5)
 
         workers_mod._compute_deepening_override_keys(
-            enricher, None,
+            enricher,
             idx_dir=tmp_path,
             project_id="test-project",
         )
@@ -445,7 +451,7 @@ class TestHelperFailurePath:
         enricher = MagicMock()
         enricher.load_trace_nodes.side_effect = OSError("disk")
 
-        workers_mod._compute_deepening_override_keys(enricher, None)
+        workers_mod._compute_deepening_override_keys(enricher)
         # No telemetry call when idx_dir/project_id absent.
         assert calls == []
 
@@ -468,14 +474,25 @@ class TestHelperFailurePath:
 
         # Should not raise — helper returns (None, None) cleanly.
         total, processed = workers_mod._compute_deepening_override_keys(
-            enricher, None, idx_dir=tmp_path, project_id="p",
+            enricher, idx_dir=tmp_path, project_id="p",
         )
         assert total is None
         assert processed is None
 
-    def test_telemetry_programmer_error_propagates(self, tmp_path, monkeypatch):
-        # F-4: TypeError in record_event (e.g., signature drift) MUST
-        # propagate. Pre-F4 the bare except swallowed it.
+    def test_telemetry_programmer_error_swallowed_in_fixup_r3(
+        self, tmp_path, monkeypatch, caplog,
+    ):
+        # PR-S-fixup-r3 FIX-1: telemetry must NEVER crash the
+        # deepening worker after all LLM work completed. The inner
+        # defensive `except Exception: logger.debug(...)` guards
+        # against future record_event signature drift or refactors
+        # that emit a different exception class.
+        #
+        # Pre-FIX-1 (PR-S-fixup-r2 narrow except behavior):
+        # TypeError from record_event propagated past the narrowed
+        # except (only ImportError/OSError were caught), crashing
+        # the deepening worker. Now it's swallowed defensively and
+        # logged at DEBUG so a future grep finds the suppression.
         from prep.services.pipeline import workers as workers_mod
 
         import sys
@@ -490,11 +507,25 @@ class TestHelperFailurePath:
         enricher = MagicMock()
         enricher.load_trace_nodes.side_effect = OSError("scope failure")
 
-        import pytest as _pytest
-        with _pytest.raises(TypeError, match="signature drift"):
-            workers_mod._compute_deepening_override_keys(
-                enricher, None, idx_dir=tmp_path, project_id="p",
+        # NEW behavior: defensive wrap swallows the TypeError.
+        # Helper still returns (None, None) cleanly.
+        with caplog.at_level(logging.DEBUG, logger="prep.services.pipeline.workers"):
+            total, processed = workers_mod._compute_deepening_override_keys(
+                enricher, idx_dir=tmp_path, project_id="p",
             )
+        assert total is None
+        assert processed is None
+        # The defensive swallow logs at DEBUG with the exception type
+        # so future grep finds it.
+        debug_records = [
+            r for r in caplog.records
+            if r.levelno == logging.DEBUG and "telemetry" in r.getMessage().lower()
+        ]
+        assert len(debug_records) >= 1, (
+            "FIX-1 regression: telemetry exception must be logged at "
+            "DEBUG (not silently swallowed) so a future operator can "
+            "trace the suppression via log grep."
+        )
 
 
 # ─────────────────────────────────────────────────────────────────

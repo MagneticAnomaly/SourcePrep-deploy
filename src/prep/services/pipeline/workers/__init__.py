@@ -13,6 +13,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from prep.services.build_orchestrator import (
@@ -126,9 +127,8 @@ class PipelineRun:
 
 def _compute_deepening_override_keys(
     enricher: Any,
-    deepening_result: Any = None,
     *,
-    idx_dir: Any = None,
+    idx_dir: Optional[Path] = None,
     project_id: Optional[str] = None,
 ) -> Tuple[Optional[int], Optional[int]]:
     """Compute (_expected_total, _processed_count) for the deepening
@@ -173,11 +173,24 @@ def _compute_deepening_override_keys(
         payload are preserved (PR-S-fixup-r1 had moved them to the
         caller and lost both). F-3.
 
-    deepening_result is accepted for backward compatibility but is
-    unused — kept so callers don't need a signature change.
-
     idx_dir/project_id are required for failure telemetry. When
     None, the WARNING still fires but no telemetry event is emitted.
+
+    PR-S-fixup-r3 cleanup: dropped the `deepening_result` parameter
+    that PR-S-fixup-r2 kept "for backward compatibility". A module-
+    private helper with one caller has no backward-compat surface;
+    the parameter was a foot-gun inviting future re-introduction of
+    the convergence path that two rounds of scrutiny dropped. If a
+    future PR genuinely needs DeepeningResult context, that becomes
+    a deliberate API addition.
+
+    I/O cost note: this helper ALWAYS reads disk (load_trace_nodes
+    + load_existing + _get_file_excerpt for each file). On a 10k-
+    file project that's ~10k file-line-reads + 2 jsonl parses post-
+    LLM. Cost is acceptable relative to LLM-bound deepening (minutes)
+    but is the reason a future profiler might be tempted to revert
+    to convergence-only path. DON'T — convergence has the FIXUP-1
+    denominator drift documented above.
     """
     import json as _json
 
@@ -239,17 +252,32 @@ def _compute_deepening_override_keys(
             # bugs surface in tests.
             try:
                 from prep.services.pipeline_telemetry import record_event
-                record_event(
-                    idx_dir,
-                    "deepening_override_failed",
-                    {
-                        "reason": "scope_read_failure",
-                        "error_type": type(e).__name__,
-                        "error_message": str(e)[:500],
-                    },
-                    stage="deepening",
-                    project_id=project_id,
-                )
+                # PR-S-fixup-r3 FIX-1: telemetry must NEVER crash the
+                # deepening worker after all LLM work completed. The
+                # narrow except above catches today's known failure
+                # modes; this inner safety net guards against future
+                # record_event signature drift or refactors that emit
+                # a different exception class. Asymmetric cost
+                # strongly favors defensive wrapping for telemetry.
+                try:
+                    record_event(
+                        idx_dir,
+                        "deepening_override_failed",
+                        {
+                            "reason": "scope_read_failure",
+                            "error_type": type(e).__name__,
+                            "error_message": str(e)[:500],
+                        },
+                        stage="deepening",
+                        project_id=project_id,
+                    )
+                except Exception:
+                    logger.debug(
+                        "[Deepening] telemetry record_event raised; "
+                        "swallowed to protect deepening worker exit "
+                        "(non-fatal)",
+                        exc_info=True,
+                    )
             except (ImportError, OSError):
                 pass
         return None, None
@@ -1275,7 +1303,6 @@ class WorkerFactory:
             # Closes PRQ-CSI-002 from PR-Q round-1 scrutiny.
             expected_total, processed_count = _compute_deepening_override_keys(
                 enricher,
-                deepening_result=result,
                 idx_dir=idx_dir,
                 project_id=project_id,
             )
