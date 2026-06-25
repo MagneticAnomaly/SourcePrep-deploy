@@ -3,29 +3,34 @@ override contract.
 
 Closes PRQ-CSI-002 from PR-Q round-1 scrutiny.
 
-PR-S original scope: emit `_expected_total` and `_processed_count`
-keys from the DEEPENING worker so the orchestrator helper
-`_apply_worker_quality_overrides` hoists them into manifest.quality.
+History:
+  - PR-S (ca241743): initial worker change. emits _expected_total +
+    _processed_count via inline computation.
+  - PR-S-fixup-r1 (5fc91683): round-1 scrutiny followups. Extracted
+    _compute_deepening_override_keys module-level helper. Added
+    convergence-preferred path. Numerator filter pass_number>=3.
+    WARNING + telemetry on failure.
+  - PR-S-fixup-r2 (HEAD): round-2 scrutiny followups. Dropped the
+    convergence-preferred path (its denominator/numerator both had
+    semantic gaps — F-1, F-2 from scrutiny). Helper is now single-
+    source-of-truth scope-read with empty-file + pass_number filters.
+    Fixed deepening.py:497/554 to always write pass_number>=3 when
+    DEEPENING runs (F-2). Moved WARNING + telemetry into helper's
+    except block so exc_info + per-exception payload are preserved
+    (F-3). Narrowed telemetry's bare except (F-4). Empty project
+    case emits (0, 0) override keys explicitly instead of dropping
+    them (F-5). Narrowed inner _get_file_excerpt except (F-6).
+    Added KeyError to outer except tuple (F-7).
 
-PR-S-fixup-r1 corrections (round-1 scrutiny):
-  - Extract `_compute_deepening_override_keys` module-level helper.
-  - Prefer DeepeningResult.convergence (this-run native metric) over
-    JSONL-derived counts. Without this the chip read 100% the moment
-    ENRICHMENT completed because the cumulative jsonl already had
-    every file's epistemic entry.
-  - Apply empty-file filter on fallback path (matches ENRICHMENT's
-    PR-Q-fixup-r1 scope so the two chips share a denominator).
-  - Apply pass_number>=3 filter on fallback path (excludes
-    ENRICHMENT-only entries written with pass_number=2).
-  - Narrowed except clause + WARNING log + telemetry event.
-
-This file pins BOTH the source-level wiring (regex pins on the
-worker calling the helper) AND the functional behavior of the helper
-itself (mock enricher + mock DeepeningResult).
+This file pins:
+  - source-level wiring (worker delegates to the helper)
+  - functional behavior of the helper (most coverage here)
+  - deepening.py's pass_number>=3 invariant (F-2 regression catcher)
 """
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -38,9 +43,8 @@ from unittest.mock import MagicMock
 
 class TestDeepeningWorkerWiresHelper:
     """The DEEPENING worker must route override-key computation through
-    `_compute_deepening_override_keys` (the PR-S-fixup-r1 helper) and
-    must emit the override keys into worker_result. Source-regex
-    pins; functional behavior covered by TestComputeDeepeningOverrideKeys.
+    `_compute_deepening_override_keys`. Source-regex pins; functional
+    behavior covered by TestComputeDeepeningOverrideKeys.
     """
 
     def _workers_body(self) -> str:
@@ -57,79 +61,60 @@ class TestDeepeningWorkerWiresHelper:
 
     def test_helper_function_exists_at_module_level(self):
         body = self._workers_body()
-        assert "def _compute_deepening_override_keys(" in body, (
-            "PR-S-fixup-r1 regression: the module-level helper "
-            "_compute_deepening_override_keys must exist so the "
-            "deepening worker AND any future skip-path fix can call "
-            "the same scope+pass_number logic."
-        )
+        assert "def _compute_deepening_override_keys(" in body
 
     def test_deepening_worker_calls_helper(self):
         region = self._deepening_region()
-        assert "_compute_deepening_override_keys(" in region, (
-            "PR-S-fixup-r1 wiring regression: _deepening_worker must "
-            "delegate override-key computation to "
-            "_compute_deepening_override_keys (not inline). Inline "
-            "computation re-introduces the FIXUP-1/FIXUP-2 bugs."
+        assert "_compute_deepening_override_keys(" in region
+
+    def test_worker_passes_idx_dir_and_project_id_to_helper(self):
+        # PR-S-fixup-r2 F-3: telemetry needs idx_dir + project_id so
+        # it can fire from inside the helper's except block. Worker
+        # must pass them as kwargs.
+        region = self._deepening_region()
+        assert "idx_dir=idx_dir" in region, (
+            "F-3 regression: worker must pass idx_dir to helper so "
+            "telemetry can emit from the helper's except block."
+        )
+        assert "project_id=project_id" in region, (
+            "F-3 regression: worker must pass project_id to helper "
+            "so telemetry can emit from the helper's except block."
         )
 
     def test_deepening_worker_emits_expected_total_key(self):
         region = self._deepening_region()
-        assert '"_expected_total"' in region, (
-            "PR-S regression: worker_result must include "
-            "_expected_total when the helper returns a positive value."
-        )
+        assert '"_expected_total"' in region
 
     def test_deepening_worker_emits_processed_count_key(self):
         region = self._deepening_region()
-        assert '"_processed_count"' in region, (
-            "PR-S regression: worker_result must include "
-            "_processed_count when the helper returns a value."
-        )
+        assert '"_processed_count"' in region
 
-    def test_deepening_worker_omits_keys_on_helper_failure(self):
+    def test_worker_emits_keys_for_empty_project(self):
+        # F-5: worker must emit override keys when expected_total == 0
+        # (legitimate empty project case) instead of falling through
+        # to JSONL semantics. The conditional should be
+        # `if expected_total is not None` (NOT `> 0`).
         region = self._deepening_region()
-        # Pin: the conditional `if expected_total is not None and
-        # expected_total > 0` gates the assignment.
-        assert "expected_total > 0" in region, (
-            "PR-S regression: deepening worker must omit override "
-            "keys when expected_total is 0 or computation failed."
+        assert "expected_total is not None" in region, (
+            "F-5 regression: worker must emit override keys for "
+            "empty projects (expected_total == 0). The check should "
+            "be `is not None`, not `> 0`."
         )
-
-    def test_deepening_worker_logs_warning_on_helper_failure(self):
-        region = self._deepening_region()
-        # FIXUP-3: DEBUG → WARNING so operators see the degradation.
-        assert "logger.warning(" in region, (
-            "PR-S-fixup-r1 FIXUP-3 regression: failure must log at "
-            "WARNING, not DEBUG. DEBUG is invisible at default INFO "
-            "and the silent fallback re-introduces the §9.3 #32 bug."
-        )
-
-    def test_deepening_worker_emits_telemetry_event_on_failure(self):
-        region = self._deepening_region()
-        # FIXUP-3: telemetry event so the failure is introspectable
-        # from the event log, not just logger output.
-        assert "deepening_override_failed" in region, (
-            "PR-S-fixup-r1 FIXUP-3 regression: failure must emit a "
-            "telemetry event so operators can diagnose without grepping "
-            "logger output."
+        # Pin the OLD pattern is GONE so reverting accidentally fails.
+        assert "expected_total is not None and expected_total > 0" not in region, (
+            "F-5 regression: the old `is not None and > 0` conditional "
+            "drops the empty-project case. Use `is not None` only."
         )
 
     def test_skip_path_documents_known_gap(self):
         region = self._deepening_region()
-        # FIXUP-5: skip path is a known leak; must be documented inline
-        # so a future reader knows the gap is intentional, not missed.
-        assert "FIXUP-5" in region or "no_llm" in region, (
-            "PR-S-fixup-r1 FIXUP-5 regression: skip-path gap must be "
-            "documented inline. Otherwise a future reader thinks the "
-            "skip path emits override keys (it does not) and won't "
-            "trace down the silent JSONL-fallback bug there."
-        )
+        # FIXUP-5 (from round-1): skip path is documented as a known leak.
+        assert "FIXUP-5" in region or "no_llm" in region
 
 
 # ─────────────────────────────────────────────────────────────────
 # Functional pins on _compute_deepening_override_keys.
-# These are NOT source-regex — they exercise real behavior.
+# These exercise real behavior — not just source-regex.
 # ─────────────────────────────────────────────────────────────────
 
 
@@ -160,43 +145,9 @@ def _entry(pass_number=2):
 
 
 class TestComputeDeepeningOverrideKeys:
-    """Functional pins on the helper. Each test states a behavioral
-    contract the production deepening worker depends on.
-    """
+    """Functional pins on the helper."""
 
-    def test_prefers_convergence_when_available(self):
-        from prep.services.pipeline.workers import _compute_deepening_override_keys
-
-        # Even with a deeply-orphaned jsonl, convergence wins.
-        enricher = _make_enricher(
-            file_nodes_with_excerpt=[],
-            existing_entries={},
-        )
-        result = SimpleNamespace(convergence={"total_count": 100, "settled_count": 75})
-
-        total, processed = _compute_deepening_override_keys(enricher, result)
-        assert total == 100
-        assert processed == 75
-        # The scope read must NOT have been called when convergence
-        # was usable (avoids unnecessary I/O).
-        enricher.load_trace_nodes.assert_not_called()
-        enricher.load_existing.assert_not_called()
-
-    def test_convergence_settled_clamped_at_total(self):
-        from prep.services.pipeline.workers import _compute_deepening_override_keys
-
-        # Invariant: processed <= total (the §9.3 #32 invariant).
-        # If convergence ever reports settled > total (would be a bug
-        # in DeepeningResult itself), the helper still enforces the
-        # invariant.
-        enricher = _make_enricher([], {})
-        result = SimpleNamespace(convergence={"total_count": 100, "settled_count": 150})
-
-        total, processed = _compute_deepening_override_keys(enricher, result)
-        assert total == 100
-        assert processed == 100  # clamped, NOT 150
-
-    def test_falls_back_to_scope_read_when_convergence_none(self):
+    def test_basic_scope_read_returns_expected_counts(self):
         from prep.services.pipeline.workers import _compute_deepening_override_keys
 
         n1 = {"id": "file:a.py", "kind": "file", "file_path": "a.py"}
@@ -208,13 +159,18 @@ class TestComputeDeepeningOverrideKeys:
                 "file:b.py": _entry(pass_number=2),  # enriched only
             },
         )
-        result = SimpleNamespace(convergence=None)
 
-        total, processed = _compute_deepening_override_keys(enricher, result)
+        total, processed = _compute_deepening_override_keys(enricher, None)
         assert total == 2  # both file nodes in scope
         assert processed == 1  # only a.py has pass_number >= 3
 
-    def test_falls_back_when_deepening_result_none(self):
+    def test_deepening_result_is_ignored_in_fixup_r2(self):
+        # PR-S-fixup-r2 F-1: the convergence path was DROPPED because
+        # convergence.total_count from compute_all_scores has no
+        # empty-file filter (denominator drift from ENRICHMENT) and
+        # convergence.settled_count conflates "score >= threshold"
+        # with "DEEPENING-touched". Pin that even if a deepening_result
+        # with convergence is passed, the helper IGNORES it.
         from prep.services.pipeline.workers import _compute_deepening_override_keys
 
         n1 = {"id": "file:a.py", "kind": "file", "file_path": "a.py"}
@@ -222,17 +178,19 @@ class TestComputeDeepeningOverrideKeys:
             file_nodes_with_excerpt=[(n1, "real")],
             existing_entries={"file:a.py": _entry(pass_number=3)},
         )
+        # Convergence claims 100 / 75 — would be WRONG if used.
+        result = SimpleNamespace(convergence={"total_count": 100, "settled_count": 75})
 
-        total, processed = _compute_deepening_override_keys(enricher, None)
+        total, processed = _compute_deepening_override_keys(enricher, result)
+        # Helper returns scope-read values (1, 1), NOT (100, 75).
         assert total == 1
         assert processed == 1
 
     def test_empty_file_filter_excludes_empty_init(self):
+        # F-1 cornerstone: empty file nodes (empty __init__.py) excluded
+        # from the denominator. Mirrors ENRICHMENT scope.
         from prep.services.pipeline.workers import _compute_deepening_override_keys
 
-        # FIXUP-1: empty file nodes (empty __init__.py) must be
-        # excluded from the denominator. Mirrors EpistemicEnricher.run
-        # (epistemic_enrichment.py:1037-1045).
         n_real = {"id": "file:real.py", "kind": "file", "file_path": "real.py"}
         n_empty = {"id": "file:__init__.py", "kind": "file", "file_path": "__init__.py"}
         enricher = _make_enricher(
@@ -241,8 +199,33 @@ class TestComputeDeepeningOverrideKeys:
         )
 
         total, processed = _compute_deepening_override_keys(enricher, None)
-        # Denominator = 1 (only real.py — __init__.py excluded by
-        # empty-file filter; matches ENRICHMENT's denominator).
+        assert total == 1  # __init__.py excluded
+        assert processed == 1
+
+    def test_empty_file_filter_survives_oserror_on_excerpt(self):
+        # F-6: narrowed inner except. _get_file_excerpt may raise
+        # OSError (file deleted between trace_node enumeration and
+        # excerpt read). The narrowed catch must still treat the
+        # file as empty (excluded from scope).
+        from prep.services.pipeline.workers import _compute_deepening_override_keys
+
+        n_ok = {"id": "file:a.py", "kind": "file", "file_path": "a.py"}
+        n_io_fail = {"id": "file:gone.py", "kind": "file", "file_path": "gone.py"}
+        enricher = MagicMock()
+        enricher.load_trace_nodes.return_value = [n_ok, n_io_fail]
+
+        def _excerpt(file_path, max_lines=150):
+            if file_path == "gone.py":
+                raise OSError("file vanished")
+            return "real content"
+
+        enricher._get_file_excerpt.side_effect = _excerpt
+        enricher.load_existing.return_value = {
+            "file:a.py": _entry(pass_number=3),
+        }
+
+        total, processed = _compute_deepening_override_keys(enricher, None)
+        # gone.py treated as empty → excluded from denominator.
         assert total == 1
         assert processed == 1
 
@@ -262,16 +245,13 @@ class TestComputeDeepeningOverrideKeys:
         )
 
         total, processed = _compute_deepening_override_keys(enricher, None)
-        # Only kind=="file" counted.
         assert total == 1
 
     def test_pass_number_filter_excludes_enrichment_only_entries(self):
+        # FIXUP-2 anchor: chip must NOT read 100% just because
+        # ENRICHMENT completed.
         from prep.services.pipeline.workers import _compute_deepening_override_keys
 
-        # FIXUP-2 critical: the chip must NOT read 100% just because
-        # ENRICHMENT completed. Three files all enriched (pass=2),
-        # one re-deepened (pass=3). Chip semantic: 1/3 (33%), not
-        # 3/3 (100%).
         nodes = [
             ({"id": f"file:f{i}.py", "kind": "file", "file_path": f"f{i}.py"}, "content")
             for i in range(3)
@@ -287,20 +267,11 @@ class TestComputeDeepeningOverrideKeys:
 
         total, processed = _compute_deepening_override_keys(enricher, None)
         assert total == 3
-        # CRITICAL FIXUP-2 assertion: pre-fixup, processed would be 3
-        # (all three counted). Post-fixup, only the pass_number>=3
-        # entry counts.
-        assert processed == 1, (
-            "FIXUP-2 regression: numerator must filter by pass_number>=3 "
-            "to measure DEEPENING work, not ENRICHMENT coverage. Without "
-            "the filter the chip reads 100% the moment ENRICHMENT "
-            "completes regardless of deepening."
-        )
+        assert processed == 1
 
     def test_pass_number_high_passes_count(self):
         from prep.services.pipeline.workers import _compute_deepening_override_keys
 
-        # pass_number=4, 5, etc. (multiple deepening passes) still count.
         n1 = {"id": "file:a.py", "kind": "file", "file_path": "a.py"}
         n2 = {"id": "file:b.py", "kind": "file", "file_path": "b.py"}
         enricher = _make_enricher(
@@ -318,8 +289,6 @@ class TestComputeDeepeningOverrideKeys:
     def test_orphan_filter_excludes_out_of_scope_entries(self):
         from prep.services.pipeline.workers import _compute_deepening_override_keys
 
-        # An entry for a node that's no longer in file_nodes (deleted
-        # file or L3 filter change) must NOT count toward processed.
         n_current = {"id": "file:current.py", "kind": "file", "file_path": "current.py"}
         enricher = _make_enricher(
             file_nodes_with_excerpt=[(n_current, "content")],
@@ -332,8 +301,26 @@ class TestComputeDeepeningOverrideKeys:
 
         total, processed = _compute_deepening_override_keys(enricher, None)
         assert total == 1
-        # Orphans excluded — only the in-scope entry counts.
         assert processed == 1
+
+    def test_zero_file_nodes_returns_zero_total(self):
+        # F-5: zero file_nodes is a legitimate "empty project" — must
+        # return (0, 0), NOT (None, None). Caller emits the keys so
+        # the chip shows 0/0 instead of falling back to JSONL.
+        from prep.services.pipeline.workers import _compute_deepening_override_keys
+
+        enricher = _make_enricher(file_nodes_with_excerpt=[], existing_entries={})
+        total, processed = _compute_deepening_override_keys(enricher, None)
+        assert total == 0
+        assert processed == 0
+        # CRITICAL: not None. The worker's `is not None` check then
+        # emits the keys.
+        assert total is not None
+        assert processed is not None
+
+
+class TestHelperFailurePath:
+    """F-3: WARNING + telemetry emitted from helper's except block."""
 
     def test_returns_none_on_oserror(self):
         from prep.services.pipeline.workers import _compute_deepening_override_keys
@@ -342,8 +329,6 @@ class TestComputeDeepeningOverrideKeys:
         enricher.load_trace_nodes.side_effect = OSError("disk full")
 
         total, processed = _compute_deepening_override_keys(enricher, None)
-        # FIXUP-3: narrowed except still catches OSError; caller
-        # logs WARNING + telemetry.
         assert total is None
         assert processed is None
 
@@ -357,64 +342,217 @@ class TestComputeDeepeningOverrideKeys:
         assert total is None
         assert processed is None
 
+    def test_returns_none_on_keyerror(self):
+        # F-7: corrupt jsonl missing "id" key. Pre-F7 the KeyError
+        # propagated and crashed the deepening worker; the narrowed
+        # except now catches it cleanly.
+        from prep.services.pipeline.workers import _compute_deepening_override_keys
+
+        n_no_id = {"kind": "file", "file_path": "a.py"}  # missing "id"
+        enricher = MagicMock()
+        enricher.load_trace_nodes.return_value = [n_no_id]
+        enricher._get_file_excerpt.return_value = "content"
+        enricher.load_existing.return_value = {}
+
+        total, processed = _compute_deepening_override_keys(enricher, None)
+        assert total is None
+        assert processed is None
+
     def test_propagates_programmer_errors(self):
         from prep.services.pipeline.workers import _compute_deepening_override_keys
 
-        # FIXUP-3: bare `except Exception` was too broad — would
-        # swallow TypeError / KeyboardInterrupt / SystemExit etc.
-        # The narrowed clause must let real programmer errors
-        # propagate so they show up in tests / monitoring.
         enricher = MagicMock()
         enricher.load_trace_nodes.side_effect = TypeError("oops")
 
-        # TypeError NOT caught by (OSError, json.JSONDecodeError,
-        # ValueError, AttributeError). Wait — AttributeError IS caught.
-        # TypeError is NOT in the tuple, so it propagates.
         import pytest as _pytest
         with _pytest.raises(TypeError):
             _compute_deepening_override_keys(enricher, None)
 
-    def test_zero_file_nodes_returns_zero_total(self):
+    def test_warning_logged_with_exc_info(self, caplog):
+        # F-3: WARNING + exc_info must be emitted from the except
+        # block where the exception is in scope. Pre-fixup-r2 the
+        # WARNING was in the caller and lost both.
         from prep.services.pipeline.workers import _compute_deepening_override_keys
 
-        enricher = _make_enricher(file_nodes_with_excerpt=[], existing_entries={})
-        total, processed = _compute_deepening_override_keys(enricher, None)
-        assert total == 0
-        assert processed == 0
-        # Caller's `if expected_total > 0` gate causes the worker to
-        # OMIT the override keys, falling back to JSONL semantics.
+        enricher = MagicMock()
+        enricher.load_trace_nodes.side_effect = OSError("disk error msg")
 
-    def test_convergence_with_non_int_values_falls_back(self):
-        from prep.services.pipeline.workers import _compute_deepening_override_keys
+        with caplog.at_level(logging.WARNING, logger="prep.services.pipeline.workers"):
+            _compute_deepening_override_keys(enricher, None)
 
-        # Corrupt convergence dict (settled is a string, total is None).
-        n1 = {"id": "file:a.py", "kind": "file", "file_path": "a.py"}
-        enricher = _make_enricher(
-            file_nodes_with_excerpt=[(n1, "content")],
-            existing_entries={"file:a.py": _entry(pass_number=3)},
+        # WARNING level present with the exception type AND message.
+        warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warning_records) >= 1
+        record = warning_records[0]
+        assert "OSError" in record.getMessage()
+        assert "disk error msg" in record.getMessage()
+        # exc_info captured → traceback available.
+        assert record.exc_info is not None
+        assert record.exc_info[0] is OSError
+
+    def test_telemetry_emitted_with_exception_metadata(self, tmp_path, monkeypatch):
+        # F-3: telemetry payload carries per-exception type + message
+        # so operators can triage without re-running with logger
+        # output capture.
+        from prep.services.pipeline import workers as workers_mod
+
+        calls = []
+
+        def _fake_record_event(idx_dir, event_type, payload, stage=None, project_id=None):
+            calls.append({
+                "idx_dir": idx_dir,
+                "event_type": event_type,
+                "payload": payload,
+                "stage": stage,
+                "project_id": project_id,
+            })
+
+        # Inject the fake into the lazy import path.
+        import sys
+        fake_module = type(sys)("prep.services.pipeline_telemetry")
+        fake_module.record_event = _fake_record_event
+        monkeypatch.setitem(sys.modules, "prep.services.pipeline_telemetry", fake_module)
+
+        enricher = MagicMock()
+        enricher.load_trace_nodes.side_effect = json.JSONDecodeError("bad json", "doc", 5)
+
+        workers_mod._compute_deepening_override_keys(
+            enricher, None,
+            idx_dir=tmp_path,
+            project_id="test-project",
         )
-        result = SimpleNamespace(convergence={"total_count": None, "settled_count": "bad"})
 
-        total, processed = _compute_deepening_override_keys(enricher, result)
-        # Falls through to scope read.
-        assert total == 1
-        assert processed == 1
+        assert len(calls) == 1
+        c = calls[0]
+        assert c["event_type"] == "deepening_override_failed"
+        assert c["stage"] == "deepening"
+        assert c["project_id"] == "test-project"
+        assert c["payload"]["reason"] == "scope_read_failure"
+        assert c["payload"]["error_type"] == "JSONDecodeError"
+        assert "bad json" in c["payload"]["error_message"]
 
-    def test_convergence_with_bool_values_falls_back(self):
-        from prep.services.pipeline.workers import _compute_deepening_override_keys
+    def test_telemetry_skipped_when_idx_dir_missing(self, monkeypatch):
+        # When caller omits idx_dir/project_id, helper still logs
+        # WARNING but doesn't try to call record_event.
+        from prep.services.pipeline import workers as workers_mod
 
-        # Defense against the same F1 bug class PR-Q-fixup-r1 closed.
-        n1 = {"id": "file:a.py", "kind": "file", "file_path": "a.py"}
-        enricher = _make_enricher(
-            file_nodes_with_excerpt=[(n1, "content")],
-            existing_entries={"file:a.py": _entry(pass_number=3)},
+        calls = []
+        import sys
+        fake_module = type(sys)("prep.services.pipeline_telemetry")
+        fake_module.record_event = lambda *a, **k: calls.append((a, k))
+        monkeypatch.setitem(sys.modules, "prep.services.pipeline_telemetry", fake_module)
+
+        enricher = MagicMock()
+        enricher.load_trace_nodes.side_effect = OSError("disk")
+
+        workers_mod._compute_deepening_override_keys(enricher, None)
+        # No telemetry call when idx_dir/project_id absent.
+        assert calls == []
+
+    def test_telemetry_failure_does_not_crash_helper(self, tmp_path, monkeypatch):
+        # F-4: telemetry call is wrapped in a narrowed except. An
+        # OSError in record_event must not crash the helper.
+        from prep.services.pipeline import workers as workers_mod
+
+        import sys
+        fake_module = type(sys)("prep.services.pipeline_telemetry")
+
+        def _bad_record_event(*a, **k):
+            raise OSError("event log unwritable")
+
+        fake_module.record_event = _bad_record_event
+        monkeypatch.setitem(sys.modules, "prep.services.pipeline_telemetry", fake_module)
+
+        enricher = MagicMock()
+        enricher.load_trace_nodes.side_effect = OSError("scope read failed")
+
+        # Should not raise — helper returns (None, None) cleanly.
+        total, processed = workers_mod._compute_deepening_override_keys(
+            enricher, None, idx_dir=tmp_path, project_id="p",
         )
-        result = SimpleNamespace(convergence={"total_count": True, "settled_count": True})
+        assert total is None
+        assert processed is None
 
-        total, processed = _compute_deepening_override_keys(enricher, result)
-        # Bools rejected → scope read fallback.
-        assert total == 1
-        assert processed == 1
+    def test_telemetry_programmer_error_propagates(self, tmp_path, monkeypatch):
+        # F-4: TypeError in record_event (e.g., signature drift) MUST
+        # propagate. Pre-F4 the bare except swallowed it.
+        from prep.services.pipeline import workers as workers_mod
+
+        import sys
+        fake_module = type(sys)("prep.services.pipeline_telemetry")
+
+        def _bad_record_event(*a, **k):
+            raise TypeError("signature drift")
+
+        fake_module.record_event = _bad_record_event
+        monkeypatch.setitem(sys.modules, "prep.services.pipeline_telemetry", fake_module)
+
+        enricher = MagicMock()
+        enricher.load_trace_nodes.side_effect = OSError("scope failure")
+
+        import pytest as _pytest
+        with _pytest.raises(TypeError, match="signature drift"):
+            workers_mod._compute_deepening_override_keys(
+                enricher, None, idx_dir=tmp_path, project_id="p",
+            )
+
+
+# ─────────────────────────────────────────────────────────────────
+# F-2 regression catcher on deepening.py: DEEPENING must always
+# write pass_number >= 3 (not 2 on first-time deepening).
+# ─────────────────────────────────────────────────────────────────
+
+
+class TestDeepeningAlwaysIncrementsPassNumber:
+    """deepening.py:497 (sequential) and :554 (concurrent) used to
+    write `entry.pass_number = previous + 1 if is_re_enrichment else 2`.
+    The `else 2` branch made first-time DEEPENING entries indistinguishable
+    from ENRICHMENT entries — breaking the chip's pass_number>=3
+    numerator filter.
+
+    PR-S-fixup-r2 F-2: both branches now write max(prev_pass + 1, 3)
+    so a DEEPENING-touched entry is ALWAYS pass_number >= 3.
+    """
+
+    def _deepening_body(self) -> str:
+        src_path = (
+            Path(__file__).parent.parent / "src" / "prep" /
+            "core" / "deepening.py"
+        )
+        return src_path.read_text(encoding="utf-8")
+
+    def test_uses_max_prev_plus_one_three(self):
+        body = self._deepening_body()
+        # Both branches should use the same max(prev+1, 3) pattern.
+        assert "max(prev_pass + 1, 3)" in body, (
+            "F-2 regression: deepening.py must always write "
+            "pass_number >= 3 when DEEPENING runs. The old "
+            "`else 2` branch made first-time deepening entries "
+            "indistinguishable from ENRICHMENT entries, breaking "
+            "the chip's pass_number>=3 numerator filter."
+        )
+
+    def test_no_legacy_else_two_pattern_remains(self):
+        body = self._deepening_body()
+        # Pin the OLD pattern is GONE.
+        assert "pass_number + 1 if is_re_enrichment else 2" not in body, (
+            "F-2 regression: legacy `else 2` first-time-deepening "
+            "pattern resurfaced in deepening.py."
+        )
+        assert "pass_number + 1 if is_re else 2" not in body, (
+            "F-2 regression: legacy `else 2` concurrent branch "
+            "resurfaced."
+        )
+
+    def test_documents_pr_s_fixup_rationale(self):
+        body = self._deepening_body()
+        # The change should be commented so the next maintainer
+        # doesn't revert it.
+        assert "PR-S-fixup-r2 F-2" in body, (
+            "F-2 regression: deepening.py must document why "
+            "max(prev_pass + 1, 3) replaced `else 2` so the next "
+            "maintainer doesn't revert it as 'unnecessary'."
+        )
 
 
 # NOTE: producer-only scope.
@@ -424,10 +562,6 @@ class TestComputeDeepeningOverrideKeys:
 # is on an independent branch. When both PRs merge to main, the
 # producer-consumer end-to-end behavior is covered by
 # test_phase145_pr_q_quality_overrides.py's
-# TestPRQEndToEndProducerConsumer (which exercises the real
-# enricher→helper path). Extending that test to also cover the
-# deepening worker is a logical follow-up after both branches land.
-#
-# If PR-S is merged WITHOUT PR-Q (against the recommended sequence),
-# the deepening worker emits keys that nobody reads — dormant code,
-# not a regression. Safe failure mode.
+# TestPRQEndToEndProducerConsumer. Extending that test to also cover
+# the deepening worker is a logical follow-up after both branches
+# land.

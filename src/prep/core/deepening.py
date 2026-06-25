@@ -494,7 +494,16 @@ class DeepeningLoop:
                         hold_paused_iter = hpe
                         break
                     if entry:
-                        entry.pass_number = existing_epistemic[node_id].pass_number + 1 if is_re_enrichment else 2
+                        # §9.3 #32 (PR-S-fixup-r2 F-2): DEEPENING-touched
+                        # entries MUST be distinguishable from ENRICHMENT-
+                        # only entries (pass_number=2). The first-time-
+                        # deepening branch previously wrote 2 — making the
+                        # entry indistinguishable from ENRICHMENT output
+                        # and breaking the "Continuous Deepening" chip's
+                        # pass_number>=3 numerator filter. Always emit
+                        # >=3 when DEEPENING runs.
+                        prev_pass = existing_epistemic[node_id].pass_number if is_re_enrichment else 2
+                        entry.pass_number = max(prev_pass + 1, 3)
                         existing_epistemic[node_id] = entry
                         enriched_this_iter += 1
                         if is_re_enrichment:
@@ -551,7 +560,13 @@ class DeepeningLoop:
                             entry = None
                         with lock:
                             if entry:
-                                entry.pass_number = existing_epistemic[node_id].pass_number + 1 if is_re else 2
+                                # §9.3 #32 (PR-S-fixup-r2 F-2): see
+                                # sequential branch above for rationale.
+                                # DEEPENING-touched entries must always
+                                # be pass_number >= 3 so the chip's
+                                # numerator filter can distinguish them.
+                                prev_pass = existing_epistemic[node_id].pass_number if is_re else 2
+                                entry.pass_number = max(prev_pass + 1, 3)
                                 existing_epistemic[node_id] = entry
                                 enriched_this_iter += 1
                                 if is_re:
