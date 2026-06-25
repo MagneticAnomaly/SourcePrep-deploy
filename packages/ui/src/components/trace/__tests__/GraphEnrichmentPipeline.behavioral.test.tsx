@@ -967,12 +967,20 @@ describe('GraphEnrichmentPipeline — catalogueStats IIFE (PR-M)', () => {
   });
 
   // FIXTURE CA6 — coverage path with pct + conf.
-  // safeState='complete' (coerced from raw 'complete' under
-  // fastSyncPhase='completed'), augmentation populated → renders
-  // `${pct}% coverage · ${conf}`. Pins the template literal on
-  // line 1304, the conf template on line 1302, the Math.round / pct
-  // arithmetic mutants on line 1299, and the conf>0 conditional
-  // mutants on line 1301.
+  // Round-1 scrutiny correction: the raw catalogue-state computed
+  // from augmentation is 'stale' here, NOT 'complete' as the original
+  // comment claimed. With augmented_nodes=47 and total_nodes=100,
+  // `aug.augmented_nodes < aug.total_nodes * 0.5` (47 < 50) is true,
+  // so the augmentation→raw mapping (GraphEnrichmentPipeline.tsx
+  // around line 462-464) returns 'stale'. The i3SafeStageState
+  // coercion under fastSyncPhase='completed' then promotes the
+  // 'stale' raw state to safe='complete', which is what the chip
+  // renderer keys on. Either way the rendered text is the same;
+  // this comment exists to keep the fixture's mental model accurate
+  // for future readers.
+  // Pins the template literal on line 1304, the conf template on
+  // line 1302, the Math.round / pct arithmetic mutants on line 1299,
+  // and the conf>0 conditional mutants on line 1301.
   it("Fixture CA6: catalogue row renders '47% coverage · 93% conf' under completed phase with augmentation populated", () => {
     const fixture: GraphEnrichmentPipelineProps = {
       ...phase30Fixture,
@@ -993,9 +1001,20 @@ describe('GraphEnrichmentPipeline — catalogueStats IIFE (PR-M)', () => {
 
   // FIXTURE CA7 — total_nodes=0 ternary fallback.
   // safeState='complete' + augmentation.total_nodes=0 → pct ternary
-  // takes the `: 0` branch (avoid divide-by-zero). Pins the line-1298
-  // ConditionalExpression(false) and EqualityOperator(>=) mutants
-  // which would otherwise flip the ternary and yield NaN.
+  // takes the `: 0` branch (avoid divide-by-zero). Round-1 scrutiny
+  // correction: mutant attribution was swapped in the original
+  // comment. The ternary at line 1298 is `total_nodes > 0
+  // ? Math.min(100, ...) : 0`. The mutants this fixture catches:
+  //   - EqualityOperator(>=) flips `> 0` to `>= 0`, so total_nodes=0
+  //     passes the test, the true branch runs, and
+  //     `augmented_nodes / 0` yields NaN — fixture catches because
+  //     rendered text is "NaN% coverage" not "0% coverage".
+  //   - ConditionalExpression(true) forces the true branch directly,
+  //     same NaN failure mode as above.
+  //   - ConditionalExpression(false) forces the false branch, which
+  //     yields 0 — this fixture does NOT distinguish it from the
+  //     non-mutated state (both render "0% coverage"). The (true)
+  //     mutant is the one that's caught here, not (false).
   it("Fixture CA7: catalogue row renders '0% coverage' when total_nodes=0", () => {
     const fixture: GraphEnrichmentPipelineProps = {
       ...phase30Fixture,
