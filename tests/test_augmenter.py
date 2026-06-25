@@ -404,6 +404,115 @@ class TestTraceAugmenter:
         for entry in entries.values():
             assert entry.role in VALID_ROLES
 
+    # ── §9.3 #32 regression — PR-P fix ────────────────────────
+    # The 7812/142 → 5501% production case was caused by the v1 manifest
+    # writer using two different denominators: `counts.total_nodes` was
+    # `result.total_nodes - result.skipped` (which by substitution equals
+    # `total_work` — this-run scope), while `counts.augmented` was
+    # `len(entries)` (cumulative project-wide from `load_existing()`).
+    # PR-P adds `AugmentResult.project_augmentable_count` set in `run()`
+    # to `len(symbol_nodes) + len(file_nodes)` and uses it as the manifest
+    # denominator so numerator and denominator share project-wide scope.
+    # See FINDING_catalogue-augmented-vs-total-semantic-mismatch.md.
+
+    def test_run_sets_project_augmentable_count(self, tmp_index, tmp_repo):
+        """run() must populate result.project_augmentable_count with the
+        project-wide count of augmentable-kind nodes (symbol + file)."""
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+        result = aug.run()
+        expected = sum(
+            1 for n in SAMPLE_NODES if n.get("kind") in ("symbol", "file")
+        )
+        assert result.project_augmentable_count == expected
+
+    def test_manifest_total_nodes_never_smaller_than_augmented_count(
+        self, tmp_index, tmp_repo,
+    ):
+        """§9.3 #32 invariant: counts.augmented MUST NOT exceed
+        counts.total_nodes in the v1 manifest. Direct repro of the
+        incremental-no-op + cumulative-entries scenario that produced
+        the 5501% chip in production.
+        """
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+
+        augmentable = [
+            n for n in SAMPLE_NODES if n.get("kind") in ("symbol", "file")
+        ]
+        # Simulate the no-op-incremental result: all nodes already
+        # processed this run (so result.skipped == result.total_nodes,
+        # making the old `total_nodes - skipped` formula collapse to 0).
+        result = AugmentResult()
+        result.total_nodes = len(SAMPLE_NODES)
+        result.skipped = result.total_nodes
+        result.project_augmentable_count = len(augmentable)
+
+        # Cumulative entries: current augmentable PLUS orphan entries from
+        # prior runs (typical cause: files renamed/deleted but their old
+        # entries still live in trace_augmented.jsonl, since the augmenter
+        # never reaps orphans).
+        entries = {}
+        for n in augmentable:
+            entries[n["id"]] = AugmentationEntry(
+                node_id=n["id"], summary="x", role="utility",
+                confidence=0.9, augmented_at="2025-01-01", model="m",
+            )
+        for i in range(50):
+            entries[f"orphan-symbol-{i}"] = AugmentationEntry(
+                node_id=f"orphan-symbol-{i}", summary="x", role="utility",
+                confidence=0.9, augmented_at="2025-01-01", model="m",
+            )
+
+        # PR-P run() passes set(nodes_by_id.keys()) as valid_node_ids so
+        # orphan entries don't inflate the numerator past the denominator.
+        valid_ids = {n["id"] for n in SAMPLE_NODES}
+        aug._write_manifest(result, entries, valid_node_ids=valid_ids)
+        s = aug.status()
+
+        # The §9.3 #32 invariant: numerator cannot exceed denominator.
+        # Pre-PR-P this assertion failed with augmented_nodes=55 and
+        # total_nodes=0 (the 5501% chip class — formally undefined but
+        # rendering as the unclamped ratio).
+        assert s["enabled"] is True
+        assert s["augmented_nodes"] <= s["total_nodes"], (
+            f"§9.3 #32: augmented_nodes ({s['augmented_nodes']}) > "
+            f"total_nodes ({s['total_nodes']}) — the 5501% chip bug "
+            f"class is back. _write_manifest must use "
+            f"result.project_augmentable_count "
+            f"({len(augmentable)}) as the denominator AND must filter "
+            f"entries against valid_node_ids."
+        )
+        # Denominator must be project-wide augmentable count.
+        assert s["total_nodes"] == len(augmentable)
+        # Numerator must exclude orphans (50 of 55 entries are orphans).
+        assert s["augmented_nodes"] == len(augmentable)
+
+    def test_manifest_falls_back_to_old_denominator_when_field_unset(
+        self, tmp_index, tmp_repo,
+    ):
+        """Backwards-compat: callers constructing AugmentResult outside
+        run() (e.g. older tests, dataclass(**dict) restoration) leave
+        project_augmentable_count at its default 0. _write_manifest must
+        fall back to the pre-PR-P denominator formula in that case so
+        existing callers don't see surprise zero-denominator manifests."""
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+
+        # Old-style AugmentResult: project_augmentable_count left at 0.
+        result = AugmentResult()
+        result.total_nodes = 10
+        result.skipped = 3  # → augmentable_nodes = 10 - 3 = 7
+        # (project_augmentable_count defaults to 0 → fallback path)
+
+        aug._write_manifest(result, {})
+        s = aug.status()
+        # Old formula: total_nodes - skipped = 7
+        assert s["total_nodes"] == 7
+
 
 class TestNarrativeConcurrency:
     """2026-05-17 regression. Narrative-file augmentation used to be a
