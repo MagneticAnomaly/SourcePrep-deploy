@@ -13,7 +13,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from prep.services.build_orchestrator import (
     BuildOrchestrator,
@@ -119,6 +119,96 @@ class PipelineRun:
             "stage_results": self.stage_results,
             "journal_run_id": self.journal_run_id,
         }
+
+
+# ── Deepening override-key helper (PR-S-fixup-r1) ────────────────
+
+
+def _compute_deepening_override_keys(
+    enricher: Any,
+    deepening_result: Any = None,
+) -> Tuple[Optional[int], Optional[int]]:
+    """Compute (_expected_total, _processed_count) for the deepening
+    worker_result override.
+
+    §9.3 #32 PR-S round-1 scrutiny corrections (FIXUP-1 + FIXUP-2):
+
+      - Preferred path: use DeepeningResult.convergence's
+        settled_count / total_count. This is the native deepening
+        metric the chip already understands (GraphEnrichmentPipeline.tsx
+        around line 1412-1415) and it correctly excludes ENRICHMENT-
+        only entries — convergence is computed from THIS-run scores,
+        not from cumulative jsonl reads.
+
+      - Fallback path: file-node scope read. Applies TWO filters:
+        (1) the empty-file filter matching ENRICHMENT's PR-Q-fixup-r1
+            scope (epistemic_enrichment.py:1037-1045) so the
+            "Deep Reasoning" and "Continuous Deepening" chips share
+            a denominator — otherwise the deepening chip's denominator
+            is structurally larger (includes empty __init__.py)
+            and the two chips never agree even on healthy runs.
+        (2) pass_number >= 3 filter on the numerator — ENRICHMENT
+            writes pass_number=2 entries, DEEPENING bumps to
+            pass+1 (deepening.py:497). Without this filter the
+            chip reads 100% as soon as ENRICHMENT completes
+            regardless of DEEPENING work — the same UX bug class
+            PR-S exists to close, inverted.
+
+    Returns (None, None) on read failure — caller falls back to
+    omitting the override keys (orchestrator's back-compat path
+    uses JSONL semantics, same as pre-PR-S behavior).
+    """
+    import json as _json
+
+    try:
+        # Preferred: native deepening metric.
+        if deepening_result is not None:
+            conv = getattr(deepening_result, "convergence", None)
+            if isinstance(conv, dict):
+                total = conv.get("total_count")
+                settled = conv.get("settled_count")
+                if (
+                    isinstance(total, int)
+                    and not isinstance(total, bool)
+                    and total > 0
+                    and isinstance(settled, int)
+                    and not isinstance(settled, bool)
+                    and settled >= 0
+                ):
+                    return total, min(settled, total)
+
+        # Fallback: scope read with empty-file + pass_number filters.
+        all_nodes = enricher.load_trace_nodes()
+        file_nodes: List[Dict[str, Any]] = []
+        for n in all_nodes:
+            if n.get("kind") != "file":
+                continue
+            # Empty-file filter matches ENRICHMENT scope. Excludes
+            # empty __init__.py files that have a trace node but no
+            # content to enrich.
+            try:
+                excerpt = enricher._get_file_excerpt(
+                    n.get("file_path", ""), max_lines=1,
+                )
+            except Exception:
+                excerpt = ""
+            if not excerpt:
+                continue
+            file_nodes.append(n)
+        file_node_ids = {n["id"] for n in file_nodes}
+
+        existing = enricher.load_existing()
+        # pass_number >= 3 → DEEPENING-touched entries only.
+        # ENRICHMENT writes pass_number=2 (epistemic_score.py:86 default,
+        # deepening.py:497 bumps to pass+1 for re-enrichment).
+        in_scope_deepened = sum(
+            1 for nid, entry in existing.items()
+            if nid in file_node_ids
+            and getattr(entry, "pass_number", 2) >= 3
+        )
+        return len(file_nodes), in_scope_deepened
+    except (OSError, _json.JSONDecodeError, ValueError, AttributeError):
+        return None, None
 
 
 # ── Worker Factory ───────────────────────────────────────────────
@@ -1065,6 +1155,18 @@ class WorkerFactory:
             except RuntimeError:
                 logger.info("[Deepening] No model available for deepening task — skipping")
                 progress_cb("Skipped (no LLM configured)", 1, 1)
+                # KNOWN GAP (PR-S round-1 scrutiny FIXUP-5): this skip
+                # path returns BEFORE instantiating the enricher, so
+                # _compute_deepening_override_keys can't run here
+                # without a larger refactor (EpistemicEnricher.__init__
+                # requires an LLM client). The orchestrator helper
+                # falls back to JSONL semantics for the manifest
+                # quality block — which is the §9.3 #32 bug class
+                # PR-S exists to close. The skip path therefore still
+                # leaks the bug on the "Continuous Deepening" chip.
+                # Tracked as PR-S-FIXUP-5 follow-up: hoist scope-read
+                # to a module-level helper that reads jsonl files
+                # directly without needing the enricher object.
                 return {"stage": "deepening", "skipped": True, "reason": "no_llm"}
 
             enricher = EpistemicEnricher(
@@ -1096,51 +1198,62 @@ class WorkerFactory:
                 result.iterations, bool(result.convergence),
             )
 
-            # §9.3 #32 (PR-S): emit the orchestrator override keys
-            # `_expected_total` and `_processed_count` so
-            # _apply_worker_quality_overrides hoists them into
-            # manifest.quality and the dashboard chip shows a
-            # semantically-coherent denominator (project-wide file
-            # node count) rather than the JSONL line count.
+            # §9.3 #32 (PR-S + PR-S-fixup-r1): emit the orchestrator
+            # override keys `_expected_total` and `_processed_count`
+            # so _apply_worker_quality_overrides hoists them into
+            # manifest.quality and the "Continuous Deepening" chip
+            # shows a semantically-coherent ratio rather than the
+            # JSONL line count.
             #
-            # DEEPENING and ENRICHMENT share trace_epistemic.jsonl per
-            # stages.py STAGE_OUTPUT_FILE (lines 218/222), so the
-            # JSONL row count is cumulative across both stages — it
-            # cannot be the denominator. Project-wide file_nodes is
-            # the right scope: it matches the "Continuous Deepening"
-            # chip's user-perceived meaning ("how many files have
-            # epistemic understanding") and aligns with the
-            # ENRICHMENT denominator chosen in PR-Q.
+            # ORPHAN RETENTION (not cumulative growth):
+            #   DEEPENING and ENRICHMENT both write to
+            #   trace_epistemic.jsonl per stages.py STAGE_OUTPUT_FILE
+            #   (218/222). The jsonl is atomically rewritten from a
+            #   dict each pass (epistemic_enrichment.py:_write_epistemic),
+            #   so it does not grow line-by-line cumulatively. The
+            #   issue is ORPHAN RETENTION across rebuilds: entries for
+            #   files no longer in scope (deleted, L3-filtered) stay
+            #   in the dict and inflate the line count past the
+            #   current file_nodes denominator.
+            #
+            # NUMERATOR SEMANTIC (PR-S-fixup-r1 FIXUP-2):
+            #   The numerator MUST measure DEEPENING work, not
+            #   ENRICHMENT coverage. _compute_deepening_override_keys
+            #   prefers DeepeningResult.convergence (this-run native
+            #   metric) and falls back to a pass_number>=3 filter
+            #   when convergence is unavailable. Without these
+            #   filters the chip would read 100% the moment
+            #   ENRICHMENT completes regardless of deepening — same
+            #   UX bug class PR-S exists to close, inverted.
             #
             # Closes PRQ-CSI-002 from PR-Q round-1 scrutiny (the
-            # cross-stage asymmetry where ENRICHMENT was migrated but
-            # DEEPENING continued to leak the §9.3 #32 bug class).
-            try:
-                all_nodes = enricher.load_trace_nodes()
-                file_nodes = [n for n in all_nodes if n.get("kind") == "file"]
-                file_node_ids = {n["id"] for n in file_nodes}
-                existing = enricher.load_existing()
-                # Same orphan-filter pattern as
-                # EpistemicEnricher.run() (PR-Q-fixup-r1): exclude
-                # entries whose node_id no longer matches an in-scope
-                # file node (L3 policy changes, file deletions).
-                in_scope_count = sum(1 for nid in existing if nid in file_node_ids)
-                expected_total = len(file_nodes)
-                processed_count = in_scope_count
-            except Exception:
-                # Defensive: if the read fails for any reason, fall
-                # back to omitting the override keys. The orchestrator
-                # helper's back-compat path uses JSONL semantics —
-                # same as pre-PR-S behavior. Better to silently degrade
-                # than to crash deepening over a manifest-quality
-                # accounting question.
-                logger.debug(
-                    "[Deepening] override-key computation failed; "
-                    "falling back to JSONL semantics (non-fatal)",
-                    exc_info=True,
+            # cross-stage asymmetry where ENRICHMENT was migrated
+            # but DEEPENING continued to leak the bug class).
+            expected_total, processed_count = _compute_deepening_override_keys(
+                enricher, deepening_result=result,
+            )
+            if expected_total is None:
+                # FIXUP-3: WARNING (not DEBUG) so operators see the
+                # degradation in default logging. Telemetry event
+                # makes the failure introspectable from the daemon
+                # event log without parsing logger output.
+                logger.warning(
+                    "[%s/Deepening] override-key computation failed; "
+                    "manifest.quality falls back to JSONL semantics "
+                    "(re-introduces §9.3 #32 bug on this run)",
+                    project.name,
                 )
-                expected_total = None
-                processed_count = None
+                try:
+                    from prep.services.pipeline_telemetry import record_event
+                    record_event(
+                        idx_dir,
+                        "deepening_override_failed",
+                        {"reason": "scope_read_failure"},
+                        stage="deepening",
+                        project_id=project_id,
+                    )
+                except Exception:
+                    pass
 
             worker_result: Dict[str, Any] = {
                 "stage": "deepening",
