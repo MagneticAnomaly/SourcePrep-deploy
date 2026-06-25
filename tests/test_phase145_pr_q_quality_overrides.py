@@ -13,16 +13,63 @@ manifest's quality block and clamps the result to enforce
 
 Companion to PR-O's FINDING_catalogue-augmented-vs-total-semantic-
 mismatch.md (catalogue stage analogue, closed by PR-P/P-fixup/
-P-fixup-r2). Closes the deepening/enrichment surface that produced
-the 2026-06-25 Applifier dogfood case (Deep Reasoning chip reading
-'1,257 / 1,225 files') and the FINDING §2o §3a 20/2072 success_rate
-=1.0 case.
+P-fixup-r2). Closes the enrichment surface (Deep Reasoning chip)
+that produced the 2026-06-25 Applifier dogfood case (1,257 / 1,225
+files) and the FINDING §2o §3a 20/2072 success_rate=1.0 case.
+The DEEPENING surface (Continuous Deepening chip) shares
+trace_epistemic.jsonl per stages.py:91/95 but the deepening worker
+does not yet emit the override keys — follow-up tracked under
+PRQ-CSI-002 from round-1 scrutiny.
 """
 from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+from unittest.mock import MagicMock
 
 import pytest
 
 from prep.services.pipeline.orchestrator import _apply_worker_quality_overrides
+
+
+class TestApplyWorkerQualityOverridesBoolGuard:
+    """PR-Q-fixup-r1 (scrutiny F1): Python's isinstance(True, int) is True,
+    so without an explicit bool exclusion a buggy worker that emits
+    `_expected_total = True` (e.g. a JSON serializer that turns 1 into
+    True somewhere, or a typo) would have `True` written into
+    manifest.total_items. Downstream consumers handle bool inconsistently.
+    The helper is the safety net for buggy/migrating workers; reject
+    bool explicitly.
+    """
+
+    def test_bool_true_expected_total_rejected(self):
+        # Empirically demonstrated in scrutiny round 1: without the
+        # bool guard this returned {'total_items': True, ...}.
+        q = {"total_items": 5, "processed": 5, "success_rate": 1.0}
+        out = _apply_worker_quality_overrides(q, {"_expected_total": True})
+        assert out == {"total_items": 5, "processed": 5, "success_rate": 1.0}
+
+    def test_bool_false_expected_total_rejected(self):
+        q = {"total_items": 5, "processed": 5}
+        out = _apply_worker_quality_overrides(q, {"_expected_total": False})
+        assert out == {"total_items": 5, "processed": 5}
+
+    def test_bool_processed_count_rejected_falls_back_to_jsonl_clamp(self):
+        # With a valid _expected_total but bool _processed_count, the
+        # processed override must NOT fire; the JSONL-derived value
+        # (clamped at expected) is used instead.
+        q = {"total_items": 5, "processed": 5, "success_rate": 1.0}
+        out = _apply_worker_quality_overrides(
+            q, {"_expected_total": 100, "_processed_count": True},
+        )
+        assert out is not None
+        assert out["total_items"] == 100
+        # processed is the JSONL value (5) clamped at expected (100) = 5,
+        # NOT True (which would coerce to 1 in arithmetic but is
+        # incoherent as a count).
+        assert out["processed"] == 5
+        assert out["success_rate"] == 0.05
 
 
 class TestApplyWorkerQualityOverridesPassThrough:
@@ -263,3 +310,257 @@ class TestEnrichmentWorkerEmitsOverrideKeys:
             "_processed_count are ignored and the JSONL-line-count semantics "
             "leak through to the dashboard."
         )
+
+
+# ─────────────────────────────────────────────────────────────────
+# End-to-end integration: producer (EpistemicEnricher.run) +
+# consumer (_apply_worker_quality_overrides) wired together.
+# PR-Q-fixup-r1 addresses scrutiny PRQ-T-01 (source-regex tests
+# can't catch partial renames) + PRQ-T-02 (no test exercises the
+# real producer→consumer path).
+# ─────────────────────────────────────────────────────────────────
+
+
+def _write_trace_jsonl(
+    idx: Path,
+    nodes: List[Dict[str, Any]],
+    edges: Optional[List[Dict[str, Any]]] = None,
+) -> None:
+    """Minimal trace files for EpistemicEnricher.run() to load."""
+    edges = edges or []
+    with open(idx / "trace_nodes.jsonl", "w") as f:
+        for n in nodes:
+            f.write(json.dumps(n) + "\n")
+    with open(idx / "trace_edges.jsonl", "w") as f:
+        for e in edges:
+            f.write(json.dumps(e) + "\n")
+    manifest = {
+        "version": "1.0",
+        "built_at": "2026-06-25T00:00:00Z",
+        "counts": {"nodes": len(nodes), "edges": len(edges)},
+    }
+    with open(idx / "trace_manifest.json", "w") as f:
+        json.dump(manifest, f)
+
+
+def _write_epistemic_entries(idx: Path, node_ids: List[str]) -> None:
+    """Write trace_epistemic.jsonl with one entry per node_id."""
+    from prep.core.epistemic_score import EpistemicEntry
+    path = idx / "trace_epistemic.jsonl"
+    with open(path, "w", encoding="utf-8") as f:
+        for nid in sorted(node_ids):
+            entry = EpistemicEntry(
+                node_id=nid,
+                extended_summary="seed",
+                domain_tags=[],
+                architecture_layer="code",
+            )
+            f.write(json.dumps(entry.to_dict(), sort_keys=True) + "\n")
+
+
+def _write_augmentations(idx: Path, node_ids: List[str]) -> None:
+    """Write trace_augmented.jsonl so load_augmentations finds the
+    nodes (EpistemicEnricher._needs_enrichment uses this to determine
+    whether a file is already augmented — affects to_enrich filter)."""
+    path = idx / "trace_augmented.jsonl"
+    with open(path, "w", encoding="utf-8") as f:
+        for nid in sorted(node_ids):
+            obj = {
+                "node_id": nid,
+                "summary": "seed augmentation",
+                "role": "utility",
+                "confidence": 0.9,
+                "augmented_at": "2026-06-25T00:00:00Z",
+                "model": "test",
+            }
+            f.write(json.dumps(obj, sort_keys=True) + "\n")
+
+
+class TestPRQ1WorkerOrphanFilter:
+    """PR-Q-fixup-r1 (scrutiny PRQ-1): EpistemicEnricher.run() emits
+    `_processed_count` filtered against the current file_nodes set —
+    NOT cumulative len(enriched). The cumulative count would include
+    orphan entries (node_ids on disk that no longer match any
+    current file_node due to file deletion, L3 policy changes, or
+    cross-stage writes by DEEPENING which shares
+    trace_epistemic.jsonl). The clamp at the orchestrator MASKS the
+    inflated symptom but doesn't fix the semantic mismatch — this
+    test pins that the worker stats are already coherent before the
+    orchestrator clamp fires.
+    """
+
+    def test_processed_count_excludes_orphan_entries(self, tmp_path: Path):
+        from prep.core.epistemic_enrichment import EpistemicEnricher
+
+        idx = tmp_path / "idx"
+        idx.mkdir()
+        repo = tmp_path / "repo"
+        repo.mkdir()
+
+        # 3 in-scope files + 5 orphans on disk.
+        in_scope_node_ids = [
+            "file:a.py",
+            "file:b.py",
+            "file:c.py",
+        ]
+        orphan_node_ids = [
+            "file:deleted-1.py",
+            "file:deleted-2.py",
+            "file:l3-filtered-1.py",
+            "file:cross-stage-write-1.py",
+            "file:cross-stage-write-2.py",
+        ]
+        for nid in in_scope_node_ids:
+            fname = nid.split(":", 1)[1]
+            (repo / fname).write_text("# real file content\nprint('hello')\n")
+
+        nodes = [
+            {
+                "id": nid,
+                "kind": "file",
+                "name": nid.split(":", 1)[1],
+                "file_path": nid.split(":", 1)[1],
+                "span": None,
+                "language": "python",
+                "metadata": {},
+            }
+            for nid in in_scope_node_ids
+        ]
+        _write_trace_jsonl(idx, nodes)
+        # Pre-existing augmentations for all in-scope nodes so
+        # _needs_enrichment returns False for them (no actual LLM
+        # work happens in this test — we only care about the stats
+        # dict shape).
+        _write_augmentations(idx, in_scope_node_ids)
+        # On-disk epistemic entries: in-scope + orphans.
+        _write_epistemic_entries(idx, in_scope_node_ids + orphan_node_ids)
+
+        llm = MagicMock()
+        llm.model = "test"
+        llm.provider = "test"
+        llm.endpoint_url = "http://localhost:11434"
+        enricher = EpistemicEnricher(
+            llm=llm,
+            repo_root=repo,
+            index_dir=idx,
+            project_id="prq-orphan-filter-test",
+        )
+
+        stats = enricher.run()
+
+        # The §9.3 #32 invariant: _processed_count <= _expected_total.
+        # Pre-fixup the worker emitted _processed_count = len(enriched)
+        # = 8 (3 in-scope + 5 orphans), with _expected_total = 3 — the
+        # exact 5501% inversion shape. With the orphan filter,
+        # _processed_count is the count of enriched entries whose
+        # node_id is in current file_nodes = 3.
+        assert "_expected_total" in stats, (
+            "PR-Q producer regression: enricher stats must emit "
+            "_expected_total for the orchestrator override to fire."
+        )
+        assert "_processed_count" in stats, (
+            "PR-Q producer regression: enricher stats must emit "
+            "_processed_count for the orchestrator override to fire."
+        )
+        assert stats["_expected_total"] == len(in_scope_node_ids)
+        # PRQ-1 fix: processed must NOT include orphans.
+        assert stats["_processed_count"] == len(in_scope_node_ids), (
+            f"PRQ-1 regression: _processed_count ({stats['_processed_count']}) "
+            f"includes orphan entries — should be filtered to current "
+            f"file_node_ids only ({len(in_scope_node_ids)})."
+        )
+        # Invariant: numerator <= denominator already holds at the
+        # worker level, no orchestrator clamp needed for this case.
+        assert stats["_processed_count"] <= stats["_expected_total"]
+
+
+class TestPRQEndToEndProducerConsumer:
+    """PR-Q-fixup-r1 (scrutiny PRQ-T-02 + PRQ-T-01): pin the actual
+    producer→consumer key contract via real enricher.run() output
+    fed into _apply_worker_quality_overrides. Catches partial
+    renames that source-regex tests miss because this test fails if
+    EITHER side breaks the contract.
+    """
+
+    def test_enricher_stats_drive_orchestrator_override_end_to_end(
+        self, tmp_path: Path,
+    ):
+        from prep.core.epistemic_enrichment import EpistemicEnricher
+
+        idx = tmp_path / "idx"
+        idx.mkdir()
+        repo = tmp_path / "repo"
+        repo.mkdir()
+
+        # Production-like incremental shape: small in-scope set, lots
+        # of orphans on disk from prior runs. The FINDING §2j §9
+        # 2026-06-25 dogfood case had 1257 jsonl entries vs 1225
+        # file_nodes; this test uses the same RATIO at smaller scale.
+        in_scope = [f"file:f{i}.py" for i in range(10)]
+        orphans = [f"file:orphan-{i}.py" for i in range(15)]
+        for nid in in_scope:
+            fname = nid.split(":", 1)[1]
+            (repo / fname).write_text("# real file content\nprint('hello')\n")
+        nodes = [
+            {
+                "id": nid,
+                "kind": "file",
+                "name": nid.split(":", 1)[1],
+                "file_path": nid.split(":", 1)[1],
+                "span": None,
+                "language": "python",
+                "metadata": {},
+            }
+            for nid in in_scope
+        ]
+        _write_trace_jsonl(idx, nodes)
+        _write_augmentations(idx, in_scope)
+        _write_epistemic_entries(idx, in_scope + orphans)
+
+        llm = MagicMock()
+        llm.model = "test"
+        llm.provider = "test"
+        llm.endpoint_url = "http://localhost:11434"
+        enricher = EpistemicEnricher(
+            llm=llm,
+            repo_root=repo,
+            index_dir=idx,
+            project_id="prq-e2e-test",
+        )
+
+        # Step 1 — Producer: run() emits stats with the override keys.
+        stats = enricher.run()
+
+        # Step 2 — Consumer: orchestrator helper hoists those keys
+        # into the manifest quality block. Simulate the JSONL-derived
+        # quality block aggregate_quality_metrics would produce
+        # (jsonl has 25 lines, all with valid confidence).
+        jsonl_quality = {
+            "total_items": 25,  # jsonl line count (in_scope + orphans)
+            "processed": 25,
+            "skipped": 0,
+            "failed": 0,
+            "success_rate": 1.0,
+            "avg_confidence": 0.85,
+        }
+        merged = _apply_worker_quality_overrides(jsonl_quality, stats)
+
+        # Step 3 — Assert the producer→consumer contract holds.
+        assert merged is not None
+        # Denominator from the worker (10 in-scope file_nodes),
+        # NOT the jsonl line count (25).
+        assert merged["total_items"] == 10, (
+            "Producer/consumer regression: orchestrator override did "
+            "not pick up the enricher's _expected_total. Either the "
+            "producer key was renamed (worker side) or the consumer "
+            "isn't reading it (helper side)."
+        )
+        # Numerator: enricher emits 10 (filtered to in-scope),
+        # consumer clamps at 10. Result: coherent 10/10.
+        assert merged["processed"] == 10
+        # Invariant: numerator <= denominator, success_rate <= 1.0.
+        assert merged["processed"] <= merged["total_items"]
+        assert merged["success_rate"] == 1.0
+        # The jsonl-derived 25/25 quality is GONE — no leak.
+        assert merged["total_items"] != 25
+

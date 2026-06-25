@@ -111,20 +111,35 @@ def _apply_worker_quality_overrides(
     if not isinstance(worker_result, dict):
         return quality
     wr_expected = worker_result.get("_expected_total")
-    if not isinstance(wr_expected, int) or wr_expected <= 0:
+    # PR-Q-fixup-r1 (scrutiny F1): exclude bool from the int check —
+    # Python's isinstance(True, int) is True, so a buggy worker that
+    # accidentally emits `_expected_total = True` would otherwise
+    # write True into manifest.total_items and downstream consumers
+    # (Pydantic, JSON serializer, throughput compute, the chip) would
+    # treat it inconsistently. The helper is the safety net for
+    # buggy/migrating workers; reject bool explicitly.
+    if (
+        not isinstance(wr_expected, int)
+        or isinstance(wr_expected, bool)
+        or wr_expected <= 0
+    ):
         return quality
     if quality is None:
         quality = {}
     quality["total_items"] = wr_expected
     wr_processed = worker_result.get("_processed_count")
-    if isinstance(wr_processed, int) and wr_processed >= 0:
+    if (
+        isinstance(wr_processed, int)
+        and not isinstance(wr_processed, bool)  # same defense as above
+        and wr_processed >= 0
+    ):
         quality["processed"] = min(wr_processed, wr_expected)
     else:
         # No explicit override — clamp the JSONL-derived value too
         # so a stale-file scenario (jsonl has more lines than the
         # worker expected) doesn't leak as success_rate > 1.0.
         jsonl_processed = quality.get("processed", 0)
-        if isinstance(jsonl_processed, int):
+        if isinstance(jsonl_processed, int) and not isinstance(jsonl_processed, bool):
             quality["processed"] = min(jsonl_processed, wr_expected)
     proc = quality.get("processed", 0)
     quality["success_rate"] = round(proc / wr_expected, 3)

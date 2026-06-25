@@ -1261,6 +1261,23 @@ class EpistemicEnricher(HoldAwareMixin, Worker):
         if progress_callback and not paused:
             progress_callback("epistemic_complete", total_file_count, total_file_count)
 
+        # §9.3 #32 (PR-Q-fixup-r1, scrutiny PRQ-1): the _processed_count
+        # the orchestrator override hoists into manifest.quality.processed
+        # MUST be filtered against the current file_nodes set. `enriched`
+        # is the merged dict of `existing` (which load_existing reads from
+        # the on-disk trace_epistemic.jsonl indiscriminately — including
+        # entries whose node_id no longer matches an in-scope file node
+        # because of L3 policy changes, file deletions, or cross-stage
+        # writes by DEEPENING which shares the same JSONL per
+        # stages.py:91/95) PLUS this-run additions. Without the filter,
+        # _processed_count is cumulative-with-orphans; the orchestrator
+        # clamps to _expected_total but the inconsistency persists in the
+        # worker's own `total_enriched` field. This mirrors the
+        # `valid_node_ids` orphan filter PR-P-fixup added to TraceAugmenter
+        # for the structurally-identical catalogue case.
+        file_node_ids = {n["id"] for n in file_nodes}
+        in_scope_enriched_count = sum(1 for nid in enriched if nid in file_node_ids)
+
         stats: Dict[str, Any] = {
             "total_file_nodes": len(file_nodes),
             "enriched_this_run": done,
@@ -1272,18 +1289,18 @@ class EpistemicEnricher(HoldAwareMixin, Worker):
             # §9.3 #32 (PR-Q): canonical keys for orchestrator's
             # _write_stage_manifest_and_update_run quality-block override.
             # `_expected_total` is the project-wide file node count (the
-            # denominator the chip should show), NOT len(enriched) which
-            # is cumulative across runs and grows past total_file_nodes
-            # after deepening writes to the shared trace_epistemic.jsonl
-            # file. `_processed_count` is the on-disk cumulative count
-            # of enriched entries — orchestrator clamps it at
-            # _expected_total to enforce the §9.3 #32 invariant.
+            # denominator the chip should show).
+            # `_processed_count` is the kind-and-scope-filtered count of
+            # enriched entries — PR-Q-fixup-r1 narrows this from the
+            # pre-fixup `len(enriched)` (cumulative with orphans) so the
+            # numerator semantically matches the denominator without
+            # relying solely on the orchestrator's defensive clamp.
             # Both fields are read by orchestrator.py:_write_stage_manifest_
             # and_update_run via the worker_result dict. Without them, the
             # manifest would default to jsonl-line-count semantics (FINDING
             # §2o §3a: 20/2072 → success_rate=1.0).
             "_expected_total": len(file_nodes),
-            "_processed_count": len(enriched),
+            "_processed_count": in_scope_enriched_count,
         }
         if pause_info is not None:
             stats["pause_info"] = pause_info
