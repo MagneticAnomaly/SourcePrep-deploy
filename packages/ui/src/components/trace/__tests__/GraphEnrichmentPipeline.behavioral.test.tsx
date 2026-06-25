@@ -396,6 +396,88 @@ describe('GraphEnrichmentPipeline — §9.3 #30 behavioural pin', () => {
     expect(row).toHaveAttribute('data-stage-state', 'rebuilding');
   });
 
+  // FIXTURE G — downstream-position override coverage (PR-K).
+  //
+  // PR-J's final 1-of-27 mutation survivor was the stageId literal
+  // `'deep_knowledge'` in the IIFE's i3SafeStageState call:
+  //   const safeState = i3SafeStageState(
+  //     promoteForRebuild(deepKnowledgeState),
+  //     'deep_knowledge',  // <-- this literal; mutant changes to ""
+  //     deepCurrentStage,
+  //     deepEnrichmentPhase,
+  //   );
+  //
+  // Survived because no fixture exercised the downstream-position
+  // override path of i3SafeStageState — the path that actually USES
+  // stageId via stagePositionInGroup(stageId). All other fixtures
+  // either hit the `groupPhase === 'completed'` early-return (ignores
+  // stageId), or returned `computedState` without entering the override
+  // (also ignores stageId).
+  //
+  // To enter the override and exercise the stageId argument:
+  //   - groupPhase NOT 'completed' (otherwise early-return fires)
+  //   - groupCurrentStage SET (otherwise `if (!groupCurrentStage)`
+  //     early-return fires)
+  //   - computedState ∈ {complete, stale, warning} (otherwise the
+  //     `computedState !== 'complete' && ...` short-circuit returns
+  //     computedState unchanged)
+  //   - stagePositionInGroup(stageId) > stagePositionInGroup
+  //     (groupCurrentStage)  (so the override actually triggers)
+  //
+  // Recipe for raw computeDeepKnowledgeState='complete': ep present
+  // with enriched_nodes>0 (not running), mod with module_count>0
+  // (not running), deep with total_scored>0 (not running), AND
+  // deepKnowledge.deep_chunks_embedded>0 (the fast-path on lines
+  // 685-690 of GraphEnrichmentPipeline.tsx). All conditions in Fixture
+  // G below. Then deepEnrichmentPhase='running' + deepCurrentStage=
+  // 'enrichment' (position 0) puts deep_knowledge (position 4)
+  // downstream → override fires → returns 'not_built'.
+  //
+  // The IIFE then sees safeState='not_built' and returns 'Not run'.
+  // With the stageId mutant the override fails open (groupForStage('')
+  // returns null → return computedState='complete') and the IIFE sees
+  // safeState='complete' → returns `${chunks_embedded} chunks embedded`.
+  // The text-content assertions distinguish the two behaviors.
+  //
+  // Closes PR-J's deferred Class-C survivor: 96.30% → 100% mutation
+  // score on the deepKnowledgeStats IIFE scope.
+  //
+  // 'Not run' under groupPhase='running' is the CORRECT render — the
+  // stage hasn't run YET in this rebuild cycle. This does not
+  // contradict §9.3 #30 (which forbids 'Not run' under groupPhase=
+  // 'completed' specifically).
+  it("Fixture G: downstream-position override pins stageId literal — deep_knowledge row renders 'Not run' when downstream of running stage", () => {
+    const downstreamFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      // Deep enrichment is running with current stage at enrichment
+      // (position 0). deep_knowledge (position 4) is downstream.
+      deepEnrichmentPhase: 'running',
+      deepCurrentStage: 'enrichment',
+      // Recipe for raw computeDeepKnowledgeState='complete' — the
+      // upstream-stable fast-path on lines 685-690.
+      epistemic: { enabled: true, enriched_nodes: 1240, avg_confidence: 0.84, running: false },
+      modules: { enabled: true, module_count: 35, total_files_clustered: 1100, running: false },
+      deepening: { running: false, total_scored: 500, settled_count: 250, settled_ratio: 0.50, avg_score: 0.5 },
+      deepKnowledge: {
+        enabled: true,
+        running: false,
+        chunks_embedded: 5000,
+        deep_chunks_embedded: 120,
+        last_run_at: '2026-06-23T10:00:00Z',
+      },
+      // No active rebuild — promoteForRebuild is a no-op on 'complete'.
+      barrier: { active: false },
+    };
+    render(<GraphEnrichmentPipeline {...downstreamFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-deep_knowledge');
+    // Correct stageId → override returns 'not_built' → IIFE returns 'Not run'
+    expect(row).toHaveTextContent('Not run');
+    // With the stageId mutant the IIFE's safeState would stay 'complete'
+    // and the IIFE would return the chunks-embedded string instead.
+    // Assert the FORBIDDEN-under-correct-behavior text is absent.
+    expect(row).not.toHaveTextContent('chunks embedded');
+  });
+
   // NEGATIVE CONTROL — proves the test responds to phase changes.
   //
   // Identical fixture but deepEnrichmentPhase='idle'. The race window
