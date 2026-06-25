@@ -128,7 +128,14 @@ class ManifestStore:
             # orchestrator's v2 manifest write. augmenter.status() reads v1
             # first (counts.total_nodes / counts.augmented) before falling
             # back to v2's quality block.
-            preserved_keys = ("counts", "stats", "version")
+            #
+            # PR-P-fixup-r2 (PRP-FIX-001 from scrutiny round 2): also preserve
+            # `built_at` and `model` so augmenter.status()'s v1 branch can
+            # still populate `last_augment_at` (reads built_at, not v2's
+            # finished_at) and the model attribution string. Without these,
+            # every pipeline-driven catalogue run silently nulls
+            # last_augment_at in the dashboard.
+            preserved_keys = ("counts", "stats", "version", "built_at", "model")
             self._merge_preserve_and_write(stage, data, preserved_keys)
         else:
             self._atomic_write_json(self.provenance_path(stage), data)

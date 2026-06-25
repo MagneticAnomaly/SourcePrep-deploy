@@ -2167,8 +2167,14 @@ class TraceAugmenter(HoldAwareMixin, Worker):
         in that set — orphan entries from prior runs (whose nodes no
         longer exist in the trace) do NOT inflate the numerator past
         the project-wide denominator. Callers from `run()` pass
-        `set(nodes_by_id.keys())` for this purpose; legacy callers
-        that omit it get the pre-PR-P `len(entries)` semantics.
+        `augmentable_ids` — the kind-filtered set of {symbol, file}
+        node ids — NOT the full `nodes_by_id.keys()`; using the full
+        set would let any non-augmentable-kind entries on disk (e.g.
+        legacy `section` augmentations) bypass the orphan filter and
+        re-inflate counts.augmented above counts.total_nodes. Legacy
+        callers that omit `valid_node_ids` get the pre-PR-P
+        `len(entries)` semantics (and trigger the fallback warning
+        below if `project_augmentable_count` is also unset).
         """
         # Exclude synthetic entries from avg confidence — they have 0.1 confidence
         # and artificially drag down the average (e.g. 61% instead of ~85%).
