@@ -1269,6 +1269,21 @@ class EpistemicEnricher(HoldAwareMixin, Worker):
             "total_enriched": len(enriched),
             "duration_ms": round(duration_ms, 1),
             "paused": paused,
+            # §9.3 #32 (PR-Q): canonical keys for orchestrator's
+            # _write_stage_manifest_and_update_run quality-block override.
+            # `_expected_total` is the project-wide file node count (the
+            # denominator the chip should show), NOT len(enriched) which
+            # is cumulative across runs and grows past total_file_nodes
+            # after deepening writes to the shared trace_epistemic.jsonl
+            # file. `_processed_count` is the on-disk cumulative count
+            # of enriched entries — orchestrator clamps it at
+            # _expected_total to enforce the §9.3 #32 invariant.
+            # Both fields are read by orchestrator.py:_write_stage_manifest_
+            # and_update_run via the worker_result dict. Without them, the
+            # manifest would default to jsonl-line-count semantics (FINDING
+            # §2o §3a: 20/2072 → success_rate=1.0).
+            "_expected_total": len(file_nodes),
+            "_processed_count": len(enriched),
         }
         if pause_info is not None:
             stats["pause_info"] = pause_info
