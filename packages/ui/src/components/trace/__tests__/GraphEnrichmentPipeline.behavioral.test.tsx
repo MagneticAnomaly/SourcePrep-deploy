@@ -555,3 +555,200 @@ describe('GraphEnrichmentPipeline — §9.3 #30 behavioural pin', () => {
     expect(consoleWarn).not.toHaveBeenCalled();
   });
 });
+
+// ───────────────────────────────────────────────────────────────
+// structuralStats IIFE — PR-L behavioural pins
+// ───────────────────────────────────────────────────────────────
+//
+// Stryker baseline on src/components/trace/GraphEnrichmentPipeline.tsx
+// :1241-1257 (the structuralStats IIFE) reported 5.00% mutation
+// score (2 killed / 23 survived / 15 no-cov) before PR-L — Fixture A
+// only exercises one branch ('complete' with counts>0), and even
+// then asserts absence not presence.
+//
+// PR-L adds per-branch fixtures so each return path is exercised
+// and each return literal has a positive-presence assertion. Same
+// methodology as PR-J / PR-K for deepKnowledgeStats.
+//
+// IIFE branches:
+//   safeState === 'not_built' → 'Not run'
+//   safeState === 'disabled'  → 'Disabled'
+//   safeState === 'running' || 'rebuilding':
+//     counts.nodes > 0 → `${nodes} nodes · ${edges} edges`
+//     counts.nodes === 0 → 'Building...'
+//   safeState === 'complete':
+//     counts.nodes === 0 && downstream-flag → 'Completing...'
+//     else → `${nodes} nodes · ${edges} edges`
+
+describe('GraphEnrichmentPipeline — structuralStats IIFE (PR-L)', () => {
+  let consoleError: ReturnType<typeof vi.spyOn>;
+  let consoleWarn: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    cleanup();
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
+  });
+
+  // PRESENCE — Fixture A's complete-path render (PR-L).
+  // Pins the `${nodes.toLocaleString()} nodes · ${edges.toLocaleString()} edges`
+  // template literal. Without this assertion mutants changing the
+  // template to "" survive (the loop assertion at the §9.3 #30
+  // describe only checks absence-of-Not-run + data-stage-state).
+  it("Fixture A: structural row renders '1,240 nodes · 3,815 edges' under fastSyncPhase='completed'", () => {
+    render(<GraphEnrichmentPipeline {...phase30Fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-structural');
+    // toLocaleString() puts the thousands separator in for en-US locale
+    // (and most CI locales). If happy-dom defaults change locales this
+    // could need adjustment.
+    expect(row).toHaveTextContent('1,240 nodes');
+    expect(row).toHaveTextContent('3,815 edges');
+  });
+
+  // FIXTURE S1 — Building... branch (running + counts=0).
+  // trace.building=true makes computeTraceState return 'running'.
+  // counts.nodes=0 routes the running branch to the 'Building...'
+  // literal instead of the nodes·edges template.
+  // Phase 'running' (not 'completed') so safeState stays 'running'.
+  it("Fixture S1: structural row renders 'Building...' when trace.building=true and counts=0", () => {
+    const buildingFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      trace: {
+        enabled: true,
+        exists: true,
+        building: true,
+        counts: { nodes: 0, edges: 0 },
+        last_build_at: null,
+      },
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'structural',
+    };
+    render(<GraphEnrichmentPipeline {...buildingFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-structural');
+    expect(row).toHaveTextContent('Building...');
+    expect(row).toHaveAttribute('data-stage-state', 'running');
+  });
+
+  // FIXTURE S2 — running with counts (>0).
+  // Same as Fixture S1 but with counts present. Pins the template
+  // literal in the running branch separately from the complete-path
+  // template (mutants in the two templates would otherwise both have
+  // to be killed by Fixture A's assertion, but Fixture A's path is
+  // 'complete' — the 'running' template is a distinct mutation site).
+  it("Fixture S2: structural row renders 'nodes · edges' when trace.building=true and counts>0", () => {
+    const runningWithCountsFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      trace: {
+        enabled: true,
+        exists: true,
+        building: true,
+        counts: { nodes: 500, edges: 1200 },
+        last_build_at: null,
+      },
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'structural',
+    };
+    render(<GraphEnrichmentPipeline {...runningWithCountsFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-structural');
+    expect(row).toHaveTextContent('500 nodes');
+    expect(row).toHaveTextContent('1,200 edges');
+    expect(row).toHaveAttribute('data-stage-state', 'running');
+  });
+
+  // FIXTURE S3 — 'Completing...' branch.
+  // safeState='complete' (computeTraceState's forward-progression
+  // heuristic returns 'complete' when a later stage is running),
+  // counts.nodes=0, AND one of (inferredEdgesRunning | augmenting |
+  // validating | fastKnowledgeBuilding) is true. Pins the
+  // 'Completing...' literal and exercises ONE disjunct of the four-way
+  // OR. (The other three disjuncts are deferred — see scope note.)
+  it("Fixture S3: structural row renders 'Completing...' when complete + counts=0 + inferredEdgesRunning", () => {
+    const completingFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      trace: {
+        enabled: true,
+        exists: true,
+        building: false,
+        counts: { nodes: 0, edges: 0 },
+        last_build_at: null,
+      },
+      inferredEdgesRunning: true,
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'inferred_edges',
+    };
+    render(<GraphEnrichmentPipeline {...completingFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-structural');
+    expect(row).toHaveTextContent('Completing...');
+    // safeState='complete' but stage is downstream of inferred_edges?
+    // No — structural is upstream of inferred_edges, so the I3 override
+    // doesn't fire and the badge stays 'complete'.
+    expect(row).toHaveAttribute('data-stage-state', 'complete');
+  });
+
+  // FIXTURE S4 — 'Not run' branch.
+  // raw='not_built' requires !trace.exists AND no forward-progression
+  // flag AND !trace.building. Then computeTraceState falls through to
+  // the `if (!trace.exists) return 'not_built';` branch.
+  //
+  // Gotcha: the component has a cold-start gate at line 1893
+  // (traceNotBuilt) that renders the build-trace HERO instead of the
+  // pipeline rows when trace.exists=false AND no rebuild/active flags.
+  // We bypass with barrier.active=true (active rebuild), which the
+  // gate treats as a sign the user has explicitly invoked work.
+  // promoteForRebuild('not_built') === 'not_built' (the rebuilding
+  // promotion only applies to 'running'/'queued'), so safeState stays
+  // 'not_built' and the IIFE hits its 'Not run' branch.
+  it("Fixture S4: structural row renders 'Not run' when trace.exists=false during active rebuild", () => {
+    const notRunFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      trace: {
+        enabled: true,
+        exists: false,
+        building: false,
+        counts: { nodes: 0, edges: 0 },
+        last_build_at: null,
+      },
+      fastSyncPhase: 'idle',
+      fastCurrentStage: undefined,
+      inferredEdgesRunning: false,
+      augmenting: false,
+      validating: false,
+      fastKnowledgeBuilding: false,
+      barrier: { active: true, reason: 'rebuild' },
+    };
+    render(<GraphEnrichmentPipeline {...notRunFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-structural');
+    expect(row).toHaveTextContent('Not run');
+    expect(row).toHaveAttribute('data-stage-state', 'not_built');
+  });
+
+  // FIXTURE S5 — 'Disabled' branch.
+  // raw='disabled' requires !trace.exists && !trace.enabled.
+  // computeTraceState's first check fires.
+  // Same hero-gate bypass as S4 via barrier.active=true.
+  it("Fixture S5: structural row renders 'Disabled' when !trace.exists && !trace.enabled during active rebuild", () => {
+    const disabledFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      trace: {
+        enabled: false,
+        exists: false,
+        building: false,
+        counts: { nodes: 0, edges: 0 },
+        last_build_at: null,
+      },
+      fastSyncPhase: 'idle',
+      fastCurrentStage: undefined,
+      barrier: { active: true, reason: 'rebuild' },
+    };
+    render(<GraphEnrichmentPipeline {...disabledFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-structural');
+    expect(row).toHaveTextContent('Disabled');
+    expect(row).toHaveAttribute('data-stage-state', 'disabled');
+  });
+});
+
