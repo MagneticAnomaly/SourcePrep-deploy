@@ -237,10 +237,14 @@ describe('GraphEnrichmentPipeline — §9.3 #30 behavioural pin', () => {
 
   // PRIMARY — §9.3 #30 contract.
   // FORBIDDEN: row shows literal 'Not run' when groupPhase is 'completed'.
-  it("Deep Knowledge Embedding row does NOT render 'Not run' when deepEnrichmentPhase='completed'", () => {
+  // PR-J addenda: ALSO assert positive presence of 'Complete' — the
+  // PR-F F5 fallthrough literal — so mutation tests can't quietly
+  // change the return value to "" or any other string and still pass.
+  it("Deep Knowledge Embedding row does NOT render 'Not run' AND DOES render 'Complete' when deepEnrichmentPhase='completed'", () => {
     render(<GraphEnrichmentPipeline {...phase30Fixture} />);
     const row = screen.getByTestId('pipeline-stage-row-deep_knowledge');
     expect(row).not.toHaveTextContent('Not run');
+    expect(row).toHaveTextContent('Complete');
   });
 
   // PRIMARY — badge and stats must agree.
@@ -299,11 +303,97 @@ describe('GraphEnrichmentPipeline — §9.3 #30 behavioural pin', () => {
   // production race shape where deepKnowledge IS present but
   // deep_chunks_embedded=0. Routes through a different IIFE branch
   // than Fixture A.
-  it("Fixture C: deep_knowledge row with partial payload (chunks_embedded=0) does NOT render 'Not run'", () => {
+  // PR-J addenda: positive-presence assertion on 'chunks embedded'
+  // so the realistic-payload fallthrough literal (the
+  // `${chunks_embedded} chunks embedded` template) is pinned.
+  // Mutation testing surfaced this template string as a surviving
+  // mutant (could change to '' silently).
+  it("Fixture C: deep_knowledge row with partial payload (chunks_embedded=0) does NOT render 'Not run' AND DOES render 'chunks embedded'", () => {
     render(<GraphEnrichmentPipeline {...phase30FixtureWithPartialPayload} />);
     const row = screen.getByTestId('pipeline-stage-row-deep_knowledge');
     expect(row).not.toHaveTextContent('Not run');
+    expect(row).toHaveTextContent('chunks embedded');
     expect(row).toHaveAttribute('data-stage-state', 'complete');
+  });
+
+  // FIXTURE D — running branch coverage (PR-J).
+  //
+  // Mutation testing on deepKnowledgeStats IIFE found that the literal
+  // 'Re-embedding with deep data...' string is unpinned — a mutant
+  // changing it to "" or removing the running branch entirely silently
+  // passes. Cause: no fixture exercises the safeState='running' path
+  // for deep_knowledge. Fixture D fixes that.
+  //
+  // Trigger: deepKnowledgeBuilding=true makes computeDeepKnowledgeState
+  // return 'running' BEFORE its 'disabled' cascade. We use
+  // deepEnrichmentPhase='running' (NOT 'completed') so the
+  // i3SafeStageState exception list doesn't fire — safeState stays
+  // 'running' and the IIFE hits its 'Re-embedding' branch.
+  it("Fixture D: deep_knowledge row with deepKnowledgeBuilding=true renders 'Re-embedding'", () => {
+    const runningFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      deepEnrichmentPhase: 'running',
+      deepCurrentStage: 'deep_knowledge',
+      deepKnowledgeBuilding: true,
+    };
+    render(<GraphEnrichmentPipeline {...runningFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-deep_knowledge');
+    expect(row).toHaveTextContent('Re-embedding');
+    expect(row).not.toHaveTextContent('Not run');
+  });
+
+  // FIXTURE E — disabled branch coverage (PR-J).
+  //
+  // Mutation testing found the 'Waiting for enrichment + clusters'
+  // literal unpinned for the same reason as Fixture D — no fixture
+  // exercises the safeState='disabled' path. Use minimal upstream
+  // (epistemic disabled) so computeDeepKnowledgeState returns 'disabled'
+  // at its first early-return. Phase 'running' keeps safeState
+  // unchanged from the raw 'disabled'.
+  it("Fixture E: deep_knowledge row with disabled upstream renders 'Waiting for enrichment'", () => {
+    const disabledFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      deepEnrichmentPhase: 'running',
+      deepCurrentStage: 'enrichment',
+      // Force computeDeepKnowledgeState to return 'disabled' at the
+      // `!ep || !ep.enabled || ep.enriched_nodes === 0` early-return.
+      epistemic: { enabled: true, enriched_nodes: 0, avg_confidence: 0, running: false },
+      modules: undefined,
+      deepening: undefined,
+      groupReasoning: undefined,
+    };
+    render(<GraphEnrichmentPipeline {...disabledFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-deep_knowledge');
+    expect(row).toHaveTextContent('Waiting for enrichment');
+    expect(row).not.toHaveTextContent('Not run');
+  });
+
+  // FIXTURE F — rebuilding branch coverage (PR-J).
+  //
+  // Mutation testing found the `safeState === 'rebuilding'` disjunct
+  // in `(safeState === 'running' || safeState === 'rebuilding')` was
+  // unpinned — no fixture sets isRebuilding=true so promoteForRebuild
+  // never flips the raw 'running' state to 'rebuilding'. Mutants
+  // collapsing the disjunct to just the 'running' check passed all
+  // tests because no test traversed the 'rebuilding' branch.
+  //
+  // Trigger: barrier.active=true AND barrier.reason='rebuild' makes
+  // isPipelineRebuilding(barrier)=true, which makes promoteForRebuild
+  // map 'running'→'rebuilding'. Combined with deepKnowledgeBuilding=true
+  // (raw='running'), the safeState resolves to 'rebuilding' and the
+  // IIFE hits its 'Re-embedding' branch via the second disjunct.
+  it("Fixture F: deep_knowledge row in active rebuild renders 'Re-embedding' via the 'rebuilding' disjunct", () => {
+    const rebuildingFixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      deepEnrichmentPhase: 'running',
+      deepCurrentStage: 'deep_knowledge',
+      deepKnowledgeBuilding: true,
+      barrier: { active: true, reason: 'rebuild' },
+    };
+    render(<GraphEnrichmentPipeline {...rebuildingFixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-deep_knowledge');
+    expect(row).toHaveTextContent('Re-embedding');
+    expect(row).toHaveAttribute('data-stage-state', 'rebuilding');
   });
 
   // NEGATIVE CONTROL — proves the test responds to phase changes.
