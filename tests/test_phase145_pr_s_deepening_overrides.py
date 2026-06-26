@@ -586,6 +586,306 @@ class TestDeepeningAlwaysIncrementsPassNumber:
         )
 
 
+# ─────────────────────────────────────────────────────────────────
+# PR-T: skip-path leak fix.
+# When LLM is unavailable, the deepening worker returns BEFORE
+# instantiating the enricher. The new disk-based helper reads
+# jsonl files directly so the chip still gets accurate scope on
+# the skip path. Closes PR-S round-1 FIXUP-5 / round-3 DEF-6.
+# ─────────────────────────────────────────────────────────────────
+
+
+def _seed_idx_dir(idx_dir, repo_root, file_specs, epistemic_specs):
+    """Seed an index dir + repo root for the disk-based helper.
+
+    file_specs: list of (rel_path, file_content) tuples. file_content
+        empty string ⇒ file exists but is empty (excluded from scope).
+    epistemic_specs: list of (node_id, pass_number) tuples for
+        trace_epistemic.jsonl.
+    """
+    idx_dir.mkdir(parents=True, exist_ok=True)
+    repo_root.mkdir(parents=True, exist_ok=True)
+
+    nodes = []
+    for rel_path, content in file_specs:
+        nodes.append({
+            "id": f"file:{rel_path}",
+            "kind": "file",
+            "file_path": rel_path,
+        })
+        full = repo_root / rel_path
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_text(content, encoding="utf-8")
+
+    (idx_dir / "trace_nodes.jsonl").write_text(
+        "\n".join(json.dumps(n) for n in nodes) + ("\n" if nodes else ""),
+        encoding="utf-8",
+    )
+
+    (idx_dir / "trace_epistemic.jsonl").write_text(
+        "\n".join(
+            json.dumps({"node_id": nid, "pass_number": pn})
+            for nid, pn in epistemic_specs
+        ) + ("\n" if epistemic_specs else ""),
+        encoding="utf-8",
+    )
+
+
+class TestComputeDeepeningOverrideKeysFromDisk:
+    """Functional pins on `_compute_deepening_override_keys_from_disk`
+    (PR-T) — the enricher-free version used by the deepening worker's
+    LLM-unavailable skip path.
+    """
+
+    def test_basic_scope_read(self, tmp_path):
+        from prep.services.pipeline.workers import (
+            _compute_deepening_override_keys_from_disk,
+        )
+
+        idx = tmp_path / "idx"
+        repo = tmp_path / "repo"
+        _seed_idx_dir(
+            idx, repo,
+            file_specs=[("a.py", "# real content\n"), ("b.py", "# also real\n")],
+            epistemic_specs=[
+                ("file:a.py", 3),  # deepened
+                ("file:b.py", 2),  # enriched only
+            ],
+        )
+
+        total, processed = _compute_deepening_override_keys_from_disk(idx, repo)
+        assert total == 2
+        assert processed == 1
+
+    def test_empty_file_filter_excludes_empty_init(self, tmp_path):
+        # Same denominator semantic as the enricher-based path.
+        from prep.services.pipeline.workers import (
+            _compute_deepening_override_keys_from_disk,
+        )
+
+        idx = tmp_path / "idx"
+        repo = tmp_path / "repo"
+        _seed_idx_dir(
+            idx, repo,
+            file_specs=[
+                ("real.py", "import os\n"),
+                ("__init__.py", ""),  # empty
+            ],
+            epistemic_specs=[("file:real.py", 3)],
+        )
+
+        total, processed = _compute_deepening_override_keys_from_disk(idx, repo)
+        assert total == 1  # empty __init__.py excluded
+        assert processed == 1
+
+    def test_pass_number_filter_excludes_enrichment_only(self, tmp_path):
+        # Same numerator semantic as the enricher-based path:
+        # pass_number=2 (ENRICHMENT-only) entries do NOT count.
+        from prep.services.pipeline.workers import (
+            _compute_deepening_override_keys_from_disk,
+        )
+
+        idx = tmp_path / "idx"
+        repo = tmp_path / "repo"
+        _seed_idx_dir(
+            idx, repo,
+            file_specs=[
+                ("f0.py", "content\n"),
+                ("f1.py", "content\n"),
+                ("f2.py", "content\n"),
+            ],
+            epistemic_specs=[
+                ("file:f0.py", 2),
+                ("file:f1.py", 2),
+                ("file:f2.py", 3),
+            ],
+        )
+
+        total, processed = _compute_deepening_override_keys_from_disk(idx, repo)
+        assert total == 3
+        assert processed == 1
+
+    def test_orphan_filter_excludes_out_of_scope_entries(self, tmp_path):
+        from prep.services.pipeline.workers import (
+            _compute_deepening_override_keys_from_disk,
+        )
+
+        idx = tmp_path / "idx"
+        repo = tmp_path / "repo"
+        _seed_idx_dir(
+            idx, repo,
+            file_specs=[("current.py", "content\n")],
+            epistemic_specs=[
+                ("file:current.py", 3),
+                ("file:deleted.py", 3),  # orphan
+                ("file:also_deleted.py", 5),  # orphan
+            ],
+        )
+
+        total, processed = _compute_deepening_override_keys_from_disk(idx, repo)
+        assert total == 1
+        assert processed == 1  # orphans excluded
+
+    def test_missing_jsonl_files_return_zero(self, tmp_path):
+        # Brand-new project: no jsonl files exist yet. Helper returns
+        # (0, 0), not None — caller emits keys explicitly to defeat
+        # JSONL fallback (same F-5 semantic as enricher path).
+        from prep.services.pipeline.workers import (
+            _compute_deepening_override_keys_from_disk,
+        )
+
+        idx = tmp_path / "idx"
+        repo = tmp_path / "repo"
+        idx.mkdir()
+        repo.mkdir()
+        # No trace_nodes.jsonl, no trace_epistemic.jsonl.
+
+        total, processed = _compute_deepening_override_keys_from_disk(idx, repo)
+        assert total == 0
+        assert processed == 0
+        assert total is not None  # F-5: emit keys for empty project
+
+    def test_corrupt_jsonl_line_skipped_not_crashed(self, tmp_path):
+        # A single corrupt line should not crash the helper.
+        from prep.services.pipeline.workers import (
+            _compute_deepening_override_keys_from_disk,
+        )
+
+        idx = tmp_path / "idx"
+        repo = tmp_path / "repo"
+        idx.mkdir()
+        repo.mkdir()
+
+        (repo / "a.py").write_text("content\n")
+        # Mix valid and corrupt lines in trace_nodes.jsonl.
+        (idx / "trace_nodes.jsonl").write_text(
+            json.dumps({"id": "file:a.py", "kind": "file", "file_path": "a.py"})
+            + "\n"
+            + "!!! not json at all !!!\n",
+            encoding="utf-8",
+        )
+        (idx / "trace_epistemic.jsonl").write_text(
+            json.dumps({"node_id": "file:a.py", "pass_number": 3})
+            + "\n",
+            encoding="utf-8",
+        )
+
+        total, processed = _compute_deepening_override_keys_from_disk(idx, repo)
+        # Valid line counted, corrupt line silently skipped.
+        assert total == 1
+        assert processed == 1
+
+    def test_file_path_missing_from_disk_treated_as_empty(self, tmp_path):
+        # trace_nodes.jsonl references a file_path that doesn't exist
+        # on disk (deleted between snapshot and now). Helper treats
+        # it as empty (excluded from scope) — same defensive behavior
+        # as the enricher path.
+        from prep.services.pipeline.workers import (
+            _compute_deepening_override_keys_from_disk,
+        )
+
+        idx = tmp_path / "idx"
+        repo = tmp_path / "repo"
+        idx.mkdir()
+        repo.mkdir()
+
+        (repo / "exists.py").write_text("content\n")
+        # NOTE: gone.py NOT created.
+        (idx / "trace_nodes.jsonl").write_text(
+            json.dumps({"id": "file:exists.py", "kind": "file", "file_path": "exists.py"})
+            + "\n"
+            + json.dumps({"id": "file:gone.py", "kind": "file", "file_path": "gone.py"})
+            + "\n",
+            encoding="utf-8",
+        )
+        (idx / "trace_epistemic.jsonl").write_text(
+            json.dumps({"node_id": "file:exists.py", "pass_number": 3})
+            + "\n",
+            encoding="utf-8",
+        )
+
+        total, processed = _compute_deepening_override_keys_from_disk(idx, repo)
+        assert total == 1  # gone.py excluded by file-not-found
+        assert processed == 1
+
+    def test_kind_filter_excludes_non_file_nodes(self, tmp_path):
+        from prep.services.pipeline.workers import (
+            _compute_deepening_override_keys_from_disk,
+        )
+
+        idx = tmp_path / "idx"
+        repo = tmp_path / "repo"
+        idx.mkdir()
+        repo.mkdir()
+
+        (repo / "a.py").write_text("content\n")
+        (idx / "trace_nodes.jsonl").write_text(
+            json.dumps({"id": "file:a.py", "kind": "file", "file_path": "a.py"})
+            + "\n"
+            + json.dumps({"id": "sym:Foo", "kind": "symbol", "file_path": "a.py"})
+            + "\n"
+            + json.dumps({"id": "sec:1", "kind": "section", "file_path": "doc.md"})
+            + "\n",
+            encoding="utf-8",
+        )
+        (idx / "trace_epistemic.jsonl").write_text(
+            json.dumps({"node_id": "file:a.py", "pass_number": 3})
+            + "\n",
+            encoding="utf-8",
+        )
+
+        total, processed = _compute_deepening_override_keys_from_disk(idx, repo)
+        assert total == 1  # only file: counted
+
+
+class TestSkipPathEmitsOverrideKeys:
+    """Source-regex pins on the _deepening_worker skip path."""
+
+    def _skip_region(self) -> str:
+        from pathlib import Path
+        src_path = (
+            Path(__file__).parent.parent / "src" / "prep" /
+            "services" / "pipeline" / "workers" / "__init__.py"
+        )
+        body = src_path.read_text(encoding="utf-8")
+        idx = body.index("def _deepening_worker(")
+        # Take just the front of the function — skip path is near the top.
+        return body[idx:idx + 3500]
+
+    def test_skip_path_calls_disk_helper(self):
+        region = self._skip_region()
+        assert "_compute_deepening_override_keys_from_disk(" in region, (
+            "PR-T regression: skip path must call "
+            "_compute_deepening_override_keys_from_disk so override "
+            "keys fire even when LLM is unavailable."
+        )
+
+    def test_skip_path_emits_override_keys_into_result(self):
+        region = self._skip_region()
+        # Pin the skip result dict carries the override keys when
+        # the disk helper succeeds.
+        assert "skip_result[\"_expected_total\"]" in region, (
+            "PR-T regression: skip path must add _expected_total to "
+            "the skip result dict so the orchestrator helper hoists "
+            "it into manifest.quality."
+        )
+        assert "skip_result[\"_processed_count\"]" in region, (
+            "PR-T regression: skip path must add _processed_count "
+            "for the orchestrator override."
+        )
+
+    def test_skip_path_handles_disk_helper_failure(self):
+        region = self._skip_region()
+        # The conditional guard `if skip_total is not None` must
+        # gate the assignment so failure falls back to JSONL
+        # semantics (the pre-PR-T behavior — degradation, not crash).
+        assert "skip_total is not None" in region, (
+            "PR-T regression: skip path must gate override-key "
+            "emission on disk-helper success. On failure the worker "
+            "should degrade silently to JSONL semantics, not crash."
+        )
+
+
 # NOTE: producer-only scope.
 # The consumer-side contract (orchestrator helper reading the same
 # keys) is intentionally NOT pinned here because PR-S branches off

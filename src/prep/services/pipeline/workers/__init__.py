@@ -283,6 +283,132 @@ def _compute_deepening_override_keys(
         return None, None
 
 
+def _compute_deepening_override_keys_from_disk(
+    idx_dir: Path,
+    repo_root: Path,
+    *,
+    project_id: Optional[str] = None,
+) -> Tuple[Optional[int], Optional[int]]:
+    """Skip-path version of `_compute_deepening_override_keys` that
+    reads jsonl files directly without an `EpistemicEnricher` object.
+
+    PR-T closes the round-1 / round-3 deferred gap on PR-S: when the
+    deepening worker hits the LLM-unavailable skip path, it returns
+    BEFORE instantiating the enricher, so the enricher-based helper
+    is unreachable there. Without override keys the orchestrator
+    falls back to JSONL semantics — the §9.3 #32 bug PR-S was meant
+    to close re-surfaces on the chip whenever LLM config is missing.
+
+    This helper duplicates the scope-read logic at the file-system
+    layer:
+      - Reads `trace_nodes.jsonl` directly, applies kind == "file"
+        + empty-file filter (matches ENRICHMENT scope).
+      - Reads `trace_epistemic.jsonl` directly, applies orphan
+        filter + `pass_number >= 3` filter (matches PR-S-fixup-r2's
+        chip-correct numerator semantic).
+
+    File-system layer = no EpistemicEntry parsing, no LLM client,
+    no caching. Cost is one full read each of two jsonl files +
+    one open/readline per file_node. Acceptable for the rare
+    skip-path case.
+
+    Same return contract as the enricher-based helper:
+      - `(int, int)` on success (including `(0, 0)` for empty
+        projects so the caller emits the keys explicitly).
+      - `(None, None)` on failure. WARNING + telemetry emitted from
+        the except block where the exception is still in scope.
+    """
+    import json as _json
+
+    try:
+        trace_nodes_path = idx_dir / "trace_nodes.jsonl"
+        epistemic_path = idx_dir / "trace_epistemic.jsonl"
+
+        # Read trace_nodes.jsonl with kind + empty-file filters.
+        file_nodes: List[Dict[str, Any]] = []
+        if trace_nodes_path.exists():
+            with open(trace_nodes_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        node = _json.loads(line)
+                    except _json.JSONDecodeError:
+                        continue  # skip corrupt lines, don't crash
+                    if node.get("kind") != "file":
+                        continue
+                    # Empty-file filter — same semantic as
+                    # _get_file_excerpt(max_lines=1): file must have
+                    # non-empty first line.
+                    rel_path = node.get("file_path", "")
+                    if not rel_path:
+                        continue
+                    full_path = repo_root / rel_path
+                    try:
+                        with open(full_path, encoding="utf-8", errors="replace") as fp:
+                            first_line = fp.readline()
+                    except (OSError, UnicodeDecodeError):
+                        continue
+                    if not first_line.strip():
+                        continue
+                    file_nodes.append(node)
+
+        file_node_ids = {n["id"] for n in file_nodes}
+
+        # Read trace_epistemic.jsonl with pass_number >= 3 filter.
+        in_scope_deepened = 0
+        if epistemic_path.exists():
+            with open(epistemic_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = _json.loads(line)
+                    except _json.JSONDecodeError:
+                        continue
+                    nid = entry.get("node_id")
+                    if not nid or nid not in file_node_ids:
+                        continue
+                    if entry.get("pass_number", 2) >= 3:
+                        in_scope_deepened += 1
+
+        return len(file_nodes), in_scope_deepened
+    except (OSError, ValueError, AttributeError, KeyError) as e:
+        logger.warning(
+            "[Deepening] skip-path override-key scope-read failed (%s): %s — "
+            "manifest.quality falls back to JSONL semantics, "
+            "re-introduces §9.3 #32 chip leak on this run",
+            type(e).__name__, str(e),
+            exc_info=True,
+        )
+        if project_id is not None:
+            try:
+                from prep.services.pipeline_telemetry import record_event
+                try:
+                    record_event(
+                        idx_dir,
+                        "deepening_override_failed",
+                        {
+                            "reason": "skip_path_scope_read_failure",
+                            "error_type": type(e).__name__,
+                            "error_message": str(e)[:500],
+                        },
+                        stage="deepening",
+                        project_id=project_id,
+                    )
+                except Exception:
+                    logger.debug(
+                        "[Deepening] skip-path telemetry record_event "
+                        "raised; swallowed (non-fatal)",
+                        exc_info=True,
+                    )
+            except (ImportError, OSError):
+                pass
+        return None, None
+
+
 # ── Worker Factory ───────────────────────────────────────────────
 
 class WorkerFactory:
@@ -1227,19 +1353,30 @@ class WorkerFactory:
             except RuntimeError:
                 logger.info("[Deepening] No model available for deepening task — skipping")
                 progress_cb("Skipped (no LLM configured)", 1, 1)
-                # KNOWN GAP (PR-S round-1 scrutiny FIXUP-5): this skip
-                # path returns BEFORE instantiating the enricher, so
-                # _compute_deepening_override_keys can't run here
-                # without a larger refactor (EpistemicEnricher.__init__
-                # requires an LLM client). The orchestrator helper
-                # falls back to JSONL semantics for the manifest
-                # quality block — which is the §9.3 #32 bug class
-                # PR-S exists to close. The skip path therefore still
-                # leaks the bug on the "Continuous Deepening" chip.
-                # Tracked as PR-S-FIXUP-5 follow-up: hoist scope-read
-                # to a module-level helper that reads jsonl files
-                # directly without needing the enricher object.
-                return {"stage": "deepening", "skipped": True, "reason": "no_llm"}
+                # PR-T (closes PR-S round-1 FIXUP-5 / round-3 DEF-6):
+                # the skip path still emits override keys via the
+                # enricher-free `_compute_deepening_override_keys_from_disk`
+                # helper. Without this, manifest.quality falls back
+                # to aggregate_quality_metrics' JSONL-line-count
+                # semantics — re-introducing the §9.3 #32 chip leak
+                # whenever LLM config is missing. The disk-based
+                # helper reads trace_nodes.jsonl + trace_epistemic.jsonl
+                # directly and applies the same kind / empty-file /
+                # pass_number filters as the enricher path.
+                skip_total, skip_processed = _compute_deepening_override_keys_from_disk(
+                    idx_dir,
+                    Path(project.path),
+                    project_id=project_id,
+                )
+                skip_result: Dict[str, Any] = {
+                    "stage": "deepening",
+                    "skipped": True,
+                    "reason": "no_llm",
+                }
+                if skip_total is not None:
+                    skip_result["_expected_total"] = skip_total
+                    skip_result["_processed_count"] = skip_processed
+                return skip_result
 
             enricher = EpistemicEnricher(
                 llm=llm_client,
