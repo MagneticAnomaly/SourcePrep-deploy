@@ -1,6 +1,35 @@
 import { useMemo } from 'react';
 import { cn } from '../../lib/utils';
 
+// §9.3 #32 (PR-R): defensive clamp + anomaly signal for the X/Y chips.
+// Same bug class as the catalogue chip in GraphEnrichmentPipeline.tsx
+// (where numerator > denominator produced '5501% coverage' until the
+// PR-D Math.min clamp shipped). The IndexHealthPanel chips display a
+// raw fraction, not a percentage, so the equivalent defense is:
+//   (a) clamp the displayed numerator at the denominator so the text
+//       never reads e.g. '7812/142' (visibly broken),
+//   (b) flag the anomaly with an orange accent so over-coverage doesn't
+//       quietly look like under-coverage (yellow) or healthy (default).
+// Backend should not produce over-coverage; this is defense-in-depth
+// for the windows where backend invariants are violated (PR-P-fixup-r2
+// closes the catalogue manifest path but the deepening/enrichment path
+// remains open per FINDING §2j/§2o 2026-06-25 dogfood).
+export function ratioChip(numerator: number, denominator: number): {
+  value: string;
+  accent: 'orange' | 'yellow' | undefined;
+} {
+  if (denominator <= 0) return { value: '0', accent: undefined };
+  if (numerator > denominator) {
+    // Clamp numerator + flag anomaly. Real value preserved in
+    // accessibility hover via title in the consumer if needed.
+    return { value: `${denominator}/${denominator}`, accent: 'orange' };
+  }
+  if (numerator < denominator) {
+    return { value: `${numerator}/${denominator}`, accent: 'yellow' };
+  }
+  return { value: `${numerator}/${denominator}`, accent: undefined };
+}
+
 // ── Data interfaces ──────────────────────────────────────────────
 
 export interface IndexHealthData {
@@ -125,9 +154,10 @@ export function IndexHealthPanel({ data, className }: IndexHealthPanelProps) {
             <Metric label="Files" value={data.total_files.toLocaleString()} />
             <Metric label="Nodes" value={data.trace_nodes.toLocaleString()} />
             <Metric label="Edges" value={data.trace_edges.toLocaleString()} />
-            <Metric label="Catalogued"
-              value={data.catalogued_total > 0 ? `${data.catalogued_nodes}/${data.catalogued_total}` : '0'}
-              accent={data.catalogued_total > 0 && data.catalogued_nodes < data.catalogued_total ? 'yellow' : undefined} />
+            {(() => {
+              const c = ratioChip(data.catalogued_nodes, data.catalogued_total);
+              return <Metric label="Catalogued" value={c.value} accent={c.accent} />;
+            })()}
             <Metric label="Stale" value={data.stale_count.toLocaleString()}
               accent={data.stale_count > 0 ? 'yellow' : undefined} />
           </div>
@@ -145,9 +175,10 @@ export function IndexHealthPanel({ data, className }: IndexHealthPanelProps) {
           {data.deep ? (
             <>
               <div className="grid grid-cols-2 gap-1.5">
-                <Metric label="Enriched"
-                  value={`${data.deep.enriched_nodes}/${data.deep.enriched_total}`}
-                  accent={data.deep.enriched_total > 0 && data.deep.enriched_nodes < data.deep.enriched_total ? 'yellow' : undefined} />
+                {(() => {
+                  const e = ratioChip(data.deep.enriched_nodes, data.deep.enriched_total);
+                  return <Metric label="Enriched" value={e.value} accent={e.accent} />;
+                })()}
                 <Metric label="Understanding"
                   value={`${Math.round(data.deep.avg_confidence * 100)}%`}
                   accent={data.deep.avg_confidence < 0.7 ? 'orange' : undefined} />
