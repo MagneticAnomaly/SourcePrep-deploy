@@ -404,6 +404,505 @@ class TestTraceAugmenter:
         for entry in entries.values():
             assert entry.role in VALID_ROLES
 
+    # ── §9.3 #32 regression — PR-P fix ────────────────────────
+    # The 7812/142 → 5501% production case was caused by the v1 manifest
+    # writer using two different denominators: `counts.total_nodes` was
+    # `result.total_nodes - result.skipped` (which by substitution equals
+    # `total_work` — this-run scope), while `counts.augmented` was
+    # `len(entries)` (cumulative project-wide from `load_existing()`).
+    # PR-P adds `AugmentResult.project_augmentable_count` set in `run()`
+    # to `len(symbol_nodes) + len(file_nodes)` and uses it as the manifest
+    # denominator so numerator and denominator share project-wide scope.
+    # See FINDING_catalogue-augmented-vs-total-semantic-mismatch.md.
+
+    def test_run_sets_project_augmentable_count(self, tmp_index, tmp_repo):
+        """run() must populate result.project_augmentable_count with the
+        project-wide count of augmentable-kind nodes (symbol + file)."""
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+        result = aug.run()
+        expected = sum(
+            1 for n in SAMPLE_NODES if n.get("kind") in ("symbol", "file")
+        )
+        assert result.project_augmentable_count == expected
+
+    def test_manifest_total_nodes_never_smaller_than_augmented_count(
+        self, tmp_index, tmp_repo,
+    ):
+        """§9.3 #32 invariant: counts.augmented MUST NOT exceed
+        counts.total_nodes in the v1 manifest. Direct repro of the
+        incremental-no-op + cumulative-entries scenario that produced
+        the 5501% chip in production.
+        """
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+
+        augmentable = [
+            n for n in SAMPLE_NODES if n.get("kind") in ("symbol", "file")
+        ]
+        # Simulate the no-op-incremental result: all nodes already
+        # processed this run (so result.skipped == result.total_nodes,
+        # making the old `total_nodes - skipped` formula collapse to 0).
+        result = AugmentResult()
+        result.total_nodes = len(SAMPLE_NODES)
+        result.skipped = result.total_nodes
+        result.project_augmentable_count = len(augmentable)
+
+        # Cumulative entries: current augmentable PLUS orphan entries from
+        # prior runs (typical cause: files renamed/deleted but their old
+        # entries still live in trace_augmented.jsonl, since the augmenter
+        # never reaps orphans).
+        entries = {}
+        for n in augmentable:
+            entries[n["id"]] = AugmentationEntry(
+                node_id=n["id"], summary="x", role="utility",
+                confidence=0.9, augmented_at="2025-01-01", model="m",
+            )
+        for i in range(50):
+            entries[f"orphan-symbol-{i}"] = AugmentationEntry(
+                node_id=f"orphan-symbol-{i}", summary="x", role="utility",
+                confidence=0.9, augmented_at="2025-01-01", model="m",
+            )
+
+        # PR-P run() passes set(nodes_by_id.keys()) as valid_node_ids so
+        # orphan entries don't inflate the numerator past the denominator.
+        valid_ids = {n["id"] for n in SAMPLE_NODES}
+        aug._write_manifest(result, entries, valid_node_ids=valid_ids)
+        s = aug.status()
+
+        # The §9.3 #32 invariant: numerator cannot exceed denominator.
+        # Pre-PR-P this assertion failed with augmented_nodes=55 and
+        # total_nodes=0 (the 5501% chip class — formally undefined but
+        # rendering as the unclamped ratio).
+        assert s["enabled"] is True
+        assert s["augmented_nodes"] <= s["total_nodes"], (
+            f"§9.3 #32: augmented_nodes ({s['augmented_nodes']}) > "
+            f"total_nodes ({s['total_nodes']}) — the 5501% chip bug "
+            f"class is back. _write_manifest must use "
+            f"result.project_augmentable_count "
+            f"({len(augmentable)}) as the denominator AND must filter "
+            f"entries against valid_node_ids."
+        )
+        # Denominator must be project-wide augmentable count.
+        assert s["total_nodes"] == len(augmentable)
+        # Numerator must exclude orphans (50 of 55 entries are orphans).
+        assert s["augmented_nodes"] == len(augmentable)
+
+    def test_manifest_falls_back_to_old_denominator_when_field_unset(
+        self, tmp_index, tmp_repo,
+    ):
+        """Backwards-compat: callers constructing AugmentResult outside
+        run() (e.g. older tests, dataclass(**dict) restoration) leave
+        project_augmentable_count at its default 0. _write_manifest must
+        fall back to the pre-PR-P denominator formula in that case so
+        existing callers don't see surprise zero-denominator manifests.
+        PR-P-fixup: also asserts the warning fires so a future regression
+        that drops project_augmentable_count from run() leaves a log trail."""
+        import logging
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+
+        # Old-style AugmentResult: project_augmentable_count left at 0.
+        result = AugmentResult()
+        result.total_nodes = 10
+        result.skipped = 3  # → augmentable_nodes = 10 - 3 = 7
+        # (project_augmentable_count defaults to 0 → fallback path)
+
+        with self._captured_logs("prep.core.augmenter", logging.WARNING) as caplog:
+            aug._write_manifest(result, {})
+        s = aug.status()
+        # Old formula: total_nodes - skipped = 7
+        assert s["total_nodes"] == 7
+        # Fallback warning fired so a regression that drops field-population
+        # from run() leaves a visible trail in daemon logs.
+        assert any("§9.3 #32 fallback" in r.getMessage() for r in caplog), (
+            "PR-P-fixup: fallback path must log a warning when "
+            "project_augmentable_count is 0 with total_nodes > 0"
+        )
+
+    @staticmethod
+    def _captured_logs(logger_name: str, level: int):
+        """Tiny inline context manager replacement for pytest's caplog —
+        keeps test code self-contained without adding new fixtures."""
+        import logging
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _ctx():
+            records: list[logging.LogRecord] = []
+            handler = logging.Handler(level=level)
+            handler.emit = records.append  # type: ignore[assignment]
+            logger = logging.getLogger(logger_name)
+            prev_level = logger.level
+            logger.addHandler(handler)
+            logger.setLevel(level)
+            try:
+                yield records
+            finally:
+                logger.removeHandler(handler)
+                logger.setLevel(prev_level)
+
+        return _ctx()
+
+    def test_manifest_v2_write_preserves_v1_counts_for_pipeline_mode(
+        self, tmp_index, tmp_repo,
+    ):
+        """§9.3 #32 INTEGRATION (PR-P-fixup, addresses scrutiny XPR-005 +
+        SCR-PRP-001): the orchestrator's v2 manifest write at
+        `_write_stage_manifest_and_update_run` goes through
+        `ManifestStore.write_provenance` and targets the SAME file as
+        TraceAugmenter._write_manifest. Pre-fixup that write was a plain
+        atomic overwrite for non-STRUCTURAL stages, so PR-P's v1
+        counts/stats block was clobbered milliseconds after being written
+        and `augmenter.status()` fell back to v2's quality block (which
+        has different semantics — per-jsonl-line counts that round to
+        ~100%). The chip's 5501% protection lived ONLY in PR-D's
+        rendering-side Math.min clamp.
+
+        PR-P-fixup extends the STRUCTURAL merge pattern to CATALOGUE so
+        the v1 counts/stats survive the v2 write. This test simulates
+        the pipeline-driven sequence (augmenter writes v1, orchestrator
+        writes v2) and asserts the §9.3 #32 invariant survives.
+        """
+        from prep.services.pipeline.manifest_store import ManifestStore
+        from prep.services.pipeline.stages import StageId
+
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+
+        # Step 1 — augmenter writes v1 manifest with PR-P's coherent
+        # counts (total_nodes = project augmentable count, augmented =
+        # orphan-filtered cumulative count).
+        aug.run()
+        pre = json.loads((tmp_index / "trace_augment_manifest.json").read_text())
+        assert "counts" in pre, "augmenter must write v1 counts block"
+        pre_total = pre["counts"]["total_nodes"]
+        pre_augmented = pre["counts"]["augmented"]
+        assert pre_total > 0
+        assert pre_augmented <= pre_total, (
+            "PR-P precondition: v1 manifest must already satisfy the §9.3 "
+            "#32 invariant before the v2 write."
+        )
+
+        # Step 2 — simulate the orchestrator's v2 write. Mirrors what
+        # `_write_stage_manifest_and_update_run` does at
+        # orchestrator.py:4535+ for the catalogue stage — a stage manifest
+        # blob with quality / output_files / model / timing but NO counts
+        # / stats keys.
+        #
+        # PR-P-fixup-r2 (scrutiny PRP-INT-001): make the v2 quality block
+        # DELIBERATELY DIVERGENT (processed > total_items, mirroring the
+        # §9.3 #32 ratio inversion). Pre-fixup, status() would fall back
+        # to this block and return augmented_nodes=200 against
+        # total_nodes=2 → invariant FAILS. The original equal-values
+        # block produced a coherent ratio under the bug, making the
+        # invariant assertion non-load-bearing; with this divergent block
+        # the integration assertion at Step 4 now actually bites.
+        store = ManifestStore(tmp_index)
+        v2_blob: Dict[str, Any] = {
+            "stage_id": "catalogue",
+            "run_id": "test-pipeline-run-1",
+            "project_id": "test-project",
+            "started_at": "2026-06-25T00:00:00Z",
+            "finished_at": "2026-06-25T00:00:01Z",
+            "elapsed_seconds": 1.0,
+            "model": {"provider": "ollama", "model_name": "test-model"},
+            "quality": {
+                # Divergent on purpose: processed dwarfs total_items —
+                # the §9.3 #32 inversion the augmenter's v1 numerator
+                # used to produce. If the CATALOGUE merge is reverted,
+                # status() falls back to v2 and returns the inverted
+                # ratio (200 augmented / 2 total) → invariant FAILS.
+                "total_items": 2,
+                "processed": 200,
+                "skipped": 0,
+                "failed": 0,
+                "success_rate": 1.0,
+                "avg_confidence": 0.85,
+            },
+            "output_files": {"trace_augmented.jsonl": {"size_bytes": 1024}},
+        }
+        store.write_provenance(StageId.CATALOGUE, v2_blob)
+
+        # Step 3 — pre-fixup, the v1 counts would be GONE here. PR-P-fixup
+        # preserves them via the merge pattern from STRUCTURAL.
+        post = json.loads((tmp_index / "trace_augment_manifest.json").read_text())
+        assert "counts" in post, (
+            "PR-P-fixup regression: v2 write clobbered v1 counts block. "
+            "ManifestStore.write_provenance(StageId.CATALOGUE, ...) must "
+            "preserve the v1 counts/stats keys (matches STRUCTURAL pattern)."
+        )
+        assert post["counts"]["total_nodes"] == pre_total
+        assert post["counts"]["augmented"] == pre_augmented
+        # v2 fields also present.
+        assert "quality" in post
+        assert "stage_id" in post
+
+        # Step 4 — augmenter.status() reads v1 first (line 2211 check on
+        # counts.total_nodes / counts.augmented). With the merge, v1 wins
+        # → §9.3 #32 invariant holds.
+        s = aug.status()
+        assert s["enabled"] is True
+        assert s["augmented_nodes"] <= s["total_nodes"], (
+            f"§9.3 #32 integration regression: augmented_nodes "
+            f"({s['augmented_nodes']}) > total_nodes ({s['total_nodes']}) "
+            "after the v2 manifest write. The merge-preservation in "
+            "ManifestStore.write_provenance must keep v1 counts/stats so "
+            "PR-P's fix survives the pipeline write sequence."
+        )
+        assert s["total_nodes"] == pre_total
+        assert s["augmented_nodes"] == pre_augmented
+
+    def test_stage_manifest_to_dict_never_emits_v1_keys(self):
+        """PR-P-fixup-r2 (scrutiny PRP-INT-003 + PRP-FXP-001): the
+        ManifestStore CATALOGUE merge depends on the orchestrator's v2
+        blob (constructed via StageManifest.to_dict()) NEVER emitting
+        `counts`, `stats`, or `version` — because if it did, the merge
+        contract `if key in existing and key not in data` would let the
+        v2 blob's empty/default counts overwrite the augmenter's v1
+        counts and the §9.3 #32 fix would silently revert.
+
+        This guard pins the StageManifest contract so a future refactor
+        that adds a `counts` / `stats` / `version` field to StageManifest
+        (or its to_dict()) trips this test before reaching production.
+        """
+        from prep.core.stage_manifest import create_stage_manifest
+
+        manifest = create_stage_manifest(
+            stage_id="catalogue",
+            run_id="r1",
+            project_id="p1",
+        )
+        d = manifest.to_dict()
+
+        # The actual v2 schema uses `format_version`, not `version`.
+        # The merge preserves the v1 `version` key from the augmenter's
+        # writer — that key must not collide with anything v2 emits.
+        forbidden = {"counts", "stats", "version"}
+        present = forbidden & set(d.keys())
+        assert not present, (
+            f"§9.3 #32 contract regression: StageManifest.to_dict() "
+            f"emitted keys {present} which collide with the v1 manifest "
+            "keys the ManifestStore CATALOGUE merge preserves. The merge "
+            "would now let v2's value overwrite v1's, re-introducing the "
+            "5501% chip class. Either remove those fields from "
+            "StageManifest, or update preserved_keys in manifest_store.py "
+            "to drop the colliding name."
+        )
+
+    def test_manifest_v2_write_via_real_stagemanifest_preserves_v1_counts(
+        self, tmp_index, tmp_repo,
+    ):
+        """PR-P-fixup-r2 (scrutiny PRP-FXP-001): the existing pipeline
+        integration test hand-rolls a v2_blob dict. This sibling test
+        uses the REAL `create_stage_manifest().to_dict()` output that
+        the orchestrator actually writes via
+        `_write_stage_manifest_and_update_run`. Catches structural
+        drift in StageManifest that the hand-rolled blob misses (e.g.
+        future fields named in a way that collides with v1).
+        """
+        from prep.core.stage_manifest import create_stage_manifest
+        from prep.services.pipeline.manifest_store import ManifestStore
+        from prep.services.pipeline.stages import StageId
+
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+
+        # v1 first.
+        aug.run()
+        pre = json.loads((tmp_index / "trace_augment_manifest.json").read_text())
+        pre_total = pre["counts"]["total_nodes"]
+        pre_augmented = pre["counts"]["augmented"]
+
+        # v2 via the real factory.
+        manifest = create_stage_manifest(
+            stage_id="catalogue", run_id="r1", project_id="p1",
+        )
+        manifest.quality = {
+            # Deliberately divergent — see test_manifest_v2_write_...
+            "total_items": 2,
+            "processed": 200,
+            "skipped": 0,
+            "failed": 0,
+            "success_rate": 1.0,
+            "avg_confidence": 0.85,
+        }
+        manifest.output_files = {"trace_augmented.jsonl": {"size_bytes": 1024}}
+        v2_blob = manifest.to_dict()
+
+        store = ManifestStore(tmp_index)
+        store.write_provenance(StageId.CATALOGUE, v2_blob)
+
+        # v1 counts must survive the real-shape v2 write.
+        post = json.loads((tmp_index / "trace_augment_manifest.json").read_text())
+        assert "counts" in post
+        assert post["counts"]["total_nodes"] == pre_total
+        assert post["counts"]["augmented"] == pre_augmented
+        # v2 fields also present.
+        assert post.get("format_version") == "2.0"
+        assert post.get("stage_id") == "catalogue"
+
+        # status() resolves to v1's coherent counts, not v2's inverted ratio.
+        s = aug.status()
+        assert s["enabled"] is True
+        assert s["augmented_nodes"] <= s["total_nodes"]
+        assert s["total_nodes"] == pre_total
+        assert s["augmented_nodes"] == pre_augmented
+        # PR-P-fixup-r2 (PRP-FIX-001): built_at + model also survive the
+        # v2 merge — last_augment_at no longer silently nulled.
+        assert s["last_augment_at"] is not None, (
+            "PRP-FIX-001 regression: built_at must be in preserved_keys "
+            "so status()['last_augment_at'] survives the v2 write."
+        )
+
+    def test_orphan_filter_excludes_non_augmentable_kind_entries(
+        self, tmp_index, tmp_repo,
+    ):
+        """PR-P-fixup-r2 (scrutiny R-AUG-003 + retro SCR-PRP-004):
+        SAMPLE_NODES contains only symbol/file kinds; pre-fixup,
+        valid_node_ids was `set(nodes_by_id.keys())` so this test could
+        not have detected a regression in the kind-filter tightening.
+        This test adds an external_module trace node + an on-disk
+        AugmentationEntry whose node_id matches it, then runs the
+        augmenter and asserts:
+          (a) counts.augmented EXCLUDES the external_module entry
+              (orphan filter uses {symbol, file} only, not all kinds),
+          (b) counts.total_nodes is the symbol+file count, not the
+              all-kinds total_nodes from trace.
+        If someone reverts run()'s call-site to pass `set(nodes_by_id.
+        keys())` (the pre-fixup form), the external_module entry would
+        pass the filter and counts.augmented would equal pre+1.
+        """
+        # Add an external_module node to SAMPLE_NODES for this test.
+        nodes_with_ext = list(SAMPLE_NODES) + [
+            {
+                "id": "ext:os",
+                "kind": "external_module",
+                "name": "os",
+                "file_path": None,
+                "span": None,
+                "language": "python",
+                "metadata": {},
+            },
+        ]
+        _write_trace(tmp_index, nodes_with_ext, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+
+        # Seed an existing augmentation for the external_module node so
+        # the on-disk JSONL has an entry whose id matches a node but
+        # whose kind is NOT augmentable. This is the SCR-PRP-004 attack
+        # shape: an entry that would survive the unfiltered orphan
+        # filter `set(nodes_by_id.keys())` but must be rejected by the
+        # tightened `augmentable_ids` filter.
+        seed_entry = AugmentationEntry(
+            node_id="ext:os", summary="x", role="utility",
+            confidence=0.9, augmented_at="2025-01-01", model="m",
+        )
+        with open(tmp_index / "trace_augmented.jsonl", "w") as f:
+            f.write(json.dumps(seed_entry.to_dict()) + "\n")
+
+        aug.run()
+        s = aug.status()
+
+        # Denominator must be the kind-filtered project augmentable count
+        # (symbol + file kinds only, NOT the all-kinds trace node count).
+        augmentable_count = sum(
+            1 for n in nodes_with_ext if n.get("kind") in ("symbol", "file")
+        )
+        assert s["total_nodes"] == augmentable_count, (
+            f"§9.3 #32 denominator regression: total_nodes "
+            f"({s['total_nodes']}) should be the project augmentable "
+            f"count ({augmentable_count}), not the all-kinds trace total."
+        )
+
+        # Numerator must exclude the external_module entry — and must
+        # not exceed the denominator regardless.
+        assert s["augmented_nodes"] <= s["total_nodes"], (
+            "SCR-PRP-004 regression: orphan filter let a non-augmentable-"
+            "kind entry through, inflating counts.augmented past "
+            "counts.total_nodes. run() must pass valid_node_ids filtered "
+            "to {symbol, file} kinds — NOT set(nodes_by_id.keys())."
+        )
+
+    def test_manifest_production_like_scenario_5501_class(
+        self, tmp_index, tmp_repo,
+    ):
+        """§9.3 #32 (PR-P-fixup, addresses scrutiny SCR-PRP-005): mirror
+        the actual 7812/142 production ratio rather than the degenerate
+        ÷0 case the original PR-P test used. Many cumulative entries
+        (mostly orphans) against a small this-run scope reproduces the
+        ratio that hit the dashboard in real life.
+        """
+        _write_trace(tmp_index, SAMPLE_NODES, SAMPLE_EDGES)
+        client = FakeLLMClient()
+        aug = TraceAugmenter(tmp_index, tmp_repo, client)
+
+        augmentable = [
+            n for n in SAMPLE_NODES if n.get("kind") in ("symbol", "file")
+        ]
+        n_augmentable = len(augmentable)
+
+        # 100 entries on disk — close mix of valid + orphan, similar
+        # ratio to the 7812/142 production case where most cumulative
+        # entries point at past-project state. 5 valid (one per current
+        # augmentable node) + 95 orphans → pre-PR-P ratio would have
+        # been ~100/142 against a small this-run skipped scope.
+        entries = {}
+        for n in augmentable:
+            entries[n["id"]] = AugmentationEntry(
+                node_id=n["id"], summary="x", role="utility",
+                confidence=0.9, augmented_at="2025-01-01", model="m",
+            )
+        for i in range(95):
+            entries[f"deleted-orphan-{i}"] = AugmentationEntry(
+                node_id=f"deleted-orphan-{i}", summary="x", role="utility",
+                confidence=0.9, augmented_at="2025-01-01", model="m",
+            )
+
+        # Production-like result shape: incremental run with small
+        # this-run scope. PR-P's run() would set
+        # project_augmentable_count = n_augmentable for this scenario.
+        result = AugmentResult()
+        result.total_nodes = len(SAMPLE_NODES)
+        # Small this-run work (mimics 142-style narrow scope): only 1
+        # node needed re-augmentation in this incremental.
+        total_work = 1
+        result.skipped = result.total_nodes - total_work
+        result.project_augmentable_count = n_augmentable
+
+        # Pre-PR-P formula reconstruction (for comparison only):
+        pre_pr_p_total = result.total_nodes - result.skipped  # == total_work == 1
+        pre_pr_p_augmented = len(entries)  # == 100
+        pre_pr_p_ratio_pct = (pre_pr_p_augmented / pre_pr_p_total) * 100
+        assert pre_pr_p_ratio_pct >= 1000, (
+            "Sanity: the pre-PR-P formula must reproduce a chip ratio "
+            "well above 100% on this fixture so the regression test "
+            "genuinely models the 5501% class. Got "
+            f"{pre_pr_p_ratio_pct:.0f}%."
+        )
+
+        valid_ids = {n["id"] for n in augmentable}
+        aug._write_manifest(result, entries, valid_node_ids=valid_ids)
+        s = aug.status()
+
+        # The PR-P invariant must hold under the production-like ratio.
+        assert s["augmented_nodes"] <= s["total_nodes"], (
+            f"§9.3 #32 production-class regression: augmented_nodes "
+            f"({s['augmented_nodes']}) > total_nodes ({s['total_nodes']}). "
+            f"Pre-fix this fixture would have produced "
+            f"{pre_pr_p_ratio_pct:.0f}% — the 5501% bug class."
+        )
+        # Numerator drops orphans (95 of 100 entries are orphans).
+        assert s["augmented_nodes"] == n_augmentable
+        # Denominator is project-wide, not this-run scope.
+        assert s["total_nodes"] == n_augmentable
+
 
 class TestNarrativeConcurrency:
     """2026-05-17 regression. Narrative-file augmentation used to be a
