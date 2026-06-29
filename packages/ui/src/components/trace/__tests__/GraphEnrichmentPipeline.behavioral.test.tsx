@@ -752,3 +752,367 @@ describe('GraphEnrichmentPipeline — structuralStats IIFE (PR-L)', () => {
   });
 });
 
+
+// ───────────────────────────────────────────────────────────────
+// catalogueStats IIFE — PR-M behavioural pins
+// ───────────────────────────────────────────────────────────────
+//
+// Stryker baseline on src/components/trace/GraphEnrichmentPipeline.tsx
+// :1281-1305 (the catalogueStats IIFE) reported 7.84% mutation
+// score (4 killed / 21 survived / 26 no-cov) — the lowest baseline
+// of any stage IIFE measured. Existing tests barely touch catalogue
+// beyond the absence-of-Not-run loop assertion under Fixture A.
+//
+// PR-M adds per-branch fixtures + the §9.3 #31 clamp regression
+// test (real production bug: 7812/142 → 5501% chip). Same
+// methodology as PR-J / PR-K / PR-L.
+//
+// IIFE branches:
+//   safeState === 'running' || 'rebuilding':
+//     augmentation.progress_total > 0 → `${cur} / ${tot} files`
+//     else                            → 'Augmenting...'
+//   safeState === 'disabled'  → 'Waiting for graph'
+//   safeState === 'not_built' → 'Not run'
+//   !augmentation             → 'Complete'  (PR-F F5 fallthrough)
+//   else                      → `${pct}% coverage · ${conf}`
+//     pct = total_nodes > 0
+//             ? Math.min(100, Math.round((augmented/total) * 100))  // §9.3 #31 clamp
+//             : 0
+//     conf = avg_confidence > 0
+//             ? `${Math.round(avg_confidence * 100)}% conf`
+//             : ''
+
+describe('GraphEnrichmentPipeline — catalogueStats IIFE (PR-M)', () => {
+  let consoleError: ReturnType<typeof vi.spyOn>;
+  let consoleWarn: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    cleanup();
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
+  });
+
+  // PRESENCE — Fixture A's !augmentation→'Complete' fallthrough.
+  // phase30Fixture has augmentation=undefined; under fastSyncPhase=
+  // 'completed' the raw 'not_built' coerces to 'complete' via
+  // i3SafeStageState, then the IIFE hits `if (!augmentation) return
+  // 'Complete'` (PR-F F5). Pins the 'Complete' literal at line 1293
+  // — without this, mutants changing 'Complete'→"" survive.
+  it("Fixture A: catalogue row renders 'Complete' under fastSyncPhase='completed' with no augmentation", () => {
+    render(<GraphEnrichmentPipeline {...phase30Fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('Complete');
+    expect(row).toHaveAttribute('data-stage-state', 'complete');
+  });
+
+  // FIXTURE CA1 — running branch with progress counts.
+  // augmenting=true → computeAugmentState returns 'running'.
+  // augmentation.progress_total > 0 → renders `${cur} / ${tot} files`.
+  // Pins the template literal + the LogicalOperator (||→&&) / Conditional
+  // (true|false) / EqualityOperator (===→!==) / StringLiteral mutants
+  // on line 1284 (running disjunct) and lines 1286-1288 (progress logic).
+  it("Fixture CA1: catalogue row renders '234 / 1,240 files' when augmenting=true and progress_total>0", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      augmenting: true,
+      augmentation: {
+        enabled: true,
+        total_nodes: 1240,
+        augmented_nodes: 234,
+        validated_nodes: 0,
+        avg_confidence: 0,
+        low_confidence_count: 0,
+        progress_current: 234,
+        progress_total: 1240,
+      },
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'catalogue',
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('234 / 1,240 files');
+    expect(row).toHaveAttribute('data-stage-state', 'running');
+  });
+
+  // FIXTURE CA2 — running fallback when no progress payload.
+  // augmenting=true + progress_total=0 → falls past `if (tot > 0)`
+  // and returns 'Augmenting...'. Pins the literal and the line-1288
+  // ConditionalExpression(true) mutant (which would force the files
+  // template even with tot=0).
+  it("Fixture CA2: catalogue row renders 'Augmenting...' when augmenting=true and progress_total=0", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      augmenting: true,
+      augmentation: {
+        enabled: true,
+        total_nodes: 0,
+        augmented_nodes: 0,
+        validated_nodes: 0,
+        avg_confidence: 0,
+        low_confidence_count: 0,
+        progress_current: 0,
+        progress_total: 0,
+      },
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'catalogue',
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('Augmenting...');
+    expect(row).not.toHaveTextContent('files');
+    expect(row).toHaveAttribute('data-stage-state', 'running');
+  });
+
+  // FIXTURE CA2.1 — optional-chaining defense.
+  // augmenting=true + augmentation=undefined: original code uses
+  // `augmentation?.x ?? 0` and renders 'Augmenting...' without
+  // throwing. Removing the optional chain (mutant `aug.x`) throws
+  // TypeError → render fails → test fails. Pins the OptionalChaining
+  // mutants on lines 1286-1287.
+  it("Fixture CA2.1: catalogue row renders 'Augmenting...' when augmenting=true and augmentation is undefined", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      augmenting: true,
+      augmentation: undefined,
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'catalogue',
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('Augmenting...');
+    expect(row).toHaveAttribute('data-stage-state', 'running');
+  });
+
+  // FIXTURE CA3 — rebuilding disjunct.
+  // barrier.active=true + reason='rebuild' triggers isPipelineRebuilding,
+  // which makes promoteForRebuild flip raw 'running' → 'rebuilding'.
+  // Pins the 'rebuilding' literal on line 1284 + asserts data-stage-state
+  // ='rebuilding' to differentiate from CA1's 'running' rendering.
+  it("Fixture CA3: catalogue row renders '234 / 1,240 files' with data-stage-state='rebuilding' during active rebuild", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      augmenting: true,
+      augmentation: {
+        enabled: true,
+        total_nodes: 1240,
+        augmented_nodes: 234,
+        validated_nodes: 0,
+        avg_confidence: 0,
+        low_confidence_count: 0,
+        progress_current: 234,
+        progress_total: 1240,
+      },
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'catalogue',
+      barrier: { active: true, reason: 'rebuild' },
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('234 / 1,240 files');
+    expect(row).toHaveAttribute('data-stage-state', 'rebuilding');
+  });
+
+  // FIXTURE CA4 — disabled branch.
+  // !trace.exists → computeAugmentState returns 'disabled'. Hero gate
+  // bypassed via barrier.active+rebuild (same as PR-L S4/S5). Pins
+  // 'Waiting for graph' literal + the disabled-check mutants on
+  // line 1291.
+  it("Fixture CA4: catalogue row renders 'Waiting for graph' when !trace.exists during active rebuild", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      trace: {
+        enabled: true,
+        exists: false,
+        building: false,
+        counts: { nodes: 0, edges: 0 },
+        last_build_at: null,
+      },
+      fastSyncPhase: 'idle',
+      fastCurrentStage: undefined,
+      augmenting: false,
+      augmentation: undefined,
+      barrier: { active: true, reason: 'rebuild' },
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('Waiting for graph');
+    expect(row).toHaveAttribute('data-stage-state', 'disabled');
+  });
+
+  // FIXTURE CA5 — not_built branch (raw, not via override).
+  // trace.exists=true, !augmenting, !validating, !fastKnowledgeBuilding,
+  // augmentation=undefined → computeAugmentState returns 'not_built'.
+  // Group phase 'running' (not 'completed') so i3SafeStageState's
+  // early-coerce doesn't fire. Pins 'Not run' literal + the not_built
+  // mutants on line 1292.
+  it("Fixture CA5: catalogue row renders 'Not run' when aug payload absent and group phase not completed", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'catalogue',
+      augmenting: false,
+      validating: false,
+      fastKnowledgeBuilding: false,
+      augmentation: undefined,
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('Not run');
+    expect(row).toHaveAttribute('data-stage-state', 'not_built');
+  });
+
+  // FIXTURE CA6 — coverage path with pct + conf.
+  // Round-1 scrutiny correction: the raw catalogue-state computed
+  // from augmentation is 'stale' here, NOT 'complete' as the original
+  // comment claimed. With augmented_nodes=47 and total_nodes=100,
+  // `aug.augmented_nodes < aug.total_nodes * 0.5` (47 < 50) is true,
+  // so the augmentation→raw mapping (GraphEnrichmentPipeline.tsx
+  // around line 462-464) returns 'stale'. The i3SafeStageState
+  // coercion under fastSyncPhase='completed' then promotes the
+  // 'stale' raw state to safe='complete', which is what the chip
+  // renderer keys on. Either way the rendered text is the same;
+  // this comment exists to keep the fixture's mental model accurate
+  // for future readers.
+  // Pins the template literal on line 1304, the conf template on
+  // line 1302, the Math.round / pct arithmetic mutants on line 1299,
+  // and the conf>0 conditional mutants on line 1301.
+  it("Fixture CA6: catalogue row renders '47% coverage · 93% conf' under completed phase with augmentation populated", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      augmentation: {
+        enabled: true,
+        total_nodes: 100,
+        augmented_nodes: 47,
+        validated_nodes: 0,
+        avg_confidence: 0.93,
+        low_confidence_count: 0,
+      },
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('47% coverage');
+    expect(row).toHaveTextContent('93% conf');
+  });
+
+  // FIXTURE CA7 — total_nodes=0 ternary fallback.
+  // safeState='complete' + augmentation.total_nodes=0 → pct ternary
+  // takes the `: 0` branch (avoid divide-by-zero). Round-1 scrutiny
+  // correction: mutant attribution was swapped in the original
+  // comment. The ternary at line 1298 is `total_nodes > 0
+  // ? Math.min(100, ...) : 0`. The mutants this fixture catches:
+  //   - EqualityOperator(>=) flips `> 0` to `>= 0`, so total_nodes=0
+  //     passes the test, the true branch runs, and
+  //     `augmented_nodes / 0` yields NaN — fixture catches because
+  //     rendered text is "NaN% coverage" not "0% coverage".
+  //   - ConditionalExpression(true) forces the true branch directly,
+  //     same NaN failure mode as above.
+  //   - ConditionalExpression(false) forces the false branch, which
+  //     yields 0 — this fixture does NOT distinguish it from the
+  //     non-mutated state (both render "0% coverage"). The (true)
+  //     mutant is the one that's caught here, not (false).
+  it("Fixture CA7: catalogue row renders '0% coverage' when total_nodes=0", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      augmentation: {
+        enabled: true,
+        total_nodes: 0,
+        augmented_nodes: 0,
+        validated_nodes: 0,
+        avg_confidence: 0.5,
+        low_confidence_count: 0,
+      },
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('0% coverage');
+  });
+
+  // FIXTURE CA8 — §9.3 #31 CLAMP regression test (CRITICAL).
+  // Real production bug: catalogue chip rendered '5501% coverage'
+  // when augmented_nodes=7812 ran against total_nodes=142 (the
+  // data-semantics root cause is tracked separately; the defensive
+  // Math.min(100, ...) clamp on line 1299 prevents the UI from
+  // surfacing the broken ratio). Mutating Math.min → Math.max removes
+  // the clamp; this fixture detects the regression.
+  it("Fixture CA8 (§9.3 #31): catalogue row clamps to '100% coverage' when augmented_nodes > total_nodes (7812/142)", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      augmentation: {
+        enabled: true,
+        total_nodes: 142,
+        augmented_nodes: 7812,
+        validated_nodes: 0,
+        avg_confidence: 0.5,
+        low_confidence_count: 0,
+      },
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('100% coverage');
+    // The unclamped ratio is 5501% — must NEVER reach the DOM.
+    expect(row).not.toHaveTextContent('5501');
+  });
+
+  // FIXTURE CA9 — avg_confidence=0 → empty conf segment.
+  // Pins the line-1303 '' literal mutant (the StringLiteral mutant
+  // changes '' to "Stryker was here!") and the line-1301
+  // ConditionalExpression(true) mutant that would force the conf
+  // segment to render '0% conf'.
+  it("Fixture CA9: catalogue row renders '47% coverage' with no conf segment when avg_confidence=0", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      augmentation: {
+        enabled: true,
+        total_nodes: 100,
+        augmented_nodes: 47,
+        validated_nodes: 0,
+        avg_confidence: 0,
+        low_confidence_count: 0,
+      },
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('47% coverage');
+    expect(row).not.toHaveTextContent('conf');
+    expect(row).not.toHaveTextContent('Stryker');
+  });
+
+  // FIXTURE CG — downstream-position override pins stageId literal.
+  // catalogue is at position 2 in the fast group. fastCurrentStage=
+  // 'structural' (position 0) makes the override fire when raw
+  // computeAugmentState returns 'complete' (here via real augmentation
+  // with augmented_nodes >= total_nodes*0.5). i3SafeStageState then
+  // returns 'not_built' — IIFE renders 'Not run'.
+  //
+  // With mutant stageId '': groupForStage('') returns null →
+  // i3SafeStageState fails open and returns 'complete' → IIFE renders
+  // the coverage template. The not.toHaveTextContent('% coverage')
+  // assertion catches the mutant.
+  it("Fixture CG: catalogue row renders 'Not run' (not coverage) when downstream of running stage — pins stageId literal", () => {
+    const fixture: GraphEnrichmentPipelineProps = {
+      ...phase30Fixture,
+      fastSyncPhase: 'running',
+      fastCurrentStage: 'structural',
+      augmenting: false,
+      validating: false,
+      fastKnowledgeBuilding: false,
+      augmentation: {
+        enabled: true,
+        total_nodes: 100,
+        augmented_nodes: 50,
+        validated_nodes: 0,
+        avg_confidence: 0.93,
+        low_confidence_count: 0,
+      },
+    };
+    render(<GraphEnrichmentPipeline {...fixture} />);
+    const row = screen.getByTestId('pipeline-stage-row-catalogue');
+    expect(row).toHaveTextContent('Not run');
+    expect(row).not.toHaveTextContent('% coverage');
+  });
+});
