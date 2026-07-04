@@ -8,7 +8,7 @@ import logging
 import threading
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, Iterable, Optional
 
 from prep.services.build_orchestrator import (
     BuildOrchestrator,
@@ -64,6 +64,118 @@ logger = logging.getLogger(__name__)
 # case shrunk by 2.9% (836/861). The destructive-data-loss tests
 # (50%+ shrink) still block.
 _BASELINE_SHRINK_TOLERANCE = 0.10
+
+
+def _apply_worker_quality_overrides(
+    quality: Optional[Dict[str, Any]],
+    worker_result: Any,
+) -> Optional[Dict[str, Any]]:
+    """§9.3 #32 (PR-Q): override JSONL-derived quality block with
+    worker-provided `_expected_total` and `_processed_count` when
+    present. Clamps numerator at denominator to enforce the
+    `processed <= total_items` invariant. Recomputes `success_rate`
+    consistently. Returns the (possibly-mutated) quality dict.
+
+    Motivation: aggregate_quality_metrics computes `total_items` from
+    the JSONL line count and `processed` from lines with valid
+    confidence. For stages whose JSONL grows cumulatively across runs
+    (and may even be shared across stages — enrichment + deepening
+    both write to trace_epistemic.jsonl per stages.py:91/95), the line
+    count loses the "expected work" signal. A partial run that
+    processes 20 of 2072 expected items writes 20 jsonl lines, then
+    aggregate_quality_metrics reports total_items=20, processed=20,
+    success_rate=1.0 — silently marking the stage complete. Workers
+    that know the authoritative denominator populate
+    `_expected_total` in their result dict; this helper hoists those
+    values into the manifest quality block.
+
+    Behavior:
+      - If worker_result is not a dict, or has no `_expected_total`,
+        or `_expected_total <= 0`, returns `quality` unchanged
+        (back-compat for workers that haven't migrated).
+      - If `_expected_total` is present and > 0, overrides
+        `total_items` with it. If quality was None, creates a fresh
+        dict.
+      - If `_processed_count` is also present and >= 0, overrides
+        `processed` with `min(_processed_count, _expected_total)`.
+        Otherwise leaves `processed` at the JSONL-derived value (also
+        clamped to `_expected_total` to enforce the invariant — a
+        JSONL with more lines than the worker expected indicates a
+        cross-stage write or a stale file).
+      - Recomputes `success_rate` from the final processed/total.
+
+    See: FINDING_incremental-run-shows-50pct-work-after-interrupted-
+    rebuild.md §3a; FINDING_stage-progress-non-monotonic.md §9 (the
+    2026-06-25 Applifier dogfood case).
+    """
+    if not isinstance(worker_result, dict):
+        return quality
+    wr_expected = worker_result.get("_expected_total")
+    # PR-Q-fixup-r1 (scrutiny F1): exclude bool from the int check —
+    # Python's isinstance(True, int) is True, so a buggy worker that
+    # accidentally emits `_expected_total = True` would otherwise
+    # write True into manifest.total_items and downstream consumers
+    # (Pydantic, JSON serializer, throughput compute, the chip) would
+    # treat it inconsistently. The helper is the safety net for
+    # buggy/migrating workers; reject bool explicitly.
+    if (
+        not isinstance(wr_expected, int)
+        or isinstance(wr_expected, bool)
+        or wr_expected <= 0
+    ):
+        return quality
+    if quality is None:
+        quality = {}
+    quality["total_items"] = wr_expected
+    wr_processed = worker_result.get("_processed_count")
+    if (
+        isinstance(wr_processed, int)
+        and not isinstance(wr_processed, bool)  # same defense as above
+        and wr_processed >= 0
+    ):
+        quality["processed"] = min(wr_processed, wr_expected)
+    else:
+        # No explicit override — clamp the JSONL-derived value too
+        # so a stale-file scenario (jsonl has more lines than the
+        # worker expected) doesn't leak as success_rate > 1.0.
+        jsonl_processed = quality.get("processed", 0)
+        if isinstance(jsonl_processed, int) and not isinstance(jsonl_processed, bool):
+            quality["processed"] = min(jsonl_processed, wr_expected)
+        else:
+            # PR-Q-fixup-r2 (scrutiny FIXUP-2): if jsonl_processed is
+            # bool or non-int (upstream aggregate corruption), zero it
+            # out so the chip surfaces 0% rather than silently
+            # preserving the bogus value through the helper. Bool
+            # processed would otherwise survive both bool guards (the
+            # min(True, N) call returns True for N >= 1) and leak into
+            # manifest.quality.processed.
+            quality["processed"] = 0
+    proc = quality.get("processed", 0)
+    quality["success_rate"] = round(proc / wr_expected, 3)
+    return quality
+
+
+def _copy_safe_worker_result_keys(
+    snapshot_data: Dict[str, Any],
+    worker_result: Any,
+    keys: Iterable[str],
+) -> None:
+    """PR-Q-fixup-r2 (scrutiny FIXUP-1): copy keys from worker_result
+    into snapshot_data, rejecting bool values. Same F1 bug class as
+    _apply_worker_quality_overrides — a worker that emits
+    `total_items=True` would otherwise write True into the snapshot
+    that drives /pipeline/status (read by the dashboard chip). The
+    manifest path is already bool-guarded; this is the second blast
+    radius the round-2 scrutiny found.
+
+    Mutates snapshot_data in place. No-op when worker_result is not a
+    dict (matches the pre-fixup snapshot site behavior).
+    """
+    if not isinstance(worker_result, dict):
+        return
+    for key in keys:
+        if key in worker_result and not isinstance(worker_result[key], bool):
+            snapshot_data[key] = worker_result[key]
 
 
 class PipelineOrchestrator:
@@ -3914,11 +4026,12 @@ class PipelineOrchestrator:
                 snapshot_data["progress_total"] = slot.progress_total
                 snapshot_data["progress_baseline"] = getattr(slot, "progress_baseline", 0)
 
-            # Item counts from worker result
-            if isinstance(worker_result, dict):
-                for key in ("total_items", "processed", "item_count", "nodes", "edges"):
-                    if key in worker_result:
-                        snapshot_data[key] = worker_result[key]
+            # Item counts from worker result (PR-Q-fixup-r2 FIXUP-1:
+            # bool-guarded; see _copy_safe_worker_result_keys docstring).
+            _copy_safe_worker_result_keys(
+                snapshot_data, worker_result,
+                ("total_items", "processed", "item_count", "nodes", "edges"),
+            )
 
             # Quality from manifest (just written by _write_stage_manifest)
             try:
@@ -4645,8 +4758,17 @@ class PipelineOrchestrator:
                     if quality:
                         manifest.quality = quality
 
+                    # §9.3 #32 (PR-Q): override JSONL-derived quality with
+                    # worker-provided expected_total / processed_count when
+                    # available. See _apply_worker_quality_overrides docstring
+                    # for the full motivation. Falls back to JSONL semantics
+                    # for workers that haven't migrated.
+                    manifest.quality = _apply_worker_quality_overrides(
+                        manifest.quality, worker_result,
+                    )
+
                     # Throughput
-                    total = quality.get("total_items", 0)
+                    total = (manifest.quality or {}).get("total_items", 0)
                     elapsed = manifest.elapsed_seconds or 0
                     if total > 0 and elapsed > 0:
                         manifest.throughput = compute_throughput(total, elapsed)
@@ -4657,8 +4779,8 @@ class PipelineOrchestrator:
                         model_field="model",
                         confidence_field=conf_field,
                     )
-                    if breakdown:
-                        quality["model_breakdown"] = breakdown
+                    if breakdown and manifest.quality is not None:
+                        manifest.quality["model_breakdown"] = breakdown
 
                     # Output file metadata
                     manifest.output_files = {

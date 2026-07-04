@@ -155,6 +155,14 @@ class AugmentResult:
     duration_ms: float = 0.0
     errors: List[str] = field(default_factory=list)
 
+    # §9.3 #32: count of nodes in the project trace whose kind is augmentable
+    # (currently `symbol` or `file`). This is the project-wide denominator
+    # the manifest needs to match against `len(entries)` (the cumulative
+    # numerator). Pre-PR-P, the manifest used `total_nodes - skipped` which
+    # by substitution equals `total_work` (this-run scope) and produced
+    # ratios > 100% when entries accumulated across incremental runs.
+    project_augmentable_count: int = 0
+
     # Telemetry for batching and context sizes
     batches_attempted: int = 0
     batches_failed: int = 0
@@ -1679,6 +1687,18 @@ class TraceAugmenter(HoldAwareMixin, Worker):
         symbol_nodes = [n for n in nodes if n.get("kind") == "symbol"]
         file_nodes = [n for n in nodes if n.get("kind") == "file"]
 
+        # §9.3 #32: project-wide augmentable id set. Single source of truth
+        # for both the manifest denominator (`project_augmentable_count`)
+        # and the orphan filter (`valid_node_ids` passed to _write_manifest).
+        # Must use the SAME kind filter on both sides — otherwise an entry
+        # on disk whose kind is in nodes_by_id but NOT in {symbol,file}
+        # (e.g. legacy 'section' augmentations) would pass the orphan
+        # filter and re-inflate the numerator past the denominator. Must
+        # be computed BEFORE _needs_augmentation, which is the this-run
+        # work selector.
+        augmentable_ids = {n["id"] for n in symbol_nodes} | {n["id"] for n in file_nodes}
+        result.project_augmentable_count = len(augmentable_ids)
+
         # Filter to nodes needing augmentation
         to_augment_symbols = [n for n in symbol_nodes if self._needs_augmentation(n, existing)]
         to_augment_files = [n for n in file_nodes if self._needs_augmentation(n, existing)]
@@ -1993,7 +2013,11 @@ class TraceAugmenter(HoldAwareMixin, Worker):
 
         # Write atomically
         self._write_augmentations(augmented)
-        self._write_manifest(result, augmented)
+        # §9.3 #32: pass the augmentable id set (kind-filtered, same source
+        # as project_augmentable_count above) so orphan entries on disk
+        # — including legacy entries whose kind is no longer augmentable —
+        # don't inflate counts.augmented past counts.total_nodes.
+        self._write_manifest(result, augmented, valid_node_ids=augmentable_ids)
         
         # Write exploratory telemetry
         if getattr(self, "is_exploratory", False) and result.retry_telemetry:
@@ -2130,8 +2154,28 @@ class TraceAugmenter(HoldAwareMixin, Worker):
                 pass
             raise
 
-    def _write_manifest(self, result: AugmentResult, entries: Dict[str, AugmentationEntry]) -> None:
-        """Write augmentation manifest."""
+    def _write_manifest(
+        self,
+        result: AugmentResult,
+        entries: Dict[str, AugmentationEntry],
+        valid_node_ids: Optional[Set[str]] = None,
+    ) -> None:
+        """Write augmentation manifest.
+
+        §9.3 #32: when `valid_node_ids` is provided, the manifest's
+        `counts.augmented` field counts only entries whose node_id is
+        in that set — orphan entries from prior runs (whose nodes no
+        longer exist in the trace) do NOT inflate the numerator past
+        the project-wide denominator. Callers from `run()` pass
+        `augmentable_ids` — the kind-filtered set of {symbol, file}
+        node ids — NOT the full `nodes_by_id.keys()`; using the full
+        set would let any non-augmentable-kind entries on disk (e.g.
+        legacy `section` augmentations) bypass the orphan filter and
+        re-inflate counts.augmented above counts.total_nodes. Legacy
+        callers that omit `valid_node_ids` get the pre-PR-P
+        `len(entries)` semantics (and trigger the fallback warning
+        below if `project_augmentable_count` is also unset).
+        """
         # Exclude synthetic entries from avg confidence — they have 0.1 confidence
         # and artificially drag down the average (e.g. 61% instead of ~85%).
         real_confidences = [e.confidence for e in entries.values() if not e.model.startswith("synthetic:")]
@@ -2140,16 +2184,46 @@ class TraceAugmenter(HoldAwareMixin, Worker):
         low_conf = sum(1 for e in entries.values() if e.confidence < 0.5 and not e.model.startswith("synthetic:"))
         validated = sum(1 for e in entries.values() if e.validated)
 
-        # Augmentable nodes = total minus skipped (external_module nodes can't be augmented)
-        augmentable_nodes = result.total_nodes - result.skipped
+        # §9.3 #32: numerator must share scope with the denominator.
+        # When valid_node_ids is provided, orphan entries (node_id not in
+        # current trace) are excluded from the count. Otherwise fall back
+        # to the legacy cumulative count for back-compat.
+        if valid_node_ids is not None:
+            augmented_count = sum(1 for nid in entries.keys() if nid in valid_node_ids)
+        else:
+            augmented_count = len(entries)
+
+        # §9.3 #32: project-wide augmentable count (set in run() at the
+        # symbol_nodes / file_nodes split). This matches the denominator
+        # `len(entries)` implicitly counts against. Pre-PR-P the field was
+        # `result.total_nodes - result.skipped` which by substitution
+        # collapsed to `total_work` (this-run scope); incremental no-op
+        # runs would write total_nodes=small while len(entries)=large,
+        # producing the 5501% chip. Fall back to the old value when
+        # project_augmentable_count is 0 (callers constructing AugmentResult
+        # outside run() haven't been migrated yet) — same semantics as
+        # before for them, but log a warning so a regression that drops
+        # the field-population in run() doesn't silently revert the fix.
+        if result.project_augmentable_count > 0:
+            total_for_manifest = result.project_augmentable_count
+        else:
+            total_for_manifest = result.total_nodes - result.skipped
+            if result.total_nodes > 0:
+                logger.warning(
+                    "§9.3 #32 fallback: AugmentResult.project_augmentable_count "
+                    "is 0 but total_nodes=%d > 0; using pre-PR-P denominator. "
+                    "Caller should populate project_augmentable_count to keep "
+                    "augmented_nodes <= total_nodes.",
+                    result.total_nodes,
+                )
 
         manifest = {
             "version": AUGMENT_FORMAT_VERSION,
             "built_at": datetime.now(timezone.utc).isoformat(),
             "model": self.llm.model,
             "counts": {
-                "total_nodes": augmentable_nodes,
-                "augmented": len(entries),
+                "total_nodes": total_for_manifest,
+                "augmented": augmented_count,
                 "validated": validated,
                 "low_confidence": low_conf,
                 "skipped_external": result.skipped,

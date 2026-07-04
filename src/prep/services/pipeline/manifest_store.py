@@ -109,30 +109,61 @@ class ManifestStore:
         Without this merge, the ~304-byte provenance blob would overwrite
         the ~97 KB manifest, causing coverage gap to report all files as
         untraced and triggering an infinite restart loop.
+
+        For CATALOGUE, the provenance manifest is trace_augment_manifest.json
+        which is ALSO written by TraceAugmenter._write_manifest with v1-shape
+        fields (``counts``, ``stats``). The same merge-preservation pattern
+        applies: without it, the orchestrator's v2 blob clobbers the v1
+        counts/stats and the §9.3 #32 fix (PR-P) becomes dead code in
+        pipeline mode — augmenter.status() falls back to v2's quality block
+        which has different semantics (per-jsonl-line counts that always
+        round to ~100%). (Phase 145, 2026-06-25.)
         """
         if stage == StageId.STRUCTURAL:
-            path = self.provenance_path(stage)
-            existing: dict[str, Any] = {}
-            if path.exists():
-                try:
-                    with open(path, encoding="utf-8") as f:
-                        existing = json.load(f)
-                except (json.JSONDecodeError, OSError):
-                    pass  # Corrupt — overwrite is fine
-            # Merge: provenance fields update the manifest, but
-            # file_hashes and builder-owned keys are preserved.
-            # `hash_algo` and `built_at` are builder-owned and MUST survive:
-            # dropping hash_algo forced _emit_changeset onto its "can't
-            # compare → trust prior" path (Case 3) for every project, so
-            # content edits were never reported as `modified`; dropping
-            # built_at blinded check_index_staleness. (Phase 145, 2026-06-15.)
             preserved_keys = ("file_hashes", "config", "file_errors", "hash_algo", "built_at")
-            for key in preserved_keys:
-                if key in existing and key not in data:
-                    data[key] = existing[key]
-            self._atomic_write_json(path, data)
+            self._merge_preserve_and_write(stage, data, preserved_keys)
+        elif stage == StageId.CATALOGUE:
+            # §9.3 #32: preserve TraceAugmenter._write_manifest's v1 fields so
+            # PR-P's project_augmentable_count + orphan-filter survive the
+            # orchestrator's v2 manifest write. augmenter.status() reads v1
+            # first (counts.total_nodes / counts.augmented) before falling
+            # back to v2's quality block.
+            #
+            # PR-P-fixup-r2 (PRP-FIX-001 from scrutiny round 2): also preserve
+            # `built_at` and `model` so augmenter.status()'s v1 branch can
+            # still populate `last_augment_at` (reads built_at, not v2's
+            # finished_at) and the model attribution string. Without these,
+            # every pipeline-driven catalogue run silently nulls
+            # last_augment_at in the dashboard.
+            preserved_keys = ("counts", "stats", "version", "built_at", "model")
+            self._merge_preserve_and_write(stage, data, preserved_keys)
         else:
             self._atomic_write_json(self.provenance_path(stage), data)
+
+    def _merge_preserve_and_write(
+        self,
+        stage: StageId,
+        data: dict[str, Any],
+        preserved_keys: tuple[str, ...],
+    ) -> None:
+        """Read the existing provenance manifest at `stage` and preserve
+        the named keys before writing `data` atomically. If `data` already
+        has a key in `preserved_keys`, the new value wins (caller intent
+        respected); otherwise the existing on-disk value is carried over.
+        Corrupt or missing existing file → overwrite cleanly with `data`.
+        """
+        path = self.provenance_path(stage)
+        existing: dict[str, Any] = {}
+        if path.exists():
+            try:
+                with open(path, encoding="utf-8") as f:
+                    existing = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                pass  # Corrupt — overwrite is fine
+        for key in preserved_keys:
+            if key in existing and key not in data:
+                data[key] = existing[key]
+        self._atomic_write_json(path, data)
 
     def read_provenance(self, stage: StageId) -> dict[str, Any] | None:
         """Read a provenance manifest. Returns None if missing or corrupt."""

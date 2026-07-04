@@ -135,6 +135,22 @@ For the user's next dogfooding session:
 
 Per Phase 145 working principles, this finding documents the symptom and pins the proximate code paths. Fixes belong in a later PROPOSAL_ once §5 diagnostic step 1 produces evidence on whether the trigger was UI / API / selfheal.
 
+## 8. Recurrence on Applifier 2026-06-25
+
+Same row, same project, same family. Live dashboard screenshot during an incremental rebuild (stale/new files): Deep Reasoning row reads `1,257 / 1,225 files · 100%`. The pattern (numerator > denominator while displayed as 100%) is identical to §3a — the enrichment manifest's `quality` block reports a numerator drawn from cumulative jsonl content while the denominator reflects a different scope (likely the smaller current-run-work set or a stale `progress_total`).
+
+The 2026-06-21 occurrence (1,069 / 1,058) is captured in [`FINDING_stage-progress-non-monotonic.md`](FINDING_stage-progress-non-monotonic.md) §8; the 2026-06-25 occurrence is in §9 of that file. This is now a repeatedly-reproduced bug, not a one-off.
+
+**Cross-reference: the catalogue-stage analogue of this bug class** was filed under §9.3 #32 as `FINDING_catalogue-augmented-vs-total-semantic-mismatch.md` (commit `a9663d7d`). The fix landed for catalogue across three commits — PR-P `1de94cac` + PR-P-fixup `fbb0163d` (ManifestStore CATALOGUE merge-preservation) + PR-P-fixup-r2 `93b4f8a8` (`built_at`/`model` preservation + load-bearing tests). Recipe:
+
+  1. Augmenter writes a v1 manifest with a project-wide augmentable denominator (`AugmentResult.project_augmentable_count`) and an orphan-filtered numerator (`valid_node_ids` excludes entries whose node_id is not in the kind-filtered current trace).
+  2. `ManifestStore.write_provenance` preserves the v1 fields (`counts`, `stats`, `version`, `built_at`, `model`) when the orchestrator's v2 blob overwrites the same file. Without this, the v1 fix is dead code in pipeline mode (the v2 write happens milliseconds after v1).
+  3. `augmenter.status()` reads v1 first; falls back to v2 only when v1 is absent.
+
+The deepening / enrichment stages share the file (`trace_epistemic.jsonl`, per the `STAGE_OUTPUT_FILE` linked code below). The same recipe should apply, with the additional complication that the file is shared by two stages so the v1-writer-equivalent will need to know which stage's counts it owns. That's the scope of a follow-up PR (proposed PR-Q in the Phase 145 sweep).
+
+The frontend monotonic / clamp guard from [`FINDING_stage-progress-non-monotonic.md`](FINDING_stage-progress-non-monotonic.md) §5 remains the right defensive layer in addition to the backend fix.
+
 ---
 
 **Linked code:**
