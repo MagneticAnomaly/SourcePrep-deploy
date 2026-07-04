@@ -99,21 +99,33 @@ stays as the teaching artifact.
    import ≈ no approval dialog (MEDIUM — live smoke kept as PR-2
    gate), Gemini memport confirmed `.md`-only with graceful
    missing-file error (HIGH).
-3. **PR-1** content split + volatile writer (pure content-shape tests).
-4. **PR-2** pointer wiring + gitignore ensure + **W1 server repoint**
-   — gates: fresh-eyes read of the §5.5 behavior table + 5-minute
-   import smoke.
-5. **PR-3** no-op write guard + dogfood migration commit for this repo
-   (root project **and** nested `websites/apps` in one commit).
-6. **§9.5 manual migration sweep** — carefully regenerate + commit
-   the slimmed rules files in every registered project (15 entries,
-   single-user install base, no pushes). See the v2 proposal's
-   per-project table with special-handling notes (nested projects,
-   gitignored eval repos, HomeColab's 45–90 min rebuild cost, the
-   Deep-Live-Cam fork).
-7. **Post-landing observation week:** confirm `git status` stays clean
-   across pipeline runs on this repo and one client repo
-   (PowerMateReborn).
+3. ~~PR-1/2/3 + W1~~ — **shipped 2026-07-04 as one commit**
+   (`78661c83`, branch `phase147/static-pointer-split`, merged to
+   local main). Implementation used a `_sections` gate on
+   `_build_managed_content` instead of extracting two functions —
+   zero template duplication, legacy tests pass untouched. 186
+   rules-adjacent tests green; the 5 `test_mcp_server.py` failures
+   are pre-existing stale assertions (fail identically on main).
+   Bonus fix found by the kill-shot test: `_splice` no longer
+   prepends `\n\n` when there is no user content above the markers
+   (a one-time churn on generator-created files).
+   **Still open from the gates:** fresh-eyes read of §5.5 W1 rows;
+   the V2 live import smoke (first real Claude Code session in this
+   repo doubles as it).
+4. **§9.5 manual migration sweep — 2 of 15 done 2026-07-04:**
+   SourcePrep root + nested `websites/apps` (`38e7e9fe`, one commit)
+   and Applifier/ApplicationBrowser (`12efbe17` in that repo, not
+   pushed). Verified live: `prep rules-regenerate` on both now
+   leaves `git status` untouched. Remaining 13 projects: follow the
+   v2 §9.5 table (HomeColab: regen only, no rebuild; Deep-Live-Cam:
+   fork, never push; PMR/smoke-test: gitignored, nothing to commit).
+   Note: `websites/GEMINI.md` turned out to be a hand-written Gemini
+   prompt with no managed markers — not a generator artifact, left
+   alone.
+5. **Post-landing observation week:** confirm `git status` stays clean
+   across real pipeline runs (daemon was down during migration — the
+   first daemon-driven regen is the remaining live check) on this
+   repo and one client repo.
 
 ## Exit criteria
 
