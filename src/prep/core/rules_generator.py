@@ -28,8 +28,29 @@ def _write(path: Path, content: str) -> None:
     AGENTS.md + per-IDE rule files are user-visible and often git-tracked,
     so mid-write crashes must not leave them half-populated. Uses a
     sibling .tmp file and `os.replace` (atomic rename on the same fs).
+
+    Phase 147: no-op when the on-disk content is byte-identical, so
+    regeneration does not churn mtimes (IDE rules-reload, file watchers)
+    when nothing actually changed.
     """
+    try:
+        if path.exists() and path.read_text(encoding="utf-8") == content:
+            return
+    except Exception:
+        pass
     atomic_write_text(path, content)
+
+
+def _splice(before: str, section: str, after: str) -> str:
+    """Reassemble a marker-managed file around a fresh managed section.
+
+    When there is no user content above the markers, emit no leading
+    blank lines — otherwise a file first created by the generator would
+    gain a "\\n\\n" prefix on its first splice rewrite and churn once
+    (Phase 147: tracked files must be byte-stable across regenerations).
+    """
+    prefix = before.rstrip("\n") + "\n\n" if before.strip() else ""
+    return prefix + section + after
 
 # ── Markers for managed sections ────────────────────────────────────
 # Used to identify Prep-managed content in rules files that may also
@@ -47,6 +68,13 @@ _WINDSURF_MARKER_START = _MANAGED_MARKER_START
 _WINDSURF_MARKER_END = _MANAGED_MARKER_END
 _CLAUDE_MARKER_START = _MANAGED_MARKER_START
 _CLAUDE_MARKER_END = _MANAGED_MARKER_END
+
+# Phase 147: volatile context (timestamp, stats, atlas, project_id, focus
+# areas, scopes) lives in a single gitignored file; tracked rules files
+# carry only static instructions plus a pointer to it.
+# See docs/Phase147_Managed-Rules-Churn/PROPOSAL_static-pointer-volatile-context-v2.md
+_CONTEXT_FILE_REL = ".sourceprep/AGENT_CONTEXT.md"
+_GITIGNORE_COMMENT = "# SourcePrep volatile agent context (auto-added; keep ignored)"
 
 # Debounce timer for rules file regeneration triggered by included_paths changes
 _regen_timers: Dict[str, threading.Timer] = {}
@@ -96,6 +124,24 @@ def write_rules_file(
 
     targets = _detect_targets(project_path, ide)
 
+    # Phase 147: all volatile content (timestamp, stats, atlas, project_id,
+    # focus areas, scopes) renders into a single gitignored context file;
+    # the tracked per-IDE files below carry only static instructions plus
+    # a pointer to it.
+    try:
+        results["agent_context"] = _write_volatile_context(
+            project_path,
+            project_name,
+            atlas_content,
+            included_paths,
+            is_preliminary,
+            stats,
+            project_id,
+        )
+    except Exception as e:
+        logger.warning("Failed to write %s: %s", _CONTEXT_FILE_REL, e)
+        results["agent_context"] = False
+
     _args = (project_path, project_name, atlas_content, included_paths, is_preliminary, stats, project_id)
 
     _writers = {
@@ -126,6 +172,7 @@ def write_rules_file(
                     project_id=project_id,
                     filename="GEMINI.md",
                     heading="# SourcePrep Integration",
+                    pointer="import",  # Gemini CLI supports @file.md memport
                 )
             else:
                 results[target_ide] = writer(*_args)
@@ -191,6 +238,11 @@ def detect_and_regenerate(
             try:
                 content = path.read_text(encoding="utf-8")
                 if _CLAUDE_MARKER_START not in content and _CURSOR_MARKER_START not in content:
+                    needs_write.append(target)
+                elif "AGENT_CONTEXT.md" not in content:
+                    # Phase 147 self-heal: markers present but no pointer to
+                    # the volatile context file — legacy fat managed block.
+                    # Rewrite slim.
                     needs_write.append(target)
             except Exception:
                 needs_write.append(target)
@@ -467,6 +519,7 @@ def _build_managed_content(
     stats: Optional[Dict[str, Any]],
     project_id: Optional[str] = None,
     target: str = "universal",
+    _sections: str = "all",
 ) -> str:
     """Build the Prep-managed content block.
 
@@ -475,77 +528,86 @@ def _build_managed_content(
             "claude" — compact, Claude Code-specific (~60 lines)
             "cursor" — no Claude-specific hints
             "universal" — verbose, for AGENTS.md (default, backward-compat)
+        _sections: Phase 147 internal gate. "all" (legacy combined output),
+            "static" (instructions only — deterministic, no timestamp/atlas/
+            project_id), or "volatile" (the dynamic sections only — rendered
+            into the gitignored context file). External callers should use
+            _build_static_instructions / _build_volatile_sections instead.
     """
     parts: List[str] = []
+    _static = _sections in ("all", "static")
+    _volatile = _sections in ("all", "volatile")
 
-    # ── Header (all targets) ──
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    stat_parts = [f"Last updated: {now}"]
-    if stats:
-        if stats.get("node_count"):
-            stat_parts.append(f"{stats['node_count']} nodes")
-        if stats.get("edge_count"):
-            stat_parts.append(f"{stats['edge_count']} edges")
-        if stats.get("coverage_pct") is not None:
-            stat_parts.append(f"{stats['coverage_pct']}% coverage")
-    if is_preliminary:
-        stat_parts.append("Full analysis in progress")
-    parts.append(" | ".join(stat_parts))
-    parts.append("")
-
-    # ── Project ID routing (all targets) ──
-    if project_id:
-        parts.append(f"prep_project_id: {project_id}")
+    if _volatile:
+        # ── Header ──
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        stat_parts = [f"Last updated: {now}"]
+        if stats:
+            if stats.get("node_count"):
+                stat_parts.append(f"{stats['node_count']} nodes")
+            if stats.get("edge_count"):
+                stat_parts.append(f"{stats['edge_count']} edges")
+            if stats.get("coverage_pct") is not None:
+                stat_parts.append(f"{stats['coverage_pct']}% coverage")
+        if is_preliminary:
+            stat_parts.append("Full analysis in progress")
+        parts.append(" | ".join(stat_parts))
         parts.append("")
+
+        # ── Project ID routing ──
+        if project_id:
+            parts.append(f"prep_project_id: {project_id}")
+            parts.append("")
+            parts.append(
+                f"**ROUTING: When calling ANY SourcePrep tool, ALWAYS include "
+                f"`project_id: \"{project_id}\"` in the arguments.**"
+            )
+            parts.append("")
+
+    if _static:
+        # ── Tool table (all targets — compact reference) ──
+        parts.append("## Tools")
+        parts.append("| Tool | When to Use |")
+        parts.append("|------|-------------|")
+        parts.append("| `prep` | START of every task — structural overview, modules, hub files, immune system alerts |")
+        parts.append("| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, COMPARE, DISCOVER). |")
+        parts.append("| `prep_impact` | BEFORE editing — check what depends on a file |")
+        parts.append("| `prep_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action=\"antibodies\"` for immune system. |")
+        parts.append("| `prep_observe` | Save/retrieve cross-session notes |")
+        parts.append("| `prep_concepts` | Record/query business rationale and design decisions |")
+        parts.append("")
+        parts.append("Call `prep` first. Call `prep_impact` before modifying hub files.")
+        parts.append("All read-only tools are safe to auto-approve.")
+        parts.append("")
+        parts.append("### Audit Enrichment")
+        parts.append("Enrich external lint/analysis findings with structural context:")
+        parts.append("```")
+        parts.append("prep_audit(findings=[{file, line, message, severity, tool}])")
+        parts.append("```")
+        parts.append("SourcePrep adds: dependent count, hub status, concepts, risk score, recommendation.")
+        parts.append("Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.")
+        parts.append("")
+        parts.append("### Search Intent")
+        parts.append("`prep_search` auto-detects query intent: \"where is X\" → symbol lookup,")
+        parts.append("\"why X\" → concepts, \"who imports X\" → trace graph. Override with `intent` param if needed.")
+        parts.append("")
+        # Phase 119 Task 16: discoverability hint for the discovered-ceiling
+        # mechanism. Surfaced near the search-intent section so an agent
+        # diagnosing throttling symptoms is one search away from the docs.
+        parts.append("### Concurrency limits")
         parts.append(
-            f"**ROUTING: When calling ANY SourcePrep tool, ALWAYS include "
-            f"`project_id: \"{project_id}\"` in the arguments.**"
+            "If your queries to the cloud LLM seem unexpectedly throttled, check"
+        )
+        parts.append(
+            "`prep_search \"concurrency ceiling\"` for the current discovered limit"
+        )
+        parts.append(
+            "and how to reset it. The limit is auto-discovered and locked for 24h."
         )
         parts.append("")
 
-    # ── Tool table (all targets — compact reference) ──
-    parts.append("## Tools")
-    parts.append("| Tool | When to Use |")
-    parts.append("|------|-------------|")
-    parts.append("| `prep` | START of every task — structural overview, modules, hub files, immune system alerts |")
-    parts.append("| `prep_search` | Find code by meaning, not just string match. Auto-classifies intent (LOCATE, EXPLAIN, RATIONALE, TRACE, EXAMPLE, COMPARE, DISCOVER). |")
-    parts.append("| `prep_impact` | BEFORE editing — check what depends on a file |")
-    parts.append("| `prep_audit` | Structural findings (coupling, cycles, concept violations) OR enrich external lint findings with `findings` param. Use `action=\"antibodies\"` for immune system. |")
-    parts.append("| `prep_observe` | Save/retrieve cross-session notes |")
-    parts.append("| `prep_concepts` | Record/query business rationale and design decisions |")
-    parts.append("")
-    parts.append("Call `prep` first. Call `prep_impact` before modifying hub files.")
-    parts.append("All read-only tools are safe to auto-approve.")
-    parts.append("")
-    parts.append("### Audit Enrichment")
-    parts.append("Enrich external lint/analysis findings with structural context:")
-    parts.append("```")
-    parts.append("prep_audit(findings=[{file, line, message, severity, tool}])")
-    parts.append("```")
-    parts.append("SourcePrep adds: dependent count, hub status, concepts, risk score, recommendation.")
-    parts.append("Also accepts SARIF dicts for SARIF-in/SARIF-out enrichment.")
-    parts.append("")
-    parts.append("### Search Intent")
-    parts.append("`prep_search` auto-detects query intent: \"where is X\" → symbol lookup,")
-    parts.append("\"why X\" → concepts, \"who imports X\" → trace graph. Override with `intent` param if needed.")
-    parts.append("")
-    # Phase 119 Task 16: discoverability hint for the discovered-ceiling
-    # mechanism. Surfaced near the search-intent section so an agent
-    # diagnosing throttling symptoms is one search away from the docs.
-    parts.append("### Concurrency limits")
-    parts.append(
-        "If your queries to the cloud LLM seem unexpectedly throttled, check"
-    )
-    parts.append(
-        "`prep_search \"concurrency ceiling\"` for the current discovered limit"
-    )
-    parts.append(
-        "and how to reset it. The limit is auto-discovered and locked for 24h."
-    )
-    parts.append("")
-
     # ── Target-specific instructions ──
-    if target == "claude":
+    if _static and target == "claude":
         parts.append(
             "**ALWAYS call `prep` (no arguments) at the START of every task** — "
             "before any file read, grep, or other exploration. "
@@ -565,13 +627,13 @@ def _build_managed_content(
             "Use `@` to browse SourcePrep resources (atlas, modules, audit). "
             "Use `/mcp__prep__prep-onboard` for guided orientation."
         )
-    elif target == "cursor":
+    elif _static and target == "cursor":
         parts.append(
             "For specific code lookups, use `prep_search` with a natural language query.\n"
             "SourcePrep understands structural relationships — use it instead of\n"
             "grep when you need to understand how files connect."
         )
-    else:
+    elif _static:
         # Universal (AGENTS.md): verbose, multi-IDE
         parts.append(
             "You have access to SourcePrep, a structural code intelligence system.\n"
@@ -601,8 +663,8 @@ def _build_managed_content(
             "In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings."
         )
 
-    # ── Atlas (all targets) ──
-    if atlas_content and atlas_content.strip():
+    # ── Atlas (volatile) ──
+    if _volatile and atlas_content and atlas_content.strip():
         atlas_hash = hashlib.sha256(atlas_content.strip().encode()).hexdigest()[:12]
         parts.append("")
         parts.append(f"<!-- prep-atlas-hash:{atlas_hash} -->")
@@ -616,14 +678,14 @@ def _build_managed_content(
     # AGENTS.md without needing an MCP call. Data source:
     # atlas_markdown_links.json (Phase 124 T2). Renders nothing if T2
     # hasn't run for this project.
-    if target == "universal" and project_id:
+    if _volatile and target == "universal" and project_id:
         docs_block = _render_docs_per_module_section(project_id)
         if docs_block:
             parts.append("")
             parts.append(docs_block)
 
-    # ── Focus areas (all targets) ──
-    if included_paths:
+    # ── Focus areas (volatile) ──
+    if _volatile and included_paths:
         parts.append("")
         parts.append("## Focus Areas")
         for p in included_paths[:15]:
@@ -632,8 +694,8 @@ def _build_managed_content(
             parts.append(f"- ... +{len(included_paths) - 15} more")
         parts.append("Call `prep` for detailed content from these areas.")
 
-    # ── Named scopes (Phase 120) ──
-    if project_id:
+    # ── Named scopes (Phase 120, volatile) ──
+    if _volatile and project_id:
         try:
             from prep.core.scope_store import scope_store
             scopes = scope_store.list(project_id)
@@ -651,19 +713,20 @@ def _build_managed_content(
             scope_ids = ", ".join(f"`{s.id}`" for s in scopes)
             parts.append(f"Available scopes: `global`, {scope_ids}")
 
-    # ── Fallback / refresh hints (all targets) ──
-    parts.append("")
-    parts.append(
-        "If `prep` returns 'setup in progress', the index hasn't been built yet.\n"
-        "Work normally with read_file/grep_search until the user builds the index."
-    )
-    parts.append("")
-    parts.append(
-        "For long tasks (5+ tool calls), call `prep` again to refresh your\nstructural context."
-    )
+    # ── Fallback / refresh hints (static) ──
+    if _static:
+        parts.append("")
+        parts.append(
+            "If `prep` returns 'setup in progress', the index hasn't been built yet.\n"
+            "Work normally with read_file/grep_search until the user builds the index."
+        )
+        parts.append("")
+        parts.append(
+            "For long tasks (5+ tool calls), call `prep` again to refresh your\nstructural context."
+        )
 
     # ── Universal-only verbose sections ──
-    if target == "universal":
+    if _static and target == "universal":
         parts.append("")
         parts.append(
             "You can call `prep` and `prep_search` in parallel on your first\n"
@@ -700,6 +763,174 @@ def _build_managed_content(
     return "\n".join(parts)
 
 
+# ── Phase 147: static/volatile split ────────────────────────────────
+# Tracked rules files carry only deterministic instructions plus a
+# pointer; everything that changes per index run renders into the
+# gitignored _CONTEXT_FILE_REL. This is what makes the tracked files
+# converge to a fixed point (no more phantom-WIP git status noise, no
+# more same-file-tail merge conflicts).
+
+
+def _build_static_instructions(target: str = "universal") -> str:
+    """Deterministic instruction block for a target profile.
+
+    No timestamp, no stats, no atlas, no project_id — byte-identical
+    across regenerations until the product template itself changes.
+    """
+    return _build_managed_content(
+        "", "", None, False, None, project_id=None, target=target, _sections="static"
+    )
+
+
+def _build_volatile_sections(
+    project_name: str,
+    atlas_content: str,
+    included_paths: Optional[List[str]],
+    is_preliminary: bool,
+    stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
+) -> str:
+    """The dynamic sections only (header/stats, routing, atlas, docs map,
+    focus areas, scopes) — target-independent."""
+    return _build_managed_content(
+        project_name,
+        atlas_content,
+        included_paths,
+        is_preliminary,
+        stats,
+        project_id=project_id,
+        target="universal",
+        _sections="volatile",
+    )
+
+
+def _pointer_block(pointer: str = "read") -> str:
+    """Pointer from a tracked rules file to the volatile context file.
+
+    pointer="import": native inline import (Claude Code / Gemini CLI —
+    the @-line MUST stay bare; wrapping it in backticks or a fence makes
+    it literal text and the import silently stops working).
+    pointer="read": explicit read-instruction for agentic tools without
+    an import mechanism (AGENTS.md, Cursor, Windsurf, Copilot, Cline, Roo).
+    """
+    if pointer == "import":
+        return (
+            "**Live project context** (codebase atlas, project id, focus areas,\n"
+            "scopes) is imported below at session start:\n"
+            "\n"
+            f"@{_CONTEXT_FILE_REL}\n"
+            "\n"
+            "If the imported context file is missing, this project has not been\n"
+            "indexed on this machine yet — call `prep()` for live context, or start\n"
+            "the SourcePrep daemon to generate it."
+        )
+    return (
+        f"**At the start of every task**, read `{_CONTEXT_FILE_REL}` (if present)\n"
+        "for the current codebase atlas, project id, focus areas, and scopes — or\n"
+        "call `prep()` for the live equivalent. If the file is missing, the project\n"
+        "has not been indexed on this machine yet; work normally and call `prep()`\n"
+        "once the daemon runs."
+    )
+
+
+def _build_slim_managed(target: str = "universal", pointer: str = "read") -> str:
+    """Full managed-block body for a tracked rules file (static + pointer)."""
+    return _build_static_instructions(target) + "\n\n" + _pointer_block(pointer)
+
+
+def _build_volatile_context(
+    project_name: str,
+    atlas_content: str,
+    included_paths: Optional[List[str]],
+    is_preliminary: bool,
+    stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
+) -> str:
+    """Complete content of the gitignored volatile context file.
+
+    The first line deliberately contains the phrase "SourcePrep structural
+    codebase intelligence" so docs_grounding's prep-self-output detector
+    (Phase 133b) recognizes it, in addition to the .sourceprep/ dir being
+    excluded from walking and gitignored.
+    """
+    header = (
+        "<!-- SourcePrep structural codebase intelligence — auto-generated volatile context. -->\n"
+        "<!-- DO NOT EDIT, DO NOT COMMIT. Regenerated after every index run; git-ignored by design. -->\n"
+        f"# SourcePrep Agent Context — {project_name}\n"
+        "\n"
+    )
+    body = _build_volatile_sections(
+        project_name, atlas_content, included_paths, is_preliminary, stats, project_id
+    )
+    return header + body + "\n"
+
+
+def _ensure_gitignore_entry(project_path: Path) -> bool:
+    """Ensure the volatile context file is git-ignored in the project repo.
+
+    No-ops when: not a git repo; an existing .gitignore already covers the
+    path (e.g. a blanket `.sourceprep/` entry); or a negation pattern
+    explicitly re-includes it (user's deliberate choice — respected).
+    """
+    if not (project_path / ".git").exists():
+        return False
+    gi = project_path / ".gitignore"
+    lines: List[str] = []
+    if gi.exists():
+        try:
+            lines = gi.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            return False
+    for ln in lines:
+        s = ln.strip()
+        if s.startswith("!") and s.lstrip("!").rstrip("/") in (
+            _CONTEXT_FILE_REL,
+            ".sourceprep",
+        ):
+            logger.info(
+                "Gitignore negation covers %s — respecting user choice", _CONTEXT_FILE_REL
+            )
+            return False
+    try:
+        import pathspec
+
+        spec = pathspec.PathSpec.from_lines("gitignore", lines)
+        if spec.match_file(_CONTEXT_FILE_REL):
+            return False  # already covered
+    except Exception:
+        if _CONTEXT_FILE_REL in (ln.strip() for ln in lines):
+            return False
+    new_lines = list(lines)
+    if new_lines and new_lines[-1].strip():
+        new_lines.append("")
+    new_lines.extend([_GITIGNORE_COMMENT, _CONTEXT_FILE_REL])
+    _write(gi, "\n".join(new_lines) + "\n")
+    return True
+
+
+def _write_volatile_context(
+    project_path: Path,
+    project_name: str,
+    atlas_content: str,
+    included_paths: Optional[List[str]],
+    is_preliminary: bool,
+    stats: Optional[Dict[str, Any]],
+    project_id: Optional[str] = None,
+) -> bool:
+    """Write the gitignored volatile context file and ensure it is ignored."""
+    content = _build_volatile_context(
+        project_name, atlas_content, included_paths, is_preliminary, stats, project_id
+    )
+    ctx_path = project_path / _CONTEXT_FILE_REL
+    ctx_path.parent.mkdir(parents=True, exist_ok=True)
+    _write(ctx_path, content)
+    try:
+        _ensure_gitignore_entry(project_path)
+    except Exception as e:
+        logger.warning("Could not ensure .gitignore entry for %s: %s", _CONTEXT_FILE_REL, e)
+    return True
+
+
 # ── Cursor (.cursor/rules/prep.mdc) ──────────────────────────────
 
 
@@ -712,15 +943,7 @@ def generate_cursor_rules(
     project_id: Optional[str] = None,
 ) -> str:
     """Generate .cursor/rules/prep.mdc content with YAML frontmatter."""
-    managed = _build_managed_content(
-        project_name,
-        atlas_content,
-        included_paths,
-        is_preliminary,
-        stats,
-        project_id=project_id,
-        target="cursor",
-    )
+    managed = _build_slim_managed("cursor")
 
     return (
         "---\n"
@@ -791,14 +1014,7 @@ def generate_windsurf_rules(
     project_id: Optional[str] = None,
 ) -> str:
     """Generate .windsurf/rules/prep.md content with YAML frontmatter."""
-    managed = _build_managed_content(
-        project_name,
-        atlas_content,
-        included_paths,
-        is_preliminary,
-        stats,
-        project_id=project_id,
-    )
+    managed = _build_slim_managed("universal")
 
     return (
         "---\n"
@@ -851,7 +1067,7 @@ def _write_windsurf_rules(
             before = existing[: existing.index(_WINDSURF_MARKER_START)]
             end_idx = existing.find(_WINDSURF_MARKER_END)
             after = existing[end_idx + len(_WINDSURF_MARKER_END) :] if end_idx >= 0 else ""
-            _write(legacy_target, before.rstrip("\n") + "\n\n" + new_content + after)
+            _write(legacy_target, _splice(before, new_content, after))
         else:
             _write(legacy_target, existing.rstrip("\n") + "\n\n" + new_content + "\n")
         return True
@@ -873,16 +1089,13 @@ def generate_claude_rules(
     stats: Optional[Dict[str, Any]] = None,
     project_id: Optional[str] = None,
 ) -> str:
-    """Generate Prep section for CLAUDE.md."""
-    managed = _build_managed_content(
-        project_name,
-        atlas_content,
-        included_paths,
-        is_preliminary,
-        stats,
-        project_id=project_id,
-        target="claude",
-    )
+    """Generate Prep section for CLAUDE.md.
+
+    Phase 147: static instructions + native @import of the volatile
+    context file. Atlas/stats args are accepted for backward compat but
+    render into the context file via write_rules_file, not here.
+    """
+    managed = _build_slim_managed("claude", pointer="import")
 
     return f"{_CLAUDE_MARKER_START}\n# SourcePrep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
 
@@ -915,7 +1128,7 @@ def _write_claude_rules(
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
-            _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
+            _write(target, _splice(before, new_section, after))
         else:
             # No Prep section yet -- append
             _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
@@ -995,15 +1208,7 @@ def _write_agents_md(
     Copilot, Claude Code, Gemini CLI, Roo Code, Zed, Aider, Amp, etc.).
     Stewarded by the Agentic AI Foundation under the Linux Foundation.
     """
-    managed = _build_managed_content(
-        project_name,
-        atlas_content,
-        included_paths,
-        is_preliminary,
-        stats,
-        project_id=project_id,
-        target="universal",
-    )
+    managed = _build_slim_managed("universal")
     new_section = (
         f"{_CLAUDE_MARKER_START}\n## SourcePrep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
     )
@@ -1015,7 +1220,7 @@ def _write_agents_md(
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
-            _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
+            _write(target, _splice(before, new_section, after))
         else:
             _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
     else:
@@ -1036,19 +1241,15 @@ def _write_generic_md(
     project_id: Optional[str] = None,
     filename: str = "GEMINI.md",
     heading: str = "# SourcePrep Integration",
+    pointer: str = "read",
 ) -> bool:
     """Write or update a generic markdown file with Prep section.
 
     Used for GEMINI.md and similar files that use marker-based sections.
+    pointer="import" for files whose consumer supports @-imports
+    (Gemini CLI memport); "read" otherwise.
     """
-    managed = _build_managed_content(
-        project_name,
-        atlas_content,
-        included_paths,
-        is_preliminary,
-        stats,
-        project_id=project_id,
-    )
+    managed = _build_slim_managed("universal", pointer=pointer)
     new_section = f"{_CLAUDE_MARKER_START}\n{heading}\n\n{managed}\n{_CLAUDE_MARKER_END}"
 
     target = project_path / filename
@@ -1058,7 +1259,7 @@ def _write_generic_md(
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
-            _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
+            _write(target, _splice(before, new_section, after))
         else:
             _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
     else:
@@ -1079,14 +1280,7 @@ def _write_copilot_rules(
     project_id: Optional[str] = None,
 ) -> bool:
     """Write or update .github/copilot-instructions.md with Prep section."""
-    managed = _build_managed_content(
-        project_name,
-        atlas_content,
-        included_paths,
-        is_preliminary,
-        stats,
-        project_id=project_id,
-    )
+    managed = _build_slim_managed("universal")
     new_section = (
         f"{_CLAUDE_MARKER_START}\n## SourcePrep Integration\n\n{managed}\n{_CLAUDE_MARKER_END}"
     )
@@ -1100,7 +1294,7 @@ def _write_copilot_rules(
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
-            _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
+            _write(target, _splice(before, new_section, after))
         else:
             _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
     else:
@@ -1126,14 +1320,7 @@ def _write_cline_rules(
     Cline uses keyword-based MCP activation: when the AI sees keywords
     matching a .clinerules entry, it activates the corresponding MCP server.
     """
-    managed = _build_managed_content(
-        project_name,
-        atlas_content,
-        included_paths,
-        is_preliminary,
-        stats,
-        project_id=project_id,
-    )
+    managed = _build_slim_managed("universal")
     # Cline-specific: keyword triggers at the top for MCP activation
     trigger_block = (
         "When asked about code structure, architecture, dependencies, modules, "
@@ -1155,7 +1342,7 @@ def _write_cline_rules(
             before = existing[: existing.index(_CLAUDE_MARKER_START)]
             end_idx = existing.find(_CLAUDE_MARKER_END)
             after = existing[end_idx + len(_CLAUDE_MARKER_END) :] if end_idx >= 0 else ""
-            _write(target, before.rstrip("\n") + "\n\n" + new_section + after)
+            _write(target, _splice(before, new_section, after))
         else:
             _write(target, existing.rstrip("\n") + "\n\n" + new_section + "\n")
     else:
@@ -1185,14 +1372,7 @@ def _write_roo_rules(
     - .roo/rules-architect/prep.md -- architecture focus (prep + prep_audit)
     - .roo/rules-code/prep.md -- change focus (prep_impact before edits)
     """
-    managed = _build_managed_content(
-        project_name,
-        atlas_content,
-        included_paths,
-        is_preliminary,
-        stats,
-        project_id=project_id,
-    )
+    managed = _build_slim_managed("universal")
     content = f"# SourcePrep Integration\n\n{managed}\n"
 
     # Base rules (all modes)

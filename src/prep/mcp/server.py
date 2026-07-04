@@ -277,6 +277,12 @@ class MCPServer:
             project_path = self._get_project_path_sync(project_id)
             if project_path:
                 p = Path(project_path)
+                # Phase 147 (W1): the atlas hash lives in the volatile
+                # context file. Legacy fat rules files (pre-migration)
+                # remain a fallback below.
+                ctx_hash = self._get_context_file_atlas_hash(p)
+                if ctx_hash:
+                    self._rules_atlas_hash_cache[project_id] = ctx_hash
                 # Check the most common rules files
                 if (p / ".cursor" / "rules" / "prep.mdc").exists():
                     found = True
@@ -295,9 +301,10 @@ class MCPServer:
                         content = (p / "CLAUDE.md").read_text(encoding="utf-8")
                         if "prep-managed" in content[:500] or "Prep" in content[:500]:
                             found = True
-                        # Extract atlas hash (may be anywhere in the managed section)
+                        # Extract atlas hash (legacy fat rules file only —
+                        # the context file above takes precedence)
                         atlas_hash = self._extract_atlas_hash(content)
-                        if atlas_hash:
+                        if atlas_hash and ctx_hash is None:
                             self._rules_atlas_hash_cache[project_id] = atlas_hash
                     except Exception:
                         pass
@@ -306,7 +313,7 @@ class MCPServer:
                     try:
                         content = (p / "CLAUDE.md").read_text(encoding="utf-8")
                         atlas_hash = self._extract_atlas_hash(content)
-                        if atlas_hash:
+                        if atlas_hash and ctx_hash is None:
                             self._rules_atlas_hash_cache[project_id] = atlas_hash
                     except Exception:
                         pass
@@ -331,6 +338,24 @@ class MCPServer:
         """
         match = re.search(r"prep-atlas-hash:([a-f0-9]{12})", content)
         return match.group(1) if match else None
+
+    @staticmethod
+    def _get_context_file_atlas_hash(project_path: str | Path) -> str | None:
+        """Phase 147 (W1): read the atlas hash from the volatile context file.
+
+        Rules files no longer embed the atlas; the hash lives in
+        .sourceprep/AGENT_CONTEXT.md. Returns None when the file is absent
+        (fresh clone / sibling worktree / never indexed) — callers must
+        then INCLUDE the atlas in tool responses, because nothing else
+        carries it.
+        """
+        try:
+            ctx = Path(project_path) / ".sourceprep" / "AGENT_CONTEXT.md"
+            if ctx.exists():
+                return MCPServer._extract_atlas_hash(ctx.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+        return None
 
     def _get_project_path_sync(self, project_id: str) -> Optional[str]:
         """Get the filesystem path for a project without an async call.
@@ -393,6 +418,11 @@ class MCPServer:
                 # Invalidate rules file cache (rules were regenerated with new atlas)
                 if hasattr(self, "_rules_file_cache"):
                     self._rules_file_cache.pop(project_id, None)
+                # Phase 147 (W1): also drop the cached atlas hash so the
+                # next _project_has_rules_file re-reads the context file
+                # (a stale hash here would suppress a fresh-atlas resend).
+                if hasattr(self, "_rules_atlas_hash_cache"):
+                    self._rules_atlas_hash_cache.pop(project_id, None)
                 # Notify host that cached resources are stale.
                 # Atlas rebuild affects: atlas, structure, modules (all derived from index).
                 for resource_type in ("atlas", "structure", "modules", "health"):
@@ -1155,7 +1185,12 @@ class MCPServer:
                 # We have a hash — will compare after we get the current atlas.
                 # For now, tentatively skip atlas; we'll override if stale.
                 include_atlas = False
-            # else: rules exist but no hash — use the old behavior (skip atlas)
+            else:
+                # Phase 147 (W1): rules files are static pointers now — a
+                # missing hash means the volatile context file is absent
+                # (fresh clone / worktree / never indexed), so nothing on
+                # disk carries the atlas. Include it here.
+                include_atlas = True
 
         payload: Dict[str, Any] = {
             "query": "",
@@ -1845,12 +1880,15 @@ class MCPServer:
         context_snippet = ""
         try:
             has_rules = self._project_has_rules_file(project_id)
+            # Phase 147 (W1): same rule as tool_context — only skip the
+            # atlas when the volatile context file actually carries it.
+            _skip_atlas = has_rules and bool(self._get_rules_atlas_hash(project_id))
             ctx_data = await self._api_post(
                 f"/projects/{project_id}/context",
                 {
                     "query": "",
                     "max_chars": 4000,
-                    "include_atlas": not has_rules,
+                    "include_atlas": not _skip_atlas,
                 },
             )
             if isinstance(ctx_data, dict):
