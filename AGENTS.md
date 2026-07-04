@@ -1,13 +1,5 @@
-
-
 <!-- prep-managed-start -->
 ## SourcePrep Integration
-
-Last updated: 2026-06-08T17:56:20Z
-
-prep_project_id: f1636374-abc6-410d-99ee-822120379e79
-
-**ROUTING: When calling ANY SourcePrep tool, ALWAYS include `project_id: "f1636374-abc6-410d-99ee-822120379e79"` in the arguments.**
 
 ## Tools
 | Tool | When to Use |
@@ -59,72 +51,6 @@ To skip approval prompts for SourcePrep's read-only tools, add to your settings:
 ```
 In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings.
 
-<!-- prep-atlas-hash:60561fc9a6e8 -->
-## Codebase Atlas
-
-IDENTITY: A multi-platform AI-assisted development environment with a VS Code extension, web dashboard, documentation and marketing sites, and LLM orchestration backend.
-
-STACK: TypeScript, TSX, Python, Next.js, React, Storybook, VS Code extension API, Markdown. Build tools inferred from package structure.
-
-WORKSPACE MAP:
-Root (_root, 1422 files): documentation, marketing, quality-assurance, ui, llm-orchestration
-Ui (packages/ui, 371 files): ui, storybook, design-system, documentation, testing
-Dashboard (src/prep/dashboard, 62 files): ui, settings-management, polling, frontend-architecture, documentation
-Marketing (websites/apps/marketing, 61 files): ui, marketing, seo, marketing-site, integrations
-Docs (websites/apps/docs, 50 files): seo, documentation, ui, navigation, documentation-site
-Support (websites/apps/support, 26 files): ui, bug-reporting, admin-tool, nextjs, nextjs-app-router
-Vscode (packages/vscode, 20 files): vscode-extension, configuration, webview, search, semantic-search
-Payments (websites/apps/payments, 14 files): seo, nextjs, ui, monetization, payments
-Paperclip Plugin Prep (packages/paperclip-plugin-prep, 11 files): ui, agent-configuration, ide-integration, plugin-system, agent-consensus
-Webview Ui (packages/vscode/webview-ui, 10 files): vscode-extension, configuration, webview, ui, data-visualization
-
-CROSS-CUTTING: Five entry points in packages/ui/src/components/ (concepts, trace, console, search, architecture) anchor the component graph. Shared hub files: swarm_event_logger.py (stable), packages/ui/src/types.ts (evolving), packages/ui/src/api/react.tsx. External hubs: lucide-react, logging. Active zones: packages/ui/src/, tests/, src/prep/core/, websites/apps/docs/, websites/apps/marketing/. Shared domains across segments: ui, documentation, seo, marketing, nextjs, vscode-extension, configuration, webview. 176 import cycles present. Key cross-dependencies: docs references concept_fragment, phase_45__multi-gpu_concurrency_research; packages references computeFastKnowledgeState, styles, handleAddPreset; src references BuildManager.get_project_knowledge_index, parseSettingsParam, build_knowledge_project. Longest import chains span from UI components through API types to documentation sections.
-
-## Top docs per module
-
-Planning docs that mention this module's code (Phase 124 T9). Use these as a starting point to understand a module's *why* before reading source. Generated from `atlas_markdown_links.json`.
-
-- **SourcePrep Documentation Site**
-  - `docs/Phase130_DocsSiteStalenessSweep/README.md`
-  - `docs/Phase137_DocsLiveAssetIntegration/04_placement_matrix.md`
-  - `docs/MARKETING_SITE_AUDIT.md`
-- **Prep CLI & Terminal Visualization Layer**
-  - `docs/Phase18_DataVisualization/README.md`
-  - `docs/MARKETING_SITE_AUDIT.md`
-  - `docs/MASTER_TODO.md`
-- **Trace Index & Coverage Engine**
-  - `docs/superpowers/plans/2026-04-08-phase83-audit-redesign.md`
-  - `docs/Phase135_5_FinishConsolidation/IMPLEMENTATION_PLAN.md`
-  - `docs/PARALLEL_LANES_2026-05-26.md`
-- **SourcePrep Rebrand Execution Engine**
-  - `docs/superpowers/plans/2026-04-22-sourceprep-rename-implementation.md`
-  - `docs/superpowers/specs/2026-04-22-sourceprep-rename-design.md`
-  - `docs/MARKETING_MASTER_TODO.md`
-- **Prep Observability & Telemetry Subsystem**
-  - `docs/Phase67_AGENTS/Researcher-concept-adapter/phase2-researcher-engine-plan.md`
-  - `docs/MASTER_TODO.md`
-  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
-- **AIMD LLM Concurrency Controller**
-  - `docs/Phase119_ConcurrencyStability/05_Cross_Provider_Concurrency_Design.md`
-  - `docs/Phase119_ConcurrencyStability/01_Design.md`
-  - `docs/Phase119_ConcurrencyStability/02_Implementation_Plan.md`
-- **LLM Confidence Calibration & Tiered Concept Validation**
-  - `docs/Phase125_ConceptPromotionPipeline/CALIBRATION_WORKSHEET.md`
-  - `docs/Phase140_Prompt-Dogfood/snapshots/2026-05-17_baseline/README.md`
-  - `docs/Phase67_AGENTS/Researcher-concept-adapter/phase1-staffing-engine-plan.md`
-- **Agent-Integrated Project Management Push Pipeline**
-  - `docs/Phase67_AGENTS/Researcher-concept-adapter/IMPLEMENTATION_STRATEGY.md`
-  - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
-  - `docs/superpowers/plans/2026-04-01-phase67-agent-foundation.md`
-- **LLM Configuration & Provider Management Subsystem**
-  - `docs/superpowers/plans/2026-04-20-llm-config-autosave-redesign.md`
-  - `docs/superpowers/specs/2026-04-20-llm-config-autosave-redesign.md`
-  - `docs/Phase23_Cleanup-refactor/IMPLEMENTATION_PLAN.md`
-- **MCP IDE Agent Integration Hub**
-  - `docs/MARKETING_SITE_AUDIT.md`
-  - `docs/NETLIFY_DEPLOYMENT_TROUBLESHOOTING.md`
-  - `docs/Phase67_AGENTS/Paperclip-Plugin/02_Hybrid_MCP_Architecture.md`
-
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.
 
@@ -151,6 +77,12 @@ Resources provide on-demand context without a tool call.
 Available workflow prompts: `prep-onboard` (orientation), `prep-review` (file review),
 `prep-plan` (change planning), `prep-investigate` (deep dive), `prep-health` (audit).
 In Claude Code: `/mcp__prep__prep-onboard`. In other clients: check prompt menu.
+
+**At the start of every task**, read `.sourceprep/AGENT_CONTEXT.md` (if present)
+for the current codebase atlas, project id, focus areas, and scopes — or
+call `prep()` for the live equivalent. If the file is missing, the project
+has not been indexed on this machine yet; work normally and call `prep()`
+once the daemon runs.
 <!-- prep-managed-end -->
 
 ## Operational notes (user-maintained)

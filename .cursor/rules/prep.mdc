@@ -5,12 +5,6 @@ alwaysApply: true
 
 # --- Prep-managed (auto-generated, do not edit above USER ADDITIONS) ---
 
-Last updated: 2026-06-08T17:56:20Z
-
-prep_project_id: f1636374-abc6-410d-99ee-822120379e79
-
-**ROUTING: When calling ANY SourcePrep tool, ALWAYS include `project_id: "f1636374-abc6-410d-99ee-822120379e79"` in the arguments.**
-
 ## Tools
 | Tool | When to Use |
 |------|-------------|
@@ -45,31 +39,16 @@ For specific code lookups, use `prep_search` with a natural language query.
 SourcePrep understands structural relationships — use it instead of
 grep when you need to understand how files connect.
 
-<!-- prep-atlas-hash:60561fc9a6e8 -->
-## Codebase Atlas
-
-IDENTITY: A multi-platform AI-assisted development environment with a VS Code extension, web dashboard, documentation and marketing sites, and LLM orchestration backend.
-
-STACK: TypeScript, TSX, Python, Next.js, React, Storybook, VS Code extension API, Markdown. Build tools inferred from package structure.
-
-WORKSPACE MAP:
-Root (_root, 1422 files): documentation, marketing, quality-assurance, ui, llm-orchestration
-Ui (packages/ui, 371 files): ui, storybook, design-system, documentation, testing
-Dashboard (src/prep/dashboard, 62 files): ui, settings-management, polling, frontend-architecture, documentation
-Marketing (websites/apps/marketing, 61 files): ui, marketing, seo, marketing-site, integrations
-Docs (websites/apps/docs, 50 files): seo, documentation, ui, navigation, documentation-site
-Support (websites/apps/support, 26 files): ui, bug-reporting, admin-tool, nextjs, nextjs-app-router
-Vscode (packages/vscode, 20 files): vscode-extension, configuration, webview, search, semantic-search
-Payments (websites/apps/payments, 14 files): seo, nextjs, ui, monetization, payments
-Paperclip Plugin Prep (packages/paperclip-plugin-prep, 11 files): ui, agent-configuration, ide-integration, plugin-system, agent-consensus
-Webview Ui (packages/vscode/webview-ui, 10 files): vscode-extension, configuration, webview, ui, data-visualization
-
-CROSS-CUTTING: Five entry points in packages/ui/src/components/ (concepts, trace, console, search, architecture) anchor the component graph. Shared hub files: swarm_event_logger.py (stable), packages/ui/src/types.ts (evolving), packages/ui/src/api/react.tsx. External hubs: lucide-react, logging. Active zones: packages/ui/src/, tests/, src/prep/core/, websites/apps/docs/, websites/apps/marketing/. Shared domains across segments: ui, documentation, seo, marketing, nextjs, vscode-extension, configuration, webview. 176 import cycles present. Key cross-dependencies: docs references concept_fragment, phase_45__multi-gpu_concurrency_research; packages references computeFastKnowledgeState, styles, handleAddPreset; src references BuildManager.get_project_knowledge_index, parseSettingsParam, build_knowledge_project. Longest import chains span from UI components through API types to documentation sections.
-
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.
 
 For long tasks (5+ tool calls), call `prep` again to refresh your
 structural context.
+
+**At the start of every task**, read `.sourceprep/AGENT_CONTEXT.md` (if present)
+for the current codebase atlas, project id, focus areas, and scopes — or
+call `prep()` for the live equivalent. If the file is missing, the project
+has not been indexed on this machine yet; work normally and call `prep()`
+once the daemon runs.
 
 # --- USER ADDITIONS BELOW (preserved across updates) ---

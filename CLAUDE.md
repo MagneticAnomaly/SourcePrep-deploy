@@ -311,12 +311,6 @@ The generated AGENTS.md is meant to be the first thing an AI agent reads when it
 <!-- prep-managed-start -->
 # SourcePrep Integration
 
-Last updated: 2026-06-23T04:48:38Z
-
-prep_project_id: f1636374-abc6-410d-99ee-822120379e79
-
-**ROUTING: When calling ANY SourcePrep tool, ALWAYS include `project_id: "f1636374-abc6-410d-99ee-822120379e79"` in the arguments.**
-
 ## Tools
 | Tool | When to Use |
 |------|-------------|
@@ -357,35 +351,18 @@ Add to `.claude/settings.json`:
 
 Use `@` to browse SourcePrep resources (atlas, modules, audit). Use `/mcp__prep__prep-onboard` for guided orientation.
 
-<!-- prep-atlas-hash:fc10a26c5a2d -->
-## Codebase Atlas
-
-IDENTITY: Prep is a pipeline-orchestration and quality-assurance platform with a VSCode extension, web dashboard, marketing site, docs, support portal, and payment system, built around an MCP protocol and plugin architecture for codebase intelligence.
-
-STACK: TypeScript, TSX, Python, JSON, Markdown. React-based UI with Next.js for web apps. Storybook for design system. VSCode extension with webview UI. MCP integration. 206 import cycles managed. Longest import chains route through packages/ui/src/types.ts for MCPToolInput.
-
-WORKSPACE MAP:
-Root (_root, 1489 files): pipeline-orchestration, quality-assurance, prompt-engineering, ui, mcp-protocol
-Ui (packages/ui, 376 files): design-system, storybook, testing, shared component library
-Dashboard (src/prep/dashboard, 62 files): ui, routing, settings, pipeline-orchestration, polling
-Marketing (websites/apps/marketing, 61 files): marketing, ui, monetization, competitive-intelligence, seo
-Docs (websites/apps/docs, 50 files): documentation, ui, configuration, navigation, monetization
-Support (websites/apps/support, 26 files): ui, bug-tracking, auth, security, support-system
-Vscode (packages/vscode, 20 files): vscode-extension, ui, webview, developer-experience, mcp-integration
-Payments (websites/apps/payments, 14 files): license-management, monetization, ui, security, nextjs
-Paperclip Plugin Prep (packages/paperclip-plugin-prep, 11 files): plugin-architecture, codebase-intelligence, ide-integration, plugin-system, access-control
-Webview Ui (packages/vscode/webview-ui, 10 files): vscode-extension, webview, monetization, trace-visualization, ui
-
-CROSS-CUTTING: Seven shared domains connect segments: ui, monetization, pipeline-orchestration, marketing, security, vscode-extension, webview. Hub files include src/prep/core/swarm_event_logger.py (stable), packages/ui/src/types.ts (evolving), packages/ui/src/api/react.tsx, plus ext:lucide-react and ext:logging. Active zones cluster in packages/ui/src/, tests/, src/prep/core/, src/prep/services/, websites/apps/docs/. Entry points concentrate in packages/ui/src/components/ with five index.ts files for viz, context, patterns, team, and root components. Directory dependencies show docs depends on sec:expected_workload_after_t2_2, sec:is_no_longer__healthy__until_a_new_run_completes_, sec:5__known_working_models_matrix; packages depends on sym:PrepApiClient.approveACR, sym:ProvenanceChip, sym:RoleLensProps; public depends on sec:trace_index, sec:ide_integration__mcp_, sec:key_features; src depends on sym:pipeline_status, sym:CircularDependencyAnalyzer, sym:PipelineOrchestrator.get_crashed_runs.
-
-## Focus Areas
-- docs/Phase136_Dogfood-fixes/README.md
-- docs/Phase145_Pipeline-UI-Reliability/README.md
-Call `prep` for detailed content from these areas.
-
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.
 
 For long tasks (5+ tool calls), call `prep` again to refresh your
 structural context.
+
+**Live project context** (codebase atlas, project id, focus areas,
+scopes) is imported below at session start:
+
+@.sourceprep/AGENT_CONTEXT.md
+
+If the imported context file is missing, this project has not been
+indexed on this machine yet — call `prep()` for live context, or start
+the SourcePrep daemon to generate it.
 <!-- prep-managed-end -->

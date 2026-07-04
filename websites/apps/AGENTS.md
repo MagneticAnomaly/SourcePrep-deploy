@@ -1,13 +1,5 @@
-
-
 <!-- prep-managed-start -->
 ## SourcePrep Integration
-
-Last updated: 2026-04-30T19:52:37Z
-
-prep_project_id: 1e268cdc-1eae-439e-b48d-8157237bddbb
-
-**ROUTING: When calling ANY SourcePrep tool, ALWAYS include `project_id: "1e268cdc-1eae-439e-b48d-8157237bddbb"` in the arguments.**
 
 ## Tools
 | Tool | When to Use |
@@ -59,21 +51,6 @@ To skip approval prompts for SourcePrep's read-only tools, add to your settings:
 ```
 In Claude Code: add to `.claude/settings.json`. In Cursor: add to MCP settings.
 
-<!-- prep-atlas-hash:b6946aad31eb -->
-## Codebase Atlas
-
-IDENTITY: A multi-segment Next.js application with marketing site, documentation portal, support tooling, and payments features sharing UI components and configuration patterns.
-
-STACK: TypeScript, React, Next.js. Languages: .tsx (110), .ts (30), .js (9), .json (8), .css (5), .toml (4), .cjs (4), .md (2). External hubs: ext:react (24 edges), ext:next (19 edges), ext:lucide-react (27 edges), ext:@prep/ui (36 edges).
-
-WORKSPACE MAP:
-marketing (marketing, 69 files): marketing, seo, metadata, nextjs, ui-presentation
-docs (docs, 57 files): documentation, mcp-integration, configuration, developer-experience, api-reference
-support (support, 29 files): support, security, api, react, typescript
-payments (payments, 17 files): payments, configuration, styling, analytics, seo
-
-CROSS-CUTTING: Shared domains are seo and configuration. Hub files connect segments: ext:@prep/ui (36 edges), docs/src/components/AnchorHeading.tsx (30 edges), ext:lucide-react (27 edges). Directory dependencies show symbol sharing within segments: docs uses sym:docsInitDemo, sym:SpeedTier, sym:ModelPlan; marketing uses sym:BLOG_POSTS, sym:PipelineDashboard, sym:handleClick; payments uses sym:robots, sym:ClientLayout, ext:next; support uses sym:validate, sym:RootLayout, sym:Metrics. Import cycles: 27. Longest chains in marketing: scripts/generate_layouts.js through download/layout.tsx to metadata-helper.ts sym:MetaProps; sitemap.ts through faq/page.tsx to ext:lucide-react. Entry points: support/src/lib/reports.ts, marketing/scripts/generate_layouts.
-
 If `prep` returns 'setup in progress', the index hasn't been built yet.
 Work normally with read_file/grep_search until the user builds the index.
 
@@ -100,4 +77,10 @@ Resources provide on-demand context without a tool call.
 Available workflow prompts: `prep-onboard` (orientation), `prep-review` (file review),
 `prep-plan` (change planning), `prep-investigate` (deep dive), `prep-health` (audit).
 In Claude Code: `/mcp__prep__prep-onboard`. In other clients: check prompt menu.
+
+**At the start of every task**, read `.sourceprep/AGENT_CONTEXT.md` (if present)
+for the current codebase atlas, project id, focus areas, and scopes — or
+call `prep()` for the live equivalent. If the file is missing, the project
+has not been indexed on this machine yet; work normally and call `prep()`
+once the daemon runs.
 <!-- prep-managed-end -->
