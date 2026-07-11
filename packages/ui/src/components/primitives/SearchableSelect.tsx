@@ -155,24 +155,41 @@ export function SearchableSelect({
             {filtered.length === 0 ? (
               <li className="px-3 py-2 text-xs text-text-muted">No matches</li>
             ) : (
-              filtered.map((opt, i) => (
-                <li
-                  key={opt.value}
-                  role="option"
-                  aria-selected={opt.value === value}
-                  onMouseEnter={() => setActiveIdx(i)}
-                  onClick={() => choose(opt)}
-                  className={cn(
-                    'cursor-pointer px-3 py-1.5 text-xs truncate',
-                    opt.disabled && 'opacity-50 cursor-not-allowed',
-                    !opt.disabled && i === activeIdx && 'bg-primary/10 text-text',
-                    !opt.disabled && i !== activeIdx && 'text-text hover:bg-surface',
-                    opt.value === value && 'font-semibold',
-                  )}
-                >
-                  {opt.label}
-                </li>
-              ))
+              filtered.map((opt, i) => {
+                // Render a non-clickable section header when the group value
+                // changes (incl. from undefined → group on the first grouped
+                // option). Headers are visual only — activeIdx still indexes
+                // the option array, so keyboard nav skips them automatically.
+                const prevGroup = i > 0 ? filtered[i - 1]?.group : undefined;
+                const showHeader = !!opt.group && opt.group !== prevGroup;
+                return (
+                  <React.Fragment key={opt.value}>
+                    {showHeader && (
+                      <li
+                        role="presentation"
+                        className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-text-muted select-none"
+                      >
+                        {opt.group}
+                      </li>
+                    )}
+                    <li
+                      role="option"
+                      aria-selected={opt.value === value}
+                      onMouseEnter={() => setActiveIdx(i)}
+                      onClick={() => choose(opt)}
+                      className={cn(
+                        'cursor-pointer px-3 py-1.5 text-xs truncate',
+                        opt.disabled && 'opacity-50 cursor-not-allowed',
+                        !opt.disabled && i === activeIdx && 'bg-primary/10 text-text',
+                        !opt.disabled && i !== activeIdx && 'text-text hover:bg-surface',
+                        opt.value === value && 'font-semibold',
+                      )}
+                    >
+                      {opt.label}
+                    </li>
+                  </React.Fragment>
+                );
+              })
             )}
           </ul>
         </div>

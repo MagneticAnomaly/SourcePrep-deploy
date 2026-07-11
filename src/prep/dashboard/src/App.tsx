@@ -557,9 +557,10 @@ function App() {
   const {
     llmConfig, setLLMConfig,
     availableModels, modelDetails, loadingModels, testingSlot, testResults,
+    cloudModels, loadingCloudModels,
     llmSlotsStatus,
     handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-    handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult,
+    handleTestEndpoint, handleFetchModels, handleFetchCloudModels, handleTestModel, handleClearTestResult,
     handleDownloadModel, handleModeSwitch,
     markLLMConfigClean, flushPendingSave,
     fetchLLMSlotsStatus,
@@ -1011,9 +1012,10 @@ function App() {
     llm: {
       llmConfig, llmSlotsStatus,
       handleLLMConfigChange, handleAddEndpoint, handleEditEndpoint, handleDeleteEndpoint,
-      handleTestEndpoint, handleFetchModels, handleTestModel, handleClearTestResult, handleDownloadModel,
+      handleTestEndpoint, handleFetchModels, handleFetchCloudModels, handleTestModel, handleClearTestResult, handleDownloadModel,
       handleModeApply,
       availableModels, modelDetails, loadingModels, testingSlot, testResults,
+      cloudModels, loadingCloudModels,
       maxActiveProjects, onMaxActiveProjectsChange: handleMaxActiveProjectsChange,
       schedulerStatus,
       computeNodes,

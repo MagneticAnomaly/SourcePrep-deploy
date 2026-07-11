@@ -15,6 +15,7 @@
     - POST /llm/test            — legacy quick connectivity test
     - POST /api/llm/test        — alias for above
     - POST /api/llm/proxy/models     — list models from an endpoint
+    - POST /api/llm/proxy/cloud-models — list on-demand Ollama Cloud models not in /api/tags
     - POST /api/llm/proxy/test       — test endpoint connectivity
     - POST /api/llm/model-status     — model readiness / preload
     - POST /api/llm/proxy/test-model — test a specific model with readiness gate
@@ -27,6 +28,8 @@
 from __future__ import annotations
 
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
 import urllib.parse
 import ipaddress
@@ -1162,6 +1165,65 @@ def test_llm() -> Dict[str, Any]:
     )
 
 
+def _fmt_param_size(raw: str) -> str:
+    """Humanize an Ollama ``parameter_size`` value.
+
+    Local models already arrive human-readable (``"8B"``). Cloud models
+    return the raw parameter count as an integer string (e.g.
+    ``"756162687872"``); render that as ``"756B"`` so the UI's cost_tier
+    line doesn't show a 12-digit number. Non-numeric / already-short values
+    pass through unchanged.
+    """
+    if not raw or not raw.isdigit():
+        return raw
+    n = int(raw)
+    if n >= 1_000_000_000:
+        return f"{round(n / 1_000_000_000)}B"
+    if n >= 1_000_000:
+        return f"{round(n / 1_000_000)}M"
+    if n >= 1_000:
+        return f"{round(n / 1_000)}K"
+    return raw
+
+
+def _ollama_show_detail(url: str, name: str, timeout: float = 3.0) -> Optional[Dict[str, Any]]:
+    """Probe one Ollama model via ``POST {url}/api/show`` and return parsed metadata.
+
+    Returns ``None`` when the model is unknown/inaccessible (Ollama replies
+    ``{"error": "model 'X' not found"}`` or any non-200 / exception). Otherwise
+    returns a dict with ``context_tokens`` (int, may be 0), ``context_window``
+    (human label, ``""`` when ctx is 0), ``family``, ``parameter_size`` and
+    ``quantization_level``. Shared by ``proxy_models`` (context enrichment)
+    and ``proxy_cloud_models`` (on-demand cloud verification).
+    """
+    try:
+        r = requests.post(f"{url}/api/show", json={"name": name}, timeout=timeout)
+    except Exception:
+        return None
+    if r.status_code != 200:
+        return None
+    try:
+        data = r.json()
+    except Exception:
+        return None
+    if not isinstance(data, dict) or "error" in data:
+        return None
+    model_info = data.get("model_info") or {}
+    ctx = 0
+    for k, v in model_info.items():
+        if "context_length" in k and isinstance(v, (int, float)):
+            ctx = int(v)
+            break
+    details = data.get("details") or {}
+    return {
+        "context_tokens": ctx,
+        "context_window": f"{ctx // 1000}k" if ctx >= 1000 else (str(ctx) if ctx > 0 else ""),
+        "family": str(details.get("family") or ""),
+        "parameter_size": str(details.get("parameter_size") or ""),
+        "quantization_level": str(details.get("quantization_level") or ""),
+    }
+
+
 @router.post("/api/llm/proxy/models")
 def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
     url = req.url.rstrip("/")
@@ -1202,22 +1264,10 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
 
                 # Fetch context_length for each model via /api/show (batched, max 20)
                 for md in model_details[:20]:
-                    try:
-                        show_r = requests.post(f"{url}/api/show", json={"name": md["name"]}, timeout=3)
-                        if show_r.status_code == 200:
-                            show_data = show_r.json()
-                            # model_info has context_length, or parse from parameters
-                            model_info = show_data.get("model_info") or {}
-                            ctx = 0
-                            for k, v in model_info.items():
-                                if "context_length" in k and isinstance(v, (int, float)):
-                                    ctx = int(v)
-                                    break
-                            if ctx > 0:
-                                md["context_tokens"] = ctx
-                                md["context_window"] = f"{ctx // 1000}k" if ctx >= 1000 else str(ctx)
-                    except Exception:
-                        pass
+                    show = _ollama_show_detail(url, md["name"])
+                    if show and show["context_tokens"] > 0:
+                        md["context_tokens"] = show["context_tokens"]
+                        md["context_window"] = show["context_window"]
         
         elif req.provider in ("openai", "openai-compatible", "lm-studio", "anthropic"):
             headers = {}
@@ -1354,6 +1404,87 @@ def proxy_models(req: LLMProxyRequest) -> Dict[str, Any]:
         logger.warning("Failed to apply model policy filtering: %s", e)
 
     return ok({"models": models, "model_details": model_details})
+
+
+# In-memory probe cache for /api/llm/proxy/cloud-models. Keyed by
+# (url, catalog_version) with a TTL so repeated checkbox toggles within a
+# session don't re-probe Ollama. Process-local — fine for a per-user daemon.
+_cloud_probe_cache: Dict[tuple, tuple] = {}
+_CLOUD_PROBE_TTL_SEC = 300.0
+
+
+@router.post("/api/llm/proxy/cloud-models")
+def proxy_cloud_models(req: LLMProxyRequest) -> Dict[str, Any]:
+    """List on-demand Ollama Cloud models the endpoint can serve but that are
+    NOT in ``/api/tags`` (e.g. ``glm-5.2:cloud``).
+
+    Probes each candidate in ``OLLAMA_CLOUD_CANDIDATES`` via ``/api/show``
+    (concurrent, max 8 in flight), returns only those Ollama actually serves,
+    minus any already in ``/api/tags`` (so subscribed cloud models like
+    ``kimi-k2.5:cloud`` are not duplicated). Non-Ollama providers return empty
+    — cloud-via-Ollama is the only case this feature addresses.
+
+    See ``src/prep/core/ollama_cloud_catalog.py`` for the candidate list and
+    the maintenance note.
+    """
+    url = req.url.rstrip("/")
+    if not is_safe_url(url, req.provider):
+        return ok({"cloud_models": [], "cloud_model_details": [], "error": "Invalid or unsafe URL"})
+
+    if req.provider != "ollama":
+        return ok({"cloud_models": [], "cloud_model_details": []})
+
+    from prep.core.ollama_cloud_catalog import (
+        OLLAMA_CLOUD_CANDIDATES,
+        OLLAMA_CLOUD_CATALOG_VERSION,
+    )
+
+    cache_key = (url, OLLAMA_CLOUD_CATALOG_VERSION)
+    now = time.monotonic()
+    cached = _cloud_probe_cache.get(cache_key)
+    if cached and (now - cached[0]) < _CLOUD_PROBE_TTL_SEC:
+        return ok(cached[1])
+
+    # Subscribed set from /api/tags — used to dedupe so we never surface a
+    # model the picker already shows in its pulled list.
+    subscribed: set = set()
+    try:
+        tags_r = requests.get(f"{url}/api/tags", timeout=5)
+        if tags_r.status_code == 200:
+            for m in tags_r.json().get("models", []):
+                if isinstance(m, dict) and m.get("name"):
+                    subscribed.add(str(m["name"]))
+    except Exception:
+        pass
+
+    candidates = [c for c in OLLAMA_CLOUD_CANDIDATES if c not in subscribed]
+
+    cloud_models: List[str] = []
+    cloud_model_details: List[Dict[str, Any]] = []
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        shows = list(pool.map(lambda name: _ollama_show_detail(url, name), candidates))
+
+    for name, show in zip(candidates, shows, strict=True):
+        if not show:
+            continue
+        cloud_models.append(name)
+        parts = [p for p in (_fmt_param_size(show["parameter_size"]), show["quantization_level"]) if p]
+        detail: Dict[str, Any] = {
+            "name": name,
+            "cost_tier": " · ".join(parts) if parts else "Cloud (on-demand)",
+            "on_demand_cloud": True,
+        }
+        if show["family"]:
+            detail["family"] = show["family"]
+        if show["context_tokens"] > 0:
+            detail["context_tokens"] = show["context_tokens"]
+            detail["context_window"] = show["context_window"]
+        cloud_model_details.append(detail)
+
+    payload = {"cloud_models": cloud_models, "cloud_model_details": cloud_model_details}
+    _cloud_probe_cache[cache_key] = (now, payload)
+    return ok(payload)
 
 
 @router.post("/api/llm/proxy/test")

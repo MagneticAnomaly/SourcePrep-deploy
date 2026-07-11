@@ -259,6 +259,10 @@ export interface PanelLLMProps {
   availableModels: Record<string, string[]>
   modelDetails: Record<string, Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>>
   loadingModels: Record<string, boolean>
+  // On-demand Ollama Cloud models not in /api/tags (Phase 145: cloud discovery)
+  cloudModels: Record<string, string[]>
+  loadingCloudModels: Record<string, boolean>
+  handleFetchCloudModels: (endpointId: string) => Promise<string[]>
   testingSlot: 'small' | 'embedding' | 'large' | 'code' | 'coordinator' | null
   testResults: Record<string, EndpointTestResult>
   // Compute settings (Phase 45)
@@ -689,12 +693,15 @@ export function useDashboardPanels(props: DashboardPanelsProps) {
       onDeleteEndpoint={p.handleDeleteEndpoint}
       onTestEndpoint={p.handleTestEndpoint}
       onFetchModels={p.handleFetchModels}
+      onFetchCloudModels={p.handleFetchCloudModels}
       onTestModel={p.handleTestModel}
       onClearTestResult={p.handleClearTestResult}
       onHFDownload={p.handleDownloadModel}
       availableModels={p.availableModels}
       modelDetails={p.modelDetails}
       loadingModels={p.loadingModels}
+      cloudModels={p.cloudModels}
+      loadingCloudModels={p.loadingCloudModels}
       testingSlot={p.testingSlot}
       testResults={p.testResults}
       maxActiveProjects={p.maxActiveProjects}

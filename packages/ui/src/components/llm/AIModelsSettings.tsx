@@ -44,6 +44,11 @@ export interface AIModelsSettingsProps {
   availableModels?: Record<string, string[]>; // endpointId -> models
   modelDetails?: Record<string, Array<{ name: string; context_window?: string; cost_tier?: string }>>;
   loadingModels?: Record<string, boolean>;
+  // On-demand Ollama Cloud models not in /api/tags (Phase 145: cloud discovery).
+  // Per-endpoint, lazy-fetched when the user toggles "Show all cloud models".
+  cloudModels?: Record<string, string[]>;
+  loadingCloudModels?: Record<string, boolean>;
+  onFetchCloudModels?: (endpointId: string) => Promise<string[]>;
   testingSlot?: 'embedding' | 'small' | 'large' | 'code' | 'coordinator' | null;
   testResults?: Record<string, EndpointTestResult>;
   
@@ -364,6 +369,9 @@ export function AIModelsSettings({
   availableModels = {},
   modelDetails = {},
   loadingModels = {},
+  cloudModels = {},
+  loadingCloudModels = {},
+  onFetchCloudModels,
   testingSlot,
   testResults = {},
   fileCount = 0,
@@ -788,6 +796,9 @@ export function AIModelsSettings({
             onModelChange={handleEmbeddingModelChange}
             onRefreshModels={() => config.embedding.endpoint_id && onFetchModels(config.embedding.endpoint_id)}
             loadingModels={loadingModels[config.embedding.endpoint_id || '']}
+            cloudModels={cloudModels[config.embedding.endpoint_id || ''] || []}
+            loadingCloudModels={loadingCloudModels[config.embedding.endpoint_id || '']}
+            onFetchCloudModels={onFetchCloudModels}
             hfEnabled={true}
             hfRepoId="nomic-ai/nomic-embed-text-v1.5"
             hfDownloaded={config.embedding.hf_downloaded}
@@ -830,6 +841,9 @@ export function AIModelsSettings({
                 onModelChange={handleSmallModelChange}
                 onRefreshModels={() => config.small_model.endpoint_id && onFetchModels(config.small_model.endpoint_id)}
                 loadingModels={loadingModels[config.small_model.endpoint_id || '']}
+                cloudModels={cloudModels[config.small_model.endpoint_id || ''] || []}
+                loadingCloudModels={loadingCloudModels[config.small_model.endpoint_id || '']}
+                onFetchCloudModels={onFetchCloudModels}
                 status={getSlotStatus(config.small_model, 'small')}
                 onTest={() => onTestModel('small')}
                 testResult={testResults['small']}
@@ -860,6 +874,9 @@ export function AIModelsSettings({
                 onModelChange={handleCodeModelChange}
                 onRefreshModels={() => config.code_model?.endpoint_id && onFetchModels(config.code_model.endpoint_id)}
                 loadingModels={loadingModels[config.code_model?.endpoint_id || '']}
+                cloudModels={cloudModels[config.code_model?.endpoint_id || ''] || []}
+                loadingCloudModels={loadingCloudModels[config.code_model?.endpoint_id || '']}
+                onFetchCloudModels={onFetchCloudModels}
                 status={getSlotStatus(config.code_model ?? { enabled: false }, 'code')}
                 onTest={() => onTestModel('code')}
                 testResult={testResults['code']}
@@ -889,6 +906,9 @@ export function AIModelsSettings({
                 onModelChange={handleLargeModelChange}
                 onRefreshModels={() => config.large_model.endpoint_id && onFetchModels(config.large_model.endpoint_id)}
                 loadingModels={loadingModels[config.large_model.endpoint_id || '']}
+                cloudModels={cloudModels[config.large_model.endpoint_id || ''] || []}
+                loadingCloudModels={loadingCloudModels[config.large_model.endpoint_id || '']}
+                onFetchCloudModels={onFetchCloudModels}
                 status={getSlotStatus(config.large_model, 'large')}
                 onTest={() => onTestModel('large')}
                 testResult={testResults['large']}
@@ -927,6 +947,9 @@ export function AIModelsSettings({
                   onModelChange={handleCoordinatorModelChange}
                   onRefreshModels={() => coordinatorSlot.endpoint_id && onFetchModels(coordinatorSlot.endpoint_id)}
                   loadingModels={loadingModels[coordinatorSlot.endpoint_id || '']}
+                  cloudModels={cloudModels[coordinatorSlot.endpoint_id || ''] || []}
+                  loadingCloudModels={loadingCloudModels[coordinatorSlot.endpoint_id || '']}
+                  onFetchCloudModels={onFetchCloudModels}
                   status={coordinatorInherits ? 'not-configured' : getSlotStatus(coordinatorSlot, 'coordinator')}
                   onTest={() => onTestModel('coordinator')}
                   testResult={testResults['coordinator']}

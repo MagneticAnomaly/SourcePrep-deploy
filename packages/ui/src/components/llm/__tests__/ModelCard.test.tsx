@@ -14,7 +14,7 @@
  * fall back to the "Select a model..." placeholder.
  */
 import { describe, it, expect } from 'vitest';
-import { buildModelOptions, shouldShowAlwaysOn } from '../ModelCard';
+import { buildModelOptions, buildCloudModelOptions, shouldShowAlwaysOn } from '../ModelCard';
 
 describe('buildModelOptions', () => {
   it('injects synthetic option for saved model when availableModels is empty', () => {
@@ -87,6 +87,65 @@ describe('buildModelOptions', () => {
     expect(blocked?.label).toContain('Blocked by IT');
     const unblocked = opts.find((o) => o.value === 'qwen3:8b');
     expect(unblocked?.disabled).toBeFalsy();
+  });
+});
+
+describe('buildCloudModelOptions', () => {
+  it('returns nothing when showCloud is false (section hidden)', () => {
+    const opts = buildCloudModelOptions({
+      cloudModels: ['glm-5.2:cloud'],
+      availableModels: [],
+      model: undefined,
+      showCloud: false,
+    });
+    expect(opts).toEqual([]);
+  });
+
+  it('lists cloud models under a section header when toggled on', () => {
+    const opts = buildCloudModelOptions({
+      cloudModels: ['glm-5.2:cloud', 'kimi-k2.6:cloud'],
+      availableModels: ['qwen3:8b'],
+      model: undefined,
+      showCloud: true,
+    });
+    expect(opts).toHaveLength(2);
+    expect(opts.map((o) => o.group)).toEqual([
+      'Cloud models (on-demand)',
+      'Cloud models (on-demand)',
+    ]);
+    expect(opts.map((o) => o.value)).toEqual(['glm-5.2:cloud', 'kimi-k2.6:cloud']);
+  });
+
+  it('dedupes cloud models that are already in the pulled /api/tags set', () => {
+    // kimi-k2.5:cloud is subscribed → it is in /api/tags → must NOT reappear in
+    // the on-demand cloud section. glm-5.2:cloud is on-demand only → kept.
+    const opts = buildCloudModelOptions({
+      cloudModels: ['glm-5.2:cloud', 'kimi-k2.5:cloud'],
+      availableModels: ['kimi-k2.5:cloud', 'qwen3:8b'],
+      model: undefined,
+      showCloud: true,
+    });
+    expect(opts.map((o) => o.value)).toEqual(['glm-5.2:cloud']);
+  });
+
+  it('dedupes the currently-saved model so it is not listed twice', () => {
+    const opts = buildCloudModelOptions({
+      cloudModels: ['glm-5.2:cloud'],
+      availableModels: [],
+      model: 'glm-5.2:cloud',
+      showCloud: true,
+    });
+    expect(opts).toEqual([]);
+  });
+
+  it('treats ":latest" as equivalent when de-duping against pulled models', () => {
+    const opts = buildCloudModelOptions({
+      cloudModels: ['glm-5.2:cloud'],
+      availableModels: ['glm-5.2:cloud:latest'],
+      model: undefined,
+      showCloud: true,
+    });
+    expect(opts).toEqual([]);
   });
 });
 

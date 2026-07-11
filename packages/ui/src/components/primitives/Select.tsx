@@ -28,6 +28,9 @@ export interface SelectOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Optional group/section header. Options sharing a `group` value render
+   *  under a non-clickable header in `SearchableSelect`. Omit for flat lists. */
+  group?: string;
 }
 
 export interface SelectProps

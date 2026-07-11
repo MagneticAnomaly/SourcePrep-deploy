@@ -70,6 +70,10 @@ export function useLLMConfig({ onDirty, onSwapModel, onWarnings }: UseLLMConfigO
   const [availableModels, setAvailableModels] = useState<Record<string, string[]>>({})
   const [modelDetails, setModelDetails] = useState<Record<string, Array<{ name: string; context_window?: string; cost_tier?: string; rate_limits?: { rpd?: number; rpm?: number }; batch_estimate?: { files_per_request: number; daily_file_capacity?: number } }>>>({})
   const [loadingModels, setLoadingModels] = useState<Record<string, boolean>>({})
+  // On-demand Ollama Cloud models not in /api/tags (verified via /api/show).
+  // Populated lazily when the user toggles "Show all cloud models" in a picker.
+  const [cloudModels, setCloudModels] = useState<Record<string, string[]>>({})
+  const [loadingCloudModels, setLoadingCloudModels] = useState<Record<string, boolean>>({})
   const [testingSlot, setTestingSlot] = useState<'embedding' | 'small' | 'large' | 'code' | 'coordinator' | null>(null)
   const [testResults, setTestResults] = useState<Record<string, EndpointTestResult>>({})
 
@@ -183,6 +187,40 @@ export function useLLMConfig({ onDirty, onSwapModel, onWarnings }: UseLLMConfigO
       setLoadingModels((prev) => ({ ...prev, [endpointId]: false }))
     }
   }, [llmConfig.saved_endpoints])
+
+  // Lazy fetch of on-demand Ollama Cloud models (not in /api/tags). Called
+  // only when the user toggles "Show all cloud models" in a picker. The
+  // backend caches probes per-endpoint, so repeated toggles are cheap; we
+  // also skip re-fetching if we already have a (possibly empty) list cached
+  // client-side — empty means "no on-demand cloud models found", which is a
+  // valid cached result worth keeping until the user explicitly re-toggles.
+  const handleFetchCloudModels = useCallback(async (endpointId: string): Promise<string[]> => {
+    const ep = llmConfig.saved_endpoints.find((e) => e.id === endpointId)
+    if (!ep || ep.provider !== 'ollama') return []
+    if (endpointId in cloudModels) return cloudModels[endpointId]
+    setLoadingCloudModels((prev) => ({ ...prev, [endpointId]: true }))
+    try {
+      const r = await fetch('/api/llm/proxy/cloud-models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: ep.provider, url: ep.url, api_key: ep.api_key }),
+      })
+      const json = await r.json().catch(() => null)
+      if (!r.ok) {
+        console.warn(`[LLM] Failed to fetch cloud models: ${json?.error?.message || json?.message || `HTTP ${r.status}`}`)
+        return []
+      }
+      const data = json?.data ?? json
+      const models: string[] = Array.isArray(data.cloud_models) ? data.cloud_models : []
+      setCloudModels((prev) => ({ ...prev, [endpointId]: models }))
+      return models
+    } catch (e) {
+      console.warn('[LLM] Cloud model fetch error:', e)
+      return []
+    } finally {
+      setLoadingCloudModels((prev) => ({ ...prev, [endpointId]: false }))
+    }
+  }, [llmConfig.saved_endpoints, cloudModels])
 
   const handleTestModel = useCallback(async (slotType: 'embedding' | 'small' | 'large' | 'code' | 'coordinator') => {
     let endpointId: string | undefined
@@ -377,6 +415,8 @@ export function useLLMConfig({ onDirty, onSwapModel, onWarnings }: UseLLMConfigO
     availableModels,
     modelDetails,
     loadingModels,
+    cloudModels,
+    loadingCloudModels,
     testingSlot,
     testResults,
     llmSlotsStatus,
@@ -386,6 +426,7 @@ export function useLLMConfig({ onDirty, onSwapModel, onWarnings }: UseLLMConfigO
     handleDeleteEndpoint,
     handleTestEndpoint,
     handleFetchModels,
+    handleFetchCloudModels,
     handleTestModel,
     handleClearTestResult,
     handleDownloadModel,

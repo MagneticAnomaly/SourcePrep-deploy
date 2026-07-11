@@ -4,7 +4,7 @@ import { SearchableSelect } from '../primitives/SearchableSelect';
 import { InfoTooltip } from '../primitives/InfoTooltip';
 import { cn } from '../../lib/utils';
 import type { SavedEndpoint, EndpointTestResult, ModelSource } from '../../types';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { CheckCircle, AlertCircle, Download, Cloud, Server, Database, RefreshCw, Loader2 } from 'lucide-react';
 
 export interface ModelCardProps {
@@ -30,7 +30,15 @@ export interface ModelCardProps {
   onModelChange?: (model: string) => void;
   onRefreshModels?: () => void;
   loadingModels?: boolean;
-  
+
+  // On-demand Ollama Cloud models not in /api/tags (Phase 145: cloud discovery).
+  // Shown in a separate "Cloud models (on-demand)" section when the user
+  // toggles the "Show all cloud models" checkbox. Verified server-side via
+  // /api/show, so only models the endpoint can actually serve are listed.
+  cloudModels?: string[];
+  loadingCloudModels?: boolean;
+  onFetchCloudModels?: (endpointId: string) => Promise<string[]>;
+
   // HuggingFace download (optional)
   hfEnabled?: boolean;
   hfRepoId?: string;
@@ -77,6 +85,8 @@ export interface ModelOption {
   value: string;
   label: string;
   disabled?: boolean;
+  /** Optional section header rendered by SearchableSelect. */
+  group?: string;
 }
 
 export interface BuildModelOptionsArgs {
@@ -137,6 +147,37 @@ export function buildModelOptions({
   return [...placeholder, ...synthetic, ...fromAvailable];
 }
 
+/**
+ * Build the "Cloud models (on-demand)" option group for the Model dropdown.
+ *
+ * Phase 145: on-demand Ollama Cloud models (verified server-side via /api/show)
+ * that are NOT in /api/tags. Rendered under a section header only when the
+ * user has toggled "Show all cloud models". Deduped against the pulled
+ * `availableModels` set AND the currently-saved `model` so a cloud model
+ * that is also subscribed (e.g. `kimi-k2.5:cloud`) or already selected never
+ * appears twice.
+ */
+export function buildCloudModelOptions({
+  cloudModels,
+  availableModels,
+  model,
+  showCloud,
+}: {
+  cloudModels: string[];
+  availableModels: string[];
+  model?: string;
+  showCloud: boolean;
+}): ModelOption[] {
+  if (!showCloud) return [];
+  return cloudModels
+    .filter(
+      (cm) =>
+        !availableModels.some((m) => isSameModel(m, cm)) &&
+        !(model ? isSameModel(cm, model) : false),
+    )
+    .map((cm) => ({ value: cm, label: cm, group: 'Cloud models (on-demand)' }));
+}
+
 export function shouldShowAlwaysOn({
   showAlwaysOn,
   onAlwaysOnChange,
@@ -163,6 +204,9 @@ export function ModelCard({
   onModelChange,
   onRefreshModels,
   loadingModels = false,
+  cloudModels = [],
+  loadingCloudModels = false,
+  onFetchCloudModels,
   hfEnabled = false,
   hfRepoId,
   hfDownloaded = false,
@@ -184,7 +228,23 @@ export function ModelCard({
   const isActive = status === 'connected';
   const isDownloading = status === 'downloading';
   const isLoading = status === 'loading';
-  
+
+  // Phase 145: on-demand Ollama Cloud model discovery. The checkbox is only
+  // offered for Ollama endpoints (cloud-via-Ollama is the only case this
+  // addresses). Toggling on lazily fetches the verified cloud model list
+  // (cached client-side per endpoint by useLLMConfig) and reveals a separate
+  // "Cloud models (on-demand)" section in the dropdown, deduped against the
+  // pulled /api/tags set so subscribed cloud models aren't listed twice.
+  const endpointProvider = endpoints.find((e) => e.id === endpoint)?.provider;
+  const canShowCloud = endpointProvider === 'ollama' && !!onFetchCloudModels;
+  const [showCloud, setShowCloud] = useState(false);
+  const handleToggleCloud = (checked: boolean) => {
+    setShowCloud(checked);
+    if (checked && endpoint && onFetchCloudModels && cloudModels.length === 0 && !loadingCloudModels) {
+      void onFetchCloudModels(endpoint);
+    }
+  };
+
   return (
     <div className={cn(
       'prep-card rounded-lg border bg-surface p-6 transition-colors flex flex-col',
@@ -292,12 +352,20 @@ export function ModelCard({
                       onChange={(v) => onModelChange && onModelChange(v)}
                       disabled={disabled}
                       placeholder={loadingModels ? 'Loading models...' : 'Select a model...'}
-                      options={buildModelOptions({
-                        model,
-                        availableModels,
-                        modelDetails,
-                        loadingModels,
-                      }).filter((o) => o.value !== '')}
+                      options={[
+                        ...buildModelOptions({
+                          model,
+                          availableModels,
+                          modelDetails,
+                          loadingModels,
+                        }),
+                        ...buildCloudModelOptions({
+                          cloudModels,
+                          availableModels,
+                          model,
+                          showCloud,
+                        }),
+                      ].filter((o) => o.value !== '')}
                       className="flex-1"
                     />
                     {onRefreshModels && (
@@ -311,6 +379,25 @@ export function ModelCard({
                       >
                         <RefreshCw className={cn("w-4 h-4 text-text-muted", loadingModels && "animate-spin")} />
                       </Button>
+                    )}
+                    {canShowCloud && (
+                      <label
+                        className={cn(
+                          "flex items-center gap-1 text-[10px] text-text-muted whitespace-nowrap shrink-0 select-none",
+                          disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                        )}
+                        title="Show on-demand Ollama Cloud models this endpoint can serve but that aren't in /api/tags"
+                      >
+                        <input
+                          type="checkbox"
+                          className="w-3 h-3 rounded border-border bg-surface text-primary focus:ring-primary cursor-pointer"
+                          checked={showCloud}
+                          onChange={(e) => handleToggleCloud(e.target.checked)}
+                          disabled={disabled || loadingCloudModels}
+                        />
+                        <Cloud className="w-3 h-3 shrink-0" />
+                        Show all cloud models
+                      </label>
                     )}
                   </div>
                   {/* Model Info: rate limits + batch estimate */}
