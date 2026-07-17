@@ -24,6 +24,45 @@
 
 export const panels = [
   {
+    id: 'applivation',
+    status: 'live',
+    name: 'Applivation',
+    tag: '[ iOS / APP ]',
+    icon: '/Applivation-logo.png',
+    url: 'https://applivation.app',
+    tagline: 'Job applications made easy.',
+    blurb: 'Applivation is an autofill for job applications. It maps your saved career history onto grueling ATS forms in seconds, syncs invisibly through iCloud, and never auto-submits — you review and confirm every field. Privacy-first across iPhone, iPad, and Mac, with no third-party accounts and zero data mining.',
+    bullets: [
+      'Autofill ATS Forms in Seconds',
+      'iCloud Sync, Zero Data Mining',
+      'Review & Confirm — Never Auto-Submits',
+    ],
+    // STOPGAP mockup: Applivation is a phone app → dual-phone variant. Using
+    // dual-phone-placeholder (bespoke cells) until Eric supplies real App Store
+    // screenshots. To go live: swap `type` to 'dual-phone-image' and replace
+    // `phones` with a HomeColab-shaped {cells:[{cellClass,src,alt}]} structure
+    // pointing at the screenshot files dropped into public/. The timeline loop
+    // picks up the yPercent axis automatically — no App.jsx edit needed.
+    mockup: {
+      type: 'dual-phone-placeholder',
+      phones: [
+        {
+          cells: [
+            { cellClass: 'h-1/2 w-full bg-gradient-to-t from-void to-[#0a1830] flex items-center justify-center p-4', labelClass: 'font-mono flex-col flex text-center text-[10px] text-[#6EA8FE]', emoji: '🔒', label: 'VAULT' },
+            { cellClass: 'h-1/2 w-full bg-[#050508] border-t border-white/5 flex items-center justify-center p-4', labelClass: 'font-mono text-[10px] text-telemetry', label: 'ATS FORM' },
+          ],
+        },
+        {
+          cells: [
+            { cellClass: 'h-1/2 w-full bg-gradient-to-b from-void to-[#111128] flex items-center justify-center p-4', labelClass: 'font-mono flex-col flex text-center text-[10px] text-[#6EA8FE]', emoji: '✨', label: 'AUTOFILL' },
+            { cellClass: 'h-1/2 w-full bg-[#030305] border-t border-white/5 flex flex-col items-center justify-center p-4', labelClass: 'font-mono text-[10px] text-[#6EA8FE] mb-3', label: 'CONFIRM', barClass: 'w-full h-10 rounded-lg bg-gradient-to-r from-[#6EA8FE]/20 to-[#6EA8FE]/5 border border-[#6EA8FE]/30' },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     id: 'sourceprep',
     status: 'live',
     name: 'SourcePrep',
@@ -143,43 +182,6 @@ export const panels = [
           cells: [
             { cellClass: 'h-1/2 w-full bg-gradient-to-b from-void to-[#111118] flex items-center justify-center p-4', labelClass: 'font-mono text-[10px] text-telemetry', label: 'TERMS' },
             { cellClass: 'h-1/2 w-full bg-[#030305] border-t border-white/5 flex flex-col items-center justify-center p-4', labelClass: 'font-mono text-[10px] text-ice mb-3', label: 'PUBLISHED', barClass: 'w-full h-12 rounded-lg bg-gradient-to-r from-void to-white/5 border border-white/5' },
-          ],
-        },
-      ],
-    },
-  },
-
-  // --- PLACEHOLDER 5TH ENTRY — mechanism proof, not real content ---
-  // status:'placeholder' → renders in the carousel (proves the timeline scales to
-  // N=5) but is EXCLUDED from the footer SystemIndex and from SEO meta. Real
-  // 5th-project content (copy, logo, screenshots) is a separate follow-up.
-  {
-    id: 'placeholder-5',
-    status: 'placeholder',
-    name: 'Coming Soon',
-    tag: '[ IN DEVELOPMENT ]',
-    icon: null, // null → render a muted monogram tile instead of an <img>
-    url: null,
-    tagline: 'A new payload is entering orbit.',
-    blurb: 'This slot is a placeholder proving the portfolio scales to five projects. The real fifth project — copy, branding, and live mockups — lands here in a follow-up. Everything else about the scroll experience stays identical.',
-    bullets: [
-      'Mechanism Test — Scales to N=5',
-      'Same Per-Slide Feel, +25% Scroll',
-      'Real Content Forthcoming',
-    ],
-    mockup: {
-      type: 'dual-phone-placeholder',
-      phones: [
-        {
-          cells: [
-            { cellClass: 'h-1/2 w-full bg-gradient-to-t from-void to-[#1a1a2a] flex items-center justify-center p-4 border-2 border-dashed border-white/10', labelClass: 'font-mono text-[10px] text-white/30', label: 'PLACEHOLDER' },
-            { cellClass: 'h-1/2 w-full bg-[#050508] border-t border-white/5 flex items-center justify-center p-4 border-2 border-dashed border-white/10', labelClass: 'font-mono text-[10px] text-white/30', label: 'PLACEHOLDER' },
-          ],
-        },
-        {
-          cells: [
-            { cellClass: 'h-1/2 w-full bg-gradient-to-b from-void to-[#1a1a2a] flex items-center justify-center p-4 border-2 border-dashed border-white/10', labelClass: 'font-mono text-[10px] text-white/30', label: 'PLACEHOLDER' },
-            { cellClass: 'h-1/2 w-full bg-[#030305] border-t border-white/5 flex flex-col items-center justify-center p-4 border-2 border-dashed border-white/10', labelClass: 'font-mono text-[10px] text-white/30 mb-3', label: 'PLACEHOLDER', barClass: 'w-full h-10 rounded-md bg-white/5 border border-white/10' },
           ],
         },
       ],
