@@ -1,0 +1,23 @@
+{
+  "_comment": "Phase 6 final verification (text-only). Cleanup + lint + build + mobile Playwright pass.",
+  "cleanup": "dead hand-written panel JSX removed (Phase 2 deleted function Payloads; Phase 3 replaced hardcoded timeline). No dead references remain.",
+  "lint": { "errors_after_refactor": 21, "errors_at_HEAD": 21, "new_errors_introduced": 0, "note": "Pre-existing: useLayoutEffect unused (App.jsx:1), Math.random purity (particles/, AsteroidField), fs/require/process (compileTest.js). None introduced by the refactor." },
+  "build": "clean (vite build succeeds; only pre-existing chunk-size >500kB warning)",
+  "mobilePass": {
+    "viewport": "375x812",
+    "panelCount": 5,
+    "panel1_desktop_variant": { "classes_include": ["max-md:flex-1", "max-md:-ml-2"], "computed_marginLeft": "-8px", "fixed_height": "none (content-driven)", "pass": true },
+    "panels2to5_phone_variants": { "classes_include": ["max-md:h-auto", "max-md:flex-1"], "computed_flex": "1 1 0%", "height": "auto (overrides h-[340px])", "pass": true },
+    "panel5_placeholder_mobile": "renders with identical phone-variant max-md: classes as panels 2/3/4",
+    "drift": "none -- variant wrappers retained max-md: classes verbatim",
+    "console_errors": 0
+  },
+  "desktopRecap": {
+    "pinDuration": 15000,
+    "panels1to4_vs_baseline": "exact (visibility table + inner-anim endpoints)",
+    "panel5_wiring": "hidden t0-t14, swiped in t14.4-t16, inner-5 anim -494@t18, holds t18-t20",
+    "footer": "4 live entries (placeholder excluded)",
+    "sourcePrep_screenshot_bugfix": "/Prep-ss1.png + /Prep-ss2.png (were 404'ing /SourcePrep-ss*.png)"
+  },
+  "result": "PASS -- all 6 phases complete. Mechanism proven: adding/removing a panel is one entry in panels-data.js; timeline + footer + carousel derive from it; per-slide feel is pixel-identical, only total section length scales (linear in N)."
+}

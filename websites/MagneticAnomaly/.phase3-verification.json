@@ -1,0 +1,23 @@
+{
+  "_comment": "Phase 3 verification (text-only Playwright). Loop-generated timeline from `panels`. N=5 -> totalUnits=20, pin duration 15000. Panels 1-4 must still match baseline; panel 5 follows the same per-slide pattern.",
+  "viewport": { "width": 1600, "height": 1000 },
+  "pinStart": 4005,
+  "pinEnd": 19005,
+  "pinDuration": 15000,
+  "expectedPinDuration": "N*4*750 = 5*4*750 = 15000",
+  "result": "PASS",
+  "checks": {
+    "pinDuration": { "expected": 15000, "captured": 15000, "match": "exact" },
+    "panels1to4VsBaseline": "identical to Phase 2 / baseline oracle at every captured unit (t0,t2,t3,t4,t6,t7,t8,t10,t11,t12,t14). inner-1 -631.5@t2; inner-2/3/4 -494@t6/t10/t14; mid-swipes at t3/t7/t11; visibility transitions all match.",
+    "panel5_wiring": {
+      "hidden_t0_to_t14": "panel 5 x=1680 visibility:hidden t0..t14",
+      "swipeIn_during_panel4_block": "t15 mid-swipe: panel4 tx=-258.97 (outgoing), panel5 tx=1421.03 (incoming), both visible. Swipe runs t14.5->t16.0.",
+      "arrives_x0_at_t16": "panel 5 tx=0 visible @ t16; panel 4 hidden tx=-1680",
+      "inner5_anim": "inner-5 ty=-494 @ t18 (anim runs t16.5->t18.0, endpoint matches per-slide pattern)",
+      "lastPanel_noSwipeOut": "panel 5 stays visible x:0 t18..t20 (no swipe-out, last panel)"
+    },
+    "scalingInvariant": "per-slide feel pixel-identical (same 4-unit slot, 1.5-unit inner anim, 1.5-unit swipe). Total section 12000 -> 15000 px (+25%). Camera orbit spread over 20 units (slower angular speed, same per-slide wall-clock).",
+    "note_on_plan_offset": "The plan/handoff said 'panel 5 visible at t18.4, swipe begins t18.5' — that conflated panel-5's own block with its swipe-in. Panel 5 is swiped IN by panel-4's block (i=3, t0=12) at t14.4/t14.5, and as the last panel has no swipe-out. The loop is correct; the plan's t18.4 was a miscalculation."
+  },
+  "console": "0 errors, 1 warning"
+}
