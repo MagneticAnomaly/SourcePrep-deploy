@@ -250,7 +250,7 @@ class TestSwarmThinkFalse:
             ),
         ]
 
-        result, _tokens = orch._synthesize(results, "prompt {worker_outputs}")
+        result, _tokens, _, _, _ = orch._synthesize(results, "prompt {worker_outputs}")
         assert result is not None
 
         # Verify llm.generate was called with think=False

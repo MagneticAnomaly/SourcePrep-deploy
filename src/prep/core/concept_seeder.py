@@ -47,6 +47,130 @@ from prep.services.pipeline.thread_pool import llm_pool
 
 logger = logging.getLogger(__name__)
 
+
+# Phase 136 Part 09: how much of the raw synthesis response to capture
+# in the telemetry payload.  500 head + 500 tail × ~1 byte/char comfortably
+# fits inside the JSONL event record without exceeding line buffers.
+_DIAG_HEAD_CHARS = 500
+_DIAG_TAIL_CHARS = 500
+
+
+def _synthesis_diagnostic_fields(result: Any) -> dict:
+    """Phase 136 Part 09 — build the diagnostic-only fields that get
+    spliced into the ``concepts_synthesis_failed`` telemetry payload.
+
+    Captures (a) length of the raw LLM synthesis response, (b) head
+    and tail samples so operators can eyeball whether the response was
+    truncated, empty, all-reasoning-text, or shaped wrong, (c) size
+    of the consolidation prompt to test the output-token-cap
+    hypothesis, (d) cumulative size of worker outputs the prompt
+    bundled, and (e) a coarse ``failure_mode`` classifier so
+    triage queries don't have to re-derive it.
+
+    Pure function over ``SwarmResult`` — no I/O, safe to unit-test.
+
+    ``failure_mode`` values:
+      - ``"no_workers"`` — no successful worker had parseable output;
+        synthesis was never dispatched.
+      - ``"no_text"`` — synthesis LLM call timed out or errored before
+        returning text.
+      - ``"parse_failed"`` — LLM returned text but ``_parse_json_response``
+        rejected it (typical for unclosed ``<think>`` tags, partial
+        JSON, or pure prose).
+      - ``"parsed_but_empty"`` — JSON parsed successfully but the
+        ``concepts`` array was missing or empty (the most common
+        2026-05-17 / 5/18 / 5/28 fingerprint).
+    """
+    raw_text = getattr(result, "raw_synthesis_text", None)
+    prompt_chars = getattr(result, "synthesis_prompt_chars", 0)
+    synthesis = getattr(result, "synthesis", None)
+    chunk_count = getattr(result, "synthesis_chunk_count", 1)
+    meta_failed = getattr(result, "synthesis_meta_failed", False)
+
+    if raw_text is None:
+        if prompt_chars == 0:
+            failure_mode = "no_workers"
+        elif chunk_count > 1:
+            # Chunks were dispatched (prompt_chars > 0 → at least one
+            # chunk's prompt was sent) but none returned parseable text
+            # and meta was skipped → chunked_all_failed.  Per-chunk
+            # raw responses are not bubbled here; see swarm event log
+            # for per-chunk parse_failure records.
+            failure_mode = "chunked_all_failed"
+        else:
+            failure_mode = "no_text"
+    elif synthesis is None:
+        failure_mode = "parse_failed"
+    elif chunk_count > 1 and meta_failed:
+        # Chunks succeeded, meta failed; we returned a manually-deduped
+        # union of chunk survivors as result.synthesis.  This is the
+        # chunked path's recovery-success — partial-quality output kept.
+        failure_mode = "chunked_meta_failed"
+    else:
+        failure_mode = "parsed_but_empty"
+
+    raw = raw_text or ""
+    head = raw[:_DIAG_HEAD_CHARS]
+    # Skip tail when text is shorter than head — head already covers it.
+    tail = raw[-_DIAG_TAIL_CHARS:] if len(raw) > _DIAG_HEAD_CHARS else ""
+
+    worker_chars_total = 0
+    for wr in getattr(result, "worker_results", []) or []:
+        if wr.success and wr.parsed:
+            try:
+                worker_chars_total += len(json.dumps(wr.parsed, indent=2))
+            except (TypeError, ValueError):
+                pass
+
+    return {
+        "raw_synthesis_chars": len(raw),
+        "raw_synthesis_head": head,
+        "raw_synthesis_tail": tail,
+        "synthesis_prompt_chars": int(prompt_chars),
+        "worker_outputs_chars_total": worker_chars_total,
+        "failure_mode": failure_mode,
+    }
+
+
+def _emit_chunked_meta_failed_event(
+    result: Any,
+    index_dir: Any,
+    project_id: Optional[str],
+    final_concepts: list,
+    final_questions: list,
+) -> None:
+    """Phase 136 Part 09 Step 2 — emit ``concepts_chunked_meta_failed``
+    telemetry event when the chunked synthesis's meta call failed but
+    chunk survivors were preserved as ``result.synthesis``.
+
+    Distinct from ``concepts_synthesis_failed`` (which fires when
+    synthesis returned no usable concepts at all and raw-worker
+    fallback ran): this event signals the chunked path's recovery-
+    success — partial-quality output kept, no fallback needed.
+
+    Best-effort: telemetry write failures are silently ignored so a
+    bad data_dir cannot fail the run.
+    """
+    try:
+        from prep.services.pipeline_telemetry import record_event
+        record_event(
+            index_dir, "concepts_chunked_meta_failed",
+            {
+                "concepts_returned": len(final_concepts),
+                "questions_returned": len(final_questions),
+                "worker_count": len(getattr(result, "worker_results", []) or []),
+                "successful_workers": sum(
+                    1 for wr in (getattr(result, "worker_results", []) or [])
+                    if wr.success
+                ),
+                **_synthesis_diagnostic_fields(result),
+            },
+            stage="concepts", project_id=project_id,
+        )
+    except Exception:
+        pass
+
+
 # Minimum files for a module to be included in seeding context
 # (sequential path — keeps prompt focused on substantial subsystems)
 MIN_MODULE_FILES = 5
@@ -884,9 +1008,31 @@ def seed_concepts_swarm(
     final_questions = synthesized.get("questions", [])
     synthesis_was_empty = not final_concepts
 
+    # Phase 136 Part 09 Step 2 Follow-up B (C1):  synthesis_meta_failed
+    # takes priority over synthesis_was_empty.  The chunked path's
+    # recovery output (survivors-union from _dedup_chunk_union) is the
+    # canonical artifact even when its `concepts` list is empty — every
+    # chunk emitting only `questions` (the Phase 123 fingerprint) is a
+    # valid recovery shape.  If we instead let the raw-worker fallback
+    # branch fire, we (a) emit a wrong event name whose payload
+    # carries failure_mode='chunked_meta_failed' from the diagnostic
+    # classifier and (b) overwrite the carefully-deduped chunk-survivor
+    # questions with raw-worker output.  The chunked event must win.
+    if getattr(result, "synthesis_meta_failed", False):
+        _emit_chunked_meta_failed_event(
+            result=result,
+            index_dir=index_dir,
+            project_id=project_id,
+            final_concepts=final_concepts,
+            final_questions=final_questions,
+        )
+
     # If synthesis failed but workers succeeded, fall back to merging
-    # raw worker outputs (best-effort dedupe by title).
-    if synthesis_was_empty and result.worker_results:
+    # raw worker outputs (best-effort dedupe by title).  This branch is
+    # reserved for the single-call-path collapse and the
+    # chunked-all-failed shape — meta_failed has already been handled
+    # by the if-branch above.
+    elif synthesis_was_empty and result.worker_results:
         seen_titles: set[str] = set()
         # Phase 123 follow-up (2026-05-07): workers now emit clarifying
         # questions too, so they survive synthesis failure. Dedupe by
@@ -931,6 +1077,11 @@ def seed_concepts_swarm(
                         "increase the swarm wall-time budget for the "
                         "configured cloud model."
                     ),
+                    # Phase 136 Part 09 diagnostic surface — raw response
+                    # head/tail, prompt sizes, failure-mode classifier so
+                    # the 2026-05-17/18/28 recurring failure can be
+                    # diagnosed from telemetry alone.
+                    **_synthesis_diagnostic_fields(result),
                 },
                 stage="concepts", project_id=project_id,
             )

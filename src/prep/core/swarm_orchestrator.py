@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from concurrent.futures import (
     FIRST_COMPLETED,
@@ -31,6 +32,17 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # System prompts
 # ---------------------------------------------------------------------------
+
+def _env_flag(name: str) -> bool:
+    """Read a boolean env var (truthy strings: 1, true, yes, on).
+
+    Mirrors ``prep.core.embedder._env_flag``; duplicated here so the
+    orchestrator does not need to import the embedder module (different
+    concerns, different dependency graph).
+    """
+    raw = os.environ.get(name, "").strip().lower()
+    return raw in ("1", "true", "yes", "on")
+
 
 COORDINATOR_SYSTEM = (
     "You are a senior software architect planning a parallel codebase analysis. "
@@ -109,6 +121,30 @@ class SwarmResult:
     # "retry on next run" rather than counting it as a permanent failure.
     paused: bool = False
     pause_info: Optional[Dict[str, str]] = None
+
+    # Phase 136 Part 09: raw LLM synthesis response, captured on every
+    # parse path so callers (currently concept_seeder) can include
+    # head/tail in the ``concepts_synthesis_failed`` telemetry payload.
+    # ``None`` when no LLM call was made (no successful workers) or the
+    # call timed out — the call was made if ``synthesis_prompt_chars > 0``.
+    # ``synthesis_prompt_chars`` records the consolidation prompt size so
+    # the "output-token cap on large prompts" hypothesis can be tested
+    # against production telemetry without re-instrumenting later.
+    raw_synthesis_text: Optional[str] = None
+    synthesis_prompt_chars: int = 0
+
+    # Phase 136 Part 09 Step 2: chunked-synthesis surface.
+    # synthesis_chunk_count == 1 means single-call path (or chunking was
+    # eligible but only one chunk's worth of workers).  N > 1 means N
+    # chunks + 1 meta call.  synthesis_meta_failed is True ONLY when the
+    # chunked path ran AND chunks succeeded AND meta failed AND we
+    # returned a manually-deduped union of survivors as result.synthesis.
+    # The diagnostic classifier reads these to distinguish
+    # chunked_meta_failed and chunked_all_failed from the four single-
+    # call failure modes (no_workers / no_text / parse_failed /
+    # parsed_but_empty).
+    synthesis_chunk_count: int = 1
+    synthesis_meta_failed: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +304,30 @@ class SwarmOrchestrator(HoldAwareMixin):
             if max_wall_time_s is not None
             else self.DEFAULT_MAX_WALL_TIME_S
         )
+        # Phase 136 Part 09 Step 2: threshold above which synthesis
+        # splits into chunks of ~chunk_max_workers each.  Read at
+        # __init__ so tests can monkeypatch the env before constructing
+        # the orchestrator.  Default 200 matches the Part 09 work order.
+        # Same value doubles as the per-chunk batch size (`chunk_max_workers`
+        # workers per chunk; last chunk may be smaller).
+        try:
+            self.synthesis_chunk_max_workers = int(
+                os.environ.get("PREP_SYNTHESIS_CHUNK_MAX_WORKERS", "200")
+            )
+        except ValueError:
+            self.synthesis_chunk_max_workers = 200
+        if self.synthesis_chunk_max_workers < 1:
+            self.synthesis_chunk_max_workers = 200
+        # Phase 136 Part 09 Step 2 follow-up: hard kill-switch for the
+        # chunked synthesis path.  When truthy, _synthesize always
+        # takes the single-call path regardless of worker count.
+        # Required for the documented merge gate (live rebuild must
+        # produce a single-call parsed_but_empty event to confirm the
+        # original failure mode); without it, large workloads always
+        # go chunked and the gate cannot fire.  Read at __init__ so
+        # tests can monkeypatch the env before construction, matching
+        # the pattern used for ``synthesis_chunk_max_workers`` above.
+        self.synthesis_chunk_disable = _env_flag("PREP_SYNTHESIS_CHUNK_DISABLE")
         # Phase 127: project_id lets us check soft-holds at phase
         # boundaries.  None is acceptable (the hold check becomes a no-op
         # because no project-keyed hold can match an empty project id).
@@ -745,13 +805,268 @@ class SwarmOrchestrator(HoldAwareMixin):
         worker_results: List[WorkerResult],
         synthesis_prompt: str,
         event_log: Optional[SwarmEventLogger] = None,
-    ) -> Tuple[Optional[Dict[str, Any]], int]:
+    ) -> Tuple[Optional[Dict[str, Any]], int, Optional[str], int, bool]:
+        """Phase 136 Part 09 Step 2: dispatch to single-call or chunked
+        synthesis based on worker count.
+
+        When the number of successful workers exceeds
+        ``self.synthesis_chunk_max_workers``, split into chunks and run
+        synthesis + meta-synthesis.  Otherwise run the existing single-
+        call path unchanged.
+
+        Same return shape as ``_synthesize_single``:
+        ``(parsed, tokens, raw_text, prompt_chars, meta_failed)``.
+        """
+        successful = [r for r in worker_results if r.success and r.parsed]
+        if not successful:
+            # Identical to _synthesize_single's no-workers branch —
+            # return early without inspecting threshold.  Important:
+            # avoids dispatching an empty chunked run.
+            logger.warning(
+                "[Swarm] No successful workers with parsed output — "
+                "skipping synthesis"
+            )
+            if event_log is not None:
+                event_log.event("phase_skipped", phase="synthesis",
+                                reason="no_successful_workers")
+            return None, 0, None, 0, False
+
+        if (
+            not self.synthesis_chunk_disable
+            and len(successful) > self.synthesis_chunk_max_workers
+        ):
+            return self._synthesize_chunked(
+                successful, synthesis_prompt, event_log=event_log,
+            )
+        return self._synthesize_single(
+            successful, synthesis_prompt, event_log=event_log,
+        )
+
+    def _synthesize_chunked(
+        self,
+        successful: List[WorkerResult],
+        synthesis_prompt: str,
+        event_log: Optional[SwarmEventLogger] = None,
+    ) -> Tuple[Optional[Dict[str, Any]], int, Optional[str], int, bool]:
+        """Phase 136 Part 09 Step 2: split synthesis into chunks of
+        ``self.synthesis_chunk_max_workers`` and run a meta-synthesis
+        over the chunk results.
+
+        Path:
+          1. Sort ``successful`` by ``item_id`` for reproducibility.
+          2. Slice into batches of up to ``chunk_max_workers``.
+          3. For each chunk, run ``_synthesize_single`` (drops the
+             chunk on parse_failed / timeout / no_text).  Soft-hold
+             check fires AFTER each chunk completes.
+          4. If 0 chunks succeeded → return (None, ..., None, max_prompt, False).
+             The existing concept_seeder fallback runs against raw
+             worker outputs.
+          5. Otherwise call ``_synthesize_single`` once more with the
+             chunk parsed results as the ``{worker_outputs}`` payload
+             (each chunk parsed dict serialized as JSON, joined the
+             same way the original prompt joins workers).  Item id for
+             each chunk is ``chunk-N``.
+             - Meta succeeds → return (meta_parsed, sum_tokens + meta_tokens,
+               meta_text, max(per_chunk_prompts, meta_prompt), False).
+             - Meta fails → return (manually_deduped_union, ...,
+               max(per_chunk_prompts, meta_prompt), True).
+               Dedup mirrors concept_seeder.py:889-909 (skip empty
+               titles, skip questions with empty text, lowercase-strip
+               for dedup keys).
+
+        Tokens are summed across chunks + meta.  prompt_chars is the
+        MAX single prompt sent so the diagnostic question "was the
+        prompt size too large for the model's output cap?" stays
+        meaningful.
+        """
+        # Step 5a-d: chunk splitting + per-chunk dispatch.
+        # Sort by item_id for reproducibility — production debugging and
+        # test fixtures both rely on chunk boundaries being deterministic.
+        sorted_workers = sorted(successful, key=lambda w: w.item_id)
+        chunk_size = self.synthesis_chunk_max_workers
+        chunks: List[List[WorkerResult]] = [
+            sorted_workers[i:i + chunk_size]
+            for i in range(0, len(sorted_workers), chunk_size)
+        ]
+
+        logger.info(
+            "[Swarm/Chunked] Synthesis: %d workers split into %d chunks of "
+            "up to %d each",
+            len(sorted_workers), len(chunks), chunk_size,
+        )
+
+        # Per-chunk results: list of parsed dicts (successes only).
+        chunk_parsed_dicts: List[Dict[str, Any]] = []
+        sum_chunk_tokens = 0
+        max_chunk_prompt_chars = 0
+
+        for chunk_idx, chunk_workers in enumerate(chunks):
+            logger.info(
+                "[Swarm/Chunked] Chunk %d/%d: synthesizing %d workers",
+                chunk_idx + 1, len(chunks), len(chunk_workers),
+            )
+            chunk_parsed, chunk_tokens, chunk_text, chunk_prompt_chars, _ = (
+                self._synthesize_single(
+                    chunk_workers, synthesis_prompt, event_log=event_log,
+                )
+            )
+            sum_chunk_tokens += chunk_tokens
+            if chunk_prompt_chars > max_chunk_prompt_chars:
+                max_chunk_prompt_chars = chunk_prompt_chars
+
+            if chunk_parsed is not None:
+                chunk_parsed_dicts.append(chunk_parsed)
+                logger.info(
+                    "[Swarm/Chunked] Chunk %d/%d: success (%d tokens)",
+                    chunk_idx + 1, len(chunks), chunk_tokens,
+                )
+            else:
+                logger.info(
+                    "[Swarm/Chunked] Chunk %d/%d: failed (no parsed output)",
+                    chunk_idx + 1, len(chunks),
+                )
+
+            # Soft-hold check AFTER each chunk completes (= before next).
+            # The first chunk doesn't need this because execute() already
+            # checked at the fanout→synth boundary; subsequent chunks need
+            # the check to honor a hold that landed mid-synthesis.
+            if chunk_idx < len(chunks) - 1 and self._hold_paused():
+                self._raise_hold_paused()
+
+        # All chunks failed → return None, existing fallback runs.
+        if not chunk_parsed_dicts:
+            logger.warning(
+                "[Swarm/Chunked] All %d chunks failed — returning None",
+                len(chunks),
+            )
+            return None, sum_chunk_tokens, None, max_chunk_prompt_chars, False
+
+        # Phase 136 Part 09 Step 2 follow-up: 1-survivor short-circuit.
+        # A degenerate meta call over a single chunk-parsed dict adds
+        # wall-time, can silently destroy survivor data if the LLM
+        # returns schema-valid-but-empty JSON, and provides no
+        # cross-chunk synthesis benefit (there is no other chunk to
+        # synthesize against).  Skip meta; treat as recovery-success
+        # via dedup union; flag meta_failed=True so operators get
+        # the chunked_meta_failed signal.
+        if len(chunk_parsed_dicts) == 1:
+            logger.info(
+                "[Swarm/Chunked] Only 1 chunk succeeded — skipping "
+                "meta-synthesis (no cross-chunk benefit); returning "
+                "deduped union"
+            )
+            union = self._dedup_chunk_union(chunk_parsed_dicts)
+            return union, sum_chunk_tokens, None, max_chunk_prompt_chars, True
+
+        # Soft-hold check before meta dispatch.
+        if self._hold_paused():
+            self._raise_hold_paused()
+
+        # Build meta synthesis input — same format as worker output joining.
+        meta_workers: List[WorkerResult] = [
+            WorkerResult(
+                item_id=f"chunk-{i+1}",
+                raw_output="",
+                parsed=chunk_dict,
+                success=True,
+            )
+            for i, chunk_dict in enumerate(chunk_parsed_dicts)
+        ]
+        logger.info(
+            "[Swarm/Chunked] Meta-synthesis: %d/%d chunks succeeded, "
+            "dispatching meta over %d partial syntheses",
+            len(chunk_parsed_dicts), len(chunks), len(meta_workers),
+        )
+        meta_parsed, meta_tokens, meta_text, meta_prompt_chars, _ = (
+            self._synthesize_single(
+                meta_workers, synthesis_prompt, event_log=event_log,
+            )
+        )
+        total_tokens = sum_chunk_tokens + meta_tokens
+        max_prompt = max(max_chunk_prompt_chars, meta_prompt_chars)
+
+        if meta_parsed is not None:
+            logger.info(
+                "[Swarm/Chunked] Meta-synthesis: success (%d tokens)",
+                meta_tokens,
+            )
+            return meta_parsed, total_tokens, meta_text, max_prompt, False
+
+        # Meta failed but chunks survived → return manually-deduped union.
+        logger.warning(
+            "[Swarm/Chunked] Meta-synthesis: failed; returning manually-"
+            "deduped union of %d chunks",
+            len(chunk_parsed_dicts),
+        )
+        union = self._dedup_chunk_union(chunk_parsed_dicts)
+        return union, total_tokens, meta_text, max_prompt, True
+
+    @staticmethod
+    def _dedup_chunk_union(
+        chunk_parsed_dicts: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Union the chunk parsed dicts with the same defensiveness as
+        concept_seeder.py:889-909's fallback dedup:
+
+          - Concepts deduped by ``title.lower().strip()``.
+          - Questions deduped by ``(text.lower().strip(),
+            target_module.lower().strip())``.
+          - Empty/missing titles → entry dropped.
+          - Empty/missing question text → entry dropped.
+
+        This keeps the chunked_meta_failed shape comparable to the
+        single-call empty-synthesis fallback so downstream consumers
+        don't need to learn a new path.
+        """
+        seen_titles: set = set()
+        seen_questions: set = set()
+        out_concepts: List[Dict[str, Any]] = []
+        out_questions: List[Dict[str, Any]] = []
+
+        for chunk_dict in chunk_parsed_dicts:
+            for c in chunk_dict.get("concepts", []) or []:
+                title = (c.get("title") or "").strip().lower()
+                if title and title not in seen_titles:
+                    seen_titles.add(title)
+                    out_concepts.append(c)
+            for q in chunk_dict.get("questions", []) or []:
+                qtext = (q.get("question") or "").strip().lower()
+                qmod = (q.get("target_module") or "").strip().lower()
+                key = (qtext, qmod)
+                if qtext and key not in seen_questions:
+                    seen_questions.add(key)
+                    out_questions.append(q)
+
+        return {"concepts": out_concepts, "questions": out_questions}
+
+    def _synthesize_single(
+        self,
+        worker_results: List[WorkerResult],
+        synthesis_prompt: str,
+        event_log: Optional[SwarmEventLogger] = None,
+    ) -> Tuple[Optional[Dict[str, Any]], int, Optional[str], int, bool]:
         """Single LLM call to aggregate successful worker results.
 
-        Returns (parsed_result, token_count). Result is None on failure,
-        timeout, or if no workers succeeded.  Callers (e.g.
-        concept_seeder) should fall back to merging raw worker outputs
-        when synthesis returns None.
+        This is the existing single-prompt synthesis path.  The chunked path
+        (`_synthesize_chunked`) calls this method once per chunk plus once
+        for the meta synthesis.
+
+        Returns ``(parsed_result, token_count, raw_text, prompt_chars,
+        meta_failed)``.
+
+        - ``parsed_result`` is ``None`` on failure, timeout, or if no
+          workers succeeded.
+        - ``raw_text`` is the LLM response captured even on parse failure
+          so callers (currently concept_seeder) can include head/tail in
+          the diagnostic.  ``None`` when no LLM call was made or it timed
+          out.
+        - ``prompt_chars`` is the consolidation prompt size; ``0`` when no
+          LLM call was made.
+        - ``meta_failed`` is reserved for the chunked path (Step 2);
+          single-call path always returns ``False``.
+
+        Callers should fall back to merging raw worker outputs when
+        ``parsed_result`` is ``None``.
         """
         successful = [r for r in worker_results if r.success and r.parsed]
         if not successful:
@@ -759,13 +1074,14 @@ class SwarmOrchestrator(HoldAwareMixin):
             if event_log is not None:
                 event_log.event("phase_skipped", phase="synthesis",
                                 reason="no_successful_workers")
-            return None, 0
+            return None, 0, None, 0, False
 
         outputs = "\n\n".join(
             f"### {r.item_id}\n```json\n{json.dumps(r.parsed, indent=2)}\n```"
             for r in successful
         )
         prompt = synthesis_prompt.replace("{worker_outputs}", outputs)
+        prompt_chars = len(prompt)
 
         synth_model = getattr(self.coordinator_llm, "model", None)
         if event_log is not None:
@@ -785,7 +1101,7 @@ class SwarmOrchestrator(HoldAwareMixin):
                 event_log.phase_end("synthesizer", success=False,
                                     duration_s=time.monotonic() - s_t0,
                                     reason="timeout_or_error", tokens=tokens)
-            return None, tokens
+            return None, tokens, None, prompt_chars, False
 
         parsed = _parse_json_response(text)
         if not parsed:
@@ -797,14 +1113,14 @@ class SwarmOrchestrator(HoldAwareMixin):
                 event_log.phase_end("synthesizer", success=False,
                                     duration_s=time.monotonic() - s_t0,
                                     reason="parse_failed", tokens=tokens)
-            return None, tokens
+            return None, tokens, text, prompt_chars, False
 
         logger.info("[Swarm] Synthesis complete (%d tokens)", tokens)
         if event_log is not None:
             event_log.phase_end("synthesizer", success=True,
                                 duration_s=time.monotonic() - s_t0,
                                 tokens=tokens)
-        return parsed, tokens
+        return parsed, tokens, text, prompt_chars, False
 
     # -- Full execution -----------------------------------------------------
 
@@ -881,6 +1197,9 @@ class SwarmOrchestrator(HoldAwareMixin):
         worker_results: List[WorkerResult] = []
         synthesis: Optional[Dict[str, Any]] = None
         synthesis_tokens = 0
+        raw_synthesis_text: Optional[str] = None
+        synthesis_prompt_chars = 0
+        synthesis_meta_failed = False
         paused = False
         pause_info: Optional[Dict[str, str]] = None
 
@@ -954,7 +1273,11 @@ class SwarmOrchestrator(HoldAwareMixin):
             # Phase 3: Synthesize
             logger.info("[Swarm] Entering synthesis phase (%d/%d succeeded)",
                         stats.workers_succeeded, len(worker_results))
-            synthesis, synthesis_tokens = self._synthesize(
+            (
+                synthesis, synthesis_tokens,
+                raw_synthesis_text, synthesis_prompt_chars,
+                synthesis_meta_failed,
+            ) = self._synthesize(
                 worker_results, synthesis_prompt, event_log=event_log,
             )
             logger.info("[Swarm] Synthesis returned (tokens=%d)", synthesis_tokens)
@@ -1004,6 +1327,22 @@ class SwarmOrchestrator(HoldAwareMixin):
 
         stats.wall_clock_seconds = time.monotonic() - t0
 
+        # Phase 136 Part 09 Step 2: compute chunk_count from the number
+        # of successful workers so the diagnostic classifier can
+        # distinguish chunked from single-call paths without re-deriving.
+        n_successful = sum(1 for r in worker_results if r.success and r.parsed)
+        if (
+            not self.synthesis_chunk_disable
+            and n_successful > self.synthesis_chunk_max_workers
+        ):
+            chunk_count = (
+                (n_successful + self.synthesis_chunk_max_workers - 1)
+                // self.synthesis_chunk_max_workers
+            )
+        else:
+            # Kill-switch on OR worker count <= threshold → single call.
+            chunk_count = 1
+
         result = SwarmResult(
             worker_results=worker_results,
             synthesis=synthesis,
@@ -1012,6 +1351,10 @@ class SwarmOrchestrator(HoldAwareMixin):
             event_log_path=str(event_log.path) if event_log and event_log.path else None,
             paused=paused,
             pause_info=pause_info,
+            raw_synthesis_text=raw_synthesis_text,
+            synthesis_prompt_chars=synthesis_prompt_chars,
+            synthesis_meta_failed=synthesis_meta_failed,
+            synthesis_chunk_count=chunk_count,
         )
 
         # Per-session summary line — closes out the JSONL file with the

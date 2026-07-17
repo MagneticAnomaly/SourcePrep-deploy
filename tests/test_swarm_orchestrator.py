@@ -230,7 +230,7 @@ class TestSynthesisPhase:
         ]
 
         orch = SwarmOrchestrator(llm=llm)
-        result, tokens = orch._synthesize(worker_results, "Synthesize:\n{worker_outputs}")
+        result, tokens, _, _, _ = orch._synthesize(worker_results, "Synthesize:\n{worker_outputs}")
 
         assert result is not None
         assert "cross_group_patterns" in result
@@ -246,7 +246,7 @@ class TestSynthesisPhase:
         ]
 
         orch = SwarmOrchestrator(llm=llm)
-        result, _ = orch._synthesize(worker_results, "Synthesize:\n{worker_outputs}")
+        result, _, _, _, _ = orch._synthesize(worker_results, "Synthesize:\n{worker_outputs}")
         assert result is None
 
     def test_synthesis_skipped_when_no_successful_workers(self) -> None:
@@ -258,7 +258,7 @@ class TestSynthesisPhase:
         ]
 
         orch = SwarmOrchestrator(llm=llm)
-        result, _ = orch._synthesize(worker_results, "Synthesize:\n{worker_outputs}")
+        result, _, _, _, _ = orch._synthesize(worker_results, "Synthesize:\n{worker_outputs}")
 
         assert result is None
         llm.generate.assert_not_called()

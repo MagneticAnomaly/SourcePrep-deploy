@@ -889,27 +889,34 @@ def render_compare(prev: dict, cur: dict, *, show_metrics: bool = True) -> str:
 
 
 def render_events_summary(idx_dir: Path) -> str:
-    """Phase 124 ``--show-events`` — summarize the latest pipeline run.
+    """Last-run telemetry summary (``--show-events``).
 
     Reads ``pipeline_telemetry.jsonl`` and prints a per-event
     breakdown with key payload fields, so an operator can confirm
-    T2/T4/T5/T5b/T9 actually fired and see their effect numerically.
+    finalize-chain events (atlas, concepts, audit, agents-md) actually
+    fired and see their effect numerically.
+
+    Note: this inspector deliberately does NOT filter by ``phase``.
+    ``pipeline_telemetry.record_event`` accepts ``phase=`` for back-compat
+    but no longer persists it, so any phase-scoped filter returns zero
+    events against today's logs and silently lies to operators. The
+    canonical merge-gate audit must surface everything.
     """
     try:
         from prep.services.pipeline_telemetry import latest_run_events
     except ImportError:
-        return "(pipeline_telemetry helper not available — install Phase 124 telemetry)"
+        return "(pipeline_telemetry helper not available — telemetry module missing)"
 
-    events = latest_run_events(idx_dir, phase="124")
+    events = latest_run_events(idx_dir)
     if not events:
         return (
-            "(no Phase 124 telemetry events found — has the pipeline run "
+            "(no telemetry events found — has the pipeline run "
             "since the new code shipped?)"
         )
 
     lines: list[str] = []
     lines.append("═" * 70)
-    lines.append(f"Phase 124 — last-run telemetry  ({len(events)} events)")
+    lines.append(f"Last-run telemetry  ({len(events)} events)")
     lines.append("═" * 70)
 
     by_event: dict[str, list[dict]] = {}
@@ -917,7 +924,7 @@ def render_events_summary(idx_dir: Path) -> str:
         by_event.setdefault(ev.get("event", "?"), []).append(ev)
 
     EXPECTED = (
-        "md_links_extracted",  # T2
+        "md_links_extracted",  # T2 — markdown rationale links surfaced
         "t4_loaded",            # T4 load
         "t4_skipped",           # T4 skipped (negative signal)
         "t4_enrichment_summary",  # T4 fan-out
@@ -925,14 +932,15 @@ def render_events_summary(idx_dir: Path) -> str:
         "spaghetti_failed",
         "audit_synth_generator",  # T5b
         "agents_md_docs_section_rendered",  # T9
-        "concepts_synthesis_failed",  # negative signal — questions lost (Phase 124 fallback)
-        "concept_synthesis_complete",  # Phase 125b Pass 3 — cross-cutting concept synthesis
-        "concept_synthesis_failed",    # Phase 125b Pass 3 negative signal
-        "concept_synthesis_skipped_fresh",  # Phase 125b — rationale unchanged, no re-synth needed
-        "generate_swarm_complete",        # Phase 125c T2c.2 — Generate swarm output
-        "generate_swarm_skipped_fresh",   # Phase 125c scrutiny — rationale unchanged short-circuit
-        "validate_swarm_complete",        # Phase 125c T3b — Validate swarm verdicts
-        "pass4_gate_complete",            # Phase 125 T5 — deterministic gate (now wired in 125c)
+        "concepts_synthesis_failed",  # negative signal — top-level synthesis failed; Step 2 chunked fallback engaged
+        "concepts_chunked_meta_failed",  # Step 2 — final meta-pass also failed; questions truly lost
+        "concept_synthesis_complete",  # Pass 3 — cross-cutting concept synthesis
+        "concept_synthesis_failed",    # Pass 3 negative signal
+        "concept_synthesis_skipped_fresh",  # rationale unchanged, no re-synth needed
+        "generate_swarm_complete",        # T2c.2 — Generate swarm output
+        "generate_swarm_skipped_fresh",   # rationale unchanged short-circuit
+        "validate_swarm_complete",        # T3b — Validate swarm verdicts
+        "pass4_gate_complete",            # T5 — deterministic gate
     )
 
     for evname in EXPECTED:
@@ -975,7 +983,7 @@ def main(argv: list[str]) -> int:
     p.add_argument("--quiet", action="store_true", help="Skip text output")
     p.add_argument(
         "--show-events", action="store_true",
-        help="Print Phase 124 telemetry events from the last pipeline run",
+        help="Print pipeline telemetry events from the last run",
     )
     p.add_argument(
         "--no-metric-deltas", action="store_true",

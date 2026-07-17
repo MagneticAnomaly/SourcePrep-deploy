@@ -173,9 +173,17 @@ F2_SITES: list[tuple[object, int]] = [
     (group_reasoning_mod, 501),
     (group_reasoning_mod, 832),
     # concept_seeder.py — module-level workers + a free helper.
-    (concept_seeder_mod, 217),
-    (concept_seeder_mod, 809),
-    (concept_seeder_mod, 1278),
+    # Re-anchored on phase-136-part09 branch: Step 1's diagnostic helper
+    # (_synthesis_diagnostic_fields) added ~70 LoC, and Step 2 Tasks 9-10
+    # added a chunked-aware classifier + _emit_chunked_meta_failed_event
+    # helper for another ~54 LoC at the top of the module, shifting the
+    # llm.generate sites by +124 / +124 / +142 from the Lane C anchors.
+    # Step 2 Follow-up B (C1 routing fix) swapped the if/elif at line
+    # 1013 and pulled in a 9-line comment block, shifting the third
+    # llm.generate site +9 (1420 → 1429).
+    (concept_seeder_mod, 341),
+    (concept_seeder_mod, 933),
+    (concept_seeder_mod, 1429),
 ]
 
 
