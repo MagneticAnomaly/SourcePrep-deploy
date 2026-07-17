@@ -1,0 +1,41 @@
+{
+  "_comment": "3rd mockup variant (hybrid-desktop-phones) verification. 1 desktop browser frame (back) + 2 phones (front, flanking). For apps that are BOTH desktop AND mobile (Applivation = Mac+Safari ext AND iOS). All 3 devices share mockup-inner-N and animate yPercent in lockstep. Text-only Playwright, 1600x1000 + 375x812.",
+  "variant": "hybrid-desktop-phones",
+  "component": "src/portfolio/mockups/HybridDesktopPhonesMockup.jsx",
+  "registration": "mockups/index.js mockupVariants['hybrid-desktop-phones'] -> HybridDesktopPhonesMockup",
+  "axisLogic": "unchanged in App.jsx: axis = type==='desktop-browser' ? 'xPercent' : 'yPercent'. hybrid is not desktop-browser -> yPercent. No App.jsx edit needed.",
+  "lockstepProof": {
+    "innerCount": 3,
+    "devices": ["desktop (aspect-[1078/799])", "phone1 (rounded-[3rem])", "phone2 (rounded-[3rem])"],
+    "t0_all_ty": 0,
+    "t2_endpoint_all_yPercent_minus50": [
+      { "device": "desktop", "innerHeight": 511, "ty_at_t2": -255.648, "ratio": "-50.0%" },
+      { "device": "phone1", "innerHeight": 988, "ty_at_t2": -494, "ratio": "-50.0%" },
+      { "device": "phone2", "innerHeight": 988, "ty_at_t2": -494, "ratio": "-50.0%" }
+    ],
+    "note": "Single GSAP yPercent:-50 tween on .mockup-inner-1 drives all 3 devices; each reveals its 2nd screen. Per-slide feel (1.5-unit yPercent inner anim) identical to dual-phone variants."
+  },
+  "desktop_layout_1600x1000": {
+    "desktop": { "x": 852, "y": 441, "w": 380, "h": 282, "centerX": 1042 },
+    "phone1": { "x": 734, "y": 362, "w": 240, "h": 520, "right": 974 },
+    "phone2": { "x": 1111, "y": 330, "w": 240, "h": 520, "right": 1351 },
+    "phonePhoneOverlap": "no-overlap (phone1 right 974 < phone2 left 1111; 137px gap)",
+    "phoneDesktopOverlap": "phones overlap desktop's left (852-974) and right (1111-1232) edges in front (z-20/z-10 vs desktop z-0); desktop peeks out between phones (974-1111) and at top/bottom",
+    "viewportOverflow": "none (max right 1351 < 1600)",
+    "stagger": "phone2 raised 32px (md:-translate-y-8) for depth; both within 600px stage"
+  },
+  "mobile_layout_375x812": {
+    "desktop": { "x": 87, "w": 201, "right": 288, "bottom": 678, "overflows": false },
+    "phone1": { "x": 32, "w": 156, "right": 188, "y": 693, "overflows": false },
+    "phone2": { "x": 188, "w": 156, "right": 344, "y": 693, "overflows": false },
+    "stacked": "desktop-above-phones (desktop bottom 678 <= phone top 693)",
+    "phonesSideBySide": "same-row (both y=693)",
+    "viewportOverflow": "none (max right 344 < 375)"
+  },
+  "gracefulCells": "each cell renders an <img> if {src,alt} present, else a branded placeholder ({label,emoji,barClass}). Ships now with all-placeholder cells; adding src to any cell swaps it to the real screenshot (data-only change in panels-data.js).",
+  "screenshotCountWhenLive": "desktop.cells (2) + phones[0].cells (2) + phones[1].cells (2) = 6 screenshots for full animation. Fewer is fine — missing srcs render as placeholders.",
+  "lint": { "errors_after": 21, "baseline": 21, "new_errors": 0 },
+  "build": "clean (only pre-existing chunk-size warning)",
+  "console": "0 errors, 1 warning",
+  "result": "PASS -- 3rd variant lands cleanly. 1 desktop + 2 phones, all 3 animate yPercent in lockstep, no App.jsx change. Desktop+mobile layout correct at both breakpoints. Ready for Eric's screenshots (data-only swap)."
+}

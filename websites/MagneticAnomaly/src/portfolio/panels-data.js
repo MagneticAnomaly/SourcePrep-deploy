@@ -37,19 +37,31 @@ export const panels = [
       'iCloud Sync, Zero Data Mining',
       'Review & Confirm — Never Auto-Submits',
     ],
-    // STOPGAP mockup: Applivation is a phone app → dual-phone variant. Using
-    // dual-phone-placeholder (bespoke cells) until Eric supplies real App Store
-    // screenshots. To go live: swap `type` to 'dual-phone-image' and replace
-    // `phones` with a HomeColab-shaped {cells:[{cellClass,src,alt}]} structure
-    // pointing at the screenshot files dropped into public/. The timeline loop
-    // picks up the yPercent axis automatically — no App.jsx edit needed.
+    // Mockup: hybrid (1 desktop + 2 phones) — Applivation is BOTH a Mac app +
+    // Safari extension AND an iOS/iPadOS app, so neither pure variant tells the
+    // whole story. All three devices share `mockup-inner-1` and animate
+    // yPercent in lockstep (each has a 200%-tall inner with 2 stacked cells;
+    // yPercent:-50 reveals the 2nd screen). The timeline loop picks yPercent
+    // for any type that isn't 'desktop-browser' — no App.jsx edit needed.
+    //
+    // Cells are graceful: image ({src,alt}) if a screenshot is supplied, else
+    // a branded placeholder ({label,emoji,barClass}). Until Eric sends the App
+    // Store screenshots, every cell renders a placeholder; adding `src` to a
+    // cell swaps it to the real image (data-only change here).
     mockup: {
-      type: 'dual-phone-placeholder',
+      type: 'hybrid-desktop-phones',
+      desktop: {
+        title: 'applivation-vault',
+        cells: [
+          { cellClass: 'bg-gradient-to-br from-[#0a1830] to-[#111128]', labelClass: 'font-mono text-[11px] text-[#6EA8FE] tracking-widest', emoji: '🔒', label: 'VAULT · MAC' },
+          { cellClass: 'bg-[#050508] border-t border-white/5', labelClass: 'font-mono text-[11px] text-[#6EA8FE] tracking-widest', emoji: '✨', label: 'AUTOFILL · MAC' },
+        ],
+      },
       phones: [
         {
           cells: [
-            { cellClass: 'h-1/2 w-full bg-gradient-to-t from-void to-[#0a1830] flex items-center justify-center p-4', labelClass: 'font-mono flex-col flex text-center text-[10px] text-[#6EA8FE]', emoji: '🔒', label: 'VAULT' },
-            { cellClass: 'h-1/2 w-full bg-[#050508] border-t border-white/5 flex items-center justify-center p-4', labelClass: 'font-mono text-[10px] text-telemetry', label: 'ATS FORM' },
+            { cellClass: 'h-1/2 w-full bg-gradient-to-t from-void to-[#0a1830] flex items-center justify-center p-4', labelClass: 'font-mono flex-col flex text-center text-[10px] text-[#6EA8FE]', emoji: '📋', label: 'ATS FORM' },
+            { cellClass: 'h-1/2 w-full bg-[#050508] border-t border-white/5 flex items-center justify-center p-4', labelClass: 'font-mono text-[10px] text-telemetry', label: 'FIELDS' },
           ],
         },
         {
