@@ -2,6 +2,10 @@
   base    = "websites/apps/docs"
   command = "cd ../../.. && npx turbo run build --filter=@prep/docs"
   publish = "websites/apps/docs/.next"
+  # Deploy gate: skip this build unless the tip commit message contains
+  # [deploy]. Prevents every push to main from deploying the site.
+  # (Netlify skips the build when `ignore` exits 0.)
+  ignore = '! git log -1 --pretty=%B | grep -qF "[deploy]"'
 
 [build.environment]
   NODE_VERSION = "20"

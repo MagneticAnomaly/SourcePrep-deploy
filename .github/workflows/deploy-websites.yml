@@ -59,10 +59,31 @@ jobs:
               - 'package-lock.json'
               - 'turbo.json'
 
+  deploy-gate:
+    name: Deploy gate ([deploy] flag check)
+    runs-on: ubuntu-latest
+    outputs:
+      flagged: ${{ steps.check.outputs.flagged }}
+    steps:
+      - id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          # head_commit.message is the tip commit of the push. Put [deploy]
+          # in that commit message to permit a push-triggered site deploy.
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ] || printf '%s' "$COMMIT_MSG" | grep -qF "[deploy]"; then
+            echo "flagged=true" >> "$GITHUB_OUTPUT"
+            echo "Deploy allowed ($EVENT)."
+          else
+            echo "flagged=false" >> "$GITHUB_OUTPUT"
+            echo "No [deploy] flag in head commit — skipping site deploys."
+          fi
+
   deploy-marketing:
     name: Deploy Marketing
-    needs: changes
-    if: needs.changes.outputs.marketing == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [changes, deploy-gate]
+    if: (needs.changes.outputs.marketing == 'true' && needs.deploy-gate.outputs.flagged == 'true') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -85,8 +106,8 @@ jobs:
 
   deploy-docs:
     name: Deploy Docs
-    needs: changes
-    if: needs.changes.outputs.docs == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [changes, deploy-gate]
+    if: (needs.changes.outputs.docs == 'true' && needs.deploy-gate.outputs.flagged == 'true') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -109,8 +130,8 @@ jobs:
 
   deploy-storybook:
     name: Deploy Storybook
-    needs: changes
-    if: needs.changes.outputs.storybook == 'true' || github.event_name == 'workflow_dispatch'
+    needs: [changes, deploy-gate]
+    if: (needs.changes.outputs.storybook == 'true' && needs.deploy-gate.outputs.flagged == 'true') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
