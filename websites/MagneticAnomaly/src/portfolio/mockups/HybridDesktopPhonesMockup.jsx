@@ -4,9 +4,13 @@
 //
 //   State 1 = a set of 2 phones   (the dual-phone template, static — exactly
 //                                  like the first state of HomeColab /
-//                                  DinnerVision / DebateHaus).
+//                                  DinnerVision / DebateHaus). Uses the shared
+//                                  <PhoneFrame>.
 //   State 2 = 1 desktop browser    (the desktop-browser template, static —
-//                                  exactly like SourcePrep's frame).
+//                                  exactly like SourcePrep's frame). Uses the
+//                                  shared <DesktopFrame>, so the desktop is
+//                                  the SAME SIZE as SourcePrep's by
+//                                  construction (no bespoke frame, no drift).
 //
 // The single yPercent inner-anim reveals state 2, the same reveal mechanism the
 // dual-phone variants use (just with a desktop as the second state instead of
@@ -25,10 +29,24 @@
 // mobile. The animated `mockup-inner-N` element is `display:none` on mobile,
 // so GSAP's yPercent tween is harmless there.
 //
+// Sizing note: the reveal's vertical clip lives on a `w-full` container (the
+// same width as the column, 100% — NOT 110%). The desktop inside is
+// `w-[110%]` (the SAME width class SourcePrep passes to <DesktopFrame>), and
+// because the state-2 cell is a flex row (`flex items-center justify-center`),
+// the `w-[110%]` desktop flex-shrinks to the cell width — exactly the same
+// flex-clamp that makes SourcePrep's `w-[110%]` desktop render at the column
+// width. Net: same <DesktopFrame>, same `w-[110%]` width class, same
+// flex-clamp behavior -> identical rendered size. (Only difference: no
+// `lg:translate-x-6` on the hybrid desktop, since it sits centered in its
+// state cell rather than right-shifted in a plain column.) The clip
+// container's overflow-hidden is for the VERTICAL reveal only; the desktop
+// fits the cell exactly (flex-clamped), so it is not clipped horizontally.
+//
 // Owns its entire mockup-column wrapper end-to-end — <Panel> must NOT wrap
 // this in a shared column div (same contract as the other variants).
 
 import PhoneFrame from './PhoneFrame';
+import DesktopFrame from './DesktopFrame';
 
 // Benign innerClass for the static phones — GSAP must NOT animate the phones'
 // own inners (only the hybrid's outer 2-state inner carries the real
@@ -55,27 +73,17 @@ const phoneCell = (s) => {
   };
 };
 
-// One desktop screen -> a static desktop browser frame (the desktop-browser
-// template's frame, single screen). Image if `src`, else branded placeholder.
-function StaticDesktop({ title, src, alt, label, emoji, labelClass }) {
+// One desktop screen -> the content for <DesktopFrame> (image or branded
+// placeholder). The frame itself (size, chrome, top bar) comes from the shared
+// <DesktopFrame> — identical to SourcePrep's.
+function desktopContent({ src, alt, label, emoji, labelClass }) {
+  if (src) {
+    return <img src={src} alt={alt} className="w-full h-full object-cover" />;
+  }
   return (
-    <div className="w-[85%] aspect-[1078/799] bg-void border border-white/10 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col">
-      <div className="h-6 border-b border-white/10 bg-white/5 flex items-center px-2 space-x-1.5 z-10 relative">
-        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-        <span className="ml-4 font-mono text-[10px] text-white/30 tracking-widest">{title}</span>
-      </div>
-      <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-void to-white/5 flex items-center justify-center">
-        {src ? (
-          <img src={src} alt={alt} className="w-full h-full object-cover" />
-        ) : (
-          <div className="flex flex-col items-center justify-center">
-            {emoji && <span className="text-[28px] mb-3 drop-shadow-md">{emoji}</span>}
-            <p className={labelClass}>{label}</p>
-          </div>
-        )}
-      </div>
+    <div className="w-full h-full flex flex-col items-center justify-center">
+      {emoji && <span className="text-[28px] mb-3 drop-shadow-md">{emoji}</span>}
+      <p className={labelClass}>{label}</p>
     </div>
   );
 }
@@ -86,7 +94,7 @@ export default function HybridDesktopPhonesMockup({ innerClass, desktop, phones 
   const c2 = [phoneCell(p2)];
 
   return (
-    <div className="w-full lg:w-7/12 scale-[0.65] sm:scale-90 md:scale-100 origin-top relative max-md:h-auto max-md:flex-1 max-md:flex max-md:items-center max-md:justify-center md:h-[600px] md:overflow-hidden">
+    <div className="w-full lg:w-7/12 scale-[0.65] sm:scale-90 md:scale-100 origin-top relative max-md:h-auto max-md:flex-1 max-md:flex max-md:items-center max-md:justify-center md:h-[600px]">
       {/* Mobile (<768px): static 2 phones, no reveal. The stage is too narrow
           for 2 phones side by side, so we skip the desktop state here and show
           the phones exactly like dual-phone mobile. */}
@@ -95,21 +103,34 @@ export default function HybridDesktopPhonesMockup({ innerClass, desktop, phones 
         <PhoneFrame innerClass={STATIC_INNER} cellElements={c2} staggered />
       </div>
 
-      {/* md+ (>=768px): the 2-state reveal. This element carries the real
-          `mockup-inner-N`; GSAP's yPercent tween drives it. `max-md:hidden`
-          keeps it display:none on mobile so the tween is harmless there. */}
-      <div className={`${innerClass} max-md:hidden flex flex-col md:h-[200%] w-full`}>
-        {/* State 1: 2 phones (dual-phone template, static). `md:pb-16` lifts the
-            pair 64px so the staggered phone 2 (md:translate-y-16) reaches the
-            state bottom exactly — without it, the stage's overflow-hidden
-            (required for the reveal) would clip phone 2's lower 64px. */}
-        <div className="md:h-1/2 w-full flex items-end justify-center gap-6 md:gap-10 md:pb-16">
-          <PhoneFrame innerClass={STATIC_INNER} cellElements={c1} />
-          <PhoneFrame innerClass={STATIC_INNER} cellElements={c2} staggered />
-        </div>
-        {/* State 2: 1 desktop (desktop-browser template, static). */}
-        <div className="md:h-1/2 w-full flex items-center justify-center">
-          <StaticDesktop {...desktop} />
+      {/* md+ (>=768px): the 2-state reveal.
+          - The clip container is `w-[110%]` (NOT the column) so the desktop —
+            also `w-[110%]` via <DesktopFrame> — is not clipped narrower than
+            SourcePrep's at lg. Vertical clip here clips the off-screen state.
+          - `max-md:hidden` keeps it display:none on mobile so the yPercent
+            tween is harmless there. This element carries the real
+            `mockup-inner-N`; GSAP drives it. */}
+      <div className="max-md:hidden w-full md:h-[600px] md:overflow-hidden md:relative">
+        <div className={`${innerClass} flex flex-col md:h-[200%] w-full`}>
+          {/* State 1: 2 phones (dual-phone template, static). `md:pb-16` lifts
+              the pair 64px so the staggered phone 2 (md:translate-y-16) reaches
+              the state bottom exactly — without it, the clip container's
+              overflow-hidden (required for the reveal) would clip phone 2's
+              lower 64px. */}
+          <div className="md:h-1/2 w-full flex items-end justify-center gap-6 md:gap-10 md:pb-16">
+            <PhoneFrame innerClass={STATIC_INNER} cellElements={c1} />
+            <PhoneFrame innerClass={STATIC_INNER} cellElements={c2} staggered />
+          </div>
+          {/* State 2: 1 desktop (desktop-browser template, static). Same
+              <DesktopFrame> chrome + same `w-[110%]` width class as SourcePrep;
+              the flex-row cell flex-clamps it to the cell width, so it renders
+              at the same size as SourcePrep's desktop. No lg:translate-x-6
+              (this desktop sits centered in its state cell). */}
+          <div className="md:h-1/2 w-full flex items-center justify-center">
+            <DesktopFrame title={desktop.title} className="w-[110%]">
+              {desktopContent(desktop)}
+            </DesktopFrame>
+          </div>
         </div>
       </div>
     </div>

@@ -1,0 +1,29 @@
+{
+  "_comment": "DesktopFrame componentization refactor — extract shared DesktopFrame so the hybrid desktop == SourcePrep desktop by construction. Text-only Playwright (no image reads), 1600x1000 + 375x812.",
+  "change": "Extracted DesktopFrame (chrome: border, top bar, aspect-[1078/799], content area; width via className). DesktopBrowserMockup now composes it (className='w-[110%] lg:translate-x-6'). HybridDesktopPhonesMockup state-2 now composes it (className='w-[110%]') inside a w-full clip container, dropping the bespoke StaticDesktop.",
+  "rootCause": "DesktopBrowserMockup was a monolith (column wrapper + desktop frame chrome + xPercent inner welded). The desktop frame chrome was never shared, so the hybrid reinvented a bespoke StaticDesktop at w-[85%] — smaller than SourcePrep's w-[110%].",
+  "keyInsight": "SourcePrep's column is `flex items-center justify-center`, so its w-[110%] desktop is a flex item that flex-SHRINKS to the column width (634) — the w-[110%] never actually rendered at 110%. The hybrid reproduces the SAME flex-clamp by giving its desktop the same w-[110%] class inside a flex-row state cell whose width == the column width (clip container is w-full, not w-[110%]). Same component + same width class + same flex-clamp = identical rendered size. (An earlier attempt used w-[110%] on BOTH the clip container and the desktop -> 121% double-amplification (697px); corrected to apply the width once via the desktop's own class.)",
+  "desktop_1600x1000": {
+    "panel1_hybrid_desktop": { "width": 634, "height": 470 },
+    "panel2_sourceprep_desktop": { "width": 634, "height": 470 },
+    "equal": true,
+    "note": "Both use <DesktopFrame> with w-[110%], flex-clamped to the column width. Identical size by construction."
+  },
+  "reveal_1600x1000": {
+    "pinStart": 4001,
+    "pinDuration": 15000,
+    "panel1_hybrid_inner1_yPercent": { "t0_state1_phones": "ty=0", "mid": "ty=-89", "t2_state2_desktop": "ty=-600 (exactly one state height = 600px stage)" },
+    "panel2_sourceprep_inner2_xPercent": { "start": "tx=0", "mid": "tx=-94", "end": "tx=-631 (matches baseline oracle -631.5 — pixel-identical, unchanged)" },
+    "state1_phones_visible": "phone1 y298-818, phone2 y362-882 (staggered +64), both within stage, no clip",
+    "state2_desktop_visible": "desktop y347 w634 h470, phones scrolled off above (y negative)"
+  },
+  "mobile_375x812": {
+    "inner1ParentDisplay": "none (max-md:hidden reveal tree -> yPercent tween harmless on mobile)",
+    "desktopRect": "0,0,0,0 (not rendered — parent display:none)",
+    "phones": "2 static phones x24/x195 w156, both fit within 375 viewport, no overflow — matches dual-phone mobile"
+  },
+  "lint": { "errors": 21, "baseline": 21, "new_errors": 0 },
+  "build": "clean (only pre-existing chunk-size warning)",
+  "console": "0 errors, 1 pre-existing warning",
+  "result": "PASS — DesktopFrame extracted and shared; hybrid desktop == SourcePrep desktop (634x470) by construction. SourcePrep pixel-identical (inner-2 xPercent tx=-631 unchanged). Hybrid 2-state yPercent reveal intact (state1 phones -> state2 desktop, ty 0 -> -600). Mobile degrades to static 2 phones. Per-slide feel intact. Ready for Eric's 3 screenshots (2 phone + 1 desktop) as a data-only panels-data.js change."
+}
