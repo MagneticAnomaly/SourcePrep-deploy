@@ -9,6 +9,24 @@
 
 ---
 
+## Part 0 — Hardened decisions (updated 2026-07-17, post-research)
+
+Status after the follow-up research pass + Eric's calls. These **SUPERSEDE** the
+matching items in Part 1 where they differ.
+
+| Decision | Hardened status |
+|---|---|
+| **Trademark (D5)** | ✅ **SETTLED** — Eric: "good and safe." File 1(b) per D5/B1 when ready; not a launch blocker. |
+| **Pro tier (D2)** | ✅ **KEEP Pro as a convenience tier, but DROP the subscription.** Sell a **$29 one-time perpetual** — includes 12 months of auto-updates, app works forever; optional **~$15/yr** to keep updating; name-your-price with a $29 floor; **self-build stays free and prominent.** This **REVERSES** the earlier "defer Pro." Rationale: Aseprite ($19.99) and Krita ($9.99) are near-exact precedents — a signed, packaged binary of otherwise-free-to-build software is a real, defensible **one-time** good; local/convenience tools with no recurring-cost service should not be subscriptions. A genuine recurring service (hosted sync/inference/teams) would be a *separate* subscription later, Obsidian-style. Note: even though Pro is kept, it will **not be live at the very first OSS launch** — the checkout is unwired, the license crypto is void, and code-signing has lead time — so no live "Buy Pro" CTAs at Phase 1. |
+| **Git repo topology (D8)** | ✅ **DECIDED** — stay under the **`MagneticAnomaly`** org for now (matches the bank entity + `magneticanomaly.llc` brand); do **not** stand up a `sourceprep` org yet (optionally grab & sit on `github.com/sourceprep` for a future C-corp/VC). Private **"workshop"** repo (`MagneticAnomaly/SourcePrep`) stays the active dev repo, renamed to **`SourcePrep-Private`** at publish; new public **"storefront"** repo at **`MagneticAnomaly/SourcePrep`** = a curated one-way mirror; **archive** the 0-star `SourcePrep-MCP` stub. Full model + the safe flip sequence in **`REPO_TOPOLOGY.md`**. |
+| **License (D1)** | ⏳ **IN PROGRESS** — dedicated deep-research underway on a separate branch (prompt: `LICENSING_DEEP_RESEARCH_PROMPT.md`). Still Eric's call; gates the metadata flips (C4), the LICENSE swap (C5), and any public "open source"/license claim on the site. |
+| **Export control (D6)** | ✅ Non-issue — a one-page self-classification memo (backlog D3) is all that's needed; file nothing. |
+
+Open Eric-only items unchanged: customer-count (A5), LLC status (A6),
+professional-history/runway (A7).
+
+---
+
 ## Part 1 — Recommendations (one per decision)
 
 ### D1. License: Apache-2.0 vs AGPL-3.0 → **Apache-2.0 + a CLA from commit #1**
