@@ -114,7 +114,7 @@ export default function Page() {
                     <div className="mb-2 text-text-subtle"># Allowed Outbound Connections</div>
                     <div className="grid grid-cols-[120px_1fr] gap-4">
                        <span className="text-success">api.sourceprep.io</span>
-                       <span>HTTPS / POST /activate-license (One-time)</span>
+                       <span>HTTPS / POST /activate-license (Pro installer only, one-time)</span>
 
                        <span className="text-warning">localhost:*</span>
                        <span>Ollama API (User Controlled / Optional)</span>
@@ -122,6 +122,7 @@ export default function Page() {
                        <span className="text-warning">api.openai...</span>
                        <span>Cloud LLM (User Controlled / BYOK Only)</span>
                     </div>
+                    <div className="mt-4 text-text-subtle"># Open-source builds never contact api.sourceprep.io — no license calls at all</div>
                   </div>
                 </section>
 
@@ -140,9 +141,11 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">05.</span> Offline Verification
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed">
-                    License activation requires a single online key exchange. After activation,
-                    SourcePrep stores a signed Ed25519 license file locally and verifies it offline.
-                    No periodic phone-home, no subscription heartbeat.
+                    License infrastructure exists only in the Pro installer. The open-source version
+                    ships with none — no keys, no activation, nothing that could phone home. Pro
+                    activation is a single online key exchange; after that, SourcePrep stores a signed
+                    Ed25519 license file locally and verifies it offline. No periodic phone-home, no
+                    subscription heartbeat.
                   </p>
                 </section>
 
@@ -151,7 +154,9 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">06.</span> Supply Chain Security
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed mb-4">
-                    All installers are code-signed and include SHA-256 checksums.
+                    Pro installers are code-signed and notarized, with SHA-256 checksums published
+                    for every release. The open-source version builds from public source under
+                    Apache 2.0 — you can audit exactly what runs.
                   </p>
                   <div className="p-4 bg-background border border-border rounded-sm font-mono text-xs text-text-muted">
                     $ shasum -a 256 SourcePrep-1.0.0-mac.dmg<br/>
@@ -225,8 +230,9 @@ export default function Page() {
                       </h2>
                       <p className="text-lg leading-relaxed border-l-4 border-primary pl-6 bg-primary/10 py-4 pr-4 text-text mb-6">
                         <strong>Executive Summary:</strong> SourcePrep is a local-first desktop application. Your source code never leaves
-                        your machine. We collect the absolute minimum data needed to operate the
-                        business — license activation and optional support requests. That&apos;s it.
+                        your machine. The open-source version collects nothing at all. For paid tiers we
+                        collect the minimum needed to operate them — a one-time license activation and
+                        optional support requests. That&apos;s it.
                       </p>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -247,12 +253,16 @@ export default function Page() {
                              <span className="w-2 h-2 rounded-full bg-success"></span> Collected
                            </h3>
                            <ul className="space-y-3 text-sm text-text-muted">
-                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> License Key (Activation)</li>
-                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> Machine ID (Hardware Lock)</li>
-                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> Email (Support/Billing)</li>
+                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> License Key (Pro activation)</li>
+                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> Machine ID (Pro hardware lock)</li>
+                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> Email (Support / billing)</li>
                            </ul>
                         </div>
                       </div>
+                      <p className="mt-4 text-sm text-text-muted">
+                        Pro only — the open-source version collects nothing: no key, no machine ID,
+                        no account. We only ever see an email address if you write to us.
+                      </p>
                     </section>
 
                     <section id="payments">
@@ -260,8 +270,9 @@ export default function Page() {
                         <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">09.</span> Payments
                       </h2>
                       <p className="text-sm text-text-muted leading-relaxed">
-                        Payments are processed by <strong className="text-text">Lemon Squeezy</strong>, our Merchant of Record.
-                        SourcePrep Inc. does not store credit card numbers, banking information, or tax IDs.
+                        The open-source version involves no payment and no account. Payments for paid
+                        tiers are processed by <strong className="text-text">Lemon Squeezy</strong>, our Merchant of Record.
+                        Magnetic Anomaly LLC never stores credit card numbers, banking information, or tax IDs.
                       </p>
                     </section>
 
@@ -278,7 +289,7 @@ export default function Page() {
                         </thead>
                         <tbody className="divide-y divide-border">
                           <tr>
-                            <td className="px-4 py-3 border-r border-border font-medium text-text">License Records</td>
+                            <td className="px-4 py-3 border-r border-border font-medium text-text">License Records (Pro)</td>
                             <td className="px-4 py-3 text-text-muted">Lifetime of active license + 2 years</td>
                           </tr>
                           <tr>
