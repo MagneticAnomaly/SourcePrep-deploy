@@ -144,7 +144,7 @@ export function getCountryName(country: string): string | undefined {
 
 /**
  * Format a USD price for display.
- * Examples: formatPrice(7) → "$7", formatPrice(79) → "$79"
+ * Examples: formatPrice(29) → "$29", formatPrice(15) → "$15"
  */
 export function formatPrice(amount: number): string {
   return `$${amount}`;
@@ -170,6 +170,8 @@ export function getCheckoutUrl(baseUrl: string, country: string): string {
 // They point to Lemon Squeezy checkout pages for each product.
 // Fallback: payments.sourceprep.io hub page until LS products are created.
 
+// Checkout deliberately unwired: license crypto void (Phase 146 N1) + LS products
+// unconfigured. Do not re-link without fixing both.
 export const LS_CHECKOUT_URLS = {
   monthly:  process.env.NEXT_PUBLIC_LS_CHECKOUT_MONTHLY  ?? "https://payments.sourceprep.io",
   perpetual: process.env.NEXT_PUBLIC_LS_CHECKOUT_PERPETUAL ?? "https://payments.sourceprep.io",
