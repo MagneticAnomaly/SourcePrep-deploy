@@ -1,41 +1,28 @@
 {
-  "_comment": "3rd mockup variant (hybrid-desktop-phones) verification. 1 desktop browser frame (back) + 2 phones (front, flanking). For apps that are BOTH desktop AND mobile (Applivation = Mac+Safari ext AND iOS). All 3 devices share mockup-inner-N and animate yPercent in lockstep. Text-only Playwright, 1600x1000 + 375x812.",
+  "_comment": "3rd mockup variant (hybrid-desktop-phones) — CORRECTED per Eric's feedback. The first attempt put all 3 devices on screen at once in a new composite animation. Eric's intent: COMPOSE the two existing templates as the two states of one reveal — state 1 = a set of 2 phones (dual-phone template, static), state 2 = 1 desktop (desktop-browser template, static), yPercent reveals state 2. 3 screenshots total (2 phone + 1 desktop), not 6. Text-only Playwright, 1600x1000 + 375x812.",
   "variant": "hybrid-desktop-phones",
   "component": "src/portfolio/mockups/HybridDesktopPhonesMockup.jsx",
-  "registration": "mockups/index.js mockupVariants['hybrid-desktop-phones'] -> HybridDesktopPhonesMockup",
-  "axisLogic": "unchanged in App.jsx: axis = type==='desktop-browser' ? 'xPercent' : 'yPercent'. hybrid is not desktop-browser -> yPercent. No App.jsx edit needed.",
-  "lockstepProof": {
-    "innerCount": 3,
-    "devices": ["desktop (aspect-[1078/799])", "phone1 (rounded-[3rem])", "phone2 (rounded-[3rem])"],
-    "t0_all_ty": 0,
-    "t2_endpoint_all_yPercent_minus50": [
-      { "device": "desktop", "innerHeight": 511, "ty_at_t2": -255.648, "ratio": "-50.0%" },
-      { "device": "phone1", "innerHeight": 988, "ty_at_t2": -494, "ratio": "-50.0%" },
-      { "device": "phone2", "innerHeight": 988, "ty_at_t2": -494, "ratio": "-50.0%" }
-    ],
-    "note": "Single GSAP yPercent:-50 tween on .mockup-inner-1 drives all 3 devices; each reveals its 2nd screen. Per-slide feel (1.5-unit yPercent inner anim) identical to dual-phone variants."
+  "composition": "state1 = 2 PhoneFrames (dual-phone template, static, 1 screen each, phone2 staggered); state2 = 1 StaticDesktop (desktop-browser frame template, static, 1 screen). Both reuse the existing templates — no new composite animation.",
+  "axisLogic": "unchanged in App.jsx: axis = type==='desktop-browser' ? 'xPercent' : 'yPercent'. hybrid is not desktop-browser -> yPercent. No App.jsx edit.",
+  "reveal": "single .mockup-inner-N element is a 2-state container (md:h-[200%], 2 cells md:h-1/2 each). yPercent:-50 scrolls exactly one state height (600px at md:h-[600px] stage) -> state 1 (phones, top) scrolls out, state 2 (desktop, bottom) scrolls in. Same reveal mechanism as dual-phone.",
+  "screenshotCount": "3 total: phones[0] + phones[1] (state 1) + desktop (state 2). Graceful: <img> if {src,alt} present, else branded placeholder ({label,emoji,labelClass}). Ships with placeholders; adding src swaps to real screenshot (data-only).",
+  "responsive": "2-state reveal runs on md+ only (stage ~580-700px there, 2 phones fit natively at 504px, overflow-hidden clips only the off-screen state). On mobile the stage is too narrow for 2 phones side by side, so mobile shows the 2 phones statically (exactly like dual-phone mobile); the md+ reveal element is display:none so GSAP's yPercent is harmless.",
+  "desktop_1600x1000": {
+    "pinDuration": 15000,
+    "t0_state1_phones": { "innerTy": 0, "phone1": "top16 bottom536 visible", "phone2": "top80 bottom600 visible (staggered, reaches stage bottom exactly via md:pb-16 — no clip)", "desktop": "top700 off-stage below (not visible)" },
+    "t2_state2_desktop": { "innerTy": -600, "phone1": "top-584 off-stage above", "phone2": "top-520 off-stage above", "desktop": "top100 bottom500 visible (centered in 600px stage)" },
+    "bothPhonesFit": true,
+    "note": "md:pb-16 lifts the phone pair 64px so the staggered phone2 (md:translate-y-16) reaches the state bottom exactly — without it, the stage overflow-hidden (required for the reveal) clipped phone2's lower 64px."
   },
-  "desktop_layout_1600x1000": {
-    "desktop": { "x": 852, "y": 441, "w": 380, "h": 282, "centerX": 1042 },
-    "phone1": { "x": 734, "y": 362, "w": 240, "h": 520, "right": 974 },
-    "phone2": { "x": 1111, "y": 330, "w": 240, "h": 520, "right": 1351 },
-    "phonePhoneOverlap": "no-overlap (phone1 right 974 < phone2 left 1111; 137px gap)",
-    "phoneDesktopOverlap": "phones overlap desktop's left (852-974) and right (1111-1232) edges in front (z-20/z-10 vs desktop z-0); desktop peeks out between phones (974-1111) and at top/bottom",
-    "viewportOverflow": "none (max right 1351 < 1600)",
-    "stagger": "phone2 raised 32px (md:-translate-y-8) for depth; both within 600px stage"
+  "mobile_375x812": {
+    "innerDisplay": "none (md+ reveal element hidden on mobile -> GSAP yPercent harmless, innerTy none)",
+    "desktopRect": "0,0,0,0 (not rendered — parent display:none)",
+    "phone1": "x24 w156 right180 overflows=false",
+    "phone2": "x195 w156 right351 overflows=false",
+    "layout": "2 phones side by side statically, no desktop, no overflow — matches dual-phone mobile"
   },
-  "mobile_layout_375x812": {
-    "desktop": { "x": 87, "w": 201, "right": 288, "bottom": 678, "overflows": false },
-    "phone1": { "x": 32, "w": 156, "right": 188, "y": 693, "overflows": false },
-    "phone2": { "x": 188, "w": 156, "right": 344, "y": 693, "overflows": false },
-    "stacked": "desktop-above-phones (desktop bottom 678 <= phone top 693)",
-    "phonesSideBySide": "same-row (both y=693)",
-    "viewportOverflow": "none (max right 344 < 375)"
-  },
-  "gracefulCells": "each cell renders an <img> if {src,alt} present, else a branded placeholder ({label,emoji,barClass}). Ships now with all-placeholder cells; adding src to any cell swaps it to the real screenshot (data-only change in panels-data.js).",
-  "screenshotCountWhenLive": "desktop.cells (2) + phones[0].cells (2) + phones[1].cells (2) = 6 screenshots for full animation. Fewer is fine — missing srcs render as placeholders.",
   "lint": { "errors_after": 21, "baseline": 21, "new_errors": 0 },
   "build": "clean (only pre-existing chunk-size warning)",
   "console": "0 errors, 1 warning",
-  "result": "PASS -- 3rd variant lands cleanly. 1 desktop + 2 phones, all 3 animate yPercent in lockstep, no App.jsx change. Desktop+mobile layout correct at both breakpoints. Ready for Eric's screenshots (data-only swap)."
+  "result": "PASS — corrected to compose the 2 existing templates as 2 states of one yPercent reveal. State 1 = 2 phones, state 2 = 1 desktop. 3 screenshots. Per-slide feel intact (1.5-unit yPercent reveal, pin 15000 unchanged). Mobile degrades to static 2 phones. Ready for Eric's 3 screenshots (2 phone + 1 desktop)."
 }

@@ -37,39 +37,31 @@ export const panels = [
       'iCloud Sync, Zero Data Mining',
       'Review & Confirm — Never Auto-Submits',
     ],
-    // Mockup: hybrid (1 desktop + 2 phones) — Applivation is BOTH a Mac app +
-    // Safari extension AND an iOS/iPadOS app, so neither pure variant tells the
-    // whole story. All three devices share `mockup-inner-1` and animate
-    // yPercent in lockstep (each has a 200%-tall inner with 2 stacked cells;
-    // yPercent:-50 reveals the 2nd screen). The timeline loop picks yPercent
-    // for any type that isn't 'desktop-browser' — no App.jsx edit needed.
+    // Mockup: hybrid — COMPOSES the two existing templates as the two states
+    // of one yPercent reveal. State 1 = a set of 2 phones (the dual-phone
+    // template, static — exactly like the first state of HomeColab /
+    // DinnerVision / DebateHaus). State 2 = 1 desktop (the desktop-browser
+    // template, static — exactly like SourcePrep's frame). Applivation is BOTH
+    // a Mac app + Safari extension AND an iOS/iPadOS app, so neither pure
+    // variant tells the whole story; this sequences phone -> desktop.
     //
-    // Cells are graceful: image ({src,alt}) if a screenshot is supplied, else
-    // a branded placeholder ({label,emoji,barClass}). Until Eric sends the App
-    // Store screenshots, every cell renders a placeholder; adding `src` to a
-    // cell swaps it to the real image (data-only change here).
+    // 3 screenshots total: phones[0], phones[1] (state 1) + desktop (state 2).
+    // Each screen is graceful — an <img> when {src, alt} is present, else a
+    // branded placeholder ({label, emoji, labelClass}). Ships now with
+    // placeholders; adding src to a screen swaps it to the real screenshot
+    // (data-only change here). The timeline loop picks yPercent for any type
+    // that isn't 'desktop-browser' — no App.jsx edit needed.
     mockup: {
       type: 'hybrid-desktop-phones',
       desktop: {
         title: 'applivation-vault',
-        cells: [
-          { cellClass: 'bg-gradient-to-br from-[#0a1830] to-[#111128]', labelClass: 'font-mono text-[11px] text-[#6EA8FE] tracking-widest', emoji: '🔒', label: 'VAULT · MAC' },
-          { cellClass: 'bg-[#050508] border-t border-white/5', labelClass: 'font-mono text-[11px] text-[#6EA8FE] tracking-widest', emoji: '✨', label: 'AUTOFILL · MAC' },
-        ],
+        label: 'VAULT · MAC',
+        emoji: '🔒',
+        labelClass: 'font-mono text-[11px] text-[#6EA8FE] tracking-widest',
       },
       phones: [
-        {
-          cells: [
-            { cellClass: 'h-1/2 w-full bg-gradient-to-t from-void to-[#0a1830] flex items-center justify-center p-4', labelClass: 'font-mono flex-col flex text-center text-[10px] text-[#6EA8FE]', emoji: '📋', label: 'ATS FORM' },
-            { cellClass: 'h-1/2 w-full bg-[#050508] border-t border-white/5 flex items-center justify-center p-4', labelClass: 'font-mono text-[10px] text-telemetry', label: 'FIELDS' },
-          ],
-        },
-        {
-          cells: [
-            { cellClass: 'h-1/2 w-full bg-gradient-to-b from-void to-[#111128] flex items-center justify-center p-4', labelClass: 'font-mono flex-col flex text-center text-[10px] text-[#6EA8FE]', emoji: '✨', label: 'AUTOFILL' },
-            { cellClass: 'h-1/2 w-full bg-[#030305] border-t border-white/5 flex flex-col items-center justify-center p-4', labelClass: 'font-mono text-[10px] text-[#6EA8FE] mb-3', label: 'CONFIRM', barClass: 'w-full h-10 rounded-lg bg-gradient-to-r from-[#6EA8FE]/20 to-[#6EA8FE]/5 border border-[#6EA8FE]/30' },
-          ],
-        },
+        { label: 'ATS FORM', emoji: '📋', labelClass: 'font-mono text-[10px] text-[#6EA8FE]' },
+        { label: 'CONFIRM', emoji: '✅', labelClass: 'font-mono text-[10px] text-[#6EA8FE]' },
       ],
     },
   },
