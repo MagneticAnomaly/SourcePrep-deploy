@@ -50,7 +50,7 @@ export default function Page() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
               </span>
-              SourcePrep is currently in closed beta. Request access to try it early.
+              SourcePrep is currently in closed beta &mdash; request access to try it early. The steps below describe the open-source launch.
             </div>
           )}
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-text mb-8">
@@ -117,7 +117,12 @@ export default function Page() {
               <div className="flex-1">
                 <div className="text-xl font-semibold mb-2">Install &amp; start the daemon</div>
                 <p className="text-text-muted">
-                  Install with <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">pip install prep</code> (or <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">pipx install prep</code>), then run <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">prep serve</code>. Homebrew and build-from-source instructions are in the <a href={GITHUB_REPO_URL} className="text-primary hover:underline">GitHub README</a>.
+                  Install with <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">pip install prep</code> (or <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">pipx install prep</code>), then run <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">prep serve</code>.{' '}
+                  {IS_BETA_MODE ? (
+                    <>Full setup details are in the <a href="/setup" className="text-primary hover:underline">setup guide</a>.</>
+                  ) : (
+                    <>Homebrew and build-from-source instructions are in the <a href={GITHUB_REPO_URL} className="text-primary hover:underline">GitHub README</a>.</>
+                  )}
                 </p>
               </div>
             </div>
@@ -127,7 +132,7 @@ export default function Page() {
               <div className="flex-1">
                 <div className="text-xl font-semibold mb-2">Add your project</div>
                 <p className="text-text-muted">
-                  Run <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">prep add /path/to/repo</code>, or click <strong>+</strong> in the dashboard sidebar. Indexing starts immediately.
+                  Run <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">prep add /path/to/repo</code>, then <code className="bg-background border border-border rounded px-2 py-0.5 text-sm font-mono">prep build</code> &mdash; or add the project from the dashboard sidebar and start a build.
                 </p>
               </div>
             </div>
@@ -149,7 +154,7 @@ export default function Page() {
         <div className="max-w-3xl">
           <h2 className="text-2xl font-bold mb-4">Security &amp; Verification</h2>
           <p className="text-lg text-text-muted leading-relaxed mb-6">
-            Every GitHub release ships with SHA-256 checksums so you can verify what you downloaded. Pro&apos;s macOS and Windows installers &mdash; coming soon &mdash; add code signing, notarization, and automatic updates.
+            GitHub releases ship with SHA-256 checksums so you can verify what you downloaded. Pro&apos;s macOS and Windows installers &mdash; coming soon &mdash; add code signing, notarization, and automatic updates.
           </p>
           <div className="flex flex-wrap gap-4">
             <a href="/setup" className="text-primary font-bold hover:underline underline-offset-4 text-lg">
