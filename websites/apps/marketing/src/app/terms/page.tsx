@@ -24,7 +24,7 @@ export default function Page() {
             Draft
           </span>
           <p className="text-base font-semibold text-text">
-            Draft — this revision is pending legal review (Phase 144) and is not yet in effect.
+            This revision is pending legal review (Phase 144) and is not yet in effect.
           </p>
         </div>
 
@@ -211,7 +211,7 @@ export default function Page() {
                       THE SOFTWARE AND SERVICES ARE PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
                     </p>
                     <p>
-                      IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+                      IN NO EVENT SHALL MAGNETIC ANOMALY LLC, ITS AUTHORS, OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR SERVICES, OR THE USE OF OR OTHER DEALINGS IN THE SOFTWARE OR SERVICES.
                     </p>
                   </div>
                   <p className="text-xs text-text-subtle mt-3">
