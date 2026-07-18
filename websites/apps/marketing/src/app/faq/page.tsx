@@ -336,7 +336,7 @@ const faqs: FAQItem[] = [
     q: "Why pay for this? Can\u2019t I build it myself?",
     a: (
       <div className="space-y-4">
-        <p>You could build a basic RAG pipeline over a weekend. What takes years is everything beyond that: incremental rebuilds that don&apos;t re-embed your entire project on every save. A Rust parser that handles Python, TypeScript/TSX, JavaScript, Go, Rust, Java, C, and C++ and produces a navigable dependency graph. Compression that treats code and documentation differently. An observation store that links AI knowledge to specific files and flags it stale when those files change. A real-time file watcher. A dashboard that shows you exactly what the AI sees.</p>
+        <p>You could build a basic RAG pipeline over a weekend. What takes years is everything beyond that: incremental rebuilds that don&apos;t re-embed your entire project on every save. A Rust parser that handles Python, TypeScript/TSX, JavaScript, Go, Rust, Java, C, and C++ &mdash; and produces a navigable dependency graph. Compression that treats code and documentation differently. An observation store that links AI knowledge to specific files and flags it stale when those files change. A real-time file watcher. A dashboard that shows you exactly what the AI sees.</p>
         <p>And you don&apos;t have to pay: SourcePrep is <strong>free and open source under Apache 2.0</strong> &mdash; the full product, not a limited edition. Pro is a <strong>$29 one-time purchase</strong> for convenience: signed installers, automatic updates, and email support. Teams adds hosted infrastructure &mdash; a shared index your whole team queries &mdash; that you&apos;d otherwise run yourself. That&apos;s what funds development. Not your data.</p>
       </div>
     ),

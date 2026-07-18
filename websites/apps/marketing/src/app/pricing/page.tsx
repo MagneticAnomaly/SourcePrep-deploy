@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from '@prep/ui';
-import { GITHUB_REPO_URL } from "../../lib/links";
+import { GITHUB_REPO_URL } from "@/lib/links";
 
 const IS_BETA_MODE = true;
 
