@@ -1,10 +1,7 @@
 "use client";
 
 import { Button } from '@prep/ui';
-
-const GITHUB_URL =
-  process.env.NEXT_PUBLIC_PREP_GITHUB_URL ??
-  'https://github.com/MagneticAnomaly/SourcePrep-MCP';
+import { GITHUB_REPO_URL } from '@/lib/links';
 
 export default function Page() {
   return (
@@ -50,7 +47,7 @@ export default function Page() {
                 The central town square. Ask questions, share workflows, vote on RFCs, and connect with other users.
               </p>
               <Button asChild size="lg" className="rounded-full w-full sm:w-auto">
-                <a href={`${GITHUB_URL}/discussions`} target="_blank" rel="noopener noreferrer">
+                <a href={`${GITHUB_REPO_URL}/discussions`} target="_blank" rel="noopener noreferrer">
                   Join the Conversation
                 </a>
               </Button>
@@ -69,7 +66,7 @@ export default function Page() {
                 Found a bug? Need a specific feature? Open an issue on our tracker. We prioritize based on community needs.
               </p>
               <Button asChild variant="outline" size="lg" className="rounded-full w-full sm:w-auto border-white/10 hover:bg-white/5">
-                <a href={`${GITHUB_URL}/issues`} target="_blank" rel="noopener noreferrer">
+                <a href={`${GITHUB_REPO_URL}/issues`} target="_blank" rel="noopener noreferrer">
                   Open an Issue
                 </a>
               </Button>

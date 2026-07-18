@@ -116,8 +116,8 @@ export default function ClaudeCodePage() {
         <h2 className="text-2xl font-semibold text-text mb-4">Auto-Approve &amp; Skills</h2>
         <p className="text-text-muted leading-relaxed mb-4">
           All six SourcePrep tools are read-only and completely safe to auto-approve. No writes, no side effects,
-          no shell commands. SourcePrep generates the auto-approve config and a skills file for your project automatically
-          — so Claude Code can call SourcePrep without a permission prompt on every invocation.
+          no shell commands. SourcePrep generates the skills file for your project and documents the one-line
+          auto-approve config — so Claude Code can call SourcePrep without a permission prompt on every invocation.
         </p>
         <div className="rounded-lg border border-border bg-[#0d1117] p-5 font-mono text-sm mb-4">
           <div className="text-[#8b949e] mb-2 text-xs">{"// .claude/settings.json"}</div>
@@ -186,13 +186,13 @@ export default function ClaudeCodePage() {
               <li>Compact response format</li>
               <li>Optimized token budgets</li>
               <li>Claude-specific tool instructions</li>
-              <li>Skills + auto-approve config generated</li>
+              <li>Skills file generated, auto-approve config documented</li>
             </ul>
           </div>
           <div className="rounded-lg border border-border bg-surface p-4">
             <h3 className="font-mono text-xs font-bold text-text mb-2 uppercase tracking-widest">Other Clients</h3>
             <ul className="text-xs text-text-muted space-y-1.5">
-              <li>Codex: AGENTS.md-shaped output, mcpServers config</li>
+              <li>Codex: first-class AGENTS.md consumer</li>
               <li>Cursor: role-based atlas projection</li>
               <li>Windsurf: verbose structural context</li>
               <li>Generic MCP: standard response</li>

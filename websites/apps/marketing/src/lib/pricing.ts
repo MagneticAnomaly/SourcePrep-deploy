@@ -3,10 +3,13 @@
  *
  * See docs/Phase10_.../Pricing/GLOBAL_PRICING.md for the full strategy.
  *
- * Architecture:
- *   1. Netlify Edge Function (or Next.js middleware) detects visitor country
+ * NOT LIVE. Nothing in this file is wired to a checkout today (see the
+ * warning above LS_CHECKOUT_URLS below). The planned architecture was:
+ *   1. Edge geo-detection (middleware) sets visitor country — removed
+ *      along with the pricing page's PPP consumer in the open-core rewrite
  *   2. Country → PPP band lookup (this file)
  *   3. Band → prices + discount code for Lemon Squeezy checkout
+ * Kept compiled so it can be re-wired if/when paid tiers go live.
  */
 
 // ── PPP Band Definitions ────────────────────────────────────────────────────
@@ -166,9 +169,10 @@ export function getCheckoutUrl(baseUrl: string, country: string): string {
 }
 
 // ── Lemon Squeezy Product URLs ──────────────────────────────────────────────
-// Set these in the Netlify dashboard as NEXT_PUBLIC_ env vars.
-// They point to Lemon Squeezy checkout pages for each product.
-// Fallback: payments.sourceprep.io hub page until LS products are created.
+// If checkout ever goes live, these would be set in the Netlify dashboard as
+// NEXT_PUBLIC_ env vars pointing at Lemon Squeezy checkout pages per product.
+// Today no such env vars are configured and no LS products exist; the fallback
+// below is the payments.sourceprep.io hub page.
 
 // Checkout deliberately unwired: license crypto void (Phase 146 N1) + LS products
 // unconfigured. Do not re-link without fixing both.

@@ -159,8 +159,8 @@ export default function Page() {
                     Apache 2.0 — you can audit exactly what runs.
                   </p>
                   <div className="p-4 bg-background border border-border rounded-sm font-mono text-xs text-text-muted">
-                    $ shasum -a 256 SourcePrep-1.0.0-mac.dmg<br/>
-                    &gt; 7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d90bc
+                    $ shasum -a 256 SourcePrep-&lt;version&gt;-mac.dmg<br/>
+                    &gt; &lt;compare against the SHA-256 on the release page&gt;
                   </div>
                 </section>
 
@@ -271,7 +271,7 @@ export default function Page() {
                       </h2>
                       <p className="text-sm text-text-muted leading-relaxed">
                         The open-source version involves no payment and no account. Payments for paid
-                        tiers are processed by <strong className="text-text">Lemon Squeezy</strong>, our Merchant of Record.
+                        tiers will be processed by <strong className="text-text">Lemon Squeezy</strong> (planned Merchant of Record).
                         Magnetic Anomaly LLC never stores credit card numbers, banking information, or tax IDs.
                       </p>
                     </section>

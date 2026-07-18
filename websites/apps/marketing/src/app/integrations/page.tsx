@@ -161,7 +161,7 @@ export default function IntegrationsPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
             { client: 'Claude Code', detail: 'Compact format, auto-approve hints, skills context' },
-            { client: 'OpenAI Codex', detail: 'AGENTS.md-shaped output; MCP block routed via mcpServers' },
+            { client: 'OpenAI Codex', detail: 'First-class AGENTS.md consumer — output shaped to match' },
             { client: 'Cursor', detail: 'Richer format with inline code blocks and annotations' },
             { client: 'Windsurf', detail: 'Budget tuned to Windsurf\'s context window' },
           ].map((item) => (

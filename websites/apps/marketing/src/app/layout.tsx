@@ -21,7 +21,7 @@ const productSchema = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "SourcePrep",
-  "operatingSystem": "macOS, Windows, Linux",
+  "operatingSystem": "macOS, Windows",
   "applicationCategory": "DeveloperApplication",
   "description": "Epistemic codebase intelligence engine designed for autonomous agents and AI-assisted development. It creates a structural code graph using Rust to map imports, call chains, and symbol hierarchies for sophisticated context.",
   "offers": {

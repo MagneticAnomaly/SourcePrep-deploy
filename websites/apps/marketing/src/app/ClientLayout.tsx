@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { SiteHeader, SiteFooter } from '@prep/ui';
+import { GITHUB_REPO_URL } from '@/lib/links';
 import { DevToolbar } from './DevToolbar';
 
 const isDev = process.env.NODE_ENV !== 'production';
@@ -69,10 +70,10 @@ export function ClientLayout({ children }: { children: ReactNode }) {
         sections={footerSections}
         socials={{
           twitter: 'https://x.com/Prep_io',
-          github: 'https://github.com/MagneticAnomaly/SourcePrep-MCP',
+          github: GITHUB_REPO_URL,
           email: 'hello@sourceprep.io'
         }}
-        copyright="© 2026 Magnetic Anomaly llc. All rights reserved."
+        copyright="© 2026 Magnetic Anomaly LLC. All rights reserved."
       />
       <DevToolbar />
     </>
