@@ -4,6 +4,12 @@
 **Status:** Approved (pending spec review)
 **Scope:** Marketing pricing page — per-seat prices, seat minimums, and a new tiered setup-fee structure. Single file change in primary scope; secondary sweep for stale number references elsewhere.
 
+> **Shipped update (2026-07-18):** the Teams **annual** figure below shipped as
+> **$97/seat/yr (10% off)**, not the `$86/seat/yr (20% off)` in the body of this
+> design (a later revision reduced the annual discount from 20% to 10%; commit
+> `0f1a66c2`). The `$9/seat/mo` monthly and all Enterprise numbers are as
+> written. Treat the shipped value as authoritative where this doc says `$86`.
+
 ## Context
 
 SourcePrep is a solo-developer product. The pricing page (`websites/apps/marketing/src/app/pricing/page.tsx`) currently lists four tiers: Open Source ($0), Pro ($29 one-time), Teams ($10/seat/mo, 3-seat min), and Enterprise ($30/seat/mo, annual, 10-seat min, "Setup assistance available").
