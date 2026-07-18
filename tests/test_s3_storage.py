@@ -5,10 +5,12 @@ Uses a temp directory to mock S3 operations at the filesystem level.
 For real S3 integration testing, use moto or a local MinIO container.
 """
 
+import io
 import json
 import os
 import tempfile
 import time
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -170,6 +172,78 @@ class TestS3StorageProviderUpload:
 
         with pytest.raises(ValueError, match="No index artifacts"):
             provider.upload_index(idx)
+
+    # ── strip_source_content (privacy capability, P06) ─────────
+
+    def _make_index_dir_with_content(self, tmp_path: Path) -> Path:
+        """Fake index dir whose documents.json carries raw source content."""
+        idx = tmp_path / "index_content"
+        idx.mkdir()
+        docs = [{
+            "id": "doc1",
+            "content": "SECRET_TOKEN = 'xyz'",
+            "source_path": "src/foo.py",
+            "file_hash": "abc123",
+            "role": "code",
+            "section": "body",
+            "span": [1, 10],
+        }]
+        (idx / "documents.json").write_text(json.dumps(docs))
+        np.save(idx / "embeddings.npy", np.zeros((1, 8), dtype="float32"))
+        return idx
+
+    def _upload_and_capture_zip_bytes(self, idx: Path, cfg: S3Config) -> bytes:
+        """Run upload_index against a mocked client, returning the uploaded zip bytes.
+
+        Mirrors the mock style of test_upload_creates_manifest: `upload_file`
+        is called with a local temp-file path (client.upload_file(src, bucket,
+        key)) — we read that file's bytes inside the side_effect, since the
+        real upload_index() unlinks the temp zip in its `finally` block before
+        control returns to the caller.
+        """
+        captured = {}
+
+        mock_client = MagicMock()
+        mock_client.upload_file = MagicMock(
+            side_effect=lambda src, bucket, key: captured.update(
+                {"zip_bytes": Path(src).read_bytes()}
+            )
+        )
+        mock_client.copy_object = MagicMock()
+        mock_client.delete_object = MagicMock()
+        mock_client.put_object = MagicMock()
+
+        provider = S3StorageProvider(cfg)
+        provider._client = mock_client
+
+        provider.upload_index(idx, branch="main", commit_sha="abc123def")
+        return captured["zip_bytes"]
+
+    def test_upload_strips_source_content_when_flagged(self, tmp_path):
+        idx = self._make_index_dir_with_content(tmp_path)
+        cfg = S3Config(bucket="b", access_key="a", secret_key="s", strip_source_content=True)
+
+        zip_bytes = self._upload_and_capture_zip_bytes(idx, cfg)
+
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            docs = json.loads(zf.read("documents.json"))
+
+        assert "content" not in docs[0]
+        assert docs[0]["source_path"] == "src/foo.py"
+        assert docs[0]["span"] == [1, 10]
+
+    def test_upload_keeps_content_when_flag_off(self, tmp_path):
+        idx = self._make_index_dir_with_content(tmp_path)
+        cfg = S3Config(bucket="b", access_key="a", secret_key="s")  # strip_source_content default False
+
+        zip_bytes = self._upload_and_capture_zip_bytes(idx, cfg)
+
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            docs = json.loads(zf.read("documents.json"))
+
+        assert "content" in docs[0]
+        assert docs[0]["content"] == "SECRET_TOKEN = 'xyz'"
+        assert docs[0]["source_path"] == "src/foo.py"
 
 
 class TestS3StorageProviderDownload:

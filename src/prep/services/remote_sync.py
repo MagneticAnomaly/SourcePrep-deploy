@@ -46,6 +46,11 @@ class TeamSyncConfig:
     s3_bucket: str = ""
     s3_prefix: str = ""
     poll_interval_minutes: int = 30
+    # Privacy capability (P06): fail-closed strip of raw source `content`
+    # from documents.json at the S3 upload boundary. Defaults False —
+    # BYO/Enterprise buckets (customer's own S3/R2/MinIO) leave content
+    # intact unless a future SourcePrep-hosted tier opts in.
+    strip_source_content: bool = False
 
     MIN_POLL_INTERVAL_MINUTES = 5
 
@@ -65,6 +70,7 @@ class TeamSyncConfig:
             s3_bucket=str(sync.get("s3_bucket", "")),
             s3_prefix=str(sync.get("s3_prefix", "")),
             poll_interval_minutes=safe_interval,
+            strip_source_content=bool(sync.get("strip_source_content", False)),
         )
 
 
@@ -292,6 +298,7 @@ class RemoteSyncService:
             prefix=self._config.s3_prefix,
             access_key=creds["access_key"],
             secret_key=creds["secret_key"],
+            strip_source_content=self._config.strip_source_content,
         )
 
         errors = s3_config.validate()

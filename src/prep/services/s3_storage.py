@@ -53,6 +53,23 @@ INDEX_ARTIFACTS = [
     "knowledge_manifest.json",
 ]
 
+# Artifacts whose payload includes raw source text (as opposed to metadata
+# derived from it). Only documents.json carries the `content` field written
+# at index.py:621 (content=ch.content).
+_CONTENT_BEARING_ARTIFACTS = {"documents.json"}
+
+
+def _scrub_documents_json(raw_json: str) -> bytes:
+    """Drop raw source ('content') from a documents.json payload, keeping
+    metadata + span. Row order is preserved so embeddings.npy stays aligned."""
+    import json as _json
+    docs = _json.loads(raw_json)
+    for d in docs:
+        d.pop("content", None)
+        d.pop("truncated", None)
+        d.pop("original_size", None)
+    return _json.dumps(docs).encode()
+
 
 @dataclass
 class SyncManifest:
@@ -98,6 +115,11 @@ class S3Config:
     access_key: str = ""
     secret_key: str = ""
     region: str = "auto"
+    # Privacy capability (P06): when True, strip raw source `content` from
+    # documents.json at the upload boundary. Fail-closed for a future
+    # SourcePrep-hosted tier; defaults False so BYO/Enterprise bucket
+    # behavior (customer's own S3/R2/MinIO) is unchanged.
+    strip_source_content: bool = False
 
     @classmethod
     def from_env(cls) -> "S3Config":
@@ -199,8 +221,13 @@ class S3StorageProvider:
             total_bytes = 0
             with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
                 for artifact in artifacts:
-                    zf.write(artifact, artifact.name)
-                    total_bytes += artifact.stat().st_size
+                    if self.config.strip_source_content and artifact.name in _CONTENT_BEARING_ARTIFACTS:
+                        scrubbed = _scrub_documents_json(artifact.read_text())
+                        zf.writestr(artifact.name, scrubbed)
+                        total_bytes += len(scrubbed)
+                    else:
+                        zf.write(artifact, artifact.name)
+                        total_bytes += artifact.stat().st_size
 
             # Compute content hash of the zip
             h = sha256()
