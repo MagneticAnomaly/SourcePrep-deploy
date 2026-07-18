@@ -97,19 +97,25 @@ class TestHeadlessCreateLlmClient:
 
 class TestHeadlessCreateEmbedder:
     def test_native_when_available(self):
+        # Phase 139: native path delegates to embedder_factory.create_embedder,
+        # it no longer constructs prep.core.NativeEmbedder() directly.
         cfg = HeadlessConfig(embedder="native")
-        with patch("prep.core.NativeEmbedder") as mock_cls:
-            mock_instance = MagicMock()
-            mock_instance.is_available.return_value = True
-            mock_cls.return_value = mock_instance
+        sentinel = object()
+        with patch("prep.core.NativeEmbedder.is_available", return_value=True), \
+             patch(
+                 "prep.services.embedder_factory.create_embedder",
+                 return_value=sentinel,
+             ) as mock_create:
             embedder = headless_create_embedder(cfg)
-            assert embedder is mock_instance
+            assert embedder is sentinel
+            mock_create.assert_called_once_with("native")
 
     def test_fallback_to_ollama_when_native_unavailable(self):
+        # is_available() is a staticmethod on the class — patch the class attr,
+        # not the instance, so the availability gate actually returns False.
         cfg = HeadlessConfig(embedder="native")
-        with patch("prep.core.NativeEmbedder") as mock_native, \
+        with patch("prep.core.NativeEmbedder.is_available", return_value=False), \
              patch("prep.core.OllamaEmbedder") as mock_ollama:
-            mock_native.return_value.is_available.return_value = False
             mock_ollama_instance = MagicMock()
             mock_ollama.return_value = mock_ollama_instance
             embedder = headless_create_embedder(cfg)
@@ -175,7 +181,24 @@ class TestStageResult:
 
 class TestHeadlessStages:
     def test_stage_count(self):
-        assert len(HEADLESS_STAGES) == 10
+        assert len(HEADLESS_STAGES) == 11
+
+    def test_stage_ids_in_order(self):
+        # Identity check instead of a bare magic number: if the pipeline
+        # gains/loses/reorders a stage this fails with the actual diff.
+        assert [s[0] for s in HEADLESS_STAGES] == [
+            "structural",
+            "inferred_edges",
+            "catalogue",
+            "validation",
+            "knowledge",
+            "enrichment",
+            "group_reasoning",
+            "clustering",
+            "atlas",
+            "deepening",
+            "deep_knowledge",
+        ]
 
     def test_stage_ids_unique(self):
         ids = [s[0] for s in HEADLESS_STAGES]
