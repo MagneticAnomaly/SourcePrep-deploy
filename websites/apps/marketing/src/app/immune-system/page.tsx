@@ -194,7 +194,7 @@ export default function ImmuneSystemPage() {
           ))}
         </div>
         <p className="text-text-muted text-sm mb-6">
-          No competitor offers this. Static linters require you to encode rules in config files. SourcePrep derives
+          Few competitors offer this. Static linters require you to encode rules in config files. SourcePrep derives
           guards from the design decisions your team already records — so your architectural intent and its
           enforcement stay in sync automatically.
         </p>

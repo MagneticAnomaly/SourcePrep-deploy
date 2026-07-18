@@ -150,7 +150,7 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Annual $144/seat/yr (20% off)</span>
+                <span>Annual $96/seat/yr (20% off)</span>
               </li>
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
@@ -215,7 +215,7 @@ export default function Page() {
             <a href="/security">Security &amp; Privacy</a>
           </Button>
           <Button asChild variant="outline">
-            <a href="/contact">Contact</a>
+            <a href="/support">Contact</a>
           </Button>
         </div>
 

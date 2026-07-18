@@ -1,12 +1,5 @@
 "use client";
 
-// TODO(MVP): Re-add the "VS Code Extension" section once the native
-// extension (sidebar UI for search, context assembly, trace navigation,
-// Pro tier graph features) is back in MVP scope. Previous copy lived in
-// git history (search: "VS Code Extension" in prior commits of this file).
-// The extension is still planned — just not pitched publicly during MVP.
-// For now VS Code is listed only as an MCP-capable IDE via GitHub Copilot.
-
 import { DetailPageLayout, AnimatedCLI, AnimatedIDE, prepOverviewDemo, ideDemoScript } from '@prep/ui';
 import { Terminal, Plug, Cpu, ArrowRight } from 'lucide-react';
 
@@ -14,6 +7,7 @@ const SECTIONS = [
   { id: 'universal', label: 'One Server, Every Editor' },
   { id: 'cli', label: 'CLI Agents' },
   { id: 'ide', label: 'Agentic IDEs' },
+  { id: 'vscode', label: 'VS Code Extension' },
   { id: 'client-aware', label: 'Client-Aware Delivery' },
 ];
 
@@ -147,6 +141,22 @@ export default function IntegrationsPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* VS Code Extension */}
+      <section id="vscode">
+        <h2 className="text-2xl font-semibold text-text mb-4">VS Code Extension</h2>
+        <p className="text-text-muted leading-relaxed mb-6">
+          SourcePrep ships a native VS Code extension alongside the open-source release &mdash; a
+          sidebar for search, context assembly, and trace navigation over the same local daemon. It
+          runs offline, no cloud required. (The extension is in beta with the rest of SourcePrep; some
+          advanced graph views are Pro-tier.)
+        </p>
+        <p className="text-text-muted leading-relaxed">
+          Don&apos;t want the native extension? VS Code also works via GitHub Copilot&apos;s MCP support,
+          or through MCP-aware extensions like Cline, Roo, and CodeGPT &mdash; all talking to the same
+          daemon.
+        </p>
       </section>
 
       {/* Client-Aware Delivery */}

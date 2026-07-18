@@ -25,7 +25,7 @@ export default function CompareCursorPage() {
         <section className="bg-surface border border-border p-8 rounded-xl mb-16 shadow-sm">
           <h2 className="text-xl font-bold mb-4">How does SourcePrep improve Cursor?</h2>
           <p className="text-text-muted leading-relaxed">
-            Cursor relies primarily on <strong>BM25/Vector Search</strong> to find code chunks that semantically match your prompt. <strong>SourcePrep builds a structural trace graph</strong> using a local Rust tree-sitter engine. While Cursor grabs isolated chunks of text, SourcePrep understands the syntax: it knows what functions call other functions, where types are defined, and how modules import each other. By connecting SourcePrep to Cursor via an MCP server, Cursor's AI agents can query the structural graph to traverse call chains and gather perfect, highly-compressed context that regular vector search would miss.
+            Cursor relies primarily on <strong>built-in semantic retrieval</strong> to find code chunks that semantically match your prompt. <strong>SourcePrep builds a structural trace graph</strong> using a local Rust tree-sitter engine. While Cursor grabs isolated chunks of text, SourcePrep understands the syntax: it knows what functions call other functions, where types are defined, and how modules import each other. By connecting SourcePrep to Cursor via an MCP server, Cursor's AI agents can query the structural graph to traverse call chains and gather perfect, highly-compressed context that regular vector search would miss.
           </p>
         </section>
 
@@ -45,7 +45,7 @@ export default function CompareCursorPage() {
                 <tr className="hover:bg-surface/50 transition-colors">
                   <td className="py-4 px-4 font-medium">Index Type</td>
                   <td className="py-4 px-4 bg-primary/5">Structural Graph + Vector</td>
-                  <td className="py-4 px-4 text-text-muted">Vector + BM25 Lexical</td>
+                  <td className="py-4 px-4 text-text-muted">Vector + Lexical</td>
                 </tr>
                 <tr className="hover:bg-surface/50 transition-colors">
                   <td className="py-4 px-4 font-medium">Understands Call Chains</td>

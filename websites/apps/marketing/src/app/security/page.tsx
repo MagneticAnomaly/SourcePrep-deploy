@@ -25,7 +25,7 @@ export default function Page() {
             <div className="sticky top-20 space-y-8">
               <div>
                 <h1 className="text-4xl font-bold tracking-tight text-text mb-2">Security &amp;<br/>Privacy</h1>
-                <p className="text-xs font-mono text-text-subtle">LAST_AUDIT: 2026-02-01</p>
+                <p className="text-xs font-mono text-text-subtle">LAST_AUDIT: 2026-07-17</p>
               </div>
 
               <nav className="space-y-1 border-l border-border-subtle">
@@ -75,9 +75,9 @@ export default function Page() {
                     <p className="mt-4 text-sm text-text-muted">
                       SourcePrep runs entirely on localhost. Indexes, embeddings, and configuration are
                       stored locally in <code className="text-xs bg-background border border-border rounded px-1 py-0.5 font-mono">~/.local/share/sourceprep</code> (or
-                      in-project via embedded mode). There is no cloud component and no server-side
-                      processing in the core product — the only way code context ever leaves
-                      your machine is a cloud LLM you explicitly configure.
+                      in-project via embedded mode). The OSS product makes no network calls — the only
+                      way code context ever leaves your machine is a cloud LLM you explicitly configure
+                      (BYOK). The Pro installer makes a one-time license activation; nothing else.
                     </p>
                   </div>
                 </section>
@@ -127,7 +127,7 @@ export default function Page() {
                   </div>
                 </section>
 
-                <section id="llm-usage">
+                <section id="embedding">
                   <h2 className="text-xl font-bold text-text mb-4 flex items-center gap-3">
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">04.</span> LLM & Embedding Usage
                   </h2>
@@ -142,11 +142,12 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">05.</span> Offline Verification
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed">
-                    License infrastructure exists only in the Pro installer. The open-source version
+                    License infrastructure will exist only in the Pro installer. The open-source version
                     ships with none — no keys, no activation, nothing that could phone home. Pro
-                    activation is a single online key exchange; after that, SourcePrep stores a signed
-                    Ed25519 license file locally and verifies it offline. No periodic phone-home, no
-                    subscription heartbeat.
+                    activation will be a single online key exchange; after that, SourcePrep will store a
+                    signed Ed25519 license file locally and verify it offline — no periodic phone-home,
+                    no subscription heartbeat. (Pro is coming soon; the current license crypto is being
+                    replaced before launch.)
                   </p>
                 </section>
 
@@ -155,8 +156,8 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">06.</span> Supply Chain Security
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed mb-4">
-                    Pro installers are code-signed and notarized, with SHA-256 checksums published
-                    for every release. The open-source version is built from public source under
+                    Pro installers will be code-signed and notarized, with SHA-256 checksums accompanying
+                    every release. The open-source version will be built from public source under
                     Apache 2.0 — you can audit exactly what runs.
                   </p>
                   <div className="p-4 bg-background border border-border rounded-sm font-mono text-xs text-text-muted">
@@ -222,7 +223,7 @@ export default function Page() {
 
                 <div className="border-t-4 border-primary pt-12">
                   <h2 className="text-2xl font-bold text-text mb-2">Privacy Policy</h2>
-                  <p className="text-xs font-mono text-text-subtle mb-12">LAST_UPDATED: 2026-02-01</p>
+                  <p className="text-xs font-mono text-text-subtle mb-12">LAST_UPDATED: 2026-07-17</p>
 
                   <div className="space-y-16">
                     <section id="data-collection">
@@ -302,7 +303,7 @@ export default function Page() {
                             <td className="px-4 py-3 text-text-muted">2 years from closure</td>
                           </tr>
                           <tr>
-                            <td className="px-4 py-3 border-r border-border font-medium text-text">Server Logs</td>
+                            <td className="px-4 py-3 border-r border-border font-medium text-text">Hosted backend logs (Teams/Enterprise, coming soon)</td>
                             <td className="px-4 py-3 text-text-muted">30 days (rolling)</td>
                           </tr>
                         </tbody>

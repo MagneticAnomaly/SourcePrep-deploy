@@ -20,7 +20,7 @@ export default function CompareGreptilePage() {
             SourcePrep vs. Greptile
           </h1>
           <p className="text-xl text-text-muted leading-relaxed">
-            Greptile paved the way for codebase RAG by offering a powerful cloud-based API. But basic vector search fails to give autonomous agents the structural awareness they need to succeed. SourcePrep is built to deliver deep epistemic tracing and superior context intelligence—giving your AI the "what, why, when, and how" without ever letting your codebase leave your control.
+            Greptile paved the way for codebase RAG by offering a powerful cloud-based API. But standard vector search fails to give autonomous agents the structural awareness they need to succeed. SourcePrep is built to deliver deep epistemic tracing and superior context intelligence—giving your AI the "what, why, when, and how" without ever letting your codebase leave your control.
           </p>
         </header>
 
@@ -28,7 +28,7 @@ export default function CompareGreptilePage() {
         <section className="bg-surface border border-border p-8 rounded-xl mb-16 shadow-sm">
           <h2 className="text-xl font-bold mb-4">What is the difference between SourcePrep and Greptile?</h2>
           <p className="text-text-muted leading-relaxed">
-            The primary difference is architecture and epistemic depth. <strong>Greptile relies on naive cloud search</strong>, requiring you to upload your entire codebase to their servers. <strong>SourcePrep is an open-source epistemic context engine</strong> with Private by Design architecture. SourcePrep uses a Rust daemon to parse your code into a meticulous structural trace graph. It integrates natively with your agentic tools (like Paperclip or Cursor) via the Model Context Protocol (MCP). With SourcePrep, you get zero-latency context assembly, role-aware routing, and Sovereign Context—your source code is never unknowingly transmitted.
+            The primary difference is architecture and epistemic depth. <strong>Greptile relies on cloud-hosted search</strong>, requiring you to upload your entire codebase to their servers. <strong>SourcePrep is an open-source epistemic context engine</strong> with Private by Design architecture. SourcePrep uses a Rust daemon to parse your code into a meticulous structural trace graph. It integrates natively with your agentic tools (like Paperclip or Cursor) via the Model Context Protocol (MCP). With SourcePrep, you get zero-latency context assembly, role-aware routing, and Sovereign Context—your source code is never unknowingly transmitted.
           </p>
         </section>
 
@@ -72,7 +72,7 @@ export default function CompareGreptilePage() {
                 </tr>
                 <tr className="hover:bg-surface/50 transition-colors">
                   <td className="py-4 px-4 font-medium">Air-Gapped Support</td>
-                  <td className="py-4 px-4 bg-primary/5 flex items-center gap-2"><Check className="w-4 h-4 text-success" /> Yes (Enterprise)</td>
+                  <td className="py-4 px-4 bg-primary/5 flex items-center gap-2"><Check className="w-4 h-4 text-success" /> Yes (Enterprise — coming soon)</td>
                   <td className="py-4 px-4 text-text-muted flex items-center gap-2"><X className="w-4 h-4 text-error" /> No</td>
                 </tr>
               </tbody>
@@ -85,7 +85,7 @@ export default function CompareGreptilePage() {
           <section>
             <h3 className="text-2xl font-bold mb-4">1. The Security Paradigm: Sovereign Context</h3>
             <p className="text-text-muted leading-relaxed mb-4">
-              Greptile provides excellent answers, but it requires syncing your GitHub repositories to their cloud infrastructure. For many regulated industries (finance, healthcare, defense) or core IP companies, this violates SOC2 and ISO27001 policies.
+              Greptile provides excellent answers, but it requires syncing your GitHub repositories to their cloud infrastructure. For many regulated industries (finance, healthcare, defense) or core IP companies, this may conflict with SOC2/ISO27001 sub-processor or retention policies &mdash; check your scope.
             </p>
             <p className="text-text-muted leading-relaxed">
               SourcePrep provides Sovereign Context. It uses locally-run Rust to build the epistemic graph and open-weight ONNX models to embed it. Your code remains exactly where it belongs: under your complete control.

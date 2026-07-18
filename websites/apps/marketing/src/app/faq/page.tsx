@@ -16,7 +16,7 @@ const faqs: FAQItem[] = [
     q: "Does the AI remember what it learned about my code in previous sessions?",
     a: (
       <div className="space-y-4">
-        <p><strong>Yes</strong> — and this is where SourcePrep diverges from every other context tool on the market. SourcePrep maintains a <strong>Persistent Agent Memory</strong>: a local store of observations — architectural decisions, discovered bugs, design patterns, working assumptions — each linked directly to specific files and symbols in your codebase.</p>
+        <p><strong>Yes</strong> — and this is where SourcePrep diverges from most other context tools on the market. SourcePrep maintains a <strong>Persistent Agent Memory</strong>: a local store of observations — architectural decisions, discovered bugs, design patterns, working assumptions — each linked directly to specific files and symbols in your codebase.</p>
         <p>What makes this different from bolting a memory file onto your repo: SourcePrep&apos;s observations are <strong>staleness-aware</strong>. Modify <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">auth.py</code> and every observation tied to that file is automatically flagged <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">[STALE]</code>. In the next session, the AI receives both the updated code <em>and</em> a signal that its prior assumptions may no longer hold. It doesn&apos;t blindly repeat outdated notes — it knows to re-evaluate.</p>
         <p>This is not a prompt cache or a conversation log. It&apos;s a structured, file-linked, searchable knowledge layer that the AI maintains about your specific codebase. It works in the <strong>open-source version</strong> — every capability ships open source. It&apos;s local SQLite, zero cloud cost, zero telemetry. And because observations are injected alongside code context (not dumped in bulk), they respect the same tight token budget as everything else.</p>
       </div>
@@ -33,7 +33,7 @@ const faqs: FAQItem[] = [
           <li><strong className="text-text">Automatic observation staleness.</strong> SourcePrep&apos;s Persistent Agent Memory links observations to files. When a file changes, those observations are flagged <code className="bg-surface px-1 rounded border border-border-subtle text-xs">[STALE]</code> — the AI sees them with a clear warning, not as gospel.</li>
           <li><strong className="text-text">A visible health indicator.</strong> The Dashboard shows exactly which files have changed since the last index, how many are stale, and whether a rebuild is in progress. You never have to guess whether the AI&apos;s context is current.</li>
         </ol>
-        <p>Most other tools stop at #1. SourcePrep is the only local context engine that extends freshness tracking all the way into the AI&apos;s own learned knowledge.</p>
+        <p>Most other tools stop at #1. SourcePrep is one of the few local context engines that extend freshness tracking all the way into the AI&apos;s own learned knowledge.</p>
       </div>
     ),
   },
@@ -55,11 +55,11 @@ const faqs: FAQItem[] = [
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">SourcePrep search context (per query)</td><td>~1,500</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">SourcePrep search + trace expansion</td><td>~2,000</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Cursor default chat cap</td><td>~20,000</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT-5.3 (OpenAI)</td><td>400,000</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Sonnet 4.6 (Anthropic)</td><td>200,000</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Opus 4.7 (Anthropic)</td><td>1,000,000</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Gemini 3 Pro (Google)</td><td>1,000,000–2,000,000</td></tr>
-              <tr><td className="py-2 pr-6">Qwen3-Coder-480B (local / open)</td><td>256,000 native · 1M extrapolated</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT family (OpenAI)</td><td>up to ~400K</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Sonnet family (Anthropic)</td><td>~200K</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Opus family (Anthropic)</td><td>~1M</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Gemini Pro family (Google)</td><td>1M–2M</td></tr>
+              <tr><td className="py-2 pr-6">Qwen Coder family (local / open)</td><td>~256K native · 1M extrapolated</td></tr>
             </tbody>
           </table>
         </div>
@@ -82,10 +82,10 @@ const faqs: FAQItem[] = [
               </tr>
             </thead>
             <tbody className="text-text-muted">
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT-5.3 (OpenAI)</td><td>~16–32K tokens — larger windows don&apos;t eliminate degradation</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Opus 4.7 / Sonnet 4.6</td><td>~32K tokens — RAG accuracy peaks early even on long-context models</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Gemini 3 Pro</td><td>~32–64K tokens — best long-context retrieval of any frontier model</td></tr>
-              <tr><td className="py-2 pr-6">Qwen3-Coder-480B (local)</td><td>~16–32K tokens — strong coder, MoE architecture, 256K native window</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT family (OpenAI)</td><td>~16–32K tokens — larger windows don&apos;t eliminate degradation</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Opus / Sonnet family (Anthropic)</td><td>~32K tokens — RAG accuracy peaks early even on long-context models</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Gemini Pro family (Google)</td><td>~32–64K tokens — strong long-context retrieval</td></tr>
+              <tr><td className="py-2 pr-6">Qwen Coder family (local)</td><td>~16–32K tokens — strong coder, MoE architecture, ~256K native window</td></tr>
             </tbody>
           </table>
         </div>
@@ -257,9 +257,9 @@ const faqs: FAQItem[] = [
         <p>SourcePrep&apos;s <em>foundation</em> is RAG — embed, search, retrieve. That&apos;s the same technique Cursor, Windsurf, and most modern tools use internally.</p>
         <p>What makes SourcePrep different is what happens <strong>on top of</strong> basic retrieval:</p>
         <ul className="space-y-3 text-text-muted">
-          <li><strong className="text-text">Graph-aware retrieval.</strong> The trace graph (built by a Rust engine that parses your code&apos;s AST) captures imports, function calls, class inheritance, and module dependencies. No other AI coding tool does this natively.</li>
+          <li><strong className="text-text">Graph-aware retrieval.</strong> The trace graph (built by a Rust engine that parses your code&apos;s AST) captures imports, function calls, class inheritance, and module dependencies. Few AI coding tools do this natively.</li>
           <li><strong className="text-text">Intent-aware weighting.</strong> SourcePrep detects whether your query is about implementation, debugging, or architecture and adjusts which types of content are prioritized. Automated — not something you configure per query.</li>
-          <li><strong className="text-text">User transparency and control.</strong> Every other tool is a black box. SourcePrep shows you the scores, lets you set weights, and tells you exactly what was sent and why.</li>
+          <li><strong className="text-text">User transparency and control.</strong> Most other tools give you limited visibility. SourcePrep shows you the scores, lets you set weights, and tells you exactly what was sent and why.</li>
           <li><strong className="text-text">Tool-agnostic via MCP.</strong> Your index, configuration, and codebase understanding work whether you&apos;re in Cursor today or Claude Code tomorrow.</li>
           <li><strong className="text-text">Smart context compression.</strong> Two built-in engines: structural compression for code (up to 20&times;) and language-aware compression for docs (~2.4&times;). Client-adaptive: compression adjusts per client to fit your AI tool&apos;s context window. No GPU required.</li>
           <li><strong className="text-text">Persistent cross-session knowledge.</strong> The AI accumulates linked observations about your codebase over time, with automatic staleness detection when files change. Its understanding of your project gets deeper across sessions, not just per-conversation.</li>

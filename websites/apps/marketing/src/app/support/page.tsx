@@ -99,8 +99,7 @@ export default function Page() {
             </div>
             <h3 className="text-xl font-bold text-text mb-3">Security & Billing</h3>
             <p className="text-text-muted mb-6">
-              For security reports, legal inquiries, or trouble activating a Pro installer
-              license.
+              For security reports or legal inquiries.
             </p>
             <div className="flex gap-4">
               <Button variant="outline" className="flex-1" asChild>

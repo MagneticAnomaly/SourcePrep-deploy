@@ -82,7 +82,7 @@ export default function Page() {
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-6 text-primary text-xl">🐛</div>
               <h3 className="text-xl font-bold mb-2">Edge Cases</h3>
               <p className="text-text-muted leading-relaxed">
-                SourcePrep parses dozens of languages. If your codebase triggers weird behavior, your bug report helps everyone.
+                SourcePrep parses 8 languages today (Python, TypeScript/TSX, JavaScript, Go, Rust, Java, C, C++). If your codebase triggers weird behavior, your bug report helps everyone.
               </p>
             </div>
             <div className="p-8 rounded-2xl bg-surface/50 border border-border">
@@ -104,10 +104,10 @@ export default function Page() {
 
         <div className="flex flex-wrap justify-center gap-4">
           <Button asChild variant="ghost" className="rounded-full">
-            <a href="/contact">Help Center</a>
+            <a href="/support">Help Center</a>
           </Button>
           <Button asChild variant="ghost" className="rounded-full">
-            <a href="/contact">Contact Team</a>
+            <a href="/support">Contact Team</a>
           </Button>
           <Button asChild variant="ghost" className="rounded-full">
             <a href="/blog">Read Blog</a>

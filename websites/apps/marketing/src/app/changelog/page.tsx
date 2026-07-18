@@ -129,7 +129,7 @@ export default function Page() {
         <div className="mt-32 pt-12 border-t border-border flex flex-col sm:flex-row gap-4 justify-center">
           {IS_BETA_MODE ? (
             <Button size="lg" className="shadow-sm" asChild>
-              <a href="/download">Get SourcePrep</a>
+              <a href="mailto:support@sourceprep.io?subject=SourcePrep%20Beta%20Access%20Request">Request Beta Access</a>
             </Button>
           ) : (
             <Button size="lg" className="shadow-sm" asChild>

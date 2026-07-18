@@ -97,7 +97,7 @@ export default function Page() {
                   {post.excerpt}
                 </p>
                 <Button asChild variant="outline" className="rounded-full">
-                  <a href="#">Read Entry →</a>
+                  <a>Coming soon</a>
                 </Button>
               </div>
             </div>

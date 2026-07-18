@@ -19,7 +19,7 @@ export default function Page() {
             <p className="text-xl text-text-muted leading-relaxed mb-12">
               SourcePrep gives your AI coding tools epistemic context. It traces your codebase deeply
               using semantic search, a Rust-powered structural code graph, and multi-pass enrichment — then
-              delivers precisely the right context to Paperclip, Cursor, or any MCP-compatible editor.
+              delivers precisely the right context to Cursor, any MCP-compatible editor, or Paperclip (alpha).
             </p>
 
             {/* Mission */}
@@ -34,7 +34,7 @@ export default function Page() {
                 </p>
                 <p className="text-lg text-text-muted leading-relaxed mt-4">
                   The result: more relevant suggestions, fewer corrections, and faster iteration —
-                  delivered in under 100&thinsp;ms, with Private by Design architecture and optional
+                  delivered fast, with Private by Design architecture and optional
                   cloud enrichment via BYOK.
                 </p>
               </div>
@@ -72,10 +72,7 @@ export default function Page() {
                   <a href="/download">Download SourcePrep</a>
                 </Button>
                 <Button asChild variant="outline" className="w-full">
-                  <a href="/careers">We&apos;re Hiring</a>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <a href="/contact">Contact Us</a>
+                  <a href="/support">Contact Us</a>
                 </Button>
               </div>
             </section>

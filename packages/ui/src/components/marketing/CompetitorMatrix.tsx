@@ -62,7 +62,7 @@ const matrixData: FeatureRow[] = [
         prep: {
           text: 'Native Rust Engine\n(Tree-sitter)',
           status: 'full',
-          detail: "SourcePrep's Rust-native parser uses Tree-sitter to build a complete structural trace graph offline. Unlike tools that depend on an active IDE or LSP server, SourcePrep works headlessly \u2014 in CI/CD, on servers, or anywhere Rust runs. The parser handles 15+ languages and produces call-graph, import, and containment edges in a single pass.",
+          detail: "SourcePrep's Rust-native parser uses Tree-sitter to build a complete structural trace graph offline. Unlike tools that depend on an active IDE or LSP server, SourcePrep works headlessly \u2014 in CI/CD, on servers, or anywhere Rust runs. The parser handles 8 languages today (Python, TypeScript/TSX, JavaScript, Go, Rust, Java, C, C++) and produces call-graph, import, and containment edges in a single pass.",
         },
         competitors: {
           gitnexus: {

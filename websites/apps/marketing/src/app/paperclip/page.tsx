@@ -97,7 +97,7 @@ export default function PaperclipPage() {
       <section id="auto-push">
         <h2 className="text-2xl font-semibold text-text mb-4">Auto-Push Findings</h2>
         <p className="text-text-muted leading-relaxed mb-4">
-          SourcePrep's background intelligence engine (Pi Agent) continuously discovers structural issues and pushes them to Paperclip as actionable items — grouped by module or category.
+          SourcePrep's background intelligence engine continuously discovers structural issues and pushes them to Paperclip as actionable items — grouped by module or category.
         </p>
         <div className="space-y-3">
           {[
