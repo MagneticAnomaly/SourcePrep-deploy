@@ -70,13 +70,14 @@ export default function Page() {
                   </h2>
                   <div className="max-w-none">
                     <p className="text-lg leading-relaxed border-l-4 border-success pl-6 bg-success/10 py-4 pr-4 text-text">
-                      <strong>Assertion:</strong> Your source code never leaves your machine.
+                      <strong>Assertion:</strong> Your source code never leaves your machine unless you explicitly connect a cloud LLM (BYOK).
                     </p>
                     <p className="mt-4 text-sm text-text-muted">
                       SourcePrep runs entirely on localhost. Indexes, embeddings, and configuration are
                       stored locally in <code className="text-xs bg-background border border-border rounded px-1 py-0.5 font-mono">~/.local/share/sourceprep</code> (or
-                      in-project via embedded mode). There is no cloud component, no server-side
-                      processing, and no mechanism to upload source code.
+                      in-project via embedded mode). There is no cloud component and no server-side
+                      processing in the core product — the only way code context ever leaves
+                      your machine is a cloud LLM you explicitly configure.
                     </p>
                   </div>
                 </section>
@@ -114,7 +115,7 @@ export default function Page() {
                     <div className="mb-2 text-text-subtle"># Allowed Outbound Connections</div>
                     <div className="grid grid-cols-[120px_1fr] gap-4">
                        <span className="text-success">api.sourceprep.io</span>
-                       <span>HTTPS / POST /activate-license (One-time)</span>
+                       <span>HTTPS / POST /activate-license (Pro installer only, one-time)</span>
 
                        <span className="text-warning">localhost:*</span>
                        <span>Ollama API (User Controlled / Optional)</span>
@@ -122,6 +123,7 @@ export default function Page() {
                        <span className="text-warning">api.openai...</span>
                        <span>Cloud LLM (User Controlled / BYOK Only)</span>
                     </div>
+                    <div className="mt-4 text-text-subtle"># Open-source builds make no license calls — nothing to activate, nothing to verify.</div>
                   </div>
                 </section>
 
@@ -140,9 +142,11 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">05.</span> Offline Verification
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed">
-                    License activation requires a single online key exchange. After activation,
-                    SourcePrep stores a signed Ed25519 license file locally and verifies it offline.
-                    No periodic phone-home, no subscription heartbeat.
+                    License infrastructure exists only in the Pro installer. The open-source version
+                    ships with none — no keys, no activation, nothing that could phone home. Pro
+                    activation is a single online key exchange; after that, SourcePrep stores a signed
+                    Ed25519 license file locally and verifies it offline. No periodic phone-home, no
+                    subscription heartbeat.
                   </p>
                 </section>
 
@@ -151,11 +155,13 @@ export default function Page() {
                     <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">06.</span> Supply Chain Security
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed mb-4">
-                    All installers are code-signed and include SHA-256 checksums.
+                    Pro installers are code-signed and notarized, with SHA-256 checksums published
+                    for every release. The open-source version is built from public source under
+                    Apache 2.0 — you can audit exactly what runs.
                   </p>
                   <div className="p-4 bg-background border border-border rounded-sm font-mono text-xs text-text-muted">
-                    $ shasum -a 256 SourcePrep-1.0.0-mac.dmg<br/>
-                    &gt; 7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d90bc
+                    $ shasum -a 256 SourcePrep-&lt;version&gt;-mac.dmg<br/>
+                    &gt; &lt;compare against the SHA-256 on the release page&gt;
                   </div>
                 </section>
 
@@ -164,7 +170,7 @@ export default function Page() {
                     Vulnerability Reporting
                   </h2>
                   <p className="text-sm text-text-muted mb-4">
-                    If you discover a security vulnerability, please report it responsibly. We acknowledge reports within 48 hours.
+                    If you discover a security vulnerability, please report it responsibly. We acknowledge reports within 5 business days.
                   </p>
                   <a href="mailto:security@sourceprep.io" className="font-mono text-primary hover:underline">
                     security@sourceprep.io
@@ -225,8 +231,10 @@ export default function Page() {
                       </h2>
                       <p className="text-lg leading-relaxed border-l-4 border-primary pl-6 bg-primary/10 py-4 pr-4 text-text mb-6">
                         <strong>Executive Summary:</strong> SourcePrep is a local-first desktop application. Your source code never leaves
-                        your machine. We collect the absolute minimum data needed to operate the
-                        business — license activation and optional support requests. That&apos;s it.
+                        your machine unless you explicitly connect a cloud LLM (BYOK). The open-source version collects nothing — unless you choose to
+                        send a bug report or support request. Pro adds one thing: a one-time
+                        license activation. Future hosted tiers (Teams, Enterprise) will have
+                        service-specific data terms.
                       </p>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -236,7 +244,7 @@ export default function Page() {
                            </h3>
                            <ul className="space-y-3 text-sm text-text-muted">
                              <li className="flex gap-3"><span className="text-text-subtle font-mono">X</span> Source Code &amp; Files</li>
-                             <li className="flex gap-3"><span className="text-text-subtle font-mono">X</span> Index Data / Metadata</li>
+                             <li className="flex gap-3"><span className="text-text-subtle font-mono">X</span> Index Data / Metadata*</li>
                              <li className="flex gap-3"><span className="text-text-subtle font-mono">X</span> Telemetry / Usage Stats</li>
                              <li className="flex gap-3"><span className="text-text-subtle font-mono">X</span> AI Prompts / Responses</li>
                            </ul>
@@ -247,12 +255,19 @@ export default function Page() {
                              <span className="w-2 h-2 rounded-full bg-success"></span> Collected
                            </h3>
                            <ul className="space-y-3 text-sm text-text-muted">
-                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> License Key (Activation)</li>
-                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> Machine ID (Hardware Lock)</li>
-                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> Email (Support/Billing)</li>
+                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> License Key (Pro activation)</li>
+                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> Machine ID (Pro hardware lock)</li>
+                             <li className="flex gap-3"><span className="text-text-subtle font-mono">&#10003;</span> Email (Support / billing)</li>
                            </ul>
                         </div>
                       </div>
+                      <p className="mt-3 text-xs text-text-subtle">
+                        * Future hosted Teams sync will store embeddings + graph metadata — never source.
+                      </p>
+                      <p className="mt-4 text-sm text-text-muted">
+                        The license key and machine ID are Pro only — the open-source version collects
+                        nothing unless you choose to send a bug report or support request.
+                      </p>
                     </section>
 
                     <section id="payments">
@@ -260,8 +275,9 @@ export default function Page() {
                         <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">09.</span> Payments
                       </h2>
                       <p className="text-sm text-text-muted leading-relaxed">
-                        Payments are processed by <strong className="text-text">Lemon Squeezy</strong>, our Merchant of Record.
-                        SourcePrep Inc. does not store credit card numbers, banking information, or tax IDs.
+                        The open-source version involves no payment and no account. Payments for paid
+                        tiers will be processed by <strong className="text-text">Lemon Squeezy</strong> (planned Merchant of Record).
+                        Magnetic Anomaly LLC never stores credit card numbers, banking information, or tax IDs.
                       </p>
                     </section>
 
@@ -278,7 +294,7 @@ export default function Page() {
                         </thead>
                         <tbody className="divide-y divide-border">
                           <tr>
-                            <td className="px-4 py-3 border-r border-border font-medium text-text">License Records</td>
+                            <td className="px-4 py-3 border-r border-border font-medium text-text">License Records (Pro)</td>
                             <td className="px-4 py-3 text-text-muted">Lifetime of active license + 2 years</td>
                           </tr>
                           <tr>

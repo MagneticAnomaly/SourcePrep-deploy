@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { ChevronDown, ArrowRight, HelpCircle, Lightbulb } from 'lucide-react';
+import { GITHUB_REPO_URL } from '@/lib/links';
 
 interface FAQItem {
   id: string;
@@ -17,7 +18,7 @@ const faqs: FAQItem[] = [
       <div className="space-y-4">
         <p><strong>Yes</strong> — and this is where SourcePrep diverges from every other context tool on the market. SourcePrep maintains a <strong>Persistent Agent Memory</strong>: a local store of observations — architectural decisions, discovered bugs, design patterns, working assumptions — each linked directly to specific files and symbols in your codebase.</p>
         <p>What makes this different from bolting a memory file onto your repo: SourcePrep&apos;s observations are <strong>staleness-aware</strong>. Modify <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">auth.py</code> and every observation tied to that file is automatically flagged <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">[STALE]</code>. In the next session, the AI receives both the updated code <em>and</em> a signal that its prior assumptions may no longer hold. It doesn&apos;t blindly repeat outdated notes — it knows to re-evaluate.</p>
-        <p>This is not a prompt cache or a conversation log. It&apos;s a structured, file-linked, searchable knowledge layer that the AI maintains about your specific codebase. It works on <strong>every tier, including Free</strong> — it&apos;s local SQLite, zero cloud cost, zero telemetry. And because observations are injected alongside code context (not dumped in bulk), they respect the same tight token budget as everything else.</p>
+        <p>This is not a prompt cache or a conversation log. It&apos;s a structured, file-linked, searchable knowledge layer that the AI maintains about your specific codebase. It works in the <strong>open-source version</strong> — every capability ships open source. It&apos;s local SQLite, zero cloud cost, zero telemetry. And because observations are injected alongside code context (not dumped in bulk), they respect the same tight token budget as everything else.</p>
       </div>
     ),
   },
@@ -41,7 +42,7 @@ const faqs: FAQItem[] = [
     q: "Won't this just use up my whole context window?",
     a: (
       <div className="space-y-4">
-        <p><strong>No.</strong> SourcePrep&apos;s default output is <strong>~1,500 tokens</strong> (6,000 characters). With trace expansion enabled, it&apos;s ~2,000 tokens.</p>
+        <p><strong>No.</strong> SourcePrep&apos;s <strong>per-query search context</strong> is <strong>~1,500 tokens</strong> by default (6,000 characters) — ~2,000 tokens with trace expansion enabled.</p>
         <div className="overflow-x-auto">
           <table className="text-sm w-full border-collapse">
             <thead>
@@ -51,8 +52,8 @@ const faqs: FAQItem[] = [
               </tr>
             </thead>
             <tbody className="text-text-muted">
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">SourcePrep default context</td><td>~1,500</td></tr>
-              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">SourcePrep + trace expansion</td><td>~2,000</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">SourcePrep search context (per query)</td><td>~1,500</td></tr>
+              <tr className="border-b border-border-subtle"><td className="py-2 pr-6">SourcePrep search + trace expansion</td><td>~2,000</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Cursor default chat cap</td><td>~20,000</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">GPT-5.3 (OpenAI)</td><td>400,000</td></tr>
               <tr className="border-b border-border-subtle"><td className="py-2 pr-6">Claude Sonnet 4.6 (Anthropic)</td><td>200,000</td></tr>
@@ -62,7 +63,7 @@ const faqs: FAQItem[] = [
             </tbody>
           </table>
         </div>
-        <p>SourcePrep typically consumes <strong>under 1% of your available context window</strong> on any 2026 frontier model. It is designed to be a <em>precision instrument</em>, not a firehose — it sends the 5 most relevant code chunks under a hard character ceiling, not your entire codebase.</p>
+        <p>Those figures are for <strong>per-query search context</strong>. The ambient orientation context served at session start (project atlas, hub files, module map) is larger and client-aware — sized to fit each AI tool&apos;s budget. Either way, SourcePrep is designed to be a <em>precision instrument</em>, not a firehose — it sends the most relevant code chunks under a hard character ceiling, not your entire codebase.</p>
       </div>
     ),
   },
@@ -88,7 +89,7 @@ const faqs: FAQItem[] = [
             </tbody>
           </table>
         </div>
-        <p>SourcePrep&apos;s defaults (1,500–2,000 tokens) sit well below every known saturation point.</p>
+        <p>SourcePrep&apos;s per-query defaults (1,500–2,000 tokens) sit well below every known saturation point.</p>
       </div>
     ),
   },
@@ -202,7 +203,7 @@ const faqs: FAQItem[] = [
         <p><strong>Should you worry?</strong> Less than you think — SourcePrep already mitigates it:</p>
         <ul className="space-y-2 text-text-muted">
           <li><strong className="text-text">Most relevant first.</strong> SourcePrep sorts chunks by descending relevance score. The highest-scoring chunk is at the top — exactly where models pay the most attention.</li>
-          <li><strong className="text-text">Small context volume.</strong> At 1,500–2,000 tokens, SourcePrep&apos;s output is short enough that there <em>isn&apos;t</em> a meaningful &quot;middle&quot; to get lost in. The problem primarily affects contexts &gt;10K tokens.</li>
+          <li><strong className="text-text">Small context volume.</strong> At 1,500–2,000 tokens, SourcePrep&apos;s per-query output is short enough that there <em>isn&apos;t</em> a meaningful &quot;middle&quot; to get lost in. The problem primarily affects contexts &gt;10K tokens.</li>
           <li><strong className="text-text">Trace chunks are appended last.</strong> Structurally related trace chunks go at the end — the other position where models pay strong attention.</li>
         </ul>
       </div>
@@ -260,7 +261,7 @@ const faqs: FAQItem[] = [
           <li><strong className="text-text">Intent-aware weighting.</strong> SourcePrep detects whether your query is about implementation, debugging, or architecture and adjusts which types of content are prioritized. Automated — not something you configure per query.</li>
           <li><strong className="text-text">User transparency and control.</strong> Every other tool is a black box. SourcePrep shows you the scores, lets you set weights, and tells you exactly what was sent and why.</li>
           <li><strong className="text-text">Tool-agnostic via MCP.</strong> Your index, configuration, and codebase understanding work whether you&apos;re in Cursor today or Claude Code tomorrow.</li>
-          <li><strong className="text-text">Smart context compression.</strong> Two built-in engines: structural compression for code (3&ndash;20&times;) and language-aware compression for docs (~2.4&times;). Tier-adaptive: compression adjusts per client to fit your AI tool&apos;s context window. No GPU required.</li>
+          <li><strong className="text-text">Smart context compression.</strong> Two built-in engines: structural compression for code (up to 20&times;) and language-aware compression for docs (~2.4&times;). Client-adaptive: compression adjusts per client to fit your AI tool&apos;s context window. No GPU required.</li>
           <li><strong className="text-text">Persistent cross-session knowledge.</strong> The AI accumulates linked observations about your codebase over time, with automatic staleness detection when files change. Its understanding of your project gets deeper across sessions, not just per-conversation.</li>
         </ul>
       </div>
@@ -272,7 +273,7 @@ const faqs: FAQItem[] = [
     a: (
       <div className="space-y-4">
         <p><strong>No.</strong> SourcePrep is local-first software &mdash; indexing, embedding, graph construction, search, and compression all happen on your machine. Your code never leaves your filesystem.</p>
-        <p>The only exceptions are things you explicitly opt into: if you configure a cloud LLM provider (OpenAI, Anthropic, Google) for the optional enrichment pipeline, only retrieved context snippets are sent to that provider &mdash; never your raw codebase. SourcePrep also makes a single HTTPS call during license activation. Both are optional and auditable.</p>
+        <p>The only exceptions are things you explicitly opt into: if you configure a cloud LLM provider (OpenAI, Anthropic, Google) for the optional enrichment pipeline, only retrieved context snippets are sent to that provider &mdash; never your raw codebase. The open-source version makes <strong>no license calls at all</strong>; only the Pro installer makes a single HTTPS call, during license activation. Everything here is opt-in and auditable.</p>
         <p>What makes this different from tools that <em>claim</em> local-first: SourcePrep ships its own local embedding model (ONNX, runs on CPU) and Rust parser. You don&apos;t need an internet connection, Docker, or external tools like Ollama for the core indexing and search functionality to work out of the box.</p>
       </div>
     ),
@@ -294,7 +295,7 @@ const faqs: FAQItem[] = [
     a: (
       <div className="space-y-4">
         <p><strong>No</strong> &mdash; and the distinction matters. LSP-backed tools require a running language server with the correct runtime environment configured for every project. Switch from Python to TypeScript? You need a different server. Working on a legacy project without a proper <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">tsconfig.json</code>? LSP can&apos;t help.</p>
-        <p>SourcePrep builds its own persistent trace graph using tree-sitter, a zero-dependency parser that handles 15+ languages from a single binary. The graph persists to disk, loads instantly, and works offline. No runtime, no IDE backend, no configuration per language.</p>
+        <p>SourcePrep builds its own persistent trace graph using tree-sitter, a zero-dependency parser that runs from a single binary &mdash; today it handles Python, TypeScript/TSX, JavaScript, Go, Rust, Java, C, and C++. The graph persists to disk, loads instantly, and works offline. No runtime, no IDE backend, no configuration per language.</p>
         <p>The deeper difference: LSP gives you <em>live</em> analysis (great for autocomplete), but it can&apos;t answer cross-session questions, doesn&apos;t persist observations about your code, and can&apos;t compress structural context into a token budget. SourcePrep is a read-only context engine designed for a fundamentally different job &mdash; giving AI agents the right context at query time.</p>
       </div>
     ),
@@ -315,7 +316,7 @@ const faqs: FAQItem[] = [
     q: "Which editors does it work with?",
     a: (
       <div className="space-y-4">
-        <p>SourcePrep is a standalone daemon and an <strong>MCP (Model Context Protocol) server</strong>. It is not locked to any IDE. CLI agents: <strong>Claude Code</strong> (primary), <strong>OpenAI Codex</strong>, <strong>Gemini CLI</strong>, <strong>Qwen Code</strong>. IDEs: <strong>Cursor</strong> (primary), <strong>Windsurf</strong>, <strong>Antigravity</strong>, <strong>VS Code via GitHub Copilot</strong>, <strong>Zed</strong>. MCP-aware VS Code extensions (Cline, Roo, CodeGPT) all work too. A native VS Code extension is in development.</p>
+        <p>SourcePrep is a standalone daemon and an <strong>MCP (Model Context Protocol) server</strong>. It is not locked to any IDE. CLI agents: <strong>Claude Code</strong> (primary), <strong>OpenAI Codex</strong>, <strong>Gemini CLI</strong>, <strong>Qwen Code</strong>. IDEs: <strong>Cursor</strong> (primary), <strong>Windsurf</strong>, <strong>Antigravity</strong>, <strong>VS Code via GitHub Copilot</strong>, <strong>Zed</strong>. MCP-aware VS Code extensions (Cline, Roo, CodeGPT) all work too. A native VS Code extension is included with the open-source product.</p>
         <p>Because SourcePrep uses the open MCP standard, any future editor or agent that supports MCP will work automatically &mdash; no integration work on our end. Your index, weights, observations, and full project configuration are stored locally and editor-independent. Switch tools without losing anything.</p>
       </div>
     ),
@@ -335,8 +336,8 @@ const faqs: FAQItem[] = [
     q: "Why pay for this? Can\u2019t I build it myself?",
     a: (
       <div className="space-y-4">
-        <p>You could build a basic RAG pipeline over a weekend. What takes years is everything beyond that: incremental rebuilds that don&apos;t re-embed your entire project on every save. A Rust parser that handles 15+ languages and produces a navigable dependency graph. Compression that treats code and documentation differently. An observation store that links AI knowledge to specific files and flags it stale when those files change. A real-time file watcher. A dashboard that shows you exactly what the AI sees.</p>
-        <p>SourcePrep offers a <strong>Free tier</strong> for evaluation. Pro is a <strong>one-time $79 perpetual license</strong> &mdash; not a subscription. You pay once, own the software, and it works offline forever. We fund development through that, not by monetizing your data or adding telemetry.</p>
+        <p>You could build a basic RAG pipeline over a weekend. What takes years is everything beyond that: incremental rebuilds that don&apos;t re-embed your entire project on every save. A Rust parser that handles Python, TypeScript/TSX, JavaScript, Go, Rust, Java, C, and C++ &mdash; and produces a navigable dependency graph. Compression that treats code and documentation differently. An observation store that links AI knowledge to specific files and flags it stale when those files change. A real-time file watcher. A dashboard that shows you exactly what the AI sees.</p>
+        <p>And you don&apos;t have to pay: SourcePrep is <strong>free and open source under Apache 2.0</strong> &mdash; the full product, not a limited edition. Pro is a <strong>$29 one-time purchase</strong> (coming soon) for convenience: signed installers, automatic updates (12 months included), and email support. Teams adds hosted infrastructure &mdash; a shared index your whole team queries &mdash; that you&apos;d otherwise run yourself. That&apos;s what funds development. Not your data.</p>
       </div>
     ),
   },
@@ -420,7 +421,7 @@ export default function FAQPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
-              href="https://github.com/MagneticAnomaly/SourcePrep-MCP/discussions"
+              href={`${GITHUB_REPO_URL}/discussions`}
               className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-background px-5 py-2.5 text-sm font-medium text-text hover:bg-surface transition-colors"
             >
               Ask the Community

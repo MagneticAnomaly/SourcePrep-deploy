@@ -2,7 +2,7 @@ import { constructMetadata } from '../metadata-helper';
 
 export const metadata = constructMetadata({
   title: 'Download',
-  description: 'Download the SourcePrep desktop app for macOS, Windows, and Linux. Plug it into Cursor, Windsurf, or Claude Code via MCP.',
+  description: 'Get SourcePrep for macOS and Windows — free and open source under Apache 2.0. Install with pip or brew, and plug into Cursor, Windsurf, or Claude Code via MCP.',
   path: '/download',
 });
 

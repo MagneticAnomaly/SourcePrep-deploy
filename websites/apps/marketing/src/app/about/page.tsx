@@ -103,8 +103,9 @@ export default function Page() {
             <div className="rounded-xl border border-border bg-surface p-5">
               <div className="font-semibold text-text">Own your tools</div>
               <div className="mt-1 text-sm text-text-muted">
-                Pro license — pay once, own it forever. No subscriptions required for core features.
-                Your development infrastructure shouldn&apos;t depend on someone else&apos;s uptime.
+                SourcePrep is Apache 2.0 open source — you already own it. Pro and Teams fund
+                development; they never unlock features. Your development infrastructure
+                shouldn&apos;t depend on someone else&apos;s uptime.
               </div>
             </div>
             <div className="rounded-xl border border-border bg-surface p-5">

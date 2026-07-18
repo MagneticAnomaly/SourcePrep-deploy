@@ -2,6 +2,7 @@
 
 import { Button, XIcon } from '@prep/ui';
 import { Github } from 'lucide-react';
+import { GITHUB_REPO_URL } from '@/lib/links';
 import { BLOG_POSTS } from '../../config/blog';
 
 export default function Page() {
@@ -85,7 +86,7 @@ export default function Page() {
                   <a href="https://x.com/Prep_io" className="text-text-subtle hover:text-text transition-colors">
                     <XIcon className="w-5 h-5" />
                   </a>
-                  <a href="https://github.com/MagneticAnomaly/SourcePrep-MCP" className="text-text-subtle hover:text-text transition-colors">
+                  <a href={GITHUB_REPO_URL} className="text-text-subtle hover:text-text transition-colors">
                     <Github className="w-5 h-5" />
                   </a>
                 </div>

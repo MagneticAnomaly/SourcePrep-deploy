@@ -7,6 +7,7 @@ import {
   RESEARCH_SOURCES,
   type ProblemArea,
 } from '@prep/ui';
+import { GITHUB_REPO_URL } from '@/lib/links';
 
 const SECTIONS = [
   { id: 'retrieval',   label: 'Retrieval & Long Context' },
@@ -63,7 +64,7 @@ export default function ResearchPage() {
         corrections &mdash; if we&rsquo;ve cited your work badly, or missed work we
         should know about, open an issue on{' '}
         <a
-          href="https://github.com/MagneticAnomaly/SourcePrep-MCP/issues"
+          href={`${GITHUB_REPO_URL}/issues`}
           className="text-primary hover:underline"
           target="_blank"
           rel="noopener noreferrer"

@@ -1,6 +1,9 @@
 "use client";
 
 import { Button } from '@prep/ui';
+import { GITHUB_REPO_URL } from '@/lib/links';
+
+const IS_BETA_MODE = true;
 
 interface ChangelogEntry {
   version: string;
@@ -13,10 +16,11 @@ interface ChangelogEntry {
 const CHANGELOG: ChangelogEntry[] = [
   {
     version: '0.9.0-beta',
-    date: 'Early March 2026',
-    title: 'Public Beta (Planned)',
+    date: 'Planned',
+    title: 'Public Beta & Open-Source Launch',
     type: 'minor',
     highlights: [
+      'Full SourcePrep source code released under the Apache 2.0 license',
       'Multi-project support with project registry',
       'Context assembly API for LLM prompt construction',
       'Embedded and standalone index modes',
@@ -26,8 +30,8 @@ const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: '0.5.0-alpha',
-    date: 'Late Feb 2026',
-    title: 'Alpha Preview (Upcoming)',
+    date: 'In progress',
+    title: 'Alpha Preview',
     type: 'minor',
     highlights: [
       'Core indexing engine with tree-sitter parsing',
@@ -124,9 +128,15 @@ export default function Page() {
 
         {/* Footer Actions */}
         <div className="mt-32 pt-12 border-t border-border flex flex-col sm:flex-row gap-4 justify-center">
-          <Button size="lg" className="shadow-sm">
-            Download Latest Build
-          </Button>
+          {IS_BETA_MODE ? (
+            <Button size="lg" className="shadow-sm" asChild>
+              <a href="/download">Get SourcePrep</a>
+            </Button>
+          ) : (
+            <Button size="lg" className="shadow-sm" asChild>
+              <a href={`${GITHUB_REPO_URL}/releases`}>Download Latest Build</a>
+            </Button>
+          )}
           <Button size="lg" variant="outline" asChild>
             <a href="https://docs.sourceprep.io">Read Documentation</a>
           </Button>

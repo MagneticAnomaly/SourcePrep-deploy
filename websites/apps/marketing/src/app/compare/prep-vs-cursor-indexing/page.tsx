@@ -1,5 +1,7 @@
 import { ArrowRight, Check, X } from 'lucide-react';
 
+const IS_BETA_MODE = true;
+
 export default function CompareCursorPage() {
   return (
     <main className="min-h-screen bg-background text-text py-16">
@@ -79,7 +81,7 @@ export default function CompareCursorPage() {
               When you ask an AI to refactor a complex system, standard codebase indexes grab dozens of file snippets and dump them into the prompt window. Research shows that LLMs suffer from "Context Rot" when flooded with too much raw text—they lose track of the actual instructions.
             </p>
             <p className="text-text-muted leading-relaxed">
-              SourcePrep solves this using <strong>Level of Detail (LOD) compression</strong>. If SourcePrep determines a file is only peripherally related to your query, it strips out the internal function bodies and only sends the Class names, function signatures, and types to the AI. You get 20x more architectural context using a fraction of the tokens.
+              SourcePrep solves this using <strong>Level of Detail (LOD) compression</strong>. If SourcePrep determines a file is only peripherally related to your query, it strips out the internal function bodies and only sends the Class names, function signatures, and types to the AI. You get up to 20&times; more architectural context from a fraction of the tokens.
             </p>
           </section>
 
@@ -102,10 +104,19 @@ export default function CompareCursorPage() {
         </div>
 
         <div className="mt-16 text-center bg-surface-raised border border-border p-12 rounded-2xl">
-          <h2 className="text-3xl font-bold mb-6">Upgrade your AI Editor's Brain</h2>
-          <a href="mailto:support@sourceprep.io?subject=SourcePrep%20Beta%20Access%20Request%20-%20Cursor%20User" className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium font-heading transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-background hover:bg-primary/90 active:bg-primary/80 h-11 rounded-md px-8 shadow-lg shadow-primary/25">
-            Request Beta Access
-          </a>
+          <h2 className="text-3xl font-bold mb-4">Upgrade your AI Editor&apos;s Brain</h2>
+          <p className="text-text-muted mb-8">
+            SourcePrep is free and open source under Apache 2.0 — it runs alongside Cursor on your machine.
+          </p>
+          {IS_BETA_MODE ? (
+            <a href="mailto:support@sourceprep.io?subject=SourcePrep%20Beta%20Access%20Request%20-%20Cursor%20User" className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium font-heading transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-background hover:bg-primary/90 active:bg-primary/80 h-11 rounded-md px-8 shadow-lg shadow-primary/25">
+              Request Beta Access
+            </a>
+          ) : (
+            <a href="/download" className="inline-flex items-center justify-center whitespace-nowrap text-sm font-medium font-heading transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-background hover:bg-primary/90 active:bg-primary/80 h-11 rounded-md px-8 shadow-lg shadow-primary/25">
+              Get SourcePrep <ArrowRight className="ml-2 w-4 h-4" />
+            </a>
+          )}
         </div>
       </div>
     </main>
