@@ -422,10 +422,20 @@ def get_project_sync_status(project: Project, syncers: Dict[str, Any]) -> Dict[s
     if syncer._config is None:
         syncer.load_config()
         
-    # Start polling if enabled and not already polling
-    if syncer._config and syncer._config.enabled and syncer._poll_thread is None:
+    # Start polling if enabled, licensed, and not already polling.
+    # Gate with team_config (Team tier) — parity with cli.py:1408 and
+    # server.py:1280. Without this, GET /projects/{id}/status (polled
+    # continuously by the dashboard) would start S3 polling for ANY tier
+    # that merely has a committed team_config.json, bypassing the license.
+    from prep.core.feature_gate import check_feature
+    if (
+        syncer._config
+        and syncer._config.enabled
+        and syncer._poll_thread is None
+        and check_feature("team_config")
+    ):
         syncer.start_polling()
-        
+
     return syncer.status_dict()
 
 

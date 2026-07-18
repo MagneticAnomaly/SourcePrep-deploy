@@ -199,6 +199,53 @@ class TestLicenseGating:
             with pytest.raises(FeatureGateError, match="team_config"):
                 require_feature("team_config")
 
+    def test_status_poll_free_tier_does_not_start_polling(self, tmp_path):
+        """Regression test (Phase 06): GET /projects/{id}/status is polled
+        continuously by the dashboard and routes to get_project_sync_status().
+        That function must NOT start S3 polling for a tier that lacks the
+        team_config feature, even though a committed .sourceprep/team_config.json
+        has sync.enabled=true. Only status_dict() reads should be unconditional.
+        """
+        from prep.core.feature_gate import clear_license_cache
+        from prep.services.remote_sync import RemoteSyncService
+        from prep.services.project_helpers import get_project_sync_status
+
+        proj = _make_project(tmp_path, "sync-gate-free")
+        prep_dir = tmp_path / ".sourceprep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
+        (prep_dir / "team_config.json").write_text(
+            json.dumps({"sync": {"enabled": True, "s3_bucket": "b"}})
+        )
+
+        with patch.dict(os.environ, {"PREP_TIER": "free"}, clear=False):
+            clear_license_cache()
+            with patch.object(RemoteSyncService, "start_polling", MagicMock()) as mock_start:
+                get_project_sync_status(proj, {})
+                assert mock_start.call_count == 0
+
+    def test_status_poll_team_tier_starts_polling(self, tmp_path):
+        """Companion to the free-tier regression test: a properly licensed
+        Team-tier project with sync enabled SHOULD start polling from the
+        /status path, so the license gate doesn't silently break the
+        legitimate feature for paying customers.
+        """
+        from prep.core.feature_gate import clear_license_cache
+        from prep.services.remote_sync import RemoteSyncService
+        from prep.services.project_helpers import get_project_sync_status
+
+        proj = _make_project(tmp_path, "sync-gate-team")
+        prep_dir = tmp_path / ".sourceprep"
+        prep_dir.mkdir(parents=True, exist_ok=True)
+        (prep_dir / "team_config.json").write_text(
+            json.dumps({"sync": {"enabled": True, "s3_bucket": "b"}})
+        )
+
+        with patch.dict(os.environ, {"PREP_TIER": "team"}, clear=False):
+            clear_license_cache()
+            with patch.object(RemoteSyncService, "start_polling", MagicMock()) as mock_start:
+                get_project_sync_status(proj, {})
+                assert mock_start.call_count == 1
+
 
 # ═══════════════════════════════════════════════════════════════
 # 3. LayeredCodeIndex search merge (with real embeddings)
