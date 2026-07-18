@@ -78,15 +78,18 @@ export default function Page() {
               </li>
               <li>
                 <span className="font-semibold text-text">Teams</span> — private channel plus
-                email, 2-business-day responses
+                email, 2-business-day response target
               </li>
               <li>
                 <span className="font-semibold text-text">Enterprise</span> — dedicated channel
                 and monthly office hours, negotiated 24-hour business-day target
               </li>
             </ul>
+            <p className="text-text-muted mb-6">
+              Questions about paid plans, or want to hear when they launch?
+            </p>
             <Button className="w-full shadow-sm" asChild>
-              <a href="mailto:support@sourceprep.io">Email Us</a>
+              <a href="mailto:support@sourceprep.io?subject=Paid%20plans">Ask about paid plans</a>
             </Button>
           </div>
 
