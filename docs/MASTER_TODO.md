@@ -16,6 +16,19 @@ This file orchestrates work across phases by:
 - `[p]` in-progress — another AI is currently working on this task
 - `[x]` complete
 
+## Open follow-ups (added 2026-07-18)
+- [ ] **Recover/land the Phase-145 UI + pipeline WIP in `stash@{0}`** — LLM
+  model-settings (`ModelCard`, `AIModelsSettings`, `SearchableSelect`,
+  `IndexHealthPanel`, `llm.py`, `augmenter`) + a **521-line
+  `GraphEnrichmentPipeline.behavioral.test.tsx`**. Keep the stash; apply on a
+  scratch branch, reconcile against `main`, decide whether to commit. Details:
+  `stashes-pending-review/STASH_INVENTORY.md`.
+- [ ] **Investigate + triage the remaining stashes** (`stash@{1}`–`{7}`) — most
+  look stale (codename-era files, runtime DB binaries, duplicates, superseded
+  docs) but glance each with `git stash show -p` before dropping. Catalog +
+  recommended dispositions in `stashes-pending-review/STASH_INVENTORY.md`;
+  `stash@{1}` also has `stashes-pending-review/stash-2026-05-31.md`.
+
 ## Quick links (authoritative docs)
 - `ROADMAP.md`
 - `PHASES.md`
