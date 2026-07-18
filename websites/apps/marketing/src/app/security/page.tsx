@@ -122,7 +122,7 @@ export default function Page() {
                        <span className="text-warning">api.openai...</span>
                        <span>Cloud LLM (User Controlled / BYOK Only)</span>
                     </div>
-                    <div className="mt-4 text-text-subtle"># Open-source builds never contact api.sourceprep.io — no license calls at all</div>
+                    <div className="mt-4 text-text-subtle"># Open-source builds make no license calls — nothing to activate, nothing to verify.</div>
                   </div>
                 </section>
 
@@ -155,7 +155,7 @@ export default function Page() {
                   </h2>
                   <p className="text-sm text-text-muted leading-relaxed mb-4">
                     Pro installers are code-signed and notarized, with SHA-256 checksums published
-                    for every release. The open-source version builds from public source under
+                    for every release. The open-source version is built from public source under
                     Apache 2.0 — you can audit exactly what runs.
                   </p>
                   <div className="p-4 bg-background border border-border rounded-sm font-mono text-xs text-text-muted">
@@ -230,9 +230,9 @@ export default function Page() {
                       </h2>
                       <p className="text-lg leading-relaxed border-l-4 border-primary pl-6 bg-primary/10 py-4 pr-4 text-text mb-6">
                         <strong>Executive Summary:</strong> SourcePrep is a local-first desktop application. Your source code never leaves
-                        your machine. The open-source version collects nothing at all. For paid tiers we
-                        collect the minimum needed to operate them — a one-time license activation and
-                        optional support requests. That&apos;s it.
+                        your machine. The open-source version collects nothing — unless you choose to
+                        send a bug report or support request. Paid tiers add one thing: a one-time
+                        license activation. That&apos;s it.
                       </p>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -260,8 +260,8 @@ export default function Page() {
                         </div>
                       </div>
                       <p className="mt-4 text-sm text-text-muted">
-                        Pro only — the open-source version collects nothing: no key, no machine ID,
-                        no account. We only ever see an email address if you write to us.
+                        The license key and machine ID are Pro only — the open-source version collects
+                        nothing unless you choose to send a bug report or support request.
                       </p>
                     </section>
 
