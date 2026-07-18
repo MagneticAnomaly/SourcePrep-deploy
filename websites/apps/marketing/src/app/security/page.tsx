@@ -70,13 +70,14 @@ export default function Page() {
                   </h2>
                   <div className="max-w-none">
                     <p className="text-lg leading-relaxed border-l-4 border-success pl-6 bg-success/10 py-4 pr-4 text-text">
-                      <strong>Assertion:</strong> Your source code never leaves your machine.
+                      <strong>Assertion:</strong> Your source code never leaves your machine unless you explicitly connect a cloud LLM (BYOK).
                     </p>
                     <p className="mt-4 text-sm text-text-muted">
                       SourcePrep runs entirely on localhost. Indexes, embeddings, and configuration are
                       stored locally in <code className="text-xs bg-background border border-border rounded px-1 py-0.5 font-mono">~/.local/share/sourceprep</code> (or
-                      in-project via embedded mode). There is no cloud component, no server-side
-                      processing, and no mechanism to upload source code.
+                      in-project via embedded mode). There is no cloud component and no server-side
+                      processing in the core product — the only way code context ever leaves
+                      your machine is a cloud LLM you explicitly configure.
                     </p>
                   </div>
                 </section>
@@ -169,7 +170,7 @@ export default function Page() {
                     Vulnerability Reporting
                   </h2>
                   <p className="text-sm text-text-muted mb-4">
-                    If you discover a security vulnerability, please report it responsibly. We acknowledge reports within 48 hours.
+                    If you discover a security vulnerability, please report it responsibly. We acknowledge reports within 5 business days.
                   </p>
                   <a href="mailto:security@sourceprep.io" className="font-mono text-primary hover:underline">
                     security@sourceprep.io
@@ -231,8 +232,9 @@ export default function Page() {
                       <p className="text-lg leading-relaxed border-l-4 border-primary pl-6 bg-primary/10 py-4 pr-4 text-text mb-6">
                         <strong>Executive Summary:</strong> SourcePrep is a local-first desktop application. Your source code never leaves
                         your machine. The open-source version collects nothing — unless you choose to
-                        send a bug report or support request. Paid tiers add one thing: a one-time
-                        license activation. That&apos;s it.
+                        send a bug report or support request. Pro adds one thing: a one-time
+                        license activation. Future hosted tiers (Teams, Enterprise) will have
+                        service-specific data terms.
                       </p>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -242,7 +244,7 @@ export default function Page() {
                            </h3>
                            <ul className="space-y-3 text-sm text-text-muted">
                              <li className="flex gap-3"><span className="text-text-subtle font-mono">X</span> Source Code &amp; Files</li>
-                             <li className="flex gap-3"><span className="text-text-subtle font-mono">X</span> Index Data / Metadata</li>
+                             <li className="flex gap-3"><span className="text-text-subtle font-mono">X</span> Index Data / Metadata*</li>
                              <li className="flex gap-3"><span className="text-text-subtle font-mono">X</span> Telemetry / Usage Stats</li>
                              <li className="flex gap-3"><span className="text-text-subtle font-mono">X</span> AI Prompts / Responses</li>
                            </ul>
@@ -259,6 +261,9 @@ export default function Page() {
                            </ul>
                         </div>
                       </div>
+                      <p className="mt-3 text-xs text-text-subtle">
+                        * Future hosted Teams sync will store embeddings + graph metadata — never source.
+                      </p>
                       <p className="mt-4 text-sm text-text-muted">
                         The license key and machine ID are Pro only — the open-source version collects
                         nothing unless you choose to send a bug report or support request.

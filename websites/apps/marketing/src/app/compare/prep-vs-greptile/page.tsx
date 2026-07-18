@@ -53,7 +53,7 @@ export default function CompareGreptilePage() {
                 </tr>
                 <tr className="hover:bg-surface/50 transition-colors">
                   <td className="py-4 px-4 font-medium">Data Privacy</td>
-                  <td className="py-4 px-4 bg-primary/5">Code never leaves your network</td>
+                  <td className="py-4 px-4 bg-primary/5">Code never leaves your machine by default — cloud LLMs are strictly opt-in (BYOK)</td>
                   <td className="py-4 px-4 text-text-muted">Requires cloud upload/GitHub sync</td>
                 </tr>
                 <tr className="hover:bg-surface/50 transition-colors">
@@ -107,7 +107,7 @@ export default function CompareGreptilePage() {
             <h3 className="text-2xl font-bold mb-4">3. Cost and BYOK</h3>
             <p className="text-text-muted leading-relaxed">
               {/* MAINTENANCE: To prevent drift, refer to model families (e.g. 'Claude Sonnet' or 'OpenAI reasoning models') rather than specific versions (e.g. '3.5', 'o3') */}
-              Cloud indexers often charge steep per-seat monthly fees and mark up token costs. SourcePrep is open source (Apache 2.0) with an optional $29 Pro convenience license, and fully supports Bring Your Own Key (BYOK) for inference. Connect Ollama Cloud for high-tier privacy, or use Anthropic Claude Sonnet and pay exactly what the API costs.
+              Cloud indexers often charge steep per-seat monthly fees and mark up token costs. SourcePrep is open source (Apache 2.0) with an optional $29 Pro convenience license (coming soon), and fully supports Bring Your Own Key (BYOK) for inference. Connect Ollama Cloud for high-tier privacy, or use Anthropic Claude Sonnet and pay exactly what the API costs.
             </p>
           </section>
         </div>

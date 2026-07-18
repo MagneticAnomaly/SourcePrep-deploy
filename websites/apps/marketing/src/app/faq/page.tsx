@@ -316,7 +316,7 @@ const faqs: FAQItem[] = [
     q: "Which editors does it work with?",
     a: (
       <div className="space-y-4">
-        <p>SourcePrep is a standalone daemon and an <strong>MCP (Model Context Protocol) server</strong>. It is not locked to any IDE. CLI agents: <strong>Claude Code</strong> (primary), <strong>OpenAI Codex</strong>, <strong>Gemini CLI</strong>, <strong>Qwen Code</strong>. IDEs: <strong>Cursor</strong> (primary), <strong>Windsurf</strong>, <strong>Antigravity</strong>, <strong>VS Code via GitHub Copilot</strong>, <strong>Zed</strong>. MCP-aware VS Code extensions (Cline, Roo, CodeGPT) all work too. A native VS Code extension is in development.</p>
+        <p>SourcePrep is a standalone daemon and an <strong>MCP (Model Context Protocol) server</strong>. It is not locked to any IDE. CLI agents: <strong>Claude Code</strong> (primary), <strong>OpenAI Codex</strong>, <strong>Gemini CLI</strong>, <strong>Qwen Code</strong>. IDEs: <strong>Cursor</strong> (primary), <strong>Windsurf</strong>, <strong>Antigravity</strong>, <strong>VS Code via GitHub Copilot</strong>, <strong>Zed</strong>. MCP-aware VS Code extensions (Cline, Roo, CodeGPT) all work too. A native VS Code extension is included with the open-source product.</p>
         <p>Because SourcePrep uses the open MCP standard, any future editor or agent that supports MCP will work automatically &mdash; no integration work on our end. Your index, weights, observations, and full project configuration are stored locally and editor-independent. Switch tools without losing anything.</p>
       </div>
     ),
@@ -337,7 +337,7 @@ const faqs: FAQItem[] = [
     a: (
       <div className="space-y-4">
         <p>You could build a basic RAG pipeline over a weekend. What takes years is everything beyond that: incremental rebuilds that don&apos;t re-embed your entire project on every save. A Rust parser that handles Python, TypeScript/TSX, JavaScript, Go, Rust, Java, C, and C++ &mdash; and produces a navigable dependency graph. Compression that treats code and documentation differently. An observation store that links AI knowledge to specific files and flags it stale when those files change. A real-time file watcher. A dashboard that shows you exactly what the AI sees.</p>
-        <p>And you don&apos;t have to pay: SourcePrep is <strong>free and open source under Apache 2.0</strong> &mdash; the full product, not a limited edition. Pro is a <strong>$29 one-time purchase</strong> for convenience: signed installers, automatic updates, and email support. Teams adds hosted infrastructure &mdash; a shared index your whole team queries &mdash; that you&apos;d otherwise run yourself. That&apos;s what funds development. Not your data.</p>
+        <p>And you don&apos;t have to pay: SourcePrep is <strong>free and open source under Apache 2.0</strong> &mdash; the full product, not a limited edition. Pro is a <strong>$29 one-time purchase</strong> (coming soon) for convenience: signed installers, automatic updates (12 months included), and email support. Teams adds hosted infrastructure &mdash; a shared index your whole team queries &mdash; that you&apos;d otherwise run yourself. That&apos;s what funds development. Not your data.</p>
       </div>
     ),
   },

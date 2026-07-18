@@ -29,7 +29,8 @@ export default function Page() {
           <p className="mt-6 text-xl text-text-muted leading-relaxed">
             The full product is free and open source under Apache 2.0. Paid tiers add
             convenience — signed installers, hosted team infrastructure, support — never
-            capabilities. Everything runs locally; your code never leaves your machine.
+            capabilities. Indexing runs locally — your source code never leaves your
+            machine unless you connect a cloud model.
           </p>
         </div>
 
@@ -56,7 +57,7 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Local-first — your code never leaves your machine</span>
+                <span>Local-first — your code never leaves your machine unless you connect a cloud model</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
@@ -108,7 +109,7 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Email support (5-business-day response)</span>
+                <span>Email support (5-business-day response target)</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-text-subtle mt-0.5">&#8594;</span>

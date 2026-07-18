@@ -82,7 +82,7 @@ export default function Page() {
               </li>
               <li>
                 <span className="font-semibold text-text">Enterprise</span> — dedicated channel
-                and monthly office hours, negotiated 24-hour business-day target
+                and monthly office hours, negotiated response target
               </li>
             </ul>
             <p className="text-text-muted mb-6">
