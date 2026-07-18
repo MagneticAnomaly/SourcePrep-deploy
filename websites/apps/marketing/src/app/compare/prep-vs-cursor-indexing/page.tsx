@@ -81,7 +81,7 @@ export default function CompareCursorPage() {
               When you ask an AI to refactor a complex system, standard codebase indexes grab dozens of file snippets and dump them into the prompt window. Research shows that LLMs suffer from "Context Rot" when flooded with too much raw text—they lose track of the actual instructions.
             </p>
             <p className="text-text-muted leading-relaxed">
-              SourcePrep solves this using <strong>Level of Detail (LOD) compression</strong>. If SourcePrep determines a file is only peripherally related to your query, it strips out the internal function bodies and only sends the Class names, function signatures, and types to the AI. You get 20x more architectural context using a fraction of the tokens.
+              SourcePrep solves this using <strong>Level of Detail (LOD) compression</strong>. If SourcePrep determines a file is only peripherally related to your query, it strips out the internal function bodies and only sends the Class names, function signatures, and types to the AI. You get up to 20&times; more architectural context from a fraction of the tokens.
             </p>
           </section>
 

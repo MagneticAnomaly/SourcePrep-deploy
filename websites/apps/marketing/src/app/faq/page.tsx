@@ -261,7 +261,7 @@ const faqs: FAQItem[] = [
           <li><strong className="text-text">Intent-aware weighting.</strong> SourcePrep detects whether your query is about implementation, debugging, or architecture and adjusts which types of content are prioritized. Automated — not something you configure per query.</li>
           <li><strong className="text-text">User transparency and control.</strong> Every other tool is a black box. SourcePrep shows you the scores, lets you set weights, and tells you exactly what was sent and why.</li>
           <li><strong className="text-text">Tool-agnostic via MCP.</strong> Your index, configuration, and codebase understanding work whether you&apos;re in Cursor today or Claude Code tomorrow.</li>
-          <li><strong className="text-text">Smart context compression.</strong> Two built-in engines: structural compression for code (3&ndash;20&times;) and language-aware compression for docs (~2.4&times;). Client-adaptive: compression adjusts per client to fit your AI tool&apos;s context window. No GPU required.</li>
+          <li><strong className="text-text">Smart context compression.</strong> Two built-in engines: structural compression for code (up to 20&times;) and language-aware compression for docs (~2.4&times;). Client-adaptive: compression adjusts per client to fit your AI tool&apos;s context window. No GPU required.</li>
           <li><strong className="text-text">Persistent cross-session knowledge.</strong> The AI accumulates linked observations about your codebase over time, with automatic staleness detection when files change. Its understanding of your project gets deeper across sessions, not just per-conversation.</li>
         </ul>
       </div>

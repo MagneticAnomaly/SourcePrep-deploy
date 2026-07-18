@@ -49,7 +49,7 @@ export default function Page() {
               Run prep before grep
             </h2>
             <p className="mt-4 text-lg text-text-muted max-w-2xl mx-auto">
-              Your AI agent orients itself by opening files and running grep — one guess at a time. SourcePrep is the prep step that hands it a structural map of the codebase up front, so every answer starts from a full picture instead of a keyword match. The payoff: <strong className="text-text font-semibold">up to 20× structural compression</strong> means more signal per token than dumping whole files into the prompt.
+              Your AI agent orients itself by opening files and running grep — one guess at a time. SourcePrep is the prep step that hands it a structural map of the codebase up front, so every answer starts from a full picture instead of a keyword match. The payoff: <strong className="text-text font-semibold">up to 20× structural compression</strong> — more signal per token than dumping whole files into the prompt.
             </p>
           </div>
           <FeatureBlocks features={marketingFeatures} variant="list" />
