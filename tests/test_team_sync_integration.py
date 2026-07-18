@@ -43,7 +43,10 @@ def _make_index_dir(
     d = base / name
     d.mkdir(parents=True, exist_ok=True)
     (d / "documents.json").write_text(json.dumps(docs))
-    emb = np.random.default_rng(42).standard_normal((len(docs), dim)).astype(np.float32)
+    # Non-negative (abs) so cosine vs the query stays in [0, 1]; signed random vectors
+    # give a negative cosine ~50% of the time, which a min_score>=0 filter drops and
+    # makes get_context/search tests flaky. Matches _mock_embedder's convention.
+    emb = np.abs(np.random.default_rng(42).standard_normal((len(docs), dim))).astype(np.float32)
     norms = np.linalg.norm(emb, axis=1, keepdims=True)
     norms = np.where(norms == 0, 1, norms)
     emb = emb / norms
@@ -59,9 +62,15 @@ def _mock_embedder(dim: int = 32):
     embedder = MagicMock()
 
     def _embed(text):
-        # Deterministic but text-dependent: hash the text to seed
-        seed = hash(text) % (2**31)
-        vec = np.random.default_rng(seed).standard_normal(dim).astype(np.float32)
+        # Deterministic AND non-negative, so search tests are stable:
+        #  - builtin hash() is PYTHONHASHSEED-randomized across processes, so seed on a
+        #    stable sha256 digest instead;
+        #  - signed random unit vectors give a negative cosine ~50% of the time, which a
+        #    min_score>=0 filter drops -> flaky/empty results. abs() keeps cosine in [0, 1]
+        #    while staying text-dependent (identical text -> identical vector -> score 1.0).
+        import hashlib
+        seed = int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:4], "big")
+        vec = np.abs(np.random.default_rng(seed).standard_normal(dim)).astype(np.float32)
         vec = vec / np.linalg.norm(vec)
         return EmbeddingResult(vector=vec.tolist(), model="test")
 
