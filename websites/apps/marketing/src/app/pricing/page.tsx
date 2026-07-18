@@ -162,9 +162,9 @@ export default function Page() {
           <div className="rounded-xl border border-border bg-surface p-6 flex flex-col">
             <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Enterprise</div>
             <div className="mt-3">
-              <span className="text-4xl font-bold">$30</span>
+              <span className="text-4xl font-bold">$24</span>
               <span className="text-text-muted ml-1">/ seat / month</span>
-              <div className="mt-1 text-xs text-text-muted">Annual billing, 10-seat minimum</div>
+              <div className="mt-1 text-xs text-text-muted">Annual billing, 15-seat minimum</div>
             </div>
             <p className="mt-3 text-sm text-text-muted">
               Coming soon.
@@ -184,7 +184,7 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Setup assistance available</span>
+                <span>Setup: remote included · on-site from $3,500 · air-gapped quoted</span>
               </li>
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
