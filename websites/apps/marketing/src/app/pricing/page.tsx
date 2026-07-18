@@ -124,7 +124,7 @@ export default function Page() {
           <div className="rounded-xl border border-border bg-surface p-6 flex flex-col">
             <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Teams</div>
             <div className="mt-3">
-              <span className="text-4xl font-bold">$15</span>
+              <span className="text-4xl font-bold">$10</span>
               <span className="text-text-muted ml-1">/ seat / month</span>
               <div className="mt-1 text-xs text-text-muted">3-seat minimum</div>
             </div>
@@ -162,7 +162,7 @@ export default function Page() {
           <div className="rounded-xl border border-border bg-surface p-6 flex flex-col">
             <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Enterprise</div>
             <div className="mt-3">
-              <span className="text-4xl font-bold">$50</span>
+              <span className="text-4xl font-bold">$30</span>
               <span className="text-text-muted ml-1">/ seat / month</span>
               <div className="mt-1 text-xs text-text-muted">Annual billing, 10-seat minimum</div>
             </div>
