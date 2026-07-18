@@ -96,7 +96,7 @@ export default function CompareGreptilePage() {
           <section>
             <h3 className="text-2xl font-bold mb-4">2. Integration via MCP</h3>
             <p className="text-text-muted leading-relaxed mb-4">
-              Greptile funnels you into its proprietary web dashboard. SourcePrep is the opposite: an open-source local product built on the open Model Context Protocol (MCP).
+              Greptile lives in its cloud — a proprietary API and custom extensions. SourcePrep is the opposite: an open-source local product built on the open Model Context Protocol (MCP).
             </p>
             <p className="text-text-muted leading-relaxed">
               Once the SourcePrep engine is running, any MCP-compatible client—like Paperclip, Cursor, or the Claude Code App—can instantly extract structural knowledge. Your agents automatically invoke SourcePrep to fetch the exact epistemic context they need to execute tasks flawlessly.
