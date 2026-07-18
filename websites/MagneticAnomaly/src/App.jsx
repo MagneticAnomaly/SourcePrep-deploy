@@ -5,6 +5,8 @@ import * as THREE from 'three';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { MagneticParticles, EnceladusParticles, CeresParticles, MakemakeParticles, SaturnParticles } from './particles';
+import Payloads from './portfolio/Payloads';
+import { panels } from './portfolio/panels-data';
 import { EffectComposer, Bloom } from '@react-three/postprocessing';
 import { Terminal, Smartphone, Lock, Activity, Shield, ArrowRight, XSquare, MessageSquare, ExternalLink } from 'lucide-react';
 import { useGSAP } from '@gsap/react';
@@ -342,327 +344,6 @@ function Hero({ ready }) {
   );
 }
 
-function Payloads() {
-  const container = useRef();
-
-  return (
-    <>
-      <div id="gap-to-payloads" className="h-[150vh] pointer-events-none" />
-      <section id="payloads" ref={container} className="w-full min-h-[100dvh] flex flex-col justify-center pt-8 pb-12 md:py-12 relative z-10 max-md:h-[100dvh] max-md:justify-start max-md:pt-28 max-md:pb-2">
-
-        {/* Header matching Navbar width */}
-        <div className="max-w-7xl w-full px-6 mx-auto mb-6 md:mb-12 lg:mb-20 max-md:mb-4 max-md:shrink-0">
-          <h3 className="font-mono text-sm tracking-[0.2em] text-titan mb-4 uppercase max-md:mb-0 hidden md:block">// OUR WORK</h3>
-          <h2 className="font-sans font-bold text-4xl md:text-5xl uppercase tracking-wider text-ice hidden md:block">Portfolio</h2>
-          <h3 className="font-mono text-sm tracking-[0.2em] text-titan mb-0 uppercase md:hidden">// PORTFOLIO</h3>
-        </div>
-
-        {/* Portfolio Cards matching wider layout */}
-        <div className="max-w-[1400px] w-full px-0 sm:px-4 md:px-8 mx-auto max-md:flex-1 max-md:flex max-md:flex-col max-md:min-h-0">
-          <div className="overflow-hidden w-full relative max-md:h-full max-md:flex-1">
-            <div className="payloads-track relative w-full h-[550px] md:h-[700px] max-md:h-full">
-
-              {/* APP 01 - SourcePrep */}
-              <div className="app-panel-1 absolute inset-0 w-full h-full flex flex-col justify-center px-2 sm:px-4 md:px-8 max-md:justify-start max-md:pb-2">
-                <div className="payload-card w-full relative glass-panel rounded-[2.5rem] p-2 md:p-3 overflow-hidden transition-all duration-700 hover:border-titan/50 hover:shadow-[0_0_40px_rgba(229,141,87,0.15)] md:bg-void/80 min-h-[500px] md:min-h-[650px] max-md:h-full max-md:rounded-[2rem] max-md:flex max-md:flex-col">
-                  <div className="absolute inset-0 bg-gradient-to-br from-titan/5 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500" />
-                  <div className="relative z-10 w-full h-full p-4 md:p-14 flex flex-col lg:flex-row gap-4 md:gap-8 lg:gap-12 items-center max-md:items-start max-md:min-h-0">
-
-                    {/* Text Column */}
-                    <div className="w-full lg:w-5/12 max-md:shrink-0">
-                      <div className="flex flex-row items-center justify-between mb-6 gap-4">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            <img src="/SourcePrep-Logo2.png" alt="SourcePrep Icon" className="w-full h-full object-cover" />
-                          </div>
-                          <div>
-                            <span className="font-mono text-xs text-telemetry tracking-widest block">[ DESKTOP / APP ]</span>
-                            <h4 className="font-sans text-2xl md:text-3xl font-bold text-ice">SourcePrep</h4>
-                          </div>
-                        </div>
-                        <a href="https://sourceprep.io" target="_blank" rel="noreferrer" className="md:hidden flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-titan text-ice hover:text-void border border-white/10 hover:border-titan transition-all">
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-
-                      <p className="font-mono text-[11px] md:text-sm text-telemetry max-md:text-[#A1AAB5] mb-4 md:mb-6 leading-relaxed">
-                        <strong className="text-ice">The Context Engine for AI-Assisted Software Engineering.</strong><br /><br />
-                        SourcePrep bridges the gap between massive, complex codebases and LLMs by providing precise, graph-augmented context. It uses advanced AST parsing to trace dependencies, effectively fighting Context Bloat and reducing token costs.
-                      </p>
-
-                      <div className="space-y-1.5 md:space-y-2 mb-4 md:mb-8 font-mono text-[10px] md:text-xs text-telemetry max-md:text-[#A1AAB5]">
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Native Semantic Search (Local ONNX)</p>
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Code Graph & Trace Expansion</p>
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Smart Token Compression (20:1 ratio)</p>
-                      </div>
-
-                      <a href="https://sourceprep.io" target="_blank" rel="noreferrer" className="hidden md:inline-block font-mono text-xs bg-white/5 hover:bg-titan hover:text-void text-ice border border-white/10 hover:border-titan px-8 py-4 rounded-full transition-all uppercase tracking-wider">
-                        View Website
-                      </a>
-                    </div>
-
-                    {/* Mockup Column (Desktop) */}
-                    <div className="w-full lg:w-7/12 scale-100 sm:scale-75 md:scale-100 origin-top relative flex items-center justify-center max-md:items-start max-md:min-h-0 max-md:mt-0 max-md:flex-1 max-md:-ml-2">
-                      <div className="w-[110%] aspect-[1078/799] bg-void border border-white/10 rounded-xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] relative overflow-hidden flex flex-col lg:translate-x-6">
-                        <div className="h-6 border-b border-white/10 bg-white/5 flex items-center px-2 space-x-1.5 z-10 relative">
-                          <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                          <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                          <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                          <span className="ml-4 font-mono text-[10px] text-white/30 tracking-widest">prep-dashboard</span>
-                        </div>
-                        {/* Inner Scroll Container */}
-                        <div className="flex-1 relative overflow-hidden bg-gradient-to-br from-void to-white/5">
-                          <div className="mockup-inner-1 flex w-[200%] h-full">
-                            <div className="w-1/2 h-full flex items-center justify-center bg-void">
-                              <img src="/SourcePrep-ss1.png" alt="SourcePrep Screen 1" className="w-full h-full object-cover" />
-                            </div>
-                            <div className="w-1/2 h-full flex items-center justify-center bg-void">
-                              <img src="/SourcePrep-ss2.png" alt="SourcePrep Screen 2" className="w-full h-full object-cover" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-
-              {/* APP 02 - HomeColab */}
-              <div className="app-panel-2 absolute inset-0 w-full h-full flex flex-col justify-center px-2 sm:px-4 md:px-8 max-md:justify-start max-md:pb-2">
-                <div className="payload-card w-full relative glass-panel rounded-[2.5rem] p-2 md:p-3 overflow-hidden transition-all duration-700 hover:border-titan/50 hover:shadow-[0_0_40px_rgba(229,141,87,0.15)] md:bg-void/80 min-h-[500px] md:min-h-[650px] max-md:h-full max-md:rounded-[2rem] max-md:flex max-md:flex-col">
-                  <div className="relative z-10 w-full h-full p-4 md:p-14 flex flex-col lg:flex-row gap-4 md:gap-8 lg:gap-12 items-center max-md:items-start max-md:min-h-0">
-
-                    {/* Text Column */}
-                    <div className="w-full lg:w-5/12 max-md:shrink-0">
-                      <div className="flex flex-row items-center justify-between mb-6 gap-4">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            <img src="/HomeColab-logo.png" alt="HomeColab Icon" className="w-full h-full object-cover" />
-                          </div>
-                          <div>
-                            <span className="font-mono text-xs text-telemetry tracking-widest block">[ iOS / MOBILE ]</span>
-                            <h4 className="font-sans text-2xl md:text-3xl font-bold text-ice">HomeColab</h4>
-                          </div>
-                        </div>
-                        <a href="https://homecolab.app" target="_blank" rel="noreferrer" className="md:hidden flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-titan text-ice hover:text-void border border-white/10 hover:border-titan transition-all">
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-
-                      <p className="font-mono text-[11px] md:text-sm text-telemetry max-md:text-[#A1AAB5] mb-4 md:mb-6 leading-relaxed">
-                        <strong className="text-ice">Find a Home... Together.</strong><br /><br />
-                        HomeColab is the ultimate shared workspace for homebuyers and a silent intelligence engine for real estate agents. It replaces messy group texts and notification noise with a structured, intent-driven experience.
-                      </p>
-
-                      <div className="space-y-1.5 md:space-y-2 mb-4 md:mb-8 font-mono text-[10px] md:text-xs text-telemetry max-md:text-[#A1AAB5]">
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Universal Link Unfurling</p>
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Partner Alignment & Heat Scores</p>
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Smart Agent Briefings</p>
-                      </div>
-
-                      <a href="https://homecolab.app" target="_blank" rel="noreferrer" className="hidden md:inline-block font-mono text-xs bg-white/5 hover:bg-titan hover:text-void text-ice border border-white/10 hover:border-titan px-8 py-4 rounded-full transition-all uppercase tracking-wider">
-                        View Website
-                      </a>
-                    </div>
-
-                    {/* Mockup Column (Dual iOS) */}
-                    <div className="w-full lg:w-7/12 h-[340px] md:h-[600px] scale-[0.65] sm:scale-90 md:scale-100 origin-top relative flex items-center justify-center gap-6 md:gap-10 pb-[1em] md:pb-[4em] max-md:items-start max-md:min-h-0 max-md:mt-0 max-md:flex-1 max-md:h-auto">
-                      {/* Phone 1 */}
-                      <div className="w-[240px] h-[520px] shrink-0 bg-void border border-white/10 rounded-[3rem] p-3 relative shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] flex flex-col z-20">
-                        <div className="w-16 h-2 bg-white/20 rounded-full mx-auto mb-4 absolute top-5 left-1/2 -translate-x-1/2 z-30" />
-                        <div className="flex-1 rounded-[1.75rem] overflow-hidden relative">
-                          <div className="mockup-inner-2 flex flex-col h-[200%] w-full">
-                            <div className="h-1/2 w-full flex items-center justify-center bg-void">
-                              <img src="https://homecolab.app/screenshots/SS_01_the_list_.png" alt="HomeColab Screen 1" className="w-full h-full object-cover" />
-                            </div>
-                            <div className="h-1/2 w-full flex items-center justify-center bg-void">
-                              <img src="https://homecolab.app/screenshots/SS_09_Rank-Compare2.png" alt="HomeColab Screen 3" className="w-full h-full object-cover" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Phone 2 (Slightly staggered on desktop) */}
-                      <div className="w-[240px] h-[520px] shrink-0 bg-void border border-white/10 rounded-[3rem] p-3 relative shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] flex flex-col md:translate-y-16 z-10">
-                        <div className="w-16 h-2 bg-white/20 rounded-full mx-auto mb-4 absolute top-5 left-1/2 -translate-x-1/2 z-30" />
-                        <div className="flex-1 rounded-[1.75rem] overflow-hidden relative">
-                          <div className="mockup-inner-2 flex flex-col h-[200%] w-full">
-                            <div className="h-1/2 w-full flex items-center justify-center bg-void">
-                              <img src="https://homecolab.app/screenshots/SS_02_webview-details.png" alt="HomeColab Screen 2" className="w-full h-full object-cover" />
-                            </div>
-                            <div className="h-1/2 w-full flex flex-col items-center justify-center bg-void">
-                              <img src="https://homecolab.app/screenshots/SS_10_Rank-OurFavs.png" alt="HomeColab Screen 4" className="w-full h-full object-cover" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-
-              {/* APP 03 - DinnerVision */}
-              <div className="app-panel-3 absolute inset-0 w-full h-full flex flex-col justify-center px-2 sm:px-4 md:px-8 max-md:justify-start max-md:pb-2">
-                <div className="payload-card w-full relative glass-panel rounded-[2.5rem] p-2 md:p-3 overflow-hidden transition-all duration-700 hover:border-titan/50 hover:shadow-[0_0_40px_rgba(229,141,87,0.15)] md:bg-void/80 min-h-[500px] md:min-h-[650px] max-md:h-full max-md:rounded-[2rem] max-md:flex max-md:flex-col">
-                  <div className="relative z-10 w-full h-full p-4 md:p-14 flex flex-col lg:flex-row gap-4 md:gap-8 lg:gap-12 items-center max-md:items-start max-md:min-h-0">
-
-                    {/* Text Column */}
-                    <div className="w-full lg:w-5/12 max-md:shrink-0">
-                      <div className="flex flex-row items-center justify-between mb-6 gap-4">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            <img src="/DinnerVision_v2.png" alt="DinnerVision Icon" className="w-full h-full object-cover" />
-                          </div>
-                          <div>
-                            <span className="font-mono text-xs text-telemetry tracking-widest block">[ iOS / MOBILE ]</span>
-                            <h4 className="font-sans text-2xl md:text-3xl font-bold text-ice">DinnerVision</h4>
-                          </div>
-                        </div>
-                        <a href="https://dinner.vision" target="_blank" rel="noreferrer" className="md:hidden flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-titan text-ice hover:text-void border border-white/10 hover:border-titan transition-all">
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-
-                      <p className="font-mono text-[11px] md:text-sm text-telemetry max-md:text-[#A1AAB5] mb-4 md:mb-6 leading-relaxed">
-                        <strong className="text-ice">Turn what you have into what you can cook.</strong><br /><br />
-                        An intelligent mobile app designed to eliminate decision fatigue. Harnessing the power of computer vision, it instantly transforms the random ingredients in your fridge into delicious, actionable meal ideas.
-                      </p>
-
-                      <div className="space-y-1.5 md:space-y-2 mb-4 md:mb-8 font-mono text-[10px] md:text-xs text-telemetry max-md:text-[#A1AAB5]">
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Camera-First Ingredient Detection</p>
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Smart Pantry Assumptions</p>
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Custom Recipe Generation</p>
-                      </div>
-
-                      <a href="https://dinner.vision" target="_blank" rel="noreferrer" className="hidden md:inline-block font-mono text-xs bg-white/5 hover:bg-titan hover:text-void text-ice border border-white/10 hover:border-titan px-8 py-4 rounded-full transition-all uppercase tracking-wider">
-                        View Website
-                      </a>
-                    </div>
-
-                    {/* Mockup Column (Dual iOS) */}
-                    <div className="w-full lg:w-7/12 h-[340px] md:h-[600px] scale-[0.65] sm:scale-90 md:scale-100 origin-top relative flex items-center justify-center gap-6 md:gap-10 pb-[1em] md:pb-[4em] max-md:items-start max-md:min-h-0 max-md:mt-0 max-md:flex-1 max-md:h-auto">
-                      {/* Phone 1 */}
-                      <div className="w-[240px] h-[520px] shrink-0 bg-void border border-white/10 rounded-[3rem] p-3 relative shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] flex flex-col z-20">
-                        <div className="w-16 h-2 bg-white/20 rounded-full mx-auto mb-4 absolute top-5 left-1/2 -translate-x-1/2 z-30" />
-                        <div className="flex-1 rounded-[1.75rem] overflow-hidden relative">
-                          <div className="mockup-inner-3 flex flex-col h-[200%] w-full">
-                            <div className="h-1/2 w-full bg-gradient-to-t from-void to-[#201005] flex items-center justify-center p-4">
-                              <p className="font-mono flex-col flex text-center text-[10px] text-[#E58D57]"><span className="text-[20px] mb-2 drop-shadow-md">📸</span> SCAN</p>
-                            </div>
-                            <div className="h-1/2 w-full bg-[#050508] border-t border-white/5 flex items-center justify-center p-4">
-                              <p className="font-mono text-[10px] text-telemetry">RECIPE</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Phone 2 (Slightly staggered on desktop) */}
-                      <div className="w-[240px] h-[520px] shrink-0 bg-void border border-white/10 rounded-[3rem] p-3 relative shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] flex flex-col md:translate-y-16 z-10">
-                        <div className="w-16 h-2 bg-white/20 rounded-full mx-auto mb-4 absolute top-5 left-1/2 -translate-x-1/2 z-30" />
-                        <div className="flex-1 rounded-[1.75rem] overflow-hidden relative">
-                          <div className="mockup-inner-3 flex flex-col h-[200%] w-full">
-                            <div className="h-1/2 w-full bg-gradient-to-b from-void to-[#111118] flex items-center justify-center p-4">
-                              <p className="font-mono text-[10px] text-telemetry">AI MATCH</p>
-                            </div>
-                            <div className="h-1/2 w-full bg-[#030305] border-t border-white/5 flex flex-col items-center justify-center p-4">
-                              <p className="font-mono text-[10px] text-signal mb-3">COOK MODE</p>
-                              <div className="w-full h-8 rounded-md bg-signal/10 border border-signal/20" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-
-              {/* APP 04 - DebateHaus */}
-              <div className="app-panel-4 absolute inset-0 w-full h-full flex flex-col justify-center px-2 sm:px-4 md:px-8 max-md:justify-start max-md:pb-2">
-                <div className="payload-card w-full relative glass-panel rounded-[2.5rem] p-2 md:p-3 overflow-hidden transition-all duration-700 hover:border-titan/50 hover:shadow-[0_0_40px_rgba(229,141,87,0.15)] md:bg-void/80 min-h-[500px] md:min-h-[650px] max-md:h-full max-md:rounded-[2rem] max-md:flex max-md:flex-col">
-                  <div className="relative z-10 w-full h-full p-4 md:p-14 flex flex-col lg:flex-row gap-4 md:gap-8 lg:gap-12 items-center max-md:items-start max-md:min-h-0">
-
-                    {/* Text Column */}
-                    <div className="w-full lg:w-5/12 max-md:shrink-0">
-                      <div className="flex flex-row items-center justify-between mb-6 gap-4">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
-                            <img src="/DebateHaus_LogoColor.png" alt="DebateHaus Icon" className="w-full h-full object-cover" />
-                          </div>
-                          <div>
-                            <span className="font-mono text-xs text-telemetry tracking-widest block">[ iOS / MOBILE ]</span>
-                            <h4 className="font-sans text-2xl md:text-3xl font-bold text-ice">DebateHaus</h4>
-                          </div>
-                        </div>
-                        <a href="https://debate.haus" target="_blank" rel="noreferrer" className="md:hidden flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-titan text-ice hover:text-void border border-white/10 hover:border-titan transition-all">
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
-
-                      <p className="font-mono text-[11px] md:text-sm text-telemetry max-md:text-[#A1AAB5] mb-4 md:mb-6 leading-relaxed">
-                        <strong className="text-ice">Elevating the Digital Public Square.</strong><br /><br />
-                        A video-first platform engineered to elevate the quality of online conversation. Moving beyond toxic comment threads, DebateHaus offers a structured, purpose-built format for civil, good-faith debate between creators, intellectuals, and institutions.
-                      </p>
-
-                      <div className="space-y-1.5 md:space-y-2 mb-4 md:mb-8 font-mono text-[10px] md:text-xs text-telemetry max-md:text-[#A1AAB5]">
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Structured Pre-Debate Negotiation</p>
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Private Video Recording Environment</p>
-                        <p className="flex items-center"><span className="w-1.5 h-1.5 rounded-full bg-titan mr-2"></span> Co-Creator Publishing & Engagement</p>
-                      </div>
-
-                      <a href="https://debate.haus" target="_blank" rel="noreferrer" className="hidden md:inline-block font-mono text-xs bg-white/5 hover:bg-titan hover:text-void text-ice border border-white/10 hover:border-titan px-8 py-4 rounded-full transition-all uppercase tracking-wider">
-                        View Website
-                      </a>
-                    </div>
-
-                    {/* Mockup Column (Dual iOS) */}
-                    <div className="w-full lg:w-7/12 h-[340px] md:h-[600px] scale-[0.65] sm:scale-90 md:scale-100 origin-top relative flex items-center justify-center gap-6 md:gap-10 pb-[1em] md:pb-[4em] max-md:items-start max-md:min-h-0 max-md:mt-0 max-md:flex-1 max-md:h-auto">
-                      {/* Phone 1 */}
-                      <div className="w-[240px] h-[520px] shrink-0 bg-void border border-white/10 rounded-[3rem] p-3 relative shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] flex flex-col z-20">
-                        <div className="w-16 h-2 bg-white/20 rounded-full mx-auto mb-4 absolute top-5 left-1/2 -translate-x-1/2 z-30" />
-                        <div className="flex-1 rounded-[1.75rem] overflow-hidden relative">
-                          <div className="mockup-inner-4 flex flex-col h-[200%] w-full">
-                            <div className="h-1/2 w-full bg-gradient-to-t from-void to-[#101030] flex items-center justify-center p-4">
-                              <p className="font-mono flex-col flex text-center text-[10px] text-[#8B949E]"><span className="text-[20px] mb-2 drop-shadow-md">🎙️</span> INVITE</p>
-                            </div>
-                            <div className="h-1/2 w-full bg-[#050508] border-t border-white/5 flex items-center justify-center p-4">
-                              <p className="font-mono text-[10px] text-telemetry">RECORDING</p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Phone 2 (Slightly staggered on desktop) */}
-                      <div className="w-[240px] h-[520px] shrink-0 bg-void border border-white/10 rounded-[3rem] p-3 relative shadow-[0_20px_60px_-15px_rgba(0,0,0,0.8)] flex flex-col md:translate-y-16 z-10">
-                        <div className="w-16 h-2 bg-white/20 rounded-full mx-auto mb-4 absolute top-5 left-1/2 -translate-x-1/2 z-30" />
-                        <div className="flex-1 rounded-[1.75rem] overflow-hidden relative">
-                          <div className="mockup-inner-4 flex flex-col h-[200%] w-full">
-                            <div className="h-1/2 w-full bg-gradient-to-b from-void to-[#111118] flex items-center justify-center p-4">
-                              <p className="font-mono text-[10px] text-telemetry">TERMS</p>
-                            </div>
-                            <div className="h-1/2 w-full bg-[#030305] border-t border-white/5 flex flex-col items-center justify-center p-4">
-                              <p className="font-mono text-[10px] text-ice mb-3">PUBLISHED</p>
-                              <div className="w-full h-12 rounded-lg bg-gradient-to-r from-void to-white/5 border border-white/5" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
 function Manifesto() {
   const container = useRef();
 
@@ -802,12 +483,12 @@ function CommLink() {
 }
 
 function SystemIndex() {
-  const apps = [
-    { name: 'SourcePrep', icon: '/SourcePrep-Logo2.png', url: 'https://sourceprep.io', tagline: 'The Context Engine for AI-Assisted Software Engineering.' },
-    { name: 'HomeColab', icon: '/HomeColab-logo.png', url: 'https://homecolab.app', tagline: 'Find a Home... Together.' },
-    { name: 'DinnerVision', icon: '/DinnerVision_v2.png', url: 'https://dinner.vision', tagline: 'Turn what you have into what you can cook.' },
-    { name: 'DebateHaus', icon: '/DebateHaus_LogoColor.png', url: 'https://debate.haus', tagline: 'Elevating the Digital Public Square.' },
-  ];
+  // Derived from the single source of truth (`panels`). Only status==='live'
+  // panels appear in the footer -- the placeholder 5th slot is excluded, so there
+  // is no dead "Visit Website" link and no placeholder name in the footer.
+  const apps = panels
+    .filter((p) => p.status === 'live')
+    .map((p) => ({ name: p.name, icon: p.icon, url: p.url, tagline: p.tagline }));
 
   return (
     <div id="gap-to-footer" className="min-h-[100vh] flex flex-col justify-center items-center px-6 relative z-10 w-full pb-24 md:pb-32">
@@ -1001,45 +682,43 @@ export default function App() {
     const ceresOrbit = { angle: Math.PI }; // Start Left
 
     const payloadTl = gsap.timeline();
-    // Total duration: 16 virtual units
-    // 0 -> 16: Camera pans 180 degrees (PI to 0)
-    payloadTl.to(ceresOrbit, { angle: 0, ease: "none", duration: 16 }, 0);
+    // Data-driven timeline: scales linearly with panel count N.
+    // 4 virtual units/slide, 750 px/unit. Each slide = 3000 px + a 1.5-unit
+    // inner anim + a 1.5-unit swipe. The 180-degree camera arc (PI -> 0) is
+    // spread over N*4 units, so angular speed changes with N but per-slide
+    // wall-clock does not. `panels` (./portfolio/panels-data) is the single
+    // source of truth for both the carousel and the footer SystemIndex.
+    // GUARDRAIL: `panels` is a module-level const. If it ever becomes dynamic
+    // (state/fetch), ScrollTrigger.refresh() must run after the post-update
+    // commit -- pin start/end are measured from the DOM at creation time.
+    const N_PANELS = panels.length;
+    const totalUnits = N_PANELS * 4;
+    // 0 -> totalUnits: Camera pans 180 degrees (PI to 0)
+    payloadTl.to(ceresOrbit, { angle: 0, ease: "none", duration: totalUnits }, 0);
 
     // Initial State: hide off-screen panels to prevent backdrop-filter blur compositing
-    gsap.set(".app-panel-2, .app-panel-3, .app-panel-4", { x: "105vw", visibility: "hidden" });
+    const hideSelector = panels.slice(1).map((_, i) => `.app-panel-${i + 2}`).join(", ");
+    gsap.set(hideSelector, { x: "105vw", visibility: "hidden" });
 
-    // PANEL 1 (SourcePrep) Animation (0 -> 4)
-    payloadTl.to(".mockup-inner-1", { xPercent: -50, ease: "power2.inOut", duration: 1.5 }, 0.5);
-    // Swipe to Panel 2
-    payloadTl.set(".app-panel-2", { visibility: "visible" }, 2.4);
-    payloadTl.to(".app-panel-1", { x: "-105vw", ease: "power2.inOut", duration: 1.5 }, 2.5);
-    payloadTl.to(".app-panel-2", { x: 0, ease: "power2.inOut", duration: 1.5 }, 2.5);
-    payloadTl.set(".app-panel-1", { visibility: "hidden" }, 4.0);
-
-    // PANEL 2 (HomeColab) Animation (4 -> 8)
-    payloadTl.to(".mockup-inner-2", { yPercent: -50, ease: "power2.inOut", duration: 1.5 }, 4.5);
-    // Swipe to Panel 3
-    payloadTl.set(".app-panel-3", { visibility: "visible" }, 6.4);
-    payloadTl.to(".app-panel-2", { x: "-105vw", ease: "power2.inOut", duration: 1.5 }, 6.5);
-    payloadTl.to(".app-panel-3", { x: 0, ease: "power2.inOut", duration: 1.5 }, 6.5);
-    payloadTl.set(".app-panel-2", { visibility: "hidden" }, 8.0);
-
-    // PANEL 3 (DinnerVision) Animation (8 -> 12)
-    payloadTl.to(".mockup-inner-3", { yPercent: -50, ease: "power2.inOut", duration: 1.5 }, 8.5);
-    // Swipe to Panel 4
-    payloadTl.set(".app-panel-4", { visibility: "visible" }, 10.4);
-    payloadTl.to(".app-panel-3", { x: "-105vw", ease: "power2.inOut", duration: 1.5 }, 10.5);
-    payloadTl.to(".app-panel-4", { x: 0, ease: "power2.inOut", duration: 1.5 }, 10.5);
-    payloadTl.set(".app-panel-3", { visibility: "hidden" }, 12.0);
-
-    // PANEL 4 (DebateHaus) Animation (12 -> 16)
-    payloadTl.to(".mockup-inner-4", { yPercent: -50, ease: "power2.inOut", duration: 1.5 }, 12.5);
-    // 14 -> 16: Wait and finish
+    panels.forEach((p, i) => {
+      const t0 = i * 4;
+      const N = i + 1;
+      const axis = p.mockup.type === 'desktop-browser' ? 'xPercent' : 'yPercent';
+      // Inner mockup scroll (horizontal pan for desktop, vertical for phones)
+      payloadTl.to(`.mockup-inner-${N}`, { [axis]: -50, ease: "power2.inOut", duration: 1.5 }, t0 + 0.5);
+      if (i < N_PANELS - 1) {
+        // Swipe to the next panel
+        payloadTl.set(`.app-panel-${N + 1}`, { visibility: "visible" }, t0 + 2.4);
+        payloadTl.to(`.app-panel-${N}`, { x: "-105vw", ease: "power2.inOut", duration: 1.5 }, t0 + 2.5);
+        payloadTl.to(`.app-panel-${N + 1}`, { x: 0, ease: "power2.inOut", duration: 1.5 }, t0 + 2.5);
+        payloadTl.set(`.app-panel-${N}`, { visibility: "hidden" }, t0 + 4.0);
+      }
+    });
 
     ScrollTrigger.create({
       trigger: "#payloads",
       start: "top top",
-      end: "+=12000", // Double the previous duration
+      end: "+=" + (totalUnits * 750), // N panels * 4 units * 750 px
       pin: true,
       anticipatePin: 1,
       animation: payloadTl,

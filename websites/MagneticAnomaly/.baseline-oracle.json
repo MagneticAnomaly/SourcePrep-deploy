@@ -1,0 +1,44 @@
+{
+  "_comment": "Phase 0 pre-refactor baseline (4 panels). Captured via Playwright scroll+settle at viewport 1600x1000, pinStart~4000, 750px/unit. Post-refactor (Strategy B, 5 panels) must reproduce invariants 1-6 for panels 1-4 at the SAME unit offsets; pin duration becomes ~15000; panel 5 follows the same per-slide pattern at t16/t18.",
+  "viewport": { "width": 1600, "height": 1000 },
+  "pin": { "pinStartY": 4000, "pinEndY": 16100, "pinDurationApprox": 12000, "pxPerUnit": 750, "totalUnits": 16 },
+  "panelCount": 4,
+  "restHiddenX": 1680,
+  "restHiddenXNegative": -1680,
+  "midSwipe": { "outgoingX": -248.89, "incomingX": 1431.11, "atUnits": [3, 7, 11] },
+  "innerAnimEnd": {
+    "mockup-inner-1": { "axis": "x", "value": -631.5, "atUnit": 2 },
+    "mockup-inner-2": { "axis": "y", "value": -494, "atUnit": 6 },
+    "mockup-inner-3": { "axis": "y", "value": -494, "atUnit": 10 },
+    "mockup-inner-4": { "axis": "y", "value": -494, "atUnit": 14 }
+  },
+  "innerAnimStart": { "value": -73.1851, "atUnitAfterStart": 1, "note": "t1,t5,t9,t13 all show -73.1851 (same scrub fraction)" },
+  "visibilityByUnit": {
+    "t0":  { "1": "visible", "2": "hidden",  "3": "hidden",  "4": "hidden" },
+    "t1":  { "1": "visible", "2": "hidden",  "3": "hidden",  "4": "hidden" },
+    "t2":  { "1": "visible", "2": "hidden",  "3": "hidden",  "4": "hidden" },
+    "t3":  { "1": "visible", "2": "visible", "3": "hidden",  "4": "hidden" },
+    "t4":  { "1": "hidden",  "2": "visible", "3": "hidden",  "4": "hidden" },
+    "t5":  { "1": "hidden",  "2": "visible", "3": "hidden",  "4": "hidden" },
+    "t6":  { "1": "hidden",  "2": "visible", "3": "hidden",  "4": "hidden" },
+    "t7":  { "1": "hidden",  "2": "visible", "3": "visible", "4": "hidden" },
+    "t8":  { "1": "hidden",  "2": "hidden",  "3": "visible", "4": "hidden" },
+    "t9":  { "1": "hidden",  "2": "hidden",  "3": "visible", "4": "hidden" },
+    "t10": { "1": "hidden",  "2": "hidden",  "3": "visible", "4": "hidden" },
+    "t11": { "1": "hidden",  "2": "hidden",  "3": "visible", "4": "visible" },
+    "t12": { "1": "hidden",  "2": "hidden",  "3": "hidden",  "4": "visible" },
+    "t13": { "1": "hidden",  "2": "hidden",  "3": "hidden",  "4": "visible" },
+    "t14": { "1": "hidden",  "2": "hidden",  "3": "hidden",  "4": "visible" },
+    "t15": { "1": "hidden",  "2": "hidden",  "3": "hidden",  "4": "visible" },
+    "t16": { "1": "hidden",  "2": "hidden",  "3": "hidden",  "4": "visible" }
+  },
+  "panelXByUnit": {
+    "_active": 0,
+    "_hiddenIncoming": 1680,
+    "_hiddenOutgoing": -1680,
+    "t3":  { "1": -248.89, "2": 1431.11 },
+    "t7":  { "2": -248.89, "3": 1431.11 },
+    "t11": { "3": -248.89, "4": 1431.11 }
+  },
+  "lastPanelNoSwipe": "panel 4 stays x:0 visible t12..t16; inner-4 holds -494 after t14"
+}

@@ -1,0 +1,23 @@
+{
+  "_comment": "Phase 2 regression-gate evidence (text-only Playwright capture, no images). Data-driven <Panel>/.map() render + OLD hardcoded 4-panel timeline. Panels 1-4 must reproduce .baseline-oracle.json; panel 5 (placeholder) sits hidden.",
+  "viewport": { "width": 1600, "height": 1000 },
+  "pinStart": 4005,
+  "pinStartBaseline": 4000,
+  "timelineEnd": "+=12000",
+  "pinDurationNote": "real pin duration = 12000 (timeline end preserved). A reported 13000 in one capture was a pinEnd scan-logic bug, not a regression.",
+  "result": "PASS",
+  "checks": {
+    "visibilityTablePanels1to4_t0_t16": "EXACT match to baseline at all 17 units",
+    "inner1Endpoint_t2": { "baseline": -631.5, "captured": -631.5, "match": "exact" },
+    "inner2Endpoint_t6": { "baseline": -494, "captured": -494, "match": "exact" },
+    "inner3Endpoint_t10": { "baseline": -494, "captured": -494, "match": "exact" },
+    "inner4Endpoint_t14": { "baseline": -494, "captured": -494, "match": "exact" },
+    "midSwipe_t3": { "baseline": { "outgoing": -248.89, "incoming": 1431.11 }, "captured": { "outgoing": -258.99, "incoming": 1421.01 }, "match": "within scrub-timing tolerance (~0.6%); structure identical" },
+    "midSwipe_t7": { "captured": { "outgoing": -258.99, "incoming": 1421.01 }, "match": "same tolerance" },
+    "midSwipe_t11": { "captured": { "outgoing": -258.99, "incoming": 1421.01 }, "match": "same tolerance" },
+    "lastPanelNoSwipe": "panel 4 stays x:0 visible t12..t16 (no swipe-out) — matches baseline",
+    "panel5Placeholder": "hidden at all units t0..t16 (x=1680, visibility:hidden) — sits hidden as intended, old timeline never swipes it in"
+  },
+  "sourcePrepScreenshotBugfix": "panel-1 img srcs now /Prep-ss1.png and /Prep-ss2.png (were /SourcePrep-ss1.png /SourcePrep-ss2.png which 404'd). Logo /SourcePrep-Logo2.png unchanged.",
+  "midTweenNoiseNote": "innerAnimStart (t1) and mid-swipe x values are scrub:1 settle-timing sensitive; the baseline flagged innerAnimStart as scrub-fraction-dependent. Discrete visibility + tween ENDPOINTS match exactly, which are the determinative invariants."
+}

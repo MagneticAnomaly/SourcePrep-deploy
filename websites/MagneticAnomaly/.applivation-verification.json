@@ -1,0 +1,19 @@
+{
+  "_comment": "Applivation addition verification (text-only Playwright, viewport 1600x1000 + 375x812 mobile). Applivation added as panel 1 (before SourcePrep), placeholder removed. N stays 5 -> pin duration unchanged at 15000. The reordering swaps the per-slot inner-anim axes (slot0 phone/yPercent, slot1 desktop/xPercent) vs the old baseline; the data-driven loop derives the axis from each panel's mockup.type automatically.",
+  "panelOrder": ["Applivation", "SourcePrep", "HomeColab", "DinnerVision", "DebateHaus"],
+  "panel1": { "name": "Applivation", "tag": "[ iOS / APP ]", "icon": "/Applivation-logo.png", "tagline": "Job applications made easy.", "mockupType": "dual-phone-placeholder", "stopgapNote": "dual-phone-placeholder until Eric supplies App Store screenshots; swap to dual-phone-image with phones:[{cells:[{cellClass,src,alt}]}] pointing at files in public/" },
+  "footerSystemIndex": { "liveEntries": 5, "applivationFirst": true, "placeholderGone": true, "order": ["Applivation","SourcePrep","HomeColab","DinnerVision","DebateHaus"], "eachHasVisitLink": true },
+  "pin": { "pinStart": 4000, "pinEnd": 19000, "pinDuration": 15000, "expected": "5*4*750=15000", "match": "exact" },
+  "perSlotInnerAnim": {
+    "slot0_applivation_phone_t2": { "axis": "yPercent", "tx": 0, "ty": -494, "panelX": 0, "panelVisible": "visible", "matchesBaselinePattern": "ty=-494 endpoint (was tx=-631.5 when SourcePrep was slot0)" },
+    "slot1_sourceprep_desktop_t6": { "axis": "xPercent", "tx": -631.5, "ty": 0, "panelX": 0, "panelVisible": "visible", "matchesBaselinePattern": "tx=-631.5 endpoint (SourcePrep desktop-browser now in slot1)" },
+    "midSwipe_slot0_to_slot1_t3": { "panel1_tx_outgoing": -248.89, "panel2_tx_incoming": 1431.11, "bothVisible": true, "matchesBaselineOracle": "exact (-248.89 / 1431.11)" },
+    "slot4_debatehaus_last_t18": { "axis": "yPercent", "tx": 0, "ty": -494, "panelX": 0, "panelVisible": "visible", "noSwipeOut": true }
+  },
+  "reorderingProof": "Slot 0 axis flipped xPercent->yPercent (SourcePrep moved out, Applivation phone moved in); slot 1 axis flipped yPercent->xPercent (SourcePrep desktop moved in). Both endpoints (-631.5 x, -494 y) and the mid-swipe (-248.89/1431.11) match the baseline oracle exactly. Per-slide feel pixel-identical; only which project sits in which slot changed.",
+  "mobile_375x812": { "panel1_isApplivation": true, "usesPhoneVariantClasses": true, "hasMaxMdHAuto": true, "hasMaxMdFlex1": true, "colHeight": "242.25px (content-driven auto)", "colFlex": "1 1 0%", "marginLeft": "0px", "drift": "none -- slot0 correctly uses phone-variant mobile behavior now (was desktop-browser max-md:-ml-2 when SourcePrep was slot0)" },
+  "lint": { "errors_after": 21, "errors_at_HEAD": 21, "new_errors": 0, "note": "Pre-existing: Math.random purity (particles/AsteroidField), fs/require/process (compileTest.js), useLayoutEffect unused (App.jsx). None from panels-data.js / Applivation.md / index.html." },
+  "build": "clean (vite build; only pre-existing chunk-size >500kB warning)",
+  "console": "0 errors on clean reload (1 pre-existing warning); the 500s on App.jsx?t=... seen earlier were stale HMR polls from the killed pre-restart dev server",
+  "result": "PASS -- Applivation is panel 1, placeholder removed, footer + timeline + mobile all correct. Only remaining work: swap the stopgap mockup to dual-phone-image once Eric sends screenshots."
+}
