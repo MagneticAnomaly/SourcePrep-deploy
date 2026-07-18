@@ -220,8 +220,11 @@ class TestLicenseGating:
         with patch.dict(os.environ, {"PREP_TIER": "free"}, clear=False):
             clear_license_cache()
             with patch.object(RemoteSyncService, "start_polling", MagicMock()) as mock_start:
-                get_project_sync_status(proj, {})
+                result = get_project_sync_status(proj, {})
                 assert mock_start.call_count == 0
+                # The poll is gated, but the status READ must still work so the UI
+                # can render an upgrade prompt — gating the poll must not gate status.
+                assert isinstance(result, dict)
 
     def test_status_poll_team_tier_starts_polling(self, tmp_path):
         """Companion to the free-tier regression test: a properly licensed
