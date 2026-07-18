@@ -231,7 +231,7 @@ export default function Page() {
                       </h2>
                       <p className="text-lg leading-relaxed border-l-4 border-primary pl-6 bg-primary/10 py-4 pr-4 text-text mb-6">
                         <strong>Executive Summary:</strong> SourcePrep is a local-first desktop application. Your source code never leaves
-                        your machine. The open-source version collects nothing — unless you choose to
+                        your machine unless you explicitly connect a cloud LLM (BYOK). The open-source version collects nothing — unless you choose to
                         send a bug report or support request. Pro adds one thing: a one-time
                         license activation. Future hosted tiers (Teams, Enterprise) will have
                         service-specific data terms.
