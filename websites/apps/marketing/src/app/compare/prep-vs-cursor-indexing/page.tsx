@@ -1,6 +1,5 @@
 import { ArrowRight, Check, X } from 'lucide-react';
-
-const IS_BETA_MODE = true;
+import { IS_BETA_MODE } from '@/lib/beta';
 
 export default function CompareCursorPage() {
   return (

@@ -5,9 +5,7 @@ import { MarketingHero, FeatureBlocks, prepFeatures, marketingFeatures, Animated
 import { ArrowRight, Play } from 'lucide-react';
 import Link from 'next/link';
 import { DevMarketingHero } from './DevMarketingHero';
-
-
-const IS_BETA_MODE = true;
+import { IS_BETA_MODE } from '@/lib/beta';
 
 const DEMO_TABS = [
   { key: 'overview', label: 'prep', description: 'Instant orientation' },

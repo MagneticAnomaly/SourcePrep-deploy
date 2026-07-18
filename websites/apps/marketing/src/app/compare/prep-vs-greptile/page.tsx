@@ -2,8 +2,7 @@
 
 import { ArrowRight, Check, X } from 'lucide-react';
 import { AnimatedCLI, prepSearchDemo } from '@prep/ui';
-
-const IS_BETA_MODE = true;
+import { IS_BETA_MODE } from '@/lib/beta';
 
 export default function CompareGreptilePage() {
   return (

@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { MCP_TOOLS, mcpConfigAsString } from '@prep/ui';
 import { GITHUB_REPO_URL } from '../../lib/links';
-
-const IS_BETA_MODE = true;
+import { IS_BETA_MODE } from '@/lib/beta';
 
 const RELEASES_URL = `${GITHUB_REPO_URL}/releases`;
 

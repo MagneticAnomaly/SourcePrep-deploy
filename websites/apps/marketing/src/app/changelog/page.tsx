@@ -2,8 +2,7 @@
 
 import { Button } from '@prep/ui';
 import { GITHUB_REPO_URL } from '@/lib/links';
-
-const IS_BETA_MODE = true;
+import { IS_BETA_MODE } from '@/lib/beta';
 
 interface ChangelogEntry {
   version: string;
