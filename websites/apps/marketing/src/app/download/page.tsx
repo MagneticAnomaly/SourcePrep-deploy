@@ -44,12 +44,12 @@ export default function Page() {
 
         <div className="max-w-4xl">
           {IS_BETA_MODE && (
-            <div className="mb-6 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+            <div className="mb-10 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
               <span className="relative flex h-2 w-2 mr-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
               </span>
-              SourcePrep is currently in closed beta &mdash; request access to try it early. The steps below describe the open-source launch.
+              SourcePrep is currently in closed beta &mdash; request access to try it early.
             </div>
           )}
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-text mb-8">
