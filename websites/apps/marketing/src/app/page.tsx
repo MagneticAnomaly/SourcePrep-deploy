@@ -35,9 +35,9 @@ export default function Page() {
         <section className="sr-only">
           <h2>What is SourcePrep?</h2>
           <p>
-            SourcePrep is a structural codebase intelligence MCP server for AI coding agents.
+            SourcePrep is an open-source structural codebase intelligence MCP server for AI coding agents, released under the Apache 2.0 license.
             It builds a code graph using Rust and tree-sitter to map imports, call chains, and symbol hierarchies — then delivers that deep structural context directly to Claude Code, OpenAI Codex, Cursor, Windsurf, and any other MCP-compatible tool.
-            Connect your preferred LLM — Kimi 2.6, local models, or frontier APIs.
+            Connect your preferred LLM — local or cloud models via Ollama, or frontier APIs.
           </p>
         </section>
 

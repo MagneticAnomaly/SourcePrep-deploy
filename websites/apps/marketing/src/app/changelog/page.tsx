@@ -13,10 +13,11 @@ interface ChangelogEntry {
 const CHANGELOG: ChangelogEntry[] = [
   {
     version: '0.9.0-beta',
-    date: 'Early March 2026',
-    title: 'Public Beta (Planned)',
+    date: 'Planned',
+    title: 'Public Beta & Open-Source Launch (Planned)',
     type: 'minor',
     highlights: [
+      'Full SourcePrep source code released under the Apache 2.0 license',
       'Multi-project support with project registry',
       'Context assembly API for LLM prompt construction',
       'Embedded and standalone index modes',
