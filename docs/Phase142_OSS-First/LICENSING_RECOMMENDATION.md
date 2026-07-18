@@ -64,3 +64,13 @@ Apache-2.0 has been the working outbound license since **2026-06-15** (Phase 144
 `RESEARCH.md` §2). The DCO-not-CLA + permanent nuance was set in the 2026-07-17
 OSS marketing spec. Eric confirmed "Apache is final" on **2026-07-18**. The
 marketing site's Apache 2.0 copy is therefore correct and unblocked.
+
+The validation deep-research pass completed 2026-07-17/18 and **independently
+converged on the same answer** (Apache-2.0 + DCO): see
+[`LICENSING_DEEP_RESEARCH_REPORT.md`](LICENSING_DEEP_RESEARCH_REPORT.md) —
+two-round multi-agent research, 28 primary sources fetched live, 55 claims
+adversarially verified (53 confirmed, 2 refuted). It augments this rationale
+(enforcement economics, patent/trademark clauses, comparable-cohort license
+census, relicensing-episode record) and does not reopen the decision. Notable
+verified rider: register the copyright within 3 months of first publication
+(17 U.S.C. §412 preserves statutory-damages/fees optionality).
