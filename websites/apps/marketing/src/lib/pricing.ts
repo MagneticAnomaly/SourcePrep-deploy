@@ -26,7 +26,7 @@ export const PPP_PRICES: Record<PPPBand, BandPrices> = {
   0: {
     monthly: 7,
     perpetual: 79,
-    team: 15,
+    team: 10,
     discount: 0,
     bandName: "Full Price",
     discountCode: "",
@@ -34,7 +34,7 @@ export const PPP_PRICES: Record<PPPBand, BandPrices> = {
   1: {
     monthly: 5,
     perpetual: 59,
-    team: 12,
+    team: 8,
     discount: 20,
     bandName: "20% regional discount",
     discountCode: "PPP20",
@@ -42,7 +42,7 @@ export const PPP_PRICES: Record<PPPBand, BandPrices> = {
   2: {
     monthly: 4,
     perpetual: 45,
-    team: 9,
+    team: 6,
     discount: 40,
     bandName: "40% regional discount",
     discountCode: "PPP40",
@@ -50,7 +50,7 @@ export const PPP_PRICES: Record<PPPBand, BandPrices> = {
   3: {
     monthly: 3,
     perpetual: 29,
-    team: 6,
+    team: 4,
     discount: 60,
     bandName: "60% regional discount",
     discountCode: "PPP60",

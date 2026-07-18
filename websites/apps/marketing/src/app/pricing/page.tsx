@@ -264,7 +264,10 @@ export default function Page() {
           <div className="rounded-xl border border-border bg-surface p-6">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Enterprise</div>
-              <div className="text-2xl font-bold">Custom</div>
+              <div>
+                <span className="text-2xl font-bold">$30</span>
+                <span className="text-text-muted text-sm ml-1">/ seat / month</span>
+              </div>
             </div>
             <p className="mt-3 text-sm text-text-muted">
               Deploy inside your own infrastructure. No code leaves your network.
