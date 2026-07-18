@@ -124,7 +124,7 @@ export default function Page() {
           <div className="rounded-xl border border-border bg-surface p-6 flex flex-col">
             <div className="text-sm font-semibold text-text-muted uppercase tracking-wide">Teams</div>
             <div className="mt-3">
-              <span className="text-4xl font-bold">$10</span>
+              <span className="text-4xl font-bold">$9</span>
               <span className="text-text-muted ml-1">/ seat / month</span>
               <div className="mt-1 text-xs text-text-muted">3-seat minimum</div>
             </div>
@@ -150,7 +150,7 @@ export default function Page() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-success mt-0.5">&#10003;</span>
-                <span>Annual $96/seat/yr (20% off)</span>
+                <span>Annual $86/seat/yr (20% off)</span>
               </li>
             </ul>
             <Button asChild variant="outline" className="mt-6 w-full">
