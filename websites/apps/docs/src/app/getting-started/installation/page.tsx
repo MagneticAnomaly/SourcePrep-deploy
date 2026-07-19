@@ -78,13 +78,15 @@ export default function Page() {
 
           <AnchorHeading id="licensing" level="h2" className="mt-8">Licensing</AnchorHeading>
           <p>
-            SourcePrep is <span className="font-semibold text-text">free to use</span> with up to 3 active projects and all features included. To unlock unlimited projects, purchase a license at{' '}
-            <a href="https://sourceprep.io/pricing" className="text-primary hover:underline">sourceprep.io/pricing</a>.
+            SourcePrep is <span className="font-semibold text-text">free to use</span> with all features included
+            and unlimited projects &mdash; you can build the desktop app yourself from source. See the repository
+            LICENSE for licensing details. Paid tiers (Pro, Teams, Enterprise) are coming soon &mdash; see{' '}
+            <a href="https://sourceprep.io/pricing" className="text-primary hover:underline">sourceprep.io/pricing</a>{' '}
+            when available.
           </p>
           <p className="text-sm text-text-muted mt-2">
-            Payments are processed by <span className="font-semibold text-text">Lemon Squeezy</span> (our Merchant of Record). After purchase,
-            enter your license key in the app to activate. Activation requires a one-time internet connection;
-            after that, SourcePrep works fully offline.
+            License activation and checkout for paid tiers are not yet available. When paid tiers launch,
+            activation details will be documented here.
           </p>
 
           <AnchorHeading id="upgrading" level="h2" className="mt-8">Upgrading</AnchorHeading>

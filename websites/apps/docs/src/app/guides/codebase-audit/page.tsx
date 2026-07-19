@@ -344,7 +344,7 @@ prep opportunities --priority P0 --format ai_prompt`}</code></pre>
           </p>
           <ol className="list-decimal pl-6 space-y-2">
             <li>The enrichment pipeline runs to completion and produces trace_nodes, trace_augmented, trace_epistemic, trace_modules, and atlas.json.</li>
-            <li>You run <code>prep audit</code> when you want insights. The audit reads all that data and produces findings + reports.</li>
+            <li>You trigger an audit (via the MCP <code>prep_audit</code> tool, the REST API, or the dashboard Audit panel) when you want insights. The audit reads all that data and produces findings + reports.</li>
             <li>If <code>auto_run_after_deep</code> is enabled, Tier 1 analyzers run automatically when deep enrichment completes.</li>
             <li>Audit reports are indexed by SourcePrep&apos;s search engine and served via MCP, so your AI tools can access them.</li>
           </ol>

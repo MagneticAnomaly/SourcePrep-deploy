@@ -57,7 +57,7 @@ const footerProps = {
   sections: footerSections,
   socials: {
     twitter: 'https://x.com/Prep_io',
-    github: 'https://github.com/MagneticAnomaly/SourcePrep-MCP',
+    github: 'https://github.com/MagneticAnomaly/SourcePrep',
     email: 'hello@sourceprep.io',
   },
   copyright: '© 2026 Magnetic Anomaly llc. All rights reserved.',

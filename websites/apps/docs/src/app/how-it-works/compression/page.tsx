@@ -36,7 +36,7 @@ export default function Page() {
             <li><span className="font-semibold text-text">Tier-adaptive</span> &mdash; Claude/Gemini (50K budget) gets more full-source files; local models (20K) get tighter compression</li>
             <li><span className="font-semibold text-text">Code-aware</span> &mdash; understands functions, classes, imports (not just token probabilities)</li>
             <li><span className="font-semibold text-text">Instant</span> &mdash; &lt;10ms per file (no model inference)</li>
-            <li><span className="font-semibold text-text">Free tier</span> &mdash; available on all tiers including Free</li>
+            <li><span className="font-semibold text-text">No extra license</span> &mdash; LOD compression is part of the core engine on every plan, including the $0 self-hosted build</li>
           </ul>
         </section>
 
