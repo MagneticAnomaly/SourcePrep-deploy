@@ -17,7 +17,7 @@ You are auditing the SourcePrep PUBLIC surface (websites/apps/{docs,marketing,su
 HARD RULES:
 - Read-only audit. NO git operations, NO file mutation, NO worktree. Read the actual working tree at /Volumes/4TB-BAD/HumanAI/CoDRAG.
 - You MAY use prep MCP (prep_search/prep_impact, project_id="${PID}") to verify code behavior, but the primary instrument is Read + grep for copy/legal-text.
-- License-neutral: the Apache-2.0+DCO relicense is DECIDED but NOT APPLIED (root LICENSE is still "COMMERCIAL SOFTWARE LICENSE AGREEMENT... All Rights Reserved" by Magnetic Anomaly LLC). Do NOT propose asserting a specific OSS license in copy as a fix — instead flag present-tense "Apache 2.0" claims that contradict the current LICENSE.
+- RELICENSE LANDED (commit 99315988): root LICENSE is now Apache-2.0. VERIFY the relicense is complete/consistent (LICENSE text correct/complete? NOTICE/CONTRIBUTING/SECURITY aligned and no longer "All Rights Reserved"? copyright holder + year correct? DCO/CLA present?). Do NOT flag "metadata=Apache, LICENSE=commercial" as a contradiction — that is RESOLVED. Marketing's present-tense "Apache 2.0" claims are now TRUE (not false); docs' conservatism (not asserting Apache) is now under-stating but still safe. License-neutral edits still required: do not assert a specific OSS license in NEW copy; you may flag remaining inconsistencies in the relicense rollout (e.g., a copyright line still "All Rights Reserved", a stale proprietary header in a file).
 - No codename leaks: never propose adding CoDRAG/RunPrep/~/.runprep to public copy (the audit may FLAG existing leaks to remove, never add).
 - Do NOT trust memory/notes for code claims — verify against the repo.
 
@@ -27,7 +27,7 @@ CLASSIFICATION (critical — the user has NO attorney budget):
 - eric-decision: needs Eric's product/business/legal-act call (e.g., the actual LICENSE relicense text, tier-gating decisions, pricing). Describe the decision Eric must make.
 
 KNOWN/DECIDED — do NOT re-flag as new (extend only if a NEW surface contradicts):
-- Root LICENSE still proprietary; Apache-2.0+DCO decided not applied (central blocker — flag cross-surface fallout, not the decision itself).
+- Root LICENSE is now Apache-2.0 (commit 99315988 landed mid-session). The "metadata vs LICENSE commercial" contradiction is RESOLVED. Instead VERIFY relicense completeness (NOTICE/CONTRIBUTING/SECURITY/copyright-line/year still consistent with Apache? any stale "All Rights Reserved" / proprietary header left behind?).
 - License crypto forgeable: licensing.py:22 DEFAULT_PUBLIC_KEY_HEX = RFC 8032 test vector; Phase 146 CHANGE_PLAN_ed25519_crypto_fix.md has the fix plan. Flag any PUBLIC copy claiming "Ed25519 secure license" present-tense (e.g., enterprise-deploy).
 - GPL deps resolved (igraph/leidenalg -> networkx). The OPEN legal gap is the source-vendored-GPL/LLM-generated scan (scancode-toolkit not installed) — flag for deep review, do not attempt.
 - codrag.key is a known secret on origin; public mirror (tools/build_public_mirror.py, allowlist+denylist gate) not yet built. Flag the mirror build as the gate, do not re-scan history.

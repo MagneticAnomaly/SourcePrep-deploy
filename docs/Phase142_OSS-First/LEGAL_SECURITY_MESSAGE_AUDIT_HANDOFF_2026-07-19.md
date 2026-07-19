@@ -34,12 +34,34 @@ a contradiction no per-file code check surfaces.
   - **Eric-decision** items get a precise question + options.
 - **Tooling:** no paid tools. `gitleaks`/`trufflehog` NOT installed (checked) — the code-posture agent does a **grep-based secret scan** and the follow-up docket flags "install gitleaks/trufflehog for a proper scan." Do **NOT** install `scancode-toolkit` (~1GB) yourself — the vendored-GPL source scan is a `flag-deep-review` item (DR-N), not a do-it-now.
 
-## Known cross-surface contradiction already visible (do NOT re-discover, EXTEND)
+## ⚠️ RELICENSE LANDED mid-session (re-verify before trusting the workflow's RULES)
 
-- `package.json` + `pyproject.toml` + `engine/Cargo.toml` all say **`Apache-2.0`** (parallel commit `93f9c38d` flipped them).
-- Root **`LICENSE`** still says **"COMMERCIAL SOFTWARE LICENSE AGREEMENT… All Rights Reserved"** (Magnetic Anomaly LLC). Apache-2.0+DCO decided but NOT applied.
-- `NOTICE` + `CONTRIBUTING.md` mention "Magnetic Anomaly" / "All Rights Reserved."
-- Marketing says "Apache 2.0" present-tense on ~14 pages (already known). Extend to **support + payments** surfaces — do they mirror it?
+While this handoff was being written, parallel commit **`99315988 license: swap
+root LICENSE commercial-proprietary -> verbatim Apache-2.0`** landed. **Root
+`LICENSE` is now Apache-2.0** (verified: first line "Apache License, Version 2.0").
+This flips the audit's central premise:
+
+- The "metadata=Apache, LICENSE=commercial" contradiction is **RESOLVED** — do not
+  re-flag it as a defect. The audit should instead VERIFY the relicense is complete
+  and consistent (LICENSE text correct/complete? DCO/NOTICE/CONTRIBUTING aligned?
+  copyright-holder line correct? year range? `NOTICE` no longer says "All Rights
+  Reserved"?).
+- Marketing's present-tense "Apache 2.0" claims are now **TRUE** (no longer false).
+  Docs' conservatism (not asserting Apache) is now UNDER-stating but still SAFE
+  (more conservative than reality is fine; less conservative is not).
+- **Pass-4 Eric-gated items now potentially actionable** (re-verify each against
+  the new LICENSE before acting): E1 (paperclip Apache wording — unblocked), E10
+  (footer copyright → Apache + NOTICE — unblocked), E14 (installation paywall —
+  the LICENSE it deferred to is now Apache), E19 (installation:81 "build from
+  source" is now TRUE, not a falsehood — the forward-looking-conservatism concern
+  flips). E18 (Ed25519 placeholder key — UNCHANGED, still forgeable). S22/E5
+  (phone-home — UNCHANGED).
+
+**BEFORE running the workflow:** update its RULES block (see "First move" step 0
+below) — the script still says "root LICENSE is still COMMERCIAL… All Rights
+Reserved… Apache-2.0+DCO decided but NOT applied," which is now FALSE. Run an
+Edit on `legal-security-message-audit.workflow.js` to fix those lines first, or
+the audit will flag non-defects.
 
 ## Known/decided — do NOT re-flag (the workflow's RULES block lists these; verify still true)
 
@@ -51,6 +73,14 @@ a contradiction no per-file code check surfaces.
 
 ## First move (post-compact)
 
+0. **Re-verify the relicense state** (it landed mid-session at `99315988`):
+   `head -3 LICENSE` → should be "Apache License, Version 2.0". Then **Edit
+   `legal-security-message-audit.workflow.js`'s RULES block** to reflect it:
+   replace "root LICENSE is still COMMERCIAL… All Rights Reserved… Apache-2.0+DCO
+   decided but NOT applied" with "root LICENSE is now Apache-2.0 (commit 99315988);
+   verify the relicense is complete/consistent rather than flag it as a
+   contradiction." Commit that script fix before running. (See the ⚠️ section above
+   for the full list of now-actionable pass-4 items.)
 1. **Run the workflow** via the `Workflow` tool with the `scriptPath` above (it's a substantive multi-agent audit — ultracode is on, user explicitly asked for this methodology).
 2. When it completes, read the `synthesis` field (the markdown addendum) + counts (`fix_now`, `flag_deep_review`, `eric_decision`, `refuted_true`).
 3. **Apply the `fix-now` set** — license-neutral, no Eric/legal-act. File by file. The synthesis gives exact edits. Reconcile each against the working tree first (the workflow read the real tree, so artifacts are unlikely, but confirm before editing). Keep `npm --prefix /Volumes/4TB-BAD/HumanAI/CoDRAG/websites/apps/docs run typecheck` + `packages/ui` typecheck clean if those surfaces are touched.
