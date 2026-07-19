@@ -21,6 +21,7 @@ export default function Page() {
           No code leaves your network. GPU or CPU images run on any container orchestrator.
         </p>
         <p className="mt-2 text-sm text-text-subtle">
+          Requires a <strong>Team</strong> or <strong>Enterprise</strong> license.
           See also: <a href="/guides/team-sync" className="text-primary hover:underline">Team Sync Guide</a> for
           the standard CI/CD setup.
         </p>

@@ -35,7 +35,7 @@ export default function Page() {
                 Code-specialized model built on a 7B-parameter backbone (Qwen2). Trained specifically
                 on source code. Useful for very large code-heavy codebases where the broader
                 training data may help. In our benchmark the built-in ONNX model scored slightly
-                higher, so this is a flexibility option, not a quality upgrade. <span className="font-semibold text-text">Requires a GPU.</span>
+                higher, so this is a flexibility option, not a quality upgrade. <span className="font-semibold text-text">GPU strongly recommended.</span> Ollama silently falls back to CPU when no GPU is present, but a 7B model is too slow on CPU for practical indexing of large codebases.
               </p>
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-text-muted">
                 <span>3 584-dim embeddings (Matryoshka-truncated to 768)</span>

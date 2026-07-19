@@ -275,7 +275,7 @@ export default function Page() {
             <a href="https://github.com/MagneticAnomaly/SourcePrep/tree/main/packages/paperclip-plugin-prep" className="text-primary hover:underline">
               packages/paperclip-plugin-prep
             </a>{' '}
-            in the SourcePrep repository. It&apos;s MIT-licensed.
+            in the SourcePrep repository. See the repository LICENSE for licensing details.
           </p>
         </div>
       </div>

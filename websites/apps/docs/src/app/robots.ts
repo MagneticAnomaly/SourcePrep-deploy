@@ -5,6 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
+      disallow: ['/search'],
     },
     sitemap: 'https://docs.sourceprep.io/sitemap.xml',
   };

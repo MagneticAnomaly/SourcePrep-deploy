@@ -1,6 +1,12 @@
 # Docs-Site OSS-Readiness Audit — 2026-07-18
 
 > **Status:** AUDIT + partial pass. Companion to `MARKETING_OSS_READINESS_BRIEFING.md`.
+> **Superseded in part by:** `DOCS_OSS_RESEARCH_AND_RECOMMENDATIONS_2026-07-18.md`
+> (a second-pass research report that deep-verified every held item and **corrects
+> four first-pass errors**: the Ollama slug was NOT a typo, the "legacy pages"
+> framing was inverted, the phone-home cluster was NOT "already fine", and the
+> M5 fix was reverted). Read that doc for the current state; this one is the
+> original first-pass record.
 > Covers the public **docs website** only (`websites/apps/docs/`, the Next.js
 > app router — 34 pages + shared config/layout). The marketing site was already
 > passed on 2026-07-18 (`project_oss_marketing_branch` memory); the docs site had

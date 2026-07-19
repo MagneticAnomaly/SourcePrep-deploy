@@ -31,7 +31,7 @@ export default function Page() {
           <AnchorHeading id="add" level="h2" className="mt-8">prep add</AnchorHeading>
           <pre className="overflow-x-auto text-sm"><code>prep add &lt;path&gt; [--name &lt;name&gt;] [--mode &lt;mode&gt;]</code></pre>
           <p className="text-sm text-text-muted">
-            Registers a directory as a project and starts initial indexing.
+            Registers a directory as a project. Run <code>prep build</code> to start the initial index.
           </p>
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li><code>--name</code>: Friendly name for the project.</li>
@@ -66,6 +66,7 @@ export default function Page() {
           <ul className="list-disc pl-5 text-sm text-text-muted">
             <li><code>--limit</code>: Number of chunks (default: 5).</li>
             <li><code>--max-chars</code>: Maximum characters in output (default: 8000).</li>
+            <li><code>--role</code>: Role filter for the codebase atlas (e.g. <code>ceo</code>, <code>security</code>, <code>design engineer</code>).</li>
             <li><code>--raw</code>: Output only the context string (no stats/formatting), useful for piping to LLMs.</li>
           </ul>
 
@@ -96,9 +97,10 @@ export default function Page() {
             Generates configuration JSON for connecting various editors (Cursor, Windsurf, Claude Code) to SourcePrep.
           </p>
           <ul className="list-disc pl-5 text-sm text-text-muted">
-            <li><code>--ide</code>: Target editor (<code>cursor</code>, <code>windsurf</code>, <code>vscode</code>, <code>claude</code>, or <code>all</code>).</li>
+            <li><code>--ide</code>: Target editor — one of <code>cursor</code>, <code>windsurf</code>, <code>vscode</code>, <code>claude</code> (Claude Desktop; alias <code>claude-desktop</code>), <code>claude-code</code> (Claude Code, project-scoped), <code>jetbrains</code>, <code>gemini</code>, <code>antigravity</code>, <code>zed</code>, or <code>all</code> (emit every config).</li>
             <li><code>--mode</code>: <code>auto</code> (detects project from cwd), <code>project</code> (pinned to ID), or <code>direct</code> (no daemon).</li>
             <li><code>--project</code>: Project ID to pin (required if mode is <code>project</code>).</li>
+            <li><code>--daemon</code>: URL of the Prep daemon (default <code>http://127.0.0.1:8400</code>).</li>
           </ul>
 
           <AnchorHeading id="utilities" level="h2" className="mt-12 text-2xl font-bold">Utilities & Visualization</AnchorHeading>

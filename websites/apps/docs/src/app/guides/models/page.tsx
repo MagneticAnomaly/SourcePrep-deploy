@@ -147,7 +147,7 @@ export default function Page() {
                 <li>
                   <span className="font-semibold text-text">nomic-embed-code via Ollama</span> — recommended for GPU users.
                   Code-specialized model (7B Qwen2 backbone), best retrieval quality for code-heavy
-                  repos. ~4 GB download. Requires a GPU.{' '}
+                  repos. ~4 GB download. GPU strongly recommended (Ollama silently falls back to CPU, but a 7B model is too slow on CPU for practical indexing).{' '}
                   <code className="text-xs">ollama pull manutic/nomic-embed-code</code>
                 </li>
                 <li>

@@ -39,7 +39,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     '/guides/team-sync',
     '/guides/enterprise-deploy',
     '/troubleshooting',
-    '/search',
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date().toISOString(),

@@ -295,11 +295,6 @@ export default function Page() {
             using a lightweight BERT model. This will complement LOD&apos;s structural compression for code
             with token-level compression optimised for natural language.
           </p>
-          <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-text-muted">
-            <span className="font-semibold text-amber-600">Roadmap:</span> Language compression is built
-            and available in the settings panel but requires additional setup. Follow the release notes
-            for availability updates.
-          </div>
         </section>
     </ConceptPageShell>
   );

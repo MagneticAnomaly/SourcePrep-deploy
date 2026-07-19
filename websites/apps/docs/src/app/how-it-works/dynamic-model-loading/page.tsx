@@ -117,7 +117,7 @@ export default function Page() {
           <div className="not-prose">
             <DemoAdvancedLLMSettings />
             <p className="text-xs text-text-subtle italic -mt-4">
-              The Advanced LLM Settings panel — keep-alive, VRAM headroom, and per-slot model overrides live here.
+              The Advanced LLM Settings panel — cloud token-safety limits and the max thinking budget live here. Per-slot &quot;Always Available&quot; toggles (which keep a model resident in VRAM) live on each model slot in the AI Gateway, not here.
             </p>
           </div>
 

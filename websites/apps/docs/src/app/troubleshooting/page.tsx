@@ -155,7 +155,7 @@ export default function Page() {
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>Reduce the number of indexed files by excluding large folders (<code>vendor/</code>, <code>node_modules/</code>) in <code>.sourceprep/ignore</code>.</li>
                 <li>Lower the <code>max_file_bytes</code> setting in your project configuration (via Dashboard or <code>.sourceprep/config.json</code>).</li>
-                <li>Context compression adds negligible memory overhead (structural compression needs no model; language compression loads a ~178 MB BERT model on demand).</li>
+                <li>Context compression adds negligible memory overhead — structural LOD compression needs no model inference.</li>
               </ul>
             </div>
           </div>
