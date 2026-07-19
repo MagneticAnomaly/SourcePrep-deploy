@@ -298,7 +298,7 @@ docker push my-org/prep-runpod`}
               </tr>
               <tr>
                 <td className="px-4 py-2 font-medium">Audit logging</td>
-                <td className="px-4 py-2"><span className="text-warning">Roadmap</span></td>
+                <td className="px-4 py-2"><span className="text-success">Available</span></td>
                 <td className="px-4 py-2">Who accessed what, exportable audit trail</td>
               </tr>
             </tbody>

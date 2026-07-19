@@ -221,7 +221,7 @@ export default function Page() {
         <div className="not-prose mt-8">
           <DemoAtlasLensStaleSegments />
           <p className="text-xs text-text-subtle italic -mt-4">
-            The Atlas Lens is what consumes the understanding score — projecting the codebase through role-specific lenses (security, refactor, onboarding).
+            The Atlas Lens projects the codebase through role-specific lenses (security, refactor, onboarding) using the epistemic enrichment produced during Enrich &mdash; architecture layers, domain tags, and per-node confidence.
           </p>
         </div>
       </section>
@@ -245,17 +245,23 @@ export default function Page() {
             <tbody className="text-text-muted">
               <tr className="border-b border-border/50"><td className="py-2 pr-4">Source file changed</td><td className="py-2 pr-4">Score → 0.0</td><td className="py-2">Everything might be wrong</td></tr>
               <tr className="border-b border-border/50"><td className="py-2 pr-4">Neighbor re-enriched</td><td className="py-2 pr-4">Score × 0.95</td><td className="py-2">Context shifted slightly</td></tr>
-              <tr className="border-b border-border/50"><td className="py-2 pr-4">Referenced doc updated</td><td className="py-2 pr-4">Score × 0.90</td><td className="py-2">Documentation changed, claims may be invalid</td></tr>
-              <tr className="border-b border-border/50"><td className="py-2 pr-4">Trace rebuilt (structural)</td><td className="py-2 pr-4">Score × 0.80</td><td className="py-2">Edges changed, relationships may differ</td></tr>
-              <tr><td className="py-2 pr-4">Module re-synthesized</td><td className="py-2 pr-4">Score × 0.97</td><td className="py-2">Module understanding refined</td></tr>
+              <tr className="border-b border-border/50"><td className="py-2 pr-4">Referenced doc updated <span className="text-xs text-text-subtle">(planned)</span></td><td className="py-2 pr-4">Score × 0.90</td><td className="py-2">Documentation changed, claims may be invalid</td></tr>
+              <tr className="border-b border-border/50"><td className="py-2 pr-4">Trace rebuilt (structural) <span className="text-xs text-text-subtle">(planned)</span></td><td className="py-2 pr-4">Score × 0.80</td><td className="py-2">Edges changed, relationships may differ</td></tr>
+              <tr><td className="py-2 pr-4">Module re-synthesized <span className="text-xs text-text-subtle">(planned)</span></td><td className="py-2 pr-4">Score × 0.97</td><td className="py-2">Module understanding refined</td></tr>
             </tbody>
           </table>
         </div>
         <p className="mt-3 text-text-muted leading-relaxed">
           Decay cascades through neighbors: if File A changes, File B (which imports A) decays slightly,
-          and File C (which imports B) decays even less — up to a 3-hop propagation limit. Nodes with
+          and File C (which imports B) decays by the same factor &mdash; up to a 3-hop propagation limit,
+          with each non-stale neighbor decayed once (&times;0.95 against its original score). Nodes with
           decayed scores enter a re-analysis queue ordered by score (lowest first); the Deepening stage
-          processes this queue until the graph converges or the token budget is exhausted.
+          processes this queue until the graph converges or the iteration limit is reached (max 10
+          deepening passes).
+        </p>
+        <p className="mt-2 text-xs text-text-subtle">
+          Only the first two events are wired in production today; the three <em>planned</em> events
+          are defined in the scoring module but not yet emitted by any pipeline path.
         </p>
       </section>
 

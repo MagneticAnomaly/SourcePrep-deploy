@@ -13,7 +13,7 @@ const SECTIONS = [
   { id: 'preview',               label: 'Output Preview' },
   { id: 'languages',             label: 'Supported Languages' },
   { id: 'fallback',              label: 'Fallback Behaviour' },
-  { id: 'language-compression',  label: 'Coming Soon' },
+  { id: 'language-compression',  label: 'Roadmap' },
 ];
 
 export default function Page() {
@@ -133,13 +133,13 @@ export default function Page() {
                   <td className="py-2 pr-4">Cursor, Windsurf, Copilot</td>
                   <td className="py-2 pr-4">24&ndash;30K chars</td>
                   <td className="py-2 pr-4">6 at full source</td>
-                  <td className="py-2">LOD 2 (signatures)</td>
+                  <td className="py-2">LOD 2.5 (sigs + docstrings)</td>
                 </tr>
                 <tr>
                   <td className="py-2 pr-4 font-semibold text-text">Tier 2.5</td>
                   <td className="py-2 pr-4">Cline, Roo, Continue</td>
                   <td className="py-2 pr-4">20K chars</td>
-                  <td className="py-2 pr-4">4 at LOD 2</td>
+                  <td className="py-2 pr-4">4 at LOD 2.5</td>
                   <td className="py-2">LOD 4 (names + imports)</td>
                 </tr>
               </tbody>
@@ -162,9 +162,9 @@ export default function Page() {
             <div className="text-text-muted">Detect client tier (1 / 2 / 2.5)</div>
             <div className="text-text-muted">&nbsp; &darr;</div>
             <div className="text-text-muted">assign_lod(score, tier) per file:</div>
-            <div className="text-text-muted">&nbsp; Tier 1: &ge;0.40 &rarr; LOD 0, &ge;0.25 &rarr; LOD 2, &ge;0.15 &rarr; LOD 4</div>
-            <div className="text-text-muted">&nbsp; Tier 2: &ge;0.50 &rarr; LOD 0, &ge;0.35 &rarr; LOD 2, &ge;0.20 &rarr; LOD 4</div>
-            <div className="text-text-muted">&nbsp; Tier 2.5: &ge;0.60 &rarr; LOD 0, &ge;0.40 &rarr; LOD 2, &ge;0.25 &rarr; LOD 4</div>
+            <div className="text-text-muted">&nbsp; Tier 1: &ge;0.40 &rarr; LOD 0, &ge;0.25 &rarr; LOD 2, &ge;0.15 &rarr; LOD 4, &lt;0.15 &rarr; LOD 5</div>
+            <div className="text-text-muted">&nbsp; Tier 2: &ge;0.50 &rarr; LOD 0, &ge;0.35 &rarr; LOD 2, &ge;0.20 &rarr; LOD 4, &lt;0.20 &rarr; LOD 5</div>
+            <div className="text-text-muted">&nbsp; Tier 2.5: &ge;0.60 &rarr; LOD 0, &ge;0.40 &rarr; LOD 2, &ge;0.25 &rarr; LOD 4, &lt;0.25 &rarr; LOD 5</div>
             <div className="text-text-muted">&nbsp; &darr;</div>
             <div className="text-text-muted">LODExtractor.extract(file, lod, trace_nodes)</div>
             <div className="text-text-muted">&nbsp; &darr;</div>
@@ -190,9 +190,9 @@ export default function Page() {
 
           <h3 className="mt-6 text-lg font-medium text-text">Via Dashboard</h3>
           <p className="mt-2 text-sm text-text-muted">
-            In the <span className="font-semibold text-text">Context Options</span> panel, select <span className="font-semibold text-text">LOD (Structural)</span> from
-            the Compression dropdown. Click &ldquo;Assemble&rdquo; &mdash; each source citation will
-            show an <code>LOD&#123;n&#125;</code> badge and compression ratio.
+            LOD compression is <span className="font-semibold text-text">always applied</span>. In the
+            <span className="font-semibold text-text"> Context Assembler</span> panel, click &ldquo;Assemble&rdquo; &mdash; each source citation
+            automatically shows an <code>LOD&#123;n&#125;</code> badge and compression ratio.
           </p>
 
           <h3 className="mt-6 text-lg font-medium text-text">Via API</h3>
@@ -204,7 +204,6 @@ export default function Page() {
             <div>&nbsp;&nbsp;&nbsp; &quot;k&quot;: 10,</div>
             <div>&nbsp;&nbsp;&nbsp; &quot;max_chars&quot;: 12000,</div>
             <div>&nbsp;&nbsp;&nbsp; &quot;structured&quot;: true,</div>
-            <div>&nbsp;&nbsp;&nbsp; &quot;compression&quot;: &quot;lod&quot;</div>
             <div>&nbsp; {'}'}&apos;</div>
           </div>
         </section>

@@ -1164,7 +1164,7 @@ export function AIModelsSettings({
             </li>
             <li><strong>Code:</strong> <a href="https://ollama.com/library/qwen3-coder" target="_blank" rel="noreferrer" className="text-primary hover:underline">qwen3-coder:30b</a> MoE (19GB, 3.3B active) — best code model. Alt: qwen2.5-coder:7b (optional — falls back to Fast model)</li>
             <li><strong>Swarm Coordinator:</strong> Gemini 3 Flash or any fast, JSON-reliable cloud model. Used to plan clusters and synthesize domain modules during Deep Enrichment. Optional — falls back to Thinking Model.</li>
-            <li><strong>Compression:</strong> LLMLingua-2 prunes docs/markdown tokens; LOD extracts code at configurable detail levels</li>
+            <li><strong>Compression:</strong> LOD extracts code at configurable detail levels (no model needed)</li>
           </ul>
         </div>
       </div>

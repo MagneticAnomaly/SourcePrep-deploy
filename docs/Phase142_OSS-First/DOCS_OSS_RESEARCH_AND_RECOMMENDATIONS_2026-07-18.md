@@ -441,3 +441,196 @@ REPO_TOPOLOGY inconsistency.)
 9. **Marketing sweep** (5.4) — the same BERT/LLMLingua-2 and no-suffix-GitHub-URL
    stale claims recur in `packages/ui` + marketing; coordinate so docs and
    marketing land consistent wording.
+
+## 6. Pass 4 — Structural scrutiny via prep MCP (2026-07-19)
+
+A 46-agent workflow (`docs-structural-scrutiny`, run `wf_60bc3c6d-ca8`) re-audited
+the docs against the live app **structurally**, not lexically. Nine reverse-engineer
+agents (one per claim cluster) used `prep_search` + `prep_impact` + `Read` to verify
+wiring, then each finding was adversarially re-verified by an independent agent.
+Counts: 36 raw findings → 34 CONFIRMED-FALSE, 1 INTENTION-ONLY, 0 INSUFFICIENT,
+1 refuted-TRUE (the audit caught and dismissed its own false positive).
+
+### 6.1 Reconciliation — worktree-base artifacts (critical)
+
+The workflow agents ran in worktrees branched from `origin/main` (`6dc42b85`),
+which does **not** include the local pass-1/2/3 commits (`a6ad1c7f`, `31e8d210`,
+`04e108a0`). So many "CONFIRMED-FALSE" findings describe text the working tree
+already fixed. **Every finding was re-grepped against the actual working tree
+before applying.** Worktree artifacts skipped (already fixed locally):
+
+- `S13` ("`prep audit` CLI command" at codebase-audit:347) — working tree already
+  says "trigger an audit via the MCP `prep_audit` tool, the REST API, or the
+  dashboard Audit panel."
+- `S17` (audit-enrichment:134 `hub_status = "unknown"`) — already `hub_status:
+  "low"`, `dependents: 0`.
+- `S25` (installation:85 "Payments are processed by Lemon Squeezy") — already
+  removed (pass-1, `a6ad1c7f`).
+- `S27` (models:222 "optional 178 MB BERT model") — already "no model needed"
+  (pass-3, `04e108a0`).
+- `S31` main claim (concurrency-discovery:79 🌧️ rain icon) — already `8/12 ↗`.
+- All eight §6.4 "INCOMPLETE pass-3" roster entries except two residuals
+  (embeddings GPU badge :43 + table :124; compression nav label :16) — the
+  roster's "did not land" claims were worktree artifacts; pass-3 did land them
+  on the working tree.
+
+This re-confirms the pass-3 lesson: **workflow findings must be reconciled
+against the actual working tree before applying.**
+
+### 6.2 Safe-now fixes APPLIED this pass (24 fixes, all code-verified)
+
+Every fix below was verified against the cited code (not just the workflow's
+claim) before editing. `tsc --noEmit` clean on both `websites/apps/docs` and
+`packages/ui`.
+
+| # | file:line | was (false) | now (true, code-verified) |
+|---|---|---|---|
+| S1 | embeddings:85-87; models:160-162 | "Runs entirely on CPU — no GPU" | "Runs on CPU by default with automatic GPU acceleration (CoreML/CUDA/DirectML) when available" — `NativeEmbedder._detect_onnx_providers` (embedder.py:409-445), `MLComputeUnits="CPUAndGPU"` (:496), class docstring "GPU acceleration is automatic when available" (:708). |
+| S1b | embeddings:93 badge | "CPU only · no GPU needed" | "CPU default · GPU auto when available" |
+| S2 | enterprise-deploy:301 | "Audit logging" row = Roadmap | Available — `audit_log.py` built/mounted (server.py:821,833), POST/GET `/admin/audit-log` (settings.py:539,565), `feature_gate.py:61` gates to ENTERPRISE. (Code caveat surfaced separately: `/admin/audit-log` endpoints don't call `require_feature('audit_log')` — enforcement gap, not a docs fix.) |
+| S3 | compression:136,142 | Tier 2 Neighbour "LOD 2 (signatures)"; Tier 2.5 Hub "4 at LOD 2" | "LOD 2.5 (sigs + docstrings)"; "4 at LOD 2.5" — `context_tier.py:64` `neighbor_lod=25`, `:78` `hub_lod=25` (both "LOD 2.5"); `lod_extractor.py:662` dispatches `lod==25`→`_build_lod25`. |
+| S4 | compression:193-207 | "select LOD (Structural) from the Compression dropdown"; curl sends `"compression":"lod"` | "LOD compression is always applied. In the Context Assembler panel, click Assemble…"; dropped `"compression":"lod"` (silently dropped — no such field; `types.ts:1294` `context_compression` is `@deprecated LOD compression is always-on`). |
+| S5 | compression:165-167 | Flow diagram: 3 thresholds/tier → LOD 0/2/4 (no LOD 5) | Added 4th branch per tier (`<0.15`/`<0.20`/`<0.25` → LOD 5) — `lod_extractor.py:540-578` `assign_lod` has 4 outcomes (return 0/2/4/5). |
+| S7 | cli/commands:178-182 | `prep flow <query>` "Visualizes the RAG flow for a given query" | `prep flow` "Renders a demo RAG-flow visualization… A real query-driven flow is not yet wired" — `cli.py:1330-1364` signature is `flow(project_id,host,port)`, hardcoded `demo_flow` dict, comment "For now just show demo." |
+| S8 | cli/commands:76 | `prep status` "Prints the health of the daemon, connected projects, and index statistics" | "Prints index status for a project… Pass an optional `<project_id>`… (For a daemon-wide overview, use `prep overview`.)" — `cli.py:480-529` calls only `/projects/{pid}/status`; `overview` is the separate `:1197` command. |
+| S9 | mcp/page.tsx:27 | "plus MCP-aware VS Code extensions (Cline, Roo, CodeGPT)" | "plus MCP-aware VS Code extensions like Cline" — `mcpSetup.ts` has 6 IDE entries (no Roo/CodeGPT); `mcp_config.py` has no roo/codegpt target. |
+| S10 | codebase-audit:150-152 | `POST /projects/{id}/audit` "Trigger audit (Tier 1 + optional Tier 2)" | `POST /projects/{id}/pipeline/stages/audit/run` "Trigger audit as a finalize stage through the orchestrator (runs Tier 1, then attempts Tier 2…)" — `audit.py:37-42` deletion comment; real trigger `pipeline.py:309`. |
+| S11 | codebase-audit:30-32; 344-347 | "AutoAudit is **not** a pipeline stage. It's an independent tool" | "AutoAudit is a finalize pipeline stage (stage 14 of 15, running in finalize wave 2 after deep enrichment)…" — `stages.py:31` `AUDIT="audit"`, `:76` FINALIZE_STAGES, `:50` BuildType.AUDIT; `workers/__init__.py:478,1794` `_audit_worker`. |
+| S12 | codebase-audit:302-311 | Settings table rows `auto_run_after_deep` + `auto_synthesize` | Removed both rows — dead config: only refs are `config_manager.py:198-199` (defaults) + `packages/ui/types.ts:1461` (type) + docs; `_load_audit_config` reads neither. |
+| S14 | codebase-audit:351 | "If `auto_run_after_deep` is enabled, Tier 1 analyzers run automatically…" | "If the per-project `auto_config.finalize` is set to `auto`, the audit stage runs automatically (Tier 1 + Tier 2) when deep enrichment completes" — `orchestrator.py:1923-1942` `_is_finalize_auto`. |
+| S15 | codebase-audit:288-291 | "configurable via the dashboard Settings panel or the `audit_config` section" | "configurable via the `audit_config` section in `ui_config.json` (edit the file directly; thresholds are read at audit-run time)" — no dashboard Settings page exposes audit_config (grep empty across 13 settings pages). |
+| S16 | codebase-audit:282-284; 352 | "indexed by SourcePrep's search engine…query them via `prep_search`" | "served via the audit REST API (GET `/audit/reports`, GET `/audit/report/{name}`) and through the MCP `prep_audit` tool with action `report`" — audit `.md` writes to `.sourceprep/audit/` which is walker-excluded (`repo_profile.py:12`); access is REST/MCP `action=report`, not `prep_search`. |
+| S18 | graph-enrichment:246-250 | Score Decay table presents 5 events as live | Tagged the 3 dead events "(planned)" + footnote "Only the first two events are wired in production today" — `apply_decay` has ONE production callsite (`deepening.py:203` `neighbor_enriched`); `doc_updated`/`trace_rebuilt`/`module_resynthesized` have zero production callers. |
+| S19 | graph-enrichment:224 | "The Atlas Lens is what consumes the understanding score" | "The Atlas Lens projects the codebase through role-specific lenses… using the epistemic enrichment produced during Enrich — architecture layers, domain tags, and per-node confidence" — `compute_role_relevance` (atlas/role_projection.py:325) takes `epistemic_confidence` (raw float, default 0.5), NOT the composite; composite consumers are only `epistemic_score.py`/`deepening.py`/`post_flight.py`. |
+| S20 | graph-enrichment:256-258 | "the Deepening stage processes this queue until the graph converges or the token budget is exhausted" | "until the graph converges or the iteration limit is reached (max 10 deepening passes)" — `ConvergenceTracker` (`deepening.py:224-316`) `max_iterations=10`, `budget_exhausted` = max iterations; no token counter. |
+| S21 | graph-enrichment:256 | "File C…decays even less" (implies hop-attenuation) | "decays by the same factor…each non-stale neighbor decayed once (×0.95 against its original score)" — `deepening.py:190-206` applies `apply_decay(old_score,"neighbor_enriched")` per hop, `old_score` = original composite, guard `if neighbor not in report.decayed_nodes` (:201). |
+| S23 | byok-batching:152-160 | "When supported by the provider (OpenAI, Anthropic, Google)" | "When supported by the provider (OpenAI, Google, and Ollama for supported models)… For providers without structured output support (such as Anthropic), SourcePrep falls back to robust JSON extraction" — Anthropic payload (`llm_client.py:1079-1091`) drops `response_schema`; `response_format` set only for OpenAI (:988) / Ollama (:814). |
+| S24 | byok-batching:168 | "subdivides the batch and retries the pieces — falling back to processing items individually in production" | "In production, a failed batch falls back directly to processing items individually (no subdivision)… A test-only exploratory mode subdivides the batch" — `batch_strategy.py:370-373` production `return [[item] for item in failed_items]`; exploratory `:361-369` subdivides. |
+| S26 | embeddings:43,124 | badge "GPU required (Ollama)"; table GPU? "Required" | "GPU recommended (Ollama)"; "Recommended" — `OllamaEmbedder` (embedder.py:117-179) never probes/enforces a GPU; pass-2 softened models but missed these two embeddings locations. |
+| S28 | `packages/ui` AIModelsSettings.tsx:1167 | "Compression: LLMLingua-2 prunes docs/markdown tokens; LOD extracts code" | "Compression: LOD extracts code at configurable detail levels (no model needed)" — `_get_compressor` (search.py:369-375) returns `NoopCompressor()` unconditionally; ships in the real dashboard (`useDashboardPanels.tsx:688`) AND the docs models live-preview. |
+| S29 | compression:16 | SECTIONS nav label `language-compression` = "Coming Soon" | "Roadmap" — pass-3 rewrote the section body to "Roadmap: Language Compression…removed it" (`:292`) but left the nav label contradicting it. |
+| S30 | `packages/ui` mcpSetup.ts:103-104 | `file: '~/.codeium/windsurf/mcp_config.json'`, `fileHint: 'Global config (applies to all projects)'` | `'.windsurf/mcp.json'`, `'Project root'` — canonical generator `prep mcp-config` emits `.windsurf/mcp.json` (`mcp_config.py:125-127`); pass-3 fixed the troubleshooting page but never touched the single-source registry that `/mcp/ides` renders verbatim. |
+
+### 6.3 Eric-gated (new, E16–E19) — flag, not applied
+
+**E16 — installation:81** "free to use with all features included and unlimited
+projects — you can build the desktop app yourself from source. See the repository
+LICENSE for licensing details." The specific "3 active projects" sub-claim the
+worktree flagged is a worktree artifact (already removed locally), but the
+surviving text raises two genuine product-truth questions for Eric: (a) is
+"all features included" honest when `feature_gate.py:60-61` gates `team_config`
+(Team) and `audit_log` (Enterprise)? (b) does "build the desktop app from source"
+survive the current proprietary LICENSE (see E19)? **Recommended:** Eric decides
+the honest phrasing; until then do not silently rewrite.
+
+**E17 — concurrency-discovery:90-95** `DemoLLMStatusWidget` caption "each cloud
+endpoint shows its live concurrency state and last-probe outcome." The widget
+(`LLMStatusWidget.tsx`) shows connectivity only (connected/disconnected/disabled);
+concurrency/probe state lives in the separate `ConcurrencyHealth` panel the page
+already points to at :84-88. **Recommended:** (a) drop the redundant
+`DemoLLMStatusWidget` block, or (b) replace with a `DemoConcurrencyHealth`
+snippet. License-neutral; gated only on drop-vs-replace.
+
+**E18 — enterprise-deploy:287** "Offline licensing…Ed25519-signed license files,
+no phone-home after activation." The path is mechanically real and local
+(`verify_license_key` licensing.py:24, live not dead) BUT the verifying public
+key is a hardcoded **placeholder** — `licensing.py:22 DEFAULT_PUBLIC_KEY_HEX` =
+the RFC 8032 Ed25519 test vector; comments :17-21 say "random…for
+demonstration/dev purposes." Anyone with the test private key can forge an
+enterprise license. **This is the structural trap grep misses:** the symbol
+exists and routes, so a string audit says "true," but the crypto guarantee is a
+placeholder the code flags as dev-only. **Recommended:** (a) add a qualifier
+matching marketing ("Ed25519 offline verification is planned for the Pro
+installer; the current license crypto is placeholder and being replaced before
+launch"), or (b) move the row to Roadmap alongside SSO/SCIM.
+
+**E19 — installation:81-82** (INTENTION-ONLY) "build the desktop app yourself
+from source. See the repository LICENSE." Building from source requires
+copying/modifying — exactly what `LICENSE:10-12` forbids ("NO REDISTRIBUTION:
+You may not copy, modify, merge, publish, distribute…without prior written
+consent"). The claim is contradicted by the very LICENSE it defers to.
+Apache-2.0+DCO is decided but not applied. **Recommended:** (a) soften to future
+tense matching marketing ("an Apache-2.0 open-source release is planned, which
+will allow building the desktop app from source"), or (b) wait for the relicense
+to land on root LICENSE before claiming build-from-source.
+
+### 6.4 Flagged to Eric but not applied (from the safe-now set)
+
+- **S6 — concurrency-discovery:74** uses `cloud:default_ollama` as the running
+  example for the 🔒 locked state, but `default_ollama` has `auto_detect: false`
+  (`concurrency_limits.json:8`), so `_derive_node_state` can never return
+  "locked" for it (`scheduler.py:281-301` requires `discovered_ceiling is not
+  None`). The locked example is unreachable for the provider the page uses
+  throughout. **Recommended:** swap the running example to an auto-detect
+  provider (`cloud:my-openai`) OR add a callout that Ollama Cloud/Gemini/Kimi use
+  the user's max as authoritative. Gated on Eric's choice of provider naming.
+- **S22 — enterprise-deploy:248** "No telemetry. SourcePrep does not phone home…"
+  (present-tense blanket) folds into the existing **E5/E13** phone-home cluster:
+  the license router phones home to `api.lemonsqueezy.com` every 7 days
+  (`lemon_squeezy.py:140-156`, `VALIDATION_INTERVAL_SECONDS=7d` `:43`). Docs are
+  less conservative than marketing (`security/page.tsx:149-150` "the current
+  license crypto is being replaced before launch"). A license-neutral hedge is
+  possible but Eric owns the wording (E5) — do not auto-apply.
+
+### 6.5 Refuted (settled TRUE, no change)
+
+- **graph-enrichment:33** — Stage 6 labeled "Epistemic scoring — layers,
+  domains, confidence ratings." Verifier confirmed the composite is computed in
+  stage 9 (via `DeepeningLoop`), not stage 6, but the label is defensible: stage
+  6's `EpistemicEnricher.run` does produce per-node `epistemic_confidence` ratings
+  (`epistemic_enrichment.py:645-652`), and the dash clause says "confidence
+  ratings," not "understanding score." Style nit only — not reported per
+  pass-3 instructions. (Surfaced during this verification: the "Understanding
+  Score" section at :197-223 was already corrected to "five dimensions" by
+  pass-3 — confirmed in the working tree.)
+
+### 6.6 Dogfooding notes — what prep MCP surfaced that grep could not
+
+The structural pass's value was **concentrated in a few high-leverage findings,
+not uniform across the set.** Most safe-now fixes (S3–S16, S20–S21) could be
+settled by `grep` + `Read` once you knew where to look; prep's marginal value
+there was confirming zero dependents / dead config (real but modest). The
+findings where prep MCP genuinely changed the verdict vs. a lexical audit:
+
+- **S19 (Atlas Lens)** — prep_search intent=trace + cross-package grep for
+  `.composite`/`EpistemicScore` across `atlas/`/`api/`/dashboard proved "consumes
+  the understanding score" is a mis-attribution. grep alone over the single docs
+  file could not have ruled out a hidden composite consumer in another package.
+- **S22 (no-telemetry)** — grep for "telemetry"/"phone home" in `license.py`
+  returns nothing; the claim and code share no vocabulary. Only
+  `prep_impact` on `license.py` (3 dependents incl. `server.py` confirming the
+  router is mounted) + Read of the LemonSqueezy POST path exposed the live
+  phone-home.
+- **E18 (Ed25519 placeholder)** — `prep_impact` confirmed `verify_license_key`
+  is wired into the license router (live, not dead) — precisely why a string
+  audit says "true" while the crypto guarantee is a placeholder. The structural
+  trap is that the symbol exists and routes; only reading the key value + the
+  self-documenting comments reveals the defect.
+
+**prep_search index gaps worth flagging (product feedback):** symbol-locate
+returned `NODE_NOT_FOUND` for real, exported, called symbols — `assign_lod`
+(S5), `compute_all_scores`/`compute_epistemic_score` (refuted finding),
+`query_audit_log`/`export_audit_log` (S2), `auto_run_after_deep`/`auto_synthesize`
+(S12). grep+Read was the settling fallback each time. A docs-claim-vs-legal-file
+comparator (E19) is a class of question prep MCP has no instrument for — the
+LICENSE has no symbols, imports, or call graph.
+
+**Net dogfooding verdict:** prep MCP's marginal value over a disciplined
+grep+Read audit is real but **narrow** — it shines on cross-package
+mis-attribution (S19), vocabulary-mismatched claims (S22), and
+exists-but-placeholder traps (E18). For the bulk of factual code-corrections,
+grep was sufficient once the workflow pointed at the right file:line. The
+46-agent structural pass found 24 genuine new fixes pass-3 missed (esp. the
+codebase-audit pipeline-connection cluster, LOD 2.5, and the Anthropic
+structured-output gap) — most of which a careful human grep would also catch,
+but prep MCP raised confidence that no hidden callers/wiring contradicted the
+fix.
+
+### 6.7 Cumulative totals
+
+- Pass 1: 6 fixes. Pass 2: 16 fixes + 1 revert. Pass 3: 24 fixes + V2.
+- Pass 4: 24 safe-now fixes (table above) + 4 new Eric-gated items (E16–E19) +
+  2 flagged-but-deferred (S6, S22→E5).
+- **Grand total: ~70 docs/UI fixes across 4 passes.** Docs + `packages/ui`
+  `tsc --noEmit` clean. No codename leaks. No premature license assertions.
+  All Eric-gated items (E1–E19) collected in §3/§5.3/§6.3 for batch decision.

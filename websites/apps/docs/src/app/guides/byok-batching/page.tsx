@@ -149,13 +149,13 @@ export default function Page() {
 
           <AnchorHeading id="structured-output" level="h2">Structured Output &amp; Reliability</AnchorHeading>
           <p>
-            When supported by the provider (OpenAI, Anthropic, Google), SourcePrep uses{' '}
+            When supported by the provider (OpenAI, Google, and Ollama for supported models), SourcePrep uses{' '}
             <span className="font-semibold text-text">structured output mode</span> &mdash; a JSON schema that guarantees the model
             returns valid, correctly-formatted results. This eliminates parse errors and ensures
             every item in the batch produces a usable result.
           </p>
           <p>
-            For providers without structured output support, SourcePrep falls back to robust JSON
+            For providers without structured output support (such as Anthropic), SourcePrep falls back to robust JSON
             extraction with automatic retry for any items that fail to parse.
           </p>
 
@@ -165,7 +165,7 @@ export default function Page() {
           </p>
           <ol className="list-decimal pl-6 space-y-2">
             <li>Retries automatically on rate-limit (HTTP 429).</li>
-            <li>On other failures, subdivides the batch and retries the pieces — falling back to processing items individually in production.</li>
+            <li>In production, a failed batch falls back directly to processing items individually (no subdivision) to minimize latency and cost. A test-only exploratory mode subdivides the batch to locate exact failure boundaries.</li>
           </ol>
           <p>
             No data is lost &mdash; failed items are always retried, and partial progress is saved.

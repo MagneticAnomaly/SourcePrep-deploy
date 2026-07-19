@@ -157,7 +157,7 @@ export default function Page() {
                 </li>
                 <li>
                   <span className="font-semibold text-text">Built-in ONNX (default)</span> — the same nomic-embed-text model shipped
-                  as a ~132 MB quantized ONNX file. <span className="font-semibold text-text">Runs entirely on CPU</span> — no GPU,
+                  as a ~132 MB quantized ONNX file. <span className="font-semibold text-text">Runs on CPU by default with automatic GPU acceleration (CoreML/CUDA/DirectML) when available</span> —
                   no Ollama, no external service. Downloads automatically on first build and is cached
                   at <code className="text-xs">~/.cache/huggingface/</code>.
                   CPU inference is perfectly fine: embedding happens at build time (not per-query),

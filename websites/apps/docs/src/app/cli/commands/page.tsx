@@ -73,7 +73,10 @@ export default function Page() {
           <AnchorHeading id="status" level="h2" className="mt-8">prep status</AnchorHeading>
           <pre className="overflow-x-auto text-sm"><code>prep status</code></pre>
           <p className="text-sm text-text-muted">
-            Prints the health of the daemon, connected projects, and index statistics (file count, vector count).
+            Prints index status for a project &mdash; Embeddings Index readiness (chunk count, embedding
+            model, last build time) and Code Graph readiness (node/edge counts). Pass an optional
+            <code> &lt;project_id&gt;</code> or run from inside the project directory. (For a daemon-wide
+            overview across all projects, use <code>prep overview</code>.)
           </p>
 
           <AnchorHeading id="mcp" level="h2" className="mt-8">prep mcp</AnchorHeading>
@@ -173,10 +176,10 @@ export default function Page() {
           </p>
 
           <AnchorHeading id="flow" level="h3" className="mt-6 text-xl font-semibold">prep flow</AnchorHeading>
-          <pre className="overflow-x-auto text-sm"><code>prep flow &lt;query&gt;</code></pre>
+          <pre className="overflow-x-auto text-sm"><code>prep flow</code></pre>
           <p className="text-sm text-text-muted">
-            Visualizes the RAG flow for a given query — how it routes through query intent
-            classification, semantic retrieval, trace expansion, and context assembly.
+            Renders a demo RAG-flow visualization (query &rarr; retrieval &rarr; trace expansion &rarr;
+            context assembly) using sample data. A real query-driven flow is not yet wired to the CLI.
           </p>
 
           <AnchorHeading id="opportunities" level="h3" className="mt-6 text-xl font-semibold">prep opportunities</AnchorHeading>

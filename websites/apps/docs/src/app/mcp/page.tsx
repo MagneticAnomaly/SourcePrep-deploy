@@ -24,7 +24,7 @@ export default function Page() {
               <span className="text-text-muted">→</span>
             </div>
             <p className="text-text-muted">
-              Cursor, Windsurf, Antigravity, VS Code (via Copilot), and Zed — plus MCP-aware VS Code extensions (Cline, Roo, CodeGPT).
+              Cursor, Windsurf, Antigravity, VS Code (via Copilot), and Zed — plus MCP-aware VS Code extensions like Cline.
             </p>
           </a>
 

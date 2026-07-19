@@ -40,7 +40,7 @@ export default function Page() {
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-text-muted">
                 <span>3 584-dim embeddings (Matryoshka-truncated to 768)</span>
                 <span>·</span>
-                <span>GPU required (Ollama)</span>
+                <span>GPU recommended (Ollama)</span>
                 <span>·</span>
                 <span>~4 GB download</span>
               </div>
@@ -82,15 +82,16 @@ export default function Page() {
               </div>
               <p className="text-sm text-text-muted leading-relaxed">
                 The same nomic-embed-text model, shipped as a quantized ONNX file that SourcePrep
-                downloads automatically from HuggingFace. <span className="font-semibold text-text">Runs entirely on CPU — no GPU,
-                no Ollama, no external service needed.</span> CPU inference is perfectly fine for
+                downloads automatically from HuggingFace. <span className="font-semibold text-text">Runs on CPU by default with
+                automatic GPU acceleration (CoreML on Apple Silicon, CUDA on NVIDIA, DirectML on Windows)
+                when available — no Ollama, no external service needed.</span> CPU inference is perfectly fine for
                 indexing and search; embedding speed is not a bottleneck in normal usage. This is the
                 zero-config default for any machine without Ollama.
               </p>
               <div className="mt-3 flex flex-wrap gap-4 text-xs text-text-muted">
                 <span>768-dim embeddings</span>
                 <span>·</span>
-                <span>CPU only · no GPU needed</span>
+                <span>CPU default · GPU auto when available</span>
                 <span>·</span>
                 <span>~132 MB download (auto, one-time)</span>
                 <span>·</span>
@@ -120,7 +121,7 @@ export default function Page() {
                 <tr>
                   <td className="py-2 pr-4 font-mono text-xs">nomic-embed-code</td>
                   <td className="py-2 pr-4 text-text-muted">~4 GB</td>
-                  <td className="py-2 pr-4 text-text-muted">Required</td>
+                  <td className="py-2 pr-4 text-text-muted">Recommended</td>
                   <td className="py-2 pr-4 text-right text-text-muted">82.1%</td>
                   <td className="py-2 pr-4 text-right text-text-muted">~148 ms</td>
                   <td className="py-2 text-text-muted">Large code repos, Ollama users</td>

@@ -100,8 +100,8 @@ export const MCP_TOOLS: McpToolConfig[] = [
     id: 'windsurf',
     name: 'Windsurf',
     category: 'ide',
-    file: '~/.codeium/windsurf/mcp_config.json',
-    fileHint: 'Global config (applies to all projects)',
+    file: '.windsurf/mcp.json',
+    fileHint: 'Project root',
     serverKey: 'mcpServers',
     notes: null,
     config: {

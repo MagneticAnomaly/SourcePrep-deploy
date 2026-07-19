@@ -27,9 +27,11 @@ export default function Page() {
           <p>
             AutoAudit analyzes your trace graph (nodes, edges, augmentations,
             epistemic enrichment, modules, and atlas) to produce structured
-            findings and optional LLM-generated reports. It runs as an
-            independent tool — not a pipeline stage — so you trigger it when
-            you want insights, not on every file change.
+            findings and optional LLM-generated reports. It is a finalize pipeline
+            stage (stage 14 of 15, running in finalize wave 2 after deep enrichment),
+            so it runs automatically when the project&apos;s finalize group is set to
+            auto &mdash; and you can also re-trigger it on demand via the dashboard Audit
+            panel, the MCP <code>prep_audit</code> tool, or the REST stage-run endpoint.
           </p>
           <p className="mt-4">
             <strong>AutoAudit V2</strong> transforms SourcePrep from a "passive observer" into an "active taskmaster". Findings are categorized into flat tabs (Architecture, Quality, Coverage, Tech Debt), prioritized, and include concrete actionable items. You can select findings and click <strong>"Copy AI Command"</strong> to instantly hand off the context assembly to your AI via MCP.
@@ -146,8 +148,8 @@ prep opportunities --priority P0 --format ai_prompt`}</code></pre>
               <tbody className="text-text-muted">
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">POST</td>
-                  <td className="py-2 pr-4 font-mono text-xs">/projects/&#123;id&#125;/audit</td>
-                  <td className="py-2 text-xs">Trigger audit (Tier 1 + optional Tier 2)</td>
+                  <td className="py-2 pr-4 font-mono text-xs">/projects/&#123;id&#125;/pipeline/stages/audit/run</td>
+                  <td className="py-2 text-xs">Trigger audit as a finalize stage through the orchestrator (runs Tier 1, then attempts Tier 2 synthesis; Tier 2 is skipped only on synthesis failure)</td>
                 </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">GET</td>
@@ -277,15 +279,18 @@ prep opportunities --priority P0 --format ai_prompt`}</code></pre>
 /path/to/project/.sourceprep/audit/
   └── (same files)`}</code></pre>
           <p>
-            These files are also indexed by SourcePrep&apos;s search engine, so you can
-            query them via <code>prep_search</code> (e.g., &quot;what tech debt
-            exists in the auth module?&quot;).
+            These files are served via the audit REST API (GET <code>/projects/&#123;id&#125;/audit/reports</code>,
+            GET <code>/projects/&#123;id&#125;/audit/report/&#123;name&#125;</code>) and through the MCP
+            <code>prep_audit</code> tool with action <code>report</code>, so your AI tools can
+            retrieve them by name. (In embedded mode the <code>.sourceprep/audit/</code> directory
+            is excluded from the walker, so reports are not surfaced via <code>prep_search</code>.)
           </p>
 
           <AnchorHeading id="settings" level="h2">Settings</AnchorHeading>
           <p>
-            Audit behavior is configurable via the dashboard Settings panel or
-            the <code>audit_config</code> section in <code>ui_config.json</code>:
+            Audit behavior is configurable via the <code>audit_config</code> section in
+            <code>ui_config.json</code> (edit the file directly; thresholds are read at
+            audit-run time):
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -297,16 +302,6 @@ prep opportunities --priority P0 --format ai_prompt`}</code></pre>
                 </tr>
               </thead>
               <tbody className="text-text-muted">
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">auto_run_after_deep</td>
-                  <td className="py-2 pr-4 text-xs">false</td>
-                  <td className="py-2 text-xs">Auto-run Tier 1 after deep enrichment completes</td>
-                </tr>
-                <tr className="border-b border-border/50">
-                  <td className="py-2 pr-4 font-mono text-xs">auto_synthesize</td>
-                  <td className="py-2 pr-4 text-xs">false</td>
-                  <td className="py-2 text-xs">Also generate LLM reports when auto-running</td>
-                </tr>
                 <tr className="border-b border-border/50">
                   <td className="py-2 pr-4 font-mono text-xs">large_file_threshold_bytes</td>
                   <td className="py-2 pr-4 text-xs">80,000</td>
@@ -340,14 +335,13 @@ prep opportunities --priority P0 --format ai_prompt`}</code></pre>
 
           <AnchorHeading id="pipeline-connection" level="h2">Pipeline Connection</AnchorHeading>
           <p>
-            AutoAudit is <strong>not</strong> a pipeline stage. It&apos;s an independent
-            tool that reads the same data the pipeline writes. The connection:
+            AutoAudit is a finalize pipeline stage. The connection:
           </p>
           <ol className="list-decimal pl-6 space-y-2">
             <li>The enrichment pipeline runs to completion and produces trace_nodes, trace_augmented, trace_epistemic, trace_modules, and atlas.json.</li>
-            <li>You trigger an audit (via the MCP <code>prep_audit</code> tool, the REST API, or the dashboard Audit panel) when you want insights. The audit reads all that data and produces findings + reports.</li>
-            <li>If <code>auto_run_after_deep</code> is enabled, Tier 1 analyzers run automatically when deep enrichment completes.</li>
-            <li>Audit reports are indexed by SourcePrep&apos;s search engine and served via MCP, so your AI tools can access them.</li>
+            <li>You trigger an audit (via the MCP <code>prep_audit</code> tool, the REST stage-run endpoint, or the dashboard Audit panel) when you want insights. The audit reads all that data and produces findings + reports.</li>
+            <li>If the per-project <code>auto_config.finalize</code> is set to <code>auto</code>, the audit stage runs automatically (Tier 1 + Tier 2) when deep enrichment completes, as part of the finalize group.</li>
+            <li>Audit reports are served via the audit REST API (GET <code>/projects/&#123;id&#125;/audit/reports</code>, GET <code>/projects/&#123;id&#125;/audit/report/&#123;name&#125;</code>) and through the MCP <code>prep_audit</code> tool with action <code>report</code>, so your AI tools can retrieve them by name.</li>
           </ol>
         </div>
       </div>
