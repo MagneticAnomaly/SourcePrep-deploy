@@ -47,8 +47,10 @@ export default function Page() {
       <div className="bg-surface border border-border rounded-xl p-8 shadow-sm">
         <h1 className="text-2xl font-bold text-text">Recover License</h1>
         <p className="mt-2 text-text-muted">
-          Lost your license key? Enter the email address you used during checkout 
-          and we&apos;ll send it to you.
+          Lost your license key? Enter the email address you used during checkout
+          and we&apos;ll get back to you, or email{' '}
+          <a href="mailto:licenses@sourceprep.io" className="text-primary hover:underline">licenses@sourceprep.io</a>{' '}
+          directly.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
