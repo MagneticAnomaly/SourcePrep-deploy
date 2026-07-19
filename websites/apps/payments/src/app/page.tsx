@@ -23,7 +23,7 @@ export default function Page() {
           <div className="rounded-xl border-2 border-primary bg-gradient-to-br from-primary/5 to-transparent p-6 flex flex-col items-center text-center relative">
             <Zap className="w-8 h-8 text-primary mb-3" />
             <h2 className="text-lg font-semibold">Pro</h2>
-            <p className="mt-1 text-sm text-text-muted">$79 one-time or $7/mo. Unlimited projects, all features.</p>
+            <p className="mt-1 text-sm text-text-muted">$29 one-time (Coming Soon). Signed installers, auto-updates, and email support.</p>
             <Button asChild className="mt-4 w-full">
               <a href={CHECKOUT_PRO || 'https://sourceprep.io/pricing'}>
                 {CHECKOUT_PRO ? 'Get Pro' : 'View Pricing'}
@@ -34,7 +34,7 @@ export default function Page() {
           <div className="rounded-xl border border-border bg-surface p-6 flex flex-col items-center text-center">
             <Users className="w-8 h-8 text-primary mb-3" />
             <h2 className="text-lg font-semibold">Team</h2>
-            <p className="mt-1 text-sm text-text-muted">$15/seat/mo. Shared config + centralized management.</p>
+            <p className="mt-1 text-sm text-text-muted">$9/seat/mo (3-seat minimum) &middot; $97/seat/yr annual. Shared index, SSO, RBAC, audit logs.</p>
             <Button asChild variant="outline" className="mt-4 w-full">
               <a href={CHECKOUT_TEAM || 'https://sourceprep.io/pricing'}>
                 {CHECKOUT_TEAM ? 'Start Team' : 'View Pricing'}
