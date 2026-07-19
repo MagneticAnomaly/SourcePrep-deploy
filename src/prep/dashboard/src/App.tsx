@@ -11,6 +11,7 @@ import {
   SidebarAIGateway,
   SidebarPipelineQueue,
   TeamSyncIndicator,
+  SyncStatusCard,
   // Dashboard
   ModularDashboard,
   // Project
@@ -1265,6 +1266,20 @@ function App() {
       >
         {selectedProject ? (
           <div className="w-full space-y-6">
+            {projectStatus?.sync && (
+              <SyncStatusCard
+                status={projectStatus.sync}
+                onSyncNow={async () => {
+                  if (!selectedProjectId) return
+                  try {
+                    await api.syncNow(selectedProjectId)
+                  } catch (e) {
+                    console.error('Sync now failed', e)
+                  }
+                  // status refreshes on the next /status poll
+                }}
+              />
+            )}
             <ModularDashboard
               key={selectedProjectId}
               panelDefinitions={allPanelDefs}

@@ -19,7 +19,7 @@ import type {
   SearchResponse,
   WatchActionResponse,
 } from './types';
-import type { LLMStatus, LicenseStatus, Project, ProjectSummary, ProjectStatus, TraceCoverage, TraceCoverageSummary, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun, AssignmentMode, LLMAssignmentBlock, ScopeRecord, ScopesListResponse } from '../types';
+import type { LLMStatus, LicenseStatus, Project, ProjectSummary, ProjectStatus, TraceCoverage, TraceCoverageSummary, TraceStatus, WatchStatus, GlobalConfig, ModelStatusResult, ModelReadinessStatus, AugmentationStatus, DeepAnalysisRunStatus, LLMSlotsStatus, EpistemicStatus, ModuleStatus, DeepeningStatus, KnowledgeEmbeddingStatus, GraphEngineStatus, PipelineStatus, CrashedPipelineRun, AssignmentMode, LLMAssignmentBlock, ScopeRecord, ScopesListResponse, SyncStatus } from '../types';
 
 export interface FileTreeNode {
   name: string;
@@ -85,6 +85,10 @@ export interface ApiClient {
   // Project status & build
   getProjectStatus(projectId: string): Promise<ProjectStatus>;
   buildProject(projectId: string, force?: boolean, includedPaths?: string[]): Promise<BuildProjectResponse>;
+
+  // Team Sync (Phase 06)
+  /** Force an immediate team-index sync (Team tier). Returns the refreshed SyncStatus. */
+  syncNow(projectId: string): Promise<SyncStatus>;
 
   // Search & context
   search(projectId: string, request: SearchRequest): Promise<SearchResponse>;
@@ -489,6 +493,14 @@ export class PrepApiClient implements ApiClient {
 
   async getProjectStatus(projectId: string): Promise<ProjectStatus> {
     return this.requestEnvelope<ProjectStatus>(`/projects/${encodeURIComponent(projectId)}/status`);
+  }
+
+  // ── Team Sync (Phase 06) ────────────────────────────────────
+
+  async syncNow(projectId: string): Promise<SyncStatus> {
+    return this.requestEnvelope<SyncStatus>(`/projects/${encodeURIComponent(projectId)}/sync/now`, {
+      method: 'POST',
+    });
   }
 
   async buildProject(projectId: string, full = false, includedPaths?: string[]): Promise<BuildProjectResponse> {

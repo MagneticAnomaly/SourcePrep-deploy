@@ -86,6 +86,19 @@ export class MockApiClient implements ApiClient {
     return MOCK_STATUS;
   }
 
+  async syncNow(): Promise<any> {
+    return {
+      enabled: false,
+      last_sync_at: null,
+      last_sync_commit: '',
+      remote_version: null,
+      remote_timestamp: null,
+      is_syncing: false,
+      behind_minutes: null,
+      error: null,
+    };
+  }
+
   async buildProject(): Promise<any> {
     return { started: true, building: true, build_id: 'build_mock_001' };
   }
