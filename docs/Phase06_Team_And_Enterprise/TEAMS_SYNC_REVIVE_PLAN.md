@@ -19,14 +19,21 @@ Executed subagent-driven on branch `phase06-teams-sync-revive`. Scope decisions 
 | 1 — Test rot → green baseline | ✅ done + reviewed | `.runprep` sweep + stage-count/embedder fix; **also fixed a pre-existing flaky mock-embedder** (signed random vectors under `min_score>=0`). Suite deterministically green. |
 | 2 (folded into 1) | ✅ | — |
 | 3 — License-gate bypass | ✅ done + reviewed | Gated poll at the `get_project_sync_status` chokepoint; status read still returned. |
-| 4 — `strip_source_content` | ✅ done + reviewed | Fail-closed capability at upload boundary, default OFF. **Follow-up (P2-4):** the headless/CLI upload path can't toggle it on yet — only the daemon can. |
+| 4 — `strip_source_content` | ✅ done + reviewed | Fail-closed capability at upload boundary, default OFF. **Follow-up (P2-4):** the enable path is entirely unwired — the daemon only *downloads* (can't strip on upload) and the headless uploader builds `S3Config.from_env()` which ignores the flag. `from_dict` now warns if it's set (F3). |
 | 5 — Publish image | ⏳ code done, **publish is Eric-run** | Namespace renamed (12 files). Publish via `gh workflow run docker-headless.yml` + set package public — see Task 5 steps. Do NOT tag (`release.yml` coupling). |
 | 6 — Dashboard Sync-Now | ✅ done + reviewed | Gated `POST /projects/{id}/sync/now` (run_in_executor) + `SyncStatusCard` via the typed `ApiClient`. **Also added a reentrancy guard** on `check_and_sync` (poll thread vs on-demand trigger). Live daemon click-through still recommended. |
 | 7 — Docs + gate | ✅ | This section + PROGRESS.md + handoff banner; final suite **134 passing**. |
 
-Suite gate: `pytest tests/test_{remote_sync,layered_index,headless_runner,s3_storage,team_sync_integration}.py` → **134 passed**, deterministic.
+Suite gate (scoped honestly): the **team-sync suite** — `pytest tests/test_{remote_sync,layered_index,headless_runner,s3_storage,team_sync_integration}.py` → **136 passed**, deterministic. The *full* repo suite is NOT green (~85 failures), but an adversarial pass confirmed **all of them are pre-existing / environment-coupled** (real `~/.runprep/license.json`, a configured LLM, trace-index build, a stale `test_mcp_server` 5-vs-6-tools assertion) and **none are attributable to this branch** (the set of failing test files and the set of files this branch changed are disjoint). So the claim is: the team-sync surface is green + deterministic; the branch introduced no regressions.
 
-Deferred review minors (non-blocking): gate-ordering test for `/sync/now` (bogus id + free → 403 not 404); no user-facing error surface on `onSyncNow` failure; `MockApiClient.syncNow` loose typing.
+### Adversarial verification pass (2026-07-18)
+8 skeptic agents tried to refute completeness; four fixes landed on top of the MVP:
+- **F1 (important):** `get_project_syncer` had a TOCTOU (non-atomic get-or-create) that handed out two `RemoteSyncService` instances under concurrent first-access (73% at 2 threads), **defeating the reentrancy guard**. Fixed with double-checked locking; the verifier's 2000-trial stress repro now reports 0 multi-instance. (`33823b6a`)
+- **F2 (important):** the background poll thread ignored license state after start, so a Team→Free downgrade **or license expiry** kept it hitting the team S3 bucket until restart (was deferred as P2-7). `_poll_loop` now re-checks `check_feature("team_config")` each cycle and self-terminates. (`6bc1e580`)
+- **F3:** `sync.strip_source_content` was a silent no-op (no upload path honors it yet); `from_dict` now warns so a Teams admin isn't misled. (`6bc1e580`)
+- **F-ux:** "Sync Now" now surfaces success / backend-error / failed-POST via toast instead of only `console.error`. (`af9ff984`)
+
+Still deferred (non-blocking): `stop_polling` on license-cache-clear (P2-7 belt-and-suspenders — F2 already closes the runtime hole); `/sync/now` HTTP test against an *enabled* config; gate-ordering 403-vs-404 test (verified correct at runtime); `MockApiClient.syncNow` loose typing; the 6 pre-existing `useEnrichment.ts` type errors (unrelated file). The plan's Task 6 Step 5 references `npm run typecheck` for the dashboard, which has no such script — use `npx tsc --noEmit`.
 
 ---
 
@@ -323,7 +330,7 @@ git add src/prep/services/project_helpers.py tests/test_team_sync_integration.py
 git commit -m "fix(phase06): gate team-sync polling on /status path behind team_config license"
 ```
 
-> **Deferred (see P2):** downgrade Team→Free does not stop an already-running poll thread until daemon restart. Tracked as P2-7.
+> **Runtime hole CLOSED (F2, verification pass):** the poll thread now re-checks `check_feature("team_config")` each cycle and self-terminates on a Team→Free downgrade **or license expiry**. The only remaining P2-7 nicety is *proactively* calling `stop_polling` the instant the license cache clears (belt-and-suspenders; F2 already bounds the exposure to one poll interval).
 
 ---
 
@@ -643,7 +650,7 @@ Ordered by leverage. Each is a **separate plan** when picked up (do not micro-st
 - **P2-2 — git-HEAD detection + git-diff delta (L).** The client sync trigger is a filesystem watcher, not git. Add `.git/HEAD` change detection + `git diff` vs the remote commit to compute changed files, and **fix the delta-build being unreachable for trace-enabled projects** (`watch.py` `trigger_build` returns via the pipeline orchestrator before the delta branch, so local edits go to the MAIN index and `local_deltas/` never populates — the exact projects this feature targets). *Handoff §3.3, §4 Phase C.*
 - **P2-3 — Base + Overlay GRAPH split (XL).** The embedding merge is real, but there is no `LayeredTraceIndex`; graph/trace queries hit only the remote base, so agents get **stale graph context for locally-changed files**. Build the read-only-base + read-write-overlay graph with dedup. This is the single largest deferred piece. *Handoff §4 Phase C item 1.*
 - **P2-4 — Enable + hydrate the content strip for hosted-Teams (M).** Two coupled pieces, both **required before any SourcePrep-hosted-bucket launch** (Task 4 landed only the fail-closed *capability*, default OFF):
-  - **Enable path (headless):** today only the daemon (`RemoteSyncService`) can set `strip_source_content`; the headless/CI upload path builds `S3Config.from_env()` (`cli.py:1435`) which reads no strip env/flag, so `sync-headless` can never turn it on. Add `PREP_S3_STRIP_SOURCE_CONTENT` to `from_env` (or a `--strip-source-content` CLI flag).
+  - **Enable path (headless):** NO code path can turn strip on today. The daemon (`RemoteSyncService`) parses `sync.strip_source_content` but only ever *downloads* (never calls `upload_index`), so it's inert there; the actual uploader (`sync-headless`) builds `S3Config.from_env()` (`cli.py:1435`) which reads no strip env/flag. Add `PREP_S3_STRIP_SOURCE_CONTENT` to `from_env` (or a `--strip-source-content` CLI flag) to wire it. (F3 added a warning so a misconfigured `strip=true` is at least not silent.)
   - **Client hydration:** with strip ON, the client must re-hydrate `content` from the working tree (line-slice via each doc's `span`, reconcile against `file_hash`, fall back to empty on drift; handle `span=None` synopsis chunks) — else `get_context` renders empty fences. *Handoff §5.*
 
 ### Distribution / infra
@@ -651,7 +658,7 @@ Ordered by leverage. Each is a **separate plan** when picked up (do not micro-st
 - **P2-6 — Team API key + hosted proxy (L).** Auth today is raw S3 creds handed to every dev (no "Team API key" concept exists). For hosted Teams, add a scoped Team API key + the proxy API the handoff posits, so credentials are centrally revocable. Includes the in-app "connect to team" onboarding UI deferred from Task 6. *Handoff §3.2, §4 Phase B.*
 
 ### Hardening (from the Mar-2026 code audit + gap analysis)
-- **P2-7 — Security + reliability backlog (S–M each).** SEC-1 Docker images run as root (add non-root `USER`); SEC-2 deprecate CLI secret flags; SEC-3 add auth to the Modal webhook; SEC-4 remove the redundant soft license gate in `HeadlessRunner`; **stop_polling on Team→Free downgrade** (deferred from Task 3); S3 download content-hash mismatch should **abort/rollback, not warn** (currently the bad index is already swapped in before the check). *Audit `TEAM_ENTERPRISE_CODE_AUDIT.md` + gap analysis.*
+- **P2-7 — Security + reliability backlog (S–M each).** SEC-1 Docker images run as root (add non-root `USER`); SEC-2 deprecate CLI secret flags; SEC-3 add auth to the Modal webhook; SEC-4 remove the redundant soft license gate in `HeadlessRunner`; **proactive `stop_polling` on license-cache-clear** (F2 already self-terminates the poll thread within one interval on downgrade *or* expiry; this is the belt-and-suspenders immediate-stop); S3 download content-hash mismatch should **abort/rollback, not warn** (currently the bad index is already swapped in before the check). *Audit `TEAM_ENTERPRISE_CODE_AUDIT.md` + gap analysis.*
 - **P2-8 — Model defaults + multi-model headless (S/M).** MODEL-1: bump headless defaults off `qwen3:4b` (below quality floor) to `qwen3.5:9b`. ARCH-1: add `--fast-model`/`--reasoning-model` so teams don't pay reasoning prices for JSON-extraction stages.
 - **P2-9 — Real end-to-end test coverage (M).** `HeadlessRunner.run()`, `S3StorageProvider.download_index()` (incl. zip-slip), the polling loop, and the real delta build are all untested or mocked-at-the-seam; `TestWatcherDeltaRouting` re-implements the routing inline instead of calling the real `watch.py trigger_build`. Add at least one test per seam that does **not** mock the seam under test (repo rule).
 - **P2-10 — Config unification + rename-hardening (S/M).** ARCH-2: `team_config.json` is parsed by two non-overlapping loaders (`core/team_config.py` ignores the `sync` section; `remote_sync.py` reads only it) — unify. Add an exported `EMBEDDED_DIR_NAME = ".sourceprep"` constant routed through `project_registry`/`remote_sync`/`team_config` so the `.runprep`-style rename-rot (Tasks 1–2) can't recur.

@@ -5,7 +5,9 @@
 > **⚠️ 2026-07-18 revive note.** The "Completed" claims below reflect Feb–Mar 2026.
 > This feature subsequently **rotted** (the `.runprep`→`.sourceprep` rename + Phase-139
 > embedder refactor + a stage-count change left ~23 team-sync tests failing on HEAD).
-> A revive pass on 2026-07-18 restored a deterministically green suite (**134 passing**),
+> A revive pass on 2026-07-18 restored a deterministically green **team-sync test suite**
+> (**136 passing** across the 5 team-sync files; the full repo suite has ~85 pre-existing,
+> environment-coupled failures unrelated to this work),
 > closed a license-gate bypass, added a fail-closed `strip_source_content` capability,
 > renamed the GHCR image namespace, and wired the dashboard "Sync Now" + `SyncStatusCard`.
 > See **`TEAMS_SYNC_REVIVE_PLAN.md`** for the authoritative current state and the Phase-2
