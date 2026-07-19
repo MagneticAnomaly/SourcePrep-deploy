@@ -42,7 +42,6 @@ confidence-threshold = 0.8
 # Ignore workspace-internal crates (our own crates have no published license
 # file; they're Apache-2.0 via the workspace Cargo.toml).
 ignore = true
-register = true
 
 [bans]
 # Duplicate-crate detection is informational, not blocking. We care about
