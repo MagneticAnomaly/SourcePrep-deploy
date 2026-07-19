@@ -24,17 +24,27 @@ varying float vTrailFade;
 void main() {
   float currentPhase = mod(aPhase + (uTime * aSpeed) + aOffset, 1.0);
 
-  // Orbit angle goes the full circle so particles loop around the moon.
-  float theta = currentPhase * 6.28318530718;
+  float dir = aDirection;
+  // Phase maps 0..1 to a half-arc: particles leave one pole, arc over, return to the other.
+  float theta = currentPhase * 3.14159265359;
+  if (dir < 0.0) {
+      theta = (1.0 - currentPhase) * 3.14159265359;
+  }
 
-  // Orbit radius is always outside the planet.
-  float orbitR = aRmax;
+  // Horizontal reach at the equator.
+  float radius_xz = aRmax * sin(theta);
 
-  // Flat ring in the XZ plane (group tilt gives it a subtle 3D angle).
+  // Vertical arc: very low so particles skim the poles and stay close to the moon.
+  float stretch = uPlanetRadius * 0.18;
+  float y = uPlanetRadius * cos(theta) + stretch * sin(theta) * cos(theta);
+
+  // Pull the arc outward so it stays well clear of the planet body at favicon scale.
+  radius_xz += uPlanetRadius * 0.35;
+
   vec3 localPos = vec3(
-    orbitR * cos(theta),
-    0.0,
-    orbitR * sin(theta)
+    radius_xz * cos(aPhi),
+    y,
+    radius_xz * sin(aPhi)
   );
 
   vec4 modelPosition = modelMatrix * vec4(localPos, 1.0);
@@ -43,17 +53,17 @@ void main() {
 
   gl_Position = projectedPosition;
 
-  // Larger favicon dots: less perspective shrink, bigger clamp
+  // Favicon dots: keep them round and visible at this scale.
   gl_PointSize = (uPointSize * (0.4 + 0.6 * aTrailFade)) * (400.0 / -viewPosition.z);
   gl_PointSize = clamp(gl_PointSize, 2.0, 80.0);
 
-  // Rainbow color based on orbit angle so the ring cycles through all hues.
-  float hueNorm = mod(theta / 6.28318530718, 1.0);
+  // Rainbow color based on arc longitude (aPhi) so different arcs show different hues.
+  float hueNorm = mod(aPhi / 6.28318530718, 1.0);
 
   vec3 aColor = vec3(0.5, 0.5, 0.5);
   vec3 bColor = vec3(0.5, 0.5, 0.5);
   vec3 cColor = vec3(1.0, 1.0, 1.0);
-  // Shifted offset to land on clearer rainbow primaries
+  // Offset to favor clear rainbow primaries
   vec3 dColor = vec3(0.20, 0.53, 0.87);
   vColor = aColor + bColor * cos(6.28318530718 * (cColor * hueNorm + dColor));
 
@@ -76,25 +86,25 @@ void main() {
   if (dist > 0.5) discard;
 
   // Crisp circular sprite with a soft inner glow
-  float alpha = pow(1.0 - (dist * 2.0), 3.2);
+  float alpha = pow(1.0 - (dist * 2.0), 3.6);
   if (alpha < 0.04) discard;
 
-  // Boost brightness so particles pop without post-process bloom
-  vec3 brightColor = vColor * 1.8;
+  // Saturated, crisp dots.
+  vec3 brightColor = vColor * 1.25;
   gl_FragColor = vec4(brightColor, alpha * vAlpha * vTrailFade);
 }
 `;
 
 export function FaviconParticles({
-  particleCount = 280,
-  planetRadius = 0.28,
-  rmaxRange = [0.85, 1.0],
-  baseSpeed = 0.06,
-  pointSize = 6.0,
-  cycleSpeed = 0.008,
-  tilt = [0.2, 0.15, 0.05],
-  arcBands = 12,
-  shellBands = 2,
+  particleCount = 200,
+  planetRadius = 0.45,
+  rmaxRange = [0.85, 1.1],
+  baseSpeed = 0.12,
+  pointSize = 3.4,
+  cycleSpeed = 0.025,
+  tilt = [0.5, 0.0, 0.15],
+  arcBands = 10,
+  shellBands = 3,
 }) {
   const materialRef = useRef();
 
@@ -122,18 +132,19 @@ export function FaviconParticles({
     const baseParticleCount = Math.floor(particleCount / 2);
 
     for (let i = 0; i < baseParticleCount; i++) {
-      // Evenly spread around the ring, plus a small jitter, so the rainbow is uniform.
-      const basePhase = i / baseParticleCount + (Math.random() - 0.5) * 0.04;
+      const basePhase = Math.random();
       const pSpeed = baseSpeed * (0.8 + Math.random() * 0.4);
 
-      const basePhi = (i / baseParticleCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.12;
+      // Quantize phi into longitudinal bands so we get distinct arcing streams.
+      const bandId = Math.floor(Math.random() * arcBands);
+      const basePhi = (bandId / arcBands) * Math.PI * 2 + (Math.random() - 0.5) * 0.35;
 
       const shellId = Math.floor(Math.random() * shellBands);
       const baseRmax = THREE.MathUtils.lerp(
         rmaxRange[0],
         rmaxRange[1],
         shellBands > 1 ? shellId / (shellBands - 1) : 0.5
-      ) + (Math.random() - 0.5) * (rmaxRange[1] - rmaxRange[0]) * 0.12;
+      ) + (Math.random() - 0.5) * (rmaxRange[1] - rmaxRange[0]) * 0.18;
 
       const baseDirection = Math.random() > 0.5 ? 1 : -1;
       const baseOffset = Math.random() * 100;
@@ -142,8 +153,8 @@ export function FaviconParticles({
         const index = i * TRACERS_PER_PARTICLE + j;
 
         const trailFade = 1.0 - (j / (TRACERS_PER_PARTICLE - 1));
-        // Tight delay so trails read as short dashes/dots hugging the moon
-        const phaseDelay = j * 0.003;
+        // Slightly longer delay than before so the arc shape reads, but still short for favicon scale.
+        const phaseDelay = j * 0.012;
 
         phases[index] = basePhase;
         speeds[index] = pSpeed;
