@@ -53,22 +53,24 @@ INDEX_ARTIFACTS = [
     "knowledge_manifest.json",
 ]
 
-# Artifacts whose payload includes raw source text (as opposed to metadata
-# derived from it). Only documents.json carries the `content` field written
-# at index.py:621 (content=ch.content).
+# Artifacts whose payload includes raw verbatim source (as opposed to text
+# derived from it). Only documents.json carries `content=ch.content`
+# (index.py:621). Other artifacts' `content` fields (e.g. knowledge_documents.json)
+# hold LLM-derived summaries, not raw source, so they are intentionally excluded.
+# A future "no source-derived text" guarantee for a hosted tier would additionally
+# need to weigh those derived-summary artifacts.
 _CONTENT_BEARING_ARTIFACTS = {"documents.json"}
 
 
 def _scrub_documents_json(raw_json: str) -> bytes:
     """Drop raw source ('content') from a documents.json payload, keeping
     metadata + span. Row order is preserved so embeddings.npy stays aligned."""
-    import json as _json
-    docs = _json.loads(raw_json)
+    docs = json.loads(raw_json)
     for d in docs:
         d.pop("content", None)
         d.pop("truncated", None)
         d.pop("original_size", None)
-    return _json.dumps(docs).encode()
+    return json.dumps(docs).encode("utf-8")
 
 
 @dataclass
@@ -222,7 +224,7 @@ class S3StorageProvider:
             with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as zf:
                 for artifact in artifacts:
                     if self.config.strip_source_content and artifact.name in _CONTENT_BEARING_ARTIFACTS:
-                        scrubbed = _scrub_documents_json(artifact.read_text())
+                        scrubbed = _scrub_documents_json(artifact.read_text(encoding="utf-8"))
                         zf.writestr(artifact.name, scrubbed)
                         total_bytes += len(scrubbed)
                     else:
