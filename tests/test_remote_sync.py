@@ -286,6 +286,25 @@ class TestRemoteSyncService:
         assert svc.check_and_sync() is False
         mock_s3.get_remote_manifest.assert_called_once()
 
+    def test_poll_loop_stops_when_license_lost(self, tmp_path, monkeypatch):
+        # A Team->Free downgrade or license expiry mid-run must self-terminate
+        # the poll thread rather than keep hitting the team S3 bucket until the
+        # daemon restarts.
+        root = self._make_project(tmp_path, {
+            "sync": {"enabled": True, "s3_bucket": "b"}
+        })
+        svc = RemoteSyncService(root)
+        svc.load_config()
+        svc.check_and_sync = MagicMock(return_value=False)   # never touch S3
+        svc._stop_event.wait = MagicMock(return_value=False)  # enter the loop body
+        import prep.core.feature_gate as fg
+        monkeypatch.setattr(fg, "check_feature", lambda feature: False)  # unlicensed
+
+        svc._poll_loop()  # must break out and return, not hang
+
+        # only the startup sync ran; the post-downgrade cycle broke before syncing
+        assert svc.check_and_sync.call_count == 1
+
     def test_status_dict(self, tmp_path):
         root = self._make_project(tmp_path)
         svc = RemoteSyncService(root)

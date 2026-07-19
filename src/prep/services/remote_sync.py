@@ -64,13 +64,25 @@ class TeamSyncConfig:
                 "poll_interval_minutes=%d is below minimum (%d). Using %d.",
                 raw_interval, cls.MIN_POLL_INTERVAL_MINUTES, safe_interval,
             )
+        strip = bool(sync.get("strip_source_content", False))
+        if strip:
+            # Honest guard: the capability exists in s3_storage but no *upload*
+            # path reads this flag yet — the headless CI uploader builds
+            # S3Config via from_env() (which ignores it) and client-side content
+            # hydration is unimplemented. So setting this today does NOT strip
+            # source. Wiring the enable + hydration path is Phase 2 (P2-4).
+            logger.warning(
+                "team_config sync.strip_source_content=true has no effect yet: "
+                "no upload path honors it (headless from_env + client hydration "
+                "are Phase-2 / P2-4). Source `content` WILL still be uploaded."
+            )
         return cls(
             enabled=bool(sync.get("enabled", False)),
             s3_endpoint=str(sync.get("s3_endpoint", "")),
             s3_bucket=str(sync.get("s3_bucket", "")),
             s3_prefix=str(sync.get("s3_prefix", "")),
             poll_interval_minutes=safe_interval,
-            strip_source_content=bool(sync.get("strip_source_content", False)),
+            strip_source_content=strip,
         )
 
 
@@ -440,6 +452,16 @@ class RemoteSyncService:
         interval = (self._config.poll_interval_minutes if self._config else 30) * 60
 
         while not self._stop_event.wait(timeout=interval):
+            # Defense in depth: a Team license can be downgraded or expire while
+            # this daemon runs. start_polling gates only at start, so re-check
+            # each cycle — an unlicensed daemon self-terminates polling rather
+            # than keep hitting the team S3 bucket until the next restart.
+            from prep.core.feature_gate import check_feature
+            if not check_feature("team_config"):
+                logger.info(
+                    "Team-sync polling stopped: team_config no longer licensed"
+                )
+                break
             try:
                 self.check_and_sync()
             except Exception as e:
