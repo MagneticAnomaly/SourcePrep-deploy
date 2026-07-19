@@ -67,6 +67,10 @@ function validate(body: unknown): { ok: true; data: BugReportPayload } | { ok: f
     (b as any).logs = [];
   } else if (!Array.isArray(logs) || logs.length > MAX_LOGS) {
     return { ok: false, error: `logs must be an array of at most ${MAX_LOGS} entries.` };
+  } else if (!logs.every((l: unknown) => l !== null && typeof l === 'object')) {
+    // Each entry must be a non-null object; otherwise `l.level` access below
+    // throws a TypeError and 500s the request.
+    return { ok: false, error: 'each log entry must be an object.' };
   }
 
   return { ok: true, data: body as BugReportPayload };
@@ -121,7 +125,7 @@ async function sendNotification(reportId: string, report: BugReportPayload): Pro
   const toAddress = process.env.BUG_REPORT_EMAIL ?? 'bugs@sourceprep.io';
   const sevEmoji: Record<string, string> = { critical: '🔴', major: '🟠', minor: '🟡', cosmetic: '⚪' };
   const emoji = sevEmoji[report.issue.severity] ?? '⚪';
-  const logErrorCount = report.logs.filter(l => l.level === 'ERROR' || l.level === 'CRITICAL').length;
+  const logErrorCount = report.logs.filter(l => l?.level === 'ERROR' || l?.level === 'CRITICAL').length;
 
   const subject = `${emoji} [Bug ${report.issue.severity.toUpperCase()}] ${report.issue.description.slice(0, 80)}`;
 
@@ -168,7 +172,7 @@ async function sendNotification(reportId: string, report: BugReportPayload): Pro
   <h3 style="margin: 24px 0 8px;">Recent Errors (last 20)</h3>
   <div style="background: #1a1a2e; color: #e0e0e0; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 11px; white-space: pre-wrap; max-height: 400px; overflow: auto;">${
     report.logs
-      .filter(l => l.level === 'ERROR' || l.level === 'CRITICAL')
+      .filter(l => l?.level === 'ERROR' || l?.level === 'CRITICAL')
       .slice(-20)
       .map(l => `<span style="color: #ff6b6b;">[${escapeHtml(String(l.level))}]</span> ${escapeHtml(String(l.time))} <span style="color: #888;">${escapeHtml(String(l.logger))}</span>\n  ${escapeHtml(String(l.message))}`)
       .join('\n\n')
@@ -277,8 +281,14 @@ export async function POST(request: NextRequest) {
   // reporter email is deliberately NOT logged (DR-4.7).
   console.log(`[bug-report] ${reportId} severity=${report.issue.severity} logs=${report.logs.length}`);
 
-  // Send notification email
-  const emailSent = await sendNotification(reportId, report);
+  // Send notification email (best-effort — a render or delivery failure must
+  // not 500 the request; the response already reports email_sent).
+  let emailSent = false;
+  try {
+    emailSent = await sendNotification(reportId, report);
+  } catch (emailErr) {
+    console.error('[bug-report] notification failed to render/send:', emailErr);
+  }
 
   // Phase 27.2: Persist report for ticket tracking
   try {
