@@ -155,6 +155,8 @@ DENY_PATH_GLOBS = [
     "tmp",
     "overnight_results",
     "archive",
+    "*.log",
+    "dev.log",
     # Websites — exclude build output + private config:
     "websites/apps/*/.next",
     "websites/apps/*/out",
