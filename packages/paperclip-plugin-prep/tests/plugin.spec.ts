@@ -1,15 +1,15 @@
 /**
- * CoDRAG Paperclip Plugin — Worker Tests
+ * SourcePrep Paperclip Plugin — Worker Tests
  *
  * Uses the Paperclip SDK test harness to validate plugin behavior
- * without requiring a running Paperclip server or CoDRAG daemon.
+ * without requiring a running Paperclip server or SourcePrep daemon.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createTestHarness, type TestHarness } from '@paperclipai/plugin-sdk';
 import manifest from '../src/manifest';
 import plugin from '../src/worker/index';
 
-describe('CoDRAG Paperclip Plugin', () => {
+describe('SourcePrep Paperclip Plugin', () => {
   let harness: TestHarness;
 
   beforeEach(async () => {
@@ -29,14 +29,14 @@ describe('CoDRAG Paperclip Plugin', () => {
   describe('initialization', () => {
     it('logs initialization message', () => {
       const initLog = harness.logs.find(
-        (l) => l.message.includes('CoDRAG plugin initialized')
+        (l) => l.message.includes('Prep plugin initialized')
       );
       expect(initLog).toBeDefined();
     });
 
     it('logs the daemon URL', () => {
       const daemonLog = harness.logs.find(
-        (l) => l.message.includes('CoDRAG plugin initializing')
+        (l) => l.message.includes('Prep plugin initializing')
       );
       expect(daemonLog).toBeDefined();
       expect(daemonLog?.meta?.daemon).toBe('http://127.0.0.1:8400');
@@ -44,7 +44,7 @@ describe('CoDRAG Paperclip Plugin', () => {
   });
 
   describe('tools registered', () => {
-    it('registers codrag:context tool', async () => {
+    it('registers prep:context tool', async () => {
       // The tool should be registered — executeTool will call it
       // It will fail because no daemon is running, but it should return an error, not throw
       const result = await harness.executeTool('context', {});
@@ -53,25 +53,25 @@ describe('CoDRAG Paperclip Plugin', () => {
       expect(result.error).toBeDefined();
     });
 
-    it('registers codrag:search tool', async () => {
+    it('registers prep:search tool', async () => {
       const result = await harness.executeTool('search', { query: 'test' });
       expect(result).toBeDefined();
       expect(result.error).toBeDefined();
     });
 
-    it('registers codrag:impact tool', async () => {
+    it('registers prep:impact tool', async () => {
       const result = await harness.executeTool('impact', { file: 'src/main.py' });
       expect(result).toBeDefined();
       expect(result.error).toBeDefined();
     });
 
-    it('registers codrag:audit tool', async () => {
+    it('registers prep:audit tool', async () => {
       const result = await harness.executeTool('audit', {});
       expect(result).toBeDefined();
       expect(result.error).toBeDefined();
     });
 
-    it('registers codrag:observe tool', async () => {
+    it('registers prep:observe tool', async () => {
       const result = await harness.executeTool('observe', { content: 'test observation' });
       expect(result).toBeDefined();
       expect(result.error).toBeDefined();
@@ -148,7 +148,7 @@ describe('CoDRAG Paperclip Plugin', () => {
 
   describe('manifest', () => {
     it('has correct id', () => {
-      expect(manifest.id).toBe('codrag');
+      expect(manifest.id).toBe('prep');
     });
 
     it('declares 5 tools', () => {
