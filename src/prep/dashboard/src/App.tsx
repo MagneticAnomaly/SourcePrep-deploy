@@ -1272,11 +1272,18 @@ function App() {
                 onSyncNow={async () => {
                   if (!selectedProjectId) return
                   try {
-                    await api.syncNow(selectedProjectId)
+                    const s = await api.syncNow(selectedProjectId)
+                    if (s?.error) {
+                      showToast(`Sync error: ${s.error}`, 'error')
+                    } else {
+                      showToast('Sync complete', 'success')
+                    }
                   } catch (e) {
-                    console.error('Sync now failed', e)
+                    // Non-200 (e.g. license gate 403) or network failure — the
+                    // backend never records these in status, so surface them here.
+                    showToast(`Sync failed: ${e instanceof Error ? e.message : String(e)}`, 'error')
                   }
-                  // status refreshes on the next /status poll
+                  // card also refreshes on the next /status poll
                 }}
               />
             )}
