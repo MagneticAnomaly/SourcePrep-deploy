@@ -34,12 +34,12 @@ void main() {
   // Horizontal reach at the equator.
   float radius_xz = aRmax * sin(theta);
 
-  // Vertical arc: very low so particles skim the poles and stay close to the moon.
-  float stretch = uPlanetRadius * 0.18;
+  // Tall, narrow arcs like the main-site particles: high vertical reach, modest horizontal spread.
+  float stretch = uPlanetRadius * 2.6;
   float y = uPlanetRadius * cos(theta) + stretch * sin(theta) * cos(theta);
 
-  // Pull the arc outward so it stays well clear of the planet body at favicon scale.
-  radius_xz += uPlanetRadius * 0.35;
+  // Keep arcs from intersecting the planet body.
+  radius_xz += uPlanetRadius * 0.1;
 
   vec3 localPos = vec3(
     radius_xz * cos(aPhi),
@@ -53,10 +53,10 @@ void main() {
 
   gl_Position = projectedPosition;
 
-  // Head is big; tail dots shrink dramatically for a comet-like trail.
-  float sizeFade = pow(aTrailFade, 2.4);
-  gl_PointSize = (uPointSize * (0.15 + 0.85 * sizeFade)) * (400.0 / -viewPosition.z);
-  gl_PointSize = clamp(gl_PointSize, 1.0, 100.0);
+  // Head is very big; tail shrinks steeply so the head dominates.
+  float sizeFade = pow(aTrailFade, 3.5);
+  gl_PointSize = (uPointSize * (0.08 + 0.92 * sizeFade)) * (400.0 / -viewPosition.z);
+  gl_PointSize = clamp(gl_PointSize, 1.5, 140.0);
 
   // Rainbow color based on arc longitude (aPhi) so different arcs show different hues.
   float hueNorm = mod(aPhi / 6.28318530718, 1.0);
@@ -90,21 +90,21 @@ void main() {
   float alpha = pow(1.0 - (dist * 2.0), 3.6);
   if (alpha < 0.04) discard;
 
-  // Saturated, crisp dots.
-  vec3 brightColor = vColor * 1.25;
+  // Bright, saturated dots that glow under additive blending.
+  vec3 brightColor = vColor * 1.6;
   gl_FragColor = vec4(brightColor, alpha * vAlpha * vTrailFade);
 }
 `;
 
 export function FaviconParticles({
-  particleCount = 80,
+  particleCount = 24,
   planetRadius = 0.45,
-  rmaxRange = [0.9, 1.25],
+  rmaxRange = [0.65, 0.95],
   baseSpeed = 0.12,
-  pointSize = 14.0,
+  pointSize = 48.0,
   cycleSpeed = 0.025,
-  tilt = [0.5, 0.0, 0.15],
-  arcBands = 8,
+  tilt = [0.12, 0.0, 0.05],
+  arcBands = 6,
   shellBands = 3,
 }) {
   const materialRef = useRef();
@@ -155,7 +155,7 @@ export function FaviconParticles({
 
         const trailFade = 1.0 - (j / (TRACERS_PER_PARTICLE - 1));
         // Longer delay so each particle has a visible trailing tail along the arc.
-        const phaseDelay = j * 0.028;
+        const phaseDelay = j * 0.035;
 
         phases[index] = basePhase;
         speeds[index] = pSpeed;
@@ -199,7 +199,7 @@ export function FaviconParticles({
         fragmentShader={fragmentShader}
         uniforms={uniforms}
         transparent={true}
-        blending={THREE.NormalBlending}
+        blending={THREE.AdditiveBlending}
         depthWrite={false}
         depthTest={true}
       />
