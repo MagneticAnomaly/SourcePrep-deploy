@@ -422,6 +422,12 @@ def _get_project_sync_status(project: Project) -> dict[str, Any]:
     return _ph_get_project_sync_status(project, _project_syncers)
 
 
+def _get_project_syncer(project: Project) -> Any:
+    from prep.services.project_helpers import get_project_syncer
+
+    return get_project_syncer(project, _project_syncers)
+
+
 def _check_index_staleness(project: Project, idx: CodeIndex) -> dict[str, Any]:
     return _ph_check_index_staleness(project, idx)
 

@@ -753,6 +753,49 @@ class TestAPIIntegration:
         )
         assert resp.status_code == 400
 
+    def test_sync_now_blocked_for_free_tier(self, configured_app):
+        """POST /projects/{id}/sync/now is gated on team_config (Team tier)."""
+        from fastapi.testclient import TestClient
+        from prep.core.feature_gate import clear_license_cache
+        app, proj = configured_app
+        client = TestClient(app)
+
+        with patch.dict(os.environ, {"PREP_TIER": "free", "PREP_DEV_MODE": "1"}, clear=False):
+            clear_license_cache()
+            resp = client.post(f"/projects/{proj.id}/sync/now")
+            assert resp.status_code == 403
+            body = resp.json()
+            assert body["success"] is False
+            assert body["error"]["code"] == "FEATURE_GATED"
+        clear_license_cache()
+
+    def test_sync_now_allowed_for_team_tier(self, configured_app):
+        """Team tier can trigger sync/now and gets the status dict back."""
+        from fastapi.testclient import TestClient
+        from prep.core.feature_gate import clear_license_cache
+        app, proj = configured_app
+        client = TestClient(app)
+
+        with patch.dict(os.environ, {"PREP_TIER": "team", "PREP_DEV_MODE": "1"}, clear=False):
+            clear_license_cache()
+            resp = client.post(f"/projects/{proj.id}/sync/now")
+            assert resp.status_code == 200
+            data = resp.json()["data"]
+            # No .sourceprep/team_config.json in this fixture, so sync is
+            # simply disabled — but the route must succeed and return the
+            # real status_dict() shape, not a stub.
+            assert data == {
+                "enabled": False,
+                "last_sync_at": None,
+                "last_sync_commit": "",
+                "remote_version": None,
+                "remote_timestamp": None,
+                "is_syncing": False,
+                "behind_minutes": None,
+                "error": None,
+            }
+        clear_license_cache()
+
 
 # ═══════════════════════════════════════════════════════════════
 # 8. BuildManager cache coherence under concurrent scenarios

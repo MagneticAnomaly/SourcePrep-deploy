@@ -289,6 +289,23 @@ def get_project_activity(project_id: str, weeks: int = Query(12, ge=1, le=52)) -
     return ok(data)
 
 
+@router.post("/projects/{project_id}/sync/now")
+async def trigger_project_sync(project_id: str) -> Dict[str, Any]:
+    """Force an immediate team-index sync (Team tier)."""
+    import asyncio
+
+    require_feature("team_config")
+    srv = _srv()
+    proj = srv._require_project(project_id)
+    syncer = srv._get_project_syncer(proj)
+
+    # Offload the S3 round-trip to the thread pool so we don't block the
+    # event loop, matching the pattern used by get_project_status above.
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, syncer.check_and_sync)
+    return ok(syncer.status_dict())
+
+
 @router.get("/projects/{project_id}/coverage")
 def get_project_coverage(project_id: str) -> Dict[str, Any]:
     proj = _srv()._require_project(project_id)
