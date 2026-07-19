@@ -10,7 +10,7 @@ Prep License Router — Phase 23 Sprint 10
   - POST /license/deactivate — remove license file, revert to free tier
 
 **Shared state accessed (from server.py):**
-  - None — license is stored on disk at ``~/.runprep/license.json``
+  - None — license is stored on disk at ``~/.sourceprep/license.json``
     and read via ``prep.core.feature_gate``.
 
 **Phase 24 note (State Machine — SM-7 License & Feature Gate):**
@@ -186,7 +186,7 @@ def activate_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
     lic_data.setdefault("last_validated", _time.time())
 
     # Save to disk
-    license_path = Path.home() / ".runprep" / "license.json"
+    license_path = Path.home() / ".sourceprep" / "license.json"
     license_path.parent.mkdir(parents=True, exist_ok=True)
     license_path.write_text(json.dumps(lic_data, indent=2), encoding="utf-8")
 
@@ -218,7 +218,7 @@ def validate_license_online() -> Dict[str, Any]:
     """
     import time as _time
 
-    license_path = Path.home() / ".runprep" / "license.json"
+    license_path = Path.home() / ".sourceprep" / "license.json"
     if not license_path.exists():
         return ok({"validated": False, "reason": "No license file"})
 
@@ -315,7 +315,7 @@ def deactivate_license() -> Dict[str, Any]:
 
     If this is a LemonSqueezy license, calls LS API to free the activation slot.
     """
-    license_path = Path.home() / ".runprep" / "license.json"
+    license_path = Path.home() / ".sourceprep" / "license.json"
 
     # Try to deactivate with LS first (frees activation slot)
     if license_path.exists():
@@ -362,7 +362,7 @@ def get_seat_status() -> Dict[str, Any]:
     Returns seat count, activation limit, and activation method info.
     For LS licenses, this reflects the LS activation limit.
     """
-    license_path = Path.home() / ".runprep" / "license.json"
+    license_path = Path.home() / ".sourceprep" / "license.json"
     if not license_path.exists():
         return ok({"seats_used": 0, "seats_total": 1, "tier": "free", "activations": []})
 
@@ -431,7 +431,7 @@ def provision_seat(req: RecoverLicenseRequest) -> Dict[str, Any]:
             message="Please enter a valid email address",
         )
         
-    license_path = Path.home() / ".runprep" / "license.json"
+    license_path = Path.home() / ".sourceprep" / "license.json"
     if not license_path.exists():
         raise ApiException(status_code=400, code="NO_LICENSE", message="No active license to provision from.")
         
@@ -487,7 +487,7 @@ def recover_license(req: ActivateLicenseRequest) -> Dict[str, Any]:
                 f"1. Visit https://payments.sourceprep.io/recover",
                 f"2. Enter your email: {email}",
                 f"3. Check your inbox for the license key",
-                f"4. Paste the key into RunPrep → Settings → License",
+                f"4. Paste the key into SourcePrep → Settings → License",
             ],
         })
     except Exception as e:
@@ -514,8 +514,8 @@ def set_dev_tier_override(req: DevTierOverrideRequest) -> Dict[str, Any]:
     import time as _time
     import shutil
 
-    license_path = Path.home() / ".runprep" / "license.json"
-    backup_path = Path.home() / ".runprep" / "license.json.real"
+    license_path = Path.home() / ".sourceprep" / "license.json"
+    backup_path = Path.home() / ".sourceprep" / "license.json.real"
     allowed = {"free", "pro", "team", "enterprise"}
     tier = (req.tier or "").strip().lower()
 

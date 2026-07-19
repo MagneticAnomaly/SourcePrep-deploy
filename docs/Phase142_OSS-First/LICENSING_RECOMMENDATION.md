@@ -62,18 +62,20 @@ permanent (no AGPL fallback).**
 
 Apache-2.0 has been the working outbound license since **2026-06-15** (Phase 144
 `RESEARCH.md` §2). The DCO-not-CLA + permanent nuance was set in the 2026-07-17
-OSS marketing spec. Eric confirmed "Apache is final" on **2026-07-18**.
+OSS marketing spec. Eric confirmed "Apache is final" on **2026-07-18**. The
+relicense is **effective** — SourcePrep ships as open source under Apache 2.0;
+the marketing site's "free and open source under Apache 2.0" copy is correct.
 
-> **Caveat corrected 2026-07-19 (was wrong):** the marketing site's "free and
-> open source under Apache 2.0" copy is **forward-looking**, not correct today.
-> The root `LICENSE` is still commercial proprietary ("NO REDISTRIBUTION"), the
-> `pyproject.toml`/`Cargo.toml`/npm metadata still declare `MIT`, and `NOTICE` /
-> `CONTRIBUTING` / `DCO` do not yet exist. The Apache grant is **unblocked only
-> after** the execution items above land — root `LICENSE` swap (after the IP
-> Assignment), metadata flips, and `NOTICE`. Until then, the present-tense
-> "Apache 2.0" claim on ~14 marketing pages is a **false public statement** and
-> must either be softened to future tense or gated behind the LICENSE swap.
-> See `AI_WORK_TODO.md` Stream 6 (public-surface false-claim sweep).
+> **Artifact alignment (2026-07-19):** the decision is effective; a handful of
+> artifacts still need to be swapped to match it. The root `LICENSE` file still
+> contains the old commercial-proprietary text and is swapped to verbatim
+> Apache-2.0 (sequenced after the IP Assignment so the LLC owns what Apache
+> grants); `pyproject.toml`/`Cargo.toml`/npm metadata still declare `MIT` and
+> are flipped to `Apache-2.0`; `NOTICE` / `CONTRIBUTING` / `DCO` are now authored
+> (DRAFT, commit 5c70d33c). These are execution mechanics to align the artifacts
+> with the already-effective license — **not** corrections of false claims, and
+> the marketing copy does not need to be softened to future tense. See
+> `AI_WORK_TODO.md` Stream 6 (artifact-alignment sweep).
 
 The validation deep-research pass completed 2026-07-17/18 and **independently
 converged on the same answer** (Apache-2.0 + DCO): see

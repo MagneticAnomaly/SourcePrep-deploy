@@ -9,9 +9,8 @@ Tiers:
   - enterprise: team + air-gapped, SSO, audit
 
 License is read from ~/.sourceprep/license.json (offline Ed25519 signed
-token), with fallback to ~/.runprep/license.json for legacy installs
-predating the brand split. New license writes go to .sourceprep. May be
-overridden via PREP_TIER env var for development.
+token). New license writes go to .sourceprep. May be overridden via
+PREP_TIER env var for development.
 
 Note: MONTHLY and PERPETUAL are feature-identical. The only difference is
 the payment model and expiry: monthly licenses carry an expires_at date.
@@ -105,27 +104,22 @@ class License:
         }
 
 
-# Phase 128: license path resolves .sourceprep first, falls back to .runprep
-# for legacy installs predating the brand split. New writes go to .sourceprep.
+# License path is ~/.sourceprep/license.json. The .runprep legacy fallback was
+# removed 2026-07-19 — the codrag/.runprep product names are dead with no
+# surviving licensed installs, so there is no legacy license file to find.
 # Path.home() is called at resolve time (not import time) so tests can patch it.
 _LICENSE_FILENAME = "license.json"
 
 
 def _resolve_license_path() -> Path:
-    """Return the active license path.
+    """Return the active license path (``~/.sourceprep/license.json``).
 
-    Reads prefer ``~/.sourceprep/license.json``; if absent, fall back to
-    ``~/.runprep/license.json`` so existing licensed installs survive the
-    brand rename. When neither file exists, return the new path (writes
-    target the canonical location).
+    The ``~/.runprep`` legacy fallback was removed 2026-07-19 — the codrag/
+    RunPrep product names are dead with no surviving licensed installs, so
+    there is no legacy license file to discover. Reads and writes both target
+    the canonical ``~/.sourceprep`` location.
     """
-    new_path = Path.home() / ".sourceprep" / _LICENSE_FILENAME
-    if new_path.exists():
-        return new_path
-    legacy_path = Path.home() / ".runprep" / _LICENSE_FILENAME
-    if legacy_path.exists():
-        return legacy_path
-    return new_path
+    return Path.home() / ".sourceprep" / _LICENSE_FILENAME
 
 
 _cached_license: Optional[License] = None
