@@ -53,9 +53,10 @@ void main() {
 
   gl_Position = projectedPosition;
 
-  // Favicon dots: keep them round and visible at this scale.
-  gl_PointSize = (uPointSize * (0.4 + 0.6 * aTrailFade)) * (400.0 / -viewPosition.z);
-  gl_PointSize = clamp(gl_PointSize, 2.0, 80.0);
+  // Head is big; tail dots shrink dramatically for a comet-like trail.
+  float sizeFade = pow(aTrailFade, 2.4);
+  gl_PointSize = (uPointSize * (0.15 + 0.85 * sizeFade)) * (400.0 / -viewPosition.z);
+  gl_PointSize = clamp(gl_PointSize, 1.0, 100.0);
 
   // Rainbow color based on arc longitude (aPhi) so different arcs show different hues.
   float hueNorm = mod(aPhi / 6.28318530718, 1.0);
@@ -96,14 +97,14 @@ void main() {
 `;
 
 export function FaviconParticles({
-  particleCount = 200,
+  particleCount = 80,
   planetRadius = 0.45,
-  rmaxRange = [0.85, 1.1],
+  rmaxRange = [0.9, 1.25],
   baseSpeed = 0.12,
-  pointSize = 3.4,
+  pointSize = 14.0,
   cycleSpeed = 0.025,
   tilt = [0.5, 0.0, 0.15],
-  arcBands = 10,
+  arcBands = 8,
   shellBands = 3,
 }) {
   const materialRef = useRef();
@@ -117,7 +118,7 @@ export function FaviconParticles({
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
-    const TRACERS_PER_PARTICLE = 3;
+    const TRACERS_PER_PARTICLE = 10;
     const totalVertices = Math.floor(particleCount / 2) * TRACERS_PER_PARTICLE;
 
     const positions = new Float32Array(totalVertices * 3);
@@ -153,8 +154,8 @@ export function FaviconParticles({
         const index = i * TRACERS_PER_PARTICLE + j;
 
         const trailFade = 1.0 - (j / (TRACERS_PER_PARTICLE - 1));
-        // Slightly longer delay than before so the arc shape reads, but still short for favicon scale.
-        const phaseDelay = j * 0.012;
+        // Longer delay so each particle has a visible trailing tail along the arc.
+        const phaseDelay = j * 0.028;
 
         phases[index] = basePhase;
         speeds[index] = pSpeed;
