@@ -1,0 +1,96 @@
+name: License Audit
+
+# Dependency license gate for the SourcePrep OSS release.
+# SourcePrep ships under Apache-2.0; a GPL/AGPL/copyleft/proprietary
+# dependency in any of the three ecosystems (Python, Rust, npm) would
+# contaminate the Apache-2.0 grant. This workflow fails the build if any
+# forbidden license is detected. It is the pre-push gate called for by
+# docs/Phase142_OSS-First/SCRUTINY.md §8 + IMPLEMENTATION_PLAN.md.
+#
+# Runs on every push/PR to main, weekly (Mon 07:00 UTC), and on dispatch.
+# Each ecosystem is a separate job so a failure pinpoints which dep tree
+# is contaminated.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly on Monday at 07:00 UTC (offset from security-audit's 06:00).
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cargo-deny:
+    name: cargo deny (engine licenses)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      - name: Generate Cargo.lock (if missing)
+        working-directory: engine
+        run: cargo generate-lockfile
+
+      - name: cargo deny check licenses
+        working-directory: engine
+        run: cargo deny check licenses
+
+      - name: cargo deny check sources
+        working-directory: engine
+        run: cargo deny check sources
+
+  python-license-check:
+    name: pip-licenses (Python deps)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install package + dev deps + pip-licenses
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install pip-licenses
+
+      - name: License gate
+        run: python tools/check_python_licenses.py
+
+      - name: Narrow GPL-guard regression test
+        # The narrow igraph/leidenalg-absent guard from the Phase 144 GPL
+        # replacement. Runs alongside the broad pip-licenses gate.
+        run: python -m pytest tests/test_no_gpl_deps.py -v
+
+  npm-license-check:
+    name: npm ls (workspace deps)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: License gate
+        run: node tools/check_npm_licenses.mjs

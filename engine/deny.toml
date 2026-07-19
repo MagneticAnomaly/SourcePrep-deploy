@@ -1,0 +1,58 @@
+# cargo-deny configuration — license audit for the Rust engine.
+#
+# SourcePrep ships under Apache-2.0. A GPL/AGPL/proprietary Rust crate buried
+# in engine/Cargo.lock would make the Apache-2.0 grant invalid (copyleft
+# contamination / incompatible license). This config is the gate: any crate
+# whose license is not on the permissive allow-list fails `cargo deny check
+# licenses`. Run in CI by .github/workflows/license-audit.yml.
+#
+# The allow-list is the standard set of permissive OSI licenses that are
+# compatible with Apache-2.0. To accept a new permissive license, add its
+# SPDX identifier to `allow` and justify it in the commit message.
+
+[licenses]
+# Fail on any license not explicitly allowed (this is the default, stated
+# for clarity). Catches GPL, AGPL, copyleft, proprietary, and "unknown".
+
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Zlib",
+    "CC0-1.0",
+    "Unicode-DFS-2016",
+    "Unicode-3.0",
+    "MPL-2.0",
+    "OpenSSL",
+]
+
+# Confidence threshold for the license detection (0.0 - 1.0). cargo-deny
+# matches crate license strings against the SPDX list; 0.8 is the standard
+# balance between false-positives and false-negatives.
+confidence-threshold = 0.8
+
+# Some crates ship multiple licenses (e.g. "MIT OR Apache-2.0"). cargo-deny
+# treats the expression correctly by default — a crate is allowed if ANY of
+# its licenses is in the allow-list. No extra config needed.
+
+[licenses.private]
+# Ignore workspace-internal crates (our own crates have no published license
+# file; they're Apache-2.0 via the workspace Cargo.toml).
+ignore = true
+register = true
+
+[bans]
+# Duplicate-crate detection is informational, not blocking. We care about
+# licenses here, not duplicate versions (that's a maintenance concern, not a
+# license concern).
+multiple-versions = "warn"
+wildcards = "warn"
+
+[sources]
+# Fail on crates from unknown registries — only crates.io is allowed.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
