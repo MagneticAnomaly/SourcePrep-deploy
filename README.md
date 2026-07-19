@@ -4,6 +4,13 @@
 
 <h2 align="center"><em>Give your AI access to the epistemic context <br>it needs to understand your codebase.</em></h2>
 
+<p align="center">
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
+  <img alt="Python" src="https://img.shields.io/badge/python-3.11+-blue.svg">
+  <img alt="Rust" src="https://img.shields.io/badge/rust-stable-orange.svg">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-native-purple.svg">
+</p>
+
 
 **SourcePrep: prep the context before any AI call.** Epistemic trace intelligence for autonomous agents and codebase orchestration.
 
@@ -548,5 +555,17 @@ See [PHASES.md](docs/PHASES.md) for the authoritative phase index and [ROADMAP.m
 
 - **[Ollama](https://ollama.com/)** — Local LLM serving (SourcePrep uses for embeddings)
 - **[Model Context Protocol](https://modelcontextprotocol.io)** — The standard SourcePrep speaks natively
+
 ---
+
+## License
+
+SourcePrep is free and open source software, licensed under the
+**Apache License 2.0**. See [LICENSE](LICENSE) for the full text. The
+[NOTICE](NOTICE) file lists third-party attributions.
+
+Contributions are welcome. By submitting a contribution you agree to the
+[Developer Certificate of Origin](https://developercertificate.org/) — certify
+your commits with `git commit -s`. See [CONTRIBUTING.md](CONTRIBUTING.md) for
+how to get started, and [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
