@@ -16,7 +16,7 @@ const ibmPlexSerif = IBM_Plex_Serif({ weight: ['400', '600'], subsets: ['latin']
 export const metadata: Metadata = {
   metadataBase: new URL('https://support.sourceprep.io'),
   title: 'SourcePrep Support',
-  description: 'Support hub for SourcePrep: tickets, bugs, questions, and security reporting.',
+  description: 'Support hub for SourcePrep: discussions, bug reports, questions, and security reporting.',
   icons: {
     icon: [
       { url: '/favicon_io/favicon-16x16.png', sizes: '16x16', type: 'image/png' },

@@ -97,7 +97,7 @@ export default function Page() {
           </ul>
           <p className="mt-3 text-sm text-text-muted">
             After changing your selection, click <span className="font-semibold text-text">Build</span> to re-index with the new scope.
-            Users with auto-rebuild enabled get automatic debounced rebuilds — auto-rebuild is on by default for Pro/Teams/Enterprise and can be toggled on for the free tier in settings.
+            Auto-rebuild is available on every tier (including the $0 self-hosted build). It's on by default for Pro/Teams/Enterprise as a convenience and can be toggled on for the free tier in settings.
           </p>
         </section>
 

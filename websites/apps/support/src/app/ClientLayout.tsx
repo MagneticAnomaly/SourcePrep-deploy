@@ -17,7 +17,6 @@ export function ClientLayout({ children }: { children: ReactNode }) {
         links={[
           { label: 'Home', href: HOME_URL },
           { label: 'Docs', href: DOCS_URL },
-          { label: 'Status', href: '#' },
         ]}
         searchPlaceholder="Search help..."
         onSearch={(query: string) => {

@@ -194,7 +194,7 @@ export default function Page() {
         </div>
 
         <p className="mt-8 text-center text-sm text-text-muted">
-          Teams syncs embeddings and graph metadata only — never your source code.
+          Teams syncs your shared code index — today this includes source content by default; a strip-source-content mode is wired for the client path and planned for the headless CI uploader.
         </p>
 
         <hr className="mt-16 border-border" />
