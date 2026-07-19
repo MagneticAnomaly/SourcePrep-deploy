@@ -70,16 +70,23 @@ Out:
 
 ## Status
 
+Hardened decisions (2026-07-17/18) are marked ✅. Execution items still open are marked [ ].
+
 - [x] Strategy brainstormed — see STRATEGY.md
 - [x] Market research synthesized — see RESEARCH.md
 - [x] Implementation plan drafted — see IMPLEMENTATION_PLAN.md
 - [x] Adversarial scrutiny drafted — see SCRUTINY.md
 - [x] Acquirer + employer map drafted — see ACQUIRER_MAP.md
+- [x] **License decided** — Apache-2.0 + DCO, permanent (no AGPL fallback). See `DECISION_MEMO_2026-07-17.md` Part 0 D1 + `LICENSING_RECOMMENDATION.md`.
+- [x] **Pricing source-of-truth reconciled** — `OPEN_CORE_SPLIT.md` re-baselanced to the 2026-07-18 ladder ($0 / $29 one-time / $9 / $24); marked SoT.
+- [x] **Repo topology decided** — stay under `MagneticAnomaly` org; workshop `SourcePrep-Private` → storefront `SourcePrep` (fresh-initial-commit mirror). See `REPO_TOPOLOGY.md`.
+- [x] **History strategy decided (D8)** — fresh-initial-commit public mirror; no workshop history rewrite. See `SCRUTINY.md` §6 + `PRE_LAUNCH_BLOCKERS.md` §2.
+- [x] **License artifact alignment** — root `LICENSE` swapped to verbatim Apache-2.0; pyproject + Cargo + 13 npm package.json metadata flipped; governance DRAFTs (NOTICE/CONTRIBUTING/CHARTER/COC/SECURITY) authored; public README badge + License section landed.
 - [ ] **Scrutiny review complete** (Eric — adversarial pass on the plan)
 - [ ] **Tier boundaries locked** (decide OSS vs Pro line per module)
-- [ ] Pre-OSS hygiene complete (Part A of plan)
-- [ ] License applied + repo restructured (Part B)
-- [ ] Public README + CONTRIBUTING + SECURITY landed (Part C)
+- [ ] Pre-OSS hygiene complete (Part A — live-tree secrets removal via `tools/build_public_mirror.py` denylist gate)
+- [ ] Repo restructured (Part B — public mirror tooling + first fresh-initial-commit)
+- [ ] Public CONTRIBUTING/SECURITY out of DRAFT + `SECURITY.md` linked from public README (Part C)
 - [ ] gstack integration shipped (Part D)
 - [ ] Benchmark + demo video published (Part E)
 - [ ] Show HN posted (Part F)
@@ -94,9 +101,27 @@ Out:
 | `README.md` | This file — phase summary and status |
 | `STRATEGY.md` | The four paths considered, why D won, license + positioning |
 | `RESEARCH.md` | Market evidence — Warp, OpenClaw, Bun, Astral, gstack, citations |
+| `RESEARCH_ROUND_2.md` | Second-pass research (acqui-hire vs IC, patent, trademark) |
 | `IMPLEMENTATION_PLAN.md` | Ordered work (Parts A–H) with deliverables and acceptance criteria |
 | `SCRUTINY.md` | Adversarial review — what kills this plan, what to do then |
 | `ACQUIRER_MAP.md` | Specific targets, integration angles, outreach contacts |
+| `DECISION_MEMO_2026-07-17.md` | Hardened decisions D1–D11 (license, patents, trademark, export, code-signing) |
+| `LICENSING_RECOMMENDATION.md` | Decision-of-record: Apache-2.0 + DCO, permanent |
+| `LICENSING_DEEP_RESEARCH_REPORT.md` | Verified research backing the licensing decision |
+| `OPEN_CORE_SPLIT.md` | **Pricing source-of-truth** — the $0/$29/$9/$24 ladder + OSS/Pro tier boundary |
+| `REPO_TOPOLOGY.md` | Workshop → storefront mirror model (stay under `MagneticAnomaly`) |
+| `AI_WORK_TODO.md` | Master TODO — sequenced work streams (the AI execution queue) |
+| `STARTER_PROMPT.md` | Durable session entry-point (one-line state + done-commits + next-work queue) |
+| `AUDIT_2026-07-17.md` | 66-agent deep audit findings (contradictions + blockers) |
+| `AUDIT_VERIFICATION_2026-07-17.md` | Verification of the audit findings |
+| `LICENSE-AUDIT.md` | Dependency-license audit notes |
+| `NOTICE.draft.md` | NOTICE file draft (copyright holder + third-party attributions) |
+| `DOCS_OSS_READINESS_AUDIT_2026-07-18.md` | Docs-site OSS-readiness sweep |
+| `MARKETING_OSS_READINESS_BRIEFING.md` | Marketing-site OSS-readiness briefing |
+
+> Additional handoff/audit prompts (`HANDOFF_PROMPT_*.md`, `DOCS_OSS_HANDOFF_PROMPT_*.md`,
+> `LEGAL_SECURITY_MESSAGE_AUDIT_HANDOFF_*.md`, `*.workflow.js`) are session artifacts, not
+> durable plan docs.
 
 ## Relationship to existing docs
 
@@ -133,6 +158,10 @@ Phase 142 is **successful** if, within 12 months of Show HN:
 - ≥500 GitHub stars and a clear distribution flywheel (whichever
   triggers first — these are non-exclusive outcomes).
 
-If none of the above occur within 12 months, see SCRUTINY.md §"What if
-no one cares" for the fallback to Path B (open-core with active Pro
-tier development).
+If none of the above occur within 12 months, the fallback is **revenue,
+not relicense**: build the hosted Teams/Enterprise backend (the
+Obsidian-Sync analog) on top of the permanent Apache-2.0 engine — the
+AGPL-flip / Path-B-open-core relicense is foreclosed by the permanent
+Apache-2.0 + DCO decision (see `STRATEGY.md` "Why not B" + `CHARTER.md`).
+For the *pre-launch* "the benchmark doesn't show improvement" killer
+scenario, see `SCRUTINY.md` §5.

@@ -42,8 +42,12 @@ AGPL is **acquisition-hostile.** Every acqui-hire target in
 RESEARCH.md was MIT or Apache. Copyleft creates legal review pain at
 the acquirer; that pain frequently kills deals. AGPL is also overkill
 for our defensive posture — we are not currently large enough for
-hyperscalers to clone-and-host us (the Elastic/MongoDB problem). We
-keep B available as a **fallback**, not the opening move.
+hyperscalers to clone-and-host us (the Elastic/MongoDB problem). The
+AGPL-flip fallback is **foreclosed** by the permanent Apache-2.0 + DCO
+decision (CHARTER commits to no source-available flip). The real
+fallback is **revenue**, not relicense: build the hosted Teams/Enterprise
+backend (the Obsidian-Sync analog) on top of the permanent Apache-2.0
+engine.
 
 ### Why not C alone
 
@@ -176,9 +180,12 @@ as the technical/CLI name. No mention of "CoDRAG" anywhere public-facing.
 
 These get resolved during execution, not in the plan:
 
-- **Repo name on GitHub** — likely `sourceprep/sourceprep` or
-  `sourceprep/prep`; depends on org availability. Decided in
-  IMPLEMENTATION_PLAN Part B.
+- **Repo name on GitHub** — **DECIDED 2026-07-18:** stay under the existing
+  **`MagneticAnomaly`** org (do NOT stand up a separate `sourceprep` org).
+  REPO_TOPOLOGY: workshop repo `MagneticAnomaly/SourcePrep-Private` (full
+  history, never published) → storefront repo `MagneticAnomaly/SourcePrep`
+  (curated fresh-initial-commit public mirror via `tools/build_public_mirror.py`).
+  See IMPLEMENTATION_PLAN Part B + `DECISION_MEMO_2026-07-17.md` C2/D8.
 - **Whether to squash history before going public** — examined in
   SCRUTINY.md; Eric's call.
 - **Whether to split into multiple repos** (engine, server, dashboard)

@@ -201,14 +201,23 @@ proper dependency license audit. A single GPL Rust crate buried in
 
 ## §9 — Naming + trademark check
 
+> **2026-07-18 update:** the org-name sub-question is **DECIDED** — stay under
+> the existing `MagneticAnomaly` org (do NOT reserve a separate `sourceprep`
+> org); see `STRATEGY.md` "What is intentionally not decided yet" +
+> `IMPLEMENTATION_PLAN.md` B.2. The trademark sub-question is **DECIDED** per
+> `DECISION_MEMO` Part 0 D5 — not a decision blocker; B1 (free USPTO clearance
+> search) and B2 (file 1(b)) are pre-Show-HN execution tasks. The checkboxes
+> below that remain open are the B1/B2 execution items.
+
 Plan B.2 says "reserve GitHub org `sourceprep`." But have we checked:
 
-- [ ] Is `sourceprep` the GitHub org available? If not, what's the fallback?
-- [ ] Is `sourceprep` on PyPI? Crates.io? npm?
-- [ ] Is "SourcePrep" trademarked by someone else? (USPTO search — 30 minutes)
+- [x] ~~Is `sourceprep` the GitHub org available?~~ → DECIDED: stay under `MagneticAnomaly`; no separate org to reserve.
+- [ ] Is `sourceprep` on PyPI? Crates.io? npm? *(execution check before public publish)*
+- [ ] **B1:** Is "SourcePrep" trademarked by someone else? (free USPTO search via tmsearch.uspto.gov — 30 min; see `DECISION_MEMO` D5)
+- [ ] **B2:** File trademark 1(b) on the Principal Register once B1 clears (before Show HN).
 - [ ] Is `sourceprep.io` already owned by Eric? (Memory suggests yes, but confirm.)
 
-A name conflict 90 days into the launch is a brutal rebranding cost.
+A name conflict after the public launch is a brutal rebranding cost.
 
 ## §10 — Anti-rug-pull commitment
 

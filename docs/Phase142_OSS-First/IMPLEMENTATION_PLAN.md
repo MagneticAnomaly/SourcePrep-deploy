@@ -37,7 +37,7 @@ write-guard recovery details, etc.) that are noise to outsiders.
   - **Mixed** (needs editing — e.g., strip Phase NN references from CLAUDE.md before publishing)
 - [ ] Decide between two strategies:
   - **Option 1:** Single repo, with `docs/internal/` gitignored from public mirror via a separate orphan branch.
-  - **Option 2:** Two repos — `sourceprep/sourceprep` (public) and `sourceprep/sourceprep-internal` (private notes/phase plans).
+  - **Option 2:** Two repos — `MagneticAnomaly/SourcePrep` (public storefront, curated fresh-initial-commit mirror) and `MagneticAnomaly/SourcePrep-Private` (workshop; full history, never published).
 - [ ] Strip "Phase NN" leak language from any file going public (CLAUDE.md, AGENTS.md, READMEs). Same antibody as Phase 131.
 
 **Acceptance:** a clean `docs/` tree for public consumption with no
@@ -78,7 +78,7 @@ public consumption, prepare the GitHub org.
 - [ ] Add `LICENSE` (Apache 2.0 text, unmodified, top of repo).
 - [ ] Add SPDX headers to *new* source files going forward. Do **not** mass-rewrite existing files (cosmetic-only diffs are noise).
 - [ ] Add `NOTICE` file with copyright holder, year, and third-party attributions (from A.3).
-- [ ] Decide copyright holder: **"Magnetic Anomaly LLC"** (recommended for clean ownership chain) vs personal copyright. Lock the decision.
+- [x] ~~Decide copyright holder~~ → **Apply: Magnetic Anomaly LLC** (decided Part 0 D8 / `LICENSING_RECOMMENDATION.md` / `NOTICE`). Copyright holder is Magnetic Anomaly LLC; formalized by the IP Assignment (Stream 1.1) for diligence chain-of-title.
 - [ ] Update `pyproject.toml`, `Cargo.toml`, and `package.json` files with `"license": "Apache-2.0"`.
 
 **Acceptance:** `pip-licenses`, `cargo deny`, and `license-checker`
@@ -86,9 +86,9 @@ all pass with no incompatible-license warnings.
 
 ### B.2 — GitHub org / repo setup
 
-- [ ] Reserve GitHub org: `sourceprep` (or fallback `sourceprep-io` if taken).
-- [ ] Create main repo: `sourceprep/sourceprep` (monorepo) OR `sourceprep/prep` (engine-only, dashboard separate). **Default: monorepo** for simplicity. Revisit only if monorepo causes friction.
-- [ ] Decide on history strategy (see SCRUTINY.md §"History rewrite"). Default: **squash to a clean initial commit + preserve internal history in private repo.**
+- [x] ~~Reserve GitHub org~~ → **stay under existing `MagneticAnomaly`** org (decided 2026-07-18; do NOT stand up a separate `sourceprep` org).
+- [x] ~~Create main repo~~ → **`MagneticAnomaly/SourcePrep`** (public storefront, monorepo, fresh-initial-commit mirror built by `tools/build_public_mirror.py`). Workshop repo `MagneticAnomaly/SourcePrep-Private` keeps full history and is never published.
+- [x] ~~Decide on history strategy~~ → **DECIDED D8 (2026-07-18):** fresh-initial-commit public mirror (Option 3 in SCRUTINY.md §6); no history rewrite of the workshop repo. See `PRE_LAUNCH_BLOCKERS.md` §2 (live-tree secrets removal, not history scrub).
 - [ ] Set up `.github/` — issue templates, PR template, CODEOWNERS, FUNDING.yml (optional).
 
 **Acceptance:** public repo URL is decided and reserved; redirect plan
