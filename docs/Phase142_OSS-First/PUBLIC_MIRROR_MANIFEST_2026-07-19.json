@@ -1,0 +1,2622 @@
+{
+  "excluded": [
+    {
+      "deny_globs": [
+        "dashboard-demo.png"
+      ],
+      "path": "public/sourceprep-mcp/dashboard-demo.png"
+    },
+    {
+      "deny_globs": [
+        "codrag.key",
+        "*.key"
+      ],
+      "path": "src/prep/dashboard/src-tauri/.tauri/codrag.key"
+    },
+    {
+      "deny_globs": [
+        "CLAUDE.md"
+      ],
+      "path": "tests/fixtures/walker_parity_repo/CLAUDE.md"
+    },
+    {
+      "deny_globs": [
+        "websites/apps/*/.env*"
+      ],
+      "path": "websites/apps/marketing/.env.example"
+    },
+    {
+      "deny_globs": [
+        "websites/apps/*/.env*"
+      ],
+      "path": "websites/apps/payments/.env.example"
+    },
+    {
+      "deny_globs": [
+        "websites/apps/*/.env*"
+      ],
+      "path": "websites/apps/support/.env.local.example"
+    }
+  ],
+  "flagged": [
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 19,
+          "sample": "CLAUDE.md` and `AGENTS.md` for the full "
+        }
+      ],
+      "path": "CONTRIBUTING.md"
+    },
+    {
+      "hits": [
+        {
+          "label": "private-key: PEM block",
+          "line": 296,
+          "sample": "-----BEGIN RSA PRIVATE KEY-----\\ndata he"
+        },
+        {
+          "label": "private-key: generic",
+          "line": 87,
+          "sample": "PRIVATE KEY-----\", \"Private Key\"),      "
+        },
+        {
+          "label": "secret: AWS key id",
+          "line": 275,
+          "sample": "AKIAIOSFODNN7EXAMPLE\";         let secre"
+        },
+        {
+          "label": "secret: GitHub token",
+          "line": 282,
+          "sample": "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij"
+        },
+        {
+          "label": "secret: OpenAI/Anthropic sk- key",
+          "line": 289,
+          "sample": "sk-abcdefghijklmnopqrstuvwxyz12345678\"; "
+        }
+      ],
+      "path": "engine/crates/prep-sanitize/src/lib.rs"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 96,
+          "sample": ".runprep/**\".into(),   // back-compat: l"
+        },
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 171,
+          "sample": "CLAUDE.md\".into(),                 \"**/G"
+        }
+      ],
+      "path": "engine/crates/prep-walker/src/lib.rs"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 2,
+          "sample": "codrag/ui\",   \"version\": \"0.1.0\",   \"loc"
+        }
+      ],
+      "path": "packages/ui/package-lock.json"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 334,
+          "sample": "CoDRAG/packages/ui\",\"config\":{\"testRunne"
+        }
+      ],
+      "path": "packages/ui/reports/mutation/mutation.html"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 454,
+          "sample": "CLAUDE.md',   '**/.cursor/rules/*.mdc', "
+        }
+      ],
+      "path": "packages/ui/src/stories/dashboard/FullDashboard.stories.tsx"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 313,
+          "sample": "CLAUDE.md', type: 'file' },   { name: '."
+        }
+      ],
+      "path": "packages/ui/src/stories/project/FolderTree.stories.tsx"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 1,
+          "sample": "CoDRAG/node_modules/vite/dist/node/index"
+        }
+      ],
+      "path": "packages/ui/tsconfig.node.tsbuildinfo"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 2,
+          "sample": "CoDRAG/packages/ui/node_modules/vite/dis"
+        }
+      ],
+      "path": "packages/ui/vite.config.ts.timestamp-1770677132023-1e1210ebb3b08.mjs"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 2,
+          "sample": "CoDRAG/packages/ui/node_modules/vite/dis"
+        }
+      ],
+      "path": "packages/ui/vite.config.ts.timestamp-1777182248927-acea3ecfc2eaa.mjs"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 168,
+          "sample": "codrag-sb-vite/     # in case anyone is "
+        }
+      ],
+      "path": "scripts/dev.sh"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 64,
+          "sample": "CLAUDE.md\",     \"AGENTS.md\",     \"GEMINI"
+        }
+      ],
+      "path": "scripts/phase103_observe_hook.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 2,
+          "sample": "CoDRAG/CLaRa references remain outside t"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 9,
+          "sample": "runprep\\b|runprep\\.io' \\   --exclude-dir"
+        }
+      ],
+      "path": "scripts/rename_gate.sh"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 120,
+          "sample": ".runprep/**\" not in default_cfg[\"exclude"
+        }
+      ],
+      "path": "src/prep/api/routers/projects/crud.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 44,
+          "sample": ".runprep/**\" not in exclude_globs:      "
+        }
+      ],
+      "path": "src/prep/api/routers/projects/helpers.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 129,
+          "sample": ".runprep/**\" not in exclude_globs:      "
+        }
+      ],
+      "path": "src/prep/api/routers/trace_routes/query.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 234,
+          "sample": "codrag_data/ is migrated before     # `p"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 240,
+          "sample": "runprep,         migrate_legacy_data_dir"
+        },
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 822,
+          "sample": "CLAUDE.md\",     \"claude_skill\": \".claude"
+        }
+      ],
+      "path": "src/prep/cli.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 147,
+          "sample": "CoDRAG\") while the canonical product is "
+        },
+        {
+          "label": "internal-doc: SCRUTINY",
+          "line": 648,
+          "sample": "SCRUTINY.md             reject_reason = "
+        }
+      ],
+      "path": "src/prep/core/atlas/generator.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: SCRUTINY",
+          "line": 6,
+          "sample": "SCRUTINY.md item #4):  1. Prompt-restate"
+        }
+      ],
+      "path": "src/prep/core/atlas/validators.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 145,
+          "sample": "runprep\" / \"audit_log.db\"         self.i"
+        }
+      ],
+      "path": "src/prep/core/audit_log.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 812,
+          "sample": "CoDRAG 2026-05-03 evidence: 8000-token c"
+        }
+      ],
+      "path": "src/prep/core/concept_synthesizer.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "private-key: generic",
+          "line": 141,
+          "sample": "PRIVATE KEY-----\"),   # Private Key Head"
+        }
+      ],
+      "path": "src/prep/core/content_sanitizer.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 1,
+          "sample": "codrag_data/` to XDG.  On daemon startup"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 305,
+          "sample": "RUNPREP_SENTINEL = \".migrated_from_runpr"
+        }
+      ],
+      "path": "src/prep/core/data_dir_migration.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 61,
+          "sample": "CLAUDE.md, .cursor/rules/*.mdc, and .age"
+        }
+      ],
+      "path": "src/prep/core/docs_grounding.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 23,
+          "sample": "CLAUDE.md and docs/Phase139_EmbedderMemo"
+        }
+      ],
+      "path": "src/prep/core/embedder.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 108,
+          "sample": "codrag/.runprep product names are dead w"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 107,
+          "sample": ".runprep legacy fallback was # removed 2"
+        }
+      ],
+      "path": "src/prep/core/feature_gate.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 331,
+          "sample": "codrag/core/` long after the rename).   "
+        }
+      ],
+      "path": "src/prep/core/git_evidence.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 604,
+          "sample": "CoDRAG ~300 files,             # potenti"
+        }
+      ],
+      "path": "src/prep/core/group_reasoning.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: DISTRIBUTION_AND_REVENUE_PLAN",
+          "line": 8,
+          "sample": "DISTRIBUTION_AND_REVENUE_PLAN.md \u00a73  Flo"
+        }
+      ],
+      "path": "src/prep/core/lemon_squeezy.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 65,
+          "sample": "codrag/    -> .runprep/      (codrag -> "
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 65,
+          "sample": ".runprep/      (codrag -> prep rename)  "
+        }
+      ],
+      "path": "src/prep/core/paths.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 509,
+          "sample": "codrag/.runprep -> .sourceprep migration"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 509,
+          "sample": ".runprep -> .sourceprep migration failed"
+        }
+      ],
+      "path": "src/prep/core/project_registry.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 13,
+          "sample": ".runprep\",      # legacy per-project ind"
+        },
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 23,
+          "sample": "CLAUDE.md\",     # Cursor     \"**/.cursor"
+        }
+      ],
+      "path": "src/prep/core/repo_profile.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 239,
+          "sample": ".runprep\", \"DerivedData\", \"Carthage\",   "
+        }
+      ],
+      "path": "src/prep/core/roadmap_miner.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 219,
+          "sample": "CLAUDE.md\",         \"gemini\": project_pa"
+        }
+      ],
+      "path": "src/prep/core/rules_generator.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 51,
+          "sample": "codrag\", \"dist\",         \"build\", \".next"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 51,
+          "sample": ".runprep\", \".codrag\", \"dist\",         \"b"
+        }
+      ],
+      "path": "src/prep/core/todo_scanner.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 77,
+          "sample": "codrag_data/` index dirs. Only add an   "
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 99,
+          "sample": "runprep         # which no one indexes \u2014"
+        }
+      ],
+      "path": "src/prep/core/watcher.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 96,
+          "sample": "CLAUDE.md',   '**/.cursor/rules/*.mdc', "
+        }
+      ],
+      "path": "src/prep/dashboard/src/hooks/useDashboardPanels.tsx"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 221,
+          "sample": "CLAUDE.md,         Gemini -> GEMINI.md) "
+        }
+      ],
+      "path": "src/prep/mcp/server.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 31,
+          "sample": "codrag_data/ before any store module get"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 9,
+          "sample": "runprep/`. Pass `--index-dir <path>` to "
+        }
+      ],
+      "path": "src/prep/server.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: SCRUTINY",
+          "line": 107,
+          "sample": "SCRUTINY.md.             try:           "
+        }
+      ],
+      "path": "src/prep/services/antibody_store.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 48,
+          "sample": "CoDRAG run with 2,430 rationale + 21 con"
+        }
+      ],
+      "path": "src/prep/services/concept_store.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 242,
+          "sample": "codrag_data\", \"codrag_data\", \"./prep_dat"
+        }
+      ],
+      "path": "src/prep/services/config_manager.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 211,
+          "sample": "codrag_dir(mini_repo: Path) -> Generator"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 56,
+          "sample": "runprep/concurrency_store.db, polluting "
+        }
+      ],
+      "path": "tests/conftest.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 270,
+          "sample": "codrag/core/` and `src/codrag/dashboard/"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 54,
+          "sample": ".runprep/state.json\") is True     assert"
+        },
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 53,
+          "sample": "CLAUDE.md\") is True     assert _is_exclu"
+        }
+      ],
+      "path": "tests/core/test_git_evidence.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 113,
+          "sample": ".runprep\" if prep_dir.exists():     shut"
+        }
+      ],
+      "path": "tests/fixtures/FIXTURES.md"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 16,
+          "sample": "CLAUDE.md` | Phase 125c \u2014 source-indexin"
+        }
+      ],
+      "path": "tests/fixtures/walker_parity_repo/README.md"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: SCRUTINY",
+          "line": 5,
+          "sample": "SCRUTINY.md item #3. The MCP server runs"
+        }
+      ],
+      "path": "tests/test_antibody_store_lazy_init.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: SCRUTINY",
+          "line": 5,
+          "sample": "SCRUTINY.md item #5. Module file counts "
+        }
+      ],
+      "path": "tests/test_atlas_determinism.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 6,
+          "sample": "CoDRAG\", a stale codename. The user-faci"
+        }
+      ],
+      "path": "tests/test_atlas_identity_brand.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: SCRUTINY",
+          "line": 4,
+          "sample": "SCRUTINY.md item #4 for the bug that mot"
+        }
+      ],
+      "path": "tests/test_atlas_validators.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 376,
+          "sample": "CLAUDE.md\" in result.output     assert \""
+        }
+      ],
+      "path": "tests/test_cli.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: SCRUTINY",
+          "line": 5,
+          "sample": "SCRUTINY.md item #1). The original ambig"
+        }
+      ],
+      "path": "tests/test_concept_stats_per_kind.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 3,
+          "sample": "codrag -> prep -> runprep) state where p"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 3,
+          "sample": "runprep) state where prep_settings.db ex"
+        }
+      ],
+      "path": "tests/test_configure_concept_store_init.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 65,
+          "sample": "codrag.md\").write_text(\"# skill\")     (r"
+        }
+      ],
+      "path": "tests/test_coverage_default_dir_excludes_merged.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 1,
+          "sample": "codrag_data migration.  Pre-fix: the dae"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 4,
+          "sample": "runprep/ (XDG) with no migration path. U"
+        }
+      ],
+      "path": "tests/test_data_dir_migration.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 343,
+          "sample": "CoDRAG\" in PREP_SELF_OUTPUT_MARKERS     "
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 342,
+          "sample": "RunPrep\" in PREP_SELF_OUTPUT_MARKERS    "
+        }
+      ],
+      "path": "tests/test_docs_grounding.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 44,
+          "sample": ".runprep\"         proj = _stub_project(i"
+        }
+      ],
+      "path": "tests/test_l3_plumbing.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: SCRUTINY",
+          "line": 5,
+          "sample": "SCRUTINY.md. A prep(role=\"security\") cal"
+        }
+      ],
+      "path": "tests/test_module_tiers_role_weighted.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 1,
+          "sample": "codrag_data/` literals.  Pre-fix: severa"
+        }
+      ],
+      "path": "tests/test_no_cwd_relative_codrag_data.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 4,
+          "sample": "codrag_data/` SQLite-dump chunks, and Ty"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 33,
+          "sample": ".runprep/trace_nodes.jsonl\",     \"codrag"
+        },
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 38,
+          "sample": "CLAUDE.md\",     \".cursor/rules/prep.mdc\""
+        }
+      ],
+      "path": "tests/test_no_self_ingestion.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 70,
+          "sample": "codrag_data\"   def test_empty_env_var_fa"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 80,
+          "sample": "runprep_to_sourceprep(tmp_path: Path) ->"
+        }
+      ],
+      "path": "tests/test_paths.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 3,
+          "sample": "codrag/RunPrep product names are dead wi"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 3,
+          "sample": ".runprep legacy fallback was removed 202"
+        }
+      ],
+      "path": "tests/test_phase128_license_path_fallback.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 1,
+          "sample": "codrag dirs coexist with .sourceprep/.  "
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 1,
+          "sample": ".runprep/.codrag dirs coexist with .sour"
+        }
+      ],
+      "path": "tests/test_phase128_paths_migration_orphan_warning.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 4,
+          "sample": "CLAUDE.md and .cursor/rules/*.mdc are in"
+        }
+      ],
+      "path": "tests/test_phase133_bimodal_walker.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 107,
+          "sample": "CLAUDE.md\").write_text(\"# Mine\\n\\nUser p"
+        }
+      ],
+      "path": "tests/test_phase147_rules_split.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 109,
+          "sample": ".runprep\" / \"index\"         idx = CodeIn"
+        }
+      ],
+      "path": "tests/test_primer.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "secret: AWS key id",
+          "line": 155,
+          "sample": "AKIA1234567890ABCDEF\",                 }"
+        }
+      ],
+      "path": "tests/test_remote_sync.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 106,
+          "sample": "CLAUDE.md\").write_text(\"# My Project\\n\")"
+        }
+      ],
+      "path": "tests/test_rules_generator_targets.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 4,
+          "sample": "CoDRAG \u2192 RunPrep \u2192 SourcePrep rebrand:  "
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 4,
+          "sample": "RunPrep \u2192 SourcePrep rebrand:  1. The ge"
+        }
+      ],
+      "path": "tests/test_settings_route_ordering.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 703,
+          "sample": "codrag_data\"         index_dir.mkdir(par"
+        }
+      ],
+      "path": "tests/test_team_sync_integration.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 13,
+          "sample": ".runprep\"                  # Create dumm"
+        }
+      ],
+      "path": "tests/test_trace_builder_globs.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 91,
+          "sample": ".runprep\",         include_globs=list(in"
+        }
+      ],
+      "path": "tests/test_trace_endpoints.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 107,
+          "sample": "codrag_output_guard() -> None:     \"\"\"Di"
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 33,
+          "sample": ".runprep\"     index_dir.mkdir(parents=Tr"
+        }
+      ],
+      "path": "tests/test_user_exclude_respected.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: codrag/CoDRAG",
+          "line": 70,
+          "sample": "CoDRAG-era patterns (`**/.codrag/**`,   "
+        },
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 73,
+          "sample": ".runprep` patterns     remain because th"
+        }
+      ],
+      "path": "tests/test_walker_parity.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "dead-codename: RunPrep/.runprep",
+          "line": 27,
+          "sample": ".runprep/**\",         \"**/node_modules/*"
+        }
+      ],
+      "path": "tests/test_watcher_relevance.py"
+    },
+    {
+      "hits": [
+        {
+          "label": "internal-doc: CLAUDE.md reference",
+          "line": 143,
+          "sample": "CLAUDE.md or rules file?\",     a: (     "
+        }
+      ],
+      "path": "websites/apps/marketing/src/app/faq/page.tsx"
+    }
+  ],
+  "included": [
+    "AGENTS.md",
+    "CHARTER.md",
+    "CODE_OF_CONDUCT.md",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "SECURITY.md",
+    "SUPPORT.md",
+    "docs/assets/header-logo.png",
+    "docs/assets/prep-github-header.png",
+    "docs/assets/xprep-github-header.png",
+    "engine/Cargo.lock",
+    "engine/Cargo.toml",
+    "engine/crates/prep-chunking/Cargo.toml",
+    "engine/crates/prep-chunking/src/lib.rs",
+    "engine/crates/prep-engine/Cargo.toml",
+    "engine/crates/prep-engine/src/lib.rs",
+    "engine/crates/prep-graph/Cargo.toml",
+    "engine/crates/prep-graph/src/lib.rs",
+    "engine/crates/prep-graph/src/lod.rs",
+    "engine/crates/prep-graph/src/role_projection.rs",
+    "engine/crates/prep-parser/Cargo.toml",
+    "engine/crates/prep-parser/src/cpp.rs",
+    "engine/crates/prep-parser/src/go.rs",
+    "engine/crates/prep-parser/src/java.rs",
+    "engine/crates/prep-parser/src/lib.rs",
+    "engine/crates/prep-parser/src/markdown.rs",
+    "engine/crates/prep-parser/src/python.rs",
+    "engine/crates/prep-parser/src/rust_lang.rs",
+    "engine/crates/prep-parser/src/typescript.rs",
+    "engine/crates/prep-sanitize/Cargo.toml",
+    "engine/crates/prep-selfheal/Cargo.toml",
+    "engine/crates/prep-selfheal/src/main.rs",
+    "engine/crates/prep-walker/Cargo.toml",
+    "engine/deny.toml",
+    "engine/pyproject.toml",
+    "mcp-server.json",
+    "package-lock.json",
+    "package.json",
+    "packages/paperclip-plugin-prep/.gitignore",
+    "packages/paperclip-plugin-prep/README.md",
+    "packages/paperclip-plugin-prep/package.json",
+    "packages/paperclip-plugin-prep/prep-github-header.png",
+    "packages/paperclip-plugin-prep/src/manifest.ts",
+    "packages/paperclip-plugin-prep/src/ui/CodebaseHealthWidget.tsx",
+    "packages/paperclip-plugin-prep/src/ui/IssueContextTab.tsx",
+    "packages/paperclip-plugin-prep/src/ui/KnowledgeScopeTab.tsx",
+    "packages/paperclip-plugin-prep/src/ui/SettingsPage.tsx",
+    "packages/paperclip-plugin-prep/src/ui/index.ts",
+    "packages/paperclip-plugin-prep/src/worker/index.ts",
+    "packages/paperclip-plugin-prep/tests/plugin.spec.ts",
+    "packages/paperclip-plugin-prep/tsconfig.json",
+    "packages/paperclip-plugin-prep/tsup.config.ts",
+    "packages/paperclip-skill/SKILL.md",
+    "packages/paperclip-skill/references/mcp-tools.md",
+    "packages/ui/.eslintrc.json",
+    "packages/ui/.storybook/main.ts",
+    "packages/ui/.storybook/manager-head.html",
+    "packages/ui/.storybook/manager.ts",
+    "packages/ui/.storybook/preview.tsx",
+    "packages/ui/.storybook/static/prep-logo.png",
+    "packages/ui/.storybook/static/sourceprep-logo.png",
+    "packages/ui/README.md",
+    "packages/ui/netlify.toml",
+    "packages/ui/package.json",
+    "packages/ui/postcss.config.js",
+    "packages/ui/src/COMPONENT_ARCHITECTURE.md",
+    "packages/ui/src/COMPONENT_INVENTORY.md",
+    "packages/ui/src/REFACTOR_PLAN.md",
+    "packages/ui/src/api/README.md",
+    "packages/ui/src/api/client.ts",
+    "packages/ui/src/api/errors.ts",
+    "packages/ui/src/api/index.ts",
+    "packages/ui/src/api/mock.ts",
+    "packages/ui/src/api/react.tsx",
+    "packages/ui/src/api/types.ts",
+    "packages/ui/src/components/agents/AgentCard.tsx",
+    "packages/ui/src/components/agents/AgentOpsDetail.tsx",
+    "packages/ui/src/components/agents/AgentOpsPanel.tsx",
+    "packages/ui/src/components/agents/CleanupPreview.tsx",
+    "packages/ui/src/components/agents/EmployeeBadges.tsx",
+    "packages/ui/src/components/agents/GenerateWizard.tsx",
+    "packages/ui/src/components/agents/MCPConnectionCard.tsx",
+    "packages/ui/src/components/agents/ManagedEmployeesTab.tsx",
+    "packages/ui/src/components/agents/PushSettings.tsx",
+    "packages/ui/src/components/agents/ResearchTopicList.tsx",
+    "packages/ui/src/components/agents/SystemAgentsTab.tsx",
+    "packages/ui/src/components/agents/index.ts",
+    "packages/ui/src/components/architecture/AnnotationNode.tsx",
+    "packages/ui/src/components/architecture/ArchitectureDiagramDetail.tsx",
+    "packages/ui/src/components/architecture/ArchitectureDiagramPanel.tsx",
+    "packages/ui/src/components/architecture/BreadcrumbNav.tsx",
+    "packages/ui/src/components/architecture/DependencyEdge.tsx",
+    "packages/ui/src/components/architecture/DiagramSidebar.tsx",
+    "packages/ui/src/components/architecture/DiagramToolbar.tsx",
+    "packages/ui/src/components/architecture/EntryPointNode.tsx",
+    "packages/ui/src/components/architecture/ExternalRefNode.tsx",
+    "packages/ui/src/components/architecture/FileNode.tsx",
+    "packages/ui/src/components/architecture/IssueBadge.tsx",
+    "packages/ui/src/components/architecture/ModuleNode.tsx",
+    "packages/ui/src/components/architecture/index.ts",
+    "packages/ui/src/components/audit/AuditPanel.tsx",
+    "packages/ui/src/components/audit/HealthScannerPanel.tsx",
+    "packages/ui/src/components/audit/OpportunitiesPanel.tsx",
+    "packages/ui/src/components/audit/SpaghettiFinderPanel.tsx",
+    "packages/ui/src/components/audit/index.ts",
+    "packages/ui/src/components/concepts/ConceptsDetail.tsx",
+    "packages/ui/src/components/concepts/ConceptsPanel.tsx",
+    "packages/ui/src/components/concepts/index.ts",
+    "packages/ui/src/components/concurrency/CapacityHealth.stories.tsx",
+    "packages/ui/src/components/concurrency/CapacityHealth.tsx",
+    "packages/ui/src/components/concurrency/ConcurrencyHealth.stories.tsx",
+    "packages/ui/src/components/concurrency/ConcurrencyHealth.tsx",
+    "packages/ui/src/components/concurrency/ConcurrencyResetPanel.tsx",
+    "packages/ui/src/components/concurrency/RecentSwarmLogs.stories.tsx",
+    "packages/ui/src/components/concurrency/RecentSwarmLogs.tsx",
+    "packages/ui/src/components/concurrency/SwarmActivityPanel.stories.tsx",
+    "packages/ui/src/components/concurrency/SwarmActivityPanel.tsx",
+    "packages/ui/src/components/console/AnimatedCLI.tsx",
+    "packages/ui/src/components/console/AnimatedIDE.tsx",
+    "packages/ui/src/components/console/BugReportModal.tsx",
+    "packages/ui/src/components/console/LogConsole.tsx",
+    "packages/ui/src/components/console/TerminalFrame.tsx",
+    "packages/ui/src/components/console/cli-types.ts",
+    "packages/ui/src/components/console/demo-scripts.ts",
+    "packages/ui/src/components/console/index.ts",
+    "packages/ui/src/components/context/CitationBlock.tsx",
+    "packages/ui/src/components/context/ContextViewer.tsx",
+    "packages/ui/src/components/context/CopyButton.tsx",
+    "packages/ui/src/components/context/index.ts",
+    "packages/ui/src/components/dashboard/BuildCard.tsx",
+    "packages/ui/src/components/dashboard/IndexStats.tsx",
+    "packages/ui/src/components/dashboard/IndexStatusCard.tsx",
+    "packages/ui/src/components/dashboard/LLMStatusWidget.tsx",
+    "packages/ui/src/components/dashboard/McpSnippetCard.tsx",
+    "packages/ui/src/components/dashboard/UsageGuidePanel.tsx",
+    "packages/ui/src/components/dashboard/index.ts",
+    "packages/ui/src/components/docs/DocsLayout.tsx",
+    "packages/ui/src/components/docs/DocsSidebarNav.tsx",
+    "packages/ui/src/components/docs/MobileDocsDrawer.tsx",
+    "packages/ui/src/components/docs/TableOfContents.tsx",
+    "packages/ui/src/components/docs/index.ts",
+    "packages/ui/src/components/enterprise/EnterpriseAdminPanel.tsx",
+    "packages/ui/src/components/enterprise/index.ts",
+    "packages/ui/src/components/goalposts/AdvisorPanel.tsx",
+    "packages/ui/src/components/goalposts/BurndownChart.tsx",
+    "packages/ui/src/components/goalposts/GitHubStatusBadge.tsx",
+    "packages/ui/src/components/goalposts/GoalpostsPanel.tsx",
+    "packages/ui/src/components/goalposts/NodeDetailView.tsx",
+    "packages/ui/src/components/goalposts/RoadmapPanel.tsx",
+    "packages/ui/src/components/goalposts/RoadmapTimeline.tsx",
+    "packages/ui/src/components/goalposts/SprintCard.tsx",
+    "packages/ui/src/components/goalposts/VelocityBar.tsx",
+    "packages/ui/src/components/goalposts/colors.ts",
+    "packages/ui/src/components/goalposts/index.ts",
+    "packages/ui/src/components/index.ts",
+    "packages/ui/src/components/layout/AutoHeightPanel.tsx",
+    "packages/ui/src/components/layout/DashboardGrid.tsx",
+    "packages/ui/src/components/layout/ModularDashboard.tsx",
+    "packages/ui/src/components/layout/PanelChrome.tsx",
+    "packages/ui/src/components/layout/PanelPicker.tsx",
+    "packages/ui/src/components/layout/index.ts",
+    "packages/ui/src/components/layout/useLayoutPersistence.ts",
+    "packages/ui/src/components/llm/AIModelsSettings.tsx",
+    "packages/ui/src/components/llm/AdvancedLLMSettings.tsx",
+    "packages/ui/src/components/llm/DeepAnalysisSettings.tsx",
+    "packages/ui/src/components/llm/EndpointManager.tsx",
+    "packages/ui/src/components/llm/LLMAssignmentBlockCard.tsx",
+    "packages/ui/src/components/llm/LLMAssignmentsPipeline.tsx",
+    "packages/ui/src/components/llm/ModelCard.tsx",
+    "packages/ui/src/components/llm/PlanDropdown.stories.tsx",
+    "packages/ui/src/components/llm/PlanDropdown.tsx",
+    "packages/ui/src/components/llm/ProbeButton.stories.tsx",
+    "packages/ui/src/components/llm/ProbeButton.tsx",
+    "packages/ui/src/components/llm/__tests__/ModelCard.test.tsx",
+    "packages/ui/src/components/llm/__tests__/llmConfigHelpers.test.ts",
+    "packages/ui/src/components/llm/__tests__/provider-utils.test.ts",
+    "packages/ui/src/components/llm/index.ts",
+    "packages/ui/src/components/llm/llmConfigHelpers.ts",
+    "packages/ui/src/components/llm/provider-utils.ts",
+    "packages/ui/src/components/marketing/CompetitorMatrix.tsx",
+    "packages/ui/src/components/marketing/DetailPageLayout.tsx",
+    "packages/ui/src/components/marketing/FeatureBlocks.tsx",
+    "packages/ui/src/components/marketing/MarketingHero.tsx",
+    "packages/ui/src/components/marketing/TechStackMatrix.tsx",
+    "packages/ui/src/components/marketing/TierComparison.tsx",
+    "packages/ui/src/components/marketing/heroes/centered.tsx",
+    "packages/ui/src/components/marketing/heroes/enterprise.tsx",
+    "packages/ui/src/components/marketing/heroes/focus.tsx",
+    "packages/ui/src/components/marketing/heroes/glass.tsx",
+    "packages/ui/src/components/marketing/heroes/index.ts",
+    "packages/ui/src/components/marketing/heroes/neo.tsx",
+    "packages/ui/src/components/marketing/heroes/retro.tsx",
+    "packages/ui/src/components/marketing/heroes/split.tsx",
+    "packages/ui/src/components/marketing/heroes/studio.tsx",
+    "packages/ui/src/components/marketing/heroes/swiss.tsx",
+    "packages/ui/src/components/marketing/heroes/yale.tsx",
+    "packages/ui/src/components/marketing/index.ts",
+    "packages/ui/src/components/marketing/research/ResearchAppendix.tsx",
+    "packages/ui/src/components/marketing/research/ResearchHero.tsx",
+    "packages/ui/src/components/marketing/research/ResearchSection.tsx",
+    "packages/ui/src/components/marketing/research/SourceCard.tsx",
+    "packages/ui/src/components/marketing/research/SourceFilterChips.tsx",
+    "packages/ui/src/components/marketing/research/SourceSpotlight.tsx",
+    "packages/ui/src/components/marketing/research/index.ts",
+    "packages/ui/src/components/navigation/AppShell.tsx",
+    "packages/ui/src/components/navigation/ProjectList.tsx",
+    "packages/ui/src/components/navigation/ProjectTabs.tsx",
+    "packages/ui/src/components/navigation/Sidebar.tsx",
+    "packages/ui/src/components/navigation/SidebarAIGateway.tsx",
+    "packages/ui/src/components/navigation/SidebarPipelineQueue.stories.tsx",
+    "packages/ui/src/components/navigation/SidebarPipelineQueue.tsx",
+    "packages/ui/src/components/navigation/index.ts",
+    "packages/ui/src/components/patterns/EmptyState.tsx",
+    "packages/ui/src/components/patterns/ErrorState.tsx",
+    "packages/ui/src/components/patterns/LoadingState.tsx",
+    "packages/ui/src/components/patterns/index.ts",
+    "packages/ui/src/components/pipeline/HealthBadge.tsx",
+    "packages/ui/src/components/pipeline/StageRegenerateButton.tsx",
+    "packages/ui/src/components/pipeline/__tests__/HealthBadge.test.tsx",
+    "packages/ui/src/components/pipeline/index.ts",
+    "packages/ui/src/components/primitives/AdminSection.tsx",
+    "packages/ui/src/components/primitives/BudgetPill.tsx",
+    "packages/ui/src/components/primitives/BudgetPreview.tsx",
+    "packages/ui/src/components/primitives/Button.tsx",
+    "packages/ui/src/components/primitives/Checkbox.tsx",
+    "packages/ui/src/components/primitives/ConfirmDialog.tsx",
+    "packages/ui/src/components/primitives/InfoTooltip.tsx",
+    "packages/ui/src/components/primitives/NumberField.tsx",
+    "packages/ui/src/components/primitives/PanelLoading.tsx",
+    "packages/ui/src/components/primitives/PathInput.tsx",
+    "packages/ui/src/components/primitives/SearchableSelect.tsx",
+    "packages/ui/src/components/primitives/Select.tsx",
+    "packages/ui/src/components/primitives/SettingsRow.tsx",
+    "packages/ui/src/components/primitives/SettingsSection.tsx",
+    "packages/ui/src/components/primitives/SlidingSwitch.tsx",
+    "packages/ui/src/components/primitives/StepperNumberInput.tsx",
+    "packages/ui/src/components/primitives/TagListEditor.tsx",
+    "packages/ui/src/components/primitives/Toast.stories.tsx",
+    "packages/ui/src/components/primitives/Toast.tsx",
+    "packages/ui/src/components/primitives/Toggle.tsx",
+    "packages/ui/src/components/primitives/index.ts",
+    "packages/ui/src/components/project/AddProjectModal.tsx",
+    "packages/ui/src/components/project/CodeViewer.tsx",
+    "packages/ui/src/components/project/FileExplorerDetail.tsx",
+    "packages/ui/src/components/project/FilePreviewPane.tsx",
+    "packages/ui/src/components/project/FolderTree.tsx",
+    "packages/ui/src/components/project/FolderTreePanel.tsx",
+    "packages/ui/src/components/project/GitignoreHygieneModal.stories.tsx",
+    "packages/ui/src/components/project/GitignoreHygieneModal.tsx",
+    "packages/ui/src/components/project/InitExcludeReviewModal.stories.tsx",
+    "packages/ui/src/components/project/InitExcludeReviewModal.tsx",
+    "packages/ui/src/components/project/PinnedTextFilesPanel.tsx",
+    "packages/ui/src/components/project/ProjectSettingsPanel.tsx",
+    "packages/ui/src/components/project/__tests__/FolderTreePanel.test.tsx",
+    "packages/ui/src/components/project/index.ts",
+    "packages/ui/src/components/search/ChunkPreview.tsx",
+    "packages/ui/src/components/search/ChunkViewer.tsx",
+    "packages/ui/src/components/search/ContextOptionsPanel.tsx",
+    "packages/ui/src/components/search/ContextOutput.tsx",
+    "packages/ui/src/components/search/SearchInput.tsx",
+    "packages/ui/src/components/search/SearchPanel.tsx",
+    "packages/ui/src/components/search/SearchResultRow.tsx",
+    "packages/ui/src/components/search/SearchResultsList.tsx",
+    "packages/ui/src/components/search/index.ts",
+    "packages/ui/src/components/settings/ScopedActionRow.tsx",
+    "packages/ui/src/components/settings/Section.tsx",
+    "packages/ui/src/components/settings/SettingRow.tsx",
+    "packages/ui/src/components/settings/__tests__/Section.stories.tsx",
+    "packages/ui/src/components/settings/__tests__/SettingRow.stories.tsx",
+    "packages/ui/src/components/settings/__tests__/scope.test.ts",
+    "packages/ui/src/components/settings/index.ts",
+    "packages/ui/src/components/settings/scope.ts",
+    "packages/ui/src/components/site/SiteFooter.tsx",
+    "packages/ui/src/components/site/SiteHeader.tsx",
+    "packages/ui/src/components/site/index.ts",
+    "packages/ui/src/components/status/BuildProgress.tsx",
+    "packages/ui/src/components/status/ProgressIndicator.tsx",
+    "packages/ui/src/components/status/StatusBadge.tsx",
+    "packages/ui/src/components/status/StatusCard.tsx",
+    "packages/ui/src/components/status/index.ts",
+    "packages/ui/src/components/team/EmbeddedModeIndicator.tsx",
+    "packages/ui/src/components/team/LicenseStatusCard.tsx",
+    "packages/ui/src/components/team/ServerModeIndicator.tsx",
+    "packages/ui/src/components/team/SyncStatusCard.tsx",
+    "packages/ui/src/components/team/TeamConfigStatus.tsx",
+    "packages/ui/src/components/team/TeamSyncIndicator.tsx",
+    "packages/ui/src/components/team/index.ts",
+    "packages/ui/src/components/trace/AtlasLensPanel/AtlasLensPanel.tsx",
+    "packages/ui/src/components/trace/AtlasLensPanel/BudgetBar.tsx",
+    "packages/ui/src/components/trace/AtlasLensPanel/BudgetSlider.tsx",
+    "packages/ui/src/components/trace/AtlasLensPanel/PinnedConceptsList.tsx",
+    "packages/ui/src/components/trace/AtlasLensPanel/RoleLens.tsx",
+    "packages/ui/src/components/trace/AtlasLensPanel/StatusStrip.tsx",
+    "packages/ui/src/components/trace/AtlasLensPanel/SubAtlasTree.tsx",
+    "packages/ui/src/components/trace/AtlasLensPanel/index.ts",
+    "packages/ui/src/components/trace/BarrierIndicator.tsx",
+    "packages/ui/src/components/trace/GraphEnrichmentPipeline.tsx",
+    "packages/ui/src/components/trace/GraphStructurePanel.tsx",
+    "packages/ui/src/components/trace/NodeDetailPanel.tsx",
+    "packages/ui/src/components/trace/ProvenanceChip.tsx",
+    "packages/ui/src/components/trace/RebuildDropdown.tsx",
+    "packages/ui/src/components/trace/RebuildingRow.tsx",
+    "packages/ui/src/components/trace/RecoverStagePanel.tsx",
+    "packages/ui/src/components/trace/StageProgressBar.tsx",
+    "packages/ui/src/components/trace/SymbolResultRow.tsx",
+    "packages/ui/src/components/trace/SymbolSearchInput.tsx",
+    "packages/ui/src/components/trace/TraceCoveragePanel.tsx",
+    "packages/ui/src/components/trace/TraceExplorer.tsx",
+    "packages/ui/src/components/trace/TraceGraph.tsx",
+    "packages/ui/src/components/trace/TraceStatusCard.tsx",
+    "packages/ui/src/components/trace/__tests__/BarrierIndicator.test.tsx",
+    "packages/ui/src/components/trace/__tests__/GraphEnrichmentPipeline.behavioral.test.tsx",
+    "packages/ui/src/components/trace/__tests__/ProvenanceChip.test.tsx",
+    "packages/ui/src/components/trace/__tests__/RebuildDropdown.test.tsx",
+    "packages/ui/src/components/trace/__tests__/RebuildingRow.test.tsx",
+    "packages/ui/src/components/trace/__tests__/RecoverStagePanel.test.tsx",
+    "packages/ui/src/components/trace/__tests__/freezeGreen.test.ts",
+    "packages/ui/src/components/trace/__tests__/pipelineRollup.test.ts",
+    "packages/ui/src/components/trace/__tests__/rebuildProgress.test.ts",
+    "packages/ui/src/components/trace/__tests__/statsSafeState.test.ts",
+    "packages/ui/src/components/trace/freezeGreen.ts",
+    "packages/ui/src/components/trace/index.ts",
+    "packages/ui/src/components/trace/pipelineRollup.ts",
+    "packages/ui/src/components/trace/rebuildProgress.ts",
+    "packages/ui/src/components/viz/ActivityHeatmap.tsx",
+    "packages/ui/src/components/viz/IndexHealthPanel.tsx",
+    "packages/ui/src/components/viz/TokenBudgetPanel.tsx",
+    "packages/ui/src/components/viz/__tests__/IndexHealthPanel.test.tsx",
+    "packages/ui/src/components/viz/index.ts",
+    "packages/ui/src/components/watch/WatchControlPanel.tsx",
+    "packages/ui/src/components/watch/WatchStatusIndicator.tsx",
+    "packages/ui/src/components/watch/index.ts",
+    "packages/ui/src/config/mcpSetup.ts",
+    "packages/ui/src/config/mcpTools.ts",
+    "packages/ui/src/config/panelRegistry.ts",
+    "packages/ui/src/data/researchSources.ts",
+    "packages/ui/src/hooks/__tests__/useScopes.test.ts",
+    "packages/ui/src/hooks/useAdminPolicy.ts",
+    "packages/ui/src/hooks/useCancelToast.ts",
+    "packages/ui/src/hooks/useEventStream.ts",
+    "packages/ui/src/hooks/useScopes.ts",
+    "packages/ui/src/index.ts",
+    "packages/ui/src/lib/__tests__/debouncedSaver.test.ts",
+    "packages/ui/src/lib/debouncedSaver.ts",
+    "packages/ui/src/lib/llm-presets.ts",
+    "packages/ui/src/lib/token-estimates.ts",
+    "packages/ui/src/lib/utils.ts",
+    "packages/ui/src/stories/Accessibility.mdx",
+    "packages/ui/src/stories/VisualDirections.mdx",
+    "packages/ui/src/stories/agents/AgentCard.stories.tsx",
+    "packages/ui/src/stories/agents/AgentOpsPanel.stories.tsx",
+    "packages/ui/src/stories/agents/ManagedEmployeesTab.stories.tsx",
+    "packages/ui/src/stories/agents/SystemAgentsTab.stories.tsx",
+    "packages/ui/src/stories/audit/AuditPanel.stories.tsx",
+    "packages/ui/src/stories/audit/OpportunitiesPanel.stories.tsx",
+    "packages/ui/src/stories/console/AnimatedCLI.stories.tsx",
+    "packages/ui/src/stories/console/AnimatedIDE.stories.tsx",
+    "packages/ui/src/stories/console/BugReportModal.stories.tsx",
+    "packages/ui/src/stories/console/LogConsole.stories.tsx",
+    "packages/ui/src/stories/dashboard/BuildCard.stories.tsx",
+    "packages/ui/src/stories/dashboard/ContextOutput.stories.tsx",
+    "packages/ui/src/stories/dashboard/IndexStats.stories.tsx",
+    "packages/ui/src/stories/dashboard/IndexStatusCard.stories.tsx",
+    "packages/ui/src/stories/dashboard/LLMStatusWidget.stories.tsx",
+    "packages/ui/src/stories/dashboard/UsageGuidePanel.stories.tsx",
+    "packages/ui/src/stories/demos/Dashboard.stories.tsx",
+    "packages/ui/src/stories/demos/DesignSystem.css",
+    "packages/ui/src/stories/demos/DesignSystem.stories.tsx",
+    "packages/ui/src/stories/docs/MobileDocsDrawer.stories.tsx",
+    "packages/ui/src/stories/enterprise/EnterpriseAdminPanel.stories.tsx",
+    "packages/ui/src/stories/foundations/Colors.stories.tsx",
+    "packages/ui/src/stories/foundations/Spacing.stories.tsx",
+    "packages/ui/src/stories/foundations/Typography.stories.tsx",
+    "packages/ui/src/stories/goalposts/RoadmapPanel.stories.tsx",
+    "packages/ui/src/stories/layout/Introduction.mdx",
+    "packages/ui/src/stories/layout/ModularDashboard.stories.tsx",
+    "packages/ui/src/stories/layout/PanelChrome.stories.tsx",
+    "packages/ui/src/stories/layout/PanelPicker.stories.tsx",
+    "packages/ui/src/stories/llm/AIModelsSettings.stories.tsx",
+    "packages/ui/src/stories/llm/AdvancedLLMSettings.stories.tsx",
+    "packages/ui/src/stories/llm/DeepAnalysisSettings.stories.tsx",
+    "packages/ui/src/stories/llm/EndpointManager.stories.tsx",
+    "packages/ui/src/stories/llm/ModelCard.stories.tsx",
+    "packages/ui/src/stories/marketing/FeatureBlocks.stories.tsx",
+    "packages/ui/src/stories/marketing/MarketingHero.stories.tsx",
+    "packages/ui/src/stories/marketing/research/ResearchAppendix.stories.tsx",
+    "packages/ui/src/stories/marketing/research/ResearchHero.stories.tsx",
+    "packages/ui/src/stories/marketing/research/ResearchSection.stories.tsx",
+    "packages/ui/src/stories/marketing/research/SourceCard.stories.tsx",
+    "packages/ui/src/stories/marketing/research/SourceFilterChips.stories.tsx",
+    "packages/ui/src/stories/marketing/research/SourceSpotlight.stories.tsx",
+    "packages/ui/src/stories/molecules/CitationBlock.stories.tsx",
+    "packages/ui/src/stories/molecules/CopyButton.stories.tsx",
+    "packages/ui/src/stories/navigation/AppShell.stories.tsx",
+    "packages/ui/src/stories/navigation/SidebarAIGateway.stories.tsx",
+    "packages/ui/src/stories/navigation/SidebarPipelineQueue.stories.tsx",
+    "packages/ui/src/stories/patterns/StatePatterns.stories.tsx",
+    "packages/ui/src/stories/primitives/Button.stories.tsx",
+    "packages/ui/src/stories/primitives/PathInput.stories.tsx",
+    "packages/ui/src/stories/primitives/SearchableSelect.stories.tsx",
+    "packages/ui/src/stories/primitives/Select.stories.tsx",
+    "packages/ui/src/stories/project/FolderTreePanel.stories.tsx",
+    "packages/ui/src/stories/project/ProjectSettingsPanel.stories.tsx",
+    "packages/ui/src/stories/search/SearchComponents.stories.tsx",
+    "packages/ui/src/stories/search/SearchPanel.stories.tsx",
+    "packages/ui/src/stories/site/SiteFooter.stories.tsx",
+    "packages/ui/src/stories/site/SiteHeader.stories.tsx",
+    "packages/ui/src/stories/status/BuildProgress.stories.tsx",
+    "packages/ui/src/stories/status/StatusBadge.stories.tsx",
+    "packages/ui/src/stories/status/StatusCard.stories.tsx",
+    "packages/ui/src/stories/team/LicenseStatusCard.stories.tsx",
+    "packages/ui/src/stories/team/SyncStatusCard.stories.tsx",
+    "packages/ui/src/stories/team/TeamSyncIndicator.stories.tsx",
+    "packages/ui/src/stories/trace/AtlasLensPanel.stories.tsx",
+    "packages/ui/src/stories/trace/GraphEnrichmentPipeline.stories.tsx",
+    "packages/ui/src/stories/trace/GraphStructurePanel.stories.tsx",
+    "packages/ui/src/stories/trace/NodeDetailPanel.stories.tsx",
+    "packages/ui/src/stories/trace/ProvenanceChip.stories.tsx",
+    "packages/ui/src/stories/trace/RebuildDropdown.stories.tsx",
+    "packages/ui/src/stories/trace/RebuildingRow.stories.tsx",
+    "packages/ui/src/stories/trace/RecoverStagePanel.stories.tsx",
+    "packages/ui/src/stories/trace/StageProgressBar.stories.tsx",
+    "packages/ui/src/stories/trace/SymbolSearch.stories.tsx",
+    "packages/ui/src/stories/trace/TraceCoveragePanel.stories.tsx",
+    "packages/ui/src/stories/trace/TraceExplorer.stories.tsx",
+    "packages/ui/src/stories/trace/TraceGraph.stories.tsx",
+    "packages/ui/src/stories/trace/TraceStatusCard.stories.tsx",
+    "packages/ui/src/stories/viz/ActivityHeatmap.stories.tsx",
+    "packages/ui/src/stories/watch/WatchControls.stories.tsx",
+    "packages/ui/src/stories/watch/WatchStatusIndicator.stories.tsx",
+    "packages/ui/src/styles/index.css",
+    "packages/ui/src/styles/themes/direction-a.css",
+    "packages/ui/src/styles/themes/direction-b.css",
+    "packages/ui/src/styles/themes/direction-c.css",
+    "packages/ui/src/styles/themes/direction-d.css",
+    "packages/ui/src/styles/themes/direction-e.css",
+    "packages/ui/src/styles/themes/direction-f.css",
+    "packages/ui/src/styles/themes/direction-g.css",
+    "packages/ui/src/styles/themes/direction-h.css",
+    "packages/ui/src/styles/themes/direction-i.css",
+    "packages/ui/src/styles/themes/direction-j.css",
+    "packages/ui/src/styles/themes/direction-k.css",
+    "packages/ui/src/styles/themes/direction-l.css",
+    "packages/ui/src/styles/themes/direction-m.css",
+    "packages/ui/src/styles/themes/direction-n.css",
+    "packages/ui/src/styles/themes/index.css",
+    "packages/ui/src/tokens/index.css",
+    "packages/ui/src/types.ts",
+    "packages/ui/src/types/architecture.ts",
+    "packages/ui/src/types/index.ts",
+    "packages/ui/src/types/layout.ts",
+    "packages/ui/src/types/react-syntax-highlighter.d.ts",
+    "packages/ui/src/types_update.py",
+    "packages/ui/stryker.config.mjs",
+    "packages/ui/tailwind.config.js",
+    "packages/ui/tsconfig.json",
+    "packages/ui/tsconfig.node.json",
+    "packages/ui/vite.config.ts",
+    "packages/ui/vitest.config.ts",
+    "packages/ui/vitest.setup.ts",
+    "packages/vscode/.eslintrc.json",
+    "packages/vscode/.gitignore",
+    "packages/vscode/.vscodeignore",
+    "packages/vscode/CHANGELOG.md",
+    "packages/vscode/LICENSE",
+    "packages/vscode/README.md",
+    "packages/vscode/esbuild.mjs",
+    "packages/vscode/media/prep-icon.png",
+    "packages/vscode/media/prep-sidebar.svg",
+    "packages/vscode/package.json",
+    "packages/vscode/src/chat.ts",
+    "packages/vscode/src/client.ts",
+    "packages/vscode/src/commands.ts",
+    "packages/vscode/src/daemon.ts",
+    "packages/vscode/src/extension.ts",
+    "packages/vscode/src/statusBar.ts",
+    "packages/vscode/src/types.ts",
+    "packages/vscode/src/views/fileTree.ts",
+    "packages/vscode/src/views/indexStatus.ts",
+    "packages/vscode/src/views/projectsTree.ts",
+    "packages/vscode/src/webview/contextPreview.ts",
+    "packages/vscode/src/webview/helper.ts",
+    "packages/vscode/src/webview/searchResults.ts",
+    "packages/vscode/src/webview/styles.ts",
+    "packages/vscode/src/webview/tracePanel.ts",
+    "packages/vscode/tsconfig.json",
+    "packages/vscode/webview-ui/index.html",
+    "packages/vscode/webview-ui/package.json",
+    "packages/vscode/webview-ui/postcss.config.cjs",
+    "packages/vscode/webview-ui/src/App.tsx",
+    "packages/vscode/webview-ui/src/components/ContextPreview.tsx",
+    "packages/vscode/webview-ui/src/components/SearchResults.tsx",
+    "packages/vscode/webview-ui/src/components/TracePanel.tsx",
+    "packages/vscode/webview-ui/src/global.d.ts",
+    "packages/vscode/webview-ui/src/index.css",
+    "packages/vscode/webview-ui/src/main.tsx",
+    "packages/vscode/webview-ui/tailwind.config.js",
+    "packages/vscode/webview-ui/tsconfig.json",
+    "packages/vscode/webview-ui/tsconfig.node.json",
+    "packages/vscode/webview-ui/vite.config.ts",
+    "prep-daemon.spec",
+    "prep-logo.png",
+    "prep-mcp-wrapper.sh",
+    "public/.DS_Store",
+    "public/images/.DS_Store",
+    "public/images/Assets.xcassets/.DS_Store",
+    "public/images/Assets.xcassets/AppIcon.appiconset/100.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/102.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/1024.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/108.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/114.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/120.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/128.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/144.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/152.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/16.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/167.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/172.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/180.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/196.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/20.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/216.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/234.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/256.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/258.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/29.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/32.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/40.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/48.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/50.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/512.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/55.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/57.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/58.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/60.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/64.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/66.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/72.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/76.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/80.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/87.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/88.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/92.png",
+    "public/images/Assets.xcassets/AppIcon.appiconset/Contents.json",
+    "public/images/Prep.png",
+    "public/images/favicon_io-2/android-chrome-192x192.png",
+    "public/images/favicon_io-2/android-chrome-512x512.png",
+    "public/images/favicon_io-2/apple-touch-icon.png",
+    "public/images/favicon_io-2/favicon-16x16.png",
+    "public/images/favicon_io-2/favicon-32x32.png",
+    "public/images/favicon_io-2/favicon.ico",
+    "public/images/favicon_io-2/site.webmanifest",
+    "public/images/favicon_io/android-chrome-192x192.png",
+    "public/images/favicon_io/android-chrome-512x512.png",
+    "public/images/favicon_io/apple-touch-icon.png",
+    "public/images/favicon_io/favicon-16x16.png",
+    "public/images/favicon_io/favicon-32x32.png",
+    "public/images/favicon_io/favicon.ico",
+    "public/images/favicon_io/site.webmanifest",
+    "public/sourceprep-deploy/Dockerfile.cpu",
+    "public/sourceprep-deploy/Dockerfile.gpu",
+    "public/sourceprep-deploy/README.md",
+    "public/sourceprep-deploy/aws/README.md",
+    "public/sourceprep-deploy/aws/ecs-task-definition.json",
+    "public/sourceprep-deploy/entrypoint.sh",
+    "public/sourceprep-deploy/github-actions/README.md",
+    "public/sourceprep-deploy/github-actions/prep-sync.yml",
+    "public/sourceprep-deploy/modal/README.md",
+    "public/sourceprep-deploy/modal/modal_adapter.py",
+    "public/sourceprep-deploy/prep-github-header.png",
+    "public/sourceprep-deploy/runpod/Dockerfile.runpod",
+    "public/sourceprep-deploy/runpod/README.md",
+    "public/sourceprep-deploy/runpod/runpod_handler.py",
+    "public/sourceprep-mcp/.DS_Store",
+    "public/sourceprep-mcp/CHANGELOG.md",
+    "public/sourceprep-mcp/LICENSE",
+    "public/sourceprep-mcp/PRIVACY.md",
+    "public/sourceprep-mcp/README.md",
+    "public/sourceprep-mcp/SECURITY.md",
+    "public/sourceprep-mcp/THREAT_MODEL.md",
+    "public/sourceprep-mcp/bin/prep-mcp.js",
+    "public/sourceprep-mcp/package.json",
+    "public/sourceprep-mcp/prep-github-header.png",
+    "public/sourceprep-mcp/prep-logo.png",
+    "pyproject.toml",
+    "scripts/build-storybook.sh",
+    "scripts/build_sidecar.sh",
+    "scripts/daemon_watchdog.sh",
+    "scripts/diag_daemon_cloud.py",
+    "scripts/generate_license.py",
+    "scripts/overnight_build.sh",
+    "scripts/phase103_promote_seeds.py",
+    "scripts/phase103_temporal_schema.py",
+    "scripts/publish_deploy_subtree.sh",
+    "scripts/publish_prep_mcp_subtree.sh",
+    "scripts/run_websites.sh",
+    "scripts/troubleshoot.sh",
+    "scripts/validate_links.js",
+    "sourceprep-github-header.png",
+    "src/codrag_data/codrag_settings.db",
+    "src/codrag_data/ui_config.json",
+    "src/prep/__init__.py",
+    "src/prep/__main__.py",
+    "src/prep/a2a/__init__.py",
+    "src/prep/a2a/agent_card.json",
+    "src/prep/a2a/handler.py",
+    "src/prep/adapters/__init__.py",
+    "src/prep/adapters/paperclip_adapter.py",
+    "src/prep/adapters/pm_adapter.py",
+    "src/prep/adapters/pm_models.py",
+    "src/prep/adapters/push_engine.py",
+    "src/prep/agents/__init__.py",
+    "src/prep/agents/core.py",
+    "src/prep/agents/custodian/__init__.py",
+    "src/prep/agents/custodian/adapters/__init__.py",
+    "src/prep/agents/custodian/adapters/crewai_adapter.py",
+    "src/prep/agents/custodian/adapters/langgraph_adapter.py",
+    "src/prep/agents/custodian/engine.py",
+    "src/prep/agents/custodian/manifest.py",
+    "src/prep/agents/custodian/prompts.py",
+    "src/prep/agents/hr/__init__.py",
+    "src/prep/agents/hr/adapters/__init__.py",
+    "src/prep/agents/hr/adapters/crewai_adapter.py",
+    "src/prep/agents/hr/adapters/langgraph_adapter.py",
+    "src/prep/agents/hr/engine.py",
+    "src/prep/agents/hr/prompts.py",
+    "src/prep/agents/hr/readiness.py",
+    "src/prep/agents/hr/roster.py",
+    "src/prep/agents/researcher/__init__.py",
+    "src/prep/agents/researcher/adapters/__init__.py",
+    "src/prep/agents/researcher/adapters/crewai_adapter.py",
+    "src/prep/agents/researcher/adapters/langgraph_adapter.py",
+    "src/prep/agents/researcher/engine.py",
+    "src/prep/agents/researcher/history.py",
+    "src/prep/agents/researcher/prompts.py",
+    "src/prep/agents/shared/__init__.py",
+    "src/prep/agents/shared/git_client.py",
+    "src/prep/agents/shared/json_utils.py",
+    "src/prep/agents/shared/llm_bridge.py",
+    "src/prep/agents/shared/models.py",
+    "src/prep/agents/shared/paperclip_client.py",
+    "src/prep/agents/shared/prep_data.py",
+    "src/prep/api/__init__.py",
+    "src/prep/api/envelope.py",
+    "src/prep/api/routers/__init__.py",
+    "src/prep/api/routers/_llm_helpers.py",
+    "src/prep/api/routers/agents.py",
+    "src/prep/api/routers/architecture.py",
+    "src/prep/api/routers/audit.py",
+    "src/prep/api/routers/collaboration.py",
+    "src/prep/api/routers/compute.py",
+    "src/prep/api/routers/concepts.py",
+    "src/prep/api/routers/goalposts.py",
+    "src/prep/api/routers/knowledge.py",
+    "src/prep/api/routers/license.py",
+    "src/prep/api/routers/llm.py",
+    "src/prep/api/routers/mcp_setup.py",
+    "src/prep/api/routers/observations.py",
+    "src/prep/api/routers/opportunities.py",
+    "src/prep/api/routers/pipeline.py",
+    "src/prep/api/routers/pm_push.py",
+    "src/prep/api/routers/projects/__init__.py",
+    "src/prep/api/routers/projects/atlas_endpoints.py",
+    "src/prep/api/routers/projects/build.py",
+    "src/prep/api/routers/projects/files.py",
+    "src/prep/api/routers/projects/models.py",
+    "src/prep/api/routers/projects/pipeline_history.py",
+    "src/prep/api/routers/projects/role_overrides_endpoints.py",
+    "src/prep/api/routers/projects/search.py",
+    "src/prep/api/routers/projects/telemetry.py",
+    "src/prep/api/routers/projects/vendor_scan.py",
+    "src/prep/api/routers/projects/watch.py",
+    "src/prep/api/routers/queue.py",
+    "src/prep/api/routers/roadmap.py",
+    "src/prep/api/routers/roles_endpoints.py",
+    "src/prep/api/routers/scope.py",
+    "src/prep/api/routers/scopes.py",
+    "src/prep/api/routers/settings.py",
+    "src/prep/api/routers/system.py",
+    "src/prep/api/routers/trace_routes/__init__.py",
+    "src/prep/api/routers/trace_routes/enrichment.py",
+    "src/prep/api/routers/trace_routes/shared.py",
+    "src/prep/core/__init__.py",
+    "src/prep/core/agents_writer.py",
+    "src/prep/core/alert_queue.py",
+    "src/prep/core/antibodies.py",
+    "src/prep/core/antibody_derivation.py",
+    "src/prep/core/architecture_acr.py",
+    "src/prep/core/architecture_state.py",
+    "src/prep/core/atlas/__init__.py",
+    "src/prep/core/atlas/markdown_links.py",
+    "src/prep/core/atlas/models.py",
+    "src/prep/core/atlas/prompts.py",
+    "src/prep/core/atlas/role_projection.py",
+    "src/prep/core/atlas/role_resolver.py",
+    "src/prep/core/atlas/role_vectors.py",
+    "src/prep/core/atlas/routing.py",
+    "src/prep/core/atomic_io.py",
+    "src/prep/core/audit/__init__.py",
+    "src/prep/core/audit/action_item.py",
+    "src/prep/core/audit/analyzers/__init__.py",
+    "src/prep/core/audit/analyzers/api_surface.py",
+    "src/prep/core/audit/analyzers/circular_deps.py",
+    "src/prep/core/audit/analyzers/dead_code.py",
+    "src/prep/core/audit/analyzers/duplicate_logic.py",
+    "src/prep/core/audit/analyzers/hub_bottlenecks.py",
+    "src/prep/core/audit/analyzers/large_files.py",
+    "src/prep/core/audit/analyzers/misplaced_imports.py",
+    "src/prep/core/audit/analyzers/naming.py",
+    "src/prep/core/audit/analyzers/staleness.py",
+    "src/prep/core/audit/analyzers/tech_debt.py",
+    "src/prep/core/audit/analyzers/test_coverage.py",
+    "src/prep/core/audit/consolidator.py",
+    "src/prep/core/audit/context.py",
+    "src/prep/core/audit/models.py",
+    "src/prep/core/audit/opportunity_manager.py",
+    "src/prep/core/audit/prompts.py",
+    "src/prep/core/audit/recommendations.py",
+    "src/prep/core/audit/runner.py",
+    "src/prep/core/audit/sarif_exporter.py",
+    "src/prep/core/audit/spaghetti_scorer.py",
+    "src/prep/core/audit/structural.py",
+    "src/prep/core/audit/synthesizer.py",
+    "src/prep/core/augmenter.py",
+    "src/prep/core/batch_profiles.py",
+    "src/prep/core/batch_prompts.py",
+    "src/prep/core/batch_strategy.py",
+    "src/prep/core/budget_enforcement.py",
+    "src/prep/core/chunking.py",
+    "src/prep/core/cluster.py",
+    "src/prep/core/compression/__init__.py",
+    "src/prep/core/compression/symbol_registry.py",
+    "src/prep/core/compressor.py",
+    "src/prep/core/concept_clustering.py",
+    "src/prep/core/concept_conflicts.py",
+    "src/prep/core/concept_generate_dedup.py",
+    "src/prep/core/concept_generate_grounding.py",
+    "src/prep/core/concept_generate_prompt.py",
+    "src/prep/core/concept_generate_swarm.py",
+    "src/prep/core/concept_promotion.py",
+    "src/prep/core/concept_promotion_pipeline.py",
+    "src/prep/core/concept_seeder.py",
+    "src/prep/core/concept_t3_refine.py",
+    "src/prep/core/concept_validate_prompt.py",
+    "src/prep/core/concept_validate_swarm.py",
+    "src/prep/core/content_class.py",
+    "src/prep/core/context_config.py",
+    "src/prep/core/context_tier.py",
+    "src/prep/core/cost_estimation.py",
+    "src/prep/core/deep_analysis.py",
+    "src/prep/core/deepening.py",
+    "src/prep/core/enrichment.py",
+    "src/prep/core/epistemic_enrichment.py",
+    "src/prep/core/epistemic_score.py",
+    "src/prep/core/events.py",
+    "src/prep/core/github_push.py",
+    "src/prep/core/github_sync.py",
+    "src/prep/core/github_webhook.py",
+    "src/prep/core/glob_utils.py",
+    "src/prep/core/goalposts_models.py",
+    "src/prep/core/goalposts_planner.py",
+    "src/prep/core/ids.py",
+    "src/prep/core/immune_watcher.py",
+    "src/prep/core/index.py",
+    "src/prep/core/inferred_edges.py",
+    "src/prep/core/intent.py",
+    "src/prep/core/knowledge.py",
+    "src/prep/core/layered_index.py",
+    "src/prep/core/licensing.py",
+    "src/prep/core/llm_client.py",
+    "src/prep/core/lod_extractor.py",
+    "src/prep/core/manifest.py",
+    "src/prep/core/memory_guard.py",
+    "src/prep/core/model_awareness.py",
+    "src/prep/core/model_readiness.py",
+    "src/prep/core/ollama_cloud_catalog.py",
+    "src/prep/core/provenance.py",
+    "src/prep/core/query.py",
+    "src/prep/core/query_analyzer.py",
+    "src/prep/core/repo_policy.py",
+    "src/prep/core/sarif.py",
+    "src/prep/core/sarif_adapters.py",
+    "src/prep/core/scheduler.py",
+    "src/prep/core/scope_resolver.py",
+    "src/prep/core/scope_store.py",
+    "src/prep/core/security_health.py",
+    "src/prep/core/sg_filter.py",
+    "src/prep/core/sprint_intelligence.py",
+    "src/prep/core/stage_manifest.py",
+    "src/prep/core/swarm_event_logger.py",
+    "src/prep/core/swarm_optimizer.py",
+    "src/prep/core/swarm_orchestrator.py",
+    "src/prep/core/swarm_registry.py",
+    "src/prep/core/system_concept_seeder.py",
+    "src/prep/core/team_config.py",
+    "src/prep/core/trace/__init__.py",
+    "src/prep/core/trace/analyzers/__init__.py",
+    "src/prep/core/trace/analyzers/generic_regex.py",
+    "src/prep/core/trace/analyzers/js_analyzer.py",
+    "src/prep/core/trace/analyzers/python_analyzer.py",
+    "src/prep/core/trace/analyzers/swift_analyzer.py",
+    "src/prep/core/trace/builder.py",
+    "src/prep/core/trace/coverage.py",
+    "src/prep/core/trace/index.py",
+    "src/prep/core/trace/loaders.py",
+    "src/prep/core/trace/maintenance.py",
+    "src/prep/core/trace/models.py",
+    "src/prep/core/trace/utils.py",
+    "src/prep/core/treatment_registry.py",
+    "src/prep/core/vendor_sniffer/__init__.py",
+    "src/prep/core/vendor_sniffer/manifests.py",
+    "src/prep/core/vendor_sniffer/models.py",
+    "src/prep/core/vendor_sniffer/scanner.py",
+    "src/prep/core/vendor_sniffer/signals.py",
+    "src/prep/core/walker.py",
+    "src/prep/dashboard/.gitignore",
+    "src/prep/dashboard/index.html",
+    "src/prep/dashboard/package-lock.json",
+    "src/prep/dashboard/package.json",
+    "src/prep/dashboard/postcss.config.js",
+    "src/prep/dashboard/public/prep-logo.png",
+    "src/prep/dashboard/public/vite.svg",
+    "src/prep/dashboard/src-tauri/.gitignore",
+    "src/prep/dashboard/src-tauri/.tauri/codrag.key.pub",
+    "src/prep/dashboard/src-tauri/Cargo.lock",
+    "src/prep/dashboard/src-tauri/Cargo.toml",
+    "src/prep/dashboard/src-tauri/build.rs",
+    "src/prep/dashboard/src-tauri/icons/128x128.png",
+    "src/prep/dashboard/src-tauri/icons/128x128@2x.png",
+    "src/prep/dashboard/src-tauri/icons/32x32.png",
+    "src/prep/dashboard/src-tauri/icons/Square107x107Logo.png",
+    "src/prep/dashboard/src-tauri/icons/Square142x142Logo.png",
+    "src/prep/dashboard/src-tauri/icons/Square150x150Logo.png",
+    "src/prep/dashboard/src-tauri/icons/Square284x284Logo.png",
+    "src/prep/dashboard/src-tauri/icons/Square30x30Logo.png",
+    "src/prep/dashboard/src-tauri/icons/Square310x310Logo.png",
+    "src/prep/dashboard/src-tauri/icons/Square44x44Logo.png",
+    "src/prep/dashboard/src-tauri/icons/Square71x71Logo.png",
+    "src/prep/dashboard/src-tauri/icons/Square89x89Logo.png",
+    "src/prep/dashboard/src-tauri/icons/StoreLogo.png",
+    "src/prep/dashboard/src-tauri/icons/icon.icns",
+    "src/prep/dashboard/src-tauri/icons/icon.ico",
+    "src/prep/dashboard/src-tauri/icons/icon.png",
+    "src/prep/dashboard/src-tauri/src/main.rs",
+    "src/prep/dashboard/src-tauri/tauri.conf.json",
+    "src/prep/dashboard/src/App.tsx",
+    "src/prep/dashboard/src/components/AtlasLensContainer.tsx",
+    "src/prep/dashboard/src/components/ErrorToast.tsx",
+    "src/prep/dashboard/src/components/StartupScreen.tsx",
+    "src/prep/dashboard/src/components/Toast.tsx",
+    "src/prep/dashboard/src/components/UpdateBanner.tsx",
+    "src/prep/dashboard/src/components/settings/v2/SettingsNav.tsx",
+    "src/prep/dashboard/src/components/settings/v2/SettingsOverlay.tsx",
+    "src/prep/dashboard/src/components/settings/v2/SettingsPage.tsx",
+    "src/prep/dashboard/src/components/settings/v2/__tests__/devGate.test.ts",
+    "src/prep/dashboard/src/components/settings/v2/__tests__/routeParser.test.ts",
+    "src/prep/dashboard/src/components/settings/v2/devGate.ts",
+    "src/prep/dashboard/src/components/settings/v2/pages/Appearance.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/ChunkingEmbeddings.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/DangerZone.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/DeepAnalysis.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/DevToggles.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/Diagnostics.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/Integrations.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/License.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/PipelineDefaults.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/SelectiveReset.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/Sources.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/TraceIndexing.tsx",
+    "src/prep/dashboard/src/components/settings/v2/pages/index.tsx",
+    "src/prep/dashboard/src/components/settings/v2/routeParser.ts",
+    "src/prep/dashboard/src/components/settings/v2/useSettingsRoute.ts",
+    "src/prep/dashboard/src/hooks/useAgentOps.ts",
+    "src/prep/dashboard/src/hooks/useArchitectureSystem.ts",
+    "src/prep/dashboard/src/hooks/useAtlasLens.ts",
+    "src/prep/dashboard/src/hooks/useAuditSystem.ts",
+    "src/prep/dashboard/src/hooks/useConceptSystem.ts",
+    "src/prep/dashboard/src/hooks/useDebouncedAutoSave.ts",
+    "src/prep/dashboard/src/hooks/useDeepAnalysis.ts",
+    "src/prep/dashboard/src/hooks/useEnrichment.ts",
+    "src/prep/dashboard/src/hooks/useFileSystem.ts",
+    "src/prep/dashboard/src/hooks/useGoalpostsSystem.ts",
+    "src/prep/dashboard/src/hooks/useHydrationController.ts",
+    "src/prep/dashboard/src/hooks/useLLMConfig.ts",
+    "src/prep/dashboard/src/hooks/useLicenseSystem.ts",
+    "src/prep/dashboard/src/hooks/useOpportunitiesSystem.ts",
+    "src/prep/dashboard/src/hooks/usePipelineHealth.ts",
+    "src/prep/dashboard/src/hooks/useProjectManager.ts",
+    "src/prep/dashboard/src/hooks/useRoadmapSystem.ts",
+    "src/prep/dashboard/src/hooks/useRoleOverrides.ts",
+    "src/prep/dashboard/src/hooks/useScopes.ts",
+    "src/prep/dashboard/src/hooks/useSearchContext.ts",
+    "src/prep/dashboard/src/hooks/useSpaghettiSystem.ts",
+    "src/prep/dashboard/src/hooks/useStageRegenerate.ts",
+    "src/prep/dashboard/src/hooks/useTraceSystem.ts",
+    "src/prep/dashboard/src/hooks/useWatchSystem.ts",
+    "src/prep/dashboard/src/index.css",
+    "src/prep/dashboard/src/main.tsx",
+    "src/prep/dashboard/src/state/enrichmentReducer.ts",
+    "src/prep/dashboard/src/vite-env.d.ts",
+    "src/prep/dashboard/tailwind.config.js",
+    "src/prep/dashboard/tsconfig.json",
+    "src/prep/dashboard/tsconfig.node.json",
+    "src/prep/dashboard/vite.config.ts",
+    "src/prep/data/__init__.py",
+    "src/prep/data/concurrency_limits.json",
+    "src/prep/data/swarm_models.json",
+    "src/prep/mcp/__init__.py",
+    "src/prep/mcp/collaboration_handlers.py",
+    "src/prep/mcp/errors.py",
+    "src/prep/mcp/tool_hi.py",
+    "src/prep/mcp/transport.py",
+    "src/prep/mcp_config.py",
+    "src/prep/mcp_direct.py",
+    "src/prep/mcp_local_rag/index.mjs",
+    "src/prep/mcp_local_rag/package.json",
+    "src/prep/mcp_local_rag_py/server.py",
+    "src/prep/mcp_server.py",
+    "src/prep/mcp_tools.py",
+    "src/prep/paperclip_skill.py",
+    "src/prep/services/__init__.py",
+    "src/prep/services/agent_gate.py",
+    "src/prep/services/branch_backup_manager.py",
+    "src/prep/services/build_manager.py",
+    "src/prep/services/build_orchestrator.py",
+    "src/prep/services/cancellation.py",
+    "src/prep/services/collaboration/__init__.py",
+    "src/prep/services/collaboration/activity.py",
+    "src/prep/services/collaboration/claims.py",
+    "src/prep/services/collaboration/conflicts.py",
+    "src/prep/services/collaboration/snapshots.py",
+    "src/prep/services/embedder_factory.py",
+    "src/prep/services/git_evidence_service.py",
+    "src/prep/services/headless_runner.py",
+    "src/prep/services/idle_release.py",
+    "src/prep/services/observation_store.py",
+    "src/prep/services/pi_agent.py",
+    "src/prep/services/pipeline/__init__.py",
+    "src/prep/services/pipeline/_model_resolution.py",
+    "src/prep/services/pipeline/changeset.py",
+    "src/prep/services/pipeline/concurrency_store.py",
+    "src/prep/services/pipeline/discovery/__init__.py",
+    "src/prep/services/pipeline/discovery/anthropic_discovery.py",
+    "src/prep/services/pipeline/discovery/base.py",
+    "src/prep/services/pipeline/discovery/noop_discovery.py",
+    "src/prep/services/pipeline/discovery/openai_discovery.py",
+    "src/prep/services/pipeline/endpoint_probe.py",
+    "src/prep/services/pipeline/ghost_guard.py",
+    "src/prep/services/pipeline/health.py",
+    "src/prep/services/pipeline/holds.py",
+    "src/prep/services/pipeline/manifest_store.py",
+    "src/prep/services/pipeline/ollama_probe.py",
+    "src/prep/services/pipeline/orchestrator.py",
+    "src/prep/services/pipeline/post_flight.py",
+    "src/prep/services/pipeline/recovery.py",
+    "src/prep/services/pipeline/resume.py",
+    "src/prep/services/pipeline/scheduler.py",
+    "src/prep/services/pipeline/stages.py",
+    "src/prep/services/pipeline/state_machine.py",
+    "src/prep/services/pipeline/thread_pool.py",
+    "src/prep/services/pipeline/workers/__init__.py",
+    "src/prep/services/pipeline/workers/base.py",
+    "src/prep/services/pipeline/workers/factory.py",
+    "src/prep/services/pipeline_budget.py",
+    "src/prep/services/pipeline_checkpoint.py",
+    "src/prep/services/pipeline_history.py",
+    "src/prep/services/pipeline_integrity.py",
+    "src/prep/services/pipeline_journal.py",
+    "src/prep/services/pipeline_logger.py",
+    "src/prep/services/pipeline_metadata.py",
+    "src/prep/services/pipeline_orchestrator.py",
+    "src/prep/services/pipeline_provenance.py",
+    "src/prep/services/pipeline_telemetry.py",
+    "src/prep/services/project_helpers.py",
+    "src/prep/services/remote_sync.py",
+    "src/prep/services/role_overrides_store.py",
+    "src/prep/services/rss_sampler.py",
+    "src/prep/services/s3_storage.py",
+    "src/prep/services/scope_orchestrator.py",
+    "src/prep/services/settings_store.py",
+    "src/prep/services/token_telemetry.py",
+    "src/prep/viz/__init__.py",
+    "src/prep/viz/activity_heatmap.py",
+    "src/prep/viz/context.py",
+    "src/prep/viz/coverage.py",
+    "src/prep/viz/drift.py",
+    "src/prep/viz/flow.py",
+    "src/prep/viz/health.py",
+    "src/prep/viz/overview.py",
+    "src/prep/viz/trace.py",
+    "src/test_scheduler.py",
+    "tests/__init__.py",
+    "tests/api/__init__.py",
+    "tests/api/conftest.py",
+    "tests/api/routers/__init__.py",
+    "tests/api/routers/test_pipeline_last_rebuild_duration.py",
+    "tests/api/routers/test_pipeline_rebuild_stop.py",
+    "tests/api/routers/test_pipeline_scoped_rebuild.py",
+    "tests/api/routers/test_pipeline_status_provenance.py",
+    "tests/api/test_scopes_endpoints.py",
+    "tests/api/test_search_with_scope.py",
+    "tests/core/__init__.py",
+    "tests/core/test_atlas_evidence.py",
+    "tests/core/test_git_evidence_destroy.py",
+    "tests/core/test_git_evidence_service.py",
+    "tests/core/test_todo_scanner_churn_gate.py",
+    "tests/fixtures/embedding_benchmark/README.md",
+    "tests/fixtures/embedding_benchmark/config.py",
+    "tests/fixtures/embedding_benchmark/conftest.py",
+    "tests/fixtures/embedding_benchmark/docs/ARCHITECTURE.md",
+    "tests/fixtures/embedding_benchmark/docs/DEPLOYMENT.md",
+    "tests/fixtures/embedding_benchmark/src/__init__.py",
+    "tests/fixtures/embedding_benchmark/src/api.py",
+    "tests/fixtures/embedding_benchmark/src/auth.py",
+    "tests/fixtures/embedding_benchmark/src/cache.py",
+    "tests/fixtures/embedding_benchmark/src/cli.py",
+    "tests/fixtures/embedding_benchmark/src/database.py",
+    "tests/fixtures/embedding_benchmark/src/errors.py",
+    "tests/fixtures/embedding_benchmark/src/events.py",
+    "tests/fixtures/embedding_benchmark/src/health.py",
+    "tests/fixtures/embedding_benchmark/src/logging_config.py",
+    "tests/fixtures/embedding_benchmark/src/middleware.py",
+    "tests/fixtures/embedding_benchmark/src/migrations.py",
+    "tests/fixtures/embedding_benchmark/src/models.py",
+    "tests/fixtures/embedding_benchmark/src/notifications.py",
+    "tests/fixtures/embedding_benchmark/src/pagination.py",
+    "tests/fixtures/embedding_benchmark/src/scheduler.py",
+    "tests/fixtures/embedding_benchmark/src/search.py",
+    "tests/fixtures/embedding_benchmark/src/serialization.py",
+    "tests/fixtures/embedding_benchmark/src/utils.py",
+    "tests/fixtures/embedding_benchmark/src/validation.py",
+    "tests/fixtures/embedding_benchmark/tests/conftest.py",
+    "tests/fixtures/embedding_benchmark/tests/test_api.py",
+    "tests/fixtures/embedding_benchmark/tests/test_auth.py",
+    "tests/fixtures/embedding_benchmark/tests/test_middleware.py",
+    "tests/fixtures/embedding_benchmark/tests/test_scheduler.py",
+    "tests/fixtures/embedding_benchmark/tests/test_validation.py",
+    "tests/fixtures/mini_repo/README.md",
+    "tests/fixtures/mini_repo/main.py",
+    "tests/fixtures/walker_parity_repo/.cursor/rules/sample.mdc",
+    "tests/fixtures/walker_parity_repo/.github/workflows/ci.yml",
+    "tests/fixtures/walker_parity_repo/deep/nested/path/leaf.py",
+    "tests/fixtures/walker_parity_repo/package-lock.json",
+    "tests/fixtures/walker_parity_repo/src/main.py",
+    "tests/fixtures/walker_parity_repo/sub/with_gitignore/.gitignore",
+    "tests/fixtures/walker_parity_repo/sub/with_gitignore/visible.py",
+    "tests/services/__init__.py",
+    "tests/services/pipeline/__init__.py",
+    "tests/services/pipeline/test_barrier_scope_autoclear.py",
+    "tests/services/pipeline/test_reset_barrier_scope.py",
+    "tests/services/test_pipeline_provenance.py",
+    "tests/test_activity_store.py",
+    "tests/test_adaptive_k.py",
+    "tests/test_admin_policy.py",
+    "tests/test_agent_core.py",
+    "tests/test_agent_git_client.py",
+    "tests/test_agent_integration.py",
+    "tests/test_agent_models.py",
+    "tests/test_agent_paperclip_client.py",
+    "tests/test_agent_prep_data.py",
+    "tests/test_ai_gateway_live_count.py",
+    "tests/test_aimd_soft_md.py",
+    "tests/test_alert_queue.py",
+    "tests/test_antibodies.py",
+    "tests/test_antibody_store.py",
+    "tests/test_api_envelope.py",
+    "tests/test_architecture_acr.py",
+    "tests/test_architecture_router.py",
+    "tests/test_architecture_state.py",
+    "tests/test_atlas.py",
+    "tests/test_atlas_endpoints.py",
+    "tests/test_atlas_hash.py",
+    "tests/test_atlas_stale_after_consume.py",
+    "tests/test_atlas_swarm.py",
+    "tests/test_atomic_build.py",
+    "tests/test_atomic_io.py",
+    "tests/test_audit_log.py",
+    "tests/test_audit_size_fallback.py",
+    "tests/test_audit_synthesizer_parallel.py",
+    "tests/test_audit_synthesizer_spaghetti.py",
+    "tests/test_augmenter.py",
+    "tests/test_batch_e2e.py",
+    "tests/test_batch_profiles.py",
+    "tests/test_batch_profiles_no_plan_tier.py",
+    "tests/test_boost_weighted_fifo.py",
+    "tests/test_build_orchestrator.py",
+    "tests/test_changeset_aware_integrity.py",
+    "tests/test_checkpoint_gc.py",
+    "tests/test_checkpoint_stages.py",
+    "tests/test_claim_store.py",
+    "tests/test_close_shared_embedders_scope.py",
+    "tests/test_cluster.py",
+    "tests/test_cluster_louvain.py",
+    "tests/test_cluster_parallel_batched.py",
+    "tests/test_cluster_reuse_gated_by_barrier.py",
+    "tests/test_cluster_reuse_jaccard.py",
+    "tests/test_cluster_swarm.py",
+    "tests/test_collab_api.py",
+    "tests/test_collab_resources.py",
+    "tests/test_collaboration_hub.py",
+    "tests/test_compressor.py",
+    "tests/test_compute_index_membership.py",
+    "tests/test_concept_clustering.py",
+    "tests/test_concept_conflicts.py",
+    "tests/test_concept_delete_cleans_pins.py",
+    "tests/test_concept_generate_dedup.py",
+    "tests/test_concept_generate_grounding.py",
+    "tests/test_concept_generate_prompt.py",
+    "tests/test_concept_generate_swarm.py",
+    "tests/test_concept_promotion.py",
+    "tests/test_concept_promotion_pipeline.py",
+    "tests/test_concept_save_kind_propagation.py",
+    "tests/test_concept_seeder_parallel.py",
+    "tests/test_concept_seeder_swarm.py",
+    "tests/test_concept_seeder_worker_questions.py",
+    "tests/test_concept_stats_triage_pending.py",
+    "tests/test_concept_store_directory.py",
+    "tests/test_concept_store_save_many.py",
+    "tests/test_concept_store_v2.py",
+    "tests/test_concept_synthesizer.py",
+    "tests/test_concept_t3_refine.py",
+    "tests/test_concept_validate_prompt.py",
+    "tests/test_concept_validate_swarm.py",
+    "tests/test_concurrency_history.py",
+    "tests/test_concurrency_limits_data.py",
+    "tests/test_concurrency_store.py",
+    "tests/test_concurrency_store_lock.py",
+    "tests/test_conflict_store.py",
+    "tests/test_consensus_scoring.py",
+    "tests/test_content_class.py",
+    "tests/test_content_sanitizer.py",
+    "tests/test_context_dedup.py",
+    "tests/test_context_tier.py",
+    "tests/test_contextual_retrieval.py",
+    "tests/test_custodian_engine.py",
+    "tests/test_custodian_integration.py",
+    "tests/test_custodian_manifest.py",
+    "tests/test_custodian_prompts.py",
+    "tests/test_dashboard_e2e_flow.py",
+    "tests/test_dashboard_error_states.py",
+    "tests/test_deep_merge.py",
+    "tests/test_deepening.py",
+    "tests/test_deepening_drift_gated_by_barrier.py",
+    "tests/test_deepening_hold_pause_integration.py",
+    "tests/test_delta_push.py",
+    "tests/test_discovery_anthropic.py",
+    "tests/test_discovery_noop.py",
+    "tests/test_discovery_openai.py",
+    "tests/test_dynamic_capacity_unknown_autodetect.py",
+    "tests/test_embedder_factory.py",
+    "tests/test_endpoint_disjoint.py",
+    "tests/test_endpoint_probe.py",
+    "tests/test_endpoint_save_validation.py",
+    "tests/test_enrichment.py",
+    "tests/test_epistemic_enrichment.py",
+    "tests/test_epistemic_score.py",
+    "tests/test_exclude_paths.py",
+    "tests/test_experimental_toggle.py",
+    "tests/test_failure_injection.py",
+    "tests/test_feature_gate.py",
+    "tests/test_finalize_chain_audit_inspector.py",
+    "tests/test_freshness_skip_metadata.py",
+    "tests/test_ghost_guard.py",
+    "tests/test_global_config_put_import.py",
+    "tests/test_graph_snapshots.py",
+    "tests/test_group_id_stability.py",
+    "tests/test_group_reasoning_reuse_gated_by_barrier.py",
+    "tests/test_group_reasoning_swarm.py",
+    "tests/test_headless_runner.py",
+    "tests/test_held_state_api.py",
+    "tests/test_hr_drift.py",
+    "tests/test_hr_engine.py",
+    "tests/test_hr_integration.py",
+    "tests/test_hr_phase88.py",
+    "tests/test_hr_prompts.py",
+    "tests/test_hr_readiness.py",
+    "tests/test_hr_roster.py",
+    "tests/test_hub_selection.py",
+    "tests/test_immune_watcher.py",
+    "tests/test_included_paths.py",
+    "tests/test_incremental_rebuild.py",
+    "tests/test_index_recovery.py",
+    "tests/test_index_staleness.py",
+    "tests/test_input_freshness.py",
+    "tests/test_intent.py",
+    "tests/test_intent_detection.py",
+    "tests/test_js_analyzer.py",
+    "tests/test_knowledge_incremental_gated_by_barrier.py",
+    "tests/test_knowledge_index_invalidate.py",
+    "tests/test_knowledge_surrogate.py",
+    "tests/test_layered_index.py",
+    "tests/test_legacy_pound_n_migration.py",
+    "tests/test_llm_client_queue_time.py",
+    "tests/test_llm_client_request_gate.py",
+    "tests/test_llm_cloud_models.py",
+    "tests/test_llm_direct_sites_hold_guarded.py",
+    "tests/test_llm_helpers.py",
+    "tests/test_llm_scheduler_routing.py",
+    "tests/test_llm_task_resolver.py",
+    "tests/test_lod_extractor.py",
+    "tests/test_manifest_ids.py",
+    "tests/test_manifest_store.py",
+    "tests/test_markdown_links.py",
+    "tests/test_mcp_budget_caps.py",
+    "tests/test_mcp_concurrency.py",
+    "tests/test_mcp_config_detect.py",
+    "tests/test_mcp_config_endpoint.py",
+    "tests/test_mcp_direct_e2e.py",
+    "tests/test_mcp_direct_manual.py",
+    "tests/test_mcp_direct_smoke.py",
+    "tests/test_mcp_instructions.py",
+    "tests/test_mcp_scope_envelope.py",
+    "tests/test_mcp_server.py",
+    "tests/test_mcp_tools_scope_param.py",
+    "tests/test_meta_chunk.py",
+    "tests/test_min_score_threshold.py",
+    "tests/test_mmr_diversity.py",
+    "tests/test_model_readiness.py",
+    "tests/test_module_name_dedup.py",
+    "tests/test_module_tiers_cap.py",
+    "tests/test_mutate_global_scope.py",
+    "tests/test_native_embedder.py",
+    "tests/test_no_gpl_deps.py",
+    "tests/test_observation_attribution.py",
+    "tests/test_observation_store.py",
+    "tests/test_observation_store_directory.py",
+    "tests/test_ollama_probe.py",
+    "tests/test_orchestrator_single_stage.py",
+    "tests/test_orphan_clustering_recovery.py",
+    "tests/test_partial_swarm_refused.py",
+    "tests/test_pass4_gate_concept_layer.py",
+    "tests/test_path_weights.py",
+    "tests/test_paused_run_survives_restart.py",
+    "tests/test_phase122_custodian_run.py",
+    "tests/test_phase128_atlas_stub_race.py",
+    "tests/test_phase128_build_success_marker.py",
+    "tests/test_phase128_journal_authority.py",
+    "tests/test_phase128_marker_writeback.py",
+    "tests/test_phase128_phase61b_journal_authority.py",
+    "tests/test_phase128_phase61b_respects_marker.py",
+    "tests/test_phase128_resume_no_stub_during_active_run.py",
+    "tests/test_phase128_touch_source.py",
+    "tests/test_phase129_dev_leak_regression.py",
+    "tests/test_phase133_builder_writes_hash_algo.py",
+    "tests/test_phase133_compute_file_hashes_uses_walker.py",
+    "tests/test_phase133_coverage_uses_rust_walker.py",
+    "tests/test_phase133_hidden_dirs.py",
+    "tests/test_phase133_manifest_hash_algo.py",
+    "tests/test_phase133_max_files_warning.py",
+    "tests/test_phase133_merge_is_dead_code.py",
+    "tests/test_phase134_changeset.py",
+    "tests/test_phase134_coverage_simplified.py",
+    "tests/test_phase134_e2e_no_llm_recall.py",
+    "tests/test_phase134_is_hash_stale_deleted.py",
+    "tests/test_phase134_migration_cases.py",
+    "tests/test_phase134_refresh_deleted.py",
+    "tests/test_phase134_stage_cutover.py",
+    "tests/test_phase134_walker_convergence.py",
+    "tests/test_phase134_worker_changeset_injection.py",
+    "tests/test_phase135_5_atlas_changeset.py",
+    "tests/test_phase135_5_inferred_edges_changeset.py",
+    "tests/test_phase135_5_walker_lockdown.py",
+    "tests/test_phase135_5_walker_module.py",
+    "tests/test_phase135_5b_lazy_changeset.py",
+    "tests/test_phase135_cluster_changeset.py",
+    "tests/test_phase135_deep_knowledge_changeset.py",
+    "tests/test_phase135_e2e_no_change_zero_work.py",
+    "tests/test_phase135_group_reasoning_changeset.py",
+    "tests/test_phase135_injection_nameerror_fixed.py",
+    "tests/test_phase135_no_fingerprints.py",
+    "tests/test_phase135_stage5_unaffected.py",
+    "tests/test_phase135_worker_injection.py",
+    "tests/test_phase136_part15_concurrency_visibility.py",
+    "tests/test_phase139_embedder_memory.py",
+    "tests/test_phase139_pr2_batching.py",
+    "tests/test_phase145_changeset_swallow.py",
+    "tests/test_phase145_finalize_incremental_hatch.py",
+    "tests/test_phase145_invariants.py",
+    "tests/test_phase145_pr_q_quality_overrides.py",
+    "tests/test_phase145_pr_s_deepening_overrides.py",
+    "tests/test_phase145_provenance_preserves_hash_algo.py",
+    "tests/test_phase145_run_session.py",
+    "tests/test_phase_a8_no_auto_detect_lock_skip.py",
+    "tests/test_pipeline_barrier_clear.py",
+    "tests/test_pipeline_barrier_status.py",
+    "tests/test_pipeline_budget.py",
+    "tests/test_pipeline_cancel_reason.py",
+    "tests/test_pipeline_health.py",
+    "tests/test_pipeline_journal.py",
+    "tests/test_pipeline_journal_delete_runs.py",
+    "tests/test_pipeline_orchestrator.py",
+    "tests/test_pipeline_orchestrator_transitions.py",
+    "tests/test_pipeline_scheduler.py",
+    "tests/test_pipeline_stage_backups.py",
+    "tests/test_pipeline_stage_endpoint.py",
+    "tests/test_pipeline_stage_restore.py",
+    "tests/test_pipeline_state_machine.py",
+    "tests/test_pipeline_status_audit.py",
+    "tests/test_pipeline_status_epistemic_counts.py",
+    "tests/test_pipeline_telemetry.py",
+    "tests/test_pipeline_uses_membership.py",
+    "tests/test_prep_data_scope.py",
+    "tests/test_prep_hi.py",
+    "tests/test_prep_hi_scenario.py",
+    "tests/test_prep_search_locate_fallback.py",
+    "tests/test_priority_durability.py",
+    "tests/test_process_metadata.py",
+    "tests/test_project_active_persistence.py",
+    "tests/test_project_activity.py",
+    "tests/test_project_auto_detect.py",
+    "tests/test_project_update_auto_config_merge.py",
+    "tests/test_projects_crud_vendor_scan_dispatch.py",
+    "tests/test_push_settings_api.py",
+    "tests/test_query_analyzer.py",
+    "tests/test_query_preprocessing.py",
+    "tests/test_queue_active_tasks.py",
+    "tests/test_queue_router.py",
+    "tests/test_queue_status_state.py",
+    "tests/test_rebuild_sync_scope_chain.py",
+    "tests/test_recommendations.py",
+    "tests/test_recovery_manager.py",
+    "tests/test_recovery_markers_destroy.py",
+    "tests/test_researcher_engine.py",
+    "tests/test_researcher_history.py",
+    "tests/test_researcher_integration.py",
+    "tests/test_researcher_prompts.py",
+    "tests/test_reset_barrier_finalize_scope.py",
+    "tests/test_reset_barrier_is_reuse_blocked.py",
+    "tests/test_resume_strategy.py",
+    "tests/test_role_overrides_endpoints.py",
+    "tests/test_role_overrides_store.py",
+    "tests/test_role_projection.py",
+    "tests/test_role_projection_overrides.py",
+    "tests/test_role_resolver.py",
+    "tests/test_role_vectors.py",
+    "tests/test_roles_endpoint.py",
+    "tests/test_rules_generator_scopes.py",
+    "tests/test_rules_regen_preserves_atlas.py",
+    "tests/test_s3_storage.py",
+    "tests/test_sarif.py",
+    "tests/test_sarif_adapters.py",
+    "tests/test_scheduler_demand_recovery.py",
+    "tests/test_scheduler_request_gate.py",
+    "tests/test_scheduler_saturation_hint.py",
+    "tests/test_scheduler_soft_cap_clamp.py",
+    "tests/test_scheduler_unbounded_discovery.py",
+    "tests/test_scope_orchestrator.py",
+    "tests/test_scope_resolver.py",
+    "tests/test_scope_store.py",
+    "tests/test_scoped_full_reset.py",
+    "tests/test_scoped_full_reset_reuse_gate.py",
+    "tests/test_scoped_full_reset_selfheal_race.py",
+    "tests/test_scoped_full_reset_zombies.py",
+    "tests/test_score_calibration.py",
+    "tests/test_selfheal_group.py",
+    "tests/test_semantic_chunking.py",
+    "tests/test_sequential_fastpath.py",
+    "tests/test_settings_pipeline_config_no_fanout.py",
+    "tests/test_settings_store.py",
+    "tests/test_sg_filter.py",
+    "tests/test_significance.py",
+    "tests/test_soft_hold_primitive.py",
+    "tests/test_spaghetti_scorer.py",
+    "tests/test_stage_outputs_registry.py",
+    "tests/test_stale_hold_sweep.py",
+    "tests/test_structural_audit.py",
+    "tests/test_structural_compressor.py",
+    "tests/test_structural_enrichment.py",
+    "tests/test_summary_lint.py",
+    "tests/test_swarm_cooldown_removal.py",
+    "tests/test_swarm_event_logger.py",
+    "tests/test_swarm_label_gating.py",
+    "tests/test_swarm_orchestrator.py",
+    "tests/test_swarm_orchestrator_timeout.py",
+    "tests/test_swarm_ownership_gate.py",
+    "tests/test_swarm_plan_tier_propagation.py",
+    "tests/test_swarm_registry.py",
+    "tests/test_swarm_slot_attribution.py",
+    "tests/test_swarm_stress.py",
+    "tests/test_swarm_wall_budget.py",
+    "tests/test_swarm_window_authority.py",
+    "tests/test_synthesis_chunked.py",
+    "tests/test_synthesis_chunked_integration.py",
+    "tests/test_synthesis_diagnostic.py",
+    "tests/test_synthesis_reprompt_loop.py",
+    "tests/test_system_swarm_events_endpoint.py",
+    "tests/test_temporal_validity.py",
+    "tests/test_trace_expansion_ranking.py",
+    "tests/test_trace_routes_pass_project_id.py",
+    "tests/test_trust_loop_integration.py",
+    "tests/test_vendor_scan_endpoints.py",
+    "tests/test_vendor_sniffer/__init__.py",
+    "tests/test_vendor_sniffer/test_manifests_gitignore.py",
+    "tests/test_vendor_sniffer/test_manifests_gitmodules.py",
+    "tests/test_vendor_sniffer/test_manifests_workspaces.py",
+    "tests/test_vendor_sniffer/test_models.py",
+    "tests/test_vendor_sniffer/test_models_roundtrip.py",
+    "tests/test_vendor_sniffer/test_scanner.py",
+    "tests/test_vendor_sniffer/test_signals.py",
+    "tests/test_vendor_sniffer/test_skypath_fixture.py",
+    "tests/test_verbose_plumbing.py",
+    "tests/test_viz.py",
+    "tests/test_watcher_staleness.py",
+    "tests/test_write_guard.py",
+    "tests/test_write_guard_clustering_shrink.py",
+    "tests/test_write_guard_journal.py",
+    "tools/__init__.py",
+    "tools/build_calibration_worksheet.py",
+    "tools/build_public_mirror.py",
+    "tools/check_npm_licenses.mjs",
+    "tools/check_python_licenses.py",
+    "tools/finalize_chain_audit.py",
+    "tools/phase122_custodian_run.py",
+    "tools/phase145_uat/__init__.py",
+    "tools/phase145_uat/constants.py",
+    "tools/phase145_uat/invariants.py",
+    "tools/phase145_uat/run_session.py",
+    "tools/playwright_smoke.py",
+    "tools/score_calibration_worksheet.py",
+    "turbo.json",
+    "uv.lock",
+    "websites/apps/docs/.DS_Store",
+    "websites/apps/docs/.eslintrc.json",
+    "websites/apps/docs/netlify.toml",
+    "websites/apps/docs/next-env.d.ts",
+    "websites/apps/docs/next.config.js",
+    "websites/apps/docs/package.json",
+    "websites/apps/docs/postcss.config.js",
+    "websites/apps/docs/public/.DS_Store",
+    "websites/apps/docs/public/favicon_io/android-chrome-192x192.png",
+    "websites/apps/docs/public/favicon_io/android-chrome-512x512.png",
+    "websites/apps/docs/public/favicon_io/apple-touch-icon.png",
+    "websites/apps/docs/public/favicon_io/favicon-16x16.png",
+    "websites/apps/docs/public/favicon_io/favicon-32x32.png",
+    "websites/apps/docs/public/favicon_io/favicon.ico",
+    "websites/apps/docs/public/favicon_io/site.webmanifest",
+    "websites/apps/docs/public/icon.png",
+    "websites/apps/docs/public/prep-logo-dark.png",
+    "websites/apps/docs/public/prep-logo.png",
+    "websites/apps/docs/src/.DS_Store",
+    "websites/apps/docs/src/app/ClientLayout.tsx",
+    "websites/apps/docs/src/app/cli/commands/page.tsx",
+    "websites/apps/docs/src/app/cli/config/page.tsx",
+    "websites/apps/docs/src/app/cli/page.tsx",
+    "websites/apps/docs/src/app/dashboard/page.tsx",
+    "websites/apps/docs/src/app/dashboard/projects/page.tsx",
+    "websites/apps/docs/src/app/getting-started/installation/page.tsx",
+    "websites/apps/docs/src/app/getting-started/page.tsx",
+    "websites/apps/docs/src/app/getting-started/quick-start/page.tsx",
+    "websites/apps/docs/src/app/globals.css",
+    "websites/apps/docs/src/app/guides/audit-enrichment/page.tsx",
+    "websites/apps/docs/src/app/guides/byok-batching/page.tsx",
+    "websites/apps/docs/src/app/guides/codebase-audit/page.tsx",
+    "websites/apps/docs/src/app/guides/concurrency-discovery/page.tsx",
+    "websites/apps/docs/src/app/guides/enterprise-deploy/page.tsx",
+    "websites/apps/docs/src/app/guides/knowledge-scope/page.tsx",
+    "websites/apps/docs/src/app/guides/model-advisor/page.tsx",
+    "websites/apps/docs/src/app/guides/models/page.tsx",
+    "websites/apps/docs/src/app/guides/path-weights/page.tsx",
+    "websites/apps/docs/src/app/guides/team-sync/page.tsx",
+    "websites/apps/docs/src/app/how-it-works/code-graph/page.tsx",
+    "websites/apps/docs/src/app/how-it-works/compression/page.tsx",
+    "websites/apps/docs/src/app/how-it-works/context/page.tsx",
+    "websites/apps/docs/src/app/how-it-works/dynamic-model-loading/page.tsx",
+    "websites/apps/docs/src/app/how-it-works/embeddings/page.tsx",
+    "websites/apps/docs/src/app/how-it-works/graph-enrichment/page.tsx",
+    "websites/apps/docs/src/app/how-it-works/indexing/page.tsx",
+    "websites/apps/docs/src/app/how-it-works/smart-search/page.tsx",
+    "websites/apps/docs/src/app/layout.tsx",
+    "websites/apps/docs/src/app/mcp/ides/page.tsx",
+    "websites/apps/docs/src/app/mcp/page.tsx",
+    "websites/apps/docs/src/app/mcp/paperclip/page.tsx",
+    "websites/apps/docs/src/app/mcp/terminal/page.tsx",
+    "websites/apps/docs/src/app/not-found.tsx",
+    "websites/apps/docs/src/app/page.tsx",
+    "websites/apps/docs/src/app/robots.ts",
+    "websites/apps/docs/src/app/search/page.tsx",
+    "websites/apps/docs/src/app/sitemap.ts",
+    "websites/apps/docs/src/app/troubleshooting/page.tsx",
+    "websites/apps/docs/src/components/AnchorHeading.tsx",
+    "websites/apps/docs/src/components/ConceptPageShell.tsx",
+    "websites/apps/docs/src/components/cli-demos.tsx",
+    "websites/apps/docs/src/components/demos.tsx",
+    "websites/apps/docs/src/config/docs.ts",
+    "websites/apps/docs/src/demo-data.ts",
+    "websites/apps/docs/src/mdx-components.tsx",
+    "websites/apps/docs/tailwind.config.cjs",
+    "websites/apps/docs/tsc_debug.log",
+    "websites/apps/docs/tsconfig.json",
+    "websites/apps/docs/tsconfig.tsbuildinfo",
+    "websites/apps/marketing/.DS_Store",
+    "websites/apps/marketing/.eslintrc.json",
+    "websites/apps/marketing/dev.log",
+    "websites/apps/marketing/netlify.toml",
+    "websites/apps/marketing/next-env.d.ts",
+    "websites/apps/marketing/next.config.js",
+    "websites/apps/marketing/package.json",
+    "websites/apps/marketing/postcss.config.js",
+    "websites/apps/marketing/public/favicon_io/android-chrome-192x192.png",
+    "websites/apps/marketing/public/favicon_io/android-chrome-512x512.png",
+    "websites/apps/marketing/public/favicon_io/apple-touch-icon.png",
+    "websites/apps/marketing/public/favicon_io/favicon-16x16.png",
+    "websites/apps/marketing/public/favicon_io/favicon-32x32.png",
+    "websites/apps/marketing/public/favicon_io/favicon.ico",
+    "websites/apps/marketing/public/favicon_io/site.webmanifest",
+    "websites/apps/marketing/public/icon.png",
+    "websites/apps/marketing/public/images/og-image-dashboard.png",
+    "websites/apps/marketing/public/images/og-image.png",
+    "websites/apps/marketing/public/images/opengraph-image.png",
+    "websites/apps/marketing/public/logos/.gitkeep",
+    "websites/apps/marketing/public/logos/claude.svg",
+    "websites/apps/marketing/public/logos/copilot.png",
+    "websites/apps/marketing/public/logos/cursor-black.svg",
+    "websites/apps/marketing/public/logos/cursor.svg",
+    "websites/apps/marketing/public/logos/gemini.svg",
+    "websites/apps/marketing/public/logos/paperclip.svg",
+    "websites/apps/marketing/public/logos/vscode.svg",
+    "websites/apps/marketing/public/logos/windsurf-dark.svg",
+    "websites/apps/marketing/public/logos/windsurf.svg",
+    "websites/apps/marketing/public/sourceprep-logo-dark.png",
+    "websites/apps/marketing/public/sourceprep-logo.png",
+    "websites/apps/marketing/scripts/generate_layouts.js",
+    "websites/apps/marketing/src/app/.DS_Store",
+    "websites/apps/marketing/src/app/ClientLayout.tsx",
+    "websites/apps/marketing/src/app/DevMarketingHero.tsx",
+    "websites/apps/marketing/src/app/DevToolbar.tsx",
+    "websites/apps/marketing/src/app/_careers/layout.tsx",
+    "websites/apps/marketing/src/app/_careers/page.tsx",
+    "websites/apps/marketing/src/app/about/layout.tsx",
+    "websites/apps/marketing/src/app/about/page.tsx",
+    "websites/apps/marketing/src/app/blog/layout.tsx",
+    "websites/apps/marketing/src/app/blog/page.tsx",
+    "websites/apps/marketing/src/app/changelog/layout.tsx",
+    "websites/apps/marketing/src/app/changelog/page.tsx",
+    "websites/apps/marketing/src/app/claude-code/layout.tsx",
+    "websites/apps/marketing/src/app/claude-code/page.tsx",
+    "websites/apps/marketing/src/app/community/layout.tsx",
+    "websites/apps/marketing/src/app/community/page.tsx",
+    "websites/apps/marketing/src/app/compare/page.tsx",
+    "websites/apps/marketing/src/app/compare/prep-vs-cursor-indexing/layout.tsx",
+    "websites/apps/marketing/src/app/compare/prep-vs-cursor-indexing/page.tsx",
+    "websites/apps/marketing/src/app/compare/prep-vs-greptile/layout.tsx",
+    "websites/apps/marketing/src/app/compare/prep-vs-greptile/page.tsx",
+    "websites/apps/marketing/src/app/dev/cli-demos/page.tsx",
+    "websites/apps/marketing/src/app/dev/cli-demos/variants.ts",
+    "websites/apps/marketing/src/app/dev/cli-demos2/page.tsx",
+    "websites/apps/marketing/src/app/dev/layout.tsx",
+    "websites/apps/marketing/src/app/download/layout.tsx",
+    "websites/apps/marketing/src/app/download/page.tsx",
+    "websites/apps/marketing/src/app/faq/layout.tsx",
+    "websites/apps/marketing/src/app/globals.css",
+    "websites/apps/marketing/src/app/immune-system/layout.tsx",
+    "websites/apps/marketing/src/app/immune-system/page.tsx",
+    "websites/apps/marketing/src/app/integrations/layout.tsx",
+    "websites/apps/marketing/src/app/integrations/page.tsx",
+    "websites/apps/marketing/src/app/layout.tsx",
+    "websites/apps/marketing/src/app/metadata-helper.ts",
+    "websites/apps/marketing/src/app/not-found.tsx",
+    "websites/apps/marketing/src/app/page.tsx",
+    "websites/apps/marketing/src/app/paperclip/layout.tsx",
+    "websites/apps/marketing/src/app/paperclip/page.tsx",
+    "websites/apps/marketing/src/app/pricing/layout.tsx",
+    "websites/apps/marketing/src/app/pricing/page.tsx",
+    "websites/apps/marketing/src/app/research/layout.tsx",
+    "websites/apps/marketing/src/app/research/page.tsx",
+    "websites/apps/marketing/src/app/robots.ts",
+    "websites/apps/marketing/src/app/rss/route.ts",
+    "websites/apps/marketing/src/app/security/layout.tsx",
+    "websites/apps/marketing/src/app/security/page.tsx",
+    "websites/apps/marketing/src/app/setup/ClientPage.tsx",
+    "websites/apps/marketing/src/app/setup/page.tsx",
+    "websites/apps/marketing/src/app/sitemap.ts",
+    "websites/apps/marketing/src/app/support/layout.tsx",
+    "websites/apps/marketing/src/app/support/page.tsx",
+    "websites/apps/marketing/src/app/terms/layout.tsx",
+    "websites/apps/marketing/src/app/terms/page.tsx",
+    "websites/apps/marketing/src/config/blog.ts",
+    "websites/apps/marketing/src/lib/beta.ts",
+    "websites/apps/marketing/src/lib/links.ts",
+    "websites/apps/marketing/tailwind.config.cjs",
+    "websites/apps/marketing/tsconfig.json",
+    "websites/apps/marketing/tsconfig.tsbuildinfo",
+    "websites/apps/payments/.DS_Store",
+    "websites/apps/payments/.eslintrc.json",
+    "websites/apps/payments/netlify.toml",
+    "websites/apps/payments/next-env.d.ts",
+    "websites/apps/payments/next.config.js",
+    "websites/apps/payments/package.json",
+    "websites/apps/payments/postcss.config.js",
+    "websites/apps/payments/public/favicon_io/android-chrome-192x192.png",
+    "websites/apps/payments/public/favicon_io/android-chrome-512x512.png",
+    "websites/apps/payments/public/favicon_io/apple-touch-icon.png",
+    "websites/apps/payments/public/favicon_io/favicon-16x16.png",
+    "websites/apps/payments/public/favicon_io/favicon-32x32.png",
+    "websites/apps/payments/public/favicon_io/favicon.ico",
+    "websites/apps/payments/public/favicon_io/site.webmanifest",
+    "websites/apps/payments/public/images/og-image-dashboard.png",
+    "websites/apps/payments/public/images/og-image.png",
+    "websites/apps/payments/public/prep-logo-dark.png",
+    "websites/apps/payments/public/prep-logo.png",
+    "websites/apps/payments/src/app/ClientLayout.tsx",
+    "websites/apps/payments/src/app/api/recover/route.ts",
+    "websites/apps/payments/src/app/globals.css",
+    "websites/apps/payments/src/app/icon.png",
+    "websites/apps/payments/src/app/layout.tsx",
+    "websites/apps/payments/src/app/not-found.tsx",
+    "websites/apps/payments/src/app/opengraph-image.png",
+    "websites/apps/payments/src/app/page.tsx",
+    "websites/apps/payments/src/app/recover/page.tsx",
+    "websites/apps/payments/src/app/robots.ts",
+    "websites/apps/payments/src/app/sitemap.ts",
+    "websites/apps/payments/src/app/success/page.tsx",
+    "websites/apps/payments/tailwind.config.cjs",
+    "websites/apps/payments/tsconfig.json",
+    "websites/apps/payments/tsconfig.tsbuildinfo",
+    "websites/apps/support/.DS_Store",
+    "websites/apps/support/.eslintrc.json",
+    "websites/apps/support/README.md",
+    "websites/apps/support/netlify.toml",
+    "websites/apps/support/next-env.d.ts",
+    "websites/apps/support/next.config.js",
+    "websites/apps/support/package.json",
+    "websites/apps/support/postcss.config.js",
+    "websites/apps/support/public/.DS_Store",
+    "websites/apps/support/public/favicon_io/android-chrome-192x192.png",
+    "websites/apps/support/public/favicon_io/android-chrome-512x512.png",
+    "websites/apps/support/public/favicon_io/apple-touch-icon.png",
+    "websites/apps/support/public/favicon_io/favicon-16x16.png",
+    "websites/apps/support/public/favicon_io/favicon-32x32.png",
+    "websites/apps/support/public/favicon_io/favicon.ico",
+    "websites/apps/support/public/favicon_io/site.webmanifest",
+    "websites/apps/support/public/images/og-image-dashboard.png",
+    "websites/apps/support/public/images/og-image.png",
+    "websites/apps/support/public/prep-logo-dark.png",
+    "websites/apps/support/public/prep-logo.png",
+    "websites/apps/support/src/app/ClientLayout.tsx",
+    "websites/apps/support/src/app/admin/auth/route.ts",
+    "websites/apps/support/src/app/admin/layout.tsx",
+    "websites/apps/support/src/app/admin/page.tsx",
+    "websites/apps/support/src/app/admin/reports/[id]/page.tsx",
+    "websites/apps/support/src/app/admin/reports/page.tsx",
+    "websites/apps/support/src/app/api/bug-report/route.ts",
+    "websites/apps/support/src/app/api/bug-reports/[id]/route.ts",
+    "websites/apps/support/src/app/api/bug-reports/metrics/route.ts",
+    "websites/apps/support/src/app/api/bug-reports/route.ts",
+    "websites/apps/support/src/app/globals.css",
+    "websites/apps/support/src/app/icon.png",
+    "websites/apps/support/src/app/layout.tsx",
+    "websites/apps/support/src/app/not-found.tsx",
+    "websites/apps/support/src/app/opengraph-image.png",
+    "websites/apps/support/src/app/page.tsx",
+    "websites/apps/support/src/app/robots.ts",
+    "websites/apps/support/src/app/sitemap.ts",
+    "websites/apps/support/src/components/DiscussionList.tsx",
+    "websites/apps/support/src/components/SupportFeatures.tsx",
+    "websites/apps/support/src/lib/auth.ts",
+    "websites/apps/support/src/lib/github.ts",
+    "websites/apps/support/src/lib/reports.ts",
+    "websites/apps/support/tailwind.config.cjs",
+    "websites/apps/support/tsconfig.json",
+    "websites/apps/support/tsconfig.tsbuildinfo"
+  ]
+}
