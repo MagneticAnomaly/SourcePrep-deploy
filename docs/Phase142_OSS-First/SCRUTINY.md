@@ -158,6 +158,16 @@ release"); keep `/Volumes/4TB-BAD/HumanAI/CoDRAG/` as the private
 dev repo with full history. Ongoing development happens privately;
 public mirror gets curated commits.
 
+> **✅ DECIDED 2026-07-18 (D8):** Option 3 is adopted — the public surface
+> is a **fresh-initial-commit mirror** assembled by
+> `tools/build_public_mirror.py` from an explicit file allowlist + a
+> denylist-regex gate (see `DECISION_MEMO_2026-07-17.md` C2/D1 and
+> `PRE_LAUNCH_BLOCKERS.md` §2). The private dev repo keeps full history and
+> is never published. "Squash the existing history" is reframed as
+> "start the public repo from a clean curated initial commit" — there is
+> no history rewrite of the dev repo. The §6 tradeoff is settled; see also
+> the exit-checklist item below.
+
 **But Eric's call.** Some OSS founders (e.g., Bun's creator) shipped
 warts-and-all and were celebrated for the honesty. The choice depends
 on Eric's stomach for public scrutiny of past mistakes.
@@ -387,6 +397,6 @@ Before Eric approves Phase 142 to begin:
 - [ ] Each of §1–§20 has been read and a decision made (act now, defer, or accept the risk)
 - [ ] The runway question (§12) has an honest answer
 - [ ] The pre-launch product fixes from §2 are scoped (which fix, which defer-with-doc, which ship as known limitation)
-- [ ] The history-rewrite question (§6) is decided
+- [x] The history-rewrite question (§6) is decided — D8 2026-07-18: fresh-initial-commit mirror (Option 3)
 - [ ] The launch-order question (§20) is decided
 - [ ] The personal-brand work (§1) is added to Part A or B

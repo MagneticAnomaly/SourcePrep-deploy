@@ -30,6 +30,19 @@ professional-history/runway (A7).
 ## Part 1 — Recommendations (one per decision)
 
 ### D1. License: Apache-2.0 vs AGPL-3.0 → **Apache-2.0 + a CLA from commit #1**
+
+> **⚠️ SUPERSEDED 2026-07-18 (Part 0 / OPEN_CORE_SPLIT):** The CLA recommendation
+> below was **reversed** — the decision is now **Apache-2.0 + DCO (not CLA),
+> permanent** (no AGPL fallback). Rationale: DCO keeps contributor friction
+> minimal (no per-contributor signature flow) while the `Signed-off-by` trailer
+> still records provenance; the "relicense/dual-license later" optionality the
+> CLA body argues for is explicitly **not** a goal — the CHARTER commits to
+> permanent Apache-2.0 with no source-available flip. See the Part 0 summary
+> row D1 above and `OPEN_CORE_SPLIT.md` ("Superseded 2026-05-30 decisions").
+> The AGPL-vs-Apache analysis (permissive > restrictive for a zero-revenue
+> adoption play) still stands; only the CLA-vs-DCO sub-decision flipped. The
+> original body is retained below for the audit trail.
+
 - Your binding constraint is **adoption/reach** (it feeds the IC/acqui-hire path). AGPL is blanket-banned by policy at Google and many enterprises — it caps the exact metric you need ([opensource.google/…/agpl-policy]).
 - A restrictive license does **not** protect a **zero-revenue** project the way it protects a HashiCorp; for you a clean permissive IP story is worth more in diligence than "defensible-but-frictional."
 - AGPL's SaaS-copyleft barely bites a **local-first desktop tool** (no network service for §13 to attach to); the real moat is the *future proprietary hosted backend*, which stays closed regardless of engine license.
