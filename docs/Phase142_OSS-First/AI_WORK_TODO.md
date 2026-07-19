@@ -290,6 +290,27 @@ Dependencies recap (from audit §4): `A6 → D7(draft) → B3(sign) → C5+ C4 +
 > All edits in this stream are to private Phase142 docs (no deploy). Reconcile
 > the 12 contradictions (audit §3 C1–C12) so the plan stops arguing with itself.
 
+> **Progress 2026-07-19:**
+> - **5.1 (Pro tier bet line) + 5.2 (90-day→12-month)** — DONE `40749ea6`
+>   (Phase142 README bet line + two 90-day→12-month sites).
+> - **5.3 (CLA→DCO, DECISION_MEMO Part 1 D1)** — DONE `27891ccb` (superseded
+>   banner added; Part 0 D1 already had the corrected DCO decision).
+> - **D8 history-rewrite reconciliation** — DONE `27891ccb`
+>   (`PRE_LAUNCH_BLOCKERS.md` §2 reclassified history-scrub → live-tree-secrets
+>   removal; `SCRUTINY.md` §6 marked DECIDED per D8; exit-checklist flipped [x]).
+> - **5.4 (pricing SoT)** — DONE `ab70186c` (OPEN_CORE_SPLIT re-baselined to
+>   2026-07-18 pricing; marked SoT).
+> - **5.9 (LICENSING gap (a))** — closed by `a92d69e1` (file IS committed).
+> - **Public README license badge + License section** — DONE `7bf962fb`
+>   (header badge row + trailing License section linking LICENSE/NOTICE/
+>   CONTRIBUTING/SECURITY + DCO `git commit -s`).
+> - **Still open in this stream:** 5.5 (copyright-holder checkbox), 5.6
+>   (sourceprep org → MagneticAnomaly in STRATEGY/IMPLEMENTATION_PLAN/
+>   SCRUTINY), 5.7 (AGPL-fallback → revenue-fallback + fix README:134
+>   broken cross-ref), 5.8 (trademark blocker-status), 5.10 (Phase142 README
+>   files-table + status-block refresh + SCRUTINY §1–§20 disposition
+>   appendix).
+
 #### 5.1 — C1 Pro tier: "deferred" → "KEEP $29 one-time (not live at Phase 1)"
 - **Edit:** `README.md:5,62-63`; check `:77` "Tier boundaries locked"; annotate
   `DECISION_MEMO Part 1 §D2:40` as SUPERSEDED by Part 0 D2; sweep the 6 other

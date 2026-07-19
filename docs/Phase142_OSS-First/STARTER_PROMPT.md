@@ -27,23 +27,30 @@ doc reconciliation are in flight. All work committed locally, NOT pushed.
 | `476e345d` | Stream 6 reframed — Apache claim is CORRECT; 6.1 voided |
 | `93f9c38d` | Metadata flip: all package metadata MIT→Apache-2.0 (pyproject+classifier, Cargo workspace+prep-selfheal, 13 npm package.json); cargo metadata + JSON validated; EXCLUDED websites/MagneticAnomaly (Eric's separate brand site) |
 | `40749ea6` | README bet line + 90-day→12-month (D2/D11) |
+| `27891ccb` | Stream 5 remainder: DECISION_MEMO Part 1 D1 CLA→DCO superseded banner; PRE_LAUNCH_BLOCKERS §2 history-scrub → live-tree-secrets (D8); SCRUTINY §6 marked DECIDED + exit-checklist [x] |
+| `7bf962fb` | Public README: Apache-2.0 license badge (header) + License section (tail, links LICENSE/NOTICE/CONTRIBUTING/SECURITY + DCO `git commit -s`) |
 | (earlier) | `d0ea35d3` LICENSING fix, `6d193a1f` 8.2 progress — superseded by later commits |
 
-## ⚠️ Anomaly to investigate
+## ⚠️ Anomaly — RESOLVED 2026-07-19
 Commit `e5d74fb7` ("pass-4 structural scrutiny via prep MCP — 24 code-verified
-fixes") landed between `93f9c38d` and `40749ea6`. **I did not make this
-commit.** Check `git show e5d74fb7 --stat` + reflog for origin (hook? leftover
-agent/worktree?) before building on it.
+fixes") landed between `93f9c38d` and `40749ea6`. **Resolved:** `git show
+e5d74fb7 --format="%an %ad"` shows author **Eric Bintner** (2026-07-19) — it
+was Eric's own parallel prep-MCP scrutiny pass (OSS research doc + docs-site
+pages), not a rogue hook or leftover agent. Tree is safe to build on.
 
 ## Next work (in priority order)
-1. **Stream 5 remainder (in-flight):** DECISION_MEMO Part 1 D1 stale "CLA"
-   text → add superseded marker (Part 0 = DCO); PRE_LAUNCH_BLOCKERS #2
-   "git filter-repo/squash" → reclassify to live-tree secrets (D8 fresh-
-   initial-commit); SCRUTINY §6 history options → mark D8 decided.
+1. **Stream 5 still-open sub-items:** 5.5 (copyright-holder checkbox in
+   `IMPLEMENTATION_PLAN.md:81`), 5.6 (sourceprep org → MagneticAnomaly in
+   STRATEGY/IMPLEMENTATION_PLAN/SCRUTINY), 5.7 (AGPL-fallback → revenue-
+   fallback + fix `README.md:134` broken cross-ref), 5.8 (trademark blocker-
+   status in `DECISION_MEMO Part 0 D5:19`), 5.10 (Phase142 README files-table
+   + status-block refresh + SCRUTINY §1–§20 disposition appendix).
 2. **Stream 2.1 root LICENSE swap → ASK ERIC:** swap root LICENSE to verbatim
    Apache-2.0 now (backdate IP Assignment to LLC formation) or sequence after
    the IP Assignment per LICENSING_RECOMMENDATION? Metadata flip is done; the
-   file grant is the one remaining license artifact.
+   file grant is the one remaining license artifact. **The public README
+   (`7bf962fb`) now links `LICENSE` — the link is correct, but the file content
+   is still commercial proprietary until this swap lands.**
 3. **Migration-chain scrub → surface to Eric:** the codrag→prep→runprep→
    sourceprep rename infra (`data_dir_migration.py`, `paths.py`, daemon/cli
    startup calls, ignore-globs in `roadmap_miner.py`/`repo_profile.py`/
@@ -55,9 +62,12 @@ agent/worktree?) before building on it.
 5. **`feature_gate.py` module docstring** stale tier pricing ($7/month, $79,
    free=3 projects) — tied to MONTHLY tier still in code; needs tier-enum +
    pricing-SoT reconciliation (C3/D10), not a standalone edit.
-6. **Stream 11 — public README** (repo root `README.md` is 20KB old internal
-   content) — biggest remaining AI-runnable item; unblocks mirror push +
-   fresh-clone smoke.
+6. **Stream 11 — public README:** the root `README.md` was already a real
+   public README (552 lines), not "20KB old internal content" — that note was
+   stale. The OSS-readiness gaps (license badge + License section) landed in
+   `7bf962fb`. Remaining README work: the `PREP_TIER` env-var line lists a
+   `starter` tier not in the hardened ladder ($0/$29/$9/$24) — but that's the
+   code-level tier-enum (item 5 above), not a README-only edit.
 7. **Stream 3 — scancode + `oss-ci.yml` + fresh-clone smoke** — dependency-
    license audit (metadata flip is done; dep audit is separate).
 
