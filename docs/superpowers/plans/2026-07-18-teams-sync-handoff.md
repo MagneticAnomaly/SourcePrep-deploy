@@ -1,5 +1,12 @@
 # SourcePrep Teams Sync - Engineering Handoff
 
+> **⚠️ SUPERSEDED (2026-07-18) by `docs/Phase06_Team_And_Enterprise/TEAMS_SYNC_REVIVE_PLAN.md`.**
+> Teams Sync is **~65% already built** (Feb–Mar 2026), not greenfield — this document describes
+> the target *architecture* but does not reflect the substantial existing implementation
+> (`headless_runner.py`, `s3_storage.py`, `remote_sync.py`, `layered_index.py`, deploy templates,
+> CLI, tests). Do NOT build from this as if starting from zero; use the revive plan, which maps
+> each requirement here to actual code and captures the real gaps as a Phase-2 backlog.
+
 **Date**: July 18, 2026
 **Feature**: Teams Sync (Phase 2)
 **Objective**: Build a shared index distribution system to prevent redundant local compute for teams.
@@ -64,4 +71,4 @@ This is the most complex piece of the feature. The local daemon must seamlessly 
 ## 5. Security & Enterprise Considerations
 
 - **Code Privacy**: Source code is NEVER uploaded to the S3 bucket. Only embeddings, AST structures, and metadata graphs are uploaded.
-- **Enterprise Air-Gap**: The architecture must support the customer swapping out our S3 bucket for their own internal MinIO instance, and running the Headless Indexer on their own internal GitLab CI. This is the primary justification for the $30/seat Enterprise tier.
+- **Enterprise Air-Gap**: The architecture must support the customer swapping out our S3 bucket for their own internal MinIO instance, and running the Headless Indexer on their own internal GitLab CI. This is the primary justification for the $24/seat Enterprise tier.

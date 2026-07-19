@@ -10,6 +10,26 @@
 
 ---
 
+## Execution status — 2026-07-18
+
+Executed subagent-driven on branch `phase06-teams-sync-revive`. Scope decisions taken: **BYO-bucket MVP** (Task 4 strip defaults OFF); **rename image namespace to `magneticanomaly/*`** (Task 5).
+
+| Task | Status | Notes |
+|------|--------|-------|
+| 1 — Test rot → green baseline | ✅ done + reviewed | `.runprep` sweep + stage-count/embedder fix; **also fixed a pre-existing flaky mock-embedder** (signed random vectors under `min_score>=0`). Suite deterministically green. |
+| 2 (folded into 1) | ✅ | — |
+| 3 — License-gate bypass | ✅ done + reviewed | Gated poll at the `get_project_sync_status` chokepoint; status read still returned. |
+| 4 — `strip_source_content` | ✅ done + reviewed | Fail-closed capability at upload boundary, default OFF. **Follow-up (P2-4):** the headless/CLI upload path can't toggle it on yet — only the daemon can. |
+| 5 — Publish image | ⏳ code done, **publish is Eric-run** | Namespace renamed (12 files). Publish via `gh workflow run docker-headless.yml` + set package public — see Task 5 steps. Do NOT tag (`release.yml` coupling). |
+| 6 — Dashboard Sync-Now | ✅ done + reviewed | Gated `POST /projects/{id}/sync/now` (run_in_executor) + `SyncStatusCard` via the typed `ApiClient`. **Also added a reentrancy guard** on `check_and_sync` (poll thread vs on-demand trigger). Live daemon click-through still recommended. |
+| 7 — Docs + gate | ✅ | This section + PROGRESS.md + handoff banner; final suite **134 passing**. |
+
+Suite gate: `pytest tests/test_{remote_sync,layered_index,headless_runner,s3_storage,team_sync_integration}.py` → **134 passed**, deterministic.
+
+Deferred review minors (non-blocking): gate-ordering test for `/sync/now` (bogus id + free → 403 not 404); no user-facing error surface on `onSyncNow` failure; `MockApiClient.syncNow` loose typing.
+
+---
+
 ## Why this plan exists (read first)
 
 Today's greenfield handoff — `docs/superpowers/plans/2026-07-18-teams-sync-handoff.md` — describes this feature **as if nothing is built**. That is wrong and, if followed literally, would rebuild over ~65% of salvageable, tested code. This plan **supersedes** that handoff. Evidence for the current state:
@@ -622,7 +642,9 @@ Ordered by leverage. Each is a **separate plan** when picked up (do not micro-st
 - **P2-1 — Commit-addressable artifacts (M–L).** Today one mutable `index.zip` per prefix overwrites on every push. Implement `s3://[bucket]/[project-id]/[branch]/[commit-hash].tar.zst` + a `latest.json` branch pointer + `.tar.zst` (zstd) compression, and add a `--commit` checkout to `headless_runner._clone_repo` (currently clones branch *tip*, not the pushed SHA). Unlocks per-commit caching, rollback, and correct manifest↔bytes agreement. *Handoff §3.1(1), §3.2.*
 - **P2-2 — git-HEAD detection + git-diff delta (L).** The client sync trigger is a filesystem watcher, not git. Add `.git/HEAD` change detection + `git diff` vs the remote commit to compute changed files, and **fix the delta-build being unreachable for trace-enabled projects** (`watch.py` `trigger_build` returns via the pipeline orchestrator before the delta branch, so local edits go to the MAIN index and `local_deltas/` never populates — the exact projects this feature targets). *Handoff §3.3, §4 Phase C.*
 - **P2-3 — Base + Overlay GRAPH split (XL).** The embedding merge is real, but there is no `LayeredTraceIndex`; graph/trace queries hit only the remote base, so agents get **stale graph context for locally-changed files**. Build the read-only-base + read-write-overlay graph with dedup. This is the single largest deferred piece. *Handoff §4 Phase C item 1.*
-- **P2-4 — Client working-tree content hydration (M).** Companion to Task 4: when `strip_source_content` is ON, the client must re-hydrate `content` from the working tree (line-slice via each doc's `span`, reconcile against `file_hash`, fall back to empty on drift; handle `span=None` synopsis chunks). **Required before any SourcePrep-hosted-bucket / hosted-Teams launch.** *Handoff §5.*
+- **P2-4 — Enable + hydrate the content strip for hosted-Teams (M).** Two coupled pieces, both **required before any SourcePrep-hosted-bucket launch** (Task 4 landed only the fail-closed *capability*, default OFF):
+  - **Enable path (headless):** today only the daemon (`RemoteSyncService`) can set `strip_source_content`; the headless/CI upload path builds `S3Config.from_env()` (`cli.py:1435`) which reads no strip env/flag, so `sync-headless` can never turn it on. Add `PREP_S3_STRIP_SOURCE_CONTENT` to `from_env` (or a `--strip-source-content` CLI flag).
+  - **Client hydration:** with strip ON, the client must re-hydrate `content` from the working tree (line-slice via each doc's `span`, reconcile against `file_hash`, fall back to empty on drift; handle `span=None` synopsis chunks) — else `get_context` renders empty fences. *Handoff §5.*
 
 ### Distribution / infra
 - **P2-5 — GitHub webhook listener + GitLab CI (M).** The handoff's §2.1 "trigger indexing on push" webhook **does not exist** (`github_webhook.py` is unrelated roadmap plumbing; push-trigger is currently delegated to GitHub Actions `on: push`). Add a real push-webhook listener and a `.gitlab-ci.yml` template (the latter is required for the Enterprise air-gap story). *Handoff §2.1, §5.*

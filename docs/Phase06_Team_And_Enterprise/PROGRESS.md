@@ -2,6 +2,16 @@
 
 *Last updated: February 22, 2026 (Session 3)*
 
+> **⚠️ 2026-07-18 revive note.** The "Completed" claims below reflect Feb–Mar 2026.
+> This feature subsequently **rotted** (the `.runprep`→`.sourceprep` rename + Phase-139
+> embedder refactor + a stage-count change left ~23 team-sync tests failing on HEAD).
+> A revive pass on 2026-07-18 restored a deterministically green suite (**134 passing**),
+> closed a license-gate bypass, added a fail-closed `strip_source_content` capability,
+> renamed the GHCR image namespace, and wired the dashboard "Sync Now" + `SyncStatusCard`.
+> See **`TEAMS_SYNC_REVIVE_PLAN.md`** for the authoritative current state and the Phase-2
+> backlog. The specific "69/69 passed" and "0 regressions" claims below are **historical
+> and were false on HEAD before the revive**.
+
 ## Completed
 
 ### Scaffolding (Session 1)
@@ -72,11 +82,14 @@
 - [x] `tests/test_layered_index.py` — 8 tests (tombstoning, pruning, edge cases)
 - [x] `tests/test_headless_runner.py` — 24 tests (config, LLM factory, embedder factory, worker factory, stages, repo resolution, commit SHA, closure regression)
 - [x] `tests/test_remote_sync.py` — 23 tests (config parsing, sync status, credential resolution, secrets detection, service lifecycle)
-- **Result: 69/69 passed in 0.62s**
+- **Result (Feb 2026): 69/69 passed** — *historical; see the revive note at top. On HEAD
+  before the 2026-07-18 revive this had drifted to ~23 failing; the revive restored 134 passing.*
 
 ## Pending
 
-- [ ] P06-S15: Dashboard UI sync status indicator
+- [x] P06-S15: Dashboard UI sync status indicator — **done 2026-07-18** (`SyncStatusCard` rendered
+  in the dashboard, fed by `projectStatus.sync`, with a gated `POST /projects/{id}/sync/now`
+  "Sync Now" trigger). Remaining Teams-tier work is tracked in `TEAMS_SYNC_REVIVE_PLAN.md` (Phase 2).
 
 ---
 
