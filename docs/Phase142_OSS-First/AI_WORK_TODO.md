@@ -304,12 +304,15 @@ Dependencies recap (from audit §4): `A6 → D7(draft) → B3(sign) → C5+ C4 +
 > - **Public README license badge + License section** — DONE `7bf962fb`
 >   (header badge row + trailing License section linking LICENSE/NOTICE/
 >   CONTRIBUTING/SECURITY + DCO `git commit -s`).
-> - **Still open in this stream:** 5.5 (copyright-holder checkbox), 5.6
->   (sourceprep org → MagneticAnomaly in STRATEGY/IMPLEMENTATION_PLAN/
->   SCRUTINY), 5.7 (AGPL-fallback → revenue-fallback + fix README:134
->   broken cross-ref), 5.8 (trademark blocker-status), 5.10 (Phase142 README
->   files-table + status-block refresh + SCRUTINY §1–§20 disposition
->   appendix).
+> - **5.5 / 5.6 / 5.7 / 5.8 / 5.10 — DONE `b1fcbac1`** (copyright-holder
+>   checkbox; sourceprep org → MagneticAnomaly in STRATEGY/IMPLEMENTATION_PLAN/
+>   SCRUTINY; AGPL-fallback → revenue-fallback + Phase142 README broken
+>   cross-ref fixed; trademark blocker-status tightened D5; Phase142 README
+>   status block + files-table refreshed).
+> - **Root LICENSE swap — DONE `99315988`** (commercial-proprietary → verbatim
+>   201-line Apache-2.0; the last license artifact).
+> - **Stream 5 is fully closed.** Remaining: the SCRUTINY §1–§20 disposition
+>   appendix (deferred as a standalone deliverable, not a README edit).
 
 #### 5.1 — C1 Pro tier: "deferred" → "KEEP $29 one-time (not live at Phase 1)"
 - **Edit:** `README.md:5,62-63`; check `:77` "Tier boundaries locked"; annotate

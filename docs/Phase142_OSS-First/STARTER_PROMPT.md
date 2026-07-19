@@ -29,6 +29,9 @@ doc reconciliation are in flight. All work committed locally, NOT pushed.
 | `40749ea6` | README bet line + 90-day→12-month (D2/D11) |
 | `27891ccb` | Stream 5 remainder: DECISION_MEMO Part 1 D1 CLA→DCO superseded banner; PRE_LAUNCH_BLOCKERS §2 history-scrub → live-tree-secrets (D8); SCRUTINY §6 marked DECIDED + exit-checklist [x] |
 | `7bf962fb` | Public README: Apache-2.0 license badge (header) + License section (tail, links LICENSE/NOTICE/CONTRIBUTING/SECURITY + DCO `git commit -s`) |
+| `703cd5d1` | TODO + starter-prompt progress — recorded Stream 5 status, resolved the `e5d74fb7` anomaly (author = Eric Bintner, his own parallel prep-MCP scrutiny pass) |
+| `99315988` | Root LICENSE swap — commercial-proprietary → verbatim 201-line Apache-2.0 (the last license artifact; Eric: "yes update now", path A) |
+| `b1fcbac1` | Stream 5 sub-items 5.5–5.10 closed — copyright holder, sourceprep org→MagneticAnomaly, AGPL-fallback→revenue-fallback + broken cross-ref fix, trademark blocker-status, Phase142 README status+files-table refresh. **Stream 5 fully closed.** |
 | (earlier) | `d0ea35d3` LICENSING fix, `6d193a1f` 8.2 progress — superseded by later commits |
 
 ## ⚠️ Anomaly — RESOLVED 2026-07-19
@@ -39,18 +42,14 @@ was Eric's own parallel prep-MCP scrutiny pass (OSS research doc + docs-site
 pages), not a rogue hook or leftover agent. Tree is safe to build on.
 
 ## Next work (in priority order)
-1. **Stream 5 still-open sub-items:** 5.5 (copyright-holder checkbox in
-   `IMPLEMENTATION_PLAN.md:81`), 5.6 (sourceprep org → MagneticAnomaly in
-   STRATEGY/IMPLEMENTATION_PLAN/SCRUTINY), 5.7 (AGPL-fallback → revenue-
-   fallback + fix `README.md:134` broken cross-ref), 5.8 (trademark blocker-
-   status in `DECISION_MEMO Part 0 D5:19`), 5.10 (Phase142 README files-table
-   + status-block refresh + SCRUTINY §1–§20 disposition appendix).
-2. **Stream 2.1 root LICENSE swap → ASK ERIC:** swap root LICENSE to verbatim
-   Apache-2.0 now (backdate IP Assignment to LLC formation) or sequence after
-   the IP Assignment per LICENSING_RECOMMENDATION? Metadata flip is done; the
-   file grant is the one remaining license artifact. **The public README
-   (`7bf962fb`) now links `LICENSE` — the link is correct, but the file content
-   is still commercial proprietary until this swap lands.**
+1. **Stream 3 — scancode + `oss-ci.yml` + fresh-clone smoke** — dependency-
+   license audit. The metadata flip (93f9c38d) and root LICENSE swap (99315988)
+   are done; the dep-license audit (scancode / `cargo deny` / `pip-licenses` /
+   `license-checker`) is the next concrete AI-runnable item, plus wiring it
+   into an `oss-ci.yml` gate. SCRUTINY §8 / IMPLEMENTATION_PLAN call for it.
+2. **`tools/build_public_mirror.py` (C2)** — the allowlist-curation +
+   denylist-regex-gate script that emits the fresh-initial-commit public tree
+   (D8). Unblocks the first public mirror + fresh-clone smoke. AI-runnable.
 3. **Migration-chain scrub → surface to Eric:** the codrag→prep→runprep→
    sourceprep rename infra (`data_dir_migration.py`, `paths.py`, daemon/cli
    startup calls, ignore-globs in `roadmap_miner.py`/`repo_profile.py`/
@@ -61,21 +60,20 @@ pages), not a rogue hook or leftover agent. Tree is safe to build on.
    --package-lock-only` (USB/network caution — flagged, not run).
 5. **`feature_gate.py` module docstring** stale tier pricing ($7/month, $79,
    free=3 projects) — tied to MONTHLY tier still in code; needs tier-enum +
-   pricing-SoT reconciliation (C3/D10), not a standalone edit.
-6. **Stream 11 — public README:** the root `README.md` was already a real
-   public README (552 lines), not "20KB old internal content" — that note was
-   stale. The OSS-readiness gaps (license badge + License section) landed in
-   `7bf962fb`. Remaining README work: the `PREP_TIER` env-var line lists a
-   `starter` tier not in the hardened ladder ($0/$29/$9/$24) — but that's the
-   code-level tier-enum (item 5 above), not a README-only edit.
-7. **Stream 3 — scancode + `oss-ci.yml` + fresh-clone smoke** — dependency-
-   license audit (metadata flip is done; dep audit is separate).
+   pricing-SoT reconciliation (C3/D10), not a standalone edit. The public
+   README `PREP_TIER` env-var line lists a `starter` tier not in the hardened
+   ladder ($0/$29/$9/$24) — same root cause.
+6. **SCRUTINY §1–§20 disposition appendix** — the one deferred Stream 5 piece;
+   a standalone deliverable (act-now / defer / accept-risk per section).
+7. **Stream 1.1 — D7 IP Assignment draft** — formalizes LLC ownership of the
+   copyright (Eric signs/files). Not strictly blocking since the root LICENSE
+   swap already landed, but needed for diligence chain-of-title.
 
 ## Live Eric-gated decisions still open
-- **B2 LLC status** (operating agreement/EIN/bank) — gates IP Assignment → gates root LICENSE swap.
+- **B2 LLC status** (operating agreement/EIN/bank) — gates the IP Assignment execution (Stream 1.1). The root LICENSE swap already landed (99315988); the LLC copyright holder is named in NOTICE, formalized when the IP Assignment executes.
 - **A5 Lemon Squeezy customer count** — "codrag never shipped to paying users" implies 0; confirm → write the all-clear.
 - **A3 patent provisional on AIMD-for-LLMs** — decide BEFORE the public mirror push (EU absolute-novelty forfeiture at the public commit). No patent preflight gate exists yet.
-- **B5 trademark** — run free USPTO search; file 1(b) before Show HN.
+- **B5 trademark** — run free USPTO search (B1); file 1(b) (B2) before Show HN.
 
 ## Constraints (persist verbatim)
 - Never push without explicit "push/deploy/ship" from Eric; [deploy]-flag gate verified in place.
