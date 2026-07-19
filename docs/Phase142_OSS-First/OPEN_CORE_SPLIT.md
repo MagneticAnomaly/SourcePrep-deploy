@@ -5,9 +5,40 @@
 > configuration spec. This is the decision record for the open-core
 > architecture. Supplements (does not replace) `DISTRIBUTION_AND_REVENUE_PLAN.md`.
 
-**Status:** Decisions locked 2026-05-30 by Eric. Ready to execute
-once Phase 143 (docs cleanup + two-repo split) and Phase 144
-(legal/trademark/CLA) complete.
+**Status:** Decisions locked 2026-05-30 by Eric, then **re-hardened
+2026-07-17/18** (see "Superseded 2026-05-30 decisions" below). This doc
+is the **single source of truth** for pricing and the open-core boundary;
+the pricing sections of `DISTRIBUTION_AND_REVENUE_PLAN.md` and
+`PRODUCT_AND_BUSINESS_OVERVIEW.md` are **SUPERSEDED** by this doc.
+Ready to execute once Phase 143 (docs cleanup + two-repo split) and
+Phase 144 (legal/trademark/DCO) complete.
+
+> **Superseded 2026-05-30 decisions (corrected 2026-07-19).** Several
+> numbers/mechanics below were locked 2026-05-30 and later reversed by
+> the 2026-07-17/18 hardening pass (`DECISION_MEMO_2026-07-17.md` Part 0,
+> `LICENSING_RECOMMENDATION.md`, `REPO_TOPOLOGY.md`, live marketing
+> pricing). Where a stale 2026-05-30 value survives in a paragraph below,
+> the hardened value in the **TL;DR** and the **Pricing table** governs:
+> - **Pro:** was $7/mo or $70 perpetual → **$29 one-time perpetual** (12
+>   months auto-updates included; ~$15/yr optional thereafter; name-your-
+>   price with $29 floor; **monthly subscription dropped**). NOT live at
+>   the first OSS launch (checkout unwired, license crypto being replaced,
+>   code-signing lead time) — Pro goes live once those land.
+> - **Teams:** was $15/seat/mo or $144/yr → **$9/seat/mo or $97/seat/yr**
+>   (10% off), 3-seat minimum.
+> - **Enterprise:** was $50/seat/mo, 10-seat, $5k setup → **$24/seat/mo**
+>   annual, **15-seat minimum**; setup **remote included · on-site from
+>   $3,500 · air-gapped quoted**.
+> - **Contributor agreement:** was Apache ICLA → **DCO** (`Signed-off-by`),
+>   not a CLA. License is **permanent** (no AGPL fallback / no relicense).
+> - **GitHub org:** was "reserve `sourceprep` org" → **stay under
+>   `MagneticAnomaly`**; storefront = `MagneticAnomaly/SourcePrep`
+>   (curated one-way mirror of the workshop repo). Defer a `sourceprep`
+>   org to a possible future C-corp/VC path.
+> - **Phase 1 scope:** was "OSS + Pro" → **OSS only** at the first launch.
+>   Pro (and Teams/Enterprise) come online as their prerequisites land.
+> The narrative paragraphs (three pillars, surface map, IP inventory)
+> remain valid; only the pricing/mechanics above changed.
 
 ---
 
@@ -16,17 +47,23 @@ once Phase 143 (docs cleanup + two-repo split) and Phase 144
 1. **OSS surface** (Apache 2.0): full engine, daemon, CLI, MCP server,
    local dashboard, VS Code extension, AGENTS.md generator. Unlimited
    use. Single-user. Self-hosted.
-2. **Pro** ($7/mo or $70 perpetual): signed/notarized Tauri installer
-   + auto-update + license-keyed convenience features. Same engine.
-3. **Teams** ($15/seat/mo or $144/seat annual, 3-seat minimum): hosted
+2. **Pro** ($29 one-time perpetual; 12 months auto-updates included,
+   ~$15/yr optional thereafter, name-your-price with $29 floor): signed/
+   notarized Tauri installer + auto-update + license-keyed convenience
+   features. Same engine. **Not live at the first OSS launch** — the
+   checkout is unwired, the license crypto is being replaced, and code-
+   signing has lead time.
+3. **Teams** ($9/seat/mo or $97/seat annual, 3-seat minimum): hosted
    multi-user backend with org-shared indexes, SSO, RBAC, audit logs.
-4. **Enterprise** ($50/seat/mo annual, 10-seat minimum, $5k setup):
-   everything in Teams + air-gapped deployment + dedicated support.
-5. **Enterprise Plus** (negotiated, $50/seat/yr floor, off-platform):
-   >50 seats or custom contracts.
+4. **Enterprise** ($24/seat/mo annual, 15-seat minimum; setup remote
+   included · on-site from $3,500 · air-gapped quoted): everything in
+   Teams + air-gapped deployment + dedicated support.
+5. **Enterprise Plus** (negotiated, off-platform): >50 seats or custom
+   contracts.
 6. **The old Free (3-projects) tier is retired** — OSS replaces it.
-7. **Two-part release.** Phase 1 = OSS + Pro. Phase 2 = Teams +
-   Enterprise, 6–10 weeks later.
+7. **Two-part release.** Phase 1 = **OSS only** (Pro comes online once
+   checkout + license crypto + code-signing land). Phase 2 = Teams +
+   Enterprise, 6–10 weeks after Pro goes live.
 
 ---
 
@@ -70,7 +107,7 @@ This doc records those repositioning decisions.
 | Centralized policy + budget governance | — | — | ✅ | ✅ |
 | Air-gapped deployment scripts | — | — | — | ✅ |
 | Dedicated support contact + scheduled office hours | — | — | — | ✅ |
-| On-prem deploy assistance ($5k scoped) | — | — | — | ✅ |
+| On-prem deploy assistance (remote incl · on-site from $3,500) | — | — | — | ✅ |
 | Custom contracts, multi-year, custom SLA | — | — | — | Plus only |
 
 **The principle:** OSS is the full single-user product. Pro adds
@@ -111,8 +148,12 @@ remains fully functional; the signed path is a convenience product.
 
 **Implementation status.** Lemon Squeezy + Ed25519 license-key
 infrastructure already specced in `DISTRIBUTION_AND_REVENUE_PLAN.md`
-sections 5–6. No new engineering required — only reconfiguration to
-match the new pricing ($7/$70 instead of $7/$79).
+sections 5–6. The Ed25519 crypto is being replaced before Pro goes live
+(`docs/Phase146_SecurityAudit/CHANGE_PLAN_ed25519_crypto_fix.md` — the
+shipped verifier key is the all-zeros-seed public key and is forgeable;
+the generator↔verifier keypair is mismatched). No new engineering
+required beyond that fix — only reconfiguration to match the new
+pricing ($29 one-time; monthly subscription dropped).
 
 ---
 
@@ -164,16 +205,16 @@ for Phase 2. Ships after Phase 1 OSS+Pro launch.
 | Tier | Channel | Response target | Honest commitment |
 |---|---|---|---|
 | OSS / Community | GitHub Issues + Discussions | Best-effort | "I respond when I can; community helps." |
-| Pro ($7/mo or $70) | `support@sourceprep.io` email | 5 business days | "I read every email. No SLA, but I care." |
-| Teams ($15/seat/mo) | Private Slack/Discord channel + email | 2 business days | Same person, faster lane. No contractual SLA. |
-| Enterprise ($50/seat/mo annual) | Dedicated channel + monthly office hours + named contact | Negotiated 24h business-day target | **"Founder direct line" today.** Converts to true contractual SLA when 2nd engineer joins. |
+| Pro ($29 one-time) | `support@sourceprep.io` email | 5 business days | "I read every email. No SLA, but I care." |
+| Teams ($9/seat/mo) | Private Slack/Discord channel + email | 2 business days | Same person, faster lane. No contractual SLA. |
+| Enterprise ($24/seat/mo annual) | Dedicated channel + monthly office hours + named contact | Negotiated 24h business-day target | **"Founder direct line" today.** Converts to true contractual SLA when 2nd engineer joins. |
 
 **On-prem help breakdown:**
 
 1. **Installation assistance** — scoped 1–2 week engagement to
-   stand up air-gapped deployment. **$5,000 flat fee.** Sold as a
-   one-time Enterprise add-on. Off-platform invoicing via Magnetic
-   Anomaly LLC.
+   stand up air-gapped deployment. **Remote included; on-site from
+   $3,500; air-gapped quoted.** Sold as an Enterprise add-on.
+   Off-platform invoicing via Magnetic Anomaly LLC.
 2. **Architecture review** — 2-week deep dive on how the customer
    uses SourcePrep at scale. **$25,000 scoped engagement.** Sold as
    Enterprise Plus only.
@@ -213,76 +254,104 @@ the complete commercial surface.
 
 ---
 
-## Pricing table (final, locked)
+## Pricing table (final, locked — re-hardened 2026-07-18)
 
 | Tier | Price | Annual | Min seats | LS product? | Notes |
 |---|---|---|---|---|---|
-| Open Source | $0 | — | — | No | Apache 2.0 |
-| Pro Monthly | $7/mo | $84/yr | 1 | Yes | Convenience tier |
-| Pro Perpetual | $70 one-time | — | 1 | Yes | Down from $79; 10× monthly = clean crossover at month 10 |
-| Teams Monthly | $15/seat/mo | $180/seat/yr | 3 | Yes | Per-seat variable subscription |
-| Teams Annual | — | $144/seat/yr (≈ $12/seat/mo, 20% off) | 3 | Yes | Annual discount product |
-| Enterprise | $50/seat/mo (annual contract only) | $600/seat/yr | 10 ($6,000/yr floor) | Yes | Annual recurring; includes everything in Teams + air-gap + named support |
-| Enterprise Setup | $5,000 one-time | — | — | No — off-platform | Scoped installation engagement |
-| Enterprise Plus | $50/seat/yr floor, negotiated | Negotiated | 50+ | No — off-platform | Custom contracts, multi-year, custom SLA |
+| Open Source | $0 | — | — | No | Apache 2.0; full single-user product |
+| Pro Perpetual | $29 one-time | — | 1 | Yes | 12 months auto-updates included; ~$15/yr optional thereafter; name-your-price with $29 floor. **Monthly subscription dropped.** Not live at first OSS launch. |
+| Teams Monthly | $9/seat/mo | $108/seat/yr | 3 | Yes | Per-seat variable subscription |
+| Teams Annual | — | $97/seat/yr (≈ $8.08/seat/mo, 10% off) | 3 | Yes | Annual discount product |
+| Enterprise | $24/seat/mo (annual contract only) | $288/seat/yr | 15 ($4,320/yr floor) | Yes | Annual recurring; includes everything in Teams + air-gap + named support |
+| Enterprise Setup | Remote included · on-site from $3,500 · air-gapped quoted | — | — | No — off-platform | Scoped installation engagement |
+| Enterprise Plus | Negotiated | Negotiated | 50+ | No — off-platform | Custom contracts, multi-year, custom SLA |
 
 ### Market positioning sanity check
 
 | Comparable | Their individual | Their per-seat |
 |---|---|---|
+| Sublime Merge | $99 individual (one-time) | — |
+| Aseprite | $19.99 (one-time) | — |
+| Krita | $9.99 (one-time) | — |
 | Cody (Sourcegraph) | $9/mo | $49/seat/mo enterprise |
 | GitHub Copilot | $10/mo individual | $19/seat/mo business |
 | Cursor | $20/mo | — |
 | GitLab Premium | — | $29/seat/mo |
-| GitLab Ultimate | — | $99/seat/mo |
 | JetBrains Teams | — | $24/seat/mo |
-| **SourcePrep** | **$7/mo or $70 perpetual** | **$15 Teams / $50 Enterprise** |
+| **SourcePrep** | **$29 one-time (perpetual)** | **$9 Teams / $24 Enterprise** |
 
-We position **below Cody/Copilot** for individuals (we're a code-
-intel companion, not a full AI coding tool — fair to be cheaper) and
-**at Cody Enterprise parity** for Enterprise. Teams at $15 is
-intentionally well below Copilot Business ($19) and Sourcegraph
-Enterprise ($49) — Teams is the volume tier that should be easy to
-adopt.
+The Pro anchor is now **one-time-priced near-sublime tools** (Sublime
+$99, Aseprite $19.99, Krita $9.99) — a signed, packaged binary of
+otherwise-free-to-build software is a real, defensible one-time good;
+local/convenience tools with no recurring-cost service should not be
+subscriptions (the 2026-07-18 reversal of the monthly tier). Teams at $9
+is intentionally well below Copilot Business ($19) and Sourcegraph
+Enterprise ($49). Enterprise at $24/seat sits at JetBrains Teams parity
+and below GitLab Premium ($29).
 
 ---
 
 ## Lemon Squeezy product configuration spec
 
-**5 products to configure in Lemon Squeezy:**
+**4 products to configure in Lemon Squeezy** (monthly Pro dropped
+2026-07-18):
 
 | LS Product Name | Type | Price | Variant | Webhook unlock |
 |---|---|---|---|---|
-| `prep-pro-monthly` | Subscription | $7/mo | Single | `tier=pro`, `mode=monthly` |
-| `prep-pro-perpetual` | One-time | $70 | Single | `tier=pro`, `mode=perpetual` |
-| `prep-teams-monthly` | Subscription, variable quantity | $15/seat/mo | Min qty 3 | `tier=teams`, `mode=monthly`, `seats=N` |
-| `prep-teams-annual` | Subscription, variable quantity | $144/seat/yr | Min qty 3 | `tier=teams`, `mode=annual`, `seats=N` |
-| `prep-enterprise-annual` | Subscription, variable quantity | $600/seat/yr | Min qty 10 | `tier=enterprise`, `mode=annual`, `seats=N` |
+| `prep-pro-perpetual` | One-time | $29 (name-your-price floor) | Single | `tier=pro`, `mode=perpetual` |
+| `prep-teams-monthly` | Subscription, variable quantity | $9/seat/mo | Min qty 3 | `tier=teams`, `mode=monthly`, `seats=N` |
+| `prep-teams-annual` | Subscription, variable quantity | $97/seat/yr | Min qty 3 | `tier=teams`, `mode=annual`, `seats=N` |
+| `prep-enterprise-annual` | Subscription, variable quantity | $288/seat/yr | Min qty 15 | `tier=enterprise`, `mode=annual`, `seats=N` |
 
 **Off-platform (Magnetic Anomaly LLC direct invoicing):**
 
-- Enterprise Setup ($5,000 one-time per engagement)
+- Enterprise Setup (remote included · on-site from $3,500 · air-gapped quoted)
 - Enterprise Plus contracts (negotiated)
 - Architecture review engagements ($25k)
 
-**Phase 1 launch needs only the first 2 products configured.**
+**Phase 1 OSS launch needs 0 LS products configured** (Pro is not live
+at the first launch). **Pro go-live needs only `prep-pro-perpetual`.**
 **Phase 2 launch adds the remaining 3.**
+
+> **Open item (Eric, A5):** confirm the current Lemon Squeezy customer
+> count before the public relicense. If >0 paying customers exist, a
+> customer notice is required before changing terms; if 0, document the
+> all-clear. (`PRODUCT_TIER_MAP` in `lemon_squeezy.py` is empty, so the
+> count is not derivable from code.)
 
 ---
 
 ## Two-part release sequencing
 
-### Phase 1 — OSS + Pro launch
+### Phase 1 — OSS launch (Pro comes online later)
 
-**Ships when:** Phase 143 (docs cleanup + two-repo) and Phase 144
-(trademark + CLA + legal hygiene) are complete.
+**Ships when:** Phase 143 (docs cleanup + two-repo mirror) and Phase 144
+(trademark + DCO + legal hygiene) are complete, the root `LICENSE` is
+swapped to Apache-2.0 (after the IP Assignment), and the Ed25519
+license crypto is fixed.
 
-**Engineering work required:**
-- ✅ Signed Tauri installer pipeline (Apple notarization, MS signing) — most infra already designed in `DISTRIBUTION_AND_REVENUE_PLAN.md`
-- ✅ Ed25519 license key + Lemon Squeezy webhook integration — designed, needs implementation pass
-- ✅ Updated pricing page on sourceprep.io (Pro tier only; Teams shows "Coming soon")
-- ✅ `prep auth` CLI command for license activation
-- ✅ 2 LS products configured (`prep-pro-monthly`, `prep-pro-perpetual`)
+**Phase 1 scope = OSS only.** Pro does **not** go live at the first
+launch: the Lemon Squeezy checkout is unwired (`PRODUCT_TIER_MAP`
+empty), the Ed25519 license crypto is being replaced (forgeable shipped
+verifier key + mismatched generator↔verifier keypair), and code-signing
+has lead time (Apple org enrollment + D-U-N-S ~2–4 wk; Windows Azure
+Artifact Signing org path is blocked for a new LLC — individual path or
+OV cert). The marketing pricing page already reflects this (no live
+"Buy Pro" CTAs).
+
+**Engineering work required for OSS launch:**
+- ✅ Root `LICENSE` → Apache-2.0; metadata flips (`pyproject`, `Cargo`,
+  npm); `NOTICE`; `CONTRIBUTING` + DCO check; `SECURITY.md`; `CHARTER.md`
+- ✅ Curated public mirror via `tools/build_public_mirror.py` (allowlist
+  + denylist-regex gate + fresh initial commit)
+- ✅ Public `README` + `CONTRIBUTING` + `SECURITY` + `HISTORY.md` + ADRs
+- ✅ `oss-ci.yml` green on a fresh clone with no secrets
+
+**Engineering work required before Pro goes live (post-OSS-launch):**
+- Signed Tauri installer pipeline (Apple notarization, MS signing) — infra designed in `DISTRIBUTION_AND_REVENUE_PLAN.md`
+- Ed25519 license key + Lemon Squeezy webhook integration — **after the Phase 146 crypto fix**
+- `prep auth` CLI command for license activation
+- 1 LS product configured (`prep-pro-perpetual`)
 
 **Marketing/launch activities** (per existing
 `IMPLEMENTATION_PLAN.md` Parts D–H):
@@ -388,7 +457,7 @@ These phases must complete before Phase 1 ships:
    - Default action: skip patents, use defensive publication via blog posts (establishes prior art at $0 cost)
    - Carve-out: file provisional ($1,500–3,000) only if attorney identifies clearly novel + commercially meaningful method
 3. **Magnetic Anomaly LLC** operating agreement review — ensure entity is structured to receive acquisition
-4. **CLA (Apache ICLA)** setup — GitHub Action for contributor sign-off; standard ICLA template
+4. **DCO (Developer Certificate of Origin)** setup — `Signed-off-by` per-commit sign-off (not a CLA); DCO check GitHub Action; see `LICENSING_RECOMMENDATION.md` (DCO, not CLA — permanent license, no relicense option preserved)
 5. **ToS + privacy policy** for `sourceprep.io` (especially needed before Phase 2 hosted backend ships)
 6. **Apache 2.0 NOTICE** + dependency license audit (`cargo deny check licenses`, `pip-licenses`, `license-checker`) — blocking CI step
 7. **`LICENSE-AUDIT.md`** private doc recording the audit + date (legal defense if challenged)
@@ -401,8 +470,8 @@ These phases must complete before Phase 1 ships:
 
 1. **Hosted backend infra cost spike.** Before pricing locks for Phase 2, run a 1-week spike to put a daemon on Fly.io / Railway with one test repo and measure actual $/repo/month for indexing + serving. This validates the $15 Teams seat economics.
 2. **Hosted backend privacy boundary.** Confirm: embeddings + graph metadata only, never raw source. Write the privacy doc before Phase 2 ships.
-3. **GitHub org name.** Is `sourceprep` available? Fallback if not?
-4. **Repo name within org.** `sourceprep/sourceprep`, `sourceprep/prep`, `sourceprep/core`?
+3. **GitHub org name.** **DECIDED 2026-07-17:** stay under `MagneticAnomaly` (matches the bank entity + `magneticanomaly.llc` brand); do **not** stand up a `sourceprep` org yet — optionally grab & sit on `github.com/sourceprep` for a future C-corp/VC path. Storefront = `MagneticAnomaly/SourcePrep` (curated one-way mirror of the `MagneticAnomaly/SourcePrep-Private` workshop). See `REPO_TOPOLOGY.md`.
+4. **Repo name within org.** Workshop `MagneticAnomaly/SourcePrep-Private`; storefront `MagneticAnomaly/SourcePrep`.
 5. **Existing paid customers** (per SCRUTINY §11). Audit Lemon Squeezy for any current Pro subscribers. If non-zero: customer notice + decide grandfathering. If zero: document the all-clear.
 6. **Annual contracts processing.** Lemon Squeezy supports annual subscriptions but the Teams variable-quantity annual variant needs verification. Confirm before Phase 2 LS setup.
 7. **Refund policy** for annual contracts. Industry standard: pro-rated refund within 30 days, none after. Confirm before listing.
@@ -414,7 +483,7 @@ These phases must complete before Phase 1 ships:
 
 - Federated identity beyond SSO (SCIM auto-provisioning)
 - Multi-region hosted backend (US-only at launch)
-- SOC 2 certification (likely required before $50/seat Enterprise customers will sign — budget $20-40k + ~6 months calendar for the Type 1 audit)
+- SOC 2 certification (likely required before $24/seat Enterprise customers will sign — budget $20-40k + ~6 months calendar for the Type 1 audit)
 - Dedicated hosted instance for Enterprise (vs shared multi-tenant)
 
 ---
@@ -434,4 +503,6 @@ These phases must complete before Phase 1 ships:
 ## Decision audit trail
 
 - **2026-05-30** — Open-core boundary table finalized. Pro = $7/$70, Teams = $15/$144, Enterprise = $50/seat annual + 10-seat min + $5k setup. Premium prompts cut. Two-part release confirmed (Phase 1: OSS+Pro; Phase 2: Teams+Enterprise, 6–10 weeks later). CLA = Apache ICLA. Repo strategy = two-repo (fresh init for public mirror).
-- **Pending** — Phase 143 kickoff, Phase 144 kickoff, Lemon Squeezy reconfiguration to new pricing, GitHub org name decision.
+- **2026-07-17/18** — **Re-hardened** (`DECISION_MEMO_2026-07-17.md` Part 0, `LICENSING_RECOMMENDATION.md`, `REPO_TOPOLOGY.md`, live marketing pricing). Pro → $29 one-time perpetual (monthly dropped; not live at first OSS launch). Teams → $9/$97. Enterprise → $24/seat annual, 15-seat min, setup remote-included/on-site from $3,500. CLA → DCO (permanent, no relicense). Org → stay `MagneticAnomaly`. Phase 1 → OSS only. This doc designated the **single source of truth** for pricing; `DISTRIBUTION_AND_REVENUE_PLAN.md` + `PRODUCT_AND_BUSINESS_OVERVIEW.md` pricing sections SUPERSEDED.
+- **2026-07-19** — Reconciliation applied to this file (stale 2026-05-30 paragraphs above may still carry old numbers; the TL;DR + Pricing table govern — full paragraph reflow deferred to the Stream 5 contradiction sweep).
+- **Pending** — Phase 143 kickoff, Phase 144 kickoff, Ed25519 crypto fix (Phase 146), Lemon Squeezy reconfiguration to new pricing, Lemon Squeezy customer-count confirmation (Eric, A5).
