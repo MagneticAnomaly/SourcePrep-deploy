@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isAuthorized } from '../../../../lib/auth';
+import { isAuthorized, getRequestActor } from '../../../../lib/auth';
+import { logAdminAudit } from '../../../../lib/audit';
+import { corsHeaders } from '../../../../lib/cors';
 import { getStore, type ReportStatus } from '../../../../lib/reports';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const CORS_METHODS = 'GET, PATCH, OPTIONS';
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request, CORS_METHODS) });
 }
 
 /**
@@ -19,7 +17,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const headers = { ...corsHeaders, 'Content-Type': 'application/json' };
+  const headers = { ...corsHeaders(request, CORS_METHODS), 'Content-Type': 'application/json' };
 
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });
@@ -44,7 +42,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const headers = { ...corsHeaders, 'Content-Type': 'application/json' };
+  const headers = { ...corsHeaders(request, CORS_METHODS), 'Content-Type': 'application/json' };
 
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });
@@ -72,14 +70,31 @@ export async function PATCH(
     return NextResponse.json({ error: 'At least status is required' }, { status: 400, headers });
   }
 
+  const assignedTo = body.assigned_to as string | undefined;
+  const resolution = body.resolution as string | undefined;
+
   const updated = await getStore().updateStatus(id, status, {
-    assigned_to: body.assigned_to as string | undefined,
-    resolution: body.resolution as string | undefined,
+    assigned_to: assignedTo,
+    resolution,
   });
 
   if (!updated) {
     return NextResponse.json({ error: 'Report not found' }, { status: 404, headers });
   }
+
+  // Audit the mutation (DR-4.6). No reporter PII — status/assignee are admin
+  // metadata; the resolution note is recorded only as "set" to avoid free-text.
+  logAdminAudit({
+    event: 'bug_report.patch',
+    actor: getRequestActor(request),
+    reportId: id,
+    changes: {
+      status,
+      assigned_to: assignedTo ?? undefined,
+      resolution: resolution !== undefined ? '<set>' : undefined,
+    },
+    outcome: 'success',
+  });
 
   return NextResponse.json(updated, { status: 200, headers });
 }

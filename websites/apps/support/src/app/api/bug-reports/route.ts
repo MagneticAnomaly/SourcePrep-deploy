@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAuthorized } from '../../../lib/auth';
+import { corsHeaders } from '../../../lib/cors';
 import { getStore, type ReportStatus, type ReportSeverity } from '../../../lib/reports';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const CORS_METHODS = 'GET, OPTIONS';
 
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204, headers: corsHeaders });
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request, CORS_METHODS) });
 }
 
 /**
@@ -23,7 +20,7 @@ export async function OPTIONS() {
  *   offset   — pagination offset (default 0)
  */
 export async function GET(request: NextRequest) {
-  const headers = { ...corsHeaders, 'Content-Type': 'application/json' };
+  const headers = { ...corsHeaders(request, CORS_METHODS), 'Content-Type': 'application/json' };
 
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });
