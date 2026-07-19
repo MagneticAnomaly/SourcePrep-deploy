@@ -259,6 +259,33 @@ class TestRemoteSyncService:
             assert svc.check_and_sync() is False
             assert "credentials" in svc.status.error.lower()
 
+    def test_check_and_sync_reentrancy_guard(self, tmp_path):
+        # A second concurrent sync (e.g. /sync/now clicked while the poll
+        # thread is mid-sync) must skip rather than race a second download
+        # into remote_index_dir.
+        root = self._make_project(tmp_path, {
+            "sync": {"enabled": True, "s3_bucket": "b"}
+        })
+        svc = RemoteSyncService(root)
+        mock_s3 = MagicMock()
+        svc._get_s3_provider = MagicMock(return_value=mock_s3)
+
+        # Simulate a sync already in progress by holding the lock.
+        svc._sync_lock.acquire()
+        try:
+            assert svc.check_and_sync() is False
+            # Bailed out before touching S3 — no second download raced.
+            mock_s3.get_remote_manifest.assert_not_called()
+            mock_s3.download_index.assert_not_called()
+        finally:
+            svc._sync_lock.release()
+
+        # Once the lock frees, a normal sync proceeds and reaches S3
+        # (proving the guard is not a permanent block).
+        mock_s3.get_remote_manifest.return_value = None
+        assert svc.check_and_sync() is False
+        mock_s3.get_remote_manifest.assert_called_once()
+
     def test_status_dict(self, tmp_path):
         root = self._make_project(tmp_path)
         svc = RemoteSyncService(root)

@@ -251,6 +251,10 @@ class RemoteSyncService:
         self._status = SyncStatus()
         self._poll_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
+        # Serializes check_and_sync across the background poll thread and any
+        # on-demand /sync/now trigger, so two downloads never race into
+        # remote_index_dir and corrupt the local index.
+        self._sync_lock = threading.Lock()
 
     # ── Config loading ────────────────────────────────────────
 
@@ -338,6 +342,13 @@ class RemoteSyncService:
         if not s3:
             return False
 
+        # Reentrancy guard: the background poll thread and an on-demand
+        # /sync/now trigger share this syncer instance. If a sync is already
+        # running, skip this one rather than race a second download.
+        if not self._sync_lock.acquire(blocking=False):
+            logger.debug("check_and_sync skipped: a sync is already in progress")
+            return False
+
         self._status.is_syncing = True
         self._status.error = None
 
@@ -346,7 +357,6 @@ class RemoteSyncService:
             remote_manifest = s3.get_remote_manifest()
             if remote_manifest is None:
                 logger.info("No remote index found in S3 bucket")
-                self._status.is_syncing = False
                 return False
 
             self._status.remote_version = remote_manifest.version
@@ -356,7 +366,6 @@ class RemoteSyncService:
             local_manifest = self._get_local_manifest()
             if local_manifest and local_manifest.content_hash == remote_manifest.content_hash:
                 logger.debug("Remote index unchanged (hash=%s)", remote_manifest.content_hash)
-                self._status.is_syncing = False
                 return False
 
             # Download the new index
@@ -373,7 +382,6 @@ class RemoteSyncService:
 
             self._status.last_sync_at = time.time()
             self._status.last_sync_commit = remote_manifest.commit_sha
-            self._status.is_syncing = False
 
             logger.info(
                 "Remote index synced: branch=%s commit=%s",
@@ -384,9 +392,11 @@ class RemoteSyncService:
 
         except Exception as e:
             self._status.error = str(e)
-            self._status.is_syncing = False
             logger.error("Remote sync failed: %s", e)
             return False
+        finally:
+            self._status.is_syncing = False
+            self._sync_lock.release()
 
     # ── Polling ───────────────────────────────────────────────
 
