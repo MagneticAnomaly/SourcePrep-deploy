@@ -133,7 +133,7 @@ export default function Page() {
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>Check if the <code>prep</code> executable is in your PATH.</li>
-                <li>Verify the config file path (e.g. <code>~/.codeium/windsurf/mcp_config.json</code>).</li>
+                <li>Verify the config file path (e.g. <code>.windsurf/mcp.json</code> in your project root for Windsurf, or the equivalent path printed by <code>prep mcp-config --ide &lt;ide&gt;</code>).</li>
                 <li>Restart the editor to reload the MCP connection.</li>
               </ul>
             </div>
@@ -153,8 +153,8 @@ export default function Page() {
                 If the daemon consumes too much RAM:
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
-                <li>Reduce the number of indexed files by excluding large folders (<code>vendor/</code>, <code>node_modules/</code>) in <code>.sourceprep/ignore</code>.</li>
-                <li>Lower the <code>max_file_bytes</code> setting in your project configuration (via Dashboard or <code>.sourceprep/config.json</code>).</li>
+                <li>Reduce the number of indexed files by excluding large folders (<code>vendor/</code>, <code>node_modules/</code>) via your <code>.gitignore</code> or per-project <code>exclude_globs</code> in the Dashboard.</li>
+                <li>Lower the <code>max_file_bytes</code> setting in your project configuration (via Dashboard), or set the global default with <code>prep config max_file_bytes &lt;bytes&gt;</code>.</li>
                 <li>Context compression adds negligible memory overhead — structural LOD compression needs no model inference.</li>
               </ul>
             </div>
@@ -183,7 +183,6 @@ export default function Page() {
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>Check <code>exclude_globs</code> in the Dashboard.</li>
                 <li>Check your project's <code>.gitignore</code> (SourcePrep respects this by default).</li>
-                <li>Check for a <code>.sourceprep/ignore</code> file.</li>
               </ul>
             </div>
 
@@ -194,7 +193,7 @@ export default function Page() {
               </p>
               <ul className="list-disc pl-5 space-y-2 text-sm">
                 <li>The default limit is 500KB per file to prevent choking on minified assets or data dumps.</li>
-                <li>Increase the limit: <code>prep config max_file_bytes 1000000</code> (or via Dashboard).</li>
+                <li>Increase the limit via the Dashboard project settings, or via the scope/project config endpoints. (The global <code>prep config</code> only sets the default for newly-created projects.)</li>
                 <li>Or exclude the file if it&apos;s not useful for context.</li>
               </ul>
             </div>

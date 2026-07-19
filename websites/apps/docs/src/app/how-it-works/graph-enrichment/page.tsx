@@ -194,31 +194,27 @@ export default function Page() {
           relevance or summary accuracy. A file can have a perfect summary but a low understanding score
           if we don&apos;t know how it connects to anything else.
         </p>
-        <p className="mt-3 text-text-muted leading-relaxed">The score is a weighted composite of six dimensions:</p>
+        <p className="mt-3 text-text-muted leading-relaxed">The score is a weighted composite of five dimensions:</p>
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="p-3 bg-surface border border-border rounded-lg">
-            <div className="text-sm font-semibold text-text">Summary confidence <span className="text-xs text-text-muted">(20%)</span></div>
+            <div className="text-sm font-semibold text-text">Summary confidence <span className="text-xs text-text-muted">(23.5%)</span></div>
             <div className="text-xs text-text-muted">How certain is the catalogue model about its own output?</div>
           </div>
           <div className="p-3 bg-surface border border-border rounded-lg">
-            <div className="text-sm font-semibold text-text">Validation depth <span className="text-xs text-text-muted">(15%)</span></div>
+            <div className="text-sm font-semibold text-text">Validation status <span className="text-xs text-text-muted">(17.7%)</span></div>
             <div className="text-xs text-text-muted">Has a larger model verified and enriched the summary?</div>
           </div>
           <div className="p-3 bg-surface border border-border rounded-lg">
-            <div className="text-sm font-semibold text-text">Neighbor coverage <span className="text-xs text-text-muted">(20%)</span></div>
+            <div className="text-sm font-semibold text-text">Neighbor coverage <span className="text-xs text-text-muted">(23.5%)</span></div>
             <div className="text-xs text-text-muted">Are connected nodes also enriched? Understanding is relational.</div>
           </div>
           <div className="p-3 bg-surface border border-border rounded-lg">
-            <div className="text-sm font-semibold text-text">Cross-reference density <span className="text-xs text-text-muted">(15%)</span></div>
+            <div className="text-sm font-semibold text-text">Cross-reference density <span className="text-xs text-text-muted">(17.7%)</span></div>
             <div className="text-xs text-text-muted">How many doc↔code bidirectional links exist?</div>
           </div>
           <div className="p-3 bg-surface border border-border rounded-lg">
-            <div className="text-sm font-semibold text-text">Enrichment depth <span className="text-xs text-text-muted">(15%)</span></div>
+            <div className="text-sm font-semibold text-text">Enrichment depth <span className="text-xs text-text-muted">(17.6%)</span></div>
             <div className="text-xs text-text-muted">How many reasoning passes has this node been through?</div>
-          </div>
-          <div className="p-3 bg-surface border border-border rounded-lg">
-            <div className="text-sm font-semibold text-text">Temporal currency <span className="text-xs text-text-muted">(15%)</span></div>
-            <div className="text-xs text-text-muted">Has the source changed since enrichment? Stale knowledge scores zero.</div>
           </div>
         </div>
 

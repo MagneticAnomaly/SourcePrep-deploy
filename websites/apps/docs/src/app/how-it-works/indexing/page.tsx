@@ -203,8 +203,9 @@ export default function Page() {
         <AnchorHeading id="initialize" level="h2">Initialising a project</AnchorHeading>
         <p className="mt-3 text-text-muted leading-relaxed">
           Add a project via the dashboard <span className="font-semibold text-text">+</span> button
-          (or <code>prep add /path/to/project</code>) and the first build kicks off automatically.
-          You can watch it complete in the Knowledge Status panel above. The file watcher handles
+          (or <code>prep add /path/to/project</code>), then trigger the first build with
+          <code>prep build</code> (or the <em>Rebuild Knowledge</em> control in the dashboard&apos;s
+          developer-mode panels). Once built, the file watcher handles
           every change afterwards; you almost never need to trigger a rebuild by hand.
         </p>
         <p className="text-sm text-text-muted mt-3">

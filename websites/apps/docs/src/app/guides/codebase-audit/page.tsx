@@ -249,8 +249,9 @@ prep opportunities --priority P0 --format ai_prompt`}</code></pre>
 
           <AnchorHeading id="reports" level="h2">Generated Reports</AnchorHeading>
           <p>
-            When you run with <code>--synthesize</code> (or <code>synthesize: true</code> in the API),
-            an LLM generates 5 markdown documents from the findings:
+            When you run an audit with <code>synthesize: true</code> (via the MCP
+            <code>prep_audit</code> tool or the REST API), an LLM generates 5 markdown
+            documents from the findings:
           </p>
           <ul className="list-disc pl-6 space-y-2">
             <li><strong>AUDIT_SUMMARY</strong> — Health grade (A–F), critical findings, top recommendations</li>

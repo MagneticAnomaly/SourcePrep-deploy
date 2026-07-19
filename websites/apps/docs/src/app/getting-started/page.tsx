@@ -87,7 +87,7 @@ export default function Page() {
             Both editors use <span className="font-semibold text-text">stdio</span> (recommended). The MCP config tells your editor to spawn <code>prep mcp</code> as a subprocess &mdash; no URLs to configure.
           </p>
           <p className="text-sm text-text-muted mt-2">
-            <em>Advanced: For remote/containerized setups, SourcePrep also supports SSE at <code>http://localhost:8400/mcp/sse</code>. See the <a href="/mcp" className="text-primary hover:underline">MCP reference</a> for details.</em>
+            <em>Advanced: For remote/containerized setups, SourcePrep also supports SSE via the MCP HTTP server at <code>http://localhost:8401/sse</code> (start it with <code>prep mcp --transport http</code>). See the <a href="/mcp" className="text-primary hover:underline">MCP reference</a> for details.</em>
           </p>
 
           <AnchorHeading id="verify" level="h2">5. Verify</AnchorHeading>

@@ -36,7 +36,7 @@ const docFeatures = [
   {
     icon: <BookOpen className="w-8 h-8" />,
     title: 'Embedding Models',
-    description: 'Pick the embedding tier that fits your hardware (CPU, GPU, BYOK).',
+    description: 'Pick the embedding tier that fits your hardware (CPU or GPU).',
     href: '/how-it-works/embeddings',
   },
   {

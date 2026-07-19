@@ -76,15 +76,16 @@ export default function Page() {
               it expires.
             </li>
             <li>
-              <code className="text-xs">cloud:default_ollama 8/12 🌧️</code> — recent backoff
+              <code className="text-xs">cloud:default_ollama 8/12 ↗</code> — recent backoff
               detected; the system is recovering before trying to grow again.
             </li>
           </ul>
           <p className="text-sm text-text-muted mt-4">
             For the full timeline (every probe, every backoff, every recovery),
-            open <span className="font-semibold text-text">Settings → Diagnostics → Concurrency Health</span>.
-            Each cloud node has a live event feed showing why the current limit
-            is what it is.
+            query <code>GET /compute/concurrency/history?node_id=cloud:default_ollama</code>
+            (in dev builds, the <span className="font-semibold text-text">Settings → Diagnostics → Concurrency Health</span>
+            view renders the same feed). Each cloud node has a live event feed
+            showing why the current limit is what it is.
           </p>
 
           <div className="not-prose">
@@ -199,9 +200,10 @@ export default function Page() {
             If you don&rsquo;t see a higher ceiling settle in, your provider may
             still be capping you at the old limit (some plan upgrades take time
             to propagate). The{' '}
-            <span className="font-semibold text-text">Concurrency Health</span> view
-            in Settings → Diagnostics shows every backoff event, which is the
-            quickest way to see what&rsquo;s actually happening.
+            <code>GET /compute/concurrency/history</code> API shows every backoff
+            event, which is the quickest way to see what&rsquo;s actually happening
+            (in dev builds, the <span className="font-semibold text-text">Concurrency Health</span>
+            view in Settings → Diagnostics renders the same feed).
           </p>
 
           <hr className="my-12 border-border" />

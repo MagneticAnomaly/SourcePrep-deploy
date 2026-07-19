@@ -312,3 +312,132 @@ a docs task, but it gates E5's truth.
    privacy wording, docs home lede).
 8. **Build `tools/build_public_mirror.py`** (the storefront allowlist tool) —
    gates E1's URL resolution and the broader mirror curation.
+
+---
+
+## 5. Pass 3 — Audit-the-Audit (2026-07-19)
+
+A 42-agent workflow (8 reviewers over all 33 docs pages → per-finding
+adversarial verification in worktree isolation → synthesis), ~2.3M tokens,
+653 tool calls. Re-audited every docs claim under the corrected principle
+("docs ≥ marketing conservative; assume every claim wrong until proven with
+code AND intention; if provable with intention but not code, FLAG don't fix").
+
+**Result:** 33 findings, all 33 verified. 29 CONFIRMED-FALSE, 1
+INTENTION-ONLY, 3 refuted-as-TRUE (the audit caught and dismissed its own
+false positives — good). Of the 29 CONFIRMED-FALSE, 4 were **worktree-base
+artifacts** (the worktrees branched from `origin/main` = `6dc42b85`, which
+does NOT include the local pass-1/2 commits `a6ad1c7f`/`31e8d210`; those 4
+findings — codebase-audit `POST /audit` & `prep audit`, knowledge-scope
+Pro-tier, cli/commands `--ide` list & `prep add` auto-build — were already
+fixed locally and were re-verified as present-and-correct in the working
+tree). Reconciliation left **24 genuinely-unfixed safe-now findings**, all
+code-verified + license-neutral. **All 24 were applied this pass** + the
+orphan-card `</div>` from the graph-enrichment six→five-dimension edit.
+Docs app `tsc --noEmit` clean.
+
+### 5.1 Pass-3 fixes APPLIED (24 safe-now + 1 structural, commit `________`)
+
+| # | File:line | Fix (claim → correction) | Code evidence |
+|---|---|---|---|
+| 3.1 | `app/page.tsx:39` | Embedding card "(CPU, GPU, BYOK)" → "(CPU or GPU)" — no BYOK embedder exists | `embedder.py` defines only `NativeEmbedder` + `OllamaEmbedder` |
+| 3.2 | `getting-started/page.tsx:90` | SSE URL `localhost:8400/mcp/sse` → `localhost:8401/sse` via `prep mcp --transport http` | `cli.py:727` (port 8401); `mcp/transport.py:174` (`/sse` at root, not `/mcp/sse`) |
+| 3.3 | `how-it-works/compression/page.tsx:292-296` | "Coming Soon: …future Pro feature…BERT model" → "Roadmap: …evaluated LLMLingua-2…removed it" (callout was already deleted in P2; this fixes the body paragraph) | `search.py:369-375` returns `NoopCompressor`; `compressor.py` only Noop+Structural |
+| 3.4 | `how-it-works/indexing/page.tsx:205-208` | "first build kicks off automatically" → "trigger the first build with `prep build`" | `cli.py:275-305` `add` does NOT auto-build |
+| 3.5 | `how-it-works/embeddings/page.tsx:169-172` | "Upgrade to nomic-embed-code…for highest retrieval quality" → "ONNX has the best accuracy…nomic-embed-code is a flexibility option, not a quality upgrade" (resolves page self-contradiction: table shows ONNX 84.6% > nomic-embed-code 82.1%) | page's own table :124; `embedder_factory.py` defaults to `NativeEmbedder` |
+| 3.6 | `how-it-works/embeddings/page.tsx:186` | "Tier 1: nomic-embed-code via Ollama (recommended)" → drop "(recommended)" (ONNX is the recommended default per :79) | same-page :79 |
+| 3.7 | `how-it-works/context/page.tsx:49` | "Two engines…Documentation…lightweight language model (~2.4×)" → "One CPU-only engine…Documentation passes through with structural compression only" | `search.py:369-375`; `compressor.py` |
+| 3.8 | `how-it-works/context/page.tsx:138` | "Chunks (k): Default: 20" → "Default: 5" | `useSearchContext.ts:30`; `models.py:47` `k=5` |
+| 3.9 | `how-it-works/context/page.tsx:143` | "Max chars: Default: 24,000 (32k windows)" → "Default: 6,000 (8k windows)" | `useSearchContext.ts:31` `6000`; `models.py:48` `max_chars=12000` |
+| 3.10 | `how-it-works/graph-enrichment/page.tsx:197-220` | "weighted composite of **six** dimensions" (with Temporal currency 15%) → **five** dimensions (Summary 23.5%, Validation status 17.7%, Neighbor coverage 23.5%, Cross-ref 17.7%, Enrichment depth 17.6%); removed the Temporal currency card + orphan `</div>` | `epistemic_score.py:33-39` (5 weights); docstring "c6 staleness weight deleted in Phase 134; remaining 5 renormalized" |
+| 3.11 | `guides/codebase-audit/page.tsx:252` | "When you run with `--synthesize`" → "When you run an audit with `synthesize: true` (via MCP `prep_audit` or the REST API)" | no `--synthesize` flag in `cli.py`; `synthesize: true` is the real API param |
+| 3.12 | `guides/audit-enrichment/page.tsx:134` | 'hub_status = "unknown"' → 'dependents: 0 and hub_status: "low"' | `mcp/server.py:2568-2614` defaults to `hub_status="low"`; no "unknown" value exists |
+| 3.13 | `guides/concurrency-discovery/page.tsx:85` | "open Settings → Diagnostics → Concurrency Health" (as the only path) → primary: `GET /compute/concurrency/history?node_id=…` API; "(in dev builds, Settings → Diagnostics…)" | `routeParser.ts:9-11` Diagnostics is dev-only; `compute.py:315` API available to all |
+| 3.14 | `guides/concurrency-discovery/page.tsx:202` | Same dev-only-UI correction (Concurrency Health view → HTTP API primary) | same |
+| 3.15 | `guides/concurrency-discovery/page.tsx:79` | Example queue icon `8/12 🌧️` → `8/12 ↗` (🌧️ doesn't exist; only 🔒/🔻/↗/📈) | `SidebarPipelineQueue.tsx:342-346` |
+| 3.16 | `guides/models/page.tsx:222-223` | "structural LOD rendering (no model needed) plus an optional 178 MB BERT model for prose compression" → "structural LOD rendering — no model needed" | `search.py:369-375`; `compressor.py` |
+| 3.17 | `guides/byok-batching/page.tsx:166-170` | "1. Retries once. 2. Splits in half. 3. Individual fallback." → "1. Retries on 429. 2. Subdivides + falls back to individual in production." (halving only happens in exploratory mode for sizes exactly 4-5; production goes straight to per-item) | `batch_strategy.py:370-373`; `llm_client.py:399` (`_MAX_429_RETRIES=2`) |
+| 3.18 | `cli/config/page.tsx:35-48` | Deleted false `.sourceprep/config.json` override + the entire `.sourceprep/ignore` subsection + example block; replaced with accurate SQLite + `repo_policy.json` + "respects .gitignore automatically" | no code reads either file; `index.py:338-344` parses only `.gitignore`; Rust walker excludes `**/.sourceprep/**` |
+| 3.19 | `troubleshooting/page.tsx:136` | Windsurf config path `~/.codeium/windsurf/mcp_config.json` (legacy Codeium-era) → `.windsurf/mcp.json` in project root | `mcp_config.py:126` writes `.windsurf/mcp.json` (`path_hint: "Project root"`) |
+| 3.20 | `troubleshooting/page.tsx:156` | "excluding large folders…in `.sourceprep/ignore`" → "via your `.gitignore` or per-project `exclude_globs` in the Dashboard" | no `.sourceprep/ignore` parser |
+| 3.21 | `troubleshooting/page.tsx:157` | "max_file_bytes…via Dashboard or `.sourceprep/config.json`" → "via Dashboard, or set the global default with `prep config max_file_bytes <bytes>`" | `max_file_bytes` read from `proj.config` (SQLite) at `build.py:30-31` |
+| 3.22 | `troubleshooting/page.tsx:186` | Dropped "Check for a `.sourceprep/ignore` file." bullet | same as 3.18 |
+| 3.23 | `troubleshooting/page.tsx:197` | "Increase the limit: `prep config max_file_bytes 1000000`" (implies global CLI fixes an existing project's FILE_TOO_LARGE) → "via the Dashboard project settings, or the scope/project config endpoints. (The global `prep config` only sets the default for newly-created projects.)" | `cli.py:1078` PUTs `/global/config`; `build.py:30-31` reads per-project |
+| (V2) | `guides/models/page.tsx:112` | (pre-workflow) "Requires a GPU and Ollama installed locally" → "GPU strongly recommended — Ollama…falls back to CPU" (2nd occurrence P7 missed) | `embedder`/Ollama CPU fallback (same as P6/P7) |
+
+### 5.2 Refuted (audit caught & dismissed its own false positives — no edit)
+
+- `cli/commands/page.tsx:61` — reviewer claimed `prep context` omits `--role`.
+  **Refuted:** line 69 lists `--role` (matches `cli.py:611`). Pass-1/2 fix already landed.
+- `ClientLayout.tsx:60` — reviewer claimed footer GitHub link `…/SourcePrep` 404s.
+  **Refuted:** the finding misquotes the URL; actual link is `…/SourcePrep-MCP` (HTTP 200).
+  *(Separate real dead-link flagged out of scope: `mcp/paperclip/page.tsx:275` and
+  marketing `links.ts:3` `GITHUB_REPO_URL = …/SourcePrep` DO 404 — see E1/E2 family.)*
+
+### 5.3 New Eric-gated items (continuing E1–E13 numbering)
+
+#### E14 `getting-started/installation/page.tsx:81` — code-TRUE paywall text, relicense-blocked
+The 3-project Free-tier + Lemon Squeezy + "works fully offline" licensing paragraph
+is **accurate to current code** (`feature_gate.py:46` 3-project limit; `lemon_squeezy.py`
+LS-as-MoR; `license.py` activation; 30-day offline grace). Pass-1 commit `a6ad1c7f`
+(on local main, NOT on origin/main) already retired this with license-neutral wording.
+The workflow worktree branched from `origin/main` so it saw the pre-fix state. Under
+the corrected principle, re-applying the neutral wording here would assert an OSS
+posture before the relicense lands. **Recommended option:** leave as-is in the working
+tree (the pass-1 neutral wording already covers it once these commits land on
+origin); do NOT re-apply manually. Resolve when the local pass-1/2/3 commits reach
+origin/main alongside the relicense.
+
+#### E15 `guides/enterprise-deploy/page.tsx` + `guides/team-sync/page.tsx` — dead external links (INTENTION-ONLY)
+Links to `github.com/MagneticAnomaly/SourcePrep-deploy` (7 links) and
+`ghcr.io/magneticanomaly/prep-headless:{cpu,gpu}` image refs as if both already exist.
+In-repo artifacts DO exist (`public/sourceprep-deploy/Dockerfile.{cpu,gpu}`,
+`entrypoint.sh`, `modal/`, `runpod/`, `aws/`, `github-actions/`, plus
+`.github/workflows/docker-headless.yml` with `push: true`) — clear design intent. BUT:
+(a) `git ls-remote deploy` returns zero refs (subtree repo still empty);
+(b) no `app-v*` git tag exists, so `docker-headless.yml` has never run → GHCR images
+NOT published; (c) `REPO_TOPOLOGY.md` (decided 2026-07-17) collapses the public
+topology to a single `MagneticAnomaly/SourcePrep` storefront; `SourcePrep-deploy` is
+not in the decided topology. **Recommended option:** Eric decides at launch —
+(1) populate + make public `MagneticAnomaly/SourcePrep-deploy` AND cut an `app-v*`
+tag to publish the GHCR images (page true as written), or (2) rewrite the external
+links to "available to Enterprise customers on request" (`mailto:enterprise@sourceprep.io`)
+or repoint to the future storefront. Do NOT silently fix. (Same family as E2, but
+E2 was scoped to the deploy-repo subtree links; E15 adds the GHCR image refs and the
+REPO_TOPOLOGY inconsistency.)
+
+### 5.4 Cross-cutting follow-ups flagged (out of scope for docs site — code/marketing)
+
+- Stale LLMLingua-2/BERT copy in `packages/ui` (`CompetitorMatrix.tsx`,
+  `TechStackMatrix.tsx:44`, `AIModelsSettings.tsx:1167`, `researchSources.ts`) —
+  same stale-claim pattern as 3.3/3.16; worth a parallel **marketing** sweep.
+- Stale `lingua`/`auto` enum values still advertised in `mcp_tools.py:633-637`
+  schema (handler returns `NoopCompressor`) — internal schema cleanup, code task.
+- `audit.py:7-8` module docstring still lists the deleted `POST /projects/{id}/audit`
+  endpoint — internal consistency only.
+- `scope_orchestrator.py:13` docstring says "Pro gets auto-rebuild, Free gets
+  manual" — stale relative to authoritative `feature_gate.py:65` (`auto_scope_rebuild`
+  is `Tier.FREE`).
+- Dead `…/SourcePrep` (no-suffix) links: `mcp/paperclip/page.tsx:275` and marketing
+  `links.ts:3` `GITHUB_REPO_URL` 404 (separate from the `…/SourcePrep-deploy` E15
+  cluster).
+
+### 5.5 Updated next steps (Eric-gated, dependency order, supersedes §4)
+
+1. **Apply the relicense** (Apache-2.0 + DCO) → unblocks E1, E10, E14, and the
+   docs-vs-marketing license-framing question.
+2. **E13 → E5** (remove legacy `lemon_squeezy.py` polling, then hedge the docs
+   phone-home claim).
+3. **E2 / E15** (populate `SourcePrep-deploy` repo + cut `app-v*` tag for GHCR
+   images) — unblocks all 7+ dead deploy links with zero docs edits; OR rewrite
+   the links per E15 option (2).
+4. **E3 + E9** (team-sync "coming soon" + sidebar dedup).
+5. **E8** (delete model-advisor orphan, diff vs `/guides/models` first).
+6. **E12** (dashboard `AIModelsSettings.tsx:103` slug → `manutic/nomic-embed-code`;
+  mirror prefixes in `embedder.py:64`).
+7. **E4, E6, E7** (compression/BYOK-privacy/docs-home-lede rewrites).
+8. **Build `tools/build_public_mirror.py`** — gates E1 URL resolution + mirror
+   curation; also resolves the `…/SourcePrep` no-suffix dead links (5.4).
+9. **Marketing sweep** (5.4) — the same BERT/LLMLingua-2 and no-suffix-GitHub-URL
+   stale claims recur in `packages/ui` + marketing; coordinate so docs and
+   marketing land consistent wording.

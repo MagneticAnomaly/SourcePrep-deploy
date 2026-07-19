@@ -167,8 +167,9 @@ export default function Page() {
           </p>
           <div className="mt-4 rounded-lg border border-border bg-surface p-4 text-sm text-text-muted">
             <span className="font-semibold text-text">Bottom line:</span> Use the built-in ONNX model if you
-            don&apos;t have Ollama or a GPU. Upgrade to <code>nomic-embed-code</code> via Ollama
-            when you want the highest retrieval quality and have a GPU available.
+            don&apos;t have Ollama or a GPU — it has the best retrieval accuracy in our benchmark.
+            <code>nomic-embed-code</code> via Ollama is a flexibility option for large code-heavy
+            repos where the code-specialised training may help, not a quality upgrade.
           </div>
         </section>
 
@@ -183,7 +184,7 @@ export default function Page() {
             </p>
           </div>
 
-          <h3 className="mt-6 text-base font-semibold">Tier 1: nomic-embed-code via Ollama (recommended)</h3>
+          <h3 className="mt-6 text-base font-semibold">Tier 1: nomic-embed-code via Ollama</h3>
           <ol className="mt-3 space-y-1.5 text-sm text-text-muted list-decimal pl-5">
             <li>Install Ollama and ensure a GPU is available</li>
             <li><code>ollama pull manutic/nomic-embed-code</code></li>

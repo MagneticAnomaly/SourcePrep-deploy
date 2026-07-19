@@ -109,7 +109,7 @@ export default function Page() {
 
           <AnchorHeading id="local-only-stack" level="h2">Local-only stack (no cloud)</AnchorHeading>
           <p>
-            Fully offline. Requires a GPU and Ollama installed locally. The <span className="font-semibold text-text">Qwen3</span> family is the recommended baseline — best-in-class small models with reliable JSON output.
+            Fully offline. <span className="font-semibold text-text">GPU strongly recommended</span> — Ollama is required locally and silently falls back to CPU when no GPU is present, but the Qwen3 family is too slow on CPU for practical indexing. The <span className="font-semibold text-text">Qwen3</span> family is the recommended baseline — best-in-class small models with reliable JSON output.
           </p>
           <ul className="mt-3 list-disc pl-6 space-y-2 text-sm">
             <li><span className="font-semibold text-text">Fast:</span> <code>qwen3:4b</code> (2.5 GB) — cataloguing, intent, tagging. Falls back here as the single model if you only configure one slot.</li>
@@ -219,9 +219,8 @@ export default function Page() {
           <div className="mt-6 rounded-lg border border-border bg-surface p-4 text-sm">
             <span className="font-semibold text-text">Smart Compression</span> is
             not a model slot — it&apos;s a built-in feature that runs alongside
-            the slots above. It uses structural Level-of-Detail rendering
-            (no model needed) plus an optional 178 MB BERT model for prose
-            compression. <a href="/how-it-works/compression" className="text-primary hover:underline">Read the compression guide →</a>
+            the slots above. It uses structural Level-of-Detail rendering —
+            no model needed. <a href="/how-it-works/compression" className="text-primary hover:underline">Read the compression guide →</a>
           </div>
 
           <div className="mt-8 rounded-lg bg-surface border border-border p-4">

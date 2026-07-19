@@ -46,7 +46,7 @@ const STEPS = [
     name: 'COMPRESSION',
     title: 'Smart Compression',
     body: (
-      <>Two engines, both CPU-only. Code is structurally compressed at a Level of Detail (LOD) determined by relevance — top results stay full, mid-relevance shows signatures, peripheral files show names only (3–20×, no model). Documentation is compressed with a lightweight language model that strips filler while preserving meaning (~2.4×).</>
+      <>One CPU-only engine. Code is structurally compressed at a Level of Detail (LOD) determined by relevance — top results stay full, mid-relevance shows signatures, peripheral files show names only (3–20×, no model). Documentation passes through with structural compression only.</>
     ),
   },
   {
@@ -135,12 +135,12 @@ export default function Page() {
               <li>
                 <span className="font-semibold text-text">Chunks (k):</span> how many distinct code blocks to
                 retrieve from the vector database.
-                <br /><span className="text-xs">Default: 20. Increase for broad queries, decrease for precision.</span>
+                <br /><span className="text-xs">Default: 5. Increase for broad queries, decrease for precision.</span>
               </li>
               <li>
                 <span className="font-semibold text-text">Max chars:</span> hard limit for the final output.
                 Chunks stop being added once this budget is hit.
-                <br /><span className="text-xs">Default: 24,000 (fits comfortably in 32k windows).</span>
+                <br /><span className="text-xs">Default: 6,000 (fits comfortably in 8k windows).</span>
               </li>
             </ul>
           </div>

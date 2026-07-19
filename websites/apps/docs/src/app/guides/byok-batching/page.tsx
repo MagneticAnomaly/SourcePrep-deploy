@@ -164,9 +164,8 @@ export default function Page() {
             If a batched call fails (timeout, rate limit, etc.), SourcePrep:
           </p>
           <ol className="list-decimal pl-6 space-y-2">
-            <li>Retries the batch once.</li>
-            <li>If it fails again, splits the batch in half and retries each half.</li>
-            <li>As a last resort, falls back to processing items individually.</li>
+            <li>Retries automatically on rate-limit (HTTP 429).</li>
+            <li>On other failures, subdivides the batch and retries the pieces — falling back to processing items individually in production.</li>
           </ol>
           <p>
             No data is lost &mdash; failed items are always retried, and partial progress is saved.

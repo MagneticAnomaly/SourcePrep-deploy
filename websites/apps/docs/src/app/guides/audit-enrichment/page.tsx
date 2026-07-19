@@ -131,7 +131,7 @@ prep_audit(findings=<SARIF dict>)
             <p className="font-semibold text-text">Good to know</p>
             <ul className="mt-2 list-disc pl-5 space-y-2 text-text-muted">
               <li>Enrichment is read-only and runs locally against your existing index — nothing is sent to the cloud.</li>
-              <li>If a file isn&apos;t yet indexed, the finding is returned unchanged with <code>prep.hub_status = &quot;unknown&quot;</code>.</li>
+              <li>If a file isn&apos;t in the trace graph, it is still returned with a <code>prep</code> object, but with <code>dependents: 0</code> and <code>hub_status: &quot;low&quot;</code>.</li>
               <li>The <code>tool</code> field is preserved end-to-end so downstream dashboards can still group by linter.</li>
             </ul>
           </div>

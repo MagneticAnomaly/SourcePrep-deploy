@@ -289,11 +289,12 @@ export default function Page() {
 
         {/* Roadmap: Language compression */}
         <section id="language-compression">
-          <h2 className="text-2xl font-semibold">Coming Soon: Language Compression for Documentation</h2>
+          <h2 className="text-2xl font-semibold">Roadmap: Language Compression for Documentation</h2>
           <p className="mt-3 text-text-muted leading-relaxed">
-            A future Pro feature will add language-aware compression for markdown and documentation files
-            using a lightweight BERT model. This will complement LOD&apos;s structural compression for code
-            with token-level compression optimised for natural language.
+            We evaluated language-aware compression for markdown and documentation files
+            (an LLMLingua-2-based approach) and removed it — quality testing showed unacceptable
+            term retention on technical documentation. Structural LOD compression for code remains
+            the shipped engine; documentation compression may be revisited later.
           </p>
         </section>
     </ConceptPageShell>

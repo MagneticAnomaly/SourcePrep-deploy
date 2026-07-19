@@ -33,19 +33,17 @@ export default function Page() {
 
           <AnchorHeading id="project-config" level="h2">Project Config</AnchorHeading>
           <p>
-            Stored in the internal SQLite database (managed via CLI/Dashboard). You can also place a <code>.sourceprep/config.json</code> in your project root to override settings for that specific repo.
+            Stored in the internal SQLite database (managed via CLI/Dashboard). Per-project
+            policy (include/exclude globs, path weights) is persisted to
+            <code>repo_policy.json</code> inside the project&apos;s index directory.
           </p>
 
-          <h3 className="text-base font-semibold mt-4">.sourceprep/ignore</h3>
+          <h3 className="text-base font-semibold mt-4">Excluding files</h3>
           <p>
-            Works exactly like <code>.gitignore</code>. Use this to exclude files from indexing that you might want to keep in git (or local-only files not in gitignore).
+            SourcePrep respects your <code>.gitignore</code> automatically. For additional
+            excludes, use the Project Settings panel in the dashboard (persisted to
+            <code>repo_policy.json</code>) or the <code>--exclude</code> patterns via the API.
           </p>
-          <pre className="overflow-x-auto text-sm">
-            <code># Example .sourceprep/ignore
-*.lock
-docs/generated/
-legacy/</code>
-          </pre>
 
           <AnchorHeading id="env-vars" level="h2" className="mt-8">Environment Variables</AnchorHeading>
           <p>
