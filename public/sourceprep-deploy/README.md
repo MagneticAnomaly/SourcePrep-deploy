@@ -56,8 +56,8 @@ prep-deploy/
 
 | Tag | Size | GPU | Use Case |
 |-----|------|-----|----------|
-| `ghcr.io/ericbintner/prep-headless:cpu` | ~2-3 GB | No | GitHub Actions + BYOK |
-| `ghcr.io/ericbintner/prep-headless:gpu` | ~8-10 GB | Yes | RunPod, Modal, AWS + local Ollama |
+| `ghcr.io/magneticanomaly/prep-headless:cpu` | ~2-3 GB | No | GitHub Actions + BYOK |
+| `ghcr.io/magneticanomaly/prep-headless:gpu` | ~8-10 GB | Yes | RunPod, Modal, AWS + local Ollama |
 
 ## Security
 

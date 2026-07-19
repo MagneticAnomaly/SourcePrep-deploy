@@ -10,7 +10,7 @@
   "containerDefinitions": [
     {
       "name": "prep-headless",
-      "image": "ghcr.io/ericbintner/prep-headless:gpu",
+      "image": "ghcr.io/magneticanomaly/prep-headless:gpu",
       "essential": true,
       "command": [
         "sync-headless",

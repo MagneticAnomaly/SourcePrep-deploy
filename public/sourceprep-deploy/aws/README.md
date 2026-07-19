@@ -14,8 +14,8 @@ CodeCommit / GitHub → EventBridge → ECS RunTask → S3 (internal bucket)
 
 1. **Create an ECR repository** or pull from GHCR:
    ```bash
-   docker pull ghcr.io/ericbintner/prep-headless:gpu
-   docker tag ghcr.io/ericbintner/prep-headless:gpu \
+   docker pull ghcr.io/magneticanomaly/prep-headless:gpu
+   docker tag ghcr.io/magneticanomaly/prep-headless:gpu \
      YOUR_ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/prep-headless:gpu
    docker push YOUR_ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/prep-headless:gpu
    ```

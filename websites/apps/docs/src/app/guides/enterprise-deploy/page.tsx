@@ -50,13 +50,13 @@ export default function Page() {
             </thead>
             <tbody className="text-text-muted">
               <tr>
-                <td className="px-4 py-2 font-mono text-xs border-b border-border">ghcr.io/ericbintner/prep-headless:cpu</td>
+                <td className="px-4 py-2 font-mono text-xs border-b border-border">ghcr.io/magneticanomaly/prep-headless:cpu</td>
                 <td className="px-4 py-2 border-b border-border">~2-3 GB</td>
                 <td className="px-4 py-2 border-b border-border">No</td>
                 <td className="px-4 py-2 border-b border-border">CI runners + BYOK cloud LLM (OpenAI, Anthropic)</td>
               </tr>
               <tr>
-                <td className="px-4 py-2 font-mono text-xs">ghcr.io/ericbintner/prep-headless:gpu</td>
+                <td className="px-4 py-2 font-mono text-xs">ghcr.io/magneticanomaly/prep-headless:gpu</td>
                 <td className="px-4 py-2">~8-10 GB</td>
                 <td className="px-4 py-2">Yes</td>
                 <td className="px-4 py-2">Air-gapped / VPC with local Ollama + Qwen3</td>
@@ -80,8 +80,8 @@ export default function Page() {
         <ol className="mt-2 list-decimal list-inside space-y-2 text-text-muted">
           <li>Pull the GPU image to your internal registry:
             <pre className="mt-1 mb-1 overflow-x-auto rounded bg-surface-raised px-3 py-2 text-xs font-mono">
-{`docker pull ghcr.io/ericbintner/prep-headless:gpu
-docker tag ghcr.io/ericbintner/prep-headless:gpu registry.internal/prep:gpu
+{`docker pull ghcr.io/magneticanomaly/prep-headless:gpu
+docker tag ghcr.io/magneticanomaly/prep-headless:gpu registry.internal/prep:gpu
 docker push registry.internal/prep:gpu`}
             </pre>
           </li>
@@ -110,7 +110,7 @@ docker push registry.internal/prep:gpu`}
           you can bake a larger model into a custom image:
         </p>
         <pre className="mt-3 overflow-x-auto rounded-lg bg-surface-raised p-4 text-xs font-mono text-text border border-border">
-{`FROM ghcr.io/ericbintner/prep-headless:gpu
+{`FROM ghcr.io/magneticanomaly/prep-headless:gpu
 RUN ollama serve & sleep 3 && ollama pull qwen3:8b && kill %1 || true`}
         </pre>
 

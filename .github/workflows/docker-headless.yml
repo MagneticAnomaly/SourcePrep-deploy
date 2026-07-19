@@ -12,7 +12,7 @@ concurrency:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ericbintner/prep-headless
+  IMAGE_NAME: magneticanomaly/prep-headless
 
 jobs:
   build-cpu:

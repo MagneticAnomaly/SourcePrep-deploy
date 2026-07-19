@@ -61,13 +61,13 @@ export default function Page() {
             </thead>
             <tbody className="text-text-muted">
               <tr>
-                <td className="px-4 py-2 font-mono text-xs border-b border-border">ghcr.io/ericbintner/prep-headless:cpu</td>
+                <td className="px-4 py-2 font-mono text-xs border-b border-border">ghcr.io/magneticanomaly/prep-headless:cpu</td>
                 <td className="px-4 py-2 border-b border-border">~2-3 GB</td>
                 <td className="px-4 py-2 border-b border-border">No</td>
                 <td className="px-4 py-2 border-b border-border">GitHub Actions + BYOK (OpenAI/Anthropic)</td>
               </tr>
               <tr>
-                <td className="px-4 py-2 font-mono text-xs">ghcr.io/ericbintner/prep-headless:gpu</td>
+                <td className="px-4 py-2 font-mono text-xs">ghcr.io/magneticanomaly/prep-headless:gpu</td>
                 <td className="px-4 py-2">~8-10 GB</td>
                 <td className="px-4 py-2">Yes</td>
                 <td className="px-4 py-2">RunPod, Modal, AWS ECS + local Ollama</td>
@@ -113,7 +113,7 @@ jobs:
   index:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/ericbintner/prep-headless:cpu
+      image: ghcr.io/magneticanomaly/prep-headless:cpu
     steps:
       - uses: actions/checkout@v4
       - name: Build & Upload Index
@@ -256,13 +256,13 @@ docker push my-org/prep-runpod`}
           For organizations that require air-gapped deployment inside their own cloud infrastructure.
         </p>
         <p className="mt-2 text-text-muted">
-          The <code>ghcr.io/ericbintner/prep-headless:gpu</code> image runs on any container
+          The <code>ghcr.io/magneticanomaly/prep-headless:gpu</code> image runs on any container
           orchestrator with GPU support:
         </p>
         <pre className="mt-3 overflow-x-auto rounded-lg bg-surface-raised p-4 text-xs font-mono text-text border border-border">
 {`# AWS ECS / Fargate
 docker run --gpus all \\
-  ghcr.io/ericbintner/prep-headless:gpu \\
+  ghcr.io/magneticanomaly/prep-headless:gpu \\
   sync-headless \\
     --repo-path /mnt/repo \\
     --model-provider local \\

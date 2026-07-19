@@ -323,7 +323,7 @@ These decisions are documented in the codebase and should not be revisited witho
 ## Communication & Access
 
 - **Repository:** `github.com/MagneticAnomaly/SourcePrep` (private)
-- **Docker registry:** `ghcr.io/ericbintner/prep-headless` (`:cpu`, `:gpu`)
+- **Docker registry:** `ghcr.io/magneticanomaly/prep-headless` (`:cpu`, `:gpu`)
 - **Test S3:** TBD — set up a Cloudflare R2 bucket for CI testing
 - **Secrets needed:** GitHub repo secrets for GHCR push, S3 test credentials, OpenAI API key for integration tests
 - **Key files to start with:**

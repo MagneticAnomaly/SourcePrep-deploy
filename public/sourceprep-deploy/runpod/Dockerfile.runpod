@@ -7,7 +7,7 @@
 #
 # Then create a RunPod Serverless Endpoint using this image.
 
-FROM ghcr.io/ericbintner/prep-headless:gpu
+FROM ghcr.io/magneticanomaly/prep-headless:gpu
 
 RUN pip install --no-cache-dir runpod
 

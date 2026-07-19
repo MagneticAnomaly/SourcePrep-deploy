@@ -140,7 +140,7 @@ Two image tiers to support both CPU+BYOK and GPU+Local deployment patterns.
 
 - [x] **P06-S08** GitHub Actions CI to build and publish both images
   - Trigger: on release tag (e.g., `v1.0.0`) or manual dispatch
-  - Push to GitHub Container Registry (`ghcr.io/ericbintner/prep-headless:cpu`, `:gpu`)
+  - Push to GitHub Container Registry (`ghcr.io/magneticanomaly/prep-headless:cpu`, `:gpu`)
   - Multi-arch builds (amd64 at minimum; arm64 if feasible)
   - File: `.github/workflows/headless-images.yml`
 

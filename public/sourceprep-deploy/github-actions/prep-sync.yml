@@ -26,7 +26,7 @@ jobs:
     if: ${{ vars.PREP_SYNC_MODE != 'gpu' }}
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/ericbintner/prep-headless:cpu
+      image: ghcr.io/magneticanomaly/prep-headless:cpu
     timeout-minutes: 120
 
     steps:

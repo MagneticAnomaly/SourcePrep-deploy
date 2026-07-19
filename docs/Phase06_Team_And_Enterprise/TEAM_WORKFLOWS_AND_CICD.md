@@ -55,7 +55,7 @@ How does a startup or mid-market software company actually implement this?
 - **Storage:** Cloudflare R2 (S3 compatible, zero egress fees).
 - **Workflow:** 
   1. PR merged to `main`.
-  2. GitHub Action runs `ghcr.io/ericbintner/prep-headless:cpu`.
+  2. GitHub Action runs `ghcr.io/magneticanomaly/prep-headless:cpu`.
   3. Action passes `ANTHROPIC_API_KEY` via GitHub Secrets.
   4. Prep processes the diff, updates the graph using Claude, and pushes to R2.
   5. Devs pull from R2 automatically via the Prep desktop app.

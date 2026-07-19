@@ -22,7 +22,7 @@ import modal
 
 # ── Image: pull the pre-built Prep GPU image from GHCR ─────
 prep_image = modal.Image.from_registry(
-    "ghcr.io/ericbintner/prep-headless:gpu",
+    "ghcr.io/magneticanomaly/prep-headless:gpu",
     add_python="3.11",
 )
 
