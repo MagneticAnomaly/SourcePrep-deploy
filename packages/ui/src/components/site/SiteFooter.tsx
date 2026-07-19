@@ -111,7 +111,7 @@ export function SiteFooter({
 
         <div className="mt-12 border-t border-border pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-xs text-text-subtle">
-            {copyright || `© ${currentYear} ${productName} Inc. All rights reserved.`}
+            {copyright || `© ${currentYear} Magnetic Anomaly LLC.`}
           </p>
           <div className="flex gap-6">
             <a href="https://sourceprep.io/privacy" className="text-xs text-text-subtle hover:text-text transition-colors">Privacy Policy</a>

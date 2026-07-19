@@ -32,11 +32,12 @@ export function ClientLayout({ children }: { children: ReactNode }) {
       <main className="flex-1">
         {children}
       </main>
-      <SiteFooter 
+      <SiteFooter
         productName="SourcePrep"
+        copyright="© 2026 Magnetic Anomaly LLC."
         socials={{
           twitter: 'https://x.com/Prep_io',
-          github: 'https://github.com/MagneticAnomaly/SourcePrep-MCP',
+          github: 'https://github.com/MagneticAnomaly/SourcePrep',
           email: 'support@sourceprep.io'
         }}
       />

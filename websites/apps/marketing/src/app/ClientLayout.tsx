@@ -73,7 +73,7 @@ export function ClientLayout({ children }: { children: ReactNode }) {
           github: GITHUB_REPO_URL,
           email: 'hello@sourceprep.io'
         }}
-        copyright="© 2026 Magnetic Anomaly LLC. All rights reserved."
+        copyright="© 2026 Magnetic Anomaly LLC."
       />
       <DevToolbar />
     </>

@@ -76,8 +76,9 @@ submit it, and that I am providing the contribution under the terms of
 the license for the project as well as the conditions stated above.
 ```
 
-A DCO check runs on every pull request; PRs missing `Signed-off-by` on
-every commit are blocked.
+Commits must include a `Signed-off-by` trailer (`git commit -s`).
+A DCO check will be wired to CI before the public mirror push; until then,
+missing sign-off is caught at review.
 
 ## License
 

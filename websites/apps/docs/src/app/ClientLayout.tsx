@@ -60,7 +60,7 @@ const footerProps = {
     github: 'https://github.com/MagneticAnomaly/SourcePrep',
     email: 'hello@sourceprep.io',
   },
-  copyright: '© 2026 Magnetic Anomaly llc. All rights reserved.',
+  copyright: '© 2026 Magnetic Anomaly LLC.',
 };
 
 export function ClientLayout({ children }: { children: ReactNode }) {
