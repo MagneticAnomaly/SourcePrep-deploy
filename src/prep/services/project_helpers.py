@@ -407,12 +407,24 @@ def get_project_watcher_status(project: Project, watchers: Dict[str, AutoRebuild
     return watcher.status()
 
 
+# Guards the get-or-create below. Concurrent first-access to an un-cached
+# project (e.g. the /status poll path and a /sync/now trigger racing) would
+# otherwise construct two RemoteSyncService instances — each carrying its own
+# _sync_lock, which defeats check_and_sync's reentrancy guard and lets two
+# downloads race into the same remote_index_dir.
+_syncers_lock = threading.Lock()
+
+
 def get_project_syncer(project: Project, syncers: Dict[str, Any]) -> Any:
-    """Get or create RemoteSyncService for a project."""
+    """Get or create RemoteSyncService for a project (thread-safe singleton)."""
     from prep.services.remote_sync import RemoteSyncService
-    if project.id not in syncers:
-        syncers[project.id] = RemoteSyncService(Path(project.path))
-    return syncers[project.id]
+    existing = syncers.get(project.id)
+    if existing is not None:
+        return existing
+    with _syncers_lock:
+        if project.id not in syncers:
+            syncers[project.id] = RemoteSyncService(Path(project.path))
+        return syncers[project.id]
 
 
 def get_project_sync_status(project: Project, syncers: Dict[str, Any]) -> Dict[str, Any]:

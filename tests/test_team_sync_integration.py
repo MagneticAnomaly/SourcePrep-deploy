@@ -249,6 +249,32 @@ class TestLicenseGating:
                 get_project_sync_status(proj, {})
                 assert mock_start.call_count == 1
 
+    def test_get_project_syncer_singleton_under_concurrency(self, tmp_path):
+        # Regression: get_project_syncer must return ONE instance even under
+        # concurrent first-access. Two instances would each carry their own
+        # _sync_lock, defeating check_and_sync's reentrancy guard and letting
+        # two downloads race into the same remote_index_dir.
+        import threading
+        from prep.services.project_helpers import get_project_syncer
+
+        proj = _make_project(tmp_path, "sync-singleton")
+        syncers: dict = {}
+        results = []
+        barrier = threading.Barrier(8)
+
+        def worker():
+            barrier.wait()
+            results.append(get_project_syncer(proj, syncers))
+
+        threads = [threading.Thread(target=worker) for _ in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len({id(s) for s in results}) == 1
+        assert len(syncers) == 1
+
 
 # ═══════════════════════════════════════════════════════════════
 # 3. LayeredCodeIndex search merge (with real embeddings)
