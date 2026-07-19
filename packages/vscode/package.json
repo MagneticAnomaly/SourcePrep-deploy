@@ -4,7 +4,7 @@
   "description": "Local-first semantic code search, context assembly, and structural trace for AI workflows. No code upload. SourcePrep works with Copilot, Cursor, Windsurf via MCP.",
   "version": "0.1.0",
   "publisher": "magnetic-anomaly",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/MagneticAnomaly/SourcePrep"

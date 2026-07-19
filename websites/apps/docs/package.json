@@ -1,5 +1,6 @@
 {
   "name": "@prep/docs",
+  "license": "Apache-2.0",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",

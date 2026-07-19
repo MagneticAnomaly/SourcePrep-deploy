@@ -2,7 +2,7 @@
   "name": "@prep/paperclip-plugin",
   "version": "0.1.0",
   "description": "Prep codebase intelligence plugin for Paperclip",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "paperclipPlugin": {
     "manifest": "dist/manifest.js",
