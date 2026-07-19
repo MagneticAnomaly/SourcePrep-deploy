@@ -4,9 +4,12 @@
 > execution. Live working doc — updated as work lands.
 
 ## One-line state
-Phase142 OSS-First transition is ~55% executed. The relicense to Apache-2.0
-is **effective** (Eric: "we are open source now"); artifact alignment + plan-
-doc reconciliation are in flight. All work committed locally, NOT pushed.
+Phase142 OSS-First transition is ~70% executed. The relicense to Apache-2.0
+is **effective** (Eric: "we are open source now"); artifact alignment is
+DONE (root LICENSE + metadata + README + governance DRAFTs), Stream 5
+plan-doc reconciliation is DONE, Stream 3 dep-license audit gate is DONE,
+the C2 public-mirror builder is DONE and has surfaced a 76-file scrub
+worklist (the new front line). All work committed locally, NOT pushed.
 
 ## Critical context from Eric (this session)
 1. **Dead codenames have NO users** — `.runprep`/`codrag`/`RunPrep` are old
@@ -32,6 +35,8 @@ doc reconciliation are in flight. All work committed locally, NOT pushed.
 | `703cd5d1` | TODO + starter-prompt progress — recorded Stream 5 status, resolved the `e5d74fb7` anomaly (author = Eric Bintner, his own parallel prep-MCP scrutiny pass) |
 | `99315988` | Root LICENSE swap — commercial-proprietary → verbatim 201-line Apache-2.0 (the last license artifact; Eric: "yes update now", path A) |
 | `b1fcbac1` | Stream 5 sub-items 5.5–5.10 closed — copyright holder, sourceprep org→MagneticAnomaly, AGPL-fallback→revenue-fallback + broken cross-ref fix, trademark blocker-status, Phase142 README status+files-table refresh. **Stream 5 fully closed.** |
+| `c1456fbd` | **Stream 3 license-audit gate** — `engine/deny.toml` (cargo-deny) + `tools/check_python_licenses.py` + `tools/check_npm_licenses.mjs` (lockfile-based) + `.github/workflows/license-audit.yml`. All 3 gates pass live (107 py / 1097 npm / engine); 4 documented exceptions (PyInstaller, busboy, streamsearch, format). |
+| `f3fef6ac` | **C2 `tools/build_public_mirror.py`** — allowlist + path denylist + content denylist-regex gate + dry-run + manifest. First dry-run: 1662 included, 6 path-excluded, 76 content-FLAGGED. **CAUGHT a live-tree `codrag.key`** at `src/prep/dashboard/src-tauri/.tauri/`. Manifest saved to `docs/Phase142_OSS-First/PUBLIC_MIRROR_MANIFEST_2026-07-19.json`. Mirror not emittable yet (76 hits = scrub worklist). |
 | (earlier) | `d0ea35d3` LICENSING fix, `6d193a1f` 8.2 progress — superseded by later commits |
 
 ## ⚠️ Anomaly — RESOLVED 2026-07-19
@@ -42,32 +47,47 @@ was Eric's own parallel prep-MCP scrutiny pass (OSS research doc + docs-site
 pages), not a rogue hook or leftover agent. Tree is safe to build on.
 
 ## Next work (in priority order)
-1. **Stream 3 — scancode + `oss-ci.yml` + fresh-clone smoke** — dependency-
-   license audit. The metadata flip (93f9c38d) and root LICENSE swap (99315988)
-   are done; the dep-license audit (scancode / `cargo deny` / `pip-licenses` /
-   `license-checker`) is the next concrete AI-runnable item, plus wiring it
-   into an `oss-ci.yml` gate. SCRUTINY §8 / IMPLEMENTATION_PLAN call for it.
-2. **`tools/build_public_mirror.py` (C2)** — the allowlist-curation +
-   denylist-regex-gate script that emits the fresh-initial-commit public tree
-   (D8). Unblocks the first public mirror + fresh-clone smoke. AI-runnable.
-3. **Migration-chain scrub → surface to Eric:** the codrag→prep→runprep→
-   sourceprep rename infra (`data_dir_migration.py`, `paths.py`, daemon/cli
-   startup calls, ignore-globs in `roadmap_miner.py`/`repo_profile.py`/
-   `projects/crud.py`, `audit_log.py:145`, `watcher.py:99`) — harmless no-ops,
-   but the names are dead. Gut it or leave the safety net? Don't rip out
-   unilaterally.
-4. **`@codrag/ui` lockfile:** stale name field; `cd packages/ui && npm install
+1. **Migration-chain / dead-codename scrub (76-file worklist)** —
+   `tools/build_public_mirror.py` (f3fef6ac) flagged 76 files carrying
+   `codrag`/`RunPrep`/`.runprep` or internal-doc markers. Full list in
+   `docs/Phase142_OSS-First/PUBLIC_MIRROR_MANIFEST_2026-07-19.json` under
+   `flagged`. This is now a concrete worklist, not a vague "surface to Eric":
+   - **Live-tree secret (highest priority):** `src/prep/dashboard/src-tauri/.tauri/codrag.key`
+     — a real codrag.key file in the tree (path-denylist excluded it from the
+     mirror, but it's live in the workshop + already on origin). ROTATE the key
+     + remove the file. Confirms PRE_LAUNCH_BLOCKERS §2.
+   - **Core code dead-name leftovers (~30 files in src/prep/):** cli.py, server.py,
+     paths.py, data_dir_migration.py, feature_gate.py, atlas/generator.py,
+     repo_profile.py, watcher.py, lemon_squeezy.py, docs_grounding.py, etc.
+     Some are the rename infra (harmless no-ops Eric was asked about) — DECIDE:
+     gut the rename infra, or keep the safety net and add path-denylist entries
+     so they don't block the mirror. The starter-prompt item "migration-chain
+     scrub → surface to Eric" IS this decision.
+   - **Tests (~40 files):** many intentionally assert `.codrag`/`.runprep` glob
+     handling (test_walker_parity, test_data_dir_migration, test_phase128_*).
+     These must STAY (they pin the rename behavior) but reference dead names —
+     the content gate will keep flagging them. Resolution: add these test
+     files to a `content_scan_allowlist` in build_public_mirror.py (they're
+     legitimate), OR accept they're flagged and the mirror emit excludes
+     flagged files.
+   - **Public-facing:** `websites/apps/marketing/src/app/faq/page.tsx:143`
+     references "CLAUDE.md or rules file" — scrub the CLAUDE.md mention.
+2. **`@codrag/ui` lockfile:** stale name field; `cd packages/ui && npm install
    --package-lock-only` (USB/network caution — flagged, not run).
-5. **`feature_gate.py` module docstring** stale tier pricing ($7/month, $79,
+3. **`feature_gate.py` module docstring** stale tier pricing ($7/month, $79,
    free=3 projects) — tied to MONTHLY tier still in code; needs tier-enum +
    pricing-SoT reconciliation (C3/D10), not a standalone edit. The public
    README `PREP_TIER` env-var line lists a `starter` tier not in the hardened
    ladder ($0/$29/$9/$24) — same root cause.
-6. **SCRUTINY §1–§20 disposition appendix** — the one deferred Stream 5 piece;
+4. **SCRUTINY §1–§20 disposition appendix** — the one deferred Stream 5 piece;
    a standalone deliverable (act-now / defer / accept-risk per section).
-7. **Stream 1.1 — D7 IP Assignment draft** — formalizes LLC ownership of the
+5. **Stream 1.1 — D7 IP Assignment draft** — formalizes LLC ownership of the
    copyright (Eric signs/files). Not strictly blocking since the root LICENSE
    swap already landed, but needed for diligence chain-of-title.
+6. **Fresh-clone smoke test** — deferred to after the 76-file scrub; once the
+   mirror is emittable (`build_public_mirror.py --emit` returns 0), clone it +
+   run `pip install -e . && pytest` + `npm ci && npm run build` to verify the
+   public tree builds clean. SCRUTINY §8 sub-item.
 
 ## Live Eric-gated decisions still open
 - **B2 LLC status** (operating agreement/EIN/bank) — gates the IP Assignment execution (Stream 1.1). The root LICENSE swap already landed (99315988); the LLC copyright holder is named in NOTICE, formalized when the IP Assignment executes.
