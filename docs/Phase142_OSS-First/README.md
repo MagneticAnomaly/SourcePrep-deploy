@@ -2,10 +2,12 @@
 
 > **The bet:** SourcePrep ships under Apache 2.0 as MCP-native codebase
 > intelligence infrastructure. OSS becomes the distribution channel a solo
-> developer cannot otherwise afford. A paid Pro tier remains optional and
-> deferred; the primary near-term outcomes are (1) a senior IC role at a
-> name-brand AI lab and/or (2) an acqui-hire conversation, with (3) hybrid
-> open-core revenue as a fallback if neither lands.
+> developer cannot otherwise afford. A paid Pro tier ($29 one-time) goes
+> live once the Lemon Squeezy checkout, the Ed25519 license crypto, and
+> code-signing land — it is not live at the first OSS launch; the primary
+> near-term outcomes are (1) a senior IC role at a name-brand AI lab and/or
+> (2) an acqui-hire conversation, with (3) hybrid open-core revenue as a
+> fallback if neither lands.
 
 ## Why this phase exists
 
@@ -124,13 +126,13 @@ Phase 142 is **complete** when:
 6. The authoritative `DISTRIBUTION_AND_REVENUE_PLAN.md` has been
    updated to reflect the open-core layering.
 
-Phase 142 is **successful** if, within 90 days of Show HN:
+Phase 142 is **successful** if, within 12 months of Show HN:
 
 - ≥1 inbound conversation from a named acquirer target, **or**
 - ≥1 senior IC offer at a named employer target, **or**
 - ≥500 GitHub stars and a clear distribution flywheel (whichever
   triggers first — these are non-exclusive outcomes).
 
-If none of the above occur within 90 days, see SCRUTINY.md §"What if
+If none of the above occur within 12 months, see SCRUTINY.md §"What if
 no one cares" for the fallback to Path B (open-core with active Pro
 tier development).
