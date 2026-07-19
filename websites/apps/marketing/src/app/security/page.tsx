@@ -75,9 +75,11 @@ export default function Page() {
                     <p className="mt-4 text-sm text-text-muted">
                       SourcePrep runs entirely on localhost. Indexes, embeddings, and configuration are
                       stored locally in <code className="text-xs bg-background border border-border rounded px-1 py-0.5 font-mono">~/.local/share/sourceprep</code> (or
-                      in-project via embedded mode). The OSS product makes no network calls — the only
+                      in-project via embedded mode). The OSS daemon and CLI make no network calls — the only
                       way code context ever leaves your machine is a cloud LLM you explicitly configure
-                      (BYOK). The Pro installer makes a one-time license activation; nothing else.
+                      (BYOK). Pro and Teams licenses activated via Lemon Squeezy re-validate the license
+                      key with api.lemonsqueezy.com every 7 days (30-day offline grace before downgrade);
+                      no source code, index data, or usage stats are ever sent.
                     </p>
                   </div>
                 </section>
@@ -114,8 +116,8 @@ export default function Page() {
                   <div className="bg-background text-text-muted p-6 font-mono text-sm rounded-sm overflow-x-auto border border-border">
                     <div className="mb-2 text-text-subtle"># Allowed Outbound Connections</div>
                     <div className="grid grid-cols-[120px_1fr] gap-4">
-                       <span className="text-success">api.sourceprep.io</span>
-                       <span>HTTPS / POST /activate-license (Pro installer only, one-time)</span>
+                       <span className="text-success">api.lemonsqueezy.com</span>
+                       <span>HTTPS / POST /licenses/validate — Pro/Teams revalidation, every 7 days (30-day offline grace)</span>
 
                        <span className="text-warning">localhost:*</span>
                        <span>Ollama API (User Controlled / Optional)</span>

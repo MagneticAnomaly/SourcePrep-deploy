@@ -245,11 +245,11 @@ docker push my-org/prep-runpod`}
         <AnchorHeading id="security" level="h2">Security Posture</AnchorHeading>
 
         <ul className="mt-4 list-disc list-inside space-y-2 text-text-muted">
-          <li><strong>No telemetry.</strong> SourcePrep does not phone home, collect usage data, or send any information to external servers.</li>
+          <li><strong>No telemetry.</strong> The GPU image does not phone home, collect usage data, or send any information to external servers.</li>
           <li><strong>No cloud dependency.</strong> The GPU image includes everything needed to run completely offline.</li>
           <li><strong>Secrets leakage detection.</strong> SourcePrep warns if credential-like keys appear in <code>team_config.json</code> (which is committed to Git).</li>
           <li><strong>S3 credentials</strong> are resolved from environment variables or a gitignored <code>.sourceprep/.secrets</code> file — never from committed files.</li>
-          <li><strong>Offline license activation.</strong> Enterprise licenses are Ed25519-signed and validated locally. No internet required after activation.</li>
+          <li><strong>Offline license activation.</strong> Enterprise licenses will be Ed25519-signed and validated locally — coming with the Phase 146 crypto refresh. No internet required after activation.</li>
         </ul>
 
         <hr className="my-8 border-border" />
@@ -283,8 +283,8 @@ docker push my-org/prep-runpod`}
               </tr>
               <tr>
                 <td className="px-4 py-2 border-b border-border font-medium">Offline licensing</td>
-                <td className="px-4 py-2 border-b border-border"><span className="text-success">Available</span></td>
-                <td className="px-4 py-2 border-b border-border">Ed25519-signed license files, no phone-home after activation</td>
+                <td className="px-4 py-2 border-b border-border"><span className="text-warning">Roadmap</span></td>
+                <td className="px-4 py-2 border-b border-border">Ed25519-signed license files validated locally (Phase 146 crypto refresh); no phone-home after activation</td>
               </tr>
               <tr>
                 <td className="px-4 py-2 border-b border-border font-medium">SSO (SAML/OIDC)</td>
@@ -306,9 +306,9 @@ docker push my-org/prep-runpod`}
         </div>
 
         <p className="mt-4 text-sm text-text-subtle">
-          Roadmap features are actively in development. Contact{' '}
+          Roadmap features are not yet available. Contact{' '}
           <a href="mailto:enterprise@sourceprep.io" className="text-primary hover:underline">enterprise@sourceprep.io</a>{' '}
-          to discuss your requirements and timeline.
+          to discuss your requirements.
         </p>
 
         <hr className="my-8 border-border" />

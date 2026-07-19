@@ -91,7 +91,7 @@ export default function Page() {
 
           <AnchorHeading id="upgrading" level="h2" className="mt-8">Upgrading</AnchorHeading>
           <p>
-            SourcePrep checks for updates automatically and notifies you when a new version is available.
+            The SourcePrep desktop app checks for updates automatically on launch and notifies you when a new version is available. (The daemon/CLI install does not; check <code>prep --version</code> or the releases page.)
             You can also download the latest version from{' '}
             <a href="https://sourceprep.io/download" className="text-primary hover:underline">sourceprep.io/download</a>.
           </p>

@@ -14,7 +14,7 @@ export default function Page() {
           <h1 className="text-4xl font-bold tracking-tight mb-4">Payments &amp; Licensing</h1>
           <p className="text-xl text-text-muted max-w-2xl mx-auto">
             Purchase a SourcePrep license, manage your subscription, or recover an existing key.
-            All licenses are verified offline after a single activation — no recurring phone-home.
+            Open-source builds verify offline. Pro and Teams licenses activated via Lemon Squeezy re-validate with api.lemonsqueezy.com every 7 days, with a 30-day offline grace period before downgrade to Free.
           </p>
         </div>
 
