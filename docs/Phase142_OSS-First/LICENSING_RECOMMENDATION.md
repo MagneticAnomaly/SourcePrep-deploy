@@ -62,8 +62,18 @@ permanent (no AGPL fallback).**
 
 Apache-2.0 has been the working outbound license since **2026-06-15** (Phase 144
 `RESEARCH.md` §2). The DCO-not-CLA + permanent nuance was set in the 2026-07-17
-OSS marketing spec. Eric confirmed "Apache is final" on **2026-07-18**. The
-marketing site's Apache 2.0 copy is therefore correct and unblocked.
+OSS marketing spec. Eric confirmed "Apache is final" on **2026-07-18**.
+
+> **Caveat corrected 2026-07-19 (was wrong):** the marketing site's "free and
+> open source under Apache 2.0" copy is **forward-looking**, not correct today.
+> The root `LICENSE` is still commercial proprietary ("NO REDISTRIBUTION"), the
+> `pyproject.toml`/`Cargo.toml`/npm metadata still declare `MIT`, and `NOTICE` /
+> `CONTRIBUTING` / `DCO` do not yet exist. The Apache grant is **unblocked only
+> after** the execution items above land — root `LICENSE` swap (after the IP
+> Assignment), metadata flips, and `NOTICE`. Until then, the present-tense
+> "Apache 2.0" claim on ~14 marketing pages is a **false public statement** and
+> must either be softened to future tense or gated behind the LICENSE swap.
+> See `AI_WORK_TODO.md` Stream 6 (public-surface false-claim sweep).
 
 The validation deep-research pass completed 2026-07-17/18 and **independently
 converged on the same answer** (Apache-2.0 + DCO): see
