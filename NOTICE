@@ -24,7 +24,7 @@ texts are available from each project.
 > inventoried in `docs/Phase142_OSS-First/LICENSE-AUDIT.md`. Verify
 > completeness with a `scancode-toolkit` source-license scan and a full
 > `license-checker` / `cargo deny` / `pip-licenses` monorepo run before
-> the public mirror push. See `AI_WORK_TODO.md` Stream 3.
+> the public mirror push. See `docs/Phase142_OSS-First/README.md`.
 
 ## Machine-learning model
 - **nomic-embed-text-v1.5** — Apache License 2.0 — Nomic AI. Bundled /

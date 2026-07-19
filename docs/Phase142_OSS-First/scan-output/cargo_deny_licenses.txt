@@ -1,0 +1,31 @@
+warning[license-not-encountered]: license was not encountered
+   ┌─ /Volumes/4TB-BAD/HumanAI/CoDRAG/engine/deny.toml:22:6
+   │
+22 │     "BSD-3-Clause",
+   │      ━━━━━━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /Volumes/4TB-BAD/HumanAI/CoDRAG/engine/deny.toml:23:6
+   │
+23 │     "ISC",
+   │      ━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /Volumes/4TB-BAD/HumanAI/CoDRAG/engine/deny.toml:28:6
+   │
+28 │     "MPL-2.0",
+   │      ━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /Volumes/4TB-BAD/HumanAI/CoDRAG/engine/deny.toml:29:6
+   │
+29 │     "OpenSSL",
+   │      ━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /Volumes/4TB-BAD/HumanAI/CoDRAG/engine/deny.toml:26:6
+   │
+26 │     "Unicode-DFS-2016",
+   │      ━━━━━━━━━━━━━━━━ unmatched license allowance
+
+licenses ok

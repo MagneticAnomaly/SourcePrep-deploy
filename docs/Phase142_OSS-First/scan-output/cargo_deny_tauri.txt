@@ -1,0 +1,27 @@
+warning[no-license-field]: license expression was not specified in manifest for crate 'prep = 0.1.0'
+ ├ prep v0.1.0
+
+warning[unlicensed]: a valid license expression could not be retrieved for the crate
+  ┌─ path+file:///Volumes/4TB-BAD/HumanAI/CoDRAG/src/prep/dashboard/src-tauri#prep@0.1.0-synthesized.toml:2:9
+  │
+2 │ name = "prep"
+  │         ━━━━
+  │
+  ├ prep v0.1.0 (*)
+
+error[unlicensed]: prep = 0.1.0 is unlicensed
+ ├ prep v0.1.0 (*)
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /Volumes/4TB-BAD/HumanAI/CoDRAG/engine/deny.toml:29:6
+   │
+29 │     "OpenSSL",
+   │      ━━━━━━━ unmatched license allowance
+
+warning[license-not-encountered]: license was not encountered
+   ┌─ /Volumes/4TB-BAD/HumanAI/CoDRAG/engine/deny.toml:26:6
+   │
+26 │     "Unicode-DFS-2016",
+   │      ━━━━━━━━━━━━━━━━ unmatched license allowance
+
+licenses FAILED
