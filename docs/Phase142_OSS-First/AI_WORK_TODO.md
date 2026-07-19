@@ -364,36 +364,25 @@ Dependencies recap (from audit §4): `A6 → D7(draft) → B3(sign) → C5+ C4 +
   flight). Produce a SCRUTINY §1–§20 disposition appendix (act now / defer /
   accept risk per section).
 
-### Stream 6 — Public-surface false-claim sweep (deploy-gated; stage locally)
+### Stream 6 — Public-surface artifact alignment + remaining-claim sweep (deploy-gated; stage locally)
 
-> **Strategy choice (flag for scrutiny):** Two paths exist — (a) reword every
-> present-tense Apache/OSS claim to future tense ("will be released under
-> Apache 2.0 at public launch") site-wide until C5 lands, or (b) execute C5
-> (LICENSE swap) before the next deploy so present-tense claims become true.
-> This doc assumes **path (a) as the safe default** (AI can do it now; no
-> Eric gate; no new false claim) and that Eric will later do path (b) which
-> flips them back to present-tense-true. If Eric prefers path (b), Stream 6.1
-> is skipped and Stream 2 becomes the only fix. **The rewording must be
-> consistent across all ~14 pages** — a half-done reword leaves some pages
-> present-tense (false) and some future-tense, which is worse than either
-> consistent state.
+> **Reframed 2026-07-19 per Eric:** "we are open source now" — the Apache-2.0
+> relicense is **effective**, so the present-tense "free and open source under
+> Apache 2.0" marketing copy is **correct, not a false claim**. Do NOT reword
+> to future tense. The only license-side work is **artifact alignment** in
+> Stream 2 (swap root `LICENSE` to Apache-2.0 + flip MIT metadata to Apache),
+> which makes the repo artifacts match the already-effective license. The
+> items below that remain are **non-license claims** (phone-home posture,
+> stale pricing, tier gating, dead repo slugs) — verify each against current
+> code, don't blanket-rewrite.
 
-#### 6.1 — B1 Marketing present-tense Apache → future tense (14+ pages)
-- **Do:** On every page cited in audit B1, reword present-tense "is open
-  source under Apache 2.0" / "you already own it" to forward-looking "will be
-  released under Apache 2.0 at public launch" (matching the security page's
-  existing hedge at `security/page.tsx:145-150`). Pages:
-  `pricing/layout.tsx:5`, `pricing/page.tsx:29,46,55`, `download/page.tsx:59,67,105`,
-  `download/layout.tsx:5`, `faq:21,276,340`, `terms:85,100,121,127,219`,
-  `about:103`, `support:52`, `page.tsx:36`, `changelog:22`, `integrations:150`,
-  `security:145,160,235,269,279`, `compare/prep-vs-greptile:31,98,109,126`,
-  `compare/prep-vs-cursor-indexing:108`.
-- **Acceptance:** grep `websites/apps/marketing` for present-tense Apache/OSS
-  claims → 0 (or all hedged to future); the rewording does not itself preempt
-  the patent decision (marketing copy is not a public code commit — no EU
-  forfeiture risk from copy alone).
-- **Deps:** none. **Deploy/push risk:** edits deploy on push; we don't push, so
-  they stage. Eric deploys as one batch. **Do not touch the hero** (guardrail 5).
+#### 6.1 — B1 Marketing Apache-2.0 claim — NO EDIT (correct as-is)
+- **Status:** **VOID 2026-07-19.** The present-tense "open source under
+  Apache 2.0" claim on ~14 marketing pages is **correct** — the relicense is
+  effective. Leave all pages as-is. The only follow-up is Stream 2 (root
+  `LICENSE` swap + metadata flips) so the repo artifacts match. No future-
+  tense rewording; no marketing edits. (The earlier "path (a) future tense
+  vs path (b) swap LICENSE" framing assumed the claim was false — it isn't.)
 
 #### 6.2 — B6 FAQ "single HTTPS call" → disclose 7-day revalidation
 - **Do:** `faq/page.tsx:276` — either make the claim true (depends on Ed25519
@@ -662,9 +651,11 @@ Dependencies recap (from audit §4): `A6 → D7(draft) → B3(sign) → C5+ C4 +
    (a) only as a stopgap if B3 slips past the deploy window. If Eric picks (b),
    Stream 6.1 commits 9/10/13 are skipped (the LICENSE swap is the fix). See
    §5 Research note F2 for sources.
-2. **docs_grounding.py codename markers (8.2).** Keep as legacy detection
-   patterns or rename. Recommendation: keep (they match legacy output) but
-   move to a constants file with a comment explaining why.
+2. **docs_grounding.py codename markers (8.2).** ~~Keep as legacy detection
+   patterns or rename.~~ **DONE 2026-07-19 (commit 56d496c9):** scrubbed the 4
+   dead RunPrep/CoDRAG markers. Eric confirmed those names are dead with no
+   users → no legacy output to detect → the markers were dead code, removed.
+   Kept the live Prep/SourcePrep/Prep Staffing markers.
 3. **Dead repo slugs (6.9).** Repoint to the not-yet-created
    `MagneticAnomaly/SourcePrep` now (URLs resolve at publish), or hold a
    neutral reword until B5. Recommendation: repoint now (the storefront is the
