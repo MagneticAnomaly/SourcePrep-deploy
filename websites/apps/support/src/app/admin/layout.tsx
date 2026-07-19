@@ -1,15 +1,12 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import { COOKIE_NAME } from '../../lib/auth';
+import { isAuthorizedServer, isConfirmedDevelopment } from '../../lib/auth';
 
 /**
  * Admin layout — auth gate.
  *
- * If ADMIN_TOKEN is set, checks for:
- * 1. ?token= query param → sets cookie + redirects without param
- * 2. admin_token cookie
- *
- * In dev (no ADMIN_TOKEN), access is open.
+ * If ADMIN_TOKEN is set, admits only requests carrying a valid session cookie
+ * (verified constant-time by `isAuthorizedServer`). If ADMIN_TOKEN is unset,
+ * access is open ONLY in a positively-confirmed dev/test env; otherwise it is
+ * hard-denied with a "not configured" notice (DR-4.4).
  */
 export default async function AdminLayout({
   children,
@@ -18,9 +15,9 @@ export default async function AdminLayout({
 }) {
   const token = process.env.ADMIN_TOKEN;
 
-  // No token configured → allow in dev
+  // No token configured → open only in confirmed dev/test; hard-deny otherwise.
   if (!token) {
-    if (process.env.NODE_ENV === 'production') {
+    if (!isConfirmedDevelopment()) {
       return (
         <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
           <div className="text-center">
@@ -30,15 +27,12 @@ export default async function AdminLayout({
         </div>
       );
     }
-    // Dev mode — open access
+    // Confirmed dev/test — open access
     return <>{children}</>;
   }
 
-  // Check cookie
-  const cookieStore = await cookies();
-  const cookieToken = cookieStore.get(COOKIE_NAME)?.value;
-
-  if (cookieToken === token) {
+  // Token configured → require a valid session cookie.
+  if (await isAuthorizedServer()) {
     return <>{children}</>;
   }
 
