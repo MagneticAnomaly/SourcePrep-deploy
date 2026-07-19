@@ -145,7 +145,7 @@ CODE-POSTURE ground-truth extraction. The public sites make claims; you establis
 
 Return a single 'posture' string summarizing all 7 with file:line citations. This is the ground truth finders check claims against.`,
   { label: 'disc:code-posture', phase: 'Discovery', schema: CLAIM_SCHEMA }
-))
+)
 
 discovered.push(posture)
 const valid = discovered.filter(Boolean)
