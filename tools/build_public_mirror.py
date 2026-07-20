@@ -122,6 +122,12 @@ DENY_PATH_GLOBS = [
     "*.so",
     "*.dylib",
     ".turbo",
+    # Build-tool temp/cached outputs (Vite timestamp modules, TS incremental
+    # build cache, Stryker mutation report). These are build artifacts that
+    # should never have been tracked and must not ship in the mirror.
+    "*.timestamp-*.mjs",
+    "*.tsbuildinfo",
+    "packages/ui/reports/mutation/*",
     # Local state + private metadata:
     ".sourceprep",
     "*/.sourceprep",

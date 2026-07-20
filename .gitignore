@@ -68,6 +68,13 @@ storybook-static/
 # TypeScript incremental build
 *.tsbuildinfo
 
+# Vite temp timestamp modules (build artifacts, never commit)
+*.timestamp-*.mjs
+vite.config.ts.timestamp-*
+
+# Stryker mutation test reports (build output, not public)
+packages/ui/reports/mutation/
+
 # Package manager logs
 npm-debug.log*
 yarn-debug.log*
