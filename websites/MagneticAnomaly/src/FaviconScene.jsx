@@ -20,7 +20,7 @@ function TinyMoon() {
       <directionalLight position={[10, 10, 20]} intensity={1.5} color="#FFEAC2" />
       <directionalLight position={[-10, -5, -10]} intensity={0.4} color="#F8F9FA" />
 
-      <Sphere args={[0.45, 64, 64]}>
+      <Sphere args={[0.65, 64, 64]}>
         <meshStandardMaterial
           map={ceresMap}
           color="#ECECEC"
@@ -41,9 +41,9 @@ export default function FaviconScene() {
   return (
     <div className="fixed inset-0 bg-[#030305]">
       <Canvas
-        camera={{ position: [0, 0.2, 11.0], fov: 45, far: 100 }}
+        camera={{ position: [0, 0.5, 10.0], fov: 45, far: 100 }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        dpr={[2, 2]}
+        dpr={[3, 3]}
       >
         <Suspense fallback={null}>
           <TinyMoon />

@@ -34,12 +34,12 @@ void main() {
   // Horizontal reach at the equator.
   float radius_xz = aRmax * sin(theta);
 
-  // Tall, narrow arcs like the main-site particles: high vertical reach, modest horizontal spread.
-  float stretch = uPlanetRadius * 2.6;
+  // Tall arcs that shoot high above/below the poles.
+  float stretch = uPlanetRadius * 3.0;
   float y = uPlanetRadius * cos(theta) + stretch * sin(theta) * cos(theta);
 
-  // Keep arcs from intersecting the planet body.
-  radius_xz += uPlanetRadius * 0.1;
+  // Ensure arcs never dip inside the planet body.
+  radius_xz = max(radius_xz, uPlanetRadius * 1.25);
 
   vec3 localPos = vec3(
     radius_xz * cos(aPhi),
@@ -53,9 +53,9 @@ void main() {
 
   gl_Position = projectedPosition;
 
-  // Head is enormous; tail shrinks extremely steeply so only the head reads as big.
-  float sizeFade = pow(aTrailFade, 6.0);
-  gl_PointSize = (uPointSize * (0.02 + 0.98 * sizeFade)) * (400.0 / -viewPosition.z);
+  // Big head; tail shrinks very steeply so each stream reads as a few bold dots.
+  float sizeFade = pow(aTrailFade, 5.0);
+  gl_PointSize = (uPointSize * (0.03 + 0.97 * sizeFade)) * (400.0 / -viewPosition.z);
   gl_PointSize = clamp(gl_PointSize, 1.0, 200.0);
 
   // Rainbow color based on arc longitude (aPhi) so different arcs show different hues.
@@ -83,27 +83,25 @@ void main() {
   vec2 center = gl_PointCoord - vec2(0.5);
   float dist = length(center);
 
-  // Hard circular boundary, then soft inner falloff
+  // Near-hard circular disc with only a 1-pixel-ish anti-aliased edge.
   if (dist > 0.5) discard;
+  float edge = smoothstep(0.5, 0.48, dist);
+  float alpha = edge;
+  if (alpha < 0.02) discard;
 
-  // Hard-edged circular sprite with a tiny soft halo.
-  if (dist > 0.5) discard;
-  float alpha = pow(1.0 - (dist * 2.0), 8.0);
-  if (alpha < 0.08) discard;
-
-  // Bright, saturated dots.
-  vec3 brightColor = vColor * 1.55;
+  // Bright, saturated color.
+  vec3 brightColor = vColor * 1.8;
   gl_FragColor = vec4(brightColor, alpha * vAlpha * vTrailFade);
 }
 `;
 
 export function FaviconParticles({
-  particleCount = 28,
-  planetRadius = 0.45,
-  rmaxRange = [0.65, 0.95],
-  baseSpeed = 0.12,
-  pointSize = 100.0,
-  cycleSpeed = 0.025,
+  particleCount = 16,
+  planetRadius = 0.65,
+  rmaxRange = [1.05, 1.35],
+  baseSpeed = 0.08,
+  pointSize = 70.0,
+  cycleSpeed = 0.018,
   tilt = [0.12, 0.0, 0.05],
   arcBands = 6,
   shellBands = 3,
@@ -119,7 +117,7 @@ export function FaviconParticles({
 
   const geometry = useMemo(() => {
     const geo = new THREE.BufferGeometry();
-    const TRACERS_PER_PARTICLE = 6;
+    const TRACERS_PER_PARTICLE = 8;
     const totalVertices = Math.floor(particleCount / 2) * TRACERS_PER_PARTICLE;
 
     const positions = new Float32Array(totalVertices * 3);
@@ -200,7 +198,7 @@ export function FaviconParticles({
         fragmentShader={fragmentShader}
         uniforms={uniforms}
         transparent={true}
-        blending={THREE.AdditiveBlending}
+        blending={THREE.NormalBlending}
         depthWrite={false}
         depthTest={true}
       />
