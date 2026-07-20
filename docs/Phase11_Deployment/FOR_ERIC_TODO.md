@@ -12,6 +12,25 @@ Detailed step-by-step instructions for these tasks can be found in the guides di
 
 ---
 
+## ⭐ ACTIVE — OSS Public-Mirror Launch & codrag.key rotation (added 2026-07-20, DR-D / ED-6)
+*Full context: `docs/Phase142_OSS-First/DEEP_RESEARCH_D_CODRAG_KEY_FINDINGS.md`. AI already applied the mirror-gate hardening (items 1–3, commit `c49bf098`): untracked `src/codrag_data/` state, denylisted `codrag_data`/`*.db`, gated the two subtree publishers, and added the `public-mirror-gate` CI job. Below are the tasks only you can do.*
+
+### Tauri updater key rotation — NOT urgent (no release ever shipped → no stranded installs)
+- [ ] OSS-1 Confirm nothing shipped: `gh release list -R MagneticAnomaly/SourcePrep` (expect empty). Locks the "rotation is trivial" assumption.
+- [ ] OSS-2 Generate a NEW Tauri **v1** updater keypair (supersedes ACC-2, which produced the now-leaked `codrag.key`): `cd src/prep/dashboard && npx @tauri-apps/cli@^1 signer generate -w src-tauri/.tauri/updater.key` (prompts for a password). Keep the private key OUT of the repo.
+- [ ] OSS-3 Update the inlined public key at `src/prep/dashboard/src-tauri/tauri.conf.json:66` (`updater.pubkey`) + regenerate the `.pub` file. Commit the PUBLIC key only.
+- [ ] OSS-4 Set GitHub Secrets `TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_KEY_PASSWORD` to the new key (also closes **ACC-3**). `release.yml:113-114` already maps them.
+- [ ] OSS-5 `git rm --cached src/prep/dashboard/src-tauri/.tauri/codrag.key` (the leaked private key; `.tauri/` is already gitignored). Treat the old key as compromised.
+
+### Public-mirror gate — do BEFORE the first public mirror push
+- [ ] OSS-6 Mark the new **`public-mirror-gate`** CI job a REQUIRED status check (GitHub → Settings → Branches → branch protection). It is EXPECTED RED until OSS-7 lands.
+- [ ] OSS-7 Complete/decide the ~76-file dead-codename scrub (turns the gate green + makes the mirror emittable). AI can do most; needs your call on the rename-infra (gut vs keep + denylist). Flagged-file manifest: `docs/Phase142_OSS-First/PUBLIC_MIRROR_MANIFEST_2026-07-19.json`.
+- [ ] OSS-8 (Optional, low urgency) History rewrite (`git filter-repo`) to purge the old `codrag.key` blob + the 186-version `codrag_settings.db` bloat from the PRIVATE workshop history. Cosmetic once OSS-2 rotates the key (the mirror never publishes history). Heavy: coordinated force-push + re-clone by all clones/worktrees.
+
+*Note: `codrag.key` is the Tauri UPDATER signing key only — NOT the license key. The separate forgeable license-key placeholder (`licensing.py:22`) is tracked under Phase 146, not here.*
+
+---
+
 ## 1. Accounts & Credentials (Critical Path)
 *See: [guides/01-accounts-credentials.md](Phase11_Deployment/guides/01-accounts-credentials.md)*
 
