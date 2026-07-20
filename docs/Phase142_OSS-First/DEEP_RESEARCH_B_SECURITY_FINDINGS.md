@@ -162,12 +162,16 @@ research pass) is included verbatim below.
 > 2. **Rate-limit store — Netlify Blobs (strong-consistency + ETag CAS).**
 >    Approved as the direction. **Still a follow-up build task** — not yet wired.
 > 3. **Resend disclosure — approved to proceed.** Eric's action, not code: accept
->    Resend's DPA + add the drafted line to the product privacy policy. Scope note:
->    it belongs in the privacy policy that governs the **bug-report feature** (the
->    desktop-app submit form → support backend → Resend), not on pages that never
->    touch Resend. Prerequisite: a user-facing product privacy policy must exist —
->    the only PRIVACY.md files in the repo today are for the MCP template/package,
->    not the app.
+>    Resend's DPA + add the drafted disclosure to the existing privacy policy.
+>    **Location (corrected):** the product privacy policy lives in the marketing
+>    `/security` page — `websites/apps/marketing/src/app/security/page.tsx`, the
+>    "Privacy Policy" section at the `#data-collection` anchor (footer/terms link
+>    there). It already has a **Bug Reports** section and names **one**
+>    sub-processor (**Lemon Squeezy**, payments) but **not Resend**. Add Resend
+>    as an email-delivery sub-processor beside the Bug Reports / Lemon Squeezy
+>    content using the drafted text below. Small, concrete edit — no new policy
+>    needed. (Publishing legal text is Eric's call + gated on the signed Resend
+>    DPA, so it's not done in this session.)
 
 ### Auth-provider evaluation (DESIGN ONLY)
 
