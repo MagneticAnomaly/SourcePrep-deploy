@@ -52,6 +52,17 @@ pre-ship gate) but there is **no live-exposure emergency**. If you provision
 `support.sourceprep.io` and land a `[deploy]` commit, these mitigations must be
 in place first.
 
+> **Update (2026-07-20):** `support.sourceprep.io` now **resolves** (Cloudflare
+> → Netlify, `x-nf-request-id` present) but is **serving Storybook** (page title
+> `@storybook/cli - Storybook`), not the support app — the custom-domain alias is
+> attached to the wrong Netlify site. Both `/admin` and `/api/bug-report` return
+> **404**. So: (a) still **no live exposure** of the admin/PII dashboard — the
+> conclusion holds; (b) there's a **DNS/Netlify misconfiguration** to fix before
+> ship — the `support.sourceprep.io` custom domain must be moved off the
+> Storybook site and onto the deployed support site; (c) the desktop modal's POST
+> to `.../api/bug-report` 404s today (fails to download-fallback). Folded into the
+> Session E handoff ops step.
+
 ---
 
 ## 2. DR-4.1 — `isAuthorized` / `isAuthorizedServer` caller → PII matrix

@@ -40,9 +40,13 @@ worktree-isolated, review-gated, no push.
   `LogConsole.tsx`, shown in the desktop app's console) does a **browser
   `fetch`** to a hardcoded `https://support.sourceprep.io/api/bug-report`, which
   the support-site backend receives and emails via Resend.
-- **`support.sourceprep.io` does not resolve (NXDOMAIN)** and the `deploy-support`
-  CI job is commented out — the endpoint is **not live**. So fixing the desktop
-  path (items 1–2) only fully works once the host is provisioned + deployed.
+- **`support.sourceprep.io` is misconfigured (as of 2026-07-20):** it resolves
+  (Cloudflare → Netlify) but currently **serves Storybook**, not the support app —
+  the custom-domain alias is on the wrong Netlify site. `/admin` and
+  `/api/bug-report` both **404**. The `deploy-support` CI job is also commented
+  out. So the desktop path (items 1–2) only fully works once the support app is
+  actually deployed AND the `support.sourceprep.io` custom domain is moved off the
+  Storybook site onto it. Flag this ops/DNS step to Eric — code alone won't fix it.
 - Session B's support-side **CORS allowlist already includes the Tauri webview
   origins** (`tauri://localhost`, `https://tauri.localhost`, `http://tauri.localhost`),
   so once the desktop CSP is fixed the cross-origin POST will be accepted.
