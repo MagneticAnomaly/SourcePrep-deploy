@@ -41,7 +41,7 @@ export default function FaviconScene() {
   return (
     <div className="fixed inset-0 bg-[#030305]">
       <Canvas
-        camera={{ position: [0, 0.2, 8.5], fov: 45, far: 100 }}
+        camera={{ position: [0, 0.2, 11.0], fov: 45, far: 100 }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
         dpr={[2, 2]}
       >
