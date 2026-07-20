@@ -1,7 +1,7 @@
 [build]
   base    = "websites/apps/marketing"
   command = "cd ../../.. && npx turbo run build --filter=@prep/marketing"
-  publish = "websites/apps/marketing/.next"
+  publish = ".next"
   # Deploy gate: skip this build unless the tip commit message contains
   # [deploy]. Prevents every push to main from deploying the site.
   # (Netlify skips the build when `ignore` exits 0.)

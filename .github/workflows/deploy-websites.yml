@@ -96,13 +96,20 @@ jobs:
         run: |
           npm ci
           cd packages/ui && npm install @rollup/rollup-linux-x64-gnu --os=linux --cpu=x64 --no-save
-      - name: Build Marketing
-        run: npx turbo run build --filter=@prep/marketing
+      - name: Build Marketing (with Netlify Next.js plugin)
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_MARKETING_SITE_ID }}
+        run: |
+          cd websites/apps/marketing
+          npx netlify-cli build
       - name: Deploy to Netlify
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_MARKETING_SITE_ID }}
-        run: npx netlify-cli deploy --prod --dir=websites/apps/marketing/.next --filter=@prep/marketing
+        run: |
+          cd websites/apps/marketing
+          npx netlify-cli deploy --prod
 
   deploy-docs:
     name: Deploy Docs
@@ -120,13 +127,20 @@ jobs:
         run: |
           npm ci
           cd packages/ui && npm install @rollup/rollup-linux-x64-gnu --os=linux --cpu=x64 --no-save
-      - name: Build Docs
-        run: npx turbo run build --filter=@prep/docs
+      - name: Build Docs (with Netlify Next.js plugin)
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_DOCS_SITE_ID }}
+        run: |
+          cd websites/apps/docs
+          npx netlify-cli build
       - name: Deploy to Netlify
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_DOCS_SITE_ID }}
-        run: npx netlify-cli deploy --prod --dir=websites/apps/docs/.next --filter=@prep/docs
+        run: |
+          cd websites/apps/docs
+          npx netlify-cli deploy --prod
 
   deploy-storybook:
     name: Deploy Storybook
