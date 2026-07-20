@@ -144,6 +144,16 @@ async function checkRateLimitBlobs(store: Store, ip: string, now: number): Promi
       if (res.modified) return true;
       continue; // someone else created it — re-read and evaluate
     }
+    if (!entry.etag) {
+      // The Blobs runtime types ETag as optional and computes it from the
+      // response ETag header; if absent, a conditional `set` with
+      // `{ onlyIfMatch: undefined }` degrades to an UNCONDITIONAL write
+      // (getConditions does a truthiness check, not a presence check) — every
+      // concurrent writer would "win" and clobber the counter (lost update).
+      // Fail OPEN for this rare edge: allow this request WITHOUT writing, so
+      // we skip counting one request rather than corrupting the counter.
+      return true;
+    }
     let state: RateState;
     try {
       state = JSON.parse(entry.data) as RateState;
