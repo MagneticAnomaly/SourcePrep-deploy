@@ -24,7 +24,7 @@ Detailed step-by-step instructions for these tasks can be found in the guides di
 
 ### Public-mirror gate — do BEFORE the first public mirror push
 - [ ] OSS-6 Mark the new **`public-mirror-gate`** CI job a REQUIRED status check (GitHub → Settings → Branches → branch protection). It is EXPECTED RED until OSS-7 lands.
-- [ ] OSS-7 Complete/decide the ~76-file dead-codename scrub (turns the gate green + makes the mirror emittable). AI can do most; needs your call on the rename-infra (gut vs keep + denylist). Flagged-file manifest: `docs/Phase142_OSS-First/PUBLIC_MIRROR_MANIFEST_2026-07-19.json`.
+- [ ] OSS-7 Complete/decide the dead-codename scrub — **78 flagged files as of `b6e42ab5`** (turns the gate green + makes the mirror emittable). **Executor starter prompt: `docs/Phase142_OSS-First/DEAD_CODENAME_SCRUB_STARTER_PROMPT.md`.** AI can do most; your calls: rename-infra gut-vs-keep, npm `@codrag/ui` lockfile regen (needs network), CLAUDE.md rewording judgment.
 - [ ] OSS-8 (Optional, low urgency) History rewrite (`git filter-repo`) to purge the old `codrag.key` blob + the 186-version `codrag_settings.db` bloat from the PRIVATE workshop history. Cosmetic once OSS-2 rotates the key (the mirror never publishes history). Heavy: coordinated force-push + re-clone by all clones/worktrees.
 
 *Note: `codrag.key` is the Tauri UPDATER signing key only — NOT the license key. The separate forgeable license-key placeholder (`licensing.py:22`) is tracked under Phase 146, not here.*
