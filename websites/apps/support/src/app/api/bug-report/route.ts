@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { corsHeaders } from '../../../lib/cors';
 import { getStore, createReport } from '../../../lib/reports';
+import { getStore as getBlobsStore, type Store } from '@netlify/blobs';
 
 // ── Types ─────────────────────────────────────────────────────
 interface BugReportPayload {
@@ -77,25 +78,32 @@ function validate(body: unknown): { ok: true; data: BugReportPayload } | { ok: f
 }
 
 // ── Rate limiting ─────────────────────────────────────────────
-// TODO(DR-5.2): this in-memory map is per-instance and resets on serverless
-// cold start, so it is NOT a hard limit across the fleet. Before relying on it,
-// migrate to a shared, atomic store (recommended: Netlify Blobs with strong
-// consistency + an ETag compare-and-swap loop — no new subprocessor; or Upstash
-// Redis + @upstash/ratelimit). See DEEP_RESEARCH_B_SECURITY_FINDINGS.md.
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 10;          // max reports
+// Persistent, fleet-wide rate limit via Netlify Blobs (Session E / E-4). Blobs
+// has no native atomic INCR, so we use a strong-consistency store + an ETag
+// compare-and-swap retry loop (read → conditional write; on `modified:false`
+// another request won the race, retry). At ~10 req/hr/IP contention is
+// negligible, so the CAS retry loop is both correct and cheap. The store keys
+// on client IP (PII under GDPR) — Netlify Blobs keeps it inside our existing
+// host, adding NO new subprocessor (unlike Upstash). See
+// DEEP_RESEARCH_B_SECURITY_FINDINGS.md §6 for the design rationale.
+// If Blobs is unavailable (local dev, missing context, runtime error) we
+// degrade to the in-memory map below — a per-instance soft limit, not a
+// fleet-wide hard limit, but never a broken store.
+const RATE_LIMIT = 10;          // max reports per window per IP
 const RATE_WINDOW = 3600000;    // per hour (ms)
-const MAX_TRACKED_IPS = 10_000; // bound memory before growing past this
+const MAX_CAS_RETRIES = 5;      // compare-and-swap retries before failing open
+const MAX_TRACKED_IPS = 10_000; // in-memory fallback cap (memory-exhaustion DoS bound)
 
+type RateState = { count: number; resetAt: number };
+
+// In-memory fallback (used only when Blobs is unavailable).
+const rateLimitMap = new Map<string, RateState>();
 function pruneExpired(now: number): void {
   for (const [key, entry] of rateLimitMap) {
     if (now > entry.resetAt) rateLimitMap.delete(key);
   }
 }
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  // Prevent unbounded growth from many distinct IPs (memory-exhaustion DoS).
+function checkRateLimitMemory(ip: string, now: number): boolean {
   if (rateLimitMap.size >= MAX_TRACKED_IPS) pruneExpired(now);
   const entry = rateLimitMap.get(ip);
   if (!entry || now > entry.resetAt) {
@@ -105,6 +113,78 @@ function checkRateLimit(ip: string): boolean {
   if (entry.count >= RATE_LIMIT) return false;
   entry.count++;
   return true;
+}
+
+// Blobs store (lazily initialized; disabled for the instance on any failure).
+let blobsStore: Store | null = null;
+let blobsDisabled = false;
+function getRateLimitStore(): Store | null {
+  if (blobsDisabled) return null;
+  if (blobsStore) return blobsStore;
+  try {
+    // Strong consistency so a limiter read sees the most recent counter write.
+    blobsStore = getBlobsStore('bug-report-ratelimit', { consistency: 'strong' });
+    return blobsStore;
+  } catch (err) {
+    // No Blobs context (local dev / not on Netlify) — fall back to in-memory.
+    console.warn('[bug-report] Netlify Blobs unavailable; using in-memory rate limit (per-instance, not fleet-wide).', err);
+    blobsDisabled = true;
+    return null;
+  }
+}
+
+async function checkRateLimitBlobs(store: Store, ip: string, now: number): Promise<boolean> {
+  const key = `rl:${ip}`;
+  for (let attempt = 0; attempt < MAX_CAS_RETRIES; attempt++) {
+    const entry = await store.getWithMetadata(key);
+    if (entry === null) {
+      // No entry yet — create with onlyIfNew so two concurrent first-requests
+      // don't both win; the loser retries and reads the winner's value.
+      const res = await store.set(key, JSON.stringify({ count: 1, resetAt: now + RATE_WINDOW } satisfies RateState), { onlyIfNew: true });
+      if (res.modified) return true;
+      continue; // someone else created it — re-read and evaluate
+    }
+    let state: RateState;
+    try {
+      state = JSON.parse(entry.data) as RateState;
+      if (typeof state.count !== 'number' || typeof state.resetAt !== 'number') throw new Error('malformed');
+    } catch {
+      // Corrupted entry — overwrite it (onlyIfMatch its etag, else retry).
+      const res = await store.set(key, JSON.stringify({ count: 1, resetAt: now + RATE_WINDOW } satisfies RateState), { onlyIfMatch: entry.etag });
+      if (res.modified) return true;
+      continue;
+    }
+    if (now > state.resetAt) {
+      // Window expired — reset the counter (CAS against the stale etag).
+      const res = await store.set(key, JSON.stringify({ count: 1, resetAt: now + RATE_WINDOW } satisfies RateState), { onlyIfMatch: entry.etag });
+      if (res.modified) return true;
+      continue;
+    }
+    if (state.count >= RATE_LIMIT) return false; // limited — do NOT write
+    const res = await store.set(key, JSON.stringify({ count: state.count + 1, resetAt: state.resetAt } satisfies RateState), { onlyIfMatch: entry.etag });
+    if (res.modified) return true;
+    // ETag mismatch (concurrent write won) — retry the read-modify-write.
+  }
+  // Exhausted CAS retries: fail OPEN (don't block a legit user due to
+  // contention). At this traffic level this is effectively unreachable.
+  console.warn('[bug-report] rate-limit CAS retries exhausted; failing open.');
+  return true;
+}
+
+async function checkRateLimit(ip: string): Promise<boolean> {
+  const now = Date.now();
+  const store = getRateLimitStore();
+  if (store) {
+    try {
+      return await checkRateLimitBlobs(store, ip, now);
+    } catch (err) {
+      // Runtime failure mid-operation — disable Blobs for this instance and
+      // degrade to in-memory rather than 500-ing on the rate limiter.
+      console.warn('[bug-report] Blobs rate-limit op failed; degrading to in-memory.', err);
+      blobsDisabled = true;
+    }
+  }
+  return checkRateLimitMemory(ip, now);
 }
 
 // ── Report ID ─────────────────────────────────────────────────
@@ -244,10 +324,14 @@ export async function POST(request: NextRequest) {
   const headers = { ...corsHeaders(request, CORS_METHODS), 'Content-Type': 'application/json' };
 
   // Rate limit
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+  // Prefer Netlify's trusted client-IP header — the leftmost x-forwarded-for
+  // is client-spoofable, so an attacker could rotate the value to bypass the
+  // limit. Fall back gracefully for non-Netlify hosts / local dev.
+  const ip = request.headers.get('x-nf-client-connection-ip')
+    ?? request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     ?? request.headers.get('x-real-ip')
     ?? 'unknown';
-  if (!checkRateLimit(ip)) {
+  if (!(await checkRateLimit(ip))) {
     return NextResponse.json(
       { error: 'Rate limit exceeded. Max 10 reports per hour.' },
       { status: 429, headers },
