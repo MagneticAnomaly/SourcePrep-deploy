@@ -52,6 +52,30 @@ jobs:
         working-directory: engine
         run: cargo deny check sources
 
+  cargo-deny-tauri:
+    name: cargo deny (desktop app licenses)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
+      - name: cargo deny check licenses (Tauri desktop app)
+        # The Tauri desktop app ships a SECOND, larger Rust dependency tree
+        # (src/prep/dashboard/src-tauri, ~539 crates) that the engine job above
+        # does not cover. It is distributed (Cargo.lock in the mirror) and
+        # compiled into release installers. `check licenses` only runs
+        # `cargo metadata` (no compile), so no GTK/WebKit system libs are
+        # needed. Reuse the engine allow-list.
+        working-directory: src/prep/dashboard/src-tauri
+        run: cargo deny --config "$GITHUB_WORKSPACE/engine/deny.toml" check licenses
+
   python-license-check:
     name: pip-licenses (Python deps)
     runs-on: ubuntu-latest

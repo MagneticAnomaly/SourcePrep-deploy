@@ -5,6 +5,7 @@ description = "Prep Desktop App"
 authors = ["Prep Team"]
 edition = "2021"
 rust-version = "1.70"
+license = "Apache-2.0"
 
 [build-dependencies]
 tauri-build = { version = "1", features = [] }

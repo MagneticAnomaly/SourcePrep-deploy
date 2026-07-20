@@ -32,7 +32,7 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
-const FAIL_PATTERNS = ["AGPL", "GPL", "UNKNOWN", "UNLICENSED", "N/A", "SEE LICENSE IN"];
+const FAIL_PATTERNS = ["AGPL", "GPL", "EPL", "CDDL", "EUPL", "MS-RL", "SSPL", "BUSL", "UNKNOWN", "UNLICENSED", "N/A", "SEE LICENSE IN"];
 const PERMISSIVE = ["MIT", "APACHE", "BSD", "ISC", "MPL", "PYTHON", "ZLIB", "CC0", "UNICODE", "OPENSSL"];
 
 // Documented exceptions (key = package name, exact). Each has a rationale
@@ -46,6 +46,32 @@ const EXCEPTIONS = {
   streamsearch: `MIT per npm registry (https://www.npmjs.com/package/streamsearch). Same maintainer (Brian White) and non-standard local LICENSE wording as busboy; registry classifies MIT. Transitive dep of busboy.`,
   format: `MIT per the source repo (https://github.com/samsonjs/format). The published package.json omits the license field entirely and ships no LICENSE file — a metadata gap on the maintainer's side, not a license problem. Transitive dep (via fault). If this becomes a maintenance burden, replacing fault removes it.`,
 };
+
+// License exceptions — packages whose license MATCHES a fail pattern but is
+// acceptable for a documented, auditable reason (unlike EXCEPTIONS above,
+// which cover undocumented-but-permissive metadata). Applied only in the fail
+// loop, after the license is resolved, so the reason is recorded in CI logs.
+const LICENSE_EXCEPTIONS = {
+  elkjs: `EPL-2.0 (Eclipse Public License, weak reciprocal copyleft). elkjs is a graph auto-layout engine pulled transitively via packages/ui (@xyflow/react). It is fetch-at-install and NOT vendored into the public source mirror, so it does not contaminate the Apache-2.0 source grant. EPL is Apache-compatible for aggregation; the only obligation is attribution + offer-of-source IF elkjs is bundled into a distributed binary/build (e.g. a deployed Storybook/dashboard). Tracked in docs/Phase142_OSS-First/DEEP_RESEARCH_C_SBOM_FINDINGS.md §3.3.`,
+};
+
+// Prefix license-exceptions — for package families shipping many
+// platform-specific variants under one scope (each a distinct name), keyed by
+// name prefix so we need not enumerate every @scope/name-<os>-<arch>.
+const LICENSE_EXCEPTION_PREFIXES = {
+  "@vscode/vsce-sign": `Microsoft proprietary (Microsoft Software License Terms, per node_modules/@vscode/vsce-sign/LICENSE.txt). Code-signing helper used by the vsce VS Code extension PACKAGING/PUBLISH toolchain (build/dev-only), plus its platform-specific binary variants (@vscode/vsce-sign-<os>-<arch>). Never redistributed in SourcePrep's source mirror or runtime, so its proprietary terms do not reach any shipped artifact. Scoped to the publish toolchain only.`,
+};
+
+// Resolve a license-exception for a package name: exact match, then prefix.
+function licenseExceptionFor(name) {
+  if (LICENSE_EXCEPTIONS[name]) return LICENSE_EXCEPTIONS[name];
+  for (const pfx of Object.keys(LICENSE_EXCEPTION_PREFIXES)) {
+    if (name === pfx || name.startsWith(pfx + "-") || name.startsWith(pfx + "/")) {
+      return LICENSE_EXCEPTION_PREFIXES[pfx];
+    }
+  }
+  return undefined;
+}
 
 function normalize(s) {
   return String(s ?? "").trim().toUpperCase();
@@ -108,7 +134,17 @@ function main() {
       // `node_modules/`, handling scoped @scope/name).
       const segs = key.split("node_modules/");
       let name = segs[segs.length - 1];
-      if (!name || name.includes("/")) continue; // not a real package leaf
+      // A scoped package is `@scope/name` (exactly one slash after the @). The
+      // old blanket `name.includes("/")` skip silently dropped EVERY scoped
+      // package (~1/3 of the tree), so scoped copyleft/proprietary deps (e.g.
+      // @vscode/vsce-sign) were never license-checked. Keep valid scoped
+      // names; skip only true non-leaves.
+      if (!name) continue;
+      if (name.startsWith("@")) {
+        if (name.split("/").length !== 2) continue; // malformed scoped path
+      } else if (name.includes("/")) {
+        continue; // not a real package leaf
+      }
       const version = info.version || "?";
       const dedupeKey = `${name}@${version}`;
       if (seen.has(dedupeKey)) continue;
@@ -158,7 +194,7 @@ function main() {
       }
       for (const pat of failPatterns) {
         if (lic.includes(pat)) {
-          const exc = EXCEPTIONS[name];
+          const exc = EXCEPTIONS[name] || licenseExceptionFor(name);
           if (exc) {
             applied.push(`  ${name}@${version}: ${lic} -> EXCEPTION (${exc})`);
             break;
