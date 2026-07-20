@@ -55,7 +55,7 @@ void main() {
 
   // Head is very big; tail shrinks steeply so the head dominates.
   float sizeFade = pow(aTrailFade, 3.5);
-  gl_PointSize = (uPointSize * (0.08 + 0.92 * sizeFade)) * (400.0 / -viewPosition.z);
+  gl_PointSize = (uPointSize * (0.06 + 0.94 * sizeFade)) * (400.0 / -viewPosition.z);
   gl_PointSize = clamp(gl_PointSize, 1.5, 140.0);
 
   // Rainbow color based on arc longitude (aPhi) so different arcs show different hues.
@@ -86,12 +86,13 @@ void main() {
   // Hard circular boundary, then soft inner falloff
   if (dist > 0.5) discard;
 
-  // Crisp circular sprite with a soft inner glow
-  float alpha = pow(1.0 - (dist * 2.0), 3.6);
-  if (alpha < 0.04) discard;
+  // Hard-edged circular sprite with a tiny soft halo.
+  if (dist > 0.5) discard;
+  float alpha = pow(1.0 - (dist * 2.0), 8.0);
+  if (alpha < 0.08) discard;
 
-  // Bright, saturated dots that glow under additive blending.
-  vec3 brightColor = vColor * 1.6;
+  // Bright, saturated dots.
+  vec3 brightColor = vColor * 1.55;
   gl_FragColor = vec4(brightColor, alpha * vAlpha * vTrailFade);
 }
 `;
