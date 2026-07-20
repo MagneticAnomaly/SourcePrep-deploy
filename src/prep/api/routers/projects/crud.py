@@ -117,8 +117,6 @@ def add_project(req: AddProjectRequest, background: BackgroundTasks) -> Dict[str
     }
     
     if req.mode == "embedded":
-        if "**/.runprep/**" not in default_cfg["exclude_globs"]:
-            default_cfg["exclude_globs"].append("**/.runprep/**")
         if "**/.sourceprep/**" not in default_cfg["exclude_globs"]:
             default_cfg["exclude_globs"].append("**/.sourceprep/**")
     

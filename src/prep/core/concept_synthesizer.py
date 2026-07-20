@@ -146,7 +146,7 @@ def load_grounding(
     *,
     idx_dir: Path,
     project_name: str = "",
-    # Phase 125c post-scrutiny: rationale_top_n bumped 50 -> 200 so that
+    # Phase 125c post-review: rationale_top_n bumped 50 -> 200 so that
     # after Generate's per-category scope filter (3-axis fan-out divides
     # the rationale across workers), each worker still sees a meaningful
     # slice (~67 rows per axis on a typical project).
@@ -266,7 +266,7 @@ def load_grounding(
             include_archived=False,
         )
         rationale.sort(key=lambda c: -(len(c.anchors) + len(c.tags)))
-        # Phase 125c post-scrutiny: include content[:400] so workers see
+        # Phase 125c post-review: include content[:400] so workers see
         # the WHY of each rationale row, not just the title. Title-only
         # grounding contributed to bug-description-shaped outputs because
         # workers were guessing meaning from short titles + anchor paths.
@@ -809,7 +809,7 @@ def synthesize_concepts(
     # Single LLM call. Defensive defaults aligned with T3_RESEARCH.md.
     # num_predict=5000 is sufficient for ~50 well-formed concepts at
     # ~100 tokens each. Larger budgets risk hitting the cap mid-JSON
-    # (CoDRAG 2026-05-03 evidence: 8000-token cap → truncated array
+    # (SourcePrep 2026-05-03 evidence: 8000-token cap → truncated array
     # → parse failure). The salvage parser catches truncations anyway,
     # but a tighter budget reduces the risk and shortens wall-time.
     try:

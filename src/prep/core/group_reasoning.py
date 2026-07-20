@@ -601,7 +601,7 @@ class GroupReasoningEngine(Worker):
             concurrency=concurrency,
             # Cloud coord/synth timeouts: 10s → 60s → 120s/180s → 180s/240s.
             # PowerMate (24 items) needed 111s coord and 169s synth at
-            # 120s/180s budgets.  Larger repos (CoDRAG ~300 files,
+            # 120s/180s budgets.  Larger repos (SourcePrep ~300 files,
             # potentially 50-100 clusters) scale roughly linearly with
             # coord prompt size.  Bumping coord 120s→180s and synth
             # 180s→240s gives ~50% headroom over PowerMate's actuals

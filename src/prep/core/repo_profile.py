@@ -10,7 +10,6 @@ from typing import Any, Dict, Iterator, List, Sequence, Set, Tuple
 # from this set so the universal default exclude list updates automatically.
 PREP_OUTPUT_DIRS: Set[str] = {
     ".sourceprep",   # per-project index (embedded mode)
-    ".runprep",      # legacy per-project index (pre-SourcePrep rename)
     "prep_data",   # daemon-wide store (SQLite + telemetry + ui_config)
 }
 

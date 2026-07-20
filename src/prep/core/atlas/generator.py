@@ -143,10 +143,9 @@ class CodebaseAtlas(Worker):
         self.llm = llm
         self.project_root = Path(project_root) if project_root else None
         # FIX-16-2 sibling: prefer the registered project name over the
-        # filesystem dir name. The repo dir may be a stale codename
-        # ("CoDRAG") while the canonical product is "SourcePrep" — see
-        # memory/project_brand_split.md and feedback_codrag_is_stale_codename.md.
-        # Falls back to project_root.name when not provided.
+        # filesystem dir name. The repo dir may be a stale codename while
+        # the canonical product name differs. Falls back to project_root.name
+        # when not provided.
         self.project_name = project_name
         # P127-F2: project_id powers the soft-hold check at each LLM
         # dispatch.  None / empty is acceptable — hold_paused_for_llm
@@ -644,8 +643,7 @@ class CodebaseAtlas(Worker):
             )
         else:
             # Content gate: reject prompt-leak / repeat-loop / missing-section output.
-            # Observed in dogfood (2026-05-06) on this repo's own index — see
-            # docs/Phase124_FinalizeChainEpistemicAudit/MCP_DOGFOOD_FEEDBACK_2026-05-05_SCRUTINY.md
+            # Observed in dogfood (2026-05-06) on this repo's own index.
             reject_reason = validate_atlas_content(content)
             if reject_reason:
                 logger.warning(
@@ -2070,9 +2068,9 @@ class CodebaseAtlas(Worker):
         node_count = graph_stats.get("node_count", 0)
         edge_count = graph_stats.get("edge_count", 0)
 
-        # IDENTITY: prefer the registered project name (e.g. "SourcePrep")
-        # over the filesystem dir basename (e.g. "CoDRAG", which is a stale
-        # codename per memory/feedback_codrag_is_stale_codename.md).
+        # IDENTITY: prefer the registered project name (e.g. the canonical
+        # product name) over the filesystem dir basename (which may be a
+        # stale repo directory name).
         identity = self.project_name or (
             self.project_root.name if self.project_root else None
         )

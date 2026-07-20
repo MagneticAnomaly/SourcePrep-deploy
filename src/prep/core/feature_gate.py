@@ -104,20 +104,15 @@ class License:
         }
 
 
-# License path is ~/.sourceprep/license.json. The .runprep legacy fallback was
-# removed 2026-07-19 — the codrag/.runprep product names are dead with no
-# surviving licensed installs, so there is no legacy license file to find.
-# Path.home() is called at resolve time (not import time) so tests can patch it.
+# License path is ~/.sourceprep/license.json. Path.home() is called at resolve
+# time (not import time) so tests can patch it.
 _LICENSE_FILENAME = "license.json"
 
 
 def _resolve_license_path() -> Path:
     """Return the active license path (``~/.sourceprep/license.json``).
 
-    The ``~/.runprep`` legacy fallback was removed 2026-07-19 — the codrag/
-    RunPrep product names are dead with no surviving licensed installs, so
-    there is no legacy license file to discover. Reads and writes both target
-    the canonical ``~/.sourceprep`` location.
+    Reads and writes both target the canonical ``~/.sourceprep`` location.
     """
     return Path.home() / ".sourceprep" / _LICENSE_FILENAME
 

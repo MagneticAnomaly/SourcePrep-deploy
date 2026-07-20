@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 # History: the original ``MAX_CONCEPTS_PER_PROJECT = 200`` was set in the
 # single-layer era, when concepts were noisy and manually curated. With
 # Phase 125b's two-layer split, that cap was actively destroying the
-# rationale foundation (a CoDRAG run with 2,430 rationale + 21 concepts
+# rationale foundation (a SourcePrep run with 2,430 rationale + 21 concepts
 # was silently trimmed to 200 total — losing 92% of the rationale layer).
 #
 # Caps are sized as defensive ceilings, not budgets. The real lever for

@@ -328,7 +328,7 @@ class GitEvidence:
         - Filters out directories that no longer exist on disk
           (a directory rename leaves the old path in `git log` history
           forever; without this filter the atlas keeps surfacing
-          ghost paths like `src/codrag/core/` long after the rename).
+          ghost paths from a pre-rename source directory long after the rename).
         - Sorts descending by commit count, tie-break lex-ascending.
         - Returns at most `top_n` entries.
         - Returns [] if fewer than 3 qualifying directories (not worth
@@ -349,9 +349,10 @@ class GitEvidence:
         qualifying = [(d, c) for d, c in by_dir.items() if c >= min_commits]
 
         # Filter out directories that have since been removed or renamed
-        # (or left behind as empty husks after a rename — `src/codrag/`
-        # in this repo's history is the canonical example, with the real
-        # code now living at `src/prep/`). A directory is "active" only if
+        # (or left behind as empty husks after a rename — a pre-rename
+        # source directory in this repo's history is the canonical example,
+        # with the real code now living under its post-rename path).
+        # A directory is "active" only if
         # it currently contains at least one file. `dir_path` carries a
         # trailing slash; rstrip before resolving.
         def _has_any_file(dir_path: str) -> bool:

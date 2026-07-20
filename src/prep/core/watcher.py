@@ -74,7 +74,7 @@ class AutoRebuildWatcher:
         self._last_coverage_trigger_at: float = 0.0  # epoch when we last triggered a coverage rebuild
 
         # L1 (repo_profile.DEFAULT_EXCLUDE_DIR_NAMES) already covers the
-        # default `.sourceprep/` and `codrag_data/` index dirs. Only add an
+        # default `.sourceprep/` index dirs. Only add an
         # extra guard when the project uses a non-standard index_dir
         # outside the Prep-owned names — otherwise watcher events on
         # our own output would trigger rebuilds.
@@ -96,7 +96,7 @@ class AutoRebuildWatcher:
 
         # Phase 113: if the daemon-wide data dir ($PREP_DATA_DIR or
         # XDG default) happens to be inside this watched repo, exclude
-        # it too. Rare — normally data_dir() is ~/.local/share/runprep
+        # it too. Rare — normally data_dir() is ~/.local/share/sourceprep
         # which no one indexes — but an env-var override pointing
         # inside the repo would otherwise create a feedback loop on
         # every SQLite WAL checkpoint.

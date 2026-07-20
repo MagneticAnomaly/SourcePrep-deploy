@@ -165,11 +165,9 @@ main() {
     #
     # Wipe both locations: the new on-SSD cache AND the legacy
     # node_modules/.cache/ in case any leftover bundles are still being
-    # served by mistake. Also wipes the pre-rename ~/.cache/codrag-sb-vite/
-    # in case anyone is upgrading from before Phase 131.
+    # served by mistake.
     log_info "Clearing Storybook Vite cache (on-SSD + legacy)..."
     rm -rf "$HOME/.cache/prep-sb-vite" 2>/dev/null || true
-    rm -rf "$HOME/.cache/codrag-sb-vite" 2>/dev/null || true
     rm -rf "$PROJECT_ROOT/packages/ui/node_modules/.cache" 2>/dev/null || true
     log_success "Vite cache cleared"
     echo ""

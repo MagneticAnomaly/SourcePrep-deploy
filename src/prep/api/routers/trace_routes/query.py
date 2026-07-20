@@ -126,8 +126,6 @@ def build_trace_project(project_id: str) -> Dict[str, Any]:
     if proj.mode == "embedded":
         if exclude_globs is None:
             exclude_globs = []
-        if "**/.runprep/**" not in exclude_globs:
-            exclude_globs.append("**/.runprep/**")
         if "**/.sourceprep/**" not in exclude_globs:
             exclude_globs.append("**/.sourceprep/**")
 

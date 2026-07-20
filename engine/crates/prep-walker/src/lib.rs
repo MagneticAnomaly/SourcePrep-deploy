@@ -93,7 +93,6 @@ impl Default for WalkConfig {
             exclude_globs: vec![
                 // Prep outputs (self-ingestion guard)
                 "**/.sourceprep/**".into(),
-                "**/.runprep/**".into(),   // back-compat: legacy RunPrep per-project dir
                 "**/prep_data/**".into(),  // CWD-relative daemon dir (default fallback)
                 // VCS
                 "**/.git/**".into(),

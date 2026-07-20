@@ -249,6 +249,44 @@ CONTENT_SCAN_ALLOWLIST: dict[str, str] = {
         "subtree publish guard: contains secret/codename regex literals it scans commits for (added c49bf098).",
     "tests/test_remote_sync.py":
         "dummy AWS key fixture: AKIA1234567890ABCDEF is a test value, not a real secret.",
+    # --- Product-necessary CLAUDE.md filename literals (must ship, must contain the strings) ---
+    # These reference the literal `CLAUDE.md` filename that SourcePrep writes /
+    # excludes in USER projects (the Claude Code rules-file convention), NOT
+    # our internal planning CLAUDE.md. The literal is product-necessary — a
+    # glob/map/test cannot match the file without it. Reword is not possible.
+    "src/prep/core/repo_profile.py":
+        "walker exclude set: PREP_OUTPUT_FILE_GLOBS / DEFAULT_EXCLUDE_FILE_NAMES list `CLAUDE.md` to skip indexing the user's agent-rules file.",
+    "engine/crates/prep-walker/src/lib.rs":
+        "Rust walker exclude_globs: `**/CLAUDE.md` skips indexing the user's Claude Code rules file in client projects.",
+    "src/prep/core/rules_generator.py":
+        "rules generator: writes/detects the literal `CLAUDE.md` for the Claude Code IDE target (_RULES_TARGET_PATHS, _write_claude_rules, _detect_targets).",
+    "src/prep/mcp/server.py":
+        "MCP server: reads the generated `CLAUDE.md` to extract the atlas hash for freshness checks (Path('CLAUDE.md')).",
+    "src/prep/cli.py":
+        "CLI: _RULES_TARGET_PATHS maps the 'claude' IDE target to the literal `CLAUDE.md` filename it writes.",
+    "src/prep/dashboard/src/hooks/useDashboardPanels.tsx":
+        "dashboard DEFAULT_ALWAYS_IGNORED_GLOBS: `**/CLAUDE.md` mirrors repo_profile to skip the user's rules file.",
+    "packages/ui/src/stories/dashboard/FullDashboard.stories.tsx":
+        "Storybook dashboard demo: ALWAYS_IGNORED_GLOBS mirrors the walker's `**/CLAUDE.md` exclude.",
+    "scripts/phase103_observe_hook.py":
+        "observe hook: AGENT_ARTIFACT_PREFIXES tuple lists `CLAUDE.md` to recognize agent rule files.",
+    "tests/fixtures/walker_parity_repo/README.md":
+        "walker-parity fixture README: documents the CLAUDE.md fixture file the walker exclude test uses.",
+    "tests/test_cli.py":
+        "rules-regenerate tests: exercise the CLI feature that writes the literal `CLAUDE.md` for the --ide claude target.",
+    "tests/test_phase133_bimodal_walker.py":
+        "walker contract tests: assert the literal `CLAUDE.md` glob is excluded (source mode) / included (doc mode).",
+    "tests/test_phase147_rules_split.py":
+        "rules-split tests: write_rules_file(ide='claude'/'all') writes the literal `CLAUDE.md` target.",
+    "tests/test_rules_generator_targets.py":
+        "rules-generator target tests: read back the literal `CLAUDE.md` written for the ide='claude' target.",
+    # --- Absence-asserting tests (must name the dead string to prove it is correctly IGNORED) ---
+    "tests/test_phase128_license_path_fallback.py":
+        "absence-asserting: proves feature_gate ignores a stray ~/.runprep/license.json and reads only ~/.sourceprep/.",
+    "tests/test_watcher_relevance.py":
+        "absence-asserting: gitwildmatch exclude fixture uses `.runprep` paths to prove the watcher skips them.",
+    "tests/test_no_cwd_relative_codrag_data.py":
+        "absence-asserting: Phase 113 regression guard — _LITERAL_RE regex names `codrag_data` to assert no CWD-relative use remains in src/.",
 }
 
 
