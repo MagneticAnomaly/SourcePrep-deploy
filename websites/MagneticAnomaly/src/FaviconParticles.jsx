@@ -83,14 +83,23 @@ void main() {
   vec2 center = gl_PointCoord - vec2(0.5);
   float dist = length(center);
 
-  // Near-hard circular disc with only a 1-pixel-ish anti-aliased edge.
+  // Hard circular core, soft outer halo.
   if (dist > 0.5) discard;
-  float edge = smoothstep(0.5, 0.48, dist);
-  float alpha = edge;
+
+  // Core: crisp disc.
+  float core = smoothstep(0.5, 0.45, dist);
+  // Halo: soft outer glow.
+  float halo = pow(1.0 - (dist * 2.0), 2.8) * 0.55;
+
+  float alpha = max(core, halo);
   if (alpha < 0.02) discard;
 
-  // Bright, saturated color.
-  vec3 brightColor = vColor * 1.8;
+  // 3D-ish radial lighting: brighter center, darker edge.
+  float lighting = 1.0 - dist * 0.45;
+  vec3 litColor = vColor * (0.85 + lighting * 0.35);
+
+  // Bright, saturated color — kept below white-burn threshold.
+  vec3 brightColor = litColor * 1.25;
   gl_FragColor = vec4(brightColor, alpha * vAlpha * vTrailFade);
 }
 `;
@@ -198,7 +207,7 @@ export function FaviconParticles({
         fragmentShader={fragmentShader}
         uniforms={uniforms}
         transparent={true}
-        blending={THREE.NormalBlending}
+        blending={THREE.AdditiveBlending}
         depthWrite={false}
         depthTest={true}
       />
