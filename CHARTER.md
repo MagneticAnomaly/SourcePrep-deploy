@@ -63,11 +63,15 @@ feature-limited, which contradicts the open-core boundary above.
 
 ## Trademark
 
-"SourcePrep" is a trademark of Magnetic Anomaly LLC. The Apache-2.0
-license grants no trademark rights; use of the name "SourcePrep" to
-endorse or promote derivative works is not permitted without written
+"SourcePrep"™ and the SourcePrep logo are trademarks of Magnetic Anomaly
+LLC, claimed under common law pending federal registration. The Apache-2.0
+license grants no trademark rights; use of the name "SourcePrep" or the
+logo to endorse or promote derivative works, or to suggest endorsement by
+or affiliation with Magnetic Anomaly LLC, is not permitted without written
 permission. Forks are welcome and encouraged; please choose a distinct
-name. See the project Terms of Service for the full trademark notice.
+name that does not incorporate "SourcePrep." See the `NOTICE` file and the
+project Terms of Service for the full trademark notice, or contact
+legal@sourceprep.io.
 
 ## Governance
 

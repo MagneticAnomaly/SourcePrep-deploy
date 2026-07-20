@@ -117,10 +117,11 @@ export default function Page() {
                        <h3 className="font-bold text-error mb-2 text-sm uppercase">Restrictions</h3>
                        <p className="text-sm text-text-muted mb-3">
                          License keys may not be shared, resold, or redistributed. The
-                         &ldquo;SourcePrep&rdquo; name and logo are trademarks of Magnetic Anomaly LLC;
-                         the Apache License 2.0 does not grant trademark rights, and you may not use
-                         them to brand a fork or derivative product, or to suggest endorsement by
-                         Magnetic Anomaly LLC, without written permission.
+                         &ldquo;SourcePrep&rdquo;&trade; name and logo are trademarks of Magnetic Anomaly LLC,
+                         claimed under common law pending federal registration; the Apache License 2.0
+                         does not grant trademark rights, and you may not use them to brand a fork or
+                         derivative product, or to suggest endorsement by Magnetic Anomaly LLC, without
+                         written permission.
                        </p>
                        <p className="text-sm text-text-muted">
                          Nothing in these restrictions limits any right granted to you by the

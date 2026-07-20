@@ -86,12 +86,12 @@ export default function Page() {
 
                 <section id="telemetry">
                   <h2 className="text-xl font-bold text-text mb-6 flex items-center gap-3">
-                    <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">02.</span> Telemetry &amp; Analytics
+                    <span className="font-mono text-primary text-sm bg-primary/10 px-2 py-1 rounded">02.</span> Product Telemetry &amp; Analytics
                   </h2>
 
                   <div className="border border-border bg-surface-raised p-6 rounded-sm">
                      <div className="grid grid-cols-[1fr_auto] items-center mb-2">
-                       <span className="font-bold text-text">Usage Analytics</span>
+                       <span className="font-bold text-text">In-App Usage Analytics</span>
                        <span className="font-mono text-xs text-error font-bold uppercase">DISABLED / NONE</span>
                      </div>
                      <div className="grid grid-cols-[1fr_auto] items-center mb-2">
@@ -103,6 +103,9 @@ export default function Page() {
                        <span className="font-mono text-xs text-error font-bold uppercase">DISABLED / NONE</span>
                      </div>
                   </div>
+                  <p className="text-xs text-text-subtle mt-3">
+                    These guarantees describe the SourcePrep desktop app and the local <code className="text-xs bg-background border border-border rounded px-1 py-0.5 font-mono">prep</code> daemon, which ship no telemetry, crash reporting, or behavioral tracking. This marketing website uses <a href="https://plausible.io/data-policy" className="text-primary underline">Plausible</a> &mdash; a cookieless, EU-hosted, privacy-friendly analytics service that records only anonymous, aggregate page views. No cookies, no cross-site tracking, no personal profiles, and no consent banner required.
+                  </p>
                 </section>
 
                 <section id="network">
@@ -269,7 +272,11 @@ export default function Page() {
                       </p>
                       <p className="mt-4 text-sm text-text-muted">
                         The license key and machine ID are Pro only — the open-source version collects
-                        nothing unless you choose to send a bug report or support request.
+                        nothing unless you choose to send a bug report or support request. Bug reports and
+                        support emails you submit are delivered through <strong className="text-text">Resend</strong>,
+                        a US-based email subprocessor, under a data-processing agreement with Standard
+                        Contractual Clauses; Resend receives only the message content and reply-to address
+                        you provide.
                       </p>
                     </section>
 

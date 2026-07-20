@@ -1,4 +1,4 @@
-SourcePrep
+SourcePrep — VS Code Extension
 Copyright (c) 2026 Magnetic Anomaly LLC
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,38 +15,12 @@ limitations under the License.
 
 ---
 
-This product includes software developed by third parties. The following
-components are distributed under their respective licenses. Full license
-texts are available from each project.
-
-> **Status:** DRAFT for legal-trigger review (Phase 144, item D8).
-> Attributions below are derived from the declared dependency licenses
-> inventoried in `docs/Phase142_OSS-First/LICENSE-AUDIT.md`. Verify
-> completeness with a `scancode-toolkit` source-license scan and a full
-> `license-checker` / `cargo deny` / `pip-licenses` monorepo run before
-> the public mirror push. See `docs/Phase142_OSS-First/README.md`.
-
-## Machine-learning model
-- **nomic-embed-text-v1.5** — Apache License 2.0 — Nomic AI. Bundled /
-  downloaded as the default local embedding model.
-
-## Python components
-- **NetworkX** — BSD-3-Clause
-- **NumPy** — BSD-3-Clause
-- **ONNX Runtime** — MIT — Microsoft
-- **tokenizers**, **huggingface_hub** — Apache-2.0 — Hugging Face
-- **watchdog** — Apache-2.0
-- **pathspec** — Mozilla Public License 2.0
-- **cryptography** — Apache-2.0 / BSD-3-Clause — PyCA
-- **FastAPI**, **Pydantic**, **Typer**, **Rich** — MIT
-- **Starlette / Uvicorn**, **httpx** — BSD-3-Clause
-- **Requests** — Apache-2.0
-
-## Rust components
-- **tree-sitter** and grammars (Python, TypeScript, JavaScript, Rust,
-  Go, Java, C, C++) — MIT
-- **serde**, **rayon**, **PyO3** — MIT / Apache-2.0
-- **ignore**, **walkdir** — MIT / Unlicense
+This extension bundles software developed by third parties. The following
+components are distributed under their respective licenses; full license
+texts are available from each project. This NOTICE accompanies the published
+`.vsix` per Apache-2.0 §4(d). The extension does not bundle the Python/Rust
+engine — it communicates with the `prep` daemon, which is installed
+separately and carries its own NOTICE.
 
 ## Frontend (TypeScript/React) components
 - **React** — MIT — Meta
@@ -56,6 +30,9 @@ texts are available from each project.
 - **lucide-react** — ISC
 - **react-grid-layout**, **react-syntax-highlighter** — MIT
 - **clsx**, **tailwind-merge**, **Tailwind CSS** — MIT
+
+Build-time tooling (esbuild, TypeScript, ESLint, `@vscode/vsce`) is not
+redistributed in the `.vsix`.
 
 ---
 
