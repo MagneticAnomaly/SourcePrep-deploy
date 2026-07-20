@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { DocsLayout, SiteHeader, SiteFooter } from '@prep/ui';
+import { DocsLayout, SiteHeader, SiteFooter, buildFooterSections } from '@prep/ui';
 import { docsSidebar } from '../config/docs';
 
 const isDev = process.env.NODE_ENV !== 'production';
@@ -31,27 +31,8 @@ const headerProps = {
   },
 };
 
-const footerSections = [
-  {
-    title: 'Product',
-    links: [
-      { label: 'Download', href: DOWNLOAD_URL },
-      { label: 'Pricing', href: `${HOME_URL}/pricing` },
-      { label: 'Changelog', href: `${HOME_URL}/changelog` },
-      { label: 'Documentation', href: '/' },
-    ],
-  },
-  {
-    title: 'Company',
-    links: [
-      { label: 'FAQ', href: `${HOME_URL}/faq` },
-      { label: 'Research', href: `${HOME_URL}/research` },
-      { label: 'Support', href: SUPPORT_URL },
-      { label: 'Privacy Policy', href: `${HOME_URL}/privacy` },
-      { label: 'Terms of Service', href: `${HOME_URL}/terms` },
-    ],
-  },
-];
+// Docs is same-site for Documentation ('/'), cross-site (HOME_URL) for the rest.
+const footerSections = buildFooterSections({ home: HOME_URL, docs: '/', support: SUPPORT_URL });
 
 const footerProps = {
   productName: 'SourcePrep',

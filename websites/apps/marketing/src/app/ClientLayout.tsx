@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from 'react';
-import { SiteHeader, SiteFooter } from '@prep/ui';
+import { SiteHeader, SiteFooter, buildFooterSections } from '@prep/ui';
 import { GITHUB_REPO_URL } from '@/lib/links';
 import { DevToolbar } from './DevToolbar';
 
@@ -21,27 +21,8 @@ const navLinks = [
   { label: 'FAQ', href: '/faq' },
 ];
 
-const footerSections = [
-  {
-    title: 'Product',
-    links: [
-      { label: 'Download', href: '/download' },
-      { label: 'Pricing', href: '/pricing' },
-      { label: 'Changelog', href: '/changelog' },
-      { label: 'Documentation', href: DOCS_URL },
-    ],
-  },
-  {
-    title: 'Company',
-    links: [
-      { label: 'FAQ', href: '/faq' },
-      { label: 'Research', href: '/research' },
-      { label: 'Support', href: SUPPORT_URL },
-      { label: 'Privacy Policy', href: '/privacy' },
-      { label: 'Terms of Service', href: '/terms' },
-    ],
-  },
-];
+// Same-site relative links (home: '') so footer nav works in dev and prod.
+const footerSections = buildFooterSections({ home: '', docs: DOCS_URL, support: SUPPORT_URL });
 
 export function ClientLayout({ children }: { children: ReactNode }) {
   return (

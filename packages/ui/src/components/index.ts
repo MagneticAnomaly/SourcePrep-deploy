@@ -69,7 +69,7 @@ export { FeatureBlocks, type FeatureBlocksProps, type Feature } from './marketin
 
 // Site Layout Components (Phase 12)
 export { SiteHeader, type SiteHeaderProps, type NavLink } from './site/SiteHeader';
-export { SiteFooter, type SiteFooterProps, type FooterSection, type FooterLink } from './site/SiteFooter';
+export { SiteFooter, buildFooterSections, type SiteFooterProps, type FooterSection, type FooterLink } from './site/SiteFooter';
 
 // Docs Layout Components (Phase 12)
 export { DocsLayout, type DocsLayoutProps } from './docs/DocsLayout';
