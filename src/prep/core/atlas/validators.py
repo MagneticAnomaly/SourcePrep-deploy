@@ -2,8 +2,7 @@
 Atlas LLM output validators.
 
 Runs after `_postprocess` and before persistence. Catches three failure
-modes observed in dogfood (see docs/Phase124_FinalizeChainEpistemicAudit/
-MCP_DOGFOOD_FEEDBACK_2026-05-05_SCRUTINY.md item #4):
+modes observed in dogfood (item #4 of the 2026-05-05 epistemic-audit pass):
 
 1. Prompt-restatement leak — the model echoes its own instructions in
    first-person planning prose ("I need to write...", "Let me parse...")

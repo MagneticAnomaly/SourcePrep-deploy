@@ -5,7 +5,6 @@ Handles activation, validation, and deactivation of license keys
 via the LemonSqueezy REST API (Merchant of Record).
 
 See: SECURITY_DESIGN_DECISIONS.md §CRIT-1
-See: DISTRIBUTION_AND_REVENUE_PLAN.md §3
 
 Flow:
   1. User buys on sourceprep.io/pricing → LS generates UUID license key

@@ -103,8 +103,8 @@ class AntibodyStore:
             # server runs in a separate process from the FastAPI daemon
             # (server mode), so server.py's startup init() never reaches the
             # MCP's singleton. Without this, every prep_audit(action="antibodies")
-            # call from MCP throws — observed in dogfood 2026-05-05, see
-            # docs/Phase124_FinalizeChainEpistemicAudit/MCP_DOGFOOD_FEEDBACK_2026-05-05_SCRUTINY.md.
+            # call from MCP throws — observed in dogfood 2026-05-05 (see the
+            # 2026-05-05 epistemic-audit pass notes).
             try:
                 from prep.core.paths import data_dir
                 self.init(data_dir() / "prep_antibodies.db")

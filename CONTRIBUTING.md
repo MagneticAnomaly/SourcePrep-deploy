@@ -16,7 +16,7 @@ SourcePrep is a three-language monorepo:
 - **Rust engine** (`engine/crates/`) — parsing, graph, chunking, called via maturin
 - **TypeScript frontends** (`packages/`, `src/prep/dashboard/`, `websites/`) — UI, VS Code extension, docs/marketing
 
-See `CLAUDE.md` and `AGENTS.md` for the full build/test commands. The short
+See `AGENTS.md` for the full build/test commands. The short
 version for a fresh clone:
 
 ```bash

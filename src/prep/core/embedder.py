@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 # ── Phase 139 env-var knobs ────────────────────────────────────────
-# Documented in CLAUDE.md and docs/Phase139_EmbedderMemoryHardening/.
+# Documented in docs/Phase139_EmbedderMemoryHardening/.
 def _env_int(name: str, default: int, *, minimum: int = 1) -> int:
     """Read an int env var, return default on missing/invalid/below-minimum."""
     raw = os.environ.get(name)

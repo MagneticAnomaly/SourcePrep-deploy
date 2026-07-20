@@ -140,11 +140,11 @@ const faqs: FAQItem[] = [
   },
   {
     id: "claude-md",
-    q: "Why not just put everything in a CLAUDE.md or rules file?",
+    q: "Why not just put everything in a rules file?",
     a: (
       <div className="space-y-4">
         <p><strong>Use both.</strong> Seriously \u2014 they solve different problems and work well together.</p>
-        <p>A <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">CLAUDE.md</code> is ideal for conventions a human can articulate: &quot;We use Tailwind,&quot; &quot;Never mutate state directly,&quot; &quot;Deploy via Terraform.&quot; That&apos;s high-level project DNA.</p>
+        <p>A rules file is ideal for conventions a human can articulate: &quot;We use Tailwind,&quot; &quot;Never mutate state directly,&quot; &quot;Deploy via Terraform.&quot; That&apos;s high-level project DNA.</p>
         <p>What a rules file <em>cannot</em> do is track the 3,000+ dependency edges in a real codebase. It can&apos;t tell the AI that <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">PaymentService.charge()</code> calls <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">StripeClient.create_intent()</code> which imports <code className="bg-surface px-1.5 py-0.5 rounded text-xs border border-border-subtle">crypto.sign()</code>. It can&apos;t automatically update when someone refactors the call chain. It can&apos;t compress 200 files into 2,000 tokens of structurally meaningful context.</p>
         <p>SourcePrep automates the granular, structural layer \u2014 the connective tissue of your codebase. Your rules file handles the human intent. Together, the AI gets both &quot;what the code does&quot; and &quot;what the team wants.&quot;</p>
       </div>

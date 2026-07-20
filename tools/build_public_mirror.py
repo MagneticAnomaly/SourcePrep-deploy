@@ -268,6 +268,8 @@ CONTENT_SCAN_ALLOWLIST: dict[str, str] = {
         "dashboard DEFAULT_ALWAYS_IGNORED_GLOBS: `**/CLAUDE.md` mirrors repo_profile to skip the user's rules file.",
     "packages/ui/src/stories/dashboard/FullDashboard.stories.tsx":
         "Storybook dashboard demo: ALWAYS_IGNORED_GLOBS mirrors the walker's `**/CLAUDE.md` exclude.",
+    "packages/ui/src/stories/project/FolderTree.stories.tsx":
+        "Storybook folder-tree demo: shows `CLAUDE.md` as the always-ignored agent-rules file (product-accurate walker behavior).",
     "scripts/phase103_observe_hook.py":
         "observe hook: AGENT_ARTIFACT_PREFIXES tuple lists `CLAUDE.md` to recognize agent rule files.",
     "tests/fixtures/walker_parity_repo/README.md":

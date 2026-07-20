@@ -58,9 +58,9 @@ EXCLUDED_DIRS: frozenset[str] = frozenset({
 # Hidden agent dirs we explicitly DO walk (despite leading dot).
 # These are the OPPOSITE policy from the trace pipeline (which excludes
 # them via repo_profile.DEFAULT_EXCLUDE_DIR_NAMES). Agent-instruction
-# files like CLAUDE.md, .cursor/rules/*.mdc, and .agents/*.md are PRIME
-# planning material for concept synthesis; they're noise for source
-# indexing. The trace excludes are wired in src/prep/core/repo_profile.py
+# files like your agent's rules file, .cursor/rules/*.mdc, and .agents/*.md
+# are PRIME planning material for concept synthesis; they're noise for
+# source indexing. The trace excludes are wired in src/prep/core/repo_profile.py
 # and src/prep/core/trace/coverage.py.
 #
 # Phase 135.5: This constant is still live — it drives the hidden_agent_dir

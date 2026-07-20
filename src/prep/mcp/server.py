@@ -2364,8 +2364,8 @@ class MCPServer:
         # The MCP server may run as a daemon-proxy in its own process,
         # in which case the in-process ``concept_store`` singleton is
         # NOT initialized — direct calls would raise RuntimeError and
-        # the broad except below would silently swallow it (Phase 125b
-        # scrutiny found this surfacing as "Concepts loaded: 0" in the
+        # the broad except below would silently swallow it (a Phase 125b
+        # review found this surfacing as "Concepts loaded: 0" in the
         # audit data-availability section). Use the HTTP API so the
         # audit always sees the daemon's authoritative data.
         concepts: List[Dict[str, Any]] = []
