@@ -2,6 +2,7 @@
 
 This is a Next.js application that serves as the specialized support portal for SourcePrep (`support.sourceprep.io`).
 
+
 It uses a **Headless GitHub** architecture:
 - **Frontend**: Custom Next.js UI using `@prep/ui` components.
 - **Backend**: GitHub Discussions API (GraphQL) serves as the CMS.
