@@ -83,14 +83,17 @@ void main() {
   vec2 center = gl_PointCoord - vec2(0.5);
   float dist = length(center);
 
-  // Near-hard circular disc with only a 1-pixel-ish anti-aliased edge.
+  // Soft-edged circular sprite: some blur for a 3D glowing-bubble feel.
   if (dist > 0.5) discard;
-  float edge = smoothstep(0.5, 0.48, dist);
-  float alpha = edge;
-  if (alpha < 0.02) discard;
+  float alpha = pow(1.0 - (dist * 2.0), 3.2);
+  if (alpha < 0.04) discard;
 
-  // Bright, saturated color.
-  vec3 brightColor = vColor * 1.8;
+  // Soft radial gradient to fake a lit sphere.
+  float lighting = 1.0 - dist * 0.5;
+  vec3 litColor = vColor * (1.0 + lighting * 0.4);
+
+  // Bright, saturated color with a little glow boost.
+  vec3 brightColor = litColor * 1.55;
   gl_FragColor = vec4(brightColor, alpha * vAlpha * vTrailFade);
 }
 `;
@@ -198,7 +201,7 @@ export function FaviconParticles({
         fragmentShader={fragmentShader}
         uniforms={uniforms}
         transparent={true}
-        blending={THREE.NormalBlending}
+        blending={THREE.AdditiveBlending}
         depthWrite={false}
         depthTest={true}
       />
