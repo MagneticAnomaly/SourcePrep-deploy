@@ -28,6 +28,39 @@
 
 ---
 
+## Implementation status (updated 2026-07-20)
+
+The two license-neutral fix-now items above — plus the DR-2 #4/#5 trademark work and a footer disclosure — have been **APPLIED locally** (commit `78dd6b3b`; footer follow-up in a later local commit; findings doc = `ae77fe20`). **Not pushed** — the marketing site is `[deploy]`-gated, so nothing is public until Eric pushes with `[deploy]`.
+
+- ✅ `packages/vscode/NOTICE` added (Apache-2.0 §4(d) — the one in-scope gap).
+- ✅ Root `NOTICE` Trademark section added; wording harmonized across `NOTICE`, `CHARTER.md`, and the Terms page (™ / common-law-pending / contact).
+- ✅ `security/page.tsx` scoped to the desktop product; Plausible + Resend disclosed.
+- ✅ Shared `SiteFooter` (all four public apps): a footer **trademark line** + a **cookieless-analytics note** (per Eric — ™ kept to legal contexts + footer only, no header-lockup ™; the analytics disclosure lives in the footer, not a banner).
+- ⏸️ **Plausible provider decision (self-host / switch / keep paying / remove) DEFERRED** by Eric — cost-gated, revisit later. The footer + security disclosures stand regardless of provider.
+
+## Legal Acts — what Eric + an attorney must do
+
+Everything below requires a human decision or a licensed attorney. The agent has **not** filed, finalized, or published anything, and cannot.
+
+**A. Requires a trademark / IP attorney**
+1. **Clear + file the "SourcePrep" trademark.** Have counsel run the authoritative `tmsearch.uspto.gov` exact/phonetic search (the SPA blocked automated tools, so §1a's "none found" is a presumption, not a confirmed clear), then **file intent-to-use on the Principal Register, Classes 9 + 42.** Descriptiveness risk is **MODERATE** (§1c) — instruct counsel to (i) draft the goods/services ID so it does **not** recite "prepares source code" verbatim, and (ii) keep a Supplemental-Register / §2(f) fallback ready.
+2. **Terms of Service — draft the 7 hard-blocker clauses** (§3) before ANY paid sale: effective date · governing law/venue · a real **liability cap** (the current AS-IS block is an unenforceable-for-paid total exclusion) · concrete refund window · license lifecycle · indemnification · acceptable-use.
+3. **Register the U.S. copyright ≤ 3 months of first publication** (17 U.S.C. §412 — preserves statutory damages/fees).
+
+**B. Eric's business decisions (no attorney strictly required)**
+4. **™ / ® usage:** use **™** on "SourcePrep" now (applied in legal contexts + footer); switch to **®** only after a registration certificate issues; file §15 incontestability at year 5.
+5. **Terms:** keep **OSS-only** — do **not** flip the `Terms_v2.0_DRAFT` flag until A2 is done (recommended default; no revenue depends on it).
+6. **ED-3 analytics:** minimal disclosure is applied (footer + security page). The **provider decision** is **deferred** (cost-gated). Spot-check the Plausible dashboard for cross-domain linking (invisible to the repo).
+7. **Review the security-page + footer disclosure wording** before pushing with `[deploy]` (privacy-policy content — worth an attorney glance).
+
+**C. Route to the packaging / SBOM track (Session C) — out of Session A's four-item scope but real §4 gaps (§2c)**
+8. PyPI `prep-engine` wheel (no `license` field in `engine/pyproject.toml`; no `engine/LICENSE`/`NOTICE`), GHCR Docker images (Dockerfiles don't `COPY LICENSE NOTICE`), and Tauri installers likely ship without LICENSE/NOTICE — bundle with Session C's "MPL NOTICE attribution" docket item.
+9. Session C also flagged a **vendor-logo trademark** question (nominative fair use of third-party logos on the compare pages) to this legal track — outside the four items; worth a quick legal look.
+
+**Then:** push the local commits (findings + fixes across the four DR sessions) when ready — with `[deploy]` only when the site should go live.
+
+---
+
 ## 1. DR-2 — Trademark clearance + ™/® signaling
 
 ### (a) USPTO / registration search — NONE FOUND (with a real caveat)
@@ -283,4 +316,4 @@ This corrects a marketing-accuracy issue (website-vs-product scope) and touches 
 
 **Dogfooding (SourcePrep MCP):** `prep` (Research Analyst role) returned only planning/methodology docs — nothing relevant to trademark law, Apache license text, Terms clauses, or vendor privacy posture. **Expected but worth noting:** legal text, license files, and third-party web-marketing copy are outside the code graph's strength, and there is no legal/compliance scope or concept anchor for this material. All DR-2/DR-3/ED-2/ED-3 grounding came from `Read`/`Grep` + web fetch, not the graph. Product feedback: a "legal/compliance" scope (LICENSE, NOTICE, CHARTER, terms/security pages, subprocessor config) would make this class of audit graph-assisted rather than grep-only.
 
-**STOP — surfaced to Eric.** All four sections written; every decision framed with options + a recommended default. **Nothing filed, finalized, or published** — no trademark application, no Terms flip, no privacy policy. The two license-neutral fix-now items (security-page rewording, `packages/vscode/NOTICE`) are proposals for Eric to apply, not applied here.
+**STOP — surfaced to Eric.** All four sections written; every decision framed with options + a recommended default. **No legal act performed** — no trademark application, no Terms flip, no published privacy policy; those remain in the *Legal Acts* list above (Eric + attorney). The license-neutral fix-now items (security-page rewording, `packages/vscode/NOTICE`, trademark-wording harmonization, footer disclosure) **have since been applied locally** at Eric's direction — see *Implementation status* above; still local-only, `[deploy]`-gated.

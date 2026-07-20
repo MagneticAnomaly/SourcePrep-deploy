@@ -110,9 +110,14 @@ export function SiteFooter({
         </div>
 
         <div className="mt-12 border-t border-border pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <p className="text-xs text-text-subtle">
-            {copyright || `© ${currentYear} Magnetic Anomaly LLC.`}
-          </p>
+          <div className="flex flex-col gap-1 text-center sm:text-left">
+            <p className="text-xs text-text-subtle">
+              {copyright || `© ${currentYear} Magnetic Anomaly LLC.`} SourcePrep™ is a trademark of Magnetic Anomaly LLC.
+            </p>
+            <p className="text-xs text-text-subtle">
+              No cookies — this site uses privacy-friendly, cookieless analytics with no cross-site tracking.
+            </p>
+          </div>
           <div className="flex gap-6">
             <a href="https://sourceprep.io/privacy" className="text-xs text-text-subtle hover:text-text transition-colors">Privacy Policy</a>
             <a href="https://sourceprep.io/terms" className="text-xs text-text-subtle hover:text-text transition-colors">Terms of Service</a>
