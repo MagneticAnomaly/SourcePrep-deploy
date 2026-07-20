@@ -47,6 +47,8 @@ const footerSections = [
       { label: 'FAQ', href: `${HOME_URL}/faq` },
       { label: 'Research', href: `${HOME_URL}/research` },
       { label: 'Support', href: SUPPORT_URL },
+      { label: 'Privacy Policy', href: `${HOME_URL}/privacy` },
+      { label: 'Terms of Service', href: `${HOME_URL}/terms` },
     ],
   },
 ];

@@ -34,6 +34,7 @@ export function ClientLayout({ children }: { children: ReactNode }) {
       </main>
       <SiteFooter
         productName="SourcePrep"
+        logo={<img src="/prep-logo.png" alt="SourcePrep" style={{ width: '2.5rem', height: '2.5rem' }} className="rounded" />}
         copyright="© 2026 Magnetic Anomaly LLC."
         socials={{
           twitter: 'https://x.com/Prep_io',

@@ -62,9 +62,7 @@ export function SiteFooter({
               {productName}
             </a>
             <Text className="text-sm text-text-muted leading-relaxed">
-              The bridge between how <br/>
-              you think about code and<br/>
-              how your AI reads it.
+              Give your AI access to the epistemic context it needs to understand your codebase.
             </Text>
             <div className="flex gap-4 pt-2">
               {socials?.twitter && (
@@ -109,17 +107,11 @@ export function SiteFooter({
           </div>
         </div>
 
-        <div className="mt-12 border-t border-border pt-8 space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-xs text-text-subtle">
-              {copyright || `© ${currentYear} Magnetic Anomaly LLC.`}
-            </p>
-            <div className="flex gap-6">
-              <a href="https://sourceprep.io/privacy" className="text-xs text-text-subtle hover:text-text transition-colors">Privacy Policy</a>
-              <a href="https://sourceprep.io/terms" className="text-xs text-text-subtle hover:text-text transition-colors">Terms of Service</a>
-            </div>
-          </div>
-          <p className="text-xs text-text-subtle text-center sm:text-left">
+        <div className="mt-12 border-t border-border pt-8 space-y-2 text-center sm:text-left">
+          <p className="text-xs text-text-subtle">
+            {copyright || `© ${currentYear} Magnetic Anomaly LLC.`}
+          </p>
+          <p className="text-xs text-text-subtle">
             SourcePrep™ is a trademark of Magnetic Anomaly LLC. This site uses cookieless, privacy-friendly analytics — no cookies and no cross-site tracking.
           </p>
         </div>
@@ -153,8 +145,8 @@ const defaultSections: FooterSection[] = [
       { label: 'Careers', href: 'https://sourceprep.io/careers' },
       { label: 'Contact', href: 'https://sourceprep.io/contact' },
       { label: 'Security', href: 'https://sourceprep.io/security' },
-      { label: 'SourcePrep vs Cursor', href: 'https://sourceprep.io/compare/prep-vs-cursor-indexing' },
-      { label: 'SourcePrep vs Greptile', href: 'https://sourceprep.io/compare/prep-vs-greptile' },
+      { label: 'Privacy Policy', href: 'https://sourceprep.io/privacy' },
+      { label: 'Terms of Service', href: 'https://sourceprep.io/terms' },
     ],
   },
 ];

@@ -37,6 +37,8 @@ const footerSections = [
       { label: 'FAQ', href: '/faq' },
       { label: 'Research', href: '/research' },
       { label: 'Support', href: SUPPORT_URL },
+      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'Terms of Service', href: '/terms' },
     ],
   },
 ];
