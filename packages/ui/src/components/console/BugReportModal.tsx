@@ -25,9 +25,12 @@ export interface BugReportModalProps {
   onClose: () => void;
   logs: LogEntry[];
   diagnosticData?: Record<string, unknown>;
+  /** Where the report is POSTed. Defaults to the production support endpoint.
+   * Override to point at a staging host in tests or a self-hosted support site. */
+  endpoint?: string;
 }
 
-export function BugReportModal({ open, onClose, logs, diagnosticData }: BugReportModalProps) {
+export function BugReportModal({ open, onClose, logs, diagnosticData, endpoint = BUG_REPORT_ENDPOINT }: BugReportModalProps) {
   const [email, setEmail] = useState(() =>
     (typeof localStorage !== 'undefined' ? localStorage.getItem(EMAIL_STORAGE_KEY) : null) ?? ''
   );
@@ -117,7 +120,7 @@ export function BugReportModal({ open, onClose, logs, diagnosticData }: BugRepor
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), SUBMIT_TIMEOUT_MS);
 
-      const res = await fetch(BUG_REPORT_ENDPOINT, {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(report),
@@ -144,7 +147,7 @@ export function BugReportModal({ open, onClose, logs, diagnosticData }: BugRepor
       );
       downloadReport(report);
     }
-  }, [buildReport, downloadReport, onClose]);
+  }, [buildReport, downloadReport, onClose, endpoint]);
 
   const handleDownloadOnly = useCallback(() => {
     downloadReport(buildReport());
