@@ -110,7 +110,7 @@ server = DirectMCPServer(repo_root=repo_root)
 If your test needs a clean slate, delete the `.prep` directory:
 
 ```python
-prep_dir = repo_root / ".runprep"
+prep_dir = repo_root / ".sourceprep"
 if prep_dir.exists():
     shutil.rmtree(prep_dir)
 ```
@@ -219,7 +219,7 @@ Use for: Testing `max_file_bytes` enforcement.
 
 ### `.prep` Directory
 
-Prep creates `.runprep/` inside repos to store:
+Prep creates `.sourceprep/` inside repos to store:
 - Index files
 - Manifests
 - Build state
@@ -227,7 +227,7 @@ Prep creates `.runprep/` inside repos to store:
 This directory is **safe to delete** in tests because it's inside the fixture repo:
 
 ```python
-prep_dir = repo_root / ".runprep"
+prep_dir = repo_root / ".sourceprep"
 if prep_dir.exists():
     shutil.rmtree(prep_dir)
 ```
@@ -239,7 +239,7 @@ If a test needs a clean state, delete `.prep` at the start:
 ```python
 async def test_something():
     repo_root = Path(__file__).parent / "fixtures" / "mini_repo"
-    prep_dir = repo_root / ".runprep"
+    prep_dir = repo_root / ".sourceprep"
     if prep_dir.exists():
         shutil.rmtree(prep_dir)
     
@@ -292,6 +292,6 @@ If search returns `count == 0`, check:
 - **`mini_repo`** = 2-file fixture for Direct MCP E2E tests
 - **Create new fixtures** under `tests/fixtures/` when needed
 - **Keep fixtures minimal** and deterministic
-- **Clean `.runprep/`** if you need a fresh state
+- **Clean `.sourceprep/`** if you need a fresh state
 
 For more on running tests, see `scripts/run_tests.py` and `pyproject.toml` for test configuration.

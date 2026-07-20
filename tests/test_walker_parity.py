@@ -67,14 +67,12 @@ def test_rust_walker_mirrors_python_l1_excludes() -> None:
 def test_rust_walker_covers_self_ingestion_guards() -> None:
     """Hard invariant: self-ingestion guards MUST be in Rust.
 
-    Phase 133: dropped legacy CoDRAG-era patterns (`**/.codrag/**`,
-    `**/codrag_data/**`) from both Python defaults and these
-    assertions — the rename happened long ago and any straggler
-    install is on its own. The `prep_data` and `.runprep` patterns
-    remain because those names are still in active use.
+    The live state-dir guards (`**/.sourceprep/**` and `**/prep_data/**`)
+    must be present so Prep does not ingest its own outputs. Legacy
+    dead-name patterns are no longer carried.
     """
     rust_excludes = _parse_rust_exclude_globs(RUST_WALKER_SRC.read_text())
-    for required in ("**/.runprep/**", "**/prep_data/**"):
+    for required in ("**/.sourceprep/**", "**/prep_data/**"):
         assert required in rust_excludes, (
             f"Self-ingestion guard '{required}' missing from Rust walker defaults. "
             f"This is a phase-115 regression — Prep will ingest its own outputs."
@@ -84,8 +82,8 @@ def test_rust_walker_covers_self_ingestion_guards() -> None:
 def test_rust_walker_covers_leak_culprits() -> None:
     """Regression: the leaks that motivated Phase 115.
 
-    Phase 133: dropped `**/codrag_data/**` — the legacy CWD-relative
-    daemon dir was renamed to `prep_data/` long ago.
+    The legacy CWD-relative daemon-dir glob was dropped long ago; the
+    live `prep_data` guard must remain.
     """
     rust_excludes = _parse_rust_exclude_globs(RUST_WALKER_SRC.read_text())
     for required in (

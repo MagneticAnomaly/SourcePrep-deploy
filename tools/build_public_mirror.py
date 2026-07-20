@@ -289,6 +289,12 @@ CONTENT_SCAN_ALLOWLIST: dict[str, str] = {
         "absence-asserting: gitwildmatch exclude fixture uses `.runprep` paths to prove the watcher skips them.",
     "tests/test_no_cwd_relative_codrag_data.py":
         "absence-asserting: Phase 113 regression guard — _LITERAL_RE regex names `codrag_data` to assert no CWD-relative use remains in src/.",
+    "tests/test_atlas_identity_brand.py":
+        "absence-asserting: proves the atlas IDENTITY line prefers project_name over a stale codename basename; the fixture dir + `IDENTITY: CoDRAG not in` assertion must name the dead string.",
+    "tests/test_no_self_ingestion.py":
+        "Phase 115 regression guard: LEAK_CULPRITS fixture lists `CLAUDE.md` (and live state-dir paths) the filter must block; CLAUDE.md is the product-necessary agent-rules filename.",
+    "tests/core/test_git_evidence.py":
+        "absence-asserting: `assert _is_excluded_path('CLAUDE.md') is True` pins that the walker excludes the user's agent-rules file; CLAUDE.md is the product-necessary literal.",
 }
 
 

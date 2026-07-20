@@ -30,7 +30,7 @@ from prep.core.repo_profile import (
 
 def _scaffold_repo(tmpdir: Path) -> tuple[Path, Path]:
     repo_root = tmpdir
-    index_dir = repo_root / ".runprep"
+    index_dir = repo_root / ".sourceprep"
     index_dir.mkdir(parents=True, exist_ok=True)
     (repo_root / "main.py").write_text("print('x')\n")
     return repo_root, index_dir
@@ -52,7 +52,7 @@ def test_effective_excludes_unions_all_three_layers() -> None:
             explicit_excludes=explicit,
         )
 
-        assert "**/.runprep/**" in result, "L1 self-ingestion guard must be present"
+        assert "**/.sourceprep/**" in result, "L1 self-ingestion guard must be present"
         assert "**/prep_data/**" in result, "L1 self-ingestion guard must be present"
         assert "**/storybook-static/**" in result, "L1 leak culprit must be present"
         assert "**/*.d.ts" in result, "L1 build-artifact glob must be present"
@@ -91,7 +91,7 @@ def test_user_excludes_added_to_existing_policy_survive_auto_migration() -> None
         assert "**/.DS_Store" in excludes
 
         # L1 self-ingestion guards back-filled.
-        assert "**/.runprep/**" in excludes
+        assert "**/.sourceprep/**" in excludes
         assert "**/prep_data/**" in excludes
 
         # L1 build-artifact globs back-filled.
@@ -104,8 +104,8 @@ def test_user_excludes_added_to_existing_policy_survive_auto_migration() -> None
         assert "**/storybook-static/**" in on_disk["exclude_globs"]
 
 
-def test_user_cannot_silently_remove_codrag_output_guard() -> None:
-    """Direct edit of `repo_policy.json` removing `**/.runprep/**` gets
+def test_user_cannot_silently_remove_prep_output_guard() -> None:
+    """Direct edit of `repo_policy.json` removing `**/.sourceprep/**` gets
     re-added on the next load. Self-ingestion is a hard invariant.
     """
     with tempfile.TemporaryDirectory() as td:
@@ -129,13 +129,13 @@ def test_user_cannot_silently_remove_codrag_output_guard() -> None:
         excludes = set(reloaded.get("exclude_globs") or [])
 
         # Guard is back.
-        assert "**/.runprep/**" in excludes
+        assert "**/.sourceprep/**" in excludes
         assert "**/prep_data/**" in excludes
         # User's custom entry still there.
         assert "**/*.log" in excludes
 
 
-def test_codrag_output_file_globs_all_in_defaults() -> None:
+def test_prep_output_file_globs_all_in_defaults() -> None:
     """Sanity: every PREP_OUTPUT_FILE_GLOBS entry is in
     DEFAULT_EXCLUDE_FILE_GLOBS. Registry is the source of truth.
     """

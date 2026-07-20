@@ -700,7 +700,7 @@ class TestAPIIntegration:
         from prep.core.project_registry import ProjectRegistry
 
         # Configure server with temp dir
-        index_dir = tmp_path / "codrag_data"
+        index_dir = tmp_path / "prep_data"
         index_dir.mkdir(parents=True, exist_ok=True)
 
         configure(
@@ -995,7 +995,7 @@ class TestEdgeCases:
         pruned = prune_stale_deltas(manifest_path, delta_dir)
         assert pruned == 0
 
-    def test_sync_service_handles_missing_codrag_dir(self, tmp_path):
+    def test_sync_service_handles_missing_prep_dir(self, tmp_path):
         """RemoteSyncService works even if .prep doesn't exist initially."""
         from prep.services.remote_sync import RemoteSyncService
         svc = RemoteSyncService(tmp_path)

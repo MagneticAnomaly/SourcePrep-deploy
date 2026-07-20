@@ -1,7 +1,7 @@
 """Regression: rename-era routing bugs
 
 Two route-ordering regressions were introduced during the
-CoDRAG → RunPrep → SourcePrep rebrand:
+brand rename:
 
 1. The generic ``GET /settings/{key}`` catch-all was registered BEFORE
    specific routes (``/settings/advanced-config``, ``/settings/admin-policy``,

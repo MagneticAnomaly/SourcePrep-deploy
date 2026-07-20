@@ -1,6 +1,6 @@
 """Regression test for concept_store init after data-dir rename.
 
-Reproduces the post brand-rename (codrag -> prep -> runprep) state where
+Reproduces the post-brand-rename state where
 prep_settings.db exists but has no concepts table, and prep_concepts.db
 is missing. Before the fix, configure()'s migration branch skipped
 concept_store.init() in this case, leaving the store uninitialized and
@@ -42,7 +42,7 @@ def _make_bare_settings_db(path: Path) -> None:
 def test_configure_initializes_concept_store_when_settings_has_no_concepts_table(
     tmp_path: Path,
 ) -> None:
-    data_dir = tmp_path / "runprep_data"
+    data_dir = tmp_path / "prep_data"
     data_dir.mkdir()
     _make_bare_settings_db(data_dir / "prep_settings.db")
     assert not (data_dir / "prep_concepts.db").exists()

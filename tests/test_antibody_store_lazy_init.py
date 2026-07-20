@@ -1,9 +1,8 @@
 """
 Tests for AntibodyStore lazy-init.
 
-Regression coverage for the 2026-05-06 dogfood bug — see
-docs/Phase124_FinalizeChainEpistemicAudit/MCP_DOGFOOD_FEEDBACK_2026-05-05_SCRUTINY.md
-item #3. The MCP server runs in a separate process from the FastAPI
+Regression coverage for the 2026-05-06 dogfood bug (item #3 of the
+2026-05-05 epistemic-audit pass). The MCP server runs in a separate process from the FastAPI
 daemon, so server.py's startup init() never reaches the MCP-side
 singleton, and every prep_audit(action="antibodies") call threw
 "AntibodyStore not initialized."

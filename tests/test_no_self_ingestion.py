@@ -1,7 +1,7 @@
 """Phase 115 Step 11 — regression guard for the self-ingestion leak.
 
 Scenario that motivated this phase: an overnight Deep Reasoning run
-processed 24 `storybook-static/index.html` fragments, `codrag_data/`
+processed 24 `storybook-static/index.html` fragments, legacy state-dir
 SQLite-dump chunks, and TypeScript `.d.ts` files. Those paths were in
 the code defaults as dir-names but the policy writer only unioned
 **dir globs** — file globs like `**/*.d.ts` never back-filled.
@@ -30,9 +30,9 @@ from prep.core.trace.builder import TraceBuilder
 # (docs/Phase115_filter-universality/00_PROBLEM.md §E1).
 LEAK_CULPRITS = [
     # Prep self-ingestion
-    ".runprep/trace_nodes.jsonl",
-    "codrag_data/prep_antibodies.db",
-    "codrag_data/ui_config.json",
+    ".sourceprep/trace_nodes.jsonl",
+    "prep_data/prep_antibodies.db",
+    "prep_data/ui_config.json",
     # AI-tool output
     "AGENTS.md",
     "CLAUDE.md",
@@ -66,7 +66,7 @@ def _scaffold_leaky_repo(tmpdir: Path) -> tuple[Path, Path]:
     # /private/var/... — TraceBuilder does the same internally, so use
     # the resolved form up front to keep relative_to() happy below.
     repo_root = tmpdir.resolve()
-    index_dir = repo_root / ".runprep"
+    index_dir = repo_root / ".sourceprep"
     index_dir.mkdir(parents=True, exist_ok=True)
 
     for rel in LEAK_CULPRITS + LEGIT_FILES:

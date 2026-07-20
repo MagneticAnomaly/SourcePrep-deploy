@@ -1,9 +1,8 @@
 """
 Determinism guard for atlas + module-list emission.
 
-Closes Task #5 from the 2026-05-05 dogfood scrutiny pass — see
-docs/Phase124_FinalizeChainEpistemicAudit/MCP_DOGFOOD_FEEDBACK_2026-05-05_SCRUTINY.md
-item #5. Module file counts drifted between consecutive prep calls 3
+Closes Task #5 from the 2026-05-05 dogfood review pass (item #5 of the
+2026-05-05 epistemic-audit pass). Module file counts drifted between consecutive prep calls 3
 days apart on the same project. The drift could come from any of:
 
 1. Module clustering (upstream of these tests — Leiden + heuristics).

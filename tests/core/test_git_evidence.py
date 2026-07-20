@@ -51,7 +51,7 @@ def test_excluded_paths_includes_lockfiles_and_media():
     assert _is_excluded_path("docs/diagram.svg") is True
     assert _is_excluded_path("AGENTS.md") is True
     assert _is_excluded_path("CLAUDE.md") is True
-    assert _is_excluded_path(".runprep/state.json") is True
+    assert _is_excluded_path(".sourceprep/state.json") is True
     assert _is_excluded_path(".cursor/rules.mdc") is True
 
     # Nested monorepo lockfiles (regression guard for fnmatch depth)
@@ -267,10 +267,10 @@ def test_hot_zones_filters_renamed_directories(tmp_path):
     disk (renamed/removed) must not surface as 'Active zones'.
 
     The dogfooding finding was that this repo's atlas kept reporting
-    `src/codrag/core/` and `src/codrag/dashboard/` as Active zones long
-    after the 2026-04-21 rename to `src/prep/...`. The pre-rename paths
-    have churn forever in `git log`, but the directories are empty on
-    disk — surfacing them in the atlas is misleading.
+    pre-rename source directories (since renamed under `src/prep/`) as
+    Active zones long after the rename. The pre-rename paths have churn
+    forever in `git log`, but the directories are empty on disk —
+    surfacing them in the atlas is misleading.
     """
     _init_repo(tmp_path)
     # Three zones with enough churn to qualify, three more that exist
@@ -304,8 +304,8 @@ def test_hot_zones_filters_empty_directory_husks(tmp_path):
     """Regression: an empty leftover directory (rename leaves behind
     parent dirs even after `git rm`) must not surface as a hot zone.
 
-    On disk, this is the exact state of `src/codrag/` in this repo
-    after the 2026-04-21 rename — the directory exists as a 0-byte
+    On disk, this is the exact state of a pre-rename source directory
+    in this repo after the rename — the directory exists as a 0-byte
     husk but has no files in it. `is_dir()` is True; we still want it
     filtered out.
     """

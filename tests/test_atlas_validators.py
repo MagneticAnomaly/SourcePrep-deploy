@@ -1,8 +1,8 @@
 """
 Tests for atlas LLM-output validators.
 
-See docs/Phase124_FinalizeChainEpistemicAudit/MCP_DOGFOOD_FEEDBACK_2026-05-05_SCRUTINY.md
-item #4 for the bug that motivated these.
+See item #4 of the 2026-05-05 epistemic-audit pass for the bug that
+motivated these.
 """
 from __future__ import annotations
 

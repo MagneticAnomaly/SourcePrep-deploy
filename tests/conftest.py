@@ -53,7 +53,7 @@ def _isolate_concurrency_store(tmp_path_factory, monkeypatch):
 
     The store is a process-level singleton that reads data_dir() lazily.
     Without isolation, tests would read the real user's persisted AIMD
-    ceilings at ~/.local/share/runprep/concurrency_store.db, polluting
+    ceilings at ~/.local/share/sourceprep/concurrency_store.db, polluting
     scheduler tests that expect fresh cloud-slot seeds (current_limit=5).
     """
     from prep.services.pipeline import concurrency_store as _cs_mod
@@ -208,13 +208,13 @@ def fake_embedder():
 
 
 @pytest.fixture
-def clean_codrag_dir(mini_repo: Path) -> Generator[Path, None, None]:
+def clean_sourceprep_dir(mini_repo: Path) -> Generator[Path, None, None]:
     """
     Ensure .prep directory is clean before and after test.
     
     Usage:
-        def test_something(clean_codrag_dir):
-            repo = clean_codrag_dir  # .prep is guaranteed clean
+        def test_something(clean_sourceprep_dir):
+            repo = clean_sourceprep_dir  # .prep is guaranteed clean
     """
     prep_dir = mini_repo / ".sourceprep"
     if prep_dir.exists():

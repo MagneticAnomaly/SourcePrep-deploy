@@ -2,8 +2,8 @@
 Regression coverage for the Phase 125b two-layer concept stats format.
 
 Pins the trailer disambiguation that resolved the 2026-05-02 dogfood
-finding (see docs/Phase124_FinalizeChainEpistemicAudit/MCP_DOGFOOD_FEEDBACK_2026-05-05_SCRUTINY.md
-item #1). The original ambiguity was that ``stats['seeds']`` aggregated
+finding (item #1 of the 2026-05-05 epistemic-audit pass). The original
+ambiguity was that ``stats['seeds']`` aggregated
 seed-status entries across both layers (concept + module_rationale),
 and ``by_category`` summed across both — so a reader couldn't tell
 "X active concepts of Y total" from the trailer alone.

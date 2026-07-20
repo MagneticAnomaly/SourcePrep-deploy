@@ -62,7 +62,7 @@ def repo_with_agent_dirs(tmp_path: Path) -> Path:
     (repo / ".claude").mkdir()
     (repo / ".claude" / "skills").mkdir()
     (repo / ".claude" / "settings.local.json").write_text("{}")
-    (repo / ".claude" / "skills" / "codrag.md").write_text("# skill")
+    (repo / ".claude" / "skills" / "prep.md").write_text("# skill")
     (repo / ".agents").mkdir()
     (repo / ".agents" / "agent_x").mkdir()
     (repo / ".agents" / "agent_x" / "SOUL.md").write_text("# soul")

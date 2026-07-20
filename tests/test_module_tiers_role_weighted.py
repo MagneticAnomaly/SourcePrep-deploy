@@ -1,8 +1,8 @@
 """
 Tests for role-weighted module ranking in the ambient context module list.
 
-Closes the 2026-05-02 dogfood finding (issue #2 / Task #4) — see
-docs/Phase124_FinalizeChainEpistemicAudit/MCP_DOGFOOD_FEEDBACK_2026-05-05_SCRUTINY.md.
+Closes the 2026-05-02 dogfood finding (issue #2 / Task #4) — see the
+2026-05-05 epistemic-audit pass notes.
 A prep(role="security") call previously listed marketing modules above
 security modules in the "Modules in scope" section because the role lens
 only filtered the trailing files block; the module emission ignored role.

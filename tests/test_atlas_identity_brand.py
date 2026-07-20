@@ -3,8 +3,8 @@ Tests for the IDENTITY-line brand-drift fix on `CodebaseAtlas`
 (see docs/Phase82_MCP-Dogfooding/17_Followup_2026-05-08.md).
 
 The atlas's structural section emitted "IDENTITY: <project_root.name>" —
-which on this repo is "CoDRAG", a stale codename. The user-facing product
-is "SourcePrep". When callers pass `project_name`, the atlas must prefer
+which on this repo is a stale codename. The user-facing product name
+differs. When callers pass `project_name`, the atlas must prefer
 it over the filesystem basename so the live atlas stops surfacing the
 stale codename.
 """
