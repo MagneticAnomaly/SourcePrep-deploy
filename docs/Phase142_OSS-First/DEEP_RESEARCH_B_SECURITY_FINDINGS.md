@@ -155,6 +155,20 @@ per the handoff — I did **not** edit them. Surfacing for follow-up:
 The following need your sign-off. Independent web-sourced analysis (a 3-agent
 research pass) is included verbatim below.
 
+> **Decisions (Eric, 2026-07-20):**
+> 1. **Auth provider — KEEP the hardened rolled-own gate.** Approved; no further
+>    code needed (already built). `ADMIN_TOKEN` is set via env var only (never in
+>    source); documented in `netlify.toml`. Login page at `/admin`.
+> 2. **Rate-limit store — Netlify Blobs (strong-consistency + ETag CAS).**
+>    Approved as the direction. **Still a follow-up build task** — not yet wired.
+> 3. **Resend disclosure — approved to proceed.** Eric's action, not code: accept
+>    Resend's DPA + add the drafted line to the product privacy policy. Scope note:
+>    it belongs in the privacy policy that governs the **bug-report feature** (the
+>    desktop-app submit form → support backend → Resend), not on pages that never
+>    touch Resend. Prerequisite: a user-facing product privacy policy must exist —
+>    the only PRIVACY.md files in the repo today are for the MCP template/package,
+>    not the app.
+
 ### Auth-provider evaluation (DESIGN ONLY)
 
 Comparison for a **single-admin** PII dashboard on Next.js 14 (App Router) / Netlify, where adding a data subprocessor is a real cost to the OSS/privacy posture.
