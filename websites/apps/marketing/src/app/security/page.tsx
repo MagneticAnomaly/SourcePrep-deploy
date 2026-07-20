@@ -275,8 +275,8 @@ export default function Page() {
                         nothing unless you choose to send a bug report or support request. Bug reports and
                         support emails you submit are delivered through <strong className="text-text">Resend</strong>,
                         a US-based email subprocessor, under a data-processing agreement with Standard
-                        Contractual Clauses; Resend receives only the message content and reply-to address
-                        you provide.
+                        Contractual Clauses. Resend receives your message and reply-to email plus the
+                        diagnostics report attached to your submission.
                       </p>
                     </section>
 
