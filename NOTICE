@@ -37,6 +37,8 @@ texts are available from each project.
 - **tokenizers**, **huggingface_hub** — Apache-2.0 — Hugging Face
 - **watchdog** — Apache-2.0
 - **pathspec** — Mozilla Public License 2.0
+- **certifi**, **tqdm** — Mozilla Public License 2.0 (tqdm: MPL-2.0 AND MIT) —
+  transitive runtime dependencies
 - **cryptography** — Apache-2.0 / BSD-3-Clause — PyCA
 - **FastAPI**, **Pydantic**, **Typer**, **Rich** — MIT
 - **Starlette / Uvicorn**, **httpx** — BSD-3-Clause
@@ -47,6 +49,8 @@ texts are available from each project.
   Go, Java, C, C++) — MIT
 - **serde**, **rayon**, **PyO3** — MIT / Apache-2.0
 - **ignore**, **walkdir** — MIT / Unlicense
+- **cssparser**, **cssparser-macros**, **dtoa-short**, **selectors**,
+  **thin-slice** (desktop app dependencies) — Mozilla Public License 2.0
 
 ## Frontend (TypeScript/React) components
 - **React** — MIT — Meta
