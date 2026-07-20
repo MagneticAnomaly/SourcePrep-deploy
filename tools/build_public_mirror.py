@@ -128,6 +128,14 @@ DENY_PATH_GLOBS = [
     ".claude",
     ".runprep",
     "prep_data",
+    "codrag_data",
+    "*/codrag_data",
+    # Committed daemon-state DBs (e.g. the dead-codename src/codrag_data/*.db
+    # still tracked on origin/main) — the content gate can't see these (it
+    # scans content, not paths; a .db can be >2 MiB and skip the scan). DR-D §7.
+    "*.db",
+    "*.db-wal",
+    "*.db-shm",
     ".migrated_from_cwd",
     "daemon_rss.jsonl",
     "*.migration-conflict.*",

@@ -1,0 +1,34 @@
+# Public-mirror gate — fails if the workshop tree cannot produce a clean public
+# mirror (secret marker, dead codename, or internal-doc reference in any
+# allowlisted file). This is the CI enforcement of tools/build_public_mirror.py,
+# which was previously a manual, operator-run script only (DR-D §2.1 / ED-6).
+#
+# NOTE: until the dead-codename scrub worklist lands (see
+# docs/Phase142_OSS-First/STARTER_PROMPT.md), this job is EXPECTED to FAIL —
+# build_public_mirror.py currently flags ~76 files. That is honest signal, not a
+# bug: the public mirror is not yet emittable. Mark this job a REQUIRED status
+# check (branch protection) before the first public mirror push.
+name: public-mirror-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  mirror-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # Dry-run: exits 1 on ANY content denylist hit -> job fails (fail-closed).
+      # No pip install needed — the gate is Python-stdlib only.
+      - name: Run public-mirror denylist gate
+        run: python tools/build_public_mirror.py

@@ -86,6 +86,11 @@ pnpm-debug.log*
 # legacy migration path — keep ignored
 codrag_data/
 
+# Committed daemon-state DBs — never track SQLite state (DR-D §7)
+*.db
+*.db-wal
+*.db-shm
+
 # OS
 .DS_Store
 Thumbs.db
