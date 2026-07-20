@@ -60,8 +60,8 @@ export const panels = [
         labelClass: 'font-mono text-[11px] text-[#6EA8FE] tracking-widest',
       },
       phones: [
-        { label: 'ATS FORM', emoji: '📋', labelClass: 'font-mono text-[10px] text-[#6EA8FE]' },
-        { label: 'CONFIRM', emoji: '✅', labelClass: 'font-mono text-[10px] text-[#6EA8FE]' },
+        { src: '/images/Applivation-phone-ats.png', alt: 'Applivation autofilling an ATS job application' },
+        { src: '/images/Applivation-phone-confirm.png', alt: 'Applivation review and confirm screen' },
       ],
     },
   },
