@@ -225,6 +225,32 @@ BINARY_EXTS = {
     ".bin", ".exe", ".dll", ".so", ".dylib", ".pyc", ".pyo",  # binaries
 }
 
+# ---------------------------------------------------------------------------
+# 4. CONTENT-SCAN ALLOWLIST — files that are STILL INCLUDED in the mirror
+#    (they ship) but SKIP the content denylist scan, because they MUST
+#    contain the flagged strings: secret/codename DETECTION TOOLING,
+#    sanitizer fixtures, and ABSENCE-ASSERTING tests (a test that proves a
+#    dead name is correctly IGNORED must name it). Each entry REQUIRES a
+#    one-line justification. A path here is still subject to the path
+#    allowlist/denylist — this only exempts the CONTENT scan.
+#    Map: repo-relative POSIX path -> justification string.
+# ---------------------------------------------------------------------------
+CONTENT_SCAN_ALLOWLIST: dict[str, str] = {
+    # --- Category B: detection tooling + sanitizer fixtures (must ship, must contain the patterns) ---
+    "engine/crates/prep-sanitize/src/lib.rs":
+        "sanitizer crate: unit-test fixtures contain RSA/AWS/ghp private-key + secret markers it must detect.",
+    "src/prep/core/content_sanitizer.py":
+        "private-key detection: contains PEM-block / PRIVATE KEY regex literals it must detect.",
+    "scripts/rename_gate.sh":
+        "dead-codename gate: contains the codrag/RunPrep/.runprep patterns it detects.",
+    "scripts/publish_deploy_subtree.sh":
+        "subtree publish guard: contains secret/codename regex literals it scans commits for (added c49bf098).",
+    "scripts/publish_prep_mcp_subtree.sh":
+        "subtree publish guard: contains secret/codename regex literals it scans commits for (added c49bf098).",
+    "tests/test_remote_sync.py":
+        "dummy AWS key fixture: AKIA1234567890ABCDEF is a test value, not a real secret.",
+}
+
 
 def path_allowed(rel: str) -> bool:
     """True if rel is under an allowlisted top-level path."""
@@ -371,6 +397,13 @@ def collect() -> tuple[list[str], list[tuple[str, list[str]]], list[tuple[str, l
             if rel == self_path:
                 included.append(rel)  # the script itself; skip its content scan
                 continue
+            if rel in CONTENT_SCAN_ALLOWLIST:
+                # Allowlisted: still ships, but skips the content denylist scan
+                # (it MUST contain the flagged strings — detection tooling /
+                # sanitizer fixture / absence-asserting test). Justification is
+                # recorded in CONTENT_SCAN_ALLOWLIST above.
+                included.append(rel)
+                continue
             hits = content_hits(REPO_ROOT / rel)
             if hits:
                 flagged.append((rel, hits))
@@ -404,6 +437,7 @@ def main() -> int:
     print(f"Included: {len(included)} files")
     print(f"Excluded (denylist): {len(excluded)} files")
     print(f"FLAGGED (content denylist hit): {len(flagged)} files")
+    print(f"Content-scan allowlist (ship, skip scan): {len(CONTENT_SCAN_ALLOWLIST)} files")
     if flagged:
         print("\n=== CONTENT DENYLIST HITS (must resolve before emit) ===")
         for rel, hits in flagged:
@@ -422,6 +456,7 @@ def main() -> int:
             "included": included,
             "excluded": [{"path": p, "deny_globs": g} for p, g in excluded],
             "flagged": [{"path": p, "hits": [{"label": l, "line": n, "sample": s} for l, n, s in h]} for p, h in flagged],
+            "content_scan_allowlist": [{"path": p, "justification": j} for p, j in sorted(CONTENT_SCAN_ALLOWLIST.items())],
         }, indent=2, sort_keys=True))
         print(f"\nManifest written to {args.manifest}")
 
