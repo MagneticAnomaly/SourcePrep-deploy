@@ -111,7 +111,7 @@ export function SiteFooter({
           <p className="text-xs text-text-subtle">
             {copyright || `© ${currentYear} Magnetic Anomaly LLC.`}
           </p>
-          <p className="text-xs text-text-subtle">
+          <p className="text-[10px] text-text-subtle">
             SourcePrep™ is a trademark of Magnetic Anomaly LLC. This site uses cookieless, privacy-friendly analytics — no cookies and no cross-site tracking.
           </p>
         </div>
